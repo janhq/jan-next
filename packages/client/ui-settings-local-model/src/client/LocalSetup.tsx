@@ -1,5 +1,5 @@
 /** First-run option: offer the local model, then own the step body while it downloads and starts. */
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-settings-models/client'
@@ -16,14 +16,19 @@ export function LocalSetup({ expanded, expand, collapse, complete, useLocalModel
   const state = useLocalModel(snapshot => snapshot.state)
   const phase = state?.phase
   // A reload during a download reopens the step on its progress rather than the offer.
+  // Only once per mount: after Cancel or Back the user's choice wins over a lagging phase.
+  const autoExpanded = useRef(false)
   useEffect(() => {
-    if (!expanded && (phase === 'downloading' || phase === 'starting')) expand()
+    if (autoExpanded.current || expanded || (phase !== 'downloading' && phase !== 'starting')) return
+    autoExpanded.current = true
+    expand()
   }, [expanded, phase, expand])
   if (state === null) return null
 
   if (!expanded) {
     return (
       <button type="button" className={css.offer} data-testid="onboarding-choice-local" onClick={() => {
+        autoExpanded.current = true
         if (state.phase === 'missing' || state.phase === 'failed') actions.install()
         else if (state.phase === 'installed' || state.phase === 'stopped') actions.start()
         expand()
@@ -50,6 +55,11 @@ export function LocalSetup({ expanded, expand, collapse, complete, useLocalModel
         </div>
         <div className={css.actions}>
           {state.phase === 'failed' && <Button variant="primary" size="sm" onClick={actions.install}>{t('retry')}</Button>}
+          {state.phase === 'missing' && <Button variant="primary" size="sm" onClick={actions.install}>
+            {t('download', { size: downloadSize(state) })}
+          </Button>}
+          {(state.phase === 'installed' || state.phase === 'stopped')
+            && <Button variant="primary" size="sm" onClick={actions.start}>{t('start')}</Button>}
           {busy && <Button variant="outline" size="sm" data-testid="local-setup-background" onClick={complete}>{t('continueInBackground')}</Button>}
           {state.phase === 'running' && <Button variant="primary" size="sm" data-testid="local-setup-done" onClick={complete}>{t('done')}</Button>}
         </div>

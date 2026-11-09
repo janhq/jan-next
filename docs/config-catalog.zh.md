@@ -1948,14 +1948,25 @@ export interface Config {
   provider: string
   /** Start the server at boot when it is installed. */
   autoStart: boolean
-  /** Context window passed as `-c`; the harness's own prompt and tools take about 12k tokens. */
+  /**
+   * Context window passed as `-c`; the harness's own prompt and tools take about 12k tokens.
+   * `0` leaves it to `--fit`, which starts from the model's trained context and shrinks it to
+   * fit memory (never below {@link Config.fitCtx}); the route's `contextWindow` must then be
+   * no larger than what the server reports.
+   */
   ctxSize: number
+  /** Let llama.cpp size unset arguments (GPU layers, and context when `ctxSize` is 0) to device memory. */
+  fit: boolean
+  /** Memory `--fit` keeps free on each device, in MiB. */
+  fitTargetMiB: number
+  /** Smallest context `--fit` may choose when `ctxSize` is 0. */
+  fitCtx: number
   /** KV cache element type (`-ctk`/`-ctv`); `q8_0` halves its memory against `f16`. */
   cacheType: 'f16' | 'q8_0'
   /** CPU threads (`-t`); omitted lets llama.cpp decide. */
   threads?: number | undefined
-  /** Layers offloaded to the GPU (`-ngl`); used by the Metal and Vulkan builds. */
-  gpuLayers: number
+  /** Layers offloaded to the GPU (`-ngl`) on Metal and Vulkan builds; omitted lets `--fit` decide (or offloads all with fit off). */
+  gpuLayers?: number | undefined
   /** Readiness deadline after spawning. */
   startTimeoutMs: number
   /** Grace period between SIGTERM and SIGKILL. */

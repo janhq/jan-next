@@ -136,6 +136,8 @@ async function downloadFrom(
     await rename(partial, destination)
     report(artifact.bytes, artifact.bytes)
   } catch (error) {
+    // Oversized or corrupt bytes must not be resumed by the next attempt.
+    if (error instanceof DownloadError && error.reason === 'integrity') await rm(partial, { force: true })
     if (signal.aborted || error instanceof DownloadError) throw error
     const code = (error as NodeJS.ErrnoException).code
     if (typeof code === 'string' && STORAGE.test(code)) throw new DownloadError('storage', resource, code, { cause: error })

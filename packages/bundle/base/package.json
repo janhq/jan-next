@@ -56,7 +56,6 @@
     "@deepseek-ai/dsh-credentials-local": "workspace:*",
     "@deepseek-ai/dsh-deepseek-account-platform": "workspace:*",
     "@deepseek-ai/dsh-tokamak-account": "workspace:*",
-    "@deepseek-ai/dsh-llama-cpp": "workspace:*",
     "@deepseek-ai/dsh-deepseek-llm-api-extensions": "workspace:*",
     "@deepseek-ai/dsh-fs-local": "workspace:*",
     "@deepseek-ai/dsh-fs-observation-policy": "workspace:*",

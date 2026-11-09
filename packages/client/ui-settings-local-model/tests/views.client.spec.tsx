@@ -120,3 +120,36 @@ it('first run: continues in the background while busy and finishes once running'
   fireEvent.click(screen.getByTestId('local-setup-done'))
   expect(again.props.complete).toHaveBeenCalledOnce()
 })
+
+it('first run: after Cancel the step stays collapsed while the host still reports the download', () => {
+  const f = fixture({ phase: 'downloading', progress: { phase: 'model', receivedBytes: 5, totalBytes: 10 } })
+  const { props, view } = setup(f)
+  expect(props.expand).toHaveBeenCalledOnce()
+  // The owner collapsed (Cancel); the next snapshot still says downloading.
+  f.set({ phase: 'downloading', progress: { phase: 'model', receivedBytes: 6, totalBytes: 10 } })
+  view.rerender(<LocalSetup {...{ ...props, expanded: false } as never as LocalSetupProps} />)
+  expect(props.expand).toHaveBeenCalledOnce()
+})
+
+it('first run: the expanded step can start a download or an installed model', () => {
+  const f = fixture({ phase: 'missing' })
+  const view = setup(f, { expanded: true }).view
+  fireEvent.click(screen.getByRole('button', { name: 'Download (2.7 GB)' }))
+  expect(f.actions.install).toHaveBeenCalledOnce()
+  view.unmount()
+  f.set({ phase: 'stopped' })
+  setup(f, { expanded: true })
+  fireEvent.click(screen.getByRole('button', { name: en.start }))
+  expect(f.actions.start).toHaveBeenCalledOnce()
+})
+
+it('shows the context the server settled on, and offers Stop while starting', () => {
+  const f = fixture({ phase: 'running', contextSize: 32768 })
+  const view = card(f)
+  expect(screen.getByTestId('local-model-context').textContent).toBe(`Context window: ${(32768).toLocaleString()} tokens`)
+  view.unmount()
+  f.set({ phase: 'starting' })
+  card(f)
+  fireEvent.click(screen.getByTestId('local-model-stop'))
+  expect(f.actions.stop).toHaveBeenCalledOnce()
+})

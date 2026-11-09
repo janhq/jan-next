@@ -6,6 +6,7 @@ export const NS = 'settings.local-model' as const
 
 /** English dictionary. */
 export const en = {
+  contextInfo: 'Context window: {tokens} tokens',
   title: 'Local model',
   subtitle: 'Runs on this computer with llama.cpp. Works offline; nothing leaves your machine.',
   offerTitle: 'Run a model on this computer',
@@ -50,6 +51,7 @@ type Dictionary = Record<LocalModelKey, string>
 
 /** Simplified Chinese. */
 export const zh: Dictionary = {
+  contextInfo: '上下文窗口：{tokens} 个 token',
   title: '本地模型',
   subtitle: '使用 llama.cpp 在本机运行。可离线使用，数据不会离开你的电脑。',
   offerTitle: '在本机运行模型',
@@ -82,6 +84,7 @@ export const zh: Dictionary = {
 
 /** Japanese. */
 export const ja: Dictionary = {
+  contextInfo: 'コンテキスト長: {tokens} トークン',
   title: 'ローカルモデル',
   subtitle: 'llama.cpp でこのコンピューター上で実行します。オフラインで動作し、データは外部に送信されません。',
   offerTitle: 'このコンピューターでモデルを実行',
@@ -114,6 +117,7 @@ export const ja: Dictionary = {
 
 /** Spanish. */
 export const es: Dictionary = {
+  contextInfo: 'Ventana de contexto: {tokens} tokens',
   title: 'Modelo local',
   subtitle: 'Se ejecuta en este equipo con llama.cpp. Funciona sin conexión; nada sale de su equipo.',
   offerTitle: 'Ejecutar un modelo en este equipo',
@@ -146,6 +150,7 @@ export const es: Dictionary = {
 
 /** French. */
 export const fr: Dictionary = {
+  contextInfo: 'Fenêtre de contexte : {tokens} jetons',
   title: 'Modèle local',
   subtitle: 'S’exécute sur cet ordinateur avec llama.cpp. Fonctionne hors ligne ; rien ne quitte votre machine.',
   offerTitle: 'Exécuter un modèle sur cet ordinateur',
@@ -178,6 +183,7 @@ export const fr: Dictionary = {
 
 /** German. */
 export const de: Dictionary = {
+  contextInfo: 'Kontextfenster: {tokens} Token',
   title: 'Lokales Modell',
   subtitle: 'Läuft mit llama.cpp auf diesem Computer. Funktioniert offline; nichts verlässt Ihren Rechner.',
   offerTitle: 'Ein Modell auf diesem Computer ausführen',
@@ -210,6 +216,7 @@ export const de: Dictionary = {
 
 /** Russian. */
 export const ru: Dictionary = {
+  contextInfo: 'Окно контекста: {tokens} токенов',
   title: 'Локальная модель',
   subtitle: 'Работает на этом компьютере через llama.cpp. Работает без интернета; данные не покидают компьютер.',
   offerTitle: 'Запустить модель на этом компьютере',
@@ -242,6 +249,7 @@ export const ru: Dictionary = {
 
 /** Portuguese. */
 export const pt: Dictionary = {
+  contextInfo: 'Janela de contexto: {tokens} tokens',
   title: 'Modelo local',
   subtitle: 'Roda neste computador com llama.cpp. Funciona offline; nada sai da sua máquina.',
   offerTitle: 'Rodar um modelo neste computador',

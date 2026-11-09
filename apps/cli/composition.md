@@ -58,8 +58,6 @@ flowchart LR
   cfg --> plugin_dsh_base_deepseek_account
   plugin_dsh_base_credentials["credentials<br/>@deepseek-ai/dsh-credentials-local"]
   cfg --> plugin_dsh_base_credentials
-  plugin_dsh_base_llama_cpp["llama-cpp<br/>@deepseek-ai/dsh-llama-cpp"]
-  cfg --> plugin_dsh_base_llama_cpp
   plugin_dsh_base_llm_pi_ai["llm-pi-ai<br/>@deepseek-ai/dsh-llm-pi-ai"]
   cfg --> plugin_dsh_base_llm_pi_ai
   plugin_dsh_base_jan_v3_5_4b["jan-v3.5-4b<br/>Jan v3.5 4B (local)"]
@@ -239,7 +237,6 @@ flowchart LR
 | `authorization` | `@deepseek-ai/dsh-authorization` |
 | `deepseek-account` | `@deepseek-ai/dsh-tokamak-account` |
 | `credentials` | `@deepseek-ai/dsh-credentials-local` |
-| `llama-cpp` | `@deepseek-ai/dsh-llama-cpp` |
 | `llm-pi-ai` | `@deepseek-ai/dsh-llm-pi-ai` |
 | `jan-v3.5-4b` | `Jan v3.5 4B (local)` |
 | `session-persistence-jsonl` | `@deepseek-ai/dsh-session-persistence-jsonl` |

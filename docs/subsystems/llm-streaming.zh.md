@@ -1057,10 +1057,10 @@ install(): void
 /** Stop an install in progress; the partial download is kept and resumed by the next {@link install}. */
 async cancel(): Promise<void>
 
-/** Start the installed server. No-op while it is running or starting. */
+/** Start the installed server, and on later boots. No-op while it is running or starting. */
 start(): Promise<void>
 
-/** Stop the server; the install stays. */
+/** Stop the server, also while it is still starting; the install stays and later boots leave it stopped. */
 stop(): Promise<void>
 
 /** Stop the server, delete the engine, model and partial downloads, and remove the route key. */

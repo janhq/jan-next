@@ -9,7 +9,6 @@ import { afterEach, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import LocalSubprocess from '@deepseek-ai/dsh-subprocess-local'
 import { LocalCredentialProvider } from '@deepseek-ai/dsh-credentials-local'
-import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import { download, DownloadError, engineFor, LlamaCpp, type LlamaCppState } from '../src/index.ts'
 
 const FAKE = new URL('./fake-llama-server.mjs', import.meta.url).pathname
@@ -185,7 +184,11 @@ async function fixture(options: FixtureOptions = {}) {
     }
     throw new Error('follow ended')
   }
-  const key = async (): Promise<string | undefined> => (await ctx.credentials.resolve(credentialRef('LLAMA_CPP_API_KEY')))?.value
+  // Read the file, not the service: some checks run after the plugins are disposed.
+  const key = async (): Promise<string | undefined> => {
+    const text = await readFile(join(home, 'credentials.yaml'), 'utf8').catch(() => '')
+    return /(llamacpp-[\w-]+)/.exec(text)?.[1]
+  }
   return { ctx, llama, port, home, bin, server, until, seen, key, dispose }
 }
 
@@ -209,8 +212,28 @@ it('installs the model, stores a route key, and serves it on the loopback port w
   expect(launch.hasKey).toBe(true)
   expect(launch.argv.join(' ')).not.toContain(key)
   expect(launch.argv).toEqual(expect.arrayContaining(['--host', '127.0.0.1', '--alias', 'jan-v3.5-4b', '--jinja', '--no-webui']))
+  // Fit sizes the GPU layers; the context stays pinned for the route.
+  expect(launch.argv.join(' ')).toContain('-c 32768 --fit on --fit-target 1024')
+  expect(launch.argv).not.toContain('-ngl')
+  expect(running.contextSize).toBe(32768)
   expect(launch.cwd).toBe(f.bin)
 })
+
+it('lets --fit choose the context when ctxSize is 0, and pins layers when fit is off', async () => {
+  const f = await fixture({ config: { ctxSize: 0 } })
+  f.llama.install()
+  const running = await f.until(s => s.phase === 'running' || s.phase === 'failed')
+  const launch = JSON.parse(await readFile(join(f.bin, 'fake-launch.json'), 'utf8')) as { argv: string[] }
+  expect(launch.argv).not.toContain('-c')
+  expect(launch.argv.join(' ')).toContain('--fit on --fit-target 1024 --fit-ctx 16384')
+  expect(running.contextSize).toBe(20000)
+  await f.dispose()
+
+  const off = await fixture({ home: f.home, config: { fit: false, gpuLayers: 20 } })
+  await off.until(s => s.phase === 'running' || s.phase === 'failed')
+  const relaunch = JSON.parse(await readFile(join(off.bin, 'fake-launch.json'), 'utf8')) as { argv: string[] }
+  expect(relaunch.argv.join(' ')).toContain('-c 32768 --fit off -ngl 20')
+}, 20_000)
 
 it('stops, starts again, and starts by itself on the next boot', async () => {
   const f = await fixture()
@@ -222,14 +245,68 @@ it('stops, starts again, and starts by itself on the next boot', async () => {
   await f.llama.start()
   expect(f.llama.snapshot().phase).toBe('running')
   const key = await f.key()
+  expect(key).toMatch(/^llamacpp-/)
   await f.dispose()
+  // Shutting down withdraws the key, so the route offers nothing while no server runs.
+  expect(await f.key()).toBeUndefined()
 
   const again = await fixture({ home: f.home })
   const state = await again.until(s => s.phase === 'running' || s.phase === 'failed')
   expect(state.phase).toBe('running')
   expect(again.server.requests).toEqual([]) // nothing downloaded on the second boot
-  expect(await again.key()).toBe(key)
-})
+  const next = await again.key()
+  expect(next).toMatch(/^llamacpp-/)
+  expect(next).not.toBe(key) // a fresh key per launch
+}, 20_000)
+
+it('withholds the route key until the server serves, and a Stop survives the next boot', async () => {
+  const f = await fixture({ mode: { loadingMs: 1500 } })
+  f.llama.install()
+  await f.until(s => s.phase === 'starting')
+  expect(await f.key()).toBeUndefined()
+  await f.until(s => s.phase === 'running')
+  expect(await f.key()).toMatch(/^llamacpp-/)
+  await f.llama.stop()
+  expect(await f.key()).toBeUndefined()
+  await f.dispose()
+  const again = await fixture({ home: f.home })
+  expect((await again.until(s => s.phase !== 'checking')).phase).toBe('installed')
+  expect(await again.key()).toBeUndefined()
+}, 20_000)
+
+it('stops a server that is still loading without waiting for it', async () => {
+  const f = await fixture({ mode: { loadingMs: 60_000 } })
+  f.llama.install()
+  await f.until(s => s.phase === 'starting')
+  await new Promise(resolve => setTimeout(resolve, 300))
+  const started = Date.now()
+  await f.llama.stop()
+  expect(Date.now() - started).toBeLessThan(5000)
+  expect(f.llama.snapshot().phase).toBe('stopped')
+  await expect(fetch(`http://127.0.0.1:${f.port}/health`)).rejects.toThrow()
+}, 20_000)
+
+it('leaves no server behind when disposed during start', async () => {
+  const f = await fixture({ mode: { loadingMs: 60_000 } })
+  f.llama.install()
+  await f.until(s => s.phase === 'starting')
+  await new Promise(resolve => setTimeout(resolve, 300))
+  const started = Date.now()
+  await f.dispose()
+  expect(Date.now() - started).toBeLessThan(5000)
+  await expect(fetch(`http://127.0.0.1:${f.port}/health`)).rejects.toThrow()
+  expect(await f.key()).toBeUndefined()
+}, 20_000)
+
+it('withdraws the key when the server crashes', async () => {
+  const f = await fixture({ mode: { crashAfterMs: 1500 } })
+  f.llama.install()
+  await f.until(s => s.phase === 'running')
+  expect(await f.key()).toMatch(/^llamacpp-/)
+  await f.until(s => s.phase === 'failed')
+  await new Promise(resolve => setTimeout(resolve, 200))
+  expect(await f.key()).toBeUndefined()
+}, 20_000)
 
 it('refuses to start when the port is taken by something else', async () => {
   const f = await fixture()

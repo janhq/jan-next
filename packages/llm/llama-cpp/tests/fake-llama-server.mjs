@@ -18,9 +18,20 @@ writeFileSync(join(here, 'fake-launch.json'), JSON.stringify({ argv: process.arg
 console.error('fake llama-server: loading model')
 if (mode.exitImmediately) { console.error('fake llama-server: failed to load model'); process.exit(3) }
 
+const loadedAt = Date.now() + (mode.loadingMs ?? 0)
 const server = createServer((req, res) => {
-  if (req.url === '/health') { res.writeHead(200, { 'content-type': 'application/json' }).end('{"status":"ok"}'); return }
+  if (req.url === '/health') {
+    // Like llama-server: 503 while the model loads, 200 once it serves.
+    if (Date.now() < loadedAt) { res.writeHead(503).end('{"error":{"message":"Loading model"}}'); return }
+    res.writeHead(200, { 'content-type': 'application/json' }).end('{"status":"ok"}')
+    return
+  }
   if (req.headers.authorization !== `Bearer ${key}`) { res.writeHead(401).end('{"error":"unauthorized"}'); return }
+  if (req.url === '/props') {
+    // Real servers report the context --fit settled on; the fake reports -c, or 20000 when fit chose.
+    res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ default_generation_settings: { n_ctx: Number(flag('-c') ?? 20000) } }))
+    return
+  }
   if (req.url === '/v1/models') { res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ data: [{ id: alias }] })); return }
   if (req.url === '/v1/chat/completions') {
     res.writeHead(200, { 'content-type': 'text/event-stream' })

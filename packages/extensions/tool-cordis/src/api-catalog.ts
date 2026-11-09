@@ -1951,12 +1951,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'start(): Promise<void>',
-        description: 'Start the installed server. No-op while it is running or starting.',
+        description: 'Start the installed server, and on later boots. No-op while it is running or starting.',
         parameters: [],
       },
       {
         signature: 'stop(): Promise<void>',
-        description: 'Stop the server; the install stays.',
+        description: 'Stop the server, also while it is still starting; the install stays and later boots leave it stopped.',
         parameters: [],
       },
       {
@@ -7059,7 +7059,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'LlamaCppState',
-    declaration: 'export interface LlamaCppState {\n    phase: LlamaCppPhase;\n    model: LlamaCppModelInfo;\n    provider: string;\n    progress?: LlamaCppProgress;\n    error?: string;\n    logTail?: string;\n}',
+    declaration: 'export interface LlamaCppState {\n    phase: LlamaCppPhase;\n    model: LlamaCppModelInfo;\n    provider: string;\n    progress?: LlamaCppProgress;\n    error?: string;\n    contextSize?: number;\n    logTail?: string;\n}',
   },
   {
     name: 'LlmAdapter',

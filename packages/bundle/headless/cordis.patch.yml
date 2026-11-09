@@ -44,8 +44,3 @@
 
 - id: deepseek-account
   disabled: true
-
-# tokamak-harness: the managed local model needs the credential store; headless
-# runs use an already running llama-server through LLAMA_CPP_API_KEY instead.
-- id: llama-cpp
-  disabled: true

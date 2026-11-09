@@ -46,6 +46,8 @@ const LOG_LINES = 20
 
 interface Running {
   handle: SubprocessHandle
+  /** Key this server requires; withdrawn from the route once it stops. */
+  key: string
   stopping: boolean
 }
 
@@ -87,7 +89,11 @@ export class LlamaCpp extends Service {
   private readonly listeners = new Set<() => void>()
   private readonly lifetime = new AbortController()
   private installing: AbortController | undefined
+  /** Aborts the readiness wait of a launch in progress (stop, remove, dispose). */
+  private launching: AbortController | undefined
   private running: Running | undefined
+  /** Key the running server requires; published as the route credential only while it serves. */
+  private servingKey: string | undefined
   private queue: Promise<unknown> = Promise.resolve()
   private lastProgressAt = 0
   private readonly keyRef: CredentialRef
@@ -121,13 +127,18 @@ export class LlamaCpp extends Service {
     }
     ctx.effect(() => {
       void this.task(async () => {
+        // A key left by a crash or kill belongs to no server.
+        await this.withdrawKey(undefined)
         const installed = await this.readInstall()
         this.publish({ phase: installed ? 'installed' : 'missing' })
-        if (installed && config.autoStart) await this.launch()
+        if (installed && config.autoStart && await this.wantsStart()) await this.launch()
       }).catch((error: unknown) => { this.fail(error) })
       return async () => {
         this.lifetime.abort(new Error('llama-cpp disposed'))
         this.installing?.abort()
+        this.launching?.abort()
+        // Joining the queue guarantees no launch spawns a server after this point.
+        await this.queue
         await this.terminate()
         this.listeners.clear()
       }
@@ -140,6 +151,18 @@ export class LlamaCpp extends Service {
   private get modelPath(): string { return join(this.config.dataRoot, 'models', this.model.id, `${this.model.sha256.slice(0, 16)}.gguf`) }
   private get recordPath(): string { return join(this.config.dataRoot, 'install.json') }
   private get downloads(): string { return join(this.config.dataRoot, 'downloads') }
+  private get runPath(): string { return join(this.config.dataRoot, 'run.json') }
+
+  /** @returns whether the user left the server running (install and Start say yes, Stop says no). */
+  private async wantsStart(): Promise<boolean> {
+    try { return (JSON.parse(await readFile(this.runPath, 'utf8')) as { start?: unknown }).start !== false }
+    catch { return true }
+  }
+
+  private async rememberStart(start: boolean): Promise<void> {
+    await mkdir(this.config.dataRoot, { recursive: true })
+    await writeFile(this.runPath, `${JSON.stringify({ start })}\n`, { mode: 0o600 })
+  }
 
   // ── state ──────────────────────────────────────────────────────────────
 
@@ -185,13 +208,20 @@ export class LlamaCpp extends Service {
     }
   }
 
-  private publish(next: { phase: LlamaCppPhase; progress?: LlamaCppProgress; error?: string; logTail?: string }): void {
+  private publish(next: {
+    phase: LlamaCppPhase
+    progress?: LlamaCppProgress
+    error?: string
+    logTail?: string
+    contextSize?: number
+  }): void {
     const previous = this.state
     this.state = {
       phase: next.phase, provider: previous.provider, model: previous.model,
       ...next.progress ? { progress: next.progress } : {},
       ...next.error === undefined ? {} : { error: next.error },
       ...next.logTail === undefined ? {} : { logTail: next.logTail },
+      ...next.contextSize === undefined ? {} : { contextSize: next.contextSize },
     }
     if (next.phase === 'downloading' && previous.phase === 'downloading' && next.progress
       && next.progress.receivedBytes !== next.progress.totalBytes
@@ -244,7 +274,7 @@ export class LlamaCpp extends Service {
    * Resolves when the install task is accepted; progress and outcome arrive through {@link follow}.
    */
   install(): void {
-    if (this.installing || this.state.phase === 'running' || this.state.phase === 'starting') return
+    if (this.installing || this.running !== undefined || this.state.phase === 'starting') return
     const abort = new AbortController()
     this.installing = abort
     void this.task(async () => {
@@ -258,7 +288,7 @@ export class LlamaCpp extends Service {
       signal.throwIfAborted()
       const record = this.recordFor(this.config.binaryPath === undefined ? relative(this.engineDir, binary) : binary)
       await writeFile(this.recordPath, `${JSON.stringify(record, null, 2)}\n`, { mode: 0o600 })
-      await this.ensureKey()
+      await this.rememberStart(true)
       this.publish({ phase: 'installed' })
       this.installing = undefined
       await this.launch()
@@ -296,7 +326,7 @@ export class LlamaCpp extends Service {
     await mkdir(staging, { recursive: true })
     const tar = this.ctx.subprocess.spawn({
       // `-xf` lets GNU tar and bsdtar detect gzip; bsdtar (macOS, Windows 10+) also reads the Windows zips.
-      argv: [await this.ctx.subprocess.resolveExecutable('tar'), '-xf', archive, '-C', staging],
+      argv: [await this.tarExecutable(), '-xf', archive, '-C', staging],
       cwd: staging, graceMs: this.config.graceMs, signal,
       stdio: { stdin: 'ignore', stdout: { maxBytes: 4096 }, stderr: { maxBytes: 16 * 1024 } },
     })
@@ -313,30 +343,58 @@ export class LlamaCpp extends Service {
     await rm(this.engineDir, { recursive: true, force: true })
     await mkdir(dirname(this.engineDir), { recursive: true })
     await rename(staging, this.engineDir)
+    // Builds of other versions or flavours are no longer referenced by the install record.
+    for (const entry of await readdir(dirname(this.engineDir))) {
+      if (entry !== basename(this.engineDir)) await rm(join(dirname(this.engineDir), entry), { recursive: true, force: true })
+    }
     await rm(archive, { force: true })
     const binary = join(this.engineDir, relative(staging, found))
     if (process.platform !== 'win32') await chmod(binary, 0o755)
     return binary
   }
 
-  private async ensureKey(): Promise<string> {
-    const current = (await this.ctx.credentials.resolve(this.keyRef))?.value
-    if (current !== undefined && current.length > 0) return current
-    const key = `llamacpp-${randomBytes(32).toString('base64url')}`
-    await this.ctx.credentials.set(this.keyRef, key)
-    return key
+  /**
+   * Windows must use its bundled bsdtar: a GNU tar earlier on PATH (Git, MSYS2) can't read zips
+   * and reads `C:\\…` as a remote host.
+   * @returns the tar executable to unpack engine archives with.
+   */
+  private async tarExecutable(): Promise<string> {
+    if (process.platform === 'win32') return join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe')
+    return await this.ctx.subprocess.resolveExecutable('tar')
+  }
+
+  /**
+   * Remove the route credential if it is still a key this plugin issued (`expected`, or any
+   * `llamacpp-` key when undefined), so a stopped server leaves no usable-looking route behind.
+   * @param expected - the key of the server that stopped, if known.
+   */
+  private async withdrawKey(expected: string | undefined): Promise<void> {
+    try {
+      const current = (await this.ctx.credentials.resolve(this.keyRef))?.value
+      if (current === undefined || (expected === undefined ? !current.startsWith('llamacpp-') : current !== expected)) return
+      await this.ctx.credentials.unset(this.keyRef)
+    } catch (error) {
+      this.ctx.logger.warn('llama-cpp: could not remove the route key')
+      this.ctx.logger.warn(error)
+    }
+    if (this.servingKey === expected) this.servingKey = undefined
   }
 
   // ── process ────────────────────────────────────────────────────────────
 
-  /** Start the installed server. No-op while it is running or starting. */
+  /** Start the installed server, and on later boots. No-op while it is running or starting. */
   start(): Promise<void> {
-    return this.task(() => this.launch()).catch((error: unknown) => { this.fail(error) })
+    return this.task(async () => {
+      await this.rememberStart(true)
+      await this.launch()
+    }).catch((error: unknown) => { this.fail(error) })
   }
 
-  /** Stop the server; the install stays. */
+  /** Stop the server, also while it is still starting; the install stays and later boots leave it stopped. */
   stop(): Promise<void> {
+    this.launching?.abort()
     return this.task(async () => {
+      await this.rememberStart(false)
       await this.terminate()
       if (await this.readInstall()) this.publish({ phase: 'stopped' })
     })
@@ -345,73 +403,137 @@ export class LlamaCpp extends Service {
   /** Stop the server, delete the engine, model and partial downloads, and remove the route key. */
   uninstall(): Promise<void> {
     this.installing?.abort(new Error('cancelled'))
+    this.launching?.abort()
     return this.task(async () => {
       await this.terminate()
       for (const dir of ['engine', 'models', 'downloads']) await rm(join(this.config.dataRoot, dir), { recursive: true, force: true })
       await rm(this.recordPath, { force: true })
-      await this.ctx.credentials.unset(this.keyRef).catch(() => undefined)
+      await rm(this.runPath, { force: true })
+      await this.withdrawKey(undefined)
       this.publish({ phase: 'missing' })
     })
   }
 
   private async launch(): Promise<void> {
-    if (this.running !== undefined) return
+    if (this.running !== undefined || this.lifetime.signal.aborted) return
     const record = await this.readInstall()
     if (record === undefined) { this.publish({ phase: 'missing' }); return }
-    this.publish({ phase: 'starting' })
-    const origin = `http://127.0.0.1:${this.config.port}`
-    if (await fetch(`${origin}/health`, { signal: AbortSignal.timeout(1000) }).then(() => true, () => false)) {
-      throw new Error(`port ${this.config.port} is already in use; stop what is using it or move the local model to another port`)
+    const launching = new AbortController()
+    this.launching = launching
+    const signal = AbortSignal.any([launching.signal, this.lifetime.signal])
+    try {
+      this.publish({ phase: 'starting' })
+      const origin = `http://127.0.0.1:${this.config.port}`
+      if (await fetch(`${origin}/health`, { signal: AbortSignal.timeout(1000) }).then(() => true, () => false)) {
+        throw new Error(`port ${this.config.port} is already in use; stop what is using it or move the local model to another port`)
+      }
+      // Dispose or Stop may have landed during the awaits above; never spawn an orphan.
+      if (signal.aborted) return
+      const key = `llamacpp-${randomBytes(32).toString('base64url')}`
+      const binary = this.config.binaryPath ?? join(this.engineDir, record.engine.binary)
+      const cwd = dirname(binary)
+      const argv = [
+        binary, '-m', this.modelPath, '--alias', this.model.id,
+        '--host', '127.0.0.1', '--port', String(this.config.port),
+        '--jinja', '--no-webui',
+        // Flash attention lets the V cache be quantized too.
+        '-fa', 'on', '-ctk', this.config.cacheType, '-ctv', this.config.cacheType,
+        ...this.config.threads === undefined ? [] : ['-t', String(this.config.threads)],
+        ...this.fitArgs(),
+      ]
+      const handle = this.ctx.subprocess.spawn({
+        argv, cwd, graceMs: this.config.graceMs,
+        // The key travels in the environment so it never shows in `ps`.
+        env: { LLAMA_API_KEY: key, ...libraryPath(cwd) },
+        stdio: { stdin: 'ignore', stdout: { maxBytes: 16 * 1024 }, stderr: { maxBytes: 64 * 1024 } },
+      })
+      const running: Running = { handle, key, stopping: false }
+      this.running = running
+      const logs = (): string | undefined => tail(
+        [handle.collected.stdout?.readFrom(0).text, handle.collected.stderr?.readFrom(0).text].filter(Boolean).join('\n'))
+      let exited = false
+      void handle.done.then(async (outcome) => {
+        exited = true
+        if (this.running === running) this.running = undefined
+        await this.withdrawKey(key)
+        if (running.stopping || this.lifetime.signal.aborted) return
+        this.fail(new Error(`the local model server exited (${outcome.signal ?? `code ${String(outcome.exitCode)}`})`), logs())
+      })
+      const deadline = Date.now() + this.config.startTimeoutMs
+      while (!exited) {
+        if (signal.aborted) { await this.terminate(); return }
+        // 503 while the model loads, 200 once it serves.
+        const ok = await fetch(`${origin}/health`, { signal: AbortSignal.timeout(2000) })
+          .then(response => response.ok, () => false)
+        if (ok && !exited) {
+          // Another server could have taken the port between the probe and the bind; ours knows the key.
+          const ours = await fetch(`${origin}/v1/models`, { headers: { authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(2000) })
+            .then(response => response.ok, () => false)
+          if (!ours) {
+            await this.terminate()
+            throw new Error(`another server answers on port ${this.config.port}; stop it or move the local model to another port`)
+          }
+          const contextSize = await this.readContextSize(origin, key)
+          this.servingKey = key
+          await this.ctx.credentials.set(this.keyRef, key)
+          this.publish({ phase: 'running', ...contextSize === undefined ? {} : { contextSize } })
+          if (contextSize !== undefined && contextSize < this.config.fitCtx) {
+            this.ctx.logger.warn(`llama-cpp: the server runs with a ${contextSize}-token context; the harness prompt needs about 12k`)
+          }
+          await this.adoptDefault()
+          return
+        }
+        if (Date.now() > deadline) {
+          await this.terminate()
+          const logTail = logs()
+          this.publish({ phase: 'failed', error: 'the local model server did not become ready in time', ...logTail === undefined ? {} : { logTail } })
+          return
+        }
+        await new Promise(resolve => setTimeout(resolve, 500))
+      }
+      // The exit handler has published the failure with its log tail.
+    } finally {
+      if (this.launching === launching) this.launching = undefined
     }
-    const key = await this.ensureKey()
-    const binary = this.config.binaryPath ?? join(this.engineDir, record.engine.binary)
-    const cwd = dirname(binary)
-    const argv = [
-      binary, '-m', this.modelPath, '--alias', this.model.id,
-      '--host', '127.0.0.1', '--port', String(this.config.port),
-      '-c', String(this.config.ctxSize), '--jinja', '--no-webui',
-      // Flash attention lets the V cache be quantized too.
-      '-fa', 'on', '-ctk', this.config.cacheType, '-ctv', this.config.cacheType,
-      ...this.config.threads === undefined ? [] : ['-t', String(this.config.threads)],
-      // Metal (Apple Silicon) and Vulkan builds offload layers; CPU builds keep them in RAM.
-      '-ngl', this.engine?.gpu === true ? String(this.config.gpuLayers) : '0',
+  }
+
+  /**
+   * Sizing flags. `--fit` only adjusts arguments that are left unset, so with fit on the GPU
+   * layer count is omitted (fit offloads as many layers as device memory allows on Metal and
+   * Vulkan) and the context is omitted only when `ctxSize` is 0.
+   * @returns the `-c`, `-ngl` and `--fit*` arguments.
+   */
+  private fitArgs(): string[] {
+    const { ctxSize, fit, fitTargetMiB, fitCtx, gpuLayers } = this.config
+    const gpu = this.engine?.gpu === true || this.config.binaryPath !== undefined
+    const context = ctxSize > 0 ? ['-c', String(ctxSize)] : []
+    if (fit) {
+      return [
+        ...context, '--fit', 'on', '--fit-target', String(fitTargetMiB),
+        ...ctxSize > 0 ? [] : ['--fit-ctx', String(fitCtx)],
+        ...gpu && gpuLayers !== undefined ? ['-ngl', String(gpuLayers)] : gpu ? [] : ['-ngl', '0'],
+      ]
+    }
+    return [
+      ...ctxSize > 0 ? context : ['-c', String(fitCtx)],
+      '--fit', 'off', '-ngl', gpu ? String(gpuLayers ?? 999) : '0',
     ]
-    const handle = this.ctx.subprocess.spawn({
-      argv, cwd, graceMs: this.config.graceMs,
-      // The key travels in the environment so it never shows in `ps`.
-      env: { LLAMA_API_KEY: key, ...libraryPath(cwd) },
-      stdio: { stdin: 'ignore', stdout: { maxBytes: 16 * 1024 }, stderr: { maxBytes: 64 * 1024 } },
-    })
-    const running: Running = { handle, stopping: false }
-    this.running = running
-    const logs = (): string | undefined => tail(
-      [handle.collected.stdout?.readFrom(0).text, handle.collected.stderr?.readFrom(0).text].filter(Boolean).join('\n'))
-    let exited = false
-    void handle.done.then((outcome) => {
-      exited = true
-      if (this.running === running) this.running = undefined
-      if (running.stopping || this.lifetime.signal.aborted) return
-      this.fail(new Error(`the local model server exited (${outcome.signal ?? `code ${String(outcome.exitCode)}`})`), logs())
-    })
-    const deadline = Date.now() + this.config.startTimeoutMs
-    while (!exited) {
-      const ok = await fetch(`${origin}/health`, { signal: AbortSignal.timeout(2000) })
-        .then(response => response.ok, () => false)
-      if (ok) {
-        this.publish({ phase: 'running' })
-        await this.adoptDefault()
-        return
-      }
-      if (Date.now() > deadline) {
-        running.stopping = true
-        await this.terminate()
-        const logTail = logs()
-        this.publish({ phase: 'failed', error: 'the local model server did not become ready in time', ...logTail === undefined ? {} : { logTail } })
-        return
-      }
-      await new Promise(resolve => setTimeout(resolve, 500))
-    }
-    // The exit handler has published the failure with its log tail.
+  }
+
+  /**
+   * Read the context the server settled on (after `--fit`), for the UI.
+   * @param origin - server origin.
+   * @param key - server API key.
+   * @returns the per-server context size, if the server reports it.
+   */
+  private async readContextSize(origin: string, key: string): Promise<number | undefined> {
+    try {
+      const response = await fetch(`${origin}/props`, { headers: { authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(2000) })
+      if (!response.ok) return undefined
+      const props = await response.json() as { default_generation_settings?: { n_ctx?: unknown } }
+      const value = props.default_generation_settings?.n_ctx
+      return typeof value === 'number' && value > 0 ? value : undefined
+    } catch { return undefined }
   }
 
   /**
@@ -442,6 +564,7 @@ export class LlamaCpp extends Service {
     running.handle.terminate()
     await running.handle.done.catch(() => undefined)
     if (this.running === running) this.running = undefined
+    await this.withdrawKey(running.key)
   }
 }
 

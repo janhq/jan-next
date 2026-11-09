@@ -39,11 +39,24 @@ The popup does not come back once either route can serve.
 One hardcoded model for now: **Jan v3.5 4B** (`janhq/Jan-v3.5-4B-gguf`, Q4_K_M, 2.7 GB, Apache-2.0), served by `llama-server` from llama.cpp build `b12211`. The harness:
 
 1. Downloads the prebuilt llama.cpp engine for this machine from the GitHub release, falling back to GitHub's asset API when `releases/download` fails, and the model from Hugging Face. Both are pinned by sha256 and size. An interrupted download resumes from `*.partial`.
-2. Unpacks the engine and starts `llama-server -m … --alias jan-v3.5-4b --host 127.0.0.1 --port 39281 -c 32768 -fa on -ctk q8_0 -ctv q8_0 --jinja --no-webui`. A random key passed through `LLAMA_API_KEY` (never on the command line) protects the server.
-3. Stores that key as the `LLAMA_CPP_API_KEY` credential. The `llm-pi-ai` `local` route reads it, and the model appears in the picker as **Local (llama.cpp) → Jan v3.5 4B (local)**. If the default model can't serve (no Tokamak key), the local model becomes the default.
-4. Starts it again on each launch. Settings → Models → **Local model** has Start, Stop and Remove. Remove deletes the files and the key.
+2. Unpacks the engine and starts `llama-server -m … --alias jan-v3.5-4b --host 127.0.0.1 --port 39281 -c 32768 --fit on --fit-target 1024 -fa on -ctk q8_0 -ctv q8_0 --jinja --no-webui`. A fresh random key per launch, passed through `LLAMA_API_KEY` (never on the command line), protects the server.
+3. Once the server answers with that key, stores it as the `LLAMA_CPP_API_KEY` credential, and removes it again when the server stops, crashes or the app exits, so the route is usable exactly while the server runs. The `llm-pi-ai` `local` route reads it, and the model appears in the picker as **Local (llama.cpp) → Jan v3.5 4B (local)**. If the default model can't serve (no Tokamak key), the local model becomes the default.
+4. Starts it again on the next launch if you left it running; Stop is remembered. Settings → Models → **Local model** has Start, Stop (also while it is loading) and Remove. Remove deletes the files.
 
-Files live in `$DSH_HOME/llama-cpp/` (`engine/`, `models/`, `install.json`). Expect about 3 GB of disk and 5–6 GB of RAM. The 32k context is needed because the harness's system prompt and tools alone take about 12k tokens. On CPU the first reply in a session takes a while: the whole prompt has to be processed once, and later turns reuse the cache. Small local models call tools less reliably than Tokamak's.
+Only the web app (and desktop) manages the server, so one process owns it. Other profiles (`dsh acp`, SDK subagents) can use the `local` route while the web app runs it.
+
+**Auto fit.** llama.cpp's `--fit` sizes whatever is left unset to the memory available, keeping `fitTargetMiB` (1024 MiB) free per device. The GPU layer count is left to fit, so Metal and Vulkan builds offload as many layers as fit. The context stays pinned at 32k, because left to fit it starts from the model's full 262k-token training context: on a 32 GB machine fit kept all of it, which is far more memory than the harness needs. Settings on the `llama-cpp` row in the profile patch:
+
+| Setting | Default | Effect |
+|---|---|---|
+| `ctxSize` | 32768 | `0` lets fit choose the context too, never below `fitCtx` (16384). Keep the `local` route's `contextWindow` no larger than the size the card reports. |
+| `fit` | `true` | `false` passes `--fit off` and offloads every layer (or `gpuLayers`). |
+| `gpuLayers` | unset | A fixed `-ngl`. |
+| `cacheType` | `q8_0` | KV cache type; `f16` doubles its memory. |
+
+The card shows the context the running server settled on.
+
+Files live in `$DSH_HOME/llama-cpp/` (`engine/`, `models/`, `install.json`, `run.json`). The model URL is pinned to a Hugging Face commit, so a re-upload upstream can't break installs. Expect about 3 GB of disk and 5–6 GB of RAM. The 32k context is needed because the harness's system prompt and tools alone take about 12k tokens. On CPU the first reply in a session takes a while: the whole prompt has to be processed once, and later turns reuse the cache. Small local models call tools less reliably than Tokamak's.
 
 | Variable | Purpose |
 |---|---|
@@ -53,6 +66,10 @@ Files live in `$DSH_HOME/llama-cpp/` (`engine/`, `models/`, `install.json`). Exp
 To change the port, set `port` on the `llama-cpp` row and the `local` route's `baseURL` together in your profile patch (`$DSH_HOME/profiles/web/cordis.patch.yml`).
 
 The headless profile doesn't manage the model. Run `llama-server` yourself on port 39281 and export `LLAMA_CPP_API_KEY` with the key you gave it.
+
+The Linux builds come from llama.cpp's Ubuntu CI and need glibc 2.35 or newer (Ubuntu 22.04+, Debian 12+). Older distributions fail to start the server, and the card shows the loader error.
+
+The first-run chooser appears only while the Tokamak route can be offered. If that route is missing or read-only, the popup doesn't open, and the local model is still available from Settings → Models.
 
 Engines by platform (llama.cpp `b12211`):
 

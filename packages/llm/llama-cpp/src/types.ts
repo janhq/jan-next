@@ -40,6 +40,8 @@ export interface LlamaCppState {
   progress?: LlamaCppProgress
   /** Human-readable failure, present in `failed`. */
   error?: string
+  /** Context size the running server settled on (after `--fit`), present while running. */
+  contextSize?: number
   /** Last engine log lines, present when the engine failed. */
   logTail?: string
 }

@@ -27,6 +27,8 @@ export function LocalModelCard({ useLocalModel, actions, t }: LocalModelCardProp
         </div>
         <Status state={state} t={t} />
       </div>
+      {phase === 'running' && state.contextSize !== undefined
+        && <p className={css.muted} data-testid="local-model-context">{t('contextInfo', { tokens: state.contextSize.toLocaleString() })}</p>}
       <Progress state={state} t={t} />
       <Failure state={state} t={t} />
       {!mirror.connected && <p className={css.muted}>{t('connectionLost')}</p>}
@@ -36,7 +38,8 @@ export function LocalModelCard({ useLocalModel, actions, t }: LocalModelCardProp
         </Button>}
         {phase === 'downloading' && <Button variant="outline" size="sm" onClick={actions.cancel}>{t('cancel')}</Button>}
         {(phase === 'installed' || phase === 'stopped') && <Button variant="primary" size="sm" data-testid="local-model-start" onClick={actions.start}>{t('start')}</Button>}
-        {phase === 'running' && <Button variant="outline" size="sm" data-testid="local-model-stop" onClick={actions.stop}>{t('stop')}</Button>}
+        {(phase === 'running' || phase === 'starting')
+          && <Button variant="outline" size="sm" data-testid="local-model-stop" onClick={actions.stop}>{t('stop')}</Button>}
         {phase === 'failed' && <Button variant="primary" size="sm" data-testid="local-model-retry" onClick={actions.install}>{t('retry')}</Button>}
         {(installed || phase === 'failed') && phase !== 'starting'
           && <Button variant="ghost" size="sm" data-testid="local-model-remove" onClick={actions.uninstall}>{t('remove')}</Button>}
