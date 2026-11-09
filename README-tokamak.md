@@ -19,16 +19,20 @@ To sign in: Settings → Account → **Sign in**. A browser tab opens `https://t
 
 Signing out deletes both entries and revokes the key on the server (`DELETE /auth/api-keys/{id}`). If you had saved your own `TOKAMAK_API_KEY` on the Models page before signing in, sign-out puts that key back instead of deleting it.
 
+Sign-in also works when the UI is opened from a LAN address or through a proxy. Without a loopback address the harness can't receive the browser's ping, so it just keeps polling until you approve.
+
+The account page checks the key whenever it loads. If you deleted the key on tokamak.sh, or it has expired, the harness signs you out and asks you to sign in again.
+
 If you already have a key, skip sign-in: `TOKAMAK_API_KEY=sk_live_… pnpm dsh web`, or save the key on the Models page.
 
 ## Environment
 
 | Variable | Purpose |
 |---|---|
-| `TOKAMAK_BASE_URL` | API base, default `https://api.tokamak.sh/v1`. Include `/v1`. |
+| `TOKAMAK_BASE_URL` | API base, default `https://api.tokamak.sh/v1`. A bare host gets `/v1` added. |
 | `TOKAMAK_WEB_URL` | Web app origin for the approval page. Defaults to the API host with the `api.` / `api-` prefix removed. |
 | `TOKAMAK_API_KEY` | Key used directly when nobody has signed in. |
-| `TOKAMAK_ALLOW_LOOPBACK_HTTP` | Allow an `http://127.0.0.1` base URL, for the local mock. |
+| `TOKAMAK_ALLOW_LOOPBACK_HTTP` | Set to `1`/`true` to allow an `http://127.0.0.1` base URL, for the local mock. |
 
 ## Local mock (no Tokamak account needed)
 
@@ -58,7 +62,14 @@ Everything that reports usage is unmounted in every profile:
 
 The rows are `disabled: true` in the bundle YAML, not gated on environment variables. `/feedback` and message ratings are still recorded, but only into the local session log.
 
+The account menu no longer links to DeepSeek's feedback form, which was a third-party Feishu page. The Plugins page no longer probes npm registries in the background. Plugins install from `registry.npmjs.org`, with no npmmirror fallback.
+
 The web and CLI profiles have no update checker. Desktop auto-update (download.deepseek.com) is out of scope, because the desktop app isn't built for Linux. The plugin market contacts npm registries, and the experimental translator contacts Google Translate, but only when you use those features.
+
+## Other profiles
+
+- `dsh acp` defaults to the Tokamak route.
+- `dsh headless` reads only launch-time credentials, by upstream design. Export `TOKAMAK_API_KEY` to use it.
 
 ## Pulling upstream
 

@@ -17,9 +17,13 @@
       name: '@deepseek-ai/dsh-plugin-manager/tools'
       disabled: true
 
+    # tokamak-harness: install plugins from the public npm registry only (no npmmirror fallback).
     - id: plugin-manager
       name: '@deepseek-ai/dsh-plugin-manager'
       disabled: !!js "!ctx.get('profileContext')"
+      config:
+        registry: https://registry.npmjs.org/
+        fallbackRegistries: []
 
     - id: timer
       name: '@deepseek-ai/cordis-plugin-timer'
@@ -121,14 +125,14 @@
     # tokamak-harness: the account seam is served by Tokamak's CLI device sign-in.
     # The minted key is stored as a grant record and as the TOKAMAK_API_KEY
     # credential the `tokamak` model route reads. TOKAMAK_BASE_URL / TOKAMAK_WEB_URL
-    # point it at another deployment; TOKAMAK_BASE_URL must include /v1
-    # (e.g. https://api-stag.tokamak.sh/v1) because the model route uses it verbatim.
+    # point it at another deployment (e.g. https://api-stag.tokamak.sh); a bare
+    # host gets /v1, identically for this row and the model route.
     - id: deepseek-account
       name: '@deepseek-ai/dsh-tokamak-account'
       config:
-        apiBaseURL: !!js process.env.TOKAMAK_BASE_URL || 'https://api.tokamak.sh/v1'
+        apiBaseURL: !!js (process.env.TOKAMAK_BASE_URL || 'https://api.tokamak.sh/v1').trim().replace(/\/+$/, '').replace(/^(https?:\/\/[^/]+)$/, '$1/v1')
         webOrigin: !!js process.env.TOKAMAK_WEB_URL || ''
-        allowLoopbackHttp: !!js "Boolean(process.env.TOKAMAK_ALLOW_LOOPBACK_HTTP)"
+        allowLoopbackHttp: !!js "['1', 'true', 'yes'].includes((process.env.TOKAMAK_ALLOW_LOOPBACK_HTTP ?? '').toLowerCase())"
 
     - id: credentials
       name: '@deepseek-ai/dsh-credentials-local'
@@ -149,8 +153,8 @@
           tokamak:
             displayName: Tokamak
             api: openai-completions
-            # TOKAMAK_BASE_URL must include the /v1 path, e.g. https://api-stag.tokamak.sh/v1
-            baseURL: !!js process.env.TOKAMAK_BASE_URL || 'https://api.tokamak.sh/v1'
+            # Same normalization as the account row: a bare host gets /v1.
+            baseURL: !!js (process.env.TOKAMAK_BASE_URL || 'https://api.tokamak.sh/v1').trim().replace(/\/+$/, '').replace(/^(https?:\/\/[^/]+)$/, '$1/v1')
             apiKeyEnv: TOKAMAK_API_KEY
             defaultContextWindow: 200000
             models:

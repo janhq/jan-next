@@ -11,6 +11,7 @@ export interface MockSession {
   userCode: string
   status: 'pending' | 'approved' | 'denied' | 'expired'
   polls: number
+  minted?: { key: string; id: string }
 }
 
 export interface MockTokamak {
@@ -30,8 +31,14 @@ export interface MockTokamak {
   approveOnPoll: number | undefined
   /** Number of upcoming polls to leave hanging without a response. */
   hangPolls: number
-  /** Make `GET /v1/models` fail with HTTP 500. */
-  failModels: boolean
+  /** Make `GET /v1/models` fail with this HTTP status. */
+  failModels: number | false
+  /** Approve any poll arriving at or after this time (ms since epoch). */
+  approveAfter: number | undefined
+  /** Poll interval (seconds) advertised to clients. */
+  interval: number
+  /** Revoke a key server-side, as deleting it on tokamak.sh would. */
+  revokeKey(key: string): void
   key: string
   close(): Promise<void>
 }
@@ -39,9 +46,12 @@ export interface MockTokamak {
 export async function startMockTokamak(port = 0): Promise<MockTokamak> {
   const sessions = new Map<string, MockSession>()
   const keys = new Set<string>()
+  let minted = 0
   const mock: MockTokamak = {
-    origin: '', sessions, revoked: [], chatAuth: [], pollFailures: [], unsupported: false, autoApprove: false, approveOnPoll: undefined, hangPolls: 0, failModels: false,
-    key: `sk_live_mock_${randomBytes(8).toString('hex')}`,
+    origin: '', sessions, revoked: [], chatAuth: [], pollFailures: [], unsupported: false, autoApprove: false, approveOnPoll: undefined, hangPolls: 0, failModels: false, approveAfter: undefined, interval: 1,
+    revokeKey(key) { keys.delete(key) },
+    /** Most recently minted key; each approval mints a new one. */
+    key: '',
     approve(id) { lastSession(id).status = 'approved' },
     deny(id) { lastSession(id).status = 'denied' },
     close: () => new Promise<void>((resolve) => { server.close(() => { resolve() }); server.closeAllConnections() }),
@@ -73,7 +83,7 @@ export async function startMockTokamak(port = 0): Promise<MockTokamak> {
         const id = `sess_${randomBytes(6).toString('hex')}`
         const code = `${randomBytes(2).toString('hex').toUpperCase()}-${randomBytes(2).toString('hex').toUpperCase()}`
         sessions.set(id, { challenge: String(body.code_challenge), clientName: String(body.client_name), userCode: code, status: 'pending', polls: 0 })
-        return json(res, 201, { session_id: id, user_code: code, expires_in: 600, interval: 1 })
+        return json(res, 201, { session_id: id, user_code: code, expires_in: 600, interval: mock.interval })
       }
       if (req.method === 'POST' && url.pathname === '/auth/cli/sessions/token') {
         if (mock.hangPolls > 0) { mock.hangPolls--; return }
@@ -87,12 +97,19 @@ export async function startMockTokamak(port = 0): Promise<MockTokamak> {
           return json(res, 400, { error: 'verifier mismatch' })
         }
         session.polls++
-        if (mock.autoApprove || (mock.approveOnPoll !== undefined && session.polls >= mock.approveOnPoll)) session.status = 'approved'
-        if (session.status !== 'approved') return json(res, 200, { status: session.status, interval: 1 })
-        keys.add(mock.key)
+        if (mock.autoApprove || (mock.approveOnPoll !== undefined && session.polls >= mock.approveOnPoll)
+          || (mock.approveAfter !== undefined && Date.now() >= mock.approveAfter)) session.status = 'approved'
+        if (session.status !== 'approved') return json(res, 200, { status: session.status, interval: mock.interval })
+        // Mint once per session; repeated polls of an approved session return the same key.
+        if (session.minted === undefined) {
+          minted++
+          session.minted = { key: `sk_live_mock_${minted}_${randomBytes(6).toString('hex')}`, id: `key_mock_${minted}` }
+          keys.add(session.minted.key)
+          mock.key = session.minted.key
+        }
         return json(res, 200, {
           status: 'approved',
-          api_key: { key: mock.key, id: 'key_mock_1', expires_at: new Date(Date.now() + 90 * 86_400_000).toISOString() },
+          api_key: { key: session.minted.key, id: session.minted.id, expires_at: new Date(Date.now() + 90 * 86_400_000).toISOString() },
           user: { email: 'dev@example.invalid' },
         })
       }
@@ -100,11 +117,12 @@ export async function startMockTokamak(port = 0): Promise<MockTokamak> {
         const token = bearer(req)
         if (token === undefined || !keys.has(token)) return json(res, 401, { error: 'user context missing' })
         keys.delete(token)
+        // (the real route revokes the key named in the path; the mock keys are 1:1 with ids)
         mock.revoked.push(decodeURIComponent(url.pathname.slice('/auth/api-keys/'.length)))
         return json(res, 200, { ok: true })
       }
       if (req.method === 'GET' && url.pathname === '/v1/models') {
-        if (mock.failModels) return json(res, 500, { error: 'injected' })
+        if (mock.failModels !== false) return json(res, mock.failModels, { error: 'injected' })
         const token = bearer(req)
         if (token === undefined || !keys.has(token)) return json(res, 401, { error: 'invalid key' })
         return json(res, 200, { object: 'list', data: [{ id: 'tokamak-1-preview', object: 'model' }, { id: 'anthropic/claude-opus-5', object: 'model' }] })
@@ -138,5 +156,5 @@ export async function startMockTokamak(port = 0): Promise<MockTokamak> {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const mock = await startMockTokamak(Number(process.argv[2] ?? 8787))
   mock.autoApprove = true
-  console.log(`mock Tokamak on ${mock.origin} (auto-approves sign-ins; key ${mock.key})`)
+  console.log(`mock Tokamak on ${mock.origin} (auto-approves sign-ins)`)
 }

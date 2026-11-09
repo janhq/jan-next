@@ -218,8 +218,10 @@ export async function verifyKey(baseUrl: string, key: string, signal: AbortSigna
     await response.body?.cancel()
     throw new TokamakAuthError('network', `model listing failed with HTTP ${response.status}`)
   }
-  const payload = await readBounded(response)
-  return modelIds(payload)
+  try { return modelIds(await readBounded(response)) } catch (error) {
+    // A body that times out or is malformed is a transport problem, not a key rejection.
+    throw error instanceof TokamakAuthError ? error : new TokamakAuthError('no-response', 'model listing body unreadable')
+  }
 }
 
 /** Accept `{data:[{id}]}`, a bare array of objects, or an array of strings, like Jan does. */
