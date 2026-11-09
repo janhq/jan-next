@@ -32,7 +32,9 @@ describe('dsh-base bundle', () => {
     )
     expect(rows.length).toBeGreaterThan(50)
     expect(rows.some(row => row.id === 'agent-loop')).toBe(true)
-    expect(rows.find(row => row.id === 'session-telemetry-otel')?.disabled).toBeUndefined()
+    // tokamak-harness: telemetry is never mounted.
+    expect(rows.find(row => row.id === 'session-telemetry-otel')?.disabled).toBe(true)
+    expect(rows.find(row => row.id === 'otel')?.disabled).toBe(true)
     expect(rows.find(row => row.id === 'session-telemetry-otel')?.config?.['mode']).toEqual({
       __jsExpr: "process.env.DSH_TELEMETRY_MODE || 'FEEDBACK_ONLY'",
     })
@@ -41,8 +43,20 @@ describe('dsh-base bundle', () => {
     })
     expect(rows.filter(row => row.id === 'subagent-codex')).toHaveLength(0)
     expect(rows.filter(row => row.id === 'subagent-claude-code')).toHaveLength(0)
-    expect(rows.find(row => row.id === 'web')?.config).toMatchObject({ fetchProvider: 'http' })
+    // tokamak-harness: DeepSeek search is unmounted; the account seam and default model are Tokamak.
+    expect(rows.find(row => row.id === 'web')?.config).toEqual({ fetchProvider: 'http' })
+    expect(rows.find(row => row.id === 'web-deepseek-api')).toMatchObject({ name: '@deepseek-ai/dsh-web-deepseek-api', disabled: true })
     expect(rows.find(row => row.id === 'web-fetch-http')).toBeDefined()
+    expect(rows.find(row => row.id === 'web-search-deepseek')).toMatchObject({
+      name: '@deepseek-ai/dsh-web-search-deepseek', disabled: true, config: { apiKeyEnv: 'DEEPSEEK_API_KEY' },
+    })
+    expect(rows.find(row => row.id === 'deepseek-account')).toMatchObject({ name: '@deepseek-ai/dsh-tokamak-account' })
+    expect(rows.find(row => row.id === 'agent-default-model')?.config).toEqual({ provider: 'tokamak', model: 'tokamak-1-preview' })
+    expect(rows.find(row => row.id === 'llm-pi-ai')?.config).toMatchObject({
+      providers: { tokamak: { api: 'openai-completions', apiKeyEnv: 'TOKAMAK_API_KEY' } },
+    })
+    expect(rows.find(row => row.id === 'llm-deepseek-account')?.disabled).toBe(true)
+    expect(manifest.dependencies).toHaveProperty('@deepseek-ai/dsh-tokamak-account')
     expect(rows.find(row => row.id === 'tool-web')?.config).toMatchObject({ fetch: true })
     expect(manifest.dependencies).not.toHaveProperty('@deepseek-ai/dsh-subagent-codex')
     expect(manifest.dependencies).not.toHaveProperty('@deepseek-ai/dsh-subagent-claude-code')

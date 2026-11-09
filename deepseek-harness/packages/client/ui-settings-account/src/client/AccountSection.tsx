@@ -103,6 +103,8 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
   const bonusWallets = details?.balance?.status === 'ready'
     ? details.balance.bonusWallets.filter(wallet => new Big(wallet.balance).gt(0)) : []
   const showBonusRow = details?.balance?.status !== 'ready' || bonusWallets.length > 0
+  // tokamak-harness: an account without wallets (Tokamak keys) shows no balance card at all.
+  const walletless = details?.balance?.status === 'ready' && details.balance.value.length === 0 && bonusWallets.length === 0
   const attempt = state?.attempt
   const active = attempt !== null && attempt !== undefined
     && ['initializing', 'waiting-browser', 'exchanging', 'committing'].includes(attempt.phase)
@@ -177,6 +179,7 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
         </a>}
       </div>
       {active && <div className={css.actions}>
+        {attempt.userCode && <span>{t('userCodePrompt')} <strong>{attempt.userCode}</strong></span>}
         {attempt.authorizeUrl && <a className={css.linkButton} href={authorizeUrlWithTheme(attempt.authorizeUrl, colorScheme)}
           target="_blank" rel="noreferrer">
           {t('open')}
@@ -184,7 +187,7 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
         <Button variant="outline" disabled={busy || attempt.phase === 'committing'}
           onClick={() => { void run(() => cancel(attempt.id)) }}>{t('cancel')}</Button>
       </div>}
-      <div className={css.balanceCard}>
+      {!walletless && <div className={css.balanceCard}>
         <div className={css.row}>
           <span>{t('balance')}</span>
           {signedIn && wallets !== undefined && wallets.length > 0
@@ -220,7 +223,7 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
               onClick={(event) => { if (openPlatformPage !== undefined && signedIn) { event.preventDefault(); showPage(openPlatformPage, 'top-up') } }}>{t('topUp')}</a>
           </div>
         </div>
-      </div>
+      </div>}
     </section>
   )
 }
