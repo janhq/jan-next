@@ -1015,6 +1015,104 @@ async prepare(request: DeepSeekLlmApiExtensionRequest): Promise<PreparedDeepSeek
 
 Source: [`packages/llm/deepseek-llm-api-extensions/src/index.ts`](../../packages/llm/deepseek-llm-api-extensions/src/index.ts)
 
+<a id="ctxllamacpp--llamacpp"></a>
+
+### `ctx.llamaCpp` — `LlamaCpp`
+
+One local engine with one model; every mutation is serialized through LlamaCpp.task.
+
+```ts cordis-catalog
+/**
+ * Read the current state.
+ * @returns phase, model facts and progress; never paths or keys.
+ */
+snapshot(): LlamaCppState
+
+/**
+ * Observe state changes.
+ * @param listener - invalidation callback.
+ * @returns unsubscribe.
+ */
+subscribe(listener: () => void): () => void
+
+/**
+ * Stream complete snapshots: the current one first, then one per change.
+ * @param caller - observation lifetime.
+ * @returns an async stream of states that ends when the caller or the service stops.
+ */
+async *follow(caller: AbortSignal): AsyncIterable<LlamaCppState>
+
+/**
+ * Download what is missing, then start the server. Joins an install already in progress.
+ * Resolves when the install task is accepted; progress and outcome arrive through {@link follow}.
+ */
+install(): void
+
+/** Stop an install in progress; the partial download is kept and resumed by the next {@link install}. */
+async cancel(): Promise<void>
+
+/** Start the installed server. No-op while it is running or starting. */
+start(): Promise<void>
+
+/** Stop the server; the install stays. */
+stop(): Promise<void>
+
+/** Stop the server, delete the engine, model and partial downloads, and remove the route key. */
+uninstall(): Promise<void>
+```
+
+Source: [`packages/llm/llama-cpp/src/index.ts`](../../packages/llm/llama-cpp/src/index.ts)
+
+<a id="ctxllamacppcontroller--llamacppcontroller"></a>
+
+### `ctx.llamaCppController` — `LlamaCppController`
+
+Install, start, stop and remove the local model; progress arrives through follow.
+
+```ts cordis-catalog
+/**
+ * Read the current state.
+ * @returns phase, model facts and progress; never paths or keys.
+ */
+@Remote readState(): LlamaCppState
+
+/**
+ * Follow the state.
+ * @param signal - Client observation lifetime.
+ * @returns the current state, then one snapshot per change.
+ */
+@Remote({ mode: 'stream' }) async *follow(signal: AbortSignal): AsyncIterable<LlamaCppState>
+
+/** Download what is missing, verify it, then start the server. */
+@Remote beginInstall(): void
+
+/**
+ * Stop a download in progress; it resumes on the next install.
+ * @returns after the install task settles.
+ */
+@Remote async cancelInstall(): Promise<void>
+
+/**
+ * Start the installed server.
+ * @returns after it is running or has failed.
+ */
+@Remote async startServer(): Promise<void>
+
+/**
+ * Stop the server.
+ * @returns after it has exited.
+ */
+@Remote async stopServer(): Promise<void>
+
+/**
+ * Delete the engine and model and remove the route key.
+ * @returns after the files are gone.
+ */
+@Remote async removeInstall(): Promise<void>
+```
+
+Source: [`packages/api/llama-cpp-controller/src/index.ts`](../../packages/api/llama-cpp-controller/src/index.ts)
+
 <a id="ctxllm--llmruntime"></a>
 
 ### `ctx.llm` — `LlmRuntime`

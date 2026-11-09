@@ -361,6 +361,30 @@ export type OnboardingReadiness =
       | 'credential-read-only'
   }
 
+/** Directory identity of the provider row the first-run step offers. */
+export interface OnboardingRouteMatch {
+  readonly provider: string
+  readonly settingsNs: string
+  readonly settingsPath: readonly string[]
+}
+
+/** Upstream's onboarding route: the official DeepSeek provider. */
+export const OFFICIAL_ONBOARDING_ROUTE: OnboardingRouteMatch = { provider: 'deepseek-official', settingsNs: 'llm-deepseek', settingsPath: [] }
+
+/**
+ * Find the onboarding provider row.
+ * @param state - current shared Models join snapshot.
+ * @param route - configured onboarding route identity.
+ * @returns the matching row, if the route is declared.
+ */
+export function onboardingRow(state: ModelsSettingsState, route: OnboardingRouteMatch): ProviderRow | undefined {
+  return state.rows.find(candidate =>
+    candidate.entry.provider === route.provider
+    && candidate.entry.settingsNs === route.settingsNs
+    && candidate.entry.settingsPath.length === route.settingsPath.length
+    && candidate.entry.settingsPath.every((part, index) => part === route.settingsPath[index]))
+}
+
 /**
  * Project first-run readiness from the provider/settings/credential join used
  * by the Models page. The step exists to leave the user with a model to talk
@@ -369,9 +393,13 @@ export type OnboardingReadiness =
  * whether prompting can help. A missing official configurable-provider
  * declaration means the adapter is not repairable by navigating to Models.
  * @param state - current shared Models join snapshot.
+ * @param route - the provider row this step offers; defaults to the official DeepSeek route.
  * @returns the onboarding state without reading a parallel fact source.
  */
-export function onboardingReadiness(state: ModelsSettingsState): OnboardingReadiness {
+export function onboardingReadiness(
+  state: ModelsSettingsState,
+  route: OnboardingRouteMatch = OFFICIAL_ONBOARDING_ROUTE,
+): OnboardingReadiness {
   if ((state.status === 'idle' || state.status === 'loading') && state.rows.length === 0) {
     return { kind: 'loading' }
   }
@@ -382,10 +410,7 @@ export function onboardingReadiness(state: ModelsSettingsState): OnboardingReadi
     }
   }
   if (state.rows.some(providerUsable)) return { kind: 'provider-ready' }
-  const row = state.rows.find(candidate =>
-    candidate.entry.provider === 'deepseek-official'
-    && candidate.entry.settingsNs === 'llm-deepseek'
-    && candidate.entry.settingsPath.length === 0)
+  const row = onboardingRow(state, route)
   if (row === undefined) return { kind: 'adapter-absent' }
   if (!row.entry.active) {
     return {

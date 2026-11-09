@@ -34,6 +34,12 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     /** Optional account login choice before the credential editor. */
     'settings.models.sign-in': { kind: 'single'; scope: 'root'; owner: { complete: () => void; useApiKey: () => void } }
     /**
+     * First-run local model option inside the "Get started" chooser. Collapsed it
+     * renders an offer; expanded it owns the step body (download progress).
+     * Without a registrant the chooser offers no local option.
+     */
+    'settings.models.local-setup': { kind: 'single'; scope: 'root'; owner: LocalSetupOwnerProps }
+    /**
      * Ordered extension area after the provider rows and the add controls.
      * Without a registrant the area renders nothing.
      */
@@ -49,6 +55,18 @@ export interface ProviderCardExtrasOwnerProps {
   configured: boolean
   /** Whether the row's referenced api-key credential is confirmed configured (the page's credential join). */
   keyConfigured: boolean
+}
+
+/** Owner share of the first-run local model option. */
+export interface LocalSetupOwnerProps {
+  /** Whether the option owns the step body. */
+  expanded: boolean
+  /** Give the option the step body. */
+  expand: () => void
+  /** Return to the chooser. */
+  collapse: () => void
+  /** End the first-run step (also used for "continue in background"). */
+  complete: () => void
 }
 
 /** Owner share of the footer area (the section supplies nothing). */

@@ -341,6 +341,21 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Owns append-only Session instances and emits the durable session event feed.',
   },
   {
+    key: 'llamaCpp',
+    pkg: 'llama-cpp',
+    title: 'Managed local llama.cpp model (tokamak-harness)',
+    mode: 'core',
+    consumers: ['api-llama-cpp-controller'],
+    note: 'Downloads a pinned llama-server build and one GGUF, verifies both, and supervises the server on a loopback port for the llm-pi-ai local route.',
+  },
+  {
+    key: 'llamaCppController',
+    pkg: 'api-llama-cpp-controller',
+    title: 'Local model Remote controller',
+    mode: 'core',
+    note: 'Browser install, start, stop and removal of the managed local model, with a state stream.',
+  },
+  {
     key: 'speechController',
     pkg: 'experimental-api-speech-to-text',
     title: 'Experimental transcription Remote',

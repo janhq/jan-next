@@ -137,6 +137,19 @@
     - id: credentials
       name: '@deepseek-ai/dsh-credentials-local'
 
+    # tokamak-harness: managed local model. Downloads a pinned llama.cpp build and
+    # Jan v3.5 4B on request (Settings → Models, or the first-run popup), then
+    # runs llama-server on 127.0.0.1:39281. LLAMA_CPP_BACKEND=vulkan selects the
+    # Vulkan build. To move the port, override `port` here and the `local` route's
+    # baseURL together in the profile patch.
+    - id: llama-cpp
+      name: '@deepseek-ai/dsh-llama-cpp'
+      config:
+        dataRoot: !!js dshHomePath('llama-cpp')
+        backend: !!js "process.env.LLAMA_CPP_BACKEND === 'vulkan' ? 'vulkan' : 'cpu'"
+        model: !!js "process.env.LLAMA_CPP_MODEL === 'small' ? 'small' : 'default'"
+        port: 39281
+
     # The pi-ai multi-provider twin, mounted dormant: zero routes (and no extra
     # models in the picker) until a `llm-pi-ai:` settings section supplies provider
     # profiles — then those routes register live, keys resolving per request
@@ -167,6 +180,22 @@
               - id: anthropic/claude-haiku-5-5[1m]
                 contextWindow: 1000000
               - id: openai/gpt-6-sol
+          # tokamak-harness: the managed local model (row `llama-cpp`). Its key is
+          # generated at install, so before that the route offers no models.
+          local:
+            displayName: Local (llama.cpp)
+            api: openai-completions
+            baseURL: http://127.0.0.1:39281/v1
+            apiKeyEnv: LLAMA_CPP_API_KEY
+            # A CPU-only machine can take minutes to read the harness's ~12k-token
+            # prompt before the first token; wait instead of retrying from scratch.
+            streamIdleTimeoutMs: 1800000
+            models:
+              - id: jan-v3.5-4b
+                name: Jan v3.5 4B (local)
+                # Matches the llama-cpp row's ctxSize (32768).
+                contextWindow: 32768
+                maxTokens: 8192
 
     - id: session-persistence-jsonl
       name: '@deepseek-ai/dsh-session-persistence-jsonl'

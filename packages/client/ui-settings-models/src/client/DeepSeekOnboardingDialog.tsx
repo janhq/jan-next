@@ -11,13 +11,14 @@ import type { ReactNode } from 'react'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { InjectFace, PropsRuntime, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ModelsSettingsState, ModelsSettingsStore } from './store.ts'
-import { onboardingReadiness } from './store.ts'
+import { onboardingReadiness, onboardingRow, type OnboardingRouteMatch } from './store.ts'
 import type { ModelsOperations } from './operations.ts'
 import type { SettingsSchemaOperations } from './schema-operations.ts'
 import { ProviderEditor } from './ProviderEditor.tsx'
 import type {} from './slot-contract.ts'
 import type { en } from './locales.ts'
 import { OnboardingModal } from './OnboardingModal.tsx'
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import styles from './DeepSeekOnboardingDialog.module.css'
 
 /** Registration-side dependencies of {@link DeepSeekOnboardingDialog}. */
@@ -26,6 +27,8 @@ export interface DeepSeekOnboardingInjected {
   track?: TrackProductEvent
   /** Whether first-run setup should show automatically. Explicit requests remain available. */
   automatic: boolean
+  /** The provider row this step offers; defaults to the official DeepSeek route. */
+  route?: OnboardingRouteMatch
   hooks: {
     /** Shared Models-page join state, bound by the slot renderer. */
     models: SnapshotStore<ModelsSettingsState>
@@ -42,7 +45,7 @@ export interface DeepSeekOnboardingInjected {
 
 /** Slot owner props plus the feature's injected dependencies. */
 export type DeepSeekOnboardingDialogProps =
-  PropsRuntime<'settings.onboarding'> & PropsRenderSlots<'settings.models.sign-in'> & InjectFace<DeepSeekOnboardingInjected>
+  PropsRuntime<'settings.onboarding'> & PropsRenderSlots<'settings.models.sign-in' | 'settings.models.local-setup'> & InjectFace<DeepSeekOnboardingInjected>
 
 /* v8 ignore next 3 -- closed-union defaults only defend future source widening */
 function assertNever(_value: never): never {
@@ -50,16 +53,18 @@ function assertNever(_value: never): never {
 }
 
 /**
- * Prompt a first-run user for the official DeepSeek credential while no
- * provider can serve requests and that credential is writable.
+ * While no provider can serve requests, offer a first-run user the ways to get one:
+ * the account sign-in (`settings.models.sign-in`), a local model
+ * (`settings.models.local-setup`), or the onboarding route's API key.
  * @param props - settings-shell owner state and Models feature dependencies.
  * @returns the onboarding modal or null when onboarding needs no intervention.
  */
 export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): ReactNode {
   const { complete, controller, useModels, operations, schema, t, renderSlot, automatic, explicit = false } = props
-  const [apiKey, setApiKey] = useState(explicit)
+  const { route } = props
+  const [choice, setChoice] = useState<'choose' | 'account' | 'local' | 'api-key'>(explicit ? 'api-key' : 'choose')
   const state = useModels(snapshot => snapshot)
-  const readiness = onboardingReadiness(state)
+  const readiness = onboardingReadiness(state, route)
 
   useEffect(() => {
     if ((automatic || explicit) && state.status === 'idle') void controller.load()
@@ -91,11 +96,9 @@ export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): 
       return assertNever(readiness)
   }
 
-  const row = state.rows.find(candidate =>
-    candidate.entry.provider === 'deepseek-official'
-    && candidate.entry.settingsNs === 'llm-deepseek'
-    && candidate.entry.settingsPath.length === 0)
-  const namespace = state.namespaces.get('llm-deepseek')
+  const row = route === undefined ? onboardingRow(state, { provider: 'deepseek-official', settingsNs: 'llm-deepseek', settingsPath: [] })
+    : onboardingRow(state, route)
+  const namespace = row === undefined ? undefined : state.namespaces.get(row.entry.settingsNs)
   /* v8 ignore next 2 -- credential-missing is derived only from this exact joined row. */
   if (row === undefined || namespace === undefined) return null
 
@@ -133,5 +136,38 @@ export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): 
       </div>
     </OnboardingModal>
   )
-  return apiKey ? editor : renderSlot('settings.models.sign-in', { complete, useApiKey: () => { setApiKey(true) } }, { fallback: editor })
+  if (choice === 'api-key') return editor
+  // The account plugin's sign-in dialog; closing it returns to the chooser, and a stored
+  // credential ends the step through readiness.
+  if (choice === 'account') {
+    return renderSlot('settings.models.sign-in',
+      { complete: () => { setChoice('choose') }, useApiKey: () => { setChoice('api-key') } }, { fallback: editor })
+  }
+  const local = renderSlot('settings.models.local-setup', {
+    expanded: choice === 'local',
+    expand: () => { setChoice('local') },
+    collapse: () => { setChoice('choose') },
+    complete,
+  }, { fallback: null })
+  return (
+    <OnboardingModal title={t('onboardingChooseTitle')} focusTitle>
+      {choice === 'local' ? local : <>
+        <p className={styles.description}>{t('onboardingChooseDescription')}</p>
+        <div className={styles.choices}>
+          <button type="button" className={styles.choice} data-testid="onboarding-choice-account"
+            onClick={() => { setChoice('account') }}>
+            <span className={styles.choiceTitle}>{t('onboardingTokamak')}</span>
+            <span className={styles.choiceDetail}>{t('onboardingTokamakDetail')}</span>
+          </button>
+          {local}
+        </div>
+        <div className={styles.actions}>
+          <Button variant="ghost" size="sm" data-testid="onboarding-choice-api-key" onClick={() => { setChoice('api-key') }}>
+            {t('onboardingApiKeyInstead')}
+          </Button>
+          <Button variant="ghost" size="sm" data-testid="onboarding-later" onClick={complete}>{t('onboardingSetUpLater')}</Button>
+        </div>
+      </>}
+    </OnboardingModal>
+  )
 }

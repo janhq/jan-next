@@ -57,5 +57,10 @@ export const remoteDefaultResponses: RemoteTable = {
     'workspace/follow': openStream([{ type: 'baseline', value: { items: [], archivedSessionIds: [], pinnedSessionIds: [] } }]),
     // api-remote-access client `mountAccess`: the owner's access snapshot, then open.
     'remoteAccess/follow': openStream([{ type: 'baseline', owner: true }]),
+    // tokamak-harness ui-settings-local-model: the local model state, then open.
+    'llamaCpp/follow': openStream([{
+      phase: 'missing', provider: 'local',
+      model: { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', modelBytes: 2_716_066_656, engineBytes: 23_109_987, backend: 'cpu', engineVersion: 'b12211' },
+    }]),
   },
 }

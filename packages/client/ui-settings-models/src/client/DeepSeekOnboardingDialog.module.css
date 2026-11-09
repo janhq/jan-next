@@ -9,6 +9,52 @@
   margin-top: 24px;
 }
 
+/* "Get started" chooser: one card per way to get a model. Shared with the local-setup slot via these class names. */
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--dsw-alias-border-primary, rgba(127, 127, 127, 0.3));
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.choice:hover,
+.choice:focus-visible {
+  border-color: var(--dsw-alias-label-primary);
+}
+
+.choiceTitle {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 22px;
+}
+
+.choiceDetail {
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 16px;
+}
+
 @media (max-width: 560px) {
   .editor {
     margin-top: 20px;

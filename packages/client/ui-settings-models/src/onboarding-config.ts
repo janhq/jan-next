@@ -6,11 +6,28 @@ import z from '@deepseek-ai/schemastery'
 export interface Config {
   /** Offer the browser API-key step when no native shell owns credential onboarding. */
   credentialOnboarding: boolean
+  /** The provider row the first-run step offers when nothing can serve yet. */
+  onboardingRoute: OnboardingRoute
+}
+
+/** Directory identity of the onboarding provider row. */
+export interface OnboardingRoute {
+  /** Provider route id. */
+  provider: string
+  /** Owning settings namespace (the adapter plugin entry id). */
+  settingsNs: string
+  /** Path of the route inside that namespace; empty for a whole-namespace provider. */
+  settingsPath: string[]
 }
 
 /** Validate Host configuration and its public page-bootstrap payload. */
 export const Config: z<Partial<Config>, Config> = z.object({
   credentialOnboarding: z.boolean().default(true),
+  onboardingRoute: z.object({
+    provider: z.string().min(1).default('deepseek-official'),
+    settingsNs: z.string().min(1).default('llm-deepseek'),
+    settingsPath: z.array(z.string()).default([]),
+  }).default({ provider: 'deepseek-official', settingsNs: 'llm-deepseek', settingsPath: [] }),
 })
 
 /** Page-global key carrying only the public onboarding options. */

@@ -85,8 +85,11 @@ interface Attempt {
 export class TokamakAccount extends DeepSeekAccount {
   static inject = ['credentials', 'authorization']
   static Config = Config
+  /** Normalized API base (`…/v1`). */
   readonly baseUrl: string
+  /** API origin the auth routes hang off. */
   readonly root: string
+  /** Web app origin that hosts the approval page. */
   readonly web: string
   private readonly clientName: string
   private readonly keyRef: CredentialRef

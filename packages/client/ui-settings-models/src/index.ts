@@ -5,6 +5,7 @@ import type {} from '@deepseek-ai/dsh-host-webserver'
 import { type Config, ONBOARDING_CONFIG_GLOBAL } from './onboarding-config.ts'
 
 export { Config } from './onboarding-config.ts'
+export type { OnboardingRoute } from './onboarding-config.ts'
 
 /**
  * Publish the credential-onboarding choice before browser plugins activate.
@@ -16,7 +17,7 @@ export function apply(ctx: Context, config: Config): void {
     table.push({
       kind: 'global',
       name: ONBOARDING_CONFIG_GLOBAL,
-      value: { credentialOnboarding: config.credentialOnboarding },
+      value: { credentialOnboarding: config.credentialOnboarding, onboardingRoute: config.onboardingRoute },
     })
   })
 }

@@ -1917,6 +1917,104 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'llamaCpp',
+    summary: 'One local engine with one model; every mutation is serialized through LlamaCpp.task.',
+    description: 'One local engine with one model; every mutation is serialized through LlamaCpp.task.',
+    methods: [
+      {
+        signature: 'snapshot(): LlamaCppState',
+        description: 'Read the current state.',
+        parameters: [],
+        returns: 'phase, model facts and progress; never paths or keys.',
+      },
+      {
+        signature: 'subscribe(listener: () => void): () => void',
+        description: 'Observe state changes.',
+        parameters: [{ name: 'listener', description: 'invalidation callback.' }],
+        returns: 'unsubscribe.',
+      },
+      {
+        signature: 'async *follow(caller: AbortSignal): AsyncIterable<LlamaCppState>',
+        description: 'Stream complete snapshots: the current one first, then one per change.',
+        parameters: [{ name: 'caller', description: 'observation lifetime.' }],
+        returns: 'an async stream of states that ends when the caller or the service stops.',
+      },
+      {
+        signature: 'install(): void',
+        description: 'Download what is missing, then start the server. Joins an install already in progress. Resolves when the install task is accepted; progress and outcome arrive through follow.',
+        parameters: [],
+      },
+      {
+        signature: 'async cancel(): Promise<void>',
+        description: 'Stop an install in progress; the partial download is kept and resumed by the next install.',
+        parameters: [],
+      },
+      {
+        signature: 'start(): Promise<void>',
+        description: 'Start the installed server. No-op while it is running or starting.',
+        parameters: [],
+      },
+      {
+        signature: 'stop(): Promise<void>',
+        description: 'Stop the server; the install stays.',
+        parameters: [],
+      },
+      {
+        signature: 'uninstall(): Promise<void>',
+        description: 'Stop the server, delete the engine, model and partial downloads, and remove the route key.',
+        parameters: [],
+      },
+    ],
+  },
+  {
+    key: 'llamaCppController',
+    summary: 'Install, start, stop and remove the local model; progress arrives through follow.',
+    description: 'Install, start, stop and remove the local model; progress arrives through follow.',
+    methods: [
+      {
+        signature: '@Remote readState(): LlamaCppState',
+        description: 'Read the current state.',
+        parameters: [],
+        returns: 'phase, model facts and progress; never paths or keys.',
+      },
+      {
+        signature: '@Remote({ mode: \'stream\' }) async *follow(signal: AbortSignal): AsyncIterable<LlamaCppState>',
+        description: 'Follow the state.',
+        parameters: [{ name: 'signal', description: 'Client observation lifetime.' }],
+        returns: 'the current state, then one snapshot per change.',
+      },
+      {
+        signature: '@Remote beginInstall(): void',
+        description: 'Download what is missing, verify it, then start the server.',
+        parameters: [],
+      },
+      {
+        signature: '@Remote async cancelInstall(): Promise<void>',
+        description: 'Stop a download in progress; it resumes on the next install.',
+        parameters: [],
+        returns: 'after the install task settles.',
+      },
+      {
+        signature: '@Remote async startServer(): Promise<void>',
+        description: 'Start the installed server.',
+        parameters: [],
+        returns: 'after it is running or has failed.',
+      },
+      {
+        signature: '@Remote async stopServer(): Promise<void>',
+        description: 'Stop the server.',
+        parameters: [],
+        returns: 'after it has exited.',
+      },
+      {
+        signature: '@Remote async removeInstall(): Promise<void>',
+        description: 'Delete the engine and model and remove the route key.',
+        parameters: [],
+        returns: 'after the files are gone.',
+      },
+    ],
+  },
+  {
     key: 'llm',
     summary: 'The abstract `llm` service: an adapter registry plus a streaming model-call API, interceptable via the `llm/stream` waterfall.',
     description: 'The abstract `llm` service: an adapter registry plus a streaming model-call API, interceptable via the `llm/stream` waterfall.',
@@ -6944,6 +7042,26 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ListVersionsOptions {\n    readonly registry?: Registry;\n}',
   },
   {
+    name: 'LlamaCppDownloadPhase',
+    declaration: 'export type LlamaCppDownloadPhase = \'engine\' | \'model\';',
+  },
+  {
+    name: 'LlamaCppModelInfo',
+    declaration: 'export interface LlamaCppModelInfo {\n    id: string;\n    name: string;\n    modelBytes: number;\n    engineBytes: number;\n    backend: \'cpu\' | \'metal\' | \'vulkan\';\n    engineVersion: string;\n}',
+  },
+  {
+    name: 'LlamaCppPhase',
+    declaration: 'export type LlamaCppPhase = \'checking\' | \'missing\' | \'downloading\' | \'installed\' | \'starting\' | \'running\' | \'stopped\' | \'failed\';',
+  },
+  {
+    name: 'LlamaCppProgress',
+    declaration: 'export interface LlamaCppProgress {\n    phase: LlamaCppDownloadPhase;\n    receivedBytes: number;\n    totalBytes: number;\n}',
+  },
+  {
+    name: 'LlamaCppState',
+    declaration: 'export interface LlamaCppState {\n    phase: LlamaCppPhase;\n    model: LlamaCppModelInfo;\n    provider: string;\n    progress?: LlamaCppProgress;\n    error?: string;\n    logTail?: string;\n}',
+  },
+  {
     name: 'LlmAdapter',
     declaration: 'export abstract class LlmAdapter {\n    providerInfo(provider: string): LlmProviderInfo;\n    providerRetryPolicy(_provider: string): ResolvedRetryPolicy | undefined;\n    imageRequestPricing(_provider: string, _model: string): LlmImageRequestPricing | undefined;\n    imageRequestTarget(_provider: string, _model: string, image: ImageAttachmentRef): ImageRequestTarget;\n    listModels(_provider: string): Promise<readonly LlmModelInfo[]>;\n    resolveModel(provider: string, model: string, _signal?: AbortSignal): Promise<LlmResolvedModelInfo>;\n    async prepareCall(provider: string, model: string, signal?: AbortSignal): Promise<PreparedAdapterCall>;\n    abstract stream(options: GenerateOptions): AsyncIterable<StreamChunk>;\n}',
   },
@@ -9029,7 +9147,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SignInAttemptView',
-    declaration: 'export interface SignInAttemptView {\n    readonly id: SignInAttemptId;\n    readonly phase: \'initializing\' | \'waiting-browser\' | \'exchanging\' | \'committing\' | \'succeeded\' | \'cancelled\' | \'expired\' | \'failed\';\n    readonly authorizeUrl?: string;\n    readonly expiresAt?: number;\n    readonly errorCode?: SignInErrorCode;\n}',
+    declaration: 'export interface SignInAttemptView {\n    readonly id: SignInAttemptId;\n    readonly phase: \'initializing\' | \'waiting-browser\' | \'exchanging\' | \'committing\' | \'succeeded\' | \'cancelled\' | \'expired\' | \'failed\';\n    readonly authorizeUrl?: string;\n    readonly userCode?: string;\n    readonly expiresAt?: number;\n    readonly errorCode?: SignInErrorCode;\n}',
   },
   {
     name: 'SignInErrorCode',

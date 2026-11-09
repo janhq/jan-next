@@ -11,10 +11,15 @@ import type { SignInErrorCode } from '@deepseek-ai/dsh-deepseek-account/types'
 
 /** Production inference/router API, OpenAI-compatible. */
 export const DEFAULT_BASE_URL = 'https://api.tokamak.sh/v1'
+/** Device sign-in session endpoint, relative to the API origin. */
 export const SESSIONS_PATH = '/auth/cli/sessions'
+/** Session lifetime when the server does not advertise one. */
 export const DEFAULT_EXPIRES_IN_SECONDS = 600
+/** Poll interval when the server does not advertise one. */
 export const DEFAULT_INTERVAL_SECONDS = 5
+/** Lower bound for the poll interval. */
 export const MIN_INTERVAL_SECONDS = 1
+/** Upper bound for the poll interval. */
 export const MAX_INTERVAL_SECONDS = 30
 const BODY_LIMIT = 65_536
 
@@ -46,7 +51,11 @@ export function normalizeBaseUrl(value: string, allowLoopbackHttp: boolean): str
   return `${url.origin}${path === '' ? '/v1' : path}`
 }
 
-/** @param baseUrl - normalized API base. @returns its origin; the auth routes hang off the root, not `/v1`. */
+/**
+ * Derive the API origin that the auth routes hang off (not `/v1`).
+ * @param baseUrl - normalized API base.
+ * @returns its origin.
+ */
 export function apiRoot(baseUrl: string): string {
   return new URL(baseUrl).origin
 }
@@ -68,6 +77,7 @@ export function webRoot(baseUrl: string, override?: string): string {
 }
 
 /**
+ * Build the approval page URL the user opens.
  * @param web - web origin from {@link webRoot}.
  * @param userCode - code the user confirms on the page.
  * @param wake - optional loopback wake endpoint and its state guard.
@@ -83,18 +93,30 @@ export function buildAuthorizeUrl(web: string, userCode: string, wake?: { redire
   return url.href
 }
 
-/** @param web - web origin. @returns page where users mint keys manually. */
+/**
+ * Locate the page where users mint keys by hand.
+ * @param web - web origin.
+ * @returns that page's URL.
+ */
 export function apiKeysUrl(web: string): string {
   return new URL('/settings/api-keys', web).href
 }
 
-/** @param seconds - server-advertised interval. @returns interval clamped to 1–30 s, default 5 s. */
+/**
+ * Clamp the server-advertised poll interval.
+ * @param seconds - server-advertised interval.
+ * @returns the interval clamped to 1–30 s, default 5 s.
+ */
 export function clampInterval(seconds: unknown): number {
   const value = typeof seconds === 'number' && Number.isFinite(seconds) && seconds > 0 ? seconds : DEFAULT_INTERVAL_SECONDS
   return Math.min(MAX_INTERVAL_SECONDS, Math.max(MIN_INTERVAL_SECONDS, value))
 }
 
-/** 408, 425, 429 and 5xx are reachability blips: keep polling. */
+/**
+ * Classify a poll HTTP status: 408, 425, 429 and 5xx are reachability blips, so polling continues.
+ * @param status - HTTP status of a poll response.
+ * @returns whether the poll should be retried.
+ */
 export function pollStatusIsTransient(status: number): boolean {
   return status === 408 || status === 425 || status === 429 || (status >= 500 && status <= 599)
 }
@@ -136,6 +158,11 @@ export type PollResult =
 
 /**
  * Create a sign-in session; no auth header.
+ * @param root - API origin.
+ * @param challenge - PKCE S256 code challenge.
+ * @param clientName - name shown on the approval page.
+ * @param signal - cancellation.
+ * @returns the session id, user code, lifetime and poll interval.
  * @throws TokamakUnsupportedError on 404/405, TokamakAuthError otherwise.
  */
 export async function beginSession(root: string, challenge: string, clientName: string, signal: AbortSignal): Promise<DeviceSession> {
@@ -154,6 +181,11 @@ export async function beginSession(root: string, challenge: string, clientName: 
 
 /**
  * Poll the token endpoint once.
+ * @param root - API origin.
+ * @param sessionId - session from {@link beginSession}.
+ * @param verifier - PKCE code verifier.
+ * @param cancel - caller cancellation; the only abort that rethrows.
+ * @param timeoutMs - per-request timeout; a timeout is a retry.
  * @returns the classified outcome; terminal HTTP failures throw.
  */
 export async function pollOnce(root: string, sessionId: string, verifier: string,
@@ -202,6 +234,8 @@ export async function pollOnce(root: string, sessionId: string, verifier: string
 /**
  * Confirm a key works before storing it.
  * @param baseUrl - normalized API base (`…/v1`).
+ * @param key - API key to check.
+ * @param signal - cancellation.
  * @returns model ids the key can use.
  * @throws TokamakAuthError('expired') when rejected, ('network') on other failures.
  */
@@ -224,7 +258,11 @@ export async function verifyKey(baseUrl: string, key: string, signal: AbortSigna
   }
 }
 
-/** Accept `{data:[{id}]}`, a bare array of objects, or an array of strings, like Jan does. */
+/**
+ * Read model ids from a listing: `{data:[{id}]}`, a bare array of objects, or an array of strings, like Jan does.
+ * @param payload - parsed listing body.
+ * @returns the model ids, empty for an unknown shape.
+ */
 export function modelIds(payload: unknown): string[] {
   const list: unknown = Array.isArray(payload) ? payload
     : typeof payload === 'object' && payload !== null && Array.isArray((payload as { data?: unknown }).data)
@@ -242,6 +280,10 @@ export function modelIds(payload: unknown): string[] {
 
 /**
  * Best-effort server-side revocation, authenticated with the key itself.
+ * @param root - API origin.
+ * @param keyId - id of the key to revoke.
+ * @param key - the key itself, used as the Bearer credential.
+ * @param signal - cancellation.
  * @returns whether the server confirmed it.
  */
 export async function revokeKey(root: string, keyId: string, key: string, signal: AbortSignal): Promise<boolean> {

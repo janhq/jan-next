@@ -657,6 +657,18 @@ export type OnboardingProcess = 'compact' | 'standard' | 'detailed'
 export interface Config {
   /** Offer the browser API-key step when no native shell owns credential onboarding. */
   credentialOnboarding: boolean
+  /** The provider row the first-run step offers when nothing can serve yet. */
+  onboardingRoute: OnboardingRoute
+}
+
+/** Directory identity of the onboarding provider row. */
+export interface OnboardingRoute {
+  /** Provider route id. */
+  provider: string
+  /** Owning settings namespace (the adapter plugin entry id). */
+  settingsNs: string
+  /** Path of the route inside that namespace; empty for a whole-namespace provider. */
+  settingsPath: string[]
 }
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-ui-settings-models -->
@@ -1910,6 +1922,71 @@ export interface Config {
 }
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-jobs-local -->
+
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-llama-cpp -->
+<a id="deepseek-aidsh-llama-cpp"></a>
+
+## `@deepseek-ai/dsh-llama-cpp`
+
+- `inject`: `subprocess` · `credentials`
+- `source`: [`packages/llm/llama-cpp/src/config.ts:23`](../packages/llm/llama-cpp/src/config.ts)
+
+```ts config-catalog
+/** Paths, backend and launch settings. */
+export interface Config {
+  /** Absolute directory for the engine, model and state. */
+  dataRoot: string
+  /** Linux/Windows build: CPU, or Vulkan for GPU offload (needs a Vulkan driver). macOS always uses its Metal build. */
+  backend: 'cpu' | 'vulkan'
+  /** Which pinned model to install; `small` is a 429 MB test model. */
+  model: 'default' | 'small'
+  /** Loopback port the server listens on; must match the `local` route's baseURL. */
+  port: number
+  /** Credential reference the `local` route reads, and the key the server requires. */
+  apiKeyRef: string
+  /** Model provider route that serves the model (shown to clients). */
+  provider: string
+  /** Start the server at boot when it is installed. */
+  autoStart: boolean
+  /** Context window passed as `-c`; the harness's own prompt and tools take about 12k tokens. */
+  ctxSize: number
+  /** KV cache element type (`-ctk`/`-ctv`); `q8_0` halves its memory against `f16`. */
+  cacheType: 'f16' | 'q8_0'
+  /** CPU threads (`-t`); omitted lets llama.cpp decide. */
+  threads?: number | undefined
+  /** Layers offloaded to the GPU (`-ngl`); used by the Metal and Vulkan builds. */
+  gpuLayers: number
+  /** Readiness deadline after spawning. */
+  startTimeoutMs: number
+  /** Grace period between SIGTERM and SIGKILL. */
+  graceMs: number
+  /** Minimum interval between download progress notifications. */
+  progressIntervalMs: number
+  /** Test-only: an existing server executable that replaces the downloaded engine. */
+  binaryPath?: string | undefined
+  /** Test-only: replaces the pinned downloads (engine, model). */
+  artifactOverrides?: ArtifactOverrides | undefined
+}
+
+/** Test-only replacements for the pinned downloads. */
+export interface ArtifactOverrides {
+  /** Engine archive (`tar.gz` containing `llama-server`). */
+  engine?: ArtifactOverride | undefined
+  /** GGUF model file. */
+  model?: ArtifactOverride | undefined
+}
+
+/** One pinned download: where it comes from and what it must hash to. */
+export interface ArtifactOverride {
+  /** Download URL. */
+  url: string
+  /** Lowercase hex sha256 of the whole file. */
+  sha256: string
+  /** Exact size in bytes. */
+  bytes: number
+}
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-llama-cpp -->
 
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-llm-deepseek-account -->
 <a id="deepseek-aidsh-llm-deepseek-account"></a>
@@ -3969,6 +4046,35 @@ export interface Config {
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-tmux-context -->
 
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tokamak-account -->
+<a id="deepseek-aidsh-tokamak-account"></a>
+
+## `@deepseek-ai/dsh-tokamak-account`
+
+- `inject`: `credentials` · `authorization`
+- `source`: [`packages/credentials/tokamak-account/src/index.ts:48`](../packages/credentials/tokamak-account/src/index.ts)
+
+```ts config-catalog
+/** Deployment options. */
+export interface Config {
+  /** OpenAI-compatible API base; a bare host gets `/v1`. */
+  apiBaseURL?: string
+  /** Web app origin hosting `/cli/authorize`; empty derives it from apiBaseURL (`api.` prefix stripped). */
+  webOrigin?: string
+  /** Name shown on the approval page and the minted key. */
+  clientName?: string
+  /** Credential reference the model route reads the key from. */
+  apiKeyRef?: string
+  /** Allow HTTP on loopback for local mocks. */
+  allowLoopbackHttp?: boolean
+  /** Deadline for each HTTP request. */
+  requestTimeoutMs?: number
+  /** Upper bound for one sign-in attempt, even if the server advertises a longer TTL. */
+  attemptTimeoutMs?: number
+}
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tokamak-account -->
+
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-token-meter -->
 <a id="deepseek-aidsh-token-meter"></a>
 
@@ -4897,6 +5003,7 @@ export interface Config {
 | `@deepseek-ai/dsh-acp-app` | `cmdlineArgs` | [`packages/bundle/acp-app/src/index.ts`](../packages/bundle/acp-app/src/index.ts) |
 | `@deepseek-ai/dsh-agent` | `sessionProjections` | [`packages/core/agent/src/index.ts`](../packages/core/agent/src/index.ts) |
 | `@deepseek-ai/dsh-api-account-controller` | `deepseekAccount` · `agents` | [`packages/api/account-controller/src/index.ts`](../packages/api/account-controller/src/index.ts) |
+| `@deepseek-ai/dsh-api-llama-cpp-controller` | `llamaCpp` · `typert` | [`packages/api/llama-cpp-controller/src/index.ts`](../packages/api/llama-cpp-controller/src/index.ts) |
 | `@deepseek-ai/dsh-api-remote-access` | — | [`packages/api/remote-access/src/index.ts`](../packages/api/remote-access/src/index.ts) |
 | `@deepseek-ai/dsh-api-remotes` | `typertGateway` | [`packages/api/remotes/src/index.ts`](../packages/api/remotes/src/index.ts) |
 | `@deepseek-ai/dsh-authorization` | `credentials` | [`packages/credentials/authorization/src/index.ts`](../packages/credentials/authorization/src/index.ts) |
@@ -4942,6 +5049,7 @@ export interface Config {
 | `@deepseek-ai/dsh-client-ui-settings` | — | [`packages/client/ui-settings/src/index.ts`](../packages/client/ui-settings/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-settings-agent-loop` | — | [`packages/client/ui-settings-agent-loop/src/index.ts`](../packages/client/ui-settings-agent-loop/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-settings-general` | — | [`packages/client/ui-settings-general/src/index.ts`](../packages/client/ui-settings-general/src/index.ts) |
+| `@deepseek-ai/dsh-client-ui-settings-local-model` | — | [`packages/client/ui-settings-local-model/src/index.ts`](../packages/client/ui-settings-local-model/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-settings-plugin-inventory` | — | [`packages/client/ui-settings-plugin-inventory/src/index.ts`](../packages/client/ui-settings-plugin-inventory/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-settings-plugins` | — | [`packages/client/ui-settings-plugins/src/index.ts`](../packages/client/ui-settings-plugins/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-settings-session-log` | — | [`packages/client/ui-settings-session-log/src/index.ts`](../packages/client/ui-settings-session-log/src/index.ts) |

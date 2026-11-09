@@ -167,17 +167,23 @@ function harness(options: {
   }
 }
 
+/** Leave the "Get started" chooser for the API key editor. */
+async function chooseApiKey(): Promise<void> {
+  fireEvent.click(await screen.findByTestId('onboarding-choice-api-key'))
+}
+
 describe('DeepSeekOnboardingDialog', () => {
   it('renders when the shell root is absent', async () => {
     const h = harness()
     document.getElementById('root')!.remove()
     render(<DeepSeekOnboardingDialog {...h.props} />)
-    expect(await screen.findByRole('dialog', { name: en.onboardingTitle })).toBeTruthy()
+    expect(await screen.findByRole('dialog', { name: en.onboardingChooseTitle })).toBeTruthy()
   })
 
   it('loads a credential-only modal, inerts the product, and focuses the key', async () => {
     const h = harness()
     render(<DeepSeekOnboardingDialog {...h.props} />)
+    await chooseApiKey()
     expect(await screen.findByRole('dialog', { name: en.onboardingTitle })).toBeTruthy()
     expect(document.getElementById('root')?.inert).toBe(true)
     expect(screen.getByText(en.onboardingDescription)).toBeTruthy()
@@ -205,7 +211,8 @@ describe('DeepSeekOnboardingDialog', () => {
   it('requires a non-blank key before Save and continue is available', async () => {
     const h = harness()
     render(<DeepSeekOnboardingDialog {...h.props} />)
-    await screen.findByRole('dialog')
+    await chooseApiKey()
+    await screen.findByLabelText(en.keyInput)
     const save = screen.getByRole<HTMLButtonElement>('button', { name: en.onboardingSave })
     expect(save.disabled).toBe(true)
     fireEvent.change(screen.getByLabelText(en.keyInput), { target: { value: '   ' } })
@@ -220,8 +227,8 @@ describe('DeepSeekOnboardingDialog', () => {
     ] as const) {
       const h = harness(options)
       const view = render(<DeepSeekOnboardingDialog {...h.props} />)
-      await screen.findByRole('dialog')
-      fireEvent.change(screen.getByLabelText(en.keyInput), { target: { value: 'sk-live' } })
+      await chooseApiKey()
+      fireEvent.change(await screen.findByLabelText(en.keyInput), { target: { value: 'sk-live' } })
       fireEvent.click(screen.getByRole('button', { name: en.onboardingSave }))
       expect(await screen.findByText(message)).toBeTruthy()
       expect(screen.getByRole('dialog')).toBeTruthy()
@@ -234,10 +241,14 @@ describe('DeepSeekOnboardingDialog', () => {
 
   it('allows configure-later dismissal without opening settings', async () => {
     const h = harness()
-    render(<DeepSeekOnboardingDialog {...h.props} />)
-    await screen.findByRole('dialog')
-    fireEvent.click(screen.getByRole('button', { name: en.onboardingLater }))
+    const view = render(<DeepSeekOnboardingDialog {...h.props} />)
+    fireEvent.click(await screen.findByRole('button', { name: en.onboardingSetUpLater }))
     expect(h.complete).toHaveBeenCalledOnce()
+    view.unmount()
+    render(<DeepSeekOnboardingDialog {...h.props} />)
+    await chooseApiKey()
+    fireEvent.click(await screen.findByRole('button', { name: en.onboardingLater }))
+    expect(h.complete).toHaveBeenCalledTimes(2)
     expect(h.openSection).not.toHaveBeenCalled()
     expect(h.set).not.toHaveBeenCalled()
     expect(h.mutate).not.toHaveBeenCalled()
@@ -289,12 +300,61 @@ describe('DeepSeekOnboardingDialog', () => {
 
 it('offers account choice before reusing the existing API key editor', async () => {
   const h = harness()
-  h.props.renderSlot = (_name, owner: unknown) => <button onClick={(owner as { useApiKey: () => void }).useApiKey}>Choose API key</button>
+  h.props.renderSlot = ((name: string, owner: unknown, options?: { fallback?: unknown }) => name === 'settings.models.sign-in'
+    ? <button onClick={(owner as { useApiKey: () => void }).useApiKey}>Choose API key</button>
+    : options?.fallback) as never
   render(<DeepSeekOnboardingDialog {...h.props} />)
-  await waitFor(() => { expect(screen.getByRole('button', { name: 'Choose API key' })).toBeTruthy() })
-  fireEvent.click(screen.getByRole('button', { name: 'Choose API key' }))
-  expect(screen.getByRole('dialog')).toBeTruthy()
+  fireEvent.click(await screen.findByTestId('onboarding-choice-account'))
+  fireEvent.click(await screen.findByRole('button', { name: 'Choose API key' }))
+  expect(await screen.findByLabelText(en.keyInput)).toBeTruthy()
   expect(h.complete).not.toHaveBeenCalled()
+})
+
+it('returns to the chooser when the account sign-in dialog closes', async () => {
+  const h = harness()
+  h.props.renderSlot = ((name: string, owner: unknown, options?: { fallback?: unknown }) => name === 'settings.models.sign-in'
+    ? <button onClick={(owner as { complete: () => void }).complete}>Close sign in</button>
+    : options?.fallback) as never
+  render(<DeepSeekOnboardingDialog {...h.props} />)
+  fireEvent.click(await screen.findByTestId('onboarding-choice-account'))
+  fireEvent.click(await screen.findByRole('button', { name: 'Close sign in' }))
+  expect(await screen.findByTestId('onboarding-choice-account')).toBeTruthy()
+  expect(h.complete).not.toHaveBeenCalled()
+})
+
+it('lets the local model option take over the step body and give it back', async () => {
+  const h = harness()
+  h.props.renderSlot = ((name: string, owner: unknown, options?: { fallback?: unknown }) => {
+    if (name !== 'settings.models.local-setup') return options?.fallback
+    const local = owner as { expanded: boolean; expand: () => void; collapse: () => void; complete: () => void }
+    return local.expanded
+      ? <div>
+        <span>Downloading</span>
+        <button onClick={local.collapse}>Back</button>
+        <button onClick={local.complete}>Background</button>
+      </div>
+      : <button onClick={local.expand}>Run locally</button>
+  }) as never
+  render(<DeepSeekOnboardingDialog {...h.props} />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Run locally' }))
+  expect(screen.getByText('Downloading')).toBeTruthy()
+  expect(screen.queryByTestId('onboarding-choice-account')).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Back' }))
+  expect(await screen.findByTestId('onboarding-choice-account')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Run locally' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Background' }))
+  expect(h.complete).toHaveBeenCalledOnce()
+})
+
+it('targets a configured onboarding route instead of the official DeepSeek row', async () => {
+  // The official row is declared and needs a key, but the configured route names another row,
+  // so there is nothing this step could repair.
+  const h = harness()
+  h.props.route = { provider: 'tokamak', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'tokamak'] }
+  render(<DeepSeekOnboardingDialog {...h.props} />)
+  await act(async () => { await h.controller.load() })
+  await waitFor(() => { expect(h.complete).toHaveBeenCalledOnce() })
+  expect(screen.queryByRole('dialog')).toBeNull()
 })
 it('explicit account-menu setup reuses the editor without another login choice', async () => {
   const h = harness({ configured: () => true })
