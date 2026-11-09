@@ -1,8 +1,16 @@
 /** macOS development bundle that loads the current workspace through Electron. */
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+/** tokamak-harness: Jan logo the development bundle uses as its Dock and Finder icon. */
+const JAN_LOGO = fileURLToPath(new URL('../../../packages/client/ui-brand-official/src/client/assets/jan-logo.png', import.meta.url))
+
+/** Edges of a macOS iconset; each also gets an @2x variant. */
+const ICONSET_EDGES = [16, 32, 128, 256, 512] as const
 
 /** Workspace and runtime settings captured for Launch Services cold starts. */
 export interface DevelopmentAppOptions {
@@ -30,27 +38,52 @@ export function prepareDevelopmentApp(options: DevelopmentAppOptions): string {
   const executable = join(bundle, 'Contents', 'MacOS', 'HarnessDev')
   const stamp = join(bundle, 'Contents', 'Resources', 'dsh-development.json')
   const launcher = developmentLauncher(options, bundle)
-  const identity = JSON.stringify({ ...options, launcher, plist: readFileSync(join(source, 'Contents', 'Info.plist'), 'utf8') })
+  const identity = JSON.stringify({
+    ...options, launcher, plist: readFileSync(join(source, 'Contents', 'Info.plist'), 'utf8'),
+    logo: createHash('sha256').update(readFileSync(JAN_LOGO)).digest('hex'),
+  })
   if (!existsSync(stamp) || readFileSync(stamp, 'utf8') !== identity) {
     rmSync(bundle, { recursive: true, force: true })
     execFileSync('/usr/bin/ditto', [source, bundle])
     const plist = join(bundle, 'Contents', 'Info.plist')
     const values = {
       CFBundleIdentifier: `com.deepseek.harness.dev.${createHash('sha256').update(options.appRoot).digest('hex').slice(0, 12)}`,
-      CFBundleName: 'Harness Dev',
-      CFBundleDisplayName: 'Harness Dev',
+      CFBundleName: 'Jan Dev',
+      CFBundleDisplayName: 'Jan Dev',
       CFBundleExecutable: 'HarnessDev',
-      CFBundleURLTypes: [{ CFBundleURLName: 'DeepSeek Harness', CFBundleURLSchemes: ['dsh'], CFBundleTypeRole: 'Viewer' }],
+      CFBundleURLTypes: [{ CFBundleURLName: 'Jan', CFBundleURLSchemes: ['dsh'], CFBundleTypeRole: 'Viewer' }],
     }
     for (const [key, value] of Object.entries(values)) {
       execFileSync('/usr/bin/plutil', ['-replace', key, '-json', JSON.stringify(value), plist])
     }
+    writeJanIcon(join(bundle, 'Contents', 'Resources', 'electron.icns'))
     writeFileSync(executable, launcher, { mode: 0o755 })
     writeFileSync(stamp, identity, { mode: 0o600 })
     execFileSync('/usr/bin/codesign', ['--force', '--deep', '--sign', '-', bundle], { stdio: 'pipe' })
   }
   execFileSync('/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister', ['-f', bundle])
   return executable
+}
+
+/**
+ * Replace the bundle's Electron icon with the Jan logo, built through `sips` and `iconutil`.
+ * @param icns - Icon file named by the bundle's `CFBundleIconFile`.
+ */
+function writeJanIcon(icns: string): void {
+  const iconset = join(tmpdir(), `jan-dev-${String(process.pid)}.iconset`)
+  rmSync(iconset, { recursive: true, force: true })
+  mkdirSync(iconset)
+  try {
+    for (const edge of ICONSET_EDGES) {
+      for (const [scale, suffix] of [[1, ''], [2, '@2x']] as const) {
+        const pixels = String(edge * scale)
+        execFileSync('/usr/bin/sips', ['-z', pixels, pixels, JAN_LOGO, '--out', join(iconset, `icon_${String(edge)}x${String(edge)}${suffix}.png`)], { stdio: 'pipe' })
+      }
+    }
+    execFileSync('/usr/bin/iconutil', ['-c', 'icns', iconset, '-o', icns], { stdio: 'pipe' })
+  } finally {
+    rmSync(iconset, { recursive: true, force: true })
+  }
 }
 
 /**

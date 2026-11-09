@@ -35,6 +35,20 @@ function record(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * tokamak-harness: the welcome key belongs to the `llm-pi-ai` `tokamak` route when the DeepSeek route is not mounted.
+ * @param namespaces - Settings namespaces from `settings/describe`.
+ * @returns the route's credential reference, or `undefined` when the route is absent.
+ */
+function tokamakReference(namespaces: readonly unknown[]): string | undefined {
+  const piAi: unknown = namespaces.find((item: unknown) => record(item) && item.ns === 'llm-pi-ai')
+  const providers = record(piAi) && record(piAi.value) ? piAi.value.providers : undefined
+  const tokamak = record(providers) ? providers.tokamak : undefined
+  if (tokamak === undefined) return undefined
+  if (!record(tokamak) || typeof tokamak.apiKeyEnv !== 'string') throw new Error('desktop welcome: invalid Tokamak credential reference')
+  return tokamak.apiKeyEnv
+}
+
+/**
  * Connect the native HTTP client to the Desktop Host; every request sends `cookie` explicitly and uses no cookie jar.
  * @param hostUrl - URL of the running Desktop Host; only its origin is used.
  * @param cookie - Cookie header returned by `authenticateWebHost` for this Host.
@@ -71,7 +85,7 @@ export function connectDesktopWelcome(
     const settings = await invoke({ namespace: 'settings', method: 'describe', args: {} })
     if (!record(settings) || !Array.isArray(settings.namespaces)) throw new Error('desktop welcome: missing settings namespaces')
     const official: unknown = settings.namespaces.find((item: unknown) => record(item) && item.ns === 'llm-deepseek')
-    if (official === undefined) return { settings: { namespaces: settings.namespaces }, ref: undefined }
+    if (official === undefined) return { settings: { namespaces: settings.namespaces }, ref: tokamakReference(settings.namespaces) }
     if (!record(official) || !record(official.value) || typeof official.value.apiKeyEnv !== 'string') {
       throw new Error('desktop welcome: missing official DeepSeek credential reference')
     }

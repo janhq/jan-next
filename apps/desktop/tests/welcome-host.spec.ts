@@ -76,6 +76,16 @@ describe('desktop welcome Web operations', () => {
     expect(host.keys.has('undefined')).toBe(false)
   })
 
+  it('stores the welcome key on the Tokamak route when the official provider is not mounted', async () => {
+    const host = transport()
+    host.namespaces.splice(0, 2, { ns: 'llm-pi-ai', value: { providers: { tokamak: { apiKeyEnv: 'TOKAMAK_API_KEY' } } } })
+    const backend = connectDesktopWelcome(url, cookie, host.send)
+    expect(await backend.read()).toMatchObject({ hasApiKey: false, writable: true })
+    expect(await backend.save('sk_live_example')).toEqual({ ok: true })
+    expect(host.keys.get('TOKAMAK_API_KEY')).toBe('sk_live_example')
+    expect(await backend.read()).toMatchObject({ hasApiKey: true })
+  })
+
   it.each(['', 'bad key', 'key\n'])('rejects malformed keys without contacting a provider: %s', async (value) => {
     const host = transport()
     const backend = connectDesktopWelcome(url, cookie, host.send)
