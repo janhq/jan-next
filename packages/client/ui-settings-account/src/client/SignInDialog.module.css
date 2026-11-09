@@ -18,3 +18,16 @@
 @media (prefers-reduced-motion: reduce) {
   .spinner { animation: none; }
 }
+
+/* tokamak-harness: device sign-in code the user confirms on the approval page. */
+.userCode {
+  display: block;
+  margin-top: 12px;
+}
+
+.userCode strong {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 1.15em;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}

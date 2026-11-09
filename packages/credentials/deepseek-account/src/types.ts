@@ -26,6 +26,8 @@ export interface SignInAttemptView {
   readonly id: SignInAttemptId
   readonly phase: 'initializing' | 'waiting-browser' | 'exchanging' | 'committing' | 'succeeded' | 'cancelled' | 'expired' | 'failed'
   readonly authorizeUrl?: string
+  /** Short code the user confirms on the provider's approval page (device-style flows only). */
+  readonly userCode?: string
   readonly expiresAt?: number
   readonly errorCode?: SignInErrorCode
 }

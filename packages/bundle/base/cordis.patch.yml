@@ -90,8 +90,9 @@
     - id: agent-default-model
       name: '@deepseek-ai/dsh-agent-default-model'
       config:
-        provider: deepseek-official
-        model: deepseek-flash
+        # tokamak-harness: default to the Tokamak router (llm-pi-ai `tokamak` route below).
+        provider: tokamak
+        model: tokamak-1-preview
 
     - id: jobs
       name: '@deepseek-ai/dsh-jobs-local'
@@ -117,10 +118,17 @@
     - id: authorization
       name: '@deepseek-ai/dsh-authorization'
 
+    # tokamak-harness: the account seam is served by Tokamak's CLI device sign-in.
+    # The minted key is stored as a grant record and as the TOKAMAK_API_KEY
+    # credential the `tokamak` model route reads. TOKAMAK_BASE_URL / TOKAMAK_WEB_URL
+    # point it at another deployment; TOKAMAK_BASE_URL must include /v1
+    # (e.g. https://api-stag.tokamak.sh/v1) because the model route uses it verbatim.
     - id: deepseek-account
-      name: '@deepseek-ai/dsh-deepseek-account-platform'
+      name: '@deepseek-ai/dsh-tokamak-account'
       config:
-        desktopPlatform: !!js "ctx.get('profileContext')?.name === 'desktop' && ['darwin', 'win32'].includes(process.platform) ? process.platform : null"
+        apiBaseURL: !!js process.env.TOKAMAK_BASE_URL || 'https://api.tokamak.sh/v1'
+        webOrigin: !!js process.env.TOKAMAK_WEB_URL || ''
+        allowLoopbackHttp: !!js "Boolean(process.env.TOKAMAK_ALLOW_LOOPBACK_HTTP)"
 
     - id: credentials
       name: '@deepseek-ai/dsh-credentials-local'
@@ -134,6 +142,27 @@
     # document.
     - id: llm-pi-ai
       name: '@deepseek-ai/dsh-llm-pi-ai'
+      config:
+        providers:
+          # tokamak-harness: Tokamak router, OpenAI-compatible, keyed by the
+          # TOKAMAK_API_KEY credential that Tokamak sign-in writes (or the env var).
+          tokamak:
+            displayName: Tokamak
+            api: openai-completions
+            # TOKAMAK_BASE_URL must include the /v1 path, e.g. https://api-stag.tokamak.sh/v1
+            baseURL: !!js process.env.TOKAMAK_BASE_URL || 'https://api.tokamak.sh/v1'
+            apiKeyEnv: TOKAMAK_API_KEY
+            defaultContextWindow: 200000
+            models:
+              - id: tokamak-1-preview
+              - id: tokamak/auto
+              - id: anthropic/claude-sonnet-5-5[1m]
+                contextWindow: 1000000
+              - id: anthropic/claude-opus-5-5[1m]
+                contextWindow: 1000000
+              - id: anthropic/claude-haiku-5-5[1m]
+                contextWindow: 1000000
+              - id: openai/gpt-6-sol
 
     - id: session-persistence-jsonl
       name: '@deepseek-ai/dsh-session-persistence-jsonl'
@@ -199,8 +228,10 @@
         writeEveryEvents: 200
         writeIntervalMs: 5000
 
+    # tokamak-harness: no exporter consumes OTel channels, so the service is not mounted.
     - id: otel
       name: '@deepseek-ai/dsh-otel'
+      disabled: true
 
     # OTel releases a Session-log prefix only after explicit user feedback,
     # regardless of model provider. Ordinary activity never triggers capture.
@@ -215,8 +246,10 @@
     # active request slot. The outer 3s shutdown deadline stops queued sends;
     # large prefixes or an unsettled transport may leave records unsent.
     # Every CLI exit path drains by disposing the root on SIGINT/SIGTERM.
+    # tokamak-harness: telemetry is off. Session-log export to DeepSeek's collector is never mounted.
     - id: session-telemetry-otel
       name: '@deepseek-ai/dsh-session-telemetry-otel'
+      disabled: true
       config:
         mode: !!js process.env.DSH_TELEMETRY_MODE || 'FEEDBACK_ONLY'
         shutdownTimeoutMillis: 3000
@@ -482,16 +515,18 @@
     - id: web
       name: '@deepseek-ai/dsh-web'
       config:
-        searchProvider: deepseek-search-api
+        # tokamak-harness: DeepSeek search is disabled; pick a provider in settings.
         fetchProvider: http
 
     - id: web-search-deepseek
       name: '@deepseek-ai/dsh-web-search-deepseek'
+      disabled: true
       config:
         apiKeyEnv: DEEPSEEK_API_KEY
 
     - id: web-deepseek-api
       name: '@deepseek-ai/dsh-web-deepseek-api'
+      disabled: true
 
     - id: web-fetch-http
       name: '@deepseek-ai/dsh-web-fetch-http'
@@ -541,8 +576,11 @@
     # request from the `llm-deepseek:` settings section over this entry, with the
     # key coming from the credential store below. Thinking defaults are a deployment
     # choice.
+    # tokamak-harness: DeepSeek model routes are kept but not mounted.
     - id: llm-deepseek
       name: '@deepseek-ai/dsh-llm-deepseek-api-key'
+      disabled: true
 
     - id: llm-deepseek-account
       name: '@deepseek-ai/dsh-llm-deepseek-account'
+      disabled: true
