@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { copyFile, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { createServer, type Server } from 'node:http'
 import { createServer as createNetServer } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -216,7 +216,8 @@ it('installs the model, stores a route key, and serves it on the loopback port w
   expect(launch.argv.join(' ')).toContain('-c 32768 --fit on --fit-target 1024')
   expect(launch.argv).not.toContain('-ngl')
   expect(running.contextSize).toBe(32768)
-  expect(launch.cwd).toBe(f.bin)
+  // macOS reports the realpath of a symlinked tmpdir (/var -> /private/var) as the child's cwd.
+  expect(launch.cwd).toBe(await realpath(f.bin))
 })
 
 it('lets --fit choose the context when ctxSize is 0, and pins layers when fit is off', async () => {
@@ -319,7 +320,9 @@ it('refuses to start when the port is taken by something else', async () => {
   await new Promise<void>(resolve => other.listen(g.port, '127.0.0.1', resolve))
   cleanups.push(() => new Promise(resolve => other.close(resolve)))
   await g.llama.start()
-  expect(g.llama.snapshot()).toMatchObject({ phase: 'failed', error: expect.stringMatching(/port \d+ is already in use/) })
+  const failed = g.llama.snapshot()
+  expect(failed.phase).toBe('failed')
+  expect(failed.error).toMatch(/port \d+ is already in use/)
 })
 
 it('reports a server that exits before it is ready, with its log tail', async () => {
