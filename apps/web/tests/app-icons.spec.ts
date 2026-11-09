@@ -1,10 +1,10 @@
-/** Committed install icon dimensions and the generator's SVG crop and safe-zone scale. */
+/** Committed install icons and favicons match what the generator renders from the Jan logo. */
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
-  APP_ICON_VARIANTS, ICON_OUTPUT_DIRECTORY, MASKABLE_ARTWORK_SCALE, TILE_SOURCE,
-  maskableDocument, tileDocument,
+  APP_ICON_VARIANTS, FAVICON_FILES, ICON_OUTPUT_DIRECTORY, LOGO_SOURCE, MASKABLE_ARTWORK_SCALE,
+  TILE_ARTWORK_SCALE, artworkScale, renderAppIcons, renderFavicon,
 } from '../scripts/render-app-icons.ts'
 import { pngSize } from './png-size.ts'
 
@@ -16,28 +16,23 @@ describe('web install icons', () => {
     }
   })
 
-  it('crops the desktop shadow and scales only the maskable artwork', async () => {
-    const source = await readFile(TILE_SOURCE, 'utf8')
-    const tile = tileDocument(source)
-    const maskable = maskableDocument(source)
-    expect(tile).toContain('viewBox="40 32 1024 1024"')
-    expect(tile).not.toContain('<g filter="url(#filter0_d_1637_371)">')
-    expect(tile).not.toContain(`scale(${MASKABLE_ARTWORK_SCALE})`)
-    expect(tile).toContain('<g filter="url(#filter1_ddi_1637_371)">')
-    expect(tile).toContain(source.match(/<path\b[^>]*>/u)![0])
-    expect(tile).toContain(source.match(/<defs>[\s\S]*<\/defs>/u)![0])
-    expect(maskable).toContain(`transform="translate(552 544) scale(${MASKABLE_ARTWORK_SCALE}) translate(-552 -544)"`)
+  it('commits exactly the icons and favicons the generator renders from the logo', async () => {
+    const logo = await readFile(LOGO_SOURCE)
+    for (const { variant, png } of await renderAppIcons(logo)) {
+      expect(png.equals(await readFile(join(ICON_OUTPUT_DIRECTORY, variant.file))), variant.file).toBe(true)
+    }
+    const favicon = await renderFavicon(logo)
+    for (const file of FAVICON_FILES) expect(await readFile(join(ICON_OUTPUT_DIRECTORY, file), 'utf8'), file).toBe(favicon)
+  })
+
+  it('shrinks only the maskable artwork', () => {
+    expect(artworkScale('tile')).toBe(TILE_ARTWORK_SCALE)
+    expect(artworkScale('maskable')).toBe(MASKABLE_ARTWORK_SCALE)
+    expect(MASKABLE_ARTWORK_SCALE).toBeLessThan(TILE_ARTWORK_SCALE)
   })
 
   it('rejects non-PNG bytes and incomplete image headers', () => {
     expect(() => pngSize(Buffer.from('<svg/>'))).toThrow(/PNG IHDR/)
     expect(() => pngSize(Buffer.alloc(33))).toThrow(/PNG IHDR/)
-  })
-
-  it('fails loudly on a source without the tile it transforms', () => {
-    expect(() => tileDocument('')).toThrow(/no root element/)
-    expect(() => tileDocument('<svg></svg>')).toThrow(/no shadowed tile group/)
-    expect(() => maskableDocument('<svg><g filter="url(#filter0_d_1637_371)"></g></svg>'))
-      .toThrow(/no artwork group/)
   })
 })

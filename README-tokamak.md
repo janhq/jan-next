@@ -119,6 +119,10 @@ Some repository checks are expected to fail in this fork, because it doesn't fol
 
 `pnpm run build` passes.
 
+## Branding
+
+The English UI says **Jan** instead of DeepSeek Harness, Tokamak Harness or DSH: the sidebar, browser title, PWA manifest, Preview Notice, Get started, account, plugin manager and Office preview copy. Other locales still carry the upstream name. The logo is Jan's waving hand (`web-app/public/images/jan-logo.png` from [janhq/jan](https://github.com/janhq/jan)), stored once in `ui-brand-official`, which puts it in the sidebar and home-hero mark slots. `pnpm --filter @deepseek-ai/dsh-web-frontend run render:app-icons` renders the favicons and PWA icons in `apps/web/public/` from it. The upstream pixel-whale home decoration is removed. CLI help text and package names are unchanged.
+
 ## Telemetry
 
 Everything that reports usage is unmounted in every profile:
