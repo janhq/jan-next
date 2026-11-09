@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest'
+import { loginOrigin } from '../src/index.ts'
 import { apiRoot, buildAuthorizeUrl, clampInterval, modelIds, normalizeBaseUrl, pollStatusIsTransient, webRoot } from '../src/protocol.ts'
 
 it('normalizes base URLs, adding /v1 to bare hosts', () => {
@@ -38,4 +39,12 @@ it('accepts the model listing shapes Jan accepts', () => {
   expect(modelIds([{ id: 'a' }])).toEqual(['a'])
   expect(modelIds(['a', 'b'])).toEqual(['a', 'b'])
   expect(modelIds({})).toEqual([])
+})
+
+it('wakes on the loopback host like Jan and ignores non-loopback UI origins', () => {
+  expect(loginOrigin('http://localhost:3080')).toBe('http://127.0.0.1:3080')
+  expect(loginOrigin('http://127.0.0.1:3080/')).toBe('http://127.0.0.1:3080')
+  expect(loginOrigin('http://[::1]:3080')).toBe('http://[::1]:3080')
+  expect(loginOrigin('http://192.168.1.5:3080')).toBeUndefined()
+  expect(loginOrigin('https://harness.example.test')).toBeUndefined()
 })

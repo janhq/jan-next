@@ -76,8 +76,8 @@ interface Attempt {
   controller: AbortController
   done: Promise<void>
   running: Promise<void>
-  /** Loopback origin the browser can reach this Host on. */
-  origin: string
+  /** Loopback origin for the wake ping; undefined when the UI is served from a non-loopback origin. */
+  origin: string | undefined
   disposeWake?: () => Promise<void>
 }
 
@@ -139,7 +139,13 @@ export class TokamakAccount extends DeepSeekAccount {
     const stored = await this.readGrant().catch(() => null)
     if (stored === null) return
     if (stored.issuer !== this.root) {
-      // A key minted by another deployment (e.g. staging) must not be sent to this one.
+      // A key minted by another deployment (e.g. staging) must not be sent to this one; revoke it there.
+      await this.clearStored(stored)
+      if (stored.keyId !== undefined) this.revoke(stored.keyId, stored.token, stored.issuer)
+      return
+    }
+    if (stored.expiresAt !== undefined && stored.expiresAt <= Date.now()) {
+      console.warn('[tokamak-account] the stored Tokamak API key has expired; sign in again')
       await this.clearStored(stored)
       return
     }
@@ -162,6 +168,16 @@ export class TokamakAccount extends DeepSeekAccount {
   override async getProfile(_client: AccountClientMetadata): Promise<AccountDetails['profile'] | null> {
     const stored = await this.readGrant()
     if (stored === null) return null
+    // The model route reads TOKAMAK_API_KEY directly and never reports rejections here, so the
+    // account page is where a key revoked on tokamak.sh, or past its expiry, is noticed.
+    if (stored.expiresAt !== undefined && stored.expiresAt <= Date.now()) {
+      await this.rejectToken(stored.token)
+      return null
+    }
+    if (await this.keyRejected(stored)) {
+      await this.rejectToken(stored.token)
+      return null
+    }
     return { status: 'ready', value: { id: null, name: stored.account ?? 'Tokamak', contact: stored.account ?? null } }
   }
 
@@ -199,10 +215,11 @@ export class TokamakAccount extends DeepSeekAccount {
     if (stored === null || stored.token !== token) return
     this.removing ??= (async () => {
       // An attempt in flight must not later commit silently over an expired session.
-      if (this.attempt !== undefined) await this.cancelSignIn(this.attempt.view.id)
+      const cancelled = this.attempt
+      if (cancelled !== undefined) await this.cancelSignIn(cancelled.view.id)
       await this.clearStored(stored)
       this.ctx.emit('deepseek-account/session-expired')
-      this.attempt = undefined
+      if (this.attempt === cancelled) this.attempt = undefined
       this.ctx.emit('deepseek-account/signed-out')
       this.changed()
       return this.getState()
@@ -218,6 +235,7 @@ export class TokamakAccount extends DeepSeekAccount {
     const previous = this.attempt
     if (previous !== undefined) {
       await previous.done
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- disposal can race the await
       if (this.closed) throw new TokamakAuthError('protocol')
       if (this.attempt !== previous) return this.getState()
     }
@@ -262,13 +280,15 @@ export class TokamakAccount extends DeepSeekAccount {
   override signOut(_client: AccountClientMetadata): Promise<AccountView> {
     this.removing ??= (async () => {
       if (this.closed) throw new TokamakAuthError('protocol')
-      if (this.attempt !== undefined) await this.cancelSignIn(this.attempt.view.id)
+      const cancelled = this.attempt
+      if (cancelled !== undefined) await this.cancelSignIn(cancelled.view.id)
       const stored = await this.readGrant()
       if (stored !== null) {
         await this.clearStored(stored)
-        if (stored.keyId !== undefined && stored.issuer === this.root) this.revoke(stored.keyId, stored.token)
+        if (stored.keyId !== undefined) this.revoke(stored.keyId, stored.token, stored.issuer)
       }
-      this.attempt = undefined
+      // A sign-in started while this one was settling stays visible and cancellable.
+      if (this.attempt === cancelled) this.attempt = undefined
       this.ctx.emit('deepseek-account/signed-out')
       this.changed()
       return this.getState()
@@ -317,12 +337,23 @@ export class TokamakAccount extends DeepSeekAccount {
     else await this.ctx.credentials.unset(this.keyRef).catch(() => undefined)
   }
 
-  private revoke(keyId: string, token: string): void {
-    if (this.closed) return
-    const task = revokeKey(this.root, keyId, token, AbortSignal.any([this.lifetime.signal, AbortSignal.timeout(this.requestTimeout)]))
+  /** Best-effort server-side revocation; disposal awaits it, so it is kept short once closing. */
+  private revoke(keyId: string, token: string, issuer = this.root): void {
+    const timeout = this.closed ? Math.min(this.requestTimeout, 3_000) : this.requestTimeout
+    const task = revokeKey(apiRoot(issuer), keyId, token, AbortSignal.timeout(timeout))
       .then((revoked) => { if (!revoked) console.warn('[tokamak-account] could not revoke the API key server-side', { keyId }) })
       .finally(() => { this.background.delete(task) })
     this.background.add(task)
+  }
+
+  /** @returns true only when Tokamak explicitly rejects the stored key (401/403); outages are not rejections. */
+  private async keyRejected(stored: Grant): Promise<boolean> {
+    try {
+      await verifyKey(this.baseUrl, stored.token, AbortSignal.timeout(this.requestTimeout))
+      return false
+    } catch (error) {
+      return error instanceof TokamakAuthError && error.code === 'expired'
+    }
   }
 
   private changed(): void { for (const listener of this.listeners) listener() }
@@ -339,7 +370,7 @@ export class TokamakAccount extends DeepSeekAccount {
     const state = randomBytes(32).toString('base64url')
     const challenge = createHash('sha256').update(verifier).digest('base64url')
     const waker = new Waker()
-    const webServer = this.ctx.get('webServer')
+    const webServer = attempt.origin === undefined ? undefined : this.ctx.get('webServer')
     if (webServer !== undefined) {
       attempt.disposeWake = this.ctx.effect(() => webServer.register({
         kind: 'exact', path: WAKE_PATH, handler: (req, res) => {
@@ -374,7 +405,7 @@ export class TokamakAccount extends DeepSeekAccount {
     session.signal.throwIfAborted()
     const expiresAt = Math.min(startedAt + this.attemptTimeout, Date.now() + device.expiresInSeconds * 1000)
     const authorizeUrl = buildAuthorizeUrl(this.web, device.userCode,
-      webServer === undefined ? undefined : { redirect: `${attempt.origin}${WAKE_PATH}`, state })
+      webServer === undefined || attempt.origin === undefined ? undefined : { redirect: `${attempt.origin}${WAKE_PATH}`, state })
     // update() drops the link and code on every later phase.
     this.update(attempt, { phase: 'waiting-browser', authorizeUrl, userCode: device.userCode, expiresAt })
 
@@ -396,10 +427,22 @@ export class TokamakAccount extends DeepSeekAccount {
     // From here a live key exists server-side: any failure revokes it rather than orphaning it.
     try {
       this.update(attempt, { phase: 'exchanging' })
-      await verifyKey(this.baseUrl, key.key, requestSignal())
+      try { await verifyKey(this.baseUrl, key.key, requestSignal()) } catch (error) {
+        // Only an explicit rejection is fatal; an outage right after approval keeps the key (Jan uses
+        // the listing for metadata, not as a gate).
+        if (!(error instanceof TokamakAuthError && error.code === 'expired')) {
+          console.warn('[tokamak-account] could not verify the new key; keeping it', {
+            errorCode: error instanceof TokamakAuthError ? error.code : 'unknown',
+          })
+        } else throw error
+      }
       this.update(attempt, { phase: 'committing' })
+      // Signing in again while signed in: the current reference is our own previous key, so carry
+      // over whatever *it* replaced, and revoke it once the new key is stored.
+      const old = await this.readGrant().catch(() => null)
       const previous = await this.ctx.credentials.resolve(this.keyRef).catch(() => undefined)
-      const replacedKey = previous?.source === 'file' && previous.value !== key.key ? previous.value : undefined
+      const replacedKey = previous?.source !== 'file' || previous.value === key.key ? undefined
+        : old !== null && previous.value === old.token ? old.replacedKey : previous.value
       const payload: Grant = {
         version: 1, token: key.key, issuer: this.root,
         ...replacedKey === undefined ? {} : { replacedKey },
@@ -414,9 +457,12 @@ export class TokamakAccount extends DeepSeekAccount {
       }
       try { await this.ctx.credentials.set(this.keyRef, key.key) } catch (error) {
         console.error('[tokamak-account] could not store the API key credential', { error: String(error) })
-        await this.ctx.credentials.deleteRecord(KEY).catch(() => undefined)
+        // Put back exactly what was there, so the grant and the reference keep agreeing.
+        await (old === null ? this.ctx.credentials.deleteRecord(KEY)
+          : this.ctx.credentials.modifyRecord(KEY, () => Promise.resolve({ kind: 'grant', payload: old }))).catch(() => undefined)
         throw new TokamakAuthError('storage')
       }
+      if (old !== null && old.token !== key.key && old.keyId !== undefined) this.revoke(old.keyId, old.token, old.issuer)
     } catch (error) {
       if (key.keyId !== undefined) this.revoke(key.keyId, key.key)
       throw error
@@ -456,19 +502,19 @@ class Waker {
 }
 
 /**
- * Accept a browser-reachable loopback HTTP origin with an explicit port (local or SSH-forwarded).
- * @param value - origin supplied by the initiating UI.
- * @returns normalized origin.
+ * The loopback origin the approval page may ping to wake the poller, Jan-style (`http://127.0.0.1:<port>`).
+ * @param value - origin the initiating UI is served from.
+ * @returns normalized loopback origin, or undefined for any other origin (LAN, proxy, HTTPS): the
+ *   device flow then simply polls without a wake ping.
  */
-export function loginOrigin(value: string): string {
+export function loginOrigin(value: string): string | undefined {
   let url: URL
-  try { url = new URL(value) } catch { throw new TokamakAuthError('protocol') }
+  try { url = new URL(value) } catch { return undefined }
   const explicitPort = /^http:\/\/(?:localhost|127\.0\.0\.1|\[::1\]):([0-9]+)\/?$/i.exec(value)?.[1]
   if (explicitPort === undefined || Number(explicitPort) === 0 || url.protocol !== 'http:'
-    || !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) {
-    throw new TokamakAuthError('protocol')
-  }
-  return `${url.protocol}//${url.hostname}:${Number(explicitPort)}`
+    || !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) return undefined
+  const host = url.hostname === '[::1]' ? '[::1]' : '127.0.0.1'
+  return `http://${host}:${Number(explicitPort)}`
 }
 
 const WAKE_PAGE = '<!doctype html><html><head><meta charset="utf-8"><title>Tokamak Harness</title></head>'
