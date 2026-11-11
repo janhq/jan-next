@@ -18,6 +18,8 @@ export interface LocalModelMirror {
 export function observeLocalModel(ctx: Context): { store: SnapshotStore<LocalModelMirror>; dispose: () => Promise<void> } {
   const store = createSnapshotStore<LocalModelMirror>({ state: null, connected: false })
   let disposed = false
+  // Read through a call: the flag is set by `dispose` while the loop below awaits.
+  const isDisposed = (): boolean => disposed
   const lost = (): void => { store.set({ ...store.getSnapshot(), connected: false }) }
   const stream = ctx.remote.$stream<LlamaCppState>({
     name: 'Local model state', open: signal => ctx.remote.llamaCpp.follow(signal),
@@ -29,7 +31,7 @@ export function observeLocalModel(ctx: Context): { store: SnapshotStore<LocalMod
         store.set({ state: item.value, connected: true })
         item.accept()
       }
-    } catch { if (!disposed) lost() }
+    } catch { if (!isDisposed()) lost() }
   })()
   return { store, dispose: async () => { disposed = true; await stream.dispose(); await observing } }
 }
@@ -44,4 +46,25 @@ export function formatBytes(bytes: number): string {
   if (bytes >= 1e6) return `${Math.round(bytes / 1e6)} MB`
   if (bytes <= 0) return '0 MB'
   return `${Math.max(1, Math.round(bytes / 1e3))} KB`
+}
+
+/** Locale key and parameters describing the time a download still needs. */
+export type EtaCopy =
+  | { key: 'etaSoon'; params: Record<string, never> }
+  | { key: 'etaMinutes'; params: { minutes: string } }
+  | { key: 'etaHours'; params: { hours: string; minutes: string } }
+
+/**
+ * Estimate the remaining download time.
+ * @param remainingBytes - bytes still to arrive.
+ * @param bytesPerSecond - recent rate; 0 when not yet measured.
+ * @returns the copy to show, or undefined while the rate is unknown.
+ */
+export function estimateRemaining(remainingBytes: number, bytesPerSecond: number): EtaCopy | undefined {
+  if (bytesPerSecond <= 0) return undefined
+  const seconds = Math.max(0, remainingBytes) / bytesPerSecond
+  if (seconds < 60) return { key: 'etaSoon', params: {} }
+  const minutes = Math.ceil(seconds / 60)
+  if (minutes < 60) return { key: 'etaMinutes', params: { minutes: String(minutes) } }
+  return { key: 'etaHours', params: { hours: String(Math.floor(minutes / 60)), minutes: String(minutes % 60) } }
 }

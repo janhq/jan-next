@@ -6,7 +6,7 @@ import { Welcome } from '../src/client/WelcomePage.tsx'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { resolveDesktopLocale } from '../src/locale.ts'
 import type { AccountView } from '@deepseek-ai/dsh-deepseek-account/types'
-import type { WelcomeSaveResult, WelcomeNotice } from '../src/welcome-api.ts'
+import type { WelcomeLocalModel, WelcomeSaveResult, WelcomeNotice } from '../src/welcome-api.ts'
 
 const html = readFileSync(join(import.meta.dirname, '../renderer/welcome.html'), 'utf8')
 afterEach(cleanup)
@@ -25,6 +25,8 @@ function mount(language = 'zh-CN', takeNotice = vi.fn<() => Promise<WelcomeNotic
     ...resolveDesktopLocale(language),
     saveApiKey: vi.fn<(value: string) => Promise<WelcomeSaveResult>>().mockResolvedValue({ ok: true }),
     skip: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+    startLocalModel: vi.fn<() => Promise<WelcomeLocalModel>>().mockResolvedValue({ phase: 'downloading', name: 'Jan v3.5 4B', totalBytes: 2_739_176_643 }),
+    readLocalModel: vi.fn<() => Promise<WelcomeLocalModel | undefined>>().mockResolvedValue({ phase: 'downloading', name: 'Jan v3.5 4B', totalBytes: 2_739_176_643 }),
   }
   const mounted = render(<Welcome api={api} />)
   const input = document.querySelector('input')!
@@ -340,4 +342,62 @@ it('reports each return to the welcome entry once, including account cancellatio
   fireEvent.click(view.button('#sign-in'))
   await act(async () => { pending.resolve({ links: { usageUrl: 'http://localhost/usage', topUpUrl: 'http://localhost/top_up' }, status: 'signed-out', attempt: null }) })
   expect(view.api.analytics.mock.calls.map(([action]) => action)).toEqual(['auth_page_click', 'auth_page_view', 'auth_page_click', 'auth_page_view'])
+})
+
+describe('local model setup', () => {
+  const downloading = (receivedBytes: number, step: 'engine' | 'model' = 'model'): WelcomeLocalModel => ({
+    phase: 'downloading', name: 'Jan v3.5 4B', totalBytes: 2_739_176_643,
+    progress: { step, receivedBytes, totalBytes: 2_739_176_643, bytesPerSecond: 25_000_000 },
+  })
+
+  it('leads with the local download, starts it, and shows its progress', async () => {
+    const view = mount('en')
+    const entry = [...document.querySelectorAll('#entry-actions button')].map(item => item.id)
+    expect(entry).toEqual(['local-model', 'sign-in', 'api-key'])
+    expect(view.button('#local-model').className).toBe('primary')
+    view.api.readLocalModel.mockResolvedValue(downloading(1_000_000_000))
+    await act(async () => { fireEvent.click(view.button('#local-model')) })
+    expect(view.api.startLocalModel).toHaveBeenCalledOnce()
+    await act(async () => { await Promise.resolve() })
+    expect(document.querySelector('#local-title')!.textContent).toBe('Setting up Jan v3.5 4B')
+    expect(document.querySelector('#local-status')!.textContent).toBe('Downloading Jan v3.5 4B')
+    expect(document.querySelector('#local-detail')!.textContent).toBe('36% · 1.0 GB of 2.7 GB · 25 MB/s')
+    await act(async () => { fireEvent.click(view.button('#local-background')) })
+    expect(view.api.skip).toHaveBeenCalledOnce()
+  })
+
+  it('names the engine step, then offers to start chatting once the model runs', async () => {
+    const view = mount('en')
+    view.api.startLocalModel.mockResolvedValue(downloading(10_000_000, 'engine'))
+    view.api.readLocalModel.mockResolvedValue(downloading(10_000_000, 'engine'))
+    await act(async () => { fireEvent.click(view.button('#local-model')) })
+    expect(document.querySelector('#local-status')!.textContent).toBe('Downloading the llama.cpp engine')
+    view.api.readLocalModel.mockResolvedValue({ phase: 'running', name: 'Jan v3.5 4B', totalBytes: 1 })
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 600)) })
+    expect(document.querySelector('#local-status')!.textContent).toBe('Jan v3.5 4B is ready.')
+    expect(document.querySelector('#local-progress')).toBeNull()
+    await act(async () => { fireEvent.click(view.button('#local-start')) })
+    expect(view.api.skip).toHaveBeenCalledOnce()
+  })
+
+  it('shows a failure with a retry and a way back', async () => {
+    const view = mount('en')
+    const failed: WelcomeLocalModel = { phase: 'failed', name: 'Jan v3.5 4B', totalBytes: 1, error: 'Could not download model: HTTP 404' }
+    view.api.startLocalModel.mockResolvedValue(failed)
+    view.api.readLocalModel.mockResolvedValue(failed)
+    await act(async () => { fireEvent.click(view.button('#local-model')) })
+    expect(screen.getByRole('alert').textContent).toBe('Could not download model: HTTP 404')
+    await act(async () => { fireEvent.click(view.button('#local-retry')) })
+    expect(view.api.startLocalModel).toHaveBeenCalledTimes(2)
+    fireEvent.click(view.button('#local-back'))
+    expect(document.querySelector('#entry-actions')!.hasAttribute('hidden')).toBe(false)
+  })
+
+  it('treats a refused start as a failure', async () => {
+    const view = mount('en')
+    view.api.startLocalModel.mockRejectedValue(new Error('closed'))
+    view.api.readLocalModel.mockResolvedValue(undefined)
+    await act(async () => { fireEvent.click(view.button('#local-model')) })
+    expect(document.querySelector('#local-status')!.textContent).toBe('The local model could not be set up.')
+  })
 })

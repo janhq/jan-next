@@ -1,17 +1,23 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
-import type { LlamaCppState } from '@deepseek-ai/dsh-api-llama-cpp-controller'
+import type { CatalogModelInfo, LlamaCppProgress, LlamaCppState, LocalModelEntry } from '@deepseek-ai/dsh-api-llama-cpp-controller'
 import { LocalModelCard, type LocalModelCardProps } from '../src/client/LocalModelCard.tsx'
 import { LocalSetup, type LocalSetupProps } from '../src/client/LocalSetup.tsx'
 import { en } from '../src/client/locales.ts'
-import { formatBytes, type LocalModelMirror } from '../src/client/state.ts'
+import { estimateRemaining, formatBytes, type LocalModelMirror } from '../src/client/state.ts'
+import type { LocalModelActions } from '../src/client/actions.ts'
 
 afterEach(cleanup)
 
 const model = { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', modelBytes: 2_716_066_656, engineBytes: 23_109_987, backend: 'cpu' as const, engineVersion: 'b12211' }
+const jan: LocalModelEntry = { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', bytes: 2_716_066_656, source: 'catalog', active: true }
+const catalog: CatalogModelInfo[] = [
+  { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', bytes: 2_716_066_656, repo: 'janhq/Jan-v3.5-4B-gguf', recommended: true, installed: false },
+  { id: 'qwen3-8b', name: 'Qwen3 8B', bytes: 5_027_784_512, repo: 'unsloth/Qwen3-8B-GGUF', recommended: false, installed: false },
+]
 
 function t(key: keyof typeof en, params?: Record<string, string>): string {
   let text: string = en[key]
@@ -19,12 +25,27 @@ function t(key: keyof typeof en, params?: Record<string, string>): string {
   return text
 }
 
-function fixture(state: Partial<LlamaCppState> & Pick<LlamaCppState, 'phase'>) {
-  const store = createSnapshotStore<LocalModelMirror>({ state: { provider: 'local', model, ...state }, connected: true })
-  const actions = { install: vi.fn(), cancel: vi.fn(), start: vi.fn(), stop: vi.fn(), uninstall: vi.fn() }
-  const set = (next: Partial<LlamaCppState> & Pick<LlamaCppState, 'phase'>): void => {
-    store.set({ state: { provider: 'local', model, ...next }, connected: true })
+function progress(receivedBytes: number, totalBytes: number, extra: Partial<LlamaCppProgress> = {}): LlamaCppProgress {
+  return { phase: 'model', receivedBytes, totalBytes, overallReceivedBytes: receivedBytes, overallTotalBytes: totalBytes, bytesPerSecond: 0, ...extra }
+}
+
+type StateInput = Partial<LlamaCppState> & Pick<LlamaCppState, 'phase'>
+
+const INSTALLED = new Set(['installed', 'stopped', 'starting', 'running'])
+
+function full(state: StateInput): LlamaCppState {
+  return { provider: 'local', model, models: INSTALLED.has(state.phase) ? [jan] : [], downloads: [], catalog, ...state }
+}
+
+function fixture(state: StateInput) {
+  const store = createSnapshotStore<LocalModelMirror>({ state: full(state), connected: true })
+  const actions = {
+    install: vi.fn(), cancel: vi.fn(), start: vi.fn(), stop: vi.fn(), uninstall: vi.fn(),
+    downloadModel: vi.fn(), cancelDownload: vi.fn(), selectModel: vi.fn(), deleteModel: vi.fn(),
+    lookupRepo: vi.fn<LocalModelActions['lookupRepo']>(), downloadRepoFile: vi.fn<LocalModelActions['downloadRepoFile']>(),
+    importModel: vi.fn<LocalModelActions['importModel']>(),
   }
+  const set = (next: StateInput): void => { store.set({ state: full(next), connected: true }) }
   return { store, actions, set, useLocalModel: bindSnapshotSelector(store) }
 }
 
@@ -32,25 +53,40 @@ function card(f: ReturnType<typeof fixture>) {
   return render(<LocalModelCard {...{ useLocalModel: f.useLocalModel, actions: f.actions, t } as never as LocalModelCardProps} />)
 }
 
-it('formats sizes for people', () => {
+it('formats sizes and remaining time for people', () => {
   expect(formatBytes(2_716_066_656)).toBe('2.7 GB')
   expect(formatBytes(23_109_987)).toBe('23 MB')
   expect(formatBytes(512)).toBe('1 KB')
   expect(formatBytes(0)).toBe('0 MB')
+  expect(estimateRemaining(1000, 0)).toBeUndefined()
+  expect(estimateRemaining(30_000_000, 1_000_000)).toEqual({ key: 'etaSoon', params: {} })
+  expect(estimateRemaining(150_000_000, 1_000_000)).toEqual({ key: 'etaMinutes', params: { minutes: '3' } })
+  expect(estimateRemaining(4_000_000_000, 1_000_000)).toEqual({ key: 'etaHours', params: { hours: '1', minutes: '7' } })
 })
 
-it('offers the download with its total size, then shows byte progress and cancel', () => {
+it('offers the download with its total size, then shows percent, speed, time left and cancel', () => {
   const f = fixture({ phase: 'missing' })
   const view = card(f)
   fireEvent.click(screen.getByRole('button', { name: 'Download (2.7 GB)' }))
   expect(f.actions.install).toHaveBeenCalledOnce()
   view.unmount()
-  f.set({ phase: 'downloading', progress: { phase: 'model', receivedBytes: 1_000_000_000, totalBytes: 2_716_066_656 } })
+  const running = progress(1_000_000_000, 2_716_066_656, { bytesPerSecond: 20_000_000 })
+  f.set({ phase: 'downloading', progress: running, downloads: [{ id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', progress: running }] })
   card(f)
-  expect(screen.getByTestId('local-model-progress').textContent).toBe('Model: 1.0 GB of 2.7 GB')
+  expect(screen.getByTestId('local-model-progress').textContent)
+    .toBe('Downloading Jan v3.5 4B: 36% · 1.0 GB of 2.7 GB · 20 MB/s · about 2 min left')
   fireEvent.click(screen.getByRole('button', { name: en.cancel }))
   expect(f.actions.cancel).toHaveBeenCalledOnce()
   expect(screen.queryByTestId('local-model-remove')).toBeNull()
+  // The first download is shown once, by the card, not again in the downloads list.
+  expect(screen.queryByTestId('local-model-downloads')).toBeNull()
+})
+
+it('names the engine step while the engine downloads', () => {
+  const engine = progress(10_000_000, 23_109_987, { phase: 'engine', overallTotalBytes: 2_739_176_643 })
+  const f = fixture({ phase: 'downloading', progress: engine, downloads: [{ id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', progress: engine }] })
+  card(f)
+  expect(screen.getByTestId('local-model-progress').textContent).toBe('Downloading the llama.cpp engine: 0% · 10 MB of 2.7 GB')
 })
 
 it('starts, stops and removes an installed model', () => {
@@ -77,6 +113,91 @@ it('shows a failure with the engine log and offers a retry', () => {
   expect(f.actions.install).toHaveBeenCalledOnce()
 })
 
+it('lists installed models, switches the active one, and deletes after confirmation', () => {
+  const imported: LocalModelEntry = { id: 'mine', name: 'Mine', bytes: 1_000_000, source: 'import', active: false }
+  const f = fixture({ phase: 'running', models: [jan, imported] })
+  card(f)
+  const rows = screen.getByTestId('local-model-installed').querySelectorAll('li')
+  expect([...rows].map(row => row.textContent)).toEqual([
+    'Jan v3.5 4B2.7 GB · Recommended listIn useDelete',
+    'Mine1 MB · Imported fileUseDelete',
+  ])
+  fireEvent.click(screen.getByTestId('local-model-use'))
+  expect(f.actions.selectModel).toHaveBeenCalledWith('mine')
+  fireEvent.click(screen.getAllByTestId('local-model-delete')[1]!)
+  expect(screen.getByText('Remove Mine from the list? The file stays on disk.')).toBeTruthy()
+  fireEvent.click(screen.getByTestId('local-model-confirm-delete'))
+  expect(f.actions.deleteModel).toHaveBeenCalledWith('mine')
+})
+
+it('downloads a curated model and shows it in the downloads list with its progress', () => {
+  const f = fixture({ phase: 'running', models: [jan], catalog: catalog.map(entry => ({ ...entry, installed: entry.id === jan.id })) })
+  const view = card(f)
+  const rows = screen.getByTestId('local-model-catalog').querySelectorAll('li')
+  expect(rows[0]?.textContent).toContain('Installed')
+  fireEvent.change(screen.getByTestId('local-model-search'), { target: { value: 'qwen' } })
+  expect(screen.getByTestId('local-model-catalog').querySelectorAll('li')).toHaveLength(1)
+  fireEvent.click(screen.getByTestId('local-model-catalog-download'))
+  expect(f.actions.downloadModel).toHaveBeenCalledWith('qwen3-8b')
+  view.unmount()
+  f.set({ phase: 'running', models: [jan], downloads: [
+    { id: 'qwen3-8b', name: 'Qwen3 8B', progress: progress(2_500_000_000, 5_027_784_512) },
+    { id: 'broken', name: 'Broken', error: 'Could not download model: HTTP 404' },
+  ] })
+  card(f)
+  const downloads = screen.getByTestId('local-model-downloads')
+  expect(downloads.textContent).toContain('Downloading Qwen3 8B: 49% · 2.5 GB of 5.0 GB')
+  expect(downloads.textContent).toContain('Could not download model: HTTP 404')
+  fireEvent.click(screen.getByRole('button', { name: en.dismiss }))
+  expect(f.actions.cancelDownload).toHaveBeenCalledWith('broken')
+})
+
+it('looks up a pasted Hugging Face repository and downloads one of its files', async () => {
+  const f = fixture({ phase: 'running', models: [jan] })
+  f.actions.lookupRepo.mockResolvedValue({ ok: true, value: { repo: 'acme/tiny-GGUF', files: [
+    { file: 'tiny-Q2_K.gguf', bytes: 1_000_000, quant: 'Q2_K', recommended: false, installed: true },
+    { file: 'tiny-Q4_K_M.gguf', bytes: 2_000_000, quant: 'Q4_K_M', recommended: true, installed: false },
+  ] } })
+  f.actions.downloadRepoFile.mockResolvedValue({ ok: true, value: 'tiny-q4_k_m' })
+  card(f)
+  fireEvent.change(screen.getByTestId('local-model-search'), { target: { value: 'acme/tiny-GGUF' } })
+  expect(screen.queryByTestId('local-model-catalog')).toBeNull()
+  await act(async () => { fireEvent.click(screen.getByTestId('local-model-lookup')) })
+  expect(f.actions.lookupRepo).toHaveBeenCalledWith('acme/tiny-GGUF', expect.any(AbortSignal))
+  const rows = screen.getByTestId('local-model-repo-files').querySelectorAll('li')
+  expect(rows[0]?.textContent).toContain('Installed')
+  expect(rows[1]?.textContent).toContain('2 MB · Q4_K_M')
+  await act(async () => { fireEvent.click(screen.getByTestId('local-model-repo-download')) })
+  expect(f.actions.downloadRepoFile).toHaveBeenCalledWith('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')
+  expect(screen.queryByTestId('local-model-repo-download')).toBeNull()
+})
+
+it('shows why a repository lookup failed', async () => {
+  const f = fixture({ phase: 'running', models: [jan] })
+  f.actions.lookupRepo.mockResolvedValue({ ok: false, error: 'No public repository acme/absent on Hugging Face' })
+  card(f)
+  fireEvent.change(screen.getByTestId('local-model-search'), { target: { value: 'acme/absent' } })
+  await act(async () => { fireEvent.submit(screen.getByTestId('local-model-search').closest('form')!) })
+  expect(screen.getByRole('alert').textContent).toBe('No public repository acme/absent on Hugging Face')
+})
+
+it('imports a file by path and reports a refusal', async () => {
+  const f = fixture({ phase: 'running', models: [jan] })
+  f.actions.importModel.mockResolvedValueOnce({ ok: false, error: 'notes.gguf is not a GGUF model file' })
+  f.actions.importModel.mockResolvedValueOnce({ ok: true, value: 'mine' })
+  card(f)
+  const field = screen.getByTestId('local-model-import-path')
+  expect(screen.getByTestId('local-model-import')).toHaveProperty('disabled', true)
+  fireEvent.change(field, { target: { value: '/tmp/notes.gguf' } })
+  await act(async () => { fireEvent.click(screen.getByTestId('local-model-import')) })
+  expect(screen.getByRole('alert').textContent).toBe('notes.gguf is not a GGUF model file')
+  fireEvent.change(field, { target: { value: '/tmp/Mine.gguf' } })
+  await act(async () => { fireEvent.click(screen.getByTestId('local-model-import')) })
+  expect(f.actions.importModel).toHaveBeenLastCalledWith('/tmp/Mine.gguf')
+  expect(screen.getByText('Added Mine.gguf.')).toBeTruthy()
+  expect((field as HTMLInputElement).value).toBe('')
+})
+
 function setup(f: ReturnType<typeof fixture>, owner: Partial<LocalSetupProps> = {}) {
   const props = {
     expanded: false, expand: vi.fn(), collapse: vi.fn(), complete: vi.fn(),
@@ -85,11 +206,12 @@ function setup(f: ReturnType<typeof fixture>, owner: Partial<LocalSetupProps> = 
   return { props, view: render(<LocalSetup {...props as never as LocalSetupProps} />) }
 }
 
-it('first run: the offer starts the download and takes over the step', () => {
+it('first run: the recommended offer starts the download and takes over the step', () => {
   const f = fixture({ phase: 'missing' })
   const { props } = setup(f)
-  expect(screen.getByTestId('onboarding-choice-local').textContent).toContain('Jan v3.5 4B · 2.7 GB download')
-  fireEvent.click(screen.getByTestId('onboarding-choice-local'))
+  const offer = screen.getByTestId('onboarding-choice-local')
+  expect(offer.textContent).toBe('Download a model to this computerRecommendedJan v3.5 4B · 2.7 GB download · free, private, works offline')
+  fireEvent.click(offer)
   expect(f.actions.install).toHaveBeenCalledOnce()
   expect(props.expand).toHaveBeenCalledOnce()
 })
@@ -103,14 +225,16 @@ it('first run: an installed model is started instead of downloaded again', () =>
 })
 
 it('first run: reopening during a download goes straight to its progress', () => {
-  const f = fixture({ phase: 'downloading', progress: { phase: 'engine', receivedBytes: 1, totalBytes: 2 } })
+  const f = fixture({ phase: 'downloading', progress: progress(1, 2, { phase: 'engine' }) })
   const { props } = setup(f)
   expect(props.expand).toHaveBeenCalledOnce()
 })
 
 it('first run: continues in the background while busy and finishes once running', () => {
-  const f = fixture({ phase: 'downloading', progress: { phase: 'model', receivedBytes: 5, totalBytes: 10 } })
+  const f = fixture({ phase: 'downloading', progress: progress(5, 10) })
   const { props, view } = setup(f, { expanded: true })
+  expect(screen.getByTestId('local-model-progress').textContent).toBe('Downloading Jan v3.5 4B: 50% · 1 KB of 1 KB')
+  expect(screen.getByText(en.moreModels)).toBeTruthy()
   fireEvent.click(screen.getByTestId('local-setup-background'))
   expect(props.complete).toHaveBeenCalledOnce()
   view.unmount()
@@ -122,11 +246,11 @@ it('first run: continues in the background while busy and finishes once running'
 })
 
 it('first run: after Cancel the step stays collapsed while the host still reports the download', () => {
-  const f = fixture({ phase: 'downloading', progress: { phase: 'model', receivedBytes: 5, totalBytes: 10 } })
+  const f = fixture({ phase: 'downloading', progress: progress(5, 10) })
   const { props, view } = setup(f)
   expect(props.expand).toHaveBeenCalledOnce()
   // The owner collapsed (Cancel); the next snapshot still says downloading.
-  f.set({ phase: 'downloading', progress: { phase: 'model', receivedBytes: 6, totalBytes: 10 } })
+  f.set({ phase: 'downloading', progress: progress(6, 10) })
   view.rerender(<LocalSetup {...{ ...props, expanded: false } as never as LocalSetupProps} />)
   expect(props.expand).toHaveBeenCalledOnce()
 })

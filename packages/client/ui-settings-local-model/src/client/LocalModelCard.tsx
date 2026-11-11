@@ -1,10 +1,11 @@
-/** Settings → Models card: download, start, stop and remove the local model. */
+/** Settings → Models card: the local server (start, stop, remove everything) and the model manager. */
 import type { ReactNode } from 'react'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-settings-models/client'
 import type { LocalModelInjected } from './actions.ts'
 import type { NS } from './locales.ts'
+import { ModelManager } from './ModelManager.tsx'
 import { downloadSize, Failure, Progress, Status } from './parts.tsx'
 import css from './LocalModel.module.css'
 
@@ -22,7 +23,7 @@ export function LocalModelCard({ useLocalModel, actions, t }: LocalModelCardProp
     <section className={css.card} data-testid="local-model-card" aria-label={t('title')}>
       <div className={css.header}>
         <div>
-          <h3 className={css.title}>{t('title')} · {state.model.name}</h3>
+          <h3 className={css.title}>{state.models.length === 0 ? t('title') : `${t('title')} · ${state.model.name}`}</h3>
           <p className={css.muted}>{t('subtitle')}</p>
         </div>
         <Status state={state} t={t} />
@@ -44,6 +45,7 @@ export function LocalModelCard({ useLocalModel, actions, t }: LocalModelCardProp
         {(installed || phase === 'failed') && phase !== 'starting'
           && <Button variant="ghost" size="sm" data-testid="local-model-remove" onClick={actions.uninstall}>{t('remove')}</Button>}
       </div>
+      <ModelManager state={state} actions={actions} t={t} />
     </section>
   )
 }

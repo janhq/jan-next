@@ -1403,6 +1403,17 @@ async function main(): Promise<void> {
           return { ok: true }
         },
         skip: enterWorkspace,
+        startLocalModel: async () => {
+          if (welcomeBackend === undefined) throw new Error('desktop welcome: backend unavailable')
+          await welcomeBackend.localModel.start()
+          const state = await welcomeBackend.localModel.read()
+          if (state === undefined) throw new Error('desktop welcome: this build has no local model')
+          return state
+        },
+        readLocalModel: async () => {
+          if (welcomeBackend === undefined) throw new Error('desktop welcome: backend unavailable')
+          return welcomeBackend.localModel.read()
+        },
       })
       const window = welcomeWindow
       window.once('closed', () => {
@@ -1432,7 +1443,7 @@ async function main(): Promise<void> {
     writeDesktopLocaleCache(app.getPath('userData'), locale.id)
     windowsLanguage = locale.id
     refreshApplicationMenu()
-    if (!enteredWorkspace && needsWelcome({ loggedIn: state.loggedIn, hasApiKey: state.hasApiKey })) {
+    if (!enteredWorkspace && needsWelcome({ loggedIn: state.loggedIn, hasApiKey: state.hasApiKey, hasLocalModel: state.hasLocalModel })) {
       // A later login must retain its own activation policy instead of replaying startup focus.
       raiseAfterUpdate = false
       await showWelcome()

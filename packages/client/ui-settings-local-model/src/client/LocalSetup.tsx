@@ -1,6 +1,6 @@
 /** First-run option: offer the local model, then own the step body while it downloads and starts. */
 import { useEffect, useRef, type ReactNode } from 'react'
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-settings-models/client'
 import type { LocalModelInjected } from './actions.ts'
@@ -27,13 +27,16 @@ export function LocalSetup({ expanded, expand, collapse, complete, useLocalModel
 
   if (!expanded) {
     return (
-      <button type="button" className={css.offer} data-testid="onboarding-choice-local" onClick={() => {
+      <button type="button" className={`${css.offer} ${css.offerPrimary}`} data-testid="onboarding-choice-local" onClick={() => {
         autoExpanded.current = true
         if (state.phase === 'missing' || state.phase === 'failed') actions.install()
         else if (state.phase === 'installed' || state.phase === 'stopped') actions.start()
         expand()
       }}>
-        <span className={css.offerTitle}>{t('offerTitle')}</span>
+        <span className={css.offerHead}>
+          <span className={css.offerTitle}>{t('offerTitle')}</span>
+          <Tag tone="info">{t('recommended')}</Tag>
+        </span>
         <span className={css.muted}>{t('offerDetail', { name: state.model.name, size: downloadSize(state) })}</span>
       </button>
     )
@@ -48,6 +51,7 @@ export function LocalSetup({ expanded, expand, collapse, complete, useLocalModel
       </div>
       <Progress state={state} t={t} />
       <Failure state={state} t={t} />
+      <p className={css.muted}>{t('moreModels')}</p>
       <div className={css.spread}>
         <div className={css.actions}>
           {!busy && state.phase !== 'running' && <Button variant="ghost" size="sm" onClick={collapse}>{t('back')}</Button>}

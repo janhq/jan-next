@@ -2,9 +2,12 @@
 import { Context } from '@deepseek-ai/cordis'
 import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type {} from '@deepseek-ai/dsh-llama-cpp'
-import type { LlamaCppState } from '@deepseek-ai/dsh-llama-cpp/types'
+import type { HuggingFaceRepoInfo, LlamaCppState } from '@deepseek-ai/dsh-llama-cpp/types'
 
-export type { LlamaCppState, LlamaCppPhase, LlamaCppProgress, LlamaCppModelInfo } from '@deepseek-ai/dsh-llama-cpp/types'
+export type {
+  CatalogModelInfo, HuggingFaceFileInfo, HuggingFaceRepoInfo, LlamaCppDownload, LlamaCppModelInfo, LlamaCppPhase,
+  LlamaCppProgress, LlamaCppState, LocalModelEntry, LocalModelSource,
+} from '@deepseek-ai/dsh-llama-cpp/types'
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface RemoteErrorDetailsMap {
@@ -25,7 +28,7 @@ function failed(error: unknown): RemoteError {
   return new RemoteError('llama-cpp/failed', reason, { reason })
 }
 
-/** Install, start, stop and remove the local model; progress arrives through {@link follow}. */
+/** Install, start, stop and remove the local engine and its models; progress arrives through {@link follow}. */
 export default class LlamaCppController extends TypertRemoteService {
   static inject = ['llamaCpp', 'typert']
 
@@ -50,18 +53,88 @@ export default class LlamaCppController extends TypertRemoteService {
     for await (const state of this.ctx.llamaCpp.follow(signal)) yield state
   }
 
-  /** Download what is missing, verify it, then start the server. */
+  /** First run: download the engine and the first-run model, verify them, then start the server. */
   @Remote
   beginInstall(): void {
     try { this.ctx.llamaCpp.install() } catch (error) { throw failed(error) }
   }
 
   /**
-   * Stop a download in progress; it resumes on the next install.
-   * @returns after the install task settles.
+   * Stop every download in progress; each resumes when it is started again.
+   * @returns after the downloads settle.
    */
   @Remote
   async cancelInstall(): Promise<void> { await this.ctx.llamaCpp.cancel() }
+
+  /**
+   * Download a curated model; the first model installed also starts.
+   * @param id - catalog id from the state's `catalog`.
+   */
+  @Remote
+  downloadModel(id: string): void {
+    try { this.ctx.llamaCpp.downloadCatalog(id) } catch (error) { throw failed(error) }
+  }
+
+  /**
+   * List the downloadable GGUF files of a Hugging Face repository.
+   * @param repo - `owner/name` or a huggingface.co link.
+   * @param signal - Client cancellation.
+   * @returns the repository and its files.
+   */
+  @Remote
+  async lookupRepo(repo: string, signal: AbortSignal): Promise<HuggingFaceRepoInfo> {
+    try { return await this.ctx.llamaCpp.lookupHuggingFace(repo, signal) } catch (error) { throw failed(error) }
+  }
+
+  /**
+   * Download one file of a Hugging Face repository.
+   * @param repo - `owner/name` or a huggingface.co link.
+   * @param file - file name from {@link lookupRepo}.
+   * @param signal - Client cancellation of the lookup that precedes the download.
+   * @returns the model id it installs as.
+   */
+  @Remote
+  async downloadRepoFile(repo: string, file: string, signal: AbortSignal): Promise<string> {
+    try { return await this.ctx.llamaCpp.downloadHuggingFace(repo, file, signal) } catch (error) { throw failed(error) }
+  }
+
+  /**
+   * Stop one download, or dismiss it when it failed.
+   * @param id - model id of the download.
+   * @returns after it settles.
+   */
+  @Remote
+  async cancelDownload(id: string): Promise<void> { await this.ctx.llamaCpp.cancel(id) }
+
+  /**
+   * Add a GGUF file from this computer, left where it is.
+   * @param path - absolute path on the Host.
+   * @returns the model id.
+   */
+  @Remote
+  async importModel(path: string): Promise<string> {
+    try { return await this.ctx.llamaCpp.importModel(path) } catch (error) { throw failed(error) }
+  }
+
+  /**
+   * Run an installed model, restarting the server with it.
+   * @param id - installed model id.
+   * @returns after the server runs it or has failed.
+   */
+  @Remote
+  async selectModel(id: string): Promise<void> {
+    try { await this.ctx.llamaCpp.select(id) } catch (error) { throw failed(error) }
+  }
+
+  /**
+   * Remove an installed model; an imported file is only forgotten.
+   * @param id - installed model id.
+   * @returns after it is removed.
+   */
+  @Remote
+  async deleteModel(id: string): Promise<void> {
+    try { await this.ctx.llamaCpp.removeModel(id) } catch (error) { throw failed(error) }
+  }
 
   /**
    * Start the installed server.
@@ -80,7 +153,7 @@ export default class LlamaCppController extends TypertRemoteService {
   }
 
   /**
-   * Delete the engine and model and remove the route key.
+   * Delete the engine and every downloaded model and remove the route key.
    * @returns after the files are gone.
    */
   @Remote

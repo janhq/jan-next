@@ -3,11 +3,14 @@ import type { ProductEvent } from '@deepseek-ai/dsh-client-product-analytics/typ
 
 import { randomUUID } from 'node:crypto'
 import { desktopAccountBackend, type DesktopAccountBackend } from './account-backend.ts'
+import type { WelcomeLocalModel } from './welcome-api.ts'
 
 /** Metadata needed before the native entry or workspace becomes visible. */
 export interface WelcomeState {
   readonly loggedIn: boolean
   readonly hasApiKey: boolean
+  /** tokamak-harness: a local model is installed. */
+  readonly hasLocalModel: boolean
   readonly writable: boolean
   readonly localePreference: string | null
 }
@@ -28,10 +31,43 @@ export interface DesktopWelcomeBackend {
    * @returns A safe write outcome without provider diagnostics.
    */
   save(apiKey: string): Promise<{ ok: boolean }>
+  /** tokamak-harness: the Host's local model, absent when this build does not mount it. */
+  readonly localModel: {
+    /** @returns the safe state subset, or undefined without a local model controller. */
+    read(): Promise<WelcomeLocalModel | undefined>
+    /** @returns after the Host accepted the first-run download. */
+    start(): Promise<void>
+  }
 }
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/**
+ * tokamak-harness: project the Host's llama.cpp state onto what the welcome window shows.
+ * @param value - `llamaCpp/readState` result.
+ * @returns the safe subset; paths, keys and logs are not copied.
+ * @throws Error when the result is not a llama.cpp state.
+ */
+export function welcomeLocalModel(value: unknown): WelcomeLocalModel {
+  if (!record(value) || typeof value.phase !== 'string' || !record(value.model) || typeof value.model.name !== 'string'
+    || typeof value.model.modelBytes !== 'number' || typeof value.model.engineBytes !== 'number') {
+    throw new Error('desktop welcome: invalid local model state')
+  }
+  const progress = value.progress
+  return {
+    phase: value.phase, name: value.model.name, totalBytes: value.model.modelBytes + value.model.engineBytes,
+    ...record(progress) && (progress.phase === 'engine' || progress.phase === 'model')
+      && typeof progress.overallReceivedBytes === 'number' && typeof progress.overallTotalBytes === 'number'
+      && typeof progress.bytesPerSecond === 'number'
+      ? { progress: {
+        step: progress.phase, receivedBytes: progress.overallReceivedBytes, totalBytes: progress.overallTotalBytes,
+        bytesPerSecond: progress.bytesPerSecond,
+      } }
+      : {},
+    ...typeof value.error === 'string' ? { error: value.error } : {},
+  }
 }
 
 /**
@@ -99,6 +135,16 @@ export function connectDesktopWelcome(
     }
     return locale.value.preference ?? null
   }
+  /** @returns the Host's llama.cpp state, or undefined when the build mounts no local model controller. */
+  const localState = async (): Promise<Record<string, unknown> | undefined> => {
+    try {
+      const value = await invoke({ namespace: 'llamaCpp', method: 'readState', args: {} })
+      return record(value) ? value : undefined
+    } catch {
+      // A build without the local model controller answers this RPC with a failure.
+      return undefined
+    }
+  }
   const read = async (): Promise<WelcomeState> => {
     const { settings, ref } = await settingsAndReference()
     const providers = await invoke({ namespace: 'llm', method: 'listConfigurableProviders', args: {} })
@@ -125,9 +171,11 @@ export function connectDesktopWelcome(
       Object.assign(states, batch)
     }
     if (ref !== undefined && !record(states[ref])) throw new Error('desktop welcome: missing credential metadata')
+    const local = await localState()
     return {
       loggedIn: (await account.state()).status === 'credential-stored',
       hasApiKey: Object.values(states).some(value => record(value) && value.configured === true),
+      hasLocalModel: local !== undefined && Array.isArray(local.models) && local.models.length > 0,
       writable: ref !== undefined && record(states[ref]) && states[ref].writable === true,
       localePreference: localePreference(namespaces),
     }
@@ -135,6 +183,13 @@ export function connectDesktopWelcome(
   return {
     account,
     read,
+    localModel: {
+      async read() {
+        const value = await localState()
+        return value === undefined ? undefined : welcomeLocalModel(value)
+      },
+      async start() { await invoke({ namespace: 'llamaCpp', method: 'beginInstall', args: {} }) },
+    },
     async analyticsEnabled() {
       const enabled = await invoke({ namespace: 'productAnalytics', method: 'enabled', args: {} }, AbortSignal.timeout(1000))
       if (typeof enabled !== 'boolean') throw new Error('desktop analytics: invalid collection policy')

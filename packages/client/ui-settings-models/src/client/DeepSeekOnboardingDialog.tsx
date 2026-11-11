@@ -53,9 +53,9 @@ function assertNever(_value: never): never {
 }
 
 /**
- * While no provider can serve requests, offer a first-run user the ways to get one:
- * the account sign-in (`settings.models.sign-in`), a local model
- * (`settings.models.local-setup`), or the onboarding route's API key.
+ * While no provider can serve requests, offer a first-run user the ways to get one, in this
+ * order: a local model (`settings.models.local-setup`, the primary choice when mounted), the
+ * account sign-in (`settings.models.sign-in`), or the onboarding route's API key.
  * @param props - settings-shell owner state and Models feature dependencies.
  * @returns the onboarding modal or null when onboarding needs no intervention.
  */
@@ -154,12 +154,12 @@ export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): 
       {choice === 'local' ? local : <>
         <p className={styles.description}>{t('onboardingChooseDescription')}</p>
         <div className={styles.choices}>
+          {local}
           <button type="button" className={styles.choice} data-testid="onboarding-choice-account"
             onClick={() => { setChoice('account') }}>
             <span className={styles.choiceTitle}>{t('onboardingTokamak')}</span>
             <span className={styles.choiceDetail}>{t('onboardingTokamakDetail')}</span>
           </button>
-          {local}
         </div>
         <div className={styles.actions}>
           <Button variant="ghost" size="sm" data-testid="onboarding-choice-api-key" onClick={() => { setChoice('api-key') }}>

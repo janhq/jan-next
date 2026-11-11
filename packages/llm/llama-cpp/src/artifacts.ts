@@ -89,33 +89,3 @@ export function engineFor(target: EngineTarget): EngineArtifact | undefined {
   if (target.platform === 'darwin') return ENGINES[`darwin-${target.arch}`]
   return ENGINES[`${target.platform}-${target.arch}-${target.backend}`]
 }
-
-/** A model the plugin can install. */
-export interface ModelArtifact extends Artifact {
-  readonly id: string
-  readonly name: string
-}
-
-/**
- * The default model: Jan v3.5 4B, the model Jan's own setup screen offers first (Apache-2.0).
- * Pinned to a repository commit so a re-upload can't break installs.
- */
-export const DEFAULT_MODEL: ModelArtifact = {
-  id: 'jan-v3.5-4b',
-  name: 'Jan v3.5 4B',
-  url: 'https://huggingface.co/janhq/Jan-v3.5-4B-gguf/resolve/2b0fcab0066198e78f7c004a0815179fbce13985/Jan-v3.5-4B-Q4_K_M.gguf',
-  sha256: '2f5305d93100ad9105eeb47c45ef1af99ba6d568c734fc267b0628b3be41c07a',
-  bytes: 2_716_066_656,
-}
-
-/**
- * A 429 MB model for quick manual smoke tests (`model: small`). It is served under the same
- * route model id, so the route config does not change; only the display name differs.
- */
-export const SMALL_MODEL: ModelArtifact = {
-  id: 'jan-v3.5-4b',
-  name: 'Qwen3 0.6B (test)',
-  url: 'https://huggingface.co/ggml-org/Qwen3-0.6B-GGUF/resolve/13ac06624948e4d8589cb4b6f90100837342fcb8/Qwen3-0.6B-Q4_0.gguf',
-  sha256: 'da2572f16c06133561ce56accaa822216f2391ef4d37fba427801cd6736417d4',
-  bytes: 428_970_080,
-}

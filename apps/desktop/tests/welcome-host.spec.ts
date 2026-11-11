@@ -2,9 +2,10 @@
 import { describe, expect, it, vi } from 'vitest'
 import { connectDesktopWelcome } from '../src/welcome-backend.ts'
 
-function transport(preference?: string) {
+function transport(preference?: string, llamaCpp?: Record<string, unknown>) {
   const keys = new Map<string, string>()
-  const namespaces = [
+  const installs: string[] = []
+  const namespaces: Array<{ ns: string; value: Record<string, unknown> }> = [
     { ns: 'llm-deepseek', value: { apiKeyEnv: 'CUSTOM_DEEPSEEK_KEY' } },
     { ns: 'llm-pi-ai', value: { profiles: { example: { apiKeyEnv: 'EXAMPLE_API_KEY' } } } },
     { ns: 'locale', value: preference === undefined ? {} : { preference } },
@@ -22,14 +23,51 @@ function transport(preference?: string) {
     else if (method === 'productAnalytics/enabled') value = true
     else if (method === 'productAnalytics/report') value = undefined
     else if (method === 'credentials/set') keys.set(payload.args.ref, payload.args.value)
+    else if (method.startsWith('llamaCpp/')) {
+      if (llamaCpp === undefined) return Response.json({ type: 'server-response', rpcId, result: { ok: false, error: { code: 'not-found' } } })
+      if (method === 'llamaCpp/beginInstall') installs.push(method)
+      value = llamaCpp
+    }
     else value = Object.fromEntries(payload.args.refs.map(ref => [ref, { configured: keys.has(ref), writable: true }]))
     return Response.json({ type: 'server-response', rpcId, result: { ok: true, value } })
   })
-  return { send, keys, namespaces }
+  return { send, keys, namespaces, installs }
 }
 
 const url = 'http://127.0.0.1:19387/'
 const cookie = 'dsh-auth-fixture=signed'
+
+describe('desktop welcome local model', () => {
+  const state = {
+    phase: 'downloading', provider: 'local', error: 'kept only in failed',
+    model: { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', modelBytes: 2_000, engineBytes: 500, backend: 'metal', engineVersion: 'b1' },
+    progress: { phase: 'model', receivedBytes: 100, totalBytes: 2_000, overallReceivedBytes: 600, overallTotalBytes: 2_500, bytesPerSecond: 50 },
+    models: [], downloads: [], catalog: [], logTail: '/private/path',
+  }
+
+  it('reports no local model when the build mounts none', async () => {
+    const backend = connectDesktopWelcome(url, cookie, transport().send)
+    expect(await backend.localModel.read()).toBeUndefined()
+    expect(await backend.read()).toMatchObject({ hasLocalModel: false })
+  })
+
+  it('starts the first-run download and projects only the safe state', async () => {
+    const host = transport(undefined, state)
+    const backend = connectDesktopWelcome(url, cookie, host.send)
+    await backend.localModel.start()
+    expect(host.installs).toEqual(['llamaCpp/beginInstall'])
+    expect(await backend.localModel.read()).toEqual({
+      phase: 'downloading', name: 'Jan v3.5 4B', totalBytes: 2_500, error: 'kept only in failed',
+      progress: { step: 'model', receivedBytes: 600, totalBytes: 2_500, bytesPerSecond: 50 },
+    })
+    expect(await backend.read()).toMatchObject({ hasLocalModel: false })
+  })
+
+  it('counts an installed local model as a way into the workspace', async () => {
+    const backend = connectDesktopWelcome(url, cookie, transport(undefined, { ...state, phase: 'running', models: [{ id: 'jan-v3.5-4b' }] }).send)
+    expect(await backend.read()).toMatchObject({ hasLocalModel: true, hasApiKey: false })
+  })
+})
 
 describe('desktop welcome Web operations', () => {
   it('authenticates with the explicit Host cookie and stores only through the configured credential reference', async () => {
@@ -38,7 +76,7 @@ describe('desktop welcome Web operations', () => {
     expect(await backend.analyticsEnabled()).toBe(true)
     expect(await backend.save('sk-example')).toEqual({ ok: true })
     expect(host.keys.get('CUSTOM_DEEPSEEK_KEY')).toBe('sk-example')
-    expect(await backend.read()).toEqual({ loggedIn: false, hasApiKey: true, writable: true, localePreference: null })
+    expect(await backend.read()).toEqual({ loggedIn: false, hasApiKey: true, hasLocalModel: false, writable: true, localePreference: null })
     for (const [input, init] of host.send.mock.calls) {
       expect(input).toMatch(/^http:\/\/127\.0\.0\.1:19387\/api\//u)
       expect(init).toMatchObject({ redirect: 'error', headers: { cookie } })

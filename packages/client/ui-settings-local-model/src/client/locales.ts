@@ -4,13 +4,61 @@ import type {} from '@deepseek-ai/dsh-client-ui-slots'
 /** Locale namespace. */
 export const NS = 'settings.local-model' as const
 
+/**
+ * Model manager and download-progress copy. The tokamak-harness UI is English-only, so the other
+ * dictionaries carry these English strings until they are translated.
+ */
+const MANAGER_EN = {
+  recommended: 'Recommended',
+  progressDetail: '{percent}% · {received} of {total}',
+  progressSpeed: '{speed}/s',
+  etaSoon: 'less than a minute left',
+  etaMinutes: 'about {minutes} min left',
+  etaHours: 'about {hours} h {minutes} min left',
+  progressEngineStep: 'Downloading the llama.cpp engine',
+  progressModelStep: 'Downloading {name}',
+  moreModels: 'You can add more models later in Settings → Models.',
+  installedTitle: 'Installed models',
+  inUse: 'In use',
+  use: 'Use',
+  deleteModel: 'Delete',
+  deleteConfirm: 'Delete {name}? Its {size} file is removed from this computer.',
+  forgetConfirm: 'Remove {name} from the list? The file stays on disk.',
+  confirmDelete: 'Delete',
+  confirmForget: 'Remove',
+  keep: 'Keep',
+  sourceCatalog: 'Recommended list',
+  sourceHuggingFace: 'Hugging Face',
+  sourceImport: 'Imported file',
+  addTitle: 'Add a model',
+  searchLabel: 'Search the recommended models, or paste a Hugging Face repository',
+  searchPlaceholder: 'Search, or paste e.g. unsloth/Qwen3-8B-GGUF',
+  lookUp: 'Look up on Hugging Face',
+  lookingUp: 'Looking up…',
+  noMatches: 'No recommended model matches. Paste a Hugging Face repository such as owner/name to list its files.',
+  repoEmpty: '{repo} has no single-file GGUF models to download.',
+  repoFiles: 'Files in {repo}',
+  downloadShort: 'Download',
+  installed: 'Installed',
+  queued: 'Waiting…',
+  importTitle: 'Import a .gguf file',
+  importLabel: 'Full path of a .gguf file on this computer',
+  importPlaceholder: '/Users/you/models/model.gguf',
+  importAction: 'Import',
+  importing: 'Importing…',
+  imported: 'Added {name}.',
+  dismiss: 'Dismiss',
+  downloadsTitle: 'Downloads',
+} as const
+
 /** English dictionary. */
 export const en = {
+  ...MANAGER_EN,
   contextInfo: 'Context window: {tokens} tokens',
   title: 'Local model',
   subtitle: 'Runs on this computer with llama.cpp. Works offline; nothing leaves your machine.',
-  offerTitle: 'Run a model on this computer',
-  offerDetail: '{name} · {size} download · about 6 GB of memory · works offline',
+  offerTitle: 'Download a model to this computer',
+  offerDetail: '{name} · {size} download · free, private, works offline',
   download: 'Download ({size})',
   cancel: 'Cancel',
   start: 'Start',
@@ -51,6 +99,7 @@ type Dictionary = Record<LocalModelKey, string>
 
 /** Simplified Chinese. */
 export const zh: Dictionary = {
+  ...MANAGER_EN,
   contextInfo: '上下文窗口：{tokens} 个 token',
   title: '本地模型',
   subtitle: '使用 llama.cpp 在本机运行。可离线使用，数据不会离开你的电脑。',
@@ -84,6 +133,7 @@ export const zh: Dictionary = {
 
 /** Japanese. */
 export const ja: Dictionary = {
+  ...MANAGER_EN,
   contextInfo: 'コンテキスト長: {tokens} トークン',
   title: 'ローカルモデル',
   subtitle: 'llama.cpp でこのコンピューター上で実行します。オフラインで動作し、データは外部に送信されません。',
@@ -117,6 +167,7 @@ export const ja: Dictionary = {
 
 /** Spanish. */
 export const es: Dictionary = {
+  ...MANAGER_EN,
   contextInfo: 'Ventana de contexto: {tokens} tokens',
   title: 'Modelo local',
   subtitle: 'Se ejecuta en este equipo con llama.cpp. Funciona sin conexión; nada sale de su equipo.',
@@ -150,6 +201,7 @@ export const es: Dictionary = {
 
 /** French. */
 export const fr: Dictionary = {
+  ...MANAGER_EN,
   contextInfo: 'Fenêtre de contexte : {tokens} jetons',
   title: 'Modèle local',
   subtitle: 'S’exécute sur cet ordinateur avec llama.cpp. Fonctionne hors ligne ; rien ne quitte votre machine.',
@@ -183,6 +235,7 @@ export const fr: Dictionary = {
 
 /** German. */
 export const de: Dictionary = {
+  ...MANAGER_EN,
   contextInfo: 'Kontextfenster: {tokens} Token',
   title: 'Lokales Modell',
   subtitle: 'Läuft mit llama.cpp auf diesem Computer. Funktioniert offline; nichts verlässt Ihren Rechner.',
@@ -216,6 +269,7 @@ export const de: Dictionary = {
 
 /** Russian. */
 export const ru: Dictionary = {
+  ...MANAGER_EN,
   contextInfo: 'Окно контекста: {tokens} токенов',
   title: 'Локальная модель',
   subtitle: 'Работает на этом компьютере через llama.cpp. Работает без интернета; данные не покидают компьютер.',
@@ -249,6 +303,7 @@ export const ru: Dictionary = {
 
 /** Portuguese. */
 export const pt: Dictionary = {
+  ...MANAGER_EN,
   contextInfo: 'Janela de contexto: {tokens} tokens',
   title: 'Modelo local',
   subtitle: 'Roda neste computador com llama.cpp. Funciona offline; nada sai da sua máquina.',

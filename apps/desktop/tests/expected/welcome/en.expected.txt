@@ -2,5 +2,6 @@ Jan
 Jan
 Welcome to Jan
 Build potential. Explore intelligence.
-Sign in
+Download a local model
+Sign in with Tokamak
 Add API Key

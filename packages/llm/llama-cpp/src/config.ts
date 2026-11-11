@@ -25,8 +25,17 @@ export interface Config {
   dataRoot: string
   /** Linux/Windows build: CPU, or Vulkan for GPU offload (needs a Vulkan driver). macOS always uses its Metal build. */
   backend: 'cpu' | 'vulkan'
-  /** Which pinned model to install; `small` is a 429 MB test model. */
+  /** Which curated model the first-run offer installs; `small` is a 429 MB test model. */
   model: 'default' | 'small'
+  /** Hugging Face origin for repository lookups and their downloads. */
+  huggingFaceURL: string
+  /**
+   * `llm-pi-ai` settings namespace whose `providers.<provider>.models` the plugin keeps equal to
+   * the active model, so the model picker names what the server runs; empty disables the sync.
+   */
+  routeNamespace: string
+  /** `maxTokens` written for the active model's route entry. */
+  routeMaxTokens: number
   /** Loopback port the server listens on; must match the `local` route's baseURL. */
   port: number
   /** Credential reference the `local` route reads, and the key the server requires. */
@@ -62,7 +71,7 @@ export interface Config {
   progressIntervalMs: number
   /** Test-only: an existing server executable that replaces the downloaded engine. */
   binaryPath?: string | undefined
-  /** Test-only: replaces the pinned downloads (engine, model). */
+  /** Test-only: replaces the pinned downloads (engine, the first-run model). */
   artifactOverrides?: ArtifactOverrides | undefined
 }
 
@@ -77,6 +86,9 @@ export const Config: z<Partial<Config>, Config> = z.object({
   dataRoot: z.string().min(1).required(),
   backend: z.union(['cpu', 'vulkan']).default('cpu'),
   model: z.union(['default', 'small']).default('default'),
+  huggingFaceURL: z.string().pattern(/^https?:\/\/[^/]+$/).default('https://huggingface.co'),
+  routeNamespace: z.string().default('llm-pi-ai'),
+  routeMaxTokens: z.natural().min(1).default(8192),
   port: z.natural().min(1).max(65535).default(39281),
   apiKeyRef: z.string().min(1).default('LLAMA_CPP_API_KEY'),
   provider: z.string().min(1).default('local'),

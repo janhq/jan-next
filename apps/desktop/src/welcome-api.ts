@@ -15,7 +15,31 @@ export const WELCOME_IPC = {
   copyLink: 'dsh-welcome:copy-link',
   state: 'dsh-welcome:state',
   takeNotice: 'dsh-welcome:take-notice',
+  localStart: 'dsh-welcome:local-start',
+  localState: 'dsh-welcome:local-state',
 } as const
+
+/**
+ * tokamak-harness: what the welcome window shows of the local model setup. A path-free subset of
+ * the Host's llama.cpp state.
+ */
+export interface WelcomeLocalModel {
+  /** Host lifecycle phase (`missing`, `downloading`, `starting`, `running`, `failed`, …). */
+  readonly phase: string
+  /** Model being installed or run. */
+  readonly name: string
+  /** Bytes of the whole first download, engine included. */
+  readonly totalBytes: number
+  /** Present while downloading. */
+  readonly progress?: {
+    readonly step: 'engine' | 'model'
+    readonly receivedBytes: number
+    readonly totalBytes: number
+    readonly bytesPerSecond: number
+  }
+  /** Present in `failed`. */
+  readonly error?: string
+}
 
 /** Credential writes return a safe outcome without exposing Host diagnostics. */
 export type WelcomeSaveResult = { readonly ok: true } | { readonly ok: false }
@@ -46,6 +70,10 @@ export interface WelcomeOperations {
    * @returns whether the write completed, without private error details.
    */
   saveApiKey(value: string): Promise<WelcomeSaveResult>
+  /** @returns the local model state after asking the Host to download and start the first-run model. */
+  startLocalModel(): Promise<WelcomeLocalModel>
+  /** @returns the local model state, or undefined when this build has no local model. */
+  readLocalModel(): Promise<WelcomeLocalModel | undefined>
   /**
    * Enter the workspace without writing an onboarding-completion setting.
    * @returns completion after the workspace opens.
@@ -63,13 +91,15 @@ export type WelcomeApi = DesktopLocale & WelcomeOperations & {
 export interface WelcomeAuthentication {
   readonly loggedIn: boolean
   readonly hasApiKey: boolean
+  /** tokamak-harness: a local model is installed, so the workspace can serve without an account. */
+  readonly hasLocalModel?: boolean
 }
 
 /**
  * Decide whether a startup or sign-out requires the welcome entry.
  * @param authentication - current account and independently stored API-key facts.
- * @returns true only when neither authentication route is configured.
+ * @returns true only when no authentication route is configured and no local model is installed.
  */
 export function needsWelcome(authentication: WelcomeAuthentication): boolean {
-  return !authentication.loggedIn && !authentication.hasApiKey
+  return !authentication.loggedIn && !authentication.hasApiKey && authentication.hasLocalModel !== true
 }

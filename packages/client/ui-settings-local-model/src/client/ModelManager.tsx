@@ -1,0 +1,216 @@
+/**
+ * Local model manager inside the Models card: installed models (use, delete), downloads in
+ * progress, curated models with a search box that also looks up Hugging Face repositories, and
+ * import of a GGUF file from disk.
+ */
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Button, Input, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { HuggingFaceRepoInfo, LlamaCppState, LocalModelEntry } from '@deepseek-ai/dsh-api-llama-cpp-controller'
+import type { LocalModelActions } from './actions.ts'
+import { formatBytes } from './state.ts'
+import { DownloadProgress, type T } from './parts.tsx'
+import css from './LocalModel.module.css'
+
+const SOURCE_KEY = { catalog: 'sourceCatalog', huggingface: 'sourceHuggingFace', import: 'sourceImport' } as const
+
+/** Text that names a Hugging Face repository rather than a catalog search. */
+const REPO_INPUT = /^(?:https?:\/\/\S+|[\w.-]+\/[\w.-]+)$/
+
+/** Props shared by every manager section. */
+interface SectionProps {
+  state: LlamaCppState
+  actions: LocalModelActions
+  t: T
+}
+
+/** @returns the whole manager. */
+export function ModelManager(props: SectionProps): ReactNode {
+  return <>
+    <InstalledModels {...props} />
+    <Downloads {...props} />
+    <AddModel {...props} />
+    <ImportModel {...props} />
+  </>
+}
+
+function InstalledModels({ state, actions, t }: SectionProps): ReactNode {
+  const [confirming, setConfirming] = useState<string | undefined>()
+  if (state.models.length === 0) return null
+  const busy = state.phase === 'starting' || state.phase === 'checking'
+  return <section className={css.section} aria-label={t('installedTitle')}>
+    <h4 className={css.sectionTitle}>{t('installedTitle')}</h4>
+    <ul className={css.list} data-testid="local-model-installed">
+      {state.models.map((model: LocalModelEntry) => <li key={model.id} className={css.row} data-model-id={model.id}>
+        <span className={css.rowMain}>
+          <span className={css.rowName} title={model.name}>{model.name}</span>
+          <span className={css.muted}>{formatBytes(model.bytes)} · {t(SOURCE_KEY[model.source])}</span>
+        </span>
+        {confirming === model.id ? <span className={css.actions}>
+          <span className={css.muted}>
+            {t(model.source === 'import' ? 'forgetConfirm' : 'deleteConfirm', { name: model.name, size: formatBytes(model.bytes) })}
+          </span>
+          <Button variant="ghost" size="sm" onClick={() => { setConfirming(undefined) }}>{t('keep')}</Button>
+          <Button variant="outline" size="sm" data-testid="local-model-confirm-delete" onClick={() => {
+            setConfirming(undefined)
+            actions.deleteModel(model.id)
+          }}>{t(model.source === 'import' ? 'confirmForget' : 'confirmDelete')}</Button>
+        </span> : <span className={css.actions}>
+          {model.active
+            ? <Tag tone="success">{t('inUse')}</Tag>
+            : <Button variant="outline" size="sm" data-testid="local-model-use" disabled={busy} onClick={() => { actions.selectModel(model.id) }}>
+              {t('use')}
+            </Button>}
+          <Button variant="ghost" size="sm" data-testid="local-model-delete" disabled={busy} onClick={() => { setConfirming(model.id) }}>
+            {t('deleteModel')}
+          </Button>
+        </span>}
+      </li>)}
+    </ul>
+  </section>
+}
+
+function Downloads({ state, actions, t }: SectionProps): ReactNode {
+  // While nothing is installed the card's own progress line shows the first download.
+  const items = state.models.length === 0 ? state.downloads.filter(item => item.error !== undefined) : state.downloads
+  if (items.length === 0) return null
+  return <section className={css.section} aria-label={t('downloadsTitle')}>
+    <h4 className={css.sectionTitle}>{t('downloadsTitle')}</h4>
+    <ul className={css.list} data-testid="local-model-downloads">
+      {items.map(item => <li key={item.id} className={css.row} data-model-id={item.id}>
+        <span className={css.rowMain}>
+          <span className={css.rowName} title={item.name}>{item.name}</span>
+          {item.error !== undefined && <span className={css.error} role="alert">{item.error}</span>}
+          {item.error === undefined && item.progress === undefined && <span className={css.muted}>{t('queued')}</span>}
+        </span>
+        <Button variant="ghost" size="sm" onClick={() => { actions.cancelDownload(item.id) }}>
+          {t(item.error === undefined ? 'cancel' : 'dismiss')}
+        </Button>
+        {item.progress !== undefined && item.error === undefined
+          && <span className={css.rowWide}><DownloadProgress progress={item.progress} name={item.name} t={t} /></span>}
+      </li>)}
+    </ul>
+  </section>
+}
+
+type Lookup =
+  | { status: 'idle' }
+  | { status: 'loading'; repo: string }
+  | { status: 'done'; result: HuggingFaceRepoInfo }
+  | { status: 'failed'; error: string }
+
+function AddModel({ state, actions, t }: SectionProps): ReactNode {
+  const [query, setQuery] = useState('')
+  const [lookup, setLookup] = useState<Lookup>({ status: 'idle' })
+  const pending = useRef<AbortController | undefined>(undefined)
+  useEffect(() => () => { pending.current?.abort() }, [])
+  const text = query.trim()
+  const looksLikeRepo = REPO_INPUT.test(text)
+  const needle = text.toLowerCase()
+  const matches = looksLikeRepo ? [] : state.catalog.filter(entry =>
+    needle === '' || entry.name.toLowerCase().includes(needle) || entry.repo.toLowerCase().includes(needle))
+  const downloading = new Set(state.downloads.filter(item => item.error === undefined).map(item => item.id))
+
+  const runLookup = (): void => {
+    pending.current?.abort()
+    const controller = new AbortController()
+    pending.current = controller
+    setLookup({ status: 'loading', repo: text })
+    void actions.lookupRepo(text, controller.signal).then((outcome) => {
+      if (controller.signal.aborted) return
+      setLookup(outcome.ok ? { status: 'done', result: outcome.value } : { status: 'failed', error: outcome.error })
+    })
+  }
+
+  return <section className={css.section} aria-label={t('addTitle')}>
+    <h4 className={css.sectionTitle}>{t('addTitle')}</h4>
+    <form className={css.field} onSubmit={(event) => {
+      event.preventDefault()
+      if (looksLikeRepo) runLookup()
+    }}>
+      <Input className={css.input ?? ''} aria-label={t('searchLabel')} placeholder={t('searchPlaceholder')} value={query}
+        data-testid="local-model-search" spellCheck={false} autoCapitalize="off"
+        onChange={(event) => { setQuery(event.target.value); setLookup({ status: 'idle' }) }} />
+      {looksLikeRepo && <Button variant="outline" size="sm" type="submit" data-testid="local-model-lookup" disabled={lookup.status === 'loading'}>
+        {t(lookup.status === 'loading' ? 'lookingUp' : 'lookUp')}
+      </Button>}
+    </form>
+    {!looksLikeRepo && (matches.length === 0
+      ? <p className={css.muted}>{t('noMatches')}</p>
+      : <ul className={css.list} data-testid="local-model-catalog">
+        {matches.map(entry => <li key={entry.id} className={css.row} data-model-id={entry.id}>
+          <span className={css.rowMain}>
+            <span className={css.offerHead}>
+              <span className={css.rowName}>{entry.name}</span>
+              {entry.recommended && <Tag tone="info">{t('recommended')}</Tag>}
+            </span>
+            <span className={css.muted}>{formatBytes(entry.bytes)} · {entry.repo}</span>
+          </span>
+          {entry.installed
+            ? <Tag tone="neutral">{t('installed')}</Tag>
+            : <Button variant="outline" size="sm" data-testid="local-model-catalog-download" disabled={downloading.has(entry.id)}
+              onClick={() => { actions.downloadModel(entry.id) }}>{t(downloading.has(entry.id) ? 'queued' : 'downloadShort')}</Button>}
+        </li>)}
+      </ul>)}
+    {looksLikeRepo && lookup.status === 'failed' && <p className={css.error} role="alert">{lookup.error}</p>}
+    {looksLikeRepo && lookup.status === 'done' && <RepoFiles result={lookup.result} actions={actions} t={t} />}
+  </section>
+}
+
+function RepoFiles({ result, actions, t }: { result: HuggingFaceRepoInfo; actions: LocalModelActions; t: T }): ReactNode {
+  const [started, setStarted] = useState<ReadonlySet<string>>(new Set())
+  const [error, setError] = useState<string | undefined>()
+  if (result.files.length === 0) return <p className={css.muted}>{t('repoEmpty', { repo: result.repo })}</p>
+  return <>
+    <p className={css.muted}>{t('repoFiles', { repo: result.repo })}</p>
+    <ul className={css.list} data-testid="local-model-repo-files">
+      {result.files.map(file => <li key={file.file} className={css.row}>
+        <span className={css.rowMain}>
+          <span className={css.offerHead}>
+            <span className={css.rowName} title={file.file}>{file.file}</span>
+            {file.recommended && <Tag tone="info">{t('recommended')}</Tag>}
+          </span>
+          <span className={css.muted}>{formatBytes(file.bytes)}{file.quant === undefined ? '' : ` · ${file.quant}`}</span>
+        </span>
+        {file.installed || started.has(file.file)
+          ? <Tag tone="neutral">{t(file.installed ? 'installed' : 'queued')}</Tag>
+          : <Button variant="outline" size="sm" data-testid="local-model-repo-download" onClick={() => {
+            setStarted(new Set([...started, file.file]))
+            void actions.downloadRepoFile(result.repo, file.file).then((outcome) => {
+              if (outcome.ok) return
+              setError(outcome.error)
+              setStarted(current => new Set([...current].filter(name => name !== file.file)))
+            })
+          }}>{t('downloadShort')}</Button>}
+      </li>)}
+    </ul>
+    {error !== undefined && <p className={css.error} role="alert">{error}</p>}
+  </>
+}
+
+function ImportModel({ actions, t }: SectionProps): ReactNode {
+  const [path, setPath] = useState('')
+  const [status, setStatus] = useState<{ kind: 'idle' } | { kind: 'busy' } | { kind: 'done'; name: string } | { kind: 'failed'; error: string }>({ kind: 'idle' })
+  return <section className={css.section} aria-label={t('importTitle')}>
+    <h4 className={css.sectionTitle}>{t('importTitle')}</h4>
+    <form className={css.field} onSubmit={(event) => {
+      event.preventDefault()
+      const file = path.trim()
+      if (file === '') return
+      setStatus({ kind: 'busy' })
+      void actions.importModel(file).then((outcome) => {
+        if (!outcome.ok) { setStatus({ kind: 'failed', error: outcome.error }); return }
+        setPath('')
+        setStatus({ kind: 'done', name: file.split(/[\\/]/).at(-1) ?? file })
+      })
+    }}>
+      <Input className={css.input ?? ''} aria-label={t('importLabel')} placeholder={t('importPlaceholder')} value={path}
+        data-testid="local-model-import-path" spellCheck={false} autoCapitalize="off"
+        onChange={(event) => { setPath(event.target.value); setStatus({ kind: 'idle' }) }} />
+      <Button variant="outline" size="sm" type="submit" data-testid="local-model-import" disabled={status.kind === 'busy' || path.trim() === ''}>
+        {t(status.kind === 'busy' ? 'importing' : 'importAction')}
+      </Button>
+    </form>
+    {status.kind === 'failed' && <p className={css.error} role="alert">{status.error}</p>}
+    {status.kind === 'done' && <p className={css.muted}>{t('imported', { name: status.name })}</p>}
+  </section>
+}

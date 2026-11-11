@@ -88,7 +88,8 @@ body {
 
 .welcome > .tagline,
 .welcome > .key-form,
-.welcome > #auth-page {
+.welcome > #auth-page,
+.welcome > #local-page {
   grid-row: 2;
   grid-column: 1;
 }
@@ -341,3 +342,37 @@ body {
 .actions .welcome-loading { color: inherit; }
 
 .auth-waiting .copy-link:disabled { cursor: default; }
+
+/* tokamak-harness: local model setup page. */
+#local-page {
+  width: 100%;
+  max-width: 420px;
+}
+
+#local-page p {
+  margin: 0;
+}
+
+#local-progress {
+  display: block;
+  width: 100%;
+  height: 4px;
+  margin: 4px 0;
+  border: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--dsw-alias-border-l2);
+  accent-color: var(--dsw-alias-button-primary-fill);
+}
+
+#local-progress::-webkit-progress-bar {
+  background: var(--dsw-alias-border-l2);
+}
+
+#local-progress::-webkit-progress-value {
+  background: var(--dsw-alias-brand-primary);
+}
+
+#local-detail {
+  font-variant-numeric: tabular-nums;
+}

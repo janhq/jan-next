@@ -1,6 +1,29 @@
 /** Typed shell copy for every shipped language owned by the Electron shell. */
 
+/**
+ * tokamak-harness: welcome copy for the local model download. The tokamak-harness UI is
+ * English-only, so the other dictionaries carry these English strings until they are translated.
+ */
+const LOCAL_WELCOME_EN = {
+  welcomeLocalModel: 'Download a local model',
+  welcomeLocalHint: 'Free and private: runs on this computer and works offline',
+  welcomeLocalTitle: 'Setting up {name}',
+  welcomeLocalDescription: 'The model runs on this computer, so your chats stay private and work offline.',
+  welcomeLocalEngine: 'Downloading the llama.cpp engine',
+  welcomeLocalDownloading: 'Downloading {name}',
+  welcomeLocalProgress: '{percent}% · {received} of {total}',
+  welcomeLocalSpeed: '{speed}/s',
+  welcomeLocalStarting: 'Starting {name}…',
+  welcomeLocalReady: '{name} is ready.',
+  welcomeLocalFailed: 'The local model could not be set up.',
+  welcomeLocalRetry: 'Try again',
+  welcomeLocalBackground: 'Continue in background',
+  welcomeLocalStart: 'Start chatting',
+  welcomeLocalBack: 'Back',
+} as const
+
 export const en = {
+  ...LOCAL_WELCOME_EN,
   cliCommandMenu: 'Manage dsh Command…',
   cliCommandTitle: 'Manage dsh Command',
   cliCommandLocation: 'Desktop command: {path}',
@@ -91,7 +114,7 @@ export const en = {
   welcomeAuthCopyFailed: 'Could not copy. Try again.',
   welcomeAuthCancel: 'Cancel',
   welcomeAuthRetry: 'Sign in again',
-  welcomeSignIn: 'Sign in',
+  welcomeSignIn: 'Sign in with Tokamak',
   welcomeApiKey: 'Add API Key',
   welcomeKeyTitle: 'Add an API key to get started',
   welcomeKeyDescription: 'Add your Tokamak API key to start using Jan',
@@ -194,6 +217,7 @@ export const en = {
 export type DesktopMessages = { readonly [Key in keyof typeof en]: string }
 
 export const zh = {
+  ...LOCAL_WELCOME_EN,
   cliCommandMenu: '管理 dsh 命令…',
   cliCommandTitle: '管理 dsh 命令',
   cliCommandLocation: 'Desktop 命令：{path}',
@@ -385,6 +409,7 @@ export const zh = {
 
 /** Japanese copy, checked against the English keys. */
 export const ja = {
+  ...LOCAL_WELCOME_EN,
   cliCommandMenu: 'dsh コマンドを管理…',
   cliCommandTitle: 'dsh コマンドを管理',
   cliCommandLocation: 'デスクトップコマンド: {path}',
@@ -576,6 +601,7 @@ export const ja = {
 
 /** Spanish dictionary, checked against the English keys. */
 export const es = {
+  ...LOCAL_WELCOME_EN,
   cliCommandMenu: 'Administrar el comando dsh…',
   cliCommandTitle: 'Administrar el comando dsh',
   cliCommandLocation: 'Comando de escritorio: {path}',
@@ -767,6 +793,7 @@ export const es = {
 
 /** French dictionary, checked against the English keys. */
 export const fr = {
+  ...LOCAL_WELCOME_EN,
   cliCommandMenu: 'Gérer la commande dsh…',
   cliCommandTitle: 'Gérer la commande dsh',
   cliCommandLocation: 'Commande de bureau : {path}',
@@ -958,6 +985,7 @@ export const fr = {
 
 /** German dictionary, checked against the English keys. */
 export const de = {
+  ...LOCAL_WELCOME_EN,
   cliCommandMenu: 'dsh-Befehl verwalten…',
   cliCommandTitle: 'dsh-Befehl verwalten',
   cliCommandLocation: 'Desktop-Befehl: {path}',
@@ -1149,6 +1177,7 @@ export const de = {
 
 /** Russian dictionary, checked against the English keys. */
 export const ru = {
+  ...LOCAL_WELCOME_EN,
   cliCommandMenu: 'Управление командой dsh…',
   cliCommandTitle: 'Управление командой dsh',
   cliCommandLocation: 'Команда Desktop: {path}',
@@ -1340,6 +1369,7 @@ export const ru = {
 
 /** Portuguese dictionary, checked against the English keys. */
 export const pt = {
+  ...LOCAL_WELCOME_EN,
   cliCommandMenu: 'Gerenciar comando dsh…',
   cliCommandTitle: 'Gerenciar comando dsh',
   cliCommandLocation: 'Comando da área de trabalho: {path}',

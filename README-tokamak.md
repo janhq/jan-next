@@ -27,16 +27,18 @@ If you already have a key, skip sign-in: `TOKAMAK_API_KEY=sk_live_… pnpm dsh w
 
 ## First run
 
-A new install with no usable model opens **Get started** with two choices:
+A new install with no usable model opens **Get started**. The first and recommended choice is the local model:
 
-- **Sign in with Tokamak**, the flow above. "Use an API key instead" pastes a key for the `tokamak` route.
-- **Run a model on this computer**, the local model below. "Continue in background" closes the popup while it downloads; Settings → Models shows the progress.
+- **Download a model to this computer** downloads Jan v3.5 4B (below) and starts it. The popup shows one progress bar for the engine and the model together, with percent, bytes, speed and time left. "Continue in background" closes the popup while it downloads; Settings → Models shows the same progress.
+- **Sign in with Tokamak**, the flow above, for frontier models in the cloud. "Use an API key instead" pastes a key for the `tokamak` route.
 
 The popup does not come back once either route can serve.
 
+The desktop app has its own welcome window instead of the popup. Its first button is **Download a local model**: it starts the same download and shows its progress in the welcome window, with "Continue in background" and, once the model runs, "Start chatting". "Sign in with Tokamak" and "Add API Key" follow. The welcome window is skipped once a local model is installed.
+
 ## Local model (llama.cpp)
 
-One hardcoded model for now: **Jan v3.5 4B** (`janhq/Jan-v3.5-4B-gguf`, Q4_K_M, 2.7 GB, Apache-2.0), served by `llama-server` from llama.cpp build `b12211`. The harness:
+The first-run model is **Jan v3.5 4B** (`janhq/Jan-v3.5-4B-gguf`, Q4_K_M, 2.7 GB, Apache-2.0), served by `llama-server` from llama.cpp build `b12211`. More models can be added from the model manager ([below](#model-manager)). The harness:
 
 1. Downloads the prebuilt llama.cpp engine for this machine from the GitHub release, falling back to GitHub's asset API when `releases/download` fails, and the model from Hugging Face. Both are pinned by sha256 and size. An interrupted download resumes from `*.partial`.
 2. Unpacks the engine and starts `llama-server -m … --alias jan-v3.5-4b --host 127.0.0.1 --port 39281 -c 32768 --fit on --fit-target 1024 -fa on -ctk q8_0 -ctv q8_0 --jinja --no-webui`. A fresh random key per launch, passed through `LLAMA_API_KEY` (never on the command line), protects the server.
@@ -56,12 +58,12 @@ Only the web app (and desktop) manages the server, so one process owns it. Other
 
 The card shows the context the running server settled on.
 
-Files live in `$DSH_HOME/llama-cpp/` (`engine/`, `models/`, `install.json`, `run.json`). The model URL is pinned to a Hugging Face commit, so a re-upload upstream can't break installs. Expect about 3 GB of disk and 5–6 GB of RAM. The 32k context is needed because the harness's system prompt and tools alone take about 12k tokens. On CPU the first reply in a session takes a while: the whole prompt has to be processed once, and later turns reuse the cache. Small local models call tools less reliably than Tokamak's.
+Files live in `$DSH_HOME/llama-cpp/` (`engine/`, `models/<id>/`, `install.json`, `run.json`). The model URL is pinned to a Hugging Face commit, so a re-upload upstream can't break installs. Expect about 3 GB of disk and 5–6 GB of RAM. The 32k context is needed because the harness's system prompt and tools alone take about 12k tokens. On CPU the first reply in a session takes a while: the whole prompt has to be processed once, and later turns reuse the cache. Small local models call tools less reliably than Tokamak's.
 
 | Variable | Purpose |
 |---|---|
 | `LLAMA_CPP_BACKEND=vulkan` | Linux/Windows: use the Vulkan build for GPU offload. Needs a Vulkan driver (`libvulkan1` plus Mesa or the vendor driver on Linux). |
-| `LLAMA_CPP_MODEL=small` | Swap in Qwen3 0.6B (429 MB) for quick smoke tests. |
+| `LLAMA_CPP_MODEL=small` | Make Qwen3 0.6B (429 MB) the first-run model, for quick smoke tests. |
 
 To change the port, set `port` on the `llama-cpp` row and the `local` route's `baseURL` together in your profile patch (`$DSH_HOME/profiles/web/cordis.patch.yml`).
 
@@ -82,7 +84,20 @@ Engines by platform (llama.cpp `b12211`):
 
 Speed depends heavily on the hardware. On an 8-vCPU Linux VM without a GPU, the model reads about 16 prompt tokens/s, so the first reply waits about 13 minutes for the ~12k-token prompt. Apple Silicon with Metal is much faster. The `local` route waits up to 30 minutes for the first token instead of retrying.
 
-Not yet: other models or a catalog, CUDA/ROCm builds, idle unload, engine updates, desktop.
+Not yet: CUDA/ROCm builds, idle unload, engine updates, multi-part (split) GGUF files, vision projectors.
+
+### Model manager
+
+Settings → Models → **Local model** lists:
+
+- **Installed models.** "Use" restarts the server with that model and makes it the default; one model runs at a time. "Delete" removes a downloaded file after a confirmation; for an imported file it only removes the entry and leaves the file on disk.
+- **Downloads** with the same progress line, Cancel (the partial file is kept and resumes), and the error with Dismiss when one fails. Downloads run one at a time.
+- **Add a model.** A curated list, the same idea as Jan's hub: Jan v3.5 4B, Qwen3 4B Instruct 2507, Llama 3.2 3B Instruct, Qwen3 8B and Qwen3 0.6B, each pinned to a Hugging Face commit and sha256. The search box filters it. Paste a Hugging Face repository (`unsloth/Qwen3-8B-GGUF`) or its link and "Look up on Hugging Face" lists the repository's single-file GGUF models with their size and quantization, Q4_K_M and IQ4_XS marked recommended. The Host reads the file list, size and LFS sha256 from `huggingface.co/api/models/<repo>?blobs=true` itself and pins the download to the current commit, so the browser never chooses a URL. Projector (`mmproj`) files, split files and files without an LFS digest are left out.
+- **Import a .gguf file.** Enter the full path of a GGUF file on the Host. It is checked for the GGUF header and used where it is, without copying.
+
+The model picker shows the model in use: the plugin keeps the `local` route's `models` in the `llm-pi-ai` settings section equal to it (`routeNamespace` on the `llama-cpp` row; empty turns this off). Model ids come from the file name, e.g. `qwen3-0.6b-q4_k_m`.
+
+`install.json` is version 2: the engine, the installed models (`file` relative to `llama-cpp/`, or absolute for an import) and the active id. A version 1 file from an earlier build is read and converted on the next write; its model file stays where it is.
 
 ## Environment
 
@@ -110,8 +125,9 @@ TOKAMAK_BASE_URL=http://127.0.0.1:8787/v1 TOKAMAK_ALLOW_LOOPBACK_HTTP=1 pnpm dsh
   - Web search uses the new `packages/web/web-search-exa`; see [Web search](#web-search).
 - `SignInAttemptView.userCode`, an optional field. The sign-in dialog and the account page show it.
 - Account UI strings say Tokamak. The balance card is hidden for accounts without wallets.
-- Local model: new `packages/llm/llama-cpp` (download and supervise), `packages/api/llama-cpp-controller` (browser Remote), and `packages/client/ui-settings-local-model` (Models card and first-run option).
-- `ui-settings-models`: the first-run step targets a configurable `onboardingRoute` (Tokamak here; upstream's DeepSeek route by default) and has become the **Get started** chooser, with a new `settings.models.local-setup` slot.
+- Local model: new `packages/llm/llama-cpp` (download and supervise the engine and its models), `packages/api/llama-cpp-controller` (browser Remote), and `packages/client/ui-settings-local-model` (Models card with the model manager, and the first-run option).
+- `ui-settings-models`: the first-run step targets a configurable `onboardingRoute` (Tokamak here; upstream's DeepSeek route by default) and has become the **Get started** chooser, with a new `settings.models.local-setup` slot that it shows first.
+- Desktop welcome: a **Download a local model** page (`apps/desktop/src/client/WelcomePage.tsx`, `welcome-backend.ts`), and `needsWelcome` counts an installed local model.
 
 Some repository checks are expected to fail in this fork, because it doesn't follow upstream's release rules:
 - Fork packages are `private` and don't have bilingual package READMEs.

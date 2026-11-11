@@ -47,6 +47,8 @@ const operations = {
   copySignInLink: async () => undefined,
   saveApiKey: () => Promise.resolve({ ok: true as const }),
   skip: () => Promise.resolve(),
+  startLocalModel: () => Promise.resolve({ phase: 'downloading', name: 'Jan v3.5 4B', totalBytes: 1 }),
+  readLocalModel: () => Promise.resolve(undefined),
 }
 
 describe('desktop welcome window', () => {
@@ -185,6 +187,8 @@ describe('desktop welcome window', () => {
     expect(needsWelcome({ loggedIn: false, hasApiKey: false })).toBe(true)
     expect(needsWelcome({ loggedIn: false, hasApiKey: true })).toBe(false)
     expect(needsWelcome({ loggedIn: true, hasApiKey: true })).toBe(false)
+    expect(needsWelcome({ loggedIn: false, hasApiKey: false, hasLocalModel: true })).toBe(false)
+    expect(needsWelcome({ loggedIn: false, hasApiKey: false, hasLocalModel: false })).toBe(true)
   })
 })
 

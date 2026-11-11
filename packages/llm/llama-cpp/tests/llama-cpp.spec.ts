@@ -6,10 +6,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { afterEach, expect, it } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
+import { Context, Service } from '@deepseek-ai/cordis'
 import LocalSubprocess from '@deepseek-ai/dsh-subprocess-local'
 import { LocalCredentialProvider } from '@deepseek-ai/dsh-credentials-local'
-import { download, DownloadError, engineFor, LlamaCpp, type LlamaCppState } from '../src/index.ts'
+import { download, DownloadError, engineFor, LlamaCpp, parseRepo, RateMeter, type LlamaCppState } from '../src/index.ts'
 
 const FAKE = new URL('./fake-llama-server.mjs', import.meta.url).pathname
 const cleanups: Array<() => Promise<unknown>> = []
@@ -142,12 +142,16 @@ const MODEL = Buffer.alloc(256 * 1024, 9)
 interface FixtureOptions {
   mode?: Record<string, unknown>
   throttle?: boolean
+  /** More files the download server serves, keyed by request path. */
+  extraFiles?: Record<string, Buffer>
+  /** Plugins loaded before the service, e.g. a settings stand-in. */
+  before?: (ctx: Context) => Promise<unknown>
   config?: Record<string, unknown> | ((modelOrigin: string) => Record<string, unknown>)
   home?: string
 }
 
 async function fixture(options: FixtureOptions = {}) {
-  const server = await files({ '/model.gguf': MODEL }, { throttle: options.throttle ?? false })
+  const server = await files({ '/model.gguf': MODEL, ...options.extraFiles }, { throttle: options.throttle ?? false })
   const home = options.home ?? await temp('llama-home-')
   const bin = join(home, 'fake-bin')
   await mkdir(bin, { recursive: true })
@@ -159,9 +163,10 @@ async function fixture(options: FixtureOptions = {}) {
   await ctx.plugin(LocalSubprocess)
   const credentials = ctx.plugin(LocalCredentialProvider, { path: join(home, 'credentials.yaml'), watch: false })
   await credentials
+  await options.before?.(ctx)
   const plugin = ctx.plugin(LlamaCpp, {
     dataRoot: join(home, 'data'), port, binaryPath: join(bin, 'llama-server'), graceMs: 2000, progressIntervalMs: 1,
-    startTimeoutMs: 15_000,
+    startTimeoutMs: 15_000, huggingFaceURL: server.origin,
     artifactOverrides: { model: { url: `${server.origin}/model.gguf`, sha256: sha(MODEL), bytes: MODEL.length } },
     ...typeof options.config === 'function' ? options.config(server.origin) : options.config,
   })
@@ -393,3 +398,179 @@ it('unpacks a downloaded engine archive and runs the server inside it', async ()
   expect(record.engine.binary).toBe(join('llama-b0', 'llama-server'))
   await expect(stat(join(home, 'data', 'downloads', 'engine.tar.gz'))).rejects.toThrow()
 }, 30_000)
+
+// ── model manager ───────────────────────────────────────────────────────────
+
+/** A tiny file that passes the GGUF magic check; the fake server never reads it. */
+const TINY = Buffer.concat([Buffer.from('GGUF'), Buffer.alloc(64 * 1024, 4)])
+const REVISION = 'abc123'
+
+/** A Hugging Face repository listing: one usable file, plus files the lookup must leave out. */
+const HF_FILES = {
+  '/api/models/acme/tiny-GGUF?blobs=true': Buffer.from(JSON.stringify({
+    id: 'acme/tiny-GGUF', sha: REVISION,
+    siblings: [
+      { rfilename: 'README.md', size: 10 },
+      { rfilename: 'tiny-Q4_K_M.gguf', size: TINY.length, lfs: { sha256: sha(TINY), size: TINY.length } },
+      { rfilename: 'mmproj-tiny-f16.gguf', size: 100, lfs: { sha256: 'a'.repeat(64), size: 100 } },
+      { rfilename: 'big-Q8_0-00001-of-00002.gguf', size: 100, lfs: { sha256: 'b'.repeat(64), size: 100 } },
+      { rfilename: 'unverified-Q2_K.gguf', size: 100 },
+    ],
+  })),
+  [`/acme/tiny-GGUF/resolve/${REVISION}/tiny-Q4_K_M.gguf`]: TINY,
+}
+
+async function launchArgv(bin: string): Promise<string[]> {
+  return (JSON.parse(await readFile(join(bin, 'fake-launch.json'), 'utf8')) as { argv: string[] }).argv
+}
+
+async function launchedAlias(bin: string): Promise<string | undefined> {
+  const argv = await launchArgv(bin)
+  return argv[argv.indexOf('--alias') + 1]
+}
+
+it('downloads a model from a Hugging Face repository, switches to it, and removes it', async () => {
+  const f = await fixture({ extraFiles: HF_FILES })
+  f.llama.install()
+  await f.until(s => s.phase === 'running')
+  const repo = await f.llama.lookupHuggingFace(`${f.server.origin}/acme/tiny-GGUF/tree/main`)
+  expect(repo).toEqual({ repo: 'acme/tiny-GGUF', files: [{ file: 'tiny-Q4_K_M.gguf', bytes: TINY.length, quant: 'Q4_K_M', recommended: true, installed: false }] })
+
+  const id = await f.llama.downloadHuggingFace('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')
+  expect(id).toBe('tiny-q4_k_m')
+  const added = await f.until(s => s.models.length === 2 && s.downloads.length === 0)
+  expect(f.seen.some(s => s.downloads[0]?.progress?.overallTotalBytes === TINY.length)).toBe(true)
+  // A second model does not take over the running one.
+  expect(added).toMatchObject({ phase: 'running', model: { id: 'jan-v3.5-4b' } })
+  expect(added.models).toEqual([
+    { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', bytes: MODEL.length, source: 'catalog', active: true },
+    { id, name: 'tiny-Q4_K_M', bytes: TINY.length, source: 'huggingface', active: false },
+  ])
+  expect((await f.llama.lookupHuggingFace('acme/tiny-GGUF')).files[0]?.installed).toBe(true)
+  // Asking again for an installed file names the installed model.
+  expect(await f.llama.downloadHuggingFace('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')).toBe(id)
+
+  await f.llama.select(id)
+  expect(f.llama.snapshot()).toMatchObject({ phase: 'running', model: { id, name: 'tiny-Q4_K_M' } })
+  expect(await launchedAlias(f.bin)).toBe(id)
+
+  await f.llama.removeModel(id)
+  expect(f.llama.snapshot()).toMatchObject({ phase: 'running', model: { id: 'jan-v3.5-4b' } })
+  expect(f.llama.snapshot().models.map(model => model.id)).toEqual(['jan-v3.5-4b'])
+  expect(await launchedAlias(f.bin)).toBe('jan-v3.5-4b')
+  await expect(stat(join(f.home, 'data', 'models', id))).rejects.toThrow()
+  await expect(f.llama.downloadHuggingFace('acme/tiny-GGUF', 'missing.gguf')).rejects.toThrow(/no downloadable file/)
+  await expect(f.llama.lookupHuggingFace('acme/absent')).rejects.toMatchObject({ reason: 'not-found' })
+}, 30_000)
+
+it('imports a GGUF file in place, refuses other files, and only forgets it on removal', async () => {
+  const f = await fixture()
+  await f.until(s => s.phase === 'missing')
+  const dir = await temp('llama-import-')
+  const model = join(dir, 'My Model.gguf')
+  await writeFile(model, TINY)
+  await writeFile(join(dir, 'notes.gguf'), 'not a model')
+  await expect(f.llama.importModel('relative.gguf')).rejects.toThrow(/full path/)
+  await expect(f.llama.importModel(join(dir, 'absent.gguf'))).rejects.toThrow(/No file/)
+  await expect(f.llama.importModel(join(dir, 'notes.gguf'))).rejects.toThrow(/not a GGUF model file/)
+
+  const id = await f.llama.importModel(model)
+  expect(id).toBe('my-model')
+  const running = await f.until(s => s.phase === 'running' || s.phase === 'failed')
+  expect(running).toMatchObject({ phase: 'running', model: { id, name: 'My Model' }, models: [{ id, source: 'import', active: true }] })
+  const argv = await launchArgv(f.bin)
+  expect(argv[argv.indexOf('-m') + 1]).toBe(model)
+  expect(await f.llama.importModel(model)).toBe(id)
+
+  await f.llama.removeModel(id)
+  expect(f.llama.snapshot()).toMatchObject({ phase: 'missing', models: [] })
+  expect(await f.key()).toBeUndefined()
+  expect((await stat(model)).size).toBe(TINY.length)
+})
+
+it('reads the one-model record of earlier builds and serves its model', async () => {
+  const home = await temp('llama-v1-')
+  const file = join('models', 'jan-v3.5-4b', `${sha(MODEL).slice(0, 16)}.gguf`)
+  await mkdir(join(home, 'data', 'models', 'jan-v3.5-4b'), { recursive: true })
+  await writeFile(join(home, 'data', file), MODEL)
+  await writeFile(join(home, 'data', 'install.json'), JSON.stringify({
+    version: 1, engine: { version: 'b0', backend: 'cpu', sha256: '', binary: 'unused' },
+    model: { sha256: sha(MODEL), bytes: MODEL.length, file },
+  }))
+  const f = await fixture({ home })
+  const state = await f.until(s => s.phase === 'running' || s.phase === 'failed')
+  expect(state).toMatchObject({ phase: 'running', models: [{ id: 'jan-v3.5-4b', source: 'catalog', active: true }] })
+  expect(f.server.requests).toEqual([])
+  // The next record write is the current version.
+  await f.llama.stop()
+  const dir = await temp('llama-v1-import-')
+  await writeFile(join(dir, 'x.gguf'), TINY)
+  await f.llama.importModel(join(dir, 'x.gguf'))
+  const record = JSON.parse(await readFile(join(home, 'data', 'install.json'), 'utf8')) as { version: number; models: unknown[]; active: string }
+  expect(record).toMatchObject({ version: 2, active: 'jan-v3.5-4b' })
+  expect(record.models).toHaveLength(2)
+}, 20_000)
+
+it('fails the first download visibly, and dismisses the failed entry on cancel', async () => {
+  const f = await fixture({ config: modelOrigin => ({
+    artifactOverrides: { model: { url: `${modelOrigin}/absent.gguf`, sha256: sha(MODEL), bytes: MODEL.length } },
+  }) })
+  f.llama.install()
+  const failed = await f.until(s => s.phase === 'failed')
+  expect(failed.error).toMatch(/HTTP 404/)
+  expect(failed.downloads).toHaveLength(1)
+  expect(failed.downloads[0]?.error).toMatch(/HTTP 404/)
+  await f.llama.cancel('jan-v3.5-4b')
+  expect(f.llama.snapshot().downloads).toEqual([])
+})
+
+/** Settings stand-in holding the `llm-pi-ai` section the route sync reads and writes. */
+class FakeSettings extends Service {
+  value: { providers: Record<string, { models?: unknown }> } = { providers: { local: { models: [{ id: 'jan-v3.5-4b' }] } } }
+  readonly writes: unknown[] = []
+  constructor(ctx: Context) { super(ctx, 'settings') }
+  describe(): Array<{ ns: string; value: unknown }> { return [{ ns: 'llm-pi-ai', value: this.value }] }
+  mutate(ns: string, ops: Array<{ path: string[]; value: unknown }>): Promise<void> {
+    this.writes.push({ ns, ops })
+    for (const op of ops) this.value.providers.local = { models: op.value }
+    return Promise.resolve()
+  }
+}
+
+it('lists the active model on the local route when a settings service is mounted', async () => {
+  const settings: { current?: FakeSettings } = {}
+  const f = await fixture({ extraFiles: HF_FILES, before: async (ctx) => {
+    await ctx.plugin(FakeSettings)
+    settings.current = ctx.get('settings') as never
+  } })
+  f.llama.install()
+  await f.until(s => s.phase === 'running')
+  const entry = { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B (local)', contextWindow: 32768, maxTokens: 8192 }
+  expect(settings.current?.writes).toEqual([{ ns: 'llm-pi-ai', ops: [{ op: 'set', path: ['providers', 'local', 'models'], value: [entry] }] }])
+  const id = await f.llama.downloadHuggingFace('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')
+  await f.until(s => s.models.length === 2)
+  await f.llama.select(id)
+  expect(settings.current?.value.providers.local?.models).toEqual([{ ...entry, id, name: 'tiny-Q4_K_M (local)' }])
+  // An unchanged list is not written again.
+  await f.llama.select(id)
+  expect(settings.current?.writes).toHaveLength(2)
+}, 30_000)
+
+it('reads a repository from typed text and refuses other hosts', () => {
+  const origin = 'https://huggingface.co'
+  expect(parseRepo(' unsloth/Qwen3-8B-GGUF ', origin)).toBe('unsloth/Qwen3-8B-GGUF')
+  expect(parseRepo('https://huggingface.co/unsloth/Qwen3-8B-GGUF/blob/main/x.gguf', origin)).toBe('unsloth/Qwen3-8B-GGUF')
+  expect(parseRepo('https://www.huggingface.co/unsloth/Qwen3-8B-GGUF', origin)).toBe('unsloth/Qwen3-8B-GGUF')
+  expect(() => parseRepo('https://evil.example/unsloth/Qwen3-8B-GGUF', origin)).toThrow(/Hugging Face repository/)
+  expect(() => parseRepo('qwen', origin)).toThrow(/Hugging Face repository/)
+  expect(() => parseRepo('../../etc/passwd', origin)).toThrow(/Hugging Face repository/)
+})
+
+it('measures the transfer rate over a rolling window', () => {
+  const meter = new RateMeter()
+  expect(meter.sample(0, 0)).toBe(0)
+  expect(meter.sample(1000, 200)).toBe(0) // too short a span to report
+  expect(meter.sample(10_000, 1000)).toBe(10_000)
+  expect(meter.sample(40_000, 4000)).toBe(10_000)
+  expect(meter.sample(40_000, 8000)).toBe(0) // stalled: the window holds no progress
+})

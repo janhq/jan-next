@@ -4,9 +4,33 @@ import type { FormEvent } from 'react'
 import { Toast } from '@deepseek-ai/dsh-client-ui-primitives/src/Toast.tsx'
 import { StateDot } from '@deepseek-ai/dsh-client-ui-primitives/src/StateDot.tsx'
 import type { AccountView } from '@deepseek-ai/dsh-deepseek-account/types'
-import type { WelcomeApi } from '../welcome-api.ts'
+import type { WelcomeApi, WelcomeLocalModel } from '../welcome-api.ts'
 
-type Page = 'entry' | 'key' | 'account'
+type Page = 'entry' | 'key' | 'account' | 'local'
+
+/** How often the local model page re-reads the Host state. */
+const LOCAL_POLL_MS = 500
+
+/**
+ * Fill `{name}` placeholders.
+ * @param text - localized template.
+ * @param params - values by placeholder name.
+ * @returns the text.
+ */
+function fill(text: string, params: Record<string, string>): string {
+  return text.replace(/\{(\w+)\}/g, (match, name: string) => params[name] ?? match)
+}
+
+/**
+ * Format a byte count for people.
+ * @param bytes - size in bytes.
+ * @returns e.g. "2.7 GB" or "23 MB".
+ */
+function formatBytes(bytes: number): string {
+  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(1)} GB`
+  if (bytes >= 1e6) return `${Math.round(bytes / 1e6)} MB`
+  return `${Math.max(0, Math.round(bytes / 1e3))} KB`
+}
 
 /**
  * Render the standalone welcome flow using shell-owned operations and localized copy.
@@ -35,6 +59,8 @@ export function Welcome({ api }: { api: WelcomeApi }) {
   const input = useRef<HTMLInputElement>(null)
   const keyButton = useRef<HTMLButtonElement>(null)
   const focusEntry = useRef(false)
+  const [local, setLocal] = useState<WelcomeLocalModel | undefined>()
+  const [localFailed, setLocalFailed] = useState(false)
 
   function navigate(next: Page) {
     pageRef.current = next
@@ -77,6 +103,21 @@ export function Welcome({ api }: { api: WelcomeApi }) {
       focusEntry.current = false
       keyButton.current?.focus()
     }
+  }, [page, api])
+
+  useEffect(() => {
+    if (page !== 'local') return
+    let stopped = false
+    const poll = (): void => {
+      void api.readLocalModel().then((state) => {
+        if (!stopped && mounted.current) setLocal(state)
+      }).catch((_closedChannel: unknown) => {
+        // The next poll retries; a closed channel means the window is closing.
+      })
+    }
+    const timer = setInterval(poll, LOCAL_POLL_MS)
+    poll()
+    return () => { stopped = true; clearInterval(timer) }
   }, [page, api])
 
   useEffect(() => {
@@ -125,6 +166,16 @@ export function Welcome({ api }: { api: WelcomeApi }) {
       if (mounted.current) setBusy(false)
     }
   }
+  async function startLocal() {
+    navigate('local')
+    setLocalFailed(false)
+    try {
+      const state = await api.startLocalModel()
+      if (mounted.current) setLocal(state)
+    } catch {
+      if (mounted.current) setLocalFailed(true)
+    }
+  }
   async function start() {
     navigate('account')
     setStarting(true)
@@ -169,7 +220,22 @@ export function Welcome({ api }: { api: WelcomeApi }) {
   const title = phase === 'initializing' ? m.welcomeAuthStarting
     : waiting ? m.welcomeAuthWaiting : phase === 'expired' ? m.welcomeAuthExpired
       : phase === 'failed' ? m.welcomeAuthFailed : m.welcomeAuthExchanging
-  const heading = page === 'entry' ? 'welcome-heading' : page === 'key' ? 'key-title' : 'auth-status'
+  const heading = page === 'entry' ? 'welcome-heading' : page === 'key' ? 'key-title' : page === 'local' ? 'local-title' : 'auth-status'
+  const localPhase = localFailed ? 'failed' : local?.phase ?? 'checking'
+  const localName = local?.name ?? ''
+  const localBusy = localPhase === 'downloading' || localPhase === 'starting' || localPhase === 'installed' || localPhase === 'checking'
+  const localProgress = localPhase === 'downloading' ? local?.progress : undefined
+  const localStatus = localPhase === 'running' ? fill(m.welcomeLocalReady, { name: localName })
+    : localPhase === 'failed' ? m.welcomeLocalFailed
+      : localPhase === 'starting' || localPhase === 'installed' ? fill(m.welcomeLocalStarting, { name: localName })
+        : localProgress?.step === 'engine' ? m.welcomeLocalEngine : fill(m.welcomeLocalDownloading, { name: localName })
+  const localDetail = localProgress === undefined ? '' : [
+    fill(m.welcomeLocalProgress, {
+      percent: String(Math.min(100, Math.floor((localProgress.receivedBytes / Math.max(localProgress.totalBytes, 1)) * 100))),
+      received: formatBytes(localProgress.receivedBytes), total: formatBytes(localProgress.totalBytes),
+    }),
+    ...localProgress.bytesPerSecond > 0 ? [fill(m.welcomeLocalSpeed, { speed: formatBytes(localProgress.bytesPerSecond) })] : [],
+  ].join(' · ')
 
   return <>
     {expiryNotice && <Toast text={m.welcomeSessionExpired} onDone={() => { setExpiryNotice(false) }} />}
@@ -198,6 +264,22 @@ export function Welcome({ api }: { api: WelcomeApi }) {
           {copyState === 'copied' ? m.welcomeAuthCopied : copyState === 'failed' ? m.welcomeAuthCopyFailed : m.welcomeAuthCopyLink}
         </button>
       </section>
+      <section id="local-page" className="key-heading" hidden={page !== 'local'} aria-live="polite">
+        <h1 id="local-title">{fill(m.welcomeLocalTitle, { name: localName })}</h1>
+        <p id="local-status">{localStatus}</p>
+        {localProgress !== undefined && <>
+          <progress id="local-progress" value={localProgress.receivedBytes} max={Math.max(localProgress.totalBytes, 1)} aria-label={localStatus} />
+          <p id="local-detail">{localDetail}</p>
+        </>}
+        {localPhase === 'failed' && local?.error !== undefined && <p id="local-error" className="key-error" role="alert">{local.error}</p>}
+        {localPhase !== 'failed' && <p id="local-description">{m.welcomeLocalDescription}</p>}
+      </section>
+      <div id="local-actions" className="actions" hidden={page !== 'local'}>
+        {localPhase === 'running' && <button id="local-start" className="primary" type="button" onClick={() => { void skip() }}>{m.welcomeLocalStart}</button>}
+        {localPhase === 'failed' && <button id="local-retry" className="primary" type="button" onClick={() => { void startLocal() }}>{m.welcomeLocalRetry}</button>}
+        {localBusy && <button id="local-background" className="secondary" type="button" disabled={busy} onClick={() => { void skip() }}>{m.welcomeLocalBackground}</button>}
+        {!localBusy && localPhase !== 'running' && <button id="local-back" className="back" type="button" onClick={() => { navigate('entry') }}>{m.welcomeLocalBack}</button>}
+      </div>
       <div id="auth-actions" className="actions" hidden={page !== 'account'}>
         <button id="auth-loading" className="primary" type="button" hidden={failed} disabled aria-label={m.welcomeAuthExchanging}>
           <StateDot state="ongoing" size={16} className="welcome-loading" />
@@ -209,8 +291,9 @@ export function Welcome({ api }: { api: WelcomeApi }) {
           onClick={() => { void cancel() }}>{m.welcomeAuthCancel}</button>
       </div>
       <div id="entry-actions" className="actions" hidden={page !== 'entry'}>
-        <button id="sign-in" className="primary" type="button" onClick={() => { void api.analytics?.('auth_page_click', { button_name: 'sign_in' }); void start() }}>{m.welcomeSignIn}</button>
-        <button ref={keyButton} id="api-key" className="secondary" type="button" onClick={() => { void api.analytics?.('auth_page_click', { button_name: 'api-key' }); navigate('key') }}>{m.welcomeApiKey}</button>
+        <button id="local-model" className="primary" type="button" title={m.welcomeLocalHint} onClick={() => { void startLocal() }}>{m.welcomeLocalModel}</button>
+        <button id="sign-in" className="secondary" type="button" onClick={() => { void api.analytics?.('auth_page_click', { button_name: 'sign_in' }); void start() }}>{m.welcomeSignIn}</button>
+        <button ref={keyButton} id="api-key" className="back" type="button" onClick={() => { void api.analytics?.('auth_page_click', { button_name: 'api-key' }); navigate('key') }}>{m.welcomeApiKey}</button>
       </div>
       <div id="key-actions" className="actions" hidden={page !== 'key'}>
         <button id="save-key" className="primary" type="submit" form="key-form" disabled={busy || draft.trim() === ''}>{m.welcomeKeySave}</button>

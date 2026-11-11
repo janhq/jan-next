@@ -1,9 +1,9 @@
 /** Pieces shared by the Models card and the first-run option. */
 import type { ReactNode } from 'react'
 import { StateDot, type StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { LlamaCppPhase, LlamaCppState } from '@deepseek-ai/dsh-api-llama-cpp-controller'
+import type { LlamaCppPhase, LlamaCppProgress, LlamaCppState } from '@deepseek-ai/dsh-api-llama-cpp-controller'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
-import { formatBytes } from './state.ts'
+import { estimateRemaining, formatBytes } from './state.ts'
 import type { NS } from './locales.ts'
 import css from './LocalModel.module.css'
 
@@ -34,17 +34,32 @@ export function Status({ state, t }: { state: LlamaCppState; t: T }): ReactNode 
   </span>
 }
 
-/** Byte progress of the active download step. */
+/**
+ * One download's progress: a bar over the whole download, then percent, bytes, speed and time left.
+ * @returns the bar and its caption.
+ */
+export function DownloadProgress({ progress, name, t }: { progress: LlamaCppProgress; name: string; t: T }): ReactNode {
+  const received = progress.overallReceivedBytes
+  const total = Math.max(progress.overallTotalBytes, 1)
+  const percent = Math.min(100, Math.floor((received / total) * 100))
+  const step = progress.phase === 'engine' ? t('progressEngineStep') : t('progressModelStep', { name })
+  const eta = estimateRemaining(total - received, progress.bytesPerSecond)
+  const detail = [
+    t('progressDetail', { percent: String(percent), received: formatBytes(received), total: formatBytes(total) }),
+    ...progress.bytesPerSecond > 0 ? [t('progressSpeed', { speed: formatBytes(progress.bytesPerSecond) })] : [],
+    ...eta === undefined ? [] : [t(eta.key, eta.params)],
+  ].join(' · ')
+  return <div className={css.progressBlock}>
+    <progress className={css.progress} aria-label={step} value={received} max={total} />
+    <p className={css.muted} data-testid="local-model-progress">{step}: {detail}</p>
+  </div>
+}
+
+/** Progress of the first download while nothing is installed yet (first run). */
 export function Progress({ state, t }: { state: LlamaCppState; t: T }): ReactNode {
   const progress = state.progress
   if (state.phase !== 'downloading' || progress === undefined) return null
-  const label = t(progress.phase === 'engine' ? 'progressEngine' : 'progressModel', {
-    received: formatBytes(progress.receivedBytes), total: formatBytes(progress.totalBytes),
-  })
-  return <>
-    <progress className={css.progress} aria-label={label} value={progress.receivedBytes} max={progress.totalBytes} />
-    <p className={css.muted} data-testid="local-model-progress">{label}</p>
-  </>
+  return <DownloadProgress progress={progress} name={state.downloads[0]?.name ?? state.model.name} t={t} />
 }
 
 /** Failure message with the engine's last log lines. */
