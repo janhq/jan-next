@@ -43,8 +43,10 @@ describe('dsh-base bundle', () => {
     })
     expect(rows.filter(row => row.id === 'subagent-codex')).toHaveLength(0)
     expect(rows.filter(row => row.id === 'subagent-claude-code')).toHaveLength(0)
-    // tokamak-harness: DeepSeek search is unmounted; the account seam and default model are Tokamak.
-    expect(rows.find(row => row.id === 'web')?.config).toEqual({ fetchProvider: 'http' })
+    // tokamak-harness: DeepSeek search is unmounted in favor of keyless Exa; the account seam and default model are Tokamak.
+    expect(rows.find(row => row.id === 'web')?.config).toEqual({ searchProvider: 'exa', fetchProvider: 'http' })
+    expect(rows.find(row => row.id === 'web-search-exa')).toMatchObject({ name: '@deepseek-ai/dsh-web-search-exa' })
+    expect(manifest.dependencies).toHaveProperty('@deepseek-ai/dsh-web-search-exa')
     expect(rows.find(row => row.id === 'web-deepseek-api')).toMatchObject({ name: '@deepseek-ai/dsh-web-deepseek-api', disabled: true })
     expect(rows.find(row => row.id === 'web-fetch-http')).toBeDefined()
     expect(rows.find(row => row.id === 'web-search-deepseek')).toMatchObject({

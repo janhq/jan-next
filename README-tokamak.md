@@ -107,6 +107,7 @@ TOKAMAK_BASE_URL=http://127.0.0.1:8787/v1 TOKAMAK_ALLOW_LOOPBACK_HTTP=1 pnpm dsh
   - The account row uses the Tokamak package.
   - `llm-pi-ai` gets a `tokamak` route, and the default model is `tokamak/tokamak-1-preview`.
   - The DeepSeek model routes and DeepSeek web search are disabled.
+  - Web search uses the new `packages/web/web-search-exa`; see [Web search](#web-search).
 - `SignInAttemptView.userCode`, an optional field. The sign-in dialog and the account page show it.
 - Account UI strings say Tokamak. The balance card is hidden for accounts without wallets.
 - Local model: new `packages/llm/llama-cpp` (download and supervise), `packages/api/llama-cpp-controller` (browser Remote), and `packages/client/ui-settings-local-model` (Models card and first-run option).
@@ -118,6 +119,10 @@ Some repository checks are expected to fail in this fork, because it doesn't fol
 - `TOKAMAK_BASE_URL` is inlined in the bundle YAML.
 
 `pnpm run build` passes.
+
+## Web search
+
+`web_search` works without any key or account, through Exa's hosted MCP endpoint `https://mcp.exa.ai/mcp`, which is the same default as the Jan app. The `web-search-exa` row registers an `exa` search provider and an `exa` fetch provider. The base bundle selects `exa` for search and keeps the direct `http` provider for `web_fetch`. Both can be switched in **Plugins → Web search and fetch**. Each search query, and each URL read through the `exa` fetch provider, is sent to Exa. The hosted endpoint is rate-limited; a throttled call fails with "Exa rate-limited this request" instead of returning no results. Row config: `url`, `numResults` (default 5, at most 20), `maxCharacters` (default 40000) and `timeoutMs` (default 30000).
 
 ## Branding
 

@@ -535,7 +535,8 @@
     - id: web
       name: '@deepseek-ai/dsh-web'
       config:
-        # tokamak-harness: DeepSeek search is disabled; pick a provider in settings.
+        # tokamak-harness: keyless Exa search; pages are fetched directly over HTTP.
+        searchProvider: exa
         fetchProvider: http
 
     - id: web-search-deepseek
@@ -550,6 +551,11 @@
 
     - id: web-fetch-http
       name: '@deepseek-ai/dsh-web-fetch-http'
+
+    # tokamak-harness: keyless search (and an alternative fetch) through Exa's
+    # hosted MCP endpoint; queries are sent to Exa.
+    - id: web-search-exa
+      name: '@deepseek-ai/dsh-web-search-exa'
 
     - id: tool-web
       name: '@deepseek-ai/dsh-tool-web'

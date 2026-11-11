@@ -329,6 +329,7 @@
     { "path": "./packages/credentials/tokamak-account" },
     { "path": "./packages/llm/llama-cpp" },
     { "path": "./packages/api/llama-cpp-controller" },
+    { "path": "./packages/web/web-search-exa" },
     { "path": "./packages/credentials/deepseek-account" },
     { "path": "./packages/client/ui-deliverables/tsconfig.host.json" },
     { "path": "./vendor/cosmokit" },
