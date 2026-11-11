@@ -43,8 +43,8 @@ it('shows the application icon with its name as the tooltip and an Open / Quit m
   const f = setup()
   expect(native.createFromPath).toHaveBeenCalledWith('C:/app/resources/tray.ico')
   expect(f.native.image).toEqual({ path: 'C:/app/resources/tray.ico' })
-  expect(f.native.setToolTip).toHaveBeenCalledWith('DeepSeek Harness')
-  expect(labels(native.menus[0]!)).toEqual(['Open DeepSeek Harness', 'separator', 'Quit DeepSeek Harness'])
+  expect(f.native.setToolTip).toHaveBeenCalledWith('Jan')
+  expect(labels(native.menus[0]!)).toEqual(['Open Jan', 'separator', 'Quit Jan'])
   expect(f.native.setContextMenu).toHaveBeenCalledWith({ template: native.menus[0] })
 })
 
