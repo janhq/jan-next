@@ -163,7 +163,11 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-/** Local engine with an installed model set; every record and process mutation is serialized through {@link LlamaCpp.task}. */
+/**
+ * Local engine with an installed model set. Record and process mutations are serialized through
+ * {@link LlamaCpp.task}, except the engine install, which records itself outside it because a
+ * launch inside the queue may be what asked for the engine; record writes are chained in order.
+ */
 export class LlamaCpp extends Service {
   static inject = ['subprocess', 'credentials']
   static Config = Config
@@ -181,8 +185,12 @@ export class LlamaCpp extends Service {
   /** Downloads run one at a time, outside {@link queue}, so Stop and Start stay responsive. */
   private downloadQueue: Promise<unknown> = Promise.resolve()
   private readonly jobs = new Map<string, Job>()
-  /** Shared by downloads that need the engine at the same time. */
-  private engineInstall: Promise<string> | undefined
+  /** Shared by every download and launch that needs the engine at the same time. */
+  private engineInstall: { promise: Promise<string>; abort: AbortController; waiters: number } | undefined
+  /** Byte progress listeners of everything waiting on {@link engineInstall}. */
+  private readonly engineReporters = new Set<(received: number, total: number) => void>()
+  /** Engine progress of a launch whose model outlived its engine; shown while no download reports. */
+  private launchProgress: LlamaCppProgress | undefined
   private lastProgressAt = 0
   private record: InstallRecord = { version: 2, models: [] }
   /** Record writes in order; the engine install writes from outside {@link queue}. */
@@ -311,7 +319,7 @@ export class LlamaCpp extends Service {
       ...job.error === undefined ? {} : { error: job.error },
     }))
     const installed = new Set(this.record.models.map(model => model.id))
-    const progress = downloads.find(item => item.error === undefined)?.progress
+    const progress = downloads.find(item => item.error === undefined && item.progress !== undefined)?.progress ?? this.launchProgress
     return {
       phase: this.server.phase, provider: this.config.provider,
       model: {
@@ -392,11 +400,12 @@ export class LlamaCpp extends Service {
 
   /** Convert the one-model record of earlier builds; its model file stays where it is. */
   private fromV1(v1: InstallRecordV1): InstallRecord {
-    const entry = CATALOG.find(model => model.sha256 === v1.model.sha256)
-    const id = entry?.id ?? DEFAULT_MODEL_ID
+    const entry = [this.firstModel, ...CATALOG].find(model => model.sha256 === v1.model.sha256)
+    // A file no curated entry matches keeps an id of its own, so the curated model stays downloadable.
+    const id = entry?.id ?? 'earlier-local-model'
     return {
       version: 2, engine: v1.engine, active: id,
-      models: [{ id, name: entry?.name ?? id, file: v1.model.file, bytes: v1.model.bytes, sha256: v1.model.sha256, source: 'catalog', ...entry === undefined ? {} : { repo: entry.repo } }],
+      models: [{ id, name: entry?.name ?? 'Earlier local model', file: v1.model.file, bytes: v1.model.bytes, sha256: v1.model.sha256, source: 'catalog', ...entry === undefined ? {} : { repo: entry.repo } }],
     }
   }
 
@@ -486,10 +495,27 @@ export class LlamaCpp extends Service {
     if (found === undefined) throw new HuggingFaceLookupError('not-found', `${repo.repo} has no downloadable file ${file}`)
     const existing = this.record.models.find(model => model.sha256 === found.sha256)
     if (existing !== undefined) return existing.id
+    // The same file already downloading (or failed) keeps its id; a failed one starts again.
+    const pending = [...this.jobs.values()].find(job => job.spec.sha256 === found.sha256)
+    if (pending !== undefined) {
+      if (pending.error !== undefined) this.enqueue(pending.spec)
+      return pending.spec.id
+    }
     const name = basename(found.file).replace(/\.gguf$/i, '')
     const id = this.freeId(slug(name))
     this.enqueue({ id, name, url: found.url, sha256: found.sha256, bytes: found.bytes, source: 'huggingface', repo: repo.repo })
     return id
+  }
+
+  /**
+   * Start a failed download again, from its partial file.
+   * @param id - model id of the failed download.
+   * @throws Error when no failed download has that id.
+   */
+  retry(id: string): void {
+    const job = this.jobs.get(id)
+    if (job?.error === undefined) throw new Error(`no failed download "${id}"`)
+    this.enqueue(job.spec)
   }
 
   /**
@@ -507,9 +533,10 @@ export class LlamaCpp extends Service {
     await this.downloadQueue
   }
 
-  /** @returns an id no installed model or download uses, derived from `base`. */
+  /** @returns an id no installed model, download or curated model uses, derived from `base`. */
   private freeId(base: string): string {
     const taken = (id: string): boolean => this.record.models.some(model => model.id === id) || this.jobs.has(id)
+      || catalogModel(id) !== undefined
     if (!taken(base)) return base
     let n = 2
     while (taken(`${base}-${String(n)}`)) n++
@@ -553,14 +580,21 @@ export class LlamaCpp extends Service {
       await download(job.spec, path, 'model', signal, (received, total) => { report('model', received, total) })
       signal.throwIfAborted()
       await this.task(async () => {
+        // Cancel or uninstall may have landed while this commit waited behind another task.
+        signal.throwIfAborted()
+        const previous = this.record
+        const first = previous.active === undefined
+        this.record = {
+          ...previous,
+          models: [...previous.models, {
+            id: job.spec.id, name: job.spec.name, file: relative(this.config.dataRoot, path), bytes: job.spec.bytes,
+            sha256: job.spec.sha256, source: job.spec.source, repo: job.spec.repo,
+          }],
+          ...first ? { active: job.spec.id } : {},
+        }
+        try { await this.writeRecord() }
+        catch (error) { this.record = previous; throw error }
         this.jobs.delete(job.spec.id)
-        this.record.models.push({
-          id: job.spec.id, name: job.spec.name, file: relative(this.config.dataRoot, path), bytes: job.spec.bytes,
-          sha256: job.spec.sha256, source: job.spec.source, repo: job.spec.repo,
-        })
-        const first = this.record.active === undefined
-        if (first) this.record.active = job.spec.id
-        await this.writeRecord()
         this.emit()
         if (!first) return
         // The first model installed starts serving right away, as the first-run offer promises.
@@ -591,8 +625,37 @@ export class LlamaCpp extends Service {
    * @returns the server executable.
    */
   private ensureEngine(signal: AbortSignal, report: (received: number, total: number) => void): Promise<string> {
-    this.engineInstall ??= this.installEngine(signal, report).finally(() => { this.engineInstall = undefined })
-    return this.engineInstall
+    if (signal.aborted) return Promise.reject(signal.reason instanceof Error ? signal.reason : new Error('cancelled'))
+    let install = this.engineInstall
+    if (install === undefined) {
+      // Its own controller: the install stops only when every waiter has gone (or the service stops).
+      const abort = new AbortController()
+      const promise = this.installEngine(AbortSignal.any([abort.signal, this.lifetime.signal]), (received, total) => {
+        for (const listener of this.engineReporters) listener(received, total)
+      }).finally(() => { if (this.engineInstall?.promise === promise) this.engineInstall = undefined })
+      install = { promise, abort, waiters: 0 }
+      this.engineInstall = install
+    }
+    const shared = install
+    shared.waiters++
+    this.engineReporters.add(report)
+    return new Promise<string>((resolve, reject) => {
+      const leave = (): void => {
+        signal.removeEventListener('abort', onAbort)
+        this.engineReporters.delete(report)
+        shared.waiters--
+      }
+      const onAbort = (): void => {
+        leave()
+        if (shared.waiters === 0) shared.abort.abort(new Error('cancelled'))
+        reject(signal.reason instanceof Error ? signal.reason : new Error('cancelled'))
+      }
+      signal.addEventListener('abort', onAbort, { once: true })
+      shared.promise.then((binary) => { leave(); resolve(binary) }, (error: unknown) => {
+        leave()
+        reject(error instanceof Error ? error : new Error(String(error)))
+      })
+    })
   }
 
   private async installEngine(signal: AbortSignal, report: (received: number, total: number) => void): Promise<string> {
@@ -828,6 +891,8 @@ export class LlamaCpp extends Service {
     // Outside the task: a finishing download commits through the task queue.
     await this.downloadQueue
     await this.task(async () => {
+      // A download enqueued since the wait above must not write into the deleted directories.
+      for (const job of this.jobs.values()) job.abort.abort(new Error('cancelled'))
       this.jobs.clear()
       await this.terminate()
       for (const dir of ['engine', 'models', 'downloads']) await rm(join(this.config.dataRoot, dir), { recursive: true, force: true })
@@ -840,29 +905,45 @@ export class LlamaCpp extends Service {
     })
   }
 
+  /**
+   * Start the active model's server. Never rejects: a failure is published as the `failed` phase,
+   * so every caller (start, select, a finished first download, import, removal) reports it alike.
+   */
   private async launch(): Promise<void> {
+    try { await this.launchOnce() }
+    catch (error) { this.fail(error) }
+  }
+
+  private async launchOnce(): Promise<void> {
     if (this.running !== undefined || this.lifetime.signal.aborted) return
     const model = this.activeModel()
     if (model === undefined) { this.setServer({ phase: 'missing' }); return }
-    let binary = await this.engineBinary()
-    if (binary === undefined) {
-      // A model outlived its engine (a newer pinned build); fetch the engine before starting.
-      const meter = new RateMeter()
-      const total = this.engine?.bytes ?? 0
-      binary = await this.ensureEngine(this.lifetime.signal, (receivedBytes, totalBytes) => {
-        this.server = { phase: 'downloading' }
-        const progress: LlamaCppProgress = {
-          phase: 'engine', receivedBytes, totalBytes, overallReceivedBytes: receivedBytes, overallTotalBytes: total,
-          bytesPerSecond: meter.sample(receivedBytes, performance.now()),
-        }
-        this.state = { ...this.view(), progress }
-        for (const listener of this.listeners) listener()
-      })
-    }
+    // Assigned before the engine wait, so Stop, select and removal can interrupt that wait too.
     const launching = new AbortController()
     this.launching = launching
     const signal = AbortSignal.any([launching.signal, this.lifetime.signal])
     try {
+      let binary = await this.engineBinary()
+      if (binary === undefined) {
+        // A model outlived its engine (a newer pinned build); fetch the engine before starting.
+        const meter = new RateMeter()
+        const total = this.engine?.bytes ?? 0
+        this.server = { phase: 'downloading' }
+        try {
+          binary = await this.ensureEngine(signal, (receivedBytes, totalBytes) => {
+            this.launchProgress = {
+              phase: 'engine', receivedBytes, totalBytes, overallReceivedBytes: receivedBytes, overallTotalBytes: total,
+              bytesPerSecond: meter.sample(receivedBytes, performance.now()),
+            }
+            this.emit(true, receivedBytes === totalBytes)
+          })
+        } catch (error) {
+          if (aborted(signal)) { this.setServer({ phase: 'stopped' }); return }
+          throw error
+        } finally {
+          this.launchProgress = undefined
+        }
+      }
       this.setServer({ phase: 'starting' })
       const origin = `http://127.0.0.1:${this.config.port}`
       if (await fetch(`${origin}/health`, { signal: AbortSignal.timeout(1000) }).then(() => true, () => false)) {

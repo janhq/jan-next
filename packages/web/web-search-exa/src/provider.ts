@@ -20,6 +20,30 @@ export const EXA_DEFAULT_URL = 'https://mcp.exa.ai/mcp'
 /** Upper bound Exa's hosted search accepts for `numResults`. */
 export const EXA_MAX_RESULTS = 20
 
+/** Largest reply body read; Exa's replies are tens of kilobytes. */
+const MAX_REPLY_BYTES = 4 * 1024 * 1024
+
+/**
+ * Read a response body as text, refusing one larger than {@link MAX_REPLY_BYTES}.
+ * @param response - the HTTP response.
+ * @returns the body text.
+ * @throws {@link WebError} `WEB_PROVIDER_ERROR` for an oversized body.
+ */
+async function readCapped(response: Response): Promise<string> {
+  if (response.body === null) return ''
+  const chunks: Uint8Array[] = []
+  let size = 0
+  for await (const chunk of response.body) {
+    size += chunk.byteLength
+    if (size > MAX_REPLY_BYTES) {
+      await response.body.cancel().catch(() => undefined)
+      throw new WebError('Exa returned an oversized reply', 'WEB_PROVIDER_ERROR')
+    }
+    chunks.push(chunk)
+  }
+  return Buffer.concat(chunks).toString('utf8')
+}
+
 /** Longest display snippet taken from a result's highlights. */
 const SNIPPET_CHARS = 300
 
@@ -135,7 +159,7 @@ export async function callExaTool(
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: tool, arguments: args } }),
       signal: combined,
     })
-    body = await response.text()
+    body = await readCapped(response)
     if (!response.ok) throw new WebError(`Exa request failed (HTTP ${String(response.status)})`, 'WEB_PROVIDER_ERROR')
   } catch (error: unknown) {
     if (signal !== undefined && isAborted(signal)) throw aborted(signal)
@@ -227,7 +251,8 @@ export class ExaFetchProvider implements WebFetchProvider {
     const options = this.resolveOptions()
     const text = await callExaTool(options, 'web_fetch_exa', { urls: [request.url], maxCharacters: options.maxCharacters }, signal)
     const content = stripFetchHeader(text)
-    // Exa reports no HTTP status for the page it read; a returned page is reported as 200.
-    return { url: request.url, statusCode: 200, body: { kind: 'text', content }, truncated: content.length >= options.maxCharacters }
+    // Exa reports no HTTP status for the page it read; a returned page is reported as 200. It cuts the
+    // text at `maxCharacters`; a reply that reaches the limit counts as cut.
+    return { url: request.url, statusCode: 200, body: { kind: 'text', content }, truncated: text.length >= options.maxCharacters }
   }
 }

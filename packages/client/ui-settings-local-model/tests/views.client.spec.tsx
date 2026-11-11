@@ -41,7 +41,7 @@ function fixture(state: StateInput) {
   const store = createSnapshotStore<LocalModelMirror>({ state: full(state), connected: true })
   const actions = {
     install: vi.fn(), cancel: vi.fn(), start: vi.fn(), stop: vi.fn(), uninstall: vi.fn(),
-    downloadModel: vi.fn(), cancelDownload: vi.fn(), selectModel: vi.fn(), deleteModel: vi.fn(),
+    downloadModel: vi.fn(), cancelDownload: vi.fn(), retryDownload: vi.fn(), selectModel: vi.fn(), deleteModel: vi.fn(),
     lookupRepo: vi.fn<LocalModelActions['lookupRepo']>(), downloadRepoFile: vi.fn<LocalModelActions['downloadRepoFile']>(),
     importModel: vi.fn<LocalModelActions['importModel']>(),
   }
@@ -148,6 +148,8 @@ it('downloads a curated model and shows it in the downloads list with its progre
   const downloads = screen.getByTestId('local-model-downloads')
   expect(downloads.textContent).toContain('Downloading Qwen3 8B: 49% · 2.5 GB of 5.0 GB')
   expect(downloads.textContent).toContain('Could not download model: HTTP 404')
+  fireEvent.click(screen.getByTestId('local-model-retry-download'))
+  expect(f.actions.retryDownload).toHaveBeenCalledWith('broken')
   fireEvent.click(screen.getByRole('button', { name: en.dismiss }))
   expect(f.actions.cancelDownload).toHaveBeenCalledWith('broken')
 })
@@ -276,4 +278,26 @@ it('shows the context the server settled on, and offers Stop while starting', ()
   card(f)
   fireEvent.click(screen.getByTestId('local-model-stop'))
   expect(f.actions.stop).toHaveBeenCalledOnce()
+})
+
+it('drops a lookup answer that arrives after the text changed, and remembers started downloads across lookups', async () => {
+  const f = fixture({ phase: 'running', models: [jan] })
+  let answer: (value: Awaited<ReturnType<LocalModelActions['lookupRepo']>>) => void = () => {}
+  f.actions.lookupRepo.mockImplementationOnce(() => new Promise((resolve) => { answer = resolve }))
+  card(f)
+  const search = screen.getByTestId('local-model-search')
+  fireEvent.change(search, { target: { value: 'acme/old-GGUF' } })
+  fireEvent.click(screen.getByTestId('local-model-lookup'))
+  fireEvent.change(search, { target: { value: 'acme/new-GGUF' } })
+  await act(async () => { answer({ ok: true, value: { repo: 'acme/old-GGUF', files: [{ file: 'old.gguf', bytes: 1, recommended: false, installed: false }] } }) })
+  expect(screen.queryByTestId('local-model-repo-files')).toBeNull()
+
+  const files = { repo: 'acme/new-GGUF', files: [{ file: 'new-Q4_K_M.gguf', bytes: 2_000_000, quant: 'Q4_K_M', recommended: true, installed: false }] }
+  f.actions.lookupRepo.mockResolvedValue({ ok: true, value: files })
+  f.actions.downloadRepoFile.mockResolvedValue({ ok: true, value: 'new-q4_k_m' })
+  await act(async () => { fireEvent.click(screen.getByTestId('local-model-lookup')) })
+  await act(async () => { fireEvent.click(screen.getByTestId('local-model-repo-download')) })
+  await act(async () => { fireEvent.click(screen.getByTestId('local-model-lookup')) })
+  expect(screen.queryByTestId('local-model-repo-download')).toBeNull()
+  expect(f.actions.downloadRepoFile).toHaveBeenCalledOnce()
 })

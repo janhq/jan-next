@@ -67,7 +67,7 @@ export interface LlamaCppDownload {
   name: string
   /** Present once bytes flow; absent while queued. */
   progress?: LlamaCppProgress
-  /** Present when the download failed; retrying starts it again. */
+  /** Present when the download failed; retrying starts it again from its partial file. */
   error?: string
 }
 
@@ -96,7 +96,10 @@ export interface LlamaCppState {
   model: LlamaCppModelInfo
   /** Model provider route that serves the active model. */
   provider: string
-  /** Progress of the first download in {@link downloads}, present while it runs. */
+  /**
+   * Progress of the first download in {@link downloads} that is running (not failed or queued), or
+   * of the engine download a start needs; present while bytes flow.
+   */
   progress?: LlamaCppProgress
   /** Human-readable failure, present in `failed`. */
   error?: string

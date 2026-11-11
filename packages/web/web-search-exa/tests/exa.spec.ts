@@ -120,6 +120,11 @@ describe('ExaSearchProvider', () => {
     await expect(new ExaSearchProvider(options()).search({ query: 'q' })).rejects.toThrow(/HTTP 503/)
   })
 
+  it('refuses an oversized reply', async () => {
+    handler = (_body, _req, res) => { res.writeHead(200, { 'content-type': 'application/json' }).end(Buffer.alloc(5 * 1024 * 1024, 32)) }
+    await expect(new ExaSearchProvider(options()).search({ query: 'q' })).rejects.toThrow(/oversized reply/)
+  })
+
   it('does not follow a redirect', async () => {
     let followed = false
     const target = createServer((_req, res) => { followed = true; res.end() })

@@ -92,7 +92,9 @@ export async function lookupRepo(origin: string, input: string, signal?: AbortSi
     throw new HuggingFaceLookupError('not-found', `No public repository ${repo} on Hugging Face`)
   }
   if (!response.ok) throw new HuggingFaceLookupError('unavailable', `Hugging Face answered HTTP ${String(response.status)}; try again later`)
-  const body = await response.json() as { sha?: unknown; siblings?: unknown }
+  let body: { sha?: unknown; siblings?: unknown }
+  try { body = await response.json() as { sha?: unknown; siblings?: unknown } }
+  catch (error) { throw new HuggingFaceLookupError('unavailable', 'Hugging Face returned an unreadable response', { cause: error }) }
   if (typeof body.sha !== 'string' || !Array.isArray(body.siblings)) {
     throw new HuggingFaceLookupError('unavailable', 'Hugging Face returned an unexpected response')
   }

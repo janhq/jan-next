@@ -574,3 +574,60 @@ it('measures the transfer rate over a rolling window', () => {
   expect(meter.sample(40_000, 4000)).toBe(10_000)
   expect(meter.sample(40_000, 8000)).toBe(0) // stalled: the window holds no progress
 })
+
+it('reports a first install whose start finds the port taken, instead of staying in starting', async () => {
+  const f = await fixture()
+  await f.until(s => s.phase === 'missing')
+  const other = createServer((_req, res) => { res.writeHead(200).end() })
+  await new Promise<void>(resolve => other.listen(f.port, '127.0.0.1', resolve))
+  cleanups.push(() => new Promise(resolve => other.close(resolve)))
+  f.llama.install()
+  const failed = await f.until(s => s.phase === 'failed' || s.phase === 'running')
+  expect(failed.phase).toBe('failed')
+  expect(failed.error).toMatch(/port \d+ is already in use/)
+  // The model itself installed; only the start failed.
+  expect(failed.models.map(model => model.id)).toEqual(['jan-v3.5-4b'])
+  expect(failed.downloads).toEqual([])
+})
+
+it('downloads one Hugging Face file once however often it is asked for, and retries a failed one under its id', async () => {
+  const f = await fixture({ throttle: true, extraFiles: { ...HF_FILES, '/api/models/acme/broken-GGUF?blobs=true': Buffer.from(JSON.stringify({
+    id: 'acme/broken-GGUF', sha: REVISION,
+    siblings: [{ rfilename: 'gone-Q4_K_M.gguf', size: TINY.length, lfs: { sha256: 'c'.repeat(64), size: TINY.length } }],
+  })) } })
+  await f.until(s => s.phase === 'missing')
+  const ids = await Promise.all([
+    f.llama.downloadHuggingFace('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf'),
+    f.llama.downloadHuggingFace('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf'),
+  ])
+  expect(ids).toEqual(['tiny-q4_k_m', 'tiny-q4_k_m'])
+  expect(f.llama.snapshot().downloads.map(item => item.id)).toEqual(['tiny-q4_k_m'])
+  await f.until(s => s.phase === 'running' || s.phase === 'failed')
+  expect(f.llama.snapshot().models.map(model => model.id)).toEqual(['tiny-q4_k_m'])
+
+  const broken = await f.llama.downloadHuggingFace('acme/broken-GGUF', 'gone-Q4_K_M.gguf')
+  const failed = await f.until(s => s.downloads.some(item => item.id === broken && item.error !== undefined))
+  // A failed download in the manager leaves the running model alone.
+  expect(failed.phase).toBe('running')
+  // Asking again starts the failed download again under the same id.
+  expect(await f.llama.downloadHuggingFace('acme/broken-GGUF', 'gone-Q4_K_M.gguf')).toBe(broken)
+  expect(f.llama.snapshot().downloads.filter(item => item.id === broken)).toEqual([{ id: broken, name: 'gone-Q4_K_M' }])
+  await f.until(s => s.downloads.some(item => item.id === broken && item.error !== undefined))
+  f.llama.retry(broken)
+  expect(f.llama.snapshot().downloads.filter(item => item.id === broken)).toEqual([{ id: broken, name: 'gone-Q4_K_M' }])
+  expect(() => { f.llama.retry('tiny-q4_k_m') }).toThrow(/no failed download/)
+}, 30_000)
+
+it('keeps curated ids for curated models', async () => {
+  const curated = Buffer.concat([Buffer.from('GGUF'), Buffer.alloc(1024, 2)])
+  const f = await fixture({ extraFiles: {
+    '/api/models/acme/look-alike?blobs=true': Buffer.from(JSON.stringify({ id: 'acme/look-alike', sha: REVISION, siblings: [
+      { rfilename: 'Qwen3-0.6B.gguf', size: curated.length, lfs: { sha256: sha(curated), size: curated.length } },
+    ] })),
+    [`/acme/look-alike/resolve/${REVISION}/Qwen3-0.6B.gguf`]: curated,
+  } })
+  await f.until(s => s.phase === 'missing')
+  expect(await f.llama.downloadHuggingFace('acme/look-alike', 'Qwen3-0.6B.gguf')).toBe('qwen3-0.6b-2')
+  const state = await f.until(s => s.models.length === 1)
+  expect(state.catalog.find(entry => entry.id === 'qwen3-0.6b')?.installed).toBe(false)
+})

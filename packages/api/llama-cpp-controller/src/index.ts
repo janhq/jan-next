@@ -99,6 +99,15 @@ export default class LlamaCppController extends TypertRemoteService {
   }
 
   /**
+   * Start a failed download again.
+   * @param id - model id of the failed download.
+   */
+  @Remote
+  retryDownload(id: string): void {
+    try { this.ctx.llamaCpp.retry(id) } catch (error) { throw failed(error) }
+  }
+
+  /**
    * Stop one download, or dismiss it when it failed.
    * @param id - model id of the download.
    * @returns after it settles.

@@ -82,9 +82,13 @@ function Downloads({ state, actions, t }: SectionProps): ReactNode {
           {item.error !== undefined && <span className={css.error} role="alert">{item.error}</span>}
           {item.error === undefined && item.progress === undefined && <span className={css.muted}>{t('queued')}</span>}
         </span>
-        <Button variant="ghost" size="sm" onClick={() => { actions.cancelDownload(item.id) }}>
-          {t(item.error === undefined ? 'cancel' : 'dismiss')}
-        </Button>
+        <span className={css.actions}>
+          {item.error !== undefined && <Button variant="outline" size="sm" data-testid="local-model-retry-download"
+            onClick={() => { actions.retryDownload(item.id) }}>{t('retryDownload')}</Button>}
+          <Button variant="ghost" size="sm" onClick={() => { actions.cancelDownload(item.id) }}>
+            {t(item.error === undefined ? 'cancel' : 'dismiss')}
+          </Button>
+        </span>
         {item.progress !== undefined && item.error === undefined
           && <span className={css.rowWide}><DownloadProgress progress={item.progress} name={item.name} t={t} /></span>}
       </li>)}
@@ -101,6 +105,8 @@ type Lookup =
 function AddModel({ state, actions, t }: SectionProps): ReactNode {
   const [query, setQuery] = useState('')
   const [lookup, setLookup] = useState<Lookup>({ status: 'idle' })
+  // Kept here, not in the file list, so a re-run lookup does not offer a started download again.
+  const [started, setStarted] = useState<ReadonlySet<string>>(new Set())
   const pending = useRef<AbortController | undefined>(undefined)
   useEffect(() => () => { pending.current?.abort() }, [])
   const text = query.trim()
@@ -129,7 +135,12 @@ function AddModel({ state, actions, t }: SectionProps): ReactNode {
     }}>
       <Input className={css.input ?? ''} aria-label={t('searchLabel')} placeholder={t('searchPlaceholder')} value={query}
         data-testid="local-model-search" spellCheck={false} autoCapitalize="off"
-        onChange={(event) => { setQuery(event.target.value); setLookup({ status: 'idle' }) }} />
+        onChange={(event) => {
+          // A lookup still in flight answers for the old text; drop it.
+          pending.current?.abort()
+          setQuery(event.target.value)
+          setLookup({ status: 'idle' })
+        }} />
       {looksLikeRepo && <Button variant="outline" size="sm" type="submit" data-testid="local-model-lookup" disabled={lookup.status === 'loading'}>
         {t(lookup.status === 'loading' ? 'lookingUp' : 'lookUp')}
       </Button>}
@@ -152,12 +163,23 @@ function AddModel({ state, actions, t }: SectionProps): ReactNode {
         </li>)}
       </ul>)}
     {looksLikeRepo && lookup.status === 'failed' && <p className={css.error} role="alert">{lookup.error}</p>}
-    {looksLikeRepo && lookup.status === 'done' && <RepoFiles result={lookup.result} actions={actions} t={t} />}
+    {looksLikeRepo && lookup.status === 'done' && <RepoFiles result={lookup.result} actions={actions} t={t}
+      started={started} onStarted={(key, on) => {
+        setStarted(current => on ? new Set([...current, key]) : new Set([...current].filter(item => item !== key)))
+      }} />}
   </section>
 }
 
-function RepoFiles({ result, actions, t }: { result: HuggingFaceRepoInfo; actions: LocalModelActions; t: T }): ReactNode {
-  const [started, setStarted] = useState<ReadonlySet<string>>(new Set())
+/** Props of the looked-up file list; `started` holds `repo/file` keys of downloads asked for. */
+interface RepoFilesProps {
+  result: HuggingFaceRepoInfo
+  actions: LocalModelActions
+  t: T
+  started: ReadonlySet<string>
+  onStarted: (key: string, started: boolean) => void
+}
+
+function RepoFiles({ result, actions, t, started, onStarted }: RepoFilesProps): ReactNode {
   const [error, setError] = useState<string | undefined>()
   if (result.files.length === 0) return <p className={css.muted}>{t('repoEmpty', { repo: result.repo })}</p>
   return <>
@@ -171,14 +193,15 @@ function RepoFiles({ result, actions, t }: { result: HuggingFaceRepoInfo; action
           </span>
           <span className={css.muted}>{formatBytes(file.bytes)}{file.quant === undefined ? '' : ` · ${file.quant}`}</span>
         </span>
-        {file.installed || started.has(file.file)
+        {file.installed || started.has(`${result.repo}/${file.file}`)
           ? <Tag tone="neutral">{t(file.installed ? 'installed' : 'queued')}</Tag>
           : <Button variant="outline" size="sm" data-testid="local-model-repo-download" onClick={() => {
-            setStarted(new Set([...started, file.file]))
+            const key = `${result.repo}/${file.file}`
+            onStarted(key, true)
             void actions.downloadRepoFile(result.repo, file.file).then((outcome) => {
               if (outcome.ok) return
               setError(outcome.error)
-              setStarted(current => new Set([...current].filter(name => name !== file.file)))
+              onStarted(key, false)
             })
           }}>{t('downloadShort')}</Button>}
       </li>)}

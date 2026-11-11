@@ -22,6 +22,8 @@ export interface LocalModelActions {
   downloadModel: (id: string) => void
   /** Stop a download, or dismiss a failed one. */
   cancelDownload: (id: string) => void
+  /** Start a failed download again. */
+  retryDownload: (id: string) => void
   /** Run an installed model. */
   selectModel: (id: string) => void
   /** Remove an installed model. */
@@ -68,6 +70,7 @@ export function createActions(ctx: Context): LocalModelActions {
     uninstall: () => { run(() => ctx.remote.llamaCpp.removeInstall()) },
     downloadModel: (id) => { run(() => ctx.remote.llamaCpp.downloadModel(id)) },
     cancelDownload: (id) => { run(() => ctx.remote.llamaCpp.cancelDownload(id)) },
+    retryDownload: (id) => { run(() => ctx.remote.llamaCpp.retryDownload(id)) },
     selectModel: (id) => { run(() => ctx.remote.llamaCpp.selectModel(id)) },
     deleteModel: (id) => { run(() => ctx.remote.llamaCpp.deleteModel(id)) },
     lookupRepo: (repo, signal) => answer(() => ctx.remote.llamaCpp.lookupRepo(repo, signal)),
