@@ -13,6 +13,8 @@ const LOCAL_WELCOME_EN = {
   welcomeLocalDownloading: 'Downloading {name}',
   welcomeLocalProgress: '{percent}% · {received} of {total}',
   welcomeLocalSpeed: '{speed}/s',
+  welcomeLocalEtaSoon: 'less than a minute left',
+  welcomeLocalEtaMinutes: 'about {minutes} min left',
   welcomeLocalStarting: 'Starting {name}…',
   welcomeLocalReady: '{name} is ready.',
   welcomeLocalFailed: 'The local model could not be set up.',

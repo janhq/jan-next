@@ -105,8 +105,9 @@ type Lookup =
 function AddModel({ state, actions, t }: SectionProps): ReactNode {
   const [query, setQuery] = useState('')
   const [lookup, setLookup] = useState<Lookup>({ status: 'idle' })
-  // Kept here, not in the file list, so a re-run lookup does not offer a started download again.
-  const [started, setStarted] = useState<ReadonlySet<string>>(new Set())
+  // Kept here, not in the file list, so a re-run lookup does not offer a started download again:
+  // `repo/file` → the model id it installs as, or undefined while the request is pending.
+  const [started, setStarted] = useState<ReadonlyMap<string, string | undefined>>(new Map())
   const pending = useRef<AbortController | undefined>(undefined)
   useEffect(() => () => { pending.current?.abort() }, [])
   const text = query.trim()
@@ -163,24 +164,42 @@ function AddModel({ state, actions, t }: SectionProps): ReactNode {
         </li>)}
       </ul>)}
     {looksLikeRepo && lookup.status === 'failed' && <p className={css.error} role="alert">{lookup.error}</p>}
-    {looksLikeRepo && lookup.status === 'done' && <RepoFiles result={lookup.result} actions={actions} t={t}
-      started={started} onStarted={(key, on) => {
-        setStarted(current => on ? new Set([...current, key]) : new Set([...current].filter(item => item !== key)))
+    {looksLikeRepo && lookup.status === 'done' && <RepoFiles result={lookup.result} state={state} actions={actions} t={t}
+      started={started} onStarted={(key, id) => {
+        setStarted((current) => {
+          const next = new Map(current)
+          if (id === null) next.delete(key)
+          else next.set(key, id)
+          return next
+        })
       }} />}
   </section>
 }
 
-/** Props of the looked-up file list; `started` holds `repo/file` keys of downloads asked for. */
+/** Props of the looked-up file list; `started` maps `repo/file` keys of requested downloads to their model ids. */
 interface RepoFilesProps {
   result: HuggingFaceRepoInfo
+  state: LlamaCppState
   actions: LocalModelActions
   t: T
-  started: ReadonlySet<string>
-  onStarted: (key: string, started: boolean) => void
+  started: ReadonlyMap<string, string | undefined>
+  /** Record a requested download: its id once known, undefined while pending, null to forget it. */
+  onStarted: (key: string, id: string | undefined | null) => void
 }
 
-function RepoFiles({ result, actions, t, started, onStarted }: RepoFilesProps): ReactNode {
+type FileStatus = 'installed' | 'queued' | 'available'
+
+function RepoFiles({ result, state, actions, t, started, onStarted }: RepoFilesProps): ReactNode {
   const [error, setError] = useState<string | undefined>()
+  // A requested file follows the live state, so a finished, failed or deleted download is shown as such.
+  const status = (file: HuggingFaceRepoInfo['files'][number]): FileStatus => {
+    const key = `${result.repo}/${file.file}`
+    if (!started.has(key)) return file.installed ? 'installed' : 'available'
+    const id = started.get(key)
+    if (id === undefined) return 'queued'
+    if (state.models.some(model => model.id === id)) return 'installed'
+    return state.downloads.some(item => item.id === id && item.error === undefined) ? 'queued' : 'available'
+  }
   if (result.files.length === 0) return <p className={css.muted}>{t('repoEmpty', { repo: result.repo })}</p>
   return <>
     <p className={css.muted}>{t('repoFiles', { repo: result.repo })}</p>
@@ -193,15 +212,15 @@ function RepoFiles({ result, actions, t, started, onStarted }: RepoFilesProps): 
           </span>
           <span className={css.muted}>{formatBytes(file.bytes)}{file.quant === undefined ? '' : ` · ${file.quant}`}</span>
         </span>
-        {file.installed || started.has(`${result.repo}/${file.file}`)
-          ? <Tag tone="neutral">{t(file.installed ? 'installed' : 'queued')}</Tag>
+        {status(file) !== 'available'
+          ? <Tag tone="neutral">{t(status(file) === 'installed' ? 'installed' : 'queued')}</Tag>
           : <Button variant="outline" size="sm" data-testid="local-model-repo-download" onClick={() => {
             const key = `${result.repo}/${file.file}`
-            onStarted(key, true)
+            onStarted(key, undefined)
             void actions.downloadRepoFile(result.repo, file.file).then((outcome) => {
-              if (outcome.ok) return
+              if (outcome.ok) { onStarted(key, outcome.value); return }
               setError(outcome.error)
-              onStarted(key, false)
+              onStarted(key, null)
             })
           }}>{t('downloadShort')}</Button>}
       </li>)}

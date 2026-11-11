@@ -214,6 +214,16 @@ describe('request-level dynamic profiles', () => {
     expect(removed.finish).toMatchObject({ kind: 'error', failure: { code: 'NO_ADAPTER' } })
   })
 
+  it('accepts an edit to one route while another route stores a !!js expression', async () => {
+    const dir = await home()
+    // A Loader-authored profile keeps its raw `!!js` form until the Loader evaluates it after this plugin's check.
+    const ctx = await boot(dir, {
+      providers: { openai: { apiKeyEnv: 'PI_DYNAMIC_KEY', baseURL: { __jsExpr: "'http://127.0.0.1:1/v1'" } as never } },
+    })
+    await configurations.get(ctx)!.update({ providers: { deepseek: { apiKeyEnv: 'PI_LIVE_KEY', baseURL: 'http://127.0.0.1:2/v1' } } })
+    expect(ctx.llm.listProviders().map(provider => provider.id)).toEqual(['openai', 'deepseek'])
+  })
+
   it('rotates the per-request credential referenced by apiKeyEnv', async () => {
     vi.stubEnv('PI_DYNAMIC_KEY', '')
     const dir = await home()

@@ -361,7 +361,7 @@ describe('local model setup', () => {
     await act(async () => { await Promise.resolve() })
     expect(document.querySelector('#local-title')!.textContent).toBe('Setting up Jan v3.5 4B')
     expect(document.querySelector('#local-status')!.textContent).toBe('Downloading Jan v3.5 4B')
-    expect(document.querySelector('#local-detail')!.textContent).toBe('36% · 1.0 GB of 2.7 GB · 25 MB/s')
+    expect(document.querySelector('#local-detail')!.textContent).toBe('36% · 1.0 GB of 2.7 GB · 25 MB/s · about 2 min left')
     await act(async () => { fireEvent.click(view.button('#local-background')) })
     expect(view.api.skip).toHaveBeenCalledOnce()
   })

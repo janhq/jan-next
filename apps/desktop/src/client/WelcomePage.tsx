@@ -22,6 +22,18 @@ function fill(text: string, params: Record<string, string>): string {
 }
 
 /**
+ * Describe the time a download still needs.
+ * @param bytes - bytes still to arrive.
+ * @param bytesPerSecond - recent rate, above 0.
+ * @param m - localized copy.
+ * @returns e.g. "about 3 min left".
+ */
+function remaining(bytes: number, bytesPerSecond: number, m: WelcomeApi['messages']): string {
+  const seconds = Math.max(0, bytes) / bytesPerSecond
+  return seconds < 60 ? m.welcomeLocalEtaSoon : fill(m.welcomeLocalEtaMinutes, { minutes: String(Math.ceil(seconds / 60)) })
+}
+
+/**
  * Format a byte count for people.
  * @param bytes - size in bytes.
  * @returns e.g. "2.7 GB" or "23 MB".
@@ -235,6 +247,9 @@ export function Welcome({ api }: { api: WelcomeApi }) {
       received: formatBytes(localProgress.receivedBytes), total: formatBytes(localProgress.totalBytes),
     }),
     ...localProgress.bytesPerSecond > 0 ? [fill(m.welcomeLocalSpeed, { speed: formatBytes(localProgress.bytesPerSecond) })] : [],
+    ...localProgress.bytesPerSecond > 0
+      ? [remaining(localProgress.totalBytes - localProgress.receivedBytes, localProgress.bytesPerSecond, m)]
+      : [],
   ].join(' · ')
 
   return <>

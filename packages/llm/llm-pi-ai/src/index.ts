@@ -171,6 +171,33 @@ function directoryEntries(
   return [...entries.values()]
 }
 
+/** Whether a raw Loader value holds an unevaluated `!!js` expression anywhere inside it. */
+function holdsExpression(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false
+  if ('__jsExpr' in value) return true
+  return Object.values(value).some(holdsExpression)
+}
+
+/**
+ * The candidate this plugin checks before the Loader evaluates `!!js` expressions (it does so after
+ * this hook). A provider profile that still holds an expression is checked as its current evaluated
+ * profile, so editing another route is not refused for the expression's raw form.
+ * @param raw - candidate config as offered to `internal/config`.
+ * @param current - the live, evaluated provider profiles.
+ * @returns the candidate with expression-bearing profiles replaced by their current values.
+ */
+function withEvaluatedProfiles(raw: unknown, current: Record<string, unknown>): unknown {
+  if (typeof raw !== 'object' || raw === null || !('providers' in raw)) return raw
+  const providers = raw.providers
+  if (typeof providers !== 'object' || providers === null) return raw
+  return {
+    ...raw,
+    providers: Object.fromEntries(Object.entries(providers).map(([route, profile]) => [
+      route, holdsExpression(profile) && current[route] !== undefined ? structuredClone(current[route]) : profile,
+    ])),
+  }
+}
+
 /** Register one generic pi-ai adapter for all configured provider routes. */
 export function apply(ctx: Context, config: Config): void {
   ctx.inject(['settings'], (child) => { child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)) })
@@ -198,7 +225,7 @@ export function apply(ctx: Context, config: Config): void {
   ctx.on('internal/config', (fiber, next) => {
     const raw: unknown = next()
     if (fiber !== ctx.fiber) return raw
-    const candidate = Config(raw as import('./config.ts').Options)
+    const candidate = Config(withEvaluatedProfiles(raw, config.providers.get()) as import('./config.ts').Options)
     assertServiceable(
       { providers: structuredClone(candidate.providers.get()) } as import('./config.ts').Options,
       { providers: structuredClone(config.providers.get()) } as import('./config.ts').Options,

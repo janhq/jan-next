@@ -95,7 +95,7 @@ Settings → Models → **Local model** lists:
 - **Add a model.** A curated list, the same idea as Jan's hub: Jan v3.5 4B, Qwen3 4B Instruct 2507, Llama 3.2 3B Instruct, Qwen3 8B and Qwen3 0.6B, each pinned to a Hugging Face commit and sha256. The search box filters it. Paste a Hugging Face repository (`unsloth/Qwen3-8B-GGUF`) or its link and "Look up on Hugging Face" lists the repository's single-file GGUF models with their size and quantization, Q4_K_M and IQ4_XS marked recommended. The Host reads the file list, size and LFS sha256 from `huggingface.co/api/models/<repo>?blobs=true` itself and pins the download to the current commit, so the browser never chooses a URL. Projector (`mmproj`) files, split files and files without an LFS digest are left out.
 - **Import a .gguf file.** Enter the full path of a GGUF file on the Host. It is checked for the GGUF header and used where it is, without copying.
 
-The model picker shows the model in use: the plugin keeps the `local` route's `models` in the `llm-pi-ai` settings section equal to it (`routeNamespace` on the `llama-cpp` row; empty turns this off). Model ids come from the file name, e.g. `qwen3-0.6b-q4_k_m`.
+The model picker shows the model in use, updated live when you press "Use": the plugin keeps the `local` route's `models` in the `llm-pi-ai` settings section equal to it (`routeNamespace` on the `llama-cpp` row; empty turns this off). That write puts the whole `providers` section into your profile patch (`$DSH_HOME/profiles/web/cordis.patch.yml`), so later bundle changes to those routes need that copy removed. Model ids come from the file name, e.g. `qwen3-0.6b-q4_k_m`.
 
 `install.json` is version 2: the engine, the installed models (`file` relative to `llama-cpp/`, or absolute for an import) and the active id. A version 1 file from an earlier build is read and converted on the next write; its model file stays where it is.
 
@@ -127,6 +127,7 @@ TOKAMAK_BASE_URL=http://127.0.0.1:8787/v1 TOKAMAK_ALLOW_LOOPBACK_HTTP=1 pnpm dsh
 - Account UI strings say Tokamak. The balance card is hidden for accounts without wallets.
 - Local model: new `packages/llm/llama-cpp` (download and supervise the engine and its models), `packages/api/llama-cpp-controller` (browser Remote), and `packages/client/ui-settings-local-model` (Models card with the model manager, and the first-run option).
 - `ui-settings-models`: the first-run step targets a configurable `onboardingRoute` (Tokamak here; upstream's DeepSeek route by default) and has become the **Get started** chooser, with a new `settings.models.local-setup` slot that it shows first.
+- `llm-pi-ai`: its config check before a live update sees a route that stores a `!!js` value (the `tokamak` route's `baseURL`) as that route's current value. It used to reject every settings write to the section, which kept the picker on the bundle's model list.
 - Desktop welcome: a **Download a local model** page (`apps/desktop/src/client/WelcomePage.tsx`, `welcome-backend.ts`), and `needsWelcome` counts an installed local model.
 
 Some repository checks are expected to fail in this fork, because it doesn't follow upstream's release rules:

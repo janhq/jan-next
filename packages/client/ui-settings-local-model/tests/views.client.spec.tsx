@@ -169,9 +169,18 @@ it('looks up a pasted Hugging Face repository and downloads one of its files', a
   const rows = screen.getByTestId('local-model-repo-files').querySelectorAll('li')
   expect(rows[0]?.textContent).toContain('Installed')
   expect(rows[1]?.textContent).toContain('2 MB · Q4_K_M')
-  await act(async () => { fireEvent.click(screen.getByTestId('local-model-repo-download')) })
+  await act(async () => {
+    fireEvent.click(screen.getByTestId('local-model-repo-download'))
+    f.set({ phase: 'running', models: [jan], downloads: [{ id: 'tiny-q4_k_m', name: 'tiny-Q4_K_M' }] })
+  })
   expect(f.actions.downloadRepoFile).toHaveBeenCalledWith('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')
   expect(screen.queryByTestId('local-model-repo-download')).toBeNull()
+  // The row follows the live state: installed, then offered again once the model is deleted.
+  const tiny: LocalModelEntry = { id: 'tiny-q4_k_m', name: 'tiny-Q4_K_M', bytes: 2_000_000, source: 'huggingface', active: false }
+  await act(async () => { f.set({ phase: 'running', models: [jan, tiny] }) })
+  expect(screen.getByTestId('local-model-repo-files').querySelectorAll('li')[1]?.textContent).toContain('Installed')
+  await act(async () => { f.set({ phase: 'running', models: [jan] }) })
+  expect(screen.getByTestId('local-model-repo-download')).toBeTruthy()
 })
 
 it('shows why a repository lookup failed', async () => {
@@ -296,7 +305,10 @@ it('drops a lookup answer that arrives after the text changed, and remembers sta
   f.actions.lookupRepo.mockResolvedValue({ ok: true, value: files })
   f.actions.downloadRepoFile.mockResolvedValue({ ok: true, value: 'new-q4_k_m' })
   await act(async () => { fireEvent.click(screen.getByTestId('local-model-lookup')) })
-  await act(async () => { fireEvent.click(screen.getByTestId('local-model-repo-download')) })
+  await act(async () => {
+    fireEvent.click(screen.getByTestId('local-model-repo-download'))
+    f.set({ phase: 'running', models: [jan], downloads: [{ id: 'new-q4_k_m', name: 'new-Q4_K_M' }] })
+  })
   await act(async () => { fireEvent.click(screen.getByTestId('local-model-lookup')) })
   expect(screen.queryByTestId('local-model-repo-download')).toBeNull()
   expect(f.actions.downloadRepoFile).toHaveBeenCalledOnce()
