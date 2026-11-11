@@ -24,13 +24,13 @@ export const inject = ['web']
 /** Plugin config; every field has a default. */
 export interface Config {
   /** Exa MCP endpoint. */
-  url: string
+  url?: string
   /** Results requested when the caller sets no bound, at most {@link EXA_MAX_RESULTS}. */
-  numResults: number
+  numResults?: number
   /** Characters of page text one fetch requests. */
-  maxCharacters: number
+  maxCharacters?: number
   /** Milliseconds one search or fetch may take. */
-  timeoutMs: number
+  timeoutMs?: number
 }
 
 export const Config: z<Config> = z.object({
@@ -46,8 +46,10 @@ export const Config: z<Config> = z.object({
  * @param config - resolved plugin config.
  */
 export function apply(ctx: Context, config: Config): void {
-  if (!URL.canParse(config.url)) throw new Error(`web-search-exa: url is not a URL: ${config.url}`)
-  const options = (): ExaOptions => config
+  // Schemastery has applied every default by the time `apply` runs.
+  const resolved = config as Required<Config>
+  if (!URL.canParse(resolved.url)) throw new Error(`web-search-exa: url is not a URL: ${resolved.url}`)
+  const options = (): ExaOptions => resolved
   const search = new ExaSearchProvider(options)
   const fetcher = new ExaFetchProvider(options)
   ctx.web.registerSearchProvider({
