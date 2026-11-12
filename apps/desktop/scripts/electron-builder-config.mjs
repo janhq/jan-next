@@ -35,6 +35,9 @@ import {
   writeMacOSAppUpdateConfig,
 } from './macos-app-update-config.mjs'
 
+/** tokamak-harness: the product name people read; files and executables use productName (no spaces). */
+const DISPLAY_NAME = 'Jan Alpha'
+
 /**
  * Create electron-builder configuration from one release environment.
  * @param {NodeJS.ProcessEnv} env - Packaging environment.
@@ -44,6 +47,7 @@ import {
  * @param {string | undefined} preparedRuntimeVersion - Version that private tree declares, which qualification rewrites away from the product version.
  * @returns {object} electron-builder configuration.
  */
+
 export function createElectronBuilderConfig(
   env = process.env,
   hostPlatform = process.platform,
@@ -116,10 +120,11 @@ export function createElectronBuilderConfig(
       ...buildVersion === productVersion ? {} : { version: buildVersion },
       ...packaged === undefined ? {} : { dshBuildCommit: packaged.commit, dshBuildDirty: packaged.dirty },
     },
-    // tokamak-harness: the bundle, menu bar, Dock and installer name.
-    productName: 'Jan Alpha',
+    // tokamak-harness: file and executable name without spaces (JanAlpha.app, JanAlpha.exe); the name
+    // people read is DISPLAY_NAME, set for the menu bar, Dock, About, installer and shortcuts below.
+    productName: 'JanAlpha',
     // The default copyright uses author.name; this line names the product instead.
-    copyright: `Copyright © ${new Date().getFullYear()} \${productName}`,
+    copyright: `Copyright © ${new Date().getFullYear()} ${DISPLAY_NAME}`,
     // Unsigned builds carry their own suffix so a shared file can never pass for a release artifact.
     artifactName: `deepseek-harness-\${version}-\${os}-\${arch}${output.suffix}.\${ext}`,
     directories: { output: output.directory },
@@ -170,6 +175,8 @@ export function createElectronBuilderConfig(
       // macOS matches the application locale against this bundle, not Electron Framework resources.
       extendInfo: {
         CFBundleLocalizations: ['en', 'zh_CN', 'ja', 'es', 'fr', 'de', 'ru', 'pt'],
+        CFBundleName: DISPLAY_NAME,
+        CFBundleDisplayName: DISPLAY_NAME,
         NSMicrophoneUsageDescription: 'Jan Alpha uses your microphone to transcribe speech into message drafts.',
       },
       // Ad-hoc signing keeps the modified Electron executable runnable without a Developer ID.
@@ -260,7 +267,8 @@ export function createElectronBuilderConfig(
       target: ['AppImage'],
     },
     nsis: {
-      uninstallDisplayName: '${productName}',
+      uninstallDisplayName: DISPLAY_NAME,
+      shortcutName: DISPLAY_NAME,
       installerSidebar: join(buildPaths.root, 'installer-ui', 'uninstaller-sidebar.bmp'),
       uninstallerSidebar: join(buildPaths.root, 'installer-ui', 'uninstaller-sidebar.bmp'),
       include: fileURLToPath(new URL('./installer.nsh', import.meta.url)),
