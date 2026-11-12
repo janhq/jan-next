@@ -1,6 +1,8 @@
 /** Stage local-branded DSH packages for unsigned Desktop builds without a publication record. */
 
-import { resolve } from 'node:path'
+import { execFileSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import {
   readClientBuildRecord,
@@ -9,6 +11,19 @@ import {
 } from '../../../scripts/client-build-environment.ts'
 import { releaseFamily } from '../../../scripts/release/families.ts'
 import { packFamilyMembers, parsePackConcurrency } from '../../../scripts/release/pack.ts'
+import { pnpmInvocation } from '../../../scripts/pnpm-invocation.ts'
+
+/**
+ * tokamak-harness: fork packages the shipped bundles mount. They are `private` so npm publication
+ * skips them, and the release family therefore does not pack them; a local Desktop build needs them.
+ */
+const FORK_PACKAGES = [
+  'packages/credentials/tokamak-account',
+  'packages/llm/llama-cpp',
+  'packages/api/llama-cpp-controller',
+  'packages/client/ui-settings-local-model',
+  'packages/web/web-search-exa',
+] as const
 
 async function main(): Promise<void> {
   const { values } = parseArgs({
@@ -22,7 +37,12 @@ async function main(): Promise<void> {
   readClientBuildRecord(root, environment)
   const destination = resolve(root, values.out)
   const packed = await packFamilyMembers(root, releaseFamily('dsh'), destination, concurrency)
-  console.log(`desktop local pack: ${String(packed.length)} tarball(s) in ${destination}`)
+  for (const directory of FORK_PACKAGES) {
+    if (!existsSync(join(root, directory, 'package.json'))) throw new Error(`desktop local pack: missing fork package ${directory}`)
+    const invocation = pnpmInvocation(['--dir', directory, 'pack', '--pack-destination', destination])
+    execFileSync(invocation.command, invocation.args, { cwd: root, stdio: 'inherit' })
+  }
+  console.log(`desktop local pack: ${String(packed.length + FORK_PACKAGES.length)} tarball(s) in ${destination}`)
 }
 
 await main()
