@@ -211,12 +211,12 @@ it('installs the model, stores a route key, and serves it on the loopback port w
   const origin = `http://127.0.0.1:${f.port}`
   expect((await fetch(`${origin}/v1/models`)).status).toBe(401)
   const models = await fetch(`${origin}/v1/models`, { headers: { authorization: `Bearer ${key}` } })
-  expect(await models.json()).toEqual({ data: [{ id: 'jan-v3.5-4b' }] })
+  expect(await models.json()).toEqual({ data: [{ id: 'local' }] })
 
   const launch = JSON.parse(await readFile(join(f.bin, 'fake-launch.json'), 'utf8')) as { argv: string[]; hasKey: boolean; cwd: string }
   expect(launch.hasKey).toBe(true)
   expect(launch.argv.join(' ')).not.toContain(key)
-  expect(launch.argv).toEqual(expect.arrayContaining(['--host', '127.0.0.1', '--alias', 'jan-v3.5-4b', '--jinja', '--no-webui']))
+  expect(launch.argv).toEqual(expect.arrayContaining(['--host', '127.0.0.1', '--alias', 'local', '--jinja', '--no-webui']))
   // Fit sizes the GPU layers; the context stays pinned for the route.
   expect(launch.argv.join(' ')).toContain('-c 32768 --fit on --fit-target 1024')
   expect(launch.argv).not.toContain('-ngl')
@@ -347,18 +347,31 @@ it('reports a crash after start', async () => {
   expect(failed.logTail).toContain('segfault')
 }, 15_000)
 
-it('cancels a download, keeps the partial file, and resumes it on the next install', async () => {
+it('cancels a download and discards its partial file, so the next install starts over', async () => {
   const f = await fixture({ throttle: true })
   f.llama.install()
   await f.until(s => s.phase === 'downloading' && (s.progress?.receivedBytes ?? 0) > 20_000)
   await f.llama.cancel()
   expect(f.llama.snapshot().phase).toBe('missing')
-  const partial = await stat(join(f.home, 'data', 'models', 'jan-v3.5-4b', `${sha(MODEL).slice(0, 16)}.gguf.partial`))
-  expect(partial.size).toBeGreaterThan(0)
+  await expect(stat(join(f.home, 'data', 'models', 'jan-v3.5-4b', `${sha(MODEL).slice(0, 16)}.gguf.partial`))).rejects.toThrow()
   f.llama.install()
   await f.until(s => s.phase === 'running' || s.phase === 'failed')
   expect(f.llama.snapshot().phase).toBe('running')
-  expect(f.server.requests.at(-1)?.range).toMatch(/^bytes=\d+-$/)
+  expect(f.server.requests.at(-1)?.range).toBeUndefined()
+}, 30_000)
+
+it('keeps a download interrupted by shutting down and resumes it on the next launch', async () => {
+  const f = await fixture({ throttle: true })
+  f.llama.install()
+  await f.until(s => s.phase === 'downloading' && (s.progress?.receivedBytes ?? 0) > 20_000)
+  await f.dispose()
+  const partial = await stat(join(f.home, 'data', 'models', 'jan-v3.5-4b', `${sha(MODEL).slice(0, 16)}.gguf.partial`))
+  expect(partial.size).toBeGreaterThan(0)
+  const again = await fixture({ home: f.home })
+  again.llama.install()
+  await again.until(s => s.phase === 'running' || s.phase === 'failed')
+  expect(again.llama.snapshot().phase).toBe('running')
+  expect(again.server.requests.at(-1)?.range).toMatch(/^bytes=\d+-$/)
 }, 30_000)
 
 it('removes the install and the route key', async () => {
@@ -415,6 +428,8 @@ const HF_FILES = {
       { rfilename: 'mmproj-tiny-f16.gguf', size: 100, lfs: { sha256: 'a'.repeat(64), size: 100 } },
       { rfilename: 'big-Q8_0-00001-of-00002.gguf', size: 100, lfs: { sha256: 'b'.repeat(64), size: 100 } },
       { rfilename: 'unverified-Q2_K.gguf', size: 100 },
+      { rfilename: 'imatrix_unsloth.gguf', size: 100, lfs: { sha256: 'd'.repeat(64), size: 100 } },
+      { rfilename: 'dflash-tiny-Q8_0.gguf', size: 100, lfs: { sha256: 'e'.repeat(64), size: 100 } },
     ],
   })),
   [`/acme/tiny-GGUF/resolve/${REVISION}/tiny-Q4_K_M.gguf`]: TINY,
@@ -424,9 +439,11 @@ async function launchArgv(bin: string): Promise<string[]> {
   return (JSON.parse(await readFile(join(bin, 'fake-launch.json'), 'utf8')) as { argv: string[] }).argv
 }
 
-async function launchedAlias(bin: string): Promise<string | undefined> {
+/** The model file the fake server was last started with; the route alias is always `local`. */
+async function launchedModel(bin: string): Promise<string | undefined> {
   const argv = await launchArgv(bin)
-  return argv[argv.indexOf('--alias') + 1]
+  expect(argv[argv.indexOf('--alias') + 1]).toBe('local')
+  return argv[argv.indexOf('-m') + 1]
 }
 
 it('downloads a model from a Hugging Face repository, switches to it, and removes it', async () => {
@@ -452,12 +469,12 @@ it('downloads a model from a Hugging Face repository, switches to it, and remove
 
   await f.llama.select(id)
   expect(f.llama.snapshot()).toMatchObject({ phase: 'running', model: { id, name: 'tiny-Q4_K_M' } })
-  expect(await launchedAlias(f.bin)).toBe(id)
+  expect(await launchedModel(f.bin)).toContain(join('models', id))
 
   await f.llama.removeModel(id)
   expect(f.llama.snapshot()).toMatchObject({ phase: 'running', model: { id: 'jan-v3.5-4b' } })
   expect(f.llama.snapshot().models.map(model => model.id)).toEqual(['jan-v3.5-4b'])
-  expect(await launchedAlias(f.bin)).toBe('jan-v3.5-4b')
+  expect(await launchedModel(f.bin)).toContain(join('models', 'jan-v3.5-4b'))
   await expect(stat(join(f.home, 'data', 'models', id))).rejects.toThrow()
   await expect(f.llama.downloadHuggingFace('acme/tiny-GGUF', 'missing.gguf')).rejects.toThrow(/no downloadable file/)
   await expect(f.llama.lookupHuggingFace('acme/absent')).rejects.toMatchObject({ reason: 'not-found' })
@@ -545,12 +562,12 @@ it('lists the active model on the local route when a settings service is mounted
   } })
   f.llama.install()
   await f.until(s => s.phase === 'running')
-  const entry = { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B (local)', contextWindow: 32768, maxTokens: 8192 }
+  const entry = { id: 'local', name: 'Jan v3.5 4B (local)', contextWindow: 32768, maxTokens: 8192 }
   expect(settings.current?.writes).toEqual([{ ns: 'llm-pi-ai', ops: [{ op: 'set', path: ['providers', 'local', 'models'], value: [entry] }] }])
   const id = await f.llama.downloadHuggingFace('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')
   await f.until(s => s.models.length === 2)
   await f.llama.select(id)
-  expect(settings.current?.value.providers.local?.models).toEqual([{ ...entry, id, name: 'tiny-Q4_K_M (local)' }])
+  expect(settings.current?.value.providers.local?.models).toEqual([{ ...entry, name: 'tiny-Q4_K_M (local)' }])
   // An unchanged list is not written again.
   await f.llama.select(id)
   expect(settings.current?.writes).toHaveLength(2)

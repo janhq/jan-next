@@ -519,8 +519,8 @@ export class LlamaCpp extends Service {
   }
 
   /**
-   * Stop downloads: one by id, or all. Partial files are kept and resumed by the next download of
-   * the same model; a failed entry is dismissed.
+   * Stop downloads: one by id, or all, discarding their partial files (a download interrupted by
+   * shutting down is kept and resumes instead); a failed entry is dismissed.
    * @param id - model id, or undefined for every download.
    */
   async cancel(id?: string): Promise<void> {
@@ -609,6 +609,10 @@ export class LlamaCpp extends Service {
     } catch (error) {
       if (this.jobs.get(job.spec.id) !== job) return
       const cancelled = job.abort.signal.aborted || this.lifetime.signal.aborted
+      // A user's Cancel discards the partial file; shutting down keeps it so the next launch resumes.
+      if (job.abort.signal.aborted && !this.lifetime.signal.aborted) {
+        await rm(`${this.modelFile(job.spec)}.partial`, { force: true }).catch(() => undefined)
+      }
       if (cancelled) this.jobs.delete(job.spec.id)
       else job.error = messageOf(error)
       if (this.lifetime.signal.aborted) return
@@ -869,7 +873,7 @@ export class LlamaCpp extends Service {
     const active = this.activeModel()
     if (settings === undefined || ns === '' || active === undefined) return
     const models = [{
-      id: active.id, name: `${active.name} (local)`,
+      id: this.config.routeModelId, name: `${active.name} (local)`,
       contextWindow: this.config.ctxSize > 0 ? this.config.ctxSize : this.config.fitCtx, maxTokens: this.config.routeMaxTokens,
     }]
     try {
@@ -974,7 +978,7 @@ export class LlamaCpp extends Service {
       const key = `llamacpp-${randomBytes(32).toString('base64url')}`
       const cwd = dirname(binary)
       const argv = [
-        binary, '-m', this.modelPath(model), '--alias', model.id,
+        binary, '-m', this.modelPath(model), '--alias', this.config.routeModelId,
         '--host', '127.0.0.1', '--port', String(this.config.port),
         '--jinja', '--no-webui',
         // Flash attention lets the V cache be quantized too.
@@ -1023,7 +1027,7 @@ export class LlamaCpp extends Service {
           if (contextSize !== undefined && contextSize < this.config.fitCtx) {
             this.ctx.logger.warn(`llama-cpp: the server runs with a ${contextSize}-token context; the harness prompt needs about 12k`)
           }
-          await this.adoptDefault(model.id)
+          await this.adoptDefault(this.config.routeModelId)
           return
         }
         if (Date.now() > deadline) {
@@ -1080,10 +1084,10 @@ export class LlamaCpp extends Service {
   }
 
   /**
-   * Point the default model at the active local model when the default is a different local
-   * model, or when the configured default route cannot serve (e.g. Tokamak with no key). A usable
-   * default on another route is left alone.
-   * @param id - the active model id.
+   * Point the default model at the local route's model when the default is another local model id
+   * (an earlier build served each model under its own id), or when the configured default route
+   * cannot serve (e.g. Tokamak with no key). A usable default on another route is left alone.
+   * @param id - the route's model id.
    */
   private async adoptDefault(id: string): Promise<void> {
     const defaults = this.ctx.get('agentDefaultModel')

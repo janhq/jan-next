@@ -4,7 +4,7 @@ export const NS = 'cuaPermissions'
 export const en = {
   approvalRisks: 'Risks',
   approvalRiskTitle: 'Computer use risks',
-  approvalRiskNotice: 'The agent can access only apps you approve, and can read and control them in the background.\n\nOnline games, messaging apps, and other apps may restrict automation. Violating their rules could result in your account with that app being suspended or banned.\n\nProceed at your own risk. To stop automated control at any time, press Stop in DeepSeek Harness.',
+  approvalRiskNotice: 'The agent can access only apps you approve, and can read and control them in the background.\n\nOnline games, messaging apps, and other apps may restrict automation. Violating their rules could result in your account with that app being suspended or banned.\n\nProceed at your own risk. To stop automated control at any time, press Stop in Jan.',
   title: 'Authorize computer use',
   applicationsTitle: 'Manage applications computer use can access',
   setupTitle: 'Set up computer use before use',

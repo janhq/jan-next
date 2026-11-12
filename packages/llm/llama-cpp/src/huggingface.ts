@@ -36,6 +36,8 @@ export class HuggingFaceLookupError extends Error {
 
 const REPO = /^[A-Za-z0-9][\w.-]*\/[\w.-]+$/
 const SPLIT = /-\d{5}-of-\d{5}\.gguf$/i
+/** Companion files that are not chat models: importance matrices and speculative-decoding drafts. */
+const COMPANION = /(?:^|\/)(?:imatrix[^/]*|dflash-[^/]*|[^/]*-draft[^/]*)\.gguf$/i
 const QUANT = /(?:^|[-_.])((?:I?Q\d(?:_[A-Z0-9]+)*)|BF16|F16|F32)(?=[-_.]|\.gguf$)/i
 const RECOMMENDED = /^(?:Q4_K_M|IQ4_XS)$/i
 
@@ -70,8 +72,9 @@ interface ApiSibling {
 }
 
 /**
- * Look up a repository's downloadable GGUF files. Projector (`mmproj`) files and split multi-part
- * models are left out; files without an LFS digest cannot be verified and are left out too.
+ * Look up a repository's downloadable GGUF files. Projector (`mmproj`) files, importance matrices,
+ * speculative-decoding drafts and split multi-part models are left out; files without an LFS digest
+ * cannot be verified and are left out too.
  * @param origin - Hugging Face origin, e.g. `https://huggingface.co`.
  * @param input - repository id or URL as typed.
  * @param signal - cancellation.
@@ -102,7 +105,8 @@ export async function lookupRepo(origin: string, input: string, signal?: AbortSi
   const files: HuggingFaceFile[] = []
   for (const sibling of body.siblings as ApiSibling[]) {
     const file = sibling.rfilename
-    if (typeof file !== 'string' || !file.toLowerCase().endsWith('.gguf') || /mmproj/i.test(file) || SPLIT.test(file)) continue
+    if (typeof file !== 'string' || !file.toLowerCase().endsWith('.gguf') || /mmproj/i.test(file) || SPLIT.test(file)
+      || COMPANION.test(file)) continue
     const sha256 = sibling.lfs?.sha256
     const bytes = sibling.lfs?.size ?? sibling.size
     if (typeof sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(sha256) || typeof bytes !== 'number' || bytes <= 0) continue

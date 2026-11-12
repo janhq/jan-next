@@ -178,7 +178,9 @@
             # prompt before the first token; wait instead of retrying from scratch.
             streamIdleTimeoutMs: 1800000
             models:
-              - id: jan-v3.5-4b
+              # The llama-cpp row serves whichever model is in use under this id and keeps
+              # the name equal to it through the llm-pi-ai settings section.
+              - id: local
                 name: Jan v3.5 4B (local)
                 # Matches the llama-cpp row's ctxSize (32768).
                 contextWindow: 32768
@@ -584,7 +586,9 @@
     - id: system-prompt
       name: '@deepseek-ai/dsh-system-prompt'
       config:
-        personaPrefix: ''
+        # tokamak-harness: Jan replaces the fixed DeepSeek Harness identity sentence.
+        includeHarnessIdentity: false
+        personaPrefix: You are Jan, an AI agent.
 
     # Agents created at startup. The base stays empty; raw overlays may create
     # agents, while Web creates sessions on client request.

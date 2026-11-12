@@ -187,7 +187,7 @@ interface RepoFilesProps {
   onStarted: (key: string, id: string | undefined | null) => void
 }
 
-type FileStatus = 'installed' | 'queued' | 'available'
+type FileStatus = 'installed' | 'downloading' | 'queued' | 'available'
 
 function RepoFiles({ result, state, actions, t, started, onStarted }: RepoFilesProps): ReactNode {
   const [error, setError] = useState<string | undefined>()
@@ -198,13 +198,15 @@ function RepoFiles({ result, state, actions, t, started, onStarted }: RepoFilesP
     const id = started.get(key)
     if (id === undefined) return 'queued'
     if (state.models.some(model => model.id === id)) return 'installed'
-    return state.downloads.some(item => item.id === id && item.error === undefined) ? 'queued' : 'available'
+    const download = state.downloads.find(item => item.id === id && item.error === undefined)
+    if (download === undefined) return 'available'
+    return download.progress === undefined ? 'queued' : 'downloading'
   }
   if (result.files.length === 0) return <p className={css.muted}>{t('repoEmpty', { repo: result.repo })}</p>
   return <>
     <p className={css.muted}>{t('repoFiles', { repo: result.repo })}</p>
     <ul className={css.list} data-testid="local-model-repo-files">
-      {result.files.map(file => <li key={file.file} className={css.row}>
+      {result.files.map((file) => { const fileStatus = status(file); return <li key={file.file} className={css.row}>
         <span className={css.rowMain}>
           <span className={css.offerHead}>
             <span className={css.rowName} title={file.file}>{file.file}</span>
@@ -212,8 +214,8 @@ function RepoFiles({ result, state, actions, t, started, onStarted }: RepoFilesP
           </span>
           <span className={css.muted}>{formatBytes(file.bytes)}{file.quant === undefined ? '' : ` · ${file.quant}`}</span>
         </span>
-        {status(file) !== 'available'
-          ? <Tag tone="neutral">{t(status(file) === 'installed' ? 'installed' : 'queued')}</Tag>
+        {fileStatus !== 'available'
+          ? <Tag tone="neutral">{t(fileStatus)}</Tag>
           : <Button variant="outline" size="sm" data-testid="local-model-repo-download" onClick={() => {
             const key = `${result.repo}/${file.file}`
             onStarted(key, undefined)
@@ -223,7 +225,7 @@ function RepoFiles({ result, state, actions, t, started, onStarted }: RepoFilesP
               onStarted(key, null)
             })
           }}>{t('downloadShort')}</Button>}
-      </li>)}
+      </li> })}
     </ul>
     {error !== undefined && <p className={css.error} role="alert">{error}</p>}
   </>

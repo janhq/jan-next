@@ -4,8 +4,8 @@
   gap: 10px;
   margin-top: 24px;
   padding: 16px;
-  border: 1px solid var(--dsw-alias-border-primary, rgba(127, 127, 127, 0.3));
-  border-radius: 12px;
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-lg);
 }
 
 .header {
@@ -70,7 +70,7 @@
   font-size: 12px;
   line-height: 18px;
   white-space: pre-wrap;
-  border-radius: 8px;
+  border-radius: var(--dsw-radius-sm);
   background: var(--dsw-alias-fill-secondary, rgba(127, 127, 127, 0.1));
 }
 
@@ -81,17 +81,22 @@
   gap: 4px;
   width: 100%;
   padding: 14px 16px;
-  border: 1px solid var(--dsw-alias-border-primary, rgba(127, 127, 127, 0.3));
-  border-radius: 12px;
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-lg);
   background: transparent;
   color: inherit;
   text-align: left;
   cursor: pointer;
 }
 
-.offer:hover,
 .offer:focus-visible {
   border-color: var(--dsw-alias-label-primary);
+}
+
+@media (hover: hover) {
+  .offer:hover {
+    border-color: var(--dsw-alias-label-primary);
+  }
 }
 
 .offerTitle {
@@ -138,8 +143,8 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  border: 1px solid var(--dsw-alias-border-primary, rgba(127, 127, 127, 0.3));
-  border-radius: 10px;
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-md);
 }
 
 .row {
@@ -152,7 +157,7 @@
 }
 
 .row + .row {
-  border-top: 1px solid var(--dsw-alias-border-primary, rgba(127, 127, 127, 0.3));
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
 }
 
 .rowMain {

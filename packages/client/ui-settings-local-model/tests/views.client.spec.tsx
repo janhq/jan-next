@@ -119,7 +119,7 @@ it('lists installed models, switches the active one, and deletes after confirmat
   card(f)
   const rows = screen.getByTestId('local-model-installed').querySelectorAll('li')
   expect([...rows].map(row => row.textContent)).toEqual([
-    'Jan v3.5 4B2.7 GB · Recommended listIn useDelete',
+    'Jan v3.5 4B2.7 GB · CuratedIn useDelete',
     'Mine1 MB · Imported fileUseDelete',
   ])
   fireEvent.click(screen.getByTestId('local-model-use'))

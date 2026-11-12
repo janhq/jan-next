@@ -36,6 +36,12 @@ export interface Config {
   routeNamespace: string
   /** `maxTokens` written for the active model's route entry. */
   routeMaxTokens: number
+  /**
+   * Model id the route serves whichever installed model is active (`--alias`). Stable, so a session
+   * on the local route keeps its selection when another model is put in use; only the display name
+   * the route lists changes.
+   */
+  routeModelId: string
   /** Loopback port the server listens on; must match the `local` route's baseURL. */
   port: number
   /** Credential reference the `local` route reads, and the key the server requires. */
@@ -89,6 +95,7 @@ export const Config: z<Partial<Config>, Config> = z.object({
   huggingFaceURL: z.string().pattern(/^https?:\/\/[^/]+$/).default('https://huggingface.co'),
   routeNamespace: z.string().default('llm-pi-ai'),
   routeMaxTokens: z.natural().min(1).default(8192),
+  routeModelId: z.string().pattern(/^[\w.-]+$/).default('local'),
   port: z.natural().min(1).max(65535).default(39281),
   apiKeyRef: z.string().min(1).default('LLAMA_CPP_API_KEY'),
   provider: z.string().min(1).default('local'),

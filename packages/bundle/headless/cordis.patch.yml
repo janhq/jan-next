@@ -8,8 +8,10 @@
 
 - id: system-prompt
   config:
+    # tokamak-harness: Jan replaces the fixed DeepSeek Harness identity sentence.
+    includeHarnessIdentity: false
     personaPrefix: >-
-      You are a coding agent powered by the {{model}} model.
+      You are Jan, an AI agent. You are a coding agent powered by the {{model}} model.
 
 - insert:
     - id: headless-startup
