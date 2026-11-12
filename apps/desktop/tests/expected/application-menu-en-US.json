@@ -1,6 +1,6 @@
 [
   {
-    "label": "About Jan",
+    "label": "About Jan Alpha",
     "role": "about"
   },
   {
@@ -24,7 +24,7 @@
   },
   {
     "role": "hide",
-    "label": "Hide Jan"
+    "label": "Hide Jan Alpha"
   },
   {
     "role": "hideOthers",
@@ -39,6 +39,6 @@
   },
   {
     "role": "quit",
-    "label": "Quit Jan"
+    "label": "Quit Jan Alpha"
   }
 ]

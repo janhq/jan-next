@@ -1,11 +1,11 @@
 {
   "darwin:en-US": {
     "menu": [
-      { "label": "About Jan", "role": "about" },
+      { "label": "About Jan Alpha", "role": "about" },
       { "type": "separator" }
     ],
     "options": {
-      "applicationName": "Jan",
+      "applicationName": "Jan Alpha",
       "applicationVersion": "1.0.0",
       "version": "",
       "copyright": "",
@@ -18,7 +18,7 @@
       { "type": "separator" }
     ],
     "options": {
-      "applicationName": "Jan",
+      "applicationName": "Jan Alpha",
       "applicationVersion": "1.0.0",
       "version": "",
       "copyright": "",
@@ -31,7 +31,7 @@
       { "type": "separator" }
     ],
     "options": {
-      "applicationName": "Jan",
+      "applicationName": "Jan Alpha",
       "applicationVersion": "1.0.0",
       "version": "",
       "copyright": "",
@@ -40,11 +40,11 @@
   },
   "win32:en-US": {
     "menu": [
-      { "label": "About Jan" },
+      { "label": "About Jan Alpha" },
       { "type": "separator" }
     ],
     "options": {
-      "applicationName": "Jan",
+      "applicationName": "Jan Alpha",
       "applicationVersion": "1.0.0",
       "version": "",
       "copyright": "",

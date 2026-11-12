@@ -7,7 +7,7 @@ export const NS = 'ui-brand-official' as const
 /** English dictionary. */
 export const en = {
   /** Release stage shown beside the product name. */
-  stage: 'Beta',
+  stage: 'Alpha',
 } as const
 
 /** Dictionary keys. */
@@ -23,10 +23,10 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 type Dictionary = Record<BrandKey, string>
 
 // The tokamak-harness UI is English-only; the other languages show the English stage name.
-export const zh: Dictionary = { stage: 'Beta' }
-export const ja: Dictionary = { stage: 'Beta' }
-export const es: Dictionary = { stage: 'Beta' }
-export const fr: Dictionary = { stage: 'Beta' }
-export const de: Dictionary = { stage: 'Beta' }
-export const ru: Dictionary = { stage: 'Beta' }
-export const pt: Dictionary = { stage: 'Beta' }
+export const zh: Dictionary = { stage: 'Alpha' }
+export const ja: Dictionary = { stage: 'Alpha' }
+export const es: Dictionary = { stage: 'Alpha' }
+export const fr: Dictionary = { stage: 'Alpha' }
+export const de: Dictionary = { stage: 'Alpha' }
+export const ru: Dictionary = { stage: 'Alpha' }
+export const pt: Dictionary = { stage: 'Alpha' }
