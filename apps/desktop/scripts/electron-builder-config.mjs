@@ -120,8 +120,8 @@ export function createElectronBuilderConfig(
       ...buildVersion === productVersion ? {} : { version: buildVersion },
       ...packaged === undefined ? {} : { dshBuildCommit: packaged.commit, dshBuildDirty: packaged.dirty },
     },
-    // tokamak-harness: file and executable name without spaces (JanAlpha.app, JanAlpha.exe); the name
-    // people read is DISPLAY_NAME, set for the menu bar, Dock, About, installer and shortcuts below.
+    // tokamak-harness: file and executable name without spaces (JanAlpha.app, JanAlpha.exe), also the
+    // macOS menu bar name; DISPLAY_NAME is set for Finder, About, the installer and shortcuts below.
     productName: 'JanAlpha',
     // The default copyright uses author.name; this line names the product instead.
     copyright: `Copyright © ${new Date().getFullYear()} ${DISPLAY_NAME}`,
@@ -175,7 +175,8 @@ export function createElectronBuilderConfig(
       // macOS matches the application locale against this bundle, not Electron Framework resources.
       extendInfo: {
         CFBundleLocalizations: ['en', 'zh_CN', 'ja', 'es', 'fr', 'de', 'ru', 'pt'],
-        CFBundleName: DISPLAY_NAME,
+        // CFBundleName must stay productName: Electron finds its helper apps as "<CFBundleName> Helper",
+        // so the menu bar reads JanAlpha; Finder, Spotlight and About read the display name.
         CFBundleDisplayName: DISPLAY_NAME,
         NSMicrophoneUsageDescription: 'Jan Alpha uses your microphone to transcribe speech into message drafts.',
       },
