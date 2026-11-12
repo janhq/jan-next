@@ -171,31 +171,33 @@ function directoryEntries(
   return [...entries.values()]
 }
 
-/** Whether a raw Loader value holds an unevaluated `!!js` expression anywhere inside it. */
-function holdsExpression(value: unknown): boolean {
-  if (typeof value !== 'object' || value === null) return false
-  if ('__jsExpr' in value) return true
-  return Object.values(value).some(holdsExpression)
+/** Whether a raw Loader value is an unevaluated `!!js` expression. */
+function isExpression(value: unknown): boolean {
+  return typeof value === 'object' && value !== null && '__jsExpr' in value
 }
 
 /**
- * The candidate this plugin checks before the Loader evaluates `!!js` expressions (it does so after
- * this hook). A provider profile that still holds an expression is checked as its current evaluated
- * profile, so editing another route is not refused for the expression's raw form.
- * @param raw - candidate config as offered to `internal/config`.
- * @param current - the live, evaluated provider profiles.
- * @returns the candidate with expression-bearing profiles replaced by their current values.
+ * Replace each unevaluated `!!js` expression in a raw candidate with the evaluated value at the same
+ * place in the live config. The Loader evaluates expressions only after this plugin's
+ * `internal/config` check, so without this every write to a section that stores an expression would
+ * be refused for the expression's raw form. Everything else in the candidate, including other
+ * fields of a route that holds an expression, is checked as written. An expression with no live
+ * counterpart (a newly added route) is left out of the check.
+ * @param raw - candidate value as offered to `internal/config`.
+ * @param current - the live, evaluated value at the same place.
+ * @returns the candidate with expressions replaced.
  */
-function withEvaluatedProfiles(raw: unknown, current: Record<string, unknown>): unknown {
-  if (typeof raw !== 'object' || raw === null || !('providers' in raw)) return raw
-  const providers = raw.providers
-  if (typeof providers !== 'object' || providers === null) return raw
-  return {
-    ...raw,
-    providers: Object.fromEntries(Object.entries(providers).map(([route, profile]) => [
-      route, holdsExpression(profile) && current[route] !== undefined ? structuredClone(current[route]) : profile,
-    ])),
+function withEvaluatedExpressions(raw: unknown, current: unknown): unknown {
+  if (isExpression(raw)) return current
+  if (Array.isArray(raw)) {
+    return raw.map((item: unknown, index) => withEvaluatedExpressions(item, Array.isArray(current) ? current[index] : undefined))
   }
+  if (typeof raw !== 'object' || raw === null) return raw
+  const live = typeof current === 'object' && current !== null ? current as Record<string, unknown> : {}
+  return Object.fromEntries(Object.entries(raw).flatMap(([key, value]): [string, unknown][] => {
+    const next = withEvaluatedExpressions(value, live[key])
+    return isExpression(value) && next === undefined ? [] : [[key, next]]
+  }))
 }
 
 /** Register one generic pi-ai adapter for all configured provider routes. */
@@ -225,7 +227,7 @@ export function apply(ctx: Context, config: Config): void {
   ctx.on('internal/config', (fiber, next) => {
     const raw: unknown = next()
     if (fiber !== ctx.fiber) return raw
-    const candidate = Config(withEvaluatedProfiles(raw, config.providers.get()) as import('./config.ts').Options)
+    const candidate = Config(withEvaluatedExpressions(raw, { providers: config.providers.get() }) as import('./config.ts').Options)
     assertServiceable(
       { providers: structuredClone(candidate.providers.get()) } as import('./config.ts').Options,
       { providers: structuredClone(config.providers.get()) } as import('./config.ts').Options,

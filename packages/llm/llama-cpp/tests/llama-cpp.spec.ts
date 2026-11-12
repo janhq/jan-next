@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { createServer, type Server } from 'node:http'
 import { createServer as createNetServer } from 'node:net'
@@ -631,3 +631,30 @@ it('keeps curated ids for curated models', async () => {
   const state = await f.until(s => s.models.length === 1)
   expect(state.catalog.find(entry => entry.id === 'qwen3-0.6b')?.installed).toBe(false)
 })
+
+it('starts a fresh engine install when asked again right after cancelling one', async () => {
+  const home = await temp('llama-engine-cancel-')
+  const stage = join(home, 'stage', 'llama-b0')
+  await mkdir(stage, { recursive: true })
+  await copyFile(FAKE, join(stage, 'llama-server'))
+  // Incompressible padding keeps the throttled engine download running long enough to cancel.
+  await writeFile(join(stage, 'padding.bin'), randomBytes(128 * 1024))
+  const archive = join(home, 'engine.tar.gz')
+  execFileSync('tar', ['-czf', archive, '-C', join(home, 'stage'), 'llama-b0'])
+  const tarball = await readFile(archive)
+  const g = await fixture({ home, throttle: true, config: modelOrigin => ({
+    binaryPath: undefined,
+    artifactOverrides: {
+      engine: { url: `${modelOrigin}/engine.tar.gz`, sha256: sha(tarball), bytes: tarball.length },
+      model: { url: `${modelOrigin}/model.gguf`, sha256: sha(MODEL), bytes: MODEL.length },
+    },
+  }), extraFiles: { '/engine.tar.gz': tarball } })
+  await g.until(s => s.phase === 'missing')
+  g.llama.install()
+  await g.until(s => s.progress?.phase === 'engine' && s.progress.receivedBytes > 0)
+  const cancelled = g.llama.cancel()
+  g.llama.install()
+  await cancelled
+  const state = await g.until(s => s.phase === 'running' || s.phase === 'failed')
+  expect(state).toMatchObject({ phase: 'running' })
+}, 60_000)

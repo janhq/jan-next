@@ -23,7 +23,9 @@ Function un.CleanData
   ; Only a DSH_HOME published as a Windows environment variable is visible here.
   ReadEnvStr $UnHome DSH_HOME
   ClearErrors
-  StrCpy $UnTarget "$APPDATA\${PRODUCT_FILENAME}"
+  ; tokamak-harness: the product is named Jan, and %APPDATA%\Jan belongs to the Jan desktop app
+  ; (janhq), so only the folder earlier builds of this app used is removed here.
+  StrCpy $UnTarget "$APPDATA\DeepSeek Harness"
   Call un.RemoveData
   !ifdef APP_PACKAGE_NAME
     ; Electron derives user data from the package name; a scoped name nests it one directory deeper.

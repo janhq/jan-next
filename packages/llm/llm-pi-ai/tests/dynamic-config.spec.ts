@@ -222,6 +222,11 @@ describe('request-level dynamic profiles', () => {
     })
     await configurations.get(ctx)!.update({ providers: { deepseek: { apiKeyEnv: 'PI_LIVE_KEY', baseURL: 'http://127.0.0.1:2/v1' } } })
     expect(ctx.llm.listProviders().map(provider => provider.id)).toEqual(['openai', 'deepseek'])
+    // The route that holds the expression is still checked as written in its other fields.
+    await expect(configurations.get(ctx)!.update({
+      providers: { openai: { headers: { 'bad header name': 'value' } } },
+    })).rejects.toThrow(/provider "openai" header "bad header name" is not valid for Fetch/)
+    expect(ctx.llm.listProviders().map(provider => provider.id)).toEqual(['openai', 'deepseek'])
   })
 
   it('rotates the per-request credential referenced by apiKeyEnv', async () => {

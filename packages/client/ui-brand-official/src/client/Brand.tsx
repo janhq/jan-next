@@ -3,6 +3,7 @@ import { Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import janLogoUrl from './assets/jan-logo.png'
 import type { NS } from './locales.ts'
+import css from './Brand.module.css'
 
 /** Product name shown beside the mark. */
 export const BRAND_NAME = 'Jan'
@@ -24,7 +25,7 @@ export function OfficialBrandMark({ size, className }: HeroBrandMarkOwnerProps) 
  */
 export function OfficialBrandName({ t }: PropsLocale<typeof NS>) {
   return (
-    <span data-brand-name="jan" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+    <span data-brand-name="jan" className={css.name}>
       {BRAND_NAME}
       <Tag tone="neutral">{t('stage')}</Tag>
     </span>

@@ -546,7 +546,8 @@ export class LlamaCpp extends Service {
   private enqueue(spec: ModelSpec): void {
     if (this.lifetime.signal.aborted || this.record.models.some(model => model.id === spec.id)) return
     const current = this.jobs.get(spec.id)
-    if (current !== undefined && current.error === undefined) return
+    // A cancelled job still unwinding is replaced, so asking again right after Cancel starts it again.
+    if (current !== undefined && current.error === undefined && !current.abort.signal.aborted) return
     const job: Job = { spec, abort: new AbortController() }
     this.jobs.set(spec.id, job)
     if (this.activeModel() === undefined && (this.server.phase === 'missing' || this.server.phase === 'failed')) {
@@ -598,7 +599,9 @@ export class LlamaCpp extends Service {
         this.emit()
         if (!first) return
         // The first model installed starts serving right away, as the first-run offer promises.
-        await this.rememberStart(true)
+        // The job is gone now, so a failure here is reported as the server's, not the download's.
+        try { await this.rememberStart(true) }
+        catch (error) { this.fail(error); return }
         this.setServer({ phase: 'installed' })
         await this.syncRoute()
         await this.launch()
@@ -624,7 +627,18 @@ export class LlamaCpp extends Service {
    * @param report - byte progress of the archive.
    * @returns the server executable.
    */
-  private ensureEngine(signal: AbortSignal, report: (received: number, total: number) => void): Promise<string> {
+  private async ensureEngine(signal: AbortSignal, report: (received: number, total: number) => void): Promise<string> {
+    // An install whose last waiter left is still unwinding (closing files, killing tar); joining it
+    // would fail with its cancellation, and starting beside it would unpack into the same staging
+    // directory. Let it settle, then start afresh.
+    for (let dying = this.engineInstall; dying?.abort.signal.aborted === true; dying = this.engineInstall) {
+      await dying.promise.catch(() => undefined)
+      if (this.engineInstall === dying) this.engineInstall = undefined
+    }
+    return this.joinEngine(signal, report)
+  }
+
+  private joinEngine(signal: AbortSignal, report: (received: number, total: number) => void): Promise<string> {
     if (signal.aborted) return Promise.reject(signal.reason instanceof Error ? signal.reason : new Error('cancelled'))
     let install = this.engineInstall
     if (install === undefined) {
@@ -742,10 +756,14 @@ export class LlamaCpp extends Service {
       if (existing !== undefined) return existing.id
       const label = name?.trim() || basename(file).replace(/\.gguf$/i, '')
       const id = this.freeId(slug(label))
-      this.record.models.push({ id, name: label, file, bytes: info.size, source: 'import' })
-      const first = this.record.active === undefined
-      if (first) this.record.active = id
-      await this.writeRecord()
+      const previous = this.record
+      const first = previous.active === undefined
+      this.record = {
+        ...previous, models: [...previous.models, { id, name: label, file, bytes: info.size, source: 'import' }],
+        ...first ? { active: id } : {},
+      }
+      try { await this.writeRecord() }
+      catch (error) { this.record = previous; throw error }
       this.emit()
       if (first) {
         await this.rememberStart(true)
@@ -769,9 +787,11 @@ export class LlamaCpp extends Service {
     return this.task(async () => {
       if (!this.record.models.some(model => model.id === id)) throw new Error(`no installed model "${id}"`)
       const changed = this.record.active !== id
-      this.record.active = id
       if (changed) {
-        await this.writeRecord()
+        const previous = this.record
+        this.record = { ...previous, active: id }
+        try { await this.writeRecord() }
+        catch (error) { this.record = previous; throw error }
         await this.terminate()
         this.setServer({ phase: 'installed' })
         await this.syncRoute()

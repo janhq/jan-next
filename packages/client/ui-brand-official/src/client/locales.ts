@@ -23,10 +23,10 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 type Dictionary = Record<BrandKey, string>
 
 // The tokamak-harness UI is English-only; the other languages show the English stage name.
-export const zh: Dictionary = { ...en }
-export const ja: Dictionary = { ...en }
-export const es: Dictionary = { ...en }
-export const fr: Dictionary = { ...en }
-export const de: Dictionary = { ...en }
-export const ru: Dictionary = { ...en }
-export const pt: Dictionary = { ...en }
+export const zh: Dictionary = { stage: 'Beta' }
+export const ja: Dictionary = { stage: 'Beta' }
+export const es: Dictionary = { stage: 'Beta' }
+export const fr: Dictionary = { stage: 'Beta' }
+export const de: Dictionary = { stage: 'Beta' }
+export const ru: Dictionary = { stage: 'Beta' }
+export const pt: Dictionary = { stage: 'Beta' }
