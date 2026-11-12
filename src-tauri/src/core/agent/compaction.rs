@@ -29,12 +29,6 @@ use crate::core::agent::r#loop::ModelInvoker;
 use crate::core::agent::transcript::{CompactionPlan, Transcript};
 use crate::core::agent::upstream::extract_choice_message;
 
-/// Per-message envelope (role, delimiters) in [`estimate_token_count`], the
-/// usual OpenAI-accounting constant. CLI-only, like the estimator that reads it:
-/// nothing in the desktop config estimates a history, since the providers
-/// report the real prompt count there.
-#[cfg(feature = "cli")]
-const TOKENS_PER_MESSAGE: u64 = 4;
 
 /// Share of the context window a prompt may fill before a run compacts ahead of
 /// dispatching. `[agent].compaction_ratio` overrides it, per route if the
@@ -154,57 +148,6 @@ fn json_text_len(value: &Value) -> usize {
     }
 }
 
-/// Rough token count (~4 chars per token) for a history the provider has not
-/// reported usage for. Counts what actually goes on the wire -- text content
-/// including multimodal text parts, tool-call names and arguments, tool-result
-/// ids -- so a tool-heavy history is not scored as empty. Image parts are left
-/// out: their cost is a provider-specific function of resolution, and inventing
-/// a number there is worse than omitting one.
-///
-/// CLI-only: it backs the feed's fill indicator, the `/context` view and the
-/// TUI's auto-compact, all of which must agree with [`trigger_tokens`] - a fill
-/// reading under the trigger while the loop compacts would be a bug the user
-/// sees as "it compacted for no reason". The desktop reads the provider's own
-/// `prompt_tokens` instead, so it has no caller for this.
-#[cfg(feature = "cli")]
-pub(crate) fn estimate_token_count(messages: &[Value]) -> u64 {
-    let mut total_chars: usize = 0;
-    for msg in messages {
-        match msg.get("content") {
-            Some(Value::String(text)) => total_chars += text.len(),
-            Some(Value::Array(parts)) => {
-                for part in parts {
-                    total_chars += part
-                        .get("text")
-                        .and_then(|t| t.as_str())
-                        .map_or(0, str::len);
-                }
-            }
-            _ => {}
-        }
-        for call in msg
-            .get("tool_calls")
-            .and_then(|c| c.as_array())
-            .into_iter()
-            .flatten()
-        {
-            // Arguments live under `function`, not on the call itself.
-            if let Some(f) = call.get("function") {
-                total_chars += f.get("name").and_then(|n| n.as_str()).map_or(0, str::len);
-                total_chars += f
-                    .get("arguments")
-                    .and_then(|a| a.as_str())
-                    .map_or(0, str::len);
-            }
-        }
-        total_chars += msg
-            .get("tool_call_id")
-            .and_then(|v| v.as_str())
-            .map_or(0, str::len);
-    }
-    let envelope = TOKENS_PER_MESSAGE * messages.len() as u64;
-    ((total_chars / 4) as u64 + envelope).max(1)
-}
 
 /// Leading text of a compaction summary written before the continuation
 /// state existed: a `system` message. Saved sessions still carry it, so it is
@@ -467,53 +410,6 @@ pub(crate) async fn fire_pre_compact(
     }
 }
 
-/// Compact a plain message list -- the TUI's `/compact`, which holds a history
-/// rather than a run's record -- keeping a tail of at most `keep_tokens`, cut
-/// by [`token_tail_start`] as a run's own compaction cuts it. The input comes
-/// back unchanged with no report when there is nothing safe to drop. Never
-/// fails: a summarizer that cannot run leaves the code-built state.
-/// The caps come from `sizing`'s trigger, the same one the tail was cut from.
-#[cfg(feature = "cli")]
-pub(crate) async fn compact_conversation(
-    messages: &[Value],
-    model_id: &str,
-    model: &dyn ModelInvoker,
-    keep_tokens: u64,
-    harness: &HarnessContext,
-    sizing: Sizing,
-) -> (Vec<Value>, Option<CompactionReport>) {
-    let sys_end = messages
-        .iter()
-        .take_while(|m| role(m) == "system" && !is_compaction_summary(m))
-        .count();
-    let (system_msgs, rest) = messages.split_at(sys_end);
-
-    let Some(cut) = token_tail_start(rest, keep_tokens) else {
-        return (messages.to_vec(), None);
-    };
-
-    let gathered = continuation::gather(&rest[..cut]);
-    // The interactive `/compact` meters nothing: it is not inside a run's
-    // budget, so there is no ceiling for this request to be charged against.
-    // Its usage still rides on the report, which is what `/agents` shows.
-    let Continuation { state, report, .. } = continuation_state(
-        &gathered,
-        &rest[..cut],
-        None,
-        harness,
-        sizing,
-        caps(sizing.trigger),
-        model_id,
-        model,
-    )
-    .await;
-
-    let mut out = Vec::with_capacity(system_msgs.len() + 1 + rest.len() - cut);
-    out.extend_from_slice(system_msgs);
-    out.push(state);
-    out.extend_from_slice(&rest[cut..]);
-    (out, Some(report))
-}
 
 /// The instruction appended to the cached compaction request, before the
 /// role's own guidance. Wrapped like every other harness notice, so the model
@@ -949,22 +845,8 @@ pub(crate) const MAX_CHUNKS: usize = 8;
 /// enough for the local models a smol model usually is.
 const SMOL_FALLBACK_WINDOW: u64 = 32_000;
 
-/// The context window of the summarizer `model_id`, as the CLI resolves a
-/// run's (provider listing, then catalog), or [`SMOL_FALLBACK_WINDOW`].
-#[cfg(feature = "cli")]
-fn summarizer_window(model_id: &str) -> u64 {
-    use crate::core::cli::model_capabilities::{
-        reported_window, resolve_context_window, ContextWindowSource,
-    };
-    let resolved = resolve_context_window(model_id, None, reported_window(None, model_id));
-    match resolved.source {
-        ContextWindowSource::Fallback => SMOL_FALLBACK_WINDOW,
-        _ => resolved.tokens,
-    }
-}
 
 /// The desktop keeps no provider listing, so only the catalog sizes it.
-#[cfg(not(feature = "cli"))]
 fn summarizer_window(model_id: &str) -> u64 {
     crate::core::agent::proxy_budget::catalog_window(model_id).unwrap_or(SMOL_FALLBACK_WINDOW)
 }
@@ -1844,67 +1726,9 @@ mod tests {
         assert!(!body.contains(SUMMARY_MARKER), "the old summary is not rendered as transcript");
     }
 
-    /// The sizing `/compact` tests run under: a 100K window at the default ratio.
-    #[cfg(feature = "cli")]
-    fn default_sizing() -> Sizing {
-        Sizing::new(100_000, DEFAULT_COMPACTION_RATIO)
-    }
 
-    #[cfg(feature = "cli")]
-    fn convo(n: usize) -> Vec<Value> {
-        let mut v = vec![json!({ "role": "system", "content": "sys" })];
-        for i in 0..n {
-            let r = if i % 2 == 0 { "user" } else { "assistant" };
-            v.push(json!({ "role": r, "content": format!("msg{i}") }));
-        }
-        v
-    }
 
-    /// `/compact` keeps the system prompt and a token-sized tail, and puts
-    /// the state between them as a user message.
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn compact_conversation_keeps_the_system_prompt_and_tail() {
-        let model = stub("## Progress\nCONDENSED");
-        let input = convo(20);
-        // Each `msgN` message is 8 or 9 tokens by the preflight's rule: 36
-        // holds the newest four.
-        let (out, report) =
-            compact_conversation(&input, "m", &model, 36, &HarnessContext::default(), default_sizing())
-                .await;
-        assert!(report.is_some());
-        assert_eq!(out[0], input[0]);
-        assert!(continuation::is_state(&out[1]));
-        assert!(state_text(&out[1]).contains("CONDENSED"));
-        assert_eq!(&out[2..], &input[input.len() - 4..]);
 
-        // A conversation that fits the tail has nothing to drop.
-        let (same, none) =
-            compact_conversation(&convo(4), "m", &model, 1_000, &HarnessContext::default(), default_sizing())
-                .await;
-        assert_eq!(same, convo(4));
-        assert!(none.is_none());
-    }
-
-    /// The tail is sized in tokens, not messages: eight large tool results no
-    /// longer survive a `/compact` whole and overflow the next request.
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn compact_conversation_sizes_its_tail_by_tokens() {
-        let model = stub("## Progress\nCONDENSED");
-        let mut input = convo(2);
-        for i in 0..8 {
-            input.push(call(&format!("t{i}")));
-            input.push(result(&format!("t{i}"), 40_000));
-        }
-        let keep = tail_tokens(100_000);
-        let (out, _) =
-            compact_conversation(&input, "m", &model, keep, &HarnessContext::default(), default_sizing())
-                .await;
-        let kept: u64 = out[2..].iter().map(message_tokens).sum();
-        assert!(kept <= 3 * keep, "kept {kept} tokens");
-        assert_eq!(out.len(), 4, "the newest call and its result: {}", out.len());
-    }
 
     fn call(id: &str) -> Value {
         json!({ "role": "assistant", "content": Value::Null,

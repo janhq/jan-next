@@ -63,13 +63,7 @@ export const useModelProvider = create<ModelProviderState>()(
       },
       setProviders: (providers) =>
         set((state) => {
-          // MLX is Apple-Silicon only; drop it on every other platform so it
-          // can't be reactivated, queried, or shown anywhere in the UI.
-          providers = IS_MACOS
-            ? providers
-            : providers.filter((e) => e.provider !== 'mlx')
           const existingProviders = state.providers
-            .filter((e) => IS_MACOS || e.provider !== 'mlx')
             // Filter out legacy llama.cpp provider for migration
             // Can remove after a couple of releases
             .filter((e) => e.provider !== 'llama.cpp')
@@ -99,7 +93,7 @@ export const useModelProvider = create<ModelProviderState>()(
             ? state.deletedModels
             : []
 
-          // For local providers (llamacpp, mlx) the engine's list() is the
+          // For local providers (llamacpp) the engine's list() is the
           // source of truth: a model only appears here if it is on disk. If
           // an id was previously soft-deleted but reappears in a fresh local
           // listing, the user has re-downloaded/re-imported it and the

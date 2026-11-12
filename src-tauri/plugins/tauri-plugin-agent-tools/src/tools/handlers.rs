@@ -1186,9 +1186,6 @@ async fn bash(args: &serde_json::Value, ctx: &ToolContext<'_>) -> String {
     // denials get the note too.
     let sandboxed = ctx.shell_confined();
     let escalation = ctx.escalation;
-    // The task takes `policy` for its denial note; settling the cwd below
-    // asks it which paths only the sandbox has.
-    let confined_by = sandboxed.then(|| policy.clone());
     // Fed from the first byte, so a command the user opens in `/shells` after it
     // backgrounded still shows what it printed before the timeout.
     let tail = pid.and_then(proc::output_handle);
@@ -1213,7 +1210,7 @@ async fn bash(args: &serde_json::Value, ctx: &ToolContext<'_>) -> String {
                 (lost.to_string(), CwdLanding::Unreported)
             });
             let refused = match &landed {
-                CwdLanding::At(dir) => unholdable_shell_cwd(ctx, confined_by.as_ref(), dir),
+                CwdLanding::At(dir) => unholdable_shell_cwd(ctx, dir),
                 _ => None,
             };
             if let Some(note) =
@@ -1535,26 +1532,11 @@ fn unsafe_in_a_note(c: char) -> bool {
 }
 
 /// Why the shell may not stand in `dir` for later calls, or `None` when it
-/// may. Checked where it landed, before it is held:
-///
-/// - A directory only the sandbox has (`confined_by` is the policy the call
-///   ran under): an escalated call starting there would enter the host's
-///   same-named directory, a different one, and a confined call needs no help
-///   to make a fresh one. See [`jail::sandbox_private`].
-/// - The Jan home outside the project and the attached read roots the confined
-///   shell may name: the gate would refuse every later command naming a path
-///   relative to it, and the sandbox masks it anyway.
-fn unholdable_shell_cwd(
-    ctx: &ToolContext<'_>,
-    confined_by: Option<&jail::Policy>,
-    dir: &Path,
-) -> Option<&'static str> {
-    if confined_by.is_some_and(|policy| jail::sandbox_private(policy, dir)) {
-        return Some(
-            "exists only inside the sandbox (its private /tmp or a masked folder), so a later \
-             command run outside it would land in a different directory",
-        );
-    }
+/// may. Checked where it landed, before it is held: the Jan home outside the
+/// project and the attached read roots the confined shell may name is refused,
+/// since the gate would refuse every later command naming a path relative to
+/// it, and the sandbox masks it anyway.
+fn unholdable_shell_cwd(ctx: &ToolContext<'_>, dir: &Path) -> Option<&'static str> {
     let hidden = ctx.hidden_root?;
     let raw = dir.to_string_lossy();
     let root = ctx.project_root;
@@ -3743,7 +3725,7 @@ mod tests {
     /// no-follow default, which is what the containment check cannot cover:
     /// the base path here is honest, only the recursion would escape.
     #[tokio::test]
-    #[cfg(target_os = "linux")]
+    #[cfg(unix)]
     async fn find_does_not_recurse_out_of_the_scratch_via_a_symlink() {
         let root = unique_root();
         let scratch = unique_root();
@@ -3774,7 +3756,7 @@ mod tests {
     /// symlink to a file is not classified as a directory and would be opened
     /// and read. Skip every symlink so a planted `key -> $HOME/.ssh/id_rsa`
     /// cannot be disclosed without a separate approval.
-    #[cfg(target_os = "linux")]
+    #[cfg(unix)]
     #[tokio::test]
     async fn grep_does_not_read_a_file_symlink_out_of_the_root() {
         let root = unique_root();
@@ -4016,40 +3998,6 @@ mod tests {
         let out =
             super::execute_builtin(lookup("read").unwrap(), &json!({"path": shown}), &ctx).await.0;
         assert_eq!(out, "persist");
-        let _ = std::fs::remove_dir_all(&root);
-        let _ = std::fs::remove_dir_all(&scratch);
-    }
-
-    /// The point of the real path: a file sandboxed `bash` writes through
-    /// `$TMPDIR` is at that same absolute path on the host, so the filesystem
-    /// tools (and an escalated, unconfined command) find it by the name the
-    /// shell printed. Linux, where the scratch used to be mounted over `/tmp`.
-    #[tokio::test]
-    #[cfg(target_os = "linux")]
-    async fn a_file_bash_writes_to_the_scratch_is_at_the_same_path_on_the_host() {
-        if !crate::tools::jail::backend().enforces() {
-            eprintln!("skipping: no sandbox backend on this host");
-            return;
-        }
-        let root = unique_root();
-        let scratch = unique_root();
-        let store = crate::workspace::project_store(&root);
-        let ctx = ToolContext::new(&root, &store, &[]).with_scratch_root(&scratch);
-        let (out, _) = super::execute_builtin(
-            lookup("shell").unwrap(),
-            &json!({"command": "echo made-inside > \"$TMPDIR/out.txt\" && echo \"$TMPDIR/out.txt\""}),
-            &ctx,
-        )
-        .await;
-        let named = scratch.join("out.txt");
-        assert!(out.contains(&*named.to_string_lossy()), "TMPDIR is the real path: {out}");
-        let (read, _) = super::execute_builtin(
-            lookup("read").unwrap(),
-            &json!({"path": named.to_string_lossy()}),
-            &ctx,
-        )
-        .await;
-        assert_eq!(read.trim(), "made-inside");
         let _ = std::fs::remove_dir_all(&root);
         let _ = std::fs::remove_dir_all(&scratch);
     }
@@ -4701,49 +4649,6 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
         let _ = std::fs::remove_dir_all(&scratch);
         let _ = std::fs::remove_dir_all(secret.parent().unwrap());
-    }
-
-    /// A test dir outside the host temp dir, as the real project and scratch
-    /// are, so a `/tmp` path inside the sandbox names something else.
-    #[cfg(target_os = "linux")]
-    fn outside_tmp_root() -> PathBuf {
-        let n = COUNTER.fetch_add(1, Ordering::SeqCst);
-        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("target")
-            .join("handlers-tests")
-            .join(format!("{}_{n}", std::process::id()));
-        std::fs::create_dir_all(&dir).expect("create test root");
-        dir
-    }
-
-    /// Inside bubblewrap `/tmp` is a private tmpfs, so a directory made there
-    /// is not the host's same-named one, which an escalated run would enter.
-    /// It is never held: the shell is back in the root at once, and says so.
-    #[cfg(target_os = "linux")]
-    #[tokio::test]
-    async fn a_sandboxed_cd_into_private_tmp_is_not_held() {
-        if !jail::backend().enforces() {
-            eprintln!("skipping: no sandbox backend on this host");
-            return;
-        }
-        let root = outside_tmp_root();
-        let store = crate::workspace::project_store(&root);
-        let scratch = outside_tmp_root();
-        let host_twin = std::env::temp_dir().join(format!("jan_cwd_twin_{}", std::process::id()));
-        std::fs::create_dir_all(&host_twin).unwrap();
-        let cwd = crate::tools::ShellCwd::default();
-        let ctx = cwd_ctx(&root, &store, &scratch, &cwd, true);
-        let make = format!("mkdir -p {0} && cd {0}", shell_quote(&host_twin.to_string_lossy()));
-        let out = run_in(&ctx, &make).await;
-        assert!(out.contains("exists only inside the sandbox"), "{out}");
-        assert!(out.contains("back in the project root"), "{out}");
-        assert_eq!(*cwd.lock().unwrap(), None);
-        // The scratch is bound at its real path, so it is held.
-        let out = run_in(&ctx, &format!("cd {}", shell_quote(&scratch.to_string_lossy()))).await;
-        assert!(out.contains("shell cwd is now"), "{out}");
-        let _ = std::fs::remove_dir_all(&host_twin);
-        let _ = std::fs::remove_dir_all(&root);
-        let _ = std::fs::remove_dir_all(&scratch);
     }
 
     /// A directory in the Jan home is not held unless an attached read root

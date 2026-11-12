@@ -1,7 +1,5 @@
 import { createRootRoute, Outlet } from '@tanstack/react-router'
-// import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
 
-import DialogAppUpdater from '@/containers/dialogs/AppUpdater'
 import { Fragment } from 'react/jsx-runtime'
 import { ThemeProvider } from '@/providers/ThemeProvider'
 import { InterfaceProvider } from '@/providers/InterfaceProvider'
@@ -10,10 +8,6 @@ import { DataProvider } from '@/providers/DataProvider'
 import { route } from '@/constants/routes'
 import { ExtensionProvider } from '@/providers/ExtensionProvider'
 import { ToasterProvider } from '@/providers/ToasterProvider'
-import { useAnalytic } from '@/hooks/useAnalytic'
-import { useIsOnboarding } from '@/hooks/useIsOnboarding'
-import { PromptAnalytic } from '@/containers/analytics/PromptAnalytic'
-import { AnalyticProvider } from '@/providers/AnalyticProvider'
 import { useLeftPanel } from '@/hooks/useLeftPanel'
 import { TranslationProvider } from '@/i18n/TranslationContext'
 import OutOfContextPromiseModal from '@/containers/dialogs/OutOfContextDialog'
@@ -25,7 +19,6 @@ import { ServiceHubProvider } from '@/providers/ServiceHubProvider'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { LeftSidebar } from '@/components/left-sidebar'
 import { WindowControls } from '@/components/WindowControls'
-import { WindowResizeGrips } from '@/components/WindowResizeGrips'
 import ErrorDialog from '@/containers/dialogs/ErrorDialog'
 import LlamacppBusyOnExitDialog from '@/containers/dialogs/LlamacppBusyOnExitDialog'
 import LlamacppOomListener from '@/containers/dialogs/LlamacppOomListener'
@@ -37,10 +30,6 @@ export const Route = createRootRoute({
 })
 
 const AppLayout = () => {
-  const { productAnalyticPrompt } = useAnalytic()
-  // The setup screen is the only onboarding surface: everything below that would
-  // otherwise stack on top of it is deferred until it is done.
-  const isOnboarding = useIsOnboarding()
   const {
     open: isLeftPanelOpen,
     setLeftPanel,
@@ -56,11 +45,9 @@ const AppLayout = () => {
         defaultWidth={sidebarWidth}
         onWidthChange={setLeftPanelWidth}
       >
-        <AnalyticProvider />
         <KeyboardShortcutsProvider />
         {/* Fake absolute panel top to enable window drag */}
-        {(IS_WINDOWS || IS_LINUX) && <WindowControls />}
-        {IS_LINUX && <WindowResizeGrips />}
+        {IS_WINDOWS && <WindowControls />}
         {IS_TAURI && (
           <div
             className="fixed w-full h-12 z-20 top-0 cursor-grab active:cursor-grabbing"
@@ -69,15 +56,12 @@ const AppLayout = () => {
             data-tauri-drag-region
           />
         )}
-        <DialogAppUpdater />
         <LeftSidebar />
         <SidebarInset>
           <div className="bg-neutral-50 dark:bg-background size-full">
             <Outlet />
           </div>
         </SidebarInset>
-
-        {productAnalyticPrompt && !isOnboarding && <PromptAnalytic />}
       </SidebarProvider>
     </div>
   )
@@ -125,7 +109,6 @@ function RootLayout() {
             <DownloadEventListener />
             {IS_LOGS_ROUTE ? <LogsLayout /> : <AppLayout />}
           </ExtensionProvider>
-          {/* <TanStackRouterDevtools position="bottom-right" /> */}
           <AttachmentIngestionDialog />
           <ErrorDialog />
           <LlamacppBusyOnExitDialog />

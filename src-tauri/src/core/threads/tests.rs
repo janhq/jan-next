@@ -1,7 +1,7 @@
 use super::commands::*;
 use super::constants::{MESSAGES_FILE, THREADS_DIR, THREADS_FILE};
 use super::helpers::{
-    get_lock_for_thread, read_messages_from_file, should_use_sqlite, update_thread_metadata,
+    get_lock_for_thread, read_messages_from_file, update_thread_metadata,
     write_messages_to_file,
 };
 use super::utils::{
@@ -181,33 +181,9 @@ async fn test_create_and_get_thread_assistant() {
     // Clean up
 }
 
-#[test]
-fn test_should_use_sqlite_platform_detection() {
-    // Test that should_use_sqlite returns correct value based on platform
-    // On desktop platforms (macOS, Linux, Windows), it should return false
-    // On mobile platforms (Android, iOS), it should return true
-
-    #[cfg(any(target_os = "android", target_os = "ios"))]
-    {
-        assert!(
-            should_use_sqlite(),
-            "should_use_sqlite should return true on mobile platforms"
-        );
-    }
-
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    {
-        assert!(
-            !should_use_sqlite(),
-            "should_use_sqlite should return false on desktop platforms"
-        );
-    }
-}
-
 #[tokio::test]
 async fn test_desktop_storage_backend() {
     // This test verifies that on desktop platforms, the file-based storage is used
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         let (app, _data_dir) = mock_app_with_temp_data_dir();
 
@@ -301,7 +277,6 @@ async fn test_modify_and_delete_thread() {
         .unwrap();
 
     // Verify deletion
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         let thread_dir = data_dir.join(&thread_id);
         assert!(!thread_dir.exists(), "Thread directory should be deleted");
@@ -576,12 +551,6 @@ fn test_ensure_thread_dir_exists_creates_nested_dirs() {
 // ---------- helpers.rs ----------
 
 #[test]
-fn test_should_use_sqlite_matches_target_cfg() {
-    let expected = cfg!(any(target_os = "android", target_os = "ios"));
-    assert_eq!(should_use_sqlite(), expected);
-}
-
-#[test]
 fn test_write_and_read_messages_round_trip() {
     let tmp = tempfile::tempdir().unwrap();
     let base = tmp.path();
@@ -768,7 +737,6 @@ fn test_validate_thread_id_rejects_path_like_ids() {
     assert!(validate_thread_id(&"a".repeat(129)).is_err());
 }
 
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
 #[tokio::test]
 async fn test_thread_commands_refuse_ids_outside_threads_dir() {
     let (app, data_dir) = mock_app_with_temp_data_dir();

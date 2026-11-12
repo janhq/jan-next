@@ -67,63 +67,17 @@ describe('platform/utils', () => {
     })
   })
 
-  describe('isPlatformIOS', () => {
-    it('returns IS_IOS value', async () => {
-      vi.stubGlobal('IS_IOS', true)
-      vi.stubGlobal('IS_ANDROID', false)
-      vi.stubGlobal('IS_WEB_APP', true)
-      const mod = await import('../platform/utils')
-      expect(mod.isPlatformIOS()).toBe(true)
-      expect(mod.isIOS()).toBe(true)
-      vi.unstubAllGlobals()
-    })
-  })
-
-  describe('isPlatformAndroid', () => {
-    it('returns IS_ANDROID value', async () => {
-      vi.stubGlobal('IS_IOS', false)
-      vi.stubGlobal('IS_ANDROID', true)
-      vi.stubGlobal('IS_WEB_APP', true)
-      const mod = await import('../platform/utils')
-      expect(mod.isPlatformAndroid()).toBe(true)
-      expect(mod.isAndroid()).toBe(true)
-      vi.unstubAllGlobals()
-    })
-  })
-
   describe('getCurrentPlatform', () => {
-    it('returns ios when IS_IOS', async () => {
-      vi.stubGlobal('IS_IOS', true)
-      vi.stubGlobal('IS_ANDROID', false)
-      vi.stubGlobal('IS_WEB_APP', true)
-      const mod = await import('../platform/utils')
-      expect(mod.getCurrentPlatform()).toBe('ios')
-      vi.unstubAllGlobals()
-    })
-
-    it('returns android when IS_ANDROID', async () => {
-      vi.stubGlobal('IS_IOS', false)
-      vi.stubGlobal('IS_ANDROID', true)
-      vi.stubGlobal('IS_WEB_APP', true)
-      const mod = await import('../platform/utils')
-      expect(mod.getCurrentPlatform()).toBe('android')
-      vi.unstubAllGlobals()
-    })
-
     it('returns web when IS_WEB_APP and no Tauri bridge', async () => {
-      vi.stubGlobal('IS_IOS', false)
-      vi.stubGlobal('IS_ANDROID', false)
       vi.stubGlobal('IS_WEB_APP', true)
       const mod = await import('../platform/utils')
       expect(mod.getCurrentPlatform()).toBe('web')
       vi.unstubAllGlobals()
     })
 
-    it('returns tauri when not web/ios/android and Tauri bridge present', async () => {
-      vi.stubGlobal('IS_IOS', false)
-      vi.stubGlobal('IS_ANDROID', false)
+    it('returns tauri when not web and Tauri bridge present', async () => {
       vi.stubGlobal('IS_WEB_APP', false)
-      ;(window as any).__TAURI__ = {}
+      ;(window as Window & { __TAURI__?: unknown }).__TAURI__ = {}
       const mod = await import('../platform/utils')
       expect(mod.getCurrentPlatform()).toBe('tauri')
       vi.unstubAllGlobals()
@@ -132,8 +86,6 @@ describe('platform/utils', () => {
 
   describe('getUnavailableFeatureMessage', () => {
     it('formats feature name and platform', async () => {
-      vi.stubGlobal('IS_IOS', false)
-      vi.stubGlobal('IS_ANDROID', false)
       vi.stubGlobal('IS_WEB_APP', true)
       const { PlatformFeature } = await import('../platform/types')
       const mod = await import('../platform/utils')

@@ -187,19 +187,6 @@
     "proxyTimeout": "Timeout de Requisição",
     "proxyTimeoutDesc": "Tempo para aguardar uma resposta do modelo local, segundos."
   },
-  "privacy": {
-    "analytics": "Analytics",
-    "helpUsImprove": "Ajude-nos a melhorar",
-    "helpUsImproveDesc": "Para nos ajudar a melhorar o Jan, você pode compartilhar dados anônimos como uso de recursos e contagem de usuários. Nunca coletamos seus chats ou informações pessoais.",
-    "privacyPolicy": "Você tem controle total sobre seus dados. Saiba mais em nossa Política de Privacidade.",
-    "analyticsDesc": "Para melhorar o Jan, precisamos entender como é usado—mas apenas com sua ajuda. Você pode alterar esta configuração a qualquer momento.",
-    "privacyPromises": "Sua escolha aqui não mudará nossas promessas básicas de privacidade:",
-    "promise1": "Suas conversas permanecem privadas e no seu dispositivo",
-    "promise2": "Nunca coletamos suas informações pessoais ou conteúdo de chat",
-    "promise3": "Todo compartilhamento de dados é anônimo e agregado",
-    "promise4": "Você pode optar por sair a qualquer momento sem perder funcionalidade",
-    "promise5": "Somos transparentes sobre o que coletamos e por quê"
-  },
   "general": {
     "showInFinder": "Mostrar no Finder",
     "showInFileExplorer": "Mostrar no Explorador de Arquivos",
@@ -208,13 +195,7 @@
     "couldNotRelocateToRoot": "Não é possível realocar pasta de dados para diretório raiz. Por favor, escolha outra localização.",
     "couldNotResetRootDirectory": "Não é possível redefinir pasta de dados quando está definida para um diretório raiz. Por favor, delete a pasta de dados manualmente.",
     "failedToRelocateDataFolderDesc": "Falha ao realocar pasta de dados. Tente novamente.",
-    "devVersion": "Versão de desenvolvimento detectada",
-    "noUpdateAvailable": "Você está executando a versão mais recente",
-    "updateError": "Falha ao verificar atualizações",
     "appVersion": "Versão do App",
-    "checkForUpdates": "Verificar Atualizações",
-    "checkForUpdatesDesc": "Verificar se uma versão mais nova do Jan está disponível.",
-    "checkingForUpdates": "Verificando atualizações...",
     "copied": "Copiado",
     "copyPath": "Copiar Caminho",
     "changeLocation": "Alterar Localização",

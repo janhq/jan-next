@@ -16,7 +16,6 @@ describe('buildReasoningProviderOptions', () => {
     expect(
       buildReasoningProviderOptions('llamacpp', modelWith(reasoning('on')))
     ).toBeUndefined()
-    expect(buildReasoningProviderOptions('mlx', null)).toBeUndefined()
   })
 
   describe('google', () => {

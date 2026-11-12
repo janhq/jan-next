@@ -1,25 +1,15 @@
 use std::collections::HashMap;
-#[cfg(not(feature = "cli"))]
 use std::collections::HashSet;
 use std::sync::Arc;
 
-#[cfg(not(feature = "cli"))]
 use crate::core::downloads::models::DownloadManagerState;
-#[cfg(not(feature = "cli"))]
 use crate::core::mcp::models::{McpSettings, ToolWithServer};
-#[cfg(not(feature = "cli"))]
 use crate::core::mcp::progress::JanClientHandler;
-#[cfg(feature = "cli")]
-use rmcp::model::{CallToolRequestParams, CallToolResult, InitializeRequestParams, Tool};
-#[cfg(feature = "cli")]
-use rmcp::ServiceError;
 use rmcp::{service::RunningService, RoleClient};
 use tokio::sync::Mutex;
-#[cfg(not(feature = "cli"))]
 use tokio::sync::{oneshot, Notify};
 
 /// Server handle type for managing the proxy server lifecycle
-#[cfg(not(feature = "cli"))]
 pub type ServerHandle =
     tokio::task::JoinHandle<Result<(), Box<dyn std::error::Error + Send + Sync>>>;
 
@@ -68,52 +58,13 @@ pub struct ProviderCustomHeader {
 /// Every connection uses the same handler, so that progress notifications are
 /// observed at all -- rmcp drops them on the `()` handler. Desktop-only: the
 /// handler emits through a Tauri `AppHandle`, which the CLI build doesn't have.
-#[cfg(not(feature = "cli"))]
 pub type RunningMcpService = RunningService<RoleClient, JanClientHandler>;
-#[cfg(not(feature = "cli"))]
 pub type SharedMcpServers = Arc<Mutex<HashMap<String, RunningMcpService>>>;
 
-/// CLI's MCP client has no progress-notification sink, so it can use either
-/// the plain handler or one seeded with an `initialize` response.
-#[cfg(feature = "cli")]
-pub enum RunningServiceEnum {
-    NoInit(RunningService<RoleClient, ()>),
-    WithInit(RunningService<RoleClient, InitializeRequestParams>),
-}
-#[cfg(feature = "cli")]
-pub type SharedMcpServers = Arc<Mutex<HashMap<String, RunningServiceEnum>>>;
 
-#[cfg(feature = "cli")]
-impl RunningServiceEnum {
-    pub async fn list_all_tools(&self) -> Result<Vec<Tool>, ServiceError> {
-        match self {
-            Self::NoInit(s) => s.list_all_tools().await,
-            Self::WithInit(s) => s.list_all_tools().await,
-        }
-    }
-    pub async fn call_tool(
-        &self,
-        params: CallToolRequestParams,
-    ) -> Result<CallToolResult, ServiceError> {
-        match self {
-            Self::NoInit(s) => s.call_tool(params).await,
-            Self::WithInit(s) => s.call_tool(params).await,
-        }
-    }
-
-    /// The peer's handshake info: what the server said it implements. Read by
-    /// the `/mcp` detail screen for its capabilities and version lines.
-    pub fn peer_info(&self) -> Option<rmcp::model::ServerPeerInfo> {
-        match self {
-            Self::NoInit(s) => s.peer_info().map(|p| (*p).clone()),
-            Self::WithInit(s) => s.peer_info().map(|p| (*p).clone()),
-        }
-    }
-}
 
 /// Shared desktop application state owned by Tauri. The CLI builds its
 /// subsystems (MCP map, provider configs) directly instead.
-#[cfg(not(feature = "cli"))]
 pub struct AppState {
     pub app_token: Option<String>,
     pub mcp_servers: SharedMcpServers,
@@ -132,10 +83,6 @@ pub struct AppState {
     pub mcp_server_pids: Arc<Mutex<HashMap<String, u32>>>,
     /// Remote provider configurations (e.g., Anthropic, OpenAI, etc.)
     pub provider_configs: Arc<Mutex<HashMap<String, ProviderConfig>>>,
-    /// Per-model sampling defaults the API server injects when the caller omits
-    /// them (MLX path; llamacpp uses the router preset instead). Keyed by model
-    /// id; values are objects already in the target's request-body key form.
-    pub model_param_defaults: Arc<Mutex<HashMap<String, serde_json::Value>>>,
     /// Wakes up MCP monitors to trigger an immediate health check + reconnect
     pub mcp_reconnect_notify: Arc<Notify>,
     /// Last successful tool listing per enabled server, served when a server
@@ -146,7 +93,6 @@ pub struct AppState {
     pub mcp_last_known_tools: Arc<Mutex<HashMap<String, Vec<ToolWithServer>>>>,
 }
 
-#[cfg(not(feature = "cli"))]
 impl Default for AppState {
     fn default() -> Self {
         Self {
@@ -163,7 +109,6 @@ impl Default for AppState {
             background_cleanup_handle: Default::default(),
             mcp_server_pids: Default::default(),
             provider_configs: Default::default(),
-            model_param_defaults: Default::default(),
             mcp_reconnect_notify: Arc::new(Notify::new()),
             mcp_last_known_tools: Default::default(),
         }

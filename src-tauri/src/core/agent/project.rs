@@ -13,15 +13,6 @@ use tauri_plugin_agent_tools::permissions::{PermissionDefault, ToolPermissions};
 /// compiled for the CLI (their sole consumer, via `jan cli agent run/step/status`).
 #[derive(Debug, Clone, Default, Deserialize)]
 pub(crate) struct AgentToml {
-    #[cfg(feature = "cli")]
-    #[serde(default)]
-    pub agent: AgentSection,
-    #[cfg(feature = "cli")]
-    #[serde(default)]
-    pub budget: BudgetSection,
-    #[cfg(feature = "cli")]
-    #[serde(default)]
-    pub provider: Option<ProviderSection>,
     #[serde(default)]
     pub tools: ToolsSection,
     #[serde(default)]
@@ -30,11 +21,6 @@ pub(crate) struct AgentToml {
     pub skills: SkillsSection,
     #[serde(default)]
     pub plugins: PluginsSection,
-    /// `[telemetry]`: opt-in OTLP export. Wins over the global setting.
-    /// CLI-only: the desktop doesn't export telemetry yet.
-    #[cfg(feature = "cli")]
-    #[serde(default)]
-    pub telemetry: crate::core::agent::global_config::TelemetrySection,
     #[serde(default)]
     pub context: ContextSection,
     /// `[[hooks]]` -- lifecycle commands this project runs around tool calls,
@@ -145,29 +131,6 @@ pub(crate) struct PluginsSection {
     pub tools: Option<bool>,
 }
 
-/// `[provider]` — project-local override of a single provider's config,
-/// highest priority in the resolution chain (wins over the global
-/// `~/.jan/config.toml` and the desktop-inherited config). Optional: most
-/// projects rely on the global scope instead. CLI-only, like `AgentSection`.
-#[cfg(feature = "cli")]
-#[derive(Debug, Clone, Default, Deserialize)]
-pub(crate) struct ProviderSection {
-    pub name: String,
-    #[serde(default)]
-    pub api_key: Option<String>,
-    #[serde(default)]
-    pub base_url: Option<String>,
-    #[serde(default)]
-    pub models: Vec<String>,
-    #[serde(default)]
-    pub api_type: Option<String>,
-    /// Share of `context_window` a prompt may fill before a run compacts ahead
-    /// of dispatching, for a request served by this provider. Overrides
-    /// `[agent].compaction_ratio`, so a route with a small window can be tuned
-    /// without loosening the setting for every other route.
-    #[serde(default)]
-    pub compaction_ratio: Option<f64>,
-}
 
 /// `[skills]` — which project skills are advertised to the model. An empty
 /// `enabled` list means "all skills" (backward-compatible with the scaffold
@@ -178,114 +141,14 @@ pub(crate) struct SkillsSection {
     pub enabled: Vec<String>,
 }
 
-/// `[budget]` — the only cap on how long a run may go. The agent takes as many
-/// turns as the task needs; `max_tokens` bounds the run's *marginal* token
-/// spend (see `SessionBudget`: replayed context is not recharged each turn).
-/// Unset applies the model's context window, or `DEFAULT_MAX_SESSION_TOKENS`
-/// when that is unknown; an explicit `0` disables the
-/// ceiling, leaving cancellation as the only guard.
-#[cfg(feature = "cli")]
-#[derive(Debug, Clone, Default, Deserialize)]
-pub(crate) struct BudgetSection {
-    #[serde(default)]
-    pub max_tokens: Option<u64>,
-    /// USD a run may spend before it stops. Unlike `max_tokens` this is a hard
-    /// bound. It is priced from the provider's published rates, so a model with
-    /// no published price cannot be capped at all and a run that asks for one is
-    /// refused rather than run uncapped -- including a subagent whose definition
-    /// names a model of its own (see `child_cost_ceiling`).
-    #[serde(default)]
-    pub max_usd: Option<f64>,
-}
 
-/// `[agent]` — resolves the model and per-run knobs for CLI agent runs.
-#[cfg(feature = "cli")]
-#[derive(Debug, Clone, Default, Deserialize)]
-pub(crate) struct AgentSection {
-    #[serde(default)]
-    pub model: Option<String>,
-    /// Context window limit in tokens for the model (defaults to 128K if unset).
-    /// Set this to match your model's actual context length so compaction
-    /// triggers at the right threshold.
-    #[serde(default)]
-    pub context_window: Option<u64>,
-    /// Tokens to hold back from the context window when deciding whether to
-    /// compact. Compaction triggers at `context_window - compaction_reserve_tokens`,
-    /// and setting this wins over `compaction_ratio`, so an explicit absolute
-    /// headroom is never silently relaxed. This is a compaction heuristic only
-    /// - it is NOT sent to the API as `max_tokens`.
-    #[serde(default)]
-    pub compaction_reserve_tokens: Option<u64>,
-    /// Share of `context_window` a prompt may fill before a run compacts ahead
-    /// of dispatching (defaults to 0.8 if unset). Expressed as a ratio rather
-    /// than a fixed reserve so the headroom scales with the window: 16K is 12%
-    /// of a 128K window and 1.6% of a 1M one, which is far too late on the
-    /// large window. Setting `compaction_reserve_tokens` instead pins absolute
-    /// headroom and wins over this.
-    #[serde(default)]
-    pub compaction_ratio: Option<f64>,
-    /// Per-request output cap forwarded to the model as the OpenAI-compatible
-    /// `max_tokens` field. Limits how many tokens the model may generate in a
-    /// single response. Omitted from the request when unset (model default).
-    #[serde(default)]
-    pub max_tokens: Option<u64>,
-    /// Cap on concurrently-running background subagents for a run (defaults to
-    /// 10 if unset). Dispatches beyond the cap queue FIFO and start as running
-    /// ones finish. Snapshot at run start: a mid-run change affects the next
-    /// run only.
-    #[serde(default)]
-    pub max_parallel_subagents: Option<u32>,
-    /// Give a subagent that can write or edit, and asked for no `workspace`, a
-    /// git worktree of its own. `None` and `false`: it works in the parent's
-    /// checkout, so concurrent writers edit the same files. Overridden by
-    /// `--subagent-worktrees`.
-    #[serde(default)]
-    pub subagent_worktrees: Option<bool>,
-    /// Largest the build directory shared by this project's subagents
-    /// (`~/.jan/worktrees/<slug>/cargo-target`) may grow, in GB, before a
-    /// session end moves it to the trash so the next build starts cold.
-    /// `None` defers to `~/.jan/config.toml`, then 20; 0 never trims.
-    #[serde(default)]
-    pub subagent_build_cache_max_gb: Option<u64>,
-    /// Saved threads untouched for this many days are pruned at session start
-    /// (default 90; 0 disables), when `prune_threads = true` in
-    /// `~/.jan/config.toml` turns pruning on. The newest few, the resumed thread, forks'
-    /// parents and worktree-owning threads are always kept.
-    #[serde(default)]
-    pub thread_retention_days: Option<u32>,
-    /// Most saved threads a project keeps (default 500; 0 disables); the oldest
-    /// past it are pruned at session start, subject to the same exemptions.
-    #[serde(default)]
-    pub max_threads: Option<u32>,
-    /// Expand `<think>` reasoning blocks in the TUI transcript instead of
-    /// folding them to a `[thinking]`/`[thought for Ns]` status and a summary
-    /// row. Default false (hidden); Ctrl-O still reveals a folded block, and
-    /// this flips the default for every block in the session.
-    #[serde(default)]
-    pub show_reasoning: Option<bool>,
-    /// Resend a prior assistant turn's `reasoning_content` to the model with the
-    /// rest of the conversation. Default true: providers that expose reasoning
-    /// natively generally expect it back, and local llama.cpp templates with
-    /// `preserve_thinking` re-emit prior reasoning from this field (dropping it
-    /// shrinks earlier turns and forces the KV-cache prefix to be reprocessed).
-    /// Set false for a strict upstream that rejects the key on assistant turns
-    /// (Groq's validator is the known case), or to keep long chains of thought
-    /// out of the context budget.
-    #[serde(default)]
-    pub send_reasoning: Option<bool>,
-    /// Give each session in this project its own git worktree, so the agent's
-    /// edits land in a separate checkout instead of the user's. `None` = defer
-    /// to the global `worktree` setting, then the default, off.
-    #[serde(default)]
-    pub worktree: Option<bool>,
-}
 
 // `default`/`allow`/`deny`/`allow_write` are consumed by `permissions_from`,
 // which only the CLI calls: the desktop's tool gate lives in the plugin. They
 // stay parsed regardless so the desktop round-trips an `agent.toml` written by
 // the CLI instead of silently dropping the user's policy on save.
 #[derive(Debug, Clone, Default, Deserialize)]
-#[cfg_attr(not(feature = "cli"), allow(dead_code))]
+#[allow(dead_code)]
 pub(crate) struct ToolsSection {
     #[serde(default)]
     pub default: Option<String>,
@@ -314,13 +177,6 @@ pub(crate) struct ToolsSection {
     /// checks it out.
     #[serde(default)]
     pub sandbox: Option<bool>,
-    /// Let a sandboxed `shell` call that asks to escalate run unconfined
-    /// without an escalation prompt; an exec approval the run requires anyway
-    /// (`--safe`) still applies. `None` (unset) and `false` keep escalation
-    /// behind a human answer -- auto-approval never covers it -- and refuse it
-    /// where nobody can answer. For unattended runs that accept the risk.
-    #[serde(default)]
-    pub allow_escalation: Option<bool>,
     /// Host env-var names (exact or `*`-glob) the sandboxed `bash` may inherit
     /// beyond the fixed base allowlist, merged over `~/.jan/config.toml`. Empty
     /// by default; a secret-looking name is never copied by a glob.
@@ -387,19 +243,9 @@ allow_write = []
 # does not.
 # allow_network = true
 # Whether the sandboxed shell can read your home directory (for git/ssh
-# credential helpers and ~/.ssh/config). Unset follows the surface: the CLI
-# allows it (true), the desktop masks $HOME. Writes stay in the workspace.
+# credential helpers and ~/.ssh/config). Unset masks $HOME. Writes stay in the
+# workspace.
 # allow_home_read = true
-# Whether `shell` runs under OS confinement at all. Unset follows the surface:
-# the CLI runs unconfined unless you pass --sandbox or set sandbox = true in
-# ~/.jan/config.toml; the desktop always confines. Set it here to require
-# confinement for anyone working in this project.
-# sandbox = true
-# Let a sandboxed shell command that asks to escalate run outside the sandbox
-# without asking you. Off by default: escalation always waits for your answer
-# (even when other tools are auto-approved) and is refused where nobody can
-# answer, such as a piped headless run. Same as passing --allow-escalation.
-# allow_escalation = true
 # Host environment variables the shell may inherit beyond the minimal base
 # (PATH, HOME, TMPDIR, ...). Names are exact or use a "*" wildcard; merged with
 # ~/.jan/config.toml. A secret-looking name (*KEY*, *TOKEN*, ...) is never
@@ -585,8 +431,6 @@ pub(crate) struct RunSettings {
     /// `[tools].sandbox`; `None` when unset, so the caller applies the default
     /// appropriate to its surface.
     pub sandbox: Option<bool>,
-    /// `[tools].allow_escalation`; `None` when unset.
-    pub allow_escalation: Option<bool>,
     /// `[tools].env_passthrough`: host env-var names/globs the shell may inherit
     /// beyond the base allowlist. Merged with the global setting by the caller.
     pub env_passthrough: Vec<String>,
@@ -595,11 +439,6 @@ pub(crate) struct RunSettings {
     /// `[prompt]`: where each system-prompt composer may sit. Resolved here so
     /// composition and `agent status` answer the same question from one parse.
     pub prompt: PromptPolicy,
-    /// `[agent].worktree`: give each session its own git checkout. Merged with
-    /// the global setting and the `--worktree` flag by the caller. CLI-only,
-    /// like the `[agent]` section it comes from.
-    #[cfg(feature = "cli")]
-    pub worktree: Option<bool>,
     /// One line per `[tools]` `allow`/`deny`/`allow_write` entry that names a
     /// tool by an old name: the shell's `bash`, which now matches nothing, or
     /// an old memory tool, which now applies to all of `memory`. Reported at
@@ -620,33 +459,14 @@ pub(crate) fn run_settings(project_root: &Path) -> RunSettings {
         allow_network: cfg.tools.allow_network,
         allow_home_read: cfg.tools.allow_home_read,
         sandbox: cfg.tools.sandbox,
-        allow_escalation: cfg.tools.allow_escalation,
         env_passthrough: cfg.tools.env_passthrough,
         env_set: cfg.tools.env_set.into_iter().collect(),
         tool_notices,
         prompt: PromptPolicy::new(cfg.prompt.default, cfg.prompt.prefix_allow),
-        #[cfg(feature = "cli")]
-        worktree: cfg.agent.worktree,
     }
 }
 
-/// The default cap, in GB, on a project's shared subagent build directory.
-#[cfg(feature = "cli")]
-pub(crate) const DEFAULT_SUBAGENT_BUILD_CACHE_MAX_GB: u64 = 20;
 
-/// The cap, in bytes, on `project_root`'s shared subagent build directory:
-/// `[agent].subagent_build_cache_max_gb` in its agent.toml, else the same key
-/// in `~/.jan/config.toml`, else [`DEFAULT_SUBAGENT_BUILD_CACHE_MAX_GB`].
-/// `0` never trims. An unreadable agent.toml falls through, like every knob.
-#[cfg(feature = "cli")]
-pub(crate) fn subagent_build_cache_cap(project_root: &Path) -> u64 {
-    let gb = load_agent_config(project_root)
-        .ok()
-        .and_then(|cfg| cfg.agent.subagent_build_cache_max_gb)
-        .or_else(crate::core::agent::global_config::subagent_build_cache_max_gb_setting)
-        .unwrap_or(DEFAULT_SUBAGENT_BUILD_CACHE_MAX_GB);
-    gb.saturating_mul(1 << 30)
-}
 
 /// See [`RunSettings::tool_notices`].
 fn renamed_tool_notices(tools: &ToolsSection) -> Vec<String> {
@@ -672,7 +492,7 @@ pub(crate) fn enabled_skills(project_root: &Path) -> Vec<String> {
 /// project has no agent.toml. A thin read of [`run_settings`] for the callers
 /// that need only this: the status report and the `/context` sizing. Both are
 /// CLI surfaces, hence the desktop-build allowance.
-#[cfg_attr(not(feature = "cli"), allow(dead_code))]
+#[allow(dead_code)]
 pub(crate) fn prompt_policy(project_root: &Path) -> PromptPolicy {
     run_settings(project_root).prompt
 }
@@ -681,7 +501,7 @@ pub(crate) fn prompt_policy(project_root: &Path) -> PromptPolicy {
 ///
 /// CLI-only: the desktop no longer runs the agent loop in Rust, so its tool
 /// gating is the plugin's, not this one.
-#[cfg_attr(not(feature = "cli"), allow(dead_code))]
+#[allow(dead_code)]
 pub(crate) fn permissions_from(cfg: &AgentToml) -> ToolPermissions {
     let default = cfg
         .tools
@@ -763,127 +583,11 @@ fn drop_retired_keys(path: &Path) -> bool {
     removed && std::fs::write(path, doc.to_string()).is_ok()
 }
 
-/// Persist `[agent].model` into the agent.toml at `path`, format-preserving
-/// (comments kept). Remembers a TUI `/model` selection across sessions.
-#[cfg(feature = "cli")]
-pub(crate) fn set_model_in_agent_toml(path: &Path, model: &str) -> Result<(), String> {
-    let raw = std::fs::read_to_string(path)
-        .map_err(|e| format!("Failed to read {}: {e}", path.display()))?;
-    let mut doc = raw
-        .parse::<toml_edit::DocumentMut>()
-        .map_err(|e| format!("Failed to parse {}: {e}", path.display()))?;
 
-    let agent = doc["agent"].or_insert(toml_edit::Item::Table(toml_edit::Table::new()));
-    agent["model"] = toml_edit::value(model);
 
-    std::fs::write(path, doc.to_string())
-        .map_err(|e| format!("Failed to write {}: {e}", path.display()))
-}
-
-/// Persist `[subagents.<name>].model` into the agent.toml at `path`,
-/// format-preserving. `None` removes the key, and the table with it once
-/// empty, so the definition's own model applies again. A dedicated writer
-/// rather than [`set_agent_key`]: a definition name may itself be any
-/// `[A-Za-z0-9_-]` string, so `subagents.<name>.model` cannot be split on dots.
-#[cfg(feature = "cli")]
-pub(crate) fn set_subagent_model(
-    path: &Path,
-    name: &str,
-    model: Option<&str>,
-) -> Result<(), String> {
-    let raw = match std::fs::read_to_string(path) {
-        Ok(raw) => raw,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
-        Err(e) => return Err(format!("Failed to read {}: {e}", path.display())),
-    };
-    let mut doc = raw
-        .parse::<toml_edit::DocumentMut>()
-        .map_err(|e| format!("Failed to parse {}: {e}", path.display()))?;
-
-    match model.map(str::trim).filter(|m| !m.is_empty()) {
-        Some(model) => {
-            let subagents = doc["subagents"].or_insert(toml_edit::table());
-            // Dotted headers (`[subagents.explorer]`) rather than an empty
-            // `[subagents]` header above them. A hand-written inline table is
-            // edited in place instead, in whatever shape the user chose.
-            if let Some(table) = subagents.as_table_mut() {
-                table.set_implicit(true);
-            }
-            let subagents = subagents
-                .as_table_like_mut()
-                .ok_or_else(|| format!("{}: `subagents` is not a table", path.display()))?;
-            if subagents.get(name).is_none() {
-                subagents.insert(name, toml_edit::table());
-            }
-            let entry = subagents
-                .get_mut(name)
-                .and_then(|e| e.as_table_like_mut())
-                .ok_or_else(|| format!("{}: `subagents.{name}` is not a table", path.display()))?;
-            entry.insert("model", toml_edit::value(model));
-        }
-        None => {
-            if let Some(subagents) = doc.get_mut("subagents").and_then(|t| t.as_table_like_mut()) {
-                if let Some(entry) = subagents.get_mut(name).and_then(|t| t.as_table_like_mut()) {
-                    entry.remove("model");
-                    if entry.is_empty() {
-                        subagents.remove(name);
-                    }
-                }
-                if subagents.is_empty() {
-                    doc.remove("subagents");
-                }
-            }
-        }
-    }
-
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create {}: {e}", parent.display()))?;
-    }
-    std::fs::write(path, doc.to_string())
-        .map_err(|e| format!("Failed to write {}: {e}", path.display()))
-}
-
-/// Persist a scalar key into the agent.toml at `path`, format-preserving
-/// (comments kept). Keys are `section.key` with `agent` the default section,
-/// so the `/settings` menu can reach `[agent]`, `[budget]`, `[tools]` and
-/// `[skills]` scalars alike. `None` removes the key (default applies).
-#[cfg(feature = "cli")]
-pub(crate) fn set_agent_key(
-    path: &Path,
-    key: &str,
-    value: Option<toml_edit::Item>,
-) -> Result<(), String> {
-    let raw = std::fs::read_to_string(path)
-        .map_err(|e| format!("Failed to read {}: {e}", path.display()))?;
-    let mut doc = raw
-        .parse::<toml_edit::DocumentMut>()
-        .map_err(|e| format!("Failed to parse {}: {e}", path.display()))?;
-
-    let (section, key) = match key.split_once('.') {
-        Some((section, key)) => (section, key),
-        None => ("agent", key),
-    };
-
-    match value {
-        Some(v) => {
-            let table = doc[section].or_insert(toml_edit::Item::Table(toml_edit::Table::new()));
-            table[key] = v;
-        }
-        None => {
-            if let Some(table) = doc.get_mut(section).and_then(|t| t.as_table_mut()) {
-                table.remove(key);
-            }
-        }
-    }
-
-    std::fs::write(path, doc.to_string())
-        .map_err(|e| format!("Failed to write {}: {e}", path.display()))
-}
 
 /// Persist `[skills].enabled` into the agent.toml at `path`, format-preserving
 /// (comments kept). An empty list clears the whitelist (= all skills enabled).
-#[cfg(not(feature = "cli"))]
 pub(crate) fn set_skills_enabled_in_agent_toml(
     path: &Path,
     enabled: &[String],
@@ -1094,16 +798,6 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 
-    #[cfg(feature = "cli")]
-    #[test]
-    fn telemetry_section_is_optional_and_parsed() {
-        let root = unique_root("telemetry");
-        ensure_project(&root).expect("scaffold");
-        assert_eq!(load_agent_config(&root).unwrap().telemetry.enabled, None);
-        std::fs::write(agent_toml_path(&root), "[telemetry]\nenabled = false\n").unwrap();
-        assert_eq!(load_agent_config(&root).unwrap().telemetry.enabled, Some(false));
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
     #[test]
     fn load_roundtrips_template() {
@@ -1174,155 +868,12 @@ mod tests {
         assert!(load_agent_config(&root).is_err());
     }
 
-    #[cfg(feature = "cli")]
-    #[test]
-    fn template_provider_section_absent_by_default() {
-        let root = unique_root("provider_absent");
-        ensure_project(&root).expect("scaffold");
-        let cfg = load_agent_config(&root).expect("load");
-        assert!(cfg.provider.is_none());
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
-    #[cfg(feature = "cli")]
-    #[test]
-    fn provider_section_parses_when_present() {
-        let root = unique_root("provider_present");
-        ensure_project(&root).expect("scaffold");
-        let path = agent_toml_path(&root);
-        let mut raw = std::fs::read_to_string(&path).unwrap();
-        raw.push_str(
-            "\n[provider]\nname = \"openai\"\napi_key = \"sk-test\"\nmodels = [\"gpt-4o\"]\n",
-        );
-        std::fs::write(&path, raw).unwrap();
 
-        let cfg = load_agent_config(&root).expect("load");
-        let provider = cfg.provider.expect("provider section present");
-        assert_eq!(provider.name, "openai");
-        assert_eq!(provider.api_key.as_deref(), Some("sk-test"));
-        assert_eq!(provider.models, vec!["gpt-4o".to_string()]);
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
-    /// The `/settings` subagent-model writer round-trips through the parser,
-    /// keeps the rest of the file, and unsetting the last override removes the
-    /// table rather than leaving an empty `[subagents]` header behind.
-    #[cfg(feature = "cli")]
-    #[test]
-    fn subagent_model_override_round_trips_and_unsets_cleanly() {
-        let root = unique_root("subagent_model");
-        ensure_project(&root).expect("scaffold");
-        let path = agent_toml_path(&root);
 
-        set_subagent_model(&path, "explorer", Some("smol")).expect("write");
-        set_subagent_model(&path, "code-reviewer", Some("gpt-x")).expect("write");
-        let raw = std::fs::read_to_string(&path).unwrap();
-        assert!(raw.contains("[subagents.explorer]"), "{raw}");
-        assert!(raw.contains("[agent]"), "the rest of the file is kept: {raw}");
-        let cfg = load_agent_config(&root).expect("load");
-        assert_eq!(cfg.subagents["explorer"].model.as_deref(), Some("smol"));
-        assert_eq!(cfg.subagents["code-reviewer"].model.as_deref(), Some("gpt-x"));
 
-        set_subagent_model(&path, "explorer", None).expect("unset");
-        set_subagent_model(&path, "code-reviewer", Some(" ")).expect("blank unsets");
-        let raw = std::fs::read_to_string(&path).unwrap();
-        assert!(
-            !raw.lines().any(|l| l.starts_with("[subagents")),
-            "no live [subagents] header left: {raw}"
-        );
-        assert!(load_agent_config(&root).expect("load").subagents.is_empty());
 
-        // A hand-written inline entry is edited in place, not refused.
-        let raw = std::fs::read_to_string(&path).unwrap();
-        std::fs::write(&path, format!("{raw}\n[subagents]\nexplorer = {{ model = \"a\" }}\n"))
-            .unwrap();
-        set_subagent_model(&path, "explorer", Some("b")).expect("inline write");
-        let cfg = load_agent_config(&root).expect("load");
-        assert_eq!(cfg.subagents["explorer"].model.as_deref(), Some("b"));
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    /// The project's cap wins, 0 is kept as "never", and an unset key falls
-    /// back to 20 GB.
-    #[cfg(feature = "cli")]
-    #[test]
-    fn subagent_build_cache_cap_reads_the_project_key_in_gb() {
-        let root = unique_root("build_cache_cap");
-        ensure_project(&root).expect("scaffold");
-        assert_eq!(subagent_build_cache_cap(&root), 20 << 30, "template leaves it unset");
-        let path = agent_toml_path(&root);
-        for (value, bytes) in [(3i64, 3u64 << 30), (0, 0)] {
-            set_agent_key(&path, "subagent_build_cache_max_gb", Some(toml_edit::value(value)))
-                .expect("set");
-            assert_eq!(subagent_build_cache_cap(&root), bytes, "{value}");
-        }
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    #[cfg(feature = "cli")]
-    #[test]
-    fn max_parallel_subagents_parses_and_defaults_to_none() {
-        let root = unique_root("max_parallel");
-        ensure_project(&root).expect("scaffold");
-        let cfg = load_agent_config(&root).expect("load");
-        assert_eq!(
-            cfg.agent.max_parallel_subagents, None,
-            "template leaves it unset"
-        );
-
-        // Explicit value round-trips through the /settings writer; unset removes.
-        let path = agent_toml_path(&root);
-        set_agent_key(
-            &path,
-            "max_parallel_subagents",
-            Some(toml_edit::value(4i64)),
-        )
-        .expect("write");
-        let cfg = load_agent_config(&root).expect("load");
-        assert_eq!(cfg.agent.max_parallel_subagents, Some(4));
-        set_agent_key(&path, "max_parallel_subagents", None).expect("unset");
-        let cfg = load_agent_config(&root).expect("load");
-        assert_eq!(cfg.agent.max_parallel_subagents, None);
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    /// Off unless asked for: the scaffold leaves the key unset, and an explicit
-    /// value reads back both ways.
-    #[cfg(feature = "cli")]
-    #[test]
-    fn subagent_worktrees_parses_and_defaults_to_none() {
-        let cfg: AgentToml = toml::from_str(AGENT_TOML_TEMPLATE).expect("scaffold template parses");
-        assert_eq!(cfg.agent.subagent_worktrees, None, "template leaves it unset");
-        let on: AgentToml = toml::from_str("[agent]\nsubagent_worktrees = true\n").expect("parses");
-        assert_eq!(on.agent.subagent_worktrees, Some(true));
-        let off: AgentToml = toml::from_str("[agent]\nsubagent_worktrees = false\n").expect("parses");
-        assert_eq!(off.agent.subagent_worktrees, Some(false));
-    }
-
-    #[cfg(feature = "cli")]
-    #[test]
-    fn thread_retention_keys_parse_and_default_to_none() {
-        let root = unique_root("thread_retention");
-        // The store sits in the shared per-pid test home, not under `root`, so a
-        // leftover from an earlier run with the same pid must not leak in.
-        let _ = std::fs::remove_dir_all(store_root(&root));
-        ensure_project(&root).expect("scaffold");
-        let cfg = load_agent_config(&root).expect("load");
-        assert_eq!(cfg.agent.thread_retention_days, None, "template leaves it unset");
-        assert_eq!(cfg.agent.max_threads, None);
-
-        let path = agent_toml_path(&root);
-        set_agent_key(&path, "thread_retention_days", Some(toml_edit::value(30))).expect("write");
-        set_agent_key(&path, "max_threads", Some(toml_edit::value(0))).expect("write");
-        let cfg = load_agent_config(&root).expect("load");
-        assert_eq!(cfg.agent.thread_retention_days, Some(30));
-        assert_eq!(cfg.agent.max_threads, Some(0), "0 is a real value: it disables the cap");
-        set_agent_key(&path, "thread_retention_days", None).expect("unset");
-        let cfg = load_agent_config(&root).expect("load");
-        assert_eq!(cfg.agent.thread_retention_days, None);
-        let _ = std::fs::remove_dir_all(store_root(&root));
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
     /// The scaffolded agent.toml documents both knobs, so a user finds them
     /// without reading source.
@@ -1338,65 +889,8 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 
-    #[cfg(feature = "cli")]
-    #[test]
-    fn show_reasoning_parses_and_defaults_to_false() {
-        let root = unique_root("show_reasoning");
-        ensure_project(&root).expect("scaffold");
-        let cfg = load_agent_config(&root).expect("load");
-        assert_eq!(cfg.agent.show_reasoning, None, "template leaves it unset");
 
-        // Explicit value round-trips through the /settings writer; unset removes.
-        let path = agent_toml_path(&root);
-        set_agent_key(&path, "show_reasoning", Some(toml_edit::value(true))).expect("write");
-        let cfg = load_agent_config(&root).expect("load");
-        assert_eq!(cfg.agent.show_reasoning, Some(true));
-        set_agent_key(&path, "show_reasoning", None).expect("unset");
-        let cfg = load_agent_config(&root).expect("load");
-        assert_eq!(cfg.agent.show_reasoning, None);
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
-    /// `send_reasoning` is unset in the template, which the callers read as the
-    /// resend-by-default policy; an explicit false round-trips so a strict
-    /// upstream can be opted out of it.
-    #[cfg(feature = "cli")]
-    #[test]
-    fn send_reasoning_parses_and_round_trips() {
-        let root = unique_root("send_reasoning");
-        ensure_project(&root).expect("scaffold");
-        let cfg = load_agent_config(&root).expect("load");
-        assert_eq!(cfg.agent.send_reasoning, None, "template leaves it unset");
-
-        let path = agent_toml_path(&root);
-        set_agent_key(&path, "send_reasoning", Some(toml_edit::value(false))).expect("write");
-        let cfg = load_agent_config(&root).expect("load");
-        assert_eq!(cfg.agent.send_reasoning, Some(false));
-        set_agent_key(&path, "send_reasoning", None).expect("unset");
-        let cfg = load_agent_config(&root).expect("load");
-        assert_eq!(cfg.agent.send_reasoning, None);
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    #[cfg(feature = "cli")]
-    #[test]
-    fn dotted_keys_write_and_remove_under_their_section() {
-        let root = unique_root("dotted");
-        ensure_project(&root).expect("scaffold");
-        let path = agent_toml_path(&root);
-
-        set_agent_key(&path, "budget.max_tokens", Some(toml_edit::value(60i64))).expect("write");
-        let raw = std::fs::read_to_string(&path).unwrap();
-        assert!(
-            raw.contains("max_tokens = 60"),
-            "written under [budget]: {raw}"
-        );
-
-        set_agent_key(&path, "budget.max_tokens", None).expect("unset");
-        let raw = std::fs::read_to_string(&path).unwrap();
-        assert!(!raw.contains("max_tokens = 60"), "removed: {raw}");
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
     #[test]
     fn full_template_parses() {
@@ -1407,96 +901,13 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 
-    /// The scaffold leaves the key commented out, so a fresh project picks up
-    /// `DEFAULT_MAX_SESSION_TOKENS` rather than a hardcoded template value.
-    #[cfg(feature = "cli")]
-    #[test]
-    fn scaffold_template_leaves_session_budget_unset() {
-        let cfg: AgentToml = toml::from_str(AGENT_TOML_TEMPLATE).expect("scaffold template parses");
-        assert_eq!(cfg.budget.max_tokens, None);
-    }
 
-    #[cfg(feature = "cli")]
-    #[test]
-    fn budget_max_tokens_parses_when_set() {
-        let cfg: AgentToml = toml::from_str("[budget]\nmax_tokens = 200000\n").expect("parses");
-        assert_eq!(cfg.budget.max_tokens, Some(200_000));
-    }
 
-    #[cfg(feature = "cli")]
-    #[test]
-    fn context_window_defaults_to_none_when_unset() {
-        // The scaffolded template leaves context_window commented out, so the
-        // parsed value is None and callers fall back to their default (128K).
-        let root = unique_root("ctx_unset");
-        ensure_project(&root).expect("scaffold");
-        let cfg = load_agent_config(&root).expect("load");
-        assert_eq!(cfg.agent.context_window, None);
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
-    #[cfg(feature = "cli")]
-    #[test]
-    fn context_window_parses_when_present() {
-        let root = unique_root("ctx_present");
-        ensure_project(&root).expect("scaffold");
-        let path = agent_toml_path(&root);
-        let raw = std::fs::read_to_string(&path).unwrap();
-        // Prepend an explicit context_window under [agent].
-        let raw = raw.replace("[agent]", "[agent]\ncontext_window = 32000");
-        std::fs::write(&path, raw).unwrap();
-        let cfg = load_agent_config(&root).expect("load");
-        assert_eq!(cfg.agent.context_window, Some(32000));
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
-    #[cfg(feature = "cli")]
-    #[test]
-    fn compaction_reserve_tokens_defaults_to_none_when_unset() {
-        let root = unique_root("reserve_unset");
-        ensure_project(&root).expect("scaffold");
-        let cfg = load_agent_config(&root).expect("load");
-        assert_eq!(cfg.agent.compaction_reserve_tokens, None);
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
-    #[cfg(feature = "cli")]
-    #[test]
-    fn compaction_reserve_tokens_parses_when_present() {
-        let root = unique_root("reserve_present");
-        ensure_project(&root).expect("scaffold");
-        let path = agent_toml_path(&root);
-        let raw = std::fs::read_to_string(&path).unwrap();
-        let raw = raw.replace("[agent]", "[agent]\ncompaction_reserve_tokens = 8192");
-        std::fs::write(&path, raw).unwrap();
-        let cfg = load_agent_config(&root).expect("load");
-        assert_eq!(cfg.agent.compaction_reserve_tokens, Some(8192));
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
-    #[cfg(feature = "cli")]
-    #[test]
-    fn max_tokens_defaults_to_none_when_unset() {
-        let root = unique_root("maxtok_unset");
-        ensure_project(&root).expect("scaffold");
-        let cfg = load_agent_config(&root).expect("load");
-        assert_eq!(cfg.agent.max_tokens, None);
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
-    #[cfg(feature = "cli")]
-    #[test]
-    fn max_tokens_parses_when_present() {
-        let root = unique_root("maxtok_present");
-        ensure_project(&root).expect("scaffold");
-        let path = agent_toml_path(&root);
-        let raw = std::fs::read_to_string(&path).unwrap();
-        let raw = raw.replace("[agent]", "[agent]\nmax_tokens = 4096");
-        std::fs::write(&path, raw).unwrap();
-        let cfg = load_agent_config(&root).expect("load");
-        assert_eq!(cfg.agent.max_tokens, Some(4096));
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
     #[test]
     fn permissions_from_default_template_advertises_mcp() {
@@ -1521,23 +932,4 @@ mod tests {
         assert!(perms.advertises_mcp("mcp.search"));
     }
 
-    #[cfg(feature = "cli")]
-    #[test]
-    fn set_model_persists_and_reloads_and_keeps_comments() {
-        let root = unique_root("setmodel");
-        ensure_project(&root).expect("scaffold");
-        let path = agent_toml_path(&root);
-
-        set_model_in_agent_toml(&path, "claude-sonnet-5").expect("set");
-        let cfg = load_agent_config(&root).expect("load");
-        assert_eq!(cfg.agent.model.as_deref(), Some("claude-sonnet-5"));
-
-        // Overwrites on a second set; template comment survives.
-        set_model_in_agent_toml(&path, "gpt-4o").expect("set again");
-        let cfg = load_agent_config(&root).expect("load");
-        assert_eq!(cfg.agent.model.as_deref(), Some("gpt-4o"));
-        let raw = std::fs::read_to_string(&path).expect("read");
-        assert!(raw.contains("read-only | deny | allow"));
-        let _ = std::fs::remove_dir_all(&root);
-    }
 }

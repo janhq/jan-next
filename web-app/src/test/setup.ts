@@ -42,11 +42,6 @@ const mockServiceHub = {
     relocateJanDataFolder: vi.fn().mockResolvedValue(undefined),
     getJanDataFolder: vi.fn().mockResolvedValue('/mock/jan/data'),
   }),
-  analytic: () => ({
-    track: vi.fn(),
-    identify: vi.fn(),
-    page: vi.fn(),
-  }),
   messages: () => ({
     createMessage: vi.fn().mockResolvedValue({ id: 'test-message' }),
     deleteMessage: vi.fn().mockResolvedValue(undefined),
@@ -115,11 +110,6 @@ const mockServiceHub = {
     open: vi.fn().mockResolvedValue(undefined),
     revealItemInDir: vi.fn().mockResolvedValue(undefined),
     openPath: vi.fn().mockResolvedValue(undefined),
-  }),
-  updater: () => ({
-    checkForUpdates: vi.fn().mockResolvedValue(null),
-    installUpdate: vi.fn().mockResolvedValue(undefined),
-    downloadAndInstallWithProgress: vi.fn().mockResolvedValue(undefined),
   }),
   path: vi.fn().mockReturnValue({
     sep: () => '/',

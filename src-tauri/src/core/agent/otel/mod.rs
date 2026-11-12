@@ -2,9 +2,7 @@
 //! (separately opted into) traces over OTLP/HTTP, to a collector the user names (janhq/jan-internal#393).
 //!
 //! Off by default: nothing here runs, and no request is made, unless
-//! [`config::enabled`] says so. This is separate from Jan's own update-check
-//! ping (`cli::telemetry`), which goes to Jan; this goes only to the user's
-//! endpoint.
+//! [`config::enabled`] says so. This goes only to the user's endpoint.
 //!
 //! One sink, fed from what the engine already reports:
 //!

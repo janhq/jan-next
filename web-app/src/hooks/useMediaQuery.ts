@@ -82,27 +82,6 @@ export const useSmallScreen = (): boolean => {
   return useMediaQuery('(max-width: 768px)')
 }
 
-export const useMobileScreen = (): boolean => {
-  return useMediaQuery('(max-width: 640px)')
-}
-
-export const useTabletScreen = (): boolean => {
-  return useMediaQuery('(min-width: 641px) and (max-width: 1024px)')
-}
-
-export const useDesktopScreen = (): boolean => {
-  return useMediaQuery('(min-width: 1025px)')
-}
-
-// Orientation detection
-export const usePortrait = (): boolean => {
-  return useMediaQuery('(orientation: portrait)')
-}
-
-export const useLandscape = (): boolean => {
-  return useMediaQuery('(orientation: landscape)')
-}
-
 // Devices whose primary input cannot hover (touch screens), so hover-revealed
 // controls must be shown outright. Read synchronously so the first paint is
 // already right instead of fading controls in on mount.

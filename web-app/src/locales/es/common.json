@@ -22,7 +22,6 @@
   "showProvider": "Mostrar proveedor",
   "interface": "Interfaz",
   "appearance": "Interfaz",
-  "privacy": "Privacidad",
   "keyboardShortcuts": "Atajos",
   "newChat": "Nuevo chat",
   "newAgentChat": "Nuevo chat con agente",
@@ -32,7 +31,6 @@
   "recents": "Recientes",
   "hub": "Hub",
   "helpSupport": "Ayuda y soporte",
-  "helpUsImproveJan": "Ayúdanos a mejorar Jan",
   "unstarAll": "Quitar todas las estrellas",
   "unstar": "Quitar estrella",
   "deleteAll": "Eliminar todo",
@@ -377,14 +375,6 @@
     "editMessage": {
       "title": "Editar mensaje",
       "description": "Mensaje editado correctamente. Por favor espera la respuesta del modelo."
-    },
-    "appUpdateDownloaded": {
-      "title": "Actualización descargada",
-      "description": "La actualización de la aplicación se ha descargado correctamente."
-    },
-    "appUpdateDownloadFailed": {
-      "title": "Error en la descarga de actualización",
-      "description": "Error al descargar la actualización. Por favor, inténtalo de nuevo."
     },
     "downloadComplete": {
       "title": "Descarga completa",

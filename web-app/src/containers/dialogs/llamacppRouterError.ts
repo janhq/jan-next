@@ -4,8 +4,7 @@ import { useModelProvider } from '@/hooks/useModelProvider'
 
 // Router errors are only user-facing when they could have killed an in-flight
 // llamacpp generation. At launch/idle the router can emit startup noise with no
-// active request — surfacing it would banner a provider the user never invoked
-// (e.g. MLX selected on macOS).
+// active request — surfacing it would banner a provider the user never invoked.
 /**
  * Whether the app has engine work in flight, independent of which provider is
  * selected. Separate from [`hasActiveLlamacppRequest`] so a caller that

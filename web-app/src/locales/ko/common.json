@@ -21,7 +21,6 @@
   "hideProvider": "제공자 숨기기",
   "showProvider": "제공자 표시",
   "interface": "인터페이스",
-  "privacy": "개인정보 보호",
   "keyboardShortcuts": "단축키",
   "newChat": "새 채팅",
   "newAgentChat": "새 에이전트 채팅",
@@ -31,7 +30,6 @@
   "recents": "최근 항목",
   "hub": "허브",
   "helpSupport": "도움말 및 지원",
-  "helpUsImproveJan": "Jan 개선에 참여하기",
   "unstarAll": "모든 즐겨찾기 해제",
   "unstar": "즐겨찾기 해제",
   "deleteAll": "모두 삭제",
@@ -376,14 +374,6 @@
     "editMessage": {
       "title": "메시지 수정",
       "description": "메시지가 성공적으로 수정되었습니다. 모델이 응답할 때까지 기다려 주세요."
-    },
-    "appUpdateDownloaded": {
-      "title": "앱 업데이트 다운로드됨",
-      "description": "앱 업데이트가 성공적으로 다운로드되었습니다."
-    },
-    "appUpdateDownloadFailed": {
-      "title": "앱 업데이트 다운로드 실패",
-      "description": "앱 업데이트를 다운로드하지 못했습니다. 다시 시도해 주세요."
     },
     "downloadComplete": {
       "title": "다운로드 완료",

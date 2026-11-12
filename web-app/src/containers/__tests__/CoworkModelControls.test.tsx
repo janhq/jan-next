@@ -1,6 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { EngineManager } from '@janhq/core'
-import type { AIEngine } from '@janhq/core'
 import { DefaultModelsService } from '@/services/models/default'
 import { useModelProvider } from '@/hooks/useModelProvider'
 import { useCoworkSessions } from '@/hooks/useCoworkSessions'
@@ -115,7 +113,7 @@ describe('Cowork context recovery settings', () => {
   it.each(['remote', 'inactive', 'missing context', 'unknown maximum'])(
     'does not invent a context action for %s models',
     async (kind) => {
-      const provider = providerFixture(kind === 'remote' ? 'openai' : 'mlx')
+      const provider = providerFixture(kind === 'remote' ? 'openai' : 'llamacpp')
       if (kind === 'inactive') provider.active = false
       if (kind === 'missing context') provider.models[0].settings = {}
       if (kind === 'unknown maximum')
@@ -151,53 +149,6 @@ describe('Cowork context recovery settings', () => {
     expect(useModelProvider.getState().selectedProvider).toBe('openai')
     expect(useModelProvider.getState().selectedModel?.id).toBe('remote')
     expect(currentContext()).toBe(4096)
-  })
-
-  it('preserves context when MLX cannot unload its active model', async () => {
-    selectProvider(providerFixture('mlx'))
-    vi.mocked(models.stopModel).mockResolvedValueOnce({
-      success: false,
-      error: 'busy',
-    })
-    await expect(
-      increaseCoworkContext(models, 'mlx', 'local-model')
-    ).rejects.toThrow('busy')
-    expect(
-      useModelProvider.getState().selectedModel?.settings?.ctx_len
-        .controller_props.value
-    ).toBe(4096)
-  })
-
-  it('makes the next actual MLX load consume the increased context', async () => {
-    selectProvider(providerFixture('mlx'))
-    vi.mocked(models.getActiveModels).mockRestore()
-    vi.mocked(models.stopModel).mockRestore()
-    let loaded = true
-    let loadedContext = 4096
-    const mlx = {
-      getLoadedModels: async () => (loaded ? ['local-model'] : []),
-      unload: async () => {
-        loaded = false
-        return { success: true }
-      },
-      load: async (_id: string, settings: { ctx_size: number }) => {
-        loaded = true
-        loadedContext = settings.ctx_size
-      },
-    } as unknown as AIEngine
-    const llama = {
-      unload: async () => ({ success: true }),
-    } as unknown as AIEngine
-    const manager = new EngineManager()
-    manager.engines.set('mlx', mlx)
-    manager.engines.set('llamacpp', llama)
-    vi.spyOn(EngineManager, 'instance').mockReturnValue(manager)
-    await increaseCoworkContext(models, 'mlx', 'local-model')
-    await models.startModel(
-      useModelProvider.getState().providers[0],
-      'local-model'
-    )
-    expect(loadedContext).toBe(8192)
   })
 })
 

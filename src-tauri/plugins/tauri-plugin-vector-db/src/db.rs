@@ -179,15 +179,7 @@ const SQLITE_VEC_SYSTEM_DIRS: &[&str] = if cfg!(target_os = "macos") {
 } else if cfg!(target_os = "windows") {
     &["C:\\Program Files\\sqlite-vec"]
 } else {
-    &[
-        "/usr/lib/sqlite3",
-        "/usr/local/lib/sqlite3",
-        "/usr/lib/x86_64-linux-gnu",
-        "/usr/lib/aarch64-linux-gnu",
-        "/usr/lib64",
-        "/usr/local/lib",
-        "/usr/lib",
-    ]
+    &[]
 };
 
 pub fn possible_sqlite_vec_paths() -> Vec<String> {

@@ -1,5 +1,4 @@
 pub mod commands;
 pub mod shutdown;
-// Process-table sweep; desktop-only, `sysinfo` is not a mobile dependency.
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+// Process-table sweep of engines orphaned by a previous run.
 pub mod orphans;

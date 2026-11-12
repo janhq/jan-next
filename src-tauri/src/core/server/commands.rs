@@ -41,21 +41,9 @@ pub async fn start_server<R: Runtime>(
     let llama_state: State<Arc<LlamacppState>> = app_handle.state();
     let llama_state_arc = llama_state.inner().clone();
 
-    // MLX is macOS-only; elsewhere the session map is permanently empty.
-    #[cfg(target_os = "macos")]
-    let mlx_sessions = {
-        let mlx_state: State<tauri_plugin_mlx::state::MlxState> = app_handle.state();
-        mlx_state.mlx_server_process.clone()
-    };
-    #[cfg(not(target_os = "macos"))]
-    let mlx_sessions: Arc<
-        tokio::sync::Mutex<std::collections::HashMap<i32, crate::core::server::MlxBackendSession>>,
-    > = Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new()));
-
     let actual_port = proxy::start_server(
         server_handle,
         llama_state_arc,
-        mlx_sessions,
         host,
         port,
         prefix,
@@ -63,7 +51,6 @@ pub async fn start_server<R: Runtime>(
         vec![trusted_hosts],
         proxy_timeout,
         state.provider_configs.clone(),
-        state.model_param_defaults.clone(),
         state.mcp_servers.clone(),
         state.mcp_settings.clone(),
         get_jan_data_folder_path(app_handle.clone())

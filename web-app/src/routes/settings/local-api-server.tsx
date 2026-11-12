@@ -82,7 +82,7 @@ function LocalAPIServerContent() {
   const localModels = useMemo(
     () =>
       providers
-        .filter((p) => p.provider === 'llamacpp' || p.provider === 'mlx')
+        .filter((p) => p.provider === 'llamacpp')
         .flatMap((p) => p.models.map((m) => ({ id: m.id, provider: p.provider }))),
     [providers]
   )
@@ -181,7 +181,7 @@ function LocalAPIServerContent() {
           })
         })
         .then((actualPort: number) => {
-          // Store the actual port that was assigned (important for mobile with port 0)
+          // Store the port the server actually bound to
           if (actualPort && actualPort !== serverPort) {
             setServerPort(actualPort)
           }

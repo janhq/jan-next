@@ -12,14 +12,12 @@
   "localProviders": "Local",
   "remoteProviders": "Remot",
   "interface": "Interfície",
-  "privacy": "Privadesa",
   "keyboardShortcuts": "Dreceres",
   "newChat": "Xat nou",
   "favorites": "Preferits",
   "recents": "Recents",
   "hub": "Hub",
   "helpSupport": "Ajuda i suport",
-  "helpUsImproveJan": "Ajuda’ns a millorar Jan",
   "unstarAll": "Desmarca-ho tot",
   "unstar": "Desmarca",
   "deleteAll": "Suprimeix-ho tot",
@@ -340,14 +338,6 @@
     "editMessage": {
       "title": "Missatge editat",
       "description": "Missatge editat correctament. Espera la resposta del model."
-    },
-    "appUpdateDownloaded": {
-      "title": "Actualització descarregada",
-      "description": "L’actualització de l’app s’ha descarregat correctament."
-    },
-    "appUpdateDownloadFailed": {
-      "title": "Error en descarregar l’actualització",
-      "description": "No s’ha pogut descarregar l’actualització de l’app. Torna-ho a provar."
     },
     "downloadComplete": {
       "title": "Descàrrega completada",

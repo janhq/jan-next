@@ -18,7 +18,6 @@ import {
   openAIProviderSettings,
   anthropicProviderSettings,
 } from '@/constants/providers'
-import cloneDeep from 'lodash/cloneDeep'
 import { toast } from 'sonner'
 import { useServiceHub } from '@/hooks/useServiceHub'
 
@@ -56,7 +55,7 @@ function ModelProviders() {
         apiType === 'anthropic'
           ? anthropicProviderSettings
           : openAIProviderSettings
-      const settings = cloneDeep(template) as ProviderSetting[]
+      const settings = structuredClone(template) as ProviderSetting[]
       for (const s of settings) {
         if (s.key === 'base-url') {
           (s.controller_props as { value: string }).value = baseUrl
@@ -140,7 +139,7 @@ function ModelProviders() {
                 </div>
               }
             >
-              {providers.filter((provider) => IS_MACOS || provider.provider !== 'mlx').map((provider, index) => (
+              {providers.map((provider, index) => (
                 <CardItem
                   key={index}
                   title={

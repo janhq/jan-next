@@ -234,13 +234,6 @@ export interface ImportOptions {
   // draft's own `general.architecture` decides, since it is authoritative.
   specDraftPath?: string
   specDraftKind?: SpecDraftKind
-  // Additional files to download for MLX models
-  files?: Array<{
-    url: string
-    filename: string
-    sha256?: string
-    size?: number
-  }>
 }
 
 export interface importResult {

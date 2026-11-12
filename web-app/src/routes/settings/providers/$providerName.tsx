@@ -11,7 +11,6 @@ import { DynamicControllerSetting } from '@/containers/dynamicControllerSetting'
 import { RenderMarkdown } from '@/containers/RenderMarkdown'
 import { DialogEditModel } from '@/containers/dialogs/EditModel'
 import { ImportLlamacppModelDialog } from '@/containers/dialogs/ImportLlamacppModelDialog'
-import { ImportMlxModelDialog } from '@/containers/dialogs/ImportMlxModelDialog'
 import { ModelSetting } from '@/containers/ModelSetting'
 import { LlamacppEngineInfo } from '@/containers/LlamacppEngineInfo'
 import { LlamacppDiagnostics } from '@/containers/LlamacppDiagnostics'
@@ -268,7 +267,7 @@ function ProviderDetail() {
 
   useEffect(() => {
     if (!provider) return
-    if (provider.provider === 'llamacpp' || provider.provider === 'mlx') return
+    if (provider.provider === 'llamacpp') return
     setApiKeysDraft(providerRemoteApiKeyChain(provider).join('\n'))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [providerName, provider?.api_key, JSON.stringify(provider?.api_key_fallbacks ?? [])])
@@ -707,24 +706,11 @@ function ProviderDetail() {
               />
             )}
 
-            {provider?.provider === 'mlx' && (
-              <div className="flex items-start gap-2 rounded-md border border-main-view-fg/10 bg-main-view-fg/5 px-3 py-2 text-xs text-muted-foreground">
-                <IconInfoCircle size={16} className="mt-0.5 shrink-0" />
-                <span>
-                  {t('providers:mlxExperimental', {
-                    defaultValue:
-                      'MLX support is experimental. Embeddings are unavailable, the reasoning toggle is not yet wired through, and some newer model architectures may fail to load. Report issues on GitHub so we can prioritize them.',
-                  })}
-                </span>
-              </div>
-            )}
-
             <div
               className={cn(
                 'flex flex-col gap-3',
                 provider &&
-                  (provider.provider === 'llamacpp' ||
-                    provider.provider === 'mlx') &&
+                  provider.provider === 'llamacpp' &&
                   'flex-col-reverse'
               )}
             >
@@ -733,15 +719,13 @@ function ProviderDetail() {
               {!extensionSource &&
                 !(
                 isPredefinedProvider &&
-                provider?.provider !== 'llamacpp' &&
-                provider?.provider !== 'mlx'
+                provider?.provider !== 'llamacpp'
               ) && (
               <Card>
                 {provider?.settings.map((setting, settingIndex) => {
                   if (
                     setting.key === 'api-key' &&
-                    provider?.provider !== 'llamacpp' &&
-                    provider?.provider !== 'mlx'
+                    provider?.provider !== 'llamacpp'
                   ) {
                     return null
                   }
@@ -849,8 +833,7 @@ function ProviderDetail() {
 
               {provider &&
                 !extensionSource &&
-                provider.provider !== 'llamacpp' &&
-                provider.provider !== 'mlx' && (
+                provider.provider !== 'llamacpp' && (
                   <Card>
                     {provider.provider === 'azure' && (
                       <div className="space-y-2 mb-4">
@@ -1053,8 +1036,7 @@ function ProviderDetail() {
                     <div className="flex items-center gap-2">
                       {provider &&
                         !extensionSource &&
-                        provider.provider !== 'llamacpp' &&
-                        provider.provider !== 'mlx' && (
+                        provider.provider !== 'llamacpp' && (
                         <>
                           <Button
                             variant="secondary"
@@ -1078,8 +1060,7 @@ function ProviderDetail() {
                         </>
                       )}
                       {provider &&
-                        (provider.provider === 'llamacpp' ||
-                          provider.provider === 'mlx') && (
+                        provider.provider === 'llamacpp' && (
                           <DialogDeleteAllModels provider={provider} />
                         )}
                       {provider && provider.provider === 'llamacpp' && (
@@ -1102,21 +1083,6 @@ function ProviderDetail() {
                           }
                         />
                       )}
-                      {provider && provider.provider === 'mlx' && (
-                          <ImportMlxModelDialog
-                            provider={provider}
-                            onSuccess={handleModelImportSuccess}
-                            trigger={
-                              <Button variant="secondary" size="sm">
-                                <IconFolderPlus
-                                  size={18}
-                                  className="text-muted-foreground"
-                                />
-                                <span>{t('providers:import')}</span>
-                              </Button>
-                            }
-                          />
-                        )}
                     </div>
                   </div>
                 }
@@ -1187,8 +1153,7 @@ function ProviderDetail() {
                               />
                             )}
                             {provider &&
-                              (provider.provider === 'llamacpp' ||
-                                provider.provider === 'mlx') && (
+                              provider.provider === 'llamacpp' && (
                                 <div className="ml-2">
                                   {activeModels.some(
                                     (activeModel) => activeModel === model.id

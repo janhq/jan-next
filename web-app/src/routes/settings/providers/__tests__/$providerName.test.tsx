@@ -244,12 +244,6 @@ vi.mock('@/containers/dialogs/ImportLlamacppModelDialog', () => ({
   ),
 }))
 
-vi.mock('@/containers/dialogs/ImportMlxModelDialog', () => ({
-  ImportMlxModelDialog: ({ trigger }: any) => (
-    <div data-testid="import-mlx">{trigger}</div>
-  ),
-}))
-
 vi.mock('@/containers/ModelSetting', () => ({
   ModelSetting: () => <div data-testid="model-setting" />,
 }))
@@ -328,7 +322,7 @@ vi.mock('@/lib/utils', () => ({
     typeof p === 'string' ? `Title:${p}` : p.display_name || `Title:${p.provider}`,
   getModelDisplayName: (m: any) => m.name ?? m.id,
   basenameNoExt: (p: string) => p.split('/').pop() ?? p,
-  isLocalProvider: (p: string) => p === 'llamacpp' || p === 'mlx',
+  isLocalProvider: (p: string) => p === 'llamacpp',
   formatMegaBytes: (n: number) => `${n} MB`,
 }))
 

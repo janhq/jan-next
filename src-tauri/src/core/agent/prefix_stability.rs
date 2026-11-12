@@ -28,8 +28,6 @@
 //! Each test says what it protects, and names the epic item behind it where
 //! there is one.
 
-#[cfg(feature = "cli")]
-use super::compaction::compact_conversation;
 use super::compaction::{
     cached_compaction_request, caps, continuation_state, Sizing, DEFAULT_COMPACTION_RATIO,
 };
@@ -52,20 +50,11 @@ use tokio::sync::mpsc;
 // What the tool-array test needs. `context_advertised_tools` is the CLI's
 // entry point to the loop's advertisement path - only the TUI calls it - so the
 // config that compiles the helper is the config that runs this test.
-#[cfg(feature = "cli")]
-use {
-    super::r#loop::context_advertised_tools, crate::core::agent::plan::RunMode,
-    crate::core::mcp::models::McpSettings, crate::core::state::SharedMcpServers, std::sync::Arc,
-    tauri_plugin_agent_tools::permissions::ToolPermissions, tokio::sync::Mutex,
-};
 
 /// A date fixed by the test. Every assertion here is about bytes, and a test
 /// that reads the clock would be testing the clock.
 const DAY: &str = "2026-09-16";
 
-/// Tokens of conversation a compaction keeps: about one short message.
-#[cfg(feature = "cli")]
-const KEEP_TOKENS: u64 = 20;
 
 // ---------------------------------------------------------------------------
 // Comparing request bytes
@@ -156,13 +145,6 @@ impl Request {
         assert_prefix_kept(what, &self.body, &next.body, self.last_message_end());
     }
 
-    /// The `tools` array of the body, as bytes.
-    #[cfg(feature = "cli")]
-    fn tools_section(&self) -> String {
-        let body: Value = serde_json::from_str(&self.body).expect("the body is JSON");
-        serde_json::to_string(body.get("tools").expect("the request advertises tools"))
-            .expect("the tools array serializes")
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -307,67 +289,9 @@ fn turn(project: &Path, history: &[Value], recall: &str, tools: &[Value]) -> Req
     Request { messages, body }
 }
 
-/// The tool array as the loop advertises it for a project: the real path - the
-/// MCP listings, the capability gate, then the local tools.
-#[cfg(feature = "cli")]
-async fn advertise(project: &Path) -> Vec<Value> {
-    let servers: SharedMcpServers = Default::default();
-    let settings = Arc::new(Mutex::new(McpSettings::default()));
-    let permissions = ToolPermissions::default();
-    let tools = context_advertised_tools(
-        &servers,
-        &settings,
-        &permissions,
-        Some(project),
-        RunMode::Normal,
-        false,
-        4,
-        false,
-        true,
-        &crate::core::agent::host_tools::HostToolSet::new(),
-    )
-    .await;
-    // An empty array would make every array comparison below vacuous.
-    assert!(
-        tools.len() >= 10,
-        "the fixture advertises {} tools",
-        tools.len()
-    );
-    tools
-}
 
-/// A model that returns a fixed summary, so the compaction path can run
-/// without an upstream: the shape of the array it leaves behind is what the
-/// turn after it has to keep its prefix across.
-#[cfg(feature = "cli")]
-struct StubSummarizer;
 
-#[cfg(feature = "cli")]
-#[async_trait]
-impl ModelInvoker for StubSummarizer {
-    async fn invoke(
-        &self,
-        _request: &Value,
-        _events: &mpsc::UnboundedSender<StreamEvent>,
-    ) -> Result<Value, String> {
-        Ok(json!({ "choices": [{ "message": { "content": "## Progress\nThe story so far." } }] }))
-    }
-}
 
-/// One real compaction: the array `orchestrate_inner` would hand the next turn.
-#[cfg(feature = "cli")]
-async fn compacted(history: &[Value]) -> Vec<Value> {
-    compact_conversation(
-        history,
-        "test-model",
-        &StubSummarizer,
-        KEEP_TOKENS,
-        &HarnessContext::default(),
-        Sizing::new(100_000, DEFAULT_COMPACTION_RATIO),
-    )
-    .await
-    .0
-}
 
 /// A user turn with a given text.
 fn user(text: &str) -> Value {
@@ -518,27 +442,6 @@ fn a_changing_tail_preserves_all_accepted_history() {
     first.assert_extended_by("changed context belongs after accepted history", &second);
 }
 
-/// #8959: the tool array sits at the front of the request, so it has to be a
-/// function of configuration alone. Moving a project changes the prompt - the
-/// working directory names it - but must not move the tools in front of it.
-#[cfg(feature = "cli")]
-#[tokio::test]
-async fn a_project_move_does_not_move_the_tool_array() {
-    let first = Project::new("move-a");
-    let second = Project::new("move-b");
-
-    let before = turn(first.root(), &[], "", &advertise(first.root()).await);
-    let after = turn(second.root(), &[], "", &advertise(second.root()).await);
-
-    assert_same_bytes(
-        "the advertised tools must not depend on where the project lives",
-        &before.tools_section(),
-        &after.tools_section(),
-    );
-    // The prompt legitimately differs: that difference is in the prompt, not in
-    // the array in front of it.
-    assert_ne!(before.body, after.body);
-}
 
 /// #8959: the advertised bytes have to be a function of the listings' contents,
 /// not of the order they were walked in. The listings arrive from a map whose
@@ -616,44 +519,6 @@ fn a_failed_listing_keeps_the_advertised_tools() {
     assert!(never_listed.is_empty());
 }
 
-/// #8957, #8958: compaction rewrites the middle of the conversation, so exactly
-/// one turn cannot extend its predecessor - the one after the summary lands.
-/// Every other turn has to.
-#[cfg(feature = "cli")]
-#[tokio::test]
-async fn compaction_breaks_the_prefix_exactly_once() {
-    let project = Project::new("compaction");
-    let tools = advertised(&["read_file"]);
-    let mut history: Vec<Value> = Vec::new();
-    let mut previous: Option<Request> = None;
-    let mut breaks = 0;
-
-    for index in 0..6 {
-        history.push(user(&format!("question {index}")));
-        let request = turn(project.root(), &history, "", &tools);
-        if let Some(previous) = &previous {
-            if common_prefix_len(&previous.body, &request.body) < previous.last_message_end() {
-                breaks += 1;
-            }
-        }
-        history = request.messages.clone();
-        previous = Some(request);
-        history.push(assistant(&format!("answer {index}")));
-        if index == 2 {
-            let before = history.len();
-            history = compacted(&history).await;
-            assert!(
-                history.len() < before,
-                "the fixture has to compact for the break count below to mean anything"
-            );
-        }
-    }
-
-    assert_eq!(
-        breaks, 1,
-        "one compaction has to break the prefix exactly once; every other turn extends the last"
-    );
-}
 
 /// #9079: a project whose instructions come from the `AGENTS.md` fallback
 /// instead of `JAN.md`. The fixture pins `[context].fallback_files` in its own

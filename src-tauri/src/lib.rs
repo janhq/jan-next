@@ -1,17 +1,5 @@
-// The headless `jan` CLI and the desktop app are mutually exclusive builds: the
-// `cli` feature gates off every Tauri-dependent module, so pairing it with the
-// Tauri stack leaves the desktop entry points without their subsystems. Note
-// that `--features cli` alone still implies `default` (and therefore
-// `desktop`); the CLI must be built with `--no-default-features`.
-#[cfg(all(feature = "cli", feature = "tauri-app"))]
-compile_error!(
-    "features `cli` and `tauri-app`/`desktop` are mutually exclusive; \
-     build the CLI from the standalone crate: `cd src-tauri/jan-cli && cargo build --features cli`"
-);
-
 pub mod core;
 
-#[cfg(not(feature = "cli"))]
 use core::{
     app::commands::get_jan_data_folder_path,
     downloads::models::DownloadManagerState,
@@ -19,21 +7,15 @@ use core::{
     setup::{self, setup_mcp},
     state::AppState,
 };
-#[cfg(not(feature = "cli"))]
 use jan_utils::generate_app_token;
-#[cfg(not(feature = "cli"))]
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
 };
-#[cfg(not(feature = "cli"))]
 use tauri::{Emitter, Manager, RunEvent};
-#[cfg(not(feature = "cli"))]
 use tauri_plugin_store::StoreExt;
-#[cfg(not(feature = "cli"))]
 use tokio::sync::Mutex;
 
-#[cfg(not(feature = "cli"))]
 macro_rules! invoke_commands_with_extras {
     ($($extra:path),* $(,)?) => {
         tauri::generate_handler![
@@ -70,7 +52,6 @@ macro_rules! invoke_commands_with_extras {
         core::server::provider_secrets::get_secret,
         // System commands
         core::system::commands::relaunch,
-        core::system::shutdown::shutdown_for_update,
         core::system::commands::factory_reset,
         core::system::commands::take_pending_webdata_reset,
         core::system::commands::read_logs,
@@ -101,7 +82,6 @@ macro_rules! invoke_commands_with_extras {
         core::server::remote_provider_commands::register_provider_config,
         core::server::remote_provider_commands::unregister_provider_config,
         core::server::remote_provider_commands::delete_provider_keys,
-        core::server::remote_provider_commands::set_model_param_defaults,
         core::server::remote_provider_commands::get_provider_config,
         core::server::remote_provider_commands::get_provider_keys,
         core::server::remote_provider_commands::list_provider_configs,
@@ -141,7 +121,6 @@ macro_rules! invoke_commands_with_extras {
         confirm_exit,
         // Theme
         core::setup::get_system_theme,
-        core::setup::set_gtk_prefer_dark,
         core::setup::get_titlebar_layout,
         $(
             $extra,
@@ -150,15 +129,11 @@ macro_rules! invoke_commands_with_extras {
     };
 }
 
-#[cfg(not(feature = "cli"))]
 static SHUTTING_DOWN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-#[cfg(not(feature = "cli"))]
 static GRACEFUL_IN_PROGRESS: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(false);
-#[cfg(not(feature = "cli"))]
 static BUSY_MODELS: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
 
-#[cfg(not(feature = "cli"))]
 #[tauri::command]
 async fn confirm_exit<R: tauri::Runtime>(_app_handle: tauri::AppHandle<R>) {
     SHUTTING_DOWN.store(true, std::sync::atomic::Ordering::SeqCst);
@@ -168,7 +143,6 @@ async fn confirm_exit<R: tauri::Runtime>(_app_handle: tauri::AppHandle<R>) {
     });
 }
 
-#[cfg(not(feature = "cli"))]
 /// Whether a llama.cpp engine worker is up, so the exit path knows whether it
 /// owes the user a graceful shutdown.
 ///
@@ -185,7 +159,7 @@ fn is_llamacpp_engine_running<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> b
         .unwrap_or(false)
 }
 
-#[cfg(all(not(feature = "cli"), not(target_os = "macos")))]
+#[cfg(not(target_os = "macos"))]
 fn is_proxy_server_running<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> bool {
     use tauri::Manager;
     app.try_state::<AppState>()
@@ -193,7 +167,6 @@ fn is_proxy_server_running<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> bool
         .unwrap_or(false)
 }
 
-#[cfg(not(feature = "cli"))]
 fn reemit_busy_if_any<R: tauri::Runtime>(app_handle: &tauri::AppHandle<R>) {
     let busy = BUSY_MODELS.lock().map(|g| g.clone()).unwrap_or_default();
     if !busy.is_empty() {
@@ -201,7 +174,6 @@ fn reemit_busy_if_any<R: tauri::Runtime>(app_handle: &tauri::AppHandle<R>) {
     }
 }
 
-#[cfg(not(feature = "cli"))]
 async fn handle_graceful_exit<R: tauri::Runtime>(
     app_handle: tauri::AppHandle<R>,
     source: &'static str,
@@ -251,11 +223,6 @@ async fn handle_graceful_exit<R: tauri::Runtime>(
     }
 }
 
-#[cfg(not(feature = "cli"))]
-#[cfg_attr(
-    all(mobile, any(target_os = "android", target_os = "ios")),
-    tauri::mobile_entry_point
-)]
 pub fn run() {
     // Installed before any plugin: the toolset crate owns no config format, so
     // the `execute_tool` IPC command can only reach a user's `[[hooks]]`
@@ -267,16 +234,7 @@ pub fn run() {
     }));
 
     let builder = tauri::Builder::default();
-    // Shadowed rather than mutated: under `e2e` the plugin below is the only
-    // thing that touched `builder`, and a `mut` binding would then be unused --
-    // which CI's `clippy -D warnings` treats as an error.
-    //
-    // Not in e2e builds: single-instance keys off a hardcoded /tmp socket on
-    // macOS (a D-Bus name on Linux, a named mutex on Windows), none of which the
-    // test harness's HOME/XDG/TMPDIR overrides isolate. With a real Jan already running, the
-    // test binary would hand over its argv and exit before the embedded
-    // WebDriver server ever bound.
-    #[cfg(all(desktop, not(feature = "e2e")))]
+    #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_single_instance::init(|_app, argv, _cwd| {
         println!("a new app instance was opened with {argv:?} and the deep link event was already triggered");
         // when defining deep link schemes at runtime, you must also check `argv` here
@@ -303,19 +261,6 @@ pub fn run() {
         app_builder = app_builder.plugin(tauri_plugin_deep_link::init());
     }
 
-    // e2e builds only: the embedded WebDriver server @wdio/tauri-service drives.
-    // Gated behind the `e2e` feature so no release binary exposes it.
-    #[cfg(feature = "e2e")]
-    {
-        app_builder = app_builder.plugin(tauri_plugin_wdio_webdriver::init());
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        app_builder = app_builder.plugin(tauri_plugin_mlx::init());
-    }
-
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         app_builder = app_builder.plugin(tauri_plugin_hardware::init());
     }
@@ -327,19 +272,7 @@ pub fn run() {
         ));
     }
 
-    // Desktop: include updater commands
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     let app_builder = app_builder.invoke_handler(invoke_commands_with_extras![
-        // Custom updater commands (desktop only)
-        core::updater::commands::check_for_app_updates,
-        core::updater::commands::is_update_available,
-    ]);
-
-    // Mobile: no updater commands
-    #[cfg(any(target_os = "android", target_os = "ios"))]
-    let app_builder = app_builder.invoke_handler(invoke_commands_with_extras![
-        // Mobile-specific remote provider commands
-        core::server::remote_provider_commands::abort_remote_stream,
     ]);
 
     let app = app_builder
@@ -357,7 +290,6 @@ pub fn run() {
             background_cleanup_handle: Arc::new(Mutex::new(None)),
             mcp_server_pids: Arc::new(Mutex::new(HashMap::new())),
             provider_configs: Arc::new(Mutex::new(HashMap::new())),
-            model_param_defaults: Arc::new(Mutex::new(HashMap::new())),
             mcp_reconnect_notify: Arc::new(tokio::sync::Notify::new()),
             mcp_last_known_tools: Arc::new(Mutex::new(HashMap::new())),
         })
@@ -393,9 +325,6 @@ pub fn run() {
             // Load the read grants before the event loop delivers any IPC, so a
             // read of a path the user picked in an earlier session is allowed.
             core::filesystem::grants::init(app.handle());
-            #[cfg(not(any(target_os = "ios", target_os = "android")))]
-            app.handle()
-                .plugin(tauri_plugin_updater::Builder::new().build())?;
 
             // A factory reset only moves data aside and restarts; deleting it,
             // which can take a while for a big models folder, happens here.
@@ -407,9 +336,8 @@ pub fn run() {
             }
 
             // Reap engines a previous Jan left running: the llama-server router of
-            // a 0.8.4 that was updated in place, or an mlx-server whose app was
-            // killed. Neither can be stopped by the version that started it.
-            #[cfg(not(any(target_os = "ios", target_os = "android")))]
+            // a 0.8.4 that was updated in place. It cannot be stopped by the
+            // version that started it.
             {
                 let data_folder = get_jan_data_folder_path(app.handle().clone());
                 tauri::async_runtime::spawn_blocking(move || {
@@ -421,8 +349,8 @@ pub fn run() {
             }
 
             // A SIGTERM ends the process without RunEvent::Exit, so the exit
-            // cleanup never ran and mlx-server, which does not watch its
-            // parent, was left running. Turn the signal into a normal exit.
+            // cleanup never ran and child engines were left running. Turn the
+            // signal into a normal exit.
             #[cfg(target_os = "macos")]
             {
                 let handle = app.handle().clone();
@@ -468,32 +396,12 @@ pub fn run() {
                 let _ = setup::setup_tray(app.handle());
             }
 
-            // Not in e2e builds: on Windows `register_all` writes HKCU
-            // Software\Classes\jan\shell\open\command and points it at the
-            // running exe, so every run would repoint the developer's real
-            // `jan://` handler at target/debug/Jan-Desktop.exe. The registry is
-            // outside everything the harness's env overrides can reach. (On
-            // Linux it writes into `data_dir()/applications`, which XDG_DATA_HOME
-            // does redirect -- but no spec opens a deep link, so skip both.)
-            #[cfg(all(
-                feature = "deep-link",
-                not(feature = "e2e"),
-                any(windows, target_os = "linux")
-            ))]
+            // Windows only: `register_all` writes the HKCU `jan://` handler, which
+            // macOS instead takes from the bundle's Info.plist.
+            #[cfg(all(feature = "deep-link", windows))]
             {
                 use tauri_plugin_deep_link::DeepLinkExt;
                 app.deep_link().register_all()?;
-            }
-
-            // Initialize SQLite database for mobile platforms
-            #[cfg(any(target_os = "android", target_os = "ios"))]
-            {
-                let app_handle = app.handle().clone();
-                tauri::async_runtime::spawn(async move {
-                    if let Err(e) = crate::core::threads::db::init_database(&app_handle).await {
-                        log::error!("Failed to initialize mobile database: {}", e);
-                    }
-                });
             }
 
             setup_mcp(app);
@@ -578,7 +486,6 @@ pub fn run() {
         if let RunEvent::Exit = event {
             let app_handle = app.clone();
 
-            #[cfg(not(any(target_os = "ios", target_os = "android")))]
             {
                 if let Some(window) = app_handle.get_webview_window("main") {
                     let _ = window.emit("app-shutting-down", ());

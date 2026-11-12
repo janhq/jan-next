@@ -21,9 +21,8 @@ pub const PROTOCOL_VERSION: u32 = 1;
 pub const MAIN_AGENT: &str = "main";
 
 /// `Deserialize` as well as `Serialize`: a consumer validates what it received
-/// against these shapes, and `JsonSchema` is what `jan cli agent schema`
-/// publishes them as -- a consumer generates its own types from
-/// `protocol/schema.json` rather than copying this declaration. The wire has to
+/// against these shapes, and `JsonSchema` lets a consumer generate its own
+/// types rather than copying this declaration. The wire has to
 /// survive a round trip, not just a write, so `#[serde(tag = "type")]` keeps the
 /// tag on both sides.
 /// Where a [`StreamEvent::Compaction`] is in its round trip.
@@ -634,10 +633,7 @@ impl Usage {
     }
 }
 
-/// Test-only, and reachable from the sibling test in `core::cli::run_report`
-/// that checks the documented tag list against these variants: the table has to
-/// live with the enum it enumerates, but the contract it defends is the one the
-/// CLI channel documents.
+/// Test-only: the table has to live with the enum it enumerates.
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;

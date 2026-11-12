@@ -348,8 +348,8 @@ const DropdownModelProvider = memo(function DropdownModelProvider({
       const activeProviders = providers
         .filter((p) => p.active)
         .sort((a, b) => {
-          const aIsLocal = a.provider === 'llamacpp' || a.provider === 'mlx'
-          const bIsLocal = b.provider === 'llamacpp' || b.provider === 'mlx'
+          const aIsLocal = a.provider === 'llamacpp'
+          const bIsLocal = b.provider === 'llamacpp'
           // Local (llamacpp) first
           if (aIsLocal && !bIsLocal) return -1
           if (!aIsLocal && bIsLocal) return 1

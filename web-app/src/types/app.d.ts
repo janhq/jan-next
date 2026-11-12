@@ -5,7 +5,7 @@ type Language =
   | 'it'
   | 'hi'
   | 'id'
-  | 'vn'
+  | 'vi'
   | 'pl'
   | 'zh-CN'
   | 'zh-TW'

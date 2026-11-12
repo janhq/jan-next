@@ -76,8 +76,6 @@ export async function generateThreadTitle(
       return null
     }
 
-    // MLX models often emit reasoning that can't be reliably suppressed; fall back to default title.
-    if (selectedProvider === 'mlx') return null
 
     const provider = getProviderByName(selectedProvider)
     if (!provider) {

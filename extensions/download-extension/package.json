@@ -35,7 +35,6 @@
   "dependencies": {
     "@janhq/core": "workspace:*"
   },
-  "bundleDependencies": [],
   "installConfig": {
     "hoistingLimits": "workspaces"
   },

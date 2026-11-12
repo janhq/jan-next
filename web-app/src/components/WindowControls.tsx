@@ -30,18 +30,9 @@ export const WindowControls = () => {
       .catch(() => setLayout(DEFAULT_TITLEBAR_LAYOUT))
   }, [setLayout])
 
-  // Refetch on focus so changes made in the DE's settings (KDE/GNOME) while Jan
-  // was unfocused are picked up without a restart.
   useEffect(() => {
     refresh()
-    if (!IS_LINUX) return
-    const unlisten = appWindow.onFocusChanged(({ payload: focused }) => {
-      if (focused) refresh()
-    })
-    return () => {
-      unlisten.then((fn) => fn())
-    }
-  }, [appWindow, refresh])
+  }, [refresh])
 
   // Maximize, restore and OS snapping all resize the window, so re-read the
   // state on every resize to swap the Maximize/Restore glyph.

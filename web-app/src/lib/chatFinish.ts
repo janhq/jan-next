@@ -12,7 +12,7 @@ const DEFAULT_CTX_LEN = 32768
  * heuristic nor the "Increase Context Size" action means anything there.
  */
 export function providerHasContextSetting(provider: string | undefined): boolean {
-  return provider === 'llamacpp' || provider === 'mlx'
+  return provider === 'llamacpp'
 }
 
 /**

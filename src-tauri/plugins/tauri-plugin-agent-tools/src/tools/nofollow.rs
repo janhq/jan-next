@@ -77,17 +77,9 @@ mod imp {
 
     /// A directory descriptor that needs only search permission on the
     /// directory, so a `711` parent (common for `/home/<user>`) still walks.
-    #[cfg(any(target_os = "linux", target_os = "android", target_os = "freebsd"))]
-    const DIR: OFlag = OFlag::O_PATH;
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    #[cfg(target_os = "macos")]
     const DIR: OFlag = OFlag::O_SEARCH;
-    #[cfg(not(any(
-        target_os = "linux",
-        target_os = "android",
-        target_os = "freebsd",
-        target_os = "macos",
-        target_os = "ios"
-    )))]
+    #[cfg(not(target_os = "macos"))]
     const DIR: OFlag = OFlag::O_RDONLY;
 
     /// Map a failed no-follow open of `name` under `dir`: a link there is the

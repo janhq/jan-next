@@ -26,7 +26,6 @@
   "showProvider": "プロバイダーを表示",
   "interface": "外観",
   "appearance": "外観",
-  "privacy": "プライバシー",
   "keyboardShortcuts": "ショートカット",
   "newChat": "新しいチャット",
   "newAgentChat": "新しいエージェントチャット",
@@ -35,7 +34,6 @@
   "recents": "最近の項目",
   "hub": "ハブ",
   "helpSupport": "ヘルプとサポート",
-  "helpUsImproveJan": "Janの改善にご協力ください",
   "unstarAll": "すべてのスターを解除",
   "unstar": "スターを解除",
   "deleteAll": "すべて削除",
@@ -410,14 +408,6 @@
     "editMessage": {
       "title": "メッセージを編集",
       "description": "メッセージは正常に編集されました。モデルの応答をお待ちください。"
-    },
-    "appUpdateDownloaded": {
-      "title": "アプリの更新をダウンロードしました",
-      "description": "アプリの更新は正常にダウンロードされました。"
-    },
-    "appUpdateDownloadFailed": {
-      "title": "アプリの更新のダウンロードに失敗しました",
-      "description": "アプリの更新のダウンロードに失敗しました。もう一度お試しください。"
     },
     "downloadComplete": {
       "title": "ダウンロード完了",

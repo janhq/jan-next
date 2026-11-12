@@ -9,13 +9,11 @@ type GeneralSettingState = {
   currentLanguage: Language
   spellCheckChatInput: boolean
   tokenCounterCompact: boolean
-  autoUpdateCheck: boolean
   stripReasoningFromContext: boolean
   huggingfaceToken?: string
   setHuggingfaceToken: (token: string) => void
   setSpellCheckChatInput: (value: boolean) => void
   setTokenCounterCompact: (value: boolean) => void
-  setAutoUpdateCheck: (value: boolean) => void
   setStripReasoningFromContext: (value: boolean) => void
   setCurrentLanguage: (value: Language) => void
 }
@@ -26,12 +24,10 @@ export const useGeneralSetting = create<GeneralSettingState>()(
       currentLanguage: 'en',
       spellCheckChatInput: true,
       tokenCounterCompact: true,
-      autoUpdateCheck: true,
       stripReasoningFromContext: false,
       huggingfaceToken: undefined,
       setSpellCheckChatInput: (value) => set({ spellCheckChatInput: value }),
       setTokenCounterCompact: (value) => set({ tokenCounterCompact: value }),
-      setAutoUpdateCheck: (value) => set({ autoUpdateCheck: value }),
       setStripReasoningFromContext: (value) =>
         set({ stripReasoningFromContext: value }),
       setCurrentLanguage: (value) => set({ currentLanguage: value }),
@@ -53,12 +49,17 @@ export const useGeneralSetting = create<GeneralSettingState>()(
       name: localStorageKey.settingGeneral,
       storage: createJSONStorage(() => backendStorage),
       skipHydration: true,
+      // The Vietnamese locale was renamed vn -> vi; remap a stored 'vn'.
+      merge: (persisted, current) => {
+        const state = { ...current, ...(persisted as Partial<GeneralSettingState>) }
+        if ((state.currentLanguage as string) === 'vn') state.currentLanguage = 'vi'
+        return state
+      },
       // huggingfaceToken is a secret — kept in the OS keyring, never persisted here.
       partialize: (state) => ({
         currentLanguage: state.currentLanguage,
         spellCheckChatInput: state.spellCheckChatInput,
         tokenCounterCompact: state.tokenCounterCompact,
-        autoUpdateCheck: state.autoUpdateCheck,
         stripReasoningFromContext: state.stripReasoningFromContext,
       }),
     }

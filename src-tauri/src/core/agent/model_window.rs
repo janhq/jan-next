@@ -2,9 +2,8 @@
 //!
 //! The effective context window comes from the selected model unless the
 //! project explicitly configures one. Resolution is pure: the caller supplies
-//! the configured override and whatever the provider itself reported (the CLI
-//! caches that from each provider's `/models` listing, see
-//! `cli::model_capabilities::reported_window`; the desktop has no such cache),
+//! the configured override and whatever the provider itself reported (the desktop
+//! has no such cache),
 //! and a small fixed catalog of known model families covers the rest, with a
 //! conservative default under everything. The resolved value drives the header gauge and
 //! proactive compaction, and is deliberately never sent up as a generation
@@ -32,17 +31,6 @@ pub(crate) struct ResolvedContextWindow {
 }
 
 impl ContextWindowSource {
-    /// Short label shown in the header: `ctx N/K <configured|catalog|fallback>`.
-    /// The header is the CLI's; the desktop never renders one.
-    #[cfg(feature = "cli")]
-    pub(crate) fn label(self) -> &'static str {
-        match self {
-            ContextWindowSource::Configured => "configured",
-            ContextWindowSource::Provider => "provider",
-            ContextWindowSource::Catalog => "catalog",
-            ContextWindowSource::Fallback => "fallback",
-        }
-    }
 }
 
 /// Strip the configured provider qualifiers (`anthropic/...`) in front of a

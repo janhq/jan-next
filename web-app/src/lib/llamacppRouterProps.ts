@@ -2,7 +2,6 @@ import {
   ServiceKeys,
   type LlamacppService,
   type LocalEngineService,
-  type MlxService,
 } from '@janhq/core'
 import { getExtensionHost } from '@/lib/extensions/host'
 
@@ -11,16 +10,12 @@ import { getExtensionHost } from '@/lib/extensions/host'
 export const getLlamacppExtension = (): LlamacppService | undefined =>
   getExtensionHost().services.get(ServiceKeys.Llamacpp)
 
-export const getMlxExtension = (): MlxService | undefined =>
-  getExtensionHost().services.get(ServiceKeys.Mlx)
-
 /** Local providers expose a launched context window via `getModelProps`; remote
- *  providers have none. Returns undefined for anything but llamacpp/mlx. */
+ *  providers have none. Returns undefined for anything but llamacpp. */
 export const getLocalPropsExtension = (
   provider?: string
 ): LocalEngineService | undefined => {
   if (provider === 'llamacpp') return getLlamacppExtension()
-  if (provider === 'mlx') return getMlxExtension()
   return undefined
 }
 

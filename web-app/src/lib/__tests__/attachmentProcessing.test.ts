@@ -37,7 +37,7 @@ vi.mock('@/lib/llamacppRouterProps', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/llamacppRouterProps')>()),
   getLocalPropsExtension: (provider: string) =>
     propsExtensionAvailable &&
-    (provider === 'llamacpp' || provider === 'mlx')
+    provider === 'llamacpp'
       ? { getModelProps: getModelPropsMock }
       : undefined,
 }))

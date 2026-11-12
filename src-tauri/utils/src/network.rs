@@ -181,23 +181,18 @@ pub fn find_process_using_port(port: u16) -> Option<ProcessUsingPort> {
         find_process_using_port_unix(port)
     }
 
-    #[cfg(target_os = "linux")]
-    {
-        find_process_using_port_unix(port)
-    }
-
     #[cfg(target_os = "windows")]
     {
         find_process_using_port_windows(port)
     }
 
-    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
         None
     }
 }
 
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(target_os = "macos")]
 fn find_process_using_port_unix(port: u16) -> Option<ProcessUsingPort> {
     use std::process::Command;
 
@@ -283,7 +278,7 @@ fn find_process_using_port_windows(port: u16) -> Option<ProcessUsingPort> {
     None
 }
 
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(target_os = "macos")]
 fn get_process_command_line(pid: u32) -> Option<Vec<String>> {
     use std::process::Command;
 
@@ -348,7 +343,7 @@ fn get_process_command_line(pid: u32) -> Option<Vec<String>> {
 /// Get process information by PID
 /// Returns None if process doesn't exist or cannot be determined
 pub fn get_process_info_by_pid(pid: u32) -> Option<ProcessUsingPort> {
-    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    #[cfg(target_os = "macos")]
     {
         get_process_info_by_pid_unix(pid)
     }
@@ -358,13 +353,13 @@ pub fn get_process_info_by_pid(pid: u32) -> Option<ProcessUsingPort> {
         get_process_info_by_pid_windows(pid)
     }
 
-    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
         None
     }
 }
 
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(target_os = "macos")]
 fn get_process_info_by_pid_unix(pid: u32) -> Option<ProcessUsingPort> {
     use std::process::Command;
 

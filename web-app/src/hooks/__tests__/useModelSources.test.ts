@@ -67,7 +67,6 @@ describe('useModelSources', () => {
           downloads: 100,
           num_quants: 1,
           quants: [{ model_id: 'model-1-q4', path: '/path/1', file_size: '1GB' }],
-          is_mlx: false,
         },
         {
           model_name: 'model-2',
@@ -76,7 +75,6 @@ describe('useModelSources', () => {
           downloads: 200,
           num_quants: 1,
           quants: [{ model_id: 'model-2-q4', path: '/path/2', file_size: '2GB' }],
-          is_mlx: false,
         },
       ]
 
@@ -118,7 +116,6 @@ describe('useModelSources', () => {
           downloads: 50,
           num_quants: 1,
           quants: [{ model_id: 'existing-model-q4', path: '/path/existing', file_size: '1GB' }],
-          is_mlx: false,
         },
       ]
 
@@ -130,7 +127,6 @@ describe('useModelSources', () => {
           downloads: 150,
           num_quants: 1,
           quants: [{ model_id: 'new-model-q4', path: '/path/new', file_size: '2GB' }],
-          is_mlx: false,
         },
       ]
 
@@ -161,7 +157,6 @@ describe('useModelSources', () => {
           downloads: 100,
           num_quants: 1,
           quants: [{ model_id: 'duplicate-model-q4', path: '/path/old', file_size: '1GB' }],
-          is_mlx: false,
         },
         {
           model_name: 'unique-model',
@@ -170,7 +165,6 @@ describe('useModelSources', () => {
           downloads: 75,
           num_quants: 1,
           quants: [{ model_id: 'unique-model-q4', path: '/path/unique', file_size: '1GB' }],
-          is_mlx: false,
         },
       ]
 
@@ -182,7 +176,6 @@ describe('useModelSources', () => {
           downloads: 200,
           num_quants: 1,
           quants: [{ model_id: 'duplicate-model-q4-new', path: '/path/new', file_size: '2GB' }],
-          is_mlx: false,
         },
       ]
 
@@ -239,7 +232,6 @@ describe('useModelSources', () => {
           downloads: 100,
           num_quants: 1,
           quants: [{ model_id: 'model-1-q4', path: '/path/1', file_size: '1GB' }],
-          is_mlx: false,
         },
       ]
 
@@ -273,7 +265,6 @@ describe('useModelSources', () => {
           downloads: 100,
           num_quants: 1,
           quants: [{ model_id: 'shared-model-q4', path: '/path/shared', file_size: '1GB' }],
-          is_mlx: false,
         },
       ]
 
@@ -326,7 +317,6 @@ describe('useModelSources', () => {
           downloads: 100,
           num_quants: 1,
           quants: [{ model_id: 'model-1-q4', path: '/path/1', file_size: '1GB' }],
-          is_mlx: false,
         },
       ]
 
@@ -338,7 +328,6 @@ describe('useModelSources', () => {
           downloads: 200,
           num_quants: 1,
           quants: [{ model_id: 'model-2-q4', path: '/path/2', file_size: '2GB' }],
-          is_mlx: false,
         },
       ]
 
@@ -382,7 +371,6 @@ describe('useModelSources', () => {
           downloads: 100,
           num_quants: 1,
           quants: [{ model_id: 'recovery-model-q4', path: '/path/recovery', file_size: '1GB' }],
-          is_mlx: false,
         },
       ]
 

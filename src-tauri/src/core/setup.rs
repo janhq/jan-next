@@ -1,6 +1,4 @@
 use std::{fs, sync::Arc, time::Duration};
-#[cfg(target_os = "linux")]
-use std::path::PathBuf;
 use tauri::{App, AppHandle, Emitter, Listener, Manager, Runtime, WindowEvent, Wry};
 
 #[cfg(feature = "desktop")]
@@ -439,61 +437,12 @@ pub fn setup_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<TrayIcon<R>> 
 }
 
 pub fn setup_theme_listener<R: Runtime>(app: &App<R>) -> tauri::Result<()> {
-    // Setup GTK window theme listener for main window
+    // Window theme listener for the main window
     if let Some(window) = app.get_webview_window("main") {
         setup_window_theme_listener(app.handle().clone(), window);
     }
 
-    // On Linux, also listen to XDG Desktop Portal color-scheme changes via D-Bus.
-    // This is needed because KDE Plasma and some other desktop environments
-    // don't always update GTK settings when the system theme changes,
-    // which means the GTK WindowEvent::ThemeChanged may never fire.
-    #[cfg(target_os = "linux")]
-    {
-        let app_handle = app.handle().clone();
-        tauri::async_runtime::spawn(async move {
-            if let Err(e) = setup_xdg_portal_theme_listener(app_handle).await {
-                log::warn!("Failed to setup XDG Desktop Portal theme listener: {e}");
-                log::warn!("System theme changes from KDE/non-GNOME DEs may not be detected");
-            }
-        });
-    }
-
     Ok(())
-}
-
-/// Read the current XDG Desktop Portal `org.freedesktop.appearance/color-scheme`
-/// setting. Returns "dark", "light", or `None` if the portal reports no preference
-/// or is unavailable.
-#[cfg(target_os = "linux")]
-async fn read_xdg_portal_color_scheme() -> Result<Option<&'static str>, Box<dyn std::error::Error>>
-{
-    use zbus::Connection;
-
-    let connection = Connection::session().await?;
-    let proxy: zbus::Proxy<'_> = zbus::proxy::Builder::new(&connection)
-        .destination("org.freedesktop.portal.Desktop")?
-        .path("/org/freedesktop/portal/desktop")?
-        .interface("org.freedesktop.portal.Settings")?
-        .build()
-        .await?;
-
-    let reply: zbus::zvariant::OwnedValue = proxy
-        .call("Read", &("org.freedesktop.appearance", "color-scheme"))
-        .await?;
-
-    let inner: zbus::zvariant::OwnedValue = match reply.downcast_ref::<zbus::zvariant::Value>() {
-        Ok(v) => v.try_to_owned()?,
-        Err(_) => reply,
-    };
-    let color_scheme = u32::try_from(inner).unwrap_or(0);
-    // GNOME emits 0 ("no preference") for light, 1 for dark, 2 for explicit
-    // light (rare). Treat 0 and 2 as light so light↔dark toggles work on both
-    // GNOME and KDE/freedesktop-compliant DEs.
-    Ok(match color_scheme {
-        1 => Some("dark"),
-        _ => Some("light"),
-    })
 }
 
 /// Window-control placement split by side. Values are `"minimize"`,
@@ -518,131 +467,15 @@ impl Default for TitlebarLayout {
     }
 }
 
-/// Read the desktop's window-button layout so the borderless titlebar can place
-/// min/max/close on the side the user configured (KDE `kwinrc`, GNOME gsettings).
-/// Falls back to all-on-the-right on non-Linux or when the config is unreadable.
+/// macOS and Windows both place the controls themselves or on the right, so the
+/// borderless titlebar always gets the default layout.
 #[tauri::command]
 pub fn get_titlebar_layout() -> TitlebarLayout {
-    #[cfg(target_os = "linux")]
-    {
-        let desktop = std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default();
-        let is_kde = desktop.split(':').any(|d| d.eq_ignore_ascii_case("KDE"));
-        let layout = if is_kde {
-            read_kde_button_layout()
-        } else {
-            read_gnome_button_layout()
-        };
-        if let Some(layout) = layout {
-            return layout;
-        }
-    }
     TitlebarLayout::default()
-}
-
-/// Parse `~/.config/kwinrc` `[org.kde.kdecoration2]` button codes
-/// (`I`=minimize, `A`=maximize, `X`=close; others ignored). Defaults match
-/// KDE's own (`MS` left / `IAX` right) when the keys are absent.
-#[cfg(target_os = "linux")]
-fn read_kde_button_layout() -> Option<TitlebarLayout> {
-    let home = std::env::var("HOME").ok()?;
-    let content =
-        fs::read_to_string(PathBuf::from(home).join(".config/kwinrc")).unwrap_or_default();
-
-    let mut left = "MS".to_string();
-    let mut right = "IAX".to_string();
-    let mut in_section = false;
-    for line in content.lines() {
-        let line = line.trim();
-        if line.starts_with('[') {
-            in_section = line == "[org.kde.kdecoration2]";
-        } else if in_section {
-            if let Some(v) = line.strip_prefix("ButtonsOnLeft=") {
-                left = v.trim().to_string();
-            } else if let Some(v) = line.strip_prefix("ButtonsOnRight=") {
-                right = v.trim().to_string();
-            }
-        }
-    }
-
-    let codes = |s: &str| -> Vec<String> {
-        s.chars()
-            .filter_map(|c| match c {
-                'I' => Some("minimize".to_string()),
-                'A' => Some("maximize".to_string()),
-                'X' => Some("close".to_string()),
-                _ => None,
-            })
-            .collect()
-    };
-    Some(TitlebarLayout {
-        left: codes(&left),
-        right: codes(&right),
-    })
-}
-
-/// Read GNOME's `button-layout` (`"appmenu:minimize,maximize,close"`); the side
-/// before `:` is the left cluster. Unknown tokens (appmenu/icon/spacer) ignored.
-#[cfg(target_os = "linux")]
-fn read_gnome_button_layout() -> Option<TitlebarLayout> {
-    let output = std::process::Command::new("gsettings")
-        .args(["get", "org.gnome.desktop.wm.preferences", "button-layout"])
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    let raw = String::from_utf8_lossy(&output.stdout);
-    let raw = raw.trim().trim_matches('\'');
-    let (left, right) = raw.split_once(':').unwrap_or(("", raw));
-
-    let tokens = |s: &str| -> Vec<String> {
-        s.split(',')
-            .filter_map(|t| match t.trim() {
-                "minimize" => Some("minimize".to_string()),
-                "maximize" => Some("maximize".to_string()),
-                "close" => Some("close".to_string()),
-                _ => None,
-            })
-            .collect()
-    };
-    Some(TitlebarLayout {
-        left: tokens(left),
-        right: tokens(right),
-    })
-}
-
-/// Flip GTK's `gtk-application-prefer-dark-theme` so the native Wayland
-/// HeaderBar follows the app's effective theme (user override or system).
-/// No-op on non-Linux.
-#[tauri::command]
-pub fn set_gtk_prefer_dark(dark: bool) {
-    #[cfg(target_os = "linux")]
-    {
-        use gtk::prelude::*;
-        // GTK objects are not Send; bounce onto the GTK main thread.
-        gtk::glib::MainContext::default().invoke(move || {
-            if let Some(settings) = gtk::Settings::default() {
-                settings.set_gtk_application_prefer_dark_theme(dark);
-            }
-        });
-    }
-    #[cfg(not(target_os = "linux"))]
-    {
-        let _ = dark;
-    }
 }
 
 #[tauri::command]
 pub async fn get_system_theme<R: Runtime>(app: tauri::AppHandle<R>) -> Result<String, String> {
-    #[cfg(target_os = "linux")]
-    {
-        match read_xdg_portal_color_scheme().await {
-            Ok(Some(theme)) => return Ok(theme.to_string()),
-            Ok(None) => {}
-            Err(e) => log::warn!("get_system_theme: portal read failed: {e}"),
-        }
-    }
-
     if let Some(window) = app.get_webview_window("main") {
         if let Ok(theme) = window.theme() {
             return Ok(match theme {
@@ -652,65 +485,6 @@ pub async fn get_system_theme<R: Runtime>(app: tauri::AppHandle<R>) -> Result<St
         }
     }
     Ok("light".to_string())
-}
-
-/// Listen to the XDG Desktop Portal `org.freedesktop.appearance` `color-scheme`
-/// setting via D-Bus. This fires reliably on KDE Plasma, GNOME, and other
-/// freedesktop-compliant desktop environments.
-#[cfg(target_os = "linux")]
-async fn setup_xdg_portal_theme_listener<R: Runtime>(
-    app_handle: tauri::AppHandle<R>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    use futures_util::StreamExt;
-    use zbus::Connection;
-
-    let connection = Connection::session().await?;
-
-    // Build a proxy for the XDG Desktop Portal Settings interface
-    let proxy: zbus::Proxy<'_> = zbus::proxy::Builder::new(&connection)
-        .destination("org.freedesktop.portal.Desktop")?
-        .path("/org/freedesktop/portal/desktop")?
-        .interface("org.freedesktop.portal.Settings")?
-        .build()
-        .await?;
-
-    // Listen for all SettingChanged signals and filter for color-scheme
-    let mut signal_stream = proxy.receive_signal("SettingChanged").await?;
-
-    log::info!("XDG Desktop Portal theme listener active");
-
-    // Emit the current value so the frontend doesn't have to wait for the first
-    // SettingChanged signal to learn the system color-scheme on startup.
-    match read_xdg_portal_color_scheme().await {
-        Ok(Some(theme_str)) => {
-            log::info!("XDG Portal: initial system color-scheme: {theme_str}");
-            let _ = app_handle.emit("theme-changed", theme_str);
-        }
-        Ok(None) => log::info!("XDG Portal: initial color-scheme is 'no preference'"),
-        Err(e) => log::warn!("XDG Portal: initial Read failed: {e}"),
-    }
-
-    while let Some(signal) = signal_stream.next().await {
-        let body = signal.body();
-        if let Ok((namespace, key, value)) =
-            body.deserialize::<(String, String, zbus::zvariant::OwnedValue)>()
-        {
-            if namespace == "org.freedesktop.appearance" && key == "color-scheme" {
-                // color-scheme values: 0 = no preference, 1 = prefer dark, 2 = prefer light
-                let color_scheme = u32::try_from(value).unwrap_or(0);
-                let theme_str = match color_scheme {
-                    1 => "dark",
-                    _ => "light",
-                };
-                log::info!(
-                    "XDG Portal: system color-scheme changed to: {theme_str} (raw value: {color_scheme})"
-                );
-                let _ = app_handle.emit("theme-changed", theme_str);
-            }
-        }
-    }
-
-    Ok(())
 }
 
 fn setup_window_theme_listener<R: Runtime>(

@@ -106,19 +106,6 @@ pub async fn register_provider_config(
     Ok(())
 }
 
-/// Replace the per-model sampling defaults the API server injects for MLX
-/// requests. The frontend pushes the full map (model id → request-body object),
-/// so this overwrites wholesale rather than merging.
-#[tauri::command]
-pub async fn set_model_param_defaults(
-    state: State<'_, AppState>,
-    defaults: std::collections::HashMap<String, serde_json::Value>,
-) -> Result<(), String> {
-    let mut guard = state.model_param_defaults.lock().await;
-    *guard = defaults;
-    Ok(())
-}
-
 /// Drop a provider's in-memory config, reporting whether it was present. Pure:
 /// touches only the map, never the persisted keyring secret.
 fn remove_provider_config(

@@ -123,10 +123,6 @@ vi.mock('@/mock/data', () => ({
   ],
 }))
 
-vi.mock('lodash/cloneDeep', () => ({
-  default: (obj: any) => JSON.parse(JSON.stringify(obj)),
-}))
-
 vi.mock('sonner', () => ({
   toast: {
     error: vi.fn(),

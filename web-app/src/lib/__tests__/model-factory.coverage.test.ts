@@ -77,11 +77,6 @@ vi.mock('@/lib/platform/utils', () => ({
   isPlatformTauri: vi.fn(() => false),
 }))
 
-const mlxMock = vi.hoisted(() => ({ findSession: vi.fn() }))
-vi.mock('@/lib/llamacppRouterProps', () => ({
-  getMlxExtension: () => mlxMock,
-}))
-
 vi.mock('@/lib/provider-api-keys', () => ({
   providerRemoteApiKeyChain: vi.fn((p: any) => {
     const primary = p.api_key?.trim()
@@ -231,20 +226,6 @@ describe('ModelFactory - coverage', () => {
     await expect(
       ModelFactory.createModel('llama-model', mkProvider('llamacpp'), {})
     ).rejects.toThrow('No running session found')
-  })
-
-  it('creates mlx model from the session the mlx service reports', async () => {
-    mlxMock.findSession.mockResolvedValue({ port: 9090, api_key: 'mlx-key' })
-    const model = await ModelFactory.createModel('mlx-model', mkProvider('mlx'), {})
-    expect(model).toBeDefined()
-    expect(mlxMock.findSession).toHaveBeenCalledWith('mlx-model')
-  })
-
-  it('throws when no mlx session found', async () => {
-    mlxMock.findSession.mockResolvedValue(null)
-    await expect(
-      ModelFactory.createModel('mlx-model', mkProvider('mlx'), {})
-    ).rejects.toThrow('No running MLX session found')
   })
 
 })

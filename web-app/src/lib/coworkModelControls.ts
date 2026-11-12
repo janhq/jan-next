@@ -22,7 +22,7 @@ export function coworkLocalModel(
   if (
     !provider ||
     provider.active === false ||
-    (provider.provider !== 'llamacpp' && provider.provider !== 'mlx')
+    provider.provider !== 'llamacpp'
   )
     return undefined
   return provider.models.find((model) => model.id === modelId)

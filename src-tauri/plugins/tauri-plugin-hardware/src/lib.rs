@@ -11,7 +11,7 @@ pub use types::*;
 use std::sync::RwLock;
 use tauri::Runtime;
 
-/// Cached system info. Uses Option so we can invalidate on Linux after sleep/resume
+/// Cached system info. Uses Option so it can be invalidated by `refresh_system_info`.
 /// (GPU detection can return empty until the driver is ready again).
 static SYSTEM_INFO: RwLock<Option<SystemInfo>> = RwLock::new(None);
 

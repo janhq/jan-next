@@ -195,19 +195,6 @@
     "proxyTimeout": "Temps d’espera de la sol·licitud",
     "proxyTimeoutDesc": "Temps d’espera d’una resposta del model local, en segons."
   },
-  "privacy": {
-    "analytics": "Analítica",
-    "helpUsImprove": "Ajuda’ns a millorar",
-    "helpUsImproveDesc": "Per ajudar-nos a millorar Jan, pots compartir dades anònimes com l’ús de funcions i el nombre d’usuaris. Mai recopilem els teus xats ni informació personal.",
-    "privacyPolicy": "Tens el control total de les teves dades. Més informació a la nostra política de privadesa.",
-    "analyticsDesc": "Per millorar Jan, necessitem entendre com s’utilitza — però només amb el teu consentiment. Pots canviar aquest ajust quan vulguis.",
-    "privacyPromises": "Aquesta elecció no canvia els nostres compromisos de privadesa:",
-    "promise1": "Les teves converses continuen sent privades i es mantenen al teu dispositiu",
-    "promise2": "Mai recopilem la teva informació personal ni el contingut dels xats",
-    "promise3": "Qualsevol dada compartida és anònima i agregada",
-    "promise4": "Pots desactivar-ho quan vulguis sense perdre funcionalitats",
-    "promise5": "Som transparents sobre què recopilem i per què"
-  },
   "general": {
     "showInFinder": "Mostra-ho al Finder",
     "showInFileExplorer": "Mostra-ho a l’Explorador de fitxers",
@@ -216,13 +203,7 @@
     "couldNotRelocateToRoot": "No es pot traslladar la carpeta de dades a l’arrel. Tria una altra ubicació.",
     "couldNotResetRootDirectory": "No es pot restablir la carpeta de dades quan és a l’arrel. Suprimeix-la manualment.",
     "failedToRelocateDataFolderDesc": "No s’ha pogut traslladar la carpeta de dades. Torna-ho a provar.",
-    "devVersion": "S’ha detectat la versió de desenvolupament",
-    "noUpdateAvailable": "Ja utilitzes l’última versió",
-    "updateError": "No s’han pogut cercar actualitzacions",
     "appVersion": "Versió de l’app",
-    "checkForUpdates": "Cerca actualitzacions",
-    "checkForUpdatesDesc": "Comprova si hi ha una versió més recent de Jan.",
-    "checkingForUpdates": "S’estan cercant actualitzacions...",
     "copied": "Copiat",
     "copyPath": "Copia el camí",
     "changeLocation": "Canvia la ubicació",

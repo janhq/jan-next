@@ -22,10 +22,10 @@ pub mod workspace;
 mod commands;
 
 /// Webview-backed `screenshot` renderer, so the tool works without Chrome, on
-/// all three desktop platforms; other targets keep the Chrome path.
+/// both desktop platforms; other targets keep the Chrome path.
 #[cfg(all(
     feature = "tauri",
-    any(target_os = "linux", target_os = "macos", target_os = "windows")
+    any(target_os = "macos", target_os = "windows")
 ))]
 mod webview_shot;
 

@@ -32,8 +32,6 @@ fn compute_system_info() -> SystemInfo {
         "windows"
     } else if cfg!(target_os = "macos") {
         "macos"
-    } else if cfg!(target_os = "linux") {
-        "linux"
     } else {
         "unknown"
     };
@@ -67,12 +65,10 @@ pub fn get_system_info() -> SystemInfo {
 }
 
 /// Invalidates cached hardware info so the next get_system_info() re-detects GPUs.
-/// Call this after system resume on Linux to fix "No GPU detected" (driver state is
+/// Call this after system resume to fix "No GPU detected" (driver state is
 /// reset after sleep and the previous cache may be stale or empty).
 #[tauri::command]
 pub fn refresh_system_info() {
-    #[cfg(target_os = "linux")]
-    nvidia::invalidate_nvml();
     let mut guard = SYSTEM_INFO.write().unwrap_or_else(|e| e.into_inner());
     *guard = None;
 }

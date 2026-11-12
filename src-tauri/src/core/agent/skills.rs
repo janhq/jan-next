@@ -53,8 +53,8 @@ pub enum SkillScope {
     Builtin,
 }
 
-#[cfg(any(feature = "cli", test))]
-#[cfg_attr(not(feature = "cli"), allow(dead_code))]
+#[cfg(test)]
+#[allow(dead_code)]
 impl SkillScope {
     pub(crate) fn label(self) -> &'static str {
         match self {
@@ -296,7 +296,7 @@ fn canonical(file: &Path) -> PathBuf {
 
 /// A skill that lost to a higher-precedence one of the same name.
 #[derive(Debug, Clone)]
-#[cfg_attr(not(any(feature = "cli", test)), allow(dead_code))]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct Shadowed {
     pub entry: SkillEntry,
     /// The scope of the skill that wins.
@@ -373,9 +373,7 @@ pub(crate) fn walk_markdown_files(dir: &Path, visit: &mut dyn FnMut(&Path)) {
 }
 
 /// The machine-generated wrapper line for a skill/command invocation message.
-/// `cli::invocation_label` parses exactly this shape back into a compact
-/// transcript label on resume, so every producer uses this one helper and the
-/// parser's expectations cannot silently drift from what is written.
+/// every producer uses this one helper so the shape cannot drift.
 pub(crate) fn invocation_wrapper(name: &str, kind: &str) -> String {
     format!(
         "[IMPORTANT: You have invoked the \"{name}\" {kind} - follow its instructions. The full {kind} content is loaded below.]"
@@ -450,8 +448,8 @@ pub(crate) fn discover_layers(root: &Path) -> (Vec<SkillEntry>, Vec<Shadowed>) {
 
 /// One row of the `/skills` listing: every discovered skill, its scope, and
 /// which scope shadows it, if any. Sorted by name, winners before losers.
-#[cfg(any(feature = "cli", test))]
-#[cfg_attr(not(feature = "cli"), allow(dead_code))]
+#[cfg(test)]
+#[allow(dead_code)]
 pub(crate) struct SkillReportRow {
     pub name: String,
     pub scope: SkillScope,
@@ -465,7 +463,7 @@ pub(crate) struct SkillReportRow {
 /// The `/skills` listing: active skills (both invocation sides), the built-in
 /// `jan` skill, and every shadowed entry, marked. `enabled` is the
 /// `[skills].enabled` whitelist, reported rather than filtered.
-#[cfg(any(feature = "cli", test))]
+#[cfg(test)]
 pub(crate) fn report(root: &Path, enabled: &[String]) -> Vec<SkillReportRow> {
     let (active, shadowed) = discover_layers(root);
     let row = |e: &SkillEntry, shadowed_by: Option<SkillScope>| {
@@ -745,24 +743,7 @@ pub(crate) fn user_catalog(root: &Path, enabled: &[String]) -> Vec<SkillMeta> {
     side_catalog(root, enabled, |p| p.user_invocable)
 }
 
-/// Every discovered skill (project + plugin + user), both invocation sides, ignoring
-/// the enabled whitelist — the full disk truth. This is what `/reload skills`
-/// diffs against the previous scan, so an edit or install shows up as an
-/// added/removed/changed entry regardless of who may invoke it.
-#[cfg(feature = "cli")]
-pub(crate) fn full_catalog(root: &Path) -> Vec<SkillMeta> {
-    side_catalog(root, &[], |_| true)
-}
 
-/// Metadata for every skill one plugin ships (both invocation sides), for the
-/// `/plugin list` view. The enabled whitelist is intentionally ignored here:
-/// the management view shows what the plugin contributes, not what is active.
-#[cfg(feature = "cli")]
-pub(crate) fn plugin_skill_metas(root: &Path, plugin: &str) -> Vec<SkillMeta> {
-    let mut metas = full_catalog(root);
-    metas.retain(|m| m.plugin.as_deref() == Some(plugin));
-    metas
-}
 
 /// Raw SKILL.md text (frontmatter included). Test-only: the desktop editor
 /// reads skills through the plugin crate's `read_raw` (which also resolves the
@@ -788,7 +769,7 @@ pub(crate) fn read_raw(root: &Path, name: &str) -> Result<String, String> {
 /// command (`/compact /skill:foo` is a command argument, not an invocation) or
 /// a local-execution sigil (`!cmd` / `$ cmd`), whose bodies routinely contain
 /// `/skill:` references that are not meant as skill invocations.
-#[cfg(any(feature = "cli", test))]
+#[cfg(test)]
 pub(crate) fn parse_invocation(text: &str) -> Option<(String, String)> {
     let trimmed = text.trim_start();
     if let Some(rest) = trimmed.strip_prefix("/skill:") {
@@ -1580,6 +1561,7 @@ mod tests {
         }
 
         /// Track a path created by the test itself (a symlink, say).
+        #[cfg(unix)]
         fn track(&mut self, path: std::path::PathBuf) {
             self.0.push(path);
         }

@@ -21,7 +21,7 @@ import { useServiceHub } from '@/hooks/useServiceHub'
 import { cn, getModelDisplayName } from '@/lib/utils'
 import { useTranslation } from '@/i18n/react-i18next-compat'
 import { useAppState } from '@/hooks/useAppState'
-import { paramsSettings, samplerKeysForProvider } from '@/lib/predefinedParams'
+import { paramsSettings, SAMPLER_DEFAULT_KEYS } from '@/lib/predefinedParams'
 
 type ModelSettingProps = {
   provider: ProviderObject
@@ -283,11 +283,11 @@ export function ModelSettingFields({ model, provider }: ModelSettingProps) {
               onChange={handleTemplateKwargsChange}
             />
           )}
-          {(provider.provider === 'llamacpp' || provider.provider === 'mlx') &&
+          {provider.provider === 'llamacpp' &&
             model.embedding !== true && (
               <SamplerDefaults
                 model={model}
-                keys={samplerKeysForProvider(provider.provider)}
+                keys={SAMPLER_DEFAULT_KEYS}
                 onChange={handleSettingChange}
               />
             )}
@@ -330,13 +330,6 @@ export function ModelSettingFields({ model, provider }: ModelSettingProps) {
             acc.push(entry)
             return acc
           }, [])
-          .filter(([key]) => {
-            // MLX models only support context size setting
-            if (provider.provider === 'mlx') {
-              return key === 'ctx_len'
-            }
-            return true
-          })
           .map(([key, value]) => {
             const config = value as ProviderSetting
             return (

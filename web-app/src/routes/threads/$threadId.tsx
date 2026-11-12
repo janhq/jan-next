@@ -559,7 +559,7 @@ function ThreadDetail() {
 
   // These signals come from the llamacpp router via global Tauri events.
   // Mask them when the active provider isn't llamacpp so a router crash
-  // doesn't decorate chats running against MLX / OpenAI / Anthropic / etc.
+  // doesn't decorate chats running against OpenAI / Anthropic / etc.
   const isLlamacppActive = selectedProvider === 'llamacpp'
   const oomError = isLlamacppActive ? oomErrorRaw : undefined
   const backendError = isLlamacppActive ? backendErrorRaw : undefined

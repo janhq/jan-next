@@ -16,8 +16,6 @@ export const localStorageKey = {
   settingChatShell: 'setting-chat-shell',
   settingHardware: 'setting-hardware',
   settingVulkan: 'setting-vulkan',
-  productAnalyticPrompt: 'productAnalyticPrompt',
-  productAnalytic: 'productAnalytic',
   toolApproval: 'tool-approval',
   toolAvailability: 'tool-availability',
   mcpGlobalPermissions: 'mcp-global-permissions',

@@ -222,22 +222,6 @@ pub(crate) fn strip_billing_header_in_body(body: &mut serde_json::Value) {
     }
 }
 
-/// Fills in top-level sampling defaults the caller omitted. Used for MLX
-/// targets, which (unlike the llama.cpp router) have no preset to carry
-/// server-side defaults. `defaults` is already in the target's key form
-/// (e.g. `repetition_penalty`, not `repeat_penalty`); a present key is never
-/// overwritten, so a per-request value always wins.
-pub(crate) fn inject_sampling_defaults(body: &mut serde_json::Value, defaults: &serde_json::Value) {
-    let (Some(obj), Some(defaults_obj)) = (body.as_object_mut(), defaults.as_object()) else {
-        return;
-    };
-    for (k, v) in defaults_obj {
-        if !obj.contains_key(k) {
-            obj.insert(k.clone(), v.clone());
-        }
-    }
-}
-
 /// Convert Anthropic message format to OpenAI format
 pub(crate) fn convert_messages(
     anth_messages: &serde_json::Value,
@@ -625,8 +609,6 @@ pub fn get_destination_path(original_path: &str, prefix: &str) -> String {
     remove_prefix(original_path, prefix)
 }
 
-use crate::core::server::MlxBackendSession;
-
 /// The loopback endpoint local-model requests are forwarded to: the engine
 /// worker's `/v1` surface, or None when no engine is running.
 pub(crate) async fn engine_upstream(
@@ -696,9 +678,7 @@ async fn proxy_request(
     client: Client,
     config: ProxyConfig,
     llama_state: Arc<LlamacppState>,
-    mlx_sessions: Arc<Mutex<HashMap<i32, MlxBackendSession>>>,
     provider_configs: Arc<Mutex<HashMap<String, ProviderConfig>>>,
-    model_param_defaults: Arc<Mutex<HashMap<String, serde_json::Value>>>,
     mcp_servers: SharedMcpServers,
     mcp_settings: Arc<Mutex<McpSettings>>,
     jan_data_folder: String,
@@ -984,9 +964,6 @@ async fn proxy_request(
     // Set when the resolved remote provider fronts a non-chat/completions native
     // API; drives request rewrite + response translation back to chat shape.
     let mut upstream_converter: Option<Box<dyn UpstreamConverter>> = None;
-    // Model id when the request resolves to an MLX session — MLX has no preset,
-    // so sampling defaults are injected into the body before forwarding.
-    let mut mlx_model_id: Option<String> = None;
 
     match (method.clone(), destination_path.as_str()) {
         // Anthropic /messages endpoint - tries /messages first, falls back to /chat/completions on error
@@ -1054,7 +1031,6 @@ async fn proxy_request(
                             &crate::core::agent::upstream::agent_http_client(),
                             provider_configs.clone(),
                             llama_state.clone(),
-                            mlx_sessions.clone(),
                             mcp_servers.clone(),
                             mcp_settings.clone(),
                             &jan_data_folder,
@@ -1124,21 +1100,7 @@ async fn proxy_request(
                                 session_api_keys = provider_cfg.bearer_key_chain();
                             }
                         } else {
-                            let mlx_session_info = {
-                                let mlx_guard = mlx_sessions.lock().await;
-                                mlx_guard
-                                    .values()
-                                    .find(|s| s.info.model_id == model_id)
-                                    .map(|s| s.info.clone())
-                            };
-
-                            if let Some(info) = mlx_session_info {
-                                let target_port = info.port;
-                                session_api_keys = vec![info.api_key.clone()];
-                                mlx_model_id = Some(model_id.to_string());
-                                target_base_url =
-                                    Some(format!("http://127.0.0.1:{}/v1/messages", target_port));
-                            } else if let Some((url, key)) =
+if let Some((url, key)) =
                                 engine_upstream(&llama_state, "/messages").await
                             {
                                 session_api_keys = vec![key];
@@ -1345,7 +1307,7 @@ async fn proxy_request(
 
             // Resolve model to use for orchestration.
             let model_override = json_body.get("model").and_then(|v| v.as_str());
-            let mut model_id: Option<String>;
+            let model_id: Option<String>;
 
             if let Some(ov) = model_override {
                 model_id = Some(ov.to_string());
@@ -1355,17 +1317,9 @@ async fn proxy_request(
                     model_id = Some(trimmed.to_string());
                 } else {
                     model_id = router_first_model(&llama_state, &client).await;
-                    if model_id.is_none() {
-                        let mlx_guard = mlx_sessions.lock().await;
-                        model_id = mlx_guard.values().next().map(|s| s.info.model_id.clone());
-                    }
                 }
             } else {
                 model_id = router_first_model(&llama_state, &client).await;
-                if model_id.is_none() {
-                    let mlx_guard = mlx_sessions.lock().await;
-                    model_id = mlx_guard.values().next().map(|s| s.info.model_id.clone());
-                }
             }
 
             let model_id = match model_id {
@@ -1406,7 +1360,6 @@ async fn proxy_request(
                 &model_id,
                 provider_configs.clone(),
                 llama_state.clone(),
-                mlx_sessions.clone(),
             )
             .await
             {
@@ -1604,7 +1557,6 @@ async fn proxy_request(
                             &crate::core::agent::upstream::agent_http_client(),
                             provider_configs.clone(),
                             llama_state.clone(),
-                            mlx_sessions.clone(),
                             mcp_servers.clone(),
                             mcp_settings.clone(),
                             &jan_data_folder,
@@ -1696,10 +1648,6 @@ async fn proxy_request(
                                     // desktop has no OAuth account token here, so it
                                     // must keep the plain API-key scheme rather than
                                     // treat every anthropic provider as an account.
-                                    #[cfg(feature = "cli")]
-                                    let oauth = crate::core::cli::auth::account::
-                                        has_oauth_credential(&provider_cfg.provider);
-                                    #[cfg(not(feature = "cli"))]
                                     let oauth = false;
                                     converter_for(provider_cfg.api_type.as_deref(), oauth)
                                 } else {
@@ -1720,19 +1668,9 @@ async fn proxy_request(
                                 log::error!("Provider config not found for '{provider}'");
                             }
                         } else {
-                            let sessions_find_model = model_id;
-
-                            let mlx_session_info = {
-                                let mlx_guard = mlx_sessions.lock().await;
-                                mlx_guard
-                                    .values()
-                                    .find(|s| s.info.model_id == sessions_find_model)
-                                    .map(|s| s.info.clone())
-                            };
-
                             let router_up = engine_upstream(&llama_state, &destination_path).await;
 
-                            if mlx_session_info.is_none() && router_up.is_none() {
+                            if router_up.is_none() {
                                 log::warn!(
                                     "Request for model '{model_id}' but no models are running."
                                 );
@@ -1749,15 +1687,7 @@ async fn proxy_request(
                                     .unwrap());
                             }
 
-                            if let Some(info) = mlx_session_info {
-                                let target_port = info.port;
-                                session_api_keys = vec![info.api_key.clone()];
-                                mlx_model_id = Some(model_id.to_string());
-                                log::debug!("Found MLX session for model_id {model_id}");
-                                target_base_url = Some(format!(
-                                    "http://127.0.0.1:{target_port}/v1{destination_path}"
-                                ));
-                            } else if let Some((url, key)) = router_up {
+                            if let Some((url, key)) = router_up {
                                 log::debug!("Routing model_id {model_id} via llamacpp router");
                                 session_api_keys = vec![key];
                                 target_base_url = Some(url);
@@ -1824,22 +1754,6 @@ async fn proxy_request(
                 })
                 .collect();
 
-            // Get MLX sessions
-            let mlx_models: Vec<_> = {
-                let mlx_guard = mlx_sessions.lock().await;
-                mlx_guard
-                    .values()
-                    .map(|session| {
-                        serde_json::json!({
-                            "id": session.info.model_id,
-                            "object": "model",
-                            "created": 1,
-                            "owned_by": "mlx"
-                        })
-                    })
-                    .collect()
-            };
-
             // Get remote provider models
             let pc = provider_configs.lock().await;
             let remote_models: Vec<_> = pc
@@ -1857,13 +1771,11 @@ async fn proxy_request(
 
             // Store counts before moving
             let local_count = local_models.len();
-            let mlx_count = mlx_models.len();
             let remote_count = remote_models.len();
 
             // Combine all models
-            let mut all_models = Vec::with_capacity(local_count + mlx_count + remote_count);
+            let mut all_models = Vec::with_capacity(local_count + remote_count);
             all_models.extend(local_models);
-            all_models.extend(mlx_models);
             all_models.extend(remote_models);
 
             let response_json = serde_json::json!({
@@ -1886,10 +1798,9 @@ async fn proxy_request(
             );
 
             log::debug!(
-                "Returning {} models ({} llama.cpp, {} MLX, {} remote)",
+                "Returning {} models ({} llama.cpp, {} remote)",
                 all_models.len(),
                 local_count,
-                mlx_count,
                 remote_count
             );
 
@@ -2077,24 +1988,6 @@ async fn proxy_request(
             let native = converter.convert_request(&v);
             if let Ok(bytes) = serde_json::to_vec(&native) {
                 body_bytes_for_proxy = Bytes::from(bytes);
-            }
-        }
-    }
-
-    // MLX targets carry no router preset, so apply the model's stored sampling
-    // defaults here for keys the caller omitted (llamacpp uses the preset;
-    // remote providers are intentionally left untouched).
-    if let Some(mid) = &mlx_model_id {
-        let defaults = {
-            let guard = model_param_defaults.lock().await;
-            guard.get(mid).cloned()
-        };
-        if let Some(defaults) = defaults {
-            if let Ok(mut v) = serde_json::from_slice::<serde_json::Value>(&body_bytes_for_proxy) {
-                inject_sampling_defaults(&mut v, &defaults);
-                if let Ok(bytes) = serde_json::to_vec(&v) {
-                    body_bytes_for_proxy = Bytes::from(bytes);
-                }
             }
         }
     }
@@ -2480,7 +2373,6 @@ pub async fn is_server_running(server_handle: Arc<Mutex<Option<ServerHandle>>>) 
 pub async fn start_server(
     server_handle: Arc<Mutex<Option<ServerHandle>>>,
     llama_state: Arc<LlamacppState>,
-    mlx_sessions: Arc<Mutex<HashMap<i32, MlxBackendSession>>>,
     host: String,
     port: u16,
     prefix: String,
@@ -2488,7 +2380,6 @@ pub async fn start_server(
     trusted_hosts: Vec<Vec<String>>,
     proxy_timeout: u64,
     provider_configs: Arc<Mutex<HashMap<String, ProviderConfig>>>,
-    model_param_defaults: Arc<Mutex<HashMap<String, serde_json::Value>>>,
     mcp_servers: SharedMcpServers,
     mcp_settings: Arc<Mutex<McpSettings>>,
     jan_data_folder: String,
@@ -2498,7 +2389,6 @@ pub async fn start_server(
     start_server_internal(
         server_handle,
         llama_state,
-        mlx_sessions,
         host,
         port,
         prefix,
@@ -2506,7 +2396,6 @@ pub async fn start_server(
         trusted_hosts,
         proxy_timeout,
         provider_configs,
-        model_param_defaults,
         mcp_servers,
         mcp_settings,
         jan_data_folder,
@@ -2520,7 +2409,6 @@ pub async fn start_server(
 async fn start_server_internal(
     server_handle: Arc<Mutex<Option<ServerHandle>>>,
     llama_state: Arc<LlamacppState>,
-    mlx_sessions: Arc<Mutex<HashMap<i32, MlxBackendSession>>>,
     host: String,
     port: u16,
     prefix: String,
@@ -2528,7 +2416,6 @@ async fn start_server_internal(
     trusted_hosts: Vec<Vec<String>>,
     proxy_timeout: u64,
     provider_configs: Arc<Mutex<HashMap<String, ProviderConfig>>>,
-    model_param_defaults: Arc<Mutex<HashMap<String, serde_json::Value>>>,
     mcp_servers: SharedMcpServers,
     mcp_settings: Arc<Mutex<McpSettings>>,
     jan_data_folder: String,
@@ -2602,9 +2489,7 @@ async fn start_server_internal(
             let client = client.clone();
             let config = config.clone();
             let llama_state = llama_state.clone();
-            let mlx_sessions = mlx_sessions.clone();
             let provider_configs = provider_configs.clone();
-            let model_param_defaults = model_param_defaults.clone();
             let mcp_servers = mcp_servers.clone();
             let mcp_settings = mcp_settings.clone();
             let jan_data_folder = jan_data_folder.clone();
@@ -2613,9 +2498,7 @@ async fn start_server_internal(
                 let client = client.clone();
                 let config = config.clone();
                 let llama_state = llama_state.clone();
-                let mlx_sessions = mlx_sessions.clone();
                 let provider_configs = provider_configs.clone();
-                let model_param_defaults = model_param_defaults.clone();
                 let mcp_servers = mcp_servers.clone();
                 let mcp_settings = mcp_settings.clone();
                 let jan_data_folder = jan_data_folder.clone();
@@ -2631,9 +2514,7 @@ async fn start_server_internal(
                         client,
                         config,
                         llama_state,
-                        mlx_sessions,
                         provider_configs,
-                        model_param_defaults,
                         mcp_servers,
                         mcp_settings,
                         jan_data_folder,

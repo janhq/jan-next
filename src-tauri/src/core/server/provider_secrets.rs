@@ -293,7 +293,6 @@ pub fn load_provider_keys(provider: &str) -> Vec<String> {
 
 /// Store a single generic secret (e.g. the Hugging Face token) under `key`.
 /// Empty value deletes it. Backed by the same keyring/encrypted-file store.
-#[cfg(not(feature = "cli"))]
 #[tauri::command]
 pub async fn set_secret(key: String, value: String) -> Result<(), String> {
     // Keyring/file access is blocking; keep it off the main (UI) thread.
@@ -328,17 +327,8 @@ pub fn delete_secret_record(key: &str) -> Result<(), String> {
     delete_provider_keys(&format!("auth:{key}"))
 }
 
-/// Force the encrypted-file fallback for the rest of the process. Test-only:
-/// lets unit tests exercise the file path without touching the developer's
-/// keychain. Every caller is a `cli`-feature test, so the desktop build would
-/// otherwise carry it unused.
-#[cfg(all(test, feature = "cli"))]
-pub(crate) fn force_file_secrets() {
-    KEYRING_DOWN.store(true, Ordering::Relaxed);
-}
 
 /// Read a single generic secret stored via `set_secret`. None when absent.
-#[cfg(not(feature = "cli"))]
 #[tauri::command]
 pub async fn get_secret(key: String) -> Option<String> {
     tauri::async_runtime::spawn_blocking(move || load_provider_keys(&key).into_iter().next())
@@ -458,7 +448,7 @@ mod tests {
     }
 
     /// The Secret Service backend is async underneath, and `load_provider_keys`
-    /// is sync and reached from async CLI paths (`cli::providers`). zbus's
+    /// is sync and reached from async paths. zbus's
     /// `tokio` `block_on` drives a runtime of its own, which panics when it is
     /// already inside one; the `async-io` feature must be what is selected.
     #[tokio::test]

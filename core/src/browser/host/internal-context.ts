@@ -20,7 +20,7 @@ export interface HostSecretsReader {
 }
 
 /**
- * `fetch` for Jan's own servers on loopback (the llama.cpp engine, MLX). The
+ * `fetch` for Jan's own servers on loopback (the llama.cpp engine). The
  * host sends it from the native HTTP client with every proxy bypassed, so a
  * system, environment or VPN proxy never captures a local request; the body
  * streams as it arrives. `connectTimeout` is in milliseconds. Never for a

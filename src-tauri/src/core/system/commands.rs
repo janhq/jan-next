@@ -189,7 +189,7 @@ pub fn sweep_reset_trash<R: Runtime>(app_handle: &tauri::AppHandle<R>) {
 }
 
 /// Clear the WebKit/WRY webview profile (localStorage, cookies, IndexedDB,
-/// updater state) stored in the bundle-id app-data dir (e.g. `jan.ai.app/`).
+/// stale state) stored in the bundle-id app-data dir (e.g. `jan.ai.app/`).
 /// Distinct from the product-name data folder; only removed on explicit opt-in.
 fn clear_webview_profile<R: Runtime>(
     app_handle: &tauri::AppHandle<R>,
@@ -682,6 +682,7 @@ fn admin_write_shell_profile(env_file_path: &str, _content: &str) -> Result<(), 
 
 /// Turn the osascript result of the admin copy into an error when it failed,
 /// e.g. because the user cancelled the password prompt.
+#[cfg(unix)]
 fn check_admin_copy(output: &std::process::Output, env_file_path: &str) -> Result<(), String> {
     if output.status.success() {
         Ok(())
@@ -778,7 +779,6 @@ pub async fn factory_reset<R: Runtime>(
 
     // Hide rather than close: now that the event loop keeps running, closing
     // the last window would start a normal app exit in the middle of the wipe.
-    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     {
         let windows = app_handle.webview_windows();
         for (label, window) in windows.iter() {
@@ -1013,32 +1013,6 @@ fn write_claude_code_env_vars(env_vars: &[(String, String)]) -> Result<(), Strin
                 Ok(())
             }
         }
-    } else if cfg!(target_os = "linux") {
-        let home_dir = std::env::var("HOME").map_err(|e| e.to_string())?;
-        let (shell_name, env_file_path) = detect_shell_env_file(&home_dir, false);
-        log::info!(
-            "Detected shell: {}, writing env to: {}",
-            shell_name,
-            env_file_path
-        );
-
-        match std::fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .open(&env_file_path)
-        {
-            Ok(_) => {
-                write_env_to_shell(&env_file_path, env_vars)?;
-                Ok(())
-            }
-            Err(_) => {
-                let jan_config_dir = format!("{}/.config/jan", home_dir);
-                let ext = if shell_name == "bash" { "bash" } else { "zsh" };
-                let env_file = format!("{}/claude-code-env.{}", jan_config_dir, ext);
-                Err(format!("NEED_PERMISSION:{}", env_file))
-            }
-        }
     } else {
         // On Windows, set persistent user environment variables using setx
         for (key, value) in env_vars {
@@ -1099,29 +1073,6 @@ pub fn clear_claude_code_env() -> Result<(), String> {
                 );
                 Ok(())
             }
-        }
-    } else if cfg!(target_os = "linux") {
-        let home_dir = std::env::var("HOME").map_err(|e| e.to_string())?;
-        let (shell_name, env_file_path) = detect_shell_env_file(&home_dir, false);
-        log::info!(
-            "Clearing CC env from shell: {}, file: {}",
-            shell_name,
-            env_file_path
-        );
-
-        let cleaned = build_cleaned_env_content(&env_file_path)?;
-
-        match std::fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .open(&env_file_path)
-        {
-            Ok(_) => {
-                std::fs::write(&env_file_path, &cleaned).map_err(|e| e.to_string())?;
-                Ok(())
-            }
-            Err(_) => Err(format!("NEED_PERMISSION:{}", env_file_path)),
         }
     } else {
         // Windows: delete the persistent user env vars from the registry

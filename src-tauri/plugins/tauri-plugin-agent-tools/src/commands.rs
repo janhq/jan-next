@@ -354,7 +354,7 @@ pub fn tool_schemas() -> Vec<serde_json::Value> {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SandboxStatus {
-    /// Backend name for display: `bubblewrap`, `seatbelt`, `appcontainer`, `none`.
+    /// Backend name for display: `seatbelt`, `appcontainer`, `none`.
     pub backend: String,
     pub enforces: bool,
 }
@@ -364,7 +364,7 @@ pub struct SandboxStatus {
 /// model turn and reads as a bug, so the tool list is built from this.
 #[tauri::command]
 pub async fn sandbox_status() -> Result<SandboxStatus, AgentToolsError> {
-    // The first call probes bubblewrap in a subprocess. Cached afterwards, but
+    // The first call probes the backend. Cached afterwards, but
     // keep even that one call off the async runtime's thread.
     let backend = tokio::task::spawn_blocking(jail::backend)
         .await
@@ -810,11 +810,11 @@ pub async fn execute_tool<R: tauri::Runtime>(
     .await
 }
 
-/// The webview-backed `screenshot` renderer on the desktop (Linux, macOS,
+/// The webview-backed `screenshot` renderer on the desktop (macOS and
 /// Windows); `None` everywhere else, which renders through headless Chrome.
 #[cfg(all(
     feature = "tauri",
-    any(target_os = "linux", target_os = "macos", target_os = "windows")
+    any(target_os = "macos", target_os = "windows")
 ))]
 fn screenshot_backend<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
@@ -824,7 +824,7 @@ fn screenshot_backend<R: tauri::Runtime>(
 
 #[cfg(not(all(
     feature = "tauri",
-    any(target_os = "linux", target_os = "macos", target_os = "windows")
+    any(target_os = "macos", target_os = "windows")
 )))]
 fn screenshot_backend<R: tauri::Runtime>(
     _app: &tauri::AppHandle<R>,

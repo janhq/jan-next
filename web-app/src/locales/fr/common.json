@@ -16,7 +16,6 @@
   "hiddenProviders": "{{count}} disabled",
   "interface": "Interface",
   "appearance": "Interface",
-  "privacy": "Confidentialité",
   "keyboardShortcuts": "Raccourcis Clavier",
   "newChat": "Nouvelle discussion",
   "newAgentChat": "Nouvelle discussion Agent",
@@ -25,7 +24,6 @@
   "recents": "Récents",
   "hub": "Concentrateur Hub",
   "helpSupport": "Aide & Support",
-  "helpUsImproveJan": "Aidez-nous à améliorer Jan",
   "unstarAll": "Enlever toutes les étoiles",
   "unstar": "Désélectionner",
   "deleteAll": "Tout supprimer",
@@ -337,14 +335,6 @@
     "editMessage": {
       "title": "Modifier le message",
       "description": "Message modifié avec succès. Veuillez attendre la réponse du modèle."
-    },
-    "appUpdateDownloaded": {
-      "title": "Mise à jour de l'application téléchargée",
-      "description": "La mise à jour de l'application a été téléchargée avec succès."
-    },
-    "appUpdateDownloadFailed": {
-      "title": "Échec du téléchargement de la mise à jour de l'application",
-      "description": "Échec du téléchargement de la mise à jour de l'application. Veuillez réessayer."
     },
     "downloadComplete": {
       "title": "Téléchargement terminé",

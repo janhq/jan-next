@@ -13,8 +13,8 @@ import * as core from '@janhq/core'
 
 ## Build an Extension
 
-Extensions no longer extend a base class from this package. A third-party
+A third-party
 extension exports `activate(ctx)` against the stable API in
-`@janhq/extension-api` and runs in a worker; start from
-`extensions-samples/hello-provider`. Built-ins in `extensions/` receive the
-`InternalExtensionContext` exported here. See `extensions/CONTRIBUTING.md`.
+`@janhq/extension-api` and runs in a worker. Built-ins in `extensions/`
+receive the `InternalExtensionContext` exported here. The legacy `AIEngine`/`EngineManager`
+layer still exists for built-in engines such as llamacpp.

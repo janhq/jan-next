@@ -37,7 +37,6 @@
   "continueAnyway": "继续",
   "retryChecks": "重新检查",
   "stepCounter": "第 {{current}} / {{total}} 步",
-  "stageConsent": "帮助改进 Jan",
   "skipStep": "暂时跳过",
   "welcomeTitle": "Jan 需在此设备上部署",
   "welcomeBody": "将花费几分钟时间：Jan 正下载其推理引擎及用于文件搜索的小模型。与其同时您可继续使用此电脑。",

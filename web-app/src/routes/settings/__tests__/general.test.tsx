@@ -63,19 +63,10 @@ vi.mock('@/hooks/useGeneralSetting', () => ({
     setSpellCheckChatInput: vi.fn(),
     huggingfaceToken: 'test-token',
     setHuggingfaceToken: vi.fn(),
-    autoUpdateCheck: true,
-    setAutoUpdateCheck: vi.fn(),
   }),
 }))
 
 // Create a controllable mock
-const mockCheckForUpdate = vi.fn()
-
-vi.mock('@/hooks/useAppUpdater', () => ({
-  useAppUpdater: () => ({
-    checkForUpdate: mockCheckForUpdate,
-  }),
-}))
 
 vi.mock('@/i18n/react-i18next-compat', () => ({
   useTranslation: () => ({
@@ -291,7 +282,6 @@ vi.mock('@tanstack/react-router', () => ({
 global.VERSION = '1.0.0'
 global.IS_MACOS = false
 global.IS_WINDOWS = true
-global.AUTO_UPDATER_DISABLED = false
 global.window = {
   ...global.window,
   core: {
@@ -313,7 +303,6 @@ describe('General Settings Route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     // Reset the mock to return a promise that resolves immediately by default
-    mockCheckForUpdate.mockResolvedValue(null)
   })
 
   it('should render the general settings page', async () => {
@@ -385,27 +374,6 @@ describe('General Settings Route', () => {
       fireEvent.change(input, { target: { value: 'new-token' } })
     })
     expect(input).toBeInTheDocument()
-  })
-
-  it('should handle check for updates', async () => {
-    const Component = GeneralRoute.component as React.ComponentType
-    await act(async () => {
-      render(<Component />)
-    })
-
-    const buttons = screen.getAllByTestId('button')
-    const checkUpdateButton = buttons.find((button) =>
-      button.textContent?.includes('checkForUpdates')
-    )
-
-    if (checkUpdateButton) {
-      expect(checkUpdateButton).toBeInTheDocument()
-      await act(async () => {
-        fireEvent.click(checkUpdateButton)
-      })
-      // Test that button is interactive
-      expect(checkUpdateButton).toBeInTheDocument()
-    }
   })
 
   it('should handle data folder display', async () => {
@@ -528,41 +496,4 @@ describe('General Settings Route', () => {
     ).toBeInTheDocument()
   })
 
-  it('should disable check for updates button when checking', async () => {
-    // Create a promise that we can control
-    let resolveUpdate: (value: any) => void
-    const updatePromise = new Promise((resolve) => {
-      resolveUpdate = resolve
-    })
-    mockCheckForUpdate.mockReturnValue(updatePromise)
-
-    const Component = GeneralRoute.component as React.ComponentType
-    await act(async () => {
-      render(<Component />)
-    })
-
-    const buttons = screen.getAllByTestId('button')
-    const checkUpdateButton = buttons.find((button) =>
-      button.textContent?.includes('checkForUpdates')
-    )
-
-    if (checkUpdateButton) {
-      // Click the button but don't await it yet
-      act(() => {
-        fireEvent.click(checkUpdateButton)
-      })
-
-      // Now the button should be disabled while checking
-      expect(checkUpdateButton).toBeDisabled()
-
-      // Resolve the promise to finish the update check
-      await act(async () => {
-        resolveUpdate!(null)
-        await updatePromise
-      })
-
-      // Button should be enabled again
-      expect(checkUpdateButton).not.toBeDisabled()
-    }
-  })
 })

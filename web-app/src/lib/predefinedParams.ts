@@ -411,21 +411,6 @@ export const SAMPLER_DEFAULT_KEYS = [
   'frequency_penalty',
 ] as const
 
-// The MLX server only forwards these to GenerateParameters (top_k/min_p/
-// presence/frequency are silently dropped); see mlx-server Server.swift.
-export const MLX_SAMPLER_KEYS = [
-  'temperature',
-  'top_p',
-  'repeat_penalty',
-] as const
-
-/** Sampler keys a provider actually honors. */
-export function samplerKeysForProvider(
-  providerId: string
-): readonly string[] {
-  return providerId === 'mlx' ? MLX_SAMPLER_KEYS : SAMPLER_DEFAULT_KEYS
-}
-
 /**
  * Model settings seed sampler keys with '' (predefined.ts); `??` wouldn't catch
  * the empty string, so resolve ''/null/undefined to the param's default.

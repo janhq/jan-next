@@ -6,7 +6,7 @@
 /**
  * Supported platforms
  */
-export type Platform = 'tauri' | 'web' | 'ios' | 'android'
+export type Platform = 'tauri' | 'web'
 
 /**
  * Platform Feature Enum
@@ -37,9 +37,6 @@ export enum PlatformFeature {
   DEFAULT_PROVIDERS = 'defaultProviders',
   // Projects management
   PROJECTS = 'projects',
-
-  // Analytics and telemetry
-  ANALYTICS = 'analytics',
 
   // Web-specific automatic model selection from jan provider
   WEB_AUTO_MODEL_SELECTION = 'webAutoModelSelection',

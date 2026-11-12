@@ -12,19 +12,15 @@ export default defineConfig({
       // Workspace packages - each ships its own vitest config
       './packages/extension-api',
       './packages/extension-runtime',
-      './extensions-samples/hello-provider',
 
       // Extensions - each ships its own vitest config
       './extensions/assistant-extension',
       './extensions/download-extension',
       './extensions/llamacpp-extension',
-      // mlx depends on @janhq/tauri-plugin-mlx-api, which only resolves on
-      // macOS; skip its project elsewhere to avoid a resolve failure.
-      ...(process.platform === 'darwin' ? ['./extensions/mlx-extension'] : []),
       './extensions/rag-extension',
       './extensions/vector-db-extension',
       // Repo-wide guards over every extension. Inline rather than inside one
-      // extension so it runs on every OS, including where mlx is skipped.
+      // extension so it runs on every OS.
       {
         test: {
           name: '@janhq/extensions',
@@ -38,22 +34,12 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],
       exclude: [
-        'docs',
         '**/*/dist',
         'node_modules',
         '**/src/**/*.test.ts',
         '**/src/**/*.test.tsx',
         '**/src/test/**/*',
         'src-tauri',
-        // The e2e suite is a separate package driven by WebdriverIO, not by
-        // vitest, so every line of it reads as uncovered and dilutes the total.
-        'e2e/**',
-        // The release-check scripts are run by node from workflows, never
-        // imported by a vitest suite, so they read as fully uncovered. Scoped
-        // to `check-*` rather than the whole tree so that a future `scripts/`
-        // module which is imported does not get dropped from the report by
-        // accident.
-        'scripts/check-*.mjs',
       ],
     },
   },

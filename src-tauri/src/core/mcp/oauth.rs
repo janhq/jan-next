@@ -1,8 +1,7 @@
 //! OAuth 2.1 (PKCE + dynamic client registration) for remote MCP servers.
 //!
-//! Tauri-free on purpose: the CLI drives this today (`core::cli::mcp` for the
-//! transport, `core::cli::tui` for the `/mcp` screen) and the desktop
-//! activation stack is expected to adopt it unchanged.
+//! Tauri-free on purpose: the desktop activation stack is expected to adopt
+//! it unchanged.
 //!
 //! `rmcp` owns metadata discovery and the authenticated transport. Session
 //! creation uses `oauth2` directly: rmcp 0.8 silently substitutes "mcp-client"

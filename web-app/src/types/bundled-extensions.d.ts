@@ -13,11 +13,6 @@ declare module '@janhq/llamacpp-extension' {
     ctx: import('@janhq/core').InternalExtensionContext
   ): Promise<void>
 }
-declare module '@janhq/mlx-extension' {
-  export function activate(
-    ctx: import('@janhq/core').InternalExtensionContext
-  ): Promise<void>
-}
 declare module '@janhq/rag-extension' {
   export function activate(
     ctx: import('@janhq/core').InternalExtensionContext

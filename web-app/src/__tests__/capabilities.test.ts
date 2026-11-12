@@ -8,8 +8,7 @@
  * to the main window and to desktop platforms, and has no `remote` section:
  * only the app's own content may call the plugin, never a page loaded from
  * an http origin. Granting the permissions anywhere else would either reach
- * another window or a remote origin, or name a plugin that a mobile build
- * does not contain, which fails tauri-build's capability check.
+ * another window or a remote origin.
  *
  * Tauri ignores capability files the config does not name, so
  * extensions.json is listed in tauri.conf.json. desktop.json is not: it
@@ -71,18 +70,11 @@ describe('Tauri capabilities', () => {
     expect(extensions.permissions).toEqual(['extensions:default'])
   })
 
-  it('activates extensions.json in the desktop config and not on mobile', () => {
+  it('activates extensions.json in the desktop config', () => {
     expect(activeIn('tauri.conf.json')).toContain('extensions')
-    for (const mobile of ['tauri.android.conf.json', 'tauri.ios.conf.json'])
-      expect(activeIn(mobile)).not.toContain('extensions')
   })
 
   it('leaves desktop.json inactive', () => {
-    for (const file of [
-      'tauri.conf.json',
-      'tauri.android.conf.json',
-      'tauri.ios.conf.json',
-    ])
-      expect(activeIn(file)).not.toContain('desktop')
+    expect(activeIn('tauri.conf.json')).not.toContain('desktop')
   })
 })

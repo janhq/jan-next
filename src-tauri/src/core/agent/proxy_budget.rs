@@ -382,8 +382,8 @@ mod tests {
     }
 
     /// Only a model routed to the engine is probed: one with no HTTP provider
-    /// whose upstream is the engine worker. A local MLX session (another
-    /// loopback upstream) is not the engine either.
+    /// whose upstream is the engine worker. A foreign loopback
+    /// upstream is not the engine either.
     #[tokio::test]
     async fn only_an_engine_routed_model_is_probed() {
         let (base, seen) = stub_engine(json!({"data": [
@@ -394,7 +394,7 @@ mod tests {
         let engine = Some((port, "k".to_string()));
         let upstream = format!("{base}/v1/chat/completions");
 
-        let mlx = resolve_with(
+        let foreign = resolve_with(
             "a",
             "http://127.0.0.1:1/v1/chat/completions",
             &HashMap::new(),
@@ -402,8 +402,8 @@ mod tests {
             &client,
         )
         .await;
-        assert!(mlx.is_none());
-        assert!(seen.lock().unwrap().is_empty(), "an MLX route is not probed");
+        assert!(foreign.is_none());
+        assert!(seen.lock().unwrap().is_empty(), "a foreign route is not probed");
 
         let local: HashMap<_, _> = [provider("llamacpp", None, &["a"])].into();
         for pc in [HashMap::new(), local] {

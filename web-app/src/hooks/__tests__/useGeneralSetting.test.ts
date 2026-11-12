@@ -74,10 +74,10 @@ describe('useGeneralSetting', () => {
       const { result } = renderHook(() => useGeneralSetting())
 
       act(() => {
-        result.current.setCurrentLanguage('vn')
+        result.current.setCurrentLanguage('vi')
       })
 
-      expect(result.current.currentLanguage).toBe('vn')
+      expect(result.current.currentLanguage).toBe('vi')
     })
 
     it('should change language multiple times', () => {
@@ -89,9 +89,9 @@ describe('useGeneralSetting', () => {
       expect(result.current.currentLanguage).toBe('id')
 
       act(() => {
-        result.current.setCurrentLanguage('vn')
+        result.current.setCurrentLanguage('vi')
       })
-      expect(result.current.currentLanguage).toBe('vn')
+      expect(result.current.currentLanguage).toBe('vi')
 
       act(() => {
         result.current.setCurrentLanguage('en')
@@ -212,12 +212,12 @@ describe('useGeneralSetting', () => {
       const { result } = renderHook(() => useGeneralSetting())
 
       act(() => {
-        result.current.setCurrentLanguage('vn')
+        result.current.setCurrentLanguage('vi')
         result.current.setSpellCheckChatInput(false)
         result.current.setHuggingfaceToken('complex-token-123')
       })
 
-      expect(result.current.currentLanguage).toBe('vn')
+      expect(result.current.currentLanguage).toBe('vi')
       expect(result.current.spellCheckChatInput).toBe(false)
       expect(result.current.huggingfaceToken).toBe('complex-token-123')
     })

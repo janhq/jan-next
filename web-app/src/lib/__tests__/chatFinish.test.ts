@@ -16,7 +16,6 @@ const reply = (parts: UIMessage['parts']): UIMessage => ({
 describe('providerHasContextSetting', () => {
   it('is true only for local engines that own a ctx_len setting', () => {
     expect(providerHasContextSetting('llamacpp')).toBe(true)
-    expect(providerHasContextSetting('mlx')).toBe(true)
     expect(providerHasContextSetting('anthropic')).toBe(false)
     expect(providerHasContextSetting('openai')).toBe(false)
     expect(providerHasContextSetting(undefined)).toBe(false)
@@ -34,7 +33,7 @@ describe('isContextLimitStop', () => {
 
   it('falls back to 32768 when a local model has no ctx_len', () => {
     expect(
-      isContextLimitStop({ provider: 'mlx', usage, ctxLen: undefined })
+      isContextLimitStop({ provider: 'llamacpp', usage, ctxLen: undefined })
     ).toBe(true)
   })
 
@@ -108,12 +107,6 @@ describe('offersContextIncrease', () => {
 
   it('offers the increase for local providers on a context error', () => {
     expect(offersContextIncrease('llamacpp', overflow)).toBe(true)
-    expect(
-      offersContextIncrease(
-        'mlx',
-        'input length and `max_tokens` exceed context limit'
-      )
-    ).toBe(true)
   })
 
   it('never offers it for cloud providers, where ctx_len does nothing', () => {

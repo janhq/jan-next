@@ -81,17 +81,6 @@ async fn spawns_the_worker_reads_its_handshake_and_serves() {
         "no assistant message: {v}"
     );
 
-    // The key came from the environment, so it must not be visible in argv.
-    #[cfg(target_os = "linux")]
-    {
-        let cmdline = std::fs::read(format!("/proc/{}/cmdline", handle.pid)).unwrap_or_default();
-        let cmdline = String::from_utf8_lossy(&cmdline);
-        assert!(
-            !cmdline.contains("supervised-key"),
-            "the bearer token leaked into argv: {cmdline}"
-        );
-    }
-
     handle.stop().await;
 
     // After stop the port must be dead, not merely idle.

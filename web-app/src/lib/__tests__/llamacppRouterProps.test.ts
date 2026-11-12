@@ -9,7 +9,6 @@ vi.mock('@/lib/extensions/host', () => ({
 import {
   getLlamacppExtension,
   getLocalPropsExtension,
-  getMlxExtension,
 } from '../llamacppRouterProps'
 
 const engine = () => ({
@@ -22,22 +21,17 @@ describe('local engine lookups', () => {
     h.services = createServiceRegistry()
   })
 
-  it('finds the llamacpp and mlx services in the host registry', () => {
+  it('finds the llamacpp service in the host registry', () => {
     const registry = createServiceRegistry()
     h.services = registry
     const llama = { ...engine(), getDevices: vi.fn(), reconcileEngineDevices: vi.fn() }
-    const mlx = engine()
     registry.provide(ServiceKeys.Llamacpp, llama)
-    registry.provide(ServiceKeys.Mlx, mlx)
     expect(getLlamacppExtension()).toBe(llama)
-    expect(getMlxExtension()).toBe(mlx)
     expect(getLocalPropsExtension('llamacpp')).toBe(llama)
-    expect(getLocalPropsExtension('mlx')).toBe(mlx)
   })
 
   it('has nothing for an engine that is not running or a remote provider', () => {
     expect(getLlamacppExtension()).toBeUndefined()
-    expect(getLocalPropsExtension('mlx')).toBeUndefined()
     expect(getLocalPropsExtension('openai')).toBeUndefined()
     expect(getLocalPropsExtension(undefined)).toBeUndefined()
   })

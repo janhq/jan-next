@@ -16,7 +16,6 @@
   "hiddenProviders": "{{count}} disabled",
   "interface": "Tampilan",
   "appearance": "Tampilan",
-  "privacy": "Privasi",
   "keyboardShortcuts": "Pintasan",
   "newChat": "Obrolan Baru",
   "newAgentChat": "Obrolan Agent Baru",
@@ -25,7 +24,6 @@
   "recents": "Terbaru",
   "hub": "Hub",
   "helpSupport": "Bantuan & Dukungan",
-  "helpUsImproveJan": "Bantu Kami Meningkatkan Jan",
   "unstarAll": "Batal Bintangi Semua",
   "unstar": "Batal Bintangi",
   "deleteAll": "Hapus Semua",
@@ -281,14 +279,6 @@
     "editMessage": {
       "title": "Edit Pesan",
       "description": "Pesan berhasil diedit. Silakan tunggu model merespons."
-    },
-    "appUpdateDownloaded": {
-      "title": "Pembaruan Aplikasi Diunduh",
-      "description": "Pembaruan aplikasi telah berhasil diunduh."
-    },
-    "appUpdateDownloadFailed": {
-      "title": "Gagal Mengunduh Pembaruan Aplikasi",
-      "description": "Gagal mengunduh pembaruan aplikasi. Silakan coba lagi."
     },
     "downloadComplete": {
       "title": "Unduhan Selesai",

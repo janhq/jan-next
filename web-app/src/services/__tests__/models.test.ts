@@ -134,7 +134,7 @@ describe('DefaultModelsService', () => {
     it('should stop all active models from all providers', async () => {
       mockEngine.getLoadedModels.mockResolvedValue(['model1', 'model2'])
       await modelsService.stopAllModels()
-      expect(mockEngine.unload).toHaveBeenCalledTimes(4)
+      expect(mockEngine.unload).toHaveBeenCalledTimes(2)
     })
 
     it('should handle empty active models', async () => {
@@ -249,7 +249,6 @@ describe('DefaultModelsService', () => {
       last_modified: '2021-12-01T00:00:00Z',
       private: false,
       disabled: false,
-      library_name: 'mlx',
       gated: false,
       author: 'microsoft',
       siblings: [
@@ -265,7 +264,6 @@ describe('DefaultModelsService', () => {
       expect(result.developer).toBe('microsoft')
       expect(result.downloads).toBe(1500)
       expect(result.num_quants).toBe(2)
-      expect(result.is_mlx).toBe(true)
       expect(result.quants[0]).toMatchObject({ model_id: 'microsoft/model-q4_0', file_size: '2.0 GB' })
       expect(result.quants[1]).toMatchObject({ model_id: 'microsoft/model-q8_0', file_size: '4.0 GB' })
       expect(result.quants[0].path).toContain('/resolve/main/model-q4_0.gguf')

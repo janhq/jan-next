@@ -2,7 +2,7 @@ import { fetch as httpFetch } from '@tauri-apps/plugin-http'
 import type { LoopbackFetch } from '@janhq/core'
 
 /**
- * Requests to the local engine and MLX servers, sent so that no proxy can
+ * Requests to the local engine server, sent so that no proxy can
  * capture them.
  *
  * `@tauri-apps/plugin-http` sends from Rust's reqwest, which reads

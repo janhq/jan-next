@@ -206,19 +206,6 @@
     "defaultModelDesc": "Modello locale da caricare automaticamente all'avvio del server.",
     "defaultModelPlaceholder": "Seleziona un modello locale"
   },
-  "privacy": {
-    "analytics": "Analisi dati",
-    "helpUsImprove": "Aiutaci a migliorare",
-    "helpUsImproveDesc": "Per aiutarci a migliorare Jan, puoi condividere dati anonimi come l'utilizzo delle funzionalità e il conteggio degli utenti. Non raccogliamo mai le tue chat o informazioni personali.",
-    "privacyPolicy": "Hai il pieno controllo sui tuoi dati. Scopri di più nella nostra Informativa sulla privacy.",
-    "analyticsDesc": "Per migliorare Jan, abbiamo bisogno di capire come viene utilizzato, ma solo con il tuo aiuto. Puoi modificare questa impostazione in qualsiasi momento.",
-    "privacyPromises": "La tua scelta non cambierà le nostre promesse fondamentali sulla privacy:",
-    "promise1": "Le tue conversazioni rimangono private e sul tuo dispositivo",
-    "promise2": "Non raccogliamo mai le tue informazioni personali o il contenuto delle chat",
-    "promise3": "Tutta la condivisione dei dati è anonima e aggregata",
-    "promise4": "Puoi disattivare l'opzione in qualsiasi momento senza perdere alcuna funzionalità",
-    "promise5": "Siamo trasparenti su cosa raccogliamo e perché"
-  },
   "general": {
     "showInFinder": "Mostra nel Finder",
     "showInFileExplorer": "Mostra in Esplora file",
@@ -227,13 +214,7 @@
     "couldNotRelocateToRoot": "Impossibile spostare la cartella dati nella directory principale (root). Scegli un'altra posizione.",
     "couldNotResetRootDirectory": "Impossibile ripristinare la cartella dati quando è impostata su una directory principale. Elimina manualmente la cartella dati.",
     "failedToRelocateDataFolderDesc": "Impossibile spostare la cartella dati. Riprova.",
-    "devVersion": "Rilevata versione di sviluppo",
-    "noUpdateAvailable": "Stai utilizzando l'ultima versione",
-    "updateError": "Impossibile verificare gli aggiornamenti",
     "appVersion": "Versione app",
-    "checkForUpdates": "Verifica aggiornamenti",
-    "checkForUpdatesDesc": "Controlla se è disponibile una versione più recente di Jan.",
-    "checkingForUpdates": "Verifica aggiornamenti in corso...",
     "copied": "Copiato",
     "copyPath": "Copia percorso",
     "changeLocation": "Modifica posizione",

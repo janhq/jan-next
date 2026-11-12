@@ -13,8 +13,6 @@ vi.mock('@/lib/version', async (importOriginal) => ({
 // Mock global platform constants - simulate desktop (Tauri) environment
 const channel = vi.hoisted(() => ({ cowork: true }))
 
-Object.defineProperty(global, 'IS_IOS', { value: false, writable: true })
-Object.defineProperty(global, 'IS_ANDROID', { value: false, writable: true })
 Object.defineProperty(global, 'IS_WEB_APP', { value: false, writable: true })
 
 // Mock dependencies
@@ -67,7 +65,7 @@ vi.mock('@/lib/utils', async (importOriginal) => ({
   cn: (...args: any[]) => args.filter(Boolean).join(' '),
   getProviderTitle: (provider: { provider: string }) => provider.provider,
   isLocalProvider: (provider: string) =>
-    provider === 'llama.cpp' || provider === 'mlx',
+    provider === 'llama.cpp',
 }))
 
 vi.mock('@/containers/ProvidersAvatar', () => ({
@@ -108,7 +106,6 @@ describe('SettingsMenu', () => {
 
     expect(screen.getByText('common:general')).toBeInTheDocument()
     expect(screen.getByText('common:appearance')).toBeInTheDocument()
-    expect(screen.getByText('common:privacy')).toBeInTheDocument()
   })
 
   it('renders core settings links', () => {
@@ -116,7 +113,6 @@ describe('SettingsMenu', () => {
     expect(screen.getByText('common:keyboardShortcuts')).toBeInTheDocument()
     expect(screen.getByText('common:assistants')).toBeInTheDocument()
     expect(screen.getByText('common:local_api_server')).toBeInTheDocument()
-    expect(screen.getByText('common:privacy')).toBeInTheDocument()
   })
 
   it('lists the Cowork settings entry where Cowork ships', () => {

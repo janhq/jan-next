@@ -17,8 +17,7 @@
 //! `settings.json`, outside the data folder, so the web view cannot write it.
 //! The first run seeds grants from the `model.yml` files of models already
 //! imported in place; those files are writable by the web view, so only
-//! `.gguf` files and MLX model folders (a `config.json` next to the weights)
-//! are taken from them.
+//! `.gguf` files are taken from them.
 
 use super::helpers::canonical_scope_path;
 use crate::core::app::commands::{get_configuration_file_path, get_jan_data_folder_path};
@@ -271,9 +270,7 @@ fn starts_with_components(parts: &[String], prefix: &[&str]) -> bool {
 /// app itself stores are taken: see [`is_model_path`].
 pub fn in_place_model_paths(data_folder: &Path) -> Vec<PathBuf> {
     let mut configs = Vec::new();
-    for engine in ["llamacpp", "mlx"] {
-        collect_model_configs(&data_folder.join(engine).join("models"), 4, &mut configs);
-    }
+    collect_model_configs(&data_folder.join("llamacpp").join("models"), 4, &mut configs);
     let mut paths: Vec<PathBuf> = Vec::new();
     for config in configs {
         let Ok(text) = fs::read_to_string(&config) else {
@@ -298,8 +295,7 @@ pub fn in_place_model_paths(data_folder: &Path) -> Vec<PathBuf> {
 
 /// Whether `path`, the value of `key` in a `model.yml`, is something Jan
 /// stores for a model imported in place: the weights or projector of a
-/// llama.cpp model (a `.gguf` file) or an MLX model folder (it holds a
-/// `config.json`). A `.gguf` need not exist yet, as an external drive may not
+/// llama.cpp model (a `.gguf` file). A `.gguf` need not exist yet, as an external drive may not
 /// be mounted at the first start.
 fn is_model_path(key: &str, path: &Path) -> bool {
     let gguf = path
@@ -308,18 +304,9 @@ fn is_model_path(key: &str, path: &Path) -> bool {
         && !path.is_dir();
     match key {
         "mmproj_path" => gguf,
-        "model_path" => gguf || holds_mlx_weights(path),
+        "model_path" => gguf,
         _ => false,
     }
-}
-
-/// Whether `dir` is an MLX model folder: a `config.json` next to the weights
-/// (`model.safetensors`, or its shard index). Many tools keep a `config.json`
-/// of their own in a folder, so that file alone does not make a model.
-fn holds_mlx_weights(dir: &Path) -> bool {
-    dir.join("config.json").is_file()
-        && (dir.join("model.safetensors").is_file()
-            || dir.join("model.safetensors.index.json").is_file())
 }
 
 /// Collects `model.yml` files under `dir`, `depth` folder levels deep,
@@ -582,18 +569,14 @@ mod tests {
     }
 
     #[test]
-    fn seeding_takes_model_weights_and_model_folders_only() {
+    fn seeding_takes_model_weights_only() {
         let tmp = TempDir::new().unwrap();
         let data = tmp.path().join("data");
         let weights = tmp.path().join("external").join("model.gguf");
         let mmproj = tmp.path().join("external").join("mmproj.GGUF");
-        let mlx_dir = tmp.path().join("mlx-weights");
         fs::create_dir_all(weights.parent().unwrap()).unwrap();
-        fs::create_dir_all(&mlx_dir).unwrap();
         fs::write(&weights, "w").unwrap();
         fs::write(&mmproj, "p").unwrap();
-        fs::write(mlx_dir.join("config.json"), "{}").unwrap();
-        fs::write(mlx_dir.join("model.safetensors"), "w").unwrap();
         write_model_yml(
             &data,
             "llamacpp",
@@ -603,12 +586,6 @@ mod tests {
                 weights.display(),
                 mmproj.display()
             ),
-        );
-        write_model_yml(
-            &data,
-            "mlx",
-            "m2",
-            &format!("model_path: {}\n", mlx_dir.display()),
         );
         // Relative paths stay data-folder paths.
         write_model_yml(
@@ -620,7 +597,7 @@ mod tests {
 
         let mut found = in_place_model_paths(&data);
         found.sort();
-        let mut expected = vec![weights, mmproj, mlx_dir];
+        let mut expected = vec![weights, mmproj];
         expected.sort();
         assert_eq!(found, expected);
     }

@@ -52,21 +52,7 @@ notified when it exits. A command you detach yourself is invisible to that: no o
 /// `[]` restores JAN.md-only exactly.
 pub(crate) const CONTEXT_FILE_NAME: &str = "JAN.md";
 
-/// The instructions file `/init` writes for a new project (#9083).
-#[cfg(feature = "cli")]
-pub(crate) const DEFAULT_INSTRUCTIONS_FILE: &str = "AGENTS.md";
 
-/// How a surface labels a loaded instructions file by its name: `JAN.md` is
-/// the legacy name, `CLAUDE.md` an opt-in fallback, and `AGENTS.md` -- the
-/// default -- needs no label.
-#[cfg(feature = "cli")]
-pub(crate) fn instructions_file_label(path: &Path) -> Option<&'static str> {
-    match path.file_name().and_then(|name| name.to_str()) {
-        Some(CONTEXT_FILE_NAME) => Some("legacy JAN.md"),
-        Some(DEFAULT_INSTRUCTIONS_FILE) | None => None,
-        Some(_) => Some("fallback"),
-    }
-}
 
 /// One instructions file the walk picked: where it is, what it says, and
 /// whether it is a fallback (not `JAN.md`), so a surface can say so.
@@ -161,22 +147,7 @@ pub(crate) fn load_context_files(project_root: &Path) -> Option<String> {
     render_context_files(&project_context_files(project_root))
 }
 
-/// Whether this project has usable instructions, by the same rule the system
-/// prompt uses: a non-empty `JAN.md` (or fallback) at the root or in any
-/// ancestor, so an ancestor's file (a monorepo root) counts as already
-/// onboarded. The startup note reads [`project_context_files`] directly, since
-/// it also names a fallback; this is the yes/no its tests pin.
-#[cfg(all(test, feature = "cli"))]
-pub(crate) fn has_context_file(project_root: &Path) -> bool {
-    !project_context_files(project_root).is_empty()
-}
 
-/// Whether `project_root` itself (not an ancestor) has a non-empty `name`.
-/// `/init` uses it to decide between writing a file and reviewing one.
-#[cfg(feature = "cli")]
-pub(crate) fn has_own_file(project_root: &Path, name: &str) -> bool {
-    std::fs::read_to_string(project_root.join(name)).is_ok_and(|content| !content.trim().is_empty())
-}
 
 /// Built-in guide teaching the model the skills/memory file conventions. Always
 /// injected for project runs so the model can read and maintain both without
@@ -256,26 +227,6 @@ yourself for small, targeted tasks where delegating would cost more than it save
 memory: no memory tool and no memory index. Put any fact from your memory that a subagent needs into its \
 task, and record anything worth keeping from its answer yourself.";
 
-/// Where a dispatched child works, appended to [`SUBAGENT_GUIDE`] only in the
-/// CLI build: the desktop makes no checkouts and keeps readers writable (see
-/// `child_workspace`), so there it would describe branches that never exist.
-/// A constant per build, so the prefix stays byte-stable.
-const SUBAGENT_WORKSPACE_GUIDE: &str = if cfg!(feature = "cli") {
-    "\n\nEach subagent's workspace is set when you dispatch it. By default one that can write or edit files works in your checkout, shared with you and with any \
-other writer, so parallel writers can overwrite each other: give them disjoint files, or `workspace: \"new\"`. \
-When the user turned on subagent worktrees (`--subagent-worktrees`, or `subagent_worktrees` under `[agent]` in \
-agent.toml) it instead works in its own checkout (a clone) on its own branch, started from HEAD, so parallel \
-writers never share a checkout and your uncommitted changes are not in it; its branch is in your repository \
-when it is done, to merge. \
-Any other subagent works in your checkout read-only. The dispatch result says where each one works. Override with `workspace`: \"new\", \
-\"shared\", the name of an earlier subagent to continue in its worktree, or `workspace: {\"ref\": \"<git \
-ref>\"}` to review or test a branch or pull request in a checkout of its own. In a later phase, \
-`workspace` naming the agent of an earlier-phase subagent of the same plan (e.g. \"general\") means \
-that sibling's checkout, so a review phase checks exactly what the implementer wrote."
-} else {
-    ""
-};
-
 /// How to split, coordinate and verify parallel work. Kept apart from
 /// [`SUBAGENT_GUIDE`] (when to delegate at all) because these are the failures
 /// seen once several children run at once: siblings editing the same file, a
@@ -316,10 +267,10 @@ fn subagent_guide(project_root: &Path) -> String {
     let registry = crate::core::agent::subagent::SubagentRegistry::load(project_root);
     match crate::core::agent::subagent::agent_catalog(&registry) {
         Some(catalog) => format!(
-            "{SUBAGENT_GUIDE}{SUBAGENT_WORKSPACE_GUIDE}{SUBAGENT_COORDINATION_GUIDE}\n\n\
+            "{SUBAGENT_GUIDE}{SUBAGENT_COORDINATION_GUIDE}\n\n\
              Predefined agents (`agent` field):\n{catalog}"
         ),
-        None => format!("{SUBAGENT_GUIDE}{SUBAGENT_WORKSPACE_GUIDE}{SUBAGENT_COORDINATION_GUIDE}"),
+        None => format!("{SUBAGENT_GUIDE}{SUBAGENT_COORDINATION_GUIDE}"),
     }
 }
 
@@ -598,16 +549,6 @@ impl SessionStart {
         self.memory.as_ref()
     }
 
-    /// Re-take only the memory snapshot, keeping the date and branch: for a
-    /// compaction, which starts the history over but not the session. The
-    /// TUI is the only caller that compacts a session it keeps.
-    #[cfg(feature = "cli")]
-    pub(crate) fn with_fresh_memory(&self, project_root: &Path) -> Self {
-        Self {
-            memory: Some(MemorySnapshot::capture(project_root)),
-            ..self.clone()
-        }
-    }
 
     /// The `# Session Start` block as it is written into the system prompt.
     pub(crate) fn block(&self) -> String {
@@ -637,7 +578,7 @@ impl ComposedPrompt {
     /// The whole prompt as one string, prefix first. For callers that only need
     /// the bytes: the CLI's `/context` sizing, and the tests that assert on
     /// content rather than placement.
-    #[cfg_attr(not(feature = "cli"), allow(dead_code))]
+    #[allow(dead_code)]
     pub(crate) fn as_prompt(&self) -> String {
         let mut blocks: Vec<&str> = vec![self.prefix.as_str()];
         blocks.extend(self.tail.iter().map(|(_, block)| block.as_str()));
@@ -910,20 +851,6 @@ mod tests {
         assert!(block.contains(", and 5 more"), "{block}");
     }
 
-    /// After a compaction the session keeps its date and branch but takes a
-    /// fresh memory index, so the tail stops repeating folded-in changes.
-    #[test]
-    #[cfg(feature = "cli")]
-    fn a_fresh_memory_snapshot_keeps_the_date_and_branch() {
-        let root = scratch_project("memrefresh");
-        let start = SessionStart::capture(Some(&root));
-        write_memory(&root, "later.md", "Written after the start.");
-        let fresh = start.with_fresh_memory(&root);
-        assert_eq!((fresh.date.as_str(), &fresh.branch), (start.date.as_str(), &start.branch));
-        assert!(fresh.memory().unwrap().block().unwrap().contains("`later`"));
-        assert_eq!(fresh.memory().unwrap().changes_block(&root), None);
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
     #[test]
     fn memory_catalog_is_none_when_no_notes() {
@@ -1292,28 +1219,9 @@ mod tests {
 
     // Where a child works is decided at dispatch, and the CLI guide says so,
     // ahead of the agent catalog.
-    #[cfg(feature = "cli")]
-    #[test]
-    fn the_cli_subagent_guide_explains_child_worktrees() {
-        let root = scratch_project("subagent-worktrees");
-        let with = default_prompt(None, &root, None, true).expect("prompt");
-        assert!(with.contains("own checkout"), "{with}");
-        assert!(with.contains("is in your repository"), "{with}");
-        // Off by default: a writer shares the checkout unless worktrees are on.
-        assert!(with.contains("works in your checkout, shared with you"), "{with}");
-        assert!(with.contains("overwrite each other"), "{with}");
-        assert!(with.contains("subagent_worktrees"), "{with}");
-        assert!(with.contains("read-only"), "{with}");
-        assert!(with.contains("workspace: {\"ref\""), "{with}");
-        assert!(with.contains("means that sibling's checkout"), "{with}");
-        let guide = with.find("Each subagent's workspace").expect("workspace paragraph");
-        assert!(guide < with.find("Predefined agents").unwrap(), "{with}");
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
     // The desktop makes no worktrees and keeps readers writable, so its agent
     // is told nothing about either.
-    #[cfg(not(feature = "cli"))]
     #[test]
     fn the_desktop_subagent_guide_says_nothing_of_worktrees() {
         let root = scratch_project("subagent-desktop");

@@ -78,11 +78,6 @@ vi.mock('@/lib/platform/utils', () => ({
   isPlatformTauri: vi.fn(() => false),
 }))
 
-const mlxMock = vi.hoisted(() => ({ findSession: vi.fn() }))
-vi.mock('@/lib/llamacppRouterProps', () => ({
-  getMlxExtension: () => mlxMock,
-}))
-
 vi.mock('@/lib/provider-api-keys', () => ({
   providerRemoteApiKeyChain: vi.fn((p: any) => {
     const primary = p.api_key?.trim()
@@ -300,39 +295,6 @@ describe('model-factory deep coverage', () => {
       expect(err.message).not.toContain('{')
       expect(err.message).not.toContain('backend depends on')
       expect(err.message).toContain('libnccl.so.2')
-    })
-  })
-
-  /* mlx internals */
-  describe('mlx internals', () => {
-    it('url, headers, and param merge', async () => {
-      mlxMock.findSession.mockResolvedValue({ port: 9090, api_key: 'mlx-key' })
-      await ModelFactory.createModel('m', mkProvider('mlx'), { temperature: 0.3 })
-      const opts = getOpts()
-      expect(opts.url({ path: '/chat/completions' })).toBe('http://localhost:9090/v1/chat/completions')
-      expect(opts.headers().Authorization).toBe('Bearer mlx-key')
-
-      await opts.fetch('http://localhost:9090/v1/chat/completions', { method: 'POST', body: JSON.stringify({ messages: [] }) })
-      const body = JSON.parse(vi.mocked(httpFetch).mock.calls[0][1]!.body as string)
-      expect(body.temperature).toBe(0.3)
-    })
-
-    it('sends cancel on abort', async () => {
-      mlxMock.findSession.mockResolvedValue({ port: 9090, api_key: 'k' })
-      await ModelFactory.createModel('m', mkProvider('mlx'), {})
-      const opts = getOpts()
-      const ctrl = new AbortController()
-      await opts.fetch('http://localhost:9090/v1/chat/completions', { method: 'POST', body: JSON.stringify({}), signal: ctrl.signal })
-      ctrl.abort()
-      await new Promise((r) => setTimeout(r, 20))
-      expect(vi.mocked(httpFetch)).toHaveBeenCalledTimes(2)
-      expect(vi.mocked(httpFetch).mock.calls[1][0]).toBe('http://localhost:9090/v1/cancel')
-      expect((vi.mocked(httpFetch).mock.calls[1][1] as any).proxy).toEqual(LOOPBACK_DIRECT_PROXY)
-    })
-
-    it('throws when startModel fails', async () => {
-      mockStartModel.mockRejectedValueOnce(new Error('No MLX'))
-      await expect(ModelFactory.createModel('m', mkProvider('mlx'), {})).rejects.toThrow('Failed to start model: No MLX')
     })
   })
 

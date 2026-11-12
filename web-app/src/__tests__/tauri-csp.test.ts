@@ -11,7 +11,6 @@
  * - script-src has no asset:, http://asset.localhost or $APPDATA. Built-in
  *   extensions are bundled into the app since dd021a737; nothing loads a script
  *   from disk, and the data folder is where runtime extensions would be unpacked.
- *   The posthog hosts stay for the analytics opt-in.
  * - worker-src is exactly 'self' blob:. An extension runs in a classic worker
  *   built from one blob: script (runtime prelude plus its bundle); the worker
  *   inherits this policy, so it can neither eval nor import more code. blob:

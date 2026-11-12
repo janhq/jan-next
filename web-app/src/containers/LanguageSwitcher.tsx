@@ -18,7 +18,7 @@ const LANGUAGES = [
   { value: 'hi', label: 'हिंदी' },
   { value: 'id', label: 'Bahasa' },
   { value: 'pl', label: 'Polski' },
-  { value: 'vn', label: 'Tiếng Việt' },
+  { value: 'vi', label: 'Tiếng Việt' },
   { value: 'zh-CN', label: '简体中文' },
   { value: 'zh-TW', label: '繁體中文' },
   { value: 'de-DE', label: 'Deutsch' },

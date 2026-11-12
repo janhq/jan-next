@@ -37,7 +37,6 @@
   "continueAnyway": "Continue",
   "retryChecks": "Re-run checks",
   "stepCounter": "Step {{current}} of {{total}}",
-  "stageConsent": "Help improve Jan",
   "skipStep": "Skip for now",
   "welcomeTitle": "Jan needs to set up on your system",
   "welcomeBody": "This takes a few minutes: Jan downloads its inference engine and a small model for file search. You can keep using your computer while it runs.",

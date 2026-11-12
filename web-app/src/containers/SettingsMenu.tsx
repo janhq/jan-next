@@ -12,7 +12,6 @@ import {
   IconPalette,
   IconPlus,
   IconTopologyStar3,
-  IconLock,
   IconCpu,
   IconWorld,
   IconWorldSearch,
@@ -32,7 +31,6 @@ import {
   openAIProviderSettings,
   anthropicProviderSettings,
 } from '@/constants/providers'
-import cloneDeep from 'lodash/cloneDeep'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 
@@ -62,7 +60,7 @@ const SettingsMenu = () => {
         apiType === 'anthropic'
           ? anthropicProviderSettings
           : openAIProviderSettings
-      const settings = cloneDeep(template) as ProviderSetting[]
+      const settings = structuredClone(template) as ProviderSetting[]
       for (const s of settings) {
         if (s.key === 'base-url') {
           (s.controller_props as { value: string }).value = baseUrl
@@ -92,7 +90,6 @@ const SettingsMenu = () => {
 
   const activeProviders = providers.filter((provider) => {
     if (!provider.active) return false
-    if (!IS_MACOS && provider.provider === 'mlx') return false
     return true
   })
 
@@ -105,7 +102,6 @@ const SettingsMenu = () => {
 
   const hiddenProviders = providers.filter((provider) => {
     if (provider.active) return false
-    if (!IS_MACOS && provider.provider === 'mlx') return false
     return true
   })
 
@@ -123,8 +119,8 @@ const SettingsMenu = () => {
           'flex px-2 items-center gap-1.5 cursor-pointer hover:bg-secondary/60 py-1 w-full rounded-sm text-foreground',
           isRouteActive && 'bg-secondary',
           provider.provider === 'llama.cpp' &&
-            stepSetupRemoteProvider &&
-            'hidden'
+          stepSetupRemoteProvider &&
+          'hidden'
         )}
         onClick={() =>
           navigate({
@@ -203,12 +199,12 @@ const SettingsMenu = () => {
     },
     ...(isCoworkEnabled()
       ? [
-          {
-            title: 'common:cowork',
-            route: route.settings.cowork,
-            icon: IconFolderCode,
-          },
-        ]
+        {
+          title: 'common:cowork',
+          route: route.settings.cowork,
+          icon: IconFolderCode,
+        },
+      ]
       : []),
     {
       title: 'common:keyboardShortcuts',
@@ -222,7 +218,6 @@ const SettingsMenu = () => {
       isEnabled: true,
       icon: IconCpu,
     },
-    { title: 'common:privacy', route: route.settings.privacy, icon: IconLock },
     {
       title: 'common:extensions',
       route: route.settings.extensions,
@@ -344,7 +339,7 @@ const SettingsMenu = () => {
                       const isRouteActive = matches.some(
                         (match) =>
                           match.routeId ===
-                            '/settings/providers/$providerName' &&
+                          '/settings/providers/$providerName' &&
                           'providerName' in match.params &&
                           match.params.providerName === provider.provider
                       )

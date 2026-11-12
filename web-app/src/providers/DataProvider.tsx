@@ -1,6 +1,5 @@
 import { useModelProvider } from '@/hooks/useModelProvider'
 
-import { useAppUpdater } from '@/hooks/useAppUpdater'
 import { useGeneralSetting } from '@/hooks/useGeneralSetting'
 import { useServiceHub } from '@/hooks/useServiceHub'
 import { useEffect, useRef } from 'react'
@@ -13,7 +12,6 @@ import { useLocalApiServer } from '@/hooks/useLocalApiServer'
 import { useAppState } from '@/hooks/useAppState'
 import { AppEvent, events, HUGGINGFACE_TOKEN_SECRET_KEY } from '@janhq/core'
 import { SystemEvent } from '@/types/events'
-import { isDev } from '@/lib/utils'
 import { sweepThreadWorkspaces } from '@/lib/agentTools'
 import { invoke } from '@tauri-apps/api/core'
 import { providerHasRemoteApiKeys, providerRemoteApiKeyChain } from '@/lib/provider-api-keys'
@@ -146,45 +144,10 @@ const syncRemoteProviders = () => {
   registeredProviderNames = currentActive
 }
 
-// MLX honors only these samplers; map Jan's setting keys to MLX request-body
-// keys (note repeat_penalty → repetition_penalty). llamacpp uses the router
-// preset and remote providers are intentionally excluded.
-const MLX_SAMPLING_KEY_MAP: Record<string, string> = {
-  temperature: 'temperature',
-  top_p: 'top_p',
-  repeat_penalty: 'repetition_penalty',
-}
-
-// Push per-model MLX sampling defaults to the API server so external clients
-// that omit these params inherit the GUI-configured values (overridable
-// per-request). Replaces the whole map, so an empty push clears stale entries.
-const syncModelParamDefaults = () => {
-  const providers = useModelProvider.getState().providers
-  const defaults: Record<string, Record<string, number>> = {}
-
-  for (const provider of providers) {
-    if (provider.provider !== 'mlx' || !provider.active) continue
-    for (const model of provider.models) {
-      const out: Record<string, number> = {}
-      for (const [janKey, mlxKey] of Object.entries(MLX_SAMPLING_KEY_MAP)) {
-        const v = model.settings?.[janKey]?.controller_props?.value
-        if (typeof v === 'number' && Number.isFinite(v)) out[mlxKey] = v
-      }
-      if (Object.keys(out).length > 0) defaults[model.id] = out
-    }
-  }
-
-  invoke('set_model_param_defaults', { defaults }).catch((e) =>
-    console.error('Failed to sync model param defaults:', e)
-  )
-}
-
 export function DataProvider() {
   const { setProviders, getProviderByName } =
     useModelProvider()
 
-  const { checkForUpdate } = useAppUpdater()
-  const autoUpdateCheck = useGeneralSetting((s) => s.autoUpdateCheck)
   const { setServers, setSettings } = useMCPServers()
   const { setAssistants } = useAssistant()
   const { setThreads } = useThreads()
@@ -342,39 +305,7 @@ export function DataProvider() {
   const providers = useModelProvider((s) => s.providers)
   useEffect(() => {
     syncRemoteProviders()
-    syncModelParamDefaults()
   }, [providers])
-
-  // Check for app updates - initial check and periodic interval
-  useEffect(() => {
-    // Only check for updates if the auto updater is not disabled
-    // App might be distributed via other package managers
-    // or methods that handle updates differently
-    if (isDev() || !autoUpdateCheck) {
-      return
-    }
-
-    // Defer the initial check until the browser is idle (after first paint) so
-    // the network round-trip and any resulting dialog don't compete with the
-    // initial render.
-    const hasRic = typeof window.requestIdleCallback === 'function'
-    const idleHandle = hasRic
-      ? window.requestIdleCallback(() => checkForUpdate(), { timeout: 3000 })
-      : window.setTimeout(() => checkForUpdate(), 0)
-
-    // Set up periodic update checks (singleton - only runs in DataProvider)
-    const intervalId = setInterval(() => {
-      console.log('Periodic update check triggered')
-      checkForUpdate()
-    }, Number(UPDATE_CHECK_INTERVAL_MS))
-
-    // Cleanup interval on unmount
-    return () => {
-      if (hasRic) window.cancelIdleCallback(idleHandle as number)
-      else window.clearTimeout(idleHandle as number)
-      clearInterval(intervalId)
-    }
-  }, [checkForUpdate, autoUpdateCheck])
 
   useEffect(() => {
     const handler = () => {
@@ -382,8 +313,7 @@ export function DataProvider() {
         setProviders(fetched)
         await applyKeyringKeys()
         syncRemoteProviders()
-        syncModelParamDefaults()
-      })
+          })
     }
     events.on(AppEvent.onModelImported, handler)
     return () => {
@@ -458,7 +388,7 @@ export function DataProvider() {
             proxyTimeout: proxyTimeout,
           })
           .then(async (actualPort: number) => {
-            // Store the actual port that was assigned (important for mobile with port 0)
+            // Store the port the server actually bound to
             if (actualPort && actualPort !== serverPort) {
               setServerPort(actualPort)
             }

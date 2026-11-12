@@ -65,7 +65,7 @@ describe('useReconcileVideoCapability', () => {
 
   it('does nothing for other providers or without the service', () => {
     const getModelProps = provide(true)
-    renderHook(() => useReconcileVideoCapability('m', 'mlx'))
+    renderHook(() => useReconcileVideoCapability('m', 'openai'))
     expect(getModelProps).not.toHaveBeenCalled()
     h.services = createServiceRegistry()
     expect(() =>

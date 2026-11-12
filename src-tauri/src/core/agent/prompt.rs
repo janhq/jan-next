@@ -37,7 +37,7 @@ pub(crate) enum Placement {
 }
 
 impl Placement {
-    #[cfg_attr(not(feature = "cli"), allow(dead_code))]
+    #[allow(dead_code)]
     pub(crate) fn as_str(self) -> &'static str {
         match self {
             Placement::Prefix => "prefix",
@@ -58,7 +58,7 @@ pub(crate) enum Source {
 }
 
 impl Source {
-    #[cfg_attr(not(feature = "cli"), allow(dead_code))]
+    #[allow(dead_code)]
     pub(crate) fn as_str(self) -> &'static str {
         match self {
             Source::PromptBlock => "prompt",
@@ -141,7 +141,7 @@ impl Composer {
 
     /// One line for `agent status` and the docs. Reported by the CLI's status
     /// command only, hence the desktop-build allowance.
-    #[cfg_attr(not(feature = "cli"), allow(dead_code))]
+    #[allow(dead_code)]
     pub(crate) fn what(self) -> &'static str {
         match self {
             Composer::AssistantInstructions => {
@@ -266,14 +266,14 @@ impl PromptPolicy {
 
     /// The placement for a composer the policy does not mention. Reported by
     /// the CLI's status command only.
-    #[cfg_attr(not(feature = "cli"), allow(dead_code))]
+    #[allow(dead_code)]
     pub(crate) fn default_placement(&self) -> Placement {
         self.default
     }
 
     /// The configured allowlist, when it is set. Reported by the CLI's status
     /// command only.
-    #[cfg_attr(not(feature = "cli"), allow(dead_code))]
+    #[allow(dead_code)]
     pub(crate) fn prefix_allow(&self) -> Option<&[String]> {
         self.prefix_allow.as_deref()
     }
@@ -359,7 +359,7 @@ impl PromptPolicy {
 
     /// Every composer's resolved placement, for `jan cli agent status` and the
     /// `[prompt]` docs. Fails on the same contradiction composition would.
-    #[cfg_attr(not(feature = "cli"), allow(dead_code))]
+    #[allow(dead_code)]
     pub(crate) fn placements(&self) -> Result<Vec<(Composer, Placement)>, String> {
         self.validate()?;
         Composer::ALL

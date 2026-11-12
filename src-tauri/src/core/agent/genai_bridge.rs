@@ -1,7 +1,7 @@
 //! The agent's upstream chat client, built on `genai`.
 //!
 //! Every provider the agent talks to routes through here: cloud providers, a Jan
-//! desktop API server, a local llama.cpp router, an MLX session. The wire format
+//! desktop API server, or a local llama.cpp router. The wire format
 //! stays OpenAI `/chat/completions` -- `genai` is used for its provider handling
 //! (field-name variance, SSE correctness, tool-call merging), not to change the
 //! protocol.
@@ -106,7 +106,7 @@ fn client_for(
     // `RequestOverride` rather than `AuthData::Key`, for three reasons:
     //
     //  * Keyless local endpoints (llama.cpp, LM Studio) have no key to send.
-    //    `AuthData::None` is rejected for `AdapterKind::OpenAI` -- only the MLX
+    //    `AuthData::None` is rejected for `AdapterKind::OpenAI` -- only a local-engine
     //    adapter sets `allow_no_api_key` -- and an empty `Bearer` is worse than
     //    no header at all, since some servers reject it outright.
     //  * The override supplies the request URL verbatim, so the resolved

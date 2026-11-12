@@ -144,44 +144,6 @@ describe('useTokensCount', () => {
     expect(mockGetModelProps).not.toHaveBeenCalled()
   })
 
-  it('treats mlx as local: uses getModelProps nCtx for a real percentage', async () => {
-    modelProviderState.selectedProvider = 'mlx'
-    modelProviderState.selectedModel = {
-      id: 'mlx-model',
-      name: 'MLX Model',
-      capabilities: [],
-      settings: {},
-    }
-    mockGetModelProps.mockResolvedValue({ nCtx: 8192, modelAlias: 'MLX Model' })
-    const messages = [
-      makeMessage({ metadata: { usage: { inputTokens: 3000, outputTokens: 1096, totalTokens: 4096 } } }),
-    ]
-    const { result } = renderHook(() => useTokensCount(messages))
-    await waitFor(() => expect(result.current.modelProps).toBeDefined())
-    expect(mockGetModelProps).toHaveBeenCalledWith('mlx-model')
-    expect(result.current.tokenCount).toBe(4096)
-    expect(result.current.maxTokens).toBe(8192)
-    expect(result.current.percentage).toBeCloseTo(50, 5)
-    expect(result.current.isNearLimit).toBe(false)
-  })
-
-  it('flags mlx near-limit when usage exceeds 85% of nCtx', async () => {
-    modelProviderState.selectedProvider = 'mlx'
-    modelProviderState.selectedModel = {
-      id: 'mlx-model',
-      name: 'MLX Model',
-      capabilities: [],
-      settings: {},
-    }
-    mockGetModelProps.mockResolvedValue({ nCtx: 1000 })
-    const messages = [
-      makeMessage({ metadata: { usage: { inputTokens: 800, outputTokens: 100, totalTokens: 900 } } }),
-    ]
-    const { result } = renderHook(() => useTokensCount(messages))
-    await waitFor(() => expect(result.current.modelProps).toBeDefined())
-    expect(result.current.isNearLimit).toBe(true)
-  })
-
   it('reports zero tokens for a remote provider before any turn completes', async () => {
     modelProviderState.selectedProvider = 'anthropic'
     const messages = [makeMessage({ metadata: {} })]

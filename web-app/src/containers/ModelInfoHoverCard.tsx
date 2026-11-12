@@ -16,7 +16,6 @@ import {
   DEFAULT_CTX_LENGTH,
   estimateModelFit,
   parseFileSize,
-  sumMlxModelBytes,
   type FitTier,
 } from '@/lib/modelCompatibility'
 import { cn } from '@/lib/utils'
@@ -77,13 +76,10 @@ export const ModelInfoHoverCard = ({
 }: ModelInfoHoverCardProps) => {
   const hardwareData = useHardware((s) => s.hardwareData)
 
-  const displayVariant = model.is_mlx
-    ? undefined
-    : variant ?? selectDefaultQuant(model.quants, defaultModelQuantizations)
+  const displayVariant =
+    variant ?? selectDefaultQuant(model.quants, defaultModelQuantizations)
 
-  const fileSizeBytes = model.is_mlx
-    ? sumMlxModelBytes(model) || null
-    : parseFileSize(displayVariant?.file_size)
+  const fileSizeBytes = parseFileSize(displayVariant?.file_size)
   const tier: FitTier = estimateModelFit(
     fileSizeBytes,
     DEFAULT_CTX_LENGTH,
@@ -124,16 +120,14 @@ export const ModelInfoHoverCard = ({
           </div>
 
           <div className="grid grid-cols-1 gap-4 text-xs">
-            {!model.is_mlx && (
-              <div>
-                <span className="text-muted-foreground block">
-                  {isDefaultVariant ? 'Default Quantization' : 'Quantization'}
-                </span>
-                <span className="font-medium mt-1 inline-block">
-                  {extractQuantLabel(displayVariant?.model_id) || 'N/A'}
-                </span>
-              </div>
-            )}
+            <div>
+              <span className="text-muted-foreground block">
+                {isDefaultVariant ? 'Default Quantization' : 'Quantization'}
+              </span>
+              <span className="font-medium mt-1 inline-block">
+                {extractQuantLabel(displayVariant?.model_id) || 'N/A'}
+              </span>
+            </div>
 
             <div>
               <span className="text-muted-foreground block">

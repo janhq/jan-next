@@ -2,15 +2,12 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
-#[cfg(not(feature = "cli"))]
 use tauri::{AppHandle, Runtime, State};
 
 use super::constants::{CONFIGURATION_FILE_NAME, TAURI_BUNDLE_IDENTIFIER};
 use super::models::AppConfiguration;
 use super::paths;
-#[cfg(not(feature = "cli"))]
 use super::helpers::copy_dir_recursive;
-#[cfg(not(feature = "cli"))]
 use crate::core::state::AppState;
 
 /// Canonical Jan app support directory (`%APPDATA%/Jan` on Windows).
@@ -66,21 +63,9 @@ fn legacy_app_config_candidate_paths(_app_data_dir: &Path) -> Vec<PathBuf> {
         paths.push(bundle_dir.join(CONFIGURATION_FILE_NAME));
     }
 
-    #[cfg(target_os = "linux")]
-    {
-        let package_name = env!("CARGO_PKG_NAME");
-        if let Some(config_dir) = dirs::config_dir() {
-            let legacy = config_dir.join(package_name).join(CONFIGURATION_FILE_NAME);
-            if legacy != _app_data_dir.join(CONFIGURATION_FILE_NAME) {
-                paths.push(legacy);
-            }
-        }
-    }
-
     paths
 }
 
-#[cfg(not(feature = "cli"))]
 fn app_data_dir_with_fallback<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> PathBuf {
     let package_name = env!("CARGO_PKG_NAME");
     paths::data_dir_for(app_handle)
@@ -118,28 +103,6 @@ pub fn resolve_config_file_path() -> PathBuf {
     app_data.join(CONFIGURATION_FILE_NAME)
 }
 
-/// Run `f` with `JAN_DATA_FOLDER` pointed at a fresh temp directory, restoring
-/// the previous value afterwards. Serialized on `SECRET_STORE_TEST_LOCK`, the
-/// one lock every `JAN_DATA_FOLDER` mutator takes: the env is process-wide and
-/// Rust runs tests on threads, so a private lock here would exclude only the
-/// other callers of this helper while the secret-store tests redirected the
-/// folder (and dropped its temp dir) underneath a run already in progress.
-#[cfg(all(test, feature = "cli"))]
-pub(crate) fn with_temp_data_folder<T>(f: impl FnOnce(&std::path::Path) -> T) -> T {
-    let _guard = crate::core::server::provider_secrets::SECRET_STORE_TEST_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
-
-    let dir = tempfile::tempdir().expect("tempdir");
-    let prev = std::env::var_os("JAN_DATA_FOLDER");
-    std::env::set_var("JAN_DATA_FOLDER", dir.path());
-    let result = f(dir.path());
-    match prev {
-        Some(p) => std::env::set_var("JAN_DATA_FOLDER", p),
-        None => std::env::remove_var("JAN_DATA_FOLDER"),
-    }
-    result
-}
 
 /// Resolve the Jan data folder path without an AppHandle (for CLI use).
 /// Reads AppConfiguration from the config file; falls back to the default location.
@@ -174,14 +137,9 @@ pub fn resolve_jan_data_folder() -> PathBuf {
     PathBuf::from(home).join(&app_name).join("data")
 }
 
-#[cfg(not(feature = "cli"))]
 #[tauri::command]
 pub fn get_app_configurations<R: Runtime>(app_handle: tauri::AppHandle<R>) -> AppConfiguration {
     let mut app_default_configuration = AppConfiguration::default();
-
-    if std::env::var("CI").unwrap_or_default() == "e2e" {
-        return app_default_configuration;
-    }
 
     let app_path = app_data_dir_with_fallback(&app_handle);
     if let Err(err) = migrate_legacy_app_configuration(&app_path) {
@@ -235,7 +193,6 @@ pub fn get_app_configurations<R: Runtime>(app_handle: tauri::AppHandle<R>) -> Ap
 /// `data_folder` is kept as stored: the folder every data-folder check is
 /// measured against only moves through [`change_app_data_folder`], which
 /// validates the target and copies the data across.
-#[cfg(not(feature = "cli"))]
 #[tauri::command]
 pub fn update_app_configuration<R: Runtime>(
     app_handle: tauri::AppHandle<R>,
@@ -247,7 +204,6 @@ pub fn update_app_configuration<R: Runtime>(
 }
 
 /// Write the app configuration as given, `data_folder` included. Backend only.
-#[cfg(not(feature = "cli"))]
 pub(crate) fn write_app_configuration<R: Runtime>(
     app_handle: tauri::AppHandle<R>,
     configuration: AppConfiguration,
@@ -262,7 +218,6 @@ pub(crate) fn write_app_configuration<R: Runtime>(
     .map_err(|e| e.to_string())
 }
 
-#[cfg(not(feature = "cli"))]
 #[tauri::command]
 pub fn get_jan_data_folder_path<R: Runtime>(app_handle: tauri::AppHandle<R>) -> PathBuf {
     if cfg!(test) {
@@ -279,8 +234,10 @@ pub fn get_jan_data_folder_path<R: Runtime>(app_handle: tauri::AppHandle<R>) -> 
                     .duration_since(std::time::UNIX_EPOCH)
                     .map(|d| d.as_nanos())
                     .unwrap_or(0);
-                let path = std::env::current_dir()
-                    .unwrap_or_else(|_| PathBuf::from("."))
+                // Under the OS temp dir: most tests never clean up, and a
+                // cwd-relative dir littered src-tauri/ with one folder per thread.
+                let path = std::env::temp_dir()
+                    .join("open-waifu-tests")
                     .join(format!("test-data-{unique_id:?}-{timestamp}"));
                 let _ = fs::create_dir_all(&path);
                 *dir = Some(path);
@@ -293,7 +250,6 @@ pub fn get_jan_data_folder_path<R: Runtime>(app_handle: tauri::AppHandle<R>) -> 
     PathBuf::from(app_configurations.data_folder)
 }
 
-#[cfg(not(feature = "cli"))]
 #[tauri::command]
 pub fn get_configuration_file_path<R: Runtime>(app_handle: tauri::AppHandle<R>) -> PathBuf {
     let app_path = app_data_dir_with_fallback(&app_handle);
@@ -303,7 +259,6 @@ pub fn get_configuration_file_path<R: Runtime>(app_handle: tauri::AppHandle<R>) 
     app_path.join(CONFIGURATION_FILE_NAME)
 }
 
-#[cfg(not(feature = "cli"))]
 #[tauri::command]
 pub fn default_data_folder_path<R: Runtime>(app_handle: tauri::AppHandle<R>) -> String {
     let mut path = paths::data_dir_for(&app_handle).unwrap_or_else(|err| {
@@ -331,13 +286,11 @@ pub fn default_data_folder_path<R: Runtime>(app_handle: tauri::AppHandle<R>) -> 
     path_str
 }
 
-#[cfg(not(feature = "cli"))]
 #[tauri::command]
 pub fn get_user_home_path<R: Runtime>(app: AppHandle<R>) -> String {
     get_app_configurations(app.clone()).data_folder
 }
 
-#[cfg(not(feature = "cli"))]
 #[tauri::command]
 pub fn change_app_data_folder<R: Runtime>(
     app_handle: tauri::AppHandle<R>,
@@ -384,7 +337,6 @@ pub fn change_app_data_folder<R: Runtime>(
 
 /// Folders that hold the OS or installed programs. A data folder at or inside
 /// one is refused.
-#[cfg(any(test, not(feature = "cli")))]
 fn system_dirs() -> Vec<PathBuf> {
     if cfg!(windows) {
         let mut dirs = Vec::new();
@@ -413,7 +365,6 @@ fn system_dirs() -> Vec<PathBuf> {
 /// `path` with symlinks resolved as far as it exists: the deepest existing
 /// ancestor is canonicalized and the rest appended, so a target that is still
 /// to be created is judged by where it will really land.
-#[cfg(any(test, not(feature = "cli")))]
 fn resolve_existing_prefix(path: &Path) -> PathBuf {
     let mut rest = Vec::new();
     let mut cur = path;
@@ -432,7 +383,6 @@ fn resolve_existing_prefix(path: &Path) -> PathBuf {
 }
 
 /// Lower-cased on Windows, whose paths compare case-insensitively.
-#[cfg(any(test, not(feature = "cli")))]
 fn comparable(path: &Path) -> PathBuf {
     if cfg!(windows) {
         PathBuf::from(path.to_string_lossy().to_lowercase())
@@ -444,7 +394,6 @@ fn comparable(path: &Path) -> PathBuf {
 /// Refuse a data folder that would make the data-folder checks meaningless:
 /// a filesystem root, the home folder or one of its ancestors, or a system
 /// folder. Anything else keeps working as before.
-#[cfg(any(test, not(feature = "cli")))]
 fn validate_new_data_folder(path: &Path, home: Option<&Path>) -> Result<(), String> {
     use std::path::Component;
     if !path.is_absolute() || path.components().any(|c| matches!(c, Component::ParentDir)) {
@@ -474,7 +423,6 @@ fn validate_new_data_folder(path: &Path, home: Option<&Path>) -> Result<(), Stri
     Ok(())
 }
 
-#[cfg(not(feature = "cli"))]
 #[tauri::command]
 pub fn app_token(state: State<'_, AppState>) -> Option<String> {
     state.app_token.clone()

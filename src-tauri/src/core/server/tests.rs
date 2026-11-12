@@ -1222,26 +1222,6 @@ mod server_tests {
     }
 
     #[test]
-    fn inject_sampling_defaults_fills_only_missing_keys() {
-        let mut body = json!({
-            "model": "m",
-            "messages": [],
-            "temperature": 0.2
-        });
-        let defaults = json!({
-            "temperature": 0.7,
-            "top_p": 0.9,
-            "repetition_penalty": 1.1
-        });
-        proxy::inject_sampling_defaults(&mut body, &defaults);
-        // Caller-provided value wins.
-        assert_eq!(body["temperature"], json!(0.2));
-        // Omitted defaults are added.
-        assert_eq!(body["top_p"], json!(0.9));
-        assert_eq!(body["repetition_penalty"], json!(1.1));
-    }
-
-    #[test]
     fn strip_billing_header_in_body_handles_block_content() {
         let header = "x-anthropic-billing-header: cc_version=1;\n";
         let mut body = json!({
@@ -1353,14 +1333,12 @@ mod server_tests {
         proxy::start_server(
             handle.clone(),
             Arc::new(tauri_plugin_llamacpp::state::LlamacppState::default()),
-            Arc::new(Mutex::new(HashMap::new())),
             "127.0.0.1".to_string(),
             port,
             "/v1".to_string(),
             String::new(),
             vec![vec![]],
             30,
-            Arc::new(Mutex::new(HashMap::new())),
             Arc::new(Mutex::new(HashMap::new())),
             Arc::new(Mutex::new(HashMap::new())),
             Arc::new(Mutex::new(crate::core::mcp::models::McpSettings::default())),
@@ -1462,14 +1440,12 @@ mod server_tests {
         let err = proxy::start_server(
             handle.clone(),
             Arc::new(tauri_plugin_llamacpp::state::LlamacppState::default()),
-            Arc::new(Mutex::new(HashMap::new())),
             "0.0.0.0".to_string(),
             port,
             "/v1".to_string(),
             String::new(),
             vec![vec![]],
             30,
-            Arc::new(Mutex::new(HashMap::new())),
             Arc::new(Mutex::new(HashMap::new())),
             Arc::new(Mutex::new(HashMap::new())),
             Arc::new(Mutex::new(crate::core::mcp::models::McpSettings::default())),
@@ -1505,14 +1481,12 @@ mod server_tests {
         proxy::start_server(
             handle.clone(),
             Arc::new(tauri_plugin_llamacpp::state::LlamacppState::default()),
-            Arc::new(Mutex::new(HashMap::new())),
             "127.0.0.1".to_string(),
             port,
             "/v1".to_string(),
             String::new(),
             vec![vec!["*".to_string()]],
             30,
-            Arc::new(Mutex::new(HashMap::new())),
             Arc::new(Mutex::new(HashMap::new())),
             Arc::new(Mutex::new(HashMap::new())),
             Arc::new(Mutex::new(crate::core::mcp::models::McpSettings::default())),

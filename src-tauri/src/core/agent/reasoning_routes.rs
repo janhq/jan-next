@@ -80,66 +80,15 @@ pub(crate) fn remember(provider: Option<&str>, model_id: &str) {
     }
 }
 
-#[cfg(feature = "cli")]
-fn persisted_rejects((provider, model): &Route) -> bool {
-    crate::core::cli::model_catalog::load().rejects_reasoning(provider, model)
-}
 
 /// No catalog outside the CLI build: the answer lasts for the process.
-#[cfg(not(feature = "cli"))]
 fn persisted_rejects(_route: &Route) -> bool {
     false
 }
 
-/// Best effort: a cache that cannot be written only costs a later process one
-/// rejected request, so it never fails the run.
-///
-/// Merged into the file under the catalog's write lock
-/// ([`crate::core::cli::model_catalog::update`]), so a listing refresh saved
-/// meanwhile is kept and keeps this. Called from the turn loop, so inside a
-/// runtime the file work goes to the blocking pool rather than stalling an
-/// async worker; the path is resolved here first, on the caller's thread.
-#[cfg(feature = "cli")]
-fn persist(route: &Route) {
-    let path = match crate::core::cli::model_catalog::path() {
-        Ok(path) => path,
-        Err(e) => return log::warn!("could not locate the model catalog: {e}"),
-    };
-    let (provider, model) = route.clone();
-    let write = move || {
-        let written = crate::core::cli::model_catalog::update_at(&path, |catalog| {
-            catalog.remember_reasoning_rejected(&provider, &model)
-        });
-        if let Err(e) = written {
-            log::warn!("could not record that {provider}/{model} rejects reasoning_content: {e}");
-        }
-    };
-    match tokio::runtime::Handle::try_current() {
-        Ok(runtime) => {
-            let task = runtime.spawn_blocking(write);
-            let mut pending = PENDING.lock().unwrap_or_else(|e| e.into_inner());
-            pending.retain(|t| !t.is_finished());
-            pending.push(task);
-        }
-        Err(_) => write(),
-    }
-}
 
-/// Catalog writes still running on the blocking pool, so a test can wait for
-/// them. Finished ones are pruned on each push, so it stays short.
-#[cfg(feature = "cli")]
-static PENDING: Mutex<Vec<tokio::task::JoinHandle<()>>> = Mutex::new(Vec::new());
 
-/// Wait for every catalog write started so far.
-#[cfg(all(test, feature = "cli"))]
-async fn settle_persists() {
-    let pending = std::mem::take(&mut *PENDING.lock().unwrap_or_else(|e| e.into_inner()));
-    for task in pending {
-        let _ = task.await;
-    }
-}
 
-#[cfg(not(feature = "cli"))]
 fn persist(_route: &Route) {}
 
 #[cfg(test)]
@@ -180,51 +129,6 @@ mod tests {
         assert!(lookup(route(provider, "rr-lock-fresh"), |_| false), "read at most once");
     }
 
-    /// A route that rejected the field in an earlier process starts this one
-    /// already knowing it.
-    #[cfg(feature = "cli")]
-    #[test]
-    fn a_rejection_persisted_by_an_earlier_process_is_honored() {
-        crate::core::agent::global_config::with_temp_home(|_| {
-            let mut catalog = crate::core::cli::model_catalog::load();
-            assert!(catalog.remember_reasoning_rejected("rr-disk-provider", "rr-disk-model"));
-            catalog.save().expect("save");
-            assert!(rejects(Some("rr-disk-provider"), "rr-disk-model"));
-            assert!(!rejects(Some("rr-disk-provider"), "rr-disk-other"));
-        });
-    }
 
-    /// The write runs off the async worker thread, and merges into the file
-    /// rather than replacing it: a listing refresh saved meanwhile keeps the
-    /// rejection, and the rejection keeps the refresh.
-    #[cfg(feature = "cli")]
-    #[test]
-    fn a_rejection_recorded_inside_a_runtime_merges_with_other_writes() {
-        crate::core::agent::global_config::with_temp_home(|_| {
-            let rt = tokio::runtime::Builder::new_current_thread().build().unwrap();
-            rt.block_on(async {
-                remember(Some("rr-merge-provider"), "rr-merge-model");
-                // A listing refresh lands right behind it.
-                crate::core::cli::model_catalog::cache_listing(
-                    "rr-merge-provider",
-                    &serde_json::json!({"data": [{"id": "rr-merge-model", "context_length": 1000}]}),
-                );
-                settle_persists().await;
-            });
-            let after = crate::core::cli::model_catalog::load();
-            assert!(after.rejects_reasoning("rr-merge-provider", "rr-merge-model"));
-            assert!(after.get(Some("rr-merge-provider"), "rr-merge-model").is_some());
-        });
-    }
 
-    /// Remembering writes through to the catalog, so the next process sees it.
-    #[cfg(feature = "cli")]
-    #[test]
-    fn remembering_a_rejection_persists_it() {
-        crate::core::agent::global_config::with_temp_home(|_| {
-            remember(Some("rr-persist-provider"), "rr-persist-provider/rr-persist-model");
-            assert!(crate::core::cli::model_catalog::load()
-                .rejects_reasoning("rr-persist-provider", "rr-persist-model"));
-        });
-    }
 }

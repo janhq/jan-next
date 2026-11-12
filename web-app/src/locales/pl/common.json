@@ -16,7 +16,6 @@
   "hiddenProviders": "{{count}} disabled",
   "interface": "Wygląd",
   "appearance": "Wygląd",
-  "privacy": "Prywatność",
   "keyboardShortcuts": "Skróty",
   "newChat": "Nowy Czat",
   "newAgentChat": "Nowy Czat Agenta",
@@ -25,7 +24,6 @@
   "recents": "Ostatnie",
   "hub": "Centrum Modeli",
   "helpSupport": "Pomoc i Obsługa",
-  "helpUsImproveJan": "Pomóż nam ulepszyć Jan",
   "unstarAll": "Usuń Wszystkim Gwiazdkę",
   "unstar": "Usuń Gwiazdkę",
   "deleteAll": "Usuń Wszystko",
@@ -332,14 +330,6 @@
     "editMessage": {
       "title": "Edytuj Wiadomość",
       "description": "Pomyślnie edytowano wiadomość. Proszę poczekać na odpowiedź modelu."
-    },
-    "appUpdateDownloaded": {
-      "title": "Aktualizacja Aplikacji Pobrana",
-      "description": "Pomyślnie pobrano aktualizację aplikacji."
-    },
-    "appUpdateDownloadFailed": {
-      "title": "Błąd Pobierania Aktualizacji Aplikacji",
-      "description": "Nie udało się pobrać aktualizacji aplikacji. Proszę spróbować później."
     },
     "downloadComplete": {
       "title": "Ukończono Pobieranie",

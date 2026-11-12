@@ -200,19 +200,6 @@
     "defaultModelDesc": "서버가 시작될 때 자동으로 로드할 로컬 모델입니다.",
     "defaultModelPlaceholder": "로컬 모델 선택"
   },
-  "privacy": {
-    "analytics": "분석",
-    "helpUsImprove": "개선에 참여하기",
-    "helpUsImproveDesc": "기능 사용량 및 사용자 수와 같은 익명 데이터를 공유하여 Jan을 개선하는 데 도움을 줄 수 있습니다. 귀하의 채팅이나 개인정보는 절대 수집하지 않습니다.",
-    "privacyPolicy": "데이터에 대한 모든 통제권은 귀하에게 있습니다. 개인정보 처리방침에서 자세히 알아보세요.",
-    "analyticsDesc": "Jan을 개선하기 위해서는 어떻게 사용되는지 이해해야 하며, 귀하의 도움이 필요합니다. 이 설정은 언제든지 변경할 수 있습니다.",
-    "privacyPromises": "여기서의 선택은 핵심적인 개인정보 보호 약속을 변경하지 않습니다:",
-    "promise1": "대화는 비공개로 기기에 안전하게 보관됩니다",
-    "promise2": "개인정보나 채팅 내용은 절대 수집하지 않습니다",
-    "promise3": "공유되는 모든 데이터는 익명으로 집계됩니다",
-    "promise4": "기능 상실 없이 언제든지 수집을 거부할 수 있습니다",
-    "promise5": "저희는 어떤 데이터를 왜 수집하는지 투명하게 공개합니다"
-  },
   "general": {
     "showInFinder": "Finder에서 보기",
     "showInFileExplorer": "파일 탐색기에서 보기",
@@ -221,13 +208,7 @@
     "couldNotRelocateToRoot": "데이터 폴더를 루트 디렉터리로 재배치할 수 없습니다. 다른 위치를 선택해 주세요.",
     "couldNotResetRootDirectory": "루트 디렉터리로 설정된 경우 데이터 폴더를 재설정할 수 없습니다. 데이터 폴더를 수동으로 삭제해 주세요.",
     "failedToRelocateDataFolderDesc": "데이터 폴더를 재배치하지 못했습니다. 다시 시도해 주세요.",
-    "devVersion": "개발 버전이 감지되었습니다",
-    "noUpdateAvailable": "최신 버전을 사용 중입니다",
-    "updateError": "업데이트 확인 실패",
     "appVersion": "앱 버전",
-    "checkForUpdates": "업데이트 확인",
-    "checkForUpdatesDesc": "새 버전의 Jan이 있는지 확인합니다.",
-    "checkingForUpdates": "업데이트 확인 중...",
     "copied": "복사됨",
     "copyPath": "경로 복사",
     "changeLocation": "위치 변경",

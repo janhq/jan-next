@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { DownloadManagement } from '@/containers/DownloadManegement'
+import { DownloadManagement } from '@/containers/DownloadManagement'
 import { StatusItems } from '@/containers/extensions/StatusItems'
 import { NavChats } from './NavChats'
 import { NavCowork } from './NavCowork'

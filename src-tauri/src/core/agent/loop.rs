@@ -11,7 +11,6 @@ use std::sync::{Arc, LazyLock};
 // Agent upstream traffic runs on `genai`, which is built against reqwest 0.13;
 // the rest of the app is still on 0.12, so the two `Client` types differ.
 use reqwest13::Client;
-#[cfg(not(feature = "cli"))]
 use tauri_plugin_llamacpp::state::LlamacppState;
 use tokio::sync::{mpsc, Mutex};
 
@@ -28,10 +27,7 @@ use crate::core::agent::upstream::{
     tool_call_is_usable,
 };
 use crate::core::server::converters::{converter_for, UpstreamConverter};
-#[cfg(not(feature = "cli"))]
 use crate::core::server::proxy::router_first_model;
-#[cfg(not(feature = "cli"))]
-use crate::core::server::MlxBackendSession;
 use crate::core::{
     mcp::models::McpSettings,
     state::{ProviderConfig, SharedMcpServers},
@@ -44,22 +40,6 @@ use tauri_plugin_agent_tools::tools::gate::{DenyReason, PermissionDecision};
 pub(crate) type PermissionRegistry =
     Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<PermissionDecision>>>>;
 
-/// Answer the pending prompt `request_id` with `decision`: the one place every
-/// out-of-process surface (stream-json, RPC, ACP) settles a gate prompt.
-/// Taking the sender makes a decision single-use, so `false` means the id was
-/// already answered, cancelled, or never issued, and the caller reports it.
-#[cfg(feature = "cli")]
-pub(crate) async fn settle_permission(
-    registry: &PermissionRegistry,
-    request_id: &str,
-    decision: PermissionDecision,
-) -> bool {
-    let Some(sender) = registry.lock().await.remove(request_id) else {
-        return false;
-    };
-    let _ = sender.send(decision);
-    true
-}
 
 static PERMISSION_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 
@@ -78,35 +58,13 @@ pub(crate) struct OrchestrationArgs {
     pub client: Client,
     pub provider_configs: Arc<Mutex<HashMap<String, ProviderConfig>>>,
     /// Local engine handles. Absent in the `cli` build, which is remote-only.
-    #[cfg(not(feature = "cli"))]
     pub llama_state: Arc<LlamacppState>,
-    #[cfg(not(feature = "cli"))]
-    pub mlx_sessions: Arc<Mutex<HashMap<i32, MlxBackendSession>>>,
     pub mcp_servers: SharedMcpServers,
     pub mcp_settings: Arc<Mutex<McpSettings>>,
     pub jan_data_folder: String,
     pub permissions: tauri_plugin_agent_tools::permissions::ToolPermissions,
     pub project_root: Option<std::path::PathBuf>,
     pub permission_requests: PermissionRegistry,
-    /// Tools a host process registered for this run, and the registry their
-    /// calls are answered through. Only a client on the headless stdio channel
-    /// can execute one, so these exist only in that build.
-    #[cfg(feature = "cli")]
-    pub host_tools: crate::core::agent::host_tools::HostToolSet,
-    #[cfg(feature = "cli")]
-    pub host_tool_requests: crate::core::agent::host_tools::HostToolRegistry,
-    /// The host's own callback is the permission gate for its tools: Jan never
-    /// emits a `permission_request` for a host tool, whatever its capability.
-    /// Built-ins are unaffected. Inherited by children with the tool set.
-    #[cfg(feature = "cli")]
-    pub host_owns_gate: bool,
-    /// Where this run's `tool_request`s go when it is not the run the client
-    /// reads: the root events sender and this run's id. A subagent's own
-    /// events reach stdout wrapped in `Subagent { .. }`, a shape no client may
-    /// answer, so its requests bypass that channel and are emitted unwrapped,
-    /// attributed by `run_id`. `None` for the main run.
-    #[cfg(feature = "cli")]
-    pub host_tool_route: Option<(mpsc::UnboundedSender<StreamEvent>, String)>,
     /// Present only when a client can render and answer structured questions.
     pub ask_requests: Option<crate::core::agent::interaction::AskRegistry>,
     /// Session's canonical todo list. Present for the top-level run only;
@@ -169,11 +127,6 @@ pub(crate) struct OrchestrationArgs {
     /// by dispatched subagents via the cloned parent args, so a child shell is
     /// confined exactly as its parent's was.
     pub sandbox: Option<bool>,
-    /// Per-invocation `--allow-escalation`: let a sandboxed `shell` call that
-    /// asks to escalate run unconfined without a prompt. `None` falls through
-    /// to `[tools].allow_escalation`, then off. Inherited by subagents like
-    /// `sandbox`, so a child can escalate exactly when its parent could.
-    pub allow_escalation: Option<bool>,
     /// A monitor set owned by the session rather than by this run. When set,
     /// a running monitor does not park the run: the model's turn ends and the
     /// owner starts a new turn when a match lands. `None` (a headless run, a
@@ -300,16 +253,12 @@ impl ToolOutcome {
 /// The object lifetime is explicit so a callback may borrow its caller's state.
 pub(crate) type OnComplete<'a> = dyn Fn(&ToolOutcome) + Send + Sync + 'a;
 
-/// What a host tool call produced: the text summary, the content parts that
-/// replace it on the wire when the host sent any, and the display-only details.
-#[cfg(feature = "cli")]
-type HostCallResult = (String, Option<Vec<serde_json::Value>>, Option<serde_json::Value>);
 
 /// The gate class of one host tool call, from its declared capability and
 /// whether the host owns the gate.
 // Off the headless build there are no host tools, so only `Opaque` is built.
-#[cfg_attr(not(feature = "cli"), allow(dead_code))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[allow(dead_code)]
 enum HostGate {
     /// Declared `read`: never prompted, allowed in Plan mode, concurrent.
     Read,
@@ -321,20 +270,6 @@ enum HostGate {
     Opaque,
 }
 
-/// Mark a failed host result's content parts the way a failed text result is
-/// marked, so the model can tell an error from an answer: the first text part
-/// gains the `ERROR: ` prefix, or one is put in front when there is none.
-#[cfg(feature = "cli")]
-fn mark_parts_as_error(mut parts: Vec<serde_json::Value>) -> Vec<serde_json::Value> {
-    let first_text = parts
-        .iter_mut()
-        .find(|p| p.get("type").and_then(|t| t.as_str()) == Some("text"));
-    match first_text.and_then(|p| p.get_mut("text")) {
-        Some(serde_json::Value::String(text)) => text.insert_str(0, "ERROR: "),
-        _ => parts.insert(0, serde_json::json!({ "type": "text", "text": "ERROR" })),
-    }
-    parts
-}
 
 /// One background ping. `text` is what reaches the model as a `<SYSTEM>`
 /// reminder; `headline`, when set, is shown to the user at delivery as
@@ -817,8 +752,6 @@ struct CompositeToolInvoker {
     /// Whether `bash` is confined at all. Resolved once per run by
     /// [`resolve_sandbox`]; always true on the desktop.
     sandbox: bool,
-    /// How a `shell` call asking to escalate is answered; see [`Escalation`].
-    escalation: Escalation,
     /// The Jan home, refused to the general tools and masked from the shell
     /// while sandboxed (`project::hidden_root`). Kept beside `sandbox` and set
     /// with it, so the two cannot disagree.
@@ -866,21 +799,6 @@ struct CompositeToolInvoker {
     /// `execute_builtin`: they are not built-ins, and like MCP tools their
     /// capability is unknowable, so they are prompted and hidden in Plan mode.
     plugin_tools: tauri_plugin_agent_tools::tools::plugin_tools::PluginToolSet,
-    /// Tools a host process declared for this run, and the registry their calls
-    /// are answered through. Unlike every other tool here, these do not execute
-    /// in this process at all: the call goes out as a `tool_request` and the
-    /// host sends the result back. Empty on every surface but a duplex headless
-    /// run, since nothing else has a peer that could answer.
-    #[cfg(feature = "cli")]
-    host_tools: crate::core::agent::host_tools::HostToolSet,
-    #[cfg(feature = "cli")]
-    host_tool_requests: crate::core::agent::host_tools::HostToolRegistry,
-    /// See [`OrchestrationArgs::host_owns_gate`].
-    #[cfg(feature = "cli")]
-    host_owns_gate: bool,
-    /// See [`OrchestrationArgs::host_tool_route`].
-    #[cfg(feature = "cli")]
-    host_tool_route: Option<(mpsc::UnboundedSender<StreamEvent>, String)>,
     /// `context` answers and failure notices raised by hooks during this run,
     /// drained into `<SYSTEM>` reminders alongside the monitor's. `Arc` because
     /// the tool-event hooks fire inside the toolset and report through a sink
@@ -940,7 +858,6 @@ impl RunWorkspace {
     /// worktrees. Write roots are also read roots: the tools require it.
     fn resolve(
         scope: Option<&crate::core::agent::child_workspace::ChildScope>,
-        root: &std::path::Path,
     ) -> Self {
         match scope {
             Some(scope) => Self {
@@ -948,30 +865,11 @@ impl RunWorkspace {
                 read_roots: scope.write_roots.iter().chain(&scope.read_roots).cloned().collect(),
                 write_roots: scope.write_roots.clone(),
             },
-            None => Self {
-                read_roots: crate::core::agent::child_workspace::parent_read_root(root)
-                    .into_iter()
-                    .collect(),
-                ..Self::default()
-            },
+            None => Self::default(),
         }
     }
 }
 
-/// Default for the sandboxed shell's network namespace, used when
-/// `[tools].allow_network` is unset.
-///
-/// The CLI agent runs against the user's own project, where what confines it is
-/// the workspace the sandbox pins it to, not the network namespace. Before the
-/// shell was sandboxed at all it ran fully unconfined, and a coding agent that
-/// cannot `curl`, `git fetch`, or install a package is largely useless, so the
-/// network stays on. `--safe` adds a prompt on top; it does not change this.
-///
-/// The desktop chat sandbox makes the opposite trade: it is ephemeral, cannot
-/// prompt at all, and opts in per call from a user setting (`commands.rs`).
-#[cfg(feature = "cli")]
-const DEFAULT_ALLOW_NETWORK: bool = true;
-#[cfg(not(feature = "cli"))]
 const DEFAULT_ALLOW_NETWORK: bool = false;
 
 /// `[tools].allow_network` wins over the surface default when set.
@@ -979,16 +877,6 @@ fn resolve_allow_network(configured: Option<bool>) -> bool {
     configured.unwrap_or(DEFAULT_ALLOW_NETWORK)
 }
 
-/// Default for whether the sandboxed shell can read `$HOME`, used when
-/// `[tools].allow_home_read` is unset.
-///
-/// The CLI needs it for `git`/`ssh` credential helpers, so its shell binds
-/// `$HOME` read-only. The desktop keeps the full isolation and masks the home
-/// (the Jan data folder lives inside `$HOME`, so exposing it read-only would
-/// leak `settings.json` API keys, thread workspaces, and the memory store).
-#[cfg(feature = "cli")]
-const DEFAULT_ALLOW_HOME_READ: bool = true;
-#[cfg(not(feature = "cli"))]
 const DEFAULT_ALLOW_HOME_READ: bool = false;
 
 /// `[tools].allow_home_read` wins over the surface default when set.
@@ -996,89 +884,19 @@ fn resolve_allow_home_read(configured: Option<bool>) -> bool {
     configured.unwrap_or(DEFAULT_ALLOW_HOME_READ)
 }
 
-/// Default for whether `bash` runs under OS confinement.
-///
-/// The desktop is not configurable here: its shell is either sandboxed or
-/// withheld, because the workspace it runs in is ephemeral and there is no one
-/// to prompt about a command that could reach the whole machine.
-///
-/// The CLI defaults off. It runs against the user's own project, from their own
-/// terminal, on their behalf -- the same trust a `make`, a `git push`, or any
-/// other tool they run there already has -- and the shell is what the agent
-/// does most of its work with, so confining it breaks the tools the project
-/// builds with far more often than it stops anything. Confinement is opt-in per
-/// invocation (`--sandbox`), per user (`sandbox` in `~/.jan/config.toml`) or
-/// per project (`[tools].sandbox`). The permission gate is unchanged either
-/// way: an unconfined command is still one the user approved.
-#[cfg(feature = "cli")]
-const DEFAULT_SANDBOX: bool = false;
-#[cfg(not(feature = "cli"))]
 const DEFAULT_SANDBOX: bool = true;
 
-/// Resolve whether the shell is confined, most specific source first: the
-/// per-invocation `--sandbox` flag, then the project's `[tools].sandbox`, then
-/// the user's global `sandbox`, then this surface's default.
-#[cfg(feature = "cli")]
-fn resolve_sandbox(flag: Option<bool>, configured: Option<bool>) -> bool {
-    flag.or(configured)
-        .or_else(crate::core::agent::global_config::sandbox_setting)
-        .unwrap_or(DEFAULT_SANDBOX)
-}
 
 /// The desktop has no opt-out: its shell is sandboxed or withheld, so neither
 /// a project file nor the user's global config is consulted (reading them here
 /// would also be reaching into the CLI's config from the app).
-#[cfg(not(feature = "cli"))]
 fn resolve_sandbox(_flag: Option<bool>, _configured: Option<bool>) -> bool {
     DEFAULT_SANDBOX
 }
 
-/// The configured `ask` auto-answer timeout. The setting lives in the
-/// CLI-only `global_config` module (the desktop `ask` surface is not wired up
-/// yet), so the desktop build has no timeout and blocks on an ask forever,
-/// exactly as it does today.
-#[cfg(feature = "cli")]
-fn ask_timeout_setting() -> Option<std::time::Duration> {
-    crate::core::agent::global_config::ask_timeout()
-}
 
-#[cfg(not(feature = "cli"))]
 fn ask_timeout_setting() -> Option<std::time::Duration> {
     None
-}
-
-/// How this run answers a `shell` call that asks to run outside the sandbox.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Escalation {
-    /// Not offered: the shell is unconfined already, or the surface (the
-    /// desktop's throwaway chat sandbox) never lifts it. A call that asks
-    /// anyway is refused.
-    Off,
-    /// Offered, and each request waits for a human answer. Auto-approval does
-    /// not cover it, and a headless run with no terminal denies it.
-    Prompt,
-    /// Offered and granted without an escalation prompt (`--allow-escalation`
-    /// or `[tools].allow_escalation`), for unattended runs that accept the
-    /// risk. The exec approval underneath still applies: a command this run
-    /// would have asked about confined (`--safe`) is asked about once.
-    Allow,
-}
-
-impl Escalation {
-    fn offered(self) -> bool {
-        self != Escalation::Off
-    }
-}
-
-/// Escalation is a CLI capability of a sandboxed shell: there is nothing to
-/// escalate out of when the shell is unconfined, and the desktop's chat
-/// sandbox is throwaway by design, so it is never lifted there.
-fn resolve_escalation(sandbox: bool, allow: bool) -> Escalation {
-    match (cfg!(feature = "cli") && sandbox, allow) {
-        (false, _) => Escalation::Off,
-        (true, false) => Escalation::Prompt,
-        (true, true) => Escalation::Allow,
-    }
 }
 
 /// Whether `bash` would be confined in `project_root` with no `--sandbox` flag
@@ -1097,7 +915,6 @@ struct ResolvedSettings {
     allow_network: bool,
     allow_home_read: bool,
     sandbox: bool,
-    escalation: Escalation,
     env_passthrough: Vec<String>,
     env_set: Vec<(String, String)>,
     /// `[prompt]`: where each system-prompt composer may sit. Resolved with the
@@ -1113,7 +930,6 @@ struct ResolvedSettings {
 fn resolve_run_settings(
     project_root: &std::path::Path,
     sandbox_flag: Option<bool>,
-    escalation_flag: Option<bool>,
 ) -> ResolvedSettings {
     let settings = crate::core::agent::project::run_settings(project_root);
     let sandbox = resolve_sandbox(sandbox_flag, settings.sandbox);
@@ -1122,10 +938,6 @@ fn resolve_run_settings(
         allow_network: resolve_allow_network(settings.allow_network),
         allow_home_read: resolve_allow_home_read(settings.allow_home_read),
         sandbox,
-        escalation: resolve_escalation(
-            sandbox,
-            escalation_flag.or(settings.allow_escalation).unwrap_or(false),
-        ),
         env_passthrough: resolve_env_passthrough(settings.env_passthrough),
         env_set: resolve_env_set(settings.env_set),
         prompt: settings.prompt,
@@ -1138,9 +950,6 @@ fn resolve_run_settings(
 /// to match against the host env. The global scope is the CLI's
 /// `~/.jan/config.toml`; the desktop has none, so it contributes nothing there.
 fn resolve_env_passthrough(project: Vec<String>) -> Vec<String> {
-    #[cfg(feature = "cli")]
-    let global = crate::core::agent::global_config::env_passthrough_setting();
-    #[cfg(not(feature = "cli"))]
     let global = Vec::new();
     merge_env_passthrough(global, project)
 }
@@ -1148,9 +957,6 @@ fn resolve_env_passthrough(project: Vec<String>) -> Vec<String> {
 /// Merge the global `env_set` with the project's, the project winning per key.
 /// Global scope is CLI-only (see [`resolve_env_passthrough`]).
 fn resolve_env_set(project: Vec<(String, String)>) -> Vec<(String, String)> {
-    #[cfg(feature = "cli")]
-    let global = crate::core::agent::global_config::env_set_setting();
-    #[cfg(not(feature = "cli"))]
     let global = Vec::new();
     merge_env_set(global, project)
 }
@@ -1158,9 +964,6 @@ fn resolve_env_set(project: Vec<(String, String)>) -> Vec<(String, String)> {
 /// The web tools' backend for this run. `[web_search]` lives in the CLI's
 /// `~/.jan/config.toml`; the desktop has no such file and keeps the default.
 fn resolve_web_search() -> Option<tauri_plugin_websearch::provider::WebSearchConfig> {
-    #[cfg(feature = "cli")]
-    return Some(crate::core::agent::global_config::resolve_web_search());
-    #[cfg(not(feature = "cli"))]
     None
 }
 
@@ -1358,7 +1161,6 @@ impl CompositeToolInvoker {
         .with_workspace_readonly(self.workspace.read_only)
         .with_read_roots(&self.workspace.read_roots)
         .with_write_roots(&self.workspace.write_roots)
-        .with_escalation(self.escalation.offered())
         .with_hidden_root(self.hidden_root.as_deref())
         .with_scratch_root(&self.scratch_root)
         .with_pkg_cache(self.pkg_cache.as_ref())
@@ -1446,16 +1248,6 @@ impl CompositeToolInvoker {
         Some(held.display().to_string())
     }
 
-    /// The refusal for an escalated `name` call whose held shell directory is
-    /// no longer one it may start in; see
-    /// [`tauri_plugin_agent_tools::tools::handlers::escalated_shell_cwd_refusal`].
-    fn escalated_shell_cwd_refusal(&self, name: &str) -> Option<String> {
-        let why = tauri_plugin_agent_tools::tools::handlers::escalated_shell_cwd_refusal(
-            &self.tool_context(),
-        )?;
-        Some(format!("ERROR: tool '{name}' escalation refused: {why}."))
-    }
-
     /// A tool context whose output streams to the run's event channel as
     /// [`StreamEvent::ToolOutputDelta`], tagged with the call's `id`.
     ///
@@ -1468,90 +1260,11 @@ impl CompositeToolInvoker {
             .with_output_sink(output_sink(&self.events, id))
     }
 
-    /// Whether this run would have approved `args` as a plain, confined exec
-    /// without asking: auto-approval, a `[tools]` allow rule naming the shell,
-    /// or a session grant covering every command it runs.
-    fn exec_preapproved(&self, name: &str, args: &serde_json::Value) -> bool {
-        let command = args.get("command").and_then(|v| v.as_str()).unwrap_or("");
-        self.auto_approve
-            || self.permissions.is_allowed(name)
-            || self.grants.lock().unwrap().covers_command(command)
-    }
 
-    /// Answer a `shell` call that asks to run outside the sandbox, and run it
-    /// unconfined when allowed. Only a fresh human answer, or the explicit
-    /// opt-in on a command the run would have run confined without asking,
-    /// lets it through: auto-approval or a session grant alone never does, and
-    /// "allow always" is not offered. The gate has already refused the hard
-    /// denies (the Jan home, a denied shell) before this is reached.
-    async fn escalate(
-        &self,
-        name: &str,
-        tool: &tauri_plugin_agent_tools::tools::BuiltinTool,
-        args: &serde_json::Value,
-        id: &str,
-    ) -> String {
-        let approved = match self.escalation {
-            Escalation::Off => return escalation_unavailable_msg(name, self.sandbox),
-            Escalation::Allow if self.exec_preapproved(name, args) => true,
-            // The opt-in drops the escalation prompt, not the exec approval
-            // under it: under `--safe` the command would have been asked about
-            // anyway, so one prompt covers both.
-            Escalation::Allow | Escalation::Prompt => {
-                // Before the prompt, so the directory it names is the one the
-                // command would really start in, not a link swapped in for it.
-                if let Some(refusal) = self.escalated_shell_cwd_refusal(name) {
-                    return refusal;
-                }
-                let request_id = next_permission_id();
-                let (tx, rx) = tokio::sync::oneshot::channel();
-                self.permission_requests
-                    .lock()
-                    .await
-                    .insert(request_id.clone(), tx);
-                let _ = self.events.send(StreamEvent::PermissionRequest {
-                    request_id: request_id.clone(),
-                    tool_name: name.to_string(),
-                    capability: "exec outside the sandbox".to_string(),
-                    // Where it runs, once a `cd` has moved the shell, as an
-                    // ordinary exec prompt shows: the command alone does not
-                    // say which tree an `rm -rf build` would hit.
-                    path: self.held_shell_cwd(tool),
-                    command: args.get("command").and_then(|v| v.as_str()).map(String::from),
-                    diff: None,
-                    prompt_kind: "escalate".to_string(),
-                    offers_always: false,
-                    justification: args
-                        .get(tauri_plugin_agent_tools::tools::gate::JUSTIFICATION_ARG)
-                        .and_then(|v| v.as_str())
-                        .map(str::trim)
-                        .filter(|j| !j.is_empty())
-                        .map(String::from),
-                });
-                // No timeout, like every other prompt: cancelling the run
-                // drops the sender, which reads as Deny.
-                let decision = rx.await.unwrap_or(PermissionDecision::Deny);
-                self.permission_requests.lock().await.remove(&request_id);
-                // `AllowAlways` is not offered; a client that sends it anyway
-                // gets this one call, never a lasting grant.
-                decision != PermissionDecision::Deny
-            }
-        };
-        if !approved {
-            return escalation_denied_msg(name);
-        }
-        // The held directory comes along: the model was told every later call
-        // starts there, and the prompt named it. No host re-check here after
-        // the prompt: the wrapper checks it after its own `cd`, the last
-        // moment a link can be swapped in, and refuses and resets as it does
-        // for a gone one (see `posix_cwd_script`). Where it lands is held
-        // too, checked no differently from a confined call's: never on the
-        // host, but by the next call entering it inside its own sandbox, or
-        // refusing and resetting to the root.
-        let ctx = self.streaming_tool_context(id).with_sandbox(false);
-        tauri_plugin_agent_tools::tools::handlers::execute_builtin_with_diff(tool, args, &ctx)
-            .await
-            .0
+    /// The desktop's chat sandbox is never lifted, so a `shell` call asking to
+    /// escalate is refused without running or prompting.
+    fn escalate(&self, name: &str) -> String {
+        escalation_unavailable_msg(name, self.sandbox)
     }
 
     /// Fire the hooks for `event` and fold their answers into the run: a
@@ -1605,11 +1318,6 @@ impl CompositeToolInvoker {
     /// Whether `name` is a tool the client executes. Always `false` where there
     /// is no client: the desktop build has no peer that could answer one.
     fn is_host_tool(&self, name: &str) -> bool {
-        #[cfg(feature = "cli")]
-        {
-            self.host_tools.is_host_tool(name)
-        }
-        #[cfg(not(feature = "cli"))]
         {
             let _ = name;
             false
@@ -1619,20 +1327,6 @@ impl CompositeToolInvoker {
     /// How the gate treats a call to host tool `name`. Off the headless build
     /// there are no host tools, so the answer is never consulted there.
     fn host_gate(&self, name: &str) -> HostGate {
-        #[cfg(feature = "cli")]
-        {
-            use crate::core::agent::host_tools::HostCapability;
-            let capability = self.host_tools.get(name).and_then(|t| t.capability);
-            match capability {
-                // Plan mode and concurrency follow the capability even when
-                // the host owns the gate; only the prompt is the host's.
-                Some(HostCapability::Read) => HostGate::Read,
-                _ if self.host_owns_gate => HostGate::Host,
-                Some(HostCapability::Actuator) => HostGate::Actuator,
-                None => HostGate::Opaque,
-            }
-        }
-        #[cfg(not(feature = "cli"))]
         {
             let _ = name;
             HostGate::Opaque
@@ -1655,101 +1349,6 @@ impl CompositeToolInvoker {
         }
     }
 
-    /// Hand a host tool call to the client and wait for its answer.
-    ///
-    /// The returned text is what the model sees, in every outcome, unless the
-    /// host answered with content parts: a host that fails, or one that goes
-    /// away mid-call, still produces a tool message. An unanswered call would
-    /// otherwise leave the conversation with an assistant turn whose call is
-    /// never resolved, which is not a state the run can be resumed from.
-    #[cfg(feature = "cli")]
-    async fn call_host_tool(&self, name: &str, args: &serde_json::Value) -> HostCallResult {
-        let Some(tool) = self.host_tools.get(name) else {
-            return (format!("ERROR: host tool '{name}' is not registered"), None, None);
-        };
-        // The same hook bracket the plugin path fires, for the same reason: a
-        // host tool is still a tool call, and a PreToolUse policy that could
-        // not see it would have a hole exactly where a third party's code runs.
-        let payload = tauri_plugin_agent_tools::tools::hooks::HookPayload {
-            tool_name: Some(name.to_string()),
-            tool_input: Some(args.clone()),
-            ..Default::default()
-        };
-        if let Some(reason) = self
-            .fire_hooks(
-                tauri_plugin_agent_tools::tools::hooks::HookEvent::PreToolUse,
-                payload.clone(),
-            )
-            .await
-        {
-            return (hook_denied_msg(name, &reason), None, None);
-        }
-        // After the hook, so a policy sees every attempted call, and before
-        // the request exists, so the host -- possibly driving hardware --
-        // never receives arguments its own schema forbids.
-        if let Err(why) = tool.validate(args) {
-            return (
-                format!(
-                    "ERROR: arguments for host tool '{}' do not match its schema: {why}",
-                    tool.name
-                ),
-                None,
-                None,
-            );
-        }
-        let (request_id, receiver) =
-            crate::core::agent::host_tools::register(&self.host_tool_requests).await;
-        // The host declared `observe` and dispatches on `observe`; the `host__`
-        // prefix is this layer's business, not the host's. A child's request
-        // goes to the root channel unwrapped, so the client answers it exactly
-        // as it answers the main run's.
-        let (sink, run_id) = match &self.host_tool_route {
-            Some((sender, run_id)) => (sender, Some(run_id.clone())),
-            None => (&self.events, None),
-        };
-        let _ = sink.send(StreamEvent::ToolRequest {
-            request_id: request_id.clone(),
-            tool_name: tool.name.clone(),
-            args: args.clone(),
-            run_id,
-        });
-        let (content, parts, details) = match receiver.await {
-            Ok(Ok(result)) => {
-                if result.is_error {
-                    let parts = result.parts.map(mark_parts_as_error);
-                    (format!("ERROR: {}", result.content), parts, result.details)
-                } else {
-                    (result.content, result.parts, result.details)
-                }
-            }
-            Ok(Err(crate::core::agent::host_tools::HostToolError::Cancelled)) => {
-                self.host_tool_requests.lock().await.remove(&request_id);
-                (
-                    format!("ERROR: host tool '{}' was cancelled before it answered", tool.name),
-                    None,
-                    None,
-                )
-            }
-            // Stranded by a closed pipe, or the sender dropped with the run.
-            Ok(Err(crate::core::agent::host_tools::HostToolError::ClientGone)) | Err(_) => {
-                self.host_tool_requests.lock().await.remove(&request_id);
-                (
-                    format!("ERROR: host tool '{}' was not answered: the client is gone", tool.name),
-                    None,
-                    None,
-                )
-            }
-        };
-        self.fire_hooks(
-            tauri_plugin_agent_tools::tools::hooks::HookEvent::PostToolUse,
-            tauri_plugin_agent_tools::tools::hooks::HookPayload {
-                tool_result: Some(content.clone()),
-                ..payload
-            },
-        )
-        .await;
-        (content, parts, details)
-    }
 
     /// Prompt the user to approve an MCP tool call, mirroring the built-in gate.
     /// A dropped responder (client gone / run cancelled) resolves to Deny.
@@ -2252,17 +1851,6 @@ fn hook_denied_msg(name: &str, reason: &str) -> String {
     format!("ERROR: tool '{name}' {HOOK_DENIED}{reason}")
 }
 
-/// A refused escalation. The command did not run at all, inside or outside the
-/// sandbox, and the model is told so along with the way a user enables it --
-/// a non-interactive run lands here too, where nobody could have approved.
-fn escalation_denied_msg(name: &str) -> String {
-    format!(
-        "ERROR: tool '{name}' escalation {DENIED_BY_USER}: the command was not run. Do not \
-         retry it outside the sandbox. If no one could answer (a non-interactive run), the \
-         user can allow escalation with --allow-escalation or [tools].allow_escalation."
-    )
-}
-
 /// An escalation request where escalation is not offered at all.
 fn escalation_unavailable_msg(name: &str, sandboxed: bool) -> String {
     if sandboxed {
@@ -2541,8 +2129,6 @@ impl ToolInvoker for CompositeToolInvoker {
         let mut read_futures = Vec::new();
         // Host tools declared `read`: auto-allowed like the built-in reads and
         // run concurrently with each other once the gating pass is over.
-        #[cfg(feature = "cli")]
-        let mut host_read_calls: Vec<(String, String, serde_json::Value)> = Vec::new();
         // How many of `out` `on_complete` has already seen. The sequential pass
         // `continue`s out of a dozen arms, so announcing at the top of the next
         // iteration (and once more after the loop) covers every arm with one
@@ -2698,11 +2284,6 @@ impl ToolInvoker for CompositeToolInvoker {
                 // reads below, so two camera frames do not wait on each other.
                 // `self` is borrowed by the future, which is why these are
                 // collected here and only driven after this loop is done.
-                #[cfg(feature = "cli")]
-                if gate == HostGate::Read {
-                    host_read_calls.push((id, name.to_string(), args));
-                    continue;
-                }
                 let approved = match gate {
                     HostGate::Read | HostGate::Host => true,
                     // An actuator is prompted even under `auto_approve`: that
@@ -2720,18 +2301,8 @@ impl ToolInvoker for CompositeToolInvoker {
                     ));
                     continue;
                 }
-                #[cfg(feature = "cli")]
-                {
-                    let (content, parts, details) = self.call_host_tool(name, &args).await;
-                    out.push(ToolOutcome {
-                        parts,
-                        details,
-                        ..ToolOutcome::plain(id, content)
-                    });
-                }
                 // Unreachable off the headless build, where `is_host_tool` is
                 // constant `false`.
-                #[cfg(not(feature = "cli"))]
                 {
                     let _ = &args;
                     out.push(ToolOutcome::plain(id, String::new()));
@@ -2937,7 +2508,7 @@ impl ToolInvoker for CompositeToolInvoker {
             // approving every prompt is a statement about tools running inside
             // the sandbox, and this one asks to leave it.
             if decision == Decision::Prompt(PromptKind::Escalate) {
-                let text = self.escalate(name, tool, &args, &id).await;
+                let text = self.escalate(name);
                 out.push(ToolOutcome::plain(id, text));
                 continue;
             }
@@ -3118,25 +2689,6 @@ impl ToolInvoker for CompositeToolInvoker {
                 announce_new(&out, &mut announced, on_complete);
             }
         }
-        #[cfg(feature = "cli")]
-        {
-            use futures::StreamExt;
-            let mut calls: futures::stream::FuturesUnordered<_> = host_read_calls
-                .iter()
-                .map(|(id, name, args)| async move {
-                    let (content, parts, details) = self.call_host_tool(name, args).await;
-                    ToolOutcome {
-                        parts,
-                        details,
-                        ..ToolOutcome::plain(id.clone(), content)
-                    }
-                })
-                .collect();
-            while let Some(outcome) = calls.next().await {
-                out.push(outcome);
-                announce_new(&out, &mut announced, on_complete);
-            }
-        }
         if !mcp_calls.is_empty() {
             let results = self.mcp.invoke(&mcp_calls).await?;
             for outcome in &results {
@@ -3176,14 +2728,12 @@ impl ToolInvoker for CompositeToolInvoker {
 /// An HTTP client has no way to cancel mid-run, so this is the one path that
 /// keeps a turn cap: a body that doesn't ask for one gets
 /// [`PROXY_DEFAULT_MAX_TURNS`] rather than the unbounded default.
-#[cfg(not(feature = "cli"))]
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn run_server_side_openai_orchestration(
     json_body: &serde_json::Value,
     client: &Client,
     provider_configs: Arc<Mutex<HashMap<String, ProviderConfig>>>,
     llama_state: Arc<LlamacppState>,
-    mlx_sessions: Arc<Mutex<HashMap<i32, MlxBackendSession>>>,
     mcp_servers: SharedMcpServers,
     mcp_settings: Arc<Mutex<McpSettings>>,
     jan_data_folder: &str,
@@ -3193,7 +2743,6 @@ pub(crate) async fn run_server_side_openai_orchestration(
         client: client.clone(),
         provider_configs,
         llama_state,
-        mlx_sessions,
         mcp_servers,
         mcp_settings,
         jan_data_folder: jan_data_folder.to_string(),
@@ -3214,7 +2763,6 @@ pub(crate) async fn run_server_side_openai_orchestration(
         // The top-level run is not a child: no dispatch gave it an id.
         run_id: None,
         sandbox: None,
-        allow_escalation: None,
         monitors: None,
         // Run-owned: the proxy has no conversation to deliver a later ping
         // into, so background work must be settled before the run returns.
@@ -3252,13 +2800,12 @@ pub(crate) async fn run_server_side_openai_orchestration(
 
 /// Turn cap applied to an API-server run whose body doesn't set one. Small on
 /// purpose: nothing on that path can interrupt a loop that never converges.
-#[cfg(not(feature = "cli"))]
 const PROXY_DEFAULT_MAX_TURNS: u64 = 8;
 
 /// A safe-boundary handoff. The TUI retains pending input until it can reply,
 /// so cancellation and late submissions use the ordinary next-turn path.
 // Only the CLI consumes handoffs; other callers always pass no channel.
-#[cfg_attr(not(feature = "cli"), allow(dead_code))]
+#[allow(dead_code)]
 pub(crate) struct SteeringRequest {
     pub run_mode: crate::core::agent::plan::RunMode,
     pub messages: Vec<serde_json::Value>,
@@ -3364,7 +2911,6 @@ fn advertise_local_tools(
     max_parallel_subagents: u32,
     ask_enabled: bool,
     todo_enabled: bool,
-    #[cfg(feature = "cli")] host_tools: &crate::core::agent::host_tools::HostToolSet,
     has_parent: bool,
 ) {
     let planning = run_mode == crate::core::agent::plan::RunMode::Plan;
@@ -3494,25 +3040,6 @@ fn advertise_local_tools(
     // undeclared or actuator tool shares the plugin/MCP treatment and is
     // withheld in read-only Plan mode; one the host declared `read` stays.
     // Every one honors the deny list.
-    #[cfg(feature = "cli")]
-    {
-        for tool in host_tools.all() {
-            let is_read =
-                tool.capability == Some(crate::core::agent::host_tools::HostCapability::Read);
-            if planning && !is_read {
-                continue;
-            }
-            if permissions.is_denied(&tool.qualified_name) {
-                continue;
-            }
-            if let Some(allow) = allowed_names {
-                if !allow.contains(&tool.qualified_name) {
-                    continue;
-                }
-            }
-            openai_tools.push(tool.schema());
-        }
-    }
     // A child run's doorbell to the main agent: offered exactly when a dispatch
     // gave this run a parent, never to a top-level run. A narrowed child still
     // gets it, because dispatch adds it to the child's allowlist like the skill
@@ -3687,90 +3214,7 @@ fn run_session_start(
         .unwrap_or_else(|| crate::core::agent::context::SessionStart::capture(project_root))
 }
 
-/// The system prompt the *next* ordinary turn in `project_root` would carry,
-/// built through the exact path a real run takes (`build_run_system_prompt`
-/// with this project's resolved sandbox/scratch and `[prompt]` policy). Used by
-/// the CLI `/context` view to size the system segments: routing it through the
-/// same builder is what keeps the reported breakdown from drifting away from
-/// what is actually sent. It sizes all project-composed blocks, including
-/// blocks demoted to the tail and the session-start block, but excludes the
-/// query-dependent memory recall and plan/todo additions.
-/// `None` when no prompt would be built, or
-/// when the project's `[prompt]` policy cannot be honored (the run itself
-/// reports that failure with the same message).
-#[cfg(feature = "cli")]
-pub(crate) fn context_system_prompt_preview(
-    override_prompt: Option<&str>,
-    project_root: &std::path::Path,
-    session_id: Option<&str>,
-    subagents_enabled: bool,
-    sandbox_flag: Option<bool>,
-    session_start: Option<&crate::core::agent::context::SessionStart>,
-) -> Option<String> {
-    let settings = resolve_run_settings(project_root, sandbox_flag, None);
-    let policy = crate::core::agent::project::prompt_policy(project_root);
-    build_run_system_prompt(
-        None,
-        override_prompt,
-        Some(project_root),
-        session_id,
-        subagents_enabled,
-        settings.sandbox,
-        &policy,
-        session_start,
-    )
-    .ok()
-    .flatten()
-    .map(|composed| composed.as_prompt())
-}
 
-/// The tool array the *next* ordinary turn would advertise: the MCP tools
-/// currently connected, pruned by policy exactly as a run prunes them, plus the
-/// local tools from [`advertise_local_tools`]. Sizes the "System tools" segment
-/// of the CLI `/context` view from the real schemas rather than a guess.
-///
-/// No per-request `allowed_tools` allowlist is applied: that is set per request
-/// by an API caller, and the interactive TUI never sets one.
-#[cfg(feature = "cli")]
-#[allow(clippy::too_many_arguments)]
-pub(crate) async fn context_advertised_tools(
-    mcp_servers: &SharedMcpServers,
-    mcp_settings: &Arc<Mutex<McpSettings>>,
-    permissions: &tauri_plugin_agent_tools::permissions::ToolPermissions,
-    project_root: Option<&std::path::Path>,
-    run_mode: crate::core::agent::plan::RunMode,
-    subagents_enabled: bool,
-    max_parallel_subagents: u32,
-    ask_enabled: bool,
-    todo_enabled: bool,
-    host_tools: &crate::core::agent::host_tools::HostToolSet,
-) -> Vec<serde_json::Value> {
-    let (mut tools, mut tool_to_server) =
-        crate::core::agent::upstream::collect_mcp_openai_tools(mcp_servers, mcp_settings)
-            .await
-            .unwrap_or_default();
-    if run_mode == crate::core::agent::plan::RunMode::Plan {
-        tools.clear();
-    } else {
-        retain_advertisable_mcp_tools(&mut tools, &mut tool_to_server, permissions);
-    }
-    advertise_local_tools(
-        &mut tools,
-        None,
-        permissions,
-        project_root,
-        run_mode,
-        subagents_enabled,
-        max_parallel_subagents,
-        ask_enabled,
-        todo_enabled,
-        host_tools,
-        // The `/context` view sizes an interactive session's own run, which is
-        // top-level by construction and so has no main agent to message.
-        false,
-    );
-    tools
-}
 
 /// Where this run's scratch lives: `<cache>/jan/<project slug>/scratch/<session>`
 /// (see [`crate::core::agent::project::scratch_dir`]). Session-keyed so it
@@ -3905,29 +3349,17 @@ async fn orchestrate_inner(
     // The upstream address is resolved once below and reused for every turn, so
     // the lease is held for the whole run: a device-change restart must not stop
     // the worker between two turns of it.
-    #[cfg(not(feature = "cli"))]
     let _engine_lease = args.llama_state.lease().await;
     let OrchestrationArgs {
         client,
         provider_configs,
-        #[cfg(not(feature = "cli"))]
         llama_state,
-        #[cfg(not(feature = "cli"))]
-        mlx_sessions,
         mcp_servers,
         mcp_settings,
         jan_data_folder,
         permissions,
         project_root,
         permission_requests,
-        #[cfg(feature = "cli")]
-        host_tools,
-        #[cfg(feature = "cli")]
-        host_tool_requests,
-        #[cfg(feature = "cli")]
-        host_owns_gate,
-        #[cfg(feature = "cli")]
-        host_tool_route,
         ask_requests,
         todo_registry,
         system_prompt_override,
@@ -3950,7 +3382,6 @@ async fn orchestrate_inner(
         shell_detach: _,
         shell_cwd: _,
         sandbox,
-        allow_escalation,
         compaction,
         session_start,
         // Read through `args` where the invoker is built.
@@ -3990,7 +3421,7 @@ async fn orchestrate_inner(
     // nothing binds.
     let settings = project_root
         .as_deref()
-        .map(|root| resolve_run_settings(root, *sandbox, *allow_escalation));
+        .map(|root| resolve_run_settings(root, *sandbox));
 
     // The stable system prompt: identity, guidelines, environment, skills and
     // the memory catalog. Byte-identical across the turns of a session, so it
@@ -4164,7 +3595,6 @@ async fn orchestrate_inner(
             }
         }
     }
-    #[cfg(not(feature = "cli"))]
     {
         if model_id.is_none() {
             // The llama.cpp router is a desktop-only listing call on the app's
@@ -4177,10 +3607,6 @@ async fn orchestrate_inner(
             if let Some(first) = router_first_model(llama_state, &ROUTER_CLIENT).await {
                 model_id = Some(first);
             }
-        }
-        if model_id.is_none() {
-            let mlx_guard = mlx_sessions.lock().await;
-            model_id = mlx_guard.values().next().map(|s| s.info.model_id.clone());
         }
     }
     let model_id = model_id.ok_or("No running model sessions available")?;
@@ -4232,8 +3658,6 @@ async fn orchestrate_inner(
         *max_parallel_subagents,
         ask_requests.is_some(),
         todo_registry.is_some(),
-        #[cfg(feature = "cli")]
-        host_tools,
         args.parent_link.is_some(),
     );
     // Every agent run rings the shell doorbell (`shell_done_sink`), and one
@@ -4244,18 +3668,11 @@ async fn orchestrate_inner(
         &mut openai_tools,
         args.shell_cwd.is_some() && tauri_plugin_agent_tools::tools::proc::shell_cwd_supported(),
     );
-    // Resolved once per run, so the array is byte-identical across its turns.
-    if settings.as_ref().is_some_and(|s| s.escalation.offered()) {
-        tauri_plugin_agent_tools::tools::schema::offer_escalation(&mut openai_tools);
-    }
 
     let (upstream_url, session_api_keys) = resolve_upstream_for_model(
         &model_id,
         provider_configs.clone(),
-        #[cfg(not(feature = "cli"))]
         llama_state.clone(),
-        #[cfg(not(feature = "cli"))]
-        mlx_sessions.clone(),
     )
     .await?;
 
@@ -4264,7 +3681,6 @@ async fn orchestrate_inner(
     // here instead, from the catalog or the loaded engine model's context, so
     // the run compacts before dispatch rather than after a rejection. Still
     // `None` when the window is unknown, which keeps it reactive.
-    #[cfg(not(feature = "cli"))]
     let compaction = &match compaction {
         Some(budget) => Some(*budget),
         None => {
@@ -4424,7 +3840,6 @@ async fn orchestrate_inner(
             allow_network: settings.allow_network,
             allow_home_read: settings.allow_home_read,
             sandbox: settings.sandbox,
-            escalation: settings.escalation,
             hidden_root: crate::core::agent::project::hidden_root(settings.sandbox),
             scratch_root: scratch_root.clone(),
             pkg_cache,
@@ -4457,14 +3872,6 @@ async fn orchestrate_inner(
             // flight is judged by.
             hooks: crate::core::agent::hooks_config::resolve_hooks(root),
             plugin_tools: crate::core::agent::hooks_config::resolve_plugin_tools(root),
-            #[cfg(feature = "cli")]
-            host_tools: host_tools.clone(),
-            #[cfg(feature = "cli")]
-            host_tool_requests: host_tool_requests.clone(),
-            #[cfg(feature = "cli")]
-            host_owns_gate: *host_owns_gate,
-            #[cfg(feature = "cli")]
-            host_tool_route: host_tool_route.clone(),
             hook_notices_queue: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
             bg_shells: session_bg_shells.clone().unwrap_or_default(),
             parent_link: args.parent_link.clone(),
@@ -4477,7 +3884,7 @@ async fn orchestrate_inner(
             shell_cwd: args.shell_cwd.clone(),
             memory_changes,
             memory_change_budget: args.memory_change_budget.clone(),
-            workspace: RunWorkspace::resolve(child_scope.as_ref(), root),
+            workspace: RunWorkspace::resolve(child_scope.as_ref()),
         };
         // Entries dropped while loading the hook files are reported once here,
         // before anything fires: a user whose matcher is a bad glob otherwise
@@ -4781,145 +4188,10 @@ impl Drop for SessionEndGuard {
     }
 }
 
-/// Manually compact `messages` for the given model, resolving the upstream from
-/// `args` and reusing the same summarization path as the reactive loop. Used by
-/// the TUI `/compact` command, which holds `OrchestrationArgs` + a model id but
-/// no `ModelInvoker`. The summarizer's report rides along, `None` when there
-/// was nothing to compact.
-#[cfg(feature = "cli")]
-pub(crate) async fn compact_history(
-    args: &OrchestrationArgs,
-    model_id: &str,
-    messages: &[serde_json::Value],
-    run_mode: crate::core::agent::plan::RunMode,
-    goal_active: bool,
-) -> Result<
-    (
-        Vec<serde_json::Value>,
-        Option<crate::core::agent::events::CompactionReport>,
-    ),
-    String,
-> {
-    // `/compact` discards conversation exactly as the in-loop overflow retry
-    // does, so it owes PreCompact the same warning. This path has no invoker to
-    // hang the hooks off (it holds args and a model id, nothing more), so they
-    // are resolved here.
-    if let Some(root) = args.project_root.as_deref() {
-        let hooks = crate::core::agent::hooks_config::resolve_hooks(root);
-        let store = crate::core::agent::project::store_root(root);
-        let ctx = tauri_plugin_agent_tools::tools::ToolContext::new(root, &store, &[])
-            .with_sandbox(effective_sandbox(root))
-            .with_hooks(&hooks, false, None);
-        crate::core::agent::compaction::fire_pre_compact(&hooks, &ctx, messages.len()).await;
-    }
-    // A `/compact` runs between turns: there is no run stream in existence to
-    // carry the provenance record, so this request is reported nowhere rather
-    // than somewhere a client cannot read.
-    let mut model = side_call_invoker(args, model_id, None).await?;
-    model.summarizer = smol_summarizer(args, model_id, None).await;
-    let harness = between_turn_harness(args, run_mode, goal_active).await;
-    let (sizing, keep_tokens) = between_turn_sizing(args.compaction, messages);
-    Ok(crate::core::agent::compaction::compact_conversation(
-        messages,
-        model_id,
-        &model,
-        keep_tokens,
-        &harness,
-        sizing,
-    )
-    .await)
-}
 
-/// The harness context a compaction between turns writes, built like a run's
-/// ([`CompactionScope::harness`]) from what the session owns: the workspace,
-/// its subagent roster, background shells and monitors (all session-owned in
-/// the TUI, so they outlive the run that started them), the todo list, mode
-/// and goal. No budget section: between turns no run is spending one.
-#[cfg(feature = "cli")]
-async fn between_turn_harness(
-    args: &OrchestrationArgs,
-    run_mode: crate::core::agent::plan::RunMode,
-    goal_active: bool,
-) -> crate::core::agent::continuation::HarnessContext {
-    // The main conversation is the parent; nothing compacts a child's
-    // history from outside its run.
-    let mut harness = crate::core::agent::continuation::HarnessContext::default();
-    if let Some(root) = args.project_root.as_deref() {
-        harness.git_status = crate::core::agent::git::workspace_status(root);
-        harness.push("Workspace", workspace_lines(root, args.shell_cwd.as_ref()));
-    }
-    if let Some(bg) = &args.subagent_bg {
-        harness.push("Subagents", bg.roster_lines().join("\n"));
-    }
-    harness.push(
-        "Running in the background",
-        background_lines(args.bg_shells.as_deref(), args.monitors.as_deref()),
-    );
-    push_session_sections(&mut harness, args.todo_registry.as_ref(), run_mode, goal_active).await;
-    harness
-}
 
-/// The window a compaction between turns sizes against, and the tokens its
-/// kept tail may hold: the share of the trigger a run's own compaction keeps
-/// ([`crate::core::agent::compaction::tail_tokens`]). With no configured
-/// budget the conversation itself is the best measure of a window -- it fit,
-/// or the user would not be compacting it -- and the trigger is the default
-/// ratio of that.
-#[cfg(feature = "cli")]
-fn between_turn_sizing(
-    budget: Option<crate::core::agent::compaction::CompactionBudget>,
-    messages: &[serde_json::Value],
-) -> (crate::core::agent::compaction::Sizing, u64) {
-    use crate::core::agent::compaction::{
-        estimate_token_count, tail_tokens, trigger_tokens, Sizing, DEFAULT_COMPACTION_RATIO,
-    };
-    let (window, trigger) = match budget {
-        Some(budget) => (budget.context_window, budget.trigger_tokens()),
-        None => {
-            let window = estimate_token_count(messages).max(32_000);
-            (window, trigger_tokens(window, DEFAULT_COMPACTION_RATIO, None))
-        }
-    };
-    // One trigger sizes both the tail and the state's caps, so a configured
-    // ratio or reserve is honoured by `/compact` as it is by a run.
-    (Sizing { window, trigger, overhead: 0 }, tail_tokens(trigger))
-}
 
-/// Run one stateless `/goal` evaluation against `smol_model_id` (the session's
-/// fast "smol" role). Mirrors [`compact_history`]: resolve the upstream for the
-/// evaluator model, then make a single tool-free model call that judges whether
-/// `condition` is satisfied by `messages`. No tools, no streaming to the user.
-#[cfg(feature = "cli")]
-pub(crate) async fn evaluate_goal(
-    args: &OrchestrationArgs,
-    smol_model_id: &str,
-    condition: &str,
-    messages: &[serde_json::Value],
-) -> Result<crate::core::agent::goal::GoalVerdict, String> {
-    let model = side_call_invoker(args, smol_model_id, None).await?;
-    crate::core::agent::goal::evaluate(smol_model_id, condition, messages, &model).await
-}
 
-/// One stateless, tool-free completion outside the run: `request` is sent as
-/// is and the reply's text content returned. For CLI side calls that must not
-/// touch the session's history or prompt -- `/vibe-setting` maps a sentence to
-/// settings this way, so the conversation's cached prefix is never involved.
-#[cfg(feature = "cli")]
-pub(crate) async fn side_completion(
-    args: &OrchestrationArgs,
-    model_id: &str,
-    request: &serde_json::Value,
-) -> Result<String, String> {
-    let model = side_call_invoker(args, model_id, None).await?;
-    // Nothing streams to the user: a dropped receiver keeps the tokens internal.
-    let (sink, _rx) = mpsc::unbounded_channel();
-    let completion = model.invoke(request, &sink).await?;
-    Ok(crate::core::agent::upstream::extract_choice_message(&completion)
-        .and_then(|m| m.get("content"))
-        .and_then(|c| c.as_str())
-        .unwrap_or_default()
-        .to_string())
-}
 
 /// The `smol` model's invoker for compaction summaries, or `None` when no smol
 /// model is configured, it is `model_id` itself, or it cannot be resolved (the
@@ -4953,10 +4225,7 @@ async fn side_call_invoker(
     let (upstream_url, api_keys) = resolve_upstream_for_model(
         smol_model_id,
         args.provider_configs.clone(),
-        #[cfg(not(feature = "cli"))]
         args.llama_state.clone(),
-        #[cfg(not(feature = "cli"))]
-        args.mlx_sessions.clone(),
     )
     .await?;
     let provenance = request_identity(
@@ -6911,89 +6180,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 
-    /// `[prompt]` in agent.toml is what decides which blocks reach the cache
-    /// line: the run resolves the policy from the project's config and composes
-    /// through it, so an allowlist naming two contributors really does move the
-    /// rest below the line.
-    #[test]
-    #[cfg(feature = "cli")]
-    fn agent_toml_narrows_what_reaches_the_cache_line() {
-        let root = unique_project_root();
-        let agent_dir = crate::core::agent::project::store_root(&root);
-        std::fs::create_dir_all(&agent_dir).expect("agent dir");
-        std::fs::write(
-            agent_dir.join("agent.toml"),
-            "[prompt]\nprefix_allow = [\"assistant_instructions\", \"tool_schemas\"]\n",
-        )
-        .expect("agent.toml");
 
-        let policy = crate::core::agent::project::prompt_policy(&root);
-        assert_eq!(policy.prefix_allow().map(<[String]>::len), Some(2));
-        // ...and the run's resolved settings carry the same policy, which is
-        // what `orchestrate_inner` composes with.
-        assert_eq!(
-            resolve_run_settings(&root, None, None)
-                .prompt
-                .prefix_allow()
-                .map(<[String]>::len),
-            Some(2)
-        );
-        let composed = build_run_system_prompt(
-            Some("main assistant"),
-            None,
-            Some(&root),
-            Some("s1"),
-            false,
-            false,
-            &policy,
-            None,
-        )
-        .expect("prompt")
-        .expect("project prompt");
-
-        // Only the identity is allowed above the line...
-        assert_eq!(composed.prefix, "main assistant");
-        // ...and everything else still reaches the model, from the tail.
-        let tail: Vec<&str> = composed
-            .tail
-            .iter()
-            .map(|(_, block)| block.as_str())
-            .collect();
-        assert!(tail.iter().any(|block| block.contains("# Guidelines")));
-        assert!(tail.iter().any(|block| block.contains("# Web Access")));
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    /// An allowlist that would put a varying composer above the cache line stops
-    /// the run, rather than costing a cache miss on every turn. The failure is
-    /// the same one `agent status` reports, from the same resolution.
-    #[test]
-    #[cfg(feature = "cli")]
-    fn agent_toml_that_allows_a_varying_composer_fails_the_run() {
-        let root = unique_project_root();
-        let agent_dir = crate::core::agent::project::store_root(&root);
-        std::fs::create_dir_all(&agent_dir).expect("agent dir");
-        std::fs::write(
-            agent_dir.join("agent.toml"),
-            "[prompt]\nprefix_allow = [\"todo_addendum\"]\n",
-        )
-        .expect("agent.toml");
-
-        let policy = crate::core::agent::project::prompt_policy(&root);
-        let error = build_run_system_prompt(
-            Some("main assistant"),
-            None,
-            Some(&root),
-            Some("s1"),
-            false,
-            false,
-            &policy,
-            None,
-        )
-        .expect_err("a per-turn composer cannot be allowed above the cache line");
-        assert!(error.contains("todo_addendum"), "{error}");
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
     fn tool_call_completion() -> serde_json::Value {
         json!({
@@ -8845,82 +8032,7 @@ mod tests {
         }
     }
 
-    /// `/compact` and the TUI's auto-compaction write the same harness context
-    /// a run's own compaction does: the session's roster, background shells,
-    /// todo list, mode and goal all live on `args`, not in a run.
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn a_between_turn_compaction_carries_the_sessions_harness_context() {
-        let root = tempfile::tempdir().unwrap();
-        let mut args = crate::core::agent::subagent::tests::max_par_args(root.path());
-        let bg = Arc::new(crate::core::agent::subagent::BackgroundSubagents::default());
-        bg.roster_add("explore", "sub-explore-1", "map the repo", false, Some("blackboard/explore.md".into()));
-        args.subagent_bg = Some(bg);
-        let shells = Arc::new(crate::core::agent::bg_shell::BackgroundShells::default());
-        shells.start(tauri_plugin_agent_tools::tools::ShellBackgrounded { id: 7, timeout_secs: 30 });
-        args.bg_shells = Some(shells);
-        let todo = crate::core::agent::todo::new_registry();
-        todo.lock()
-            .await
-            .init(vec![crate::core::agent::todo::TodoPhase {
-                name: "Fix".into(),
-                tasks: vec![crate::core::agent::todo::TodoItem {
-                    content: "patch the parser".into(),
-                    status: crate::core::agent::todo::TodoStatus::Pending,
-                }],
-            }])
-            .unwrap();
-        args.todo_registry = Some(todo);
 
-        let harness =
-            between_turn_harness(&args, crate::core::agent::plan::RunMode::Plan, true).await;
-        let section = |heading: &str| {
-            harness
-                .sections
-                .iter()
-                .find(|(h, _)| h == heading)
-                .map(|(_, body)| body.clone())
-                .unwrap_or_else(|| panic!("no {heading} section: {:?}", harness.sections))
-        };
-        assert_eq!(harness.role, crate::core::agent::continuation::Role::Parent);
-        assert!(section("Workspace").contains(&root.path().display().to_string()));
-        assert!(section("Subagents").contains("explore (sub-explore-1)"));
-        assert!(section("Subagents").contains("blackboard/explore.md"));
-        assert!(section("Running in the background").contains("background shell 7"));
-        assert!(section("Todo list").contains("patch the parser"));
-        assert!(section("Mode").contains("Plan mode"));
-        assert!(section("Goal").contains("/goal"));
-
-        // Normal mode and no goal write neither section.
-        let quiet =
-            between_turn_harness(&args, crate::core::agent::plan::RunMode::Normal, false).await;
-        assert!(quiet.sections.iter().all(|(h, _)| h != "Mode" && h != "Goal"));
-    }
-
-    /// A between-turn compaction sizes its tail like a run's: by tokens, from
-    /// the trigger the configured budget gives, or the default ratio of an
-    /// estimated window when none is configured.
-    #[cfg(feature = "cli")]
-    #[test]
-    fn a_between_turn_compaction_sizes_its_tail_from_the_trigger() {
-        use crate::core::agent::compaction::{
-            tail_tokens, trigger_tokens, CompactionBudget, DEFAULT_COMPACTION_RATIO,
-        };
-        let budget = CompactionBudget {
-            context_window: 200_000,
-            ratio: 0.5,
-            reserve_tokens: None,
-            window_pinned: false,
-        };
-        let messages = vec![json!({ "role": "user", "content": "hi" })];
-        let (sizing, keep) = between_turn_sizing(Some(budget), &messages);
-        assert_eq!((sizing.window, sizing.trigger), (200_000, budget.trigger_tokens()));
-        assert_eq!(keep, tail_tokens(budget.trigger_tokens()));
-        let default_trigger = trigger_tokens(32_000, DEFAULT_COMPACTION_RATIO, None);
-        let (sizing, keep) = between_turn_sizing(None, &messages);
-        assert_eq!((sizing.window, sizing.trigger), (32_000, default_trigger));
-        assert_eq!(keep, tail_tokens(default_trigger));
-    }
 
     /// A cycle of `results` large reads, on a 40K window at `ratio`, starting
     /// from `task`. Returns the model, so the requests it saw can be checked.
@@ -10296,7 +9408,6 @@ mod tests {
     ) -> CompositeToolInvoker {
         CompositeToolInvoker {
             sandbox: true,
-            escalation: Escalation::Off,
             hidden_root: crate::core::agent::project::hidden_root(true),
             mcp: McpToolInvoker {
                 tool_to_server: HashMap::new(),
@@ -10334,14 +9445,6 @@ mod tests {
             run_mode: crate::core::agent::plan::RunMode::Normal,
             hooks: tauri_plugin_agent_tools::tools::hooks::HookSet::new(),
             plugin_tools: tauri_plugin_agent_tools::tools::plugin_tools::PluginToolSet::new(),
-            #[cfg(feature = "cli")]
-            host_tools: crate::core::agent::host_tools::HostToolSet::new(),
-            #[cfg(feature = "cli")]
-            host_tool_requests: crate::core::agent::host_tools::new_registry(),
-            #[cfg(feature = "cli")]
-            host_owns_gate: false,
-            #[cfg(feature = "cli")]
-            host_tool_route: None,
             hook_notices_queue: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
             bg_shells: std::sync::Arc::new(
                 crate::core::agent::bg_shell::BackgroundShells::default(),
@@ -10811,652 +9914,25 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 
-    /// A stub host: answers the run's `tool_request` the way a client on stdin
-    /// would, and reports what it was asked. Spawned before the call because
-    /// the dispatch parks until it replies.
-    #[cfg(feature = "cli")]
-    fn stub_host(
-        registry: crate::core::agent::host_tools::HostToolRegistry,
-        mut events: mpsc::UnboundedReceiver<StreamEvent>,
-        reply: Result<crate::core::agent::host_tools::HostToolResult, ()>,
-    ) -> tokio::task::JoinHandle<(String, serde_json::Value)> {
-        tokio::spawn(async move {
-            while let Some(ev) = events.recv().await {
-                if let StreamEvent::ToolRequest {
-                    request_id,
-                    tool_name,
-                    args,
-                    ..
-                } = ev
-                {
-                    match reply {
-                        Ok(result) => {
-                            crate::core::agent::host_tools::respond(
-                                &registry,
-                                &request_id,
-                                Ok(result),
-                            )
-                            .await
-                            .expect("the run is waiting on this id");
-                        }
-                        // The host went away mid-call.
-                        Err(()) => {
-                            crate::core::agent::host_tools::strand_all(&registry).await;
-                        }
-                    }
-                    return (tool_name, args);
-                }
-            }
-            panic!("the run never emitted a tool_request");
-        })
-    }
 
-    #[cfg(feature = "cli")]
-    fn host_invoker(
-        root: std::path::PathBuf,
-        tools: crate::core::agent::host_tools::HostToolSet,
-    ) -> (CompositeToolInvoker, mpsc::UnboundedReceiver<StreamEvent>) {
-        let (tx, rx) = mpsc::unbounded_channel();
-        let mut invoker = build_prompting_invoker(root, tx, PermissionRegistry::default());
-        invoker.sandbox = false;
-        invoker.hidden_root = None;
-        invoker.auto_approve = true;
-        invoker.host_tools = tools;
-        (invoker, rx)
-    }
 
-    #[cfg(feature = "cli")]
-    fn host_tool_set(names: &[&str]) -> crate::core::agent::host_tools::HostToolSet {
-        crate::core::agent::host_tools::HostToolSet::declare(
-            names
-                .iter()
-                .map(|n| crate::core::agent::host_tools::HostToolDecl {
-                    name: n.to_string(),
-                    description: String::new(),
-                    parameters: None,
-                    capability: None,
-                    unknown: Default::default(),
-                })
-                .collect(),
-        )
-        .expect("the test names are valid")
-    }
 
-    /// A host tool set whose entries each declare a capability.
-    #[cfg(feature = "cli")]
-    fn host_tool_set_with(
-        tools: &[(&str, Option<crate::core::agent::host_tools::HostCapability>)],
-    ) -> crate::core::agent::host_tools::HostToolSet {
-        crate::core::agent::host_tools::HostToolSet::declare(
-            tools
-                .iter()
-                .map(|(n, capability)| crate::core::agent::host_tools::HostToolDecl {
-                    name: n.to_string(),
-                    description: String::new(),
-                    parameters: None,
-                    capability: *capability,
-                    unknown: Default::default(),
-                })
-                .collect(),
-        )
-        .expect("the test names are valid")
-    }
 
-    #[cfg(feature = "cli")]
-    fn host_ok(content: &str) -> crate::core::agent::host_tools::HostToolResult {
-        crate::core::agent::host_tools::HostToolResult {
-            content: content.to_string(),
-            parts: None,
-            details: None,
-            is_error: false,
-        }
-    }
 
-    /// Answers every `tool_request` with `content` and every permission
-    /// prompt with `decision`, recording what it saw: the request tool names
-    /// and the prompted tool names. Ends when the invoker's sender drops.
-    #[cfg(feature = "cli")]
-    fn answering_host(
-        invoker: &CompositeToolInvoker,
-        mut events: mpsc::UnboundedReceiver<StreamEvent>,
-        decision: PermissionDecision,
-    ) -> tokio::task::JoinHandle<(Vec<String>, Vec<String>)> {
-        let registry = invoker.host_tool_requests.clone();
-        let permissions = invoker.permission_requests.clone();
-        tokio::spawn(async move {
-            let mut asked = Vec::new();
-            let mut prompted = Vec::new();
-            while let Some(ev) = events.recv().await {
-                match ev {
-                    StreamEvent::ToolRequest {
-                        request_id,
-                        tool_name,
-                        ..
-                    } => {
-                        crate::core::agent::host_tools::respond(
-                            &registry,
-                            &request_id,
-                            Ok(host_ok("done")),
-                        )
-                        .await
-                        .expect("pending");
-                        asked.push(tool_name);
-                    }
-                    StreamEvent::PermissionRequest {
-                        request_id,
-                        tool_name,
-                        ..
-                    } => {
-                        if let Some(tx) = permissions.lock().await.remove(&request_id) {
-                            let _ = tx.send(decision);
-                        }
-                        prompted.push(tool_name);
-                    }
-                    _ => {}
-                }
-            }
-            (asked, prompted)
-        })
-    }
 
-    /// A `read` host tool is the sensor case: no prompt even with
-    /// `auto_approve` off, and two calls in one batch are in flight together.
-    /// The stub host answers only once it holds *both* requests, so a
-    /// sequential dispatch would deadlock here (bounded by the timeout).
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn read_host_tools_run_concurrently_without_a_prompt() {
-        use crate::core::agent::host_tools::HostCapability;
-        let root = hooks_root("hosttoolread");
-        let (mut invoker, mut events) = host_invoker(
-            root.clone(),
-            host_tool_set_with(&[("camera", Some(HostCapability::Read))]),
-        );
-        invoker.auto_approve = false;
-        let registry = invoker.host_tool_requests.clone();
-        let host = tokio::spawn(async move {
-            let mut pending = Vec::new();
-            while let Some(ev) = events.recv().await {
-                match ev {
-                    StreamEvent::ToolRequest { request_id, .. } => pending.push(request_id),
-                    StreamEvent::PermissionRequest { tool_name, .. } => {
-                        panic!("a read host tool was prompted: {tool_name}")
-                    }
-                    _ => {}
-                }
-                if pending.len() == 2 {
-                    for (i, id) in pending.iter().enumerate() {
-                        crate::core::agent::host_tools::respond(
-                            &registry,
-                            id,
-                            Ok(host_ok(&format!("frame {i}"))),
-                        )
-                        .await
-                        .expect("pending");
-                    }
-                    return pending;
-                }
-            }
-            panic!("only {} requests arrived", pending.len());
-        });
 
-        let mut first = hooked_tool_call("host__camera", "{}");
-        first["id"] = json!("c1");
-        let mut second = hooked_tool_call("host__camera", "{}");
-        second["id"] = json!("c2");
-        let out = tokio::time::timeout(
-            std::time::Duration::from_secs(10),
-            invoker.invoke(&[first, second]),
-        )
-        .await
-        .expect("both reads were in flight together")
-        .unwrap();
-        let pending = host.await.expect("the stub host ran");
-        assert_eq!(pending.len(), 2);
-        let mut ids: Vec<&str> = out.iter().map(|o| o.id.as_str()).collect();
-        ids.sort_unstable();
-        assert_eq!(ids, ["c1", "c2"]);
-        assert!(out.iter().all(|o| o.content.starts_with("frame ")));
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
-    /// Plan mode is read-only, and a host tool declared `read` is exactly that,
-    /// so it stays both advertised and callable; the others are withheld.
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn a_read_host_tool_is_available_in_plan_mode() {
-        use crate::core::agent::host_tools::HostCapability;
-        let set = host_tool_set_with(&[
-            ("camera", Some(HostCapability::Read)),
-            ("arm", Some(HostCapability::Actuator)),
-            ("opaque", None),
-        ]);
-        let mut tools = Vec::new();
-        advertise_local_tools(
-            &mut tools,
-            None,
-            &ToolPermissions::allow_all(),
-            None,
-            crate::core::agent::plan::RunMode::Plan,
-            false,
-            1,
-            false,
-            false,
-            &set,
-            false,
-        );
-        let names: Vec<&str> = tools
-            .iter()
-            .filter_map(|t| t["function"]["name"].as_str())
-            .collect();
-        assert_eq!(names, ["host__camera"]);
 
-        let root = hooks_root("hosttoolreadplan");
-        let (mut invoker, events) = host_invoker(root.clone(), set);
-        invoker.run_mode = crate::core::agent::plan::RunMode::Plan;
-        let host = answering_host(&invoker, events, PermissionDecision::Deny);
-        let out = invoker
-            .invoke(&[hooked_tool_call("host__camera", "{}")])
-            .await
-            .unwrap();
-        assert_eq!(out[0].content, "done");
-        let out = invoker
-            .invoke(&[hooked_tool_call("host__arm", "{}")])
-            .await
-            .unwrap();
-        assert!(out[0].content.contains("plan_mode_read_only"), "{}", out[0].content);
-        drop(invoker);
-        let (asked, prompted) = host.await.expect("the stub host ran");
-        assert_eq!(asked, ["camera"]);
-        assert!(prompted.is_empty(), "{prompted:?}");
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
-    /// Declaring an actuator is how a host opts a tool out of `auto_approve`:
-    /// the user is asked every time, and a denial never reaches the host.
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn an_actuator_host_tool_is_prompted_even_under_auto_approve() {
-        use crate::core::agent::host_tools::HostCapability;
-        let root = hooks_root("hosttoolactuator");
-        let (invoker, events) = host_invoker(
-            root.clone(),
-            host_tool_set_with(&[("arm", Some(HostCapability::Actuator)), ("opaque", None)]),
-        );
-        assert!(invoker.auto_approve);
-        let host = answering_host(&invoker, events, PermissionDecision::Deny);
-        let out = invoker
-            .invoke(&[hooked_tool_call("host__arm", "{}")])
-            .await
-            .unwrap();
-        assert_eq!(out[0].content, "ERROR: tool 'host__arm' denied by user");
-        // The undeclared tool keeps today's behaviour: auto-approved.
-        let out = invoker
-            .invoke(&[hooked_tool_call("host__opaque", "{}")])
-            .await
-            .unwrap();
-        assert_eq!(out[0].content, "done");
-        drop(invoker);
-        let (asked, prompted) = host.await.expect("the stub host ran");
-        assert_eq!(prompted, ["host__arm"]);
-        assert_eq!(asked, ["opaque"]);
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
-    /// With the host owning the gate its callback is the only prompt: Jan
-    /// raises no `permission_request` for any host tool class, even with
-    /// `auto_approve` off.
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn a_host_that_owns_the_gate_is_never_prompted_for() {
-        use crate::core::agent::host_tools::HostCapability;
-        let root = hooks_root("hosttoolhostgate");
-        let (mut invoker, events) = host_invoker(
-            root.clone(),
-            host_tool_set_with(&[("arm", Some(HostCapability::Actuator)), ("opaque", None)]),
-        );
-        invoker.auto_approve = false;
-        invoker.host_owns_gate = true;
-        let host = answering_host(&invoker, events, PermissionDecision::Deny);
-        let out = invoker
-            .invoke(&[
-                hooked_tool_call("host__arm", "{}"),
-                hooked_tool_call("host__opaque", "{}"),
-            ])
-            .await
-            .unwrap();
-        assert!(out.iter().all(|o| o.content == "done"));
-        drop(invoker);
-        let (asked, prompted) = host.await.expect("the stub host ran");
-        assert!(prompted.is_empty(), "{prompted:?}");
-        assert_eq!(asked, ["arm", "opaque"]);
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
-    /// A child's host call goes out on the root sender, unwrapped, with its
-    /// run id; nothing reaches the child's own channel, which the forwarder
-    /// would wrap into a shape no client may answer.
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn a_routed_host_call_is_emitted_unwrapped_with_its_run_id() {
-        let root = hooks_root("hosttoolroute");
-        let (mut invoker, mut own_events) = host_invoker(root.clone(), host_tool_set(&["observe"]));
-        let (route_tx, mut route_rx) = mpsc::unbounded_channel();
-        invoker.host_tool_route = Some((route_tx, "sub-7".to_string()));
-        let registry = invoker.host_tool_requests.clone();
-        let host = tokio::spawn(async move {
-            match route_rx.recv().await {
-                Some(StreamEvent::ToolRequest {
-                    request_id,
-                    tool_name,
-                    run_id,
-                    ..
-                }) => {
-                    crate::core::agent::host_tools::respond(&registry, &request_id, Ok(host_ok("seen")))
-                        .await
-                        .expect("pending in the shared registry");
-                    (tool_name, run_id)
-                }
-                other => panic!("expected a tool_request, got {other:?}"),
-            }
-        });
-        let out = invoker
-            .invoke(&[hooked_tool_call("host__observe", "{}")])
-            .await
-            .unwrap();
-        assert_eq!(out[0].content, "seen");
-        assert_eq!(
-            host.await.expect("the stub host ran"),
-            ("observe".to_string(), Some("sub-7".to_string()))
-        );
-        while let Ok(ev) = own_events.try_recv() {
-            assert!(
-                !matches!(ev, StreamEvent::ToolRequest { .. }),
-                "the request must not enter the child's own channel"
-            );
-        }
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
-    /// A withdrawn request still settles the call, and the model is told it
-    /// was cancelled rather than that the host vanished.
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn a_cancelled_host_call_tells_the_model_so() {
-        let root = hooks_root("hosttoolcancel");
-        let (invoker, mut events) = host_invoker(root.clone(), host_tool_set(&["observe"]));
-        let registry = invoker.host_tool_requests.clone();
-        let host = tokio::spawn(async move {
-            while let Some(ev) = events.recv().await {
-                if let StreamEvent::ToolRequest { request_id, .. } = ev {
-                    let released = crate::core::agent::host_tools::cancel_all(&registry).await;
-                    assert_eq!(released, vec![request_id]);
-                    return;
-                }
-            }
-        });
-        let out = invoker
-            .invoke(&[hooked_tool_call("host__observe", "{}")])
-            .await
-            .unwrap();
-        host.await.expect("the stub host ran");
-        assert_eq!(
-            out[0].content,
-            "ERROR: host tool 'observe' was cancelled before it answered"
-        );
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
-    /// The host's schema is enforced before the host is asked: a call with too
-    /// few joints goes back to the model as an error naming the path, and the
-    /// host never sees a `tool_request` for it.
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn arguments_that_break_the_host_schema_never_reach_the_host() {
-        let root = hooks_root("hosttoolvalidate");
-        let set = crate::core::agent::host_tools::HostToolSet::declare(vec![
-            crate::core::agent::host_tools::HostToolDecl {
-                name: "move_arm".to_string(),
-                description: String::new(),
-                parameters: Some(json!({
-                    "type": "object",
-                    "properties": {
-                        "joints": { "type": "array", "items": { "type": "number" }, "minItems": 6 }
-                    },
-                    "required": ["joints"]
-                })),
-                capability: None,
-                unknown: Default::default(),
-            },
-        ])
-        .expect("declares");
-        let (invoker, events) = host_invoker(root.clone(), set);
-        let host = answering_host(&invoker, events, PermissionDecision::AllowOnce);
-        let out = invoker
-            .invoke(&[hooked_tool_call("host__move_arm", r#"{"joints":[1,2,3]}"#)])
-            .await
-            .unwrap();
-        assert_eq!(
-            out[0].content,
-            "ERROR: arguments for host tool 'move_arm' do not match its schema: \
-             /joints: expected at least 6 items, got 3"
-        );
-        // A valid call still goes through, so the refusal above was the schema.
-        let out = invoker
-            .invoke(&[hooked_tool_call("host__move_arm", r#"{"joints":[1,2,3,4,5,6]}"#)])
-            .await
-            .unwrap();
-        assert_eq!(out[0].content, "done");
-        drop(invoker);
-        let (asked, _) = host.await.expect("the stub host ran");
-        assert_eq!(asked, ["move_arm"], "only the valid call reached the host");
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
-    /// A dotted host name is advertised under its mapped wire name, and the
-    /// host is asked under the name it declared.
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn a_mapped_host_name_is_requested_under_its_original_name() {
-        let root = hooks_root("hosttoolmapped");
-        let set = host_tool_set(&["yam.move_ee_ik"]);
-        let wire = set.all()[0].qualified_name.clone();
-        assert!(wire.starts_with("host__yam_move_ee_ik_"), "{wire}");
-        let (invoker, events) = host_invoker(root.clone(), set);
-        let host = answering_host(&invoker, events, PermissionDecision::AllowOnce);
-        let out = invoker.invoke(&[hooked_tool_call(&wire, "{}")]).await.unwrap();
-        assert_eq!(out[0].content, "done");
-        drop(invoker);
-        let (asked, _) = host.await.expect("the stub host ran");
-        assert_eq!(asked, ["yam.move_ee_ik"]);
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
-    /// Parts and details a host answers with survive dispatch onto the
-    /// outcome; a failed result's parts carry the error marker too.
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn host_parts_and_details_reach_the_outcome() {
-        let root = hooks_root("hosttoolparts");
-        let (invoker, events) = host_invoker(root.clone(), host_tool_set(&["camera"]));
-        let parts = vec![
-            json!({ "type": "text", "text": "front camera" }),
-            json!({ "type": "image_url", "image_url": { "url": "data:image/png;base64,QUJD" } }),
-        ];
-        let host = stub_host(
-            invoker.host_tool_requests.clone(),
-            events,
-            Ok(crate::core::agent::host_tools::HostToolResult {
-                content: "front camera".to_string(),
-                parts: Some(parts.clone()),
-                details: Some(json!({ "exposure": 12 })),
-                is_error: false,
-            }),
-        );
-        let out = invoker
-            .invoke(&[hooked_tool_call("host__camera", "{}")])
-            .await
-            .unwrap();
-        host.await.expect("the stub host ran");
-        assert_eq!(out[0].content, "front camera");
-        assert_eq!(out[0].parts.as_deref(), Some(parts.as_slice()));
-        assert_eq!(out[0].details, Some(json!({ "exposure": 12 })));
 
-        assert_eq!(
-            mark_parts_as_error(parts.clone())[0],
-            json!({ "type": "text", "text": "ERROR: front camera" })
-        );
-        assert_eq!(
-            mark_parts_as_error(vec![parts[1].clone()])[0],
-            json!({ "type": "text", "text": "ERROR" })
-        );
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
-    /// R1 end to end: the call leaves as a `tool_request` carrying the host's
-    /// own name, and the host's answer comes back as the tool message content.
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn a_host_tool_call_round_trips_through_the_client() {
-        let root = hooks_root("hosttoolroundtrip");
-        let (invoker, events) = host_invoker(root.clone(), host_tool_set(&["observe"]));
-        let host = stub_host(
-            invoker.host_tool_requests.clone(),
-            events,
-            Ok(crate::core::agent::host_tools::HostToolResult {
-                content: "two cameras, both clear".to_string(),
-                parts: None,
-                details: None,
-                is_error: false,
-            }),
-        );
 
-        let out = invoker
-            .invoke(&[hooked_tool_call(
-                "host__observe",
-                r#"{"camera":"front"}"#,
-            )])
-            .await
-            .unwrap();
-
-        let (asked_name, asked_args) = host.await.expect("the stub host ran");
-        // The host declared `observe` and is asked for `observe`: the `host__`
-        // prefix is this layer's business and never reaches the host.
-        assert_eq!(asked_name, "observe");
-        assert_eq!(asked_args, json!({ "camera": "front" }));
-        assert_eq!(out[0].content, "two cameras, both clear");
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    /// A host tool that failed is still an answer: the model is told, and the
-    /// turn continues rather than ending on it.
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn a_failed_host_tool_result_reaches_the_model_as_an_error() {
-        let root = hooks_root("hosttoolerror");
-        let (invoker, events) = host_invoker(root.clone(), host_tool_set(&["command"]));
-        let host = stub_host(
-            invoker.host_tool_requests.clone(),
-            events,
-            Ok(crate::core::agent::host_tools::HostToolResult {
-                content: "arm is estopped".to_string(),
-                parts: None,
-                details: None,
-                is_error: true,
-            }),
-        );
-
-        let out = invoker
-            .invoke(&[hooked_tool_call("host__command", "{}")])
-            .await
-            .unwrap();
-
-        host.await.expect("the stub host ran");
-        assert_eq!(out[0].content, "ERROR: arm is estopped");
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    /// The wedge: a host that dies mid-call must settle the turn, not park it.
-    /// An unanswered call would leave an assistant turn whose call is never
-    /// resolved, which is not a conversation the run can be resumed from.
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn a_host_that_leaves_mid_call_settles_the_turn() {
-        let root = hooks_root("hosttoolgone");
-        let (invoker, events) = host_invoker(root.clone(), host_tool_set(&["observe"]));
-        let host = stub_host(invoker.host_tool_requests.clone(), events, Err(()));
-
-        let out = invoker
-            .invoke(&[hooked_tool_call("host__observe", "{}")])
-            .await
-            .unwrap();
-
-        host.await.expect("the stub host ran");
-        assert!(
-            out[0].content.contains("was not answered"),
-            "{}",
-            out[0].content
-        );
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    /// Host tools carry an opaque capability, so they get the plugin/MCP
-    /// treatment: withheld entirely in read-only Plan mode, and never dispatched
-    /// to the host at all.
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn a_host_tool_is_withheld_in_plan_mode() {
-        let root = hooks_root("hosttoolplan");
-        let (mut invoker, mut events) = host_invoker(root.clone(), host_tool_set(&["command"]));
-        invoker.run_mode = crate::core::agent::plan::RunMode::Plan;
-
-        let out = invoker
-            .invoke(&[hooked_tool_call("host__command", "{}")])
-            .await
-            .unwrap();
-
-        assert!(
-            out[0].content.contains("plan_mode_read_only"),
-            "{}",
-            out[0].content
-        );
-        assert!(
-            !matches!(events.try_recv(), Ok(StreamEvent::ToolRequest { .. })),
-            "a withheld tool must not reach the host"
-        );
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    /// The hook bracket covers host tools for the same reason it covers plugin
-    /// tools: a PreToolUse policy that could not see them would have a hole
-    /// exactly where a third party's code runs.
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn a_hook_can_deny_a_host_tool() {
-        let root = hooks_root("hosttooldeny");
-        let (mut invoker, mut events) = host_invoker(root.clone(), host_tool_set(&["command"]));
-        invoker.hooks = hook_set(vec![hook_entry(
-            "PreToolUse",
-            Some("host__*"),
-            r#"echo '{"decision":"deny","reason":"actuators are off"}'"#,
-        )]);
-
-        let out = invoker
-            .invoke(&[hooked_tool_call("host__command", "{}")])
-            .await
-            .unwrap();
-
-        assert!(
-            out[0].content.contains("actuators are off"),
-            "{}",
-            out[0].content
-        );
-        assert!(
-            !matches!(events.try_recv(), Ok(StreamEvent::ToolRequest { .. })),
-            "a hook-denied tool must not reach the host"
-        );
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
     /// The three session-lifecycle events go through `fire_hooks` rather than
     /// the toolset's `execute_builtin` bracket, so they are pinned here: each
@@ -11557,19 +10033,19 @@ mod tests {
         };
 
         write("[tools]\nallow_network = false\n[skills]\nenabled = [\"deploy\"]\n");
-        let denied = resolve_run_settings(&root, None, None);
+        let denied = resolve_run_settings(&root, None);
         assert!(!denied.allow_network, "explicit false must be honoured");
         assert_eq!(denied.enabled_skills, vec!["deploy".to_string()]);
 
         write("[tools]\nallow_network = true\n");
         assert!(
-            resolve_run_settings(&root, None, None).allow_network,
+            resolve_run_settings(&root, None).allow_network,
             "explicit true must be honoured"
         );
 
         write("[tools]\ndefault = \"read-only\"\n");
         assert_eq!(
-            resolve_run_settings(&root, None, None).allow_network,
+            resolve_run_settings(&root, None).allow_network,
             DEFAULT_ALLOW_NETWORK,
             "unset must fall back to the surface default"
         );
@@ -11596,46 +10072,9 @@ mod tests {
         assert_eq!(resolve_allow_home_read(None), DEFAULT_ALLOW_HOME_READ);
     }
 
-    /// Sandbox precedence, most specific source first: the `--sandbox` flag
-    /// beats the project's `[tools].sandbox`, which beats the user's global
-    /// `sandbox`, which beats the surface default. Each level must be able to
-    /// push in *both* directions, or a user who turned confinement on
-    /// permanently could never run a single command without it.
-    #[cfg(feature = "cli")]
-    #[test]
-    fn sandbox_precedence_runs_flag_then_project_then_global() {
-        crate::core::agent::global_config::with_temp_home(|_| {
-            // Nothing set anywhere: the CLI surface default.
-            assert_eq!(resolve_sandbox(None, None), DEFAULT_SANDBOX);
-            // The flag wins over everything below it, both ways.
-            assert!(resolve_sandbox(Some(true), Some(false)));
-            assert!(!resolve_sandbox(Some(false), Some(true)));
-            // With no flag, the project decides.
-            assert!(resolve_sandbox(None, Some(true)));
-            assert!(!resolve_sandbox(None, Some(false)));
-
-            let path =
-                crate::core::agent::global_config::ensure_global_config().expect("config path");
-            // The scaffolded template leaves `sandbox` commented out, so the
-            // default still stands until it is actually set.
-            assert_eq!(resolve_sandbox(None, None), DEFAULT_SANDBOX);
-            std::fs::write(&path, "sandbox = true\n").unwrap();
-            assert!(resolve_sandbox(None, None), "global sandbox ignored");
-            assert!(!resolve_sandbox(None, Some(false)), "project must win");
-            assert!(!resolve_sandbox(Some(false), None), "--no-sandbox must win");
-
-            std::fs::write(&path, "not valid toml [[[").unwrap();
-            assert_eq!(
-                resolve_sandbox(None, None),
-                DEFAULT_SANDBOX,
-                "an unparseable config falls back to the default, not an error"
-            );
-        });
-    }
 
     /// The desktop has no opt-out: its shell is confined or withheld, and
     /// neither a project file nor the CLI's global config can change that.
-    #[cfg(not(feature = "cli"))]
     #[test]
     fn desktop_sandbox_cannot_be_turned_off() {
         // Every input, including the two that turn it off on the CLI. Asserted
@@ -11732,43 +10171,12 @@ mod tests {
         assert!(!bare.contains("Scratch:"), "{bare}");
     }
 
-    /// The CLI agent's shell keeps its network namespace. Before the sandbox
-    /// existed this shell ran fully unconfined, so flipping this to `false`
-    /// silently breaks `curl`, `git fetch` and package installs while every
-    /// test that does not actually open a socket keeps passing.
-    #[test]
-    #[cfg(feature = "cli")]
-    fn cli_tool_context_allows_network() {
-        let root = std::path::PathBuf::from("/tmp/jan-net-check");
-        let (tx, _rx) = mpsc::unbounded_channel();
-        let invoker =
-            build_prompting_invoker(root, tx, Arc::new(tokio::sync::Mutex::new(HashMap::new())));
-        assert!(
-            invoker.tool_context().allow_network,
-            "CLI shell must keep its network namespace"
-        );
-    }
 
-    /// The CLI shell reads `$HOME` (so git/ssh credential helpers work) unless
-    /// the project explicitly opts out.
-    #[test]
-    #[cfg(feature = "cli")]
-    fn cli_tool_context_reads_home() {
-        let root = std::path::PathBuf::from("/tmp/jan-home-check");
-        let (tx, _rx) = mpsc::unbounded_channel();
-        let invoker =
-            build_prompting_invoker(root, tx, Arc::new(tokio::sync::Mutex::new(HashMap::new())));
-        assert!(
-            invoker.tool_context().home_readonly,
-            "CLI shell must read $HOME"
-        );
-    }
 
     /// The desktop keeps the full isolation: the sandbox masks `$HOME` rather
     /// than binding it read-only, so the Jan data folder (which lives inside
     /// `$HOME`) stays unreadable.
     #[test]
-    #[cfg(not(feature = "cli"))]
     fn desktop_tool_context_withholds_home() {
         let root = std::path::PathBuf::from("/tmp/jan-home-check");
         let (tx, _rx) = mpsc::unbounded_channel();
@@ -11780,7 +10188,6 @@ mod tests {
     /// The desktop chat sandbox is ephemeral and unprompted, so it opts in per
     /// call from a user setting instead of defaulting on here.
     #[test]
-    #[cfg(not(feature = "cli"))]
     fn desktop_tool_context_withholds_network() {
         let root = std::path::PathBuf::from("/tmp/jan-net-check");
         let (tx, _rx) = mpsc::unbounded_channel();
@@ -11827,33 +10234,6 @@ mod tests {
         })
     }
 
-    /// Like `ask_call`, but with three options and a non-zero `recommended`
-    /// index (2 -> "Huge"). The index is deliberately not 0 so that a silent
-    /// fallback to the first option is distinguishable from honoring the
-    /// recommended choice.
-    #[cfg(feature = "cli")]
-    fn ask_call_recommended() -> serde_json::Value {
-        json!({
-            "id": "ask-call",
-            "type": "function",
-            "function": {
-                "name": "ask",
-                "arguments": serde_json::to_string(&json!({
-                    "questions": [{
-                        "id": "scope",
-                        "question": "Which scope?",
-                        "options": [
-                            {"label": "Small"},
-                            {"label": "Large"},
-                            {"label": "Huge"}
-                        ],
-                        "recommended": 2
-                    }]
-                }))
-                .unwrap()
-            }
-        })
-    }
 
     /// A single tool call by name with empty JSON arguments.
     fn tool_call(id: &str, name: &str) -> serde_json::Value {
@@ -12099,98 +10479,11 @@ mod tests {
     // HOME at the config it writes; a nested current-thread runtime runs the
     // invoke because that helper is synchronous.
     // `global_config` (the timeout source) is CLI-only, so this test is too.
-    #[cfg(feature = "cli")]
-    #[test]
-    fn ask_auto_selects_on_timeout_instead_of_cancelling() {
-        crate::core::agent::global_config::with_temp_home(|_| {
-            let path = crate::core::agent::global_config::ensure_global_config().unwrap();
-            std::fs::write(&path, "ask_timeout_secs = 1\n").unwrap();
-
-            let rt = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .unwrap();
-            rt.block_on(async {
-                let root = unique_project_root();
-                let (tx, _rx) = mpsc::unbounded_channel();
-                let permissions: PermissionRegistry = Arc::new(Mutex::new(HashMap::new()));
-                let asks = crate::core::agent::interaction::new_registry();
-                let mut invoker = build_prompting_invoker(root.clone(), tx, permissions);
-                invoker.ask_requests = Some(asks.clone());
-
-                // No one answers: handle_ask_tool self-resolves after the timeout.
-                let out = invoker.invoke(&[ask_call()]).await.unwrap();
-                assert_eq!(out.len(), 1);
-                assert!(
-                    !out[0].content.contains("ask_cancelled"),
-                    "timeout is not a cancel: {}",
-                    out[0].content
-                );
-                assert!(
-                    out[0]
-                        .content
-                        .contains("User response for \"scope\": Small"),
-                    "auto-selected the first option: {}",
-                    out[0].content
-                );
-                assert!(
-                    asks.lock().await.is_empty(),
-                    "the timed-out ask must be deregistered"
-                );
-                let _ = std::fs::remove_dir_all(&root);
-            });
-        });
-    }
 
     // A timeout with a non-zero `recommended` index must select that option,
     // never silently fall back to the first (index 0). `ask_call_recommended`
     // asks for `scope` with options [Small, Large, Huge] and `recommended: 2`,
     // so a correct result says "Huge" and an index-0 fallback says "Small".
-    #[cfg(feature = "cli")]
-    #[test]
-    fn ask_timeout_auto_selects_the_recommended_option_not_the_first() {
-        crate::core::agent::global_config::with_temp_home(|_| {
-            let path = crate::core::agent::global_config::ensure_global_config().unwrap();
-            std::fs::write(&path, "ask_timeout_secs = 1\n").unwrap();
-
-            let rt = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .unwrap();
-            rt.block_on(async {
-                let root = unique_project_root();
-                let (tx, _rx) = mpsc::unbounded_channel();
-                let permissions: PermissionRegistry = Arc::new(Mutex::new(HashMap::new()));
-                let asks = crate::core::agent::interaction::new_registry();
-                let mut invoker = build_prompting_invoker(root.clone(), tx, permissions);
-                invoker.ask_requests = Some(asks.clone());
-
-                // No one answers: handle_ask_tool self-resolves after the timeout.
-                let out = invoker.invoke(&[ask_call_recommended()]).await.unwrap();
-                assert_eq!(out.len(), 1);
-                assert!(
-                    !out[0].content.contains("ask_cancelled"),
-                    "timeout is not a cancel: {}",
-                    out[0].content
-                );
-                assert!(
-                    out[0].content.contains("User response for \"scope\": Huge"),
-                    "must select the recommended option (Huge): {}",
-                    out[0].content
-                );
-                assert!(
-                    !out[0].content.contains("Small"),
-                    "must not fall back to the first option: {}",
-                    out[0].content
-                );
-                assert!(
-                    asks.lock().await.is_empty(),
-                    "the timed-out ask must be deregistered"
-                );
-                let _ = std::fs::remove_dir_all(&root);
-            });
-        });
-    }
 
     fn todo_call(id: &str, args: serde_json::Value) -> serde_json::Value {
         json!({
@@ -12784,328 +11077,16 @@ mod tests {
         marker
     }
 
-    /// Auto-approval covers everything that runs inside the sandbox, never a
-    /// request to leave it: the prompt still goes out, without "allow always"
-    /// and with the model's reason, and an approved command runs unconfined.
-    #[tokio::test]
-    #[cfg(feature = "cli")]
-    async fn escalation_prompts_even_under_auto_approve_and_runs_unconfined() {
-        let root = unique_project_root();
-        let marker = escalation_marker(&root);
-        let (tx, mut rx) = mpsc::unbounded_channel();
-        let registry: PermissionRegistry = Arc::new(Mutex::new(HashMap::new()));
-        let mut invoker = build_prompting_invoker(root.clone(), tx, registry.clone());
-        invoker.auto_approve = true;
-        invoker.escalation = Escalation::Prompt;
-        let responder = tokio::spawn(async move {
-            loop {
-                match rx.recv().await {
-                    Some(StreamEvent::PermissionRequest {
-                        request_id,
-                        prompt_kind,
-                        offers_always,
-                        justification,
-                        command,
-                        ..
-                    }) => {
-                        if let Some(tx) = registry.lock().await.remove(&request_id) {
-                            let _ = tx.send(PermissionDecision::AllowOnce);
-                        }
-                        return (prompt_kind, offers_always, justification, command);
-                    }
-                    Some(_) => continue,
-                    None => panic!("no prompt was sent"),
-                }
-            }
-        });
-        let out = invoker.invoke(&[escalated_shell_call(&marker)]).await.unwrap();
-        let (kind, always, justification, command) = responder.await.unwrap();
-        assert_eq!(kind, "escalate");
-        assert!(!always, "an escalation is never remembered");
-        assert_eq!(justification.as_deref(), Some("write outside the project"));
-        assert!(command.unwrap().starts_with("touch "));
-        assert!(out[0].content.contains("[exit 0]"), "{}", out[0].content);
-        assert!(marker.exists(), "the approved command ran on the host");
-        let _ = std::fs::remove_file(&marker);
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
-    /// A `shell` call with `args`, as the model sends it.
-    #[cfg(all(feature = "cli", unix))]
-    fn shell_call(id: &str, args: serde_json::Value) -> serde_json::Value {
-        json!({
-            "id": id,
-            "type": "function",
-            "function": { "name": "shell", "arguments": args.to_string() }
-        })
-    }
 
-    /// An invoker holding `held` as the shell's directory whose escalation
-    /// prompt is approved, and the task answering it, which reports the
-    /// prompt's `path`.
-    #[cfg(all(feature = "cli", unix))]
-    fn held_cwd_escalation(
-        root: &std::path::Path,
-        held: std::path::PathBuf,
-    ) -> (
-        CompositeToolInvoker,
-        tauri_plugin_agent_tools::tools::ShellCwd,
-        tokio::task::JoinHandle<Option<String>>,
-    ) {
-        let (tx, mut rx) = mpsc::unbounded_channel();
-        let registry: PermissionRegistry = Arc::new(Mutex::new(HashMap::new()));
-        let mut invoker = build_prompting_invoker(root.to_path_buf(), tx, registry.clone());
-        invoker.escalation = Escalation::Prompt;
-        let cwd = tauri_plugin_agent_tools::tools::ShellCwd::default();
-        *cwd.lock().unwrap() = Some(held);
-        invoker.shell_cwd = Some(cwd.clone());
-        let responder = tokio::spawn(async move {
-            loop {
-                match rx.recv().await {
-                    Some(StreamEvent::PermissionRequest { request_id, path, .. }) => {
-                        if let Some(tx) = registry.lock().await.remove(&request_id) {
-                            let _ = tx.send(PermissionDecision::AllowOnce);
-                        }
-                        return path;
-                    }
-                    Some(_) => continue,
-                    None => panic!("no prompt was sent"),
-                }
-            }
-        });
-        (invoker, cwd, responder)
-    }
 
-    /// An escalated command starts where a `cd` left the shell, as the tool
-    /// description promises every later call does, and its prompt names that
-    /// directory: after `cd pkg`, an approved `rm -rf build` hits `pkg/build`,
-    /// and the user sees that it will.
-    #[tokio::test]
-    #[cfg(all(feature = "cli", unix))]
-    async fn escalation_runs_in_and_names_the_held_shell_cwd() {
-        if !tauri_plugin_agent_tools::tools::proc::shell_cwd_supported() {
-            return;
-        }
-        let root = unique_project_root();
-        std::fs::create_dir_all(root.join("sub")).unwrap();
-        let sub = std::fs::canonicalize(root.join("sub")).unwrap();
-        let (invoker, cwd, responder) = held_cwd_escalation(&root, sub.clone());
-        let escalated = json!({ "command": "pwd -P", "escalate": true, "justification": "x" });
-        let out = invoker.invoke(&[shell_call("esc", escalated)]).await.unwrap();
-        assert_eq!(responder.await.unwrap(), Some(sub.display().to_string()));
-        assert!(
-            out[0].content.starts_with(&sub.display().to_string()),
-            "ran in the held directory: {}",
-            out[0].content
-        );
-        assert_eq!(*cwd.lock().unwrap(), Some(sub), "a plain command moves nothing");
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
-    /// An escalated `cd` holds like any other and is announced. It needs no
-    /// host-side check: no held directory gets one, and the next confined
-    /// call enters it inside the sandbox or refuses and resets to the root.
-    #[tokio::test]
-    #[cfg(all(feature = "cli", unix))]
-    async fn an_escalated_cd_is_held_and_announced() {
-        if !tauri_plugin_agent_tools::tools::proc::shell_cwd_supported() {
-            return;
-        }
-        let root = unique_project_root();
-        std::fs::create_dir_all(root.join("sub")).unwrap();
-        std::fs::create_dir_all(root.join("other")).unwrap();
-        let sub = std::fs::canonicalize(root.join("sub")).unwrap();
-        let other = std::fs::canonicalize(root.join("other")).unwrap();
-        let (invoker, cwd, responder) = held_cwd_escalation(&root, sub);
-        let command = format!("cd '{}'", other.display());
-        let escalated = json!({ "command": command, "escalate": true, "justification": "x" });
-        let out = invoker.invoke(&[shell_call("esc", escalated)]).await.unwrap();
-        responder.await.unwrap();
-        assert!(out[0].content.contains("shell cwd is now"), "{}", out[0].content);
-        assert_eq!(*cwd.lock().unwrap(), Some(other));
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
-    /// An escalated `cd` into a host directory the sandbox cannot see (the
-    /// host's `/tmp`, under bubblewrap's private tmpfs) is held, since it runs
-    /// on the host and is not checked there, and the next confined call
-    /// refuses to run anywhere else and resets the shell to the root.
-    #[tokio::test]
-    #[cfg(all(feature = "cli", target_os = "linux"))]
-    async fn an_escalated_cd_the_sandbox_cannot_see_is_refused_by_the_next_call() {
-        use tauri_plugin_agent_tools::tools::jail;
-        if !tauri_plugin_agent_tools::tools::proc::shell_cwd_supported()
-            || jail::backend() != jail::Backend::Bubblewrap
-        {
-            return;
-        }
-        let root = unique_project_root();
-        let host = std::path::PathBuf::from(format!("/tmp/jan_loop_host_{}", std::process::id()));
-        std::fs::create_dir_all(&host).unwrap();
-        let host = std::fs::canonicalize(&host).unwrap();
-        let canonical_root = std::fs::canonicalize(&root).unwrap();
-        let (mut invoker, cwd, responder) = held_cwd_escalation(&root, canonical_root);
-        // bubblewrap binds the scratch, so it must exist for the confined call.
-        std::fs::create_dir_all(&invoker.scratch_root).unwrap();
-        // The confined call below runs without a prompt; the escalation
-        // still asks, which the responder answers.
-        invoker.auto_approve = true;
-        let command = format!("cd '{}'", host.display());
-        let escalated = json!({ "command": command, "escalate": true, "justification": "x" });
-        let out = invoker.invoke(&[shell_call("esc", escalated)]).await.unwrap();
-        responder.await.unwrap();
-        assert!(out[0].content.contains("shell cwd is now"), "{}", out[0].content);
-        assert_eq!(*cwd.lock().unwrap(), Some(host.clone()));
-        let confined = json!({ "command": "touch marker" });
-        let out = invoker.invoke(&[shell_call("next", confined)]).await.unwrap();
-        assert!(out[0].content.contains("was NOT run"), "{}", out[0].content);
-        assert!(!root.join("marker").exists(), "fell back to the project root");
-        assert!(!host.join("marker").exists(), "ran on the host");
-        assert_eq!(*cwd.lock().unwrap(), None, "the shell is back in the root");
-        let _ = std::fs::remove_dir_all(&host);
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
-    /// A held directory that is gone refuses the escalated command rather than
-    /// running it in the project root, and the shell is back in the root.
-    #[tokio::test]
-    #[cfg(all(feature = "cli", unix))]
-    async fn escalation_refuses_a_held_shell_cwd_that_is_gone() {
-        if !tauri_plugin_agent_tools::tools::proc::shell_cwd_supported() {
-            return;
-        }
-        let root = unique_project_root();
-        let gone = std::fs::canonicalize(&root).unwrap().join("gone");
-        let (invoker, cwd, responder) = held_cwd_escalation(&root, gone);
-        let escalated = json!({ "command": "touch marker", "escalate": true, "justification": "x" });
-        let out = invoker.invoke(&[shell_call("esc", escalated)]).await.unwrap();
-        responder.await.unwrap();
-        assert!(out[0].content.contains("was NOT run"), "{}", out[0].content);
-        assert!(!root.join("marker").exists(), "fell back to the project root");
-        assert_eq!(*cwd.lock().unwrap(), None, "the shell is back in the root");
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
-    /// A held directory swapped for a link refuses the escalation before the
-    /// user is asked: the prompt would name the held path while the command
-    /// followed the link somewhere else. The shell is back in the root.
-    #[tokio::test]
-    #[cfg(all(feature = "cli", unix))]
-    async fn escalation_refuses_a_held_shell_cwd_swapped_for_a_link() {
-        if !tauri_plugin_agent_tools::tools::proc::shell_cwd_supported() {
-            return;
-        }
-        let root = unique_project_root();
-        std::fs::create_dir_all(root.join("sub")).unwrap();
-        std::fs::create_dir_all(root.join("elsewhere")).unwrap();
-        let sub = std::fs::canonicalize(root.join("sub")).unwrap();
-        std::fs::remove_dir(&sub).unwrap();
-        std::os::unix::fs::symlink("elsewhere", &sub).unwrap();
-        let (invoker, cwd, responder) = held_cwd_escalation(&root, sub);
-        let escalated = json!({ "command": "touch marker", "escalate": true, "justification": "x" });
-        let out = invoker.invoke(&[shell_call("esc", escalated)]).await.unwrap();
-        assert!(out[0].content.contains("was not run"), "{}", out[0].content);
-        assert!(out[0].content.contains("back in the project root"), "{}", out[0].content);
-        assert!(!root.join("elsewhere/marker").exists(), "followed the link");
-        assert!(!root.join("marker").exists(), "fell back to the project root");
-        assert_eq!(*cwd.lock().unwrap(), None, "the shell is back in the root");
-        responder.abort();
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
-    /// A command the gate cannot scan within its bounds gets its own refusal,
-    /// telling the model to split it, not the hidden-home one that would send
-    /// it looking for a path it never named. Telemetry counts it as a config
-    /// refusal like the others.
-    #[tokio::test]
-    #[cfg(feature = "cli")]
-    async fn a_command_too_complex_to_check_is_refused_with_its_own_reason() {
-        let root = unique_project_root();
-        let jan = root.join("jan-home");
-        std::fs::create_dir_all(&jan).unwrap();
-        let (tx, _rx) = mpsc::unbounded_channel();
-        let registry: PermissionRegistry = Arc::new(Mutex::new(HashMap::new()));
-        let mut invoker = build_prompting_invoker(root.clone(), tx, registry);
-        invoker.hidden_root = Some(jan);
-        let deep = format!("cat {}", "a/".repeat(70_000));
-        let out = invoker.invoke(&[shell_call("c", json!({ "command": deep }))]).await.unwrap();
-        let text = &out[0].content;
-        assert!(text.contains(TOO_COMPLEX_REFUSED), "{}", &text[..text.len().min(300)]);
-        assert!(!text.contains(HIDDEN_PATH_REFUSED), "not refused as naming the home");
-        assert_eq!(
-            crate::core::agent::otel::refusal_of(text),
-            Some(crate::core::agent::otel::Refusal::Config)
-        );
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
-    /// An escalated call from a held directory above the Jan home is refused
-    /// for where it would start, though the command names nothing hidden.
-    /// The refusal names that directory and how to get out of it, and resets
-    /// the shell, rather than the generic hidden-home message that would
-    /// leave the model retrying from the same place. No prompt is sent.
-    #[tokio::test]
-    #[cfg(all(feature = "cli", unix))]
-    async fn escalation_from_a_held_shell_cwd_above_the_home_names_it_and_resets() {
-        if !tauri_plugin_agent_tools::tools::proc::shell_cwd_supported() {
-            return;
-        }
-        let home = std::fs::canonicalize(unique_project_root()).unwrap();
-        let jan = home.join("jan-home");
-        let project = home.join("proj");
-        std::fs::create_dir_all(&jan).unwrap();
-        std::fs::create_dir_all(&project).unwrap();
-        let (mut invoker, cwd, responder) = held_cwd_escalation(&project, home.clone());
-        invoker.hidden_root = Some(jan);
-        let escalated = json!({ "command": "/bin/true", "escalate": true, "justification": "x" });
-        let out = invoker.invoke(&[shell_call("esc", escalated)]).await.unwrap();
-        let text = &out[0].content;
-        assert!(text.contains(HIDDEN_PATH_REFUSED), "{text}");
-        assert!(text.contains(&format!("shell cwd {} is in it", home.display())), "{text}");
-        assert!(text.contains("back in the project root"), "{text}");
-        assert_eq!(*cwd.lock().unwrap(), None, "the shell is back in the root");
-        assert!(!responder.is_finished(), "no prompt was sent");
-        responder.abort();
-        let _ = std::fs::remove_dir_all(&home);
-    }
 
-    /// A gated confined exec names the held directory in its prompt, so the
-    /// user does not approve a command for the wrong tree.
-    #[tokio::test]
-    #[cfg(all(feature = "cli", unix))]
-    async fn a_gated_exec_names_the_held_shell_cwd() {
-        if !tauri_plugin_agent_tools::tools::proc::shell_cwd_supported() {
-            return;
-        }
-        let root = unique_project_root();
-        std::fs::create_dir_all(root.join("sub")).unwrap();
-        let canonical_sub = std::fs::canonicalize(root.join("sub")).unwrap();
-        let (tx, mut rx) = mpsc::unbounded_channel();
-        let registry: PermissionRegistry = Arc::new(Mutex::new(HashMap::new()));
-        let mut invoker = build_prompting_invoker(root.clone(), tx, registry.clone());
-        let cwd = tauri_plugin_agent_tools::tools::ShellCwd::default();
-        *cwd.lock().unwrap() = Some(canonical_sub.clone());
-        invoker.shell_cwd = Some(cwd);
-        let responder = tokio::spawn(async move {
-            loop {
-                match rx.recv().await {
-                    Some(StreamEvent::PermissionRequest { request_id, path, command, .. }) => {
-                        if let Some(tx) = registry.lock().await.remove(&request_id) {
-                            let _ = tx.send(PermissionDecision::Deny);
-                        }
-                        return (path, command);
-                    }
-                    Some(_) => continue,
-                    None => panic!("no prompt was sent"),
-                }
-            }
-        });
-        invoker.invoke(&[shell_call("plain", json!({ "command": "rm -rf build" }))]).await.unwrap();
-        let (path, command) = responder.await.unwrap();
-        assert_eq!(command.as_deref(), Some("rm -rf build"));
-        assert_eq!(path, Some(canonical_sub.display().to_string()));
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
     /// After a compaction the call that announced a `cd` is gone, so the
     /// workspace section names where the shell is.
@@ -13120,81 +11101,8 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 
-    /// A denied escalation runs nothing, inside the sandbox or out, and tells
-    /// the model not to retry it -- the same answer a headless run without a
-    /// terminal gets, which is why it names the opt-in.
-    #[tokio::test]
-    #[cfg(feature = "cli")]
-    async fn denied_escalation_runs_nothing() {
-        let root = unique_project_root();
-        let marker = escalation_marker(&root);
-        let (tx, mut rx) = mpsc::unbounded_channel();
-        let registry: PermissionRegistry = Arc::new(Mutex::new(HashMap::new()));
-        let mut invoker = build_prompting_invoker(root.clone(), tx, registry.clone());
-        invoker.escalation = Escalation::Prompt;
-        let responder = tokio::spawn(async move {
-            respond_once(&mut rx, &registry, PermissionDecision::Deny).await;
-        });
-        let out = invoker.invoke(&[escalated_shell_call(&marker)]).await.unwrap();
-        responder.await.unwrap();
-        assert!(out[0].content.contains("denied by user"), "{}", out[0].content);
-        assert!(out[0].content.contains("--allow-escalation"));
-        assert!(!marker.exists());
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
-    /// The explicit opt-in runs an escalation without asking anyone.
-    #[tokio::test]
-    #[cfg(feature = "cli")]
-    async fn allowed_escalation_runs_without_a_prompt() {
-        let root = unique_project_root();
-        let marker = escalation_marker(&root);
-        let (tx, mut rx) = mpsc::unbounded_channel();
-        let mut invoker = build_prompting_invoker(root.clone(), tx, PermissionRegistry::default());
-        invoker.escalation = Escalation::Allow;
-        invoker.auto_approve = true;
-        let out = invoker.invoke(&[escalated_shell_call(&marker)]).await.unwrap();
-        assert!(out[0].content.contains("[exit 0]"), "{}", out[0].content);
-        assert!(marker.exists());
-        while let Ok(ev) = rx.try_recv() {
-            assert!(!matches!(ev, StreamEvent::PermissionRequest { .. }), "prompted");
-        }
-        let _ = std::fs::remove_file(&marker);
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
-    /// The opt-in drops only the escalation prompt, never the exec approval
-    /// underneath it: under `--safe`, adding `escalate: true` must not turn a
-    /// command that would have been asked about into one that runs unasked.
-    /// The user is asked once, and a Deny runs nothing.
-    #[tokio::test]
-    #[cfg(feature = "cli")]
-    async fn allowed_escalation_still_asks_under_safe() {
-        let root = unique_project_root();
-        let marker = escalation_marker(&root);
-        let (tx, mut rx) = mpsc::unbounded_channel();
-        let registry: PermissionRegistry = Arc::new(Mutex::new(HashMap::new()));
-        let mut invoker = build_prompting_invoker(root.clone(), tx, registry.clone());
-        invoker.escalation = Escalation::Allow;
-        let responder = tokio::spawn(async move {
-            let mut kinds = Vec::new();
-            while let Some(ev) = rx.recv().await {
-                if let StreamEvent::PermissionRequest { request_id, prompt_kind, .. } = ev {
-                    kinds.push(prompt_kind);
-                    if let Some(tx) = registry.lock().await.remove(&request_id) {
-                        let _ = tx.send(PermissionDecision::Deny);
-                    }
-                }
-            }
-            kinds
-        });
-        let out = invoker.invoke(&[escalated_shell_call(&marker)]).await.unwrap();
-        drop(invoker);
-        assert_eq!(responder.await.unwrap(), ["escalate"], "asked exactly once");
-        assert!(out[0].content.contains("denied by user"), "{}", out[0].content);
-        assert!(!marker.exists(), "--safe was bypassed");
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
     /// Where escalation is not offered (the desktop, an unconfined shell) a
     /// request for it is refused without running or prompting, even under
@@ -13214,22 +11122,6 @@ mod tests {
             assert!(!matches!(ev, StreamEvent::PermissionRequest { .. }), "prompted");
         }
         let _ = std::fs::remove_dir_all(&root);
-    }
-
-    /// Escalation exists only for a sandboxed CLI shell, and the opt-in only
-    /// skips the prompt.
-    #[test]
-    fn escalation_resolves_from_sandbox_and_opt_in() {
-        #[cfg(feature = "cli")]
-        {
-            assert_eq!(resolve_escalation(false, true), Escalation::Off);
-            assert_eq!(resolve_escalation(true, false), Escalation::Prompt);
-            assert_eq!(resolve_escalation(true, true), Escalation::Allow);
-        }
-        #[cfg(not(feature = "cli"))]
-        for (sandbox, allow) in [(true, true), (true, false), (false, true)] {
-            assert_eq!(resolve_escalation(sandbox, allow), Escalation::Off);
-        }
     }
 
     #[tokio::test]
@@ -13560,8 +11452,6 @@ mod tests {
             crate::core::agent::subagent::DEFAULT_MAX_PARALLEL_SUBAGENTS,
             false,
             false,
-            #[cfg(feature = "cli")]
-            &crate::core::agent::host_tools::HostToolSet::new(),
             has_parent,
         );
         let _ = std::fs::remove_dir_all(&root);
@@ -13613,8 +11503,6 @@ mod tests {
             crate::core::agent::subagent::DEFAULT_MAX_PARALLEL_SUBAGENTS,
             false,
             false,
-            #[cfg(feature = "cli")]
-            &crate::core::agent::host_tools::HostToolSet::new(),
             true,
         );
         let _ = std::fs::remove_dir_all(&root);
@@ -13711,199 +11599,7 @@ mod tests {
         assert!(last["content"].as_str().unwrap().contains("+ build_cmd"));
     }
 
-    /// A run with no session snapshot (the API server's orchestration, which
-    /// goes through `run_orchestration_streamed` with `session_start: None`)
-    /// takes one for its prompt; the same snapshot must back its
-    /// `# Memory Changes` tracker, or a note written mid-run never reaches the
-    /// run's next request. Driven end to end against a stub provider.
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn a_run_without_a_session_snapshot_still_reports_its_memory_changes() {
-        use std::io::{BufRead, BufReader, Read, Write};
-        let root = unique_project_root();
-        let dir = crate::core::agent::project::store_root(&root).join("memory");
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join("kept.md"), "Kept\n\nAlready here.").unwrap();
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-        let addr = listener.local_addr().unwrap();
-        let bodies = Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
-        let seen = bodies.clone();
-        std::thread::spawn(move || {
-            let call = |id: &str, args: &str| {
-                json!({"id": "s", "object": "chat.completion.chunk", "created": 1, "model": "m",
-                    "choices": [{"index": 0, "delta": {"role": "assistant", "tool_calls": [{
-                        "index": 0, "id": id, "type": "function",
-                        "function": {"name": "memory", "arguments": args}}]},
-                    "finish_reason": "tool_calls"}]})
-            };
-            let chunks = [
-                call("w1", r#"{"op":"write","name":"build_cmd","title":"Build","content":"make foo"}"#),
-                call("v1", r#"{"op":"view","name":"build_cmd"}"#),
-                json!({"id": "s", "object": "chat.completion.chunk", "created": 1, "model": "m",
-                    "choices": [{"index": 0, "delta": {"role": "assistant", "content": "done"},
-                    "finish_reason": "stop"}]}),
-            ];
-            for (i, connection) in listener.incoming().enumerate() {
-                let Ok(mut stream) = connection else { break };
-                let mut reader = BufReader::new(stream.try_clone().unwrap());
-                let mut size = 0usize;
-                loop {
-                    let mut line = String::new();
-                    if reader.read_line(&mut line).unwrap_or(0) == 0 || line == "\r\n" {
-                        break;
-                    }
-                    if let Some(n) = line.to_ascii_lowercase().strip_prefix("content-length:") {
-                        size = n.trim().parse().unwrap_or(0);
-                    }
-                }
-                let mut body = vec![0; size];
-                let _ = reader.read_exact(&mut body);
-                seen.lock().unwrap().push(String::from_utf8_lossy(&body).into_owned());
-                let chunk = &chunks[i.min(chunks.len() - 1)];
-                let answer = format!("data: {chunk}\n\ndata: [DONE]\n\n");
-                let _ = write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len());
-            }
-        });
-        let mut args = crate::core::agent::subagent::tests::max_par_args(&root);
-        args.session_start = None;
-        args.sandbox = Some(false);
-        args.subagents_enabled = false;
-        args.provider_configs = Arc::new(Mutex::new(
-            std::iter::once((
-                "stub".to_string(),
-                ProviderConfig {
-                    provider: "stub".into(),
-                    base_url: Some(format!("http://{addr}/v1")),
-                    api_key: Some("k".into()),
-                    models: vec!["m".into()],
-                    ..Default::default()
-                },
-            ))
-            .collect(),
-        ));
-        let body = json!({"model": "m", "messages": [{"role": "user", "content": "remember the build command"}]});
-        let (tx, _rx) = mpsc::unbounded_channel();
-        let out = run_orchestration_streamed(&tx, &body, &args).await;
-        let _ = std::fs::remove_dir_all(&dir);
-        let _ = std::fs::remove_dir_all(&root);
-        out.expect("run completes");
-        let sent = bodies.lock().unwrap().clone();
-        assert_eq!(sent.len(), 3, "{sent:?}");
-        assert!(sent[0].contains("kept"), "the prompt carries the snapshot index: {}", sent[0]);
-        assert!(!sent[0].contains("# Memory Changes"), "{}", sent[0]);
-        let tail = |b: &str| b.chars().rev().take(600).collect::<Vec<_>>().into_iter().rev().collect::<String>();
-        assert!(sent[1].contains("# Memory Changes"), "{}", tail(&sent[1]));
-        assert!(sent[1].contains("+ build_cmd"), "{}", tail(&sent[1]));
-    }
 
-    /// A route that rejects `reasoning_content` pays the rejected round trip
-    /// once. The run that discovers it retries without the field; every later
-    /// run on the route (a new prompt, a resume, a subagent on the same model)
-    /// starts without it instead of being rejected again. A route that never
-    /// rejected the field keeps receiving it. Driven end to end against a stub
-    /// provider that refuses any body carrying the field.
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn a_route_that_rejects_reasoning_is_only_rejected_once() {
-        use std::io::{BufRead, BufReader, Read, Write};
-        let root = unique_project_root();
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-        let addr = listener.local_addr().unwrap();
-        let bodies = Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
-        let seen = bodies.clone();
-        std::thread::spawn(move || {
-            for connection in listener.incoming() {
-                let Ok(mut stream) = connection else { break };
-                let mut reader = BufReader::new(stream.try_clone().unwrap());
-                let mut size = 0usize;
-                loop {
-                    let mut line = String::new();
-                    if reader.read_line(&mut line).unwrap_or(0) == 0 || line == "\r\n" {
-                        break;
-                    }
-                    if let Some(n) = line.to_ascii_lowercase().strip_prefix("content-length:") {
-                        size = n.trim().parse().unwrap_or(0);
-                    }
-                }
-                let mut body = vec![0; size];
-                let _ = reader.read_exact(&mut body);
-                let body = String::from_utf8_lossy(&body).into_owned();
-                let strict = body.contains("\"model\":\"rr-strict\"");
-                let rejected = strict && body.contains("reasoning_content");
-                seen.lock().unwrap().push(body);
-                if rejected {
-                    let err = r#"{"error":{"message":"property 'reasoning_content' is unsupported","type":"invalid_request_error"}}"#;
-                    let _ = write!(stream, "HTTP/1.1 400 Bad Request\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{err}", err.len());
-                    continue;
-                }
-                let chunk = json!({"id": "s", "object": "chat.completion.chunk", "created": 1, "model": "m",
-                    "choices": [{"index": 0, "delta": {"role": "assistant", "content": "ok"},
-                    "finish_reason": "stop"}]});
-                let answer = format!("data: {chunk}\n\ndata: [DONE]\n\n");
-                let _ = write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len());
-            }
-        });
-        let mut args = crate::core::agent::subagent::tests::max_par_args(&root);
-        args.session_start = None;
-        args.sandbox = Some(false);
-        args.subagents_enabled = false;
-        args.project_memory = false;
-        args.provider_configs = Arc::new(Mutex::new(
-            std::iter::once((
-                "rr-stub".to_string(),
-                ProviderConfig {
-                    provider: "rr-stub".into(),
-                    base_url: Some(format!("http://{addr}/v1")),
-                    api_key: Some("k".into()),
-                    models: vec!["rr-strict".into(), "rr-lenient".into()],
-                    ..Default::default()
-                },
-            ))
-            .collect(),
-        ));
-        let body = |model: &str| {
-            json!({"model": model, "messages": [
-                {"role": "user", "content": "hi"},
-                {"role": "assistant", "content": "hey", "reasoning_content": "thinking"},
-                {"role": "user", "content": "again"},
-            ]})
-        };
-        let sent = |bodies: &Arc<std::sync::Mutex<Vec<String>>>| {
-            std::mem::take(&mut *bodies.lock().unwrap())
-        };
-        let (tx, _rx) = mpsc::unbounded_channel();
-
-        run_orchestration_streamed(&tx, &body("rr-strict"), &args)
-            .await
-            .expect("the discovering run recovers");
-        let first = sent(&bodies);
-        assert_eq!(first.len(), 2, "rejected once, then retried: {first:?}");
-        assert!(!first[1].contains("reasoning_content"), "{}", first[1]);
-
-        run_orchestration_streamed(&tx, &body("rr-strict"), &args)
-            .await
-            .expect("a later run on the route");
-        let second = sent(&bodies);
-        assert_eq!(second.len(), 1, "a known route is not rejected again: {second:?}");
-        assert!(!second[0].contains("reasoning_content"), "{}", second[0]);
-        assert_eq!(
-            first[1], second[0],
-            "the later run sends the bytes the retry did, so its prefix is cached"
-        );
-
-        run_orchestration_streamed(&tx, &body("rr-lenient"), &args)
-            .await
-            .expect("a route that accepts the field");
-        let lenient = sent(&bodies);
-        assert_eq!(lenient.len(), 1, "{lenient:?}");
-        assert!(
-            lenient[0].contains("\"reasoning_content\":\"thinking\""),
-            "another model on the same provider still gets reasoning: {}",
-            lenient[0]
-        );
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
     /// A child that names `memory` anyway is refused at the gate.
     #[tokio::test]
@@ -14035,8 +11731,6 @@ mod tests {
                 1,
                 false,
                 false,
-                #[cfg(feature = "cli")]
-                &crate::core::agent::host_tools::HostToolSet::new(),
                 true,
             );
             tool_names(&tools)
@@ -14075,8 +11769,6 @@ mod tests {
                 crate::core::agent::subagent::DEFAULT_MAX_PARALLEL_SUBAGENTS,
                 false,
                 false,
-                #[cfg(feature = "cli")]
-                &crate::core::agent::host_tools::HostToolSet::new(),
                 false,
             );
             tools
@@ -14111,8 +11803,6 @@ mod tests {
             crate::core::agent::subagent::DEFAULT_MAX_PARALLEL_SUBAGENTS,
             false,
             false,
-            #[cfg(feature = "cli")]
-            &crate::core::agent::host_tools::HostToolSet::new(),
             false,
         );
         let _ = std::fs::remove_dir_all(&root);
@@ -14184,227 +11874,11 @@ mod tests {
         assert!(out.contains("reported as they start"), "{out}");
     }
 
-    /// An invoker whose subagent context shares `bg`, so a test can register a
-    /// live child in the registry and drive the model-facing tool calls at it.
-    #[cfg(feature = "cli")]
-    fn invoker_with_registry(
-        root: std::path::PathBuf,
-        bg: Arc<crate::core::agent::subagent::BackgroundSubagents>,
-    ) -> CompositeToolInvoker {
-        let (tx, _rx) = mpsc::unbounded_channel();
-        let mut invoker =
-            build_prompting_invoker(root.clone(), tx, Arc::new(Mutex::new(HashMap::new())));
-        invoker.subagents = Some(SubagentContext {
-            parent_args: crate::core::agent::subagent::tests::max_par_args(&root),
-            model_id: "stub".to_string(),
-            max_session_tokens: None,
-            cost_ceiling: None,
-            send_reasoning: true,
-            tool_ceiling: None,
-            known_tools: Vec::new(),
-            bg_generation: bg.generation(),
-            bg,
-        });
-        invoker
-    }
 
-    /// The real invoker's background side, with a tool call standing in for a
-    /// long `bash` command: a subagent finishes while the call is still running.
-    #[cfg(feature = "cli")]
-    struct ChildEndsMidCall {
-        inner: CompositeToolInvoker,
-        bg: Arc<crate::core::agent::subagent::BackgroundSubagents>,
-        /// Whether the ping was already queued when the call returned.
-        queued_during_call: StdMutex<Option<bool>>,
-    }
-    #[cfg(feature = "cli")]
-    #[async_trait]
-    impl ToolInvoker for ChildEndsMidCall {
-        async fn invoke(
-            &self,
-            tool_calls: &[serde_json::Value],
-        ) -> Result<Vec<ToolOutcome>, String> {
-            crate::core::agent::subagent::tests::finish_held_child(
-                &self.bg,
-                "sub-explore-1",
-                "explore",
-            );
-            // Let a woken waiter run, as wall time passing in a real call would.
-            tokio::task::yield_now().await;
-            *self.queued_during_call.lock().unwrap() = Some(self.bg.has_queued_notices());
-            Ok(tool_calls
-                .iter()
-                .map(|c| {
-                    ToolOutcome::plain(
-                        c["id"].as_str().unwrap_or_default().to_string(),
-                        "sleep done\n[exit 0]".to_string(),
-                    )
-                })
-                .collect())
-        }
-        fn background_notices(&self) -> Vec<BackgroundNotice> {
-            self.inner.background_notices()
-        }
-        fn background_pending(&self) -> bool {
-            self.inner.background_pending()
-        }
-        async fn await_background(&self) {
-            self.inner.await_background().await
-        }
-    }
 
-    /// A subagent finishing while a tool call is still running is neither lost
-    /// nor delivered early: its ping waits in the queue until the call returns,
-    /// then the next request carries it after the tool result as a `<SYSTEM>`
-    /// reminder, costing no extra turn. Checked for a session-owned registry
-    /// (the TUI) and a run-owned one (headless).
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn a_subagent_finishing_during_a_tool_call_is_drained_after_the_result() {
-        for outlive in [true, false] {
-            let root = unique_project_root();
-            let bg = Arc::new(crate::core::agent::subagent::BackgroundSubagents::default());
-            crate::core::agent::subagent::tests::hold_running(&bg);
-            let mut inner = invoker_with_registry(root.clone(), bg.clone());
-            inner.subagent_bg_outlive_run = outlive;
-            let tool = ChildEndsMidCall {
-                inner,
-                bg: bg.clone(),
-                queued_during_call: StdMutex::new(None),
-            };
-            let (tx, _rx) = mpsc::unbounded_channel();
-            let model =
-                MockModel::new(vec![tool_call_completion(), final_answer("saw both")]);
-            let mut budget = SessionBudget::new(None);
 
-            let result = run_turn_cycle(
-                &tx,
-                &json!({}),
-                "m",
-                &[],
-                Transcript::from_history(vec![json!({ "role": "user", "content": "go" })]),
-                None,
-                true,
-                8,
-                &mut budget,
-                &model,
-                &tool,
-                crate::core::agent::plan::RunMode::Normal,
-                None,
-                None,
-                None,
-                None,
-            )
-            .await
-            .unwrap();
 
-            assert_eq!(
-                *tool.queued_during_call.lock().unwrap(),
-                Some(true),
-                "{outlive}: the ping was queued while the call ran"
-            );
-            assert_eq!(result["choices"][0]["message"]["content"], "saw both");
-            let requests = model.requests.lock().unwrap();
-            assert_eq!(requests.len(), 2, "{outlive}: no extra turn for the ping");
-            let first = requests[0]["messages"].to_string();
-            assert!(!first.contains("Subagent 'explore'"), "{outlive}: not delivered early");
-            let sent = requests[1]["messages"].as_array().unwrap();
-            let n = sent.len();
-            assert_eq!(sent[n - 2]["role"], "tool", "{outlive}: result first: {sent:?}");
-            assert_eq!(sent[n - 2]["tool_call_id"], "call_1");
-            let last = &sent[n - 1];
-            assert_eq!(last["role"], "user");
-            assert!(
-                crate::core::agent::reminder::is_reminder_only(&last["content"]),
-                "{outlive}: {last}"
-            );
-            assert!(
-                last["content"].as_str().unwrap().contains("Subagent 'explore' (sub-explore-1)"),
-                "{outlive}: {last}"
-            );
-            assert!(!bg.has_queued_notices(), "{outlive}: drained exactly once");
-            assert!(!tool.background_pending(), "{outlive}: nothing left owed");
-            let _ = std::fs::remove_dir_all(&root);
-        }
-    }
 
-    /// A shell abandoned at its park budget wakes its own wait with nothing to
-    /// deliver. While a subagent still holds the run open, that empty wake must
-    /// not end the park: the run would resume and spend a model turn reacting
-    /// to nothing.
-    #[cfg(feature = "cli")]
-    #[tokio::test(start_paused = true)]
-    async fn a_silently_abandoned_shell_does_not_end_the_park_while_a_child_runs() {
-        use tauri_plugin_agent_tools::tools::ShellBackgrounded;
-
-        let root = unique_project_root();
-        let bg = Arc::new(crate::core::agent::subagent::BackgroundSubagents::default());
-        crate::core::agent::subagent::tests::hold_running(&bg);
-        let invoker = invoker_with_registry(root.clone(), bg);
-        // Clamped to the 60s floor.
-        invoker.bg_shells.start(ShellBackgrounded {
-            id: 1,
-            timeout_secs: 0,
-        });
-
-        let parked = tokio::time::timeout(
-            std::time::Duration::from_secs(120),
-            invoker.await_background(),
-        )
-        .await;
-        assert!(parked.is_err(), "the empty shell wake must not end the park");
-        assert!(!invoker.bg_shells.has_pending_work(), "the shell was abandoned");
-        assert!(invoker.background_notices().is_empty(), "and said nothing");
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    /// The whole model-facing path: `stop_subagent {name}` reaches the registry
-    /// entry the dispatch created and stops it, and `message_subagent {name}`
-    /// reaches its inbox.
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn stop_and_message_subagent_calls_reach_a_live_child_by_name() {
-        let root = std::env::temp_dir().join(format!("jan-stop-tool-{}", std::process::id()));
-        std::fs::create_dir_all(&root).unwrap();
-        let bg = Arc::new(crate::core::agent::subagent::BackgroundSubagents::default());
-        let inbox = crate::core::agent::subagent::tests::register_live_child(&bg, "sub-w-1", "w");
-        let invoker = invoker_with_registry(root.clone(), bg.clone());
-
-        let steered = invoker
-            .handle_subagent_tool(
-                "message_subagent",
-                &json!({ "name": "w", "message": "narrow it" }),
-            )
-            .await;
-        assert!(steered.contains("Queued"), "{steered}");
-        assert_eq!(inbox.drain().0.len(), 1);
-
-        let stopped = invoker
-            .handle_subagent_tool("stop_subagent", &json!({ "name": "w" }))
-            .await;
-        assert!(stopped.contains("Stopped"), "{stopped}");
-        assert!(
-            crate::core::agent::subagent::tests::child_is_finished(&bg, "sub-w-1"),
-            "the registry entry is marked finished"
-        );
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn stop_subagent_on_a_bad_call_is_an_error_string_not_a_panic() {
-        let root = std::env::temp_dir().join(format!("jan-stop-bad-{}", std::process::id()));
-        std::fs::create_dir_all(&root).unwrap();
-        let bg = Arc::new(crate::core::agent::subagent::BackgroundSubagents::default());
-        let invoker = invoker_with_registry(root.clone(), bg);
-        let missing = invoker.handle_subagent_tool("stop_subagent", &json!({})).await;
-        assert!(missing.starts_with("ERROR:"), "{missing}");
-        let unknown = invoker
-            .handle_subagent_tool("stop_subagent", &json!({ "name": "ghost" }))
-            .await;
-        assert!(unknown.starts_with("ERROR:") && unknown.contains("ghost"), "{unknown}");
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
     /// The advertise gate: both steering tools ride the dispatch gate, so a
     /// child (which cannot dispatch) never sees `stop_subagent`, and a denied
@@ -14438,8 +11912,6 @@ mod tests {
             crate::core::agent::subagent::DEFAULT_MAX_PARALLEL_SUBAGENTS,
             false,
             false,
-            #[cfg(feature = "cli")]
-            &crate::core::agent::host_tools::HostToolSet::new(),
             false,
         );
         let _ = std::fs::remove_dir_all(&root);
@@ -14880,238 +12352,16 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 
-    /// How the stub provider answers the parent's second request.
-    #[cfg(feature = "cli")]
-    #[derive(Clone, Copy)]
-    enum SecondTurn {
-        /// A 400, which fails the run.
-        Fails,
-        /// Never, so the test can cancel the run while it waits.
-        Hangs,
-    }
 
-    /// A git project whose run dispatches one `writer` child into a fresh
-    /// worktree, against a stub provider on which the child's request never
-    /// returns: the writer is still in its worktree, holding its lease, when
-    /// the parent's run ends. Returns the project, the run's args, and a
-    /// receiver signalled once the parent's second request has arrived (the
-    /// dispatch is done by then). `None` without git.
-    #[cfg(feature = "cli")]
-    fn run_with_a_stuck_writer(
-        second: SecondTurn,
-    ) -> Option<(
-        std::path::PathBuf,
-        OrchestrationArgs,
-        std::sync::mpsc::Receiver<()>,
-    )> {
-        use std::io::{BufRead, BufReader, Read, Write};
 
-        let root = unique_project_root();
-        let git = |args: &[&str]| {
-            std::process::Command::new("git")
-                .arg("-C")
-                .arg(&root)
-                .args(args)
-                .env("GIT_AUTHOR_NAME", "t")
-                .env("GIT_AUTHOR_EMAIL", "t@t")
-                .env("GIT_COMMITTER_NAME", "t")
-                .env("GIT_COMMITTER_EMAIL", "t@t")
-                .output()
-                .is_ok_and(|o| o.status.success())
-        };
-        std::fs::write(root.join("a.txt"), "a\n").unwrap();
-        if !(git(&["init", "-q"])
-            && git(&["add", "a.txt"])
-            && git(&["commit", "-q", "--no-gpg-sign", "-m", "a"]))
-        {
-            return None;
-        }
-        let defs = crate::core::agent::subagent::project_subagents_dir(&root);
-        std::fs::create_dir_all(&defs).unwrap();
-        std::fs::write(
-            defs.join("writer.toml"),
-            "name = \"writer\"\ndescription = \"edits\"\nsystem_prompt = \"You are writer.\"\n",
-        )
-        .unwrap();
 
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-        let addr = listener.local_addr().unwrap();
-        let (second_tx, second_rx) = std::sync::mpsc::channel();
-        std::thread::spawn(move || {
-            let parent_turns = AtomicUsize::new(0);
-            // Held, never answered, so neither side's request returns.
-            let mut parked = Vec::new();
-            for connection in listener.incoming() {
-                let Ok(mut stream) = connection else { break };
-                let mut reader = BufReader::new(stream.try_clone().unwrap());
-                let mut length = 0usize;
-                loop {
-                    let mut line = String::new();
-                    if reader.read_line(&mut line).unwrap_or(0) == 0 || line == "\r\n" {
-                        break;
-                    }
-                    if let Some(n) = line.to_ascii_lowercase().strip_prefix("content-length:") {
-                        length = n.trim().parse().unwrap_or(0);
-                    }
-                }
-                let mut body = vec![0; length];
-                let _ = reader.read_exact(&mut body);
-                if String::from_utf8_lossy(&body).contains("You are writer.") {
-                    parked.push(stream);
-                    continue;
-                }
-                if parent_turns.fetch_add(1, Ordering::SeqCst) == 0 {
-                    let dispatch = json!({ "subagents": [{ "agent": "writer", "task": "edit a.txt" }] })
-                        .to_string();
-                    let chunk = json!({"id":"s","object":"chat.completion.chunk","created":1,"model":"m",
-                        "choices":[{"index":0,"delta":{"role":"assistant","content":null,"tool_calls":[
-                            {"index":0,"id":"c1","type":"function","function":{"name":"dispatch_subagent","arguments":dispatch}}]},
-                            "finish_reason":null}]});
-                    let done = json!({"id":"s","object":"chat.completion.chunk","created":1,"model":"m",
-                        "choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]});
-                    let answer = format!("data: {chunk}\n\ndata: {done}\n\ndata: [DONE]\n\n");
-                    let _ = write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len());
-                    continue;
-                }
-                let _ = second_tx.send(());
-                match second {
-                    SecondTurn::Fails => {
-                        let body = "{\"error\":{\"message\":\"bad request\"}}";
-                        let _ = write!(stream, "HTTP/1.1 400 Bad Request\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
-                    }
-                    SecondTurn::Hangs => parked.push(stream),
-                }
-            }
-        });
 
-        let mut args = crate::core::agent::subagent::tests::max_par_args(&root);
-        args.subagent_worktrees = true;
-        args.sandbox = Some(false);
-        args.project_memory = false;
-        args.provider_configs = Arc::new(Mutex::new(HashMap::from([(
-            "stub".to_string(),
-            ProviderConfig {
-                provider: "stub".into(),
-                base_url: Some(format!("http://{addr}/v1")),
-                api_key: Some("k".into()),
-                models: vec!["m".into()],
-                ..Default::default()
-            },
-        )])));
-        Some((root, args, second_rx))
-    }
-
-    /// The subagent checkouts still on disk for `root`'s project and the
-    /// `jan/agent/*` branches still in its repository.
-    #[cfg(feature = "cli")]
-    fn leftover_worktrees(root: &std::path::Path) -> (Vec<String>, String) {
-        let branches = std::process::Command::new("git")
-            .arg("-C")
-            .arg(root)
-            .args(["branch", "--list", "jan/agent/*"])
-            .output()
-            .unwrap();
-        let dir = crate::core::agent::child_workspace::project_worktrees_dir(root).unwrap();
-        let checkouts = std::fs::read_dir(dir)
-            .into_iter()
-            .flatten()
-            .filter_map(Result::ok)
-            // Jan's records and trash are not checkouts.
-            .filter(|e| {
-                let name = e.file_name();
-                name != "cargo-target" && !name.to_string_lossy().starts_with('.')
-            })
-            .map(|e| e.path().display().to_string())
-            .collect();
-        (checkouts, String::from_utf8_lossy(&branches.stdout).trim().to_string())
-    }
-
-    /// A run that fails while a writer it dispatched is still working ends that
-    /// writer before sweeping: the worktree holds nothing, so it and its branch
-    /// go, and nothing claims it was kept for holding work.
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn a_failed_run_sweeps_the_worktree_of_a_writer_it_was_still_running() {
-        let Some((root, args, _second)) = run_with_a_stuck_writer(SecondTurn::Fails) else {
-            return;
-        };
-        let (tx, mut rx) = mpsc::unbounded_channel();
-        let body = json!({ "model": "m", "messages": [{ "role": "user", "content": "go" }] });
-        let result = tokio::time::timeout(
-            std::time::Duration::from_secs(30),
-            run_orchestration_streamed(&tx, &body, &args),
-        )
-        .await
-        .expect("the run ends");
-        assert!(result.is_err(), "{result:?}");
-        drop(tx);
-
-        let mut dispatched = false;
-        while let Some(event) = rx.recv().await {
-            match event {
-                StreamEvent::ToolResult { content, .. } if content.contains("worktree") => {
-                    dispatched = true;
-                }
-                StreamEvent::Notice { text } => {
-                    assert!(!text.contains("kept"), "an empty worktree was reported kept: {text}");
-                }
-                _ => {}
-            }
-        }
-        assert!(dispatched, "the writer was dispatched into a worktree");
-        let (worktrees, branches) = leftover_worktrees(&root);
-        assert!(worktrees.is_empty(), "{worktrees:?}");
-        assert!(branches.is_empty(), "{branches}");
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    /// A cancelled run never reaches its own end, so the sweep has to happen on
-    /// the way down too: the writer is stopped and its empty worktree removed.
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn a_cancelled_run_sweeps_the_worktree_of_a_writer_it_was_still_running() {
-        let Some((root, args, second)) = run_with_a_stuck_writer(SecondTurn::Hangs) else {
-            return;
-        };
-        let (tx, mut rx) = mpsc::unbounded_channel();
-        let run = tokio::spawn(async move {
-            let body = json!({ "model": "m", "messages": [{ "role": "user", "content": "go" }] });
-            run_orchestration_streamed(&tx, &body, &args).await
-        });
-        let arrived = tokio::task::spawn_blocking(move || {
-            second.recv_timeout(std::time::Duration::from_secs(30))
-        })
-        .await
-        .unwrap();
-        assert!(arrived.is_ok(), "the parent reached its second turn");
-        let (worktrees, _) = leftover_worktrees(&root);
-        assert_eq!(worktrees.len(), 1, "the writer is in its worktree: {worktrees:?}");
-
-        run.abort();
-        assert!(run.await.unwrap_err().is_cancelled());
-        // The drop hands the sweep to the blocking pool, so it lands shortly
-        // after the abort returns rather than inside it.
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
-        while !leftover_worktrees(&root).0.is_empty() && std::time::Instant::now() < deadline {
-            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-        }
-        while let Ok(event) = rx.try_recv() {
-            if let StreamEvent::Notice { text } = event {
-                assert!(!text.contains("kept"), "an empty worktree was reported kept: {text}");
-            }
-        }
-        let (worktrees, branches) = leftover_worktrees(&root);
-        assert!(worktrees.is_empty(), "{worktrees:?}");
-        assert!(branches.is_empty(), "{branches}");
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
     /// The desktop API server's orchestration run compacts ahead of dispatch
     /// when its route's window is knowable: a catalog model (200K) under a
     /// provider ratio of 0.10 trips the preflight on a ~30K-token history, so
     /// the first request upstream is the summary, not the oversized prompt a
     /// provider would reject. Driven end to end against a stub provider.
-    #[cfg(not(feature = "cli"))]
     #[tokio::test]
     async fn the_proxy_orchestration_compacts_before_dispatch_on_a_known_window() {
         use std::io::{BufRead, BufReader, Read, Write};
@@ -15168,7 +12418,6 @@ mod tests {
             &crate::core::agent::upstream::agent_http_client(),
             Arc::new(Mutex::new(providers)),
             Arc::new(LlamacppState::default()),
-            Arc::new(Mutex::new(HashMap::new())),
             Arc::new(Mutex::new(HashMap::new())),
             Arc::new(Mutex::new(crate::core::mcp::models::McpSettings::default())),
             &std::env::temp_dir().to_string_lossy(),

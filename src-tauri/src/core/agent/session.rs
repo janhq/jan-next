@@ -14,11 +14,6 @@ use crate::core::agent::events::Usage;
 /// What a provider charges per token, in USD. The rates a run started with,
 /// snapshotted: a money ceiling is enforced against the prices the user was
 /// shown when they set it, not against a listing refetched mid-run.
-///
-/// Lives here rather than beside the model catalog it is read from because the
-/// agent loop -- which is not `cli`-gated -- is what enforces the ceiling, and
-/// the catalog is gated. `cli::model_catalog::ModelInfo` delegates to this, so
-/// there is one formula rather than a second one that drifts.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TokenRates {
     pub prompt_usd: f64,

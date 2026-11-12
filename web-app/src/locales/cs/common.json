@@ -16,7 +16,6 @@
   "attachments": "Přílohy",
   "interface": "Rozhraní",
   "appearance": "Rozhraní",
-  "privacy": "Soukromí",
   "keyboardShortcuts": "Klávesové zkratky",
   "newChat": "Nový chat",
   "newAgentChat": "Nový chat agenta",
@@ -25,7 +24,6 @@
   "recents": "Nedávné",
   "hub": "Centrum",
   "helpSupport": "Nápověda a podpora",
-  "helpUsImproveJan": "Pomozte nám vylepšit Jan",
   "unstarAll": "Odebrat vše z oblíbených",
   "unstar": "Odebrat z oblíbených",
   "deleteAll": "Smazat vše",
@@ -338,14 +336,6 @@
     "editMessage": {
       "title": "Upravit zprávu",
       "description": "Zpráva byla úspěšně upravena. Počkejte prosím na odpověď modelu."
-    },
-    "appUpdateDownloaded": {
-      "title": "Aktualizace aplikace stažena",
-      "description": "Aktualizace aplikace byla úspěšně stažena."
-    },
-    "appUpdateDownloadFailed": {
-      "title": "Stahování aktualizace aplikace selhalo",
-      "description": "Nepodařilo se stáhnout aktualizaci aplikace. Zkuste to prosím znovu."
     },
     "downloadComplete": {
       "title": "Stahování dokončeno",

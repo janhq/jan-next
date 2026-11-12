@@ -56,7 +56,9 @@ const getStoredLanguage = (): string => {
   try {
     const stored = localStorage.getItem(localStorageKey.settingGeneral)
     const parsed = stored ? JSON.parse(stored) : {}
-    return parsed?.state?.currentLanguage || 'en'
+    const lang = parsed?.state?.currentLanguage || 'en'
+    // The Vietnamese locale folder was renamed vn -> vi.
+    return lang === 'vn' ? 'vi' : lang
   } catch {
     return 'en'
   }

@@ -7,7 +7,6 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
-    globalSetup: ['./vitest.global-setup.mjs'],
     globals: true,
     css: true,
     testTimeout: 30000,
@@ -31,7 +30,6 @@ export default defineConfig({
       '@janhq/assistant-extension': path.resolve(__dirname, '../extensions/assistant-extension/dist/index.js'),
       '@janhq/download-extension': path.resolve(__dirname, '../extensions/download-extension/dist/index.js'),
       '@janhq/llamacpp-extension': path.resolve(__dirname, '../extensions/llamacpp-extension/dist/index.js'),
-      '@janhq/mlx-extension': path.resolve(__dirname, '../extensions/mlx-extension/dist/index.js'),
       '@janhq/rag-extension': path.resolve(__dirname, '../extensions/rag-extension/dist/index.js'),
       '@janhq/vector-db-extension': path.resolve(__dirname, '../extensions/vector-db-extension/dist/index.js'),
       // Resolve the plugin to guest-js source, not its built dist-js, so
@@ -50,13 +48,7 @@ export default defineConfig({
     IS_WEB_APP: JSON.stringify(false),
     IS_MACOS: JSON.stringify(false),
     IS_WINDOWS: JSON.stringify(false),
-    IS_LINUX: JSON.stringify(false),
-    IS_IOS: JSON.stringify(false),
-    IS_ANDROID: JSON.stringify(false),
     PLATFORM: JSON.stringify('web'),
     VERSION: JSON.stringify('test'),
-    POSTHOG_KEY: JSON.stringify(''),
-    POSTHOG_HOST: JSON.stringify(''),
-    AUTO_UPDATER_DISABLED: JSON.stringify('false'),
   },
 })

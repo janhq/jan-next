@@ -16,7 +16,6 @@
   "hiddenProviders": "{{count}} disabled",
   "interface": "Erscheinung",
   "appearance": "Erscheinung",
-  "privacy": "Privatsphäre",
   "keyboardShortcuts": "Shortcuts",
   "newChat": "Neuer Chat",
   "newAgentChat": "Neuer Agent-Chat",
@@ -25,7 +24,6 @@
   "recents": "Kürzlich",
   "hub": "Hub",
   "helpSupport": "Hilfe & Support",
-  "helpUsImproveJan": "Hilf uns Jan zu verbessern",
   "unstarAll": "Alle De-Favorisieren",
   "unstar": "De-Favorisieren",
   "deleteAll": "Alles löschen",
@@ -366,14 +364,6 @@
     "editMessage": {
       "title": "Nachricht bearbeiten",
       "description": "Die Nachricht wurde erfolgreich bearbeitet. Bitte warte auf die Antwort des Models."
-    },
-    "appUpdateDownloaded": {
-      "title": "App Update heruntergeladen",
-      "description": "Das App-Update wurde erfolgreich heruntergeladen."
-    },
-    "appUpdateDownloadFailed": {
-      "title": "App Update Download fehlgeschlagen",
-      "description": "Das App-Update konnte nicht heruntergeladen werden. Bitte versuche es noch einmal."
     },
     "downloadComplete": {
       "title": "Download abgeschlossen",

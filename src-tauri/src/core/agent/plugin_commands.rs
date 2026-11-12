@@ -61,7 +61,7 @@ pub(crate) fn discover(root: &Path) -> Vec<CommandEntry> {
 /// (plugin name, qualified `<plugin>:<name>`, or plain name enable a command;
 /// an empty whitelist enables everything). Used by the cli slash popup; the
 /// desktop invokes commands through the plugin crate's handlers.
-#[cfg(any(feature = "cli", test))]
+#[cfg(test)]
 pub(crate) fn catalog(root: &Path, enabled: &[String]) -> Vec<CommandEntry> {
     let commands = discover(root);
     if enabled.is_empty() {
@@ -82,7 +82,7 @@ pub(crate) fn catalog(root: &Path, enabled: &[String]) -> Vec<CommandEntry> {
 /// first, then a plain name that is unique across installed plugins. Filters
 /// through the `[skills].enabled` whitelist so disabled commands are not
 /// resolvable.
-#[cfg(any(feature = "cli", test))]
+#[cfg(test)]
 pub(crate) fn resolve_from(root: &Path, name: &str, enabled: &[String]) -> Result<CommandEntry, String> {
     let commands = catalog(root, enabled);
     if let Some((plugin, plain)) = name.split_once(':') {
@@ -105,7 +105,7 @@ pub(crate) fn resolve_from(root: &Path, name: &str, enabled: &[String]) -> Resul
 /// `(message, description)`, mirroring `skills::build_invocation_message`.
 /// Honors the `[skills].enabled` whitelist: a disabled plugin/command is
 /// rejected, matching the skill invocation path.
-#[cfg(any(feature = "cli", test))]
+#[cfg(test)]
 pub(crate) fn build_message(
     root: &Path,
     name: &str,
@@ -130,7 +130,7 @@ pub(crate) fn build_message(
 /// (whitespace-split positional words) in a command body. Missing positions
 /// become empty. `$10` and `$ARGUMENTATION`-style tokens are left literal so a
 /// body can still talk about dollars.
-#[cfg(any(feature = "cli", test))]
+#[cfg(test)]
 pub(crate) fn substitute(body: &str, args: &str) -> String {
     let positional: Vec<&str> = args.split_whitespace().collect();
     let mut out = String::with_capacity(body.len() + args.len());

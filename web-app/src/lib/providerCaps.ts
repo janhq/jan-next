@@ -113,11 +113,6 @@ const LLAMACPP: ProviderCaps = {
   maybe: new Set(),
 }
 
-const MLX: ProviderCaps = {
-  supported: set('top_k', 'repetition'),
-  maybe: new Set(),
-}
-
 /**
  * Custom user-added providers default to permissive — the user explicitly
  * pointed at an OpenAI-compatible endpoint of unknown shape, so showing all
@@ -160,7 +155,6 @@ const BUILTIN_CAPS: Record<string, ProviderCaps> = {
   nvidia: NVIDIA,
   minimax: MINIMAX,
   llamacpp: LLAMACPP,
-  mlx: MLX,
 }
 
 export function resolveProviderCaps(
@@ -197,7 +191,7 @@ export function buildsOwnToolImageRequest(
   )
 }
 
-const LOCAL_PROVIDER_IDS = new Set<string>(['llamacpp', 'mlx'])
+const LOCAL_PROVIDER_IDS = new Set<string>(['llamacpp'])
 
 /**
  * Predefined remote providers ship locked base_urls and expose only a fixed

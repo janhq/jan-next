@@ -1,8 +1,7 @@
 use super::models::{DownloadEvent, DownloadItem, ProgressTracker, ProxyConfig};
 use crate::core::app::commands::get_jan_data_folder_path;
 use crate::core::filesystem::helpers::resolve_path_within_jan_data_folder;
-use crate::core::updater::hmac_client::SignedRequestHeaders;
-use crate::core::updater::session::get_session_id;
+use super::hmac_client::SignedRequestHeaders;
 use futures_util::StreamExt;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use std::collections::HashMap;
@@ -93,9 +92,12 @@ pub fn convert_to_mirror_url(url: &str) -> Option<String> {
     }
 }
 
-/// Get session identifier for request signing
+/// Per-process seed for request signing
 fn get_download_nonce_seed() -> String {
-    get_session_id()
+    let hostname = hostname::get()
+        .map(|h| h.to_string_lossy().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+    format!("jan-{}-{}", hostname, std::process::id())
 }
 
 /// Get current app version from Cargo.toml

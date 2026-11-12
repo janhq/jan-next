@@ -5,7 +5,7 @@
  * then provides synchronous access to service instances throughout the app.
  */
 
-import { isPlatformTauri, isPlatformIOS, isPlatformAndroid } from '@/lib/platform/utils'
+import { isPlatformTauri } from '@/lib/platform/utils'
 
 // Import default services
 import { DefaultThemeService } from './theme/default'
@@ -13,7 +13,6 @@ import { DefaultWindowService } from './window/default'
 import { DefaultEventsService } from './events/default'
 import { DefaultHardwareService } from './hardware/default'
 import { DefaultAppService } from './app/default'
-import { DefaultAnalyticService } from './analytic/default'
 import { DefaultMessagesService } from './messages/default'
 import { DefaultMCPService } from './mcp/default'
 import { DefaultThreadsService } from './threads/default'
@@ -22,7 +21,6 @@ import { DefaultModelsService } from './models/default'
 import { DefaultAssistantsService } from './assistants/default'
 import { DefaultDialogService } from './dialog/default'
 import { DefaultOpenerService } from './opener/default'
-import { DefaultUpdaterService } from './updater/default'
 import { DefaultPathService } from './path/default'
 import { DefaultCoreService } from './core/default'
 import { DefaultDeepLinkService } from './deeplink/default'
@@ -40,7 +38,6 @@ import type { WindowService } from './window/types'
 import type { EventsService } from './events/types'
 import type { HardwareService } from './hardware/types'
 import type { AppService } from './app/types'
-import type { AnalyticService } from './analytic/types'
 import type { MessagesService } from './messages/types'
 import type { MCPService } from './mcp/types'
 import type { ThreadsService } from './threads/types'
@@ -49,7 +46,6 @@ import type { ModelsService } from './models/types'
 import type { AssistantsService } from './assistants/types'
 import type { DialogService } from './dialog/types'
 import type { OpenerService } from './opener/types'
-import type { UpdaterService } from './updater/types'
 import type { PathService } from './path/types'
 import type { CoreService } from './core/types'
 import type { DeepLinkService } from './deeplink/types'
@@ -62,7 +58,6 @@ export interface ServiceHub {
   events(): EventsService
   hardware(): HardwareService
   app(): AppService
-  analytic(): AnalyticService
   messages(): MessagesService
   mcp(): MCPService
   threads(): ThreadsService
@@ -71,7 +66,6 @@ export interface ServiceHub {
   assistants(): AssistantsService
   dialog(): DialogService
   opener(): OpenerService
-  updater(): UpdaterService
   path(): PathService
   core(): CoreService
   deeplink(): DeepLinkService
@@ -87,7 +81,6 @@ class PlatformServiceHub implements ServiceHub {
   private eventsService: EventsService = new DefaultEventsService()
   private hardwareService: HardwareService = new DefaultHardwareService()
   private appService: AppService = new DefaultAppService()
-  private analyticService: AnalyticService = new DefaultAnalyticService()
   private messagesService: MessagesService = new DefaultMessagesService()
   private mcpService: MCPService = new DefaultMCPService()
   private threadsService: ThreadsService = new DefaultThreadsService()
@@ -96,7 +89,6 @@ class PlatformServiceHub implements ServiceHub {
   private assistantsService: AssistantsService = new DefaultAssistantsService()
   private dialogService: DialogService = new DefaultDialogService()
   private openerService: OpenerService = new DefaultOpenerService()
-  private updaterService: UpdaterService = new DefaultUpdaterService()
   private pathService: PathService = new DefaultPathService()
   private coreService: CoreService = new DefaultCoreService()
   private deepLinkService: DeepLinkService = new DefaultDeepLinkService()
@@ -115,13 +107,11 @@ class PlatformServiceHub implements ServiceHub {
 
     console.log(
       'Initializing service hub for platform:',
-      isPlatformTauri() && !isPlatformIOS() && !isPlatformAndroid() ? 'Tauri' :
-      isPlatformIOS() ? 'iOS' :
-      isPlatformAndroid() ? 'Android' : 'Web'
+      isPlatformTauri() ? 'Tauri' : 'Web'
     )
 
     try {
-      if (isPlatformTauri() && !isPlatformIOS() && !isPlatformAndroid()) {
+      if (isPlatformTauri()) {
         // Desktop Tauri
         const [
           themeModule,
@@ -133,7 +123,6 @@ class PlatformServiceHub implements ServiceHub {
           providersModule,
           dialogModule,
           openerModule,
-          updaterModule,
           pathModule,
           coreModule,
           deepLinkModule,
@@ -148,7 +137,6 @@ class PlatformServiceHub implements ServiceHub {
           import('./providers/tauri'),
           import('./dialog/tauri'),
           import('./opener/tauri'),
-          import('./updater/tauri'),
           import('./path/tauri'),
           import('./core/tauri'),
           import('./deeplink/tauri'),
@@ -164,49 +152,10 @@ class PlatformServiceHub implements ServiceHub {
         this.providersService = new providersModule.TauriProvidersService()
         this.dialogService = new dialogModule.TauriDialogService()
         this.openerService = new openerModule.TauriOpenerService()
-        this.updaterService = new updaterModule.TauriUpdaterService()
         this.pathService = new pathModule.TauriPathService()
         this.coreService = new coreModule.TauriCoreService()
         this.deepLinkService = new deepLinkModule.TauriDeepLinkService()
         this.extensionsService = new extensionsModule.TauriExtensionsService()
-      } else if (isPlatformIOS() || isPlatformAndroid()) {
-        const [
-          themeModule,
-          windowModule,
-          eventsModule,
-          appModule,
-          mcpModule,
-          providersModule,
-          dialogModule,
-          openerModule,
-          pathModule,
-          coreModule,
-          deepLinkModule,
-        ] = await Promise.all([
-          import('./theme/tauri'),
-          import('./window/tauri'),
-          import('./events/tauri'),
-          import('./app/tauri'),
-          import('./mcp/tauri'),
-          import('./providers/tauri'),
-          import('./dialog/tauri'),
-          import('./opener/tauri'),
-          import('./path/tauri'),
-          import('./core/tauri'),
-          import('./deeplink/tauri'),
-        ])
-
-        this.themeService = new themeModule.TauriThemeService()
-        this.windowService = new windowModule.TauriWindowService()
-        this.eventsService = new eventsModule.TauriEventsService()
-        this.appService = new appModule.TauriAppService()
-        this.mcpService = new mcpModule.TauriMCPService()
-        this.providersService = new providersModule.TauriProvidersService()
-        this.dialogService = new dialogModule.TauriDialogService()
-        this.openerService = new openerModule.TauriOpenerService()
-        this.pathService = new pathModule.TauriPathService()
-        this.coreService = new coreModule.TauriCoreService()
-        this.deepLinkService = new deepLinkModule.TauriDeepLinkService()
       }
 
       this.initialized = true
@@ -252,11 +201,6 @@ class PlatformServiceHub implements ServiceHub {
     return this.appService
   }
 
-  analytic(): AnalyticService {
-    this.ensureInitialized()
-    return this.analyticService
-  }
-
   messages(): MessagesService {
     this.ensureInitialized()
     return this.messagesService
@@ -295,11 +239,6 @@ class PlatformServiceHub implements ServiceHub {
   opener(): OpenerService {
     this.ensureInitialized()
     return this.openerService
-  }
-
-  updater(): UpdaterService {
-    this.ensureInitialized()
-    return this.updaterService
   }
 
   path(): PathService {

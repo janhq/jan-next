@@ -5,8 +5,6 @@
 //! `core/agent/loop.rs` consume one implementation.
 
 use futures_util::StreamExt;
-#[cfg(feature = "cli")]
-use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
@@ -14,17 +12,13 @@ use std::sync::Arc;
 
 use reqwest::Client;
 use rmcp::model::{CallToolRequestParams, CallToolResult};
-#[cfg(not(feature = "cli"))]
 use tauri_plugin_llamacpp::state::LlamacppState;
 use tokio::sync::{mpsc, Mutex};
 
 use crate::core::agent::events::StreamEvent;
 use crate::core::openai_schema::normalize_openai_tool_parameters_schema;
 use crate::core::server::converters::UpstreamConverter;
-#[cfg(not(feature = "cli"))]
 use crate::core::server::proxy::engine_upstream;
-#[cfg(not(feature = "cli"))]
-use crate::core::server::MlxBackendSession;
 use crate::core::{
     mcp::models::McpSettings,
     mcp::truncate::truncate_tool_result,
@@ -482,7 +476,6 @@ pub(crate) fn set_system_prompt(messages: &mut Vec<serde_json::Value>, system_pr
 /// than appending a second prompt behind the caller's.
 ///
 /// Desktop-only, like the proxy that is its only caller.
-#[cfg(not(feature = "cli"))]
 pub(crate) fn replace_system_prompt(messages: &mut Vec<serde_json::Value>, system_prompt: &str) {
     // Drop the previous prompt, but keep compaction summaries: they are
     // `system` messages, yet they carry condensed history that this turn must
@@ -570,13 +563,6 @@ fn mcp_call_result_to_string(result: &CallToolResult) -> String {
     }
 }
 
-/// True when the provider carries a credential (an API key or key chain),
-/// so a model id offered by several providers can prefer the signed-in one.
-/// Only the `cli` build ranks providers this way.
-#[cfg(feature = "cli")]
-fn credentialed(config: &ProviderConfig) -> bool {
-    config.api_key.is_some() || !config.api_keys.is_empty()
-}
 
 /// Which provider serves `model_id`, given the provider map. The single
 /// implementation of the routing order, so anything that *reports* on a
@@ -606,15 +592,6 @@ pub(crate) fn pick_provider_for_model(
     // though a signed-in provider offering the same model would have worked.
     // Sort key is `(has_credential DESC, name ASC)` so equally-credentialed
     // entries still resolve to a stable, alphabetical name.
-    #[cfg(feature = "cli")]
-    let first_match = pc
-        .iter()
-        .filter(|(_, config)| {
-            config.base_url.as_deref().is_some_and(|u| !u.is_empty()) && offers(config)
-        })
-        .min_by_key(|(name, config)| (Reverse(credentialed(config)), name.to_string()))
-        .or_else(|| pc.iter().find(|(_, config)| offers(config)));
-    #[cfg(not(feature = "cli"))]
     let first_match = pc.iter().find(|(_, config)| offers(config));
 
     first_match
@@ -631,77 +608,26 @@ pub(crate) fn pick_provider_for_model(
 }
 
 /// Resolve `model_id` to an upstream URL + key chain. The desktop build also
-/// resolves local engines (MLX session, llama-server router); the `cli` build is
-/// remote-only, so a model with no provider entry is unresolvable.
+/// resolves local engines (llama-server router).
 pub(crate) async fn resolve_upstream_for_model(
     model_id: &str,
     provider_configs: Arc<Mutex<HashMap<String, ProviderConfig>>>,
-    #[cfg(not(feature = "cli"))] llama_state: Arc<LlamacppState>,
-    #[cfg(not(feature = "cli"))] mlx_sessions: Arc<Mutex<HashMap<i32, MlxBackendSession>>>,
+    llama_state: Arc<LlamacppState>,
 ) -> Result<(String, Vec<String>), String> {
     upstream_for(
         model_id,
         provider_configs,
-        Credentials::Fetch,
-        #[cfg(not(feature = "cli"))]
         llama_state,
-        #[cfg(not(feature = "cli"))]
-        mlx_sessions,
     )
     .await
 }
 
-/// Why no upstream can serve `model_id`, or `None` when one can.
-///
-/// The servability half of [`resolve_upstream_for_model`], resolved without a
-/// credential. Fetching one can mean an OAuth token refreshed over the network
-/// for a registered account, and an auth failure is no statement about whether
-/// a model's name is servable: a caller that only has to validate the name asks
-/// this, and the request that follows resolves for real and reports a
-/// credential failure as its own.
-#[cfg(feature = "cli")]
-pub(crate) async fn unservable_model(
-    model_id: &str,
-    provider_configs: Arc<Mutex<HashMap<String, ProviderConfig>>>,
-    #[cfg(not(feature = "cli"))] llama_state: Arc<LlamacppState>,
-    #[cfg(not(feature = "cli"))] mlx_sessions: Arc<Mutex<HashMap<i32, MlxBackendSession>>>,
-) -> Option<String> {
-    upstream_for(
-        model_id,
-        provider_configs,
-        Credentials::Skip,
-        #[cfg(not(feature = "cli"))]
-        llama_state,
-        #[cfg(not(feature = "cli"))]
-        mlx_sessions,
-    )
-    .await
-    .err()
-}
-
-/// Whether resolving an upstream fetches the credential the request will carry.
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Credentials {
-    /// Fetch it, refreshing an account token that has expired.
-    Fetch,
-    /// Resolve the upstream without it, for a caller that only needs to know
-    /// whether the model is servable. The `cli` build is where such a caller
-    /// exists: the desktop has no validation-only entry point.
-    #[cfg(feature = "cli")]
-    Skip,
-}
 
 async fn upstream_for(
     model_id: &str,
     provider_configs: Arc<Mutex<HashMap<String, ProviderConfig>>>,
-    credentials: Credentials,
-    #[cfg(not(feature = "cli"))] llama_state: Arc<LlamacppState>,
-    #[cfg(not(feature = "cli"))] mlx_sessions: Arc<Mutex<HashMap<i32, MlxBackendSession>>>,
+    llama_state: Arc<LlamacppState>,
 ) -> Result<(String, Vec<String>), String> {
-    // Every desktop path resolves the credential, so the switch is only read by
-    // the `cli` branch below.
-    #[cfg(not(feature = "cli"))]
-    let _ = credentials;
     let destination_path = "/chat/completions";
 
     let pc = provider_configs.lock().await;
@@ -718,63 +644,16 @@ async fn upstream_for(
             // A populated base_url means an HTTP upstream (cloud, or a local
             // engine whose live endpoint was registered at runtime). A local
             // engine loaded from persisted settings has none -- fall through to
-            // the MLX session / llama-server router resolution below.
+            // the llama-server router resolution below.
             if let Some(api_url) = provider_cfg.base_url.clone().filter(|u| !u.is_empty()) {
-                // A registered account takes its OAuth access token (refreshed if
-                // needed) ahead of any stored API key. Account auth is a `cli`
-                // concern; the desktop resolves credentials through its own
-                // proxy path and falls back to the bearer key chain here.
-                #[cfg(feature = "cli")]
-                let (api_url, api_keys) = match credentials {
-                    Credentials::Fetch => {
-                        let account_token =
-                            crate::core::cli::auth::account::access_token(&provider_cfg.provider)
-                                .await?;
-                        let api_url = if provider_cfg.provider == "openai"
-                            && account_token.is_some()
-                            && api_url.trim_end_matches('/') == "https://api.openai.com/v1"
-                        {
-                            "https://chatgpt.com/backend-api".to_string()
-                        } else {
-                            api_url
-                        };
-                        let api_keys = account_token
-                            .map(|token| vec![token])
-                            .unwrap_or_else(|| provider_cfg.bearer_key_chain());
-                        (api_url, api_keys)
-                    }
-                    Credentials::Skip => (api_url, provider_cfg.bearer_key_chain()),
-                };
-                #[cfg(not(feature = "cli"))]
                 let api_keys = provider_cfg.bearer_key_chain();
                 let url = format!("{}{}", api_url, destination_path);
-                #[cfg(feature = "cli")]
-                {
-                    if api_keys.is_empty() {
-                        let mut provider_cfg = provider_cfg;
-                        crate::core::cli::providers::hydrate_provider_keys(&mut provider_cfg);
-                        return Ok((url, provider_cfg.bearer_key_chain()));
-                    }
-                    return Ok((url, api_keys));
-                }
-                #[cfg(not(feature = "cli"))]
                 return Ok((url, api_keys));
             }
         }
     }
 
-    #[cfg(not(feature = "cli"))]
     {
-        let mlx_guard = mlx_sessions.lock().await;
-        if let Some(info) = mlx_guard.values().find(|s| s.info.model_id == model_id) {
-            let target_port = info.info.port;
-            return Ok((
-                format!("http://127.0.0.1:{target_port}/v1{destination_path}"),
-                vec![info.info.api_key.clone()],
-            ));
-        }
-        drop(mlx_guard);
-
         if let Some((url, key)) = engine_upstream(&llama_state, destination_path).await {
             return Ok((url, vec![key]));
         }
@@ -831,15 +710,6 @@ pub(crate) async fn resolve_api_type_for_model(
     // A converter is only meaningful for an HTTP provider (it needs a base_url
     // to append the native path to), so prefer a reachable entry and otherwise
     // fall back to the first model-claiming entry, exactly as resolution does.
-    #[cfg(feature = "cli")]
-    let first_match = pc
-        .iter()
-        .filter(|(_, config)| {
-            config.base_url.as_deref().is_some_and(|u| !u.is_empty()) && offers(config)
-        })
-        .min_by_key(|(name, config)| (Reverse(credentialed(config)), name.to_string()))
-        .or_else(|| pc.iter().find(|(_, config)| offers(config)));
-    #[cfg(not(feature = "cli"))]
     let first_match = pc.iter().find(|(_, config)| offers(config));
 
     let provider_name = first_match
@@ -859,12 +729,6 @@ pub(crate) async fn resolve_api_type_for_model(
     let api_type = cfg.as_ref().and_then(|c| c.api_type.clone())?;
     // OAuth account login is a `cli` feature; resolve the auth scheme from
     // the stored credential so a plain API key stays on its key scheme.
-    #[cfg(feature = "cli")]
-    let oauth = cfg
-        .as_ref()
-        .map(|c| crate::core::cli::auth::account::has_oauth_credential(&c.provider))
-        .unwrap_or(false);
-    #[cfg(not(feature = "cli"))]
     let oauth = false;
     Some((api_type, oauth))
 }
@@ -1152,7 +1016,6 @@ pub(crate) async fn execute_mcp_tool_calls(
     results
 }
 
-#[cfg(not(feature = "cli"))]
 pub(crate) async fn call_openai_chat_completions(
     client: &Client,
     upstream_url: &str,
@@ -1270,7 +1133,6 @@ pub(crate) fn is_reasoning_field_error(err: &str) -> bool {
 /// connection, TLS mismatch, dropped socket) is one or more sources down and is
 /// otherwise lost to the user. Consecutive duplicates are collapsed: hyper and
 /// its io error often stringify identically.
-#[cfg(any(not(feature = "cli"), test))]
 fn error_source_chain(err: &dyn std::error::Error) -> Vec<String> {
     let mut chain = Vec::new();
     let mut cur = err.source();
@@ -1291,7 +1153,6 @@ fn error_source_chain(err: &dyn std::error::Error) -> Vec<String> {
 /// already closed as `connection closed before message completed`, or as an
 /// `ECONNRESET`/`EPIPE` io error if the RST lands while the request is going
 /// out. A timeout is deliberately excluded: retrying one doubles the wait.
-#[cfg(not(feature = "cli"))]
 fn is_retryable_send_error(err: &reqwest::Error) -> bool {
     if err.is_timeout() || err.is_body() || err.is_decode() || err.is_builder() {
         return false;
@@ -1303,7 +1164,6 @@ fn is_retryable_send_error(err: &reqwest::Error) -> bool {
 /// on text because the io error is several opaque layers down (hyper's
 /// `SendRequest` -> `connection error` -> `std::io::Error`) and its `ErrorKind`
 /// is not exposed through `reqwest`.
-#[cfg(not(feature = "cli"))]
 fn chain_indicates_dropped_connection(chain: &[String]) -> bool {
     const MARKERS: &[&str] = &[
         "connection closed before message completed",
@@ -1321,7 +1181,6 @@ fn chain_indicates_dropped_connection(chain: &[String]) -> bool {
 /// How long to wait before the one retry of a dropped connection. Long enough
 /// for a load balancer that just recycled a backend to finish, short enough that
 /// the user does not read it as a hang.
-#[cfg(not(feature = "cli"))]
 const SEND_RETRY_DELAY: std::time::Duration = std::time::Duration::from_millis(250);
 
 /// Send a request, retrying it once when the connection dropped before any
@@ -1330,7 +1189,6 @@ const SEND_RETRY_DELAY: std::time::Duration = std::time::Duration::from_millis(2
 /// or its load balancer, and the next turn's request is written into a socket
 /// that is already gone. Retrying is safe precisely because nothing was received
 /// -- see [`is_retryable_send_error`].
-#[cfg(not(feature = "cli"))]
 async fn send_with_one_retry(req: reqwest::RequestBuilder) -> Result<reqwest::Response, String> {
     // `try_clone` returns `None` only for a streaming body; every caller here
     // sends a `String`, so the retry path is always available in practice.
@@ -1382,7 +1240,6 @@ fn should_try_next_api_key(status: reqwest::StatusCode) -> bool {
 /// routinely carry credentials). A proxy set in the environment is a common
 /// reason a request fails for Jan and for nothing else, and it is invisible in
 /// the error itself.
-#[cfg(any(not(feature = "cli"), test))]
 fn proxy_env_hint() -> Option<String> {
     const VARS: &[&str] = &[
         "HTTPS_PROXY",
@@ -1408,7 +1265,6 @@ fn proxy_env_hint() -> Option<String> {
 /// `reqwest` message, its whole cause chain, and -- for a connect or timeout
 /// failure, where the environment is usually the culprit -- which proxy
 /// variables are set.
-#[cfg(not(feature = "cli"))]
 pub(crate) fn describe_request_error(err: &reqwest::Error) -> String {
     let stage = if err.is_timeout() {
         "timed out"
@@ -1444,7 +1300,7 @@ pub(crate) fn describe_request_error(err: &reqwest::Error) -> String {
 /// A thin delegate to [`super::genai_bridge`], which owns the wire format, SSE
 /// handling, provider field-name variance, and the retry policy. Every provider
 /// the agent talks to comes through here -- cloud, a Jan desktop API server, a
-/// local llama.cpp router, an MLX session -- so there is exactly one upstream
+/// local llama.cpp router -- so there is exactly one upstream
 /// implementation to reason about.
 ///
 /// `api_type` selects the `genai` adapter. It is `None` for every caller today:
@@ -2495,7 +2351,6 @@ mod tests {
         );
     }
 
-    #[cfg(not(feature = "cli"))]
     /// The reported error must name the stage and carry the OS-level reason, not
     /// just the URL. Port 1 on loopback refuses without touching the network.
     #[tokio::test]
@@ -2515,7 +2370,6 @@ mod tests {
         );
     }
 
-    #[cfg(not(feature = "cli"))]
     #[test]
     fn dropped_connection_is_recognised_from_the_cause_chain() {
         assert!(chain_indicates_dropped_connection(&[
@@ -2536,7 +2390,6 @@ mod tests {
         assert!(!chain_indicates_dropped_connection(&[]));
     }
 
-    #[cfg(not(feature = "cli"))]
     /// A refused connect never reached the peer, so retrying it is safe; a
     /// timeout is excluded on purpose (retrying one doubles the wait).
     #[tokio::test]
@@ -2913,262 +2766,15 @@ mod tests {
         }
     }
 
-    /// Whether a model is servable is decided without fetching a credential: a
-    /// stored record nothing can read fails the request's own resolution, and
-    /// must not decide this.
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn servability_is_decided_without_the_credential() {
-        // The env redirect lives in the helper, which holds the store lock in a
-        // struct field: a bare guard bound here would be held across the awaits
-        // below, which clippy refuses and which the lock is not for.
-        let _secrets = TempSecretStore::new();
-        // Unreadable on purpose: fetching it fails inside the store, before any
-        // network call, which is what keeps this test offline.
-        crate::core::server::provider_secrets::store_secret_record("auth:anthropic", "{ not json")
-            .unwrap();
 
-        let configs = Arc::new(Mutex::new(HashMap::from([(
-            "anthropic".to_string(),
-            ProviderConfig {
-                provider: "anthropic".into(),
-                base_url: Some("https://api.anthropic.com/v1".into()),
-                models: vec!["claude-sonnet-5".into()],
-                ..Default::default()
-            },
-        )])));
 
-        // Servable: the name is served by a reachable provider, and nothing
-        // about the credential took part in saying so.
-        assert_eq!(
-            unservable_model("claude-sonnet-5", Arc::clone(&configs)).await,
-            None
-        );
-        // The request's own resolution does fetch it, and fails on it: the
-        // failure the validation above must not turn into "invalid model".
-        let failure = resolve_upstream_for_model("claude-sonnet-5", configs)
-            .await
-            .expect_err("the credential is unreadable");
-        assert!(failure.contains("unreadable"), "{failure}");
-        // A name no provider serves is still refused, credential or not.
-        assert_eq!(
-            unservable_model("claude-sonnet-99", Arc::new(Mutex::new(HashMap::new()))).await,
-            Some("No upstream session found for model 'claude-sonnet-99'".to_string())
-        );
-    }
 
-    /// A model served both by a Jan desktop API server (reachable over HTTP) and
-    /// by local engine descriptors (no base_url) must always resolve to the
-    /// server. `HashMap` order is randomized, so the local entries outnumber the
-    /// remote one here: without a deterministic preference this fails most runs.
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn shared_model_id_resolves_to_the_reachable_provider() {
-        let mut configs = HashMap::new();
-        for local in ["llamacpp", "llamacpp-rs", "mlx", "engine-d", "engine-e"] {
-            configs.insert(
-                local.to_string(),
-                ProviderConfig {
-                    provider: local.into(),
-                    base_url: None,
-                    models: vec!["sentence-transformer-mini".into()],
-                    ..Default::default()
-                },
-            );
-        }
-        configs.insert(
-            "JanServer".to_string(),
-            ProviderConfig {
-                provider: "JanServer".into(),
-                base_url: Some("http://127.0.0.1:1337/v1".into()),
-                models: vec!["sentence-transformer-mini".into()],
-                ..Default::default()
-            },
-        );
 
-        let (url, _keys) =
-            resolve_upstream_for_model("sentence-transformer-mini", Arc::new(Mutex::new(configs)))
-                .await
-                .expect("the API server provider is reachable");
-        assert_eq!(url, "http://127.0.0.1:1337/v1/chat/completions");
-    }
 
-    /// When two reachable HTTP providers offer the same model id - one
-    /// credentialed, one keyless - resolution must pick the credentialed one.
-    /// Alphabetical order alone would route e.g. `gpt-5.6-luna` (carried by
-    /// both `openai` and a signed-in `opencode`) to the keyless `openai` entry
-    /// and fail with a 401 on the first request.
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn shared_model_id_prefers_the_credentialed_provider() {
-        let mut configs = HashMap::new();
-        // Alphabetically first, but keyless - the old code would pick this.
-        configs.insert(
-            "openai".to_string(),
-            ProviderConfig {
-                provider: "openai".into(),
-                base_url: Some("https://api.openai.com/v1".into()),
-                models: vec!["gpt-5.6-luna".into()],
-                ..Default::default()
-            },
-        );
-        // Signed in, so it carries a key.
-        configs.insert(
-            "opencode".to_string(),
-            ProviderConfig {
-                provider: "opencode".into(),
-                base_url: Some("https://opencode.ai/zen/v1".into()),
-                api_key: Some("sk-opencode".into()),
-                models: vec!["gpt-5.6-luna".into()],
-                ..Default::default()
-            },
-        );
 
-        let (url, keys) = resolve_upstream_for_model("gpt-5.6-luna", Arc::new(Mutex::new(configs)))
-            .await
-            .expect("the credentialed provider is selected");
-        assert_eq!(url, "https://opencode.ai/zen/v1/chat/completions");
-        assert_eq!(keys, vec!["sk-opencode"]);
-    }
 
-    /// The reporting path (price, context window, header label) must name the
-    /// provider the request is routed to. A gateway listing a slashed id
-    /// verbatim wins over a provider whose key happens to match the prefix, on
-    /// both sides: reading the prefix first would price a Jan Router request
-    /// against an `anthropic` entry that publishes neither window nor price.
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn a_verbatim_listed_slashed_id_is_reported_against_the_gateway_that_serves_it() {
-        let mut configs = provider_configs(&[
-            ("tokamak", "https://api.tokamak.sh/v1"),
-            ("anthropic", "https://api.anthropic.com/v1"),
-        ]);
-        configs.get_mut("tokamak").unwrap().models = vec!["anthropic/claude-opus-5".to_string()];
 
-        assert_eq!(
-            pick_provider_for_model("anthropic/claude-opus-5", &configs),
-            Some("tokamak".to_string())
-        );
-        let (url, _) =
-            resolve_upstream_for_model("anthropic/claude-opus-5", Arc::new(Mutex::new(configs)))
-                .await
-                .expect("the gateway listing the id serves it");
-        assert_eq!(url, "https://api.tokamak.sh/v1/chat/completions");
-    }
 
-    /// A provider credentialed through the `api_keys` chain rather than a bare
-    /// `api_key` is still the one routed to, so it must be the one reported:
-    /// naming its keyless twin prices the request at the wrong rates and, on
-    /// the window, against an entry that never published one.
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn a_key_chain_credential_is_reported_like_it_is_routed() {
-        let mut configs = provider_configs(&[
-            ("aaa-keyless", "https://keyless.test/v1"),
-            ("zzz-keychain", "https://keychain.test/v1"),
-        ]);
-        configs.get_mut("aaa-keyless").unwrap().models = vec!["shared-model".to_string()];
-        let keychain = configs.get_mut("zzz-keychain").unwrap();
-        keychain.models = vec!["shared-model".to_string()];
-        keychain.api_keys = vec!["sk-chain".to_string()];
-
-        assert_eq!(
-            pick_provider_for_model("shared-model", &configs),
-            Some("zzz-keychain".to_string())
-        );
-        let (url, _) = resolve_upstream_for_model("shared-model", Arc::new(Mutex::new(configs)))
-            .await
-            .expect("the credentialed provider is selected");
-        assert_eq!(url, "https://keychain.test/v1/chat/completions");
-    }
-
-    /// A provider keyed by the model id (a local engine alias) is routable, so
-    /// the reporting path must name it too rather than leaving the row
-    /// unqualified and priced against whatever else lists the id.
-    #[cfg(feature = "cli")]
-    #[test]
-    fn a_provider_keyed_by_the_model_id_is_named() {
-        let configs = provider_configs(&[("my-local-model", "http://127.0.0.1:1337/v1")]);
-        assert_eq!(
-            pick_provider_for_model("my-local-model", &configs),
-            Some("my-local-model".to_string())
-        );
-    }
-
-    /// Holds the secret-store serialization guard, the temp data folder and the
-    /// `JAN_DATA_FOLDER` restore together, so an async test can keep all three
-    /// alive across `.await` without holding a bare lock guard over it.
-    #[cfg(feature = "cli")]
-    struct TempSecretStore {
-        _guard: std::sync::MutexGuard<'static, ()>,
-        previous: Option<String>,
-        _dir: tempfile::TempDir,
-    }
-
-    #[cfg(feature = "cli")]
-    impl TempSecretStore {
-        fn new() -> Self {
-            let guard = crate::core::server::provider_secrets::SECRET_STORE_TEST_LOCK
-                .lock()
-                .unwrap_or_else(|e| e.into_inner());
-            let dir = tempfile::tempdir().unwrap();
-            let previous = std::env::var("JAN_DATA_FOLDER").ok();
-            std::env::set_var("JAN_DATA_FOLDER", dir.path());
-            crate::core::server::provider_secrets::force_file_secrets();
-            Self {
-                _guard: guard,
-                previous,
-                _dir: dir,
-            }
-        }
-    }
-
-    #[cfg(feature = "cli")]
-    impl Drop for TempSecretStore {
-        fn drop(&mut self) {
-            match &self.previous {
-                Some(value) => std::env::set_var("JAN_DATA_FOLDER", value),
-                None => std::env::remove_var("JAN_DATA_FOLDER"),
-            }
-        }
-    }
-
-    #[cfg(feature = "cli")]
-    #[tokio::test]
-    async fn account_credentials_override_the_api_key_chain() {
-        use crate::core::cli::auth::{Credential, CredentialStore, OAuthToken};
-
-        let _secrets = TempSecretStore::new();
-        CredentialStore::store(
-            "openai",
-            &Credential::OAuthToken(OAuthToken {
-                access_token: "account-access".into(),
-                refresh_token: Some("refresh".into()),
-                expires_at: Some(1_800_000_000),
-                token_type: "Bearer".into(),
-                scopes: vec![],
-            }),
-        )
-        .unwrap();
-        let mut configs = HashMap::new();
-        configs.insert(
-            "openai".to_string(),
-            ProviderConfig {
-                provider: "openai".into(),
-                base_url: Some("https://api.openai.com/v1".into()),
-                api_key: Some("api-key".into()),
-                models: vec!["account-model".into()],
-                ..Default::default()
-            },
-        );
-
-        let (url, keys) =
-            resolve_upstream_for_model("account-model", Arc::new(Mutex::new(configs)))
-                .await
-                .unwrap();
-        assert_eq!(url, "https://chatgpt.com/backend-api/chat/completions");
-        assert_eq!(keys, vec!["account-access"]);
-    }
 
     #[test]
     fn parse_messages_passes_multimodal_content_array_through() {

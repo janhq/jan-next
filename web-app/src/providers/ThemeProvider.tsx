@@ -11,11 +11,6 @@ export function ThemeProvider() {
     } else {
       document.documentElement.classList.remove('dark')
     }
-    if (IS_LINUX && isPlatformTauri()) {
-      import('@tauri-apps/api/core')
-        .then(({ invoke }) => invoke('set_gtk_prefer_dark', { dark: isDark }))
-        .catch((err) => console.error('set_gtk_prefer_dark failed:', err))
-    }
   }, [isDark])
 
   useEffect(() => {

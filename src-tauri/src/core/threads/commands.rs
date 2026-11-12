@@ -3,10 +3,8 @@ use std::io::Write;
 use tauri::Runtime;
 use uuid::Uuid;
 
-#[cfg(any(target_os = "android", target_os = "ios"))]
-use super::db;
 use super::helpers::{
-    get_lock_for_thread, read_messages_from_file, should_use_sqlite, update_thread_metadata,
+    get_lock_for_thread, read_messages_from_file, update_thread_metadata,
     write_messages_to_file,
 };
 use super::{
@@ -24,11 +22,6 @@ use crate::core::app::commands::get_jan_data_folder_path;
 pub async fn list_threads<R: Runtime>(
     app_handle: tauri::AppHandle<R>,
 ) -> Result<Vec<serde_json::Value>, String> {
-    if should_use_sqlite() {
-        // Use SQLite on mobile platforms
-        #[cfg(any(target_os = "android", target_os = "ios"))]
-        return db::db_list_threads(app_handle).await;
-    }
 
     // Use file-based storage on desktop
     let data_folder = get_jan_data_folder_path(app_handle);
@@ -68,10 +61,6 @@ pub async fn create_thread<R: Runtime>(
     app_handle: tauri::AppHandle<R>,
     mut thread: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
-    if should_use_sqlite() {
-        #[cfg(any(target_os = "android", target_os = "ios"))]
-        return db::db_create_thread(app_handle, thread).await;
-    }
 
     // Use file-based storage on desktop
     let data_folder = get_jan_data_folder_path(app_handle);
@@ -95,10 +84,6 @@ pub async fn modify_thread<R: Runtime>(
     app_handle: tauri::AppHandle<R>,
     thread: serde_json::Value,
 ) -> Result<(), String> {
-    if should_use_sqlite() {
-        #[cfg(any(target_os = "android", target_os = "ios"))]
-        return db::db_modify_thread(app_handle, thread).await;
-    }
 
     // Use file-based storage on desktop
     let data_folder = get_jan_data_folder_path(app_handle);
@@ -122,10 +107,6 @@ pub async fn delete_thread<R: Runtime>(
     app_handle: tauri::AppHandle<R>,
     thread_id: String,
 ) -> Result<(), String> {
-    if should_use_sqlite() {
-        #[cfg(any(target_os = "android", target_os = "ios"))]
-        return db::db_delete_thread(app_handle, &thread_id).await;
-    }
 
     // Use file-based storage on desktop
     let data_folder = get_jan_data_folder_path(app_handle);
@@ -143,10 +124,6 @@ pub async fn list_messages<R: Runtime>(
     app_handle: tauri::AppHandle<R>,
     thread_id: String,
 ) -> Result<Vec<serde_json::Value>, String> {
-    if should_use_sqlite() {
-        #[cfg(any(target_os = "android", target_os = "ios"))]
-        return db::db_list_messages(app_handle, &thread_id).await;
-    }
 
     // Use file-based storage on desktop
     let data_folder = get_jan_data_folder_path(app_handle);
@@ -160,10 +137,6 @@ pub async fn create_message<R: Runtime>(
     app_handle: tauri::AppHandle<R>,
     mut message: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
-    if should_use_sqlite() {
-        #[cfg(any(target_os = "android", target_os = "ios"))]
-        return db::db_create_message(app_handle, message).await;
-    }
 
     // Use file-based storage on desktop
     let data_folder = get_jan_data_folder_path(app_handle);
@@ -228,10 +201,6 @@ pub async fn modify_message<R: Runtime>(
     app_handle: tauri::AppHandle<R>,
     message: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
-    if should_use_sqlite() {
-        #[cfg(any(target_os = "android", target_os = "ios"))]
-        return db::db_modify_message(app_handle, message).await;
-    }
 
     // Use file-based storage on desktop
     let data_folder = get_jan_data_folder_path(app_handle);
@@ -280,10 +249,6 @@ pub async fn delete_message<R: Runtime>(
     thread_id: String,
     message_id: String,
 ) -> Result<(), String> {
-    if should_use_sqlite() {
-        #[cfg(any(target_os = "android", target_os = "ios"))]
-        return db::db_delete_message(app_handle, &thread_id, &message_id).await;
-    }
 
     // Use file-based storage on desktop
     let data_folder = get_jan_data_folder_path(app_handle);
@@ -310,10 +275,6 @@ pub async fn get_thread_assistant<R: Runtime>(
     app_handle: tauri::AppHandle<R>,
     thread_id: String,
 ) -> Result<serde_json::Value, String> {
-    if should_use_sqlite() {
-        #[cfg(any(target_os = "android", target_os = "ios"))]
-        return db::db_get_thread_assistant(app_handle, &thread_id).await;
-    }
 
     // Use file-based storage on desktop
     let data_folder = get_jan_data_folder_path(app_handle);
@@ -342,10 +303,6 @@ pub async fn create_thread_assistant<R: Runtime>(
     thread_id: String,
     assistant: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
-    if should_use_sqlite() {
-        #[cfg(any(target_os = "android", target_os = "ios"))]
-        return db::db_create_thread_assistant(app_handle, &thread_id, assistant).await;
-    }
 
     // Use file-based storage on desktop
     let data_folder = get_jan_data_folder_path(app_handle);
@@ -374,10 +331,6 @@ pub async fn modify_thread_assistant<R: Runtime>(
     thread_id: String,
     assistant: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
-    if should_use_sqlite() {
-        #[cfg(any(target_os = "android", target_os = "ios"))]
-        return db::db_modify_thread_assistant(app_handle, &thread_id, assistant).await;
-    }
 
     // Use file-based storage on desktop
     let data_folder = get_jan_data_folder_path(app_handle);

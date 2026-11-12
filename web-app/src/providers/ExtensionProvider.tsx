@@ -4,7 +4,6 @@ import { applySafeMode } from '@/lib/extensions/installed-loader'
 import { loadWithCrashLoopGuard } from '@/lib/extensions/watchdog'
 import { bridgeModelValidationStarted } from '@/lib/modelValidationBridge'
 import { getServiceHub } from '@/hooks/useServiceHub'
-import { isPlatformAndroid, isPlatformIOS } from '@/lib/platform'
 import { APIs } from '@/lib/service'
 import { EventEmitter } from '@/services/events/EventEmitter'
 import { EngineManager, ModelManager, appSettings } from '@janhq/core'
@@ -53,15 +52,13 @@ export function ExtensionProvider({ children }: PropsWithChildren) {
     setStatus({ key: 'registeringExtensions' })
     // Built-ins first, then the installed extensions.
     try {
-      await getExtensionHost().activateBuiltins(
-        getHostBuiltins({ mobile: isPlatformIOS() || isPlatformAndroid() })
-      )
+      await getExtensionHost().activateBuiltins(getHostBuiltins())
     } catch (e) {
       console.error('Extension host setup failed:', e)
     }
     // Installed extensions run in workers after the built-ins, where there
     // is an install pipeline (the desktop app). Not awaited: each may take
-    // up to its activation timeout, and llamacpp/mlx must not wait on that.
+    // up to its activation timeout, and llamacpp must not wait on that.
     // The guard turns safe mode on when earlier starts died before running
     // a grace period after loading, so one that takes the window down
     // cannot do it every start.

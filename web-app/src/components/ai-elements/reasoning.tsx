@@ -17,7 +17,6 @@ import {
   useState,
 } from 'react'
 import { Streamdown } from 'streamdown'
-import type { Components } from 'react-markdown'
 import { ExternalAnchor } from '@/components/ExternalAnchor'
 import { Shimmer } from './shimmer'
 
@@ -172,7 +171,7 @@ export type ReasoningContentProps = ComponentProps<
 
 /** Reasoning is model output, so its links take the same path as the message
  * body's: a web or mail link opens outside the app, anything else is inert. */
-const REASONING_COMPONENTS: Components = {
+const REASONING_COMPONENTS: NonNullable<ComponentProps<typeof Streamdown>['components']> = {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   a: ({ node: _node, href, children, ...rest }) => (
     <ExternalAnchor {...rest} href={href}>

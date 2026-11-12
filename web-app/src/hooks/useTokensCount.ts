@@ -97,7 +97,7 @@ export const useTokensCount = (
   const reqId = useRef(0)
 
   const isLocalProvider =
-    selectedProvider === 'llamacpp' || selectedProvider === 'mlx'
+    selectedProvider === 'llamacpp'
   const modelId = isLocalProvider ? selectedModel?.id : undefined
 
   const threadId = source?.threadId ?? messages[0]?.thread_id

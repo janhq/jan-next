@@ -22,7 +22,6 @@
   "showProvider": "Mostra fornitore",
   "interface": "Interfaccia",
   "appearance": "Aspetto",
-  "privacy": "Privacy",
   "keyboardShortcuts": "Scorciatoie",
   "newChat": "Nuova chat",
   "newAgentChat": "Nuova chat agente",
@@ -31,7 +30,6 @@
   "recents": "Recenti",
   "hub": "Hub",
   "helpSupport": "Aiuto e supporto",
-  "helpUsImproveJan": "Aiutaci a migliorare Jan",
   "unstarAll": "Rimuovi preferiti a tutti",
   "unstar": "Rimuovi dai preferiti",
   "deleteAll": "Elimina tutto",
@@ -230,7 +228,7 @@
     "title": "Elimina fornitore",
     "description": "Elimina questo fornitore e tutti i suoi modelli. Questa azione non può essere annullata.",
     "success": "Il fornitore {{provider}} è stato eliminato definitivamente.",
-      "confirmTitle": "Elimina fornitore: {{provider}}",
+    "confirmTitle": "Elimina fornitore: {{provider}}",
     "confirmDescription": "Sei sicuro di voler eliminare questo fornitore? Questa azione non può essere annullata.",
     "cancel": "Annulla",
     "delete": "Elimina"
@@ -398,14 +396,6 @@
     "editMessage": {
       "title": "Modifica messaggio",
       "description": "Messaggio modificato con successo. Attendi la risposta del modello."
-    },
-    "appUpdateDownloaded": {
-      "title": "Aggiornamento app scaricato",
-      "description": "L'aggiornamento dell'app è stato scaricato con successo."
-    },
-    "appUpdateDownloadFailed": {
-      "title": "Download dell'aggiornamento fallito",
-      "description": "Impossibile scaricare l'aggiornamento dell'app. Riprova."
     },
     "downloadComplete": {
       "title": "Download completato",

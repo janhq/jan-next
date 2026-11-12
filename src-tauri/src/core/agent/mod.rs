@@ -11,7 +11,6 @@ pub mod bg_shell;
 /// Where each dispatched subagent works: its own worktree or a read-only root.
 pub mod child_workspace;
 // Tauri IPC surface for the desktop agent; the CLI drives the loop directly.
-#[cfg(not(feature = "cli"))]
 pub mod commands;
 pub mod compaction;
 pub mod context;
@@ -21,24 +20,12 @@ pub mod correlation;
 pub mod events;
 pub mod genai_bridge;
 pub mod git;
-// Not cli-gated: `~/.jan/config.toml` is the user's own layer, and its
-// `[[hooks]]` have to mean the same thing in the desktop app and the API
-// server as they do in the CLI. The rest of the module (provider records, the
-// TUI's settings writers) has no consumer outside the CLI, hence the allow
-// rather than a second gate per item.
-#[cfg_attr(not(feature = "cli"), allow(dead_code))]
+// `~/.jan/config.toml` is the user's own layer; its `[[hooks]]` apply in the
+// desktop app and the API server. Most of the rest of the module (provider
+// records, settings writers) has no desktop consumer, hence the allow.
+#[allow(dead_code)]
 pub mod global_config;
-#[cfg(feature = "cli")]
-pub mod goal;
 pub mod hooks_config;
-// Host tools are executed by a client over the headless stdio channel, so the
-// capability exists only where that channel does. The desktop build has no peer
-// that could answer a `tool_request`.
-#[cfg(feature = "cli")]
-pub mod host_tools;
-// Only host tools consume these helpers, so they share host_tools' gate.
-#[cfg(feature = "cli")]
-pub mod host_schema;
 pub mod interaction;
 pub mod r#loop;
 pub mod memory;
@@ -51,7 +38,6 @@ pub mod plugins;
 pub mod project;
 pub mod prompt;
 /// The compaction budget for the desktop API server's orchestration runs.
-#[cfg(not(feature = "cli"))]
 pub(crate) mod proxy_budget;
 pub mod provenance;
 /// Routes known to reject a resent `reasoning_content` field.

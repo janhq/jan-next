@@ -193,19 +193,6 @@
     "proxyTimeout": "Časový limit požadavku",
     "proxyTimeoutDesc": "Doba čekání na odpověď od lokálního modelu, sekundy."
   },
-  "privacy": {
-    "analytics": "Analytika",
-    "helpUsImprove": "Pomozte nám zlepšit",
-    "helpUsImproveDesc": "Abychom mohli vylepšit Jan, můžete sdílet anonymní data jako použití funkcí a počty uživatelů. Nikdy neshromažďujeme vaše chaty nebo osobní údaje.",
-    "privacyPolicy": "Máte plnou kontrolu nad svými daty. Více informací najdete v našich Zásadách ochrany osobních údajů.",
-    "analyticsDesc": "Abychom mohli vylepšit Jan, potřebujeme pochopit, jak se používá—ale pouze s vaší pomocí. Toto nastavení můžete kdykoli změnit.",
-    "privacyPromises": "Vaše volba zde nezmění naše základní sliby ochrany soukromí:",
-    "promise1": "Vaše konverzace zůstávají soukromé a na vašem zařízení",
-    "promise2": "Nikdy neshromažďujeme vaše osobní údaje nebo obsah chatů",
-    "promise3": "Veškeré sdílení dat je anonymní a agregované",
-    "promise4": "Můžete se kdykoli odhlásit bez ztráty funkčnosti",
-    "promise5": "Jsme transparentní o tom, co shromažďujeme a proč"
-  },
   "general": {
     "showInFinder": "Zobrazit ve Finderu",
     "showInFileExplorer": "Zobrazit v Průzkumníku souborů",
@@ -214,13 +201,7 @@
     "couldNotRelocateToRoot": "Složku s daty nelze přemístit do kořenového adresáře. Zvolte prosím jiné umístění.",
     "couldNotResetRootDirectory": "Složku s daty nelze obnovit, pokud je nastavena v kořenovém adresáři. Smažte prosím složku s daty ručně.",
     "failedToRelocateDataFolderDesc": "Nepodařilo se přemístit složku s daty. Zkuste to prosím znovu.",
-    "devVersion": "Detekována vývojová verze",
-    "noUpdateAvailable": "Používáte nejnovější verzi",
-    "updateError": "Nepodařilo se zkontrolovat aktualizace",
     "appVersion": "Verze aplikace",
-    "checkForUpdates": "Zkontrolovat aktualizace",
-    "checkForUpdatesDesc": "Zkontrolujte, zda je k dispozici novější verze Jan.",
-    "checkingForUpdates": "Kontrolování aktualizací...",
     "copied": "Zkopírováno",
     "copyPath": "Kopírovat cestu",
     "changeLocation": "Změnit umístění",

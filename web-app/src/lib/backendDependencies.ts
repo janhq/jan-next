@@ -29,7 +29,6 @@ export function getInstallRecommendations(
 ): { recommendations: InstallRecommendation[]; uncovered: string[] } {
   const b = backend.toLowerCase()
   const isWindows = IS_WINDOWS
-  const isLinux = IS_LINUX
 
   const cudaVersion = b.includes('cuda-13') || b.includes('cuda13')
     ? '13'
@@ -131,9 +130,7 @@ export function getInstallRecommendations(
     vulkanLibs.forEach((l) => coveredLibs.add(l))
     const vulkanUrl = isWindows
       ? 'https://vulkan.lunarg.com/sdk/home#windows'
-      : isLinux
-        ? 'https://vulkan.lunarg.com/sdk/home#linux'
-        : 'https://vulkan.lunarg.com/sdk/home'
+      : 'https://vulkan.lunarg.com/sdk/home'
     recommendations.push({
       label: 'Vulkan Runtime',
       description: isWindows

@@ -11,7 +11,7 @@ import { coworkModelContext, formatContextSize } from '@/lib/coworkModelControls
 
 /**
  * Opens the model settings sheet, and only when there is something to configure -- a
- * local llamacpp/mlx model with settings. Remote providers have no local knobs,
+ * local llamacpp model with settings. Remote providers have no local knobs,
  * so the chip stays hidden there like the diff/tasks chips do when empty.
  */
 export function CoworkModelChip({

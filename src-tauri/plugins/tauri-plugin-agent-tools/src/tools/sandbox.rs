@@ -777,25 +777,16 @@ pub(crate) fn canonicalize_lenient(path: &Path) -> Result<PathBuf, String> {
 /// [`canonicalize_lenient`] charging `meter` for the work it does; an error
 /// once the meter runs out.
 ///
-/// On Linux a limited meter skips the whole-path `canonicalize` and the
-/// probes for the existing prefix, and walks from the root: `realpath` there
-/// is glibc making the walk's own lookups, a component at a time, so the
-/// result is the same, but a failing call tells nothing of what it spent (a
-/// link into a deep directory walks all of it before a missing leaf fails),
-/// so it could not be charged. One difference is deliberate: the walk stops
-/// at `MAX_HOPS` links, as the kernel's `open` does (ELOOP), where glibc's
-/// `realpath` follows more; do not raise it to match, since a path no syscall
-/// can open must not be judged by where it would have led. Elsewhere the calls are kept, since they also
-/// spell the path as the roots are spelled (case; Windows applies `..`
-/// lexically), and a failing one is charged by the input's depth: a link
-/// there can cost more than it is charged.
+/// The whole-path `canonicalize` is kept, since it also spells the path as the
+/// roots are spelled (case; Windows applies `..` lexically), and a failing one
+/// is charged by the input's depth: a link there can cost more than it is
+/// charged. The walk stops at `MAX_HOPS` links, as the kernel's `open` does
+/// (ELOOP): a path no syscall can open must not be judged by where it would
+/// have led.
 pub(crate) fn canonicalize_metered(path: &Path, meter: &Meter) -> Result<PathBuf, String> {
     use std::path::Component;
-    let walk_all = meter.walks_all();
-    if !walk_all {
-        if let Some(p) = meter.canonicalize(path)? {
-            return Ok(p);
-        }
+    if let Some(p) = meter.canonicalize(path)? {
+        return Ok(p);
     }
     let abs = if path.is_absolute() {
         path.to_path_buf()
@@ -805,10 +796,7 @@ pub(crate) fn canonicalize_metered(path: &Path, meter: &Meter) -> Result<PathBuf
             .join(path)
     };
     let parts: Vec<Component> = abs.components().collect();
-    let (seeded, resolved) = match walk_all {
-        true => (0, PathBuf::new()),
-        false => existing_prefix(&parts, meter)?,
-    };
+    let (seeded, resolved) = existing_prefix(&parts, meter)?;
     walk(path, resolved, &parts[seeded..], meter)
 }
 
@@ -846,12 +834,6 @@ impl Meter {
 
     fn unlimited() -> Self {
         Self { used: std::cell::Cell::new(0), budget: None }
-    }
-
-    /// True when walks charged to this meter make every lookup themselves
-    /// rather than ask `realpath` (see [`canonicalize_metered`]).
-    fn walks_all(&self) -> bool {
-        self.budget.is_some() && cfg!(any(target_os = "linux", target_os = "android"))
     }
 
     /// True once a charge went past the budget.
@@ -958,16 +940,10 @@ fn walk(
                 }
                 // Through a link the lookup walks wherever it leads, which
                 // may be far deeper than the text: charged by the result.
-                // Where the meter walks all, the target is spliced in and
-                // walked instead: one `realpath` through a chain of links
-                // into a deep directory took seconds before it could be
-                // charged.
-                if !meter.walks_all() {
-                    if let Some(real) = meter.canonicalize(&resolved)? {
-                        depth = real.components().count();
-                        resolved = real;
-                        continue;
-                    }
+                if let Some(real) = meter.canonicalize(&resolved)? {
+                    depth = real.components().count();
+                    resolved = real;
+                    continue;
                 }
                 hops += 1;
                 if hops > MAX_HOPS {
@@ -991,20 +967,10 @@ fn walk(
 }
 
 /// Respell `path`, a canonical directory joined with a name on disk that is
-/// no link, the way `canonicalize` would; false if that fails. On Linux it is
-/// already spelled so (`realpath` only follows links), and skipping the call
-/// saves a syscall per component of the whole prefix: a command of many
-/// `dir/..` steps paid seconds for it.
-#[cfg(any(target_os = "linux", target_os = "android"))]
-fn spell_as_on_disk(path: &mut PathBuf, meter: &Meter) -> Result<bool, String> {
-    let _ = (path, meter);
-    Ok(true)
-}
-
-/// [`spell_as_on_disk`] where the disk may be case-insensitive (macOS,
-/// Windows): `canonicalize` spells the name as stored, which is how the
-/// roots it is compared with are spelled.
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
+/// no link, the way `canonicalize` would, since the disk may be
+/// case-insensitive (macOS, Windows): `canonicalize` spells the name as
+/// stored, which is how the roots it is compared with are spelled. False if
+/// that fails.
 fn spell_as_on_disk(path: &mut PathBuf, meter: &Meter) -> Result<bool, String> {
     Ok(match meter.canonicalize(path)? {
         Some(real) => {
@@ -1186,24 +1152,6 @@ mod tests {
         std::fs::create_dir_all(root.join("sub")).unwrap();
         assert_eq!(escapes_project(&root, None, "sub/newfile.txt"), Ok(false));
         let _ = std::fs::remove_dir_all(&root);
-    }
-
-    /// Nothing is mounted over `/tmp` any more, so a `/tmp/...` path is a
-    /// plain host path: outside the project and the scratch it is an escape,
-    /// and it resolves to itself rather than into the scratch.
-    #[test]
-    #[cfg(target_os = "linux")]
-    fn tmp_is_a_plain_host_path_even_with_a_scratch() {
-        let root = unique_root_outside_tmp();
-        let scratch = unique_root_outside_tmp();
-        assert_eq!(
-            escapes_project(&root, Some(&scratch), "/tmp/ok.txt"),
-            Ok(true),
-            "the host /tmp is not the scratch"
-        );
-        assert_eq!(resolve_path(&root, "/tmp/a.txt"), Path::new("/tmp/a.txt"));
-        let _ = std::fs::remove_dir_all(&root);
-        let _ = std::fs::remove_dir_all(&scratch);
     }
 
     /// The scratch, reached by its real path, is the agent's own area on

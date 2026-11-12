@@ -274,7 +274,6 @@ mod engine {
         println!("cargo:rerun-if-changed=shim/jan_llama_shim.cpp");
         println!("cargo:rerun-if-changed=shim/jan_llama_shim.h");
         println!("cargo:rerun-if-changed=shim/jan_llama_diag.cpp");
-        println!("cargo:rerun-if-env-changed=JAN_LLAMA_PREBUILT_DIR");
         println!("cargo:rerun-if-env-changed=JAN_LLAMA_CPP_DIR");
         println!("cargo:rerun-if-env-changed=JAN_ENGINE_CUDA_ARCHS");
         for var in ["CUDACXX", "CUDA_PATH", "CUDA_HOME", "CUDAToolkit_ROOT"] {
@@ -285,56 +284,30 @@ mod engine {
         println!("cargo:rerun-if-env-changed=JAN_ENGINE_BUILD_DIR");
 
         // The worker reports this in its handshake so the app can set it against
-        // the NVIDIA driver (#9189). Read on the prebuilt path too: the prebuilt
-        // key includes the full nvcc version, so a cache hit is built with the
-        // toolkit that is on this host.
+        // the NVIDIA driver (#9189).
         if feature_enabled("engine-cuda") {
             if let Some((_, v)) = nvcc_version() {
                 println!("cargo:rustc-env=JAN_ENGINE_CUDA_TOOLKIT={}.{}", v.0, v.1);
             }
         }
 
-        // Headers are always needed: the shim is our code and is compiled
-        // here even when the archives come prebuilt, so it cannot drift from
-        // the crate.
         let src = source_dir();
+        let root = build_root();
+        let ggml = build_ggml(&src, &root);
+        let llama = build_llama(&src, &ggml, &root);
+        let mut search_dirs = ARCHIVE_DIRS
+            .iter()
+            .map(|d| llama.join(d))
+            .collect::<Vec<_>>();
+        // Visual Studio writes each target under its config; the
+        // single-config generators write it where cmake was pointed.
+        if env::var("CARGO_CFG_TARGET_OS").unwrap_or_default() == "windows" {
+            search_dirs.extend(ARCHIVE_DIRS.iter().map(|d| llama.join(d).join(CONFIG)));
+        }
+        search_dirs.push(ggml.join("lib"));
+        let backend_dir = ggml.join("bin");
 
-        // Prebuilt path: a matrix job compiled both stages once and published
-        // them, so the app build only links. No network, no cmake, no nvcc.
-        // Layout (produced by build-utils/engine-prebuilt.sh): `lib/` (stage 2
-        // static archives plus ggml-prefix/lib, the ggml link inputs),
-        // `include/` (may be empty; the shim's headers all come from the
-        // source tree) and `bin/` (ggml-prefix/bin: the runtime-loaded backend
-        // modules, plus ggml.dll and ggml-base.dll on Windows).
-        let (mut search_dirs, generated_include, backend_dir) =
-            if let Ok(dir) = env::var("JAN_LLAMA_PREBUILT_DIR") {
-                let dir = PathBuf::from(dir);
-                let lib = dir.join("lib");
-                let inc = dir.join("include");
-                assert!(
-                    lib.is_dir() && inc.is_dir(),
-                    "JAN_LLAMA_PREBUILT_DIR={} must contain lib/ and include/",
-                    dir.display()
-                );
-                (vec![lib], inc, dir.join("bin"))
-            } else {
-                let root = build_root();
-                let ggml = build_ggml(&src, &root);
-                let llama = build_llama(&src, &ggml, &root);
-                let mut dirs = ARCHIVE_DIRS
-                    .iter()
-                    .map(|d| llama.join(d))
-                    .collect::<Vec<_>>();
-                // Visual Studio writes each target under its config; the
-                // single-config generators write it where cmake was pointed.
-                if env::var("CARGO_CFG_TARGET_OS").unwrap_or_default() == "windows" {
-                    dirs.extend(ARCHIVE_DIRS.iter().map(|d| llama.join(d).join(CONFIG)));
-                }
-                dirs.push(ggml.join("lib"));
-                (dirs, llama, ggml.join("bin"))
-            };
-
-        search_dirs.push(compile_shim(&src, &generated_include));
+        search_dirs.push(compile_shim(&src, &llama));
         compile_diag(&src);
         emit_link_flags(&search_dirs);
 
@@ -541,7 +514,7 @@ mod engine {
         // @loader_path and is left alone.
         if !matches!(
             env::var("CARGO_CFG_TARGET_OS").unwrap_or_default().as_str(),
-            "macos" | "ios" | "windows"
+            "macos" | "windows"
         ) {
             cfg.arg("-DCMAKE_INSTALL_RPATH=$ORIGIN");
         }
@@ -1072,7 +1045,7 @@ mod engine {
     /// The shim is compiled with `cc` rather than added to llama.cpp's cmake
     /// tree so the vendored source stays untouched and bisectable.
     /// `generated_include` is where llama.cpp's generated headers live: the
-    /// cmake build dir normally, or the prebuilt bundle's include/.
+    /// cmake build dir.
     fn compile_shim(src: &Path, generated_include: &Path) -> PathBuf {
         let mut cc = cc::Build::new();
         cc.cpp(true)
@@ -1103,10 +1076,8 @@ mod engine {
     /// for it; the ggml symbols resolve against the shared ggml the link line
     /// already names.
     ///
-    /// Not in `ARCHIVES`: it takes part in no link cycle, `cc` emits its own
-    /// link directive, and like the shim it is rebuilt on every build rather
-    /// than shipped in a prebuilt bundle (engine-prebuilt.sh reads `ARCHIVES`
-    /// to decide what the bundle must hold).
+    /// Not in `ARCHIVES`: it takes part in no link cycle and `cc` emits its own
+    /// link directive.
     fn compile_diag(src: &Path) {
         let upstream = src.join("tests/test-backend-ops.cpp");
         assert!(
@@ -1143,7 +1114,7 @@ mod engine {
             println!("cargo:rustc-link-search=native={}", d.display());
         }
         let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
-        let gnu_ld = !matches!(target_os.as_str(), "macos" | "ios" | "windows");
+        let gnu_ld = !matches!(target_os.as_str(), "macos" | "windows");
 
         if gnu_ld {
             // One group: the archives reference each other cyclically.
@@ -1167,7 +1138,7 @@ mod engine {
         }
 
         match target_os.as_str() {
-            "macos" | "ios" => {
+            "macos" => {
                 println!("cargo:rustc-link-lib=dylib=c++");
                 for fw in ["Accelerate", "Foundation", "Metal", "MetalKit"] {
                     println!("cargo:rustc-link-lib=framework={fw}");

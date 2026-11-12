@@ -89,7 +89,7 @@ export type ListResult = Omit<Plugin.ListResult, 'extensions'> & {
 }
 
 export interface ExtensionsService {
-  /** False where there is no install pipeline (web, mobile). */
+  /** False where there is no install pipeline (web). */
   isSupported(): boolean
   /** Copies, hashes and extracts a `.tgz` from disk. Never verified. */
   stageBundle(path: string): Promise<StagedInstall>

@@ -63,7 +63,7 @@ type NavMainItem = {
   isActive?: boolean
   shortcut?: React.ReactNode
   onClick?: () => void
-  /** Emitted as `data-testid` on the rendered control; see e2e/README.md. */
+  /** Emitted as `data-testid` on the rendered control. */
   testId?: string
 }
 

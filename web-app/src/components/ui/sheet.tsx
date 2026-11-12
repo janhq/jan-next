@@ -55,12 +55,12 @@ function SheetContent({
   side?: "top" | "right" | "bottom" | "left"
   showCloseButton?: boolean
 }) {
-  // On Windows/Linux the native window controls are an in-app overlay pinned to
+  // On Windows the native window controls are an in-app overlay pinned to
   // the top-right (z-[60]); a right-side sheet only collides when the DE places
-  // any control on the right (GNOME's left-side layout needs no offset).
+  // any control on the right.
   const controlsOnRight = useTitlebarLayout((s) => s.layout.right.length > 0)
   const offsetForTitlebar =
-    side === "right" && (IS_WINDOWS || IS_LINUX) && controlsOnRight
+    side === "right" && IS_WINDOWS && controlsOnRight
   return (
     <SheetPortal>
       <SheetOverlay />

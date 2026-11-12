@@ -5,7 +5,6 @@
 //! page-load, settle and destroy orchestration is cross-platform; only the
 //! snapshot itself is per-OS (`take_snapshot`):
 //!
-//! - Linux: `webkit2gtk` `WebView::snapshot` (`FullDocument`) -> cairo surface -> PNG.
 //! - macOS: `WKWebView takeSnapshotWithConfiguration:` -> `NSImage` -> PNG (viewport).
 //! - Windows: WebView2 `ICoreWebView2::CapturePreview` -> PNG bytes (viewport).
 //!
@@ -250,98 +249,11 @@ async fn capture_loaded<R: Runtime>(
 }
 
 // ---------------------------------------------------------------------------
-// Linux: webkit2gtk snapshot -> cairo surface -> PNG.
-// ---------------------------------------------------------------------------
-
-#[cfg(target_os = "linux")]
-fn take_snapshot(
-    platform: &tauri::webview::PlatformWebview,
-    _width: u64,
-    _height: u64,
-    slot: SnapshotSlot,
-) {
-    use webkit2gtk::{SnapshotOptions, SnapshotRegion, WebViewExt};
-
-    let webview = platform.inner();
-    webview.snapshot(
-        SnapshotRegion::FullDocument,
-        SnapshotOptions::NONE,
-        None::<&webkit2gtk::gio::Cancellable>,
-        move |result| {
-            let png = result
-                .map_err(|e| format!("webkit snapshot failed: {e}"))
-                .and_then(surface_to_png);
-            deliver(&slot, png);
-        },
-    );
-}
-
-/// Encode a cairo `ARgb32` surface (BGRA, premultiplied on little-endian) as a
-/// straight-alpha RGBA PNG.
-#[cfg(target_os = "linux")]
-fn surface_to_png(surface: cairo::Surface) -> Result<Vec<u8>, String> {
-    let mut image = cairo::ImageSurface::try_from(surface)
-        .map_err(|_| "snapshot surface is not an image surface".to_string())?;
-    if image.format() != cairo::Format::ARgb32 {
-        return Err(format!("unexpected snapshot format {:?}", image.format()));
-    }
-    let width = image.width();
-    let height = image.height();
-    if width <= 0 || height <= 0 {
-        return Err("snapshot has empty dimensions".to_string());
-    }
-    let stride = image.stride() as usize;
-    let data = image
-        .data()
-        .map_err(|e| format!("cannot read snapshot pixels: {e}"))?;
-
-    let w = width as usize;
-    let h = height as usize;
-    let mut rgba = Vec::with_capacity(w * h * 4);
-    for row in 0..h {
-        let start = row * stride;
-        for col in 0..w {
-            let px = &data[start + col * 4..start + col * 4 + 4];
-            let (b, g, r, a) = (px[0], px[1], px[2], px[3]);
-            let straight = |c: u8| -> u8 {
-                if a == 0 {
-                    0
-                } else {
-                    ((c as u16 * 255 + a as u16 / 2) / a as u16) as u8
-                }
-            };
-            rgba.extend_from_slice(&[straight(r), straight(g), straight(b), a]);
-        }
-    }
-    drop(data);
-
-    encode_rgba_png(&rgba, width as u32, height as u32)
-}
-
-#[cfg(target_os = "linux")]
-fn encode_rgba_png(rgba: &[u8], width: u32, height: u32) -> Result<Vec<u8>, String> {
-    let mut out = Vec::new();
-    {
-        let mut encoder = png::Encoder::new(&mut out, width, height);
-        encoder.set_color(png::ColorType::Rgba);
-        encoder.set_depth(png::BitDepth::Eight);
-        let mut writer = encoder
-            .write_header()
-            .map_err(|e| format!("PNG header failed: {e}"))?;
-        writer
-            .write_image_data(rgba)
-            .map_err(|e| format!("PNG encode failed: {e}"))?;
-    }
-    Ok(out)
-}
-
-// ---------------------------------------------------------------------------
 // macOS: WKWebView snapshot -> NSImage -> PNG.
 //
 // WKWebView captures the viewport, not the full scrollable document: full-page
 // capture there is unreliable, so this snapshots the window's inner size
-// (`width` x `height`). That is a deliberate difference from Linux's
-// `FullDocument`.
+// (`width` x `height`).
 // ---------------------------------------------------------------------------
 
 #[cfg(target_os = "macos")]
@@ -428,7 +340,7 @@ fn nsimage_to_png(
 // Windows: WebView2 CapturePreview -> in-memory IStream (already PNG).
 //
 // CapturePreview captures the viewport at the webview's current size, so this
-// matches macOS's viewport capture rather than Linux's `FullDocument`.
+// matches macOS's viewport capture.
 // ---------------------------------------------------------------------------
 
 #[cfg(target_os = "windows")]

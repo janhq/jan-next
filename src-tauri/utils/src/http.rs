@@ -185,13 +185,13 @@ fn opaque_origin_entry(origin: &str) -> Option<&'static str> {
 
 /// Whether the app's webview origin is `http(s)://tauri.localhost` on this
 /// platform. Mirrors Tauri's `tauri_protocol_url` (and `core::navigation`):
-/// only Windows and Android serve custom schemes from `<scheme>.localhost`;
+/// only Windows serves custom schemes from `<scheme>.localhost`;
 /// elsewhere `tauri.localhost` is an ordinary hostname and not the app.
-const TAURI_LOCALHOST_IS_APP: bool = cfg!(any(windows, target_os = "android"));
+const TAURI_LOCALHOST_IS_APP: bool = cfg!(windows);
 
 /// The origins that are trusted even with cross-origin requests turned off:
 /// the app's own webview (`tauri://localhost`, or `http(s)://tauri.localhost`
-/// on Windows and Android) and a page served by this server itself, i.e. an
+/// on Windows) and a page served by this server itself, i.e. an
 /// `http(s)` origin whose authority equals `host_header`. Callers must pass a
 /// `host_header` that has already been validated (or "" to skip the
 /// same-origin case), otherwise a rebinding hostname would match itself.
@@ -400,11 +400,11 @@ mod tests {
         assert!(!is_same_or_app_origin_on("tauri://tauri.localhost", "", true));
         assert_eq!(
             is_same_or_app_origin("http://tauri.localhost", ""),
-            cfg!(any(windows, target_os = "android"))
+            cfg!(windows)
         );
         assert_eq!(
             is_trusted_origin("http://tauri.localhost", "127.0.0.1:1337", &none()),
-            cfg!(any(windows, target_os = "android"))
+            cfg!(windows)
         );
         assert!(is_same_or_app_origin("http://127.0.0.1:1337", "127.0.0.1:1337"));
         assert!(!is_same_or_app_origin("http://localhost:3000", "127.0.0.1:1337"));

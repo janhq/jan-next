@@ -34,7 +34,6 @@
   "showProvider": "显示提供商",
   "interface": "外观",
   "appearance": "外观",
-  "privacy": "隐私",
   "keyboardShortcuts": "快捷键",
   "home": "主页",
   "cowork": "Cowork",
@@ -48,7 +47,6 @@
   "recents": "最近",
   "hub": "中心",
   "helpSupport": "帮助与支持",
-  "helpUsImproveJan": "帮助我们改进 Jan",
   "unstarAll": "取消所有收藏",
   "unstar": "取消收藏",
   "deleteAll": "全部删除",
@@ -393,14 +391,6 @@
     "editMessage": {
       "title": "编辑消息",
       "description": "消息编辑成功。请等待模型响应。"
-    },
-    "appUpdateDownloaded": {
-      "title": "应用更新已下载",
-      "description": "应用更新已成功下载。"
-    },
-    "appUpdateDownloadFailed": {
-      "title": "应用更新下载失败",
-      "description": "下载应用更新失败。请重试。"
     },
     "downloadComplete": {
       "title": "下载完成",

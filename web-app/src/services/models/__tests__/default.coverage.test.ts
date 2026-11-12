@@ -214,23 +214,6 @@ describe('DefaultModelsService - coverage supplement', () => {
       expect(result.quants).toEqual([])
     })
 
-    it('handles MLX repo with safetensors', () => {
-      const repo = {
-        modelId: 'org/mlx-model',
-        author: 'org',
-        library_name: 'mlx',
-        tags: ['mlx'],
-        siblings: [
-          { rfilename: 'model.safetensors', size: 2 * 1024 ** 3, lfs: { sha256: 'abc' } },
-        ],
-      } as any
-
-      const result = svc.convertHfRepoToCatalogModel(repo)
-      expect(result.is_mlx).toBe(true)
-      expect(result.num_safetensors).toBe(1)
-      expect(result.safetensors_files[0].sha256).toBe('abc')
-    })
-
     it('handles file with no size', () => {
       const repo = {
         modelId: 'org/repo',
@@ -292,10 +275,9 @@ describe('DefaultModelsService - coverage supplement', () => {
 
   // ── stopAllModels ──
   describe('stopAllModels', () => {
-    it('stops all llamacpp and mlx models', async () => {
+    it('stops all llamacpp models', async () => {
       mockEngineManager.get.mockImplementation((provider: string) => {
         if (provider === 'llamacpp') return { ...mockEngine, getLoadedModels: vi.fn().mockResolvedValue(['m1']), unload: vi.fn() }
-        if (provider === 'mlx') return { ...mockEngine, getLoadedModels: vi.fn().mockResolvedValue(['m2']), unload: vi.fn() }
         return mockEngine
       })
 

@@ -5,10 +5,6 @@ import { isPlatformTauri } from '@/lib/platform/utils'
 // Mock platform detection
 vi.mock('@/lib/platform/utils', () => ({
   isPlatformTauri: vi.fn().mockReturnValue(false),
-  isPlatformIOS: vi.fn().mockReturnValue(false),
-  isPlatformAndroid: vi.fn().mockReturnValue(false),
-  isIOS: vi.fn().mockReturnValue(false),
-  isAndroid: vi.fn().mockReturnValue(false)
 }))
 
 // Mock @jan/extensions-web to return empty extensions for testing
@@ -116,10 +112,6 @@ vi.mock('../opener/tauri', () => ({
   TauriOpenerService: vi.fn().mockImplementation(() => ({}))
 }))
 
-vi.mock('../updater/tauri', () => ({
-  TauriUpdaterService: vi.fn().mockImplementation(() => ({}))
-}))
-
 vi.mock('../path/tauri', () => ({
   TauriPathService: vi.fn().mockImplementation(() => ({}))
 }))
@@ -133,8 +125,8 @@ vi.mock('../deeplink/tauri', () => ({
 }))
 
 // Mock console to avoid noise in tests
-vi.spyOn(console, 'log').mockImplementation(() => {})
-vi.spyOn(console, 'error').mockImplementation(() => {})
+vi.spyOn(console, 'log').mockImplementation(() => { })
+vi.spyOn(console, 'error').mockImplementation(() => { })
 
 describe('ServiceHub Integration Tests', () => {
   let serviceHub: ServiceHub
@@ -173,9 +165,9 @@ describe('ServiceHub Integration Tests', () => {
   describe('Service Access', () => {
     it('should provide access to all required services', () => {
       const services = [
-        'theme', 'window', 'events', 'hardware', 'app', 'analytic',
+        'theme', 'window', 'events', 'hardware', 'app',
         'messages', 'mcp', 'threads', 'providers', 'models', 'assistants',
-        'dialog', 'opener', 'updater', 'path', 'core', 'deeplink'
+        'dialog', 'opener', 'path', 'core', 'deeplink'
       ]
 
       services.forEach(serviceName => {
@@ -187,7 +179,7 @@ describe('ServiceHub Integration Tests', () => {
     it('should return same service instance on multiple calls', () => {
       const themeService1 = serviceHub.theme()
       const themeService2 = serviceHub.theme()
-      
+
       expect(themeService1).toBe(themeService2)
     })
   })
@@ -195,14 +187,14 @@ describe('ServiceHub Integration Tests', () => {
   describe('Basic Service Functionality', () => {
     it('should have working theme service', () => {
       const theme = serviceHub.theme()
-      
+
       expect(typeof theme.setTheme).toBe('function')
       expect(typeof theme.getCurrentWindow).toBe('function')
     })
 
     it('should have working events service', () => {
       const events = serviceHub.events()
-      
+
       expect(typeof events.emit).toBe('function')
       expect(typeof events.listen).toBe('function')
     })

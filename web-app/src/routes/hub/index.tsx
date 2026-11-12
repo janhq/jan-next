@@ -3,8 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { route } from '@/constants/routes'
 import { useModelSources } from '@/hooks/useModelSources'
-import { cn, formatBytes, sanitizeModelId } from '@/lib/utils'
-import { sumMlxModelBytes } from '@/lib/modelCompatibility'
+import { cn, sanitizeModelId } from '@/lib/utils'
 import { isSpecSidecar } from '@/lib/specDraft'
 import {
   useState,
@@ -32,11 +31,6 @@ import {
   IconTool,
 } from '@tabler/icons-react'
 import { Switch } from '@/components/ui/switch'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 import { ModelInfoHoverCard } from '@/containers/ModelInfoHoverCard'
 import {
   DropdownMenu,
@@ -58,7 +52,6 @@ import { useGeneralSetting } from '@/hooks/useGeneralSetting'
 import { DownloadButtonPlaceholder } from '@/containers/DownloadButton'
 import { useShallow } from 'zustand/shallow'
 import { ModelDownloadAction } from '@/containers/ModelDownloadAction'
-import { MlxModelDownloadAction } from '@/containers/MlxModelDownloadAction'
 import { DEFAULT_MODEL_QUANTIZATIONS } from '@/constants/models'
 import { Button } from '@/components/ui/button'
 import { RenderMarkdown } from '@/containers/RenderMarkdown'
@@ -115,12 +108,6 @@ function HubContent() {
   const sortOptions = [
     { value: 'newest', name: t('hub:sortNewest') },
     { value: 'most-downloaded', name: t('hub:sortMostDownloaded') },
-    ...(IS_MACOS
-      ? [
-          { value: 'mlx', name: 'MLX' },
-          { value: 'gguf', name: 'GGUF' },
-        ]
-      : []),
   ]
   const searchOptions = useMemo(
     () => ({
@@ -168,14 +155,7 @@ function HubContent() {
 
   // Sorting functionality
   const sortedModels = useMemo(() => {
-    let sorted = [...sources]
-
-    // Apply MLX/GGUF filter first (only on Mac)
-    if (sortSelected === 'mlx') {
-      sorted = sorted.filter((m) => m.is_mlx)
-    } else if (sortSelected === 'gguf') {
-      sorted = sorted.filter((m) => !m.is_mlx)
-    }
+    const sorted = [...sources]
 
     // Apply sorting
     if (sortSelected === 'most-downloaded') {
@@ -236,16 +216,7 @@ function HubContent() {
                   m.id === `${model.developer}/${sanitizeModelId(variant.model_id)}`
               )
 
-            const isMlxDownloaded = useModelProvider
-              .getState()
-              .getProviderByName('mlx')
-              ?.models.some(
-                (m: { id: string }) =>
-                  m.id === variant.model_id ||
-                  m.id === `${model.developer}/${sanitizeModelId(variant.model_id)}`
-              )
-
-            return isLlamaCppDownloaded || isMlxDownloaded
+            return isLlamaCppDownloaded
           }),
         }))
         .filter((model) => (model.quants?.length ?? 0) > 0)
@@ -571,16 +542,10 @@ function HubContent() {
                             <div className="shrink-0 flex flex-col items-end gap-2">
                               <div className="flex items-center gap-2">
                                 <span className="text-muted-foreground font-medium text-xs">
-                                  {filteredModels[virtualItem.index].is_mlx
-                                    ? formatBytes(
-                                        sumMlxModelBytes(
-                                          filteredModels[virtualItem.index]
-                                        ) || undefined
-                                      )
-                                    : selectDefaultQuant(
-                                        filteredModels[virtualItem.index].quants,
-                                        DEFAULT_MODEL_QUANTIZATIONS
-                                      )?.file_size}
+                                  {selectDefaultQuant(
+                                    filteredModels[virtualItem.index].quants,
+                                    DEFAULT_MODEL_QUANTIZATIONS
+                                  )?.file_size}
                                 </span>
                                 <ModelInfoHoverCard
                                   model={filteredModels[virtualItem.index]}
@@ -594,16 +559,10 @@ function HubContent() {
                                   isDefaultVariant={true}
                                 />
                               </div>
-                              {filteredModels[virtualItem.index].is_mlx ? (
-                                <MlxModelDownloadAction
-                                  model={filteredModels[virtualItem.index]}
-                                />
-                              ) : (
-                                <DownloadButtonPlaceholder
-                                  model={filteredModels[virtualItem.index]}
-                                  handleUseModel={handleUseModel}
-                                />
-                              )}
+                              <DownloadButtonPlaceholder
+                                model={filteredModels[virtualItem.index]}
+                                handleUseModel={handleUseModel}
+                              />
                             </div>
                           </div>
                         }
@@ -635,31 +594,17 @@ function HubContent() {
                                   .downloads || 0}
                               </span>
                             </div>
-                            {!filteredModels[virtualItem.index].is_mlx && (
-                              <div className="flex items-center gap-1">
-                                <IconFileCode
-                                  size={20}
-                                  className="text-muted-foreground"
-                                  title={t('hub:variants')}
-                                />
-                                <span className="text-foreground">
-                                  {filteredModels[virtualItem.index].quants
-                                    ?.length || 0}
-                                </span>
-                              </div>
-                            )}
-                            {filteredModels[virtualItem.index].is_mlx && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">
-                                    MLX
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Requires MLX engine (Apple Silicon only)</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
+                            <div className="flex items-center gap-1">
+                              <IconFileCode
+                                size={20}
+                                className="text-muted-foreground"
+                                title={t('hub:variants')}
+                              />
+                              <span className="text-foreground">
+                                {filteredModels[virtualItem.index].quants
+                                  ?.length || 0}
+                              </span>
+                            </div>
                             <div className="flex gap-1.5 items-center">
                               {(filteredModels[virtualItem.index].num_mmproj ?? 0) >
                                 0 && (
@@ -763,21 +708,12 @@ function HubContent() {
                                             DEFAULT_MODEL_QUANTIZATIONS
                                           }
                                         />
-                                        {filteredModels[virtualItem.index]
-                                          .is_mlx ? (
-                                          <MlxModelDownloadAction
-                                            model={
-                                              filteredModels[virtualItem.index]
-                                            }
-                                          />
-                                        ) : (
-                                          <ModelDownloadAction
-                                            variant={variant}
-                                            model={
-                                              filteredModels[virtualItem.index]
-                                            }
-                                          />
-                                        )}
+                                        <ModelDownloadAction
+                                          variant={variant}
+                                          model={
+                                            filteredModels[virtualItem.index]
+                                          }
+                                        />
                                       </div>
                                     }
                                   />

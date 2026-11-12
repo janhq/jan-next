@@ -7,7 +7,6 @@
  *
  * Supported Providers:
  * - llamacpp: Local models via llama.cpp (requires running session)
- * - mlx: Local models via MLX-Swift on Apple Silicon (requires running session)
  * - anthropic: Claude models via Anthropic API (@ai-sdk/anthropic v2.0)
  * - google/gemini: Gemini models via Google Generative AI API (@ai-sdk/google v2.0)
  * - openai: OpenAI models via OpenAI API (@ai-sdk/openai)
@@ -80,7 +79,6 @@ import {
 } from '@/lib/providerCaps'
 import { engineFailure } from '@/lib/engineError'
 import { extensionProviderFetch } from '@/lib/extensions/providers'
-import { getMlxExtension } from '@/lib/llamacppRouterProps'
 import { i18n } from '@/i18n/react-i18next-compat'
 import { useAppState } from '@/hooks/useAppState'
 import { useGeneralSetting } from '@/hooks/useGeneralSetting'
@@ -116,9 +114,8 @@ interface LlamaCppChunk {
 }
 
 /**
- * Custom metadata extractor for MLX that extracts timing information
- * and converts it to token usage format. MLX uses the same timing structure
- * as llama.cpp.
+ * Custom metadata extractor that extracts llama.cpp timing information
+ * and converts it to token usage format.
  */
 const providerMetadataExtractor: MetadataExtractor = {
   extractMetadata: async ({ parsedBody }: { parsedBody: unknown }) => {
@@ -270,19 +267,6 @@ export function reconcileConstraintParams(body: Record<string, unknown>): void {
     console.warn('Ignoring the JSON Schema: a GBNF grammar is set and llama.cpp accepts only one')
     delete body.json_schema
   }
-}
-
-function filterParameters(
-  parameters: Record<string, unknown>,
-  keepLlamacppOnly: boolean
-): Record<string, unknown> {
-  if (keepLlamacppOnly) return parameters
-  const out: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(parameters)) {
-    if (LLAMACPP_ONLY_PARAM_KEYS.has(k)) continue
-    out[k] = v
-  }
-  return out
 }
 
 /**
@@ -968,8 +952,6 @@ export class ModelFactory {
       case 'llamacpp':
         return this.createLlamaCppModel(modelId, provider, parameters)
 
-      case 'mlx':
-        return this.createMlxModel(modelId, provider, parameters)
 
       case 'anthropic':
         return this.createAnthropicModel(modelId, provider, parameters)
@@ -1080,101 +1062,6 @@ export class ModelFactory {
       includeUsage: true,
       fetch: customFetch,
       metadataExtractor: providerMetadataExtractor,
-    })
-  }
-
-  /**
-   * Create an MLX model by starting the model and finding the running session.
-   * MLX uses the same OpenAI-compatible API pattern as llamacpp.
-   */
-  private static async createMlxModel(
-    modelId: string,
-    provider?: ProviderObject,
-    parameters: Record<string, unknown> = {}
-  ): Promise<LanguageModel> {
-    parameters = filterParameters(parameters, false)
-    // Start the model first if provider is available
-    if (provider) {
-      try {
-        const { useServiceStore } = await import('@/hooks/useServiceHub')
-        const serviceHub = useServiceStore.getState().serviceHub
-
-        if (serviceHub) {
-          await serviceHub.models().startModel(provider, modelId)
-        }
-      } catch (error) {
-        console.error('Failed to start MLX model:', error)
-        throw engineFailure('model-errors:startModelFailed', error)
-      }
-    }
-
-    // Get session info which includes port and api_key. No mlx service means
-    // the engine is not running here (it only activates on macOS).
-    const sessionInfo =
-      (await getMlxExtension()?.findSession(modelId)) ?? null
-
-    if (!sessionInfo) {
-      throw new Error(`No running MLX session found for model: ${modelId}`)
-    }
-
-    const baseUrl = `http://localhost:${sessionInfo.port}`
-    const authHeaders = {
-      Authorization: `Bearer ${sessionInfo.api_key}`,
-      Origin: 'tauri://localhost',
-    }
-
-    // Share the common fetch (param normalisation + error-body cleaning that
-    // rebuilds upstream errors from buffered text rather than re-decoding the
-    // raw stream) with every other provider, then layer MLX's /cancel-on-abort
-    // on top.
-    let baseCustomFetch = createCustomFetch(
-      loopbackFetch,
-      parameters,
-      false,
-      undefined,
-      true
-    )
-    if (shouldStripReasoningFromContext()) {
-      baseCustomFetch = withAssistantReasoningStripped(baseCustomFetch)
-    }
-    const customFetch: typeof globalThis.fetch = async (
-      input: RequestInfo | URL,
-      init?: RequestInit
-    ): Promise<Response> => {
-      // When the request is aborted, also call the server's /cancel endpoint
-      // to stop MLX inference immediately.
-      if (init?.signal) {
-        init.signal.addEventListener('abort', () => {
-          loopbackFetch(`${baseUrl}/v1/cancel`, {
-            method: 'POST',
-            headers: { ...authHeaders, 'Content-Type': 'application/json' },
-            body: JSON.stringify({}),
-          }).catch(() => {
-            // Ignore cancel request errors
-          })
-        })
-      }
-
-      return baseCustomFetch(input, init)
-    }
-
-    const model = new OpenAICompatibleChatLanguageModel(modelId, {
-      provider: 'mlx',
-      headers: () => authHeaders,
-      url: ({ path }) => {
-        const url = new URL(`${baseUrl}/v1${path}`)
-        return url.toString()
-      },
-      fetch: customFetch,
-      metadataExtractor: providerMetadataExtractor,
-    })
-
-    return wrapLanguageModel({
-      model: model,
-      middleware: extractReasoningMiddleware({
-        tagName: getReasoningTagName(modelId),
-        separator: '\n',
-      }),
     })
   }
 

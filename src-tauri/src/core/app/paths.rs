@@ -29,11 +29,8 @@
 //! nothing on two of three platforms is a trap for whoever sets it there
 //! expecting isolation.
 //!
-//! Read by the shipping binary and deliberately not gated behind the `e2e`
-//! feature. The resolution these tests exist to cover has to be the resolution
-//! that ships; compiling a different lookup into the test binary is the flaw
-//! that ruled out `CI=e2e`, which short-circuits `get_app_configurations()` to a
-//! hardcoded `"./data"` and so skips that resolution entirely.
+//! Read by the shipping binary, so the resolution the tests cover is the one
+//! that ships.
 //!
 //! Distinct from `JAN_DATA_FOLDER`, which is older, read by
 //! `resolve_jan_data_folder()`, and names the *data folder itself*
@@ -43,7 +40,6 @@
 use std::ffi::OsString;
 use std::path::PathBuf;
 
-#[cfg(not(feature = "cli"))]
 use tauri::{AppHandle, Manager, Runtime};
 
 /// Jan's override for the OS app-data root. See the module docs for why this is
@@ -81,7 +77,6 @@ pub fn data_dir() -> Option<PathBuf> {
 /// Use in place of `app.path().data_dir()`. Falls through to Tauri's resolver
 /// when there is no override, so the error type and the `UnknownPath` case are
 /// unchanged.
-#[cfg(not(feature = "cli"))]
 pub fn data_dir_for<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<PathBuf> {
     match env_data_dir() {
         Some(dir) => Ok(dir),
@@ -98,7 +93,6 @@ pub fn data_dir_for<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<PathBuf> {
 /// `.github/scripts/rename-tauri-app.sh` rewrites the identifier per release
 /// channel (`jan-nightly.ai.app`, ...) and a nightly build has to keep
 /// resolving to its own directory.
-#[cfg(not(feature = "cli"))]
 pub fn app_data_dir_for<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<PathBuf> {
     match env_data_dir() {
         Some(dir) => Ok(dir.join(&app.config().identifier)),
@@ -159,7 +153,7 @@ mod tests {
     // lock and cannot be made to -- they are production code -- so nothing
     // stops a test on another thread from observing the override while it is
     // set. The guarantee is the shared lock plus `--test-threads=1`, which
-    // `make test-rust` passes and every CI job reaches through `make test-ci`.
+    // `make test-rust` passes.
     // A bare `cargo test` without it can flake here, which is a property of
     // every env-mutating test in this crate rather than of this one.
     //

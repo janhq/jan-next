@@ -22,7 +22,6 @@
   "showProvider": "प्रदाता दिखाएं",
   "interface": "इंटरफेस",
   "appearance": "दिखावट",
-  "privacy": "गोपनीयता",
   "keyboardShortcuts": "शॉर्टकट",
   "newChat": "नई चैट",
   "newAgentChat": "एजेंट के साथ नई चैट",
@@ -32,7 +31,6 @@
   "recents": "हाल के",
   "hub": "हब",
   "helpSupport": "सहायता और समर्थन",
-  "helpUsImproveJan": "Jan को बेहतर बनाने में हमारी मदद करें",
   "unstarAll": "सभी स्टार हटाएं",
   "unstar": "स्टार हटाएं",
   "deleteAll": "सभी हटाएं",
@@ -377,14 +375,6 @@
     "editMessage": {
       "title": "संदेश संपादित करें",
       "description": "संदेश सफलतापूर्वक संपादित किया गया। कृपया मॉडल के उत्तर की प्रतीक्षा करें।"
-    },
-    "appUpdateDownloaded": {
-      "title": "अपडेट डाउनलोड हुआ",
-      "description": "ऐप का अपडेट सफलतापूर्वक डाउनलोड हो गया है।"
-    },
-    "appUpdateDownloadFailed": {
-      "title": "अपडेट डाउनलोड विफल",
-      "description": "अपडेट डाउनलोड करने में त्रुटि हुई। कृपया पुनः प्रयास करें।"
     },
     "downloadComplete": {
       "title": "डाउनलोड पूरा",

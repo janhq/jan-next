@@ -338,9 +338,7 @@ fn resolve_shell() -> ShellConfig {
     }
 }
 
-/// Locate an executable on PATH via the platform's own resolver. Also used by
-/// [`super::jail`] to find `bwrap` on distros with no FHS paths (NixOS keeps it
-/// only at a Nix-store path).
+/// Locate an executable on PATH via the platform's own resolver.
 /// Unix only outside tests: Windows resolution needs every match (see
 /// [`which_all`]) to step past the app-execution aliases.
 #[cfg(any(unix, test))]
@@ -425,10 +423,6 @@ const TEMP_ENV_KEYS: &[&str] = &["TMPDIR", "TMP", "TEMP"];
 /// explicitly. `npm_config_store_dir` is left out: npm warns about it on every
 /// run as an unknown key.
 pub const PKG_CACHE_ENV: &[(&str, &str)] = &[
-    // XDG-aware tools (pip, uv, pnpm's cache, and many more) on Linux, where it
-    // is the standard. macOS and Windows tools do not read it.
-    #[cfg(target_os = "linux")]
-    ("XDG_CACHE_HOME", "xdg-cache"),
     ("npm_config_cache", "npm"),
     ("YARN_CACHE_FOLDER", "yarn-cache"),
     ("YARN_GLOBAL_FOLDER", "yarn-global"),
@@ -496,22 +490,17 @@ const CHILD_LIMITS: &[(RlimitResource, u64)] = &[
     (nix::libc::RLIMIT_FSIZE, 16 * 1024 * 1024 * 1024),
 ];
 
-/// libc types the `RLIMIT_*` ids per platform: `__rlimit_resource_t` (`u32`) on
-/// linux-gnu, plain `c_int` everywhere else Unix (macOS, musl). Naming the type
-/// once keeps [`CHILD_LIMITS`] and the `getrlimit`/`setrlimit` calls cast-free.
-#[cfg(all(target_os = "linux", target_env = "gnu"))]
-type RlimitResource = nix::libc::__rlimit_resource_t;
-#[cfg(all(unix, not(all(target_os = "linux", target_env = "gnu"))))]
+/// libc's type for the `RLIMIT_*` ids on macOS. Naming the type once keeps
+/// [`CHILD_LIMITS`] and the `getrlimit`/`setrlimit` calls cast-free.
+#[cfg(unix)]
 type RlimitResource = nix::libc::c_int;
 
 /// Bound the resource exhaustion a sandboxed command could otherwise trigger on
-/// the host. `bwrap` 0.6.1 (and older) has no `--rlimit`, so instead we clamp the
-/// child's soft limits here, before exec, from the one choke point every backend
-/// funnels through. Descriptor exhaustion and disk fill are capped by `NOFILE`
+/// the host. Clamp the child's soft limits here, before exec, from the one choke
+/// point every backend funnels through. Descriptor exhaustion and disk fill are capped by `NOFILE`
 /// and `FSIZE`. The hard limit is left at the host's value so a command that
-/// genuinely needs more can raise its own soft limit back up. The bwrap wrapper
-/// execs `bwrap` itself, which sets up the namespace and then execs the real
-/// shell, so the limits carry over to every descendant. Unix only; the Windows
+/// genuinely needs more can raise its own soft limit back up. The limits
+/// carry over to every descendant of the shell. Unix only; the Windows
 /// AppContainer child is limited by its token.
 #[cfg(unix)]
 fn confine_limits(cmd: &mut Command) {
@@ -1156,9 +1145,6 @@ mod env_allowlist_tests {
             "UV_CACHE_DIR", "GOCACHE", "GOMODCACHE", "GOPATH", "GRADLE_USER_HOME",
             "CCACHE_DIR", "SCCACHE_DIR", "DENO_DIR", "BUN_INSTALL_CACHE_DIR", "CARGO_HOME",
         ];
-        if cfg!(target_os = "linux") {
-            expected.push("XDG_CACHE_HOME");
-        }
         let names: Vec<&str> = env.vars().iter().map(|(k, _)| *k).collect();
         for name in &expected {
             assert!(names.contains(name), "{name} missing from {names:?}");
@@ -1768,43 +1754,6 @@ mod tests {
         }
     }
 
-    #[cfg(target_os = "linux")]
-    #[tokio::test]
-    async fn confine_limits_preserves_the_launcher_process_limit() {
-        // NPROC counts every process owned by the real UID. Jan must inherit the
-        // launcher's value so unrelated workstation activity cannot starve one
-        // agent-tool shell at an arbitrary Jan-specific threshold.
-        let mut launcher = nix::libc::rlimit {
-            rlim_cur: 0,
-            rlim_max: 0,
-        };
-        // # Safety: reads the test process's own limit into a local value.
-        assert_eq!(
-            unsafe { nix::libc::getrlimit(nix::libc::RLIMIT_NPROC, &mut launcher) },
-            0
-        );
-
-        let child = spawn(
-            shell(),
-            "ulimit -u",
-            &tmp(),
-            None,
-            ShellEnv::default(),
-            None,
-        )
-        .await
-        .unwrap();
-        let pid = child.id().unwrap();
-        let out = child.wait_with_output().await.unwrap();
-        unregister(None, pid);
-        let actual = String::from_utf8_lossy(&out.stdout).trim().to_string();
-
-        assert_eq!(
-            actual,
-            launcher.rlim_cur.to_string(),
-            "NPROC soft limit should be inherited from the launcher, got: {actual}"
-        );
-    }
 }
 
 #[cfg(test)]

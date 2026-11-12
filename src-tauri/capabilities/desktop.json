@@ -3,7 +3,7 @@
   "identifier": "desktop",
   "description": "enables the default permissions for desktop platforms",
   "windows": ["main"],
-  "platforms": ["linux", "macOS", "windows"],
+  "platforms": ["macOS", "windows"],
   "permissions": [
     "core:default",
     "core:webview:allow-set-webview-zoom",

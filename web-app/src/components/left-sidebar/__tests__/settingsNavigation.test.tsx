@@ -41,7 +41,7 @@ vi.mock('@/hooks/useLeftPanel', () => ({
 vi.mock('@/stores/titlebar-layout-store', () => ({
   useTitlebarLayout: () => 0,
 }))
-vi.mock('@/containers/DownloadManegement', () => ({
+vi.mock('@/containers/DownloadManagement', () => ({
   DownloadManagement: () => null,
 }))
 vi.mock('../NavCowork', () => ({ NavCowork: () => <div>Cowork sessions</div> }))

@@ -16,7 +16,6 @@
   "hiddenProviders": "{{count}} disabled",
   "interface": "Интерфейс",
   "appearance": "Интерфейс",
-  "privacy": "Конфиденциальность",
   "keyboardShortcuts": "Сочетания клавиш",
   "newChat": "Новый чат",
   "newAgentChat": "Новый чат агента",
@@ -25,7 +24,6 @@
   "recents": "Недавние",
   "hub": "Хаб",
   "helpSupport": "Справка и поддержка",
-  "helpUsImproveJan": "Помогите нам улучшить Jan",
   "unstarAll": "Очистить избранное",
   "unstar": "Удалить из избранного",
   "deleteAll": "Удалить все",
@@ -348,14 +346,6 @@
     "editMessage": {
       "title": "Редактирование сообщения",
       "description": "Сообщение успешно отредактировано. Пожалуйста, подождите ответа модели."
-    },
-    "appUpdateDownloaded": {
-      "title": "Обновление приложения загружено",
-      "description": "Обновление приложения успешно загружено."
-    },
-    "appUpdateDownloadFailed": {
-      "title": "Ошибка загрузки обновления приложения",
-      "description": "Не удалось загрузить обновление приложения. Пожалуйста, попробуйте ещё раз."
     },
     "downloadComplete": {
       "title": "Загрузка завершена",

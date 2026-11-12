@@ -15,7 +15,7 @@ pub const JAN_DATA_DIRS_CONVERSATIONS: &[&str] = &["threads", "assistants"];
 
 /// Downloaded models and engine binaries.
 /// Gated by the `keep_models_and_configs` flag during factory reset.
-pub const JAN_DATA_DIRS_MODELS: &[&str] = &["models", "llamacpp", "mlx", "openclaw"];
+pub const JAN_DATA_DIRS_MODELS: &[&str] = &["models", "llamacpp", "openclaw"];
 
 /// Configuration files — engine settings, MCP config, etc.
 /// Gated by the `keep_models_and_configs` flag during factory reset.
@@ -41,7 +41,6 @@ pub const JAN_DATA_SUBDIRS: &[&str] = &[
     "logs",
     "models",
     "llamacpp",
-    "mlx",
     "openclaw",
     ".npx",
     ".uvx",
