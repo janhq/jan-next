@@ -23,10 +23,6 @@ pub struct RegisterProviderRequest {
     pub base_url: Option<String>,
     pub custom_headers: Vec<ProviderCustomHeader>,
     pub models: Vec<String>,
-    /// Upstream wire API (`"openai"` default, or `"openai-responses"` /
-    /// `"google"` / `"anthropic"` to engage a translating converter).
-    #[serde(default)]
-    pub api_type: Option<String>,
 }
 
 fn merge_register_api_keys(api_key: Option<String>, api_keys: Vec<String>) -> Vec<String> {
@@ -72,7 +68,6 @@ pub async fn register_provider_config(
             })
             .collect(),
         models: request.models, // Models will be added when they are configured
-        api_type: request.api_type,
         // Registration carries no ratio: this path has no field for one, and
         // `None` inherits `[agent].compaction_ratio` for the route.
         compaction_ratio: None,
@@ -196,7 +191,6 @@ mod tests {
             base_url: None,
             custom_headers: vec![],
             models: vec![],
-            api_type: None,
             compaction_ratio: None,
         }
     }
@@ -217,12 +211,12 @@ mod tests {
     fn remove_provider_config_is_in_memory_only() {
         let mut configs = HashMap::new();
         configs.insert("openai".to_string(), config("openai", "sk-live"));
-        configs.insert("anthropic".to_string(), config("anthropic", "sk-ant"));
+        configs.insert("other".to_string(), config("other", "sk-other"));
 
         assert!(remove_provider_config(&mut configs, "openai"));
         assert!(!configs.contains_key("openai"));
         // Unrelated provider untouched.
-        assert!(configs.contains_key("anthropic"));
+        assert!(configs.contains_key("other"));
         // Removing a missing provider is a no-op reported as false.
         assert!(!remove_provider_config(&mut configs, "openai"));
     }

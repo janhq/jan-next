@@ -7,10 +7,7 @@
  *
  * Supported Providers:
  * - llamacpp: Local models via llama.cpp (requires running session)
- * - anthropic: Claude models via Anthropic API (@ai-sdk/anthropic v2.0)
- * - google/gemini: Gemini models via Google Generative AI API (@ai-sdk/google v2.0)
- * - openai: OpenAI models via OpenAI API (@ai-sdk/openai)
- * - OpenAI-compatible: Azure, Groq, Together, Fireworks, DeepSeek, Mistral, Cohere, etc.
+ * - Everything else: any OpenAI-compatible `/chat/completions` endpoint
  *
  * Usage:
  * ```typescript
@@ -45,16 +42,11 @@ import {
   wrapLanguageModel,
   type LanguageModel,
 } from 'ai'
-import { createOpenAI } from '@ai-sdk/openai'
 import {
   createOpenAICompatible,
   MetadataExtractor,
   OpenAICompatibleChatLanguageModel,
 } from '@ai-sdk/openai-compatible'
-import { createAnthropic } from '@ai-sdk/anthropic'
-import { createXai } from '@ai-sdk/xai'
-import { createMistral } from '@ai-sdk/mistral'
-import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { findSessionByModel } from '@janhq/tauri-plugin-llamacpp-api'
 import { fetch as httpFetch } from '@tauri-apps/plugin-http'
 import { loopbackFetch } from './loopback-fetch'
@@ -73,16 +65,12 @@ import {
 } from '@/lib/predefinedParams'
 import {
   resolveProviderCaps,
-  isModelLevelRejected,
-  getMutualExclusionDrops,
-  getProviderApiType,
 } from '@/lib/providerCaps'
 import { engineFailure } from '@/lib/engineError'
 import { extensionProviderFetch } from '@/lib/extensions/providers'
 import { i18n } from '@/i18n/react-i18next-compat'
 import { useAppState } from '@/hooks/useAppState'
 import { useGeneralSetting } from '@/hooks/useGeneralSetting'
-import { ensureAnthropicHeaders } from '@/lib/remoteModelCatalog'
 
 /**
  * Llama.cpp timings structure from the response
@@ -280,19 +268,11 @@ export function reconcileConstraintParams(body: Record<string, unknown>): void {
  */
 function stripUnsupportedSamplers(
   parameters: Record<string, unknown>,
-  provider: ProviderObject,
-  modelId: string
+  provider: ProviderObject
 ): Record<string, unknown> {
   const caps = resolveProviderCaps(provider)
-  const exclusionDrops = getMutualExclusionDrops(
-    parameters,
-    provider.provider,
-    getProviderApiType(provider)
-  )
   const out: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(parameters)) {
-    if (exclusionDrops.has(k)) continue
-    if (isModelLevelRejected(k, provider.provider, modelId)) continue
     const def = paramsSettings[k]
     if (!def) {
       out[k] = v
@@ -330,8 +310,8 @@ function stripUnsupportedSamplers(
  */
 /**
  * Heuristic: does this upstream error look like "this parameter is not
- * accepted"? Catches OpenAI's "Unsupported parameter", Anthropic's mutual
- * exclusion, Mistral/Cohere "unknown/disallowed field" shapes, etc.
+ * accepted"? Catches OpenAI's "Unsupported parameter" and similar
+ * "unknown/disallowed field" shapes from OpenAI-compatible servers.
  *
  * Used to gate a one-shot retry with all our injected sampling params
  * stripped — cheap recovery without parsing per-provider error grammars.
@@ -491,7 +471,7 @@ export function createCustomFetch(
     // llama-server convention: max_tokens = -1 means "unlimited". Users who
     // set max_output_tokens = 0 in assistant params mean "no cap", not
     // "produce zero tokens" — coerce here, gated to llamacpp only because
-    // OpenAI/Anthropic reject negative values.
+    // OpenAI-compatible hosts reject negative values.
     if (keepLlamacppOnly && merged.max_tokens === 0) {
       merged.max_tokens = -1
     }
@@ -526,8 +506,6 @@ export function createCustomFetch(
       // OpenAI-compatible servers may interleave custom named SSE events (e.g.
       // tool-progress) with chat.completion.chunk data; the AI SDK validates
       // every data line against the chunk schema, so strip non-default events.
-      // Opt-in only: Anthropic and the OpenAI Responses API use named SSE
-      // events as their protocol, so filtering there blanks the whole stream.
       const contentType = res.headers.get('content-type') || ''
       if (
         filterNamedSseEvents &&
@@ -583,7 +561,7 @@ export function createCustomFetch(
     if (!innerMessage) return res
 
     // Sampling-rejection auto-retry: when the upstream complains about an
-    // injected parameter (top_k on OpenAI, temp+top_p on Anthropic, etc.),
+    // injected parameter (e.g. top_k, or temp+top_p together),
     // retry once with all our injected params stripped, surface a toast so
     // the user knows their popover knob was ignored this turn, and return
     // the bare-body response. Only attempts when we have a captured body
@@ -641,8 +619,8 @@ function notifySamplingStripped(reason: string): void {
  * Drop `reasoning_content` / `reasoning` from assistant turns in the outgoing
  * request body. The Vercel AI SDK's openai-compatible model attaches
  * `reasoning_content` whenever a prior assistant message had a reasoning part
- * (see @ai-sdk/openai-compatible dist/index.js:260). Groq's strict validator
- * rejects this with `property 'reasoning_content' is unsupported`.
+ * (see @ai-sdk/openai-compatible dist/index.js:260). Strict upstream validators
+ * may reject this with `property 'reasoning_content' is unsupported`.
  */
 export function stripAssistantReasoningInBody(
   body: Record<string, unknown>
@@ -808,17 +786,11 @@ export function decodeToolImageSentinelsInBody(
   }
 }
 
-type ApiKeyHeaderMode =
-  | 'authorization-bearer'
-  | 'x-api-key'
-  | 'x-goog-api-key'
-
 /** Retries with the next key when the upstream returns 401, 403, or 429. */
 function createApiKeyRotatingFetch(
   baseFetch: typeof globalThis.fetch,
   apiKeys: string[],
   parameters: Record<string, unknown>,
-  headerMode: ApiKeyHeaderMode,
   filterNamedSseEvents = false
 ): typeof globalThis.fetch {
   const inner = createCustomFetch(
@@ -838,13 +810,7 @@ function createApiKeyRotatingFetch(
     for (let i = 0; i < apiKeys.length; i++) {
       const key = apiKeys[i]!
       const nextHeaders = new Headers(init?.headers as HeadersInit | undefined)
-      if (headerMode === 'authorization-bearer') {
-        nextHeaders.set('Authorization', `Bearer ${key}`)
-      } else if (headerMode === 'x-goog-api-key') {
-        nextHeaders.set('x-goog-api-key', key)
-      } else {
-        nextHeaders.set('x-api-key', key)
-      }
+      nextHeaders.set('Authorization', `Bearer ${key}`)
       const res = await inner(input, { ...init, headers: nextHeaders })
       if ([401, 403, 429].includes(res.status) && i < apiKeys.length - 1) {
         res.body?.cancel().catch(() => {})
@@ -854,22 +820,6 @@ function createApiKeyRotatingFetch(
     }
     throw new Error('API key rotation exhausted')
   }
-}
-
-// An empty apiKey still puts an empty auth header on the wire, which upstreams
-// answer with misleading 401s (e.g. Anthropic's "x-api-key header is
-// required"). Fail here with an actionable message instead.
-function requireRemoteApiKey(
-  provider: ProviderObject,
-  keyChain: string[]
-): string {
-  const key = keyChain[0] ?? provider.api_key?.trim()
-  if (!key) {
-    throw new Error(
-      `No API key configured for ${provider.provider}. Add one in Settings > Model Providers.`
-    )
-  }
-  return key
 }
 
 function getRuntimeFetch(): typeof globalThis.fetch {
@@ -915,7 +865,7 @@ function getReasoningTagName(modelId: string): string {
 
 /**
  * Factory for creating language models based on provider type.
- * Supports native AI SDK providers (Anthropic, Google) and OpenAI-compatible providers.
+ * Supports llama.cpp and generic OpenAI-compatible providers.
  */
 export class ModelFactory {
   /**
@@ -927,7 +877,7 @@ export class ModelFactory {
     parameters: Record<string, unknown> = {}
   ): Promise<LanguageModel> {
     const providerName = provider.provider.toLowerCase()
-    parameters = stripUnsupportedSamplers(parameters, provider, modelId)
+    parameters = stripUnsupportedSamplers(parameters, provider)
 
     // A provider an extension contributed is OpenAI-compatible by contract,
     // and every request it makes runs on the extension's checked network
@@ -941,46 +891,10 @@ export class ModelFactory {
         extensionFetch
       )
 
-    // Wire-format dispatch wins over name-based dispatch — custom providers
-    // pointing at Anthropic-compatible proxies (LiteLLM, Bedrock gateways)
-    // need the Anthropic SDK regardless of the user-chosen provider name.
-    if (getProviderApiType(provider) === 'anthropic' && providerName !== 'anthropic') {
-      return this.createAnthropicModel(modelId, provider, parameters)
+    if (providerName === 'llamacpp') {
+      return this.createLlamaCppModel(modelId, provider, parameters)
     }
-
-    switch (providerName) {
-      case 'llamacpp':
-        return this.createLlamaCppModel(modelId, provider, parameters)
-
-
-      case 'anthropic':
-        return this.createAnthropicModel(modelId, provider, parameters)
-
-      case 'openai':
-        return this.createOpenAIModel(modelId, provider, parameters)
-      case 'google':
-      case 'gemini':
-        return this.createGoogleModel(modelId, provider, parameters)
-      case 'azure':
-      case 'groq':
-      case 'together':
-      case 'fireworks':
-      case 'deepseek':
-      case 'cohere':
-      case 'perplexity':
-      case 'moonshot':
-      case 'minimax':
-        return this.createOpenAICompatibleModel(modelId, provider)
-
-      case 'mistral':
-        return this.createMistralModel(modelId, provider, parameters)
-
-      case 'xai':
-        return this.createXaiModel(modelId, provider, parameters)
-
-      default:
-        return this.createOpenAICompatibleModel(modelId, provider, parameters)
-    }
+    return this.createOpenAICompatibleModel(modelId, provider, parameters)
   }
 
   /**
@@ -1066,213 +980,6 @@ export class ModelFactory {
   }
 
   /**
-   * Create an Anthropic model using the official AI SDK
-   */
-  private static createAnthropicModel(
-    modelId: string,
-    provider: ProviderObject,
-    parameters: Record<string, unknown> = {}
-  ): LanguageModel {
-    const headers: Record<string, string> = {}
-
-    if (provider.custom_header) {
-      provider.custom_header.forEach((customHeader) => {
-        headers[customHeader.header] = customHeader.value
-      })
-    }
-    // Custom Anthropic providers may ship no custom_header; Anthropic rejects
-    // browser-context requests (webview Origin) without the opt-in header.
-    ensureAnthropicHeaders(provider, headers)
-
-    const keyChain = providerRemoteApiKeyChain(provider)
-    const fetchImpl =
-      keyChain.length > 1
-        ? createApiKeyRotatingFetch(
-            getRuntimeFetch(),
-            keyChain,
-            parameters,
-            'x-api-key'
-          )
-        : createCustomFetch(getRuntimeFetch(), parameters)
-
-    const anthropic = createAnthropic({
-      apiKey: requireRemoteApiKey(provider, keyChain),
-      baseURL: provider.base_url,
-      headers: Object.keys(headers).length > 0 ? headers : undefined,
-      fetch: fetchImpl,
-    })
-
-    return anthropic(modelId)
-  }
-
-
-  /**
-   * Create an OpenAI model using the official AI SDK
-   */
-  private static createOpenAIModel(
-    modelId: string,
-    provider: ProviderObject,
-    parameters: Record<string, unknown> = {}
-  ): LanguageModel {
-    const headers: Record<string, string> = {}
-
-    // Add custom headers if specified
-    if (provider.custom_header) {
-      provider.custom_header.forEach((customHeader) => {
-        headers[customHeader.header] = customHeader.value
-      })
-    }
-
-    const keyChain = providerRemoteApiKeyChain(provider)
-    const fetchImpl =
-      keyChain.length > 1
-        ? createApiKeyRotatingFetch(
-            getRuntimeFetch(),
-            keyChain,
-            parameters,
-            'authorization-bearer'
-          )
-        : createCustomFetch(getRuntimeFetch(), parameters)
-
-    const openai = createOpenAI({
-      apiKey: requireRemoteApiKey(provider, keyChain),
-      baseURL: provider.base_url,
-      headers: Object.keys(headers).length > 0 ? headers : undefined,
-      fetch: fetchImpl,
-    })
-
-    // The genuine OpenAI provider always supports the Responses API, so use it
-    // unconditionally: it is a superset of Chat Completions and the only surface
-    // that returns reasoning summaries. Custom OpenAI-compatible providers route
-    // through createOpenAICompatibleModel, not here, so this cannot hit a proxy
-    // that only implements /chat/completions.
-    return openai.responses(modelId)
-  }
-
-  /**
-   * Create a Mistral model using the official AI SDK. Needed for magistral-*,
-   * which streams `delta.content` as an array of typed parts (thinking + text);
-   * the generic openai-compatible schema rejects this with a Zod
-   * "expected string, received array" error.
-   */
-  private static createMistralModel(
-    modelId: string,
-    provider: ProviderObject,
-    parameters: Record<string, unknown> = {}
-  ): LanguageModel {
-    const headers: Record<string, string> = {}
-    if (provider.custom_header) {
-      provider.custom_header.forEach((customHeader) => {
-        headers[customHeader.header] = customHeader.value
-      })
-    }
-
-    const keyChain = providerRemoteApiKeyChain(provider)
-    const fetchImpl =
-      keyChain.length > 1
-        ? createApiKeyRotatingFetch(
-            getRuntimeFetch(),
-            keyChain,
-            parameters,
-            'authorization-bearer'
-          )
-        : createCustomFetch(getRuntimeFetch(), parameters)
-
-    const mistral = createMistral({
-      apiKey: requireRemoteApiKey(provider, keyChain),
-      baseURL: provider.base_url,
-      headers: Object.keys(headers).length > 0 ? headers : undefined,
-      fetch: fetchImpl,
-    })
-
-    return mistral(modelId)
-  }
-
-  /**
-   * Create an XAI (Grok) model using the official AI SDK
-   */
-  private static createXaiModel(
-    modelId: string,
-    provider: ProviderObject,
-    parameters: Record<string, unknown> = {}
-  ): LanguageModel {
-    const headers: Record<string, string> = {}
-
-    // Add custom headers if specified
-    if (provider.custom_header) {
-      provider.custom_header.forEach((customHeader) => {
-        headers[customHeader.header] = customHeader.value
-      })
-    }
-
-    const keyChain = providerRemoteApiKeyChain(provider)
-    const fetchImpl =
-      keyChain.length > 1
-        ? createApiKeyRotatingFetch(
-            getRuntimeFetch(),
-            keyChain,
-            parameters,
-            'authorization-bearer'
-          )
-        : createCustomFetch(getRuntimeFetch(), parameters)
-
-    const xai = createXai({
-      apiKey: requireRemoteApiKey(provider, keyChain),
-      baseURL: provider.base_url,
-      headers: Object.keys(headers).length > 0 ? headers : undefined,
-      fetch: fetchImpl,
-    })
-
-    return xai(modelId)
-  }
-
-  // Native Google provider. Gemini 3 preview models require a
-  // `thought_signature` to be round-tripped on tool-call replays, which
-  // Google's /v1beta/openai compat layer does not surface — so we go native.
-  // Stored base_url points at …/v1beta/openai for the compat path; the native
-  // client wants the bare …/v1beta base.
-  private static createGoogleModel(
-    modelId: string,
-    provider: ProviderObject,
-    parameters: Record<string, unknown> = {}
-  ): LanguageModel {
-    const headers: Record<string, string> = {}
-    if (provider.custom_header) {
-      provider.custom_header.forEach((customHeader) => {
-        headers[customHeader.header] = customHeader.value
-      })
-    }
-
-    const keyChain = providerRemoteApiKeyChain(provider)
-    // Rotate over configured keys on 401/403/429 (e.g. exhausted free-tier
-    // quota). The native Google client authenticates via `x-goog-api-key`, so
-    // the rotating fetch must override that header — not Authorization.
-    const fetchImpl =
-      keyChain.length > 1
-        ? createApiKeyRotatingFetch(
-            getRuntimeFetch(),
-            keyChain,
-            parameters,
-            'x-goog-api-key'
-          )
-        : createCustomFetch(getRuntimeFetch(), parameters)
-
-    const rawBase = provider.base_url?.trim()
-    const baseURL = rawBase
-      ? rawBase.replace(/\/openai\/?$/, '').replace(/\/$/, '')
-      : 'https://generativelanguage.googleapis.com/v1beta'
-
-    const google = createGoogleGenerativeAI({
-      apiKey: requireRemoteApiKey(provider, keyChain),
-      baseURL,
-      headers: Object.keys(headers).length > 0 ? headers : undefined,
-      fetch: fetchImpl,
-    })
-
-    return google(modelId)
-  }
-
-  /**
    * Create an OpenAI-compatible model for providers that support the OpenAI API format
    */
   private static createOpenAICompatibleModel(
@@ -1301,14 +1008,11 @@ export class ModelFactory {
             baseFetch,
             keyChain,
             parameters,
-            'authorization-bearer',
             true
           )
         : createCustomFetch(baseFetch, parameters, false, undefined, true)
 
-    // Groq's API rejects assistant `reasoning` fields, so it always strips
-    // regardless of the toggle; other providers honor the global setting.
-    if (provider.provider === 'groq' || shouldStripReasoningFromContext()) {
+    if (shouldStripReasoningFromContext()) {
       fetchImpl = withAssistantReasoningStripped(fetchImpl)
     }
 

@@ -70,7 +70,6 @@ const BUILTIN_SUBAGENTS: &[&str] = &[
     include_str!("builtin_subagents/debug.toml"),
     include_str!("builtin_subagents/explore.toml"),
     include_str!("builtin_subagents/general.toml"),
-    include_str!("builtin_subagents/research.toml"),
     include_str!("builtin_subagents/review.toml"),
 ];
 
@@ -512,8 +511,6 @@ fn map_claude_tools(tools: &[String]) -> Option<Vec<String>> {
                 "bash" => Some(tauri_plugin_agent_tools::tools::SHELL_TOOL),
                 "edit" => Some("edit"),
                 "write" => Some("write"),
-                "websearch" => Some("web_search"),
-                "webfetch" => Some("web_fetch"),
                 "todowrite" => Some("todo"),
                 "ask" => Some("ask"),
                 _ => None,
@@ -4091,7 +4088,7 @@ pub(crate) mod tests {
     fn the_builtin_catalog_parses_in_a_stable_order() {
         let defs = builtin_definitions();
         let names: Vec<&str> = defs.iter().map(|d| d.name.as_str()).collect();
-        assert_eq!(names, ["debug", "explore", "general", "research", "review"]);
+        assert_eq!(names, ["debug", "explore", "general", "review"]);
         for def in &defs {
             assert_eq!(def.scope, SubagentScope::Builtin);
             assert!(!def.description.is_empty() && !def.system_prompt.is_empty());
@@ -4780,7 +4777,7 @@ pub(crate) mod tests {
         let plan = parse_dispatch_plan_fresh(&serde_json::json!({
             "subagents": [
                 { "agent": "general", "task": "write it up", "phase": 2 },
-                { "agent": "research", "task": "study the api" },
+                { "agent": "review", "task": "study the api" },
                 { "agent": "explore", "task": "study perf", "phase": 0, "allowed_tools": ["read", "grep"] }
             ]
         }))
@@ -4788,7 +4785,7 @@ pub(crate) mod tests {
         assert_eq!(plan.phases.len(), 2);
         assert_eq!(plan.phases[0].number, 0);
         assert_eq!(plan.phases[0].subagents.len(), 2);
-        assert_eq!(plan.phases[0].subagents[0].agent, "research");
+        assert_eq!(plan.phases[0].subagents[0].agent, "review");
         assert_eq!(
             plan.phases[0].subagents[1].allowed_tools,
             Some(vec!["read".to_string(), "grep".to_string()])
@@ -5023,7 +5020,6 @@ pub(crate) mod tests {
         assert!(is_subagent_tool("message_subagent"));
         assert!(is_subagent_tool("stop_subagent"));
         assert!(!is_subagent_tool("read"));
-        assert!(!is_subagent_tool("web_search"));
     }
 
     // ── background registry (spawn/await/abort) ─────────────────────────────
@@ -5534,7 +5530,7 @@ pub(crate) mod tests {
         assert!(item["properties"].get("name").is_none());
         assert_eq!(
             agent["enum"],
-            serde_json::json!(["debug", "explore", "general", "research", "review"])
+            serde_json::json!(["debug", "explore", "general", "review"])
         );
     }
 

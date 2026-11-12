@@ -11,15 +11,9 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 
 interface AddProviderDialogProps {
-  onCreateProvider: (
-    name: string,
-    baseUrl: string,
-    apiKey: string,
-    apiType: ProviderApiType
-  ) => void
+  onCreateProvider: (name: string, baseUrl: string, apiKey: string) => void
   children: React.ReactNode
 }
 
@@ -33,7 +27,6 @@ export function AddProviderDialog({
   const [name, setName] = useState('')
   const [baseUrl, setBaseUrl] = useState('')
   const [apiKey, setApiKey] = useState('')
-  const [apiType, setApiType] = useState<ProviderApiType>('openai')
   const [error, setError] = useState<string | null>(null)
   const [isOpen, setIsOpen] = useState(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
@@ -42,7 +35,6 @@ export function AddProviderDialog({
     setName('')
     setBaseUrl('')
     setApiKey('')
-    setApiType('openai')
     setError(null)
   }
 
@@ -55,7 +47,7 @@ export function AddProviderDialog({
       setError(t('provider:invalidBaseUrl'))
       return
     }
-    onCreateProvider(trimmedName, trimmedBaseUrl, trimmedApiKey, apiType)
+    onCreateProvider(trimmedName, trimmedBaseUrl, trimmedApiKey)
     reset()
     setIsOpen(false)
   }
@@ -69,10 +61,7 @@ export function AddProviderDialog({
     name.trim().length > 0 &&
     baseUrl.trim().length > 0 &&
     apiKey.trim().length > 0
-  const baseUrlPlaceholder =
-    apiType === 'anthropic'
-      ? t('provider:baseUrlPlaceholderAnthropic')
-      : t('provider:baseUrlPlaceholder')
+  const baseUrlPlaceholder = t('provider:baseUrlPlaceholder')
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -98,25 +87,6 @@ export function AddProviderDialog({
             placeholder={t('provider:enterNameForProvider')}
             onKeyDown={(e) => e.stopPropagation()}
           />
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-muted-foreground">
-              {t('provider:apiTypeLabel')}
-            </label>
-            <RadioGroup
-              value={apiType}
-              onValueChange={(v) => setApiType(v as ProviderApiType)}
-              className="flex flex-row gap-4"
-            >
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <RadioGroupItem value="openai" />
-                {t('provider:apiTypeOpenAI')}
-              </label>
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <RadioGroupItem value="anthropic" />
-                {t('provider:apiTypeAnthropic')}
-              </label>
-            </RadioGroup>
-          </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs text-muted-foreground">
               {t('provider:baseUrlLabel')}

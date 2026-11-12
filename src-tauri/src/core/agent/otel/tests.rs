@@ -18,7 +18,6 @@ fn provenance(run: Option<&str>, session: &str) -> StreamEvent {
         session_id: Some(session.into()),
         provider: Some("stub".into()),
         model: "stub-model".into(),
-        api_type: None,
         request_sha256: "0".repeat(64),
         body_bytes: 123,
         tools_sha256: None,

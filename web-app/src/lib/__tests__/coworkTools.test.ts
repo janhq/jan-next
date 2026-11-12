@@ -25,7 +25,6 @@ const ALL = ['read', 'ls', 'grep', 'write', 'edit', 'shell', 'memory']
 
 const opts = (over: Partial<Parameters<typeof buildCoworkTools>[0]> = {}) => ({
   planMode: false,
-  webSearch: false,
   subagentNames: ['researcher'],
   allowSubagents: true,
   ...over,
@@ -106,41 +105,6 @@ describe('coworkToolSignature', () => {
   })
 })
 
-describe('web tools', () => {
-  beforeEach(() => {
-    getAgentToolSchemas.mockReset()
-    getAgentToolSchemas.mockResolvedValue(ALL.map(schema))
-  })
-
-  it('are withheld when web search is off', async () => {
-    const tools = await buildCoworkTools(opts({ webSearch: false }))
-    expect(tools.web_search).toBeUndefined()
-    expect(tools.web_fetch).toBeUndefined()
-  })
-
-  it('are advertised when it is on', async () => {
-    const tools = await buildCoworkTools(opts({ webSearch: true }))
-    expect(tools.web_search).toBeDefined()
-    expect(tools.web_fetch).toBeDefined()
-  })
-
-  // Research is most of what planning is, so unlike write/edit/shell these are
-  // reads that plan mode keeps.
-  it('survive plan mode', async () => {
-    const tools = await buildCoworkTools(opts({ webSearch: true, planMode: true }))
-    expect(tools.web_search).toBeDefined()
-    expect(tools.shell).toBeUndefined()
-  })
-
-  // Advertising them changes the tool JSON, so a run that froze without them
-  // must not silently pick them up.
-  it('change the freeze signature', () => {
-    expect(coworkToolSignature(opts({ webSearch: true }), true)).not.toBe(
-      coworkToolSignature(opts({ webSearch: false }), true)
-    )
-  })
-})
-
 describe('allowedToolNames', () => {
   it('refuses the same set plan mode withholds', () => {
     const out = allowedToolNames([...ALL, TASK_TOOL_NAME], opts({ planMode: true }))
@@ -190,8 +154,7 @@ describe('allowedToolNames', () => {
         planMode: false,
         subagentNames: [],
         allowSubagents: true,
-        webSearch: false,
-      })
+            })
       const task = tools['task'] as unknown as TaskSchema
       const schema = task.inputSchema.jsonSchema
       expect(schema.required).toContain('subagents')
@@ -216,8 +179,7 @@ describe('allowedToolNames', () => {
         planMode: false,
         subagentNames: ['reviewer'],
         allowSubagents: true,
-        webSearch: false,
-      })
+            })
       const task = tools['task'] as unknown as { description: string }
       expect(task.description).toContain('Saved subagents: reviewer.')
     })

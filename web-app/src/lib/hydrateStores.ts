@@ -15,7 +15,6 @@ import { useLatestJanModel } from '@/hooks/useLatestJanModel'
 import { useJanModelPromptDismissed } from '@/hooks/useJanModelPrompt'
 import { useDefaultEmbeddingModel } from '@/hooks/useDefaultEmbeddingModel'
 import { useAgentMode } from '@/hooks/useAgentMode'
-import { useWebSearchConfig } from '@/hooks/useWebSearchConfig'
 import { useCoworkSessions } from '@/hooks/useCoworkSessions'
 import { useCoworkConfig } from '@/hooks/useCoworkConfig'
 import { useChatShell } from '@/hooks/useChatShell'
@@ -50,7 +49,6 @@ const secondaryStores = [
   useJanModelPromptDismissed,
   useDefaultEmbeddingModel,
   useAgentMode,
-  useWebSearchConfig,
   useCoworkSessions,
   useCoworkConfig,
   useChatShell,

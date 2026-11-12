@@ -32,9 +32,6 @@ import { getServiceHub } from '@/hooks/useServiceHub'
  * sandbox, which is deleted with the conversation, so `execute_tool` allows them
  * without a prompt. Withholding them while `shell` can write the same files would
  * be a restriction a sibling tool trivially bypasses.
- *
- * `web_search`/`web_fetch` are also built-ins but are already advertised through
- * the websearch plugin (see `webSearchTool.ts`), so they are not duplicated here.
  */
 export const AGENT_TOOL_NAMES = new Set([
   'read',

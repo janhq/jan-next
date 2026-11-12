@@ -14,7 +14,6 @@ import {
   IconTopologyStar3,
   IconCpu,
   IconWorld,
-  IconWorldSearch,
   IconFolderCode,
   IconPaperclip,
   IconPuzzle,
@@ -27,10 +26,7 @@ import { useModelProvider } from '@/hooks/useModelProvider'
 import { getProviderTitle, isLocalProvider } from '@/lib/utils'
 import ProvidersAvatar from '@/containers/ProvidersAvatar'
 import { AddProviderDialog } from '@/containers/dialogs'
-import {
-  openAIProviderSettings,
-  anthropicProviderSettings,
-} from '@/constants/providers'
+import { openAIProviderSettings } from '@/constants/providers'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 
@@ -44,23 +40,16 @@ const SettingsMenu = () => {
   const { providers, addProvider } = useModelProvider()
 
   const createProvider = useCallback(
-    (
-      name: string,
-      baseUrl: string,
-      apiKey: string,
-      apiType: ProviderApiType
-    ) => {
+    (name: string, baseUrl: string, apiKey: string) => {
       if (
         providers.some((e) => e.provider.toLowerCase() === name.toLowerCase())
       ) {
         toast.error(t('provider:providerAlreadyExists', { name }))
         return
       }
-      const template =
-        apiType === 'anthropic'
-          ? anthropicProviderSettings
-          : openAIProviderSettings
-      const settings = structuredClone(template) as ProviderSetting[]
+      const settings = structuredClone(
+        openAIProviderSettings
+      ) as ProviderSetting[]
       for (const s of settings) {
         if (s.key === 'base-url') {
           (s.controller_props as { value: string }).value = baseUrl
@@ -75,7 +64,6 @@ const SettingsMenu = () => {
         settings,
         api_key: apiKey,
         base_url: baseUrl,
-        ...(apiType === 'anthropic' ? { api_type: 'anthropic' as const } : {}),
       }
       addProvider(newProvider)
       setTimeout(() => {
@@ -192,11 +180,6 @@ const SettingsMenu = () => {
       route: route.settings.https_proxy,
       icon: IconWorld,
     },
-    {
-      title: 'common:web_search',
-      route: route.settings.web_search,
-      icon: IconWorldSearch,
-    },
     ...(isCoworkEnabled()
       ? [
         {
@@ -230,13 +213,6 @@ const SettingsMenu = () => {
       title: 'common:mcp-servers',
       route: route.settings.mcp_servers,
       icon: IconTopologyStar3,
-    },
-    {
-      title: 'common:claude_code',
-      route: route.settings.claude_code,
-      icon: ({ size, className }: { size?: number; className?: string }) => (
-        <img src="/images/code-claude.svg" width={size} height={size} className={cn(className, 'dark:invert opacity-60')} />
-      ),
     },
   ]
 

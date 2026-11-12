@@ -14,7 +14,6 @@ import {
   refreshFailureText,
   withUnreachableErrors,
 } from '../provider-unreachable'
-import { fetchTopRemoteModels } from '../remoteModelCatalog'
 
 const generic =
   'Failed to fetch models from acme. Please check your API key and base URL.'
@@ -78,57 +77,5 @@ describe('withUnreachableErrors', () => {
       vi.fn().mockResolvedValue(response) as never
     )
     await expect(wrapped(url)).resolves.toBe(response)
-  })
-})
-
-// The refresh button on a provider with a remote catalog (api_type
-// 'anthropic', Gemini, ...) goes through `fetchTopRemoteModels`, not through
-// the provider service, so its failures reach the toast by a different route.
-describe('refreshing a provider with a remote catalog', () => {
-  it('shows the unreachable message when the gateway cannot be reached', async () => {
-    const provider = {
-      provider: 'acme',
-      base_url: 'https://gateway.acme.test/v1',
-      api_type: 'anthropic',
-      api_key: 'k',
-    } as never
-    const fetchImpl = vi
-      .fn()
-      .mockRejectedValue('error sending request for url (https://gateway.acme.test/v1/models)')
-
-    const err = await fetchTopRemoteModels(
-      provider,
-      withUnreachableErrors(fetchImpl as never)
-    ).catch((e) => e)
-
-    expect(refreshFailureText(err, generic)).toMatch(/couldn't reach the provider/i)
-    expect(refreshFailureText(err, generic)).toContain(
-      'https://gateway.acme.test/v1/models'
-    )
-  })
-
-  it('keeps the generic text when the gateway answers with an error status', async () => {
-    const provider = {
-      provider: 'acme',
-      base_url: 'https://gateway.acme.test/v1',
-      api_type: 'anthropic',
-      api_key: 'k',
-    } as never
-    const fetchImpl = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 500,
-      statusText: 'Internal Server Error',
-      json: async () => ({}),
-    })
-
-    const err = await fetchTopRemoteModels(
-      provider,
-      withUnreachableErrors(fetchImpl as never)
-    ).catch((e) => e)
-
-    // The message contains "Failed to fetch models", which must not be taken
-    // for a connection failure.
-    expect(err).not.toBeInstanceOf(ProviderUnreachableError)
-    expect(refreshFailureText(err, generic)).toBe(generic)
   })
 })

@@ -10,11 +10,6 @@ const h = vi.hoisted(() => ({
   setCurrentThreadId: vi.fn(),
   useTools: vi.fn(),
   providerHasRemoteApiKeys: vi.fn(() => false),
-  predefinedProviders: [
-    { provider: 'openai' },
-    { provider: 'llamacpp' },
-    { provider: 'jan' },
-  ],
 }))
 
 vi.mock('@tanstack/react-router', () => ({
@@ -68,10 +63,6 @@ vi.mock('@/lib/provider-api-keys', () => ({
   providerHasRemoteApiKeys: (p: any) => h.providerHasRemoteApiKeys(p),
 }))
 
-vi.mock('@/constants/providers', () => ({
-  predefinedProviders: h.predefinedProviders,
-}))
-
 vi.mock('@/constants/routes', () => ({
   route: { home: '/' },
 }))
@@ -109,15 +100,15 @@ describe('Index route', () => {
     expect(screen.queryByTestId('chat-input')).not.toBeInTheDocument()
   })
 
-  it('renders SetupScreen when predefined provider has no api key and no models', () => {
+  it('renders SetupScreen when a custom provider has no models', () => {
     h.providers = [{ provider: 'openai', models: [] }]
     h.providerHasRemoteApiKeys.mockReturnValue(false)
     renderComponent()
     expect(screen.getByTestId('setup-screen')).toBeInTheDocument()
   })
 
-  it('renders chat UI when predefined provider has api key', () => {
-    h.providers = [{ provider: 'openai', models: [] }]
+  it('renders chat UI when a custom provider has models', () => {
+    h.providers = [{ provider: 'my-server', models: [{ id: 'm' }] }]
     h.providerHasRemoteApiKeys.mockReturnValue(true)
     renderComponent()
     expect(screen.getByTestId('chat-input')).toBeInTheDocument()
@@ -152,7 +143,7 @@ describe('Index route', () => {
   })
 
   it('passes threadModel from search into DropdownModelProvider and ChatInput', () => {
-    h.providers = [{ provider: 'openai', models: [] }]
+    h.providers = [{ provider: 'my-server', models: [{ id: 'm' }] }]
     h.providerHasRemoteApiKeys.mockReturnValue(true)
     h.search = { threadModel: { id: 'gpt-x', provider: 'openai' } }
     renderComponent()
@@ -162,7 +153,7 @@ describe('Index route', () => {
   })
 
   it('calls setCurrentThreadId(undefined) and useTools on mount', () => {
-    h.providers = [{ provider: 'openai', models: [] }]
+    h.providers = [{ provider: 'my-server', models: [{ id: 'm' }] }]
     h.providerHasRemoteApiKeys.mockReturnValue(true)
     renderComponent()
     expect(h.setCurrentThreadId).toHaveBeenCalledWith(undefined)

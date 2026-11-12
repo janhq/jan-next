@@ -22,7 +22,6 @@ import { cn } from '@/lib/utils'
 import { getLoadedModels } from '@janhq/tauri-plugin-llamacpp-api'
 import { sessionWorkspacePath } from '@janhq/tauri-plugin-agent-tools-api'
 import { getModelDisplayName, getProviderTitle } from '@/lib/utils'
-import { predefinedProviders } from '@/constants/providers'
 import { providerHasRemoteApiKeys } from '@/lib/provider-api-keys'
 import { runSlashCommand, SLASH_COMMANDS } from '@/lib/coworkCommands'
 import {
@@ -114,7 +113,6 @@ import {
 import { monitorLaneFor, type MonitorLane } from '@/lib/coworkMonitor'
 import { CoworkParkedNotice } from '@/containers/CoworkParkedNotice'
 import type { MonitorView } from '@/types/coworkSession'
-import { useWebSearchConfig } from '@/hooks/useWebSearchConfig'
 import { MAX_AGENT_STEPS } from '@/lib/coworkBudget'
 import {
   abortRun,
@@ -609,9 +607,6 @@ function CoworkPage() {
       // Warm the sandbox probe: the transport's prompt and tool set read it
       // synchronously via sandboxEnforces().
       await getSandboxStatus()
-      // Read once per run, not subscribed: the advertised set is frozen for the
-      // run anyway, so a mid-run flip in Settings would only desync the prompt.
-      const webSearch = useWebSearchConfig.getState().webSearchEnabled
       // One snapshot per run, shared with every child this run dispatches.
       const environment = await getCoworkEnvironment()
       const failedReadPaths = current?.planMode ? new Set<string>() : undefined
@@ -622,7 +617,6 @@ function CoworkPage() {
         // Always on at depth 0, even with nothing saved: an unknown name runs as
         // a focused general-purpose subagent, as it does in Rust.
         allowSubagents: true,
-        webSearch,
         workspacePath,
         readOnlyFolder: current?.folder ?? null,
       }
@@ -714,7 +708,6 @@ function CoworkPage() {
                 readOnlyFolder: current?.folder ?? null,
                 planMode: runConfig.planMode,
                 failedReadPaths,
-                webSearch,
                 monitors: monitorLane,
                 onTodo: async (input) => {
                   const result = applyTodoOp(
@@ -874,7 +867,6 @@ function CoworkPage() {
                             sessionId: sid,
                             readOnlyFolder: current?.folder ?? null,
                             planMode: current?.planMode ?? false,
-                            webSearch,
                             // A child has no inbox for a watcher to ping.
                             monitors: null,
                             onTodo: async () => ({
@@ -1184,13 +1176,10 @@ function CoworkPage() {
     }[] = []
     providers.forEach((p) => {
       if (!p.active) return
-      const isPredefined = predefinedProviders.some((e) =>
-        e.provider.includes(p.provider)
-      )
       if (
         p.provider !== 'llamacpp' &&
         !providerHasRemoteApiKeys(p) &&
-        (isPredefined || p.models.length === 0)
+        p.models.length === 0
       )
         return
       p.models.forEach((m) => {

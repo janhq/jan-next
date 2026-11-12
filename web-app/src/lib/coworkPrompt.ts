@@ -27,7 +27,7 @@ const GUIDELINES = [
  * `plan_review` question id the ask card special-cases. */
 const PLAN_ADDENDUM =
   'PLAN MODE (read only): You are exploring to produce a plan. You may only ' +
-  'read, search, and list files, do web research, and read memory/skills. You ' +
+  'read, search, and list files, and read memory/skills. You ' +
   'CANNOT edit files, run shell commands, or make any change; those tools are ' +
   'disabled. Investigate thoroughly, then stage the full phased plan by calling ' +
   'the `todo` tool with an `init` action listing every task. When the plan is ' +
@@ -64,8 +64,6 @@ export type CoworkPromptOptions = {
   /** False when no OS sandbox enforces, in which case `shell` is not offered. */
   bashAvailable: boolean
   subagentNames: string[]
-  /** Whether `web_search`/`web_fetch` are advertised this run. */
-  webSearch: boolean
   /** Optional so the prompt still builds where nothing was gathered. */
   environment?: CoworkEnvironment | null
   /**
@@ -94,17 +92,6 @@ function memoryBlock(catalog: { name: string; summary: string }[]): string {
     list,
   ].join('\n')
 }
-
-/** Marker text matches chat's, so the same renderer turns it into source chips. */
-const WEB_BLOCK = [
-  '# Web',
-  '',
-  'You can search with `web_search` and read pages with `web_fetch`. Use them',
-  'whenever the task needs current or external information. When a statement',
-  'rests on a source, cite it inline right after that statement as',
-  '[[cite:URL]], using the full URL from a `web_search` result. Do not add a',
-  'separate sources section.',
-].join('\n')
 
 function environmentBlock(env: CoworkEnvironment): string {
   const lines = ['# Environment', '']
@@ -164,7 +151,6 @@ export function buildCoworkSystemPrompt(opts: CoworkPromptOptions): string {
   if (opts.environment) blocks.push(environmentBlock(opts.environment))
   blocks.push(workspaceBlock(opts))
   if (opts.memoryCatalog.length > 0) blocks.push(memoryBlock(opts.memoryCatalog))
-  if (opts.webSearch) blocks.push(WEB_BLOCK)
   if (opts.subagentNames.length > 0 && !opts.planMode) {
     blocks.push(
       [
@@ -214,7 +200,6 @@ export function buildSubagentSystemPrompt(
     definitionPrompt.trim(),
     ...(opts.environment ? [environmentBlock(opts.environment)] : []),
     workspaceBlock({ ...opts, planMode: false, subagentNames: [], memoryCatalog: [] }),
-    ...(opts.webSearch ? [WEB_BLOCK] : []),
     [
       '# Scope',
       '',

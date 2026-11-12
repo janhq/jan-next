@@ -396,10 +396,6 @@ pub enum StreamEvent {
         provider: Option<String>,
         /// The model id the upstream receives, without a `<provider>/` prefix.
         model: String,
-        /// The wire API the request is built for (`anthropic`, `google`,
-        /// `openai-responses`), absent for chat/completions.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        api_type: Option<String>,
         /// SHA-256 of the request body as Jan built it, as canonical JSON:
         /// every object's keys sorted, recursively, so re-encoding the same
         /// members in another order gives the same digest. It is the value that
@@ -853,7 +849,6 @@ pub(crate) mod tests {
                     session_id: Some("session-9".into()),
                     provider: Some("anthropic".into()),
                     model: "claude-sonnet-5".into(),
-                    api_type: Some("anthropic".into()),
                     request_sha256: "0".repeat(64),
                     body_bytes: 41,
                     tools_sha256: Some("1".repeat(64)),

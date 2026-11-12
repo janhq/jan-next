@@ -4,7 +4,7 @@
 
 open-waifu is a personal fork of [Jan](https://github.com/janhq/jan) for hobby and learning: a local-first AI chat app (future waifu chat) on Tauri 2, macOS and Windows desktop only.
 
-- **Removed from upstream; do not reintroduce:** CI, the docs site, Linux and mobile targets, MLX, the ADKs, the headless `jan` CLI/TUI and `protocol/`, the e2e/WebDriver hooks, the auto-updater, and PostHog/GA telemetry.
+- **Removed from upstream; do not reintroduce:** CI, the docs site, Linux and mobile targets, MLX, the ADKs, the headless `jan` CLI/TUI and `protocol/`, the e2e/WebDriver hooks, the auto-updater, PostHog/GA telemetry, the Claude Code integration, built-in web search (use a browser MCP server instead), and named remote providers (OpenAI, Anthropic, Gemini, Azure, ...).
 - **Names stay `jan`:** identifiers, crate names and package names still say `jan` / `@janhq/*`. Keep them unless asked to rebrand.
 
 ## Architecture & Data Flow
@@ -36,12 +36,15 @@ llama.cpp engine: jan-llama-worker process (plugin llamacpp), fronted by the loc
   - Engines share services through `ServiceRegistry` / `ServiceKeys` (`core/src/browser/host/services.ts`). `provide` throws on a duplicate key.
   - `AIEngine` / `EngineManager` in `core/` are a legacy layer that still works.
 - **Local API server:** `src-tauri/src/core/server/`.
-  - `proxy.rs` is the hyper 1.x server. Routes: `/chat/completions`, `/completions`, `/embeddings`, `/messages`, `/models`, `/orchestrations`, `/openapi.json`, `/docs/*`.
-  - `commands.rs` starts and stops it; `converters.rs` handles per-provider formats.
-  - Auth is `Authorization: Bearer` or `x-api-key`. The Swagger UI files are in `src-tauri/static/`.
+  - `proxy.rs` is the hyper 1.x server. Routes: `/chat/completions`, `/completions`, `/embeddings`, `/models`, `/orchestrations`, `/openapi.json` (no Swagger UI page, no Anthropic `/messages`).
+  - `commands.rs` starts and stops it.
+  - Auth is `Authorization: Bearer` or `x-api-key`. The OpenAPI spec is `src-tauri/static/openapi.json`.
 - **Agent:** `src-tauri/src/core/agent/loop.rs` (`run_orchestration_steered()`, the `ToolInvoker` and model-invoker traits) and `subagent.rs`. Built-in tools come from `tauri-plugin-agent-tools`.
   - The app is desktop-only now: the shell is always sandboxed and escalation is never offered.
   - Comments that mention "the CLI" or Linux are upstream leftovers. `default_jan_skill.md` still mentions `jan cli`.
+- **Model providers:** exactly two kinds. `llamacpp` (the local engine) and user-added OpenAI-compatible endpoints (name, base URL, API key), all spoken to as OpenAI `/chat/completions`.
+  - web-app: `lib/model-factory.ts` sends everything but llamacpp through `createOpenAICompatibleModel`; `lib/providerCaps.ts` holds the llamacpp caps and the permissive custom set.
+  - Rust agent: `core/agent/upstream.rs` / `genai_bridge.rs` use the OpenAI adapter only. Do not add vendor SDKs or per-vendor converters.
 - **Threads:** stored as files, `thread.json` plus `messages.jsonl` per thread under the Jan data folder, with per-thread async locks (`core/threads/`).
 - **Engine:** llama.cpp is built from source into `jan-llama-worker` (`plugins/tauri-plugin-llamacpp/src/engine/`, `src/bin/jan-llama-worker.rs`). The pinned llama.cpp commit is in that plugin's `build.rs`, and the source is cloned to `vendor/llama.cpp`.
 - **State:** zustand stores in `web-app/src/hooks/`, `stores/` and `lib/`. Persistence is owned by the backend (`lib/backendStorage.ts` / `fileStorage` → Rust `settings_get`/`settings_set`), not localStorage.
@@ -59,7 +62,7 @@ llama.cpp engine: jan-llama-worker process (plugin llamacpp), fronted by the loc
 | `extensions/` | Built-in extensions: assistant, download, llamacpp, rag, vector-db |
 | `packages/extension-api`, `packages/extension-runtime` | Extension SDK, and the worker runtime (realm lockdown, prelude) |
 | `src-tauri/src/core/` | Rust app: `agent/`, `server/`, `threads/`, `mcp/`, `filesystem/`, `downloads/`, `system/` |
-| `src-tauri/plugins/` | Tauri plugins: agent-tools, extensions, hardware, llamacpp, rag, vector-db, websearch. Separate Yarn root |
+| `src-tauri/plugins/` | Tauri plugins: agent-tools, extensions, hardware, llamacpp, rag, vector-db. Separate Yarn root |
 | `src-tauri/utils/` | `jan-utils` crate: shared Rust helpers (CORS, paths, system) |
 | `src-tauri/build-utils/` | Scripts: `download-bin.mjs` (bun, uv, sqlite-vec → `resources/bin`), `stub-tauri-resources.mjs` (test stubs), `build-windows-icon.mjs`, `fetch-engine-source.sh`, `check-engine-toolchain.sh`, `stage-engine.sh` |
 | `src-tauri/tests/` | Integration tests; `fixtures/upgrade/<version>/` holds old user data for upgrade-compat tests |
@@ -131,9 +134,9 @@ make build-engine-dev JAN_ENGINE_VARIANT=cpu   # cpu|vulkan|metal|cuda12|cuda13|
 - **Node and Yarn:** Node 20+ with Yarn 4.5.3 via corepack (`corepack yarn …`). Do not use npm or bun. The settings are `nodeLinker: node-modules` with hoisting limited to workspaces.
 - **Plugin workspace:** `src-tauri/plugins/` is its own Yarn root (`cd src-tauri/plugins && yarn install`).
 - **Rust:** pinned in `rust-toolchain.toml` (1.98.0, clippy, rustfmt).
-  - Make's cargo commands use `--locked`, and the `Cargo.lock` files under `src-tauri/` are tracked.
-  - The exception is `tauri-plugin-agent-tools`, whose lockfile is gitignored. After removing a dependency, run `cargo update --workspace --manifest-path <crate>/Cargo.toml` so `--locked` still passes.
-- **Pre-commit:** `.husky/pre-commit` runs `yarn lint --fix --quiet` (the whole web-app, ESLint only).
+  - Only `src-tauri/Cargo.lock` is tracked, and only the main crate builds with `--locked`. The standalone plugin and `utils` lockfiles are gitignored.
+  - After removing a dependency from the app, run `cargo update --workspace --manifest-path src-tauri/Cargo.toml` so `--locked` still passes.
+- **No git hooks:** nothing runs on commit. Run `yarn lint` yourself before committing web-app changes.
 
 ## Testing & QA
 

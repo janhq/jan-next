@@ -18,7 +18,6 @@ import {
   type MonitorLane,
 } from '@/lib/coworkMonitor'
 import type { PendingToolCall, ToolOutcome } from '@/lib/coworkRunner'
-import { WEB_TOOL_NAMES, executeWebTool } from '@/lib/webSearchTool'
 import {
   EXECUTE_PLAN_LABEL,
   EXIT_PLAN_LABEL,
@@ -32,9 +31,6 @@ export type DispatchContext = {
   planMode: boolean
   /** Request-owned failure history. Omitted by children, which cannot plan. */
   failedReadPaths?: Set<string>
-  /** Mirrors the advertised set. Refused when off, so a call to a tool that was
-   * never advertised cannot reach the network the user switched off. */
-  webSearch: boolean
   /** Applies one `todo` operation and persists the result. */
   onTodo: (input: unknown) => Promise<ToolOutcome>
   /** Suspends until the user answers, or the run is aborted. */
@@ -206,25 +202,6 @@ export async function dispatchCoworkTool(
     }
     if (toolName === MONITOR_TOOL_NAME) {
       return await runMonitorOp(call.input, ctx)
-    }
-
-    if (WEB_TOOL_NAMES.has(toolName)) {
-      if (!ctx.webSearch) {
-        return {
-          output:
-            `The \`${toolName}\` tool is off: web access is disabled in ` +
-            'Settings. Work from what you can read locally.',
-          isError: true,
-        }
-      }
-      const web = await executeWebTool(toolName, call.input ?? {})
-      if (web.error) return { output: web.error, isError: true }
-      return {
-        output:
-          typeof web.content === 'string'
-            ? web.content
-            : JSON.stringify(web.content ?? ''),
-      }
     }
 
     // `'session'`, not the default `'thread'`: a Cowork session id lives in its

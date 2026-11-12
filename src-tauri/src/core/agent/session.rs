@@ -28,10 +28,8 @@ impl TokenRates {
     /// USD for one request's token counts.
     ///
     /// `cached` and `cache_write` are **shares of `prompt`**, not additions to
-    /// it: every pipeline that reaches here normalizes Anthropic's usage the
-    /// OpenAI way, so `prompt_tokens = input + cache_read + cache_write` (genai
-    /// `anthropic/adapter_shared.rs`, and `core::server::converters` for Jan's
-    /// own responses). Each share is billed at its own rate and the remainder
+    /// it: usage is in OpenAI form, so
+    /// `prompt_tokens = input + cache_read + cache_write`. Each share is billed at its own rate and the remainder
     /// at the prompt rate.
     pub fn cost_usd(&self, prompt: u64, completion: u64, cached: u64, cache_write: u64) -> f64 {
         // Clamped so a provider reporting a share larger than the prompt (or
@@ -438,8 +436,7 @@ mod tests {
     }
 
     /// Cache shares are billed at their own rates and come *out of* the prompt,
-    /// never on top of it: the pipelines normalize Anthropic's usage the OpenAI
-    /// way, so `prompt = fresh + cache_read + cache_write`. Adding them would
+    /// never on top of it: usage is in OpenAI form, so `prompt = fresh + cache_read + cache_write`. Adding them would
     /// double-charge a cached prompt, which is the case caching exists to make
     /// cheaper.
     #[test]

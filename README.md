@@ -23,7 +23,7 @@ open-waifu/
 │   ├── utils/              shared Rust helpers
 │   ├── capabilities/       Tauri permissions
 │   ├── icons/              app icons (source icon.png per platform)
-│   ├── static/             Swagger UI for the local API server
+│   ├── static/             OpenAPI spec for the local API server
 │   ├── tests/              upgrade fixtures for old user data
 │   └── build-utils/        engine, icon and binary download scripts
 ├── assets/             README images

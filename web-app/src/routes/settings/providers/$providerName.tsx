@@ -34,8 +34,7 @@ import {
 } from '@tabler/icons-react'
 import { useDefaultEmbeddingModel } from '@/hooks/useDefaultEmbeddingModel'
 import { toast } from 'sonner'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { predefinedProviders } from '@/constants/providers'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useModelLoad } from '@/hooks/useModelLoad'
 import { useAppState } from '@/hooks/useAppState'
 import { useShallow } from 'zustand/shallow'
@@ -47,12 +46,7 @@ import {
   serializeApiKeyFallbacks,
 } from '@/lib/provider-api-keys'
 import {
-  supportsRemoteCatalog,
-  fetchTopRemoteModels,
-} from '@/lib/remoteModelCatalog'
-import {
   refreshFailureText,
-  withUnreachableErrors,
 } from '@/lib/provider-unreachable'
 
 // as route.threadsDetail
@@ -93,24 +87,19 @@ function ProviderDetail() {
   const [refreshingModels, setRefreshingModels] = useState(false)
   const [importingModel, setImportingModel] = useState<string | null>(null)
   const [apiKeysDraft, setApiKeysDraft] = useState('')
-  const [baseUrlDraft, setBaseUrlDraft] = useState('')
   const [showAdvancedApiKeys, setShowAdvancedApiKeys] = useState(false)
   const [isTestingKeys, setIsTestingKeys] = useState(false)
   const [keyCheckResults, setKeyCheckResults] = useState<
     { index: number; masked: string; status: string; detail: string }[]
   >([])
   const { providerName } = useParams({ from: Route.id })
-  const { getProviderByName, setProviders, updateProvider, addDeletedModels } =
+  const { getProviderByName, setProviders, updateProvider } =
     useModelProvider()
   const provider = getProviderByName(providerName)
   // An extension's provider takes its key, address and models from the
   // extension, and leaves when the extension stops: nothing here edits it.
   const extensionSource = provider?.source
   const isLlamacpp = provider?.provider === 'llamacpp'
-  const isPredefinedProvider = useMemo(
-    () => predefinedProviders.some((p) => p.provider === providerName),
-    [providerName]
-  )
   const allModels = useMemo(() => provider?.models ?? [], [provider?.models])
   const embeddingModels = useMemo(
     () =>
@@ -272,26 +261,6 @@ function ProviderDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [providerName, provider?.api_key, JSON.stringify(provider?.api_key_fallbacks ?? [])])
 
-  useEffect(() => {
-    if (provider?.provider !== 'azure') return
-    setBaseUrlDraft(provider.base_url ?? '')
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [providerName, provider?.base_url])
-
-  const autoCatalogAttempted = useRef<Set<string>>(new Set())
-  useEffect(() => {
-    if (!provider) return
-    if (!supportsRemoteCatalog(provider)) return
-    if (provider.models.length > 0) return
-    if (!providerHasRemoteApiKeys(provider)) return
-    if (autoCatalogAttempted.current.has(provider.provider)) return
-    autoCatalogAttempted.current.add(provider.provider)
-    handleRefreshModels()
-    // handleRefreshModels closes over the latest provider; only watch the
-    // signals that decide whether auto-fetch should fire.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [provider?.provider, provider?.api_key, provider?.models.length])
-
   const commitApiKeysDraft = useCallback(() => {
     if (!provider) return
     const lines = apiKeysDraft
@@ -354,13 +323,6 @@ function ProviderDetail() {
       serviceHub.providers().deleteProviderKeys(providerName)
     }
   }, [apiKeysDraft, provider, providerName, serviceHub, updateProvider])
-
-  const commitBaseUrlDraft = useCallback(() => {
-    if (!provider || provider.provider !== 'azure') return
-    const next = baseUrlDraft.trim()
-    if (next === (provider.base_url ?? '')) return
-    updateProvider(providerName, { ...provider, base_url: next })
-  }, [baseUrlDraft, provider, providerName, updateProvider])
 
   const rawApiKeyLines = apiKeysDraft.split(/\r?\n/)
   const primaryKeyDraft = (rawApiKeyLines[0] ?? '').trim()
@@ -508,60 +470,16 @@ function ProviderDetail() {
 
     setRefreshingModels(true)
     try {
-      let newModels: Model[]
-      if (supportsRemoteCatalog(provider)) {
-        const catalog = await fetchTopRemoteModels(
-          provider,
-          withUnreachableErrors(serviceHub.providers().fetch())
-        )
-        newModels = catalog.map((m) => ({
-          id: m.id,
-          model: m.id,
-          name: m.id,
-          capabilities: m.capabilities,
-          version: '1.0',
-        }))
-      } else {
-        const modelIds = await serviceHub
-          .providers()
-          .fetchModelsFromProvider(provider)
-        newModels = modelIds.map((id) => ({
-          id,
-          model: id,
-          name: id,
-          capabilities: ['completion'],
-          version: '1.0',
-        }))
-      }
-
-      if (supportsRemoteCatalog(provider)) {
-        const importedModels = provider.models.filter((m) => m.imported)
-        const importedIds = new Set(importedModels.map((m) => m.id))
-        const fresh = newModels.filter((m) => !importedIds.has(m.id))
-        if (fresh.length === 0) {
-          toast.success(t('providers:models'), {
-            description: t('providers:noNewModels'),
-          })
-          return
-        }
-        const updatedModels = [...importedModels, ...fresh]
-        const keepIds = new Set(updatedModels.map((m) => m.id))
-        const removedIds = provider.models
-          .filter((m) => !m.imported && !keepIds.has(m.id))
-          .map((m) => m.id)
-        addDeletedModels(removedIds)
-        updateProvider(providerName, {
-          ...provider,
-          models: updatedModels,
-        })
-        toast.success(t('providers:models'), {
-          description: t('providers:refreshModelsSuccess', {
-            count: fresh.length,
-            provider: provider.provider,
-          }),
-        })
-        return
-      }
+      const modelIds = await serviceHub
+        .providers()
+        .fetchModelsFromProvider(provider)
+      const newModels: Model[] = modelIds.map((id) => ({
+        id,
+        model: id,
+        name: id,
+        capabilities: ['completion'],
+        version: '1.0',
+      }))
 
       const existingModelIds = provider.models.map((m) => m.id)
       const modelsToAdd = newModels.filter(
@@ -684,8 +602,7 @@ function ProviderDetail() {
 
             {provider &&
               !extensionSource &&
-              !isLocalProvider(provider.provider) &&
-              !supportsRemoteCatalog(provider) && (
+              !isLocalProvider(provider.provider) && (
                 <div className="flex items-start gap-2 rounded-md border border-main-view-fg/10 bg-main-view-fg/5 px-3 py-2 text-xs text-muted-foreground">
                   <IconInfoCircle size={16} className="mt-0.5 shrink-0" />
                   <span>
@@ -714,13 +631,7 @@ function ProviderDetail() {
                   'flex-col-reverse'
               )}
             >
-              {/* Settings — hidden for predefined remote providers since
-                  api-key + base-url are both surfaced elsewhere / hidden. */}
-              {!extensionSource &&
-                !(
-                isPredefinedProvider &&
-                provider?.provider !== 'llamacpp'
-              ) && (
+              {!extensionSource && (
               <Card>
                 {provider?.settings.map((setting, settingIndex) => {
                   if (
@@ -835,27 +746,6 @@ function ProviderDetail() {
                 !extensionSource &&
                 provider.provider !== 'llamacpp' && (
                   <Card>
-                    {provider.provider === 'azure' && (
-                      <div className="space-y-2 mb-4">
-                        <div className="space-y-1">
-                          <h2 className="font-medium text-foreground text-base">
-                            {t('providers:baseUrl.title')}
-                          </h2>
-                          <p className="text-sm text-muted-foreground leading-normal">
-                            {t('providers:baseUrl.azureDescription')}
-                          </p>
-                        </div>
-                        <input
-                          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm font-mono shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                          placeholder="https://YOUR-RESOURCE-NAME.openai.azure.com/openai/v1"
-                          value={baseUrlDraft}
-                          onChange={(e) => setBaseUrlDraft(e.target.value)}
-                          onBlur={() => commitBaseUrlDraft()}
-                          spellCheck={false}
-                          autoComplete="off"
-                        />
-                      </div>
-                    )}
                     <div className="space-y-2">
                       <div className="space-y-1">
                         <h2 className="font-medium text-foreground text-base">
@@ -1135,17 +1025,7 @@ function ProviderDetail() {
                               provider.provider === 'llamacpp' && (
                               <ModelSetting provider={provider} model={model} />
                             )}
-                            {((provider &&
-                              !predefinedProviders.some(
-                                (p) => p.provider === provider.provider
-                              )) ||
-                              (provider &&
-                                predefinedProviders.some(
-                                  (p) => p.provider === provider.provider
-                                ) &&
-                                providerHasRemoteApiKeys(provider))) && (
-                              <FavoriteModelAction model={model} />
-                            )}
+                            {provider && <FavoriteModelAction model={model} />}
                             {!extensionSource && (
                               <DialogDeleteModel
                                 provider={provider}

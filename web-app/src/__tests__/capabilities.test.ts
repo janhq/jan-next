@@ -63,7 +63,6 @@ describe('Tauri capabilities', () => {
     expect(extensions.windows).toEqual(['main'])
     expect(extensions.remote).toBeUndefined()
     expect([...(extensions.platforms ?? [])].sort()).toEqual([
-      'linux',
       'macOS',
       'windows',
     ])

@@ -32,7 +32,6 @@ pub mod proc;
 pub mod sandbox;
 pub mod schema;
 pub mod spill;
-pub mod web;
 
 /// Epoch seconds, saturating to 0 before the epoch, used to stamp spill files.
 pub fn epoch_secs() -> u64 {
@@ -230,10 +229,6 @@ pub struct ToolContext<'a> {
     /// `None` starts every call in `project_root`, as a surface with no
     /// conversation (the MCP server) wants. See [`ShellCwd`].
     pub shell_cwd: Option<ShellCwd>,
-    /// The backend `web_search`/`web_fetch` use, as the host's settings chose
-    /// it. `None` keeps the default: keyless Exa, upgraded by an `EXA_API_KEY`
-    /// in the environment.
-    pub web_search: Option<&'a tauri_plugin_websearch::provider::WebSearchConfig>,
     /// `project_root` is read-only: a read-only subagent working in the user's
     /// checkout. `write`/`edit` refuse any path under it (the scratch stays
     /// writable), and the shell runs only confined, with the root bound
@@ -278,11 +273,6 @@ impl std::fmt::Debug for ToolContext<'_> {
             .field("shell_done_sink", &self.shell_done_sink.is_some())
             .field("detach_signal", &self.detach_signal.is_some())
             .field("shell_cwd", &self.shell_cwd.as_ref().map(|c| c.lock().unwrap().clone()))
-            // The config can hold an API key, so only the backend id is shown.
-            .field(
-                "web_search",
-                &self.web_search.map(|c| c.provider.as_deref().unwrap_or("default")),
-            )
             .finish()
     }
 }
@@ -443,7 +433,6 @@ impl<'a> ToolContext<'a> {
             shell_done_sink: None,
             detach_signal: None,
             shell_cwd: None,
-            web_search: None,
             workspace_readonly: false,
         }
     }
@@ -463,16 +452,6 @@ impl<'a> ToolContext<'a> {
     /// is never run without a sandbox whatever the surface chose.
     pub fn shell_confined(&self) -> bool {
         self.sandbox || self.workspace_readonly
-    }
-
-    /// Route the web tools to the host's chosen backend. See
-    /// [`Self::web_search`].
-    pub fn with_web_search(
-        mut self,
-        config: Option<&'a tauri_plugin_websearch::provider::WebSearchConfig>,
-    ) -> Self {
-        self.web_search = config;
-        self
     }
 
     /// Report finished background shells to `sink`. See
@@ -711,10 +690,6 @@ pub enum Capability {
     Read,
     Write,
     Exec,
-    /// Network egress (native web tools). Distinct from `Read`/`Exec` so the
-    /// gate can treat outbound web access as its own auto-allowed class rather
-    /// than a filesystem or shell operation.
-    Net,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -798,19 +773,6 @@ pub const BUILTIN_TOOLS: &[BuiltinTool] = &[
     BuiltinTool {
         name: "skill_write",
         capability: Capability::Write,
-        path_args: &[],
-    },
-    // Native, provider-neutral web tools. They are compiled into the agent
-    // core (NOT provided by an MCP server); Exa is only the default backend
-    // behind an adapter. They take no filesystem path, so `path_args` is empty.
-    BuiltinTool {
-        name: "web_search",
-        capability: Capability::Net,
-        path_args: &[],
-    },
-    BuiltinTool {
-        name: "web_fetch",
-        capability: Capability::Net,
         path_args: &[],
     },
 ];
@@ -983,21 +945,11 @@ mod tests {
 
     #[test]
     fn builtin_count_matches_expected() {
-        // 8 coding tools + 3 skill tools + 1 memory tool + 2 native web tools.
+        // 8 coding tools + 3 skill tools + 1 memory tool.
         // `screenshot` (one of the coding tools) is desktop-only, so the headless
         // CLI build (`feature = "tauri"` off) has one fewer.
-        let expected = if cfg!(feature = "tauri") { 14 } else { 13 };
+        let expected = if cfg!(feature = "tauri") { 12 } else { 11 };
         assert_eq!(BUILTIN_TOOLS.len(), expected);
-    }
-
-    #[test]
-    fn web_tools_are_net_capability() {
-        let s = lookup("web_search").expect("web_search is builtin");
-        assert_eq!(s.capability, Capability::Net);
-        assert!(s.path_args.is_empty());
-        let f = lookup("web_fetch").expect("web_fetch is builtin");
-        assert_eq!(f.capability, Capability::Net);
-        assert!(f.path_args.is_empty());
     }
 
     #[test]

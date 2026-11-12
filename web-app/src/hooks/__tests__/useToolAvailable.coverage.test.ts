@@ -24,13 +24,13 @@ describe('useToolAvailable - coverage', () => {
       const migrate = getMigrate()!
       const migrated = migrate(
         {
-          disabledTools: { t1: ['exa::web_search_exa'] },
-          defaultDisabledTools: ['exa::web_fetch_exa'],
+          disabledTools: { t1: ['exa::lookup_exa'] },
+          defaultDisabledTools: ['exa::fetch_exa'],
           defaultsInitialized: true,
         },
         1
       )
-      expect(migrated).toEqual({ disabledTools: ['exa::web_fetch_exa'] })
+      expect(migrated).toEqual({ disabledTools: ['exa::fetch_exa'] })
     })
 
     it('drops old pre-:: keys', () => {

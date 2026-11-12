@@ -1,6 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import type { UIMessage } from '@ai-sdk/react'
-import type * as ProviderCaps from '@/lib/providerCaps'
 
 // #9311: a tool-using turn keeps running when the user opens another thread,
 // and opening it moves the global model selection to that thread's model. The
@@ -71,14 +70,6 @@ vi.mock('@/lib/mcp-orchestrator', () => ({
 }))
 vi.mock('@/lib/mcp-router-model-filter', () => ({
   isRouterModelSelectable: () => false,
-}))
-vi.mock('@/lib/reasoningProviderOptions', () => ({
-  buildReasoningProviderOptions: () => undefined,
-}))
-vi.mock('@/lib/providerCaps', async (importOriginal) => ({
-  ...(await importOriginal<typeof ProviderCaps>()),
-  isPredefinedRemoteProvider: () => false,
-  getProviderApiType: () => 'openai',
 }))
 vi.mock('../model-factory', () => ({
   ModelFactory: { createModel: h.createModelMock },

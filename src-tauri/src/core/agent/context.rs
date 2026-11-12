@@ -183,31 +183,6 @@ pub(crate) fn load_skills(project_root: &Path) -> Option<String> {
     ))
 }
 
-/// Always-on guidance teaching the model that web access is a native built-in
-/// capability. Per jan-internal#196 the tools are provider-neutral: the model
-/// must call `web_search`/`web_fetch`, never a provider-branded name like
-/// `exa_search`, and should cite the URLs it relies on.
-const WEB_TOOLS_GUIDE: &str = "# Web Access\n\nYou have two native, built-in tools for the live web. They are provider-neutral \
-(the search backend is configured by Jan) and work out of the box — do NOT look for, ask for, or call a \
-provider-branded tool such as `exa_search`, and do not say you lack internet access.\n\n\
-## When to use them\n\n\
-Reach for the web whenever the answer depends on current, external, or fast-changing information: recent events, \
-library/API versions and docs, error messages, prices, people, or anything you are unsure about or that is outside \
-your training data. Prefer verifying over guessing.\n\n\
-## How to call them\n\n\
-- `web_search` — find sources. Arguments: `query` (required string; write a specific, natural-language description \
-of the ideal page, not just keywords) and optional `count` (integer, default 5, max 20). Returns a numbered list of \
-results with title, URL, and a snippet.\n\
-- `web_fetch` — read one page. Argument: `url` (required http(s) string, typically a URL returned by `web_search`). \
-Returns the page's readable text with its title and source URL (bounded in length).\n\n\
-## Workflow\n\n\
-1. Call `web_search` with a focused query.\n\
-2. Pick the most relevant result(s) and call `web_fetch` on their URLs to read the full content — don't rely on \
-snippets alone for anything important.\n\
-3. Base your answer on what you read and cite the source URLs you used. If results are thin, refine the query and \
-search again. If a tool returns text starting with `ERROR`, read it, adjust your arguments, and retry or tell the \
-user what's wrong.";
-
 /// Guidance injected only when subagent tools are actually available, so the
 /// model delegates context-heavy exploration instead of exhausting its own
 /// (limited) context window reading files and tool output directly.
@@ -215,7 +190,7 @@ const SUBAGENT_GUIDE: &str = "# Subagents\n\nYour own context window is limited.
 that could pull in a lot of file content or tool output (broad codebase search, reading files, many \
 multi-step research), prefer `dispatch_subagent` over doing it inline: the subagent absorbs that context \
 in its own window and returns only the distilled answer. For read-only codebase questions set `agent: \"explore\"` \
-and for web lookups `agent: \"research\"`: both run on a cheaper model; use `agent: \"general\"` when no \
+which runs on a cheaper model; use `agent: \"general\"` when no \
 other agent fits. A difficult task -- a change spanning several subsystems, a hard bug, a large \
 refactor or migration -- is where subagents pay off most: split it into independent parts and hand them \
 out (parallel investigations up front, a `debug` agent on a failure, a `review` of the finished change) \
@@ -608,7 +583,6 @@ fn render(composer: Composer, inputs: &CompositionInputs) -> Option<String> {
         Composer::SessionStart => inputs.session_start.map(SessionStart::block),
         Composer::SubagentGuide => inputs.subagents_enabled.then(|| subagent_guide(inputs.project_root)),
         Composer::SkillGuide => Some(skill_guide(inputs.memory)),
-        Composer::WebToolsGuide => Some(WEB_TOOLS_GUIDE.to_string()),
         Composer::ProjectContext => load_context_files(inputs.project_root),
         Composer::Skills => load_skills(inputs.project_root),
         // The session's snapshot when it has one, so a note written mid-session
@@ -899,23 +873,6 @@ mod tests {
     }
 
     #[test]
-    fn build_system_prompt_advertises_native_web_tools() {
-        let root = scratch_project("web");
-        let out = default_prompt(None, &root, None, false).expect("prompt");
-        assert!(out.contains("# Web Access"));
-        assert!(out.contains("web_search"));
-        assert!(out.contains("web_fetch"));
-        // Provider-neutral: the model must not be told to call a branded tool.
-        assert!(out.contains("exa_search"), "guide names the anti-pattern to avoid");
-        // Teaches how to call the tools, not just that they exist.
-        assert!(out.contains("query"), "documents the web_search query arg");
-        assert!(out.contains("count"), "documents the web_search count arg");
-        assert!(out.contains("url"), "documents the web_fetch url arg");
-        assert!(out.contains("Workflow"), "describes the search->fetch->cite flow");
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    #[test]
     fn build_system_prompt_always_includes_guide() {
         let root = scratch_project("guide");
         // No base and no project skills: the built-in guide is still injected.
@@ -1187,7 +1144,7 @@ mod tests {
         assert!(with.contains("agent: \"explore\""), "points cheap work at explore");
         // The names the `agent` enum accepts are spelled out with their purpose.
         assert!(with.contains("Predefined agents (`agent` field):"), "{with}");
-        assert!(with.contains("- `research` (model: smol): "), "{with}");
+        assert!(with.contains("- `review` (model: "), "{with}");
         assert!(with.contains("do not do the same work yourself"));
         assert!(!with.contains("keep working rather than waiting"));
         let _ = std::fs::remove_dir_all(&root);
@@ -1395,7 +1352,7 @@ mod tests {
             composed.prefix
         );
         assert!(
-            !composed.prefix.contains("# Web Access"),
+            !composed.prefix.contains("# Runtime Environment"),
             "a disallowed block must not reach the prefix: {}",
             composed.prefix
         );
@@ -1406,7 +1363,7 @@ mod tests {
             .map(|(_, block)| block.as_str())
             .collect();
         assert!(tail.iter().any(|block| block.contains("Do the thing.")));
-        assert!(tail.iter().any(|block| block.contains("# Web Access")));
+        assert!(tail.iter().any(|block| block.contains("# Runtime Environment")));
         assert!(composed.tail.iter().any(|(c, _)| *c == Composer::Skills));
         let _ = std::fs::remove_dir_all(&root);
     }
@@ -1457,7 +1414,6 @@ mod tests {
             "# Guidelines",
             "# Working Directory",
             "# Runtime Environment",
-            "# Web Access",
             "<project_context>",
             "## Skill: s",
         ] {

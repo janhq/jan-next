@@ -138,7 +138,6 @@ describe('SettingsMenu', () => {
   it('renders integrations links', () => {
     render(<SettingsMenu />)
     expect(screen.getByText('common:mcp-servers')).toBeInTheDocument()
-    expect(screen.getByText('common:claude_code')).toBeInTheDocument()
   })
 
   it('shows provider expansion chevron when providers are active', () => {

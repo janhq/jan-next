@@ -71,11 +71,11 @@ stub-resources:
 
 test-rust: stub-resources
 	cargo test --locked --manifest-path src-tauri/Cargo.toml --no-default-features --features test-tauri -- --test-threads=1
-	cargo test --locked --manifest-path src-tauri/plugins/tauri-plugin-hardware/Cargo.toml
-	cargo test --locked --manifest-path src-tauri/plugins/tauri-plugin-extensions/Cargo.toml
-	cargo test --locked --manifest-path src-tauri/plugins/tauri-plugin-llamacpp/Cargo.toml
-	cargo test --locked --manifest-path src-tauri/utils/Cargo.toml
-	# agent-tools gitignores its Cargo.lock, so no --locked.
+	cargo test --manifest-path src-tauri/plugins/tauri-plugin-hardware/Cargo.toml
+	cargo test --manifest-path src-tauri/plugins/tauri-plugin-extensions/Cargo.toml
+	cargo test --manifest-path src-tauri/plugins/tauri-plugin-llamacpp/Cargo.toml
+	cargo test --manifest-path src-tauri/utils/Cargo.toml
+	# Plugin and utils lockfiles are gitignored, so only the main crate is --locked.
 	cargo test --manifest-path src-tauri/plugins/tauri-plugin-agent-tools/Cargo.toml --no-default-features --lib --test sandbox_spawn
 
 # ---------------------------------------------------------------------------

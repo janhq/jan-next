@@ -544,30 +544,6 @@ function LocalAPIServerContent() {
                     )
                   }
                 />
-
-                <CardItem
-                  title={t('settings:localApiServer.swaggerDocs')}
-                  description={t('settings:localApiServer.swaggerDocsDesc')}
-                  actions={
-                    <a
-                      href={`http://${serverHost}:${serverPort}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={cn(
-                        isServerRunning ? '' : 'pointer-events-none'
-                      )}
-                    >
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={!isServerRunning}
-                        title={t('settings:localApiServer.swaggerDocs')}
-                      >
-                        <span>{t('settings:localApiServer.openDocs')}</span>
-                      </Button>
-                    </a>
-                  }
-                />
               </Card>
             </div>
           </div>

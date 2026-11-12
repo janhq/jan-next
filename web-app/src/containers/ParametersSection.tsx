@@ -22,7 +22,6 @@ import {
 import {
   paramsForProviders,
   resolveProviderCaps,
-  isModelLevelRejected,
 } from '@/lib/providerCaps'
 import { DynamicControllerSetting } from '@/containers/dynamicControllerSetting'
 
@@ -36,11 +35,6 @@ export interface ParametersSectionProps {
   onAddMany?: (values: Record<string, unknown>) => void
   /** Bulk remove (used when removing a coupled group). */
   onRemoveMany?: (keys: string[]) => void
-  /** When set, params model-rejected by (providerId, modelId) are flagged
-   *  in active rows and hidden from the add menu. Pass from the composer
-   *  where the selected model is known; omit in the assistant editor. */
-  providerId?: string
-  modelId?: string
 }
 
 export function ParametersSection({
@@ -51,11 +45,7 @@ export function ParametersSection({
   onRemove,
   onAddMany,
   onRemoveMany,
-  providerId,
-  modelId,
 }: ParametersSectionProps) {
-  const modelRejects = (key: string) =>
-    !!(providerId && modelId && isModelLevelRejected(key, providerId, modelId))
   const supportIndex = useMemo(() => {
     const idx: Record<
       string,
@@ -128,7 +118,6 @@ export function ParametersSection({
           paramKey={key}
           params={params}
           support={supportIndex[key]}
-          modelRejected={modelRejects(key)}
           onChange={onChange}
           onRemove={onRemove}
         />
@@ -157,7 +146,6 @@ export function ParametersSection({
         providers={providers}
         onAddStandalone={addStandalone}
         onAddGroup={addGroup}
-        modelRejects={modelRejects}
       />
     </div>
   )
@@ -167,7 +155,6 @@ interface StandaloneRowProps {
   paramKey: string
   params: Record<string, unknown>
   support?: { supportedBy: string[]; maybeBy: string[]; known: boolean }
-  modelRejected?: boolean
   onChange: (key: string, value: unknown) => void
   onRemove: (key: string) => void
 }
@@ -176,7 +163,6 @@ function StandaloneRow({
   paramKey,
   params,
   support,
-  modelRejected,
   onChange,
   onRemove,
 }: StandaloneRowProps) {
@@ -186,9 +172,8 @@ function StandaloneRow({
   const value = params[paramKey] ?? def.value
   const capUnsupported =
     support && def.capability !== 'core' && def.capability !== 'client_only' && !support.known
-  const unsupported = modelRejected || capUnsupported
+  const unsupported = capUnsupported
   const maybeOnly =
-    !modelRejected &&
     support &&
     support.known &&
     support.supportedBy.length === 0 &&
@@ -309,7 +294,6 @@ interface AddParameterMenuProps {
   providers: Array<Pick<ProviderObject, 'provider'>>
   onAddStandalone: (def: ParamDef) => void
   onAddGroup: (group: ParamGroup) => void
-  modelRejects: (key: string) => boolean
 }
 
 function AddParameterMenu({
@@ -317,7 +301,6 @@ function AddParameterMenu({
   providers,
   onAddStandalone,
   onAddGroup,
-  modelRejects,
 }: AddParameterMenuProps) {
   const items = useMemo(() => {
     return paramCategories
@@ -326,7 +309,6 @@ function AddParameterMenu({
           .map((k) => paramsSettings[k])
           .filter((def): def is ParamDef => Boolean(def))
           .filter((def) => isCapabilitySupported(def, providers))
-          .filter((def) => !modelRejects(def.key))
           .map((def) => ({
             kind: 'param' as const,
             def,
@@ -346,7 +328,7 @@ function AddParameterMenu({
         return { cat, entries }
       })
       .filter(({ entries }) => entries.length > 0)
-  }, [params, providers, modelRejects])
+  }, [params, providers])
 
   if (items.length === 0) {
     return (

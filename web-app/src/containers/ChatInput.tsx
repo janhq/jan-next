@@ -33,7 +33,6 @@ import {
   IconX,
   IconPaperclip,
   IconLoader2,
-  IconWorldSearch,
   IconTerminal2,
   IconBrandChrome,
   IconDots,
@@ -66,7 +65,6 @@ import {
   SESSION_STORAGE_KEY,
   SESSION_STORAGE_PREFIX,
 } from '@/constants/chat'
-import { defaultModel } from '@/lib/models'
 import { cancelAgentThreadBash, getSandboxStatus } from '@/lib/agentTools'
 import { useChatShell } from '@/hooks/useChatShell'
 import { useAssistant } from '@/hooks/useAssistant'
@@ -108,7 +106,6 @@ import { activePathTokens } from '@/lib/message-branching'
 import JanBrowserExtensionDialog from '@/containers/dialogs/JanBrowserExtensionDialog'
 import { useJanBrowserExtension } from '@/hooks/useJanBrowserExtension'
 import { useAgentMode } from '@/hooks/useAgentMode'
-import { useWebSearchConfig } from '@/hooks/useWebSearchConfig'
 import {
   expandPromptReferences,
   searchFiles,
@@ -318,8 +315,6 @@ const ChatInput = memo(function ChatInput({
   const effectiveAgentMode = isAgentMode && !projectId
   // Gate for the controls that shape which tools the model is offered.
   const showToolControls = ownsToolSet && !effectiveAgentMode
-  const webSearchEnabled = useWebSearchConfig((s) => s.webSearchEnabled)
-  const setWebSearchEnabled = useWebSearchConfig((s) => s.setWebSearchEnabled)
   const shellEnabled = useChatShell((s) => s.shellEnabled)
   const setShellEnabled = useChatShell((s) => s.setShellEnabled)
   // The shell is only ever offered where a sandbox can confine it, so the
@@ -764,7 +759,7 @@ const ChatInput = memo(function ChatInput({
 
         const newThread = await createThread(
           {
-            id: selectedModel?.id ?? defaultModel(selectedProvider),
+            id: selectedModel?.id ?? '',
             provider: selectedProvider,
           },
           prompt, // Use prompt as thread title
@@ -2406,14 +2401,6 @@ const ChatInput = memo(function ChatInput({
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
-                {/* {model?.provider === 'llamacpp' && loadingModel ? (
-                  <ModelLoader />
-                ) : (
-                  <DropdownModelProvider
-                    model={model}
-                    useLastUsedModel={initialMessage}
-                  />
-                )} */}
                 <AssistantSwitcher
                   assistants={assistants}
                   currentThread={currentThread}
@@ -2423,7 +2410,6 @@ const ChatInput = memo(function ChatInput({
                 />
                 <SamplerPopover
                   providerId={selectedProvider}
-                  modelId={selectedModel?.id}
                   assistantSwitcher={{
                     assistants,
                     currentThread,
@@ -2544,34 +2530,6 @@ const ChatInput = memo(function ChatInput({
                     </Tooltip>
                   )}
 
-                {!effectiveAgentMode && selectedModel?.capabilities?.includes('tools') && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        className={cn(webSearchEnabled && 'text-primary')}
-                        onClick={() => setWebSearchEnabled(!webSearchEnabled)}
-                      >
-                        <IconWorldSearch
-                          size={18}
-                          className={cn(
-                            'text-muted-foreground',
-                            webSearchEnabled && 'text-primary'
-                          )}
-                        />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>
-                        {webSearchEnabled
-                          ? t('common:web_search') + t('common:activeSuffix')
-                          : t('common:web_search')}
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-
                 {showToolControls &&
                   sandboxEnforcesShell &&
                   selectedModel?.capabilities?.includes('tools') && (
@@ -2605,15 +2563,9 @@ const ChatInput = memo(function ChatInput({
                   )}
 
                 {!effectiveAgentMode &&
-                  (selectedProvider === 'llamacpp' ||
-                    selectedProvider === 'google' ||
-                    selectedProvider === 'gemini' ||
-                    selectedProvider === 'anthropic' ||
-                    selectedProvider === 'openai') &&
+                  selectedProvider === 'llamacpp' &&
                   (() => {
-                    // The token-budget submenu only applies to local llama.cpp
-                    // (budget resolved against live n_ctx). Cloud providers size
-                    // their own budget dynamically, so on/off/auto is enough.
+                    // The token-budget submenu resolves against live n_ctx.
                     const showThinkingBudget = selectedProvider === 'llamacpp'
                     const reasoningValue =
                       (selectedModel?.settings?.reasoning?.controller_props
@@ -2660,114 +2612,6 @@ const ChatInput = memo(function ChatInput({
                       // re-select to refresh it so the dropdown UI and the
                       // chat transport both observe the new value.
                       selectModelProvider(selectedProvider, selectedModel.id)
-                    }
-                    const clearModelSetting = (settingKey: string) => {
-                      if (!selectedProvider || !selectedModel) return
-                      const providerObj = getProviderByName(selectedProvider)
-                      if (!providerObj) return
-                      const modelIndex = providerObj.models.findIndex(
-                        (m) => m.id === selectedModel.id
-                      )
-                      if (modelIndex === -1) return
-                      const nextSettings = { ...(selectedModel.settings ?? {}) }
-                      delete nextSettings[settingKey]
-                      const updatedModels = [...providerObj.models]
-                      updatedModels[modelIndex] = {
-                        ...selectedModel,
-                        settings: nextSettings,
-                      } as Model
-                      updateProvider(selectedProvider, { models: updatedModels })
-                      selectModelProvider(selectedProvider, selectedModel.id)
-                    }
-
-                    // OpenAI reasoning models expose a discrete effort (no
-                    // on/off, no token budget). Reuse the thinking_budget_tokens
-                    // level as the effort value; "Default" clears it so the
-                    // model uses its own default effort.
-                    if (selectedProvider === 'openai') {
-                      const rawEffort =
-                        selectedModel?.settings?.thinking_budget_tokens
-                          ?.controller_props?.value
-                      const currentEffort =
-                        isThinkingBudgetLevelKey(rawEffort) &&
-                        rawEffort !== 'unlimited'
-                          ? rawEffort
-                          : undefined
-                      const EFFORTS: ThinkingBudgetLevelKey[] = [
-                        'low',
-                        'medium',
-                        'high',
-                        'xhigh',
-                      ]
-                      const effortLabel = currentEffort
-                        ? THINKING_BUDGET_LEVELS.find(
-                            (l) => l.key === currentEffort
-                          )!.label
-                        : 'Default'
-                      return (
-                        <DropdownMenu>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon-xs"
-                                  aria-label={`Reasoning effort: ${effortLabel}`}
-                                >
-                                  <IconBrain
-                                    size={18}
-                                    className={cn(
-                                      'text-muted-foreground',
-                                      currentEffort && 'text-primary'
-                                    )}
-                                  />
-                                </Button>
-                              </DropdownMenuTrigger>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Reasoning effort: {effortLabel}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                          <DropdownMenuContent align="start">
-                            <DropdownMenuItem
-                              onClick={() =>
-                                clearModelSetting('thinking_budget_tokens')
-                              }
-                            >
-                              Default
-                              {!currentEffort && (
-                                <span className="ml-auto text-xs text-muted-foreground">
-                                  ✓
-                                </span>
-                              )}
-                            </DropdownMenuItem>
-                            {EFFORTS.map((key) => (
-                              <DropdownMenuItem
-                                key={key}
-                                onClick={() =>
-                                  updateModelSetting(
-                                    'thinking_budget_tokens',
-                                    'Reasoning Effort',
-                                    'dropdown',
-                                    key
-                                  )
-                                }
-                              >
-                                {
-                                  THINKING_BUDGET_LEVELS.find(
-                                    (l) => l.key === key
-                                  )!.label
-                                }
-                                {currentEffort === key && (
-                                  <span className="ml-auto text-xs text-muted-foreground">
-                                    ✓
-                                  </span>
-                                )}
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )
                     }
                     const setReasoning = (value: 'auto' | 'on' | 'off') =>
                       updateModelSetting(

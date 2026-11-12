@@ -229,7 +229,7 @@ describe('DialogEditModel - Basic Component Tests', () => {
         {
           id: 'test-model.gguf',
           displayName: 'Test Model',
-          capabilities: ['vision', 'tools', 'completion', 'embeddings', 'web_search', 'reasoning'],
+          capabilities: ['vision', 'tools', 'completion', 'embeddings', 'reasoning'],
         },
       ],
       settings: [],

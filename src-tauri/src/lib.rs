@@ -55,8 +55,6 @@ macro_rules! invoke_commands_with_extras {
         core::system::commands::factory_reset,
         core::system::commands::take_pending_webdata_reset,
         core::system::commands::read_logs,
-        core::system::commands::launch_claude_code_with_config,
-        core::system::commands::clear_claude_code_env,
         // Server commands
         core::server::commands::start_server,
         core::server::commands::stop_server,
@@ -253,7 +251,6 @@ pub fn run() {
             crate::core::app::paths::vector_db_dir(),
         ))
         .plugin(tauri_plugin_rag::init())
-        .plugin(tauri_plugin_websearch::init())
         .plugin(tauri_plugin_agent_tools::init());
 
     #[cfg(feature = "deep-link")]

@@ -29,10 +29,7 @@ const GLOBAL_CONFIG_TEMPLATE: &str = r#"# Jan Agent global provider config.
 #                                     # default, so the agent edits your checkout
 # think_tags = true                   # treat <think> tags in model content as
 #                                     # reasoning (folded, resent), for every
-#                                     # provider. Unset: on only for a custom
-#                                     # OpenAI-compatible provider; off for
-#                                     # openai, anthropic and tokamak, which
-#                                     # send reasoning in its own field. A
+#                                     # provider. Unset: on. A
 #                                     # provider overrides it with
 #                                     # parse_think_tags in its own table
 # stream_reasoning = false            # stop streaming reasoning into the TUI
@@ -54,8 +51,6 @@ const GLOBAL_CONFIG_TEMPLATE: &str = r#"# Jan Agent global provider config.
 #                                     # /terminal-setup when this terminal is
 #                                     # dropping Shift+Enter or Option+Delete.
 #                                     # On by default
-# claude_code_alias = false             # allow Jan to reuse Claude Code's
-#                                     # keychain login; on by default
 # hide_secrets = true                 # replace secret-named env values, URL
 #                                     # passwords and credential-shaped tokens
 #                                     # with placeholders before a request goes
@@ -98,15 +93,6 @@ const GLOBAL_CONFIG_TEMPLATE: &str = r#"# Jan Agent global provider config.
 #                                     # Default ["AGENTS.md"]; add "CLAUDE.md"
 #                                     # to opt in; [] reads JAN.md only. A
 #                                     # project's agent.toml [context] wins
-#
-# [web_search]                        # backend for the web_search/web_fetch
-# provider = "tavily"                 # tools: "exa" (default, keyless),
-#                                     # "tavily" (needs a key), "searxng"
-#                                     # (needs endpoint) or "you". Keys are
-#                                     # kept in the secret store: set them
-#                                     # with /settings or `jan config
-#                                     # web-search --api-key`, not here
-# endpoint = "https://searx.example.com"
 #
 # [experimental]                      # features that may change or go away
 # acp = true                          # allow `jan acp`, the Agent Client
@@ -178,10 +164,6 @@ struct GlobalConfigToml {
     /// for the check to know it was answered.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     terminal_hint: Option<bool>,
-    /// Allow Jan to reuse Claude Code's keychain login. `None` = the default,
-    /// on; set false to keep Jan from reading or refreshing that credential.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    claude_code_alias: Option<bool>,
     /// Hide secrets from model requests (`core::agent::secrets`). `None` = the
     /// default, off.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -245,30 +227,8 @@ struct GlobalConfigToml {
     /// graduating a feature is deleting its key rather than migrating it.
     #[serde(default, skip_serializing_if = "ExperimentalSection::is_empty")]
     experimental: ExperimentalSection,
-    /// `[web_search]` -- which backend answers the native `web_search` and
-    /// `web_fetch` tools. The API key is not here: it lives in the secret
-    /// store, under the record the desktop's Web Search settings use.
-    #[serde(default, skip_serializing_if = "WebSearchSection::is_empty")]
-    web_search: WebSearchSection,
     #[serde(default)]
     providers: HashMap<String, GlobalProviderEntry>,
-}
-
-/// `[web_search]` in `~/.jan/config.toml`. Each key is `None` when unset.
-#[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq)]
-pub(crate) struct WebSearchSection {
-    /// Backend id (`exa`, `tavily`, `searxng`, `you`). `None` = Exa.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub provider: Option<String>,
-    /// Instance URL for a self-hosted backend (SearXNG).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub endpoint: Option<String>,
-}
-
-impl WebSearchSection {
-    fn is_empty(&self) -> bool {
-        self.provider.is_none() && self.endpoint.is_none()
-    }
 }
 
 /// `[tui]` in `~/.jan/config.toml`. Each key is `None` when unset.
@@ -329,8 +289,6 @@ struct GlobalProviderEntry {
     base_url: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     models: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    api_type: Option<String>,
     /// Server-assigned id of the key, so a logout can revoke the exact key the
     /// CLI holds rather than a user's other keys.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -371,7 +329,6 @@ pub(crate) struct ProviderUpdate {
     pub base_url: Option<String>,
     /// `Some(vec)` replaces the model list; `Some(empty)` clears it.
     pub models: Option<Vec<String>>,
-    pub api_type: Option<String>,
     /// Server-assigned key metadata a browser sign-in gets back. Doubly
     /// optional on purpose: `None` leaves whatever is stored alone (the merge
     /// semantics above), while `Some(None)` clears it -- which is what a login
@@ -432,7 +389,6 @@ pub(crate) fn load_global_config() -> Result<HashMap<String, ProviderConfig>, St
                         })
                         .collect(),
                     models: entry.models,
-                    api_type: entry.api_type,
                     // `~/.jan/config.toml` describes the desktop app's
                     // providers, which size compaction from the project's
                     // `[provider]`/`[agent]` sections instead.
@@ -498,17 +454,6 @@ pub(crate) fn terminal_hint_enabled() -> bool {
         .unwrap_or(true)
 }
 
-/// Whether Jan may reuse Claude Code's keychain login
-/// (`claude_code_alias` in `~/.jan/config.toml`), defaulting to on. This
-/// setting is deliberately opt-out to preserve existing behavior while making
-/// the cross-tool credential reuse explicit and reversible.
-pub(crate) fn claude_code_alias_enabled() -> bool {
-    load_raw()
-        .ok()
-        .and_then(|config| config.claude_code_alias)
-        .unwrap_or(true)
-}
-
 /// Whether `bash` runs sandboxed by default (`sandbox` in `~/.jan/config.toml`).
 /// `None` when unset, so the caller can let a project's `agent.toml` or the
 /// `--sandbox` flag decide before falling back to the surface default.
@@ -539,16 +484,6 @@ pub(crate) fn worktree_setting() -> Option<bool> {
 }
 
 
-
-/// `[web_search]` in `~/.jan/config.toml`. Unset on an unreadable or malformed
-/// config: the default backend still works, and a preference file must never
-/// stop a session from starting.
-pub(crate) fn web_search_setting() -> WebSearchSection {
-    load_raw().map(|config| config.web_search).unwrap_or_default()
-}
-
-
-
 /// Host env-var names the sandboxed `bash` may inherit beyond the base
 /// allowlist (`env_passthrough` in `~/.jan/config.toml`), merged under a
 /// project's `[tools].env_passthrough`. Empty on an unreadable or malformed
@@ -576,54 +511,16 @@ pub(crate) fn hook_entries() -> Vec<tauri_plugin_agent_tools::tools::hooks::Hook
     load_raw().map(|config| config.hooks).unwrap_or_default()
 }
 
-/// Providers known to send reasoning in its own `reasoning_content` field, with
-/// the host that is really theirs, so tag parsing is off for them unless the
-/// user opts in. Anything else on the OpenAI wire (a custom endpoint, a local
-/// server) may inline its reasoning. The host matters as much as the name: an
-/// `openai` entry pointed at vLLM or OpenRouter is a compatible server, not
-/// OpenAI.
-const SEPARATE_REASONING_PROVIDERS: &[(&str, &str)] = &[
-    ("openai", "api.openai.com"),
-    ("anthropic", "api.anthropic.com"),
-    ("tokamak", "api.tokamak.sh"),
-];
-
-/// Whether `provider` is one of the known providers talking to its own
-/// endpoint. No `base_url` means the built-in one.
-fn sends_reasoning_separately(provider: &str, base_url: Option<&str>) -> bool {
-    let Some((_, host)) = SEPARATE_REASONING_PROVIDERS
-        .iter()
-        .find(|(name, _)| *name == provider)
-    else {
-        return false;
-    };
-    match base_url.map(str::trim).filter(|u| !u.is_empty()) {
-        None => true,
-        Some(url) => url::Url::parse(url)
-            .ok()
-            .and_then(|u| u.host_str().map(|h| h.eq_ignore_ascii_case(host)))
-            .unwrap_or(false),
-    }
-}
-
 /// Whether inline `<think>` tags in the content `provider` serves are parsed as
-/// reasoning. `provider` is the one serving the active model, `api_type` its
-/// wire API and `base_url` its endpoint; `None` when nothing serves it.
+/// reasoning. `provider` is the one serving the active model; `None` when
+/// nothing serves it.
 ///
 /// Answered in this order: the provider's own `parse_think_tags`, the root
-/// `think_tags` (every provider), then the default. The default is on only for
-/// a custom OpenAI-compatible provider: the known providers send reasoning
-/// separately, and a non-chat-completions wire API (`anthropic`, `google`,
-/// `openai-responses`) carries it in typed blocks, so a tag in their content is
-/// the model writing about tags.
+/// `think_tags` (every provider), then the default (on).
 ///
 /// A display preference must never block startup, so an unreadable or malformed
 /// config yields the default rather than an error.
-pub(crate) fn think_tags_enabled_for(
-    provider: Option<&str>,
-    api_type: Option<&str>,
-    base_url: Option<&str>,
-) -> bool {
+pub(crate) fn think_tags_enabled_for(provider: Option<&str>) -> bool {
     let Some(provider) = provider else {
         return false;
     };
@@ -633,10 +530,7 @@ pub(crate) fn think_tags_enabled_for(
         .and_then(|c| c.providers.get(provider))
         .and_then(|entry| entry.parse_think_tags)
         .or_else(|| config.as_ref().and_then(|c| c.think_tags))
-        .unwrap_or_else(|| {
-            !sends_reasoning_separately(provider, base_url)
-                && matches!(api_type, None | Some("openai"))
-        })
+        .unwrap_or(true)
 }
 
 /// Whether other projects' memory is listed and readable
@@ -798,9 +692,6 @@ pub(crate) fn set_provider(name: &str, update: ProviderUpdate) -> Result<PathBuf
     }
     if let Some(models) = update.models {
         entry.models = models;
-    }
-    if let Some(api_type) = update.api_type {
-        entry.api_type = Some(api_type);
     }
     if let Some(key_id) = update.key_id {
         entry.key_id = key_id.filter(|k| !k.is_empty());

@@ -1,58 +1,13 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import {
-  defaultModel,
   extractDescription,
   removeYamlFrontMatter,
   extractModelName,
   extractModelRepo,
   extractQuantLabel,
-  getModelCapabilities,
   selectDefaultQuant,
 } from '../models'
 import { ModelCapabilities } from '@/types/models'
-
-// Mock the token.js module
-vi.mock('token.js', () => ({
-  models: {
-    openai: {
-      models: ['gpt-5', 'gpt-4'],
-      supportsToolCalls: ['gpt-5', 'gpt-4'],
-      supportsImages: ['gpt-4-vision-preview'],
-    },
-    anthropic: {
-      models: ['claude-sonnet-4-5', 'claude-3-haiku'],
-      supportsToolCalls: ['claude-sonnet-4-5'],
-      supportsImages: ['claude-sonnet-4-5', 'claude-3-haiku'],
-    },
-    mistral: {
-      models: ['mistral-7b', 'mistral-8x7b'],
-      supportsToolCalls: ['mistral-8x7b'],
-    },
-    // Provider with no capability arrays
-    cohere: {
-      models: ['command', 'command-light'],
-    },
-  },
-}))
-
-describe('defaultModel', () => {
-  it('returns first OpenAI model when no provider is given', () => {
-    expect(defaultModel()).toBe('gpt-5')
-  })
-
-  it('returns first OpenAI model when unknown provider is given', () => {
-    expect(defaultModel('unknown')).toBe('gpt-5')
-  })
-
-  it('returns first model for known providers', () => {
-    expect(defaultModel('anthropic')).toBe('claude-sonnet-4-5')
-    expect(defaultModel('mistral')).toBe('mistral-large-2411')
-  })
-
-  it('handles empty string provider', () => {
-    expect(defaultModel('')).toBe('gpt-5')
-  })
-})
 
 describe('extractDescription', () => {
   it('returns undefined for falsy input', () => {
@@ -309,76 +264,5 @@ describe('extractQuantLabel', () => {
     expect(extractQuantLabel('some-random-model')).toBeNull()
     expect(extractQuantLabel('')).toBeNull()
     expect(extractQuantLabel()).toBeNull()
-  })
-})
-
-describe('getModelCapabilities', () => {
-  it('returns completion capability for all models', () => {
-    const capabilities = getModelCapabilities('openai', 'gpt-5')
-    expect(capabilities).toContain(ModelCapabilities.COMPLETION)
-  })
-
-  it('includes tools capability when model supports it', () => {
-    const capabilities = getModelCapabilities('openai', 'gpt-5')
-    expect(capabilities).toContain(ModelCapabilities.TOOLS)
-    expect(capabilities).toContain(ModelCapabilities.COMPLETION)
-  })
-
-  it('excludes tools capability when model does not support it', () => {
-    const capabilities = getModelCapabilities('mistral', 'mistral-nemo-2407')
-    expect(capabilities).not.toContain(ModelCapabilities.TOOLS)
-    expect(capabilities).toContain(ModelCapabilities.COMPLETION)
-  })
-
-  it('includes vision capability when model supports it', () => {
-    const capabilities = getModelCapabilities('openai', 'gpt-4o')
-    expect(capabilities).toContain(ModelCapabilities.VISION)
-    expect(capabilities).toContain(ModelCapabilities.COMPLETION)
-  })
-
-  it('excludes vision capability when model does not support it', () => {
-    const capabilities = getModelCapabilities('openai', 'gpt-4')
-    expect(capabilities).not.toContain(ModelCapabilities.VISION)
-  })
-
-  it('includes both tools and vision when model supports both', () => {
-    const capabilities = getModelCapabilities('anthropic', 'claude-sonnet-4-5')
-    expect(capabilities).toContain(ModelCapabilities.COMPLETION)
-    expect(capabilities).toContain(ModelCapabilities.TOOLS)
-    expect(capabilities).toContain(ModelCapabilities.VISION)
-  })
-
-  it('handles provider with no capability arrays gracefully', () => {
-    const capabilities = getModelCapabilities('ai21', 'jamba-instruct')
-    expect(capabilities).toEqual([ModelCapabilities.COMPLETION])
-    expect(capabilities).not.toContain(ModelCapabilities.TOOLS)
-    expect(capabilities).not.toContain(ModelCapabilities.VISION)
-  })
-
-  it('handles unknown provider gracefully', () => {
-    const capabilities = getModelCapabilities('openrouter', 'some-model')
-    expect(capabilities).toEqual([ModelCapabilities.COMPLETION])
-    expect(capabilities).not.toContain(ModelCapabilities.TOOLS)
-    expect(capabilities).not.toContain(ModelCapabilities.VISION)
-  })
-
-  it('handles model not in capability list', () => {
-    const capabilities = getModelCapabilities('xai', 'grok-2-vision-1212')
-    expect(capabilities).toContain(ModelCapabilities.COMPLETION)
-    expect(capabilities).toContain(ModelCapabilities.VISION)
-    expect(capabilities).not.toContain(ModelCapabilities.TOOLS)
-  })
-
-  it('returns only completion for provider with partial capability data', () => {
-    // Mistral has supportsToolCalls but no supportsImages
-    const capabilities = getModelCapabilities('mistral', 'mistral-nemo-2407')
-    expect(capabilities).toEqual([ModelCapabilities.COMPLETION])
-  })
-
-  it('handles model that supports tools but not vision', () => {
-    const capabilities = getModelCapabilities('mistral', 'mistral-large-2411')
-    expect(capabilities).toContain(ModelCapabilities.COMPLETION)
-    expect(capabilities).toContain(ModelCapabilities.TOOLS)
-    expect(capabilities).not.toContain(ModelCapabilities.VISION)
   })
 })

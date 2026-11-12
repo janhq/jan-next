@@ -1,41 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
 
-vi.mock('@/constants/providers', () => ({
-  predefinedProviders: [
-    { provider: 'openai' },
-    { provider: 'anthropic' },
-    { provider: 'llamacpp' },
-    { provider: 'jan' },
-  ],
-}))
-
 import { isProviderUsable, hasUsableProvider } from '../providerReadiness'
 
 const provider = (over: Record<string, unknown> = {}) =>
-  ({ provider: 'openai', models: [], ...over }) as never
+  ({ provider: 'my-server', models: [], ...over }) as never
 
 describe('isProviderUsable', () => {
-  it('accepts a predefined remote provider holding an API key', () => {
-    expect(isProviderUsable(provider({ api_key: 'sk-x' }))).toBe(true)
-  })
-
-  it('accepts a predefined remote provider with only a fallback key', () => {
-    expect(
-      isProviderUsable(provider({ api_key_fallbacks: ['sk-fallback'] }))
-    ).toBe(true)
-  })
-
-  it('rejects a predefined remote provider with no key', () => {
-    expect(isProviderUsable(provider())).toBe(false)
-  })
-
-  // A remote provider listing models still cannot serve them without a key.
-  it('rejects a predefined remote provider that only has models', () => {
-    expect(isProviderUsable(provider({ models: [{ id: 'gpt-4' }] }))).toBe(
-      false
-    )
-  })
-
   it('accepts llamacpp once it has a model, with no key', () => {
     expect(
       isProviderUsable(
@@ -46,12 +16,6 @@ describe('isProviderUsable', () => {
 
   it('rejects llamacpp with no models', () => {
     expect(isProviderUsable(provider({ provider: 'llamacpp' }))).toBe(false)
-  })
-
-  it('accepts jan once it has a model', () => {
-    expect(
-      isProviderUsable(provider({ provider: 'jan', models: [{ id: 'm' }] }))
-    ).toBe(true)
   })
 
   // Custom providers are user-configured endpoints, so models alone qualify.

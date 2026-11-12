@@ -14,7 +14,7 @@ test('testValidModelCreation', () => {
     settings: { ctx_len: 100, ngl: 50, embedding: true },
     parameters: { temperature: 0.5, token_limit: 100, top_k: 10 },
     metadata: { author: 'Author', tags: ['tag1', 'tag2'], size: 100 },
-    engine: 'anthropic',
+    engine: 'llamacpp',
   }
 
   expect(model).toBeDefined()
@@ -25,5 +25,5 @@ test('testValidModelCreation', () => {
   expect(model.settings).toBeDefined()
   expect(model.parameters).toBeDefined()
   expect(model.metadata).toBeDefined()
-  expect(model.engine).toBe('anthropic')
+  expect(model.engine).toBe('llamacpp')
 })

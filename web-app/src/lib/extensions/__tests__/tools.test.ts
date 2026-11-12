@@ -117,7 +117,7 @@ describe('toToolOutcome', () => {
 describe('isExtensionToolName', () => {
   it('recognises a wire name whether or not the tool is loaded', () => {
     expect(isExtensionToolName(toolWireName('acme.one', 'search'))).toBe(true)
-    expect(isExtensionToolName('web_search')).toBe(false)
+    expect(isExtensionToolName('read')).toBe(false)
     expect(isExtensionToolName('x_search')).toBe(false)
     expect(isExtensionToolName('x_0123__search')).toBe(false)
   })

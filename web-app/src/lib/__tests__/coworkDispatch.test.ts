@@ -1,13 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 
 const { executeAgentTool } = vi.hoisted(() => ({ executeAgentTool: vi.fn() }))
 vi.mock('@/lib/agentTools', () => ({ executeAgentTool }))
-
-const { executeWebTool } = vi.hoisted(() => ({ executeWebTool: vi.fn() }))
-vi.mock('@/lib/webSearchTool', () => ({
-  WEB_TOOL_NAMES: new Set(['web_search', 'web_fetch']),
-  executeWebTool,
-}))
 
 const coworkConfig = vi.hoisted(() => ({ networkEnabled: true }))
 vi.mock('@/hooks/useCoworkConfig', () => ({
@@ -27,7 +21,6 @@ const ctx = (over = {}) => ({
   sessionId: 's1',
   readOnlyFolder: null,
   planMode: false,
-  webSearch: false,
   onTodo: vi.fn(async () => ({ output: 'todo ok' })),
   onAsk: vi.fn(async () => ({ output: 'ask ok' })),
   onTask: vi.fn(async () => ({ output: 'task ok' })),
@@ -233,39 +226,4 @@ it('pauses repeated failed reads for review without swallowing the read error', 
   expect(result.isError).toBe(true)
   expect(result.output).toContain(error)
   expect(result.output).toContain('Keep planning')
-})
-
-describe('web tools', () => {
-  beforeEach(() => executeWebTool.mockReset())
-
-  it('routes a web call to the websearch plugin', async () => {
-    executeWebTool.mockResolvedValue({ content: { kind: 'web', results: [] } })
-    const out = await dispatchCoworkTool(
-      call('web_search', { query: 'jan' }),
-      ctx({ webSearch: true })
-    )
-    expect(executeWebTool).toHaveBeenCalledWith('web_search', { query: 'jan' })
-    // Serialized, not passed through: the model gets a string, and the citation
-    // parser re-parses it for the source chips.
-    expect(JSON.parse(out.output)).toMatchObject({ kind: 'web' })
-    expect(out.isError).toBeFalsy()
-  })
-
-  // Withholding is not authoritative -- a model can call a tool that was never
-  // advertised -- so an off switch in Settings is enforced here too.
-  it('refuses without reaching the network when web search is off', async () => {
-    const out = await dispatchCoworkTool(call('web_search'), ctx())
-    expect(executeWebTool).not.toHaveBeenCalled()
-    expect(out.isError).toBe(true)
-    expect(out.output).toContain('Settings')
-  })
-
-  it('reports a plugin failure as a tool error', async () => {
-    executeWebTool.mockResolvedValue({ error: 'no API key' })
-    const out = await dispatchCoworkTool(
-      call('web_fetch', { url: 'https://x.dev' }),
-      ctx({ webSearch: true })
-    )
-    expect(out).toMatchObject({ output: 'no API key', isError: true })
-  })
 })

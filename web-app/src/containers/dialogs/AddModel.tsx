@@ -15,7 +15,7 @@ import { IconPlus } from '@tabler/icons-react'
 import { useState } from 'react'
 import { getProviderTitle } from '@/lib/utils'
 import { useTranslation } from '@/i18n/react-i18next-compat'
-import { getModelCapabilities } from '@/lib/models'
+import { ModelCapabilities } from '@/types/models'
 import { toast } from 'sonner'
 import { ExternalAnchor } from '@/components/ExternalAnchor'
 
@@ -52,7 +52,7 @@ export const DialogAddModel = ({ provider, trigger }: DialogAddModelProps) => {
       id: modelId,
       model: modelId,
       name: modelId,
-      capabilities: getModelCapabilities(provider.provider, modelId),
+      capabilities: [ModelCapabilities.COMPLETION],
       version: '1.0',
     }
 

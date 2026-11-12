@@ -17,25 +17,16 @@ import {
   encodeMcpToolImages,
   hasToolImageSentinel,
   stripToolImageSentinels,
-  toContentToolOutputs,
 } from './tool-image-sentinel'
 import { useServiceStore } from '@/hooks/useServiceHub'
 import { useToolAvailable } from '@/hooks/useToolAvailable'
 import { ModelFactory } from './model-factory'
-import { buildsOwnToolImageRequest } from './providerCaps'
 import { useModelProvider } from '@/hooks/useModelProvider'
 import { useAssistant } from '@/hooks/useAssistant'
 import { useThreads } from '@/hooks/useThreads'
 import { useAttachments } from '@/hooks/useAttachments'
 import { useMCPServers } from '@/hooks/useMCPServers'
-import { useWebSearchConfig } from '@/hooks/useWebSearchConfig'
 import { useChatShell } from '@/hooks/useChatShell'
-import {
-  WEB_SEARCH_DESCRIPTION,
-  WEB_SEARCH_INPUT_SCHEMA,
-  WEB_FETCH_DESCRIPTION,
-  WEB_FETCH_INPUT_SCHEMA,
-} from '@/lib/webSearchTool'
 import {
   CHAT_AGENT_TOOL_NAMES,
   getAgentToolSchemas,
@@ -54,7 +45,6 @@ import {
   tokensForThinkingBudgetLevel,
   isThinkingBudgetLevelKey,
 } from '@/lib/thinkingBudget'
-import { buildReasoningProviderOptions } from '@/lib/reasoningProviderOptions'
 import { ServiceKeys, type MCPTool } from '@janhq/core'
 import {
   trimMessages,
@@ -74,9 +64,7 @@ import {
   hasVideoSentinel,
   parseVideoDataUrl,
 } from '@/lib/video-sentinel'
-import { isPredefinedRemoteProvider } from '@/lib/providerCaps'
 import { PING_OPEN } from '@/lib/coworkPing'
-import { paramsSettings } from '@/lib/predefinedParams'
 import { CHAT_SLOT_ID } from '@/constants/models'
 import { createStepMetadata } from '@/lib/stepMetadata'
 
@@ -437,7 +425,7 @@ function carryAttachmentsForward(
  * Enforce strict user/assistant alternation on the message history before it
  * goes to the model.
  *
- * Most chat templates (Gemma, Mistral, Llama 3, Anthropic Claude API,
+ * Most chat templates (Gemma, Llama 3,
  * tool-calling Qwen variants, etc.) reject two consecutive turns with the
  * same role — either via a Jinja `raise_exception` or a 400 from the
  * provider. When a generation fails mid-stream the AI SDK still keeps the
@@ -592,7 +580,7 @@ const RESOLVED_TOOL_STATES = new Set([
  * abort, network drop). The AI SDK leaves the assistant message with a
  * tool-* part whose `state` is `input-streaming` / `input-available` — no
  * result was ever appended. Sending that history back to a strict template
- * (Gemma, Mistral, alternation-checking Qwen variants) trips a Jinja
+ * (Gemma, alternation-checking Qwen variants) trips a Jinja
  * `raise_exception` on the next turn.
  *
  * We synthesise an `output-error` so the orphan reads as a failed tool call
@@ -1047,7 +1035,6 @@ export class CustomChatTransport implements ChatTransport<UIMessage> {
         this.systemMessage,
         this.buildMemorySystemInstruction(),
         this.buildFilesSystemInstruction(messages),
-        this.buildWebSearchSystemInstruction(),
         this.buildAgentToolsSystemInstruction(),
       ]
         .filter((s) => typeof s === 'string' && s.trim().length > 0)
@@ -1225,19 +1212,6 @@ export class CustomChatTransport implements ChatTransport<UIMessage> {
         }
       } catch (error) {
         console.warn('Failed to load MCP tools:', error)
-      }
-
-      // Native web tools, provided by the websearch plugin (not an MCP server).
-      // Advertised whenever the user has web search enabled.
-      if (useWebSearchConfig.getState().webSearchEnabled) {
-        toolsRecord['web_search'] = {
-          description: WEB_SEARCH_DESCRIPTION,
-          inputSchema: jsonSchema(WEB_SEARCH_INPUT_SCHEMA as Record<string, unknown>),
-        } as Tool
-        toolsRecord['web_fetch'] = {
-          description: WEB_FETCH_DESCRIPTION,
-          inputSchema: jsonSchema(WEB_FETCH_INPUT_SCHEMA as Record<string, unknown>),
-        } as Tool
       }
 
       // Tools contributed by extensions, under their prefixed wire names so
@@ -1444,9 +1418,6 @@ export class CustomChatTransport implements ChatTransport<UIMessage> {
     threadId: string,
     myGeneration: number
   ): Promise<ReadableStream<UIMessageChunk>> {
-    // Capture the effective provider name early so the Anthropic serial
-    // tool-use repair later uses the same value that was used to create the
-    // model, even if the user switches provider mid-request.
     const turnModelSelection = this.resolveTurnModelSelection(
       options.messages,
       options.trigger
@@ -1510,14 +1481,6 @@ export class CustomChatTransport implements ChatTransport<UIMessage> {
         ...modelSamplingDefaults,
         ...(inferenceParams ?? {}),
         ...reasoningParams,
-      }
-      // This only strips the raw-body injection. The output cap still reaches
-      // these providers through streamText's maxOutputTokens, which lets each
-      // SDK map it (Anthropic adds the thinking budget, OpenAI reasoning
-      // models need max_completion_tokens); a body max_tokens would clobber
-      // that. The context budget params are read client-side only.
-      if (isPredefinedRemoteProvider(effectiveProviderName)) {
-        for (const key of Object.keys(paramsSettings)) delete mergedParams[key]
       }
       // Pin chat to slot 0 so llama-server reuses this thread's cached KV
       // prefix across turns. Cowork and background tasks share the same slot;
@@ -1664,11 +1627,6 @@ export class CustomChatTransport implements ChatTransport<UIMessage> {
         )
       )
     )
-    // Anthropic, Gemini and OpenAI Responses build their own request, so a tool
-    // image sentinel would reach them as text; the others decode it in the fetch.
-    const baseMessages = buildsOwnToolImageRequest(provider)
-      ? toContentToolOutputs(convertedMessages)
-      : convertedMessages
 
     // If continuing a truncated response, append the partial assistant content as a
     // prefill so the model resumes from where it left off rather than regenerating.
@@ -1676,7 +1634,7 @@ export class CustomChatTransport implements ChatTransport<UIMessage> {
     this.continueFromContent = null
     const modelMessages = continueContent
       ? [
-          ...baseMessages,
+          ...convertedMessages,
           {
             role: 'assistant' as const,
             content: [
@@ -1694,19 +1652,12 @@ export class CustomChatTransport implements ChatTransport<UIMessage> {
             ],
           },
         ]
-      : baseMessages
+      : convertedMessages
 
     // Include tools only if we have tools loaded AND model supports them
     const hasTools = Object.keys(this.tools).length > 0
     const modelSupportsTools = selectedModel?.capabilities?.includes('tools') ?? this.modelSupportsTools
     const shouldEnableTools = hasTools && modelSupportsTools
-
-    // Cloud providers take reasoning via the AI SDK's per-request
-    // providerOptions (native thinking config), not the raw body.
-    const reasoningProviderOptions = buildReasoningProviderOptions(
-      providerId,
-      selectedModel
-    )
 
     useAppState.getState().updatePromptProgress(undefined)
     useAppState.getState().updateThreadPromptProgress(threadId, undefined)
@@ -1726,9 +1677,6 @@ export class CustomChatTransport implements ChatTransport<UIMessage> {
       // 0 means "no cap" in assistant params; the SDK rejects anything below 1.
       ...(maxOutputTokens !== undefined && maxOutputTokens >= 1
         ? { maxOutputTokens }
-        : {}),
-      ...(reasoningProviderOptions
-        ? { providerOptions: reasoningProviderOptions }
         : {}),
       experimental_repairToolCall: async ({ toolCall, error }) => {
         // Windows paths (`C:\Users\...`) contain invalid JSON escapes that make
@@ -1896,27 +1844,6 @@ export class CustomChatTransport implements ChatTransport<UIMessage> {
       'attached to that turn (file_id, name, type, size, chunk count, mode).',
       'Use the available retrieval tools with those file_ids when their',
       'contents are relevant to the request.',
-    ].join(' ')
-  }
-
-  /**
-   * Static instruction teaching the model to use the native web tools and cite
-   * sources inline with [[cite:URL]] markers (rendered as favicon chips). Only
-   * added when web search is enabled so it doesn't affect prompt caching for
-   * users who keep it off.
-   */
-  buildWebSearchSystemInstruction(): string {
-    if (!useWebSearchConfig.getState().webSearchEnabled) return ''
-    return [
-      '# Web Access',
-      'You can search the web with web_search and read pages with web_fetch.',
-      'Use them whenever the request needs current, external, or verifiable',
-      'information, then base your answer on what you find. When a statement',
-      'relies on a web source, cite it inline immediately after that statement',
-      'using the exact marker [[cite:URL]], where URL is the full source URL',
-      'from a web_search result (for example: [[cite:https://example.com/page]]).',
-      'Cite each distinct source you rely on; do not add a separate references',
-      'or sources section.',
     ].join(' ')
   }
 

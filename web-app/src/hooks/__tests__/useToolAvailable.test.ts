@@ -20,7 +20,7 @@ vi.mock('zustand/middleware', () => ({
 }))
 
 const SERVER = 'exa'
-const TOOL = 'web_search_exa'
+const TOOL = 'lookup_exa'
 const KEY = createToolKey(SERVER, TOOL)
 
 describe('useToolAvailable (global tool availability)', () => {

@@ -68,13 +68,13 @@ describe('useToolApprovalRequests', () => {
   it('asks for a strict request whatever the shortcuts and saved grants say', async () => {
     useToolApproval.setState({ allowAllMCPPermissions: true })
     act(() => {
-      useToolApproval.getState().approveToolForThread('thread-1', 'web_fetch')
-      useToolApproval.getState().approveToolEverywhere('web_fetch')
+      useToolApproval.getState().approveToolForThread('thread-1', 'builtin_tool')
+      useToolApproval.getState().approveToolEverywhere('builtin_tool')
     })
     const { result } = renderHook(() => useToolApprovalRequests())
     let p: Promise<boolean>
     act(() => {
-      p = result.current.requestApproval('tc1', 'web_fetch', 'thread-1', undefined, {
+      p = result.current.requestApproval('tc1', 'builtin_tool', 'thread-1', undefined, {
         strict: true,
       })
     })
@@ -83,7 +83,7 @@ describe('useToolApprovalRequests', () => {
     act(() => result.current.resolveApproval('tc1', 'allow-always'))
     await expect(p!).resolves.toBe(true)
     act(() => {
-      result.current.requestApproval('tc2', 'web_fetch', 'thread-1', undefined, {
+      result.current.requestApproval('tc2', 'builtin_tool', 'thread-1', undefined, {
         strict: true,
       })
     })

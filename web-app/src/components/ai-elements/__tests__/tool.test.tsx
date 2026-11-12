@@ -105,7 +105,7 @@ describe('ToolApprovalActions', () => {
   // A strict request saves no grant, so it offers only this call.
   it('offers only this call for a strict request', () => {
     renderApproval({
-      tc1: { toolCallId: 'tc1', toolName: 'web_fetch', strict: true },
+      tc1: { toolCallId: 'tc1', toolName: 'do_thing', strict: true },
     })
     expect(screen.getByText('tools:toolApproval.allowOnce')).toBeInTheDocument()
     expect(screen.getByText('tools:toolApproval.deny')).toBeInTheDocument()

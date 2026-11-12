@@ -19,12 +19,6 @@ vi.mock('@/hooks/useToolOrigin', () => ({
   useToolOrigin: () => origin(),
 }))
 
-vi.mock('../WebToolWidget', () => ({
-  WebToolWidget: ({ bar }: { bar: { query?: string } }) => (
-    <div data-testid="web-widget">{bar.query}</div>
-  ),
-}))
-
 vi.mock('../RagToolWidget', () => ({
   RagToolWidget: () => <div data-testid="rag-widget" />,
 }))
@@ -32,30 +26,6 @@ vi.mock('../RagToolWidget', () => ({
 import { ToolCallCard } from '../ToolCallCard'
 
 describe('ToolCallCard', () => {
-  // The widget already shows the query in its search bar, so repeating it in
-  // the header renders the same text twice, one line apart.
-  it('leaves the argument preview to the widget when one renders', () => {
-    origin.mockReturnValue({ kind: 'web-search', detail: 'Exa' })
-    render(
-      <ToolCallCard
-        part={{
-          type: 'tool-web_search',
-          state: 'output-error',
-          toolCallId: 'tc1',
-          input: { query: 'deepfake prevention news' },
-          errorText: 'rate limited',
-        }}
-        messageId="m1"
-      />
-    )
-    expect(screen.getByTestId('web-widget')).toHaveTextContent(
-      'deepfake prevention news'
-    )
-    expect(
-      screen.queryByText('query: deepfake prevention news')
-    ).not.toBeInTheDocument()
-  })
-
   // Without a widget the header preview is the only thing describing the call
   // while it is collapsed.
   it('previews the arguments in the header for a tool with no widget', () => {

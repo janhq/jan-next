@@ -7,12 +7,9 @@ export const isToolRunning = (state: ToolUIPart['state']) =>
   state === 'input-streaming' || state === 'input-available'
 
 /**
- * The chrome a native tool call is presented as: web search reads as a search
- * bar the model types into, web fetch as an address bar.
+ * The chrome a native tool call is presented as.
  */
 export type ToolCallBar =
-  | { variant: 'search'; query: string; count?: number }
-  | { variant: 'address'; url: string }
   | { variant: 'documents'; query: string; count?: number; fileCount?: number }
   /** `shell`, presented as a terminal. */
   | { variant: 'terminal'; command: string }
@@ -100,16 +97,6 @@ export function describeNativeToolCall(
   const asCount = (value: unknown) =>
     typeof value === 'number' ? value : undefined
 
-  if (origin.kind === 'web-search') {
-    return {
-      variant: 'search',
-      query: asString(args.query),
-      count: asCount(args.count),
-    }
-  }
-  if (origin.kind === 'web-fetch') {
-    return { variant: 'address', url: asString(args.url) }
-  }
   if (origin.kind === 'subagent') {
     // The `dispatch_subagent` schema is a flat `subagents[]`; the card names the
     // first one (the widget is transient and hides once the fan-out is launched,
@@ -233,43 +220,5 @@ export function parseBashOutput(output: unknown): BashOutput {
     truncated,
     sandboxNote,
     configNotes,
-  }
-}
-
-export type WebFetchPage = {
-  title?: string
-  url?: string
-  content: string
-  truncated: boolean
-}
-
-export const TRUNCATION_MARKER = '\n\n[content truncated]'
-const FETCH_HEADER = /^Title: (.*)\nURL: (.*)\n\n([\s\S]*)$/
-
-/**
- * web_fetch returns a plain-text blob prefixed with `Title:` / `URL:` lines
- * (see executeWebTool), not a structured payload. Split it back apart so the
- * page can be presented as a page instead of a wall of text.
- */
-export function parseWebFetchOutput(output: unknown): WebFetchPage | undefined {
-  const text =
-    typeof output === 'string'
-      ? output
-      : typeof (output as { content?: unknown })?.content === 'string'
-        ? (output as { content: string }).content
-        : undefined
-  if (text === undefined) return undefined
-
-  const truncated = text.endsWith(TRUNCATION_MARKER)
-  const body = truncated ? text.slice(0, -TRUNCATION_MARKER.length) : text
-
-  const match = body.match(FETCH_HEADER)
-  if (!match) return { content: body, truncated }
-
-  return {
-    title: match[1] || undefined,
-    url: match[2] || undefined,
-    content: match[3],
-    truncated,
   }
 }

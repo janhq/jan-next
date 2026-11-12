@@ -25,7 +25,7 @@ pub const SESSION_ID_HEADER: &str = "X-Session-Id";
 
 /// Names a custom header may never set, lowercase: the transport's own framing,
 /// and every credential header either send path writes (the Bearer default and
-/// the converters' `x-api-key` / `x-goog-api-key` / `anthropic-version`). A
+/// `x-api-key`). A
 /// custom value for one of these would either break the stream or send a second
 /// credential alongside the real one.
 pub const RESERVED: &[&str] = &[
@@ -34,8 +34,6 @@ pub const RESERVED: &[&str] = &[
     "accept",
     "accept-encoding",
     "x-api-key",
-    "x-goog-api-key",
-    "anthropic-version",
 ];
 
 /// Whether `name` is one a custom header may not set.
@@ -136,8 +134,8 @@ pub fn extras(
 }
 
 /// Add `extras` to headers a send path already set, skipping any whose name is
-/// already there: those are the path's framing and credentials (a converter's
-/// `anthropic-beta`, `chatgpt-account-id`, ...), which a custom header must not
+/// already there: those are the path's framing and credentials (for example
+/// `x-api-key`), which a custom header must not
 /// displace or duplicate.
 pub fn merge_onto(base: &mut Vec<(String, String)>, extras: &[(String, String)]) {
     for (name, value) in extras {
@@ -236,8 +234,6 @@ mod tests {
             &custom(&[
                 ("Authorization", "Bearer other"),
                 ("x-API-key", "second-credential"),
-                ("X-Goog-Api-Key", "g"),
-                ("anthropic-version", "1999-01-01"),
                 ("Content-Type", "text/plain"),
                 ("Accept", "*/*"),
                 ("Accept-Encoding", "gzip"),
@@ -286,18 +282,18 @@ mod tests {
         assert_eq!(out, vec![("x-team".to_string(), "b".to_string())]);
     }
 
-    /// A converter's own headers are its credentials and protocol version; a
-    /// custom header with the same name must neither replace nor duplicate one.
+    /// A transport's own headers are its credentials; a custom header with the
+    /// same name must neither replace nor duplicate one.
     #[test]
     fn merging_never_duplicates_a_header_the_transport_set() {
         let mut base = vec![
             ("x-api-key".to_string(), "real".to_string()),
-            ("anthropic-beta".to_string(), "oauth".to_string()),
+            ("x-transport".to_string(), "fixed".to_string()),
         ];
         merge_onto(
             &mut base,
             &[
-                ("Anthropic-Beta".to_string(), "custom".to_string()),
+                ("X-Transport".to_string(), "custom".to_string()),
                 ("X-Client-Name".to_string(), "jan-agent".to_string()),
             ],
         );
@@ -305,7 +301,7 @@ mod tests {
             base,
             vec![
                 ("x-api-key".to_string(), "real".to_string()),
-                ("anthropic-beta".to_string(), "oauth".to_string()),
+                ("x-transport".to_string(), "fixed".to_string()),
                 ("X-Client-Name".to_string(), "jan-agent".to_string()),
             ]
         );

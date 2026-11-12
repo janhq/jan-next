@@ -83,7 +83,6 @@ pub(crate) enum Composer {
     SessionStart,
     SubagentGuide,
     SkillGuide,
-    WebToolsGuide,
     ProjectContext,
     Skills,
     MemoryCatalog,
@@ -105,7 +104,6 @@ impl Composer {
         Composer::SessionStart,
         Composer::SubagentGuide,
         Composer::SkillGuide,
-        Composer::WebToolsGuide,
         Composer::ProjectContext,
         Composer::Skills,
         Composer::MemoryCatalog,
@@ -127,7 +125,6 @@ impl Composer {
             Composer::SessionStart => "session_start",
             Composer::SubagentGuide => "subagent_guide",
             Composer::SkillGuide => "skill_guide",
-            Composer::WebToolsGuide => "web_tools_guide",
             Composer::ProjectContext => "project_context",
             Composer::Skills => "skills",
             Composer::MemoryCatalog => "memory_catalog",
@@ -153,7 +150,6 @@ impl Composer {
             Composer::SessionStart => "the date and git branch, frozen when the session started",
             Composer::SubagentGuide => "how to delegate context-heavy exploration",
             Composer::SkillGuide => "the skills and memory file conventions",
-            Composer::WebToolsGuide => "the native web tools and when to reach for them",
             Composer::ProjectContext => {
                 "AGENTS.md (or a legacy JAN.md), from the project and its ancestors"
             },
@@ -185,7 +181,6 @@ impl Composer {
             | Composer::SessionStart
             | Composer::SubagentGuide
             | Composer::SkillGuide
-            | Composer::WebToolsGuide
             | Composer::ProjectContext
             | Composer::Skills
             | Composer::MemoryCatalog
@@ -217,7 +212,6 @@ impl Composer {
             | Composer::SessionStart
             | Composer::SubagentGuide
             | Composer::SkillGuide
-            | Composer::WebToolsGuide
             | Composer::ProjectContext
             | Composer::Skills
             | Composer::MemoryCatalog

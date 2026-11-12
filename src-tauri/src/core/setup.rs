@@ -248,8 +248,8 @@ pub fn is_hosted_default_exa_server(exa: &serde_json::Value) -> bool {
         && empty_map("headers")
 }
 
-/// One-time cutover to native web search: drop the default Exa MCP server so the
-/// built-in web_search/web_fetch tools own web search.
+/// One-time cutover: drop the default Exa MCP server so the
+/// built-in tools replace it.
 ///
 /// Version 4's match is narrow: the entry has to be inactive *and* keyless, but
 /// 0.8.3 shipped it `active: true` with an empty `env`, so for upgraders the

@@ -16,7 +16,6 @@ import { Route as ArtifactsRouteImport } from './routes/artifacts'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as HubIndexRouteImport } from './routes/hub/index'
 import { Route as ThreadsThreadIdRouteImport } from './routes/threads/$threadId'
-import { Route as SettingsWebSearchRouteImport } from './routes/settings/web-search'
 import { Route as SettingsShortcutsRouteImport } from './routes/settings/shortcuts'
 import { Route as SettingsMcpServersRouteImport } from './routes/settings/mcp-servers'
 import { Route as SettingsLocalApiServerRouteImport } from './routes/settings/local-api-server'
@@ -69,11 +68,6 @@ const HubIndexRoute = HubIndexRouteImport.update({
 const ThreadsThreadIdRoute = ThreadsThreadIdRouteImport.update({
   id: '/threads/$threadId',
   path: '/threads/$threadId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SettingsWebSearchRoute = SettingsWebSearchRouteImport.update({
-  id: '/settings/web-search',
-  path: '/settings/web-search',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsShortcutsRoute = SettingsShortcutsRouteImport.update({
@@ -189,7 +183,6 @@ export interface FileRoutesByFullPath {
   '/settings/local-api-server': typeof SettingsLocalApiServerRoute
   '/settings/mcp-servers': typeof SettingsMcpServersRoute
   '/settings/shortcuts': typeof SettingsShortcutsRoute
-  '/settings/web-search': typeof SettingsWebSearchRoute
   '/threads/$threadId': typeof ThreadsThreadIdRoute
   '/hub/': typeof HubIndexRoute
   '/settings/extensions/$extensionId': typeof SettingsExtensionsExtensionIdRoute
@@ -217,7 +210,6 @@ export interface FileRoutesByTo {
   '/settings/local-api-server': typeof SettingsLocalApiServerRoute
   '/settings/mcp-servers': typeof SettingsMcpServersRoute
   '/settings/shortcuts': typeof SettingsShortcutsRoute
-  '/settings/web-search': typeof SettingsWebSearchRoute
   '/threads/$threadId': typeof ThreadsThreadIdRoute
   '/hub': typeof HubIndexRoute
   '/settings/extensions/$extensionId': typeof SettingsExtensionsExtensionIdRoute
@@ -246,7 +238,6 @@ export interface FileRoutesById {
   '/settings/local-api-server': typeof SettingsLocalApiServerRoute
   '/settings/mcp-servers': typeof SettingsMcpServersRoute
   '/settings/shortcuts': typeof SettingsShortcutsRoute
-  '/settings/web-search': typeof SettingsWebSearchRoute
   '/threads/$threadId': typeof ThreadsThreadIdRoute
   '/hub/': typeof HubIndexRoute
   '/settings/extensions/$extensionId': typeof SettingsExtensionsExtensionIdRoute
@@ -276,7 +267,6 @@ export interface FileRouteTypes {
     | '/settings/local-api-server'
     | '/settings/mcp-servers'
     | '/settings/shortcuts'
-    | '/settings/web-search'
     | '/threads/$threadId'
     | '/hub/'
     | '/settings/extensions/$extensionId'
@@ -304,7 +294,6 @@ export interface FileRouteTypes {
     | '/settings/local-api-server'
     | '/settings/mcp-servers'
     | '/settings/shortcuts'
-    | '/settings/web-search'
     | '/threads/$threadId'
     | '/hub'
     | '/settings/extensions/$extensionId'
@@ -332,7 +321,6 @@ export interface FileRouteTypes {
     | '/settings/local-api-server'
     | '/settings/mcp-servers'
     | '/settings/shortcuts'
-    | '/settings/web-search'
     | '/threads/$threadId'
     | '/hub/'
     | '/settings/extensions/$extensionId'
@@ -361,7 +349,6 @@ export interface RootRouteChildren {
   SettingsLocalApiServerRoute: typeof SettingsLocalApiServerRoute
   SettingsMcpServersRoute: typeof SettingsMcpServersRoute
   SettingsShortcutsRoute: typeof SettingsShortcutsRoute
-  SettingsWebSearchRoute: typeof SettingsWebSearchRoute
   ThreadsThreadIdRoute: typeof ThreadsThreadIdRoute
   HubIndexRoute: typeof HubIndexRoute
   SettingsExtensionsExtensionIdRoute: typeof SettingsExtensionsExtensionIdRoute
@@ -419,13 +406,6 @@ declare module '@tanstack/react-router' {
       path: '/threads/$threadId'
       fullPath: '/threads/$threadId'
       preLoaderRoute: typeof ThreadsThreadIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/settings/web-search': {
-      id: '/settings/web-search'
-      path: '/settings/web-search'
-      fullPath: '/settings/web-search'
-      preLoaderRoute: typeof SettingsWebSearchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings/shortcuts': {
@@ -577,7 +557,6 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsLocalApiServerRoute: SettingsLocalApiServerRoute,
   SettingsMcpServersRoute: SettingsMcpServersRoute,
   SettingsShortcutsRoute: SettingsShortcutsRoute,
-  SettingsWebSearchRoute: SettingsWebSearchRoute,
   ThreadsThreadIdRoute: ThreadsThreadIdRoute,
   HubIndexRoute: HubIndexRoute,
   SettingsExtensionsExtensionIdRoute: SettingsExtensionsExtensionIdRoute,

@@ -71,7 +71,7 @@ describe('toolActivityText', () => {
   })
 
   it('falls back to humanized tool name for unknown tools', () => {
-    expect(toolActivityText('web_search', { query: 'x' })).toBe('Web search')
+    expect(toolActivityText('unknown_tool', { query: 'x' })).toBe('Unknown tool')
   })
 
   it('falls back gracefully when path/command arg is missing', () => {

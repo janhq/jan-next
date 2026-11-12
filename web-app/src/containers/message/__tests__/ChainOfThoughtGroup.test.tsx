@@ -116,20 +116,20 @@ describe('ChainOfThoughtGroup view switching', () => {
   it('expands the frame while a tool call is in flight', () => {
     const parts = [
       { type: 'reasoning', text: LONG_TEXT },
-      { type: 'tool-web_search', state: 'input-streaming', toolCallId: 'tc1' },
+      { type: 'tool-memory', state: 'input-streaming', toolCallId: 'tc1' },
     ]
     renderGroup({
       entries: parts.map((part, index) => ({ part, index })),
       totalParts: parts.length,
     })
-    expect(screen.getByTestId('tool-header')).toHaveTextContent('web_search')
+    expect(screen.getByTestId('tool-header')).toHaveTextContent('memory')
   })
 
   it('stays expanded once the tool result arrives', () => {
     const parts = [
       { type: 'reasoning', text: LONG_TEXT },
       {
-        type: 'tool-web_search',
+        type: 'tool-memory',
         state: 'output-available',
         toolCallId: 'tc1',
         output: 'ok',

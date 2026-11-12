@@ -81,10 +81,6 @@ describe('agentTools', () => {
     for (const name of ['write', 'edit']) {
       expect(AGENT_TOOL_NAMES.has(name)).toBe(true)
     }
-    // Already advertised through the websearch plugin.
-    for (const name of ['web_search', 'web_fetch']) {
-      expect(AGENT_TOOL_NAMES.has(name)).toBe(false)
-    }
   })
 
   it('filters Rust schemas down to the advertised subset', async () => {
@@ -92,7 +88,7 @@ describe('agentTools', () => {
       schemaFor('read'),
       schemaFor('write'),
       schemaFor('memory'),
-      schemaFor('web_search'),
+      schemaFor('web_unknown'),
     ])
     const { getAgentToolSchemas } = await import('../agentTools')
     const names = (await getAgentToolSchemas()).map((s) => s.function.name)

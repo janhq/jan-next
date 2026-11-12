@@ -326,10 +326,6 @@ vi.mock('@/lib/utils', () => ({
   formatMegaBytes: (n: number) => `${n} MB`,
 }))
 
-vi.mock('@/constants/providers', () => ({
-  predefinedProviders: [{ provider: 'openai' }],
-}))
-
 vi.mock('@/constants/routes', () => ({
   route: {
     hub: { index: '/hub' },
@@ -432,24 +428,16 @@ describe('ProviderDetail route', () => {
   })
 
   describe('Rendering', () => {
-    it('renders the openai provider title and models (settings card is hidden for predefined)', () => {
+    it('renders the custom provider title and models', () => {
       renderComponent()
       expect(screen.getByTestId('header-page')).toBeInTheDocument()
       expect(screen.getByText('Title:openai')).toBeInTheDocument()
-      expect(screen.queryByTestId('delete-provider')).not.toBeInTheDocument()
       expect(screen.getByTestId('edit-gpt-4')).toBeInTheDocument()
       expect(screen.getByTestId('del-gpt-4')).toBeInTheDocument()
       expect(screen.getByTestId('add-model')).toBeInTheDocument()
     })
 
-    it('hides favorite action for predefined provider with no api key', () => {
-      h.openaiProvider.api_key = ''
-      h.openaiProvider.api_key_fallbacks = []
-      renderComponent()
-      expect(screen.queryByTestId('fav-gpt-4')).not.toBeInTheDocument()
-    })
-
-    it('shows favorite action for predefined provider with api key', () => {
+    it('shows favorite action for a custom provider model', () => {
       renderComponent()
       expect(screen.getByTestId('fav-gpt-4')).toBeInTheDocument()
     })
@@ -715,6 +703,19 @@ describe('ProviderDetail route', () => {
       expect(h.toastError).toHaveBeenCalled()
     })
 
+    it('refresh toasts error on fetch failure', async () => {
+      h.providersSvc.fetchModelsFromProvider = vi.fn().mockRejectedValue(new Error('nope'))
+      renderComponent()
+      const addModel = screen.getByTestId('add-model')
+      const refreshBtn = addModel.parentElement?.querySelector('button') as HTMLButtonElement
+      await act(async () => {
+        fireEvent.click(refreshBtn)
+      })
+      await waitFor(() => {
+        expect(h.toastError).toHaveBeenCalled()
+      })
+    })
+
     it('refresh shows "no new models" toast when all models already exist', async () => {
       h.providersSvc.fetchModelsFromProvider = vi.fn().mockResolvedValue(['gpt-4'])
       renderComponent()
@@ -731,18 +732,6 @@ describe('ProviderDetail route', () => {
       })
     })
 
-    it('refresh toasts error on fetch failure', async () => {
-      h.providersSvc.fetch = vi.fn(() => vi.fn().mockRejectedValue(new Error('nope')))
-      renderComponent()
-      const addModel = screen.getByTestId('add-model')
-      const refreshBtn = addModel.parentElement?.querySelector('button') as HTMLButtonElement
-      await act(async () => {
-        fireEvent.click(refreshBtn)
-      })
-      await waitFor(() => {
-        expect(h.toastError).toHaveBeenCalled()
-      })
-    })
   })
 
   describe('Model start/stop (llamacpp)', () => {
@@ -814,7 +803,7 @@ describe('ProviderDetail route', () => {
       h.params.providerName = 'custom-llm'
     }
 
-    it('for a non-predefined provider, only the base-url dynamic control renders (api-key input is hidden)', () => {
+    it('for a custom provider, only the base-url dynamic control renders (api-key input is hidden)', () => {
       setupCustomProvider()
       renderComponent()
       expect(screen.getAllByTestId('dynamic-ctrl')).toHaveLength(1)

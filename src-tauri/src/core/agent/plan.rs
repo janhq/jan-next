@@ -1,5 +1,5 @@
 //! Read-only plan mode. A first-class run mode for safe repository exploration
-//! and plan review: the agent may read/search/list/read-file, do web research,
+//! and plan review: the agent may read/search/list/read-file
 //! and read memory/skills, but every mutation-capable tool (write/edit/bash,
 //! skill_write, MCP, subagent dispatch) is blocked at the core
 //! dispatcher and never advertised to the model. Enforcement is authoritative;
@@ -21,7 +21,7 @@ pub enum RunMode {
 /// defense in depth only: the capability gate rejects mutations regardless.
 pub fn plan_mode_prompt_addendum() -> &'static str {
     "PLAN MODE (read only): You are exploring to produce a plan. You may only \
-read, search, and list files, do web research, and read memory/skills. You \
+read, search, and list files, and read memory/skills. You \
 CANNOT edit files, run shell commands, or make any change; those tools are \
 disabled. Investigate thoroughly, then stage the full phased plan by calling \
 the `todo` tool with an `init` action listing every task. When the plan is \

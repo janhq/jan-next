@@ -54,9 +54,6 @@ vi.mock('@/hooks/useMCPServers', () => ({
     getState: () => ({ settings: { enableSmartToolRouting: false } }),
   },
 }))
-vi.mock('@/hooks/useWebSearchConfig', () => ({
-  useWebSearchConfig: { getState: () => ({ webSearchEnabled: false }) },
-}))
 vi.mock('@/lib/mcp-orchestrator', () => ({
   mcpOrchestrator: { getRelevantTools: vi.fn() },
 }))

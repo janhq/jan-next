@@ -1,6 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import type { UIMessage } from '@ai-sdk/react'
-import type * as ProviderCaps from '@/lib/providerCaps'
 
 // A request that throws before its stream exists never reaches the stream's
 // onError/onFinish, so it must release the "request in flight" marker itself:
@@ -76,14 +75,6 @@ vi.mock('@/lib/mcp-orchestrator', () => ({
 }))
 vi.mock('@/lib/mcp-router-model-filter', () => ({
   isRouterModelSelectable: () => false,
-}))
-vi.mock('@/lib/reasoningProviderOptions', () => ({
-  buildReasoningProviderOptions: () => undefined,
-}))
-vi.mock('@/lib/providerCaps', async (importOriginal) => ({
-  ...(await importOriginal<typeof ProviderCaps>()),
-  isPredefinedRemoteProvider: () => false,
-  getProviderApiType: () => 'openai',
 }))
 vi.mock('../model-factory', () => ({
   ModelFactory: {

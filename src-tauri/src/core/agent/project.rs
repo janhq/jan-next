@@ -274,7 +274,7 @@ enabled = []
 # Unset keeps each composer's own placement. Setting it narrows the prefix to
 # exactly the ids listed -- everything else moves below the cache line whatever
 # it asks for. Ids: assistant_instructions, guidelines, working_directory,
-# runtime_environment, subagent_guide, skill_guide, web_tools_guide,
+# runtime_environment, subagent_guide, skill_guide,
 # project_context, skills, memory_catalog, tool_schemas (the tool array is a
 # request field and is always above the cache line).
 # prefix_allow = ["assistant_instructions", "guidelines", "skills", "tool_schemas"]

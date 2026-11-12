@@ -368,11 +368,6 @@ pub fn resolve_decision_with_cwd(
                 Decision::Prompt(PromptKind::ReadEscape)
             }
         }
-        // Native web tools (Net) touch no filesystem path and run no shell
-        // command; they only perform outbound HTTP through Jan's provider
-        // adapter. Treat them like read-only reads inside the project: allowed
-        // without a prompt (an explicit agent.toml deny above still wins).
-        Capability::Net => Decision::Allow,
         // A write inside the project may prompt (the CLI approves it); one that
         // escapes the project -- absolute or `..` -- can reach host files no
         // sandbox confines, so mirror the Read branch and gate it separately. It
@@ -497,57 +492,6 @@ mod tests {
             &grants,
         );
         assert_eq!(d, Decision::Prompt(PromptKind::ReadEscape));
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    #[test]
-    fn web_tools_allow_without_prompt() {
-        let root = unique_root();
-        let perms = ToolPermissions::new(PermissionDefault::ReadOnly, &[], &[], &[]);
-        let grants = SessionGrants::default();
-        for tool in ["web_search", "web_fetch"] {
-            let d = resolve_decision(
-                lookup(tool).unwrap(),
-                &json!({}),
-                &GateContext {
-                    project_root: &root,
-                    scratch: None,
-                    read_roots: &[],
-                    write_roots: &[],
-                    hidden_root: None,
-                },
-                &perms,
-                &grants,
-            );
-            assert_eq!(d, Decision::Allow, "{tool} should be auto-allowed");
-        }
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    #[test]
-    fn web_tools_honor_explicit_deny() {
-        let root = unique_root();
-        let deny = s(&["web_search"]);
-        let perms = ToolPermissions::new(PermissionDefault::ReadOnly, &[], &deny, &[]);
-        let grants = SessionGrants::default();
-        let d = resolve_decision(
-            lookup("web_search").unwrap(),
-            &json!({}),
-            &GateContext {
-                project_root: &root,
-                scratch: None,
-                read_roots: &[],
-                write_roots: &[],
-                hidden_root: None,
-            },
-            &perms,
-            &grants,
-        );
-        assert_eq!(
-            d,
-            Decision::HardDeny(DenyReason::Policy),
-            "deny in agent.toml must win for web tools"
-        );
         let _ = std::fs::remove_dir_all(&root);
     }
 
@@ -777,9 +721,9 @@ mod tests {
     #[test]
     fn mcp_grant_is_scoped_to_tool_name() {
         let mut grants = SessionGrants::default();
-        assert!(!grants.covers_mcp("web_search_exa"));
-        grants.grant_mcp("web_search_exa");
-        assert!(grants.covers_mcp("web_search_exa"));
+        assert!(!grants.covers_mcp("exa_lookup"));
+        grants.grant_mcp("exa_lookup");
+        assert!(grants.covers_mcp("exa_lookup"));
         assert!(!grants.covers_mcp("other_tool"));
     }
 

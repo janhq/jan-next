@@ -1,5 +1,3 @@
-import { predefinedProviders } from '@/constants/providers'
-import { providerHasRemoteApiKeys } from '@/lib/provider-api-keys'
 
 type ModelLike = {
   id: string
@@ -14,9 +12,6 @@ type ProviderLike = {
   api_key_fallbacks?: string[]
 }
 
-/** Local engines are usable on models alone; they need no credential. */
-const KEYLESS_PREDEFINED_PROVIDERS = ['llamacpp', 'jan']
-
 /**
  * An embedding model cannot answer a message. Jan installs one on its own during
  * first-run setup, so counting it would end onboarding before the user has any
@@ -27,24 +22,16 @@ function isChatCapable(model: ModelLike): boolean {
 }
 
 /**
- * Whether the user can actually send a message through this provider: a
- * credential for a remote one, or an installed model for a local or custom one.
- * Naming a model is not enough for a remote provider, since nothing can serve it
- * without a key.
+ * Whether the user can actually send a message through this provider: it has
+ * at least one chat-capable model (installed locally, or added to a custom
+ * OpenAI-compatible provider).
  */
 export function isProviderUsable(provider: ProviderLike): boolean {
   const hasModels = (provider.models ?? []).some(isChatCapable)
 
-  const isPredefined = predefinedProviders.some(
-    (p) => p.provider === provider.provider
-  )
-  // A custom provider is a user-configured endpoint, so models alone qualify.
-  if (!isPredefined) return hasModels
-
-  return (
-    providerHasRemoteApiKeys(provider) ||
-    (KEYLESS_PREDEFINED_PROVIDERS.includes(provider.provider) && hasModels)
-  )
+  // llamacpp and custom providers are user-configured endpoints, so models
+  // alone qualify.
+  return hasModels
 }
 
 /**

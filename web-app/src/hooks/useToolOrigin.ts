@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 import { useAppState } from '@/hooks/useAppState'
-import { getProviderMeta, useWebSearchConfig } from '@/hooks/useWebSearchConfig'
 import { resolveToolOrigin, type ToolOrigin } from '@/lib/toolOrigin'
 import { AGENT_TOOL_NAMES, isRecordedShellCall } from '@/lib/agentTools'
 
@@ -16,10 +15,6 @@ export const useToolOrigin = (toolName: string): ToolOrigin | undefined => {
   const isRagTool = useAppState((s) => s.ragToolNames.has(toolName))
   const isAgentTool =
     AGENT_TOOL_NAMES.has(toolName) || isRecordedShellCall(toolName)
-  const webSearchProviderLabel = useWebSearchConfig(
-    (s) => getProviderMeta(s.searchProvider).label
-  )
-  const webSearchEnabled = useWebSearchConfig((s) => s.webSearchEnabled)
 
   return useMemo(
     () =>
@@ -27,16 +22,12 @@ export const useToolOrigin = (toolName: string): ToolOrigin | undefined => {
         mcpServer,
         isRagTool,
         isAgentTool,
-        webSearchProviderLabel,
-        webSearchEnabled,
       }),
     [
       toolName,
       mcpServer,
       isRagTool,
       isAgentTool,
-      webSearchProviderLabel,
-      webSearchEnabled,
     ]
   )
 }

@@ -19,7 +19,6 @@ import { CHAT_SLOT_ID } from '@/constants/models'
 const config = (over = {}) => ({
   model: { provider: 'test', id: 'test-model' },
   planMode: false,
-  webSearch: false,
   subagentNames: ['researcher'],
   allowSubagents: true,
   workspacePath: '/ws/s1',

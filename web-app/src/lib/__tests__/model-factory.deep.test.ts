@@ -29,34 +29,6 @@ vi.mock('@ai-sdk/openai-compatible', () => {
   }
 })
 
-vi.mock('@ai-sdk/anthropic', () => ({
-  createAnthropic: vi.fn(() => vi.fn(() => ({ type: 'anthropic' }))),
-}))
-
-vi.mock('@ai-sdk/google', () => ({
-  createGoogleGenerativeAI: vi.fn((config: any) => {
-    ;(globalThis as any).__capturedGoogleCfg = config
-    return vi.fn(() => ({ type: 'google' }))
-  }),
-}))
-
-vi.mock('@ai-sdk/openai', () => ({
-  createOpenAI: vi.fn((config: any) => {
-    ;(globalThis as any).__capturedOpenAICfg = config
-    const fn: any = vi.fn(() => ({ type: 'openai' }))
-    fn.chat = vi.fn(() => ({ type: 'openai' }))
-    fn.responses = vi.fn(() => ({ type: 'openai' }))
-    return fn
-  }),
-}))
-
-vi.mock('@ai-sdk/xai', () => ({
-  createXai: vi.fn((config: any) => {
-    ;(globalThis as any).__capturedXaiCfg = config
-    return vi.fn(() => ({ type: 'xai' }))
-  }),
-}))
-
 vi.mock('ai', () => ({
   wrapLanguageModel: vi.fn(({ model }) => model),
   extractReasoningMiddleware: vi.fn(() => ({})),
@@ -112,9 +84,6 @@ describe('model-factory deep coverage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     ;(globalThis as any).__capturedModelOpts = null
-    ;(globalThis as any).__capturedGoogleCfg = null
-    ;(globalThis as any).__capturedOpenAICfg = null
-    ;(globalThis as any).__capturedXaiCfg = null
     mockStartModel.mockResolvedValue(undefined)
   })
 
@@ -298,33 +267,22 @@ describe('model-factory deep coverage', () => {
     })
   })
 
-  /* custom headers on google, openai, xai */
-  describe('custom headers', () => {
-    it('google passes custom headers via the native @ai-sdk/google client', async () => {
-      const { createGoogleGenerativeAI } = await import('@ai-sdk/google')
-      vi.mocked(createGoogleGenerativeAI).mockClear()
-      await ModelFactory.createModel('g', mkProvider('google', { custom_header: [{ header: 'X-G', value: 'v' }] }), {})
-      expect(createGoogleGenerativeAI).toHaveBeenCalledWith(
+  /* openai-compatible custom headers + api-key rotation */
+  describe('openai-compatible keys and headers', () => {
+    it('passes custom headers', async () => {
+      const { createOpenAICompatible } = await import('@ai-sdk/openai-compatible')
+      vi.mocked(createOpenAICompatible).mockClear()
+      await ModelFactory.createModel('o', mkProvider('custom', { custom_header: [{ header: 'X-O', value: 'v' }] }), {})
+      expect(createOpenAICompatible).toHaveBeenCalledWith(
         expect.objectContaining({
-          headers: expect.objectContaining({ 'X-G': 'v' }),
+          headers: expect.objectContaining({ 'X-O': 'v' }),
         })
       )
     })
 
-    it('openai passes custom headers', async () => {
-      await ModelFactory.createModel('o', mkProvider('openai', { custom_header: [{ header: 'X-O', value: 'v' }] }), {})
-      expect((globalThis as any).__capturedOpenAICfg.headers).toEqual({ 'X-O': 'v' })
-    })
-
-    it('xai passes custom headers', async () => {
-      await ModelFactory.createModel('x', mkProvider('xai', { custom_header: [{ header: 'X-X', value: 'v' }] }), {})
-      expect((globalThis as any).__capturedXaiCfg.headers).toEqual({ 'X-X': 'v' })
-    })
-  })
-
-  /* google api-key rotation */
-  describe('google api-key rotation', () => {
-    it('rotates to the next key via x-goog-api-key on 429', async () => {
+    it('rotates to the next key via Authorization on 429', async () => {
+      const { createOpenAICompatible } = await import('@ai-sdk/openai-compatible')
+      vi.mocked(createOpenAICompatible).mockClear()
       const realFetch = globalThis.fetch
       const fetchMock = vi
         .fn()
@@ -333,39 +291,26 @@ describe('model-factory deep coverage', () => {
       globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch
       try {
         await ModelFactory.createModel(
-          'gemini-pro',
-          mkProvider('google', { api_key: 'key1', api_key_fallbacks: ['key2'] }),
+          'm',
+          mkProvider('custom', { api_key: 'key1', api_key_fallbacks: ['key2'] }),
           {}
         )
-        // The native @ai-sdk/google client always sends the primary key in
-        // this header; the rotating fetch must OVERRIDE it, not append.
-        const { fetch: rotatingFetch } = (globalThis as any).__capturedGoogleCfg
-        await rotatingFetch('https://g/v1beta/models', {
+        const { fetch: rotatingFetch } = vi.mocked(createOpenAICompatible).mock
+          .calls[0][0] as any
+        await rotatingFetch('https://api.test.com/v1/chat/completions', {
           method: 'POST',
-          headers: { 'x-goog-api-key': 'key1' },
+          headers: { Authorization: 'Bearer key1' },
           body: JSON.stringify({ messages: [] }),
         })
 
         expect(fetchMock).toHaveBeenCalledTimes(2)
         const firstHeaders = new Headers(fetchMock.mock.calls[0][1].headers)
         const secondHeaders = new Headers(fetchMock.mock.calls[1][1].headers)
-        expect(firstHeaders.get('x-goog-api-key')).toBe('key1')
-        expect(secondHeaders.get('x-goog-api-key')).toBe('key2')
-        // single header, not a duplicated/appended value
-        expect(secondHeaders.get('x-goog-api-key')).not.toContain('key1')
+        expect(firstHeaders.get('Authorization')).toBe('Bearer key1')
+        expect(secondHeaders.get('Authorization')).toBe('Bearer key2')
       } finally {
         globalThis.fetch = realFetch
       }
-    })
-
-    it('uses a plain custom fetch (no rotation) with a single key', async () => {
-      await ModelFactory.createModel(
-        'gemini-pro',
-        mkProvider('google', { api_key: 'only', api_key_fallbacks: [] }),
-        {}
-      )
-      const { apiKey } = (globalThis as any).__capturedGoogleCfg
-      expect(apiKey).toBe('only')
     })
   })
 

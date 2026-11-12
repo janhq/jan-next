@@ -8,7 +8,6 @@ import {
   IconEye,
   IconTool,
   IconAtom,
-  IconWorld,
   IconCodeCircle2,
   IconHeadphones,
 } from '@tabler/icons-react'
@@ -44,8 +43,6 @@ const Capabilities = memo(function Capabilities({ capabilities }: CapabilitiesPr
           icon = <IconAtom className="size-3.5" />
         } else if (capability === 'embeddings' || isEmbedding) {
           icon = <IconCodeCircle2 className="size-3.5" />
-        } else if (capability === 'web_search') {
-          icon = <IconWorld className="size-3.5" />
         } else {
           icon = null
         }
@@ -64,11 +61,9 @@ const Capabilities = memo(function Capabilities({ capabilities }: CapabilitiesPr
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>
-                      {capability === 'web_search'
-                        ? 'Web Search'
-                        : capability === 'embeddings'
-                          ? 'Embedding Model (for RAG/vectors, not chat)'
-                          : capability}
+                      {capability === 'embeddings'
+                        ? 'Embedding Model (for RAG/vectors, not chat)'
+                        : capability}
                     </p>
                   </TooltipContent>
                 </Tooltip>

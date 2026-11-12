@@ -77,19 +77,7 @@ pub(crate) fn endpoint_base_from_chat_url(upstream_url: &str) -> String {
     format!("{base}/")
 }
 
-/// Map a provider's configured `api_type` to a `genai` adapter. Everything
-/// unrecognized stays on the OpenAI-compatible path, which is what the agent has
-/// always spoken and what every provider in `~/.jan/config.toml` serves today.
-pub(crate) fn adapter_kind_for(api_type: Option<&str>) -> AdapterKind {
-    match api_type {
-        Some("anthropic") => AdapterKind::Anthropic,
-        Some("google") => AdapterKind::Gemini,
-        Some("openai-responses") => AdapterKind::OpenAIResp,
-        _ => AdapterKind::OpenAI,
-    }
-}
-
-/// Build a client pinned to one endpoint, key, and adapter. The resolver is
+/// Build a client pinned to one endpoint and key, on the OpenAI adapter. The resolver is
 /// fixed rather than model-derived: the agent has already resolved which
 /// upstream this model lives on, and letting `genai` re-derive it from the model
 /// name would route a local llama.cpp model to api.openai.com.
@@ -98,7 +86,6 @@ fn client_for(
     endpoint_base: &str,
     request_url: &str,
     api_key: Option<&str>,
-    adapter: AdapterKind,
     extra_headers: &[(String, String)],
 ) -> Client {
     let endpoint = Endpoint::from_owned(endpoint_base.to_string());
@@ -139,7 +126,7 @@ fn client_for(
             Ok(ServiceTarget {
                 endpoint: endpoint.clone(),
                 auth: auth.clone(),
-                model: ModelIden::new(adapter, model.model_name),
+                model: ModelIden::new(AdapterKind::OpenAI, model.model_name),
             })
         },
     );
@@ -340,10 +327,7 @@ fn messages_from_body(
 /// The carrier is only ever followed by an assistant turn or the end of the
 /// request: a user turn that follows the run absorbs the images instead
 /// (see the user arm of [`messages_from_body`]). That matters to adapters
-/// that demand alternating roles, like genai's Anthropic one, which, unlike
-/// `server::converters`, does not merge adjacent user turns. The agent
-/// sends `api_type: None` down this path today, but nothing here relies on
-/// it.
+/// that demand alternating roles.
 fn flush_tool_images(out: &mut Vec<ChatMessage>, pending: &mut Vec<ContentPart>) {
     if pending.is_empty() {
         return;
@@ -663,11 +647,6 @@ fn completion_json(
             // no cache field at all. Which of the two it was cannot be recovered
             // at this layer; the console reads it as "no hits reported", so a
             // cold-prefix route on this bridge cannot raise the zero-hit alarm.
-            //
-            // Native providers do not come through here: `core::server
-            // ::converters` builds the chat-shaped usage itself and emits the
-            // cache fields whenever the upstream reported them, a zero included,
-            // so Anthropic and Responses routes keep the distinction.
             let mut d = serde_json::Map::new();
             if let Some(v) = details.cached_tokens {
                 d.insert("cached_tokens".into(), serde_json::json!(v));
@@ -748,7 +727,6 @@ pub(crate) async fn stream_chat_completions(
     http: &reqwest13::Client,
     upstream_url: &str,
     api_keys: &[String],
-    api_type: Option<&str>,
     body: &serde_json::Value,
     events: &mpsc::UnboundedSender<StreamEvent>,
     extra_headers: &[(String, String)],
@@ -756,7 +734,6 @@ pub(crate) async fn stream_chat_completions(
     let (model, chat_req) = chat_request_from_body(body)?;
     let options = options_from_body(body);
     let endpoint_base = endpoint_base_from_chat_url(upstream_url);
-    let adapter = adapter_kind_for(api_type);
 
     let keys: Vec<Option<&str>> = if api_keys.is_empty() {
         vec![None]
@@ -773,7 +750,6 @@ pub(crate) async fn stream_chat_completions(
             &endpoint_base,
             upstream_url,
             *key,
-            adapter,
             extra_headers,
         );
 
@@ -1061,17 +1037,6 @@ mod tests {
         ] {
             assert_eq!(endpoint_base_from_chat_url(input), want, "for {input}");
         }
-    }
-
-    #[test]
-    fn api_type_selects_the_adapter_and_defaults_to_openai() {
-        assert_eq!(adapter_kind_for(None), AdapterKind::OpenAI);
-        assert_eq!(adapter_kind_for(Some("openai")), AdapterKind::OpenAI);
-        assert_eq!(adapter_kind_for(Some("anthropic")), AdapterKind::Anthropic);
-        assert_eq!(adapter_kind_for(Some("google")), AdapterKind::Gemini);
-        // An unknown value must not fail the turn -- OpenAI-compatible is the
-        // shape every configured provider actually serves.
-        assert_eq!(adapter_kind_for(Some("who-knows")), AdapterKind::OpenAI);
     }
 
     #[test]
@@ -1501,7 +1466,7 @@ mod tests {
 
     async fn run(url: &str, keys: &[String], events: &mpsc::UnboundedSender<StreamEvent>)
         -> Result<serde_json::Value, String> {
-        stream_chat_completions(&build_http_client(), url, keys, None, &body(), events, &[]).await
+        stream_chat_completions(&build_http_client(), url, keys, &body(), events, &[]).await
     }
 
     #[tokio::test]

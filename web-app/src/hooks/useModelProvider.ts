@@ -4,11 +4,27 @@ import { localStorageKey } from '@/constants/localStorage'
 import { getServiceHub } from '@/hooks/useServiceHub'
 import { backendStorage } from '@/lib/backendStorage'
 import { modelSettings } from '@/lib/predefined'
-import { predefinedProviders } from '@/constants/providers'
 import { isLocalProvider } from '@/lib/utils'
 import { API_KEY_FALLBACKS_SETTING_KEY } from '@/lib/provider-api-keys'
 
 const API_KEY_SETTING_KEY = 'api-key'
+
+// Built-in remote providers that no longer exist; saved copies are dropped by
+// the store migration.
+const REMOVED_BUILTIN_PROVIDERS = new Set([
+  'openai',
+  'azure',
+  'anthropic',
+  'openrouter',
+  'mistral',
+  'groq',
+  'xai',
+  'gemini',
+  'minimax',
+  'huggingface',
+  'nvidia',
+  'cohere',
+])
 
 // Secrets live only in the OS keyring (see register_provider_config), never in
 // persisted settings storage. Strip the key chain from every provider before it
@@ -446,80 +462,6 @@ export const useModelProvider = create<ModelProviderState>()(
           })
         }
 
-        if (version <= 3 && state?.providers) {
-          state.providers.forEach((provider) => {
-            // Migrate Anthropic provider base URL and add custom headers
-            if (provider.provider === 'anthropic') {
-              if (provider.base_url === 'https://api.anthropic.com') {
-                provider.base_url = 'https://api.anthropic.com/v1'
-              }
-
-              // Update base-url in settings
-              if (provider.settings) {
-                const baseUrlSetting = provider.settings.find(
-                  (s) => s.key === 'base-url'
-                )
-                if (
-                  baseUrlSetting?.controller_props?.value ===
-                  'https://api.anthropic.com'
-                ) {
-                  baseUrlSetting.controller_props.value =
-                    'https://api.anthropic.com/v1'
-                }
-                if (
-                  baseUrlSetting?.controller_props?.placeholder ===
-                  'https://api.anthropic.com'
-                ) {
-                  baseUrlSetting.controller_props.placeholder =
-                    'https://api.anthropic.com/v1'
-                }
-              }
-
-              if (!provider.custom_header) {
-                provider.custom_header = [
-                  {
-                    header: 'anthropic-version',
-                    value: '2023-06-01',
-                  },
-                  {
-                    header: 'anthropic-dangerous-direct-browser-access',
-                    value: 'true',
-                  },
-                ]
-              }
-            }
-
-            if (provider.provider === 'cohere') {
-              if (
-                provider.base_url === 'https://api.cohere.ai/compatibility/v1'
-              ) {
-                provider.base_url = 'https://api.cohere.ai/v1'
-              }
-
-              // Update base-url in settings
-              if (provider.settings) {
-                const baseUrlSetting = provider.settings.find(
-                  (s) => s.key === 'base-url'
-                )
-                if (
-                  baseUrlSetting?.controller_props?.value ===
-                  'https://api.cohere.ai/compatibility/v1'
-                ) {
-                  baseUrlSetting.controller_props.value =
-                    'https://api.cohere.ai/v1'
-                }
-                if (
-                  baseUrlSetting?.controller_props?.placeholder ===
-                  'https://api.cohere.ai/compatibility/v1'
-                ) {
-                  baseUrlSetting.controller_props.placeholder =
-                    'https://api.cohere.ai/v1'
-                }
-              }
-            }
-          })
-        }
-
         if (version <= 4 && state?.providers) {
           state.providers.forEach((provider) => {
             // Migrate model settings
@@ -584,38 +526,6 @@ export const useModelProvider = create<ModelProviderState>()(
             }
           })
         }
-        if (version <= 8 && state?.providers) {
-          state.providers.forEach((provider) => {
-            // Migrate Mistral provider base URL to add /v1
-            if (provider.provider === 'mistral') {
-              if (provider.base_url === 'https://api.mistral.ai') {
-                provider.base_url = 'https://api.mistral.ai/v1'
-              }
-
-              // Update base-url in settings
-              if (provider.settings) {
-                const baseUrlSetting = provider.settings.find(
-                  (s) => s.key === 'base-url'
-                )
-                if (
-                  baseUrlSetting?.controller_props?.value ===
-                  'https://api.mistral.ai'
-                ) {
-                  baseUrlSetting.controller_props.value =
-                    'https://api.mistral.ai/v1'
-                }
-                if (
-                  baseUrlSetting?.controller_props?.placeholder ===
-                  'https://api.mistral.ai'
-                ) {
-                  baseUrlSetting.controller_props.placeholder =
-                    'https://api.mistral.ai/v1'
-                }
-              }
-            }
-          })
-        }
-
         if (version <= 9 && state?.providers) {
           state.providers = state.providers.filter(
             (provider) => provider.provider !== 'cohere'
@@ -651,25 +561,6 @@ export const useModelProvider = create<ModelProviderState>()(
                   }
                 }
               })
-            }
-          })
-        }
-
-        if (version <= 13 && state?.providers) {
-          // Predefined providers no longer carry a user-editable base-url
-          // setting. Force their base_url back to the canonical constant and
-          // strip any leftover base-url entry from persisted settings[].
-          const canonicalByName = new Map(
-            predefinedProviders.map((p) => [p.provider, p.base_url])
-          )
-          state.providers.forEach((provider) => {
-            const canonical = canonicalByName.get(provider.provider)
-            if (!canonical) return
-            provider.base_url = canonical
-            if (provider.settings) {
-              provider.settings = provider.settings.filter(
-                (s) => s.key !== 'base-url'
-              )
             }
           })
         }
@@ -723,17 +614,6 @@ export const useModelProvider = create<ModelProviderState>()(
             })
           })
         }
-        if (version <= 15 && state?.providers) {
-          // Introduce `api_type` discriminant. Backfill on the built-in
-          // Anthropic provider; everything else stays undefined (defaults to
-          // 'openai' at dispatch time).
-          state.providers.forEach((provider) => {
-            if (provider.provider === 'anthropic' && !provider.api_type) {
-              provider.api_type = 'anthropic'
-            }
-          })
-        }
-
         if (version <= 16 && state?.providers) {
           // Auto-fit is now disabled by default, so seed empty/auto ctx_len
           // with the new 8192 default. Preserve any user-customised value.
@@ -835,9 +715,30 @@ export const useModelProvider = create<ModelProviderState>()(
           })
         }
 
+        if (version <= 21 && state?.providers) {
+          // Only llamacpp and user-added OpenAI-compatible providers remain.
+          // Drop the retired built-in remote providers (and anything saved
+          // with the removed Anthropic `api_type`); strip the dead field.
+          state.providers = state.providers.filter(
+            (provider) =>
+              !REMOVED_BUILTIN_PROVIDERS.has(provider.provider) &&
+              (provider as { api_type?: string }).api_type !== 'anthropic'
+          )
+          state.providers.forEach((provider) => {
+            delete (provider as { api_type?: string }).api_type
+          })
+          if (
+            state.selectedProvider &&
+            !state.providers.some((p) => p.provider === state.selectedProvider)
+          ) {
+            state.selectedProvider = 'llamacpp'
+            state.selectedModel = null
+          }
+        }
+
         return state
       },
-      version: 21,
+      version: 22,
     }
   )
 )

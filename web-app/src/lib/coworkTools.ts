@@ -9,12 +9,6 @@
 import { jsonSchema, type Tool } from 'ai'
 import { getAgentToolSchemas } from '@/lib/agentTools'
 import { MONITOR_TOOL_NAME, monitorTool } from '@/lib/coworkMonitor'
-import {
-  WEB_FETCH_DESCRIPTION,
-  WEB_FETCH_INPUT_SCHEMA,
-  WEB_SEARCH_DESCRIPTION,
-  WEB_SEARCH_INPUT_SCHEMA,
-} from '@/lib/webSearchTool'
 
 /** Tools that can mutate something. Withheld, and refused, in plan mode. */
 export const PLAN_DENIED_TOOLS = new Set([
@@ -191,12 +185,6 @@ export type CoworkToolOptions = {
   subagentNames: string[]
   /** Depth 1+ cannot spawn further subagents; mirrors the Rust loop's cap. */
   allowSubagents: boolean
-  /**
-   * Follows the global web-search setting, the same one chat reads. Cowork has
-   * no toggle of its own: the surface configures nothing about its tool set, so
-   * this is a Settings-level capability rather than a per-session choice.
-   */
-  webSearch: boolean
 }
 
 /**
@@ -214,7 +202,6 @@ export function coworkToolSignature(
     opts.planMode ? 'plan' : 'normal',
     sandboxEnforces ? 'jail' : 'nojail',
     opts.allowSubagents ? opts.subagentNames.join(',') : 'nosub',
-    opts.webSearch ? 'web' : 'noweb',
   ].join('|')
 }
 
@@ -244,18 +231,6 @@ export async function buildCoworkTools(
       inputSchema: jsonSchema(
         s.function.parameters as Record<string, unknown>
       ),
-    } as Tool
-  }
-
-  // Reads, so plan mode keeps them: research is most of what planning is.
-  if (opts.webSearch) {
-    tools['web_search'] = {
-      description: WEB_SEARCH_DESCRIPTION,
-      inputSchema: jsonSchema(WEB_SEARCH_INPUT_SCHEMA as Record<string, unknown>),
-    } as Tool
-    tools['web_fetch'] = {
-      description: WEB_FETCH_DESCRIPTION,
-      inputSchema: jsonSchema(WEB_FETCH_INPUT_SCHEMA as Record<string, unknown>),
     } as Tool
   }
 

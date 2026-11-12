@@ -89,10 +89,6 @@ describe('useExtensionProviders', () => {
         models: [expect.objectContaining({ id: 'hello-1' })],
       })
     )
-    // OpenAI-compatible is the default wire format.
-    expect(
-      useModelProvider.getState().getProviderByName('acme.llm/local')?.api_type
-    ).toBeUndefined()
     expect(useModelProvider.getState().getProviderByName('openai')).toBeDefined()
 
     // Never written to disk.

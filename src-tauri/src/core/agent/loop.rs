@@ -7,7 +7,7 @@
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
 // Agent upstream traffic runs on `genai`, which is built against reqwest 0.13;
 // the rest of the app is still on 0.12, so the two `Client` types differ.
 use reqwest13::Client;
@@ -23,10 +23,8 @@ use crate::core::agent::upstream::{
     collect_mcp_openai_tools, content_says_nothing, copy_optional_chat_params,
     execute_mcp_tool_calls, extract_choice_message, extract_tool_calls, load_assistant_config,
     pairable_tool_call_id, parse_openai_messages, prune_unusable_tool_calls,
-    resolve_api_type_for_model, resolve_upstream_for_model, stream_openai_chat_completions,
-    tool_call_is_usable,
+    resolve_upstream_for_model, stream_openai_chat_completions, tool_call_is_usable,
 };
-use crate::core::server::converters::{converter_for, UpstreamConverter};
 use crate::core::server::proxy::router_first_model;
 use crate::core::{
     mcp::models::McpSettings,
@@ -467,14 +465,6 @@ struct HttpModelInvoker {
     /// Provider registry, used to strip a `<provider>/` qualifier from the
     /// request's `model` field (the upstream must receive the bare model id).
     provider_configs: Arc<Mutex<HashMap<String, ProviderConfig>>>,
-    /// When the provider fronts a native (non-chat/completions) wire API
-    /// (Anthropic `/messages`, OpenAI `/responses`, Google `generateContent`),
-    /// this converter translates the request and decodes the upstream stream
-    /// back into chat shape. `None` keeps the verbatim chat/completions path.
-    converter: Option<Box<dyn UpstreamConverter>>,
-    /// Native provider converters still use reqwest 0.12 while the default
-    /// agent path uses genai's reqwest 0.13 client.
-    converter_client: reqwest::Client,
     /// Correlation id sent with every request this invoker makes, so the run's
     /// executions are findable in the provider's usage records afterwards. See
     /// [`crate::core::agent::correlation`]. `None` when the run has no session
@@ -510,11 +500,6 @@ struct HttpModelInvoker {
 struct RequestIdentityOwned {
     run_id: Option<String>,
     provider: Option<String>,
-    api_type: Option<String>,
-    /// Whether the provider's credential is an OAuth account token, which the
-    /// converter it is built from needs (Anthropic's beta header). Carried here
-    /// because one lookup answers both, and two lookups could disagree.
-    oauth: bool,
 }
 
 impl RequestIdentityOwned {
@@ -526,7 +511,6 @@ impl RequestIdentityOwned {
             run_id: self.run_id.as_deref(),
             session_id,
             provider: self.provider.as_deref(),
-            api_type: self.api_type.as_deref(),
         }
     }
 }
@@ -545,11 +529,6 @@ async fn request_identity(
     provider_configs: &Arc<Mutex<HashMap<String, ProviderConfig>>>,
     run_id: Option<&str>,
 ) -> RequestIdentityOwned {
-    let (api_type, oauth) =
-        match resolve_api_type_for_model(model_id, provider_configs.clone()).await {
-            Some((api_type, oauth)) => (Some(api_type), oauth),
-            None => (None, false),
-        };
     let provider = {
         let configs = provider_configs.lock().await;
         crate::core::agent::upstream::pick_provider_for_model(model_id, &configs)
@@ -557,17 +536,7 @@ async fn request_identity(
     RequestIdentityOwned {
         run_id: run_id.map(str::to_string),
         provider,
-        api_type,
-        oauth,
     }
-}
-
-/// No default headers on purpose, `User-Agent` included: that one rides each
-/// request's header list ([`crate::core::agent::request_headers`]), which both
-/// send paths share, so the two cannot drift apart.
-fn converter_http_client() -> reqwest::Client {
-    static CLIENT: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::new);
-    CLIENT.clone()
 }
 
 #[async_trait]
@@ -632,30 +601,15 @@ impl ModelInvoker for HttpModelInvoker {
                 &normalized,
                 self.provenance.as_identity(self.session_id.as_deref()),
             ));
-        let completion = if let Some(converter) = &self.converter {
-            crate::core::agent::upstream::stream_converted_chat_completions(
-                &self.converter_client,
-                &self.upstream_url,
-                &self.api_keys,
-                converter.as_ref(),
-                &normalized,
-                events,
-                &extra_headers,
-            )
-            .await
-        } else {
-            stream_openai_chat_completions(
-                &self.client,
-                &self.upstream_url,
-                &self.api_keys,
-                // The agent speaks OpenAI chat/completions to default providers.
-                None,
-                &normalized,
-                events,
-                &extra_headers,
-            )
-            .await
-        };
+        let completion = stream_openai_chat_completions(
+            &self.client,
+            &self.upstream_url,
+            &self.api_keys,
+            &normalized,
+            events,
+            &extra_headers,
+        )
+        .await;
         if self.secrets.is_some() {
             // The model saw placeholders; the tool and the saved thread get the
             // real values back. The next request hides them again.
@@ -769,9 +723,6 @@ struct CompositeToolInvoker {
     /// `~/.jan/config.toml` with the project's `[tools]` section.
     env_passthrough: Vec<String>,
     env_set: Vec<(String, String)>,
-    /// Backend for `web_search`/`web_fetch`, resolved once per run from
-    /// `[web_search]` (see [`resolve_web_search`]). `None` keeps the default.
-    web_search: Option<tauri_plugin_websearch::provider::WebSearchConfig>,
     permissions: tauri_plugin_agent_tools::permissions::ToolPermissions,
     events: mpsc::UnboundedSender<StreamEvent>,
     permission_requests: PermissionRegistry,
@@ -959,12 +910,6 @@ fn resolve_env_passthrough(project: Vec<String>) -> Vec<String> {
 fn resolve_env_set(project: Vec<(String, String)>) -> Vec<(String, String)> {
     let global = Vec::new();
     merge_env_set(global, project)
-}
-
-/// The web tools' backend for this run. `[web_search]` lives in the CLI's
-/// `~/.jan/config.toml`; the desktop has no such file and keeps the default.
-fn resolve_web_search() -> Option<tauri_plugin_websearch::provider::WebSearchConfig> {
-    None
 }
 
 fn merge_env_passthrough(mut global: Vec<String>, project: Vec<String>) -> Vec<String> {
@@ -1166,7 +1111,6 @@ impl CompositeToolInvoker {
         .with_pkg_cache(self.pkg_cache.as_ref())
         .with_env_passthrough(&self.env_passthrough)
         .with_env_set(&self.env_set)
-        .with_web_search(self.web_search.as_ref())
         .with_hooks(
             &self.hooks,
             self.run_mode == crate::core::agent::plan::RunMode::Plan,
@@ -2518,10 +2462,10 @@ impl ToolInvoker for CompositeToolInvoker {
                 Decision::Prompt(_) if self.auto_approve => Decision::Allow,
                 other => other,
             };
-            // Read and Net tools are non-mutating and safe to run concurrently
-            // once allowed: reads hit the filesystem, web tools do outbound HTTP.
+            // Read tools are non-mutating and safe to run concurrently
+            // once allowed: they only read.
             if matches!(decision, Decision::Allow)
-                && matches!(tool.capability, Capability::Read | Capability::Net)
+                && matches!(tool.capability, Capability::Read)
             {
                 // The future outlives this borrow of `self`, so it owns its roots
                 // and builds the context inside.
@@ -2536,7 +2480,6 @@ impl ToolInvoker for CompositeToolInvoker {
                 let hidden = self.hidden_root.clone();
                 let scratch = self.scratch_root.clone();
                 let pkg_cache = self.pkg_cache.clone();
-                let web_search = self.web_search.clone();
                 let read_roots = self.workspace.read_roots.clone();
                 // Hooks come along: a read is still a tool call, and a
                 // PreToolUse policy that stopped applying to whatever happened
@@ -2564,7 +2507,6 @@ impl ToolInvoker for CompositeToolInvoker {
                         .with_scratch_root(&scratch)
                         .with_pkg_cache(pkg_cache.as_ref())
                         .with_read_roots(&read_roots)
-                        .with_web_search(web_search.as_ref())
                         .with_hooks(&hooks, planning, Some(hook_sink));
                     let (text, diff, images) = execute_builtin_with_diff(tool, &args, &ctx).await;
                     ToolOutcome {
@@ -2593,9 +2535,6 @@ impl ToolInvoker for CompositeToolInvoker {
                         Capability::Read => "read",
                         Capability::Write => "write",
                         Capability::Exec => "exec",
-                        // Net tools resolve to Allow in the gate and never reach
-                        // this prompt arm; label defensively for completeness.
-                        Capability::Net => "net",
                     };
                     let prompt_kind = match kind {
                         PromptKind::ReadEscape => "read_escape",
@@ -3702,10 +3641,6 @@ async fn orchestrate_inner(
     let cost_ceiling = body_cost_ceiling(json_body);
 
     let provenance = request_identity(&model_id, provider_configs, run_id.as_deref()).await;
-    let converter = provenance
-        .api_type
-        .as_deref()
-        .and_then(|api_type| converter_for(Some(api_type), provenance.oauth));
     // The user's opt-out, narrowed by what this route is already known to
     // reject. A route that rejected the field in an earlier run (or process)
     // starts without it, so its first request is the bytes it will keep
@@ -3721,8 +3656,6 @@ async fn orchestrate_inner(
         upstream_url,
         api_keys: session_api_keys,
         provider_configs: provider_configs.clone(),
-        converter,
-        converter_client: converter_http_client(),
         client_request_id: crate::core::agent::correlation::session_request_id(
             args.session_id.as_deref(),
         ),
@@ -3849,7 +3782,6 @@ async fn orchestrate_inner(
                 settings.env_set,
                 child_scope.as_ref().map(|c| c.env_set.clone()).unwrap_or_default(),
             ),
-            web_search: resolve_web_search(),
             project_root: root.clone(),
             allowed_names: allowed_names.clone(),
             permissions: permissions.clone(),
@@ -4234,17 +4166,11 @@ async fn side_call_invoker(
         args.run_id.as_deref(),
     )
     .await;
-    let converter = provenance
-        .api_type
-        .as_deref()
-        .and_then(|api_type| converter_for(Some(api_type), provenance.oauth));
     let model = HttpModelInvoker {
         client: args.client.clone(),
         upstream_url,
         api_keys,
         provider_configs: args.provider_configs.clone(),
-        converter,
-        converter_client: converter_http_client(),
         // A side call is billed to the same session as the turn it serves, so
         // it carries the same correlation id: leaving it out would make the
         // session's recorded spend smaller than the bill.
@@ -5767,15 +5693,11 @@ mod tests {
             upstream_url: url,
             api_keys: Vec::new(),
             provider_configs: Arc::new(Mutex::new(HashMap::new())),
-            converter: None,
-            converter_client: converter_http_client(),
             client_request_id: None,
             session_id: Some("session-1".to_string()),
             provenance: RequestIdentityOwned {
                 run_id: None,
                 provider: Some("stub".to_string()),
-                api_type: None,
-                oauth: false,
             },
             provenance_events: Some(run),
             secrets: None,
@@ -5860,15 +5782,11 @@ mod tests {
             upstream_url: url,
             api_keys: Vec::new(),
             provider_configs: Arc::new(Mutex::new(HashMap::new())),
-            converter: None,
-            converter_client: converter_http_client(),
             client_request_id: None,
             session_id: None,
             provenance: RequestIdentityOwned {
                 run_id: None,
                 provider: Some("stub".to_string()),
-                api_type: None,
-                oauth: false,
             },
             provenance_events: None,
             secrets: Some(filter),
@@ -5952,8 +5870,6 @@ mod tests {
             upstream_url: url,
             api_keys: vec!["real-key".into()],
             provider_configs: Arc::new(Mutex::new(configs)),
-            converter: None,
-            converter_client: converter_http_client(),
             client_request_id: crate::core::agent::correlation::session_request_id(Some(
                 "sess-9",
             )),
@@ -6174,9 +6090,6 @@ mod tests {
         assert!(prompt.starts_with("You are a robotics researcher."));
         assert!(!prompt.contains("main assistant"));
         assert!(prompt.contains("# Guidelines"));
-        assert!(prompt.contains("# Web Access"));
-        assert!(prompt.contains("web_search"));
-        assert!(prompt.contains("web_fetch"));
         let _ = std::fs::remove_dir_all(&root);
     }
 
@@ -9424,7 +9337,6 @@ mod tests {
             pkg_cache: None,
             env_passthrough: Vec::new(),
             env_set: Vec::new(),
-            web_search: None,
             project_root: root,
             allowed_names: None,
             // Read-only default => write PROMPTS.
@@ -11256,7 +11168,7 @@ mod tests {
         };
 
         let out = invoker
-            .invoke(&[mcp_call("m1", "web_search_exa")])
+            .invoke(&[mcp_call("m1", "exa_lookup")])
             .await
             .unwrap();
         responder.await.unwrap();
@@ -11285,10 +11197,10 @@ mod tests {
         };
 
         // Execution errors (no live server) are irrelevant; assert the grant landed.
-        let _ = invoker.invoke(&[mcp_call("m1", "web_search_exa")]).await;
+        let _ = invoker.invoke(&[mcp_call("m1", "exa_lookup")]).await;
         responder.await.unwrap();
 
-        assert!(invoker.grants.lock().unwrap().covers_mcp("web_search_exa"));
+        assert!(invoker.grants.lock().unwrap().covers_mcp("exa_lookup"));
         let _ = std::fs::remove_dir_all(&root);
     }
 
@@ -11298,10 +11210,10 @@ mod tests {
         let (tx, mut rx) = mpsc::unbounded_channel();
         let registry: PermissionRegistry = Arc::new(Mutex::new(HashMap::new()));
         let invoker = build_prompting_invoker(root.clone(), tx, registry);
-        invoker.grants.lock().unwrap().grant_mcp("web_search_exa");
+        invoker.grants.lock().unwrap().grant_mcp("exa_lookup");
 
         // Execution errors (no live server) are irrelevant; assert no prompt fired.
-        let _ = invoker.invoke(&[mcp_call("m1", "web_search_exa")]).await;
+        let _ = invoker.invoke(&[mcp_call("m1", "exa_lookup")]).await;
         drop(invoker);
 
         let mut prompted = false;
@@ -11329,8 +11241,8 @@ mod tests {
     fn read_only_project_still_advertises_mcp_tools() {
         use tauri_plugin_agent_tools::permissions::{PermissionDefault, ToolPermissions};
         let mut tools =
-            vec![json!({ "type": "function", "function": { "name": "web_search_exa" } })];
-        let mut map = HashMap::from([("web_search_exa".to_string(), "exa".to_string())]);
+            vec![json!({ "type": "function", "function": { "name": "exa_lookup" } })];
+        let mut map = HashMap::from([("exa_lookup".to_string(), "exa".to_string())]);
         // The scaffolded CLI project default: read-only, no allow-list.
         let perms = ToolPermissions::new(PermissionDefault::ReadOnly, &[], &[], &[]);
 
@@ -11341,18 +11253,18 @@ mod tests {
             1,
             "read-only must not suppress MCP advertisement"
         );
-        assert!(map.contains_key("web_search_exa"));
+        assert!(map.contains_key("exa_lookup"));
     }
 
     #[test]
     fn denied_mcp_tool_is_not_advertised() {
         use tauri_plugin_agent_tools::permissions::{PermissionDefault, ToolPermissions};
         let mut tools = vec![
-            json!({ "type": "function", "function": { "name": "web_search_exa" } }),
+            json!({ "type": "function", "function": { "name": "exa_lookup" } }),
             json!({ "type": "function", "function": { "name": "dangerous_write" } }),
         ];
         let mut map = HashMap::from([
-            ("web_search_exa".to_string(), "exa".to_string()),
+            ("exa_lookup".to_string(), "exa".to_string()),
             ("dangerous_write".to_string(), "exa".to_string()),
         ]);
         let perms = ToolPermissions::new(
@@ -11365,7 +11277,7 @@ mod tests {
         retain_advertisable_mcp_tools(&mut tools, &mut map, &perms);
 
         assert_eq!(tools.len(), 1);
-        assert!(map.contains_key("web_search_exa"));
+        assert!(map.contains_key("exa_lookup"));
         assert!(
             !map.contains_key("dangerous_write"),
             "deny-list must still prune"
@@ -11376,8 +11288,8 @@ mod tests {
     fn deny_default_advertises_no_mcp_tools() {
         use tauri_plugin_agent_tools::permissions::{PermissionDefault, ToolPermissions};
         let mut tools =
-            vec![json!({ "type": "function", "function": { "name": "web_search_exa" } })];
-        let mut map = HashMap::from([("web_search_exa".to_string(), "exa".to_string())]);
+            vec![json!({ "type": "function", "function": { "name": "exa_lookup" } })];
+        let mut map = HashMap::from([("exa_lookup".to_string(), "exa".to_string())]);
         let perms = ToolPermissions::new(PermissionDefault::Deny, &[], &[], &[]);
 
         retain_advertisable_mcp_tools(&mut tools, &mut map, &perms);

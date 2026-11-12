@@ -18,12 +18,6 @@ describe('getProviderLogo', () => {
     expect(getProviderLogo('llamacpp')).toBe(
       '/images/model-provider/llamacpp.svg'
     )
-    expect(getProviderLogo('anthropic')).toBe(
-      '/images/model-provider/anthropic.svg'
-    )
-    expect(getProviderLogo('openai')).toBe('/images/model-provider/openai.svg')
-    expect(getProviderLogo('gemini')).toBe('/images/model-provider/gemini.svg')
-    expect(getProviderLogo('nvidia')).toBe('/images/model-provider/nvidia.svg')
   })
 
   it('returns undefined for unknown providers', () => {
@@ -35,15 +29,11 @@ describe('getProviderLogo', () => {
 describe('getProviderTitle', () => {
   it('returns formatted titles for special providers', () => {
     expect(getProviderTitle('llamacpp')).toBe('Llama.cpp')
-    expect(getProviderTitle('openai')).toBe('OpenAI')
-    expect(getProviderTitle('openrouter')).toBe('OpenRouter')
-    expect(getProviderTitle('gemini')).toBe('Gemini')
-    expect(getProviderTitle('nvidia')).toBe('NVIDIA NIM')
   })
 
   it('capitalizes first letter for unknown providers', () => {
-    expect(getProviderTitle('anthropic')).toBe('Anthropic')
-    expect(getProviderTitle('mistral')).toBe('Mistral')
+    expect(getProviderTitle('acme')).toBe('Acme')
+    expect(getProviderTitle('custom')).toBe('Custom')
     expect(getProviderTitle('test')).toBe('Test')
   })
 
@@ -52,8 +42,8 @@ describe('getProviderTitle', () => {
   })
 
   it('accepts a provider object and titles it by its name', () => {
-    expect(getProviderTitle({ provider: 'openai' })).toBe('OpenAI')
-    expect(getProviderTitle({ provider: 'mistral' })).toBe('Mistral')
+    expect(getProviderTitle({ provider: 'acme' })).toBe('Acme')
+    expect(getProviderTitle({ provider: 'custom' })).toBe('Custom')
   })
 
   it('prefers the display name a provider carries over its raw id', () => {
@@ -67,7 +57,7 @@ describe('getProviderTitle', () => {
 
   it('falls back to the id when the display name is empty', () => {
     expect(getProviderTitle({ provider: 'openai', display_name: '' })).toBe(
-      'OpenAI'
+      'Openai'
     )
   })
 })

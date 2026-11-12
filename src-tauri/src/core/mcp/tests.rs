@@ -363,7 +363,7 @@ async fn test_get_tools_falls_back_to_last_known_when_server_enabled_but_disconn
         last_known.insert(
             "exa".to_string(),
             vec![ToolWithServer {
-                name: "web_search_exa".to_string(),
+                name: "exa_lookup".to_string(),
                 description: Some("search the web".to_string()),
                 input_schema: serde_json::json!({}),
                 server: "exa".to_string(),
@@ -375,7 +375,7 @@ async fn test_get_tools_falls_back_to_last_known_when_server_enabled_but_disconn
     assert!(result.is_ok());
     let tools = result.unwrap();
     assert_eq!(tools.len(), 1, "disconnected-but-enabled server's last-known tools still present");
-    assert_eq!(tools[0].name, "web_search_exa");
+    assert_eq!(tools[0].name, "exa_lookup");
     assert_eq!(tools[0].server, "exa");
 }
 

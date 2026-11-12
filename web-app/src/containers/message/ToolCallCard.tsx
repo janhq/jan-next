@@ -14,7 +14,6 @@ import { completedToolLabel } from '@/lib/agentActivity'
 import { describeNativeToolCall, isToolRunning } from '@/lib/toolPresentation'
 import { isToolPart, type MessagePartLike } from './types'
 import { RagToolWidget } from './RagToolWidget'
-import { WebToolWidget } from './WebToolWidget'
 import { AgentToolWidget, TerminalWidget } from './AgentToolWidget'
 import { SubagentToolWidget } from './SubagentToolWidget'
 import { isExtensionToolName } from '@/lib/extensions/tools'
@@ -36,19 +35,17 @@ export const ToolCallCard = memo(
     if (!isToolPart(part)) return null
 
     const isError = part.state === 'output-error'
-    // Native families get a fixed label; web search and MCP name their source.
+    // Native families get a fixed label; MCP names its source.
     const originLabel =
       origin === undefined
         ? undefined
-        : origin.kind === 'web-fetch'
-          ? t('tools:toolCall.originWeb')
-          : origin.kind === 'rag'
-            ? t('tools:toolCall.originDocuments')
-            : origin.kind === 'agent'
-              ? t('tools:toolCall.originWorkspace')
-              : origin.kind === 'subagent'
-                ? t('tools:toolCall.originSubagent')
-                : origin.detail
+        : origin.kind === 'rag'
+          ? t('tools:toolCall.originDocuments')
+          : origin.kind === 'agent'
+            ? t('tools:toolCall.originWorkspace')
+            : origin.kind === 'subagent'
+              ? t('tools:toolCall.originSubagent')
+              : origin.detail
 
     const errorText = isError
       ? part.error || part.errorText || t('tools:toolCall.executionFailed')
@@ -118,20 +115,13 @@ export const ToolCallCard = memo(
               />
             ) : bar.variant === 'subagent' ? (
               <SubagentToolWidget bar={bar} />
-            ) : bar.variant === 'workspace' ? (
+            ) : (
               <AgentToolWidget
                 bar={bar}
                 state={part.state}
                 output={part.output}
                 errorText={errorText}
                 toolCallId={part.toolCallId}
-              />
-            ) : (
-              <WebToolWidget
-                bar={bar}
-                state={part.state}
-                output={part.output}
-                errorText={errorText}
               />
             )}
           </div>

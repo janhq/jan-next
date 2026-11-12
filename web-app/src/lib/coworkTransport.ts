@@ -129,8 +129,8 @@ export class CoworkChatTransport extends CustomChatTransport {
   }
 
   /**
-   * Cowork's own prompt replaces the chat one wholesale — the agent-tools and
-   * web-search blurbs are written for a chat that occasionally reaches for a
+   * Cowork's own prompt replaces the chat one wholesale — the agent-tools
+   * blurb is written for a chat that occasionally reaches for a
    * tool, not for a run whose whole purpose is tool use. Attached documents
    * need no instruction here either: they are copied into the workspace and
    * named in the question itself (`withAttachedFiles`).
@@ -144,7 +144,6 @@ export class CoworkChatTransport extends CustomChatTransport {
       subagentNames: this.config.allowSubagents
         ? this.config.subagentNames
         : [],
-      webSearch: this.config.webSearch,
       memoryCatalog: this.memoryCatalog,
       environment: this.environment,
     })

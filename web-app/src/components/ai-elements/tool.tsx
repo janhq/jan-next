@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
 import type { ToolUIPart } from 'ai'
-import { ChevronRightIcon, WrenchIcon, SearchIcon, GlobeIcon } from 'lucide-react'
+import { ChevronRightIcon, WrenchIcon } from 'lucide-react'
 import type { ComponentProps, ReactNode } from 'react'
 import {
   createContext,
@@ -197,10 +197,6 @@ export const ToolHeader = memo(
       >
         {awaitingApproval ? (
           <ShieldAlertIcon className="size-4 shrink-0 text-amber-500" />
-        ) : toolName === 'web_search' ? (
-          <SearchIcon className="size-4 shrink-0" />
-        ) : toolName === 'web_fetch' ? (
-          <GlobeIcon className="size-4 shrink-0" />
         ) : (
           <WrenchIcon className="size-4 shrink-0" />
         )}
@@ -517,7 +513,7 @@ export const ToolOutput = memo(
       [errorText, output]
     )
     // Only offer expansion for payloads long enough to be clipped. Citation
-    // output (native web search, RAG) renders as cards outside the scroll box,
+    // output (RAG) renders as cards outside the scroll box,
     // so there is no height for the control to act on.
     // The raw view elides image data, so image bytes are not what makes a
     // payload long enough to need the expand control.

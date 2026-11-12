@@ -76,7 +76,7 @@ impl ServedTools {
             // store by sanitized name and can never reach a project file, so it
             // belongs to the memory/skill set rather than the mutating one.
             Capability::Write => self.allow_write || tool.path_args.is_empty(),
-            Capability::Read | Capability::Net => true,
+            Capability::Read => true,
         }
     }
 }
@@ -104,8 +104,6 @@ pub struct ServeOptions {
     pub scratch_root: Option<PathBuf>,
     /// Which tools are offered. See [`ServedTools`].
     pub served: ServedTools,
-    /// Backend for `web_search`/`web_fetch`. `None` keeps the default.
-    pub web_search: Option<tauri_plugin_websearch::provider::WebSearchConfig>,
 }
 
 impl ServeOptions {
@@ -122,7 +120,6 @@ impl ServeOptions {
             sandbox: true,
             scratch_root: None,
             served: ServedTools::default(),
-            web_search: None,
         }
     }
 }
@@ -209,8 +206,7 @@ impl JanToolServer {
             &self.opts.project_root,
             &self.opts.enabled_skills,
         ))
-        .with_skill_user_root(self.opts.user_store_root.as_deref())
-        .with_web_search(self.opts.web_search.as_ref());
+        .with_skill_user_root(self.opts.user_store_root.as_deref());
         if let Some(scratch) = self.opts.scratch_root.as_deref() {
             ctx = ctx.with_scratch_root(scratch);
         }

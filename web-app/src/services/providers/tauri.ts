@@ -2,20 +2,16 @@
  * Tauri Providers Service - Desktop implementation
  */
 
-import { predefinedProviders } from '@/constants/providers'
-import { providerModels } from '@/constants/models'
 import { EngineManager, SettingComponentProps } from '@janhq/core'
 import { ModelCapabilities } from '@/types/models'
 import { modelSettings } from '@/lib/predefined'
 import { fetch as fetchTauri } from '@tauri-apps/plugin-http'
 import { invoke } from '@tauri-apps/api/core'
 import { DefaultProvidersService } from './default'
-import { getModelCapabilities } from '@/lib/models'
 import {
   API_KEY_FALLBACKS_SETTING_KEY,
   providerRemoteApiKeyChain,
 } from '@/lib/provider-api-keys'
-import { ensureAnthropicHeaders } from '@/lib/remoteModelCatalog'
 import { toProviderUnreachable } from '@/lib/provider-unreachable'
 import { extensionProviderFetch } from '@/lib/extensions/providers'
 
@@ -27,31 +23,6 @@ export class TauriProvidersService extends DefaultProvidersService {
 
   async getProviders(): Promise<ModelProvider[]> {
     try {
-      const builtinProviders = predefinedProviders.map((provider) => {
-        let models = provider.models as Model[]
-        if (Object.keys(providerModels).includes(provider.provider)) {
-          const builtInModels = providerModels[
-            provider.provider as unknown as keyof typeof providerModels
-          ].models as unknown as string[]
-
-          if (Array.isArray(builtInModels)) {
-            models = builtInModels.map((model) => {
-              const modelManifest = models.find((e) => e.id === model)
-              // TODO: Check chat_template for tool call support
-              return {
-                ...(modelManifest ?? { id: model, name: model }),
-                capabilities: getModelCapabilities(provider.provider, model),
-              } as Model
-            })
-          }
-        }
-
-        return {
-          ...provider,
-          models,
-        }
-      }).filter(Boolean)
-
       const runtimeProviders: ModelProvider[] = []
       for (const [providerName, value] of EngineManager.instance().engines) {
         const models = await value.list() ?? []
@@ -130,7 +101,7 @@ export class TauriProvidersService extends DefaultProvidersService {
         runtimeProviders.push(provider)
       }
 
-      return runtimeProviders.concat(builtinProviders as ModelProvider[])
+      return runtimeProviders
     } catch (error: unknown) {
       console.error('Error getting providers in Tauri:', error)
       return []
@@ -186,8 +157,6 @@ export class TauriProvidersService extends DefaultProvidersService {
             headers[header.header] = header.value
           })
         }
-
-        ensureAnthropicHeaders(provider, headers)
 
         const response = await fetchImpl(`${provider.base_url}/models`, {
           method: 'GET',

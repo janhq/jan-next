@@ -36,8 +36,6 @@ pub(crate) struct RequestIdentity<'a> {
     pub session_id: Option<&'a str>,
     /// The configured provider the model resolved to.
     pub provider: Option<&'a str>,
-    /// The wire API the body is built for, absent for chat/completions.
-    pub api_type: Option<&'a str>,
 }
 
 /// The [`StreamEvent::RequestProvenance`] for one outbound request body.
@@ -52,7 +50,6 @@ pub(crate) fn of_request(body: &Value, identity: RequestIdentity<'_>) -> StreamE
             .and_then(|m| m.as_str())
             .unwrap_or_default()
             .to_string(),
-        api_type: identity.api_type.map(str::to_string),
         request_sha256: sha256_hex(&bytes),
         body_bytes: bytes.len() as u64,
         tools_sha256: body
@@ -274,16 +271,14 @@ mod tests {
             RequestIdentity {
                 run_id: Some("child-1"),
                 session_id: Some("session-9"),
-                provider: Some("anthropic"),
-                api_type: Some("anthropic"),
+                provider: Some("local"),
             },
         );
         let value = serde_json::to_value(&event).unwrap();
         assert_eq!(value["type"], "request_provenance");
         assert_eq!(value["run_id"], "child-1");
         assert_eq!(value["session_id"], "session-9");
-        assert_eq!(value["provider"], "anthropic");
-        assert_eq!(value["api_type"], "anthropic");
+        assert_eq!(value["provider"], "local");
         assert_eq!(value["model"], "claude-sonnet-5");
         assert!(value.get("images").is_none(), "no images, no field");
 

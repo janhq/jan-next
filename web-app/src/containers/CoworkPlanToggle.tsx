@@ -20,7 +20,7 @@ type Props = {
  * Icon-only until it is on, then it grows a label. The composer's control row
  * is a row of quiet ghost icons; an outlined pill sitting among them read as
  * bolted on, and a mode that is off has nothing to say. `text-primary` for the
- * on state is the row's own convention, borrowed from the web-search toggle.
+ * on state is the row's own convention, shared with the other quiet toggles.
  */
 export function CoworkPlanToggle({ planMode, onChange }: Props) {
   const { t } = useTranslation()

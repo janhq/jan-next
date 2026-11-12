@@ -133,30 +133,6 @@ export function getProviderLogo(provider: string) {
       return '/images/model-provider/jan.png'
     case 'llamacpp':
       return '/images/model-provider/llamacpp.svg'
-    case 'anthropic':
-      return '/images/model-provider/anthropic.svg'
-    case 'huggingface':
-      return '/images/model-provider/huggingface.svg'
-    case 'mistral':
-      return '/images/model-provider/mistral.svg'
-    case 'openrouter':
-      return '/images/model-provider/open-router.svg'
-    case 'groq':
-      return '/images/model-provider/groq.svg'
-    case 'cohere':
-      return '/images/model-provider/cohere.svg'
-    case 'gemini':
-      return '/images/model-provider/gemini.svg'
-    case 'openai':
-      return '/images/model-provider/openai.svg'
-    case 'azure':
-      return '/images/model-provider/azure.svg'
-    case 'xai':
-      return '/images/model-provider/xai.svg'
-    case 'minimax':
-      return '/images/model-provider/minimax.svg'
-    case 'nvidia':
-      return '/images/model-provider/nvidia.svg'
     default:
       return undefined
   }
@@ -177,20 +153,6 @@ export const getProviderTitle = (
       return 'Jan'
     case 'llamacpp':
       return 'Llama.cpp'
-    case 'openai':
-      return 'OpenAI'
-    case 'openrouter':
-      return 'OpenRouter'
-    case 'gemini':
-      return 'Gemini'
-    case 'huggingface':
-      return 'Hugging Face'
-    case 'xai':
-      return 'xAI'
-    case 'minimax':
-      return 'MiniMax'
-    case 'nvidia':
-      return 'NVIDIA NIM'
     default:
       return provider.charAt(0).toUpperCase() + provider.slice(1)
   }

@@ -281,7 +281,7 @@ describe('useModelProvider - coverage', () => {
 
     it.each([
       [7, 'removing proactive capability', {
-        providers: [{ provider: 'openai', models: [{ id: 'm1', capabilities: ['tools', 'proactive', 'vision'], settings: {} }], settings: [] }],
+        providers: [{ provider: 'my-endpoint', models: [{ id: 'm1', capabilities: ['tools', 'proactive', 'vision'], settings: {} }], settings: [] }],
         deletedModels: [],
       }, (migrated: any) => {
         expect(migrated.providers[0].models[0].capabilities).toEqual(['tools', 'vision'])
@@ -289,12 +289,12 @@ describe('useModelProvider - coverage', () => {
       [9, 'removing cohere provider', {
         providers: [
           { provider: 'cohere', models: [], settings: [] },
-          { provider: 'openai', models: [], settings: [] },
+          { provider: 'my-endpoint', models: [], settings: [] },
         ],
         deletedModels: [],
       }, (migrated: any) => {
         expect(migrated.providers.find((p: any) => p.provider === 'cohere')).toBeUndefined()
-        expect(migrated.providers.find((p: any) => p.provider === 'openai')).toBeDefined()
+        expect(migrated.providers.find((p: any) => p.provider === 'my-endpoint')).toBeDefined()
       }],
       [10, 'v10 is now a no-op (auto_increase_ctx_len removed in v15)', {
         providers: [{ provider: 'llamacpp', models: [{ id: 'm1', settings: {}, capabilities: [] }], settings: [] }],
@@ -362,17 +362,6 @@ describe('useModelProvider - coverage', () => {
         deletedModels: [],
       }, (migrated: any) => {
         expect(migrated.providers[0].models[0].settings.auto_increase_ctx_len).toBeUndefined()
-      }],
-      [3, 'Anthropic provider migration', {
-        providers: [{
-          provider: 'anthropic', models: [],
-          base_url: 'https://api.anthropic.com',
-          settings: [{ key: 'base-url', controller_props: { value: 'https://api.anthropic.com', placeholder: 'https://api.anthropic.com' } }],
-        }],
-        deletedModels: [],
-      }, (migrated: any) => {
-        expect(migrated.providers[0].base_url).toBe('https://api.anthropic.com/v1')
-        expect(migrated.providers[0].custom_header).toBeDefined()
       }],
       [0, 'adding model settings at version 0', {
         providers: [{ provider: 'llamacpp', models: [{ id: 'm1', settings: {} }], settings: [{ key: 'cont_batching', description: 'old' }] }],

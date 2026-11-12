@@ -282,7 +282,7 @@ describe('useModelProvider migrations', () => {
     ])
   })
 
-  it('overwrites stale base_url and strips base-url setting for predefined providers', () => {
+  it('drops retired built-in remote providers and Anthropic api_type providers (v21 → v22)', () => {
     const persistApi = (useModelProvider as any).persist
     const migrate = persistApi?.getOptions().migrate as
       | ((state: unknown, version: number) => any)
@@ -292,147 +292,40 @@ describe('useModelProvider migrations', () => {
 
     const persistedState = {
       providers: [
+        { provider: 'llamacpp', models: [], settings: [] },
+        { provider: 'anthropic', models: [], settings: [] },
+        { provider: 'openai', models: [], settings: [] },
+        { provider: 'mistral', models: [], settings: [] },
         {
-          provider: 'anthropic',
-          models: [],
-          base_url: 'https://api.anthropic.com',
-          settings: [
-            { key: 'api-key', controller_props: { value: 'sk-x' } },
-            {
-              key: 'base-url',
-              controller_props: {
-                value: 'https://api.anthropic.com',
-                placeholder: 'https://api.anthropic.com',
-              },
-            },
-          ],
-        },
-        {
-          provider: 'mistral',
-          models: [],
-          base_url: 'https://api.mistral.ai',
-          settings: [
-            {
-              key: 'base-url',
-              controller_props: { value: 'https://api.mistral.ai' },
-            },
-          ],
-        },
-        {
-          provider: 'my-custom',
-          models: [],
-          base_url: 'https://example.com/v1',
-          settings: [
-            {
-              key: 'base-url',
-              controller_props: { value: 'https://example.com/v1' },
-            },
-          ],
-        },
-      ],
-      selectedProvider: 'anthropic',
-      selectedModel: null,
-      deletedModels: [],
-    }
-
-    const migratedState = migrate!(persistedState, 13)
-    const [anthropic, mistral, custom] = migratedState.providers
-
-    expect(anthropic.base_url).toBe('https://api.anthropic.com/v1')
-    expect(
-      anthropic.settings.find((s: any) => s.key === 'base-url')
-    ).toBeUndefined()
-    expect(
-      anthropic.settings.find((s: any) => s.key === 'api-key')
-    ).toBeDefined()
-
-    expect(mistral.base_url).toBe('https://api.mistral.ai/v1')
-    expect(
-      mistral.settings.find((s: any) => s.key === 'base-url')
-    ).toBeUndefined()
-
-    // Custom providers (not in predefinedProviders) are left alone.
-    expect(custom.base_url).toBe('https://example.com/v1')
-    expect(
-      custom.settings.find((s: any) => s.key === 'base-url')
-    ).toBeDefined()
-  })
-
-  it('does not affect other providers during Mistral migration', () => {
-    const persistApi = (useModelProvider as any).persist
-    const migrate = persistApi?.getOptions().migrate as
-      | ((state: unknown, version: number) => any)
-      | undefined
-
-    expect(migrate).toBeDefined()
-
-    const persistedState = {
-      providers: [
-        {
-          provider: 'mistral',
-          models: [],
-          base_url: 'https://api.mistral.ai',
-          settings: [],
-        },
-        {
-          provider: 'openai',
-          models: [],
-          base_url: 'https://api.openai.com/v1',
-          settings: [],
-        },
-      ],
-      selectedProvider: 'mistral',
-      selectedModel: null,
-      deletedModels: [],
-    }
-
-    const migratedState = migrate!(persistedState, 8)
-
-    expect(migratedState.providers[0].base_url).toBe('https://api.mistral.ai/v1')
-    expect(migratedState.providers[1].base_url).toBe('https://api.openai.com/v1')
-  })
-
-  it('backfills api_type on the built-in anthropic provider (v15 → v16)', () => {
-    const persistApi = (useModelProvider as any).persist
-    const migrate = persistApi?.getOptions().migrate as
-      | ((state: unknown, version: number) => any)
-      | undefined
-
-    expect(migrate).toBeDefined()
-
-    const persistedState = {
-      providers: [
-        {
-          provider: 'anthropic',
-          models: [],
-          base_url: 'https://api.anthropic.com/v1',
-          settings: [],
-        },
-        {
-          provider: 'openai',
-          models: [],
-          base_url: 'https://api.openai.com/v1',
-          settings: [],
-        },
-        {
-          provider: 'my-anthropic-proxy',
+          provider: 'my-claude-proxy',
           models: [],
           api_type: 'anthropic',
           base_url: 'https://proxy.example.com/v1',
           settings: [],
         },
+        {
+          provider: 'my-endpoint',
+          models: [],
+          api_type: 'openai',
+          base_url: 'https://llm.example.com/v1',
+          settings: [],
+        },
       ],
       selectedProvider: 'anthropic',
       selectedModel: null,
       deletedModels: [],
     }
 
-    const migratedState = migrate!(persistedState, 15)
-    const [anthropic, openai, customAnthropic] = migratedState.providers
+    const migratedState = migrate!(persistedState, 21)
 
-    expect(anthropic.api_type).toBe('anthropic')
-    expect(openai.api_type).toBeUndefined()
-    // Pre-set api_type must round-trip untouched.
-    expect(customAnthropic.api_type).toBe('anthropic')
+    expect(migratedState.providers.map((p: any) => p.provider)).toEqual([
+      'llamacpp',
+      'my-endpoint',
+    ])
+    expect(migratedState.providers[1].api_type).toBeUndefined()
+    expect(migratedState.providers[1].base_url).toBe(
+      'https://llm.example.com/v1'
+    )
+    expect(migratedState.selectedProvider).toBe('llamacpp')
   })
 })

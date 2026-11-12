@@ -10,7 +10,6 @@ export const localStorageKey = {
   settingCodeBlock: 'setting-code-block',
   settingLocalApiServer: 'setting-local-api-server',
   settingProxyConfig: 'setting-proxy-config',
-  settingWebSearch: 'setting-web-search',
   settingCowork: 'setting-cowork',
   settingImageAttachments: 'setting-image-attachments',
   settingChatShell: 'setting-chat-shell',

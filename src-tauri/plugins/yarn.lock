@@ -112,18 +112,6 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@janhq/tauri-plugin-websearch-api@workspace:tauri-plugin-websearch":
-  version: 0.0.0-use.local
-  resolution: "@janhq/tauri-plugin-websearch-api@workspace:tauri-plugin-websearch"
-  dependencies:
-    "@rollup/plugin-typescript": "npm:^12.0.0"
-    "@tauri-apps/api": "npm:>=2.0.0-beta.6"
-    rollup: "npm:^4.9.6"
-    tslib: "npm:^2.6.2"
-    typescript: "npm:^5.3.3"
-  languageName: unknown
-  linkType: soft
-
 "@napi-rs/lzma-linux-x64-gnu@npm:1.5.1":
   version: 1.5.1
   resolution: "@napi-rs/lzma-linux-x64-gnu@npm:1.5.1"

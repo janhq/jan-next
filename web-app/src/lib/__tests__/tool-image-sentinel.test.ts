@@ -1,13 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import type { UIMessage } from '@ai-sdk/react'
-import type { ModelMessage } from 'ai'
 import {
   encodeMcpToolImages,
   encodeToolImageSentinel,
   hasToolImageSentinel,
   splitToolImageSentinels,
   stripToolImageSentinels,
-  toContentToolOutputs,
 } from '../tool-image-sentinel'
 import { decodeToolImageSentinelsInBody } from '../model-factory'
 import { stripUnsupportedImageParts } from '../custom-chat-transport'
@@ -304,44 +302,5 @@ describe('encodeMcpToolImages', () => {
     expect(hasToolImageSentinel(over)).toBe(false)
     expect(over).toContain('larger than 5 MB')
     expect(hasToolImageSentinel(sentOf(sized(6_990_000)))).toBe(true)
-  })
-})
-
-describe('toContentToolOutputs', () => {
-  const toolMessage = (output: unknown): ModelMessage =>
-    ({
-      role: 'tool',
-      content: [
-        { type: 'tool-result', toolCallId: 'c1', toolName: 'read_media_file', output },
-      ],
-    }) as ModelMessage
-
-  // Anthropic, Gemini and OpenAI Responses build their own request shape, so
-  // the sentinel cannot be decoded in the fetch: the SDK has to be handed the
-  // image as structured `content`, which each provider maps to its own format.
-  it('turns a sentinel tool output into text plus an image-data part', () => {
-    const [out] = toContentToolOutputs([
-      toolMessage({
-        type: 'text',
-        value: `Rendered frame${encodeToolImageSentinel(png)}`,
-      }),
-    ])
-    expect(out).toEqual(
-      toolMessage({
-        type: 'content',
-        value: [
-          { type: 'text', text: 'Rendered frame' },
-          { type: 'image-data', data: 'iVBORw0KGgo=', mediaType: 'image/png' },
-        ],
-      })
-    )
-  })
-
-  it('leaves plain tool outputs and other roles untouched', () => {
-    const plain = toolMessage({ type: 'text', value: 'file contents' })
-    const user = { role: 'user', content: 'hi' } as ModelMessage
-    const [a, b] = toContentToolOutputs([plain, user])
-    expect(a).toBe(plain)
-    expect(b).toBe(user)
   })
 })

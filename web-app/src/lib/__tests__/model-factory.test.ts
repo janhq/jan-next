@@ -40,17 +40,6 @@ vi.mock('@ai-sdk/openai-compatible', () => {
   }
 })
 
-vi.mock('@ai-sdk/anthropic', () => ({
-  createAnthropic: vi.fn(() => vi.fn(() => ({ type: 'anthropic' }))),
-}))
-
-vi.mock('@ai-sdk/google', () => ({
-  createGoogleGenerativeAI: vi.fn((cfg: any) => {
-    ;(globalThis as any).__capturedGoogleCfg = cfg
-    return vi.fn(() => ({ type: 'google' }))
-  }),
-}))
-
 vi.mock('ai', () => ({
   wrapLanguageModel: vi.fn(({ model }) => model),
   extractReasoningMiddleware: vi.fn(() => ({})),
@@ -87,77 +76,11 @@ describe('ModelFactory', () => {
   })
 
   describe('createModel', () => {
-    it('should create an Anthropic model for anthropic provider', async () => {
+    it('should create an OpenAI-compatible model for a custom provider', async () => {
       const provider: ProviderObject = {
-        provider: 'anthropic',
+        provider: 'my-endpoint',
         api_key: 'test-api-key',
-        base_url: 'https://api.anthropic.com/v1',
-        models: [],
-        settings: [],
-        active: true,
-        custom_header: [
-          { header: 'anthropic-version', value: '2023-06-01' },
-        ],
-      }
-
-      const model = await ModelFactory.createModel('claude-3-opus', provider)
-      expect(model).toBeDefined()
-      expect(model.type).toBe('anthropic')
-    })
-
-    it('routes a custom provider with api_type="anthropic" through the Anthropic SDK', async () => {
-      const { createAnthropic } = await import('@ai-sdk/anthropic')
-      vi.mocked(createAnthropic).mockClear()
-      const provider: ProviderObject = {
-        provider: 'my-claude-proxy',
-        api_type: 'anthropic',
-        api_key: 'sk-proxy',
-        base_url: 'https://proxy.example.com/v1',
-        models: [],
-        settings: [],
-        active: true,
-      }
-
-      const model = await ModelFactory.createModel('claude-3-haiku', provider)
-      expect(model).toBeDefined()
-      expect(model.type).toBe('anthropic')
-      expect(createAnthropic).toHaveBeenCalledWith(
-        expect.objectContaining({
-          apiKey: 'sk-proxy',
-          baseURL: 'https://proxy.example.com/v1',
-        })
-      )
-    })
-
-    it('routes google and gemini through the native @ai-sdk/google client and strips the /openai suffix', async () => {
-      const { createGoogleGenerativeAI } = await import('@ai-sdk/google')
-      for (const name of ['google', 'gemini'] as const) {
-        vi.mocked(createGoogleGenerativeAI).mockClear()
-        const provider: ProviderObject = {
-          provider: name,
-          api_key: 'test-api-key',
-          base_url: 'https://generativelanguage.googleapis.com/v1beta/openai',
-          models: [],
-          settings: [],
-          active: true,
-        }
-
-        const model = await ModelFactory.createModel('gemini-2.5-flash', provider)
-        expect(model).toEqual({ type: 'google' })
-        expect(createGoogleGenerativeAI).toHaveBeenCalledWith(
-          expect.objectContaining({
-            apiKey: 'test-api-key',
-            baseURL: 'https://generativelanguage.googleapis.com/v1beta',
-          })
-        )
-      }
-    })
-
-    it('should create an OpenAI-compatible model for openai provider', async () => {
-      const provider: ProviderObject = {
-        provider: 'openai',
-        api_key: 'test-api-key',
-        base_url: 'https://api.openai.com/v1',
+        base_url: 'https://llm.example.com/v1',
         models: [],
         settings: [],
         active: true,
@@ -165,36 +88,6 @@ describe('ModelFactory', () => {
 
       const model = await ModelFactory.createModel('gpt-4', provider)
       expect(model).toBeDefined()
-    })
-
-    it('should create an OpenAI-compatible model for groq provider', async () => {
-      const provider: ProviderObject = {
-        provider: 'groq',
-        api_key: 'test-api-key',
-        base_url: 'https://api.groq.com/openai/v1',
-        models: [],
-        settings: [],
-        active: true,
-      }
-
-      const model = await ModelFactory.createModel('llama-3', provider)
-      expect(model).toBeDefined()
-      expect(model.type).toBe('openai-compatible')
-    })
-
-    it('should create an OpenAI-compatible model for minimax provider', async () => {
-      const provider: ProviderObject = {
-        provider: 'minimax',
-        api_key: 'test-api-key',
-        base_url: 'https://api.minimax.io/v1',
-        models: [],
-        settings: [],
-        active: true,
-      }
-
-      const model = await ModelFactory.createModel('MiniMax-M2.7', provider)
-      expect(model).toBeDefined()
-      expect(model.type).toBe('openai-compatible')
     })
 
     it('should handle custom headers for OpenAI-compatible providers', async () => {
@@ -293,20 +186,6 @@ describe('createCustomFetch — transport error wrapping', () => {
   })
 })
 
-describe('ModelFactory — missing API key guard', () => {
-  it('throws an actionable error instead of sending an empty credential', async () => {
-    const provider = {
-      provider: 'anthropic',
-      base_url: 'https://api.anthropic.com/v1',
-      api_key: '',
-      models: [],
-    } as unknown as ProviderObject
-    await expect(
-      ModelFactory.createModel('claude-opus-4-8', provider)
-    ).rejects.toThrow(/No API key configured for anthropic/)
-  })
-})
-
 describe('ModelFactory - extension providers', () => {
   const provider = {
     provider: 'acme.evil/chat',
@@ -390,7 +269,7 @@ describe('createCustomFetch — named SSE event filtering scope', () => {
 
   it('passes named SSE events through untouched by default (native protocols)', async () => {
     const wrapped = createCustomFetch(sseFetch(), {})
-    const res = await wrapped('https://api.anthropic.com/v1/messages', {
+    const res = await wrapped('https://api.example.com/v1/messages', {
       method: 'POST',
       body: '{}',
     })

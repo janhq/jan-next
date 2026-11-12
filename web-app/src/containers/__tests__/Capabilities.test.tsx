@@ -49,13 +49,6 @@ describe('Capabilities', () => {
     expect(atomIcon).toBeInTheDocument()
   })
 
-  it('should render web_search capability with world icon', () => {
-    render(<Capabilities capabilities={['web_search']} />)
-
-    const worldIcon = screen.getByTestId('icon-world')
-    expect(worldIcon).toBeInTheDocument()
-  })
-
   it('should render embeddings capability with code icon', () => {
     render(<Capabilities capabilities={['embeddings']} />)
 
@@ -72,12 +65,11 @@ describe('Capabilities', () => {
   })
 
   it('should render all capabilities in correct order', () => {
-    render(<Capabilities capabilities={['tools', 'vision', 'reasoning', 'web_search', 'embeddings']} />)
+    render(<Capabilities capabilities={['tools', 'vision', 'reasoning', 'embeddings']} />)
 
     expect(screen.getByTestId('icon-tool')).toBeInTheDocument()
     expect(screen.getByTestId('icon-eye')).toBeInTheDocument()
     expect(screen.getByTestId('icon-atom')).toBeInTheDocument()
-    expect(screen.getByTestId('icon-world')).toBeInTheDocument()
     expect(screen.getByTestId('icon-code')).toBeInTheDocument()
   })
 

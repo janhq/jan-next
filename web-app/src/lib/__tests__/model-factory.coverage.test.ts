@@ -31,31 +31,6 @@ vi.mock('@ai-sdk/openai-compatible', () => {
   }
 })
 
-vi.mock('@ai-sdk/anthropic', () => ({
-  createAnthropic: vi.fn(() => vi.fn(() => ({ type: 'anthropic' }))),
-}))
-
-vi.mock('@ai-sdk/google', () => ({
-  createGoogleGenerativeAI: vi.fn(() => vi.fn(() => ({ type: 'google' }))),
-}))
-
-vi.mock('@ai-sdk/openai', () => ({
-  createOpenAI: vi.fn(() => {
-    const fn: any = vi.fn(() => ({ type: 'openai' }))
-    fn.chat = vi.fn(() => ({ type: 'openai' }))
-    fn.responses = vi.fn(() => ({ type: 'openai' }))
-    return fn
-  }),
-}))
-
-vi.mock('@ai-sdk/xai', () => ({
-  createXai: vi.fn(() => vi.fn(() => ({ type: 'xai' }))),
-}))
-
-vi.mock('@ai-sdk/mistral', () => ({
-  createMistral: vi.fn(() => vi.fn(() => ({ type: 'mistral' }))),
-}))
-
 vi.mock('ai', () => ({
   wrapLanguageModel: vi.fn(({ model }) => model),
   extractReasoningMiddleware: vi.fn(() => ({})),
@@ -97,50 +72,7 @@ describe('ModelFactory - coverage', () => {
     ...overrides,
   } as ProviderObject)
 
-  it('creates anthropic model', async () => {
-    const model = await ModelFactory.createModel('claude-3', mkProvider('anthropic'), {})
-    expect(model).toBeDefined()
-  })
-
-  it('creates anthropic model with custom headers', async () => {
-    const model = await ModelFactory.createModel(
-      'claude-3',
-      mkProvider('anthropic', {
-        custom_header: [{ header: 'anthropic-version', value: '2024-01-01' }],
-      }),
-      {}
-    )
-    expect(model).toBeDefined()
-  })
-
-  it('creates google model', async () => {
-    const model = await ModelFactory.createModel('gemini-pro', mkProvider('google'), {})
-    expect(model).toBeDefined()
-  })
-
-  it('creates gemini model (alias)', async () => {
-    const model = await ModelFactory.createModel('gemini-pro', mkProvider('gemini'), {})
-    expect(model).toBeDefined()
-  })
-
-  it('creates openai model', async () => {
-    const model = await ModelFactory.createModel('gpt-4', mkProvider('openai'), {})
-    expect(model).toBeDefined()
-  })
-
-  it('creates xai model', async () => {
-    const model = await ModelFactory.createModel('grok-1', mkProvider('xai'), {})
-    expect(model).toBeDefined()
-  })
-
-  it('creates openai-compatible model for known providers', async () => {
-    for (const p of ['azure', 'groq', 'together', 'fireworks', 'deepseek', 'cohere', 'perplexity', 'moonshot', 'minimax']) {
-      const model = await ModelFactory.createModel('model-1', mkProvider(p), {})
-      expect(model).toBeDefined()
-    }
-  })
-
-  it('creates openai-compatible model for unknown providers', async () => {
+  it('creates openai-compatible model for any non-llamacpp provider', async () => {
     const model = await ModelFactory.createModel('model-1', mkProvider('custom-provider'), {})
     expect(model).toBeDefined()
   })
@@ -148,7 +80,7 @@ describe('ModelFactory - coverage', () => {
   it('creates openai-compatible model with custom headers', async () => {
     const model = await ModelFactory.createModel(
       'model-1',
-      mkProvider('groq', {
+      mkProvider('custom-provider', {
         custom_header: [{ header: 'X-Custom', value: 'value' }],
       }),
       {}
@@ -156,10 +88,10 @@ describe('ModelFactory - coverage', () => {
     expect(model).toBeDefined()
   })
 
-  it('creates anthropic model with multiple API keys for rotation', async () => {
+  it('creates openai-compatible model with multiple API keys for rotation', async () => {
     const model = await ModelFactory.createModel(
-      'claude-3',
-      mkProvider('anthropic', {
+      'model-1',
+      mkProvider('custom-provider', {
         api_key: 'key1',
         api_key_fallbacks: ['key2', 'key3'],
       }),
@@ -168,46 +100,10 @@ describe('ModelFactory - coverage', () => {
     expect(model).toBeDefined()
   })
 
-  it('creates openai model with multiple API keys for rotation', async () => {
-    const model = await ModelFactory.createModel(
-      'gpt-4',
-      mkProvider('openai', {
-        api_key: 'key1',
-        api_key_fallbacks: ['key2'],
-      }),
-      {}
-    )
-    expect(model).toBeDefined()
-  })
-
-  it('creates xai model with multiple API keys for rotation', async () => {
-    const model = await ModelFactory.createModel(
-      'grok-1',
-      mkProvider('xai', {
-        api_key: 'key1',
-        api_key_fallbacks: ['key2'],
-      }),
-      {}
-    )
-    expect(model).toBeDefined()
-  })
-
-  it('creates google model with multiple API keys for rotation', async () => {
-    const model = await ModelFactory.createModel(
-      'gemini-pro',
-      mkProvider('google', {
-        api_key: 'key1',
-        api_key_fallbacks: ['key2'],
-      }),
-      {}
-    )
-    expect(model).toBeDefined()
-  })
-
   it('passes parameters including max_output_tokens remapping', async () => {
     const model = await ModelFactory.createModel(
-      'gpt-4',
-      mkProvider('openai'),
+      'model-1',
+      mkProvider('custom-provider'),
       { max_output_tokens: 4096, temperature: 0.5, max_context_tokens: 8192 }
     )
     expect(model).toBeDefined()

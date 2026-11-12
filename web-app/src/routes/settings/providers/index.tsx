@@ -14,10 +14,7 @@ import ProvidersAvatar from '@/containers/ProvidersAvatar'
 import { AddProviderDialog } from '@/containers/dialogs'
 import { Switch } from '@/components/ui/switch'
 import { useCallback } from 'react'
-import {
-  openAIProviderSettings,
-  anthropicProviderSettings,
-} from '@/constants/providers'
+import { openAIProviderSettings } from '@/constants/providers'
 import { toast } from 'sonner'
 import { useServiceHub } from '@/hooks/useServiceHub'
 
@@ -39,23 +36,16 @@ function ModelProviders() {
   const navigate = useNavigate()
 
   const createProvider = useCallback(
-    (
-      name: string,
-      baseUrl: string,
-      apiKey: string,
-      apiType: ProviderApiType
-    ) => {
+    (name: string, baseUrl: string, apiKey: string) => {
       if (
         providers.some((e) => e.provider.toLowerCase() === name.toLowerCase())
       ) {
         toast.error(t('providerAlreadyExists', { name }))
         return
       }
-      const template =
-        apiType === 'anthropic'
-          ? anthropicProviderSettings
-          : openAIProviderSettings
-      const settings = structuredClone(template) as ProviderSetting[]
+      const settings = structuredClone(
+        openAIProviderSettings
+      ) as ProviderSetting[]
       for (const s of settings) {
         if (s.key === 'base-url') {
           (s.controller_props as { value: string }).value = baseUrl
@@ -70,7 +60,6 @@ function ModelProviders() {
         settings,
         api_key: apiKey,
         base_url: baseUrl,
-        ...(apiType === 'anthropic' ? { api_type: 'anthropic' as const } : {}),
       }
       addProvider(newProvider)
       setTimeout(() => {

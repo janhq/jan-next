@@ -104,8 +104,6 @@ import {
   type ApprovalOptions,
 } from '@/hooks/useToolApprovalRequests'
 import { useToolCallRuntime } from '@/hooks/useToolCallRuntime'
-import { webToolRoute, executeWebTool } from '@/lib/webSearchTool'
-import { useWebSearchConfig } from '@/hooks/useWebSearchConfig'
 import { CHAT_AGENT_TOOL_NAMES, executeAgentTool } from '@/lib/agentTools'
 import { getExtensionHost } from '@/lib/extensions/host'
 import { extensionAuthorOf } from '@/lib/extensions/authorship'
@@ -259,12 +257,6 @@ const SHELL_DISABLED_TOOL_ERROR =
   'Shell is turned off: the user disabled it, so this command was not run. ' +
   'Do not call the shell again in this chat; use another approach or tell the user it is needed.'
 
-// Recorded for a call to a built-in web tool while the user has web search off
-// and no MCP server provides a tool of that name.
-const WEB_DISABLED_TOOL_ERROR =
-  'Web search is turned off: the user disabled it, so this call was not run. ' +
-  'Do not call web_search or web_fetch again in this chat; answer from what you know or tell the user it is needed.'
-
 // Rewrites a turn that is already stored with what its live copy holds now. A
 // turn is stored before its tools run, so a call's outcome (result, error,
 // stopped) only reaches storage when a later reply rewrites the turn; when no
@@ -356,30 +348,12 @@ function isDisabledChatAgentTool(toolName: string): boolean {
   return chatShellRoute(toolName) === 'disabled'
 }
 
-// How a call to a built-in web tool name is served. Same contract as the shell:
-// while web search is on the built-in is what was offered, so it serves the
-// call; while it is off nothing is offered, so an MCP tool of the same name is
-// the user's own and is served as an MCP tool (it prompts like any other); with
-// no such MCP tool the call is refused instead of reaching the search provider
-// the user switched off.
-function webRoute(toolName: string): 'builtin' | 'disabled' | 'other' {
-  return webToolRoute(
-    toolName,
-    useWebSearchConfig.getState().webSearchEnabled,
-    useAppState.getState().mcpToolNames
-  )
-}
-
-// Internal tools never prompt: RAG and the native web tools are Jan's own, and
-// the built-in shell is gated in Rust (execute_tool refuses anything needing
-// approval), so only workspace-confined calls ever reach here. The web tools
-// do prompt on a turn an extension's provider serves: there the model is the
-// extension's, and a free `web_fetch` would reach any host its network grants
-// leave out.
-function isAutoAllowedTool(toolName: string, threadId: string): boolean {
+// Internal tools never prompt: RAG tools are Jan's own, and the built-in shell
+// is gated in Rust (execute_tool refuses anything needing approval), so only
+// workspace-confined calls ever reach here.
+function isAutoAllowedTool(toolName: string): boolean {
   return (
     useAppState.getState().ragToolNames.has(toolName) ||
-    (webRoute(toolName) === 'builtin' && !turnOnExtensionProvider(threadId)) ||
     chatShellRoute(toolName) === 'builtin'
   )
 }
@@ -890,16 +864,6 @@ function ThreadDetail() {
           try {
             const toolName = toolCall.toolName
 
-            if (webRoute(toolName) === 'disabled') {
-              record({
-                state: 'output-error',
-                tool: toolCall.toolName,
-                toolCallId: toolCall.toolCallId,
-                errorText: WEB_DISABLED_TOOL_ERROR,
-              })
-              continue
-            }
-
             if (isDisabledChatAgentTool(toolName)) {
               record({
                 state: 'output-error',
@@ -912,7 +876,7 @@ function ThreadDetail() {
 
             const pending = approvalsOf(threadId).get(toolCall.toolCallId)
             const origin = pending?.origin ?? toolOriginOf(toolName)
-            const approved = isAutoAllowedTool(toolName, threadId)
+            const approved = isAutoAllowedTool(toolName)
               ? true
               : await (pending?.approved ??
                   useToolApprovalRequests
@@ -977,11 +941,7 @@ function ThreadDetail() {
             const result = await untilAborted<ToolRunResult>(
               (async () => {
                 const { extensionTool } = origin
-                if (webRoute(toolName) === 'builtin') {
-                  return await executeWebTool(toolName, toolCall.input, {
-                    maxOutputChars,
-                  })
-                } else if (chatShellRoute(toolName) === 'builtin') {
+                if (chatShellRoute(toolName) === 'builtin') {
                   // Chat's shell runs with the sandbox network closed: the
                   // default `allowNetwork = false` is the contract here, not an
                   // accident.
@@ -1187,9 +1147,8 @@ function ThreadDetail() {
       // never prompt (see isAutoAllowedTool).
       sessionData.tools.push(toolCall)
       if (
-        !isAutoAllowedTool(toolCall.toolName, threadId) &&
+        !isAutoAllowedTool(toolCall.toolName) &&
         !isDisabledChatAgentTool(toolCall.toolName) &&
-        webRoute(toolCall.toolName) !== 'disabled' &&
         !approvalsOf(threadId).has(toolCall.toolCallId)
       ) {
         const origin = toolOriginOf(toolCall.toolName)

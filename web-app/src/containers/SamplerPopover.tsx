@@ -33,16 +33,12 @@ import { ParametersSection } from '@/containers/ParametersSection'
 import { useAssistant } from '@/hooks/useAssistant'
 import { useModelProvider } from '@/hooks/useModelProvider'
 import { paramsSettings, type ParamDef } from '@/lib/predefinedParams'
-import { isPredefinedRemoteProvider } from '@/lib/providerCaps'
 import { cn } from '@/lib/utils'
 
 interface SamplerPopoverProps {
   /** Provider ID of the currently-selected model, if any. Used to scope the
    *  chip palette to a single provider's capabilities. */
   providerId?: string
-  /** Currently-selected model ID. Drives model-family rejection (e.g. o1/gpt-5
-   *  reasoning models reject temperature/top_p). */
-  modelId?: string
   /** Optional assistant switcher. When omitted, the header shows the active
    *  assistant name as static text. */
   assistantSwitcher?: {
@@ -56,7 +52,6 @@ interface SamplerPopoverProps {
 
 export function SamplerPopover({
   providerId,
-  modelId,
   assistantSwitcher,
 }: SamplerPopoverProps) {
   const currentAssistant = useAssistant((s) => s.currentAssistant)
@@ -150,8 +145,6 @@ export function SamplerPopover({
     writeParams(next)
   }
 
-  if (isPredefinedRemoteProvider(providerId)) return null
-
   const triggerLabel = assistantsLoading
     ? 'Loading assistant…'
     : activeAssistant
@@ -229,8 +222,6 @@ export function SamplerPopover({
             <ParametersSection
               params={params}
               providers={scopedProviders}
-              providerId={providerId}
-              modelId={modelId}
               onToggle={handleToggle}
               onChange={handleChange}
               onRemove={handleRemove}

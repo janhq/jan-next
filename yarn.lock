@@ -12,18 +12,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ai-sdk/anthropic@npm:^3.0.0":
-  version: 3.0.77
-  resolution: "@ai-sdk/anthropic@npm:3.0.77"
-  dependencies:
-    "@ai-sdk/provider": "npm:3.0.10"
-    "@ai-sdk/provider-utils": "npm:4.0.27"
-  peerDependencies:
-    zod: ^3.25.76 || ^4.1.8
-  checksum: 10c0/edc7637bbcc2bbb20ae843d463be99957b27434eb0e8b4682f8763483f9daa17e9d02a15f2fa5cf5e9932ee385ec74a9725995dd3adc3f13f219b7d61566b388
-  languageName: node
-  linkType: hard
-
 "@ai-sdk/gateway@npm:3.0.114":
   version: 3.0.114
   resolution: "@ai-sdk/gateway@npm:3.0.114"
@@ -37,31 +25,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ai-sdk/google@npm:^3.0.0":
-  version: 3.0.73
-  resolution: "@ai-sdk/google@npm:3.0.73"
-  dependencies:
-    "@ai-sdk/provider": "npm:3.0.10"
-    "@ai-sdk/provider-utils": "npm:4.0.27"
-  peerDependencies:
-    zod: ^3.25.76 || ^4.1.8
-  checksum: 10c0/6b1d005dad26db0af4227eac2a3dbe47e1ba21324e21c19d4a04a8cc8eca38ce6fc99ec6c9e15b66c4791c5ba81f6022c1831cb457e229d79b2bf7a7fd9a96ee
-  languageName: node
-  linkType: hard
-
-"@ai-sdk/mistral@npm:^3.0.0":
-  version: 3.0.37
-  resolution: "@ai-sdk/mistral@npm:3.0.37"
-  dependencies:
-    "@ai-sdk/provider": "npm:3.0.10"
-    "@ai-sdk/provider-utils": "npm:4.0.27"
-  peerDependencies:
-    zod: ^3.25.76 || ^4.1.8
-  checksum: 10c0/268b413bc838eb2feeee2df9778681e631e6967a082d392283c9fb72eb2f938d625319637255184875e80e34220ee46cd231dc3c3a47918a00c17c72acd78573
-  languageName: node
-  linkType: hard
-
-"@ai-sdk/openai-compatible@npm:2.0.47, @ai-sdk/openai-compatible@npm:^2.0.0":
+"@ai-sdk/openai-compatible@npm:^2.0.0":
   version: 2.0.47
   resolution: "@ai-sdk/openai-compatible@npm:2.0.47"
   dependencies:
@@ -70,18 +34,6 @@ __metadata:
   peerDependencies:
     zod: ^3.25.76 || ^4.1.8
   checksum: 10c0/571446821d018cae808fd63ecace816ef7f221710cca9a350dcfc9c858a17a5dfcd9851a9f6cbdb00e8b022cd8c947b0b3cc39eac9d2ef50eeae91c2d1c43e12
-  languageName: node
-  linkType: hard
-
-"@ai-sdk/openai@npm:^3.0.0":
-  version: 3.0.63
-  resolution: "@ai-sdk/openai@npm:3.0.63"
-  dependencies:
-    "@ai-sdk/provider": "npm:3.0.10"
-    "@ai-sdk/provider-utils": "npm:4.0.27"
-  peerDependencies:
-    zod: ^3.25.76 || ^4.1.8
-  checksum: 10c0/b68614fa506fd98364ecab7096e34c6bc2797add919213996e8747f4afba3f15bdcae6c74096c202e7cc13fab2fd6c180e64515d76ea1b75b0bd49e3d088b069
   languageName: node
   linkType: hard
 
@@ -127,19 +79,6 @@ __metadata:
   peerDependencies:
     react: ^18 || ~19.0.1 || ~19.1.2 || ^19.2.1
   checksum: 10c0/1d16f5a20b7a6334a09445f19056afc410b601c3da52ff3ad331f2b7da73657c9b7b7106fc64d081636522009b8d42451cec8c33dea2bf29bbe31773a9aa8229
-  languageName: node
-  linkType: hard
-
-"@ai-sdk/xai@npm:^3.0.0":
-  version: 3.0.90
-  resolution: "@ai-sdk/xai@npm:3.0.90"
-  dependencies:
-    "@ai-sdk/openai-compatible": "npm:2.0.47"
-    "@ai-sdk/provider": "npm:3.0.10"
-    "@ai-sdk/provider-utils": "npm:4.0.27"
-  peerDependencies:
-    zod: ^3.25.76 || ^4.1.8
-  checksum: 10c0/955c66acbb566fe2c0619294b652f961240bce5c79e539a34eb97f680a7b1d0a1353c465b44f787532c9aa505ed5db126172584b8efa904055a6dca2c6f24f20
   languageName: node
   linkType: hard
 
@@ -1714,12 +1653,6 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@janhq/tauri-plugin-websearch-api@link:../src-tauri/plugins/tauri-plugin-websearch::locator=%40janhq%2Fweb-app%40workspace%3Aweb-app":
-  version: 0.0.0-use.local
-  resolution: "@janhq/tauri-plugin-websearch-api@link:../src-tauri/plugins/tauri-plugin-websearch::locator=%40janhq%2Fweb-app%40workspace%3Aweb-app"
-  languageName: node
-  linkType: soft
-
 "@janhq/vector-db-extension@workspace:extensions/vector-db-extension":
   version: 0.0.0-use.local
   resolution: "@janhq/vector-db-extension@workspace:extensions/vector-db-extension"
@@ -1740,13 +1673,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@janhq/web-app@workspace:web-app"
   dependencies:
-    "@ai-sdk/anthropic": "npm:^3.0.0"
-    "@ai-sdk/google": "npm:^3.0.0"
-    "@ai-sdk/mistral": "npm:^3.0.0"
-    "@ai-sdk/openai": "npm:^3.0.0"
     "@ai-sdk/openai-compatible": "npm:^2.0.0"
     "@ai-sdk/react": "npm:^3.0.0"
-    "@ai-sdk/xai": "npm:^3.0.0"
     "@dnd-kit/core": "npm:6.3.1"
     "@dnd-kit/sortable": "npm:10.0.0"
     "@eslint/js": "npm:8.57.0"
@@ -1757,7 +1685,6 @@ __metadata:
     "@janhq/tauri-plugin-extensions-api": "link:../src-tauri/plugins/tauri-plugin-extensions"
     "@janhq/tauri-plugin-hardware-api": "link:../src-tauri/plugins/tauri-plugin-hardware"
     "@janhq/tauri-plugin-llamacpp-api": "link:../src-tauri/plugins/tauri-plugin-llamacpp"
-    "@janhq/tauri-plugin-websearch-api": "link:../src-tauri/plugins/tauri-plugin-websearch"
     "@radix-ui/react-accordion": "npm:1.2.11"
     "@radix-ui/react-avatar": "npm:1.1.10"
     "@radix-ui/react-collapsible": "npm:^1.1.12"
@@ -9089,15 +9016,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"husky@npm:^9.1.5":
-  version: 9.1.7
-  resolution: "husky@npm:9.1.7"
-  bin:
-    husky: bin.js
-  checksum: 10c0/35bb110a71086c48906aa7cd3ed4913fb913823715359d65e32e0b964cb1e255593b0ae8014a5005c66a68e6fa66c38dcfa8056dbbdfb8b0187c0ffe7ee3a58f
-  languageName: node
-  linkType: hard
-
 "i18next@npm:25.0.2":
   version: 25.0.2
   resolution: "i18next@npm:25.0.2"
@@ -9744,7 +9662,6 @@ __metadata:
     "@vitest/coverage-v8": "npm:^3.2.7"
     cpx: "npm:^1.5.0"
     cross-env: "npm:^7.0.3"
-    husky: "npm:^9.1.5"
     jsdom: "npm:^26.1.0"
     run-script-os: "npm:^1.1.6"
     tar: "npm:^7.5.22"

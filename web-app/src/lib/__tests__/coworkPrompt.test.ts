@@ -9,7 +9,6 @@ const opts = (over = {}) => ({
   workspacePath: '/data/agent-workspace/sessions/s1',
   readOnlyFolder: null,
   planMode: false,
-  webSearch: false,
   bashAvailable: true,
   subagentNames: [],
   memoryCatalog: [],
@@ -213,26 +212,4 @@ describe('buildSubagentSystemPrompt', () => {
     expect(buildSubagentSystemPrompt('p', opts)).not.toContain('# Environment')
   })
 
-  // A child whose allowlist dropped the web tools must not be told it has them.
-  it('describes web access only when the child kept the tools', () => {
-    expect(buildSubagentSystemPrompt('p', { ...opts, webSearch: true })).toContain(
-      '# Web'
-    )
-    expect(buildSubagentSystemPrompt('p', opts)).not.toContain('# Web')
-  })
-})
-
-describe('web block', () => {
-  it('is absent when web search is off', () => {
-    expect(buildCoworkSystemPrompt(opts())).not.toContain('# Web')
-  })
-
-  // The marker has to match chat's, or the renderer shows raw text instead of
-  // source chips.
-  it('names both tools and the citation marker when on', () => {
-    const p = buildCoworkSystemPrompt(opts({ webSearch: true }))
-    expect(p).toContain('web_search')
-    expect(p).toContain('web_fetch')
-    expect(p).toContain('[[cite:URL]]')
-  })
 })

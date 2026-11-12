@@ -10,7 +10,7 @@ import { MockLanguageModelV3, simulateReadableStream } from 'ai/test'
 import { routeRefusedToolCalls } from '../disabledToolCalls'
 
 // #9319: the real SDK, not a mocked transport. A model calls `name` although
-// only `web_search` was advertised, which is what happens to the shell once the
+// only `read_file` was advertised, which is what happens to the shell once the
 // user switches it off.
 function modelCalling(name: string) {
   return new MockLanguageModelV3({
@@ -56,7 +56,7 @@ function turn(name: string, isRefused: (toolName: string) => boolean) {
     model: modelCalling(name),
     prompt: 'hi',
     tools: {
-      web_search: {
+      read_file: {
         description: 'search',
         inputSchema: jsonSchema({ type: 'object', properties: {} }),
       },
