@@ -16,6 +16,7 @@ import { pnpmInvocation } from '../../../scripts/pnpm-invocation.ts'
 /**
  * tokamak-harness: fork packages the shipped bundles mount. They are `private` so npm publication
  * skips them, and the release family therefore does not pack them; a local Desktop build needs them.
+ * One absent from the checkout is skipped: the package-set step fails if a bundle still requires it.
  */
 const FORK_PACKAGES = [
   'packages/credentials/tokamak-account',
@@ -37,12 +38,12 @@ async function main(): Promise<void> {
   readClientBuildRecord(root, environment)
   const destination = resolve(root, values.out)
   const packed = await packFamilyMembers(root, releaseFamily('dsh'), destination, concurrency)
-  for (const directory of FORK_PACKAGES) {
-    if (!existsSync(join(root, directory, 'package.json'))) throw new Error(`desktop local pack: missing fork package ${directory}`)
+  const present = FORK_PACKAGES.filter(directory => existsSync(join(root, directory, 'package.json')))
+  for (const directory of present) {
     const invocation = pnpmInvocation(['--dir', directory, 'pack', '--pack-destination', destination])
     execFileSync(invocation.command, invocation.args, { cwd: root, stdio: 'inherit' })
   }
-  console.log(`desktop local pack: ${String(packed.length + FORK_PACKAGES.length)} tarball(s) in ${destination}`)
+  console.log(`desktop local pack: ${String(packed.length + present.length)} tarball(s) in ${destination}`)
 }
 
 await main()

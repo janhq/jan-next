@@ -1,7 +1,10 @@
 import type { HeroBrandMarkOwnerProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import { Tag } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import janLogoUrl from './assets/jan-logo.png'
+import type { NS } from './locales.ts'
 
-/** Product name shown beside the mark in `official` builds. */
+/** Product name shown beside the mark. */
 export const BRAND_NAME = 'Jan'
 
 /**
@@ -15,9 +18,15 @@ export function OfficialBrandMark({ size, className }: HeroBrandMarkOwnerProps) 
 }
 
 /**
- * Render the product name without its independently slotted mark.
- * @returns the Jan name as text.
+ * Render the product name and its release stage, without the independently slotted mark.
+ * @param props - the slot's translator for this plugin's namespace.
+ * @returns the Jan name followed by a stage tag.
  */
-export function OfficialBrandName() {
-  return <span data-brand-name="jan">{BRAND_NAME}</span>
+export function OfficialBrandName({ t }: PropsLocale<typeof NS>) {
+  return (
+    <span data-brand-name="jan" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      {BRAND_NAME}
+      <Tag tone="neutral">{t('stage')}</Tag>
+    </span>
+  )
 }

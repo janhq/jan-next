@@ -3,6 +3,8 @@ import { Context } from '@deepseek-ai/cordis'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
+import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
+import { en } from '../src/client/locales.ts'
 import { apply, inject } from '../src/client/index.ts'
 import { OfficialBrandMark, OfficialBrandName } from '../src/client/Brand.tsx'
 import { apply as hostApply } from '../src/index.ts'
@@ -26,6 +28,7 @@ async function bench(declare = true) {
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
   const slots = ctx.get('slots') as SlotRegistry
+  ctx.provide('locale', new LocaleRuntime(ctx))
   const declareHoles = () => slots.register({
     name: 'root',
     children: Object.fromEntries([...HOLES, FRAME_HOLE].map(name => [name, {
@@ -42,17 +45,15 @@ describe('official browser-brand plugin', () => {
     expect(hostApply).not.toThrow()
   })
 
-  it('declares only the slot service it uses', () => {
-    expect(inject).toEqual(['slots'])
+  it('declares only the services it uses', () => {
+    expect(inject).toEqual(['slots', 'locale'])
   })
 
-  it('shows the Jan marks but keeps the local-build name in non-official builds', async () => {
+  it('names the product in local builds too, replacing the build-number label', async () => {
     vi.stubEnv('DSH_CLIENT_BUILD_PROFILE', 'local')
     const subject = await bench()
     await subject.ctx.plugin({ inject: [...inject], apply }).await()
-    expect(subject.slots.entries('sidebar.brand.mark')).toHaveLength(1)
-    expect(subject.slots.entries('conversation.hero.brand.mark')).toHaveLength(1)
-    expect(subject.slots.entries('sidebar.brand.name')).toHaveLength(0)
+    for (const hole of HOLES) expect(subject.slots.entries(hole)).toHaveLength(1)
   })
 
   it('fills declarations before or after apply and removes every occupant on teardown', async () => {
@@ -86,9 +87,9 @@ describe('official browser-brand plugin', () => {
     expect(subject.slots.entries(FRAME_HOLE)).toHaveLength(0)
   })
 
-  it('renders the Jan name as text and the logo at each requested size', () => {
-    const name = render(<OfficialBrandName />)
-    expect(name.container.textContent).toBe('Jan')
+  it('renders the Jan name with its stage, and the logo at each requested size', () => {
+    const name = render(<OfficialBrandName t={((key: keyof typeof en) => en[key]) as never} />)
+    expect(name.container.textContent).toBe('JanBeta')
     name.unmount()
 
     const mark = render(<OfficialBrandMark size={34} className="hero" />)

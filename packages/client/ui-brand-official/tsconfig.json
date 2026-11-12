@@ -22,6 +22,12 @@
     },
     {
       "path": "../ui-conversation/tsconfig.client.json"
+    },
+    {
+      "path": "../ui-primitives"
+    },
+    {
+      "path": "../locale/tsconfig.client.json"
     }
   ]
 }
