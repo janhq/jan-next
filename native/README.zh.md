@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-与 DeepSeek Harness 一同维护的原生源码和公开包。[`system/` workspace](system/README.zh.md) 负责 Landlock 启动器、POSIX flock 绑定、平台包和[发布流程](system/docs/release.md)。
+与 DeepSeek Harness 一同维护的原生源码和公开包。[`system/` workspace](system/README.zh.md) 负责 Landlock 启动器、POSIX flock 绑定、平台包和[发布流程](system/docs/release.md)。[`llama-worker/` crate](llama-worker/README.zh.md) 构建 llama.cpp worker 进程 `jan-llama-worker`；它是 pnpm workspace 之外的独立 Cargo crate，只由 `pnpm run build:llama-worker` 构建。
 
 ## Workspace 与发布边界
 

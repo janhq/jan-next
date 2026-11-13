@@ -1,0 +1,34 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write native/llama-worker/README.md
+/jan-llama-worker:
+  en: dad7ce57a40ea491
+  zh: 0e8f4df9cc98759d
+/jan-llama-worker/summary:
+  en: 58912371d29e305f
+  zh: dfcd4c8ed829c8aa
+/jan-llama-worker/table-of-contents:
+  en: 9db45e1efc51474b
+  zh: becd79ce50c75312
+/jan-llama-worker/build:
+  en: 68ca12fa426b3a0f
+  zh: b1f10cc60ef84a8c
+/jan-llama-worker/pinned-llama-cpp:
+  en: 9799f6295d55e76a
+  zh: 8009ba4cd05bc50c
+/jan-llama-worker/command-line:
+  en: ad597a6cfe04e806
+  zh: dd6d674543800392
+/jan-llama-worker/handshake:
+  en: 1795d48f77133855
+  zh: 2baff8b12ce1619d
+/jan-llama-worker/http-api:
+  en: 6968bb9aad239c96
+  zh: aae3baa9956b4f86
+/jan-llama-worker/shutdown-and-exit-codes:
+  en: 83720790066dcc3b
+  zh: 9f5e9da574bd142e
+/jan-llama-worker/dev-note:
+  en: d41fb3a8b7dafc49
+  zh: 4a6ee88aabeab6f7

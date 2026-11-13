@@ -61,6 +61,7 @@
     "test": "pnpm run build:native-system && vitest run",
     "test:coverage": "pnpm run build:native-system && vitest run --coverage",
     "build:native-system": "tsx native/system/scripts/build.ts --host-addon-only",
+    "build:llama-worker": "bash native/llama-worker/scripts/fetch-llama-cpp.sh && cargo build --release --manifest-path native/llama-worker/Cargo.toml --features engine",
     "test:coverage:partitioned": "tsx scripts/run-coverage-partitions.ts",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "test:bench": "npm run build:bench && npm run build:web && npm run test:bench:built",
