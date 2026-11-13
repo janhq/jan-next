@@ -1,4 +1,5 @@
 import { LucideIcon } from 'lucide-react'
+import { IconClover } from '@tabler/icons-react'
 import { route } from '@/constants/routes'
 
 import {
@@ -73,70 +74,76 @@ const getNavMainItems = (
   onNewChat: () => void,
   onJanClaw: () => void
 ): NavMainItem[] => [
-  {
-    title: 'common:newChat',
-    animatedIcon: MessageCircleIcon,
-    onClick: onNewChat,
-    testId: 'new-chat-button',
-    shortcut: (
-      <KbdGroup className="ml-auto scale-90 gap-0">
-        <Kbd className="bg-transparent size-3">
-          <PlatformMetaKey />
-        </Kbd>
-        <Kbd className="bg-transparent size-3 uppercase">{PlatformShortcuts[ShortcutAction.NEW_CHAT].key}</Kbd>
-      </KbdGroup>
-    ),
-  },
-  {
-    title: 'common:newAgentChat',
-    animatedIcon: BotIcon,
-    onClick: onJanClaw,
-    shortcut: (
-      <KbdGroup className="ml-auto scale-90 gap-0">
-        <Kbd className="bg-transparent size-3">
-          <PlatformMetaKey />
-        </Kbd>
-        <Kbd className="bg-transparent size-3 uppercase">{PlatformShortcuts[ShortcutAction.NEW_AGENT_CHAT].key}</Kbd>
-      </KbdGroup>
-    ),
-  },
-  {
-    title: 'common:projects.new',
-    animatedIcon: FolderPlusIcon,
-    onClick: onNewProject,
-    shortcut: (
-      <KbdGroup className="ml-auto scale-90 gap-0">
-        <Kbd className="bg-transparent size-3">
-          <PlatformMetaKey />
-        </Kbd>
-        <Kbd className="bg-transparent size-3 uppercase">{PlatformShortcuts[ShortcutAction.NEW_PROJECT].key}</Kbd>
-      </KbdGroup>
-    ),
-  },
-  {
-    title: 'common:search',
-    animatedIcon: SearchIcon,
-    onClick: onSearch,
-    shortcut: (
-      <KbdGroup className="ml-auto scale-90 gap-0">
-        <Kbd className="bg-transparent size-3">
-          <PlatformMetaKey />
-        </Kbd>
-        <Kbd className="bg-transparent size-3 uppercase">{PlatformShortcuts[ShortcutAction.SEARCH].key} </Kbd>
-      </KbdGroup>
-    ),
-  },
-  {
-    title: 'common:hub',
-    url: route.hub.index,
-    animatedIcon: BlocksIcon,
-  },
-  {
-    title: 'common:settings',
-    url: route.settings.general,
-    animatedIcon: SettingsIcon,
-  },
-]
+    {
+      title: 'common:newChat',
+      animatedIcon: MessageCircleIcon,
+      onClick: onNewChat,
+      testId: 'new-chat-button',
+      shortcut: (
+        <KbdGroup className="ml-auto scale-90 gap-0">
+          <Kbd className="bg-transparent size-3">
+            <PlatformMetaKey />
+          </Kbd>
+          <Kbd className="bg-transparent size-3 uppercase">{PlatformShortcuts[ShortcutAction.NEW_CHAT].key}</Kbd>
+        </KbdGroup>
+      ),
+    },
+    {
+      title: 'common:newAgentChat',
+      animatedIcon: BotIcon,
+      onClick: onJanClaw,
+      shortcut: (
+        <KbdGroup className="ml-auto scale-90 gap-0">
+          <Kbd className="bg-transparent size-3">
+            <PlatformMetaKey />
+          </Kbd>
+          <Kbd className="bg-transparent size-3 uppercase">{PlatformShortcuts[ShortcutAction.NEW_AGENT_CHAT].key}</Kbd>
+        </KbdGroup>
+      ),
+    },
+    {
+      title: 'common:projects.new',
+      animatedIcon: FolderPlusIcon,
+      onClick: onNewProject,
+      shortcut: (
+        <KbdGroup className="ml-auto scale-90 gap-0">
+          <Kbd className="bg-transparent size-3">
+            <PlatformMetaKey />
+          </Kbd>
+          <Kbd className="bg-transparent size-3 uppercase">{PlatformShortcuts[ShortcutAction.NEW_PROJECT].key}</Kbd>
+        </KbdGroup>
+      ),
+    },
+    {
+      title: 'common:search',
+      animatedIcon: SearchIcon,
+      onClick: onSearch,
+      shortcut: (
+        <KbdGroup className="ml-auto scale-90 gap-0">
+          <Kbd className="bg-transparent size-3">
+            <PlatformMetaKey />
+          </Kbd>
+          <Kbd className="bg-transparent size-3 uppercase">{PlatformShortcuts[ShortcutAction.SEARCH].key} </Kbd>
+        </KbdGroup>
+      ),
+    },
+    {
+      title: 'common:hub',
+      url: route.hub.index,
+      animatedIcon: BlocksIcon,
+    },
+    {
+      title: 'common:pluginManager',
+      url: route.settings.extensions,
+      icon: IconClover,
+      testId: 'plugin-manager-link',
+    },
+    {
+      title: 'common:settings',
+      url: route.settings.general,
+      animatedIcon: SettingsIcon,
+    },
+  ]
 
 function NavMainItemWithAnimatedIcon({
   item,
