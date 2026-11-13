@@ -41,7 +41,6 @@ mod server_tests {
             trusted_hosts: vec![vec!["localhost".to_string()]],
             host: "localhost".to_string(),
             port: 1337,
-            enable_server_tool_execution: false,
             cors_enabled: true,
         };
         assert_eq!(config.prefix, "/v1");
@@ -59,7 +58,6 @@ mod server_tests {
             trusted_hosts: vec![],
             host: "127.0.0.1".to_string(),
             port: 8080,
-            enable_server_tool_execution: false,
             cors_enabled: true,
         };
         assert_eq!(config.prefix, "");
@@ -576,115 +574,6 @@ mod server_tests {
         ));
     }
     #[test]
-    fn parse_openai_messages_ok() {
-        let msgs = json!([
-            {"role": "user", "content": "hi"},
-            {"role": "assistant", "content": "hello"}
-        ]);
-        let out = proxy::parse_openai_messages(&msgs).unwrap();
-        assert_eq!(out.len(), 2);
-        assert_eq!(out[0]["role"], "user");
-    }
-
-    #[test]
-    fn parse_openai_messages_not_array_errors() {
-        let msgs = json!({"role": "user"});
-        assert!(proxy::parse_openai_messages(&msgs).is_err());
-    }
-
-    #[test]
-    fn parse_openai_messages_missing_role_errors() {
-        let msgs = json!([{"content": "hi"}]);
-        assert!(proxy::parse_openai_messages(&msgs).is_err());
-    }
-
-    #[test]
-    fn parse_openai_messages_passes_multimodal_array_through() {
-        let msgs = json!([{"role": "user", "content": [
-            {"type": "text", "text": "hi"},
-            {"type": "image_url", "image_url": {"url": "data:image/png;base64,AA"}},
-        ]}]);
-        let out = proxy::parse_openai_messages(&msgs).unwrap();
-        assert_eq!(out[0]["content"], msgs[0]["content"]);
-    }
-
-    #[test]
-    fn parse_openai_messages_non_string_non_array_content_errors() {
-        let msgs = json!([{"role": "user", "content": 42}]);
-        assert!(proxy::parse_openai_messages(&msgs).is_err());
-    }
-
-    #[test]
-    fn replace_system_prompt_replaces_existing_system() {
-        let mut messages = vec![
-            json!({"role": "system", "content": "old"}),
-            json!({"role": "user", "content": "hi"}),
-        ];
-        proxy::replace_system_prompt(&mut messages, "new");
-        assert_eq!(messages.len(), 2);
-        assert_eq!(messages[0]["role"], "system");
-        assert_eq!(messages[0]["content"], "new");
-        assert_eq!(messages[1]["role"], "user");
-    }
-
-    #[test]
-    fn replace_system_prompt_inserts_when_absent() {
-        let mut messages = vec![json!({"role": "user", "content": "hi"})];
-        proxy::replace_system_prompt(&mut messages, "system!");
-        assert_eq!(messages.len(), 2);
-        assert_eq!(messages[0]["role"], "system");
-        assert_eq!(messages[0]["content"], "system!");
-    }
-
-    #[test]
-    fn extract_tool_calls_returns_empty_when_absent() {
-        let resp = json!({"choices": [{"message": {"content": "x"}}]});
-        assert!(proxy::extract_tool_calls(&resp).is_empty());
-    }
-
-    #[test]
-    fn extract_tool_calls_returns_array() {
-        let resp = json!({
-            "choices": [{
-                "message": {
-                    "tool_calls": [{"id": "c1"}, {"id": "c2"}]
-                }
-            }]
-        });
-        let calls = proxy::extract_tool_calls(&resp);
-        assert_eq!(calls.len(), 2);
-        assert_eq!(calls[0]["id"], "c1");
-    }
-
-    #[test]
-    fn extract_choice_message_returns_first_message() {
-        let resp = json!({"choices": [{"message": {"role": "assistant", "content": "x"}}]});
-        let msg = proxy::extract_choice_message(&resp).unwrap();
-        assert_eq!(msg["role"], "assistant");
-    }
-
-    #[test]
-    fn extract_choice_message_none_when_no_choices() {
-        let resp = json!({});
-        assert!(proxy::extract_choice_message(&resp).is_none());
-    }
-
-    #[test]
-    fn copy_optional_chat_params_copies_only_known_keys() {
-        let from = json!({
-            "temperature": 0.7,
-            "top_p": 0.9,
-            "max_tokens": 128,
-            "ignored_field": true
-        });
-        let mut into = serde_json::Map::new();
-        proxy::copy_optional_chat_params(&from, &mut into);
-        assert_eq!(into.get("temperature").unwrap(), &json!(0.7));
-        assert_eq!(into.get("top_p").unwrap(), &json!(0.9));
-        assert_eq!(into.get("max_tokens").unwrap(), &json!(128));
-        assert!(into.get("ignored_field").is_none());
-    }
-    #[test]
     fn normalize_openai_tools_in_chat_body_patches_parameters() {
         let mut body = json!({
             "messages": [],
@@ -812,13 +701,11 @@ mod server_tests {
             trusted_hosts: vec![vec!["a".to_string()]],
             host: "h".to_string(),
             port: 1,
-            enable_server_tool_execution: true,
             cors_enabled: true,
         };
         let cloned = cfg.clone();
         assert_eq!(cloned.prefix, "/p");
         assert_eq!(cloned.proxy_api_key, "k");
-        assert!(cloned.enable_server_tool_execution);
     }
 
     #[test]
@@ -853,7 +740,7 @@ mod server_tests {
     }
 
 
-    // ---- Origin gate and /orchestrations opt-in, against a running server ----
+    // ---- Origin gate, against a running server ----
 
     fn trusted(hosts: &[&str]) -> Vec<Vec<String>> {
         vec![hosts.iter().map(|h| h.to_string()).collect()]
@@ -919,24 +806,7 @@ mod server_tests {
         ));
     }
 
-    #[test]
-    fn orchestrations_follow_tool_execution_opt_in() {
-        let mut cfg = proxy::ProxyConfig {
-            prefix: "/v1".to_string(),
-            proxy_api_key: String::new(),
-            trusted_hosts: vec![vec![]],
-            host: "127.0.0.1".to_string(),
-            port: 1337,
-            enable_server_tool_execution: false,
-            cors_enabled: true,
-        };
-        assert!(!proxy::orchestrations_allowed(&cfg));
-        cfg.enable_server_tool_execution = true;
-        assert!(proxy::orchestrations_allowed(&cfg));
-    }
-
     async fn start_test_server(
-        enable_server_tool_execution: bool,
         cors_enabled: bool,
     ) -> (u16, std::sync::Arc<tokio::sync::Mutex<Option<crate::core::state::ServerHandle>>>) {
         use std::collections::HashMap;
@@ -949,7 +819,6 @@ mod server_tests {
             .unwrap()
             .port();
         let handle = Arc::new(Mutex::new(None));
-        let data = std::env::temp_dir().to_string_lossy().into_owned();
         proxy::start_server(
             handle.clone(),
             Arc::new(tauri_plugin_llamacpp::state::LlamacppState::default()),
@@ -960,10 +829,6 @@ mod server_tests {
             vec![vec![]],
             30,
             Arc::new(Mutex::new(HashMap::new())),
-            Arc::new(Mutex::new(HashMap::new())),
-            Arc::new(Mutex::new(crate::core::mcp::models::McpSettings::default())),
-            data,
-            enable_server_tool_execution,
             cors_enabled,
         )
         .await
@@ -989,10 +854,10 @@ mod server_tests {
 
     #[tokio::test]
     async fn untrusted_origin_post_is_refused_before_handlers() {
-        let (port, handle) = start_test_server(false, true).await;
+        let (port, handle) = start_test_server(true).await;
 
         // A cross-site "simple" request (no preflight) is refused.
-        for path in ["/chat/completions", "/messages", "/orchestrations", "/models"] {
+        for path in ["/chat/completions", "/models"] {
             assert_eq!(
                 post(port, path, Some("https://evil.example"), "text/plain").await,
                 reqwest::StatusCode::FORBIDDEN,
@@ -1014,25 +879,8 @@ mod server_tests {
     }
 
     #[tokio::test]
-    async fn orchestrations_refused_without_opt_in() {
-        let (port, handle) = start_test_server(false, true).await;
-        assert_eq!(
-            post(port, "/orchestrations", None, "application/json").await,
-            reqwest::StatusCode::FORBIDDEN
-        );
-        proxy::stop_server(handle).await.unwrap();
-
-        let (port, handle) = start_test_server(true, true).await;
-        assert_ne!(
-            post(port, "/orchestrations", None, "application/json").await,
-            reqwest::StatusCode::FORBIDDEN
-        );
-        proxy::stop_server(handle).await.unwrap();
-    }
-
-    #[tokio::test]
     async fn cors_toggle_off_refuses_loopback_pages() {
-        let (port, handle) = start_test_server(false, false).await;
+        let (port, handle) = start_test_server(false).await;
         assert_eq!(
             post(port, "/chat/completions", Some("http://localhost:3000"), "application/json")
                 .await,
@@ -1067,10 +915,6 @@ mod server_tests {
             vec![vec![]],
             30,
             Arc::new(Mutex::new(HashMap::new())),
-            Arc::new(Mutex::new(HashMap::new())),
-            Arc::new(Mutex::new(crate::core::mcp::models::McpSettings::default())),
-            std::env::temp_dir().to_string_lossy().into_owned(),
-            false,
             true,
         )
         .await
@@ -1108,10 +952,6 @@ mod server_tests {
             vec![vec!["*".to_string()]],
             30,
             Arc::new(Mutex::new(HashMap::new())),
-            Arc::new(Mutex::new(HashMap::new())),
-            Arc::new(Mutex::new(crate::core::mcp::models::McpSettings::default())),
-            std::env::temp_dir().to_string_lossy().into_owned(),
-            false,
             true,
         )
         .await

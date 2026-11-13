@@ -1,10 +1,9 @@
-//! Where a run's hooks and plugin-declared tools come from.
+//! Where a run's hooks come from.
 //!
 //! The toolset crate owns the hook *machinery* (matching, running, the stdin
 //! protocol) but no config format, exactly as it owns no config format for
 //! anything else. This module is the one place that maps the three on-disk
-//! sources onto a [`HookSet`], and the plugin manifests onto a
-//! [`PluginToolSet`], so a hook's precedence is decided once per run rather
+//! sources onto a [`HookSet`], so a hook's precedence is decided once rather
 //! than re-derived at each call site.
 //!
 //! Merge order is least specific first, so the most specific source runs last
@@ -20,15 +19,10 @@
 //! undo would not be a policy -- but it does mean a plugin's hook can deny a
 //! call the project's own hooks never see. `[plugins] hooks = false` in
 //! `agent.toml` is the way out.
-//!
-//! A plugin's hooks and its `[[tools]]` are each switchable there
-//! (`[plugins] hooks` / `[plugins] tools`, both defaulting to on), so a plugin
-//! installed for its skills need not also bring third-party commands.
 
 use std::path::Path;
 
 use tauri_plugin_agent_tools::tools::hooks::{self, HookSet};
-use tauri_plugin_agent_tools::tools::plugin_tools::{PluginToolEntry, PluginToolSet};
 
 /// Resolve every hook a run in `project_root` fires, in merge order.
 ///
@@ -54,9 +48,6 @@ pub(crate) fn resolve_hooks(project_root: &Path) -> HookSet {
             set.extend_from(entries, &source);
         }
     }
-    // Not gated on `cli`: `~/.jan/config.toml` is the user's own layer and has
-    // to mean the same thing in the desktop app and the API server, or a hook
-    // `jan cli agent status` lists would silently not run elsewhere.
     if let Ok(path) = crate::core::agent::global_config::global_config_path() {
         set.extend_from(crate::core::agent::global_config::hook_entries(), &path);
     }
@@ -86,43 +77,9 @@ pub fn resolve_hooks_for(project_root: Option<&Path>) -> HookSet {
     }
 }
 
-/// Every tool the installed plugins declare, in plugin-directory order.
-pub(crate) fn resolve_plugin_tools(project_root: &Path) -> PluginToolSet {
-    let mut set = PluginToolSet::new();
-    // `[plugins] tools = false` withholds them all, the counterpart of the
-    // hook switch above.
-    if !crate::core::agent::project::load_agent_config(project_root)
-        .ok()
-        .and_then(|c| c.plugins.tools)
-        .unwrap_or(true)
-    {
-        return set;
-    }
-    for (dir, name) in plugin_dirs(project_root) {
-        set.extend_from(&name, plugin_tool_entries(&dir), &dir);
-    }
-    set
-}
-
-/// The `[[tools]]` a plugin declares in its `plugin.toml`. Read here rather
-/// than in `plugins.rs` so the manifest's optional sections stay independent:
-/// a plugin with no tools parses exactly as it did before.
-pub(crate) fn plugin_tool_entries(plugin_dir: &Path) -> Vec<PluginToolEntry> {
-    #[derive(serde::Deserialize)]
-    struct ToolsManifest {
-        #[serde(default)]
-        tools: Vec<PluginToolEntry>,
-    }
-    std::fs::read_to_string(plugin_dir.join("plugin.toml"))
-        .ok()
-        .and_then(|raw| toml::from_str::<ToolsManifest>(&raw).ok())
-        .map(|manifest| manifest.tools)
-        .unwrap_or_default()
-}
-
 /// Installed plugin directories with their directory names, sorted so a run's
 /// hook order is stable across machines. Staging directories from interrupted
-/// installs are skipped, matching `plugins::installed_entries`.
+/// installs are skipped.
 fn plugin_dirs(project_root: &Path) -> Vec<(std::path::PathBuf, String)> {
     let dir = crate::core::agent::skills::plugins_dir(project_root);
     let Ok(rd) = std::fs::read_dir(&dir) else {
@@ -247,7 +204,6 @@ command = "from-project"
     fn a_project_with_no_config_at_all_resolves_to_no_hooks() {
         let root = unique_root("empty");
         assert!(resolve_hooks(&root).is_empty());
-        assert!(resolve_plugin_tools(&root).is_empty());
         let _ = std::fs::remove_dir_all(&root);
     }
 
@@ -281,26 +237,10 @@ command = "mine"
         let _ = std::fs::remove_dir_all(&root);
     }
 
-    /// The same switch for the other half of what a plugin can contribute.
-    #[test]
-    fn a_project_can_switch_off_plugin_tools_without_uninstalling() {
-        let root = unique_root("plugintoolsoff");
-        write_plugin(
-            &root,
-            "fmt",
-            None,
-            Some("name = \"fmt\"\n\n[[tools]]\nname = \"format\"\ncommand = \"cargo fmt\"\n"),
-        );
-        assert_eq!(resolve_plugin_tools(&root).len(), 1, "on by default");
-        write_agent_toml(&root, "[plugins]\ntools = false\n");
-        assert!(resolve_plugin_tools(&root).is_empty());
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
     /// Absent config means on: a plugin that ships hooks is normally installed
     /// for them, so the switch is an opt-out and not an opt-in.
     #[test]
-    fn plugin_hooks_and_tools_default_to_on() {
+    fn plugin_hooks_default_to_on() {
         let root = unique_root("plugindefault");
         write_plugin(
             &root,
@@ -310,7 +250,6 @@ command = "mine"
         );
         write_agent_toml(&root, "[plugins]\nmarketplace = \"https://example.com\"\n");
         assert_eq!(resolve_hooks(&root).len(), 1);
-        assert_eq!(resolve_plugin_tools(&root).len(), 1);
         let _ = std::fs::remove_dir_all(&root);
     }
 
@@ -336,49 +275,6 @@ command = "mine"
         let root = unique_root("malformed");
         write_agent_toml(&root, "this is not = = toml");
         assert!(resolve_hooks(&root).is_empty());
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    #[test]
-    fn a_plugin_can_declare_a_tool_in_its_manifest() {
-        let root = unique_root("plugintool");
-        write_plugin(
-            &root,
-            "fmt",
-            None,
-            Some(
-                r#"
-name = "fmt"
-
-[[tools]]
-name = "format"
-description = "Format the tree"
-command = "cargo fmt"
-"#,
-            ),
-        );
-        let set = resolve_plugin_tools(&root);
-        assert_eq!(set.len(), 1);
-        let tool = &set.all()[0];
-        assert_eq!(tool.qualified_name, "plugin__fmt__format");
-        assert_eq!(tool.plugin, "fmt");
-        assert_eq!(tool.command, "cargo fmt");
-        assert!(set.is_plugin_tool("plugin__fmt__format"));
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    /// A manifest without a `[[tools]]` section is the common case and must
-    /// keep parsing exactly as it did before plugin tools existed.
-    #[test]
-    fn a_manifest_without_tools_declares_none() {
-        let root = unique_root("notools");
-        write_plugin(
-            &root,
-            "p",
-            None,
-            Some("name = \"p\"\nversion = \"1.0.0\"\n"),
-        );
-        assert!(resolve_plugin_tools(&root).is_empty());
         let _ = std::fs::remove_dir_all(&root);
     }
 

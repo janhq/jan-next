@@ -19,21 +19,8 @@ use std::sync::Arc;
 use tauri_plugin_llamacpp::state::LlamacppState;
 use tokio::sync::Mutex;
 
-use crate::core::{
-    mcp::models::McpSettings,
-    state::{ProviderConfig, ServerHandle, SharedMcpServers},
-};
+use crate::core::state::{ProviderConfig, ServerHandle};
 
-// Orchestration + upstream plumbing moved to `core/agent`. Re-exported so the
-// in-file inline-orchestration call sites and the `proxy::` test references
-// keep resolving unchanged.
-pub(crate) use crate::core::agent::r#loop::run_server_side_openai_orchestration;
-pub(crate) use crate::core::agent::upstream::{
-    call_openai_chat_completions, collect_mcp_openai_tools, copy_optional_chat_params,
-    drop_orphaned_tool_results, execute_mcp_tool_calls, extract_choice_message, extract_tool_calls,
-    load_assistant_config, parse_openai_messages, repair_dangling_tool_calls,
-    replace_system_prompt, resolve_upstream_for_model,
-};
 use crate::core::openai_schema::{
     http_status_indicates_api_key_retry, normalize_openai_tools_in_chat_body,
 };
@@ -82,7 +69,6 @@ pub struct ProxyConfig {
     pub trusted_hosts: Vec<Vec<String>>,
     pub host: String,
     pub port: u16,
-    pub enable_server_tool_execution: bool,
     /// "Allow cross-origin requests" setting. When off, only the server's own
     /// pages and the app webview may call it from a browser context.
     pub cors_enabled: bool,
@@ -126,12 +112,6 @@ pub(crate) fn request_origin(headers: &hyper::HeaderMap) -> Option<&str> {
         None => Some(""),
         Some(value) => value.to_str().ok(),
     }
-}
-
-/// `/orchestrations` runs MCP tools without per-call approval, so it is only
-/// served when the user opted in to server-side tool execution.
-pub(crate) fn orchestrations_allowed(config: &ProxyConfig) -> bool {
-    config.enable_server_tool_execution
 }
 
 /// Determines the final destination path based on the original request path
@@ -191,16 +171,6 @@ pub(crate) async fn engine_list_models(
         .unwrap_or_default()
 }
 
-pub(crate) async fn router_first_model(
-    llama_state: &LlamacppState,
-    client: &Client,
-) -> Option<String> {
-    engine_list_models(llama_state, client)
-        .await
-        .into_iter()
-        .next()
-}
-
 /// Handles the proxy request logic
 #[allow(clippy::too_many_arguments)]
 async fn proxy_request(
@@ -209,9 +179,6 @@ async fn proxy_request(
     config: ProxyConfig,
     llama_state: Arc<LlamacppState>,
     provider_configs: Arc<Mutex<HashMap<String, ProviderConfig>>>,
-    mcp_servers: SharedMcpServers,
-    mcp_settings: Arc<Mutex<McpSettings>>,
-    jan_data_folder: String,
 ) -> Result<Response<ResBody>, hyper::Error> {
     if req.method() == hyper::Method::OPTIONS {
         log::debug!(
@@ -487,361 +454,6 @@ async fn proxy_request(
     let mut target_base_url: Option<String> = None;
 
     match (method.clone(), destination_path.as_str()) {
-        (hyper::Method::POST, "/orchestrations") => {
-            // Headless orchestration endpoint:
-            // - Load assistant system prompt + assistant model hint
-            // - Ask the model for tool_calls
-            // - Execute MCP tools server-side
-            // - Feed tool results back and continue until completion
-            log::info!(
-                "Handling POST request to {destination_path} for assistant tool orchestration"
-            );
-
-            if !orchestrations_allowed(&config) {
-                let mut error_response = Response::builder().status(StatusCode::FORBIDDEN);
-                error_response = add_cors_headers_with_host_and_origin(
-                    error_response,
-                    &host_header,
-                    &origin_header,
-                    &config.trusted_hosts,
-                );
-                return Ok(error_response
-                    .body(full(
-                        "/orchestrations requires server-side tool execution to be enabled in Settings > Local API Server",
-                    ))
-                    .unwrap());
-            }
-
-            let body_bytes = match body.collect().await {
-                Ok(c) => c.to_bytes(),
-                Err(_) => {
-                    let mut error_response =
-                        Response::builder().status(StatusCode::INTERNAL_SERVER_ERROR);
-                    error_response = add_cors_headers_with_host_and_origin(
-                        error_response,
-                        &host_header,
-                        &origin_header,
-                        &config.trusted_hosts,
-                    );
-                    return Ok(error_response
-                        .body(full("Failed to read request body"))
-                        .unwrap());
-                }
-            };
-
-            let json_body: serde_json::Value = match serde_json::from_slice(&body_bytes) {
-                Ok(v) => v,
-                Err(e) => {
-                    let mut error_response = Response::builder().status(StatusCode::BAD_REQUEST);
-                    error_response = add_cors_headers_with_host_and_origin(
-                        error_response,
-                        &host_header,
-                        &origin_header,
-                        &config.trusted_hosts,
-                    );
-                    return Ok(error_response
-                        .body(full(format!("Invalid JSON body: {e}")))
-                        .unwrap());
-                }
-            };
-
-            let assistant_id = json_body
-                .get("assistant_id")
-                .and_then(|v| v.as_str())
-                .map(str::trim)
-                .filter(|v| !v.is_empty())
-                .map(|v| v.to_string());
-
-            let stream = json_body
-                .get("stream")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false);
-            if stream {
-                let mut error_response = Response::builder().status(StatusCode::BAD_REQUEST);
-                error_response = add_cors_headers_with_host_and_origin(
-                    error_response,
-                    &host_header,
-                    &origin_header,
-                    &config.trusted_hosts,
-                );
-                return Ok(error_response
-                    .body(full("stream=true is not supported for /orchestrations"))
-                    .unwrap());
-            }
-
-            let messages_value = match json_body.get("messages") {
-                Some(v) => v,
-                None => {
-                    let mut error_response = Response::builder().status(StatusCode::BAD_REQUEST);
-                    error_response = add_cors_headers_with_host_and_origin(
-                        error_response,
-                        &host_header,
-                        &origin_header,
-                        &config.trusted_hosts,
-                    );
-                    return Ok(error_response
-                        .body(full("Missing required field 'messages'"))
-                        .unwrap());
-                }
-            };
-
-            let mut conversation_messages = match parse_openai_messages(messages_value) {
-                Ok(msgs) => msgs,
-                Err(e) => {
-                    let mut error_response = Response::builder().status(StatusCode::BAD_REQUEST);
-                    error_response = add_cors_headers_with_host_and_origin(
-                        error_response,
-                        &host_header,
-                        &origin_header,
-                        &config.trusted_hosts,
-                    );
-                    return Ok(error_response.body(full(e)).unwrap());
-                }
-            };
-            // Self-heal a client-supplied conversation: a `role: "tool"`
-            // result whose call is not in the request, or a `tool_calls` turn
-            // missing one of its results, is rejected outright by some
-            // providers (some are strict about it), so both shapes are fixed before
-            // the request goes on.
-            let orphaned = drop_orphaned_tool_results(&mut conversation_messages);
-            if orphaned > 0 {
-                log::warn!(
-                    "proxy: dropped {orphaned} tool result(s) whose call is not in the request"
-                );
-            }
-            let repaired = repair_dangling_tool_calls(&mut conversation_messages);
-            if repaired > 0 {
-                log::warn!("proxy: repaired {repaired} dangling tool call(s) with no prior result");
-            }
-
-            // Load assistant config for system prompt + model hint when assistant_id is provided.
-            let (assistant_instructions, assistant_model_hint) =
-                if let Some(assistant_id) = assistant_id.as_deref() {
-                    match load_assistant_config(&jan_data_folder, assistant_id) {
-                        Ok(v) => v,
-                        Err(e) => {
-                            let mut error_response =
-                                Response::builder().status(StatusCode::BAD_REQUEST);
-                            error_response = add_cors_headers_with_host_and_origin(
-                                error_response,
-                                &host_header,
-                                &origin_header,
-                                &config.trusted_hosts,
-                            );
-                            return Ok(error_response.body(full(e)).unwrap());
-                        }
-                    }
-                } else {
-                    (None, None)
-                };
-
-            if let Some(sys) = assistant_instructions {
-                // The caller's own `system` message is the one this replaces:
-                // the request is stateless, so there is no earlier request to
-                // keep byte-stable.
-                replace_system_prompt(&mut conversation_messages, &sys);
-            }
-
-            // Resolve model to use for orchestration.
-            let model_override = json_body.get("model").and_then(|v| v.as_str());
-            let model_id: Option<String>;
-
-            if let Some(ov) = model_override {
-                model_id = Some(ov.to_string());
-            } else if let Some(h) = assistant_model_hint {
-                let trimmed = h.trim();
-                if !trimmed.is_empty() && trimmed != "*" {
-                    model_id = Some(trimmed.to_string());
-                } else {
-                    model_id = router_first_model(&llama_state, &client).await;
-                }
-            } else {
-                model_id = router_first_model(&llama_state, &client).await;
-            }
-
-            let model_id = match model_id {
-                Some(v) => v,
-                None => {
-                    let mut error_response =
-                        Response::builder().status(StatusCode::SERVICE_UNAVAILABLE);
-                    error_response = add_cors_headers_with_host_and_origin(
-                        error_response,
-                        &host_header,
-                        &origin_header,
-                        &config.trusted_hosts,
-                    );
-                    return Ok(error_response
-                        .body(full("No running model sessions available"))
-                        .unwrap());
-                }
-            };
-
-            // Tool execution support (MCP only for now).
-            let (openai_tools, tool_to_server) =
-                match collect_mcp_openai_tools(&mcp_servers, &mcp_settings).await {
-                    Ok(v) => v,
-                    Err(e) => {
-                        let mut error_response =
-                            Response::builder().status(StatusCode::INTERNAL_SERVER_ERROR);
-                        error_response = add_cors_headers_with_host_and_origin(
-                            error_response,
-                            &host_header,
-                            &origin_header,
-                            &config.trusted_hosts,
-                        );
-                        return Ok(error_response.body(full(e)).unwrap());
-                    }
-                };
-
-            let (upstream_url, session_api_keys) = match resolve_upstream_for_model(
-                &model_id,
-                provider_configs.clone(),
-                llama_state.clone(),
-            )
-            .await
-            {
-                Ok(v) => v,
-                Err(e) => {
-                    let mut error_response = Response::builder().status(StatusCode::NOT_FOUND);
-                    error_response = add_cors_headers_with_host_and_origin(
-                        error_response,
-                        &host_header,
-                        &origin_header,
-                        &config.trusted_hosts,
-                    );
-                    return Ok(error_response.body(full(e)).unwrap());
-                }
-            };
-            // `provider/model` records the provider qualifier used to resolve
-            // the upstream above; the request body must carry the bare model id.
-            let body_model_id = {
-                let pc = provider_configs.lock().await;
-                crate::core::agent::upstream::strip_provider_prefix(&model_id, &pc)
-            };
-
-
-            let max_turns = json_body
-                .get("max_turns")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(8)
-                .clamp(1, 20) as usize;
-
-            let mut last_response: Option<serde_json::Value> = None;
-
-            for _turn in 0..max_turns {
-                // Build upstream request body for each turn so messages are updated.
-                let mut completion_map = serde_json::Map::new();
-                completion_map.insert("model".to_string(), serde_json::json!(body_model_id));
-                completion_map.insert(
-                    "messages".to_string(),
-                    serde_json::Value::Array(conversation_messages.clone()),
-                );
-                completion_map.insert("stream".to_string(), serde_json::json!(false));
-                completion_map.insert("tool_choice".to_string(), serde_json::json!("auto"));
-
-                if !openai_tools.is_empty() {
-                    completion_map.insert(
-                        "tools".to_string(),
-                        serde_json::Value::Array(openai_tools.clone()),
-                    );
-                }
-
-                copy_optional_chat_params(&json_body, &mut completion_map);
-
-                let request_value = serde_json::Value::Object(completion_map);
-
-                let completion = match call_openai_chat_completions(
-                    &client,
-                    &upstream_url,
-                    &session_api_keys,
-                    &request_value,
-                )
-                .await
-                {
-                    Ok(v) => v,
-                    Err(e) => {
-                        let mut error_response =
-                            Response::builder().status(StatusCode::BAD_GATEWAY);
-                        error_response = add_cors_headers_with_host_and_origin(
-                            error_response,
-                            &host_header,
-                            &origin_header,
-                            &config.trusted_hosts,
-                        );
-                        return Ok(error_response.body(full(e)).unwrap());
-                    }
-                };
-
-                let tool_calls = extract_tool_calls(&completion);
-                last_response = Some(completion.clone());
-
-                if tool_calls.is_empty() {
-                    let body_str =
-                        serde_json::to_string(&completion).unwrap_or_else(|_| "{}".to_string());
-                    let mut response_builder = Response::builder()
-                        .status(StatusCode::OK)
-                        .header(hyper::header::CONTENT_TYPE, "application/json");
-                    response_builder = add_cors_headers_with_host_and_origin(
-                        response_builder,
-                        &host_header,
-                        &origin_header,
-                        &config.trusted_hosts,
-                    );
-                    return Ok(response_builder.body(full(body_str)).unwrap());
-                }
-
-                // Append assistant tool call message, then execute tool calls.
-                if let Some(choice_message) = extract_choice_message(&completion) {
-                    let assistant_content = choice_message
-                        .get("content")
-                        .cloned()
-                        .unwrap_or(serde_json::Value::Null);
-                    conversation_messages.push(serde_json::json!({
-                        "role": "assistant",
-                        "content": assistant_content,
-                        "tool_calls": tool_calls.clone()
-                    }));
-                } else {
-                    conversation_messages.push(serde_json::json!({
-                        "role": "assistant",
-                        "content": serde_json::Value::Null,
-                        "tool_calls": tool_calls.clone()
-                    }));
-                }
-
-                let tool_results = execute_mcp_tool_calls(
-                    &tool_calls,
-                    &tool_to_server,
-                    &mcp_servers,
-                    &mcp_settings,
-                )
-                .await;
-
-                for (tool_call_id, result_text) in tool_results {
-                    conversation_messages.push(serde_json::json!({
-                        "role": "tool",
-                        "tool_call_id": tool_call_id,
-                        "content": result_text
-                    }));
-                }
-            }
-
-            // Safety catch: model kept requesting tools beyond max_turns.
-            let body_json = last_response.unwrap_or_else(|| serde_json::json!({}));
-            let body_str = serde_json::to_string(&body_json).unwrap_or_else(|_| "{}".to_string());
-            let mut error_response = Response::builder().status(StatusCode::UNPROCESSABLE_ENTITY);
-            error_response = add_cors_headers_with_host_and_origin(
-                error_response,
-                &host_header,
-                &origin_header,
-                &config.trusted_hosts,
-            );
-            let payload = format!(
-                "{{\"error\":\"max_turns reached while resolving tool calls\",\"last_response\":{body_str}}}"
-            );
-            let response = error_response.body(full(payload)).unwrap();
-            return Ok(response);
-        }
         (hyper::Method::POST, "/chat/completions")
         | (hyper::Method::POST, "/completions")
         | (hyper::Method::POST, "/embeddings") => {
@@ -876,52 +488,6 @@ async fn proxy_request(
                     }
                     if let Ok(cleaned) = serde_json::to_vec(&json_body) {
                         buffered_body = Some(cleaned.into());
-                    }
-
-                    if config.enable_server_tool_execution
-                        && destination_path == "/chat/completions"
-                        && !json_body
-                            .get("stream")
-                            .and_then(|v| v.as_bool())
-                            .unwrap_or(false)
-                    {
-                        match run_server_side_openai_orchestration(
-                            &json_body,
-                            &crate::core::agent::upstream::agent_http_client(),
-                            provider_configs.clone(),
-                            llama_state.clone(),
-                            mcp_servers.clone(),
-                            mcp_settings.clone(),
-                            &jan_data_folder,
-                        )
-                        .await
-                        {
-                            Ok(openai_response) => {
-                                let body_str = serde_json::to_string(&openai_response)
-                                    .unwrap_or_else(|_| "{}".to_string());
-                                let mut response_builder = Response::builder()
-                                    .status(StatusCode::OK)
-                                    .header(hyper::header::CONTENT_TYPE, "application/json");
-                                response_builder = add_cors_headers_with_host_and_origin(
-                                    response_builder,
-                                    &host_header,
-                                    &origin_header,
-                                    &config.trusted_hosts,
-                                );
-                                return Ok(response_builder.body(full(body_str)).unwrap());
-                            }
-                            Err(e) => {
-                                let mut error_response =
-                                    Response::builder().status(StatusCode::BAD_GATEWAY);
-                                error_response = add_cors_headers_with_host_and_origin(
-                                    error_response,
-                                    &host_header,
-                                    &origin_header,
-                                    &config.trusted_hosts,
-                                );
-                                return Ok(error_response.body(full(e)).unwrap());
-                            }
-                        }
                     }
 
                     if let Some(model_id) = json_body.get("model").and_then(|v| v.as_str()) {
@@ -1439,10 +1005,6 @@ pub async fn start_server(
     trusted_hosts: Vec<Vec<String>>,
     proxy_timeout: u64,
     provider_configs: Arc<Mutex<HashMap<String, ProviderConfig>>>,
-    mcp_servers: SharedMcpServers,
-    mcp_settings: Arc<Mutex<McpSettings>>,
-    jan_data_folder: String,
-    enable_server_tool_execution: bool,
     cors_enabled: bool,
 ) -> Result<u16, Box<dyn std::error::Error + Send + Sync>> {
     start_server_internal(
@@ -1455,10 +1017,6 @@ pub async fn start_server(
         trusted_hosts,
         proxy_timeout,
         provider_configs,
-        mcp_servers,
-        mcp_settings,
-        jan_data_folder,
-        enable_server_tool_execution,
         cors_enabled,
     )
     .await
@@ -1475,10 +1033,6 @@ async fn start_server_internal(
     trusted_hosts: Vec<Vec<String>>,
     proxy_timeout: u64,
     provider_configs: Arc<Mutex<HashMap<String, ProviderConfig>>>,
-    mcp_servers: SharedMcpServers,
-    mcp_settings: Arc<Mutex<McpSettings>>,
-    jan_data_folder: String,
-    enable_server_tool_execution: bool,
     cors_enabled: bool,
 ) -> Result<u16, Box<dyn std::error::Error + Send + Sync>> {
     let mut handle_guard = server_handle.lock().await;
@@ -1498,8 +1052,8 @@ async fn start_server_internal(
 
     // Security: a non-loopback bind exposes the OpenAI-compatible API on the
     // network, and with no API key any reachable host could call it
-    // unauthenticated (inference, model enumeration and, when enabled, MCP tool
-    // execution). Refuse before binding rather than serve it open.
+    // unauthenticated (inference and model enumeration). Refuse before binding
+    // rather than serve it open.
     if is_insecure_public_bind(&host, &proxy_api_key) {
         return Err(format!(
             "The API server is set to listen on {host}, which other devices on the network \
@@ -1515,7 +1069,6 @@ async fn start_server_internal(
         trusted_hosts,
         host: host.clone(),
         port,
-        enable_server_tool_execution,
         cors_enabled,
     };
 
@@ -1549,18 +1102,12 @@ async fn start_server_internal(
             let config = config.clone();
             let llama_state = llama_state.clone();
             let provider_configs = provider_configs.clone();
-            let mcp_servers = mcp_servers.clone();
-            let mcp_settings = mcp_settings.clone();
-            let jan_data_folder = jan_data_folder.clone();
 
             let svc = service_fn(move |req| {
                 let client = client.clone();
                 let config = config.clone();
                 let llama_state = llama_state.clone();
                 let provider_configs = provider_configs.clone();
-                let mcp_servers = mcp_servers.clone();
-                let mcp_settings = mcp_settings.clone();
-                let jan_data_folder = jan_data_folder.clone();
                 async move {
                     // Taken before the request resolves the engine's address and
                     // kept until its response body is finished, so a device-change
@@ -1574,9 +1121,6 @@ async fn start_server_internal(
                         config,
                         llama_state,
                         provider_configs,
-                        mcp_servers,
-                        mcp_settings,
-                        jan_data_folder,
                     )
                     .await?;
                     Ok::<_, hyper::Error>(response.map(|body| hold_lease(body, lease)))

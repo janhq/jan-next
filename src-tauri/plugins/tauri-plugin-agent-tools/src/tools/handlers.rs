@@ -448,13 +448,11 @@ fn render_write_diff(prior: Option<&str>, content: &str) -> String {
 /// `skill_list` tool: catalog of `name — description` lines for ENABLED skills
 /// only (disabled skills must stay invisible to the model). Empty if none.
 fn skill_list(ctx: &ToolContext<'_>) -> String {
-    let entries: Vec<(String, String)> = match &ctx.skill_source {
-        Some(source) => source.catalog(),
-        None => skills::catalog_layered(&ctx.skill_roots(), ctx.enabled_skills)
+    let entries: Vec<(String, String)> =
+        skills::catalog_layered(&ctx.skill_roots(), ctx.enabled_skills)
             .into_iter()
             .map(|m| (m.name, m.description))
-            .collect(),
-    };
+            .collect();
     if entries.is_empty() {
         return "No skills.".to_string();
     }
@@ -478,9 +476,6 @@ fn skill_read(args: &serde_json::Value, ctx: &ToolContext<'_>) -> String {
     let Some(name) = arg_str(args, "name") else {
         return "ERROR: missing required argument 'name'".to_string();
     };
-    if let Some(source) = &ctx.skill_source {
-        return source.read(name).unwrap_or_else(|e| e);
-    }
     if !skills::is_enabled(ctx.enabled_skills, name) {
         return format!("ERROR: skill '{name}' not found");
     }
@@ -6037,66 +6032,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 
-    /// An empty catalog says so, rather than returning an empty string the
-    /// model cannot tell from a failed call.
-    #[tokio::test]
-    async fn an_empty_skill_list_says_no_skills() {
-        struct Empty;
-        impl crate::tools::SkillProvider for Empty {
-            fn catalog(&self) -> Vec<(String, String)> {
-                Vec::new()
-            }
-            fn read(&self, name: &str) -> Result<String, String> {
-                Err(format!("ERROR: skill '{name}' not found"))
-            }
-        }
-        let root = unique_root();
-        let store = crate::workspace::project_store(&root);
-        let ctx =
-            ToolContext::new(&root, &store, &[]).with_skill_source(std::sync::Arc::new(Empty));
-        let list = super::execute_builtin(lookup("skill_list").unwrap(), &json!({}), &ctx)
-            .await
-            .0;
-        assert_eq!(list, "No skills.");
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
-    #[tokio::test]
-    async fn a_skill_source_overrides_list_and_read() {
-        struct Fixed;
-        impl crate::tools::SkillProvider for Fixed {
-            fn catalog(&self) -> Vec<(String, String)> {
-                vec![("p:one".into(), "first".into()), ("two".into(), String::new())]
-            }
-            fn read(&self, name: &str) -> Result<String, String> {
-                (name == "p:one")
-                    .then(|| "body one".to_string())
-                    .ok_or_else(|| format!("ERROR: skill '{name}' not found"))
-            }
-        }
-        let root = unique_root();
-        let store = crate::workspace::project_store(&root);
-        let ctx =
-            ToolContext::new(&root, &store, &[]).with_skill_source(std::sync::Arc::new(Fixed));
-        let list = super::execute_builtin(lookup("skill_list").unwrap(), &json!({}), &ctx)
-            .await
-            .0;
-        assert_eq!(list, "p:one — first\ntwo");
-        let read = super::execute_builtin(
-            lookup("skill_read").unwrap(),
-            &json!({"name": "p:one"}),
-            &ctx,
-        )
-        .await
-        .0;
-        assert_eq!(read, "body one");
-        let missing =
-            super::execute_builtin(lookup("skill_read").unwrap(), &json!({"name": "x"}), &ctx)
-                .await
-                .0;
-        assert!(missing.starts_with("ERROR"), "{missing}");
-        let _ = std::fs::remove_dir_all(&root);
-    }
 
     #[tokio::test]
     async fn built_in_jan_skill_is_available_without_project_skills() {

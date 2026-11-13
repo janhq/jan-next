@@ -65,10 +65,6 @@ macro_rules! invoke_commands_with_extras {
         core::agent::commands::agent_skill_write,
         core::agent::commands::agent_skill_delete,
         core::agent::commands::agent_skill_invoke,
-        core::agent::commands::agent_plugin_list,
-        core::agent::commands::agent_plugin_install,
-        core::agent::commands::agent_plugin_remove,
-        core::agent::commands::agent_plugin_search,
         // Remote provider commands
         core::server::remote_provider_commands::register_provider_config,
         core::server::remote_provider_commands::unregister_provider_config,

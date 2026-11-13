@@ -166,8 +166,7 @@ pub(crate) fn normalize_openai_tools_in_chat_body(body: &mut serde_json::Value) 
     }
 }
 
-/// Only the desktop API-server path branches on this; the agent's key
-/// rotation lives in `agent::genai_bridge`.
+/// Whether the API server should retry an upstream call with the next key.
 pub(crate) fn http_status_indicates_api_key_retry(status: StatusCode) -> bool {
     matches!(
         status,

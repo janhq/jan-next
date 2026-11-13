@@ -1,293 +1,54 @@
 //! `agent.toml` project config parsing and store scaffolding
 //! (`~/.jan/projects/<slug>/`).
 
-use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
-use crate::core::agent::prompt::{Placement, PromptPolicy};
-use tauri_plugin_agent_tools::permissions::{PermissionDefault, ToolPermissions};
-
-/// `[tools]`/`[skills]` are always modeled. `[agent]` and `[budget]` are only
-/// compiled for the CLI (their sole consumer, via `jan cli agent run/step/status`).
+/// The parts of `agent.toml` the desktop reads: the skill whitelist and hooks.
+/// Unknown keys (an older scaffold's `[tools]`, `[prompt]`, ...) are ignored.
 #[derive(Debug, Clone, Default, Deserialize)]
 pub(crate) struct AgentToml {
-    #[serde(default)]
-    pub tools: ToolsSection,
-    #[serde(default)]
-    pub prompt: PromptSection,
     #[serde(default)]
     pub skills: SkillsSection,
     #[serde(default)]
     pub plugins: PluginsSection,
-    #[serde(default)]
-    pub context: ContextSection,
-    /// `[[hooks]]` -- lifecycle commands this project runs around tool calls,
-    /// prompts, sessions and compactions. An array of tables rather than a
-    /// `[hooks]` map because several hooks may share one event.
+    /// `[[hooks]]` -- lifecycle commands this project runs around tool calls.
+    /// An array of tables rather than a `[hooks]` map because several hooks
+    /// may share one event.
     #[serde(default)]
     pub hooks: Vec<tauri_plugin_agent_tools::tools::hooks::HookEntry>,
-    /// `[subagents.<name>]` -- per-project overrides of saved subagent
-    /// definitions, keyed by definition name.
-    #[serde(default)]
-    pub subagents: BTreeMap<String, SubagentOverride>,
 }
 
-/// One `[subagents.<name>]` table. Lets a project move a definition it does
-/// not own (a user-wide or plugin agent) to another model without editing the
-/// definition's file.
-#[derive(Debug, Clone, Default, Deserialize)]
-pub(crate) struct SubagentOverride {
-    /// Replaces the definition's `model`: a role (`smol`, `inherit`) or a
-    /// literal model id. Blank is ignored.
-    #[serde(default)]
-    pub model: Option<String>,
-}
-
-/// `[prompt]` — where each contributor to the system prompt may sit. Deny-wins,
-/// like `[tools]`: nothing reaches the cache line without being allowed there,
-/// and the safe answer for a composer no policy mentions is the tail.
-#[derive(Debug, Clone, Default, Deserialize)]
-pub(crate) struct PromptSection {
-    /// Placement for a composer no policy mentions, `tail` by default. A
-    /// composer that varies within a session stays in the tail whatever this
-    /// says: the constancy rule outranks it. All current composers already
-    /// declare a placement or vary, so this fallback has no effect today.
-    #[serde(default)]
-    pub default: Placement,
-    /// Composer ids allowed above the cache line (`assistant_instructions`,
-    /// `skills`, ...). Unset keeps each composer's own placement; setting it
-    /// narrows the prefix to exactly the ids listed. An unknown id is an error,
-    /// not a silent no-op.
-    #[serde(default)]
-    pub prefix_allow: Option<Vec<String>>,
-}
-
-/// `[context]` — which instructions files Jan reads besides `JAN.md`.
-#[derive(Debug, Clone, Default, Deserialize)]
-pub(crate) struct ContextSection {
-    /// Files read, in order, from a directory that has no non-empty `JAN.md`
-    /// (#9079). Only `AGENTS.md` and `CLAUDE.md` are recognised. `None` defers to
-    /// `~/.jan/config.toml`, then to [`DEFAULT_CONTEXT_FALLBACK_FILES`]; `[]`
-    /// reads `JAN.md` only, which is the behaviour before the fallback existed.
-    #[serde(default)]
-    pub fallback_files: Option<Vec<String>>,
-}
-
-/// The fallback used when neither `agent.toml` nor `~/.jan/config.toml` sets
-/// `[context].fallback_files`: the vendor-neutral `AGENTS.md`. `CLAUDE.md` is
-/// opt-in, since it is usually written for one specific agent.
-pub(crate) const DEFAULT_CONTEXT_FALLBACK_FILES: &[&str] = &["AGENTS.md"];
-
-/// The fallback names Jan will ever read. Anything else in `fallback_files` is
-/// dropped, so the list cannot be used to ingest arbitrary files.
-pub(crate) const KNOWN_CONTEXT_FALLBACK_FILES: &[&str] = &["AGENTS.md", "CLAUDE.md"];
-
-/// The resolved `[context].fallback_files` for `project_root`: the project's
-/// `agent.toml` if it sets the key, else `~/.jan/config.toml`, else the
-/// default. Unknown names and duplicates are dropped; order is kept, and it is
-/// the precedence within a directory.
-pub(crate) fn context_fallback_files(project_root: &Path) -> Vec<String> {
-    let configured = load_agent_config(project_root)
-        .ok()
-        .and_then(|cfg| cfg.context.fallback_files)
-        .or_else(crate::core::agent::global_config::context_fallback_files_setting);
-    let names: Vec<String> = match configured {
-        Some(list) => list,
-        None => DEFAULT_CONTEXT_FALLBACK_FILES
-            .iter()
-            .map(|s| s.to_string())
-            .collect(),
-    };
-    let mut out: Vec<String> = Vec::new();
-    for name in names {
-        let name = name.trim().to_string();
-        if KNOWN_CONTEXT_FALLBACK_FILES.contains(&name.as_str()) && !out.contains(&name) {
-            out.push(name);
-        }
-    }
-    out
-}
-
-/// `[plugins]` — plugin installs and marketplace. Installed plugins live in
-/// `<store_root>/plugins/`; this section only carries configuration.
+/// `[plugins]` -- switches for what installed plugins bring.
 #[derive(Debug, Clone, Default, Deserialize)]
 pub(crate) struct PluginsSection {
-    /// URL of a JSON marketplace index (`[{ name, description, repo, ref? }]`).
-    /// Unset disables name-based installs; direct git URLs still work.
-    #[serde(default)]
-    pub marketplace: Option<String>,
     /// Whether an installed plugin's `hooks/hooks.json` is honored. On by
-    /// default -- a plugin that ships hooks is usually installed *for* them --
-    /// but a plugin's hooks are third-party commands that fire on every tool
-    /// call, so `hooks = false` must be able to switch them off without
-    /// uninstalling the plugin and losing its skills and commands.
+    /// default, but a plugin's hooks are third-party commands that fire on
+    /// every tool call, so `hooks = false` switches them off without
+    /// uninstalling the plugin.
     #[serde(default)]
     pub hooks: Option<bool>,
-    /// Whether an installed plugin's `[[tools]]` are advertised to the model.
-    /// Same default and same rationale as [`Self::hooks`].
-    #[serde(default)]
-    pub tools: Option<bool>,
 }
 
-
-/// `[skills]` — which project skills are advertised to the model. An empty
-/// `enabled` list means "all skills" (backward-compatible with the scaffold
-/// template, which ships `enabled = []`); a non-empty list is a whitelist.
+/// `[skills]` -- which project skills are advertised to the model. An empty
+/// `enabled` list means "all skills"; a non-empty list is a whitelist.
 #[derive(Debug, Clone, Default, Deserialize)]
 pub(crate) struct SkillsSection {
     #[serde(default)]
     pub enabled: Vec<String>,
 }
 
-
-
-// `default`/`allow`/`deny`/`allow_write` are consumed by `permissions_from`,
-// which only the CLI calls: the desktop's tool gate lives in the plugin. They
-// stay parsed regardless so the desktop round-trips an `agent.toml` written by
-// the CLI instead of silently dropping the user's policy on save.
-#[derive(Debug, Clone, Default, Deserialize)]
-#[allow(dead_code)]
-pub(crate) struct ToolsSection {
-    #[serde(default)]
-    pub default: Option<String>,
-    #[serde(default)]
-    pub allow: Vec<String>,
-    #[serde(default)]
-    pub deny: Vec<String>,
-    #[serde(default)]
-    pub allow_write: Vec<String>,
-    /// Whether the sandboxed shell keeps its network namespace. `None` (unset)
-    /// leaves the choice to the surface running the loop, which differ: the CLI
-    /// prompts before every exec and allows it, the desktop's ephemeral chat
-    /// sandbox does not and denies it.
-    #[serde(default)]
-    pub allow_network: Option<bool>,
-    /// Whether the sandboxed shell may read the user's home directory (the
-    /// CLI, for `git`/`ssh` credential helpers). `None` (unset) leaves the
-    /// choice to the surface: the CLI defaults to true, the desktop masks
-    /// `$HOME` entirely. Writes are confined to the workspace either way.
-    #[serde(default)]
-    pub allow_home_read: Option<bool>,
-    /// Whether the shell runs under OS confinement. `None` (unset) leaves the
-    /// choice to the surface: the desktop always confines, the CLI defaults to
-    /// off and opts in with `--sandbox` or the global `sandbox` setting.
-    /// Setting it here is how a repo requires confinement for everyone who
-    /// checks it out.
-    #[serde(default)]
-    pub sandbox: Option<bool>,
-    /// Host env-var names (exact or `*`-glob) the sandboxed `bash` may inherit
-    /// beyond the fixed base allowlist, merged over `~/.jan/config.toml`. Empty
-    /// by default; a secret-looking name is never copied by a glob.
-    #[serde(default)]
-    pub env_passthrough: Vec<String>,
-    /// Explicit key=value pairs injected into the `bash` env, winning over
-    /// `env_passthrough` and over the global value for the same key.
-    #[serde(default)]
-    pub env_set: BTreeMap<String, String>,
-}
-
-const AGENT_TOML_TEMPLATE: &str = r#"[agent]
-# model = "Jan-V4"
-# context_window = 128000  # tokens; defaults to 128K if unset
-# compaction_ratio = 0.8  # share of context_window a prompt may fill before the run
-#                         # compacts ahead of the request; defaults to 0.8
-# compaction_reserve_tokens = 16384  # absolute headroom instead, in tokens; wins over compaction_ratio
-# max_tokens = 4096  # cap on tokens the model generates per response (OpenAI max_tokens); omitted if unset
-# max_parallel_subagents = 10  # max concurrently-running subagents per run; extra dispatches queue FIFO
-# subagent_worktrees = false  # true: a subagent that can write gets its own git worktree; false
-#                             # (default): it edits your checkout, shared with its siblings
-# subagent_build_cache_max_gb = 20  # clear the subagents' shared cargo-target at session end once
-#                                   # it is larger than this; 0 never clears it
-# thread_retention_days = 90  # prune saved threads older than this at startup; 0 disables
-# max_threads = 500  # keep at most this many saved threads; 0 disables
-#                    # (both apply only with prune_threads = true in ~/.jan/config.toml)
-# show_reasoning = false  # expand  reasoning in the transcript (Ctrl-O still toggles)
-# send_reasoning = true  # resend prior reasoning to the model; false drops it from the request
-#                        # (a provider that rejects the field is detected and stripped automatically)
-
-# Project-local provider override. Wins over ~/.jan/config.toml and any
-# provider inherited from Jan Desktop's settings.json. Most projects don't
-# need this and should rely on the global scope instead.
-# [provider]
-# name = "openai"
-# api_key = "sk-..."
-# base_url = "https://api.openai.com/v1"
-# models = ["gpt-4o"]
-
-# New token spend across all turns (replayed context is not recharged each
-# turn). Advisory: crossing it compacts and files a note, it does not stop the
-# run. Defaults to the model's context window when unset (128000 if the window
-# is unknown); 0 disables the cap.
-[budget]
-# max_tokens = 128000
-# USD this run may spend before it stops -- unlike max_tokens, a hard bound.
-# Priced from the provider's published rates, so a model with no published
-# price is refused rather than run uncapped. Overridden by --max-budget-usd.
-# max_usd = 5.00
-
-[tools]
-# read-only | deny | allow. read-only (default) exposes MCP tools and built-in
-# reads; built-in writes/exec go through the permission gate. deny locks down
-# all MCP tools.
-default = "read-only"
-# Exposed even under deny; deny-list wins over everything:
-allow = []
-deny = []
-# Write tools are opt-in only:
-# allow_write = ["fs.write"]
-allow_write = []
-# Whether the sandboxed shell can reach the network. Unset follows the surface
-# running the agent: the CLI allows it, the desktop's throwaway chat sandbox
-# does not.
-# allow_network = true
-# Whether the sandboxed shell can read your home directory (for git/ssh
-# credential helpers and ~/.ssh/config). Unset masks $HOME. Writes stay in the
-# workspace.
-# allow_home_read = true
-# Host environment variables the shell may inherit beyond the minimal base
-# (PATH, HOME, TMPDIR, ...). Names are exact or use a "*" wildcard; merged with
-# ~/.jan/config.toml. A secret-looking name (*KEY*, *TOKEN*, ...) is never
-# copied by a wildcard -- inject one deliberately with env_set below.
-# env_passthrough = ["SSH_AUTH_SOCK", "GIT_*", "http_proxy", "https_proxy"]
-# Explicit values for the shell env; win over env_passthrough and the global
-# value for the same key.
-# [tools.env_set]
-# RUST_LOG = "info"
-
+const AGENT_TOML_TEMPLATE: &str = r#"# Skills advertised to the model; empty means every skill in skills/.
 [skills]
 enabled = []
 
-# Per-project model for a saved subagent, overriding its definition's own.
-# A model id, "smol" (smol_model in ~/.jan/config.toml) or "inherit" (this
-# session's model). /settings > subagents edits these.
-# [subagents.explorer]
-# model = "smol"
-
-# Where each contributor to the system prompt may sit, deny-wins like [tools].
-# Above the cache line ("prefix") a contributor must be constant for the whole
-# session: a provider only reuses a prefix whose bytes are identical to the
-# previous request, so per-turn content belongs in the tail. `jan cli agent
-# status` prints the resolved placement of every contributor.
-[prompt]
-# Unset keeps each composer's own placement. Setting it narrows the prefix to
-# exactly the ids listed -- everything else moves below the cache line whatever
-# it asks for. Ids: assistant_instructions, guidelines, working_directory,
-# runtime_environment, subagent_guide, skill_guide,
-# project_context, skills, memory_catalog, tool_schemas (the tool array is a
-# request field and is always above the cache line).
-# prefix_allow = ["assistant_instructions", "guidelines", "skills", "tool_schemas"]
-# Fallback for a future unclassified composer: tail (the default) or prefix.
-# No effect on current composers. Use prefix_allow to narrow today's prefix.
-# default = "tail"
-
-# Instructions files read from a directory that has no JAN.md, in order. JAN.md
-# always wins. Unset uses ~/.jan/config.toml, else ["AGENTS.md"]. Add
-# "CLAUDE.md" to opt in to it; [] reads JAN.md only.
-# [context]
-# fallback_files = ["AGENTS.md"]
+# Commands run around tool calls. See the hooks docs for events and fields.
+# [[hooks]]
+# event = "PreToolUse"
+# command = "echo checked"
 "#;
+
 
 /// `~/.jan`, where every project's store lives. Test builds use a per-process
 /// temp directory so no test reads or writes the developer's real `~/.jan`;
@@ -304,55 +65,8 @@ pub(crate) fn jan_home() -> Option<PathBuf> {
     }
 }
 
-/// The Jan cache root (`<OS cache dir>/jan`), where session scratch lives.
-/// Tests resolve a per-process temp directory instead, so no test writes into
-/// the developer's real cache.
-pub(crate) fn jan_cache_root() -> PathBuf {
-    #[cfg(test)]
-    {
-        std::env::temp_dir().join(format!("jan-app-test-cache-{}", std::process::id()))
-    }
-    #[cfg(not(test))]
-    {
-        tauri_plugin_agent_tools::workspace::jan_cache_root()
-    }
-}
-
-/// `project_root`'s folder under the Jan cache root, `<cache>/jan/<slug>`,
-/// with the same slug as its store under `~/.jan/projects/`.
-pub(crate) fn project_cache_dir(project_root: &Path) -> PathBuf {
-    tauri_plugin_agent_tools::workspace::project_cache_dir_in(&jan_cache_root(), Some(project_root))
-}
-
-/// A CLI/TUI session's scratch: `<cache>/jan/<slug>/scratch/<session>`. The
-/// one place the app derives it, so the prompt, the tools, the subagent
-/// replay and the exit trash all name the same directory.
-pub(crate) fn scratch_dir(project_root: &Path, session: &str) -> PathBuf {
-    tauri_plugin_agent_tools::workspace::scratch_dir_in(&project_cache_dir(project_root), session)
-}
-
-/// Prepare `project_root`'s package cache, `<cache>/jan/<slug>/pkg`, for a
-/// sandboxed run: shared by the project's sessions (subagent worktrees map to
-/// the same slug), never by another project's.
-pub(crate) async fn prepare_pkg_cache(
-    project_root: &Path,
-) -> Result<tauri_plugin_agent_tools::workspace::PkgCache, String> {
-    tauri_plugin_agent_tools::workspace::prepare_pkg_cache(&project_cache_dir(project_root)).await
-}
-
-/// The Jan home the general tools and the sandboxed shell may not reach while
-/// `sandbox` is on (see `workspace::hidden_root`). Resolved through [`jan_home`]
-/// so tests hide their temp home, not the developer's.
-pub(crate) fn hidden_root(sandbox: bool) -> Option<PathBuf> {
-    if sandbox {
-        jan_home()
-    } else {
-        None
-    }
-}
-
 /// A project's store root, `~/.jan/projects/<slug>`: `agent.toml`, `memory/`,
-/// `skills/`, `subagents/`, `plugins/` and the TUI's threads. The one place the
+/// `skills/` and `plugins/`. The one place the
 /// app resolves it; the project directory itself holds only `JAN.md`.
 pub(crate) fn store_root(project_root: &Path) -> PathBuf {
     tauri_plugin_agent_tools::workspace::project_store_at(jan_home().as_deref(), project_root)
@@ -413,132 +127,21 @@ pub(crate) fn load_agent_config(project_root: &Path) -> Result<AgentToml, String
     toml::from_str(&raw).map_err(|e| format!("Failed to parse {}: {e}", path.display()))
 }
 
-/// The per-run knobs a `ToolContext` needs from agent.toml.
-///
-/// The toolset owns no config format, so this is the one place that maps
-/// agent.toml onto a `ToolContext`. Resolved once per run rather than per tool
-/// call, and in a single parse rather than one per field.
-#[derive(Debug, Clone, Default)]
-pub(crate) struct RunSettings {
-    /// `[skills].enabled` (empty = every skill).
-    pub enabled_skills: Vec<String>,
-    /// `[tools].allow_network`; `None` when unset, so the caller applies the
-    /// default appropriate to its surface.
-    pub allow_network: Option<bool>,
-    /// `[tools].allow_home_read`; `None` when unset, so the caller applies the
-    /// default appropriate to its surface.
-    pub allow_home_read: Option<bool>,
-    /// `[tools].sandbox`; `None` when unset, so the caller applies the default
-    /// appropriate to its surface.
-    pub sandbox: Option<bool>,
-    /// `[tools].env_passthrough`: host env-var names/globs the shell may inherit
-    /// beyond the base allowlist. Merged with the global setting by the caller.
-    pub env_passthrough: Vec<String>,
-    /// `[tools].env_set`: explicit shell-env overrides, sorted by key.
-    pub env_set: Vec<(String, String)>,
-    /// `[prompt]`: where each system-prompt composer may sit. Resolved here so
-    /// composition and `agent status` answer the same question from one parse.
-    pub prompt: PromptPolicy,
-    /// One line per `[tools]` `allow`/`deny`/`allow_write` entry that names a
-    /// tool by an old name: the shell's `bash`, which now matches nothing, or
-    /// an old memory tool, which now applies to all of `memory`. Reported at
-    /// run start with the hook-load notices, so a rule whose reach changed does
-    /// not do so silently.
-    pub tool_notices: Vec<String>,
-}
-
-/// A missing or malformed config yields defaults rather than an error: a project
-/// without an agent.toml should still run, advertising all of its skills.
-pub(crate) fn run_settings(project_root: &Path) -> RunSettings {
-    let Ok(cfg) = load_agent_config(project_root) else {
-        return RunSettings::default();
-    };
-    let tool_notices = renamed_tool_notices(&cfg.tools);
-    RunSettings {
-        enabled_skills: cfg.skills.enabled,
-        allow_network: cfg.tools.allow_network,
-        allow_home_read: cfg.tools.allow_home_read,
-        sandbox: cfg.tools.sandbox,
-        env_passthrough: cfg.tools.env_passthrough,
-        env_set: cfg.tools.env_set.into_iter().collect(),
-        tool_notices,
-        prompt: PromptPolicy::new(cfg.prompt.default, cfg.prompt.prefix_allow),
-    }
-}
-
-
-
-/// See [`RunSettings::tool_notices`].
-fn renamed_tool_notices(tools: &ToolsSection) -> Vec<String> {
-    [
-        ("[tools] allow", &tools.allow),
-        ("[tools] deny", &tools.deny),
-        ("[tools] allow_write", &tools.allow_write),
-    ]
-    .into_iter()
-    .flat_map(|(where_, list)| {
-        list.iter().filter_map(move |name| {
-            tauri_plugin_agent_tools::tools::renamed_tool_notice(name, where_)
-        })
-    })
-    .collect()
-}
-
-pub(crate) fn enabled_skills(project_root: &Path) -> Vec<String> {
-    run_settings(project_root).enabled_skills
-}
-
-/// The `[prompt]` placement policy for `project_root`, or the defaults when the
-/// project has no agent.toml. A thin read of [`run_settings`] for the callers
-/// that need only this: the status report and the `/context` sizing. Both are
-/// CLI surfaces, hence the desktop-build allowance.
-#[allow(dead_code)]
-pub(crate) fn prompt_policy(project_root: &Path) -> PromptPolicy {
-    run_settings(project_root).prompt
-}
-
-/// Build a `ToolPermissions` from the parsed `[tools]` section.
-///
-/// CLI-only: the desktop no longer runs the agent loop in Rust, so its tool
-/// gating is the plugin's, not this one.
-#[allow(dead_code)]
-pub(crate) fn permissions_from(cfg: &AgentToml) -> ToolPermissions {
-    let default = cfg
-        .tools
-        .default
-        .as_deref()
-        .map(PermissionDefault::from_str_lenient)
-        .unwrap_or_default();
-    ToolPermissions::new(
-        default,
-        &cfg.tools.allow,
-        &cfg.tools.deny,
-        &cfg.tools.allow_write,
-    )
-}
-
 /// Ensure a usable `{agent.toml, skills/, memory/}` exists in the project's
 /// store (see [`store_root`]), creating only the pieces that don't already exist.
-/// Idempotent and clobber-safe: preserves user edits on re-runs. Auto-managed
-/// on both the CLI and desktop agent-run paths (there is no explicit init step).
+/// Idempotent and clobber-safe: preserves user edits on re-runs.
 ///
 /// The project instructions file (`<project_root>/JAN.md`) is deliberately not
-/// scaffolded: an empty placeholder costs prompt space and teaches nothing, so
-/// it is written by `/init` or by hand.
+/// scaffolded: an empty placeholder costs prompt space and teaches nothing.
 pub(crate) fn ensure_project(project_root: &Path) -> Result<PathBuf, String> {
-    // Refresh the plugin env registry first: this is the one choke point
-    // every run path calls, so a stored API key reaches the sandboxed shells
-    // of the run about to start.
-    super::plugins::sync_env_registry(project_root);
     if !project_root.is_dir() {
         return Err(format!(
-            "project directory does not exist: {}. Pass --project with a path to an existing directory (paths are case-sensitive).",
+            "project directory does not exist: {}",
             project_root.display()
         ));
     }
     // Before scaffolding, or an empty new store would turn the move into a
-    // conflict. A no-op after the first call for this project; the CLI already
-    // ran it (and reported it) when it resolved the project.
+    // conflict. A no-op after the first call for this project.
     if let Some(note) = migrate_legacy_store(project_root) {
         log::info!("Agent: {note}");
     }
@@ -586,15 +189,13 @@ fn drop_retired_keys(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::agent::prompt::Composer;
     use std::sync::atomic::{AtomicU32, Ordering};
 
     static COUNTER: AtomicU32 = AtomicU32::new(0);
 
-    /// The pid keeps the path unique across concurrently-running test binaries
-    /// (the `cli` and `tauri` feature configs both compile this module), which a
-    /// per-process counter alone does not: a leftover root from one run makes
-    /// `ensure_project` skip scaffolding in the next.
+    /// The pid keeps the path unique across concurrently-running test
+    /// binaries: a leftover root from one run makes `ensure_project` skip
+    /// scaffolding in the next.
     fn unique_root(tag: &str) -> PathBuf {
         let n = COUNTER.fetch_add(1, Ordering::SeqCst);
         let pid = std::process::id();
@@ -602,6 +203,7 @@ mod tests {
         std::fs::create_dir_all(&root).expect("create test project root");
         root
     }
+
 
     /// `ensure_project` scaffolds `{skills,memory}` in the store, while the
     /// toolset reads those same directories through the store root it is
@@ -627,65 +229,6 @@ mod tests {
         );
 
         let _ = std::fs::remove_dir_all(&root);
-    }
-
-    fn write_agent_toml(root: &Path, body: &str) {
-        let dir = crate::core::agent::project::store_root(root);
-        std::fs::create_dir_all(&dir).expect("create agent dir");
-        std::fs::write(dir.join("agent.toml"), body).expect("write agent.toml");
-    }
-
-    #[test]
-    fn a_tools_list_naming_bash_is_reported() {
-        let root = unique_root("renamed_bash");
-        write_agent_toml(&root, "[tools]\ndeny = [\"bash\", \"web_*\"]\nallow = [\"shell\"]\n");
-        let notices = run_settings(&root).tool_notices;
-        assert_eq!(notices.len(), 1, "{notices:?}");
-        assert!(notices[0].starts_with("[tools] deny names `bash`"), "{}", notices[0]);
-    }
-
-    /// A `[tools]` entry on an old memory tool name still applies, to the
-    /// whole `memory` tool, and is reported so the user renames it.
-    #[test]
-    fn a_tools_list_naming_an_old_memory_tool_still_applies_and_is_reported() {
-        let root = unique_root("renamed_memory");
-        write_agent_toml(&root, "[tools]\ndeny = [\"memory_write\"]\n");
-        let notices = run_settings(&root).tool_notices;
-        assert_eq!(notices.len(), 1, "{notices:?}");
-        assert!(notices[0].starts_with("[tools] deny names `memory_write`"), "{}", notices[0]);
-        let cfg = load_agent_config(&root).unwrap();
-        assert!(permissions_from(&cfg).is_denied("memory"));
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    #[test]
-    fn run_settings_reads_allow_network_both_ways() {
-        let root = unique_root("allow_net");
-        write_agent_toml(&root, "[tools]\nallow_network = true\n");
-        assert_eq!(run_settings(&root).allow_network, Some(true));
-
-        write_agent_toml(&root, "[tools]\nallow_network = false\n");
-        assert_eq!(run_settings(&root).allow_network, Some(false));
-
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    /// Unset must stay `None` rather than collapsing to `false`, or the caller
-    /// cannot tell "explicitly denied" from "not configured" and every CLI
-    /// project silently loses the network.
-    #[test]
-    fn run_settings_leaves_unset_allow_network_undecided() {
-        let root = unique_root("allow_net_unset");
-
-        write_agent_toml(&root, "[tools]\ndefault = \"read-only\"\n");
-        assert_eq!(run_settings(&root).allow_network, None);
-
-        // A project with no agent.toml at all resolves the same way.
-        let bare = unique_root("allow_net_bare");
-        assert_eq!(run_settings(&bare).allow_network, None);
-
-        let _ = std::fs::remove_dir_all(&root);
-        let _ = std::fs::remove_dir_all(&bare);
     }
 
     /// `[skills].inject` was scaffolded but never read (janhq/jan-internal#394);
@@ -721,17 +264,9 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 
-    /// The scaffold documents the key, so it has to stay parseable as written.
-    #[test]
-    fn scaffold_template_parses_with_allow_network_documented() {
-        let cfg: AgentToml = toml::from_str(AGENT_TOML_TEMPLATE).expect("scaffold template parses");
-        assert_eq!(cfg.tools.allow_network, None);
-        assert!(AGENT_TOML_TEMPLATE.contains("allow_network"));
-    }
-
     #[test]
     fn ensure_errors_when_project_dir_missing() {
-        // A mistyped --project (e.g. wrong case) must fail fast, not scaffold a
+        // A mistyped path (e.g. wrong case) must fail fast, not scaffold a
         // phantom project dir from nothing.
         let root = std::env::temp_dir().join(format!(
             "jan_agent_missing_{}",
@@ -744,7 +279,7 @@ mod tests {
     }
 
     /// The instructions file lives at the project root as `JAN.md` and is the
-    /// user's (or `/init`'s) to create -- the scaffold must not plant an empty
+    /// user's to create -- the scaffold must not plant an empty
     /// one in the store, which nothing reads.
     #[test]
     fn ensure_does_not_scaffold_an_instructions_file() {
@@ -757,6 +292,11 @@ mod tests {
     }
 
     #[test]
+    fn load_missing_errors() {
+        let root = unique_root("missing");
+        assert!(load_agent_config(&root).is_err());
+    }
+    #[test]
     fn ensure_creates_artifacts_and_is_idempotent() {
         let root = unique_root("ensure");
         let dir = ensure_project(&root).expect("ensure");
@@ -765,145 +305,17 @@ mod tests {
         assert!(dir.join("memory").is_dir());
 
         // Second call must not error and must preserve user edits.
-        std::fs::write(dir.join("agent.toml"), "[tools]\ndefault = \"deny\"\n").unwrap();
+        std::fs::write(dir.join("agent.toml"), "[skills]\nenabled = [\"a\"]\n").unwrap();
         ensure_project(&root).expect("ensure again");
         let cfg = load_agent_config(&root).expect("load");
-        assert_eq!(cfg.tools.default.as_deref(), Some("deny"));
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-
-    #[test]
-    fn load_roundtrips_template() {
-        let root = unique_root("roundtrip");
-        ensure_project(&root).expect("scaffold");
-        let cfg = load_agent_config(&root).expect("load");
-        assert_eq!(cfg.tools.default.as_deref(), Some("read-only"));
-        // The scaffolded `[prompt]` section is all comments: the defaults it
-        // documents are what a fresh project gets.
-        assert_eq!(cfg.prompt.default, Placement::Tail);
-        assert_eq!(cfg.prompt.prefix_allow, None);
-        assert!(AGENT_TOML_TEMPLATE.contains("[prompt]"));
-        assert!(AGENT_TOML_TEMPLATE.contains("prefix_allow"));
+        assert_eq!(cfg.skills.enabled, vec!["a".to_string()]);
         let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]
-    fn prompt_policy_defaults_to_the_declared_placements() {
-        let root = unique_root("prompt_default");
-        write_agent_toml(&root, "[skills]\nenabled = []\n");
-        let policy = prompt_policy(&root);
-        assert_eq!(policy.default_placement(), Placement::Tail);
-        assert_eq!(
-            policy.prefix_allow(),
-            None,
-            "an absent allowlist keeps each composer's own placement"
-        );
-        assert_eq!(
-            policy.placement_of(Composer::Skills).unwrap(),
-            Placement::Prefix
-        );
-        assert_eq!(
-            policy.placement_of(Composer::MemoryRecall).unwrap(),
-            Placement::Tail
-        );
-        let _ = std::fs::remove_dir_all(&root);
+    fn template_parses() {
+        let cfg: AgentToml = toml::from_str(AGENT_TOML_TEMPLATE).expect("scaffold template parses");
+        assert!(cfg.skills.enabled.is_empty());
+        assert!(cfg.hooks.is_empty());
     }
-
-    #[test]
-    fn prompt_policy_reads_the_allowlist_and_the_default() {
-        let root = unique_root("prompt_allow");
-        write_agent_toml(
-            &root,
-            "[prompt]\ndefault = \"tail\"\nprefix_allow = [\"assistant_instructions\"]\n",
-        );
-        let policy = prompt_policy(&root);
-        assert_eq!(
-            policy.prefix_allow(),
-            Some(&["assistant_instructions".to_string()][..])
-        );
-        assert_eq!(
-            policy
-                .placement_of(Composer::AssistantInstructions)
-                .unwrap(),
-            Placement::Prefix
-        );
-        assert_eq!(
-            policy.placement_of(Composer::Skills).unwrap(),
-            Placement::Tail,
-            "the allowlist denies a declared-prefix composer it does not name"
-        );
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    #[test]
-    fn load_missing_errors() {
-        let root = unique_root("missing");
-        assert!(load_agent_config(&root).is_err());
-    }
-
-
-
-
-
-
-
-
-    /// The scaffolded agent.toml documents both knobs, so a user finds them
-    /// without reading source.
-    #[test]
-    fn the_scaffolded_agent_toml_documents_the_housekeeping_keys() {
-        let root = unique_root("template_keys");
-        let _ = std::fs::remove_dir_all(store_root(&root));
-        ensure_project(&root).expect("scaffold");
-        let written = std::fs::read_to_string(agent_toml_path(&root)).unwrap();
-        assert!(written.contains("# thread_retention_days = 90"), "{written}");
-        assert!(written.contains("# max_threads = 500"), "{written}");
-        let _ = std::fs::remove_dir_all(store_root(&root));
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-
-
-
-    #[test]
-    fn full_template_parses() {
-        let root = unique_root("full");
-        ensure_project(&root).expect("scaffold");
-        let cfg = load_agent_config(&root).expect("load");
-        assert_eq!(cfg.tools.default.as_deref(), Some("read-only"));
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-
-
-
-
-
-
-
-
-    #[test]
-    fn permissions_from_default_template_advertises_mcp() {
-        // The scaffolded read-only default must still advertise MCP tools.
-        let root = unique_root("perms");
-        ensure_project(&root).expect("scaffold");
-        let cfg = load_agent_config(&root).expect("load");
-        let perms = permissions_from(&cfg);
-        assert!(perms.advertises_mcp("mcp.search"));
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    #[test]
-    fn permissions_from_deny_default_blocks_mcp() {
-        let mut cfg = AgentToml::default();
-        cfg.tools.default = Some("deny".to_string());
-        let perms = permissions_from(&cfg);
-        assert!(!perms.advertises_mcp("mcp.search"));
-
-        cfg.tools.allow = vec!["mcp.search".to_string()];
-        let perms = permissions_from(&cfg);
-        assert!(perms.advertises_mcp("mcp.search"));
-    }
-
 }

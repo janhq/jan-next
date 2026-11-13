@@ -109,10 +109,6 @@ export const APIs = {
               api_key: pickString(raw, ['api_key', 'apiKey']),
               trusted_hosts: pickStringArray(raw, ['trusted_hosts', 'trustedHosts']),
               proxy_timeout: pickNumber(raw, ['proxy_timeout', 'proxyTimeout']),
-              enable_server_tool_execution: pickBoolean(raw, [
-                'enable_server_tool_execution',
-                'enableServerToolExecution',
-              ]),
               cors_enabled: pickBoolean(raw, [
                 'cors_enabled',
                 'isCorsEnabled',

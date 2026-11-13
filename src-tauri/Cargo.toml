@@ -77,8 +77,6 @@ serde_json = "1.0"
 
 [dependencies]
 dirs = "6.0.0"
-schemars = "1"
-async-trait = "0.1"
 env = "1.0.1"
 fix-path-env = { git = "https://github.com/tauri-apps/fix-path-env-rs", optional = true }
 flate2 = "1.0"
@@ -114,7 +112,6 @@ rmcp = { version = "3.2.0", features = [
 ] }
 # Advisory lock on a session file (`agent::session_log`): one writer per
 # thread across processes (flock / LockFileEx).
-fs4 = "1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
 serde_yaml = "0.9.34"
@@ -159,23 +156,17 @@ rfd = { version = "0.15.4", optional = true, default-features = false, features 
   "common-controls-v6",
 ] }
 chrono = { version = "0.4", features = ["serde"] }
-ed25519-dalek = { version = "2.1", features = ["rand_core"] }
-futures = "0.3"
 hostname = "0.4"
 base64 = "0.22"
 glob = "0.3"
-regex = "1"
-ignore = "0.4"
 keyring = { version = "3", features = ["apple-native", "windows-native"] }
 aes-gcm = "0.10"
 machine-uid = "0.5"
 reqwest = { version = "0.12", features = ["json", "blocking", "stream", "native-tls"] }
 # TLS backend must track `reqwest` above: reqwest features are additive across the
 # graph, so letting genai default to rustls would link both backends here.
-genai = { version = "=0.7.0-beta.19", default-features = false, features = ["native-tls"] }
-# genai is on reqwest 0.13 while the rest of the app is on 0.12, so its client
-# type is a distinct crate. Aliased here solely to build the pool-tuned client
-# `agent_http_client` hands to genai (see core/agent/upstream.rs).
+# rmcp is on reqwest 0.13 while the rest of the app is on 0.12, so its client
+# type is a distinct crate, aliased for the MCP transport and OAuth clients.
 reqwest13 = { package = "reqwest", version = "0.13", default-features = false, features = ["json", "stream", "charset", "http2", "system-proxy", "native-tls"] }
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"], optional = true }
 # Process table for the startup sweep of engines orphaned by an in-place update

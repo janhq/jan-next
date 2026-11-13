@@ -2,11 +2,10 @@
  * Reading a JSON object that is still streaming, and is therefore almost
  * certainly truncated mid-value.
  *
- * Port of the TUI's `partial_json_field` / `unescape_partial_json_string`
- * (`core::cli::tui`), which exist for the same reason: a real parser cannot help
- * with a prefix like `{"path":"a.html","content":"<!doctype html>\n<html` --
- * there is no closing quote and no closing brace. Both surfaces show a `write`
- * as it arrives, so both need to read the body out of a fragment.
+ * A real parser cannot help with a prefix like
+ * `{"path":"a.html","content":"<!doctype html>\n<html` -- there is no closing
+ * quote and no closing brace -- yet a `write` is shown as it arrives, so its
+ * body has to be read out of the fragment.
  */
 
 /**

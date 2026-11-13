@@ -74,7 +74,7 @@ DiffBlock.displayName = 'DiffBlock'
 /**
  * A `write`'s file content as it streams in: a window on the tail, numbered
  * from where it actually sits in the file, so a long write reads as progress
- * rather than as a spinner. Mirrors the TUI's streaming-write preview.
+ * rather than as a spinner.
  */
 const WritePreviewBlock = memo(({ body }: { body: string }) => {
   const { lines, skipped } = useMemo(() => writeTail(body), [body])

@@ -294,15 +294,6 @@ fn canonical(file: &Path) -> PathBuf {
     std::fs::canonicalize(file).unwrap_or_else(|_| file.to_path_buf())
 }
 
-/// A skill that lost to a higher-precedence one of the same name.
-#[derive(Debug, Clone)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) struct Shadowed {
-    pub entry: SkillEntry,
-    /// The scope of the skill that wins.
-    pub by: SkillScope,
-}
-
 /// The plugins directory `<store_root>/plugins`.
 pub(crate) fn plugins_dir(root: &Path) -> PathBuf {
     crate::core::agent::project::store_root(root).join("plugins")
@@ -334,41 +325,6 @@ pub(crate) fn for_each_plugin_dir(root: &Path, mut visit: impl FnMut(&str, &Path
             continue;
         }
         visit(plugin, &path);
-    }
-}
-
-/// Recursively yield every `*.md` file under `dir`, skipping dotfiles and
-/// `README` files (any case). Callers read each file themselves so read-failure
-/// handling stays with them. Shared by plugin command and plugin agent
-/// discovery.
-pub(crate) fn walk_markdown_files(dir: &Path, visit: &mut dyn FnMut(&Path)) {
-    let Ok(rd) = std::fs::read_dir(dir) else {
-        return;
-    };
-    for entry in rd.flatten() {
-        let path = entry.path();
-        let Ok(ft) = entry.file_type() else { continue };
-        if ft.is_dir() {
-            walk_markdown_files(&path, visit);
-            continue;
-        }
-        if !ft.is_file() || path.extension().and_then(|e| e.to_str()) != Some("md") {
-            continue;
-        }
-        let Some(file_name) = path.file_name().and_then(|s| s.to_str()) else {
-            continue;
-        };
-        if file_name.starts_with('.') {
-            continue;
-        }
-        if path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .is_some_and(|s| s.eq_ignore_ascii_case("README"))
-        {
-            continue;
-        }
-        visit(&path);
     }
 }
 
@@ -415,13 +371,6 @@ pub(crate) fn discover_plugins(root: &Path) -> Vec<SkillEntry> {
 /// skill of the same name. The same file reached twice (symlinks) is kept
 /// once, at its highest-precedence location.
 pub(crate) fn discover_all(root: &Path) -> Vec<SkillEntry> {
-    discover_layers(root).0
-}
-
-/// [`discover_all`] plus the entries it dropped because a higher layer owns
-/// the name. A duplicate of the same canonical file is not reported as
-/// shadowed: it is one skill seen twice, not two skills competing.
-pub(crate) fn discover_layers(root: &Path) -> (Vec<SkillEntry>, Vec<Shadowed>) {
     let mut seen: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
     let mut out: Vec<SkillEntry> = Vec::new();
     for e in discover(root).into_iter().chain(discover_plugins(root)) {
@@ -429,77 +378,16 @@ pub(crate) fn discover_layers(root: &Path) -> (Vec<SkillEntry>, Vec<Shadowed>) {
             out.push(e);
         }
     }
-    let mut shadowed = Vec::new();
+    // A user skill loses to a project skill of the same name; a duplicate of
+    // the same canonical file is one skill seen twice.
     for e in discover_user() {
-        if !seen.insert(canonical(&e.file)) {
-            continue;
+        if seen.insert(canonical(&e.file))
+            && !out.iter().any(|o| o.plugin.is_none() && o.name == e.name)
+        {
+            out.push(e);
         }
-        if out.iter().any(|o| o.plugin.is_none() && o.name == e.name) {
-            shadowed.push(Shadowed {
-                entry: e,
-                by: SkillScope::Project,
-            });
-            continue;
-        }
-        out.push(e);
     }
-    (out, shadowed)
-}
-
-/// One row of the `/skills` listing: every discovered skill, its scope, and
-/// which scope shadows it, if any. Sorted by name, winners before losers.
-#[cfg(test)]
-#[allow(dead_code)]
-pub(crate) struct SkillReportRow {
-    pub name: String,
-    pub scope: SkillScope,
-    pub description: String,
-    pub shadowed_by: Option<SkillScope>,
-    pub user_invocable: bool,
-    pub model_invocable: bool,
-    pub enabled: bool,
-}
-
-/// The `/skills` listing: active skills (both invocation sides), the built-in
-/// `jan` skill, and every shadowed entry, marked. `enabled` is the
-/// `[skills].enabled` whitelist, reported rather than filtered.
-#[cfg(test)]
-pub(crate) fn report(root: &Path, enabled: &[String]) -> Vec<SkillReportRow> {
-    let (active, shadowed) = discover_layers(root);
-    let row = |e: &SkillEntry, shadowed_by: Option<SkillScope>| {
-        let parsed = parse(&std::fs::read_to_string(&e.file).unwrap_or_default());
-        SkillReportRow {
-            name: qualified_name(e),
-            scope: e.scope(),
-            description: describe(&parsed),
-            shadowed_by,
-            user_invocable: parsed.user_invocable,
-            model_invocable: parsed.model_invocable,
-            enabled: is_enabled(enabled, e),
-        }
-    };
-    let mut rows: Vec<SkillReportRow> = active.iter().map(|e| row(e, None)).collect();
-    rows.extend(shadowed.iter().map(|s| row(&s.entry, Some(s.by))));
-    let builtin = default_jan_skill_meta();
-    let jan_owner = active
-        .iter()
-        .find(|e| e.plugin.is_none() && e.name == DEFAULT_JAN_SKILL_NAME)
-        .map(SkillEntry::scope);
-    rows.push(SkillReportRow {
-        name: builtin.name,
-        scope: SkillScope::Builtin,
-        description: builtin.description,
-        shadowed_by: jan_owner,
-        user_invocable: true,
-        model_invocable: true,
-        enabled: enabled.is_empty() || enabled.iter().any(|n| n == DEFAULT_JAN_SKILL_NAME),
-    });
-    rows.sort_by(|a, b| {
-        a.name
-            .cmp(&b.name)
-            .then(a.shadowed_by.is_some().cmp(&b.shadowed_by.is_some()))
-    });
-    rows
+    out
 }
 
 /// The user-facing identity of a skill entry: `name` for project skills,
@@ -722,19 +610,6 @@ fn side_catalog(
     skills
 }
 
-/// Skills worth advertising in the system prompt: name + description, skipping
-/// skills with neither a description nor a body. This is the progressive-
-/// disclosure catalog — the model calls `skill_read` to load a body on demand.
-/// Skills with `disable-model-invocation: true` are excluded: their
-/// description would cost permanent context load, and only the human may fire
-/// them (Matt Pocock's SKILL-MECHANICS model-invoked vs user-invoked cut).
-///
-/// `enabled` is a whitelist of skill names; an empty list means "all skills"
-/// (backward-compatible with the agent.toml scaffold, which ships `enabled = []`).
-pub(crate) fn catalog(root: &Path, enabled: &[String]) -> Vec<SkillMeta> {
-    side_catalog(root, enabled, |p| p.model_invocable)
-}
-
 /// User-invocable skills: what the slash popup offers and `/skill:<name>`
 /// dispatches. Skills with `user-invocable: false` (Claude Code convention)
 /// are excluded — the human must not be able to fire them; the agent still
@@ -870,57 +745,6 @@ pub(crate) fn build_invocation_message(
     Ok((msg, meta.description))
 }
 
-/// The body the model's `skill_read` gets for `name`: resolved against the
-/// model-side catalog (enabled whitelist, `disable-model-invocation`), so it
-/// reads exactly the skills the system prompt advertises, plugin and user
-/// skills included. Frontmatter is stripped.
-pub(crate) fn read_for_model(root: &Path, enabled: &[String], name: &str) -> Result<String, String> {
-    let not_found = || format!("ERROR: skill '{name}' not found");
-    let catalog = catalog(root, enabled);
-    let meta = find_user_skill(&catalog, name).ok_or_else(not_found)?;
-    match resolve_readable(root, &meta.name) {
-        Ok(entry) => {
-            let raw = std::fs::read_to_string(&entry.file).map_err(|e| format!("ERROR: {e}"))?;
-            Ok(parse(&raw).body)
-        }
-        Err(_) if meta.scope == SkillScope::Builtin => Ok(parse(DEFAULT_JAN_SKILL).body),
-        Err(_) => Err(not_found()),
-    }
-}
-
-/// The CLI's skill resolver for the model tools (`skill_list`/`skill_read`):
-/// the same project + plugin + user + built-in layering as the system-prompt
-/// catalog, so a skill the prompt advertises is always readable.
-pub(crate) struct CoreSkillSource {
-    pub root: PathBuf,
-    pub enabled: Vec<String>,
-}
-
-impl CoreSkillSource {
-    pub(crate) fn shared(
-        root: &Path,
-        enabled: &[String],
-    ) -> tauri_plugin_agent_tools::tools::SkillSource {
-        std::sync::Arc::new(Self {
-            root: root.to_path_buf(),
-            enabled: enabled.to_vec(),
-        })
-    }
-}
-
-impl tauri_plugin_agent_tools::tools::SkillProvider for CoreSkillSource {
-    fn catalog(&self) -> Vec<(String, String)> {
-        catalog(&self.root, &self.enabled)
-            .into_iter()
-            .map(|m| (m.name, m.description))
-            .collect()
-    }
-
-    fn read(&self, name: &str) -> Result<String, String> {
-        read_for_model(&self.root, &self.enabled, name)
-    }
-}
-
 /// Find a skill in a catalog by the name a human (or the model) typed: exact
 /// match first (project/user names and the explicit `<plugin>:<skill>`
 /// form), then a plain name that is unique across plugin skills.
@@ -977,12 +801,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn user_skill_store_matches_sandbox_hidden_root() {
+    fn user_skill_store_lives_in_jan_home() {
         let home = crate::core::agent::project::jan_home().unwrap();
         assert_eq!(user_store_root(), Some(home.clone()));
         assert_eq!(user_skills_dir(), Some(home.join("skills")));
-        assert_eq!(crate::core::agent::project::hidden_root(true), Some(home));
-        assert_eq!(crate::core::agent::project::hidden_root(false), None);
     }
 
     #[test]
@@ -1107,7 +929,7 @@ mod tests {
     }
 
     #[test]
-    fn catalog_and_user_catalog_split_invocation_sides() {
+    fn user_catalog_keeps_only_user_invocable_skills() {
         let root = std::env::temp_dir().join(format!(
             "jan_skills_sides_{}",
             std::time::SystemTime::UNIX_EPOCH
@@ -1128,8 +950,6 @@ mod tests {
         write("model_only", "user-invocable: false\n");
         write("user_only", "disable-model-invocation: true\n");
 
-        let model: Vec<_> = catalog(&root, &[]).into_iter().map(|m| m.name).collect();
-        assert_eq!(model, vec!["both", "model_only", "jan"], "model side: {model:?}");
         let user: Vec<_> = user_catalog(&root, &[])
             .into_iter()
             .map(|m| m.name)
@@ -1210,9 +1030,9 @@ mod tests {
         write(&root, "a", "body a").unwrap();
         write(&root, "b", "body b").unwrap();
         // Empty whitelist = all skills (both project skills + built-in jan).
-        assert_eq!(catalog(&root, &[]).len(), 3);
+        assert_eq!(user_catalog(&root, &[]).len(), 3);
         // Non-empty whitelist restricts to the listed names.
-        let only_a = catalog(&root, &["a".to_string()]);
+        let only_a = user_catalog(&root, &["a".to_string()]);
         assert_eq!(only_a.len(), 1);
         assert_eq!(only_a[0].name, "a");
         let _ = std::fs::remove_dir_all(&root);
@@ -1366,7 +1186,7 @@ mod tests {
     }
 
     #[test]
-    fn catalog_and_user_catalog_include_plugin_skills_with_flags() {
+    fn user_catalog_includes_plugin_skills_with_flags() {
         let root = temp_root("cat");
         project_skill(&root, "deploy", "---\ndescription: ship\n---\nbody\n");
         plugin_skill(
@@ -1375,7 +1195,7 @@ mod tests {
             "prepare",
             "---\ndescription: prep\n---\nbody\n",
         );
-        // Model-only plugin skill: hidden from the user catalog, visible to the model.
+        // Model-only plugin skill: hidden from the user catalog.
         plugin_skill(
             &root,
             "release",
@@ -1391,15 +1211,6 @@ mod tests {
         );
 
         let enabled: Vec<String> = Vec::new();
-        let model: Vec<String> = catalog(&root, &enabled)
-            .into_iter()
-            .map(|m| m.name)
-            .collect();
-        assert!(model.contains(&"deploy".to_string()));
-        assert!(model.contains(&"release:prepare".to_string()));
-        assert!(model.contains(&"release:internals".to_string()));
-        assert!(!model.contains(&"triage:labels".to_string()));
-
         let user: Vec<String> = user_catalog(&root, &enabled)
             .into_iter()
             .map(|m| m.name)
@@ -1535,206 +1346,4 @@ mod tests {
         let _ = std::fs::remove_dir_all(&linked);
     }
 
-    /// Skills written into the (per-process, test-only) user scope
-    /// `~/.jan/skills`, removed on drop so no other test sees them.
-    struct UserSkills(Vec<std::path::PathBuf>);
-
-    impl UserSkills {
-        fn new() -> Self {
-            Self(Vec::new())
-        }
-
-        fn folder(&mut self, name: &str, body: &str) -> std::path::PathBuf {
-            let dir = user_skills_dir().unwrap().join(name);
-            std::fs::create_dir_all(&dir).unwrap();
-            std::fs::write(dir.join("SKILL.md"), body).unwrap();
-            self.0.push(dir.clone());
-            dir
-        }
-
-        fn flat(&mut self, name: &str, body: &str) {
-            let dir = user_skills_dir().unwrap();
-            std::fs::create_dir_all(&dir).unwrap();
-            let file = dir.join(format!("{name}.md"));
-            std::fs::write(&file, body).unwrap();
-            self.0.push(file);
-        }
-
-        /// Track a path created by the test itself (a symlink, say).
-        #[cfg(unix)]
-        fn track(&mut self, path: std::path::PathBuf) {
-            self.0.push(path);
-        }
-    }
-
-    impl Drop for UserSkills {
-        fn drop(&mut self) {
-            for path in &self.0 {
-                if std::fs::symlink_metadata(path).is_ok_and(|m| m.is_dir()) {
-                    let _ = std::fs::remove_dir_all(path);
-                } else {
-                    let _ = std::fs::remove_file(path);
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn user_scope_skills_reach_catalogs_and_reads_from_any_project() {
-        let mut user = UserSkills::new();
-        user.folder("u394-review", "---\ndescription: Review a diff\n---\nreview body\n");
-        user.flat("u394-notes", "---\ndescription: Take notes\n---\nnotes body\n");
-        for tag in ["ua", "ub"] {
-            let root = temp_root(tag);
-            let model = catalog(&root, &[]);
-            let m = model.iter().find(|m| m.name == "u394-review").expect("user skill listed");
-            assert_eq!(m.scope, SkillScope::User);
-            assert_eq!(m.description, "Review a diff");
-            assert!(model.iter().any(|m| m.name == "u394-notes"), "flat user skill");
-            assert!(user_catalog(&root, &[]).iter().any(|m| m.name == "u394-review"));
-            assert_eq!(read_for_model(&root, &[], "u394-review").unwrap(), "review body");
-            assert_eq!(read_for_model(&root, &[], "u394-notes").unwrap(), "notes body");
-            let (msg, _) = build_invocation_message(&root, "u394-review", "").unwrap();
-            assert!(msg.contains("review body"), "{msg}");
-            let _ = std::fs::remove_dir_all(&root);
-        }
-    }
-
-    #[test]
-    fn project_skill_shadows_a_same_named_user_skill_and_report_marks_it() {
-        let mut user = UserSkills::new();
-        user.folder("u394-deploy", "---\ndescription: user deploy\n---\nuser body\n");
-        let root = temp_root("shadow");
-        project_skill(&root, "u394-deploy", "---\ndescription: project deploy\n---\nproject body\n");
-
-        let model = catalog(&root, &[]);
-        let hits: Vec<_> = model.iter().filter(|m| m.name == "u394-deploy").collect();
-        assert_eq!(hits.len(), 1, "one entry per name");
-        assert_eq!(hits[0].scope, SkillScope::Project);
-        assert_eq!(hits[0].description, "project deploy");
-        assert_eq!(read_for_model(&root, &[], "u394-deploy").unwrap(), "project body");
-
-        let rows = report(&root, &[]);
-        let rows: Vec<_> = rows.iter().filter(|r| r.name == "u394-deploy").collect();
-        assert_eq!(rows.len(), 2, "winner and shadowed entry both reported");
-        assert_eq!((rows[0].scope, rows[0].shadowed_by), (SkillScope::Project, None));
-        assert_eq!(
-            (rows[1].scope, rows[1].shadowed_by),
-            (SkillScope::User, Some(SkillScope::Project))
-        );
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    #[test]
-    fn plugin_skills_stay_qualified_beside_a_same_named_user_skill() {
-        let mut user = UserSkills::new();
-        user.folder("u394-prepare", "---\ndescription: user prep\n---\nuser prep body\n");
-        let root = temp_root("plugq");
-        plugin_skill(&root, "rel", "u394-prepare", "---\ndescription: plugin prep\n---\nplugin prep body\n");
-
-        let model = catalog(&root, &[]);
-        let plain = model.iter().find(|m| m.name == "u394-prepare").unwrap();
-        assert_eq!(plain.scope, SkillScope::User);
-        let qualified = model.iter().find(|m| m.name == "rel:u394-prepare").unwrap();
-        assert_eq!(qualified.scope, SkillScope::Plugin);
-        // The plain name is the user skill; the qualified name is the plugin's.
-        assert_eq!(read_for_model(&root, &[], "u394-prepare").unwrap(), "user prep body");
-        assert_eq!(read_for_model(&root, &[], "rel:u394-prepare").unwrap(), "plugin prep body");
-        // Nothing is shadowed: the names differ.
-        assert!(report(&root, &[]).iter().all(|r| r.shadowed_by.is_none() || r.name == "jan"));
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    #[test]
-    fn built_in_jan_is_shadowed_by_a_user_skill_named_jan() {
-        let mut user = UserSkills::new();
-        user.folder("jan", "---\ndescription: my jan\n---\nmine\n");
-        let root = temp_root("janu");
-        let model = catalog(&root, &[]);
-        let jan: Vec<_> = model.iter().filter(|m| m.name == "jan").collect();
-        assert_eq!(jan.len(), 1);
-        assert_eq!(jan[0].scope, SkillScope::User);
-        assert_eq!(read_for_model(&root, &[], "jan").unwrap(), "mine");
-        let builtin = report(&root, &[])
-            .into_iter()
-            .find(|r| r.scope == SkillScope::Builtin)
-            .unwrap();
-        assert_eq!(builtin.shadowed_by, Some(SkillScope::User));
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    #[test]
-    fn model_reads_plugin_skills_and_honours_filters() {
-        let root = temp_root("plugread");
-        plugin_skill(&root, "rel", "prepare", "---\ndescription: prep\n---\nprep body\n");
-        plugin_skill(
-            &root,
-            "rel",
-            "secret",
-            "---\ndescription: s\ndisable-model-invocation: true\n---\nno\n",
-        );
-        // Qualified and unique-plain names both read.
-        assert_eq!(read_for_model(&root, &[], "rel:prepare").unwrap(), "prep body");
-        assert_eq!(read_for_model(&root, &[], "prepare").unwrap(), "prep body");
-        // A user-only skill never reaches the model.
-        assert!(read_for_model(&root, &[], "rel:secret").is_err());
-        // The whitelist applies: a plugin not enabled is unreadable.
-        assert!(read_for_model(&root, &["other".into()], "rel:prepare").is_err());
-        assert!(read_for_model(&root, &["rel".into()], "rel:prepare").is_ok());
-        // The built-in jan skill still reads.
-        assert!(!read_for_model(&root, &[], "jan").unwrap().is_empty());
-        let _ = std::fs::remove_dir_all(&root);
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn symlinked_skill_folders_are_listed_in_both_scopes_and_deduped() {
-        use std::os::unix::fs::symlink;
-        let library = temp_root("library");
-        for name in ["u394-linked-proj", "u394-linked-user"] {
-            let dir = library.join(name);
-            std::fs::create_dir_all(&dir).unwrap();
-            std::fs::write(dir.join("SKILL.md"), format!("---\ndescription: {name}\n---\nbody\n"))
-                .unwrap();
-        }
-        let root = temp_root("symlink");
-        let proj_dir = skills_dir(&root);
-        std::fs::create_dir_all(&proj_dir).unwrap();
-        symlink(library.join("u394-linked-proj"), proj_dir.join("u394-linked-proj")).unwrap();
-        // A symlink loop and a dangling link must be skipped, not hang or panic.
-        symlink(proj_dir.join("loop-b"), proj_dir.join("loop-a")).unwrap();
-        symlink(proj_dir.join("loop-a"), proj_dir.join("loop-b")).unwrap();
-        symlink(library.join("missing"), proj_dir.join("dangling")).unwrap();
-        // A self-referencing folder link (`dir/self -> dir`) is one level only.
-        symlink(&proj_dir, proj_dir.join("self")).unwrap();
-
-        let mut user = UserSkills::new();
-        let user_dir = user_skills_dir().unwrap();
-        std::fs::create_dir_all(&user_dir).unwrap();
-        let link = user_dir.join("u394-linked-user");
-        symlink(library.join("u394-linked-user"), &link).unwrap();
-        user.track(link);
-        // The same library folder linked into both scopes counts once.
-        let dup = user_dir.join("u394-linked-proj");
-        symlink(library.join("u394-linked-proj"), &dup).unwrap();
-        user.track(dup);
-
-        let model = catalog(&root, &[]);
-        let names: Vec<_> = model.iter().map(|m| (m.name.as_str(), m.scope)).collect();
-        assert!(names.contains(&("u394-linked-proj", SkillScope::Project)), "{names:?}");
-        assert!(names.contains(&("u394-linked-user", SkillScope::User)), "{names:?}");
-        assert_eq!(
-            names.iter().filter(|(n, _)| *n == "u394-linked-proj").count(),
-            1,
-            "{names:?}"
-        );
-        assert!(!names.iter().any(|(n, _)| n.starts_with("loop") || *n == "dangling"));
-        // The duplicate is not reported as shadowing: it is the same file.
-        assert!(report(&root, &[])
-            .iter()
-            .all(|r| r.name != "u394-linked-proj" || r.shadowed_by.is_none()));
-        assert_eq!(read_for_model(&root, &[], "u394-linked-user").unwrap(), "body");
-        let _ = std::fs::remove_dir_all(&root);
-        let _ = std::fs::remove_dir_all(&library);
-    }
 }

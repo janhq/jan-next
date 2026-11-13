@@ -1,10 +1,5 @@
-//! Tauri command surface for the agent's project-scoped state: skills and
-//! plugins.
-//!
-//! The agent *loop* is not driven from here: `core::agent::r#loop` serves the
-//! headless CLI and the OpenAI-compatible API server.
+//! Tauri command surface for the agent's project-scoped skills.
 
-use crate::core::agent::plugins;
 use crate::core::agent::project::{ensure_project, store_root};
 use crate::core::agent::skills as agent_skills;
 use tauri_plugin_agent_tools::skills::{self, SkillMeta};
@@ -67,39 +62,4 @@ pub async fn agent_skill_invoke(
     agent_skills::build_invocation_message(&root, &name, &args)
         .map(|(message, _)| message)
         .map_err(ui_error)
-}
-
-/// List installed plugins under `<store>/plugins/` with metadata
-/// and skill counts.
-#[tauri::command]
-pub async fn agent_plugin_list(project: String) -> Result<Vec<plugins::InstalledPlugin>, String> {
-    let root = std::path::PathBuf::from(&project);
-    Ok(plugins::installed(&root))
-}
-
-/// Install a plugin from a git URL or configured marketplace name.
-#[tauri::command]
-pub async fn agent_plugin_install(
-    project: String,
-    spec: String,
-) -> Result<plugins::InstalledPlugin, String> {
-    let root = std::path::PathBuf::from(&project);
-    plugins::install(&root, &spec).await.map_err(ui_error)
-}
-
-/// Remove an installed plugin by directory name.
-#[tauri::command]
-pub async fn agent_plugin_remove(project: String, name: String) -> Result<(), String> {
-    let root = std::path::PathBuf::from(&project);
-    plugins::remove(&root, &name).map_err(ui_error)
-}
-
-/// Search the configured plugin marketplace.
-#[tauri::command]
-pub async fn agent_plugin_search(
-    project: String,
-    query: String,
-) -> Result<Vec<plugins::MarketEntry>, String> {
-    let root = std::path::PathBuf::from(&project);
-    plugins::search(&root, &query).await.map_err(ui_error)
 }
