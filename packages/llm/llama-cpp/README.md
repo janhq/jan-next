@@ -71,7 +71,7 @@ When the agent default model names no model this route serves, or names another 
 
 Start runs the worker with `--port 0`, so the operating system assigns a loopback port, and passes a fresh API key in the `JAN_LLAMA_API_KEY` environment variable. After the default model loads, the service stores the endpoint in `LLAMA_CPP_BASE_URL` and the key in `LLAMA_CPP_API_KEY`; it withdraws both when the worker stops, so the route offers no models while nothing serves. Stop closes the worker's stdin and terminates the worker after `stopTimeoutMs`. Later boots start the worker only when the user left it running.
 
-The service writes `<dataRoot>/run/preset.ini` with one section per installed model, named by model id, and an alias section `[local]` with `alias-of = <default model id>`. A request for `local` reaches the default model's engine without a second load. Installing, importing, removing, or changing the default rewrites the preset and calls `POST /models/reload` on the running worker without a restart; the worker reloads only changed sections, so retargeting the alias reloads no model.
+The service writes `<dataRoot>/run/preset.ini` with one section per installed model, named by model id, and an alias section `[local]` with `alias-of = <default model id>`. A request for `local` reaches the default model's engine without a second load. Installing, importing, removing, or changing the default rewrites the preset and calls `POST /models/reload` on the running worker without a restart; the worker reloads only changed sections, so retargeting the alias reloads no model. **Make default** and removing the default then load the new default into the running worker; a load failure sets the `failed` phase.
 
 A model loads on its first request or on an explicit load. At most `modelsMax` models stay resident: loading another evicts the least recently used idle model, and the worker answers HTTP 503 while every resident model is busy. Removal unloads a resident model first, because Windows cannot delete a file the worker maps, and fails while the model has requests in flight.
 
@@ -81,7 +81,7 @@ At boot the service runs the worker with `--list-devices` and reads system memor
 
 ### State
 
-`follow()` streams complete snapshots: phase, the default model, installed models with `status` (`loading`, `loaded`, or `unloaded`) and `contextSize`, downloads with progress, the catalog, and the hardware summary. Snapshots carry no paths or keys. The [Remote controller](../../api/llama-cpp-controller/README.md) forwards them to browsers.
+`follow()` streams complete snapshots: phase, the Host platform (`linux`, `macos`, or `windows`), the default model, installed models with `status` (`loading`, `loaded`, or `unloaded`) and `contextSize`, downloads with progress, the catalog, and the hardware summary. Snapshots carry no paths or keys. The [Remote controller](../../api/llama-cpp-controller/README.md) forwards them to browsers.
 
 -----
 

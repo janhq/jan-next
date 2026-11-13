@@ -2005,9 +2005,9 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'removeModel(id: string): Promise<void>',
-        description: 'Remove an installed model. A downloaded file is deleted; an imported file is only forgotten. A resident model is unloaded first, because Windows cannot delete a file the worker maps. Removing the default makes the next installed model the default; removing the last stops the worker.',
+        description: 'Remove an installed model. A downloaded file is deleted; an imported file is only forgotten. A resident model is unloaded first, because Windows cannot delete a file the worker maps. Removing the default makes the next installed model the default and loads it into a running worker, as setDefault does; removing the last stops the worker.',
         parameters: [{ name: 'id', description: 'installed model id.' }],
-        returns: 'once the record and the worker reflect the removal.',
+        returns: 'once the record and the worker reflect the removal; a failed load of the new default is published as the `failed` phase.',
         throws: ['Error carrying the worker\'s reason when the model has requests in flight.'],
       },
       {
@@ -7185,6 +7185,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface LlamaCppHardware {\n    backend: string;\n    devices: LlamaCppDevice[];\n    memoryBytes: number;\n}',
   },
   {
+    name: 'LlamaCppHostPlatform',
+    declaration: 'export type LlamaCppHostPlatform = \'linux\' | \'macos\' | \'windows\';',
+  },
+  {
     name: 'LlamaCppModelInfo',
     declaration: 'export interface LlamaCppModelInfo {\n    id: string;\n    name: string;\n    modelBytes: number;\n}',
   },
@@ -7198,7 +7202,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'LlamaCppState',
-    declaration: 'export interface LlamaCppState {\n    phase: LlamaCppPhase;\n    model: LlamaCppModelInfo;\n    provider: string;\n    progress?: LlamaCppProgress;\n    error?: string;\n    contextSize?: number;\n    logTail?: string;\n    models: LocalModelEntry[];\n    downloads: LlamaCppDownload[];\n    catalog: CatalogModelInfo[];\n    hardware?: LlamaCppHardware;\n}',
+    declaration: 'export interface LlamaCppState {\n    phase: LlamaCppPhase;\n    hostPlatform: LlamaCppHostPlatform;\n    model: LlamaCppModelInfo;\n    provider: string;\n    progress?: LlamaCppProgress;\n    error?: string;\n    contextSize?: number;\n    logTail?: string;\n    models: LocalModelEntry[];\n    downloads: LlamaCppDownload[];\n    catalog: CatalogModelInfo[];\n    hardware?: LlamaCppHardware;\n}',
   },
   {
     name: 'LlmAdapter',

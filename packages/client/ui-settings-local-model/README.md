@@ -40,7 +40,7 @@ The card renders in the `settings.models.footer` slot. Its header shows the defa
 
 The manager inside the card lists installed models. Each row shows a **Default** tag on the default model, a fit badge (**Fits**, **Tight fit**, or **Too large**, with a hover hint), size, architecture, context, and source. While the worker runs, each row also shows **Loaded**, **Loading…**, or **Not loaded**. Rows offer **Load**, **Unload**, **Make default**, and **Delete**; deleting asks for confirmation, and an imported file is only removed from the list. A failed action shows its error on the row until the next attempt.
 
-Below the list, **Downloads** shows progress, speed, and time left per download, with retry and cancel. **Add a model** searches the curated models; text shaped like `owner/name` or a link instead looks up that Hugging Face repository and lists its files. Curated entries and repository files carry fit badges. **Import a .gguf file** adds a file by its full path on the Host.
+Below the list, **Downloads** shows progress, speed, and time left per download, with retry and cancel. **Add a model** searches the curated models; text shaped like `owner/name` or a link instead looks up that Hugging Face repository and lists its files. Curated entries and repository files carry fit badges. **Import a .gguf file** adds a file by its full path on the Host; the example path follows the Host platform, not the browser's.
 
 ### First-run option
 

@@ -123,9 +123,13 @@ export interface HuggingFaceRepoInfo {
   files: HuggingFaceFileInfo[]
 }
 
+/** Operating system of the Host, which resolves every model path a client sends; other POSIX systems report `linux`. */
+export type LlamaCppHostPlatform = 'linux' | 'macos' | 'windows'
+
 /** Complete state snapshot. */
 export interface LlamaCppState {
   phase: LlamaCppPhase
+  hostPlatform: LlamaCppHostPlatform
   model: LlamaCppModelInfo
   /** Model provider route that serves every installed model. */
   provider: string

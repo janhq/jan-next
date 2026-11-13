@@ -5,7 +5,9 @@
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Button, Input, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { HuggingFaceRepoInfo, LlamaCppState, LocalModelEntry, LocalModelStatus } from '@deepseek-ai/dsh-api-llama-cpp-controller'
+import type {
+  HuggingFaceRepoInfo, LlamaCppHostPlatform, LlamaCppState, LocalModelEntry, LocalModelStatus,
+} from '@deepseek-ai/dsh-api-llama-cpp-controller'
 import type { LocalModelActions, Outcome } from './actions.ts'
 import { formatBytes } from './state.ts'
 import { DownloadProgress, FitTag, type T } from './parts.tsx'
@@ -13,6 +15,10 @@ import css from './LocalModel.module.css'
 
 const SOURCE_KEY = { catalog: 'sourceCatalog', huggingface: 'sourceHuggingFace', import: 'sourceImport' } as const
 const STATUS_KEY = { loaded: 'statusLoaded', loading: 'statusLoading', unloaded: 'statusUnloaded' } as const satisfies Record<LocalModelStatus, string>
+/** The Host resolves the imported path, so the example follows its platform, not the browser's. */
+const IMPORT_PLACEHOLDER_KEY = {
+  linux: 'importPlaceholderLinux', macos: 'importPlaceholderMacos', windows: 'importPlaceholderWindows',
+} as const satisfies Record<LlamaCppHostPlatform, string>
 
 /** Text that names a Hugging Face repository rather than a catalog search. */
 const REPO_INPUT = /^(?:https?:\/\/\S+|[\w.-]+\/[\w.-]+)$/
@@ -263,7 +269,7 @@ function RepoFiles({ result, state, actions, t, started, onStarted }: RepoFilesP
   </>
 }
 
-function ImportModel({ actions, t }: SectionProps): ReactNode {
+function ImportModel({ state, actions, t }: SectionProps): ReactNode {
   const [path, setPath] = useState('')
   const [status, setStatus] = useState<{ kind: 'idle' } | { kind: 'busy' } | { kind: 'done'; name: string } | { kind: 'failed'; error: string }>({ kind: 'idle' })
   return <section className={css.section} aria-label={t('importTitle')}>
@@ -279,7 +285,7 @@ function ImportModel({ actions, t }: SectionProps): ReactNode {
         setStatus({ kind: 'done', name: file.split(/[\\/]/).at(-1) ?? file })
       })
     }}>
-      <Input className={css.input ?? ''} aria-label={t('importLabel')} placeholder={t('importPlaceholder')} value={path}
+      <Input className={css.input ?? ''} aria-label={t('importLabel')} placeholder={t(IMPORT_PLACEHOLDER_KEY[state.hostPlatform])} value={path}
         data-testid="local-model-import-path" spellCheck={false} autoCapitalize="off"
         onChange={(event) => { setPath(event.target.value); setStatus({ kind: 'idle' }) }} />
       <Button variant="outline" size="sm" type="submit" data-testid="local-model-import" disabled={status.kind === 'busy' || path.trim() === ''}>

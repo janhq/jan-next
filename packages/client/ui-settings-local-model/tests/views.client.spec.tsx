@@ -36,7 +36,7 @@ type StateInput = Partial<LlamaCppState> & Pick<LlamaCppState, 'phase'>
 const INSTALLED = new Set(['installed', 'stopped', 'starting', 'running'])
 
 function full(state: StateInput): LlamaCppState {
-  return { provider: 'local', model, models: INSTALLED.has(state.phase) ? [jan] : [], downloads: [], catalog, ...state }
+  return { hostPlatform: 'linux', provider: 'local', model, models: INSTALLED.has(state.phase) ? [jan] : [], downloads: [], catalog, ...state }
 }
 
 function fixture(state: StateInput) {
@@ -240,6 +240,15 @@ it('imports a file by path and reports a refusal', async () => {
   expect(f.actions.importModel).toHaveBeenLastCalledWith('/tmp/Mine.gguf')
   expect(screen.getByText('Added Mine.gguf.')).toBeTruthy()
   expect((field as HTMLInputElement).value).toBe('')
+})
+
+it.each([
+  ['linux', '/home/you/models/model.gguf'],
+  ['macos', '/Users/you/models/model.gguf'],
+  ['windows', 'C:\\Users\\you\\models\\model.gguf'],
+] as const)('suggests an import path in the form a %s Host resolves', (hostPlatform, example) => {
+  card(fixture({ phase: 'running', models: [jan], hostPlatform }))
+  expect(screen.getByTestId('local-model-import-path').getAttribute('placeholder')).toBe(example)
 })
 
 function setup(f: ReturnType<typeof fixture>, owner: Partial<LocalSetupProps> = {}) {

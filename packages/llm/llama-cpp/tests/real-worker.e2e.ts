@@ -99,8 +99,8 @@ describe.skipIf(worker === undefined || gguf === undefined)('real jan-llama-work
     expect(ctx.llamaCpp.snapshot()).toMatchObject({ phase: 'running', models: [{ id: second, active: true, status: 'loaded' }] })
   }, 240_000)
 
-  it('evicts the least recently used model at a bound of one', async () => {
-    const { running, until, chat, importTwin } = await boot({ ctxSize: 4096, fitCtx: 4096 })
+  it('evicts the least recently used model at a bound of one, and loads the default that replaces a removed one', async () => {
+    const { ctx, running, until, chat, importTwin } = await boot({ ctxSize: 4096, fitCtx: 4096 })
     const first = running.models[0]!.id
     const second = await importTwin()
     expect((await chat(second)).model).toBe(second)
@@ -108,5 +108,11 @@ describe.skipIf(worker === undefined || gguf === undefined)('real jan-llama-work
     expect(swapped.phase).toBe('running')
     expect((await chat('local')).model).toBe(first)
     await until(state => state.models[0]?.status === 'loaded' && state.models[1]?.status === 'unloaded')
+
+    await ctx.llamaCpp.setDefault(second)
+    await until(state => state.models[0]?.status === 'unloaded' && state.models[1]?.status === 'loaded')
+    await ctx.llamaCpp.removeModel(second)
+    expect(ctx.llamaCpp.snapshot()).toMatchObject({ phase: 'running', models: [{ id: first, active: true }] })
+    await until(state => state.models[0]?.status === 'loaded')
   }, 240_000)
 })

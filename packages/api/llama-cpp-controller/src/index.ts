@@ -5,8 +5,8 @@ import type {} from '@deepseek-ai/dsh-llama-cpp'
 import type { HuggingFaceRepoInfo, LlamaCppState } from '@deepseek-ai/dsh-llama-cpp/types'
 
 export type {
-  CatalogModelInfo, HuggingFaceFileInfo, HuggingFaceRepoInfo, LlamaCppDevice, LlamaCppDownload, LlamaCppHardware, LlamaCppModelInfo,
-  LlamaCppPhase, LlamaCppProgress, LlamaCppState, LocalModelEntry, LocalModelSource, LocalModelStatus, ModelFit,
+  CatalogModelInfo, HuggingFaceFileInfo, HuggingFaceRepoInfo, LlamaCppDevice, LlamaCppDownload, LlamaCppHardware, LlamaCppHostPlatform,
+  LlamaCppModelInfo, LlamaCppPhase, LlamaCppProgress, LlamaCppState, LocalModelEntry, LocalModelSource, LocalModelStatus, ModelFit,
 } from '@deepseek-ai/dsh-llama-cpp/types'
 
 declare module '@deepseek-ai/dsh-typert-protocol' {

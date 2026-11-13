@@ -40,7 +40,7 @@ kind: "package-reference"
 
 卡片内的管理器列出已安装模型。每一行在默认模型上显示 **Default** 标签，并显示适配度标记（**Fits**、**Tight fit** 或 **Too large**，悬停可见说明）、大小、架构、上下文和来源。worker 运行时，每一行还显示 **Loaded**、**Loading…** 或 **Not loaded**。每行提供 **Load**、**Unload**、**Make default** 和 **Delete**；删除需要确认，导入的文件只会从列表中移除。失败的操作在该行显示错误，直到下一次尝试。
 
-列表下方，**Downloads** 显示每个下载的进度、速度和剩余时间，并提供重试和取消。**Add a model** 搜索精选模型；形如 `owner/name` 的文本或链接则改为查询该 Hugging Face 仓库并列出其文件。精选条目和仓库文件都带有适配度标记。**Import a .gguf file** 按 Host 上的完整路径添加文件。
+列表下方，**Downloads** 显示每个下载的进度、速度和剩余时间，并提供重试和取消。**Add a model** 搜索精选模型；形如 `owner/name` 的文本或链接则改为查询该 Hugging Face 仓库并列出其文件。精选条目和仓库文件都带有适配度标记。**Import a .gguf file** 按 Host 上的完整路径添加文件；示例路径跟随 Host 平台，而不是浏览器所在平台。
 
 ### 首次运行选项
 

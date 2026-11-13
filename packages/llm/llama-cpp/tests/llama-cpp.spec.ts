@@ -9,7 +9,7 @@ import { Context, Service } from '@deepseek-ai/cordis'
 import LocalSubprocess from '@deepseek-ai/dsh-subprocess-local'
 import { LocalCredentialProvider } from '@deepseek-ai/dsh-credentials-local'
 import {
-  describeExit, download, DownloadError, LlamaCpp, parseHandshake, parseRepo, RateMeter, WorkerProtocolError,
+  describeExit, download, DownloadError, hostPlatformOf, LlamaCpp, parseHandshake, parseRepo, RateMeter, WorkerProtocolError,
   type LlamaCppState,
 } from '../src/index.ts'
 import { chatModel, ggufFile } from './gguf-fixture.ts'
@@ -63,6 +63,10 @@ it('parses the worker handshake and refuses anything else', () => {
   expect(() => parseHandshake('listening')).toThrow(WorkerProtocolError)
   expect(() => parseHandshake('{"port":0,"pid":1,"models":[],"devices":[]}')).toThrow(/invalid handshake/)
   expect(() => parseHandshake('{"port":80,"pid":1,"models":[3],"devices":[]}')).toThrow(/invalid handshake/)
+})
+
+it('names the Host platform clients write model paths for', () => {
+  expect(['darwin', 'win32', 'linux', 'freebsd'].map(os => hostPlatformOf(os as NodeJS.Platform))).toEqual(['macos', 'windows', 'linux', 'linux'])
 })
 
 it('names the worker exit codes it documents', () => {
@@ -208,7 +212,9 @@ it('installs the model, publishes the worker endpoint and key, and serves the ro
   expect(await f.key()).toBeUndefined()
   f.llama.install()
   const running = await f.until(s => s.phase === 'running' || s.phase === 'failed')
-  expect(running).toMatchObject({ phase: 'running', provider: 'local', model: { id: 'jan-v3.5-4b', modelBytes: MODEL.length } })
+  expect(running).toMatchObject({
+    phase: 'running', hostPlatform: hostPlatformOf(process.platform), provider: 'local', model: { id: 'jan-v3.5-4b', modelBytes: MODEL.length },
+  })
   expect(f.seen.some(s => s.phase === 'downloading' && s.progress?.totalBytes === MODEL.length)).toBe(true)
 
   const key = await f.key()
@@ -579,13 +585,31 @@ it('downloads a model from a Hugging Face repository, makes it the default, and 
   expect(f.llama.snapshot()).toMatchObject({ phase: 'running', model: { id: 'jan-v3.5-4b' } })
   expect(f.llama.snapshot().models.map(model => model.id)).toEqual(['jan-v3.5-4b'])
   expect(await lastPreset(f)).toEqual({ models: ['jan-v3.5-4b'], local: 'jan-v3.5-4b' })
-  // The resident model was unloaded before its file went.
+  // The resident model was unloaded before its file went, and the new default loaded after the reload.
   const events = await f.events()
   expect(events.findIndex(event => event.type === 'unload' && event.model === id))
     .toBeLessThan(events.findLastIndex(event => event.type === 'reload'))
+  expect(events.findLastIndex(event => event.type === 'reload'))
+    .toBeLessThan(events.findLastIndex(event => event.type === 'load' && event.model === 'jan-v3.5-4b'))
+  await f.until(s => s.models[0]?.status === 'loaded')
   await expect(stat(join(f.home, 'data', 'models', id))).rejects.toThrow()
   await expect(f.llama.downloadHuggingFace('acme/tiny-GGUF', 'missing.gguf')).rejects.toThrow(/no downloadable file/)
   await expect(f.llama.lookupHuggingFace('acme/absent')).rejects.toMatchObject({ reason: 'not-found' })
+}, 30_000)
+
+it('removes the default and reports a new default the running worker cannot load', async () => {
+  const f = await fixture({ extraFiles: HF_FILES })
+  f.llama.install()
+  await f.until(s => s.phase === 'running')
+  const id = await f.llama.downloadHuggingFace('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')
+  await f.until(s => s.models.length === 2 && s.downloads.length === 0)
+  await f.llama.setDefault(id)
+  await writeFile(join(f.bin, 'fake-mode.json'), JSON.stringify({ loadError: 'out of memory' }))
+  await f.llama.removeModel(id)
+  expect(f.llama.snapshot()).toMatchObject({
+    phase: 'failed', error: 'could not load Jan v3.5 4B: out of memory', model: { id: 'jan-v3.5-4b' }, models: [{ id: 'jan-v3.5-4b', active: true }],
+  })
+  await expect(stat(join(f.home, 'data', 'models', id))).rejects.toThrow()
 }, 30_000)
 
 it('keeps a model whose unload the worker refuses while it serves requests', async () => {

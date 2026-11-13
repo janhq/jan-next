@@ -9,8 +9,8 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
-let mode = {}
-try { mode = JSON.parse(readFileSync(join(here, 'fake-mode.json'), 'utf8')) } catch {}
+const readMode = () => { try { return JSON.parse(readFileSync(join(here, 'fake-mode.json'), 'utf8')) } catch { return {} } }
+const mode = readMode()
 const args = process.argv.slice(2)
 const flag = name => { const i = args.indexOf(name); return i < 0 ? undefined : args[i + 1] }
 const key = process.env.JAN_LLAMA_API_KEY
@@ -68,7 +68,9 @@ async function acquire(id) {
   while (modelsMax > 0 && loaded.size >= modelsMax) drop(loaded.keys().next().value)
   emit(id, 'loading')
   await new Promise(resolve => setTimeout(resolve, mode.loadingMs ?? 0))
-  if (mode.loadError) { emit(id, 'unloaded'); throw new Error(mode.loadError) }
+  // Read at each load, so a test can fail a later load of a running worker.
+  const { loadError } = readMode()
+  if (loadError) { emit(id, 'unloaded'); throw new Error(loadError) }
   loaded.set(id, section.model)
   emit(id, 'loaded')
   log({ type: 'load', model: id, path: section.model })

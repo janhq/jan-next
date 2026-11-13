@@ -34,8 +34,8 @@ import { accelerators, assessFit, backendOf, type MachineMemory } from './memory
 import { plannedContext, renderPreset, resolvePresetSettings, type PresetSettings } from './preset.ts'
 import { RateMeter } from './rate.ts'
 import type {
-  HuggingFaceRepoInfo, LlamaCppDownload, LlamaCppPhase, LlamaCppProgress, LlamaCppState, LocalModelEntry, LocalModelSource,
-  LocalModelStatus, ModelFit,
+  HuggingFaceRepoInfo, LlamaCppDownload, LlamaCppHostPlatform, LlamaCppPhase, LlamaCppProgress, LlamaCppState, LocalModelEntry,
+  LocalModelSource, LocalModelStatus, ModelFit,
 } from './types.ts'
 import {
   describeExit, parseDeviceList, parseHandshake, readFirstLine, WorkerClient, WorkerProtocolError, type WorkerModelEvent,
@@ -192,6 +192,16 @@ function aborted(signal: AbortSignal): boolean {
   return signal.aborted
 }
 
+/**
+ * Name the Host operating system for clients.
+ * @param os - Node's platform name.
+ * @returns `macos`, `windows`, or `linux` for every other platform.
+ */
+export function hostPlatformOf(os: NodeJS.Platform): LlamaCppHostPlatform {
+  if (os === 'darwin') return 'macos'
+  return os === 'win32' ? 'windows' : 'linux'
+}
+
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
@@ -230,6 +240,7 @@ export class LlamaCpp extends Service {
   private probing: Promise<void> = Promise.resolve()
   /** Context the worker last settled on per model id; kept across unloads so the route list stays stable. */
   private readonly contexts = new Map<string, number>()
+  private readonly hostPlatform = hostPlatformOf(platform())
 
   constructor(ctx: Context, private readonly config: Config) {
     super(ctx, 'llamaCpp')
@@ -396,7 +407,7 @@ export class LlamaCpp extends Service {
     const progress = downloads.find(item => item.error === undefined && item.progress !== undefined)?.progress
     const contextSize = this.server.phase === 'running' && active !== undefined ? this.contexts.get(active.id) : undefined
     return {
-      phase: this.server.phase, provider: this.config.provider,
+      phase: this.server.phase, hostPlatform: this.hostPlatform, provider: this.config.provider,
       model: { id: offered.id, name: offered.name, modelBytes: offered.bytes },
       ...progress === undefined ? {} : { progress },
       ...this.server.error === undefined ? {} : { error: this.server.error },
@@ -846,9 +857,11 @@ export class LlamaCpp extends Service {
   /**
    * Remove an installed model. A downloaded file is deleted; an imported file is only forgotten. A
    * resident model is unloaded first, because Windows cannot delete a file the worker maps.
-   * Removing the default makes the next installed model the default; removing the last stops the worker.
+   * Removing the default makes the next installed model the default and loads it into a running worker,
+   * as {@link setDefault} does; removing the last stops the worker.
    * @param id - installed model id.
-   * @returns once the record and the worker reflect the removal.
+   * @returns once the record and the worker reflect the removal; a failed load of the new default is
+   * published as the `failed` phase.
    * @throws Error carrying the worker's reason when the model has requests in flight.
    */
   removeModel(id: string): Promise<void> {
@@ -885,6 +898,11 @@ export class LlamaCpp extends Service {
         try { await rmdir(dirname(file)) }
         catch (_notEmpty) { /* The directory still holds another file of this model id; it stays. */ }
       }
+      const current = this.running
+      const successor = this.record.active
+      if (!wasActive || successor === undefined || current?.client === undefined || current.stopping) return
+      try { await this.loadInto(current, current.client, successor) }
+      catch (error) { this.fail(error) }
     })
   }
 
