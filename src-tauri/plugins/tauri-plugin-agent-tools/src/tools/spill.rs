@@ -1,8 +1,7 @@
 //! Scratch spill files: host-side writes into the session scratch.
 //!
 //! Two producers share this: truncated `bash` output (`handlers.rs`) and
-//! subagent final answers (the CLI loop's `await_subagent` and the desktop's
-//! `subagent_result_reserve`/`subagent_result_fill` commands). The scratch is
+//! subagent final answers (the agent loop's `await_subagent`). The scratch is
 //! writable by the sandboxed shell, so every path here is symlink-defended: a
 //! redirected subdirectory or a pre-planted file must never route our bytes
 //! onto a host path.
@@ -189,36 +188,6 @@ pub(crate) fn open_truncating(path: &Path) -> std::io::Result<std::fs::File> {
         .open(path)
 }
 
-/// Fill a reservation named by file name alone -- the shape a caller outside
-/// this process (the Cowork loop, over the plugin boundary) can hand back.
-///
-/// The name is validated to one safe component and re-resolved under the
-/// scratch's own `subagents/`, so nothing the caller says can aim the write
-/// somewhere else. The directory is re-validated too: [`fill_subagent_result`]
-/// only vouches for the leaf, and a `subagents/` swapped for a link would
-/// otherwise resolve the leaf on the far side of it.
-pub fn fill_named_subagent_result(scratch: &Path, file: &str, text: &str) -> bool {
-    if !is_result_file_name(file) {
-        return false;
-    }
-    match validated_subdir(scratch, SUBAGENT_DIR) {
-        Some(dir) => fill_subagent_result(&dir.join(file), text),
-        None => false,
-    }
-}
-
-/// A name [`reserve_subagent_result`] could have produced: one component, the
-/// `sanitize_stem` charset, and a `.md` tail (which is also what rules out
-/// `.` and `..`).
-fn is_result_file_name(name: &str) -> bool {
-    name.len() <= 128
-        && name.ends_with(".md")
-        && !name.starts_with('.')
-        && name
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
-}
-
 /// The model-facing `task`/`await_subagent` result for a child's final answer.
 ///
 /// With no spill file the text passes through unchanged (the unconfined CLI has
@@ -360,39 +329,6 @@ mod tests {
         let p = reserve_subagent_result(&scratch, "a/b\\c").unwrap();
         assert!(p.starts_with(scratch.join(SUBAGENT_DIR)));
         assert_eq!(p.file_name().unwrap().to_str().unwrap(), "a-b-c.md");
-        let _ = std::fs::remove_dir_all(&scratch);
-    }
-
-    /// The file name crosses the plugin boundary and comes back, so it is
-    /// re-validated rather than trusted: only a name a reservation could have
-    /// produced, resolved under the scratch's own directory.
-    #[test]
-    fn a_returned_file_name_cannot_aim_the_write_elsewhere() {
-        let scratch = tmp("named");
-        let reserved = reserve_subagent_result(&scratch, "sub-a-1").unwrap();
-        assert!(fill_named_subagent_result(&scratch, "sub-a-1.md", "answer"));
-        assert_eq!(std::fs::read_to_string(&reserved).unwrap(), "answer");
-
-        for hostile in [
-            "../../etc/passwd",
-            "../sub-a-1.md",
-            "sub-a-1.md/../../x.md",
-            ".hidden.md",
-            "sub-a-1.txt",
-            "",
-        ] {
-            assert!(
-                !fill_named_subagent_result(&scratch, hostile, "x"),
-                "accepted {hostile:?}"
-            );
-        }
-        // A well-formed name that was never reserved is still refused: fill
-        // never creates.
-        assert!(!fill_named_subagent_result(
-            &scratch,
-            "never-reserved.md",
-            "x"
-        ));
         let _ = std::fs::remove_dir_all(&scratch);
     }
 

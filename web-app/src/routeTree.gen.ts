@@ -11,8 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SystemMonitorRouteImport } from './routes/system-monitor'
 import { Route as LogsRouteImport } from './routes/logs'
-import { Route as CoworkRouteImport } from './routes/cowork'
-import { Route as ArtifactsRouteImport } from './routes/artifacts'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as HubIndexRouteImport } from './routes/hub/index'
 import { Route as ThreadsThreadIdRouteImport } from './routes/threads/$threadId'
@@ -23,8 +21,6 @@ import { Route as SettingsInterfaceRouteImport } from './routes/settings/interfa
 import { Route as SettingsHttpsProxyRouteImport } from './routes/settings/https-proxy'
 import { Route as SettingsHardwareRouteImport } from './routes/settings/hardware'
 import { Route as SettingsGeneralRouteImport } from './routes/settings/general'
-import { Route as SettingsCoworkRouteImport } from './routes/settings/cowork'
-import { Route as SettingsClaudeCodeRouteImport } from './routes/settings/claude-code'
 import { Route as SettingsAttachmentsRouteImport } from './routes/settings/attachments'
 import { Route as SettingsAssistantRouteImport } from './routes/settings/assistant'
 import { Route as ProjectProjectIdRouteImport } from './routes/project/$projectId'
@@ -43,16 +39,6 @@ const SystemMonitorRoute = SystemMonitorRouteImport.update({
 const LogsRoute = LogsRouteImport.update({
   id: '/logs',
   path: '/logs',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CoworkRoute = CoworkRouteImport.update({
-  id: '/cowork',
-  path: '/cowork',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ArtifactsRoute = ArtifactsRouteImport.update({
-  id: '/artifacts',
-  path: '/artifacts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -105,16 +91,6 @@ const SettingsGeneralRoute = SettingsGeneralRouteImport.update({
   path: '/settings/general',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsCoworkRoute = SettingsCoworkRouteImport.update({
-  id: '/settings/cowork',
-  path: '/settings/cowork',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SettingsClaudeCodeRoute = SettingsClaudeCodeRouteImport.update({
-  id: '/settings/claude-code',
-  path: '/settings/claude-code',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SettingsAttachmentsRoute = SettingsAttachmentsRouteImport.update({
   id: '/settings/attachments',
   path: '/settings/attachments',
@@ -165,8 +141,6 @@ const SettingsExtensionsExtensionIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/artifacts': typeof ArtifactsRoute
-  '/cowork': typeof CoworkRoute
   '/logs': typeof LogsRoute
   '/system-monitor': typeof SystemMonitorRoute
   '/hub/$modelId': typeof HubModelIdRoute
@@ -174,8 +148,6 @@ export interface FileRoutesByFullPath {
   '/project/$projectId': typeof ProjectProjectIdRoute
   '/settings/assistant': typeof SettingsAssistantRoute
   '/settings/attachments': typeof SettingsAttachmentsRoute
-  '/settings/claude-code': typeof SettingsClaudeCodeRoute
-  '/settings/cowork': typeof SettingsCoworkRoute
   '/settings/general': typeof SettingsGeneralRoute
   '/settings/hardware': typeof SettingsHardwareRoute
   '/settings/https-proxy': typeof SettingsHttpsProxyRoute
@@ -192,8 +164,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/artifacts': typeof ArtifactsRoute
-  '/cowork': typeof CoworkRoute
   '/logs': typeof LogsRoute
   '/system-monitor': typeof SystemMonitorRoute
   '/hub/$modelId': typeof HubModelIdRoute
@@ -201,8 +171,6 @@ export interface FileRoutesByTo {
   '/project/$projectId': typeof ProjectProjectIdRoute
   '/settings/assistant': typeof SettingsAssistantRoute
   '/settings/attachments': typeof SettingsAttachmentsRoute
-  '/settings/claude-code': typeof SettingsClaudeCodeRoute
-  '/settings/cowork': typeof SettingsCoworkRoute
   '/settings/general': typeof SettingsGeneralRoute
   '/settings/hardware': typeof SettingsHardwareRoute
   '/settings/https-proxy': typeof SettingsHttpsProxyRoute
@@ -220,8 +188,6 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/artifacts': typeof ArtifactsRoute
-  '/cowork': typeof CoworkRoute
   '/logs': typeof LogsRoute
   '/system-monitor': typeof SystemMonitorRoute
   '/hub/$modelId': typeof HubModelIdRoute
@@ -229,8 +195,6 @@ export interface FileRoutesById {
   '/project/$projectId': typeof ProjectProjectIdRoute
   '/settings/assistant': typeof SettingsAssistantRoute
   '/settings/attachments': typeof SettingsAttachmentsRoute
-  '/settings/claude-code': typeof SettingsClaudeCodeRoute
-  '/settings/cowork': typeof SettingsCoworkRoute
   '/settings/general': typeof SettingsGeneralRoute
   '/settings/hardware': typeof SettingsHardwareRoute
   '/settings/https-proxy': typeof SettingsHttpsProxyRoute
@@ -249,8 +213,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/artifacts'
-    | '/cowork'
     | '/logs'
     | '/system-monitor'
     | '/hub/$modelId'
@@ -258,8 +220,6 @@ export interface FileRouteTypes {
     | '/project/$projectId'
     | '/settings/assistant'
     | '/settings/attachments'
-    | '/settings/claude-code'
-    | '/settings/cowork'
     | '/settings/general'
     | '/settings/hardware'
     | '/settings/https-proxy'
@@ -276,8 +236,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/artifacts'
-    | '/cowork'
     | '/logs'
     | '/system-monitor'
     | '/hub/$modelId'
@@ -285,8 +243,6 @@ export interface FileRouteTypes {
     | '/project/$projectId'
     | '/settings/assistant'
     | '/settings/attachments'
-    | '/settings/claude-code'
-    | '/settings/cowork'
     | '/settings/general'
     | '/settings/hardware'
     | '/settings/https-proxy'
@@ -303,8 +259,6 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/artifacts'
-    | '/cowork'
     | '/logs'
     | '/system-monitor'
     | '/hub/$modelId'
@@ -312,8 +266,6 @@ export interface FileRouteTypes {
     | '/project/$projectId'
     | '/settings/assistant'
     | '/settings/attachments'
-    | '/settings/claude-code'
-    | '/settings/cowork'
     | '/settings/general'
     | '/settings/hardware'
     | '/settings/https-proxy'
@@ -331,8 +283,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ArtifactsRoute: typeof ArtifactsRoute
-  CoworkRoute: typeof CoworkRoute
   LogsRoute: typeof LogsRoute
   SystemMonitorRoute: typeof SystemMonitorRoute
   HubModelIdRoute: typeof HubModelIdRoute
@@ -340,8 +290,6 @@ export interface RootRouteChildren {
   ProjectProjectIdRoute: typeof ProjectProjectIdRoute
   SettingsAssistantRoute: typeof SettingsAssistantRoute
   SettingsAttachmentsRoute: typeof SettingsAttachmentsRoute
-  SettingsClaudeCodeRoute: typeof SettingsClaudeCodeRoute
-  SettingsCoworkRoute: typeof SettingsCoworkRoute
   SettingsGeneralRoute: typeof SettingsGeneralRoute
   SettingsHardwareRoute: typeof SettingsHardwareRoute
   SettingsHttpsProxyRoute: typeof SettingsHttpsProxyRoute
@@ -371,20 +319,6 @@ declare module '@tanstack/react-router' {
       path: '/logs'
       fullPath: '/logs'
       preLoaderRoute: typeof LogsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/cowork': {
-      id: '/cowork'
-      path: '/cowork'
-      fullPath: '/cowork'
-      preLoaderRoute: typeof CoworkRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/artifacts': {
-      id: '/artifacts'
-      path: '/artifacts'
-      fullPath: '/artifacts'
-      preLoaderRoute: typeof ArtifactsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -457,20 +391,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsGeneralRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/settings/cowork': {
-      id: '/settings/cowork'
-      path: '/settings/cowork'
-      fullPath: '/settings/cowork'
-      preLoaderRoute: typeof SettingsCoworkRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/settings/claude-code': {
-      id: '/settings/claude-code'
-      path: '/settings/claude-code'
-      fullPath: '/settings/claude-code'
-      preLoaderRoute: typeof SettingsClaudeCodeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/settings/attachments': {
       id: '/settings/attachments'
       path: '/settings/attachments'
@@ -539,8 +459,6 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ArtifactsRoute: ArtifactsRoute,
-  CoworkRoute: CoworkRoute,
   LogsRoute: LogsRoute,
   SystemMonitorRoute: SystemMonitorRoute,
   HubModelIdRoute: HubModelIdRoute,
@@ -548,8 +466,6 @@ const rootRouteChildren: RootRouteChildren = {
   ProjectProjectIdRoute: ProjectProjectIdRoute,
   SettingsAssistantRoute: SettingsAssistantRoute,
   SettingsAttachmentsRoute: SettingsAttachmentsRoute,
-  SettingsClaudeCodeRoute: SettingsClaudeCodeRoute,
-  SettingsCoworkRoute: SettingsCoworkRoute,
   SettingsGeneralRoute: SettingsGeneralRoute,
   SettingsHardwareRoute: SettingsHardwareRoute,
   SettingsHttpsProxyRoute: SettingsHttpsProxyRoute,

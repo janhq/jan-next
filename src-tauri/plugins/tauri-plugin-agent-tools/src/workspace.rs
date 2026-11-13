@@ -23,14 +23,6 @@ use std::path::{Path, PathBuf};
 
 const THREADS: &str = "threads";
 
-/// Where Cowork session sandboxes live, a sibling of `threads/`.
-///
-/// Separate from `threads/` because a Cowork session is not a chat thread and
-/// the two id spaces are independent. The separation is also what makes the
-/// thread sweep safe: it reads only `threads_dir`, so it structurally cannot see
-/// a session workspace, whatever `keep` list it is handed.
-const SESSIONS: &str = "sessions";
-
 /// `<store_root>/<kind>`, for `kind` in `{memory, skills}`.
 pub fn store_dir(store_root: &Path, kind: &str) -> PathBuf {
     store_root.join(kind)
@@ -235,7 +227,7 @@ pub fn project_meta(store: &Path) -> Option<String> {
 }
 
 /// The folder under the Jan cache root for sessions with no filesystem
-/// project: desktop chat threads and Cowork sessions.
+/// project: desktop chat threads.
 const CHAT_CACHE: &str = "chat";
 
 /// `<project cache>/scratch`, the parent of every session scratch.
@@ -344,17 +336,6 @@ pub fn permanent_store(jan_data_folder: &Path) -> PathBuf {
 /// climbs out toward it.
 pub fn threads_dir(jan_data_folder: &Path) -> PathBuf {
     permanent_store(jan_data_folder).join(THREADS)
-}
-
-/// Where per-session sandboxes live: `<permanent_store>/sessions`.
-pub fn sessions_dir(jan_data_folder: &Path) -> PathBuf {
-    permanent_store(jan_data_folder).join(SESSIONS)
-}
-
-/// A Cowork session's sandbox root:
-/// `<jan_data_folder>/agent-workspace/sessions/<session_id>`.
-pub fn session_workspace(jan_data_folder: &Path, session_id: &str) -> Result<PathBuf, String> {
-    Ok(sessions_dir(jan_data_folder).join(thread_segment(session_id)?))
 }
 
 /// A thread's ephemeral sandbox root:
@@ -476,42 +457,6 @@ fn pick_data_folder(host: Option<PathBuf>, requested: &str) -> PathBuf {
     host.unwrap_or_else(|| PathBuf::from(requested))
 }
 
-/// Home-relative folders an agent must never be handed write access to:
-/// credentials, folders on `PATH`, shell and tool configuration, and the
-/// places that run code at login. The shell rc files themselves sit directly in
-/// the home folder, which is refused as a whole.
-const PROTECTED_HOME_DIRS: &[&str] = &[
-    ".ssh",
-    ".gnupg",
-    ".aws",
-    ".kube",
-    ".docker",
-    // fish, git, autostart and systemd user units all live here.
-    ".config",
-    // .local/bin is on PATH; .local/share/applications holds launchers.
-    ".local",
-    "bin",
-    ".cargo",
-    ".oh-my-zsh",
-    // Tool shims and global installs on PATH, and editor configuration.
-    ".npm",
-    ".nvm",
-    ".bun",
-    ".deno",
-    ".vscode",
-    "Applications",
-    "Library/LaunchAgents",
-    "Library/Keychains",
-    "Library/Services",
-    "Library/Application Scripts",
-    // Every app's own data and configuration, Jan's included.
-    "Library/Application Support",
-    "AppData/Local/Microsoft/WindowsApps",
-    // Per-user installs, Jan's own on Windows.
-    "AppData/Local/Programs",
-    "AppData/Roaming/Microsoft/Windows/Start Menu",
-];
-
 /// The user's home directory, or `None` when unset or degenerate.
 pub fn user_home() -> Option<PathBuf> {
     #[cfg(windows)]
@@ -523,60 +468,6 @@ pub fn user_home() -> Option<PathBuf> {
         return None;
     }
     Some(home.canonicalize().unwrap_or(home))
-}
-
-/// Check that an attached folder (already through [`validate_read_root`]) may
-/// also be written.
-///
-/// Refused: the home directory itself or any folder above it, whose top level
-/// holds the shell rc files and profile scripts; any folder inside, or
-/// containing, a [`PROTECTED_HOME_DIRS`] entry (also where that entry is a
-/// symlink); and the Jan data folder or any folder inside it. A writable attach
-/// is the workspace root, writable by the file tools and the sandboxed shell
-/// alike, so these would hand the agent persistence or credentials. Without a
-/// home folder none of this can be checked, so the attach is refused.
-pub fn validate_write_root(
-    root: &Path,
-    home: Option<&Path>,
-    data_folder: &Path,
-) -> Result<(), String> {
-    let Some(home) = home else {
-        return Err(
-            "your home folder could not be determined, so no folder can be attached writable"
-                .to_string(),
-        );
-    };
-    let data = data_folder
-        .canonicalize()
-        .unwrap_or_else(|_| data_folder.to_path_buf());
-    if is_within(root, &data) || is_within(root, data_folder) {
-        return Err(format!(
-            "{} is inside the Jan data folder and cannot be attached writable",
-            root.display()
-        ));
-    }
-    if is_within(home, root) {
-        return Err(format!(
-            "{} contains your home folder and cannot be attached writable; attach a project \
-             folder inside it instead",
-            root.display()
-        ));
-    }
-    for rel in PROTECTED_HOME_DIRS {
-        let protected = home.join(rel);
-        // `root` is canonical, so also compare against where a symlinked
-        // entry really points.
-        let resolved = protected.canonicalize().ok();
-        let overlaps = |p: &Path| is_within(root, p) || is_within(p, root);
-        if overlaps(&protected) || resolved.as_deref().is_some_and(overlaps) {
-            return Err(format!(
-                "{} overlaps {} and cannot be attached writable",
-                root.display(),
-                protected.display()
-            ));
-        }
-    }
-    Ok(())
 }
 
 /// The session-scoped scratch directory: `<project cache>/scratch/<session>`,
@@ -1342,14 +1233,6 @@ pub async fn ensure_thread_workspace(
     ensure_workspace_at(thread_workspace(jan_data_folder, thread_id)?).await
 }
 
-/// Create a Cowork session's sandbox (idempotent) and return it.
-pub async fn ensure_session_workspace(
-    jan_data_folder: &Path,
-    session_id: &str,
-) -> Result<PathBuf, String> {
-    ensure_workspace_at(session_workspace(jan_data_folder, session_id)?).await
-}
-
 async fn ensure_workspace_at(dir: PathBuf) -> Result<PathBuf, String> {
     tokio::fs::create_dir_all(&dir)
         .await
@@ -1363,14 +1246,6 @@ pub async fn remove_thread_workspace(
     thread_id: &str,
 ) -> Result<(), String> {
     remove_workspace_at(thread_workspace(jan_data_folder, thread_id)?, thread_id).await
-}
-
-/// Delete a Cowork session's sandbox. Idempotent: a missing sandbox is Ok.
-pub async fn remove_session_workspace(
-    jan_data_folder: &Path,
-    session_id: &str,
-) -> Result<(), String> {
-    remove_workspace_at(session_workspace(jan_data_folder, session_id)?, session_id).await
 }
 
 async fn remove_workspace_at(dir: PathBuf, id: &str) -> Result<(), String> {
@@ -1397,17 +1272,6 @@ pub async fn sweep_thread_workspaces(
     keep: &[String],
 ) -> Result<usize, String> {
     sweep_workspaces_in(threads_dir(jan_data_folder), keep).await
-}
-
-/// Delete every Cowork session sandbox whose id is not in `keep`.
-///
-/// Reads only `sessions_dir`, so it can never reach a chat thread's sandbox, and
-/// the thread sweep can never reach a session's.
-pub async fn sweep_session_workspaces(
-    jan_data_folder: &Path,
-    keep: &[String],
-) -> Result<usize, String> {
-    sweep_workspaces_in(sessions_dir(jan_data_folder), keep).await
 }
 
 async fn sweep_workspaces_in(dir: PathBuf, keep: &[String]) -> Result<usize, String> {
@@ -2384,158 +2248,12 @@ mod tests {
         );
     }
 
-    const DATA: &str = "/srv/jan-data";
-
-    fn write_root(root: &str, home: &str) -> Result<(), String> {
-        validate_write_root(Path::new(root), Some(Path::new(home)), Path::new(DATA))
-    }
-
-    #[test]
-    fn validate_write_root_refuses_home_and_its_ancestors() {
-        assert!(write_root("/home/u", "/home/u").is_err());
-        assert!(write_root("/home", "/home/u").is_err());
-    }
-
-    #[test]
-    fn validate_write_root_refuses_protected_folders() {
-        for bad in [
-            "/home/u/.ssh",
-            "/home/u/.config",
-            "/home/u/.config/autostart",
-            "/home/u/.config/systemd/user",
-            "/home/u/.config/fish",
-            "/home/u/.local",
-            "/home/u/.local/bin",
-            "/home/u/.local/share/applications",
-            "/home/u/bin",
-            "/home/u/.cargo/bin",
-            "/home/u/.oh-my-zsh/custom",
-            "/home/u/Library",
-            "/home/u/Library/LaunchAgents",
-            "/home/u/Library/LaunchAgents/sub",
-            "/home/u/Library/Services",
-            "/home/u/Library/Application Scripts/com.example",
-            "/home/u/AppData/Local/Microsoft/WindowsApps",
-            "/home/u/AppData/Roaming/Microsoft/Windows/Start Menu",
-            "/home/u/AppData/Roaming/Microsoft/Windows/Start Menu/Programs/Startup",
-            "/home/u/Applications",
-            "/home/u/Applications/Tool.app",
-            "/home/u/Library/Application Support",
-            "/home/u/Library/Application Support/Jan/data",
-            "/home/u/Library/Application Support/Code/User",
-            "/home/u/AppData/Local/Programs",
-            "/home/u/AppData/Local/Programs/Jan",
-            "/home/u/.vscode/extensions",
-            "/home/u/.npm",
-            "/home/u/.nvm/versions",
-            "/home/u/.bun/bin",
-            "/home/u/.deno",
-        ] {
-            assert!(
-                write_root(bad, "/home/u").is_err(),
-                "{bad} should be refused"
-            );
-        }
-    }
-
-    #[test]
-    fn validate_write_root_accepts_a_project_folder() {
-        for ok in [
-            "/home/u/projects/site",
-            "/home/u/Documents/deck",
-            "/home/u/.configs-backup",
-            "/home/u/Library-notes",
-            "/home/u/binaries",
-            "/srv/work",
-            "/srv/jan-data-export",
-        ] {
-            assert!(write_root(ok, "/home/u").is_ok(), "{ok} should be accepted");
-        }
-    }
-
-    #[test]
-    fn validate_write_root_refuses_when_home_is_unknown() {
-        let data = Path::new(DATA);
-        assert!(validate_write_root(Path::new("/srv/work"), None, data).is_err());
-    }
-
-    #[test]
-    fn validate_write_root_refuses_the_data_folder_and_inside_it() {
-        assert!(write_root(DATA, "/home/u").is_err());
-        assert!(write_root("/srv/jan-data/threads", "/home/u").is_err());
-    }
-
-    // APFS and NTFS are case-insensitive by default, and `canonicalize` keeps
-    // the spelling the caller used.
-    #[cfg(any(windows, target_os = "macos"))]
-    #[test]
-    fn validate_write_root_ignores_case_where_the_filesystem_does() {
-        for bad in [
-            "/home/u/.SSH",
-            "/home/u/library/launchagents",
-            "/HOME/U",
-            "/SRV/JAN-DATA/x",
-        ] {
-            assert!(
-                write_root(bad, "/home/u").is_err(),
-                "{bad} should be refused"
-            );
-        }
-    }
-
-    /// `/System/Volumes/Data/...` is the same folder as `/...` on macOS.
-    #[cfg(target_os = "macos")]
-    #[test]
-    fn validate_write_root_sees_through_the_data_volume_firmlink() {
-        for bad in [
-            "/System/Volumes/Data/Users/u",
-            "/System/Volumes/Data/Users",
-            "/System/Volumes/Data",
-            "/system/volumes/data/Users/u/.ssh",
-            "/System/Volumes/Data/Users/u/Library/LaunchAgents",
-            "/System/Volumes/Data/srv/jan-data/threads",
-        ] {
-            assert!(write_root(bad, "/Users/u").is_err(), "{bad} should be refused");
-        }
-        // And the other way round: a home spelled through the firmlink.
-        assert!(write_root("/Users/u/.ssh", "/System/Volumes/Data/Users/u").is_err());
-        assert!(write_root("/System/Volumes/Data/Users/u/projects/site", "/Users/u").is_ok());
-        assert!(write_root("/System/Volumes/DataX/u", "/Users/u").is_ok());
-    }
-
     #[test]
     fn data_volume_prefix_is_dropped_only_as_a_whole_component() {
         assert_eq!(strip_data_volume_prefix("/system/volumes/data/users/u"), "/users/u");
         assert_eq!(strip_data_volume_prefix("/system/volumes/data"), "/");
         assert_eq!(strip_data_volume_prefix("/system/volumes/datax"), "/system/volumes/datax");
         assert_eq!(strip_data_volume_prefix("/users/u"), "/users/u");
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn validate_write_root_follows_a_symlinked_protected_folder() {
-        let base = tmp_root("write_root_symlink");
-        let home = base.join("home");
-        let real = base.join("dotfiles").join("config");
-        std::fs::create_dir_all(&home).unwrap();
-        std::fs::create_dir_all(real.join("fish")).unwrap();
-        std::os::unix::fs::symlink(&real, home.join(".config")).unwrap();
-        let (home, real) = (home.canonicalize().unwrap(), real.canonicalize().unwrap());
-        let data = base.join("data");
-        for bad in [
-            real.clone(),
-            real.join("fish"),
-            real.parent().unwrap().to_path_buf(),
-        ] {
-            assert!(
-                validate_write_root(&bad, Some(&home), &data).is_err(),
-                "{} should be refused",
-                bad.display()
-            );
-        }
-        let project = base.join("project");
-        assert!(validate_write_root(&project, Some(&home), &data).is_ok());
-        let _ = std::fs::remove_dir_all(&base);
     }
 
     // Every rejection here is a case where the mount would not mean what the UI
@@ -2616,61 +2334,6 @@ mod tests {
         assert!(validate_read_root(Path::new(root), &ws, None).is_err());
         let _ = std::fs::remove_dir_all(&base);
     }
-    // ---- session sandboxes -------------------------------------------------
-
-    #[tokio::test]
-    async fn sessions_live_beside_threads_not_inside_them() {
-        let data = unique_data_folder();
-        let t = ensure_thread_workspace(&data, "id-1").await.unwrap();
-        let s = ensure_session_workspace(&data, "id-1").await.unwrap();
-        assert_ne!(t, s, "the same id in each space is two directories");
-        assert!(!s.starts_with(&t));
-        assert!(!t.starts_with(&s));
-        assert_eq!(s.parent().unwrap(), sessions_dir(&data));
-        let _ = std::fs::remove_dir_all(&data);
-    }
-
-    /// The reason for the separate namespace: the thread sweep is handed the
-    /// live *thread* ids, which say nothing about which sessions exist. Sharing
-    /// one directory would have it delete every session's work.
-    #[tokio::test]
-    async fn the_two_sweeps_cannot_reach_each_other() {
-        let data = unique_data_folder();
-        ensure_thread_workspace(&data, "thread-live").await.unwrap();
-        let session = ensure_session_workspace(&data, "session-live")
-            .await
-            .unwrap();
-        std::fs::write(session.join("work.txt"), b"the only copy").unwrap();
-
-        // A thread sweep that knows nothing about sessions.
-        sweep_thread_workspaces(&data, &["thread-live".to_string()])
-            .await
-            .unwrap();
-        assert!(session.join("work.txt").exists(), "session work survived");
-
-        // And the reverse.
-        sweep_session_workspaces(&data, &["session-live".to_string()])
-            .await
-            .unwrap();
-        assert!(thread_workspace(&data, "thread-live").unwrap().is_dir());
-
-        let _ = std::fs::remove_dir_all(&data);
-    }
-
-    #[tokio::test]
-    async fn a_session_sweep_collects_only_dead_sessions() {
-        let data = unique_data_folder();
-        ensure_session_workspace(&data, "live").await.unwrap();
-        ensure_session_workspace(&data, "dead").await.unwrap();
-        let removed = sweep_session_workspaces(&data, &["live".to_string()])
-            .await
-            .unwrap();
-        assert_eq!(removed, 1);
-        assert!(session_workspace(&data, "live").unwrap().is_dir());
-        assert!(!session_workspace(&data, "dead").unwrap().exists());
-        let _ = std::fs::remove_dir_all(&data);
-    }
-
     /// An empty keep list is what a failed load or a first-run race produces,
     /// and the sandbox may hold the only copy of the agent's work. Deleting
     /// everything is never the intent, so it fails safe.
@@ -2678,35 +2341,10 @@ mod tests {
     async fn an_empty_keep_list_wipes_nothing() {
         let data = unique_data_folder();
         let t = ensure_thread_workspace(&data, "t").await.unwrap();
-        let s = ensure_session_workspace(&data, "s").await.unwrap();
 
         assert_eq!(sweep_thread_workspaces(&data, &[]).await.unwrap(), 0);
-        assert_eq!(sweep_session_workspaces(&data, &[]).await.unwrap(), 0);
         assert!(t.is_dir(), "thread sandbox survived an empty keep list");
-        assert!(s.is_dir(), "session sandbox survived an empty keep list");
 
         let _ = std::fs::remove_dir_all(&data);
-    }
-
-    #[tokio::test]
-    async fn session_workspace_lifecycle_is_idempotent() {
-        let data = unique_data_folder();
-        let dir = ensure_session_workspace(&data, "s1").await.unwrap();
-        assert!(dir.is_dir());
-        ensure_session_workspace(&data, "s1").await.unwrap();
-        remove_session_workspace(&data, "s1").await.unwrap();
-        assert!(!dir.exists());
-        remove_session_workspace(&data, "s1").await.unwrap();
-        let _ = std::fs::remove_dir_all(&data);
-    }
-
-    #[test]
-    fn session_ids_are_sanitized_like_thread_ids() {
-        for bad in ["../escape", "a/b", "..", ""] {
-            assert!(
-                session_workspace(Path::new("/data"), bad).is_err(),
-                "expected {bad:?} to be rejected"
-            );
-        }
     }
 }

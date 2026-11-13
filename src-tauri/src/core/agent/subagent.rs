@@ -166,9 +166,9 @@ pub fn project_subagents_dir(project_root: &Path) -> PathBuf {
 /// The desktop's single subagent directory:
 /// `<jan_data_folder>/agent-workspace/subagents/`.
 ///
-/// Cowork has no project root in a default session and mounts an attached folder
-/// read-only, so two of the three CLI scopes (project, and plugin -- which is
-/// also project-relative) are unreachable or unwritable there. Desktop keeps one
+/// The desktop has no project root in a default session and mounts an attached
+/// folder read-only, so two of the three CLI scopes (project, and plugin -- which
+/// is also project-relative) are unreachable or unwritable there. Desktop keeps one
 /// directory instead, a sibling of `memory/` and `skills/` in the permanent
 /// store. That placement also puts it outside every tool's project root, so the
 /// agent cannot rewrite its own definitions with `write`.
@@ -4188,7 +4188,6 @@ pub(crate) mod tests {
             Some(workspace::permanent_store(&data).as_path())
         );
         assert_ne!(dir, workspace::threads_dir(&data));
-        assert_ne!(dir, workspace::sessions_dir(&data));
         let _ = std::fs::remove_dir_all(&data);
     }
 
@@ -4198,7 +4197,7 @@ pub(crate) mod tests {
         let flat = root.join("flat");
         write_def(&flat, "desktop-agent", "");
         // A project-scoped definition under the same root must stay invisible:
-        // Cowork mounts an attached folder read-only and must not pick up
+        // The desktop mounts an attached folder read-only and must not pick up
         // definitions that ship inside it.
         write_def(&project_subagents_dir(&root), "project-agent", "");
 

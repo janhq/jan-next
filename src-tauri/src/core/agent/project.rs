@@ -583,32 +583,6 @@ fn drop_retired_keys(path: &Path) -> bool {
     removed && std::fs::write(path, doc.to_string()).is_ok()
 }
 
-
-
-
-/// Persist `[skills].enabled` into the agent.toml at `path`, format-preserving
-/// (comments kept). An empty list clears the whitelist (= all skills enabled).
-pub(crate) fn set_skills_enabled_in_agent_toml(
-    path: &Path,
-    enabled: &[String],
-) -> Result<(), String> {
-    let raw = std::fs::read_to_string(path)
-        .map_err(|e| format!("Failed to read {}: {e}", path.display()))?;
-    let mut doc = raw
-        .parse::<toml_edit::DocumentMut>()
-        .map_err(|e| format!("Failed to parse {}: {e}", path.display()))?;
-
-    let skills = doc["skills"].or_insert(toml_edit::Item::Table(toml_edit::Table::new()));
-    let mut arr = toml_edit::Array::new();
-    for name in enabled {
-        arr.push(name.as_str());
-    }
-    skills["enabled"] = toml_edit::value(arr);
-
-    std::fs::write(path, doc.to_string())
-        .map_err(|e| format!("Failed to write {}: {e}", path.display()))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

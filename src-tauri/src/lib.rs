@@ -34,7 +34,6 @@ macro_rules! invoke_commands_with_extras {
         core::filesystem::commands::decompress,
         core::filesystem::commands::open_dialog,
         core::filesystem::commands::save_dialog,
-        core::filesystem::asset_scope::asset_scope_allow_folder,
         // App configuration commands
         core::app::commands::get_app_configurations,
         core::app::commands::get_user_home_path,
@@ -65,17 +64,11 @@ macro_rules! invoke_commands_with_extras {
         core::agent::commands::agent_skill_read,
         core::agent::commands::agent_skill_write,
         core::agent::commands::agent_skill_delete,
-        core::agent::commands::agent_skill_hub_list,
-        core::agent::commands::agent_skill_hub_import,
-        core::agent::commands::agent_skill_enabled_get,
-        core::agent::commands::agent_skill_enabled_set,
         core::agent::commands::agent_skill_invoke,
         core::agent::commands::agent_plugin_list,
         core::agent::commands::agent_plugin_install,
         core::agent::commands::agent_plugin_remove,
         core::agent::commands::agent_plugin_search,
-        core::agent::commands::agent_git_branch,
-        core::agent::commands::agent_subagent_list,
         // Remote provider commands
         core::server::remote_provider_commands::register_provider_config,
         core::server::remote_provider_commands::unregister_provider_config,
@@ -362,10 +355,6 @@ pub fn run() {
                     SHUTTING_DOWN.store(true, std::sync::atomic::Ordering::SeqCst);
                     handle.exit(0);
                 });
-            }
-
-            if let Err(e) = core::filesystem::asset_scope::allow_cowork_sandboxes(app.handle()) {
-                log::error!("Failed to grant the Cowork sandboxes to the asset protocol: {e}");
             }
 
             // Start migration

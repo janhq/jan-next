@@ -133,7 +133,6 @@ vi.mock('../model-factory', () => ({
 }))
 
 import { CustomChatTransport } from '../custom-chat-transport'
-import { CoworkChatTransport } from '../coworkTransport'
 import { ModelFactory } from '../model-factory'
 
 const user = (id: string, text: string): UIMessage =>
@@ -424,25 +423,6 @@ describe('CustomChatTransport output-token cap', () => {
 
     expect(streamTextCalls[0]).not.toHaveProperty('maxOutputTokens')
   })
-})
-
-it('keeps a Cowork run on its chosen model when the viewed model changes between steps', async () => {
-  provider.provider = 'openai'
-  h.providerId = 'openai'
-  selectedModel.id = 'gpt'
-  const transport = new CoworkChatTransport('session-a', {
-    model: { provider: 'openai', id: 'gpt' },
-    workspacePath: null,
-    readOnlyFolder: null,
-    planMode: false,
-    allowSubagents: false,
-    subagentNames: [],
-  })
-  vi.mocked(ModelFactory.createModel).mockClear()
-  await drain(await send(transport, [user('first', 'First step')]))
-  selectedModel.id = 'other-session-model'
-  await drain(await send(transport, [user('next', 'Next step')]))
-  expect(vi.mocked(ModelFactory.createModel).mock.calls.map(([id]) => id)).toEqual(['gpt', 'gpt'])
 })
 
 // The filesystem server's `read_media_file` result, stored as its MCP content

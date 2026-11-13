@@ -6,22 +6,10 @@ import {
   threadWorkspaceSweep,
   memoryCatalog,
   memoryRead,
-  subagentResultReserve,
-  subagentResultFill,
-  blackboardWrite,
-  attachmentImport,
-  startMonitor,
-  stopMonitor,
-  listMonitors,
-  sessionMonitorIds,
-  stopSessionMonitors,
   cancelThreadBash,
-  type MemoryCatalogEntry,
-  type MonitorUpdate,
   type SandboxStatus,
   type ToolImage,
   type ToolSchema,
-  type WorkspaceScope,
 } from '@janhq/tauri-plugin-agent-tools-api'
 import { getServiceHub } from '@/hooks/useServiceHub'
 
@@ -62,8 +50,8 @@ export const isRecordedShellCall = (toolName: string): boolean =>
 
 /**
  * The subset the main chat surface advertises and dispatches: the sandboxed
- * shell alone, with no network. The full toolset above is Cowork's — chat is a
- * conversation that occasionally runs a command, not an agent surface.
+ * shell alone, with no network. Chat is a conversation that occasionally runs a
+ * command, not an agent surface.
  */
 export const CHAT_AGENT_TOOL_NAMES = new Set(['shell'])
 
@@ -133,18 +121,16 @@ export async function getAgentToolSchemas(): Promise<ToolSchema[]> {
   return schemaCache
 }
 
-export type { MemoryCatalogEntry, ToolImage }
+export type { ToolImage }
 
 /**
- * Injection caps for the shared memory store. The *store* is unbounded; what
- * every conversation pays for is not: Cowork's catalog lists at most the 50
- * most recently modified notes, and chat's digest carries at most 2 KiB of
+ * Injection cap for the shared memory store. The *store* is unbounded; what
+ * every conversation pays for is not: chat's digest carries at most 2 KiB of
  * whole notes. Beyond that, the settings page is the pruning tool.
  */
-export const MEMORY_CATALOG_MAX_NOTES = 50
 export const MEMORY_DIGEST_BUDGET = 2048
 
-type MemorySnapshot = { catalog: MemoryCatalogEntry[]; digest: string }
+type MemorySnapshot = { digest: string }
 
 let memoryCache: Promise<MemorySnapshot> | null = null
 let digestNow = ''
@@ -160,11 +146,10 @@ export function invalidateMemory(): void {
 
 async function loadMemorySnapshot(): Promise<MemorySnapshot> {
   const dataFolder = await getServiceHub().app().getJanDataFolder()
-  if (!dataFolder) return { catalog: [], digest: '' }
+  if (!dataFolder) return { digest: '' }
   const newestFirst = (await memoryCatalog(dataFolder)).sort(
     (a, b) => b.mtimeMs - a.mtimeMs
   )
-  const catalog = newestFirst.slice(0, MEMORY_CATALOG_MAX_NOTES)
 
   // The digest is self-contained: whole notes only, newest first, under a
   // strict budget. A note that does not fit is simply absent -- chat has no
@@ -183,29 +168,20 @@ async function loadMemorySnapshot(): Promise<MemorySnapshot> {
     parts.push(block)
     remaining -= cost
   }
-  return { catalog, digest: parts.join('\n\n') }
+  return { digest: parts.join('\n\n') }
 }
 
 function getMemorySnapshot(): Promise<MemorySnapshot> {
   memoryCache ??= loadMemorySnapshot()
     .catch((e) => {
       console.warn('[agentTools] Failed to load memory:', messageOf(e))
-      return { catalog: [], digest: '' }
+      return { digest: '' }
     })
     .then((snapshot) => {
       digestNow = snapshot.digest
       return snapshot
     })
   return memoryCache
-}
-
-/**
- * The memory catalog for prompt injection: the newest notes, capped, then
- * name-sorted so the block is stable when nothing changed.
- */
-export async function getMemoryCatalog(): Promise<MemoryCatalogEntry[]> {
-  const { catalog } = await getMemorySnapshot()
-  return [...catalog].sort((a, b) => a.name.localeCompare(b.name))
 }
 
 /** Ensure the digest is loaded; chat awaits this before building its prompt. */
@@ -245,7 +221,7 @@ const messageOf = (e: unknown): string =>
  * in the Jan data folder.
  *
  * `shell` additionally runs under an OS sandbox whose network access is closed
- * unless the caller opens it. Chat never does; Cowork passes its own setting.
+ * (chat never opens it).
  */
 export async function executeAgentTool(
   toolName: string,
@@ -256,27 +232,7 @@ export async function executeAgentTool(
    * that overlaps the workspace or the Jan data folder, rather than silently
    * dropping it, so an unusable attachment surfaces as a tool error.
    */
-  readOnlyProject?: string | null,
-  /**
-   * Which sandbox namespace `threadId` names. Load-bearing: a Cowork session id
-   * is not a chat thread id, so running one under `'thread'` would put its files
-   * where the thread sweep's keep-list can never mention them — and the sweep
-   * would delete the only copy of the agent's work.
-   */
-  scope: WorkspaceScope = 'thread',
-  /** Opens the sandboxed shell's network namespace. Closed by default. */
-  allowNetwork = false,
-  /** Opt the attached folder into writes and edits in place (Cowork's shared
-   * folder). Off by default, so chat's attachment stays read-only. */
-  projectWritable = false,
-  /**
-   * A project folder whose project-store skills (`~/.jan/projects/<slug>/skills`)
-   * layer on top of the permanent store for `skill_list`/`skill_read`, so an
-   * attached folder's skills reach the agent alongside the global ones (#8879).
-   * Cowork passes its attached folder; chat leaves it unset, keeping its skills
-   * global-only. Memory and skill writes stay on the permanent store regardless.
-   */
-  skillProject?: string | null
+  readOnlyProject?: string | null
 ): Promise<AgentToolResult> {
   try {
     const dataFolder = await getServiceHub().app().getJanDataFolder()
@@ -290,12 +246,10 @@ export async function executeAgentTool(
       threadId,
       toolName,
       args,
-      skillProject ?? undefined,
       undefined,
-      allowNetwork,
-      readOnlyProject ?? undefined,
-      projectWritable,
-      scope
+      undefined,
+      undefined,
+      readOnlyProject ?? undefined
     )
     if (result.isError) return { error: result.content }
     // The store changed, so the recall injections must not keep serving the
@@ -316,87 +270,6 @@ function isMemoryChange(args: Record<string, unknown>): boolean {
   return args.op !== 'view' && args.op !== 'search'
 }
 
-export type { MonitorUpdate }
-
-/**
- * Start a file monitor for a Cowork session. `onUpdate` receives every match
- * (and the terminal all-met/timeout update) as it happens; the returned string
- * is the model-facing `monitor` tool result. An error comes back as an
- * `ERROR:`-prefixed output rather than a throw, matching the tool contract.
- */
-export async function startAgentMonitor(
-  sessionId: string,
-  args: unknown,
-  onUpdate: (update: MonitorUpdate) => void,
-  readOnlyProject?: string | null,
-  allowNetwork = false,
-  projectWritable = false
-): Promise<{ output: string; isError?: boolean }> {
-  try {
-    const dataFolder = await getServiceHub().app().getJanDataFolder()
-    if (!dataFolder) return { output: 'ERROR: Jan data folder is unavailable', isError: true }
-    const input =
-      args && typeof args === 'object' ? (args as Record<string, unknown>) : {}
-    const output = await startMonitor(dataFolder, sessionId, input, onUpdate, {
-      allowNetwork,
-      readOnlyProject: readOnlyProject ?? undefined,
-      projectWritable,
-      scope: 'session',
-    })
-    return { output }
-  } catch (e) {
-    return { output: `ERROR: ${messageOf(e)}`, isError: true }
-  }
-}
-
-/** Stop one monitor. The result string is model-facing either way. */
-export async function stopAgentMonitor(
-  sessionId: string,
-  monitorId: string
-): Promise<string> {
-  try {
-    return await stopMonitor(sessionId, monitorId)
-  } catch (e) {
-    return `ERROR: ${messageOf(e)}`
-  }
-}
-
-/** One line per active monitor, for `monitor {op:"list"}`. */
-export async function listAgentMonitors(sessionId: string): Promise<string> {
-  try {
-    return await listMonitors(sessionId)
-  } catch (e) {
-    return `ERROR: ${messageOf(e)}`
-  }
-}
-
-/**
- * The ids of a session's still-active monitors, for the rail to reconcile
- * against. Best-effort: on failure the caller keeps its current rail rather
- * than clearing them, so a transient error never wrongly settles a live watcher.
- */
-export async function activeAgentMonitorIds(sessionId: string): Promise<string[] | null> {
-  try {
-    return await sessionMonitorIds(sessionId)
-  } catch (e) {
-    console.warn('[agentTools] Failed to list active monitors:', messageOf(e))
-    return null
-  }
-}
-
-/**
- * Abort every monitor a session still has. Best-effort teardown when the
- * session is deleted: a failure leaves watchers whose updates go nowhere, not
- * user-visible damage.
- */
-export async function stopAgentSessionMonitors(sessionId: string): Promise<void> {
-  try {
-    await stopSessionMonitors(sessionId)
-  } catch (e) {
-    console.warn('[agentTools] Failed to stop session monitors:', messageOf(e))
-  }
-}
-
 /**
  * Kill every `shell` tree this session started when the user presses Stop.
  * Best-effort: aborting the JS run already unwinds the turn, so a failure here
@@ -407,84 +280,6 @@ export async function cancelAgentThreadBash(sessionId: string): Promise<void> {
     await cancelThreadBash(sessionId)
   } catch (e) {
     console.warn('[agentTools] Failed to cancel session shells:', messageOf(e))
-  }
-}
-
-/** A file claimed for a subagent's answer: the name to fill it by, and its
- * real path in the session scratch, which the parent agent can `read`. */
-export type SubagentResultFile = { file: string; path: string }
-
-/**
- * Claim a file in the session scratch for a subagent's answer.
- *
- * Claimed before the child starts, because `task` reports where the answer will
- * be while it is still working. `null` when no scratch is reachable (the web
- * build), in which case the caller falls back to delivering the answer inline.
- */
-export async function reserveSubagentResult(
-  sessionId: string,
-  id: string
-): Promise<SubagentResultFile | null> {
-  try {
-    return await subagentResultReserve(sessionId, id)
-  } catch (e) {
-    console.warn('[agentTools] Failed to claim a result file:', messageOf(e))
-    return null
-  }
-}
-
-/** Write a finished subagent's answer into the file claimed for it. `false`
- * when it could not be written, so the caller can deliver it inline instead. */
-export async function fillSubagentResult(
-  sessionId: string,
-  file: string,
-  content: string
-): Promise<boolean> {
-  try {
-    await subagentResultFill(sessionId, file, content)
-    return true
-  } catch (e) {
-    console.warn('[agentTools] Failed to save subagent result:', messageOf(e))
-    return false
-  }
-}
-
-/**
- * Write a finished subagent's answer to `blackboard/<name>.md` in the session
- * scratch -- the name-keyed coordination file a phased dispatch's next phase
- * reads. Returns the model-visible path, or `null` when no scratch is reachable
- * (the web build), so the caller can fall back to delivering the answer inline.
- */
-export async function writeBlackboard(
-  sessionId: string,
-  name: string,
-  content: string
-): Promise<string | null> {
-  try {
-    return await blackboardWrite(sessionId, name, content)
-  } catch (e) {
-    console.warn('[agentTools] Failed to write the blackboard:', messageOf(e))
-    return null
-  }
-}
-
-/**
- * Copy a user attachment into the session workspace, with its extracted text
- * beside it. `null` when it could not be copied, so the caller can tell the
- * agent instead of naming a path that is not there.
- */
-export async function importAttachment(
-  sessionId: string,
-  source: string,
-  text?: string
-): Promise<{ path: string; textPath: string | null } | null> {
-  try {
-    const dataFolder = await getServiceHub().app().getJanDataFolder()
-    if (!dataFolder) return null
-    return await attachmentImport(dataFolder, sessionId, source, text)
-  } catch (e) {
-    console.warn('[agentTools] Failed to import attachment:', messageOf(e))
-    return null
   }
 }
 

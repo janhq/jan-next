@@ -2,7 +2,6 @@ import { useEffect } from 'react'
 import { listen } from '@tauri-apps/api/event'
 
 import { useAppState } from '@/hooks/useAppState'
-import { useCoworkRun } from '@/hooks/useCoworkRun'
 import { isPlatformTauri } from '@/lib/platform/utils'
 import {
   clearActiveWork,
@@ -53,14 +52,7 @@ export default function LlamacppOomListener() {
       (event) => {
         const { model, stage, stages, value } = event.payload
         const progress = { modelId: model, stage, stages, value }
-        const { currentStreamThreadId: threadId, currentStreamIsCowork } =
-          useAppState.getState()
-        // A Cowork run owns the current stream: feed its session mirror, not
-        // this store's global/thread slots (which chat surfaces read).
-        if (threadId && currentStreamIsCowork) {
-          useCoworkRun.getState().setSessionModelLoadProgress(threadId, progress)
-          return
-        }
+        const { currentStreamThreadId: threadId } = useAppState.getState()
         useAppState.getState().updateModelLoadProgress(progress)
         if (threadId) {
           useAppState.getState().updateThreadModelLoadProgress(threadId, progress)

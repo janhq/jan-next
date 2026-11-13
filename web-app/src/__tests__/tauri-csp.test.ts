@@ -25,10 +25,8 @@
  *   evalTaming 'no-eval', only probes eval/Function (and tolerates the CSP
  *   refusing them), and makes both throw in the worker afterwards.
  * - assetProtocol.scope is not `**` / `**`-slash-`*`. The static list is empty and
- *   the backend grants at runtime only what the window streams from disk: the
- *   Cowork session sandboxes at startup, files the user picks in the open
- *   dialog, and a Cowork session's attached folder (validated like the agent's
- *   read root, so it can never contain the Jan data folder).
+ *   the backend grants at runtime only what the window streams from disk:
+ *   files the user picks in the open dialog.
  */
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync } from 'node:fs'

@@ -1347,7 +1347,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&home);
     }
 
-    /// The Cowork opt-in at the gate layer: an attached root also passed as a
+    /// Write roots at the gate layer: an attached root also passed as a
     /// write root takes the ordinary in-project Write prompt, not WriteEscape,
     /// while a path outside both roots keeps the escape classification.
     #[test]

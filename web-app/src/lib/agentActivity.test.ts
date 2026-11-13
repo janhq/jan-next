@@ -3,9 +3,7 @@ import {
   toolActivityText,
   completedToolLabel,
   usedSkillNames,
-  awaitsModel,
 } from './agentActivity'
-import type { CoworkTurn } from '@/types/coworkSession'
 
 describe('toolActivityText', () => {
   it('formats write with basename only', () => {
@@ -101,44 +99,5 @@ describe('usedSkillNames', () => {
         },
       ])
     ).toEqual(['pptx'])
-  })
-})
-
-describe('awaitsModel', () => {
-  const tool = (status: CoworkTurn['status']): CoworkTurn => ({
-    role: 'tool',
-    content: '',
-    callId: 'c1',
-    name: 'shell',
-    status,
-  })
-
-  it('is false when nothing is running', () => {
-    expect(awaitsModel(false, [])).toBe(false)
-    expect(awaitsModel(false, [{ role: 'user', content: 'hi' }])).toBe(false)
-  })
-
-  it('is true before the first token', () => {
-    expect(awaitsModel(true, [{ role: 'user', content: 'hi' }])).toBe(true)
-    expect(awaitsModel(true, [])).toBe(true)
-  })
-
-  // The gap between a finished tool and the next token has nothing else on
-  // screen reporting progress.
-  it('is true again after a tool settles', () => {
-    expect(awaitsModel(true, [tool('done')])).toBe(true)
-  })
-
-  it('is false while a tool is running or text is streaming', () => {
-    expect(awaitsModel(true, [tool('running')])).toBe(false)
-    expect(awaitsModel(true, [{ role: 'assistant', content: 'thinking' }])).toBe(
-      false
-    )
-  })
-
-  /// A note the run just folded in is followed by a model call, with nothing on
-  /// screen until it answers -- the same gap a question leaves.
-  it('waits on the model after a system note', () => {
-    expect(awaitsModel(true, [{ role: 'system', content: 'done' }])).toBe(true)
   })
 })

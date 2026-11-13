@@ -17,7 +17,7 @@ export const JAN_V2_VL_QUANTIZATIONS = ['q4_k_m', 'q4_k_s', 'q4_0', 'q3_k_m']
 /**
  * The one llama.cpp slot Jan pins, and the thread identities that share it.
  *
- * Every surface -- chat, Cowork, background tasks -- sends `id_slot: 0` plus a
+ * Every surface -- chat and background tasks -- sends `id_slot: 0` plus a
  * `thread_id`. Jan reserves no slot of its own, so the emitted "Parallel
  * Sequences" count is exactly what the user configured (llama.cpp's own default
  * when unset). What keeps the surfaces from destroying each other's KV cache is
@@ -40,5 +40,3 @@ export const CHAT_SLOT_ID = 0
 /** Thread identity for background work (title generation) sharing slot 0. */
 export const BACKGROUND_THREAD_ID = 'background'
 
-/** Thread identity for a Cowork session sharing slot 0 with the chat it names. */
-export const coworkThreadId = (threadId?: string) => `cowork:${threadId ?? ''}`

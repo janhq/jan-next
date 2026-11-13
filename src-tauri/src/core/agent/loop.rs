@@ -4645,7 +4645,7 @@ async fn run_turn_cycle(
                 transcript.record_reminder(&notice.text);
                 // The headline is shown at delivery, not when the ping was
                 // queued, so the transcript reads in the order the model saw
-                // things (matching Cowork's inbox drain).
+                // things.
                 if let Some(headline) = &notice.headline {
                     let _ = events.send(StreamEvent::Notice {
                         text: headline.clone(),

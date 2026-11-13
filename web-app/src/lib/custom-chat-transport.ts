@@ -64,7 +64,6 @@ import {
   hasVideoSentinel,
   parseVideoDataUrl,
 } from '@/lib/video-sentinel'
-import { PING_OPEN } from '@/lib/coworkPing'
 import { CHAT_SLOT_ID } from '@/constants/models'
 import { createStepMetadata } from '@/lib/stepMetadata'
 
@@ -390,8 +389,7 @@ function isAssistantMessageEmpty(message: UIMessage): boolean {
  * in the earlier bubble, so a follow-up like "what is in it?" must still reach
  * the model with them. By this point images are `file` parts, audio and video
  * are sentinel-only text parts, and documents are an [ATTACHED_FILES] block
- * (plus any inlined contents) appended after the question text. Cowork pings
- * are carried too.
+ * (plus any inlined contents) appended after the question text.
  */
 function carryAttachmentsForward(
   dropped: UIMessage['parts'],
@@ -402,13 +400,7 @@ function carryAttachmentsForward(
     if (part.type === 'file') {
       attachments.push(part)
     } else if (part.type === 'text' && typeof part.text === 'string') {
-      // Cowork's <SYSTEM> pings (finished subagents) ride as their own user
-      // turn; they are context the model has not seen yet, not a question.
-      if (
-        hasAudioSentinel(part.text) ||
-        hasVideoSentinel(part.text) ||
-        part.text.trimStart().startsWith(PING_OPEN)
-      ) {
+      if (hasAudioSentinel(part.text) || hasVideoSentinel(part.text)) {
         attachments.push(part)
         continue
       }
@@ -938,17 +930,6 @@ export class CustomChatTransport implements ChatTransport<UIMessage> {
     this.lastUserMessage = message
   }
 
-  /**
-   * Whether this transport's load state and its `llamacpp-model-load-progress`
-   * events belong to a Cowork run. Cowork overrides the two writers below and
-   * this flag so the load card is fed from useCoworkRun's session mirror,
-   * keeping session ids out of useAppState's thread-keyed slots (which drive
-   * chat-thread active detection).
-   */
-  protected get streamRoutesToCowork(): boolean {
-    return false
-  }
-
   /** Route the model-loading flag. Base writes useAppState (global + thread). */
   protected setLoadingModel(threadId: string, loading: boolean): void {
     useAppState.getState().updateLoadingModel(loading)
@@ -1228,7 +1209,7 @@ export class CustomChatTransport implements ChatTransport<UIMessage> {
       }
 
       // The main chat offers exactly one built-in agent tool: the sandboxed
-      // shell, with no network. The full toolset lives in Cowork. Schemas come
+      // shell, with no network. Schemas come
       // from Rust so they are never re-typed here, and `getAgentToolSchemas`
       // already withholds shell when no sandbox backend can confine it. A user
       // who switched it off (#9222) gets none of it.
@@ -1386,7 +1367,7 @@ export class CustomChatTransport implements ChatTransport<UIMessage> {
     const myGeneration = ++this.streamGeneration
     useAppState
       .getState()
-      .setCurrentStreamThreadId(threadId, this.streamRoutesToCowork)
+      .setCurrentStreamThreadId(threadId)
     try {
       return await this.openStream(options, threadId, myGeneration)
     } catch (error) {
@@ -1483,7 +1464,7 @@ export class CustomChatTransport implements ChatTransport<UIMessage> {
         ...reasoningParams,
       }
       // Pin chat to slot 0 so llama-server reuses this thread's cached KV
-      // prefix across turns. Cowork and background tasks share the same slot;
+      // prefix across turns. Background tasks share the same slot;
       // what keeps them from destroying this prefix is thread_id below.
       //
       // thread_id names whose cache that is, which is what lets the engine

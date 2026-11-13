@@ -1,23 +1,13 @@
-//! Tauri command surface for the agent's project-scoped state: skills, the
-//! skill hub, plugins, and the git branch shown in the workspace pill.
+//! Tauri command surface for the agent's project-scoped state: skills and
+//! plugins.
 //!
-//! The agent *loop* is no longer driven from here. The desktop runs it in the
-//! renderer on the Vercel AI SDK (`web-app/src/lib/coworkRunner.ts`), calling
-//! the tool plugin directly; `core::agent::r#loop` stays for the headless CLI
-//! and the OpenAI-compatible API server, which still orchestrate in Rust.
+//! The agent *loop* is not driven from here: `core::agent::r#loop` serves the
+//! headless CLI and the OpenAI-compatible API server.
 
-use crate::core::agent::git;
 use crate::core::agent::plugins;
-use crate::core::agent::project::{
-    agent_toml_path, ensure_project, load_agent_config, set_skills_enabled_in_agent_toml,
-    store_root,
-};
-use crate::core::agent::skill_hub;
+use crate::core::agent::project::{ensure_project, store_root};
 use crate::core::agent::skills as agent_skills;
-use crate::core::agent::subagent;
-use crate::core::app::commands::get_jan_data_folder_path;
 use tauri_plugin_agent_tools::skills::{self, SkillMeta};
-use tauri_plugin_agent_tools::workspace;
 
 /// Strip the internal `ERROR: ` prefix (an agent-tool-output convention) so the
 /// message reads cleanly in a UI toast.
@@ -60,64 +50,6 @@ pub async fn agent_skill_write(
 pub async fn agent_skill_delete(project: String, name: String) -> Result<(), String> {
     let root = std::path::PathBuf::from(&project);
     skills::delete(&store_root(&root), &name).map_err(ui_error)
-}
-
-/// List the skills available on Anthropic's public skill hub (name + purpose).
-#[tauri::command]
-pub async fn agent_skill_hub_list() -> Result<Vec<skill_hub::HubSkill>, String> {
-    skill_hub::list().await.map_err(ui_error)
-}
-
-/// Download a hub skill (SKILL.md + bundled files) as `<name>/SKILL.md`, into
-/// the project store when a project is given (scaffolded on first use), else
-/// into the permanent store -- Cowork's skills manager works with no folder
-/// attached, and the store is what its agent reads anyway.
-#[tauri::command]
-pub async fn agent_skill_hub_import(
-    project: Option<String>,
-    data_folder: Option<String>,
-    name: String,
-) -> Result<(), String> {
-    let store = match project
-        .map(|p| p.trim().to_string())
-        .filter(|p| !p.is_empty())
-    {
-        Some(p) => {
-            let root = std::path::PathBuf::from(&p);
-            ensure_project(&root)?;
-            store_root(&root)
-        }
-        None => {
-            let data = data_folder
-                .filter(|d| !d.trim().is_empty())
-                .ok_or_else(|| {
-                    "ERROR: neither a project nor the data folder was given".to_string()
-                })?;
-            workspace::ensure_permanent_store(std::path::Path::new(&data))
-                .await
-                .map_err(ui_error)?
-        }
-    };
-    skill_hub::import(&store, &name).await.map_err(ui_error)
-}
-
-/// Read the project's enabled-skill whitelist (`[skills].enabled`). An empty
-/// list means all skills are enabled.
-#[tauri::command]
-pub async fn agent_skill_enabled_get(project: String) -> Result<Vec<String>, String> {
-    let root = std::path::PathBuf::from(&project);
-    Ok(load_agent_config(&root)
-        .map(|c| c.skills.enabled)
-        .unwrap_or_default())
-}
-
-/// Set the project's enabled-skill whitelist. Empty = all skills enabled.
-/// Persisted to `[skills].enabled` in agent.toml (format-preserving).
-#[tauri::command]
-pub async fn agent_skill_enabled_set(project: String, enabled: Vec<String>) -> Result<(), String> {
-    let root = std::path::PathBuf::from(&project);
-    ensure_project(&root)?;
-    set_skills_enabled_in_agent_toml(&agent_toml_path(&root), &enabled).map_err(ui_error)
 }
 
 /// Build the user message for invoking an enabled skill (`/skill:<name>` /
@@ -170,53 +102,4 @@ pub async fn agent_plugin_search(
 ) -> Result<Vec<plugins::MarketEntry>, String> {
     let root = std::path::PathBuf::from(&project);
     plugins::search(&root, &query).await.map_err(ui_error)
-}
-
-/// Return the git branch name for the project at `project`, or `None` when the
-/// folder is not inside a git repo (or git is not installed). Used by the Code
-/// UI to display the current branch alongside the working directory.
-#[tauri::command]
-pub fn agent_git_branch(project: String) -> Option<String> {
-    git::current_branch(std::path::Path::new(&project))
-}
-
-/// A saved subagent definition, for the `task` tool's advertised name list and
-/// the Cowork subagents panel.
-#[derive(serde::Serialize)]
-pub struct SubagentDefinitionDto {
-    pub name: String,
-    pub description: String,
-    pub system_prompt: String,
-    /// When set, the child's toolset is this list intersected with the parent's;
-    /// it never widens. `None` inherits the parent's set.
-    pub allowed_tools: Option<Vec<String>>,
-    pub model: Option<String>,
-}
-
-/// Every subagent saved for the desktop, from the single
-/// `<jan_data>/agent-workspace/subagents/` directory.
-///
-/// Deliberately not the CLI's plugin/user/project merge: Cowork has no project
-/// root in a default session, and an attached folder is mounted read-only, so
-/// scanning it would let a cloned repo inject a system prompt and a tool
-/// allowlist into the agent. Malformed files are skipped, so a bad TOML costs one
-/// definition rather than the whole list.
-#[tauri::command]
-pub async fn agent_subagent_list<R: tauri::Runtime>(
-    app_handle: tauri::AppHandle<R>,
-) -> Result<Vec<SubagentDefinitionDto>, String> {
-    let dir = subagent::desktop_subagents_dir(&get_jan_data_folder_path(app_handle));
-    Ok(
-        subagent::SubagentRegistry::load_one(&dir, subagent::SubagentScope::User)
-            .list()
-            .into_iter()
-            .map(|d| SubagentDefinitionDto {
-                name: d.name.clone(),
-                description: d.description.clone(),
-                system_prompt: d.system_prompt.clone(),
-                allowed_tools: d.allowed_tools.clone(),
-                model: d.model.clone(),
-            })
-            .collect(),
-    )
 }

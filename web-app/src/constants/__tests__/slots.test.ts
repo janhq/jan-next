@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import {
   BACKGROUND_THREAD_ID,
   CHAT_SLOT_ID,
-  coworkThreadId,
 } from '@/constants/models'
 
 // llama.cpp wraps an out-of-range id_slot modulo the slot count instead of
@@ -17,16 +16,8 @@ describe('llama.cpp slot allocation', () => {
 
   it('gives every surface sharing the slot a distinct thread identity', () => {
     const chatThread = 'thread-abc'
-    const identities = [
-      chatThread,
-      BACKGROUND_THREAD_ID,
-      coworkThreadId(chatThread),
-    ]
+    const identities = [chatThread, BACKGROUND_THREAD_ID]
     expect(new Set(identities).size).toBe(identities.length)
   })
 
-  it('namespaces a cowork identity even when it names no thread', () => {
-    expect(coworkThreadId(undefined)).not.toBe('')
-    expect(coworkThreadId(undefined)).not.toBe(BACKGROUND_THREAD_ID)
-  })
 })

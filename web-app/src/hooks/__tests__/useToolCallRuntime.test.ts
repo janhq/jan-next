@@ -216,7 +216,7 @@ describe('useToolCallRuntime', () => {
       expect(store().progress).toEqual({})
     })
 
-    // Cowork records no server, so its call is matched by being the only one.
+    // A call that records no server is matched by being the only one.
     it('attaches progress to the only running call when its server is unknown', () => {
       store().enqueue(['c1'])
       store().markRunning('c1')
@@ -254,7 +254,7 @@ describe('useToolCallRuntime', () => {
     })
   })
 
-  /// Cowork dispatches serially and has no queue to report, but its cards still
+  /// A serial dispatch has no queue to report, but its cards still
   /// need a duration -- without a timing entry the header shows a bare spinner.
   it('times a single call from dispatch to settle', async () => {
     const during = withToolTiming('a', async () => {

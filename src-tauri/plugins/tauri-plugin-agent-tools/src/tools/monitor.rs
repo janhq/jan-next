@@ -9,10 +9,8 @@
 //! run-owned set to park a run on an active monitor. One script per monitor
 //! keeps the call shape small enough for local models to emit reliably.
 //!
-//! Delivery is the caller's: a [`MonitorSet`] either queues [`MonitorUpdate`]s
-//! for the agent loop to drain into `<SYSTEM>` reminders (the CLI/desktop run
-//! path), or hands each one to a subscriber callback (the Tauri command layer,
-//! which forwards them to Cowork over an IPC channel).
+//! A [`MonitorSet`] queues [`MonitorUpdate`]s for the agent loop to drain into
+//! `<SYSTEM>` reminders.
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
@@ -202,15 +200,7 @@ struct Entry {
     status: Arc<Mutex<MonitorStatus>>,
 }
 
-/// How a set delivers updates: queued for the agent loop to drain as
-/// `<SYSTEM>` reminders, or pushed to a subscriber as they happen.
-enum Delivery {
-    Queue,
-    Subscriber(Arc<dyn Fn(MonitorUpdate) + Send + Sync>),
-}
-
-/// Registry of one owner's monitors (a run on the CLI/desktop loop, a Cowork
-/// session on the command layer). Mirrors `BackgroundSubagents`: notices +
+/// Registry of one run's monitors on the agent loop. Mirrors `BackgroundSubagents`: notices +
 /// wake + an active count whose decrement always follows the notice push, so
 /// "is anything still owed?" can never read false in between.
 pub struct MonitorSet {
@@ -219,7 +209,6 @@ pub struct MonitorSet {
     wake: tokio::sync::Notify,
     active: AtomicUsize,
     seq: AtomicU64,
-    delivery: Delivery,
 }
 
 impl Default for MonitorSet {
@@ -230,23 +219,12 @@ impl Default for MonitorSet {
 
 impl MonitorSet {
     pub fn new() -> Self {
-        Self::with_delivery(Delivery::Queue)
-    }
-
-    /// Route every update to `subscriber` instead of the queue. The subscriber
-    /// owns ordering and persistence; `take_notices` then never has anything.
-    pub fn subscribed(subscriber: Arc<dyn Fn(MonitorUpdate) + Send + Sync>) -> Self {
-        Self::with_delivery(Delivery::Subscriber(subscriber))
-    }
-
-    fn with_delivery(delivery: Delivery) -> Self {
         Self {
             inner: Mutex::new(std::collections::HashMap::new()),
             notices: Mutex::new(Vec::new()),
             wake: tokio::sync::Notify::new(),
             active: AtomicUsize::new(0),
             seq: AtomicU64::new(1),
-            delivery,
         }
     }
 
@@ -286,12 +264,7 @@ impl MonitorSet {
     }
 
     fn push_update(&self, update: MonitorUpdate) {
-        match &self.delivery {
-            Delivery::Queue => {
-                self.notices.lock().unwrap().push(update);
-            }
-            Delivery::Subscriber(subscriber) => subscriber(update),
-        }
+        self.notices.lock().unwrap().push(update);
         self.wake.notify_waiters();
     }
 
@@ -571,8 +544,7 @@ async fn eval_script(ctx: &MonitorCtx, script: &str) -> Option<String> {
     }
 }
 
-/// OpenAI function schema for the `monitor` tool. Mirrored verbatim by
-/// Cowork's client-side tool table, like `task`/`todo`.
+/// OpenAI function schema for the `monitor` tool.
 pub fn monitor_tool_schema() -> serde_json::Value {
     serde_json::json!({
         "type": "function",
@@ -832,25 +804,5 @@ mod tests {
             .unwrap();
         assert_eq!(notices.len(), 1);
         assert!(notices[0].text.contains("a hit at last"));
-    }
-
-    // POSIX command text: Windows runs PowerShell.
-    #[cfg(unix)]
-    #[tokio::test]
-    async fn a_subscriber_gets_updates_instead_of_the_queue() {
-        let dir = unique_root();
-        std::fs::write(dir.join("s.log"), "hit\n").unwrap();
-        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
-        let set = Arc::new(MonitorSet::subscribed(Arc::new(move |u| {
-            let _ = tx.send(u);
-        })));
-        set.start(spec("hit", "grep hit s.log", 30), ctx_for(&dir))
-            .unwrap();
-        let update = tokio::time::timeout(Duration::from_secs(5), rx.recv())
-            .await
-            .expect("no subscriber update")
-            .unwrap();
-        assert!(update.matched);
-        assert!(set.take_notices().is_empty(), "queue must stay empty");
     }
 }

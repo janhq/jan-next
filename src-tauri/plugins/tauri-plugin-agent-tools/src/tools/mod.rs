@@ -6,8 +6,6 @@ use std::path::{Path, PathBuf};
 /// Windows-only confinement backend for [`jail`]. Present on every platform so
 /// the argv it builds stays unit-testable.
 pub mod appcontainer;
-/// User attachments copied into a session workspace for the agent to read.
-pub mod attachments;
 pub mod cmdscan;
 pub mod gate;
 pub mod handlers;
@@ -81,8 +79,8 @@ pub struct ToolContext<'a> {
     pub project_root: &'a Path,
     pub store_root: &'a Path,
     /// A project's co-located store whose `skills/` layer on top of `store_root`
-    /// for discovery and `skill_read`, so the desktop/Cowork agent sees an
-    /// attached folder's skills alongside the permanent ones (#8879). `None` on
+    /// for discovery and `skill_read`, so the desktop agent sees an attached
+    /// folder's skills alongside the permanent ones (#8879). `None` on
     /// every surface with no folder attached. Skill *writes* and all memory ops
     /// still target `store_root`; only skill reads consult this overlay.
     pub skill_project_root: Option<&'a Path>,

@@ -70,8 +70,7 @@ pub(crate) fn resolve_hooks(project_root: &Path) -> HookSet {
 }
 
 /// [`resolve_hooks`] for a surface that may have no project: the desktop's IPC
-/// command, whose chat threads have no project root at all and whose Cowork
-/// sessions have only an attached folder. A projectless run still gets the
+/// command, whose chat threads have no project root at all. A projectless run still gets the
 /// user's global `~/.jan/config.toml` hooks, which is the layer that is about
 /// the user rather than the checkout.
 pub fn resolve_hooks_for(project_root: Option<&Path>) -> HookSet {

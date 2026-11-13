@@ -1164,7 +1164,7 @@ export default class llamacpp_extension extends AIEngine implements EmbeddingEng
  }
 
  // The old default was 1 plus two slots Jan reserved for background work and
- // Cowork; both now share slot 0, so the reservation is gone and a persisted
+ // other agent surfaces; both now share slot 0, so the reservation is gone and a persisted
  // 1 would pin the engine to a single slot rather than letting it resolve its
  // own count. Only the old default value is moved.
  private async migrateParallelToDefault(): Promise<void> {

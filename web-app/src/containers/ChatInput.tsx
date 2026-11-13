@@ -4,7 +4,6 @@ import { usePrompt } from '@/hooks/usePrompt'
 import { useThreads } from '@/hooks/useThreads'
 import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react'
 import type { ReactNode } from 'react'
-import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
 import {
   Tooltip,
@@ -73,7 +72,6 @@ import DropdownToolsAvailable from '@/containers/DropdownToolsAvailable'
 import { useServiceHub } from '@/hooks/useServiceHub'
 import { useTools } from '@/hooks/useTools'
 import { TokenCounter } from '@/components/TokenCounter'
-import type { TokenUsageSource } from '@/hooks/useTokensCount'
 import { useMessages } from '@/hooks/useMessages'
 import { useShallow } from 'zustand/react/shallow'
 import { ServiceKeys, fs } from '@janhq/core'
@@ -146,38 +144,11 @@ type ChatInputProps = {
    * `chatStatus`, it queues what the user types until the turn ends.
    */
   toolsRunning?: boolean
-  // Overrides the conversation scope this input belongs to — both its message
-  // queue and its pending attachments (default: useThreads' currentThreadId).
-  // Callers outside the general chat (e.g. Cowork, keyed by session id) pass
-  // their own id so each gets an independent queue and attachment draft.
-  scopeKey?: string
-  /**
-   * Whether the surface's tool set is configured from this composer.
-   *
-   * False for a surface that builds its own set (Cowork, via
-   * `buildCoworkTools`). Its toggles here would be inert on this surface while
-   * still writing the global chat stores, so a user turning "agent tools" off
-   * in Cowork would silently disable them in Chat.
-   */
-  ownsToolSet?: boolean
-  /**
-   * Surface-specific controls docked in the composer's control row (Cowork's
-   * plan toggle and folder chip). They sit outside the streaming dim, because
-   * both configure the *next* message rather than the run in flight.
-   */
-  surfaceControls?: ReactNode
-  /**
-   * Usage for a surface that keeps no thread messages (Cowork). Rendering the
-   * counter here rather than in the caller is what keeps its placement, the
-   * `tokenCounterCompact` setting and the spacing to the send button identical
-   * across surfaces.
-   */
-  tokenSource?: TokenUsageSource
   highlightedPrefix?: string | null
 }
 
-// Below this control-row width the toolbar wraps into several rows on busy
-// surfaces (Cowork), so it collapses behind a single overflow button instead.
+// Below this control-row width the toolbar wraps into several rows, so it
+// collapses behind a single overflow button instead.
 const CONTROL_ROW_COLLAPSE_WIDTH = 480
 
 // Video containers llama-server can decode via ffmpeg/ffprobe into frames.
@@ -256,10 +227,6 @@ const ChatInput = memo(function ChatInput({
   onStop,
   chatStatus,
   toolsRunning,
-  scopeKey,
-  ownsToolSet = true,
-  surfaceControls,
-  tokenSource,
   highlightedPrefix,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -267,8 +234,7 @@ const ChatInput = memo(function ChatInput({
   const [isFocused, setIsFocused] = useState(false)
   const [rows, setRows] = useState(1)
   // Collapse the composer's control row into a single overflow button when the
-  // surface is too narrow to lay the controls out on one line (e.g. Cowork's
-  // side panel). Gated on a positive measured width so layout-less test
+  // surface is too narrow to lay the controls out on one line. Gated on a positive measured width so layout-less test
   // environments (width 0) keep the controls inline.
   const [controlRowRef, controlRowWidth] = useElementWidth<HTMLDivElement>()
   const collapseControls =
@@ -314,7 +280,7 @@ const ChatInput = memo(function ChatInput({
   // When projectId is present, treat as normal chat (disable agent mode UI)
   const effectiveAgentMode = isAgentMode && !projectId
   // Gate for the controls that shape which tools the model is offered.
-  const showToolControls = ownsToolSet && !effectiveAgentMode
+  const showToolControls = !effectiveAgentMode
   const shellEnabled = useChatShell((s) => s.shellEnabled)
   const setShellEnabled = useChatShell((s) => s.setShellEnabled)
   // The shell is only ever offered where a sandbox can confine it, so the
@@ -478,7 +444,6 @@ const ChatInput = memo(function ChatInput({
     isInitialMessage: !!initialMessage,
     hasMessages: (threadMessages?.length ?? 0) > 0,
     hasPromptText: prompt.trim().length > 0,
-    hasReportedUsage: (tokenSource?.usage?.totalTokens ?? 0) > 0,
   })
   const [selectedAssistantId, setSelectedAssistantId] = useState<
     string | undefined
@@ -526,10 +491,7 @@ const ChatInput = memo(function ChatInput({
   const maxImageSizeMB = useImageAttachmentConfig((s) => s.maxImageSizeMB)
 
   // Derived: any document currently processing (ingestion in progress)
-  // Same scope as the message queue: a surface writing attachments under its
-  // own id would have them silently dropped if this read a thread id.
-  const attachmentsKey =
-    scopeKey ?? currentThreadId ?? NEW_THREAD_ATTACHMENT_KEY
+  const attachmentsKey = currentThreadId ?? NEW_THREAD_ATTACHMENT_KEY
   const attachments = useChatAttachments(
     useCallback(
       (state) => state.getAttachments(attachmentsKey),
@@ -563,7 +525,7 @@ const ChatInput = memo(function ChatInput({
   } | null>(null)
 
   // Queued messages for this thread (shown as chips in the input area)
-  const queueId = scopeKey ?? currentThreadId ?? ''
+  const queueId = currentThreadId ?? ''
   const queuedMessages = useMessageQueue(
     useShallow((s) => s.getQueue(queueId))
   )
@@ -579,10 +541,7 @@ const ChatInput = memo(function ChatInput({
   const lastTransferredThreadId = useRef<string | null>(null)
 
   useEffect(() => {
-    // Only the general chat migrates a draft: it composes under the "new
-    // thread" key until the thread exists. A scopeKey caller has a stable id
-    // from the start, so there is nothing to move.
-    if (scopeKey) return
+    // The draft composes under the "new thread" key until the thread exists.
     if (
       currentThreadId &&
       lastTransferredThreadId.current !== currentThreadId
@@ -590,7 +549,7 @@ const ChatInput = memo(function ChatInput({
       transferAttachments(NEW_THREAD_ATTACHMENT_KEY, currentThreadId)
       lastTransferredThreadId.current = currentThreadId
     }
-  }, [scopeKey, currentThreadId, transferAttachments])
+  }, [currentThreadId, transferAttachments])
 
   // Check for mmproj existence or vision capability when model changes
   useEffect(() => {
@@ -1334,10 +1293,7 @@ const ChatInput = memo(function ChatInput({
       newFiles.length > 0 ? [...prev, ...newFiles] : prev
     )
 
-    // Cowork keys attachments by session id (`scopeKey`) and sends them as
-    // data URLs on submit. Ingesting against a leftover chat `currentThreadId`
-    // can fail and strip the chip we just added.
-    if (!scopeKey && currentThreadId && newFiles.length > 0) {
+    if (currentThreadId && newFiles.length > 0) {
       const ingestTotal = newFiles.length
       void (async () => {
         setFileIngestProgress({ completed: 0, total: ingestTotal })
@@ -1426,7 +1382,7 @@ const ChatInput = memo(function ChatInput({
     } else {
       setMessage('')
     }
-  }, [attachmentsKey, currentThreadId, scopeKey, setAttachmentsForThread, serviceHub, setFileIngestProgress, maxImageSizeMB])
+  }, [attachmentsKey, currentThreadId, setAttachmentsForThread, serviceHub, setFileIngestProgress, maxImageSizeMB])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
@@ -2387,8 +2343,7 @@ const ChatInput = memo(function ChatInput({
                           : 'Add documents or files'}
                       </span>
                     </DropdownMenuItem>
-                    {/* Only chat threads: a scoped surface (Cowork) has no thread id. */}
-                    {!scopeKey && currentThreadId && (
+                    {currentThreadId && (
                       <ContributedMenuItems
                         location="chatInput/actions"
                         context={{
@@ -2763,16 +2718,6 @@ const ChatInput = memo(function ChatInput({
                     )
                   })()}
               </div>
-              {surfaceControls && (
-                // Keep controls in normal flow so wrapped rows grow the composer.
-                <div className="flex min-w-0 flex-[1_1_12rem] flex-wrap items-center gap-1">
-                  <Separator
-                    orientation="vertical"
-                    className="mx-1 h-4 shrink-0"
-                  />
-                  {surfaceControls}
-                </div>
-              )}
               </CollapsibleControls>
             </div>
 
@@ -2781,7 +2726,6 @@ const ChatInput = memo(function ChatInput({
                 <div className="flex-1 flex justify-center">
                   <TokenCounter
                     messages={threadMessages || []}
-                    source={tokenSource}
                     compact={true}
                   />
                 </div>
@@ -2859,7 +2803,7 @@ const ChatInput = memo(function ChatInput({
 
       {tokenCounterVisible && !tokenCounterCompact && (
         <div className="flex-1 w-full flex justify-start px-2">
-          <TokenCounter messages={threadMessages || []} source={tokenSource} />
+          <TokenCounter messages={threadMessages || []} />
         </div>
       )}
 

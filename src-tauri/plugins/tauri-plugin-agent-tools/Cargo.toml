@@ -21,8 +21,6 @@ default = ["tauri"]
 tauri = [
   "dep:tauri",
   "dep:tauri-plugin",
-  # `open_artifact` hands the checked file to the OS default app.
-  "dep:tauri-plugin-opener",
   # `wry` gives `WebviewWindow::with_webview`, which the screenshot renderer needs
   # to reach the platform webview. The desktop enables it anyway; the CLI never
   # turns on `tauri`, so this stays out of the CLI graph.
@@ -60,7 +58,6 @@ serde_yaml = "0.9.34"
 thiserror = "2.0.12"
 tokio = { version = "1", features = ["full"] }
 tauri = { version = "2.8.5", default-features = false, optional = true }
-tauri-plugin-opener = { version = "2.2.7", optional = true }
 
 [build-dependencies]
 tauri-plugin = { version = "2.3.1", features = ["build"], optional = true }

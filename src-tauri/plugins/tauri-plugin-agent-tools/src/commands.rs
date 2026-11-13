@@ -35,10 +35,8 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
-use crate::artifact;
 use crate::memory;
 use crate::permissions::ToolPermissions;
-use crate::preview::{self, PreviewRoots};
 use crate::skills::{self, SkillMeta};
 use crate::tools::gate::{self, Decision, PromptKind, SessionGrants};
 use crate::tools::jail;
@@ -165,45 +163,6 @@ pub async fn thread_workspace_sweep(
         .map_err(Into::into)
 }
 
-/// The Cowork session sandbox, created if absent.
-#[cfg_attr(feature = "tauri", tauri::command)]
-pub async fn session_workspace_path(
-    data_folder: String,
-    session_id: String,
-) -> Result<String, AgentToolsError> {
-    let data_folder = workspace::host_data_folder(&data_folder);
-    let dir = workspace::ensure_session_workspace(Path::new(&data_folder), &session_id).await?;
-    Ok(dir.to_string_lossy().to_string())
-}
-
-/// Delete a Cowork session's sandbox, with its scratch.
-#[cfg_attr(feature = "tauri", tauri::command)]
-pub async fn session_workspace_delete(
-    data_folder: String,
-    session_id: String,
-) -> Result<(), AgentToolsError> {
-    let data_folder = workspace::host_data_folder(&data_folder);
-    workspace::remove_session_workspace(Path::new(&data_folder), &session_id)
-        .await
-        .map_err(Into::into)
-}
-
-/// Collect session sandboxes whose sessions no longer exist.
-///
-/// Deliberately separate from the thread sweep: the two id spaces are
-/// independent, so handing either one the other's keep list would delete live
-/// work. `keep` being empty is a no-op, not a full wipe.
-#[cfg_attr(feature = "tauri", tauri::command)]
-pub async fn session_workspace_sweep(
-    data_folder: String,
-    keep: Vec<String>,
-) -> Result<usize, AgentToolsError> {
-    let data_folder = workspace::host_data_folder(&data_folder);
-    workspace::sweep_session_workspaces(Path::new(&data_folder), &keep)
-        .await
-        .map_err(Into::into)
-}
-
 /// Every discovered skill with its description, including empty stubs so the
 /// user can see and edit them.
 #[tauri::command]
@@ -313,8 +272,8 @@ pub async fn memory_write(
 }
 
 /// Name + summary + mtime for every memory note, name-sorted. This is the
-/// recall surface: both desktop chat's digest and Cowork's prompt catalog are
-/// built from it, so neither re-reads the store per note just to list it.
+/// recall surface: desktop chat's digest is built from it, so it
+/// does not re-read the store per note just to list it.
 #[tauri::command]
 pub async fn memory_catalog(
     data_folder: String,
@@ -395,319 +354,6 @@ pub struct ToolOutputChunk {
 /// `ToolResult`, and in the spill file when it overflows that.
 const MAX_STREAMED_BYTES: usize = 2 * 1024 * 1024;
 
-/// Which sandbox namespace an id belongs to.
-///
-/// Chat threads and Cowork sessions have independent id spaces and independent
-/// sweeps, so the caller has to say which one it means; guessing would let one
-/// surface's cleanup delete the other's work.
-#[derive(Debug, Clone, Copy, Default, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum WorkspaceScope {
-    #[default]
-    Thread,
-    Session,
-}
-
-impl WorkspaceScope {
-    async fn ensure(self, data_folder: &Path, id: &str) -> Result<PathBuf, String> {
-        match self {
-            Self::Thread => workspace::ensure_thread_workspace(data_folder, id).await,
-            Self::Session => workspace::ensure_session_workspace(data_folder, id).await,
-        }
-    }
-}
-
-/// A claimed subagent result file: `path` is the model-visible spelling to hand
-/// back to the model, `file` the name to pass to [`subagent_result_fill`] once
-/// the child has an answer.
-#[derive(serde::Serialize)]
-pub struct ReservedResult {
-    pub file: String,
-    pub path: String,
-}
-
-/// Claim a file in the parent session's scratch for a subagent's answer.
-///
-/// Host-side, not a model tool: the Cowork loop runs in the frontend, where the
-/// scratch is only reachable through this plugin. Claimed at dispatch rather
-/// than written at completion because the `task` tool returns the path
-/// immediately -- the parent is told where the answer will be while the child is
-/// still working. The path is the one spelling both the filesystem tools and the
-/// sandboxed shell resolve, so the parent can `read` it back. An existing name
-/// is suffixed, never overwritten.
-#[tauri::command]
-pub async fn subagent_result_reserve(
-    thread_id: String,
-    id: String,
-) -> Result<ReservedResult, AgentToolsError> {
-    let scratch = workspace::ensure_scratch_dir(&thread_id).await?;
-    let reserved = tokio::task::spawn_blocking(move || {
-        crate::tools::spill::reserve_subagent_result(&scratch, &id).map(|p| ReservedResult {
-            file: p
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .into_owned(),
-            path: p.to_string_lossy().into_owned(),
-        })
-    })
-    .await
-    .map_err(|e| AgentToolsError::from(format!("subagent result reserve failed: {e}")))?;
-    reserved.ok_or_else(|| {
-        AgentToolsError::from("could not claim a file in the session scratch".to_string())
-    })
-}
-
-/// Write a finished subagent's answer into the file that was reserved for it.
-///
-/// Takes the reserved *name*, not a path: it has crossed to the frontend and
-/// back, so it is re-validated and re-resolved under the session's own scratch
-/// rather than trusted (see `spill::fill_named_subagent_result`).
-#[tauri::command]
-pub async fn subagent_result_fill(
-    thread_id: String,
-    file: String,
-    content: String,
-) -> Result<(), AgentToolsError> {
-    let scratch = workspace::ensure_scratch_dir(&thread_id).await?;
-    let filled = tokio::task::spawn_blocking(move || {
-        crate::tools::spill::fill_named_subagent_result(&scratch, &file, &content)
-    })
-    .await
-    .map_err(|e| AgentToolsError::from(format!("subagent result write failed: {e}")))?;
-    if !filled {
-        return Err(AgentToolsError::from(
-            "could not write the reserved result file".to_string(),
-        ));
-    }
-    Ok(())
-}
-
-/// Write a finished subagent's answer to `<scratch>/blackboard/<name>.md`, the
-/// predictable name-keyed coordination file a phased dispatch's next phase (and
-/// sibling agents) read. Reserve + fill in one call: the Cowork scheduler writes
-/// only after the child has finished, so there is nothing to claim ahead of time.
-/// The name is re-validated and re-resolved under the session scratch; a stale
-/// file from an earlier plan is truncated in place. Returns the model-visible
-/// path (`spill::reserve_blackboard_result`).
-#[tauri::command]
-pub async fn blackboard_write(
-    thread_id: String,
-    name: String,
-    content: String,
-) -> Result<String, AgentToolsError> {
-    let scratch = workspace::ensure_scratch_dir(&thread_id).await?;
-    tokio::task::spawn_blocking(move || {
-        let path = crate::tools::spill::reserve_blackboard_result(&scratch, &name)
-            .ok_or_else(|| {
-                AgentToolsError::from("could not claim a blackboard file".to_string())
-            })?;
-        if crate::tools::spill::fill_subagent_result(&path, &content) {
-            Ok(path.to_string_lossy().into_owned())
-        } else {
-            Err(AgentToolsError::from(
-                "could not write the blackboard file".to_string(),
-            ))
-        }
-    })
-    .await
-    .map_err(|e| AgentToolsError::from(format!("blackboard write failed: {e}")))?
-}
-
-/// An attachment imported into a session workspace: host paths, which are also
-/// the model-visible spelling since the workspace is the tools' root.
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ImportedAttachment {
-    pub path: String,
-    pub text_path: Option<String>,
-}
-
-/// Copy a user attachment into the Cowork session workspace, with its extracted
-/// text beside it, so the agent's file tools can reach a file the picker found
-/// outside every root they may read. Host-side rather than a model tool: the
-/// source path is the user's, never the model's to name.
-#[tauri::command]
-pub async fn attachment_import(
-    data_folder: String,
-    session_id: String,
-    source: String,
-    text: Option<String>,
-) -> Result<ImportedAttachment, AgentToolsError> {
-    let data_folder = workspace::host_data_folder(&data_folder);
-    let workspace =
-        workspace::ensure_session_workspace(Path::new(&data_folder), &session_id).await?;
-    let imported = tokio::task::spawn_blocking(move || {
-        crate::tools::attachments::import_attachment(
-            &workspace,
-            Path::new(&source),
-            text.as_deref(),
-        )
-    })
-    .await
-    .map_err(|e| AgentToolsError::from(format!("attachment import failed: {e}")))??;
-    Ok(ImportedAttachment {
-        path: imported.path.to_string_lossy().into_owned(),
-        text_path: imported.text_path.map(|p| p.to_string_lossy().into_owned()),
-    })
-}
-
-/// Live monitors per Cowork session, each with the IPC channel its updates are
-/// forwarded over. Process-wide like `bash`'s background jobs: the Cowork loop
-/// runs in the frontend, so nothing host-side scopes a run. The channel slot is
-/// swappable because a session outlives any one run -- each `start_monitor`
-/// installs the current run's channel, and updates always go to the latest.
-struct SessionMonitors {
-    set: std::sync::Arc<crate::tools::monitor::MonitorSet>,
-    channel: MonitorChannelSlot,
-}
-
-type MonitorChannelSlot = std::sync::Arc<
-    std::sync::Mutex<Option<tauri::ipc::Channel<crate::tools::monitor::MonitorUpdate>>>,
->;
-
-fn session_monitors(
-) -> &'static std::sync::Mutex<std::collections::HashMap<String, SessionMonitors>> {
-    static SETS: std::sync::OnceLock<
-        std::sync::Mutex<std::collections::HashMap<String, SessionMonitors>>,
-    > = std::sync::OnceLock::new();
-    SETS.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()))
-}
-
-/// Start a monitor for a Cowork session; updates stream over `on_update`.
-///
-/// Returns the model-facing result string from `MonitorSet::start`. Like
-/// `bash` on this surface, the polled script runs only under an enforcing OS
-/// sandbox -- there is no one to prompt, so unconfined execution is refused
-/// rather than allowed.
-#[tauri::command]
-#[allow(clippy::too_many_arguments)]
-pub async fn start_monitor(
-    data_folder: String,
-    thread_id: String,
-    args: serde_json::Value,
-    allow_network: Option<bool>,
-    read_only_project: Option<String>,
-    project_writable: Option<bool>,
-    scope: Option<WorkspaceScope>,
-    on_update: tauri::ipc::Channel<crate::tools::monitor::MonitorUpdate>,
-) -> Result<String, AgentToolsError> {
-    let data_folder = workspace::host_data_folder(&data_folder);
-    use crate::tools::monitor;
-    if !jail::backend().enforces() {
-        return Err(AgentToolsError::from(
-            "monitor is unavailable because no OS sandbox could be established on this system"
-                .to_string(),
-        ));
-    }
-    let spec = monitor::parse_start_args(&args).map_err(AgentToolsError::from)?;
-    let sandbox = scope
-        .unwrap_or_default()
-        .ensure(Path::new(&data_folder), &thread_id)
-        .await?;
-    let scratch = workspace::ensure_scratch_dir(&thread_id).await?;
-    let writable = project_writable.unwrap_or(false);
-    let attached = attach_folder(
-        read_only_project.as_deref(),
-        &sandbox,
-        &data_folder,
-        writable,
-    )?;
-    let (root, read_roots, write_roots) = resolve_workspace_root(sandbox, attached, writable);
-    let ctx = monitor::MonitorCtx {
-        project_root: root,
-        scratch_root: Some(scratch),
-        // Desktop chat and Cowork have no filesystem project to key one on.
-        pkg_cache: None,
-        mask_root: Some(PathBuf::from(&data_folder)),
-        hidden_root: workspace::hidden_root(true),
-        read_roots,
-        write_roots,
-        allow_network: allow_network.unwrap_or(false),
-        home_readonly: false,
-        sandbox: true,
-        workspace_readonly: false,
-    };
-    let set = {
-        let mut sets = session_monitors().lock().unwrap();
-        let entry = sets.entry(thread_id).or_insert_with(|| {
-            let slot: MonitorChannelSlot = std::sync::Arc::new(std::sync::Mutex::new(None));
-            let subscriber_slot = slot.clone();
-            SessionMonitors {
-                set: std::sync::Arc::new(monitor::MonitorSet::subscribed(std::sync::Arc::new(
-                    move |update| {
-                        if let Some(channel) = subscriber_slot.lock().unwrap().as_ref() {
-                            let _ = channel.send(update);
-                        }
-                    },
-                ))),
-                channel: slot,
-            }
-        });
-        *entry.channel.lock().unwrap() = Some(on_update);
-        entry.set.clone()
-    };
-    set.start(spec, ctx).map_err(AgentToolsError::from)
-}
-
-/// Stop one monitor. The result string is model-facing, so an unknown id comes
-/// back as an `ERROR:` result rather than a command failure.
-#[tauri::command]
-pub async fn stop_monitor(
-    thread_id: String,
-    monitor_id: String,
-) -> Result<String, AgentToolsError> {
-    let set = session_monitors()
-        .lock()
-        .unwrap()
-        .get(&thread_id)
-        .map(|entry| entry.set.clone());
-    Ok(match set {
-        Some(set) => set.stop(&monitor_id),
-        None => format!("ERROR: unknown or already-stopped monitor '{monitor_id}'"),
-    })
-}
-
-#[tauri::command]
-pub async fn list_monitors(thread_id: String) -> Result<String, AgentToolsError> {
-    let set = session_monitors()
-        .lock()
-        .unwrap()
-        .get(&thread_id)
-        .map(|entry| entry.set.clone());
-    Ok(match set {
-        Some(set) => set.list(),
-        None => "No active monitors.".to_string(),
-    })
-}
-
-/// The ids of a session's still-active monitors, for the UI to reconcile its
-/// rail against. Every monitor is one-shot and retires (match, timeout, or an
-/// explicit stop) after emitting its terminal update, so a monitor Rust no
-/// longer lists has ended; a rail row still marked running for it is stale
-/// (a dropped terminal update) and the UI can settle it.
-#[tauri::command]
-pub async fn session_monitor_ids(thread_id: String) -> Result<Vec<String>, AgentToolsError> {
-    let set = session_monitors()
-        .lock()
-        .unwrap()
-        .get(&thread_id)
-        .map(|entry| entry.set.clone());
-    Ok(set
-        .map(|s| s.snapshot().into_iter().map(|m| m.monitor_id).collect())
-        .unwrap_or_default())
-}
-
-/// Abort every monitor a session still has. Called at run end (and session
-/// teardown), the Cowork counterpart of the run-scoped drop on the CLI.
-#[tauri::command]
-pub async fn stop_session_monitors(thread_id: String) -> Result<(), AgentToolsError> {
-    if let Some(entry) = session_monitors().lock().unwrap().remove(&thread_id) {
-        entry.set.stop_all();
-    }
-    Ok(())
-}
-
 /// Kill every `bash` tree this session started, running or backgrounded. Driven
 /// by the Stop button: aborting the JS run only discards a tool result, so
 /// without this a long or backgrounded shell keeps executing on the host until
@@ -719,52 +365,18 @@ pub async fn cancel_thread_bash(thread_id: String) -> Result<(), AgentToolsError
     Ok(())
 }
 
-/// Validate the folder a surface asked to attach (Cowork's shared folder, chat's
-/// read-only attachment): plural from the outset so attaching a second folder
-/// later is not another signature change. A writable attach must also pass
-/// [`workspace::validate_write_root`].
+/// Validate the folder chat attached read-only. Plural from the outset so
+/// attaching a second folder later is not another signature change.
 fn attach_folder(
     folder: Option<&str>,
     sandbox: &Path,
     data_folder: &Path,
-    writable: bool,
 ) -> Result<Vec<PathBuf>, AgentToolsError> {
     let Some(folder) = folder else {
         return Ok(Vec::new());
     };
     let root = workspace::validate_read_root(Path::new(folder), sandbox, Some(data_folder))?;
-    if writable {
-        workspace::validate_write_root(&root, workspace::user_home().as_deref(), data_folder)?;
-    }
     Ok(vec![root])
-}
-
-/// Pick the workspace root a tool call resolves relative paths against, plus the
-/// side roots it may read and write.
-///
-/// A writable attached folder (Cowork's shared folder) is the workspace root
-/// itself, not merely a reachable side root: relative paths resolve against the
-/// root, so with the ephemeral sandbox as the root a bare `deck.html` lands in
-/// the Jan data folder instead of the directory the user selected (#8882).
-///
-/// Promoting the folder changes only where an unqualified path resolves, never
-/// what is reachable: the sandbox stays a read+write side root, so the agent's
-/// own scratch and the user attachments Cowork stages there
-/// (`attachment_import`) remain readable and writable by their absolute path.
-/// The set of writable locations -- folder, sandbox, scratch -- is exactly what
-/// it was before, with the folder as the base rather than the sandbox.
-///
-/// A read-only attach (chat) or no attach keeps the sandbox as the root, with
-/// the attached folder as a read-only side root.
-fn resolve_workspace_root(
-    sandbox: PathBuf,
-    attached: Vec<PathBuf>,
-    writable: bool,
-) -> (PathBuf, Vec<PathBuf>, Vec<PathBuf>) {
-    match (writable, attached.first()) {
-        (true, Some(folder)) => (folder.clone(), vec![sandbox.clone()], vec![sandbox]),
-        _ => (sandbox, attached, Vec::new()),
-    }
 }
 
 /// Execute one built-in tool.
@@ -788,8 +400,6 @@ pub async fn execute_tool<R: tauri::Runtime>(
     enabled_skills: Option<Vec<String>>,
     allow_network: Option<bool>,
     read_only_project: Option<String>,
-    project_writable: Option<bool>,
-    scope: Option<WorkspaceScope>,
     call_id: Option<String>,
 ) -> Result<ToolResult, AgentToolsError> {
     execute_tool_inner(
@@ -802,8 +412,6 @@ pub async fn execute_tool<R: tauri::Runtime>(
         enabled_skills,
         allow_network,
         read_only_project,
-        project_writable,
-        scope,
         call_id,
         None,
     )
@@ -849,8 +457,6 @@ pub async fn execute_tool_streaming<R: tauri::Runtime>(
     enabled_skills: Option<Vec<String>>,
     allow_network: Option<bool>,
     read_only_project: Option<String>,
-    project_writable: Option<bool>,
-    scope: Option<WorkspaceScope>,
     call_id: Option<String>,
     on_output: tauri::ipc::Channel<ToolOutputChunk>,
 ) -> Result<ToolResult, AgentToolsError> {
@@ -865,8 +471,6 @@ pub async fn execute_tool_streaming<R: tauri::Runtime>(
         enabled_skills,
         allow_network,
         read_only_project,
-        project_writable,
-        scope,
         call_id,
         Some(sink),
     )
@@ -884,8 +488,6 @@ async fn execute_tool_inner(
     enabled_skills: Option<Vec<String>>,
     allow_network: Option<bool>,
     read_only_project: Option<String>,
-    project_writable: Option<bool>,
-    scope: Option<WorkspaceScope>,
     call_id: Option<String>,
     sink: Option<crate::tools::OutputSink>,
 ) -> Result<ToolResult, AgentToolsError> {
@@ -894,10 +496,7 @@ async fn execute_tool_inner(
     // the sandbox root and treats a missing one as an escape, so every tool call
     // would be refused if the thread's first tool call arrived before any UI
     // surface had ensured it.
-    let sandbox = scope
-        .unwrap_or_default()
-        .ensure(Path::new(&data_folder), &thread_id)
-        .await?;
+    let sandbox = workspace::ensure_thread_workspace(Path::new(&data_folder), &thread_id).await?;
     let scratch = workspace::ensure_scratch_dir(&thread_id).await?;
     // Base store for memory and skill *writes*: always the permanent store,
     // independent of `project`. `project` only overlays its co-located skills on
@@ -913,14 +512,8 @@ async fn execute_tool_inner(
         .map(PathBuf::from);
     let skill_project: Option<PathBuf> =
         project_dir.as_deref().map(workspace::project_store);
-    let writable = project_writable.unwrap_or(false);
-    let attached = attach_folder(
-        read_only_project.as_deref(),
-        &sandbox,
-        &data_folder,
-        writable,
-    )?;
-    let (root, read_roots, write_roots) = resolve_workspace_root(sandbox, attached, writable);
+    let read_roots = attach_folder(read_only_project.as_deref(), &sandbox, &data_folder)?;
+    let root = sandbox;
     let tool = lookup(&name)
         .ok_or_else(|| AgentToolsError::from(format!("unknown built-in tool '{name}'")))?;
     // The desktop always sandboxes, and an attached project folder can be the
@@ -934,7 +527,7 @@ async fn execute_tool_inner(
             project_root: &root,
             scratch: Some(&scratch),
             read_roots: &read_roots,
-            write_roots: &write_roots,
+            write_roots: &[],
             hidden_root: hidden.as_deref(),
         },
         &ToolPermissions::default(),
@@ -970,12 +563,6 @@ async fn execute_tool_inner(
         // refusing here while `bash` may already write the same files would be a
         // control a sibling tool bypasses.
         //
-        // With `project_writable` the attached folder is in range too. That is
-        // the surface's own opt-in (Cowork's shared folder): the user attached
-        // the folder to be worked on, its UI shows every change as a diff, and
-        // `bash` under the jail can already write there -- so a prompt here
-        // would again be a control a sibling tool bypasses.
-        //
         // A write that *escapes* the sandbox (absolute or `..`) is different:
         // it can reach host files (rc files, ssh keys, LaunchAgents, the store)
         // that the ephemeral-root reasoning does not cover. It is gated as
@@ -985,26 +572,20 @@ async fn execute_tool_inner(
         // The message matters as much as the refusal: told only "refused", a
         // model retries the same write until the step budget runs out.
         Decision::Prompt(PromptKind::WriteEscape) => {
-            // Branch on `write_roots`, not `read_roots`: a writable attach keeps
-            // the sandbox in `read_roots`, so keying the read-only advice off
-            // `read_roots.first()` would misname the sandbox as an unwritable
-            // user folder.
             return Err(match read_roots.first() {
-                // Chat's read-only attach: the folder is a readable side root but
-                // never the write target, so point the model back at the
-                // workspace rather than the folder.
-                Some(attached) if write_roots.is_empty() => format!(
+                // The attached folder is a readable side root but never the
+                // write target, so point the model back at the workspace rather
+                // than the folder.
+                Some(attached) => format!(
                     "tool '{name}' cannot write outside the agent workspace {}. The attached \
                      folder {} is mounted read-only; copy the file into the workspace and \
                      edit it there.",
                     root.display(),
                     attached.display()
                 ),
-                // A writable attach makes the folder the workspace root (#8882),
-                // and a run with no attach has only the sandbox: either way the
-                // workspace is the one writable place, so naming it tells the
-                // model exactly where its writes must land.
-                _ => format!(
+                // No attach: the workspace is the one writable place, so naming
+                // it tells the model exactly where its writes must land.
+                None => format!(
                     "tool '{name}' cannot write outside the agent workspace {} and was refused.",
                     root.display()
                 ),
@@ -1035,9 +616,8 @@ async fn execute_tool_inner(
     // snapshot to carry. Without this the desktop would be the one surface a
     // user's `[[hooks]]` silently did not reach.
     //
-    // `project` is the attached folder Cowork passes, which is the only project
-    // this surface knows about; chat has none and gets the user's global hooks
-    // alone.
+    // Chat has no project, so `project` is normally unset and the call gets the
+    // user's global hooks alone.
     let hooks = crate::tools::hooks::resolve_for(project_dir.as_deref());
     let mut ctx = ToolContext::new(&root, &store, &enabled)
         .with_hooks(&hooks, false, None)
@@ -1046,7 +626,6 @@ async fn execute_tool_inner(
         .with_mask_root(Path::new(&data_folder))
         .with_scratch_root(&scratch)
         .with_read_roots(&read_roots)
-        .with_write_roots(&write_roots)
         .with_hidden_root(hidden.as_deref())
         .with_thread_id(Some(&thread_id))
         .with_screenshot_backend(screenshot_backend);
@@ -1068,79 +647,6 @@ async fn execute_tool_inner(
         is_error,
         images: images.unwrap_or_default(),
     })
-}
-
-/// Let the `preview://` scheme serve files under `root`, with `allow_network`
-/// as the page policy. Re-registering the same root replaces the flag. Refused
-/// on Windows; see [`PreviewRoots::register_unsandboxed`].
-#[tauri::command]
-pub fn preview_register_root(
-    roots: tauri::State<'_, PreviewRoots>,
-    root: String,
-    allow_network: bool,
-) -> Result<(), AgentToolsError> {
-    roots.register_unsandboxed(Path::new(&root), allow_network)?;
-    Ok(())
-}
-
-#[tauri::command]
-pub fn preview_unregister_root(roots: tauri::State<'_, PreviewRoots>, root: String) {
-    roots.unregister(Path::new(&root));
-}
-
-/// Cowork's "Open": hand an agent-written file to its OS default app, once
-/// [`artifact::checked_artifact`] has checked the file itself, not just its
-/// name, against the session's folders in `roots`. A refusal is an error the
-/// frontend answers by revealing the file instead.
-#[tauri::command]
-pub async fn open_artifact<R: tauri::Runtime>(
-    app: tauri::AppHandle<R>,
-    data_folder: String,
-    roots: Vec<String>,
-    path: String,
-) -> Result<(), AgentToolsError> {
-    use tauri_plugin_opener::OpenerExt;
-    let data_folder = workspace::host_data_folder(&data_folder);
-    let roots = artifact::open_roots(&data_folder, &roots);
-    let file = artifact::checked_artifact(Path::new(&path), &roots)?;
-    // The canonical path, so what opens is what was checked; without the
-    // `\\?\` prefix `canonicalize` adds on Windows, which not every handler accepts.
-    let file = crate::tools::proc::without_verbatim_prefix(&file);
-    app.opener()
-        .open_path(file.to_string_lossy(), None::<&str>)
-        .map_err(|e| AgentToolsError::from(e.to_string()))
-}
-
-/// One `preview://` request. Anything not resolvable to a file under a
-/// registered root is a 404 with no detail: the requester is model markup.
-pub fn preview_response<R: tauri::Runtime>(
-    app: &tauri::AppHandle<R>,
-    request_path: &str,
-) -> tauri::http::Response<Vec<u8>> {
-    use tauri::http::{header, Response, StatusCode};
-    use tauri::Manager;
-    let not_found = || {
-        Response::builder()
-            .status(StatusCode::NOT_FOUND)
-            .body(Vec::new())
-            .expect("static response")
-    };
-    let Some(served) = app.state::<PreviewRoots>().resolve(request_path) else {
-        return not_found();
-    };
-    let Ok(body) = std::fs::read(&served.path) else {
-        return not_found();
-    };
-    Response::builder()
-        .status(StatusCode::OK)
-        .header(header::CONTENT_TYPE, preview::mime_for(&served.path))
-        .header(
-            header::CONTENT_SECURITY_POLICY,
-            preview::csp(served.allow_network),
-        )
-        .header(header::CACHE_CONTROL, "no-store")
-        .body(body)
-        .unwrap_or_else(|_| not_found())
 }
 
 /// Build the live-output sink.
@@ -1230,8 +736,6 @@ mod tests {
         enabled_skills: Option<Vec<String>>,
         allow_network: Option<bool>,
         read_only_project: Option<String>,
-        project_writable: Option<bool>,
-        scope: Option<WorkspaceScope>,
         call_id: Option<String>,
     ) -> Result<ToolResult, AgentToolsError> {
         execute_tool_inner(
@@ -1244,8 +748,6 @@ mod tests {
             enabled_skills,
             allow_network,
             read_only_project,
-            project_writable,
-            scope,
             call_id,
             None,
         )
@@ -1262,7 +764,6 @@ mod tests {
     const T_ATTACH_RW: &str = "thread-attach-rw";
     const T_ATTACH_NONE: &str = "thread-attach-none";
     const T_ATTACH_OVERLAP: &str = "thread-attach-overlap";
-    const T_ATTACH_WRITABLE: &str = "thread-attach-writable";
     const T2: &str = "thread-two";
 
     #[test]
@@ -1314,8 +815,6 @@ mod tests {
             None,
             None,
             None,
-            None,
-            None,
         )
         .await
         .expect("a write inside the sandbox is allowed");
@@ -1344,8 +843,6 @@ mod tests {
             None,
             "edit".into(),
             json!({"path": "a.txt", "edits": [{"old_string": "before", "new_string": "after"}]}),
-            None,
-            None,
             None,
             None,
             None,
@@ -1384,8 +881,6 @@ mod tests {
             None,
             None,
             None,
-            None,
-            None,
         )
         .await
         .expect_err("an escaping read must be refused");
@@ -1413,8 +908,6 @@ mod tests {
                 None,
                 "write".into(),
                 json!({"path": path, "content": "x"}),
-                None,
-                None,
                 None,
                 None,
                 None,
@@ -1449,8 +942,6 @@ mod tests {
             None,
             None,
             None,
-            None,
-            None,
         )
         .await
         .expect("a scratch write is the session scratch and must succeed");
@@ -1468,8 +959,6 @@ mod tests {
             None,
             "write".into(),
             json!({"path": "ok.txt", "content": "x"}),
-            None,
-            None,
             None,
             None,
             None,
@@ -1510,8 +999,6 @@ mod tests {
             None,
             "shell".into(),
             json!({"command": "echo hi"}),
-            None,
-            None,
             None,
             None,
             None,
@@ -1601,8 +1088,6 @@ mod tests {
             None,
             None,
             None,
-            None,
-            None,
         )
         .await
         .unwrap();
@@ -1634,8 +1119,6 @@ mod tests {
             None,
             None,
             None,
-            None,
-            None,
         )
         .await
         .unwrap();
@@ -1657,8 +1140,6 @@ mod tests {
             None,
             "read".to_string(),
             json!({"path": "a.txt"}),
-            None,
-            None,
             None,
             None,
             None,
@@ -1699,8 +1180,6 @@ mod tests {
             None,
             None,
             None,
-            None,
-            None,
         )
         .await
         .expect_err("a relative climb-out to a sibling thread must be refused");
@@ -1722,8 +1201,6 @@ mod tests {
             None,
             "read".into(),
             json!({"path": requested}),
-            None,
-            None,
             None,
             None,
             None,
@@ -1758,8 +1235,6 @@ mod tests {
             None,
             None,
             None,
-            None,
-            None,
         )
         .await
         .unwrap();
@@ -1776,8 +1251,6 @@ mod tests {
             None,
             "memory".into(),
             json!({"op": "view", "name": "prefs"}),
-            None,
-            None,
             None,
             None,
             None,
@@ -1808,8 +1281,6 @@ mod tests {
             None,
             "read".into(),
             json!({"path": "../../memory/prefs.md"}),
-            None,
-            None,
             None,
             None,
             None,
@@ -1868,8 +1339,6 @@ mod tests {
                     None,
                     None,
                     None,
-                    None,
-                    None,
                     None
                 )
                 .await
@@ -1890,8 +1359,6 @@ mod tests {
             None,
             "rm_rf".to_string(),
             json!({}),
-            None,
-            None,
             None,
             None,
             None,
@@ -1976,8 +1443,6 @@ mod tests {
             None,
             None,
             None,
-            None,
-            None,
         )
         .await
         .unwrap();
@@ -1991,8 +1456,6 @@ mod tests {
             None,
             "skill_read".into(),
             json!({"name": "deploy"}),
-            None,
-            None,
             None,
             None,
             None,
@@ -2037,8 +1500,6 @@ mod tests {
             None,
             None,
             None,
-            None,
-            None,
         )
         .await
         .unwrap();
@@ -2054,8 +1515,6 @@ mod tests {
             Some(project.clone()),
             "skill_read".into(),
             json!({"name": "folder_skill"}),
-            None,
-            None,
             None,
             None,
             None,
@@ -2090,8 +1549,6 @@ mod tests {
             None,
             attached.clone(),
             None,
-            None,
-            None,
         )
         .await
         .unwrap();
@@ -2108,8 +1565,6 @@ mod tests {
             None,
             attached,
             None,
-            None,
-            None,
         )
         .await;
         let err = write.expect_err("a write into the attached folder must be refused");
@@ -2119,210 +1574,6 @@ mod tests {
         assert!(msg.contains("read-only"), "{msg}");
         assert!(msg.contains("copy the file into the workspace"), "{msg}");
         assert!(!repo.join("evil.txt").exists(), "nothing was written");
-
-        let _ = std::fs::remove_dir_all(&data);
-        let _ = std::fs::remove_dir_all(&repo);
-    }
-
-    /// The Cowork opt-in: with `project_writable` the same attached folder
-    /// takes writes and edits in place, and only paths outside both roots stay
-    /// refused.
-    #[tokio::test]
-    async fn a_writable_attachment_takes_writes_in_place() {
-        let data = unique_data_folder();
-        let df = data.to_string_lossy().to_string();
-        let repo = repo_outside_tmp("rw_writable");
-        std::fs::write(repo.join("main.rs"), b"fn main() {}").unwrap();
-        let attached = Some(repo.to_string_lossy().to_string());
-
-        let write = execute_tool(
-            df.clone(),
-            T_ATTACH_WRITABLE.into(),
-            None,
-            "write".into(),
-            json!({"path": repo.join("notes.md").to_string_lossy(), "content": "hi"}),
-            None,
-            None,
-            attached.clone(),
-            Some(true),
-            None,
-            None,
-        )
-        .await
-        .expect("a write into a writable attachment is allowed");
-        assert!(!write.is_error, "{}", write.content);
-        assert_eq!(
-            std::fs::read_to_string(repo.join("notes.md")).ok(),
-            Some("hi".to_string())
-        );
-
-        let edit = execute_tool(
-            df.clone(),
-            T_ATTACH_WRITABLE.into(),
-            None,
-            "edit".into(),
-            json!({
-                "path": repo.join("main.rs").to_string_lossy(),
-                "edits": [{"old_string": "fn main() {}", "new_string": "fn main() { run() }"}]
-            }),
-            None,
-            None,
-            attached.clone(),
-            Some(true),
-            None,
-            None,
-        )
-        .await
-        .expect("an edit inside a writable attachment is allowed");
-        assert!(!edit.is_error, "{}", edit.content);
-
-        // Outside the workspace is still refused. The folder is the workspace
-        // root now, so the message names it and does not give the read-only
-        // copy-it advice that would be wrong for a writable attach.
-        let outside = repo_outside_tmp("rw_writable_outside");
-        let err = execute_tool(
-            df.clone(),
-            T_ATTACH_WRITABLE.into(),
-            None,
-            "write".into(),
-            json!({"path": outside.join("evil.txt").to_string_lossy(), "content": "x"}),
-            None,
-            None,
-            attached,
-            Some(true),
-            None,
-            None,
-        )
-        .await
-        .expect_err("a write outside both roots is refused");
-        let msg = format!("{err:?}");
-        assert!(msg.contains("outside the agent workspace"), "{msg}");
-        assert!(!msg.contains("read-only"), "{msg}");
-        assert!(!outside.join("evil.txt").exists());
-
-        let _ = std::fs::remove_dir_all(&data);
-        let _ = std::fs::remove_dir_all(&repo);
-        let _ = std::fs::remove_dir_all(&outside);
-    }
-
-    /// #8882: a writable attached folder is the workspace root, so a *relative*
-    /// path resolves into the directory the user selected -- not the ephemeral
-    /// sandbox under the Jan data folder.
-    #[tokio::test]
-    async fn a_writable_attachment_is_the_root_for_relative_paths() {
-        let data = unique_data_folder();
-        let df = data.to_string_lossy().to_string();
-        let repo = repo_outside_tmp("rw_root_relative");
-        let attached = Some(repo.to_string_lossy().to_string());
-
-        let write = execute_tool(
-            df.clone(),
-            "thread-rw-root-relative".into(),
-            None,
-            "write".into(),
-            json!({"path": "deck.html", "content": "<h1>hi</h1>"}),
-            None,
-            None,
-            attached,
-            Some(true),
-            Some(WorkspaceScope::Session),
-            None,
-        )
-        .await
-        .expect("a relative write with a writable attachment is allowed");
-        assert!(!write.is_error, "{}", write.content);
-        assert_eq!(
-            std::fs::read_to_string(repo.join("deck.html")).ok(),
-            Some("<h1>hi</h1>".to_string()),
-            "the bare path resolved into the attached folder, not the sandbox"
-        );
-
-        let _ = std::fs::remove_dir_all(&data);
-        let _ = std::fs::remove_dir_all(&repo);
-    }
-
-    /// The promotion does not widen the write surface: a `..` escape out of the
-    /// attached-folder root is still refused.
-    #[tokio::test]
-    async fn a_writable_attachment_root_still_refuses_an_escape() {
-        let data = unique_data_folder();
-        let df = data.to_string_lossy().to_string();
-        let repo = repo_outside_tmp("rw_root_escape");
-        let attached = Some(repo.to_string_lossy().to_string());
-
-        let err = execute_tool(
-            df.clone(),
-            "thread-rw-root-escape".into(),
-            None,
-            "write".into(),
-            json!({"path": "../escape.txt", "content": "x"}),
-            None,
-            None,
-            attached,
-            Some(true),
-            Some(WorkspaceScope::Session),
-            None,
-        )
-        .await
-        .expect_err("a write escaping the attached-folder root is refused");
-        assert!(!repo.parent().unwrap().join("escape.txt").exists());
-        let _ = format!("{err:?}");
-
-        let _ = std::fs::remove_dir_all(&data);
-        let _ = std::fs::remove_dir_all(&repo);
-    }
-
-    /// Promoting the folder keeps the sandbox reachable by absolute path: the
-    /// user attachments Cowork stages into the session workspace
-    /// (`attachment_import`) and the agent's own scratch must stay readable and
-    /// writable after the folder becomes the root (#8882).
-    #[tokio::test]
-    async fn a_writable_attachment_keeps_the_sandbox_reachable() {
-        let data = unique_data_folder();
-        let df = data.to_string_lossy().to_string();
-        let repo = repo_outside_tmp("rw_root_sandbox");
-        let attached = Some(repo.to_string_lossy().to_string());
-        let session = "thread-rw-root-sandbox";
-
-        let sandbox = workspace::ensure_session_workspace(&data, session)
-            .await
-            .unwrap();
-        let staged = sandbox.join("attachment.txt").to_string_lossy().into_owned();
-
-        let write = execute_tool(
-            df.clone(),
-            session.into(),
-            None,
-            "write".into(),
-            json!({"path": staged, "content": "doc"}),
-            None,
-            None,
-            attached.clone(),
-            Some(true),
-            Some(WorkspaceScope::Session),
-            None,
-        )
-        .await
-        .expect("a write into the sandbox is allowed with a folder attached");
-        assert!(!write.is_error, "{}", write.content);
-
-        let read = execute_tool(
-            df.clone(),
-            session.into(),
-            None,
-            "read".into(),
-            json!({"path": staged}),
-            None,
-            None,
-            attached,
-            Some(true),
-            Some(WorkspaceScope::Session),
-            None,
-        )
-        .await
-        .expect("reading the staged attachment back is allowed");
-        assert!(!read.is_error, "{}", read.content);
-        assert!(read.content.contains("doc"), "{}", read.content);
 
         let _ = std::fs::remove_dir_all(&data);
         let _ = std::fs::remove_dir_all(&repo);
@@ -2343,8 +1594,6 @@ mod tests {
             None,
             "read".into(),
             json!({"path": repo.join("main.rs").to_string_lossy()}),
-            None,
-            None,
             None,
             None,
             None,
@@ -2378,8 +1627,6 @@ mod tests {
             None,
             None,
             Some(inside.to_string_lossy().to_string()),
-            None,
-            None,
             None,
         )
         .await;

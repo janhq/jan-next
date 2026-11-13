@@ -516,25 +516,6 @@ describe('coalesceMessagesForAlternation', () => {
     ])
   })
 
-  it('carries a Cowork ping turn forward into the next user message', () => {
-    const ping = {
-      type: 'text',
-      text: '<SYSTEM>\nsubagent a1 finished\n</SYSTEM>',
-    }
-    const input: UIMessage[] = [
-      userMsg('u1', 'start'),
-      assistantMsg('a1', [{ type: 'text', text: 'ok' }] as UIMessage['parts']),
-      { id: 'ping-2', role: 'user', parts: [ping] } as UIMessage,
-      userMsg('u2', 'what did it find?'),
-    ]
-    const out = coalesceMessagesForAlternation(input)
-    expect(out.map((m) => m.id)).toEqual(['u1', 'a1', 'u2'])
-    expect(out[2].parts).toEqual([
-      ping,
-      { type: 'text', text: 'what did it find?' },
-    ])
-  })
-
   it('keeps assistant messages with real content', () => {
     const input = [
       userMsg('u1', 'q'),

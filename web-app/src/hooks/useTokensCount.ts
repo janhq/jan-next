@@ -30,27 +30,6 @@ export interface UsageMeta {
   totalTokens?: number
 }
 
-/**
- * Usage for a surface that keeps no `ThreadMessage`s.
- *
- * Cowork stores its transcript as its own turns, so there is nothing to scan
- * for `metadata.usage`. It reports the same two facts directly rather than
- * synthesising thread messages to carry them.
- */
-export interface TokenUsageSource {
-  threadId?: string
-  usage?: UsageMeta
-  /**
-   * Whether the model is loading for this surface's own thread.
-   *
-   * A surface that keeps its load state outside `useAppState` reports it here:
-   * Cowork mirrors loads in `useCoworkRun` under the session id, so the
-   * thread-keyed slots the hook reads on its own never see them. Without it the
-   * launched context window is never refetched for a Cowork session.
-   */
-  loadingModel?: boolean
-}
-
 // The token-usage popup normally reflects the last *successful* turn. When a
 // request overflows, that turn is never recorded, so the popup would keep
 // showing a comfortable percentage next to an "out of context" error. Parse
@@ -85,8 +64,7 @@ const readSettingNumber = (v: unknown): number | undefined => {
 }
 
 export const useTokensCount = (
-  messages: ThreadMessage[] = [],
-  source?: TokenUsageSource
+  messages: ThreadMessage[] = []
 ) => {
   const { selectedModel, selectedProvider, getProviderByName } =
     useModelProvider()
@@ -100,7 +78,7 @@ export const useTokensCount = (
     selectedProvider === 'llamacpp'
   const modelId = isLocalProvider ? selectedModel?.id : undefined
 
-  const threadId = source?.threadId ?? messages[0]?.thread_id
+  const threadId = messages[0]?.thread_id
   // Populated per-chunk while a llama.cpp turn is streaming (timings_per_token);
   // cleared on stream start/finish/error, so its presence means "live now".
   const liveStats = useAppState((s) =>
@@ -110,21 +88,17 @@ export const useTokensCount = (
   // normally doesn't happen until the first turn is sent. Refetch as soon as that
   // load finishes so the counter can appear mid-turn instead of waiting for the
   // full response (and the resulting messages.length bump) to land.
-  //
-  // Cowork mirrors its load state onto `useCoworkRun` under the session id, so
-  // these thread-keyed slots never see it; such a surface reports its own mirror
-  // through `source.loadingModel`.
   const appLoadingModel = useAppState((s) =>
     threadId ? s.loadingModels[threadId] : s.loadingModel
   )
-  const loadingModel = source?.loadingModel || appLoadingModel
+  const loadingModel = appLoadingModel
   // The window the meter divides by is the one the engine actually launched,
   // and it moves without a model switch: "Increase context" recovery, the model
   // settings form, or a re-fit. A local settings write publishes the new value
   // only after the router has reloaded with it (`updateModelSettings` awaits
   // `refreshEnginePreset`), so depending on it here refetches the launched window
-  // in the same tick the UI learns of the edit. Chat also refetched on its next
-  // message; Cowork has no message-length trigger at all.
+  // in the same tick the UI learns of the edit. Chat also refetches on its next
+  // message.
   const configuredCtxLen = readSettingNumber(
     selectedModel?.settings?.ctx_len?.controller_props?.value
   )
@@ -174,7 +148,7 @@ export const useTokensCount = (
           fitEnabled: false,
         }
       }
-      const usage = source?.usage ?? getLatestServerUsage(messages)
+      const usage = getLatestServerUsage(messages)
       return {
         tokenCount: usage.totalTokens ?? 0,
         inputTokens: usage.inputTokens,
@@ -200,7 +174,7 @@ export const useTokensCount = (
           outputTokens: liveStats.completionTokens,
           totalTokens: liveStats.promptTokens + liveStats.completionTokens,
         }
-      : (source?.usage ?? getLatestServerUsage(messages))
+      : (getLatestServerUsage(messages))
     const tokenCount = overflow?.requestTokens ?? usage.totalTokens ?? 0
     const maxTokens = overflow?.contextTokens ?? modelProps?.nCtx
     const percentage = maxTokens ? (tokenCount / maxTokens) * 100 : undefined
@@ -235,7 +209,6 @@ export const useTokensCount = (
     }
   }, [
     messages,
-    source,
     modelId,
     selectedProvider,
     isLocalProvider,

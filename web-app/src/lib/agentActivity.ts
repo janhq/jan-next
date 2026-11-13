@@ -1,4 +1,3 @@
-import type { CoworkTurn } from '@/types/coworkSession'
 import { isRecordedShellCall } from '@/lib/agentTools'
 
 const MAX_COMMAND_LEN = 60
@@ -95,21 +94,4 @@ export function usedSkillNames(parts: ToolPartLike[]): string[] {
     if (name) names.add(name)
   }
   return [...names]
-}
-
-/**
- * Whether a running agent is waiting on the model with nothing to show for it.
- *
- * True in the two gaps an agent loop leaves: before the first token, and again
- * after each tool result. Streaming text and a running tool already report
- * themselves, so a generic "Working…" beside them is noise.
- */
-export function awaitsModel(running: boolean, turns: CoworkTurn[]): boolean {
-  if (!running) return false
-  const last = turns.at(-1)
-  if (!last) return true
-  // A question or a note the run just folded in: both are followed by a model
-  // call, with nothing on screen until it answers.
-  if (last.role === 'user' || last.role === 'system') return true
-  return last.role === 'tool' && last.status === 'done'
 }

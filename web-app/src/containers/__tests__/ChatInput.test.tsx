@@ -654,39 +654,6 @@ describe('ChatInput', () => {
     })
   })
 
-  // Cowork is not keyed by thread: it passes its session id as scopeKey, and
-  // the preview panel writes annotation images under that same id. Reading the
-  // thread key here silently dropped every annotation.
-  it('reads attachments under scopeKey and shows them in the input', () => {
-    attachmentsByKey['code-session-1'] = [
-      {
-        type: 'image',
-        name: 'annotation.png',
-        dataUrl: 'data:image/png;base64,annotated',
-        mimeType: 'image/png',
-      },
-    ]
-    renderInput({ scopeKey: 'code-session-1' })
-    expect(readKeys).toContain('code-session-1')
-    const thumb = document.querySelector(
-      'img[src="data:image/png;base64,annotated"]'
-    )
-    expect(thumb).toBeTruthy()
-  })
-
-  it('falls back to the thread key when no scopeKey is given', () => {
-    renderInput()
-    expect(readKeys.length).toBeGreaterThan(0)
-    expect(readKeys).not.toContain('code-session-1')
-  })
-
-  // A scopeKey caller owns a stable id from the start; migrating the general
-  // chat's "new thread" draft into it would steal another surface's files.
-  it('does not migrate the new-thread draft into a scopeKey surface', () => {
-    renderInput({ scopeKey: 'code-session-1' })
-    expect(transferAttachmentsMock).not.toHaveBeenCalled()
-  })
-
   describe('tool controls', () => {
     const icons = (cls: string) =>
       document.querySelectorAll(`.tabler-icon-${cls}`).length
@@ -696,31 +663,6 @@ describe('ChatInput', () => {
     it('no longer offers the agent-tools toggle', () => {
       renderInput()
       expect(icons('folder-code')).toBe(0)
-    })
-
-    it('withholds MCP controls from a surface that owns its tool set', () => {
-      renderInput({ ownsToolSet: false })
-      // The composer still works: the textarea and attachments stay.
-      expect(getTextarea()).toBeInTheDocument()
-    })
-  })
-
-  describe('surfaceControls', () => {
-    it('docks a surface\'s own controls in the control row', () => {
-      renderInput({ surfaceControls: <button>plan</button> })
-      expect(screen.getByText('plan')).toBeInTheDocument()
-    })
-
-    // They configure the next message, not the run in flight, so streaming
-    // must not disable them the way it dims the tool icons.
-    it('keeps them live while streaming', () => {
-      renderInput({
-        surfaceControls: <button>plan</button>,
-        chatStatus: 'streaming',
-      })
-      const dimmed = document.querySelector('.pointer-events-none')
-      expect(dimmed).toBeTruthy()
-      expect(dimmed!.contains(screen.getByText('plan'))).toBe(false)
     })
   })
 

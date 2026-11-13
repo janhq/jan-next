@@ -15,12 +15,9 @@ import { useLatestJanModel } from '@/hooks/useLatestJanModel'
 import { useJanModelPromptDismissed } from '@/hooks/useJanModelPrompt'
 import { useDefaultEmbeddingModel } from '@/hooks/useDefaultEmbeddingModel'
 import { useAgentMode } from '@/hooks/useAgentMode'
-import { useCoworkSessions } from '@/hooks/useCoworkSessions'
-import { useCoworkConfig } from '@/hooks/useCoworkConfig'
 import { useChatShell } from '@/hooks/useChatShell'
 import { useCoTDuration } from '@/hooks/useCoTDuration'
 import { useImageAttachmentConfig } from '@/hooks/useImageAttachmentConfig'
-import { grantCoworkFolders } from '@/lib/assetScope'
 
 /**
  * Stores persisted through `backendStorage` set `skipHydration: true` so they
@@ -49,8 +46,6 @@ const secondaryStores = [
   useJanModelPromptDismissed,
   useDefaultEmbeddingModel,
   useAgentMode,
-  useCoworkSessions,
-  useCoworkConfig,
   useChatShell,
   useCoTDuration,
   useImageAttachmentConfig,
@@ -61,6 +56,4 @@ export async function hydrateBackendStores(): Promise<void> {
   await Promise.all(
     secondaryStores.map((store) => Promise.resolve(store.persist.rehydrate()))
   )
-  // After rehydration, so the folders persisted by earlier sessions are seen.
-  grantCoworkFolders()
 }

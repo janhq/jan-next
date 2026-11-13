@@ -39,9 +39,7 @@ function buildCsp(allowNetwork: boolean, allowScripts: boolean): string {
 
 /**
  * Wrap model markup in the sandbox shell (CSP + inspector) used for every
- * artifact preview. Lives here rather than beside the component so the Cowork
- * preview panel can render a bare, panel-filling iframe with identical
- * sandboxing instead of nesting that component's card-and-tabs chrome.
+ * artifact preview.
  */
 export function buildSrcDoc(
   code: string,

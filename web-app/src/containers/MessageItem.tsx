@@ -6,9 +6,6 @@ import { cn } from '@/lib/utils'
 import { usedSkillNames } from '@/lib/agentActivity'
 
 import { ChainOfThoughtGroup } from './message/ChainOfThoughtGroup'
-import { AskSummaryCard } from './message/AskSummaryCard'
-import { summarizeAsk } from '@/lib/coworkAsk'
-import { ASK_TOOL_NAME } from '@/lib/coworkTools'
 import { extensionAuthorOf } from '@/lib/extensions/authorship'
 import { withRemoteImages } from '@/lib/extensions/remoteImages'
 import { isExtensionToolName } from '@/lib/extensions/tools'
@@ -37,9 +34,7 @@ import {
   IconCopy,
   IconChevronLeft,
   IconChevronRight,
-  IconBellRinging,
 } from '@tabler/icons-react'
-import { PING_OPEN, PING_CLOSE } from '@/lib/coworkPing'
 import { EditMessageDialog } from '@/containers/dialogs/EditMessageDialog'
 import { DeleteMessageDialog } from '@/containers/dialogs/DeleteMessageDialog'
 import TokenSpeedIndicator from '@/containers/TokenSpeedIndicator'
@@ -570,18 +565,6 @@ export const MessageItem = memo(
       for (let i = 0; i < parts.length; i++) {
         const part = parts[i]
         const t = part.type
-        // A settled ask leaves the trace as a Q&A card, so the answers stay in
-        // view instead of being folded into "Worked for…".
-        if (t === `tool-${ASK_TOOL_NAME}` && part.state === 'output-available') {
-          const rows = summarizeAsk(part.input, part.output)
-          if (rows) {
-            flushCot(true)
-            elements.push(
-              <AskSummaryCard key={`${message.id}-ask-${i}`} rows={rows} />
-            )
-            continue
-          }
-        }
         if (isCotPart(t)) {
           cotEntries.push({ part, index: i })
           continue
@@ -640,25 +623,6 @@ export const MessageItem = memo(
           </button>
         </div>
       ) : null
-
-    // A note the run folded into the conversation, not something either party
-    // said: no actions, no trace, no timestamp. It is on screen because it is
-    // what the next turn is replying to -- a turn that reacts to a subagent
-    // finishing reads as a non sequitur without it.
-    if (message.role === 'system') {
-      const note = getFullTextContent()
-        .split(PING_OPEN)
-        .join('')
-        .split(PING_CLOSE)
-        .join('')
-        .trim()
-      return (
-        <div className="mb-4 inline-flex w-fit max-w-full items-center gap-2 self-start rounded-full border border-border/50 bg-main-view-fg/2 px-2.5 py-1 text-xs text-muted-foreground">
-          <IconBellRinging size={14} className="shrink-0" />
-          <span className="min-w-0 truncate">{note}</span>
-        </div>
-      )
-    }
 
     // Off for a message an extension authored: every widget below that would
     // fetch an image by URL (citation favicons, the web tool bar) reads it.

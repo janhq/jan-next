@@ -767,8 +767,8 @@ export function decodeVideoSentinelsInBody(body: Record<string, unknown>): void 
   }
 }
 
-// Rewrites a sentinel-bearing `role: tool` message (planted by Cowork's
-// `assistantMessageFor` for a tool that returned images) into a text part plus
+// Rewrites a sentinel-bearing `role: tool` message (planted for a tool
+// that returned images) into a text part plus
 // OpenAI `image_url` parts, the shape the CLI loop sends for a `read` of an
 // image. Mutates `body.messages` in place.
 export function decodeToolImageSentinelsInBody(

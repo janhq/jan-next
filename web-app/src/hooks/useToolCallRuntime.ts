@@ -59,8 +59,8 @@ type ToolCallRuntimeState = ToolCallRuntimeSnapshot & {
    * belong to: a loop runs its tools one at a time, and when loops of several
    * threads each have one running, the update's server picks between them. A
    * call whose server is known and differs never takes it, and an update that
-   * still matches more than one call is dropped, not guessed. (Cowork does not
-   * record servers; its calls take an update whenever they are the only one.)
+   * still matches more than one call is dropped, not guessed. (A call that
+   * records no server takes an update whenever it is the only one.)
    */
   reportProgress: (update: ToolProgressUpdate) => void
   /** Records a display-only diff against the call that produced it. */

@@ -9,10 +9,8 @@
 //! available in both configurations; only `init()` and the IPC shims in
 //! `commands` are gated.
 
-pub mod artifact;
 pub mod memory;
 pub mod permissions;
-pub mod preview;
 pub mod screenshot_pages;
 pub mod skills;
 pub mod tools;
@@ -54,9 +52,6 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             commands::thread_workspace_path,
             commands::thread_workspace_delete,
             commands::thread_workspace_sweep,
-            commands::session_workspace_path,
-            commands::session_workspace_delete,
-            commands::session_workspace_sweep,
             commands::skill_list,
             commands::skill_read,
             commands::skill_write,
@@ -69,34 +64,10 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
             commands::memory_delete,
             commands::tool_schemas,
             commands::sandbox_status,
-            commands::subagent_result_reserve,
-            commands::subagent_result_fill,
-            commands::blackboard_write,
-            commands::attachment_import,
             commands::execute_tool,
             commands::execute_tool_streaming,
-            commands::start_monitor,
-            commands::stop_monitor,
-            commands::list_monitors,
-            commands::session_monitor_ids,
-            commands::stop_session_monitors,
-            commands::cancel_thread_bash,
-            commands::preview_register_root,
-            commands::preview_unregister_root,
-            commands::open_artifact
+            commands::cancel_thread_bash
         ])
-        .setup(|app, _api| {
-            use tauri::Manager;
-            app.manage(preview::PreviewRoots::default());
-            Ok(())
-        })
-        .register_asynchronous_uri_scheme_protocol("preview", |ctx, request, responder| {
-            let app = ctx.app_handle().clone();
-            // Off the webview thread: canonicalize and read touch the disk.
-            std::thread::spawn(move || {
-                responder.respond(commands::preview_response(&app, request.uri().path()));
-            });
-        })
         .build()
 }
 

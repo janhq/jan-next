@@ -30,7 +30,7 @@ type ModelSettingProps = {
 
 /**
  * Shared model-settings form + persistence, driven by both the header Sheet
- * (ModelSetting) and the Cowork sheet (ModelSettingSheet). Keeping the
+ * (ModelSetting) and the controlled sheet (ModelSettingSheet). Keeping the
  * handlers here avoids two copies of the debounced yaml-write / router-restart
  * logic diverging.
  */
@@ -261,7 +261,7 @@ function useModelSettingControls(model: Model, provider: ProviderObject) {
   }
 }
 
-/** The settings body, shared by the header Sheet and the Cowork sheet. */
+/** The settings body, shared by the header Sheet and the controlled sheet. */
 export function ModelSettingFields({ model, provider }: ModelSettingProps) {
   const { t } = useTranslation()
   const {
@@ -393,7 +393,7 @@ function ModelSettingSheetBody({ model, provider }: ModelSettingProps) {
   )
 }
 
-/** Controlled variant without a trigger (Cowork opens it from a chip). */
+/** Controlled variant without a trigger (opened from elsewhere in the UI). */
 export function ModelSettingSheet({
   model,
   provider,

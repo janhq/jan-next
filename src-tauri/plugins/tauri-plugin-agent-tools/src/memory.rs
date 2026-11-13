@@ -640,8 +640,8 @@ pub async fn read(store: &Path, name: &str) -> Result<String, String> {
 /// One catalog row: enough to advertise a note without shipping its body.
 ///
 /// `mtime_ms` (Unix millis, 0 when the filesystem withholds it) lets callers
-/// rank notes by recency - the desktop's chat digest and Cowork's catalog cap
-/// both keep the newest notes when they cannot keep them all.
+/// rank notes by recency - the desktop's chat digest caps and keeps the
+/// newest notes when it cannot keep them all.
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CatalogEntry {

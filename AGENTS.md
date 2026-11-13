@@ -4,7 +4,7 @@
 
 open-waifu is a personal fork of [Jan](https://github.com/janhq/jan) for hobby and learning: a local-first AI chat app (future waifu chat) on Tauri 2, macOS and Windows desktop only.
 
-- **Removed from upstream; do not reintroduce:** CI, the docs site, Linux and mobile targets, MLX, the ADKs, the headless `jan` CLI/TUI and `protocol/`, the e2e/WebDriver hooks, the auto-updater, PostHog/GA telemetry, the Claude Code integration, built-in web search (use a browser MCP server instead), and named remote providers (OpenAI, Anthropic, Gemini, Azure, ...).
+- **Removed from upstream; do not reintroduce:** CI, the docs site, Linux and mobile targets, MLX, the ADKs, the headless `jan` CLI/TUI and `protocol/`, the e2e/WebDriver hooks, the auto-updater, PostHog/GA telemetry, the Claude Code integration, Cowork (sidebar tab, `/cowork`, its frontend agent runner and its Rust/Tauri support), built-in web search (use a browser MCP server instead), and named remote providers (OpenAI, Anthropic, Gemini, Azure, ...).
 - **Names stay `jan`:** identifiers, crate names and package names still say `jan` / `@janhq/*`. Keep them unless asked to rebrand.
 
 ## Architecture & Data Flow

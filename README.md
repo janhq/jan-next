@@ -3,6 +3,7 @@
 <p align="center">
   <img src="assets/youre-awesome.jpg" alt="You're awesome" height="220">
   <img src="assets/never-gonna-give-you-up.png" alt="Never gonna give you up" height="220">
+  <img src="assets/cat-rose.jpg" alt="Cat offering a rose" height="220">
 </p>
 
 My personal fork of [Jan](https://github.com/janhq/jan) for hobby and learning purposes: a waifu chat app for macOS and Windows.

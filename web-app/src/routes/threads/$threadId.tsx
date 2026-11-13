@@ -1447,8 +1447,7 @@ function ThreadDetail() {
       // has queued or running are kept for its return. (code.tsx re-hydrates
       // its own diffs on mount, so it is unaffected by clearing here.)
       useToolCallRuntime.getState().releaseSettled(threadId)
-      // Cowork's calls have no owner and nothing else releases them; this is
-      // where the whole store used to be reset, so they go at the same point.
+      // Calls with no owner are released here too, at the same point.
       useToolCallRuntime.getState().releaseSettled()
     }
   }, [threadId])

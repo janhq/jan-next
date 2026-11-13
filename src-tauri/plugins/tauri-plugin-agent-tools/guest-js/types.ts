@@ -46,9 +46,6 @@ export interface MemoryCatalogEntry {
   mtimeMs: number
 }
 
-/** Which sandbox namespace an id belongs to. */
-export type WorkspaceScope = 'thread' | 'session'
-
 /** One fragment of a tool's live output. */
 export type ToolOutputChunk = {
   /** Monotonic per call, so a receiver can assert ordering. */
@@ -56,18 +53,4 @@ export type ToolOutputChunk = {
   /** The tool call this belongs to; a backgrounded `bash` needs it. */
   callId: string | null
   text: string
-}
-
-/**
- * One monitor notice, in the two registers a background ping needs: `headline`
- * for the transcript row, `text` for the `<SYSTEM>` reminder the model gets.
- * Every update is terminal (the script matched, or the monitor timed out), so
- * it also closes the monitor; `matched` tells the two apart.
- */
-export type MonitorUpdate = {
-  monitorId: string
-  name: string
-  headline: string
-  text: string
-  matched: boolean
 }

@@ -214,7 +214,7 @@ function mcpOutputWithSentinels(items: McpContentItem[]): string {
  * output, so sent as-is an image item reaches the model as megabytes of base64
  * text: useless to the model, and enough to blow a provider's input limit. An
  * output with at least one image item becomes its text plus one sentinel per
- * image instead, the same form Cowork's tool images take, so the request fetch
+ * image instead, the same sentinel form, so the request fetch
  * decodes it into `image_url` parts and `stripUnsupportedImageParts` drops it
  * for a model without vision. Text-only results are left as they are.
  */
