@@ -167,12 +167,13 @@
               - id: anthropic/claude-haiku-5-5[1m]
                 contextWindow: 1000000
               - id: openai/gpt-6-sol
-          # tokamak-harness: the managed local model (web-app row `llama-cpp`). Its key
-          # exists only while that server runs, so otherwise the route offers no models.
+          # tokamak-harness: the managed local model (web-app row `llama-cpp`). Its key and
+          # endpoint (the worker's OS-assigned port) exist only while that worker runs, so
+          # otherwise the route offers no models.
           local:
             displayName: Local (llama.cpp)
             api: openai-completions
-            baseURL: http://127.0.0.1:39281/v1
+            baseURLEnv: LLAMA_CPP_BASE_URL
             apiKeyEnv: LLAMA_CPP_API_KEY
             # A CPU-only machine can take minutes to read the harness's ~12k-token
             # prompt before the first token; wait instead of retrying from scratch.

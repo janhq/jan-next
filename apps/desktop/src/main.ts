@@ -217,6 +217,14 @@ function runtimeResources(): RuntimeResources {
   return { node, nodeBin, pnpm, dsh }
 }
 
+/** @returns the Host's `JAN_LLAMA_WORKER`: the bundled worker, or in development the one `scripts/dev.ts` names. */
+function llamaWorkerEnvironment(): NodeJS.ProcessEnv {
+  const worker = app.isPackaged
+    ? join(process.resourcesPath, 'llama-worker', process.platform === 'win32' ? 'jan-llama-worker.exe' : 'jan-llama-worker')
+    : process.env.JAN_LLAMA_WORKER
+  return worker === undefined ? {} : { JAN_LLAMA_WORKER: worker }
+}
+
 function developmentPrimaryRuntime(): string {
   const directory = process.env.DSH_DESKTOP_PRIMARY_RUNTIME_DIR
   if (directory === undefined || directory === '') {
@@ -525,7 +533,7 @@ async function main(): Promise<void> {
   const backend = new DesktopBackendController((onFailure) => {
     const hostInspectPort = developmentHostInspectPort(development)
     const host = new DesktopHostProcess(resources.node, resources.dsh, activeProject,
-      hostInspectPort, { ...hostEnvironment, DSH_CLIENT_VERSION: desktopClientVersion() }, onFailure,
+      hostInspectPort, { ...hostEnvironment, ...llamaWorkerEnvironment(), DSH_CLIENT_VERSION: desktopClientVersion() }, onFailure,
       primaryRuntime,
       resources, (next) => { platformView.setSession(next) }, (record) => {
         operationJournal ??= new OperationJournal(join(app.getPath('userData'), 'plugin-operations'), {

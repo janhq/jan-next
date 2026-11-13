@@ -1,0 +1,19 @@
+# Bilingual-pair consistency record for 2026-11-13-bundled-llama-worker.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-11-13-bundled-llama-worker.md
+/agent-note-the-bundled-jan-llama-worker-replaces-the-downloaded-llama-server:
+  en: 3bdb0b2a32315170
+  zh: 0c92f759e41e0e6a
+/agent-note-the-bundled-jan-llama-worker-replaces-the-downloaded-llama-server/problem:
+  en: e9f024129d8ee2fd
+  zh: 0c9d066e4a989a57
+/agent-note-the-bundled-jan-llama-worker-replaces-the-downloaded-llama-server/decision:
+  en: f74070abec172130
+  zh: 6e46601bd11faf26
+/agent-note-the-bundled-jan-llama-worker-replaces-the-downloaded-llama-server/alternatives-considered:
+  en: 07fc94fbc8ab5170
+  zh: d54e3291eb4f8e8c
+/agent-note-the-bundled-jan-llama-worker-replaces-the-downloaded-llama-server/consequences:
+  en: ef568b89cfcaa4b0
+  zh: 19f41a5216a37bac

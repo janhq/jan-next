@@ -240,7 +240,7 @@ export function Welcome({ api }: { api: WelcomeApi }) {
   const localStatus = localPhase === 'running' ? fill(m.welcomeLocalReady, { name: localName })
     : localPhase === 'failed' ? m.welcomeLocalFailed
       : localPhase === 'starting' || localPhase === 'installed' ? fill(m.welcomeLocalStarting, { name: localName })
-        : localProgress?.step === 'engine' ? m.welcomeLocalEngine : fill(m.welcomeLocalDownloading, { name: localName })
+        : fill(m.welcomeLocalDownloading, { name: localName })
   const localDetail = localProgress === undefined ? '' : [
     fill(m.welcomeLocalProgress, {
       percent: String(Math.min(100, Math.floor((localProgress.receivedBytes / Math.max(localProgress.totalBytes, 1)) * 100))),

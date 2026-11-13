@@ -9,7 +9,6 @@ const LOCAL_WELCOME_EN = {
   welcomeLocalHint: 'Free and private: runs on this computer and works offline',
   welcomeLocalTitle: 'Setting up {name}',
   welcomeLocalDescription: 'The model runs on this computer, so your chats stay private and work offline.',
-  welcomeLocalEngine: 'Downloading the llama.cpp engine',
   welcomeLocalDownloading: 'Downloading {name}',
   welcomeLocalProgress: '{percent}% · {received} of {total}',
   welcomeLocalSpeed: '{speed}/s',

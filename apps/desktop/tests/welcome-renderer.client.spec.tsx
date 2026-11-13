@@ -345,9 +345,9 @@ it('reports each return to the welcome entry once, including account cancellatio
 })
 
 describe('local model setup', () => {
-  const downloading = (receivedBytes: number, step: 'engine' | 'model' = 'model'): WelcomeLocalModel => ({
+  const downloading = (receivedBytes: number): WelcomeLocalModel => ({
     phase: 'downloading', name: 'Jan v3.5 4B', totalBytes: 2_739_176_643,
-    progress: { step, receivedBytes, totalBytes: 2_739_176_643, bytesPerSecond: 25_000_000 },
+    progress: { receivedBytes, totalBytes: 2_739_176_643, bytesPerSecond: 25_000_000 },
   })
 
   it('leads with the local download, starts it, and shows its progress', async () => {
@@ -366,12 +366,12 @@ describe('local model setup', () => {
     expect(view.api.skip).toHaveBeenCalledOnce()
   })
 
-  it('names the engine step, then offers to start chatting once the model runs', async () => {
+  it('offers to start chatting once the model runs', async () => {
     const view = mount('en')
-    view.api.startLocalModel.mockResolvedValue(downloading(10_000_000, 'engine'))
-    view.api.readLocalModel.mockResolvedValue(downloading(10_000_000, 'engine'))
+    view.api.startLocalModel.mockResolvedValue(downloading(10_000_000))
+    view.api.readLocalModel.mockResolvedValue(downloading(10_000_000))
     await act(async () => { fireEvent.click(view.button('#local-model')) })
-    expect(document.querySelector('#local-status')!.textContent).toBe('Downloading the llama.cpp engine')
+    expect(document.querySelector('#local-status')!.textContent).toBe('Downloading Jan v3.5 4B')
     view.api.readLocalModel.mockResolvedValue({ phase: 'running', name: 'Jan v3.5 4B', totalBytes: 1 })
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 600)) })
     expect(document.querySelector('#local-status')!.textContent).toBe('Jan v3.5 4B is ready.')

@@ -12,7 +12,7 @@ import type { LocalModelActions } from '../src/client/actions.ts'
 
 afterEach(cleanup)
 
-const model = { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', modelBytes: 2_716_066_656, engineBytes: 23_109_987, backend: 'cpu' as const, engineVersion: 'b12211' }
+const model = { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', modelBytes: 2_716_066_656 }
 const jan: LocalModelEntry = { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', bytes: 2_716_066_656, source: 'catalog', active: true }
 const catalog: CatalogModelInfo[] = [
   { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', bytes: 2_716_066_656, repo: 'janhq/Jan-v3.5-4B-gguf', recommended: true, installed: false },
@@ -26,7 +26,7 @@ function t(key: keyof typeof en, params?: Record<string, string>): string {
 }
 
 function progress(receivedBytes: number, totalBytes: number, extra: Partial<LlamaCppProgress> = {}): LlamaCppProgress {
-  return { phase: 'model', receivedBytes, totalBytes, overallReceivedBytes: receivedBytes, overallTotalBytes: totalBytes, bytesPerSecond: 0, ...extra }
+  return { receivedBytes, totalBytes, bytesPerSecond: 0, ...extra }
 }
 
 type StateInput = Partial<LlamaCppState> & Pick<LlamaCppState, 'phase'>
@@ -82,13 +82,6 @@ it('offers the download with its total size, then shows percent, speed, time lef
   expect(screen.queryByTestId('local-model-downloads')).toBeNull()
 })
 
-it('names the engine step while the engine downloads', () => {
-  const engine = progress(10_000_000, 23_109_987, { phase: 'engine', overallTotalBytes: 2_739_176_643 })
-  const f = fixture({ phase: 'downloading', progress: engine, downloads: [{ id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', progress: engine }] })
-  card(f)
-  expect(screen.getByTestId('local-model-progress').textContent).toBe('Downloading the llama.cpp engine: 0% · 10 MB of 2.7 GB')
-})
-
 it('starts, stops and removes an installed model', () => {
   const f = fixture({ phase: 'stopped' })
   const view = card(f)
@@ -104,10 +97,10 @@ it('starts, stops and removes an installed model', () => {
   expect(f.actions.stop).toHaveBeenCalledOnce()
 })
 
-it('shows a failure with the engine log and offers a retry', () => {
-  const f = fixture({ phase: 'failed', error: 'the local model server exited (code 3)', logTail: 'failed to load model' })
+it('shows a failure with the worker log and offers a retry', () => {
+  const f = fixture({ phase: 'failed', error: 'the local model worker exited with code 4: it could not read its preset', logTail: 'failed to load model' })
   card(f)
-  expect(screen.getByRole('alert').textContent).toContain('exited (code 3)')
+  expect(screen.getByRole('alert').textContent).toContain('exited with code 4')
   expect(screen.getByText('failed to load model')).toBeTruthy()
   fireEvent.click(screen.getByTestId('local-model-retry'))
   expect(f.actions.install).toHaveBeenCalledOnce()
@@ -236,7 +229,7 @@ it('first run: an installed model is started instead of downloaded again', () =>
 })
 
 it('first run: reopening during a download goes straight to its progress', () => {
-  const f = fixture({ phase: 'downloading', progress: progress(1, 2, { phase: 'engine' }) })
+  const f = fixture({ phase: 'downloading', progress: progress(1, 2) })
   const { props } = setup(f)
   expect(props.expand).toHaveBeenCalledOnce()
 })

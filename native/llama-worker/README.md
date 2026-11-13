@@ -30,7 +30,9 @@ From the repository root, `pnpm run build:llama-worker` fetches the pinned llama
 | `engine-hip` | the HIP backend module |
 | `engine-metal` | the Metal backend module |
 
-The binary is written to `target/release/jan-llama-worker`. ggml is built as shared libraries plus runtime-loaded backend modules under the build script's output directory. The binary finds them through its run path and a compiled-in build-tree directory, so it runs in place; a distributable layout must copy `libggml`, `libggml-base`, and every `ggml-*` backend module next to the executable, where ggml looks first.
+The binary is written to `target/release/jan-llama-worker`. ggml is built as shared libraries plus runtime-loaded backend modules under the build script's output directory. The binary finds them through its run path and a compiled-in build-tree directory, so it runs in place but cannot be moved on its own.
+
+`pnpm run stage:llama-worker`, or `scripts/stage.sh [<dir>]` from this directory, copies the release binary, `libggml`, `libggml-base`, and every `ggml-*` backend module of the build that binary was linked against into one directory, `dist/` by default, and fails when the binary, its ggml prefix, or a backend module is missing. ggml loads backend modules from the executable's directory, and the libraries resolve through the `$ORIGIN` run path on Linux, `@loader_path` on macOS, and the executable's directory on Windows, so the staged directory runs from any location. The script removes the absolute build-tree run paths from the staged binary with `install_name_tool` on macOS and with `patchelf` on Linux when it is installed; without `patchelf` they remain after `$ORIGIN`, so the staged ggml libraries still take precedence. The desktop package copies `dist/` to `<resources>/llama-worker/`, so the packaged worker is `<resources>/llama-worker/jan-llama-worker` (`.exe` on Windows); packaging fails when `dist/` has no worker unless `DSH_DESKTOP_OMIT_LLAMA_WORKER=1`.
 
 | Build variable | Effect |
 |---|---|

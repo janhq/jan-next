@@ -147,19 +147,18 @@
       name: '@deepseek-ai/dsh-api-account-controller'
 
     # tokamak-harness: managed local model, only in the web app so one process owns
-    # the server (ACP, SDK and subagent processes use the `local` route it serves).
-    # Started on boot only if it was left running. Downloads a pinned llama.cpp build and
-    # Jan v3.5 4B on request (Settings → Models, or the first-run popup), then
-    # runs llama-server on 127.0.0.1:39281. LLAMA_CPP_BACKEND=vulkan selects the
-    # Vulkan build. To move the port, override `port` here and the `local` route's
-    # baseURL together in the profile patch.
+    # the worker (ACP, SDK and subagent processes use the `local` route it serves).
+    # Started on boot only if it was left running. Downloads Jan v3.5 4B on request
+    # (Settings → Models, or the first-run popup), then runs the bundled
+    # jan-llama-worker on an OS-assigned loopback port. JAN_LLAMA_WORKER names the
+    # worker: the desktop app sets it to its bundled copy, and `pnpm run dev:web` /
+    # `pnpm run dev:desktop` to the `pnpm run stage:llama-worker` output.
     - id: llama-cpp
       name: '@deepseek-ai/dsh-llama-cpp'
       config:
         dataRoot: !!js dshHomePath('llama-cpp')
-        backend: !!js "process.env.LLAMA_CPP_BACKEND === 'vulkan' ? 'vulkan' : 'cpu'"
+        workerPath: !!js "process.env.JAN_LLAMA_WORKER || undefined"
         model: !!js "process.env.LLAMA_CPP_MODEL === 'small' ? 'small' : 'default'"
-        port: 39281
 
     # tokamak-harness: local model card, first-run download, and its Remote.
     - id: llama-cpp-controller

@@ -1,39 +1,25 @@
-/** Client-visible state of the managed local llama.cpp engine and its models. Carries no paths or keys. */
+/** Client-visible state of the managed local llama.cpp worker and its models. Carries no paths or keys. */
 
-/** Lifecycle phase of the local engine and the active model it serves. */
+/** Lifecycle phase of the local worker and the active model it serves. */
 export type LlamaCppPhase =
   | 'checking' | 'missing' | 'downloading' | 'installed' | 'starting' | 'running' | 'stopped' | 'failed'
 
-/** What a download step is fetching. */
-export type LlamaCppDownloadPhase = 'engine' | 'model'
-
-/** Byte progress of one download: its current step, the whole download, and its speed. */
+/** Byte progress of one model download and its speed. */
 export interface LlamaCppProgress {
-  phase: LlamaCppDownloadPhase
   receivedBytes: number
   totalBytes: number
-  /** Bytes received over the whole download, engine included when it is needed. */
-  overallReceivedBytes: number
-  /** Bytes of the whole download, engine included when it is needed. */
-  overallTotalBytes: number
   /** Recent transfer rate; 0 until enough has arrived to measure. */
   bytesPerSecond: number
 }
 
 /** Facts about the active model, or the model the first-run offer installs when none is active. */
 export interface LlamaCppModelInfo {
-  /** Model id served by the route (`--alias`). */
+  /** Installed or catalog model id. */
   id: string
   /** Display name. */
   name: string
   /** Bytes of the model file. */
   modelBytes: number
-  /** Bytes of the engine archive still to download; 0 once the engine is installed. */
-  engineBytes: number
-  /** llama.cpp build in use: CPU only, Metal (Apple Silicon) or Vulkan. */
-  backend: 'cpu' | 'metal' | 'vulkan'
-  /** llama.cpp release tag. */
-  engineVersion: string
 }
 
 /** Where an installed model came from. */
@@ -45,7 +31,7 @@ export interface LocalModelEntry {
   name: string
   bytes: number
   source: LocalModelSource
-  /** The model the server runs. */
+  /** The model the worker serves. */
   active: boolean
 }
 
@@ -96,16 +82,13 @@ export interface LlamaCppState {
   model: LlamaCppModelInfo
   /** Model provider route that serves the active model. */
   provider: string
-  /**
-   * Progress of the first download in {@link downloads} that is running (not failed or queued), or
-   * of the engine download a start needs; present while bytes flow.
-   */
+  /** Progress of the first download in {@link downloads} that is running (not failed or queued); present while bytes flow. */
   progress?: LlamaCppProgress
   /** Human-readable failure, present in `failed`. */
   error?: string
-  /** Context size the running server settled on (after `--fit`), present while running. */
+  /** Context size the active model settled on (after `fit`), present while running. */
   contextSize?: number
-  /** Last engine log lines, present when the engine failed. */
+  /** Last worker log lines, present when the worker failed. */
   logTail?: string
   /** Installed models; at most one is active. */
   models: LocalModelEntry[]

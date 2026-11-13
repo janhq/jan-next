@@ -1,7 +1,7 @@
 import { readInstallerLocales, renderInstallerStrings } from './installer-locales.mjs'
 import { officePackageDirectories } from '../../../scripts/libreoffice-packages.mjs'
 import { X509Certificate } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
 import { join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -35,6 +35,19 @@ import {
   writeMacOSAppUpdateConfig,
 } from './macos-app-update-config.mjs'
 
+/** Directory `pnpm run stage:llama-worker` writes; packaged as `<resources>/llama-worker`. */
+const LLAMA_WORKER_STAGE = fileURLToPath(new URL('../../../native/llama-worker/dist', import.meta.url))
+
+/**
+ * Reject packaging when the staged llama.cpp worker is absent; electron-builder only warns about a missing resource.
+ * @param {NodeJS.Platform} platform - Packaged platform, which selects the executable name.
+ */
+function assertStagedLlamaWorker(platform) {
+  const executable = join(LLAMA_WORKER_STAGE, platform === 'win32' ? 'jan-llama-worker.exe' : 'jan-llama-worker')
+  if (existsSync(executable)) return
+  throw new Error(`desktop package: ${executable} is missing; run \`pnpm run stage:llama-worker\` after \`pnpm run build:llama-worker\`, or set DSH_DESKTOP_OMIT_LLAMA_WORKER=1 to package without local models`)
+}
+
 /**
  * Create electron-builder configuration from one release environment.
  * @param {NodeJS.ProcessEnv} env - Packaging environment.
@@ -59,6 +72,10 @@ export function createElectronBuilderConfig(
     throw new Error('desktop package: DSH_DESKTOP_UNSIGNED must be 0 or 1')
   }
   const unsigned = env.DSH_DESKTOP_UNSIGNED === '1'
+  if (env.DSH_DESKTOP_OMIT_LLAMA_WORKER !== undefined && !['0', '1'].includes(env.DSH_DESKTOP_OMIT_LLAMA_WORKER)) {
+    throw new Error('desktop package: DSH_DESKTOP_OMIT_LLAMA_WORKER must be 0 or 1')
+  }
+  const omitLlamaWorker = env.DSH_DESKTOP_OMIT_LLAMA_WORKER === '1'
   const skipNotarization = env.DSH_DESKTOP_MACOS_SKIP_NOTARIZATION === '1'
   if (env.DSH_DESKTOP_MACOS_SKIP_NOTARIZATION !== undefined && !['0', '1'].includes(env.DSH_DESKTOP_MACOS_SKIP_NOTARIZATION)) {
     throw new Error('desktop package: DSH_DESKTOP_MACOS_SKIP_NOTARIZATION must be 0 or 1')
@@ -163,6 +180,7 @@ export function createElectronBuilderConfig(
       { from: fileURLToPath(new URL('../resources/icon-windows.png', import.meta.url)), to: 'icon.png' },
       // Windows tray bitmaps; macOS keeps the Dock and ships no menu bar icon.
       ...(packagesWindows ? [{ from: fileURLToPath(new URL('../resources/tray-windows.ico', import.meta.url)), to: 'tray.ico' }] : []),
+      ...(omitLlamaWorker ? [] : [{ from: LLAMA_WORKER_STAGE, to: 'llama-worker' }]),
     ],
     mac: {
       icon: fileURLToPath(new URL('../resources/icon-macos.png', import.meta.url)),
@@ -189,6 +207,7 @@ export function createElectronBuilderConfig(
       writeUpdateInfo: false,
     },
     beforePack: async context => {
+      if (!omitLlamaWorker) assertStagedLlamaWorker(resolvedPlatform)
       const office = await officePackageDirectories(buildPaths.dsh, { platform: resolvedPlatform, arch: resolvedArch })
       const patterns = office.map(directory => `**/${relative(buildPaths.dsh, directory).split(sep).join('/')}/**/*`)
       const existing = context.packager.config.asarUnpack ?? []

@@ -60,7 +60,7 @@ export const remoteDefaultResponses: RemoteTable = {
     // tokamak-harness ui-settings-local-model: the local model state, then open.
     'llamaCpp/follow': openStream([{
       phase: 'missing', provider: 'local',
-      model: { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', modelBytes: 2_716_066_656, engineBytes: 23_109_987, backend: 'cpu', engineVersion: 'b12211' },
+      model: { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', modelBytes: 2_716_066_656 },
     }]),
   },
 }

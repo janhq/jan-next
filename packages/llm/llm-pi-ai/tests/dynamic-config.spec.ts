@@ -246,6 +246,43 @@ describe('request-level dynamic profiles', () => {
     expect(server.headers[1]?.authorization).toBe('Bearer pk-two')
   })
 
+  it('resolves a baseURLEnv endpoint per request, and offers no models while it is unset', async () => {
+    vi.stubEnv('PI_LOCAL_URL', '')
+    const dir = await home()
+    await writeFile(join(dir, '.credentials.yaml'), 'version: 1\nrefs:\n  PI_LOCAL_KEY: lk-one\n', { mode: 0o600 })
+    const first = await mockServer([{ events: textEvents }])
+    const second = await mockServer([{ events: textEvents }])
+    const ctx = await boot(dir, {
+      providers: { local: { api: 'openai-completions', baseURLEnv: 'PI_LOCAL_URL', apiKeyEnv: 'PI_LOCAL_KEY', models: [{ id: 'local' }] } },
+    })
+    const request = { provider: 'local', model: 'local', messages: [] }
+
+    expect(await ctx.llm.listModels('local')).toEqual([])
+    const unset = (await assemble(ctx, request)).finish
+    expect(unset.kind === 'error' ? unset.failure : unset).toMatchObject({ code: 'MISSING_CREDENTIAL' })
+    expect(unset.kind === 'error' ? unset.failure.message : '').toMatch(/no endpoint for provider route "local"; its profile resolves PI_LOCAL_URL/)
+
+    await ctx.credentials.set(credentialRef('PI_LOCAL_URL'), first.url)
+    expect((await ctx.llm.listModels('local')).map(model => model.id)).toEqual(['local'])
+    await assemble(ctx, request)
+    await ctx.credentials.set(credentialRef('PI_LOCAL_URL'), second.url)
+    await assemble(ctx, request)
+    expect([first.headers.length, second.headers.length]).toEqual([1, 1])
+    expect(second.headers[0]?.authorization).toBe('Bearer lk-one')
+
+    await ctx.credentials.set(credentialRef('PI_LOCAL_URL'), 'file:///etc/passwd')
+    const invalid = (await assemble(ctx, request)).finish
+    expect(invalid.kind === 'error' ? invalid.failure : invalid).toMatchObject({ code: 'INVALID_CONFIG' })
+    expect(invalid.kind === 'error' ? invalid.failure.message : '').toMatch(/PI_LOCAL_URL for provider route "local" is not an http\(s\) URL/)
+  })
+
+  it('refuses a route that names both baseURL and baseURLEnv', async () => {
+    const dir = await home()
+    await expect(boot(dir, {
+      providers: { local: { api: 'openai-completions', baseURL: 'http://127.0.0.1:1/v1', baseURLEnv: 'PI_LOCAL_URL', models: [{ id: 'local' }] } },
+    })).rejects.toThrow(/provider "local" sets both baseURL and baseURLEnv; keep one/)
+  })
+
   it('re-registers routes in place when a captured retry policy changes', async () => {
     const dir = await home()
     const ctx = await boot(dir, { providers: { openai: {} } })

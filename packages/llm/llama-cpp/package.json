@@ -1,6 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-llama-cpp",
-  "description": "Download, verify and supervise a local llama.cpp server and the GGUF models it can run",
+  "description": "Download and verify GGUF models and supervise the bundled jan-llama-worker that serves them",
   "version": "0.2.2-rc.1",
   "repository": {
     "type": "git",

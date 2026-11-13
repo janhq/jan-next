@@ -72,6 +72,8 @@ async function launchElectron(): Promise<void> {
     DSH_DESKTOP_HOST_INSPECT_PORT: String(hostPort),
     DSH_DESKTOP_OPEN_DEVTOOLS: process.env.DSH_DESKTOP_OPEN_DEVTOOLS ?? '1',
     ELECTRON_ENABLE_LOGGING: process.env.ELECTRON_ENABLE_LOGGING ?? '1',
+    JAN_LLAMA_WORKER: process.env.JAN_LLAMA_WORKER
+      ?? join(REPOSITORY_ROOT, 'native', 'llama-worker', 'dist', process.platform === 'win32' ? 'jan-llama-worker.exe' : 'jan-llama-worker'),
   }
   console.log(`desktop development: DSH_HOME=${home}`)
   console.log(`desktop development: userData=${userData}`)

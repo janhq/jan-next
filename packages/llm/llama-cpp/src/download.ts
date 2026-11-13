@@ -52,33 +52,12 @@ export async function isVerified(path: string, artifact: Artifact, signal: Abort
  * Download one artifact to `destination`, resuming a previous partial file.
  * @param artifact - pinned URL, size and digest.
  * @param destination - final path; written only after verification.
- * @param resource - short label for errors ("engine", "model").
+ * @param resource - short label for errors.
  * @param signal - cancellation; the partial file is kept so a later call resumes.
  * @param report - progress callback with received and total bytes.
  */
 export async function download(
   artifact: Artifact,
-  destination: string,
-  resource: string,
-  signal: AbortSignal,
-  report: (receivedBytes: number, totalBytes: number) => void,
-): Promise<void> {
-  const sources = [{ url: artifact.url }, ...artifact.mirrors ?? []]
-  for (const [index, source] of sources.entries()) {
-    try {
-      await downloadFrom(artifact, source.url, source.headers ?? {}, destination, resource, signal, report)
-      return
-    } catch (error) {
-      const retryable = error instanceof DownloadError && (error.reason === 'http' || error.reason === 'network')
-      if (signal.aborted || !retryable || index === sources.length - 1) throw error
-    }
-  }
-}
-
-async function downloadFrom(
-  artifact: Artifact,
-  url: string,
-  headers: Readonly<Record<string, string>>,
   destination: string,
   resource: string,
   signal: AbortSignal,
@@ -99,8 +78,8 @@ async function downloadFrom(
 
     let received = offset
     if (offset < artifact.bytes) {
-      const response = await fetch(url, {
-        signal, redirect: 'follow', headers: { ...headers, ...offset > 0 ? { range: `bytes=${offset}-` } : {} },
+      const response = await fetch(artifact.url, {
+        signal, redirect: 'follow', headers: offset > 0 ? { range: `bytes=${offset}-` } : {},
       })
       if (!response.ok || !response.body) {
         await response.body?.cancel()

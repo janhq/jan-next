@@ -116,6 +116,11 @@ export interface PiAiProviderProfile {
   /** Endpoint for this route's models; defaults to the installed catalog's endpoint. */
   baseURL?: string
   /**
+   * Credential reference whose value is this route's endpoint, resolved per request like
+   * {@link apiKeyEnv}; excludes {@link baseURL}. The route offers no models while it is unset.
+   */
+  baseURLEnv?: string
+  /**
    * This route's model catalog. Omission serves the installed catalog for the
    * route unchanged; an explicit list replaces it, each entry defaulting its
    * unset fields from the installed model of the same id.
@@ -209,13 +214,15 @@ export interface PiAiProviderProfile {
 
 /** Validated profile with its route stamped and every adapter-owned default resolved. */
 export interface ResolvedPiAiProviderProfile
-  extends Omit<PiAiProviderProfile, 'apiKeyEnv' | 'retryPolicy' | 'models' | 'displayName'> {
+  extends Omit<PiAiProviderProfile, 'apiKeyEnv' | 'baseURLEnv' | 'retryPolicy' | 'models' | 'displayName'> {
   /** Harness route key and the `Models` collection key (the configuration dict key). */
   provider: string
   /** Resolved display name for selectors and configuration surfaces. */
   displayName: string
   /** Validated credential reference, when one is configured. */
   apiKeyEnv?: CredentialRef
+  /** Validated endpoint credential reference; the route's models then carry an empty `baseUrl` that each request replaces. */
+  baseURLEnv?: CredentialRef
   /** Positive finite provider-idle interval after defaulting. */
   streamIdleTimeoutMs: number
   /** Positive request-level base64 image payload bound after defaulting. */
@@ -357,6 +364,7 @@ const profile = z.object({
   displayName: z.string(),
   api: z.union(supportedProtocols()),
   baseURL: z.string(),
+  baseURLEnv: z.string(),
   models: z.array(modelProfile),
   modelOverrides: z.dict(modelOverride),
   compat: compatProfile,
@@ -453,6 +461,11 @@ export function resolveProfiles(
     if (source.baseURL !== undefined && source.baseURL.length === 0) {
       throw new Error(`llm-pi-ai: provider "${provider}" has an empty baseURL`)
     }
+    if (source.baseURLEnv !== undefined && source.baseURL !== undefined) {
+      throw new Error(`llm-pi-ai: provider "${provider}" sets both baseURL and baseURLEnv; keep one`)
+    }
+    // A per-request endpoint leaves the models an empty baseUrl, which the adapter replaces before dispatch.
+    const baseURL = source.baseURLEnv === undefined ? source.baseURL : ''
     if (source.displayName !== undefined && source.displayName.length === 0) {
       throw new Error(`llm-pi-ai: provider "${provider}" has an empty displayName`)
     }
@@ -505,7 +518,7 @@ export function resolveProfiles(
       catalog = resolveRouteModels({
         provider,
         ...source.api === undefined ? {} : { api: source.api },
-        ...source.baseURL === undefined ? {} : { baseURL: source.baseURL },
+        ...baseURL === undefined ? {} : { baseURL },
         ...source.models === undefined ? {} : { models: source.models },
         ...source.modelOverrides === undefined ? {} : { modelOverrides: source.modelOverrides },
         ...source.compat === undefined ? {} : { compat: source.compat },
@@ -526,12 +539,13 @@ export function resolveProfiles(
       if (validation === 'strict' || !(error instanceof PiAiCatalogError)) throw error
       catalogError ??= error.message
     }
-    const { apiKeyEnv, retryPolicy, models: _models, displayName: _displayName, ...rest } = source
+    const { apiKeyEnv, baseURLEnv, retryPolicy, models: _models, displayName: _displayName, ...rest } = source
     resolved.set(provider, {
       ...rest,
       provider,
       displayName,
       ...apiKeyEnv === undefined ? {} : { apiKeyEnv: credentialRef(apiKeyEnv) },
+      ...baseURLEnv === undefined ? {} : { baseURLEnv: credentialRef(baseURLEnv) },
       streamIdleTimeoutMs,
       maxRequestImageBytes,
       maxRequestImages,

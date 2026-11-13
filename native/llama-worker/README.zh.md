@@ -30,7 +30,9 @@
 | `engine-hip` | HIP 后端模块 |
 | `engine-metal` | Metal 后端模块 |
 
-二进制文件写入 `target/release/jan-llama-worker`。ggml 被构建为共享库和运行时加载的后端模块，位于构建脚本的输出目录下。二进制文件通过其运行路径和编译时写入的构建树目录找到它们，因此可以就地运行；可分发的布局必须把 `libggml`、`libggml-base` 和所有 `ggml-*` 后端模块复制到可执行文件旁边，ggml 会优先在那里查找。
+二进制文件写入 `target/release/jan-llama-worker`。ggml 被构建为共享库和运行时加载的后端模块，位于构建脚本的输出目录下。二进制文件通过其运行路径和编译时写入的构建树目录找到它们，因此可以就地运行，但不能单独移动。
+
+`pnpm run stage:llama-worker`（或在本目录中运行 `scripts/stage.sh [<dir>]`）会把 release 二进制文件，以及该二进制文件所链接构建中的 `libggml`、`libggml-base` 和所有 `ggml-*` 后端模块复制到同一个目录（默认为 `dist/`）；缺少二进制文件、其 ggml prefix 或后端模块时脚本会失败。ggml 从可执行文件所在目录加载后端模块，各个库在 Linux 上通过 `$ORIGIN` 运行路径、在 macOS 上通过 `@loader_path`、在 Windows 上通过可执行文件所在目录解析，因此暂存目录可以从任意位置运行。脚本会从暂存的二进制文件中移除绝对构建树运行路径：macOS 上使用 `install_name_tool`，Linux 上在已安装 `patchelf` 时使用它；没有 `patchelf` 时这些路径保留在 `$ORIGIN` 之后，暂存的 ggml 库仍然优先。桌面安装包把 `dist/` 复制到 `<resources>/llama-worker/`，因此打包后的 worker 位于 `<resources>/llama-worker/jan-llama-worker`（Windows 上为 `.exe`）；除非设置 `DSH_DESKTOP_OMIT_LLAMA_WORKER=1`，否则 `dist/` 中没有 worker 时打包会失败。
 
 | 构建变量 | 作用 |
 |---|---|

@@ -346,7 +346,7 @@ const SERVICE_ROLES: ServiceRole[] = [
     title: 'Managed local llama.cpp model (tokamak-harness)',
     mode: 'core',
     consumers: ['api-llama-cpp-controller'],
-    note: 'Downloads a pinned llama-server build and one GGUF, verifies both, and supervises the server on a loopback port for the llm-pi-ai local route.',
+    note: 'Downloads and verifies GGUF models and supervises the bundled jan-llama-worker on an OS-assigned loopback port for the llm-pi-ai local route.',
   },
   {
     key: 'llamaCppController',

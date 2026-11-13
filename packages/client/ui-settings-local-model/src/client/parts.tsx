@@ -22,9 +22,9 @@ function tone(phase: LlamaCppPhase): StateDotState {
   return 'idle'
 }
 
-/** @returns the total first download for this backend and model. */
+/** @returns the size of the first-run model download. */
 export function downloadSize(state: LlamaCppState): string {
-  return formatBytes(state.model.modelBytes + state.model.engineBytes)
+  return formatBytes(state.model.modelBytes)
 }
 
 /** Phase dot and label. */
@@ -35,14 +35,14 @@ export function Status({ state, t }: { state: LlamaCppState; t: T }): ReactNode 
 }
 
 /**
- * One download's progress: a bar over the whole download, then percent, bytes, speed and time left.
+ * One download's progress: a bar, then percent, bytes, speed and time left.
  * @returns the bar and its caption.
  */
 export function DownloadProgress({ progress, name, t }: { progress: LlamaCppProgress; name: string; t: T }): ReactNode {
-  const received = progress.overallReceivedBytes
-  const total = Math.max(progress.overallTotalBytes, 1)
+  const received = progress.receivedBytes
+  const total = Math.max(progress.totalBytes, 1)
   const percent = Math.min(100, Math.floor((received / total) * 100))
-  const step = progress.phase === 'engine' ? t('progressEngineStep') : t('progressModelStep', { name })
+  const step = t('progressModelStep', { name })
   const eta = estimateRemaining(total - received, progress.bytesPerSecond)
   const detail = [
     t('progressDetail', { percent: String(percent), received: formatBytes(received), total: formatBytes(total) }),
@@ -63,7 +63,7 @@ export function Progress({ state, t }: { state: LlamaCppState; t: T }): ReactNod
   return <DownloadProgress progress={progress} name={running?.name ?? state.model.name} t={t} />
 }
 
-/** Failure message with the engine's last log lines. */
+/** Failure message with the worker's last log lines. */
 export function Failure({ state, t }: { state: LlamaCppState; t: T }): ReactNode {
   if (state.phase !== 'failed') return null
   return <div role="alert">

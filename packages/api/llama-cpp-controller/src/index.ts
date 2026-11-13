@@ -28,7 +28,7 @@ function failed(error: unknown): RemoteError {
   return new RemoteError('llama-cpp/failed', reason, { reason })
 }
 
-/** Install, start, stop and remove the local engine and its models; progress arrives through {@link follow}. */
+/** Install, start, stop and remove the local models and the worker serving them; progress arrives through {@link follow}. */
 export default class LlamaCppController extends TypertRemoteService {
   static inject = ['llamaCpp', 'typert']
 
@@ -53,7 +53,7 @@ export default class LlamaCppController extends TypertRemoteService {
     for await (const state of this.ctx.llamaCpp.follow(signal)) yield state
   }
 
-  /** First run: download the engine and the first-run model, verify them, then start the server. */
+  /** First run: download and verify the first-run model, then start the worker; with a model installed, start it. */
   @Remote
   beginInstall(): void {
     try { this.ctx.llamaCpp.install() } catch (error) { throw failed(error) }
@@ -126,9 +126,9 @@ export default class LlamaCppController extends TypertRemoteService {
   }
 
   /**
-   * Run an installed model, restarting the server with it.
+   * Serve an installed model; a running worker switches to it without restarting.
    * @param id - installed model id.
-   * @returns after the server runs it or has failed.
+   * @returns after the worker serves it or has failed.
    */
   @Remote
   async selectModel(id: string): Promise<void> {
@@ -146,14 +146,14 @@ export default class LlamaCppController extends TypertRemoteService {
   }
 
   /**
-   * Start the installed server.
+   * Start the worker with the active model.
    * @returns after it is running or has failed.
    */
   @Remote
   async startServer(): Promise<void> { await this.ctx.llamaCpp.start() }
 
   /**
-   * Stop the server.
+   * Stop the worker.
    * @returns after it has exited.
    */
   @Remote
@@ -162,7 +162,7 @@ export default class LlamaCppController extends TypertRemoteService {
   }
 
   /**
-   * Delete the engine and every downloaded model and remove the route key.
+   * Stop the worker, delete every downloaded model and remove the route credentials.
    * @returns after the files are gone.
    */
   @Remote

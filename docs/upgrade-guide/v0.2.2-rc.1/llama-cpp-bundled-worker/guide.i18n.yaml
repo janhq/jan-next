@@ -1,0 +1,16 @@
+# Bilingual-pair consistency record for guide.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/upgrade-guide/v0.2.2-rc.1/llama-cpp-bundled-worker/guide.md
+/:
+  en: 427e8b3f9ee84768
+  zh: 2ec4b86db4f40ede
+/llama-cpp-runs-the-bundled-jan-llama-worker:
+  en: 3c2310213b064c22
+  zh: 20f07e95dc7bbe4d
+/llama-cpp-runs-the-bundled-jan-llama-worker/change:
+  en: c788bffc96e05c84
+  zh: b9a01ad3b1860100
+/llama-cpp-runs-the-bundled-jan-llama-worker/migration:
+  en: 0583531818c29a17
+  zh: 4898c2ef5c87c674

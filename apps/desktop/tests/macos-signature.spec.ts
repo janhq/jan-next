@@ -59,9 +59,15 @@ describe('desktop macOS release signature', () => {
       'com.apple.security.cs.disable-library-validation', 'com.apple.security.device.audio-input']) {
       expect(entitlements).toContain(`<key>${key}</key>\n    <true/>`)
     }
-    expect(config.extraResources).toHaveLength(2)
+    expect(config.extraResources).toHaveLength(3)
     expect(config.extraResources[0]?.to).toBe('runtime')
     expect(portablePath(config.extraResources[0]?.from ?? '')).toContain('/.desktop-build/targets/mac-arm64/runtime')
+    expect(config.extraResources[2]?.to).toBe('llama-worker')
+    expect(portablePath(config.extraResources[2]?.from ?? '')).toMatch(/\/native\/llama-worker\/dist$/u)
+    expect(createElectronBuilderConfig({ ...RELEASE_ENVIRONMENT, DSH_DESKTOP_OMIT_LLAMA_WORKER: '1' }, 'darwin', 'arm64')
+      .extraResources.map(resource => resource.to)).not.toContain('llama-worker')
+    expect(() => createElectronBuilderConfig({ ...RELEASE_ENVIRONMENT, DSH_DESKTOP_OMIT_LLAMA_WORKER: 'yes' }, 'darwin', 'arm64'))
+      .toThrow(/DSH_DESKTOP_OMIT_LLAMA_WORKER must be 0 or 1/u)
     const [dshFiles, dshNodeModules] = config.files.slice(-2)
     if (!dshFiles || !dshNodeModules || typeof dshFiles === 'string' || typeof dshNodeModules === 'string') {
       throw new Error('desktop DSH resources must use electron-builder file mappings')
