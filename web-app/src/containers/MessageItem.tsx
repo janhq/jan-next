@@ -16,6 +16,7 @@ import {
   type PartEntry,
 } from './message/types'
 import { CopyButton } from './CopyButton'
+import { SpeakButton } from './SpeakButton'
 import { RememberButton } from './RememberButton'
 import { toast } from 'sonner'
 import { useTranslation } from '@/i18n/react-i18next-compat'
@@ -824,6 +825,9 @@ export const MessageItem = memo(
               )}
             >
               {copyButton}
+              <div className={cn('flex items-center', !isLastMessage && hoverReveal)}>
+                <SpeakButton id={message.id} text={getFullTextContent()} />
+              </div>
               {/* Shown at rest: it only appears on a stopped reply, and it is
                   the one way to resume it. */}
               {selectedModel &&

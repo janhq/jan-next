@@ -34,5 +34,14 @@
     "thoughtFor": "Thought for {{duration}}",
     "workedForAWhile": "Worked for a few seconds",
     "workedFor": "Worked for {{duration}}"
+  },
+  "voice": {
+    "readAloud": "Read aloud",
+    "stopReading": "Stop reading",
+    "speakFailed": "Couldn't read the message aloud",
+    "voiceInput": "Voice input",
+    "stopRecording": "Stop recording",
+    "micFailed": "Couldn't start the microphone",
+    "transcribeFailed": "Couldn't transcribe the recording"
   }
 }

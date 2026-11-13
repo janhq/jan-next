@@ -777,5 +777,6 @@
   "askRecommended": "Recommended",
   "askSelectedCount": "{{count}} selected",
   "askSomethingElse": "Something else",
-  "submit": "Submit"
+  "submit": "Submit",
+  "voice": "Voice"
 }

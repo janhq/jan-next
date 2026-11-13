@@ -12,6 +12,7 @@ pub mod server;
 // Desktop-only app setup (tray, theme, window wiring); pulls in Tauri GUI types
 // (Wry/AppHandle) the headless `jan` CLI build does not link.
 pub mod setup;
+pub mod speech;
 pub mod state;
 pub mod system;
 pub mod threads;

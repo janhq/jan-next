@@ -18,6 +18,7 @@ import { useAgentMode } from '@/hooks/useAgentMode'
 import { useChatShell } from '@/hooks/useChatShell'
 import { useCoTDuration } from '@/hooks/useCoTDuration'
 import { useImageAttachmentConfig } from '@/hooks/useImageAttachmentConfig'
+import { useVoiceSettings } from '@/hooks/useVoiceSettings'
 
 /**
  * Stores persisted through `backendStorage` set `skipHydration: true` so they
@@ -49,6 +50,7 @@ const secondaryStores = [
   useChatShell,
   useCoTDuration,
   useImageAttachmentConfig,
+  useVoiceSettings,
 ] as const
 
 export async function hydrateBackendStores(): Promise<void> {

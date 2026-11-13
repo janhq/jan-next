@@ -84,6 +84,13 @@ pub struct AppState {
     /// Cleared only on explicit user deactivation, never on a transient
     /// list-tools failure.
     pub mcp_last_known_tools: Arc<Mutex<HashMap<String, Vec<ToolWithServer>>>>,
+    pub speech: crate::core::speech::SpeechState,
+}
+
+impl AppState {
+    pub fn speech(&self) -> &crate::core::speech::SpeechState {
+        &self.speech
+    }
 }
 
 impl Default for AppState {
@@ -104,6 +111,7 @@ impl Default for AppState {
             provider_configs: Default::default(),
             mcp_reconnect_notify: Arc::new(Notify::new()),
             mcp_last_known_tools: Default::default(),
+            speech: Default::default(),
         }
     }
 }

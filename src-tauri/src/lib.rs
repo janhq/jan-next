@@ -58,6 +58,13 @@ macro_rules! invoke_commands_with_extras {
         core::server::commands::start_server,
         core::server::commands::stop_server,
         core::server::commands::get_server_status,
+        // Local voice sidecar
+        core::speech::commands::speech_status,
+        core::speech::commands::speech_install,
+        core::speech::commands::speech_start,
+        core::speech::commands::speech_stop,
+        core::speech::commands::speech_speak,
+        core::speech::commands::speech_transcribe,
         core::server::commands::set_server_run_in_background,
         // Agent commands
         core::agent::commands::agent_skill_list,
@@ -278,6 +285,7 @@ pub fn run() {
             provider_configs: Arc::new(Mutex::new(HashMap::new())),
             mcp_reconnect_notify: Arc::new(tokio::sync::Notify::new()),
             mcp_last_known_tools: Arc::new(Mutex::new(HashMap::new())),
+            speech: Default::default(),
         })
         .manage(core::filesystem::grants::ReadGrants::with_home(
             dirs::home_dir(),

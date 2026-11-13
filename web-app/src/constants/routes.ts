@@ -12,6 +12,7 @@ export const route = {
     attachments: '/settings/attachments',
     interface: '/settings/interface',
     shortcuts: '/settings/shortcuts',
+    voice: '/settings/voice',
     extensions: '/settings/extensions',
     extension: '/settings/extensions/$extensionId',
     local_api_server: '/settings/local-api-server',

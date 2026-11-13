@@ -31,6 +31,8 @@ import { DefaultUploadsService } from './uploads/default'
 import type { UploadsService } from './uploads/types'
 import { DefaultExtensionsService } from './extensions/default'
 import type { ExtensionsService } from './extensions/types'
+import { DefaultSpeechService } from './speech/default'
+import type { SpeechService } from './speech/types'
 
 // Import service types
 import type { ThemeService } from './theme/types'
@@ -73,6 +75,7 @@ export interface ServiceHub {
   rag(): RAGService
   uploads(): UploadsService
   extensions(): ExtensionsService
+  speech(): SpeechService
 }
 
 class PlatformServiceHub implements ServiceHub {
@@ -97,6 +100,7 @@ class PlatformServiceHub implements ServiceHub {
   private uploadsService: UploadsService = new DefaultUploadsService()
   // The install pipeline is desktop only (tauri-plugin-extensions).
   private extensionsService: ExtensionsService = new DefaultExtensionsService()
+  private speechService: SpeechService = new DefaultSpeechService()
   private initialized = false
 
   /**
@@ -127,6 +131,7 @@ class PlatformServiceHub implements ServiceHub {
           coreModule,
           deepLinkModule,
           extensionsModule,
+          speechModule,
         ] = await Promise.all([
           import('./theme/tauri'),
           import('./window/tauri'),
@@ -141,6 +146,7 @@ class PlatformServiceHub implements ServiceHub {
           import('./core/tauri'),
           import('./deeplink/tauri'),
           import('./extensions/tauri'),
+          import('./speech/tauri'),
         ])
 
         this.themeService = new themeModule.TauriThemeService()
@@ -156,6 +162,7 @@ class PlatformServiceHub implements ServiceHub {
         this.coreService = new coreModule.TauriCoreService()
         this.deepLinkService = new deepLinkModule.TauriDeepLinkService()
         this.extensionsService = new extensionsModule.TauriExtensionsService()
+        this.speechService = new speechModule.TauriSpeechService()
       }
 
       this.initialized = true
@@ -274,6 +281,11 @@ class PlatformServiceHub implements ServiceHub {
   extensions(): ExtensionsService {
     this.ensureInitialized()
     return this.extensionsService
+  }
+
+  speech(): SpeechService {
+    this.ensureInitialized()
+    return this.speechService
   }
 }
 

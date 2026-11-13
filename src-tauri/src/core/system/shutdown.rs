@@ -24,6 +24,7 @@ pub async fn shutdown_cleanup<R: Runtime>(app: &AppHandle<R>) {
     tauri_plugin_agent_tools::tools::proc::kill_all();
 
     let state = app.state::<AppState>();
+    crate::core::speech::stop(state.speech()).await;
     match tokio::time::timeout(
         MCP_CLEANUP_TIMEOUT,
         background_cleanup_mcp_servers(app, &state),

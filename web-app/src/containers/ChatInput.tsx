@@ -1,6 +1,7 @@
 import TextareaAutosize from 'react-textarea-autosize'
 import { cn, formatBytes } from '@/lib/utils'
 import { usePrompt } from '@/hooks/usePrompt'
+import { MicButton } from '@/containers/MicButton'
 import { useThreads } from '@/hooks/useThreads'
 import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react'
 import type { ReactNode } from 'react'
@@ -2731,6 +2732,14 @@ const ChatInput = memo(function ChatInput({
                 </div>
               )}
 
+              {!isStreaming && !toolsRunning && (
+                <MicButton
+                  onText={(text) => {
+                    setPrompt(prompt.trim() ? `${prompt.trimEnd()} ${text}` : text)
+                    textareaRef.current?.focus()
+                  }}
+                />
+              )}
               {isStreaming || toolsRunning ? (
                 <Tooltip>
                   <TooltipTrigger asChild>

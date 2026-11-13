@@ -371,5 +371,28 @@
     }
   },
   "backendInstallSuccess": "Backend installed successfully!",
-  "backendInstallError": "Failed to install backend"
+  "backendInstallError": "Failed to install backend",
+  "voice": {
+    "engine": "Local voice engine",
+    "engineDesc": "audio.cpp runs on this computer, nothing leaves it.",
+    "engineInstallDesc": "audio.cpp runs on this computer. Downloads about 570 MB once.",
+    "install": "Install",
+    "installing": "Installing…",
+    "start": "Start",
+    "starting": "Starting…",
+    "stop": "Stop",
+    "running": "Running",
+    "downloading": "Downloading {{file}}",
+    "tts": "Text to speech",
+    "ttsModel": "Kokoro 82M · English",
+    "voice": "Voice",
+    "voiceDesc": "Who reads replies aloud.",
+    "preview": "Preview voice",
+    "previewText": "Hi! I missed you. What would you like to talk about today?",
+    "stt": "Speech to text",
+    "sttModel": "SenseVoice Small · auto language",
+    "installFailed": "Couldn't install the voice engine",
+    "startFailed": "Couldn't start the voice engine",
+    "stopFailed": "Couldn't stop the voice engine"
+  }
 }

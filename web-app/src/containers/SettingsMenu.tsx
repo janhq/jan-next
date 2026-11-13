@@ -7,6 +7,7 @@ import {
   IconCircles,
   IconChevronDown,
   IconChevronRight,
+  IconMicrophone,
   IconCommand,
   IconFeather,
   IconPalette,
@@ -177,6 +178,11 @@ const SettingsMenu = () => {
       title: 'common:https_proxy',
       route: route.settings.https_proxy,
       icon: IconWorld,
+    },
+    {
+      title: 'common:voice',
+      route: route.settings.voice,
+      icon: IconMicrophone,
     },
     {
       title: 'common:keyboardShortcuts',
