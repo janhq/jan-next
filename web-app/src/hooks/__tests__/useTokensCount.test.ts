@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, act, waitFor } from '@testing-library/react'
+import { renderHook, waitFor } from '@testing-library/react'
 import { ThreadMessage } from '@janhq/core'
 import { useTokensCount } from '../useTokensCount'
-import { useAppState } from '../useAppState'
 
 const mockGetModelProps = vi.fn()
 
@@ -52,15 +51,9 @@ describe('useTokensCount', () => {
       capabilities: [],
       settings: {},
     }
-    act(() => {
-      useAppState.setState({
-        liveTokenStats: undefined,
-        liveTokenStatsByThread: {},
-      })
-    })
   })
 
-  it('falls back to the last message usage when no live stats are present', async () => {
+  it('uses the last message usage', async () => {
     const messages = [
       makeMessage({ metadata: { usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 } } }),
     ]
@@ -69,26 +62,7 @@ describe('useTokensCount', () => {
     expect(result.current.tokenCount).toBe(15)
   })
 
-  it('prefers live per-thread token stats over the static last-message usage while streaming', async () => {
-    const messages = [
-      makeMessage({ metadata: { usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 } } }),
-    ]
-    act(() => {
-      useAppState.getState().updateThreadLiveTokenStats('thread-1', {
-        promptTokens: 900,
-        completionTokens: 40,
-        tokensPerSecond: 30,
-        promptPerSecond: 60,
-      })
-    })
-    const { result } = renderHook(() => useTokensCount(messages))
-    await waitFor(() => expect(result.current.modelProps).toBeDefined())
-    expect(result.current.tokenCount).toBe(940)
-    expect(result.current.inputTokens).toBe(900)
-    expect(result.current.outputTokens).toBe(40)
-  })
-
-  it('context overflow still takes priority over live stats', async () => {
+  it('context overflow takes priority over message usage', async () => {
     const messages = [
       makeMessage({
         metadata: {
@@ -96,14 +70,6 @@ describe('useTokensCount', () => {
         },
       }),
     ]
-    act(() => {
-      useAppState.getState().updateThreadLiveTokenStats('thread-1', {
-        promptTokens: 50,
-        completionTokens: 5,
-        tokensPerSecond: 30,
-        promptPerSecond: 60,
-      })
-    })
     const { result } = renderHook(() => useTokensCount(messages))
     await waitFor(() => expect(result.current.modelProps).toBeDefined())
     expect(result.current.isOverflow).toBe(true)

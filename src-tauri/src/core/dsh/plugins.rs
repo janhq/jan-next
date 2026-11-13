@@ -119,6 +119,24 @@ fn config_text(text: &str) -> String {
     }
 }
 
+/// The checkout's `packages/` folder as a `file:///` URL. Packages missing from
+/// `examples/node_modules` load from there by path; the Loader hands the name
+/// to `import()`, and Node reads a bare `C:/...` as a URL with scheme `c:`.
+fn packages_url(root: &Path) -> String {
+    format!(
+        "file:///{}",
+        root.join("packages")
+            .to_string_lossy()
+            .replace('\\', "/")
+            .trim_start_matches('/')
+    )
+}
+
+/// The base text with the checkout path filled in.
+fn base_text(text: &str, root: &Path) -> String {
+    text.replace("{{DSH_PACKAGES}}", &packages_url(root))
+}
+
 /// Jan's `mcp_config.json` servers as `mcp-client` rows: `(entry id, active, row)`.
 fn mcp_rows(data_root: &Path, root: &Path) -> Vec<(String, bool, Value)> {
     let Ok(body) = std::fs::read_to_string(data_root.join("mcp_config.json")) else {
@@ -131,16 +149,8 @@ fn mcp_rows(data_root: &Path, root: &Path) -> Vec<(String, bool, Value)> {
         return Vec::new();
     };
     // The checkout's examples/node_modules does not carry mcp-client, so the
-    // entry points at the workspace package, which resolves its own deps. The
-    // Loader hands the name to `import()`, and Node's ESM loader reads a bare
-    // `C:/...` as a URL with scheme `c:`, so an absolute path must be a URL.
-    let module = format!(
-        "file:///{}",
-        root.join("packages/mcp/mcp-client/lib/index.js")
-            .to_string_lossy()
-            .replace('\\', "/")
-            .trim_start_matches('/')
-    );
+    // entry points at the workspace package, which resolves its own deps.
+    let module = format!("{}/mcp/mcp-client/lib/index.js", packages_url(root));
     let timeout_ms = doc
         .pointer("/mcpSettings/toolCallTimeoutSeconds")
         .and_then(Value::as_u64)
@@ -216,7 +226,7 @@ pub fn list(dir: &Path, data_root: &Path, root: &Path) -> Result<Vec<PluginEntry
         let disabled = user.iter().any(|u| u.id == id && u.disabled);
         out.push(PluginEntry {
             id,
-            name,
+            name: base_text(&name, root),
             source: "base".into(),
             enabled: !disabled,
             config: config_text(&text),
@@ -255,6 +265,7 @@ pub fn compose(dir: &Path, data_root: &Path, root: &Path) -> Result<String, Stri
     let mut out = String::new();
     let mut base_ids = Vec::new();
     for (id, _, text) in base_chunks() {
+        let text = base_text(&text, root);
         let disabled = user.iter().any(|u| u.id == id && u.disabled);
         base_ids.push(id);
         if disabled {

@@ -156,29 +156,6 @@ pub async fn get_provider_keys(provider: String) -> Vec<String> {
     .unwrap_or_default()
 }
 
-/// Get provider configuration by name
-#[tauri::command]
-pub async fn get_provider_config(
-    state: State<'_, AppState>,
-    provider: String,
-) -> Result<Option<ProviderConfig>, String> {
-    let provider_configs = state.provider_configs.clone();
-    let configs = provider_configs.lock().await;
-
-    Ok(configs.get(&provider).cloned())
-}
-
-/// List all registered provider configurations (without sensitive keys)
-#[tauri::command]
-pub async fn list_provider_configs(
-    state: State<'_, AppState>,
-) -> Result<Vec<ProviderConfig>, String> {
-    let provider_configs = state.provider_configs.clone();
-    let configs = provider_configs.lock().await;
-
-    Ok(configs.values().cloned().collect())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -188,7 +188,6 @@ Object.defineProperty(window, 'matchMedia', {
 ;(globalThis as Record<string, unknown>).core = {
   api: {
     getJanDataFolderPath: vi.fn().mockResolvedValue('/mock/jan/data'),
-    openFileExplorer: vi.fn().mockResolvedValue(undefined),
     joinPath: vi.fn((...paths: string[]) => paths.join('/')),
   }
 }

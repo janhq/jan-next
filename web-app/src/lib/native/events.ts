@@ -14,16 +14,8 @@ export const events = {
 }
 
 export enum AppEvent {
-  onAppUpdateNotAvailable = 'onAppUpdateNotAvailable',
-  onAppUpdateAvailable = 'onAppUpdateAvailable',
-  onAppUpdateDownloadUpdate = 'onAppUpdateDownloadUpdate',
-  onAppUpdateDownloadError = 'onAppUpdateDownloadError',
-  onAppUpdateDownloadSuccess = 'onAppUpdateDownloadSuccess',
   onModelImported = 'onModelImported',
-  onDeepLink = 'onDeepLink',
   onBackendVerificationFailed = 'onBackendVerificationFailed',
-  onBackendRollback = 'onBackendRollback',
-  onBackendUpdateQueued = 'onBackendUpdateQueued',
 }
 
 export enum DownloadEvent {
@@ -31,7 +23,6 @@ export enum DownloadEvent {
   onFileDownloadError = 'onFileDownloadError',
   onFileDownloadSuccess = 'onFileDownloadSuccess',
   onFileDownloadStopped = 'onFileDownloadStopped',
-  onFileDownloadStarted = 'onFileDownloadStarted',
   onModelValidationStarted = 'onModelValidationStarted',
   onModelValidationFailed = 'onModelValidationFailed',
   onFileDownloadAndVerificationSuccess = 'onFileDownloadAndVerificationSuccess',

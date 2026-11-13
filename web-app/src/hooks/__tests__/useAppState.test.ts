@@ -1,21 +1,14 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
-import { useAppState } from '../useAppState'
-
+import { useAppState, useIsThreadActive } from '../useAppState'
 
 describe('useAppState', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
-    // Reset Zustand store
     act(() => {
       useAppState.setState({
-        streamingContent: undefined,
         loadingModel: false,
-        tools: [],
         serverStatus: 'stopped',
-        abortControllers: {},
-        currentToolCall: undefined,
-        showOutOfContextDialog: false
+        loadingModels: {},
       })
     })
   })
@@ -23,28 +16,9 @@ describe('useAppState', () => {
   it('should initialize with default state', () => {
     const { result } = renderHook(() => useAppState())
 
-    expect(result.current.streamingContent).toBeUndefined()
     expect(result.current.loadingModel).toBe(false)
     expect(result.current.serverStatus).toBe('stopped')
-    expect(result.current.abortControllers).toEqual({})
-    expect(result.current.currentToolCall).toBeUndefined()
-    expect(result.current.showOutOfContextDialog).toBe(false)
-  })
-
-  it('should update streaming content', () => {
-    const { result } = renderHook(() => useAppState())
-
-    const content = { id: 'msg-1', content: 'Hello', role: 'user' }
-
-    act(() => {
-      result.current.updateStreamingContent(content)
-    })
-
-    // The function adds created_at if not present
-    expect(result.current.streamingContent).toMatchObject({
-      ...content,
-      created_at: expect.any(Number),
-    })
+    expect(result.current.loadingModels).toEqual({})
   })
 
   it('should update loading model state', () => {
@@ -53,13 +27,11 @@ describe('useAppState', () => {
     act(() => {
       result.current.updateLoadingModel(true)
     })
-
     expect(result.current.loadingModel).toBe(true)
 
     act(() => {
       result.current.updateLoadingModel(false)
     })
-
     expect(result.current.loadingModel).toBe(false)
   })
 
@@ -69,42 +41,34 @@ describe('useAppState', () => {
     act(() => {
       result.current.setServerStatus('running')
     })
-
     expect(result.current.serverStatus).toBe('running')
 
     act(() => {
       result.current.setServerStatus('pending')
     })
-
     expect(result.current.serverStatus).toBe('pending')
   })
 
-  it('should set abort controller', () => {
-    const { result } = renderHook(() => useAppState())
-
-    const controller = new AbortController()
+  it('useIsThreadActive is true only while the thread is in loadingModels', () => {
+    const { result } = renderHook(() => useIsThreadActive('t1'))
+    expect(result.current).toBe(false)
 
     act(() => {
-      result.current.setAbortController('thread-123', controller)
+      useAppState.getState().updateThreadLoadingModel('t1', true)
     })
+    expect(result.current).toBe(true)
 
-    expect(result.current.abortControllers['thread-123']).toBe(controller)
+    act(() => {
+      useAppState.getState().updateThreadLoadingModel('t1', false)
+    })
+    expect(result.current).toBe(false)
   })
 
-  it('should set out of context dialog', () => {
-    const { result } = renderHook(() => useAppState())
-
+  it('useIsThreadActive is false for an undefined thread id', () => {
     act(() => {
-      result.current.setOutOfContextDialog(true)
+      useAppState.getState().updateThreadLoadingModel('t1', true)
     })
-
-    expect(result.current.showOutOfContextDialog).toBe(true)
-
-    act(() => {
-      result.current.setOutOfContextDialog(false)
-    })
-
-    expect(result.current.showOutOfContextDialog).toBe(false)
+    const { result } = renderHook(() => useIsThreadActive(undefined))
+    expect(result.current).toBe(false)
   })
-
 })

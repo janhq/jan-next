@@ -52,10 +52,11 @@ export default function LlamacppOomListener() {
       (event) => {
         const { model, stage, stages, value } = event.payload
         const progress = { modelId: model, stage, stages, value }
-        const { currentStreamThreadId: threadId } = useAppState.getState()
-        useAppState.getState().updateModelLoadProgress(progress)
-        if (threadId) {
-          useAppState.getState().updateThreadModelLoadProgress(threadId, progress)
+        const app = useAppState.getState()
+        app.updateModelLoadProgress(progress)
+        // The per-thread slot follows whichever thread asked for this load.
+        for (const threadId of Object.keys(app.loadingModels)) {
+          app.updateThreadModelLoadProgress(threadId, progress)
         }
       }
     ).catch((e) => {

@@ -82,11 +82,6 @@ export const useTokensCount = (
   const modelId = isLocalProvider ? selectedModel?.id : undefined
 
   const threadId = messages[0]?.thread_id
-  // Populated per-chunk while a llama.cpp turn is streaming (timings_per_token);
-  // cleared on stream start/finish/error, so its presence means "live now".
-  const liveStats = useAppState((s) =>
-    threadId ? s.liveTokenStatsByThread[threadId] : undefined
-  )
   // getModelProps only succeeds once the router has autoloaded the model, which
   // normally doesn't happen until the first turn is sent. Refetch as soon as that
   // load finishes so the counter can appear mid-turn instead of waiting for the
@@ -171,13 +166,7 @@ export const useTokensCount = (
       }
     }
     const overflow = getActiveContextOverflow(messages)
-    const usage = liveStats
-      ? {
-        inputTokens: liveStats.promptTokens,
-        outputTokens: liveStats.completionTokens,
-        totalTokens: liveStats.promptTokens + liveStats.completionTokens,
-      }
-      : (getLatestServerUsage(messages))
+    const usage = getLatestServerUsage(messages)
     const tokenCount = overflow?.requestTokens ?? usage.totalTokens ?? 0
     const maxTokens = overflow?.contextTokens ?? modelProps?.nCtx
     const percentage = maxTokens ? (tokenCount / maxTokens) * 100 : undefined
@@ -217,7 +206,6 @@ export const useTokensCount = (
     isLocalProvider,
     modelProps,
     loading,
-    liveStats,
     getProviderByName,
     selectedModel,
     configuredCtxLen,

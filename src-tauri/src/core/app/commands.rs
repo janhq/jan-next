@@ -250,7 +250,6 @@ pub fn get_jan_data_folder_path<R: Runtime>(app_handle: tauri::AppHandle<R>) -> 
     PathBuf::from(app_configurations.data_folder)
 }
 
-#[tauri::command]
 pub fn get_configuration_file_path<R: Runtime>(app_handle: tauri::AppHandle<R>) -> PathBuf {
     let app_path = app_data_dir_with_fallback(&app_handle);
     if let Err(err) = migrate_legacy_app_configuration(&app_path) {
@@ -259,7 +258,6 @@ pub fn get_configuration_file_path<R: Runtime>(app_handle: tauri::AppHandle<R>) 
     app_path.join(CONFIGURATION_FILE_NAME)
 }
 
-#[tauri::command]
 pub fn default_data_folder_path<R: Runtime>(app_handle: tauri::AppHandle<R>) -> String {
     let mut path = paths::data_dir_for(&app_handle).unwrap_or_else(|err| {
         log::error!("Failed to get data directory: {err}. Falling back to home directory.");

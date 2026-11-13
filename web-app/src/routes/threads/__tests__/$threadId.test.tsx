@@ -58,10 +58,6 @@ const h = vi.hoisted(() => {
     }>,
     setOomError: vi.fn(),
     setBackendError: vi.fn(),
-    busyThreads: {} as Record<string, boolean>,
-    embeddingThreads: {} as Record<string, boolean>,
-    setThreadBusy: vi.fn(),
-    setThreadEmbedding: vi.fn(),
   }
   const useAppStateMock: any = (selector: any) => selector(appStateState)
   useAppStateMock.getState = () => appStateState
@@ -338,21 +334,6 @@ vi.mock('@/lib/completion', () => ({
   }),
 }))
 
-vi.mock('@/lib/attachmentProcessing', () => ({
-  processAttachmentsForSend: vi
-    .fn()
-    .mockResolvedValue({ processedAttachments: [], hasEmbeddedDocuments: false }),
-  resolveAutoInlineBudget: vi.fn().mockResolvedValue(6144),
-  needsIngestionChoice: vi.fn(
-    (doc: any, pref: string) => (doc.parseMode ?? pref) === 'auto'
-  ),
-  promptIngestionChoices: vi.fn(),
-  applyIngestionChoices: (atts: any[], choices: Map<string, string>) =>
-    atts.map((a) =>
-      choices.has(a.path) ? { ...a, parseMode: choices.get(a.path) } : a
-    ),
-}))
-
 vi.mock('@/lib/thread-title-summarizer', () => ({
   generateThreadTitle: vi.fn().mockResolvedValue('Short title'),
 }))
@@ -445,11 +426,6 @@ vi.mock('@/utils/error', async (importOriginal) => ({
 import { Route } from '../$threadId'
 import { getServiceHub } from '@/hooks/useServiceHub'
 import { useMessageErrors } from '@/stores/message-errors'
-import {
-  processAttachmentsForSend,
-  promptIngestionChoices,
-  resolveAutoInlineBudget,
-} from '@/lib/attachmentProcessing'
 import { usePrompt } from '@/hooks/usePrompt'
 
 // The global setup mock is a shared object, so an overridden factory has to be

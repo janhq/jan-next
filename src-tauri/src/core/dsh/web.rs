@@ -10,7 +10,6 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
 
-use serde::Serialize;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::{oneshot, Mutex};
@@ -31,13 +30,6 @@ pub(crate) struct WebHost {
 #[derive(Default)]
 pub struct DshWebState {
     pub(crate) host: Mutex<Option<WebHost>>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DshWebStatus {
-    pub running: bool,
-    pub url: Option<String>,
 }
 
 fn cli(root: &Path) -> PathBuf {
@@ -138,15 +130,6 @@ pub(crate) fn is_host_url<R: tauri::Runtime>(app: &tauri::AppHandle<R>, url: &ta
     url.scheme() == origin.scheme()
         && url.host_str() == origin.host_str()
         && url.port_or_known_default() == origin.port_or_known_default()
-}
-
-pub(crate) async fn status(state: &DshWebState) -> DshWebStatus {
-    let mut slot = state.host.lock().await;
-    let Some(host) = slot.as_mut() else {
-        return DshWebStatus { running: false, url: None };
-    };
-    let running = host.child.try_wait().ok().flatten().is_none();
-    DshWebStatus { running, url: running.then(|| host.url.clone()) }
 }
 
 pub async fn stop(state: &DshWebState) {

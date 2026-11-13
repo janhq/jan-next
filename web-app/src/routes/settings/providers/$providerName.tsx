@@ -15,6 +15,7 @@ import { ModelSetting } from '@/containers/ModelSetting'
 import { LlamacppEngineInfo } from '@/containers/LlamacppEngineInfo'
 import { LlamacppDiagnostics } from '@/containers/LlamacppDiagnostics'
 import { isEngineWorkInFlight } from '@/containers/dialogs/llamacppRouterError'
+import { useChatSessions } from '@/stores/chat-session-store'
 import { DialogDeleteModel } from '@/containers/dialogs/DeleteModel'
 import { DialogDeleteAllModels } from '@/containers/dialogs/DeleteAllModels'
 import { FavoriteModelAction } from '@/containers/FavoriteModelAction'
@@ -80,7 +81,9 @@ function ProviderDetail() {
   )
   // This page is the llama.cpp one when the panel below renders, so engine
   // work in flight is this engine's work.
-  const engineBusy = useAppState(isEngineWorkInFlight)
+  const loadingThreads = useAppState((state) => state.loadingModels)
+  const chatSessions = useChatSessions((state) => state.sessions)
+  const engineBusy = isEngineWorkInFlight(loadingThreads, chatSessions)
   const { diagnose: diagnoseDevice, diagnoseModel } = Route.useSearch()
   const [loadingModels, setLoadingModels] = useState<string[]>([])
   const [refreshingModels, setRefreshingModels] = useState(false)

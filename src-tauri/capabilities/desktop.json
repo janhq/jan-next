@@ -21,7 +21,6 @@
     "core:webview:allow-create-webview-window",
     "opener:allow-open-url",
     "opener:allow-reveal-item-in-dir",
-    "store:default",
     "llamacpp:default",
     "deep-link:default",
     "hardware:default",

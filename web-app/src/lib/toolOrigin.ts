@@ -8,8 +8,8 @@ export type ToolOrigin =
   | { kind: 'subagent' }
   | { kind: 'mcp'; detail: string }
 
-/** Subagent dispatch: `task` from Jan-era history, `subagent` from DSH. */
-const SUBAGENT_TOOLS = new Set(['task', 'subagent'])
+/** Subagent dispatch: `task` from Jan-era history, `subagent`/`subagent_fork` from DSH. */
+const SUBAGENT_TOOLS = new Set(['task', 'subagent', 'subagent_fork'])
 
 /** DSH's mcp-client names every tool `mcp__<serverName>__<rawName>`. */
 const MCP_TOOL = /^mcp__([A-Za-z0-9_-]+?)__./

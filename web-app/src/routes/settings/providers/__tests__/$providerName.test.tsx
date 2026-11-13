@@ -85,11 +85,7 @@ const h = vi.hoisted(() => {
     setActiveModels: vi.fn(),
     // The page selects over these to decide whether the engine is busy, so
     // the mock has to carry the real store's shape.
-    currentStreamThreadId: undefined as string | undefined,
-    abortControllers: {} as Record<string, unknown>,
-    busyThreads: {} as Record<string, boolean>,
     loadingModels: {} as Record<string, boolean>,
-    streamingContents: {} as Record<string, unknown>,
   }
   const useAppStateMock: any = (selector: any) => selector(appState)
   useAppStateMock.getState = () => appState
@@ -121,10 +117,6 @@ const h = vi.hoisted(() => {
     dialog: vi.fn(() => dialogSvc),
   }
 
-  const modelLoad = {
-    setModelLoadError: vi.fn(),
-  }
-
   const params: any = { providerName: 'openai' }
   const search: any = {}
 
@@ -145,7 +137,6 @@ const h = vi.hoisted(() => {
     providersSvc,
     modelsSvc,
     dialogSvc,
-    modelLoad,
     params,
     search,
   }
@@ -183,6 +174,7 @@ vi.mock('sonner', () => ({
 }))
 
 vi.mock('@/i18n/react-i18next-compat', () => ({
+  i18n: { t: (k: string) => k },
   useTranslation: () => ({
     t: (k: string, o?: Record<string, unknown>) =>
       o?.extension ? `${k}:${String(o.extension)}` : k,
@@ -343,10 +335,6 @@ vi.mock('@/hooks/useServiceHub', () => ({
   useServiceHub: () => h.serviceHub,
 }))
 
-vi.mock('@/hooks/useModelLoad', () => ({
-  useModelLoad: () => h.modelLoad,
-}))
-
 vi.mock('@/hooks/useLlamacppDevices', () => {
   const hook: any = () => ({ fetchDevices: vi.fn() })
   hook.getState = () => ({ fetchDevices: vi.fn() })
@@ -416,14 +404,10 @@ beforeEach(() => {
 
 describe('ProviderDetail route', () => {
   describe('Route config', () => {
-    it('validateSearch stringifies the step param', () => {
-      const r = (Route as any).validateSearch({ step: 42 })
-      expect(r.step).toBe('42')
-    })
-
-    it('validateSearch handles missing search', () => {
-      const r = (Route as any).validateSearch({})
-      expect(r.step).toBe('undefined')
+    it('validateSearch keeps a string step and drops anything else', () => {
+      expect((Route as any).validateSearch({ step: 'models' }).step).toBe('models')
+      expect((Route as any).validateSearch({ step: 42 }).step).toBeUndefined()
+      expect((Route as any).validateSearch({}).step).toBeUndefined()
     })
   })
 
@@ -699,14 +683,14 @@ describe('ProviderDetail route', () => {
       })
     })
 
-    it('captures error via setModelLoadError when startModel rejects', async () => {
+    it('toasts the reason when startModel rejects', async () => {
       h.modelsSvc.startModel = vi.fn().mockRejectedValue({ message: 'boom' })
       renderComponent()
       await act(async () => {
         fireEvent.click(screen.getByText('providers:start'))
       })
       await waitFor(() => {
-        expect(h.modelLoad.setModelLoadError).toHaveBeenCalled()
+        expect(h.toastError).toHaveBeenCalled()
       })
     })
   })

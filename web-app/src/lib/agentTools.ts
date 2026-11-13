@@ -1,6 +1,6 @@
 /**
- * Whether a recorded tool call ran the shell, for displaying saved history.
- * DSH names its shell tool `bash`; turns saved by Jan's old agent say `shell`.
+ * Whether a tool call ran the shell. DSH's shell tool is `pwsh` on Windows and
+ * `bash` elsewhere; turns saved by Jan's old agent say `shell`.
  */
 export const isRecordedShellCall = (toolName: string): boolean =>
-  toolName === 'shell' || toolName === 'bash'
+  toolName === 'shell' || toolName === 'bash' || toolName === 'pwsh'

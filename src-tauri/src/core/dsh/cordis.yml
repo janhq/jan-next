@@ -32,27 +32,70 @@
   config:
     dshHome: !!js process.env.OW_DSH_HOME
 
-# Managed child-process groups for the bash executor (spawn/kill/output plumbing).
+# Managed child-process groups for the shell executor (spawn/kill/output plumbing).
 - id: subprocess
   name: '@deepseek-ai/dsh-subprocess-local'
 
-- id: bash
-  name: '@deepseek-ai/dsh-bash-local'
-  config:
-    cwd: !!js process.env.DSH_CWD ?? process.cwd()
-    timeoutMs: 60000
+# Every shell command and file write runs under DSH's sandbox. The policy is
+# per session: its root is the thread's workspace (the session cwd), so a chat
+# writes only there (plus a private temp dir) unless the user approves a wider
+# mode for one call. On Windows the runner is the ACL restricted-token backend,
+# on macOS Seatbelt.
+- id: sandbox
+  name: '@deepseek-ai/dsh-sandbox-local'
 
+- id: sandbox-policy
+  name: '@deepseek-ai/dsh-sandbox-policy'
+  config:
+    mode: workspace-write
+    workspaceRoot: !!js process.env.DSH_CWD ?? process.cwd()
+
+# PowerShell is the shell on Windows, bash elsewhere, as in DSH's own CLI.
+# pwsh-sandbox is not in the checkout's examples/node_modules, so it loads from
+# the workspace package (the app fills in the checkout path).
+- id: pwsh-sandbox
+  name: '{{DSH_PACKAGES}}/shell/pwsh-sandbox/lib/index.js'
+  disabled: !!js process.platform !== 'win32'
+  config:
+    timeoutMs: 120000
+
+- id: bash-sandbox
+  name: '@deepseek-ai/dsh-bash-sandbox'
+  disabled: !!js process.platform === 'win32'
+  config:
+    timeoutMs: 120000
+
+- id: shell-env
+  name: '@deepseek-ai/dsh-shell-env'
+  config:
+    dshHome: !!js process.env.OW_DSH_HOME
+
+- id: tool-pwsh
+  name: '@deepseek-ai/dsh-tool-pwsh'
+  disabled: !!js process.platform !== 'win32'
+
+- id: tool-bash
+  name: '@deepseek-ai/dsh-tool-bash'
+  disabled: !!js process.platform === 'win32'
+
+# The spine mounts the loop, prompt, tool registry, jobs, workspace
+# instructions (AGENTS.md and friends from the session cwd), skills (from
+# <data>/dsh/home/skills and ~/.agents/skills) and goals. The shell tool is
+# mounted above so it can sit on the sandboxed executor.
 - id: agent-spine
   name: '@deepseek-ai/dsh-agent-spine-demo'
   config:
     # Overridden per session by the server plugin's `instructions`.
     persona: You are a helpful assistant.
-    workspaceContext: false
-    skills:
-      enabled: false
-    toolBash:
-      enableRunInBackground: false
-    toolJobs: false
+    dshHome: !!js process.env.OW_DSH_HOME
+    workspaceContext:
+      maxBytes: 65536
+    toolBash: false
+    goals: {}
+
+# Date and time, so "today" and "yesterday" mean something to the model.
+- id: time-context
+  name: '@deepseek-ai/dsh-time-context'
 
 - id: sessions
   name: '@deepseek-ai/dsh-session-persistence-jsonl'
@@ -72,20 +115,59 @@
   config:
     providerName: spawn
 
+- id: subagent-fork-in-process
+  name: '@deepseek-ai/dsh-subagent-fork-in-process'
+  config:
+    providerName: fork
+
+# Background children can be followed up, listed and stopped.
+- id: tool-subagent-control
+  name: '@deepseek-ai/dsh-tool-subagent-control'
+
+- id: tool-subagent-list-agents
+  name: '@deepseek-ai/dsh-tool-subagent-control/list-agents'
+
 - id: tool-subagent
   name: '@deepseek-ai/dsh-tool-subagent'
   config:
     provider: spawn
     toolName: subagent
-    enableRunInBackground: false
+    backgroundMode: continuable
+
+# Fork stays one-shot so the child reuses the parent's request prefix.
+- id: tool-subagent-fork
+  name: '@deepseek-ai/dsh-tool-subagent'
+  config:
+    provider: fork
+    toolName: subagent_fork
+    backgroundMode: one-shot
+
+- id: tool-subagent-report
+  name: '@deepseek-ai/dsh-tool-subagent-report'
+
+# Scripted fan-out over subagents, and fresh-agent iteration (Ralph).
+- id: workflow-worker-thread
+  name: '@deepseek-ai/dsh-workflow-worker-thread'
+  config:
+    provider: spawn
+
+- id: tool-workflow
+  name: '@deepseek-ai/dsh-tool-workflow'
+
+- id: tool-ralph
+  name: '@deepseek-ai/dsh-tool-ralph'
+  config:
+    subagentProvider: spawn
+    maxRounds: 64
 
 - id: tool-todo
   name: '@deepseek-ai/dsh-tool-todo'
   config:
     allowParallelInProgress: true
 
-- id: fs-local
-  name: '@deepseek-ai/dsh-fs-local'
+# The file tools write through the same sandbox policy as the shell.
+- id: fs-sandbox
+  name: '@deepseek-ai/dsh-fs-sandbox'
   config:
     cwd: !!js process.env.DSH_CWD ?? process.cwd()
 
@@ -135,3 +217,30 @@
     retainRatio: 0.16
     maxTokens: 8192
     compactionRetries: 1
+
+# Oversized tool output goes to a file the model can page, calls get a time
+# limit, big results are pruned before compaction, and repeated identical
+# calls get a reminder.
+- id: spill-local
+  name: '@deepseek-ai/dsh-spill-local'
+
+- id: spill-policy
+  name: '@deepseek-ai/dsh-spill-policy'
+  config:
+    maxInlineBytes: 50000
+
+- id: timeout-policy
+  name: '@deepseek-ai/dsh-tool-call-timeout-policy'
+
+- id: tool-result-pruner
+  name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+  config:
+    thresholdChars: 8192
+    headChars: 4096
+    tailChars: 1024
+
+- id: repeat-tool-reminder
+  name: '@deepseek-ai/dsh-repeat-tool-reminder'
+  config:
+    thresholds: [3, 5, 8]
+    argumentsPreviewChars: 500

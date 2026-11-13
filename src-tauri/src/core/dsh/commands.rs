@@ -172,14 +172,3 @@ pub async fn dsh_web_start<R: Runtime>(
 ) -> Result<String, String> {
     super::web::start(&state.dsh_web, &data_dir(&app), std::path::Path::new(&root)).await
 }
-
-#[tauri::command]
-pub async fn dsh_web_status(state: State<'_, AppState>) -> Result<super::web::DshWebStatus, String> {
-    Ok(super::web::status(&state.dsh_web).await)
-}
-
-#[tauri::command]
-pub async fn dsh_web_stop(state: State<'_, AppState>) -> Result<(), String> {
-    super::web::stop(&state.dsh_web).await;
-    Ok(())
-}

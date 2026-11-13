@@ -22,7 +22,6 @@ import { runWorkCommand } from '@/lib/workCommands'
 import { useTranslation } from '@/i18n/react-i18next-compat'
 import { useGeneralSetting } from '@/hooks/useGeneralSetting'
 import { useModelProvider } from '@/hooks/useModelProvider'
-import { useAppState } from '@/hooks/useAppState'
 import { MovingBorder } from './MovingBorder'
 import type { ChatStatus } from 'ai'
 import { useRouter } from '@tanstack/react-router'
@@ -171,7 +170,6 @@ const ChatInput = memo(function ChatInput({
     controlRowWidth > 0 &&
     controlRowWidth < CONTROL_ROW_COLLAPSE_WIDTH
   const serviceHub = useServiceHub()
-  const abortControllers = useAppState((state) => state.abortControllers)
   const prompt = usePrompt((state) => state.prompt)
   const setPrompt = usePrompt((state) => state.setPrompt)
   const addToHistory = usePrompt((state) => state.addToHistory)
@@ -440,16 +438,6 @@ const ChatInput = memo(function ChatInput({
     }
   }, [chatStatus])
 
-  const stopStreaming = useCallback(
-    (threadId: string) => {
-      if (onStop) {
-        onStop()
-      } else {
-        abortControllers[threadId]?.abort()
-      }
-    },
-    [abortControllers, onStop]
-  )
 
   const handleRemoveAttachment = (indexToRemove: number) => {
     setAttachmentsForThread(attachmentsKey, (prev) =>
@@ -1015,7 +1003,7 @@ const ChatInput = memo(function ChatInput({
                                 return
                               }
                             }
-                            stopStreaming(currentThreadId ?? '')
+                            onStop?.()
                           }}
                         >
                           <IconPlayerStopFilled />

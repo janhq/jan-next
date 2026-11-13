@@ -12,7 +12,6 @@ use std::{
     sync::Arc,
 };
 use tauri::{Emitter, Manager, RunEvent};
-use tauri_plugin_store::StoreExt;
 use tokio::sync::Mutex;
 
 macro_rules! invoke_commands_with_extras {
@@ -38,8 +37,6 @@ macro_rules! invoke_commands_with_extras {
         core::app::commands::get_user_home_path,
         core::app::commands::update_app_configuration,
         core::app::commands::get_jan_data_folder_path,
-        core::app::commands::get_configuration_file_path,
-        core::app::commands::default_data_folder_path,
         core::app::commands::change_app_data_folder,
         core::app::commands::app_token,
         // Backend-owned settings store (webview zustand persistence)
@@ -79,16 +76,12 @@ macro_rules! invoke_commands_with_extras {
         core::dsh::commands::dsh_thread_workspace,
         core::dsh::commands::dsh_read_workspace_file,
         core::dsh::commands::dsh_web_start,
-        core::dsh::commands::dsh_web_status,
-        core::dsh::commands::dsh_web_stop,
         core::server::commands::set_server_run_in_background,
         // Remote provider commands
         core::server::remote_provider_commands::register_provider_config,
         core::server::remote_provider_commands::unregister_provider_config,
         core::server::remote_provider_commands::delete_provider_keys,
-        core::server::remote_provider_commands::get_provider_config,
         core::server::remote_provider_commands::get_provider_keys,
-        core::server::remote_provider_commands::list_provider_configs,
         // MCP server list (mcp_config.json)
         core::mcp_config::get_mcp_configs,
         core::mcp_config::save_mcp_configs,
@@ -225,7 +218,6 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_http::init())
-        .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_llamacpp::init());
 
@@ -315,20 +307,6 @@ pub fn run() {
                     handle.exit(0);
                 });
             }
-
-            // Start migration
-            let mut store_path = get_jan_data_folder_path(app.handle().clone());
-            store_path.push("store.json");
-            let store = app
-                .handle()
-                .store(store_path)
-                .expect("Store not initialized");
-            let app_version = app.config().version.clone().unwrap_or_default();
-
-            // Store the new app version
-            store.set("version", serde_json::json!(app_version));
-            store.save().expect("Failed to save store");
-            // Migration completed
 
             #[cfg(feature = "desktop")]
             if setup::tray_always_visible() {

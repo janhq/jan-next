@@ -30,7 +30,7 @@ describe('LlamacppOomListener - model load progress', () => {
       useAppState.setState({
         modelLoadProgress: undefined,
         modelLoadProgressByThread: {},
-        currentStreamThreadId: undefined,
+        loadingModels: {},
       })
     })
   })
@@ -61,9 +61,9 @@ describe('LlamacppOomListener - model load progress', () => {
     })
   })
 
-  it('also updates per-thread progress when a stream thread is active', async () => {
+  it('also updates per-thread progress for every loading thread', async () => {
     act(() => {
-      useAppState.setState({ currentStreamThreadId: 'thread-1' })
+      useAppState.setState({ loadingModels: { 'thread-1': true } })
     })
     render(<LlamacppOomListener />)
     await act(async () => {

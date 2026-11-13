@@ -33,7 +33,8 @@ const PERSONA_ORDER = 0
 /** @typedef {{ role: 'user' | 'assistant', text: string }} HistoryTurn */
 
 /** Tools that change files or run commands: gated by the edit policy and plan mode. */
-const MUTATING = new Set(['write', 'edit', 'bash'])
+// The shell tool is `pwsh` on Windows and `bash` elsewhere.
+const MUTATING = new Set(['write', 'edit', 'bash', 'pwsh'])
 const POLICIES = new Set(['ask', 'auto'])
 
 class OpenWaifuServer extends HarnessSdkJsonRpcServer {

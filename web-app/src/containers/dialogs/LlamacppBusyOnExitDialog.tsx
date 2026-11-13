@@ -5,7 +5,7 @@ import { forceStopEngine } from '@janhq/tauri-plugin-llamacpp-api'
 import { AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { useAppState } from '@/hooks/useAppState'
+import { clearActiveWork } from './llamacppRouterError'
 import { isPlatformTauri } from '@/lib/platform/utils'
 import {
   Dialog,
@@ -52,21 +52,7 @@ export default function LlamacppBusyOnExitDialog() {
   const handleForceQuit = async () => {
     setForcing(true)
     try {
-      const state = useAppState.getState()
-      Object.values(state.abortControllers).forEach((ctrl) => {
-        try {
-          ctrl.abort()
-        } catch (e) {
-          console.warn('abort controller threw on force-quit:', e)
-        }
-      })
-      const threadIds = new Set<string>([
-        ...Object.keys(state.busyThreads),
-        ...Object.keys(state.streamingContents),
-        ...Object.keys(state.loadingModels),
-        ...Object.keys(state.abortControllers),
-      ])
-      threadIds.forEach((tid) => state.clearThreadState(tid))
+      clearActiveWork()
       await forceStopEngine()
       await invoke('confirm_exit')
     } catch (e) {

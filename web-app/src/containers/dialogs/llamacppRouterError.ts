@@ -1,77 +1,76 @@
 import { useAppState } from '@/hooks/useAppState'
 import { useMessages } from '@/hooks/useMessages'
 import { useModelProvider } from '@/hooks/useModelProvider'
+import { useChatSessions } from '@/stores/chat-session-store'
 
-// Router errors are only user-facing when they could have killed an in-flight
-// llamacpp generation. At launch/idle the router can emit startup noise with no
-// active request — surfacing it would banner a provider the user never invoked.
+type Sessions = ReturnType<typeof useChatSessions.getState>['sessions']
+
+/** Threads with a chat turn streaming. */
+function streamingThreads(sessions: Sessions): string[] {
+  return Object.entries(sessions)
+    .filter(([, s]) => s.isStreaming)
+    .map(([id]) => id)
+}
+
 /**
  * Whether the app has engine work in flight, independent of which provider is
- * selected. Separate from [`hasActiveLlamacppRequest`] so a caller that
- * already knows it is on llama.cpp -- the provider settings page -- can use it
- * as a zustand selector and re-render when the answer changes.
+ * selected: a model loading or a chat turn streaming. Separate from
+ * [`hasActiveLlamacppRequest`] so the provider settings page, which already
+ * knows it is on llama.cpp, can re-render when the answer changes.
  */
 export function isEngineWorkInFlight(
-  app: Pick<
-    ReturnType<typeof useAppState.getState>,
-    | 'currentStreamThreadId'
-    | 'abortControllers'
-    | 'busyThreads'
-    | 'loadingModels'
-    | 'streamingContents'
-  >
+  loadingModels: Record<string, boolean>,
+  sessions: Sessions
 ): boolean {
   return (
-    // A token stream is the common case and sets none of the slots below;
-    // currentStreamThreadId is the reliable "request in flight" signal.
-    app.currentStreamThreadId != null ||
-    Object.keys(app.abortControllers).length > 0 ||
-    Object.keys(app.busyThreads).length > 0 ||
-    Object.keys(app.loadingModels).length > 0 ||
-    Object.keys(app.streamingContents).length > 0
+    Object.keys(loadingModels).length > 0 ||
+    streamingThreads(sessions).length > 0
   )
 }
 
+// Router errors are only user-facing when they could have killed an in-flight
+// llamacpp generation. At launch/idle the router can emit startup noise with no
+// active request; surfacing it would banner a provider the user never invoked.
 export function hasActiveLlamacppRequest(): boolean {
   if (useModelProvider.getState().selectedProvider !== 'llamacpp') return false
-  return isEngineWorkInFlight(useAppState.getState())
+  return isEngineWorkInFlight(
+    useAppState.getState().loadingModels,
+    useChatSessions.getState().sessions
+  )
 }
 
+/** Stamps the error on the last user message of every streaming thread. */
 export function stampErrorOnLastUserMessage(
   field: 'oomError' | 'backendError',
   value: string
 ) {
-  const threadId = useAppState.getState().currentStreamThreadId
-  if (!threadId) return
-  const messages = useMessages.getState().getMessages(threadId)
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i]
-    if (m.role !== 'user') continue
-    const meta = (m.metadata as Record<string, unknown> | undefined) ?? {}
-    if (meta[field] === value) return
-    useMessages.getState().updateMessage({
-      ...m,
-      metadata: { ...meta, [field]: value },
-    })
-    return
+  for (const threadId of streamingThreads(useChatSessions.getState().sessions)) {
+    const messages = useMessages.getState().getMessages(threadId)
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]
+      if (m.role !== 'user') continue
+      const meta = (m.metadata as Record<string, unknown> | undefined) ?? {}
+      if (meta[field] === value) break
+      useMessages.getState().updateMessage({
+        ...m,
+        metadata: { ...meta, [field]: value },
+      })
+      break
+    }
   }
 }
 
+/** Stops every streaming turn and clears model-load state. */
 export function clearActiveWork() {
   const app = useAppState.getState()
-  Object.values(app.abortControllers).forEach((c) => {
+  const sessions = useChatSessions.getState().sessions
+  for (const id of streamingThreads(sessions)) {
     try {
-      c.abort()
+      sessions[id].chat.stop()
     } catch (e) {
-      console.warn('router error: abort controller threw:', e)
+      console.warn('router error: stopping a chat threw:', e)
     }
-  })
-  const threadIds = new Set<string>([
-    ...Object.keys(app.loadingModels),
-    ...Object.keys(app.busyThreads),
-    ...Object.keys(app.streamingContents),
-    ...Object.keys(app.abortControllers),
-  ])
-  threadIds.forEach((id) => app.clearThreadState(id))
+  }
+  Object.keys(app.loadingModels).forEach((id) => app.clearThreadState(id))
   app.updateLoadingModel(false)
 }

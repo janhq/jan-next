@@ -48,9 +48,7 @@ let appStateOverrides: any = {}
 vi.mock('@/hooks/useAppState', () => ({
   useAppState: (selector: any) => {
     const state = {
-      abortControllers: {},
       tools: [],
-      cancelToolCall: vi.fn(),
       activeModels: [],
       ...appStateOverrides,
     }

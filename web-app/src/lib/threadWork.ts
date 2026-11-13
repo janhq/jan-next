@@ -7,7 +7,7 @@ import { useThreads } from '@/hooks/useThreads'
 import { useDshSettings } from '@/hooks/useDshSettings'
 import { getServiceHub } from '@/hooks/useServiceHub'
 
-/** `ask`: write, edit and bash wait for approval. `auto`: they run. */
+/** `ask`: write, edit and the shell wait for approval. `auto`: they run. */
 export type EditPolicy = 'ask' | 'auto'
 
 export type ThreadWork = {

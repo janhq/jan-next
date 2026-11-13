@@ -8,15 +8,6 @@ import { FileStat } from '@janhq/core'
 const writeFileSync = (...args: any[]) => APIs.writeFileSync({ args })
 
 /**
- * Writes blob data to a file at the specified path.
- * @param path - The path to file.
- * @param data - The blob data.
- * @returns
- */
-const writeBlob: (path: string, data: string) => Promise<any> = (path, data) =>
-  APIs.writeBlob(path, data)
-
-/**
  * Reads the contents of a file at the specified path.
  * @returns {Promise<any>} A Promise that resolves with the contents of the file.
  */
@@ -49,36 +40,6 @@ const rm = (...args: any[]) => APIs.rm({ args })
  * @returns {Promise<any>} A Promise that resolves when the file is moved successfully.
  */
 const mv = (...args: any[]) => APIs.mv({ args })
-
-/**
- * Deletes a file from the local file system.
- * @param {string} path - The path of the file to delete.
- * @returns {Promise<any>} A Promise that resolves when the file is deleted.
- */
-const unlinkSync = (...args: any[]) => APIs.unlinkSync(...args)
-
-/**
- * Appends data to a file at the specified path.
- */
-const appendFileSync = (...args: any[]) => APIs.appendFileSync(...args)
-
-/**
- * Copies a file from the source path to the destination path.
- * @param src
- * @param dest
- * @returns
- */
-const copyFile: (src: string, dest: string) => Promise<void> = (src, dest) =>
-  APIs.copyFile(src, dest)
-
-/**
- * Gets the list of gguf files in a directory
- *
- * @param path - The paths to the file.
- * @returns {Promise<{any}>} - A promise that resolves with the list of gguf and non-gguf files
- */
-const getGgufFiles: (paths: string[]) => Promise<any> = (paths) =>
-  APIs.getGgufFiles(paths)
 
 /**
  * Gets the file's stats.
@@ -119,8 +80,6 @@ const writeYaml: (savePath: string, data: unknown) => Promise<void> = (savePath,
 const decompress: (path: string, outputDir: string) => Promise<void> = (path, outputDir) =>
   APIs.decompress({ path, outputDir })
 
-// TODO: Export `dummy` fs functions automatically
-// Currently adding these manually
 export const fs = {
   writeFileSync,
   readFileSync,
@@ -129,12 +88,7 @@ export const fs = {
   mkdir,
   rm,
   mv,
-  unlinkSync,
-  appendFileSync,
-  copyFile,
   fileStat,
-  writeBlob,
-  getGgufFiles,
   readYaml,
   writeYaml,
   decompress,

@@ -1625,8 +1625,7 @@ export class LlamacppEngine extends AIEngine implements EmbeddingEngine {
      if (caps.audio) capabilities.push('audio')
      // 'video' is intentionally NOT derived from the mmproj here — video
      // support also depends on the backend being built with MTMD_VIDEO,
-     // which the GGUF can't reveal. It's reconciled from /props after the
-     // model loads (see useReconcileVideoCapability).
+     // which the GGUF can't reveal.
     }
 
     const mp = modelConfig.model_path ?? ''

@@ -37,7 +37,7 @@ export function InteractionCards({ threadId }: { threadId: string }) {
   )
 }
 
-/** What the waiting call acts on: a path for file tools, the command for bash. */
+/** What the waiting call acts on: a path for file tools, the command for the shell. */
 function targetOf(input: unknown): string | undefined {
   if (!input || typeof input !== 'object') return undefined
   const v = input as Record<string, unknown>
