@@ -106,7 +106,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update -q
-          sudo apt-get install -yq ccache patchelf
+          sudo apt-get install -yq ccache
 
       # LunarG rather than the distro packages: jammy ships Vulkan headers 1.3.204,
       # older than the extensions ggml-vulkan compiles against.

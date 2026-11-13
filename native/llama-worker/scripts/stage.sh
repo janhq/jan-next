@@ -25,9 +25,7 @@ esac
 # half-staged directory that still has a worker in it.
 case "$OS" in
   linux)
-    for tool in readelf patchelf; do
-      command -v "$tool" >/dev/null 2>&1 || fail "$tool is required (binutils, patchelf)"
-    done
+    command -v readelf >/dev/null 2>&1 || fail "readelf (binutils) is required"
     ;;
   macos)
     for tool in otool install_name_tool codesign; do
@@ -94,6 +92,18 @@ run_paths() {
   esac
 }
 
+# Ends the ELF run-path string after its leading entry $2 by overwriting the
+# next byte in .dynstr with NUL, as `chrpath -r` does, so no patchelf is needed.
+truncate_elf_run_path() {
+  local full offsets
+  full="$(readelf -d "$1" | sed -n 's/.*(R\(UN\)\{0,1\}PATH).*\[\(.*\)\]/\2/p')"
+  [[ "$full" == "$2:"* ]] || fail "$1 run path does not start with $2 (has: $full)"
+  offsets="$(grep -obaF -- "$full" "$1" | cut -d: -f1)"
+  [ -n "$offsets" ] && [ "$(wc -l <<<"$offsets")" -eq 1 ] \
+    || fail "$1 does not hold its run path string exactly once"
+  printf '\0' | dd of="$1" bs=1 seek=$((offsets + ${#2})) conv=notrunc status=none
+}
+
 modules=0
 if [ "$OS" = windows ]; then
   # Windows has no import libraries to filter on: every DLL cmake installed is
@@ -132,7 +142,7 @@ if [ "$OS" != windows ]; then
   absolute="$(grep -vxF -- "$relative" <<<"$paths" || true)"
   if [ -n "$absolute" ]; then
     case "$OS" in
-      linux) patchelf --set-rpath "$relative" "$STAGED" ;;
+      linux) truncate_elf_run_path "$STAGED" "$relative" ;;
       macos)
         while IFS= read -r path; do install_name_tool -delete_rpath "$path" "$STAGED"; done <<<"$absolute"
         # install_name_tool invalidates the linker's ad-hoc signature, without
