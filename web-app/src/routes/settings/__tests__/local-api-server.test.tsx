@@ -16,6 +16,7 @@ const hub = vi.hoisted(() => ({
 }))
 
 vi.mock('@/utils/ensureModelForServer', () => ({ ensureModelForServer }))
+vi.mock('@/lib/service', () => ({ APIs: { startServer, stopServer: vi.fn() } }))
 
 vi.mock('@/hooks/useServiceHub', () => ({
   useServiceHub: () => hub,
@@ -51,7 +52,6 @@ describe('Local API server page: starting on a public address', () => {
     vi.clearAllMocks()
     ensureModelForServer.mockResolvedValue({ status: 'loaded' })
     startServer.mockResolvedValue(1337)
-    ;(window as unknown as { core: unknown }).core = { api: { startServer } }
     getServerStatus.mockResolvedValue(false)
     useAppState.setState({ serverStatus: 'stopped' })
   })

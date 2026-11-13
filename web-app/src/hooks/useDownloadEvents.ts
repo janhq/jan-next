@@ -1,4 +1,5 @@
-import { DownloadEvent, DownloadState, events } from '@janhq/core'
+import { DownloadState } from '@janhq/core'
+import { DownloadEvent, events } from '@/lib/native'
 import { useCallback, useEffect } from 'react'
 import { toast } from 'sonner'
 import { useNavigate } from '@tanstack/react-router'

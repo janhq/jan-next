@@ -9,11 +9,11 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
 }))
 
-vi.mock('@janhq/core', () => ({
-  EngineManager: {
-    instance: vi.fn(),
-  },
-  SettingComponentProps: {},
+const EngineManager = vi.hoisted(() => ({ instance: vi.fn() }))
+vi.mock('@/lib/llamacpp', () => ({
+  listLocalEngines: () => [...(EngineManager.instance().engines ?? [])],
+  getLocalEngine: (provider: string) => EngineManager.instance().get(provider),
+  startLlamacppEngine: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('@/types/models', () => ({
@@ -41,11 +41,6 @@ vi.mock('@/lib/provider-api-keys', () => ({
   API_KEY_FALLBACKS_SETTING_KEY: 'api-key-fallbacks',
 }))
 
-const hostMock = vi.hoisted(() => ({ providerFetch: vi.fn() }))
-vi.mock('@/lib/extensions/host', () => ({
-  getExtensionHost: () => hostMock,
-}))
-
 const platform = vi.hoisted(() => ({ mac: false }))
 vi.mock('@/lib/shortcuts/platform', () => ({
   get isMac() {
@@ -55,7 +50,6 @@ vi.mock('@/lib/shortcuts/platform', () => ({
 
 import { fetch as fetchTauri } from '@tauri-apps/plugin-http'
 import { invoke } from '@tauri-apps/api/core'
-import { EngineManager } from '@janhq/core'
 import { providerRemoteApiKeyChain } from '@/lib/provider-api-keys'
 import { TauriProvidersService } from '../tauri'
 import { ProviderUnreachableError } from '@/lib/provider-unreachable'
@@ -181,43 +175,6 @@ describe('TauriProvidersService', () => {
       base_url: 'https://api.test.com/v1',
       active: false,
     } as any
-
-    it("lists an extension provider's models only through its extension's fetch", async () => {
-      const extensionFetch = vi.fn(
-        async () =>
-          new Response(JSON.stringify({ data: [{ id: 'hello-1' }] }), {
-            status: 200,
-          })
-      )
-      hostMock.providerFetch.mockReturnValue(extensionFetch)
-      await expect(
-        svc.fetchModelsFromProvider({
-          ...baseProvider,
-          base_url: 'http://127.0.0.1:11999/v1',
-          source: { extensionId: 'acme.hello' },
-        })
-      ).resolves.toEqual(['hello-1'])
-      expect(hostMock.providerFetch).toHaveBeenCalledWith('acme.hello', 'whole')
-      expect(extensionFetch).toHaveBeenCalledWith(
-        'http://127.0.0.1:11999/v1/models',
-        expect.objectContaining({ method: 'GET' })
-      )
-      // It does not present itself as the app to a local server.
-      const init = extensionFetch.mock.calls[0] as unknown as [string, RequestInit]
-      expect(init[1].headers).not.toHaveProperty('Origin')
-      expect(fetchTauri).not.toHaveBeenCalled()
-    })
-
-    it('refuses an extension provider whose extension has no network path', async () => {
-      hostMock.providerFetch.mockReturnValue(undefined)
-      await expect(
-        svc.fetchModelsFromProvider({
-          ...baseProvider,
-          source: { extensionId: 'acme.dev' },
-        })
-      ).rejects.toThrow()
-      expect(fetchTauri).not.toHaveBeenCalled()
-    })
 
     it('throws if no base_url', async () => {
       await expect(svc.fetchModelsFromProvider({ ...baseProvider, base_url: '' }))

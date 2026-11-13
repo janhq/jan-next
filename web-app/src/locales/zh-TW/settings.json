@@ -231,9 +231,6 @@
     "huggingfaceToken": "HuggingFace 代幣",
     "huggingfaceTokenDesc": "您的 HuggingFace API 代幣，用於存取模型。"
   },
-  "extensions": {
-    "title": "擴充功能"
-  },
   "dialogs": {
     "changeDataFolder": {
       "title": "變更資料夾位置",

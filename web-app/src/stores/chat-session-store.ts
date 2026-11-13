@@ -2,7 +2,7 @@
 import { create } from "zustand";
 import type { Chat, UIMessage } from "@ai-sdk/react";
 import type { ChatStatus } from "ai";
-import { CustomChatTransport } from "@/lib/custom-chat-transport";
+import type { DshChatTransport } from "@/lib/dsh-chat-transport";
 import { useMessageQueue } from "@/stores/message-queue-store";
 
 export type SessionData = {
@@ -13,7 +13,7 @@ export type SessionData = {
 
 export type ChatSession = {
   chat: Chat<UIMessage>;
-  transport: CustomChatTransport;
+  transport: DshChatTransport;
   status: ChatStatus;
   title?: string;
   isStreaming: boolean;
@@ -27,7 +27,7 @@ interface ChatSessionState {
   setActiveConversationId: (conversationId?: string) => void;
   ensureSession: (
     sessionId: string,
-    transport: CustomChatTransport,
+    transport: DshChatTransport,
     createChat: () => Chat<UIMessage>,
     title?: string,
   ) => Chat<UIMessage>;

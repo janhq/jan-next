@@ -1,9 +1,4 @@
-import {
-  ThreadMessage,
-  ContentType,
-  MessageStatus,
-  ChatCompletionRole,
-} from '@janhq/core'
+import { ThreadMessage, ContentType, MessageStatus, ChatCompletionRole } from '@janhq/core'
 
 import { estimateConversationTokens } from '@/lib/context-manager'
 import { convertThreadMessagesToUIMessages } from '@/lib/messages'
@@ -261,6 +256,7 @@ export const makeSibling = (
   const sourceMeta = { ...(source.metadata ?? {}) } as Record<string, unknown>
   delete sourceMeta.activeChildId
   delete sourceMeta.error
+  delete sourceMeta.loadReport
   return {
     ...source,
     id: opts.id,

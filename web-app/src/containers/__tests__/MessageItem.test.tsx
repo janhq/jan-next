@@ -59,7 +59,6 @@ vi.mock('@/components/ai-elements/tool', () => ({
   ToolOutput: ({ output, errorText }: any) => (
     <div data-testid="tool-output">{errorText ?? String(output ?? '')}</div>
   ),
-  ToolApprovalActions: () => null,
 }))
 
 // Stub dialogs
@@ -135,12 +134,6 @@ vi.mock('@/components/PromptProgress', () => ({
     hideIdle ? null : <div data-testid="prompt-progress" />,
 }))
 
-const pendingApprovalsRef = vi.hoisted(() => ({ current: {} as any }))
-vi.mock('@/hooks/useToolApprovalRequests', () => ({
-  useToolApprovalRequests: (selector: any) =>
-    selector({ pending: pendingApprovalsRef.current }),
-}))
-
 // Import after mocks
 import { MessageItem } from '../MessageItem'
 import { useMessageErrors } from '@/stores/message-errors'
@@ -158,7 +151,6 @@ describe('MessageItem', () => {
     vi.clearAllMocks()
     selectedModelRef.current = { id: 'm1' }
     selectedProviderRef.current = 'llamacpp'
-    pendingApprovalsRef.current = {}
     touchRef.current = false
   })
 
@@ -582,7 +574,8 @@ describe('MessageItem', () => {
           makeMsg({
             parts: [
               {
-                type: 'tool-x',
+                // An MCP tool: DSH built-ins show their error in the widget bar.
+                type: 'tool-mcp__srv__x',
                 state: 'output-error',
                 errorText: 'boom',
               },
@@ -701,55 +694,10 @@ describe('MessageItem', () => {
     expect(screen.queryByTestId('delete-btn')).not.toBeInTheDocument()
   })
 
-  it('hides progress while a tool call awaits approval', () => {
-    pendingApprovalsRef.current = { tc1: {} }
-    render(
-      <MessageItem
-        message={
-          makeMsg({
-            parts: [
-              { type: 'tool-search', state: 'input-available', toolCallId: 'tc1', input: {} },
-            ],
-          }) as any
-        }
-        isFirstMessage
-        isLastMessage
-        status={'ready' as any}
-      />
-    )
-    expect(screen.queryByTestId('prompt-progress')).not.toBeInTheDocument()
-  })
-
-  it('keeps an earlier tool part visible while it awaits approval (multi-tool turn)', () => {
-    // Two tool calls in one streaming turn; the first is awaiting approval.
-    // Streaming truncation must not hide it, or its approve/deny controls
-    // never mount and the run hangs.
-    pendingApprovalsRef.current = { 'tc-alpha': {} }
-    render(
-      <MessageItem
-        message={
-          makeMsg({
-            parts: [
-              { type: 'tool-alpha', state: 'input-available', toolCallId: 'tc-alpha', input: {} },
-              { type: 'tool-beta', state: 'input-available', toolCallId: 'tc-beta', input: {} },
-            ],
-          }) as any
-        }
-        isFirstMessage
-        isLastMessage
-        status={'streaming' as any}
-      />
-    )
-    const headers = screen.getAllByTestId('tool-header').map((h) => h.textContent)
-    expect(headers).toContain('alpha')
-    expect(headers).toContain('beta')
-  })
-
   it('still truncates a non-pending earlier tool step outside the frontier while streaming', () => {
-    // No pending approval, and reasoning splits the two calls so they are not
+    // Reasoning splits the two calls so they are not
     // one trailing batch: streaming truncation keeps only the current step
     // (the trailing tool), dropping the earlier tool that a step has moved past.
-    pendingApprovalsRef.current = {}
     render(
       <MessageItem
         message={

@@ -13,8 +13,6 @@
   "experimental": "実験的",
   "claude_code": "Claude Code",
   "https_proxy": "HTTPSプロキシ",
-  "extensions": "拡張機能",
-  "attachments": "添付ファイル",
   "general": "全般",
   "settings": "設定",
   "modelProviders": "モデルプロバイダー",
@@ -28,7 +26,6 @@
   "appearance": "外観",
   "keyboardShortcuts": "ショートカット",
   "newChat": "新しいチャット",
-  "newAgentChat": "新しいエージェントチャット",
   "chats": "チャット",
   "favorites": "お気に入り",
   "recents": "最近の項目",
@@ -369,12 +366,6 @@
     "searchProjects": "プロジェクトを検索...",
     "noProjectsFound": "プロジェクトが見つかりません",
     "tryDifferentSearch": "別の検索語をお試しください"
-  },
-  "attachmentsIngestion": {
-    "title": "添付ファイルの取り込み方法を選択",
-    "description": "これらのファイルをチャットに直接含めるか、代わりに埋め込みとしてインデックス化するかを選択します。",
-    "inline": "チャットに挿入",
-    "embeddings": "埋め込みを使用"
   },
   "attachmentInjectedIndicator": "チャットに挿入済み",
   "attachmentEmbeddedIndicator": "RAG用に埋め込み済み",

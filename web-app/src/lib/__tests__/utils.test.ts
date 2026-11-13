@@ -11,7 +11,6 @@ import {
   splitHtmlArtifacts,
   isLocalProvider,
 } from '../utils'
-import { EngineManager, type AIEngine } from '@janhq/core'
 
 describe('getProviderLogo', () => {
   it('returns correct logo paths for known providers', () => {
@@ -448,10 +447,7 @@ describe('splitHtmlArtifacts', () => {
 })
 
 describe('isLocalProvider', () => {
-  it('is true only for a provider whose engine the engine manager holds', () => {
-    const manager = new EngineManager()
-    manager.register({ provider: 'llamacpp', load: vi.fn() } as unknown as AIEngine)
-    vi.spyOn(EngineManager, 'instance').mockReturnValue(manager)
+  it('is true only for the built-in llamacpp provider', () => {
     expect(isLocalProvider('llamacpp')).toBe(true)
     expect(isLocalProvider('openai')).toBe(false)
   })

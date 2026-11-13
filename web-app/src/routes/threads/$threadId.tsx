@@ -4,33 +4,33 @@ import { createFileRoute, useParams, useSearch } from '@tanstack/react-router'
 import { cn } from '@/lib/utils'
 
 import HeaderPage from '@/containers/HeaderPage'
+import { IconLayoutSidebarRight } from '@tabler/icons-react'
+import { WorkPanel } from '@/containers/work/WorkPanel'
+import { InteractionCards } from '@/containers/work/InteractionCards'
+import { useWorkPanel } from '@/stores/work-panel-store'
+import { useThreadUIMessages } from '@/stores/thread-ui-messages-store'
 import { useThreads } from '@/hooks/useThreads'
 import ChatInput from '@/containers/ChatInput'
 import { useShallow } from 'zustand/react/shallow'
 import { MessageItem } from '@/containers/MessageItem'
 
 import { useMessages } from '@/hooks/useMessages'
-import { useMessageErrors } from '@/stores/message-errors'
+import { useMessageErrors, type LoadReport } from '@/stores/message-errors'
 import { buildLoadDiagnosticsReport } from '@/lib/loadDiagnosticsReport'
 import { useServiceHub } from '@/hooks/useServiceHub'
-import { useTools } from '@/hooks/useTools'
 import { useAppState } from '@/hooks/useAppState'
 import { SESSION_STORAGE_PREFIX } from '@/constants/chat'
 import { useChat } from '@/hooks/use-chat'
 import { useModelProvider } from '@/hooks/useModelProvider'
 import { engineSlotsIdle } from '@janhq/tauri-plugin-llamacpp-api'
 import { useInterfaceSettings } from '@/hooks/useInterfaceSettings'
-import {
-  deriveToolOutputCap,
-  estimateConversationTokens,
-} from '@/lib/context-manager'
 import { renderInstructions } from '@/lib/instructionTemplate'
 import {
   Conversation,
   ConversationContent,
   ConversationScrollButton,
 } from '@/components/ai-elements/conversation'
-import { generateId, lastAssistantMessageIsCompleteWithToolCalls } from 'ai'
+import { generateId } from 'ai'
 import type { UIMessage } from '@ai-sdk/react'
 import { useChatSessions } from '@/stores/chat-session-store'
 import {
@@ -43,8 +43,6 @@ import {
 import { newUserThreadContent } from '@/lib/completion'
 import {
   settleStoppedToolCalls,
-  untilAborted,
-  type ToolRunResult,
 } from '@/lib/stopped-tool-calls'
 import {
   computeActivePath,
@@ -58,32 +56,15 @@ import {
   repairDetachedAssistants,
   planContinuation,
 } from '@/lib/message-branching'
-import {
-  ThreadMessage,
-  MessageStatus,
-  ChatCompletionRole,
-} from '@janhq/core'
+import { ThreadMessage, MessageStatus, ChatCompletionRole } from '@janhq/core'
 import {
   createImageAttachment,
-  createAudioAttachment,
-  createVideoAttachment,
 } from '@/types/attachment'
 import {
   useChatAttachments,
   NEW_THREAD_ATTACHMENT_KEY,
 } from '@/hooks/useChatAttachments'
-import {
-  applyIngestionChoices,
-  needsIngestionChoice,
-  processAttachmentsForSend,
-  promptIngestionChoices,
-  resolveAutoInlineBudget,
-} from '@/lib/attachmentProcessing'
-import { usePrompt } from '@/hooks/usePrompt'
-import { useAttachments } from '@/hooks/useAttachments'
 import { PromptProgress } from '@/components/PromptProgress'
-import { useToolAvailable } from '@/hooks/useToolAvailable'
-import { useChatShell } from '@/hooks/useChatShell'
 import {
   OUT_OF_CONTEXT_SIZE,
   isContextOverflowMessage,
@@ -97,18 +78,8 @@ import {
   offersContextIncrease,
 } from '@/lib/chatFinish'
 import { Button } from '@/components/ui/button'
-import { IconAlertCircle, IconRefresh, IconLoader2 } from '@tabler/icons-react'
-import { useToolApproval } from '@/hooks/useToolApproval'
-import {
-  useToolApprovalRequests,
-  type ApprovalOptions,
-} from '@/hooks/useToolApprovalRequests'
-import { useToolCallRuntime } from '@/hooks/useToolCallRuntime'
-import { CHAT_AGENT_TOOL_NAMES, executeAgentTool } from '@/lib/agentTools'
-import { getExtensionHost } from '@/lib/extensions/host'
-import { extensionAuthorOf } from '@/lib/extensions/authorship'
+import { IconAlertCircle, IconRefresh } from '@tabler/icons-react'
 import DropdownModelProvider from '@/containers/DropdownModelProvider'
-import { ServiceKeys } from '@janhq/core'
 import { Shimmer } from '@/components/ai-elements/shimmer'
 import { useMessageQueue } from '@/stores/message-queue-store'
 import { generateThreadTitle } from '@/lib/thread-title-summarizer'
@@ -124,30 +95,6 @@ const CHAT_STATUS = {
 } as const
 
 const TITLE_REFRESH_EVERY_N_ASSISTANT_MESSAGES = 4
-
-// What an explicit Stop aborts to end a thread's running tool call, by thread.
-// Aborted by Stop, and by deleting the thread, where the call's result has
-// nowhere to go; leaving the thread does not. Keyed by thread because the route
-// component is reused across thread switches, so a Stop in one thread can never
-// reach another's call, and the Stop button still works after coming back.
-const toolStopControllers = new Map<string, AbortController>()
-
-// What ends a thread's tool loop: aborted when the thread is stopped or deleted,
-// it stops the loop between calls and the auto follow-up of the turn. Leaving
-// the thread does not abort it: the turn keeps running in the retained chat
-// session, as a reply without tools does, and is there when the user returns.
-// Keyed by thread for the same reason as the Stop controllers; a ref on the component
-// would be shared by every thread's loop and let one thread's Stop, or one
-// thread's loop finishing, end another's.
-const toolLoopControllers = new Map<string, AbortController>()
-// The message each thread's running tool call belongs to, keyed by its Stop
-// controller, so a Stop settles that turn even when the user has sent another
-// one since or left and came back.
-const toolLoopTurns = new WeakMap<AbortController, string>()
-// Which tool loop of a thread is the latest. A loop that was replaced (an edit or
-// a regenerate started a newer turn) must not, as it winds down, settle the
-// runtime, drop the approvals or clear the busy flag the newer loop now owns.
-const toolLoopGeneration = new Map<string, number>()
 
 // What a handler that starts a generation leaves for the onFinish that ends it,
 // by thread. A turn can finish in the background while another thread is open
@@ -185,7 +132,6 @@ const partialOf = (message: UIMessage) => {
   return {
     text: collect('text'),
     reasoning: collect('reasoning'),
-    extensionAuthor: extensionAuthorOf(message.metadata),
   }
 }
 
@@ -223,103 +169,6 @@ useChatSessions.subscribe((state) => {
   }
 })
 
-// Approval promises started in onToolCall (so the popup appears immediately) and
-// awaited by the onFinish execution loop, keyed by thread and then toolCallId.
-// Executing stays in onFinish so the tool result lands on a completed assistant
-// message and the AI SDK's auto-resubmit (sendAutomaticallyWhen) fires. A
-// component ref would be shared by every thread (the route is reused across
-// thread switches), so one thread finishing or being left would drop another
-// thread's pending approvals and prompt the user again. The origin the call was
-// asked under travels with it, so execution runs what was approved.
-type PendingApproval = { approved: Promise<boolean>; origin: ToolOrigin }
-const toolApprovalPromises = new Map<string, Map<string, PendingApproval>>()
-const approvalsOf = (threadId: string) => {
-  let approvals = toolApprovalPromises.get(threadId)
-  if (!approvals) {
-    approvals = new Map()
-    toolApprovalPromises.set(threadId, approvals)
-  }
-  return approvals
-}
-const forgetApprovals = (threadId: string) => {
-  toolApprovalPromises.delete(threadId)
-}
-
-// Recorded for a call that never ran because its chat was closed (the thread was
-// deleted) rather than because the user refused or stopped it.
-const CHAT_CLOSED_TOOL_ERROR =
-  'Tool call cancelled: the chat was closed before it ran.'
-
-// Recorded for a call to the built-in shell while the user has the shell switch
-// off. The model reads it on its next turn, so it says why the call did not run
-// and that calling it again cannot succeed.
-const SHELL_DISABLED_TOOL_ERROR =
-  'Shell is turned off: the user disabled it, so this command was not run. ' +
-  'Do not call the shell again in this chat; use another approach or tell the user it is needed.'
-
-// Rewrites a turn that is already stored with what its live copy holds now. A
-// turn is stored before its tools run, so a call's outcome (result, error,
-// stopped) only reaches storage when a later reply rewrites the turn; when no
-// reply follows (Stop) it has to be written here, or the call reloads as
-// "Running" after a restart.
-function rewriteStoredTurn(
-  threadId: string,
-  message: UIMessage,
-  stopped: boolean
-) {
-  const { getMessages, updateMessage } = useMessages.getState()
-  const stored = getMessages(threadId).find((m) => m.id === message.id)
-  if (!stored) return
-  const toolErrors = toolErrorsOf(message)
-  updateMessage({
-    ...stored,
-    content: extractContentPartsFromUIMessage(message),
-    metadata: {
-      ...stored.metadata,
-      ...(stopped ? { stopped: true } : {}),
-      ...(toolErrors ? { toolErrors } : {}),
-    },
-  })
-}
-
-// Recorded for an approved call whose tool came to be served by someone else
-// (an extension loaded or unloaded) while it waited: the grant was for the other.
-const ORIGIN_CHANGED_TOOL_ERROR =
-  'Tool call refused: the tool changed while it was waiting for approval.'
-
-// Who serves a call and under which server, so an approval prompt can offer
-// to trust the whole server. Resolved once when the call arrives and carried
-// to the approval, the running timer and execution, so a grant keyed as MCP
-// never runs a contributed tool of the same name. A name both claim is the
-// extension's.
-type ToolOrigin = ReturnType<typeof toolOriginOf>
-function toolOriginOf(toolName: string) {
-  const extensionTool = extensionToolOf(toolName)
-  if (extensionTool) {
-    return {
-      origin: 'extension' as const,
-      server: extensionTool.server,
-      extensionTool,
-    }
-  }
-  const mcpTool = useAppState
-    .getState()
-    .tools.find((tool) => tool.name === toolName)
-  return {
-    origin: 'mcp' as const,
-    server: mcpTool?.server,
-    extensionTool: undefined,
-  }
-}
-
-// The contributed tool a call names, by its wire name. Read per call, so a
-// tool whose extension stopped since the model was offered it is not found.
-function extensionToolOf(toolName: string) {
-  return useAppState
-    .getState()
-    .extensionTools.find((tool) => tool.wireName === toolName)
-}
-
 // The model a thread's turn runs on. A turn can finish in the background while
 // another thread is open, and the global selection follows the open thread.
 function turnModelOf(threadId: string) {
@@ -328,51 +177,6 @@ function turnModelOf(threadId: string) {
       .getState()
       .sessions[threadId]?.transport.getTurnModelSelection() ??
     useModelProvider.getState()
-  )
-}
-
-// How a call to a chat agent tool name is served. The switch is enforced where
-// the command would run, not only where the tool is offered: a call can still
-// arrive from replayed history or from a turn in flight when it flips. Such a
-// call is refused outright, before any approval prompt, because a prompt for a
-// tool the user turned off could save a permission for it. With the switch off
-// the built-in is not offered, so an MCP tool of the same name is the user's
-// own: it is served as an MCP tool and prompts like any other.
-function chatShellRoute(toolName: string): 'builtin' | 'disabled' | 'other' {
-  if (!CHAT_AGENT_TOOL_NAMES.has(toolName)) return 'other'
-  if (useChatShell.getState().shellEnabled) return 'builtin'
-  return useAppState.getState().mcpToolNames.has(toolName) ? 'other' : 'disabled'
-}
-
-function isDisabledChatAgentTool(toolName: string): boolean {
-  return chatShellRoute(toolName) === 'disabled'
-}
-
-// Internal tools never prompt: RAG tools are Jan's own, and the built-in shell
-// is gated in Rust (execute_tool refuses anything needing approval), so only
-// workspace-confined calls ever reach here.
-function isAutoAllowedTool(toolName: string): boolean {
-  return (
-    useAppState.getState().ragToolNames.has(toolName) ||
-    chatShellRoute(toolName) === 'builtin'
-  )
-}
-
-// Every call the model an extension serves makes is asked for on its own:
-// neither "allow all MCP" nor a grant given on another turn covers it.
-function approvalOptions(
-  threadId: string,
-  origin: ToolOrigin['origin']
-): ApprovalOptions {
-  return turnOnExtensionProvider(threadId)
-    ? { strict: true, origin }
-    : { origin }
-}
-
-function turnOnExtensionProvider(threadId: string): boolean {
-  const providerName = turnModelOf(threadId).selectedProvider
-  return Boolean(
-    useModelProvider.getState().getProviderByName(providerName)?.source
   )
 }
 
@@ -429,38 +233,17 @@ function ThreadDetail() {
   const deleteMessage = useMessages((state) => state.deleteMessage)
   const currentThread = useRef<string | undefined>(undefined)
 
-  useTools()
-
   // Get attachments for this thread
   const attachmentsKey = threadId ?? NEW_THREAD_ATTACHMENT_KEY
   const getAttachments = useChatAttachments((state) => state.getAttachments)
   const clearAttachmentsForThread = useChatAttachments(
     (state) => state.clearAttachments
   )
-  const setAttachmentsForThread = useChatAttachments(
-    (state) => state.setAttachments
-  )
-
-  // Session data for tool call tracking
-  const getSessionData = useChatSessions((state) => state.getSessionData)
-  const sessionData = getSessionData(threadId)
 
   // The thread on screen. onFinish is a closure of the render that created its
   // chat, so this is how a turn finishing in the background tells it is not.
   const openThreadIdRef = useRef(threadId)
   openThreadIdRef.current = threadId
-
-  // Check if we should follow up with tool calls (respects abort signal)
-  const followUpMessage = useCallback(
-    ({ messages }: { messages: UIMessage[] }) => {
-      const controller = toolLoopControllers.get(threadId)
-      if (!controller || controller.signal.aborted) {
-        return false
-      }
-      return lastAssistantMessageIsCompleteWithToolCalls({ messages })
-    },
-    [threadId]
-  )
 
   // Subscribe directly to the thread data to ensure updates when model changes
   const thread = useThreads(useShallow((state) => state.threads[threadId]))
@@ -470,7 +253,6 @@ function ThreadDetail() {
   const selectedProvider = useModelProvider((state) => state.selectedProvider)
   const getProviderByName = useModelProvider((state) => state.getProviderByName)
   const threadRef = useRef(thread)
-  const projectId = threadRef.current?.metadata?.project?.id
 
   // Get system message from thread's assistant instructions (if thread has an assigned assistant)
   // Only use assistant instructions if the thread was created with one (e.g., via a project)
@@ -501,11 +283,6 @@ function ThreadDetail() {
     []
   )
   const [contextLimitError, setContextLimitError] = useState<Error | null>(null)
-  // Per-thread so the shimmer survives navigating away and back while the
-  // embedding run is still in flight.
-  const processingEmbeddings = useAppState(
-    (s) => !!s.embeddingThreads[threadId]
-  )
   const { t } = useTranslation()
 
   // llama-server's overflow string is raw English; localize it, interpolating
@@ -555,8 +332,6 @@ function ThreadDetail() {
     regenerate,
     setMessages: setChatMessages,
     stop,
-    addToolOutput,
-    updateRagToolsAvailability,
     setContinueFromContent,
   } = useChat({
     sessionId: threadId,
@@ -668,12 +443,12 @@ function ThreadDetail() {
             prev.map((m) =>
               m.id === message.id
                 ? {
-                    ...m,
-                    metadata: {
-                      ...(m.metadata as Record<string, unknown> | undefined),
-                      stopped: true,
-                    },
-                  }
+                  ...m,
+                  metadata: {
+                    ...(m.metadata as Record<string, unknown> | undefined),
+                    stopped: true,
+                  },
+                }
                 : m
             )
           )
@@ -730,12 +505,12 @@ function ThreadDetail() {
           updateMessage(
             existingParent != null
               ? {
-                  ...assistantMessage,
-                  metadata: {
-                    ...assistantMessage.metadata,
-                    parentId: existingParent,
-                  },
-                }
+                ...assistantMessage,
+                metadata: {
+                  ...assistantMessage.metadata,
+                  parentId: existingParent,
+                },
+              }
               : assistantMessage
           )
         } else {
@@ -762,308 +537,12 @@ function ThreadDetail() {
           if (meta?.error) {
             const rest = { ...meta }
             delete rest.error
+            delete rest.loadReport
             updateMessage({ ...m, metadata: rest })
           }
           useMessageErrors.getState().clearError(m.id)
         }
       }
-
-      // Stopped: none of this turn's tools will run. Left alone, their approval
-      // prompts stay up, and a late "Allow" would run the tool and resume the
-      // reply the user just stopped.
-      if (isAbort) {
-        forgetApprovals(threadId)
-        sessionData.tools = []
-        useToolApprovalRequests.getState().clearPendingForThread(threadId)
-        return
-      }
-
-      // Execute tool calls here, after the assistant message has completed, so
-      // each addToolOutput lands on a finished message and the SDK's
-      // auto-resubmit (sendAutomaticallyWhen) fires. Approval is requested
-      // earlier in onToolCall (popup appears without waiting for this callback);
-      // we await that already-started promise here rather than prompting again.
-      // A reply without tool calls has no loop. It must not register
-      // controllers, settle the runtime or clear the busy flag, or it would take
-      // them from an earlier turn whose call is still running.
-      const hasTools = sessionData.tools.length > 0
-      const callController = new AbortController()
-      const signal = callController.signal
-      const stopController = new AbortController()
-      const stopSignal = stopController.signal
-      const generation = hasTools
-        ? (toolLoopGeneration.get(threadId) ?? 0) + 1
-        : -1
-      if (hasTools) {
-        toolLoopGeneration.set(threadId, generation)
-        toolLoopControllers.set(threadId, callController)
-        toolStopControllers.set(threadId, stopController)
-        toolLoopTurns.set(stopController, message.id)
-      }
-
-      const ragToolNames = useAppState.getState().ragToolNames
-      const mcpToolNames = useAppState.getState().mcpToolNames
-
-      // Keep the thread marked busy while awaiting approval and executing tools,
-      // since streaming has already ended and isSessionBusy's tools-array read isn't reactive.
-      if (hasTools) {
-        useAppState.getState().setThreadBusy(threadId, true)
-
-        // Tools run one at a time below, so the rest are genuinely queued.
-        useToolCallRuntime
-          .getState()
-          .enqueue(
-            sessionData.tools.map((tc) => tc.toolCallId),
-            threadId
-          )
-      }
-
-      // Deleting the thread removes its chat session, and that ends the loop:
-      // nothing may run, prompt, or call the model again for a thread that is
-      // gone. Released approvals resolve as denied, so the loop is not left
-      // waiting on a prompt nobody can see, and a call still running is ended
-      // as by Stop, since its result has nowhere to go. Leaving the thread ends
-      // nothing.
-      let released = false
-      const unwatchSession = hasTools
-        ? useChatSessions.subscribe((state) => {
-            if (released || state.sessions[threadId]) return
-            released = true
-            callController.abort()
-            stopController.abort()
-            forgetApprovals(threadId)
-            useToolApprovalRequests.getState().clearPendingForThread(threadId)
-          })
-        : undefined
-      // An explicit Stop, which settles the turn's calls itself (see
-      // handleStop). Deleting the thread also aborts the Stop signal, to end the
-      // running call, but the loop still records the calls it cuts short.
-      const stoppedByUser = () => stopSignal.aborted && !released
-
-      const record = (output: Parameters<typeof addToolOutput>[0]) => {
-        void addToolOutput(output)
-      }
-
-      ;(async () => {
-        for (const toolCall of sessionData.tools) {
-          if (stoppedByUser()) break
-          // The thread was deleted before this call's turn came: it will not run.
-          // Recorded as the chat closing, like a cut-short approval below, so
-          // every call of the turn ends with an outcome.
-          if (signal.aborted) {
-            record({
-              state: 'output-error',
-              tool: toolCall.toolName,
-              toolCallId: toolCall.toolCallId,
-              errorText: CHAT_CLOSED_TOOL_ERROR,
-            })
-            useToolCallRuntime.getState().markSettled(toolCall.toolCallId)
-            continue
-          }
-
-          try {
-            const toolName = toolCall.toolName
-
-            if (isDisabledChatAgentTool(toolName)) {
-              record({
-                state: 'output-error',
-                tool: toolCall.toolName,
-                toolCallId: toolCall.toolCallId,
-                errorText: SHELL_DISABLED_TOOL_ERROR,
-              })
-              continue
-            }
-
-            const pending = approvalsOf(threadId).get(toolCall.toolCallId)
-            const origin = pending?.origin ?? toolOriginOf(toolName)
-            const approved = isAutoAllowedTool(toolName)
-              ? true
-              : await (pending?.approved ??
-                  useToolApprovalRequests
-                    .getState()
-                    .requestApproval(
-                      toolCall.toolCallId,
-                      toolName,
-                      threadId,
-                      origin.server,
-                      approvalOptions(threadId, origin.origin)
-                    ))
-            approvalsOf(threadId).delete(toolCall.toolCallId)
-            // Only an explicit Stop skips the result. Deleting the thread also
-            // resolves a pending approval as denied, recorded below as the chat
-            // closing rather than as the user's refusal.
-            if (stoppedByUser()) break
-
-            if (!approved) {
-              record({
-                state: 'output-error',
-                tool: toolCall.toolName,
-                toolCallId: toolCall.toolCallId,
-                // Deleting the thread resolves a pending approval as denied; that
-                // was not the user's decision.
-                errorText: signal.aborted
-                  ? CHAT_CLOSED_TOOL_ERROR
-                  : 'Tool execution denied by user',
-              })
-              continue
-            }
-
-            // Re-resolved only to compare: running either tool now would act
-            // on a grant given for the other.
-            if (toolOriginOf(toolName).origin !== origin.origin) {
-              record({
-                state: 'output-error',
-                tool: toolCall.toolName,
-                toolCallId: toolCall.toolCallId,
-                errorText: ORIGIN_CHANGED_TOOL_ERROR,
-              })
-              continue
-            }
-
-            // Timed from here, not from approval, so a long approval wait is
-            // not reported as the tool being slow.
-            useToolCallRuntime
-              .getState()
-              .markRunning(toolCall.toolCallId, origin.server)
-
-            // A tool result is injected into conversation history verbatim, so a
-            // page-sized one can exhaust the context on its own. This is the
-            // budget the window this model actually has affords; it is narrowed
-            // against the user's configured ceiling where the result is built.
-            const ctxLen = turnModelOf(threadId).selectedModel?.settings
-              ?.ctx_len?.controller_props?.value
-            const maxOutputChars = deriveToolOutputCap(
-              typeof ctxLen === 'number' ? ctxLen : undefined
-            )
-
-            // Raced against Stop: a call that never returns (a runaway shell,
-            // a hung MCP server) must not hold the loop, and the thread, busy.
-            const result = await untilAborted<ToolRunResult>(
-              (async () => {
-                const { extensionTool } = origin
-                if (chatShellRoute(toolName) === 'builtin') {
-                  // Chat's shell runs with the sandbox network closed: the
-                  // default `allowNetwork = false` is the contract here, not an
-                  // accident.
-                  const agentResult = await executeAgentTool(
-                    toolName,
-                    toolCall.input,
-                    threadId
-                  )
-                  // The diff is display-only, so it goes to the runtime store
-                  // rather than into `result`: anything in `result` reaches the
-                  // model, and a full diff there would duplicate the file it
-                  // just wrote.
-                  const { diff, ...rest } = agentResult
-                  if (diff) {
-                    useToolCallRuntime
-                      .getState()
-                      .recordDiff(toolCall.toolCallId, diff)
-                  }
-                  return rest
-                } else if (ragToolNames.has(toolName)) {
-                  return await serviceHub.rag().callTool({
-                    toolName,
-                    arguments: toolCall.input,
-                    threadId,
-                    projectId: projectId,
-                    scope: projectId ? 'project' : 'thread',
-                  })
-                } else if (extensionTool) {
-                  // Contributed tools always prompt (they are never in
-                  // isAutoAllowedTool); Stop cancels the call in the
-                  // extension's worker, not only here.
-                  return await getExtensionHost().callTool(
-                    extensionTool.extensionId,
-                    extensionTool.name,
-                    toolCall.input,
-                    { signal: stopSignal, maxOutputChars }
-                  )
-                } else if (mcpToolNames.has(toolName)) {
-                  // Give the backend the budget scaled to the window; it narrows
-                  // that against the user's configured ceiling. Cancellable, so
-                  // Stop ends the call on the backend as well as in this loop.
-                  const call = serviceHub.mcp().callToolWithCancellation({
-                    toolName,
-                    arguments: toolCall.input,
-                    maxOutputChars,
-                  })
-                  const cancel = () => void call.cancel().catch(() => {})
-                  stopSignal.addEventListener('abort', cancel, { once: true })
-                  try {
-                    return await call.promise
-                  } finally {
-                    stopSignal.removeEventListener('abort', cancel)
-                  }
-                } else {
-                  return {
-                    error: `Tool '${toolName}' not found in any service`,
-                  }
-                }
-              })(),
-              stopSignal
-            )
-
-            if (result.error) {
-              record({
-                state: 'output-error',
-                tool: toolCall.toolName,
-                toolCallId: toolCall.toolCallId,
-                errorText: `Error: ${result.error}`,
-              })
-            } else {
-              record({
-                tool: toolCall.toolName,
-                toolCallId: toolCall.toolCallId,
-                output: result.content,
-              })
-            }
-          } catch (error) {
-            if ((error as Error).name !== 'AbortError') {
-              console.error('Tool call error:', error)
-              record({
-                state: 'output-error',
-                tool: toolCall.toolName,
-                toolCallId: toolCall.toolCallId,
-                errorText: `Error: ${JSON.stringify(error)}`,
-              })
-            }
-          } finally {
-            // Covers every exit from the iteration, including the denied path.
-            useToolCallRuntime.getState().markSettled(toolCall.toolCallId)
-          }
-        }
-
-        unwatchSession?.()
-        if (!hasTools || toolLoopGeneration.get(threadId) !== generation) return
-        useToolCallRuntime.getState().settleRemaining(threadId)
-        forgetApprovals(threadId)
-        sessionData.tools = []
-        // Only this loop's own: a later loop of the thread may have replaced it.
-        if (toolLoopControllers.get(threadId) === callController) {
-          toolLoopControllers.delete(threadId)
-        }
-        if (toolStopControllers.get(threadId) === stopController) {
-          toolStopControllers.delete(threadId)
-        }
-        useAppState.getState().setThreadBusy(threadId, false)
-      })().catch((error) => {
-        if (error.name !== 'AbortError') {
-          console.error('Tool call error:', error)
-        }
-        unwatchSession?.()
-        if (!hasTools || toolLoopGeneration.get(threadId) !== generation) return
-        useToolCallRuntime.getState().settleRemaining(threadId)
-        forgetApprovals(threadId)
-        sessionData.tools = []
-        if (toolLoopControllers.get(threadId) === callController) {
-          toolLoopControllers.delete(threadId)
-        }
-        if (toolStopControllers.get(threadId) === stopController) {
-          toolStopControllers.delete(threadId)
-        }
-        useAppState.getState().setThreadBusy(threadId, false)
-      })
 
       if (!isAbort) {
         const localMessages = useMessages.getState().getMessages(threadId)
@@ -1102,71 +581,42 @@ function ThreadDetail() {
             const turnModel = turnModelOf(threadId)
             const provider = turnModel.selectedProvider
             const modelId = turnModel.selectedModel?.id
-            ;(async () => {
-              if (provider === 'llamacpp' && modelId) {
-                let idle = false
-                for (let attempt = 0; attempt < 6; attempt++) {
-                  try {
-                    idle = await engineSlotsIdle(modelId)
-                  } catch {
-                    idle = true
-                    break
+              ; (async () => {
+                if (provider === 'llamacpp' && modelId) {
+                  let idle = false
+                  for (let attempt = 0; attempt < 6; attempt++) {
+                    try {
+                      idle = await engineSlotsIdle(modelId)
+                    } catch {
+                      idle = true
+                      break
+                    }
+                    if (idle) break
+                    await new Promise((r) => setTimeout(r, 150))
                   }
-                  if (idle) break
-                  await new Promise((r) => setTimeout(r, 150))
+                  if (!idle) return
                 }
-                if (!idle) return
-              }
-              // Deleted while waiting for the engine: nothing to name, and the
-              // deletion has already cancelled what it could.
-              if (!useChatSessions.getState().sessions[threadId]) return
-              titleAborts.get(threadId)?.abort()
-              const controller = new AbortController()
-              titleAborts.set(threadId, controller)
-              const title = await generateThreadTitle(
-                inputText,
-                controller.signal,
-                turnModel
-              )
-              if (titleAborts.get(threadId) === controller) {
-                titleAborts.delete(threadId)
-              }
-              if (!title || controller.signal.aborted) return
-              useThreads.getState().updateThread(threadId, { title })
-            })()
+                // Deleted while waiting for the engine: nothing to name, and the
+                // deletion has already cancelled what it could.
+                if (!useChatSessions.getState().sessions[threadId]) return
+                titleAborts.get(threadId)?.abort()
+                const controller = new AbortController()
+                titleAborts.set(threadId, controller)
+                const title = await generateThreadTitle(
+                  inputText,
+                  controller.signal,
+                  turnModel
+                )
+                if (titleAborts.get(threadId) === controller) {
+                  titleAborts.delete(threadId)
+                }
+                if (!title || controller.signal.aborted) return
+                useThreads.getState().updateThread(threadId, { title })
+              })()
           }
         }
       }
     },
-    onToolCall: ({ toolCall }) => {
-      // Collect the tool for the onFinish execution loop, and request approval
-      // right now so the popup appears immediately instead of waiting for the
-      // stream's terminal finish chunk (a stalled stream would otherwise leave
-      // the tool at "Running..." with no popup). Execution itself stays in
-      // onFinish so the tool result lands on a completed message. Internal tools
-      // never prompt (see isAutoAllowedTool).
-      sessionData.tools.push(toolCall)
-      if (
-        !isAutoAllowedTool(toolCall.toolName) &&
-        !isDisabledChatAgentTool(toolCall.toolName) &&
-        !approvalsOf(threadId).has(toolCall.toolCallId)
-      ) {
-        const origin = toolOriginOf(toolCall.toolName)
-        approvalsOf(threadId).set(toolCall.toolCallId, {
-          approved: useToolApprovalRequests
-            .getState()
-            .requestApproval(
-              toolCall.toolCallId,
-              toolCall.toolName,
-              threadId,
-              origin.server,
-              approvalOptions(threadId, origin.origin)
-            ),
-          origin,
-        })
-      }
-    },
-    sendAutomaticallyWhen: followUpMessage,
   })
 
   // Our error banners (oom/backend/context) can arrive out-of-band for the
@@ -1176,107 +626,23 @@ function ThreadDetail() {
   const hasBannerError = !!(oomError || backendError || contextLimitError)
   const effectiveStatus = hasBannerError ? 'ready' : status
 
-  // The stream has ended but the turn's tools are still running or waiting on
-  // approval. `status` is `ready` then, so without this the composer offers a
-  // send arrow and no way to stop a runaway command.
-  const toolsBusy = useAppState((s) => !!s.busyThreads[threadId])
-  const toolsRunning = toolsBusy && !processingEmbeddings
-
   // Read at send or stop time without making those callbacks depend on every
   // streamed token.
   const chatMessagesRef = useRef(chatMessages)
   chatMessagesRef.current = chatMessages
-
-  // Stop ends the whole turn, not just the stream: it aborts the tool loop,
-  // drops the approval prompts, and settles whatever tool call never got to
-  // finish so its card stops saying "Running" (and stays settled on reload).
-  const handleStop = useCallback(() => {
-    // The Stop controller is what says which turn is still running a call. One
-    // already aborted was stopped earlier; its loop is only winding down.
-    const stopping = toolStopControllers.get(threadId)
-    const running = stopping?.signal.aborted ? undefined : stopping
-    // The turn whose call this aborts; with none running (the reply is still
-    // streaming) it is the last message.
-    const turnId = running ? toolLoopTurns.get(running) : undefined
-    toolLoopControllers.get(threadId)?.abort()
-    running?.abort()
-    useToolApprovalRequests.getState().clearPendingForThread(threadId)
-    stop()
-
-    // Only the turn being stopped. Taken from the SDK's own chat state, which
-    // is current: the rendered snapshot is throttled and can lag the stream, so
-    // a call whose result just landed would still look unfinished there and be
-    // saved as stopped while the live copy holds its result.
-    const live =
-      useChatSessions.getState().sessions[threadId]?.chat.messages ??
-      chatMessagesRef.current
-    const settled = settleStoppedToolCalls(live, turnId)
-    if (settled === live) return
-    setChatMessages((prev) => settleStoppedToolCalls(prev, turnId))
-    // A turn that was still streaming is persisted by onFinish; one that is
-    // already stored (its tools were running) has to be rewritten here. It was
-    // stored before any tool ran, so the output of a call that did finish is
-    // only in the rendered message, and the follow-up reply that would have
-    // persisted it never happens.
-    const stoppedId = turnId ?? live[live.length - 1].id
-    const stoppedTurn = settled.find((m) => m.id === stoppedId)
-    if (stoppedTurn) rewriteStoredTurn(threadId, stoppedTurn, true)
-  }, [threadId, stop, setChatMessages])
-
-  // A new reply (regenerate, edit) replaces the turn it answers, so a tool call
-  // that turn still has running is abandoned: ended like a Stop, before the new
-  // turn can register its own loop over it.
-  const endRunningTools = useCallback(() => {
-    const running = toolStopControllers.get(threadId)
-    if (running && !running.signal.aborted) handleStop()
-  }, [threadId, handleStop])
-
-  // Global disabled-tools set; re-run the effect below when it changes.
-  const disabledTools = useToolAvailable((state) => state.disabledTools)
-
-  // Update RAG tools availability when documents, model, or tool availability changes
+  // The work row and panel follow the live chat, streaming parts included.
   useEffect(() => {
-    const checkDocumentsAvailability = async () => {
-      const hasThreadDocuments = Boolean(thread?.metadata?.hasDocuments)
-      let hasProjectDocuments = false
+    useThreadUIMessages.getState().publish(threadId, chatMessages)
+  }, [threadId, chatMessages])
+  const workPanelOpen = useWorkPanel((s) => s.open)
+  const toggleWorkPanel = useWorkPanel((s) => s.toggle)
 
-      // Check if thread belongs to a project and if that project has files
-      const projectId = thread?.metadata?.project?.id
-      if (projectId) {
-        try {
-          const vectorDB = getExtensionHost().services.get(
-            ServiceKeys.VectorDB
-          )
-          if (vectorDB) {
-            const projectFiles =
-              await vectorDB.listAttachmentsForProject(projectId)
-            hasProjectDocuments = projectFiles.length > 0
-          }
-        } catch (error) {
-          console.warn('Failed to check project files:', error)
-        }
-      }
-
-      const hasDocuments = hasThreadDocuments || hasProjectDocuments
-      const ragFeatureAvailable = Boolean(useAttachments.getState().enabled)
-      const modelSupportsTools =
-        selectedModel?.capabilities?.includes('tools') ?? false
-
-      updateRagToolsAvailability(
-        hasDocuments,
-        modelSupportsTools,
-        ragFeatureAvailable
-      )
-    }
-
-    checkDocumentsAvailability()
-  }, [
-    thread?.metadata?.hasDocuments,
-    thread?.metadata?.project?.id,
-    selectedModel?.capabilities,
-    updateRagToolsAvailability,
-    disabledTools, // Re-run when tools are enabled/disabled
-  ])
+  // Stop cancels the thread's DSH turn (the transport sends session/cancel);
+  // a tool call it cut short is settled so its card stops saying "Running".
+  const handleStop = useCallback(() => {
+    stop()
+    setChatMessages((prev) => settleStoppedToolCalls(prev))
+  }, [stop, setChatMessages])
 
   // Auto-scroll the reasoning container during streaming, pausing when the user scrolls up
   const {
@@ -1399,19 +765,22 @@ function ThreadDetail() {
           setMessages(threadId, messagesToSet)
 
           const hydrated: Record<string, string> = {}
+          const reports: Record<string, LoadReport> = {}
           for (const m of messagesToSet) {
-            const err = (m.metadata as Record<string, unknown> | undefined)
-              ?.error
+            const meta = m.metadata as Record<string, unknown> | undefined
+            const err = meta?.error
             if (typeof err === 'string' && err.length > 0) {
               hydrated[m.id] = err
+              const report = meta?.loadReport as LoadReport | undefined
+              if (typeof report?.text === 'string') reports[m.id] = report
             }
           }
-          useMessageErrors.getState().hydrate(hydrated)
+          useMessageErrors.getState().hydrate(hydrated, reports)
 
           const activeRootId = (
             useThreads.getState().threads[threadId]?.metadata as
-              | Record<string, unknown>
-              | undefined
+            | Record<string, unknown>
+            | undefined
           )?.activeRootId as string | undefined
           const uiMessages = convertThreadMessagesToUIMessages(
             computeActivePath(messagesToSet, activeRootId)
@@ -1435,23 +804,6 @@ function ThreadDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // The route component is reused across thread switches (no remount). Leaving
-  // a thread must not end its turn: its tool loop, any approval it waits on and
-  // the follow-up reply live in module state and the retained chat session, so
-  // they carry on in the background and the approval prompt is still there on
-  // return (#9311). Only Stop or deleting the thread ends the loop.
-  useEffect(() => {
-    return () => {
-      // Drop the left thread's settled timing/progress/diff state from the
-      // shared runtime store: its cards are unmounting. Calls its loop still
-      // has queued or running are kept for its return. (code.tsx re-hydrates
-      // its own diffs on mount, so it is unaffected by clearing here.)
-      useToolCallRuntime.getState().releaseSettled(threadId)
-      // Calls with no owner are released here too, at the same point.
-      useToolCallRuntime.getState().releaseSettled()
-    }
-  }, [threadId])
-
   // Resync the OOM/backend banner from message metadata on every thread switch.
   // Persisted by LlamacppOomListener at error time; unset state when this
   // thread carries no such metadata so the banner doesn't leak across threads.
@@ -1474,223 +826,38 @@ function ThreadDetail() {
     setContextLimitError(ctx ? new Error(ctx) : null)
   }, [threadId, threadMessagesForBanner])
 
-  // Consolidated function to process and send a message
+  // Consolidated function to process and send a message. DSH takes text and
+  // images; the composer only offers images (see ChatInput).
   const processAndSendMessage = useCallback(
     async (
       text: string,
-      files?: Array<{ type: string; mediaType: string; url: string }>,
-      draft: string = text
+      files?: Array<{ type: string; mediaType: string; url: string }>
     ) => {
       // Cancel any in-flight title summarization so it doesn't compete with this request
       abortTitle(threadId)
 
-      // Get all attachments from the store (media transferred from the
-      // new-thread key, plus documents).
-      const allAttachments = getAttachments(attachmentsKey)
-
-      // In-thread sends pass media inline via `files`; reconstruct typed by
-      // mediaType (image/audio/video — not all images). New-thread sends pass
-      // no media in `files` (quota), so fall back to media already in the store.
-      const fileMediaAttachments = (files ?? []).map((file) => {
+      // In-thread sends pass images inline via `files`; new-thread sends pass
+      // them through the attachments store.
+      const fileImages = (files ?? []).map((file) => {
         const base64 = file.url.split(',')[1] || ''
-        const size = Math.ceil((base64.length * 3) / 4) // Estimate from base64
-        if (file.mediaType.startsWith('audio/')) {
-          return createAudioAttachment({
-            name: `audio-${Date.now()}`,
-            mimeType: file.mediaType,
-            dataUrl: file.url,
-            base64,
-            audioFormat: file.mediaType === 'audio/mpeg' ? 'mp3' : 'wav',
-            size,
-          })
-        }
-        if (file.mediaType.startsWith('video/')) {
-          return createVideoAttachment({
-            name: `video-${Date.now()}`,
-            mimeType: file.mediaType,
-            dataUrl: file.url,
-            base64,
-            size,
-          })
-        }
         return createImageAttachment({
           name: `image-${Date.now()}`,
           mimeType: file.mediaType,
           dataUrl: file.url,
           base64,
-          size,
+          size: Math.ceil((base64.length * 3) / 4),
         })
       })
-
-      const storeMediaAttachments = allAttachments.filter(
-        (a) => a.type === 'image' || a.type === 'audio' || a.type === 'video'
-      )
-      const mediaAttachments = fileMediaAttachments.length
-        ? fileMediaAttachments
-        : storeMediaAttachments
-
-      // Combine media attachments with document attachments from the store
-      let combinedAttachments = [
-        ...mediaAttachments,
-        ...allAttachments.filter((a) => a.type === 'document'),
-      ]
-
-      const projectId = thread?.metadata?.project?.id
-      const { parseMode: parsePreference, autoInlineContextRatio } =
-        useAttachments.getState()
-      const contextThreshold = combinedAttachments.some(
-        (a) => a.type === 'document' && !a.processed
-      )
-        ? await resolveAutoInlineBudget(
-            useModelProvider.getState().selectedModel,
-            selectedProvider,
-            autoInlineContextRatio,
-            estimateConversationTokens(chatMessagesRef.current)
-          )
-        : undefined
-      // The budget can be gone since attach time (model switched or unloaded,
-      // conversation grown), so 'auto' documents that would now silently
-      // fall back to embeddings are put to the user. Project files always
-      // embed, so there is nothing to ask.
-      const unrouted =
-        projectId || contextThreshold !== undefined
-          ? []
-          : combinedAttachments.filter(
-              (a) =>
-                a.type === 'document' &&
-                needsIngestionChoice(a, parsePreference, false)
-            )
-      if (unrouted.length > 0) {
-        const choices = await promptIngestionChoices(unrouted)
-        if (!choices) {
-          // ChatInput cleared the input on submit; hand the draft back so
-          // cancelling only cancels the send. `text` has @path references
-          // expanded, so restore what the user actually typed.
-          setAttachmentsForThread(attachmentsKey, allAttachments)
-          usePrompt.getState().setPrompt(draft)
-          return
-        }
-        combinedAttachments = applyIngestionChoices(
-          combinedAttachments,
-          choices
-        )
-      }
-
-      const messageId = generateId()
-      const hasDocuments = combinedAttachments.some(
-        (a) => a.type === 'document' && !a.processed
-      )
-      const hasEmbeddingDocuments = combinedAttachments.some(
-        (a) =>
-          a.type === 'document' &&
-          !a.processed &&
-          a.parseMode !== 'inline'
-      )
-
-      // When there are unprocessed documents (e.g. first-message flow),
-      // show the user message in the conversation immediately so the UI
-      // doesn't hang while embeddings are generated.
-      if (hasDocuments) {
-        const previewMessage = newUserThreadContent(
-          threadId,
-          text,
-          combinedAttachments,
-          messageId
-        )
-        const previewUI =
-          convertThreadMessagesToUIMessages([previewMessage])
-        setChatMessages((prev) => [...prev, ...previewUI])
-      }
-
-      // Clear attachment chips from the input — they are now either
-      // about to be sent or visible in the preview message above.
+      const images = fileImages.length
+        ? fileImages
+        : getAttachments(attachmentsKey).filter((a) => a.type === 'image')
       clearAttachmentsForThread(attachmentsKey)
 
-      // Process attachments (ingest images, parse/index documents)
-      let processedAttachments = combinedAttachments
-      if (combinedAttachments.length > 0) {
-        if (hasEmbeddingDocuments) {
-          useAppState.getState().setThreadEmbedding(threadId, true)
-          useAppState.getState().setThreadBusy(threadId, true)
-        }
-        try {
-          const result = await processAttachmentsForSend({
-            attachments: combinedAttachments,
-            threadId,
-            projectId,
-            serviceHub,
-            selectedProvider,
-            modelSupportsTools:
-              useModelProvider
-                .getState()
-                .selectedModel?.capabilities?.includes('tools') ?? false,
-            parsePreference,
-            contextThreshold,
-          })
-          processedAttachments = result.processedAttachments
-
-          // Update thread metadata if documents were embedded
-          if (result.hasEmbeddedDocuments) {
-            const toolApproval = useToolApproval.getState()
-            const ragTools = useAppState.getState().ragToolNames
-            for (const toolName of ragTools) {
-              toolApproval.approveToolForThread(threadId, toolName)
-            }
-            // Merge into the thread's metadata as it is now, not as it was at
-            // send: replacing it drops `metadata.project` and detaches the
-            // thread from its project, and a stale copy reverts a project move
-            // or rename made while the documents were embedding.
-            useThreads.getState().updateThread(threadId, {
-              metadata: {
-                ...(useThreads.getState().threads[threadId]?.metadata ?? {}),
-                hasDocuments: true,
-              },
-            })
-          }
-        } catch (error) {
-          console.error('Failed to process attachments:', error)
-          // Remove the preview message on failure
-          if (hasDocuments) {
-            setChatMessages((prev) =>
-              prev.filter((m) => m.id !== messageId)
-            )
-          }
-          // ChatInput cleared the input on submit and nothing was sent, so
-          // hand the draft and attachments back; the user fixes the cause and
-          // sends again. Attachments are keyed by thread and go back in front
-          // of anything added since. The prompt store is shared by every
-          // thread and Home, so the draft returns only while this thread is
-          // still the open one (the store clears it on leaving) and only if
-          // nothing has been typed there since.
-          setAttachmentsForThread(attachmentsKey, (prev) => [
-            ...allAttachments,
-            ...prev,
-          ])
-          const composer = usePrompt.getState()
-          if (
-            useThreads.getState().currentThreadId === threadId &&
-            !composer.prompt
-          ) {
-            composer.setPrompt(draft)
-          }
-          return
-        } finally {
-          useAppState.getState().setThreadEmbedding(threadId, false)
-          useAppState.getState().setThreadBusy(threadId, false)
-        }
-      }
-
-      // Remove the preview before sendMessage adds the real user message
-      // with the same id — this prevents duplicates.
-      if (hasDocuments) {
-        setChatMessages((prev) => prev.filter((m) => m.id !== messageId))
-      }
-
-      // Persist the final message to backend
+      const messageId = generateId()
       const baseUserMessage = newUserThreadContent(
         threadId,
         text,
-        processedAttachments,
+        images,
         messageId
       )
       // Once a thread has branches, link new turns into the active path so the
@@ -1700,8 +867,8 @@ function ThreadDetail() {
       if (hasBranching(branchedMessages)) {
         const activeRootId = (
           useThreads.getState().threads[threadId]?.metadata as
-            | Record<string, unknown>
-            | undefined
+          | Record<string, unknown>
+          | undefined
         )?.activeRootId as string | undefined
         const path = computeActivePath(branchedMessages, activeRootId)
         const parentId = path.length ? path[path.length - 1].id : null
@@ -1713,28 +880,15 @@ function ThreadDetail() {
       }
       addMessage(userMessage)
 
-      // Build parts for AI SDK. Derive media file parts from the resolved
-      // attachments (not the raw `files` arg) so the first-message flow — where
-      // media lives in the store and `files` is empty — still renders live.
       const parts: Array<
         | { type: 'text'; text: string }
         | { type: 'file'; mediaType: string; url: string }
-      > = [
-        {
-          type: 'text',
-          text: userMessage.content[0].text?.value ?? text,
-        },
-      ]
-
-      mediaAttachments.forEach((a) => {
+      > = [{ type: 'text', text: userMessage.content[0].text?.value ?? text }]
+      for (const a of images) {
         if (a.dataUrl && a.mimeType) {
-          parts.push({
-            type: 'file',
-            mediaType: a.mimeType,
-            url: a.dataUrl,
-          })
+          parts.push({ type: 'file', mediaType: a.mimeType, url: a.dataUrl })
         }
-      })
+      }
 
       sendMessage({
         parts,
@@ -1745,15 +899,10 @@ function ThreadDetail() {
     [
       sendMessage,
       threadId,
-      thread,
       addMessage,
       getAttachments,
       attachmentsKey,
-      setChatMessages,
       clearAttachmentsForThread,
-      setAttachmentsForThread,
-      serviceHub,
-      selectedProvider,
     ]
   )
 
@@ -1790,24 +939,19 @@ function ThreadDetail() {
       sessionStorage.removeItem(initialMessageKey)
       initialMessageSentRef.current = true
 
-      // Process message asynchronously
-      ;(async () => {
-        try {
-          const message = JSON.parse(storedMessage) as {
-            text: string
-            draft?: string
-            files?: Array<{ type: string; mediaType: string; url: string }>
-          }
+        // Process message asynchronously
+        ; (async () => {
+          try {
+            const message = JSON.parse(storedMessage) as {
+              text: string
+              files?: Array<{ type: string; mediaType: string; url: string }>
+            }
 
-          await processAndSendMessage(
-            message.text,
-            message.files,
-            message.draft
-          )
-        } catch (error) {
-          console.error('Failed to parse initial message:', error)
-        }
-      })()
+            await processAndSendMessage(message.text, message.files)
+          } catch (error) {
+            console.error('Failed to parse initial message:', error)
+          }
+        })()
     }
   }, [threadId, processAndSendMessage])
 
@@ -1852,13 +996,10 @@ function ThreadDetail() {
   const handleSubmit = useCallback(
     async (
       text: string,
-      files?: Array<{ type: string; mediaType: string; url: string }>,
-      // This route reads documents back out of the attachments store.
-      _documents?: unknown,
-      draft?: string
+      files?: Array<{ type: string; mediaType: string; url: string }>
     ) => {
       clearBannerErrors()
-      await processAndSendMessage(text, files, draft)
+      await processAndSendMessage(text, files)
     },
     [processAndSendMessage, clearBannerErrors]
   )
@@ -1903,8 +1044,8 @@ function ThreadDetail() {
     const msgs = useMessages.getState().getMessages(threadId)
     const activeRootId = (
       useThreads.getState().threads[threadId]?.metadata as
-        | Record<string, unknown>
-        | undefined
+      | Record<string, unknown>
+      | undefined
     )?.activeRootId as string | undefined
     setChatMessages(
       convertThreadMessagesToUIMessages(computeActivePath(msgs, activeRootId))
@@ -1935,8 +1076,8 @@ function ThreadDetail() {
       const msgs = useMessages.getState().getMessages(threadId)
       const activeRootId = (
         useThreads.getState().threads[threadId]?.metadata as
-          | Record<string, unknown>
-          | undefined
+        | Record<string, unknown>
+        | undefined
       )?.activeRootId as string | undefined
       const path = computeActivePath(msgs, activeRootId)
       const idx =
@@ -1979,12 +1120,10 @@ function ThreadDetail() {
         resolveAssistantParent(messageId)
       )
 
-      endRunningTools()
       regenerate(messageId ? { messageId } : undefined)
     },
     [
       regenerate,
-      endRunningTools,
       stripBannerMetadata,
       contextLimitError,
       ensureBranched,
@@ -2033,7 +1172,6 @@ function ThreadDetail() {
       if (target.role === 'user') {
         pendingAssistantParents.set(threadId, newId)
         syncActivePath()
-        endRunningTools()
         regenerate({ messageId: newId })
       } else {
         syncActivePath()
@@ -2045,7 +1183,6 @@ function ThreadDetail() {
       setActiveBranch,
       syncActivePath,
       regenerate,
-      endRunningTools,
       threadId,
     ]
   )
@@ -2076,7 +1213,7 @@ function ThreadDetail() {
     const lastMessage = chatMessagesRef.current.at(-1)
     const stoppedPartial =
       lastMessage?.role === 'assistant' &&
-      (lastMessage.metadata as { stopped?: boolean } | undefined)?.stopped
+        (lastMessage.metadata as { stopped?: boolean } | undefined)?.stopped
         ? { message: lastMessage, content: partialOf(lastMessage) }
         : undefined
     const storedPartial =
@@ -2228,7 +1365,6 @@ function ThreadDetail() {
 
   useEffect(() => {
     if (status !== 'ready' || processingQueueRef.current) return
-    if (sessionData.tools.length > 0) return
 
     const next = useMessageQueue.getState().dequeue(threadId)
     if (!next) return
@@ -2241,7 +1377,7 @@ function ThreadDetail() {
       .finally(() => {
         processingQueueRef.current = false
       })
-  }, [status, threadId, sendQueuedMessage, sessionData.tools.length])
+  }, [status, threadId, sendQueuedMessage])
 
   // If streaming errors out, discard any queued messages so they don't sit there stuck
   useEffect(() => {
@@ -2304,6 +1440,20 @@ function ThreadDetail() {
           return
         }
         useMessageErrors.getState().setReport(reportTarget, report, failedModel)
+        // Saved with the error so "Copy diagnostics" survives a reload.
+        const saved = useMessages
+          .getState()
+          .getMessages(threadId)
+          .find((m) => m.id === reportTarget)
+        if (saved) {
+          updateMessage({
+            ...saved,
+            metadata: {
+              ...(saved.metadata || {}),
+              loadReport: { text: report, model: failedModel },
+            },
+          })
+        }
       })
       .catch((e) =>
         console.warn('could not build the load diagnostics report:', e)
@@ -2370,9 +1520,19 @@ function ThreadDetail() {
       <HeaderPage>
         <div className="flex items-center justify-between w-full pr-2">
           <DropdownModelProvider model={threadModel} />
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t('work:panel.open')}
+            aria-pressed={workPanelOpen}
+            onClick={toggleWorkPanel}
+          >
+            <IconLayoutSidebarRight aria-hidden />
+          </Button>
         </div>
       </HeaderPage>
-      <div className="flex flex-1 flex-col h-full overflow-hidden">
+      <div className="relative flex flex-1 min-h-0 overflow-hidden">
+      <div className="flex flex-1 min-w-0 flex-col h-full overflow-hidden">
         {/* Messages Area */}
         <div
           className="message-zoom flex-1 relative"
@@ -2442,32 +1602,19 @@ function ThreadDetail() {
                   isAnimating={false}
                 />
               )}
-              {processingEmbeddings && (
-                <div className="flex items-start gap-3 px-4 py-3 mx-4 my-2 rounded-lg border border-primary/20 bg-primary/5">
-                  <IconLoader2 className="size-5 text-primary shrink-0 mt-0.5 animate-spin" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-main-view-fg mb-0.5">
-                      {t('chat:embeddings.title')}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {t('chat:embeddings.description')}
-                    </p>
-                  </div>
-                </div>
-              )}
               {!oomError &&
                 !backendError &&
                 !contextLimitError &&
                 status === CHAT_STATUS.SUBMITTED && (
-                <div className="flex flex-row items-center gap-2">
-                  {pendingContinueMessage && (
-                    <Shimmer duration={1}>Growing the Mind...</Shimmer>
-                  )}
-                  {!pendingContinueMessage && !lastIsAssistant && (
-                    <PromptProgress />
-                  )}
-                </div>
-              )}
+                  <div className="flex flex-row items-center gap-2">
+                    {pendingContinueMessage && (
+                      <Shimmer duration={1}>Growing the Mind...</Shimmer>
+                    )}
+                    {!pendingContinueMessage && !lastIsAssistant && (
+                      <PromptProgress />
+                    )}
+                  </div>
+                )}
               {(contextLimitError || oomError || backendError) && (
                 <div className="px-4 py-3 mx-4 my-2 rounded-lg border border-destructive/10 bg-destructive/10">
                   <div className="flex items-start gap-3">
@@ -2538,14 +1685,18 @@ function ThreadDetail() {
             its fade) runs right up to the composer, with the resting gap kept
             inside the scroll content as pb-4. */}
         <div className="pb-4 px-6 mx-auto w-full md:w-4/5 xl:w-4/6">
+          <InteractionCards threadId={threadId} />
           <ChatInput
             model={threadModel}
             onSubmit={handleSubmit}
             onStop={handleStop}
             chatStatus={effectiveStatus}
-            toolsRunning={toolsRunning}
           />
         </div>
+      </div>
+      {workPanelOpen && (
+        <WorkPanel threadId={threadId} />
+      )}
       </div>
     </div>
   )

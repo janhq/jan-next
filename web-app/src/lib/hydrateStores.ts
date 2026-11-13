@@ -5,7 +5,6 @@ import { useLeftPanel } from '@/hooks/useLeftPanel'
 import { useModelProvider } from '@/hooks/useModelProvider'
 import { useHardware } from '@/hooks/useHardware'
 import { useLocalApiServer } from '@/hooks/useLocalApiServer'
-import { useToolApproval } from '@/hooks/useToolApproval'
 import { useToolAvailable } from '@/hooks/useToolAvailable'
 import { useDownloadStore } from '@/hooks/useDownloadStore'
 import { useProxyConfig } from '@/hooks/useProxyConfig'
@@ -14,12 +13,12 @@ import { useFavoriteModel } from '@/hooks/useFavoriteModel'
 import { useLatestJanModel } from '@/hooks/useLatestJanModel'
 import { useJanModelPromptDismissed } from '@/hooks/useJanModelPrompt'
 import { useDefaultEmbeddingModel } from '@/hooks/useDefaultEmbeddingModel'
-import { useAgentMode } from '@/hooks/useAgentMode'
 import { useChatShell } from '@/hooks/useChatShell'
 import { useCoTDuration } from '@/hooks/useCoTDuration'
 import { useImageAttachmentConfig } from '@/hooks/useImageAttachmentConfig'
 import { useVoiceSettings } from '@/hooks/useVoiceSettings'
 import { useDshSettings } from '@/hooks/useDshSettings'
+import { useWorkPanel } from '@/stores/work-panel-store'
 
 /**
  * Stores persisted through `backendStorage` set `skipHydration: true` so they
@@ -38,7 +37,6 @@ const secondaryStores = [
   useModelProvider,
   useHardware,
   useLocalApiServer,
-  useToolApproval,
   useToolAvailable,
   useDownloadStore,
   useProxyConfig,
@@ -47,12 +45,12 @@ const secondaryStores = [
   useLatestJanModel,
   useJanModelPromptDismissed,
   useDefaultEmbeddingModel,
-  useAgentMode,
   useChatShell,
   useCoTDuration,
   useImageAttachmentConfig,
   useVoiceSettings,
   useDshSettings,
+  useWorkPanel,
 ] as const
 
 export async function hydrateBackendStores(): Promise<void> {

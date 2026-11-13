@@ -5,34 +5,7 @@ import {
 } from '../toolPresentation'
 
 describe('describeNativeToolCall', () => {
-  it('builds a documents bar for a RAG retrieve', () => {
-    expect(
-      describeNativeToolCall({ kind: 'rag' }, 'retrieve', {
-        query: 'refund policy',
-        top_k: 4,
-        file_ids: ['a', 'b'],
-      })
-    ).toEqual({
-      variant: 'documents',
-      query: 'refund policy',
-      count: 4,
-      fileCount: 2,
-    })
-  })
-
-  it('omits absent RAG modifiers', () => {
-    expect(
-      describeNativeToolCall({ kind: 'rag' }, 'retrieve', { query: 'q' })
-    ).toEqual({ variant: 'documents', query: 'q' })
-  })
-
-  it('has no bar for other RAG tools or for MCP', () => {
-    expect(
-      describeNativeToolCall({ kind: 'rag' }, 'list_attachments', {})
-    ).toBeUndefined()
-    expect(
-      describeNativeToolCall({ kind: 'rag' }, 'get_chunks', { file_id: 'f' })
-    ).toBeUndefined()
+  it('has no bar for MCP tools or an unknown origin', () => {
     expect(
       describeNativeToolCall({ kind: 'mcp', detail: 'fs' }, 'read_file', {})
     ).toBeUndefined()

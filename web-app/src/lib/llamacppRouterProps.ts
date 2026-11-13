@@ -1,14 +1,13 @@
 import {
-  ServiceKeys,
+  getLlamacppEngine,
   type LlamacppService,
   type LocalEngineService,
-} from '@janhq/core'
-import { getExtensionHost } from '@/lib/extensions/host'
+} from '@/lib/llamacpp'
 
 /** Post-fit `nCtx` is only available once the router has actually loaded the
  *  model; callers must fall back to a configured/default context size until then. */
 export const getLlamacppExtension = (): LlamacppService | undefined =>
-  getExtensionHost().services.get(ServiceKeys.Llamacpp)
+  getLlamacppEngine()
 
 /** Local providers expose a launched context window via `getModelProps`; remote
  *  providers have none. Returns undefined for anything but llamacpp. */

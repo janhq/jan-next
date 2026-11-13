@@ -1,23 +1,6 @@
 {
-  "toolApproval": {
-    "needsApproval": "此工具需要您的批准才能运行。",
-    "deny": "拒绝",
-    "allowOnce": "允许一次",
-    "allowInThread": "在此会话中允许",
-    "allowServerAlways": "始终允许 {{server}}",
-    "allowToolAlways": "始终允许 {{tool}}",
-    "title": "工具调用请求",
-    "description": "助手想要使用工具：",
-    "securityNotice": "安全警告：恶意的工具或对话内容可能会诱使助手尝试有害操作。在批准之前，请仔细审查每个工具调用。",
-    "permissionScope": "您可以仅允许这一次，或始终允许。",
-    "alwaysAllow": "始终允许"
-  },
   "toolCall": {
-    "awaitingApproval": "等待批准：{{tool}}",
     "running": "正在运行 {{tool}}...",
-    "queued": "{{tool}} 排队中",
-    "queuedPosition": "前方 {{count}} 个",
-    "working": "处理中...",
     "failed": "{{tool}} 失败",
     "used": "已使用 {{tool}}",
     "parameters": "参数",
@@ -35,7 +18,6 @@
     "resultLimit": "前 {{count}} 条",
     "contentTruncated": "内容已截断",
     "originWeb": "网络",
-    "originDocuments": "文档",
     "originWorkspace": "工作区",
     "originSubagent": "子代理",
     "subagentPlaceholder": "子代理",

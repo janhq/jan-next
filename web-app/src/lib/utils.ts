@@ -3,7 +3,6 @@ import { twMerge } from 'tailwind-merge'
 import type { Node, Position } from 'unist'
 import type { Code, Paragraph, Parent, Text } from 'mdast'
 import { visit } from 'unist-util-visit'
-import { EngineManager } from '@janhq/core'
 import path from 'path'
 import type { VFile } from 'vfile'
 
@@ -197,8 +196,8 @@ export function getReadableLanguageName(language: string): string {
 }
 
 export const isLocalProvider = (provider: string) => {
-  const engine = EngineManager.instance().get(provider)
-  return !!engine && 'load' in engine
+  // llama.cpp is the only in-process engine; every other provider is remote.
+  return provider === 'llamacpp'
 }
 
 export const toGigabytes = (

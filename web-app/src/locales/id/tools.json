@@ -1,23 +1,6 @@
 {
-  "toolApproval": {
-    "needsApproval": "Alat ini memerlukan persetujuan Anda sebelum dijalankan.",
-    "deny": "Tolak",
-    "allowOnce": "Izinkan Sekali",
-    "allowInThread": "Izinkan di utas",
-    "allowServerAlways": "Selalu izinkan {{server}}",
-    "allowToolAlways": "Selalu izinkan {{tool}}",
-    "title": "Permintaan Panggilan Alat",
-    "description": "Asisten ingin menggunakan alat:",
-    "securityNotice": "Pemberitahuan Keamanan: Alat berbahaya atau konten percakapan dapat menipu asisten untuk mencoba melakukan tindakan yang merugikan. Tinjau setiap permintaan penggunaan alat dengan cermat sebelum menyetujui.",
-    "permissionScope": "Anda dapat mengizinkannya sekali ini saja, atau setiap kali.",
-    "alwaysAllow": "Selalu izinkan"
-  },
   "toolCall": {
-    "awaitingApproval": "Menunggu persetujuan: {{tool}}",
     "running": "Menjalankan {{tool}}...",
-    "queued": "{{tool}} dalam antrean",
-    "queuedPosition": "{{count}} di depan",
-    "working": "Memproses...",
     "failed": "{{tool}} gagal",
     "used": "Menggunakan {{tool}}",
     "parameters": "Parameter",
@@ -35,7 +18,6 @@
     "resultLimit": "{{count}} teratas",
     "contentTruncated": "Konten dipotong",
     "originWeb": "Web",
-    "originDocuments": "Dokumen",
     "originWorkspace": "Ruang Kerja",
     "originSubagent": "Subagen",
     "subagentPlaceholder": "subagen",

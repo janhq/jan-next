@@ -4,7 +4,7 @@ import { ChevronRightIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Citations, type WebCitation } from '@/components/Citations'
 import { faviconForUrl } from '@/lib/webUrl'
-import { useRemoteImagesAllowed } from '@/lib/extensions/remoteImages'
+import { useRemoteImagesAllowed } from '@/lib/remoteImages'
 
 export const WebSourcesRow = memo(
   ({ citations }: { citations: WebCitation[] }) => {

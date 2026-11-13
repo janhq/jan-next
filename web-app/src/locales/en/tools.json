@@ -1,23 +1,6 @@
 {
-  "toolApproval": {
-    "needsApproval": "This tool needs your approval before it runs.",
-    "deny": "Deny",
-    "allowOnce": "Allow Once",
-    "allowInThread": "Allow in thread",
-    "allowServerAlways": "Always allow {{server}}",
-    "allowToolAlways": "Always allow {{tool}}",
-    "title": "Tool Call Request",
-    "description": "The assistant wants to use the tool:",
-    "securityNotice": "Security Notice: Malicious tools or conversation content could potentially trick the assistant into attempting harmful actions. Review each tool call carefully before approving.",
-    "permissionScope": "You can allow it just this once, or every time.",
-    "alwaysAllow": "Always allow"
-  },
   "toolCall": {
-    "awaitingApproval": "Awaiting approval: {{tool}}",
     "running": "Running {{tool}}...",
-    "queued": "{{tool}} queued",
-    "queuedPosition": "{{count}} ahead",
-    "working": "Working...",
     "failed": "{{tool}} failed",
     "used": "Used {{tool}}",
     "parameters": "Parameters",
@@ -35,7 +18,6 @@
     "resultLimit": "top {{count}}",
     "contentTruncated": "Content truncated",
     "originWeb": "Web",
-    "originDocuments": "Documents",
     "originWorkspace": "Workspace",
     "originSubagent": "Subagent",
     "subagentPlaceholder": "subagent",

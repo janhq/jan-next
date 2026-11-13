@@ -1,6 +1,5 @@
 export interface TokenCounterVisibilityInput {
   hasSelectedModel: boolean
-  isAgentMode: boolean
   isInitialMessage: boolean
   hasMessages: boolean
   hasPromptText: boolean
@@ -14,12 +13,10 @@ export interface TokenCounterVisibilityInput {
  */
 export const shouldShowTokenCounter = ({
   hasSelectedModel,
-  isAgentMode,
   isInitialMessage,
   hasMessages,
   hasPromptText,
 }: TokenCounterVisibilityInput): boolean =>
   hasSelectedModel &&
-  !isAgentMode &&
   !isInitialMessage &&
   (hasMessages || hasPromptText)

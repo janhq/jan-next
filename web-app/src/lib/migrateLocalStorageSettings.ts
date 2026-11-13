@@ -1,7 +1,7 @@
 import { isPlatformTauri } from '@/lib/platform/utils'
 import { getServiceHub } from '@/hooks/useServiceHub'
 import { localStorageKey } from '@/constants/localStorage'
-import { HUGGINGFACE_TOKEN_SECRET_KEY } from '@janhq/core'
+import { HUGGINGFACE_TOKEN_SECRET_KEY } from '@/lib/native'
 
 /**
  * One-time migration of settings from webview localStorage to the backend
@@ -23,7 +23,6 @@ const MIGRATED_KEYS: string[] = [
   localStorageKey.modelProvider,
   localStorageKey.settingHardware,
   localStorageKey.settingLocalApiServer,
-  localStorageKey.toolApproval,
   localStorageKey.toolAvailability,
   localStorageKey.pausedDownloads,
   localStorageKey.settingProxyConfig,
@@ -32,7 +31,6 @@ const MIGRATED_KEYS: string[] = [
   localStorageKey.latestJanModel,
   localStorageKey.janModelPromptDismissed,
   localStorageKey.defaultEmbeddingModel,
-  localStorageKey.agentMode,
 ]
 
 type Invoke = <T = unknown>(cmd: string, args?: Record<string, unknown>) => Promise<T>

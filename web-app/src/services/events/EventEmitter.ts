@@ -1,6 +1,6 @@
 /**
  * EventEmitter class - matches jan-dev implementation
- * Used by ExtensionProvider to set window.core.events
+ * Backs the process-wide bus in lib/native/events.ts
  */
 
 /* eslint-disable @typescript-eslint/no-unsafe-function-type */

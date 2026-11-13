@@ -3,20 +3,17 @@
  */
 
 import { sanitizeModelId } from '@/lib/utils'
-import {
+import type { SettingComponentProps, ThreadMessage, Model as CoreModel } from '@janhq/core'
+import { ContentType } from '@janhq/core'
+import { events, DownloadEvent } from '@/lib/native'
+import type {
   AIEngine,
-  EngineManager,
   SessionInfo,
-  SettingComponentProps,
   modelInfo,
-  ThreadMessage,
-  ContentType,
-  events,
-  DownloadEvent,
   UnloadResult,
-} from '@janhq/core'
-import { Model as CoreModel } from '@janhq/core'
-import type { SpecDraftKind } from '@janhq/core'
+  SpecDraftKind,
+} from '@/lib/llamacpp/engine-types'
+import { getLocalEngine } from '@/lib/llamacpp'
 import type {
   ModelsService,
   ModelCatalog,
@@ -37,7 +34,7 @@ const defaultProvider = 'llamacpp'
 
 export class DefaultModelsService implements ModelsService {
   private getEngine(provider: string = defaultProvider) {
-    return EngineManager.instance().get(provider) as AIEngine | undefined
+    return getLocalEngine(provider)
   }
 
   async getModel(modelId: string): Promise<modelInfo | undefined> {
@@ -49,7 +46,7 @@ export class DefaultModelsService implements ModelsService {
       getModelContextLimit?: (id: string) => Promise<number | undefined>
     }) | undefined
     if (!engine?.getModelContextLimit)
-      throw new Error('This provider cannot read model context limits. Update its extension or check provider settings.')
+      throw new Error('This provider cannot read model context limits. Check provider settings.')
     return engine.getModelContextLimit(modelId)
   }
 
@@ -370,7 +367,7 @@ export class DefaultModelsService implements ModelsService {
   async startModel(
     provider: ProviderObject,
     model: string,
-    bypassAutoUnload: boolean = false
+    _bypassAutoUnload: boolean = false
   ): Promise<SessionInfo | undefined> {
     const engine = this.getEngine(provider.provider)
     if (!engine) return undefined
@@ -400,7 +397,7 @@ export class DefaultModelsService implements ModelsService {
       : undefined
 
     return engine
-      .load(model, settings, false, bypassAutoUnload)
+      .load(model, settings, false)
       .catch((error) => {
         console.error(
           `Failed to start model ${model} for provider ${provider.provider}:`,

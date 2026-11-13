@@ -16,11 +16,7 @@
   "actions": {
     "regenerate": "重新回答",
     "askAgain": "再问一次",
-    "continue": "继续生成",
-    "remember": "添加到记忆",
-    "rememberSaved": "保存记忆： \"{{name}}\"",
-    "rememberExists": "已经保存到记忆： \"{{name}}\"",
-    "rememberFailed": "无法保存记忆"
+    "continue": "继续生成"
   },
   "done": "完成",
   "webSources": "{{count}} 网络参考",

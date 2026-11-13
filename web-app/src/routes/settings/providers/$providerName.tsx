@@ -35,7 +35,7 @@ import {
 import { useDefaultEmbeddingModel } from '@/hooks/useDefaultEmbeddingModel'
 import { toast } from 'sonner'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useModelLoad } from '@/hooks/useModelLoad'
+import { describeEngineError } from '@/lib/engineError'
 import { useAppState } from '@/hooks/useAppState'
 import { useShallow } from 'zustand/shallow'
 import { DialogAddModel } from '@/containers/dialogs/AddModel'
@@ -57,7 +57,7 @@ export const Route = createFileRoute('/settings/providers/$providerName')({
   ): { step?: string; diagnose?: string; diagnoseModel?: string } => {
     // validate and parse the search params into a typed state
     return {
-      step: String(search?.step),
+      step: typeof search?.step === 'string' ? search.step : undefined,
       // The hardware page's per-device entry point; it preselects a device in
       // the hardware check rather than starting one.
       diagnose:
@@ -75,7 +75,6 @@ export const Route = createFileRoute('/settings/providers/$providerName')({
 function ProviderDetail() {
   const { t } = useTranslation()
   const serviceHub = useServiceHub()
-  const { setModelLoadError } = useModelLoad()
   const [activeModels, setActiveModels] = useAppState(
     useShallow((state) => [state.activeModels, state.setActiveModels])
   )
@@ -96,9 +95,6 @@ function ProviderDetail() {
   const { getProviderByName, setProviders, updateProvider } =
     useModelProvider()
   const provider = getProviderByName(providerName)
-  // An extension's provider takes its key, address and models from the
-  // extension, and leaves when the extension stops: nothing here edits it.
-  const extensionSource = provider?.source
   const isLlamacpp = provider?.provider === 'llamacpp'
   const allModels = useMemo(() => provider?.models ?? [], [provider?.models])
   const embeddingModels = useMemo(
@@ -534,7 +530,11 @@ function ProviderDetail() {
           .getActiveModels(provider.provider)
           .then((models) => setActiveModels(models || []))
       } catch (error) {
-        setModelLoadError(error as ErrorObject)
+        // Nothing renders the model-load store on this page, so a failed
+        // start looked like a dead button; say why where the click was.
+        toast.error(modelId, {
+          description: describeEngineError(error),
+        })
       } finally {
         // Remove model from loading state
         setLoadingModels((prev) => prev.filter((id) => id !== modelId))
@@ -582,26 +582,8 @@ function ProviderDetail() {
               />
             </div>
 
-            {extensionSource && (
-              <div className="flex items-start gap-2 rounded-md border border-main-view-fg/10 bg-main-view-fg/5 px-3 py-2 text-xs text-muted-foreground">
-                <IconInfoCircle size={16} className="mt-0.5 shrink-0" />
-                <span>
-                  {t('providers:extensionManaged', {
-                    extension: extensionSource.extensionName,
-                  })}{' '}
-                  <Link
-                    to={route.settings.extension}
-                    params={{ extensionId: extensionSource.extensionId }}
-                    className="underline"
-                  >
-                    {t('providers:openExtensionSettings')}
-                  </Link>
-                </span>
-              </div>
-            )}
 
             {provider &&
-              !extensionSource &&
               !isLocalProvider(provider.provider) && (
                 <div className="flex items-start gap-2 rounded-md border border-main-view-fg/10 bg-main-view-fg/5 px-3 py-2 text-xs text-muted-foreground">
                   <IconInfoCircle size={16} className="mt-0.5 shrink-0" />
@@ -631,7 +613,7 @@ function ProviderDetail() {
                   'flex-col-reverse'
               )}
             >
-              {!extensionSource && (
+              {(
               <Card>
                 {provider?.settings.map((setting, settingIndex) => {
                   if (
@@ -743,8 +725,7 @@ function ProviderDetail() {
               )}
 
               {provider &&
-                !extensionSource &&
-                provider.provider !== 'llamacpp' && (
+                  provider.provider !== 'llamacpp' && (
                   <Card>
                     <div className="space-y-2">
                       <div className="space-y-1">
@@ -925,8 +906,7 @@ function ProviderDetail() {
                     </h1>
                     <div className="flex items-center gap-2">
                       {provider &&
-                        !extensionSource &&
-                        provider.provider !== 'llamacpp' && (
+                                  provider.provider !== 'llamacpp' && (
                         <>
                           <Button
                             variant="secondary"
@@ -1026,7 +1006,7 @@ function ProviderDetail() {
                               <ModelSetting provider={provider} model={model} />
                             )}
                             {provider && <FavoriteModelAction model={model} />}
-                            {!extensionSource && (
+                            {(
                               <DialogDeleteModel
                                 provider={provider}
                                 modelId={model.id}
@@ -1081,9 +1061,7 @@ function ProviderDetail() {
                       </h6>
                     </div>
                     <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
-                      {extensionSource ? (
-                        t('providers:noModelFoundExtensionDesc')
-                      ) : provider && !isLocalProvider(provider.provider) ? (
+                      {provider && !isLocalProvider(provider.provider) ? (
                         t('providers:noModelFoundRemoteDesc')
                       ) : (
                         <>

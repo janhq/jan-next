@@ -66,10 +66,10 @@ required-features = ["engine"]
 [features]
 default = []
 # Compiles and statically links llama.cpp (libllama + libcommon +
-# server-context) plus the C shim. OFF by default: this crate is a
-# non-optional dependency of the app crate, so enabling it unconditionally
-# would put cmake and a C++ toolchain on the critical path of every
-# `cargo check`, including the CLI-only job that never runs inference.
+# server-context) plus the C shim. OFF by default: the app crate depends on
+# this plugin, so enabling it unconditionally would put cmake and a C++
+# toolchain on the critical path of every `cargo check`. The worker binary is
+# built separately by `make build-engine`.
 engine = []
 # GPU backends. Each implies `engine`; they are separate build artifacts
 # because each needs its own toolchain (nvcc per CUDA major, the Vulkan SDK,

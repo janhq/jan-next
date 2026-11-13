@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { DefaultModelsService } from '../default'
-import { EngineManager, events, DownloadEvent, ContentType } from '@janhq/core'
+import { events, DownloadEvent } from '@/lib/native'
+import { ContentType } from '@janhq/core'
 
 const { mockEvents, mockDownloadEvent, mockExtractContent, mockExtractMetadata } = vi.hoisted(() => ({
   mockEvents: { emit: vi.fn() },
@@ -12,10 +13,19 @@ const { mockEvents, mockDownloadEvent, mockExtractContent, mockExtractMetadata }
   mockExtractMetadata: vi.fn().mockReturnValue(''),
 }))
 
-vi.mock('@janhq/core', () => ({
-  EngineManager: { instance: vi.fn() },
+const EngineManager = vi.hoisted(() => ({ instance: vi.fn() }))
+
+vi.mock('@/lib/llamacpp', () => ({
+  getLocalEngine: (provider: string) => EngineManager.instance().get(provider),
+  listLocalEngines: () => [],
+}))
+
+vi.mock('@/lib/native', () => ({
   events: mockEvents,
   DownloadEvent: mockDownloadEvent,
+}))
+
+vi.mock('@janhq/core', () => ({
   ContentType: { Text: 'text', Image: 'image_url' },
 }))
 
@@ -412,21 +422,18 @@ describe('DefaultModelsService - additional coverage', () => {
       expect(await svc.startModel({ provider: 'unknown', models: [] } as any, 'model1')).toBeUndefined()
     })
 
-    it.each([
-      ['without settings', undefined, false],
-      ['with bypassAutoUnload', undefined, true],
-    ])('handles model %s', async (_label, settings, bypass) => {
+    it('handles model without settings', async () => {
       mockEngine.getLoadedModels.mockResolvedValue({ includes: () => false })
       mockEngine.load.mockResolvedValue({ id: 'session' })
-      await svc.startModel({ provider: 'llamacpp', models: [{ id: 'm1', ...(settings ? { settings } : {}) }] } as any, 'm1', bypass)
-      expect(mockEngine.load).toHaveBeenCalledWith('m1', undefined, false, bypass)
+      await svc.startModel({ provider: 'llamacpp', models: [{ id: 'm1' }] } as any, 'm1')
+      expect(mockEngine.load).toHaveBeenCalledWith('m1', undefined, false)
     })
 
     it('handles model not found in provider models list', async () => {
       mockEngine.getLoadedModels.mockResolvedValue({ includes: () => false })
       mockEngine.load.mockResolvedValue({ id: 'session' })
       await svc.startModel({ provider: 'llamacpp', models: [] } as any, 'm1')
-      expect(mockEngine.load).toHaveBeenCalledWith('m1', undefined, false, false)
+      expect(mockEngine.load).toHaveBeenCalledWith('m1', undefined, false)
     })
   })
 

@@ -16,7 +16,6 @@ import {
   IconTopologyStar3,
   IconCpu,
   IconWorld,
-  IconPaperclip,
   IconPuzzle,
 } from '@tabler/icons-react'
 import { useMatches, useNavigate } from '@tanstack/react-router'
@@ -166,11 +165,6 @@ const SettingsMenu = () => {
     },
     { title: 'common:assistants', route: route.settings.assistant, icon: IconFeather },
     {
-      title: 'common:attachments',
-      route: route.settings.attachments,
-      icon: IconPaperclip,
-    },
-    {
       title: 'common:local_api_server',
       route: route.settings.local_api_server,
       icon: IconCircles,
@@ -203,8 +197,8 @@ const SettingsMenu = () => {
       icon: IconCpu,
     },
     {
-      title: 'common:extensions',
-      route: route.settings.extensions,
+      title: 'common:plugins',
+      route: route.settings.plugins,
       icon: IconPuzzle,
     },
   ]

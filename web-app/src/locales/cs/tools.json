@@ -1,23 +1,6 @@
 {
-  "toolApproval": {
-    "needsApproval": "Tento nástroj vyžaduje vaše schválení před spuštěním.",
-    "deny": "Zamítnout",
-    "allowOnce": "Povolit jednou",
-    "allowInThread": "Povolit v tomto vlákně",
-    "allowServerAlways": "Vždy povolit {{server}}",
-    "allowToolAlways": "Vždy povolit {{tool}}",
-    "title": "Žádost o volání nástroje",
-    "description": "Asistent chce použít nástroj:",
-    "securityNotice": "Bezpečnostní upozornění: Škodlivé nástroje nebo obsah konverzace by mohly potenciálně oklamat asistenta k pokusu o škodlivé akce. Před schválením pečlivě zkontrolujte každé volání nástroje.",
-    "permissionScope": "Můžete to povolit jen tentokrát, nebo pokaždé.",
-    "alwaysAllow": "Vždy povolit"
-  },
   "toolCall": {
-    "awaitingApproval": "Čeká na schválení: {{tool}}",
     "running": "Spouštění {{tool}}...",
-    "queued": "{{tool}} ve frontě",
-    "queuedPosition": "před ním: {{count}}",
-    "working": "Zpracovávání...",
     "failed": "{{tool}} selhal",
     "used": "Použito: {{tool}}",
     "parameters": "Parametry",
@@ -35,7 +18,6 @@
     "resultLimit": "prvních {{count}}",
     "contentTruncated": "Obsah zkrácen",
     "originWeb": "Web",
-    "originDocuments": "Dokumenty",
     "originWorkspace": "Pracovní prostor",
     "originSubagent": "Subagent",
     "subagentPlaceholder": "subagent",

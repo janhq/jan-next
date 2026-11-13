@@ -1,18 +1,36 @@
 # Written by open-waifu from core/dsh/cordis.yml: the upstream jsonrpc-agent
 # composition. stdout is the JSON-RPC channel; never add a stdout logger.
 
+# open-waifu's server: upstream wire plus resume, session/cancel, plugins/list,
+# per-session instructions, image blocks and history seeding. Source lives in
+# extensions/dsh-openwaifu-server and is written next to this file at start.
 - id: sdk-jsonrpc-server
-  name: '@deepseek-ai/dsh-sdk-jsonrpc-server'
+  name: ./plugins/dsh-openwaifu-server/index.js
   config:
     maxTokensAsSuccess: !!js "process.env.DSH_MAX_TOKENS_AS_SUCCESS === undefined ? true : JSON.parse(process.env.DSH_MAX_TOKENS_AS_SUCCESS)"
 
-# The DeepSeek-dialect adapter speaks plain OpenAI chat completions to the
-# endpoint the app passes (DEEPSEEK_BASE_URL). Thinking is off because local
-# servers reject DeepSeek's thinking field. The model arrives over JSON-RPC.
-- id: llm-deepseek
-  name: '@deepseek-ai/dsh-llm-deepseek'
+# One hand-declared OpenAI-compatible route named `app`, pointed at the endpoint
+# the app passes. pi-ai (not llm-deepseek) because only it accepts image input.
+# Reasoning is left off: local servers reject DeepSeek's `thinking` field.
+- id: llm-pi-ai
+  name: '@deepseek-ai/dsh-llm-pi-ai'
   config:
-    thinking: disabled
+    providers:
+      app:
+        displayName: App
+        api: openai-completions
+        baseURL: !!js process.env.DEEPSEEK_BASE_URL
+        apiKeyEnv: DEEPSEEK_API_KEY
+        defaultInput: [text, image]
+        models:
+          - id: !!js process.env.OW_MODEL
+            input: [text, image]
+
+# Content-addressed image store so image prompts persist and replay.
+- id: attachment-local
+  name: '@deepseek-ai/dsh-attachment-local'
+  config:
+    dshHome: !!js process.env.OW_DSH_HOME
 
 # Managed child-process groups for the bash executor (spawn/kill/output plumbing).
 - id: subprocess
@@ -27,7 +45,8 @@
 - id: agent-spine
   name: '@deepseek-ai/dsh-agent-spine-demo'
   config:
-    persona: !!js process.env.DSH_SYSTEM_PROMPT ?? 'You are a helpful assistant.'
+    # Overridden per session by the server plugin's `instructions`.
+    persona: You are a helpful assistant.
     workspaceContext: false
     skills:
       enabled: false
@@ -75,6 +94,36 @@
 
 - id: tool-fs
   name: '@deepseek-ai/dsh-tool-fs'
+
+# find/grep (bundled ripgrep), rooted at the session cwd like tool-fs and bash.
+- id: tool-fs-search
+  name: '@deepseek-ai/dsh-tool-fs-search'
+  config:
+    # Required: a capped glob returns the first matches, not a sample.
+    sampleOverCapGlobResults: false
+
+# The openwaifu server is the one provider and the one answerer: questions and
+# approvals become cards in the chat, answered over interaction/answer.
+- id: user-questions
+  name: '@deepseek-ai/dsh-user-questions'
+
+- id: tool-ask-user
+  name: '@deepseek-ai/dsh-tool-ask-user'
+
+- id: user-approval
+  name: '@deepseek-ai/dsh-user-approval'
+  config:
+    policy: ask
+
+# Plan mode only swaps a prompt section; the server's tool gate is what keeps
+# write, edit and bash from running while it is on.
+- id: plan-mode
+  name: '@deepseek-ai/dsh-plan-mode'
+  config:
+    section: >-
+      Plan mode is on. Investigate with read, find and grep, then present a
+      plan with exit_plan_mode for the user to approve. Do not write, edit or
+      run shell commands until the plan is approved.
 
 - id: token-meter
   name: '@deepseek-ai/dsh-token-meter'

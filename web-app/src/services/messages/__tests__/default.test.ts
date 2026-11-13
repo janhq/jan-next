@@ -1,17 +1,26 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { DefaultMessagesService } from '../default'
 
-const mockListMessages = vi.fn()
-const mockCreateMessage = vi.fn()
-const mockModifyMessage = vi.fn()
-const mockDeleteMessage = vi.fn()
+const {
+  mockListMessages,
+  mockCreateMessage,
+  mockModifyMessage,
+  mockDeleteMessage,
+} = vi.hoisted(() => ({
+  mockListMessages: vi.fn(),
+  mockCreateMessage: vi.fn(),
+  mockModifyMessage: vi.fn(),
+  mockDeleteMessage: vi.fn(),
+}))
 
-const api = {
-  listMessages: mockListMessages,
-  createMessage: mockCreateMessage,
-  modifyMessage: mockModifyMessage,
-  deleteMessage: mockDeleteMessage,
-}
+vi.mock('@/lib/service', () => ({
+  APIs: {
+    listMessages: mockListMessages,
+    createMessage: mockCreateMessage,
+    modifyMessage: mockModifyMessage,
+    deleteMessage: mockDeleteMessage,
+  },
+}))
 
 vi.mock('@/constants/chat', () => ({
   TEMPORARY_CHAT_ID: 'temporary-chat',
@@ -19,16 +28,10 @@ vi.mock('@/constants/chat', () => ({
 
 describe('DefaultMessagesService', () => {
   let svc: DefaultMessagesService
-  const originalCore = window.core
 
   beforeEach(() => {
     svc = new DefaultMessagesService()
     vi.clearAllMocks()
-    window.core = { api } as unknown as typeof window.core
-  })
-
-  afterEach(() => {
-    window.core = originalCore
   })
 
   describe('fetchMessages', () => {

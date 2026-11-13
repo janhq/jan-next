@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 
 const emit = vi.hoisted(() => vi.fn())
-vi.mock('@janhq/core', () => ({
+vi.mock('@/lib/native', () => ({
   DownloadEvent: { onModelValidationStarted: 'onModelValidationStarted' },
   events: { emit },
 }))

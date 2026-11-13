@@ -1,0 +1,69 @@
+{
+  "folder": {
+    "private": "Workspace",
+    "privateHint": "This chat's own folder. Files the agent makes stay here.",
+    "attach": "Attach a folder…",
+    "detach": "Use this chat's workspace",
+    "open": "Open in file manager",
+    "appliesNext": "Applies from the next message"
+  },
+  "policy": {
+    "label": "Edits",
+    "ask": "Ask first",
+    "askHint": "Writing files and running commands wait for your OK.",
+    "auto": "Auto",
+    "autoHint": "The agent writes files and runs commands without asking."
+  },
+  "plan": {
+    "label": "Plan",
+    "on": "Plan mode is on: the agent reads and plans, then asks before changing anything.",
+    "off": "Plan first: read and plan, then ask before making changes."
+  },
+  "panel": {
+    "open": "Open work panel",
+    "close": "Close work panel",
+    "progress": "Progress",
+    "changes": "Changes",
+    "files": "Files",
+    "preview": "Preview",
+    "noTodos": "No checklist yet. The agent writes one for work with several steps.",
+    "noChanges": "No file changes in this chat yet.",
+    "noFiles": "No files created in this chat yet.",
+    "todoCount": "{{done}}/{{total}} done",
+    "changeCount": "+{{added}} −{{removed}}",
+    "created": "new",
+    "openFile": "Open",
+    "reveal": "Show in folder",
+    "reload": "Reload",
+    "previewFailed": "Can't preview this file",
+    "previewBinary": "No preview for this file type. Open it instead."
+  },
+  "approval": {
+    "title": "Allow {{tool}}?",
+    "write": "Write {{path}}",
+    "edit": "Edit {{path}}",
+    "bash": "Run a command",
+    "allow": "Allow",
+    "always": "Allow all in this chat",
+    "deny": "Don't allow"
+  },
+  "ask": {
+    "title": "The agent has a question",
+    "other": "Something else…",
+    "otherPlaceholder": "Type your answer",
+    "send": "Send answer",
+    "planTitle": "Review the plan",
+    "approvePlan": "Approve plan",
+    "keepPlanning": "Keep planning",
+    "feedbackPlaceholder": "What should change? (optional)"
+  },
+  "artifact": {
+    "open": "Preview {{name}}"
+  },
+  "commands": {
+    "plan": "Toggle plan mode",
+    "todo": "Show progress",
+    "changes": "Show changed files",
+    "files": "Show created files"
+  }
+}

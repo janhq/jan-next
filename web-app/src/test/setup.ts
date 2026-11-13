@@ -1,7 +1,6 @@
 import { expect, afterEach, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
 import * as matchers from '@testing-library/jest-dom/matchers'
-import { DefaultExtensionsService } from '@/services/extensions/default'
 import { DefaultSpeechService } from '@/services/speech/default'
 import { DefaultDshService } from '@/services/dsh/default'
 
@@ -54,19 +53,7 @@ const mockServiceHub = {
   }),
   mcp: () => ({
     updateMCPConfig: vi.fn().mockResolvedValue(undefined),
-    restartMCPServers: vi.fn().mockResolvedValue(undefined),
-    getMCPConfig: vi.fn().mockResolvedValue({}),
-    getTools: vi.fn().mockResolvedValue([]),
-    getConnectedServers: vi.fn().mockResolvedValue([]),
-    callTool: vi.fn().mockResolvedValue({ error: '', content: [] }),
-    callToolWithCancellation: vi.fn().mockReturnValue({
-      promise: Promise.resolve({ error: '', content: [] }),
-      cancel: vi.fn().mockResolvedValue(undefined),
-      token: 'test-token'
-    }),
-    cancelToolCall: vi.fn().mockResolvedValue(undefined),
-    activateMCPServer: vi.fn().mockResolvedValue(undefined),
-    deactivateMCPServer: vi.fn().mockResolvedValue(undefined),
+    getMCPConfig: vi.fn().mockResolvedValue({ mcpServers: {} }),
   }),
   threads: () => ({
     createThread: vi.fn().mockResolvedValue({ id: 'test-thread', messages: [] }),
@@ -125,7 +112,6 @@ const mockServiceHub = {
     stopCore: vi.fn().mockResolvedValue(undefined),
     getCoreStatus: vi.fn().mockResolvedValue('stopped'),
   }),
-  extensions: () => new DefaultExtensionsService(),
   speech: () => new DefaultSpeechService(),
   dsh: () => new DefaultDshService(),
   deeplink: () => ({ // cspell: disable-line

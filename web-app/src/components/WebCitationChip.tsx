@@ -9,7 +9,7 @@ import { useWebCitationStore } from '@/stores/web-citation-store'
 import { cn } from '@/lib/utils'
 import { faviconForUrl, hostOf } from '@/lib/webUrl'
 import { ExternalAnchor } from '@/components/ExternalAnchor'
-import { useRemoteImagesAllowed } from '@/lib/extensions/remoteImages'
+import { useRemoteImagesAllowed } from '@/lib/remoteImages'
 
 export const WebCitationChip = memo(
   ({ messageId, url }: { messageId?: string; url: string }) => {

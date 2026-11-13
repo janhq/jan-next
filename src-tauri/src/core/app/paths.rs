@@ -100,26 +100,6 @@ pub fn app_data_dir_for<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<PathBuf
     }
 }
 
-/// The vector-db plugin's collection root, under [`data_dir`].
-///
-/// The plugin is a separate workspace crate and cannot call into this module,
-/// so the app resolves the root and hands it over -- at `init()` for the Tauri
-/// command surface, and per call for the agent memory store.
-pub fn vector_db_dir() -> PathBuf {
-    let root = data_dir().unwrap_or_else(|| PathBuf::from("."));
-    tauri_plugin_vector_db::db::base_dir_in(&root)
-}
-
-/// The extensions plugin's root, `<jan data folder>/extensions`.
-///
-/// Resolved from the data folder the app is configured with, which needs an
-/// `AppHandle`, so the plugin calls this from its setup. `extensions` is in
-/// `JAN_DATA_DIRS_COMMON`: a factory reset removes installed extensions.
-#[cfg(feature = "extensions")]
-pub fn extensions_dir<R: Runtime>(app: &AppHandle<R>) -> PathBuf {
-    super::commands::get_jan_data_folder_path(app.clone()).join("extensions")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,14 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ServiceKeys } from '@janhq/core'
 import { TauriHardwareService } from '../tauri'
 
 vi.mock('@janhq/tauri-plugin-hardware-api', () => ({
   refreshSystemInfo: vi.fn(),
 }))
 
-const h = vi.hoisted(() => ({ get: vi.fn() }))
-vi.mock('@/lib/extensions/host', () => ({
-  getExtensionHost: () => ({ services: { get: h.get } }),
+const h = vi.hoisted(() => ({
+  engine: { getDevices: vi.fn(), reconcileEngineDevices: vi.fn() },
+}))
+vi.mock('@/lib/llamacpp', () => ({
+  getLlamacppEngine: () => h.engine,
 }))
 
 describe('TauriHardwareService – coverage', () => {
@@ -20,37 +21,19 @@ describe('TauriHardwareService – coverage', () => {
   })
 
   describe('getLlamacppDevices', () => {
-    it('returns devices from the llamacpp service', async () => {
+    it('returns devices from the llamacpp engine', async () => {
       const devices = [{ id: 0, name: 'GPU 0' }]
-      h.get.mockReturnValue({ getDevices: vi.fn().mockResolvedValue(devices) })
+      h.engine.getDevices.mockResolvedValue(devices)
 
-      const result = await svc.getLlamacppDevices()
-
-      expect(h.get).toHaveBeenCalledWith(ServiceKeys.Llamacpp)
-      expect(result).toEqual(devices)
-    })
-
-    it('throws when the llamacpp service is not provided', async () => {
-      h.get.mockReturnValue(undefined)
-
-      await expect(svc.getLlamacppDevices()).rejects.toThrow(
-        'llamacpp extension not found'
-      )
+      await expect(svc.getLlamacppDevices()).resolves.toEqual(devices)
     })
   })
 
   describe('reconcileLlamacppDevices', () => {
-    it('asks the llamacpp service to reconcile and returns its answer', async () => {
-      const reconcileEngineDevices = vi.fn().mockResolvedValue('restarted')
-      h.get.mockReturnValue({ reconcileEngineDevices })
+    it('asks the llamacpp engine to reconcile and returns its answer', async () => {
+      h.engine.reconcileEngineDevices.mockResolvedValue('restarted')
 
       await expect(svc.reconcileLlamacppDevices()).resolves.toBe('restarted')
-      expect(h.get).toHaveBeenCalledWith(ServiceKeys.Llamacpp)
-    })
-
-    it('is unchanged when the service is absent', async () => {
-      h.get.mockReturnValue(undefined)
-      await expect(svc.reconcileLlamacppDevices()).resolves.toBe('unchanged')
     })
   })
 

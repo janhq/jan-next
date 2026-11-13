@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fs } from '@janhq/core'
+import { fs } from '@/lib/native'
 import {
   expandPromptReferences,
   parsePromptForReferences,
   stripPromptReferences,
 } from '../path-references'
 
-vi.mock('@janhq/core', () => ({
+vi.mock('@/lib/native', () => ({
   fs: {
     fileStat: vi.fn(),
     readFileSync: vi.fn(),

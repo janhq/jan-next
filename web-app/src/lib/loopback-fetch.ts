@@ -1,5 +1,4 @@
 import { fetch as httpFetch } from '@tauri-apps/plugin-http'
-import type { LoopbackFetch } from '@janhq/core'
 
 /**
  * Requests to the local engine server, sent so that no proxy can
@@ -20,6 +19,12 @@ import type { LoopbackFetch } from '@janhq/core'
  * it is a listen address, and no caller dials it. Remote providers keep the
  * runtime fetch. Built-in engines get this as `ctx.internal.loopbackFetch`.
  */
+/** `fetch` for the engine on loopback; `connectTimeout` is in milliseconds. */
+export type LoopbackFetch = (
+  input: string | URL | Request,
+  init?: RequestInit & { connectTimeout?: number }
+) => Promise<Response>
+
 export const LOOPBACK_DIRECT_PROXY = {
   all: { url: 'http://127.0.0.1:9', noProxy: 'localhost,127.0.0.1,::1' },
 }
@@ -27,7 +32,7 @@ export const LOOPBACK_DIRECT_PROXY = {
 // URL.hostname keeps the brackets on an IPv6 literal.
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
 
-const isLoopback = (href: string): boolean => {
+export const isLoopbackUrl = (href: string): boolean => {
   try {
     return LOOPBACK_HOSTS.has(new URL(href).hostname)
   } catch {
@@ -37,7 +42,7 @@ const isLoopback = (href: string): boolean => {
 
 export const loopbackFetch: LoopbackFetch = async (input, init) => {
   const href = input instanceof Request ? input.url : String(input)
-  if (!isLoopback(href))
+  if (!isLoopbackUrl(href))
     throw new Error(
       `loopbackFetch only reaches localhost, 127.0.0.1 or [::1], not ${href}`
     )

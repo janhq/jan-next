@@ -1,6 +1,6 @@
 use std::fs;
 use std::path::PathBuf;
-use tauri::{AppHandle, Manager, Runtime, State};
+use tauri::{AppHandle, Manager, Runtime};
 use tauri_plugin_llamacpp::cleanup_llama_processes;
 
 use crate::core::app::commands::{
@@ -12,8 +12,6 @@ use crate::core::app::constants::{
     JAN_DATA_FILES_CONFIGS, JAN_DATA_FILES_SETTINGS,
 };
 use crate::core::app::models::AppConfiguration;
-use crate::core::mcp::helpers::{stop_mcp_servers_with_context, ShutdownContext};
-use crate::core::state::AppState;
 
 fn is_safe_to_delete(path: &std::path::Path) -> bool {
     let count = path.components().count();
@@ -329,13 +327,12 @@ pub fn exit_blocked_by_reset(reset_in_progress: bool, code: Option<i32>) -> bool
 /// Wipe the selected data categories and restart the app.
 ///
 /// Async so it runs on the async runtime: as a sync command it ran on the main
-/// thread, and the teardown below (MCP servers, engine worker, `remove_dir_all`
+/// thread, and the teardown below (engine worker, `remove_dir_all`
 /// of the models folder) froze the event loop for up to ~30s with the window
 /// stuck on screen.
 #[tauri::command]
 pub async fn factory_reset<R: Runtime>(
     app_handle: tauri::AppHandle<R>,
-    state: State<'_, AppState>,
     keep_app_data: Option<bool>,
     keep_models_and_configs: Option<bool>,
     clear_web_data: Option<bool>,
@@ -380,17 +377,6 @@ pub async fn factory_reset<R: Runtime>(
         data_folder
     );
 
-    let _ = stop_mcp_servers_with_context(&app_handle, &state, ShutdownContext::FactoryReset).await;
-
-    {
-        let mut active_servers = state.mcp_active_servers.lock().await;
-        active_servers.clear();
-    }
-
-    use crate::core::mcp::lockfile::cleanup_own_locks;
-    if let Err(e) = cleanup_own_locks(&app_handle) {
-        log::warn!("Failed to cleanup lock files: {}", e);
-    }
     let _ = cleanup_llama_processes(app_handle.clone()).await;
 
     let full_wipe = !keep_app_data && !keep_models_and_configs;

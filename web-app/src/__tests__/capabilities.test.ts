@@ -1,78 +1,26 @@
 /**
- * Guards which Tauri capability may reach the extensions plugin
- * (janhq/jan-internal#470).
- *
- * The plugin installs and runs third-party code and is built only with the
- * `desktop` cargo feature, so `extensions:` permissions live in their own
- * capability, extensions.json, and nowhere else. That capability is limited
- * to the main window and to desktop platforms, and has no `remote` section:
- * only the app's own content may call the plugin, never a page loaded from
- * an http origin. Granting the permissions anywhere else would either reach
- * another window or a remote origin.
- *
- * Tauri ignores capability files the config does not name, so
- * extensions.json is listed in tauri.conf.json. desktop.json is not: it
- * carries a `remote` section and grants beyond default.json, and activating
- * it would silently widen what the main window may do.
+ * Tauri ignores capability files the config does not name. desktop.json is
+ * not named: it carries a `remote` section and grants beyond default.json,
+ * and activating it would silently widen what the main window may do.
  */
 import { describe, it, expect } from 'vitest'
-import { readdirSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const TAURI_DIR = join(__dirname, '..', '..', '..', 'src-tauri')
-const CAPABILITIES_DIR = join(TAURI_DIR, 'capabilities')
 
-type Permission = string | { identifier: string; [key: string]: unknown }
-
-interface Capability {
-  identifier: string
-  windows?: string[]
-  platforms?: string[]
-  remote?: unknown
-  permissions: Permission[]
+const activeIn = (file: string): string[] => {
+  const conf: unknown = JSON.parse(readFileSync(join(TAURI_DIR, file), 'utf8'))
+  const caps =
+    conf && typeof conf === 'object' && 'app' in conf && conf.app &&
+      typeof conf.app === 'object' && 'security' in conf.app && conf.app.security &&
+      typeof conf.app.security === 'object' && 'capabilities' in conf.app.security
+      ? conf.app.security.capabilities
+      : undefined
+  return Array.isArray(caps) ? caps.filter((c): c is string => typeof c === 'string') : []
 }
 
-const read = <T,>(path: string): T => JSON.parse(readFileSync(path, 'utf8')) as T
-
-const capabilityFiles = readdirSync(CAPABILITIES_DIR).filter((f) =>
-  f.endsWith('.json')
-)
-
-const identifierOf = (p: Permission) => (typeof p === 'string' ? p : p.identifier)
-
-const activeIn = (file: string) =>
-  read<{ app?: { security?: { capabilities?: string[] } } }>(
-    join(TAURI_DIR, file)
-  ).app?.security?.capabilities ?? []
-
 describe('Tauri capabilities', () => {
-  it('grants extensions: permissions in extensions.json only', () => {
-    const holders = capabilityFiles.filter((file) =>
-      read<Capability>(join(CAPABILITIES_DIR, file)).permissions.some((p) =>
-        identifierOf(p).startsWith('extensions:')
-      )
-    )
-    expect(holders).toEqual(['extensions.json'])
-  })
-
-  it('keeps extensions.json to the main window, local content and desktop', () => {
-    const extensions = read<Capability>(
-      join(CAPABILITIES_DIR, 'extensions.json')
-    )
-    expect(extensions.identifier).toBe('extensions')
-    expect(extensions.windows).toEqual(['main'])
-    expect(extensions.remote).toBeUndefined()
-    expect([...(extensions.platforms ?? [])].sort()).toEqual([
-      'macOS',
-      'windows',
-    ])
-    expect(extensions.permissions).toEqual(['extensions:default'])
-  })
-
-  it('activates extensions.json in the desktop config', () => {
-    expect(activeIn('tauri.conf.json')).toContain('extensions')
-  })
-
   it('leaves desktop.json inactive', () => {
     expect(activeIn('tauri.conf.json')).not.toContain('desktop')
   })

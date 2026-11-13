@@ -1,23 +1,6 @@
 {
-  "toolApproval": {
-    "needsApproval": "このツールを実行するには承認が必要です。",
-    "deny": "拒否",
-    "allowOnce": "一度だけ許可",
-    "allowInThread": "このスレッドで許可",
-    "allowServerAlways": "{{server}} を常に許可",
-    "allowToolAlways": "{{tool}} を常に許可",
-    "title": "ツール呼び出しリクエスト",
-    "description": "アシスタントは次のツールを使用しようとしています:",
-    "securityNotice": "セキュリティに関するお知らせ: 悪意のあるツールや会話の内容は、アシスタントを騙して有害なアクションを試みさせる可能性があります。承認する前に、各ツール呼び出しを注意深く確認してください。",
-    "permissionScope": "今回のみ、または毎回許可できます。",
-    "alwaysAllow": "常に許可"
-  },
   "toolCall": {
-    "awaitingApproval": "承認待ち: {{tool}}",
     "running": "{{tool}} を実行中...",
-    "queued": "{{tool}} は待機中",
-    "queuedPosition": "前に {{count}} 件",
-    "working": "処理中...",
     "failed": "{{tool}} が失敗しました",
     "used": "{{tool}} を使用しました",
     "parameters": "パラメーター",
@@ -35,7 +18,6 @@
     "resultLimit": "上位 {{count}} 件",
     "contentTruncated": "コンテンツは省略されました",
     "originWeb": "ウェブ",
-    "originDocuments": "ドキュメント",
     "originWorkspace": "ワークスペース",
     "originSubagent": "サブエージェント",
     "subagentPlaceholder": "サブエージェント",

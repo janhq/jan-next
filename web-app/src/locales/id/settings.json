@@ -231,9 +231,6 @@
     "creditsDesc1": "Jan dibuat dengan ❤️ oleh Tim Menlo.",
     "creditsDesc2": "Terima kasih khusus kepada dependensi sumber terbuka kami—terutama llama.cpp dan Tauri—dan kepada komunitas AI kami yang luar biasa."
   },
-  "extensions": {
-    "title": "Ekstensi"
-  },
   "dialogs": {
     "changeDataFolder": {
       "title": "Ubah Lokasi Folder Data",

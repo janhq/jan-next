@@ -6,6 +6,8 @@
 //! done, because its plugins resolve from `<checkout>/examples/node_modules`.
 
 pub mod commands;
+pub mod plugins;
+pub mod web;
 
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -33,8 +35,6 @@ pub struct DshLaunch {
     pub api_key: String,
     /// The runtime serves one model; a different one means a restart.
     pub model: String,
-    /// Persona for every session; empty keeps the composition's default.
-    pub system_prompt: String,
     /// Agent workspace for bash and file tools; empty means a private folder
     /// under the app's data, so the agent never lands in the home folder.
     pub cwd: String,
@@ -87,13 +87,6 @@ pub(crate) fn check_root(root: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// The composition this app runs: the upstream jsonrpc-agent tool set, with
-/// the DeepSeek adapter pointed at the app's endpoint and thinking left to the
-/// model's own default (local models reject DeepSeek's `thinking` field).
-fn cordis_yml() -> &'static str {
-    include_str!("cordis.yml")
-}
-
 /// The config must sit next to a `node_modules` that holds the plugins, since
 /// Cordis resolves plugin names from the config file's folder.
 fn write_config(data_dir: &Path, root: &Path) -> Result<PathBuf, String> {
@@ -108,7 +101,11 @@ fn write_config(data_dir: &Path, root: &Path) -> Result<PathBuf, String> {
         make_link(&target, &link)?;
     }
     let path = data_dir.join("cordis.yml");
-    std::fs::write(&path, cordis_yml()).map_err(|e| e.to_string())?;
+    // The composition: shipped base + plugins.yml + Jan's MCP servers
+    // (mcp_config.json lives in the data folder, the parent of `dsh/`).
+    let data_root = data_dir.parent().unwrap_or(data_dir);
+    plugins::write_server(data_dir)?;
+    std::fs::write(&path, plugins::compose(data_dir, data_root, root)?).map_err(|e| e.to_string())?;
     Ok(path)
 }
 
@@ -181,14 +178,13 @@ pub(crate) async fn start<R: Runtime>(
             if launch.api_key.is_empty() { "none" } else { &launch.api_key },
         )
         .env("DSH_CWD", &cwd)
+        .env("OW_MODEL", &launch.model)
+        .env("OW_DSH_HOME", data_dir.join("home"))
         .env("DSH_SESSION_ROOT", data_dir.join("sessions"))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true);
-    if !launch.system_prompt.trim().is_empty() {
-        cmd.env("DSH_SYSTEM_PROMPT", &launch.system_prompt);
-    }
     #[cfg(windows)]
     cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
     let mut child = cmd
@@ -265,6 +261,25 @@ async fn stop_running(mut running: Running) {
     {
         let _ = running.child.kill().await;
     }
+}
+
+/// Restarts the running runtime with its own launch so a changed plugin set
+/// takes effect. Without a running runtime there is nothing to restart: the
+/// next start composes the current config.
+pub(crate) async fn restart<R: Runtime>(
+    app: &AppHandle<R>,
+    state: &DshState,
+    data_dir: &Path,
+) -> Result<(), String> {
+    let launch = {
+        let slot = state.running.lock().await;
+        slot.as_ref().map(|r| r.launch.clone())
+    };
+    let Some(launch) = launch else { return Ok(()) };
+    if let Some(old) = state.running.lock().await.take() {
+        stop_running(old).await;
+    }
+    start(app, state, data_dir, launch).await
 }
 
 pub async fn stop(state: &DshState) {

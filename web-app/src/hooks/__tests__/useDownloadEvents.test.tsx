@@ -43,7 +43,7 @@ vi.mock('@/constants/routes', () => ({
   route: { settings: { general: '/settings/general' }, appLogs: '/logs' },
 }))
 
-vi.mock('@janhq/core', () => ({
+vi.mock('@/lib/native', () => ({
   DownloadEvent: {
     onFileDownloadUpdate: 'fdu',
     onFileDownloadError: 'fde',

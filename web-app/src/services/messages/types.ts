@@ -3,7 +3,7 @@
  */
 
 import { ThreadMessage } from '@janhq/core'
-import type { Event } from '@janhq/extension-api'
+import type { Event } from '@/lib/emitter'
 
 export interface MessagesService {
   /** Fires once per message the backend persisted through `createMessage`. */

@@ -1,16 +1,6 @@
 {
   "editServer": "Modifica server MCP",
   "addServer": "Aggiungi server MCP",
-  "browserExtension": {
-    "connecting": {
-      "checking": "Verifica dello stato dell'estensione..."
-    },
-    "notInstalled": {
-      "title": "Jan completa le attività nel tuo browser",
-      "description": "Installa l'estensione per consentire a Jan l'accesso al browser",
-      "getExtension": "Ottieni estensione"
-    }
-  },
   "serverName": "Nome server",
   "enterServerName": "Inserisci il nome del server",
   "command": "Comando",
@@ -44,30 +34,9 @@
   },
   "checkParams": "Verifica i parametri seguendo il tutorial.",
   "title": "Server MCP",
-  "experimental": "Sperimentale",
   "editAllJson": "Modifica JSON di tutti i server",
   "findMore": "Trova altri server MCP su",
-  "allowPermissions": "Consenti tutte le autorizzazioni degli strumenti MCP",
-  "allowPermissionsDesc": "Se abilitato, tutte le chiamate agli strumenti MCP verranno approvate automaticamente senza mostrare finestre di dialogo di autorizzazione. Questa impostazione si applica a livello globale a tutte le conversazioni, incluse le nuove chat.",
   "noServers": "Nessun server MCP trovato",
   "args": "Argomenti (args)",
-  "env": "Ambiente (env)",
-  "serverStatusActive": "Server {{serverKey}} attivato con successo",
-  "serverStatusInactive": "Server {{serverKey}} disattivato con successo",
-  "runtimeSettings": {
-    "title": "Impostazioni di runtime",
-    "description": "Configura il modo in cui Jan gestisce e tenta nuovamente la connessione ai server MCP.",
-    "toolCallTimeout": "Timeout chiamata strumento (secondi)",
-    "toolCallTimeoutDesc": "Tempo massimo di attesa per la risposta di uno strumento MCP prima del timeout.",
-    "smartToolRouting": "Routing intelligente degli strumenti MCP",
-    "smartToolRoutingDesc": "Se abilitato, Jan seleziona i server MCP pertinenti prima di caricare gli strumenti. Disabilita per caricare sempre l'elenco completo degli strumenti MCP.",
-    "useLightweightRouterModel": "Usa un modello dedicato per il routing",
-    "useLightweightRouterModelDesc": "Quando il routing intelligente è attivo, esegui il passaggio di routing con un modello separato (spesso più piccolo) invece del modello di chat. Disattiva per utilizzare sempre il modello di chat attivo per il routing.",
-    "routerModel": "Modello di routing",
-    "routerModelDesc": "Scegli il fornitore e il modello in un unico posto. Vengono elencati solo i modelli leggeri, in modo che il routing rimanga veloce ed economico.",
-    "selectRouterModelPlaceholder": "Seleziona il modello di routing…",
-    "routerModelSearchPlaceholder": "Cerca modelli…",
-    "routerModelEmptyList": "Nessun modello leggero disponibile. Aggiungi un modello più piccolo o configura le chiavi API in Modelli.",
-    "routerModelEmptySearch": "Nessuna corrispondenza per “{{query}}”."
-  }
+  "env": "Ambiente (env)"
 }

@@ -1,16 +1,6 @@
 {
   "editServer": "MCP सर्वर संपादित करें",
   "addServer": "MCP सर्वर जोड़ें",
-  "browserExtension": {
-    "connecting": {
-      "checking": "एक्सटेंशन की स्थिति जाँची जा रही है..."
-    },
-    "notInstalled": {
-      "title": "Jan ब्राउज़र में कार्य निष्पादित करेगा",
-      "description": "Jan को ब्राउज़र एक्सेस देने के लिए एक्सटेंशन इंस्टॉल करें",
-      "getExtension": "एक्सटेंशन प्राप्त करें"
-    }
-  },
   "serverName": "सर्वर नाम",
   "enterServerName": "सर्वर नाम दर्ज करें",
   "command": "कमांड",
@@ -44,30 +34,9 @@
   },
   "checkParams": "ट्यूटोरियल के अनुसार पैरामीटर जाँचें।",
   "title": "MCP सर्वर",
-  "experimental": "प्रायोगिक",
   "editAllJson": "सभी सर्वरों का JSON संपादित करें",
   "findMore": "अधिक MCP सर्वर यहाँ खोजें",
-  "allowPermissions": "सभी MCP टूल अनुमतियाँ अनुमति दें",
-  "allowPermissionsDesc": "सक्षम होने पर, सभी MCP टूल कॉल बिना अनुमति संवाद के स्वतः स्वीकृत हो जाएंगे। यह सेटिंग सभी वार्तालापों, जिसमें नए चैट भी शामिल हैं, पर वैश्विक रूप से लागू होती है।",
   "noServers": "कोई MCP सर्वर नहीं मिला",
   "args": "आर्ग्युमेंट्स",
-  "env": "पर्यावरण चर",
-  "serverStatusActive": "सर्वर {{serverKey}} सफलतापूर्वक सक्रिय किया गया",
-  "serverStatusInactive": "सर्वर {{serverKey}} सफलतापूर्वक निष्क्रिय किया गया",
-  "runtimeSettings": {
-    "title": "रनटाइम सेटिंग्स",
-    "description": "Jan MCP सर्वरों को कैसे प्रबंधित और पुनः प्रयास करता है, इसे कॉन्फ़िगर करें।",
-    "toolCallTimeout": "टूल कॉल टाइमआउट (सेकंड)",
-    "toolCallTimeoutDesc": "MCP टूल प्रतिक्रिया की प्रतीक्षा करने का अधिकतम समय (टाइमआउट तक)।",
-    "smartToolRouting": "स्मार्ट MCP टूल रूटिंग",
-    "smartToolRoutingDesc": "सक्षम होने पर, Jan टूल लोड करने से पहले संबंधित MCP सर्वर चुनता है। अक्षम होने पर, हमेशा MCP टूल्स की पूरी सूची लोड करता है।",
-    "useLightweightRouterModel": "रूटिंग के लिए हल्का मॉडल उपयोग करें",
-    "useLightweightRouterModelDesc": "जब स्मार्ट रूटिंग चालू हो, तो रूटिंग चैट मॉडल के बजाय एक अलग (अक्सर छोटा) मॉडल से होती है। बंद होने पर, हमेशा सक्रिय चैट मॉडल का उपयोग होता है।",
-    "routerModel": "रूटिंग मॉडल",
-    "routerModelDesc": "एक ही स्थान पर प्रदाता और मॉडल चुनें। रूटिंग को तेज़ और सस्ता रखने के लिए केवल हल्के मॉडल दिखाए जाते हैं।",
-    "selectRouterModelPlaceholder": "रूटिंग मॉडल चुनें…",
-    "routerModelSearchPlaceholder": "मॉडल खोजें…",
-    "routerModelEmptyList": "कोई उपलब्ध हल्के मॉडल नहीं हैं। कृपया छोटे मॉडल जोड़ें या 'Models' में API कुंजी सेट करें।",
-    "routerModelEmptySearch": "कोई परिणाम नहीं मिला जो '{{query}}' से मेल खाता हो।"
-  }
+  "env": "पर्यावरण चर"
 }

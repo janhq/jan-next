@@ -237,41 +237,6 @@
     "creditsDesc1": "👋 Jan est construit avec ❤️ par l'équipe de Menlo Research.",
     "creditsDesc2": "Remerciements spéciaux à nos dépendances open-source, en particulier llama.cpp et Tauri, ainsi qu'à notre incroyable communauté IA."
   },
-  "extensions": {
-    "title": "Extensions"
-  },
-  "attachments": {
-    "subtitle": "Configurez les pièces jointes de documents, les limites de taille et le comportement de récupération.",
-    "featureTitle": "Fonctionnalité",
-    "enable": "Activer les pièces jointes",
-    "enableDesc": "Autorisez le téléchargement et l'indexation de documents pour la récupération.",
-    "parseMode": "Préférence d'analyse",
-    "parseModeDesc": "Choisissez comment les documents analysés sont ajoutés aux conversations.",
-    "parseModeAuto": "Auto",
-    "parseModeInline": "Inclure dans le chat",
-    "parseModeEmbeddings": "Ingestion en embeddings",
-    "parseModePrompt": "Demander à chaque fois",
-    "autoInlineThreshold": "Seuil d'inclusion auto",
-    "autoInlineThresholdDesc": "Part du contexte du modèle utilisée comme limite pour inclure les fichiers analysés sur les modèles locaux.",
-    "limitsTitle": "Limites",
-    "maxFile": "Taille de fichier max (Mo)",
-    "maxFileDesc": "Taille maximale par fichier. Appliquée lors du téléchargement et du traitement.",
-    "retrievalTitle": "Récupération",
-    "topK": "Top-K",
-    "topKDesc": "Nombre maximum de citations à retourner.",
-    "threshold": "Seuil d'affinité",
-    "thresholdDesc": "Score de similarité minimum (0-1). Uniquement utilisé pour la recherche cosinus linéaire, pas ANN.",
-    "searchMode": "Mode de recherche vectorielle",
-    "searchModeDesc": "Choisissez entre ANN sqlite-vec, cosinus linéaire ou auto.",
-    "searchModeAuto": "Auto (recommandé)",
-    "searchModeAnn": "ANN (sqlite-vec)",
-    "searchModeLinear": "Linéaire",
-    "chunkingTitle": "Découpage",
-    "chunkSize": "Taille du bloc (caractères)",
-    "chunkSizeDesc": "Nombre maximum approximatif de caractères par bloc pour les embeddings.",
-    "chunkOverlap": "Chevauchement (caractères)",
-    "chunkOverlapDesc": "Chevauchement de caractères entre les blocs consécutifs."
-  },
   "dialogs": {
     "changeDataFolder": {
       "title": "Changer l'emplacement du dossier de données",

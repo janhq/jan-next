@@ -300,9 +300,6 @@
     "huggingfaceToken": "HuggingFace 令牌",
     "huggingfaceTokenDesc": "您用于访问模型的 HuggingFace API 令牌。"
   },
-  "extensions": {
-    "title": "扩展"
-  },
   "dialogs": {
     "changeDataFolder": {
       "title": "更改数据文件夹位置",

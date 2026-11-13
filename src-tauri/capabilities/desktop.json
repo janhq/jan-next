@@ -22,8 +22,6 @@
     "opener:allow-open-url",
     "opener:allow-reveal-item-in-dir",
     "store:default",
-    "vector-db:default",
-    "rag:default",
     "llamacpp:default",
     "deep-link:default",
     "hardware:default",

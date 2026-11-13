@@ -1,10 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import {
-  ThreadMessage,
-  ContentType,
-  MessageStatus,
-  ChatCompletionRole,
-} from '@janhq/core'
+import { ThreadMessage, ContentType, MessageStatus, ChatCompletionRole } from '@janhq/core'
 import type { UIMessage } from '@ai-sdk/react'
 // Attachments are now handled upstream in newUserThreadContent
 

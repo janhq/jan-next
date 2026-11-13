@@ -9,11 +9,6 @@ vi.mock('@/i18n/react-i18next-compat', () => ({
   }),
 }))
 
-vi.mock('@/hooks/useToolApprovalRequests', () => ({
-  useToolApprovalRequests: (selector: (s: unknown) => unknown) =>
-    selector({ pending: {} }),
-}))
-
 const origin = vi.fn()
 vi.mock('@/hooks/useToolOrigin', () => ({
   useToolOrigin: () => origin(),

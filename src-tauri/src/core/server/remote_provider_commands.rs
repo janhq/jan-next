@@ -69,7 +69,7 @@ pub async fn register_provider_config(
             .collect(),
         models: request.models, // Models will be added when they are configured
         // Registration carries no ratio: this path has no field for one, and
-        // `None` inherits `[agent].compaction_ratio` for the route.
+        // `None` = no override.
         compaction_ratio: None,
     };
 

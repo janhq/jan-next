@@ -30,7 +30,6 @@ import { RenameThreadDialog, DeleteThreadDialog } from '@/containers/dialogs'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { ThreadMessage } from '@janhq/core'
-import { ContributedMenuItems } from '@/containers/extensions/ContributedMenuItems'
 
 const ThreadItem = memo(
   ({
@@ -251,11 +250,6 @@ const ThreadItem = memo(
                 </DropdownMenuItem>
               </>
             )}
-            <ContributedMenuItems
-              location="thread/context"
-              context={{ location: 'thread/context', threadId: thread.id }}
-              separator
-            />
             <DropdownMenuSeparator />
             <DropdownMenuItem
               data-testid="thread-delete"

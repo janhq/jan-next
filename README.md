@@ -6,34 +6,35 @@
   <img src="assets/cat-rose.jpg" alt="Cat offering a rose" height="220">
 </p>
 
-My personal fork of [Jan](https://github.com/janhq/jan) for hobby and learning purposes: a waifu chat app for macOS and Windows.
+My personal fork of [Jan](https://github.com/janhq/jan) for hobby and learning purposes: a waifu chat app for macOS and Windows. Jan's UI stays; chats run on DeepSeek Harness (DSH), with llama.cpp as the local model server.
 
 ## Project tree
 
 ```text
 open-waifu/
 ├── web-app/            React UI (Vite, TanStack Router)
-├── core/               @janhq/core: shared types, extension context
-├── extensions/         built-in extensions: assistant, download, llama.cpp, RAG, vector DB
-├── packages/
-│   ├── extension-api/      API that extensions code against
-│   └── extension-runtime/  worker that runs extensions
+├── core/               @janhq/core: shared types
+├── extensions/
+│   └── dsh-openwaifu-server/  JSON-RPC server plugin for DeepSeek Harness
 ├── src-tauri/          desktop app (Rust)
 │   ├── src/                app code
-│   ├── plugins/            Tauri plugins (llama.cpp, hardware, RAG, vector DB, agent tools, ...)
+│   ├── plugins/            Tauri plugins (llama.cpp, hardware)
 │   ├── utils/              shared Rust helpers
 │   ├── capabilities/       Tauri permissions
 │   ├── icons/              app icons (source icon.png per platform)
 │   ├── static/             OpenAPI spec for the local API server
 │   ├── tests/              upgrade fixtures for old user data
 │   └── build-utils/        engine, icon and binary download scripts
+├── docs/plans/         design notes
 ├── assets/             README images
 └── Makefile
 ```
 
 ## Run
 
-Needs Node.js 20+, Yarn 4 (corepack), Rust and Make. On Windows, run make from Git Bash.
+Needs Node.js 22+, Yarn 4 (corepack), Rust and Make. On Windows, run make from Git Bash.
+
+Chats also need a built `deepseek-harness` checkout (`pnpm install`). Set its folder in Settings → DeepSeek Harness.
 
 | Command | Does |
 |---|---|

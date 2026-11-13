@@ -1,4 +1,4 @@
-// Downloads bun, uv and sqlite-vec into src-tauri/resources/bin.
+// Downloads bun and uv into src-tauri/resources/bin.
 import https from 'https'
 import fs, { copyFile, mkdirSync } from 'fs'
 import os from 'os'
@@ -85,51 +85,6 @@ async function getJson(url, headers = {}) {
       })
       .on('error', reject)
   })
-}
-
-function matchSqliteVecAsset(assets, platform, arch) {
-  const osHints =
-    platform === 'darwin'
-      ? ['darwin', 'macos', 'apple-darwin']
-      : ['windows', 'win', 'msvc']
-
-  const archHints = arch === 'arm64' ? ['arm64', 'aarch64'] : ['x86_64', 'x64', 'amd64']
-  // The fallbacks below drop the arch hint: windows-arm64 has no sqlite-vec
-  // build and would take the x86_64 dll, which cannot load. Skipping is the
-  // supported outcome -- the caller falls back to linear search.
-  const foreignArchHints =
-    arch === 'arm64'
-      ? ['x86_64', 'x64', 'amd64', 'i686']
-      : ['arm64', 'aarch64', 'armv7']
-  const extHints = ['zip', 'tar.gz']
-
-  const lc = (s) => s.toLowerCase()
-  const candidates = assets
-    .filter((a) => a && a.browser_download_url && a.name)
-    .map((a) => ({ name: lc(a.name), url: a.browser_download_url }))
-    .filter((c) => !foreignArchHints.some((h) => c.name.includes(h)))
-
-  // Prefer exact OS + arch matches
-  let matches = candidates.filter((c) => osHints.some((o) => c.name.includes(o)) && archHints.some((h) => c.name.includes(h)) && extHints.some((e) => c.name.endsWith(e)))
-  if (matches.length) return matches[0].url
-  // OS only. Safe: foreign arches are filtered above, so this relaxes the arch
-  // spelling, not the arch.
-  matches = candidates.filter((c) => osHints.some((o) => c.name.includes(o)) && extHints.some((e) => c.name.endsWith(e)))
-  if (matches.length) return matches[0].url
-  // No last resort: it would fire only when nothing matches this OS, so any
-  // archive it picked would be for another platform.
-  return null
-}
-
-async function fetchLatestSqliteVecUrl(platform, arch) {
-  try {
-    const rel = await getJson('https://api.github.com/repos/asg017/sqlite-vec/releases/latest')
-    const url = matchSqliteVecAsset(rel.assets || [], platform, arch)
-    return url
-  } catch (e) {
-    console.log('Failed to query sqlite-vec latest release:', e.message)
-    return null
-  }
 }
 
 function getPlatformArch() {
@@ -320,64 +275,6 @@ async function main() {
     // Expect EEXIST error
   }
   console.log('UV downloaded.')
-
-  // ----- sqlite-vec (optional, ANN acceleration) -----
-  try {
-    const binDir = 'src-tauri/resources/bin'
-    const platform = os.platform()
-    const ext = platform === 'darwin' ? 'dylib' : 'dll'
-    const targetLibPath = path.join(binDir, `sqlite-vec.${ext}`)
-
-    if (fs.existsSync(targetLibPath)) {
-      console.log(`sqlite-vec already present at ${targetLibPath}`)
-    } else {
-      let sqlvecUrl = await fetchLatestSqliteVecUrl(platform, os.arch())
-      // Allow override via env if needed
-      if ((process.env.SQLVEC_URL || process.env.JAN_SQLITE_VEC_URL) && !sqlvecUrl) {
-        sqlvecUrl = process.env.SQLVEC_URL || process.env.JAN_SQLITE_VEC_URL
-      }
-      if (!sqlvecUrl) {
-        console.log('Could not determine sqlite-vec download URL; skipping (linear fallback will be used).')
-      } else {
-        console.log(`Downloading sqlite-vec from ${sqlvecUrl}...`)
-        const sqlvecArchive = path.join(tempBinDir, `sqlite-vec-download`)
-        const guessedExt = sqlvecUrl.endsWith('.zip') ? '.zip' : sqlvecUrl.endsWith('.tar.gz') ? '.tar.gz' : ''
-        const archivePath = sqlvecArchive + guessedExt
-        await download(sqlvecUrl, archivePath)
-        if (!guessedExt) {
-          console.log('Unknown archive type for sqlite-vec; expecting .zip or .tar.gz')
-        } else {
-          await decompress(archivePath, tempBinDir)
-          // Try to find a shared library in the extracted files
-          const candidates = []
-          function walk(dir) {
-            for (const entry of fs.readdirSync(dir)) {
-              const full = path.join(dir, entry)
-              const stat = fs.statSync(full)
-              if (stat.isDirectory()) walk(full)
-              else if (full.endsWith(`.${ext}`)) candidates.push(full)
-            }
-          }
-          walk(tempBinDir)
-          if (candidates.length === 0) {
-            console.log('No sqlite-vec shared library found in archive; skipping copy.')
-          } else {
-            // Pick the first match and copy/rename to sqlite-vec.<ext>
-            const libSrc = candidates[0]
-            // Ensure we copy the FILE, not a directory (fs-extra copySync can copy dirs)
-            if (fs.statSync(libSrc).isFile()) {
-              fs.copyFileSync(libSrc, targetLibPath)
-              console.log(`sqlite-vec installed at ${targetLibPath}`)
-            } else {
-              console.log(`Found non-file at ${libSrc}; skipping.`)
-            }
-          }
-        }
-      }
-    }
-  } catch (err) {
-    console.log('sqlite-vec download step failed (non-fatal):', err)
-  }
 
   console.log('Downloads completed.')
 }

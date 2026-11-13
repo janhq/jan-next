@@ -6,7 +6,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { useModelProvider } from '@/hooks/useModelProvider'
-import { cn, getProviderTitle, getModelDisplayName } from '@/lib/utils'
+import { cn, getProviderTitle, getModelDisplayName, getProviderLogo } from '@/lib/utils'
 import { highlightFzfMatch } from '@/utils/highlight'
 import Capabilities from './Capabilities'
 import { IconSettings, IconX } from '@tabler/icons-react'
@@ -16,6 +16,7 @@ import { useThreads } from '@/hooks/useThreads'
 import { ModelSetting } from '@/containers/ModelSetting'
 import ProvidersAvatar from '@/containers/ProvidersAvatar'
 import { ModelSupportStatus } from '@/containers/ModelSupportStatus'
+import { EngineDeviceBadge } from '@/containers/EngineDeviceBadge'
 import { Fzf } from 'fzf'
 import { localStorageKey } from '@/constants/localStorage'
 import { useTranslation } from '@/i18n/react-i18next-compat'
@@ -470,11 +471,18 @@ const DropdownModelProvider = memo(function DropdownModelProvider({
               type="button"
               className="font-medium cursor-pointer flex items-center gap-1.5 relative z-20 min-w-0"
             >
-              {provider && (
-                <div className="shrink-0">
-                  <ProvidersAvatar provider={provider} />
-                </div>
-              )}
+              {/* A real logo reads at a glance; a custom endpoint has none, and
+                  its first letter alone ("9" for 9router) reads as a count. */}
+              {provider &&
+                (getProviderLogo(provider.provider) ? (
+                  <div className="shrink-0">
+                    <ProvidersAvatar provider={provider} />
+                  </div>
+                ) : (
+                  <span className="shrink-0 max-w-28 truncate text-muted-foreground font-normal">
+                    {getProviderTitle(provider)}/
+                  </span>
+                ))}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span
@@ -506,6 +514,7 @@ const DropdownModelProvider = memo(function DropdownModelProvider({
             contextSize={getContextSize()}
             className="ml-0.5 shrink-0"
           />
+          {selectedProvider === 'llamacpp' && <EngineDeviceBadge />}
         </div>
         </PopoverTrigger>
 

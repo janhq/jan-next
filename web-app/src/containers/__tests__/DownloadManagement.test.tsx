@@ -56,8 +56,7 @@ vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => hoisted.navigateMock,
 }))
 
-vi.mock('@janhq/core', () => ({
-  ServiceKeys: { Downloads: { id: 'downloads' } },
+vi.mock('@/lib/native', () => ({
   DownloadEvent: {
     onFileDownloadUpdate: 'fdu',
     onFileDownloadError: 'fde',
@@ -92,16 +91,9 @@ vi.mock('@/constants/routes', () => ({
   route: { settings: { general: '/settings/general' } },
 }))
 
-// The cancel branch for llamacpp tasks goes to the host Downloads service.
-vi.mock('@/lib/extensions/host', () => ({
-  getExtensionHost: () => ({
-    services: {
-      get: (key: { id: string }) =>
-        key.id === 'downloads'
-          ? { cancelDownload: hoisted.cancelDownloadMock }
-          : undefined,
-    },
-  }),
+// The cancel branch for llamacpp tasks goes to the Downloads service.
+vi.mock('@/lib/llamacpp/download-service', () => ({
+  downloadService: { cancelDownload: hoisted.cancelDownloadMock },
 }))
 
 import { DownloadManagement } from '../DownloadManagement'

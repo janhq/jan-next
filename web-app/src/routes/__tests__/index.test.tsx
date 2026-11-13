@@ -8,7 +8,6 @@ const h = vi.hoisted(() => ({
   providers: [] as any[],
   search: { threadModel: undefined as any },
   setCurrentThreadId: vi.fn(),
-  useTools: vi.fn(),
   providerHasRemoteApiKeys: vi.fn(() => false),
 }))
 
@@ -27,10 +26,6 @@ vi.mock('@/hooks/useModelProvider', () => ({
 
 vi.mock('@/hooks/useThreads', () => ({
   useThreads: () => ({ setCurrentThreadId: h.setCurrentThreadId }),
-}))
-
-vi.mock('@/hooks/useTools', () => ({
-  useTools: h.useTools,
 }))
 
 vi.mock('@/containers/ChatInput', () => ({
@@ -152,11 +147,10 @@ describe('Index route', () => {
     expect(screen.getByTestId('chat-input')).toHaveAttribute('data-initial', 'true')
   })
 
-  it('calls setCurrentThreadId(undefined) and useTools on mount', () => {
+  it('clears the current thread on mount', () => {
     h.providers = [{ provider: 'my-server', models: [{ id: 'm' }] }]
     h.providerHasRemoteApiKeys.mockReturnValue(true)
     renderComponent()
     expect(h.setCurrentThreadId).toHaveBeenCalledWith(undefined)
-    expect(h.useTools).toHaveBeenCalled()
   })
 })

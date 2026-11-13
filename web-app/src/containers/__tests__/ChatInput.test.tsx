@@ -87,18 +87,6 @@ vi.mock('@/hooks/useModelProvider', () => ({
     }),
 }))
 
-vi.mock('@/hooks/useTokensCount', () => ({
-  useTokensCount: () => ({
-    maxTokens: undefined,
-    configuredCtxLen: undefined,
-    tokenCount: 0,
-    isNearLimit: false,
-    loading: false,
-    fitEnabled: false,
-    calculateTokens: vi.fn(),
-  }),
-}))
-
 vi.mock('@/hooks/useAssistant', () => ({
   useAssistant: () => ({
     loading: false,
@@ -111,32 +99,10 @@ vi.mock('@/hooks/useAssistant', () => ({
   }),
 }))
 
-let agentModeOn = false
-vi.mock('@/hooks/useAgentMode', () => ({
-  useAgentMode: (selector: any) =>
-    selector({
-      agentThreads: agentModeOn ? { 'thread-1': true } : {},
-      toggleAgentMode: vi.fn(),
-    }),
-}))
-
 vi.mock('@/hooks/useMessages', () => ({
   useMessages: (selector: any) =>
     selector({
       messages: { 'thread-1': [] },
-    }),
-}))
-
-vi.mock('@/hooks/useTools', () => ({
-  useTools: () => undefined,
-}))
-
-vi.mock('@/hooks/useAttachments', () => ({
-  useAttachments: (selector: any) =>
-    selector({
-      enabled: true,
-      parseMode: 'auto',
-      maxFileSizeMB: 10,
     }),
 }))
 
@@ -177,23 +143,6 @@ vi.mock('@/hooks/useChatAttachments', () => ({
   ),
 }))
 
-vi.mock('@/hooks/useJanBrowserExtension', () => ({
-  useJanBrowserExtension: () => ({
-    hasConfig: false,
-    isActive: false,
-    isLoading: false,
-    dialogOpen: false,
-    dialogState: null,
-    toggleBrowser: vi.fn(),
-    handleCancel: vi.fn(),
-    setDialogOpen: vi.fn(),
-  }),
-}))
-
-vi.mock('@/hooks/useAttachmentIngestionPrompt', () => ({
-  useAttachmentIngestionPrompt: vi.fn(),
-}))
-
 // Message queue store — it's imported as a zustand hook and also invoked via
 // useMessageQueue.getState() for enqueue/clear/remove. Provide both.
 const queueState: Record<string, any[]> = {}
@@ -225,15 +174,6 @@ vi.mock('@/stores/message-queue-store', () => ({
   useMessageQueue: useMessageQueueImpl,
 }))
 
-vi.mock('@janhq/core', () => ({
-  ServiceKeys: { VectorDB: { id: 'vector-db' } },
-  fs: {
-    existsSync: vi.fn().mockResolvedValue(false),
-    readFile: vi.fn().mockResolvedValue(''),
-    writeFile: vi.fn().mockResolvedValue(undefined),
-  },
-}))
-
 vi.mock('@tanstack/react-router', () => ({
   useRouter: () => ({ navigate: vi.fn() }),
   Link: ({ children, ...props }: any) => <a {...props}>{children}</a>,
@@ -250,21 +190,19 @@ vi.mock('sonner', () => ({
 vi.mock('ai', () => ({ generateId: () => 'gen-id-1' }))
 
 // Stub heavy children
+vi.mock('@/containers/work/WorkControls', () => ({
+  WorkControls: () => null,
+  ActivitySummary: () => null,
+}))
+vi.mock('@/lib/workCommands', () => ({ runWorkCommand: () => false }))
+
 vi.mock('@/containers/QueuedMessageBubble', () => ({
   QueuedMessageChip: ({ message }: any) => (
     <div data-testid="queued-chip">{message?.text}</div>
   ),
 }))
-vi.mock('@/containers/DropdownToolsAvailable', () => ({
-  __esModule: true,
-  default: () => <div data-testid="stub-tools" />,
-}))
 vi.mock('@/containers/AvatarEmoji', () => ({
   AvatarEmoji: () => <span data-testid="stub-avatar" />,
-}))
-vi.mock('@/containers/dialogs/JanBrowserExtensionDialog', () => ({
-  __esModule: true,
-  default: () => null,
 }))
 vi.mock('@/containers/MovingBorder', () => ({
   MovingBorder: ({ children }: any) => <div>{children}</div>,
@@ -320,7 +258,6 @@ const resetAll = () => {
   attachmentsList = []
   attachmentsByKey = {}
   readKeys = []
-  agentModeOn = false
   selectedModelOverride = {
     id: 'model-a',
     capabilities: ['tools'],
@@ -395,12 +332,7 @@ describe('ChatInput', () => {
     renderInput({ onSubmit })
     fireEvent.keyDown(getTextarea(), { key: 'Enter' })
     await waitFor(() =>
-      expect(onSubmit).toHaveBeenCalledWith(
-        'hello world',
-        undefined,
-        undefined,
-        'hello world'
-      )
+      expect(onSubmit).toHaveBeenCalledWith('hello world', undefined)
     )
     expect(addToHistoryMock).toHaveBeenCalledWith('hello world')
     expect(setPromptMock).toHaveBeenCalledWith('')
@@ -434,12 +366,7 @@ describe('ChatInput', () => {
     ) as HTMLButtonElement
     fireEvent.click(btn)
     await waitFor(() =>
-      expect(onSubmit).toHaveBeenCalledWith(
-        'button submit',
-        undefined,
-        undefined,
-        'button submit'
-      )
+      expect(onSubmit).toHaveBeenCalledWith('button submit', undefined)
     )
   })
 
@@ -490,22 +417,6 @@ describe('ChatInput', () => {
     // onSubmit should NOT fire when queued
     expect(onSubmit).not.toHaveBeenCalled()
     expect(setPromptMock).toHaveBeenCalledWith('')
-  })
-
-  // Tools running means the stream is over (`ready`), but the turn is not: a new
-  // message must wait for it like one sent mid-stream.
-  it('queues the message while the turn\'s tools are still running', async () => {
-    promptState = 'queued msg'
-    const onSubmit = vi.fn()
-    renderInput({ onSubmit, chatStatus: 'ready', toolsRunning: true })
-    fireEvent.keyDown(getTextarea(), { key: 'Enter' })
-    await waitFor(() =>
-      expect(enqueueMock).toHaveBeenCalledWith(
-        'thread-1',
-        expect.objectContaining({ text: 'queued msg' })
-      )
-    )
-    expect(onSubmit).not.toHaveBeenCalled()
   })
 
   it('shows "please select a model" inline message when no model selected', () => {
@@ -569,30 +480,10 @@ describe('ChatInput', () => {
             mediaType: 'image/png',
             url: 'data:image/png;base64,xxx',
           }),
-        ]),
-        undefined,
-        'with image'
+        ])
       )
     )
     expect(clearAttachmentsMock).toHaveBeenCalled()
-  })
-
-  it('passes document attachments to onSubmit as the third argument', async () => {
-    promptState = 'read this'
-    attachmentsList = [
-      { type: 'document', name: 'spec.pdf', path: '/docs/spec.pdf', fileType: 'pdf' },
-    ]
-    const onSubmit = vi.fn()
-    renderInput({ onSubmit })
-    fireEvent.keyDown(getTextarea(), { key: 'Enter' })
-    await waitFor(() =>
-      expect(onSubmit).toHaveBeenCalledWith(
-        'read this',
-        undefined,
-        [expect.objectContaining({ name: 'spec.pdf', path: '/docs/spec.pdf' })],
-        'read this'
-      )
-    )
   })
 
   it('shows the queued-message chips from the message queue', () => {
@@ -654,18 +545,6 @@ describe('ChatInput', () => {
     })
   })
 
-  describe('tool controls', () => {
-    const icons = (cls: string) =>
-      document.querySelectorAll(`.tabler-icon-${cls}`).length
-
-    // Its only switch is Settings > Agent Tools now. In the composer it read as
-    // a per-message choice while actually flipping a global.
-    it('no longer offers the agent-tools toggle', () => {
-      renderInput()
-      expect(icons('folder-code')).toBe(0)
-    })
-  })
-
   describe('image size limit', () => {
     const MB = 1024 * 1024
     const imageFile = (name: string, bytes: number, type = 'image/png') => {
@@ -683,7 +562,7 @@ describe('ChatInput', () => {
     }
     const pickFiles = (files: File[]) => {
       const input = document.querySelector(
-        'input[type="file"]:not([accept])'
+        'input[type="file"]'
       ) as HTMLInputElement
       fireEvent.change(input, { target: { files } })
     }
@@ -749,13 +628,7 @@ describe('ChatInput', () => {
 
     it('applies the same limit to dropped images', async () => {
       useImageAttachmentConfig.setState({ maxImageSizeMB: 3 })
-      // jsdom has no DataTransfer constructor; handleDrop builds one.
-      class FakeDataTransfer {
-        files: File[] = []
-        items = { add: (f: File) => this.files.push(f) }
-      }
-      vi.stubGlobal('DataTransfer', FakeDataTransfer)
-      try {
+      {
         renderVision()
         const dropZone = document.querySelector(
           '[data-drop-zone="true"]'
@@ -765,27 +638,7 @@ describe('ChatInput', () => {
         expect(
           await screen.findByText('File too large (max 3MB): dropped.png')
         ).toBeInTheDocument()
-      } finally {
-        vi.unstubAllGlobals()
       }
     })
   })
-
-  // #9363: the option was greyed out, with no reason given, for any model
-  // without the `tools` capability, so such a model could take no document at
-  // all. A document can still go into the prompt as text.
-  describe('document attachments', () => {
-    const attachDocs = () =>
-      screen.getByText('Add documents or files').closest('button')!
-
-    it('stay available for a model that cannot call tools', () => {
-      selectedModelOverride = {
-        id: 'no-tools-model',
-        capabilities: ['completion'],
-        provider: 'llamacpp',
-      }
-      renderInput()
-      expect(attachDocs()).not.toBeDisabled()
-    })
-  })
- })
+})

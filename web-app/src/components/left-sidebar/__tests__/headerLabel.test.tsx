@@ -27,7 +27,7 @@ vi.mock('@/stores/titlebar-layout-store', () => ({
 vi.mock('@/containers/DownloadManagement', () => ({
   DownloadManagement: () => null,
 }))
-vi.mock('../NavMain', () => ({ NavMain: () => null }))
+vi.mock('../NavMain', () => ({ NavMain: () => null, NavFooter: () => null }))
 vi.mock('../NavChats', () => ({ NavChats: () => null }))
 vi.mock('../NavProjects', () => ({ NavProjects: () => null }))
 vi.mock('@/components/ui/sidebar', () => {
@@ -36,6 +36,7 @@ vi.mock('@/components/ui/sidebar', () => {
     Sidebar: Box,
     SidebarContent: Box,
     SidebarHeader: Box,
+    SidebarFooter: Box,
     SidebarTrigger: () => null,
     SidebarRail: () => null,
   }

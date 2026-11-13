@@ -8,22 +8,11 @@
  *   `new Function` fast path is turned off by `jitless` (lib/zodCsp.ts) so it never
  *   probes. shiki's oniguruma engine compiles a wasm module, which is what
  *   'wasm-unsafe-eval' allows and all it allows.
- * - script-src has no asset:, http://asset.localhost or $APPDATA. Built-in
- *   extensions are bundled into the app since dd021a737; nothing loads a script
- *   from disk, and the data folder is where runtime extensions would be unpacked.
- * - worker-src is exactly 'self' blob:. An extension runs in a classic worker
- *   built from one blob: script (runtime prelude plus its bundle); the worker
- *   inherits this policy, so it can neither eval nor import more code. blob:
- *   is never added to script-src, which would let any page script load one.
- *   The window's connect-src must stay open (https:, loopback), so the worker
- *   is created from a hidden frame that adds its own meta CSP
- *   (`default-src 'none'`, WORKER_CSP in lib/extensions/worker-runtime.ts):
- *   a blob: worker inherits its creator's policy, and a meta CSP only ever
- *   narrows the inherited one. frame-src needs nothing for it: the frame is
- *   about:blank, which inherits the window's origin and policy.
- *   The prelude's SES lockdown needs no 'unsafe-eval' either: it runs with
- *   evalTaming 'no-eval', only probes eval/Function (and tolerates the CSP
- *   refusing them), and makes both throw in the worker afterwards.
+ * - script-src has no asset:, http://asset.localhost or $APPDATA. Nothing
+ *   loads a script from disk; the data folder holds user-installed DSH
+ *   plugins, which run in the Node runtime and never in the window.
+ * - worker-src is exactly 'self'. The window starts no blob: workers, so a
+ *   page script cannot smuggle code in through one.
  * - assetProtocol.scope is not `**` / `**`-slash-`*`. The static list is empty and
  *   the backend grants at runtime only what the window streams from disk:
  *   files the user picks in the open dialog.
@@ -88,12 +77,11 @@ describe('tauri window CSP and asset scope', () => {
     expect(scriptSrc(load('tauri.conf.json')?.csp)).not.toBe('')
   })
 
-  it("lets the main window start extension workers from blob: only", () => {
+  it('lets the main window start workers from its own origin only', () => {
     const sources = directive(load('tauri.conf.json')?.csp, 'worker-src')
       .split(/\s+/)
       .filter(Boolean)
-      .sort()
-    expect(sources).toEqual(["'self'", 'blob:'])
+    expect(sources).toEqual(["'self'"])
   })
 
   describe.each(confFiles)('%s', (file) => {

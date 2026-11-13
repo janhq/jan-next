@@ -1,23 +1,6 @@
 {
-  "toolApproval": {
-    "needsApproval": "이 도구를 실행하기 전에 승인이 필요합니다.",
-    "deny": "거부",
-    "allowOnce": "한 번 허용",
-    "allowInThread": "이 스레드에서 허용",
-    "allowServerAlways": "{{server}} 항상 허용",
-    "allowToolAlways": "{{tool}} 항상 허용",
-    "title": "도구 호출 요청",
-    "description": "어시스턴트가 다음 도구를 사용하려고 합니다:",
-    "securityNotice": "보안 유의사항: 악성 도구나 대화 내용으로 인해 어시스턴트가 유해한 작업을 시도하도록 유도될 수 있습니다. 승인하기 전에 각 도구 호출을 주의 깊게 검토하세요.",
-    "permissionScope": "이번 한 번만 또는 매번 허용할 수 있습니다.",
-    "alwaysAllow": "항상 허용"
-  },
   "toolCall": {
-    "awaitingApproval": "승인 대기 중: {{tool}}",
     "running": "{{tool}} 실행 중...",
-    "queued": "{{tool}} 대기 중",
-    "queuedPosition": "앞에 {{count}}개",
-    "working": "작업 중...",
     "failed": "{{tool}} 실패",
     "used": "{{tool}} 사용함",
     "parameters": "매개변수",
@@ -35,7 +18,6 @@
     "resultLimit": "상위 {{count}}개",
     "contentTruncated": "내용이 잘림",
     "originWeb": "웹",
-    "originDocuments": "문서",
     "originWorkspace": "워크스페이스",
     "originSubagent": "하위 에이전트",
     "subagentPlaceholder": "하위 에이전트",

@@ -1,31 +1,24 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { ThreadMessage } from '@janhq/core'
 import { DefaultMessagesService } from '../messages/default'
 
-// The service calls the backend routes on window.core.api directly; no
-// extension has to be registered for messages to work.
-const api = {
+const api = vi.hoisted(() => ({
   listMessages: vi.fn(),
   createMessage: vi.fn(),
   modifyMessage: vi.fn(),
   deleteMessage: vi.fn(),
-}
+}))
+vi.mock('@/lib/service', () => ({ APIs: api }))
 
 const message = (over: Partial<ThreadMessage> = {}) =>
   ({ id: 'msg-1', thread_id: 'thread-123', role: 'user', ...over }) as ThreadMessage
 
 describe('DefaultMessagesService', () => {
   let messagesService: DefaultMessagesService
-  const originalCore = window.core
 
   beforeEach(() => {
     messagesService = new DefaultMessagesService()
     vi.clearAllMocks()
-    window.core = { api } as unknown as typeof window.core
-  })
-
-  afterEach(() => {
-    window.core = originalCore
   })
 
   describe('fetchMessages', () => {
@@ -40,12 +33,6 @@ describe('DefaultMessagesService', () => {
       expect(result).toEqual(mockMessages)
     })
 
-    it('should return empty array when the backend is unavailable', async () => {
-      window.core = undefined
-
-      expect(await messagesService.fetchMessages('thread-123')).toEqual([])
-    })
-
     it('should return empty array when listMessages fails', async () => {
       api.listMessages.mockRejectedValue(new Error('Failed to list messages'))
 
@@ -55,11 +42,6 @@ describe('DefaultMessagesService', () => {
       expect(result).toEqual([])
     })
 
-    it('should handle undefined listMessages response', async () => {
-      api.listMessages.mockReturnValue(undefined)
-
-      expect(await messagesService.fetchMessages('thread-123')).toEqual([])
-    })
   })
 
   describe('createMessage', () => {
@@ -71,13 +53,6 @@ describe('DefaultMessagesService', () => {
 
       expect(api.createMessage).toHaveBeenCalledWith({ message: msg })
       expect(result).toEqual(msg)
-    })
-
-    it('should return original message when the backend is unavailable', async () => {
-      window.core = undefined
-      const msg = message()
-
-      expect(await messagesService.createMessage(msg)).toBe(msg)
     })
 
     it('should return original message when createMessage fails', async () => {
@@ -117,14 +92,6 @@ describe('DefaultMessagesService', () => {
         messageId: 'msg-1',
       })
       expect(result).toBeUndefined()
-    })
-
-    it('should return undefined when the backend is unavailable', async () => {
-      window.core = undefined
-
-      expect(
-        await messagesService.deleteMessage('thread-123', 'msg-1')
-      ).toBeUndefined()
     })
 
     it('should propagate deleteMessage errors', async () => {

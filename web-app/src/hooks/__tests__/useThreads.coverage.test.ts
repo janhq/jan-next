@@ -40,21 +40,9 @@ vi.mock('@/hooks/useServiceHub', () => ({
   }),
 }))
 
-vi.mock('@/hooks/useAgentMode', () => ({
-  useAgentMode: {
-    getState: () => ({
-      removeThread: vi.fn(),
-    }),
-  },
-}))
-
-vi.mock('@janhq/core', () => ({
-  ServiceKeys: { VectorDB: { id: 'vector-db' } },
-}))
-
-const vectorDB = vi.hoisted(() => ({ deleteCollection: vi.fn() }))
-vi.mock('@/lib/extensions/host', () => ({
-  getExtensionHost: () => ({ services: { get: () => vectorDB } }),
+const engine = vi.hoisted(() => ({ forgetThreadCache: vi.fn() }))
+vi.mock('@/lib/llamacpp', () => ({
+  getLocalEngine: () => engine,
 }))
 
 vi.mock('@/constants/chat', () => ({
@@ -307,7 +295,7 @@ describe('useThreads - coverage', () => {
     expect(result.current.threads['t3']).toBeDefined()
   })
 
-  it('drops the vector DB collection of each thread deleted in bulk', () => {
+  it('drops the saved prompt cache of each thread deleted in bulk', () => {
     const { result } = renderHook(() => useThreads())
     act(() => {
       result.current.setThreads([{ id: 't2', title: 'Normal' } as Thread])
@@ -315,7 +303,7 @@ describe('useThreads - coverage', () => {
     act(() => {
       result.current.deleteAllThreads()
     })
-    expect(vectorDB.deleteCollection).toHaveBeenCalledWith('attachments_t2')
+    expect(engine.forgetThreadCache).toHaveBeenCalledWith('t2')
   })
 
   // Removing the chat session is what ends a turn still running in the

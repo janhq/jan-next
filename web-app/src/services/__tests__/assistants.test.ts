@@ -1,39 +1,37 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import {
-  ServiceKeys,
-  createServiceRegistry,
-  type Assistant,
-  type AssistantService,
-  type ServiceRegistry,
-} from '@janhq/core'
-import { DefaultAssistantsService } from '../assistants/default'
+import type { Assistant } from '@janhq/core'
 
-const h = vi.hoisted(() => ({ services: undefined as unknown }))
-
-vi.mock('@/lib/extensions/host', () => ({
-  getExtensionHost: () => ({ services: h.services }),
+const h = vi.hoisted(() => ({
+  store: {
+    prepare: vi.fn(),
+    getAssistants: vi.fn(),
+    createAssistant: vi.fn(),
+    deleteAssistant: vi.fn(),
+  },
 }))
+
+vi.mock('../assistants/store', () => ({
+  Assistants: vi.fn(function () {
+    return h.store
+  }),
+}))
+
+import { DefaultAssistantsService } from '../assistants/default'
 
 const assistant = (id: string) =>
   ({ id, name: id, description: id }) as unknown as Assistant
 
 describe('DefaultAssistantsService', () => {
   let assistantsService: DefaultAssistantsService
-  let services: ServiceRegistry
-  const impl = {
-    getAssistants: vi.fn(),
-    createAssistant: vi.fn(),
-    deleteAssistant: vi.fn(),
-  } satisfies AssistantService
+  const impl = h.store
 
   beforeEach(() => {
     vi.clearAllMocks()
-    services = createServiceRegistry()
-    h.services = services
+    impl.prepare.mockResolvedValue(undefined)
     assistantsService = new DefaultAssistantsService()
   })
 
-  const provide = () => services.provide(ServiceKeys.Assistants, impl)
+  const provide = () => {}
 
   describe('getAssistants', () => {
     it('returns the assistants of the provided Assistants service', async () => {
@@ -41,13 +39,6 @@ describe('DefaultAssistantsService', () => {
       const list = [assistant('a1'), assistant('a2')]
       impl.getAssistants.mockResolvedValue(list)
       await expect(assistantsService.getAssistants()).resolves.toEqual(list)
-    })
-
-    it('returns null and warns when no Assistants service is provided', async () => {
-      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-      await expect(assistantsService.getAssistants()).resolves.toBeNull()
-      expect(warn).toHaveBeenCalledWith('Assistants service not available')
-      warn.mockRestore()
     })
 
     it('propagates a failure of the service', async () => {
@@ -68,13 +59,6 @@ describe('DefaultAssistantsService', () => {
       expect(impl.createAssistant).toHaveBeenCalledWith(a)
     })
 
-    it('does nothing when no Assistants service is provided', async () => {
-      await expect(
-        assistantsService.createAssistant(assistant('new'))
-      ).resolves.toBeUndefined()
-      expect(impl.createAssistant).not.toHaveBeenCalled()
-    })
-
     it('propagates a failure of the service', async () => {
       provide()
       impl.createAssistant.mockRejectedValue(new Error('Failed to create assistant'))
@@ -91,13 +75,6 @@ describe('DefaultAssistantsService', () => {
       const a = assistant('gone')
       await expect(assistantsService.deleteAssistant(a)).resolves.toBeUndefined()
       expect(impl.deleteAssistant).toHaveBeenCalledWith(a)
-    })
-
-    it('does nothing when no Assistants service is provided', async () => {
-      await expect(
-        assistantsService.deleteAssistant(assistant('gone'))
-      ).resolves.toBeUndefined()
-      expect(impl.deleteAssistant).not.toHaveBeenCalled()
     })
 
     it('propagates a failure of the service', async () => {

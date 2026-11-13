@@ -10,7 +10,6 @@ export const isToolRunning = (state: ToolUIPart['state']) =>
  * The chrome a native tool call is presented as.
  */
 export type ToolCallBar =
-  | { variant: 'documents'; query: string; count?: number; fileCount?: number }
   /** `shell`, presented as a terminal. */
   | { variant: 'terminal'; command: string }
   /**
@@ -41,13 +40,6 @@ export type ToolCallBar =
    * the child for as long as it runs.
    */
   | { variant: 'subagent'; name: string; task: string }
-
-/**
- * Owned by the RAG extension (extensions/rag-extension/src/tools.ts) and not
- * exported through @janhq/core, so this must stay in sync with it. Only
- * `retrieve` gets a bar; the other RAG tools fall back to the generic card.
- */
-export const RAG_RETRIEVE_TOOL = 'retrieve'
 
 const asString = (value: unknown): string =>
   typeof value === 'string' ? value : ''
@@ -94,8 +86,6 @@ export function describeNativeToolCall(
 ): ToolCallBar | undefined {
   if (!origin) return undefined
   const args = (input ?? {}) as Record<string, unknown>
-  const asCount = (value: unknown) =>
-    typeof value === 'number' ? value : undefined
 
   if (origin.kind === 'subagent') {
     // The `dispatch_subagent` schema is a flat `subagents[]`; the card names the
@@ -106,16 +96,6 @@ export function describeNativeToolCall(
       variant: 'subagent',
       name: asString(first?.name),
       task: asString(first?.task),
-    }
-  }
-  if (origin.kind === 'rag' && toolName === RAG_RETRIEVE_TOOL) {
-    return {
-      variant: 'documents',
-      query: asString(args.query),
-      count: asCount(args.top_k),
-      fileCount: Array.isArray(args.file_ids)
-        ? args.file_ids.length
-        : undefined,
     }
   }
   if (origin.kind === 'agent') {

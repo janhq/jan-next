@@ -9,35 +9,18 @@ import {
   IconTrash,
   IconCodeCircle,
 } from '@tabler/icons-react'
-import {
-  useMCPServers,
-  MCPServerConfig,
-  MCPSettings,
-  DEFAULT_MCP_SETTINGS,
-} from '@/hooks/useMCPServers'
-import { Fragment, useCallback, useEffect, useState } from 'react'
+import { useMCPServers, MCPServerConfig } from '@/hooks/useMCPServers'
+import { Fragment, useState } from 'react'
 import AddEditMCPServer from '@/containers/dialogs/AddEditMCPServer'
 import DeleteMCPServerConfirm from '@/containers/dialogs/DeleteMCPServerConfirm'
 import EditJsonMCPserver from '@/containers/dialogs/EditJsonMCPserver'
 import { Switch } from '@/components/ui/switch'
-import { Input } from '@/components/ui/input'
-import { twMerge } from 'tailwind-merge'
-import { useServiceHub } from '@/hooks/useServiceHub'
-import { useToolApproval } from '@/hooks/useToolApproval'
 import { toast } from 'sonner'
 import { useTranslation } from '@/i18n/react-i18next-compat'
 import { useAppState } from '@/hooks/useAppState'
-import { listen } from '@tauri-apps/api/event'
-import { SystemEvent } from '@/types/events'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { useModelProvider } from '@/hooks/useModelProvider'
-import { McpRouterModelPicker } from '@/containers/McpRouterModelPicker'
-import { isRouterModelSelectable } from '@/lib/mcp-router-model-filter'
 import { normalizeAppError } from '@/utils/appError'
-import { McpServerAuth } from '@/containers/McpServerAuth'
-import { useMcpAuth, needsAuthDetail } from '@/hooks/useMcpAuth'
-
 
 // Function to mask sensitive URL parameters
 const maskSensitiveUrl = (url: string) => {
@@ -95,24 +78,19 @@ export const Route = createFileRoute(route.settings.mcp_servers as any)({
   component: MCPServersDesktop,
 })
 
+type ServerMap = Record<string, MCPServerConfig>
+
 function MCPServersDesktop() {
   const { t } = useTranslation()
-  const serviceHub = useServiceHub()
   const {
     mcpServers,
-    settings,
     addServer,
     editServer,
     renameServer,
     deleteServer,
-    syncServers,
     syncServersAndRestart,
-    getServerConfig,
-    setSettings,
-    updateSettings,
   } = useMCPServers()
-  const { allowAllMCPPermissions, setAllowAllMCPPermissions } =
-    useToolApproval()
+  const setErrorMessage = useAppState((state) => state.setErrorMessage)
 
   const [open, setOpen] = useState(false)
   const [editingKey, setEditingKey] = useState<string | null>(null)
@@ -120,386 +98,100 @@ function MCPServersDesktop() {
     MCPServerConfig | undefined
   >(undefined)
 
-  // Delete confirmation dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [serverToDelete, setServerToDelete] = useState<string | null>(null)
 
-  // JSON editor dialog state
   const [jsonEditorOpen, setJsonEditorOpen] = useState(false)
   const [jsonServerName, setJsonServerName] = useState<string | null>(null)
   const [jsonEditorData, setJsonEditorData] = useState<
-    | MCPServerConfig
-    | Record<string, MCPServerConfig>
-    | {
-        mcpServers: Record<string, MCPServerConfig>
-        mcpSettings?: MCPSettings
-      }
-    | undefined
+    MCPServerConfig | ServerMap | { mcpServers: ServerMap } | undefined
   >(undefined)
-  const [connectedServers, setConnectedServers] = useState<string[]>([])
-  const [loadingServers, setLoadingServers] = useState<{
-    [key: string]: boolean
-  }>({})
-  const {
-    statuses: authStatuses,
-    authorizing,
-    consentUrls,
-    refresh: refreshAuth,
-    authorize,
-    clearAuth,
-  } = useMcpAuth(Object.keys(mcpServers))
+  const [loadingServers, setLoadingServers] = useState<
+    Record<string, boolean>
+  >({})
 
-  const refreshConnectedServers = useCallback(() => {
-    serviceHub
-      .mcp()
-      .getConnectedServers()
-      .then(setConnectedServers)
-      .catch((error) =>
-        console.error('Failed to refresh connected MCP servers:', error)
-      )
-  }, [serviceHub])
-  const setErrorMessage = useAppState((state) => state.setErrorMessage)
-
-  const updateToolCallTimeout = (rawValue: string) => {
-    if (rawValue === '') {
-      updateSettings({
-        toolCallTimeoutSeconds: DEFAULT_MCP_SETTINGS.toolCallTimeoutSeconds,
+  // Persist the config and restart DSH so its mcp-client picks it up.
+  const apply = async () => {
+    try {
+      await syncServersAndRestart()
+    } catch (error) {
+      setErrorMessage({
+        message: normalizeAppError(error),
+        subtitle: t('mcp-servers:checkParams'),
       })
-      return
-    }
-
-    const numericValue = Number(rawValue)
-    if (!Number.isNaN(numericValue)) {
-      updateSettings({ toolCallTimeoutSeconds: numericValue })
     }
   }
-
-  const updateMaxToolOutputChars = (rawValue: string) => {
-    if (rawValue === '') {
-      updateSettings({
-        maxToolOutputChars: DEFAULT_MCP_SETTINGS.maxToolOutputChars,
-      })
-      return
-    }
-
-    const numericValue = Number(rawValue)
-    if (!Number.isNaN(numericValue) && numericValue >= 0) {
-      updateSettings({ maxToolOutputChars: numericValue })
-    }
-  }
-
-  const modelProviders = useModelProvider((state) => state.providers)
-
-  const routerPickerDisabled =
-    !settings.enableSmartToolRouting || !settings.useLightweightRouterModel
-
-  useEffect(() => {
-    if (
-      !settings.useLightweightRouterModel ||
-      !settings.routerModelProvider ||
-      !settings.routerModelId
-    ) {
-      return
-    }
-    if (modelProviders.length === 0) return
-
-    const provider = modelProviders.find(
-      (p) => p.provider === settings.routerModelProvider && p.active
-    )
-    const model = provider?.models.find((m) => m.id === settings.routerModelId)
-
-    if (
-      !provider ||
-      !model ||
-      !isRouterModelSelectable(provider, model)
-    ) {
-      updateSettings({ routerModelProvider: '', routerModelId: '' })
-    }
-  }, [
-    settings.useLightweightRouterModel,
-    settings.routerModelProvider,
-    settings.routerModelId,
-    modelProviders,
-    updateSettings,
-  ])
 
   const handleOpenDialog = (serverKey?: string) => {
-    if (serverKey) {
-      // Edit mode
-      setCurrentConfig(mcpServers[serverKey])
-      setEditingKey(serverKey)
-    } else {
-      // Add mode
-      setCurrentConfig(undefined)
-      setEditingKey(null)
-    }
+    setCurrentConfig(serverKey ? mcpServers[serverKey] : undefined)
+    setEditingKey(serverKey ?? null)
     setOpen(true)
   }
 
   const handleSaveServer = async (name: string, config: MCPServerConfig) => {
-    if (editingKey) {
-      // If server name changed, rename it while preserving position
-      if (editingKey !== name) {
-        toggleServer(editingKey, false)
-        renameServer(editingKey, name, config)
-        toggleServer(name, true)
-        // Restart servers to update tool references with new server name
-        syncServersAndRestart()
-      } else {
-        toggleServer(editingKey, false)
-        editServer(editingKey, config)
-        toggleServer(editingKey, true)
-        syncServers()
-      }
+    if (editingKey && editingKey !== name) {
+      renameServer(editingKey, name, config)
+    } else if (editingKey) {
+      editServer(editingKey, config)
     } else {
-      // Add new server
-      toggleServer(name, false)
       addServer(name, config)
-      toggleServer(name, true)
-      syncServers()
     }
-  }
-
-  const handleEdit = (serverKey: string) => {
-    handleOpenDialog(serverKey)
-  }
-
-  const handleDeleteClick = (serverKey: string) => {
-    setServerToDelete(serverKey)
-    setDeleteDialogOpen(true)
+    await apply()
   }
 
   const handleConfirmDelete = async () => {
-    if (serverToDelete) {
-      // Stop the server before deletion
-      try {
-        await serviceHub.mcp().deactivateMCPServer(serverToDelete)
-      } catch (error) {
-        console.error('Error stopping server before deletion:', error)
-      }
-
-      deleteServer(serverToDelete)
-      toast.success(
-        t('mcp-servers:deleteServer.success', { serverName: serverToDelete })
-      )
-      setServerToDelete(null)
-      syncServersAndRestart()
-    }
+    if (!serverToDelete) return
+    deleteServer(serverToDelete)
+    toast.success(
+      t('mcp-servers:deleteServer.success', { serverName: serverToDelete })
+    )
+    setServerToDelete(null)
+    await apply()
   }
 
-  const handleOpenJsonEditor = async (serverKey?: string) => {
+  const handleOpenJsonEditor = (serverKey?: string) => {
     if (serverKey) {
-      // Edit single server JSON
       setJsonServerName(serverKey)
       setJsonEditorData(mcpServers[serverKey])
     } else {
-      // Edit all servers JSON
       setJsonServerName(null)
-      setJsonEditorData({
-        mcpServers,
-        mcpSettings: settings,
-      })
+      setJsonEditorData({ mcpServers })
     }
     setJsonEditorOpen(true)
   }
 
   const handleSaveJson = async (
-    data:
-      | MCPServerConfig
-      | Record<string, MCPServerConfig>
-      | {
-          mcpServers?: Record<string, MCPServerConfig>
-          mcpSettings?: MCPSettings
-        }
+    data: MCPServerConfig | ServerMap | { mcpServers?: ServerMap }
   ) => {
     if (jsonServerName) {
-      try {
-        toggleServer(jsonServerName, false)
-      } catch (error) {
-        console.error('Error deactivating server:', error)
-      }
-      // Save single server
       editServer(jsonServerName, data as MCPServerConfig)
-      toggleServer(jsonServerName, (data as MCPServerConfig).active || false)
     } else {
-      // Save all servers
-      let nextServers: Record<string, MCPServerConfig> = {}
-      let nextSettings: MCPSettings | undefined
-
+      let nextServers: ServerMap = {}
       if (data && typeof data === 'object' && !Array.isArray(data)) {
-        if ('mcpServers' in data || 'mcpSettings' in data) {
-          const payload = data as {
-            mcpServers?: Record<string, MCPServerConfig>
-            mcpSettings?: MCPSettings
-          }
-          nextServers = payload.mcpServers ?? {}
-          nextSettings = payload.mcpSettings
-        } else {
-          nextServers = data as Record<string, MCPServerConfig>
-        }
+        nextServers =
+          'mcpServers' in data
+            ? ((data as { mcpServers?: ServerMap }).mcpServers ?? {})
+            : (data as ServerMap)
       }
-
-      if (nextSettings) {
-        setSettings({
-          ...DEFAULT_MCP_SETTINGS,
-          ...nextSettings,
-        })
-      }
-
-      // Clear existing servers first
-      Object.keys(mcpServers).forEach((serverKey) => {
-        toggleServer(serverKey, false)
-        deleteServer(serverKey)
-      })
-
-      // Add all servers from the JSON
-      Object.entries(nextServers).forEach(([key, config]) => {
+      Object.keys(mcpServers).forEach((key) => deleteServer(key))
+      Object.entries(nextServers).forEach(([key, config]) =>
         addServer(key, config)
-        toggleServer(key, config.active || false)
-      })
-
-      await syncServers()
-    }
-  }
-
-  /**
-   * Run the interactive sign-in, then bring the server up if it is enabled: a
-   * server that failed to connect for want of a token is still marked active,
-   * so authorizing without reconnecting would leave it down until toggled.
-   */
-  const handleAuthorize = async (serverKey: string) => {
-    try {
-      await authorize(serverKey)
-      toast.success(t('mcp-servers:auth.authorized', { serverName: serverKey }))
-      if (mcpServers[serverKey]?.active) {
-        toggleServer(serverKey, true)
-      }
-    } catch (error) {
-      setErrorMessage({
-        message: t('mcp-servers:auth.authorizeFailed', {
-          serverName: serverKey,
-        }),
-        subtitle: normalizeAppError(error),
-      })
-    }
-  }
-
-  /**
-   * Forget the tokens and drop the connection: the live transport still holds
-   * the old bearer token, so leaving it up would keep working against
-   * credentials the user just asked to forget.
-   *
-   * Disconnect only -- the server stays `active` in the config, so re-authorizing
-   * brings it back without the user having to re-enable it. Matches the CLI's
-   * `MCP_ACTION_CLEAR_AUTH`, which also clears and disconnects without touching
-   * the flag.
-   */
-  const handleClearAuth = async (serverKey: string) => {
-    try {
-      const cleared = await clearAuth(serverKey)
-      toast.success(
-        cleared
-          ? t('mcp-servers:auth.cleared', { serverName: serverKey })
-          : t('mcp-servers:auth.nothingToClear', { serverName: serverKey })
       )
-      if (cleared && connectedServers.includes(serverKey)) {
-        await serviceHub.mcp().deactivateMCPServer(serverKey)
-        refreshConnectedServers()
-      }
-    } catch (error) {
-      setErrorMessage({
-        message: t('mcp-servers:auth.clearFailed', { serverName: serverKey }),
-        subtitle: normalizeAppError(error),
-      })
     }
+    await apply()
   }
 
-  const toggleServer = (serverKey: string, active: boolean) => {
-    if (serverKey) {
-      setLoadingServers((prev) => ({ ...prev, [serverKey]: true }))
-      const config = getServerConfig(serverKey)
-      if (active && config) {
-        serviceHub
-          .mcp()
-          .activateMCPServer(serverKey, {
-            ...(config ?? (mcpServers[serverKey] as MCPServerConfig)),
-            active,
-          })
-          .then(() => {
-            // Save single server
-            editServer(serverKey, {
-              ...(config ?? (mcpServers[serverKey] as MCPServerConfig)),
-              active,
-            })
-            syncServers()
-            toast.success(
-              active
-                ? t('mcp-servers:serverStatusActive', { serverKey })
-                : t('mcp-servers:serverStatusInactive', { serverKey })
-            )
-            refreshConnectedServers()
-          })
-          .catch((error) => {
-            editServer(serverKey, {
-              ...(config ?? (mcpServers[serverKey] as MCPServerConfig)),
-              active: false,
-            })
-            // A server that only needs signing in is not a misconfigured one:
-            // the backend tags it, so point at the fix rather than telling the
-            // user to check parameters they got right.
-            const authDetail = needsAuthDetail(error)
-            if (authDetail !== null) {
-              void refreshAuth()
-              setErrorMessage({
-                message: t('mcp-servers:auth.needsAuth', {
-                  serverName: serverKey,
-                }),
-                subtitle: t('mcp-servers:auth.needsAuthHint'),
-              })
-              return
-            }
-            setErrorMessage({
-              message: normalizeAppError(error),
-              subtitle: t('mcp-servers:checkParams'),
-            })
-          })
-          .finally(() => {
-            setLoadingServers((prev) => ({ ...prev, [serverKey]: false }))
-          })
-      } else {
-        editServer(serverKey, {
-          ...(config ?? (mcpServers[serverKey] as MCPServerConfig)),
-          active,
-        })
-        syncServers()
-        serviceHub
-          .mcp()
-          .deactivateMCPServer(serverKey)
-          .finally(() => {
-            refreshConnectedServers()
-            setLoadingServers((prev) => ({ ...prev, [serverKey]: false }))
-          })
-      }
+  const toggleServer = async (serverKey: string, active: boolean) => {
+    const config = mcpServers[serverKey]
+    if (!config) return
+    setLoadingServers((prev) => ({ ...prev, [serverKey]: true }))
+    editServer(serverKey, { ...config, active })
+    try {
+      await apply()
+    } finally {
+      setLoadingServers((prev) => ({ ...prev, [serverKey]: false }))
     }
   }
-
-  useEffect(() => {
-    refreshConnectedServers()
-
-    let unlisten: (() => void) | undefined
-    const setupListener = async () => {
-      unlisten = await listen(SystemEvent.MCP_UPDATE, () => {
-        refreshConnectedServers()
-      })
-    }
-    setupListener().catch((error) =>
-      console.error('Failed to set up MCP update listener:', error)
-    )
-
-    return () => {
-      unlisten?.()
-    }
-  }, [refreshConnectedServers])
 
   return (
     <Fragment>
@@ -521,15 +213,9 @@ function MCPServersDesktop() {
                 header={
                   <div className="flex flex-col mb-4">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <h1 className="text-foreground font-medium text-base font-studio">
-                          {t('mcp-servers:title')}
-                        </h1>
-                        <div className="text-xs bg-secondary border text-muted-foreground rounded-full py-0.5 px-2">
-                          <span>{t('mcp-servers:experimental')}</span>
-                        </div>
-                      </div>
-
+                      <h1 className="text-foreground font-medium text-base font-studio">
+                        {t('mcp-servers:title')}
+                      </h1>
                       <div className="flex items-center gap-0.5">
                         <Button
                           onClick={() => handleOpenJsonEditor()}
@@ -544,6 +230,9 @@ function MCPServersDesktop() {
                         </Button>
                       </div>
                     </div>
+                    <p className="text-sm mt-1 text-muted-foreground">
+                      {t('mcp-servers:dshRuns')}
+                    </p>
                     <p className="text-sm mt-1">
                       {t('mcp-servers:findMore')}{' '}
                       <a
@@ -557,148 +246,7 @@ function MCPServersDesktop() {
                     </p>
                   </div>
                 }
-              >
-                <CardItem
-                  title={t('mcp-servers:allowPermissions')}
-                  description={t('mcp-servers:allowPermissionsDesc')}
-                  actions={
-                    <div className="shrink-0 ml-4">
-                      <Switch
-                        checked={allowAllMCPPermissions}
-                        onCheckedChange={setAllowAllMCPPermissions}
-                      />
-                    </div>
-                  }
-                />
-                <CardItem
-                  title={t('mcp-servers:runtimeSettings.toolCallTimeout')}
-                  description={t(
-                    'mcp-servers:runtimeSettings.toolCallTimeoutDesc'
-                  )}
-                  actions={
-                    <Input
-                      type="number"
-                      min={1}
-                      step={1}
-                      value={settings.toolCallTimeoutSeconds}
-                      onChange={(event) =>
-                        updateToolCallTimeout(event.target.value)
-                      }
-                      onBlur={() => {
-                        void syncServers()
-                      }}
-                      className="w-28"
-                    />
-                  }
-                />
-                <CardItem
-                  title={t('mcp-servers:runtimeSettings.maxToolOutputChars')}
-                  description={t(
-                    'mcp-servers:runtimeSettings.maxToolOutputCharsDesc'
-                  )}
-                  actions={
-                    <Input
-                      type="number"
-                      min={0}
-                      step={1000}
-                      value={settings.maxToolOutputChars}
-                      onChange={(event) =>
-                        updateMaxToolOutputChars(event.target.value)
-                      }
-                      onBlur={() => {
-                        void syncServers()
-                      }}
-                      className="w-28"
-                    />
-                  }
-                />
-                <CardItem
-                  title={t('mcp-servers:runtimeSettings.smartToolRouting')}
-                  description={t(
-                    'mcp-servers:runtimeSettings.smartToolRoutingDesc'
-                  )}
-                  actions={
-                    <div className="shrink-0 ml-4">
-                      <Switch
-                        checked={settings.enableSmartToolRouting}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            updateSettings({ enableSmartToolRouting: true })
-                          } else {
-                            updateSettings({
-                              enableSmartToolRouting: false,
-                              useLightweightRouterModel: false,
-                              routerModelProvider: '',
-                              routerModelId: '',
-                            })
-                          }
-                          void syncServers()
-                        }}
-                      />
-                    </div>
-                  }
-                />
-                <CardItem
-                  title={t('mcp-servers:runtimeSettings.useLightweightRouterModel')}
-                  description={t(
-                    'mcp-servers:runtimeSettings.useLightweightRouterModelDesc'
-                  )}
-                  actions={
-                    <div className="shrink-0 ml-4">
-                      <Switch
-                        checked={settings.useLightweightRouterModel}
-                        disabled={!settings.enableSmartToolRouting}
-                        onCheckedChange={(checked) => {
-                          updateSettings(
-                            checked
-                              ? { useLightweightRouterModel: true }
-                              : {
-                                  useLightweightRouterModel: false,
-                                  routerModelProvider: '',
-                                  routerModelId: '',
-                                }
-                          )
-                          void syncServers()
-                        }}
-                      />
-                    </div>
-                  }
-                />
-                <CardItem
-                  title={t('mcp-servers:runtimeSettings.routerModel')}
-                  description={t('mcp-servers:runtimeSettings.routerModelDesc')}
-                  actions={
-                    <McpRouterModelPicker
-                      ariaLabel={t('mcp-servers:runtimeSettings.routerModel')}
-                      providers={modelProviders}
-                      selectedProvider={settings.routerModelProvider}
-                      selectedModelId={settings.routerModelId}
-                      disabled={routerPickerDisabled}
-                      onSelect={(providerName, modelId) => {
-                        updateSettings({
-                          routerModelProvider: providerName,
-                          routerModelId: modelId,
-                        })
-                        void syncServers()
-                      }}
-                      placeholder={t(
-                        'mcp-servers:runtimeSettings.selectRouterModelPlaceholder'
-                      )}
-                      searchPlaceholder={t(
-                        'mcp-servers:runtimeSettings.routerModelSearchPlaceholder'
-                      )}
-                      emptyListMessage={t(
-                        'mcp-servers:runtimeSettings.routerModelEmptyList'
-                      )}
-                      formatEmptySearch={(q) =>
-                        t('mcp-servers:runtimeSettings.routerModelEmptySearch', {
-                          query: q,
-                        })
-                      }
-                    />
-                  }
-                />
-              </Card>
+              />
 
               {Object.keys(mcpServers).length === 0 ? (
                 <div className="py-4 text-center font-medium text-muted-foreground">
@@ -710,29 +258,9 @@ function MCPServersDesktop() {
                     <CardItem
                       align="start"
                       title={
-                        <div className="flex items-center gap-x-2">
-                          <div
-                            className={twMerge(
-                              'size-2 rounded-full',
-                              connectedServers.includes(key)
-                                ? 'bg-green-600 dark:bg-green-600'
-                                : 'bg-secondary'
-                            )}
-                          />
-                          <h1 className="text-foreground text-base capitalize font-studio">
-                            {key}
-                          </h1>
-                          {config.official && (
-                            <div className="flex items-center gap-1.5 px-2 py-0.5 text-xs bg-secondary border rounded-sm">
-                              <img
-                                src="/images/jan-logo.png"
-                                alt="Jan"
-                                className="w-3 h-3 object-contain"
-                              />
-                              <span>Official</span>
-                            </div>
-                          )}
-                        </div>
+                        <h1 className="text-foreground text-base capitalize font-studio">
+                          {key}
+                        </h1>
                       }
                       descriptionOutside={
                         <div className="text-sm text-muted-foreground">
@@ -761,22 +289,6 @@ function MCPServersDesktop() {
                                       .join(', ')}
                                   </div>
                                 )}
-                              {config.official && (
-                                <div className="mt-2 text-xs text-muted-foreground pt-2">
-                                  <p className="mb-1">
-                                    Requires Jan Browser Extension to be installed
-                                    in your Chrome-based browser.
-                                  </p>
-                                  <a
-                                    href="https://chromewebstore.google.com/detail/jan-browser-mcp/mkciifcjehgnpaigoiaakdgabbpfppal"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-blue-500 hover:underline"
-                                  >
-                                    Install Extension →
-                                  </a>
-                                </div>
-                              )}
                             </>
                           ) : (
                             <>
@@ -792,16 +304,6 @@ function MCPServersDesktop() {
                                       .join(', ')}
                                   </div>
                                 )}
-                              {config.timeout && (
-                                <div>Timeout: {config.timeout}s</div>
-                              )}
-                              <McpServerAuth
-                                status={authStatuses[key]}
-                                authorizing={!!authorizing[key]}
-                                consentUrl={consentUrls[key]}
-                                onAuthorize={() => void handleAuthorize(key)}
-                                onClearAuth={() => void handleClearAuth(key)}
-                              />
                             </>
                           )}
                         </div>
@@ -824,7 +326,7 @@ function MCPServersDesktop() {
                           <Button
                             size="icon-xs"
                             variant="ghost"
-                            onClick={() => handleEdit(key)}
+                            onClick={() => handleOpenDialog(key)}
                             title={t('mcp-servers:editServer')}
                           >
                             <IconPencil
@@ -835,7 +337,10 @@ function MCPServersDesktop() {
                           <Button
                             size="icon-xs"
                             variant="ghost"
-                            onClick={() => handleDeleteClick(key)}
+                            onClick={() => {
+                              setServerToDelete(key)
+                              setDeleteDialogOpen(true)
+                            }}
                             title={t('mcp-servers:deleteServer.title')}
                           >
                             <IconTrash
@@ -848,7 +353,7 @@ function MCPServersDesktop() {
                               checked={config.active}
                               loading={!!loadingServers[key]}
                               onCheckedChange={(checked) =>
-                                toggleServer(key, checked)
+                                void toggleServer(key, checked)
                               }
                             />
                           </div>
@@ -863,7 +368,6 @@ function MCPServersDesktop() {
         </div>
       </div>
 
-      {/* Use the AddEditMCPServer component */}
       <AddEditMCPServer
         open={open}
         onOpenChange={setOpen}
@@ -872,7 +376,6 @@ function MCPServersDesktop() {
         onSave={handleSaveServer}
       />
 
-      {/* Delete confirmation dialog */}
       <DeleteMCPServerConfirm
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
@@ -880,17 +383,11 @@ function MCPServersDesktop() {
         onConfirm={handleConfirmDelete}
       />
 
-      {/* JSON editor dialog */}
       <EditJsonMCPserver
         open={jsonEditorOpen}
         onOpenChange={setJsonEditorOpen}
         serverName={jsonServerName}
-        initialData={
-          jsonEditorData ?? {
-            mcpServers,
-            mcpSettings: settings,
-          }
-        }
+        initialData={jsonEditorData ?? { mcpServers }}
         onSave={handleSaveJson}
       />
     </Fragment>

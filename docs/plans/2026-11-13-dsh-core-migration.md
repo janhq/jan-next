@@ -1,6 +1,12 @@
 # Plan: DSH as the only core, Jan kept as the UI
 
-Status: draft. The approval form timed out, so its preselected answers are recorded below; no phase has started.
+Status: done (2026-11-13), except the follow-ups listed under phase 4.
+- Phase 1 done: `DshChatTransport` is the only transport, with images (`image-data` blocks), per-session `instructions`, `maxTokens` and `session/cancel` (Stop ends one thread's turn, not the runtime). DSH takes no `temperature`/`top_p`: its `AgentOptions` has only provider, model and maxTokens.
+- Phase 2 done: `extensions/dsh-openwaifu-server/index.js` subclasses DSH's JSON-RPC server (adds `session/cancel`, `plugins/list`, resume, history seeding, instructions, image blocks). Rust `core/dsh/plugins.rs` merges the base `cordis.yml`, the user layer `<data>/dsh/plugins.yml` and MCP servers from `mcp_config.json`; Settings → Plugins manages them.
+- Phase 5 done: the DSH session id is kept in thread metadata, so a restart resumes it; a lost session is reseeded from the visible history.
+- Phase 3 done: `services/models/default.ts` drives `web-app/src/lib/llamacpp/` (engine, settings, readiness, downloads through `lib/native/download.ts`) straight against the llamacpp plugin. No extension host is involved.
+- Phase 4 done: `extensions/*-extension`, `packages/`, `web-app/src/lib/extensions/`, `tauri-plugin-{extensions,agent-tools,rag,vector-db,websearch}`, `core/mcp/` and `core/src/browser/` are deleted; `@janhq/core` is types only. `extensions/` now holds only `dsh-openwaifu-server`.
+- Phase 4 follow-ups: `lib/service.ts` still lists routes with no Rust command; the sandbox that `tauri-plugin-agent-tools` provided is not yet replaced by a DSH sandbox plugin in the base `cordis.yml`; some web tests still assert pre-migration call shapes.
 
 ## Goal
 

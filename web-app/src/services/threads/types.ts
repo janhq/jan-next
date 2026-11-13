@@ -2,7 +2,7 @@
  * Threads Service Types
  */
 
-import type { Event } from '@janhq/extension-api'
+import type { Event } from '@/lib/emitter'
 
 export interface ThreadsService {
   /** Fires once per thread the backend deleted through `deleteThread`. */

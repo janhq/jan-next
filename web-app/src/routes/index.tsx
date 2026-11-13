@@ -3,7 +3,6 @@ import { createFileRoute, useSearch } from '@tanstack/react-router'
 import ChatInput from '@/containers/ChatInput'
 import HeaderPage from '@/containers/HeaderPage'
 import { useTranslation } from '@/i18n/react-i18next-compat'
-import { useTools } from '@/hooks/useTools'
 import { cn } from '@/lib/utils'
 
 import { useModelProvider } from '@/hooks/useModelProvider'
@@ -20,6 +19,11 @@ type SearchParams = {
   threadModel?: ThreadModel
 }
 import { useEffect } from 'react'
+import { Button } from '@/components/ui/button'
+import { usePrompt } from '@/hooks/usePrompt'
+
+// Fill the composer, never send: the user finishes the sentence.
+const STARTERS = ['chat', 'build', 'plan'] as const
 import { useThreads } from '@/hooks/useThreads'
 import DropdownModelProvider from '@/containers/DropdownModelProvider'
 
@@ -40,7 +44,6 @@ function Index() {
   const search = useSearch({ from: route.home as any })
   const threadModel = search.threadModel
   const { setCurrentThreadId } = useThreads()
-  useTools()
 
   const hasValidProviders = hasUsableProvider(providers)
 
@@ -84,6 +87,19 @@ function Index() {
               model={threadModel}
               initialMessage={true}
             />
+          </div>
+          <div className="mt-3 flex flex-wrap justify-center gap-2">
+            {STARTERS.map((key) => (
+              <Button
+                key={key}
+                variant="outline"
+                size="sm"
+                className="rounded-full text-muted-foreground hover:text-foreground"
+                onClick={() => usePrompt.getState().setPrompt(t(`chat:starters.${key}.prompt`))}
+              >
+                {t(`chat:starters.${key}.label`)}
+              </Button>
+            ))}
           </div>
         </div>
       </div>

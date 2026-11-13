@@ -250,41 +250,6 @@
     "creditsDesc1": "👋 Jan è sviluppato con ❤️ dal team di Menlo Research.",
     "creditsDesc2": "Un ringraziamento speciale alle nostre dipendenze open-source — in particolare llama.cpp e Tauri — e alla nostra straordinaria community IA."
   },
-  "extensions": {
-    "title": "Estensioni"
-  },
-  "attachments": {
-    "subtitle": "Configura gli allegati dei documenti, i limiti di dimensione e il comportamento di recupero.",
-    "featureTitle": "Funzionalità",
-    "enable": "Abilita allegati",
-    "enableDesc": "Consenti il caricamento e l'indicizzazione dei documenti per il recupero delle informazioni.",
-    "parseMode": "Preferenza di analisi (parsing)",
-    "parseModeDesc": "Scegli come i documenti analizzati vengono aggiunti alle conversazioni.",
-    "parseModeAuto": "Auto",
-    "parseModeInline": "Includi nella chat",
-    "parseModeEmbeddings": "Elabora come embedding",
-    "parseModePrompt": "Chiedi ogni volta",
-    "autoInlineThreshold": "Soglia inclusione automatica",
-    "autoInlineThresholdDesc": "Frazione del contesto del modello utilizzata come limite per includere i file analizzati nei modelli locali.",
-    "limitsTitle": "Limiti",
-    "maxFile": "Dimensione massima file (MB)",
-    "maxFileDesc": "Dimensione massima per singolo file. Applicata al momento del caricamento e dell'elaborazione.",
-    "retrievalTitle": "Recupero informazioni",
-    "topK": "Top-K",
-    "topKDesc": "Numero massimo di citazioni da restituire.",
-    "threshold": "Soglia di affinità",
-    "thresholdDesc": "Punteggio minimo di somiglianza (0-1). Utilizzato solo per la ricerca lineare del coseno, non per l'ANN.",
-    "searchMode": "Modalità ricerca vettoriale",
-    "searchModeDesc": "Scegli tra sqlite-vec ANN, coseno lineare o automatico.",
-    "searchModeAuto": "Auto (consigliato)",
-    "searchModeAnn": "ANN (sqlite-vec)",
-    "searchModeLinear": "Lineare",
-    "chunkingTitle": "Frammentazione (Chunking)",
-    "chunkSize": "Dimensione frammento (caratteri)",
-    "chunkSizeDesc": "Numero massimo approssimativo di caratteri per frammento (chunk) per gli embedding.",
-    "chunkOverlap": "Sovrapposizione (caratteri)",
-    "chunkOverlapDesc": "Sovrapposizione di caratteri tra frammenti consecutivi."
-  },
   "dialogs": {
     "changeDataFolder": {
       "title": "Modifica posizione della cartella dati",

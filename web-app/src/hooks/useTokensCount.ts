@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ThreadMessage, type LocalModelProps } from '@janhq/core'
+import type { ThreadMessage } from '@janhq/core'
+import type { LocalModelProps } from '@/lib/llamacpp'
 import { parseContextOverflow } from '@/utils/error'
 import { getLocalPropsExtension } from '@/lib/llamacppRouterProps'
 import { useModelProvider } from './useModelProvider'
@@ -48,8 +49,10 @@ const getLatestServerUsage = (messages: ThreadMessage[]): UsageMeta => {
   for (let i = messages.length - 1; i >= 0; i--) {
     const usage = (messages[i].metadata as { usage?: UsageMeta } | undefined)
       ?.usage
-    if (usage && typeof usage.totalTokens === 'number' && usage.totalTokens > 0)
-      return usage
+    // Replies saved before totalTokens was recorded carry only the parts.
+    const total =
+      usage?.totalTokens ?? (usage?.inputTokens ?? 0) + (usage?.outputTokens ?? 0)
+    if (usage && total > 0) return { ...usage, totalTokens: total }
   }
   return {}
 }
@@ -170,10 +173,10 @@ export const useTokensCount = (
     const overflow = getActiveContextOverflow(messages)
     const usage = liveStats
       ? {
-          inputTokens: liveStats.promptTokens,
-          outputTokens: liveStats.completionTokens,
-          totalTokens: liveStats.promptTokens + liveStats.completionTokens,
-        }
+        inputTokens: liveStats.promptTokens,
+        outputTokens: liveStats.completionTokens,
+        totalTokens: liveStats.promptTokens + liveStats.completionTokens,
+      }
       : (getLatestServerUsage(messages))
     const tokenCount = overflow?.requestTokens ?? usage.totalTokens ?? 0
     const maxTokens = overflow?.contextTokens ?? modelProps?.nCtx

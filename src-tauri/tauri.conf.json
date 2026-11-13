@@ -15,7 +15,6 @@
     "security": {
       "capabilities": [
         "default",
-        "extensions",
         "log-app-window",
         "logs-window",
         "system-monitor-window"
@@ -31,7 +30,7 @@
         "frame-src": "'self'",
         "style-src": "'unsafe-inline' 'self' https://fonts.googleapis.com",
         "script-src": "'self' 'wasm-unsafe-eval'",
-        "worker-src": "'self' blob:"
+        "worker-src": "'self'"
       },
       "dangerousDisableAssetCspModification": ["style-src"],
       "assetProtocol": {

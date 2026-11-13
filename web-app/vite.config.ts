@@ -25,25 +25,7 @@ export default defineConfig(() => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
-        '@janhq/assistant-extension': path.resolve(__dirname, '../extensions/assistant-extension/dist/index.js'),
-        '@janhq/download-extension': path.resolve(__dirname, '../extensions/download-extension/dist/index.js'),
-        '@janhq/llamacpp-extension': path.resolve(__dirname, '../extensions/llamacpp-extension/dist/index.js'),
-        '@janhq/rag-extension': path.resolve(__dirname, '../extensions/rag-extension/dist/index.js'),
-        '@janhq/vector-db-extension': path.resolve(__dirname, '../extensions/vector-db-extension/dist/index.js'),
       },
-    },
-    optimizeDeps: {
-      // Extensions are prebuilt, self-contained ESM dist bundles. Excluding them
-      // stops Vite's dev dep-optimizer from crawling/re-bundling them mid-boot,
-      // which otherwise invalidates the in-flight dynamic import of the service
-      // hub and surfaces as "Importing a module script failed" on cold start.
-      exclude: [
-        '@janhq/assistant-extension',
-        '@janhq/download-extension',
-        '@janhq/llamacpp-extension',
-        '@janhq/rag-extension',
-        '@janhq/vector-db-extension',
-      ],
     },
     define: {
       IS_TAURI: JSON.stringify(process.env.IS_TAURI),

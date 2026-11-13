@@ -13,7 +13,7 @@ const emit = async (name: string, payload?: unknown) => {
   })
 }
 
-vi.mock('@janhq/core', () => ({
+vi.mock('@/lib/native', () => ({
   AppEvent: { onModelImported: 'onModelImported' },
   DownloadEvent: { onFileDownloadSuccess: 'onFileDownloadSuccess' },
   events: {

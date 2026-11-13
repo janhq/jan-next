@@ -350,13 +350,10 @@ export const useModelProvider = create<ModelProviderState>()(
       storage: createJSONStorage(() => backendStorage),
       // Async backend storage; hydrate explicitly after ServiceHub init.
       skipHydration: true,
-      // Never persist API keys - they live in the OS keyring only - nor
-      // extension providers, which exist only while their extension runs.
+      // Never persist API keys - they live in the OS keyring only.
       partialize: (state) => ({
         ...state,
-        providers: state.providers
-          .filter((p) => !p.source)
-          .map(stripProviderSecrets),
+        providers: state.providers.map(stripProviderSecrets),
       }),
       migrate: (persistedState: unknown, version: number) => {
         const state = persistedState as ModelProviderState & {

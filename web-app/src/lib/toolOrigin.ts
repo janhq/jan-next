@@ -1,38 +1,22 @@
 /**
- * Where a tool call came from. Jan runs four families of tools -- the built-in RAG tools, the built-in agent tools, subagent
- * dispatch, and MCP server tools -- and a collapsed card is ambiguous without
- * saying which.
+ * Where a tool call came from: a DSH built-in tool, a subagent dispatch, or an
+ * MCP server. A collapsed card is ambiguous without saying which.
  */
 export type ToolOrigin =
-  | { kind: 'rag' }
   | { kind: 'agent' }
-  /** `task`: not a tool the workspace runs, but a whole nested agent. */
+  /** A whole nested agent rather than a tool. */
   | { kind: 'subagent' }
   | { kind: 'mcp'; detail: string }
 
-export type ToolOriginContext = {
-  /** MCP server owning this tool, when it is an MCP tool. */
-  mcpServer?: string
-  isRagTool: boolean
-  isAgentTool: boolean
-}
+/** Subagent dispatch: `task` from Jan-era history, `subagent` from DSH. */
+const SUBAGENT_TOOLS = new Set(['task', 'subagent'])
 
-export const TASK_TOOL = 'task'
+/** DSH's mcp-client names every tool `mcp__<serverName>__<rawName>`. */
+const MCP_TOOL = /^mcp__([A-Za-z0-9_-]+?)__./
 
-/**
- * Resolution order mirrors the execution order in the thread route: agent tools, then RAG, then MCP. RAG names shadowed by an MCP
- * server are already dropped from the RAG set upstream, so the two cannot both
- * match.
- */
-export function resolveToolOrigin(
-  toolName: string,
-  { mcpServer, isRagTool, isAgentTool }: ToolOriginContext
-): ToolOrigin | undefined {
-  // Dispatched by the surface rather than the plugin, so it is not in the agent
-  // tool set and would otherwise fall through to the unlabelled generic card.
-  if (toolName === TASK_TOOL) return { kind: 'subagent' }
-  if (isAgentTool) return { kind: 'agent' }
-  if (isRagTool) return { kind: 'rag' }
-  if (mcpServer) return { kind: 'mcp', detail: mcpServer }
-  return undefined
+export function resolveToolOrigin(toolName: string): ToolOrigin {
+  if (SUBAGENT_TOOLS.has(toolName)) return { kind: 'subagent' }
+  const mcp = MCP_TOOL.exec(toolName)
+  if (mcp) return { kind: 'mcp', detail: mcp[1] }
+  return { kind: 'agent' }
 }

@@ -1,38 +1,28 @@
 import {
-  CustomChatTransport,
+  DshChatTransport,
   type ContinuationContent,
-} from '@/lib/custom-chat-transport'
-import { DshChatTransport } from '@/lib/dsh-chat-transport'
-import { useDshSettings } from '@/hooks/useDshSettings'
+} from '@/lib/dsh-chat-transport'
 import {
   Chat,
   type UIMessage,
   type UseChatOptions,
   useChat as useChatSDK,
 } from '@ai-sdk/react'
-import {
-  type ChatInit,
-  type LanguageModelUsage,
-} from 'ai'
+import { type ChatInit, type LanguageModelUsage } from 'ai'
 import { useEffect, useMemo, useRef, useCallback } from 'react'
 import { useChatSessions } from '@/stores/chat-session-store'
-import { useAppState } from '@/hooks/useAppState'
 
 type CustomChatOptions = Omit<ChatInit<UIMessage>, 'transport'> &
   Pick<UseChatOptions<UIMessage>, 'experimental_throttle' | 'resume'> & {
     sessionId?: string
     sessionTitle?: string
     systemMessage?: string
-    onTokenUsage?: (usage: LanguageModelUsage, messageId: string) => void;
+    onTokenUsage?: (usage: LanguageModelUsage, messageId: string) => void
   }
 
-// This is a wrapper around the AI SDK's useChat hook
-// It implements model switching and uses the custom chat transport,
-// making a nice reusable hook for chat functionality.
-export function useChat(
-  options?: CustomChatOptions
-) {
-  const transportRef = useRef<CustomChatTransport | undefined>(undefined) // Using a ref here so we can update the model used in the transport without having to reload the page or recreate the transport
+/** The AI SDK chat hook on a per-thread DeepSeek Harness transport. */
+export function useChat(options?: CustomChatOptions) {
+  const transportRef = useRef<DshChatTransport | undefined>(undefined)
   // The session transportRef belongs to. The hook outlives a session switch (the
   // thread route is reused), and a turn left running in the background keeps
   // using its own transport, so a session must never inherit another's.
@@ -48,27 +38,17 @@ export function useChat(
   const setSessionTitle = useChatSessions((state) => state.setSessionTitle)
   const updateStatus = useChatSessions((state) => state.updateStatus)
 
-  // Get serviceHub and model metadata from app state
-  const mcpToolNames = useAppState((state) => state.mcpToolNames)
-  const ragToolNames = useAppState((state) => state.ragToolNames)
-  const extensionTools = useAppState((state) => state.extensionTools)
-
   const existingSessionTransport = sessionId
     ? useChatSessions.getState().sessions[sessionId]?.transport
     : undefined
 
-  // Create transport immediately with modelId and provider
   if (existingSessionTransport) {
     transportRef.current = existingSessionTransport
   } else if (
     !transportRef.current ||
     transportSessionRef.current !== sessionId
   ) {
-    // Chosen when the chat opens: a thread keeps its backend until reopened,
-    // so a turn never switches agents halfway through a conversation.
-    transportRef.current = useDshSettings.getState().enabled
-      ? new DshChatTransport(systemMessage, sessionId)
-      : new CustomChatTransport(systemMessage, sessionId)
+    transportRef.current = new DshChatTransport(systemMessage, sessionId)
   }
   transportSessionRef.current = sessionId
   const transport = transportRef.current
@@ -79,7 +59,6 @@ export function useChat(
     transport.updateSystemMessage(systemMessage)
   }, [transport, systemMessage])
 
-  // Update the token usage callback when it changes
   useEffect(() => {
     transport.setOnTokenUsage(onTokenUsage)
   }, [transport, onTokenUsage])
@@ -117,16 +96,6 @@ export function useChat(
     }
   }, [sessionId, chatResult.status, updateStatus])
 
-  // Refresh tools when MCP, RAG or extension tools change (e.g., when MCP
-  // servers start/stop or an extension is loaded)
-  useEffect(() => {
-    if (transportRef.current) {
-      // Use forceRefreshTools to update the transport's tool cache
-      // This ensures the transport has the latest tools when MCP server status changes
-      transportRef.current.refreshTools()
-    }
-  }, [mcpToolNames, ragToolNames, extensionTools])
-
   const setContinueFromContent = useCallback(
     (content: string | ContinuationContent) => {
       transportRef.current?.setContinueFromContent(content)
@@ -134,26 +103,8 @@ export function useChat(
     []
   )
 
-  // Expose method to update RAG tools availability. A new identity per
-  // transport, so a caller's effect re-runs for a newly opened session's.
-  const updateRagToolsAvailability = useCallback(
-    async (
-      hasDocuments: boolean,
-      modelSupportsTools: boolean,
-      ragFeatureAvailable: boolean
-    ) => {
-      await transport.updateRagToolsAvailability(
-        hasDocuments,
-        modelSupportsTools,
-        ragFeatureAvailable
-      )
-    },
-    [transport]
-  )
-
   return {
     ...chatResult,
-    updateRagToolsAvailability,
     setContinueFromContent,
   }
 }

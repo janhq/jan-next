@@ -12,11 +12,7 @@ import {
 } from '@/components/ai-elements/reasoning-timeline'
 import { Button } from '@/components/ui/button'
 import { scrollToBottomButtonClassName } from '@/components/ai-elements/conversation'
-import { useToolApprovalRequests } from '@/hooks/useToolApprovalRequests'
-import {
-  isToolCallRunning,
-  useToolCallRuntime,
-} from '@/hooks/useToolCallRuntime'
+import { isToolRunning } from '@/lib/toolPresentation'
 import { useTranslation } from '@/i18n/react-i18next-compat'
 import { useCoTDuration } from '@/hooks/useCoTDuration'
 import { segmentReasoningSteps } from '@/lib/reasoning'
@@ -32,9 +28,6 @@ export type ChainOfThoughtGroupProps = {
   isStreaming: boolean
   /** An answer follows this trace, so it should auto-collapse. */
   hasFollowingContent: boolean
-  /** Any tool on the message awaits approval; pins the trace open. */
-  awaitingApproval: boolean
-  citationOffsets: Map<number, number>
   reasoningContainerRef?: React.RefObject<HTMLDivElement | null>
   isReasoningAtBottom?: boolean
   onReasoningScroll?: () => void
@@ -48,25 +41,12 @@ export const ChainOfThoughtGroup = memo(
     totalParts,
     isStreaming,
     hasFollowingContent,
-    awaitingApproval,
-    citationOffsets,
     reasoningContainerRef,
     isReasoningAtBottom,
     onReasoningScroll,
     onReasoningScrollToBottom,
   }: ChainOfThoughtGroupProps) => {
     const { t } = useTranslation()
-    const pendingApprovals = useToolApprovalRequests((s) => s.pending)
-    // This trace's own running call: another thread's loop may be running one
-    // in the background at the same time.
-    const runningToolCallId = useToolCallRuntime(
-      (s) =>
-        entries.find(
-          (e) =>
-            e.part.toolCallId !== undefined &&
-            isToolCallRunning(s.timings[e.part.toolCallId])
-        )?.part.toolCallId
-    )
     // Seed the header from a persisted duration on reload; persist the live
     // measurement so it survives the next one. Keyed by the (stable) message id.
     const storedDuration = useCoTDuration((s) => s.durations[messageId])
@@ -96,8 +76,10 @@ export const ChainOfThoughtGroup = memo(
       return isToolPart(part)
     }
     const meaningful = entries.filter(isMeaningfulEntry)
-    const running = runningToolCallId
-      ? meaningful.find((e) => e.part.toolCallId === runningToolCallId)
+    const running = isStreaming
+      ? meaningful.find(
+          (e) => isToolPart(e.part) && isToolRunning(e.part.state)
+        )
       : undefined
     const lastMeaningful = running ?? meaningful[meaningful.length - 1]
     // The current step while streaming. A model emits parallel tool calls as one
@@ -113,16 +95,10 @@ export const ChainOfThoughtGroup = memo(
       }
       return batch.length > 0 ? batch : meaningful.slice(-1)
     })()
-    // While streaming, show the current step — but never truncate away a tool
-    // part awaiting the user's approval, or its approve/deny controls would
-    // never mount and the run would hang.
+    // While streaming, show the current step.
     const visibleEntries =
       groupIsStreaming && meaningful.length > 0
-        ? meaningful.filter((e) => {
-            if (frontier.includes(e)) return true
-            const toolCallId = e.part.toolCallId
-            return Boolean(toolCallId && pendingApprovals[toolCallId])
-          })
+        ? meaningful.filter((e) => frontier.includes(e))
         : entries
 
     // Streaming label reflects the current step, not whether the whole trace
@@ -188,7 +164,6 @@ export const ChainOfThoughtGroup = memo(
               <ToolCallCard
                 part={part}
                 messageId={messageId}
-                citationOffset={citationOffsets.get(partIndex) ?? 0}
                 className="mb-1"
               />
             </StepRow>
@@ -275,7 +250,6 @@ export const ChainOfThoughtGroup = memo(
             key={`${messageId}-t-${partIndex}`}
             part={part}
             messageId={messageId}
-            citationOffset={citationOffsets.get(partIndex) ?? 0}
             className="mb-1"
           />
         )
@@ -286,7 +260,6 @@ export const ChainOfThoughtGroup = memo(
         className="text-muted-foreground"
         isStreaming={groupIsStreaming}
         shouldCollapse={shouldCollapse}
-        forceOpen={awaitingApproval}
         defaultOpen={hasDisplayableContent && !hasFollowingContent}
         durationMs={storedDuration}
         onDurationSettled={recordDuration}

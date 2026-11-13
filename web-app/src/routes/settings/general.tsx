@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { APIs } from '@/lib/service'
 import { route } from '@/constants/routes'
 import SettingsMenu from '@/containers/SettingsMenu'
 import HeaderPage from '@/containers/HeaderPage'
@@ -134,7 +135,7 @@ function General() {
             await serviceHub.app().relocateJanDataFolder(selectedNewPath)
             setJanDataFolder(selectedNewPath)
             // Only relaunch if relocation was successful
-            window.core?.api?.relaunch()
+            APIs.relaunch()
             setSelectedNewPath(null)
             setIsDialogOpen(false)
           } catch (error) {

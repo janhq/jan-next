@@ -8,7 +8,7 @@
  *   directories produce a listing, images produce inline data, and errors surface
  *   as inline notices.
  */
-import { fs } from '@janhq/core'
+import { fs } from '@/lib/native'
 import type { FilePickerEntry } from '@/types/path-reference'
 
 export type { FilePickerEntry }

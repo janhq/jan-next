@@ -1,18 +1,28 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { DefaultModelsService } from '../default'
-import { EngineManager, events, DownloadEvent, ContentType } from '@janhq/core'
+import { events, DownloadEvent } from '@/lib/native'
+import { ContentType } from '@janhq/core'
 
 const { mockEvents } = vi.hoisted(() => ({
   mockEvents: { emit: vi.fn() },
 }))
 
-vi.mock('@janhq/core', () => ({
-  EngineManager: { instance: vi.fn() },
+const EngineManager = vi.hoisted(() => ({ instance: vi.fn() }))
+
+vi.mock('@/lib/llamacpp', () => ({
+  getLocalEngine: (provider: string) => EngineManager.instance().get(provider),
+  listLocalEngines: () => [],
+}))
+
+vi.mock('@/lib/native', () => ({
   events: mockEvents,
   DownloadEvent: {
     onFileDownloadStopped: 'onFileDownloadStopped',
     onFileDownloadError: 'onFileDownloadError',
   },
+}))
+
+vi.mock('@janhq/core', () => ({
   ContentType: { Text: 'text', Image: 'image_url' },
 }))
 
@@ -334,7 +344,6 @@ describe('DefaultModelsService - coverage supplement', () => {
       expect(mockEngine.load).toHaveBeenCalledWith(
         'm1',
         { ctx_size: 4096, n_gpu_layers: 33, custom: 'val' },
-        false,
         false
       )
     })

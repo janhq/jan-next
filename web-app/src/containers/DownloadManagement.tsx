@@ -6,7 +6,6 @@ import {
 import { Progress } from '@/components/ui/progress'
 import { useDownloadStore } from '@/hooks/useDownloadStore'
 import { useServiceHub } from '@/hooks/useServiceHub'
-import { ServiceKeys } from '@janhq/core'
 import { IconPlayerPause, IconPlayerPlay, IconX } from '@tabler/icons-react'
 import { useCallback, useMemo, useState } from 'react'
 import { toast } from 'sonner'
@@ -14,7 +13,7 @@ import { useTranslation } from '@/i18n/react-i18next-compat'
 import { DownloadIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatBytes } from '@/lib/utils'
-import { getExtensionHost } from '@/lib/extensions/host'
+import { downloadService } from '@/lib/llamacpp/download-service'
 
 export function DownloadManagement() {
   const { t } = useTranslation()
@@ -114,7 +113,7 @@ export function DownloadManagement() {
       removeDownload(id)
       removeLocalDownloadingModel(id)
       if (id.startsWith('llamacpp')) {
-        getExtensionHost().services.get(ServiceKeys.Downloads)?.cancelDownload(id)
+        downloadService.cancelDownload(id)
       } else {
         serviceHub
           .models()

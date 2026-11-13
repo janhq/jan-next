@@ -1,11 +1,51 @@
-import { CoreRoutes, APIRoutes } from '@janhq/core'
-import type { DownloadProgress, DownloadProgressHandler, Unsubscribe } from '@janhq/core'
+import type { DownloadProgress, DownloadProgressHandler, Unsubscribe } from '@/lib/native'
 import { getServiceHub } from '@/hooks/useServiceHub'
 import { isPlatformTauri } from '@/lib/platform'
 import type { InvokeArgs } from '@/services/core/types'
 import { openExternalUrl } from '@/lib/externalLink'
 
-export const AppRoutes = [
+// Routes the web-app reaches as Tauri commands (camelCase name -> snake_case command).
+const CoreRoutes = [
+  'getAppConfigurations',
+  'updateAppConfiguration',
+  'joinPath',
+  'dirName',
+  'isSubdirectory',
+  'baseName',
+  'log',
+  'showToast',
+  'settingsGet',
+  'settingsSet',
+  'settingsRemove',
+  'appendFileSync',
+  'unlinkSync',
+  'existsSync',
+  'readdirSync',
+  'rm',
+  'mv',
+  'mkdir',
+  'readFileSync',
+  'writeFileSync',
+  'readYaml',
+  'writeYaml',
+  'decompress',
+  'copyFile',
+  'getJanDataFolderPath',
+  'getResourcePath',
+  'getUserHomePath',
+  'fileStat',
+  'writeBlob',
+  'getGgufFiles',
+  'downloadFiles',
+  'cancelDownloadTask',
+  'pauseDownloadTask',
+  'writeEnvFileToConfig',
+  'openFileExplorer',
+  'startServer',
+  'stopServer',
+]
+
+const AppRoutes = [
   'getTools',
   'callTool',
   'cancelToolCall',
@@ -28,12 +68,12 @@ export const AppRoutes = [
   'changeAppDataFolder',
 ]
 // Define API routes based on different route types
-export const Routes = [...CoreRoutes, ...APIRoutes, ...AppRoutes].map((r) => ({
+export const Routes = [...CoreRoutes, ...AppRoutes].map((r) => ({
   path: `app`,
   route: r,
 }))
 
-// Re-exported: extensions reach it as `window.core.api.openExternalUrl`.
+// Re-exported for callers that open links through the route table.
 export { openExternalUrl }
 
 // Events are not request/response, so this cannot be a mapped route: the host
@@ -47,7 +87,10 @@ export async function onDownloadProgress(
     .listen<DownloadProgress>(`download-${taskId}`, (event) => handler(event.payload))
 }
 
-export const APIs = {
+export const APIs: Record<string, (...args: any[]) => any> & {
+  openExternalUrl: typeof openExternalUrl
+  onDownloadProgress: typeof onDownloadProgress
+} = {
   ...Object.values(Routes).reduce((acc, proxy) => {
     return {
       ...acc,

@@ -30,17 +30,11 @@ import {
   type SettingsIconHandle,
 } from '@/components/animated-icon/settings'
 import { BlocksIcon, type BlocksIconHandle } from '../animated-icon/blocks'
-import {
-  BotIcon,
-  type BotIconHandle,
-} from '@/components/animated-icon/bot'
 import AddProjectDialog from '@/containers/dialogs/AddProjectDialog'
 import { SearchDialog } from '@/containers/dialogs/SearchDialog'
 import { useThreadManagement } from '@/hooks/useThreadManagement'
 import { useSearchDialog } from '@/hooks/useSearchDialog'
 import { useProjectDialog } from '@/hooks/useProjectDialog'
-import { useAgentMode } from '@/hooks/useAgentMode'
-import { TEMPORARY_CHAT_ID } from '@/constants/chat'
 import { PlatformShortcuts, ShortcutAction } from '@/lib/shortcuts'
 
 type AnimatedIconHandle =
@@ -49,7 +43,6 @@ type AnimatedIconHandle =
   | MessageCircleIconHandle
   | SettingsIconHandle
   | BlocksIconHandle
-  | BotIconHandle
 
 type NavMainItem = {
   title: string
@@ -71,8 +64,7 @@ type NavMainItem = {
 const getNavMainItems = (
   onNewProject: () => void,
   onSearch: () => void,
-  onNewChat: () => void,
-  onJanClaw: () => void
+  onNewChat: () => void
 ): NavMainItem[] => [
     {
       title: 'common:newChat',
@@ -85,19 +77,6 @@ const getNavMainItems = (
             <PlatformMetaKey />
           </Kbd>
           <Kbd className="bg-transparent size-3 uppercase">{PlatformShortcuts[ShortcutAction.NEW_CHAT].key}</Kbd>
-        </KbdGroup>
-      ),
-    },
-    {
-      title: 'common:newAgentChat',
-      animatedIcon: BotIcon,
-      onClick: onJanClaw,
-      shortcut: (
-        <KbdGroup className="ml-auto scale-90 gap-0">
-          <Kbd className="bg-transparent size-3">
-            <PlatformMetaKey />
-          </Kbd>
-          <Kbd className="bg-transparent size-3 uppercase">{PlatformShortcuts[ShortcutAction.NEW_AGENT_CHAT].key}</Kbd>
         </KbdGroup>
       ),
     },
@@ -127,23 +106,28 @@ const getNavMainItems = (
         </KbdGroup>
       ),
     },
-    {
-      title: 'common:hub',
-      url: route.hub.index,
-      animatedIcon: BlocksIcon,
-    },
-    {
-      title: 'common:pluginManager',
-      url: route.settings.extensions,
-      icon: IconClover,
-      testId: 'plugin-manager-link',
-    },
-    {
-      title: 'common:settings',
-      url: route.settings.general,
-      animatedIcon: SettingsIcon,
-    },
   ]
+
+// Places to go rather than things to start: they sit under the chat list, a
+// step quieter than New chat.
+const navFooterItems: NavMainItem[] = [
+  {
+    title: 'common:hub',
+    url: route.hub.index,
+    animatedIcon: BlocksIcon,
+  },
+  {
+    title: 'common:pluginManager',
+    url: route.settings.plugins,
+    icon: IconClover,
+    testId: 'plugin-manager-link',
+  },
+  {
+    title: 'common:settings',
+    url: route.settings.general,
+    animatedIcon: SettingsIcon,
+  },
+]
 
 function NavMainItemWithAnimatedIcon({
   item,
@@ -179,8 +163,57 @@ function NavMainItemWithAnimatedIcon({
   )
 }
 
-export function NavMain() {
+function NavItems({ items, quiet }: { items: NavMainItem[]; quiet?: boolean }) {
   const { t } = useTranslation()
+  return (
+    <SidebarMenu className={quiet ? '[&_[data-sidebar=menu-button]]:text-muted-foreground' : undefined}>
+      {items.map((item) => {
+
+        if (item.animatedIcon) {
+          return (
+            <NavMainItemWithAnimatedIcon
+              key={item.title}
+              item={item}
+              label={t(item.title)}
+            />
+          )
+        }
+
+        const Icon = item.icon
+        return (
+          <SidebarMenuItem key={item.title}>
+            <SidebarMenuButton
+              asChild={!!item.url}
+              isActive={item.isActive}
+              data-testid={item.testId}
+              onClick={item.onClick}
+            >
+              {item.url ? (
+                <Link to={item.url}>
+                  {Icon && <Icon className="text-foreground/70" />}
+                  <span>{t(item.title)}</span>
+                  {item.shortcut}
+                </Link>
+              ) : (
+                <>
+                  {Icon && <Icon className="text-foreground/70" />}
+                  <span>{t(item.title)}</span>
+                  {item.shortcut}
+                </>
+              )}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        )
+      })}
+    </SidebarMenu>
+  )
+}
+
+export function NavFooter() {
+  return <NavItems items={navFooterItems} quiet />
+}
+
+export function NavMain() {
   const navigate = useNavigate()
   const { addFolder } = useThreadManagement()
   const { open: searchOpen, setOpen: setSearchOpen } = useSearchDialog()
@@ -190,14 +223,9 @@ export function NavMain() {
     () => setProjectDialogOpen(true),
     () => setSearchOpen(true),
     () => {
-      useAgentMode.getState().removeThread(TEMPORARY_CHAT_ID)
-      navigate({ to: route.home })
-    },
-    () => {
-      useAgentMode.getState().setAgentMode(TEMPORARY_CHAT_ID, true)
       navigate({ to: route.home })
     }
-  ).filter((item) => item.title !== 'common:newAgentChat')
+  )
 
   const handleCreateProject = async (name: string, assistantId?: string) => {
     const newProject = await addFolder(name, assistantId)
@@ -210,46 +238,7 @@ export function NavMain() {
 
   return (
     <>
-      <SidebarMenu>
-        {navMainItems.map((item) => {
-          if (item.animatedIcon) {
-            return (
-              <NavMainItemWithAnimatedIcon
-                key={item.title}
-                item={item}
-                label={t(item.title)}
-              />
-            )
-          }
-
-          const Icon = item.icon
-          return (
-            <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton
-                asChild={!!item.url}
-                isActive={item.isActive}
-                data-testid={item.testId}
-                onClick={item.onClick}
-              >
-                {item.url ? (
-                  <Link to={item.url}>
-                    {Icon && <Icon className="text-foreground/70" />}
-                    <span>{t(item.title)}</span>
-                    {item.shortcut}
-                  </Link>
-                ) : (
-                  <>
-                    {Icon && <Icon className="text-foreground/70" />}
-                    <span>{t(item.title)}</span>
-                    {item.shortcut}
-                  </>
-                )}
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )
-        })}
-      </SidebarMenu>
-
+      <NavItems items={navMainItems} />
       <AddProjectDialog
         open={projectDialogOpen}
         onOpenChange={setProjectDialogOpen}

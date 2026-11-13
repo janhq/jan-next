@@ -25,14 +25,13 @@ import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 import 'katex/dist/katex.min.css'
 import { MermaidError } from '@/components/MermaidError'
-import { CitationLink } from '@/components/CitationLink'
 import { WebCitationChip } from '@/components/WebCitationChip'
 import { MarkdownTable } from '@/components/MarkdownTable'
 import { externalHref, openExternalUrl } from '@/lib/externalLink'
 import {
   useRemoteImagesAllowed,
   withRemoteImages,
-} from '@/lib/extensions/remoteImages'
+} from '@/lib/remoteImages'
 
 // Do not resolve model-generated links against the app's own origin.
 function isWebLink(href: string | undefined): boolean {
@@ -129,11 +128,9 @@ interface MarkdownProps {
   messageId?: string
   isAnimating?: boolean
   /**
-   * Content a third-party extension authored (see lib/extensions/authorship).
-   * Remote images, mermaid diagrams and citation favicons are not loaded:
-   * the app's img-src allows any https host, so any of them would let the
-   * extension reach a host it holds no `network:` grant for. Inline `data:`
-   * images still render. Also on whenever `RemoteImagesContext` is off.
+   * Remote images, mermaid diagrams and citation favicons are not loaded.
+   * Inline `data:` images still render. Also on whenever `RemoteImagesContext`
+   * is off.
    */
   noRemoteImages?: boolean
 }
@@ -325,14 +322,7 @@ function RenderMarkdownComponent({
     const Anchor = (
       props: React.AnchorHTMLAttributes<HTMLAnchorElement>
     ) => {
-      const { href, children, className: aClass } = props
-      if (typeof href === 'string' && href.startsWith('#cite-')) {
-        return (
-          <CitationLink href={href} className={aClass}>
-            {children}
-          </CitationLink>
-        )
-      }
+      const { href, children } = props
       if (typeof href === 'string' && href.startsWith('#webcite-')) {
         const url = webCitationUrl(href)
         return url ? (

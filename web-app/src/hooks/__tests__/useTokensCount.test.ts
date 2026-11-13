@@ -6,11 +6,9 @@ import { useAppState } from '../useAppState'
 
 const mockGetModelProps = vi.fn()
 
-// Both local engines answer through their host service.
-vi.mock('@/lib/extensions/host', () => ({
-  getExtensionHost: () => ({
-    services: { get: () => ({ getModelProps: mockGetModelProps }) },
-  }),
+// The local engine answers for its own loaded models.
+vi.mock('@/lib/llamacpp', () => ({
+  getLlamacppEngine: () => ({ getModelProps: mockGetModelProps }),
 }))
 
 const modelProviderState = {

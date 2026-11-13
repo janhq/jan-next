@@ -9,8 +9,6 @@
   "experimental": "실험실",
   "claude_code": "Claude Code",
   "https_proxy": "HTTPS 프록시",
-  "extensions": "확장 프로그램",
-  "attachments": "첨부 파일",
   "general": "일반",
   "settings": "설정",
   "modelProviders": "모델 제공자",
@@ -23,7 +21,6 @@
   "interface": "인터페이스",
   "keyboardShortcuts": "단축키",
   "newChat": "새 채팅",
-  "newAgentChat": "새 에이전트 채팅",
   "chats": "채팅",
   "openclawAgent": "OpenClaw 에이전트",
   "favorites": "즐겨찾기",
@@ -331,12 +328,6 @@
     "searchProjects": "프로젝트 검색...",
     "noProjectsFound": "프로젝트를 찾을 수 없습니다",
     "tryDifferentSearch": "다른 검색어를 시도해 보세요"
-  },
-  "attachmentsIngestion": {
-    "title": "첨부 파일 수집 방식 선택",
-    "description": "이 파일들을 채팅에 직접 삽입할지, 아니면 임베딩으로 인덱싱할지 선택하세요.",
-    "inline": "채팅에 삽입",
-    "embeddings": "임베딩 사용"
   },
   "attachmentInjectedIndicator": "채팅에 삽입됨",
   "attachmentEmbeddedIndicator": "RAG용으로 임베딩됨",

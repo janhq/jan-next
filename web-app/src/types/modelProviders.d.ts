@@ -77,12 +77,6 @@ type ProviderObject = {
    * prefers it.
    */
   display_name?: string
-  /**
-   * Set when an extension contributed the provider. Such providers live only
-   * while the extension runs and are never persisted; the extension owns
-   * their key and base URL, so the provider page does not edit them.
-   */
-  source?: { extensionId: string; extensionName: string }
 }
 
 /**

@@ -16,13 +16,16 @@
   "actions": {
     "regenerate": "Regenerate response",
     "askAgain": "Ask again",
-    "continue": "Continue generating",
-    "remember": "Remember this",
-    "rememberSaved": "Saved to memory as \"{{name}}\"",
-    "rememberExists": "Already in memory as \"{{name}}\"",
-    "rememberFailed": "Could not save to memory"
+    "continue": "Continue generating"
   },
   "done": "Done",
+  "starters": {
+    "chat": { "label": "Just chat", "prompt": "Hey! Tell me about your day." },
+    "build": { "label": "Make a file", "prompt": "Make a small HTML page that " },
+    "plan": { "label": "Plan first", "prompt": "Plan this out before changing anything: " }
+  },
+  "generationFailed": "Generation failed",
+  "errorDetails": "Details",
   "webSources": "{{count}} source(s)",
   "reasoning": {
     "label": "Reasoning...",

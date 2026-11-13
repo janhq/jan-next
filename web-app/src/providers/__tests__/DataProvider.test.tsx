@@ -1,5 +1,5 @@
 import { render, waitFor, act } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Stub the build-time define used by DataProvider
 
@@ -11,7 +11,6 @@ const h = vi.hoisted(() => {
     getProviderByName: vi.fn(),
     providers: [] as Array<Record<string, unknown>>,
     setServers: vi.fn(),
-    setSettings: vi.fn(),
     setAssistants: vi.fn(),
     setThreads: vi.fn(),
     setThreadsLoading: vi.fn(),
@@ -62,8 +61,7 @@ vi.mock('@/hooks/useExtensionProviders', () => ({
   useExtensionProviders: vi.fn(),
 }))
 vi.mock('@/hooks/useMCPServers', () => ({
-  useMCPServers: () => ({ setServers: h.setServers, setSettings: h.setSettings }),
-  DEFAULT_MCP_SETTINGS: { foo: 'bar' },
+  useMCPServers: () => ({ setServers: h.setServers }),
 }))
 
 vi.mock('@/hooks/useAssistant', () => ({
@@ -116,7 +114,7 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: (...args: unknown[]) => h.invoke(...args),
 }))
 
-vi.mock('@janhq/core', () => ({
+vi.mock('@/lib/native', () => ({
   HUGGINGFACE_TOKEN_SECRET_KEY: 'huggingface',
   AppEvent: { onModelImported: 'onModelImported' },
   events: {
@@ -140,7 +138,7 @@ const hubState = vi.hoisted(() => ({
   deeplinkOnOpenUrl: vi.fn().mockResolvedValue(vi.fn()),
   eventsListen: vi.fn(),
   getProviders: vi.fn().mockResolvedValue([]),
-  getMCPConfig: vi.fn().mockResolvedValue({ mcpServers: { a: 1 }, mcpSettings: { s: 1 } }),
+  getMCPConfig: vi.fn().mockResolvedValue({ mcpServers: { a: 1 } }),
   getAssistants: vi.fn().mockResolvedValue([]),
   fetchThreads: vi.fn().mockResolvedValue([]),
   getServerStatus: vi.fn().mockResolvedValue(false),
@@ -148,6 +146,13 @@ const hubState = vi.hoisted(() => ({
   startModel: vi.fn().mockResolvedValue(undefined),
   getActiveModels: vi.fn().mockResolvedValue([]),
   startServer: vi.fn().mockResolvedValue(1337),
+}))
+
+vi.mock('@/lib/service', () => ({
+  APIs: {
+    startServer: (...args: unknown[]) => hubState.startServer(...args),
+    stopServer: vi.fn().mockResolvedValue(undefined),
+  },
 }))
 
 vi.mock('@/hooks/useServiceHub', () => {
@@ -188,7 +193,7 @@ import { DataProvider } from '../DataProvider'
 
 const resetHubState = () => {
   hubState.getProviders.mockResolvedValue([])
-  hubState.getMCPConfig.mockResolvedValue({ mcpServers: { a: 1 }, mcpSettings: { s: 1 } })
+  hubState.getMCPConfig.mockResolvedValue({ mcpServers: { a: 1 } })
   hubState.getAssistants.mockResolvedValue([])
   hubState.fetchThreads.mockResolvedValue([])
   hubState.getServerStatus.mockResolvedValue(false)
@@ -200,8 +205,6 @@ const resetHubState = () => {
 }
 
 describe('DataProvider', () => {
-  const originalWindowCore = (window as unknown as { core?: unknown }).core
-
   beforeEach(() => {
     vi.clearAllMocks()
     resetHubState()
@@ -214,13 +217,6 @@ describe('DataProvider', () => {
     h.localApi.enableOnStartup = false
     h.localApi.defaultModelLocalApiServer = null
     h.localApi.lastServerModels = []
-    ;(window as unknown as { core: unknown }).core = {
-      api: { startServer: hubState.startServer },
-    }
-  })
-
-  afterEach(() => {
-    ;(window as unknown as { core?: unknown }).core = originalWindowCore
   })
 
   it('renders null (no DOM output)', () => {
@@ -249,7 +245,6 @@ describe('DataProvider', () => {
         expect.objectContaining({ provider: 'openai' }),
       ])
       expect(h.setServers).toHaveBeenCalledWith({ a: 1 })
-      expect(h.setSettings).toHaveBeenCalledWith({ s: 1 })
       expect(h.setAssistants).toHaveBeenCalledWith([{ id: 'a1' }])
       expect(h.setThreads).toHaveBeenCalledWith([{ id: 't1' }])
     })
@@ -318,12 +313,11 @@ describe('DataProvider', () => {
     }
   })
 
-  it('passes DEFAULT_MCP_SETTINGS when mcp config lacks values', async () => {
+  it('sets empty servers when mcp config lacks values', async () => {
     hubState.getMCPConfig.mockResolvedValue({})
     render(<DataProvider />)
     await waitFor(() => {
       expect(h.setServers).toHaveBeenCalledWith({})
-      expect(h.setSettings).toHaveBeenCalledWith({ foo: 'bar' })
     })
   })
 

@@ -85,7 +85,7 @@ vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => hoisted.navigateMock,
 }))
 
-vi.mock('@janhq/core', () => ({
+vi.mock('@/lib/native', () => ({
   AppEvent: { onModelImported: 'onModelImported' },
   DownloadEvent: { onFileDownloadSuccess: 'onFileDownloadSuccess' },
   events: {

@@ -3,13 +3,12 @@ pub mod core;
 use core::{
     app::commands::get_jan_data_folder_path,
     downloads::models::DownloadManagerState,
-    mcp::models::McpSettings,
-    setup::{self, setup_mcp},
+    setup,
     state::AppState,
 };
 use jan_utils::generate_app_token;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     sync::Arc,
 };
 use tauri::{Emitter, Manager, RunEvent};
@@ -71,13 +70,18 @@ macro_rules! invoke_commands_with_extras {
         core::dsh::commands::dsh_stop,
         core::dsh::commands::dsh_status,
         core::dsh::commands::dsh_check_root,
+        core::dsh::commands::dsh_plugins_list,
+        core::dsh::commands::dsh_plugin_set_enabled,
+        core::dsh::commands::dsh_plugin_set_config,
+        core::dsh::commands::dsh_plugin_install,
+        core::dsh::commands::dsh_plugin_remove,
+        core::dsh::commands::dsh_restart,
+        core::dsh::commands::dsh_thread_workspace,
+        core::dsh::commands::dsh_read_workspace_file,
+        core::dsh::commands::dsh_web_start,
+        core::dsh::commands::dsh_web_status,
+        core::dsh::commands::dsh_web_stop,
         core::server::commands::set_server_run_in_background,
-        // Agent commands
-        core::agent::commands::agent_skill_list,
-        core::agent::commands::agent_skill_read,
-        core::agent::commands::agent_skill_write,
-        core::agent::commands::agent_skill_delete,
-        core::agent::commands::agent_skill_invoke,
         // Remote provider commands
         core::server::remote_provider_commands::register_provider_config,
         core::server::remote_provider_commands::unregister_provider_config,
@@ -85,22 +89,9 @@ macro_rules! invoke_commands_with_extras {
         core::server::remote_provider_commands::get_provider_config,
         core::server::remote_provider_commands::get_provider_keys,
         core::server::remote_provider_commands::list_provider_configs,
-        // MCP commands
-        core::mcp::commands::get_tools,
-        core::mcp::commands::get_tools_for_servers,
-        core::mcp::commands::get_server_summaries,
-        core::mcp::commands::call_tool,
-        core::mcp::commands::cancel_tool_call,
-        core::mcp::commands::restart_mcp_servers,
-        core::mcp::commands::get_connected_servers,
-        core::mcp::commands::save_mcp_configs,
-        core::mcp::commands::get_mcp_configs,
-        core::mcp::commands::activate_mcp_server,
-        core::mcp::commands::deactivate_mcp_server,
-        core::mcp::commands::get_mcp_auth_status,
-        core::mcp::commands::authorize_mcp_server,
-        core::mcp::commands::clear_mcp_auth,
-        core::mcp::commands::check_jan_browser_extension_connected,
+        // MCP server list (mcp_config.json)
+        core::mcp_config::get_mcp_configs,
+        core::mcp_config::save_mcp_configs,
         // Threads
         core::threads::commands::list_threads,
         core::threads::commands::create_thread,
@@ -180,9 +171,6 @@ async fn handle_graceful_exit<R: tauri::Runtime>(
     exit_code: i32,
 ) {
     use std::sync::atomic::Ordering;
-    // Reap any still-running agent bash command trees before we tear down, so
-    // no shell (or child it spawned) outlives the app.
-    tauri_plugin_agent_tools::tools::proc::kill_all();
     let mut emitted = false;
     loop {
         if SHUTTING_DOWN.load(Ordering::SeqCst) {
@@ -224,15 +212,6 @@ async fn handle_graceful_exit<R: tauri::Runtime>(
 }
 
 pub fn run() {
-    // Installed before any plugin: the toolset crate owns no config format, so
-    // the `execute_tool` IPC command can only reach a user's `[[hooks]]`
-    // through a resolver the app hands it. Without this the desktop is the one
-    // surface where a configured hook silently never fires, since the webview
-    // drives its own tool loop and never builds the CLI's invoker.
-    tauri_plugin_agent_tools::tools::hooks::set_resolver(std::sync::Arc::new(|project| {
-        crate::core::agent::hooks_config::resolve_hooks_for(project)
-    }));
-
     let builder = tauri::Builder::default();
     #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_single_instance::init(|_app, argv, _cwd| {
@@ -248,12 +227,7 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_llamacpp::init())
-        .plugin(tauri_plugin_vector_db::init(
-            crate::core::app::paths::vector_db_dir(),
-        ))
-        .plugin(tauri_plugin_rag::init())
-        .plugin(tauri_plugin_agent_tools::init());
+        .plugin(tauri_plugin_llamacpp::init());
 
     #[cfg(feature = "deep-link")]
     {
@@ -264,50 +238,24 @@ pub fn run() {
         app_builder = app_builder.plugin(tauri_plugin_hardware::init());
     }
 
-    #[cfg(feature = "extensions")]
-    {
-        app_builder = app_builder.plugin(tauri_plugin_extensions::init(
-            crate::core::app::paths::extensions_dir,
-        ));
-    }
-
     let app_builder = app_builder.invoke_handler(invoke_commands_with_extras![
     ]);
 
     let app = app_builder
         .manage(AppState {
             app_token: Some(generate_app_token()),
-            mcp_servers: Arc::new(Mutex::new(HashMap::new())),
             download_manager: Arc::new(Mutex::new(DownloadManagerState::default())),
-            mcp_active_servers: Arc::new(Mutex::new(HashMap::new())),
             server_handle: Arc::new(Mutex::new(None)),
-            tool_call_cancellations: Arc::new(Mutex::new(HashMap::new())),
-            mcp_settings: Arc::new(Mutex::new(McpSettings::default())),
-            mcp_shutdown_in_progress: Arc::new(Mutex::new(false)),
-            mcp_monitoring_tasks: Arc::new(Mutex::new(HashMap::new())),
-            mcp_starting: Arc::new(Mutex::new(HashSet::new())),
             background_cleanup_handle: Arc::new(Mutex::new(None)),
-            mcp_server_pids: Arc::new(Mutex::new(HashMap::new())),
             provider_configs: Arc::new(Mutex::new(HashMap::new())),
-            mcp_reconnect_notify: Arc::new(tokio::sync::Notify::new()),
-            mcp_last_known_tools: Arc::new(Mutex::new(HashMap::new())),
             speech: Default::default(),
             dsh: Default::default(),
+            dsh_web: Default::default(),
         })
         .manage(core::filesystem::grants::ReadGrants::with_home(
             dirs::home_dir(),
         ))
         .setup(|app| {
-            // The agent-tools commands take a data folder from the webview; the
-            // sandbox, the mask over settings and keys, and the store all hang
-            // off it, so they use the configured one instead. Installed here,
-            // before the event loop delivers any IPC.
-            {
-                let handle = app.handle().clone();
-                tauri_plugin_agent_tools::workspace::set_data_folder_resolver(Arc::new(
-                    move || get_jan_data_folder_path(handle.clone()),
-                ));
-            }
             app.handle().plugin(
                 tauri_plugin_log::Builder::default()
                     .level(log::LevelFilter::Debug)
@@ -377,11 +325,6 @@ pub fn run() {
                 .expect("Store not initialized");
             let app_version = app.config().version.clone().unwrap_or_default();
 
-            // Migrate MCP servers
-            if let Err(e) = setup::migrate_mcp_servers(app.handle().clone(), store.clone()) {
-                log::error!("Failed to migrate MCP servers: {e}");
-            }
-
             // Store the new app version
             store.set("version", serde_json::json!(app_version));
             store.save().expect("Failed to save store");
@@ -401,7 +344,6 @@ pub fn run() {
                 app.deep_link().register_all()?;
             }
 
-            setup_mcp(app);
             setup::setup_theme_listener(app)?;
             Ok(())
         })

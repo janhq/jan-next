@@ -13,9 +13,6 @@ vi.mock('@/lib/backendStorage', () => ({
     },
   },
 }))
-vi.mock('@/lib/extensions/host', () => ({
-  getExtensionHost: () => ({ list: () => [] }),
-}))
 
 import {
   useImageAttachmentConfig,
@@ -24,7 +21,6 @@ import {
   MIN_MAX_IMAGE_SIZE_MB,
   MAX_MAX_IMAGE_SIZE_MB,
 } from '../useImageAttachmentConfig'
-import { useAttachments } from '../useAttachments'
 import { hydrateBackendStores } from '@/lib/hydrateStores'
 
 describe('useImageAttachmentConfig', () => {
@@ -114,15 +110,6 @@ describe('useImageAttachmentConfig', () => {
     )
     await hydrateBackendStores()
     expect(useImageAttachmentConfig.getState().maxImageSizeMB).toBe(33)
-  })
-
-  it('is independent of the document limit', () => {
-    const docBefore = useAttachments.getState().maxFileSizeMB
-    useImageAttachmentConfig.getState().setMaxImageSizeMB(60)
-    expect(useAttachments.getState().maxFileSizeMB).toBe(docBefore)
-    useAttachments.setState({ maxFileSizeMB: 150 })
-    expect(useImageAttachmentConfig.getState().maxImageSizeMB).toBe(60)
-    useAttachments.setState({ maxFileSizeMB: docBefore })
   })
 
   it('treats null and an empty string as non-numeric, not as 0', () => {

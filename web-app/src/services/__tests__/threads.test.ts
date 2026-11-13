@@ -1,20 +1,18 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { DefaultThreadsService } from '../threads/default'
 import { TEMPORARY_CHAT_ID } from '@/constants/chat'
 
-// The service calls the backend routes on window.core.api directly; no
-// extension has to be registered for threads to work.
-const api = {
+const api = vi.hoisted(() => ({
   listThreads: vi.fn(),
   createThread: vi.fn(),
   modifyThread: vi.fn(),
   deleteThread: vi.fn(),
-}
+}))
+vi.mock('@/lib/service', () => ({ APIs: api }))
 
 describe('DefaultThreadsService', () => {
   let threadsService: DefaultThreadsService
 
-  const originalCore = window.core
   // The routes take the thread wrapped as `{ thread }`.
   const sentThread = (route: ReturnType<typeof vi.fn>) =>
     route.mock.calls[0][0].thread
@@ -22,11 +20,6 @@ describe('DefaultThreadsService', () => {
   beforeEach(() => {
     threadsService = new DefaultThreadsService()
     vi.clearAllMocks()
-    window.core = { api } as unknown as typeof window.core
-  })
-
-  afterEach(() => {
-    window.core = originalCore
   })
 
   describe('fetchThreads', () => {
@@ -259,20 +252,6 @@ describe('DefaultThreadsService', () => {
       await expect(threadsService.fetchThreads()).rejects.toThrow(
         'invoke failed'
       )
-    })
-
-    it('should return the input thread when the backend is unavailable', async () => {
-      window.core = undefined
-
-      const inputThread = {
-        id: '1',
-        title: 'Test Thread',
-        model: { id: 'gpt-4', provider: 'openai' },
-      }
-
-      const result = await threadsService.createThread(inputThread as Thread)
-
-      expect(result).toEqual(inputThread)
     })
 
     it('should not touch the backend for the temporary thread', async () => {

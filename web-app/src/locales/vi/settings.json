@@ -231,9 +231,6 @@
     "huggingfaceToken": "Token HuggingFace",
     "huggingfaceTokenDesc": "Token API HuggingFace của bạn để truy cập các mô hình."
   },
-  "extensions": {
-    "title": "Tiện ích mở rộng"
-  },
   "dialogs": {
     "changeDataFolder": {
       "title": "Thay đổi vị trí thư mục dữ liệu",

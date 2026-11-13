@@ -3,7 +3,8 @@
  */
 
 import type { Thread as StoredThread } from '@janhq/core'
-import { Emitter } from '@janhq/extension-api'
+import { APIs } from '@/lib/service'
+import { Emitter } from '@/lib/emitter'
 import type { ThreadsService } from './types'
 import { TEMPORARY_CHAT_ID } from '@/constants/chat'
 
@@ -30,7 +31,7 @@ export class DefaultThreadsService implements ThreadsService {
     // ready / errored", not "no threads", so the caller retries instead of
     // wiping the list with [].
     const threads: StoredThread[] | null | undefined =
-      await window.core?.api?.listThreads()
+      await APIs.listThreads()
     if (!Array.isArray(threads)) return []
 
     // new String("id") !== "id"
@@ -85,7 +86,7 @@ export class DefaultThreadsService implements ThreadsService {
       : [{ id: 'model-only', name: 'Model', model: modelPayload }]
 
     return (
-      window.core?.api
+      APIs
         ?.createThread({
           thread: {
             ...thread,
@@ -119,7 +120,7 @@ export class DefaultThreadsService implements ThreadsService {
       return
     }
 
-    await window.core?.api?.modifyThread({
+    await APIs.modifyThread({
       thread: {
         ...thread,
         assistants: thread.assistants?.map((e) => ({
@@ -146,9 +147,7 @@ export class DefaultThreadsService implements ThreadsService {
       return
     }
 
-    const api = window.core?.api
-    if (!api) return
-    await api.deleteThread({ threadId })
+    await APIs.deleteThread({ threadId })
     this.deleted.fire({ threadId })
   }
 }

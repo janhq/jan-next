@@ -1,7 +1,7 @@
-import { generateText } from 'ai'
-import { ModelFactory } from './model-factory'
+import { fetch as httpFetch } from '@tauri-apps/plugin-http'
 import { useModelProvider } from '@/hooks/useModelProvider'
-import type { ModelSelection } from './custom-chat-transport'
+import { resolveEndpoint, type ModelSelection } from './dsh-chat-transport'
+import { isLoopbackUrl, loopbackFetch } from './loopback-fetch'
 import { BACKGROUND_THREAD_ID, CHAT_SLOT_ID } from '@/constants/models'
 
 const MAX_TITLE_WORDS = 10
@@ -68,54 +68,40 @@ export async function generateThreadTitle(
   modelSelection?: ModelSelection
 ): Promise<string | null> {
   try {
-    const { getProviderByName } = useModelProvider.getState()
-    const { selectedModel, selectedProvider } =
-      modelSelection ?? useModelProvider.getState()
-    if (!selectedModel || !selectedProvider) {
-      console.warn('[ThreadTitle] No model/provider selected')
-      return null
+    const selection = modelSelection ?? useModelProvider.getState()
+    if (!selection.selectedModel || !selection.selectedProvider) return null
+    const endpoint = await resolveEndpoint(selection, BACKGROUND_THREAD_ID)
+    const body: Record<string, unknown> = {
+      model: endpoint.model,
+      messages: [{ role: 'user', content: buildSummarizePrompt(transcript) }],
+      max_tokens: 128,
+      stream: false,
     }
-
-
-    const provider = getProviderByName(selectedProvider)
-    if (!provider) {
-      console.warn('[ThreadTitle] Provider not found:', selectedProvider)
-      return null
-    }
-
-    console.log('[ThreadTitle] Creating model:', selectedModel.id, 'provider:', selectedProvider)
     // Slot 0 like every other surface, but under its own thread identity: the
     // engine parks the chat's KV prefix before this call takes the slot and
-    // restores it on the next chat turn. Sending no thread_id would overwrite
-    // that prefix with nothing saved, and pinning a higher slot is unsafe --
-    // upstream wraps an out-of-range id_slot modulo the slot count instead of
-    // rejecting it, so it would land back on slot 0 anyway.
-    const params: Record<string, unknown> = {}
-    if (selectedProvider === 'llamacpp') {
-      params.chat_template_kwargs = { enable_thinking: false }
-      params.id_slot = CHAT_SLOT_ID
-      params.thread_id = BACKGROUND_THREAD_ID
+    // restores it on the next chat turn.
+    if (selection.selectedProvider === 'llamacpp') {
+      body.chat_template_kwargs = { enable_thinking: false }
+      body.id_slot = CHAT_SLOT_ID
+      body.thread_id = BACKGROUND_THREAD_ID
     }
-    const model = await ModelFactory.createModel(
-      selectedModel.id,
-      provider,
-      params
-    )
-
-    console.log('[ThreadTitle] Calling generateText...')
-    const { text } = await generateText({
-      model,
-      messages: [{ role: 'user', content: buildSummarizePrompt(transcript) }],
-      maxOutputTokens: 128,
-      abortSignal,
+    const send = isLoopbackUrl(endpoint.baseUrl) ? loopbackFetch : httpFetch
+    const res = await send(`${endpoint.baseUrl.replace(/\/$/, '')}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(endpoint.apiKey ? { Authorization: `Bearer ${endpoint.apiKey}` } : {}),
+      },
+      body: JSON.stringify(body),
+      signal: abortSignal,
     })
-
-    console.log('[ThreadTitle] Raw response:', JSON.stringify(text))
-    const cleaned = cleanTitle(text)
-    console.log('[ThreadTitle] Cleaned title:', cleaned)
-    return cleaned
+    if (!res.ok) return null
+    const json = (await res.json()) as {
+      choices?: { message?: { content?: string } }[]
+    }
+    return cleanTitle(json.choices?.[0]?.message?.content ?? '')
   } catch (error) {
-    // Silently swallow abort errors — this is expected when the user sends a new message
+    // Expected when the user sends a new message mid-summary.
     if ((error as Error).name === 'AbortError') return null
     console.error('[ThreadTitle] Failed to generate title:', error)
     return null

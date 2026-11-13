@@ -17,7 +17,6 @@ import {
 } from '@tabler/icons-react'
 import {
   MCPServerConfig,
-  isReservedServerName,
 } from '@/hooks/useMCPServers'
 import { useTranslation } from '@/i18n/react-i18next-compat'
 import {
@@ -131,7 +130,6 @@ export default function AddEditMCPServer({
   const [url, setUrl] = useState('')
   const [headerKeys, setHeaderKeys] = useState<string[]>([''])
   const [headerValues, setHeaderValues] = useState<string[]>([''])
-  const [timeout, setTimeout] = useState('')
   const [isToggled, setIsToggled] = useState(false)
   const [jsonContent, setJsonContent] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -142,7 +140,6 @@ export default function AddEditMCPServer({
       setServerName(editingKey)
       setCommand(initialData.command || '')
       setUrl(initialData.url || '')
-      setTimeout(initialData.timeout ? initialData.timeout.toString() : '')
       setArgs(initialData.args?.length > 0 ? initialData.args : [''])
       setTransportType(initialData?.type || 'stdio')
 
@@ -183,7 +180,6 @@ export default function AddEditMCPServer({
     setServerName('')
     setCommand('')
     setUrl('')
-    setTimeout('')
     setArgs([''])
     setEnvKeys([''])
     setEnvValues([''])
@@ -301,10 +297,6 @@ export default function AddEditMCPServer({
             setError(t('mcp-servers:editJson.errorServerName'))
             return
           }
-          if (isReservedServerName(trimmedServerName)) {
-            setError(t('mcp-servers:editJson.errorReservedServerName'))
-            return
-          }
 
           // Validate the config object
           const serverConfig = config as MCPServerConfig
@@ -336,10 +328,6 @@ export default function AddEditMCPServer({
     }
 
     // Handle form mode
-    if (isReservedServerName(serverName)) {
-      setError(t('mcp-servers:editJson.errorReservedServerName'))
-      return
-    }
     // Convert env arrays to object
     const envObj: Record<string, string> = {}
     envKeys.forEach((key, index) => {
@@ -370,7 +358,6 @@ export default function AddEditMCPServer({
       ...(transportType !== 'stdio' && {
         url: url.trim(),
         headers: Object.keys(headersObj).length > 0 ? headersObj : undefined,
-        timeout: timeout.trim() !== '' ? parseInt(timeout) : undefined,
       }),
     }
 
@@ -660,18 +647,6 @@ export default function AddEditMCPServer({
                       )}
                     </div>
                   ))}
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm mb-2 inline-block">
-                    Timeout (seconds)
-                  </label>
-                  <Input
-                    value={timeout}
-                    onChange={(e) => setTimeout(e.target.value)}
-                    placeholder="Enter timeout in seconds"
-                    type="number"
-                  />
                 </div>
               </>
             )}

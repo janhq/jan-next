@@ -1,7 +1,5 @@
 import { create } from 'zustand'
 import { ThreadMessage } from '@janhq/core'
-import { MCPTool } from '@/types/completion'
-import type { ExtensionTool } from '@/lib/extensions/tools'
 
 export type PromptProgress = {
   cache: number
@@ -33,11 +31,6 @@ type AppErrorMessage = {
 type AppState = {
   streamingContent?: ThreadMessage
   loadingModel?: boolean
-  tools: MCPTool[]
-  ragToolNames: Set<string>
-  mcpToolNames: Set<string>
-  /** Tools contributed by extensions, under their wire names. */
-  extensionTools: ExtensionTool[]
   serverStatus: 'running' | 'stopped' | 'pending'
   abortControllers: Record<string, AbortController>
   showOutOfContextDialog?: boolean
@@ -67,10 +60,6 @@ type AppState = {
   setServerStatus: (value: 'running' | 'stopped' | 'pending') => void
   updateStreamingContent: (content: ThreadMessage | undefined) => void
   updateLoadingModel: (loading: boolean) => void
-  updateTools: (tools: MCPTool[]) => void
-  updateRagToolNames: (names: string[]) => void
-  updateMcpToolNames: (names: string[]) => void
-  updateExtensionTools: (tools: ExtensionTool[]) => void
   setAbortController: (threadId: string, controller: AbortController) => void
   clearAppState: () => void
   setOutOfContextDialog: (show: boolean) => void
@@ -116,10 +105,6 @@ type AppState = {
 export const useAppState = create<AppState>()((set) => ({
   streamingContent: undefined,
   loadingModel: false,
-  tools: [],
-  ragToolNames: new Set<string>(),
-  mcpToolNames: new Set<string>(),
-  extensionTools: [],
   serverStatus: 'stopped',
   abortControllers: {},
   promptProgress: undefined,
@@ -165,18 +150,6 @@ export const useAppState = create<AppState>()((set) => ({
   },
   updateLoadingModel: (loading) => {
     set({ loadingModel: loading })
-  },
-  updateTools: (tools) => {
-    set({ tools })
-  },
-  updateRagToolNames: (names) => {
-    set({ ragToolNames: new Set(names) })
-  },
-  updateMcpToolNames: (names) => {
-    set({ mcpToolNames: new Set(names) })
-  },
-  updateExtensionTools: (tools) => {
-    set({ extensionTools: tools })
   },
   setServerStatus: (value) => set({ serverStatus: value }),
   setAbortController: (threadId, controller) => {

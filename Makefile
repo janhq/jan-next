@@ -1,6 +1,6 @@
 # open-waifu (macOS and Windows)
 #
-#   make dev        install, build core/extensions, try the engine, launch the app
+#   make dev        install, build core, try the engine, launch the app
 #   make build      production build
 #   make test       lint, vitest and the Rust tests
 #   make clean      delete build output and caches
@@ -34,7 +34,6 @@ install:
 	yarn install
 	yarn build:tauri:plugin:api
 	yarn build:core
-	yarn build:extensions
 
 dev: install
 	yarn download:bin
@@ -72,11 +71,9 @@ stub-resources:
 test-rust: stub-resources
 	cargo test --locked --manifest-path src-tauri/Cargo.toml --no-default-features --features test-tauri -- --test-threads=1
 	cargo test --manifest-path src-tauri/plugins/tauri-plugin-hardware/Cargo.toml
-	cargo test --manifest-path src-tauri/plugins/tauri-plugin-extensions/Cargo.toml
 	cargo test --manifest-path src-tauri/plugins/tauri-plugin-llamacpp/Cargo.toml
 	cargo test --manifest-path src-tauri/utils/Cargo.toml
 	# Plugin and utils lockfiles are gitignored, so only the main crate is --locked.
-	cargo test --manifest-path src-tauri/plugins/tauri-plugin-agent-tools/Cargo.toml --no-default-features --lib --test sandbox_spawn
 
 # ---------------------------------------------------------------------------
 # llama.cpp engine worker
@@ -181,9 +178,9 @@ clean:
 ifeq ($(DETECTED_OS),Windows)
 	-powershell -Command "Get-ChildItem -Path . -Include node_modules, dist, build, out, .turbo -Recurse -Directory | Remove-Item -Recurse -Force"
 	-powershell -Command "Get-ChildItem -Path . -Include tsconfig.tsbuildinfo -Recurse -File | Remove-Item -Force"
-	-powershell -Command "Remove-Item -Recurse -Force ./core/*.tgz, ./extensions/*/*.tgz, ./src-tauri/resources, ./src-tauri/target, '$(ENGINE_SRC_DIR)' -ErrorAction SilentlyContinue"
+	-powershell -Command "Remove-Item -Recurse -Force ./core/*.tgz, ./src-tauri/resources, ./src-tauri/target, '$(ENGINE_SRC_DIR)' -ErrorAction SilentlyContinue"
 else
-	rm -rf $(ENGINE_SRC_DIR) ./src-tauri/resources ./src-tauri/target ./core/*.tgz ./extensions/*/*.tgz
+	rm -rf $(ENGINE_SRC_DIR) ./src-tauri/resources ./src-tauri/target ./core/*.tgz
 	find . -name node_modules -type d -prune -exec rm -rf '{}' +
 	find . \( -name dist -o -name build -o -name out -o -name .turbo \) -type d -prune -exec rm -rf '{}' +
 	find . -name tsconfig.tsbuildinfo -type f -delete

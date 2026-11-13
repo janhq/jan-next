@@ -25,7 +25,6 @@ describe('useAppState', () => {
 
     expect(result.current.streamingContent).toBeUndefined()
     expect(result.current.loadingModel).toBe(false)
-    expect(result.current.tools).toEqual([])
     expect(result.current.serverStatus).toBe('stopped')
     expect(result.current.abortControllers).toEqual({})
     expect(result.current.currentToolCall).toBeUndefined()
@@ -62,21 +61,6 @@ describe('useAppState', () => {
     })
 
     expect(result.current.loadingModel).toBe(false)
-  })
-
-  it('should update tools', () => {
-    const { result } = renderHook(() => useAppState())
-
-    const tools = [
-      { name: 'tool1', description: 'First tool' },
-      { name: 'tool2', description: 'Second tool' }
-    ]
-
-    act(() => {
-      result.current.updateTools(tools)
-    })
-
-    expect(result.current.tools).toEqual(tools)
   })
 
   it('should update server status', () => {

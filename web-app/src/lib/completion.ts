@@ -1,10 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import {
-  ContentType,
-  ChatCompletionRole,
-  ThreadMessage,
-  MessageStatus,
-} from '@janhq/core'
+import { ContentType, ChatCompletionRole, ThreadMessage, MessageStatus } from '@janhq/core'
 import { ulid } from 'ulidx'
 import { Attachment } from '@/types/attachment'
 import { injectFilesIntoPrompt } from './fileMetadata'

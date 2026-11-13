@@ -1,4 +1,5 @@
 {
+  "addImages": "Add images",
   "htmlArtifact": {
     "code": "Code",
     "preview": "Preview",
@@ -21,8 +22,7 @@
   "moreControls": "More controls",
   "starting": "Starting...",
   "activeSuffix": " (Active)",
-  "extensions": "Extensions",
-  "attachments": "Attachments",
+  "plugins": "Plugins",
   "general": "General",
   "settings": "Settings",
   "modelProviders": "Model Providers",
@@ -90,11 +90,10 @@
   "deleteSessionTitle": "Delete session?",
   "deleteSessionBody": "\"{{title}}\" and its transcript will be permanently deleted. This can't be undone.",
   "newChat": "New Chat",
-  "newAgentChat": "New Agent Chat",
   "chats": "Chats",
   "favorites": "Favorites",
   "recents": "Recents",
-  "hub": "Hub",
+  "hub": "Model Hub",
   "pluginManager": "Plugin manager",
   "helpSupport": "Help & Support",
   "unstarAll": "Unstar All",
@@ -413,7 +412,7 @@
   },
   "projects": {
     "title": "Projects",
-    "new": "New Projects",
+    "new": "New project",
     "addProject": "Add Project",
     "addToProject": "Add to project",
     "removeFromProject": "Remove from project",
@@ -479,12 +478,6 @@
     "searchProjects": "Search projects...",
     "noProjectsFound": "No projects found",
     "tryDifferentSearch": "Try a different search term"
-  },
-  "attachmentsIngestion": {
-    "title": "Choose how to ingest attachments",
-    "description": "Choose whether to include these files directly in the chat or index them as embeddings instead.",
-    "inline": "Inject into chat",
-    "embeddings": "Use embeddings"
   },
   "attachmentInjectedIndicator": "Injected into chat",
   "attachmentEmbeddedIndicator": "Embedded for RAG",

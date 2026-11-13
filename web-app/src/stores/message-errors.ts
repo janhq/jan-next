@@ -19,7 +19,10 @@ type MessageErrorsState = {
   setReport: (messageId: string, report: string, model?: string) => void
   clearError: (messageId: string) => void
   clearAll: () => void
-  hydrate: (entries: Record<string, string>) => void
+  hydrate: (
+    entries: Record<string, string>,
+    reports?: Record<string, LoadReport>
+  ) => void
 }
 
 export const useMessageErrors = create<MessageErrorsState>()((set) => ({
@@ -49,5 +52,5 @@ export const useMessageErrors = create<MessageErrorsState>()((set) => ({
       return { errors: rest, reports }
     }),
   clearAll: () => set({ errors: {}, reports: {} }),
-  hydrate: (entries) => set({ errors: entries, reports: {} }),
+  hydrate: (entries, reports = {}) => set({ errors: entries, reports }),
 }))

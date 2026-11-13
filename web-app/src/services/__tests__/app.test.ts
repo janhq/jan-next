@@ -6,23 +6,18 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
 }))
 
-// Mock EngineManager
-vi.mock('@janhq/core', async (importOriginal) => {
-  const actual = await importOriginal()
-  return {
-    ...actual,
-    EngineManager: {
-      instance: () => ({
-        engines: new Map([
-          ['engine1', {
-            getLoadedModels: vi.fn().mockResolvedValue(['model1', 'model2']),
-            unload: vi.fn().mockResolvedValue(undefined),
-          }],
-        ]),
-      }),
-    },
-  }
-})
+// Mock the local engines
+vi.mock('@/lib/llamacpp', () => ({
+  listLocalEngines: () => [
+    [
+      'engine1',
+      {
+        getLoadedModels: vi.fn().mockResolvedValue(['model1', 'model2']),
+        unload: vi.fn().mockResolvedValue(undefined),
+      },
+    ],
+  ],
+}))
 
 vi.mock('@tauri-apps/api/event', () => ({
   emit: vi.fn(),
@@ -33,24 +28,19 @@ vi.mock('../models', () => ({
 }))
 
 // Mock the global window object
+const mockApis = vi.hoisted(() => ({
+  relaunch: vi.fn(),
+  getAppConfigurations: vi.fn(),
+  changeAppDataFolder: vi.fn(),
+}))
+vi.mock('@/lib/service', () => ({ APIs: mockApis }))
+
 const mockWindow = {
-  core: {
-    api: {
-      relaunch: vi.fn(),
-      getAppConfigurations: vi.fn(),
-      changeAppDataFolder: vi.fn(),
-    },
-  },
   localStorage: {
     clear: vi.fn(),
     removeItem: vi.fn(),
   },
 }
-
-Object.defineProperty(window, 'core', {
-  value: mockWindow.core,
-  writable: true,
-})
 
 Object.defineProperty(window, 'localStorage', {
   value: mockWindow.localStorage,
@@ -117,11 +107,11 @@ describe('TauriAppService', () => {
   describe('getJanDataFolder', () => {
     it('should get jan data folder path', async () => {
       const mockConfig = { data_folder: '/path/to/jan/data' }
-      mockWindow.core.api.getAppConfigurations.mockResolvedValue(mockConfig)
+      mockApis.getAppConfigurations.mockResolvedValue(mockConfig)
 
       const result = await appService.getJanDataFolder()
 
-      expect(mockWindow.core.api.getAppConfigurations).toHaveBeenCalled()
+      expect(mockApis.getAppConfigurations).toHaveBeenCalled()
       expect(result).toBe('/path/to/jan/data')
     })
   })
@@ -129,11 +119,11 @@ describe('TauriAppService', () => {
   describe('relocateJanDataFolder', () => {
     it('should relocate jan data folder', async () => {
       const newPath = '/new/path/to/jan/data'
-      mockWindow.core.api.changeAppDataFolder.mockResolvedValue(undefined)
+      mockApis.changeAppDataFolder.mockResolvedValue(undefined)
 
       await appService.relocateJanDataFolder(newPath)
 
-      expect(mockWindow.core.api.changeAppDataFolder).toHaveBeenCalledWith({
+      expect(mockApis.changeAppDataFolder).toHaveBeenCalledWith({
         newDataFolder: newPath,
       })
     })

@@ -2,7 +2,8 @@
  * Tauri Providers Service - Desktop implementation
  */
 
-import { EngineManager, SettingComponentProps } from '@janhq/core'
+import type { SettingComponentProps } from '@janhq/core'
+import { listLocalEngines, getLocalEngine, startLlamacppEngine } from '@/lib/llamacpp'
 import { ModelCapabilities } from '@/types/models'
 import { modelSettings } from '@/lib/predefined'
 import { fetch as fetchTauri } from '@tauri-apps/plugin-http'
@@ -13,7 +14,6 @@ import {
   providerRemoteApiKeyChain,
 } from '@/lib/provider-api-keys'
 import { toProviderUnreachable } from '@/lib/provider-unreachable'
-import { extensionProviderFetch } from '@/lib/extensions/providers'
 
 export class TauriProvidersService extends DefaultProvidersService {
   fetch(): typeof fetch {
@@ -24,7 +24,8 @@ export class TauriProvidersService extends DefaultProvidersService {
   async getProviders(): Promise<ModelProvider[]> {
     try {
       const runtimeProviders: ModelProvider[] = []
-      for (const [providerName, value] of EngineManager.instance().engines) {
+      await startLlamacppEngine()
+      for (const [providerName, value] of listLocalEngines()) {
         const models = await value.list() ?? []
         const provider: ModelProvider = {
           active: false,
@@ -122,10 +123,7 @@ export class TauriProvidersService extends DefaultProvidersService {
     }
 
     try {
-      // A contributed provider is reached only on its extension's checked
-      // network path, and never presents itself as the app.
-      const extensionFetch = extensionProviderFetch(provider, 'whole')
-      const fetchImpl: typeof globalThis.fetch = extensionFetch ?? fetchTauri
+      const fetchImpl: typeof globalThis.fetch = fetchTauri
       const keyChain = providerRemoteApiKeyChain(provider)
       const keyAttempts: (string | undefined)[] =
         keyChain.length > 0 ? keyChain : [undefined]
@@ -140,9 +138,8 @@ export class TauriProvidersService extends DefaultProvidersService {
         }
 
         if (
-          !extensionFetch &&
-          (provider.base_url.includes('localhost:') ||
-            provider.base_url.includes('127.0.0.1:'))
+          provider.base_url.includes('localhost:') ||
+          provider.base_url.includes('127.0.0.1:')
         ) {
           headers['Origin'] = 'tauri://localhost'
         }
@@ -277,8 +274,7 @@ export class TauriProvidersService extends DefaultProvidersService {
       // Blank the key entries at this single chokepoint regardless of caller.
       const isSecretKey = (key: string) =>
         key === 'api-key' || key === API_KEY_FALLBACKS_SETTING_KEY
-      return EngineManager.instance()
-        .get(providerName)
+      return getLocalEngine(providerName)
         ?.updateSettings(
           settings.map((setting) => ({
             ...setting,

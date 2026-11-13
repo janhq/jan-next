@@ -6,12 +6,11 @@ import { InterfaceProvider } from '@/providers/InterfaceProvider'
 import { KeyboardShortcutsProvider } from '@/providers/KeyboardShortcuts'
 import { DataProvider } from '@/providers/DataProvider'
 import { route } from '@/constants/routes'
-import { ExtensionProvider } from '@/providers/ExtensionProvider'
+import { BootProvider } from '@/providers/BootProvider'
 import { ToasterProvider } from '@/providers/ToasterProvider'
 import { useLeftPanel } from '@/hooks/useLeftPanel'
 import { TranslationProvider } from '@/i18n/TranslationContext'
 import OutOfContextPromiseModal from '@/containers/dialogs/OutOfContextDialog'
-import AttachmentIngestionDialog from '@/containers/dialogs/AttachmentIngestionDialog'
 import GlobalError from '@/containers/GlobalError'
 import { GlobalEventHandler } from '@/providers/GlobalEventHandler'
 import { DownloadEventListener } from '@/providers/DownloadEventListener'
@@ -103,13 +102,12 @@ function RootLayout() {
         <InterfaceProvider />
         <ToasterProvider />
         <TranslationProvider>
-          <ExtensionProvider>
+          <BootProvider>
             <DataProvider />
             <GlobalEventHandler />
             <DownloadEventListener />
             {IS_LOGS_ROUTE ? <LogsLayout /> : <AppLayout />}
-          </ExtensionProvider>
-          <AttachmentIngestionDialog />
+          </BootProvider>
           <ErrorDialog />
           <LlamacppBusyOnExitDialog />
           <LlamacppOomListener />

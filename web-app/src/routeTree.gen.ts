@@ -16,6 +16,7 @@ import { Route as HubIndexRouteImport } from './routes/hub/index'
 import { Route as ThreadsThreadIdRouteImport } from './routes/threads/$threadId'
 import { Route as SettingsVoiceRouteImport } from './routes/settings/voice'
 import { Route as SettingsShortcutsRouteImport } from './routes/settings/shortcuts'
+import { Route as SettingsPluginsRouteImport } from './routes/settings/plugins'
 import { Route as SettingsMcpServersRouteImport } from './routes/settings/mcp-servers'
 import { Route as SettingsLocalApiServerRouteImport } from './routes/settings/local-api-server'
 import { Route as SettingsInterfaceRouteImport } from './routes/settings/interface'
@@ -23,15 +24,12 @@ import { Route as SettingsHttpsProxyRouteImport } from './routes/settings/https-
 import { Route as SettingsHardwareRouteImport } from './routes/settings/hardware'
 import { Route as SettingsGeneralRouteImport } from './routes/settings/general'
 import { Route as SettingsDshRouteImport } from './routes/settings/dsh'
-import { Route as SettingsAttachmentsRouteImport } from './routes/settings/attachments'
 import { Route as SettingsAssistantRouteImport } from './routes/settings/assistant'
 import { Route as ProjectProjectIdRouteImport } from './routes/project/$projectId'
 import { Route as LocalApiServerLogsRouteImport } from './routes/local-api-server/logs'
 import { Route as HubModelIdRouteImport } from './routes/hub/$modelId'
 import { Route as SettingsProvidersIndexRouteImport } from './routes/settings/providers/index'
-import { Route as SettingsExtensionsIndexRouteImport } from './routes/settings/extensions/index'
 import { Route as SettingsProvidersProviderNameRouteImport } from './routes/settings/providers/$providerName'
-import { Route as SettingsExtensionsExtensionIdRouteImport } from './routes/settings/extensions/$extensionId'
 
 const SystemMonitorRoute = SystemMonitorRouteImport.update({
   id: '/system-monitor',
@@ -66,6 +64,11 @@ const SettingsVoiceRoute = SettingsVoiceRouteImport.update({
 const SettingsShortcutsRoute = SettingsShortcutsRouteImport.update({
   id: '/settings/shortcuts',
   path: '/settings/shortcuts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsPluginsRoute = SettingsPluginsRouteImport.update({
+  id: '/settings/plugins',
+  path: '/settings/plugins',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsMcpServersRoute = SettingsMcpServersRouteImport.update({
@@ -103,11 +106,6 @@ const SettingsDshRoute = SettingsDshRouteImport.update({
   path: '/settings/dsh',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsAttachmentsRoute = SettingsAttachmentsRouteImport.update({
-  id: '/settings/attachments',
-  path: '/settings/attachments',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SettingsAssistantRoute = SettingsAssistantRouteImport.update({
   id: '/settings/assistant',
   path: '/settings/assistant',
@@ -133,21 +131,10 @@ const SettingsProvidersIndexRoute = SettingsProvidersIndexRouteImport.update({
   path: '/settings/providers/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsExtensionsIndexRoute = SettingsExtensionsIndexRouteImport.update({
-  id: '/settings/extensions/',
-  path: '/settings/extensions/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SettingsProvidersProviderNameRoute =
   SettingsProvidersProviderNameRouteImport.update({
     id: '/settings/providers/$providerName',
     path: '/settings/providers/$providerName',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const SettingsExtensionsExtensionIdRoute =
-  SettingsExtensionsExtensionIdRouteImport.update({
-    id: '/settings/extensions/$extensionId',
-    path: '/settings/extensions/$extensionId',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -159,7 +146,6 @@ export interface FileRoutesByFullPath {
   '/local-api-server/logs': typeof LocalApiServerLogsRoute
   '/project/$projectId': typeof ProjectProjectIdRoute
   '/settings/assistant': typeof SettingsAssistantRoute
-  '/settings/attachments': typeof SettingsAttachmentsRoute
   '/settings/dsh': typeof SettingsDshRoute
   '/settings/general': typeof SettingsGeneralRoute
   '/settings/hardware': typeof SettingsHardwareRoute
@@ -167,13 +153,12 @@ export interface FileRoutesByFullPath {
   '/settings/interface': typeof SettingsInterfaceRoute
   '/settings/local-api-server': typeof SettingsLocalApiServerRoute
   '/settings/mcp-servers': typeof SettingsMcpServersRoute
+  '/settings/plugins': typeof SettingsPluginsRoute
   '/settings/shortcuts': typeof SettingsShortcutsRoute
   '/settings/voice': typeof SettingsVoiceRoute
   '/threads/$threadId': typeof ThreadsThreadIdRoute
   '/hub/': typeof HubIndexRoute
-  '/settings/extensions/$extensionId': typeof SettingsExtensionsExtensionIdRoute
   '/settings/providers/$providerName': typeof SettingsProvidersProviderNameRoute
-  '/settings/extensions/': typeof SettingsExtensionsIndexRoute
   '/settings/providers/': typeof SettingsProvidersIndexRoute
 }
 export interface FileRoutesByTo {
@@ -184,7 +169,6 @@ export interface FileRoutesByTo {
   '/local-api-server/logs': typeof LocalApiServerLogsRoute
   '/project/$projectId': typeof ProjectProjectIdRoute
   '/settings/assistant': typeof SettingsAssistantRoute
-  '/settings/attachments': typeof SettingsAttachmentsRoute
   '/settings/dsh': typeof SettingsDshRoute
   '/settings/general': typeof SettingsGeneralRoute
   '/settings/hardware': typeof SettingsHardwareRoute
@@ -192,13 +176,12 @@ export interface FileRoutesByTo {
   '/settings/interface': typeof SettingsInterfaceRoute
   '/settings/local-api-server': typeof SettingsLocalApiServerRoute
   '/settings/mcp-servers': typeof SettingsMcpServersRoute
+  '/settings/plugins': typeof SettingsPluginsRoute
   '/settings/shortcuts': typeof SettingsShortcutsRoute
   '/settings/voice': typeof SettingsVoiceRoute
   '/threads/$threadId': typeof ThreadsThreadIdRoute
   '/hub': typeof HubIndexRoute
-  '/settings/extensions/$extensionId': typeof SettingsExtensionsExtensionIdRoute
   '/settings/providers/$providerName': typeof SettingsProvidersProviderNameRoute
-  '/settings/extensions': typeof SettingsExtensionsIndexRoute
   '/settings/providers': typeof SettingsProvidersIndexRoute
 }
 export interface FileRoutesById {
@@ -210,7 +193,6 @@ export interface FileRoutesById {
   '/local-api-server/logs': typeof LocalApiServerLogsRoute
   '/project/$projectId': typeof ProjectProjectIdRoute
   '/settings/assistant': typeof SettingsAssistantRoute
-  '/settings/attachments': typeof SettingsAttachmentsRoute
   '/settings/dsh': typeof SettingsDshRoute
   '/settings/general': typeof SettingsGeneralRoute
   '/settings/hardware': typeof SettingsHardwareRoute
@@ -218,13 +200,12 @@ export interface FileRoutesById {
   '/settings/interface': typeof SettingsInterfaceRoute
   '/settings/local-api-server': typeof SettingsLocalApiServerRoute
   '/settings/mcp-servers': typeof SettingsMcpServersRoute
+  '/settings/plugins': typeof SettingsPluginsRoute
   '/settings/shortcuts': typeof SettingsShortcutsRoute
   '/settings/voice': typeof SettingsVoiceRoute
   '/threads/$threadId': typeof ThreadsThreadIdRoute
   '/hub/': typeof HubIndexRoute
-  '/settings/extensions/$extensionId': typeof SettingsExtensionsExtensionIdRoute
   '/settings/providers/$providerName': typeof SettingsProvidersProviderNameRoute
-  '/settings/extensions/': typeof SettingsExtensionsIndexRoute
   '/settings/providers/': typeof SettingsProvidersIndexRoute
 }
 export interface FileRouteTypes {
@@ -237,7 +218,6 @@ export interface FileRouteTypes {
     | '/local-api-server/logs'
     | '/project/$projectId'
     | '/settings/assistant'
-    | '/settings/attachments'
     | '/settings/dsh'
     | '/settings/general'
     | '/settings/hardware'
@@ -245,13 +225,12 @@ export interface FileRouteTypes {
     | '/settings/interface'
     | '/settings/local-api-server'
     | '/settings/mcp-servers'
+    | '/settings/plugins'
     | '/settings/shortcuts'
     | '/settings/voice'
     | '/threads/$threadId'
     | '/hub/'
-    | '/settings/extensions/$extensionId'
     | '/settings/providers/$providerName'
-    | '/settings/extensions/'
     | '/settings/providers/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -262,7 +241,6 @@ export interface FileRouteTypes {
     | '/local-api-server/logs'
     | '/project/$projectId'
     | '/settings/assistant'
-    | '/settings/attachments'
     | '/settings/dsh'
     | '/settings/general'
     | '/settings/hardware'
@@ -270,13 +248,12 @@ export interface FileRouteTypes {
     | '/settings/interface'
     | '/settings/local-api-server'
     | '/settings/mcp-servers'
+    | '/settings/plugins'
     | '/settings/shortcuts'
     | '/settings/voice'
     | '/threads/$threadId'
     | '/hub'
-    | '/settings/extensions/$extensionId'
     | '/settings/providers/$providerName'
-    | '/settings/extensions'
     | '/settings/providers'
   id:
     | '__root__'
@@ -287,7 +264,6 @@ export interface FileRouteTypes {
     | '/local-api-server/logs'
     | '/project/$projectId'
     | '/settings/assistant'
-    | '/settings/attachments'
     | '/settings/dsh'
     | '/settings/general'
     | '/settings/hardware'
@@ -295,13 +271,12 @@ export interface FileRouteTypes {
     | '/settings/interface'
     | '/settings/local-api-server'
     | '/settings/mcp-servers'
+    | '/settings/plugins'
     | '/settings/shortcuts'
     | '/settings/voice'
     | '/threads/$threadId'
     | '/hub/'
-    | '/settings/extensions/$extensionId'
     | '/settings/providers/$providerName'
-    | '/settings/extensions/'
     | '/settings/providers/'
   fileRoutesById: FileRoutesById
 }
@@ -313,7 +288,6 @@ export interface RootRouteChildren {
   LocalApiServerLogsRoute: typeof LocalApiServerLogsRoute
   ProjectProjectIdRoute: typeof ProjectProjectIdRoute
   SettingsAssistantRoute: typeof SettingsAssistantRoute
-  SettingsAttachmentsRoute: typeof SettingsAttachmentsRoute
   SettingsDshRoute: typeof SettingsDshRoute
   SettingsGeneralRoute: typeof SettingsGeneralRoute
   SettingsHardwareRoute: typeof SettingsHardwareRoute
@@ -321,13 +295,12 @@ export interface RootRouteChildren {
   SettingsInterfaceRoute: typeof SettingsInterfaceRoute
   SettingsLocalApiServerRoute: typeof SettingsLocalApiServerRoute
   SettingsMcpServersRoute: typeof SettingsMcpServersRoute
+  SettingsPluginsRoute: typeof SettingsPluginsRoute
   SettingsShortcutsRoute: typeof SettingsShortcutsRoute
   SettingsVoiceRoute: typeof SettingsVoiceRoute
   ThreadsThreadIdRoute: typeof ThreadsThreadIdRoute
   HubIndexRoute: typeof HubIndexRoute
-  SettingsExtensionsExtensionIdRoute: typeof SettingsExtensionsExtensionIdRoute
   SettingsProvidersProviderNameRoute: typeof SettingsProvidersProviderNameRoute
-  SettingsExtensionsIndexRoute: typeof SettingsExtensionsIndexRoute
   SettingsProvidersIndexRoute: typeof SettingsProvidersIndexRoute
 }
 
@@ -382,6 +355,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsShortcutsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/plugins': {
+      id: '/settings/plugins'
+      path: '/settings/plugins'
+      fullPath: '/settings/plugins'
+      preLoaderRoute: typeof SettingsPluginsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings/mcp-servers': {
       id: '/settings/mcp-servers'
       path: '/settings/mcp-servers'
@@ -431,13 +411,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsDshRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/settings/attachments': {
-      id: '/settings/attachments'
-      path: '/settings/attachments'
-      fullPath: '/settings/attachments'
-      preLoaderRoute: typeof SettingsAttachmentsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/settings/assistant': {
       id: '/settings/assistant'
       path: '/settings/assistant'
@@ -473,25 +446,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsProvidersIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/settings/extensions/': {
-      id: '/settings/extensions/'
-      path: '/settings/extensions'
-      fullPath: '/settings/extensions/'
-      preLoaderRoute: typeof SettingsExtensionsIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/settings/providers/$providerName': {
       id: '/settings/providers/$providerName'
       path: '/settings/providers/$providerName'
       fullPath: '/settings/providers/$providerName'
       preLoaderRoute: typeof SettingsProvidersProviderNameRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/settings/extensions/$extensionId': {
-      id: '/settings/extensions/$extensionId'
-      path: '/settings/extensions/$extensionId'
-      fullPath: '/settings/extensions/$extensionId'
-      preLoaderRoute: typeof SettingsExtensionsExtensionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -505,7 +464,6 @@ const rootRouteChildren: RootRouteChildren = {
   LocalApiServerLogsRoute: LocalApiServerLogsRoute,
   ProjectProjectIdRoute: ProjectProjectIdRoute,
   SettingsAssistantRoute: SettingsAssistantRoute,
-  SettingsAttachmentsRoute: SettingsAttachmentsRoute,
   SettingsDshRoute: SettingsDshRoute,
   SettingsGeneralRoute: SettingsGeneralRoute,
   SettingsHardwareRoute: SettingsHardwareRoute,
@@ -513,13 +471,12 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsInterfaceRoute: SettingsInterfaceRoute,
   SettingsLocalApiServerRoute: SettingsLocalApiServerRoute,
   SettingsMcpServersRoute: SettingsMcpServersRoute,
+  SettingsPluginsRoute: SettingsPluginsRoute,
   SettingsShortcutsRoute: SettingsShortcutsRoute,
   SettingsVoiceRoute: SettingsVoiceRoute,
   ThreadsThreadIdRoute: ThreadsThreadIdRoute,
   HubIndexRoute: HubIndexRoute,
-  SettingsExtensionsExtensionIdRoute: SettingsExtensionsExtensionIdRoute,
   SettingsProvidersProviderNameRoute: SettingsProvidersProviderNameRoute,
-  SettingsExtensionsIndexRoute: SettingsExtensionsIndexRoute,
   SettingsProvidersIndexRoute: SettingsProvidersIndexRoute,
 }
 export const routeTree = rootRouteImport

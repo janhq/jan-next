@@ -10,7 +10,10 @@ import {
   IconLock,
   IconFilePencil,
   IconAlertTriangle,
+  IconEye,
 } from '@tabler/icons-react'
+import { Button } from '@/components/ui/button'
+import { useWorkPanel } from '@/stores/work-panel-store'
 import { Shimmer } from '@/components/ai-elements/shimmer'
 import { useTranslation } from '@/i18n/react-i18next-compat'
 import {
@@ -20,7 +23,6 @@ import {
 } from '@/lib/toolPresentation'
 import { cn } from '@/lib/utils'
 import { editPreview, writeTail } from '@/lib/streamingArgs'
-import { useToolCallRuntime } from '@/hooks/useToolCallRuntime'
 import { Caret, ToolBar } from './ToolBar'
 
 const asText = (output: unknown): string =>
@@ -48,28 +50,6 @@ const diffLineTone = (line: string): string => {
   if (line.startsWith('-')) return 'bg-destructive/10 text-destructive'
   return 'text-muted-foreground'
 }
-
-/**
- * A `write`/`edit` diff. Kept out of the model-facing tool output on purpose (it
- * would just repeat the file), so it arrives through the runtime store instead.
- */
-const DiffBlock = memo(({ diff }: { diff: string }) => (
-  <div className="mt-1.5 max-h-56 overflow-auto rounded-md border bg-card/40 py-1 font-mono text-xs">
-    {diff.split('\n').map((line, i) => (
-      <div
-        key={i}
-        className={cn(
-          'whitespace-pre-wrap wrap-break-word px-2',
-          diffLineTone(line)
-        )}
-      >
-        {line || ' '}
-      </div>
-    ))}
-  </div>
-))
-
-DiffBlock.displayName = 'DiffBlock'
 
 /**
  * A `write`'s file content as it streams in: a window on the tail, numbered
@@ -102,9 +82,7 @@ WritePreviewBlock.displayName = 'WritePreviewBlock'
 
 /**
  * An `edit`'s replacements as they arrive: what is going out, what is coming
- * in. Superseded by the real diff (`DiffBlock`) the moment the call lands --
- * that one is computed against the file and knows what actually changed, which
- * the arguments alone cannot say.
+ * in.
  */
 const EditPreviewBlock = memo(
   ({ edits }: { edits: { old_string: string; new_string?: string }[] }) => {
@@ -296,13 +274,13 @@ const PLACEHOLDER_KEYS: Record<string, string> = {
   skill_write: 'tools:toolCall.namePlaceholder',
 }
 
+const PREVIEWABLE = new Set(['write', 'edit'])
+
 export type AgentToolWidgetProps = {
   bar: WorkspaceBar
   state: ToolUIPart['state']
   output?: ToolUIPart['output']
   errorText?: string
-  /** Needed to look up this call's display-only diff. */
-  toolCallId?: string
 }
 
 /**
@@ -311,12 +289,9 @@ export type AgentToolWidgetProps = {
  * query or a URL.
  */
 export const AgentToolWidget = memo(
-  ({ bar, state, output, errorText, toolCallId }: AgentToolWidgetProps) => {
+  ({ bar, state, output, errorText }: AgentToolWidgetProps) => {
     const { t } = useTranslation()
     const running = isToolRunning(state)
-    const diff = useToolCallRuntime((s) =>
-      toolCallId ? s.diffs[toolCallId] : undefined
-    )
     const Icon = TOOL_ICONS[bar.tool] ?? IconFile
     const body = asText(output)
     // `ls` with no path lists the workspace root, and a bare memory view the
@@ -341,11 +316,25 @@ export const AgentToolWidget = memo(
           typing={running}
           mono
           trailing={
-            bar.detail ? (
-              <span className="shrink-0 font-mono text-xs text-muted-foreground/70">
-                {bar.detail}
-              </span>
-            ) : undefined
+            <>
+              {bar.detail && (
+                <span className="shrink-0 font-mono text-xs text-muted-foreground/70">
+                  {bar.detail}
+                </span>
+              )}
+              {/* A written file is something to look at, not just a log line. */}
+              {!running && !errorText && bar.target && PREVIEWABLE.has(bar.tool) && (
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="shrink-0"
+                  aria-label={t('work:artifact.open', { name: bar.target })}
+                  onClick={() => useWorkPanel.getState().preview(bar.target!)}
+                >
+                  <IconEye aria-hidden />
+                </Button>
+              )}
+            </>
           }
         />
 
@@ -374,11 +363,7 @@ export const AgentToolWidget = memo(
 
         {!running &&
           !errorText &&
-          // A diff supersedes the body: `Applied 2 edit(s) to a.txt` says less
-          // than the change itself.
-          (diff ? (
-            <DiffBlock diff={diff} />
-          ) : body ? (
+          (body ? (
             <OutputBlock>{body}</OutputBlock>
           ) : (
             <p className="px-2 text-sm text-muted-foreground/70">

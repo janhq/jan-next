@@ -5,33 +5,19 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
 }))
 
-vi.mock('@janhq/core', () => ({
-  EngineManager: {
-    instance: () => ({
-      engines: new Map([
-        [
-          'engine1',
-          {
-            getLoadedModels: vi.fn().mockResolvedValue(['model1', 'model2']),
-            unload: vi.fn().mockResolvedValue(undefined),
-          },
-        ],
-      ]),
-    }),
-  },
+const engine1 = vi.hoisted(() => ({
+  getLoadedModels: vi.fn(),
+  unload: vi.fn(),
+}))
+vi.mock('@/lib/llamacpp', () => ({
+  listLocalEngines: () => [['engine1', engine1]],
 }))
 
-const mockWindowCore = {
-  api: {
-    getAppConfigurations: vi.fn(),
-    changeAppDataFolder: vi.fn(),
-  },
-}
-
-Object.defineProperty(globalThis, 'window', {
-  value: { core: mockWindowCore },
-  writable: true,
-})
+const mockApis = vi.hoisted(() => ({
+  getAppConfigurations: vi.fn(),
+  changeAppDataFolder: vi.fn(),
+}))
+vi.mock('@/lib/service', () => ({ APIs: mockApis }))
 
 describe('TauriAppService – coverage', () => {
   let svc: TauriAppService
@@ -39,6 +25,8 @@ describe('TauriAppService – coverage', () => {
   beforeEach(() => {
     svc = new TauriAppService()
     vi.clearAllMocks()
+    engine1.getLoadedModels.mockResolvedValue(['model1', 'model2'])
+    engine1.unload.mockResolvedValue(undefined)
   })
 
   describe('factoryReset', () => {
@@ -107,8 +95,7 @@ describe('TauriAppService – coverage', () => {
       const { invoke } = await import('@tauri-apps/api/core')
       vi.mocked(invoke).mockResolvedValue(undefined)
 
-      const { EngineManager } = await import('@janhq/core')
-      const engine = (EngineManager as any).instance().engines.get('engine1')
+      const engine = engine1
       engine.getLoadedModels.mockResolvedValueOnce(null)
 
       await svc.factoryReset()
@@ -120,7 +107,7 @@ describe('TauriAppService – coverage', () => {
   describe('getJanDataFolder', () => {
     it('returns undefined on error', async () => {
       const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-      mockWindowCore.api.getAppConfigurations.mockRejectedValue(new Error('fail'))
+      mockApis.getAppConfigurations.mockRejectedValue(new Error('fail'))
 
       const result = await svc.getJanDataFolder()
 
@@ -130,7 +117,7 @@ describe('TauriAppService – coverage', () => {
     })
 
     it('returns undefined when config has no data_folder', async () => {
-      mockWindowCore.api.getAppConfigurations.mockResolvedValue({})
+      mockApis.getAppConfigurations.mockResolvedValue({})
 
       const result = await svc.getJanDataFolder()
 

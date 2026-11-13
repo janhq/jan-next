@@ -10,7 +10,7 @@ vi.mock('@/lib/platform/utils', () => ({
 vi.mock('@/hooks/useServiceHub', () => ({
   getServiceHub: () => ({ core: () => ({ invoke }) }),
 }))
-vi.mock('@/hooks/useGeneralSetting', () => ({
+vi.mock('@/lib/native', () => ({
   HUGGINGFACE_TOKEN_SECRET_KEY: 'huggingface',
 }))
 

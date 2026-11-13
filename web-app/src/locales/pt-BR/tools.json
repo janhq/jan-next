@@ -1,23 +1,6 @@
 {
-  "toolApproval": {
-    "needsApproval": "Esta ferramenta precisa da sua aprovação antes de ser executada.",
-    "deny": "Negar",
-    "allowOnce": "Permitir Uma Vez",
-    "allowInThread": "Permitir nesta conversa",
-    "allowServerAlways": "Sempre permitir {{server}}",
-    "allowToolAlways": "Sempre permitir {{tool}}",
-    "title": "Solicitação de Chamada de Ferramenta",
-    "description": "O assistente quer usar a ferramenta:",
-    "securityNotice": "Aviso de Segurança: Ferramentas maliciosas ou conteúdo de conversa podem potencialmente enganar o assistente para tentar ações prejudiciais. Revise cada chamada de ferramenta cuidadosamente antes de aprovar.",
-    "permissionScope": "Você pode permitir apenas desta vez ou sempre.",
-    "alwaysAllow": "Sempre permitir"
-  },
   "toolCall": {
-    "awaitingApproval": "Aguardando aprovação: {{tool}}",
     "running": "Executando {{tool}}...",
-    "queued": "{{tool}} na fila",
-    "queuedPosition": "{{count}} à frente",
-    "working": "Trabalhando...",
     "failed": "{{tool}} falhou",
     "used": "{{tool}} usada",
     "parameters": "Parâmetros",
@@ -35,7 +18,6 @@
     "resultLimit": "top {{count}}",
     "contentTruncated": "Conteúdo truncado",
     "originWeb": "Web",
-    "originDocuments": "Documentos",
     "originWorkspace": "Workspace",
     "originSubagent": "Subagente",
     "subagentPlaceholder": "subagente",

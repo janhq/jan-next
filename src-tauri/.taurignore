@@ -1,0 +1,3 @@
+# Engine builds write into the plugins' own cargo target dirs; without this,
+# `tauri dev` restarts the app for every object file the build emits.
+plugins/*/target

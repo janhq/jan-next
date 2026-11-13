@@ -22,6 +22,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { LogViewer } from '@/components/LogViewer'
 import { ensureModelForServer } from '@/utils/ensureModelForServer'
+import { APIs } from '@/lib/service'
 
 import {
   Popover,
@@ -166,7 +167,7 @@ function LocalAPIServerContent() {
         })
         .then(() => {
           // Then start the server
-          return window.core?.api?.startServer({
+          return APIs.startServer({
             host: serverHost,
             port: serverPort,
             prefix: apiPrefix,
@@ -223,7 +224,7 @@ function LocalAPIServerContent() {
         })
     } else {
       setServerStatus('pending')
-      window.core?.api
+      APIs
         ?.stopServer()
         .then(() => {
           setServerStatus('stopped')

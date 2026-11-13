@@ -38,9 +38,9 @@ vi.mock('@/providers/KeyboardShortcuts', () => ({
 vi.mock('@/providers/DataProvider', () => ({
   DataProvider: () => <div data-testid="data-provider" />,
 }))
-vi.mock('@/providers/ExtensionProvider', () => ({
-  ExtensionProvider: ({ children }: any) => (
-    <div data-testid="extension-provider">{children}</div>
+vi.mock('@/providers/BootProvider', () => ({
+  BootProvider: ({ children }: any) => (
+    <div data-testid="boot-provider">{children}</div>
   ),
 }))
 vi.mock('@/providers/ToasterProvider', () => ({
@@ -68,9 +68,6 @@ vi.mock('@/i18n/TranslationContext', () => ({
 // Dialogs / containers
 vi.mock('@/containers/dialogs/OutOfContextDialog', () => ({
   default: () => <div data-testid="oocp" />,
-}))
-vi.mock('@/containers/dialogs/AttachmentIngestionDialog', () => ({
-  default: () => <div data-testid="attach-ingest" />,
 }))
 vi.mock('@/containers/dialogs/ErrorDialog', () => ({
   default: () => <div data-testid="error-dialog" />,
@@ -142,7 +139,7 @@ describe('__root route', () => {
     renderComponent()
     expect(screen.getByTestId('service-hub')).toBeInTheDocument()
     expect(screen.getByTestId('theme-provider')).toBeInTheDocument()
-    expect(screen.getByTestId('extension-provider')).toBeInTheDocument()
+    expect(screen.getByTestId('boot-provider')).toBeInTheDocument()
     expect(screen.getByTestId('data-provider')).toBeInTheDocument()
     expect(screen.getByTestId('left-sidebar')).toBeInTheDocument()
     expect(screen.getByTestId('outlet')).toBeInTheDocument()
@@ -151,7 +148,6 @@ describe('__root route', () => {
 
   it('renders all persistent dialogs', () => {
     renderComponent()
-    expect(screen.getByTestId('attach-ingest')).toBeInTheDocument()
     expect(screen.getByTestId('error-dialog')).toBeInTheDocument()
     expect(screen.getByTestId('oocp')).toBeInTheDocument()
   })
@@ -183,8 +179,6 @@ describe('__root route', () => {
     renderComponent()
     expect(screen.queryByTestId('left-sidebar')).not.toBeInTheDocument()
   })
-
-  // Loader dismissal moved to ExtensionProvider — see ExtensionProvider.test.tsx.
 
   it('errorComponent renders GlobalError with provided error', () => {
     const ErrComp = (Route as any).errorComponent as React.ComponentType<{ error: Error }>

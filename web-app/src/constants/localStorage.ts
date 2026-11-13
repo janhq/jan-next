@@ -14,9 +14,7 @@ export const localStorageKey = {
   settingChatShell: 'setting-chat-shell',
   settingHardware: 'setting-hardware',
   settingVulkan: 'setting-vulkan',
-  toolApproval: 'tool-approval',
   toolAvailability: 'tool-availability',
-  mcpGlobalPermissions: 'mcp-global-permissions',
   lastUsedModel: 'last-used-model',
   lastUsedAssistant: 'last-used-assistant',
   defaultAssistantId: 'default-assistant-id',
@@ -26,13 +24,13 @@ export const localStorageKey = {
   modelSupportCache: 'jan_model_support_cache',
   recentSearches: 'recent-searches',
   janModelPromptDismissed: 'jan-model-prompt-dismissed',
-  agentMode: 'agent-mode',
   latestJanModel: 'latest-jan-model',
   defaultEmbeddingModel: 'default-embedding-model',
   pausedDownloads: 'paused-downloads',
   cotDuration: 'cot-duration',
   settingVoice: 'setting-voice',
   settingDsh: 'setting-dsh',
+  workPanel: 'work-panel',
 }
 
 export const CACHE_EXPIRY_MS = 1000 * 60 * 60 * 24

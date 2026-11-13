@@ -3,7 +3,7 @@ import { cn, formatBytes } from '@/lib/utils'
 import { usePrompt } from '@/hooks/usePrompt'
 import { MicButton } from '@/containers/MicButton'
 import { useThreads } from '@/hooks/useThreads'
-import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react'
+import { useCallback, useEffect, useRef, useState, memo } from 'react'
 import type { ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -11,49 +11,17 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-} from '@/components/ui/dropdown-menu'
 import { ArrowRight, PlusIcon } from 'lucide-react'
-import {
-  IconPhoto,
-  IconMusic,
-  IconVideo,
-  IconBrain,
-  IconTool,
-  IconCodeCircle2,
-  IconPlayerStopFilled,
-  IconX,
-  IconPaperclip,
-  IconLoader2,
-  IconTerminal2,
-  IconBrandChrome,
-  IconDots,
-} from '@tabler/icons-react'
+import { IconPlayerStopFilled, IconX, IconDots } from '@tabler/icons-react'
 import { generateId } from 'ai'
 import { useMessageQueue } from '@/stores/message-queue-store'
 import { QueuedMessageChip } from '@/containers/QueuedMessageBubble'
 import { SamplerPopover } from '@/containers/SamplerPopover'
+import { ActivitySummary, WorkControls } from '@/containers/work/WorkControls'
+import { runWorkCommand } from '@/lib/workCommands'
 import { useTranslation } from '@/i18n/react-i18next-compat'
 import { useGeneralSetting } from '@/hooks/useGeneralSetting'
 import { useModelProvider } from '@/hooks/useModelProvider'
-import { useTokensCount } from '@/hooks/useTokensCount'
-import {
-  THINKING_BUDGET_LEVELS,
-  DEFAULT_THINKING_BUDGET_LEVEL,
-  tokensForThinkingBudgetLevel,
-  isThinkingBudgetLevelKey,
-  type ThinkingBudgetLevelKey,
-} from '@/lib/thinkingBudget'
-import { useReconcileVideoCapability } from '@/hooks/useReconcileVideoCapability'
-
 import { useAppState } from '@/hooks/useAppState'
 import { MovingBorder } from './MovingBorder'
 import type { ChatStatus } from 'ai'
@@ -65,19 +33,12 @@ import {
   SESSION_STORAGE_KEY,
   SESSION_STORAGE_PREFIX,
 } from '@/constants/chat'
-import { cancelAgentThreadBash, getSandboxStatus } from '@/lib/agentTools'
-import { useChatShell } from '@/hooks/useChatShell'
 import { useAssistant } from '@/hooks/useAssistant'
 import { AssistantSwitcher } from '@/containers/AssistantSwitcher'
-import DropdownToolsAvailable from '@/containers/DropdownToolsAvailable'
 import { useServiceHub } from '@/hooks/useServiceHub'
-import { useTools } from '@/hooks/useTools'
 import { TokenCounter } from '@/components/TokenCounter'
 import { useMessages } from '@/hooks/useMessages'
 import { useShallow } from 'zustand/react/shallow'
-import { ServiceKeys, fs } from '@janhq/core'
-import { getExtensionHost } from '@/lib/extensions/host'
-import { useAttachments } from '@/hooks/useAttachments'
 import { useImageAttachmentConfig } from '@/hooks/useImageAttachmentConfig'
 import { toast } from 'sonner'
 import { isPlatformTauri } from '@/lib/platform/utils'
@@ -86,38 +47,13 @@ import {
   NEW_THREAD_ATTACHMENT_KEY,
   useChatAttachments,
 } from '@/hooks/useChatAttachments'
-
-import {
-  Attachment,
-  createImageAttachment,
-  createDocumentAttachment,
-  createAudioAttachment,
-  createVideoAttachment,
-} from '@/types/attachment'
-import {
-  applyIngestionChoices,
-  needsIngestionChoice,
-  parseModeForModel,
-  promptIngestionChoices,
-  resolveAutoInlineBudget,
-} from '@/lib/attachmentProcessing'
-import { activePathTokens } from '@/lib/message-branching'
-import JanBrowserExtensionDialog from '@/containers/dialogs/JanBrowserExtensionDialog'
-import { useJanBrowserExtension } from '@/hooks/useJanBrowserExtension'
-import { useAgentMode } from '@/hooks/useAgentMode'
-import {
-  expandPromptReferences,
-  searchFiles,
-  type FilePickerEntry as FileEntry,
-} from '@/lib/path-references'
-import { FilePickerPopover } from '@/components/FilePickerPopover'
+import { Attachment, createImageAttachment } from '@/types/attachment'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { useElementWidth } from '@/hooks/useElementWidth'
-import { ContributedMenuItems } from '@/containers/extensions/ContributedMenuItems'
 
 type ChatInputProps = {
   className?: string
@@ -128,23 +64,10 @@ type ChatInputProps = {
   projectAssistantId?: string
   onSubmit?: (
     text: string,
-    files?: Array<{ type: 'file'; mediaType: string; url: string }>,
-    /** Document attachments, for surfaces that do not read them back out of
-     * the attachments store themselves. */
-    documents?: Attachment[],
-    /** What the user typed, before @path references were expanded into
-     * `text`, so a cancelled send can hand it back unchanged. */
-    draft?: string
-  ) => void
+    files?: Array<{ type: string; mediaType: string; url: string }>
+  ) => void | Promise<void>
   onStop?: () => void
   chatStatus?: ChatStatus
-  /**
-   * The turn's tools are still running or awaiting approval after the stream
-   * ended (`chatStatus` is already `ready`). Stop must stay reachable then: a
-   * runaway command otherwise leaves a send arrow and no way to end it. Like
-   * `chatStatus`, it queues what the user types until the turn ends.
-   */
-  toolsRunning?: boolean
   highlightedPrefix?: string | null
 }
 
@@ -152,23 +75,28 @@ type ChatInputProps = {
 // collapses behind a single overflow button instead.
 const CONTROL_ROW_COLLAPSE_WIDTH = 480
 
-// Video containers llama-server can decode via ffmpeg/ffprobe into frames.
-const VIDEO_EXTS = ['mp4', 'mov', 'webm', 'mkv', 'avi', 'm4v']
-const videoMimeForExt = (ext: string | undefined): string => {
-  switch (ext) {
-    case 'mov':
-      return 'video/quicktime'
-    case 'webm':
-      return 'video/webm'
-    case 'mkv':
-      return 'video/x-matroska'
-    case 'avi':
-      return 'video/x-msvideo'
-    default:
-      return 'video/mp4'
-  }
+// The only image formats DSH accepts.
+const IMAGE_MIME_BY_EXT: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  gif: 'image/gif',
 }
+const ALLOWED_IMAGE_TYPES = Object.values(IMAGE_MIME_BY_EXT)
 
+const getFileTypeFromExtension = (fileName: string): string =>
+  IMAGE_MIME_BY_EXT[fileName.toLowerCase().split('.').pop() ?? ''] ?? ''
+
+const hashBase64 = async (base64: string): Promise<string> => {
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', bytes)
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
 
 // Renders the composer's control cluster inline, or behind a single overflow
 // button whose popover holds the same controls, when the surface is too narrow.
@@ -227,11 +155,11 @@ const ChatInput = memo(function ChatInput({
   onSubmit,
   onStop,
   chatStatus,
-  toolsRunning,
   highlightedPrefix,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const highlightRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [isFocused, setIsFocused] = useState(false)
   const [rows, setRows] = useState(1)
   // Collapse the composer's control row into a single overflow button when the
@@ -244,8 +172,6 @@ const ChatInput = memo(function ChatInput({
     controlRowWidth < CONTROL_ROW_COLLAPSE_WIDTH
   const serviceHub = useServiceHub()
   const abortControllers = useAppState((state) => state.abortControllers)
-  const tools = useAppState((state) => state.tools)
-  const cancelToolCall = useAppState((state) => state.cancelToolCall)
   const prompt = usePrompt((state) => state.prompt)
   const setPrompt = usePrompt((state) => state.setPrompt)
   const addToHistory = usePrompt((state) => state.addToHistory)
@@ -262,186 +188,26 @@ const ChatInput = memo(function ChatInput({
   const tokenCounterCompact = useGeneralSetting(
     (state) => state.tokenCounterCompact
   )
-  useTools()
   const router = useRouter()
   const createThread = useThreads((state) => state.createThread)
-  const { 
-    loading,
-    currentAssistant,
-    setCurrentAssistant,
-    assistants
-  } = useAssistant()
+  const { loading, currentAssistant, setCurrentAssistant, assistants } =
+    useAssistant()
 
-  // Agent mode
-  // Use TEMPORARY_CHAT_ID as fallback key on the home screen (same pattern as attachments)
-  const agentModeKey = currentThreadId ?? TEMPORARY_CHAT_ID
-  const isAgentMode = useAgentMode((state) =>
-    state.agentThreads[agentModeKey] === true
-  )
-  // When projectId is present, treat as normal chat (disable agent mode UI)
-  const effectiveAgentMode = isAgentMode && !projectId
-  // Gate for the controls that shape which tools the model is offered.
-  const showToolControls = !effectiveAgentMode
-  const shellEnabled = useChatShell((s) => s.shellEnabled)
-  const setShellEnabled = useChatShell((s) => s.setShellEnabled)
-  // The shell is only ever offered where a sandbox can confine it, so the
-  // switch is only shown there: with no backend there is nothing to turn off.
-  const [sandboxEnforcesShell, setSandboxEnforcesShell] = useState(false)
-  useEffect(() => {
-    let live = true
-    void getSandboxStatus().then((s) => {
-      if (live) setSandboxEnforcesShell(s.enforces)
-    })
-    return () => {
-      live = false
-    }
-  }, [])
-
-  const [filePickerOpen, setFilePickerOpen] = useState(false)
-  const [filePickerQuery, setFilePickerQuery] = useState('')
-  const [filePickerEntries, setFilePickerEntries] = useState<FileEntry[]>([])
-  const [filePickerPosition, setFilePickerPosition] = useState<{
-    top: number
-    left: number
-  } | null>(null)
-  const [workingDir, setWorkingDir] = useState<string | undefined>(undefined)
-  // Textarea cursor position snapshot at the time @ was typed
-  const filePickerCursorPos = useRef<number | null>(null)
-
-  // Pre-load working directory
-  useEffect(() => {
-    const loadWorkingDir = async () => {
-      try {
-        // Try to get project home directory
-        const { homeDir } = await import('@tauri-apps/api/path')
-        const home = await homeDir()
-        setWorkingDir(home)
-      } catch {
-        setWorkingDir(undefined)
-      }
-    }
-    if (effectiveAgentMode) {
-      loadWorkingDir()
-    }
-  }, [effectiveAgentMode])
-
-  // Detect `@` in the prompt text and open the file picker
-  const handlePromptChange = useCallback(
-    (value: string) => {
-      setPrompt(value)
-
-      // Only enable in agent mode
-      if (!effectiveAgentMode) {
-        setFilePickerOpen(false)
-        return
-      }
-
-      const cursorIdx = filePickerCursorPos.current ?? value.length
-
-      // Look backwards from current cursor to find the last word starting with
-      // @ (the @ must not be glued to a preceding word char, so `user@host`
-      // never opens the picker)
-      const beforeCursor = value.slice(0, cursorIdx)
-      const atMatch = beforeCursor.match(/(?<![A-Za-z0-9_])@([\w./-]*)$/)
-
-      if (atMatch) {
-        const query = atMatch[1] ?? ''
-        setFilePickerQuery(query)
-
-        // If we have a working directory, search files
-        if (workingDir) {
-          searchFiles(workingDir, query)
-            .then((entries) => setFilePickerEntries(entries.slice(0, 50)))
-            .catch(() => setFilePickerEntries([]))
-        } else {
-          setFilePickerEntries([])
-        }
-
-        // Position the picker above the text
-        if (textareaRef.current) {
-          const lineHeight = 22
-          const lines = beforeCursor.split('\n').length
-          const pos = {
-            top: -Math.min(lines * lineHeight + 40, 300),
-            left: 0,
-          }
-          setFilePickerPosition(pos)
-        }
-        setFilePickerOpen(true)
-      } else {
-        setFilePickerOpen(false)
-      }
-    },
-    [effectiveAgentMode, workingDir, setPrompt]
-  )
-
-  // Insert a selected file reference into the prompt
-  const handleFilePickerSelect = useCallback(
-    (entry: FileEntry) => {
-      if (filePickerCursorPos.current == null) return
-
-      const beforeCursor = prompt.slice(0, filePickerCursorPos.current)
-      const afterCursor = prompt.slice(filePickerCursorPos.current)
-
-      // Replace the `@query` with `path/to/file` (the resolved reference)
-      const textBefore = beforeCursor.replace(/(?<![A-Za-z0-9_])@[\w./-]*$/, '')
-      const refText = entry.path
-      const newPrompt = textBefore + refText + afterCursor
-
-      setPrompt(newPrompt)
-      setFilePickerOpen(false)
-      filePickerCursorPos.current = null
-
-      // Focus back on textarea
-      setTimeout(() => textareaRef.current?.focus(), 0)
-    },
-    [prompt, setPrompt]
-  )
-
-  const handleFilePickerClose = useCallback(() => {
-    setFilePickerOpen(false)
-    filePickerCursorPos.current = null
-  }, [])
-
-  // Get current thread messages for token counting
   const threadMessages = useMessages(
     useShallow((state) =>
       currentThreadId ? state.messages[currentThreadId] : []
     )
   )
 
-  // Read when a document is attached, without rebuilding the attach
-  // callback on every message update.
-  const threadMessagesRef = useRef(threadMessages)
-  threadMessagesRef.current = threadMessages
-
   const maxRows = 10
 
   const selectedModel = useModelProvider((state) => state.selectedModel)
   const selectedProvider = useModelProvider((state) => state.selectedProvider)
-  const selectModelProvider = useModelProvider(
-    (state) => state.selectModelProvider
-  )
-  const updateProvider = useModelProvider((state) => state.updateProvider)
-  const { maxTokens: liveMaxTokens, configuredCtxLen } =
-    useTokensCount(threadMessages || [])
   const [message, setMessage] = useState('')
-  const [dropdownToolsAvailable, setDropdownToolsAvailable] = useState(false)
-  const [tooltipShown, setTooltipShown] = useState<
-    'tools' | 'assistants' | false
-  >(false)
   const [isDragOver, setIsDragOver] = useState(false)
-  const [hasMmproj, setHasMmproj] = useState(false)
-  const activeModels = useAppState(useShallow((state) => state.activeModels))
-  // Check if selected model is currently loaded/active
-  const isModelActive = selectedModel?.id ? activeModels.includes(selectedModel.id) : false
-
-  // Reconcile video capability from /props once the model is loaded.
-  useReconcileVideoCapability(selectedModel?.id, selectedProvider, isModelActive)
 
   const tokenCounterVisible = shouldShowTokenCounter({
     hasSelectedModel: !!selectedModel,
-    isAgentMode: effectiveAgentMode,
     isInitialMessage: !!initialMessage,
     hasMessages: (threadMessages?.length ?? 0) > 0,
     hasPromptText: prompt.trim().length > 0,
@@ -455,43 +221,8 @@ const ChatInput = memo(function ChatInput({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, projectAssistantId])
 
-  // Jan Browser Extension hook
-  const {
-    hasConfig: hasJanBrowserMCPConfig,
-    isActive: janBrowserMCPActive,
-    isLoading: isJanBrowserMCPLoading,
-    dialogOpen: extensionDialogOpen,
-    dialogState: extensionDialogState,
-    toggleBrowser: handleBrowseClick,
-    disableDueToIncompatibleModel,
-    handleCancel: handleExtensionDialogCancel,
-    setDialogOpen: setExtensionDialogOpen,
-  } = useJanBrowserExtension()
-
-  // Check if model supports browser feature (requires both vision and tools)
-  const modelSupportsBrowser = useMemo(() => {
-    const capabilities = selectedModel?.capabilities || []
-    return capabilities.includes('vision') && capabilities.includes('tools')
-  }, [selectedModel?.capabilities])
-
-  // Auto-disable browser feature when model doesn't support it
-  useEffect(() => {
-    if (janBrowserMCPActive && !modelSupportsBrowser) {
-      disableDueToIncompatibleModel()
-    }
-    // disableDueToIncompatibleModel omitted: its !isActive guard makes stale closures safe.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [janBrowserMCPActive, modelSupportsBrowser])
-
-  const attachmentsEnabled = useAttachments((s) => s.enabled)
-  const parsePreference = useAttachments((s) => s.parseMode)
-  const autoInlineContextRatio = useAttachments(
-    (s) => s.autoInlineContextRatio
-  )
-  const maxFileSizeMB = useAttachments((s) => s.maxFileSizeMB)
   const maxImageSizeMB = useImageAttachmentConfig((s) => s.maxImageSizeMB)
 
-  // Derived: any document currently processing (ingestion in progress)
   const attachmentsKey = currentThreadId ?? NEW_THREAD_ATTACHMENT_KEY
   const attachments = useChatAttachments(
     useCallback(
@@ -508,22 +239,10 @@ const ChatInput = memo(function ChatInput({
   const transferAttachments = useChatAttachments(
     (state) => state.transferAttachments
   )
-  const getProviderByName = useModelProvider((state) => state.getProviderByName)
 
-  const ingestingDocs = attachments.some(
-    (a) => a.type === 'document' && a.processing
-  )
-  const ingestingAny = attachments.some((a) => a.processing)
   const hasSendableMedia = attachments.some(
-    (a) =>
-      (a.type === 'image' || a.type === 'audio' || a.type === 'video') &&
-      !!a.dataUrl
+    (a) => a.type === 'image' && !!a.dataUrl
   )
-
-  const [, setFileIngestProgress] = useState<{
-    completed: number
-    total: number
-  } | null>(null)
 
   // Queued messages for this thread (shown as chips in the input area)
   const queueId = currentThreadId ?? ''
@@ -552,134 +271,73 @@ const ChatInput = memo(function ChatInput({
     }
   }, [currentThreadId, transferAttachments])
 
-  // Check for mmproj existence or vision capability when model changes
-  useEffect(() => {
-    const checkMmprojSupport = async () => {
-      if (selectedModel && selectedModel?.id) {
-        try {
-          // Only check mmproj for llamacpp provider
-          if (selectedModel?.capabilities?.includes('vision')) {
-            setHasMmproj(true)
-          } else {
-            setHasMmproj(false)
-          }
-        } catch (error) {
-          console.error('Error checking mmproj:', error)
-          setHasMmproj(false)
-        }
-      }
-    }
-
-    checkMmprojSupport()
-  }, [selectedModel, selectedModel?.capabilities, selectedProvider, serviceHub])
-
-  // Check if there are active MCP servers
-  const hasActiveMCPServers =
-    tools.filter((tool) => tool.server !== 'Jan Browser MCP').length > 0
+  const isStreaming = chatStatus === 'submitted' || chatStatus === 'streaming'
 
   const handleSendMessage = async (prompt: string) => {
+    // Work commands never reach the model, so they need no model either; only
+    // an open chat has a work setup to act on.
+    if (onSubmit && attachments.length === 0 && runWorkCommand(currentThreadId, prompt)) {
+      setPrompt('')
+      return
+    }
+
     if (!selectedModel) {
       setMessage('Please select a model to start chatting.')
       return
     }
 
-    // Expand @path references that resolve to a file or folder; any other
-    // `@token` (a pasted decorator) stays in the text as typed.
-    const { text: resolvedText, resolvedContents } =
-      await expandPromptReferences(prompt, workingDir)
-    const effectivePrompt = resolvedContents
-      ? `${resolvedText}\n\n---\nReferenced file contents:\n\n${resolvedContents}`
-      : resolvedText
-
-    if (!effectivePrompt.trim() && !hasSendableMedia) {
-      return
-    }
-    if (ingestingAny) {
-      toast.info('Please wait for attachments to finish processing')
+    if (!prompt.trim() && !hasSendableMedia) {
       return
     }
 
     setMessage('')
-    addToHistory(effectivePrompt)
+    addToHistory(prompt)
 
-    // Use onSubmit prop if available (AI SDK), otherwise create thread and navigate
+    // Use onSubmit prop if available, otherwise create thread and navigate
     if (onSubmit) {
-      // While the model is still streaming, or the turn's tools are still
-      // running, queue the message for later. The queue waits for the tools, so
-      // a second turn never starts under a tool loop that Stop still has to end.
-      if ((isStreaming || toolsRunning) && queueId) {
+      // While the model is still streaming, queue the message for later.
+      if (isStreaming && queueId) {
         useMessageQueue.getState().enqueue(queueId, {
           id: generateId(),
-          text: effectivePrompt,
+          text: prompt,
           createdAt: Date.now(),
         })
         setPrompt('')
         return
       }
 
-      const imageFiles = attachments
+      const files = attachments
         .filter((att) => att.type === 'image' && att.dataUrl)
         .map((att) => ({
           type: 'file' as const,
           mediaType: att.mimeType ?? 'image/jpeg',
           url: att.dataUrl!,
         }))
-      const audioFiles = attachments
-        .filter((att) => att.type === 'audio' && att.dataUrl)
-        .map((att) => ({
-          type: 'file' as const,
-          mediaType: att.audioFormat === 'mp3' ? 'audio/mpeg' : 'audio/wav',
-          url: att.dataUrl!,
-        }))
-      const videoFiles = attachments
-        .filter((att) => att.type === 'video' && att.dataUrl)
-        .map((att) => ({
-          type: 'file' as const,
-          mediaType: att.mimeType ?? 'video/mp4',
-          url: att.dataUrl!,
-        }))
-      const files = [...imageFiles, ...audioFiles, ...videoFiles]
-      const documents = attachments.filter(
-        (att) => att.type === 'document' && att.path
-      )
 
-      onSubmit(
-        effectivePrompt,
-        files.length > 0 ? files : undefined,
-        documents.length > 0 ? documents : undefined,
-        prompt
-      )
+      void onSubmit(prompt, files.length > 0 ? files : undefined)
       setPrompt('')
       clearAttachmentsForThread(attachmentsKey)
     } else {
       // No onSubmit provided - create a new thread and navigate to it.
-      // Media attachments (image/audio/video) are NOT serialized into
-      // sessionStorage — their base64 data URLs blow past the ~5MB quota
-      // (esp. video). They live in the in-memory attachments store and are
-      // transferred to the new thread's key on the detail page (see the
-      // transferAttachments effect); processAndSendMessage reads them there.
+      // Images are NOT serialized into sessionStorage — their base64 data URLs
+      // can blow past the ~5MB quota. They live in the in-memory attachments
+      // store and are transferred to the new thread's key on the detail page
+      // (see the transferAttachments effect).
       const isTemporaryChat = window.location.search.includes(
         `${TEMPORARY_CHAT_QUERY_ID}=true`
       )
 
       const messagePayload = {
-        text: effectivePrompt,
-        draft: prompt,
+        text: prompt,
         files: [] as Array<{ type: string; mediaType: string; url: string }>,
       }
 
       if (isTemporaryChat) {
-        // For temporary chat, store message and navigate to temporary thread
         sessionStorage.setItem(
           SESSION_STORAGE_KEY.INITIAL_MESSAGE_TEMPORARY,
           JSON.stringify(messagePayload)
         )
         sessionStorage.setItem('temp-chat-nav', 'true')
-        // Transfer agent mode from home screen to temporary thread
-        if (isAgentMode && agentModeKey !== TEMPORARY_CHAT_ID) {
-          useAgentMode.getState().setAgentMode(TEMPORARY_CHAT_ID, true)
-          useAgentMode.getState().removeThread(agentModeKey)
-        }
         router.navigate({
           to: route.threadsDetail,
           params: { threadId: TEMPORARY_CHAT_ID },
@@ -727,13 +385,6 @@ const ChatInput = memo(function ChatInput({
           projectMetadata
         )
 
-        // Transfer agent mode from home screen to the new thread
-        if (isAgentMode) {
-          useAgentMode.getState().setAgentMode(newThread.id, true)
-          useAgentMode.getState().removeThread(agentModeKey)
-        }
-
-        // Store the initial message for the new thread
         sessionStorage.setItem(
           `${SESSION_STORAGE_PREFIX.INITIAL_MESSAGE}${newThread.id}`,
           JSON.stringify(messagePayload)
@@ -746,11 +397,9 @@ const ChatInput = memo(function ChatInput({
       }
 
       setPrompt('')
-      // Don't clear attachments here — document attachments stored under
-      // NEW_THREAD_ATTACHMENT_KEY need to survive until the thread detail
-      // page transfers and processes them.  The thread detail page's
-      // processAndSendMessage already calls clearAttachmentsForThread after
-      // processing is complete.
+      // Don't clear attachments here — images stored under
+      // NEW_THREAD_ATTACHMENT_KEY must survive until the thread detail page
+      // transfers and sends them; it clears them itself.
     }
   }
 
@@ -776,24 +425,9 @@ const ChatInput = memo(function ChatInput({
     }
   }, [])
 
-  // Focus when component mounts
+  // Focus when mounting and when the thread changes
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.focus()
-    }
-  }, [])
-
-  useEffect(() => {
-    if (tooltipShown && dropdownToolsAvailable) {
-      setTooltipShown(false)
-    }
-  }, [dropdownToolsAvailable, tooltipShown])
-
-  // Focus when thread changes
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.focus()
-    }
+    textareaRef.current?.focus()
   }, [currentThreadId])
 
   // Focus when streaming content finishes
@@ -808,582 +442,138 @@ const ChatInput = memo(function ChatInput({
 
   const stopStreaming = useCallback(
     (threadId: string) => {
-      // Use onStop prop if available (AI SDK), otherwise use legacy abort
       if (onStop) {
         onStop()
       } else {
         abortControllers[threadId]?.abort()
       }
-      cancelToolCall?.()
-      // Aborting the stream/loop only discards a pending tool result; a running
-      // or backgrounded shell keeps executing until its session's shells are
-      // killed. Chat's tool thread_id is the chat thread id.
-      void cancelAgentThreadBash(threadId)
     },
-    [abortControllers, cancelToolCall, onStop]
+    [abortControllers, onStop]
   )
 
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const audioInputRef = useRef<HTMLInputElement>(null)
-  const audioSupported = !!selectedModel?.capabilities?.includes('audio')
-  const videoInputRef = useRef<HTMLInputElement>(null)
-  const videoSupported = !!selectedModel?.capabilities?.includes('video')
-
-  const processNewDocumentAttachments = useCallback(
-    async (docs: Attachment[]) => {
-      if (!docs.length) return
-
-      // Only collect the user's inline-vs-embeddings preference via the
-      // dialog.  Actual ingestion is always deferred to send time
-      // (processAttachmentsForSend inside processAndSendMessage), where
-      // 'auto' documents are routed by size when the model's window is known.
-      // Same conversation-aware budget as the send path (the active branch,
-      // which is what gets sent). If the budget is gone by send time, the
-      // send path asks for the remaining 'auto' documents itself.
-      const hasInlineBudget =
-        (await resolveAutoInlineBudget(
-          selectedModel,
-          selectedProvider,
-          autoInlineContextRatio,
-          activePathTokens(
-            threadMessagesRef.current,
-            (
-              useThreads.getState().threads[currentThreadId ?? '']
-                ?.metadata as Record<string, unknown> | undefined
-            )?.activeRootId as string | undefined
-          )
-        )) !== undefined
-      const docsNeedingPrompt = docs.filter((doc) =>
-        needsIngestionChoice(doc, parsePreference, hasInlineBudget)
-      )
-
-      if (docsNeedingPrompt.length > 0) {
-        const choices = await promptIngestionChoices(docsNeedingPrompt)
-
-        if (!choices) {
-          // User cancelled — remove all pending docs
-          setAttachmentsForThread(attachmentsKey, (prev) =>
-            prev.filter(
-              (att) =>
-                !docsNeedingPrompt.some(
-                  (d) => d.path && att.path && d.path === att.path
-                )
-            )
-          )
-          return
-        }
-
-        // Persist each document's chosen mode so processAttachmentsForSend
-        // can pick it up at send time.
-        if (choices.size > 0) {
-          setAttachmentsForThread(attachmentsKey, (prev) =>
-            applyIngestionChoices(prev, choices)
-          )
-        }
-      }
-    },
-    [
-      attachmentsKey,
-      autoInlineContextRatio,
-      currentThreadId,
-      parsePreference,
-      selectedModel,
-      selectedProvider,
-      setAttachmentsForThread,
-    ]
-  )
-
-  const handleAttachDocsIngest = async () => {
-    try {
-      if (!attachmentsEnabled) {
-        toast.info('Attachments are disabled in Settings')
-        return
-      }
-      const selection = await serviceHub.dialog().open({
-        multiple: true,
-        filters: [
-          {
-            name: 'Documents & Code',
-            extensions: [
-              // Documents
-              'pdf',
-              'docx',
-              'txt',
-              'md',
-              'csv',
-              'xlsx',
-              'xls',
-              'ods',
-              'pptx',
-              'html',
-              'htm',
-              // JavaScript / TypeScript
-              'js',
-              'mjs',
-              'cjs',
-              'ts',
-              'mts',
-              'cts',
-              'jsx',
-              'tsx',
-              // Python
-              'py',
-              'pyw',
-              'pyi',
-              // C / C++
-              'c',
-              'h',
-              'cpp',
-              'cc',
-              'cxx',
-              'hpp',
-              'hh',
-              // Systems languages
-              'rs',
-              'go',
-              'swift',
-              'zig',
-              // JVM languages
-              'java',
-              'kt',
-              'kts',
-              'scala',
-              'groovy',
-              // Scripting languages
-              'rb',
-              'php',
-              'lua',
-              'pl',
-              'r',
-              'jl',
-              // .NET
-              'cs',
-              'fs',
-              'vb',
-              'xaml',
-              'csproj',
-              'sln',
-              // CUDA
-              'cu',
-              'cuh',
-              // Shaders
-              'hlsl',
-              'glsl',
-              'cg',
-              'shader',
-              // Shell
-              'sh',
-              'bash',
-              'zsh',
-              'fish',
-              'ps1',
-              'bat',
-              'cmd',
-              'vbs',
-              // More languages
-              'asm',
-              's',
-              'm',
-              'mm',
-              'pas',
-              'pp',
-              'erl',
-              'hrl',
-              'ex',
-              'exs',
-              'clj',
-              'cljs',
-              'hs',
-              'lhs',
-              'ml',
-              'mli',
-              'f',
-              'f90',
-              // Web
-              'css',
-              'scss',
-              'sass',
-              'less',
-              'vue',
-              'svelte',
-              'astro',
-              'php',
-              'asp',
-              'aspx',
-              'jsp',
-              // Data / config formats
-              'json',
-              'jsonc',
-              'yaml',
-              'yml',
-              'toml',
-              'xml',
-              'ini',
-              'cfg',
-              'conf',
-              'env',
-              'properties',
-              'dockerfile',
-              'makefile',
-              'cmake',
-              'lock',
-              // Query / markup
-              'sql',
-              'graphql',
-              'gql',
-              'tex',
-              'rst',
-              'adoc',
-              'textile',
-              // Misc text
-              'log',
-              'diff',
-              'patch',
-              'gitignore',
-            ],
-          },
-          {
-            name: 'All Files',
-            extensions: ['*'],
-          },
-        ],
-      })
-      if (!selection) return
-      const paths = Array.isArray(selection) ? selection : [selection]
-      if (!paths.length) return
-
-      const modelSupportsTools = !!selectedModel?.capabilities?.includes('tools')
-
-      // Prepare attachments with file sizes
-      const preparedAttachments: Attachment[] = []
-      for (const p of paths) {
-        const name = p.split(/[\\/]/).pop() || p
-        const fileType = name.split('.').pop()?.toLowerCase()
-        let size: number | undefined = undefined
-        try {
-          const stat = await fs.fileStat(p)
-          size = stat?.size ? Number(stat.size) : undefined
-        } catch (e) {
-          console.warn('Failed to read file size for', p, e)
-        }
-        preparedAttachments.push(
-          createDocumentAttachment({
-            name,
-            path: p,
-            fileType,
-            size,
-            parseMode: parseModeForModel(parsePreference, modelSupportsTools),
-          })
-        )
-      }
-
-      const maxFileSizeBytes =
-        typeof maxFileSizeMB === 'number' && maxFileSizeMB > 0
-          ? maxFileSizeMB * 1024 * 1024
-          : undefined
-
-      if (maxFileSizeBytes !== undefined) {
-        const hasOversized = preparedAttachments.some(
-          (att) => typeof att.size === 'number' && att.size > maxFileSizeBytes
-        )
-        if (hasOversized) {
-          toast.error('File too large', {
-            description: `One or more files exceed the ${maxFileSizeMB}MB limit`,
-          })
-          return
-        }
-      }
-
-      let duplicates: string[] = []
-      let newDocAttachments: Attachment[] = []
-
-      setAttachmentsForThread(attachmentsKey, (currentAttachments) => {
-        const existingPaths = new Set(
-          currentAttachments
-            .filter((a) => a.type === 'document' && a.path)
-            .map((a) => a.path)
-        )
-
-        duplicates = []
-        newDocAttachments = []
-
-        for (const att of preparedAttachments) {
-          if (existingPaths.has(att.path)) {
-            duplicates.push(att.name)
-            continue
-          }
-          newDocAttachments.push(att)
-        }
-
-        return newDocAttachments.length > 0
-          ? [...currentAttachments, ...newDocAttachments]
-          : currentAttachments
-      })
-
-      if (duplicates.length > 0) {
-        toast.warning('Files already attached', {
-          description: `${duplicates.join(', ')} ${duplicates.length === 1 ? 'is' : 'are'} already in the list`,
-        })
-      }
-
-      if (newDocAttachments.length > 0) {
-        if (!modelSupportsTools) {
-          toast.info('Documents are added to the prompt', {
-            description:
-              "This model can't search files, so each document is sent as text with your message.",
-          })
-        }
-        await processNewDocumentAttachments(newDocAttachments)
-      }
-    } catch (e) {
-      console.error('Failed to attach documents:', e)
-      const desc = e instanceof Error ? e.message : JSON.stringify(e)
-      toast.error('Failed to attach documents', { description: desc })
-    }
-  }
-
-  const handleRemoveAttachment = async (indexToRemove: number) => {
-    const attachmentToRemove = attachments[indexToRemove]
-
-    // If attachment was ingested (has an ID), delete it from the backend
-    if (attachmentToRemove?.id && currentThreadId) {
-      try {
-        if (attachmentToRemove.type === 'document') {
-          await getExtensionHost()
-            .services.get(ServiceKeys.VectorDB)
-            ?.deleteFile(currentThreadId, attachmentToRemove.id)
-        }
-      } catch (error) {
-        console.error('Failed to delete attachment from backend:', error)
-        toast.error('Failed to remove attachment', {
-          description: error instanceof Error ? error.message : String(error),
-        })
-        return
-      }
-    }
-
+  const handleRemoveAttachment = (indexToRemove: number) => {
     setAttachmentsForThread(attachmentsKey, (prev) =>
       prev.filter((_, index) => index !== indexToRemove)
     )
   }
 
-  const getFileTypeFromExtension = (fileName: string): string => {
-    const extension = fileName.toLowerCase().split('.').pop()
-    switch (extension) {
-      case 'jpg':
-      case 'jpeg':
-        return 'image/jpeg'
-      case 'png':
-        return 'image/png'
-      default:
-        return ''
-    }
-  }
+  const processImageFiles = useCallback(
+    async (files: File[]) => {
+      const maxSize = maxImageSizeMB * 1024 * 1024
+      const oversizedFiles: string[] = []
+      const invalidTypeFiles: string[] = []
+      const validFiles: Array<{ file: File; type: string }> = []
 
-  const hashBase64 = async (base64: string): Promise<string> => {
-    const binary = atob(base64)
-    const bytes = new Uint8Array(binary.length)
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-    const hashBuffer = await crypto.subtle.digest('SHA-256', bytes)
-    const hashArray = Array.from(new Uint8Array(hashBuffer))
-    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
-  }
-
-  const processImageFiles = useCallback(async (files: File[]) => {
-    const maxSize = maxImageSizeMB * 1024 * 1024
-    const oversizedFiles: string[] = []
-    const invalidTypeFiles: string[] = []
-
-    const allowedTypes = ['image/jpg', 'image/jpeg', 'image/png']
-    const validFiles: File[] = []
-
-    // First pass: validate file size and type (no duplicate check yet)
-    Array.from(files).forEach((file) => {
-      // Check file size
-      if (file.size > maxSize) {
-        oversizedFiles.push(file.name)
-        return
-      }
-
-      // Get file type - use extension as fallback if MIME type is incorrect
-      const detectedType = file.type || getFileTypeFromExtension(file.name)
-      const actualType = getFileTypeFromExtension(file.name) || detectedType
-
-      // Check file type - images only
-      if (!allowedTypes.includes(actualType)) {
-        invalidTypeFiles.push(file.name)
-        return
-      }
-
-      validFiles.push(file)
-    })
-
-    // Process valid files into attachments
-    const preparedFiles: Attachment[] = []
-    for (const file of validFiles) {
-      const detectedType = file.type || getFileTypeFromExtension(file.name)
-      const actualType = getFileTypeFromExtension(file.name) || detectedType
-
-      const reader = new FileReader()
-      await new Promise<void>((resolve) => {
-        reader.onload = () => {
-          const result = reader.result
-          if (typeof result === 'string') {
-            const base64String = result.split(',')[1]
-            const att = createImageAttachment({
-              name: file.name,
-              size: file.size,
-              mimeType: actualType,
-              base64: base64String,
-              dataUrl: result,
-            })
-            preparedFiles.push(att)
-          }
-          resolve()
+      for (const file of files) {
+        if (file.size > maxSize) {
+          oversizedFiles.push(file.name)
+          continue
         }
-        reader.readAsDataURL(file)
-      })
-    }
-
-    // Compute content hashes for deduplication (allows different images with same filename)
-    for (const att of preparedFiles) {
-      if (att.base64) {
-        att.contentHash = await hashBase64(att.base64)
+        // Extension wins over a possibly wrong MIME type.
+        const actualType = getFileTypeFromExtension(file.name) || file.type
+        if (!ALLOWED_IMAGE_TYPES.includes(actualType)) {
+          invalidTypeFiles.push(file.name)
+          continue
+        }
+        validFiles.push({ file, type: actualType })
       }
-    }
 
-    const duplicates: string[] = []
-    const newFiles: Attachment[] = []
-
-    const currentAttachments = useChatAttachments.getState().getAttachments(
-      attachmentsKey
-    )
-
-    const existingImageHashes = new Set<string>()
-    const existingImageNames = new Set<string>()
-    for (const a of currentAttachments) {
-      if (a.type !== 'image') continue
-      if (a.contentHash) {
-        existingImageHashes.add(a.contentHash)
-      } else if (a.base64) {
-        existingImageHashes.add(await hashBase64(a.base64))
-      } else {
-        existingImageNames.add(a.name)
-      }
-    }
-
-    const seenHashesInBatch = new Set<string>()
-    for (const att of preparedFiles) {
-      const hash = att.contentHash
-      const isDuplicateByContent =
-        hash &&
-        (existingImageHashes.has(hash) || seenHashesInBatch.has(hash))
-      const isDuplicateByName =
-        existingImageNames.has(att.name)
-      if (isDuplicateByContent || isDuplicateByName) {
-        duplicates.push(att.name)
-        continue
-      }
-      if (hash) {
-        seenHashesInBatch.add(hash)
-      }
-      newFiles.push(att)
-    }
-
-    setAttachmentsForThread(attachmentsKey, (prev) =>
-      newFiles.length > 0 ? [...prev, ...newFiles] : prev
-    )
-
-    if (currentThreadId && newFiles.length > 0) {
-      const ingestTotal = newFiles.length
-      void (async () => {
-        setFileIngestProgress({ completed: 0, total: ingestTotal })
-        try {
-          for (let i = 0; i < newFiles.length; i++) {
-            const img = newFiles[i]
-            const matchImg = (a: Attachment) =>
-              a.type === 'image' &&
-              (img.contentHash
-                ? a.contentHash === img.contentHash
-                : a.name === img.name)
-
-            try {
-              setAttachmentsForThread(attachmentsKey, (prev) =>
-                prev.map((a) => (matchImg(a) ? { ...a, processing: true } : a))
+      const preparedFiles: Attachment[] = []
+      for (const { file, type } of validFiles) {
+        const reader = new FileReader()
+        // Executor form: the project's TS lib predates Promise.withResolvers.
+        await new Promise<void>((resolve) => {
+          reader.onload = () => {
+            const result = reader.result
+            if (typeof result === 'string') {
+              preparedFiles.push(
+                createImageAttachment({
+                  name: file.name,
+                  size: file.size,
+                  mimeType: type,
+                  base64: result.split(',')[1],
+                  dataUrl: result,
+                })
               )
-
-              const result = await serviceHub
-                .uploads()
-                .ingestImage(currentThreadId, img)
-
-              if (result?.id) {
-                setAttachmentsForThread(attachmentsKey, (prev) =>
-                  prev.map((a) =>
-                    matchImg(a)
-                      ? {
-                          ...a,
-                          processing: false,
-                          processed: true,
-                          id: result.id,
-                        }
-                      : a
-                  )
-                )
-              } else {
-                throw new Error('No ID returned from image ingestion')
-              }
-            } catch (error) {
-              console.error('Failed to ingest image:', error)
-              setAttachmentsForThread(attachmentsKey, (prev) =>
-                prev.filter((a) => !matchImg(a))
-              )
-              toast.error(`Failed to ingest ${img.name}`, {
-                description:
-                  error instanceof Error ? error.message : String(error),
-              })
-            } finally {
-              setFileIngestProgress({
-                completed: i + 1,
-                total: ingestTotal,
-              })
             }
+            resolve()
           }
-        } finally {
-          setFileIngestProgress(null)
-        }
-      })()
-    }
-
-    // Display validation errors
-    if (duplicates.length > 0) {
-      toast.warning('Some images already attached', {
-        description: `${duplicates.join(', ')} ${duplicates.length === 1 ? 'is' : 'are'} already in the list`,
-      })
-    }
-
-    const errors: string[] = []
-    if (oversizedFiles.length > 0) {
-      errors.push(
-        `File${oversizedFiles.length > 1 ? 's' : ''} too large (max ${maxImageSizeMB}MB): ${oversizedFiles.join(', ')}`
-      )
-    }
-
-    if (invalidTypeFiles.length > 0) {
-      errors.push(
-        `Invalid file type${invalidTypeFiles.length > 1 ? 's' : ''} (only JPEG, JPG, PNG allowed): ${invalidTypeFiles.join(', ')}`
-      )
-    }
-
-    if (errors.length > 0) {
-      setMessage(errors.join(' | '))
-      // Reset file input to allow re-uploading
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
+          reader.readAsDataURL(file)
+        })
       }
-    } else {
-      setMessage('')
-    }
-  }, [attachmentsKey, currentThreadId, setAttachmentsForThread, serviceHub, setFileIngestProgress, maxImageSizeMB])
+
+      // Content hashes allow different images with the same filename.
+      for (const att of preparedFiles) {
+        if (att.base64) att.contentHash = await hashBase64(att.base64)
+      }
+
+      const duplicates: string[] = []
+      const newFiles: Attachment[] = []
+
+      const currentAttachments = useChatAttachments
+        .getState()
+        .getAttachments(attachmentsKey)
+
+      const existingImageHashes = new Set<string>()
+      const existingImageNames = new Set<string>()
+      for (const a of currentAttachments) {
+        if (a.type !== 'image') continue
+        if (a.contentHash) {
+          existingImageHashes.add(a.contentHash)
+        } else if (a.base64) {
+          existingImageHashes.add(await hashBase64(a.base64))
+        } else {
+          existingImageNames.add(a.name)
+        }
+      }
+
+      const seenHashesInBatch = new Set<string>()
+      for (const att of preparedFiles) {
+        const hash = att.contentHash
+        const isDuplicate =
+          (hash &&
+            (existingImageHashes.has(hash) || seenHashesInBatch.has(hash))) ||
+          existingImageNames.has(att.name)
+        if (isDuplicate) {
+          duplicates.push(att.name)
+          continue
+        }
+        if (hash) seenHashesInBatch.add(hash)
+        newFiles.push(att)
+      }
+
+      setAttachmentsForThread(attachmentsKey, (prev) =>
+        newFiles.length > 0 ? [...prev, ...newFiles] : prev
+      )
+
+      if (duplicates.length > 0) {
+        toast.warning('Some images already attached', {
+          description: `${duplicates.join(', ')} ${duplicates.length === 1 ? 'is' : 'are'} already in the list`,
+        })
+      }
+
+      const errors: string[] = []
+      if (oversizedFiles.length > 0) {
+        errors.push(
+          `File${oversizedFiles.length > 1 ? 's' : ''} too large (max ${maxImageSizeMB}MB): ${oversizedFiles.join(', ')}`
+        )
+      }
+      if (invalidTypeFiles.length > 0) {
+        errors.push(
+          `Invalid file type${invalidTypeFiles.length > 1 ? 's' : ''} (only PNG, JPEG, WebP, GIF allowed): ${invalidTypeFiles.join(', ')}`
+        )
+      }
+
+      if (errors.length > 0) {
+        setMessage(errors.join(' | '))
+        // Reset file input to allow re-uploading
+        if (fileInputRef.current) fileInputRef.current.value = ''
+      } else {
+        setMessage('')
+      }
+    },
+    [attachmentsKey, setAttachmentsForThread, maxImageSizeMB]
+  )
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
@@ -1396,374 +586,69 @@ const ChatInput = memo(function ChatInput({
       }
     }
 
-    if (textareaRef.current) {
-      textareaRef.current.focus()
-    }
+    textareaRef.current?.focus()
   }
 
-  const decodeAudioDuration = (dataUrl: string): Promise<number | undefined> =>
-    new Promise((resolve) => {
-      try {
-        const audio = new Audio()
-        audio.preload = 'metadata'
-        audio.onloadedmetadata = () => {
-          const d = audio.duration
-          resolve(Number.isFinite(d) && d > 0 ? d : undefined)
-        }
-        audio.onerror = () => resolve(undefined)
-        audio.src = dataUrl
-      } catch {
-        resolve(undefined)
-      }
-    })
-
-  const processAudioFiles = useCallback(
-    async (files: File[]) => {
-      const maxBytes = 25 * 1024 * 1024
-      const oversized: string[] = []
-      const invalid: string[] = []
-      const prepared: Attachment[] = []
-
-      for (const file of Array.from(files)) {
-        const lower = file.name.toLowerCase()
-        const ext = lower.split('.').pop()
-        const isWav = file.type === 'audio/wav' || file.type === 'audio/x-wav' || ext === 'wav'
-        const isMp3 = file.type === 'audio/mpeg' || file.type === 'audio/mp3' || ext === 'mp3'
-        if (!isWav && !isMp3) {
-          invalid.push(file.name)
-          continue
-        }
-        if (file.size > maxBytes) {
-          oversized.push(file.name)
-          continue
-        }
-        const fmt: 'wav' | 'mp3' = isWav ? 'wav' : 'mp3'
-        const mimeType = fmt === 'wav' ? 'audio/wav' : 'audio/mpeg'
-        const dataUrl: string = await new Promise((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = () => {
-            const r = reader.result
-            if (typeof r === 'string') resolve(r)
-            else reject(new Error('read failed'))
-          }
-          reader.onerror = () => reject(reader.error ?? new Error('read failed'))
-          reader.readAsDataURL(file)
-        })
-        const base64 = dataUrl.split(',')[1] ?? ''
-        const durationSec = await decodeAudioDuration(dataUrl)
-        prepared.push(
-          createAudioAttachment({
-            name: file.name,
-            base64,
-            dataUrl,
-            mimeType,
-            audioFormat: fmt,
-            size: file.size,
-            durationSec,
-          })
-        )
-      }
-
-      const current = useChatAttachments.getState().getAttachments(attachmentsKey)
-      const existingNames = new Set(
-        current.filter((a) => a.type === 'audio').map((a) => a.name)
-      )
-      const duplicates: string[] = []
-      const newOnes: Attachment[] = []
-      for (const att of prepared) {
-        if (existingNames.has(att.name)) {
-          duplicates.push(att.name)
-          continue
-        }
-        newOnes.push(att)
-      }
-
-      if (newOnes.length > 0) {
-        setAttachmentsForThread(attachmentsKey, (prev) => [...prev, ...newOnes])
-      }
-
-      if (duplicates.length > 0) {
-        toast.warning('Some audio files already attached', {
-          description: `${duplicates.join(', ')} ${duplicates.length === 1 ? 'is' : 'are'} already in the list`,
-        })
-      }
-      const errors: string[] = []
-      if (oversized.length > 0) {
-        errors.push(
-          `Audio file${oversized.length > 1 ? 's' : ''} too large (max 25MB): ${oversized.join(', ')}`
-        )
-      }
-      if (invalid.length > 0) {
-        errors.push(
-          `Invalid audio type${invalid.length > 1 ? 's' : ''} (only WAV, MP3 allowed): ${invalid.join(', ')}`
-        )
-      }
-      if (errors.length > 0) {
-        setMessage(errors.join(' | '))
-        if (audioInputRef.current) audioInputRef.current.value = ''
-      }
-    },
-    [attachmentsKey, setAttachmentsForThread]
-  )
-
-  const handleAudioFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (files && files.length > 0) {
-      void processAudioFiles(Array.from(files))
-      if (audioInputRef.current) audioInputRef.current.value = ''
-    }
-    if (textareaRef.current) textareaRef.current.focus()
-  }
-
-  const openAudioPicker = useCallback(async () => {
-    if (isPlatformTauri()) {
-      try {
-        const selected = await serviceHub.dialog().open({
-          multiple: true,
-          filters: [{ name: 'Audio', extensions: ['wav', 'mp3'] }],
-        })
-        if (selected) {
-          const paths = Array.isArray(selected) ? selected : [selected]
-          const files: File[] = []
-          for (const path of paths) {
-            try {
-              const { convertFileSrc } = await import('@tauri-apps/api/core')
-              const fileUrl = convertFileSrc(path)
-              const response = await fetch(fileUrl)
-              if (!response.ok) throw new Error(response.statusText)
-              const blob = await response.blob()
-              const fileName = path.split(/[\\/]/).filter(Boolean).pop() || 'audio'
-              const ext = fileName.toLowerCase().split('.').pop()
-              const mimeType = ext === 'mp3' ? 'audio/mpeg' : 'audio/wav'
-              files.push(new File([blob], fileName, { type: mimeType }))
-            } catch (error) {
-              console.error('Failed to read audio file:', error)
-              toast.error('Failed to read audio file', {
-                description: error instanceof Error ? error.message : String(error),
-              })
-            }
-          }
-          if (files.length > 0) await processAudioFiles(files)
-        }
-      } catch (error) {
-        console.error('Failed to open audio dialog:', error)
-      }
-      if (textareaRef.current) textareaRef.current.focus()
-    } else {
-      audioInputRef.current?.click()
-    }
-  }, [serviceHub, processAudioFiles])
-
-  const processVideoFiles = useCallback(
-    async (files: File[]) => {
-      const maxBytes = 100 * 1024 * 1024
-      const oversized: string[] = []
-      const invalid: string[] = []
-      const prepared: Attachment[] = []
-
-      for (const file of Array.from(files)) {
-        const ext = file.name.toLowerCase().split('.').pop()
-        const isVideo =
-          file.type.startsWith('video/') || VIDEO_EXTS.includes(ext ?? '')
-        if (!isVideo) {
-          invalid.push(file.name)
-          continue
-        }
-        if (file.size > maxBytes) {
-          oversized.push(file.name)
-          continue
-        }
-        const mimeType = file.type.startsWith('video/')
-          ? file.type
-          : videoMimeForExt(ext)
-        const dataUrl: string = await new Promise((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = () => {
-            const r = reader.result
-            if (typeof r === 'string') resolve(r)
-            else reject(new Error('read failed'))
-          }
-          reader.onerror = () => reject(reader.error ?? new Error('read failed'))
-          reader.readAsDataURL(file)
-        })
-        const base64 = dataUrl.split(',')[1] ?? ''
-        prepared.push(
-          createVideoAttachment({
-            name: file.name,
-            base64,
-            dataUrl,
-            mimeType,
-            size: file.size,
-          })
-        )
-      }
-
-      const current = useChatAttachments.getState().getAttachments(attachmentsKey)
-      const existingNames = new Set(
-        current.filter((a) => a.type === 'video').map((a) => a.name)
-      )
-      const duplicates: string[] = []
-      const newOnes: Attachment[] = []
-      for (const att of prepared) {
-        if (existingNames.has(att.name)) {
-          duplicates.push(att.name)
-          continue
-        }
-        newOnes.push(att)
-      }
-
-      if (newOnes.length > 0) {
-        setAttachmentsForThread(attachmentsKey, (prev) => [...prev, ...newOnes])
-      }
-
-      if (duplicates.length > 0) {
-        toast.warning('Some video files already attached', {
-          description: `${duplicates.join(', ')} ${duplicates.length === 1 ? 'is' : 'are'} already in the list`,
-        })
-      }
-      const errors: string[] = []
-      if (oversized.length > 0) {
-        errors.push(
-          `Video file${oversized.length > 1 ? 's' : ''} too large (max 100MB): ${oversized.join(', ')}`
-        )
-      }
-      if (invalid.length > 0) {
-        errors.push(
-          `Invalid video type${invalid.length > 1 ? 's' : ''}: ${invalid.join(', ')}`
-        )
-      }
-      if (errors.length > 0) {
-        setMessage(errors.join(' | '))
-        if (videoInputRef.current) videoInputRef.current.value = ''
-      }
-    },
-    [attachmentsKey, setAttachmentsForThread]
-  )
-
-  const handleVideoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (files && files.length > 0) {
-      void processVideoFiles(Array.from(files))
-      if (videoInputRef.current) videoInputRef.current.value = ''
-    }
-    if (textareaRef.current) textareaRef.current.focus()
-  }
-
-  const openVideoPicker = useCallback(async () => {
-    if (isPlatformTauri()) {
-      try {
-        const selected = await serviceHub.dialog().open({
-          multiple: true,
-          filters: [{ name: 'Video', extensions: VIDEO_EXTS }],
-        })
-        if (selected) {
-          const paths = Array.isArray(selected) ? selected : [selected]
-          const files: File[] = []
-          for (const path of paths) {
-            try {
-              const { convertFileSrc } = await import('@tauri-apps/api/core')
-              const fileUrl = convertFileSrc(path)
-              const response = await fetch(fileUrl)
-              if (!response.ok) throw new Error(response.statusText)
-              const blob = await response.blob()
-              const fileName = path.split(/[\\/]/).filter(Boolean).pop() || 'video'
-              const ext = fileName.toLowerCase().split('.').pop()
-              files.push(new File([blob], fileName, { type: videoMimeForExt(ext) }))
-            } catch (error) {
-              console.error('Failed to read video file:', error)
-              toast.error('Failed to read video file', {
-                description: error instanceof Error ? error.message : String(error),
-              })
-            }
-          }
-          if (files.length > 0) await processVideoFiles(files)
-        }
-      } catch (error) {
-        console.error('Failed to open video dialog:', error)
-      }
-      if (textareaRef.current) textareaRef.current.focus()
-    } else {
-      videoInputRef.current?.click()
-    }
-  }, [serviceHub, processVideoFiles])
-
-  // Open the image picker dialog (extracted for reuse)
   const openImagePicker = useCallback(async () => {
-    if (isPlatformTauri()) {
-      try {
-        const selected = await serviceHub.dialog().open({
-          multiple: true,
-          filters: [
-            {
-              name: 'Images',
-              extensions: ['jpg', 'jpeg', 'png'],
-            },
-          ],
-        })
+    if (!isPlatformTauri()) {
+      fileInputRef.current?.click()
+      return
+    }
+    try {
+      const selected = await serviceHub.dialog().open({
+        multiple: true,
+        filters: [
+          {
+            name: 'Images',
+            extensions: Object.keys(IMAGE_MIME_BY_EXT),
+          },
+        ],
+      })
 
-        if (selected) {
-          const paths = Array.isArray(selected) ? selected : [selected]
-          const files: File[] = []
+      if (selected) {
+        const paths = Array.isArray(selected) ? selected : [selected]
+        const files: File[] = []
 
-          for (const path of paths) {
-            try {
-              // Use Tauri's convertFileSrc to create a valid URL for the file
-              const { convertFileSrc } = await import('@tauri-apps/api/core')
-              const fileUrl = convertFileSrc(path)
-
-              // Fetch the file as blob
-              const response = await fetch(fileUrl)
-              if (!response.ok) {
-                throw new Error(`Failed to fetch file: ${response.statusText}`)
-              }
-
-              const blob = await response.blob()
-              const fileName =
-                path.split(/[\\/]/).filter(Boolean).pop() || 'image'
-              const ext = fileName.toLowerCase().split('.').pop()
-              const mimeType =
-                ext === 'png'
-                  ? 'image/png'
-                  : ext === 'jpg' || ext === 'jpeg'
-                    ? 'image/jpeg'
-                    : 'image/jpeg'
-
-              const file = new File([blob], fileName, { type: mimeType })
-              files.push(file)
-            } catch (error) {
-              console.error('Failed to read file:', error)
-              toast.error('Failed to read file', {
-                description:
-                  error instanceof Error ? error.message : String(error),
-              })
+        for (const path of paths) {
+          try {
+            // Tauri-only module: absent on the web build, so it can't be a static import.
+            const { convertFileSrc } = await import('@tauri-apps/api/core')
+            const response = await fetch(convertFileSrc(path))
+            if (!response.ok) {
+              throw new Error(`Failed to fetch file: ${response.statusText}`)
             }
-          }
-
-          if (files.length > 0) {
-            await processImageFiles(files)
+            const blob = await response.blob()
+            const fileName =
+              path.split(/[\\/]/).filter(Boolean).pop() || 'image'
+            files.push(
+              new File([blob], fileName, {
+                type: getFileTypeFromExtension(fileName) || 'image/jpeg',
+              })
+            )
+          } catch (error) {
+            console.error('Failed to read file:', error)
+            toast.error('Failed to read file', {
+              description:
+                error instanceof Error ? error.message : String(error),
+            })
           }
         }
-      } catch (error) {
-        console.error('Failed to open file dialog:', error)
-      }
 
-      if (textareaRef.current) {
-        textareaRef.current.focus()
+        if (files.length > 0) {
+          await processImageFiles(files)
+        }
       }
-    } else {
-      // Fallback to input click for web
-      fileInputRef.current?.click()
+    } catch (error) {
+      console.error('Failed to open file dialog:', error)
     }
-  }, [serviceHub, processImageFiles])
 
-  const dropAcceptsAnything = hasMmproj || audioSupported || videoSupported
+    textareaRef.current?.focus()
+  }, [serviceHub, processImageFiles])
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    if (dropAcceptsAnything) {
-      setIsDragOver(true)
-    }
+    setIsDragOver(true)
   }
 
   const handleDragLeave = (e: React.DragEvent) => {
@@ -1780,9 +665,7 @@ const ChatInput = memo(function ChatInput({
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    if (dropAcceptsAnything) {
-      setIsDragOver(true)
-    }
+    setIsDragOver(true)
   }
 
   const handleDrop = (e: React.DragEvent) => {
@@ -1790,191 +673,64 @@ const ChatInput = memo(function ChatInput({
     e.stopPropagation()
     setIsDragOver(false)
 
-    if (!dropAcceptsAnything) return
-    if (!e.dataTransfer) {
-      console.warn('No dataTransfer available in drop event')
-      return
-    }
-
-    const dropped = Array.from(e.dataTransfer.files ?? [])
-    if (dropped.length === 0) return
-
-    const isAudioFile = (f: File) => {
-      const ext = f.name.toLowerCase().split('.').pop()
-      return (
-        f.type === 'audio/wav' ||
-        f.type === 'audio/x-wav' ||
-        f.type === 'audio/mpeg' ||
-        f.type === 'audio/mp3' ||
-        ext === 'wav' ||
-        ext === 'mp3'
-      )
-    }
-
-    const isVideoFile = (f: File) => {
-      const ext = f.name.toLowerCase().split('.').pop()
-      return f.type.startsWith('video/') || VIDEO_EXTS.includes(ext ?? '')
-    }
-
-    const audioOnes = audioSupported ? dropped.filter(isAudioFile) : []
-    const videoOnes = videoSupported ? dropped.filter(isVideoFile) : []
-    const otherOnes = dropped.filter(
-      (f) => !audioOnes.includes(f) && !videoOnes.includes(f)
-    )
-
-    if (otherOnes.length > 0 && hasMmproj) {
-      const dt = new DataTransfer()
-      otherOnes.forEach((f) => dt.items.add(f))
-      const syntheticEvent = {
-        target: { files: dt.files },
-      } as React.ChangeEvent<HTMLInputElement>
-      handleFileChange(syntheticEvent)
-    }
-    if (audioOnes.length > 0) {
-      void processAudioFiles(audioOnes)
-    }
-    if (videoOnes.length > 0) {
-      void processVideoFiles(videoOnes)
-    }
+    const dropped = Array.from(e.dataTransfer?.files ?? [])
+    if (dropped.length > 0) void processImageFiles(dropped)
   }
 
   const handlePaste = async (e: React.ClipboardEvent) => {
-    if (audioSupported) {
-      const clipboardItems = e.clipboardData?.items
-      if (clipboardItems && clipboardItems.length > 0) {
-        const audioFiles: File[] = []
-        for (const item of Array.from(clipboardItems)) {
-          if (
-            item.type === 'audio/wav' ||
-            item.type === 'audio/x-wav' ||
-            item.type === 'audio/mpeg' ||
-            item.type === 'audio/mp3'
-          ) {
-            const f = item.getAsFile()
-            if (f) audioFiles.push(f)
-          }
-        }
-        if (audioFiles.length > 0) {
-          e.preventDefault()
-          await processAudioFiles(audioFiles)
-          return
-        }
+    const clipboardItems = e.clipboardData?.items
+
+    // Try clipboardData.items first (traditional method)
+    if (clipboardItems && clipboardItems.length > 0) {
+      const files = Array.from(clipboardItems)
+        .filter((item) => item.type.startsWith('image/'))
+        .map((item) => item.getAsFile())
+        .filter((f): f is File => !!f)
+
+      if (files.length > 0) {
+        e.preventDefault()
+        void processImageFiles(files)
+        return
       }
     }
 
-    if (hasMmproj) {
-      const clipboardItems = e.clipboardData?.items
-      let hasProcessedImage = false
+    // Modern Clipboard API fallback (for Linux, images copied from web, etc.)
+    if (navigator.clipboard && 'read' in navigator.clipboard) {
+      try {
+        const clipboardContents = await navigator.clipboard.read()
+        const files: File[] = []
 
-      // Try clipboardData.items first (traditional method)
-      if (clipboardItems && clipboardItems.length > 0) {
-        const imageItems = Array.from(clipboardItems).filter((item) =>
-          item.type.startsWith('image/')
-        )
+        for (const item of clipboardContents) {
+          for (const type of item.types.filter((t) => t.startsWith('image/'))) {
+            try {
+              const blob = await item.getType(type)
+              const extension = type.split('/')[1] || 'png'
+              files.push(
+                new File([blob], `pasted-image-${Date.now()}.${extension}`, {
+                  type,
+                })
+              )
+            } catch (error) {
+              console.error('Error reading clipboard item:', error)
+            }
+          }
+        }
 
-        if (imageItems.length > 0) {
+        if (files.length > 0) {
           e.preventDefault()
-
-          const files: File[] = []
-          let processedCount = 0
-
-          imageItems.forEach((item) => {
-            const file = item.getAsFile()
-            if (file) {
-              files.push(file)
-            }
-            processedCount++
-
-            // When all items are processed, handle the valid files
-            if (processedCount === imageItems.length) {
-              if (files.length > 0) {
-                const syntheticEvent = {
-                  target: {
-                    files: files,
-                  },
-                } as unknown as React.ChangeEvent<HTMLInputElement>
-
-                handleFileChange(syntheticEvent)
-                hasProcessedImage = true
-              }
-            }
-          })
-
-          // If we found image items but couldn't get files, fall through to modern API
-          if (processedCount === imageItems.length && !hasProcessedImage) {
-            // Continue to modern clipboard API fallback below
-          } else {
-            return // Successfully processed with traditional method
-          }
+          void processImageFiles(files)
         }
+      } catch (error) {
+        console.error('Clipboard API access failed:', error)
       }
-
-      // Modern Clipboard API fallback (for Linux, images copied from web, etc.)
-      if (
-        navigator.clipboard &&
-        'read' in navigator.clipboard &&
-        !hasProcessedImage
-      ) {
-        try {
-          const clipboardContents = await navigator.clipboard.read()
-          const files: File[] = []
-
-          for (const item of clipboardContents) {
-            const imageTypes = item.types.filter((type) =>
-              type.startsWith('image/')
-            )
-
-            for (const type of imageTypes) {
-              try {
-                const blob = await item.getType(type)
-                // Convert blob to File with better naming
-                const extension = type.split('/')[1] || 'png'
-                const file = new File(
-                  [blob],
-                  `pasted-image-${Date.now()}.${extension}`,
-                  { type }
-                )
-                files.push(file)
-              } catch (error) {
-                console.error('Error reading clipboard item:', error)
-              }
-            }
-          }
-
-          if (files.length > 0) {
-            e.preventDefault()
-            const syntheticEvent = {
-              target: {
-                files: files,
-              },
-            } as unknown as React.ChangeEvent<HTMLInputElement>
-
-            handleFileChange(syntheticEvent)
-            return
-          }
-        } catch (error) {
-          console.error('Clipboard API access failed:', error)
-        }
-      }
-
-      // If we reach here, no image was found - allow normal text pasting to continue
-      console.log(
-        'No image data found in clipboard, allowing normal text paste'
-      )
     }
-    // If hasMmproj is false or no images found, allow normal text pasting to continue
+    // No image found: normal text pasting continues.
   }
-
-  const isStreaming = chatStatus === 'submitted' || chatStatus === 'streaming'
 
   return (
     <div className="relative">
       <div className="relative">
-        <div
-          className={cn(
-            'relative overflow-hidden p-0.5 rounded-3xl'
-          )}
-        >
+        <div className={cn('relative overflow-hidden p-0.5 rounded-3xl')}>
           {isStreaming && (
             <div className="absolute inset-0">
               <MovingBorder rx="10%" ry="10%">
@@ -1997,123 +753,66 @@ const ChatInput = memo(function ChatInput({
               isFocused && 'border-ring dark:border-ring/60',
               isDragOver && 'ring-2 ring-ring/50 border-primary'
             )}
-            data-drop-zone={dropAcceptsAnything ? 'true' : undefined}
-            onDragEnter={dropAcceptsAnything ? handleDragEnter : undefined}
-            onDragLeave={dropAcceptsAnything ? handleDragLeave : undefined}
-            onDragOver={dropAcceptsAnything ? handleDragOver : undefined}
-            onDrop={dropAcceptsAnything ? handleDrop : undefined}
+            data-drop-zone="true"
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
           >
             {attachments.length > 0 && (
               <div className="flex flex-col gap-2 p-2 pb-0">
                 <div className="flex gap-3 items-center">
-                  {attachments
-                    .map((att, idx) => ({ att, idx }))
-                    .map(({ att, idx }) => {
-                      const isImage = att.type === 'image'
-                      const isAudio = att.type === 'audio'
-                      const isVideo = att.type === 'video'
-                      const ext = att.fileType || att.mimeType?.split('/')[1]
-                      const durLabel =
-                        isAudio && typeof att.durationSec === 'number'
-                          ? `${Math.floor(att.durationSec / 60)}:${Math.floor(att.durationSec % 60)
-                              .toString()
-                              .padStart(2, '0')}`
-                          : undefined
-                      return (
-                        <div
-                          key={`${att.type}-${idx}-${att.name}`}
-                          className="relative"
-                        >
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div
-                                className={cn(
-                                  'relative border rounded-xl size-14 overflow-hidden',
-                                  'flex items-center justify-center'
-                                )}
-                              >
-                                {isImage && att.dataUrl ? (
-                                  <img
-                                    className="object-cover w-full h-full"
-                                    src={att.dataUrl}
-                                    alt={`${att.name}`}
-                                  />
-                                ) : isAudio ? (
-                                  <div className="flex flex-col items-center justify-center text-muted-foreground">
-                                    <IconMusic size={20} />
-                                    {durLabel && (
-                                      <span className="text-[10px] leading-none mt-0.5 tabular-nums opacity-70">
-                                        {durLabel}
-                                      </span>
-                                    )}
-                                  </div>
-                                ) : isVideo ? (
-                                  <div className="flex flex-col items-center justify-center text-muted-foreground">
-                                    <IconVideo size={20} />
-                                  </div>
-                                ) : (
-                                  <div className="flex flex-col items-center justify-center text-muted-foreground">
-                                    <IconPaperclip size={18} />
-                                    {ext && (
-                                      <span className="text-[10px] leading-none mt-0.5 uppercase opacity-70">
-                                        .{ext}
-                                      </span>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <div className="text-xs">
-                                <div
-                                  className="font-medium truncate max-w-52"
-                                  title={att.name}
-                                >
-                                  {att.name}
-                                </div>
-                                <div className="opacity-70">
-                                  {isImage
-                                    ? att.mimeType || 'image'
-                                    : isAudio
-                                      ? att.audioFormat
-                                        ? `.${att.audioFormat}${durLabel ? ` · ${durLabel}` : ''}`
-                                        : 'audio'
-                                      : ext
-                                        ? `.${ext}`
-                                        : 'document'}
-                                  {att.size
-                                    ? ` · ${formatBytes(att.size, {
-                                        decimals: (_, unit) =>
-                                          unit === 'B' ? 0 : 1,
-                                      })}`
-                                    : ''}
-                                </div>
-                                {isAudio && att.dataUrl && (
-                                  <audio
-                                    controls
-                                    src={att.dataUrl}
-                                    className="mt-1 w-56"
-                                  />
-                                )}
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-
-                          {/* Remove button disabled while processing - outside overflow-hidden container */}
-                          {!att.processing && (
-                            <div
-                              className="absolute -top-1 -right-2.5 bg-destructive size-5 flex rounded-full items-center justify-center cursor-pointer"
-                              onClick={() => handleRemoveAttachment(idx)}
-                            >
-                              <IconX
-                                className="text-neutral-200"
-                                size={14}
+                  {attachments.map((att, idx) => (
+                    <div
+                      key={`${att.type}-${idx}-${att.name}`}
+                      className="relative"
+                    >
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div
+                            className={cn(
+                              'relative border rounded-xl size-14 overflow-hidden',
+                              'flex items-center justify-center'
+                            )}
+                          >
+                            {att.dataUrl && (
+                              <img
+                                className="object-cover w-full h-full"
+                                src={att.dataUrl}
+                                alt={`${att.name}`}
                               />
+                            )}
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <div className="text-xs">
+                            <div
+                              className="font-medium truncate max-w-52"
+                              title={att.name}
+                            >
+                              {att.name}
                             </div>
-                          )}
-                        </div>
-                      )
-                    })}
+                            <div className="opacity-70">
+                              {att.mimeType || 'image'}
+                              {att.size
+                                ? ` · ${formatBytes(att.size, {
+                                    decimals: (_, unit) =>
+                                      unit === 'B' ? 0 : 1,
+                                  })}`
+                                : ''}
+                            </div>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+
+                      <div
+                        className="absolute -top-1 -right-2.5 bg-destructive size-5 flex rounded-full items-center justify-center cursor-pointer"
+                        onClick={() => handleRemoveAttachment(idx)}
+                      >
+                        <IconX className="text-neutral-200" size={14} />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -2146,648 +845,202 @@ const ChatInput = memo(function ChatInput({
                   {prompt.slice(highlightedPrefix.length)}
                 </div>
               )}
-            <TextareaAutosize
-              dir="auto"
-              ref={textareaRef}
-              minRows={2}
-              rows={1}
-              maxRows={10}
-              value={prompt}
-              data-testid={'chat-input'}
-              onScroll={(event) => {
-                if (highlightRef.current) {
-                  highlightRef.current.scrollTop = event.currentTarget.scrollTop
-                  highlightRef.current.scrollLeft = event.currentTarget.scrollLeft
-                }
-              }}
-              onChange={(e) => {
-                const value = e.target.value
-                const cursorIdx = e.target.selectionStart
-
-                // Track when @ is freshly typed
-                const prevPrompt = prompt
-                handlePromptChange(value)
-
-                // Snapshot cursor position when user types @
-                if (value.includes('@') && !prevPrompt.includes('@')) {
-                  filePickerCursorPos.current = cursorIdx
-                } else if (value.endsWith('@') && cursorIdx > 0) {
-                  filePickerCursorPos.current = cursorIdx
-                } else if (!value.includes('@')) {
-                  filePickerCursorPos.current = null
-                } else if (filePickerCursorPos.current == null) {
-                  // If picker already open, keep tracking cursor
-                  filePickerCursorPos.current = cursorIdx
-                }
-
-                // Count the number of newlines to estimate rows
-                const newRows = (value.match(/\n/g) || []).length + 1
-                setRows(Math.min(newRows, maxRows))
-              }}
-              onKeyDown={(e) => {
-                // e.keyCode 229 is for IME input with Safari
-                const isComposing =
-                  e.nativeEvent.isComposing || e.keyCode === 229
-                if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
-                  e.preventDefault()
-                  // Submit prompt when Enter is pressed without Shift and prompt is not empty.
-                  // If streaming, handleSendMessage will queue the message automatically.
-                  if ((prompt.trim() || hasSendableMedia) && !ingestingAny) {
-                    handleSendMessage(prompt)
+              <TextareaAutosize
+                dir="auto"
+                ref={textareaRef}
+                minRows={2}
+                rows={1}
+                maxRows={10}
+                value={prompt}
+                data-testid={'chat-input'}
+                onScroll={(event) => {
+                  if (highlightRef.current) {
+                    highlightRef.current.scrollTop = event.currentTarget.scrollTop
+                    highlightRef.current.scrollLeft = event.currentTarget.scrollLeft
                   }
-                  // When Shift+Enter is pressed, a new line is added (default behavior)
-                }
-                // Navigate prompt history with Up/Down arrow keys
-                if (e.key === 'ArrowUp' && !isComposing) {
-                  const textarea = e.currentTarget
-                  const cursorAtStart =
-                    textarea.selectionStart === 0 &&
-                    textarea.selectionEnd === 0
-                  if (cursorAtStart || !prompt) {
+                }}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setPrompt(value)
+                  // Count the number of newlines to estimate rows
+                  const newRows = (value.match(/\n/g) || []).length + 1
+                  setRows(Math.min(newRows, maxRows))
+                }}
+                onKeyDown={(e) => {
+                  // e.keyCode 229 is for IME input with Safari
+                  const isComposing =
+                    e.nativeEvent.isComposing || e.keyCode === 229
+                  if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
                     e.preventDefault()
-                    navigateHistory('up')
+                    // If streaming, handleSendMessage will queue the message automatically.
+                    if (prompt.trim() || hasSendableMedia) {
+                      handleSendMessage(prompt)
+                    }
                   }
-                }
-                if (e.key === 'ArrowDown' && !isComposing) {
-                  const textarea = e.currentTarget
-                  const cursorAtEnd =
-                    textarea.selectionStart === prompt.length &&
-                    textarea.selectionEnd === prompt.length
-                  if (cursorAtEnd) {
-                    e.preventDefault()
-                    navigateHistory('down')
+                  // Navigate prompt history with Up/Down arrow keys
+                  if (e.key === 'ArrowUp' && !isComposing) {
+                    const textarea = e.currentTarget
+                    const cursorAtStart =
+                      textarea.selectionStart === 0 &&
+                      textarea.selectionEnd === 0
+                    if (cursorAtStart || !prompt) {
+                      e.preventDefault()
+                      navigateHistory('up')
+                    }
                   }
-                }
-                // Tab completes the selected @path file reference
-                if (
-                  e.key === 'Tab' &&
-                  filePickerOpen &&
-                  filePickerEntries.length > 0 &&
-                  !isComposing
-                ) {
-                  e.preventDefault()
-                  // Select the first entry as the default Tab completion
-                  handleFilePickerSelect(filePickerEntries[0])
-                }
-              }}
-              onPaste={handlePaste}
-              placeholder={t('common:placeholder.chatInput')}
-              autoFocus
-              spellCheck={spellCheckChatInput}
-              data-gramm={spellCheckChatInput}
-              data-gramm_editor={spellCheckChatInput}
-              data-gramm_grammarly={spellCheckChatInput}
-              className={cn(
-                'bg-transparent pt-4 w-full shrink-0 border-none resize-none outline-0 px-4',
-                rows < maxRows && 'scrollbar-hide',
-                className
-              )}
-            />
-            </div>
-            {/* @path file reference picker popover */}
-            {filePickerOpen && effectiveAgentMode && (
-              <div className="relative">
-                <FilePickerPopover
-                  entries={filePickerEntries}
-                  query={filePickerQuery}
-                  open={filePickerOpen}
-                  position={filePickerPosition}
-                  onSelect={handleFilePickerSelect}
-                  onClose={handleFilePickerClose}
-                  textareaRef={textareaRef}
-                />
-              </div>
-            )}
-
-        <div className="relative z-20 w-full p-2">
-          <div
-            ref={controlRowRef}
-            className="flex items-end justify-between gap-2 w-full"
-          >
-            <div className="px-1 flex flex-wrap items-center gap-1 flex-1 min-w-0">
-              <CollapsibleControls
-                collapsed={collapseControls}
-                label={t('common:moreControls')}
-              >
-              <div
+                  if (e.key === 'ArrowDown' && !isComposing) {
+                    const textarea = e.currentTarget
+                    const cursorAtEnd =
+                      textarea.selectionStart === prompt.length &&
+                      textarea.selectionEnd === prompt.length
+                    if (cursorAtEnd) {
+                      e.preventDefault()
+                      navigateHistory('down')
+                    }
+                  }
+                }}
+                onPaste={handlePaste}
+                placeholder={t('common:placeholder.chatInput')}
+                autoFocus
+                spellCheck={spellCheckChatInput}
+                data-gramm={spellCheckChatInput}
+                data-gramm_editor={spellCheckChatInput}
+                data-gramm_grammarly={spellCheckChatInput}
                 className={cn(
-                  'px-1 flex flex-wrap items-center gap-1',
-                  isStreaming && 'opacity-50 pointer-events-none'
+                  'bg-transparent pt-4 w-full shrink-0 border-none resize-none outline-0 px-4',
+                  rows < maxRows && 'scrollbar-hide',
+                  className
                 )}
+              />
+            </div>
+
+            <div className="relative z-20 w-full p-2">
+              <div
+                ref={controlRowRef}
+                className="flex items-end justify-between gap-2 w-full"
               >
-                {/* Dropdown for attachments — hidden in agent mode */}
-                {!effectiveAgentMode && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="secondary" size="icon-sm" className='rounded-full mr-2 mb-1'>
-                      <PlusIcon size={18} className="text-muted-foreground" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    {hasMmproj && (
-                      <DropdownMenuItem onClick={() => void openImagePicker()}>
-                        <IconPhoto size={18} className="text-muted-foreground" />
-                        <span>Add Images</span>
-                        <input
-                          type="file"
-                          ref={fileInputRef}
-                          className="hidden"
-                          multiple
-                          onChange={handleFileChange}
-                        />
-                      </DropdownMenuItem>
-                    )}
-                    {audioSupported && (
-                      <DropdownMenuItem onClick={() => void openAudioPicker()}>
-                        <IconMusic size={18} className="text-muted-foreground" />
-                        <span>Add Audio</span>
-                        <input
-                          type="file"
-                          ref={audioInputRef}
-                          className="hidden"
-                          multiple
-                          accept="audio/wav,audio/mpeg,.wav,.mp3"
-                          onChange={handleAudioFileChange}
-                        />
-                      </DropdownMenuItem>
-                    )}
-                    {videoSupported && (
-                      <DropdownMenuItem onClick={() => void openVideoPicker()}>
-                        <IconVideo size={18} className="text-muted-foreground" />
-                        <span>Add Video</span>
-                        <input
-                          type="file"
-                          ref={videoInputRef}
-                          className="hidden"
-                          multiple
-                          accept="video/mp4,video/quicktime,video/webm,video/x-matroska,video/x-msvideo,.mp4,.mov,.webm,.mkv,.avi,.m4v"
-                          onChange={handleVideoFileChange}
-                        />
-                      </DropdownMenuItem>
-                    )}
-                    {/* RAG document attachments - desktop-only via dialog; shown when feature enabled */}
-                    <DropdownMenuItem onClick={handleAttachDocsIngest}>
-                      {ingestingDocs ? (
-                        <IconLoader2
-                          size={18}
-                          className="text-muted-foreground animate-spin"
-                        />
-                      ) : (
-                        <IconPaperclip
-                          size={18}
-                          className="text-muted-foreground"
-                        />
+                <div className="px-1 flex flex-wrap items-center gap-1 flex-1 min-w-0">
+                  <CollapsibleControls
+                    collapsed={collapseControls}
+                    label={t('common:moreControls')}
+                  >
+                    <div
+                      className={cn(
+                        'px-1 flex flex-wrap items-center gap-1',
+                        isStreaming && 'opacity-50 pointer-events-none'
                       )}
-                      <span>
-                        {ingestingDocs
-                          ? 'Indexing documents…'
-                          : 'Add documents or files'}
-                      </span>
-                    </DropdownMenuItem>
-                    {currentThreadId && (
-                      <ContributedMenuItems
-                        location="chatInput/actions"
-                        context={{
-                          location: 'chatInput/actions',
-                          threadId: currentThreadId,
-                        }}
-                        separator
-                      />
-                    )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-                <AssistantSwitcher
-                  assistants={assistants}
-                  currentThread={currentThread}
-                  selectedAssistantId={selectedAssistantId}
-                  setSelectedAssistantId={setSelectedAssistantId}
-                  updateCurrentThreadAssistant={updateCurrentThreadAssistant}
-                />
-                <SamplerPopover
-                  providerId={selectedProvider}
-                  assistantSwitcher={{
-                    assistants,
-                    currentThread,
-                    selectedAssistantId,
-                    setSelectedAssistantId,
-                    updateCurrentThreadAssistant,
-                  }}
-                />
-                {showToolControls && hasJanBrowserMCPConfig && modelSupportsBrowser && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        disabled={isJanBrowserMCPLoading}
-                        className={cn(janBrowserMCPActive && "text-primary")}
-                        onClick={
-                          isJanBrowserMCPLoading
-                            ? undefined
-                            : handleBrowseClick
-                        }
-                      >
-                        {isJanBrowserMCPLoading ? (
-                          <IconLoader2
-                            size={18}
-                            className="text-primary animate-spin"
-                          />
-                        ) : (
-                          <IconBrandChrome
-                            size={18}
-                            className={cn(
-                              'text-muted-foreground',
-                              janBrowserMCPActive && 'text-primary'
-                            )}
-                          />
-                        )}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>
-                        {isJanBrowserMCPLoading
-                          ? t('common:starting')
-                          : janBrowserMCPActive
-                            ? t('common:browse') + t('common:activeSuffix')
-                            : t('common:browse')}
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-
-                {showToolControls && selectedModel?.capabilities?.includes('embeddings') && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                          variant="ghost"
-                          size="icon-xs"
-                        >
-                        <IconCodeCircle2
-                          size={18}
-                          className="text-muted-foreground"
-                        />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{t('embeddings')}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-
-                {showToolControls && selectedModel?.capabilities?.includes('tools') &&
-                  hasActiveMCPServers && (
-                    <Tooltip
-                      open={tooltipShown === 'tools'}
-                      onOpenChange={(newValue) => newValue ? setTooltipShown('tools') : setTooltipShown(false)}
                     >
-                      <TooltipTrigger
-                        asChild
-                        disabled={dropdownToolsAvailable}
-                      >
-                        <Button
-                          variant="ghost"
-                          size="icon-xs"
-                          onClick={(e) => {
-                            setDropdownToolsAvailable(false)
-                            e.stopPropagation()
-                          }}
-                        >
-                          <DropdownToolsAvailable
-                            onOpenChange={(isOpen) => {
-                              setDropdownToolsAvailable(isOpen)
-                              if (isOpen) {
-                                setTooltipShown(false)
-                              }
-                            }}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="secondary"
+                            size="icon-sm"
+                            className="rounded-full mr-2 mb-1"
+                            aria-label={t('common:addImages')}
+                            onClick={() => void openImagePicker()}
                           >
-                            {() => {
-                              return (
-                                <div
-                                  className={cn(
-                                    'p-1 flex items-center justify-center rounded-sm transition-all duration-200 ease-in-out gap-1 cursor-pointer',
-                                  )}
-                                >
-                                  <IconTool
-                                    size={18}
-                                    className={cn(
-                                      'text-muted-foreground',
-                                    )}
-                                  />
-                                </div>
-                              )
-                            }}
-                          </DropdownToolsAvailable>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{t('tools')}</p>
-                      </TooltipContent>
-                    </Tooltip>
+                            <PlusIcon size={18} className="text-muted-foreground" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{t('common:addImages')}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        multiple
+                        accept="image/png,image/jpeg,image/webp,image/gif"
+                        onChange={handleFileChange}
+                      />
+                      <AssistantSwitcher
+                        assistants={assistants}
+                        currentThread={currentThread}
+                        selectedAssistantId={selectedAssistantId}
+                        setSelectedAssistantId={setSelectedAssistantId}
+                        updateCurrentThreadAssistant={updateCurrentThreadAssistant}
+                      />
+                      <WorkControls threadId={currentThreadId} />
+                      <SamplerPopover
+                        providerId={selectedProvider}
+                        assistantSwitcher={{
+                          assistants,
+                          currentThread,
+                          selectedAssistantId,
+                          setSelectedAssistantId,
+                          updateCurrentThreadAssistant,
+                        }}
+                      />
+                    </div>
+                  </CollapsibleControls>
+                  {currentThreadId && <ActivitySummary threadId={currentThreadId} />}
+                </div>
+
+                <div className="flex shrink-0 items-center gap-2">
+                  {tokenCounterVisible && tokenCounterCompact && (
+                    <div className="flex-1 flex justify-center">
+                      <TokenCounter
+                        messages={threadMessages || []}
+                        compact={true}
+                      />
+                    </div>
                   )}
 
-                {showToolControls &&
-                  sandboxEnforcesShell &&
-                  selectedModel?.capabilities?.includes('tools') && (
+                  {!isStreaming && (
+                    <MicButton
+                      onText={(text) => {
+                        setPrompt(prompt.trim() ? `${prompt.trimEnd()} ${text}` : text)
+                        textareaRef.current?.focus()
+                      }}
+                    />
+                  )}
+                  {isStreaming ? (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
-                          variant="ghost"
-                          size="icon-xs"
-                          aria-pressed={shellEnabled}
-                          aria-label={t('common:shell')}
-                          className={cn(shellEnabled && 'text-primary')}
-                          onClick={() => setShellEnabled(!shellEnabled)}
+                          variant="destructive"
+                          size="icon-sm"
+                          data-testid="stop-message-button"
+                          className="rounded-full mr-1 mb-1"
+                          onClick={() => {
+                            // Stopping with messages queued clears the queue —
+                            // there is nothing to interrupt yet.
+                            if (queueId) {
+                              const queue = useMessageQueue
+                                .getState()
+                                .getQueue(queueId)
+                              if (queue.length > 0) {
+                                useMessageQueue.getState().clearQueue(queueId)
+                                return
+                              }
+                            }
+                            stopStreaming(currentThreadId ?? '')
+                          }}
                         >
-                          <IconTerminal2
-                            size={18}
-                            className={cn(
-                              'text-muted-foreground',
-                              shellEnabled && 'text-primary'
-                            )}
-                          />
+                          <IconPlayerStopFilled />
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>
-                          {shellEnabled
-                            ? t('common:shell') + t('common:activeSuffix')
-                            : t('common:shell')}
-                        </p>
+                        <p>{queueLength > 0 ? `Clear ${queueLength} queued message(s)` : 'Stop generating'}</p>
                       </TooltipContent>
                     </Tooltip>
-                  )}
-
-                {!effectiveAgentMode &&
-                  selectedProvider === 'llamacpp' &&
-                  (() => {
-                    // The token-budget submenu resolves against live n_ctx.
-                    const showThinkingBudget = selectedProvider === 'llamacpp'
-                    const reasoningValue =
-                      (selectedModel?.settings?.reasoning?.controller_props
-                        ?.value as 'auto' | 'on' | 'off' | undefined) ?? 'auto'
-                    const updateModelSetting = (
-                      settingKey: string,
-                      title: string,
-                      controllerType: string,
-                      value: unknown
-                    ) => {
-                      if (!selectedProvider || !selectedModel) return
-                      const providerObj = getProviderByName(selectedProvider)
-                      if (!providerObj) return
-                      const modelIndex = providerObj.models.findIndex(
-                        (m) => m.id === selectedModel.id
-                      )
-                      if (modelIndex === -1) return
-                      const existing = selectedModel.settings?.[settingKey] ?? {
-                        key: settingKey,
-                        title,
-                        description: '',
-                        controller_type: controllerType,
-                        controller_props: { value },
-                      }
-                      const updatedModel = {
-                        ...selectedModel,
-                        settings: {
-                          ...selectedModel.settings,
-                          [settingKey]: {
-                            ...existing,
-                            controller_props: {
-                              ...(existing.controller_props ?? {}),
-                              value,
-                            },
-                          },
-                        },
-                      } as Model
-                      const updatedModels = [...providerObj.models]
-                      updatedModels[modelIndex] = updatedModel
-                      updateProvider(selectedProvider, {
-                        models: updatedModels,
-                      })
-                      // selectedModel is a snapshot, not a live derivation —
-                      // re-select to refresh it so the dropdown UI and the
-                      // chat transport both observe the new value.
-                      selectModelProvider(selectedProvider, selectedModel.id)
-                    }
-                    const setReasoning = (value: 'auto' | 'on' | 'off') =>
-                      updateModelSetting(
-                        'reasoning',
-                        'Reasoning',
-                        'dropdown',
-                        value
-                      )
-                    const label =
-                      reasoningValue === 'on'
-                        ? 'On'
-                        : reasoningValue === 'off'
-                          ? 'Off'
-                          : 'Auto'
-                    const tooltipText =
-                      reasoningValue === 'on'
-                        ? 'Reasoning forced on for every request.'
-                        : reasoningValue === 'off'
-                          ? 'Reasoning disabled for every request.'
-                          : "Reasoning uses the model's default."
-
-                    // Stored as a symbolic level, not an absolute token count:
-                    // the live context size (post auto-fit) is only known once
-                    // the model is actually loaded, so resolving to tokens
-                    // happens at send time (custom-chat-transport.ts) against
-                    // whatever the context size turns out to be then.
-                    const rawBudgetLevel =
-                      selectedModel?.settings?.thinking_budget_tokens
-                        ?.controller_props?.value
-                    const currentBudgetLevel = isThinkingBudgetLevelKey(
-                      rawBudgetLevel
-                    )
-                      ? rawBudgetLevel
-                      : DEFAULT_THINKING_BUDGET_LEVEL
-                    const setThinkingBudget = (level: ThinkingBudgetLevelKey) =>
-                      updateModelSetting(
-                        'thinking_budget_tokens',
-                        'Thinking Budget',
-                        'dropdown',
-                        level
-                      )
-                    const currentBudgetLabel = THINKING_BUDGET_LEVELS.find(
-                      (l) => l.key === currentBudgetLevel
-                    )!.label
-                    // Best-effort preview only; the request-time value may
-                    // differ once the model is loaded and fit settles n_ctx.
-                    const approxContextSize =
-                      liveMaxTokens || configuredCtxLen || 8192
-
-                    return (
-                      <DropdownMenu>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon-xs"
-                                aria-label={`Reasoning: ${label}`}
-                              >
-                                <IconBrain
-                                  size={18}
-                                  className={cn(
-                                    'text-muted-foreground',
-                                    reasoningValue === 'on' && 'text-primary',
-                                    reasoningValue === 'off' && 'opacity-50'
-                                  )}
-                                />
-                              </Button>
-                            </DropdownMenuTrigger>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{tooltipText}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                        <DropdownMenuContent align="start">
-                          <DropdownMenuItem onClick={() => setReasoning('auto')}>
-                            Auto
-                            {reasoningValue === 'auto' && (
-                              <span className="ml-auto text-xs text-muted-foreground">
-                                ✓
-                              </span>
-                            )}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setReasoning('on')}>
-                            On
-                            {reasoningValue === 'on' && (
-                              <span className="ml-auto text-xs text-muted-foreground">
-                                ✓
-                              </span>
-                            )}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setReasoning('off')}>
-                            Off
-                            {reasoningValue === 'off' && (
-                              <span className="ml-auto text-xs text-muted-foreground">
-                                ✓
-                              </span>
-                            )}
-                          </DropdownMenuItem>
-                          {showThinkingBudget && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuSub>
-                                <DropdownMenuSubTrigger>
-                                  <span className="flex-1">Thinking Budget</span>
-                                  <span className="text-xs text-muted-foreground">
-                                    {currentBudgetLabel}
-                                  </span>
-                                </DropdownMenuSubTrigger>
-                                <DropdownMenuSubContent
-                                  collisionPadding={{ bottom: 16 }}
-                                >
-                                  {THINKING_BUDGET_LEVELS.map((level) => {
-                                    const approxTokens =
-                                      tokensForThinkingBudgetLevel(
-                                        level.key,
-                                        approxContextSize
-                                      )
-                                    return (
-                                      <DropdownMenuItem
-                                        key={level.key}
-                                        onClick={() =>
-                                          setThinkingBudget(level.key)
-                                        }
-                                        className="gap-2"
-                                      >
-                                        <span className="flex-1">
-                                          {level.label}
-                                        </span>
-                                        <span className="w-14 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
-                                          {approxTokens === -1
-                                            ? ''
-                                            : `~${approxTokens}`}
-                                        </span>
-                                        <span className="w-3 shrink-0 text-xs text-muted-foreground">
-                                          {currentBudgetLevel === level.key
-                                            ? '✓'
-                                            : ''}
-                                        </span>
-                                      </DropdownMenuItem>
-                                    )
-                                  })}
-                                </DropdownMenuSubContent>
-                              </DropdownMenuSub>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )
-                  })()}
-              </div>
-              </CollapsibleControls>
-            </div>
-
-            <div className="flex shrink-0 items-center gap-2">
-              {tokenCounterVisible && tokenCounterCompact && (
-                <div className="flex-1 flex justify-center">
-                  <TokenCounter
-                    messages={threadMessages || []}
-                    compact={true}
-                  />
-                </div>
-              )}
-
-              {!isStreaming && !toolsRunning && (
-                <MicButton
-                  onText={(text) => {
-                    setPrompt(prompt.trim() ? `${prompt.trimEnd()} ${text}` : text)
-                    textareaRef.current?.focus()
-                  }}
-                />
-              )}
-              {isStreaming || toolsRunning ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
+                  ) : (
                     <Button
-                      variant="destructive"
+                      variant="default"
                       size="icon-sm"
-                      data-testid="stop-message-button"
+                      disabled={!prompt.trim() && !hasSendableMedia}
+                      data-test-id="send-message-button"
+                      data-testid="send-message-button"
+                      onClick={() => handleSendMessage(prompt)}
                       className="rounded-full mr-1 mb-1"
-                      onClick={() => {
-                        // Stopping with messages queued clears the queue —
-                        // there is nothing to interrupt yet. The old
-                        // `if (!currentThreadId) return` guard made this button
-                        // inert for any surface without a thread id.
-                        if (queueId) {
-                          const queue = useMessageQueue
-                            .getState()
-                            .getQueue(queueId)
-                          if (queue.length > 0) {
-                            useMessageQueue.getState().clearQueue(queueId)
-                            return
-                          }
-                        }
-                        stopStreaming(currentThreadId ?? '')
-                      }}
                     >
-                      <IconPlayerStopFilled />
+                      <ArrowRight className="text-primary-fg" />
                     </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{queueLength > 0 ? `Clear ${queueLength} queued message(s)` : 'Stop generating'}</p>
-                  </TooltipContent>
-                </Tooltip>
-              ) : (
-                <Button
-                  variant="default"
-                  size="icon-sm"
-                  disabled={(!prompt.trim() && !hasSendableMedia) || ingestingAny}
-                  data-test-id="send-message-button"
-                  data-testid="send-message-button"
-                  onClick={() => handleSendMessage(prompt)}
-                  className="rounded-full mr-1 mb-1"
-                >
-                  <ArrowRight className="text-primary-fg" />
-                </Button>
-              )}
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
           </div>
         </div>
       </div>
@@ -2815,13 +1068,6 @@ const ChatInput = memo(function ChatInput({
           <TokenCounter messages={threadMessages || []} />
         </div>
       )}
-
-      <JanBrowserExtensionDialog
-        open={extensionDialogOpen}
-        onOpenChange={setExtensionDialogOpen}
-        state={extensionDialogState}
-        onCancel={handleExtensionDialogCancel}
-      />
     </div>
   )
 })

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AppEvent, DownloadEvent, events } from '@janhq/core'
+import { AppEvent, DownloadEvent, events } from '@/lib/native'
 import { getServiceHub } from '@/hooks/useServiceHub'
 import { activeSetupScenario } from '@/lib/setupSimulation'
 import {

@@ -25,12 +25,8 @@ import { DefaultPathService } from './path/default'
 import { DefaultCoreService } from './core/default'
 import { DefaultDeepLinkService } from './deeplink/default'
 import { DefaultProjectsService } from './projects/default'
-import { DefaultRAGService } from './rag/default'
-import type { RAGService } from './rag/types'
 import { DefaultUploadsService } from './uploads/default'
 import type { UploadsService } from './uploads/types'
-import { DefaultExtensionsService } from './extensions/default'
-import type { ExtensionsService } from './extensions/types'
 import { DefaultSpeechService } from './speech/default'
 import type { SpeechService } from './speech/types'
 import { DefaultDshService } from './dsh/default'
@@ -74,9 +70,7 @@ export interface ServiceHub {
   core(): CoreService
   deeplink(): DeepLinkService
   projects(): ProjectsService
-  rag(): RAGService
   uploads(): UploadsService
-  extensions(): ExtensionsService
   speech(): SpeechService
   dsh(): DshService
 }
@@ -99,10 +93,7 @@ class PlatformServiceHub implements ServiceHub {
   private coreService: CoreService = new DefaultCoreService()
   private deepLinkService: DeepLinkService = new DefaultDeepLinkService()
   private projectsService: ProjectsService = new DefaultProjectsService()
-  private ragService: RAGService = new DefaultRAGService()
   private uploadsService: UploadsService = new DefaultUploadsService()
-  // The install pipeline is desktop only (tauri-plugin-extensions).
-  private extensionsService: ExtensionsService = new DefaultExtensionsService()
   private speechService: SpeechService = new DefaultSpeechService()
   private dshService: DshService = new DefaultDshService()
   private initialized = false
@@ -134,7 +125,6 @@ class PlatformServiceHub implements ServiceHub {
           pathModule,
           coreModule,
           deepLinkModule,
-          extensionsModule,
           speechModule,
           dshModule,
         ] = await Promise.all([
@@ -150,7 +140,6 @@ class PlatformServiceHub implements ServiceHub {
           import('./path/tauri'),
           import('./core/tauri'),
           import('./deeplink/tauri'),
-          import('./extensions/tauri'),
           import('./speech/tauri'),
           import('./dsh/tauri'),
         ])
@@ -167,7 +156,6 @@ class PlatformServiceHub implements ServiceHub {
         this.pathService = new pathModule.TauriPathService()
         this.coreService = new coreModule.TauriCoreService()
         this.deepLinkService = new deepLinkModule.TauriDeepLinkService()
-        this.extensionsService = new extensionsModule.TauriExtensionsService()
         this.speechService = new speechModule.TauriSpeechService()
         this.dshService = new dshModule.TauriDshService()
       }
@@ -275,19 +263,9 @@ class PlatformServiceHub implements ServiceHub {
     return this.projectsService
   }
 
-  rag(): RAGService {
-    this.ensureInitialized()
-    return this.ragService
-  }
-
   uploads(): UploadsService {
     this.ensureInitialized()
     return this.uploadsService
-  }
-
-  extensions(): ExtensionsService {
-    this.ensureInitialized()
-    return this.extensionsService
   }
 
   speech(): SpeechService {

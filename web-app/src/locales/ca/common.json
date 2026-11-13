@@ -4,8 +4,6 @@
   "mcp-servers": "Servidors MCP",
   "local_api_server": "Servidor API local",
   "https_proxy": "Proxy HTTPS",
-  "extensions": "Extensions",
-  "attachments": "Fitxers adjunts",
   "general": "General",
   "settings": "Configuració",
   "modelProviders": "Proveïdors de models",
@@ -16,7 +14,7 @@
   "newChat": "Xat nou",
   "favorites": "Preferits",
   "recents": "Recents",
-  "hub": "Hub",
+  "hub": "Model Hub",
   "helpSupport": "Ajuda i suport",
   "unstarAll": "Desmarca-ho tot",
   "unstar": "Desmarca",
@@ -295,12 +293,6 @@
     "tryDifferentSearch": "Prova amb un terme de cerca diferent",
     "uploadingFiles": "S’estan processant els fitxers…",
     "processButton": "Afegeix"
-  },
-  "attachmentsIngestion": {
-    "title": "Tria com ingerir els adjunts",
-    "description": "Decideix si vols incloure aquests fitxers directament al xat o indexar-los com a incrustacions.",
-    "inline": "Injecta al xat",
-    "embeddings": "Utilitza incrustacions"
   },
   "attachmentInjectedIndicator": "Injectat al xat",
   "attachmentEmbeddedIndicator": "Incrustat per a RAG",

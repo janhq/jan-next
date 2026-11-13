@@ -1,13 +1,13 @@
 import { DownloadManagement } from '@/containers/DownloadManagement'
-import { StatusItems } from '@/containers/extensions/StatusItems'
 import { NavChats } from './NavChats'
-import { NavMain } from './NavMain'
+import { NavFooter, NavMain } from './NavMain'
 import { NavProjects } from './NavProjects'
 import { useLeftPanel } from '@/hooks/useLeftPanel'
 
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarTrigger,
   SidebarHeader,
   SidebarRail,
@@ -38,7 +38,9 @@ export function LeftSidebar() {
           <NavProjects />
           <NavChats />
         </SidebarContent>
-        <StatusItems />
+        <SidebarFooter className="border-t border-sidebar-border/60 px-1 pt-1">
+          <NavFooter />
+        </SidebarFooter>
         <SidebarRail />
       </Sidebar>
     </div>

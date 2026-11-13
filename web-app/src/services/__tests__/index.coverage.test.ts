@@ -36,12 +36,6 @@ describe('ServiceHub – coverage', () => {
     expect(hub.projects()).toBeDefined()
   })
 
-  it('rag() returns a service after init', async () => {
-    const { initializeServiceHub } = await import('../index')
-    const hub = await initializeServiceHub()
-    expect(hub.rag()).toBeDefined()
-  })
-
   it('uploads() returns a service after init', async () => {
     const { initializeServiceHub } = await import('../index')
     const hub = await initializeServiceHub()

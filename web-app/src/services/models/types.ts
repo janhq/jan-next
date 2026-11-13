@@ -2,8 +2,9 @@
  * Models Service Types
  */
 
-import { SessionInfo, modelInfo, ThreadMessage, UnloadResult } from '@janhq/core'
-import type { SpecDraftKind } from '@janhq/core'
+import { ThreadMessage } from '@janhq/core'
+import { SessionInfo, modelInfo, UnloadResult } from '@/lib/llamacpp/engine-types'
+import type { SpecDraftKind } from '@/lib/llamacpp/engine-types'
 import { Model as CoreModel } from '@janhq/core'
 
 // Types for model catalog
@@ -219,7 +220,7 @@ export type EmbeddingVectorProblem =
  * `noGpuHardware` is gone. It meant "a GPU build on a machine with no GPU",
  * which the bundled engine cannot be in: no GPU simply means no offload
  * expected, which is `ok`, not a warning. Mirrors GpuOffloadReason in
- * extensions/llamacpp-extension/src/readiness.ts.
+ * web-app/src/lib/llamacpp/readiness.ts.
  */
 export type GpuOffloadReason = 'runtimeUnreachable' | 'missingLibrary'
 

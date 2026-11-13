@@ -244,41 +244,6 @@
     "creditsDesc1": "👋 Jan está hecho con ❤️ por el equipo de Menlo Research.",
     "creditsDesc2": "Un agradecimiento especial a nuestras dependencias de código abierto, especialmente llama.cpp y Tauri, y a nuestra increíble comunidad de IA."
   },
-  "extensions": {
-    "title": "Extensiones"
-  },
-  "attachments": {
-    "subtitle": "Configura los adjuntos de documentos, límites de tamaño y comportamiento de recuperación.",
-    "featureTitle": "Función",
-    "enable": "Activar adjuntos",
-    "enableDesc": "Permitir subir e indexar documentos para recuperación.",
-    "parseMode": "Preferencia de análisis",
-    "parseModeDesc": "Elige cómo se agregan los documentos analizados a las conversaciones.",
-    "parseModeAuto": "Automático",
-    "parseModeInline": "Incluir en el chat",
-    "parseModeEmbeddings": "Ingestar como embeddings",
-    "parseModePrompt": "Preguntar cada vez",
-    "autoInlineThreshold": "Umbral de inserción automática",
-    "autoInlineThresholdDesc": "Fracción del contexto del modelo usado como límite para insertar archivos analizados en modelos locales.",
-    "limitsTitle": "Límites",
-    "maxFile": "Tamaño máximo de archivo (MB)",
-    "maxFileDesc": "Tamaño máximo por archivo. Se aplica al subir y procesar.",
-    "retrievalTitle": "Recuperación",
-    "topK": "Top-K",
-    "topKDesc": "Máximo de citas a devolver.",
-    "threshold": "Umbral de afinidad",
-    "thresholdDesc": "Puntuación mínima de similitud (0-1). Solo se usa para búsqueda de coseno lineal, no ANN.",
-    "searchMode": "Modo de búsqueda vectorial",
-    "searchModeDesc": "Elige entre ANN de sqlite-vec, coseno lineal o automático.",
-    "searchModeAuto": "Automático (recomendado)",
-    "searchModeAnn": "ANN (sqlite-vec)",
-    "searchModeLinear": "Lineal",
-    "chunkingTitle": "Fragmentación",
-    "chunkSize": "Tamaño de fragmento (caracteres)",
-    "chunkSizeDesc": "Máximo aproximado de caracteres por fragmento para embeddings.",
-    "chunkOverlap": "Superposición (caracteres)",
-    "chunkOverlapDesc": "Superposición de caracteres entre fragmentos consecutivos."
-  },
   "dialogs": {
     "changeDataFolder": {
       "title": "Cambiar ubicación de la carpeta de datos",

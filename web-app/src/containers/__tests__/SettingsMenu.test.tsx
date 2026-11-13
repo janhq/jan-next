@@ -108,11 +108,11 @@ describe('SettingsMenu', () => {
     expect(screen.getByText('common:local_api_server')).toBeInTheDocument()
   })
 
-  it('links to the Extensions settings page', () => {
+  it('links to the Plugins settings page', () => {
     render(<SettingsMenu />)
-    expect(screen.getByText('common:extensions').closest('a')).toHaveAttribute(
+    expect(screen.getByText('common:plugins').closest('a')).toHaveAttribute(
       'href',
-      '/settings/extensions'
+      '/settings/plugins'
     )
   })
 

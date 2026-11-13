@@ -1,34 +1,27 @@
 import { memo } from 'react'
 import {
   Tool,
-  ToolApprovalActions,
   ToolContent,
   ToolHeader,
   ToolInput,
   ToolOutput,
 } from '@/components/ai-elements/tool'
-import { ToolProgressRow } from '@/components/ai-elements/tool-runtime'
 import { useToolOrigin } from '@/hooks/useToolOrigin'
 import { useTranslation } from '@/i18n/react-i18next-compat'
 import { completedToolLabel } from '@/lib/agentActivity'
 import { describeNativeToolCall, isToolRunning } from '@/lib/toolPresentation'
 import { isToolPart, type MessagePartLike } from './types'
-import { RagToolWidget } from './RagToolWidget'
 import { AgentToolWidget, TerminalWidget } from './AgentToolWidget'
 import { SubagentToolWidget } from './SubagentToolWidget'
-import { isExtensionToolName } from '@/lib/extensions/tools'
-import { withRemoteImages } from '@/lib/extensions/remoteImages'
 
 export type ToolCallCardProps = {
   part: MessagePartLike
   messageId: string
-  /** Citation count from earlier tool calls in this turn, for continuous numbering. */
-  citationOffset?: number
   className?: string
 }
 
 export const ToolCallCard = memo(
-  ({ part, messageId, citationOffset = 0, className }: ToolCallCardProps) => {
+  ({ part, messageId, className }: ToolCallCardProps) => {
     const { t } = useTranslation()
     const toolName = part.type.split('-').slice(1).join('-')
     const origin = useToolOrigin(toolName)
@@ -39,13 +32,11 @@ export const ToolCallCard = memo(
     const originLabel =
       origin === undefined
         ? undefined
-        : origin.kind === 'rag'
-          ? t('tools:toolCall.originDocuments')
-          : origin.kind === 'agent'
-            ? t('tools:toolCall.originWorkspace')
-            : origin.kind === 'subagent'
-              ? t('tools:toolCall.originSubagent')
-              : origin.detail
+        : origin.kind === 'agent'
+          ? t('tools:toolCall.originWorkspace')
+          : origin.kind === 'subagent'
+            ? t('tools:toolCall.originSubagent')
+            : origin.detail
 
     const errorText = isError
       ? part.error || part.errorText || t('tools:toolCall.executionFailed')
@@ -94,19 +85,9 @@ export const ToolCallCard = memo(
           // the header too prints the same text twice, one line apart.
           input={bar ? undefined : part.input}
         />
-        <ToolProgressRow toolCallId={part.toolCallId} />
         {showBar && (
           <div className="mt-2">
-            {bar.variant === 'documents' ? (
-              <RagToolWidget
-                bar={bar}
-                state={part.state}
-                output={part.output}
-                errorText={errorText}
-                messageId={messageId}
-                citationOffset={citationOffset}
-              />
-            ) : bar.variant === 'terminal' ? (
+            {bar.variant === 'terminal' ? (
               <TerminalWidget
                 bar={bar}
                 state={part.state}
@@ -121,14 +102,12 @@ export const ToolCallCard = memo(
                 state={part.state}
                 output={part.output}
                 errorText={errorText}
-                toolCallId={part.toolCallId}
               />
             )}
           </div>
         )}
         <ToolContent title={title}>
           {Boolean(part.input) && <ToolInput input={part.input} />}
-          <ToolApprovalActions />
           {/* The widget already presents the result for native tools -- but a
               `task` has none once it settles, so its outcome (a refusal, most
               of all) has to stay reachable here. */}
@@ -143,14 +122,13 @@ export const ToolCallCard = memo(
                 <ToolOutput
                   output={part.output}
                   errorText={undefined}
-                  citationOffset={citationOffset}
                 />
               )
             ))}
         </ToolContent>
       </Tool>
     )
-    return isExtensionToolName(toolName) ? withRemoteImages(false, card) : card
+    return card
   }
 )
 

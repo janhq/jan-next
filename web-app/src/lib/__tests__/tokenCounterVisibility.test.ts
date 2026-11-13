@@ -3,7 +3,6 @@ import { shouldShowTokenCounter } from '@/lib/tokenCounterVisibility'
 
 const base = {
   hasSelectedModel: true,
-  isAgentMode: false,
   isInitialMessage: false,
   hasMessages: true,
   hasPromptText: false,
@@ -28,10 +27,6 @@ describe('shouldShowTokenCounter', () => {
     expect(shouldShowTokenCounter({ ...base, hasSelectedModel: false })).toBe(
       false
     )
-  })
-
-  it('hides in agent mode', () => {
-    expect(shouldShowTokenCounter({ ...base, isAgentMode: true })).toBe(false)
   })
 
   it('hides for the initial-message (new-thread) input', () => {
@@ -70,18 +65,6 @@ describe('shouldShowTokenCounter', () => {
     const inputs = { ...base, hasMessages: true, hasPromptText: false }
     // Predicate takes no provider argument; same inputs => same result.
     expect(shouldShowTokenCounter(inputs)).toBe(true)
-  })
-
-  it('agent mode wins even with a selected model and messages', () => {
-    expect(
-      shouldShowTokenCounter({
-        ...base,
-        isAgentMode: true,
-        hasSelectedModel: true,
-        hasMessages: true,
-        hasPromptText: true,
-      })
-    ).toBe(false)
   })
 
   it('initial-message wins even with a selected model and prompt text', () => {

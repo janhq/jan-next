@@ -3,7 +3,8 @@
  */
 
 import type { ThreadMessage } from '@janhq/core'
-import { Emitter } from '@janhq/extension-api'
+import { APIs } from '@/lib/service'
+import { Emitter } from '@/lib/emitter'
 import { TEMPORARY_CHAT_ID } from '@/constants/chat'
 import type { MessagesService } from './types'
 
@@ -17,9 +18,9 @@ export class DefaultMessagesService implements MessagesService {
       return []
     }
 
-    const messages: Promise<ThreadMessage[] | null> | undefined =
-      window.core?.api?.listMessages({ threadId })
-    return messages?.then((list) => list ?? []).catch(() => []) ?? []
+    const messages: Promise<ThreadMessage[] | null> =
+      APIs.listMessages({ threadId })
+    return messages.then((list) => list ?? []).catch(() => [])
   }
 
   async createMessage(message: ThreadMessage): Promise<ThreadMessage> {
@@ -30,7 +31,7 @@ export class DefaultMessagesService implements MessagesService {
 
     // The web build's routes resolve null: nothing was persisted.
     const created: Promise<ThreadMessage | null> | undefined =
-      window.core?.api?.createMessage({ message })
+      APIs.createMessage({ message })
     return (
       created
         ?.then((persisted) => {
@@ -49,7 +50,7 @@ export class DefaultMessagesService implements MessagesService {
     }
 
     const modified: Promise<ThreadMessage | null> | undefined =
-      window.core?.api?.modifyMessage({ message })
+      APIs.modifyMessage({ message })
     return (
       modified?.then((persisted) => persisted ?? message).catch(() => message) ??
       message
@@ -62,6 +63,6 @@ export class DefaultMessagesService implements MessagesService {
       return
     }
 
-    await window.core?.api?.deleteMessage({ threadId, messageId })
+    await APIs.deleteMessage({ threadId, messageId })
   }
 }

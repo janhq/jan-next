@@ -1,15 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { DefaultModelsService } from '../models/default'
 import type { HuggingFaceRepo, CatalogModel } from '../models/types'
-import { EngineManager, events, DownloadEvent } from '@janhq/core'
+import { events, DownloadEvent } from '@/lib/native'
 
 const { mockEvents, mockDownloadEvent } = vi.hoisted(() => ({
   mockEvents: { emit: vi.fn() },
   mockDownloadEvent: { onFileDownloadStopped: 'onFileDownloadStopped' } as Record<string, string>,
 }))
 
-vi.mock('@janhq/core', () => ({
-  EngineManager: { instance: vi.fn() },
+const EngineManager = vi.hoisted(() => ({ instance: vi.fn() }))
+
+vi.mock('@/lib/llamacpp', () => ({
+  getLocalEngine: (provider: string) => EngineManager.instance().get(provider),
+  listLocalEngines: () => [],
+}))
+
+vi.mock('@/lib/native', () => ({
   events: mockEvents,
   DownloadEvent: mockDownloadEvent,
 }))
@@ -160,7 +166,7 @@ describe('DefaultModelsService', () => {
       mockEngine.load.mockResolvedValue({ id: 'session1' })
       const result = await modelsService.startModel(makeProvider(mockSettings), 'model1')
       expect(result).toEqual({ id: 'session1' })
-      expect(mockEngine.load).toHaveBeenCalledWith('model1', { ctx_size: 4096, n_gpu_layers: 32 }, false, false)
+      expect(mockEngine.load).toHaveBeenCalledWith('model1', { ctx_size: 4096, n_gpu_layers: 32 }, false)
     })
 
     it('should handle start model error', async () => {

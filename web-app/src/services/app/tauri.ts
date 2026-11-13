@@ -3,6 +3,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core'
+import { APIs } from '@/lib/service'
 import { AppConfiguration } from '@janhq/core'
 import type { FactoryResetOptions, LogEntry } from './types'
 import { DefaultAppService } from './default'
@@ -25,8 +26,8 @@ export class TauriAppService extends DefaultAppService {
    * resolves, so clearing here would race the restart flush.
    */
   async factoryReset(options?: FactoryResetOptions): Promise<void> {
-    const { EngineManager } = await import('@janhq/core')
-    for (const [, engine] of EngineManager.instance().engines) {
+    const { listLocalEngines } = await import('@/lib/llamacpp')
+    for (const [, engine] of listLocalEngines()) {
       const activeModels = await engine.getLoadedModels()
       if (activeModels) {
         await Promise.all(activeModels.map((model: string) => engine.unload(model)))
@@ -56,7 +57,7 @@ export class TauriAppService extends DefaultAppService {
   async getJanDataFolder(): Promise<string | undefined> {
     try {
       const appConfiguration: AppConfiguration | undefined =
-        await window.core?.api?.getAppConfigurations()
+        await APIs.getAppConfigurations()
 
       return appConfiguration?.data_folder
     } catch (error) {
@@ -66,7 +67,7 @@ export class TauriAppService extends DefaultAppService {
   }
 
   async relocateJanDataFolder(path: string): Promise<void> {
-    await window.core?.api?.changeAppDataFolder({ newDataFolder: path })
+    await APIs.changeAppDataFolder({ newDataFolder: path })
   }
 
   parseLogLine(line: string): LogEntry {

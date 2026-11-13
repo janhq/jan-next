@@ -322,44 +322,6 @@
     "creditsDesc1": "👋 Jan is built with ❤️ by the Menlo Research team.",
     "creditsDesc2": "Special thanks to our open-source dependencies—especially llama.cpp and Tauri—and to our amazing AI community."
   },
-  "extensions": {
-    "title": "Extensions"
-  },
-  "attachments": {
-    "subtitle": "Configure document attachments, size limits, and retrieval behavior.",
-    "featureTitle": "Feature",
-    "enable": "Enable Attachments",
-    "enableDesc": "Allow uploading and indexing documents for retrieval.",
-    "parseMode": "Parse preference",
-    "parseModeDesc": "Choose how parsed documents are added to conversations.",
-    "parseModeAuto": "Auto",
-    "parseModeInline": "Include in chat",
-    "parseModeEmbeddings": "Ingest as embeddings",
-    "parseModePrompt": "Ask every time",
-    "autoInlineThreshold": "Auto inline threshold",
-    "autoInlineThresholdDesc": "Fraction of the model context used as the cutoff for inlining parsed files on local models.",
-    "limitsTitle": "Limits",
-    "maxFile": "Max Document Size (MB)",
-    "maxFileDisabledReason": "Turn on Enable Attachments to change the document size limit.",
-    "maxFileDesc": "Maximum size per document. Enforced at upload and processing time. Images have their own limit above.",
-    "maxImage": "Max Image Size (MB)",
-    "maxImageDesc": "Maximum size per image (JPEG or PNG). Your provider or model may enforce a lower limit.",
-    "retrievalTitle": "Retrieval",
-    "topK": "Top-K",
-    "topKDesc": "Maximum citations to return.",
-    "threshold": "Affinity Threshold",
-    "thresholdDesc": "Minimum similarity score (0-1). Only used for linear cosine search, not ANN.",
-    "searchMode": "Vector Search Mode",
-    "searchModeDesc": "Choose between sqlite-vec ANN, linear cosine, or auto.",
-    "searchModeAuto": "Auto (recommended)",
-    "searchModeAnn": "ANN (sqlite-vec)",
-    "searchModeLinear": "Linear",
-    "chunkingTitle": "Chunking",
-    "chunkSize": "Chunk Size (characters)",
-    "chunkSizeDesc": "Approximate max characters per chunk for embeddings.",
-    "chunkOverlap": "Overlap (characters)",
-    "chunkOverlapDesc": "Character overlap between consecutive chunks."
-  },
   "dialogs": {
     "changeDataFolder": {
       "title": "Change Data Folder Location",
@@ -373,8 +335,6 @@
   "backendInstallSuccess": "Backend installed successfully!",
   "backendInstallError": "Failed to install backend",
   "dsh": {
-    "use": "Use for chats",
-    "useDesc": "Chats you open from now on run on DeepSeek Harness instead of the built-in agent. The chat's selected model answers, and the agent can run commands in its workspace without asking.",
     "root": "Harness folder",
     "rootDesc": "A built deepseek-harness checkout with pnpm install done. Needs Node 22 on PATH.",
     "rootPlaceholder": "C:\\path\\to\\deepseek-harness",
@@ -387,7 +347,12 @@
     "stopped": "Starts with the first message",
     "stop": "Stop",
     "rootOk": "Harness folder is ready",
-    "rootInvalid": "Harness folder is not usable"
+    "rootInvalid": "Harness folder is not usable",
+    "app": "DSH app",
+    "appOpen": "Open DSH app",
+    "appStarting": "Starting…",
+    "appWindow": "DeepSeek Harness",
+    "appDesc": "DSH's own interface in a new window, built entirely from plugins. Pick Creator mode in its mode menu. Needs a built harness folder (pnpm run build)."
   },
   "voice": {
     "engine": "Local voice engine",
@@ -411,5 +376,65 @@
     "installFailed": "Couldn't install the voice engine",
     "startFailed": "Couldn't start the voice engine",
     "stopFailed": "Couldn't stop the voice engine"
+  },
+  "plugins": {
+    "title": "Plugin manager",
+    "desc": "Everything the agent runtime loads. Changes apply after a restart.",
+    "restart": "Restart runtime",
+    "restartPending": "Restart to apply changes",
+    "restarted": "Runtime restarted",
+    "engines": {
+      "title": "Engines",
+      "llamacpp": {
+        "name": "llama.cpp",
+        "desc": "Runs local models on this computer."
+      },
+      "audiocpp": {
+        "name": "audio.cpp",
+        "desc": "Local voice: reads replies aloud and turns speech into text."
+      },
+      "loaded": "{{count}} model(s) loaded",
+      "notInstalled": "Not installed",
+      "manage": "Settings",
+      "note": "Engines run as their own processes beside the agent runtime. Set them up in their settings."
+    },
+    "base": "Built in",
+    "user": "Installed",
+    "mcp": "MCP servers",
+    "config": "Config (YAML)",
+    "editConfig": "Edit config",
+    "save": "Save",
+    "cancel": "Cancel",
+    "remove": "Remove",
+    "installTitle": "Install a plugin from npm",
+    "installPlaceholder": "@scope/dsh-plugin-name",
+    "install": "Install",
+    "installing": "Installing…",
+    "saved": "Saved",
+    "empty": {
+      "user": "Nothing installed yet. Paste an npm package name above to add a plugin.",
+      "mcp": "",
+      "base": ""
+    },
+    "runtimeStopped": "The agent runtime isn't running, so live status is hidden. Send a message to start it.",
+    "failedSummary": "{{count}} plugin(s) failed to load. Restart the runtime after fixing them.",
+    "filter": "Filter plugins",
+    "noMatch": "No plugins match the filter.",
+    "countOn": "{{on}} of {{total}} on",
+    "toggle": "Turn {{name}} on or off",
+    "manageMcp": "Manage in MCP servers",
+    "mcpNote": "MCP servers are turned on and off in MCP servers settings.",
+    "baseNote": "Built-in plugins ship with the app. Turning one off can break chat.",
+    "removeTitle": "Remove {{name}}?",
+    "removeDesc": "The package is uninstalled and its config is deleted. You can install it again later.",
+    "status": {
+      "running": "Running",
+      "starting": "Starting",
+      "stopping": "Stopping",
+      "failed": "Failed",
+      "idle": "Not loaded",
+      "off": "Off",
+      "on": "On"
+    }
   }
 }

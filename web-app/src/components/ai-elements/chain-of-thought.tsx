@@ -70,8 +70,6 @@ export type ChainOfThoughtProps = ComponentProps<typeof Collapsible> & {
   isStreaming?: boolean
   /** When true the collapsible auto-collapses (e.g. text content appeared after this CoT group). */
   shouldCollapse?: boolean
-  /** When true the collapsible is forced open and overrides auto-collapse (e.g. a tool is awaiting approval). */
-  forceOpen?: boolean
   open?: boolean
   defaultOpen?: boolean
   onOpenChange?: (open: boolean) => void
@@ -88,7 +86,6 @@ export const ChainOfThought = memo(
     className,
     isStreaming = false,
     shouldCollapse,
-    forceOpen = false,
     open,
     defaultOpen = true,
     onOpenChange,
@@ -105,17 +102,15 @@ export const ChainOfThought = memo(
       onChange: onOpenChange,
     })
 
-    // Follow the caller's open intent. forceOpen pins it open (e.g. a tool
-    // awaiting approval). When shouldCollapse is a boolean, track it two-way so
+    // Follow the caller's open intent. When shouldCollapse is a boolean, track it two-way so
     // the trace opens as a step gains content and collapses when it has none or
     // the answer begins; when undefined the caller isn't controlling collapse,
     // so defaultOpen / manual toggle is left untouched. Re-applied only on
     // input change, preserving a manual toggle between changes.
     useEffect(() => {
-      if (forceOpen) setIsOpen(true)
-      else if (shouldCollapse === true) setIsOpen(false)
+      if (shouldCollapse === true) setIsOpen(false)
       else if (shouldCollapse === false) setIsOpen(true)
-    }, [forceOpen, shouldCollapse, setIsOpen])
+    }, [shouldCollapse, setIsOpen])
 
     // A click on the header is the reader choosing what to look at, so the
     // conversation stops pinning to the bottom; otherwise expanding the last

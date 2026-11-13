@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 import { getServiceHub } from '@/hooks/useServiceHub'
-import { EXTENSION_SERVER_PREFIX } from '@/lib/extensions/tools'
 
 // Define the structure of an MCP server configuration
 export type MCPServerConfig = {
@@ -11,12 +10,6 @@ export type MCPServerConfig = {
   type?: 'stdio' | 'http' | 'sse'
   url?: string
   headers?: Record<string, string>
-  timeout?: number
-  official?: boolean
-  // Capability tags used by the orchestrator to route requests (e.g. ["web", "filesystem"])
-  capabilities?: string[]
-  // Short description of what the server provides, used by the intent classifier
-  description?: string
 }
 
 // Define the structure of all MCP servers
@@ -24,40 +17,9 @@ export type MCPServers = {
   [key: string]: MCPServerConfig
 }
 
-export type MCPSettings = {
-  toolCallTimeoutSeconds: number
-  baseRestartDelayMs: number
-  maxRestartDelayMs: number
-  backoffMultiplier: number
-  enableSmartToolRouting: boolean
-  /** When smart routing is on, use a dedicated (e.g. smaller) model for routing instead of the chat model. */
-  useLightweightRouterModel: boolean
-  routerModelProvider: string
-  routerModelId: string
-  /**
-   * Per-tool-result character cap applied before the result enters conversation
-   * history, so one oversized result cannot exhaust the model's context. `0`
-   * disables the cap.
-   */
-  maxToolOutputChars: number
-}
-
-export const DEFAULT_MCP_SETTINGS: MCPSettings = {
-  toolCallTimeoutSeconds: 30,
-  baseRestartDelayMs: 1000,
-  maxRestartDelayMs: 30000,
-  backoffMultiplier: 2,
-  enableSmartToolRouting: true,
-  useLightweightRouterModel: false,
-  routerModelProvider: '',
-  routerModelId: '',
-  maxToolOutputChars: 40000,
-}
-
 type MCPServerStoreState = {
   open: boolean
   mcpServers: MCPServers
-  settings: MCPSettings
   loading: boolean
   deletedServerKeys: string[]
   getServerConfig: (key: string) => MCPServerConfig | undefined
@@ -71,31 +33,13 @@ type MCPServerStoreState = {
   ) => void
   deleteServer: (key: string) => void
   setServers: (servers: MCPServers) => void
-  setSettings: (settings: MCPSettings) => void
-  updateSettings: (partial: Partial<MCPSettings>) => void
   syncServers: () => Promise<void>
   syncServersAndRestart: () => Promise<void>
-}
-
-/**
- * `ext:` names belong to extensions' tool servers. An MCP server under one
- * could be taken for that extension wherever tools are shown or trusted by
- * server, so the dialog refuses such names and the store, which the JSON
- * editors and rename reach directly, drops them too.
- */
-export const isReservedServerName = (name: string): boolean =>
-  name.trim().startsWith(EXTENSION_SERVER_PREFIX)
-
-const refusedName = (name: string): boolean => {
-  if (!isReservedServerName(name)) return false
-  console.warn(`MCP server name "${name}" is reserved for extensions`)
-  return true
 }
 
 export const useMCPServers = create<MCPServerStoreState>()((set, get) => ({
   open: true,
   mcpServers: {}, // Start with empty object
-  settings: { ...DEFAULT_MCP_SETTINGS },
   loading: false,
   deletedServerKeys: [],
   setLeftPanel: (value) => set({ open: value }),
@@ -107,7 +51,6 @@ export const useMCPServers = create<MCPServerStoreState>()((set, get) => ({
   // Add a new MCP server or update if the key already exists
   addServer: (key, config) =>
     set((state) => {
-      if (refusedName(key)) return state
       // Remove the key first if it exists to maintain insertion order
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { [key]: _, ...restServers } = state.mcpServers
@@ -130,7 +73,6 @@ export const useMCPServers = create<MCPServerStoreState>()((set, get) => ({
     set((state) => {
       // Only proceed if the server exists
       if (!state.mcpServers[oldKey]) return state
-      if (refusedName(newKey)) return state
 
       const entries = Object.entries(state.mcpServers)
       const mcpServers: MCPServers = {}
@@ -151,20 +93,6 @@ export const useMCPServers = create<MCPServerStoreState>()((set, get) => ({
       const mcpServers = { ...state.mcpServers, ...servers }
       return { mcpServers }
     }),
-  setSettings: (settings) =>
-    set(() => ({
-      settings: {
-        ...DEFAULT_MCP_SETTINGS,
-        ...settings,
-      },
-    })),
-  updateSettings: (partial) =>
-    set((state) => ({
-      settings: {
-        ...state.settings,
-        ...partial,
-      },
-    })),
   // Delete an MCP server by key
   deleteServer: (key) =>
     set((state) => {
@@ -181,21 +109,12 @@ export const useMCPServers = create<MCPServerStoreState>()((set, get) => ({
       }
     }),
   syncServers: async () => {
-    const { mcpServers, settings } = get()
-    await getServiceHub().mcp().updateMCPConfig(
-      JSON.stringify({
-        mcpServers,
-        mcpSettings: settings,
-      })
-    )
+    const { mcpServers } = get()
+    await getServiceHub().mcp().updateMCPConfig(JSON.stringify({ mcpServers }))
   },
+  // DSH's mcp-client reads the file on (re)start, so restart to apply changes.
   syncServersAndRestart: async () => {
-    const { mcpServers, settings } = get()
-    await getServiceHub().mcp().updateMCPConfig(
-      JSON.stringify({
-        mcpServers,
-        mcpSettings: settings,
-      })
-    ).then(() => getServiceHub().mcp().restartMCPServers())
+    await get().syncServers()
+    await getServiceHub().dsh().restart()
   },
 }))

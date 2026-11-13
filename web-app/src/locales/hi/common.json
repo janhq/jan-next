@@ -9,8 +9,6 @@
   "experimental": "प्रायोगिक",
   "claude_code": "Claude कोड",
   "https_proxy": "HTTPS प्रॉक्सी",
-  "extensions": "एक्सटेंशन",
-  "attachments": "संलग्नक",
   "general": "सामान्य",
   "settings": "सेटिंग्स",
   "modelProviders": "मॉडल प्रदाता",
@@ -24,7 +22,6 @@
   "appearance": "दिखावट",
   "keyboardShortcuts": "शॉर्टकट",
   "newChat": "नई चैट",
-  "newAgentChat": "एजेंट के साथ नई चैट",
   "chats": "चैट्स",
   "openclawAgent": "OpenClaw एजेंट",
   "favorites": "पसंदीदा",
@@ -332,12 +329,6 @@
     "searchProjects": "प्रोजेक्ट खोजें...",
     "noProjectsFound": "कोई प्रोजेक्ट नहीं मिला",
     "tryDifferentSearch": "कोई अलग खोज शब्द आज़माएं"
-  },
-  "attachmentsIngestion": {
-    "title": "संलग्नकों को कैसे प्रोसेस करना है चुनें",
-    "description": "चुनें कि इन फ़ाइलों को सीधे चैट में शामिल करना है या उन्हें एम्बेडिंग्स के रूप में इंडेक्स करना है।",
-    "inline": "चैट में शामिल करें",
-    "embeddings": "एम्बेडिंग्स का उपयोग करें"
   },
   "attachmentInjectedIndicator": "चैट में शामिल किया गया",
   "attachmentEmbeddedIndicator": "RAG के लिए एम्बेड किया गया",

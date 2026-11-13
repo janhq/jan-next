@@ -6,9 +6,6 @@ import { cn } from '@/lib/utils'
 import { usedSkillNames } from '@/lib/agentActivity'
 
 import { ChainOfThoughtGroup } from './message/ChainOfThoughtGroup'
-import { extensionAuthorOf } from '@/lib/extensions/authorship'
-import { withRemoteImages } from '@/lib/extensions/remoteImages'
-import { isExtensionToolName } from '@/lib/extensions/tools'
 import {
   CHAT_STATUS,
   CONTENT_TYPE,
@@ -17,7 +14,6 @@ import {
 } from './message/types'
 import { CopyButton } from './CopyButton'
 import { SpeakButton } from './SpeakButton'
-import { RememberButton } from './RememberButton'
 import { toast } from 'sonner'
 import { useTranslation } from '@/i18n/react-i18next-compat'
 import { formatDate, formatMessageTime } from '@/utils/formatDate'
@@ -27,6 +23,7 @@ import { route } from '@/constants/routes'
 import { useModelProvider } from '@/hooks/useModelProvider'
 import { useInterfaceSettings } from '@/hooks/useInterfaceSettings'
 import { useMessageErrors } from '@/stores/message-errors'
+import { parseProviderError } from '@/lib/providerError'
 import {
   IconRefresh,
   IconPlayerPlay,
@@ -42,15 +39,10 @@ import TokenSpeedIndicator from '@/containers/TokenSpeedIndicator'
 import { extractFilesFromPrompt, FileMetadata } from '@/lib/fileMetadata'
 import { Button } from '@/components/ui/button'
 import { PromptProgress } from '@/components/PromptProgress'
-import { useServiceHub } from '@/hooks/useServiceHub'
-import { useToolApprovalRequests } from '@/hooks/useToolApprovalRequests'
 import { parseCitationsFromToolOutput } from '@/lib/citation-parser'
-import type { RagCitation, WebCitation } from '@/components/Citations'
-import { useGroundingStore } from '@/stores/grounding-store'
+import type { WebCitation } from '@/components/Citations'
 import { useWebCitationStore } from '@/stores/web-citation-store'
 import { WebSourcesRow } from '@/components/WebSourcesRow'
-import { injectCitationMarkers } from '@/lib/grounding'
-import { ContributedOverflowMenu } from '@/containers/extensions/ContributedMenuItems'
 
 export type MessageItemProps = {
   message: UIMessage
@@ -110,7 +102,6 @@ export const MessageItem = memo(
     versionInfo,
     onSwitchVersion,
     highlightedPrefix,
-    threadId,
   }: MessageItemProps) => {
     const { t } = useTranslation()
     // Footer controls fade in on hover or keyboard focus. Keyboard only
@@ -129,9 +120,6 @@ export const MessageItem = memo(
     const selectedModel = useModelProvider((state) => state.selectedModel)
     const coloredUserBubble = useInterfaceSettings((s) => s.coloredUserBubble)
     const metadata = message.metadata as Record<string, unknown> | undefined
-    // Written by a third-party extension: nothing in it may load from the
-    // network (see lib/extensions/authorship).
-    const extensionAuthored = extensionAuthorOf(metadata) !== undefined
     const messageError = useMessageErrors((s) => s.errors[message.id])
     const loadReport = useMessageErrors((s) => s.reports[message.id])
     // Recorded only when the failed turn ran on llama.cpp; the current
@@ -217,15 +205,6 @@ export const MessageItem = memo(
       })
     }, [isLastMessage, message.role, message.parts])
 
-    const pendingApprovals = useToolApprovalRequests((s) => s.pending)
-    const awaitingApproval = useMemo(() => {
-      if (!hasPendingToolCall) return false
-      return message.parts.some((part) => {
-        const toolCallId = (part as { toolCallId?: string }).toolCallId
-        return Boolean(toolCallId && pendingApprovals[toolCallId])
-      })
-    }, [hasPendingToolCall, message.parts, pendingApprovals])
-
     const usedSkills = useMemo(
       () => usedSkillNames(message.parts as never),
       [message.parts]
@@ -237,65 +216,19 @@ export const MessageItem = memo(
           status === CHAT_STATUS.SUBMITTED)) ||
       hasPendingToolCall
 
-    // Aggregate RAG citations in part order and record each rag tool part's
-    // base offset, so its card numbers/anchors continue the same global
-    // sequence the inline superscript markers use.
-    const { ragCitations, citationOffsets, webCitations } = useMemo(() => {
-      const out: RagCitation[] = []
+    const webCitations = useMemo(() => {
       const web: WebCitation[] = []
-      const offsets = new Map<number, number>()
       if (message.role === 'assistant') {
         const parts = message.parts as any[]
-        for (let i = 0; i < parts.length; i++) {
-          const part = parts[i]
+        for (const part of parts) {
           if (!part.type?.startsWith('tool-')) continue
           if (part.state !== 'output-available') continue
-          // A contributed tool's output is its extension's text: citations in
-          // it would put favicons from any host in the footer and the chips.
-          if (isExtensionToolName(part.type.slice('tool-'.length))) continue
           const parsed = parseCitationsFromToolOutput(part.output)
-          if (parsed?.kind === 'rag') {
-            offsets.set(i, out.length)
-            out.push(...parsed.citations)
-          } else if (parsed?.kind === 'web') {
-            web.push(...parsed.citations)
-          }
+          if (parsed?.kind === 'web') web.push(...parsed.citations)
         }
       }
-      return { ragCitations: out, citationOffsets: offsets, webCitations: web }
+      return web
     }, [message.parts, message.role])
-
-    const serviceHub = useServiceHub()
-    const grounding = useGroundingStore((s) => s.byMessageId[message.id])
-    const ensureGrounding = useGroundingStore((s) => s.ensure)
-
-    const assistantText = useMemo(() => {
-      if (message.role !== 'assistant') return ''
-      return (message.parts as any[])
-        .filter((p) => p.type === CONTENT_TYPE.TEXT && p.text)
-        .map((p) => p.text)
-        .join('\n')
-    }, [message.parts, message.role])
-
-    useEffect(() => {
-      if (isStreaming) return
-      if (!assistantText || !ragCitations.length) return
-      const rag = serviceHub.rag()
-      if (!rag.embed) return
-      ensureGrounding(
-        message.id,
-        assistantText,
-        ragCitations,
-        rag.embed.bind(rag)
-      )
-    }, [
-      isStreaming,
-      assistantText,
-      ragCitations,
-      message.id,
-      ensureGrounding,
-      serviceHub,
-    ])
 
     const setWebCitations = useWebCitationStore((s) => s.setForMessage)
     useEffect(() => {
@@ -427,19 +360,10 @@ export const MessageItem = memo(
           ) : (
             <>
               <RenderMarkdown
-                content={
-                  grounding && !isStreaming
-                    ? injectCitationMarkers(
-                        part.text,
-                        grounding.sentenceCitations,
-                        `cite-${message.id}`
-                      )
-                    : part.text
-                }
+                content={part.text}
                 isStreaming={isStreaming && isLastPart}
                 messageId={message.id}
                 isAnimating={isAnimating}
-                noRemoteImages={extensionAuthored}
               />
             </>
           )}
@@ -452,15 +376,6 @@ export const MessageItem = memo(
       const isAudio =
         part.mediaType === 'audio/wav' || part.mediaType === 'audio/mpeg'
       const isVideo = part.mediaType?.startsWith('video/')
-      // Only inline media for extension-authored messages: a URL would be
-      // fetched from whatever host it names.
-      if (
-        extensionAuthored &&
-        part.url &&
-        !/^(data|blob):/i.test(part.url)
-      )
-        return null
-
       if (isAudio && part.url) {
         const justify =
           message.role === 'user' ? 'justify-end' : 'justify-start'
@@ -552,8 +467,6 @@ export const MessageItem = memo(
             totalParts={parts.length}
             isStreaming={isStreaming}
             hasFollowingContent={hasFollowing}
-            awaitingApproval={awaitingApproval}
-            citationOffsets={citationOffsets}
             reasoningContainerRef={reasoningContainerRef}
             isReasoningAtBottom={isReasoningAtBottom}
             onReasoningScroll={onReasoningScroll}
@@ -590,10 +503,6 @@ export const MessageItem = memo(
       message.parts,
       isStreaming,
       isReasoningAtBottom,
-      grounding,
-      awaitingApproval,
-      citationOffsets,
-      extensionAuthored,
     ])
 
     const versionNav =
@@ -625,10 +534,7 @@ export const MessageItem = memo(
         </div>
       ) : null
 
-    // Off for a message an extension authored: every widget below that would
-    // fetch an image by URL (citation favicons, the web tool bar) reads it.
-    return withRemoteImages(
-      !extensionAuthored,
+    return (
       <div
         data-testid="message-item"
         data-message-role={message.role}
@@ -663,7 +569,6 @@ export const MessageItem = memo(
             beside the composer. */}
         {isLastMessage &&
           message.role === 'assistant' &&
-          !awaitingApproval &&
           (hasPendingToolCall || status === CHAT_STATUS.SUBMITTED) && (
             <div className="mt-3">
               <PromptProgress hideIdle={hasPendingToolCall} />
@@ -677,12 +582,7 @@ export const MessageItem = memo(
               className="mt-0.5 shrink-0 text-destructive"
             />
             <div className="flex-1 min-w-0">
-              <div className="font-medium text-destructive">
-                Generation failed
-              </div>
-              <div className="text-muted-foreground break-words">
-                {messageError}
-              </div>
+              <FailureText text={messageError} />
               {/* Below the text rather than beside it: three actions in one
                   row squeezed the error into a narrow column. */}
               {(loadReport || canRegenerate) && (
@@ -785,18 +685,6 @@ export const MessageItem = memo(
                   status !== CHAT_STATUS.SUBMITTED && (
                     <DeleteMessageDialog onDelete={handleDelete} />
                   )}
-
-                {threadId && (
-                  <ContributedOverflowMenu
-                    location="message/actions"
-                    context={{
-                      location: 'message/actions',
-                      threadId,
-                      messageId: message.id,
-                      role: 'user',
-                    }}
-                  />
-                )}
               </div>
               {/* Shown at rest when there are versions, beside copy. */}
               {versionNav}
@@ -850,8 +738,6 @@ export const MessageItem = memo(
                   too, so the pair sits at the leading edge together). */}
               {versionNav}
               <div className={cn('flex items-center', hoverReveal)}>
-                <RememberButton text={getFullTextContent()} />
-
                 {onEdit && selectedModel && !isStreaming && (
                   <EditMessageDialog
                     message={getFullTextContent()}
@@ -877,18 +763,6 @@ export const MessageItem = memo(
                       <IconRefresh size={16} />
                     </Button>
                   )}
-
-                {threadId && (
-                  <ContributedOverflowMenu
-                    location="message/actions"
-                    context={{
-                      location: 'message/actions',
-                      threadId,
-                      messageId: message.id,
-                      role: 'assistant',
-                    }}
-                  />
-                )}
               </div>
             </div>
 
@@ -953,3 +827,32 @@ export const MessageItem = memo(
 )
 
 MessageItem.displayName = 'MessageItem'
+
+/** The provider's own words first, the status as a badge, the raw reply on demand. */
+function FailureText({ text }: { text: string }) {
+  const { t } = useTranslation()
+  const { status, summary, raw } = useMemo(() => parseProviderError(text), [text])
+  return (
+    <>
+      <div className="flex items-center gap-2 font-medium text-destructive">
+        {t('chat:generationFailed')}
+        {status !== undefined && (
+          <span className="rounded border border-destructive/30 px-1 font-mono text-[11px] tabular-nums">
+            {status}
+          </span>
+        )}
+      </div>
+      <p className="text-muted-foreground break-words text-pretty">{summary}</p>
+      {raw && (
+        <details className="mt-1 text-xs text-muted-foreground">
+          <summary className="cursor-pointer select-none hover:text-foreground">
+            {t('chat:errorDetails')}
+          </summary>
+          <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded bg-background/60 p-2 font-mono">
+            {raw}
+          </pre>
+        </details>
+      )}
+    </>
+  )
+}

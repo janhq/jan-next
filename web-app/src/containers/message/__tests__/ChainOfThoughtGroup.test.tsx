@@ -6,11 +6,6 @@ vi.mock('@/i18n/react-i18next-compat', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }))
 
-vi.mock('@/hooks/useToolApprovalRequests', () => ({
-  useToolApprovalRequests: (selector: (s: unknown) => unknown) =>
-    selector({ pending: {} }),
-}))
-
 vi.mock('streamdown', () => ({
   Streamdown: ({ children }: { children: string }) => <span>{children}</span>,
 }))
@@ -27,16 +22,10 @@ vi.mock('@/components/ai-elements/tool', () => ({
   ),
   ToolInput: () => null,
   ToolOutput: () => null,
-  ToolApprovalActions: () => null,
 }))
 
 import { ChainOfThoughtGroup } from '../ChainOfThoughtGroup'
 import { REASONING_STEP_MAX_CHARS } from '@/lib/reasoning'
-import { useToolCallRuntime } from '@/hooks/useToolCallRuntime'
-
-beforeEach(() => {
-  useToolCallRuntime.getState().reset()
-})
 
 // Long enough to have settled at least one step plus an in-progress tail.
 const LONG_TEXT = `${'word '.repeat(REASONING_STEP_MAX_CHARS)}tailtoken`
@@ -52,7 +41,6 @@ const renderGroup = (
       totalParts={parts.length}
       isStreaming
       hasFollowingContent={false}
-      awaitingApproval={false}
       citationOffsets={new Map()}
       {...overrides}
     />
@@ -150,8 +138,6 @@ describe('ChainOfThoughtGroup view switching', () => {
       { type: 'tool-alpha', state: 'input-available', toolCallId: 'a' },
       { type: 'tool-beta', state: 'input-available', toolCallId: 'b' },
     ]
-    useToolCallRuntime.getState().enqueue(['a', 'b'])
-    useToolCallRuntime.getState().markRunning('a')
     renderGroup({
       entries: parts.map((part, index) => ({ part, index })),
       totalParts: parts.length,

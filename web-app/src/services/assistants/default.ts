@@ -1,30 +1,33 @@
 /**
- * Default Assistants Service - Web implementation
+ * Default Assistants Service - assistants live as JSON files in the data folder
  */
 
-import { getExtensionHost } from '@/lib/extensions/host'
-import { ServiceKeys, type Assistant } from '@janhq/core'
+import type { Assistant } from '@janhq/core'
 import type { AssistantsService } from './types'
+import { Assistants } from './store'
 
-const assistants = () => getExtensionHost().services.get(ServiceKeys.Assistants)
+// Migrations and default seeding run once, on first use.
+let store: Promise<Assistants> | undefined
+const assistants = () =>
+  (store ??= (async () => {
+    const s = new Assistants()
+    await s.prepare()
+    return s
+  })().catch((e) => {
+    store = undefined
+    throw e
+  }))
 
 export class DefaultAssistantsService implements AssistantsService {
   async getAssistants(): Promise<Assistant[] | null> {
-    const service = assistants()
-
-    if (!service) {
-      console.warn('Assistants service not available')
-      return null
-    }
-
-    return service.getAssistants()
+    return (await assistants()).getAssistants()
   }
 
   async createAssistant(assistant: Assistant): Promise<void> {
-    await assistants()?.createAssistant(assistant)
+    await (await assistants()).createAssistant(assistant)
   }
 
   async deleteAssistant(assistant: Assistant): Promise<void> {
-    await assistants()?.deleteAssistant(assistant)
+    await (await assistants()).deleteAssistant(assistant)
   }
 }

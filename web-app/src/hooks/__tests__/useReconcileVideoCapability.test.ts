@@ -1,14 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
-import { ServiceKeys, createServiceRegistry, type ServiceRegistry } from '@janhq/core'
 
 const h = vi.hoisted(() => ({
-  services: undefined as unknown as ServiceRegistry,
+  engine: undefined as unknown,
   updateProvider: vi.fn(),
   provider: undefined as unknown,
 }))
-vi.mock('@/lib/extensions/host', () => ({
-  getExtensionHost: () => ({ services: h.services }),
+vi.mock('@/lib/llamacpp', () => ({
+  getLlamacppEngine: () => h.engine,
 }))
 vi.mock('../useModelProvider', () => ({
   useModelProvider: {
@@ -26,19 +25,18 @@ const provide = (video: boolean) => {
     nCtx: 1,
     modalities: { vision: true, video, audio: false },
   })
-  h.services.provide(ServiceKeys.Llamacpp, {
+  h.engine = {
     getModelProps,
     unload: vi.fn(),
     getDevices: vi.fn(),
     reconcileEngineDevices: vi.fn(),
-  })
+  }
   return getModelProps
 }
 
 describe('useReconcileVideoCapability', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    h.services = createServiceRegistry()
     h.provider = {
       provider: 'llamacpp',
       models: [{ id: 'm', capabilities: ['vision'] }],
@@ -63,13 +61,9 @@ describe('useReconcileVideoCapability', () => {
     expect(h.updateProvider).not.toHaveBeenCalled()
   })
 
-  it('does nothing for other providers or without the service', () => {
+  it('does nothing for other providers', () => {
     const getModelProps = provide(true)
     renderHook(() => useReconcileVideoCapability('m', 'openai'))
     expect(getModelProps).not.toHaveBeenCalled()
-    h.services = createServiceRegistry()
-    expect(() =>
-      renderHook(() => useReconcileVideoCapability('m', 'llamacpp'))
-    ).not.toThrow()
   })
 })

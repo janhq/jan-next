@@ -617,17 +617,13 @@ describe('RenderMarkdown', () => {
       expect(container.querySelector('a, button, [role="link"], img')).toBeNull()
     })
 
-    it('preserves internal document and web citation routing', () => {
+    it('preserves web citation routing', () => {
       const { container } = render(
         <RenderMarkdown
-          content={'[1](#cite-message-1) [cite](#webcite-https%3A%2F%2Fexample.com%2Fsource)'}
+          content={'[cite](#webcite-https%3A%2F%2Fexample.com%2Fsource)'}
           isStreaming={isStreaming}
         />
       )
-      // With no grounding-store entry, CitationLink retains its fallback anchor.
-      expect(
-        container.querySelector('a[href="#cite-message-1"]')
-      ).toHaveTextContent('1')
       const webCitation = container.querySelector(
         'a[href="https://example.com/source"]'
       )

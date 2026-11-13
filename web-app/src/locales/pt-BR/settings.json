@@ -231,41 +231,6 @@
     "creditsDesc1": "👋 Jan é construído com ❤️ pela equipe Menlo Research.",
     "creditsDesc2": "Agradecimentos especiais às nossas dependências de código aberto—especialmente llama.cpp e Tauri—e à nossa incrível comunidade de IA."
   },
-  "extensions": {
-    "title": "Extensões"
-  },
-  "attachments": {
-    "subtitle": "Configure anexos de documentos, limites de tamanho e comportamento de recuperação.",
-    "featureTitle": "Recurso",
-    "enable": "Habilitar Anexos",
-    "enableDesc": "Permitir upload e indexação de documentos para recuperação.",
-    "parseMode": "Preferência de análise",
-    "parseModeDesc": "Escolha como os documentos processados são adicionados às conversas.",
-    "parseModeAuto": "Auto",
-    "parseModeInline": "Incluir no chat",
-    "parseModeEmbeddings": "Ingerir como embeddings",
-    "parseModePrompt": "Perguntar sempre",
-    "autoInlineThreshold": "Limite de inclusão automática",
-    "autoInlineThresholdDesc": "Fração do contexto do modelo usada como limite para incluir arquivos processados em modelos locais.",
-    "limitsTitle": "Limites",
-    "maxFile": "Tamanho Máximo do Arquivo (MB)",
-    "maxFileDesc": "Tamanho máximo por arquivo. Aplicado no upload e processamento.",
-    "retrievalTitle": "Recuperação",
-    "topK": "Top-K",
-    "topKDesc": "Máximo de citações para retornar.",
-    "threshold": "Limite de Afinidade",
-    "thresholdDesc": "Pontuação mínima de similaridade (0-1). Usado apenas para busca linear cosseno, não ANN.",
-    "searchMode": "Modo de Busca Vetorial",
-    "searchModeDesc": "Escolha entre sqlite-vec ANN, cosseno linear, ou auto.",
-    "searchModeAuto": "Auto (recomendado)",
-    "searchModeAnn": "ANN (sqlite-vec)",
-    "searchModeLinear": "Linear",
-    "chunkingTitle": "Fragmentação",
-    "chunkSize": "Tamanho do Fragmento (caracteres)",
-    "chunkSizeDesc": "Máximo aproximado de caracteres por fragmento para embeddings.",
-    "chunkOverlap": "Sobreposição (caracteres)",
-    "chunkOverlapDesc": "Sobreposição de caracteres entre fragmentos consecutivos."
-  },
   "dialogs": {
     "changeDataFolder": {
       "title": "Alterar Localização da Pasta de Dados",

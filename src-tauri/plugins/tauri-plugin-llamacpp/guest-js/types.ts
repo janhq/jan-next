@@ -74,7 +74,7 @@ export interface GgufMetadata {
 
 /**
  * The engine-level (provider-wide) settings, mirroring
- * `extensions/llamacpp-extension/settings.json` exactly.
+ * `web-app/src/lib/llamacpp/settings.json` exactly.
  *
  * Kept in lockstep on purpose: `this.config` is built only from those keys, so a
  * field declared here with no settings.json entry is permanently `undefined` --

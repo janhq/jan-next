@@ -4,9 +4,7 @@
   "mcp-servers": "Серверы MCP",
   "local_api_server": "Локальный API-сервер",
   "https_proxy": "HTTPS-прокси",
-  "extensions": "Расширения",
   "experimental": "Экспериментально",
-  "attachments": "Вложения",
   "general": "Общие",
   "settings": "Настройки",
   "modelProviders": "Поставщики моделей",
@@ -18,7 +16,6 @@
   "appearance": "Интерфейс",
   "keyboardShortcuts": "Сочетания клавиш",
   "newChat": "Новый чат",
-  "newAgentChat": "Новый чат агента",
   "chats": "Чаты",
   "favorites": "Избранное",
   "recents": "Недавние",
@@ -303,12 +300,6 @@
     "tryDifferentSearch": "Попробуйте другой поисковый запрос",
     "uploadingFiles": "Обработка файлов…",
     "processButton": "Добавить"
-  },
-  "attachmentsIngestion": {
-    "title": "Выберите способ обработки вложений",
-    "description": "Выберите, вставить содержимое файлов непосредственно в чат или индексировать их как эмбеддинги.",
-    "inline": "Вставить в чат",
-    "embeddings": "Использовать эмбеддинги"
   },
   "attachmentInjectedIndicator": "Вставлено в чат",
   "attachmentEmbeddedIndicator": "Эмбеддинг для RAG",

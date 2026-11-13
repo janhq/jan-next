@@ -1,23 +1,6 @@
 {
-  "toolApproval": {
-    "needsApproval": "इस टूल को चलने से पहले आपकी अनुमति की आवश्यकता है।",
-    "deny": "अस्वीकार करें",
-    "allowOnce": "एक बार अनुमति दें",
-    "allowInThread": "थ्रेड में अनुमति दें",
-    "allowServerAlways": "{{server}} को हमेशा अनुमति दें",
-    "allowToolAlways": "{{tool}} को हमेशा अनुमति दें",
-    "title": "टूल कॉल अनुरोध",
-    "description": "सहायक निम्नलिखित टूल का उपयोग करने का प्रयास कर रहा है:",
-    "securityNotice": "सुरक्षा सूचना: दुर्भावनापूर्ण टूल या वार्तालाप सामग्री सहायक को हानिकारक कार्रवाई करने के लिए धोखा दे सकती है। अनुमति देने से पहले प्रत्येक टूल कॉल को सावधानीपूर्वक जांचें।",
-    "permissionScope": "आप इसे केवल इस बार या हर बार अनुमति दे सकते हैं।",
-    "alwaysAllow": "हमेशा अनुमति दें"
-  },
   "toolCall": {
-    "awaitingApproval": "अनुमति की प्रतीक्षा: {{tool}}",
     "running": "{{tool}} चल रहा है...",
-    "queued": "{{tool}} कतार में",
-    "queuedPosition": "{{count}} आगे",
-    "working": "काम जारी है...",
     "failed": "{{tool}} विफल",
     "used": "{{tool}} उपयोग किया",
     "parameters": "पैरामीटर",
@@ -35,7 +18,6 @@
     "resultLimit": "शीर्ष {{count}}",
     "contentTruncated": "सामग्री छोटी की गई",
     "originWeb": "वेब",
-    "originDocuments": "दस्तावेज़",
     "originWorkspace": "वर्कस्पेस",
     "originSubagent": "सबएजेंट",
     "subagentPlaceholder": "सबएजेंट",

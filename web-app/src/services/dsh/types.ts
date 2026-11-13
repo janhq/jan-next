@@ -6,8 +6,6 @@ export interface DshLaunch {
   apiKey: string
   /** The runtime serves one model; a different one means a restart. */
   model: string
-  /** Persona for every session; empty keeps the composition's default. */
-  systemPrompt: string
   /** Agent workspace; empty means a private folder in the app's data. */
   cwd: string
 }
@@ -15,6 +13,29 @@ export interface DshLaunch {
 export interface DshStatus {
   running: boolean
   launch: DshLaunch | null
+}
+
+/** One entry of the composed DSH plugin set. */
+export interface DshPluginEntry {
+  id: string
+  /** Module specifier the Loader imports. */
+  name: string
+  /** `base` ships with the app, `user` is from plugins.yml, `mcp` from MCP settings. */
+  source: 'base' | 'user' | 'mcp'
+  enabled: boolean
+  /** YAML text of the entry's config. */
+  config: string
+  /** npm package a user entry was installed from. */
+  package: string | null
+}
+
+/** One file of a thread's folder, read for the work panel preview. */
+export interface WorkspaceFile {
+  /** Absolute path, for Open and Show in folder. */
+  path: string
+  /** UTF-8 text, or null for a binary file (then `base64` is set). */
+  text: string | null
+  base64: string | null
 }
 
 export interface DshService {
@@ -26,6 +47,25 @@ export interface DshService {
   status(): Promise<DshStatus>
   /** Rejects with the reason a folder is not a usable checkout. */
   checkRoot(root: string): Promise<void>
+  /** Base + user + MCP entries; edits apply on the next restart. */
+  pluginsList(): Promise<DshPluginEntry[]>
+  pluginSetEnabled(id: string, enabled: boolean): Promise<void>
+  /** `config` is YAML or JSON; empty clears it. */
+  pluginSetConfig(id: string, config: string): Promise<void>
+  /** Installs an npm package and adds an entry for it. */
+  pluginInstall(pkg: string): Promise<void>
+  pluginRemove(id: string): Promise<void>
+  /** Restarts the running runtime so plugin changes apply; no-op when stopped. */
+  restart(): Promise<void>
+  /** A thread's private workspace folder, created on first use. */
+  threadWorkspace(threadId: string): Promise<string>
+  /** Reads `path` (relative or absolute) inside `folder`; refuses one outside it. */
+  readWorkspaceFile(folder: string, path: string): Promise<WorkspaceFile>
+  /**
+   * Starts DSH's own web host (every screen a DSH UI plugin) from the
+   * checkout at `root` and resolves to its loopback URL.
+   */
+  webStart(root: string): Promise<string>
   /** One parsed JSON-RPC frame from the runtime's stdout. */
   onFrame(cb: (frame: Record<string, unknown>) => void): Promise<() => void>
   /** The runtime exited; `stderr` is its last lines. */

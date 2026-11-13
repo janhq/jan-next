@@ -1,21 +1,21 @@
 import { useModelProvider } from '@/hooks/useModelProvider'
+import { APIs } from '@/lib/service'
 
 import { useGeneralSetting } from '@/hooks/useGeneralSetting'
 import { useServiceHub } from '@/hooks/useServiceHub'
-import { useEffect, useRef } from 'react'
-import { useMCPServers, DEFAULT_MCP_SETTINGS } from '@/hooks/useMCPServers'
+import { useEffect } from 'react'
+import { useMCPServers } from '@/hooks/useMCPServers'
 import { useAssistant } from '@/hooks/useAssistant'
 import { useNavigate } from '@tanstack/react-router'
 import { route } from '@/constants/routes'
 import { useThreads } from '@/hooks/useThreads'
 import { useLocalApiServer } from '@/hooks/useLocalApiServer'
 import { useAppState } from '@/hooks/useAppState'
-import { AppEvent, events, HUGGINGFACE_TOKEN_SECRET_KEY } from '@janhq/core'
+import { HUGGINGFACE_TOKEN_SECRET_KEY } from '@/lib/native'
+import { AppEvent, events } from '@/lib/native'
 import { SystemEvent } from '@/types/events'
-import { sweepThreadWorkspaces } from '@/lib/agentTools'
 import { invoke } from '@tauri-apps/api/core'
 import { providerHasRemoteApiKeys, providerRemoteApiKeyChain } from '@/lib/provider-api-keys'
-import { useExtensionProviders } from '@/hooks/useExtensionProviders'
 
 type ProviderCustomHeader = {
   header: string
@@ -34,9 +34,6 @@ type RegisterProviderRequest = {
 async function registerRemoteProvider(provider: ModelProvider) {
   // Skip llamacpp - those are local models
   if (provider.provider === 'llamacpp') return
-  // An extension's provider is reachable from the chat only: registering it
-  // would serve it, with the extension's key, to every local API client.
-  if (provider.source) return
 
   const chain = providerRemoteApiKeyChain(provider)
   if (chain.length === 0) {
@@ -73,8 +70,7 @@ async function seedProviderKeysFromKeyring(
 ): Promise<ModelProvider[]> {
   return Promise.all(
     providers.map(async (provider) => {
-      // Extension providers keep their key in the extension's settings.
-      if (provider.provider === 'llamacpp' || provider.source) return provider
+      if (provider.provider === 'llamacpp') return provider
       try {
         const keys = await invoke<string[]>('get_provider_keys', {
           provider: provider.provider,
@@ -126,7 +122,6 @@ const syncRemoteProviders = () => {
     if (
       provider.active &&
       provider.provider !== 'llamacpp' &&
-      !provider.source &&
       providerHasRemoteApiKeys(provider)
     ) {
       registerRemoteProvider(provider)
@@ -148,16 +143,14 @@ export function DataProvider() {
   const { setProviders, getProviderByName } =
     useModelProvider()
 
-  const { setServers, setSettings } = useMCPServers()
+  const { setServers } = useMCPServers()
   const { setAssistants } = useAssistant()
   const { setThreads } = useThreads()
   const setThreadsLoading = useThreads((s) => s.setThreadsLoading)
   // The thread fetch re-runs whenever its effect does (StrictMode remount,
   // a new service hub); the sandbox sweep should run once per session.
-  const sweptWorkspaces = useRef(false)
   const navigate = useNavigate()
   const serviceHub = useServiceHub()
-  useExtensionProviders()
 
   // Local API Server hooks
   const {
@@ -206,7 +199,6 @@ export function DataProvider() {
       .getMCPConfig()
       .then((data) => {
         setServers(data.mcpServers ?? {})
-        setSettings(data.mcpSettings ?? DEFAULT_MCP_SETTINGS)
       })
     serviceHub
       .assistants()
@@ -274,15 +266,6 @@ export function DataProvider() {
           }
           setThreads(threads)
           setThreadsLoading(false)
-          // Collect agent sandboxes whose thread is gone (crash, or a thread
-          // deleted while the app was closed). Once per session, and only on a
-          // non-empty result: sweeping against an empty list would delete live
-          // sandboxes if this fetch were still a transient not-ready state.
-          // Leftovers then wait for the next startup that does see threads.
-          if (!sweptWorkspaces.current && threads.length > 0) {
-            sweptWorkspaces.current = true
-            sweepThreadWorkspaces(threads.map((t) => t.id))
-          }
         })
         .catch(() => {
           if (cancelled) return
@@ -376,7 +359,7 @@ export function DataProvider() {
           )
         }
 
-        return window.core?.api
+        return APIs
           ?.startServer({
             host: serverHost,
             port: serverPort,

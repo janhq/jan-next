@@ -4,7 +4,7 @@ import { join, resolve, basename } from 'node:path'
 
 /**
  * The custom `t` returns the key itself when a lookup fails, so a missing entry
- * renders `tools:toolApproval.title` at the user rather than throwing or falling
+ * renders `tools:toolCall.running` at the user rather than throwing or falling
  * back. That is invisible in review and in every other test, which is how five
  * approval-dialog keys and two toast keys shipped broken.
  *
@@ -86,6 +86,6 @@ describe('i18n keys', () => {
   it('finds the locale bundle it is auditing', () => {
     const bundle = loadEnglish()
     expect(Object.keys(bundle).length).toBeGreaterThan(5)
-    expect(resolves(bundle, 'tools', 'toolApproval.title')).toBe(true)
+    expect(resolves(bundle, 'tools', 'toolCall.running')).toBe(true)
   })
 })

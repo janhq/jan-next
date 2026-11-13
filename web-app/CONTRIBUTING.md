@@ -1,6 +1,6 @@
-# Contributing to Jan Web App
+# Web app notes
 
-[← Back to Main Contributing Guide](../CONTRIBUTING.md)
+See the root `AGENTS.md` for architecture, commands and conventions.
 
 React frontend using TypeScript, TanStack Router, Radix UI, and Tailwind CSS. State is managed by React State and Zustand.
 
@@ -8,9 +8,10 @@ React frontend using TypeScript, TanStack Router, Radix UI, and Tailwind CSS. St
 
 - **`/src/components/ui`** - UI components (buttons, dialogs, inputs)
 - **`/src/containers`** - Complex feature components (ChatInput, ThreadContent)  
-- **`/src/hooks`** - Custom React hooks (useChat, useThreads, useAppState)
+- **`/src/hooks`** - Custom React hooks (use-chat, useThreads, useAppState)
 - **`/src/routes`** - TanStack Router pages
-- **`/src/services`** - API layer for backend communication
+- **`/src/services`** - ServiceHub: API layer for backend communication
+- **`/src/lib`** - `dsh-chat-transport.ts` (every chat turn), `llamacpp/` (local engine)
 - **`/src/types`** - TypeScript definitions
 
 ## Development
@@ -44,10 +45,9 @@ export const Route = createFileRoute('/settings/general')({
 ### Building & Testing
 
 ```bash
-# Development
-yarn dev
-yarn build
-yarn test
+make dev        # from the repo root
+corepack yarn vitest run --project @janhq/web-app <file>
+cd web-app && yarn tsc -b
 ```
 
 ### State Management
@@ -66,9 +66,10 @@ export const useAppState = create<AppState>((set) => ({
 ### Tauri Integration
 
 ```tsx
-import { invoke } from '@tauri-apps/api/core'
+import { useServiceHub } from '@/hooks/useServiceHub'
 
-const result = await invoke('command_name', { param: 'value' })
+const serviceHub = useServiceHub()
+const threads = await serviceHub.threads().fetchThreads()
 ```
 
 ## Performance Tips
@@ -94,9 +95,6 @@ import { VariableSizeList } from 'react-window'
 # - Inspect component tree
 # - Debug hooks and state
 # - Profile performance
-
-# Debug Tauri commands using the same imported API the app does
-console.log(await invoke('command_name'))
 
 # Check for console errors
 # Press F12 → Console tab

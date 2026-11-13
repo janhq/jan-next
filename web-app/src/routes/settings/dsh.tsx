@@ -6,11 +6,12 @@ import HeaderPage from '@/containers/HeaderPage'
 import { Card, CardItem } from '@/containers/Card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
 import { useTranslation } from '@/i18n/react-i18next-compat'
 import { useServiceHub } from '@/hooks/useServiceHub'
 import { useDshSettings } from '@/hooks/useDshSettings'
 import type { DshStatus } from '@/services/dsh/types'
+import { toast } from 'sonner'
+import { windowKey } from '@/constants/windows'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const Route = createFileRoute(route.settings.dsh as any)({
@@ -54,8 +55,7 @@ function FolderField({
 function DshSettings() {
   const { t } = useTranslation()
   const serviceHub = useServiceHub()
-  const { enabled, root, workspace, setEnabled, setRoot, setWorkspace } =
-    useDshSettings()
+  const { root, workspace, setRoot, setWorkspace } = useDshSettings()
   const [status, setStatus] = useState<DshStatus | null>(null)
   // null while unchecked; '' when the folder is usable.
   const [rootError, setRootError] = useState<string | null>(null)
@@ -91,6 +91,29 @@ function DshSettings() {
     }
   }, [serviceHub, root])
 
+  const [opening, setOpening] = useState(false)
+  // DSH's own shell, where every screen is a DSH UI plugin and its modes
+  // (Creator mode among them) live. Its own window until it replaces this UI.
+  const openDshApp = async () => {
+    setOpening(true)
+    try {
+      const url = await serviceHub.dsh().webStart(root.trim())
+      await serviceHub.window().openWindow({
+        label: windowKey.dshApp,
+        url,
+        title: t('settings:dsh.appWindow'),
+        width: 1280,
+        height: 860,
+        center: true,
+        resizable: true,
+      })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e))
+    } finally {
+      setOpening(false)
+    }
+  }
+
   const stopRuntime = async () => {
     await serviceHub.dsh().stop()
     refresh()
@@ -110,22 +133,6 @@ function DshSettings() {
         <div className="p-4 pt-0 w-full overflow-y-auto">
           <div className="flex flex-col gap-4 w-full">
             <Card title={t('common:dsh')}>
-              <CardItem
-                title={t('settings:dsh.use')}
-                description={
-                  <span className="text-pretty">
-                    {t('settings:dsh.useDesc')}
-                  </span>
-                }
-                actions={
-                  <Switch
-                    aria-label={t('settings:dsh.use')}
-                    checked={enabled}
-                    disabled={rootError !== ''}
-                    onCheckedChange={setEnabled}
-                  />
-                }
-              />
               <CardItem
                 title={t('settings:dsh.root')}
                 description={
@@ -198,6 +205,22 @@ function DshSettings() {
                       {t('settings:dsh.stop')}
                     </Button>
                   )
+                }
+              />
+            </Card>
+            <Card title={t('settings:dsh.app')}>
+              <CardItem
+                title={t('settings:dsh.appOpen')}
+                description={<span className="text-pretty">{t('settings:dsh.appDesc')}</span>}
+                actions={
+                  <Button
+                    size="sm"
+                    data-testid="dsh-open-app"
+                    disabled={rootError !== '' || opening}
+                    onClick={openDshApp}
+                  >
+                    {opening ? t('settings:dsh.appStarting') : t('settings:dsh.appOpen')}
+                  </Button>
                 }
               />
             </Card>

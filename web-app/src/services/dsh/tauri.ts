@@ -1,6 +1,12 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
-import type { DshLaunch, DshService, DshStatus } from './types'
+import type {
+  DshLaunch,
+  DshPluginEntry,
+  DshService,
+  DshStatus,
+  WorkspaceFile,
+} from './types'
 
 export class TauriDshService implements DshService {
   start(launch: DshLaunch) {
@@ -15,8 +21,35 @@ export class TauriDshService implements DshService {
   status() {
     return invoke<DshStatus>('dsh_status')
   }
+  webStart(root: string) {
+    return invoke<string>('dsh_web_start', { root })
+  }
   checkRoot(root: string) {
     return invoke<void>('dsh_check_root', { root })
+  }
+  pluginsList() {
+    return invoke<DshPluginEntry[]>('dsh_plugins_list')
+  }
+  pluginSetEnabled(id: string, enabled: boolean) {
+    return invoke<void>('dsh_plugin_set_enabled', { id, enabled })
+  }
+  pluginSetConfig(id: string, config: string) {
+    return invoke<void>('dsh_plugin_set_config', { id, config })
+  }
+  pluginInstall(pkg: string) {
+    return invoke<void>('dsh_plugin_install', { package: pkg })
+  }
+  pluginRemove(id: string) {
+    return invoke<void>('dsh_plugin_remove', { id })
+  }
+  restart() {
+    return invoke<void>('dsh_restart')
+  }
+  threadWorkspace(threadId: string) {
+    return invoke<string>('dsh_thread_workspace', { threadId })
+  }
+  readWorkspaceFile(folder: string, path: string) {
+    return invoke<WorkspaceFile>('dsh_read_workspace_file', { folder, path })
   }
   onFrame(cb: (frame: Record<string, unknown>) => void) {
     return listen<string>('dsh-line', (e) => {

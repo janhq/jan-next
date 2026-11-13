@@ -1,23 +1,6 @@
 {
-  "toolApproval": {
-    "needsApproval": "Công cụ này cần sự chấp thuận của bạn trước khi chạy.",
-    "deny": "Từ chối",
-    "allowOnce": "Cho phép một lần",
-    "allowInThread": "Cho phép trong chủ đề",
-    "allowServerAlways": "Luôn cho phép {{server}}",
-    "allowToolAlways": "Luôn cho phép {{tool}}",
-    "title": "Yêu cầu gọi công cụ",
-    "description": "Trợ lý muốn sử dụng công cụ:",
-    "securityNotice": "Thông báo bảo mật: Các công cụ độc hại hoặc nội dung cuộc trò chuyện có khả năng lừa trợ lý thực hiện các hành động có hại. Hãy xem xét kỹ từng lệnh gọi công cụ trước khi phê duyệt.",
-    "permissionScope": "Bạn có thể cho phép chỉ lần này hoặc mọi lần.",
-    "alwaysAllow": "Luôn cho phép"
-  },
   "toolCall": {
-    "awaitingApproval": "Đang chờ phê duyệt: {{tool}}",
     "running": "Đang chạy {{tool}}...",
-    "queued": "{{tool}} đang chờ",
-    "queuedPosition": "Còn {{count}} phía trước",
-    "working": "Đang xử lý...",
     "failed": "{{tool}} thất bại",
     "used": "Đã dùng {{tool}}",
     "parameters": "Tham số",
@@ -35,7 +18,6 @@
     "resultLimit": "top {{count}}",
     "contentTruncated": "Nội dung đã bị cắt bớt",
     "originWeb": "Web",
-    "originDocuments": "Tài liệu",
     "originWorkspace": "Không gian làm việc",
     "originSubagent": "Tác tử phụ",
     "subagentPlaceholder": "tác tử phụ",

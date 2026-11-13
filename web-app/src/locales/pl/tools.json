@@ -1,23 +1,6 @@
 {
-  "toolApproval": {
-    "needsApproval": "To narzędzie wymaga Twojej zgody przed uruchomieniem.",
-    "deny": "Odmów",
-    "allowOnce": "Pozwól Raz",
-    "allowInThread": "Zezwól w tym wątku",
-    "allowServerAlways": "Zawsze zezwalaj na {{server}}",
-    "allowToolAlways": "Zawsze zezwalaj na {{tool}}",
-    "title": "Prośba o Użycie Narzędzia",
-    "description": "Asystent chce użyć narzędzia:",
-    "securityNotice": "Ostrzeżenie Bezpieczeństwa: Złośliwe narzędzia lub treści rozmowy mają potencjał nakłonić agenta do szkodliwych działań. Dokładnie przejrzyj każdą prośbę o użycie narzędzia przed wyrażeniem zgody.",
-    "permissionScope": "Możesz zezwolić tylko ten jeden raz lub za każdym razem.",
-    "alwaysAllow": "Zawsze zezwalaj"
-  },
   "toolCall": {
-    "awaitingApproval": "Oczekuje na zgodę: {{tool}}",
     "running": "Uruchamianie {{tool}}...",
-    "queued": "{{tool}} w kolejce",
-    "queuedPosition": "Przed Tobą: {{count}}",
-    "working": "Przetwarzanie...",
     "failed": "{{tool}}: błąd",
     "used": "Użyto {{tool}}",
     "parameters": "Parametry",
@@ -35,7 +18,6 @@
     "resultLimit": "najlepsze: {{count}}",
     "contentTruncated": "Treść przycięta",
     "originWeb": "Sieć",
-    "originDocuments": "Dokumenty",
     "originWorkspace": "Obszar roboczy",
     "originSubagent": "Podagent",
     "subagentPlaceholder": "podagent",

@@ -15,9 +15,7 @@ import {
   isValidElement,
   memo,
   useContext,
-  useEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react'
 import { CodeBlock } from './code-block'
@@ -29,15 +27,8 @@ import {
   summarizeToolInput,
 } from '@/lib/toolInputSummary'
 import { summarizeToolOutput } from '@/lib/toolOutputSummary'
-import { useToolApprovalRequests } from '@/hooks/useToolApprovalRequests'
-import {
-  queuePositionOf,
-  useToolCallRuntime,
-} from '@/hooks/useToolCallRuntime'
-import { ToolElapsed } from './tool-runtime'
 import { useTranslation } from '@/i18n/react-i18next-compat'
 import { Button } from '@/components/ui/button'
-import { ShieldAlertIcon } from 'lucide-react'
 import { Citations } from '@/components/Citations'
 import { parseCitationsFromToolOutput } from '@/lib/citation-parser'
 
@@ -84,24 +75,11 @@ export const Tool = memo(
     children,
     ...props
   }: ToolProps) => {
-    const isPending = useToolApprovalRequests((s) =>
-      toolCallId ? Boolean(s.pending[toolCallId]) : false
-    )
     const [isOpen, setIsOpen] = useControllableState({
       prop: open,
-      defaultProp: defaultOpen || isPending,
+      defaultProp: defaultOpen,
       onChange: onOpenChange,
     })
-
-    const wasPendingRef = useRef(isPending)
-    useEffect(() => {
-      if (isPending && !wasPendingRef.current) {
-        setIsOpen(true)
-      } else if (!isPending && wasPendingRef.current) {
-        setIsOpen(false)
-      }
-      wasPendingRef.current = isPending
-    }, [isPending, setIsOpen])
 
     const handleOpenChange = (newOpen: boolean) => {
       setIsOpen(newOpen)
@@ -140,22 +118,12 @@ type TranslateFn = (key: string, options?: Record<string, unknown>) => string
 const getStatusText = (
   t: TranslateFn,
   status: ToolUIPart['state'],
-  toolName: string,
-  awaitingApproval: boolean,
-  isQueued: boolean
+  toolName: string
 ) => {
   const isRunning = status === 'input-streaming' || status === 'input-available'
   const hasError = status === 'output-error' || status === 'output-denied'
   const tool = toolName.replaceAll('_', ' ')
 
-  if (awaitingApproval) {
-    return t('tools:toolCall.awaitingApproval', { tool })
-  }
-  // Tools run one at a time, so a pending call is only "running" once the
-  // executor has actually reached it.
-  if (isQueued) {
-    return t('tools:toolCall.queued', { tool })
-  }
   if (isRunning) {
     return t('tools:toolCall.running', { tool })
   }
@@ -168,23 +136,9 @@ const getStatusText = (
 export const ToolHeader = memo(
   ({ className, title, state, type, origin, input }: ToolHeaderProps) => {
     const { t } = useTranslation()
-    const { isOpen, toolCallId } = useTool()
-    const awaitingApproval = useToolApprovalRequests((s) =>
-      toolCallId ? Boolean(s.pending[toolCallId]) : false
-    )
+    const { isOpen } = useTool()
     const toolName = title ?? type.split('-').slice(1).join('-')
     const summary = useMemo(() => summarizeToolInput(input), [input])
-    // Position in the pending queue, or -1 once the executor has reached it.
-    const queuePosition = useToolCallRuntime((s) =>
-      toolCallId ? queuePositionOf(s, toolCallId) : -1
-    )
-    const startedAt = useToolCallRuntime((s) =>
-      toolCallId ? s.timings[toolCallId]?.startedAt : undefined
-    )
-    const endedAt = useToolCallRuntime((s) =>
-      toolCallId ? s.timings[toolCallId]?.endedAt : undefined
-    )
-
     return (
       <CollapsibleTrigger
         className={cn(
@@ -195,24 +149,9 @@ export const ToolHeader = memo(
           className
         )}
       >
-        {awaitingApproval ? (
-          <ShieldAlertIcon className="size-4 shrink-0 text-amber-500" />
-        ) : (
-          <WrenchIcon className="size-4 shrink-0" />
-        )}
-        <span
-          className={cn(
-            'shrink-0 capitalize',
-            awaitingApproval && 'text-amber-600 dark:text-amber-400'
-          )}
-        >
-          {getStatusText(
-            t,
-            state,
-            toolName,
-            awaitingApproval,
-            queuePosition >= 0
-          )}
+        <WrenchIcon className="size-4 shrink-0" />
+        <span className="shrink-0 capitalize">
+          {getStatusText(t, state, toolName)}
         </span>
         {origin && (
           <span className="shrink-0 text-muted-foreground/60">{origin}</span>
@@ -234,18 +173,6 @@ export const ToolHeader = memo(
               : 'rotate-0 opacity-0 group-hover/tool-header:opacity-100 group-focus-visible/tool-header:opacity-100 [@media(hover:none)]:opacity-100'
           )}
         />
-        <span className="ml-auto flex shrink-0 items-center gap-2">
-          {queuePosition > 0 && (
-            <span className="text-xs text-muted-foreground/60">
-              {t('tools:toolCall.queuedPosition', { count: queuePosition })}
-            </span>
-          )}
-          <ToolElapsed
-            startedAt={startedAt}
-            endedAt={endedAt}
-            className="text-muted-foreground/60"
-          />
-        </span>
       </CollapsibleTrigger>
     )
   }
@@ -336,69 +263,6 @@ export const ToolInput = memo(
   }
 )
 
-export const ToolApprovalActions = memo(() => {
-  const { t } = useTranslation()
-  const { toolCallId } = useTool()
-  const pending = useToolApprovalRequests((s) =>
-    toolCallId ? s.pending[toolCallId] : undefined
-  )
-  const resolveApproval = useToolApprovalRequests((s) => s.resolveApproval)
-
-  if (!pending || !toolCallId) return null
-
-  return (
-    <div className="mt-4 space-y-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
-      <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 text-xs font-medium">
-        <ShieldAlertIcon className="size-4" />
-        <span>{t('tools:toolApproval.needsApproval')}</span>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          variant="destructive"
-          onClick={() => resolveApproval(toolCallId, 'deny')}
-        >
-          {t('tools:toolApproval.deny')}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => resolveApproval(toolCallId, 'allow-once')}
-        >
-          {t('tools:toolApproval.allowOnce')}
-        </Button>
-        {/* A strict request saves no grant (see ApprovalOptions.strict), so
-            offering a wider scope would be a promise it does not keep. */}
-        {!pending.strict && (
-          <>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => resolveApproval(toolCallId, 'allow-thread')}
-            >
-              {t('tools:toolApproval.allowInThread')}
-            </Button>
-            <Button
-              size="sm"
-              autoFocus
-              onClick={() => resolveApproval(toolCallId, 'allow-always')}
-            >
-              {/* Trusting a server tool-by-tool is the same decision repeated. */}
-              {pending.serverName
-                ? t('tools:toolApproval.allowServerAlways', {
-                    server: pending.serverName,
-                  })
-                : t('tools:toolApproval.allowToolAlways', {
-                    tool: pending.toolName,
-                  })}
-            </Button>
-          </>
-        )}
-      </div>
-    </div>
-  )
-})
-
 type ContentBlock = {
   type?: string
   text?: string
@@ -475,9 +339,6 @@ const ToolImage = memo(({ data, mimeType }: ToolImageSource) => (
 export type ToolOutputProps = ComponentProps<'div'> & {
   output: ToolUIPart['output']
   errorText: ToolUIPart['errorText']
-  // Running count of citations from earlier tool calls in this turn, so each
-  // card's numbering/anchors continue the global sequence the markers use.
-  citationOffset?: number
 }
 
 export const ToolOutput = memo(
@@ -485,11 +346,9 @@ export const ToolOutput = memo(
     className,
     output,
     errorText,
-    citationOffset = 0,
     ...props
   }: ToolOutputProps) => {
     const { t } = useTranslation()
-    const { messageId } = useTool()
     const [expanded, setExpanded] = useState(false)
     const [showRaw, setShowRaw] = useState(false)
     const citationPayload = useMemo(
@@ -513,7 +372,7 @@ export const ToolOutput = memo(
       [errorText, output]
     )
     // Only offer expansion for payloads long enough to be clipped. Citation
-    // output (RAG) renders as cards outside the scroll box,
+    // output renders as cards outside the scroll box,
     // so there is no height for the control to act on.
     // The raw view elides image data, so image bytes are not what makes a
     // payload long enough to need the expand control.
@@ -533,11 +392,7 @@ export const ToolOutput = memo(
 
       if (citationPayload) {
         return (
-          <Citations
-            payload={citationPayload}
-            anchorPrefix={messageId ? `cite-${messageId}` : undefined}
-            indexOffset={citationOffset}
-          />
+          <Citations payload={citationPayload} />
         )
       }
 
@@ -609,8 +464,6 @@ export const ToolOutput = memo(
       output,
       errorText,
       citationPayload,
-      messageId,
-      citationOffset,
       boxClassName,
     ])
 
@@ -686,4 +539,3 @@ ToolHeader.displayName = 'ToolHeader'
 ToolContent.displayName = 'ToolContent'
 ToolInput.displayName = 'ToolInput'
 ToolOutput.displayName = 'ToolOutput'
-ToolApprovalActions.displayName = 'ToolApprovalActions'

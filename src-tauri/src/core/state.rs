@@ -1,13 +1,8 @@
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::sync::Arc;
 
 use crate::core::downloads::models::DownloadManagerState;
-use crate::core::mcp::models::{McpSettings, ToolWithServer};
-use crate::core::mcp::progress::JanClientHandler;
-use rmcp::{service::RunningService, RoleClient};
 use tokio::sync::Mutex;
-use tokio::sync::{oneshot, Notify};
 
 /// Server handle type for managing the proxy server lifecycle
 pub type ServerHandle =
@@ -25,10 +20,7 @@ pub struct ProviderConfig {
     pub base_url: Option<String>,
     pub custom_headers: Vec<ProviderCustomHeader>,
     pub models: Vec<String>,
-    /// Share of the context window a prompt may fill before a run routed
-    /// through this provider compacts ahead of dispatching. Overrides
-    /// `[agent].compaction_ratio`; `None` inherits it. Sized per provider
-    /// because windows differ by an order of magnitude across them.
+    /// Share of the context window a prompt may fill before compacting.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub compaction_ratio: Option<f64>,
 }
@@ -48,44 +40,17 @@ pub struct ProviderCustomHeader {
     pub value: String,
 }
 
-/// Every connection uses the same handler, so that progress notifications are
-/// observed at all -- rmcp drops them on the `()` handler. Desktop-only: the
-/// handler emits through a Tauri `AppHandle`, which the CLI build doesn't have.
-pub type RunningMcpService = RunningService<RoleClient, JanClientHandler>;
-pub type SharedMcpServers = Arc<Mutex<HashMap<String, RunningMcpService>>>;
-
-
-
-/// Shared desktop application state owned by Tauri. The CLI builds its
-/// subsystems (MCP map, provider configs) directly instead.
+/// Shared desktop application state owned by Tauri.
 pub struct AppState {
     pub app_token: Option<String>,
-    pub mcp_servers: SharedMcpServers,
     pub download_manager: Arc<Mutex<DownloadManagerState>>,
-    pub mcp_active_servers: Arc<Mutex<HashMap<String, serde_json::Value>>>,
     pub server_handle: Arc<Mutex<Option<ServerHandle>>>,
-    pub tool_call_cancellations: Arc<Mutex<HashMap<String, oneshot::Sender<()>>>>,
-    pub mcp_settings: Arc<Mutex<McpSettings>>,
-    pub mcp_shutdown_in_progress: Arc<Mutex<bool>>,
-    pub mcp_monitoring_tasks: Arc<Mutex<HashMap<String, tauri::async_runtime::JoinHandle<()>>>>,
-    /// Names of MCP servers whose initial start is currently in flight. Guards
-    /// against a server being `serve()`'d twice (e.g. boot startup racing a
-    /// frontend activation), which sends duplicate `initialize` requests.
-    pub mcp_starting: Arc<Mutex<HashSet<String>>>,
     pub background_cleanup_handle: Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>,
-    pub mcp_server_pids: Arc<Mutex<HashMap<String, u32>>>,
-    /// Remote provider configurations (e.g., Anthropic, OpenAI, etc.)
+    /// Remote provider configurations (user-added OpenAI-compatible endpoints)
     pub provider_configs: Arc<Mutex<HashMap<String, ProviderConfig>>>,
-    /// Wakes up MCP monitors to trigger an immediate health check + reconnect
-    pub mcp_reconnect_notify: Arc<Notify>,
-    /// Last successful tool listing per enabled server, served when a server
-    /// is transiently disconnected so its schema stays present and stable in
-    /// the prompt instead of disappearing/reappearing across reconnects.
-    /// Cleared only on explicit user deactivation, never on a transient
-    /// list-tools failure.
-    pub mcp_last_known_tools: Arc<Mutex<HashMap<String, Vec<ToolWithServer>>>>,
     pub speech: crate::core::speech::SpeechState,
     pub dsh: crate::core::dsh::DshState,
+    pub dsh_web: crate::core::dsh::web::DshWebState,
 }
 
 impl AppState {
@@ -102,23 +67,13 @@ impl Default for AppState {
     fn default() -> Self {
         Self {
             app_token: None,
-            mcp_servers: Default::default(),
             download_manager: Default::default(),
-            mcp_active_servers: Default::default(),
             server_handle: Default::default(),
-            tool_call_cancellations: Default::default(),
-            mcp_settings: Default::default(),
-            mcp_shutdown_in_progress: Default::default(),
-            mcp_monitoring_tasks: Default::default(),
-            mcp_starting: Default::default(),
             background_cleanup_handle: Default::default(),
-            mcp_server_pids: Default::default(),
             provider_configs: Default::default(),
-            mcp_reconnect_notify: Arc::new(Notify::new()),
-            mcp_last_known_tools: Default::default(),
             speech: Default::default(),
             dsh: Default::default(),
+            dsh_web: Default::default(),
         }
     }
 }
-

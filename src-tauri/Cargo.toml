@@ -30,13 +30,9 @@ default = [
     "desktop",
 ]
 hardware = ["dep:tauri-plugin-hardware"]
-# Runtime-installed extensions (install pipeline, entry reads, extension
-# network).
-extensions = ["dep:tauri-plugin-extensions"]
 deep-link = ["dep:tauri-plugin-deep-link"]
 desktop = [
     "deep-link",
-    "extensions",
     "hardware",
     "tauri-app",
 ]
@@ -50,14 +46,11 @@ tauri-app = [
     "dep:tauri-plugin-log",
     "dep:tauri-plugin-opener",
     "dep:tauri-plugin-os",
-    "dep:tauri-plugin-rag",
     "dep:tauri-plugin-shell",
     "dep:tauri-plugin-store",
     "dep:tauri-plugin-single-instance",
     "dep:fix-path-env",
     "dep:rfd",
-    "tauri-plugin-vector-db/tauri",
-    "tauri-plugin-agent-tools/tauri",
 ]
 test-tauri = [
     "tauri-app",
@@ -67,7 +60,6 @@ test-tauri = [
     "tauri/tray-icon",
     "tauri/test",
     "deep-link",
-    "extensions",
     "hardware",
 ]
 
@@ -80,7 +72,6 @@ dirs = "6.0.0"
 env = "1.0.1"
 fix-path-env = { git = "https://github.com/tauri-apps/fix-path-env-rs", optional = true }
 flate2 = "1.0"
-form_urlencoded = "1.2"
 futures-util = "0.3.31"
 hex = "0.4"
 hmac = "0.12"
@@ -90,45 +81,16 @@ http-body-util = "0.1"
 tokio-stream = "0.1"
 jan-utils = { path = "./utils" }
 log = "0.4"
-# Pulled in by rmcp's `auth` feature; used directly for `TokenResponse`
-# accessors on the persisted token record (`core::mcp::oauth`).
-oauth2 = "5.0"
 rand = "0.8"
-# Both directions: `client` + the http/child-process client transports consume
-# other people's servers (`core::mcp::helpers`), while `server`,
-# `transport-io` and `transport-streamable-http-server` serve Jan's own toolset
-# (`core::mcp::server`).
-rmcp = { version = "3.2.0", features = [
-    "auth",
-    "client",
-    "server",
-    "transport-io",
-    "transport-streamable-http-client",
-    "transport-streamable-http-client-reqwest",
-    "transport-streamable-http-server",
-    "transport-child-process",
-    "tower",
-    "reqwest",
-] }
-# Advisory lock on a session file (`agent::session_log`): one writer per
-# thread across processes (flock / LockFileEx).
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
 serde_yaml = "0.9.34"
-toml = "0.8"
-toml_edit = "0.23"
 sha2 = "0.10"
 tar = "0.4"
 zip = "9"
 tauri-plugin-deep-link = { version = "2", optional = true }
 tauri-plugin-hardware = { path = "./plugins/tauri-plugin-hardware", optional = true }
-tauri-plugin-extensions = { path = "./plugins/tauri-plugin-extensions", optional = true }
 tauri-plugin-llamacpp = { path = "./plugins/tauri-plugin-llamacpp", optional = true }
-# `default-features = false` keeps their Tauri-free cores; `tauri-app` turns the
-# command surface on.
-tauri-plugin-vector-db = { path = "./plugins/tauri-plugin-vector-db", default-features = false }
-tauri-plugin-rag = { path = "./plugins/tauri-plugin-rag", optional = true }
-tauri-plugin-agent-tools = { path = "./plugins/tauri-plugin-agent-tools", default-features = false }
 # `default-features = false` drops the plugin's default `rustls-tls` (bundled
 # Mozilla roots) so `native-tls` reads the OS trust store instead. Other
 # features re-list the plugin's defaults so behaviour is otherwise unchanged.
@@ -155,19 +117,14 @@ rfd = { version = "0.15.4", optional = true, default-features = false, features 
   "tokio",
   "common-controls-v6",
 ] }
-chrono = { version = "0.4", features = ["serde"] }
 hostname = "0.4"
 base64 = "0.22"
-glob = "0.3"
 keyring = { version = "3", features = ["apple-native", "windows-native"] }
 aes-gcm = "0.10"
 machine-uid = "0.5"
 reqwest = { version = "0.12", features = ["json", "blocking", "stream", "native-tls"] }
 # TLS backend must track `reqwest` above: reqwest features are additive across the
 # graph, so letting genai default to rustls would link both backends here.
-# rmcp is on reqwest 0.13 while the rest of the app is on 0.12, so its client
-# type is a distinct crate, aliased for the MCP transport and OAuth clients.
-reqwest13 = { package = "reqwest", version = "0.13", default-features = false, features = ["json", "stream", "charset", "http2", "system-proxy", "native-tls"] }
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"], optional = true }
 # Process table for the startup sweep of engines orphaned by an in-place update
 # (core/system/orphans.rs). Same version as the hardware plugin.
@@ -182,12 +139,8 @@ features = ["protocol-asset", "macos-private-api"]
 [dev-dependencies]
 tempfile = "3.20.0"
 
-[target.'cfg(unix)'.dependencies]
-nix = { version = "=0.30.1", features = ["signal", "process", "resource"] }
-libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
-libc = "0.2.172"
 windows-sys = { version = "0.60.2", features = ["Win32_Storage_FileSystem", "Win32_System_LibraryLoader"] }
 
 # Release profile optimizations for minimal binary size

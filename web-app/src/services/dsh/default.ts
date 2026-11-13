@@ -6,15 +6,24 @@ const unsupported = () =>
 export class DefaultDshService implements DshService {
   start = unsupported
   send = unsupported
-  stop = async () => {}
+  stop = async () => { }
   async status(): Promise<DshStatus> {
     return { running: false, launch: null }
   }
   checkRoot = unsupported
+  webStart = unsupported
+  pluginsList = unsupported
+  pluginSetEnabled = unsupported
+  pluginSetConfig = unsupported
+  pluginInstall = unsupported
+  pluginRemove = unsupported
+  restart = unsupported
+  threadWorkspace = unsupported
+  readWorkspaceFile = unsupported
   async onFrame() {
-    return () => {}
+    return () => { }
   }
   async onExit() {
-    return () => {}
+    return () => { }
   }
 }

@@ -1,4 +1,4 @@
-import { DownloadEvent, events } from '@janhq/core'
+import { DownloadEvent, events } from '@/lib/native'
 import type { EventsService, UnlistenFn } from '@/services/events/types'
 
 /** What the download manager sends when it starts checking a model's files. */

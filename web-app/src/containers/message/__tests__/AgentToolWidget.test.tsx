@@ -6,11 +6,6 @@ vi.mock('@/i18n/react-i18next-compat', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }))
 
-vi.mock('@/hooks/useToolCallRuntime', () => ({
-  useToolCallRuntime: (selector: (s: unknown) => unknown) =>
-    selector({ diffs: {} }),
-}))
-
 import { AgentToolWidget, TerminalWidget } from '../AgentToolWidget'
 
 const renderRunning = (tool: string, target = '') =>
@@ -18,7 +13,6 @@ const renderRunning = (tool: string, target = '') =>
     <AgentToolWidget
       bar={{ variant: 'workspace', tool, target }}
       state="input-available"
-      toolCallId="tc1"
     />
   )
 
@@ -48,8 +42,7 @@ describe('AgentToolWidget', () => {
           body: '<!doctype html>\n<html>',
         }}
         state="input-streaming"
-        toolCallId="tc1"
-      />
+        />
     )
     expect(screen.queryByText('tools:toolCall.writing')).not.toBeInTheDocument()
     expect(screen.getByText('<!doctype html>')).toBeInTheDocument()
@@ -70,8 +63,7 @@ describe('AgentToolWidget', () => {
           edits: [{ old_string: 'before', new_string: 'after' }],
         }}
         state="input-streaming"
-        toolCallId="tc1"
-      />
+        />
     )
     expect(screen.queryByText('tools:toolCall.editing')).not.toBeInTheDocument()
     expect(screen.getByText('-before')).toBeInTheDocument()
@@ -85,8 +77,7 @@ describe('AgentToolWidget', () => {
       <AgentToolWidget
         bar={{ variant: 'workspace', tool: 'write', target: 'game.html' }}
         state="input-streaming"
-        toolCallId="tc1"
-      />
+        />
     )
     expect(screen.getByText('tools:toolCall.writing')).toBeInTheDocument()
   })
@@ -125,8 +116,7 @@ describe('AgentToolWidget', () => {
       <AgentToolWidget
         bar={{ variant: 'workspace', tool: 'memory', target, op }}
         state="input-available"
-        toolCallId="tc1"
-      />
+        />
     )
     expect(screen.getByText(key)).toBeInTheDocument()
   })
@@ -138,8 +128,7 @@ describe('AgentToolWidget', () => {
       <AgentToolWidget
         bar={{ variant: 'workspace', tool: 'memory', target: '', op: 'view' }}
         state="input-available"
-        toolCallId="tc1"
-      />
+        />
     )
     expect(screen.getByText('settings:cowork.memories')).toBeInTheDocument()
   })

@@ -12,7 +12,6 @@ import {
 
 import { toast } from 'sonner'
 import { CardItem } from '../Card'
-import { EngineManager } from '@janhq/core'
 import { useModelProvider } from '@/hooks/useModelProvider'
 import { useServiceHub } from '@/hooks/useServiceHub'
 import { useRouter } from '@tanstack/react-router'
@@ -29,11 +28,8 @@ const DeleteProvider = ({ provider }: Props) => {
   const { favoriteModels, removeFavorite } = useFavoriteModel()
   const serviceHub = useServiceHub()
   const router = useRouter()
-  if (
-    !provider ||
-    EngineManager.instance().get(provider.provider)
-  )
-    return null
+  // The local llama.cpp provider is built in and cannot be deleted.
+  if (!provider || provider.provider === 'llamacpp') return null
 
   const removeProvider = async () => {
     // Remove favorite models that belong to this provider

@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import { localStorageKey } from '@/constants/localStorage'
 import { backendStorage } from '@/lib/backendStorage'
 import { getServiceHub } from '@/hooks/useServiceHub'
-import { HUGGINGFACE_TOKEN_SECRET_KEY } from '@janhq/core'
+import { HUGGINGFACE_TOKEN_SECRET_KEY } from '@/lib/native'
 
 type GeneralSettingState = {
   currentLanguage: Language

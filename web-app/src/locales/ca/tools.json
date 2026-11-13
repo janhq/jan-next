@@ -1,23 +1,6 @@
 {
-  "toolApproval": {
-    "needsApproval": "Aquesta eina necessita la teva aprovació abans d’executar-se.",
-    "deny": "Denega",
-    "allowOnce": "Permet un cop",
-    "allowInThread": "Permet en aquest fil",
-    "allowServerAlways": "Permet sempre {{server}}",
-    "allowToolAlways": "Permet sempre {{tool}}",
-    "title": "Sol·licitud d’ús d’una eina",
-    "description": "L’assistent vol utilitzar l’eina:",
-    "securityNotice": "Avís de seguretat: Eines malicioses o contingut de la conversa podrien enganyar l’assistent perquè faci accions perjudicials. Revisa cada sol·licitud amb cura abans d’aprovar-la.",
-    "permissionScope": "Pots permetre-ho només aquest cop o sempre.",
-    "alwaysAllow": "Permet sempre"
-  },
   "toolCall": {
-    "awaitingApproval": "Esperant aprovació: {{tool}}",
     "running": "Executant {{tool}}...",
-    "queued": "{{tool}} a la cua",
-    "queuedPosition": "{{count}} per davant",
-    "working": "Treballant...",
     "failed": "{{tool}} ha fallat",
     "used": "S’ha utilitzat {{tool}}",
     "parameters": "Paràmetres",
@@ -35,7 +18,6 @@
     "resultLimit": "els {{count}} primers",
     "contentTruncated": "Contingut truncat",
     "originWeb": "Web",
-    "originDocuments": "Documents",
     "originWorkspace": "Espai de treball",
     "originSubagent": "Subagent",
     "subagentPlaceholder": "subagent",
