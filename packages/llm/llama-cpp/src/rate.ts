@@ -1,4 +1,4 @@
-/** Download speed measurement and GGUF file recognition. */
+/** Download speed measurement. */
 
 /** Window the transfer rate is averaged over. */
 const WINDOW_MS = 3000
@@ -25,13 +25,4 @@ export class RateMeter {
     if (span < MIN_SPAN_MS || bytes < first.bytes) return 0
     return Math.round(((bytes - first.bytes) * 1000) / span)
   }
-}
-
-/**
- * Whether bytes start with the GGUF magic.
- * @param head - the first bytes of a file.
- * @returns true for a GGUF file.
- */
-export function isGguf(head: Uint8Array): boolean {
-  return head.length >= 4 && head[0] === 0x47 && head[1] === 0x47 && head[2] === 0x55 && head[3] === 0x46
 }

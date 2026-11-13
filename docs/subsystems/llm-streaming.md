@@ -1091,11 +1091,13 @@ retry(id: string): void
 async cancel(id?: string): Promise<void>
 
 /**
- * Add a GGUF file from disk, left where it is. The first model added becomes active and starts.
+ * Add a GGUF file from disk, left where it is, recording its header facts. The first model added
+ * becomes active and starts.
  * @param path - absolute path of a `.gguf` file.
  * @param name - display name; defaults to the file name.
  * @returns the model id.
- * @throws Error when the path is not an absolute path to a readable GGUF file.
+ * @throws Error when the path is not an absolute path to a readable GGUF file, or the file is a
+ * vision projector or embedding model rather than a chat model.
  */
 importModel(path: string, name?: string): Promise<string>
 
@@ -1123,7 +1125,7 @@ start(): Promise<void>
 /** Stop the worker, also while it is still starting; the install stays and later boots leave it stopped. */
 stop(): Promise<void>
 
-/** Stop the worker, cancel downloads, delete downloaded models and partial files, and remove the route credentials. */
+/** Stop the worker, cancel downloads, delete downloaded models, partial files and saved KV state, and remove the route credentials. */
 async uninstall(): Promise<void>
 ```
 

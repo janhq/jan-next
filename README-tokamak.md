@@ -40,8 +40,8 @@ The desktop app has its own welcome window instead of the popup. Its first butto
 
 The first-run model is **Jan v3.5 4B** (`janhq/Jan-v3.5-4B-gguf`, Q4_K_M, 2.7 GB, Apache-2.0), served by `jan-llama-worker`, a Rust executable that links llama.cpp build `b12110` and ships with the app ([`native/llama-worker`](native/llama-worker/README.md)). More models can be added from the model manager ([below](#model-manager)). The harness:
 
-1. Downloads the model from Hugging Face, pinned by sha256 and size. An interrupted download resumes from `*.partial`.
-2. Writes a llama.cpp router preset to `run/preset.ini` with one section, `[local]`, naming the active model file, and starts `jan-llama-worker --preset run/preset.ini --port 0 --models-max 1`. A fresh random key per launch, passed through `JAN_LLAMA_API_KEY` (never on the command line), protects the worker. The worker binds a port the OS chooses and prints it in a one-line JSON handshake on stdout.
+1. Downloads the model from Hugging Face, pinned by sha256 and size. An interrupted download resumes from `*.partial`. It then reads the file's GGUF header and refuses a vision projector or embedding model.
+2. Writes a llama.cpp router preset to `run/preset.ini`: a `[*]` block with the settings below and one section, `[local]`, naming the active model file, and starts `jan-llama-worker --preset run/preset.ini --port 0 --models-max 1 --slot-cache-mib 0`. A fresh random key per launch, passed through `JAN_LLAMA_API_KEY` (never on the command line), protects the worker. The worker binds a port the OS chooses and prints it in a one-line JSON handshake on stdout.
 3. Loads the model with `POST /models/load`, then stores the worker's endpoint as the `LLAMA_CPP_BASE_URL` credential and the key as `LLAMA_CPP_API_KEY`, and removes both again when the worker stops, crashes or the app exits, so the route is usable exactly while the worker serves. The `llm-pi-ai` `local` route reads them through `baseURLEnv` and `apiKeyEnv`, and the model appears in the picker as **Local (llama.cpp) → Jan v3.5 4B (local)**. If the default model can't serve (no Tokamak key), the local model becomes the default.
 4. Starts it again on the next launch if you left it running; Stop is remembered. Settings → Models → **Local model** has Start, Stop (also while it is loading) and Remove. Remove deletes the files.
 
@@ -51,19 +51,30 @@ Only the web app (and desktop) manages the worker, so one process owns it. Other
 
 **Worker location.** The `llama-cpp` row reads the executable from `workerPath`, set from `JAN_LLAMA_WORKER`. The desktop app sets it to `<resources>/llama-worker/jan-llama-worker`. `pnpm run dev:web` and `pnpm run dev:desktop` set it to `native/llama-worker/dist/jan-llama-worker`, which `pnpm run build:llama-worker` followed by `pnpm run stage:llama-worker` produces; other source launches (`pnpm dsh web`) need `JAN_LLAMA_WORKER` exported. Without a usable worker the card reports the failure at startup and nothing downloads.
 
-**Auto fit.** llama.cpp's `fit` sizes whatever is left unset to the memory available, keeping `fitTargetMiB` (1024 MiB) free per device. The GPU layer count is left to fit, so builds with a GPU backend offload as many layers as fit. The context stays pinned at 32k, because left to fit it starts from the model's full 262k-token training context: on a 32 GB machine fit kept all of it, which is far more memory than the harness needs. Settings on the `llama-cpp` row in the profile patch:
+**Auto fit.** llama.cpp's `fit` sizes whatever is left unset to the memory available, keeping `fitTargetMiB` (1024 MiB) free per device. The GPU layer count is left to fit, so builds with a GPU backend offload as many layers as fit. The context stays pinned at 32k, because left to fit it starts from the model's full 262k-token training context: on a 32 GB machine fit kept all of it, which is far more memory than the harness needs. A model trained with a shorter context is served at its trained context. Fit is off by default on macOS, where Metal counts the whole memory-mapped file against its working set and fit plans loads that then fail. Settings on the `llama-cpp` row in the profile patch:
 
 | Setting | Default | Effect |
 |---|---|---|
-| `ctxSize` | 32768 | `0` lets fit choose the context too, never below `fitCtx` (16384). Keep the `local` route's `contextWindow` no larger than the size the card reports. |
-| `fit` | `true` | `false` writes `fit = off` and offloads every layer (or `gpuLayers`). |
-| `gpuLayers` | unset | A fixed `n-gpu-layers`. |
+| `ctxSize` | 32768 | `0` lets fit choose the context too, never below `fitCtx` (16384). |
+| `fit` | on (off on macOS) | `false` writes `fit = off` and offloads every layer (or `gpuLayers`). |
+| `gpuLayers` | unset | A fixed `n-gpu-layers`; with fit on it also stops fit from sizing anything. |
 | `cacheType` | `q8_0` | KV cache type; `f16` doubles its memory. |
+| `flashAttn` | `on` | `auto` or `off`; `off` needs `cacheType: f16`. |
 | `modelsMax` | 1 | Resident models the worker keeps loaded. |
+| `parallel` | unset | Requests decoded at once, each with the full context (`kv-unified = true`). |
+| `batchSize`, `ubatchSize`, `threads` | unset | llama.cpp's `batch-size`, `ubatch-size` and `threads`. |
+| `device`, `splitMode`, `mainGpu` | unset | Which GPUs to offload to and how to split across several. |
+| `nCpuMoe`, `moeCacheMiB` | unset | Keep MoE expert weights in system memory, with an optional GPU cache for them (written only for models with experts). |
+| `kvOffload` | `true` | `false` keeps the KV cache in system memory. |
+| `loadMode` | unset | `none`, `mmap`, `mlock` or `mmap+mlock`. |
+| `cacheRamMiB` | unset | Prompt cache in system memory (`cache-ram`, llama.cpp default 8192). |
+| `slotCacheMiB` | 0 | Disk budget for per-thread KV state in `slots/`; nothing is saved yet, because requests on the `local` route do not name their thread. |
 
-The card shows the context the active model settled on.
+The card shows the context the active model settled on, and the `local` route's `contextWindow` follows it: the plugin writes the context the worker reports, never more than the model's trained context.
 
-Files live in `$DSH_HOME/llama-cpp/` (`models/<id>/`, `run/preset.ini`, `install.json`, `run.json`). The model URL is pinned to a Hugging Face commit, so a re-upload upstream can't break installs. Expect about 3 GB of disk and 5–6 GB of RAM. The 32k context is needed because the harness's system prompt and tools alone take about 12k tokens. On CPU the first reply in a session takes a while: the whole prompt has to be processed once, and later turns reuse the cache. Small local models call tools less reliably than Tokamak's.
+**Fit to this machine.** At startup the plugin runs `jan-llama-worker --list-devices` once and reads system memory. The state then carries the offload backend (`vulkan`, `cuda`, `metal` or `cpu`), the devices with their memory, and for every curated, looked-up and installed model whether it `fits` on the GPU, is `tight` (needs system memory beside it, or little headroom on Apple Silicon) or is `too-large`. Downloads are judged by file size; installed models add the KV cache at the configured context.
+
+Files live in `$DSH_HOME/llama-cpp/` (`models/<id>/`, `run/preset.ini`, `slots/`, `install.json`, `run.json`). The model URL is pinned to a Hugging Face commit, so a re-upload upstream can't break installs. Expect about 3 GB of disk and 5–6 GB of RAM. The 32k context is needed because the harness's system prompt and tools alone take about 12k tokens. On CPU the first reply in a session takes a while: the whole prompt has to be processed once, and later turns reuse the cache. Small local models call tools less reliably than Tokamak's.
 
 | Variable | Purpose |
 |---|---|
@@ -87,11 +98,11 @@ Settings → Models → **Local model** lists:
 - **Installed models.** "Use" switches the running worker to that model without restarting it (the worker reloads its preset) and makes it the default; one model runs at a time. "Delete" removes a downloaded file after a confirmation; for an imported file it only removes the entry and leaves the file on disk.
 - **Downloads** with the same progress line, Cancel (discards the partial file; a download interrupted by quitting the app keeps it and resumes), and the error with Retry and Dismiss when one fails. Downloads run one at a time.
 - **Add a model.** A curated list, the same idea as Jan's hub: Jan v3.5 4B, Qwen3 4B Instruct 2507, Llama 3.2 3B Instruct, Qwen3 8B and Qwen3 0.6B, each pinned to a Hugging Face commit and sha256. The search box filters it. Paste a Hugging Face repository (`unsloth/Qwen3-8B-GGUF`) or its link and "Look up on Hugging Face" lists the repository's single-file GGUF models with their size and quantization, Q4_K_M and IQ4_XS marked recommended. The Host reads the file list, size and LFS sha256 from `huggingface.co/api/models/<repo>?blobs=true` itself and pins the download to the current commit, so the browser never chooses a URL. Projector (`mmproj`) files, importance matrices (`imatrix*`), speculative-decoding drafts (`dflash-*`, `*-draft*`), split files and files without an LFS digest are left out.
-- **Import a .gguf file.** Enter the full path of a GGUF file on the Host. It is checked for the GGUF header and used where it is, without copying.
+- **Import a .gguf file.** Enter the full path of a GGUF file on the Host. Its GGUF header is read, a vision projector or embedding model is refused, and the file is used where it is, without copying.
 
 The model picker shows the model in use, updated live when you press "Use". The route always serves one model id, `local` (`routeModelId` on the `llama-cpp` row, the preset section name), whichever model runs, so sessions on the local route keep their selection when you switch; the plugin keeps that entry's name in the `llm-pi-ai` settings section equal to the model in use (`routeNamespace` on the `llama-cpp` row; empty turns this off). That write puts the whole `providers` section into your profile patch (`$DSH_HOME/profiles/web/cordis.patch.yml`), so later bundle changes to those routes need that copy removed. Model ids come from the file name, e.g. `qwen3-0.6b-q4_k_m`.
 
-`install.json` is version 2: the installed models (`file` relative to `llama-cpp/`, or absolute for an import) and the active id. A version 1 file from an earlier build is read and converted on the next write; its model file stays where it is. The `engine/` and `downloads/` directories earlier builds used for the downloaded `llama-server` are deleted at startup.
+`install.json` is version 3: the installed models (`file` relative to `llama-cpp/`, or absolute for an import) with the facts read from each file's GGUF header (architecture, trained context, chat template, expert count, quantization, KV cache size per token), and the active id. A version 1 or 2 file from an earlier build is converted at startup by reading each model's header; a model that is missing, unreadable or not a chat model is dropped from the list, and model files stay where they are. The `engine/` and `downloads/` directories earlier builds used for the downloaded `llama-server` are deleted at startup.
 
 ## Environment
 

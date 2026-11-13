@@ -11,7 +11,8 @@
  * ({@link Config.routeNamespace}).
  */
 import { randomBytes } from 'node:crypto'
-import { constants, open as openFile, access, mkdir, readFile, rename, rm, rmdir, stat, writeFile } from 'node:fs/promises'
+import { constants, access, mkdir, readFile, rename, rm, rmdir, stat, writeFile } from 'node:fs/promises'
+import { arch, platform, totalmem } from 'node:os'
 import { basename, dirname, isAbsolute, join, relative } from 'node:path'
 import { Context, Service } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-credentials'
@@ -26,12 +27,14 @@ import { CATALOG, catalogModel, DEFAULT_MODEL_ID, SMALL_MODEL_ID, type CatalogMo
 import { Config } from './config.ts'
 import { download } from './download.ts'
 import { HuggingFaceLookupError, lookupRepo, type HuggingFaceRepo } from './huggingface.ts'
-import { renderPreset } from './preset.ts'
-import { isGguf, RateMeter } from './rate.ts'
+import { estimateKvBytes, readModelFacts, UnsupportedModelError, type ModelFacts } from './gguf.ts'
+import { accelerators, assessFit, backendOf, type MachineMemory } from './memory.ts'
+import { plannedContext, renderPreset, resolvePresetSettings, type PresetSettings } from './preset.ts'
+import { RateMeter } from './rate.ts'
 import type {
-  HuggingFaceRepoInfo, LlamaCppDownload, LlamaCppPhase, LlamaCppProgress, LlamaCppState, LocalModelEntry, LocalModelSource,
+  HuggingFaceRepoInfo, LlamaCppDownload, LlamaCppPhase, LlamaCppProgress, LlamaCppState, LocalModelEntry, LocalModelSource, ModelFit,
 } from './types.ts'
-import { describeExit, parseHandshake, readFirstLine, WorkerClient, WorkerProtocolError } from './worker.ts'
+import { describeExit, parseDeviceList, parseHandshake, readFirstLine, WorkerClient, WorkerProtocolError } from './worker.ts'
 
 export type * from './types.ts'
 export { Config } from './config.ts'
@@ -40,10 +43,14 @@ export type { CatalogModel } from './catalog.ts'
 export { download, DownloadError, isVerified } from './download.ts'
 export { HuggingFaceLookupError, lookupRepo, parseRepo } from './huggingface.ts'
 export type { HuggingFaceFile, HuggingFaceRepo } from './huggingface.ts'
-export { renderPreset } from './preset.ts'
-export type { PresetDefaults, PresetModel } from './preset.ts'
-export { isGguf, RateMeter } from './rate.ts'
-export { describeExit, parseHandshake, WorkerProtocolError } from './worker.ts'
+export { estimateKvBytes, modelFacts, readModelFacts, UnsupportedModelError } from './gguf.ts'
+export type { KvCacheType, ModelFacts } from './gguf.ts'
+export { accelerators, assessFit, backendOf } from './memory.ts'
+export type { MachineMemory } from './memory.ts'
+export { plannedContext, renderPreset, resolvePresetSettings } from './preset.ts'
+export type { PresetModel, PresetSettings } from './preset.ts'
+export { RateMeter } from './rate.ts'
+export { describeExit, parseDeviceList, parseHandshake, WorkerProtocolError } from './worker.ts'
 export type { WorkerDevice, WorkerHandshake } from './worker.ts'
 
 declare module '@deepseek-ai/cordis' {
@@ -64,12 +71,21 @@ interface ModelRecord {
   source: LocalModelSource
   /** Hugging Face repository, for catalog and repository downloads. */
   repo?: string
+  /** Read from the GGUF header when the model was installed. */
+  facts: ModelFacts
 }
 
-/** Installed facts written after verification, so boot does not re-hash multi-GB files. */
+/** Installed facts written after verification, so boot does not re-hash multi-GB files or re-read headers. */
 interface InstallRecord {
-  version: 2
+  version: 3
   models: ModelRecord[]
+  active?: string
+}
+
+/** The multi-model record of earlier builds, without header facts; read and converted, never written. */
+interface InstallRecordV2 {
+  version: 2
+  models: Array<Omit<ModelRecord, 'facts'>>
   active?: string
 }
 
@@ -186,13 +202,18 @@ export class LlamaCpp extends Service {
   private downloadQueue: Promise<unknown> = Promise.resolve()
   private readonly jobs = new Map<string, Job>()
   private lastProgressAt = 0
-  private record: InstallRecord = { version: 2, models: [] }
+  private record: InstallRecord = { version: 3, models: [] }
   /** Record writes in order. */
   private recordWrite: Promise<unknown> = Promise.resolve()
   private readonly keyRef: CredentialRef
   private readonly baseURLRef: CredentialRef
   /** The model the first-run offer installs. */
   private readonly firstModel: CatalogModel
+  private readonly preset: PresetSettings
+  /** Present once the worker listed its devices. */
+  private machine: MachineMemory | undefined
+  /** The device listing in progress; disposal waits for it. */
+  private probing: Promise<void> = Promise.resolve()
 
   constructor(ctx: Context, private readonly config: Config) {
     super(ctx, 'llamaCpp')
@@ -200,6 +221,7 @@ export class LlamaCpp extends Service {
     if (config.workerPath !== undefined && !isAbsolute(config.workerPath)) {
       throw new Error(`llama-cpp: workerPath must be absolute: ${config.workerPath}`)
     }
+    this.preset = resolvePresetSettings(config, platform(), join(config.dataRoot, 'slots'))
     this.keyRef = credentialRef(config.apiKeyRef)
     this.baseURLRef = credentialRef(config.baseURLRef)
     const pinned = catalogModel(config.model === 'small' ? SMALL_MODEL_ID : DEFAULT_MODEL_ID)
@@ -213,8 +235,10 @@ export class LlamaCpp extends Service {
         await this.readInstall()
         const active = this.activeModel()
         if (active !== undefined) await this.syncRoute()
-        try { await this.workerExecutable() }
+        let worker: string
+        try { worker = await this.workerExecutable() }
         catch (error) { this.fail(error); return }
+        this.probing = this.probeHardware(worker)
         this.setServer({ phase: active === undefined ? 'missing' : 'installed' })
         if (active !== undefined && config.autoStart && await this.wantsStart()) await this.launch()
       }).catch((error: unknown) => { this.fail(error) })
@@ -225,6 +249,7 @@ export class LlamaCpp extends Service {
         // Joining both queues guarantees no launch spawns a worker and no download writes after this point.
         await this.downloadQueue
         await this.queue
+        await this.probing
         await this.terminate()
         this.listeners.clear()
       }
@@ -238,7 +263,7 @@ export class LlamaCpp extends Service {
   private get presetPath(): string { return join(this.config.dataRoot, 'run', 'preset.ini') }
   private modelDir(id: string): string { return join(this.config.dataRoot, 'models', id) }
   private modelFile(spec: { id: string; sha256: string }): string { return join(this.modelDir(spec.id), `${spec.sha256.slice(0, 16)}.gguf`) }
-  private modelPath(model: ModelRecord): string { return isAbsolute(model.file) ? model.file : join(this.config.dataRoot, model.file) }
+  private modelPath(model: Pick<ModelRecord, 'file'>): string { return isAbsolute(model.file) ? model.file : join(this.config.dataRoot, model.file) }
 
   /** @returns whether the user left the worker running (install and Start say yes, Stop says no). */
   private async wantsStart(): Promise<boolean> {
@@ -268,6 +293,31 @@ export class LlamaCpp extends Service {
       throw new Error('The bundled local model worker is missing or not executable; reinstall the app, or from source run `pnpm run stage:llama-worker`', { cause: error })
     }
     return path
+  }
+
+  /**
+   * List the worker's offload devices once (`--list-devices`) and publish them with system memory,
+   * so model fit can be judged. A failed listing is logged and leaves fit unknown. Never rejects.
+   * @param worker - the worker executable.
+   */
+  private async probeHardware(worker: string): Promise<void> {
+    try {
+      const handle = this.ctx.subprocess.spawn({
+        argv: [worker, '--list-devices'], cwd: dirname(worker), graceMs: this.config.graceMs,
+        signal: AbortSignal.any([this.lifetime.signal, AbortSignal.timeout(this.config.startTimeoutMs)]),
+        stdio: { stdin: 'ignore', stdout: { maxBytes: 64 * 1024 }, stderr: { maxBytes: 64 * 1024 } },
+      })
+      const outcome = await handle.done
+      if (this.lifetime.signal.aborted) return
+      if (outcome.exitCode !== 0) {
+        throw new Error(`it ${describeExit(outcome.exitCode, outcome.signal)}: ${tail(handle.collected.stderr?.readFrom(0).text) ?? ''}`)
+      }
+      const devices = parseDeviceList(handle.collected.stdout?.readFrom(0).text ?? '')
+      this.machine = { unified: platform() === 'darwin' && arch() === 'arm64', ramBytes: totalmem(), devices }
+      this.emit()
+    } catch (error) {
+      this.ctx.logger.warn(`llama-cpp: could not list the worker's devices: ${messageOf(error)}`)
+    }
   }
 
   // ── state ──────────────────────────────────────────────────────────────
@@ -335,15 +385,37 @@ export class LlamaCpp extends Service {
       ...this.server.error === undefined ? {} : { error: this.server.error },
       ...this.server.logTail === undefined ? {} : { logTail: this.server.logTail },
       ...this.server.contextSize === undefined ? {} : { contextSize: this.server.contextSize },
-      models: this.record.models.map((model): LocalModelEntry => ({
-        id: model.id, name: model.name, bytes: model.bytes, source: model.source, active: model.id === this.record.active,
-      })),
+      models: this.record.models.map((model): LocalModelEntry => {
+        const kvBytes = estimateKvBytes(model.facts, plannedContext(this.preset, model.facts), this.preset.cacheType) ?? 0
+        return {
+          id: model.id, name: model.name, bytes: model.bytes, source: model.source, active: model.id === this.record.active,
+          architecture: model.facts.architecture,
+          ...model.facts.contextLength === undefined ? {} : { contextLength: model.facts.contextLength },
+          ...this.fitOf(model.bytes + kvBytes),
+        }
+      }),
       downloads,
-      catalog: CATALOG.map(entry => ({
-        id: entry.id, name: entry.name, bytes: entry.id === this.firstModel.id ? this.firstModel.bytes : entry.bytes,
-        repo: entry.repo, recommended: entry.recommended, installed: installed.has(entry.id),
-      })),
+      catalog: CATALOG.map((entry) => {
+        const bytes = entry.id === this.firstModel.id ? this.firstModel.bytes : entry.bytes
+        return {
+          id: entry.id, name: entry.name, bytes, repo: entry.repo, recommended: entry.recommended, installed: installed.has(entry.id),
+          ...this.fitOf(bytes),
+        }
+      }),
+      ...this.machine === undefined ? {} : {
+        hardware: {
+          backend: backendOf(this.machine.devices), devices: accelerators(this.machine.devices), memoryBytes: this.machine.ramBytes,
+        },
+      },
     }
+  }
+
+  /**
+   * @param requiredBytes - memory a model needs.
+   * @returns its fit on this machine, or nothing while the hardware is unknown.
+   */
+  private fitOf(requiredBytes: number): { fit?: ModelFit } {
+    return this.machine === undefined ? {} : { fit: assessFit(requiredBytes, this.machine) }
   }
 
   /**
@@ -379,28 +451,37 @@ export class LlamaCpp extends Service {
 
   // ── install record ─────────────────────────────────────────────────────
 
-  /** Load the record, keeping only models whose files are still present at their recorded size. */
+  /**
+   * Load the record, keeping only models whose files are still present at their recorded size.
+   * Records of earlier builds gain the header facts of each file and are written back once.
+   */
   private async readInstall(): Promise<void> {
     // Earlier builds downloaded a llama-server engine here; the bundled worker replaces it.
     for (const legacy of ['engine', 'downloads']) await rm(join(this.config.dataRoot, legacy), { recursive: true, force: true })
-    let raw: InstallRecord | InstallRecordV1 | undefined
-    try { raw = JSON.parse(await readFile(this.recordPath, 'utf8')) as InstallRecord | InstallRecordV1 }
+    let raw: InstallRecord | InstallRecordV2 | InstallRecordV1 | undefined
+    try { raw = JSON.parse(await readFile(this.recordPath, 'utf8')) as InstallRecord | InstallRecordV2 | InstallRecordV1 }
     catch { raw = undefined }
-    const record: InstallRecord = raw === undefined ? { version: 2, models: [] }
+    const record: InstallRecord | InstallRecordV2 = raw === undefined ? { version: 3, models: [] }
       : raw.version === 1 ? this.fromV1(raw)
-        : Array.isArray(raw.models) ? raw : { version: 2, models: [] }
+        : Array.isArray(raw.models) ? raw : { version: 3, models: [] }
     const models: ModelRecord[] = []
     for (const model of record.models) {
       const size = await stat(this.modelPath(model)).then(info => info.size, () => undefined)
-      if (size === model.bytes) models.push(model)
-      else this.ctx.logger.warn(`llama-cpp: ${model.name} is missing or changed on disk; it is no longer listed`)
+      if (size !== model.bytes) {
+        this.ctx.logger.warn(`llama-cpp: ${model.name} is missing or changed on disk; it is no longer listed`)
+        continue
+      }
+      if ('facts' in model) { models.push(model); continue }
+      try { models.push({ ...model, facts: await readModelFacts(this.modelPath(model)) }) }
+      catch (error) { this.ctx.logger.warn(`llama-cpp: ${model.name} cannot be served (${messageOf(error)}); it is no longer listed`) }
     }
     const active = models.some(model => model.id === record.active) ? record.active : models[0]?.id
-    this.record = { version: 2, models, ...active === undefined ? {} : { active } }
+    this.record = { version: 3, models, ...active === undefined ? {} : { active } }
+    if (record.version !== 3) await this.writeRecord()
   }
 
   /** Convert the one-model record of earlier builds; its model file stays where it is. */
-  private fromV1(v1: InstallRecordV1): InstallRecord {
+  private fromV1(v1: InstallRecordV1): InstallRecordV2 {
     const entry = [this.firstModel, ...CATALOG].find(model => model.sha256 === v1.model.sha256)
     // A file no curated entry matches keeps an id of its own, so the curated model stays downloadable.
     const id = entry?.id ?? 'earlier-local-model'
@@ -470,6 +551,7 @@ export class LlamaCpp extends Service {
       files: repo.files.map(file => ({
         file: file.file, bytes: file.bytes, recommended: file.recommended, installed: installed.has(file.sha256),
         ...file.quant === undefined ? {} : { quant: file.quant },
+        ...this.fitOf(file.bytes),
       })),
     }
   }
@@ -566,6 +648,12 @@ export class LlamaCpp extends Service {
       const path = this.modelFile(job.spec)
       await download(job.spec, path, 'model', signal, report)
       signal.throwIfAborted()
+      let facts: ModelFacts
+      try { facts = await readModelFacts(path) }
+      catch (error) {
+        await rm(path, { force: true })
+        throw new Error(`${job.spec.name} cannot be served: ${messageOf(error)}`, { cause: error })
+      }
       await this.task(async () => {
         // Cancel or uninstall may have landed while this commit waited behind another task.
         signal.throwIfAborted()
@@ -575,7 +663,7 @@ export class LlamaCpp extends Service {
           ...previous,
           models: [...previous.models, {
             id: job.spec.id, name: job.spec.name, file: relative(this.config.dataRoot, path), bytes: job.spec.bytes,
-            sha256: job.spec.sha256, source: job.spec.source, repo: job.spec.repo,
+            sha256: job.spec.sha256, source: job.spec.source, repo: job.spec.repo, facts,
           }],
           ...first ? { active: job.spec.id } : {},
         }
@@ -614,11 +702,13 @@ export class LlamaCpp extends Service {
   // ── installed models ───────────────────────────────────────────────────
 
   /**
-   * Add a GGUF file from disk, left where it is. The first model added becomes active and starts.
+   * Add a GGUF file from disk, left where it is, recording its header facts. The first model added
+   * becomes active and starts.
    * @param path - absolute path of a `.gguf` file.
    * @param name - display name; defaults to the file name.
    * @returns the model id.
-   * @throws Error when the path is not an absolute path to a readable GGUF file.
+   * @throws Error when the path is not an absolute path to a readable GGUF file, or the file is a
+   * vision projector or embedding model rather than a chat model.
    */
   importModel(path: string, name?: string): Promise<string> {
     return this.task(async () => {
@@ -626,15 +716,20 @@ export class LlamaCpp extends Service {
       if (!isAbsolute(file)) throw new Error('Enter the full path of a .gguf file')
       const info = await stat(file).catch(() => undefined)
       if (info === undefined || !info.isFile()) throw new Error(`No file at ${file}`)
-      if (!await isGgufFile(file)) throw new Error(`${basename(file)} is not a GGUF model file`)
       const existing = this.record.models.find(model => model.source === 'import' && model.file === file)
       if (existing !== undefined) return existing.id
+      let facts: ModelFacts
+      try { facts = await readModelFacts(file) }
+      catch (error) {
+        if (error instanceof UnsupportedModelError) throw new Error(`${basename(file)} cannot be used for chat: ${error.message}`, { cause: error })
+        throw new Error(`${basename(file)} is not a GGUF model file`, { cause: error })
+      }
       const label = name?.trim() || basename(file).replace(/\.gguf$/i, '')
       const id = this.freeId(slug(label))
       const previous = this.record
       const first = previous.active === undefined
       this.record = {
-        ...previous, models: [...previous.models, { id, name: label, file, bytes: info.size, source: 'import' }],
+        ...previous, models: [...previous.models, { id, name: label, file, bytes: info.size, source: 'import', facts }],
         ...first ? { active: id } : {},
       }
       try { await this.writeRecord() }
@@ -749,7 +844,9 @@ export class LlamaCpp extends Service {
 
   /**
    * Keep the route's model list equal to the active model, so the picker names what the worker
-   * serves. Skipped without a settings service or namespace, and when the list already matches.
+   * serves, with the context it serves: the context the worker reports while it serves the model,
+   * otherwise the planned one, never above the trained context. Skipped without a settings service
+   * or namespace, and when the list already matches.
    */
   private async syncRoute(): Promise<void> {
     const settings = this.ctx.get('settings')
@@ -758,7 +855,7 @@ export class LlamaCpp extends Service {
     if (settings === undefined || ns === '' || active === undefined) return
     const models = [{
       id: this.config.routeModelId, name: `${active.name} (local)`,
-      contextWindow: this.config.ctxSize > 0 ? this.config.ctxSize : this.config.fitCtx, maxTokens: this.config.routeMaxTokens,
+      contextWindow: this.routeContext(active), maxTokens: this.config.routeMaxTokens,
     }]
     try {
       type Section = { providers?: Record<string, { models?: unknown }> } | undefined
@@ -770,6 +867,11 @@ export class LlamaCpp extends Service {
       this.ctx.logger.warn(`llama-cpp: could not list ${active.name} on the ${this.config.provider} route`)
       this.ctx.logger.warn(error)
     }
+  }
+
+  private routeContext(model: ModelRecord): number {
+    const reported = this.server.phase === 'running' && this.running?.served === model.id ? this.server.contextSize : undefined
+    return Math.min(reported ?? plannedContext(this.preset, model.facts), model.facts.contextLength ?? Number.POSITIVE_INFINITY)
   }
 
   // ── process ────────────────────────────────────────────────────────────
@@ -792,7 +894,7 @@ export class LlamaCpp extends Service {
     })
   }
 
-  /** Stop the worker, cancel downloads, delete downloaded models and partial files, and remove the route credentials. */
+  /** Stop the worker, cancel downloads, delete downloaded models, partial files and saved KV state, and remove the route credentials. */
   async uninstall(): Promise<void> {
     for (const job of this.jobs.values()) job.abort.abort(new Error('cancelled'))
     this.launching?.abort()
@@ -803,11 +905,11 @@ export class LlamaCpp extends Service {
       for (const job of this.jobs.values()) job.abort.abort(new Error('cancelled'))
       this.jobs.clear()
       await this.terminate()
-      for (const dir of ['models', 'run']) await rm(join(this.config.dataRoot, dir), { recursive: true, force: true })
+      for (const dir of ['models', 'run', 'slots']) await rm(join(this.config.dataRoot, dir), { recursive: true, force: true })
       await rm(this.recordPath, { force: true })
       await rm(this.runPath, { force: true })
       await this.withdrawRoute(undefined)
-      this.record = { version: 2, models: [] }
+      this.record = { version: 3, models: [] }
       this.setServer({ phase: 'missing' })
     })
   }
@@ -860,7 +962,10 @@ export class LlamaCpp extends Service {
       const signal = this.startSignal(launching)
       const key = `llamacpp-${randomBytes(32).toString('base64url')}`
       const handle = this.ctx.subprocess.spawn({
-        argv: [worker, '--preset', this.presetPath, '--port', '0', '--models-max', String(this.config.modelsMax)],
+        argv: [
+          worker, '--preset', this.presetPath, '--port', '0', '--models-max', String(this.config.modelsMax),
+          '--slot-cache-mib', String(this.config.slotCacheMiB),
+        ],
         cwd: dirname(worker), graceMs: this.config.graceMs,
         // The key travels in the environment so it never shows in `ps`.
         env: { JAN_LLAMA_API_KEY: key },
@@ -952,6 +1057,7 @@ export class LlamaCpp extends Service {
     const contextSize = await abortable(client.contextSize(id, signal), signal)
     await this.publishRoute(running, client)
     this.setServer({ phase: 'running', ...contextSize === undefined ? {} : { contextSize } })
+    await this.syncRoute()
     if (contextSize !== undefined && contextSize < this.config.fitCtx) {
       this.ctx.logger.warn(`llama-cpp: the worker runs with a ${String(contextSize)}-token context; the harness prompt needs about 12k`)
     }
@@ -962,7 +1068,8 @@ export class LlamaCpp extends Service {
   private async writePreset(model: ModelRecord): Promise<void> {
     await mkdir(dirname(this.presetPath), { recursive: true })
     const temp = `${this.presetPath}.tmp`
-    await writeFile(temp, renderPreset(this.config, [{ id: this.config.routeModelId, path: this.modelPath(model) }]), { mode: 0o600 })
+    const section = { id: this.config.routeModelId, path: this.modelPath(model), facts: model.facts }
+    await writeFile(temp, renderPreset(this.preset, [section]), { mode: 0o600 })
     await rename(temp, this.presetPath)
   }
 
@@ -1014,22 +1121,6 @@ export class LlamaCpp extends Service {
     }
     if (this.running === running) this.running = undefined
     await this.withdrawRoute(running.key)
-  }
-}
-
-/**
- * Whether a file starts with the GGUF magic.
- * @param path - file to read.
- * @returns true for a GGUF file.
- */
-async function isGgufFile(path: string): Promise<boolean> {
-  const handle = await openFile(path, 'r')
-  try {
-    const head = Buffer.alloc(4)
-    const { bytesRead } = await handle.read(head, 0, 4, 0)
-    return bytesRead === 4 && isGguf(head)
-  } finally {
-    await handle.close()
   }
 }
 

@@ -67,8 +67,8 @@ pub struct StateMeta {
 pub enum Reject {
     /// Nothing was ever saved for this key.
     Absent,
-    /// The sidecar is missing or unreadable, so the file's provenance is
-    /// unknown. Treated as a mismatch rather than trusted.
+    /// The sidecar is missing or unreadable, so which model and settings
+    /// wrote the file is unknown. Treated as a mismatch rather than trusted.
     NoMeta,
     ModelChanged {
         saved: String,

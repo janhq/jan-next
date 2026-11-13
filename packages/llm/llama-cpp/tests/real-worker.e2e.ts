@@ -15,14 +15,15 @@ const cleanups: Array<() => Promise<unknown>> = []
 afterEach(async () => { while (cleanups.length) await cleanups.pop()!() })
 
 describe.skipIf(worker === undefined || gguf === undefined)('real jan-llama-worker', () => {
-  it('serves a chat completion on the published endpoint and stops through stdin', async () => {
+  it('loads the generated preset, serves the trained context and a chat completion, and stops through stdin', async () => {
     const home = await mkdtemp(join(tmpdir(), 'llama-real-'))
     cleanups.push(() => rm(home, { recursive: true, force: true }))
     const ctx = new Context()
     await ctx.plugin(LocalSubprocess)
     const credentials = ctx.plugin(LocalCredentialProvider, { path: join(home, 'credentials.yaml'), watch: false })
     await credentials
-    const plugin = ctx.plugin(LlamaCpp, { dataRoot: join(home, 'data'), workerPath: worker, ctxSize: 4096, fitCtx: 4096 })
+    // Larger than any small test model's trained context, so the preset caps it at the trained one.
+    const plugin = ctx.plugin(LlamaCpp, { dataRoot: join(home, 'data'), workerPath: worker, ctxSize: 1_048_576, fitCtx: 4096 })
     await plugin
     cleanups.push(async () => { await plugin.dispose(); await credentials.dispose() })
     const watching = new AbortController()
@@ -35,7 +36,17 @@ describe.skipIf(worker === undefined || gguf === undefined)('real jan-llama-work
     await until(state => state.phase === 'missing')
     await ctx.llamaCpp.importModel(gguf!)
     const running = await until(state => state.phase === 'running' || state.phase === 'failed')
-    expect(running).toMatchObject({ phase: 'running', contextSize: 4096 })
+    const trained = running.models[0]?.contextLength
+    expect(running).toMatchObject({ phase: 'running', models: [{ active: true }] })
+    expect(running.models[0]?.architecture).not.toBe('')
+    expect(trained).toBeGreaterThan(0)
+    expect(running.contextSize).toBe(trained)
+    const preset = await readFile(join(home, 'data', 'run', 'preset.ini'), 'utf8')
+    expect(preset).toContain(`ctx-size = ${String(trained)}\n`)
+    expect(preset).toContain(`slot-save-path = ${join(home, 'data', 'slots')}\n`)
+    const hardware = (await until(state => state.hardware !== undefined)).hardware
+    expect(hardware?.memoryBytes).toBeGreaterThan(0)
+    expect(ctx.llamaCpp.snapshot().models[0]?.fit).toMatch(/^(fits|tight|too-large)$/)
 
     const stored = await readFile(join(home, 'credentials.yaml'), 'utf8')
     const endpoint = /(http:\/\/127\.0\.0\.1:\d+\/v1)/.exec(stored)?.[1]

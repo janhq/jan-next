@@ -32,4 +32,8 @@ Status: implemented
 
 插件不再需要引擎制品表、归档解包、共享的引擎安装状态、镜像回退、启动前的端口探测以及切换模型时的重启。`llm-pi-ai` 新增通用的 `baseURLEnv` 键，通过凭据接口逐请求解析路由端点。
 
-预设刻意保持最小；后续变更会移植 Jan 完整的预设生成器与 GGUF 元数据读取。
+预设沿用 Jan 的生成器：未设置的选项一律省略，由 llama.cpp 或 GGUF 决定；与模型相关的键（按训练上下文封顶的 `ctx-size`，以及只对含专家的模型写入的 `moe-cache-mib`）写在 `[local]` 小节。Jan 的逐模型 `model.yml` 设置、对话模板与语法覆盖、投影器与推测解码小节、嵌入小节以及采样默认值没有移植，因为本 harness 中没有任何东西产生它们。预设省略 `jinja = true`，因为固定版本的 llama.cpp 默认启用 Jinja（`common/common.h` 中的 `use_jinja = true`），Jan 转向 router 模式时也因此去掉了 `--jinja`。与 Jan 一样，`fit` 在 macOS 上默认关闭（janhq/jan#9198）。
+
+GGUF 头由 `@huggingface/gguf`（MIT、ESM、由 Hugging Face 维护）读取，而不是手写解析器：它通过 `allowLocalFile` 读取本地文件，能给出 `general.file_type` 的量化名称，并可通过 HTTP 范围请求读取远程文件头，供后续的下载前估算使用。它唯一的依赖是 `@huggingface/tasks`。插件把这些信息记录在第 3 版 `install.json` 中，在下载和导入时拒绝投影器与嵌入模型，并按 Jan 的阈值，用 `--list-devices` 与系统内存判断模型是否放得下。Jan 的 GPU 卸载就绪检查没有移植：它要把 worker 的设备与硬件探测结果比较，而本 harness 没有硬件探测。
+
+逐线程 KV 持久化已接通（`slotCacheMiB`、`slots/`）但处于关闭状态。worker 要求请求体中带有 `thread_id` 与 `id_slot`；`llm-pi-ai` 只提供 `llm-pi-ai/request-headers` waterfall，也没有标记删除的 Session 事件可用于清除已保存的状态。

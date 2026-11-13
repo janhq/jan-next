@@ -13101,6 +13101,9 @@ importers:
       '@deepseek-ai/schemastery':
         specifier: link:../../../vendor/schemastery
         version: link:../../../vendor/schemastery
+      '@huggingface/gguf':
+        specifier: ^0.4.6
+        version: 0.4.6
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: workspace:~
@@ -20123,6 +20126,14 @@ packages:
     engines: {node: '>=18.14.1'}
     peerDependencies:
       hono: ^4
+
+  '@huggingface/gguf@0.4.6':
+    resolution: {integrity: sha512-+S4ysHzzNN77rU0gBcuuGN+x1TYNP4M7EgOEZ2rKaTz8dZ8o2N92qapQaeTjnPPNiWSc23iCV9E8u2A9VvK+rg==}
+    engines: {node: '>=20'}
+    hasBin: true
+
+  '@huggingface/tasks@0.21.61':
+    resolution: {integrity: sha512-bAki2SyAkxYbzYCAcOmPYq++CzCHI1CkxeVQnF2jkXAh60wnIuR+jZJ+Eha1aaI049bB1aO8H+icr4C/kvLnuw==}
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -27882,6 +27893,12 @@ snapshots:
   '@hono/node-server@1.19.17(hono@4.13.7)':
     dependencies:
       hono: 4.13.7
+
+  '@huggingface/gguf@0.4.6':
+    dependencies:
+      '@huggingface/tasks': 0.21.61
+
+  '@huggingface/tasks@0.21.61': {}
 
   '@humanfs/core@0.19.2':
     dependencies:

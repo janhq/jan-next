@@ -22,6 +22,33 @@ export interface LlamaCppModelInfo {
   modelBytes: number
 }
 
+/**
+ * How a model's estimated memory compares with this machine's: `fits` runs entirely on the
+ * accelerators (or with headroom in unified memory), `tight` also needs system memory (or leaves
+ * little headroom), and `too-large` exceeds what the machine has.
+ */
+export type ModelFit = 'fits' | 'tight' | 'too-large'
+
+/** One offload device the worker lists, with its memory. */
+export interface LlamaCppDevice {
+  /** ggml device id, e.g. `Vulkan0`. */
+  id: string
+  name: string
+  totalMiB: number
+  /** Free when the device was listed at boot. */
+  freeMiB: number
+}
+
+/** What this machine offers the worker, read once at boot. */
+export interface LlamaCppHardware {
+  /** Backend of the first accelerator, e.g. `vulkan`, `cuda` or `metal`; `cpu` when there is none. */
+  backend: string
+  /** Accelerators the worker lists; host devices (CPU, BLAS) are left out. */
+  devices: LlamaCppDevice[]
+  /** System memory in bytes. */
+  memoryBytes: number
+}
+
 /** Where an installed model came from. */
 export type LocalModelSource = 'catalog' | 'huggingface' | 'import'
 
@@ -33,6 +60,12 @@ export interface LocalModelEntry {
   source: LocalModelSource
   /** The model the worker serves. */
   active: boolean
+  /** `general.architecture` of the GGUF file. */
+  architecture: string
+  /** Context the model was trained with, when its file declares it. */
+  contextLength?: number
+  /** Weights plus the KV cache at the configured context against this machine; absent until the hardware is known. */
+  fit?: ModelFit
 }
 
 /** One curated model the manager offers. */
@@ -44,6 +77,8 @@ export interface CatalogModelInfo {
   repo: string
   recommended: boolean
   installed: boolean
+  /** File size against this machine; absent until the hardware is known. */
+  fit?: ModelFit
 }
 
 /** One model download, in progress or failed. */
@@ -66,6 +101,8 @@ export interface HuggingFaceFileInfo {
   recommended: boolean
   /** Already installed from this repository. */
   installed: boolean
+  /** File size against this machine; absent until the hardware is known. */
+  fit?: ModelFit
 }
 
 /** Result of a Hugging Face repository lookup. */
@@ -96,4 +133,6 @@ export interface LlamaCppState {
   downloads: LlamaCppDownload[]
   /** Curated models the manager offers. */
   catalog: CatalogModelInfo[]
+  /** Offload devices and memory; absent until the worker listed them, or when it could not. */
+  hardware?: LlamaCppHardware
 }

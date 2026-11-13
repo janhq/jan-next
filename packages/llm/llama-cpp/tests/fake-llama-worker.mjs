@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Stand-in for jan-llama-worker: same flags, JAN_LLAMA_API_KEY bearer auth, the stdout handshake,
-// lifecycle routes and an OpenAI-style stream; stops on stdin end of file.
+// `--list-devices`, lifecycle routes and an OpenAI-style stream; stops on stdin end of file.
 // Behaviour switches are read from `fake-mode.json` next to this script; events go to `fake-events.jsonl`.
 import { createServer } from 'node:http'
 import { appendFileSync, readFileSync } from 'node:fs'
@@ -14,6 +14,14 @@ const args = process.argv.slice(2)
 const flag = name => { const i = args.indexOf(name); return i < 0 ? undefined : args[i + 1] }
 const key = process.env.JAN_LLAMA_API_KEY
 const log = event => appendFileSync(join(here, 'fake-events.jsonl'), `${JSON.stringify({ pid: process.pid, ...event })}\n`)
+
+if (args.includes('--list-devices')) {
+  // Lists `mode.devices` (memory in MiB), the real worker's stdout format; logs no event.
+  console.error('fake worker: enumerating devices')
+  if (mode.listDevicesExitCode !== undefined) process.exit(mode.listDevicesExitCode)
+  process.stdout.write(`${JSON.stringify(mode.devices ?? [])}\n`)
+  process.exit(0)
+}
 
 /** Parse a preset into `{ shared, sections: { [id]: { key: value } } }`. */
 function readPreset(path) {
@@ -70,7 +78,8 @@ const server = createServer(async (req, res) => {
   }
   if (req.method === 'GET' && url.pathname === '/props') {
     // A real worker reports the context fit settled on; the fake reports ctx-size, or 20000 when fit chose.
-    json(res, 200, { default_generation_settings: { n_ctx: Number(preset.shared['ctx-size'] ?? 20000) } })
+    const section = preset.models[url.searchParams.get('model') ?? ''] ?? {}
+    json(res, 200, { default_generation_settings: { n_ctx: Number(section['ctx-size'] ?? preset.shared['ctx-size'] ?? 20000) } })
     return
   }
   if (req.method === 'POST' && url.pathname === '/v1/chat/completions') {

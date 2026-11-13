@@ -47,24 +47,68 @@ export interface Config {
   /** Resident models the worker keeps loaded (`--models-max`); 0 removes the bound. */
   modelsMax: number
   /**
-   * Context window (`ctx-size`); the harness's own prompt and tools take about 12k tokens.
-   * `0` leaves it to `fit`, which starts from the model's trained context and shrinks it to
-   * fit memory (never below {@link Config.fitCtx}); the route's `contextWindow` must then be
-   * no larger than what the worker reports.
+   * Context window (`ctx-size`); the harness's own prompt and tools take about 12k tokens. A model
+   * trained with a shorter context is served at its trained context. `0` leaves it to `fit`, which
+   * starts from the trained context and shrinks it to fit memory (never below {@link Config.fitCtx}).
+   * The route's `contextWindow` follows the context the worker reports once a model runs.
    */
   ctxSize: number
-  /** Let llama.cpp size unset options (GPU layers, and context when `ctxSize` is 0) to device memory. */
-  fit: boolean
+  /**
+   * Let llama.cpp size unset options (GPU layers, and context when `ctxSize` is 0) to device memory.
+   * Unset: on, except on macOS, where Metal counts the whole memory-mapped file against its working
+   * set and `fit` plans loads that then fail (janhq/jan#9198).
+   */
+  fit?: boolean | undefined
   /** Memory `fit` keeps free on each device, in MiB. */
   fitTargetMiB: number
-  /** Smallest context `fit` may choose when `ctxSize` is 0. */
+  /** Smallest context `fit` may choose when `ctxSize` is 0; also the context the route lists before the worker reports one. */
   fitCtx: number
-  /** KV cache element type; `q8_0` halves its memory against `f16`. */
+  /** KV cache element type; `q8_0` halves its memory against `f16` and needs flash attention. */
   cacheType: 'f16' | 'q8_0'
+  /** Flash attention (`flash-attn`); `off` requires `cacheType: f16`. */
+  flashAttn: 'auto' | 'on' | 'off'
   /** CPU threads; omitted lets llama.cpp decide. */
   threads?: number | undefined
-  /** Layers offloaded to the GPU; omitted lets `fit` decide (or offloads all with fit off). */
+  /**
+   * Layers offloaded to the GPU; omitted lets `fit` decide (or offloads all with fit off). Setting
+   * it with fit on stops `fit` from sizing anything.
+   */
   gpuLayers?: number | undefined
+  /** Logical batch size (`batch-size`); omitted keeps llama.cpp's 2048. */
+  batchSize?: number | undefined
+  /** Physical batch size (`ubatch-size`); omitted keeps llama.cpp's 512. */
+  ubatchSize?: number | undefined
+  /**
+   * Requests decoded at once (`parallel`), each with the full context, as the KV cache is unified
+   * across them; omitted lets llama.cpp decide.
+   */
+  parallel?: number | undefined
+  /** MoE layers whose expert weights stay in system memory (`n-cpu-moe`); omitted keeps them all offloadable. */
+  nCpuMoe?: number | undefined
+  /**
+   * GPU cache, in MiB, for expert weights kept in system memory (`moe-cache-mib`). Written only for
+   * a model whose file declares experts, and never with `splitMode: tensor` or `device: none`, where
+   * llama.cpp refuses to load with it.
+   */
+  moeCacheMiB?: number | undefined
+  /** Comma-separated devices to offload to (`device`), e.g. `Vulkan0`, or `none`; omitted uses every device. */
+  device?: string | undefined
+  /** How layers are split across several GPUs (`split-mode`); omitted keeps llama.cpp's `layer`. */
+  splitMode?: 'none' | 'layer' | 'row' | 'tensor' | undefined
+  /** GPU used with `splitMode: none`, or for intermediate results with `row` (`main-gpu`). */
+  mainGpu?: number | undefined
+  /** Keep the KV cache on the GPU; `false` writes `no-kv-offload`, which saves VRAM at a speed cost. */
+  kvOffload: boolean
+  /** How weights are read (`load-mode`); omitted lets llama.cpp memory-map them where devices allow. */
+  loadMode?: 'none' | 'mmap' | 'mlock' | 'mmap+mlock' | undefined
+  /** Prompt cache in system memory, in MiB (`cache-ram`); `-1` removes the bound, `0` disables it, omitted keeps llama.cpp's 8192. */
+  cacheRamMiB?: number | undefined
+  /**
+   * Disk budget, in MiB, for per-thread KV state under `<dataRoot>/slots` (`--slot-cache-mib`);
+   * `0` saves nothing. A request is cached only when it names its thread, which the `llm-pi-ai`
+   * route does not send yet.
+   */
+  slotCacheMiB: number
   /** Deadline from spawn until the handshake and the active model's load complete. */
   startTimeoutMs: number
   /** Wait after closing the worker's stdin (it drains requests and saves KV state) before terminating it. */
@@ -100,12 +144,25 @@ export const Config: z<Partial<Config>, Config> = z.object({
   autoStart: z.boolean().default(true),
   modelsMax: z.natural().default(1),
   ctxSize: z.natural().default(32768),
-  fit: z.boolean().default(true),
+  fit: z.union([z.boolean(), z.const(undefined)]),
   fitTargetMiB: z.natural().default(1024),
   fitCtx: z.natural().min(512).default(16384),
   cacheType: z.union(['f16', 'q8_0']).default('q8_0'),
+  flashAttn: z.union(['auto', 'on', 'off']).default('on'),
   threads: z.union([z.natural().min(1), z.const(undefined)]),
   gpuLayers: z.union([z.natural(), z.const(undefined)]),
+  batchSize: z.union([z.natural().min(1), z.const(undefined)]),
+  ubatchSize: z.union([z.natural().min(1), z.const(undefined)]),
+  parallel: z.union([z.natural().min(1), z.const(undefined)]),
+  nCpuMoe: z.union([z.natural().min(1), z.const(undefined)]),
+  moeCacheMiB: z.union([z.natural().min(1), z.const(undefined)]),
+  device: z.union([z.string().pattern(/^[\w.-]+(,[\w.-]+)*$/), z.const(undefined)]),
+  splitMode: z.union([z.union(['none', 'layer', 'row', 'tensor']), z.const(undefined)]),
+  mainGpu: z.union([z.natural(), z.const(undefined)]),
+  kvOffload: z.boolean().default(true),
+  loadMode: z.union([z.union(['none', 'mmap', 'mlock', 'mmap+mlock']), z.const(undefined)]),
+  cacheRamMiB: z.union([z.number().step(1).min(-1), z.const(undefined)]),
+  slotCacheMiB: z.natural().default(0),
   startTimeoutMs: z.natural().min(1).default(120_000),
   stopTimeoutMs: z.natural().min(1).default(15_000),
   graceMs: z.natural().min(1).default(5000),

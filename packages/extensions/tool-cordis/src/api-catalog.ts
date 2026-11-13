@@ -1977,10 +1977,10 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'importModel(path: string, name?: string): Promise<string>',
-        description: 'Add a GGUF file from disk, left where it is. The first model added becomes active and starts.',
+        description: 'Add a GGUF file from disk, left where it is, recording its header facts. The first model added becomes active and starts.',
         parameters: [{ name: 'path', description: 'absolute path of a `.gguf` file.' }, { name: 'name', description: 'display name; defaults to the file name.' }],
         returns: 'the model id.',
-        throws: ['Error when the path is not an absolute path to a readable GGUF file.'],
+        throws: ['Error when the path is not an absolute path to a readable GGUF file, or the file is a vision projector or embedding model rather than a chat model.'],
       },
       {
         signature: 'select(id: string): Promise<void>',
@@ -2007,7 +2007,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'async uninstall(): Promise<void>',
-        description: 'Stop the worker, cancel downloads, delete downloaded models and partial files, and remove the route credentials.',
+        description: 'Stop the worker, cancel downloads, delete downloaded models, partial files and saved KV state, and remove the route credentials.',
         parameters: [],
       },
     ],
@@ -6003,7 +6003,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'CatalogModelInfo',
-    declaration: 'export interface CatalogModelInfo {\n    id: string;\n    name: string;\n    bytes: number;\n    repo: string;\n    recommended: boolean;\n    installed: boolean;\n}',
+    declaration: 'export interface CatalogModelInfo {\n    id: string;\n    name: string;\n    bytes: number;\n    repo: string;\n    recommended: boolean;\n    installed: boolean;\n    fit?: ModelFit;\n}',
   },
   {
     name: 'ChangeRequestCheck',
@@ -6903,7 +6903,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'HuggingFaceFileInfo',
-    declaration: 'export interface HuggingFaceFileInfo {\n    file: string;\n    bytes: number;\n    quant?: string;\n    recommended: boolean;\n    installed: boolean;\n}',
+    declaration: 'export interface HuggingFaceFileInfo {\n    file: string;\n    bytes: number;\n    quant?: string;\n    recommended: boolean;\n    installed: boolean;\n    fit?: ModelFit;\n}',
   },
   {
     name: 'HuggingFaceRepoInfo',
@@ -7146,8 +7146,16 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ListVersionsOptions {\n    readonly registry?: Registry;\n}',
   },
   {
+    name: 'LlamaCppDevice',
+    declaration: 'export interface LlamaCppDevice {\n    id: string;\n    name: string;\n    totalMiB: number;\n    freeMiB: number;\n}',
+  },
+  {
     name: 'LlamaCppDownload',
     declaration: 'export interface LlamaCppDownload {\n    id: string;\n    name: string;\n    progress?: LlamaCppProgress;\n    error?: string;\n}',
+  },
+  {
+    name: 'LlamaCppHardware',
+    declaration: 'export interface LlamaCppHardware {\n    backend: string;\n    devices: LlamaCppDevice[];\n    memoryBytes: number;\n}',
   },
   {
     name: 'LlamaCppModelInfo',
@@ -7163,7 +7171,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'LlamaCppState',
-    declaration: 'export interface LlamaCppState {\n    phase: LlamaCppPhase;\n    model: LlamaCppModelInfo;\n    provider: string;\n    progress?: LlamaCppProgress;\n    error?: string;\n    contextSize?: number;\n    logTail?: string;\n    models: LocalModelEntry[];\n    downloads: LlamaCppDownload[];\n    catalog: CatalogModelInfo[];\n}',
+    declaration: 'export interface LlamaCppState {\n    phase: LlamaCppPhase;\n    model: LlamaCppModelInfo;\n    provider: string;\n    progress?: LlamaCppProgress;\n    error?: string;\n    contextSize?: number;\n    logTail?: string;\n    models: LocalModelEntry[];\n    downloads: LlamaCppDownload[];\n    catalog: CatalogModelInfo[];\n    hardware?: LlamaCppHardware;\n}',
   },
   {
     name: 'LlmAdapter',
@@ -7267,7 +7275,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'LocalModelEntry',
-    declaration: 'export interface LocalModelEntry {\n    id: string;\n    name: string;\n    bytes: number;\n    source: LocalModelSource;\n    active: boolean;\n}',
+    declaration: 'export interface LocalModelEntry {\n    id: string;\n    name: string;\n    bytes: number;\n    source: LocalModelSource;\n    active: boolean;\n    architecture: string;\n    contextLength?: number;\n    fit?: ModelFit;\n}',
   },
   {
     name: 'LocalModelSource',
@@ -7572,6 +7580,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ModelCatalogModel',
     declaration: 'export interface ModelCatalogModel {\n    readonly id: string;\n    readonly name: string;\n    readonly description?: string;\n    readonly reasoning?: ModelReasoning;\n    readonly badge?: LlmModelBadge;\n}',
+  },
+  {
+    name: 'ModelFit',
+    declaration: 'export type ModelFit = \'fits\' | \'tight\' | \'too-large\';',
   },
   {
     name: 'ModelMessageSource',

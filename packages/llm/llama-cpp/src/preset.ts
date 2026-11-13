@@ -1,22 +1,18 @@
 /**
  * Router preset INI the worker serves: a `[*]` block of shared llama.cpp server options and one
- * section per model, whose name is the model id requests select.
+ * section per model, whose name is the model id requests select. A key is the server's CLI flag
+ * without its leading dashes; an option left unset is omitted so llama.cpp (or the GGUF) decides.
  */
+import type { Config } from './config.ts'
+import type { ModelFacts } from './gguf.ts'
 
-/** Sizing and runtime options written to the `[*]` block. */
-export interface PresetDefaults {
-  /** `ctx-size`; 0 omits it so `fit` chooses the context. */
-  ctxSize: number
+/** Server options after defaulting, written to the `[*]` block or, where model-dependent, a model section. */
+export interface PresetSettings extends Pick<Config,
+  | 'ctxSize' | 'fitTargetMiB' | 'fitCtx' | 'cacheType' | 'flashAttn' | 'threads' | 'gpuLayers' | 'batchSize' | 'ubatchSize'
+  | 'parallel' | 'nCpuMoe' | 'moeCacheMiB' | 'device' | 'splitMode' | 'mainGpu' | 'kvOffload' | 'loadMode' | 'cacheRamMiB'> {
   fit: boolean
-  /** `fit-target`, in MiB kept free per device. */
-  fitTargetMiB: number
-  /** `fit-ctx`, the smallest context `fit` may choose; also the context when fit is off and `ctxSize` is 0. */
-  fitCtx: number
-  /** `cache-type-k` and `cache-type-v`. */
-  cacheType: 'f16' | 'q8_0'
-  threads?: number | undefined
-  /** `n-gpu-layers`; omitted with fit on lets fit choose, and with fit off offloads every layer. */
-  gpuLayers?: number | undefined
+  /** Absolute directory llama.cpp saves slot state in (`slot-save-path`). */
+  slotSavePath: string
 }
 
 /** One model section. */
@@ -25,39 +21,98 @@ export interface PresetModel {
   id: string
   /** Absolute GGUF path. */
   path: string
+  facts: ModelFacts
 }
 
 /** Every layer, for `n-gpu-layers` with fit off; llama.cpp clamps it to the model. */
 const ALL_LAYERS = 999
 
+/**
+ * Resolve the server options a configuration selects on a platform.
+ * @param config - validated plugin configuration.
+ * @param platform - operating system the worker runs on; `fit` defaults off on macOS.
+ * @param slotSavePath - absolute slot state directory.
+ * @returns the settings {@link renderPreset} writes.
+ * @throws Error for a quantized KV cache with flash attention off, which llama.cpp refuses to load.
+ */
+export function resolvePresetSettings(config: Config, platform: NodeJS.Platform, slotSavePath: string): PresetSettings {
+  if (config.cacheType !== 'f16' && config.flashAttn === 'off') {
+    throw new Error(`llama-cpp: cacheType ${config.cacheType} needs flash attention; set flashAttn to on or auto, or cacheType to f16`)
+  }
+  return {
+    ctxSize: config.ctxSize, fit: config.fit ?? platform !== 'darwin', fitTargetMiB: config.fitTargetMiB, fitCtx: config.fitCtx,
+    cacheType: config.cacheType, flashAttn: config.flashAttn, threads: config.threads, gpuLayers: config.gpuLayers,
+    batchSize: config.batchSize, ubatchSize: config.ubatchSize, parallel: config.parallel, nCpuMoe: config.nCpuMoe,
+    moeCacheMiB: config.moeCacheMiB, device: config.device, splitMode: config.splitMode, mainGpu: config.mainGpu,
+    kvOffload: config.kvOffload, loadMode: config.loadMode, cacheRamMiB: config.cacheRamMiB, slotSavePath,
+  }
+}
+
+/**
+ * The context the worker is asked for: the configured one, or `fit`'s floor when fit chooses,
+ * capped at the model's trained context.
+ * @param settings - resolved settings.
+ * @param facts - the model's facts.
+ * @returns tokens per sequence.
+ */
+export function plannedContext(settings: Pick<PresetSettings, 'ctxSize' | 'fitCtx'>, facts: ModelFacts): number {
+  const wanted = settings.ctxSize > 0 ? settings.ctxSize : settings.fitCtx
+  return Math.min(wanted, facts.contextLength ?? wanted)
+}
+
 function value(text: string): string {
   return text.replace(/[\r\n]+/g, ' ').trim()
 }
 
+function optional(key: string, setting: number | string | undefined): string[] {
+  return setting === undefined ? [] : [`${key} = ${typeof setting === 'string' ? value(setting) : String(setting)}`]
+}
+
 /**
- * Render a preset. `fit` only sizes options left unset, so the GPU layer count is omitted with
- * fit on unless configured, and the context is omitted only when `ctxSize` is 0.
- * @param defaults - shared options.
+ * Render a preset. `fit` only sizes options left unset, so the GPU layer count is omitted with fit
+ * on unless configured, and the context is omitted only when `ctxSize` is 0.
+ * @param settings - resolved settings.
  * @param models - model sections, in order.
  * @returns the INI text.
  */
-export function renderPreset(defaults: PresetDefaults, models: readonly PresetModel[]): string {
-  const { ctxSize, fit, fitTargetMiB, fitCtx, cacheType, threads, gpuLayers } = defaults
+export function renderPreset(settings: PresetSettings, models: readonly PresetModel[]): string {
+  const { ctxSize, fit, fitTargetMiB, fitCtx, gpuLayers, parallel } = settings
   const fitted = [
     'fit = on', `fit-target = ${String(fitTargetMiB)}`,
     ctxSize > 0 ? `ctx-size = ${String(ctxSize)}` : `fit-ctx = ${String(fitCtx)}`,
-    ...gpuLayers === undefined ? [] : [`n-gpu-layers = ${String(gpuLayers)}`],
+    ...optional('n-gpu-layers', gpuLayers),
   ]
   const pinned = ['fit = off', `ctx-size = ${String(ctxSize > 0 ? ctxSize : fitCtx)}`, `n-gpu-layers = ${String(gpuLayers ?? ALL_LAYERS)}`]
   const shared = [
-    'jinja = true',
-    // Flash attention lets the V cache be quantized too.
-    'flash-attn = on',
-    `cache-type-k = ${cacheType}`,
-    `cache-type-v = ${cacheType}`,
-    ...threads === undefined ? [] : [`threads = ${String(threads)}`],
     ...fit ? fitted : pinned,
+    `flash-attn = ${settings.flashAttn}`,
+    `cache-type-k = ${settings.cacheType}`,
+    `cache-type-v = ${settings.cacheType}`,
+    ...optional('threads', settings.threads),
+    ...optional('batch-size', settings.batchSize),
+    ...optional('ubatch-size', settings.ubatchSize),
+    // An explicit parallel count splits ctx-size across slots unless the KV cache is unified.
+    ...parallel === undefined ? [] : [`parallel = ${String(parallel)}`, 'kv-unified = true'],
+    ...optional('n-cpu-moe', settings.nCpuMoe),
+    ...optional('device', settings.device),
+    ...optional('split-mode', settings.splitMode),
+    ...optional('main-gpu', settings.mainGpu),
+    ...settings.kvOffload ? [] : ['no-kv-offload = true'],
+    ...optional('load-mode', settings.loadMode),
+    ...optional('cache-ram', settings.cacheRamMiB),
+    `slot-save-path = ${value(settings.slotSavePath)}`,
   ]
-  const sections = models.map(model => `[${model.id}]\nmodel = ${value(model.path)}\n`)
+  const sharedContext = fit ? ctxSize : ctxSize > 0 ? ctxSize : fitCtx
+  const moeCacheAllowed = settings.splitMode !== 'tensor' && settings.device?.trim().toLowerCase() !== 'none'
+  const sections = models.map((model) => {
+    const trained = model.facts.contextLength
+    const lines = [
+      `model = ${value(model.path)}`,
+      // llama.cpp would run past the trained context and degrade; fit already starts from it.
+      ...sharedContext > 0 && trained !== undefined && trained < sharedContext ? [`ctx-size = ${String(trained)}`] : [],
+      ...moeCacheAllowed && model.facts.expertCount > 0 ? optional('moe-cache-mib', settings.moeCacheMiB) : [],
+    ]
+    return `[${model.id}]\n${lines.join('\n')}\n`
+  })
   return [`[*]\n${shared.join('\n')}\n`, ...sections].join('\n')
 }

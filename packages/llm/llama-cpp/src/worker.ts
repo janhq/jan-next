@@ -1,8 +1,9 @@
 /**
- * Protocol of the bundled `jan-llama-worker`: the stdout handshake line, exit codes, and the
- * lifecycle HTTP calls a supervisor makes. See `native/llama-worker/README.md`.
+ * Protocol of the bundled `jan-llama-worker`: the stdout handshake line, the `--list-devices`
+ * output, exit codes, and the lifecycle HTTP calls a supervisor makes. See `native/llama-worker/README.md`.
  */
 import type { Readable } from 'node:stream'
+import type { LlamaCppDevice } from './types.ts'
 
 /** One offload device the worker initialised. */
 export interface WorkerDevice {
@@ -49,6 +50,27 @@ export function parseHandshake(line: string): WorkerHandshake {
     throw new WorkerProtocolError(`the local model worker printed an invalid handshake: ${line.slice(0, 200)}`)
   }
   return { port: raw.port, pid: raw.pid, models: raw.models, devices: raw.devices }
+}
+
+/**
+ * Parse the JSON array `--list-devices` prints: `{ id, name, mem, free }` per device, memory in MiB.
+ * @param text - the command's stdout.
+ * @returns the devices.
+ * @throws {@link WorkerProtocolError} for anything else.
+ */
+export function parseDeviceList(text: string): LlamaCppDevice[] {
+  let raw: unknown
+  try { raw = JSON.parse(text.trim()) }
+  catch { throw new WorkerProtocolError(`the local model worker listed its devices unreadably: ${text.slice(0, 200)}`) }
+  if (!Array.isArray(raw) || !raw.every(isListedDevice)) {
+    throw new WorkerProtocolError(`the local model worker listed invalid devices: ${text.slice(0, 200)}`)
+  }
+  return raw.map(device => ({ id: device.id, name: device.name, totalMiB: device.mem, freeMiB: device.free }))
+}
+
+function isListedDevice(value: unknown): value is WorkerDevice & { mem: number; free: number } {
+  return isDevice(value) && isRecord(value) && typeof value.mem === 'number' && value.mem >= 0
+    && typeof value.free === 'number' && value.free >= 0
 }
 
 const EXIT_MEANINGS: Readonly<Record<number, string>> = {

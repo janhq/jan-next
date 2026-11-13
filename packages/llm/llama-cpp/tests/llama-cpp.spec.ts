@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { createServer, type Server } from 'node:http'
-import { tmpdir } from 'node:os'
+import { tmpdir, totalmem } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { afterEach, expect, it } from 'vitest'
@@ -9,9 +9,10 @@ import { Context, Service } from '@deepseek-ai/cordis'
 import LocalSubprocess from '@deepseek-ai/dsh-subprocess-local'
 import { LocalCredentialProvider } from '@deepseek-ai/dsh-credentials-local'
 import {
-  describeExit, download, DownloadError, LlamaCpp, parseHandshake, parseRepo, RateMeter, renderPreset, WorkerProtocolError,
+  describeExit, download, DownloadError, LlamaCpp, parseHandshake, parseRepo, RateMeter, WorkerProtocolError,
   type LlamaCppState,
 } from '../src/index.ts'
+import { chatModel, ggufFile } from './gguf-fixture.ts'
 
 const FAKE = new URL('./fake-llama-worker.mjs', import.meta.url).pathname
 const cleanups: Array<() => Promise<unknown>> = []
@@ -69,20 +70,6 @@ it('names the worker exit codes it documents', () => {
   expect(describeExit(null, 'SIGKILL')).toBe('was ended by SIGKILL')
 })
 
-it('renders the preset: fit sizes what is left unset, and fit off pins context and layers', () => {
-  const base = { ctxSize: 32768, fit: true, fitTargetMiB: 1024, fitCtx: 16384, cacheType: 'q8_0' as const }
-  const model = [{ id: 'local', path: '/m/a.gguf' }]
-  expect(renderPreset(base, model)).toBe([
-    '[*]', 'jinja = true', 'flash-attn = on', 'cache-type-k = q8_0', 'cache-type-v = q8_0',
-    'fit = on', 'fit-target = 1024', 'ctx-size = 32768', '', '[local]', 'model = /m/a.gguf', '',
-  ].join('\n'))
-  const auto = renderPreset({ ...base, ctxSize: 0, threads: 4 }, model)
-  expect(auto).toContain('threads = 4\nfit = on\nfit-target = 1024\nfit-ctx = 16384\n')
-  expect(auto).not.toContain('ctx-size')
-  expect(renderPreset({ ...base, fit: false, ctxSize: 0, gpuLayers: 20 }, model)).toContain('fit = off\nctx-size = 16384\nn-gpu-layers = 20\n')
-  expect(renderPreset({ ...base, fit: false }, [{ id: 'local', path: '/m/b\n[evil]' }])).toContain('n-gpu-layers = 999\n\n[local]\nmodel = /m/b [evil]\n')
-})
-
 // ── downloads ───────────────────────────────────────────────────────────────
 
 it('downloads, verifies and resumes a partial file with a Range request', async () => {
@@ -132,7 +119,7 @@ it('reports an HTTP failure without leaking the URL', async () => {
 
 // ── service ─────────────────────────────────────────────────────────────────
 
-const MODEL = Buffer.alloc(256 * 1024, 9)
+const MODEL = ggufFile(chatModel(40960), 256 * 1024)
 
 /** One line the fake worker appends to `fake-events.jsonl`. */
 interface FakeEvent {
@@ -142,7 +129,7 @@ interface FakeEvent {
   hasKey?: boolean
   keyInArgv?: boolean
   cwd?: string
-  preset?: { shared: Record<string, string>; models: Record<string, { model?: string }> }
+  preset?: { shared: Record<string, string>; models: Record<string, { model?: string; 'ctx-size'?: string }> }
   model?: string
   modelsMax?: number
   reason?: string
@@ -233,21 +220,25 @@ it('installs the model, publishes the worker endpoint and key, and serves the ro
   const [start] = await f.events()
   const preset = join(f.home, 'data', 'run', 'preset.ini')
   expect(start).toMatchObject({ type: 'start', hasKey: true, keyInArgv: false })
-  expect(start?.argv?.slice(1)).toEqual(['--preset', preset, '--port', '0', '--models-max', '1'])
+  expect(start?.argv?.slice(1)).toEqual(['--preset', preset, '--port', '0', '--models-max', '1', '--slot-cache-mib', '0'])
   // macOS reports the realpath of a symlinked tmpdir (/var -> /private/var) as the child's cwd.
   expect(start?.cwd).toBe(await realpath(f.bin))
-  expect(start?.preset?.shared).toMatchObject({ 'ctx-size': '32768', fit: 'on', 'fit-target': '1024', jinja: 'true', 'cache-type-k': 'q8_0' })
+  expect(start?.preset?.shared).toMatchObject({
+    'ctx-size': '32768', fit: 'on', 'fit-target': '1024', 'flash-attn': 'on', 'cache-type-k': 'q8_0',
+    'slot-save-path': join(f.home, 'data', 'slots'),
+  })
   expect(start?.preset?.shared).not.toHaveProperty('n-gpu-layers')
+  expect(start?.preset?.shared).not.toHaveProperty('jinja')
   expect(start?.preset?.models.local?.model).toBe(join(f.home, 'data', 'models', 'jan-v3.5-4b', `${sha(MODEL).slice(0, 16)}.gguf`))
   expect(running.contextSize).toBe(32768)
 })
 
 it('lets fit choose the context when ctxSize is 0, and passes the resident model bound', async () => {
-  const f = await fixture({ config: { ctxSize: 0, modelsMax: 3 } })
+  const f = await fixture({ config: { ctxSize: 0, modelsMax: 3, slotCacheMiB: 512 } })
   f.llama.install()
   const running = await f.until(s => s.phase === 'running' || s.phase === 'failed')
   const [start] = await f.events()
-  expect(start?.argv?.slice(-2)).toEqual(['--models-max', '3'])
+  expect(start?.argv?.slice(-4)).toEqual(['--models-max', '3', '--slot-cache-mib', '512'])
   expect(start?.preset?.shared).toMatchObject({ 'fit-ctx': '16384' })
   expect(start?.preset?.shared).not.toHaveProperty('ctx-size')
   expect(running.contextSize).toBe(20000)
@@ -443,8 +434,8 @@ it('removes the install and the route credentials', async () => {
 
 // ── model manager ───────────────────────────────────────────────────────────
 
-/** A tiny file that passes the GGUF magic check; the fake server never reads it. */
-const TINY = Buffer.concat([Buffer.from('GGUF'), Buffer.alloc(64 * 1024, 4)])
+/** A small chat model trained with an 8192-token context; the fake worker never reads it. */
+const TINY = ggufFile(chatModel(8192), 64 * 1024)
 const REVISION = 'abc123'
 
 /** A Hugging Face repository listing: one usable file, plus files the lookup must leave out. */
@@ -500,7 +491,8 @@ it('downloads a model from a Hugging Face repository, switches to it, and remove
   f.llama.install()
   await f.until(s => s.phase === 'running')
   const repo = await f.llama.lookupHuggingFace(`${f.server.origin}/acme/tiny-GGUF/tree/main`)
-  expect(repo).toEqual({ repo: 'acme/tiny-GGUF', files: [{ file: 'tiny-Q4_K_M.gguf', bytes: TINY.length, quant: 'Q4_K_M', recommended: true, installed: false }] })
+  expect(repo).toMatchObject({ repo: 'acme/tiny-GGUF', files: [{ file: 'tiny-Q4_K_M.gguf', bytes: TINY.length, quant: 'Q4_K_M', recommended: true, installed: false }] })
+  expect(repo.files).toHaveLength(1)
 
   const id = await f.llama.downloadHuggingFace('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')
   expect(id).toBe('tiny-q4_k_m')
@@ -508,9 +500,9 @@ it('downloads a model from a Hugging Face repository, switches to it, and remove
   expect(f.seen.some(s => s.downloads[0]?.progress?.totalBytes === TINY.length)).toBe(true)
   // A second model does not take over the running one.
   expect(added).toMatchObject({ phase: 'running', model: { id: 'jan-v3.5-4b' } })
-  expect(added.models).toEqual([
-    { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', bytes: MODEL.length, source: 'catalog', active: true },
-    { id, name: 'tiny-Q4_K_M', bytes: TINY.length, source: 'huggingface', active: false },
+  expect(added.models).toMatchObject([
+    { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', bytes: MODEL.length, source: 'catalog', active: true, architecture: 'qwen3', contextLength: 40960 },
+    { id, name: 'tiny-Q4_K_M', bytes: TINY.length, source: 'huggingface', active: false, architecture: 'qwen3', contextLength: 8192 },
   ])
   expect((await f.llama.lookupHuggingFace('acme/tiny-GGUF')).files[0]?.installed).toBe(true)
   // Asking again for an installed file names the installed model.
@@ -536,15 +528,24 @@ it('imports a GGUF file in place, refuses other files, and only forgets it on re
   const model = join(dir, 'My Model.gguf')
   await writeFile(model, TINY)
   await writeFile(join(dir, 'notes.gguf'), 'not a model')
+  await writeFile(join(dir, 'mmproj.gguf'), ggufFile({ 'general.architecture': 'clip' }))
+  await writeFile(join(dir, 'embed.gguf'), ggufFile({ 'general.architecture': 'bert', 'bert.pooling_type': 1 }))
   await expect(f.llama.importModel('relative.gguf')).rejects.toThrow(/full path/)
   await expect(f.llama.importModel(join(dir, 'absent.gguf'))).rejects.toThrow(/No file/)
   await expect(f.llama.importModel(join(dir, 'notes.gguf'))).rejects.toThrow(/not a GGUF model file/)
+  await expect(f.llama.importModel(join(dir, 'mmproj.gguf'))).rejects.toThrow(/mmproj.gguf cannot be used for chat: it is a vision projector/)
+  await expect(f.llama.importModel(join(dir, 'embed.gguf'))).rejects.toThrow(/embed.gguf cannot be used for chat: it is an embedding model/)
+  expect(f.llama.snapshot().models).toEqual([])
 
   const id = await f.llama.importModel(model)
   expect(id).toBe('my-model')
   const running = await f.until(s => s.phase === 'running' || s.phase === 'failed')
   expect(running).toMatchObject({ phase: 'running', model: { id, name: 'My Model' }, models: [{ id, source: 'import', active: true }] })
   expect(await launchedModel(f)).toBe(model)
+  // Trained with 8192 tokens, so the section caps the configured 32768 and the worker reports 8192.
+  const [start] = await f.events()
+  expect(start?.preset?.models.local?.['ctx-size']).toBe('8192')
+  expect(running.contextSize).toBe(8192)
   expect(await f.llama.importModel(model)).toBe(id)
 
   await f.llama.removeModel(id)
@@ -572,7 +573,7 @@ it('reads the one-model record of earlier builds and serves its model', async ()
   await writeFile(join(dir, 'x.gguf'), TINY)
   await f.llama.importModel(join(dir, 'x.gguf'))
   const record = JSON.parse(await readFile(join(home, 'data', 'install.json'), 'utf8')) as { version: number; models: unknown[]; active: string }
-  expect(record).toMatchObject({ version: 2, active: 'jan-v3.5-4b' })
+  expect(record).toMatchObject({ version: 3, active: 'jan-v3.5-4b' })
   expect(record.models).toHaveLength(2)
 }, 20_000)
 
@@ -625,7 +626,8 @@ it('lists the active model on the local route when a settings service is mounted
   const id = await f.llama.downloadHuggingFace('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')
   await f.until(s => s.models.length === 2)
   await f.llama.select(id)
-  expect(settings.current?.value.providers.local?.models).toEqual([{ ...entry, name: 'tiny-Q4_K_M (local)' }])
+  // The route lists the context the worker serves, capped at the model's trained 8192.
+  expect(settings.current?.value.providers.local?.models).toEqual([{ ...entry, name: 'tiny-Q4_K_M (local)', contextWindow: 8192 }])
   // An unchanged list is not written again.
   await f.llama.select(id)
   expect(settings.current?.writes).toHaveLength(2)
@@ -679,7 +681,7 @@ it('downloads one Hugging Face file once however often it is asked for, and retr
 }, 30_000)
 
 it('keeps curated ids for curated models', async () => {
-  const curated = Buffer.concat([Buffer.from('GGUF'), Buffer.alloc(1024, 2)])
+  const curated = ggufFile(chatModel(4096), 1024)
   const f = await fixture({ extraFiles: {
     '/api/models/acme/look-alike?blobs=true': Buffer.from(JSON.stringify({ id: 'acme/look-alike', sha: REVISION, siblings: [
       { rfilename: 'Qwen3-0.6B.gguf', size: curated.length, lfs: { sha256: sha(curated), size: curated.length } },
@@ -690,4 +692,65 @@ it('keeps curated ids for curated models', async () => {
   expect(await f.llama.downloadHuggingFace('acme/look-alike', 'Qwen3-0.6B.gguf')).toBe('qwen3-0.6b-2')
   const state = await f.until(s => s.models.length === 1)
   expect(state.catalog.find(entry => entry.id === 'qwen3-0.6b')?.installed).toBe(false)
+})
+
+it('lists the worker devices with system memory and judges every model against them', async () => {
+  const f = await fixture({ extraFiles: HF_FILES, mode: { devices: [{ id: 'BLAS', name: 'BLAS', mem: 0, free: 0 }, { id: 'Vulkan0', name: 'GPU', mem: 24576, free: 20000 }] } })
+  const state = await f.until(s => s.hardware !== undefined)
+  expect(state.hardware).toEqual({ backend: 'vulkan', devices: [{ id: 'Vulkan0', name: 'GPU', totalMiB: 24576, freeMiB: 20000 }], memoryBytes: totalmem() })
+  expect(state.catalog.map(entry => entry.fit)).toEqual(state.catalog.map(() => 'fits'))
+  expect((await f.llama.lookupHuggingFace('acme/tiny-GGUF')).files[0]?.fit).toBe('fits')
+  f.llama.install()
+  const running = await f.until(s => s.phase === 'running')
+  expect(running.models[0]?.fit).toBe('fits')
+  // The listing is not a worker start.
+  expect((await f.events()).filter(event => event.type === 'start')).toHaveLength(1)
+})
+
+it('leaves fit unknown when the worker cannot list its devices', async () => {
+  const f = await fixture({ mode: { listDevicesExitCode: 6 } })
+  f.llama.install()
+  const running = await f.until(s => s.phase === 'running')
+  expect(running.hardware).toBeUndefined()
+  expect(running.models[0]?.fit).toBeUndefined()
+})
+
+it('adds header facts to the records of earlier builds and drops a model that cannot serve chat', async () => {
+  const home = await temp('llama-v2-')
+  const file = join('models', 'jan-v3.5-4b', `${sha(MODEL).slice(0, 16)}.gguf`)
+  const embedder = join(home, 'embed.gguf')
+  const embedding = ggufFile({ 'general.architecture': 'bert' }, 1024)
+  await mkdir(join(home, 'data', 'models', 'jan-v3.5-4b'), { recursive: true })
+  await writeFile(join(home, 'data', file), MODEL)
+  await writeFile(embedder, embedding)
+  await writeFile(join(home, 'data', 'install.json'), JSON.stringify({
+    version: 2, active: 'embed',
+    models: [
+      { id: 'embed', name: 'Embedder', file: embedder, bytes: embedding.length, source: 'import' },
+      { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', file, bytes: MODEL.length, sha256: sha(MODEL), source: 'catalog', repo: 'janhq/Jan-v3.5-4B-gguf' },
+    ],
+  }))
+  const f = await fixture({ home })
+  const state = await f.until(s => s.phase === 'running' || s.phase === 'failed')
+  expect(state).toMatchObject({ phase: 'running', models: [{ id: 'jan-v3.5-4b', active: true, architecture: 'qwen3', contextLength: 40960 }] })
+  expect(state.models).toHaveLength(1)
+  const record = JSON.parse(await readFile(join(home, 'data', 'install.json'), 'utf8')) as { version: number; models: Array<{ id: string; facts?: { architecture?: string; contextLength?: number } }> }
+  expect(record.version).toBe(3)
+  expect(record.models.map(model => [model.id, model.facts?.architecture, model.facts?.contextLength])).toEqual([['jan-v3.5-4b', 'qwen3', 40960]])
+}, 20_000)
+
+it('fails the download of a file that is not a chat model and keeps nothing of it', async () => {
+  const embedding = ggufFile({ 'general.architecture': 'bert' }, 2048)
+  const f = await fixture({ extraFiles: {
+    '/api/models/acme/embed-GGUF?blobs=true': Buffer.from(JSON.stringify({ id: 'acme/embed-GGUF', sha: REVISION, siblings: [
+      { rfilename: 'embed-Q8_0.gguf', size: embedding.length, lfs: { sha256: sha(embedding), size: embedding.length } },
+    ] })),
+    [`/acme/embed-GGUF/resolve/${REVISION}/embed-Q8_0.gguf`]: embedding,
+  } })
+  await f.until(s => s.phase === 'missing')
+  const id = await f.llama.downloadHuggingFace('acme/embed-GGUF', 'embed-Q8_0.gguf')
+  const failed = await f.until(s => s.downloads.some(item => item.error !== undefined))
+  expect(failed.downloads[0]?.error).toBe('embed-Q8_0 cannot be served: it is an embedding model, not a chat model')
+  expect(failed.models).toEqual([])
+  await expect(stat(join(f.home, 'data', 'models', id, `${sha(embedding).slice(0, 16)}.gguf`))).rejects.toThrow()
 })

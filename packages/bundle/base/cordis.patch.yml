@@ -183,7 +183,7 @@
               # the name equal to it through the llm-pi-ai settings section.
               - id: local
                 name: Jan v3.5 4B (local)
-                # Matches the llama-cpp row's ctxSize (32768).
+                # The llama-cpp row's ctxSize (32768) until it writes the context the worker serves.
                 contextWindow: 32768
                 maxTokens: 8192
 
