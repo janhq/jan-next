@@ -2,6 +2,8 @@ import {
   CustomChatTransport,
   type ContinuationContent,
 } from '@/lib/custom-chat-transport'
+import { DshChatTransport } from '@/lib/dsh-chat-transport'
+import { useDshSettings } from '@/hooks/useDshSettings'
 import {
   Chat,
   type UIMessage,
@@ -62,7 +64,11 @@ export function useChat(
     !transportRef.current ||
     transportSessionRef.current !== sessionId
   ) {
-    transportRef.current = new CustomChatTransport(systemMessage, sessionId)
+    // Chosen when the chat opens: a thread keeps its backend until reopened,
+    // so a turn never switches agents halfway through a conversation.
+    transportRef.current = useDshSettings.getState().enabled
+      ? new DshChatTransport(systemMessage, sessionId)
+      : new CustomChatTransport(systemMessage, sessionId)
   }
   transportSessionRef.current = sessionId
   const transport = transportRef.current

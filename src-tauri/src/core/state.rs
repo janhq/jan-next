@@ -85,11 +85,16 @@ pub struct AppState {
     /// list-tools failure.
     pub mcp_last_known_tools: Arc<Mutex<HashMap<String, Vec<ToolWithServer>>>>,
     pub speech: crate::core::speech::SpeechState,
+    pub dsh: crate::core::dsh::DshState,
 }
 
 impl AppState {
     pub fn speech(&self) -> &crate::core::speech::SpeechState {
         &self.speech
+    }
+
+    pub fn dsh(&self) -> &crate::core::dsh::DshState {
+        &self.dsh
     }
 }
 
@@ -112,6 +117,7 @@ impl Default for AppState {
             mcp_reconnect_notify: Arc::new(Notify::new()),
             mcp_last_known_tools: Default::default(),
             speech: Default::default(),
+            dsh: Default::default(),
         }
     }
 }

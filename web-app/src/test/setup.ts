@@ -3,6 +3,7 @@ import { cleanup } from '@testing-library/react'
 import * as matchers from '@testing-library/jest-dom/matchers'
 import { DefaultExtensionsService } from '@/services/extensions/default'
 import { DefaultSpeechService } from '@/services/speech/default'
+import { DefaultDshService } from '@/services/dsh/default'
 
 // extends Vitest's expect method with methods from react-testing-library
 expect.extend(matchers)
@@ -126,6 +127,7 @@ const mockServiceHub = {
   }),
   extensions: () => new DefaultExtensionsService(),
   speech: () => new DefaultSpeechService(),
+  dsh: () => new DefaultDshService(),
   deeplink: () => ({ // cspell: disable-line
     register: vi.fn().mockResolvedValue(undefined),
     handle: vi.fn().mockResolvedValue(undefined),

@@ -3,6 +3,7 @@ pub mod app;
 // Download manager, native file dialogs/IO commands, and the system/tray
 // command surface are desktop-only; the CLI uses std::fs and its own tools.
 pub mod downloads;
+pub mod dsh;
 pub mod filesystem;
 pub mod mcp;
 // Desktop-only: the webview navigation guard.

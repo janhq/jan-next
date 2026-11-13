@@ -372,6 +372,23 @@
   },
   "backendInstallSuccess": "Backend installed successfully!",
   "backendInstallError": "Failed to install backend",
+  "dsh": {
+    "use": "Use for chats",
+    "useDesc": "Chats you open from now on run on DeepSeek Harness instead of the built-in agent. The chat's selected model answers, and the agent can run commands in its workspace without asking.",
+    "root": "Harness folder",
+    "rootDesc": "A built deepseek-harness checkout with pnpm install done. Needs Node 22 on PATH.",
+    "rootPlaceholder": "C:\\path\\to\\deepseek-harness",
+    "workspace": "Workspace",
+    "workspaceDesc": "Folder the agent's bash and file tools work in. Empty means a private folder in Jan's data.",
+    "workspacePlaceholder": "Private folder",
+    "browse": "Browse",
+    "status": "Runtime",
+    "running": "Running",
+    "stopped": "Starts with the first message",
+    "stop": "Stop",
+    "rootOk": "Harness folder is ready",
+    "rootInvalid": "Harness folder is not usable"
+  },
   "voice": {
     "engine": "Local voice engine",
     "engineDesc": "audio.cpp runs on this computer, nothing leaves it.",

@@ -8,6 +8,7 @@ import {
   IconChevronDown,
   IconChevronRight,
   IconMicrophone,
+  IconRobot,
   IconCommand,
   IconFeather,
   IconPalette,
@@ -183,6 +184,11 @@ const SettingsMenu = () => {
       title: 'common:voice',
       route: route.settings.voice,
       icon: IconMicrophone,
+    },
+    {
+      title: 'common:dsh',
+      route: route.settings.dsh,
+      icon: IconRobot,
     },
     {
       title: 'common:keyboardShortcuts',

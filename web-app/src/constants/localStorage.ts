@@ -32,6 +32,7 @@ export const localStorageKey = {
   pausedDownloads: 'paused-downloads',
   cotDuration: 'cot-duration',
   settingVoice: 'setting-voice',
+  settingDsh: 'setting-dsh',
 }
 
 export const CACHE_EXPIRY_MS = 1000 * 60 * 60 * 24

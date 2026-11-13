@@ -778,5 +778,6 @@
   "askSelectedCount": "{{count}} selected",
   "askSomethingElse": "Something else",
   "submit": "Submit",
-  "voice": "Voice"
+  "voice": "Voice",
+  "dsh": "DeepSeek Harness"
 }

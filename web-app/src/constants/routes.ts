@@ -13,6 +13,7 @@ export const route = {
     interface: '/settings/interface',
     shortcuts: '/settings/shortcuts',
     voice: '/settings/voice',
+    dsh: '/settings/dsh',
     extensions: '/settings/extensions',
     extension: '/settings/extensions/$extensionId',
     local_api_server: '/settings/local-api-server',

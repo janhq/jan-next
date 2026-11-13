@@ -25,6 +25,7 @@ pub async fn shutdown_cleanup<R: Runtime>(app: &AppHandle<R>) {
 
     let state = app.state::<AppState>();
     crate::core::speech::stop(state.speech()).await;
+    crate::core::dsh::stop(state.dsh()).await;
     match tokio::time::timeout(
         MCP_CLEANUP_TIMEOUT,
         background_cleanup_mcp_servers(app, &state),

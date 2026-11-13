@@ -33,6 +33,8 @@ import { DefaultExtensionsService } from './extensions/default'
 import type { ExtensionsService } from './extensions/types'
 import { DefaultSpeechService } from './speech/default'
 import type { SpeechService } from './speech/types'
+import { DefaultDshService } from './dsh/default'
+import type { DshService } from './dsh/types'
 
 // Import service types
 import type { ThemeService } from './theme/types'
@@ -76,6 +78,7 @@ export interface ServiceHub {
   uploads(): UploadsService
   extensions(): ExtensionsService
   speech(): SpeechService
+  dsh(): DshService
 }
 
 class PlatformServiceHub implements ServiceHub {
@@ -101,6 +104,7 @@ class PlatformServiceHub implements ServiceHub {
   // The install pipeline is desktop only (tauri-plugin-extensions).
   private extensionsService: ExtensionsService = new DefaultExtensionsService()
   private speechService: SpeechService = new DefaultSpeechService()
+  private dshService: DshService = new DefaultDshService()
   private initialized = false
 
   /**
@@ -132,6 +136,7 @@ class PlatformServiceHub implements ServiceHub {
           deepLinkModule,
           extensionsModule,
           speechModule,
+          dshModule,
         ] = await Promise.all([
           import('./theme/tauri'),
           import('./window/tauri'),
@@ -147,6 +152,7 @@ class PlatformServiceHub implements ServiceHub {
           import('./deeplink/tauri'),
           import('./extensions/tauri'),
           import('./speech/tauri'),
+          import('./dsh/tauri'),
         ])
 
         this.themeService = new themeModule.TauriThemeService()
@@ -163,6 +169,7 @@ class PlatformServiceHub implements ServiceHub {
         this.deepLinkService = new deepLinkModule.TauriDeepLinkService()
         this.extensionsService = new extensionsModule.TauriExtensionsService()
         this.speechService = new speechModule.TauriSpeechService()
+        this.dshService = new dshModule.TauriDshService()
       }
 
       this.initialized = true
@@ -286,6 +293,11 @@ class PlatformServiceHub implements ServiceHub {
   speech(): SpeechService {
     this.ensureInitialized()
     return this.speechService
+  }
+
+  dsh(): DshService {
+    this.ensureInitialized()
+    return this.dshService
   }
 }
 

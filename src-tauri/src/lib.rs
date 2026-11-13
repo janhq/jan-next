@@ -65,6 +65,12 @@ macro_rules! invoke_commands_with_extras {
         core::speech::commands::speech_stop,
         core::speech::commands::speech_speak,
         core::speech::commands::speech_transcribe,
+        // DeepSeek Harness agent backend
+        core::dsh::commands::dsh_start,
+        core::dsh::commands::dsh_send,
+        core::dsh::commands::dsh_stop,
+        core::dsh::commands::dsh_status,
+        core::dsh::commands::dsh_check_root,
         core::server::commands::set_server_run_in_background,
         // Agent commands
         core::agent::commands::agent_skill_list,
@@ -286,6 +292,7 @@ pub fn run() {
             mcp_reconnect_notify: Arc::new(tokio::sync::Notify::new()),
             mcp_last_known_tools: Arc::new(Mutex::new(HashMap::new())),
             speech: Default::default(),
+            dsh: Default::default(),
         })
         .manage(core::filesystem::grants::ReadGrants::with_home(
             dirs::home_dir(),

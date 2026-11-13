@@ -22,6 +22,7 @@ import { Route as SettingsInterfaceRouteImport } from './routes/settings/interfa
 import { Route as SettingsHttpsProxyRouteImport } from './routes/settings/https-proxy'
 import { Route as SettingsHardwareRouteImport } from './routes/settings/hardware'
 import { Route as SettingsGeneralRouteImport } from './routes/settings/general'
+import { Route as SettingsDshRouteImport } from './routes/settings/dsh'
 import { Route as SettingsAttachmentsRouteImport } from './routes/settings/attachments'
 import { Route as SettingsAssistantRouteImport } from './routes/settings/assistant'
 import { Route as ProjectProjectIdRouteImport } from './routes/project/$projectId'
@@ -97,6 +98,11 @@ const SettingsGeneralRoute = SettingsGeneralRouteImport.update({
   path: '/settings/general',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsDshRoute = SettingsDshRouteImport.update({
+  id: '/settings/dsh',
+  path: '/settings/dsh',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsAttachmentsRoute = SettingsAttachmentsRouteImport.update({
   id: '/settings/attachments',
   path: '/settings/attachments',
@@ -154,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/project/$projectId': typeof ProjectProjectIdRoute
   '/settings/assistant': typeof SettingsAssistantRoute
   '/settings/attachments': typeof SettingsAttachmentsRoute
+  '/settings/dsh': typeof SettingsDshRoute
   '/settings/general': typeof SettingsGeneralRoute
   '/settings/hardware': typeof SettingsHardwareRoute
   '/settings/https-proxy': typeof SettingsHttpsProxyRoute
@@ -178,6 +185,7 @@ export interface FileRoutesByTo {
   '/project/$projectId': typeof ProjectProjectIdRoute
   '/settings/assistant': typeof SettingsAssistantRoute
   '/settings/attachments': typeof SettingsAttachmentsRoute
+  '/settings/dsh': typeof SettingsDshRoute
   '/settings/general': typeof SettingsGeneralRoute
   '/settings/hardware': typeof SettingsHardwareRoute
   '/settings/https-proxy': typeof SettingsHttpsProxyRoute
@@ -203,6 +211,7 @@ export interface FileRoutesById {
   '/project/$projectId': typeof ProjectProjectIdRoute
   '/settings/assistant': typeof SettingsAssistantRoute
   '/settings/attachments': typeof SettingsAttachmentsRoute
+  '/settings/dsh': typeof SettingsDshRoute
   '/settings/general': typeof SettingsGeneralRoute
   '/settings/hardware': typeof SettingsHardwareRoute
   '/settings/https-proxy': typeof SettingsHttpsProxyRoute
@@ -229,6 +238,7 @@ export interface FileRouteTypes {
     | '/project/$projectId'
     | '/settings/assistant'
     | '/settings/attachments'
+    | '/settings/dsh'
     | '/settings/general'
     | '/settings/hardware'
     | '/settings/https-proxy'
@@ -253,6 +263,7 @@ export interface FileRouteTypes {
     | '/project/$projectId'
     | '/settings/assistant'
     | '/settings/attachments'
+    | '/settings/dsh'
     | '/settings/general'
     | '/settings/hardware'
     | '/settings/https-proxy'
@@ -277,6 +288,7 @@ export interface FileRouteTypes {
     | '/project/$projectId'
     | '/settings/assistant'
     | '/settings/attachments'
+    | '/settings/dsh'
     | '/settings/general'
     | '/settings/hardware'
     | '/settings/https-proxy'
@@ -302,6 +314,7 @@ export interface RootRouteChildren {
   ProjectProjectIdRoute: typeof ProjectProjectIdRoute
   SettingsAssistantRoute: typeof SettingsAssistantRoute
   SettingsAttachmentsRoute: typeof SettingsAttachmentsRoute
+  SettingsDshRoute: typeof SettingsDshRoute
   SettingsGeneralRoute: typeof SettingsGeneralRoute
   SettingsHardwareRoute: typeof SettingsHardwareRoute
   SettingsHttpsProxyRoute: typeof SettingsHttpsProxyRoute
@@ -411,6 +424,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsGeneralRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/dsh': {
+      id: '/settings/dsh'
+      path: '/settings/dsh'
+      fullPath: '/settings/dsh'
+      preLoaderRoute: typeof SettingsDshRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings/attachments': {
       id: '/settings/attachments'
       path: '/settings/attachments'
@@ -486,6 +506,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProjectProjectIdRoute: ProjectProjectIdRoute,
   SettingsAssistantRoute: SettingsAssistantRoute,
   SettingsAttachmentsRoute: SettingsAttachmentsRoute,
+  SettingsDshRoute: SettingsDshRoute,
   SettingsGeneralRoute: SettingsGeneralRoute,
   SettingsHardwareRoute: SettingsHardwareRoute,
   SettingsHttpsProxyRoute: SettingsHttpsProxyRoute,
