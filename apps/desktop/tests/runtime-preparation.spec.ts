@@ -92,7 +92,7 @@ it.each(['mac-arm64', 'mac-x64', 'win-x64'] as const)('prepares %s with one pnpm
   expect(JSON.parse(readFileSync(join(runtime, 'versions.json'), 'utf8'))).toEqual({
     schemaVersion: 1, node: '24.18.1', pnpm: '11.7.0',
   })
-  expect(state.preparePrimary).toHaveBeenCalledWith({ deferSmoke: windows })
+  expect(state.preparePrimary).toHaveBeenCalledWith(state.target, { deferSmoke: windows })
   if (windows) expect(state.commandLink).not.toHaveBeenCalled()
   else expect(state.commandLink).toHaveBeenCalledWith(join(runtime, 'cli'), target === 'mac-arm64' ? 'arm64' : 'x64', '12.0')
 })
