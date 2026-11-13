@@ -67,7 +67,60 @@ pub fn shared_value(ini: &str, key: &str) -> Option<String> {
     None
 }
 
-/// Load specs for every model in a preset.
+/// Worker-only key: a section whose only key is `alias-of = <section>` is not
+/// a model but a second name for that section. llama.cpp's loader ignores it
+/// (`ignore_unknown_keys`), and requests naming the alias reach the target's
+/// engine, so one file serves both names without loading it twice.
+pub const ALIAS_KEY: &str = "alias-of";
+
+/// A parsed preset: how each model starts, and which names are aliases.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct Preset {
+    pub specs: HashMap<String, LoadSpec>,
+    /// Alias name to the model section it serves.
+    pub aliases: HashMap<String, String>,
+}
+
+/// Parses a preset into model specs and aliases.
+///
+/// An alias must name a model section, never another alias or itself, and
+/// carry no other key: settings on it would have nothing to apply to.
+pub fn parse(ini_path: &str, ini: &str) -> Result<Preset, String> {
+    let bodies = section_bodies(ini);
+    let mut aliases = HashMap::new();
+    for section in sections(ini) {
+        let body = bodies.get(&section).map(Vec::as_slice).unwrap_or_default();
+        let targets: Vec<&str> = body.iter().filter_map(|line| alias_target(line)).collect();
+        match targets.as_slice() {
+            [] => {}
+            [target] if body.len() == 1 => {
+                aliases.insert(section, (*target).to_string());
+            }
+            [_] => {
+                return Err(format!(
+                    "alias [{section}] sets keys other than {ALIAS_KEY}"
+                ))
+            }
+            _ => return Err(format!("alias [{section}] names more than one model")),
+        }
+    }
+    let specs = specs(ini_path, ini);
+    for (alias, target) in &aliases {
+        if !specs.contains_key(target) {
+            return Err(format!(
+                "alias [{alias}] names {target}, which is not a model section"
+            ));
+        }
+    }
+    Ok(Preset { specs, aliases })
+}
+
+fn alias_target(line: &str) -> Option<&str> {
+    let (key, value) = line.split_once('=')?;
+    (key.trim() == ALIAS_KEY).then(|| value.trim())
+}
+
+/// Load specs for every model in a preset; alias sections are not models.
 ///
 /// The spec carries the section body so `Registry::reload` can diff it. Two
 /// presets that differ only in a model the caller did not touch therefore
@@ -78,18 +131,22 @@ pub fn specs(ini_path: &str, ini: &str) -> HashMap<String, LoadSpec> {
     let shared = bodies.get("*").cloned().unwrap_or_default();
     sections(ini)
         .into_iter()
-        .map(|section| {
+        .filter_map(|section| {
+            let own = bodies.remove(&section).unwrap_or_default();
+            if own.iter().any(|line| alias_target(line).is_some()) {
+                return None;
+            }
             let mut body = shared.clone();
-            body.extend(bodies.remove(&section).unwrap_or_default());
+            body.extend(own);
             body.sort();
-            (
+            Some((
                 section.clone(),
                 LoadSpec::Preset {
                     ini_path: ini_path.to_string(),
                     section,
                     body,
                 },
-            )
+            ))
         })
         .collect()
 }
@@ -196,5 +253,64 @@ embeddings = true
         let reordered = specs("/p.ini", "[a]\nmodel = /m.gguf\nembeddings = true\n");
         let original = specs("/p.ini", "[a]\nembeddings = true\nmodel = /m.gguf\n");
         assert_eq!(original, reordered);
+    }
+
+    const ALIASED: &str = "\
+[*]
+parallel = 1
+
+[qwen]
+model = /models/qwen.gguf
+
+[local]
+alias-of = qwen
+";
+
+    #[test]
+    fn an_alias_section_is_a_second_name_not_a_model() {
+        let preset = parse("/p.ini", ALIASED).unwrap();
+        assert_eq!(preset.specs.keys().collect::<Vec<_>>(), vec!["qwen"]);
+        assert_eq!(
+            preset.aliases.get("local").map(String::as_str),
+            Some("qwen")
+        );
+    }
+
+    // The point of an alias: retargeting it must not reload the model it named.
+    #[test]
+    fn retargeting_an_alias_leaves_every_model_spec_unchanged() {
+        let two = format!("{ALIASED}\n[gemma]\nmodel = /models/gemma.gguf\n");
+        let moved = parse(
+            "/p.ini",
+            &two.replace("alias-of = qwen", "alias-of = gemma"),
+        )
+        .unwrap();
+        let before = parse("/p.ini", &two).unwrap();
+        assert_eq!(before.specs, moved.specs);
+        assert_eq!(
+            moved.aliases.get("local").map(String::as_str),
+            Some("gemma")
+        );
+    }
+
+    #[test]
+    fn an_alias_must_name_a_model_section_and_nothing_else() {
+        let dangling = ALIASED.replace("alias-of = qwen", "alias-of = absent");
+        assert!(parse("/p.ini", &dangling).unwrap_err().contains("absent"));
+        let chained = format!("{ALIASED}\n[other]\nalias-of = local\n");
+        assert!(parse("/p.ini", &chained).is_err(), "an alias of an alias");
+        let itself = ALIASED.replace("alias-of = qwen", "alias-of = local");
+        assert!(parse("/p.ini", &itself).is_err());
+        let extra = ALIASED.replace("alias-of = qwen", "alias-of = qwen\nctx-size = 4096");
+        assert!(parse("/p.ini", &extra).unwrap_err().contains("other than"));
+        let twice = ALIASED.replace("alias-of = qwen", "alias-of = qwen\nalias-of = qwen");
+        assert!(parse("/p.ini", &twice).is_err());
+    }
+
+    #[test]
+    fn a_preset_without_aliases_parses_to_its_specs() {
+        let preset = parse("/p.ini", INI).unwrap();
+        assert!(preset.aliases.is_empty());
+        assert_eq!(preset.specs, specs("/p.ini", INI));
     }
 }

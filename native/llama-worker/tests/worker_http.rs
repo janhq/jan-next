@@ -548,6 +548,85 @@ async fn reload_applies_a_regenerated_preset_and_reports_the_diff() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn an_alias_selects_its_target_and_follows_a_reload() {
+    let dir = tempfile::tempdir().unwrap();
+    let preset = write_preset(
+        dir.path(),
+        &format!("{PRESET_TWO}\n[local]\nalias-of = alpha\n"),
+    );
+    let base = serve_preset(&preset).await;
+
+    let (status, body) = post(
+        &base,
+        "/models/reload",
+        &format!(r#"{{"preset_path":"{preset}"}}"#),
+        Some(KEY),
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    let models = || async {
+        let v: serde_json::Value = reqwest::Client::new()
+            .get(format!("{base}/v1/models"))
+            .bearer_auth(KEY)
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        v
+    };
+    let listed = models().await;
+    assert_eq!(
+        listed["data"].as_array().unwrap().len(),
+        2,
+        "an alias is not listed as a model: {listed}"
+    );
+    assert_eq!(listed["data"][0]["aliases"], serde_json::json!(["local"]));
+
+    // The gguf does not exist, so the load fails -- on the target, which proves the alias resolved.
+    let (status, _) = post(&base, "/models/load", r#"{"model":"local"}"#, Some(KEY)).await;
+    assert!((400..600).contains(&status));
+    assert_eq!(models().await["data"][0]["status"]["failed"], true);
+
+    write_preset(
+        dir.path(),
+        &format!("{PRESET_TWO}\n[local]\nalias-of = beta\n"),
+    );
+    let (status, body) = post(
+        &base,
+        "/models/reload",
+        &format!(r#"{{"preset_path":"{preset}"}}"#),
+        Some(KEY),
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    let v: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(
+        v["changed"],
+        serde_json::json!([]),
+        "retargeting an alias reloads no model"
+    );
+    assert_eq!(
+        models().await["data"][1]["aliases"],
+        serde_json::json!(["local"])
+    );
+
+    write_preset(
+        dir.path(),
+        &format!("{PRESET_TWO}\n[local]\nalias-of = gamma\n"),
+    );
+    let (status, body) = post(
+        &base,
+        "/models/reload",
+        &format!(r#"{{"preset_path":"{preset}"}}"#),
+        Some(KEY),
+    )
+    .await;
+    assert_eq!(status, 400, "a dangling alias is refused: {body}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn reload_rejects_a_missing_preset_rather_than_emptying_the_registry() {
     let dir = std::env::temp_dir().join(format!("jan-reload-miss-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();

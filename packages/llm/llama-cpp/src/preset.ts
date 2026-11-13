@@ -1,7 +1,9 @@
 /**
- * Router preset INI the worker serves: a `[*]` block of shared llama.cpp server options and one
- * section per model, whose name is the model id requests select. A key is the server's CLI flag
- * without its leading dashes; an option left unset is omitted so llama.cpp (or the GGUF) decides.
+ * Router preset INI the worker serves: a `[*]` block of shared llama.cpp server options, one
+ * section per model, whose name is the model id requests select, and alias sections
+ * (`alias-of = <model id>`) that select another section's model without loading it twice. A key is
+ * the server's CLI flag without its leading dashes; an option left unset is omitted so llama.cpp
+ * (or the GGUF) decides.
  */
 import type { Config } from './config.ts'
 import type { ModelFacts } from './gguf.ts'
@@ -73,9 +75,11 @@ function optional(key: string, setting: number | string | undefined): string[] {
  * on unless configured, and the context is omitted only when `ctxSize` is 0.
  * @param settings - resolved settings.
  * @param models - model sections, in order.
+ * @param aliases - alias section name to the model id it selects; the worker refuses an alias of
+ * anything but a listed model.
  * @returns the INI text.
  */
-export function renderPreset(settings: PresetSettings, models: readonly PresetModel[]): string {
+export function renderPreset(settings: PresetSettings, models: readonly PresetModel[], aliases: Readonly<Record<string, string>>): string {
   const { ctxSize, fit, fitTargetMiB, fitCtx, gpuLayers, parallel } = settings
   const fitted = [
     'fit = on', `fit-target = ${String(fitTargetMiB)}`,
@@ -114,5 +118,6 @@ export function renderPreset(settings: PresetSettings, models: readonly PresetMo
     ]
     return `[${model.id}]\n${lines.join('\n')}\n`
   })
-  return [`[*]\n${shared.join('\n')}\n`, ...sections].join('\n')
+  const aliasSections = Object.entries(aliases).map(([alias, target]) => `[${alias}]\nalias-of = ${target}\n`)
+  return [`[*]\n${shared.join('\n')}\n`, ...sections, ...aliasSections].join('\n')
 }

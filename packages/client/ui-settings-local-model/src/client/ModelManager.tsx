@@ -1,17 +1,18 @@
 /**
- * Local model manager inside the Models card: installed models (use, delete), downloads in
- * progress, curated models with a search box that also looks up Hugging Face repositories, and
- * import of a GGUF file from disk.
+ * Local model manager inside the Models card: installed models (fit, context, residency; load,
+ * unload, make default, delete), downloads in progress, curated models with a search box that also
+ * looks up Hugging Face repositories, and import of a GGUF file from disk.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Button, Input, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { HuggingFaceRepoInfo, LlamaCppState, LocalModelEntry } from '@deepseek-ai/dsh-api-llama-cpp-controller'
-import type { LocalModelActions } from './actions.ts'
+import type { HuggingFaceRepoInfo, LlamaCppState, LocalModelEntry, LocalModelStatus } from '@deepseek-ai/dsh-api-llama-cpp-controller'
+import type { LocalModelActions, Outcome } from './actions.ts'
 import { formatBytes } from './state.ts'
-import { DownloadProgress, type T } from './parts.tsx'
+import { DownloadProgress, FitTag, type T } from './parts.tsx'
 import css from './LocalModel.module.css'
 
 const SOURCE_KEY = { catalog: 'sourceCatalog', huggingface: 'sourceHuggingFace', import: 'sourceImport' } as const
+const STATUS_KEY = { loaded: 'statusLoaded', loading: 'statusLoading', unloaded: 'statusUnloaded' } as const satisfies Record<LocalModelStatus, string>
 
 /** Text that names a Hugging Face repository rather than a catalog search. */
 const REPO_INPUT = /^(?:https?:\/\/\S+|[\w.-]+\/[\w.-]+)$/
@@ -35,36 +36,65 @@ export function ModelManager(props: SectionProps): ReactNode {
 
 function InstalledModels({ state, actions, t }: SectionProps): ReactNode {
   const [confirming, setConfirming] = useState<string | undefined>()
+  // One model operation at a time per row; its failure stays on the row until the next attempt.
+  const [pending, setPending] = useState<ReadonlySet<string>>(new Set())
+  const [errors, setErrors] = useState<ReadonlyMap<string, string>>(new Map())
   if (state.models.length === 0) return null
   const busy = state.phase === 'starting' || state.phase === 'checking'
+  const running = state.phase === 'running'
+  const perform = (id: string, call: (id: string) => Promise<Outcome<void>>): void => {
+    setPending(current => new Set(current).add(id))
+    setErrors((current) => { const next = new Map(current); next.delete(id); return next })
+    void call(id).then((outcome) => {
+      setPending((current) => { const next = new Set(current); next.delete(id); return next })
+      if (!outcome.ok) setErrors(current => new Map(current).set(id, outcome.error))
+    })
+  }
   return <section className={css.section} aria-label={t('installedTitle')}>
     <h4 className={css.sectionTitle}>{t('installedTitle')}</h4>
     <ul className={css.list} data-testid="local-model-installed">
-      {state.models.map((model: LocalModelEntry) => <li key={model.id} className={css.row} data-model-id={model.id}>
-        <span className={css.rowMain}>
-          <span className={css.rowName} title={model.name}>{model.name}</span>
-          <span className={css.muted}>{formatBytes(model.bytes)} · {t(SOURCE_KEY[model.source])}</span>
-        </span>
-        {confirming === model.id ? <span className={css.actions}>
-          <span className={css.muted}>
-            {t(model.source === 'import' ? 'forgetConfirm' : 'deleteConfirm', { name: model.name, size: formatBytes(model.bytes) })}
+      {state.models.map((model: LocalModelEntry) => {
+        const disabled = busy || pending.has(model.id)
+        const error = errors.get(model.id)
+        const context = model.contextSize ?? model.contextLength
+        const detail = [
+          formatBytes(model.bytes), model.architecture,
+          ...context === undefined ? [] : [t(model.contextSize === undefined ? 'trainedContext' : 'modelContext', { tokens: context.toLocaleString() })],
+          t(SOURCE_KEY[model.source]),
+        ].join(' · ')
+        return <li key={model.id} className={css.row} data-model-id={model.id} data-status={model.status}>
+          <span className={css.rowMain}>
+            <span className={css.offerHead}>
+              <span className={css.rowName} title={model.name}>{model.name}</span>
+              {model.active && <span title={t('defaultHint')}><Tag tone="info">{t('defaultTag')}</Tag></span>}
+              <FitTag fit={model.fit} t={t} />
+            </span>
+            <span className={css.muted}>{detail}</span>
           </span>
-          <Button variant="ghost" size="sm" onClick={() => { setConfirming(undefined) }}>{t('keep')}</Button>
-          <Button variant="outline" size="sm" data-testid="local-model-confirm-delete" onClick={() => {
-            setConfirming(undefined)
-            actions.deleteModel(model.id)
-          }}>{t(model.source === 'import' ? 'confirmForget' : 'confirmDelete')}</Button>
-        </span> : <span className={css.actions}>
-          {model.active
-            ? <Tag tone="success">{t('inUse')}</Tag>
-            : <Button variant="outline" size="sm" data-testid="local-model-use" disabled={busy} onClick={() => { actions.selectModel(model.id) }}>
-              {t('use')}
-            </Button>}
-          <Button variant="ghost" size="sm" data-testid="local-model-delete" disabled={busy} onClick={() => { setConfirming(model.id) }}>
-            {t('deleteModel')}
-          </Button>
-        </span>}
-      </li>)}
+          {confirming === model.id ? <span className={css.actions}>
+            <span className={css.muted}>
+              {t(model.source === 'import' ? 'forgetConfirm' : 'deleteConfirm', { name: model.name, size: formatBytes(model.bytes) })}
+            </span>
+            <Button variant="ghost" size="sm" onClick={() => { setConfirming(undefined) }}>{t('keep')}</Button>
+            <Button variant="outline" size="sm" data-testid="local-model-confirm-delete" onClick={() => {
+              setConfirming(undefined)
+              perform(model.id, actions.deleteModel)
+            }}>{t(model.source === 'import' ? 'confirmForget' : 'confirmDelete')}</Button>
+          </span> : <span className={css.actions}>
+            {running && <span className={css.status} data-testid="local-model-residency">{t(STATUS_KEY[model.status])}</span>}
+            {running && model.status === 'unloaded' && <Button variant="outline" size="sm" data-testid="local-model-load" disabled={disabled}
+              onClick={() => { perform(model.id, actions.loadModel) }}>{t('load')}</Button>}
+            {running && model.status === 'loaded' && <Button variant="outline" size="sm" data-testid="local-model-unload" disabled={disabled}
+              onClick={() => { perform(model.id, actions.unloadModel) }}>{t('unload')}</Button>}
+            {!model.active && <Button variant="outline" size="sm" data-testid="local-model-make-default" disabled={disabled}
+              onClick={() => { perform(model.id, actions.setDefaultModel) }}>{t('makeDefault')}</Button>}
+            <Button variant="ghost" size="sm" data-testid="local-model-delete" disabled={disabled} onClick={() => { setConfirming(model.id) }}>
+              {t('deleteModel')}
+            </Button>
+          </span>}
+          {error !== undefined && <span className={`${css.rowWide} ${css.error}`} role="alert">{error}</span>}
+        </li>
+      })}
     </ul>
   </section>
 }
@@ -154,6 +184,7 @@ function AddModel({ state, actions, t }: SectionProps): ReactNode {
             <span className={css.offerHead}>
               <span className={css.rowName}>{entry.name}</span>
               {entry.recommended && <Tag tone="info">{t('recommended')}</Tag>}
+              <FitTag fit={entry.fit} t={t} />
             </span>
             <span className={css.muted}>{formatBytes(entry.bytes)} · {entry.repo}</span>
           </span>
@@ -211,6 +242,7 @@ function RepoFiles({ result, state, actions, t, started, onStarted }: RepoFilesP
           <span className={css.offerHead}>
             <span className={css.rowName} title={file.file}>{file.file}</span>
             {file.recommended && <Tag tone="info">{t('recommended')}</Tag>}
+            <FitTag fit={file.fit} t={t} />
           </span>
           <span className={css.muted}>{formatBytes(file.bytes)}{file.quant === undefined ? '' : ` · ${file.quant}`}</span>
         </span>

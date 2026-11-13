@@ -1,6 +1,9 @@
 /** Client-visible state of the managed local llama.cpp worker and its models. Carries no paths or keys. */
 
-/** Lifecycle phase of the local worker and the active model it serves. */
+/**
+ * Lifecycle phase of the local worker. `running` means it serves the route: the default model is
+ * loaded and the others load on first use.
+ */
 export type LlamaCppPhase =
   | 'checking' | 'missing' | 'downloading' | 'installed' | 'starting' | 'running' | 'stopped' | 'failed'
 
@@ -12,7 +15,7 @@ export interface LlamaCppProgress {
   bytesPerSecond: number
 }
 
-/** Facts about the active model, or the model the first-run offer installs when none is active. */
+/** Facts about the default model, or the model the first-run offer installs when none is installed. */
 export interface LlamaCppModelInfo {
   /** Installed or catalog model id. */
   id: string
@@ -52,14 +55,21 @@ export interface LlamaCppHardware {
 /** Where an installed model came from. */
 export type LocalModelSource = 'catalog' | 'huggingface' | 'import'
 
+/** Whether an installed model is in the worker's memory; `unloaded` while the worker is not running. */
+export type LocalModelStatus = 'loading' | 'loaded' | 'unloaded'
+
 /** One installed model. */
 export interface LocalModelEntry {
+  /** Stable id; the route serves it as `<provider>/<id>`. */
   id: string
   name: string
   bytes: number
   source: LocalModelSource
-  /** The model the worker serves. */
+  /** The default model, which the route's alias id also serves and which loads when the worker starts. */
   active: boolean
+  status: LocalModelStatus
+  /** Context the worker settled on the last time it loaded this model. */
+  contextSize?: number
   /** `general.architecture` of the GGUF file. */
   architecture: string
   /** Context the model was trained with, when its file declares it. */
@@ -117,17 +127,17 @@ export interface HuggingFaceRepoInfo {
 export interface LlamaCppState {
   phase: LlamaCppPhase
   model: LlamaCppModelInfo
-  /** Model provider route that serves the active model. */
+  /** Model provider route that serves every installed model. */
   provider: string
   /** Progress of the first download in {@link downloads} that is running (not failed or queued); present while bytes flow. */
   progress?: LlamaCppProgress
   /** Human-readable failure, present in `failed`. */
   error?: string
-  /** Context size the active model settled on (after `fit`), present while running. */
+  /** Context size the default model settled on (after `fit`), present while running. */
   contextSize?: number
   /** Last worker log lines, present when the worker failed. */
   logTail?: string
-  /** Installed models; at most one is active. */
+  /** Installed models; exactly one is active (the default) when any is installed. */
   models: LocalModelEntry[]
   /** Downloads in progress, queued or failed, in start order. */
   downloads: LlamaCppDownload[]

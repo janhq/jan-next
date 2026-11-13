@@ -55,9 +55,11 @@ async function files(entries: Record<string, Buffer>, options: { ignoreRange?: b
 // ── worker protocol ─────────────────────────────────────────────────────────
 
 it('parses the worker handshake and refuses anything else', () => {
-  expect(parseHandshake('{"port":39271,"pid":12,"models":["local"],"cuda_toolkit":null,"devices":[{"id":"Vulkan0","name":"GPU"}]}'))
-    .toEqual({ port: 39271, pid: 12, models: ['local'], devices: [{ id: 'Vulkan0', name: 'GPU' }] })
-  expect(parseHandshake('{"port":1,"pid":1,"models":[],"devices":null}').devices).toBeNull()
+  expect(parseHandshake('{"port":39271,"pid":12,"models":["qwen"],"aliases":{"local":"qwen"},"cuda_toolkit":null,"devices":[{"id":"Vulkan0","name":"GPU"}]}'))
+    .toEqual({ port: 39271, pid: 12, models: ['qwen'], aliases: { local: 'qwen' }, devices: [{ id: 'Vulkan0', name: 'GPU' }] })
+  expect(parseHandshake('{"port":1,"pid":1,"models":[],"aliases":{},"devices":null}').devices).toBeNull()
+  expect(() => parseHandshake('{"port":1,"pid":1,"models":[],"devices":null}')).toThrow(/invalid handshake/)
+  expect(() => parseHandshake('{"port":1,"pid":1,"models":[],"aliases":{"local":3},"devices":null}')).toThrow(/invalid handshake/)
   expect(() => parseHandshake('listening')).toThrow(WorkerProtocolError)
   expect(() => parseHandshake('{"port":0,"pid":1,"models":[],"devices":[]}')).toThrow(/invalid handshake/)
   expect(() => parseHandshake('{"port":80,"pid":1,"models":[3],"devices":[]}')).toThrow(/invalid handshake/)
@@ -124,12 +126,12 @@ const MODEL = ggufFile(chatModel(40960), 256 * 1024)
 /** One line the fake worker appends to `fake-events.jsonl`. */
 interface FakeEvent {
   pid: number
-  type: 'start' | 'reload' | 'load' | 'exit'
+  type: 'start' | 'reload' | 'load' | 'unload' | 'exit'
   argv?: string[]
   hasKey?: boolean
   keyInArgv?: boolean
   cwd?: string
-  preset?: { shared: Record<string, string>; models: Record<string, { model?: string; 'ctx-size'?: string }> }
+  preset?: { shared: Record<string, string>; models: Record<string, { model?: string; 'ctx-size'?: string }>; aliases: Record<string, string> }
   model?: string
   modelsMax?: number
   reason?: string
@@ -215,7 +217,9 @@ it('installs the model, publishes the worker endpoint and key, and serves the ro
   expect(endpoint).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/v1$/)
   expect((await fetch(`${endpoint}/models`)).status).toBe(401)
   const models = await fetch(`${endpoint}/models`, { headers: { authorization: `Bearer ${key}` } })
-  expect(await models.json()).toMatchObject({ data: [{ id: 'local', status: { value: 'loaded' } }] })
+  expect(await models.json()).toMatchObject({ data: [{ id: 'jan-v3.5-4b', status: { value: 'loaded' } }] })
+  expect(running.models).toMatchObject([{ id: 'jan-v3.5-4b', active: true, contextSize: 32768 }])
+  expect((await f.until(s => s.models[0]?.status === 'loaded')).models[0]?.status).toBe('loaded')
 
   const [start] = await f.events()
   const preset = join(f.home, 'data', 'run', 'preset.ini')
@@ -229,7 +233,8 @@ it('installs the model, publishes the worker endpoint and key, and serves the ro
   })
   expect(start?.preset?.shared).not.toHaveProperty('n-gpu-layers')
   expect(start?.preset?.shared).not.toHaveProperty('jinja')
-  expect(start?.preset?.models.local?.model).toBe(join(f.home, 'data', 'models', 'jan-v3.5-4b', `${sha(MODEL).slice(0, 16)}.gguf`))
+  expect(start?.preset?.models['jan-v3.5-4b']?.model).toBe(join(f.home, 'data', 'models', 'jan-v3.5-4b', `${sha(MODEL).slice(0, 16)}.gguf`))
+  expect(start?.preset?.aliases).toEqual({ local: 'jan-v3.5-4b' })
   expect(running.contextSize).toBe(32768)
 })
 
@@ -455,38 +460,95 @@ const HF_FILES = {
   [`/acme/tiny-GGUF/resolve/${REVISION}/tiny-Q4_K_M.gguf`]: TINY,
 }
 
-/** The model file the fake worker's `local` section names after its last start or reload. */
-async function launchedModel(f: { events: () => Promise<FakeEvent[]> }): Promise<string | undefined> {
+/** The model sections and the `local` alias target of the fake worker's preset after its last start or reload. */
+async function lastPreset(f: { events: () => Promise<FakeEvent[]> }): Promise<{ models: string[]; local?: string }> {
   const last = (await f.events()).filter(event => event.type === 'start' || event.type === 'reload').at(-1)
-  expect(Object.keys(last?.preset?.models ?? {})).toEqual(['local'])
-  return last?.preset?.models.local?.model
+  const local = last?.preset?.aliases.local
+  return { models: Object.keys(last?.preset?.models ?? {}), ...local === undefined ? {} : { local } }
 }
 
 
-it('switches models by reloading the running worker\'s preset, without restarting it', async () => {
+it('makes another model the default by moving the alias, without restarting the worker or reloading a model', async () => {
   const f = await fixture({ extraFiles: HF_FILES })
   f.llama.install()
   await f.until(s => s.phase === 'running')
   const id = await f.llama.downloadHuggingFace('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')
   await f.until(s => s.models.length === 2 && s.downloads.length === 0)
+  // A new model joins the running worker's preset; the default stays loaded.
+  expect(await lastPreset(f)).toEqual({ models: ['jan-v3.5-4b', id], local: 'jan-v3.5-4b' })
+  expect((await f.events()).filter(event => event.type === 'unload')).toEqual([])
   const endpoint = await f.endpoint()
   const key = await f.key()
-  await f.llama.select(id)
-  expect(f.llama.snapshot()).toMatchObject({ phase: 'running', model: { id } })
+  await f.llama.setDefault(id)
+  expect(f.llama.snapshot()).toMatchObject({ phase: 'running', model: { id }, contextSize: 8192 })
   const events = await f.events()
   expect(events.filter(event => event.type === 'start')).toHaveLength(1)
   expect(new Set(events.map(event => event.pid)).size).toBe(1)
-  expect(events.filter(event => event.type === 'reload')).toMatchObject([{ modelsMax: 1 }])
-  expect(events.at(-1)).toMatchObject({ type: 'load', model: 'local', path: join(f.home, 'data', 'models', id, `${sha(TINY).slice(0, 16)}.gguf`) })
-  // The worker, its port and its key stay; only the model behind `local` changed.
+  expect(events.filter(event => event.type === 'reload')).toMatchObject([{ modelsMax: 1 }, { modelsMax: 1 }])
+  expect(await lastPreset(f)).toEqual({ models: ['jan-v3.5-4b', id], local: id })
+  // Only the one resident model is unloaded, by the bound of 1, when the new default loads.
+  expect(events.filter(event => event.type === 'unload' || event.type === 'load').slice(-2)).toMatchObject([
+    { type: 'unload', model: 'jan-v3.5-4b' },
+    { type: 'load', model: id, path: join(f.home, 'data', 'models', id, `${sha(TINY).slice(0, 16)}.gguf`) },
+  ])
   expect(await f.endpoint()).toBe(endpoint)
   expect(await f.key()).toBe(key)
-  // Selecting the model already served reloads nothing.
-  await f.llama.select(id)
-  expect((await f.events()).filter(event => event.type === 'reload')).toHaveLength(1)
+  // Making the default the default again changes nothing.
+  await f.llama.setDefault(id)
+  expect((await f.events()).filter(event => event.type === 'reload')).toHaveLength(2)
 }, 30_000)
 
-it('downloads a model from a Hugging Face repository, switches to it, and removes it', async () => {
+/** Stream one chat completion from the worker and read the text it answers. */
+type Route = { endpoint: () => Promise<string | undefined>; key: () => Promise<string | undefined> }
+
+async function chat(f: Route, model: string): Promise<string> {
+  const response = await fetch(`${await f.endpoint()}/chat/completions`, {
+    method: 'POST', headers: { authorization: `Bearer ${await f.key()}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ model, messages: [{ role: 'user', content: 'hi' }], stream: true }),
+  })
+  return await response.text()
+}
+
+it('serves each model under its own id and the default under the alias, keeping at most modelsMax resident', async () => {
+  const f = await fixture({ extraFiles: HF_FILES, config: { modelsMax: 2 } })
+  f.llama.install()
+  await f.until(s => s.phase === 'running')
+  const id = await f.llama.downloadHuggingFace('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')
+  await f.until(s => s.models.length === 2 && s.downloads.length === 0)
+  expect(f.llama.snapshot().models.map(model => model.status)).toEqual(['loaded', 'unloaded'])
+  expect(await chat(f, id)).toContain(join('models', id))
+  // The second model loaded on first use, beside the first, and its settled context was read.
+  const both = await f.until(s => s.models.every(model => model.status === 'loaded') && s.models[1]?.contextSize !== undefined)
+  expect(both.models).toMatchObject([{ id: 'jan-v3.5-4b', contextSize: 32768 }, { id, contextSize: 8192 }])
+  expect(await chat(f, 'local')).toContain(join('models', 'jan-v3.5-4b'))
+  expect((await f.events()).filter(event => event.type === 'load').map(event => event.model)).toEqual(['jan-v3.5-4b', id])
+
+  await f.llama.unloadModel(id)
+  await f.until(s => s.models[1]?.status === 'unloaded')
+  await f.llama.loadModel(id)
+  await f.until(s => s.models[1]?.status === 'loaded')
+  await f.llama.stop()
+  expect(f.llama.snapshot().models.map(model => model.status)).toEqual(['unloaded', 'unloaded'])
+  // Loading while stopped starts the worker with the default first.
+  await f.llama.loadModel(id)
+  expect(f.llama.snapshot()).toMatchObject({ phase: 'running', models: [{ status: 'loaded' }, { status: 'loaded' }] })
+}, 30_000)
+
+it('evicts the least recently used model at a bound of one', async () => {
+  const f = await fixture({ extraFiles: HF_FILES })
+  f.llama.install()
+  await f.until(s => s.phase === 'running')
+  const id = await f.llama.downloadHuggingFace('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')
+  await f.until(s => s.models.length === 2 && s.downloads.length === 0)
+  expect(await chat(f, id)).toContain(join('models', id))
+  const swapped = await f.until(s => s.models[0]?.status === 'unloaded' && s.models[1]?.status === 'loaded')
+  // The worker keeps serving the route while the default is not resident.
+  expect(swapped).toMatchObject({ phase: 'running', model: { id: 'jan-v3.5-4b' } })
+  expect(await chat(f, 'local')).toContain(join('models', 'jan-v3.5-4b'))
+  await f.until(s => s.models[0]?.status === 'loaded' && s.models[1]?.status === 'unloaded')
+}, 30_000)
+
+it('downloads a model from a Hugging Face repository, makes it the default, and removes it', async () => {
   const f = await fixture({ extraFiles: HF_FILES })
   f.llama.install()
   await f.until(s => s.phase === 'running')
@@ -498,28 +560,58 @@ it('downloads a model from a Hugging Face repository, switches to it, and remove
   expect(id).toBe('tiny-q4_k_m')
   const added = await f.until(s => s.models.length === 2 && s.downloads.length === 0)
   expect(f.seen.some(s => s.downloads[0]?.progress?.totalBytes === TINY.length)).toBe(true)
-  // A second model does not take over the running one.
+  // A second model does not become the default.
   expect(added).toMatchObject({ phase: 'running', model: { id: 'jan-v3.5-4b' } })
   expect(added.models).toMatchObject([
     { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', bytes: MODEL.length, source: 'catalog', active: true, architecture: 'qwen3', contextLength: 40960 },
-    { id, name: 'tiny-Q4_K_M', bytes: TINY.length, source: 'huggingface', active: false, architecture: 'qwen3', contextLength: 8192 },
+    { id, name: 'tiny-Q4_K_M', bytes: TINY.length, source: 'huggingface', active: false, status: 'unloaded', architecture: 'qwen3', contextLength: 8192 },
   ])
   expect((await f.llama.lookupHuggingFace('acme/tiny-GGUF')).files[0]?.installed).toBe(true)
   // Asking again for an installed file names the installed model.
   expect(await f.llama.downloadHuggingFace('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')).toBe(id)
 
-  await f.llama.select(id)
+  await f.llama.setDefault(id)
   expect(f.llama.snapshot()).toMatchObject({ phase: 'running', model: { id, name: 'tiny-Q4_K_M' } })
-  expect(await launchedModel(f)).toContain(join('models', id))
+  expect((await lastPreset(f)).local).toBe(id)
+  await f.until(s => s.models[1]?.status === 'loaded')
 
   await f.llama.removeModel(id)
   expect(f.llama.snapshot()).toMatchObject({ phase: 'running', model: { id: 'jan-v3.5-4b' } })
   expect(f.llama.snapshot().models.map(model => model.id)).toEqual(['jan-v3.5-4b'])
-  expect(await launchedModel(f)).toContain(join('models', 'jan-v3.5-4b'))
+  expect(await lastPreset(f)).toEqual({ models: ['jan-v3.5-4b'], local: 'jan-v3.5-4b' })
+  // The resident model was unloaded before its file went.
+  const events = await f.events()
+  expect(events.findIndex(event => event.type === 'unload' && event.model === id))
+    .toBeLessThan(events.findLastIndex(event => event.type === 'reload'))
   await expect(stat(join(f.home, 'data', 'models', id))).rejects.toThrow()
   await expect(f.llama.downloadHuggingFace('acme/tiny-GGUF', 'missing.gguf')).rejects.toThrow(/no downloadable file/)
   await expect(f.llama.lookupHuggingFace('acme/absent')).rejects.toMatchObject({ reason: 'not-found' })
 }, 30_000)
+
+it('keeps a model whose unload the worker refuses while it serves requests', async () => {
+  const f = await fixture({ mode: { unloadBusy: true } })
+  f.llama.install()
+  await f.until(s => s.phase === 'running')
+  await expect(f.llama.removeModel('jan-v3.5-4b')).rejects.toThrow(/requests in flight/)
+  expect(f.llama.snapshot()).toMatchObject({ phase: 'running', models: [{ id: 'jan-v3.5-4b' }] })
+  await expect(f.llama.unloadModel('jan-v3.5-4b')).rejects.toThrow(/requests in flight/)
+  expect((await stat(join(f.home, 'data', 'models', 'jan-v3.5-4b'))).isDirectory()).toBe(true)
+})
+
+it('moves a model installed under the alias id to a free id', async () => {
+  const home = await temp('llama-clash-')
+  const file = join('models', 'local', 'm.gguf')
+  await mkdir(join(home, 'data', 'models', 'local'), { recursive: true })
+  await writeFile(join(home, 'data', file), TINY)
+  await writeFile(join(home, 'data', 'install.json'), JSON.stringify({
+    version: 2, active: 'local', models: [{ id: 'local', name: 'Local', file, bytes: TINY.length, source: 'import' }],
+  }))
+  const f = await fixture({ home })
+  const state = await f.until(s => s.phase === 'running' || s.phase === 'failed')
+  expect(state).toMatchObject({ phase: 'running', model: { id: 'local-2' }, models: [{ id: 'local-2', active: true }] })
+  expect(await lastPreset(f)).toEqual({ models: ['local-2'], local: 'local-2' })
+  expect(JSON.parse(await readFile(join(home, 'data', 'install.json'), 'utf8'))).toMatchObject({ version: 3, active: 'local-2' })
+})
 
 it('imports a GGUF file in place, refuses other files, and only forgets it on removal', async () => {
   const f = await fixture()
@@ -541,10 +633,10 @@ it('imports a GGUF file in place, refuses other files, and only forgets it on re
   expect(id).toBe('my-model')
   const running = await f.until(s => s.phase === 'running' || s.phase === 'failed')
   expect(running).toMatchObject({ phase: 'running', model: { id, name: 'My Model' }, models: [{ id, source: 'import', active: true }] })
-  expect(await launchedModel(f)).toBe(model)
+  expect((await f.events())[0]?.preset?.models[id]?.model).toBe(model)
   // Trained with 8192 tokens, so the section caps the configured 32768 and the worker reports 8192.
   const [start] = await f.events()
-  expect(start?.preset?.models.local?.['ctx-size']).toBe('8192')
+  expect(start?.preset?.models[id]?.['ctx-size']).toBe('8192')
   expect(running.contextSize).toBe(8192)
   expect(await f.llama.importModel(model)).toBe(id)
 
@@ -613,7 +705,7 @@ class FakeSettings extends Service {
   }
 }
 
-it('lists the active model on the local route when a settings service is mounted', async () => {
+it('lists every installed model and the default\'s alias on the local route when a settings service is mounted', async () => {
   const settings: { current?: FakeSettings } = {}
   const f = await fixture({ extraFiles: HF_FILES, before: async (ctx) => {
     await ctx.plugin(FakeSettings)
@@ -621,16 +713,63 @@ it('lists the active model on the local route when a settings service is mounted
   } })
   f.llama.install()
   await f.until(s => s.phase === 'running')
-  const entry = { id: 'local', name: 'Jan v3.5 4B (local)', contextWindow: 32768, maxTokens: 8192 }
-  expect(settings.current?.writes).toEqual([{ ns: 'llm-pi-ai', ops: [{ op: 'set', path: ['providers', 'local', 'models'], value: [entry] }] }])
+  const jan = { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B (local)', contextWindow: 32768, maxTokens: 8192 }
+  const alias = { ...jan, id: 'local', name: 'Jan v3.5 4B (local default)' }
+  expect(settings.current?.writes).toEqual([{ ns: 'llm-pi-ai', ops: [{ op: 'set', path: ['providers', 'local', 'models'], value: [alias, jan] }] }])
   const id = await f.llama.downloadHuggingFace('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')
   await f.until(s => s.models.length === 2)
-  await f.llama.select(id)
-  // The route lists the context the worker serves, capped at the model's trained 8192.
-  expect(settings.current?.value.providers.local?.models).toEqual([{ ...entry, name: 'tiny-Q4_K_M (local)', contextWindow: 8192 }])
+  // The new model is listed with its planned context, capped at its trained 8192.
+  const tiny = { id, name: 'tiny-Q4_K_M (local)', contextWindow: 8192, maxTokens: 8192 }
+  expect(settings.current?.value.providers.local?.models).toEqual([alias, jan, tiny])
+  await f.llama.setDefault(id)
+  expect(settings.current?.value.providers.local?.models).toEqual([{ ...tiny, id: 'local', name: 'tiny-Q4_K_M (local default)' }, jan, tiny])
   // An unchanged list is not written again.
-  await f.llama.select(id)
-  expect(settings.current?.writes).toHaveLength(2)
+  await f.llama.setDefault(id)
+  expect(settings.current?.writes).toHaveLength(3)
+}, 30_000)
+
+/** Agent default model stand-in; the route it names is usable when listed in `usable`. */
+class FakeDefaults extends Service {
+  selection = { provider: 'local', model: 'local' }
+  constructor(ctx: Context) { super(ctx, 'agentDefaultModel') }
+  currentSelection(): { provider: string; model: string } { return this.selection }
+  saveSelection(selection: { provider: string; model: string }): Promise<void> { this.selection = selection; return Promise.resolve() }
+}
+
+class FakeLlm extends Service {
+  usable = new Set<string>()
+  constructor(ctx: Context) { super(ctx, 'llm') }
+  listModels(provider: string): Promise<unknown[]> { return Promise.resolve(this.usable.has(provider) ? [{}] : []) }
+}
+
+it('keeps the agent default on a model this route serves, and moves it to the alias when that model goes', async () => {
+  const services: { defaults?: FakeDefaults; llm?: FakeLlm } = {}
+  const f = await fixture({ extraFiles: HF_FILES, before: async (ctx) => {
+    await ctx.plugin(FakeDefaults)
+    await ctx.plugin(FakeLlm)
+    services.defaults = ctx.get('agentDefaultModel') as never
+    services.llm = ctx.get('llm') as never
+  } })
+  const defaults = services.defaults!
+  defaults.selection = { provider: 'tokamak', model: 'x' }
+  f.llama.install()
+  await f.until(s => s.phase === 'running')
+  // A default route that cannot serve gives way to the local alias.
+  expect(defaults.selection).toEqual({ provider: 'local', model: 'local' })
+  const id = await f.llama.downloadHuggingFace('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')
+  await f.until(s => s.models.length === 2)
+
+  defaults.selection = { provider: 'local', model: id }
+  await f.llama.stop()
+  await f.llama.start()
+  expect(defaults.selection).toEqual({ provider: 'local', model: id })
+  await f.llama.removeModel(id)
+  expect(defaults.selection).toEqual({ provider: 'local', model: 'local' })
+
+  services.llm!.usable.add('tokamak')
+  defaults.selection = { provider: 'tokamak', model: 'x' }
+  await f.llama.setDefault('jan-v3.5-4b')
+  expect(defaults.selection).toEqual({ provider: 'tokamak', model: 'x' })
 }, 30_000)
 
 it('reads a repository from typed text and refuses other hosts', () => {

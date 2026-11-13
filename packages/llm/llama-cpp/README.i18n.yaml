@@ -1,0 +1,64 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/llm/llama-cpp/README.md
+/:
+  en: b50510542d03903d
+  zh: 2732cc4189ee793a
+/deepseek-ai-dsh-llama-cpp:
+  en: c1f1b87c96756180
+  zh: 601d51710caca77f
+/deepseek-ai-dsh-llama-cpp/summary:
+  en: 58c158cbee300836
+  zh: 9663cbd8d36f0df7
+/deepseek-ai-dsh-llama-cpp/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: 09388d293f9be9cb
+/deepseek-ai-dsh-llama-cpp/use-this-package:
+  en: d9e2df859af96616
+  zh: 2f3027fdc2318f7a
+/deepseek-ai-dsh-llama-cpp/use-this-package/when-to-choose-it:
+  en: 0163fcf1dbe84a23
+  zh: 82e86dde2e58bf19
+/deepseek-ai-dsh-llama-cpp/use-this-package/minimal-configuration:
+  en: 8fac3201c3304cbf
+  zh: a96971501525aecc
+/deepseek-ai-dsh-llama-cpp/use-this-package/models-and-the-picker:
+  en: c3dbe02164262319
+  zh: a6941f428a6f9af2
+/deepseek-ai-dsh-llama-cpp/use-this-package/worker-lifecycle:
+  en: d8542ad4dbafbfff
+  zh: 391c0346283b4e90
+/deepseek-ai-dsh-llama-cpp/use-this-package/hardware-fit:
+  en: d22685880b56964c
+  zh: 095b9b4fb24335ee
+/deepseek-ai-dsh-llama-cpp/use-this-package/state:
+  en: 15830f9372991542
+  zh: 85aa2106cc7f0f98
+/deepseek-ai-dsh-llama-cpp/understand-the-implementation:
+  en: b4cba3a54d97028e
+  zh: 08bf1d0cc21b6fab
+/deepseek-ai-dsh-llama-cpp/further-exploration:
+  en: 8457a705f1b9458c
+  zh: 88581ec6f603c7de
+/deepseek-ai-dsh-llama-cpp/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-llama-cpp/model-experience/local-model-requests:
+  en: 447331c930c07a00
+  zh: 1c63999d270a9c81
+/deepseek-ai-dsh-llama-cpp/model-experience/local-model-requests/what-the-model-sees:
+  en: 68e52a5f50cc612a
+  zh: 97626aa5ddbec13d
+/deepseek-ai-dsh-llama-cpp/model-experience/local-model-requests/token-effect:
+  en: d65801ff9f637bd1
+  zh: 080f6bdfbe6a46d0
+/deepseek-ai-dsh-llama-cpp/model-experience/local-model-requests/kv-cache-effect:
+  en: 5d88cf471c42b198
+  zh: d0a8d5e812b09c46
+/deepseek-ai-dsh-llama-cpp/known-limitations-and-deferred-work:
+  en: 660d5ab34eb77069
+  zh: 691ec6e1294f8431
+/deepseek-ai-dsh-llama-cpp/known-limitations-and-deferred-work/dev-note:
+  en: e67f633dc6fe7773
+  zh: 3bb0c20c93f16f98

@@ -5,8 +5,8 @@ import type {} from '@deepseek-ai/dsh-llama-cpp'
 import type { HuggingFaceRepoInfo, LlamaCppState } from '@deepseek-ai/dsh-llama-cpp/types'
 
 export type {
-  CatalogModelInfo, HuggingFaceFileInfo, HuggingFaceRepoInfo, LlamaCppDownload, LlamaCppModelInfo, LlamaCppPhase,
-  LlamaCppProgress, LlamaCppState, LocalModelEntry, LocalModelSource,
+  CatalogModelInfo, HuggingFaceFileInfo, HuggingFaceRepoInfo, LlamaCppDevice, LlamaCppDownload, LlamaCppHardware, LlamaCppModelInfo,
+  LlamaCppPhase, LlamaCppProgress, LlamaCppState, LocalModelEntry, LocalModelSource, LocalModelStatus, ModelFit,
 } from '@deepseek-ai/dsh-llama-cpp/types'
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
@@ -126,17 +126,38 @@ export default class LlamaCppController extends TypertRemoteService {
   }
 
   /**
-   * Serve an installed model; a running worker switches to it without restarting.
+   * Make an installed model the default, which the route's alias id serves, and load it; a stopped
+   * worker starts. A start failure arrives through {@link follow}.
    * @param id - installed model id.
-   * @returns after the worker serves it or has failed.
+   * @returns after the worker serves it or has failed to start.
    */
   @Remote
-  async selectModel(id: string): Promise<void> {
-    try { await this.ctx.llamaCpp.select(id) } catch (error) { throw failed(error) }
+  async setDefaultModel(id: string): Promise<void> {
+    try { await this.ctx.llamaCpp.setDefault(id) } catch (error) { throw failed(error) }
   }
 
   /**
-   * Remove an installed model; an imported file is only forgotten.
+   * Load an installed model now instead of on its first request, starting a stopped worker.
+   * @param id - installed model id.
+   * @returns after it is loaded.
+   */
+  @Remote
+  async loadModel(id: string): Promise<void> {
+    try { await this.ctx.llamaCpp.loadModel(id) } catch (error) { throw failed(error) }
+  }
+
+  /**
+   * Free a loaded model's memory; it loads again on its next request.
+   * @param id - installed model id.
+   * @returns after it is unloaded.
+   */
+  @Remote
+  async unloadModel(id: string): Promise<void> {
+    try { await this.ctx.llamaCpp.unloadModel(id) } catch (error) { throw failed(error) }
+  }
+
+  /**
+   * Remove an installed model, unloading it first; an imported file is only forgotten.
    * @param id - installed model id.
    * @returns after it is removed.
    */
@@ -146,7 +167,7 @@ export default class LlamaCppController extends TypertRemoteService {
   }
 
   /**
-   * Start the worker with the active model.
+   * Start the worker with the default model.
    * @returns after it is running or has failed.
    */
   @Remote

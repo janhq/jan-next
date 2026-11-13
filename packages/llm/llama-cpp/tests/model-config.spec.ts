@@ -117,19 +117,25 @@ describe('preset', () => {
   const model = { id: 'local', path: '/m/a.gguf', facts }
 
   it('writes the configured sizing and runtime options, and omits what llama.cpp decides', () => {
-    expect(renderPreset(settings, [model])).toBe([
+    expect(renderPreset(settings, [model], {})).toBe([
       '[*]', 'fit = on', 'fit-target = 1024', 'ctx-size = 32768', 'flash-attn = on', 'cache-type-k = q8_0', 'cache-type-v = q8_0',
       'slot-save-path = /data/slots', '', '[local]', 'model = /m/a.gguf', '',
     ].join('\n'))
   })
 
+  it('writes one section per model and an alias section after them', () => {
+    const second = { ...model, id: 'other', path: '/m/b.gguf' }
+    expect(renderPreset(settings, [model, second], { default: 'other' }))
+      .toContain('[local]\nmodel = /m/a.gguf\n\n[other]\nmodel = /m/b.gguf\n\n[default]\nalias-of = other\n')
+  })
+
   it('lets fit choose the context when ctxSize is 0, and pins context and layers with fit off', () => {
-    const auto = renderPreset({ ...settings, ctxSize: 0, threads: 4 }, [model])
+    const auto = renderPreset({ ...settings, ctxSize: 0, threads: 4 }, [model], {})
     expect(auto).toContain('fit = on\nfit-target = 1024\nfit-ctx = 16384\n')
     expect(auto).toContain('threads = 4\n')
     expect(auto).not.toContain('ctx-size')
-    expect(renderPreset({ ...settings, fit: false, ctxSize: 0, gpuLayers: 20 }, [model])).toContain('fit = off\nctx-size = 16384\nn-gpu-layers = 20\n')
-    expect(renderPreset({ ...settings, fit: false }, [model])).toContain('n-gpu-layers = 999\n')
+    expect(renderPreset({ ...settings, fit: false, ctxSize: 0, gpuLayers: 20 }, [model], {})).toContain('fit = off\nctx-size = 16384\nn-gpu-layers = 20\n')
+    expect(renderPreset({ ...settings, fit: false }, [model], {})).toContain('n-gpu-layers = 999\n')
   })
 
   it('turns fit off by default on macOS only, and refuses a quantized cache without flash attention', () => {
@@ -144,7 +150,7 @@ describe('preset', () => {
     const ini = renderPreset({
       ...settings, batchSize: 1024, ubatchSize: 256, parallel: 2, nCpuMoe: 4, device: 'Vulkan0', splitMode: 'row', mainGpu: 1,
       kvOffload: false, loadMode: 'mmap+mlock', cacheRamMiB: -1,
-    }, [model])
+    }, [model], {})
     expect(ini).toContain([
       'batch-size = 1024', 'ubatch-size = 256', 'parallel = 2', 'kv-unified = true', 'n-cpu-moe = 4', 'device = Vulkan0',
       'split-mode = row', 'main-gpu = 1', 'no-kv-offload = true', 'load-mode = mmap+mlock', 'cache-ram = -1',
@@ -153,23 +159,23 @@ describe('preset', () => {
 
   it('serves a model trained with a shorter context at its trained context', () => {
     const short = { ...model, facts: modelFacts(chatModel(8192)) }
-    expect(renderPreset(settings, [short])).toContain('[local]\nmodel = /m/a.gguf\nctx-size = 8192\n')
-    expect(renderPreset({ ...settings, ctxSize: 0 }, [short])).not.toContain('ctx-size')
-    expect(renderPreset({ ...settings, ctxSize: 0, fit: false }, [short])).toContain('[local]\nmodel = /m/a.gguf\nctx-size = 8192\n')
+    expect(renderPreset(settings, [short], {})).toContain('[local]\nmodel = /m/a.gguf\nctx-size = 8192\n')
+    expect(renderPreset({ ...settings, ctxSize: 0 }, [short], {})).not.toContain('ctx-size')
+    expect(renderPreset({ ...settings, ctxSize: 0, fit: false }, [short], {})).toContain('[local]\nmodel = /m/a.gguf\nctx-size = 8192\n')
     expect(plannedContext(settings, short.facts)).toBe(8192)
     expect(plannedContext({ ...settings, ctxSize: 0 }, facts)).toBe(16384)
   })
 
   it('writes the MoE cache only for a model with experts and a split llama.cpp accepts it with', () => {
     const moe = { ...model, facts: { ...facts, expertCount: 64 } }
-    expect(renderPreset({ ...settings, moeCacheMiB: 2048 }, [model])).not.toContain('moe-cache-mib')
-    expect(renderPreset({ ...settings, moeCacheMiB: 2048 }, [moe])).toContain('[local]\nmodel = /m/a.gguf\nmoe-cache-mib = 2048\n')
-    expect(renderPreset({ ...settings, moeCacheMiB: 2048, splitMode: 'tensor' }, [moe])).not.toContain('moe-cache-mib')
-    expect(renderPreset({ ...settings, moeCacheMiB: 2048, device: 'none' }, [moe])).not.toContain('moe-cache-mib')
+    expect(renderPreset({ ...settings, moeCacheMiB: 2048 }, [model], {})).not.toContain('moe-cache-mib')
+    expect(renderPreset({ ...settings, moeCacheMiB: 2048 }, [moe], {})).toContain('[local]\nmodel = /m/a.gguf\nmoe-cache-mib = 2048\n')
+    expect(renderPreset({ ...settings, moeCacheMiB: 2048, splitMode: 'tensor' }, [moe], {})).not.toContain('moe-cache-mib')
+    expect(renderPreset({ ...settings, moeCacheMiB: 2048, device: 'none' }, [moe], {})).not.toContain('moe-cache-mib')
   })
 
   it('keeps every value on one line', () => {
-    expect(renderPreset({ ...settings, slotSavePath: '/s\n[evil]' }, [{ ...model, path: '/m/b\n[evil]' }]))
+    expect(renderPreset({ ...settings, slotSavePath: '/s\n[evil]' }, [{ ...model, path: '/m/b\n[evil]' }], {}))
       .toContain('slot-save-path = /s [evil]\n\n[local]\nmodel = /m/b [evil]\n')
   })
 })

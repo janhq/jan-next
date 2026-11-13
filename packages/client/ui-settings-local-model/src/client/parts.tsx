@@ -1,7 +1,7 @@
 /** Pieces shared by the Models card and the first-run option. */
 import type { ReactNode } from 'react'
-import { StateDot, type StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { LlamaCppPhase, LlamaCppProgress, LlamaCppState } from '@deepseek-ai/dsh-api-llama-cpp-controller'
+import { StateDot, Tag, type StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { LlamaCppHardware, LlamaCppPhase, LlamaCppProgress, LlamaCppState, ModelFit } from '@deepseek-ai/dsh-api-llama-cpp-controller'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { estimateRemaining, formatBytes } from './state.ts'
 import type { NS } from './locales.ts'
@@ -73,4 +73,29 @@ export function Failure({ state, t }: { state: LlamaCppState; t: T }): ReactNode
       <pre className={css.log}>{state.logTail}</pre>
     </details>}
   </div>
+}
+
+const FIT = {
+  fits: { label: 'fitFits', hint: 'fitFitsHint', tone: 'success' },
+  tight: { label: 'fitTight', hint: 'fitTightHint', tone: 'warning' },
+  'too-large': { label: 'fitTooLarge', hint: 'fitTooLargeHint', tone: 'danger' },
+} as const satisfies Record<ModelFit, { label: string; hint: string; tone: 'success' | 'warning' | 'danger' }>
+
+/** How a model compares with this machine's memory; nothing while that is unknown. */
+export function FitTag({ fit, t }: { fit: ModelFit | undefined; t: T }): ReactNode {
+  if (fit === undefined) return null
+  const copy = FIT[fit]
+  return <span title={t(copy.hint)} data-testid="local-model-fit" data-fit={fit}><Tag tone={copy.tone}>{t(copy.label)}</Tag></span>
+}
+
+/** One line naming the accelerators, the backend and system memory the worker found. */
+export function HardwareSummary({ hardware, t }: { hardware: LlamaCppHardware | undefined; t: T }): ReactNode {
+  if (hardware === undefined) return null
+  const devices = hardware.devices.map(device => `${device.name} (${formatBytes(device.totalMiB * 1024 * 1024)})`).join(', ')
+  const parts = [
+    hardware.devices.length === 0 ? t('hardwareCpuOnly') : t('hardwareDevices', { devices }),
+    t('hardwareBackend', { backend: hardware.backend }),
+    t('hardwareMemory', { memory: formatBytes(hardware.memoryBytes) }),
+  ]
+  return <p className={css.muted} data-testid="local-model-hardware">{parts.join(' · ')}</p>
 }

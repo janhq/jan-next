@@ -1092,7 +1092,7 @@ async cancel(id?: string): Promise<void>
 
 /**
  * Add a GGUF file from disk, left where it is, recording its header facts. The first model added
- * becomes active and starts.
+ * becomes the default and starts; a later one joins the running worker's preset.
  * @param path - absolute path of a `.gguf` file.
  * @param name - display name; defaults to the file name.
  * @returns the model id.
@@ -1102,20 +1102,41 @@ async cancel(id?: string): Promise<void>
 importModel(path: string, name?: string): Promise<string>
 
 /**
- * Make an installed model the active one and serve it. A running worker reloads its preset instead
- * of restarting.
+ * Make an installed model the default: the route's alias id serves it and it loads when the worker
+ * starts. A running worker retargets the alias without reloading any model, then loads it; a
+ * stopped one starts. An agent default on another model of this route moves to the alias id.
  * @param id - installed model id.
- * @returns once the worker serves it or has failed.
- * @throws Error for an id that is not installed.
+ * @returns once the worker serves it; a failed start is published as the `failed` phase.
+ * @throws Error for an id that is not installed, or carrying the worker's reason when a running
+ * worker could not load it.
  */
-select(id: string): Promise<void>
+setDefault(id: string): Promise<void>
 
 /**
- * Remove an installed model. A downloaded file is deleted; an imported file is only forgotten.
- * Removing the active model makes the next installed model active and, if the worker was serving,
- * serves that one.
+ * Load an installed model into the running worker, starting the worker first when it is stopped.
+ * With {@link Config.modelsMax} models resident, the least recently used idle one is unloaded.
+ * @param id - installed model id.
+ * @returns once the model is loaded.
+ * @throws Error for an id that is not installed, or carrying the worker's reason when it could not
+ * load the model (all resident models busy, or a load failure).
+ */
+loadModel(id: string): Promise<void>
+
+/**
+ * Unload a model from the running worker; it loads again on its next request.
+ * @param id - installed model id.
+ * @returns once it is unloaded, or at once when the worker does not hold it.
+ * @throws Error carrying the worker's reason when the model has requests in flight.
+ */
+unloadModel(id: string): Promise<void>
+
+/**
+ * Remove an installed model. A downloaded file is deleted; an imported file is only forgotten. A
+ * resident model is unloaded first, because Windows cannot delete a file the worker maps.
+ * Removing the default makes the next installed model the default; removing the last stops the worker.
  * @param id - installed model id.
  * @returns once the record and the worker reflect the removal.
+ * @throws Error carrying the worker's reason when the model has requests in flight.
  */
 removeModel(id: string): Promise<void>
 
@@ -1204,21 +1225,36 @@ Install, start, stop and remove the local models and the worker serving them; pr
 @Remote async importModel(path: string): Promise<string>
 
 /**
- * Serve an installed model; a running worker switches to it without restarting.
+ * Make an installed model the default, which the route's alias id serves, and load it; a stopped
+ * worker starts. A start failure arrives through {@link follow}.
  * @param id - installed model id.
- * @returns after the worker serves it or has failed.
+ * @returns after the worker serves it or has failed to start.
  */
-@Remote async selectModel(id: string): Promise<void>
+@Remote async setDefaultModel(id: string): Promise<void>
 
 /**
- * Remove an installed model; an imported file is only forgotten.
+ * Load an installed model now instead of on its first request, starting a stopped worker.
+ * @param id - installed model id.
+ * @returns after it is loaded.
+ */
+@Remote async loadModel(id: string): Promise<void>
+
+/**
+ * Free a loaded model's memory; it loads again on its next request.
+ * @param id - installed model id.
+ * @returns after it is unloaded.
+ */
+@Remote async unloadModel(id: string): Promise<void>
+
+/**
+ * Remove an installed model, unloading it first; an imported file is only forgotten.
  * @param id - installed model id.
  * @returns after it is removed.
  */
 @Remote async deleteModel(id: string): Promise<void>
 
 /**
- * Start the worker with the active model.
+ * Start the worker with the default model.
  * @returns after it is running or has failed.
  */
 @Remote async startServer(): Promise<void>

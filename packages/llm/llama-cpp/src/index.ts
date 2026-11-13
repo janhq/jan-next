@@ -1,13 +1,15 @@
 /**
  * Managed local llama.cpp: downloads any number of verified GGUF models (curated, from a Hugging
  * Face repository, or imported from disk) and supervises the bundled `jan-llama-worker`, which
- * serves the active model on an OS-assigned loopback port.
+ * serves every installed model on an OS-assigned loopback port, loading each on first use and
+ * keeping at most {@link Config.modelsMax} resident.
  *
- * The active model is served through an `llm-pi-ai` route (`local` by default) whose `apiKeyEnv`
- * and `baseURLEnv` name {@link Config.apiKeyRef} and {@link Config.baseURLRef}. A fresh key and the
+ * The models are served through an `llm-pi-ai` route (`local` by default) whose `apiKeyEnv` and
+ * `baseURLEnv` name {@link Config.apiKeyRef} and {@link Config.baseURLRef}. A fresh key and the
  * worker's endpoint are stored through the credentials service each time the worker becomes ready
- * and withdrawn when it stops, so the route offers no models while nothing serves. When a settings
- * service is mounted, the route's model list is kept equal to the active model
+ * and withdrawn when it stops, so the route offers no models while nothing serves. Each model is
+ * `<provider>/<model id>`; `<provider>/<routeModelId>` is an alias of the default model. When a
+ * settings service is mounted, the route's model list is kept equal to the installed models
  * ({@link Config.routeNamespace}).
  */
 import { randomBytes } from 'node:crypto'
@@ -32,9 +34,12 @@ import { accelerators, assessFit, backendOf, type MachineMemory } from './memory
 import { plannedContext, renderPreset, resolvePresetSettings, type PresetSettings } from './preset.ts'
 import { RateMeter } from './rate.ts'
 import type {
-  HuggingFaceRepoInfo, LlamaCppDownload, LlamaCppPhase, LlamaCppProgress, LlamaCppState, LocalModelEntry, LocalModelSource, ModelFit,
+  HuggingFaceRepoInfo, LlamaCppDownload, LlamaCppPhase, LlamaCppProgress, LlamaCppState, LocalModelEntry, LocalModelSource,
+  LocalModelStatus, ModelFit,
 } from './types.ts'
-import { describeExit, parseDeviceList, parseHandshake, readFirstLine, WorkerClient, WorkerProtocolError } from './worker.ts'
+import {
+  describeExit, parseDeviceList, parseHandshake, readFirstLine, WorkerClient, WorkerProtocolError, type WorkerModelEvent,
+} from './worker.ts'
 
 export type * from './types.ts'
 export { Config } from './config.ts'
@@ -50,8 +55,8 @@ export type { MachineMemory } from './memory.ts'
 export { plannedContext, renderPreset, resolvePresetSettings } from './preset.ts'
 export type { PresetModel, PresetSettings } from './preset.ts'
 export { RateMeter } from './rate.ts'
-export { describeExit, parseDeviceList, parseHandshake, WorkerProtocolError } from './worker.ts'
-export type { WorkerDevice, WorkerHandshake } from './worker.ts'
+export { describeExit, parseDeviceList, parseHandshake, parseModelEvent, WorkerProtocolError } from './worker.ts'
+export type { WorkerDevice, WorkerHandshake, WorkerModelEvent } from './worker.ts'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -120,12 +125,22 @@ interface Running {
   key: string
   /** Present once the handshake named the port. */
   client?: WorkerClient
-  /** Installed model id the worker's route section was last loaded with. */
-  served?: string
+  /** Model ids the worker reported loading or loaded through `/models/sse`; absent ones are unloaded. */
+  resident: Map<string, Exclude<LocalModelStatus, 'unloaded'>>
+  /** Ends the `/models/sse` subscription. */
+  feed: AbortController
   stopping: boolean
   /** Set when {@link LlamaCpp.terminate} had to kill it. */
   forced?: boolean
   outcome?: SubprocessOutcome
+}
+
+/** One `llm-pi-ai` route model entry. */
+interface RouteModel {
+  id: string
+  name: string
+  contextWindow: number
+  maxTokens: number
 }
 
 /** Worker-side fields of the state; the model list, downloads and catalog are derived on publish. */
@@ -133,7 +148,6 @@ interface ServerState {
   phase: LlamaCppPhase
   error?: string
   logTail?: string
-  contextSize?: number
 }
 
 function tail(text: string | undefined): string | undefined {
@@ -214,6 +228,8 @@ export class LlamaCpp extends Service {
   private machine: MachineMemory | undefined
   /** The device listing in progress; disposal waits for it. */
   private probing: Promise<void> = Promise.resolve()
+  /** Context the worker last settled on per model id; kept across unloads so the route list stays stable. */
+  private readonly contexts = new Map<string, number>()
 
   constructor(ctx: Context, private readonly config: Config) {
     super(ctx, 'llamaCpp')
@@ -378,17 +394,21 @@ export class LlamaCpp extends Service {
     }))
     const installed = new Set(this.record.models.map(model => model.id))
     const progress = downloads.find(item => item.error === undefined && item.progress !== undefined)?.progress
+    const contextSize = this.server.phase === 'running' && active !== undefined ? this.contexts.get(active.id) : undefined
     return {
       phase: this.server.phase, provider: this.config.provider,
       model: { id: offered.id, name: offered.name, modelBytes: offered.bytes },
       ...progress === undefined ? {} : { progress },
       ...this.server.error === undefined ? {} : { error: this.server.error },
       ...this.server.logTail === undefined ? {} : { logTail: this.server.logTail },
-      ...this.server.contextSize === undefined ? {} : { contextSize: this.server.contextSize },
+      ...contextSize === undefined ? {} : { contextSize },
       models: this.record.models.map((model): LocalModelEntry => {
         const kvBytes = estimateKvBytes(model.facts, plannedContext(this.preset, model.facts), this.preset.cacheType) ?? 0
+        const settled = this.contexts.get(model.id)
         return {
           id: model.id, name: model.name, bytes: model.bytes, source: model.source, active: model.id === this.record.active,
+          status: this.running?.resident.get(model.id) ?? 'unloaded',
+          ...settled === undefined ? {} : { contextSize: settled },
           architecture: model.facts.architecture,
           ...model.facts.contextLength === undefined ? {} : { contextLength: model.facts.contextLength },
           ...this.fitOf(model.bytes + kvBytes),
@@ -475,9 +495,18 @@ export class LlamaCpp extends Service {
       try { models.push({ ...model, facts: await readModelFacts(this.modelPath(model)) }) }
       catch (error) { this.ctx.logger.warn(`llama-cpp: ${model.name} cannot be served (${messageOf(error)}); it is no longer listed`) }
     }
-    const active = models.some(model => model.id === record.active) ? record.active : models[0]?.id
+    // The alias section takes the route model id, so a model installed under it moves to a free id.
+    const clash = models.find(model => model.id === this.config.routeModelId)
+    let active = record.active
+    if (clash !== undefined) {
+      this.record = { version: 3, models }
+      const id = this.freeId(slug(clash.name))
+      if (active === clash.id) active = id
+      models.splice(models.indexOf(clash), 1, { ...clash, id })
+    }
+    if (!models.some(model => model.id === active)) active = models[0]?.id
     this.record = { version: 3, models, ...active === undefined ? {} : { active } }
-    if (record.version !== 3) await this.writeRecord()
+    if (record.version !== 3 || clash !== undefined) await this.writeRecord()
   }
 
   /** Convert the one-model record of earlier builds; its model file stays where it is. */
@@ -611,8 +640,8 @@ export class LlamaCpp extends Service {
 
   /** @returns an id no installed model, download or curated model uses, derived from `base`. */
   private freeId(base: string): string {
-    const taken = (id: string): boolean => this.record.models.some(model => model.id === id) || this.jobs.has(id)
-      || catalogModel(id) !== undefined
+    const taken = (id: string): boolean => id === this.config.routeModelId || this.record.models.some(model => model.id === id)
+      || this.jobs.has(id) || catalogModel(id) !== undefined
     if (!taken(base)) return base
     let n = 2
     while (taken(`${base}-${String(n)}`)) n++
@@ -669,6 +698,7 @@ export class LlamaCpp extends Service {
         }
         try { await this.writeRecord() }
         catch (error) { this.record = previous; throw error }
+        if (!first) await this.modelsChanged()
         this.jobs.delete(job.spec.id)
         this.emit()
         if (!first) return
@@ -703,7 +733,7 @@ export class LlamaCpp extends Service {
 
   /**
    * Add a GGUF file from disk, left where it is, recording its header facts. The first model added
-   * becomes active and starts.
+   * becomes the default and starts; a later one joins the running worker's preset.
    * @param path - absolute path of a `.gguf` file.
    * @param name - display name; defaults to the file name.
    * @returns the model id.
@@ -740,19 +770,23 @@ export class LlamaCpp extends Service {
         this.setServer({ phase: 'installed' })
         await this.syncRoute()
         await this.launch()
+      } else {
+        await this.modelsChanged()
       }
       return id
     })
   }
 
   /**
-   * Make an installed model the active one and serve it. A running worker reloads its preset instead
-   * of restarting.
+   * Make an installed model the default: the route's alias id serves it and it loads when the worker
+   * starts. A running worker retargets the alias without reloading any model, then loads it; a
+   * stopped one starts. An agent default on another model of this route moves to the alias id.
    * @param id - installed model id.
-   * @returns once the worker serves it or has failed.
-   * @throws Error for an id that is not installed.
+   * @returns once the worker serves it; a failed start is published as the `failed` phase.
+   * @throws Error for an id that is not installed, or carrying the worker's reason when a running
+   * worker could not load it.
    */
-  select(id: string): Promise<void> {
+  setDefault(id: string): Promise<void> {
     if (!this.record.models.some(model => model.id === id)) return Promise.reject(new Error(`no installed model "${id}"`))
     this.launching?.abort()
     return this.task(async () => {
@@ -763,46 +797,86 @@ export class LlamaCpp extends Service {
         try { await this.writeRecord() }
         catch (error) { this.record = previous; throw error }
         this.emit()
-        await this.syncRoute()
+        await this.modelsChanged()
       }
       await this.rememberStart(true)
-      await this.serveActive()
+      const running = this.running
+      if (running?.client === undefined || running.stopping) await this.launch()
+      else await this.loadInto(running, running.client, id)
+      await this.adoptDefault(true)
     }).catch((error: unknown) => { this.fail(error) })
   }
 
   /**
-   * Remove an installed model. A downloaded file is deleted; an imported file is only forgotten.
-   * Removing the active model makes the next installed model active and, if the worker was serving,
-   * serves that one.
+   * Load an installed model into the running worker, starting the worker first when it is stopped.
+   * With {@link Config.modelsMax} models resident, the least recently used idle one is unloaded.
+   * @param id - installed model id.
+   * @returns once the model is loaded.
+   * @throws Error for an id that is not installed, or carrying the worker's reason when it could not
+   * load the model (all resident models busy, or a load failure).
+   */
+  loadModel(id: string): Promise<void> {
+    return this.task(async () => {
+      const model = this.record.models.find(candidate => candidate.id === id)
+      if (model === undefined) throw new Error(`no installed model "${id}"`)
+      if (this.running?.client === undefined) {
+        await this.rememberStart(true)
+        await this.launch()
+      }
+      const running = this.running
+      if (running?.client === undefined || running.stopping) throw new Error('the local model worker is not running')
+      await this.loadInto(running, running.client, id)
+    })
+  }
+
+  /**
+   * Unload a model from the running worker; it loads again on its next request.
+   * @param id - installed model id.
+   * @returns once it is unloaded, or at once when the worker does not hold it.
+   * @throws Error carrying the worker's reason when the model has requests in flight.
+   */
+  unloadModel(id: string): Promise<void> {
+    return this.task(async () => {
+      const running = this.running
+      if (running?.client === undefined || running.stopping) return
+      await running.client.unload(id, AbortSignal.any([this.lifetime.signal, AbortSignal.timeout(this.config.stopTimeoutMs)]))
+    })
+  }
+
+  /**
+   * Remove an installed model. A downloaded file is deleted; an imported file is only forgotten. A
+   * resident model is unloaded first, because Windows cannot delete a file the worker maps.
+   * Removing the default makes the next installed model the default; removing the last stops the worker.
    * @param id - installed model id.
    * @returns once the record and the worker reflect the removal.
+   * @throws Error carrying the worker's reason when the model has requests in flight.
    */
   removeModel(id: string): Promise<void> {
     if (this.record.active === id) this.launching?.abort()
     return this.task(async () => {
       const model = this.record.models.find(candidate => candidate.id === id)
       if (model === undefined) return
+      const running = this.running
+      // Asked even when the feed has not reported it resident yet; the worker answers that case at once.
+      if (running?.client !== undefined && !running.stopping) {
+        await running.client.unload(id, AbortSignal.any([this.lifetime.signal, AbortSignal.timeout(this.config.stopTimeoutMs)]))
+      }
       const wasActive = this.record.active === id
-      const wasServing = wasActive && this.running !== undefined
       this.record.models = this.record.models.filter(candidate => candidate.id !== id)
+      this.contexts.delete(id)
       if (wasActive) {
         const next = this.record.models[0]?.id
         if (next === undefined) delete this.record.active
         else this.record.active = next
       }
       await this.writeRecord()
-      if (wasActive) {
-        if (this.activeModel() === undefined) {
-          await this.terminate()
-          this.setServer({ phase: 'missing' })
-        } else {
-          this.setServer({ phase: wasServing ? 'installed' : 'stopped' })
-          await this.syncRoute()
-          // Before the file goes: Windows cannot delete a model the worker still maps.
-          if (wasServing) await this.serveActive()
-        }
+      if (this.activeModel() === undefined) {
+        await this.terminate()
+        this.setServer({ phase: 'missing' })
       } else {
         this.emit()
+        await this.modelsChanged()
+        await this.adoptDefault(false)
       }
       if (model.source !== 'import') {
         const file = this.modelPath(model)
@@ -843,20 +917,23 @@ export class LlamaCpp extends Service {
   }
 
   /**
-   * Keep the route's model list equal to the active model, so the picker names what the worker
-   * serves, with the context it serves: the context the worker reports while it serves the model,
-   * otherwise the planned one, never above the trained context. Skipped without a settings service
-   * or namespace, and when the list already matches.
+   * Keep the route's model list equal to the installed models, so the picker names every model the
+   * worker serves: the alias id of the default model first, then each model under its own id, with
+   * the context the worker last settled on for it, otherwise the planned one, never above the trained
+   * context. Skipped without a settings service or namespace, and when the list already matches.
    */
   private async syncRoute(): Promise<void> {
     const settings = this.ctx.get('settings')
     const ns = this.config.routeNamespace
     const active = this.activeModel()
     if (settings === undefined || ns === '' || active === undefined) return
-    const models = [{
-      id: this.config.routeModelId, name: `${active.name} (local)`,
-      contextWindow: this.routeContext(active), maxTokens: this.config.routeMaxTokens,
-    }]
+    const entry = (id: string, name: string, model: ModelRecord): RouteModel => ({
+      id, name, contextWindow: this.routeContext(model), maxTokens: this.config.routeMaxTokens,
+    })
+    const models = [
+      entry(this.config.routeModelId, `${active.name} (local default)`, active),
+      ...this.record.models.map(model => entry(model.id, `${model.name} (local)`, model)),
+    ]
     try {
       type Section = { providers?: Record<string, { models?: unknown }> } | undefined
       const value = settings.describe().find(row => row.ns === ns)?.value as Section
@@ -864,14 +941,34 @@ export class LlamaCpp extends Service {
       if (JSON.stringify(value.providers[this.config.provider]?.models) === JSON.stringify(models)) return
       await settings.mutate(ns, [{ op: 'set', path: ['providers', this.config.provider, 'models'], value: models }])
     } catch (error) {
-      this.ctx.logger.warn(`llama-cpp: could not list ${active.name} on the ${this.config.provider} route`)
+      this.ctx.logger.warn(`llama-cpp: could not list the local models on the ${this.config.provider} route`)
       this.ctx.logger.warn(error)
     }
   }
 
   private routeContext(model: ModelRecord): number {
-    const reported = this.server.phase === 'running' && this.running?.served === model.id ? this.server.contextSize : undefined
-    return Math.min(reported ?? plannedContext(this.preset, model.facts), model.facts.contextLength ?? Number.POSITIVE_INFINITY)
+    const settled = this.contexts.get(model.id) ?? plannedContext(this.preset, model.facts)
+    return Math.min(settled, model.facts.contextLength ?? Number.POSITIVE_INFINITY)
+  }
+
+  /**
+   * Bring the route list and a running worker's preset up to date with the installed models and the
+   * default. The worker reloads only sections whose options changed, so moving the alias or adding a
+   * model unloads nothing. Never rejects: a worker that refuses the preset is stopped and reported.
+   */
+  private async modelsChanged(): Promise<void> {
+    await this.syncRoute()
+    const running = this.running
+    if (running?.client === undefined || running.stopping) return
+    const owner = new AbortController()
+    try {
+      await this.writePreset()
+      const signal = this.startSignal(owner)
+      await abortable(running.client.reload(this.presetPath, this.config.modelsMax, signal), signal)
+    } catch (error) {
+      await this.terminate()
+      this.reportStartFailure(error, owner, running)
+    }
   }
 
   // ── process ────────────────────────────────────────────────────────────
@@ -915,34 +1012,12 @@ export class LlamaCpp extends Service {
   }
 
   /**
-   * Start the worker with the active model. Never rejects: a failure is published as the `failed`
-   * phase, so every caller (start, select, a finished first download, import, removal) reports it alike.
+   * Start the worker and load the default model. Never rejects: a failure is published as the
+   * `failed` phase, so every caller (start, a new default, a finished first download, import) reports it alike.
    */
   private async launch(): Promise<void> {
     try { await this.launchOnce() }
     catch (error) { this.fail(error) }
-  }
-
-  /** Serve the active model: reload a running worker's preset, or start one. Never rejects. */
-  private async serveActive(): Promise<void> {
-    const running = this.running
-    const active = this.activeModel()
-    if (running?.client === undefined || running.stopping || active === undefined) { await this.launch(); return }
-    if (running.served === active.id && this.server.phase === 'running') return
-    const switching = new AbortController()
-    this.launching = switching
-    try {
-      this.setServer({ phase: 'starting' })
-      await this.writePreset(active)
-      const signal = this.startSignal(switching)
-      await abortable(running.client.reload(this.presetPath, this.config.modelsMax, signal), signal)
-      await this.loadActive(running, running.client, signal)
-    } catch (error) {
-      await this.terminate()
-      this.reportStartFailure(error, switching, running)
-    } finally {
-      if (this.launching === switching) this.launching = undefined
-    }
   }
 
   private async launchOnce(): Promise<void> {
@@ -956,7 +1031,7 @@ export class LlamaCpp extends Service {
     try {
       const worker = await this.workerExecutable()
       this.setServer({ phase: 'starting' })
-      await this.writePreset(model)
+      await this.writePreset()
       // Dispose or Stop may have landed during the awaits above; never spawn an orphan.
       if (aborted(launching.signal) || aborted(this.lifetime.signal)) return
       const signal = this.startSignal(launching)
@@ -973,12 +1048,13 @@ export class LlamaCpp extends Service {
         stdio: { stdin: 'pipe', stdout: 'pipe', stderr: { maxBytes: 64 * 1024 } },
       })
       handle.stdin?.on('error', (_closed: unknown) => { /* EPIPE once the worker exited; its exit is reported through `done`. */ })
-      const current: Running = { handle, key, stopping: false }
+      const current: Running = { handle, key, resident: new Map(), feed: new AbortController(), stopping: false }
       running = current
       this.running = current
       const logs = (): string | undefined => tail(handle.collected.stderr?.readFrom(0).text)
       const exited = (failure: Error): void => {
-        if (this.running === current) this.running = undefined
+        current.feed.abort()
+        if (this.running === current) { this.running = undefined; this.emit() }
         void this.withdrawRoute(key).then(() => {
           if (current.stopping || this.lifetime.signal.aborted) return
           this.fail(failure, logs())
@@ -996,12 +1072,18 @@ export class LlamaCpp extends Service {
       // The exit handler reports a worker that ended before its handshake.
       if (line === undefined) return
       const handshake = parseHandshake(line)
-      if (!handshake.models.includes(this.config.routeModelId)) {
-        throw new WorkerProtocolError(`the local model worker serves no "${this.config.routeModelId}" model`)
+      if (handshake.aliases[this.config.routeModelId] !== model.id) {
+        throw new WorkerProtocolError(`the local model worker does not serve ${model.name} as "${this.config.routeModelId}"`)
       }
       const client = new WorkerClient(`http://127.0.0.1:${String(handshake.port)}`, key)
       current.client = client
-      await this.loadActive(current, client, signal)
+      const feed = await abortable(client.events(current.feed.signal), signal)
+      void this.mirrorResidency(current, client, feed)
+      await this.loadInto(current, client, model.id, signal)
+      await this.publishRoute(current, client)
+      this.setServer({ phase: 'running' })
+      await this.syncRoute()
+      await this.adoptDefault(false)
     } catch (error) {
       if (running !== undefined) await this.terminate()
       this.reportStartFailure(error, launching, running)
@@ -1019,8 +1101,8 @@ export class LlamaCpp extends Service {
   }
 
   /**
-   * Publish why a start or switch ended early. Stop, select, removal and disposal end it on purpose
-   * and publish their own phase.
+   * Publish why a start or preset reload ended early. Stop, a new default, removal and disposal end
+   * it on purpose and publish their own phase.
    * @param error - what ended it.
    * @param owner - the start or switch's own controller.
    * @param running - the worker it spawned or switched, for its log tail.
@@ -1039,59 +1121,101 @@ export class LlamaCpp extends Service {
   }
 
   /**
-   * Load the active model in a ready worker, publish the route, and report `running`.
+   * Mirror which models the worker holds from its `/models/sse` feed, and read the context each one
+   * settled on once it loads. A feed that ends while the worker runs is logged, leaving the last state.
    * @param running - the worker.
    * @param client - its lifecycle client.
-   * @param signal - the start's signal.
+   * @param feed - its subscribed transitions.
    */
-  private async loadActive(running: Running, client: WorkerClient, signal: AbortSignal): Promise<void> {
-    const model = this.activeModel()
-    if (model === undefined) throw new Error('no model is active')
-    const id = this.config.routeModelId
-    try { await abortable(client.load(id, signal), signal) }
-    catch (error) {
-      if (signal.aborted) throw error
-      throw new Error(`could not load ${model.name}: ${messageOf(error)}`, { cause: error })
+  private async mirrorResidency(running: Running, client: WorkerClient, feed: AsyncIterable<WorkerModelEvent>): Promise<void> {
+    try {
+      for await (const event of feed) {
+        if (event.status === 'unloaded') running.resident.delete(event.model)
+        else running.resident.set(event.model, event.status)
+        this.emit()
+        if (event.status === 'loaded') void this.readContext(running, client, event.model)
+      }
+    } catch (error) {
+      if (running.feed.signal.aborted) return
+      this.ctx.logger.warn(`llama-cpp: lost the worker's model feed: ${messageOf(error)}`)
     }
-    running.served = model.id
-    const contextSize = await abortable(client.contextSize(id, signal), signal)
-    await this.publishRoute(running, client)
-    this.setServer({ phase: 'running', ...contextSize === undefined ? {} : { contextSize } })
-    await this.syncRoute()
-    if (contextSize !== undefined && contextSize < this.config.fitCtx) {
-      this.ctx.logger.warn(`llama-cpp: the worker runs with a ${String(contextSize)}-token context; the harness prompt needs about 12k`)
-    }
-    await this.adoptDefault(id)
   }
 
-  /** Write the preset for the active model through a temporary file, so the worker never reads half of it. */
-  private async writePreset(model: ModelRecord): Promise<void> {
+  /**
+   * Record the context a loaded model settled on and list it on the route. Never rejects.
+   * @param running - the worker.
+   * @param client - its lifecycle client.
+   * @param id - installed model id.
+   */
+  private async readContext(running: Running, client: WorkerClient, id: string): Promise<void> {
+    const signal = AbortSignal.any([running.feed.signal, AbortSignal.timeout(this.config.startTimeoutMs)])
+    const contextSize = await client.contextSize(id, signal).catch(() => undefined)
+    if (contextSize === undefined || this.contexts.get(id) === contextSize) return
+    this.contexts.set(id, contextSize)
+    if (contextSize < this.config.fitCtx) {
+      this.ctx.logger.warn(`llama-cpp: the worker runs ${id} with a ${String(contextSize)}-token context; the harness prompt needs about 12k`)
+    }
+    this.emit()
+    await this.syncRoute()
+  }
+
+  /**
+   * Load an installed model into a ready worker and record its context.
+   * @param running - the worker.
+   * @param client - its lifecycle client.
+   * @param id - installed model id.
+   * @param signal - cancellation; defaults to disposal or {@link Config.startTimeoutMs}.
+   * @throws Error naming the model and carrying the worker's reason.
+   */
+  private async loadInto(running: Running, client: WorkerClient, id: string, signal?: AbortSignal): Promise<void> {
+    const model = this.record.models.find(candidate => candidate.id === id)
+    if (model === undefined) throw new Error(`no installed model "${id}"`)
+    const loading = signal ?? AbortSignal.any([this.lifetime.signal, AbortSignal.timeout(this.config.startTimeoutMs)])
+    try { await abortable(client.load(id, loading), loading) }
+    catch (error) {
+      if (loading.aborted) throw error
+      throw new Error(`could not load ${model.name}: ${messageOf(error)}`, { cause: error })
+    }
+    await this.readContext(running, client, id)
+  }
+
+  /**
+   * Write the preset through a temporary file, so the worker never reads half of it: one section per
+   * installed model and the route's alias section for the default.
+   */
+  private async writePreset(): Promise<void> {
+    const active = this.activeModel()
+    if (active === undefined) throw new Error('no model is installed')
     await mkdir(dirname(this.presetPath), { recursive: true })
     const temp = `${this.presetPath}.tmp`
-    const section = { id: this.config.routeModelId, path: this.modelPath(model), facts: model.facts }
-    await writeFile(temp, renderPreset(this.preset, [section]), { mode: 0o600 })
+    const sections = this.record.models.map(model => ({ id: model.id, path: this.modelPath(model), facts: model.facts }))
+    await writeFile(temp, renderPreset(this.preset, sections, { [this.config.routeModelId]: active.id }), { mode: 0o600 })
     await rename(temp, this.presetPath)
   }
 
   /**
-   * Point the default model at the local route's model when the default is another local model id
-   * (an earlier build served each model under its own id), or when the configured default route
-   * cannot serve (e.g. Tokamak with no key). A usable default on another route is left alone.
-   * @param id - the route's model id.
+   * Point the agent default model at the route's alias id when the default names no model this route
+   * serves, or names another route that cannot serve (e.g. Tokamak with no key). A usable default on
+   * another route is left alone.
+   * @param chosen - the user made a model the local default, so a default on another local model
+   * id moves to the alias too.
    */
-  private async adoptDefault(id: string): Promise<void> {
+  private async adoptDefault(chosen: boolean): Promise<void> {
     const defaults = this.ctx.get('agentDefaultModel')
     const llm = this.ctx.get('llm')
     if (defaults === undefined || llm === undefined) return
+    const alias = this.config.routeModelId
     try {
       const current = defaults.currentSelection()
-      if (current.provider === this.config.provider && current.model === id) return
-      if (current.provider !== this.config.provider) {
+      if (current.provider === this.config.provider) {
+        if (current.model === alias) return
+        if (!chosen && this.record.models.some(model => model.id === current.model)) return
+      } else {
         const usable = await llm.listModels(current.provider).then(models => models.length > 0, () => false)
         if (usable) return
       }
-      await defaults.saveSelection({ provider: this.config.provider, model: id })
-      this.ctx.logger.info(`llama-cpp: default model set to ${this.config.provider}/${id}`)
+      await defaults.saveSelection({ provider: this.config.provider, model: alias })
+      this.ctx.logger.info(`llama-cpp: default model set to ${this.config.provider}/${alias}`)
     } catch (error) {
       this.ctx.logger.warn('llama-cpp: could not update the default model')
       this.ctx.logger.warn(error)
@@ -1106,6 +1230,7 @@ export class LlamaCpp extends Service {
     const running = this.running
     if (running === undefined) return
     running.stopping = true
+    running.feed.abort()
     running.handle.stdin?.end()
     let timer: NodeJS.Timeout | undefined
     const exited = await Promise.race([
@@ -1119,7 +1244,7 @@ export class LlamaCpp extends Service {
       running.handle.terminate()
       await running.handle.done.catch(() => undefined)
     }
-    if (this.running === running) this.running = undefined
+    if (this.running === running) { this.running = undefined; this.emit() }
     await this.withdrawRoute(running.key)
   }
 }

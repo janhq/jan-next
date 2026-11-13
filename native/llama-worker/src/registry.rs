@@ -102,6 +102,9 @@ pub struct ReloadOutcome {
 pub struct Registry {
     loaded: HashMap<String, LoadedModel>,
     specs: HashMap<String, LoadSpec>,
+    /// Second names for registered models (`preset::ALIAS_KEY`), resolved
+    /// before any lookup so an alias and its target share one engine.
+    aliases: HashMap<String, String>,
     /// Models whose spec changed (or which were removed) while a request was in
     /// flight. They cannot be dropped there without cancelling a live
     /// generation, so `release` drops them once the last request finishes.
@@ -127,6 +130,7 @@ impl Registry {
         Self {
             loaded: HashMap::new(),
             specs: HashMap::new(),
+            aliases: HashMap::new(),
             stale: HashSet::new(),
             failures: HashMap::new(),
             dropped: Vec::new(),
@@ -148,6 +152,33 @@ impl Registry {
     /// list it and a later request can load it on demand.
     pub fn register(&mut self, model_id: impl Into<String>, spec: LoadSpec) {
         self.specs.insert(model_id.into(), spec);
+    }
+
+    /// Replaces the alias table. The caller validates that every target is
+    /// registered (`preset::parse`).
+    pub fn set_aliases(&mut self, aliases: HashMap<String, String>) {
+        self.aliases = aliases;
+    }
+
+    /// The registered model a request name selects: an alias's target, or the
+    /// name itself.
+    pub fn resolve(&self, name: &str) -> String {
+        self.aliases
+            .get(name)
+            .cloned()
+            .unwrap_or_else(|| name.to_string())
+    }
+
+    /// Aliases that select `model_id`, sorted.
+    pub fn aliases_of(&self, model_id: &str) -> Vec<String> {
+        let mut v: Vec<String> = self
+            .aliases
+            .iter()
+            .filter(|(_, target)| target.as_str() == model_id)
+            .map(|(alias, _)| alias.clone())
+            .collect();
+        v.sort();
+        v
     }
 
     pub fn known_models(&self) -> Vec<String> {
@@ -722,6 +753,18 @@ mod tests {
             "a spec change must invalidate saved state"
         );
         assert!(r.state_identity("absent").is_none());
+    }
+
+    #[test]
+    fn an_alias_resolves_to_its_target_and_other_names_to_themselves() {
+        let mut r = reg(2, &["a", "b"]);
+        r.set_aliases(HashMap::from([("local".to_string(), "b".to_string())]));
+        assert_eq!(r.resolve("local"), "b");
+        assert_eq!(r.resolve("a"), "a");
+        assert_eq!(r.resolve("unknown"), "unknown");
+        assert_eq!(r.aliases_of("b"), vec!["local"]);
+        assert!(r.aliases_of("a").is_empty());
+        assert_eq!(r.known_models(), vec!["a", "b"], "an alias is not a model");
     }
 
     #[test]

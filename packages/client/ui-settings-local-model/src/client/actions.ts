@@ -1,6 +1,7 @@
 /**
- * Remote calls shared by the card, the model manager and the first-run option. Lifecycle failures
- * surface through the Host state; lookups and imports answer the caller directly.
+ * Remote calls shared by the card, the model manager and the first-run option. Worker lifecycle
+ * failures surface through the Host state; per-model operations, lookups and imports answer the
+ * caller directly.
  */
 import type { Context } from '@deepseek-ai/cordis'
 import type { HuggingFaceRepoInfo } from '@deepseek-ai/dsh-api-llama-cpp-controller'
@@ -24,10 +25,14 @@ export interface LocalModelActions {
   cancelDownload: (id: string) => void
   /** Start a failed download again. */
   retryDownload: (id: string) => void
-  /** Run an installed model. */
-  selectModel: (id: string) => void
-  /** Remove an installed model. */
-  deleteModel: (id: string) => void
+  /** Make an installed model the default and load it. */
+  setDefaultModel: (id: string) => Promise<Outcome<void>>
+  /** Load an installed model now. */
+  loadModel: (id: string) => Promise<Outcome<void>>
+  /** Free a loaded model's memory. */
+  unloadModel: (id: string) => Promise<Outcome<void>>
+  /** Remove an installed model; refused while it serves requests. */
+  deleteModel: (id: string) => Promise<Outcome<void>>
   /** List a Hugging Face repository's downloadable files. */
   lookupRepo: (repo: string, signal?: AbortSignal) => Promise<Outcome<HuggingFaceRepoInfo>>
   /** Download one file of a Hugging Face repository. */
@@ -71,8 +76,10 @@ export function createActions(ctx: Context): LocalModelActions {
     downloadModel: (id) => { run(() => ctx.remote.llamaCpp.downloadModel(id)) },
     cancelDownload: (id) => { run(() => ctx.remote.llamaCpp.cancelDownload(id)) },
     retryDownload: (id) => { run(() => ctx.remote.llamaCpp.retryDownload(id)) },
-    selectModel: (id) => { run(() => ctx.remote.llamaCpp.selectModel(id)) },
-    deleteModel: (id) => { run(() => ctx.remote.llamaCpp.deleteModel(id)) },
+    setDefaultModel: id => answer(() => ctx.remote.llamaCpp.setDefaultModel(id)),
+    loadModel: id => answer(() => ctx.remote.llamaCpp.loadModel(id)),
+    unloadModel: id => answer(() => ctx.remote.llamaCpp.unloadModel(id)),
+    deleteModel: id => answer(() => ctx.remote.llamaCpp.deleteModel(id)),
     lookupRepo: (repo, signal) => answer(() => ctx.remote.llamaCpp.lookupRepo(repo, signal)),
     downloadRepoFile: (repo, file) => answer(() => ctx.remote.llamaCpp.downloadRepoFile(repo, file)),
     importModel: path => answer(() => ctx.remote.llamaCpp.importModel(path)),

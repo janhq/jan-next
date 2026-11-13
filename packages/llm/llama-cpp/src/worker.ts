@@ -3,7 +3,7 @@
  * output, exit codes, and the lifecycle HTTP calls a supervisor makes. See `native/llama-worker/README.md`.
  */
 import type { Readable } from 'node:stream'
-import type { LlamaCppDevice } from './types.ts'
+import type { LlamaCppDevice, LocalModelStatus } from './types.ts'
 
 /** One offload device the worker initialised. */
 export interface WorkerDevice {
@@ -16,8 +16,10 @@ export interface WorkerHandshake {
   /** Loopback port the worker listens on. */
   port: number
   pid: number
-  /** Preset section names, sorted. */
+  /** Preset model section names, sorted. */
   models: string[]
+  /** Alias section name to the model section it serves. */
+  aliases: Record<string, string>
   /** Devices the worker initialised; null when they could not be read. */
   devices: WorkerDevice[] | null
 }
@@ -27,6 +29,10 @@ export class WorkerProtocolError extends Error {}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+  return isRecord(value) && Object.values(value).every(entry => typeof entry === 'string')
 }
 
 function isDevice(value: unknown): value is WorkerDevice {
@@ -46,10 +52,11 @@ export function parseHandshake(line: string): WorkerHandshake {
   if (!isRecord(raw) || !Number.isInteger(raw.port) || typeof raw.port !== 'number' || raw.port < 1 || raw.port > 65_535
     || !Number.isInteger(raw.pid) || typeof raw.pid !== 'number'
     || !Array.isArray(raw.models) || !raw.models.every(model => typeof model === 'string')
+    || !isStringRecord(raw.aliases)
     || !(raw.devices === null || (Array.isArray(raw.devices) && raw.devices.every(isDevice)))) {
     throw new WorkerProtocolError(`the local model worker printed an invalid handshake: ${line.slice(0, 200)}`)
   }
-  return { port: raw.port, pid: raw.pid, models: raw.models, devices: raw.devices }
+  return { port: raw.port, pid: raw.pid, models: raw.models, aliases: raw.aliases, devices: raw.devices }
 }
 
 /**
@@ -125,6 +132,53 @@ export function readFirstLine(stream: Readable, maxBytes: number): Promise<strin
 
 function discard(): void {}
 
+/** One `/models/sse` transition. */
+export interface WorkerModelEvent {
+  /** Model section name; never an alias. */
+  model: string
+  status: LocalModelStatus
+  /** Present on `unloaded`: 0 for an unload or eviction, nonzero for a failed load. */
+  exitCode?: number
+}
+
+function isModelStatus(value: unknown): value is LocalModelStatus {
+  return value === 'loading' || value === 'loaded' || value === 'unloaded'
+}
+
+/**
+ * Parse one `/models/sse` data payload.
+ * @param data - text after `data: `.
+ * @returns the transition, or undefined for a payload that is not a model status change.
+ */
+export function parseModelEvent(data: string): WorkerModelEvent | undefined {
+  let raw: unknown
+  try { raw = JSON.parse(data) }
+  catch { return undefined }
+  if (!isRecord(raw) || typeof raw.model !== 'string' || raw.event !== 'status_change' || !isRecord(raw.data)) return undefined
+  const { status, exit_code: exitCode } = raw.data
+  if (!isModelStatus(status)) return undefined
+  return {
+    model: raw.model, status,
+    ...typeof exitCode === 'number' ? { exitCode } : {},
+  }
+}
+
+async function* modelEvents(body: ReadableStream<Uint8Array>): AsyncIterable<WorkerModelEvent> {
+  const decoder = new TextDecoder()
+  let buffered = ''
+  for await (const chunk of body) {
+    buffered += decoder.decode(chunk, { stream: true })
+    let end = buffered.indexOf('\n\n')
+    while (end >= 0) {
+      const data = buffered.slice(0, end).split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n')
+      buffered = buffered.slice(end + 2)
+      end = buffered.indexOf('\n\n')
+      const event = parseModelEvent(data)
+      if (event !== undefined) yield event
+    }
+  }
+}
+
 /** Authenticated lifecycle calls on one running worker. */
 export class WorkerClient {
   /**
@@ -141,6 +195,32 @@ export class WorkerClient {
    */
   async load(model: string, signal: AbortSignal): Promise<void> {
     await this.post('/models/load', { model }, signal)
+  }
+
+  /**
+   * Unload a resident model; the worker refuses while it has requests in flight.
+   * @param model - preset section name or alias.
+   * @param signal - cancellation.
+   * @throws Error carrying the worker's message when it refused.
+   */
+  async unload(model: string, signal: AbortSignal): Promise<void> {
+    await this.post('/models/unload', { model }, signal)
+  }
+
+  /**
+   * Subscribe to model load, unload and eviction transitions. Resolves once the worker accepted the
+   * subscription, so a load requested afterwards cannot be missed.
+   * @param signal - ends the subscription.
+   * @returns the transitions, in the order the worker made them, until it exits or `signal` aborts.
+   * @throws Error when the worker refuses the subscription.
+   */
+  async events(signal: AbortSignal): Promise<AsyncIterable<WorkerModelEvent>> {
+    const response = await fetch(`${this.origin}/models/sse`, { headers: this.headers(), signal })
+    if (!response.ok || response.body === null) {
+      await response.body?.cancel()
+      throw new Error(`the local model worker refused its event feed: HTTP ${String(response.status)}`)
+    }
+    return modelEvents(response.body)
   }
 
   /**

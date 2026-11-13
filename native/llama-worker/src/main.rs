@@ -26,7 +26,7 @@
 //!
 //! Prints one line of JSON on stdout once it is listening, so the supervisor
 //! learns the port without racing on a log file:
-//!   {"port":39271,"pid":1234,"models":["a","b"]}
+//!   {"port":39271,"pid":1234,"models":["a","b"],"aliases":{"local":"a"}}
 
 use std::sync::Arc;
 
@@ -312,6 +312,7 @@ async fn main() {
 
     let mut registry = Registry::new(args.models_max);
     let mut models = Vec::new();
+    let mut aliases = std::collections::HashMap::new();
     let mut slot_store = None;
 
     if let Some(path) = &args.preset {
@@ -322,11 +323,20 @@ async fn main() {
                 std::process::exit(4);
             }
         };
-        for (section, spec) in preset::specs(path, &ini) {
+        let parsed = match preset::parse(path, &ini) {
+            Ok(p) => p,
+            Err(e) => {
+                eprintln!("jan-llama-worker: could not read {path}: {e}");
+                std::process::exit(4);
+            }
+        };
+        for (section, spec) in parsed.specs {
             registry.register(section.clone(), spec);
             models.push(section);
         }
         models.sort();
+        aliases = parsed.aliases.clone();
+        registry.set_aliases(parsed.aliases);
 
         // The directory has to exist before any model loads: llama.cpp's
         // --slot-save-path handler throws when it does not, and that unwinds
@@ -392,6 +402,8 @@ async fn main() {
             "port": server.port,
             "pid": std::process::id(),
             "models": models,
+            // Alias name to the model it serves (`alias-of` in the preset).
+            "aliases": aliases,
             // Set by build.rs for a CUDA engine; null otherwise. The app sets it
             // against the NVIDIA driver to explain a driver that is too old.
             "cuda_toolkit": option_env!("JAN_ENGINE_CUDA_TOOLKIT"),

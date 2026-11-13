@@ -362,8 +362,9 @@ impl EngineServer {
                 n
             }
             (Some(model), None) => {
-                let n = state.store.forget_model(model);
-                state.occupancy.lock().await.release_model(model);
+                let model = self.registry.lock().await.resolve(model);
+                let n = state.store.forget_model(&model);
+                state.occupancy.lock().await.release_model(&model);
                 n
             }
             (None, None) => {
@@ -423,6 +424,7 @@ impl EngineServer {
             let Some(model) = extract_model(&body) else {
                 return json_error(StatusCode::BAD_REQUEST, "model is required");
             };
+            let model = self.registry.lock().await.resolve(&model);
             return if load {
                 self.load_model(&model).await
             } else {
@@ -451,7 +453,10 @@ impl EngineServer {
 
         // Routes that name no model, in the body or the query, are answered by
         // any resident engine; health has to work even when nothing is loaded.
-        let model = request_model(&body, query.as_deref());
+        let model = match request_model(&body, query.as_deref()) {
+            Some(name) => Some(self.registry.lock().await.resolve(&name)),
+            None => None,
+        };
         self.dispatch(route, model, body).await
     }
 
@@ -476,14 +481,18 @@ impl EngineServer {
             }
         };
 
-        let specs = super::preset::specs(preset_path, &ini);
+        let preset = match super::preset::parse(preset_path, &ini) {
+            Ok(p) => p,
+            Err(e) => return json_error(StatusCode::BAD_REQUEST, &format!("{preset_path}: {e}")),
+        };
         let mut reg = self.registry.lock().await;
         let models_max = parsed
             .get("models_max")
             .and_then(|v| v.as_u64())
             .map(|v| v as usize)
             .unwrap_or_else(|| reg.models_max());
-        let outcome = reg.reload(specs, models_max);
+        let outcome = reg.reload(preset.specs, models_max);
+        reg.set_aliases(preset.aliases);
         drop(reg);
 
         // Applied here too, for the same reason models_max is: the value comes
@@ -528,6 +537,8 @@ impl EngineServer {
                     // Not part of the router's shape; the shutdown gate reads
                     // it to tell a generating model from a merely resident one.
                     "busy": busy.contains(&id),
+                    // Not part of the router's shape: names that select this model too.
+                    "aliases": reg.aliases_of(&id),
                 })
             })
             .collect();

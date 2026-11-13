@@ -1945,14 +1945,16 @@ export interface Config {
   huggingFaceURL: string
   /**
    * `llm-pi-ai` settings namespace whose `providers.<provider>.models` the plugin keeps equal to
-   * the active model, so the model picker names what the worker runs; empty disables the sync.
+   * the installed models plus the default's alias, so the model picker names what the worker
+   * serves; empty disables the sync.
    */
   routeNamespace: string
-  /** `maxTokens` written for the active model's route entry. */
+  /** `maxTokens` written for each route entry. */
   routeMaxTokens: number
   /**
-   * Preset section name the active model is served under. Stable, so a session on the local route
-   * keeps its selection when another model is put in use; only the display name the route lists changes.
+   * Route model id that is an alias of the default model (an `alias-of` preset section), beside each
+   * model's own id. Stable, so a session that selected it follows the default; no installed model
+   * takes this id.
    */
   routeModelId: string
   /** Credential reference the `local` route reads its key from, and the key the worker requires. */
@@ -1963,7 +1965,11 @@ export interface Config {
   provider: string
   /** Start the worker at boot when a model is installed and the user left it running. */
   autoStart: boolean
-  /** Resident models the worker keeps loaded (`--models-max`); 0 removes the bound. */
+  /**
+   * Resident models the worker keeps loaded (`--models-max`); loading another unloads the least
+   * recently used idle one, and a request is refused while every resident model is busy. 1, as in
+   * Jan, because one model usually fills the accelerator; 0 removes the bound.
+   */
   modelsMax: number
   /**
    * Context window (`ctx-size`); the harness's own prompt and tools take about 12k tokens. A model
