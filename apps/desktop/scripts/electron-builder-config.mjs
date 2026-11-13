@@ -1,7 +1,7 @@
 import { readInstallerLocales, renderInstallerStrings } from './installer-locales.mjs'
 import { officePackageDirectories } from '../../../scripts/libreoffice-packages.mjs'
 import { X509Certificate } from 'node:crypto'
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
 import { join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -34,19 +34,7 @@ import {
   verifyMacOSAppUpdateConfig,
   writeMacOSAppUpdateConfig,
 } from './macos-app-update-config.mjs'
-
-/** Directory `pnpm run stage:llama-worker` writes; packaged as `<resources>/llama-worker`. */
-const LLAMA_WORKER_STAGE = fileURLToPath(new URL('../../../native/llama-worker/dist', import.meta.url))
-
-/**
- * Reject packaging when the staged llama.cpp worker is absent; electron-builder only warns about a missing resource.
- * @param {NodeJS.Platform} platform - Packaged platform, which selects the executable name.
- */
-function assertStagedLlamaWorker(platform) {
-  const executable = join(LLAMA_WORKER_STAGE, platform === 'win32' ? 'jan-llama-worker.exe' : 'jan-llama-worker')
-  if (existsSync(executable)) return
-  throw new Error(`desktop package: ${executable} is missing; run \`pnpm run stage:llama-worker\` after \`pnpm run build:llama-worker\`, or set DSH_DESKTOP_OMIT_LLAMA_WORKER=1 to package without local models`)
-}
+import { assertStagedLlamaWorker, LLAMA_WORKER_STAGE } from './llama-worker-stage.mjs'
 
 /**
  * Create electron-builder configuration from one release environment.
@@ -207,7 +195,7 @@ export function createElectronBuilderConfig(
       writeUpdateInfo: false,
     },
     beforePack: async context => {
-      if (!omitLlamaWorker) assertStagedLlamaWorker(resolvedPlatform)
+      if (!omitLlamaWorker) assertStagedLlamaWorker(resolvedPlatform, resolvedArch)
       const office = await officePackageDirectories(buildPaths.dsh, { platform: resolvedPlatform, arch: resolvedArch })
       const patterns = office.map(directory => `**/${relative(buildPaths.dsh, directory).split(sep).join('/')}/**/*`)
       const existing = context.packager.config.asarUnpack ?? []

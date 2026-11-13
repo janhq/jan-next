@@ -9,26 +9,29 @@
   en: 58912371d29e305f
   zh: dfcd4c8ed829c8aa
 /jan-llama-worker/table-of-contents:
-  en: 9db45e1efc51474b
-  zh: becd79ce50c75312
+  en: 827dfebfa3980b7a
+  zh: 47f47afa809e33bf
 /jan-llama-worker/build:
-  en: 686e9c4d7b68f6a9
-  zh: e4860d483fde211f
+  en: 906d5b8ea8ae2eaf
+  zh: f68da75b6c34e3ba
 /jan-llama-worker/pinned-llama-cpp:
   en: 9799f6295d55e76a
   zh: 8009ba4cd05bc50c
 /jan-llama-worker/command-line:
-  en: ad597a6cfe04e806
-  zh: dd6d674543800392
+  en: 664f35af05784aac
+  zh: 18387988e4708494
 /jan-llama-worker/handshake:
-  en: 1795d48f77133855
-  zh: 2baff8b12ce1619d
+  en: 0a205acc457fc60f
+  zh: 2457fc83620d6da3
 /jan-llama-worker/http-api:
-  en: 6968bb9aad239c96
-  zh: aae3baa9956b4f86
+  en: 5a3f561b14db93d0
+  zh: b6b294d332b3705f
 /jan-llama-worker/shutdown-and-exit-codes:
   en: 83720790066dcc3b
   zh: 9f5e9da574bd142e
+/jan-llama-worker/continuous-integration:
+  en: 497f751f7cf6158b
+  zh: e341cd249f621592
 /jan-llama-worker/dev-note:
   en: d41fb3a8b7dafc49
   zh: 4a6ee88aabeab6f7

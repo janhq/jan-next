@@ -56,7 +56,14 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  llama-worker:
+    uses: ./.github/workflows/llama-worker.yml
+    with:
+      ref: ${{ inputs.source_ref }}
+      targets: macos-arm64
+
   package:
+    needs: llama-worker
     outputs:
       directory: ${{ steps.retained.outputs.directory }}
       runner: ${{ steps.retained.outputs.runner }}
@@ -121,6 +128,23 @@ jobs:
           echo "PNPM_CONFIG_STORE_DIR=$DSH_DESKTOP_PACKAGE_CACHE_DIR/workspace-pnpm-store" >> "$GITHUB_ENV"
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v8.0.1
+        with:
+          name: jan-llama-worker-macos-arm64
+          path: ${{ runner.temp }}/llama-worker-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Stage the llama.cpp worker built from this checkout
+        env:
+          LLAMA_WORKER_ARTIFACT: ${{ runner.temp }}/llama-worker-${{ github.run_id }}-${{ github.run_attempt }}
+          PACKAGE_SOURCE_SHA: ${{ steps.checkout.outputs.commit }}
+        run: |
+          built=$(cat "$LLAMA_WORKER_ARTIFACT/source-commit")
+          if [[ "$built" != "$PACKAGE_SOURCE_SHA" ]]; then
+            echo "::error::jan-llama-worker was built from $built, but this package checks out $PACKAGE_SOURCE_SHA; the source ref moved, so rerun the workflow"
+            exit 1
+          fi
+          rm -rf native/llama-worker/dist
+          mkdir -p native/llama-worker/dist
+          tar -xzf "$LLAMA_WORKER_ARTIFACT/jan-llama-worker-macos-arm64.tar.gz" -C native/llama-worker/dist
       - name: Check original machine archival route
         env:
           DESKTOP_PUBLISH_RUNNERS: ${{ vars.DESKTOP_PUBLISH_RUNNERS }}

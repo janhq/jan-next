@@ -129,6 +129,9 @@ describe('desktop macOS release signature', () => {
     expect(ignored('/App.app/Contents/Resources/runtime/primary-runtime/dependencies/pnpm/addon.node')).toBe(true)
     for (const path of [
       '/App.app/Contents/Resources/runtime/node/node',
+      '/App.app/Contents/Resources/llama-worker/jan-llama-worker',
+      '/App.app/Contents/Resources/llama-worker/libggml.0.dylib',
+      '/App.app/Contents/Resources/llama-worker/libggml-metal.so',
       '/App.app/Contents/Frameworks/Electron.framework/Versions/A/library.dylib',
       '/App.app/Contents/Frameworks/Electron.framework',
       '/App.app',

@@ -1,0 +1,218 @@
+# Builds, stages and verifies jan-llama-worker (native/llama-worker) per desktop
+# target. Each target uploads artifact `jan-llama-worker-<target>`, holding
+# `jan-llama-worker-<target>.tar.gz` (the staged directory) and `source-commit`
+# (the commit it was built from); desktop packaging extracts the archive into
+# native/llama-worker/dist and rejects a commit other than its own checkout.
+name: llama.cpp worker
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Branch, tag or commit to build; empty builds the caller's commit.
+        type: string
+        default: ''
+        required: false
+      targets:
+        description: Comma-separated targets from the `select` job table.
+        type: string
+        default: linux-x64,linux-arm64,windows-x64,macos-arm64,macos-x64
+        required: false
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag or commit to build; empty builds the selected branch.
+        type: string
+        default: ''
+        required: false
+      targets:
+        description: Comma-separated targets (linux-x64, linux-arm64, windows-x64, macos-arm64, macos-x64).
+        type: string
+        default: linux-x64,linux-arm64,windows-x64,macos-arm64,macos-x64
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  select:
+    name: Select targets
+    runs-on: ubuntu-24.04
+    outputs:
+      include: ${{ steps.select.outputs.include }}
+    steps:
+      - id: select
+        env:
+          TARGETS: ${{ inputs.targets }}
+        # Linux builds on 22.04 so the worker needs no glibc newer than 2.35.
+        # The x64 Linux and Windows builds carry Vulkan beside the CPU variants;
+        # arm64 Linux has no pinned Vulkan SDK yet. macOS x64 relies on CPU.
+        run: |
+          table='[
+            {"target":"linux-x64","runner":"ubuntu-22.04","arch":"x64","features":"engine-vulkan"},
+            {"target":"linux-arm64","runner":"ubuntu-22.04-arm","arch":"arm64","features":"engine"},
+            {"target":"windows-x64","runner":"windows-2025","arch":"x64","features":"engine-vulkan"},
+            {"target":"macos-arm64","runner":"macos-15","arch":"arm64","features":"engine-metal"},
+            {"target":"macos-x64","runner":"macos-15-intel","arch":"x64","features":"engine"}
+          ]'
+          include=$(jq -c --arg wanted "$TARGETS" '
+            ($wanted | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(. != ""))) as $names
+            | ($names - map(.target)) as $unknown
+            | if ($unknown | length) > 0 then error("unknown targets: \($unknown | join(", "))")
+              elif ($names | length) == 0 then error("no targets selected")
+              else map(select(.target as $t | $names | index($t))) end' <<<"$table")
+          echo "include=$include" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build (${{ matrix.target }})
+    needs: select
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.select.outputs.include) }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      CRATE: native/llama-worker
+      FEATURES: ${{ matrix.features }}
+      CCACHE_DIR: ${{ github.workspace }}/../.ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      # cmake runs under cargo's hashed OUT_DIR, which would otherwise key every object.
+      CCACHE_NOHASHDIR: '1'
+      CCACHE_MAXSIZE: 2G
+      JAN_ENGINE_BUILD_LOG: ${{ github.workspace }}/../engine-build.log
+      # llama.cpp's own macOS release floor; without it cmake targets the runner's OS version.
+      MACOSX_DEPLOYMENT_TARGET: '13.3'
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref }}
+
+      - name: Read the llama.cpp pin
+        id: pin
+        run: |
+          commit=$(sed -n 's/^pub const LLAMA_CPP_COMMIT: &str = "\(.*\)";/\1/p' "$CRATE/build.rs")
+          [ -n "$commit" ] || { echo "::error::no LLAMA_CPP_COMMIT in $CRATE/build.rs"; exit 1; }
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
+      - name: Install Linux build tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq ccache patchelf
+
+      # LunarG rather than the distro packages: jammy ships Vulkan headers 1.3.204,
+      # older than the extensions ggml-vulkan compiles against.
+      - name: Install the Vulkan SDK (Linux)
+        if: runner.os == 'Linux' && matrix.features == 'engine-vulkan'
+        run: |
+          codename=$(. /etc/os-release && echo "$VERSION_CODENAME")
+          wget -qO- https://packages.lunarg.com/lunarg-signing-key-pub.asc \
+            | sudo tee /etc/apt/trusted.gpg.d/lunarg.asc >/dev/null
+          sudo wget -qO "/etc/apt/sources.list.d/lunarg-vulkan-$codename.list" \
+            "https://packages.lunarg.com/vulkan/1.4.313/lunarg-vulkan-1.4.313-$codename.list"
+          sudo apt-get update -q
+          sudo apt-get install -yq vulkan-sdk
+
+      - name: Install macOS build tools
+        if: runner.os == 'macOS'
+        run: brew install ccache
+
+      # build.rs builds Windows with Ninja and clang-cl; llvm-readobj also
+      # lists the DLL imports check-stage.sh verifies.
+      - name: Install Windows build tools
+        if: runner.os == 'Windows'
+        run: |
+          command -v ninja >/dev/null 2>&1 || choco install ninja -y --no-progress
+          command -v ccache >/dev/null 2>&1 || choco install ccache -y --no-progress
+          [ -x '/c/Program Files/LLVM/bin/clang-cl.exe' ] || choco install llvm -y --no-progress
+          printf '%s\n' 'C:\ProgramData\chocolatey\bin' 'C:\Program Files\LLVM\bin' >> "$GITHUB_PATH"
+
+      - name: Install the Vulkan SDK (Windows)
+        if: runner.os == 'Windows' && matrix.features == 'engine-vulkan'
+        run: |
+          curl -fL --retry 5 --retry-all-errors -o "$RUNNER_TEMP/vulkan-sdk.exe" \
+            https://sdk.lunarg.com/sdk/download/1.4.363.0/windows/vulkan_sdk.exe
+          "$RUNNER_TEMP/vulkan-sdk.exe" --root 'C:\VulkanSDK' \
+            --accept-licenses --default-answer --confirm-command install
+          echo 'VULKAN_SDK=C:\VulkanSDK' >> "$GITHUB_ENV"
+          echo 'C:\VulkanSDK\Bin' >> "$GITHUB_PATH"
+
+      - name: Install the Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --no-self-update
+          rustup default stable
+
+      - uses: actions/cache@v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: llama-worker-cargo-${{ matrix.target }}-${{ hashFiles('native/llama-worker/Cargo.lock') }}
+          restore-keys: llama-worker-cargo-${{ matrix.target }}-
+
+      - uses: actions/cache@v6.1.0
+        with:
+          path: native/llama-worker/vendor/llama.cpp
+          key: llama-cpp-source-${{ runner.os }}-${{ steps.pin.outputs.commit }}
+
+      # build.rs holds the pin and the cmake flags, so a change to it starts a
+      # new cache from the previous one rather than uploading on every run.
+      - uses: actions/cache@v6.1.0
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: llama-worker-ccache-${{ matrix.target }}-${{ matrix.features }}-${{ hashFiles('native/llama-worker/build.rs') }}
+          restore-keys: llama-worker-ccache-${{ matrix.target }}-${{ matrix.features }}-
+
+      - name: Fetch the pinned llama.cpp
+        run: bash "$CRATE/scripts/fetch-llama-cpp.sh"
+
+      - name: Build the worker
+        run: |
+          ccache -z
+          cargo build --release --locked --manifest-path "$CRATE/Cargo.toml" --features "$FEATURES"
+
+      - name: Test without the engine and compile the engine tests
+        run: |
+          cargo test --release --locked --manifest-path "$CRATE/Cargo.toml"
+          cargo test --release --locked --manifest-path "$CRATE/Cargo.toml" --features "$FEATURES" --no-run
+
+      - name: Stage and verify the worker
+        run: |
+          bash "$CRATE/scripts/stage.sh"
+          bash "$CRATE/scripts/check-stage.sh" "$CRATE/dist" "${{ matrix.arch }}"
+
+      # tar keeps the executable bit and the file names, which an artifact zip loses.
+      - name: Pack the staged worker
+        run: |
+          mkdir llama-worker-artifact
+          tar -czf "llama-worker-artifact/jan-llama-worker-${{ matrix.target }}.tar.gz" -C "$CRATE/dist" .
+          git rev-parse HEAD > llama-worker-artifact/source-commit
+
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: jan-llama-worker-${{ matrix.target }}
+          path: llama-worker-artifact/
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Report ccache statistics
+        if: always()
+        run: if command -v ccache >/dev/null 2>&1; then ccache -s; fi
+
+      - uses: actions/upload-artifact@v7.0.1
+        if: failure()
+        with:
+          name: jan-llama-worker-build-log-${{ matrix.target }}
+          path: ${{ env.JAN_ENGINE_BUILD_LOG }}
+          if-no-files-found: ignore
+          retention-days: 14

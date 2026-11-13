@@ -99,6 +99,8 @@ pnpm run package:desktop:win:x64
 
 macOS arm64 命令要求 Apple Silicon。macOS x64 命令可以在 Intel macOS 或带 Rosetta 的 Apple Silicon 上运行。Windows x64 命令要求 Windows x64。Linux 不是受支持的 Desktop 发布目标。
 
+每个安装包都把 `native/llama-worker/dist` 中已暂存的 llama.cpp worker 打包为 `<resources>/llama-worker`；请先按安装包的平台和架构[构建并暂存 worker](../../../native/llama-worker/README.zh.md#build)。该目录缺少 worker，或 worker 面向其他平台或架构时，打包在组装前停止；`DSH_DESKTOP_OMIT_LLAMA_WORKER=1` 打包时不含 worker，也不含本地模型。在签名的 macOS 和 Windows 构建中，electron-builder 会与应用其余部分一起签名 worker 及其库。
+
 macOS 正式发布和本地未签名 DMG 都通过 [electron-builder 配置](../scripts/electron-builder-config.mjs)中的 `dmg.format: 'ULMO'` 使用 LZMA 压缩。[构建时补丁](../../../patches/app-builder-lib@26.17.0.patch)为固定版本 builder 的校验规则和 TypeScript 声明添加此格式。
 
 每个目标都在 `apps/desktop/.desktop-build/targets/<target>/` 下持有自己的打包输入、已准备运行时、包集合、dsh 依赖树、pnpm 准备状态、未打包应用、更新元数据和最终产物。Electron 归档缓存继续由 `.desktop-build/downloads` 共享，因为每个归档文件名都包含版本、平台和架构，并且在解包前经过验证。目标构建绝不读取其他目标的可变准备状态。
@@ -132,6 +134,8 @@ runner 的受监督启动和恢复见 [Windows runner 机器准备](../windows-s
 两个 macOS 工作流都要求仓库变量 `DESKTOP_PUBLISH_RUNNERS`，包括 test 和未公证模式。独立 `upload-artifact` job 的安装包名称保留原构建 attempt；打包成功但归档失败时，仅重跑该 job。参见[原机器路由与恢复](../publishing/ci/README.zh.md#recovery-and-records)。
 
 三个平台的表单均依次展示源码、环境、升级通道、版本模式、手动版本号、测试 release ID 和压缩等级，默认值一致。macOS 公证选项和 Windows 签名、缓存测量选项位于公共字段之后。
+
+三个工作流都先在 GitHub 托管 runner 上为各自目标运行 [llama.cpp worker 工作流](../../../.github/workflows/llama-worker.yml)，再在打包前把该 artifact 解压到 `native/llama-worker/dist`。worker 的构建提交与安装包 checkout 不同时（源码分支在运行期间移动会导致这种情况），打包停止；请重新运行工作流。artifact 名称与检查见 [worker README](../../../native/llama-worker/README.zh.md#continuous-integration)。
 
 运行 `node apps/desktop/scripts/setup-macos-packaging.mjs "$HOME/dsh-ci"` 创建私有 `runner/`、`packaging/{presets,secrets,certificates}` 和 `cache/macos-signatures` 目录，不覆盖已有文件；追加 `--check` 仅检查。在 checkout 外填写 [preset](../config/macos-packaging/test.env.example) 和[签名](../config/macos-packaging/macos-signing.env.example)模板，将秘密和证书文件权限设为 `0600`。`DSH_PACKAGING_CONFIG_DIR` 指定 `packaging` 的绝对目录，`DSH_PACKAGING_PRESET` 选择其中的 preset；缺少文件立即失败，不回退到 `.env.macos`。Mac 签名和仅准备构建读取 `secrets/macos-signing.env`，相对凭据路径以该文件所在目录为基准。公开 preset 拒绝签名凭据，签名文件不能覆盖公开配置。本地未签名 Mac 构建保留无需配置的行为。
 

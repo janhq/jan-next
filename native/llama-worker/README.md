@@ -14,6 +14,7 @@ English | [中文](README.zh.md)
 - [Handshake](#handshake)
 - [HTTP API](#http-api)
 - [Shutdown and exit codes](#shutdown-and-exit-codes)
+- [Continuous integration](#continuous-integration)
 - [Dev Note](#dev-note)
 
 ## Build
@@ -32,7 +33,7 @@ From the repository root, `pnpm run build:llama-worker` fetches the pinned llama
 
 The binary is written to `target/release/jan-llama-worker`. ggml is built as shared libraries plus runtime-loaded backend modules under the build script's output directory. The binary finds them through its run path and a compiled-in build-tree directory, so it runs in place but cannot be moved on its own.
 
-`pnpm run stage:llama-worker`, or `scripts/stage.sh [<dir>]` from this directory, copies the release binary, `libggml`, `libggml-base`, and every `ggml-*` backend module of the build that binary was linked against into one directory, `dist/` by default, and fails when the binary, its ggml prefix, or a backend module is missing. ggml loads backend modules from the executable's directory, and the libraries resolve through the `$ORIGIN` run path on Linux, `@loader_path` on macOS, and the executable's directory on Windows, so the staged directory runs from any location. The script removes the absolute build-tree run paths from the staged binary with `install_name_tool` on macOS and with `patchelf` on Linux when it is installed; without `patchelf` they remain after `$ORIGIN`, so the staged ggml libraries still take precedence. The desktop package copies `dist/` to `<resources>/llama-worker/`, so the packaged worker is `<resources>/llama-worker/jan-llama-worker` (`.exe` on Windows); packaging fails when `dist/` has no worker unless `DSH_DESKTOP_OMIT_LLAMA_WORKER=1`.
+`pnpm run stage:llama-worker`, or `scripts/stage.sh [<dir>]` from this directory, copies the release binary, `libggml`, `libggml-base`, and every `ggml-*` backend module of the build that binary was linked against into one directory, `dist/` by default, and fails when the binary, its ggml prefix, or a backend module is missing. ggml loads backend modules from the executable's directory, and the libraries resolve through the `$ORIGIN` run path on Linux, `@loader_path` on macOS, and the executable's directory on Windows, so the staged directory runs from any location. The script removes the absolute build-tree run paths from the staged binary with `install_name_tool` on macOS and `patchelf` on Linux and fails unless the remaining run path is exactly `@loader_path` or `$ORIGIN`. It checks for `readelf` and `patchelf` on Linux, or the Xcode command line tools on macOS, before writing anything, and removes the staged worker when a later step fails. The desktop package copies `dist/` to `<resources>/llama-worker/`, so the packaged worker is `<resources>/llama-worker/jan-llama-worker` (`.exe` on Windows); packaging fails when `dist/` has no worker, or a worker for another platform or architecture, unless `DSH_DESKTOP_OMIT_LLAMA_WORKER=1`.
 
 | Build variable | Effect |
 |---|---|
@@ -60,7 +61,7 @@ To move the pin, update all four constants and the crate version together, delet
 
 `--models-max` bounds the number of resident models; it defaults to 1, and 0 removes the bound. Loading past the bound evicts the least recently used idle model, and a request that needs another model while every resident model is busy gets HTTP 503. `--slot-cache-mib` bounds the per-thread KV cache directory named by `slot-save-path` and defaults to 0, which disables saving. `--diagnose-run`, `--diagnose-devices`, and `--diagnose-ops` start the leaf processes that `--diagnose` supervises.
 
-The preset is the llama.cpp router preset INI format. Each section other than `[*]` registers one model whose id is the section name; `[*]` holds defaults applied to every section, and a section's own keys override them. Keys are llama.cpp server option names without leading dashes, such as `model`, `ctx-size`, `n-gpu-layers`, `device`, `flash-attn`, `cache-type-k`, `cache-type-v`, `fit`, and `split-mode`; unknown keys are ignored. The worker itself reads `slot-save-path` from `[*]` and creates that directory before serving. Models load on the first request that names them or on `POST /models/load`.
+The preset is the llama.cpp router preset INI format. Each section other than `[*]` registers one model whose id is the section name; `[*]` holds defaults applied to every section, and a section's own keys override them. Keys are llama.cpp server option names without leading dashes, such as `model`, `ctx-size`, `n-gpu-layers`, `device`, `flash-attn`, `cache-type-k`, `cache-type-v`, `fit`, and `split-mode`; unknown keys are ignored. The worker itself reads `slot-save-path` from `[*]` and creates that directory before serving. A section whose only key is `alias-of = <section>` is an alias rather than a model: requests, loads, and `/props?model=` naming the alias reach its target engine, and the worker rejects an alias that names a missing section, another alias, or itself. Models load on the first request that names them or on `POST /models/load`.
 
 The bearer token is read from the `JAN_LLAMA_API_KEY` environment variable and removed from the process environment; an empty or unset value disables authentication.
 
@@ -69,10 +70,10 @@ The bearer token is read from the `JAN_LLAMA_API_KEY` environment variable and r
 Once the listener is bound, the worker prints exactly one JSON line to stdout and flushes it; serving mode prints nothing else to stdout.
 
 ```json
-{"port":39271,"pid":1234,"models":["a","b"],"cuda_toolkit":null,"devices":[{"id":"Vulkan0","name":"AMD Radeon"}]}
+{"port":39271,"pid":1234,"models":["a","b"],"aliases":{"local":"a"},"cuda_toolkit":null,"devices":[{"id":"Vulkan0","name":"AMD Radeon"}]}
 ```
 
-`models` lists the preset section names, sorted. `cuda_toolkit` is the `major.minor` CUDA version a CUDA build was compiled with, otherwise `null`. `devices` lists the devices this process initialised, or is `null` when they could not be read; an empty array means the machine has no offload device.
+`models` lists the preset model section names, sorted, and `aliases` maps each alias to its target. `cuda_toolkit` is the `major.minor` CUDA version a CUDA build was compiled with, otherwise `null`. `devices` lists the devices this process initialised, or is `null` when they could not be read; an empty array means the machine has no offload device.
 
 ## HTTP API
 
@@ -80,7 +81,7 @@ The worker listens on `127.0.0.1` and checks `Authorization: Bearer <key>` on ev
 
 | Method and path | Purpose |
 |---|---|
-| `GET /v1/models`, `GET /models` | Every registered model with its llama.cpp router `status` and a `busy` flag |
+| `GET /v1/models`, `GET /models` | Every registered model with its llama.cpp router `status` and a `busy` flag, and the `aliases` that resolve to it |
 | `GET /models/sse` | Server-sent model lifecycle events with load progress |
 | `POST /models/load`, `POST /models/unload` | Loads or unloads `{"model": id}` |
 | `POST /models/reload` | Re-reads `{"preset_path", "models_max"?}` and reloads only changed models |
@@ -103,6 +104,24 @@ The worker stops when its stdin reaches end of file, and on Unix also on SIGTERM
 | 6 | `--list-devices` could not enumerate devices |
 | 7 | The `slot-save-path` directory could not be created |
 | 8, 9, 10 | Diagnostic setup failure, lost reader, or leaf deadline |
+
+## Continuous integration
+
+`pnpm run check:llama-worker <dir> <x64|arm64>`, or `scripts/check-stage.sh` from this directory, verifies a staged directory. Every ELF, Mach-O, or PE file in it must target the given architecture, have no run path other than `$ORIGIN` or `@loader_path`, and load only staged libraries or OS libraries: the C and C++ runtimes, the Vulkan loader, and the CUDA driver on Linux; `/usr/lib` and `/System/Library` on macOS; System32 DLLs and the Vulkan and CUDA driver DLLs on Windows. The script then copies the directory elsewhere, runs `--version` there with a scrubbed environment, and fails unless the worker reports the pinned tag. It prints `--list-devices` output but does not fail on it, because a runner without a GPU driver cannot enumerate devices.
+
+The reusable [llama.cpp worker workflow](../../.github/workflows/llama-worker.yml) builds the worker for each selected target, runs `cargo test` without the engine, compiles the engine tests, stages the worker into `dist/`, and runs the check. Its `targets` input takes a comma-separated list and its `ref` input selects the source; both are available from a manual run.
+
+| Target | Runner | Cargo feature |
+|---|---|---|
+| `linux-x64` | `ubuntu-22.04` | `engine-vulkan` |
+| `linux-arm64` | `ubuntu-22.04-arm` | `engine` |
+| `windows-x64` | `windows-2025` | `engine-vulkan` |
+| `macos-arm64` | `macos-15` | `engine-metal` |
+| `macos-x64` | `macos-15-intel` | `engine` |
+
+Each target uploads the artifact `jan-llama-worker-<target>` with two files: `jan-llama-worker-<target>.tar.gz`, the staged directory as a tar archive so executable bits survive, and `source-commit`, the commit it was built from. Linux builds on Ubuntu 22.04 so the worker needs glibc 2.35 at most, and macOS builds set `MACOSX_DEPLOYMENT_TARGET=13.3`. Caches hold the Cargo registry keyed by `Cargo.lock`, the llama.cpp checkout keyed by the pinned commit, and ccache keyed by target and `build.rs`.
+
+The macOS and Windows desktop packaging workflows run it for their own target and extract the archive into `dist/`, as described in [desktop packaging](../../apps/desktop/packaging/README.md#macos-actions). The [worker check workflow](../../.github/workflows/llama-worker-check.yml) runs `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, and `cargo test` for pull requests and `master` pushes that change this crate or either workflow, and then runs the worker workflow for `linux-x64`.
 
 ## Dev Note
 

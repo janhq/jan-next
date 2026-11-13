@@ -14,6 +14,7 @@
 - [握手](#handshake)
 - [HTTP API](#http-api)
 - [关闭与退出码](#shutdown-and-exit-codes)
+- [持续集成](#continuous-integration)
 - [开发备注](#dev-note)
 
 ## Build
@@ -32,7 +33,7 @@
 
 二进制文件写入 `target/release/jan-llama-worker`。ggml 被构建为共享库和运行时加载的后端模块，位于构建脚本的输出目录下。二进制文件通过其运行路径和编译时写入的构建树目录找到它们，因此可以就地运行，但不能单独移动。
 
-`pnpm run stage:llama-worker`（或在本目录中运行 `scripts/stage.sh [<dir>]`）会把 release 二进制文件，以及该二进制文件所链接构建中的 `libggml`、`libggml-base` 和所有 `ggml-*` 后端模块复制到同一个目录（默认为 `dist/`）；缺少二进制文件、其 ggml prefix 或后端模块时脚本会失败。ggml 从可执行文件所在目录加载后端模块，各个库在 Linux 上通过 `$ORIGIN` 运行路径、在 macOS 上通过 `@loader_path`、在 Windows 上通过可执行文件所在目录解析，因此暂存目录可以从任意位置运行。脚本会从暂存的二进制文件中移除绝对构建树运行路径：macOS 上使用 `install_name_tool`，Linux 上在已安装 `patchelf` 时使用它；没有 `patchelf` 时这些路径保留在 `$ORIGIN` 之后，暂存的 ggml 库仍然优先。桌面安装包把 `dist/` 复制到 `<resources>/llama-worker/`，因此打包后的 worker 位于 `<resources>/llama-worker/jan-llama-worker`（Windows 上为 `.exe`）；除非设置 `DSH_DESKTOP_OMIT_LLAMA_WORKER=1`，否则 `dist/` 中没有 worker 时打包会失败。
+`pnpm run stage:llama-worker`（或在本目录中运行 `scripts/stage.sh [<dir>]`）会把 release 二进制文件，以及该二进制文件所链接构建中的 `libggml`、`libggml-base` 和所有 `ggml-*` 后端模块复制到同一个目录（默认为 `dist/`）；缺少二进制文件、其 ggml prefix 或后端模块时脚本会失败。ggml 从可执行文件所在目录加载后端模块，各个库在 Linux 上通过 `$ORIGIN` 运行路径、在 macOS 上通过 `@loader_path`、在 Windows 上通过可执行文件所在目录解析，因此暂存目录可以从任意位置运行。脚本会从暂存的二进制文件中移除绝对构建树运行路径：macOS 上使用 `install_name_tool`，Linux 上使用 `patchelf`；剩余运行路径不恰好是 `@loader_path` 或 `$ORIGIN` 时脚本失败。脚本在写入任何文件前检查 Linux 上的 `readelf` 和 `patchelf`，或 macOS 上的 Xcode 命令行工具，后续步骤失败时会删除已暂存的 worker。桌面安装包把 `dist/` 复制到 `<resources>/llama-worker/`，因此打包后的 worker 位于 `<resources>/llama-worker/jan-llama-worker`（Windows 上为 `.exe`）；除非设置 `DSH_DESKTOP_OMIT_LLAMA_WORKER=1`，否则 `dist/` 中没有 worker，或 worker 面向其他平台或架构时，打包会失败。
 
 | 构建变量 | 作用 |
 |---|---|
@@ -60,7 +61,7 @@
 
 `--models-max` 限制常驻模型的数量；默认为 1，设为 0 表示不限制。超过上限加载时会驱逐最近最少使用的空闲模型；当所有常驻模型都忙碌时，需要另一个模型的请求会收到 HTTP 503。`--slot-cache-mib` 限制 `slot-save-path` 所指定的按线程 KV 缓存目录的大小，默认为 0，即禁用保存。`--diagnose-run`、`--diagnose-devices` 和 `--diagnose-ops` 用于启动由 `--diagnose` 监管的叶子进程。
 
-预设采用 llama.cpp 路由器预设的 INI 格式。除 `[*]` 外，每个节注册一个模型，模型 id 即节名；`[*]` 保存应用于所有节的默认值，节内自己的键会覆盖它们。键是去掉前导短横线的 llama.cpp 服务器选项名，例如 `model`、`ctx-size`、`n-gpu-layers`、`device`、`flash-attn`、`cache-type-k`、`cache-type-v`、`fit` 和 `split-mode`；未知的键会被忽略。worker 自身会从 `[*]` 读取 `slot-save-path`，并在开始服务前创建该目录。模型在第一个指定它的请求到来时加载，或在收到 `POST /models/load` 时加载。
+预设采用 llama.cpp 路由器预设的 INI 格式。除 `[*]` 外，每个节注册一个模型，模型 id 即节名；`[*]` 保存应用于所有节的默认值，节内自己的键会覆盖它们。键是去掉前导短横线的 llama.cpp 服务器选项名，例如 `model`、`ctx-size`、`n-gpu-layers`、`device`、`flash-attn`、`cache-type-k`、`cache-type-v`、`fit` 和 `split-mode`；未知的键会被忽略。worker 自身会从 `[*]` 读取 `slot-save-path`，并在开始服务前创建该目录。唯一键为 `alias-of = <节名>` 的节是别名而非模型：指定该别名的请求、加载和 `/props?model=` 都会到达其目标引擎；指向不存在的节、其他别名或自身的别名会被 worker 拒绝。模型在第一个指定它的请求到来时加载，或在收到 `POST /models/load` 时加载。
 
 bearer token 从 `JAN_LLAMA_API_KEY` 环境变量读取，读取后从进程环境中移除；值为空或未设置时禁用认证。
 
@@ -69,10 +70,10 @@ bearer token 从 `JAN_LLAMA_API_KEY` 环境变量读取，读取后从进程环�
 监听器绑定后，worker 向 stdout 打印且只打印一行 JSON 并立即刷新；服务模式下不会再向 stdout 打印其他内容。
 
 ```json
-{"port":39271,"pid":1234,"models":["a","b"],"cuda_toolkit":null,"devices":[{"id":"Vulkan0","name":"AMD Radeon"}]}
+{"port":39271,"pid":1234,"models":["a","b"],"aliases":{"local":"a"},"cuda_toolkit":null,"devices":[{"id":"Vulkan0","name":"AMD Radeon"}]}
 ```
 
-`models` 列出排序后的预设节名。`cuda_toolkit` 是 CUDA 构建所使用的 `major.minor` CUDA 版本，其他构建为 `null`。`devices` 列出本进程初始化的设备；无法读取时为 `null`，空数组表示该机器没有可卸载计算的设备。
+`models` 列出排序后的预设模型节名，`aliases` 把每个别名映射到其目标。`cuda_toolkit` 是 CUDA 构建所使用的 `major.minor` CUDA 版本，其他构建为 `null`。`devices` 列出本进程初始化的设备；无法读取时为 `null`，空数组表示该机器没有可卸载计算的设备。
 
 ## HTTP API
 
@@ -80,7 +81,7 @@ worker 监听 `127.0.0.1`，并对每个请求检查 `Authorization: Bearer <key
 
 | 方法与路径 | 用途 |
 |---|---|
-| `GET /v1/models`、`GET /models` | 列出所有已注册模型及其 llama.cpp 路由器 `status` 和 `busy` 标志 |
+| `GET /v1/models`、`GET /models` | 列出所有已注册模型及其 llama.cpp 路由器 `status` 和 `busy` 标志，以及解析到它的 `aliases` |
 | `GET /models/sse` | 以服务器发送事件推送模型生命周期事件及加载进度 |
 | `POST /models/load`、`POST /models/unload` | 加载或卸载 `{"model": id}` |
 | `POST /models/reload` | 重新读取 `{"preset_path", "models_max"?}`，只重新加载发生变化的模型 |
@@ -103,6 +104,24 @@ worker 在 stdin 到达文件末尾时停止，在 Unix 上收到 SIGTERM 时也
 | 6 | `--list-devices` 无法枚举设备 |
 | 7 | 无法创建 `slot-save-path` 目录 |
 | 8, 9, 10 | 诊断初始化失败、读取方丢失或叶子进程超过期限 |
+
+## Continuous integration
+
+`pnpm run check:llama-worker <dir> <x64|arm64>`（或在本目录中运行 `scripts/check-stage.sh`）检查已暂存的目录。其中每个 ELF、Mach-O 或 PE 文件都必须面向给定架构，除 `$ORIGIN` 或 `@loader_path` 外没有其他运行路径，并且只加载已暂存的库或操作系统库：Linux 上为 C 与 C++ 运行时、Vulkan 加载器和 CUDA 驱动；macOS 上为 `/usr/lib` 和 `/System/Library`；Windows 上为 System32 中的 DLL 以及 Vulkan 和 CUDA 驱动 DLL。脚本随后把目录复制到别处，在清空的环境中于该处运行 `--version`，worker 报告的不是固定的标签时失败。它会打印 `--list-devices` 的输出但不因其失败，因为没有 GPU 驱动的 runner 无法枚举设备。
+
+可复用的 [llama.cpp worker 工作流](../../.github/workflows/llama-worker.yml) 为每个选中的目标构建 worker，在不启用引擎的情况下运行 `cargo test`，编译引擎测试，把 worker 暂存到 `dist/`，并运行上述检查。其 `targets` 输入接受逗号分隔的列表，`ref` 输入选择源码；手动运行时两者均可用。
+
+| 目标 | Runner | Cargo feature |
+|---|---|---|
+| `linux-x64` | `ubuntu-22.04` | `engine-vulkan` |
+| `linux-arm64` | `ubuntu-22.04-arm` | `engine` |
+| `windows-x64` | `windows-2025` | `engine-vulkan` |
+| `macos-arm64` | `macos-15` | `engine-metal` |
+| `macos-x64` | `macos-15-intel` | `engine` |
+
+每个目标上传 artifact `jan-llama-worker-<target>`，其中有两个文件：`jan-llama-worker-<target>.tar.gz`，即以 tar 归档保存、保留可执行位的暂存目录；以及 `source-commit`，即构建所用的提交。Linux 在 Ubuntu 22.04 上构建，因此 worker 最多需要 glibc 2.35；macOS 构建设置 `MACOSX_DEPLOYMENT_TARGET=13.3`。缓存保存以 `Cargo.lock` 为键的 Cargo registry、以固定提交为键的 llama.cpp checkout，以及以目标和 `build.rs` 为键的 ccache。
+
+macOS 与 Windows 桌面打包工作流为各自目标运行该工作流，并把归档解压到 `dist/`，详见[桌面打包](../../apps/desktop/packaging/README.zh.md#macos-actions)。[worker 检查工作流](../../.github/workflows/llama-worker-check.yml) 在修改本 crate 或任一工作流的 pull request 和 `master` 推送上运行 `cargo fmt --check`、`cargo clippy --all-targets -- -D warnings` 和 `cargo test`，随后为 `linux-x64` 运行 worker 工作流。
 
 ## Dev Note
 

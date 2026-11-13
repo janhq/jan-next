@@ -21,6 +21,21 @@ case "$(uname -s)" in
   *)                    OS=linux;   EXE="" ;;
 esac
 
+# Checked before anything is written, so a missing tool cannot leave a
+# half-staged directory that still has a worker in it.
+case "$OS" in
+  linux)
+    for tool in readelf patchelf; do
+      command -v "$tool" >/dev/null 2>&1 || fail "$tool is required (binutils, patchelf)"
+    done
+    ;;
+  macos)
+    for tool in otool install_name_tool codesign; do
+      command -v "$tool" >/dev/null 2>&1 || fail "$tool (Xcode command line tools) is required"
+    done
+    ;;
+esac
+
 WORKER="$TARGET_DIR/jan-llama-worker$EXE"
 [ -f "$WORKER" ] || fail "$WORKER not found; run \`pnpm run build:llama-worker\` first"
 
@@ -50,8 +65,11 @@ DEST="$(cd "$DEST" && pwd)"
 find "$DEST" -maxdepth 1 \( -name 'jan-llama-worker*' -o -name 'libggml*' -o -name 'ggml*.dll' \) \
   -exec rm -f {} +
 
-install -m 755 "$WORKER" "$DEST/jan-llama-worker$EXE"
 STAGED="$DEST/jan-llama-worker$EXE"
+# A failed run removes the worker, so packaging cannot take a half-staged directory.
+remove_worker_on_failure() { [ "$1" -eq 0 ] || rm -f "$STAGED"; }
+trap 'remove_worker_on_failure $?' EXIT
+install -m 755 "$WORKER" "$STAGED"
 
 # Copies dereferenced, so the directory holds no symlinks for packagers to mangle.
 stage_lib() {
@@ -87,10 +105,6 @@ if [ "$OS" = windows ]; then
     case "$name" in ggml.dll|ggml-base.dll) ;; *) modules=$((modules + 1)) ;; esac
   done
 else
-  case "$OS" in
-    linux) command -v readelf >/dev/null 2>&1 || fail "readelf (binutils) is required" ;;
-    macos) command -v otool >/dev/null 2>&1 || fail "otool (Xcode command line tools) is required" ;;
-  esac
   core="$(ggml_imports "$STAGED")"
   [ -n "$core" ] || fail "$WORKER links no libggml shared library; was it built with --features engine?"
   for name in $core; do stage_lib "$PREFIX/lib/$name" "$name"; done
@@ -113,18 +127,12 @@ if [ "$OS" != windows ]; then
   case "$OS" in linux) relative='$ORIGIN' ;; macos) relative='@loader_path' ;; esac
   paths="$(run_paths "$STAGED")"
   grep -qxF -- "$relative" <<<"$paths" || fail "$WORKER has no $relative run path (has: $(tr '\n' ' ' <<<"$paths"))"
-  # build.rs adds absolute build-tree run paths so `cargo run` and `cargo test`
-  # work in place; the staged copy drops them because they name this machine.
+  # build.rs adds absolute build-tree run paths so the unstaged binary runs in
+  # place; the staged copy drops them because they name this machine.
   absolute="$(grep -vxF -- "$relative" <<<"$paths" || true)"
   if [ -n "$absolute" ]; then
     case "$OS" in
-      linux)
-        if command -v patchelf >/dev/null 2>&1; then
-          patchelf --set-rpath "$relative" "$STAGED"
-        else
-          echo "stage: warning: patchelf not found; the staged binary keeps $(wc -l <<<"$absolute") build-tree run paths after \$ORIGIN" >&2
-        fi
-        ;;
+      linux) patchelf --set-rpath "$relative" "$STAGED" ;;
       macos)
         while IFS= read -r path; do install_name_tool -delete_rpath "$path" "$STAGED"; done <<<"$absolute"
         # install_name_tool invalidates the linker's ad-hoc signature, without
@@ -133,7 +141,9 @@ if [ "$OS" != windows ]; then
         ;;
     esac
   fi
-  echo "stage: run path: $(run_paths "$STAGED" | paste -sd: -)"
+  paths="$(run_paths "$STAGED")"
+  [ "$paths" = "$relative" ] || fail "the staged run path is not exactly $relative (has: $(tr '\n' ' ' <<<"$paths"))"
+  echo "stage: run path: $paths"
 fi
 
 "$STAGED" --version >/dev/null || fail "the staged $STAGED does not start"

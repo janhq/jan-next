@@ -62,7 +62,14 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  llama-worker:
+    uses: ./.github/workflows/llama-worker.yml
+    with:
+      ref: ${{ inputs.source_ref }}
+      targets: windows-x64
+
   package:
+    needs: llama-worker
     outputs:
       directory: ${{ steps.retained.outputs.directory }}
       runner: ${{ steps.retained.outputs.runner }}
@@ -166,6 +173,23 @@ jobs:
           pnpm store path
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           pnpm install --frozen-lockfile
+          exit $LASTEXITCODE
+      - uses: actions/download-artifact@v8.0.1
+        with:
+          name: jan-llama-worker-windows-x64
+          path: ${{ runner.temp }}/llama-worker-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Stage the llama.cpp worker built from this checkout
+        env:
+          LLAMA_WORKER_ARTIFACT: ${{ runner.temp }}/llama-worker-${{ github.run_id }}-${{ github.run_attempt }}
+          PACKAGE_SOURCE_SHA: ${{ steps.checkout.outputs.commit }}
+        run: |
+          $built = (Get-Content -Raw -LiteralPath (Join-Path $env:LLAMA_WORKER_ARTIFACT 'source-commit')).Trim()
+          if ($built -ne $env:PACKAGE_SOURCE_SHA) { throw "jan-llama-worker was built from $built, but this package checks out $env:PACKAGE_SOURCE_SHA; the source ref moved, so rerun the workflow" }
+          $dist = 'native/llama-worker/dist'
+          if (Test-Path -LiteralPath $dist) { Remove-Item -LiteralPath $dist -Recurse -Force }
+          New-Item -ItemType Directory -Path $dist | Out-Null
+          # System32 bsdtar: a GNU tar earlier on PATH reads the drive colon as a remote host.
+          & (Join-Path $env:SystemRoot 'System32/tar.exe') -xzf (Join-Path $env:LLAMA_WORKER_ARTIFACT 'jan-llama-worker-windows-x64.tar.gz') -C $dist
           exit $LASTEXITCODE
       - name: Check original machine archival route
         env:
