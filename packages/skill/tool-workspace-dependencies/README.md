@@ -85,7 +85,7 @@ A container can copy both directories into an immutable image layer and set `JAN
 
 #### What the model sees
 
-The model sees the generated [`load_workspace_dependencies` schema](../../../docs/tool-catalog.md#deepseek-aidsh-tool-workspace-dependencies).
+The model sees the generated [`load_workspace_dependencies` schema](../../../docs/tool-catalog.md#janhqjan-tool-workspace-dependencies).
 
 #### Token effect
 

@@ -61,7 +61,7 @@ No runtime invariant companion is published because the tool delegates all direc
 
 #### What the model sees
 
-The [tool catalog](../../../docs/tool-catalog.md#deepseek-aidsh-tool-working-directory) defines the optional `cd` argument and canonical `cwd` result. Directory notices are owned by `jan-working-directory`.
+The [tool catalog](../../../docs/tool-catalog.md#janhqjan-tool-working-directory) defines the optional `cd` argument and canonical `cwd` result. Directory notices are owned by `jan-working-directory`.
 
 #### Token effect
 

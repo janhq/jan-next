@@ -56,7 +56,7 @@ The desktop app sets `JAN_LLAMA_WORKER` to its bundled worker; `pnpm run dev:web
 | `apiKeyRef`, `baseURLRef` | `LLAMA_CPP_API_KEY`, `LLAMA_CPP_BASE_URL` | Credential references the route reads as `apiKeyEnv` and `baseURLEnv` |
 | `routeNamespace` | `llm-pi-ai` | Settings namespace whose `providers.<provider>.models` the service rewrites; empty disables the rewrite |
 
-The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-llama-cpp) lists every accepted field, including GPU, batch, and KV cache options.
+The generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-llama-cpp) lists every accepted field, including GPU, batch, and KV cache options.
 
 ### Models and the picker
 

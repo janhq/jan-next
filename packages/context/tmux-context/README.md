@@ -43,7 +43,7 @@ The minimal mount needs no configuration. A positive `refreshIntervalMs` additio
 |---|---|---|
 | `refreshIntervalMs` | `0` (every changed turn) | Minimum milliseconds between durable injections in one session |
 
-The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-tmux-context) is the exhaustive source for every accepted field and its JSDoc.
+The generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-tmux-context) is the exhaustive source for every accepted field and its JSDoc.
 
 ### When the location is known
 
@@ -86,7 +86,7 @@ Read these pages when the package-level contract is not enough. They move from t
 
 - [Shell subsystem](../../../docs/subsystems/shell.md) — the executor service the read-only query runs through.
 - [Context group map](../README.md) — sibling request-context packages.
-- [Generated configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-tmux-context) — every accepted config field and its source declaration.
+- [Generated configuration catalog](../../../docs/config-catalog.md#janhqjan-tmux-context) — every accepted config field and its source declaration.
 
 -----
 

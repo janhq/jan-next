@@ -46,7 +46,7 @@ With `oar-codex` and `oar-claude` already registered, mount this row in the comp
 | `providers` | required | Nonempty map from model-visible runtime aliases to registered provider names |
 | `toolName` | `subagent_oar` | Tool name; every mounted instance needs a distinct name |
 
-The [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-experimental-tool-subagent-oar) owns accepted fields and validation. A call requires `runtime`, `description`, and `prompt`. Optional `name` names the child, unique among the caller's children and cannot be `lead`; omission selects `agent-1`, `agent-2`, and so on, under the [subagent runtime's name rule](../../subagent/subagent/README.md#agent-names). Optional `cwd` selects the child directory, with relative paths resolved from the parent's current directory. The prompt must contain the context the child needs. Native installation, authentication, model settings, and permissions belong to the selected provider.
+The [configuration catalog](../../../docs/config-catalog.md#janhqjan-experimental-tool-subagent-oar) owns accepted fields and validation. A call requires `runtime`, `description`, and `prompt`. Optional `name` names the child, unique among the caller's children and cannot be `lead`; omission selects `agent-1`, `agent-2`, and so on, under the [subagent runtime's name rule](../../subagent/subagent/README.md#agent-names). Optional `cwd` selects the child directory, with relative paths resolved from the parent's current directory. The prompt must contain the context the child needs. Native installation, authentication, model settings, and permissions belong to the selected provider.
 
 -----
 
@@ -78,7 +78,7 @@ The [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-exper
 
 #### What the model sees
 
-The [tool catalog](../../../docs/tool-catalog.md#deepseek-aidsh-experimental-tool-subagent-oar) owns the description and argument schema. The `runtime` enum contains the configured aliases. After acceptance, the tool returns `started subagent <name>`, where `<name>` is the child's full name from the root, such as `reviewer`. The shared subagent service later supplies the child's answer or failure notice.
+The [tool catalog](../../../docs/tool-catalog.md#janhqjan-experimental-tool-subagent-oar) owns the description and argument schema. The `runtime` enum contains the configured aliases. After acceptance, the tool returns `started subagent <name>`, where `<name>` is the child's full name from the root, such as `reviewer`. The shared subagent service later supplies the child's answer or failure notice.
 
 #### Token effect
 
