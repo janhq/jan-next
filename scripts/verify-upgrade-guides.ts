@@ -1,6 +1,6 @@
 /**
  * Enforce the `docs/upgrade-guide/v<version>/<item>/guide.md` layout, metadata,
- * sections, and word ceiling defined by the `dsh-create-upgrade-guide` skill.
+ * sections, and word ceiling defined by the `jan-create-upgrade-guide` skill.
  * @module scripts/verify-upgrade-guides
  */
 
@@ -70,7 +70,7 @@ export function collectUpgradeGuideViolations(root: string): string[] {
 if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
   const violations = collectUpgradeGuideViolations(ROOT)
   if (violations.length > 0) {
-    process.stderr.write('verify-upgrade-guides: violations found (see .agents/skills/dsh-create-upgrade-guide/SKILL.md):\n')
+    process.stderr.write('verify-upgrade-guides: violations found (see .agents/skills/jan-create-upgrade-guide/SKILL.md):\n')
     for (const violation of violations) process.stderr.write(`  ${violation}\n`)
     process.exit(1)
   }

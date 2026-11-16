@@ -36,7 +36,7 @@ export function prepareDevelopmentApp(options: DevelopmentAppOptions): string {
   const source = dirname(dirname(dirname(options.electron)))
   const bundle = join(options.directory, 'Harness Dev.app')
   const executable = join(bundle, 'Contents', 'MacOS', 'HarnessDev')
-  const stamp = join(bundle, 'Contents', 'Resources', 'dsh-development.json')
+  const stamp = join(bundle, 'Contents', 'Resources', 'jan-development.json')
   const launcher = developmentLauncher(options, bundle)
   const identity = JSON.stringify({
     ...options, launcher, plist: readFileSync(join(source, 'Contents', 'Info.plist'), 'utf8'),
@@ -47,11 +47,11 @@ export function prepareDevelopmentApp(options: DevelopmentAppOptions): string {
     execFileSync('/usr/bin/ditto', [source, bundle])
     const plist = join(bundle, 'Contents', 'Info.plist')
     const values = {
-      CFBundleIdentifier: `com.deepseek.harness.dev.${createHash('sha256').update(options.appRoot).digest('hex').slice(0, 12)}`,
+      CFBundleIdentifier: `com.janhq.harness.dev.${createHash('sha256').update(options.appRoot).digest('hex').slice(0, 12)}`,
       CFBundleName: 'Jan Alpha Dev',
       CFBundleDisplayName: 'Jan Alpha Dev',
       CFBundleExecutable: 'HarnessDev',
-      CFBundleURLTypes: [{ CFBundleURLName: 'Jan Alpha', CFBundleURLSchemes: ['dsh'], CFBundleTypeRole: 'Viewer' }],
+      CFBundleURLTypes: [{ CFBundleURLName: 'Jan Alpha', CFBundleURLSchemes: ['jan'], CFBundleTypeRole: 'Viewer' }],
     }
     for (const [key, value] of Object.entries(values)) {
       execFileSync('/usr/bin/plutil', ['-replace', key, '-json', JSON.stringify(value), plist])
@@ -94,10 +94,10 @@ function writeJanIcon(icns: string): void {
  */
 export function developmentLauncher(options: DevelopmentAppOptions, bundle: string): string {
   const environment = {
-    DSH_HOME: options.home,
-    DSH_DESKTOP_DEV_APP: '1',
-    DSH_DESKTOP_HOST_INSPECT_PORT: String(options.hostPort),
-    DSH_DESKTOP_OPEN_DEVTOOLS: options.openDevtools,
+    JAN_HOME: options.home,
+    JAN_DESKTOP_DEV_APP: '1',
+    JAN_DESKTOP_HOST_INSPECT_PORT: String(options.hostPort),
+    JAN_DESKTOP_OPEN_DEVTOOLS: options.openDevtools,
     ELECTRON_ENABLE_LOGGING: '1',
   }
   const args = [

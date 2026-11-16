@@ -1,8 +1,8 @@
 /** Gesture-time path resolution for Chat-owned file references. */
-import type { Context } from '@deepseek-ai/cordis'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import { resolveWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
-import type {} from '@deepseek-ai/dsh-api-session-controller/client'
+import type { Context } from '@janhq/cordis'
+import type { SessionId } from '@janhq/jan-session/types'
+import { resolveWorkspacePath } from '@janhq/jan-util-workspace-path'
+import type {} from '@janhq/jan-api-session-controller/client'
 
 /**
  * Bind path resolution to the originating Session without capturing its current directory.

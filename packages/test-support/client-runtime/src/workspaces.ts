@@ -1,10 +1,10 @@
 /** Test-owned workspaces face: the renderer standard-kit observable plus recorded actions. */
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
+import { createSnapshotStore } from '@janhq/jan-client-store'
 import type {
   IWorkspaces, WorkspaceId, WorkspaceSnapshot, WorkspaceView,
-} from '@deepseek-ai/dsh-api-workspace-controller/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
+} from '@janhq/jan-api-workspace-controller/client'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { SnapshotStore } from '@janhq/jan-client-store'
 import { workspaceSnapshot } from './fixtures.ts'
 import type { FixtureSnapshot, Stabilizer } from './fixtures.ts'
 

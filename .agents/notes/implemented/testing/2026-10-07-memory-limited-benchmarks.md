@@ -4,7 +4,7 @@ Status: implemented
 
 ## Problem
 
-Benchmarks run on hosted runners with 16 GB of memory and on developer machines with more. Neither shows how DSH behaves on a machine with 4 GB or 8 GB available, where the Host, Chromium, and page cache share one memory budget.
+Benchmarks run on hosted runners with 16 GB of memory and on developer machines with more. Neither shows how Jan behaves on a machine with 4 GB or 8 GB available, where the Host, Chromium, and page cache share one memory budget.
 
 ## Decision
 

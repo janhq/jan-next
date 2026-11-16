@@ -1,11 +1,11 @@
 /**
  * Register keyless Exa search and fetch providers in `ctx.web`, both under the id `exa`. They
  * need no credential, so they are ready for every model route; queries and URLs are sent to Exa.
- * @module @deepseek-ai/dsh-web-search-exa
+ * @module @janhq/jan-web-search-exa
  */
-import type { Context } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
-import type {} from '@deepseek-ai/dsh-web'
+import type { Context } from '@janhq/cordis'
+import z from '@janhq/schemastery'
+import type {} from '@janhq/jan-web'
 import { EXA_DEFAULT_URL, EXA_MAX_RESULTS, ExaFetchProvider, ExaSearchProvider } from './provider.ts'
 import type { ExaOptions } from './provider.ts'
 

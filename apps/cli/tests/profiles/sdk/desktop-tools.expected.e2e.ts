@@ -12,7 +12,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execa } from 'execa'
 import { z } from 'zod'
-import { DeepSeekHarness } from '@deepseek-ai/dsh-sdk-client'
+import { Jan } from '@janhq/jan-sdk-client'
 import { expect, it, type TestContext } from 'vitest'
 import { profileEnvironment } from './fixtures/profile-environment.ts'
 import { MOCK_MODEL_PROVIDER, mockModelRouteRow } from './fixtures/mock-model-route.ts'
@@ -67,8 +67,8 @@ async function fixture(test: TestContext) {
     const before = requests.length
     let inventory: Inventory
     if (side === 'sdk') {
-      const harness = new DeepSeekHarness({
-        cwd, processCwd: cwd, dshHome: join(cwd, 'home'), env, provider: MOCK_MODEL_PROVIDER, model: 'mock-model',
+      const harness = new Jan({
+        cwd, processCwd: cwd, janHome: join(cwd, 'home'), env, provider: MOCK_MODEL_PROVIDER, model: 'mock-model',
         patches: [...mode === 'ptc' ? [join(repo, 'apps/cli/config/examples/ptc.yml')] : [], patch],
       })
       const abort = (): void => { void harness.close() }
@@ -85,7 +85,7 @@ async function fixture(test: TestContext) {
     } else {
       const child = execa(process.execPath, [join(repo, 'apps/cli/lib/bin.js'), '--profile', 'web',
         '--patch', patch, '--host', '127.0.0.1', '--port', '0', '--no-open'], {
-        cwd, env: { ...env, DSH_HOME: join(cwd, 'home') }, extendEnv: false,
+        cwd, env: { ...env, JAN_HOME: join(cwd, 'home') }, extendEnv: false,
         ipc: true, stdin: 'ignore', reject: false, cancelSignal: test.signal, forceKillAfterDelay: 10_000,
       })
       let stdout = ''
@@ -93,7 +93,7 @@ async function fixture(test: TestContext) {
       const ready = Promise.withResolvers<true>()
       child.stdout.on('data', (chunk: Buffer) => {
         stdout += chunk.toString()
-        if (stdout.includes('dsh web: http://')) ready.resolve(true)
+        if (stdout.includes('jan web: http://')) ready.resolve(true)
       })
       child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString() })
       void child.then((result) => { ready.reject(new Error(`Web exited: ${result.exitCode}\n${stderr}`)) })

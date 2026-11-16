@@ -3,11 +3,11 @@ import { lstatSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:f
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { Context, FiberState, type Plugin } from '@deepseek-ai/cordis'
-import { PluginPackages, readPluginMeta, type RuntimeResolution } from '@deepseek-ai/dsh-app-boot'
-import Loader from '@deepseek-ai/cordis-plugin-loader'
-import { remoteMethods } from '@deepseek-ai/dsh-typert-protocol'
-import type { AgentPresetRegistry } from '@deepseek-ai/dsh-agent-preset-registry'
+import { Context, FiberState, type Plugin } from '@janhq/cordis'
+import { PluginPackages, readPluginMeta, type RuntimeResolution } from '@janhq/jan-app-boot'
+import Loader from '@janhq/cordis-plugin-loader'
+import { remoteMethods } from '@janhq/jan-typert-protocol'
+import type { AgentPresetRegistry } from '@janhq/jan-agent-preset-registry'
 import PluginInventoryGateway from '../src/index.ts'
 
 const contexts: Context[] = []
@@ -40,7 +40,7 @@ async function harness(baseUrl?: string): Promise<{
 }
 
 function metadataFixture(mode: 'native' | 'runtime') {
-  const root = mkdtempSync(join(tmpdir(), 'dsh-inventory-meta-'))
+  const root = mkdtempSync(join(tmpdir(), 'jan-inventory-meta-'))
   roots.push(root)
   const profilesDir = join(root, 'profiles')
   const profileDir = join(profilesDir, 'test')
@@ -59,7 +59,7 @@ function metadataFixture(mode: 'native' | 'runtime') {
     expect(lstatSync(dir).isDirectory()).toBe(true)
     for (const path of [
       join(profileDir, 'node_modules'), join(profilesDir, 'node_modules'),
-      join(root, 'node_modules'), join(profileDir, '.dsh-module-fallback'),
+      join(root, 'node_modules'), join(profileDir, '.jan-module-fallback'),
     ]) expect(lstatSync(path, { throwIfNoEntry: false }), path).toBeUndefined()
   }
   return { dir, baseUrl, resolution, expectUnlinked }

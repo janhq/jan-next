@@ -4,10 +4,10 @@ import { MOCK_MODEL_KEY_ENV } from './mock-model-route.ts'
 
 /** Isolate SDK profile processes from ambient profile, runtime and Node loader settings. */
 export function profileEnvironment(root: string): NodeJS.ProcessEnv {
-  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('DSH_')))
+  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('JAN_')))
   Object.assign(env, {
-    DSH_PERMISSION_MODE: 'danger-full-access', DSH_TELEMETRY_DISABLED: '1',
-    DSH_AGENTS_HOME: join(root, 'agents'), DSH_PRIMARY_RUNTIME: '',
+    JAN_PERMISSION_MODE: 'danger-full-access', JAN_TELEMETRY_DISABLED: '1',
+    JAN_AGENTS_HOME: join(root, 'agents'), JAN_PRIMARY_RUNTIME: '',
     [MOCK_MODEL_KEY_ENV]: 'keyless-profile-test',
     NODE_OPTIONS: '', NODE_PATH: '',
   })

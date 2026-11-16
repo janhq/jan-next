@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
-import { Context, Service } from '@deepseek-ai/cordis'
-import { AttachmentId, AttachmentStore, ImageVariantId } from '@deepseek-ai/dsh-attachment'
+import { Context, Service } from '@janhq/cordis'
+import { AttachmentId, AttachmentStore, ImageVariantId } from '@janhq/jan-attachment'
 import type {
   ImageAttachmentLimits,
   ImageAttachmentRef,
@@ -8,11 +8,11 @@ import type {
   RequestImageAttachment,
   SaveImageAttachment,
   StoredImageAttachment,
-} from '@deepseek-ai/dsh-attachment'
-import LlmRuntime, { createToolResultMessage, createUserMessage, CONTEXT_WINDOW_EXCEEDED_CODE, LlmError, ReasoningEffortId, userAgent } from '@deepseek-ai/dsh-llm'
-import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
-import { PiAiAdapter } from '@deepseek-ai/dsh-llm-pi-ai'
-import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
+} from '@janhq/jan-attachment'
+import LlmRuntime, { createToolResultMessage, createUserMessage, CONTEXT_WINDOW_EXCEEDED_CODE, LlmError, ReasoningEffortId, userAgent } from '@janhq/jan-llm'
+import * as LlmPiAi from '@janhq/jan-llm-pi-ai'
+import { PiAiAdapter } from '@janhq/jan-llm-pi-ai'
+import { MAX_TIMER_DELAY_MS } from '@janhq/jan-timeout'
 import { getBuiltinModels } from '@earendil-works/pi-ai/providers/all'
 import { DEFAULT_IMAGE_OFFLOAD_COUNT_QUANTUM, DEFAULT_MAX_REQUEST_IMAGE_BYTES, DEFAULT_MAX_REQUEST_IMAGES, resolveProfiles } from '../src/config.ts'
 import { memoryAuth } from './auth-double.ts'
@@ -32,8 +32,8 @@ const IMAGE_REF: ImageAttachmentRef = {
   width: 1,
   height: 1,
 }
-const HOST_IMAGE_PATH = '/host/.dsh/attachments/objects/aa/object'
-const MODEL_IMAGE_PATH = '/model/.dsh/attachments/objects/aa/object'
+const HOST_IMAGE_PATH = '/host/.jan/attachments/objects/aa/object'
+const MODEL_IMAGE_PATH = '/model/.jan/attachments/objects/aa/object'
 
 class MappedFileSystem extends Service {
   constructor(ctx: Context) {
@@ -188,8 +188,8 @@ describe('PiAiAdapter provider routing', () => {
       thinking: { type: 'enabled' },
       reasoning_effort: 'max',
     })
-    expect(server.requests[0]).not.toHaveProperty('dsh_session_log')
-    expect(server.requests[0]).not.toHaveProperty('dsh_plugin_packages')
+    expect(server.requests[0]).not.toHaveProperty('jan_session_log')
+    expect(server.requests[0]).not.toHaveProperty('jan_plugin_packages')
   })
 
   it('routes OpenCode Go requests by Session id through its required session header', async () => {

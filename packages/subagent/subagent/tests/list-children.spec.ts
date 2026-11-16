@@ -5,19 +5,19 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { Context } from '@deepseek-ai/cordis'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import SessionStore, { SESSION_FORMAT_VERSION, SessionId } from '@deepseek-ai/dsh-session'
-import type { Session } from '@deepseek-ai/dsh-session'
-import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
+import { Context } from '@janhq/cordis'
+import AgentLoop from '@janhq/jan-agent-loop'
+import type { Agent } from '@janhq/jan-agent'
+import { mountAgentLoopTestDependencies } from '@janhq/jan-agent-loop-testkit'
+import SessionStore, { SESSION_FORMAT_VERSION, SessionId } from '@janhq/jan-session'
+import type { Session } from '@janhq/jan-session'
+import * as JsonlSessionPersistence from '@janhq/jan-session-persistence-jsonl'
 import { generationLogPath } from '../../../session/session-persistence-jsonl/src/format.ts'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
-import SubagentRuntime from '@deepseek-ai/dsh-subagent'
-import type { SubagentCatalogEntry } from '@deepseek-ai/dsh-subagent'
-import * as SubagentSpawn from '@deepseek-ai/dsh-subagent-spawn-in-process'
-import * as SubagentFork from '@deepseek-ai/dsh-subagent-fork-in-process'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
+import SubagentRuntime from '@janhq/jan-subagent'
+import type { SubagentCatalogEntry } from '@janhq/jan-subagent'
+import * as SubagentSpawn from '@janhq/jan-subagent-spawn-in-process'
+import * as SubagentFork from '@janhq/jan-subagent-fork-in-process'
 import { MockAdapter, textResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 import { startTestActivation } from './local-activation.ts'
 import { seedStoredSession } from './persistence-helpers.ts'
@@ -41,7 +41,7 @@ async function setup(
 ) {
   const ctx = new Context()
   await mountAgentLoopTestDependencies(ctx)
-  const root = mkdtempSync(join(tmpdir(), 'dsh-subagent-list-'))
+  const root = mkdtempSync(join(tmpdir(), 'jan-subagent-list-'))
   roots.push(root)
   const persistence = await ctx.plugin(JsonlSessionPersistence, {
     root,

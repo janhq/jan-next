@@ -3,7 +3,7 @@ description: "The model-facing ask_user_question tool over the user-questions se
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-tool-ask-user
+# @janhq/jan-tool-ask-user
 
 ## Summary
 
@@ -29,7 +29,7 @@ Shipped presets use blocking mode. To enable timed mode, set `mode: timed` on th
 
 ```yaml
 - id: tool-ask-user
-  name: '@deepseek-ai/dsh-tool-ask-user'
+  name: '@janhq/jan-tool-ask-user'
   config:
     mode: timed
     timeout: 120

@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-client-product-analytics",
+  "name": "@janhq/jan-client-product-analytics",
   "description": "Desktop product event collection and authenticated Host reporting",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/client/product-analytics"
   },
   "type": "module",
@@ -37,10 +37,10 @@
     },
     "./locale/*.json": "./locale/*.json"
   },
-  "dsh": {
+  "jan": {
     "client": {
       "inject": [
-        "@deepseek-ai/dsh-api-gateway"
+        "@janhq/jan-api-gateway"
       ],
       "platform": "web"
     }
@@ -51,22 +51,22 @@
   },
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/cordis": "workspace:~"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-api-gateway": "workspace:*",
-    "@deepseek-ai/dsh-compaction": "workspace:*",
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-host-product-telemetry-otel": "workspace:*",
-    "@deepseek-ai/dsh-tokamak-account": "workspace:*",
-    "@deepseek-ai/dsh-host-webserver": "workspace:*",
-    "@deepseek-ai/dsh-settings": "workspace:*",
-    "@deepseek-ai/cordis-plugin-loader": "workspace:~",
-    "@deepseek-ai/dsh-otel": "workspace:*",
-    "@deepseek-ai/dsh-app-boot": "workspace:*",
-    "@deepseek-ai/dsh-loader-smoke": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-api-gateway": "workspace:*",
+    "@janhq/jan-compaction": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-host-product-telemetry-otel": "workspace:*",
+    "@janhq/jan-tokamak-account": "workspace:*",
+    "@janhq/jan-host-webserver": "workspace:*",
+    "@janhq/jan-settings": "workspace:*",
+    "@janhq/cordis-plugin-loader": "workspace:~",
+    "@janhq/jan-otel": "workspace:*",
+    "@janhq/jan-app-boot": "workspace:*",
+    "@janhq/jan-loader-smoke": "workspace:*"
   },
   "files": [
     "locale/*.json",
@@ -79,8 +79,8 @@
     "lib/typert.remote-client.d.ts"
   ],
   "dependencies": {
-    "@deepseek-ai/dsh-typert-protocol": "workspace:*",
-    "@deepseek-ai/schemastery": "workspace:~",
+    "@janhq/jan-typert-protocol": "workspace:*",
+    "@janhq/schemastery": "workspace:~",
     "zod": "4.4.3"
   }
 }

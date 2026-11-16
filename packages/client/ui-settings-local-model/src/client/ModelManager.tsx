@@ -5,10 +5,10 @@
  * projector file, from disk.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Button, Input, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, Input, Tag } from '@janhq/jan-client-ui-primitives'
 import type {
   HuggingFaceRepoInfo, LlamaCppHostPlatform, LlamaCppState, LocalModelEntry, LocalModelStatus,
-} from '@deepseek-ai/dsh-api-llama-cpp-controller'
+} from '@janhq/jan-api-llama-cpp-controller'
 import type { LocalModelActions, Outcome } from './actions.ts'
 import { formatBytes } from './state.ts'
 import { DownloadProgress, FitTag, VisionTag, type T } from './parts.tsx'

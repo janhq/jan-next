@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { DeepSeekHarness } from '@deepseek-ai/dsh-sdk-client'
+import { Jan } from '@janhq/jan-sdk-client'
 import { expect, it } from 'vitest'
 import { z } from 'zod'
 import { profileEnvironment } from './fixtures/profile-environment.ts'
@@ -32,7 +32,7 @@ it.for(['standard', 'ptc'] as const)('keeps %s plugin changes pending until the 
         if (requests.length === 1) args = { action: 'list_plugins', limit: 100 }
         else if (phase === 'list') {
           const page = listPage.parse(JSON.parse(toolResultText(lastToolResult(current.messages))!))
-          const row = page.entries.find(entry => entry.moduleName === '@deepseek-ai/dsh-tool-web')
+          const row = page.entries.find(entry => entry.moduleName === '@janhq/jan-tool-web')
           if (row !== undefined) {
             args = { action: 'set_plugin', target: row.entryId, enabled: false }
             phase = 'set'
@@ -68,11 +68,11 @@ it.for(['standard', 'ptc'] as const)('keeps %s plugin changes pending until the 
   const env = profileEnvironment(root)
   const route = await writeMockModelRoute(root, `http://127.0.0.1:${address.port}`, ['mock-model'])
   const options = {
-    cwd: root, processCwd: root, dshHome: join(root, 'home'), env, provider: MOCK_MODEL_PROVIDER, model: 'mock-model',
+    cwd: root, processCwd: root, janHome: join(root, 'home'), env, provider: MOCK_MODEL_PROVIDER, model: 'mock-model',
     patches: [...mode === 'ptc' ? [fileURLToPath(new URL('../../../config/examples/ptc.yml', import.meta.url))] : [], route],
   }
   async function run(restarted: boolean): Promise<void> {
-    const harness = new DeepSeekHarness(options)
+    const harness = new Jan(options)
     const abort = (): void => { void harness.close() }
     test.signal.addEventListener('abort', abort, { once: true })
     try {
@@ -95,7 +95,7 @@ it.for(['standard', 'ptc'] as const)('keeps %s plugin changes pending until the 
   expect(advertises(requests[0]!, 'plugin_manager')).toBe(true)
   expect(JSON.stringify(requests[changedAt]!.messages)).toContain('restart-required')
   expect(JSON.stringify(requests[changedAt]!.messages)).toContain('no-hmr')
-  expect(JSON.stringify(requests[changedAt]!.messages)).toContain('restart DSH')
+  expect(JSON.stringify(requests[changedAt]!.messages)).toContain('restart Jan')
   expect(advertises(requests.at(-1)!, 'web_fetch')).toBe(true)
   const saved = await readFile(join(root, 'home/profiles/sdk/cordis.patch.yml'), 'utf8')
   expect(saved).toContain('tool-web')
@@ -117,7 +117,7 @@ it.for(['unavailable', 'approved', 'missing-pnpm'] as const)('reports the %s plu
       try { requests.push(JSON.parse(body) as Record<string, unknown>) }
       catch (error) { fixtureError = error }
       const args = scenario === 'missing-pnpm'
-        ? { action: 'install_bundle', target: '@deepseek-ai/dsh-subagent-codex' }
+        ? { action: 'install_bundle', target: '@janhq/jan-subagent-codex' }
         : { action: 'list_plugins', limit: 1 }
       const call = { type: 'tool_use', id: 'prerequisite', name: 'plugin_manager', input: args }
       response.writeHead(200, { 'content-type': 'text/event-stream' })
@@ -134,12 +134,12 @@ it.for(['unavailable', 'approved', 'missing-pnpm'] as const)('reports the %s plu
   if (address === null || typeof address === 'string') throw new Error('model fixture has no TCP address')
   const env = profileEnvironment(root)
   const route = await writeMockModelRoute(root, `http://127.0.0.1:${address.port}`, ['mock-model'])
-  env.DSH_PERMISSION_MODE = scenario === 'missing-pnpm' ? 'danger-full-access' : 'workspace-write'
+  env.JAN_PERMISSION_MODE = scenario === 'missing-pnpm' ? 'danger-full-access' : 'workspace-write'
   if (scenario === 'missing-pnpm') {
     for (const key of Object.keys(env)) if (key.toLowerCase() === 'path') Reflect.deleteProperty(env, key)
     env.PATH = root
   }
-  const harness = new DeepSeekHarness({ cwd: root, processCwd: root, dshHome: join(root, 'home'),
+  const harness = new Jan({ cwd: root, processCwd: root, janHome: join(root, 'home'),
     env, provider: MOCK_MODEL_PROVIDER, model: 'mock-model', patches: [route], approvalRequests: scenario === 'approved' })
   let approvals = 0
   const abort = (): void => { void harness.close() }

@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-api-llama-cpp-controller",
+  "name": "@janhq/jan-api-llama-cpp-controller",
   "description": "Authenticated browser access to the managed local llama.cpp model",
   "version": "0.2.2-rc.1",
   "repository": {
@@ -39,14 +39,14 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-llama-cpp": "workspace:*",
-    "@deepseek-ai/dsh-typert-protocol": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-llama-cpp": "workspace:*",
+    "@janhq/jan-typert-protocol": "workspace:*"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-llama-cpp": "workspace:*",
-    "@deepseek-ai/dsh-typert-protocol": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-llama-cpp": "workspace:*",
+    "@janhq/jan-typert-protocol": "workspace:*"
   },
   "private": true
 }

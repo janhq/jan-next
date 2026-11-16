@@ -3,11 +3,11 @@ description: "Authenticated Remote operations and a state stream for the managed
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-api-llama-cpp-controller
+# @janhq/jan-api-llama-cpp-controller
 
 ## Summary
 
-Browser screens manage local models through authenticated Remote operations and one state stream. They can download, import, load, unload, delete, and choose the default model, and start, stop, or remove the local worker. The controller forwards each operation to [dsh-llama-cpp](../../llm/llama-cpp/README.md) and never returns file paths or keys.
+Browser screens manage local models through authenticated Remote operations and one state stream. They can download, import, load, unload, delete, and choose the default model, and start, stop, or remove the local worker. The controller forwards each operation to [jan-llama-cpp](../../llm/llama-cpp/README.md) and never returns file paths or keys.
 
 ## Table of Contents
 
@@ -25,7 +25,7 @@ Mount the row beside `llama-cpp`; it requires the `llamaCpp` and `typert` servic
 
 ```yaml
 - id: llama-cpp-controller
-  name: '@deepseek-ai/dsh-api-llama-cpp-controller'
+  name: '@janhq/jan-api-llama-cpp-controller'
 ```
 
 | Operation | Effect |
@@ -48,7 +48,7 @@ The controller is a `TypertRemoteService` that forwards each operation to `ctx.l
 <a id="further-exploration"></a>
 ## Further Exploration
 
-[dsh-llama-cpp](../../llm/llama-cpp/README.md) owns the operations' behavior; [ui-settings-local-model](../../client/ui-settings-local-model/README.md) is the browser consumer; [api](../README.md) maps the Remote controllers.
+[jan-llama-cpp](../../llm/llama-cpp/README.md) owns the operations' behavior; [ui-settings-local-model](../../client/ui-settings-local-model/README.md) is the browser consumer; [api](../README.md) maps the Remote controllers.
 
 <a id="model-experience"></a>
 ## Model Experience
@@ -57,7 +57,7 @@ The controller is a `TypertRemoteService` that forwards each operation to `ctx.l
 
 #### What the model sees
 
-The controller adds no model-visible text. Its operations change which models the `local` route serves and which one `local/local` selects; [dsh-llama-cpp](../../llm/llama-cpp/README.md#model-experience) owns that effect.
+The controller adds no model-visible text. Its operations change which models the `local` route serves and which one `local/local` selects; [jan-llama-cpp](../../llm/llama-cpp/README.md#model-experience) owns that effect.
 
 #### Token effect
 

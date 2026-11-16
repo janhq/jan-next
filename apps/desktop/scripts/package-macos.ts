@@ -54,7 +54,7 @@ const operations: MacOSArtifactOperations = {
 async function timed(label: string, action: () => Promise<void>, secrets: readonly string[]): Promise<void> {
   const start = performance.now()
   process.stdout.write(`desktop macOS packaging: ${label} started at ${new Date().toISOString()}\n`)
-  await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, label, action, secrets)
+  await packagingStep(process.env.JAN_DESKTOP_PACKAGING_RUN_DIR, label, action, secrets)
   process.stdout.write(`desktop macOS packaging: ${label} completed in ${((performance.now() - start) / 1000).toFixed(2)}s\n`)
 }
 
@@ -110,7 +110,7 @@ export async function packageMacOSArtifacts(
     await verifyMacOSAppUpdateConfig(dmgApp, update)
     apple.verifySignature(zipApp, expected)
     apple.verifySignature(dmgApp, expected)
-    const base = `deepseek-harness-${version}-mac-${arch}`
+    const base = `jan-${version}-mac-${arch}`
     const artifacts = [
       [dmgOutput, `${base}.dmg`],
       [zipOutput, `${base}.zip`],

@@ -4,7 +4,7 @@ Status: rejected — implementation (PR #679) falsified the parity premise: vite
 
 ## Problem
 
-Three packages hand-roll promise-wrapped timers that the `node:timers/promises` builtin already provides, while other packages (`dsh-llm-mock-server` `pause()`, `dsh-lsp-stdio`, `dsh-acp-snapshot`) already use the builtin — so the hand-rolled copies are also a consistency gap:
+Three packages hand-roll promise-wrapped timers that the `node:timers/promises` builtin already provides, while other packages (`jan-llm-mock-server` `pause()`, `jan-lsp-stdio`, `jan-acp-snapshot`) already use the builtin — so the hand-rolled copies are also a consistency gap:
 
 - `packages/llm/llm-retry/src/index.ts` `cancellableDelay()` (~14 lines): `new Promise` + `setTimeout` + manual abort-listener add/remove, resolving `true` on elapse and `false` on abort, consumed once for the backoff wait.
 - The former `workflow-worker-thread` host's `sleep()` (~7 lines, evaluated in PR #679): promise-wrapped unref'd `setTimeout` used as the dispose-grace bound.

@@ -1,10 +1,10 @@
 /** Authorized source identity and cancellation survive Host rendering. */
-import { Context } from '@deepseek-ai/cordis'
-import { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { WorkspaceFiles } from '@deepseek-ai/dsh-api-workspace-files'
-import type { FileSystem, FsInfo, FsTarget } from '@deepseek-ai/dsh-fs'
+import { Context } from '@janhq/cordis'
+import { SessionId } from '@janhq/jan-session/types'
+import type { WorkspaceFiles } from '@janhq/jan-api-workspace-files'
+import type { FileSystem, FsInfo, FsTarget } from '@janhq/jan-fs'
 import { OfficeToPdfError, OfficeToPdfKey, type OfficeToPdfResult } from '../src/index.ts'
-import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
+import { RemoteError } from '@janhq/jan-typert-protocol'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import OfficeToPdf from '../src/index.ts'
 

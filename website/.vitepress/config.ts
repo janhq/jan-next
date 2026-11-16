@@ -80,14 +80,14 @@ function escapeVueInterpolation(html: string): string {
 const themeConfig: DefaultTheme.Config = {
   search: { provider: 'local' },
   socialLinks: [
-    { icon: 'github', link: 'https://github.com/deepseek-ai/deepseek-harness' },
+    { icon: 'github', link: 'https://github.com/janhq/jan-next' },
   ],
   editLink: {
     pattern: ({ frontmatter }: PageData) => {
       const data: unknown = frontmatter
       const editSource: unknown = typeof data === 'object' && data !== null ? Reflect.get(data, 'editSource') : undefined
       if (typeof editSource !== 'string') throw new Error('Projected documentation page has no editSource frontmatter.')
-      return `https://github.com/deepseek-ai/deepseek-harness/edit/master/${editSource}`
+      return `https://github.com/janhq/jan-next/edit/master/${editSource}`
     },
     text: 'Edit this page on GitHub',
   },
@@ -110,7 +110,7 @@ const base = process.env.DOCS_BASE ?? '/'
 
 /** Site identity shared by the VitePress configuration and the llms.txt index. */
 const siteIdentity = {
-  title: 'DeepSeek Harness',
+  title: 'Jan',
   description: 'A plugin-based SDK for building agent harnesses',
 }
 
@@ -120,7 +120,7 @@ const siteIdentity = {
  */
 const wordmark = readFileSync(resolve(import.meta.dirname, '../public/wordmark.svg'), 'utf8')
   .trim()
-  .replace('<svg ', '<svg class="dsh-wordmark" ')
+  .replace('<svg ', '<svg class="jan-wordmark" ')
 
 /**
  * Head-injected styles for the site identity and sidebar scrollbar.
@@ -133,9 +133,9 @@ const wordmark = readFileSync(resolve(import.meta.dirname, '../public/wordmark.s
  * stay behind a query only Firefox answers.
  */
 const siteStyle = `
-.dsh-lockup { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
-.dsh-wordmark { display: block; height: 22px; width: auto; color: var(--vp-c-text-1); }
-.dsh-tag {
+.jan-lockup { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.jan-wordmark { display: block; height: 22px; width: auto; color: var(--vp-c-text-1); }
+.jan-tag {
   display: inline-flex;
   align-items: center;
   border: 1px solid var(--vp-c-brand-soft);
@@ -189,7 +189,7 @@ const scrollbarScript = `
  * Navigation-bar title: the DeepSeek wordmark and the release-stage tag.
  * VitePress renders `siteTitle` as HTML.
  */
-const siteTitle = `<span class="dsh-lockup">${wordmark}<span class="dsh-tag">Preview</span></span>`
+const siteTitle = `<span class="jan-lockup">${wordmark}<span class="jan-tag">Preview</span></span>`
 
 export default withMermaid({
   title: siteIdentity.title,
@@ -218,7 +218,7 @@ export default withMermaid({
     publicDir: resolve(import.meta.dirname, '../public'),
     plugins: [
       {
-        name: 'deepseek-harness-doc-projector',
+        name: 'jan-doc-projector',
         configureServer(server) {
           watchCanonicalDocs(server)
           serveRawMarkdown(server)

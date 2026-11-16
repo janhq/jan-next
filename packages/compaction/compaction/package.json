@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-compaction",
+  "name": "@janhq/jan-compaction",
   "description": "Abstract compaction service seam (ctx.compaction) for Jan",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/compaction/compaction"
   },
   "type": "module",
@@ -36,17 +36,17 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/dsh-brand": "workspace:*",
-    "@deepseek-ai/dsh-commands": "workspace:*",
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/jan-brand": "workspace:*",
+    "@janhq/jan-commands": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/cordis": "workspace:~"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh-brand": "workspace:*",
-    "@deepseek-ai/dsh-commands": "workspace:*",
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/jan-brand": "workspace:*",
+    "@janhq/jan-commands": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/cordis": "workspace:~"
   }
 }

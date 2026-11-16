@@ -3,7 +3,7 @@ description: "Semantic session durability checkpoints for users and maintainers 
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-session-checkpoint-policy
+# @janhq/jan-session-checkpoint-policy
 
 ## Summary
 
@@ -35,10 +35,10 @@ No configuration fields exist; the plugin is a single load beside one persistenc
 
 ```yaml
 - id: session-persistence
-  name: '@deepseek-ai/dsh-session-persistence-jsonl'
+  name: '@janhq/jan-session-persistence-jsonl'
 
 - id: session-checkpoints
-  name: '@deepseek-ai/dsh-session-checkpoint-policy'
+  name: '@janhq/jan-session-checkpoint-policy'
 ```
 
 ### What becomes durable
@@ -92,7 +92,7 @@ Read these pages when the package-level contract is not enough. They move from t
 
 #### What the model sees
 
-The plugin adds no prompt or tool schema. A hard crash after a tool checkpoint but before its result leaves a durable unmatched call; session recovery supplies the model-visible `TOOL_OUTCOME_UNKNOWN` result owned by `dsh-session`. The message permits retry for read-only or idempotent work and requires state verification or user confirmation for calls that may have side effects.
+The plugin adds no prompt or tool schema. A hard crash after a tool checkpoint but before its result leaves a durable unmatched call; session recovery supplies the model-visible `TOOL_OUTCOME_UNKNOWN` result owned by `jan-session`. The message permits retry for read-only or idempotent work and requires state verification or user confirmation for calls that may have side effects.
 
 #### Token effect
 

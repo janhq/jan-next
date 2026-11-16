@@ -24,8 +24,8 @@ function version(path: string): string {
 
 describe.skipIf(!existsSync(builtHost))('built Desktop welcome flow', () => {
   it('persists explicit API keys and the language preference across Host restarts', async () => {
-    vi.stubEnv('DSH_CLIENT_VERSION', '1.2.3')
-    const root = mkdtempSync(join(tmpdir(), 'dsh-desktop-welcome-'))
+    vi.stubEnv('JAN_CLIENT_VERSION', '1.2.3')
+    const root = mkdtempSync(join(tmpdir(), 'jan-desktop-welcome-'))
     let host: DesktopHostProcess | undefined
     try {
       for (const name of Object.keys(process.env)) {
@@ -33,8 +33,8 @@ describe.skipIf(!existsSync(builtHost))('built Desktop welcome flow', () => {
       }
       const home = join(root, 'home')
       mkdirSync(home)
-      vi.stubEnv('DSH_HOME', home)
-      vi.stubEnv('DSH_TELEMETRY_MODE', 'DISABLED')
+      vi.stubEnv('JAN_HOME', home)
+      vi.stubEnv('JAN_TELEMETRY_MODE', 'DISABLED')
       const project = prepareDevelopmentProject({
         projectDir: join(root, 'project'),
         cliDir: join(repository, 'apps/cli'),
@@ -57,7 +57,7 @@ describe.skipIf(!existsSync(builtHost))('built Desktop welcome flow', () => {
       cpSync(process.execPath, join(nodeBin, process.platform === 'win32' ? 'node.exe' : 'node'))
       const paths = resolveDesktopPaths(home)
       const manager = new DesktopProjectManager(paths, {
-        dsh: project,
+        jan: project,
       })
       await manager.applyRelease()
       writeFileSync(join(paths.profile, 'cordis.patch.yml'), '- id: webserver\n  config:\n    host: 127.0.0.1\n    port: 0\n')

@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-experimental-plugin-market-bundle",
+  "name": "@janhq/jan-experimental-plugin-market-bundle",
   "description": "Experimental custom plugin indexes: a Discover tab that browses and installs bundles from plugin indexes",
   "version": "0.2.2-rc.1",
   "icon": "./icon.svg",
@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/experimental/plugin-market-bundle"
   },
   "type": "module",
@@ -34,16 +34,16 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "@deepseek-ai/dsh-client-ui-plugin-market": "workspace:*",
-    "@deepseek-ai/dsh-plugin-market": "workspace:*"
+    "@janhq/jan-client-ui-plugin-market": "workspace:*",
+    "@janhq/jan-plugin-market": "workspace:*"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/cordis": "workspace:~"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/cordis": "workspace:~"
   },
-  "dsh": {
+  "jan": {
     "bundle": {
       "patch": "./cordis.patch.yml"
     }

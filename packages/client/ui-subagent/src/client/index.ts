@@ -1,23 +1,23 @@
 /** Web subagent catalog, navigation, and addressed-session composer owner. */
-import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { ComposerChainProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { Context as ClientContext } from '@janhq/cordis'
+import type { SubagentAddress } from '@janhq/jan-subagent/client'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { ComposerChainProps } from '@janhq/jan-client-ui-conversation/client'
 import { SubagentCatalogAction, SubagentHeaderLineage, type SubagentCatalogInjected, type SubagentCatalogActionInjected } from './SubagentHeaderLineage.tsx'
 import {
   SubagentReadOnlyComposer, type SubagentReadOnlyMatch,
 } from './SubagentReadOnlyComposer.tsx'
 import { registerSidebarChat, subagentChatAddress } from './sidebar-chat/index.tsx'
-import type {} from '@deepseek-ai/dsh-client-locale/client'
-import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type {} from '@deepseek-ai/dsh-client-ui-session/client'
-import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
-import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
+import type {} from '@janhq/jan-client-locale/client'
+import type {} from '@janhq/jan-client-ui-chat/client'
+import type {} from '@janhq/jan-client-ui-renderer/client'
+import type {} from '@janhq/jan-client-ui-session/client'
+import type {} from '@janhq/jan-client-ui-sidebar-right/client'
+import type {} from '@janhq/jan-client-ui-workspace/client'
 import { en, ja, es, fr, de, ru, pt, NS, zh, type SubagentKey } from './locales.ts'
 export type * from './slots.ts'
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Subagent catalog and read-only composer copy. */
     'subagent': SubagentKey

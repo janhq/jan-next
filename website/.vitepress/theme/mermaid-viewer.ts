@@ -37,7 +37,7 @@ export function installMermaidViewer(doc: Document, viewer: Pick<MediaViewer, 'o
   const scan = (): void => {
     const containers = new Set(doc.querySelectorAll('.vp-doc .mermaid'))
     for (const [container, entry] of entries) {
-      if (!containers.has(container) || container.querySelector('svg:not(.dsh-media-icon)') !== entry.svg || !entry.button.isConnected) {
+      if (!containers.has(container) || container.querySelector('svg:not(.jan-media-icon)') !== entry.svg || !entry.button.isConnected) {
         if (entry.svg === active) closeActive()
         entry.button.remove()
         entries.delete(container)
@@ -45,10 +45,10 @@ export function installMermaidViewer(doc: Document, viewer: Pick<MediaViewer, 'o
     }
     for (const container of containers) {
       if (entries.has(container)) continue
-      const svg = container.querySelector<SVGSVGElement>('svg:not(.dsh-media-icon)')
+      const svg = container.querySelector<SVGSVGElement>('svg:not(.jan-media-icon)')
       if (!svg || !dimensions(svg)) continue
       const trigger = viewerButton(doc, copy.open, 'open')
-      trigger.className = 'dsh-diagram-open'
+      trigger.className = 'jan-diagram-open'
       trigger.setAttribute('aria-haspopup', 'dialog')
       trigger.addEventListener('click', () => {
         closeActive()

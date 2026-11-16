@@ -1,18 +1,18 @@
-import { ToolExecutionPipeline } from '@deepseek-ai/dsh-tools/pipeline'
-import { executeToolFixture } from '@deepseek-ai/dsh-tool-testkit'
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
+import { ToolExecutionPipeline } from '@janhq/jan-tools/pipeline'
+import { executeToolFixture } from '@janhq/jan-tool-testkit'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import type { Agent, ModelSelection } from '@deepseek-ai/dsh-agent'
-import { createScope, type Scope } from '@deepseek-ai/dsh-scope'
+import { Context } from '@janhq/cordis'
+import type { Agent, ModelSelection } from '@janhq/jan-agent'
+import { createScope, type Scope } from '@janhq/jan-scope'
 import TurndownService from 'turndown'
-import { ToolCallId } from '@deepseek-ai/dsh-llm'
-import SystemPrompt, { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime, { type ResolvedToolSet, type ToolExecutionInput, type ToolExecutionResult } from '@deepseek-ai/dsh-tools'
-import { SessionId } from '@deepseek-ai/dsh-session'
-import WebRuntime from '@deepseek-ai/dsh-web'
-import type { WebFetchProvider, WebSearchProvider, WebSearchResult } from '@deepseek-ai/dsh-web'
-import * as ToolWeb from '@deepseek-ai/dsh-tool-web'
+import { ToolCallId } from '@janhq/jan-llm'
+import SystemPrompt, { renderPrompt } from '@janhq/jan-system-prompt'
+import ToolRuntime, { type ResolvedToolSet, type ToolExecutionInput, type ToolExecutionResult } from '@janhq/jan-tools'
+import { SessionId } from '@janhq/jan-session'
+import WebRuntime from '@janhq/jan-web'
+import type { WebFetchProvider, WebSearchProvider, WebSearchResult } from '@janhq/jan-web'
+import * as ToolWeb from '@janhq/jan-tool-web'
 import {
   formatSearchOutput,
   formatFetchOutput,
@@ -27,9 +27,9 @@ import {
   fetchMetaFromResult,
   WEB_SEARCH_MAX_QUERIES,
   WEB_SEARCH_MAX_RESULTS,
-} from '@deepseek-ai/dsh-tool-web'
-import type { ContentBlock } from '@deepseek-ai/dsh-llm'
-import type { ToolResult } from '@deepseek-ai/dsh-tools'
+} from '@janhq/jan-tool-web'
+import type { ContentBlock } from '@janhq/jan-llm'
+import type { ToolResult } from '@janhq/jan-tools'
 import { parseSearchArgs } from '../src/search.ts'
 
 const testToolSignal = new AbortController().signal
@@ -801,7 +801,7 @@ describe('tool-web execution through the real registry', () => {
       truncated: false,
     })
     // The model schema exposes no timeout: the tool forwards only the url; the
-    // tool-call budget is owned by dsh-tool-call-timeout-policy over exec.signal.
+    // tool-call budget is owned by jan-tool-call-timeout-policy over exec.signal.
     expect(seen.request).toEqual({ url: 'https://a.test' })
     expect(seen.signal).toBe(controller.signal)
     await fiber.dispose()
@@ -1312,5 +1312,5 @@ describe('web tool admission per model step', () => {
 
 /** Preserve the default persona and exact section separators in the oracle. */
 function withPersona(...sections: string[]): string {
-  return ['You are an AI agent powered by DeepSeek Harness.', ...sections].join('\n\n')
+  return ['You are an AI agent powered by Jan.', ...sections].join('\n\n')
 }

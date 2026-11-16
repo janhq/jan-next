@@ -1,11 +1,11 @@
 /**
  * Keyless snapshot coverage for the TypeScript SDK path: each scenario spawns
- * the real `dsh --profile sdk` or `sdk-minimal` runtime through
- * `@deepseek-ai/dsh-sdk-client`, drives recorded turns and standalone commands over stdio JSON-RPC,
+ * the real `jan --profile sdk` or `sdk-minimal` runtime through
+ * `@janhq/jan-sdk-client`, drives recorded turns and standalone commands over stdio JSON-RPC,
  * and pins the SDK `RunResult`, the complete notification stream, and the
  * persisted session logs. Replay serves recorded model
- * responses via `llm-replay` (`cordis.snapshot.yml`); `DSH_SNAPSHOT=record`
- * re-records against the live API; `DSH_SNAPSHOT=refresh` replays committed
+ * responses via `llm-replay` (`cordis.snapshot.yml`); `JAN_SNAPSHOT=record`
+ * re-records against the live API; `JAN_SNAPSHOT=refresh` replays committed
  * fixtures and rewrites expected outputs.
  */
 
@@ -54,18 +54,18 @@ import {
   type NormalizeContext,
   type SnapshotManifest,
   type WorkspaceSnapshotEntry,
-} from '@deepseek-ai/dsh-session-snapshot'
+} from '@janhq/jan-session-snapshot'
 import {
-  DeepSeekHarness,
+  Jan,
   type HarnessNotification,
   type NotificationSubscription,
   type RunResult,
   type SdkPromptContentBlock,
   type SdkUserQuestionRequest,
   type SdkUserQuestionResult,
-} from '@deepseek-ai/dsh-sdk-client'
-import { SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session'
-import { deriveReplayScript, parseSessionLog } from '@deepseek-ai/dsh-llm-replay'
+} from '@janhq/jan-sdk-client'
+import { SESSION_FORMAT_VERSION } from '@janhq/jan-session'
+import { deriveReplayScript, parseSessionLog } from '@janhq/jan-llm-replay'
 
 const corpusRoot = fileURLToPath(new URL('../', import.meta.url))
 
@@ -79,23 +79,23 @@ const MINIMAL_BASH_DESCRIPTION = `Run commands in a bash shell
 * Please avoid commands that may produce a very large amount of output.
 * Please run long lived commands in the background, e.g. 'sleep 10 &' or start a server in the background.`
 
-const mode = process.env.DSH_SNAPSHOT ?? 'replay'
+const mode = process.env.JAN_SNAPSHOT ?? 'replay'
 const recording = mode === 'record'
 const refreshing = mode === 'refresh'
 const sessionWriteMode = recording ? 'record' : refreshing ? 'refresh' : 'replay'
 const RUNTIME_WORKSPACE_ENTRIES = [
   '.agents',
-  '.child-dsh',
-  '.dsh',
+  '.child-jan',
+  '.jan',
   '.replay-fixtures',
   '.snapshot-patches',
 ] as const
-const dshSdkDiagnosticChildPatch = fileURLToPath(new URL(
-  './subagent-dsh-sdk-diagnostic/child.cordis.yml',
+const janSdkDiagnosticChildPatch = fileURLToPath(new URL(
+  './subagent-jan-sdk-diagnostic/child.cordis.yml',
   import.meta.url,
 ))
-const dshSdkChildConfig = fileURLToPath(new URL(
-  '../../packages/subagent/subagent-dsh-sdk/tests/fixtures/loader/child.patch.yml',
+const janSdkChildConfig = fileURLToPath(new URL(
+  '../../packages/subagent/subagent-jan-sdk/tests/fixtures/loader/child.patch.yml',
   import.meta.url,
 ))
 
@@ -108,7 +108,7 @@ interface SdkAssertions {
   approvalOutcomes?: readonly ('allowed-once' | 'rejected')[]
   /** Additional profile patches applied after the shared composition. */
   patches?: readonly string[]
-  /** Captured model-request JSONL filename under this scenario's private DSH home. */
+  /** Captured model-request JSONL filename under this scenario's private Jan home. */
   modelRequestsFile?: string
   /** Replay caller-owned commands between turns; profile fixtures own any in-turn commands. */
   replayStandaloneCommands?: boolean
@@ -122,8 +122,8 @@ interface SdkAssertions {
   expectedFinalResponse?: string
   /** Environment overrides passed to the runtime subprocess. */
   environment?: Readonly<Record<string, string>>
-  /** A separate DSH SDK child whose persisted session joins the evidence. */
-  dshSdkChild?: {
+  /** A separate Jan SDK child whose persisted session joins the evidence. */
+  janSdkChild?: {
     /** Profile patch materialized for the child runtime. */
     config: string
     /** Exact request configuration committed by the child runtime. */
@@ -150,7 +150,7 @@ const SDK_ASSERTIONS: Readonly<Record<string, SdkAssertions>> = {
   },
   'approval': {
     approvalOutcomes: ['allowed-once', 'rejected'],
-    environment: { DSH_PERMISSION_MODE: 'workspace-write' },
+    environment: { JAN_PERMISSION_MODE: 'workspace-write' },
     patches: [fileURLToPath(new URL('./approval/runtime.cordis.yml', import.meta.url))],
   },
 
@@ -158,7 +158,7 @@ const SDK_ASSERTIONS: Readonly<Record<string, SdkAssertions>> = {
     expectedFinalResponse: 'SDK snapshot OK',
     runtimeContext: {
       includes: ['Current working directory:'],
-      excludes: ['Current DeepSeek Harness implementation checkout:', 'Current DeepSeek Harness Web GUI URL:'],
+      excludes: ['Current Jan implementation checkout:', 'Current Jan Web GUI URL:'],
     },
   },
   'desktop-ptc-context': { expectedFinalResponse: 'SDK snapshot OK' },
@@ -170,34 +170,34 @@ const SDK_ASSERTIONS: Readonly<Record<string, SdkAssertions>> = {
   },
   'permission-switch': {
     expectedFinalResponse: 'SDK_PERMISSION_OK',
-    environment: { DSH_PERMISSION_MODE: 'danger-full-access' },
+    environment: { JAN_PERMISSION_MODE: 'danger-full-access' },
     patches: [fileURLToPath(new URL('./permission-switch/capture.cordis.yml', import.meta.url))],
     modelRequestsFile: 'permission-requests.jsonl',
     replayStandaloneCommands: true,
   },
   'command-identity': {
     expectedFinalResponse: 'SDK_PERMISSION_OK',
-    environment: { DSH_PERMISSION_MODE: 'danger-full-access' },
+    environment: { JAN_PERMISSION_MODE: 'danger-full-access' },
     patches: [fileURLToPath(new URL('./command-identity/runtime.cordis.yml', import.meta.url))],
     modelRequestsFile: 'command-identity-requests.jsonl',
     replayStandaloneCommands: true,
   },
   'plan-review': {
     expectedFinalResponse: 'SDK_PLAN_OK',
-    environment: { DSH_PERMISSION_MODE: 'workspace-write' },
+    environment: { JAN_PERMISSION_MODE: 'workspace-write' },
     patches: [fileURLToPath(new URL('./plan-review/capture.cordis.yml', import.meta.url))],
     modelRequestsFile: 'plan-requests.jsonl',
     replayStandaloneCommands: true,
     planReviews: ['keep', 'approve', 'dismiss'],
   },
   'goal-rounds': {
-    environment: { DSH_PERMISSION_MODE: 'workspace-write' },
+    environment: { JAN_PERMISSION_MODE: 'workspace-write' },
     patches: [fileURLToPath(new URL('./goal-rounds/capture.cordis.yml', import.meta.url))],
     modelRequestsFile: 'goal-requests.jsonl',
     replayStandaloneCommands: true,
   },
   'command-attachments': {
-    environment: { DSH_PERMISSION_MODE: 'workspace-write' },
+    environment: { JAN_PERMISSION_MODE: 'workspace-write' },
     patches: [fileURLToPath(new URL('./command-attachments/capture.cordis.yml', import.meta.url))],
     modelRequestsFile: 'command-attachment-requests.jsonl',
     replayStandaloneCommands: true,
@@ -239,26 +239,26 @@ const SDK_ASSERTIONS: Readonly<Record<string, SdkAssertions>> = {
     patches: [fileURLToPath(new URL('./subagent-spawn-in-process/runtime.cordis.yml', import.meta.url))],
   },
   'subagent-continuable': {
-    environment: { DSH_SNAPSHOT_HUMAN_STEER: '1' },
+    environment: { JAN_SNAPSHOT_HUMAN_STEER: '1' },
   },
-  'subagent-dsh-sdk-diagnostic': {
-    expectedFinalResponse: 'PARENT_OBSERVED_DSH_SDK_DIAGNOSTIC',
-    environment: { DSH_TEST_CHILD_PATCH: dshSdkDiagnosticChildPatch },
+  'subagent-jan-sdk-diagnostic': {
+    expectedFinalResponse: 'PARENT_OBSERVED_JAN_SDK_DIAGNOSTIC',
+    environment: { JAN_TEST_CHILD_PATCH: janSdkDiagnosticChildPatch },
   },
   'persistent-tools': {
-    environment: { DSH_SYSTEM_PROMPT: MINIMAL_SYSTEM_PROMPT },
+    environment: { JAN_SYSTEM_PROMPT: MINIMAL_SYSTEM_PROMPT },
     expectedTools: { bash: ['command'], str_replace_editor: ['command', 'path'], working_directory: [] },
     expectedSystem: MINIMAL_SYSTEM_PROMPT,
     expectedToolDescriptions: { bash: MINIMAL_BASH_DESCRIPTION },
     runtimeContext: {
-      includes: ['Current working directory:', 'Current DSH file policy: danger-full-access', 'Approval prompts are disabled in this session'],
+      includes: ['Current working directory:', 'Current Jan file policy: danger-full-access', 'Approval prompts are disabled in this session'],
       excludes: ['workspace-write'],
     },
   },
-  'subagent-dsh-sdk-dynamic-route': {
-    environment: { DSH_TEST_PARENT_PROVIDER: 'deepseek-official' },
-    dshSdkChild: {
-      config: dshSdkChildConfig,
+  'subagent-jan-sdk-dynamic-route': {
+    environment: { JAN_TEST_PARENT_PROVIDER: 'deepseek-official' },
+    janSdkChild: {
+      config: janSdkChildConfig,
       agentConfig: {
         provider: 'mock',
         model: 'mock-routed',
@@ -708,8 +708,8 @@ const legacySdkCompositions = new Set([
   'image',
   'ptc',
   'sdk-default',
-  'sdk-dsh-sdk-diagnostic',
-  'sdk-dsh-sdk-dynamic-route',
+  'sdk-jan-sdk-diagnostic',
+  'sdk-jan-sdk-dynamic-route',
   'sdk-minimal',
   'sdk-serial-created',
   'sdk-team-session-mode',
@@ -760,8 +760,8 @@ async function runScenario(scenario: CorpusScenario): Promise<{
   }
   const cwd = await realpath(await mkdtemp(join(workspaceParent, workspacePrefix)))
   if (fixedWidthCwd) expect(JSON.stringify(cwd)).toHaveLength(192)
-  const dshHome = join(cwd, '.dsh')
-  const sessionsRoot = join(dshHome, 'sessions')
+  const janHome = join(cwd, '.jan')
+  const sessionsRoot = join(janHome, 'sessions')
   const replayFixtures = recording ? [] : await hydrateReplayFixtures(scenario, cwd)
   const fixtureContents = await Promise.all((await fixtureFiles(scenario)).map(file => readFile(file, 'utf8')))
   const primaryFixture = fixtureContents[0]
@@ -779,15 +779,15 @@ async function runScenario(scenario: CorpusScenario): Promise<{
     .map((patch, index) => materializeProfilePatch(patch, cwd, scenario.manifest.profile, patchRoot, index))
   let childSessionsRoot: string | undefined
   let childEnvironment: Record<string, string> = {}
-  if (assertions.dshSdkChild !== undefined) {
-    const childHome = join(cwd, '.child-dsh')
+  if (assertions.janSdkChild !== undefined) {
+    const childHome = join(cwd, '.child-jan')
     const legacyChildPatch = materializeProfilePatch(legacySdkContextPatch, cwd, 'sdk', patchRoot, patches.length)
-    const childPatch = materializeProfilePatch(assertions.dshSdkChild.config, cwd, 'sdk', patchRoot, patches.length + 1)
+    const childPatch = materializeProfilePatch(assertions.janSdkChild.config, cwd, 'sdk', patchRoot, patches.length + 1)
     await mkdir(childHome, { recursive: true })
     childSessionsRoot = join(childHome, 'sessions')
     childEnvironment = {
-      DSH_TEST_CHILD_PATCHES: JSON.stringify([legacyChildPatch, childPatch]),
-      DSH_TEST_CHILD_HOME: childHome,
+      JAN_TEST_CHILD_PATCHES: JSON.stringify([legacyChildPatch, childPatch]),
+      JAN_TEST_CHILD_HOME: childHome,
     }
   }
   const workspaceDir = join(scenario.dir, 'workspace')
@@ -814,23 +814,23 @@ async function runScenario(scenario: CorpusScenario): Promise<{
   const env: Record<string, string> = {
     ...Object.fromEntries(Object.entries(process.env).filter(([, value]) => value !== undefined)) as Record<string, string>,
     ...recording ? {} : REPLAY_CREDENTIAL_ENV,
-    DSH_SNAPSHOT: mode,
-    DSH_SNAPSHOT_PROVIDER: route.provider,
-    DSH_SNAPSHOT_MODEL: route.model,
-    DSH_TELEMETRY_DISABLED: '1',
-    DSH_AGENTS_HOME: join(cwd, '.agents'),
+    JAN_SNAPSHOT: mode,
+    JAN_SNAPSHOT_PROVIDER: route.provider,
+    JAN_SNAPSHOT_MODEL: route.model,
+    JAN_TELEMETRY_DISABLED: '1',
+    JAN_AGENTS_HOME: join(cwd, '.agents'),
     NODE_OPTIONS: [process.env.NODE_OPTIONS, '--disable-warning=ExperimentalWarning'].filter(Boolean).join(' '),
     ...parentFixture === undefined ? {} : {
-      DSH_SNAPSHOT_FILE: parentFixture,
-      ...childFixtures.length > 0 ? { DSH_SNAPSHOT_CHILD_FILES: childFixtures.join(delimiter) } : {},
+      JAN_SNAPSHOT_FILE: parentFixture,
+      ...childFixtures.length > 0 ? { JAN_SNAPSHOT_CHILD_FILES: childFixtures.join(delimiter) } : {},
     },
     ...!recording && scenario.manifest.replay?.override === true
-      ? { DSH_SNAPSHOT_OVERRIDE: join(scenario.dir, 'replay.override.json') }
+      ? { JAN_SNAPSHOT_OVERRIDE: join(scenario.dir, 'replay.override.json') }
       : {},
     ...scenario.manifest.environment,
     ...assertions.environment,
     ...childEnvironment,
-    ...resumeReplayFile === undefined ? {} : { DSH_SNAPSHOT_OVERRIDE: resumeReplayFile },
+    ...resumeReplayFile === undefined ? {} : { JAN_SNAPSHOT_OVERRIDE: resumeReplayFile },
   }
 
   const planReviews = assertions.planReviews === undefined ? undefined : [...assertions.planReviews]
@@ -847,11 +847,11 @@ async function runScenario(scenario: CorpusScenario): Promise<{
       return { answers: [{ id: question.id, selected: [choice === 'approve' ? 'Approve' : 'Keep planning'],
         ...choice === 'keep' ? { custom: 'Add rollback.' } : {} }] }
     }
-  const createHarness = (model = route.model): DeepSeekHarness => new DeepSeekHarness({
+  const createHarness = (model = route.model): Jan => new Jan({
     profile: scenario.manifest.profile,
     ...(assertions.approvalOutcomes === undefined ? {} : { approvalRequests: true }),
     patches,
-    dshHome,
+    janHome,
     processCwd: cwd,
     env,
     initializeTimeoutMs: 110_000,
@@ -1006,7 +1006,7 @@ async function runScenario(scenario: CorpusScenario): Promise<{
             data: { turn: 2, message: { content: [{ type: 'text', text: 'SUBAGENT_SETTLED_NOTED' }] } },
           })
         }
-        if (scenario.manifest.environment?.DSH_SNAPSHOT_FEEDBACK === '1') {
+        if (scenario.manifest.environment?.JAN_SNAPSHOT_FEEDBACK === '1') {
           const feedback = result.events.filter(event => event.type.startsWith('feedback/'))
           expect(feedback.map(event => event.type)).toEqual([
             'feedback/record', 'feedback/record', 'feedback/message-put', 'feedback/message-put', 'feedback/message-delete',
@@ -1036,7 +1036,7 @@ async function runScenario(scenario: CorpusScenario): Promise<{
       ignoredRootEntries: RUNTIME_WORKSPACE_ENTRIES,
     })
     const modelRequests = assertions.modelRequestsFile !== undefined
-      ? records(await readFile(join(dshHome, assertions.modelRequestsFile), 'utf8'))
+      ? records(await readFile(join(janHome, assertions.modelRequestsFile), 'utf8'))
       : []
     if (planReviews !== undefined) expect(planReviews).toEqual([])
     return { results, notifications, observedMethods, logs, initialWorkspace, finalWorkspace, cwd, modelRequests }
@@ -1047,8 +1047,8 @@ async function runScenario(scenario: CorpusScenario): Promise<{
 }
 
 /** Order logs parent-first, children by creation time (fixture layout order). */
-function orderLogs(logs: PersistedLog[], expectedCount: number, separateDshSdkChild: boolean): PersistedLog[] {
-  if (separateDshSdkChild) {
+function orderLogs(logs: PersistedLog[], expectedCount: number, separateJanSdkChild: boolean): PersistedLog[] {
+  if (separateJanSdkChild) {
     expect(logs).toHaveLength(expectedCount)
     return logs
   }
@@ -1107,7 +1107,7 @@ async function verifyHeaders(
   scenario: CorpusScenario,
   ordered: readonly PersistedLog[],
   ctx: NormalizeContext,
-  dshSdkChildConfig?: Readonly<Record<string, unknown>>,
+  janSdkChildConfig?: Readonly<Record<string, unknown>>,
 ): Promise<void> {
   const pin = headerPin(scenario)
   const [pinFixturePath] = await fixtureFiles(pin)
@@ -1149,8 +1149,8 @@ async function verifyHeaders(
     for (const [index, header] of headers.entries()) {
       const selectedSchemas = childSchemas.get(logIndex)?.[index]
       const base = reconstructed[index] ?? reconstructed[0]
-      const configured = logIndex === 1 && dshSdkChildConfig !== undefined
-        ? { ...base as JsonObject, config: dshSdkChildConfig }
+      const configured = logIndex === 1 && janSdkChildConfig !== undefined
+        ? { ...base as JsonObject, config: janSdkChildConfig }
         : base
       const expected = selectedSchemas === undefined
         ? configured
@@ -1188,7 +1188,7 @@ describe('TypeScript SDK snapshots over the jsonrpc runtime', () => {
       && (scenario.manifest.recording === 'authored' || scenario.manifest.sessionFormat !== undefined)
       ? it.skip
       : it
-    scenarioTest(`${mode}s ${scenario.name} through dsh --profile ${scenario.manifest.profile}`, async () => {
+    scenarioTest(`${mode}s ${scenario.name} through jan --profile ${scenario.manifest.profile}`, async () => {
       const scenarioDir = scenario.dir
       const retained = scenario.manifest.sessionFormat !== undefined
       const notificationsExpectedPath = join(scenarioDir, retained ? 'notifications.current.expected.jsonl' : 'notifications.expected.jsonl')
@@ -1208,7 +1208,7 @@ describe('TypeScript SDK snapshots over the jsonrpc runtime', () => {
       const ordered = orderLogs(
         logs,
         recording ? logs.length : files.length,
-        assertions.dshSdkChild !== undefined,
+        assertions.janSdkChild !== undefined,
       )
       reconcileCatalogCreationTimes(ordered.map(log => log.content), 'validate')
       const actualContext = contextOf(ordered, cwd)
@@ -1387,7 +1387,7 @@ describe('TypeScript SDK snapshots over the jsonrpc runtime', () => {
         }
         const runtimeContexts = continuationMessages.filter(message => (message.source as JsonObject | undefined)?.kind === 'runtime-context')
         const runtimeText = JSON.stringify(runtimeContexts.at(-1))
-        expect(runtimeText).toContain('Current DSH file policy: read-only.')
+        expect(runtimeText).toContain('Current Jan file policy: read-only.')
         const texts = continuationMessages.flatMap(message => message.content as JsonObject[])
           .flatMap(block => block.type === 'text' ? [block.text] : [])
         expect(texts).toContain('SDK_PERMISSION_READY')
@@ -1500,17 +1500,17 @@ describe('TypeScript SDK snapshots over the jsonrpc runtime', () => {
           .toBeGreaterThan(events.findIndex(event => event.type === 'compaction/summary'))
       }
       expect(logs.some(log => log.content.includes('llm-replay: script exhausted')), `${scenario.name}: replay script covers every model request`).toBe(false)
-      if (scenario.name === 'subagent-dsh-sdk-diagnostic' || scenario.name === 'subagent-dsh-sdk-dynamic-route') {
+      if (scenario.name === 'subagent-jan-sdk-diagnostic' || scenario.name === 'subagent-jan-sdk-dynamic-route') {
         const parentEvents = records(ordered[0]!.content)
         const notices = parentEvents.filter(event => event.type === 'user/message'
           && (event.data as JsonObject | undefined)?.source !== undefined
           && ((event.data as JsonObject).source as JsonObject).kind === 'subagent-settled')
-        const expectedCount = scenario.name === 'subagent-dsh-sdk-diagnostic' ? 2 : 1
+        const expectedCount = scenario.name === 'subagent-jan-sdk-diagnostic' ? 2 : 1
         expect(notices).toHaveLength(expectedCount)
         const catalog = parentEvents.filter(event => event.type === 'subagent/catalog')
         expect(catalog).toHaveLength(expectedCount)
         expect(catalog.every(event => (event.data as JsonObject).mode === 'external')).toBe(true)
-        const expectedContent = scenario.name === 'subagent-dsh-sdk-diagnostic'
+        const expectedContent = scenario.name === 'subagent-jan-sdk-diagnostic'
           ? 'partial child loader answer'
           : 'child route: mock/mock-routed/max/777; cwd:'
         for (const notice of notices) expect(JSON.stringify(notice)).toContain(expectedContent)
@@ -1671,7 +1671,7 @@ describe('TypeScript SDK snapshots over the jsonrpc runtime', () => {
       const actualSnapshots = normalizeSessionSnapshots(ordered.map(log => log.content), actualContext, { nativeWriterOutput: true })
       const expectedSnapshots = normalizeSessionSnapshots(expectedContents, expectedContext, { nativeWriterOutput: true })
       expect(actualSnapshots.map(records), `${scenario.name}: sessions`).toEqual(expectedSnapshots.map(records))
-      await verifyHeaders(scenario, ordered, actualContext, assertions.dshSdkChild?.agentConfig)
+      await verifyHeaders(scenario, ordered, actualContext, assertions.janSdkChild?.agentConfig)
 
       // Genuine SDK protocol cases retain their secondary wire projections.
       const finalResult = results.at(-1)
@@ -1754,7 +1754,7 @@ describe('TypeScript SDK snapshots over the jsonrpc runtime', () => {
       if (scenario.name === 'serial-created') {
         expect(observedMethods.has('subagent.started')).toBe(false)
       }
-      if (ordered.length > 1 && assertions.dshSdkChild === undefined) {
+      if (ordered.length > 1 && assertions.janSdkChild === undefined) {
         expect(observedMethods.has('subagent.started')).toBe(true)
         expect(observedMethods.has('subagent.finished')).toBe(true)
         for (const notification of notifications.filter(item => item.method === 'subagent.finished')) {

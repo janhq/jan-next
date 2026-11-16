@@ -1,11 +1,11 @@
 /** Host registry-response probing for the plugin installation dialog. */
 
-import type { Context } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
-import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
-import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
+import type { Context } from '@janhq/cordis'
+import z from '@janhq/schemastery'
+import { MAX_TIMER_DELAY_MS } from '@janhq/jan-timeout'
+import { Remote, TypertRemoteService } from '@janhq/jan-typert-protocol'
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     pluginRegistryProbe: PluginRegistryProbe
   }

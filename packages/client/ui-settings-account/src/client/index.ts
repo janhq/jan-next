@@ -1,16 +1,16 @@
 /** Account settings registration and reconnecting Remote subscription. */
-import type {} from '@deepseek-ai/dsh-client-product-analytics/client'
-import type { TranscriptViewMode } from '@deepseek-ai/dsh-client-ui-chat/client'
-import type { Context } from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/dsh-client-locale/client'
-import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type {} from '@deepseek-ai/dsh-client-ui-theme/client'
-import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
-import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
-import type {} from '@deepseek-ai/dsh-api-remote-access/client'
-import type {} from '@deepseek-ai/dsh-api-remotes/client'
-import type { AccountView, AccountDetails } from '@deepseek-ai/dsh-tokamak-account/types'
+import type {} from '@janhq/jan-client-product-analytics/client'
+import type { TranscriptViewMode } from '@janhq/jan-client-ui-chat/client'
+import type { Context } from '@janhq/cordis'
+import type {} from '@janhq/jan-client-locale/client'
+import type {} from '@janhq/jan-client-ui-settings/client'
+import type {} from '@janhq/jan-client-ui-renderer/client'
+import type {} from '@janhq/jan-client-ui-theme/client'
+import type {} from '@janhq/jan-client-ui-chat/client'
+import type {} from '@janhq/jan-client-ui-layout/client'
+import type {} from '@janhq/jan-api-remote-access/client'
+import type {} from '@janhq/jan-api-remotes/client'
+import type { AccountView, AccountDetails } from '@janhq/jan-tokamak-account/types'
 import type { OnboardingChange } from './onboarding-contract.ts'
 import type { PlatformBridge } from './PlatformOverlay.tsx'
 import { ContactConfig, CONTACT_CONFIG_GLOBAL } from '../contact-config.ts'
@@ -37,7 +37,7 @@ export type { AccountMenuProps } from './AccountMenu.tsx'
 export type { AccountSnapshot } from './AccountSection.tsx'
 export type { AccountKey } from './locales.ts'
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap { 'settings.account': AccountKey }
 }
 
@@ -45,7 +45,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 export const inject = ['slots', 'locale', 'remote', 'remote.account', 'theme', 'configForms', 'remoteAccess']
 /** Register account UI in Desktop and plain Web clients. @param ctx - client plugin context. */
 export function apply(ctx: Context): void {
-  const desktop = 'dshDesktop' in globalThis
+  const desktop = 'janDesktop' in globalThis
   ctx.effect(() => ctx.locale.register('settings.account', { en, zh, ja, es, fr, de, ru, pt }), 'account: dictionaries')
   const t = ctx.locale.bind('settings.account')
   const page = globalThis as Partial<Record<typeof CONTACT_CONFIG_GLOBAL, unknown>>
@@ -61,7 +61,7 @@ export function apply(ctx: Context): void {
   const avatar = new AccountAvatarLoader((value) => { publish({ ...snapshot, avatar: value }) })
   ctx.effect(() => () => { avatar.dispose() }, 'account: profile picture lifetime')
   /** @returns the client identity for one account call, read at call time so it carries the language and zone in effect then. */
-  const client = () => accountClientMetadata(ctx.locale.getSnapshot().active, process.env.DSH_CLIENT_VERSION)
+  const client = () => accountClientMetadata(ctx.locale.getSnapshot().active, process.env.JAN_CLIENT_VERSION)
   // The browser half of the notice lifecycle: reads when the account becomes
   // active and on an explicit refresh, and acknowledges an order only after its
   // card reports a presented frame. The Host owns which bonus is unnotified and
@@ -159,7 +159,7 @@ export function apply(ctx: Context): void {
       }
     })().catch(() => { if (!grant.ended) publish({ ...snapshot, failed: true }) })
   })
-  const nativePlatform = (globalThis as typeof globalThis & { dshPlatform?: PlatformBridge }).dshPlatform
+  const nativePlatform = (globalThis as typeof globalThis & { janPlatform?: PlatformBridge }).janPlatform
   // One request channel for the single native Platform view. It always exists
   // so every entry can observe whether a page is showing; only a native bridge
   // lets an entry request one.
@@ -196,15 +196,15 @@ export function apply(ctx: Context): void {
       const profile = snapshot.details?.profile
       const context = {
         uid: profile?.status === 'ready' ? profile.value.id : null,
-        version: process.env.DSH_CLIENT_VERSION,
+        version: process.env.JAN_CLIENT_VERSION,
         width: window.screen.width, height: window.screen.height, pixelRatio: window.devicePixelRatio,
       }
       const openForm = (deviceInfo: string): void => {
         window.open(contactUrl(config, { ...context, deviceInfo }), '_blank', 'noopener,noreferrer')
       }
       const readDeviceInfo = (globalThis as typeof globalThis & {
-        dshDesktop?: { deviceInfo?: () => Promise<string> }
-      }).dshDesktop?.deviceInfo
+        janDesktop?: { deviceInfo?: () => Promise<string> }
+      }).janDesktop?.deviceInfo
       if (readDeviceInfo === undefined) {
         // A plain browser, or a Desktop bridge without the optional reader, reports the renderer user agent.
         openForm(navigator.userAgent)
@@ -236,8 +236,8 @@ export function apply(ctx: Context): void {
     async start() {
       publish({ ...snapshot, loginVisible: true, loginFailed: false })
       const transport = (globalThis as typeof globalThis & {
-        __DSH_TRANSPORT__?: { streamBaseUrl?: string }
-      }).__DSH_TRANSPORT__
+        __JAN_TRANSPORT__?: { streamBaseUrl?: string }
+      }).__JAN_TRANSPORT__
       const request = async () => {
         const result = await ctx.remote.account.startSignIn(client(),
           desktop && transport?.streamBaseUrl !== undefined ? new URL(transport.streamBaseUrl).origin : window.location.origin,

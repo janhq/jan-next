@@ -1,11 +1,11 @@
-import type { AccountView, SignInAttemptId } from '@deepseek-ai/dsh-tokamak-account/types'
+import type { AccountView, SignInAttemptId } from '@janhq/jan-tokamak-account/types'
 /** Localized welcome copy and write-only credential actions. */
 
 import { contextBridge, ipcRenderer } from 'electron'
 import { resolveDesktopLocale } from './locale.ts'
 import { WELCOME_IPC, type WelcomeApi, type WelcomeLocalModel, type WelcomeNotice, type WelcomeSaveResult } from './welcome-api.ts'
 
-const prefix = '--dsh-welcome-locale='
+const prefix = '--jan-welcome-locale='
 const locale = process.argv.find(argument => argument.startsWith(prefix))?.slice(prefix.length)
 if (locale === undefined) throw new Error('desktop welcome: missing window locale')
 const api: WelcomeApi = {
@@ -28,4 +28,4 @@ const api: WelcomeApi = {
   startLocalModel: () => ipcRenderer.invoke(WELCOME_IPC.localStart) as Promise<WelcomeLocalModel>,
   readLocalModel: () => ipcRenderer.invoke(WELCOME_IPC.localState) as Promise<WelcomeLocalModel | undefined>,
 }
-contextBridge.exposeInMainWorld('dshWelcome', api)
+contextBridge.exposeInMainWorld('janWelcome', api)

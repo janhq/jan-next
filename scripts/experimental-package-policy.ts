@@ -6,29 +6,29 @@
  * experimental name only through this map.
  */
 export const EXPERIMENTAL_PACKAGE_NAME_EXCEPTIONS: Readonly<Record<string, string>> = {
-  'packages/experimental/cua': '@deepseek-ai/dsh-cua',
-  'packages/experimental/cua-bundle': '@deepseek-ai/dsh-cua-bundle',
-  'packages/experimental/tool-session-query': '@deepseek-ai/dsh-tool-session-query',
-  'packages/experimental/session-title-all-prompts-llm': '@deepseek-ai/dsh-session-title-all-prompts-llm',
-  'packages/experimental/tool-terminal': '@deepseek-ai/dsh-tool-terminal',
-  'packages/experimental/tool-ralph': '@deepseek-ai/dsh-tool-ralph',
-  'packages/experimental/skill-badge': '@deepseek-ai/dsh-skill-badge',
-  'packages/experimental/hook-protocol': '@deepseek-ai/dsh-hook-protocol',
-  'packages/experimental/hooks-claude-code': '@deepseek-ai/dsh-hooks-claude-code',
-  'packages/experimental/hooks-codex': '@deepseek-ai/dsh-hooks-codex',
-  'packages/experimental/webhook': '@deepseek-ai/dsh-webhook',
-  'packages/experimental/webhook-github': '@deepseek-ai/dsh-webhook-github',
-  'packages/experimental/action-cards': '@deepseek-ai/dsh-action-cards',
-  'packages/experimental/client-ui-action-cards': '@deepseek-ai/dsh-client-ui-action-cards',
-  'packages/experimental/creation-recommendations': '@deepseek-ai/dsh-creation-recommendations',
-  'packages/experimental/client-ui-creation-recommendations': '@deepseek-ai/dsh-client-ui-creation-recommendations',
-  'packages/experimental/plugin-recommendations': '@deepseek-ai/dsh-plugin-recommendations',
-  'packages/experimental/client-ui-plugin-recommendations': '@deepseek-ai/dsh-client-ui-plugin-recommendations',
-  'packages/experimental/personalized-recommendations': '@deepseek-ai/dsh-personalized-recommendations',
-} satisfies Record<`packages/experimental/${string}`, `@deepseek-ai/dsh-${string}`>
+  'packages/experimental/cua': '@janhq/jan-cua',
+  'packages/experimental/cua-bundle': '@janhq/jan-cua-bundle',
+  'packages/experimental/tool-session-query': '@janhq/jan-tool-session-query',
+  'packages/experimental/session-title-all-prompts-llm': '@janhq/jan-session-title-all-prompts-llm',
+  'packages/experimental/tool-terminal': '@janhq/jan-tool-terminal',
+  'packages/experimental/tool-ralph': '@janhq/jan-tool-ralph',
+  'packages/experimental/skill-badge': '@janhq/jan-skill-badge',
+  'packages/experimental/hook-protocol': '@janhq/jan-hook-protocol',
+  'packages/experimental/hooks-claude-code': '@janhq/jan-hooks-claude-code',
+  'packages/experimental/hooks-codex': '@janhq/jan-hooks-codex',
+  'packages/experimental/webhook': '@janhq/jan-webhook',
+  'packages/experimental/webhook-github': '@janhq/jan-webhook-github',
+  'packages/experimental/action-cards': '@janhq/jan-action-cards',
+  'packages/experimental/client-ui-action-cards': '@janhq/jan-client-ui-action-cards',
+  'packages/experimental/creation-recommendations': '@janhq/jan-creation-recommendations',
+  'packages/experimental/client-ui-creation-recommendations': '@janhq/jan-client-ui-creation-recommendations',
+  'packages/experimental/plugin-recommendations': '@janhq/jan-plugin-recommendations',
+  'packages/experimental/client-ui-plugin-recommendations': '@janhq/jan-client-ui-plugin-recommendations',
+  'packages/experimental/personalized-recommendations': '@janhq/jan-personalized-recommendations',
+} satisfies Record<`packages/experimental/${string}`, `@janhq/jan-${string}`>
 
 /** Legacy npm namespace, allowed only in `LEGACY_PREFIXED_EXPERIMENTAL_PACKAGE_DIRECTORIES`. */
-export const EXPERIMENTAL_PACKAGE_NAME_PREFIX = '@deepseek-ai/dsh-experimental-'
+export const EXPERIMENTAL_PACKAGE_NAME_PREFIX = '@janhq/jan-experimental-'
 
 /** Existing experimental packages that keep the legacy prefix until a rename; this list must not grow. */
 export const LEGACY_PREFIXED_EXPERIMENTAL_PACKAGE_DIRECTORIES: readonly string[] = [
@@ -93,7 +93,7 @@ export function isExperimentalPackageName(name: string): boolean {
  */
 export function hasExperimentalPackageReference(reference: string): boolean {
   const normalized = reference.replaceAll('\\', '/')
-  return [...normalized.matchAll(/(?:^|[/:\u0000])(@deepseek-ai\/[^/@?#:\s]+)(?=$|[/@?#:])/g)]
+  return [...normalized.matchAll(/(?:^|[/:\u0000])(@janhq\/[^/@?#:\s]+)(?=$|[/@?#:])/g)]
     .some(([, name]) => name !== undefined && isExperimentalPackageName(name))
 }
 
@@ -104,7 +104,7 @@ export function hasExperimentalPackageReference(reference: string): boolean {
  */
 export function experimentalPackageRecordNamespace(name: string): string | undefined {
   if (!isExperimentalPackageName(name)) return undefined
-  return name.slice(name.startsWith(EXPERIMENTAL_PACKAGE_NAME_PREFIX) ? EXPERIMENTAL_PACKAGE_NAME_PREFIX.length : '@deepseek-ai/dsh-'.length)
+  return name.slice(name.startsWith(EXPERIMENTAL_PACKAGE_NAME_PREFIX) ? EXPERIMENTAL_PACKAGE_NAME_PREFIX.length : '@janhq/jan-'.length)
 }
 
 /** Experimental packages excluded from public releases and npm baselines. */
@@ -114,7 +114,7 @@ export const PRIVATE_EXPERIMENTAL_PACKAGE_DIRECTORIES: readonly string[] = []
  * Whether an experimental package publishes under the default-public policy.
  * @param directory - repository-relative package directory.
  * @param privateDirectories - experimental directories excluded from publication.
- * @returns Whether the package publishes with the dsh family.
+ * @returns Whether the package publishes with the jan family.
  */
 export function isPublicExperimentalPackageDirectory(
   directory: string,

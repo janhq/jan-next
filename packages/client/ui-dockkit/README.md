@@ -1,9 +1,9 @@
 ---
-description: "Docking layout kit for the dsh web client: a split tree of tabbed panes with invertible operations, planners, a linear history, and the components that render and drive it."
+description: "Docking layout kit for the jan web client: a split tree of tabbed panes with invertible operations, planners, a linear history, and the components that render and drive it."
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-client-ui-dockkit
+# @janhq/jan-client-ui-dockkit
 
 ## Summary
 

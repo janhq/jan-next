@@ -17,14 +17,14 @@ import { constants, access, mkdir, readFile, rename, rm, rmdir, stat, writeFile 
 import { arch, platform, totalmem } from 'node:os'
 import { basename, dirname, isAbsolute, join, relative } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { Context, Service } from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/dsh-credentials'
-import { credentialRef, type CredentialRef } from '@deepseek-ai/dsh-credentials'
-import type {} from '@deepseek-ai/dsh-subprocess'
-import type { SubprocessHandle, SubprocessOutcome } from '@deepseek-ai/dsh-subprocess'
-import type {} from '@deepseek-ai/dsh-agent-default-model'
-import type {} from '@deepseek-ai/dsh-llm'
-import type {} from '@deepseek-ai/dsh-settings'
+import { Context, Service } from '@janhq/cordis'
+import type {} from '@janhq/jan-credentials'
+import { credentialRef, type CredentialRef } from '@janhq/jan-credentials'
+import type {} from '@janhq/jan-subprocess'
+import type { SubprocessHandle, SubprocessOutcome } from '@janhq/jan-subprocess'
+import type {} from '@janhq/jan-agent-default-model'
+import type {} from '@janhq/jan-llm'
+import type {} from '@janhq/jan-settings'
 import type { Artifact } from './artifacts.ts'
 import { CATALOG, catalogModel, DEFAULT_MODEL_ID, SMALL_MODEL_ID, type CatalogModel } from './catalog.ts'
 import { Config } from './config.ts'
@@ -63,7 +63,7 @@ export { RateMeter } from './rate.ts'
 export { describeExit, parseDeviceList, parseHandshake, parseModelEvent, parseModelList, WorkerProtocolError } from './worker.ts'
 export type { WorkerDevice, WorkerHandshake, WorkerModelEvent } from './worker.ts'
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     /** Managed local llama.cpp model. */
     llamaCpp: LlamaCpp

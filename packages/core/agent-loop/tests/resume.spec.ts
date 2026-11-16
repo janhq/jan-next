@@ -1,26 +1,26 @@
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
-import { ToolCallId, createMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
+import { ToolCallId, createMessage, createUserMessage } from '@janhq/jan-llm'
 import { afterEach, describe, expect, it, vi, type MockInstance } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
+import { Context } from '@janhq/cordis'
 import { appendFile, mkdtemp, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import LlmRuntime from '@deepseek-ai/dsh-llm'
-import type { ContextFormed } from '@deepseek-ai/dsh-llm'
-import SessionStore, { SessionLogOffset, SessionSeq, Session, SessionId, TOOL_NOT_STARTED, TOOL_OUTCOME_UNKNOWN } from '@deepseek-ai/dsh-session'
-import type { SessionEvent } from '@deepseek-ai/dsh-session'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime from '@deepseek-ai/dsh-tools'
-import { defineContentToolFixture } from '@deepseek-ai/dsh-tool-testkit'
-import AgentRegistry, { type Agent } from '@deepseek-ai/dsh-agent'
-import { SessionAlreadyExistsError, type SessionHandle } from '@deepseek-ai/dsh-session-persistence'
+import LlmRuntime from '@janhq/jan-llm'
+import type { ContextFormed } from '@janhq/jan-llm'
+import SessionStore, { SessionLogOffset, SessionSeq, Session, SessionId, TOOL_NOT_STARTED, TOOL_OUTCOME_UNKNOWN } from '@janhq/jan-session'
+import type { SessionEvent } from '@janhq/jan-session'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import ToolRuntime from '@janhq/jan-tools'
+import { defineContentToolFixture } from '@janhq/jan-tool-testkit'
+import AgentRegistry, { type Agent } from '@janhq/jan-agent'
+import { SessionAlreadyExistsError, type SessionHandle } from '@janhq/jan-session-persistence'
 
-import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
+import * as JsonlSessionPersistence from '@janhq/jan-session-persistence-jsonl'
+import AgentLoop from '@janhq/jan-agent-loop'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
 import { MockAdapter, textResponse } from './mock-adapter.ts'
 
-declare module '@deepseek-ai/dsh-llm' {
+declare module '@janhq/jan-llm' {
   interface MessageSourceMap {
     'tool-bash': { kind: 'tool-bash' } & ContextFormed
   }
@@ -30,7 +30,7 @@ const dirs: string[] = []
 afterEach(async () => { for (const d of dirs.splice(0)) await rm(d, { recursive: true, force: true }) })
 
 async function persistentHarness(adapter: MockAdapter): Promise<{ ctx: Context; root: string }> {
-  const root = await mkdtemp(join(tmpdir(), 'dsh-resume-'))
+  const root = await mkdtemp(join(tmpdir(), 'jan-resume-'))
   dirs.push(root)
   return { ctx: await mountPersistentHarness(root, adapter), root }
 }
@@ -577,7 +577,7 @@ describe('the session-persistence Agent Note: AgentLoop factory create/resume', 
 
   it('resume over a torn physical tail continues from the committed prefix', async () => {
     const sessionId = SessionId('torn-tail-resume')
-    const root = await mkdtemp(join(tmpdir(), 'dsh-resume-torn-'))
+    const root = await mkdtemp(join(tmpdir(), 'jan-resume-torn-'))
     dirs.push(root)
     const ctx1 = await mountPersistentHarness(root, new MockAdapter([]), 'none')
     await seedStoredSession(ctx1, sessionId, [

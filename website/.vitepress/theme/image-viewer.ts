@@ -63,8 +63,8 @@ export class ImageViewer {
     if (image === this.#active) this.#closeActive()
     entry.events.abort()
     entry.button.remove()
-    entry.container.classList.remove('dsh-image-container')
-    image.classList.remove('dsh-image-zoomable')
+    entry.container.classList.remove('jan-image-container')
+    image.classList.remove('jan-image-zoomable')
     this.#entries.delete(image)
   }
 
@@ -92,7 +92,7 @@ export class ImageViewer {
       const container = image.parentElement
       if (!container) continue
       const button = viewerButton(this.doc, label, 'open')
-      button.className = 'dsh-image-open'
+      button.className = 'jan-image-open'
       button.setAttribute('aria-haspopup', 'dialog')
       const events = new AbortController()
       const open = (): void => {
@@ -112,8 +112,8 @@ export class ImageViewer {
       }
       button.addEventListener('click', open, { signal: events.signal })
       image.addEventListener('click', open, { signal: events.signal })
-      container.classList.add('dsh-image-container')
-      image.classList.add('dsh-image-zoomable')
+      container.classList.add('jan-image-container')
+      image.classList.add('jan-image-zoomable')
       container.append(button)
       this.#entries.set(image, { container, button, events, source: image.currentSrc || image.src })
     }

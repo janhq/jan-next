@@ -1,5 +1,5 @@
 /** Feishu questionnaire context: Harness build and reported environment. */
-import type { AccountUserId } from '@deepseek-ai/dsh-tokamak-account/types'
+import type { AccountUserId } from '@janhq/jan-tokamak-account/types'
 import type { ContactConfig } from '../contact-config.ts'
 
 /**

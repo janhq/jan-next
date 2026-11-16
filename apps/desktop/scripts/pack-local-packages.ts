@@ -1,4 +1,4 @@
-/** Stage local-branded DSH packages for unsigned Desktop builds without a publication record. */
+/** Stage local-branded Jan packages for unsigned Desktop builds without a publication record. */
 
 import { execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
@@ -37,7 +37,7 @@ async function main(): Promise<void> {
   const environment = resolveClientBuildEnvironment(repositoryClientBuildEnvironment(root), 'local')
   readClientBuildRecord(root, environment)
   const destination = resolve(root, values.out)
-  const packed = await packFamilyMembers(root, releaseFamily('dsh'), destination, concurrency)
+  const packed = await packFamilyMembers(root, releaseFamily('jan'), destination, concurrency)
   const present = FORK_PACKAGES.filter(directory => existsSync(join(root, directory, 'package.json')))
   for (const directory of present) {
     const invocation = pnpmInvocation(['--dir', directory, 'pack', '--pack-destination', destination])

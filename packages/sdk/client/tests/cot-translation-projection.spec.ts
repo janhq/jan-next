@@ -2,10 +2,10 @@
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import SessionStore, { appendPluginRecord, SessionId, type SessionEvent } from '@deepseek-ai/dsh-session'
-import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import type {} from '@deepseek-ai/dsh-experimental-translator/types'
+import { Context } from '@janhq/cordis'
+import SessionStore, { appendPluginRecord, SessionId, type SessionEvent } from '@janhq/jan-session'
+import { createUserMessage } from '@janhq/jan-llm'
+import type {} from '@janhq/jan-experimental-translator/types'
 import { createProcessDeepSeekHarness } from '../src/api.ts'
 
 const expectedPath = fileURLToPath(new URL('./expected/cot-translation-projection.json', import.meta.url))

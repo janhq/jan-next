@@ -1,9 +1,9 @@
 /** Model tool descriptions and complete batch execution owned by plugins. @module */
-import { HarnessError } from '@deepseek-ai/dsh-llm'
-import type { ToolCallBlock, ToolCallId } from '@deepseek-ai/dsh-llm'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import type { UserMessage } from '@deepseek-ai/dsh-session'
-import type { PromptSection, ToolProviderResult } from '@deepseek-ai/dsh-system-prompt'
+import { HarnessError } from '@janhq/jan-llm'
+import type { ToolCallBlock, ToolCallId } from '@janhq/jan-llm'
+import type { Agent } from '@janhq/jan-agent'
+import type { UserMessage } from '@janhq/jan-session'
+import type { PromptSection, ToolProviderResult } from '@janhq/jan-system-prompt'
 import type { ResolvedToolSet, ToolDefinition, ToolExecutionResult } from './contracts.ts'
 
 /** Model-call schemas produced by an executor. */

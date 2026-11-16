@@ -1,30 +1,30 @@
 /** Real attachments, filesystem recovery, Node PTC, and request image bytes without a desktop or API key. */
-import { executeModelToolFixture } from '@deepseek-ai/dsh-tool-testkit'
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
-import * as PtcToolExecutor from '@deepseek-ai/dsh-tool-executor-ptc'
+import { executeModelToolFixture } from '@janhq/jan-tool-testkit'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
+import * as PtcToolExecutor from '@janhq/jan-tool-executor-ptc'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Context } from '@deepseek-ai/cordis'
-import { provideWorkingDirectoryFixture } from '@deepseek-ai/dsh-agent-loop-testkit'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import LocalAttachments from '@deepseek-ai/dsh-attachment-local'
-import FileSystem from '@deepseek-ai/dsh-fs-local'
-import * as ToolFs from '@deepseek-ai/dsh-tool-fs'
-import { LlmAdapter, LlmRuntime, ToolCallId } from '@deepseek-ai/dsh-llm'
-import type { ContentBlock, GenerateOptions, ImageBlock, LlmImageRequestPricing, StreamChunk, UserMessage } from '@deepseek-ai/dsh-llm'
-import { createMcpToolDefinition } from '@deepseek-ai/dsh-mcp-client'
-import NodeRuntime from '@deepseek-ai/dsh-ptc-runtime-node'
-import Sandbox from '@deepseek-ai/dsh-sandbox-local'
-import SandboxPolicy from '@deepseek-ai/dsh-sandbox-policy'
-import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
-import SessionProjections from '@deepseek-ai/dsh-session-projection'
-import LocalSpillStore from '@deepseek-ai/dsh-spill-local'
-import Subprocess from '@deepseek-ai/dsh-subprocess-local'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import { estimateContent } from '@deepseek-ai/dsh-token-meter/estimate'
-import ToolRuntime from '@deepseek-ai/dsh-tools'
-import type { JsonValue } from '@deepseek-ai/dsh-util-values'
+import { Context } from '@janhq/cordis'
+import { provideWorkingDirectoryFixture } from '@janhq/jan-agent-loop-testkit'
+import type { Agent } from '@janhq/jan-agent'
+import LocalAttachments from '@janhq/jan-attachment-local'
+import FileSystem from '@janhq/jan-fs-local'
+import * as ToolFs from '@janhq/jan-tool-fs'
+import { LlmAdapter, LlmRuntime, ToolCallId } from '@janhq/jan-llm'
+import type { ContentBlock, GenerateOptions, ImageBlock, LlmImageRequestPricing, StreamChunk, UserMessage } from '@janhq/jan-llm'
+import { createMcpToolDefinition } from '@janhq/jan-mcp-client'
+import NodeRuntime from '@janhq/jan-ptc-runtime-node'
+import Sandbox from '@janhq/jan-sandbox-local'
+import SandboxPolicy from '@janhq/jan-sandbox-policy'
+import SessionStore, { SessionId } from '@janhq/jan-session'
+import SessionProjections from '@janhq/jan-session-projection'
+import LocalSpillStore from '@janhq/jan-spill-local'
+import Subprocess from '@janhq/jan-subprocess-local'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import { estimateContent } from '@janhq/jan-token-meter/estimate'
+import ToolRuntime from '@janhq/jan-tools'
+import type { JsonValue } from '@janhq/jan-util-values'
 import sharp from 'sharp'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import * as SpillPolicy from '../src/index.ts'
@@ -38,7 +38,7 @@ const textOf = (content: readonly ContentBlock[]): string => content.filter(bloc
 const imagesOf = (content: readonly ContentBlock[]): ImageBlock[] => content.filter((block): block is ImageBlock => block.type === 'image')
 
 async function setup(mode: 'native' | 'ptc' = 'native') {
-  const root = await mkdtemp(join(tmpdir(), 'dsh-image-recovery-'))
+  const root = await mkdtemp(join(tmpdir(), 'jan-image-recovery-'))
   const ctx = new Context()
   provideWorkingDirectoryFixture(ctx, root)
   onTestFinished(async () => {
@@ -48,7 +48,7 @@ async function setup(mode: 'native' | 'ptc' = 'native') {
   await ctx.plugin(ToolRuntime)
   await ctx.plugin(mode === 'ptc' ? PtcToolExecutor : NativeToolExecutor)
   await ctx.plugin(FileSystem, { cwd: root })
-  await ctx.plugin(LocalAttachments, { dshHome: join(root, 'home') })
+  await ctx.plugin(LocalAttachments, { janHome: join(root, 'home') })
   await ctx.plugin(ToolFs)
   await ctx.plugin(LocalSpillStore, { root: join(root, 'spill'), cleanupPeriodDays: 0 })
   await ctx.plugin(SessionProjections)

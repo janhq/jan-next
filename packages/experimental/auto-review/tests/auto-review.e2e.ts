@@ -1,38 +1,38 @@
-import * as PtcToolExecutor from '@deepseek-ai/dsh-tool-executor-ptc'
+import * as PtcToolExecutor from '@janhq/jan-tool-executor-ptc'
 import { randomUUID } from 'node:crypto'
-import { provideWorkingDirectoryFixture, mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
+import { provideWorkingDirectoryFixture, mountAgentLoopTestDependencies } from '@janhq/jan-agent-loop-testkit'
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Context } from '@deepseek-ai/cordis'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import { SandboxBashExecutor } from '@deepseek-ai/dsh-bash-sandbox'
-import { NodePtcRuntime } from '@deepseek-ai/dsh-ptc-runtime-node'
-import * as FsObservationPolicy from '@deepseek-ai/dsh-fs-observation-policy'
-import { SandboxedFileSystem } from '@deepseek-ai/dsh-fs-sandbox'
+import { Context } from '@janhq/cordis'
+import type { Agent } from '@janhq/jan-agent'
+import AgentLoop from '@janhq/jan-agent-loop'
+import { SandboxBashExecutor } from '@janhq/jan-bash-sandbox'
+import { NodePtcRuntime } from '@janhq/jan-ptc-runtime-node'
+import * as FsObservationPolicy from '@janhq/jan-fs-observation-policy'
+import { SandboxedFileSystem } from '@janhq/jan-fs-sandbox'
 import {
   createUserMessage, isAgentLoopRequest, ToolCallId,
   type StreamChunk,
-} from '@deepseek-ai/dsh-llm'
-import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
-import PermissionPresetService, { AUTO_PRESET } from '@deepseek-ai/dsh-permission-presets'
-import SandboxProvider, { type ConfinedArgv, type SandboxPolicy } from '@deepseek-ai/dsh-sandbox'
-import SandboxPolicyService from '@deepseek-ai/dsh-sandbox-policy'
-import { SessionId, type SessionEvent } from '@deepseek-ai/dsh-session'
-import * as ShellEnv from '@deepseek-ai/dsh-shell-env'
-import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
-import * as ToolBash from '@deepseek-ai/dsh-tool-bash'
-import * as ToolFs from '@deepseek-ai/dsh-tool-fs'
-import { RUN_CODE_NAME } from '@deepseek-ai/dsh-tools'
-import ApprovalService, { setApprovalPolicy } from '@deepseek-ai/dsh-user-approval'
+} from '@janhq/jan-llm'
+import * as LlmPiAi from '@janhq/jan-llm-pi-ai'
+import PermissionPresetService, { AUTO_PRESET } from '@janhq/jan-permission-presets'
+import SandboxProvider, { type ConfinedArgv, type SandboxPolicy } from '@janhq/jan-sandbox'
+import SandboxPolicyService from '@janhq/jan-sandbox-policy'
+import { SessionId, type SessionEvent } from '@janhq/jan-session'
+import * as ShellEnv from '@janhq/jan-shell-env'
+import LocalSubprocessRuntime from '@janhq/jan-subprocess-local'
+import * as ToolBash from '@janhq/jan-tool-bash'
+import * as ToolFs from '@janhq/jan-tool-fs'
+import { RUN_CODE_NAME } from '@janhq/jan-tools'
+import ApprovalService, { setApprovalPolicy } from '@janhq/jan-user-approval'
 import { expect, it, vi } from 'vitest'
-import * as AutoReview from '@deepseek-ai/dsh-experimental-auto-review'
+import * as AutoReview from '@janhq/jan-experimental-auto-review'
 
 const PROVIDER = 'deepseek'
 const FLASH = 'deepseek-flash'
 const PRO = 'deepseek-v4-pro'
-const REAL = process.env.DSH_AUTO_REVIEW_CERTIFICATION === '1'
+const REAL = process.env.JAN_AUTO_REVIEW_CERTIFICATION === '1'
 const DENIED = 'AUTO_REVIEW_DENIED'
 type Risk = 'low' | 'medium' | 'high'
 type Decision = 'allow' | 'deny'
@@ -128,7 +128,7 @@ async function* observe(
   observations.push(observation)
 }
 
-async function mount(ctx: Context, workspace: string, dshHome: string): Promise<void> {
+async function mount(ctx: Context, workspace: string, janHome: string): Promise<void> {
   await mountAgentLoopTestDependencies(ctx, {
     systemPrompt: {}, tools: { mode: 'native' },
   })
@@ -139,7 +139,7 @@ async function mount(ctx: Context, workspace: string, dshHome: string): Promise<
   await ctx.plugin(SandboxedFileSystem, { cwd: workspace })
   await ctx.plugin(FsObservationPolicy)
   await ctx.plugin(LocalSubprocessRuntime)
-  await ctx.plugin(ShellEnv, { dshHome })
+  await ctx.plugin(ShellEnv, { janHome })
   await ctx.plugin(SandboxBashExecutor, { cwd: workspace, timeoutMs: 30_000 })
   await ctx.plugin(ApprovalService, { policy: 'ask' })
   await ctx.plugin(PermissionPresetService, {
@@ -251,17 +251,17 @@ it('certifies six Auto risk/authorization cases with zero retries and zero skipp
   retry: 0, timeout: 1_800_000,
 }, async () => {
   if (REAL && !process.env.DEEPSEEK_API_KEY) throw new Error('Real Auto certification requires DEEPSEEK_API_KEY')
-  const root = await mkdtemp(join(tmpdir(), 'dsh-auto-review-'))
+  const root = await mkdtemp(join(tmpdir(), 'jan-auto-review-'))
   const ctx = new Context()
   provideWorkingDirectoryFixture(ctx)
   try {
     await chmod(root, 0o700)
     const workspace = join(root, 'workspace')
-    const dshHome = join(root, 'dsh-home')
+    const janHome = join(root, 'jan-home')
     await mkdir(workspace)
-    await mkdir(dshHome, { mode: 0o700 })
-    vi.stubEnv('DSH_HOME', dshHome)
-    await mount(ctx, workspace, dshHome)
+    await mkdir(janHome, { mode: 0o700 })
+    vi.stubEnv('JAN_HOME', janHome)
+    await mount(ctx, workspace, janHome)
     const runner = orchestrate(ctx, REAL)
     const cases: CaseResult[] = []
     const runCase = async (
@@ -360,14 +360,14 @@ it('certifies six Auto risk/authorization cases with zero retries and zero skipp
 it.each(['native', 'ptc-inner'] as const)('feeds denial back, re-reviews a new call and accepts narrowed work through %s', {
   retry: 0,
 }, async (path) => {
-  const root = await mkdtemp(join(tmpdir(), 'dsh-auto-review-recovery-'))
+  const root = await mkdtemp(join(tmpdir(), 'jan-auto-review-recovery-'))
   const ctx = new Context()
   provideWorkingDirectoryFixture(ctx)
   try {
-    const dshHome = join(root, 'home')
-    await mkdir(dshHome)
-    vi.stubEnv('DSH_HOME', dshHome)
-    await mount(ctx, root, dshHome)
+    const janHome = join(root, 'home')
+    await mkdir(janHome)
+    vi.stubEnv('JAN_HOME', janHome)
+    await mount(ctx, root, janHome)
     const runner = orchestrate(ctx, false)
     const target = join(root, 'existing.txt')
     await writeFile(target, 'keep\n')

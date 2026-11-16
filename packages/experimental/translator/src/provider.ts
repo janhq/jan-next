@@ -1,6 +1,6 @@
 /** Anonymous provider protocols, bounded JSON intake and normalized Chinese language tags. */
-import { deadline, timeoutOf } from '@deepseek-ai/dsh-timeout'
-import { assertNever } from '@deepseek-ai/dsh-util-values'
+import { deadline, timeoutOf } from '@janhq/jan-timeout'
+import { assertNever } from '@janhq/jan-util-values'
 import type { Config } from './index.ts'
 import type { TranslationProvider, TranslationSpec } from './types.ts'
 import { TranslationError } from './error.ts'

@@ -1,23 +1,23 @@
-import { executeToolFixture } from '@deepseek-ai/dsh-tool-testkit'
+import { executeToolFixture } from '@janhq/jan-tool-testkit'
 import { mountWorkingDirectoryFixture } from '../../subagent/tests/working-directory-fixture.ts'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Context } from '@deepseek-ai/cordis'
-import { defineTool } from '@deepseek-ai/dsh-tools'
-import { renderContextSnapshot } from '@deepseek-ai/dsh-system-prompt'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import { ToolCallId, createUserMessage } from '@deepseek-ai/dsh-llm'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import { SessionId } from '@deepseek-ai/dsh-session'
-import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
-import SubagentRuntime, { SubagentError } from '@deepseek-ai/dsh-subagent'
-import * as SubagentFork from '@deepseek-ai/dsh-subagent-fork-in-process'
-import * as SubagentSpawn from '@deepseek-ai/dsh-subagent-spawn-in-process'
-import type { GenerateOptions, StreamChunk } from '@deepseek-ai/dsh-llm'
-import { LlmAdapter } from '@deepseek-ai/dsh-llm'
+import { Context } from '@janhq/cordis'
+import { defineTool } from '@janhq/jan-tools'
+import { renderContextSnapshot } from '@janhq/jan-system-prompt'
+import type { Agent } from '@janhq/jan-agent'
+import { ToolCallId, createUserMessage } from '@janhq/jan-llm'
+import AgentLoop from '@janhq/jan-agent-loop'
+import { mountAgentLoopTestDependencies } from '@janhq/jan-agent-loop-testkit'
+import { SessionId } from '@janhq/jan-session'
+import * as JsonlSessionPersistence from '@janhq/jan-session-persistence-jsonl'
+import SubagentRuntime, { SubagentError } from '@janhq/jan-subagent'
+import * as SubagentFork from '@janhq/jan-subagent-fork-in-process'
+import * as SubagentSpawn from '@janhq/jan-subagent-spawn-in-process'
+import type { GenerateOptions, StreamChunk } from '@janhq/jan-llm'
+import { LlmAdapter } from '@janhq/jan-llm'
 import { MockAdapter, textResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 import * as tool from '../src/index.ts'
 import { parkParent } from './park-parent.ts'
@@ -64,7 +64,7 @@ async function setupWith(adapter: MockAdapter | GatedAdapter, park = true) {
   const ctx = new Context()
   contexts.push(ctx)
   await mountAgentLoopTestDependencies(ctx)
-  const root = mkdtempSync(join(tmpdir(), 'dsh-tool-subagent-control-'))
+  const root = mkdtempSync(join(tmpdir(), 'jan-tool-subagent-control-'))
   roots.push(root)
   await ctx.plugin(JsonlSessionPersistence, { root })
   await ctx.plugin(TestSessionQuery)
@@ -112,7 +112,7 @@ async function waitNoActivation(ctx: Context, childId: SessionId): Promise<void>
   }, { timeout: 5_000 })
 }
 
-describe('dsh-tool-subagent-control', () => {
+describe('jan-tool-subagent-control', () => {
   it('registers send_message once, globally, with the two required parameters', async () => {
     const { ctx } = await setup([])
     const schemas = ctx.tools.schemas().filter(schema => schema.name === 'send_message')
@@ -515,7 +515,7 @@ describe('dsh-tool-subagent-control', () => {
   })
 })
 
-describe('dsh-tool-subagent-control interrupt_agent', () => {
+describe('jan-tool-subagent-control interrupt_agent', () => {
   it('registers interrupt_agent with the single agent parameter and current-turn wording', async () => {
     const { ctx } = await setup([])
     const schemas = ctx.tools.schemas().filter(schema => schema.name === 'interrupt_agent')

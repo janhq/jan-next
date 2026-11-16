@@ -5,9 +5,9 @@ import { tmpdir, totalmem } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { afterEach, expect, it, vi } from 'vitest'
-import { Context, Service } from '@deepseek-ai/cordis'
-import LocalSubprocess from '@deepseek-ai/dsh-subprocess-local'
-import { LocalCredentialProvider } from '@deepseek-ai/dsh-credentials-local'
+import { Context, Service } from '@janhq/cordis'
+import LocalSubprocess from '@janhq/jan-subprocess-local'
+import { LocalCredentialProvider } from '@janhq/jan-credentials-local'
 import {
   describeExit, download, DownloadError, hostPlatformOf, LlamaCpp, lookupRepo, modelFacts, parseHandshake, parseModelList, parseRepo,
   RateMeter, WorkerProtocolError, type LlamaCppState,

@@ -3,11 +3,11 @@ description: "The ctx.fs filesystem service contract for deployments choosing or
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-fs
+# @janhq/jan-fs
 
 ## Summary
 
-Use `dsh-fs` for consistent file access across local, confined, and SSH execution environments. Consumers can resolve stable identities, read text or bounded bytes, list directories, watch targets, write files, apply literal edits or patch hunks, delete files, and move text files with optional patching. Optional version guards reject stale mutations. Moves report destination publication separately from source removal. Mount a provider for the chosen environment; `dsh-tool-fs` supplies model-facing tools separately.
+Use `jan-fs` for consistent file access across local, confined, and SSH execution environments. Consumers can resolve stable identities, read text or bounded bytes, list directories, watch targets, write files, apply literal edits or patch hunks, delete files, and move text files with optional patching. Optional version guards reject stale mutations. Moves report destination publication separately from source removal. Mount a provider for the chosen environment; `jan-tool-fs` supplies model-facing tools separately.
 
 ## Table of Contents
 
@@ -23,7 +23,7 @@ Use `dsh-fs` for consistent file access across local, confined, and SSH executio
 <a id="use-this-package"></a>
 ## Use this package
 
-You rarely load `dsh-fs` directly: you mount a backend that registers as `ctx.fs`, then either call the service from your own plugin or let the `dsh-tool-fs` tools call it for you. This page serves the two audiences that do touch it — deployments choosing a backend, and developers implementing or consuming the contract.
+You rarely load `jan-fs` directly: you mount a backend that registers as `ctx.fs`, then either call the service from your own plugin or let the `jan-tool-fs` tools call it for you. This page serves the two audiences that do touch it — deployments choosing a backend, and developers implementing or consuming the contract.
 
 ### Choosing and mounting a backend
 
@@ -50,7 +50,7 @@ This section explains the design decisions behind the contract and points at the
 The contract is built on one separation and three commitments:
 
 - **Contract over mechanism.** The service names what a storage layer can do — resolve, stat, read, list, watch, write, edit, patch, delete, move — and never how it stores bytes. Backends own target identity, execution-world coordinates, decoding, binary rejection, and atomicity.
-- **Policy stays off the base class.** Observed-state, read-before-edit, and version-guarded mutations are a plugin's job (`dsh-fs-observation-policy`), added by supplying the optional guard — so a sandboxed or remote backend inherits no model-facing observation policy.
+- **Policy stays off the base class.** Observed-state, read-before-edit, and version-guarded mutations are a plugin's job (`jan-fs-observation-policy`), added by supplying the optional guard — so a sandboxed or remote backend inherits no model-facing observation policy.
 - **`editText` stays on the seam.** Version check, literal match, and atomic rewrite share one critical section, so error attribution and one-wins/one-stale concurrency stay correct; a remote backend may implement it as a native compare-and-edit.
 - **Bounds live at this seam.** `readBytes` requires `maxBytes` and fails with `FS_TOO_LARGE` rather than truncating, so no backend ever buffers an unbounded file. `readByteRange` is bounded by its window instead: a backend transfers at most the requested `length` beyond the prefix it skips, so the caller's cap on `length` is the guard.
 
@@ -103,7 +103,7 @@ Read these pages when the package-level contract is not enough. They move from t
 <a id="model-experience"></a>
 ## Model Experience
 
-Indirectly, through `dsh-tool-fs`, which renders provider text and errors as bounded, retained filesystem tool results.
+Indirectly, through `jan-tool-fs`, which renders provider text and errors as bounded, retained filesystem tool results.
 
 #### KV Cache effect
 

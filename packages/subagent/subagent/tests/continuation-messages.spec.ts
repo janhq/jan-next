@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { createUserMessage, ToolCallId, type ContentBlock } from '@deepseek-ai/dsh-llm'
-import { SessionId } from '@deepseek-ai/dsh-session'
+import { createUserMessage, ToolCallId, type ContentBlock } from '@janhq/jan-llm'
+import { SessionId } from '@janhq/jan-session'
 import { createSettlementMessage } from '../src/continuation-messages.ts'
 
 const childId = SessionId('settled-child')

@@ -1,5 +1,5 @@
-import { Context } from '@deepseek-ai/cordis'
-import { DeepSeekAccount, type AccountView, type PlatformSession } from '@deepseek-ai/dsh-tokamak-account'
+import { Context } from '@janhq/cordis'
+import { DeepSeekAccount, type AccountView, type PlatformSession } from '@janhq/jan-tokamak-account'
 import { expect, it } from 'vitest'
 import { installPlatformSessionPublisher } from '../src/platform-session.ts'
 

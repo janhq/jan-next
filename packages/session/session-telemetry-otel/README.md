@@ -3,13 +3,13 @@ description: "OpenTelemetry session-telemetry backend for deployments choosing a
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-session-telemetry-otel
+# @janhq/jan-session-telemetry-otel
 
 ## Summary
 
 The adapter injects `otel`; the [shared OTel plugin](../../telemetry/otel/README.md) creates its independent Session-log channel. Authorization, redaction, identity, scope version, configuration, and the shutdown deadline remain owned here.
 
-`dsh-session-telemetry-otel` exports session records through the OTel JS SDK only after new explicit feedback, for all users and providers. `FEEDBACK_ONLY` releases the canonical prefix through that feedback, including context; later records wait for the next explicit feedback. `DISABLED` constructs no transport. Scheduled batching can finish an authorized upload without another user interaction or model call. Deployments own their redaction rules.
+`jan-session-telemetry-otel` exports session records through the OTel JS SDK only after new explicit feedback, for all users and providers. `FEEDBACK_ONLY` releases the canonical prefix through that feedback, including context; later records wait for the next explicit feedback. `DISABLED` constructs no transport. Scheduled batching can finish an authorized upload without another user interaction or model call. Deployments own their redaction rules.
 
 ## Table of Contents
 
@@ -42,7 +42,7 @@ Uploading modes require an exporter URL. Processor settings control the independ
 
 ```yaml
 - id: sessionTelemetry-otel
-  name: '@deepseek-ai/dsh-session-telemetry-otel'
+  name: '@janhq/jan-session-telemetry-otel'
   config:
     mode: FEEDBACK_ONLY       # optional; defaults to FEEDBACK_ONLY
     shutdownTimeoutMillis: 3000 # optional; defaults to 3000
@@ -67,7 +67,7 @@ Model requests, request headers, Session creation or adoption, restoration, and 
 
 ### What leaves the machine
 
-Each Session event becomes one `eventName: "session-log"` record. `attributes.sessionId` is the collector Session identity; `attributes.content` encodes the complete event envelope with redacted `event.data`. JSON values are preserved, not the original JSONL bytes or key ordering. Legacy `session.id`, `event.seq`, and `event.type` metadata remain for existing consumers. Resources carry application and anonymous-user identity; scope carries the backend package name and version. The base profile uses `https://dsh-otel-collector.deepseeksvc.com/v1/logs`; `DSH_TELEMETRY_OTLP_URL` overrides it. No channel header is added implicitly.
+Each Session event becomes one `eventName: "session-log"` record. `attributes.sessionId` is the collector Session identity; `attributes.content` encodes the complete event envelope with redacted `event.data`. JSON values are preserved, not the original JSONL bytes or key ordering. Legacy `session.id`, `event.seq`, and `event.type` metadata remain for existing consumers. Resources carry application and anonymous-user identity; scope carries the backend package name and version. The base profile uses `https://jan-otel-collector.deepseeksvc.com/v1/logs`; `JAN_TELEMETRY_OTLP_URL` overrides it. No channel header is added implicitly.
 
 The shared OTel channel measures each record once with the SDK OTLP JSON serializer, including its resource/scope envelope, then greedily packs requests using those conservative sizes. A single oversized event produces one rejection diagnostic without truncation. Session logs never mix with product analytics in a request. Capture handoff and shutdown are not collector acknowledgements.
 

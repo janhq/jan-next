@@ -11,20 +11,20 @@
  *
  * Reconstruction reads the `agentPreset` Session projection, never the header
  * alone.
- * @module @deepseek-ai/dsh-agent-preset-registry/session
+ * @module @janhq/jan-agent-preset-registry/session
  */
 
-import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
+import type { ProjectionDefinition } from '@janhq/jan-session-projection'
 import { z } from 'zod'
 
-declare module '@deepseek-ai/dsh-session/types' {
+declare module '@janhq/jan-session/types' {
   interface SessionEventMap {
     /**
      * The session's agent preset was chosen after creation, while the session
      * was still blank. Log-only: it records the composition later turns ran
      * under, so a resumed or forked session rebuilds the same one instead of
      * the header's creation-time value. Subagent restoration reads this saved
-     * selection independently of its creator (`dsh-subagent` README,
+     * selection independently of its creator (`jan-subagent` README,
      * "Restoring child composition").
      */
     'agent-preset/selected': { agentPreset: string }

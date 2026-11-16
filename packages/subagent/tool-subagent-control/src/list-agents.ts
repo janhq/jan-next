@@ -1,12 +1,12 @@
 /** Discover the caller's entire subagent tree; the control plugin owns registration. */
 
-import type { Context } from '@deepseek-ai/cordis'
-import { defineTool } from '@deepseek-ai/dsh-tools'
-import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import type { SessionId } from '@deepseek-ai/dsh-session'
-import { ROOT_AGENT_NAME } from '@deepseek-ai/dsh-subagent'
-import type { SubagentDescendantListEntry } from '@deepseek-ai/dsh-subagent'
+import type { Context } from '@janhq/cordis'
+import { defineTool } from '@janhq/jan-tools'
+import type { ToolDefinition } from '@janhq/jan-tools'
+import type { Agent } from '@janhq/jan-agent'
+import type { SessionId } from '@janhq/jan-session'
+import { ROOT_AGENT_NAME } from '@janhq/jan-subagent'
+import type { SubagentDescendantListEntry } from '@janhq/jan-subagent'
 
 
 type ListAgentsStatus = 'running' | 'inactive' | 'corrupt' | 'unsupported' | 'unavailable'

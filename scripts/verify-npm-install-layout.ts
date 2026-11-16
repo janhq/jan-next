@@ -1,4 +1,4 @@
-/** Verify npm's physical package placement for two incompatible DSH releases. */
+/** Verify npm's physical package placement for two incompatible Jan releases. */
 
 import { readFileSync } from 'node:fs'
 import { posix, resolve } from 'node:path'
@@ -10,15 +10,15 @@ import {
   type RegistryIndex,
 } from './benchmark-npm-resolution.ts'
 
-const DSH_PACKAGE = '@deepseek-ai/dsh'
-const CORDIS_PACKAGE = '@deepseek-ai/cordis'
-const NESTED_DSH_ALIAS = 'dsh-previous'
-const NESTED_DSH_PATH = `node_modules/${NESTED_DSH_ALIAS}`
+const JAN_PACKAGE = '@janhq/jan'
+const CORDIS_PACKAGE = '@janhq/cordis'
+const NESTED_JAN_ALIAS = 'jan-previous'
+const NESTED_JAN_PATH = `node_modules/${NESTED_JAN_ALIAS}`
 const DEPENDENCY_FIELDS = ['dependencies', 'optionalDependencies', 'peerDependencies'] as const
 
 /**
  * Resolution work accepted from the dual-release graph, in
- * `dshPackagesPerVersion * checkedDshEdges` units.
+ * `janPackagesPerVersion * checkedJanEdges` units.
  *
  * npm's hoisted placement re-checks every internal edge against the incoming
  * edges of its peer target (`canPlacePeers` calls `checkCanPlaceNoCurrent`,
@@ -52,7 +52,7 @@ const NPM_HANG_GUARD_MS = Math.round(
 )
 
 /** Synthetic incompatible versions used to expose cross-release placement errors. */
-export const SYNTHETIC_DSH_VERSIONS = ['0.1.0', '0.2.0'] as const
+export const SYNTHETIC_JAN_VERSIONS = ['0.1.0', '0.2.0'] as const
 
 interface MutableRegistryManifest {
   name: string
@@ -64,13 +64,13 @@ interface MutableRegistryManifest {
 }
 
 /** Summary of a verified two-release npm layout. */
-export interface DshInstallLayoutSummary {
-  readonly dshPackagesPerVersion: number
-  readonly checkedDshEdges: number
+export interface JanInstallLayoutSummary {
+  readonly janPackagesPerVersion: number
+  readonly checkedJanEdges: number
 }
 
-function isDshPackage(name: string): boolean {
-  return name === DSH_PACKAGE || name.startsWith(`${DSH_PACKAGE}-`)
+function isJanPackage(name: string): boolean {
+  return name === JAN_PACKAGE || name.startsWith(`${JAN_PACKAGE}-`)
 }
 
 function cloneForVersion(manifest: object, version: string): MutableRegistryManifest {
@@ -80,35 +80,35 @@ function cloneForVersion(manifest: object, version: string): MutableRegistryMani
     const dependencies = cloned[field]
     if (dependencies === undefined) continue
     for (const name of Object.keys(dependencies)) {
-      if (isDshPackage(name)) dependencies[name] = `^${version}`
+      if (isJanPackage(name)) dependencies[name] = `^${version}`
     }
   }
   return cloned
 }
 
 /**
- * Replace the working release with two incompatible, internally consistent DSH releases.
+ * Replace the working release with two incompatible, internally consistent Jan releases.
  * @param index - Registry metadata containing the working release.
  * @param sourceVersion - Workspace version copied into each synthetic release.
- * @returns Registry metadata containing both synthetic DSH releases and unchanged external packages.
+ * @returns Registry metadata containing both synthetic Jan releases and unchanged external packages.
  */
-export function buildDualDshRegistry(index: RegistryIndex, sourceVersion: string): RegistryIndex {
+export function buildDualJanRegistry(index: RegistryIndex, sourceVersion: string): RegistryIndex {
   const output = new Map(index)
-  let dshPackages = 0
+  let janPackages = 0
   for (const [name, versions] of index) {
-    if (!isDshPackage(name)) {
+    if (!isJanPackage(name)) {
       output.set(name, versions)
       continue
     }
     const source = versions.get(sourceVersion)
     if (source === undefined) throw new Error(`${name} has no workspace version ${sourceVersion}`)
-    dshPackages++
-    output.set(name, new Map(SYNTHETIC_DSH_VERSIONS.map(version => [
+    janPackages++
+    output.set(name, new Map(SYNTHETIC_JAN_VERSIONS.map(version => [
       version,
       cloneForVersion(source, version),
     ])))
   }
-  if (dshPackages === 0) throw new Error('registry contains no DSH packages')
+  if (janPackages === 0) throw new Error('registry contains no Jan packages')
   return output
 }
 
@@ -144,44 +144,44 @@ function setDifference(left: ReadonlySet<string>, right: ReadonlySet<string>): s
 }
 
 /**
- * Assert that npm isolates both DSH releases while sharing the Cordis runtime.
+ * Assert that npm isolates both Jan releases while sharing the Cordis runtime.
  * @param packageLock - Metadata-only package lock produced by npm.
- * @returns Counts for the verified DSH packages and dependency edges.
+ * @returns Counts for the verified Jan packages and dependency edges.
  */
-export function assertDualDshInstallLayout(packageLock: NpmPackageLock): DshInstallLayoutSummary {
-  const [nestedVersion, rootVersion] = SYNTHETIC_DSH_VERSIONS
+export function assertDualJanInstallLayout(packageLock: NpmPackageLock): JanInstallLayoutSummary {
+  const [nestedVersion, rootVersion] = SYNTHETIC_JAN_VERSIONS
   const errors: string[] = []
   const namesByVersion = new Map<string, Set<string>>([
     [nestedVersion, new Set()],
     [rootVersion, new Set()],
   ])
   const installed = Object.entries(packageLock.packages)
-  let checkedDshEdges = 0
+  let checkedJanEdges = 0
 
   for (const [path, manifest] of installed) {
     const name = packageNameAtPath(path, manifest)
     if (name === 'react' || name === 'react-dom') {
-      errors.push(`${path}: ${name} is a browser build input, not a dependency of the synthetic DSH-only consumer`)
+      errors.push(`${path}: ${name} is a browser build input, not a dependency of the synthetic Jan-only consumer`)
     }
-    if (name === undefined || !isDshPackage(name)) continue
+    if (name === undefined || !isJanPackage(name)) continue
     const version = manifest.version
     if (version !== nestedVersion && version !== rootVersion) {
-      errors.push(`${path}: expected DSH version ${nestedVersion} or ${rootVersion}, got ${String(version)}`)
+      errors.push(`${path}: expected Jan version ${nestedVersion} or ${rootVersion}, got ${String(version)}`)
       continue
     }
     namesByVersion.get(version)?.add(name)
     const expectedPath = version === rootVersion
       ? `node_modules/${name}`
-      : name === DSH_PACKAGE
-        ? NESTED_DSH_PATH
-        : `${NESTED_DSH_PATH}/node_modules/${name}`
+      : name === JAN_PACKAGE
+        ? NESTED_JAN_PATH
+        : `${NESTED_JAN_PATH}/node_modules/${name}`
     if (path !== expectedPath) {
       errors.push(`${path}: expected ${name}@${version} at ${expectedPath}`)
     }
 
     for (const field of DEPENDENCY_FIELDS) {
       for (const dependency of Object.keys(manifest[field] ?? {})) {
-        if (!isDshPackage(dependency)) continue
+        if (!isJanPackage(dependency)) continue
         const targetPath = resolvePackagePath(packageLock.packages, path, dependency)
         const optionalPeer = field === 'peerDependencies'
           && manifest.peerDependenciesMeta?.[dependency]?.optional === true
@@ -190,7 +190,7 @@ export function assertDualDshInstallLayout(packageLock: NpmPackageLock): DshInst
           errors.push(`${path}: ${field} ${dependency} does not resolve`)
           continue
         }
-        checkedDshEdges++
+        checkedJanEdges++
         const targetVersion = packageLock.packages[targetPath]?.version
         if (targetVersion !== version) {
           errors.push(
@@ -203,8 +203,8 @@ export function assertDualDshInstallLayout(packageLock: NpmPackageLock): DshInst
 
   const nestedNames = namesByVersion.get(nestedVersion) ?? new Set<string>()
   const rootNames = namesByVersion.get(rootVersion) ?? new Set<string>()
-  if (!nestedNames.has(DSH_PACKAGE)) errors.push(`${NESTED_DSH_PATH}: missing ${DSH_PACKAGE}@${nestedVersion}`)
-  if (!rootNames.has(DSH_PACKAGE)) errors.push(`node_modules/${DSH_PACKAGE}: missing ${DSH_PACKAGE}@${rootVersion}`)
+  if (!nestedNames.has(JAN_PACKAGE)) errors.push(`${NESTED_JAN_PATH}: missing ${JAN_PACKAGE}@${nestedVersion}`)
+  if (!rootNames.has(JAN_PACKAGE)) errors.push(`node_modules/${JAN_PACKAGE}: missing ${JAN_PACKAGE}@${rootVersion}`)
   const onlyNested = setDifference(nestedNames, rootNames)
   const onlyRoot = setDifference(rootNames, nestedNames)
   if (onlyNested.length > 0) errors.push(`only ${nestedVersion} contains: ${onlyNested.join(', ')}`)
@@ -217,21 +217,21 @@ export function assertDualDshInstallLayout(packageLock: NpmPackageLock): DshInst
   }
 
   if (errors.length > 0) throw new Error(`invalid npm install layout:\n${errors.map(error => `  - ${error}`).join('\n')}`)
-  return { dshPackagesPerVersion: rootNames.size, checkedDshEdges }
+  return { janPackagesPerVersion: rootNames.size, checkedJanEdges }
 }
 
 /**
  * Reject a verified dual-release graph that exceeds the resolution work budget.
- * @param summary - Counts returned by {@link assertDualDshInstallLayout}.
+ * @param summary - Counts returned by {@link assertDualJanInstallLayout}.
  * @returns The verified resolution work units.
  */
-export function assertResolutionWorkBudget(summary: DshInstallLayoutSummary): number {
-  const units = summary.dshPackagesPerVersion * summary.checkedDshEdges
+export function assertResolutionWorkBudget(summary: JanInstallLayoutSummary): number {
+  const units = summary.janPackagesPerVersion * summary.checkedJanEdges
   if (units > MAX_RESOLUTION_WORK_UNITS) {
     throw new Error(
       'dual-release graph exceeds the resolution work budget: '
-      + `${String(summary.dshPackagesPerVersion)} package(s) per release x `
-      + `${String(summary.checkedDshEdges)} internal edge(s) = ${String(units)} unit(s), `
+      + `${String(summary.janPackagesPerVersion)} package(s) per release x `
+      + `${String(summary.checkedJanEdges)} internal edge(s) = ${String(units)} unit(s), `
       + `budget ${String(MAX_RESOLUTION_WORK_UNITS)} unit(s)\n`
       + '  npm re-checks every internal edge against the incoming edges of its peer target, so the resolution\n'
       + '  cost grows with this product. Measure the new cost and raise MAX_RESOLUTION_WORK_UNITS in\n'
@@ -249,18 +249,18 @@ function workspaceVersion(root: string): string {
 
 async function main(): Promise<void> {
   const root = resolve(import.meta.dirname, '..')
-  const index = buildDualDshRegistry(buildRegistryIndex(root), workspaceVersion(root))
-  const [nestedVersion, rootVersion] = SYNTHETIC_DSH_VERSIONS
+  const index = buildDualJanRegistry(buildRegistryIndex(root), workspaceVersion(root))
+  const [nestedVersion, rootVersion] = SYNTHETIC_JAN_VERSIONS
   const result = await resolveNpmPackageLock(index, {
-    [DSH_PACKAGE]: rootVersion,
-    [NESTED_DSH_ALIAS]: `npm:${DSH_PACKAGE}@${nestedVersion}`,
+    [JAN_PACKAGE]: rootVersion,
+    [NESTED_JAN_ALIAS]: `npm:${JAN_PACKAGE}@${nestedVersion}`,
   }, NPM_HANG_GUARD_MS, 'npm resolution hang guard')
   if (result.archiveRequests !== 0) throw new Error(`npm requested ${String(result.archiveRequests)} package archive(s)`)
-  const summary = assertDualDshInstallLayout(result.packageLock)
+  const summary = assertDualJanInstallLayout(result.packageLock)
   const units = assertResolutionWorkBudget(summary)
   console.log(
-    `verify-npm-install-layout: ${String(summary.dshPackagesPerVersion)} DSH package(s) per release and `
-    + `${String(summary.checkedDshEdges)} internal edge(s) verified in ${(result.durationMs / 1000).toFixed(2)} s; `
+    `verify-npm-install-layout: ${String(summary.janPackagesPerVersion)} Jan package(s) per release and `
+    + `${String(summary.checkedJanEdges)} internal edge(s) verified in ${(result.durationMs / 1000).toFixed(2)} s; `
     + `${String(units)} of ${String(MAX_RESOLUTION_WORK_UNITS)} budgeted resolution work unit(s); `
     + `both releases share one Cordis installation; ${String(result.unknownPackages.length)} unavailable optional `
     + 'package name(s) ignored by npm.',

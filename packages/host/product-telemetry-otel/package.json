@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-host-product-telemetry-otel",
+  "name": "@janhq/jan-host-product-telemetry-otel",
   "description": "Explicit product usage events exported through OpenTelemetry HTTP logs",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/host/product-telemetry-otel"
   },
   "type": "module",
@@ -29,20 +29,20 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "@deepseek-ai/schemastery": "workspace:~",
+    "@janhq/schemastery": "workspace:~",
     "@opentelemetry/api-logs": "0.222.0",
     "@opentelemetry/otlp-exporter-base": "0.222.0",
     "@opentelemetry/sdk-logs": "0.222.0"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-otel": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-otel": "workspace:*"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/cordis-plugin-loader": "workspace:~",
-    "@deepseek-ai/dsh-app-boot": "workspace:*",
-    "@deepseek-ai/dsh-loader-smoke": "workspace:*",
-    "@deepseek-ai/dsh-otel": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/cordis-plugin-loader": "workspace:~",
+    "@janhq/jan-app-boot": "workspace:*",
+    "@janhq/jan-loader-smoke": "workspace:*",
+    "@janhq/jan-otel": "workspace:*"
   }
 }

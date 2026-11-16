@@ -3,11 +3,11 @@ description: "Webhook rule runtime for maintainers registering trusted external-
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-webhook
+# @janhq/jan-webhook
 
 ## Summary
 
-`dsh-webhook` provides the Host `ctx.webhookRuntime`: a registry for trusted programmatic webhook rules plus the one built-in action, creating an ordinary root Session inside a Web Workspace. The interface stays at `register(rule)` and `dispatch(delivery)`; provider authentication belongs to adapter packages. Use it when a trusted rule must turn an external event into a new agent Session.
+`jan-webhook` provides the Host `ctx.webhookRuntime`: a registry for trusted programmatic webhook rules plus the one built-in action, creating an ordinary root Session inside a Web Workspace. The interface stays at `register(rule)` and `dispatch(delivery)`; provider authentication belongs to adapter packages. Use it when a trusted rule must turn an external event into a new agent Session.
 
 ## Table of Contents
 

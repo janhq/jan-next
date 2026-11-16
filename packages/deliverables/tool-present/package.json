@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-tool-present",
+  "name": "@janhq/jan-tool-present",
   "description": "Explicit workspace file delivery declarations for Jan",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/deliverables/tool-present"
   },
   "type": "module",
@@ -34,31 +34,31 @@
     "lib/types/**/*.d.ts"
   ],
   "dependencies": {
-    "@deepseek-ai/schemastery": "workspace:~"
+    "@janhq/schemastery": "workspace:~"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-agent": "workspace:*",
-    "@deepseek-ai/dsh-fs": "workspace:*",
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-tools": "workspace:*",
-    "@deepseek-ai/dsh-working-directory": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-fs": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-tools": "workspace:*",
+    "@janhq/jan-working-directory": "workspace:*"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-agent": "workspace:*",
-    "@deepseek-ai/dsh-fs": "workspace:*",
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-session-projection": "workspace:*",
-    "@deepseek-ai/dsh-tool-executor-native": "workspace:*",
-    "@deepseek-ai/dsh-tool-testkit": "workspace:*",
-    "@deepseek-ai/dsh-tools": "workspace:*",
-    "@deepseek-ai/dsh-agent-loop": "workspace:*",
-    "@deepseek-ai/dsh-agent-loop-testkit": "workspace:*",
-    "@deepseek-ai/dsh-fs-local": "workspace:*",
-    "@deepseek-ai/dsh-scope": "workspace:*",
-    "@deepseek-ai/dsh-working-directory": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-fs": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-session-projection": "workspace:*",
+    "@janhq/jan-tool-executor-native": "workspace:*",
+    "@janhq/jan-tool-testkit": "workspace:*",
+    "@janhq/jan-tools": "workspace:*",
+    "@janhq/jan-agent-loop": "workspace:*",
+    "@janhq/jan-agent-loop-testkit": "workspace:*",
+    "@janhq/jan-fs-local": "workspace:*",
+    "@janhq/jan-scope": "workspace:*",
+    "@janhq/jan-working-directory": "workspace:*"
   }
 }

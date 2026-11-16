@@ -3,11 +3,11 @@ description: "The shipped JSONL session-persistence backend for deployments and 
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-session-persistence-jsonl
+# @janhq/jan-session-persistence-jsonl
 
 ## Summary
 
-`dsh-session-persistence-jsonl` stores each session in a current append-only JSONL log and retains immutable historical format generations — checksummed Zstandard frames by default, raw newline-delimited lines when compression is disabled. It serves the current logical `SessionEvent` stream through persistence handles, so format migration, compression, historical decoding, and crash recovery remain storage-internal details. Choose it when consumers need a per-session file on disk; the logs are readable as plain lines when `compression: 'none'` is selected. A root directory is the one required configuration; durability, lazy materialization, [supported historical-format migration](../session-format-catalog/README.md), and torn-tail crash recovery come with the backend.
+`jan-session-persistence-jsonl` stores each session in a current append-only JSONL log and retains immutable historical format generations — checksummed Zstandard frames by default, raw newline-delimited lines when compression is disabled. It serves the current logical `SessionEvent` stream through persistence handles, so format migration, compression, historical decoding, and crash recovery remain storage-internal details. Choose it when consumers need a per-session file on disk; the logs are readable as plain lines when `compression: 'none'` is selected. A root directory is the one required configuration; durability, lazy materialization, [supported historical-format migration](../session-format-catalog/README.md), and torn-tail crash recovery come with the backend.
 
 ## Table of Contents
 
@@ -32,8 +32,8 @@ Choose this backend when consumers benefit from one artifact per session — nav
 ### Minimal configuration
 
 ```yaml
-- name: '@deepseek-ai/dsh-session'
-- name: '@deepseek-ai/dsh-session-persistence-jsonl'
+- name: '@janhq/jan-session'
+- name: '@janhq/jan-session-persistence-jsonl'
   config:
     root: /absolute/path/to/session-logs
 ```
@@ -76,7 +76,7 @@ A session is materialized lazily: `create(header)` writes nothing and returns th
 
 The current-generation scanner applies the current codec owner’s structural admission checks before recoverable-tail handling. Retired required PTC tags and `request/header.header.system` refuse the file even after an earlier malformed row; recovery never truncates them as ordinary damaged tail data.
 
-Unloading the backend waits for the consumer unloads it triggers through `sessionPersistence` injection before removing live-event listeners and draining and closing remaining handles. Consumers must register cleanup in that injecting scope; unrelated scopes and explicit Session or handle closure have their own lifetimes. Programmatic mounting uses the plugin namespace (`import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'`) with `ctx.plugin`; access storage through `ctx.sessionPersistence`.
+Unloading the backend waits for the consumer unloads it triggers through `sessionPersistence` injection before removing live-event listeners and draining and closing remaining handles. Consumers must register cleanup in that injecting scope; unrelated scopes and explicit Session or handle closure have their own lifetimes. Programmatic mounting uses the plugin namespace (`import * as JsonlSessionPersistence from '@janhq/jan-session-persistence-jsonl'`) with `ctx.plugin`; access storage through `ctx.sessionPersistence`.
 
 ### Reading the logs
 

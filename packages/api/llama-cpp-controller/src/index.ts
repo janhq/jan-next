@@ -1,23 +1,23 @@
 /** Authenticated, cancellation-aware browser access to the managed local llama.cpp model. */
-import { Context } from '@deepseek-ai/cordis'
-import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
-import type {} from '@deepseek-ai/dsh-llama-cpp'
-import type { HuggingFaceRepoInfo, LlamaCppState } from '@deepseek-ai/dsh-llama-cpp/types'
+import { Context } from '@janhq/cordis'
+import { Remote, RemoteError, TypertRemoteService } from '@janhq/jan-typert-protocol'
+import type {} from '@janhq/jan-llama-cpp'
+import type { HuggingFaceRepoInfo, LlamaCppState } from '@janhq/jan-llama-cpp/types'
 
 export type {
   CatalogModelInfo, HuggingFaceFileInfo, HuggingFaceRepoInfo, ImportModelOptions, LlamaCppDevice, LlamaCppDownload, LlamaCppHardware,
   LlamaCppHostPlatform, LlamaCppModelInfo, LlamaCppPhase, LlamaCppProgress, LlamaCppState, LocalModelEntry, LocalModelSource,
   LocalModelStatus, ModelFit,
-} from '@deepseek-ai/dsh-llama-cpp/types'
+} from '@janhq/jan-llama-cpp/types'
 
-declare module '@deepseek-ai/dsh-typert-protocol' {
+declare module '@janhq/jan-typert-protocol' {
   interface RemoteErrorDetailsMap {
     /** The local model operation failed. */
     'llama-cpp/failed': { readonly reason: string }
   }
 }
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     /** Local model Remote controller. */
     llamaCppController: LlamaCppController

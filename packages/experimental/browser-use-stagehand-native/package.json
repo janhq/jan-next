@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-experimental-browser-use-stagehand-native",
+  "name": "@janhq/jan-experimental-browser-use-stagehand-native",
   "description": "Experimental Stagehand browser tools with separately configured native models",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/experimental/browser-use-stagehand-native"
   },
   "type": "module",
@@ -34,39 +34,39 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-agent": "workspace:*",
-    "@deepseek-ai/dsh-browser-use": "workspace:*",
-    "@deepseek-ai/dsh-system-prompt": "workspace:*",
-    "@deepseek-ai/dsh-tools": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-browser-use": "workspace:*",
+    "@janhq/jan-system-prompt": "workspace:*",
+    "@janhq/jan-tools": "workspace:*"
   },
   "dependencies": {
     "@browserbasehq/stagehand": "4.1.0",
-    "@deepseek-ai/dsh-experimental-browser-use-runtime": "workspace:*",
-    "@deepseek-ai/dsh-mcp-client": "workspace:*",
-    "@deepseek-ai/dsh-util-values": "workspace:*",
-    "@deepseek-ai/schemastery": "workspace:~",
+    "@janhq/jan-experimental-browser-use-runtime": "workspace:*",
+    "@janhq/jan-mcp-client": "workspace:*",
+    "@janhq/jan-util-values": "workspace:*",
+    "@janhq/schemastery": "workspace:~",
     "zod": "4.4.3",
-    "@deepseek-ai/dsh-subprocess": "workspace:*",
+    "@janhq/jan-subprocess": "workspace:*",
     "@puppeteer/browsers": "3.2.2"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/cordis-plugin-include": "workspace:~",
-    "@deepseek-ai/cordis-plugin-loader": "workspace:~",
-    "@deepseek-ai/dsh-agent": "workspace:*",
-    "@deepseek-ai/dsh-agent-loop": "workspace:*",
-    "@deepseek-ai/dsh-agent-loop-testkit": "workspace:*",
-    "@deepseek-ai/dsh-attachment": "workspace:*",
-    "@deepseek-ai/dsh-attachment-local": "workspace:*",
-    "@deepseek-ai/dsh-browser-use": "workspace:*",
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-session-projection": "workspace:*",
-    "@deepseek-ai/dsh-system-prompt": "workspace:*",
-    "@deepseek-ai/dsh-tool-executor-native": "workspace:*",
-    "@deepseek-ai/dsh-tool-testkit": "workspace:*",
-    "@deepseek-ai/dsh-tools": "workspace:*",
+    "@janhq/cordis": "workspace:~",
+    "@janhq/cordis-plugin-include": "workspace:~",
+    "@janhq/cordis-plugin-loader": "workspace:~",
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-agent-loop": "workspace:*",
+    "@janhq/jan-agent-loop-testkit": "workspace:*",
+    "@janhq/jan-attachment": "workspace:*",
+    "@janhq/jan-attachment-local": "workspace:*",
+    "@janhq/jan-browser-use": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-session-projection": "workspace:*",
+    "@janhq/jan-system-prompt": "workspace:*",
+    "@janhq/jan-tool-executor-native": "workspace:*",
+    "@janhq/jan-tool-testkit": "workspace:*",
+    "@janhq/jan-tools": "workspace:*",
     "tsx": "^4.23.13"
   }
 }

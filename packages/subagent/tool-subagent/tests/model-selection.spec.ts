@@ -1,16 +1,16 @@
-import { executeToolFixture } from '@deepseek-ai/dsh-tool-testkit'
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
+import { executeToolFixture } from '@janhq/jan-tool-testkit'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
 import { mountWorkingDirectoryFixture } from '../../subagent/tests/working-directory-fixture.ts'
 import { describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import { ReasoningEffortId, ToolCallId } from '@deepseek-ai/dsh-llm'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime from '@deepseek-ai/dsh-tools'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import SubagentRuntime, { resolveChildAgentOptions } from '@deepseek-ai/dsh-subagent'
-import type { SubagentStartRequest } from '@deepseek-ai/dsh-subagent'
-import { Session, SessionId } from '@deepseek-ai/dsh-session'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
+import { Context } from '@janhq/cordis'
+import { ReasoningEffortId, ToolCallId } from '@janhq/jan-llm'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import ToolRuntime from '@janhq/jan-tools'
+import type { Agent } from '@janhq/jan-agent'
+import SubagentRuntime, { resolveChildAgentOptions } from '@janhq/jan-subagent'
+import type { SubagentStartRequest } from '@janhq/jan-subagent'
+import { Session, SessionId } from '@janhq/jan-session'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
 import { MockAdapter } from '../../../core/agent-loop/tests/mock-adapter.ts'
 import * as mock from './scripted-provider.ts'
 import * as tool from '../src/index.ts'
@@ -40,7 +40,7 @@ function parentWithRoute(
   return { id, options, session: Session.create(id) } as unknown as Agent
 }
 
-describe('dsh-tool-subagent model selection', () => {
+describe('jan-tool-subagent model selection', () => {
   it('rejects empty route ids at the configuration boundary', () => {
     expect(() => { assertAllowedModelRoutes([{ provider: '', model: 'model' }]) })
       .toThrow('requires non-empty provider and model ids')

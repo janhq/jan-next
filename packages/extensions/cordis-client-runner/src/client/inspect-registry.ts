@@ -1,11 +1,11 @@
 /** Browser registry for read-only Cordis capability providers. */
 
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context } from '@janhq/cordis'
 import type {
   CordisInspectProviderManifest, CordisInspectQueryRequest, CordisInspectQueryResolution,
   CordisInspectRequestId, SessionId,
-} from '@deepseek-ai/dsh-api-remotes/client'
-import type { JsonValue } from '@deepseek-ai/dsh-util-values'
+} from '@janhq/jan-api-remotes/client'
+import type { JsonValue } from '@janhq/jan-util-values'
 
 /** Context supplied to a Client inspect provider query. */
 export interface ClientCordisInspectQueryContext {
@@ -133,7 +133,7 @@ export class ClientCordisInspectRegistry {
   }
 }
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     /** Browser registry for pre-definition Cordis capability discovery. */
     cordisInspect: ClientCordisInspectRegistry

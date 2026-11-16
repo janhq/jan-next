@@ -5,15 +5,15 @@
  * with the same `remoteAccess/follow` frames the owner's Gateway sends a share reader; `connection`
  * carries only the recovery state the viewer page reads.
  *
- * @module @deepseek-ai/dsh-experimental-liveshare/tests/viewer-plugin-services
+ * @module @janhq/jan-experimental-liveshare/tests/viewer-plugin-services
  */
 
-import type { Context } from '@deepseek-ai/cordis'
-import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { ConnectionState } from '@deepseek-ai/dsh-client-connection/client'
-import type { RemoteAccessFrame, TypertResourceKind } from '@deepseek-ai/dsh-api-remote-access/client'
-import { ClientAccessState } from '@deepseek-ai/dsh-api-remote-access/src/client/state.ts'
+import type { Context } from '@janhq/cordis'
+import { LocaleRuntime } from '@janhq/jan-client-locale/client'
+import { createSnapshotStore, type SnapshotStore } from '@janhq/jan-client-store'
+import type { ConnectionState } from '@janhq/jan-client-connection/client'
+import type { RemoteAccessFrame, TypertResourceKind } from '@janhq/jan-api-remote-access/client'
+import { ClientAccessState } from '@janhq/jan-api-remote-access/src/client/state.ts'
 import { en, NS, zh } from '../src/client/locales.ts'
 
 /** Scripted access snapshot of one viewer page. */

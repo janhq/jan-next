@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-terminal",
+  "name": "@janhq/jan-terminal",
   "description": "Persistent PTY session seam for the Jan — owner-scoped ids, backend registry, interactive sends, reads, signals, and awaited cleanup",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/terminal/terminal"
   },
   "type": "module",
@@ -29,15 +29,15 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/dsh-agent": "workspace:*",
-    "@deepseek-ai/dsh-brand": "workspace:*",
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-brand": "workspace:*",
+    "@janhq/cordis": "workspace:~"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh-agent": "workspace:*",
-    "@deepseek-ai/dsh-agent-loop-testkit": "workspace:*",
-    "@deepseek-ai/dsh-brand": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-agent-loop-testkit": "workspace:*",
+    "@janhq/jan-brand": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/cordis": "workspace:~"
   }
 }

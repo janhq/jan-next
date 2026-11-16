@@ -35,7 +35,7 @@ const VALID = [
 ].join('\n')
 
 function fixtureRoot(files: Record<string, string>): string {
-  const root = mkdtempSync(join(tmpdir(), 'dsh-upgrade-guides-'))
+  const root = mkdtempSync(join(tmpdir(), 'jan-upgrade-guides-'))
   roots.push(root)
   for (const [file, source] of Object.entries(files)) {
     const path = join(root, 'docs/upgrade-guide', file)

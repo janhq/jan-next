@@ -3,14 +3,14 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
-import { SessionId } from '@deepseek-ai/dsh-session'
-import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
-import * as SubagentSpawn from '@deepseek-ai/dsh-subagent-spawn-in-process'
+import { Context } from '@janhq/cordis'
+import AgentLoop from '@janhq/jan-agent-loop'
+import { mountAgentLoopTestDependencies } from '@janhq/jan-agent-loop-testkit'
+import { createUserMessage } from '@janhq/jan-llm'
+import * as LlmPiAi from '@janhq/jan-llm-pi-ai'
+import { SessionId } from '@janhq/jan-session'
+import * as JsonlSessionPersistence from '@janhq/jan-session-persistence-jsonl'
+import * as SubagentSpawn from '@janhq/jan-subagent-spawn-in-process'
 import { anthropicFrame, anthropicMessageStart, closeMockServers, mockServer } from '../../../llm/llm-pi-ai/tests/mock-server.ts'
 import SubagentRuntime, { type SubagentRunEndInfo } from '../src/index.ts'
 import { loadStoredSession } from './persistence-helpers.ts'
@@ -37,7 +37,7 @@ function messagesResponse(blocks: Record<string, unknown>[]) {
 }
 
 it('continues the parent through Anthropic Messages after a reasoning-bearing continuable child settles', async () => {
-  const root = mkdtempSync(join(tmpdir(), 'dsh-settlement-messages-'))
+  const root = mkdtempSync(join(tmpdir(), 'jan-settlement-messages-'))
   const ctx = new Context()
   try {
     const http = await mockServer([

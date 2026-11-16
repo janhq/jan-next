@@ -1,14 +1,14 @@
 /**
  * The changes view's tab type: the right-Sidebar view of one Session's local
  * changes or of one change request bound to it. Its addresses name the Session
- * and the source, `dsh-resource://forge-changes/<session>/local` or
- * `dsh-resource://forge-changes/<session>/change/<url>`, each part
+ * and the source, `jan-resource://forge-changes/<session>/local` or
+ * `jan-resource://forge-changes/<session>/change/<url>`, each part
  * percent-encoded; the source names the tab.
  */
 
-import type { SidebarRightTabDefinition } from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
-import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { SidebarRightTabDefinition } from '@janhq/jan-client-ui-sidebar-right/client'
+import type { TranslateNS } from '@janhq/jan-client-ui-slots'
+import type { SessionId } from '@janhq/jan-session/types'
 import type { NS } from './locales.ts'
 import { numberOf } from './status.ts'
 
@@ -16,9 +16,9 @@ import { numberOf } from './status.ts'
 export const CHANGES_KIND = 'forge-changes'
 
 /** Registry id of the changes tab type, also the key its body and title register under. */
-export const CHANGES_ID = '@deepseek-ai/dsh-experimental-client-ui-forge/changes'
+export const CHANGES_ID = '@janhq/jan-experimental-client-ui-forge/changes'
 
-const PREFIX = 'dsh-resource://forge-changes/'
+const PREFIX = 'jan-resource://forge-changes/'
 
 /** What a changes view shows. */
 export type ChangesSource =
@@ -41,7 +41,7 @@ export interface ChangesParams {
   readonly path?: string
 }
 
-declare module '@deepseek-ai/dsh-client-ui-sidebar-right/client' {
+declare module '@janhq/jan-client-ui-sidebar-right/client' {
   interface SidebarRightResourceParamsMap {
     /** The file a changes tab scrolls to. */
     'forge-changes': ChangesParams
@@ -51,7 +51,7 @@ declare module '@deepseek-ai/dsh-client-ui-sidebar-right/client' {
 /**
  * Mint the address of a changes view.
  * @param target - Session and source.
- * @returns the `dsh-resource://forge-changes/…` address.
+ * @returns the `jan-resource://forge-changes/…` address.
  */
 export function changesAddress(target: ChangesTarget): string {
   const session = `${PREFIX}${encodeURIComponent(target.sessionId)}/`

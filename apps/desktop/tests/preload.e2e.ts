@@ -64,29 +64,29 @@ describe.skipIf(!existsSync(preload('preload-app')))('built sandboxed Desktop pr
         if (id !== 'electron') throw new Error(`sandbox cannot load ${id}`)
         return electron
       },
-      process: { argv: ['electron', '--dsh-welcome-locale=en'], isMainFrame: true },
-      location: new URL('dsh-app://app/'),
+      process: { argv: ['electron', '--jan-welcome-locale=en'], isMainFrame: true },
+      location: new URL('jan-app://app/'),
       exports: {},
     })
     if (name === 'preload-app') {
-      const product = exposed.get('dshDesktop') as { deviceInfo(): Promise<string> }
+      const product = exposed.get('janDesktop') as { deviceInfo(): Promise<string> }
       invoke.mockResolvedValueOnce('platform=darwin; memory_gib=32.0')
       await expect(product.deviceInfo()).resolves.toBe('platform=darwin; memory_gib=32.0')
-      expect(invoke).toHaveBeenCalledWith('dsh-desktop:device-info')
+      expect(invoke).toHaveBeenCalledWith('jan-desktop:device-info')
       browser.loadTheme('dark')
-      expect(send).toHaveBeenCalledWith('dsh-desktop:native-theme-set', 'dark')
+      expect(send).toHaveBeenCalledWith('jan-desktop:native-theme-set', 'dark')
       browser.changeTheme('light')
-      expect(send).toHaveBeenCalledWith('dsh-desktop:native-theme-set', 'light')
-      const bridge = exposed.get('__DSH_LOCALE__') as { read(): unknown; onChange(locale: string): void }
+      expect(send).toHaveBeenCalledWith('jan-desktop:native-theme-set', 'light')
+      const bridge = exposed.get('__JAN_LOCALE__') as { read(): unknown; onChange(locale: string): void }
       bridge.read()
-      expect(invoke).toHaveBeenCalledWith('dsh-desktop:locale-bootstrap')
+      expect(invoke).toHaveBeenCalledWith('jan-desktop:locale-bootstrap')
       bridge.onChange('zh')
-      expect(send).toHaveBeenCalledWith('dsh-desktop:locale-changed', 'zh')
+      expect(send).toHaveBeenCalledWith('jan-desktop:locale-changed', 'zh')
     } else {
-      expect(exposed.has('dshWelcome')).toBe(true)
-      const bridge = exposed.get('dshWelcome') as { takeNotice(): Promise<unknown> }
+      expect(exposed.has('janWelcome')).toBe(true)
+      const bridge = exposed.get('janWelcome') as { takeNotice(): Promise<unknown> }
       void bridge.takeNotice()
-      expect(invoke).toHaveBeenCalledWith('dsh-welcome:take-notice')
+      expect(invoke).toHaveBeenCalledWith('jan-welcome:take-notice')
     }
   })
 })

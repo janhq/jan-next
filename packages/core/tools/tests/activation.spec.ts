@@ -1,15 +1,15 @@
 /** Conditional registrations share step admission with direct and nested execution. */
-import { executeModelToolFixture, executeToolFixture } from '@deepseek-ai/dsh-tool-testkit'
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
+import { executeModelToolFixture, executeToolFixture } from '@janhq/jan-tool-testkit'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
 import { afterEach, expect, it } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import { ToolCallId } from '@deepseek-ai/dsh-llm'
-import { createScope, type Scope } from '@deepseek-ai/dsh-scope'
-import { SessionId } from '@deepseek-ai/dsh-session'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime, { defineTool, TOOL_ABORTED_BEFORE_DISPATCH, ToolActivationError } from '@deepseek-ai/dsh-tools'
-import type { ToolExecutionInput, ToolExecutionResult } from '@deepseek-ai/dsh-tools'
+import { Context } from '@janhq/cordis'
+import type { Agent } from '@janhq/jan-agent'
+import { ToolCallId } from '@janhq/jan-llm'
+import { createScope, type Scope } from '@janhq/jan-scope'
+import { SessionId } from '@janhq/jan-session'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import ToolRuntime, { defineTool, TOOL_ABORTED_BEFORE_DISPATCH, ToolActivationError } from '@janhq/jan-tools'
+import type { ToolExecutionInput, ToolExecutionResult } from '@janhq/jan-tools'
 
 const TEST_MODEL_SELECTION = { provider: 'test', model: 'test' }
 const contexts: Context[] = []

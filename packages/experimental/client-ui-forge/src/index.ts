@@ -1,20 +1,20 @@
 /** Host Remote of the forge panel: checkout, code host, sign-in, change request, and worktree state per Session. */
 
-import { Context, Service } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import type {} from '@deepseek-ai/dsh-api-remote-access'
-import { changeRequestKey } from '@deepseek-ai/dsh-experimental-forge'
-import type { ChangeRequestSnapshot, ForgeActionFailure, ForgeFailure, ForgeReviewRequest, ForgeReviewResult, MergeMethod } from '@deepseek-ai/dsh-experimental-forge'
-import type { SessionChangeRequest } from '@deepseek-ai/dsh-experimental-forge-session'
-import type {} from '@deepseek-ai/dsh-experimental-worktree'
-import { appendPluginRecord } from '@deepseek-ai/dsh-session'
-import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
-import type { ProjectionHandle } from '@deepseek-ai/dsh-session-projection'
-import type {} from '@deepseek-ai/dsh-session-projection-cache'
-import type {} from '@deepseek-ai/dsh-session-query'
-import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
-import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
+import { Context, Service } from '@janhq/cordis'
+import z from '@janhq/schemastery'
+import type { Agent } from '@janhq/jan-agent'
+import type {} from '@janhq/jan-api-remote-access'
+import { changeRequestKey } from '@janhq/jan-experimental-forge'
+import type { ChangeRequestSnapshot, ForgeActionFailure, ForgeFailure, ForgeReviewRequest, ForgeReviewResult, MergeMethod } from '@janhq/jan-experimental-forge'
+import type { SessionChangeRequest } from '@janhq/jan-experimental-forge-session'
+import type {} from '@janhq/jan-experimental-worktree'
+import { appendPluginRecord } from '@janhq/jan-session'
+import type { Session, SessionEvent } from '@janhq/jan-session'
+import type { ProjectionHandle } from '@janhq/jan-session-projection'
+import type {} from '@janhq/jan-session-projection-cache'
+import type {} from '@janhq/jan-session-query'
+import { MAX_TIMER_DELAY_MS } from '@janhq/jan-timeout'
+import { Remote, RemoteError, TypertRemoteService } from '@janhq/jan-typert-protocol'
 import { gitIn, inspectCheckout, listBranches } from './git.ts'
 import type { Inspection } from './git.ts'
 import { parseDiff } from './diff.ts'
@@ -34,7 +34,7 @@ import type { HeldWork } from './worktree.ts'
 
 export type * from './types.ts'
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     /** Remote that serves the forge panel of the GUI. */
     forgePanel: ForgePanelController
@@ -71,7 +71,7 @@ export class ForgePanelController extends TypertRemoteService {
     maxOutputBytes: z.number().default(1_048_576),
     readinessTimeoutMs: z.number().default(15_000),
     maxBranches: z.number().default(50),
-    worktreePrefix: z.string().default('dsh-'),
+    worktreePrefix: z.string().default('jan-'),
     maxDiffBytes: z.number().default(8_388_608),
     maxUntrackedFiles: z.number().default(100),
     maxCachedDiffBytes: z.number().default(16_777_216),

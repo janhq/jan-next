@@ -3,7 +3,7 @@ description: "Channel-neutral one-shot approval seam for users and maintainers c
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-user-approval
+# @janhq/jan-user-approval
 
 ## Summary
 
@@ -34,8 +34,8 @@ Answerers are `approval/request` waterfall listeners: return an outcome to answe
 The effective policy is the one set for the session, falling back to the configured default. `ask` (the default) delegates to the composed answerers; `never` rejects every request deterministically before interactive dispatch — the strict headless stance for CI and unattended runs.
 
 ```yaml
-- name: '@deepseek-ai/dsh-session-projection'
-- name: '@deepseek-ai/dsh-user-approval'
+- name: '@janhq/jan-session-projection'
+- name: '@janhq/jan-user-approval'
   config:
     policy: ask
 ```

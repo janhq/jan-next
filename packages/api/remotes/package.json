@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-api-remotes",
+  "name": "@janhq/jan-api-remotes",
   "description": "Remote BFF assembly for application-selected Host capabilities",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/api/remotes"
   },
   "type": "module",
@@ -30,10 +30,10 @@
     "./package.json": "./package.json",
     "./locale/*.json": "./locale/*.json"
   },
-  "dsh": {
+  "jan": {
     "client": {
       "inject": [
-        "@deepseek-ai/dsh-api-gateway"
+        "@janhq/jan-api-gateway"
       ],
       "platform": "web",
       "immediately": true
@@ -52,56 +52,56 @@
     "lib/types/**/*.d.ts"
   ],
   "dependencies": {
-    "@deepseek-ai/dsh-deque": "workspace:*",
-    "@deepseek-ai/dsh-util-values": "workspace:*"
+    "@janhq/jan-deque": "workspace:*",
+    "@janhq/jan-util-values": "workspace:*"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-scope": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-scope": "workspace:*"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh-agent": "workspace:*",
-    "@deepseek-ai/dsh-agent-preset-registry": "workspace:*",
-    "@deepseek-ai/dsh-api-gateway": "workspace:*",
-    "@deepseek-ai/dsh-api-job-controller": "workspace:*",
-    "@deepseek-ai/dsh-api-session-controller": "workspace:*",
-    "@deepseek-ai/dsh-api-settings-controller": "workspace:*",
-    "@deepseek-ai/dsh-api-workspace-controller": "workspace:*",
-    "@deepseek-ai/dsh-api-workspace-files": "workspace:*",
-    "@deepseek-ai/dsh-client-connection": "workspace:*",
-    "@deepseek-ai/dsh-client-file-upload": "workspace:*",
-    "@deepseek-ai/dsh-commands": "workspace:*",
-    "@deepseek-ai/dsh-cordis-host-runner": "workspace:*",
-    "@deepseek-ai/dsh-credentials": "workspace:*",
-    "@deepseek-ai/dsh-file-reference": "workspace:*",
-    "@deepseek-ai/dsh-goal": "workspace:*",
-    "@deepseek-ai/dsh-host-plugin-inventory": "workspace:*",
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-message-feedback": "workspace:*",
-    "@deepseek-ai/dsh-permission-presets": "workspace:*",
-    "@deepseek-ai/dsh-schedule": "workspace:*",
-    "@deepseek-ai/dsh-scope": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-session-reference": "workspace:*",
-    "@deepseek-ai/dsh-settings": "workspace:*",
-    "@deepseek-ai/dsh-subagent": "workspace:*",
-    "@deepseek-ai/dsh-typert-protocol": "workspace:*",
-    "@deepseek-ai/dsh-user-approval": "workspace:*",
-    "@deepseek-ai/dsh-user-questions": "workspace:*",
-    "@deepseek-ai/cordis": "workspace:~",
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-agent-preset-registry": "workspace:*",
+    "@janhq/jan-api-gateway": "workspace:*",
+    "@janhq/jan-api-job-controller": "workspace:*",
+    "@janhq/jan-api-session-controller": "workspace:*",
+    "@janhq/jan-api-settings-controller": "workspace:*",
+    "@janhq/jan-api-workspace-controller": "workspace:*",
+    "@janhq/jan-api-workspace-files": "workspace:*",
+    "@janhq/jan-client-connection": "workspace:*",
+    "@janhq/jan-client-file-upload": "workspace:*",
+    "@janhq/jan-commands": "workspace:*",
+    "@janhq/jan-cordis-host-runner": "workspace:*",
+    "@janhq/jan-credentials": "workspace:*",
+    "@janhq/jan-file-reference": "workspace:*",
+    "@janhq/jan-goal": "workspace:*",
+    "@janhq/jan-host-plugin-inventory": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-message-feedback": "workspace:*",
+    "@janhq/jan-permission-presets": "workspace:*",
+    "@janhq/jan-schedule": "workspace:*",
+    "@janhq/jan-scope": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-session-reference": "workspace:*",
+    "@janhq/jan-settings": "workspace:*",
+    "@janhq/jan-subagent": "workspace:*",
+    "@janhq/jan-typert-protocol": "workspace:*",
+    "@janhq/jan-user-approval": "workspace:*",
+    "@janhq/jan-user-questions": "workspace:*",
+    "@janhq/cordis": "workspace:~",
     "zod": "4.4.3",
-    "@deepseek-ai/dsh-command-feedback": "workspace:*",
-    "@deepseek-ai/dsh-api-terminal-controller": "workspace:*",
-    "@deepseek-ai/dsh-plugin-manager": "workspace:*",
-    "@deepseek-ai/dsh-mcp-manager": "workspace:*",
-    "@deepseek-ai/dsh-plugin-market": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-plugin-manager": "workspace:*",
-    "@deepseek-ai/dsh-office-to-pdf": "workspace:*",
-    "@deepseek-ai/dsh-api-account-controller": "workspace:*",
-    "@deepseek-ai/dsh-tokamak-account": "workspace:*",
-    "@deepseek-ai/dsh-client-product-analytics": "workspace:*",
-    "@deepseek-ai/dsh-agent-team": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-trajectory": "workspace:*",
-    "@deepseek-ai/dsh-web": "workspace:*"
+    "@janhq/jan-command-feedback": "workspace:*",
+    "@janhq/jan-api-terminal-controller": "workspace:*",
+    "@janhq/jan-plugin-manager": "workspace:*",
+    "@janhq/jan-mcp-manager": "workspace:*",
+    "@janhq/jan-plugin-market": "workspace:*",
+    "@janhq/jan-client-ui-plugin-manager": "workspace:*",
+    "@janhq/jan-office-to-pdf": "workspace:*",
+    "@janhq/jan-api-account-controller": "workspace:*",
+    "@janhq/jan-tokamak-account": "workspace:*",
+    "@janhq/jan-client-product-analytics": "workspace:*",
+    "@janhq/jan-agent-team": "workspace:*",
+    "@janhq/jan-client-ui-trajectory": "workspace:*",
+    "@janhq/jan-web": "workspace:*"
   }
 }

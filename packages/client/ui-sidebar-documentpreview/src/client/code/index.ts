@@ -1,11 +1,11 @@
 /** Code preview metadata and body registered through the public document extension points. */
-import type { Context } from '@deepseek-ai/cordis'
-import { CODE_HIGHLIGHT_EXTENSIONS } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { Context } from '@janhq/cordis'
+import { CODE_HIGHLIGHT_EXTENSIONS } from '@janhq/jan-client-ui-primitives'
 import type {} from '../index.ts'
 import { CodeBody } from './CodeBody.tsx'
 import { en, ja, es, fr, de, ru, pt, zh } from './locales.ts'
 
-const ID = '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/code'
+const ID = '@janhq/jan-client-ui-sidebar-documentpreview/code'
 const NS = 'sidebarCodePreview'
 
 /** @param ctx - owning plugin context. Register localized metadata and the matching keyed document body. */

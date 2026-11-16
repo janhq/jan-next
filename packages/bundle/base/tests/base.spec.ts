@@ -1,5 +1,5 @@
 /**
- * The bundle's substance is its patch file: the `dsh.bundle.patch` manifest
+ * The bundle's substance is its patch file: the `jan.bundle.patch` manifest
  * field must name a real, parseable patch list.
  */
 
@@ -8,21 +8,21 @@ import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import * as yaml from 'js-yaml'
-import { entryListSchema } from '@deepseek-ai/cordis-plugin-include'
-import { evaluate } from '@deepseek-ai/cordis-plugin-loader'
+import { entryListSchema } from '@janhq/cordis-plugin-include'
+import { evaluate } from '@janhq/cordis-plugin-loader'
 
-describe('dsh-base bundle', () => {
-  it('declares a parseable patch list through the dsh.bundle.patch manifest field', () => {
+describe('jan-base bundle', () => {
+  it('declares a parseable patch list through the jan.bundle.patch manifest field', () => {
     const root = fileURLToPath(new URL('..', import.meta.url))
     const manifest = JSON.parse(
       readFileSync(resolve(root, 'package.json'), 'utf8'),
     ) as {
       dependencies?: Record<string, string>
-      dsh?: { bundle?: { patch?: string } }
+      jan?: { bundle?: { patch?: string } }
     }
-    expect(manifest.dsh?.bundle?.patch).toBe('./cordis.patch.yml')
+    expect(manifest.jan?.bundle?.patch).toBe('./cordis.patch.yml')
     const parsed = yaml.load(
-      readFileSync(resolve(root, manifest.dsh!.bundle!.patch!), 'utf8'),
+      readFileSync(resolve(root, manifest.jan!.bundle!.patch!), 'utf8'),
       { schema: entryListSchema },
     )
     expect(Array.isArray(parsed)).toBe(true)
@@ -37,7 +37,7 @@ describe('dsh-base bundle', () => {
     expect(rows.find(row => row.id === 'otel')?.disabled).toBe(true)
     expect(rows.find(row => row.id === 'session-log-deepseek')?.config).toEqual({ enabled: false })
     expect(rows.find(row => row.id === 'session-telemetry-otel')?.config?.['mode']).toEqual({
-      __jsExpr: "process.env.DSH_TELEMETRY_MODE || 'FEEDBACK_ONLY'",
+      __jsExpr: "process.env.JAN_TELEMETRY_MODE || 'FEEDBACK_ONLY'",
     })
     expect(rows.find(row => row.id === 'hmr')).toMatchObject({
       config: { root: [] },
@@ -46,19 +46,19 @@ describe('dsh-base bundle', () => {
     expect(rows.filter(row => row.id === 'subagent-claude-code')).toHaveLength(0)
     // tokamak-harness: search is keyless Exa; the account seam and default model are Tokamak.
     expect(rows.find(row => row.id === 'web')?.config).toEqual({ searchProvider: 'exa', fetchProvider: 'http' })
-    expect(rows.find(row => row.id === 'web-search-exa')).toMatchObject({ name: '@deepseek-ai/dsh-web-search-exa' })
-    expect(manifest.dependencies).toHaveProperty('@deepseek-ai/dsh-web-search-exa')
+    expect(rows.find(row => row.id === 'web-search-exa')).toMatchObject({ name: '@janhq/jan-web-search-exa' })
+    expect(manifest.dependencies).toHaveProperty('@janhq/jan-web-search-exa')
     expect(rows.find(row => row.id === 'web-fetch-http')).toBeDefined()
-    expect(rows.find(row => row.id === 'deepseek-account')).toMatchObject({ name: '@deepseek-ai/dsh-tokamak-account' })
+    expect(rows.find(row => row.id === 'deepseek-account')).toMatchObject({ name: '@janhq/jan-tokamak-account' })
     expect(rows.find(row => row.id === 'agent-default-model')?.config).toEqual({ provider: 'tokamak', model: 'tokamak-1-preview' })
     expect(rows.find(row => row.id === 'llm-pi-ai')?.config).toMatchObject({
       providers: { tokamak: { api: 'openai-completions', apiKeyEnv: 'TOKAMAK_API_KEY' } },
     })
-    expect(manifest.dependencies).toHaveProperty('@deepseek-ai/dsh-tokamak-account')
+    expect(manifest.dependencies).toHaveProperty('@janhq/jan-tokamak-account')
     expect(rows.find(row => row.id === 'tool-web')?.config).toMatchObject({ fetch: true })
-    expect(manifest.dependencies).not.toHaveProperty('@deepseek-ai/dsh-subagent-codex')
-    expect(manifest.dependencies).not.toHaveProperty('@deepseek-ai/dsh-subagent-claude-code')
-    expect(manifest.dependencies).toHaveProperty('@deepseek-ai/dsh-web-fetch-http')
+    expect(manifest.dependencies).not.toHaveProperty('@janhq/jan-subagent-codex')
+    expect(manifest.dependencies).not.toHaveProperty('@janhq/jan-subagent-claude-code')
+    expect(manifest.dependencies).toHaveProperty('@janhq/jan-web-fetch-http')
   })
 
   it('gates each shell stack by platform with a symmetric disabled expression', () => {

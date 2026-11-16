@@ -2,7 +2,7 @@
 
 Status: proposed
 
-The [CI test reliability skill](../../../skills/dsh-ci-test-reliability/SKILL.md) provides current authoring and diagnosis guidance without implementing the lint rule, universal replay fixture, or nightly stress job proposed here. Those mechanisms remain proposed.
+The [CI test reliability skill](../../../skills/jan-ci-test-reliability/SKILL.md) provides current authoring and diagnosis guidance without implementing the lint rule, universal replay fixture, or nightly stress job proposed here. Those mechanisms remain proposed.
 
 ## Problem
 

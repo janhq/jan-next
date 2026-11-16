@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { contextMenuHook } from '@deepseek-ai/dsh-client-test-runtime'
+import { contextMenuHook } from '@janhq/jan-client-test-runtime'
 /**
  * Impact-matrix projection tests (row by row): what each
  * phase projects onto the InputBar — enter routing, visuals (command chip /
@@ -7,20 +7,20 @@ import { contextMenuHook } from '@deepseek-ai/dsh-client-test-runtime'
  * React over jsdom per the client testing discipline; the machine is real.
  */
 import './control-row-dom.ts'
-import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
+import type { GlobalStandardProps } from '@janhq/jan-client-ui-slots'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
-import type { Context } from '@deepseek-ai/cordis'
-import type { SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
+import type { Context } from '@janhq/cordis'
+import type { SessionSnapshot } from '@janhq/jan-api-session-controller/client'
+import { createSnapshotStore } from '@janhq/jan-client-store'
 import {
   allowAllAccess, bindSnapshotSelector, conversationSnapshot, sessionSnapshot,
-} from '@deepseek-ai/dsh-client-test-runtime'
-import type { SessionStatusSnapshot } from '@deepseek-ai/dsh-client-ui-session/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+} from '@janhq/jan-client-test-runtime'
+import type { SessionStatusSnapshot } from '@janhq/jan-client-ui-session/client'
+import type { SessionId } from '@janhq/jan-session/types'
 import type { SubmitAttachment, SubmitOutcome } from '../src/client/contract/input.ts'
-import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
-import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
+import { makeTranslate } from '@janhq/jan-client-test-runtime'
+import { zh as commonZh } from '@janhq/jan-client-locale/src/locales/zh.ts'
 import type { DraftAttachmentId } from '../src/client/contract/input.ts'
 import { SessionInputShell } from '../src/client/input/facade.ts'
 import { InputBar } from '../src/client/skeleton/InputBar.tsx'
@@ -176,13 +176,13 @@ describe('matrix row: claimed', () => {
     expect(chip?.getAttribute('contenteditable')).toBe('false')
     expect(shell.snapshot.draft).toBe('/goal ')
     // The zh dictionary owns a hint.goal entry, which overrides the raw claim hint (production behavior).
-    expect(textarea.style.getPropertyValue('--dsh-composer-hint')).toBe(JSON.stringify('输入目标，智能体将持续执行'))
+    expect(textarea.style.getPropertyValue('--jan-composer-hint')).toBe(JSON.stringify('输入目标，智能体将持续执行'))
     expect(textarea.getAttribute('contenteditable')).toBe('true')
     // Free editing after the chip: hint drops, claim holds.
     typeAtCaret('发布版本')
     expect(shell.snapshot.draft).toBe('/goal 发布版本')
     expect(shell.snapshot.phase).toBe('claimed')
-    expect(textarea.style.getPropertyValue('--dsh-composer-hint')).toBe('')
+    expect(textarea.style.getPropertyValue('--jan-composer-hint')).toBe('')
   })
 
   it('enter routes to claim.submit (command lane, never the queue sink)', async () => {

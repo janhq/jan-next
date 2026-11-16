@@ -2,11 +2,11 @@
  * Production client composition without the page: mount the Loader over a
  * module system, create every manifest row, wait for quiescence, and audit
  * activation. `AppWebEntry` and the whole-client test carrier both call it.
- * @module @deepseek-ai/dsh-client-web/src/boot-client
+ * @module @janhq/jan-client-web/src/boot-client
  */
-import type { Context, Fiber } from '@deepseek-ai/cordis'
-import Loader from '@deepseek-ai/cordis-plugin-loader'
-import type { BootManifest, ClientModuleLoader } from '@deepseek-ai/dsh-client-modules/client'
+import type { Context, Fiber } from '@janhq/cordis'
+import Loader from '@janhq/cordis-plugin-loader'
+import type { BootManifest, ClientModuleLoader } from '@janhq/jan-client-modules/client'
 import { STATE_LABELS } from './loader-status.ts'
 
 /** Entry state label as the boot page renders it. */
@@ -23,13 +23,13 @@ export type EntryStateLabel = (typeof STATE_LABELS)[keyof typeof STATE_LABELS] |
  * inactive, so that entry's failure also rejects startup.
  */
 const requiredClientEntryNames = new Set<string>([
-  '@deepseek-ai/dsh-client-modules',
-  '@deepseek-ai/dsh-api-session-controller',
-  '@deepseek-ai/dsh-client-ui-renderer',
-  '@deepseek-ai/dsh-client-ui-layout',
-  '@deepseek-ai/dsh-client-ui-session',
-  '@deepseek-ai/dsh-client-ui-chat',
-  '@deepseek-ai/dsh-client-ui-sidebar',
+  '@janhq/jan-client-modules',
+  '@janhq/jan-api-session-controller',
+  '@janhq/jan-client-ui-renderer',
+  '@janhq/jan-client-ui-layout',
+  '@janhq/jan-client-ui-session',
+  '@janhq/jan-client-ui-chat',
+  '@janhq/jan-client-ui-sidebar',
 ])
 
 /** Inputs of {@link bootClient}. */

@@ -3,11 +3,11 @@ description: "Workspace-authorized model-facing session history tools for agent 
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-tool-session-query
+# @janhq/jan-tool-session-query
 
 ## Summary
 
-Use the experimental `dsh-tool-session-query` tools to let a model search earlier sessions, inspect event matches, trace session or event relationships, and read exact event data. Its five read-only tools return cursor-free text and authorize cross-session access only when the target session's `cwd` exactly matches the caller's; callers without a `cwd` can inspect only themselves. Search excludes the caller session and asks the model to narrow its query when the deployment result cap is reached. The package is opt-in, and enabling it adds fixed guidance plus five tool schemas to every model request.
+Use the experimental `jan-tool-session-query` tools to let a model search earlier sessions, inspect event matches, trace session or event relationships, and read exact event data. Its five read-only tools return cursor-free text and authorize cross-session access only when the target session's `cwd` exactly matches the caller's; callers without a `cwd` can inspect only themselves. Search excludes the caller session and asks the model to narrow its query when the deployment result cap is reached. The package is opt-in, and enabling it adds fixed guidance plus five tool schemas to every model request.
 
 ## Table of Contents
 
@@ -23,7 +23,7 @@ Use the experimental `dsh-tool-session-query` tools to let a model search earlie
 <a id="use-this-package"></a>
 ## Use this package
 
-Mount this package when the agent should be able to search its own prior sessions and inspect their relationships and events. The common path is explicit: mount the plugin over `ctx.sessionQuery` (backed by `dsh-session-query-sqlite`), then let the model call the tools.
+Mount this package when the agent should be able to search its own prior sessions and inspect their relationships and events. The common path is explicit: mount the plugin over `ctx.sessionQuery` (backed by `jan-session-query-sqlite`), then let the model call the tools.
 
 ### When to choose it
 
@@ -52,7 +52,7 @@ Workspace authority is conservative: cross-session access requires exact `cwd` e
 
 ### Failures and recovery
 
-Every trusted query-service call crosses one error sanitizer: caller cancellation is preserved exactly, corpus and provider diagnostics go to the internal log, and unsafe or unprintable failures fall back to the fixed `SESSION_QUERY_TOOL_FAILED` code and message. Local argument-validation and authorization errors keep their precise tool-owned messages (`SESSION_QUERY_TOOL_UNAUTHORIZED` for a target outside the caller workspace). The package performs no byte or character truncation and does not import a spill backend; deployments that need bounded inline output mount `@deepseek-ai/dsh-spill-policy`, which can replace oversized rendered text while retaining the complete result.
+Every trusted query-service call crosses one error sanitizer: caller cancellation is preserved exactly, corpus and provider diagnostics go to the internal log, and unsafe or unprintable failures fall back to the fixed `SESSION_QUERY_TOOL_FAILED` code and message. Local argument-validation and authorization errors keep their precise tool-owned messages (`SESSION_QUERY_TOOL_UNAUTHORIZED` for a target outside the caller workspace). The package performs no byte or character truncation and does not import a spill backend; deployments that need bounded inline output mount `@janhq/jan-spill-policy`, which can replace oversized rendered text while retaining the complete result.
 
 -----
 
@@ -98,8 +98,8 @@ Each executor derives the caller, normalizes the model's arguments into service 
 Read these pages when the package-level contract is not enough. They move from the tool surface to the underlying service, the schema catalog, and the design evidence.
 
 - [Generated tool catalog](../../../docs/tool-catalog.md#deepseek-aidsh-tool-session-query) — the five tool schemas as the model sees them.
-- [dsh-session-query](../../session-query/session-query/README.md) — the service these tools call.
-- [dsh-session-query-sqlite](../../session-query/session-query-sqlite/README.md) — the full-text backend behind the two search tools.
+- [jan-session-query](../../session-query/session-query/README.md) — the service these tools call.
+- [jan-session-query-sqlite](../../session-query/session-query-sqlite/README.md) — the full-text backend behind the two search tools.
 - [Session Query subsystem reference](../../../docs/subsystems/session-query.md) — the type-level contract under the tools.
 
 -----

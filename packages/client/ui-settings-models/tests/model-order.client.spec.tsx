@@ -89,7 +89,7 @@ describe('model ordering', () => {
 
     const dataTransfer = transfer()
     fireEvent.dragStart(source, { dataTransfer })
-    expect(dataTransfer.setData).toHaveBeenCalledExactlyOnceWith('application/x-dsh-model-order', '1')
+    expect(dataTransfer.setData).toHaveBeenCalledExactlyOnceWith('application/x-jan-model-order', '1')
     fireEvent.dragOver(destination, { dataTransfer })
     expect(changed).not.toHaveBeenCalled()
     fireEvent.drop(destination, { dataTransfer })

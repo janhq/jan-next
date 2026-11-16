@@ -1,7 +1,7 @@
 # Keyless replay for padded persistent PowerShell completion frames.
 - insert:
     - id: llm-replay
-      name: '@deepseek-ai/dsh-llm-replay'
+      name: '@janhq/jan-llm-replay'
       config:
         providers:
           - id: deepseek-official
@@ -11,78 +11,78 @@
 
 - insert:
     - id: terminal
-      name: '@deepseek-ai/dsh-terminal'
+      name: '@janhq/jan-terminal'
 
 - id: sandbox-policy
-  name: '@deepseek-ai/dsh-sandbox-policy'
+  name: '@janhq/jan-sandbox-policy'
   config:
     mode: danger-full-access
     workspaceRoot: !!js process.cwd()
 
 - id: subprocess
-  name: '@deepseek-ai/dsh-subprocess-local'
+  name: '@janhq/jan-subprocess-local'
 
 - insert:
     - id: padded-pwsh-backend
       name: './pwsh-snapshot-backend.mjs'
 
 - id: agent-default-model
-  name: '@deepseek-ai/dsh-agent-default-model'
+  name: '@janhq/jan-agent-default-model'
   config:
     provider: deepseek-official
     model: deepseek-v4-pro
 
 - id: session-persistence-jsonl
-  name: '@deepseek-ai/dsh-session-persistence-jsonl'
+  name: '@janhq/jan-session-persistence-jsonl'
   config:
-    root: !!js dshHomePath('sessions')
+    root: !!js janHomePath('sessions')
     compression: none
 
 - id: agent-instructions
-  name: '@deepseek-ai/dsh-agent-instructions'
+  name: '@janhq/jan-agent-instructions'
   disabled: true
 
 - id: system-prompt
-  name: '@deepseek-ai/dsh-system-prompt'
+  name: '@janhq/jan-system-prompt'
   config:
     personaPrefix: You are a concise snapshot agent.
 
 - id: tool-jobs
-  name: '@deepseek-ai/dsh-tool-jobs'
+  name: '@janhq/jan-tool-jobs'
   disabled: true
 
 - id: goal
-  name: '@deepseek-ai/dsh-goal'
+  name: '@janhq/jan-goal'
   disabled: true
 
 - id: goal-round-driver
-  name: '@deepseek-ai/dsh-goal-round-driver'
+  name: '@janhq/jan-goal-round-driver'
   disabled: true
 
 - id: command-goal
-  name: '@deepseek-ai/dsh-command-goal'
+  name: '@janhq/jan-command-goal'
   disabled: true
 
 - id: tool-goal
-  name: '@deepseek-ai/dsh-tool-goal'
+  name: '@janhq/jan-tool-goal'
   disabled: true
 
 - id: skill
-  name: '@deepseek-ai/dsh-skill'
+  name: '@janhq/jan-skill'
   disabled: true
 
 - id: skill-filesystem
-  name: '@deepseek-ai/dsh-skill-filesystem'
+  name: '@janhq/jan-skill-filesystem'
   disabled: true
 
 - id: tool-skill
-  name: '@deepseek-ai/dsh-tool-skill'
+  name: '@janhq/jan-tool-skill'
   disabled: true
 
 - id: tool-bash
-  name: '@deepseek-ai/dsh-tool-bash'
+  name: '@janhq/jan-tool-bash'
   disabled: true
 
 - insert:
     - id: tool-pwsh-persistent
-      name: '@deepseek-ai/dsh-tool-pwsh-persistent'
+      name: '@janhq/jan-tool-pwsh-persistent'

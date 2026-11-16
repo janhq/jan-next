@@ -1,7 +1,7 @@
-import { Context } from '@deepseek-ai/cordis'
-import { SessionId, type SessionHeader } from '@deepseek-ai/dsh-session'
-import { SessionFormatUnsupportedError, SessionPersistenceCorruptionError } from '@deepseek-ai/dsh-session-persistence'
-import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
+import { Context } from '@janhq/cordis'
+import { SessionId, type SessionHeader } from '@janhq/jan-session'
+import { SessionFormatUnsupportedError, SessionPersistenceCorruptionError } from '@janhq/jan-session-persistence'
+import * as JsonlSessionPersistence from '@janhq/jan-session-persistence-jsonl'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -21,7 +21,7 @@ afterEach(async () => {
 
 describe.each(['none', 'zstd'] as const)('historical catalog publication (%s)', (compression) => {
   async function fixture() {
-    const root = await mkdtemp(join(tmpdir(), 'dsh-catalog-migration-'))
+    const root = await mkdtemp(join(tmpdir(), 'jan-catalog-migration-'))
     roots.push(root)
     const ctx = new Context()
     contexts.push(ctx)
@@ -367,7 +367,7 @@ describe.each(['none', 'zstd'] as const)('historical catalog publication (%s)', 
   })
 
   it('lists historical headers, prepares read-only membership, and publishes an unchanged-prefix successor', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'dsh-catalog-migration-'))
+    const root = await mkdtemp(join(tmpdir(), 'jan-catalog-migration-'))
     roots.push(root)
     const parent = SessionId('parent')
     const child = SessionId('child')

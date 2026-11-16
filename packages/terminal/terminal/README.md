@@ -3,11 +3,11 @@ description: "Persistent terminal sessions for deployments and consumers choosin
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-terminal
+# @janhq/jan-terminal
 
 ## Summary
 
-`dsh-terminal` provides persistent, owner-scoped terminal sessions to the harness: a session keeps shell or REPL state across tool calls, and every operation is fenced to the exact agent that created it. It provides the `ctx.terminals` service, which mints opaque session ids, routes session creation through registered backends, and waits for quiescent cleanup when an owner or the service disposes. It defines no terminal mechanics itself: backends such as the shipped `dsh-terminal-bash` own spawning and readiness, and the model-facing tools in `dsh-tool-terminal` own presentation. Sessions are process-local: they do not survive a harness restart.
+`jan-terminal` provides persistent, owner-scoped terminal sessions to the harness: a session keeps shell or REPL state across tool calls, and every operation is fenced to the exact agent that created it. It provides the `ctx.terminals` service, which mints opaque session ids, routes session creation through registered backends, and waits for quiescent cleanup when an owner or the service disposes. It defines no terminal mechanics itself: backends such as the shipped `jan-terminal-bash` own spawning and readiness, and the model-facing tools in `jan-tool-terminal` own presentation. Sessions are process-local: they do not survive a harness restart.
 
 ## Table of Contents
 
@@ -23,7 +23,7 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## Use this package
 
-Mount `@deepseek-ai/dsh-terminal` whenever a composition needs terminal sessions whose state survives across tool calls. The service alone does nothing useful: pair it with a backend such as `@deepseek-ai/dsh-terminal-bash` and a tool package such as `@deepseek-ai/dsh-tool-terminal`, and load all three in one composition.
+Mount `@janhq/jan-terminal` whenever a composition needs terminal sessions whose state survives across tool calls. The service alone does nothing useful: pair it with a backend such as `@janhq/jan-terminal-bash` and a tool package such as `@janhq/jan-tool-terminal`, and load all three in one composition.
 
 ### When to choose it
 
@@ -34,9 +34,9 @@ Choose persistent terminals for work whose state lives in the terminal rather th
 Load the session service together with a backend and a tool package:
 
 ```yaml
-- name: '@deepseek-ai/dsh-terminal'
-- name: '@deepseek-ai/dsh-terminal-bash'
-- name: '@deepseek-ai/dsh-tool-terminal'
+- name: '@janhq/jan-terminal'
+- name: '@janhq/jan-terminal-bash'
+- name: '@janhq/jan-tool-terminal'
 ```
 
 A backend provides one stable type — the shipped shell backend provides `shell` — and the tools open sessions by that type. The shell backend additionally requires the sandbox, sandbox-policy, and subprocess providers; see its [README](../terminal-bash/README.md) for the full composition.
@@ -112,7 +112,7 @@ Read these pages when the package-level contract is not enough. They move from t
 
 #### What the model sees
 
-Nothing directly. This package registers no prompt or tool; `@deepseek-ai/dsh-tool-terminal` owns visible schemas and result text.
+Nothing directly. This package registers no prompt or tool; `@janhq/jan-tool-terminal` owns visible schemas and result text.
 
 #### Token effect
 
@@ -120,7 +120,7 @@ None directly. Live session state stays process-local until a consumer returns a
 
 #### KV Cache effect
 
-No direct invalidation; `@deepseek-ai/dsh-tool-terminal` owns request-prefix changes.
+No direct invalidation; `@janhq/jan-tool-terminal` owns request-prefix changes.
 
 ## Known Limitations and Deferred Work
 

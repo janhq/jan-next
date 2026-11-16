@@ -5,30 +5,30 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import Loader from '@deepseek-ai/cordis-plugin-loader'
-import Include from '@deepseek-ai/cordis-plugin-include'
-import AgentRegistry from '@deepseek-ai/dsh-agent'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import LocalBashExecutor from '@deepseek-ai/dsh-bash-local'
-import ForgeService from '@deepseek-ai/dsh-experimental-forge'
-import * as ForgeGitHub from '@deepseek-ai/dsh-experimental-forge-github'
-import LocalFileSystem from '@deepseek-ai/dsh-fs-local'
-import LlmRuntime, { createUserMessage, LlmAdapter, ToolCallId } from '@deepseek-ai/dsh-llm'
-import type { GenerateOptions, LlmResolvedModelInfo, StreamChunk } from '@deepseek-ai/dsh-llm'
-import SessionStore, { pluginRecordOf, SessionId } from '@deepseek-ai/dsh-session'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
-import * as ShellEnv from '@deepseek-ai/dsh-shell-env'
-import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import * as ToolBash from '@deepseek-ai/dsh-tool-bash'
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
-import ToolRuntime from '@deepseek-ai/dsh-tools'
-import WorkingDirectoryService from '@deepseek-ai/dsh-working-directory'
+import { Context } from '@janhq/cordis'
+import Loader from '@janhq/cordis-plugin-loader'
+import Include from '@janhq/cordis-plugin-include'
+import AgentRegistry from '@janhq/jan-agent'
+import AgentLoop from '@janhq/jan-agent-loop'
+import LocalBashExecutor from '@janhq/jan-bash-local'
+import ForgeService from '@janhq/jan-experimental-forge'
+import * as ForgeGitHub from '@janhq/jan-experimental-forge-github'
+import LocalFileSystem from '@janhq/jan-fs-local'
+import LlmRuntime, { createUserMessage, LlmAdapter, ToolCallId } from '@janhq/jan-llm'
+import type { GenerateOptions, LlmResolvedModelInfo, StreamChunk } from '@janhq/jan-llm'
+import SessionStore, { pluginRecordOf, SessionId } from '@janhq/jan-session'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
+import * as ShellEnv from '@janhq/jan-shell-env'
+import LocalSubprocessRuntime from '@janhq/jan-subprocess-local'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import * as ToolBash from '@janhq/jan-tool-bash'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
+import ToolRuntime from '@janhq/jan-tools'
+import WorkingDirectoryService from '@janhq/jan-working-directory'
 import ForgeSessionService from '../src/index.ts'
 import type { SessionChangeRequest, SessionChangeRequestsListener } from '../src/index.ts'
-import type { ShellExecution } from '@deepseek-ai/dsh-shell'
-import type { ToolExecution, ToolExecutionResult, ToolExecutionToken } from '@deepseek-ai/dsh-tools'
+import type { ShellExecution } from '@janhq/jan-shell'
+import type { ToolExecution, ToolExecutionResult, ToolExecutionToken } from '@janhq/jan-tools'
 
 /**
  * GitHub CLI fixture: `pr create` prints PR 8; `pr view` prints PR 9, whose description links PR 6;
@@ -147,7 +147,7 @@ afterEach(async () => {
 const suite = process.platform === 'win32' ? describe.skip : describe
 
 async function load() {
-  root = await realpath(await mkdtemp(join(tmpdir(), 'dsh-forge-session-loader-')))
+  root = await realpath(await mkdtemp(join(tmpdir(), 'jan-forge-session-loader-')))
   const bin = join(root, 'bin')
   await mkdir(bin)
   await writeFile(join(root, 'fake-gh.mjs'), FAKE_GH)
@@ -157,31 +157,31 @@ async function load() {
   await chmod(join(bin, 'git'), 0o755)
 
   const modules = new Map<string, unknown>([
-    ['@deepseek-ai/dsh-llm', LlmRuntime],
-    ['@deepseek-ai/dsh-session', SessionStore],
-    ['@deepseek-ai/dsh-session-projection', SessionProjectionRegistry],
-    ['@deepseek-ai/dsh-system-prompt', SystemPrompt],
-    ['@deepseek-ai/dsh-fs-local', LocalFileSystem],
-    ['@deepseek-ai/dsh-working-directory', WorkingDirectoryService],
-    ['@deepseek-ai/dsh-tools', ToolRuntime],
-    ['@deepseek-ai/dsh-tool-executor-native', NativeToolExecutor],
-    ['@deepseek-ai/dsh-agent', AgentRegistry],
-    ['@deepseek-ai/dsh-agent-loop', AgentLoop],
-    ['@deepseek-ai/dsh-subprocess-local', LocalSubprocessRuntime],
-    ['@deepseek-ai/dsh-shell-env', ShellEnv],
-    ['@deepseek-ai/dsh-bash-local', LocalBashExecutor],
-    ['@deepseek-ai/dsh-tool-bash', ToolBash],
-    ['@deepseek-ai/dsh-experimental-forge', ForgeService],
-    ['@deepseek-ai/dsh-experimental-forge-github', ForgeGitHub],
-    ['@deepseek-ai/dsh-experimental-forge-session', ForgeSessionService],
+    ['@janhq/jan-llm', LlmRuntime],
+    ['@janhq/jan-session', SessionStore],
+    ['@janhq/jan-session-projection', SessionProjectionRegistry],
+    ['@janhq/jan-system-prompt', SystemPrompt],
+    ['@janhq/jan-fs-local', LocalFileSystem],
+    ['@janhq/jan-working-directory', WorkingDirectoryService],
+    ['@janhq/jan-tools', ToolRuntime],
+    ['@janhq/jan-tool-executor-native', NativeToolExecutor],
+    ['@janhq/jan-agent', AgentRegistry],
+    ['@janhq/jan-agent-loop', AgentLoop],
+    ['@janhq/jan-subprocess-local', LocalSubprocessRuntime],
+    ['@janhq/jan-shell-env', ShellEnv],
+    ['@janhq/jan-bash-local', LocalBashExecutor],
+    ['@janhq/jan-tool-bash', ToolBash],
+    ['@janhq/jan-experimental-forge', ForgeService],
+    ['@janhq/jan-experimental-forge-github', ForgeGitHub],
+    ['@janhq/jan-experimental-forge-session', ForgeSessionService],
   ])
   const configs: Record<string, readonly string[]> = {
-    '@deepseek-ai/dsh-agent-loop': ['agents: []'],
-    '@deepseek-ai/dsh-shell-env': [`dshHome: ${JSON.stringify(join(root, 'dsh-home'))}`],
-    '@deepseek-ai/dsh-bash-local': ['timeoutMs: 20000'],
-    '@deepseek-ai/dsh-experimental-forge': ['activeIntervalMs: 600000', 'idleIntervalMs: 600000'],
-    '@deepseek-ai/dsh-experimental-forge-github': [`ghCommand: ${JSON.stringify(join(bin, 'gh'))}`],
-    '@deepseek-ai/dsh-experimental-forge-session': ['discoveryTimeoutMs: 20000'],
+    '@janhq/jan-agent-loop': ['agents: []'],
+    '@janhq/jan-shell-env': [`janHome: ${JSON.stringify(join(root, 'jan-home'))}`],
+    '@janhq/jan-bash-local': ['timeoutMs: 20000'],
+    '@janhq/jan-experimental-forge': ['activeIntervalMs: 600000', 'idleIntervalMs: 600000'],
+    '@janhq/jan-experimental-forge-github': [`ghCommand: ${JSON.stringify(join(bin, 'gh'))}`],
+    '@janhq/jan-experimental-forge-session': ['discoveryTimeoutMs: 20000'],
   }
   const configPath = join(root, 'cordis.yml')
   await writeFile(configPath, [...modules.keys()].flatMap(name => [
@@ -215,7 +215,7 @@ async function observerFixture() {
     isError: false, content: [{ type: 'text', text: '{"number":9}' }],
     value: { kind: 'foreground', cwd: root, exitCode: 0, signal: null, timedOut: false, aborted: false },
   }
-  const entry = [...ctx.loader.entries()].find(candidate => candidate.options.name === 'cordis:@deepseek-ai/dsh-experimental-forge-session')!
+  const entry = [...ctx.loader.entries()].find(candidate => candidate.options.name === 'cordis:@janhq/jan-experimental-forge-session')!
   const records = () => handle.agent.session.snapshotEvents().flatMap((event) => {
     const record = pluginRecordOf(event)
     return record?.type === 'plugin:forge-session/binding' ? [record.data] : []
@@ -369,7 +369,7 @@ suite('forge-session through a real cordis.yml Loader composition', () => {
       ? [entry.update.snapshot.title, entry.update.snapshot.checksRollup]
       : null)).toEqual([['Change 7', 'pending'], ['Change 8', 'success'], ['Change 9', 'success']]) })
 
-    const entry = [...ctx.loader.entries()].find(candidate => candidate.options.name === 'cordis:@deepseek-ai/dsh-experimental-forge-session')
+    const entry = [...ctx.loader.entries()].find(candidate => candidate.options.name === 'cordis:@janhq/jan-experimental-forge-session')
     const row = ctx.sessionProjections.checkpoint(agent.session).forgeChangeRequests
     await entry?.fiber?.dispose()
     expect(ctx.sessionProjections.checkpoint(agent.session)).toHaveProperty('forgeChangeRequests', row)

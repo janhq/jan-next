@@ -1,21 +1,21 @@
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import AgentRegistry, { type Agent, type ModelSelection } from '@deepseek-ai/dsh-agent'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import { installModelSelection } from '@deepseek-ai/dsh-agent'
-import LlmRuntime, { createUserMessage, LlmError, ReasoningEffortId, type GenerateOptions } from '@deepseek-ai/dsh-llm'
-import { toPiContext } from '@deepseek-ai/dsh-llm-pi-ai/src/context.ts'
-import SessionStore, { Session, SessionId } from '@deepseek-ai/dsh-session'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime from '@deepseek-ai/dsh-tools'
-import { defineContentToolFixture } from '@deepseek-ai/dsh-tool-testkit'
+import { Context } from '@janhq/cordis'
+import AgentRegistry, { type Agent, type ModelSelection } from '@janhq/jan-agent'
+import AgentLoop from '@janhq/jan-agent-loop'
+import { installModelSelection } from '@janhq/jan-agent'
+import LlmRuntime, { createUserMessage, LlmError, ReasoningEffortId, type GenerateOptions } from '@janhq/jan-llm'
+import { toPiContext } from '@janhq/jan-llm-pi-ai/src/context.ts'
+import SessionStore, { Session, SessionId } from '@janhq/jan-session'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import ToolRuntime from '@janhq/jan-tools'
+import { defineContentToolFixture } from '@janhq/jan-tool-testkit'
 import { MockAdapter, textResponse } from './mock-adapter.ts'
 
-declare module '@deepseek-ai/dsh-llm' {
+declare module '@janhq/jan-llm' {
   interface MessageSourceMap {
-    'test-compaction': { kind: 'test-compaction' } & import('@deepseek-ai/dsh-llm').ContextFormed
+    'test-compaction': { kind: 'test-compaction' } & import('@janhq/jan-llm').ContextFormed
   }
 }
 

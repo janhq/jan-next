@@ -1,5 +1,5 @@
 /**
- * End-to-end tests for dsh-mcp-client. Exercises the REAL MCP protocol against:
+ * End-to-end tests for jan-mcp-client. Exercises the REAL MCP protocol against:
  * 1. A self-written fixture server over stdio (controlled edge cases)
  * 2. @modelcontextprotocol/server-everything (official integration test server)
  * 3. @modelcontextprotocol/server-filesystem (real filesystem operations)
@@ -7,27 +7,27 @@
  *
  * No API key needed — all servers are local/keyless.
  */
-import { executeToolFixture } from '@deepseek-ai/dsh-tool-testkit'
+import { executeToolFixture } from '@janhq/jan-tool-testkit'
 
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
+import { Context } from '@janhq/cordis'
 import { createMcpHandler, McpServer, type CallToolResult } from '@modelcontextprotocol/server'
 import { toNodeHandler, type NodeIncomingMessageLike } from '@modelcontextprotocol/node'
 import { z } from 'zod'
-import LocalAttachmentStore from '@deepseek-ai/dsh-attachment-local'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime from '@deepseek-ai/dsh-tools'
-import { ToolCallId, LlmAdapter, LlmRuntime } from '@deepseek-ai/dsh-llm'
-import type { GenerateOptions, LlmResolvedModelInfo, StreamChunk } from '@deepseek-ai/dsh-llm'
-import { apply, probeServer } from '@deepseek-ai/dsh-mcp-client/src/index.ts'
-import { publicToolName } from '@deepseek-ai/dsh-mcp-client/src/tools.ts'
-import { Config } from '@deepseek-ai/dsh-mcp-client'
+import LocalAttachmentStore from '@janhq/jan-attachment-local'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import ToolRuntime from '@janhq/jan-tools'
+import { ToolCallId, LlmAdapter, LlmRuntime } from '@janhq/jan-llm'
+import type { GenerateOptions, LlmResolvedModelInfo, StreamChunk } from '@janhq/jan-llm'
+import { apply, probeServer } from '@janhq/jan-mcp-client/src/index.ts'
+import { publicToolName } from '@janhq/jan-mcp-client/src/tools.ts'
+import { Config } from '@janhq/jan-mcp-client'
 
 const testToolSignal = new AbortController().signal
 
@@ -58,9 +58,9 @@ class ImageAdapter extends LlmAdapter {
   }
 }
 
-async function mountImageRegistry(dshHome: string): Promise<Context> {
+async function mountImageRegistry(janHome: string): Promise<Context> {
   const ctx = await mountRegistry()
-  await ctx.plugin(LocalAttachmentStore, { dshHome })
+  await ctx.plugin(LocalAttachmentStore, { janHome })
   await ctx.plugin(LlmRuntime)
   ctx.llm.registerAdapter(['visual'], new ImageAdapter())
   return ctx

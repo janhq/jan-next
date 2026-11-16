@@ -1,15 +1,15 @@
 // @vitest-environment jsdom
 /** The plugin fills each region's More menu with the discovery and Creator actions. */
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context } from '@janhq/cordis'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, waitFor, within } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import { useState } from 'react'
-import { makeTranslate, SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
-import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { Menu } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
-import type { TrackProductEvent } from '@deepseek-ai/dsh-client-product-analytics/client'
+import { makeTranslate, SlotTestRuntime } from '@janhq/jan-client-test-runtime'
+import { LocaleRuntime } from '@janhq/jan-client-locale/client'
+import { Menu } from '@janhq/jan-client-ui-primitives'
+import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
+import type { TrackProductEvent } from '@janhq/jan-client-product-analytics/client'
 import { EntryMenuContent } from '../src/client/EntryMenuContent.tsx'
 import { en } from '../src/client/locales.ts'
 import { apply, inject } from '../src/client/index.ts'
@@ -222,9 +222,9 @@ describe('More menu registrations', () => {
     ['en', 'sidebar.panellist.actions', 'Create a Jan plugin with a left sidebar entry.'],
     ['en', 'conversation.session.header.views.actions', 'Create a Jan conversation view plugin.'],
     ['en', 'sidebar.right.tab.guide.actions', 'Create a Jan plugin with a right sidebar entry.'],
-    ['zh', 'sidebar.panellist.actions', '创建一个带左侧栏入口的 DSH 插件。'],
-    ['zh', 'conversation.session.header.views.actions', '创建一个 DSH 会话视图插件。'],
-    ['zh', 'sidebar.right.tab.guide.actions', '创建一个带右侧栏入口的 DSH 插件。'],
+    ['zh', 'sidebar.panellist.actions', '创建一个带左侧栏入口的 Jan 插件。'],
+    ['zh', 'conversation.session.header.views.actions', '创建一个 Jan 会话视图插件。'],
+    ['zh', 'sidebar.right.tab.guide.actions', '创建一个带右侧栏入口的 Jan 插件。'],
   ] as const)('starts an unsent %s Creator draft from %s', async (language, seat, prompt) => {
     const b = await bench(language)
     fireEvent.click(within(b.view.getByRole('menu', { name: seat }))

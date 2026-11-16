@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client'
-import { RemoteError, stubConfigForm, type StubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
+import type { SettingsPathOpView } from '@janhq/jan-api-remotes/client'
+import { RemoteError, stubConfigForm, type StubConfigForm } from '@janhq/jan-client-test-runtime'
 import { WebSearchCardController, type WebProviderSelection } from '../src/client/web-search-card-controller.ts'
 
 /** Make the stub behave like a Host that accepts every write. */

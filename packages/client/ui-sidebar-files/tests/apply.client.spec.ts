@@ -9,12 +9,12 @@
  * what makes a reload safe.
  */
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { ShortcutCommand } from '@deepseek-ai/dsh-client-shortcuts/client'
-import { SidebarRightTabRegistry } from '@deepseek-ai/dsh-client-ui-sidebar-right/src/client/tab-registry.ts'
-import type { PaneId, TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import { Context } from '@janhq/cordis'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import type { ShortcutCommand } from '@janhq/jan-client-shortcuts/client'
+import { SidebarRightTabRegistry } from '@janhq/jan-client-ui-sidebar-right/src/client/tab-registry.ts'
+import type { PaneId, TabId } from '@janhq/jan-client-ui-dockkit'
+import type { SessionId } from '@janhq/jan-session/types'
 import { FILES_ID, FILES_KIND } from '../src/client/definition.tsx'
 import type { FilesInjected } from '../src/client/face.ts'
 import { apply, inject } from '../src/client/index.ts'

@@ -22,9 +22,9 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { CredentialInfo, LlmNativeAuth, SettingsNamespaceView, SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client'
-import type { JsonValue } from '@deepseek-ai/dsh-util-values'
-import { Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { CredentialInfo, LlmNativeAuth, SettingsNamespaceView, SettingsPathOpView } from '@janhq/jan-api-remotes/client'
+import type { JsonValue } from '@janhq/jan-util-values'
+import { Tooltip } from '@janhq/jan-client-ui-primitives'
 import { modelDrafts, validateDeepSeekModels } from './DeepSeekModelsEditor.tsx'
 import type { DeepSeekModelsValidationFailure } from './DeepSeekModelsEditor.tsx'
 import { apiKeyFailure } from './apiKey.ts'

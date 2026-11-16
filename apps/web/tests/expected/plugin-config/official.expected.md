@@ -49,6 +49,6 @@
     - status
     - switch "启用 @fixture/live-client"
   - listitem:
-    - button "查看 dsh-web-scaffold-defaults": dsh-web-scaffold-defaults
+    - button "查看 jan-web-scaffold-defaults": jan-web-scaffold-defaults
     - status
-    - switch "启用 dsh-web-scaffold-defaults" [checked]
+    - switch "启用 jan-web-scaffold-defaults" [checked]

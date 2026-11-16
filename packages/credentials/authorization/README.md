@@ -3,11 +3,11 @@ description: "The authorization flow registry for users and maintainers who obta
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-authorization
+# @janhq/jan-authorization
 
 ## Summary
 
-`dsh-authorization` lets a configuration UI or another caller obtain credentials through a human-guided sign-in, code entry, or question. Each attempt sends notices and prompts only to the surface that started it. It reports `authorized` only after the new credential has been stored; a refusal or withdrawal reports `cancelled`, while failures remain errors. Choose it for credentials that cannot be supplied through configuration. It requires the credential store and an integration that defines the available authorization methods; the package provides no provider-specific methods itself.
+`jan-authorization` lets a configuration UI or another caller obtain credentials through a human-guided sign-in, code entry, or question. Each attempt sends notices and prompts only to the surface that started it. It reports `authorized` only after the new credential has been stored; a refusal or withdrawal reports `cancelled`, while failures remain errors. Choose it for credentials that cannot be supplied through configuration. It requires the credential store and an integration that defines the available authorization methods; the package provides no provider-specific methods itself.
 
 ## Table of Contents
 
@@ -34,9 +34,9 @@ Use it whenever a credential can only be obtained by talking to a human — an O
 Your plugin declares one flow per credential it holds, keyed by the `<scope>/<id>` credential record the flow writes — the scope names your plugin, the id names one credential it owns:
 
 ```ts
-import type { Context } from '@deepseek-ai/cordis'
-import type { AuthorizationSession } from '@deepseek-ai/dsh-authorization'
-import { credentialKey } from '@deepseek-ai/dsh-credentials'
+import type { Context } from '@janhq/cordis'
+import type { AuthorizationSession } from '@janhq/jan-authorization'
+import { credentialKey } from '@janhq/jan-credentials'
 
 declare const ctx: Context
 declare const exchangeCode: (code: string, signal: AbortSignal) => Promise<{ token: string }>

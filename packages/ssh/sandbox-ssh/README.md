@@ -3,11 +3,11 @@ description: "Remote file-effect confinement for compositions using SSH filesyst
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-sandbox-ssh
+# @janhq/jan-sandbox-ssh
 
 ## Summary
 
-`dsh-sandbox-ssh` supplies `ctx.sandbox` for processes launched by the SSH subprocess provider. The remote host selects its installed local sandbox backend and applies each call’s policy there. Bash and Node receive the same backend’s enforcement level, denial signatures and runner-failure classification.
+`jan-sandbox-ssh` supplies `ctx.sandbox` for processes launched by the SSH subprocess provider. The remote host selects its installed local sandbox backend and applies each call’s policy there. Bash and Node receive the same backend’s enforcement level, denial signatures and runner-failure classification.
 
 ## Table of Contents
 

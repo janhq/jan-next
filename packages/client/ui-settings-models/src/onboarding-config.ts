@@ -1,6 +1,6 @@
 /** Public page-bootstrap options shared by the Host and Client halves. */
 
-import z from '@deepseek-ai/schemastery'
+import z from '@janhq/schemastery'
 
 /** Onboarding options after schema defaults are applied. */
 export interface Config {
@@ -31,4 +31,4 @@ export const Config: z<Partial<Config>, Config> = z.object({
 })
 
 /** Page-global key carrying only the public onboarding options. */
-export const ONBOARDING_CONFIG_GLOBAL = '__DSH_MODELS_ONBOARDING__'
+export const ONBOARDING_CONFIG_GLOBAL = '__JAN_MODELS_ONBOARDING__'

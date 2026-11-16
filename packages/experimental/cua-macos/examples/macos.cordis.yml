@@ -5,5 +5,5 @@
       name: '../src/index.ts'
       config:
         agentPreset: false
-        # DSH_CUA_HELPER must name DSH Computer Use.app/Contents/MacOS/dsh-cua-native.
-        helperPath: !!js process.env.DSH_CUA_HELPER
+        # JAN_CUA_HELPER must name Jan Computer Use.app/Contents/MacOS/jan-cua-native.
+        helperPath: !!js process.env.JAN_CUA_HELPER

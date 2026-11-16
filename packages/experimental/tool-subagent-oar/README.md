@@ -3,7 +3,7 @@ description: "Expose one external subagent tool that selects a configured runtim
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-experimental-tool-subagent-oar
+# @janhq/jan-experimental-tool-subagent-oar
 
 ## Summary
 
@@ -34,7 +34,7 @@ Choose this tool when one model-facing entry should select among independent, on
 With `oar-codex` and `oar-claude` already registered, mount this row in the composition:
 
 ```yaml
-- name: '@deepseek-ai/dsh-experimental-tool-subagent-oar'
+- name: '@janhq/jan-experimental-tool-subagent-oar'
   config:
     providers:
       codex: oar-codex

@@ -3,16 +3,16 @@
  * promises to honor `exec.signal`; this wrapper arms that deadline and maps its
  * own expiry to `TOOL_TIMEOUT` without racing or abandoning the tool promise.
  *
- * FIXME: settle the intended `@deepseek-ai/dsh-timeout-guard` rename before the
+ * FIXME: settle the intended `@janhq/jan-timeout-guard` rename before the
  * first tagged release — suggestion only, aligning the name with its `guard/`
  * home; decide at resolution time.
  *
- * @module @deepseek-ai/dsh-tool-call-timeout-policy
+ * @module @janhq/jan-tool-call-timeout-policy
  */
 
-import type { Context } from '@deepseek-ai/cordis'
-import { deadline, timeoutOf } from '@deepseek-ai/dsh-timeout'
-import type { ToolExecutionResult } from '@deepseek-ai/dsh-tools'
+import type { Context } from '@janhq/cordis'
+import { deadline, timeoutOf } from '@janhq/jan-timeout'
+import type { ToolExecutionResult } from '@janhq/jan-tools'
 
 /**
  * The code owned by this plugin, used BOTH as the internal {@link deadline}

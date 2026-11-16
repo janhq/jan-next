@@ -3,11 +3,11 @@ description: "The default agent driver for users and maintainers choosing, confi
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-agent-loop
+# @janhq/jan-agent-loop
 
 ## Summary
 
-`dsh-agent-loop` creates fresh agents or resumes persisted sessions, then drives each turn through model requests, streamed responses, tool execution, and durable session history. Mount it for standard agent compositions; declarative entries start agents at boot, while the public `ctx.agents` API supports programmatic creation and resume. The selected tool executor owns dispatch, concurrency, cancellation, and tool logging. Cancellation preserves streamed text already delivered to the user. Choose a custom `Agent` implementation only when the standard "call model, run tools, repeat" lifecycle is insufficient.
+`jan-agent-loop` creates fresh agents or resumes persisted sessions, then drives each turn through model requests, streamed responses, tool execution, and durable session history. Mount it for standard agent compositions; declarative entries start agents at boot, while the public `ctx.agents` API supports programmatic creation and resume. The selected tool executor owns dispatch, concurrency, cancellation, and tool logging. Cancellation preserves streamed text already delivered to the user. Choose a custom `Agent` implementation only when the standard "call model, run tools, repeat" lifecycle is insufficient.
 
 ## Table of Contents
 
@@ -23,14 +23,14 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## Use this package
 
-Mount `dsh-agent-loop` in any composition that should run agents. It supplies the driver behind `ctx.agents` and starts any agents you declare in its config; both [`dsh-base`](../../bundle/base/README.md) and [`dsh-sdk-minimal`](../../bundle/sdk-minimal/README.md) mount it as an explicit row.
+Mount `jan-agent-loop` in any composition that should run agents. It supplies the driver behind `ctx.agents` and starts any agents you declare in its config; both [`jan-base`](../../bundle/base/README.md) and [`jan-sdk-minimal`](../../bundle/sdk-minimal/README.md) mount it as an explicit row.
 
 ### Configure declarative agents
 
 Agents declared in config start automatically when the plugin loads. Each entry needs an `id` label; a model step also needs both `provider` and `model` in the Session selection or initial options before prompt assembly.
 
 ```yaml
-- name: '@deepseek-ai/dsh-agent-loop'
+- name: '@janhq/jan-agent-loop'
   config:
     agents:
       - id: 'main'

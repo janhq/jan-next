@@ -1,7 +1,7 @@
 /** The local model Remote delegates to the service and reports service failures as typed Remote errors. */
-import { Context } from '@deepseek-ai/cordis'
-import type { LlamaCpp } from '@deepseek-ai/dsh-llama-cpp'
-import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
+import { Context } from '@janhq/cordis'
+import type { LlamaCpp } from '@janhq/jan-llama-cpp'
+import { RemoteError } from '@janhq/jan-typert-protocol'
 import { afterEach, expect, it, vi } from 'vitest'
 import LlamaCppController from '../src/index.ts'
 

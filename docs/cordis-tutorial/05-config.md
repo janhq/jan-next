@@ -7,8 +7,8 @@ Each `cordis.yml` entry can carry a `config` block, and the plugin declares a sc
 Create `config-demo.ts` in `tmp/cordis-tutorial`:
 
 ```ts
-import type { Context } from '@deepseek-ai/cordis'
-import Schema from '@deepseek-ai/schemastery'
+import type { Context } from '@janhq/cordis'
+import Schema from '@janhq/schemastery'
 
 export const name = 'config-demo'
 
@@ -71,9 +71,9 @@ The plugin's fiber goes to FAILED, and this tutorial's launcher exits with statu
 Use `.volatile()` for a field that the plugin reads during each operation. A change to that field updates its stable reference without remounting the plugin. Read it with `.get()`:
 
 ```ts
-import type { Context } from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/cordis-plugin-loader'
-import Schema from '@deepseek-ai/schemastery'
+import type { Context } from '@janhq/cordis'
+import type {} from '@janhq/cordis-plugin-loader'
+import Schema from '@janhq/schemastery'
 
 export const Config = Schema.object({
   greeting: Schema.string().default('Hello').volatile(),
@@ -106,4 +106,4 @@ The loader used in this repo supports a `!!js` tag for config values that must b
 
 Next: [Composition and HMR](06-composition-and-hmr.md) — treating `cordis.yml` as the application.
 
-[![](https://img.shields.io/badge/powered_by-dsh-4D6BFE?style=flat-square&logo=deepseek&logoColor=white)](https://github.com/deepseek-ai/deepseek-harness)
+[![](https://img.shields.io/badge/powered_by-jan-4D6BFE?style=flat-square&logo=deepseek&logoColor=white)](https://github.com/janhq/jan-next)

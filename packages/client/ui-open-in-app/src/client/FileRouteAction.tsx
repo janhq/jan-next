@@ -1,8 +1,8 @@
 /** Adapt authorized delivery and changed-file routes to the shared opening control. */
-import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type {} from '@deepseek-ai/dsh-client-ui-deliverables/client'
-import { parseNativeFileApplications } from '@deepseek-ai/dsh-native-command/types'
-import type { SessionWorkspacePathApplication } from '@deepseek-ai/dsh-api-session-controller/types'
+import type { InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
+import type {} from '@janhq/jan-client-ui-deliverables/client'
+import { parseNativeFileApplications } from '@janhq/jan-native-command/types'
+import type { SessionWorkspacePathApplication } from '@janhq/jan-api-session-controller/types'
 import { useFileApplications } from './file-applications.ts'
 import { OpenTargetButton, type OpenTargetReporter } from './OpenTargetButton.tsx'
 import type { NS } from './locales.ts'

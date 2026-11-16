@@ -1,11 +1,11 @@
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+import type {} from '@janhq/jan-client-ui-renderer/client'
 /** Window-local menu capability and its Web overlay. */
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { Context } from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
-import type {} from '@deepseek-ai/dsh-client-locale/client'
-import z from '@deepseek-ai/schemastery'
-import { MENU_TRANSITION_MS } from '@deepseek-ai/dsh-client-ui-primitives'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import type { Context } from '@janhq/cordis'
+import type {} from '@janhq/jan-client-ui-layout/client'
+import type {} from '@janhq/jan-client-locale/client'
+import z from '@janhq/schemastery'
+import { MENU_TRANSITION_MS } from '@janhq/jan-client-ui-primitives'
 import { menuTargetKey } from './target-key.ts'
 import { MenuRegistry } from './registry.ts'
 import { createMenuStore } from './store.ts'
@@ -23,10 +23,10 @@ export type { ContextMenuBindings, ContextMenuTriggerProps, UseContextMenu } fro
 export type { ContextMenuIcon, ContextMenuButtonProps } from './types.ts'
 export { createMenuStore } from './store.ts'
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context { /** Extensible context menus for explicit clicked objects. */ contextMenus: ContextMenus }
 }
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface GlobalStandardProps {
     /** Menu bindings for explicit objects, available in every Slot scope. */
     useContextMenu: UseContextMenu

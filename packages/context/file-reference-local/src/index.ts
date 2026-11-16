@@ -1,18 +1,18 @@
 /**
  * Local-filesystem implementation of `ctx.fileReferences`.
  *
- * @module @deepseek-ai/dsh-file-reference-local
+ * @module @janhq/jan-file-reference-local
  */
 
-import type {} from '@deepseek-ai/dsh-working-directory'
-import { Context } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
-import type { Agent } from '@deepseek-ai/dsh-agent'
+import type {} from '@janhq/jan-working-directory'
+import { Context } from '@janhq/cordis'
+import z from '@janhq/schemastery'
+import type { Agent } from '@janhq/jan-agent'
 import FileReferenceService, {
   FILE_REFERENCE_PROMPT,
   type FileReferenceCandidate,
-} from '@deepseek-ai/dsh-file-reference'
-import type {} from '@deepseek-ai/dsh-tools'
+} from '@janhq/jan-file-reference'
+import type {} from '@janhq/jan-tools'
 import {
   DEFAULT_FILE_SEARCH_EXCLUDED_DIRECTORIES,
   DEFAULT_FILE_SEARCH_MAX_ENTRIES,
@@ -28,8 +28,8 @@ export {
   WorkspaceFileSearch,
 } from './search.ts'
 export type { FileSearchConfig } from './search.ts'
-export { FILE_REFERENCE_PROMPT } from '@deepseek-ai/dsh-file-reference'
-export { activeAtToken, formatFileMention } from '@deepseek-ai/dsh-file-reference/grammar'
+export { FILE_REFERENCE_PROMPT } from '@janhq/jan-file-reference'
+export { activeAtToken, formatFileMention } from '@janhq/jan-file-reference/grammar'
 
 /** Local file-reference discovery configuration. */
 export interface Config {

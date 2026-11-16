@@ -9,10 +9,10 @@ from pathlib import Path
 
 import pytest
 
-from deepseek_harness import DeepSeekHarness, Notification
+from jan import Jan, Notification
 import test_commands_runtime as runtime_helpers
 from test_commands_runtime import (
-    _MODEL, _MODEL_ENV, _PROVIDER, _Completion, _ModelServer, _dsh_bin, _model_route_patch, _of_type, _read_events,
+    _MODEL, _MODEL_ENV, _PROVIDER, _Completion, _ModelServer, _jan_bin, _model_route_patch, _of_type, _read_events,
 )
 
 
@@ -44,21 +44,21 @@ def test_plan_example_reports_truncation_and_accepts_explicit_dismissal(
         monkeypatch.setattr(runtime_helpers, "_messages_response", truncated_response)
     terminal_input = tmp_path / "stdin.txt"
     terminal_input.write_text("d\n", encoding="utf-8")
-    monkeypatch.setenv("DSH_TELEMETRY_DISABLED", "1")
-    monkeypatch.setenv("DSH_TOOLS_MODE", "native")
-    monkeypatch.setattr(sys, "argv", [str(_EXAMPLE), "--dsh-home", str(tmp_path / "home"),
+    monkeypatch.setenv("JAN_TELEMETRY_DISABLED", "1")
+    monkeypatch.setenv("JAN_TOOLS_MODE", "native")
+    monkeypatch.setattr(sys, "argv", [str(_EXAMPLE), "--jan-home", str(tmp_path / "home"),
                                      "--workspace", str(workspace), "Plan a small change."])
     with terminal_input.open(encoding="utf-8") as terminal, _ModelServer([completion]) as model:
         monkeypatch.setattr(sys, "stdin", terminal)
-        def configured_harness(**options: object) -> DeepSeekHarness:
-            return DeepSeekHarness(
+        def configured_harness(**options: object) -> Jan:
+            return Jan(
                 **{**options, "provider": _PROVIDER, "model": _MODEL,
-                   "env": {**dict(options.get("env") or {}), **_MODEL_ENV}}, dsh_bin=_dsh_bin(),
+                   "env": {**dict(options.get("env") or {}), **_MODEL_ENV}}, jan_bin=_jan_bin(),
                 patches=(str(patch), str(_model_route_patch(tmp_path, model.url))),
                 initialize_timeout_seconds=30, request_timeout_seconds=20, shutdown_timeout_seconds=20,
             )
 
-        monkeypatch.setitem(example["main"].__globals__, "DeepSeekHarness", configured_harness)
+        monkeypatch.setitem(example["main"].__globals__, "Jan", configured_harness)
         if outcome == "max-tokens":
             with pytest.raises(RuntimeError, match="max-tokens"):
                 example["main"]()

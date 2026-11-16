@@ -6,15 +6,15 @@
  * entry, installation-carried bundles, and unaddressable rows stay protected by their own rules.
  */
 export const PROTECTED_PLUGINS: ReadonlySet<string> = new Set([
-  '@deepseek-ai/dsh-plugin-manager', '@deepseek-ai/cordis-plugin-loader',
-  '@deepseek-ai/cordis-plugin-include', '@deepseek-ai/dsh-api-gateway',
-  '@deepseek-ai/dsh-host-webserver', '@deepseek-ai/dsh-client-modules',
-  '@deepseek-ai/dsh-client-ui-settings-plugin-inventory', '@deepseek-ai/dsh-client-ui-plugin-manager',
-  '@deepseek-ai/dsh-host-plugin-inventory', '@deepseek-ai/dsh-typert-registry',
-  '@deepseek-ai/dsh-api-remotes', '@deepseek-ai/dsh-api-remote-access',
-  '@deepseek-ai/cordis-plugin-timer', '@deepseek-ai/dsh-client-connection',
-  '@deepseek-ai/dsh-host-frontend-static', '@deepseek-ai/dsh-tools',
-  '@deepseek-ai/dsh-hmr',
+  '@janhq/jan-plugin-manager', '@janhq/cordis-plugin-loader',
+  '@janhq/cordis-plugin-include', '@janhq/jan-api-gateway',
+  '@janhq/jan-host-webserver', '@janhq/jan-client-modules',
+  '@janhq/jan-client-ui-settings-plugin-inventory', '@janhq/jan-client-ui-plugin-manager',
+  '@janhq/jan-host-plugin-inventory', '@janhq/jan-typert-registry',
+  '@janhq/jan-api-remotes', '@janhq/jan-api-remote-access',
+  '@janhq/cordis-plugin-timer', '@janhq/jan-client-connection',
+  '@janhq/jan-host-frontend-static', '@janhq/jan-tools',
+  '@janhq/jan-hmr',
 ])
 
 /**
@@ -22,14 +22,14 @@ export const PROTECTED_PLUGINS: ReadonlySet<string> = new Set([
  * Their Host availability and activation stay intact.
  */
 export const HIDDEN_BUNDLES: ReadonlySet<string> = new Set([
-  '@deepseek-ai/dsh-base',
-  '@deepseek-ai/dsh-web-app',
-  '@deepseek-ai/dsh-headless',
-  '@deepseek-ai/dsh-sdk-app',
-  '@deepseek-ai/dsh-acp-app',
-  '@deepseek-ai/dsh-sdk-minimal',
-  '@deepseek-ai/dsh-experimental-terminal-bundle',
-  '@deepseek-ai/dsh-experimental-tool-worktree',
+  '@janhq/jan-base',
+  '@janhq/jan-web-app',
+  '@janhq/jan-headless',
+  '@janhq/jan-sdk-app',
+  '@janhq/jan-acp-app',
+  '@janhq/jan-sdk-minimal',
+  '@janhq/jan-experimental-terminal-bundle',
+  '@janhq/jan-experimental-tool-worktree',
 ])
 
 /**
@@ -37,9 +37,9 @@ export const HIDDEN_BUNDLES: ReadonlySet<string> = new Set([
  * this list, decides whether a bundle appears on the main list.
  */
 export const EXTENSION_BUNDLES: readonly string[] = [
-  '@deepseek-ai/dsh-experimental-voice-input-bundle',
-  '@deepseek-ai/dsh-experimental-plugin-market-bundle',
-  '@deepseek-ai/dsh-experimental-auto-review',
+  '@janhq/jan-experimental-voice-input-bundle',
+  '@janhq/jan-experimental-plugin-market-bundle',
+  '@janhq/jan-experimental-auto-review',
 ]
 
 /**
@@ -47,32 +47,32 @@ export const EXTENSION_BUNDLES: readonly string[] = [
  * which includes every eligible bundle, ranks them last in this order.
  */
 export const MORE_BUNDLES: readonly string[] = [
-  '@deepseek-ai/dsh-personalized-recommendations',
-  '@deepseek-ai/dsh-experimental-inspector-profile',
-  '@deepseek-ai/dsh-cua-bundle',
-  '@deepseek-ai/dsh-experimental-cot-translation-bundle',
-  '@deepseek-ai/dsh-experimental-session-search',
-  '@deepseek-ai/dsh-experimental-session-titles-bundle',
-  '@deepseek-ai/dsh-experimental-badge-skill-bundle',
-  '@deepseek-ai/dsh-experimental-ralph-bundle',
-  '@deepseek-ai/dsh-subagent-codex',
-  '@deepseek-ai/dsh-subagent-claude-code',
+  '@janhq/jan-personalized-recommendations',
+  '@janhq/jan-experimental-inspector-profile',
+  '@janhq/jan-cua-bundle',
+  '@janhq/jan-experimental-cot-translation-bundle',
+  '@janhq/jan-experimental-session-search',
+  '@janhq/jan-experimental-session-titles-bundle',
+  '@janhq/jan-experimental-badge-skill-bundle',
+  '@janhq/jan-experimental-ralph-bundle',
+  '@janhq/jan-subagent-codex',
+  '@janhq/jan-subagent-claude-code',
 ]
 
 /** Official bundles the plugin manager marks with the Experimental badge. */
 export const EXPERIMENTAL_BUNDLES: ReadonlySet<string> = new Set([
-  '@deepseek-ai/dsh-personalized-recommendations',
-  '@deepseek-ai/dsh-cua-bundle',
-  '@deepseek-ai/dsh-experimental-voice-input-bundle',
-  '@deepseek-ai/dsh-experimental-auto-review',
-  '@deepseek-ai/dsh-experimental-inspector-profile',
-  '@deepseek-ai/dsh-experimental-forge-bundle',
-  '@deepseek-ai/dsh-experimental-tool-worktree',
-  '@deepseek-ai/dsh-experimental-cot-translation-bundle',
-  '@deepseek-ai/dsh-experimental-session-search',
-  '@deepseek-ai/dsh-experimental-session-titles-bundle',
-  '@deepseek-ai/dsh-experimental-badge-skill-bundle',
-  '@deepseek-ai/dsh-experimental-ralph-bundle',
-  '@deepseek-ai/dsh-experimental-plugin-market-bundle',
-  '@deepseek-ai/dsh-experimental-liveshare',
+  '@janhq/jan-personalized-recommendations',
+  '@janhq/jan-cua-bundle',
+  '@janhq/jan-experimental-voice-input-bundle',
+  '@janhq/jan-experimental-auto-review',
+  '@janhq/jan-experimental-inspector-profile',
+  '@janhq/jan-experimental-forge-bundle',
+  '@janhq/jan-experimental-tool-worktree',
+  '@janhq/jan-experimental-cot-translation-bundle',
+  '@janhq/jan-experimental-session-search',
+  '@janhq/jan-experimental-session-titles-bundle',
+  '@janhq/jan-experimental-badge-skill-bundle',
+  '@janhq/jan-experimental-ralph-bundle',
+  '@janhq/jan-experimental-plugin-market-bundle',
+  '@janhq/jan-experimental-liveshare',
 ])

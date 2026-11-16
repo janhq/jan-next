@@ -11,14 +11,14 @@
  * failed read is reported on the page with a retry.
  */
 
-import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import type { Context as ClientContext } from '@janhq/cordis'
 // Type-only: pulls the ctx.remote merge into this program.
-import type {} from '@deepseek-ai/dsh-api-remotes/client'
-import type { WebProviderInfo, WebProviderList as ProviderList } from '@deepseek-ai/dsh-web/types'
-import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
+import type {} from '@janhq/jan-api-remotes/client'
+import type { WebProviderInfo, WebProviderList as ProviderList } from '@janhq/jan-web/types'
+import { createSnapshotStore, type SnapshotStore } from '@janhq/jan-client-store'
 import {
   SettingsFormModel, settingsTextField, type SettingsFormActions, type SettingsFormShell, type SettingsFormScope,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+} from '@janhq/jan-client-ui-primitives'
 
 /**
  * Namespace this page edits. Spelled here rather than imported: a client

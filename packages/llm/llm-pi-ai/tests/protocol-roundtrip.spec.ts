@@ -1,9 +1,9 @@
 /** Cross-protocol requests must not overwrite the history needed by its original provider. */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import LlmRuntime, { createToolResultMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
-import type { Message } from '@deepseek-ai/dsh-llm'
-import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
+import { Context } from '@janhq/cordis'
+import LlmRuntime, { createToolResultMessage, createUserMessage } from '@janhq/jan-llm'
+import type { Message } from '@janhq/jan-llm'
+import * as LlmPiAi from '@janhq/jan-llm-pi-ai'
 import { assemble } from './assemble.ts'
 import { anthropicFrame, closeMockServers, mockServer } from './mock-server.ts'
 

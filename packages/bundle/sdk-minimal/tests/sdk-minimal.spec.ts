@@ -5,61 +5,61 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as yaml from 'js-yaml'
 import { describe, expect, it } from 'vitest'
-import { entryListSchema } from '@deepseek-ai/cordis-plugin-include'
+import { entryListSchema } from '@janhq/cordis-plugin-include'
 
 function packageName(specifier: string): string {
   return specifier.startsWith('@') ? specifier.split('/').slice(0, 2).join('/') : specifier.split('/')[0]!
 }
 
-describe('dsh-sdk-minimal bundle', () => {
+describe('jan-sdk-minimal bundle', () => {
   it('declares one standalone allowlisted tree with every row dependency', () => {
     const root = fileURLToPath(new URL('..', import.meta.url))
     const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
       dependencies?: Record<string, string>
-      dsh?: { bundle?: { patch?: string } }
+      jan?: { bundle?: { patch?: string } }
     }
-    expect(manifest.dsh?.bundle?.patch).toBe('./cordis.patch.yml')
+    expect(manifest.jan?.bundle?.patch).toBe('./cordis.patch.yml')
     const patches = yaml.load(
-      readFileSync(resolve(root, manifest.dsh!.bundle!.patch!), 'utf8'),
+      readFileSync(resolve(root, manifest.jan!.bundle!.patch!), 'utf8'),
       { schema: entryListSchema },
     ) as Array<{ insert?: Array<{ id?: string; inject?: string[]; name?: string; config?: Record<string, unknown>; disabled?: unknown }> }>
     expect(patches).toHaveLength(1)
     const rows = patches[0]?.insert ?? []
     expect(rows.map(row => [row.id, row.name])).toEqual([
-      ['sdk-app-startup', '@deepseek-ai/dsh-sdk-app'],
-      ['sdk-jsonrpc-server', '@deepseek-ai/dsh-sdk-jsonrpc-server'],
-      ['llm-pi-ai', '@deepseek-ai/dsh-llm-pi-ai'],
-      ['sandbox', '@deepseek-ai/dsh-sandbox-local'],
-      ['filesystem', '@deepseek-ai/dsh-fs-local'],
-      ['attachment-local', '@deepseek-ai/dsh-attachment-local'],
-      ['tool-fs', '@deepseek-ai/dsh-tool-fs'],
-      ['working-directory', '@deepseek-ai/dsh-working-directory'],
-      ['tool-working-directory', '@deepseek-ai/dsh-tool-working-directory'],
-      ['session-projection', '@deepseek-ai/dsh-session-projection'],
-      ['token-meter', '@deepseek-ai/dsh-token-meter'],
-      ['compaction-basic', '@deepseek-ai/dsh-compaction-basic'],
-      ['image-offload', '@deepseek-ai/dsh-compaction-image-offload'],
-      ['sandbox-policy', '@deepseek-ai/dsh-sandbox-policy'],
-      ['subprocess', '@deepseek-ai/dsh-subprocess-local'],
-      ['pty', '@deepseek-ai/dsh-terminal'],
-      ['terminal-bash', '@deepseek-ai/dsh-terminal-bash'],
-      ['terminal-pwsh', '@deepseek-ai/dsh-terminal-bash'],
-      ['timer', '@deepseek-ai/cordis-plugin-timer'],
-      ['llm', '@deepseek-ai/dsh-llm'],
-      ['session', '@deepseek-ai/dsh-session'],
-      ['session-title', '@deepseek-ai/dsh-session-title'],
-      ['system-prompt', '@deepseek-ai/dsh-system-prompt'],
-      ['tools', '@deepseek-ai/dsh-tools'],
-      ['tool-executor-native', '@deepseek-ai/dsh-tool-executor-native'],
-      ['mcp-resources', '@deepseek-ai/dsh-mcp-resources'],
-      ['agent', '@deepseek-ai/dsh-agent'],
-      ['llm-retry', '@deepseek-ai/dsh-llm-retry'],
-      ['jobs', '@deepseek-ai/dsh-jobs-local'],
-      ['agent-loop', '@deepseek-ai/dsh-agent-loop'],
-      ['persistent-bash', '@deepseek-ai/dsh-tool-bash-persistent'],
-      ['persistent-pwsh', '@deepseek-ai/dsh-tool-pwsh-persistent'],
-      ['sessions', '@deepseek-ai/dsh-session-persistence-jsonl'],
-      ['session-checkpoint-policy', '@deepseek-ai/dsh-session-checkpoint-policy'],
+      ['sdk-app-startup', '@janhq/jan-sdk-app'],
+      ['sdk-jsonrpc-server', '@janhq/jan-sdk-jsonrpc-server'],
+      ['llm-pi-ai', '@janhq/jan-llm-pi-ai'],
+      ['sandbox', '@janhq/jan-sandbox-local'],
+      ['filesystem', '@janhq/jan-fs-local'],
+      ['attachment-local', '@janhq/jan-attachment-local'],
+      ['tool-fs', '@janhq/jan-tool-fs'],
+      ['working-directory', '@janhq/jan-working-directory'],
+      ['tool-working-directory', '@janhq/jan-tool-working-directory'],
+      ['session-projection', '@janhq/jan-session-projection'],
+      ['token-meter', '@janhq/jan-token-meter'],
+      ['compaction-basic', '@janhq/jan-compaction-basic'],
+      ['image-offload', '@janhq/jan-compaction-image-offload'],
+      ['sandbox-policy', '@janhq/jan-sandbox-policy'],
+      ['subprocess', '@janhq/jan-subprocess-local'],
+      ['pty', '@janhq/jan-terminal'],
+      ['terminal-bash', '@janhq/jan-terminal-bash'],
+      ['terminal-pwsh', '@janhq/jan-terminal-bash'],
+      ['timer', '@janhq/cordis-plugin-timer'],
+      ['llm', '@janhq/jan-llm'],
+      ['session', '@janhq/jan-session'],
+      ['session-title', '@janhq/jan-session-title'],
+      ['system-prompt', '@janhq/jan-system-prompt'],
+      ['tools', '@janhq/jan-tools'],
+      ['tool-executor-native', '@janhq/jan-tool-executor-native'],
+      ['mcp-resources', '@janhq/jan-mcp-resources'],
+      ['agent', '@janhq/jan-agent'],
+      ['llm-retry', '@janhq/jan-llm-retry'],
+      ['jobs', '@janhq/jan-jobs-local'],
+      ['agent-loop', '@janhq/jan-agent-loop'],
+      ['persistent-bash', '@janhq/jan-tool-bash-persistent'],
+      ['persistent-pwsh', '@janhq/jan-tool-pwsh-persistent'],
+      ['sessions', '@janhq/jan-session-persistence-jsonl'],
+      ['session-checkpoint-policy', '@janhq/jan-session-checkpoint-policy'],
     ])
     expect(rows.find(row => row.id === 'sdk-app-startup')?.config).toEqual({ profile: 'sdk-minimal' })
     // tokamak-harness: Session-log upload is opt-in.
@@ -73,14 +73,14 @@ describe('dsh-sdk-minimal bundle', () => {
     expect(providers.tokamak).toMatchObject({
       api: 'openai-completions',
       apiKeyEnv: 'TOKAMAK_API_KEY',
-      defaultContextWindow: { __jsExpr: 'Number(process.env.DSH_CONTEXT_WINDOW ?? 200000)' },
+      defaultContextWindow: { __jsExpr: 'Number(process.env.JAN_CONTEXT_WINDOW ?? 200000)' },
       streamIdleTimeoutMs: 172800000,
     })
     expect(providers.tokamak?.models).toContainEqual({ id: 'tokamak-1-preview' })
     expect(rows.find(row => row.id === 'system-prompt')?.config).toEqual({
       includeHarnessIdentity: false,
       includeRuntimeContext: false,
-      personaPrefix: { __jsExpr: "process.env.DSH_SYSTEM_PROMPT ?? 'You are a helpful software engineer assistant.'" },
+      personaPrefix: { __jsExpr: "process.env.JAN_SYSTEM_PROMPT ?? 'You are a helpful software engineer assistant.'" },
     })
     expect(rows.find(row => row.id === 'agent-loop')?.config).toEqual({ agents: [] })
     expect(rows.find(row => row.id === 'tool-fs')?.config).toEqual({ read: false, readImage: true, write: false, edit: false })

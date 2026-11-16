@@ -11,7 +11,7 @@
  *
  * ```yaml
  * - id: llm
- *   name: '@deepseek-ai/dsh-llm-pi-ai'
+ *   name: '@janhq/jan-llm-pi-ai'
  *   config:
  *     providers:
  *       # Catalog route: everything but the credential comes from pi-ai.
@@ -52,19 +52,19 @@
  *               max: ultra
  * ```
  *
- * @module @deepseek-ai/dsh-llm-pi-ai
+ * @module @janhq/jan-llm-pi-ai
  */
-import type {} from '@deepseek-ai/dsh-settings'
+import type {} from '@janhq/jan-settings'
 
-import type {} from '@deepseek-ai/cordis-plugin-loader'
+import type {} from '@janhq/cordis-plugin-loader'
 
-import type { Context } from '@deepseek-ai/cordis'
-import type { CredentialRef } from '@deepseek-ai/dsh-credentials'
-import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
-import { assertUsableApiKey, LlmError, resolveImageAttachmentAccess } from '@deepseek-ai/dsh-llm'
-import type { AdapterRegistrationHandle, DirectoryRegistrationHandle, LlmConfigurableProvider } from '@deepseek-ai/dsh-llm'
-import type {} from '@deepseek-ai/dsh-fs'
-import { deepEqualJson } from '@deepseek-ai/dsh-util-values'
+import type { Context } from '@janhq/cordis'
+import type { CredentialRef } from '@janhq/jan-credentials'
+import { launchEnvironmentOf } from '@janhq/jan-launch-environment'
+import { assertUsableApiKey, LlmError, resolveImageAttachmentAccess } from '@janhq/jan-llm'
+import type { AdapterRegistrationHandle, DirectoryRegistrationHandle, LlmConfigurableProvider } from '@janhq/jan-llm'
+import type {} from '@janhq/jan-fs'
+import { deepEqualJson } from '@janhq/jan-util-values'
 import { PiAiAdapter } from './adapter.ts'
 import { authContextFrom, credentialStoreFrom } from './auth.ts'
 import { catalogProvider, catalogProviderIds } from './catalog.ts'
@@ -97,7 +97,7 @@ export { supportedProtocols } from './provider.ts'
 export const name = 'llm-pi-ai'
 export const inject = ['llm']
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Events {
     /**
      * Prepare headers for one pi-ai inference call, excluding model discovery.

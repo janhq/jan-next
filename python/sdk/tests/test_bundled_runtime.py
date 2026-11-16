@@ -1,4 +1,4 @@
-"""Keyless boot tests for the production exe and development dsh carrier.
+"""Keyless boot tests for the production exe and development jan carrier.
 
 Each carrier skips independently when absent. The dummy API key only satisfies
 adapter loading; initialize and shutdown do not call a model.
@@ -11,9 +11,9 @@ from pathlib import Path
 
 import pytest
 
-from deepseek_harness import DeepSeekHarness, HarnessClient, HarnessConfig
-from deepseek_harness.errors import JsonRpcError, TransportClosedError
-from deepseek_harness_runtime import RUNTIME_MODE_ENV_VAR, resolve_bundled_launch_args
+from jan import Jan, HarnessClient, HarnessConfig
+from jan.errors import JsonRpcError, TransportClosedError
+from jan_runtime import RUNTIME_MODE_ENV_VAR, resolve_bundled_launch_args
 
 _MODES = ("exe", "node")
 
@@ -30,14 +30,14 @@ def _client(tmp_path: Path, mode: str, monkeypatch: pytest.MonkeyPatch, *patches
     _select_mode(mode, monkeypatch)
     return HarnessClient(
         HarnessConfig(
-            dsh_home=str(tmp_path / "home"),
+            jan_home=str(tmp_path / "home"),
             patches=tuple(str(patch) for patch in patches),
             cwd=str(tmp_path),
             env={
                 "TOKAMAK_API_KEY": "sk-dummy-for-boot",
                 "TOKAMAK_BASE_URL": "http://127.0.0.1:9",
-                "DSH_PERMISSION_MODE": "danger-full-access",
-                "DSH_TELEMETRY_DISABLED": "1",
+                "JAN_PERMISSION_MODE": "danger-full-access",
+                "JAN_TELEMETRY_DISABLED": "1",
             },
             request_timeout_seconds=120,
         )
@@ -52,11 +52,11 @@ def test_bundled_runtime_boots_the_sdk_profile(
         init = client.initialize(provider="tokamak", cwd=str(tmp_path), model="tokamak-1-preview")
 
     assert init.serverInfo is not None
-    assert init.serverInfo.name == "deepseek-harness-sdk-runtime"
+    assert init.serverInfo.name == "jan-sdk-runtime"
     profile = json.loads((tmp_path / "home" / "profiles" / "sdk" / "package.json").read_text())
-    assert profile["dsh"]["profile"]["bundles"] == [
-        "@deepseek-ai/dsh-base",
-        "@deepseek-ai/dsh-sdk-app",
+    assert profile["jan"]["profile"]["bundles"] == [
+        "@janhq/jan-base",
+        "@janhq/jan-sdk-app",
     ]
 
 
@@ -70,11 +70,11 @@ def test_python_sdk_applies_an_ordered_profile_patch(
         "id": "system-prompt",
         "config": {"persona": "Python SDK ordered patch marker."},
     }]))
-    harness = DeepSeekHarness(
+    harness = Jan(
         cwd=str(tmp_path),
-        dsh_home=str(tmp_path / "home"),
+        jan_home=str(tmp_path / "home"),
         patches=(str(patch),),
-        env={"DSH_PERMISSION_MODE": "danger-full-access"},
+        env={"JAN_PERMISSION_MODE": "danger-full-access"},
         api_key="sk-dummy-for-boot",
         base_url="http://127.0.0.1:9",
         request_timeout_seconds=120,
@@ -90,7 +90,7 @@ def test_bundled_runtime_surfaces_unbundled_plugin_failure(
 ) -> None:
     patch = tmp_path / "missing.patch.yml"
     patch.write_text(json.dumps([{
-        "insert": [{"id": "missing", "name": "@deepseek-ai/dsh-does-not-exist"}],
+        "insert": [{"id": "missing", "name": "@janhq/jan-does-not-exist"}],
     }]))
 
     client = _client(tmp_path, mode, monkeypatch, patch)
@@ -101,4 +101,4 @@ def test_bundled_runtime_surfaces_unbundled_plugin_failure(
     finally:
         client.close()
 
-    assert "@deepseek-ai/dsh-does-not-exist" in str(excinfo.value)
+    assert "@janhq/jan-does-not-exist" in str(excinfo.value)

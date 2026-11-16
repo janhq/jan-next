@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
-import type { CatalogModelInfo, LlamaCppProgress, LlamaCppState, LocalModelEntry } from '@deepseek-ai/dsh-api-llama-cpp-controller'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import { bindSnapshotSelector } from '@janhq/jan-client-test-runtime'
+import type { CatalogModelInfo, LlamaCppProgress, LlamaCppState, LocalModelEntry } from '@janhq/jan-api-llama-cpp-controller'
 import { LocalModelCard, type LocalModelCardProps } from '../src/client/LocalModelCard.tsx'
 import { LocalSetup, type LocalSetupProps } from '../src/client/LocalSetup.tsx'
 import { en } from '../src/client/locales.ts'

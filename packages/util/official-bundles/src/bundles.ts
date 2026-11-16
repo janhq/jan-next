@@ -1,4 +1,4 @@
-/** The bundle package names the dsh installation selects, offers, installs on demand, or retires. */
+/** The bundle package names the jan installation selects, offers, installs on demand, or retires. */
 
 /** Installation-owned defaults used when a shipped profile is first opened. */
 export interface ProfileTemplate {
@@ -9,19 +9,19 @@ export interface ProfileTemplate {
 /** The shipped profile templates auto-initialized on first use, by name. */
 export const PROFILE_TEMPLATES: Record<string, ProfileTemplate> = {
   acp: {
-    bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-acp-app'],
+    bundles: ['@janhq/jan-base', '@janhq/jan-acp-app'],
   },
   web: {
-    bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app'],
+    bundles: ['@janhq/jan-base', '@janhq/jan-web-app'],
   },
   headless: {
-    bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-headless'],
+    bundles: ['@janhq/jan-base', '@janhq/jan-headless'],
   },
   sdk: {
-    bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-sdk-app'],
+    bundles: ['@janhq/jan-base', '@janhq/jan-sdk-app'],
   },
   'sdk-minimal': {
-    bundles: ['@deepseek-ai/dsh-sdk-minimal'],
+    bundles: ['@janhq/jan-sdk-minimal'],
   },
 }
 
@@ -30,23 +30,23 @@ export const PROFILE_TEMPLATES: Record<string, ProfileTemplate> = {
  * match with the {@link PROFILE_TEMPLATES} entry of the same name and leaves every other list untouched.
  */
 export const INSTALLATION_OWNED_PROFILE_TUPLES: Readonly<Record<string, readonly string[]>> = {
-  headless: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-headless'],
+  headless: ['@janhq/jan-base', '@janhq/jan-web-app', '@janhq/jan-headless'],
 }
 
 /** Bundles an earlier release shipped and the installation no longer carries; app-boot removes them from profiles. */
 export const RETIRED_BUNDLES: ReadonlySet<string> = new Set([
   // The Web composition mounts Schedule itself
   // ([upgrade guide](../../../../docs/upgrade-guide/v0.2.0-rc.2/schedule-bundle-retired/guide.md)).
-  '@deepseek-ai/dsh-experimental-schedule-bundle',
-  '@deepseek-ai/dsh-experimental-agent-team-profile',
+  '@janhq/jan-experimental-schedule-bundle',
+  '@janhq/jan-experimental-agent-team-profile',
 ])
 
-/** The bundle list a `dsh plugin` init uses for a name with no shipped template. */
-export const DEFAULT_PROFILE_BUNDLES: readonly string[] = ['@deepseek-ai/dsh-base']
+/** The bundle list a `jan plugin` init uses for a name with no shipped template. */
+export const DEFAULT_PROFILE_BUNDLES: readonly string[] = ['@janhq/jan-base']
 
 /**
- * The bundles the dsh installation ships for a person to switch on: each a
- * runtime dependency of the installation that declares `dsh.bundle.patch`,
+ * The bundles the jan installation ships for a person to switch on: each a
+ * runtime dependency of the installation that declares `jan.bundle.patch`,
  * an `icon`, and `./locale/*.json` display metadata, selected by no shipped
  * template, and offered switched off by the plugin manager except persistent
  * terminals, which have no page switch
@@ -54,25 +54,25 @@ export const DEFAULT_PROFILE_BUNDLES: readonly string[] = ['@deepseek-ai/dsh-bas
  * [admission](../../../../.agents/notes/implemented/architecture/2026-09-21-experimental-capabilities-as-optional-bundles.md)).
  */
 export const OPTIONAL_BUNDLES: readonly string[] = [
-  '@deepseek-ai/dsh-personalized-recommendations',
-  '@deepseek-ai/dsh-cua-bundle',
-  '@deepseek-ai/dsh-experimental-session-search',
-  '@deepseek-ai/dsh-experimental-ralph-bundle',
-  '@deepseek-ai/dsh-experimental-terminal-bundle',
-  '@deepseek-ai/dsh-experimental-badge-skill-bundle',
-  '@deepseek-ai/dsh-experimental-session-titles-bundle',
-  '@deepseek-ai/dsh-experimental-voice-input-bundle',
-  '@deepseek-ai/dsh-experimental-cot-translation-bundle',
-  '@deepseek-ai/dsh-experimental-auto-review',
-  '@deepseek-ai/dsh-experimental-inspector-profile',
-  '@deepseek-ai/dsh-experimental-liveshare',
-  '@deepseek-ai/dsh-experimental-plugin-market-bundle',
-  '@deepseek-ai/dsh-experimental-tool-worktree',
-  '@deepseek-ai/dsh-experimental-forge-bundle',
+  '@janhq/jan-personalized-recommendations',
+  '@janhq/jan-cua-bundle',
+  '@janhq/jan-experimental-session-search',
+  '@janhq/jan-experimental-ralph-bundle',
+  '@janhq/jan-experimental-terminal-bundle',
+  '@janhq/jan-experimental-badge-skill-bundle',
+  '@janhq/jan-experimental-session-titles-bundle',
+  '@janhq/jan-experimental-voice-input-bundle',
+  '@janhq/jan-experimental-cot-translation-bundle',
+  '@janhq/jan-experimental-auto-review',
+  '@janhq/jan-experimental-inspector-profile',
+  '@janhq/jan-experimental-liveshare',
+  '@janhq/jan-experimental-plugin-market-bundle',
+  '@janhq/jan-experimental-tool-worktree',
+  '@janhq/jan-experimental-forge-bundle',
 ]
 
-/** Public DSH release members available through the ordinary on-demand bundle installer. */
+/** Public Jan release members available through the ordinary on-demand bundle installer. */
 export const ON_DEMAND_BUNDLES: readonly string[] = [
-  '@deepseek-ai/dsh-subagent-claude-code',
-  '@deepseek-ai/dsh-subagent-codex',
+  '@janhq/jan-subagent-claude-code',
+  '@janhq/jan-subagent-codex',
 ]

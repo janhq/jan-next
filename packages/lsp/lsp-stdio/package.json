@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-lsp-stdio",
+  "name": "@janhq/jan-lsp-stdio",
   "description": "Generic stdio language-server provider for the Jan LSP capability seam (ctx.lsp) — spawns configured servers, translates JSON-RPC, and serves transient-open goToDefinition/findReferences/goToImplementation/hover queries in the host filesystem namespace",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/lsp/lsp-stdio"
   },
   "type": "module",
@@ -29,28 +29,28 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-brand": "workspace:*",
-    "@deepseek-ai/dsh-fs": "workspace:*",
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-lsp": "workspace:*",
-    "@deepseek-ai/dsh-subprocess": "workspace:*",
-    "@deepseek-ai/dsh-timeout": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-brand": "workspace:*",
+    "@janhq/jan-fs": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-lsp": "workspace:*",
+    "@janhq/jan-subprocess": "workspace:*",
+    "@janhq/jan-timeout": "workspace:*"
   },
   "dependencies": {
-    "@deepseek-ai/dsh-util-values": "workspace:*",
-    "@deepseek-ai/schemastery": "workspace:~"
+    "@janhq/jan-util-values": "workspace:*",
+    "@janhq/schemastery": "workspace:~"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-brand": "workspace:*",
-    "@deepseek-ai/dsh-fs": "workspace:*",
-    "@deepseek-ai/dsh-fs-local": "workspace:*",
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-lsp": "workspace:*",
-    "@deepseek-ai/dsh-subprocess": "workspace:*",
-    "@deepseek-ai/dsh-subprocess-local": "workspace:*",
-    "@deepseek-ai/dsh-timeout": "workspace:*",
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-brand": "workspace:*",
+    "@janhq/jan-fs": "workspace:*",
+    "@janhq/jan-fs-local": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-lsp": "workspace:*",
+    "@janhq/jan-subprocess": "workspace:*",
+    "@janhq/jan-subprocess-local": "workspace:*",
+    "@janhq/jan-timeout": "workspace:*",
     "typescript": "^6.0.3",
     "typescript-language-server": "^5.0.0"
   }

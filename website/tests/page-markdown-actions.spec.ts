@@ -143,11 +143,11 @@ describe('page Markdown actions', () => {
   })
 
   it('offers a working raw link before hydration', async () => {
-    data.site.value = { base: '/deepseek-harness/' }
+    data.site.value = { base: '/jan/' }
     host.innerHTML = await renderToString(createSSRApp(Theme.Layout))
     expect(queryAllByRole(host, 'button')).toHaveLength(0)
     const link = getByRole(host, 'link')
-    expect(link.getAttribute('href')).toBe('/deepseek-harness/guide/quickstart.md')
+    expect(link.getAttribute('href')).toBe('/jan/guide/quickstart.md')
     expect(link.getAttribute('target')).toBe('_blank')
     expect(link.getAttribute('aria-label')).toBe('View as Markdown (opens in a new tab)')
     await expect(`${host.innerHTML}\n`).toMatchFileSnapshot('./expected/page-markdown-static.html')
@@ -287,7 +287,7 @@ describe('page Markdown actions', () => {
     }
   })
 
-  it.each(['/', '/deepseek-harness/'])('uses the manifest index route under base %s, independent of the visible URL', async (base) => {
+  it.each(['/', '/jan/'])('uses the manifest index route under base %s, independent of the visible URL', async (base) => {
     data.site.value = { base }
     data.frontmatter.value = { rawMarkdownPath: 'reference/index.md' }
     route.path = `${base}reference/index.html?from=nav#api`
@@ -318,7 +318,7 @@ describe('page Markdown actions', () => {
     expect(copied).toBeUndefined()
     fireEvent.click(button)
     expect(fetchMock).toHaveBeenCalledOnce()
-    expect(fetchMock.mock.calls[0]?.[0]).toBe('/guide/quickstart.md?dsh-raw=1')
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/guide/quickstart.md?jan-raw=1')
     expect(fetchMock.mock.calls[0]?.[1]?.signal).toBeInstanceOf(AbortSignal)
     await nextTick()
     expect(button).toHaveProperty('disabled', false)
@@ -465,7 +465,7 @@ describe('page Markdown actions', () => {
       expect(getByRole(host, 'status').textContent).toBe('')
       fireEvent.click(getByRole(host, 'button', { name: 'Copy page' }))
       await waitFor(() => { expect(getByRole(host, 'status').textContent).toBe('Markdown copied.') })
-      expect(fetchMock.mock.calls[1]?.[0]).toBe('/reference/index.md?dsh-raw=1')
+      expect(fetchMock.mock.calls[1]?.[0]).toBe('/reference/index.md?jan-raw=1')
     }
   })
 })

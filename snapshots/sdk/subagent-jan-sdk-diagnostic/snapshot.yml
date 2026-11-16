@@ -1,0 +1,8 @@
+version: 1
+scenario: subagent-jan-sdk-diagnostic
+profile: sdk
+composition: sdk-jan-sdk-diagnostic
+recording: live
+header:
+  class: sdk-jan-sdk-diagnostic
+  pin: true

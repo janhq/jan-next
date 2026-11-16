@@ -1,16 +1,16 @@
 /** The `agent-loop` settings section layered over the composition entry. */
 
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
 import { expect, it, onTestFinished } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import LlmRuntime from '@deepseek-ai/dsh-llm'
-import SessionStore from '@deepseek-ai/dsh-session'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime from '@deepseek-ai/dsh-tools'
-import AgentRegistry from '@deepseek-ai/dsh-agent'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
+import { Context } from '@janhq/cordis'
+import LlmRuntime from '@janhq/jan-llm'
+import SessionStore from '@janhq/jan-session'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import ToolRuntime from '@janhq/jan-tools'
+import AgentRegistry from '@janhq/jan-agent'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
 import { liveConfig } from '../../../settings/settings/tests/live-config.ts'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
+import AgentLoop from '@janhq/jan-agent-loop'
 
 async function boot(maxParallelToolCalls?: number) {
   const ctx = new Context()

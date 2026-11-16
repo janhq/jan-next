@@ -1,9 +1,9 @@
 ---
-description: "The agent loop's settings page on the dsh web client's Plugins page: the parallel tool-call cap of the agent-loop namespace."
+description: "The agent loop's settings page on the jan web client's Plugins page: the parallel tool-call cap of the agent-loop namespace."
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-client-ui-settings-agent-loop
+# @janhq/jan-client-ui-settings-agent-loop
 
 ## Summary
 

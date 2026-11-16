@@ -1,6 +1,6 @@
 /** Host-wide management of Host tasks: identities, listing, atomic edits, revision checks, notices, and manual runs. */
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { SessionId } from '@deepseek-ai/dsh-session'
+import { SessionId } from '@janhq/jan-session'
 import {
   createAfterScheduleRecord, createAtScheduleRecord, createCronScheduleRecord, createDailyScheduleRecord,
   createEveryScheduleRecord, createWeeklyScheduleRecord, ScheduleId,

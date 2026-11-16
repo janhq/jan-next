@@ -8,14 +8,14 @@
  * `--json` record parsing, per-line preview retention, match retention,
  * grouping, and formatting; process concerns stay behind `ctx.subprocess`.
  *
- * @module @deepseek-ai/dsh-tool-fs-search/grep
+ * @module @janhq/jan-tool-fs-search/grep
  */
 
-import type { Context } from '@deepseek-ai/cordis'
-import { defineTool } from '@deepseek-ai/dsh-tools'
-import type { GenericCallView, SearchResultView, ToolResult } from '@deepseek-ai/dsh-tools'
-import type { RetainedItems } from '@deepseek-ai/dsh-output-retention'
-import type { SpillRef } from '@deepseek-ai/dsh-spill'
+import type { Context } from '@janhq/cordis'
+import { defineTool } from '@janhq/jan-tools'
+import type { GenericCallView, SearchResultView, ToolResult } from '@janhq/jan-tools'
+import type { RetainedItems } from '@janhq/jan-output-retention'
+import type { SpillRef } from '@janhq/jan-spill'
 import type { GrepMatch } from './search-core.ts'
 import { SearchError, previewLine, retainGrepMatches, runRipgrep, toWorkdirRelative, trySaveFormattedResult } from './search-core.ts'
 import { grepSearchMeta, searchViewFromMeta } from './presentation.ts'

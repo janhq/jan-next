@@ -16,7 +16,7 @@ const application = windows ? join(artifacts, 'win-unpacked')
   : join(artifacts, target === 'mac-arm64' ? 'mac-arm64' : 'mac', 'Jan Alpha.app', 'Contents')
 const resources = join(application, windows ? 'resources' : 'Resources')
 const executable = windows ? join(application, 'Jan Alpha.exe') : join(application, 'MacOS', 'Jan Alpha')
-const descriptor = await verifyDesktopRuntime(paths.dsh, readDesktopRuntime(paths.dsh).release.version,
+const descriptor = await verifyDesktopRuntime(paths.jan, readDesktopRuntime(paths.jan).release.version,
   resolveDesktopPackageTarget(target))
 if (windows && !values.unsigned) await verifyWindowsCode(application)
-await smokePreparedRuntime(join(resources, 'app.asar', 'dsh'), executable, join(resources, 'runtime'), descriptor)
+await smokePreparedRuntime(join(resources, 'app.asar', 'jan'), executable, join(resources, 'runtime'), descriptor)

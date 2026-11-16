@@ -1,19 +1,19 @@
 // @vitest-environment jsdom
-import { contextMenuHook } from '@deepseek-ai/dsh-client-test-runtime'
-import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
+import { contextMenuHook } from '@janhq/jan-client-test-runtime'
+import type { GlobalStandardProps } from '@janhq/jan-client-ui-slots'
 import { useSyncExternalStore } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { allowAllAccess } from '@deepseek-ai/dsh-client-test-runtime'
-import { ToolCallId } from '@deepseek-ai/dsh-llm'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { AskUserQuestionAnswerItem } from '@deepseek-ai/dsh-user-questions/types'
+import { allowAllAccess } from '@janhq/jan-client-test-runtime'
+import { ToolCallId } from '@janhq/jan-llm'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { AskUserQuestionAnswerItem } from '@janhq/jan-user-questions/types'
 import { createWaterfallRequest, PendingQuestion, type QuestionCardSnapshot, type QuestionComposerProps } from '../src/client/contract/slots.ts'
 import { createQuestionDraftStore } from '../src/client/draft-store.ts'
 import { QuestionComposer as Composer, parseRecommendedLabel } from '../src/client/QuestionComposer.tsx'
 import { en, zh } from '../src/client/locales.ts'
-import { en as commonEn } from '@deepseek-ai/dsh-client-locale/src/locales/en.ts'
-import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
+import { en as commonEn } from '@janhq/jan-client-locale/src/locales/en.ts'
+import { zh as commonZh } from '@janhq/jan-client-locale/src/locales/zh.ts'
 
 // Every session-scope fixture carries the resource hook the resources plugin merges into GlobalStandardProps.
 const useResource = (() => ({ status: 'none' as const, value: undefined, failure: undefined, reload: () => {} })) as GlobalStandardProps['useResource']

@@ -1,8 +1,8 @@
 /** Structured Session actions over the workspace owner's existing callbacks. */
-import type { Context } from '@deepseek-ai/cordis'
-import type { RemoteEndpoint } from '@deepseek-ai/dsh-api-remote-access/client'
-import type { ShortcutCommandId } from '@deepseek-ai/dsh-client-shortcuts/client'
-import type { MenuContribution, ContextMenuTargetMap } from '@deepseek-ai/dsh-client-ui-context-menu/client'
+import type { Context } from '@janhq/cordis'
+import type { RemoteEndpoint } from '@janhq/jan-api-remote-access/client'
+import type { ShortcutCommandId } from '@janhq/jan-client-shortcuts/client'
+import type { MenuContribution, ContextMenuTargetMap } from '@janhq/jan-client-ui-context-menu/client'
 import type {
   ArchiveSessionInjected, ForkSessionInjected, PinSessionInjected, RenameSessionInjected, SessionIdInjected,
 } from '../contract/slots.ts'

@@ -2,14 +2,14 @@
  * Search and fetch through Exa's hosted MCP endpoint, which serves `web_search_exa` and
  * `web_fetch_exa` without an API key. Each operation is one stateless JSON-RPC `tools/call` POST;
  * the reply is either a JSON body or a single-message SSE stream.
- * @module @deepseek-ai/dsh-web-search-exa/provider
+ * @module @janhq/jan-web-search-exa/provider
  */
 
-import { WebError } from '@deepseek-ai/dsh-web'
+import { WebError } from '@janhq/jan-web'
 import type {
   WebFetchProvider, WebFetchRequest, WebFetchResult, WebSearchProvider, WebSearchRequest, WebSearchResult,
   WebSearchSource,
-} from '@deepseek-ai/dsh-web'
+} from '@janhq/jan-web'
 
 /** Stable id both providers register under, one per capability kind. */
 export const EXA_PROVIDER_ID = 'exa'

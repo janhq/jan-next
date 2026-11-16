@@ -1,6 +1,6 @@
 # User Credentials
 
-The credential seam of [dsh-credentials](../../packages/credentials/credentials) keeps secrets out of configuration: settings sections and `cordis.yml` entries carry *references* (environment-variable names), providers such as [dsh-credentials-local](../../packages/credentials/credentials-local) own the values, and consumers resolve a reference once per operation — the LLM adapters resolve once per model request, so a rotated credential reaches the very next request without any restart. One seam-wide rule binds every provider: an empty stored value is absent everywhere.
+The credential seam of [jan-credentials](../../packages/credentials/credentials) keeps secrets out of configuration: settings sections and `cordis.yml` entries carry *references* (environment-variable names), providers such as [jan-credentials-local](../../packages/credentials/credentials-local) own the values, and consumers resolve a reference once per operation — the LLM adapters resolve once per model request, so a rotated credential reaches the very next request without any restart. One seam-wide rule binds every provider: an empty stored value is absent everywhere.
 
 Source: [`packages/credentials/credentials/src/index.ts`](../../packages/credentials/credentials/src/index.ts)
 
@@ -486,6 +486,6 @@ Local grant removal has completed.
 Source: [`packages/credentials/tokamak-account/src/account.ts`](../../packages/credentials/tokamak-account/src/account.ts)
 <!-- END GENERATED cordis-surface -->
 
-The account Service Definition exposes getState, getProfile, getBalance, getUnnotifiedBonuses, ackBonusNotified, startSignIn, cancelSignIn, signOut, watch, and Host-only resolveToken and getPlatformSession. [dsh-tokamak-account](../../packages/credentials/tokamak-account) declares it and implements it with Tokamak device sign-in. AccountView distinguishes stored presence from server validation; attempt IDs bind cancellation to one local flow.
+The account Service Definition exposes getState, getProfile, getBalance, getUnnotifiedBonuses, ackBonusNotified, startSignIn, cancelSignIn, signOut, watch, and Host-only resolveToken and getPlatformSession. [jan-tokamak-account](../../packages/credentials/tokamak-account) declares it and implements it with Tokamak device sign-in. AccountView distinguishes stored presence from server validation; attempt IDs bind cancellation to one local flow.
 
-`AccountClientMetadata` carries `version` from the caller’s `DSH_CLIENT_VERSION`, its active UI `locale`, and `timezoneOffsetSeconds` sampled when the operation begins. The offset is local time minus UTC in seconds: UTC+8 is `28800`. It contains no credentials. Login attempts retain their initiating metadata through exchange and cancellation; sign-out retains its metadata for revocation retries.
+`AccountClientMetadata` carries `version` from the caller’s `JAN_CLIENT_VERSION`, its active UI `locale`, and `timezoneOffsetSeconds` sampled when the operation begins. The offset is local time minus UTC in seconds: UTC+8 is `28800`. It contains no credentials. Login attempts retain their initiating metadata through exchange and cancellation; sign-out retains its metadata for revocation retries.

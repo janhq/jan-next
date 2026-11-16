@@ -7,11 +7,11 @@
  */
 
 import type { ReactNode } from 'react'
-import { IconBranchOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import { IconBranchOutlineRegular } from '@janhq/jan-client-ui-primitives'
+import type { InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
 // Type-only: pulls the ui-workspace SlotMap merge (the Session row seats).
-import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
-import type { ChecksRollup } from '@deepseek-ai/dsh-experimental-forge/types'
+import type {} from '@janhq/jan-client-ui-workspace/client'
+import type { ChecksRollup } from '@janhq/jan-experimental-forge/types'
 import { ChangeRequestGlyph } from './glyphs.tsx'
 import type { ForgePanelKey, NS } from './locales.ts'
 import { useSessionForgeFacts, type SessionListChangeRequest, type SessionListInjected } from './session-list.ts'

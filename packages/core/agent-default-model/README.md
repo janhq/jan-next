@@ -3,7 +3,7 @@ description: "The deployment default model selection for users and maintainers c
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-agent-default-model
+# @janhq/jan-agent-default-model
 
 ## Summary
 
@@ -30,7 +30,7 @@ Mount this package wherever agents are created without an explicit model route. 
 The composition requires a provider and model. Consumers read the live references even when no configuration editor is mounted.
 
 ```yaml
-- name: '@deepseek-ai/dsh-agent-default-model'
+- name: '@janhq/jan-agent-default-model'
   config:
     provider: deepseek
     model: deepseek-chat

@@ -3,11 +3,11 @@ description: "The credential seam for users and maintainers resolving, describin
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-credentials
+# @janhq/jan-credentials
 
 ## Summary
 
-`dsh-credentials` keeps secret values out of configuration by letting settings and `cordis.yml` refer to key names such as `DEEPSEEK_API_KEY`. It also stores durable per-plugin credential records, including authorization grants and provider environment values. A rotated stored key applies to the next request without a restart or configuration edit. Configuration UIs can report whether a key or record is set, its source, and whether it is writable without exposing values. Empty key values count as absent, while an empty record remains a deliberate stored credential.
+`jan-credentials` keeps secret values out of configuration by letting settings and `cordis.yml` refer to key names such as `DEEPSEEK_API_KEY`. It also stores durable per-plugin credential records, including authorization grants and provider environment values. A rotated stored key applies to the next request without a restart or configuration edit. Configuration UIs can report whether a key or record is set, its source, and whether it is writable without exposing values. Empty key values count as absent, while an empty record remains a deliberate stored credential.
 
 ## Table of Contents
 
@@ -34,7 +34,7 @@ Use a credential store whenever configuration must stay free of secret values: s
 Load the local store package with a document path:
 
 ```yaml
-- name: '@deepseek-ai/dsh-credentials-local'
+- name: '@janhq/jan-credentials-local'
   config:
     path: /absolute/path/to/.credentials.yaml
 ```
@@ -44,8 +44,8 @@ The local store README owns the full configuration surface; the generated [confi
 ### Storing, checking, and removing keys
 
 ```ts
-import type { Context } from '@deepseek-ai/cordis'
-import { credentialRef } from '@deepseek-ai/dsh-credentials'
+import type { Context } from '@janhq/cordis'
+import { credentialRef } from '@janhq/jan-credentials'
 
 declare const ctx: Context
 
@@ -63,8 +63,8 @@ Store a key with `set`, remove it with `unset`, check its status with `describe`
 A plugin addresses each record by `<scope>/<id>` — its own registered name plus an id it chooses, such as a provider route key — and reads, modifies, or removes what it holds:
 
 ```ts
-import type { Context } from '@deepseek-ai/cordis'
-import { credentialKey } from '@deepseek-ai/dsh-credentials'
+import type { Context } from '@janhq/cordis'
+import { credentialKey } from '@janhq/jan-credentials'
 
 declare const ctx: Context
 
@@ -90,7 +90,7 @@ Requests that need the key use its current stored value, so rotating the key tak
 
 ### What can go wrong
 
-- **A stored key outranks the launching environment** — while a value is stored, `DEEPSEEK_API_KEY=… dsh` (or a CI secret, a container `-e`) does not apply; `unset` the stored key to use the exported one.
+- **A stored key outranks the launching environment** — while a value is stored, `DEEPSEEK_API_KEY=… jan` (or a CI secret, a container `-e`) does not apply; `unset` the stored key to use the exported one.
 - **An empty value cannot be stored** — storing an empty string is refused; remove the key instead.
 - **Key values never appear in configuration UIs or diagnostics** — the UI shows whether a key is set, where it comes from, and whether you can change it; the value itself stays in the store.
 

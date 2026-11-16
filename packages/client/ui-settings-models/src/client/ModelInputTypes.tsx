@@ -1,7 +1,7 @@
 /** Input-type declarations of a catalog model row (`input`). */
 
 import type { ReactNode } from 'react'
-import { Checkbox } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Checkbox } from '@janhq/jan-client-ui-primitives'
 import type { DeepSeekModelDraft } from './DeepSeekModelsEditor.tsx'
 import type { ModelsKey } from './locales.ts'
 import styles from './ModelsSection.module.css'

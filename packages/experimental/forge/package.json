@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-experimental-forge",
+  "name": "@janhq/jan-experimental-forge",
   "description": "Provider-neutral change request registry with shared status polling",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -28,18 +28,18 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/experimental/forge"
   },
   "dependencies": {
-    "@deepseek-ai/schemastery": "workspace:~",
-    "@deepseek-ai/dsh-brand": "workspace:*",
-    "@deepseek-ai/dsh-timeout": "workspace:*"
+    "@janhq/schemastery": "workspace:~",
+    "@janhq/jan-brand": "workspace:*",
+    "@janhq/jan-timeout": "workspace:*"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/cordis": "workspace:~"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/cordis": "workspace:~"
   }
 }

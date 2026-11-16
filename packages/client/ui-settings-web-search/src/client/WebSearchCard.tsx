@@ -4,11 +4,11 @@
  */
 
 import { useRef, useState, type ReactNode } from 'react'
-import type {} from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
+import type {} from '@janhq/jan-client-ui-plugin-manager/client'
 import {
   Button, IconChevronDownOutlineRegular, Menu, SettingsForm,
-} from '@deepseek-ai/dsh-client-ui-primitives'
-import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+} from '@janhq/jan-client-ui-primitives'
+import type { InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import { formLabels, type WebSearchSettingsLocaleKey } from './locales.ts'
 import styles from './WebSearchCard.module.css'
 import {

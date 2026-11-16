@@ -1,9 +1,9 @@
 /** Complete-log continuation projection, including recovery and publication. */
-import { Context } from '@deepseek-ai/cordis'
-import SessionStore, { SessionId, SessionSeq, SessionLogOffset } from '@deepseek-ai/dsh-session'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
-import { createAssistantMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
-import type { SessionEvent, TurnEndReason } from '@deepseek-ai/dsh-session/types'
+import { Context } from '@janhq/cordis'
+import SessionStore, { SessionId, SessionSeq, SessionLogOffset } from '@janhq/jan-session'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
+import { createAssistantMessage, createUserMessage } from '@janhq/jan-llm'
+import type { SessionEvent, TurnEndReason } from '@janhq/jan-session/types'
 import { expect, it, onTestFinished, vi } from 'vitest'
 
 import { continuationProjectionDefinition as definition } from '../src/continuation.ts'

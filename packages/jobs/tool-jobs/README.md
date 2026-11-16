@@ -3,11 +3,11 @@ description: "The model-facing background-job controls for users and maintainers
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-tool-jobs
+# @janhq/jan-tool-jobs
 
 ## Summary
 
-Use `dsh-tool-jobs` to inspect and control background commands and PTY work through `job_output`, `job_list`, and `job_kill`. Reads can wait within a configured timeout, and a wait yields early to a user steer; list results identify each job's kind and status, and cancellation settles after the work stops. When owned work finishes, the agent receives an in-session notice carrying short output: busy agents get it next step, and idle agents are woken by a follow-up turn. Configuration controls wait limits, completion delivery, and an optional consecutive-wakeup cap. Stream output has one reader, and pending notices do not survive owner disposal.
+Use `jan-tool-jobs` to inspect and control background commands and PTY work through `job_output`, `job_list`, and `job_kill`. Reads can wait within a configured timeout, and a wait yields early to a user steer; list results identify each job's kind and status, and cancellation settles after the work stops. When owned work finishes, the agent receives an in-session notice carrying short output: busy agents get it next step, and idle agents are woken by a follow-up turn. Configuration controls wait limits, completion delivery, and an optional consecutive-wakeup cap. Stream output has one reader, and pending notices do not survive owner disposal.
 
 ## Table of Contents
 
@@ -44,7 +44,7 @@ Waking is unbounded by default: an unattended agent that chains background comma
 Loading the plugin with no config is the common path; a `waitTimeoutMs` above `maxWaitTimeoutMs` fails at load.
 
 ```yaml
-- name: '@deepseek-ai/dsh-tool-jobs'
+- name: '@janhq/jan-tool-jobs'
 ```
 
 | Field | Default | Meaning |

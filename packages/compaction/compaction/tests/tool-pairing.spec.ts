@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { createUserMessage, ToolCallId , createMessage, createToolResultMessage } from '@deepseek-ai/dsh-llm'
-import type { ContextFormed } from '@deepseek-ai/dsh-llm'
-import { CompactionId, compactCheckpointSource, toolPairingBalancedAfter, toolPairingBalancedBefore } from '@deepseek-ai/dsh-compaction'
-import { Session, SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
-import type { SessionEvent, SessionSeq as SessionSeqType } from '@deepseek-ai/dsh-session'
+import { createUserMessage, ToolCallId , createMessage, createToolResultMessage } from '@janhq/jan-llm'
+import type { ContextFormed } from '@janhq/jan-llm'
+import { CompactionId, compactCheckpointSource, toolPairingBalancedAfter, toolPairingBalancedBefore } from '@janhq/jan-compaction'
+import { Session, SessionId, SessionSeq } from '@janhq/jan-session'
+import type { SessionEvent, SessionSeq as SessionSeqType } from '@janhq/jan-session'
 
-declare module '@deepseek-ai/dsh-llm' {
+declare module '@janhq/jan-llm' {
   interface MessageSourceMap {
     'test': { kind: 'test' } & ContextFormed
   }

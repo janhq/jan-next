@@ -3,17 +3,17 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Context } from '@deepseek-ai/cordis'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import { createUserMessage, LlmAdapter } from '@deepseek-ai/dsh-llm'
-import type { GenerateOptions, StreamChunk } from '@deepseek-ai/dsh-llm'
-import { SessionId } from '@deepseek-ai/dsh-session'
-import type { Session } from '@deepseek-ai/dsh-session'
-import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
-import Storage from '@deepseek-ai/dsh-storage'
-import * as StorageDomain from '@deepseek-ai/dsh-storage-domain'
-import * as StorageJson from '@deepseek-ai/dsh-storage-json'
+import { Context } from '@janhq/cordis'
+import AgentLoop from '@janhq/jan-agent-loop'
+import { mountAgentLoopTestDependencies } from '@janhq/jan-agent-loop-testkit'
+import { createUserMessage, LlmAdapter } from '@janhq/jan-llm'
+import type { GenerateOptions, StreamChunk } from '@janhq/jan-llm'
+import { SessionId } from '@janhq/jan-session'
+import type { Session } from '@janhq/jan-session'
+import * as JsonlSessionPersistence from '@janhq/jan-session-persistence-jsonl'
+import Storage from '@janhq/jan-storage'
+import * as StorageDomain from '@janhq/jan-storage-domain'
+import * as StorageJson from '@janhq/jan-storage-json'
 import ScheduleService from '../src/index.ts'
 
 /** A rule whose only occurrence lies beyond every test run, so no delivery competes with the notices. */
@@ -44,7 +44,7 @@ class ReplyAdapter extends LlmAdapter {
 
 /** Schedule service beside a production AgentLoop with one idle Agent that answers through {@link ReplyAdapter}. */
 async function setup() {
-  const root = await mkdtemp(join(tmpdir(), 'dsh-schedule-notice-'))
+  const root = await mkdtemp(join(tmpdir(), 'jan-schedule-notice-'))
   roots.push(root)
   const ctx = new Context()
   contexts.push(ctx)

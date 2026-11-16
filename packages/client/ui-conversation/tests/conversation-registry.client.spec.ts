@@ -1,24 +1,24 @@
-import { Context } from '@deepseek-ai/cordis'
+import { Context } from '@janhq/cordis'
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
-import { SessionSeq } from '@deepseek-ai/dsh-session/types'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import { createAssistantMessage, LlmAttemptId } from '@deepseek-ai/dsh-llm'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
+import { SessionSeq } from '@janhq/jan-session/types'
+import type { SessionId } from '@janhq/jan-session/types'
+import { createAssistantMessage, LlmAttemptId } from '@janhq/jan-llm'
+import { createSnapshotStore } from '@janhq/jan-client-store'
 import {
   createScope, MutableSessionEventSource,
-} from '@deepseek-ai/dsh-api-session-controller/client'
+} from '@janhq/jan-api-session-controller/client'
 import type {
   ISessions, SessionBinding, SessionEventLike, SessionFace, SessionListState, SessionSnapshot,
-} from '@deepseek-ai/dsh-api-session-controller/client'
+} from '@janhq/jan-api-session-controller/client'
 import {
   ConversationEventRegistry, ConversationNodeAssembler, ConversationViewRegistry, UiConversation,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
+} from '@janhq/jan-client-ui-conversation/client'
 import type {
   ConversationNodeDefinition, ConversationViewDefinition, ConversationViewNode,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
+} from '@janhq/jan-client-ui-conversation/client'
 import { ConversationUpdateError } from '../src/client/conversation/assembler.ts'
 
-declare module '@deepseek-ai/dsh-client-ui-conversation/client' {
+declare module '@janhq/jan-client-ui-conversation/client' {
   interface ConversationViewSnapshotMap {
     /** Node ids published by the incremental-failure recovery test view. */
     'recovery-probe': readonly string[]

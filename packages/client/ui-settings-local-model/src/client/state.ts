@@ -1,8 +1,8 @@
 /** One reconnecting mirror of the Host's local model state, shared by every view. */
-import type { Context } from '@deepseek-ai/cordis'
-import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { LlamaCppState } from '@deepseek-ai/dsh-api-llama-cpp-controller'
-import type {} from '@deepseek-ai/dsh-api-llama-cpp-controller/remote'
+import type { Context } from '@janhq/cordis'
+import { createSnapshotStore, type SnapshotStore } from '@janhq/jan-client-store'
+import type { LlamaCppState } from '@janhq/jan-api-llama-cpp-controller'
+import type {} from '@janhq/jan-api-llama-cpp-controller/remote'
 
 /** Latest Host state plus transport health; a lost stream never rewrites the Host state. */
 export interface LocalModelMirror {

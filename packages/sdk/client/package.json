@@ -1,13 +1,13 @@
 {
-  "name": "@deepseek-ai/dsh-sdk-client",
-  "description": "TypeScript client SDK for driving a Jan runtime subprocess over stdio JSON-RPC: the DeepSeekHarness high-level turns API and the lower-level HarnessClient",
+  "name": "@janhq/jan-sdk-client",
+  "description": "TypeScript client SDK for driving a Jan runtime subprocess over stdio JSON-RPC: the Jan high-level turns API and the lower-level HarnessClient",
   "version": "0.2.2-rc.1",
   "publishConfig": {
     "access": "public"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/sdk/client"
   },
   "type": "module",
@@ -26,19 +26,19 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "@deepseek-ai/dsh": "workspace:*"
+    "@janhq/jan": "workspace:*"
   },
   "peerDependencies": {
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-sdk-protocol": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-sdk-protocol": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/cordis": "workspace:~"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-sdk-protocol": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-experimental-translator": "workspace:*"
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-sdk-protocol": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-experimental-translator": "workspace:*"
   }
 }

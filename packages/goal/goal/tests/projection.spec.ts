@@ -9,19 +9,19 @@
  */
 
 import { describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import AgentRegistry, { agentEvents } from '@deepseek-ai/dsh-agent'
-import type { Agent, AgentStatus } from '@deepseek-ai/dsh-agent'
-import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import type { ContextFormed } from '@deepseek-ai/dsh-llm'
-import SessionStore from '@deepseek-ai/dsh-session'
-import type { Session } from '@deepseek-ai/dsh-session'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
-import GoalService, { GoalId, applyGoalProjection, foldGoal, goalProjectionDefinition } from '@deepseek-ai/dsh-goal'
-import type { GoalProjection, GoalProjectionState, GoalRef } from '@deepseek-ai/dsh-goal'
-import { unsupportedModel, unsupportedInbox } from '@deepseek-ai/dsh-agent-loop-testkit'
+import { Context } from '@janhq/cordis'
+import AgentRegistry, { agentEvents } from '@janhq/jan-agent'
+import type { Agent, AgentStatus } from '@janhq/jan-agent'
+import { createUserMessage } from '@janhq/jan-llm'
+import type { ContextFormed } from '@janhq/jan-llm'
+import SessionStore from '@janhq/jan-session'
+import type { Session } from '@janhq/jan-session'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
+import GoalService, { GoalId, applyGoalProjection, foldGoal, goalProjectionDefinition } from '@janhq/jan-goal'
+import type { GoalProjection, GoalProjectionState, GoalRef } from '@janhq/jan-goal'
+import { unsupportedModel, unsupportedInbox } from '@janhq/jan-agent-loop-testkit'
 
-declare module '@deepseek-ai/dsh-llm' {
+declare module '@janhq/jan-llm' {
   interface MessageSourceMap {
     'test': { kind: 'test' } & ContextFormed
   }

@@ -3,7 +3,7 @@ description: "Give Web and SDK agents shared instructions for linking files and 
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-deliverable-file-references
+# @janhq/jan-deliverable-file-references
 
 ## Summary
 
@@ -27,10 +27,10 @@ The Web and `sdk` bundles mount this plugin independently of the `present` tool.
 
 ```yaml
 - id: deliverable-file-references
-  name: '@deepseek-ai/dsh-deliverable-file-references'
+  name: '@janhq/jan-deliverable-file-references'
 ```
 
-There are no configuration fields. Mount [`dsh-tool-present`](../tool-present/README.md) separately to execute file deliveries. Disable this row to omit its guidance.
+There are no configuration fields. Mount [`jan-tool-present`](../tool-present/README.md) separately to execute file deliveries. Disable this row to omit its guidance.
 
 -----
 

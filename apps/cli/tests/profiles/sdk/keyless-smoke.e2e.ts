@@ -4,11 +4,11 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { zstdDecompressSync } from 'node:zlib'
-import { resolveExampleLaunch } from '@deepseek-ai/dsh-loader-smoke'
-import { scanZstdFrames } from '@deepseek-ai/dsh-session-persistence-jsonl/src/zstd.js'
+import { resolveExampleLaunch } from '@janhq/jan-loader-smoke'
+import { scanZstdFrames } from '@janhq/jan-session-persistence-jsonl/src/zstd.js'
 import { execa } from 'execa'
 import { describe, expect, it, onTestFinished } from 'vitest'
-import { workspaceDependencyPaths, type PrimaryRuntimeManifest } from '@deepseek-ai/dsh-tool-workspace-dependencies'
+import { workspaceDependencyPaths, type PrimaryRuntimeManifest } from '@janhq/jan-tool-workspace-dependencies'
 
 import { findToolResult, messagesResponse, toolResultText } from './fixtures/messages-response.ts'
 import { MOCK_MODEL_KEY_ENV, MOCK_MODEL_PROVIDER, writeMockModelRoute } from './fixtures/mock-model-route.ts'
@@ -52,7 +52,7 @@ function waitForLine(
   })
 }
 
-describe('Python SDK dsh profile keyless smoke', () => {
+describe('Python SDK jan profile keyless smoke', () => {
   it.each([
     { label: 'reports max-token turns with the default mapping config', envValue: undefined, editorEnabled: false },
     { label: 'reports max-token turns with mapping enabled through env', envValue: 'true', editorEnabled: false },
@@ -68,7 +68,7 @@ describe('Python SDK dsh profile keyless smoke', () => {
     const unreadEdit = 'unreadEdit' in scenario && scenario.unreadEdit
     const patchEnabled = 'patchEnabled' in scenario && scenario.patchEnabled
 
-    const root = await mkdtemp(join(tmpdir(), 'dsh-python-sdk-runtime-smoke-'))
+    const root = await mkdtemp(join(tmpdir(), 'jan-python-sdk-runtime-smoke-'))
     const unreadFile = join(root, 'notes.txt')
     if (unreadEdit) await writeFile(unreadFile, 'alpha\n')
     const editorPatch = join(root, 'editor.patch.yml')
@@ -77,7 +77,7 @@ describe('Python SDK dsh profile keyless smoke', () => {
     if (editorEnabled) await writeFile(editorPatch, [
       '- insert:',
       '    - id: tool-str-replace-editor',
-      "      name: '@deepseek-ai/dsh-tool-str-replace-editor'",
+      "      name: '@janhq/jan-tool-str-replace-editor'",
       '',
     ].join('\n'))
     const modelRequests: Record<string, unknown>[] = []
@@ -116,12 +116,12 @@ describe('Python SDK dsh profile keyless smoke', () => {
       cwd: repoRoot,
       env: {
         ...launch.env,
-        DSH_HOME: join(root, '.dsh'),
-        DSH_PERMISSION_MODE: 'danger-full-access',
-        DSH_TELEMETRY_DISABLED: '1',
-        DSH_TOOLS_MODE: ptc ? 'native' : 'ptc',
+        JAN_HOME: join(root, '.jan'),
+        JAN_PERMISSION_MODE: 'danger-full-access',
+        JAN_TELEMETRY_DISABLED: '1',
+        JAN_TOOLS_MODE: ptc ? 'native' : 'ptc',
         [MOCK_MODEL_KEY_ENV]: 'keyless-smoke-no-call',
-        ...(envValue === undefined ? {} : { DSH_MAX_TOKENS_AS_SUCCESS: envValue }),
+        ...(envValue === undefined ? {} : { JAN_MAX_TOKENS_AS_SUCCESS: envValue }),
       },
       timeout: 35_000,
       killSignal: 'SIGKILL',
@@ -154,7 +154,7 @@ describe('Python SDK dsh profile keyless smoke', () => {
       expect(initialized).toMatchObject({
         jsonrpc: '2.0',
         id: 1,
-        result: { serverInfo: { name: 'deepseek-harness-sdk-runtime' } },
+        result: { serverInfo: { name: 'jan-sdk-runtime' } },
       })
 
       child.stdin.write(`${JSON.stringify({
@@ -211,15 +211,15 @@ describe('Python SDK dsh profile keyless smoke', () => {
         'Time sampled while preparing']) {
         expect(requestText.includes(text), text).toBe(true)
       }
-      expect(requestText).not.toContain('Current DeepSeek Harness implementation checkout:')
-      expect(requestText).not.toContain('Current DeepSeek Harness Web GUI URL:')
+      expect(requestText).not.toContain('Current Jan implementation checkout:')
+      expect(requestText).not.toContain('Current Jan Web GUI URL:')
 
       child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'shutdown' })}\n`)
       const shutdown = await waitForLine(lines, value => value.id === 3, () => stderr)
       expect(shutdown).toMatchObject({ jsonrpc: '2.0', id: 3, result: {} })
       const exit = await child
       expect(exit.exitCode, `signal=${String(exit.signal)}; stderr=${stderr}`).toBe(0)
-      const sessionsRoot = join(root, '.dsh', 'sessions')
+      const sessionsRoot = join(root, '.jan', 'sessions')
       const files = await readdir(sessionsRoot, { recursive: true })
       // Session logs are JSONL across one zstd frame per batch, header frame
       // first. Decompress frames explicitly: a single call over concatenated
@@ -260,7 +260,7 @@ describe('Python SDK dsh profile keyless smoke', () => {
     { label: 'sends a read_image result to the model with sdk-minimal', editorEnabled: false, imageEnabled: true, optOut: false },
     { label: 'retains the previous tools through the documented opt-out patch', editorEnabled: false, imageEnabled: false, optOut: true },
   ])('$label', async ({ editorEnabled, imageEnabled, optOut }) => {
-    const root = await mkdtemp(join(tmpdir(), 'dsh-python-sdk-minimal-'))
+    const root = await mkdtemp(join(tmpdir(), 'jan-python-sdk-minimal-'))
     onTestFinished(() => rm(root, { recursive: true, force: true }))
     const editorPatch = join(root, 'editor.patch.yml')
     if (editorEnabled) {
@@ -319,8 +319,8 @@ describe('Python SDK dsh profile keyless smoke', () => {
       cwd: repoRoot,
       env: {
         ...launch.env,
-        DSH_HOME: join(root, '.dsh'),
-        DSH_SYSTEM_PROMPT: 'Minimal allowlist prompt.',
+        JAN_HOME: join(root, '.jan'),
+        JAN_SYSTEM_PROMPT: 'Minimal allowlist prompt.',
         [MOCK_MODEL_KEY_ENV]: 'keyless-smoke-no-call',
       },
       timeout: 35_000,
@@ -362,10 +362,10 @@ describe('Python SDK dsh profile keyless smoke', () => {
       })
 
       const profile = JSON.parse(
-        await readFile(join(root, '.dsh', 'profiles', 'sdk-minimal', 'package.json'), 'utf8'),
-      ) as { dsh?: { profile?: { bundles?: string[] } } }
-      expect(profile.dsh?.profile).toEqual({
-        bundles: ['@deepseek-ai/dsh-sdk-minimal'],
+        await readFile(join(root, '.jan', 'profiles', 'sdk-minimal', 'package.json'), 'utf8'),
+      ) as { jan?: { profile?: { bundles?: string[] } } }
+      expect(profile.jan?.profile).toEqual({
+        bundles: ['@janhq/jan-sdk-minimal'],
       })
       expect(modelRequests[0]?.tools).toEqual(expect.any(Array))
       const tools = modelRequests[0]?.tools as { name?: string }[]
@@ -383,7 +383,7 @@ describe('Python SDK dsh profile keyless smoke', () => {
         const imageResult = messages.flatMap(message => message.content)
           .find(block => block.type === 'tool_result' && block.tool_use_id === 'minimal-image-read')
         expect(imageResult?.content?.some(block => block.type === 'image')).toBe(true)
-        const stored = await readdir(join(root, '.dsh', 'attachments', 'v1', 'objects'), { recursive: true })
+        const stored = await readdir(join(root, '.jan', 'attachments', 'v1', 'objects'), { recursive: true })
         expect(stored.some(file => /[a-f0-9]{64}$/u.test(file))).toBe(true)
       }
       if (editorEnabled) {
@@ -405,8 +405,8 @@ describe('Python SDK dsh profile keyless smoke', () => {
   }, 40_000)
 
   it.each([false, true])('exits after startup failure with stdin open (logs blocked: %s)', async (blocked) => {
-    const root = await mkdtemp(join(tmpdir(), 'dsh-sdk-startup-exit-'))
-    const home = join(root, '.dsh')
+    const root = await mkdtemp(join(tmpdir(), 'jan-sdk-startup-exit-'))
+    const home = join(root, '.jan')
     const patch = join(root, 'failure.yml')
     await mkdir(home)
     if (blocked) await writeFile(join(home, 'logs'), 'blocked')
@@ -415,7 +415,7 @@ describe('Python SDK dsh profile keyless smoke', () => {
       ...launch.args, '--profile', 'sdk', '--patch', patch,
     ], {
       cwd: repoRoot,
-      env: { ...launch.env, DSH_HOME: home, DSH_TELEMETRY_DISABLED: '1' },
+      env: { ...launch.env, JAN_HOME: home, JAN_TELEMETRY_DISABLED: '1' },
       stdin: 'pipe',
       stripFinalNewline: false,
       timeout: 25_000,
@@ -446,7 +446,7 @@ describe('Python SDK dsh profile keyless smoke', () => {
   }, 30_000)
 
   it('rejects an invalid max-token success env value', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'dsh-python-sdk-runtime-invalid-'))
+    const root = await mkdtemp(join(tmpdir(), 'jan-python-sdk-runtime-invalid-'))
     try {
       const { exitCode, stdout, stderr } = await execa(launch.command, [
         ...launch.args,
@@ -456,8 +456,8 @@ describe('Python SDK dsh profile keyless smoke', () => {
         cwd: repoRoot,
         env: {
           ...launch.env,
-          DSH_HOME: join(root, '.dsh'),
-          DSH_MAX_TOKENS_AS_SUCCESS: 'sometimes',
+          JAN_HOME: join(root, '.jan'),
+          JAN_MAX_TOKENS_AS_SUCCESS: 'sometimes',
         },
         stdin: 'ignore',
         timeout: 25_000,
@@ -468,7 +468,7 @@ describe('Python SDK dsh profile keyless smoke', () => {
       expect(exitCode, stderr).toBe(1)
       expect(stdout).toBe('')
       expect(stderr).toContain('startup failed:')
-      expect(stderr).toContain('sdk-jsonrpc-server (required)\n    Package: @deepseek-ai/dsh-sdk-jsonrpc-server\n    SyntaxError')
+      expect(stderr).toContain('sdk-jsonrpc-server (required)\n    Package: @janhq/jan-sdk-jsonrpc-server\n    SyntaxError')
       expect(stderr).toContain('sometimes')
     } finally {
       await rm(root, { recursive: true, force: true })
@@ -532,9 +532,9 @@ it.each(['unset', 'empty', 'bundled', 'full', 'python-only', 'python-only-no-cli
   const officeLaunch = resolveExampleLaunch({
     srcBin: fileURLToPath(new URL('../../../src/bin.ts', import.meta.url)), mode: 'lib',
     configArgs: ['--profile', 'sdk', '--patch', routePatch, '--patch', cliPatch],
-    env: { DSH_HOME: home, DSH_PRIMARY_RUNTIME: mode === 'unset' || mode === 'bundled' ? undefined : mode === 'empty' ? '' : source + '/',
-      DSH_BUNDLED_PRIMARY_RUNTIME: mode === 'unset' ? undefined : mode === 'bundled' || mode === 'empty' ? source : join(root, 'unused-default'),
-      DSH_PERMISSION_MODE: 'danger-full-access', DSH_TELEMETRY_DISABLED: '1',
+    env: { JAN_HOME: home, JAN_PRIMARY_RUNTIME: mode === 'unset' || mode === 'bundled' ? undefined : mode === 'empty' ? '' : source + '/',
+      JAN_BUNDLED_PRIMARY_RUNTIME: mode === 'unset' ? undefined : mode === 'bundled' || mode === 'empty' ? source : join(root, 'unused-default'),
+      JAN_PERMISSION_MODE: 'danger-full-access', JAN_TELEMETRY_DISABLED: '1',
       [MOCK_MODEL_KEY_ENV]: 'local-fixture' },
   })
   const child = execa(officeLaunch.command, officeLaunch.args, { cwd: repoRoot, env: officeLaunch.env, timeout: 60_000, reject: false })
@@ -582,5 +582,5 @@ it.each(['unset', 'empty', 'bundled', 'full', 'python-only', 'python-only-no-cli
   expect(exit.timedOut).toBe(false)
   expect(exit.signal).toBeUndefined()
   expect(exit.exitCode, stderr).toBe(0)
-  await expect(readFile(join(home, 'dsh-runtimes', 'dsh-primary-runtime', 'runtime.json'))).rejects.toMatchObject({ code: 'ENOENT' })
+  await expect(readFile(join(home, 'jan-runtimes', 'jan-primary-runtime', 'runtime.json'))).rejects.toMatchObject({ code: 'ENOENT' })
 })

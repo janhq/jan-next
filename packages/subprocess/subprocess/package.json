@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-subprocess",
+  "name": "@janhq/jan-subprocess",
   "description": "Subprocess seam (ctx.subprocess) for the Jan \u2014 managed process groups, bounded spill-backed output, and escalated kills behind one abstract service",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/subprocess/subprocess"
   },
   "type": "module",
@@ -32,12 +32,12 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-http-proxy": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-http-proxy": "workspace:*"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-http-proxy": "workspace:*",
-    "@deepseek-ai/dsh-launch-environment": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-http-proxy": "workspace:*",
+    "@janhq/jan-launch-environment": "workspace:*"
   }
 }

@@ -22,9 +22,9 @@ class FilterableTable {
       hidden: element.hidden,
     }))
     this.#controls = doc.createElement('div')
-    this.#controls.className = 'dsh-table-controls'
+    this.#controls.className = 'jan-table-controls'
     const toolbar = doc.createElement('div')
-    toolbar.className = 'dsh-table-toolbar'
+    toolbar.className = 'jan-table-toolbar'
     this.#input = doc.createElement('input')
     this.#input.type = 'search'
     this.#input.placeholder = copy.placeholder
@@ -42,7 +42,7 @@ class FilterableTable {
     toolbar.append(this.#input, this.#clear)
     this.#controls.append(toolbar, this.#status)
     table.before(this.#controls)
-    table.classList.add('dsh-filterable-table')
+    table.classList.add('jan-filterable-table')
     const options = { signal: this.#events.signal }
     this.#input.addEventListener('input', () => { this.#filter() }, options)
     this.#clear.addEventListener('click', () => {
@@ -78,14 +78,14 @@ class FilterableTable {
 
   positionHeader(offset: number): void {
     // Horizontal overflow makes the table the sticky scroll container; translate its own head to retain column alignment.
-    this.head.style.setProperty('--dsh-table-header-offset', `${offset}px`)
+    this.head.style.setProperty('--jan-table-header-offset', `${offset}px`)
   }
 
   dispose(): void {
     this.#events.abort()
     this.#controls.remove()
-    this.table.classList.remove('dsh-filterable-table')
-    this.head.style.removeProperty('--dsh-table-header-offset')
+    this.table.classList.remove('jan-filterable-table')
+    this.head.style.removeProperty('--jan-table-header-offset')
     for (const row of this.#rows) row.element.hidden = row.hidden
   }
 }

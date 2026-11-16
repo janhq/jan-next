@@ -1,6 +1,6 @@
 /** Anonymous text translation with optional durable provider-independent Session results. */
-import { Context, Service } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
+import { Context, Service } from '@janhq/cordis'
+import z from '@janhq/schemastery'
 import type { TranslationProvider, TranslationRequest, TranslationSpec } from './types.ts'
 import { TranslationError } from './error.ts'
 import { anonymousRecipe, translateText } from './provider.ts'
@@ -11,7 +11,7 @@ import type { TranslationIdentity } from './types.ts'
 export type * from './types.ts'
 export { TranslationError } from './error.ts'
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     /** Experimental text translator with optional durable Session reuse. */
     translator: Translator

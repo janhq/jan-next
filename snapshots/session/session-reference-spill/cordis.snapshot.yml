@@ -5,13 +5,13 @@
   disabled: true
 
 - id: session-persistence-jsonl
-  name: '@deepseek-ai/dsh-session-persistence-jsonl'
+  name: '@janhq/jan-session-persistence-jsonl'
   config:
-    root: !!js dshHomePath('sessions')
+    root: !!js janHomePath('sessions')
     compression: none
 
 - id: sandbox
-  name: '@deepseek-ai/dsh-sandbox-local'
+  name: '@janhq/jan-sandbox-local'
   config:
     runnerCommand:
       - bash
@@ -23,7 +23,7 @@
 
 - insert:
     - id: llm-replay
-      name: '@deepseek-ai/dsh-llm-replay'
+      name: '@janhq/jan-llm-replay'
       config:
         providers:
           - id: deepseek-official
@@ -33,14 +33,14 @@
               - id: deepseek-v4-pro
 
 - id: spill-local
-  name: '@deepseek-ai/dsh-spill-local'
+  name: '@janhq/jan-spill-local'
   config:
-    root: !!js process.env.DSH_SNAPSHOT_SPILL_ROOT ?? './.spill'
+    root: !!js process.env.JAN_SNAPSHOT_SPILL_ROOT ?? './.spill'
     cleanupPeriodDays: 0
 
 - insert:
     - id: session-reference
-      name: '@deepseek-ai/dsh-session-reference'
+      name: '@janhq/jan-session-reference'
       config:
         maxReferenceBytes: 360
     - id: reference-source-fixture
@@ -50,5 +50,5 @@
     - id: snapshot-spill-locators
       name: ../../../scripts/snapshot-spill-locators.ts
       config:
-        root: !!js process.env.DSH_SNAPSHOT_SPILL_ROOT
-        locatorRoot: !!js process.env.DSH_SNAPSHOT_SPILL_LOCATOR_ROOT
+        root: !!js process.env.JAN_SNAPSHOT_SPILL_ROOT
+        locatorRoot: !!js process.env.JAN_SNAPSHOT_SPILL_LOCATOR_ROOT

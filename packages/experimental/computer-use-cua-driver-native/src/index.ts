@@ -1,17 +1,17 @@
 /**
  * Computer use through the in-process Cua Driver native SDK and its own tools.
- * @module @deepseek-ai/dsh-experimental-computer-use-cua-driver-native
+ * @module @janhq/jan-experimental-computer-use-cua-driver-native
  */
 
-import type { Context } from '@deepseek-ai/cordis'
-import Schema from '@deepseek-ai/schemastery'
-import { ComputerUseProviderName } from '@deepseek-ai/dsh-computer-use/brand'
-import { createMcpToolDefinition } from '@deepseek-ai/dsh-mcp-client'
+import type { Context } from '@janhq/cordis'
+import Schema from '@janhq/schemastery'
+import { ComputerUseProviderName } from '@janhq/jan-computer-use/brand'
+import { createMcpToolDefinition } from '@janhq/jan-mcp-client'
 import { z } from 'zod'
 import type { CuaDriver as NativeDriver } from '@trycua/cua-driver'
-import type {} from '@deepseek-ai/dsh-computer-use'
-import type {} from '@deepseek-ai/dsh-system-prompt'
-import type {} from '@deepseek-ai/dsh-tools'
+import type {} from '@janhq/jan-computer-use'
+import type {} from '@janhq/jan-system-prompt'
+import type {} from '@janhq/jan-tools'
 
 /** Cordis plugin identity for the native Cua Driver provider. */
 export const name = 'experimental-computer-use-cua-driver-native'

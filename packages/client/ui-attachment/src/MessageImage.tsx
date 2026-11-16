@@ -1,11 +1,11 @@
-import type { ContextMenuBindings } from '@deepseek-ai/dsh-client-ui-context-menu/client'
+import type { ContextMenuBindings } from '@janhq/jan-client-ui-context-menu/client'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
-import { IconLoadingOutlineRegular, IconRefreshOutlineRegular, DraggableImage, ImageLightbox, type FileDragActions } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { MessageImageLabels } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { ImageAttachmentRef } from '@janhq/jan-attachment'
+import { IconLoadingOutlineRegular, IconRefreshOutlineRegular, DraggableImage, ImageLightbox, type FileDragActions } from '@janhq/jan-client-ui-primitives'
+import type { MessageImageLabels } from '@janhq/jan-client-ui-conversation/client'
 import css from './MessageImage.module.css'
 
-export type { MessageImageLabels } from '@deepseek-ai/dsh-client-ui-conversation/client'
+export type { MessageImageLabels } from '@janhq/jan-client-ui-conversation/client'
 
 /** Loads a Gateway-authorized durable image URL and may expose a cached URL synchronously. */
 export type ImageLoader = ((attachment: ImageAttachmentRef) => Promise<string>) & {

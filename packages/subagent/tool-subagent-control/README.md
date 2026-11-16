@@ -3,11 +3,11 @@ description: "Discover and coordinate a subagent tree through messaging, interru
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-tool-subagent-control
+# @janhq/jan-tool-subagent-control
 
 ## Summary
 
-`dsh-tool-subagent-control` lets agents discover and message their subagent tree by name, interrupt descendants, and wait for their own next-step inbox. By default, one plugin instance registers all four tools; members inherit the same definitions and ordering.
+`jan-tool-subagent-control` lets agents discover and message their subagent tree by name, interrupt descendants, and wait for their own next-step inbox. By default, one plugin instance registers all four tools; members inherit the same definitions and ordering.
 
 ## Table of Contents
 
@@ -30,12 +30,12 @@ Mount this package once per tool scope. It requires `tools`, `subagents`, `agent
 With the required services available, load the subagent service, a backend, the delegation tool, and this package to expose all four control and discovery tools:
 
 ```yaml
-- name: '@deepseek-ai/dsh-subagent'
-- name: '@deepseek-ai/dsh-subagent-spawn-in-process'
-- name: '@deepseek-ai/dsh-tool-subagent'
+- name: '@janhq/jan-subagent'
+- name: '@janhq/jan-subagent-spawn-in-process'
+- name: '@janhq/jan-tool-subagent'
   config:
     provider: spawn
-- name: '@deepseek-ai/dsh-tool-subagent-control'
+- name: '@janhq/jan-tool-subagent-control'
 ```
 
 Set `config.interrupt: false` to omit `interrupt_agent`. The default is `true`. The other three tools and `ctx.subagents.interrupt()` remain available. See the generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-tool-subagent-control).
@@ -97,7 +97,7 @@ The execution signal owns work only until inbox acceptance. Accepted messages ca
 Read these pages when the package-level contract is not enough; they move from the tool schemas to the continuation service behind them.
 
 - [Subagent subsystem](../../../docs/subsystems/subagent.md) — continuable children, activations, inbox, interrupt, and follow-up authority.
-- [dsh-tool-subagent](../tool-subagent/README.md) — the delegation tool that starts continuable children.
+- [jan-tool-subagent](../tool-subagent/README.md) — the delegation tool that starts continuable children.
 - [Generated tool catalog](../../../docs/tool-catalog.md#deepseek-aidsh-tool-subagent-control) — the tool schemas.
 
 -----

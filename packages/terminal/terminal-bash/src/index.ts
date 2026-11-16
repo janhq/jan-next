@@ -1,19 +1,19 @@
 /**
  * Persistent shell PTY backend over the subprocess terminal primitive, shared
  * sandbox policy, bounded output, and provider-owned session cleanup.
- * @module @deepseek-ai/dsh-terminal-bash
+ * @module @janhq/jan-terminal-bash
  */
 
-import type {} from '@deepseek-ai/dsh-working-directory'
-import { Context } from '@deepseek-ai/cordis'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
-import { TerminalBackendCleanupError } from '@deepseek-ai/dsh-terminal'
-import type { TerminalBackend, TerminalBackendSpawnSpec, TerminalSendOperation } from '@deepseek-ai/dsh-terminal'
-import type { SubprocessTerminalHandle, SubprocessTerminalSpawnSpec } from '@deepseek-ai/dsh-subprocess'
-import type { SandboxExecutionPolicy } from '@deepseek-ai/dsh-sandbox'
-import type {} from '@deepseek-ai/dsh-sandbox-policy'
-import { ENCODING_PREAMBLE } from '@deepseek-ai/dsh-pwsh-local'
+import type {} from '@janhq/jan-working-directory'
+import { Context } from '@janhq/cordis'
+import type { Agent } from '@janhq/jan-agent'
+import type { Session, SessionEvent } from '@janhq/jan-session'
+import { TerminalBackendCleanupError } from '@janhq/jan-terminal'
+import type { TerminalBackend, TerminalBackendSpawnSpec, TerminalSendOperation } from '@janhq/jan-terminal'
+import type { SubprocessTerminalHandle, SubprocessTerminalSpawnSpec } from '@janhq/jan-subprocess'
+import type { SandboxExecutionPolicy } from '@janhq/jan-sandbox'
+import type {} from '@janhq/jan-sandbox-policy'
+import { ENCODING_PREAMBLE } from '@janhq/jan-pwsh-local'
 import { type Config, type ResolvedConfig, resolveConfig, type ShellDialect, validateConfig } from './config.ts'
 import { LocalPtySession } from './session.ts'
 import { CONTROLLED_PROMPT } from './sanitize.ts'
@@ -65,9 +65,9 @@ function childEnvironment(spec: TerminalBackendSpawnSpec, dialect: ShellDialect)
     TERM: 'dumb',
     PAGER: 'cat',
     GIT_PAGER: 'cat',
-    DSH_SHELL: '1',
-    DSH_SESSION_ID: spec.owner.id,
-    DSH_PTY_SESSION_ID: spec.sessionId,
+    JAN_SHELL: '1',
+    JAN_SESSION_ID: spec.owner.id,
+    JAN_PTY_SESSION_ID: spec.sessionId,
   }
   if (dialect === 'pwsh') {
     // pwsh ignores PS1/PROMPT_COMMAND; its prompt is installed by the startup

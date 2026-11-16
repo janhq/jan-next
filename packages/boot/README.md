@@ -1,5 +1,5 @@
 ---
-description: "The boot package group: how dsh app bins start — environment loading, profile and patch layers, clear startup failures, and app-owned command lines."
+description: "The boot package group: how jan app bins start — environment loading, profile and patch layers, clear startup failures, and app-owned command lines."
 kind: "package-group"
 ---
 
@@ -20,7 +20,7 @@ The boot group launches profile applications and manages their installed composi
 
 | Package | Role | ctx key |
 |---|---|---|
-| [`app-boot`](app-boot/README.md) | Boots a dsh app from a `cordis.yml`: loads `.env`, applies profile and patch layers, and reports startup failures clearly | (library for the bins) |
+| [`app-boot`](app-boot/README.md) | Boots a jan app from a `cordis.yml`: loads `.env`, applies profile and patch layers, and reports startup failures clearly | (library for the bins) |
 | [`cmdline`](cmdline/README.md) | Lets the app own its flags, `--help`, and exit code; passes everything after the launcher's flags through verbatim | `cmdlineArgs`, `appExit` |
 | [`hmr`](hmr/README.md) | Coordinates module and configuration reloads with package mutations | `hmr` |
 | [`config-editor`](config-editor/README.md) | Persists active profile configuration through Loader reconciliation | `configEditor` |
@@ -30,10 +30,10 @@ The boot group launches profile applications and manages their installed composi
 <a id="related-documentation"></a>
 ## Related documentation
 
-- [dsh app](../../apps/cli/README.md) — the `dsh` bin that consumes these helpers for its boot sequence.
-- [Profile bundles](../bundle/README.md) — installable patch layers that `dsh --profile` compositions mount.
-- [dsh-home-paths](../util/home-paths/README.md) — the harness-home resolver both packages build on.
-- [dsh-cmdline](cmdline/README.md) — how an app owns its flag family instead of the launcher.
+- [jan app](../../apps/cli/README.md) — the `jan` bin that consumes these helpers for its boot sequence.
+- [Profile bundles](../bundle/README.md) — installable patch layers that `jan --profile` compositions mount.
+- [jan-home-paths](../util/home-paths/README.md) — the harness-home resolver both packages build on.
+- [jan-cmdline](cmdline/README.md) — how an app owns its flag family instead of the launcher.
 
 - [Profile management](../../docs/subsystems/boot.md) — service methods and result records.
 

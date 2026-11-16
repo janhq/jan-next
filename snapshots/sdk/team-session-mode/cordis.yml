@@ -1,20 +1,20 @@
-# TypeScript SDK snapshot-record patch over `dsh --profile sdk`.
+# TypeScript SDK snapshot-record patch over `jan --profile sdk`.
 
 # The fixture corpus must not depend on the developer's personal skill roots.
 # Ordinary product launches retain the sdk profile's default skill discovery.
 - id: skill-filesystem
-  name: '@deepseek-ai/dsh-skill-filesystem'
+  name: '@janhq/jan-skill-filesystem'
   config:
     includeDefaultRoots: false
 
 - id: session-persistence-jsonl
-  name: '@deepseek-ai/dsh-session-persistence-jsonl'
+  name: '@janhq/jan-session-persistence-jsonl'
   config:
-    root: !!js dshHomePath('sessions')
-    compression: !!js "process.env.DSH_SNAPSHOT === undefined ? 'zstd' : 'none'"
+    root: !!js janHomePath('sessions')
+    compression: !!js "process.env.JAN_SNAPSHOT === undefined ? 'zstd' : 'none'"
 
 - id: tool-subagent
-  name: '@deepseek-ai/dsh-tool-subagent'
+  name: '@janhq/jan-tool-subagent'
   config:
     provider: spawn
     toolName: subagent
@@ -22,8 +22,8 @@
 
 - insert:
     - id: agent-team
-      name: '@deepseek-ai/dsh-agent-team'
+      name: '@janhq/jan-agent-team'
     - id: tool-agent-team
-      name: '@deepseek-ai/dsh-tool-agent-team'
+      name: '@janhq/jan-tool-agent-team'
     - id: team-session-mode-fixture
       name: ../../../packages/team/agent-team/tests/session-mode-fixture.ts

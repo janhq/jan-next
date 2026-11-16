@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-session-persistence-jsonl",
+  "name": "@janhq/jan-session-persistence-jsonl",
   "description": "JSONL durable session persistence backend for Jan",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/session/session-persistence-jsonl"
   },
   "type": "module",
@@ -30,24 +30,24 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-session-persistence": "workspace:*",
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-session-persistence": "workspace:*",
+    "@janhq/cordis": "workspace:~"
   },
   "dependencies": {
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-session-format": "workspace:*",
-    "@deepseek-ai/dsh-session-format-catalog": "workspace:*",
-    "@deepseek-ai/dsh-session-format-v3-to-v4": "workspace:*",
-    "@deepseek-ai/node-addon-system": "workspace:~",
-    "@deepseek-ai/schemastery": "workspace:~",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-session-format": "workspace:*",
+    "@janhq/jan-session-format-catalog": "workspace:*",
+    "@janhq/jan-session-format-v3-to-v4": "workspace:*",
+    "@janhq/node-addon-system": "workspace:~",
+    "@janhq/schemastery": "workspace:~",
     "koffi": "3.1.1",
     "p-limit": "7.3.3"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-session-format-v0-to-v1": "workspace:*",
-    "@deepseek-ai/dsh-session-persistence": "workspace:*",
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-session-format-v0-to-v1": "workspace:*",
+    "@janhq/jan-session-persistence": "workspace:*",
+    "@janhq/cordis": "workspace:~"
   }
 }

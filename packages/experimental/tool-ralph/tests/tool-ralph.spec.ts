@@ -1,20 +1,20 @@
-import { executeToolFixture } from '@deepseek-ai/dsh-tool-testkit'
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
-import { provideWorkingDirectoryFixture } from '@deepseek-ai/dsh-agent-loop-testkit'
+import { executeToolFixture } from '@janhq/jan-tool-testkit'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
+import { provideWorkingDirectoryFixture } from '@janhq/jan-agent-loop-testkit'
 import { describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import Loader from '@deepseek-ai/cordis-plugin-loader'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import { ToolCallId } from '@deepseek-ai/dsh-llm'
-import { SessionId } from '@deepseek-ai/dsh-session'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
-import SubagentRuntime from '@deepseek-ai/dsh-subagent'
-import type { SubagentCapabilities, SubagentProvider, SubagentRun, SubagentStartRequest } from '@deepseek-ai/dsh-subagent'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime, { TOOL_ABORTED_BEFORE_DISPATCH } from '@deepseek-ai/dsh-tools'
-import type { ToolExecutionResult } from '@deepseek-ai/dsh-tools'
-import { WorkflowRunId, WorkflowEngine } from '@deepseek-ai/dsh-workflow'
-import type { WorkflowResult, WorkflowRun, WorkflowStartRequest } from '@deepseek-ai/dsh-workflow'
+import { Context } from '@janhq/cordis'
+import Loader from '@janhq/cordis-plugin-loader'
+import type { Agent } from '@janhq/jan-agent'
+import { ToolCallId } from '@janhq/jan-llm'
+import { SessionId } from '@janhq/jan-session'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
+import SubagentRuntime from '@janhq/jan-subagent'
+import type { SubagentCapabilities, SubagentProvider, SubagentRun, SubagentStartRequest } from '@janhq/jan-subagent'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import ToolRuntime, { TOOL_ABORTED_BEFORE_DISPATCH } from '@janhq/jan-tools'
+import type { ToolExecutionResult } from '@janhq/jan-tools'
+import { WorkflowRunId, WorkflowEngine } from '@janhq/jan-workflow'
+import type { WorkflowResult, WorkflowRun, WorkflowStartRequest } from '@janhq/jan-workflow'
 import * as toolRalph from '../src/index.ts'
 
 const testToolSignal = new AbortController().signal
@@ -148,7 +148,7 @@ async function settleCompleted(
   return pending
 }
 
-describe('dsh-tool-ralph', () => {
+describe('jan-tool-ralph', () => {
   it('starts the fixed workflow through the configured fresh provider and renders completion', async () => {
     const { ctx, engine, parent } = await setup({ config: { maxRounds: 9, maxHandoffChars: 9000 } })
     const pending = execute(ctx, { objective: '  Finish the migration.  ', maxRounds: 4 }, { agent: parent })

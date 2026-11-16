@@ -1,5 +1,5 @@
 /** Jan brand copy. */
-import type {} from '@deepseek-ai/dsh-client-ui-slots'
+import type {} from '@janhq/jan-client-ui-slots'
 
 /** Locale namespace. */
 export const NS = 'ui-brand-official' as const
@@ -13,7 +13,7 @@ export const en = {
 /** Dictionary keys. */
 export type BrandKey = keyof typeof en
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Jan brand name and release stage. */
     'ui-brand-official': BrandKey

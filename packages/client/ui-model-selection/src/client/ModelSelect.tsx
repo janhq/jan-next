@@ -27,19 +27,19 @@
  * chevron, and each row whose value that selection carries shows one in place
  * of its check mark.
  */
-import { MenuGroup, MenuSurface, observeStickyMenuGroups } from '@deepseek-ai/dsh-client-ui-primitives'
+import { MenuGroup, MenuSurface, observeStickyMenuGroups } from '@janhq/jan-client-ui-primitives'
 import {
   useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore,
   type CSSProperties, type KeyboardEvent, type FocusEvent,
 } from 'react'
 import { createPortal } from 'react-dom'
 import clsx from 'clsx'
-import type { ModelReasoningEffort, ModelSelection } from '@deepseek-ai/dsh-api-remotes/client'
+import type { ModelReasoningEffort, ModelSelection } from '@janhq/jan-api-remotes/client'
 import {
   IconCheckOutlineRegular, IconChevronDownOutlineRegular, IconChevronRightOutlineRegular, IconCloseFillRegular,
   IconDataOutlineRegular, IconWarningOutlineRegular, Input, isMobileDevice, rankByName, StateDot, Tag, Toast,
-} from '@deepseek-ai/dsh-client-ui-primitives'
-import type { PropsLocale, PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+} from '@janhq/jan-client-ui-primitives'
+import type { PropsLocale, PropsRenderSlots, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import type { ModelLabelOwner, ModelSelectInjected } from './slots.ts'
 import css from './ModelSelect.module.css'
 
@@ -87,8 +87,8 @@ export function ModelSelect(
   const groupsRef = useRef<HTMLDivElement | null>(null)
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([])
   const id = useId()
-  const anchorStyle: CSSProperties & Record<'--dsh-model-anchor', string> = {
-    '--dsh-model-anchor': `--dsh-model-${id.replaceAll(':', '')}`,
+  const anchorStyle: CSSProperties & Record<'--jan-model-anchor', string> = {
+    '--jan-model-anchor': `--jan-model-${id.replaceAll(':', '')}`,
   }
 
   const groups = useMemo(() => state.groups.map(group => ({

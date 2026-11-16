@@ -1,20 +1,20 @@
 /** Host timer over standalone tasks; target Session activation is a delivery operation. */
 import { randomUUID } from 'node:crypto'
-import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import type { ContextFormed } from '@deepseek-ai/dsh-llm'
-declare module '@deepseek-ai/dsh-llm' {
+import { createUserMessage } from '@janhq/jan-llm'
+import type { ContextFormed } from '@janhq/jan-llm'
+declare module '@janhq/jan-llm' {
   interface MessageSourceMap {
     'schedule': { kind: 'schedule' } & ContextFormed
   }
 }
-import { SessionId, type SessionId as SessionIdType } from '@deepseek-ai/dsh-session'
-import type { Context } from '@deepseek-ai/cordis'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import { SessionPersistenceNotFoundError } from '@deepseek-ai/dsh-session-persistence'
-import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
-import type {} from '@deepseek-ai/dsh-api-session-controller'
-import type {} from '@deepseek-ai/dsh-session-title'
-import type {} from '@deepseek-ai/dsh-workspace'
+import { SessionId, type SessionId as SessionIdType } from '@janhq/jan-session'
+import type { Context } from '@janhq/cordis'
+import type { Agent } from '@janhq/jan-agent'
+import { SessionPersistenceNotFoundError } from '@janhq/jan-session-persistence'
+import { RemoteError } from '@janhq/jan-typert-protocol'
+import type {} from '@janhq/jan-api-session-controller'
+import type {} from '@janhq/jan-session-title'
+import type {} from '@janhq/jan-workspace'
 import {
   isRecurringScheduleRecord, MIN_EVERY_INTERVAL_SECONDS, renderRecurringReminderBatchFraming, renderReminderFraming,
   resolveRecurringOccurrence, type RecurringOccurrence,

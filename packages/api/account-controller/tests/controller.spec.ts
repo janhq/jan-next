@@ -1,7 +1,7 @@
 /** Account Remote delegation preserves provider results, failures, and stream lifetime. */
-import { Context } from '@deepseek-ai/cordis'
-import type { DeepSeekAccount } from '@deepseek-ai/dsh-tokamak-account'
-import type { AccountBonusBatch, AccountBonusOrderId, AccountClientMetadata, AccountUserId } from '@deepseek-ai/dsh-tokamak-account/types'
+import { Context } from '@janhq/cordis'
+import type { DeepSeekAccount } from '@janhq/jan-tokamak-account'
+import type { AccountBonusBatch, AccountBonusOrderId, AccountClientMetadata, AccountUserId } from '@janhq/jan-tokamak-account/types'
 import type { AccountView, SignInAttemptId } from '../src/types.ts'
 import { afterEach, expect, it, vi } from 'vitest'
 import AccountController from '../src/index.ts'
@@ -51,7 +51,7 @@ it('delegates bonus reads and acknowledgements without altering their values', a
   const { provider, controller } = fixture()
   const accountId = 'account' as AccountUserId
   const orderId = 'order' as AccountBonusOrderId
-  const batch: AccountBonusBatch = { accountId, bonuses: [{ orderId, expiresAt: '2026-10-21T12:00:00Z', message: '已赠送您 5.00 元 DSH 体验赠金。' }] }
+  const batch: AccountBonusBatch = { accountId, bonuses: [{ orderId, expiresAt: '2026-10-21T12:00:00Z', message: '已赠送您 5.00 元 Jan 体验赠金。' }] }
   provider.getUnnotifiedBonuses.mockResolvedValueOnce(batch)
   expect(await controller.getUnnotifiedBonuses(client)).toBe(batch)
   expect(provider.getUnnotifiedBonuses).toHaveBeenCalledExactlyOnceWith(client)

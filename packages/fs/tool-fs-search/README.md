@@ -3,11 +3,11 @@ description: "The model-facing glob and grep discovery tools for users and maint
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-tool-fs-search
+# @janhq/jan-tool-fs-search
 
 ## Summary
 
-Use `dsh-tool-fs-search` to give models `glob` file discovery and `grep` content search over a local workspace. Searches need no host `rg` installation or filesystem provider, return workdir-relative results, and include hidden and ignored files while excluding VCS metadata. Configurable caps bound inline output; with an optional spill store, capped results remain fully recoverable. Choose the sibling `dsh-tool-fs` package for reading, writing, or editing files.
+Use `jan-tool-fs-search` to give models `glob` file discovery and `grep` content search over a local workspace. Searches need no host `rg` installation or filesystem provider, return workdir-relative results, and include hidden and ignored files while excluding VCS metadata. Configurable caps bound inline output; with an optional spill store, capped results remain fully recoverable. Choose the sibling `jan-tool-fs` package for reading, writing, or editing files.
 
 ## Table of Contents
 
@@ -32,11 +32,11 @@ Mount the tools after a `ctx.subprocess` backend; no host `rg` install is needed
 A subprocess backend, then the tools; the spill backend is optional and makes capped results fully recoverable.
 
 ```yaml
-- name: '@deepseek-ai/dsh-subprocess-local'
-- name: '@deepseek-ai/dsh-tool-fs-search'
+- name: '@janhq/jan-subprocess-local'
+- name: '@janhq/jan-tool-fs-search'
   config:
     sampleOverCapGlobResults: false
-- name: '@deepseek-ai/dsh-spill-local'
+- name: '@janhq/jan-spill-local'
 ```
 
 `sampleOverCapGlobResults` is required and has no fallback: deployments choose the over-cap ordering contract explicitly. When formatted spill succeeds, both modes preserve the complete sorted list in the spill artifact.
@@ -115,9 +115,9 @@ After `pnpm run build`, compile the package-local diagnostic with external runti
 cd packages/fs/tool-fs-search
 node --input-type=module <<'JS'
 import { build } from 'tsdown';
-await build({ config: false, tsconfig: false, dts: false, entry: 'tests/glob-native.perf.ts', outDir: 'tests/.dsh-build', clean: false, deps: { neverBundle: [/^[^./]/] } });
+await build({ config: false, tsconfig: false, dts: false, entry: 'tests/glob-native.perf.ts', outDir: 'tests/.jan-build', clean: false, deps: { neverBundle: [/^[^./]/] } });
 JS
-node tests/.dsh-build/glob-native.perf.mjs
+node tests/.jan-build/glob-native.perf.mjs
 ```
 
 The diagnostic creates 20,000 unrelated files and six matches, then measures five `ctx.tools.execute()` calls through the Native executor with a real Agent, working-directory service, and local subprocess backend. It reports raw timings, the median, and a hash of the complete value, text, and presentation metadata. `--plugin <built-module>` selects another search-package revision; `--workspace <directory>` opts into a read-only existing workspace instead of the synthetic tree. Setup, model generation, UI, and Session persistence are excluded; there is no timing threshold.

@@ -10,13 +10,13 @@ import {
   type SessionHeader,
   type SessionLogOffset as SessionLogOffsetType,
   type SessionSeq as SessionSeqType,
-} from '@deepseek-ai/dsh-session'
+} from '@janhq/jan-session'
 import {
   eventLines, generationLogFilename, projectKey, toHeaderLine,
-} from '@deepseek-ai/dsh-session-persistence-jsonl/src/format.ts'
-import { projectionCacheDomainSpec } from '@deepseek-ai/dsh-session-projection-cache'
-import { scheduleDomain } from '@deepseek-ai/dsh-schedule'
-import { snapshotSubagentDescriptor, SUBAGENT_DESCRIPTOR_VERSION } from '@deepseek-ai/dsh-subagent'
+} from '@janhq/jan-session-persistence-jsonl/src/format.ts'
+import { projectionCacheDomainSpec } from '@janhq/jan-session-projection-cache'
+import { scheduleDomain } from '@janhq/jan-schedule'
+import { snapshotSubagentDescriptor, SUBAGENT_DESCRIPTOR_VERSION } from '@janhq/jan-subagent'
 
 /** Root copied by the preview image's repository adapter. */
 export const VFS_EXAMPLE_ROOT = fileURLToPath(new URL('./fixtures/vfs-example', import.meta.url))
@@ -50,13 +50,13 @@ export const VFS_EXAMPLE_REASONING = [
 /** Authored long command and a second line for wrapping and status-dot acceptance. */
 export const VFS_EXAMPLE_WRAPPED_COMMAND = `printf 'preview command fixture\\n' # ${'wrapped-argument-'.repeat(28)}\nprintf 'wrap complete\\n'\n`
 
-/** Durable task ids for the Host Schedule rows seeded into the preview's `DSH_HOME`. */
+/** Durable task ids for the Host Schedule rows seeded into the preview's `JAN_HOME`. */
 export const VFS_EXAMPLE_SCHEDULE_IDS = {
   daily: 'preview-daily-digest',
   once: 'preview-release-window',
 } as const
 
-const WORKSPACE = '/dsh/workspace'
+const WORKSPACE = '/jan/workspace'
 const CREATED_AT = 1_787_472_000_000
 const HISTORICAL_TURNS = 28
 
@@ -621,7 +621,7 @@ function renderLog(
 }
 
 /**
- * Host Schedule task rows the preview's `DSH_HOME` carries, keyed by durable
+ * Host Schedule task rows the preview's `JAN_HOME` carries, keyed by durable
  * task id.
  *
  * The schedule domain opens these per-record documents at Host startup and

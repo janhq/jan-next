@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { Welcome } from '../src/client/WelcomePage.tsx'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { resolveDesktopLocale } from '../src/locale.ts'
-import type { AccountView } from '@deepseek-ai/dsh-tokamak-account/types'
+import type { AccountView } from '@janhq/jan-tokamak-account/types'
 import type { WelcomeLocalModel, WelcomeSaveResult, WelcomeNotice } from '../src/welcome-api.ts'
 
 const html = readFileSync(join(import.meta.dirname, '../renderer/welcome.html'), 'utf8')

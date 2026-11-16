@@ -1,22 +1,22 @@
 /** Operations available to the isolated native welcome renderer. */
 
-import type { AccountView, SignInAttemptId } from '@deepseek-ai/dsh-tokamak-account/types'
-import type { ProductEventMap } from '@deepseek-ai/dsh-client-product-analytics/types'
+import type { AccountView, SignInAttemptId } from '@janhq/jan-tokamak-account/types'
+import type { ProductEventMap } from '@janhq/jan-client-product-analytics/types'
 import type { DesktopLocale } from './locale.ts'
 
 /** Private native welcome channels, installed only while its window exists. */
 export const WELCOME_IPC = {
-  saveApiKey: 'dsh-welcome:save-api-key',
-  analytics: 'dsh-welcome:analytics',
-  analyticsEnabled: 'dsh-welcome:analytics-enabled',
-  skip: 'dsh-welcome:skip',
-  start: 'dsh-welcome:start',
-  cancel: 'dsh-welcome:cancel',
-  copyLink: 'dsh-welcome:copy-link',
-  state: 'dsh-welcome:state',
-  takeNotice: 'dsh-welcome:take-notice',
-  localStart: 'dsh-welcome:local-start',
-  localState: 'dsh-welcome:local-state',
+  saveApiKey: 'jan-welcome:save-api-key',
+  analytics: 'jan-welcome:analytics',
+  analyticsEnabled: 'jan-welcome:analytics-enabled',
+  skip: 'jan-welcome:skip',
+  start: 'jan-welcome:start',
+  cancel: 'jan-welcome:cancel',
+  copyLink: 'jan-welcome:copy-link',
+  state: 'jan-welcome:state',
+  takeNotice: 'jan-welcome:take-notice',
+  localStart: 'jan-welcome:local-start',
+  localState: 'jan-welcome:local-state',
 } as const
 
 /**

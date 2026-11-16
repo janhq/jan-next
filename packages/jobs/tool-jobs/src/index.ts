@@ -7,23 +7,23 @@
  * unless `maxConsecutiveWakes` caps it per owner. A notice carries the job's
  * output and result when it fits `inlineOutputBytes`, and `job_output`
  * withdraws a notice still pending.
- * @module @deepseek-ai/dsh-tool-jobs
+ * @module @janhq/jan-tool-jobs
  */
 
-import type { Context } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
-import { boundContextSummary, createUserMessage, type ContentBlock } from '@deepseek-ai/dsh-llm'
-import type { ContextFormed, MessageId } from '@deepseek-ai/dsh-llm'
-import { TextRetainer } from '@deepseek-ai/dsh-output-retention'
-import { defineTool } from '@deepseek-ai/dsh-tools'
-import type { GenericCallView, ToolDefinition, ToolExecution } from '@deepseek-ai/dsh-tools'
-import { JobId } from '@deepseek-ai/dsh-jobs'
-import type { JobEvent, JobView, JobRead } from '@deepseek-ai/dsh-jobs'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import type {} from '@deepseek-ai/dsh-agent'
+import type { Context } from '@janhq/cordis'
+import z from '@janhq/schemastery'
+import { boundContextSummary, createUserMessage, type ContentBlock } from '@janhq/jan-llm'
+import type { ContextFormed, MessageId } from '@janhq/jan-llm'
+import { TextRetainer } from '@janhq/jan-output-retention'
+import { defineTool } from '@janhq/jan-tools'
+import type { GenericCallView, ToolDefinition, ToolExecution } from '@janhq/jan-tools'
+import { JobId } from '@janhq/jan-jobs'
+import type { JobEvent, JobView, JobRead } from '@janhq/jan-jobs'
+import type { Agent } from '@janhq/jan-agent'
+import type {} from '@janhq/jan-agent'
 import { publicJob, renderModelDelta, statusLine } from './render.ts'
 import type { PublicJobSnapshot } from './render.ts'
-declare module '@deepseek-ai/dsh-llm' {
+declare module '@janhq/jan-llm' {
   interface MessageSourceMap {
     'tool-jobs': { kind: 'tool-jobs' } & ContextFormed
   }

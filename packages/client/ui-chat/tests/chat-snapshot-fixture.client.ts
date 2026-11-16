@@ -3,12 +3,12 @@ import type {
   ChatLocationNodeIndex, ChatNodeProcessSource, ChatNodeSource, ChatNodeStore,
   ChatTurnProcessPresentation, CompactionSummaryNode, FinalAssistantChatData, LegacyConversationSlice,
   PartialAssistant, RunningToolCall, ToolCallBlock, TurnNavigationItem,
-} from '@deepseek-ai/dsh-client-ui-chat/client'
+} from '@janhq/jan-client-ui-chat/client'
 import type {
   ConversationLocationDataSource, ConversationLocationDataStore, ConversationTurnDataMap, TurnLocation,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
-import { SessionSeq } from '@deepseek-ai/dsh-session/types'
-import type { TurnEndReason } from '@deepseek-ai/dsh-session/types'
+} from '@janhq/jan-client-ui-conversation/client'
+import { SessionSeq } from '@janhq/jan-session/types'
+import type { TurnEndReason } from '@janhq/jan-session/types'
 import type { TurnTokenUsage } from '../src/client/contract/chat-nodes.ts'
 import {
   sameTurnNavigationItem, turnNavigationItem,

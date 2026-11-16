@@ -4,7 +4,7 @@ Status: proposed
 
 ## Problem
 
-The [shell-environment registry](../../../../packages/shell/shell-env/src/index.ts) requires a description for every declared variable and exposes `list()` to enumerate it. Runtime collection uses only contributor identity, declared keys, and resolved values. [Bash](../../../../packages/shell/tool-bash/src/index.ts) and [PowerShell](../../../../packages/shell/tool-pwsh/src/index.ts) call `collect`; the [Web bundle](../../../../packages/bundle/web-app/src/index.ts) contributes `DSH_WEB_URL`. Searches found no fixed production caller of `list()` or consumer of its descriptions.
+The [shell-environment registry](../../../../packages/shell/shell-env/src/index.ts) requires a description for every declared variable and exposes `list()` to enumerate it. Runtime collection uses only contributor identity, declared keys, and resolved values. [Bash](../../../../packages/shell/tool-bash/src/index.ts) and [PowerShell](../../../../packages/shell/tool-pwsh/src/index.ts) call `collect`; the [Web bundle](../../../../packages/bundle/web-app/src/index.ts) contributes `JAN_WEB_URL`. Searches found no fixed production caller of `list()` or consumer of its descriptions.
 
 The method is nevertheless discoverable through the [Cordis inspection provider](../../../../packages/extensions/tool-cordis/src/providers.ts), so this is an explicit API contraction, not unreachable-code removal. The current TODO and [README limitation](../../../../packages/shell/shell-env/README.md) still describe an incomplete catalog that omits built-in variables.
 

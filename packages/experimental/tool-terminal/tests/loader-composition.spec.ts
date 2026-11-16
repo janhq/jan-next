@@ -1,28 +1,28 @@
-import { executeToolFixture } from '@deepseek-ai/dsh-tool-testkit'
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
+import { executeToolFixture } from '@janhq/jan-tool-testkit'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { unsupportedModel, provideWorkingDirectoryFixture, unsupportedInbox } from '@deepseek-ai/dsh-agent-loop-testkit'
+import { unsupportedModel, provideWorkingDirectoryFixture, unsupportedInbox } from '@janhq/jan-agent-loop-testkit'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import Loader from '@deepseek-ai/cordis-plugin-loader'
-import Include from '@deepseek-ai/cordis-plugin-include'
-import { ToolCallId } from '@deepseek-ai/dsh-llm'
-import { Session, SessionId } from '@deepseek-ai/dsh-session'
-import AgentRegistry from '@deepseek-ai/dsh-agent'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime from '@deepseek-ai/dsh-tools'
-import TerminalSessionService from '@deepseek-ai/dsh-terminal'
-import SandboxProvider from '@deepseek-ai/dsh-sandbox'
-import type { ConfinedArgv, SandboxPolicy } from '@deepseek-ai/dsh-sandbox'
-import SandboxPolicyService from '@deepseek-ai/dsh-sandbox-policy'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
-import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
-import * as TerminalLocal from '@deepseek-ai/dsh-terminal-bash'
-import * as ToolPty from '@deepseek-ai/dsh-tool-terminal'
+import { Context } from '@janhq/cordis'
+import Loader from '@janhq/cordis-plugin-loader'
+import Include from '@janhq/cordis-plugin-include'
+import { ToolCallId } from '@janhq/jan-llm'
+import { Session, SessionId } from '@janhq/jan-session'
+import AgentRegistry from '@janhq/jan-agent'
+import type { Agent } from '@janhq/jan-agent'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import ToolRuntime from '@janhq/jan-tools'
+import TerminalSessionService from '@janhq/jan-terminal'
+import SandboxProvider from '@janhq/jan-sandbox'
+import type { ConfinedArgv, SandboxPolicy } from '@janhq/jan-sandbox'
+import SandboxPolicyService from '@janhq/jan-sandbox-policy'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
+import LocalSubprocessRuntime from '@janhq/jan-subprocess-local'
+import * as TerminalLocal from '@janhq/jan-terminal-bash'
+import * as ToolPty from '@janhq/jan-tool-terminal'
 
 let root: string | undefined
 let context: Context | undefined
@@ -66,22 +66,22 @@ const suite = process.platform === 'linux' || process.platform === 'darwin' ? de
 
 suite('terminal real Loader composition through cordis.yml', () => {
   it('boots cordis.yml and preserves shell state across real tool calls', async () => {
-    root = await mkdtemp(join(tmpdir(), 'dsh-pty-loader-'))
+    root = await mkdtemp(join(tmpdir(), 'jan-pty-loader-'))
     const configPath = join(root, 'cordis.yml')
     await writeFile(configPath, [
-      "- name: '@deepseek-ai/dsh-agent'",
-      "- name: '@deepseek-ai/dsh-system-prompt'",
-      "- name: '@deepseek-ai/dsh-tools'",
-      "- name: '@deepseek-ai/dsh-tool-executor-native'",
-      "- name: '@deepseek-ai/dsh-terminal'",
-      "- name: '@deepseek-ai/dsh-test-sandbox'",
-      "- name: '@deepseek-ai/dsh-session-projection'",
-      "- name: '@deepseek-ai/dsh-sandbox-policy'",
+      "- name: '@janhq/jan-agent'",
+      "- name: '@janhq/jan-system-prompt'",
+      "- name: '@janhq/jan-tools'",
+      "- name: '@janhq/jan-tool-executor-native'",
+      "- name: '@janhq/jan-terminal'",
+      "- name: '@janhq/jan-test-sandbox'",
+      "- name: '@janhq/jan-session-projection'",
+      "- name: '@janhq/jan-sandbox-policy'",
       '  config:',
       '    mode: danger-full-access',
       `    workspaceRoot: ${JSON.stringify(root)}`,
-      "- name: '@deepseek-ai/dsh-subprocess-local'",
-      "- name: '@deepseek-ai/dsh-terminal-bash'",
+      "- name: '@janhq/jan-subprocess-local'",
+      "- name: '@janhq/jan-terminal-bash'",
       '  config:',
       '    pollIntervalMs: 10',
       '    exactProbeAfterMs: 20',
@@ -89,7 +89,7 @@ suite('terminal real Loader composition through cordis.yml', () => {
       '    handoffGraceMs: 250',
       '    timeoutMs: 2000',
       '    disposeGraceMs: 500',
-      "- name: '@deepseek-ai/dsh-tool-terminal'",
+      "- name: '@janhq/jan-tool-terminal'",
       '',
     ].join('\n'))
 
@@ -100,17 +100,17 @@ suite('terminal real Loader composition through cordis.yml', () => {
     await context.plugin(Loader)
     context.loader.builtins.include = Include
     const modules = new Map<string, unknown>([
-      ['@deepseek-ai/dsh-agent', AgentRegistry],
-      ['@deepseek-ai/dsh-system-prompt', SystemPrompt],
-      ['@deepseek-ai/dsh-tools', ToolRuntime],
-      ['@deepseek-ai/dsh-tool-executor-native', NativeToolExecutor],
-      ['@deepseek-ai/dsh-terminal', TerminalSessionService],
-      ['@deepseek-ai/dsh-test-sandbox', PassthroughSandbox],
-      ['@deepseek-ai/dsh-session-projection', SessionProjectionRegistry],
-      ['@deepseek-ai/dsh-sandbox-policy', SandboxPolicyService],
-      ['@deepseek-ai/dsh-subprocess-local', LocalSubprocessRuntime],
-      ['@deepseek-ai/dsh-terminal-bash', TerminalLocal],
-      ['@deepseek-ai/dsh-tool-terminal', ToolPty],
+      ['@janhq/jan-agent', AgentRegistry],
+      ['@janhq/jan-system-prompt', SystemPrompt],
+      ['@janhq/jan-tools', ToolRuntime],
+      ['@janhq/jan-tool-executor-native', NativeToolExecutor],
+      ['@janhq/jan-terminal', TerminalSessionService],
+      ['@janhq/jan-test-sandbox', PassthroughSandbox],
+      ['@janhq/jan-session-projection', SessionProjectionRegistry],
+      ['@janhq/jan-sandbox-policy', SandboxPolicyService],
+      ['@janhq/jan-subprocess-local', LocalSubprocessRuntime],
+      ['@janhq/jan-terminal-bash', TerminalLocal],
+      ['@janhq/jan-tool-terminal', ToolPty],
     ])
     context.loader.internal = {
       version: 'v2',

@@ -5,16 +5,16 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { DeepSeekHarness } from '@deepseek-ai/dsh-sdk-client'
+import { Jan } from '@janhq/jan-sdk-client'
 import { MOCK_MODEL_KEY_ENV, MOCK_MODEL_PROVIDER, mockModelRouteRow } from './fixtures/mock-model-route.ts'
 import { describe, expect, it, onTestFinished } from 'vitest'
 
-const dshBin = fileURLToPath(new URL('../../../lib/bin.js', import.meta.url))
+const janBin = fileURLToPath(new URL('../../../lib/bin.js', import.meta.url))
 const fixture = fileURLToPath(new URL('./fixtures/checkpoint-failure.mjs', import.meta.url))
 
-describe.skipIf(!existsSync(dshBin))('sdk-minimal durability checkpoints', () => {
+describe.skipIf(!existsSync(janBin))('sdk-minimal durability checkpoints', () => {
   it.each([false, true])('checkpoint storage failure with policy disabled=%s', async (disabled) => {
-    const root = await mkdtemp(join(tmpdir(), 'dsh-sdk-checkpoint-'))
+    const root = await mkdtemp(join(tmpdir(), 'jan-sdk-checkpoint-'))
     onTestFinished(async () => { await rm(root, { recursive: true, force: true }) })
     let modelRequests = 0
     const server = createServer((request, response) => {
@@ -52,8 +52,8 @@ describe.skipIf(!existsSync(dshBin))('sdk-minimal durability checkpoints', () =>
       { insert: [{ id: 'checkpoint-failure', name: fixture }] },
       ...disabled ? [{ id: 'session-checkpoint-policy', disabled: true }] : [],
     ]))
-    const harness = new DeepSeekHarness({
-      dshBin, profile: 'sdk-minimal', dshHome: join(root, 'home'),
+    const harness = new Jan({
+      janBin, profile: 'sdk-minimal', janHome: join(root, 'home'),
       cwd: root, processCwd: root, patches: [patch], provider: MOCK_MODEL_PROVIDER, model: 'mock-model',
       env: { ...process.env, [MOCK_MODEL_KEY_ENV]: 'keyless-checkpoint-test' },
     })

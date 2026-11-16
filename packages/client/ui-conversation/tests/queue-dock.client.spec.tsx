@@ -1,27 +1,27 @@
 // @vitest-environment jsdom
-import { contextMenuHook } from '@deepseek-ai/dsh-client-test-runtime'
+import { contextMenuHook } from '@janhq/jan-client-test-runtime'
 /**
  * QueueDock rendering and operations: authoritative rows, inline editing,
  * collapse state, removal, QueueDock Steer, failure notices, and live retirement.
  */
-import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
+import type { GlobalStandardProps } from '@janhq/jan-client-ui-slots'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { useSyncExternalStore } from 'react'
 import type {
   SessionListState, SessionSnapshot, UseProjection,
-} from '@deepseek-ai/dsh-api-session-controller/client'
-import type { InboxState } from '@deepseek-ai/dsh-agent/types'
-import type { UserMessage } from '@deepseek-ai/dsh-llm/types'
-import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
+} from '@janhq/jan-api-session-controller/client'
+import type { InboxState } from '@janhq/jan-agent/types'
+import type { UserMessage } from '@janhq/jan-llm/types'
+import type { MessageId } from '@janhq/jan-llm/brand'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { SnapshotSelectorHook } from '@janhq/jan-client-ui-slots'
+import { createSnapshotStore } from '@janhq/jan-client-store'
 import {
   allowAllAccess, bindSnapshotSelector, conversationSnapshot, makeTranslate,
-} from '@deepseek-ai/dsh-client-test-runtime'
-import type { SessionStatusSnapshot } from '@deepseek-ai/dsh-client-ui-session/client'
-import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
+} from '@janhq/jan-client-test-runtime'
+import type { SessionStatusSnapshot } from '@janhq/jan-client-ui-session/client'
+import { zh as commonZh } from '@janhq/jan-client-locale/src/locales/zh.ts'
 import type { InputState } from '../src/client/contract/input.ts'
 import { zh } from '../src/client/locales.ts'
 import { QueueDock, queueDockEntry, type QueueDockInjected, type QueueDockProps } from '../src/client/queue/QueueDock.tsx'

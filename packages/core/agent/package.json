@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-agent",
+  "name": "@janhq/jan-agent",
   "description": "Agent interface, registry, initiator scope, and event vocabulary for Jan",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/core/agent"
   },
   "type": "module",
@@ -34,35 +34,35 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-scope": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-session-projection": "workspace:*",
-    "@deepseek-ai/dsh-system-prompt": "workspace:*",
-    "@deepseek-ai/dsh-typert-protocol": "workspace:*",
-    "@deepseek-ai/dsh-util-values": "workspace:*",
-    "@deepseek-ai/dsh-workspace": "workspace:*",
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-scope": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-session-projection": "workspace:*",
+    "@janhq/jan-system-prompt": "workspace:*",
+    "@janhq/jan-typert-protocol": "workspace:*",
+    "@janhq/jan-util-values": "workspace:*",
+    "@janhq/jan-workspace": "workspace:*",
+    "@janhq/cordis": "workspace:~"
   },
   "peerDependenciesMeta": {
-    "@deepseek-ai/dsh-workspace": {
+    "@janhq/jan-workspace": {
       "optional": true
     }
   },
   "devDependencies": {
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-scope": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-session-projection": "workspace:*",
-    "@deepseek-ai/dsh-system-prompt": "workspace:*",
-    "@deepseek-ai/dsh-typert-protocol": "workspace:*",
-    "@deepseek-ai/dsh-typert-registry": "workspace:*",
-    "@deepseek-ai/dsh-util-values": "workspace:*",
-    "@deepseek-ai/dsh-workspace": "workspace:*",
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-scope": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-session-projection": "workspace:*",
+    "@janhq/jan-system-prompt": "workspace:*",
+    "@janhq/jan-typert-protocol": "workspace:*",
+    "@janhq/jan-typert-registry": "workspace:*",
+    "@janhq/jan-util-values": "workspace:*",
+    "@janhq/jan-workspace": "workspace:*",
+    "@janhq/cordis": "workspace:~"
   },
   "dependencies": {
-    "@deepseek-ai/dsh-brand": "workspace:*",
+    "@janhq/jan-brand": "workspace:*",
     "zod": "4.4.3"
   }
 }

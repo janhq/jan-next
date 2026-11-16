@@ -3,7 +3,7 @@ description: "Download and save original files without changing their encoding"
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-client-ui-file-actions
+# @janhq/jan-client-ui-file-actions
 
 ## Summary
 

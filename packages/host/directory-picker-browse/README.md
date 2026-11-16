@@ -3,11 +3,11 @@ description: "In-app browsing backend of the directory-picker seam: one-level di
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-host-directory-picker-browse
+# @janhq/jan-host-directory-picker-browse
 
 ## Summary
 
-Users who cannot reach an OS chooser still pick a workspace directory through `dsh-host-directory-picker-browse`: it provides one-level directory listing and child-directory creation over Node's standard library, and nothing renders on the host display — so it serves the remote clients the native backend cannot reach. Listings return directories only, name-sorted, with symlink-to-directory following and a host-owned `hidden` flag; creation is non-recursive and validates a single path segment. One composition row also fills the workspace flow's directory holes with the in-app **Select Workspace Directory** dialog.
+Users who cannot reach an OS chooser still pick a workspace directory through `jan-host-directory-picker-browse`: it provides one-level directory listing and child-directory creation over Node's standard library, and nothing renders on the host display — so it serves the remote clients the native backend cannot reach. Listings return directories only, name-sorted, with symlink-to-directory following and a host-owned `hidden` flag; creation is non-recursive and validates a single path segment. One composition row also fills the workspace flow's directory holes with the in-app **Select Workspace Directory** dialog.
 
 ## Table of Contents
 

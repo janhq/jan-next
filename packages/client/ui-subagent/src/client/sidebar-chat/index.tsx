@@ -1,24 +1,24 @@
 /** Right-Sidebar presentation of an existing subagent Conversation. */
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context } from '@janhq/cordis'
 import type {
   ISessions, SessionReference,
-} from '@deepseek-ai/dsh-api-session-controller/client'
-import type { ResourceProvider } from '@deepseek-ai/dsh-client-resources/client'
-import type { ConversationViewsProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { SidebarRightTabDefinition } from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
+} from '@janhq/jan-api-session-controller/client'
+import type { ResourceProvider } from '@janhq/jan-client-resources/client'
+import type { ConversationViewsProps } from '@janhq/jan-client-ui-conversation/client'
+import type { SidebarRightTabDefinition } from '@janhq/jan-client-ui-sidebar-right/client'
 import type {
   PropsRenderFactories, PropsRenderSlots, PropsRuntime, TranslateNS,
-} from '@deepseek-ai/dsh-client-ui-slots'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
+} from '@janhq/jan-client-ui-slots'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { SubagentAddress } from '@janhq/jan-subagent/client'
 import type { NS } from '../locales.ts'
 import css from './SidebarChat.module.css'
 
 /** Stable implementation identity for the Sidebar tab body. */
-export const SUBAGENT_CHAT_ID = '@deepseek-ai/dsh-client-ui-subagent'
+export const SUBAGENT_CHAT_ID = '@janhq/jan-client-ui-subagent'
 
 /** Resource-address prefix for an embedded Session chat. */
-export const SUBAGENT_CHAT_ADDRESS = 'dsh-resource://subagentchat/session/'
+export const SUBAGENT_CHAT_ADDRESS = 'jan-resource://subagentchat/session/'
 
 /** Value retained by one live chat resource occurrence. */
 export interface SubagentChatResource {
@@ -26,13 +26,13 @@ export interface SubagentChatResource {
   readonly reference: SessionReference
 }
 
-declare module '@deepseek-ai/dsh-api-session-controller/client' {
+declare module '@janhq/jan-api-session-controller/client' {
   interface SessionReferenceSourceMap {
     sidebarChat: unknown
   }
 }
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface ResourceProtocolMap {
     subagentchat: SubagentChatResource
   }
@@ -68,7 +68,7 @@ export function parseSubagentChatAddress(value: string): SubagentAddress | undef
   } catch (_invalidUrl) {
     return undefined
   }
-  if (url.protocol !== 'dsh-resource:' || url.hostname.toLowerCase() !== 'subagentchat') return undefined
+  if (url.protocol !== 'jan-resource:' || url.hostname.toLowerCase() !== 'subagentchat') return undefined
   const parts = url.pathname.split('/').filter(Boolean)
   if (parts.length !== 2 || parts[0] !== 'session') return undefined
   const parentSessionId = url.searchParams.get('parent')

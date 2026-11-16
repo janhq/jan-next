@@ -3,7 +3,7 @@ description: "The persisted session-projection cache for deployments and maintai
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-session-projection-cache
+# @janhq/jan-session-projection-cache
 
 ## Summary
 
@@ -33,11 +33,11 @@ Choose it when a deployment restarts sessions and needs durable projection value
 
 Both throttle fields are required — flush cadence is a deployment choice with no universally correct value:
 
-The cache opens its domain through the storage stack, so base mounts `storage`, `storage-json` (root `dshHomePath('storages')`), and `storage-domain` (`backend: json`) before it:
+The cache opens its domain through the storage stack, so base mounts `storage`, `storage-json` (root `janHomePath('storages')`), and `storage-domain` (`backend: json`) before it:
 
 ```yaml
 - id: session-projection-cache
-  name: '@deepseek-ai/dsh-session-projection-cache'
+  name: '@janhq/jan-session-projection-cache'
   config:
     writeEveryEvents: 200
     writeIntervalMs: 5000

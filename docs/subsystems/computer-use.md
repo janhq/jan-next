@@ -1,6 +1,6 @@
 # Computer use
 
-Computer use lets a model observe and operate the local desktop through a configured provider. The shared DSH capability is called **computer use**; **Cua Driver** names the upstream implementation.
+Computer use lets a model observe and operate the local desktop through a configured provider. The shared Jan capability is called **computer use**; **Cua Driver** names the upstream implementation.
 
 [Computer Use](../../packages/experimental/cua-bundle/README.md) provides an optional experimental switch for macOS CUA permission setup.
 
@@ -17,7 +17,7 @@ The CUA provider owns `ctx.cuaAccess` for system-permission status, explicit sys
 
 ## Choose a provider
 
-Mount [`dsh-computer-use`](../../packages/computer-use/computer-use/README.md) and one provider in the same composition. Both Cua Driver providers are experimental public npm packages and require explicit activation.
+Mount [`jan-computer-use`](../../packages/computer-use/computer-use/README.md) and one provider in the same composition. Both Cua Driver providers are experimental public npm packages and require explicit activation.
 
 | Provider | Runtime |
 |---|---|
@@ -30,7 +30,7 @@ Each provider supplies its upstream tool catalog. The shared service registers o
 
 A provider retains its registration while it shuts down its tools and owned resources. Startup failure releases the attempted registration. The MCP provider keeps its registration during reconnects.
 
-One registered provider does not reserve a desktop for a Session. Callers coordinate complete observe, act, and verify workflows across Sessions and separate DSH processes. A cancelled call cannot undo input that the desktop already received.
+One registered provider does not reserve a desktop for a Session. Callers coordinate complete observe, act, and verify workflows across Sessions and separate Jan processes. A cancelled call cannot undo input that the desktop already received.
 
 ## Results and platform requirements
 

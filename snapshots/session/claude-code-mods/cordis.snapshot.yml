@@ -6,13 +6,13 @@
   disabled: true
 
 - id: session-persistence-jsonl
-  name: '@deepseek-ai/dsh-session-persistence-jsonl'
+  name: '@janhq/jan-session-persistence-jsonl'
   config:
-    root: !!js dshHomePath('sessions')
+    root: !!js janHomePath('sessions')
     compression: none
 
 - id: sandbox
-  name: '@deepseek-ai/dsh-sandbox-local'
+  name: '@janhq/jan-sandbox-local'
   config:
     runnerCommand:
       - bash
@@ -24,17 +24,17 @@
 
 - insert:
     - id: claude-code-mods
-      name: '@deepseek-ai/dsh-experimental-claude-code-mods'
+      name: '@janhq/jan-experimental-claude-code-mods'
     - id: workspace-changes
-      name: '@deepseek-ai/dsh-workspace-changes'
+      name: '@janhq/jan-workspace-changes'
     - id: claude-code-mod-snapshot-guard
       name: './demo-mod.ts'
     - id: claude-code-mod-replay-theater
-      name: '@deepseek-ai/dsh-experimental-claude-code-mods/examples/replay-theater/index.ts'
+      name: '@janhq/jan-experimental-claude-code-mods/examples/replay-theater/index.ts'
     - id: claude-code-mod-token-weather
-      name: '@deepseek-ai/dsh-experimental-claude-code-mods/examples/token-weather/index.ts'
+      name: '@janhq/jan-experimental-claude-code-mods/examples/token-weather/index.ts'
     - id: llm-replay
-      name: '@deepseek-ai/dsh-llm-replay'
+      name: '@janhq/jan-llm-replay'
       config:
         providers:
           - id: deepseek-official

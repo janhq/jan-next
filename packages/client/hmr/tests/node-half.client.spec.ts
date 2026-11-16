@@ -7,18 +7,18 @@ import type { ServerResponse, IncomingMessage } from 'node:http'
 import { mkdtempSync, rmSync, statSync, unlinkSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import Loader from '@deepseek-ai/cordis-plugin-loader'
-import { Context } from '@deepseek-ai/cordis'
+import Loader from '@janhq/cordis-plugin-loader'
+import { Context } from '@janhq/cordis'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ClientArtifactBaseline, ClientModuleRegistry, WebBootGraph } from '@deepseek-ai/dsh-client-modules'
-import type { WebRoute, WebServer } from '@deepseek-ai/dsh-host-webserver'
+import type { ClientArtifactBaseline, ClientModuleRegistry, WebBootGraph } from '@janhq/jan-client-modules'
+import type { WebRoute, WebServer } from '@janhq/jan-host-webserver'
 import { apply, Config, EVENTS_ENDPOINT, inject } from '../src/index.ts'
 
 const POLL_MS = 20
 
 let dir: string
 
-beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'dsh-hmr-')) })
+beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'jan-hmr-')) })
 afterEach(() => { rmSync(dir, { recursive: true, force: true }) })
 
 /**

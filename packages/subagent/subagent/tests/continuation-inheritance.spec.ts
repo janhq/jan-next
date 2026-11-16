@@ -11,19 +11,19 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Context } from '@deepseek-ai/cordis'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import SandboxPolicyService, { setSandboxMode } from '@deepseek-ai/dsh-sandbox-policy'
-import { Session, SessionId } from '@deepseek-ai/dsh-session'
-import type { SessionEvent } from '@deepseek-ai/dsh-session'
-import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
+import { Context } from '@janhq/cordis'
+import type { Agent } from '@janhq/jan-agent'
+import AgentLoop from '@janhq/jan-agent-loop'
+import { mountAgentLoopTestDependencies } from '@janhq/jan-agent-loop-testkit'
+import { createUserMessage } from '@janhq/jan-llm'
+import SandboxPolicyService, { setSandboxMode } from '@janhq/jan-sandbox-policy'
+import { Session, SessionId } from '@janhq/jan-session'
+import type { SessionEvent } from '@janhq/jan-session'
+import * as JsonlSessionPersistence from '@janhq/jan-session-persistence-jsonl'
 import { subagentManager } from './manager-internals.ts'
-import * as SubagentFork from '@deepseek-ai/dsh-subagent-fork-in-process'
-import * as SubagentSpawn from '@deepseek-ai/dsh-subagent-spawn-in-process'
-import ApprovalService from '@deepseek-ai/dsh-user-approval'
+import * as SubagentFork from '@janhq/jan-subagent-fork-in-process'
+import * as SubagentSpawn from '@janhq/jan-subagent-spawn-in-process'
+import ApprovalService from '@janhq/jan-user-approval'
 import { MockAdapter, textResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 import SubagentRuntime from '../src/index.ts'
 import { TestSessionQuery } from './test-session-query.ts'
@@ -43,7 +43,7 @@ async function setup(script: Script) {
   const ctx = new Context()
   contexts.push(ctx)
   await mountAgentLoopTestDependencies(ctx)
-  const root = mkdtempSync(join(tmpdir(), 'dsh-continuation-inherit-'))
+  const root = mkdtempSync(join(tmpdir(), 'jan-continuation-inherit-'))
   roots.push(root)
   await ctx.plugin(JsonlSessionPersistence, { root })
   await ctx.plugin(SandboxPolicyService, { mode: 'workspace-write', workspaceRoot: root })

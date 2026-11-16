@@ -3,7 +3,7 @@ description: "Enable personalized page proposals and built-in plugin recommendat
 kind: "package-bundle"
 ---
 
-# @deepseek-ai/dsh-personalized-recommendations
+# @janhq/jan-personalized-recommendations
 
 ## Summary
 

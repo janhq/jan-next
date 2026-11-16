@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-host-directory-picker-auto",
+  "name": "@janhq/jan-host-directory-picker-auto",
   "description": "Adaptive chooser of the directory-picker seam: resolves the host situation at boot and mounts the native or browse backend for the Jan web GUI host",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/host/directory-picker-auto"
   },
   "type": "module",
@@ -29,28 +29,28 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/cordis-plugin-loader": "workspace:~",
-    "@deepseek-ai/dsh-client-connection": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-directory-picker-browse": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-directory-picker-native": "workspace:*",
-    "@deepseek-ai/dsh-host-directory-picker-browse": "workspace:*",
-    "@deepseek-ai/dsh-host-directory-picker-native": "workspace:*",
-    "@deepseek-ai/dsh-host-webserver": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/cordis-plugin-loader": "workspace:~",
+    "@janhq/jan-client-connection": "workspace:*",
+    "@janhq/jan-client-ui-directory-picker-browse": "workspace:*",
+    "@janhq/jan-client-ui-directory-picker-native": "workspace:*",
+    "@janhq/jan-host-directory-picker-browse": "workspace:*",
+    "@janhq/jan-host-directory-picker-native": "workspace:*",
+    "@janhq/jan-host-webserver": "workspace:*"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/cordis-plugin-include": "workspace:~",
-    "@deepseek-ai/cordis-plugin-loader": "workspace:~",
-    "@deepseek-ai/dsh-client-connection": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-directory-picker-browse": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-directory-picker-native": "workspace:*",
-    "@deepseek-ai/dsh-host-directory-picker": "workspace:*",
-    "@deepseek-ai/dsh-host-directory-picker-browse": "workspace:*",
-    "@deepseek-ai/dsh-host-directory-picker-native": "workspace:*",
-    "@deepseek-ai/dsh-host-webserver": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/cordis-plugin-include": "workspace:~",
+    "@janhq/cordis-plugin-loader": "workspace:~",
+    "@janhq/jan-client-connection": "workspace:*",
+    "@janhq/jan-client-ui-directory-picker-browse": "workspace:*",
+    "@janhq/jan-client-ui-directory-picker-native": "workspace:*",
+    "@janhq/jan-host-directory-picker": "workspace:*",
+    "@janhq/jan-host-directory-picker-browse": "workspace:*",
+    "@janhq/jan-host-directory-picker-native": "workspace:*",
+    "@janhq/jan-host-webserver": "workspace:*"
   },
   "dependencies": {
-    "@deepseek-ai/dsh-launch-environment": "workspace:*"
+    "@janhq/jan-launch-environment": "workspace:*"
   }
 }

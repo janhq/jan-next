@@ -1,21 +1,21 @@
 /**
  * Basic replay-aware compaction backend.
  *
- * @module @deepseek-ai/dsh-compaction-basic
+ * @module @janhq/jan-compaction-basic
  */
 
-import { Context } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
-import { CompactionEngine, ManualCompactionError } from '@deepseek-ai/dsh-compaction'
-import type { CompactionResult, CompactionTrigger } from '@deepseek-ai/dsh-compaction'
-import type { EpochHeader, Session, SessionSeq } from '@deepseek-ai/dsh-session'
-import { CONTEXT_WINDOW_EXCEEDED_CODE, LlmError } from '@deepseek-ai/dsh-llm'
-import type { LlmCallConfig } from '@deepseek-ai/dsh-llm'
-import { assertNever } from '@deepseek-ai/dsh-util-values'
-import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
-import type { CommandId } from '@deepseek-ai/dsh-commands/brand'
+import { Context } from '@janhq/cordis'
+import z from '@janhq/schemastery'
+import { CompactionEngine, ManualCompactionError } from '@janhq/jan-compaction'
+import type { CompactionResult, CompactionTrigger } from '@janhq/jan-compaction'
+import type { EpochHeader, Session, SessionSeq } from '@janhq/jan-session'
+import { CONTEXT_WINDOW_EXCEEDED_CODE, LlmError } from '@janhq/jan-llm'
+import type { LlmCallConfig } from '@janhq/jan-llm'
+import { assertNever } from '@janhq/jan-util-values'
+import type { Agent, PreStepDecision } from '@janhq/jan-agent'
+import type { CommandId } from '@janhq/jan-commands/brand'
 // Type-only: makes the optional sibling service available to `ctx.get()`.
-import type {} from '@deepseek-ai/dsh-compaction-tool-result-pruner'
+import type {} from '@janhq/jan-compaction-tool-result-pruner'
 import {
   resolveCompactSpec,
   resolveConfig,

@@ -9,17 +9,17 @@
  */
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
 import { platform, release } from 'node:os'
-import type {} from '@deepseek-ai/dsh-host-webserver'
-import { Context, Service } from '@deepseek-ai/cordis'
-import Schema from '@deepseek-ai/schemastery'
+import type {} from '@janhq/jan-host-webserver'
+import { Context, Service } from '@janhq/cordis'
+import Schema from '@janhq/schemastery'
 import { z } from 'zod'
 import {
   DeepSeekAccount, installAccountTaskCancellation,
   type AccountBonusBatch, type AccountClientMetadata, type AccountDetails, type AccountUserId, type AccountView,
   type PlatformSession, type SignInAttemptId, type SignInAttemptView,
 } from './account.ts'
-import { credentialKey, credentialRef, type CredentialRef } from '@deepseek-ai/dsh-credentials'
-import type { AuthorizationSession } from '@deepseek-ai/dsh-authorization'
+import { credentialKey, credentialRef, type CredentialRef } from '@janhq/jan-credentials'
+import type { AuthorizationSession } from '@janhq/jan-authorization'
 import {
   DEFAULT_BASE_URL, TokamakAuthError, TokamakUnsupportedError, apiKeysUrl, apiRoot, beginSession, buildAuthorizeUrl,
   normalizeBaseUrl, pollOnce, revokeKey, verifyKey, webRoot, type Minted,

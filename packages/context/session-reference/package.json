@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-session-reference",
+  "name": "@janhq/jan-session-reference",
   "description": "Cross-session snapshot references and durable untrusted model context (ctx.sessionReferenceResolver)",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/context/session-reference"
   },
   "type": "module",
@@ -46,59 +46,59 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "@deepseek-ai/dsh-brand": "workspace:*",
-    "@deepseek-ai/dsh-util-values": "workspace:*",
-    "@deepseek-ai/schemastery": "workspace:~",
+    "@janhq/jan-brand": "workspace:*",
+    "@janhq/jan-util-values": "workspace:*",
+    "@janhq/schemastery": "workspace:~",
     "zod": "4.4.3"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-agent": "workspace:*",
-    "@deepseek-ai/dsh-compaction": "workspace:*",
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-output-retention": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-session-projection": "workspace:*",
-    "@deepseek-ai/dsh-session-projection-cache": "workspace:*",
-    "@deepseek-ai/dsh-session-query": "workspace:*",
-    "@deepseek-ai/dsh-session-title": "workspace:*",
-    "@deepseek-ai/dsh-spill": "workspace:*",
-    "@deepseek-ai/dsh-subagent": "workspace:*",
-    "@deepseek-ai/dsh-system-prompt": "workspace:*",
-    "@deepseek-ai/dsh-typert-protocol": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-compaction": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-output-retention": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-session-projection": "workspace:*",
+    "@janhq/jan-session-projection-cache": "workspace:*",
+    "@janhq/jan-session-query": "workspace:*",
+    "@janhq/jan-session-title": "workspace:*",
+    "@janhq/jan-spill": "workspace:*",
+    "@janhq/jan-subagent": "workspace:*",
+    "@janhq/jan-system-prompt": "workspace:*",
+    "@janhq/jan-typert-protocol": "workspace:*"
   },
   "peerDependenciesMeta": {
-    "@deepseek-ai/dsh-spill": {
+    "@janhq/jan-spill": {
       "optional": true
     },
-    "@deepseek-ai/dsh-session-projection-cache": {
+    "@janhq/jan-session-projection-cache": {
       "optional": true
     }
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/cordis-plugin-include": "workspace:~",
-    "@deepseek-ai/cordis-plugin-loader": "workspace:~",
-    "@deepseek-ai/dsh-agent": "workspace:*",
-    "@deepseek-ai/dsh-compaction": "workspace:*",
-    "@deepseek-ai/dsh-fs-local": "workspace:*",
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-output-retention": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-session-projection": "workspace:*",
-    "@deepseek-ai/dsh-session-projection-cache": "workspace:*",
-    "@deepseek-ai/dsh-session-query": "workspace:*",
-    "@deepseek-ai/dsh-session-query-sqlite": "workspace:*",
-    "@deepseek-ai/dsh-session-title": "workspace:*",
-    "@deepseek-ai/dsh-spill": "workspace:*",
-    "@deepseek-ai/dsh-subagent": "workspace:*",
-    "@deepseek-ai/dsh-spill-local": "workspace:*",
-    "@deepseek-ai/dsh-system-prompt": "workspace:*",
-    "@deepseek-ai/dsh-tool-executor-native": "workspace:*",
-    "@deepseek-ai/dsh-tool-fs": "workspace:*",
-    "@deepseek-ai/dsh-tool-testkit": "workspace:*",
-    "@deepseek-ai/dsh-tools": "workspace:*",
-    "@deepseek-ai/dsh-typert-protocol": "workspace:*",
-    "@deepseek-ai/dsh-working-directory": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/cordis-plugin-include": "workspace:~",
+    "@janhq/cordis-plugin-loader": "workspace:~",
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-compaction": "workspace:*",
+    "@janhq/jan-fs-local": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-output-retention": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-session-projection": "workspace:*",
+    "@janhq/jan-session-projection-cache": "workspace:*",
+    "@janhq/jan-session-query": "workspace:*",
+    "@janhq/jan-session-query-sqlite": "workspace:*",
+    "@janhq/jan-session-title": "workspace:*",
+    "@janhq/jan-spill": "workspace:*",
+    "@janhq/jan-subagent": "workspace:*",
+    "@janhq/jan-spill-local": "workspace:*",
+    "@janhq/jan-system-prompt": "workspace:*",
+    "@janhq/jan-tool-executor-native": "workspace:*",
+    "@janhq/jan-tool-fs": "workspace:*",
+    "@janhq/jan-tool-testkit": "workspace:*",
+    "@janhq/jan-tools": "workspace:*",
+    "@janhq/jan-typert-protocol": "workspace:*",
+    "@janhq/jan-working-directory": "workspace:*"
   }
 }

@@ -1,5 +1,5 @@
 /** Local model copy. */
-import type {} from '@deepseek-ai/dsh-client-ui-slots'
+import type {} from '@janhq/jan-client-ui-slots'
 
 /** Locale namespace. */
 export const NS = 'settings.local-model' as const
@@ -114,7 +114,7 @@ export const en = {
 /** Dictionary keys. */
 export type LocalModelKey = keyof typeof en
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Local model card and first-run option. */
     'settings.local-model': LocalModelKey

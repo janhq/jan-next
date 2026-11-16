@@ -1,16 +1,16 @@
 /** ui-subagent browser half: catalog actions and read-only composer routing. */
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { Context } from '@deepseek-ai/cordis'
-import { stubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import { Context } from '@janhq/cordis'
+import { stubConfigForm } from '@janhq/jan-client-test-runtime'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import type {
   SessionListState, SessionSnapshot, SessionSummary,
-} from '@deepseek-ai/dsh-api-session-controller/client'
-import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
-import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { ComposerChainProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import { apply as applyLocale, inject as localeInject } from '@deepseek-ai/dsh-client-locale/client'
+} from '@janhq/jan-api-session-controller/client'
+import type { SubagentAddress } from '@janhq/jan-subagent/client'
+import { SlotRegistry } from '@janhq/jan-client-ui-renderer/client'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { ComposerChainProps } from '@janhq/jan-client-ui-conversation/client'
+import { apply as applyLocale, inject as localeInject } from '@janhq/jan-client-locale/client'
 import {
   SubagentHeaderLineage, type SubagentCatalogInjected, type SubagentCatalogActionInjected,
 } from '../src/client/SubagentHeaderLineage.tsx'
@@ -139,7 +139,7 @@ describe('apply', () => {
       {
         method: 'openResource',
         args: [
-          'dsh-resource://subagentchat/session/c1?parent=parent&mode=continuable',
+          'jan-resource://subagentchat/session/c1?parent=parent&mode=continuable',
           { kind: 'subagentchat', preferNewPane: true },
         ],
       },

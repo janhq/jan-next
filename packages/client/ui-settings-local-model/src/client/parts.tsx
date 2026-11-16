@@ -1,8 +1,8 @@
 /** Pieces shared by the Models card and the first-run option. */
 import type { ReactNode } from 'react'
-import { StateDot, Tag, type StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { LlamaCppHardware, LlamaCppPhase, LlamaCppProgress, LlamaCppState, ModelFit } from '@deepseek-ai/dsh-api-llama-cpp-controller'
-import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
+import { StateDot, Tag, type StateDotState } from '@janhq/jan-client-ui-primitives'
+import type { LlamaCppHardware, LlamaCppPhase, LlamaCppProgress, LlamaCppState, ModelFit } from '@janhq/jan-api-llama-cpp-controller'
+import type { TranslateNS } from '@janhq/jan-client-ui-slots'
 import { estimateRemaining, formatBytes } from './state.ts'
 import type { NS } from './locales.ts'
 import css from './LocalModel.module.css'

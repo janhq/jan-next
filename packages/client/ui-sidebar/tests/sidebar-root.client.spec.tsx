@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
-import { contextMenuHook } from '@deepseek-ai/dsh-client-test-runtime'
-import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
-import type { ShortcutCatalogEntry, ShortcutCommandId } from '@deepseek-ai/dsh-client-shortcuts/client'
+import { contextMenuHook } from '@janhq/jan-client-test-runtime'
+import type { GlobalStandardProps } from '@janhq/jan-client-ui-slots'
+import type { ShortcutCatalogEntry, ShortcutCommandId } from '@janhq/jan-client-shortcuts/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { Menu, Modal, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
-import { allowAllAccess, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
+import { Menu, Modal, Tooltip } from '@janhq/jan-client-ui-primitives'
+import { allowAllAccess, makeTranslate } from '@janhq/jan-client-test-runtime'
 import type { ReactNode } from 'react'
 import { useState } from 'react'
 import type {
@@ -15,7 +15,7 @@ import type {
 import { HeaderLeadingControls, type HeaderLeadingControlsProps } from '../src/client/HeaderLeadingControls.tsx'
 import { SidebarRoot } from '../src/client/SidebarRoot.tsx'
 import { en } from '../src/client/locales.ts'
-import { en as commonEn } from '@deepseek-ai/dsh-client-locale/src/locales/en.ts'
+import { en as commonEn } from '@janhq/jan-client-locale/src/locales/en.ts'
 
 // Every fixture carries the resource hook the resources plugin merges into GlobalStandardProps.
 const useResource = (() => ({ status: 'none' as const, value: undefined, failure: undefined, reload: () => {} })) as GlobalStandardProps['useResource']
@@ -187,7 +187,7 @@ describe('SidebarRoot shell', () => {
   })
   it('routes New Session (capsule + wordmark) and the column toggle', () => {
     // Occupied brand slots keep New Session even when the build carries a version.
-    vi.stubEnv('DSH_CLIENT_VERSION', '1.2.3')
+    vi.stubEnv('JAN_CLIENT_VERSION', '1.2.3')
     const b = mountShell()
     expect(screen.getByTestId('custom-brand-mark')).toBeTruthy()
     expect(screen.getByTestId('custom-brand-name')).toBeTruthy()
@@ -246,9 +246,9 @@ describe('SidebarRoot shell', () => {
   })
 
   it('renders generic brand fallbacks when no package fills the slots', () => {
-    vi.stubEnv('DSH_CLIENT_COMMIT_HASH', '0123456')
-    vi.stubEnv('DSH_CLIENT_GIT_DIRTY', 'true')
-    vi.stubEnv('DSH_CLIENT_VERSION', '1.2.3-rc.4')
+    vi.stubEnv('JAN_CLIENT_COMMIT_HASH', '0123456')
+    vi.stubEnv('JAN_CLIENT_GIT_DIRTY', 'true')
+    vi.stubEnv('JAN_CLIENT_VERSION', '1.2.3-rc.4')
     const { container } = render(<SidebarRoot
       drawer={false}
       collapsed={false} width={300}
@@ -270,8 +270,8 @@ describe('SidebarRoot shell', () => {
   })
 
   it.each([
-    [{ DSH_CLIENT_VERSION: '1.2.3' }, '1.2.3'],
-    [{ DSH_CLIENT_COMMIT_HASH: 'abcdef0', DSH_CLIENT_VERSION: '1.2.3' }, '1.2.3-abcdef0'],
+    [{ JAN_CLIENT_VERSION: '1.2.3' }, '1.2.3'],
+    [{ JAN_CLIENT_COMMIT_HASH: 'abcdef0', JAN_CLIENT_VERSION: '1.2.3' }, '1.2.3-abcdef0'],
   ])('omits unavailable build-version suffixes from %j', (environment, expected) => {
     for (const [name, value] of Object.entries(environment)) vi.stubEnv(name, value)
     render(<SidebarRoot
@@ -295,8 +295,8 @@ describe('SidebarRoot shell', () => {
 
   it.each([false, true])('copies the local-build version from the fallback mark and name (darwin=%s)', async (darwin) => {
     if (darwin) document.documentElement.dataset.platform = 'darwin'
-    vi.stubEnv('DSH_CLIENT_COMMIT_HASH', 'abcdef0')
-    vi.stubEnv('DSH_CLIENT_VERSION', '1.2.3')
+    vi.stubEnv('JAN_CLIENT_COMMIT_HASH', 'abcdef0')
+    vi.stubEnv('JAN_CLIENT_VERSION', '1.2.3')
     const writeText = vi.fn<(text: string) => Promise<void>>()
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(new Error('denied'))
@@ -740,5 +740,5 @@ it.each([false, true])('moves hidden sidebar focus only to an available opener (
   h.rerender({ drawer: true })
   const expected = hasOpener ? screen.getByRole('button', { name: 'Open navigation' }) : previous
   expect(document.activeElement).toBe(expected)
-  if (hasOpener) expect(expected.hasAttribute('data-dsh-automatic-focus')).toBe(true)
+  if (hasOpener) expect(expected.hasAttribute('data-jan-automatic-focus')).toBe(true)
 })

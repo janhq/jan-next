@@ -3,7 +3,7 @@ description: "Model tool that creates a new local Git worktree and changes the c
 kind: "package-bundle"
 ---
 
-# @deepseek-ai/dsh-experimental-tool-worktree
+# @janhq/jan-experimental-tool-worktree
 
 ## Summary
 
@@ -23,13 +23,13 @@ Let a model create and enter a new Git worktree with one call. Web and Desktop e
 <a id="use-this-package"></a>
 ## Use this package
 
-In the GUI, enable [Change requests & worktrees](../forge-bundle/README.md). The standalone bundle has no Plugins page card. Profiles without the Web application may select it in `dsh.profile.bundles`; it loads the [worktree runtime](../worktree/README.md) and this tool together. Turning it off removes `create_worktree` without deleting existing checkouts or branches. The built-in `working_directory` tool remains available.
+In the GUI, enable [Change requests & worktrees](../forge-bundle/README.md). The standalone bundle has no Plugins page card. Profiles without the Web application may select it in `jan.profile.bundles`; it loads the [worktree runtime](../worktree/README.md) and this tool together. Turning it off removes `create_worktree` without deleting existing checkouts or branches. The built-in `working_directory` tool remains available.
 
 For an explicit composition, mount this function plugin after the worktree runtime and tool registry.
 
 ```yaml
-- name: '@deepseek-ai/dsh-experimental-worktree'
-- name: '@deepseek-ai/dsh-experimental-tool-worktree'
+- name: '@janhq/jan-experimental-worktree'
+- name: '@janhq/jan-experimental-tool-worktree'
 ```
 
 Call `create_worktree({ name?: string, from?: string })`. Success returns the canonical checkout `path`, new `branch`, pinned `baseCommit`, and source `repositoryRoot`, and changes the calling Session's current working directory. To leave, call `working_directory({ cd: path })`; the checkout and branch remain. The [generated tool catalog](../../../docs/tool-catalog.md#deepseek-aidsh-experimental-tool-worktree) owns the exact schema and model-facing description.

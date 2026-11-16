@@ -66,10 +66,10 @@ const HOST_QUERIES: readonly HostQuery[] = [
 /**
  * Read host query settings from the Desktop process environment.
  * @param env - Desktop process environment.
- * @returns Settings with `DSH_DESKTOP_STATUS_NOTIFIER_TIMEOUT_MS`, default 2000.
+ * @returns Settings with `JAN_DESKTOP_STATUS_NOTIFIER_TIMEOUT_MS`, default 2000.
  */
 export function resolveDesktopStatusNotifierConfig(env: NodeJS.ProcessEnv): DesktopStatusNotifierConfig {
-  return { timeoutMs: resolveDurationMs(env, 'DSH_DESKTOP_STATUS_NOTIFIER_TIMEOUT_MS', 2_000) }
+  return { timeoutMs: resolveDurationMs(env, 'JAN_DESKTOP_STATUS_NOTIFIER_TIMEOUT_MS', 2_000) }
 }
 
 /**

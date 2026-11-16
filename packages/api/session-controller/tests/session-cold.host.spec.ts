@@ -3,28 +3,28 @@
  * metadata-only listing, Agent-free history reads, subagent ownership
  * isolation, and prompt failure mapping.
  */
-import { AgentModel, modelSelectionProjectionDefinition } from '@deepseek-ai/dsh-agent'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
+import { AgentModel, modelSelectionProjectionDefinition } from '@janhq/jan-agent'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
 
-import { SESSION_FORMAT_VERSION, SessionLogOffset, SessionSeq } from '@deepseek-ai/dsh-session'
+import { SESSION_FORMAT_VERSION, SessionLogOffset, SessionSeq } from '@janhq/jan-session'
 import { describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import SessionStore from '@deepseek-ai/dsh-session'
-import AgentRegistry from '@deepseek-ai/dsh-agent'
-import { subagentIdentityProjectionDefinition } from '@deepseek-ai/dsh-subagent/src/projection.ts'
-import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
-import { createUserMessage, MessageId } from '@deepseek-ai/dsh-llm'
-import { snapshotSubagentDescriptor } from '@deepseek-ai/dsh-subagent'
-import { createInboxStub, mountAgentLoopTestDependencies, mountAgentLoopTestHarness } from '@deepseek-ai/dsh-agent-loop-testkit'
-import type { Agent, Inbox } from '@deepseek-ai/dsh-agent'
-import type { Session, SessionEvent, SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
-import AttachmentStore from '@deepseek-ai/dsh-attachment'
+import { Context } from '@janhq/cordis'
+import SessionStore from '@janhq/jan-session'
+import AgentRegistry from '@janhq/jan-agent'
+import { subagentIdentityProjectionDefinition } from '@janhq/jan-subagent/src/projection.ts'
+import TypertRegistry from '@janhq/jan-typert-registry'
+import { createUserMessage, MessageId } from '@janhq/jan-llm'
+import { snapshotSubagentDescriptor } from '@janhq/jan-subagent'
+import { createInboxStub, mountAgentLoopTestDependencies, mountAgentLoopTestHarness } from '@janhq/jan-agent-loop-testkit'
+import type { Agent, Inbox } from '@janhq/jan-agent'
+import type { Session, SessionEvent, SessionHeader, SessionId } from '@janhq/jan-session'
+import AttachmentStore from '@janhq/jan-attachment'
 import type { SessionPromptRequest, SessionRequestId } from '../src/types.ts'
 import {
   SessionPersistenceRevision,
   type SessionPersistenceSnapshot,
   type SessionHandle, SessionAccess,
-} from '@deepseek-ai/dsh-session-persistence'
+} from '@janhq/jan-session-persistence'
 import {
   createSessionTestRemote,
   testSessionPersistence,
@@ -424,7 +424,7 @@ describe('Remote Agent and Session lookup policy', () => {
       list: () => Promise.resolve([meta]),
       inspect,
     })
-    const resumedSession = { id: sessionId, header: meta, events: [] } as unknown as import('@deepseek-ai/dsh-session').Session
+    const resumedSession = { id: sessionId, header: meta, events: [] } as unknown as import('@janhq/jan-session').Session
     const resumedAgent = { id: sessionId, session: resumedSession, status: 'idle', ctx } as Agent
     const release = Promise.withResolvers<undefined>()
     const resume = vi.spyOn(ctx.agents, 'resume').mockImplementation(async () => {

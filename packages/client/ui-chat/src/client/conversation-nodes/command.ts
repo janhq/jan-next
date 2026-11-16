@@ -1,11 +1,11 @@
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context } from '@janhq/cordis'
 import type {
   CommandNode, CompactionSummaryNode, ConversationMatch, ConversationNodeContext, ConversationNodeDefinition,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { CompactionCheckpointSource } from '@deepseek-ai/dsh-compaction/checkpoint'
-import type {} from '@deepseek-ai/dsh-compaction/types'
-import type {} from '@deepseek-ai/dsh-commands/types'
-import { isReplacementSurfaceEvent } from '@deepseek-ai/dsh-session/surface'
+} from '@janhq/jan-client-ui-conversation/client'
+import type { CompactionCheckpointSource } from '@janhq/jan-compaction/checkpoint'
+import type {} from '@janhq/jan-compaction/types'
+import type {} from '@janhq/jan-commands/types'
+import { isReplacementSurfaceEvent } from '@janhq/jan-session/surface'
 import type { ManualCompactionChatData } from '../contract/chat-nodes.ts'
 import { chatNode } from './common.ts'
 

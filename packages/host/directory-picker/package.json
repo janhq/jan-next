@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-host-directory-picker",
+  "name": "@janhq/jan-host-directory-picker",
   "description": "Abstract workspace-directory picking seam (ctx.directoryPicker) for the Jan web GUI host",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/host/directory-picker"
   },
   "type": "module",
@@ -32,9 +32,9 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/cordis": "workspace:~"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/cordis": "workspace:~"
   }
 }

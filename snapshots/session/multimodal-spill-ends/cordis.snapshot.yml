@@ -3,24 +3,24 @@
 # so the strict read_image gate accepts the route and the tool result carries
 # the durable image block.
 - id: agent-default-model
-  name: '@deepseek-ai/dsh-agent-default-model'
+  name: '@janhq/jan-agent-default-model'
   config:
     provider: deepseek-official
     model: deepseek-v4-flash-vision-exp
 
 - id: session-persistence-jsonl
-  name: '@deepseek-ai/dsh-session-persistence-jsonl'
+  name: '@janhq/jan-session-persistence-jsonl'
   config:
-    root: !!js dshHomePath('sessions')
+    root: !!js janHomePath('sessions')
     compression: none
 
 - id: agent-instructions
-  name: '@deepseek-ai/dsh-agent-instructions'
+  name: '@janhq/jan-agent-instructions'
   config:
     maxBytes: 65536
 
 - id: system-prompt
-  name: '@deepseek-ai/dsh-system-prompt'
+  name: '@janhq/jan-system-prompt'
   config:
     personaPrefix: |
       You are a coding assistant powered by the {{model}} model. Your bash tool runs under a file sandbox — a `[sandbox: file access denied …]` result is policy, not a command bug.
@@ -29,7 +29,7 @@
 
 - insert:
     - id: llm-replay
-      name: '@deepseek-ai/dsh-llm-replay'
+      name: '@janhq/jan-llm-replay'
       config:
         providers:
           - id: deepseek-official
@@ -44,10 +44,10 @@
                 imageRequestTokens: 169
 
 - id: attachment-local
-  name: '@deepseek-ai/dsh-attachment-local'
+  name: '@janhq/jan-attachment-local'
 
 - id: spill-policy
-  name: '@deepseek-ai/dsh-spill-policy'
+  name: '@janhq/jan-spill-policy'
   config:
     maxInlineTokens: 1000
 
@@ -55,13 +55,13 @@
     - name: './fixture.mjs'
 
 - id: spill-local
-  name: '@deepseek-ai/dsh-spill-local'
+  name: '@janhq/jan-spill-local'
   config:
-    root: !!js process.env.DSH_SNAPSHOT_SPILL_ROOT ?? './.spill'
+    root: !!js process.env.JAN_SNAPSHOT_SPILL_ROOT ?? './.spill'
 
 - insert:
     - id: snapshot-spill-locators
       name: ../../../scripts/snapshot-spill-locators.ts
       config:
-        root: !!js process.env.DSH_SNAPSHOT_SPILL_ROOT
-        locatorRoot: !!js process.env.DSH_SNAPSHOT_SPILL_LOCATOR_ROOT
+        root: !!js process.env.JAN_SNAPSHOT_SPILL_ROOT
+        locatorRoot: !!js process.env.JAN_SNAPSHOT_SPILL_LOCATOR_ROOT

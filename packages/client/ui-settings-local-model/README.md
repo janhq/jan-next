@@ -3,11 +3,11 @@ description: "Local model card on the Settings Models page and the local option 
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-client-ui-settings-local-model
+# @janhq/jan-client-ui-settings-local-model
 
 ## Summary
 
-Users run models on their own computer from Settings → Models and from first-run setup. The Local model card starts, stops, and removes the local worker, lists installed models with fit, context, and residency, and adds models from the curated list, a Hugging Face repository, or a `.gguf` path. First-run setup offers the recommended model as the primary choice and shows its download. The [dsh-llama-cpp](../../llm/llama-cpp/README.md) service on the Host does the work.
+Users run models on their own computer from Settings → Models and from first-run setup. The Local model card starts, stops, and removes the local worker, lists installed models with fit, context, and residency, and adds models from the curated list, a Hugging Face repository, or a `.gguf` path. First-run setup offers the recommended model as the primary choice and shows its download. The [jan-llama-cpp](../../llm/llama-cpp/README.md) service on the Host does the work.
 
 ## Table of Contents
 
@@ -27,7 +27,7 @@ Mount the row with [ui-settings-models](../ui-settings-models/README.md) and the
 
 ```yaml
 - id: ui-settings-local-model
-  name: '@deepseek-ai/dsh-client-ui-settings-local-model'
+  name: '@janhq/jan-client-ui-settings-local-model'
 ```
 
 ### Local model card
@@ -72,7 +72,7 @@ The browser entry mounts the `llamaCpp` Remote unless the host already provides 
 <a id="further-exploration"></a>
 ## Further Exploration
 
-- [dsh-llama-cpp](../../llm/llama-cpp/README.md) — models, the worker, and fit.
+- [jan-llama-cpp](../../llm/llama-cpp/README.md) — models, the worker, and fit.
 - [llama-cpp-controller](../../api/llama-cpp-controller/README.md) — the Remote operations this UI calls.
 - [ui-settings-models](../ui-settings-models/README.md) — the Models page and the first-run dialog that host both slots.
 
@@ -85,7 +85,7 @@ The browser entry mounts the `llamaCpp` Remote unless the host already provides 
 
 #### What the model sees
 
-The plugin adds no model-visible text. Its actions change which models the `local` route serves and which one `local/local` selects; [dsh-llama-cpp](../../llm/llama-cpp/README.md#model-experience) owns that effect.
+The plugin adds no model-visible text. Its actions change which models the `local` route serves and which one `local/local` selects; [jan-llama-cpp](../../llm/llama-cpp/README.md#model-experience) owns that effect.
 
 #### Token effect
 

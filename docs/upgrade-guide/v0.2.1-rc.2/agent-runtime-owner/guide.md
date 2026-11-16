@@ -7,7 +7,7 @@ description: "Agent creation and resume options rename parentAgent to ownerAgent
 
 ## Change
 
-`CreateAgentOptions` and `ResumeAgentOptions` in `@deepseek-ai/dsh-agent` replace `parentAgent` with `ownerAgent`. This affects plugins and custom factories calling `ctx.agents.create()` or `ctx.agents.resume()`. The field selects the live Agent that owns the runtime instance; omitting it creates a runtime root.
+`CreateAgentOptions` and `ResumeAgentOptions` in `@janhq/jan-agent` replace `parentAgent` with `ownerAgent`. This affects plugins and custom factories calling `ctx.agents.create()` or `ctx.agents.resume()`. The field selects the live Agent that owns the runtime instance; omitting it creates a runtime root.
 
 Session creation lineage remains in `meta.parentSession`. For a nested subagent, the runtime owner can be the tree root while the direct creator is another descendant. Persisted Session fields and formats are unchanged.
 

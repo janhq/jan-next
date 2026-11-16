@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-client-ui-settings",
+  "name": "@janhq/jan-client-ui-settings",
   "description": "Settings domain base plugin: shared configuration forms and the canonical settings slot-type contract",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/client/ui-settings"
   },
   "type": "module",
@@ -26,10 +26,10 @@
     "./package.json": "./package.json",
     "./locale/*.json": "./locale/*.json"
   },
-  "dsh": {
+  "jan": {
     "client": {
       "inject": [
-        "@deepseek-ai/dsh-api-remotes"
+        "@janhq/jan-api-remotes"
       ],
       "platform": "web"
     }
@@ -40,17 +40,17 @@
   },
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/cordis": "workspace:~"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-api-remotes": "workspace:*",
-    "@deepseek-ai/dsh-client-store": "workspace:*",
-    "@deepseek-ai/dsh-client-test-runtime": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-slots": "workspace:*",
-    "@deepseek-ai/dsh-settings": "workspace:*",
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-api-remotes": "workspace:*",
+    "@janhq/jan-client-store": "workspace:*",
+    "@janhq/jan-client-test-runtime": "workspace:*",
+    "@janhq/jan-client-ui-slots": "workspace:*",
+    "@janhq/jan-settings": "workspace:*",
     "react": "^18.2.0",
-    "@deepseek-ai/dsh-util-values": "workspace:*"
+    "@janhq/jan-util-values": "workspace:*"
   },
   "files": [
     "locale/*.json",
@@ -59,6 +59,6 @@
     "lib/types/**/*.d.ts"
   ],
   "dependencies": {
-    "@deepseek-ai/schemastery": "workspace:~"
+    "@janhq/schemastery": "workspace:~"
   }
 }

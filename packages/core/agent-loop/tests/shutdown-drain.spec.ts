@@ -1,20 +1,20 @@
 /** Root-fiber shutdown drains buffered session events durably (both mount orders). */
 
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
 import { describe, expect, it, afterEach } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
+import { Context } from '@janhq/cordis'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import LlmRuntime from '@deepseek-ai/dsh-llm'
-import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime from '@deepseek-ai/dsh-tools'
-import AgentRegistry, { type Agent } from '@deepseek-ai/dsh-agent'
-import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
+import { createUserMessage } from '@janhq/jan-llm'
+import LlmRuntime from '@janhq/jan-llm'
+import SessionStore, { SessionId } from '@janhq/jan-session'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import ToolRuntime from '@janhq/jan-tools'
+import AgentRegistry, { type Agent } from '@janhq/jan-agent'
+import * as JsonlSessionPersistence from '@janhq/jan-session-persistence-jsonl'
+import AgentLoop from '@janhq/jan-agent-loop'
 import { MockAdapter, textResponse } from './mock-adapter.ts'
 
 const dirs: string[] = []
@@ -29,7 +29,7 @@ function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
 }
 
 async function mount(order: 'backend-first' | 'loop-first'): Promise<{ ctx: Context; root: string }> {
-  const root = await mkdtemp(join(tmpdir(), 'dsh-shutdown-drain-'))
+  const root = await mkdtemp(join(tmpdir(), 'jan-shutdown-drain-'))
   dirs.push(root)
   const ctx = new Context()
   await ctx.plugin(LlmRuntime)

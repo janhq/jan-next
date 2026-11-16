@@ -1,11 +1,11 @@
 /** Provider recovery overlapping retry projection registration. */
-import { Context } from '@deepseek-ai/cordis'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import { createUserMessage, resolveRetryPolicy } from '@deepseek-ai/dsh-llm'
-import type { ResolvedRetryPolicy } from '@deepseek-ai/dsh-llm'
-import * as retry from '@deepseek-ai/dsh-llm-retry'
-import { SessionId } from '@deepseek-ai/dsh-session'
+import { Context } from '@janhq/cordis'
+import AgentLoop from '@janhq/jan-agent-loop'
+import { mountAgentLoopTestDependencies } from '@janhq/jan-agent-loop-testkit'
+import { createUserMessage, resolveRetryPolicy } from '@janhq/jan-llm'
+import type { ResolvedRetryPolicy } from '@janhq/jan-llm'
+import * as retry from '@janhq/jan-llm-retry'
+import { SessionId } from '@janhq/jan-session'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { MockAdapter, textResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 

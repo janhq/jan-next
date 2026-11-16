@@ -4,15 +4,15 @@
  * reader page classifies, and the access snapshot the reader page opens with.
  */
 import { afterEach, describe, expect, it } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
+import { Context } from '@janhq/cordis'
 import RemoteAccessService, {
   type RemoteAccessAction,
   type RemoteAccessGrant,
   type RemoteAccessResource,
-} from '@deepseek-ai/dsh-api-remote-access'
-import { SessionId } from '@deepseek-ai/dsh-session'
-import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
-import { WorkspaceId } from '@deepseek-ai/dsh-workspace'
+} from '@janhq/jan-api-remote-access'
+import { SessionId } from '@janhq/jan-session'
+import TypertRegistry from '@janhq/jan-typert-registry'
+import { WorkspaceId } from '@janhq/jan-workspace'
 import type { ForkPromptDecision, ForkRecord } from '../src/host/fork-registry.ts'
 import type { ForkShareState, ViewerSessionMode } from '../src/host/fork-policy.ts'
 import {
@@ -21,7 +21,7 @@ import {
   readerWriteRefusal,
   type ViewerAccessFacts,
 } from '../src/host/viewer-access-policy.ts'
-import type { RemoteAccessEndpoint } from '@deepseek-ai/dsh-api-remote-access/types'
+import type { RemoteAccessEndpoint } from '@janhq/jan-api-remote-access/types'
 import type { ShareablePluginCatalog, ViewerPluginPolicy } from '../src/host/viewer-capability-types.ts'
 import { shareViewerPrincipal } from '../src/host/viewer-principal.ts'
 

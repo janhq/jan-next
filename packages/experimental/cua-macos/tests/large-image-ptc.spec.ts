@@ -1,29 +1,29 @@
 /** Valid large PNG admission through Loader, Harness tool rendering, disk attachments and a real Node PTC process. */
-import * as PtcToolExecutor from '@deepseek-ai/dsh-tool-executor-ptc'
+import * as PtcToolExecutor from '@janhq/jan-tool-executor-ptc'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { Context } from '@deepseek-ai/cordis'
-import Loader from '@deepseek-ai/cordis-plugin-loader'
-import Include from '@deepseek-ai/cordis-plugin-include'
-import AgentRegistry from '@deepseek-ai/dsh-agent'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
-import LocalAttachmentStore from '@deepseek-ai/dsh-attachment-local'
-import ComputerUseRegistry from '@deepseek-ai/dsh-computer-use'
-import FileSystem from '@deepseek-ai/dsh-fs-local'
-import LlmRuntime, { LlmAdapter, ToolCallId, createUserMessage } from '@deepseek-ai/dsh-llm'
-import type { GenerateOptions, LlmResolvedModelInfo, StreamChunk } from '@deepseek-ai/dsh-llm'
-import NodePtcRuntime from '@deepseek-ai/dsh-ptc-runtime-node'
-import Sandbox from '@deepseek-ai/dsh-sandbox-local'
-import SandboxPolicy from '@deepseek-ai/dsh-sandbox-policy'
-import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
-import SubprocessLocal from '@deepseek-ai/dsh-subprocess-local'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime from '@deepseek-ai/dsh-tools'
-import WorkingDirectory from '@deepseek-ai/dsh-working-directory'
+import { Context } from '@janhq/cordis'
+import Loader from '@janhq/cordis-plugin-loader'
+import Include from '@janhq/cordis-plugin-include'
+import AgentRegistry from '@janhq/jan-agent'
+import AgentLoop from '@janhq/jan-agent-loop'
+import type { ImageAttachmentRef } from '@janhq/jan-attachment'
+import LocalAttachmentStore from '@janhq/jan-attachment-local'
+import ComputerUseRegistry from '@janhq/jan-computer-use'
+import FileSystem from '@janhq/jan-fs-local'
+import LlmRuntime, { LlmAdapter, ToolCallId, createUserMessage } from '@janhq/jan-llm'
+import type { GenerateOptions, LlmResolvedModelInfo, StreamChunk } from '@janhq/jan-llm'
+import NodePtcRuntime from '@janhq/jan-ptc-runtime-node'
+import Sandbox from '@janhq/jan-sandbox-local'
+import SandboxPolicy from '@janhq/jan-sandbox-policy'
+import SessionStore, { SessionId } from '@janhq/jan-session'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
+import SubprocessLocal from '@janhq/jan-subprocess-local'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import ToolRuntime from '@janhq/jan-tools'
+import WorkingDirectory from '@janhq/jan-working-directory'
 import sharp from 'sharp'
 import { expect, it, onTestFinished, vi } from 'vitest'
 import * as NativeProvider from '../src/index.ts'
@@ -35,7 +35,7 @@ const MODEL = 'large-image-vision-fixture'
 
 // The external native substitute is a POSIX executable; it never accesses the desktop.
 it.skipIf(process.platform === 'win32')('delivers a valid PNG larger than 4 MiB through disk storage and Node PTC into the next model image request', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'dsh-cua-large-image-'))
+  const root = await mkdtemp(join(tmpdir(), 'jan-cua-large-image-'))
   const context = new Context()
   const fixture: { close?: () => Promise<void> } = {}
   onTestFinished(async () => {
@@ -69,7 +69,7 @@ it.skipIf(process.platform === 'win32')('delivers a valid PNG larger than 4 MiB 
   }
   const configPath = join(root, 'cordis.yml')
   const configs: Record<string, object> = {
-    attachments: { dshHome: join(root, 'home') }, workingDirectory: { defaultDirectory: root },
+    attachments: { janHome: join(root, 'home') }, workingDirectory: { defaultDirectory: root },
     fs: { cwd: root }, sandboxPolicy: { mode: 'danger-full-access', workspaceRoot: root }, cua: { agentPreset: false, helperPath, allowedApps: [{ 'id': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'name': 'Fixture', 'executablePath': '/fixture/app' }] },
   }
   await writeFile(configPath, Object.keys(modules).flatMap(name => [

@@ -77,7 +77,7 @@ it('accepts a worker built for the packaged platform and architecture', () => {
 
 it('rejects a missing worker or one built for another target', () => {
   expect(() => { assertStagedLlamaWorker('win32', 'x64', stage('jan-llama-worker', pe(0x8664))) })
-    .toThrow(/jan-llama-worker\.exe is missing.*DSH_DESKTOP_OMIT_LLAMA_WORKER=1/u)
+    .toThrow(/jan-llama-worker\.exe is missing.*JAN_DESKTOP_OMIT_LLAMA_WORKER=1/u)
   expect(() => { assertStagedLlamaWorker('darwin', 'x64', stage('jan-llama-worker', machO(0x0100000c))) })
     .toThrow(/targets darwin arm64, not darwin x64/u)
   expect(() => { assertStagedLlamaWorker('darwin', 'x64', stage('jan-llama-worker', elf(0x3e))) })

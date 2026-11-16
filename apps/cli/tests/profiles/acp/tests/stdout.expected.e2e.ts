@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { PROTOCOL_VERSION } from '@agentclientprotocol/sdk'
-import { startMockLlmServer } from '@deepseek-ai/dsh-llm-mock-server'
-import { launchAcpTestAgent, type LaunchedAcpTestAgent } from '@deepseek-ai/dsh-session-snapshot'
+import { startMockLlmServer } from '@janhq/jan-llm-mock-server'
+import { launchAcpTestAgent, type LaunchedAcpTestAgent } from '@janhq/jan-session-snapshot'
 import { expect, it } from 'vitest'
 import { cleanupAcpExampleTest } from './cleanup.ts'
 
@@ -21,7 +21,7 @@ function jsonRpcFrames(launched: LaunchedAcpTestAgent): Record<string, unknown>[
 }
 
 it('keeps MCP resource-listing diagnostics off stdout for a tools-only client server', async () => {
-  const cwd = await mkdtemp(join(tmpdir(), 'dsh-acp-stdout-'))
+  const cwd = await mkdtemp(join(tmpdir(), 'jan-acp-stdout-'))
   const llm = await startMockLlmServer({
     sequence: ['tool_call_success', 'success'],
     toolName: 'list_mcp_resources',
@@ -41,7 +41,7 @@ it('keeps MCP resource-listing diagnostics off stdout for a tools-only client se
     launched = launchAcpTestAgent({
       agent: { binScript, configPath, profile: 'acp', tsconfigPath },
       cwd,
-      env: { MOCK_LLM_API_KEY: 'acp-fixture-api-key', DSH_TELEMETRY_DISABLED: '1' },
+      env: { MOCK_LLM_API_KEY: 'acp-fixture-api-key', JAN_TELEMETRY_DISABLED: '1' },
     })
     await launched.client.initialize({ protocolVersion: PROTOCOL_VERSION, clientCapabilities: {} })
     // The fixture server advertises only the tools capability.

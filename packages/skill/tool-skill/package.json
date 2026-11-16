@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-tool-skill",
+  "name": "@janhq/jan-tool-skill",
   "description": "Model-facing skill loading tool for Jan",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/skill/tool-skill"
   },
   "type": "module",
@@ -29,28 +29,28 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/dsh-agent": "workspace:*",
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-skill": "workspace:*",
-    "@deepseek-ai/dsh-tools": "workspace:*",
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-working-directory": "workspace:*"
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-skill": "workspace:*",
+    "@janhq/jan-tools": "workspace:*",
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-working-directory": "workspace:*"
   },
   "dependencies": {
-    "@deepseek-ai/schemastery": "workspace:~"
+    "@janhq/schemastery": "workspace:~"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh-agent": "workspace:*",
-    "@deepseek-ai/dsh-agent-loop-testkit": "workspace:*",
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-scope": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-skill": "workspace:*",
-    "@deepseek-ai/dsh-skill-filesystem": "workspace:*",
-    "@deepseek-ai/dsh-tool-executor-native": "workspace:*",
-    "@deepseek-ai/dsh-tool-testkit": "workspace:*",
-    "@deepseek-ai/dsh-tools": "workspace:*",
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-working-directory": "workspace:*"
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-agent-loop-testkit": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-scope": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-skill": "workspace:*",
+    "@janhq/jan-skill-filesystem": "workspace:*",
+    "@janhq/jan-tool-executor-native": "workspace:*",
+    "@janhq/jan-tool-testkit": "workspace:*",
+    "@janhq/jan-tools": "workspace:*",
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-working-directory": "workspace:*"
   }
 }

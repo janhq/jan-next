@@ -37,7 +37,7 @@ function transport(preference?: string, llamaCpp?: Record<string, unknown>) {
 }
 
 const url = 'http://127.0.0.1:19387/'
-const cookie = 'dsh-auth-fixture=signed'
+const cookie = 'jan-auth-fixture=signed'
 
 describe('desktop welcome local model', () => {
   const state = {

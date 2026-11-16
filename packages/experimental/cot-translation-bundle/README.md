@@ -3,7 +3,7 @@ description: "Enable machine translation of displayed reasoning from the Plugins
 kind: "package-bundle"
 ---
 
-# @deepseek-ai/dsh-experimental-cot-translation-bundle
+# @janhq/jan-experimental-cot-translation-bundle
 
 ## Summary
 

@@ -1,0 +1,11 @@
+# Keyless parent-model overlay for the Jan SDK diagnostic snapshot.
+
+- insert:
+    - id: llm-replay
+      name: '@janhq/jan-llm-replay'
+      config:
+        providers:
+          - id: deepseek-official
+            name: DeepSeek
+            models:
+              - id: deepseek-v4-flash

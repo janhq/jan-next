@@ -3,11 +3,11 @@ description: "Quotation controls and Markdown blockquote presentation."
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-message-quotes
+# @janhq/jan-message-quotes
 
 ## Summary
 
-`dsh-message-quotes` registers quotation controls and transcript rendering on the Client. Messages retain ordinary Markdown text without quote metadata or content indexes.
+`jan-message-quotes` registers quotation controls and transcript rendering on the Client. Messages retain ordinary Markdown text without quote metadata or content indexes.
 
 ## Table of Contents
 

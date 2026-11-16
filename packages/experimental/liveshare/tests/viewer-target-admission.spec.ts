@@ -5,15 +5,15 @@
  * cancel, and every dispatched call speaks for the reader's own Peer, so the Gateway decides the same
  * policy on the resources it resolves from the call's actual wire arguments.
  */
-import { Context } from '@deepseek-ai/cordis'
+import { Context } from '@janhq/cordis'
 import { AttachmentId, type ImageAttachmentRef } from '../../../attachment/attachment/src/index.ts'
-import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import { SessionId } from '@deepseek-ai/dsh-session'
-import { mountAgentLoopTestDependencies, mountAgentLoopTestHarness } from '@deepseek-ai/dsh-agent-loop-testkit'
-import { TypertGatewayService } from '@deepseek-ai/dsh-api-gateway'
-import RemoteAccessService from '@deepseek-ai/dsh-api-remote-access'
-import { TypertRegistry } from '@deepseek-ai/dsh-typert-registry'
-import type { PeerScope } from '@deepseek-ai/dsh-typert-protocol'
+import { createUserMessage } from '@janhq/jan-llm'
+import { SessionId } from '@janhq/jan-session'
+import { mountAgentLoopTestDependencies, mountAgentLoopTestHarness } from '@janhq/jan-agent-loop-testkit'
+import { TypertGatewayService } from '@janhq/jan-api-gateway'
+import RemoteAccessService from '@janhq/jan-api-remote-access'
+import { TypertRegistry } from '@janhq/jan-typert-registry'
+import type { PeerScope } from '@janhq/jan-typert-protocol'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'

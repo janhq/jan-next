@@ -3,7 +3,7 @@ description: "Declare accessible files as deliverables with present; configurati
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-tool-present
+# @janhq/jan-tool-present
 
 ## Summary
 
@@ -23,7 +23,7 @@ Use `present` to declare final files accessible through the Session filesystem, 
 <a id="use-this-package"></a>
 ## Use this package
 
-Shared output and file-link guidance comes from [`dsh-deliverable-file-references`](../deliverable-file-references/README.md), mounted separately by Web and SDK bundles.
+Shared output and file-link guidance comes from [`jan-deliverable-file-references`](../deliverable-file-references/README.md), mounted separately by Web and SDK bundles.
 
 `present` validates paths against the Session's current working directory and records absolute paths, so later directory changes do not redirect delivered files.
 
@@ -32,7 +32,7 @@ The `standard`, `ptc`, and `cordis` agent presets mount this plugin. Call `prese
 Mount it in an agent's Cordis composition with `tools`, `fs`, and the `turnBoundary` Session projection available:
 
 ```yaml
-- name: '@deepseek-ai/dsh-tool-present'
+- name: '@janhq/jan-tool-present'
   config:
     maxFiles: 8
 ```

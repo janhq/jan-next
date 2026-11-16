@@ -1,29 +1,29 @@
 /** Real Loader composition preserves retrievable source text outside the bounded preview. */
-import { executeToolFixture } from '@deepseek-ai/dsh-tool-testkit'
+import { executeToolFixture } from '@janhq/jan-tool-testkit'
 
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
 import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import Loader from '@deepseek-ai/cordis-plugin-loader'
-import Include from '@deepseek-ai/cordis-plugin-include'
-import { agentEvents, type Agent } from '@deepseek-ai/dsh-agent'
-import { createUserMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
-import * as systemPromptPlugin from '@deepseek-ai/dsh-system-prompt'
-import * as toolsPlugin from '@deepseek-ai/dsh-tools'
-import * as fsPlugin from '@deepseek-ai/dsh-fs-local'
-import * as toolFsPlugin from '@deepseek-ai/dsh-tool-fs'
-import * as sessionPlugin from '@deepseek-ai/dsh-session'
-import * as sessionProjectionPlugin from '@deepseek-ai/dsh-session-projection'
-import * as workingDirectoryPlugin from '@deepseek-ai/dsh-working-directory'
-import { Session, SessionId } from '@deepseek-ai/dsh-session'
-import * as queryPlugin from '@deepseek-ai/dsh-session-query-sqlite'
-import * as referencePlugin from '@deepseek-ai/dsh-session-reference'
-import * as spillPlugin from '@deepseek-ai/dsh-spill-local'
-import { sessionDir } from '@deepseek-ai/dsh-spill-local'
+import { Context } from '@janhq/cordis'
+import Loader from '@janhq/cordis-plugin-loader'
+import Include from '@janhq/cordis-plugin-include'
+import { agentEvents, type Agent } from '@janhq/jan-agent'
+import { createUserMessage, ToolCallId } from '@janhq/jan-llm'
+import * as systemPromptPlugin from '@janhq/jan-system-prompt'
+import * as toolsPlugin from '@janhq/jan-tools'
+import * as fsPlugin from '@janhq/jan-fs-local'
+import * as toolFsPlugin from '@janhq/jan-tool-fs'
+import * as sessionPlugin from '@janhq/jan-session'
+import * as sessionProjectionPlugin from '@janhq/jan-session-projection'
+import * as workingDirectoryPlugin from '@janhq/jan-working-directory'
+import { Session, SessionId } from '@janhq/jan-session'
+import * as queryPlugin from '@janhq/jan-session-query-sqlite'
+import * as referencePlugin from '@janhq/jan-session-reference'
+import * as spillPlugin from '@janhq/jan-spill-local'
+import { sessionDir } from '@janhq/jan-spill-local'
 import * as sourcePlugin from './fixtures/source-session.ts'
 
 let context: Context | undefined
@@ -48,17 +48,17 @@ describe('session-reference real Loader composition', () => {
     await ctx.plugin(Loader)
     ctx.loader.builtins.include = Include
     const modules = new Map<string, unknown>([
-      ['@deepseek-ai/dsh-session', sessionPlugin],
-      ['@deepseek-ai/dsh-session-projection', sessionProjectionPlugin],
-      ['@deepseek-ai/dsh-working-directory', workingDirectoryPlugin],
-      ['@deepseek-ai/dsh-system-prompt', systemPromptPlugin],
-      ['@deepseek-ai/dsh-tools', toolsPlugin],
-      ['@deepseek-ai/dsh-tool-executor-native', NativeToolExecutor],
-      ['@deepseek-ai/dsh-fs-local', fsPlugin],
-      ['@deepseek-ai/dsh-tool-fs', toolFsPlugin],
-      ['@deepseek-ai/dsh-session-query-sqlite', queryPlugin],
-      ['@deepseek-ai/dsh-session-reference', referencePlugin],
-      ['@deepseek-ai/dsh-spill-local', spillPlugin],
+      ['@janhq/jan-session', sessionPlugin],
+      ['@janhq/jan-session-projection', sessionProjectionPlugin],
+      ['@janhq/jan-working-directory', workingDirectoryPlugin],
+      ['@janhq/jan-system-prompt', systemPromptPlugin],
+      ['@janhq/jan-tools', toolsPlugin],
+      ['@janhq/jan-tool-executor-native', NativeToolExecutor],
+      ['@janhq/jan-fs-local', fsPlugin],
+      ['@janhq/jan-tool-fs', toolFsPlugin],
+      ['@janhq/jan-session-query-sqlite', queryPlugin],
+      ['@janhq/jan-session-reference', referencePlugin],
+      ['@janhq/jan-spill-local', spillPlugin],
       ['./source-session.ts', sourcePlugin],
     ])
     ctx.loader.internal = {

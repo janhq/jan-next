@@ -4,7 +4,7 @@ Status: proposed
 
 ## Problem
 
-A cold (persisted, unattached) session has no authoritative stored answer to "when did the user last prompt here". `dsh-host-apiproxy` serves `updatedAt` from the optional projection cache's `lastPromptAt`, falling back to `createdAt`, and the Web client sorts its Session tree by that value. The cache is fail-soft and checkpointed asynchronously, so a missing or delayed row makes a recently prompted Session sort too old.
+A cold (persisted, unattached) session has no authoritative stored answer to "when did the user last prompt here". `jan-host-apiproxy` serves `updatedAt` from the optional projection cache's `lastPromptAt`, falling back to `createdAt`, and the Web client sorts its Session tree by that value. The cache is fail-soft and checkpointed asynchronously, so a missing or delayed row makes a recently prompted Session sort too old.
 
 The gateway previously used JSONL artifact mtime when available. mtime answers a different question: when the artifact was last written. Every durable write refreshes it, including a truncate-repair of a torn tail, synthetic closers that balance an interrupted turn, and the [`session/end-seed` boundary](../../../../packages/core/session/src/types.ts) appended during pickup. That approximation promoted a Session merely because it was opened. Bounded cold blank verification removed mtime ordering and accepted the cache's conservative "too old" failure direction as an interim tradeoff.
 

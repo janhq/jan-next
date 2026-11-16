@@ -1,26 +1,26 @@
 /**
  * Session working directories, durable changes, and model context.
- * @module @deepseek-ai/dsh-working-directory
+ * @module @janhq/jan-working-directory
  */
 
 import { isAbsolute } from 'node:path'
-import { Context, Service } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
+import { Context, Service } from '@janhq/cordis'
+import z from '@janhq/schemastery'
 import { z as zod } from 'zod'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import type {} from '@deepseek-ai/dsh-fs'
-import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import type { Session } from '@deepseek-ai/dsh-session'
-import type { ProjectionHandle } from '@deepseek-ai/dsh-session-projection'
-import type {} from '@deepseek-ai/dsh-system-prompt'
+import type { Agent } from '@janhq/jan-agent'
+import type {} from '@janhq/jan-fs'
+import { createUserMessage } from '@janhq/jan-llm'
+import type { Session } from '@janhq/jan-session'
+import type { ProjectionHandle } from '@janhq/jan-session-projection'
+import type {} from '@janhq/jan-system-prompt'
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     workingDirectory: WorkingDirectoryService
   }
 }
 
-declare module '@deepseek-ai/dsh-llm' {
+declare module '@janhq/jan-llm' {
   interface MessageSourceMap {
     /**
      * Committed working-directory transition notices.
@@ -30,7 +30,7 @@ declare module '@deepseek-ai/dsh-llm' {
   }
 }
 
-declare module '@deepseek-ai/dsh-session/types' {
+declare module '@janhq/jan-session/types' {
   interface SessionEventMap {
     /** Effective working directory; the immutable Session header retains the original project. */
     'working-directory/change': {
@@ -40,7 +40,7 @@ declare module '@deepseek-ai/dsh-session/types' {
   }
 }
 
-declare module '@deepseek-ai/dsh-session-projection/types' {
+declare module '@janhq/jan-session-projection/types' {
   interface SessionProjectionMap {
     /** Recorded current directory for Session observations, or null when none is recorded. */
     workingDirectory: string | null

@@ -3,7 +3,7 @@ description: "Managed local llama.cpp models: verified GGUF downloads from a cur
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-llama-cpp
+# @janhq/jan-llama-cpp
 
 ## Summary
 
@@ -33,9 +33,9 @@ Choose it when a deployment serves GGUF chat models on the user's own machine th
 
 ```yaml
 - id: llama-cpp
-  name: '@deepseek-ai/dsh-llama-cpp'
+  name: '@janhq/jan-llama-cpp'
   config:
-    dataRoot: !!js dshHomePath('llama-cpp')
+    dataRoot: !!js janHomePath('llama-cpp')
     workerPath: !!js "process.env.JAN_LLAMA_WORKER || undefined"
 ```
 

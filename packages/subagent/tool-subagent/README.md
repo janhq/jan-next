@@ -3,7 +3,7 @@ description: "Model-facing subagent delegation tool for users and maintainers co
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-tool-subagent
+# @janhq/jan-tool-subagent
 
 ## Summary
 
@@ -32,9 +32,9 @@ Mount one instance per delegation target, each with a distinct `toolName`. The t
 Load the subagent service, an in-process or remote backend, and this tool; then name the provider. This composition exposes a `subagent` tool that delegates to the `spawn` backend:
 
 ```yaml
-- name: '@deepseek-ai/dsh-subagent'
-- name: '@deepseek-ai/dsh-subagent-spawn-in-process'
-- name: '@deepseek-ai/dsh-tool-subagent'
+- name: '@janhq/jan-subagent'
+- name: '@janhq/jan-subagent-spawn-in-process'
+- name: '@janhq/jan-tool-subagent'
   config:
     provider: spawn
     toolName: subagent
@@ -57,7 +57,7 @@ The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-a
 
 The optional `name` argument names the child, unique among the caller's children and cannot be `lead`; omission selects `agent-1`, `agent-2`, and so on. The [subagent runtime](../subagent/README.md#agent-names) owns the name rule and its errors. Every call returns `started subagent <name>` after the runtime accepts the child, where `<name>` is the child's full name from the root, such as `reviewer/checker`. Top-level calls persist `{ kind: 'activation', name: <name> }` in result presentation metadata; nested Code dispatches retain it in the corresponding `tool/ptc-dispatch` event's `meta` field. It does not wait for the child's result. The activation owns the work independently of the completed tool call; the runtime sends a completion notice and releases execution resources.
 
-For every backend, the runtime automatically delivers the completion notice if the calling Agent is still online when the child finishes. The notice includes the final answer unless the child sent that Agent a message just before finishing. Local Spawn and Fork children can also send messages, accept more work through `send_message` while active, or resume after settling. Codex, Claude Code, ACP, and DSH SDK backends do not accept follow-up messages.
+For every backend, the runtime automatically delivers the completion notice if the calling Agent is still online when the child finishes. The notice includes the final answer unless the child sent that Agent a message just before finishing. Local Spawn and Fork children can also send messages, accept more work through `send_message` while active, or resume after settling. Codex, Claude Code, ACP, and Jan SDK backends do not accept follow-up messages.
 
 `maxDepth` caps recursion (`0` forbids delegation); omission reads the current Host `subagent.maxDepth` setting, initially `1`, at each delegation. A numeric depth requires a provider with the `depthLimit` capability; `'provider-managed'` leaves the budget to an out-of-process provider. The tool stays visible at the cap; each attempted start checks the calling agent's current depth and rejects with an errored result.
 
@@ -72,7 +72,7 @@ Compose persona and tools in the [preset plugin list](../../preset/agent-preset-
 
 ### Selecting a child LLM
 
-Set `modelSelection: true` to expose optional `provider`, `model`, and `reasoning_effort` fields; instances without it reject selection fields. Set `modelDiscovery: true` on one instance per tool scope to register `list_subagent_models`; it defaults off independently of `modelSelection`. A second discovery owner in the same scope fails to register. Discovery follows its owning plugin instance, remains available when its delegation provider is absent, and is removed when that instance unloads. Web and Desktop presets enable discovery and route fields on spawn and leave both disabled on fork. The Host’s `/model-selection-settings` service samples the user preference during Agent creation, independently of tool installation. Its creation listener subscribes before projection registration completes and awaits the handle; registration failure or owner disposal rejects Agent publication. When enabled, its exact route list is recorded in each fresh top-level Session, inherited by child Sessions, and preserved on restore; later settings edits affect only new Sessions. Without a recorded Session policy, discovery and explicit selection permit only the parent Agent’s current effective provider/model and its supported efforts. Route fields require a backend that advertises `agentOptions`; in-process Spawn and Fork and DSH SDK qualify, while ACP, Codex, and Claude Code fail the mount.
+Set `modelSelection: true` to expose optional `provider`, `model`, and `reasoning_effort` fields; instances without it reject selection fields. Set `modelDiscovery: true` on one instance per tool scope to register `list_subagent_models`; it defaults off independently of `modelSelection`. A second discovery owner in the same scope fails to register. Discovery follows its owning plugin instance, remains available when its delegation provider is absent, and is removed when that instance unloads. Web and Desktop presets enable discovery and route fields on spawn and leave both disabled on fork. The Host’s `/model-selection-settings` service samples the user preference during Agent creation, independently of tool installation. Its creation listener subscribes before projection registration completes and awaits the handle; registration failure or owner disposal rejects Agent publication. When enabled, its exact route list is recorded in each fresh top-level Session, inherited by child Sessions, and preserved on restore; later settings edits affect only new Sessions. Without a recorded Session policy, discovery and explicit selection permit only the parent Agent’s current effective provider/model and its supported efforts. Route fields require a backend that advertises `agentOptions`; in-process Spawn and Fork and Jan SDK qualify, while ACP, Codex, and Claude Code fail the mount.
 
 A call supplies `provider` and `model` together; `reasoning_effort` requires both fields in the same call. An effort-only call rejects before route lookup or child creation. Omitting all three fields preserves configured child defaults and their existing fallback behavior. Static `provider.agentRouteDefaults`, when present, form the provider/model baseline; tool configuration and model fields overlay it before route-aware effort merging and exact-route preflight. Providers without these defaults use compatible values from the parent's latest logged request, then the parent's creation options before its first request, while retaining the configured `maxTokens`. An explicit provider/model pair without an effort clears configured and inherited effort, even when the route is unchanged, so the selected model resolves its default. The live LLM adapter validates the effective route before child creation. Catalog membership remains advisory, so a model can use an unlisted id when its adapter accepts it.
 
@@ -123,7 +123,7 @@ The tool's description derives from `provider.inheritsParentContext`: a fresh ch
 Read these pages when the package-level contract is not enough; they move from the tool's runtime behavior to the seam it delegates over and the adjacent child tools.
 
 - [Subagent subsystem](../../../docs/subsystems/subagent.md) — providers, activations, results, and continuation.
-- [dsh-tool-subagent-control](../tool-subagent-control/README.md) — messaging, interrupt, and listing tools for continuable children.
+- [jan-tool-subagent-control](../tool-subagent-control/README.md) — messaging, interrupt, and listing tools for continuable children.
 - [Generated tool catalog](../../../docs/tool-catalog.md#deepseek-aidsh-tool-subagent) — the default schema and backend-specific wording.
 - [Generated configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-tool-subagent) — every accepted config field.
 
@@ -164,7 +164,7 @@ The schema is prefix-stable across adapter registration and catalog changes. Eac
 
 #### What the model sees
 
-Visible delegation tools share delegation and collaboration guidance, listing tools in name order and instructing the model to start independent delegations together and keep working while they run, and to end its turn instead of sleeping or polling when only waiting for their results remains. Ending the turn works because a settled child notifies its parent and a notice that reaches an idle parent starts one independent model request; hosts that keep children progressing alternate `agent.whenIdle()` and `waitForChildren(agent)` ([`dsh-subagent`](../subagent/README.md), [`session.ts`](../../acp/acp/src/session.ts)). Hidden or unavailable tools are omitted; no guidance appears when none are visible. With both `subagent` and `subagent_fork` visible, the text is:
+Visible delegation tools share delegation and collaboration guidance, listing tools in name order and instructing the model to start independent delegations together and keep working while they run, and to end its turn instead of sleeping or polling when only waiting for their results remains. Ending the turn works because a settled child notifies its parent and a notice that reaches an idle parent starts one independent model request; hosts that keep children progressing alternate `agent.whenIdle()` and `waitForChildren(agent)` ([`jan-subagent`](../subagent/README.md), [`session.ts`](../../acp/acp/src/session.ts)). Hidden or unavailable tools are omitted; no guidance appears when none are visible. With both `subagent` and `subagent_fork` visible, the text is:
 
 ##### Tool-guidance section
 

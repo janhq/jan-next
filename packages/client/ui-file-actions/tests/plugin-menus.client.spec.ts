@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 /** File-operation contributions survive removal of application-opening providers. */
-import { SessionId } from '@deepseek-ai/dsh-session'
+import { SessionId } from '@janhq/jan-session'
 import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
-import { MenuRegistry } from '@deepseek-ai/dsh-client-ui-context-menu/src/client/registry.ts'
-import { SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
+import { MenuRegistry } from '@janhq/jan-client-ui-context-menu/src/client/registry.ts'
+import { SlotTestRuntime } from '@janhq/jan-client-test-runtime'
 import { apply } from '../src/client/index.ts'
 import type { FileActionSource } from '../src/types.ts'
 

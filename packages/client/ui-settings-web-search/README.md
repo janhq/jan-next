@@ -1,9 +1,9 @@
 ---
-description: "The web search and fetch settings page on the dsh web client's Plugins page: the Search and Fetch provider menus."
+description: "The web search and fetch settings page on the jan web client's Plugins page: the Search and Fetch provider menus."
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-client-ui-settings-web-search
+# @janhq/jan-client-ui-settings-web-search
 
 ## Summary
 
@@ -64,7 +64,7 @@ None; this package neither assembles nor sends a provider request.
 
 <a id="known-limitations-and-deferred-work"></a>
 
-- **Automatic selection reads only the deployment composition** — a menu offers it when the composition layer sets no provider for that capability. While automatic selection applies, the Host's `DSH_WEB_SEARCH_PROVIDER` or `DSH_WEB_FETCH_PROVIDER` environment variable picks the provider instead, and the page does not show that choice. Without either, automatic selection with more than one usable registered provider makes each operation fail with `WEB_PROVIDER_AMBIGUOUS`.
+- **Automatic selection reads only the deployment composition** — a menu offers it when the composition layer sets no provider for that capability. While automatic selection applies, the Host's `JAN_WEB_SEARCH_PROVIDER` or `JAN_WEB_FETCH_PROVIDER` environment variable picks the provider instead, and the page does not show that choice. Without either, automatic selection with more than one usable registered provider makes each operation fail with `WEB_PROVIDER_AMBIGUOUS`.
 
 <a id="dev-note"></a>
 ### Dev Note

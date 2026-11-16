@@ -1,8 +1,8 @@
 /** Account authorization dialog; errors allow retry after cancelling any active attempt. */
 import { useEffect, useState } from 'react'
-import { Button, IconCloseOutlineRegular, IconLoadingOutlineRegular, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconCloseOutlineRegular, IconLoadingOutlineRegular, Modal } from '@janhq/jan-client-ui-primitives'
 import type { AccountSnapshot } from './AccountSection.tsx'
-import type { SignInAttemptId } from '@deepseek-ai/dsh-tokamak-account/types'
+import type { SignInAttemptId } from '@janhq/jan-tokamak-account/types'
 import type { AccountKey } from './locales.ts'
 import { authorizeUrlWithTheme } from './authorize-url.ts'
 import css from './SignInDialog.module.css'

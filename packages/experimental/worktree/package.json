@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-experimental-worktree",
+  "name": "@janhq/jan-experimental-worktree",
   "description": "Creates a named Git worktree and changes the calling Session working directory",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -25,36 +25,36 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/experimental/worktree"
   },
   "dependencies": {
-    "@deepseek-ai/schemastery": "workspace:~",
-    "@deepseek-ai/dsh-timeout": "workspace:*"
+    "@janhq/schemastery": "workspace:~",
+    "@janhq/jan-timeout": "workspace:*"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-agent": "workspace:*",
-    "@deepseek-ai/dsh-fs": "workspace:*",
-    "@deepseek-ai/dsh-sandbox": "workspace:*",
-    "@deepseek-ai/dsh-sandbox-policy": "workspace:*",
-    "@deepseek-ai/dsh-subprocess": "workspace:*",
-    "@deepseek-ai/dsh-working-directory": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-fs": "workspace:*",
+    "@janhq/jan-sandbox": "workspace:*",
+    "@janhq/jan-sandbox-policy": "workspace:*",
+    "@janhq/jan-subprocess": "workspace:*",
+    "@janhq/jan-working-directory": "workspace:*"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-agent": "workspace:*",
-    "@deepseek-ai/dsh-agent-loop-testkit": "workspace:*",
-    "@deepseek-ai/dsh-fs": "workspace:*",
-    "@deepseek-ai/dsh-fs-local": "workspace:*",
-    "@deepseek-ai/dsh-sandbox": "workspace:*",
-    "@deepseek-ai/dsh-sandbox-local": "workspace:*",
-    "@deepseek-ai/dsh-sandbox-policy": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-session-projection": "workspace:*",
-    "@deepseek-ai/dsh-subprocess": "workspace:*",
-    "@deepseek-ai/dsh-subprocess-local": "workspace:*",
-    "@deepseek-ai/dsh-system-prompt": "workspace:*",
-    "@deepseek-ai/dsh-working-directory": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-agent-loop-testkit": "workspace:*",
+    "@janhq/jan-fs": "workspace:*",
+    "@janhq/jan-fs-local": "workspace:*",
+    "@janhq/jan-sandbox": "workspace:*",
+    "@janhq/jan-sandbox-local": "workspace:*",
+    "@janhq/jan-sandbox-policy": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-session-projection": "workspace:*",
+    "@janhq/jan-subprocess": "workspace:*",
+    "@janhq/jan-subprocess-local": "workspace:*",
+    "@janhq/jan-system-prompt": "workspace:*",
+    "@janhq/jan-working-directory": "workspace:*"
   }
 }

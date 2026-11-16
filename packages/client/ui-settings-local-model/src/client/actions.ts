@@ -3,10 +3,10 @@
  * failures surface through the Host state; per-model operations, lookups and imports answer the
  * caller directly.
  */
-import type { Context } from '@deepseek-ai/cordis'
-import type { HuggingFaceRepoInfo } from '@deepseek-ai/dsh-api-llama-cpp-controller'
-import type {} from '@deepseek-ai/dsh-api-llama-cpp-controller/remote'
-import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
+import type { Context } from '@janhq/cordis'
+import type { HuggingFaceRepoInfo } from '@janhq/jan-api-llama-cpp-controller'
+import type {} from '@janhq/jan-api-llama-cpp-controller/remote'
+import type { SnapshotStore } from '@janhq/jan-client-store'
 import type { LocalModelMirror } from './state.ts'
 
 /** Outcome of a call whose failure the calling view shows itself. */

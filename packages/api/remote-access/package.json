@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-api-remote-access",
+  "name": "@janhq/jan-api-remote-access",
   "description": "Method-level Remote access control for non-owner Peers and the per-Peer access snapshot",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/api/remote-access"
   },
   "type": "module",
@@ -38,14 +38,14 @@
     "./locale/*.json": "./locale/*.json",
     "./package.json": "./package.json"
   },
-  "dsh": {
+  "jan": {
     "client": {
       "external": [
-        "@deepseek-ai/dsh-api-gateway/client"
+        "@janhq/jan-api-gateway/client"
       ],
       "inject": [
-        "@deepseek-ai/dsh-api-gateway",
-        "@deepseek-ai/dsh-client-ui-renderer"
+        "@janhq/jan-api-gateway",
+        "@janhq/jan-client-ui-renderer"
       ],
       "platform": "web"
     }
@@ -67,19 +67,19 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "@deepseek-ai/dsh-typert-protocol": "workspace:*",
+    "@janhq/jan-typert-protocol": "workspace:*",
     "zod": "4.4.3"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/cordis": "workspace:~"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-api-gateway": "workspace:*",
-    "@deepseek-ai/dsh-client-connection": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-renderer": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-slots": "workspace:*",
-    "@deepseek-ai/dsh-host-webserver": "workspace:*",
-    "@deepseek-ai/dsh-typert-registry": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-api-gateway": "workspace:*",
+    "@janhq/jan-client-connection": "workspace:*",
+    "@janhq/jan-client-ui-renderer": "workspace:*",
+    "@janhq/jan-client-ui-slots": "workspace:*",
+    "@janhq/jan-host-webserver": "workspace:*",
+    "@janhq/jan-typert-registry": "workspace:*"
   }
 }

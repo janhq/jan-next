@@ -1,13 +1,13 @@
 {
-  "name": "@deepseek-ai/dsh-agent-tool-presentation",
-  "description": "Deprecated tool presentation selector; use dsh-tool-executor-native or dsh-tool-executor-ptc directly",
+  "name": "@janhq/jan-agent-tool-presentation",
+  "description": "Deprecated tool presentation selector; use jan-tool-executor-native or jan-tool-executor-ptc directly",
   "version": "0.2.2-rc.1",
   "publishConfig": {
     "access": "public"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/core/agent-tool-presentation"
   },
   "type": "module",
@@ -29,21 +29,21 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "@deepseek-ai/dsh-tool-executor-native": "workspace:*",
-    "@deepseek-ai/dsh-tool-executor-ptc": "workspace:*",
-    "@deepseek-ai/schemastery": "workspace:~"
+    "@janhq/jan-tool-executor-native": "workspace:*",
+    "@janhq/jan-tool-executor-ptc": "workspace:*",
+    "@janhq/schemastery": "workspace:~"
   },
   "peerDependencies": {
-    "@deepseek-ai/dsh-tools": "workspace:*",
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/jan-tools": "workspace:*",
+    "@janhq/cordis": "workspace:~"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh-agent": "workspace:*",
-    "@deepseek-ai/dsh-ptc-runtime": "workspace:*",
-    "@deepseek-ai/dsh-scope": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-system-prompt": "workspace:*",
-    "@deepseek-ai/dsh-tools": "workspace:*",
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-ptc-runtime": "workspace:*",
+    "@janhq/jan-scope": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-system-prompt": "workspace:*",
+    "@janhq/jan-tools": "workspace:*",
+    "@janhq/cordis": "workspace:~"
   }
 }

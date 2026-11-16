@@ -1,9 +1,9 @@
 /** Staged editor for the Host-owned subagent model allowlist. */
 
-import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import type { ModelProviderGroup } from '@deepseek-ai/dsh-api-remotes/client'
-import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { SettingsFormScope, SettingsFormShell } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { Context as ClientContext } from '@janhq/cordis'
+import type { ModelProviderGroup } from '@janhq/jan-api-remotes/client'
+import { createSnapshotStore, type SnapshotStore } from '@janhq/jan-client-store'
+import type { SettingsFormScope, SettingsFormShell } from '@janhq/jan-client-ui-primitives'
 
 /** Namespace of the Host-owned subagent model-selection preference. */
 export const SUBAGENT_MODEL_SELECTION_NS = 'subagent-model-selection-settings'

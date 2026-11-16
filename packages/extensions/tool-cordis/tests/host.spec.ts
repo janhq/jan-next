@@ -1,8 +1,8 @@
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
-import { Context } from '@deepseek-ai/cordis'
-import { CordisInspectRegistryService } from '@deepseek-ai/dsh-cordis-host-runner'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import ToolRegistry from '@deepseek-ai/dsh-tools'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
+import { Context } from '@janhq/cordis'
+import { CordisInspectRegistryService } from '@janhq/jan-cordis-host-runner'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import ToolRegistry from '@janhq/jan-tools'
 import { describe, expect, it } from 'vitest'
 import * as CordisInspectProviders from '../src/host.ts'
 

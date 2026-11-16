@@ -3,11 +3,11 @@ description: "Tool-output trimming for deployments composing compaction: choosin
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-compaction-tool-result-pruner
+# @janhq/jan-compaction-tool-result-pruner
 
 ## Summary
 
-`dsh-compaction-tool-result-pruner` keeps oversized tool output from filling the context window. Once a compaction trigger qualifies, it replaces over-budget text with a bounded head, a short "middle pruned" marker, and a bounded tail; below-pressure conversations remain unchanged. The complete original result remains in the session log for exact replay and inspection. Trimming makes no model call and may relieve enough token pressure to skip summarization. Character budgets only approximate token use; the token meter determines whether pressure was relieved.
+`jan-compaction-tool-result-pruner` keeps oversized tool output from filling the context window. Once a compaction trigger qualifies, it replaces over-budget text with a bounded head, a short "middle pruned" marker, and a bounded tail; below-pressure conversations remain unchanged. The complete original result remains in the session log for exact replay and inspection. Trimming makes no model call and may relieve enough token pressure to skip summarization. Character budgets only approximate token use; the token meter determines whether pressure was relieved.
 
 ## Table of Contents
 
@@ -23,16 +23,16 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## Use this package
 
-Mount this package next to `dsh-compaction-basic` when tool output regularly dominates the conversation window. Trimming changes what the model sees — shorter results — and gives compaction less history to condense.
+Mount this package next to `jan-compaction-basic` when tool output regularly dominates the conversation window. Trimming changes what the model sees — shorter results — and gives compaction less history to condense.
 
 ### Smallest working composition
 
 Mount token measurement, this package, and the backend in this order:
 
 ```yaml
-- name: '@deepseek-ai/dsh-token-meter'
-- name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
-- name: '@deepseek-ai/dsh-compaction-basic'
+- name: '@janhq/jan-token-meter'
+- name: '@janhq/jan-compaction-tool-result-pruner'
+- name: '@janhq/jan-compaction-basic'
 ```
 
 With these rows, oversized tool results are trimmed automatically as part of condensation. You can verify success by checking that future requests show the trimmed results; the full originals remain in the session log.
@@ -55,7 +55,7 @@ Character counts are Unicode code points, so slicing never splits an emoji pair,
 
 ### When trimming runs
 
-Trimming only runs when a compaction trigger qualifies: `dsh-compaction-basic` invokes it after pressure or overflow is confirmed, before it selects what to condense. Below pressure nothing is trimmed, and trimming itself makes no model call.
+Trimming only runs when a compaction trigger qualifies: `jan-compaction-basic` invokes it after pressure or overflow is confirmed, before it selects what to condense. Below pressure nothing is trimmed, and trimming itself makes no model call.
 
 -----
 

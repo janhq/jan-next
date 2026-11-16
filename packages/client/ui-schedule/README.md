@@ -3,7 +3,7 @@ description: "Automation task management and Session reminder entries in the exi
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-client-ui-schedule
+# @janhq/jan-client-ui-schedule
 
 ## Summary
 

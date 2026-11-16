@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-api-workspace-files",
+  "name": "@janhq/jan-api-workspace-files",
   "description": "Workspace file service and Client resource provider: bounded reads, directory listing, and live metadata over the workspaceFiles Remote namespace",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/api/workspace-files"
   },
   "type": "module",
@@ -38,11 +38,11 @@
     "./package.json": "./package.json",
     "./locale/*.json": "./locale/*.json"
   },
-  "dsh": {
+  "jan": {
     "client": {
       "inject": [
-        "@deepseek-ai/dsh-api-gateway",
-        "@deepseek-ai/dsh-client-resources"
+        "@janhq/jan-api-gateway",
+        "@janhq/jan-client-resources"
       ],
       "platform": "web"
     }
@@ -53,27 +53,27 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@deepseek-ai/dsh-deque": "workspace:*",
-    "@deepseek-ai/dsh-typert-protocol": "workspace:*",
-    "@deepseek-ai/schemastery": "workspace:~",
+    "@janhq/jan-deque": "workspace:*",
+    "@janhq/jan-typert-protocol": "workspace:*",
+    "@janhq/schemastery": "workspace:~",
     "zod": "4.4.3"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/cordis": "workspace:~"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-api-gateway": "workspace:*",
-    "@deepseek-ai/dsh-api-remote-access": "workspace:*",
-    "@deepseek-ai/dsh-client-connection": "workspace:*",
-    "@deepseek-ai/dsh-client-resources": "workspace:*",
-    "@deepseek-ai/dsh-client-ui-slots": "workspace:*",
-    "@deepseek-ai/dsh-fs": "workspace:*",
-    "@deepseek-ai/dsh-remote-mock": "workspace:*",
-    "@deepseek-ai/dsh-sandbox-policy": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-session-persistence": "workspace:*",
-    "@deepseek-ai/dsh-util-workspace-path": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-api-gateway": "workspace:*",
+    "@janhq/jan-api-remote-access": "workspace:*",
+    "@janhq/jan-client-connection": "workspace:*",
+    "@janhq/jan-client-resources": "workspace:*",
+    "@janhq/jan-client-ui-slots": "workspace:*",
+    "@janhq/jan-fs": "workspace:*",
+    "@janhq/jan-remote-mock": "workspace:*",
+    "@janhq/jan-sandbox-policy": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-session-persistence": "workspace:*",
+    "@janhq/jan-util-workspace-path": "workspace:*"
   },
   "files": [
     "locale/*.json",

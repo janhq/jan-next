@@ -35,7 +35,7 @@ function sectionPages(sidebar: DocsSidebar, section: string, pages: readonly Sec
 const home: DocsPage = {
   source: 'docs/user/index.md',
   route: 'index.md',
-  label: 'DeepSeek Harness',
+  label: 'Jan',
   sidebar: null,
   section: 'Home',
 }

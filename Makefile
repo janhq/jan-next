@@ -23,7 +23,7 @@ help:
 	@echo "make dev-desktop   pnpm run dev:desktop     build the local model worker and Desktop, then launch Desktop"
 	@echo "make llama-worker  build:llama-worker, stage:llama-worker   build and stage the local model worker"
 	@echo "ARGS='--no-open --port 3081' forwards options to the launched application;"
-	@echo "the Web commands accept dsh web flags, the Desktop launcher accepts none."
+	@echo "the Web commands accept jan web flags, the Desktop launcher accepts none."
 	@echo "LLAMA_WORKER_FEATURES=$(LLAMA_WORKER_FEATURES) selects the worker's cargo features."
 
 build:

@@ -20,15 +20,15 @@ export interface Manifest {
   readonly exports?: unknown
   readonly engines?: unknown
   readonly peerDependencies?: unknown
-  readonly dsh?: { readonly bundle?: unknown }
+  readonly jan?: { readonly bundle?: unknown }
 }
 
 /** Depth limit of the fallback scan, counted in directories below the repository root. */
 const SCAN_DEPTH = 3
 const SKIPPED_DIRECTORIES = new Set(['node_modules', 'test', 'tests', 'fixtures', 'examples', 'example'])
-const DSH_PEER = /^@deepseek-ai\/dsh(?:-|$)/u
-/** Ranges that installation reads as the running DSH version. */
-const CURRENT_DSH = new Set(['workspace:*', 'workspace:^', 'workspace:~'])
+const JAN_PEER = /^@janhq\/jan(?:-|$)/u
+/** Ranges that installation reads as the running Jan version. */
+const CURRENT_Jan = new Set(['workspace:*', 'workspace:^', 'workspace:~'])
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -54,12 +54,12 @@ export async function readManifest(files: PackageFiles, dir: string): Promise<Ma
 }
 
 /**
- * Whether a manifest declares a DSH bundle.
+ * Whether a manifest declares a Jan bundle.
  * @param manifest - parsed manifest, or undefined for a directory without one.
- * @returns true when `dsh.bundle` is an object whose `patch` is a string or an array of strings.
+ * @returns true when `jan.bundle` is an object whose `patch` is a string or an array of strings.
  */
 export function isBundle(manifest: Manifest | undefined): boolean {
-  const bundle = manifest?.dsh?.bundle
+  const bundle = manifest?.jan?.bundle
   if (!isObject(bundle)) return false
   return typeof bundle.patch === 'string' || (Array.isArray(bundle.patch) && bundle.patch.every(file => typeof file === 'string'))
 }
@@ -75,26 +75,26 @@ export function isPrivate(manifest: Manifest | undefined): boolean {
 
 /** Whether installation reads `range` as a SemVer range; an empty range and other `workspace:` ranges never match. */
 const valid = (range: string): boolean => range !== '' && !range.startsWith('workspace:') && semver.validRange(range) !== null
-const invalidRange = (range: string): Error => new Error(`DSH range ${JSON.stringify(range)} is not a valid SemVer range`)
+const invalidRange = (range: string): Error => new Error(`Jan range ${JSON.stringify(range)} is not a valid SemVer range`)
 
-/** Most `||` alternatives the conjunction of DSH peer ranges may produce; a version needing more is not listed. */
+/** Most `||` alternatives the conjunction of Jan peer ranges may produce; a version needing more is not listed. */
 const MAX_RANGE_ALTERNATIVES = 256
 
 /**
- * The `engines.dsh` range an index lists for a manifest: its own `engines.dsh` string, otherwise the conjunction of
- * its `@deepseek-ai/dsh` and `@deepseek-ai/dsh-*` peer ranges. A peer of exactly `workspace:*`, `workspace:^`, or
- * `workspace:~` means the running DSH version, and a `*` range admits every version; both impose nothing. A single
+ * The `engines.jan` range an index lists for a manifest: its own `engines.jan` string, otherwise the conjunction of
+ * its `@janhq/jan` and `@janhq/jan-*` peer ranges. A peer of exactly `workspace:*`, `workspace:^`, or
+ * `workspace:~` means the running Jan version, and a `*` range admits every version; both impose nothing. A single
  * remaining range is listed as written. Several ranges are combined: the conjunction combines one `||` alternative of
  * each range, keeps each comparator once, and drops combinations that no version satisfies, prereleases included.
  * @param manifest - the version's manifest.
- * @returns the range, undefined for any DSH version, or an error when installation finds the version incompatible
- *   with every DSH version: an empty, `workspace:`, or invalid range, or ranges that no version satisfies together.
+ * @returns the range, undefined for any Jan version, or an error when installation finds the version incompatible
+ *   with every Jan version: an empty, `workspace:`, or invalid range, or ranges that no version satisfies together.
  */
-export function dshRange(manifest: Manifest): string | undefined | Error {
-  const declared = isObject(manifest.engines) ? manifest.engines.dsh : undefined
+export function janRange(manifest: Manifest): string | undefined | Error {
+  const declared = isObject(manifest.engines) ? manifest.engines.jan : undefined
   const ranges = typeof declared === 'string' ? [declared]
     : Object.entries(isObject(manifest.peerDependencies) ? manifest.peerDependencies : {})
-      .flatMap(([name, range]) => DSH_PEER.test(name) && typeof range === 'string' && !CURRENT_DSH.has(range) ? [range] : [])
+      .flatMap(([name, range]) => JAN_PEER.test(name) && typeof range === 'string' && !CURRENT_Jan.has(range) ? [range] : [])
   const used = [...new Set(ranges.map(range => range.trim()))].filter(range => range !== '*')
   if (used.length === 0) return undefined
   let combinations: string[][] = [[]]
@@ -103,12 +103,12 @@ export function dshRange(manifest: Manifest): string | undefined | Error {
     const alternatives = new semver.Range(range, { includePrerelease: true }).set
       .map(set => set.map(comparator => comparator.value).filter(Boolean))
     if (combinations.length * alternatives.length > MAX_RANGE_ALTERNATIVES) {
-      return new Error(`DSH peer ranges combine into more than ${MAX_RANGE_ALTERNATIVES} alternatives`)
+      return new Error(`Jan peer ranges combine into more than ${MAX_RANGE_ALTERNATIVES} alternatives`)
     }
     combinations = combinations.flatMap(prefix => alternatives.map(alternative => [...new Set([...prefix, ...alternative])]))
       .filter(combination => semver.minVersion(new semver.Range(combination.join(' ') || '*', { includePrerelease: true })) !== null)
   }
-  if (combinations.length === 0) return new Error(`no DSH version satisfies ${used.length === 1 ? 'the DSH range' : 'every DSH peer range'}: ${used.join(', ')}`)
+  if (combinations.length === 0) return new Error(`no Jan version satisfies ${used.length === 1 ? 'the Jan range' : 'every Jan peer range'}: ${used.join(', ')}`)
   const written = [...new Set(combinations.map(combination => combination.join(' ') || '*'))]
   if (written.includes('*')) return undefined
   return used.length === 1 ? used[0] : written.join(' || ')

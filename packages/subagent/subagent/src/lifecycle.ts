@@ -4,13 +4,13 @@
  * The service owns scoped dispatch and listener containment; the manager
  * supplies event payloads from each activation.
  *
- * @module @deepseek-ai/dsh-subagent/lifecycle
+ * @module @janhq/jan-subagent/lifecycle
  */
 
-import type { Context } from '@deepseek-ai/cordis'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import { foldConsumedWork } from '@deepseek-ai/dsh-agent'
-import type { SessionEvent } from '@deepseek-ai/dsh-session'
+import type { Context } from '@janhq/cordis'
+import type { Agent } from '@janhq/jan-agent'
+import { foldConsumedWork } from '@janhq/jan-agent'
+import type { SessionEvent } from '@janhq/jan-session'
 import type { SubagentResult, SubagentRunEndInfo, SubagentRunInfo } from './types.ts'
 
 /**

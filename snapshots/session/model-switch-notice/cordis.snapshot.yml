@@ -2,7 +2,7 @@
 # applies the same selection change before the second step as the live composition.
 - insert:
     - id: llm-replay
-      name: '@deepseek-ai/dsh-llm-replay'
+      name: '@janhq/jan-llm-replay'
       config:
         providers:
           - id: deepseek-official

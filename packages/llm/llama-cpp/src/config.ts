@@ -1,5 +1,5 @@
 /** Deployment configuration for the managed local llama.cpp model. */
-import z from '@deepseek-ai/schemastery'
+import z from '@janhq/schemastery'
 
 /** One pinned download: where it comes from and what it must hash to. */
 export interface ArtifactOverride {

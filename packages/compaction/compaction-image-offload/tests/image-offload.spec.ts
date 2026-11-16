@@ -4,16 +4,16 @@
  */
 
 import { afterEach, describe, expect, it } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import BasicCompactionEngine from '@deepseek-ai/dsh-compaction-basic'
-import TokenMeter from '@deepseek-ai/dsh-token-meter'
-import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import { createAssistantMessage, createToolResultMessage, createUserMessage, IMAGE_OFFLOAD_REQUIRED_CODE, LlmAdapter, LlmError, ToolCallId } from '@deepseek-ai/dsh-llm'
-import type { ContentBlock, GenerateOptions, StreamChunk } from '@deepseek-ai/dsh-llm'
-import { isReplacementSurfaceEvent, SessionId } from '@deepseek-ai/dsh-session'
-import type { Session } from '@deepseek-ai/dsh-session'
+import { Context } from '@janhq/cordis'
+import AgentLoop from '@janhq/jan-agent-loop'
+import type { Agent } from '@janhq/jan-agent'
+import BasicCompactionEngine from '@janhq/jan-compaction-basic'
+import TokenMeter from '@janhq/jan-token-meter'
+import { mountAgentLoopTestDependencies } from '@janhq/jan-agent-loop-testkit'
+import { createAssistantMessage, createToolResultMessage, createUserMessage, IMAGE_OFFLOAD_REQUIRED_CODE, LlmAdapter, LlmError, ToolCallId } from '@janhq/jan-llm'
+import type { ContentBlock, GenerateOptions, StreamChunk } from '@janhq/jan-llm'
+import { isReplacementSurfaceEvent, SessionId } from '@janhq/jan-session'
+import type { Session } from '@janhq/jan-session'
 import * as offload from '../src/index.ts'
 
 type ScriptEntry = StreamChunk[] | (() => never)

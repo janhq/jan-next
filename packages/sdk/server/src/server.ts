@@ -2,26 +2,26 @@
  * JSON-RPC methods and notifications for out-of-process harness SDKs.
  * The surrounding context owns plugins, persistence, and configured adapters.
  *
- * @module @deepseek-ai/dsh-sdk-jsonrpc-server/server
+ * @module @janhq/jan-sdk-jsonrpc-server/server
  */
 
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context } from '@janhq/cordis'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { resolve } from 'node:path'
 import { QueryActivity } from './query-activity.ts'
 import { SdkUserQuestionBridge } from './user-questions.ts'
 import { queryCommand } from './query-input.ts'
 import { queryCommandImages, queryContent } from './query-content.ts'
-import { brandString } from '@deepseek-ai/dsh-brand'
-import type { Agent, AgentHandle } from '@deepseek-ai/dsh-agent'
-import { admitEncodedImages, type EncodedImageAttachment, type ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
-import { createUserMessage, ReasoningEffortId, type ContentBlock, type LlmRuntime } from '@deepseek-ai/dsh-llm'
-import type { SessionId, SessionLogOffset } from '@deepseek-ai/dsh-session'
-import type {} from '@deepseek-ai/dsh-working-directory'
-import type {} from '@deepseek-ai/dsh-user-approval'
+import { brandString } from '@janhq/jan-brand'
+import type { Agent, AgentHandle } from '@janhq/jan-agent'
+import { admitEncodedImages, type EncodedImageAttachment, type ImageAttachmentRef } from '@janhq/jan-attachment'
+import { createUserMessage, ReasoningEffortId, type ContentBlock, type LlmRuntime } from '@janhq/jan-llm'
+import type { SessionId, SessionLogOffset } from '@janhq/jan-session'
+import type {} from '@janhq/jan-working-directory'
+import type {} from '@janhq/jan-user-approval'
 
-import type {} from '@deepseek-ai/dsh-schedule'
-import type { SubagentRunEndInfo } from '@deepseek-ai/dsh-subagent'
+import type {} from '@janhq/jan-schedule'
+import type { SubagentRunEndInfo } from '@janhq/jan-subagent'
 import type {
   ApprovalRequestParams,
   CommandExecution,
@@ -41,7 +41,7 @@ import type {
   SdkEncodedImageBlock,
   SubagentFinishedNotification,
   SubagentStartedNotification,
-} from '@deepseek-ai/dsh-sdk-protocol'
+} from '@janhq/jan-sdk-protocol'
 
 interface SessionRecord {
   handle: AgentHandle
@@ -247,7 +247,7 @@ export class HarnessSdkJsonRpcServer {
     this.userQuestions.enabled = params.capabilities?.userQuestions === true
     this.initialized = true
     this.initialization.resolve()
-    return { serverInfo: { name: 'deepseek-harness-sdk-runtime', version: '0.0.1' } }
+    return { serverInfo: { name: 'jan-sdk-runtime', version: '0.0.1' } }
   }
 
   /**
@@ -531,7 +531,7 @@ export class HarnessSdkJsonRpcServer {
       case 'shutdown':
         return this.shutdown()
       default:
-        throw new Error(`unknown DeepSeek Harness SDK runtime method: ${method}`)
+        throw new Error(`unknown Jan SDK runtime method: ${method}`)
     }
   }
 
@@ -562,7 +562,7 @@ export class HarnessSdkJsonRpcServer {
     // No preset composition: this server's compositions keep the model-facing
     // rows in the host plane, so this agent reads them from the global layer. A
     // deployment that configures a roster has to join one here first
-    // (@deepseek-ai/dsh-agent-preset-registry README, "Composing a child agent").
+    // (@janhq/jan-agent-preset-registry README, "Composing a child agent").
     const agentOptions = {
       provider: this.provider,
       model: this.model,

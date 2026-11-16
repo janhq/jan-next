@@ -1,50 +1,50 @@
-# Agent preset ptc: one `@deepseek-ai/dsh-agent-preset` declaration inserted
+# Agent preset ptc: one `@janhq/jan-agent-preset` declaration inserted
 # after the web patch. Edits saved from the Web editor override this row's
 # `config.plugins` by id from the profile patch.
 - insert:
     - id: preset-ptc
-      name: '@deepseek-ai/dsh-agent-preset'
+      name: '@janhq/jan-agent-preset'
       config:
         id: ptc
         order: 2
         plugins:
           - id: persona
-            name: '@deepseek-ai/dsh-persona'
+            name: '@janhq/jan-persona'
             config:
               prefix: You are a coding agent powered by the {{model}} model.
           - id: agent-instructions
-            name: '@deepseek-ai/dsh-agent-instructions'
+            name: '@janhq/jan-agent-instructions'
             config:
               maxBytes: 65536
           - id: time-context
-            name: '@deepseek-ai/dsh-time-context'
+            name: '@janhq/jan-time-context'
           - id: tool-bash
-            name: '@deepseek-ai/dsh-tool-bash'
+            name: '@janhq/jan-tool-bash'
             disabled: !!js process.platform === 'win32'
           - id: tool-pwsh
-            name: '@deepseek-ai/dsh-tool-pwsh'
+            name: '@janhq/jan-tool-pwsh'
             disabled: !!js process.platform !== 'win32'
           - id: tool-fs
-            name: '@deepseek-ai/dsh-tool-fs'
+            name: '@janhq/jan-tool-fs'
             config:
               # Set true to add the apply_patch tool beside edit.
               applyPatch: false
           - id: tool-fs-search
-            name: '@deepseek-ai/dsh-tool-fs-search'
+            name: '@janhq/jan-tool-fs-search'
             config:
               sampleOverCapGlobResults: false
           - id: tool-jobs
-            name: '@deepseek-ai/dsh-tool-jobs'
+            name: '@janhq/jan-tool-jobs'
           - id: tool-schedule
-            name: '@deepseek-ai/dsh-tool-schedule'
+            name: '@janhq/jan-tool-schedule'
           - id: skill-filesystem
-            name: '@deepseek-ai/dsh-skill-filesystem'
+            name: '@janhq/jan-skill-filesystem'
           - id: tool-skill
-            name: '@deepseek-ai/dsh-tool-skill'
+            name: '@janhq/jan-tool-skill'
           - id: command-goal
-            name: '@deepseek-ai/dsh-command-goal'
+            name: '@janhq/jan-command-goal'
           - id: tool-goal
-            name: '@deepseek-ai/dsh-tool-goal'
+            name: '@janhq/jan-tool-goal'
           - id: planning
             name: cordis:group
             group: true
@@ -52,7 +52,7 @@
               planMode: true
             config:
               - id: plan-mode
-                name: '@deepseek-ai/dsh-plan-mode'
+                name: '@janhq/jan-plan-mode'
                 config:
                   section: |
                     You are in plan mode. Stay in plan mode until the user approves your plan through exit_plan_mode or switches the session mode. Imperative language to implement changes means plan the implementation, not execute it. A user's conversational agreement — including an answer confirming something you asked — approves nothing and does not end plan mode; fold the confirmed decision into the plan and submit it through exit_plan_mode.
@@ -74,11 +74,11 @@
               toolResultPruner: true
             config:
               - id: compaction-basic
-                name: '@deepseek-ai/dsh-compaction-basic'
+                name: '@janhq/jan-compaction-basic'
               - id: command-compact
-                name: '@deepseek-ai/dsh-command-compact'
+                name: '@janhq/jan-command-compact'
               - id: tool-result-pruner
-                name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+                name: '@janhq/jan-compaction-tool-result-pruner'
                 config:
                   thresholdChars: 8192
                   headChars: 4096
@@ -90,45 +90,45 @@
               workflowEngine: true
             config:
               - id: tool-subagent-control
-                name: '@deepseek-ai/dsh-tool-subagent-control'
+                name: '@janhq/jan-tool-subagent-control'
               - id: tool-subagent
-                name: '@deepseek-ai/dsh-tool-subagent'
+                name: '@janhq/jan-tool-subagent'
                 config:
                   provider: spawn
                   toolName: subagent
                   modelSelection: true
                   modelDiscovery: true
               - id: tool-subagent-fork
-                name: '@deepseek-ai/dsh-tool-subagent'
+                name: '@janhq/jan-tool-subagent'
                 config:
                   provider: fork
                   toolName: subagent_fork
               - id: workflow-ptc
-                name: '@deepseek-ai/dsh-workflow-ptc'
+                name: '@janhq/jan-workflow-ptc'
                 disabled: true
                 config:
                   provider: spawn
               - id: tool-workflow
-                name: '@deepseek-ai/dsh-tool-workflow'
+                name: '@janhq/jan-tool-workflow'
                 disabled: true
           - id: tool-ask-user
-            name: '@deepseek-ai/dsh-tool-ask-user'
+            name: '@janhq/jan-tool-ask-user'
           - id: tool-todo
-            name: '@deepseek-ai/dsh-tool-todo'
+            name: '@janhq/jan-tool-todo'
             config:
               allowParallelInProgress: true
           - id: tool-web
-            name: '@deepseek-ai/dsh-tool-web'
+            name: '@janhq/jan-tool-web'
             config:
               fetch: true
               searchTimeoutMs: 60000
           - id: tool-executor-ptc
-            name: '@deepseek-ai/dsh-tool-executor-ptc'
+            name: '@janhq/jan-tool-executor-ptc'
           - id: present
-            name: '@deepseek-ai/dsh-tool-present'
+            name: '@janhq/jan-tool-present'
           - id: tool-plugin-manager
-            name: '@deepseek-ai/dsh-plugin-manager/tools'
+            name: '@janhq/jan-plugin-manager/tools'
             disabled: true
           - id: tool-plugin-market
-            name: '@deepseek-ai/dsh-plugin-market/tools'
+            name: '@janhq/jan-plugin-market/tools'
             disabled: true

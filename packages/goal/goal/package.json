@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-goal",
+  "name": "@janhq/jan-goal",
   "description": "Event-sourced same-session goal state and lifecycle service for Jan",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/goal/goal"
   },
   "type": "module",
@@ -50,34 +50,34 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/dsh-agent": "workspace:*",
-    "@deepseek-ai/dsh-session-projection": "workspace:*",
-    "@deepseek-ai/dsh-brand": "workspace:*",
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-scope": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-typert-protocol": "workspace:*",
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-session-projection": "workspace:*",
+    "@janhq/jan-brand": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-scope": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-typert-protocol": "workspace:*",
+    "@janhq/cordis": "workspace:~"
   },
   "dependencies": {
-    "@deepseek-ai/schemastery": "workspace:~",
+    "@janhq/schemastery": "workspace:~",
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh-agent": "workspace:*",
-    "@deepseek-ai/dsh-agent-loop": "workspace:*",
-    "@deepseek-ai/dsh-agent-loop-testkit": "workspace:*",
-    "@deepseek-ai/dsh-bash-local": "workspace:*",
-    "@deepseek-ai/dsh-session-projection": "workspace:*",
-    "@deepseek-ai/dsh-brand": "workspace:*",
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-loader-smoke": "workspace:*",
-    "@deepseek-ai/dsh-scope": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-session-checkpoint-policy": "workspace:*",
-    "@deepseek-ai/dsh-session-persistence-jsonl": "workspace:*",
-    "@deepseek-ai/dsh-subprocess-local": "workspace:*",
-    "@deepseek-ai/dsh-typert-protocol": "workspace:*",
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-agent-loop": "workspace:*",
+    "@janhq/jan-agent-loop-testkit": "workspace:*",
+    "@janhq/jan-bash-local": "workspace:*",
+    "@janhq/jan-session-projection": "workspace:*",
+    "@janhq/jan-brand": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-loader-smoke": "workspace:*",
+    "@janhq/jan-scope": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-session-checkpoint-policy": "workspace:*",
+    "@janhq/jan-session-persistence-jsonl": "workspace:*",
+    "@janhq/jan-subprocess-local": "workspace:*",
+    "@janhq/jan-typert-protocol": "workspace:*",
+    "@janhq/cordis": "workspace:~"
   }
 }

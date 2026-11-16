@@ -3,7 +3,7 @@ description: "Enable the change request panel and worktree Sessions from the Plu
 kind: "package-bundle"
 ---
 
-# @deepseek-ai/dsh-experimental-forge-bundle
+# @janhq/jan-experimental-forge-bundle
 
 ## Summary
 

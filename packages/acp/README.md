@@ -7,7 +7,7 @@ kind: "package-group"
 
 ## Summary
 
-The acp group provides one package: a server that lets programs and automation run persistent DeepSeek Harness agents over the standard Agent Client Protocol. A client can create, list, resume, and close sessions; attach standard MCP servers; select model options; send text and image prompts; receive semantic updates; answer permission prompts; and cancel work without a human in the loop. The matching client for spawning such a server from another harness lives in `subagent/subagent-acp`. This page maps the group; the package README owns the per-package contract.
+The acp group provides one package: a server that lets programs and automation run persistent Jan agents over the standard Agent Client Protocol. A client can create, list, resume, and close sessions; attach standard MCP servers; select model options; send text and image prompts; receive semantic updates; answer permission prompts; and cancel work without a human in the loop. The matching client for spawning such a server from another harness lives in `subagent/subagent-acp`. This page maps the group; the package README owns the per-package contract.
 
 ## Table of Contents
 
@@ -29,7 +29,7 @@ The acp group provides one package: a server that lets programs and automation r
 <a id="related-documentation"></a>
 ## Related documentation
 
-- [dsh-subagent-acp](../subagent/subagent-acp/README.md) — the out-of-process ACP client that spawns and drives this server.
+- [jan-subagent-acp](../subagent/subagent-acp/README.md) — the out-of-process ACP client that spawns and drives this server.
 - [ACP as an automation-only protocol](../../.agents/notes/implemented/simplification/2026-07-23-acp-automation-only-protocol.md) — the design record for the automation contract and its wire boundaries.
 
 <a id="dev-note"></a>

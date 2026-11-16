@@ -1,6 +1,6 @@
 # AGENTS.md — The documentation standard
 
-This file defines document structure, Markdown tiers, writing rules, and `verify-doc-budgets` ceilings. Use [dsh-doc](../.agents/skills/dsh-doc/SKILL.md) for placement and validation, and [dsh-prose-standard](../.agents/skills/dsh-prose-standard/SKILL.md) for required coverage and editorial judgment.
+This file defines document structure, Markdown tiers, writing rules, and `verify-doc-budgets` ceilings. Use [jan-doc](../.agents/skills/jan-doc/SKILL.md) for placement and validation, and [jan-prose-standard](../.agents/skills/jan-prose-standard/SKILL.md) for required coverage and editorial judgment.
 
 ## Document structure
 
@@ -43,8 +43,8 @@ Placement: bugs → postmortems; rationale → Agent Notes; procedures → cookb
 - **Fenced `ts` blocks must compile** (`doc-typecheck`); a pasted type declaration and its original JSDoc use ` ```ts type-equiv `, while a body-stripped public class declaration uses ` ```ts public-api `; register either in the manifest so neither can drift ([mechanics](development.md#documenting-types-verbatim-ts-type-equiv)).
 - **The owning [subsystems page](subsystems/README.md) updates in the same change** that reshapes a documented type. `verify-type-equiv` catches drifted pastes, not never-documented new types; a type is documented on its declaring package group's page ([page scoping](../scripts/verify-subsystem-pages.ts)).
 - **Documentation is English-only.** Do not add translated counterparts or language switchers. Product UI copy is localized through [locale dictionaries](../.agents/notes/implemented/architecture/2026-08-23-locale-owned-client-ui-copy.md), not documentation.
-- **Comments and JSDoc state complete contracts, not reasoning transcripts.** Preserve behavior, failure, timing, ownership, modality, exceptions, consequences, and non-obvious orientation; delete narration, test walkthroughs, review analysis, and code restatement. Keep the local contract and link its rationale. Use [dsh-prose-standard](../.agents/skills/dsh-prose-standard/SKILL.md) for details.
-- Write directly: name actors and facts ([reference](../.agents/skills/dsh-prose-standard/SKILL.md)). Reserve `seam` for the defined capability. Name the exact check, type, API, operation, or behavior instead of metaphorical "gate", "vocabulary", or "surface".
+- **Comments and JSDoc state complete contracts, not reasoning transcripts.** Preserve behavior, failure, timing, ownership, modality, exceptions, consequences, and non-obvious orientation; delete narration, test walkthroughs, review analysis, and code restatement. Keep the local contract and link its rationale. Use [jan-prose-standard](../.agents/skills/jan-prose-standard/SKILL.md) for details.
+- Write directly: name actors and facts ([reference](../.agents/skills/jan-prose-standard/SKILL.md)). Reserve `seam` for the defined capability. Name the exact check, type, API, operation, or behavior instead of metaphorical "gate", "vocabulary", or "surface".
 
 ## Wordcount Budgets
 
@@ -60,7 +60,7 @@ Ceilings are guardrails, not reduction targets. At or below target, retain at le
 
 ## The slop checklist
 
-Hunt these in any doc; [dsh-doc](../.agents/skills/dsh-doc/SKILL.md) runs this list as an audit:
+Hunt these in any doc; [jan-doc](../.agents/skills/jan-doc/SKILL.md) runs this list as an audit:
 
 - Duplicated rules: search a distinctive phrase; keep one home and link the rest.
 - History outside its permitted tier: state current facts and link the historical owner.

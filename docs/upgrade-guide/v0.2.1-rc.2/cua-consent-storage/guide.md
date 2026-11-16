@@ -7,7 +7,7 @@ description: "Computer Use application consent moves from profile configuration 
 
 ## Change
 
-Computer Use stores application consent through `storageDomain`. With the default JSON backend, each canonical profile directory has its own `$DSH_HOME/storages/cua_permissions_<sha256>.json`. “Allow for this session” now follows the conversation ID across DSH restart and Computer Use disablement. It does not authorize another conversation. Unverifiable applications still require a matching native process identity; restarting that application may require new consent.
+Computer Use stores application consent through `storageDomain`. With the default JSON backend, each canonical profile directory has its own `$JAN_HOME/storages/cua_permissions_<sha256>.json`. “Allow for this session” now follows the conversation ID across Jan restart and Computer Use disablement. It does not authorize another conversation. Unverifiable applications still require a matching native process identity; restarting that application may require new consent.
 
 `allowedApps` is a legacy import source. The first store access imports it once. Subsequent configuration edits do not grant or revoke access, and a revoked grant is not restored by reloading the old configuration. The permission page remains the authoring interface for grants and refusals. macOS privileges are unchanged.
 

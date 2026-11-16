@@ -1,16 +1,16 @@
 /** Real registries bind actions to the displayed session and remove every contribution on unload. */
 import { isValidElement } from 'react'
-import { Context } from '@deepseek-ai/cordis'
-import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
-import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { SessionId } from '@deepseek-ai/dsh-session/types'
-import { ToolCallId } from '@deepseek-ai/dsh-llm/brand'
+import { Context } from '@janhq/cordis'
+import { SlotRegistry } from '@janhq/jan-client-ui-renderer/client'
+import { LocaleRuntime } from '@janhq/jan-client-locale/client'
+import { SessionId } from '@janhq/jan-session/types'
+import { ToolCallId } from '@janhq/jan-llm/brand'
 import { expect, it, onTestFinished, vi } from 'vitest'
 import { mountActionCards, inject } from '../src/client/mount.ts'
 import { apply as hostApply } from '../src/index.ts'
 import type { TailInjected } from '../src/client/Card.tsx'
 
-const apply = (ctx: Context) => mountActionCards(ctx, { package: '@deepseek-ai/dsh-action-cards', descriptors: [] })
+const apply = (ctx: Context) => mountActionCards(ctx, { package: '@janhq/jan-action-cards', descriptors: [] })
 const Body = () => null
 
 it('binds actions to the displayed session, serves registered bodies and removes registrations on unload', async () => {

@@ -4,7 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { DeepSeekHarness, type SdkUserQuestionRequest } from '@deepseek-ai/dsh-sdk-client'
+import { Jan, type SdkUserQuestionRequest } from '@janhq/jan-sdk-client'
 import { clearAmbientProxyEnv } from '../../../../../scripts/test-proxy-environment.ts'
 import { expect, it, onTestFinished } from 'vitest'
 import { messagesResponse } from './fixtures/messages-response.ts'
@@ -32,7 +32,7 @@ it.each([
         requests.length === 1 ? 'tool_use' : 'end_turn'))
     })
   })
-  const state: { harness?: DeepSeekHarness } = {}
+  const state: { harness?: Jan } = {}
   onTestFinished(async () => {
     try { await state.harness?.close() } finally {
       try {
@@ -49,14 +49,14 @@ it.each([
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
   const address = server.address()
   if (address === null || typeof address === 'string') throw new Error('model fixture has no port')
-  const env = { ...process.env, DSH_PERMISSION_MODE: 'danger-full-access', DSH_TELEMETRY_DISABLED: '1',
+  const env = { ...process.env, JAN_PERMISSION_MODE: 'danger-full-access', JAN_TELEMETRY_DISABLED: '1',
     [MOCK_MODEL_KEY_ENV]: 'keyless-question-fixture' }
   const route = await writeMockModelRoute(root, `http://127.0.0.1:${String(address.port)}`, ['mock-pro'])
   clearAmbientProxyEnv(env)
   const seen: SdkUserQuestionRequest[] = []
   const entered = Promise.withResolvers<AbortSignal>()
-  const harness = state.harness = new DeepSeekHarness({
-    cwd: root, dshHome: join(root, '.dsh'), env, provider: MOCK_MODEL_PROVIDER, model: 'mock-pro', maxTokens: 1234, initializeTimeoutMs: 30_000,
+  const harness = state.harness = new Jan({
+    cwd: root, janHome: join(root, '.jan'), env, provider: MOCK_MODEL_PROVIDER, model: 'mock-pro', maxTokens: 1234, initializeTimeoutMs: 30_000,
     patches: [route, ...mode === 'ptc' ? [fileURLToPath(new URL('../../../config/examples/ptc.yml', import.meta.url))] : []],
     onUserQuestion: async (request, { signal }) => {
       expect(signal.aborted).toBe(false)

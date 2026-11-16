@@ -3,7 +3,7 @@ description: "Show official plugin recommendation cards after completed answers.
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-client-ui-plugin-recommendations
+# @janhq/jan-client-ui-plugin-recommendations
 
 ## Summary
 

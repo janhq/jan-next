@@ -1,11 +1,11 @@
 /** JSON-safe records and events of the plugin market Remote namespace. */
-import type { MarketIndexMetadata, MarketInstallTarget, MarketPlugin, MarketVersion } from '@deepseek-ai/dsh-plugin-market-index'
-import type { LocalizedText } from '@deepseek-ai/dsh-package-manifest'
-import type { Branded } from '@deepseek-ai/dsh-brand'
-import type {} from '@deepseek-ai/dsh-typert-protocol'
-import type { DetailFailureReason } from '@deepseek-ai/dsh-plugin-detail/types'
+import type { MarketIndexMetadata, MarketInstallTarget, MarketPlugin, MarketVersion } from '@janhq/jan-plugin-market-index'
+import type { LocalizedText } from '@janhq/jan-package-manifest'
+import type { Branded } from '@janhq/jan-brand'
+import type {} from '@janhq/jan-typert-protocol'
+import type { DetailFailureReason } from '@janhq/jan-plugin-detail/types'
 
-declare module '@deepseek-ai/dsh-typert-protocol' {
+declare module '@janhq/jan-typert-protocol' {
   interface RemoteErrorDetailsMap {
     /** An index URL is not http(s), or carries credentials or a fragment. */
     'plugin-market/invalid-index-url': { readonly url: string; readonly reason: string }
@@ -43,7 +43,7 @@ export interface MarketIndexSummary {
 
 /**
  * How a plugin relates to the profile's bundles, matched by package name and measured against its default version, or
- * its highest version when it has no default: `provided` when the DSH installation ships the package,
+ * its highest version when it has no default: `provided` when the Jan installation ships the package,
  * `update-available` when that version is greater than the installed one, `different-version` when the installed
  * version is unknown, not valid SemVer, or greater.
  */
@@ -55,13 +55,13 @@ export interface MarketInstallation {
   readonly installedVersion?: string
 }
 
-/** Whether the running DSH version satisfies a version's `engines.dsh`, as DSH's installation check evaluates it. */
+/** Whether the running Jan version satisfies a version's `engines.jan`, as Jan's installation check evaluates it. */
 export type MarketCompatibility =
   | { readonly compatible: true }
   | {
     readonly compatible: false
     readonly runtimeVersion: string
-    /** The unmet requirement, keyed `engines.dsh`. */
+    /** The unmet requirement, keyed `engines.jan`. */
     readonly requirements: Readonly<Record<string, string>>
     /** Whether the profile holds a version exemption for this exact package and runtime version. */
     readonly exempted: boolean
@@ -159,7 +159,7 @@ export type PluginDetail =
   }
   | { readonly status: 'none' }
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Events {
     /**
      * The configured index sources changed.

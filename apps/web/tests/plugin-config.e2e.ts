@@ -1,6 +1,6 @@
 // Web e2e scenario: the configuration pages on the Plugins page — the official
 // pages a deployment's exposed host-plane namespaces produce, one field edited
-// through the real wire down to `$DSH_HOME/cordis.patch.yml`, the override badge
+// through the real wire down to `$JAN_HOME/cordis.patch.yml`, the override badge
 // and reset that layering produces, and a community bundle's row configuration
 // registered by its own browser half. Zero model calls: everything is client
 // state plus the settings document and the profile on a blank frame, so there
@@ -9,7 +9,7 @@ import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Locator, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { HIDDEN_BUNDLES } from '@deepseek-ai/dsh-official-bundles'
+import { HIDDEN_BUNDLES } from '@janhq/jan-official-bundles'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import { join } from 'node:path'
 import {
@@ -115,7 +115,7 @@ describe('web e2e: plugin configuration pages', () => {
     const bundles = await scaffold.ctx.pluginManager.listBundles()
     expect(await panel.locator('[data-plugin-group="more"] [data-plugin-package]').count())
       .toBe(bundles.filter(bundle => !HIDDEN_BUNDLES.has(bundle.name)
-        && bundle.name !== '@deepseek-ai/dsh-experimental-liveshare'
+        && bundle.name !== '@janhq/jan-experimental-liveshare'
         && bundle.official && (bundle.listedByDefault !== false || bundle.enabled || bundle.installed)).length)
     expect(await basic.count()).toBe(0)
     expect(await extensions.count()).toBe(0)

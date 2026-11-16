@@ -1,5 +1,5 @@
-import type { EntryOptions } from '@deepseek-ai/cordis-plugin-loader'
-import { type Dict, omit } from '@deepseek-ai/cosmokit'
+import type { EntryOptions } from '@janhq/cordis-plugin-loader'
+import { type Dict, omit } from '@janhq/cosmokit'
 import { applyChanges, detach, flatten, type Journal, place } from './journal.ts'
 
 export interface PatchOptions {

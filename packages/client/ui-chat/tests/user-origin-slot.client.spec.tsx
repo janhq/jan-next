@@ -7,12 +7,12 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
-import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
-import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
-import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
+import { makeTranslate } from '@janhq/jan-client-test-runtime'
+import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
+import { zh as commonZh } from '@janhq/jan-client-locale/src/locales/zh.ts'
 import type {
   ChatConversationViewNode, SteeringMessageNode, UserMessageNode,
-} from '@deepseek-ai/dsh-client-ui-chat/client'
+} from '@janhq/jan-client-ui-chat/client'
 import type { ChatNodeViewProps, UserContentInput } from '../src/client/contract/slots.ts'
 import { UserMessageNodeView } from '../src/client/chat/MessageItem.tsx'
 import { zh } from '../src/client/locale.ts'

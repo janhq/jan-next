@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { AddressInfo } from 'node:net'
-import { Context } from '@deepseek-ai/cordis'
-import WebRuntime from '@deepseek-ai/dsh-web'
-import { HttpFetchProvider, LOCAL_FETCH_PROVIDER_ID } from '@deepseek-ai/dsh-web-fetch-http'
-import type { HttpFetchLimits } from '@deepseek-ai/dsh-web-fetch-http'
-import * as fetchPlugin from '@deepseek-ai/dsh-web-fetch-http'
+import { Context } from '@janhq/cordis'
+import WebRuntime from '@janhq/jan-web'
+import { HttpFetchProvider, LOCAL_FETCH_PROVIDER_ID } from '@janhq/jan-web-fetch-http'
+import type { HttpFetchLimits } from '@janhq/jan-web-fetch-http'
+import * as fetchPlugin from '@janhq/jan-web-fetch-http'
 import {
   classifyContentType,
   decoderForCharset,

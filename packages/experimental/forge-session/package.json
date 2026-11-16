@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-experimental-forge-session",
+  "name": "@janhq/jan-experimental-forge-session",
   "description": "Binds change requests to the Session that created, pushed, or tracked them",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -28,60 +28,60 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/experimental/forge-session"
   },
   "dependencies": {
-    "@deepseek-ai/dsh-timeout": "workspace:*",
-    "@deepseek-ai/dsh-util-values": "workspace:*",
-    "@deepseek-ai/schemastery": "workspace:~",
+    "@janhq/jan-timeout": "workspace:*",
+    "@janhq/jan-util-values": "workspace:*",
+    "@janhq/schemastery": "workspace:~",
     "shell-quote": "^1.12.0",
     "zod": "^4.4.3"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-experimental-forge": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-session-projection": "workspace:*",
-    "@deepseek-ai/dsh-shell": "workspace:*",
-    "@deepseek-ai/dsh-shell-env": "workspace:*",
-    "@deepseek-ai/dsh-tools": "workspace:*",
-    "@deepseek-ai/dsh-sandbox-policy": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-experimental-forge": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-session-projection": "workspace:*",
+    "@janhq/jan-shell": "workspace:*",
+    "@janhq/jan-shell-env": "workspace:*",
+    "@janhq/jan-tools": "workspace:*",
+    "@janhq/jan-sandbox-policy": "workspace:*"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/cordis-plugin-include": "workspace:~",
-    "@deepseek-ai/cordis-plugin-loader": "workspace:~",
-    "@deepseek-ai/dsh-agent": "workspace:*",
-    "@deepseek-ai/dsh-agent-loop": "workspace:*",
-    "@deepseek-ai/dsh-bash-local": "workspace:*",
-    "@deepseek-ai/dsh-experimental-forge": "workspace:*",
-    "@deepseek-ai/dsh-experimental-forge-github": "workspace:*",
-    "@deepseek-ai/dsh-fs-local": "workspace:*",
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-session-projection": "workspace:*",
-    "@deepseek-ai/dsh-shell-env": "workspace:*",
-    "@deepseek-ai/dsh-subprocess-local": "workspace:*",
-    "@deepseek-ai/dsh-system-prompt": "workspace:*",
-    "@deepseek-ai/dsh-tool-bash": "workspace:*",
-    "@deepseek-ai/dsh-tool-executor-native": "workspace:*",
-    "@deepseek-ai/dsh-tools": "workspace:*",
-    "@deepseek-ai/dsh-working-directory": "workspace:*",
-    "@deepseek-ai/dsh-shell": "workspace:*",
-    "@deepseek-ai/dsh-sandbox-policy": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/cordis-plugin-include": "workspace:~",
+    "@janhq/cordis-plugin-loader": "workspace:~",
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-agent-loop": "workspace:*",
+    "@janhq/jan-bash-local": "workspace:*",
+    "@janhq/jan-experimental-forge": "workspace:*",
+    "@janhq/jan-experimental-forge-github": "workspace:*",
+    "@janhq/jan-fs-local": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-session-projection": "workspace:*",
+    "@janhq/jan-shell-env": "workspace:*",
+    "@janhq/jan-subprocess-local": "workspace:*",
+    "@janhq/jan-system-prompt": "workspace:*",
+    "@janhq/jan-tool-bash": "workspace:*",
+    "@janhq/jan-tool-executor-native": "workspace:*",
+    "@janhq/jan-tools": "workspace:*",
+    "@janhq/jan-working-directory": "workspace:*",
+    "@janhq/jan-shell": "workspace:*",
+    "@janhq/jan-sandbox-policy": "workspace:*"
   },
   "peerDependenciesMeta": {
-    "@deepseek-ai/dsh-shell": {
+    "@janhq/jan-shell": {
       "optional": true
     },
-    "@deepseek-ai/dsh-shell-env": {
+    "@janhq/jan-shell-env": {
       "optional": true
     },
-    "@deepseek-ai/dsh-tools": {
+    "@janhq/jan-tools": {
       "optional": true
     },
-    "@deepseek-ai/dsh-sandbox-policy": {
+    "@janhq/jan-sandbox-policy": {
       "optional": true
     }
   }

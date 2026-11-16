@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-web-search-exa",
+  "name": "@janhq/jan-web-search-exa",
   "description": "Keyless web search and fetch for the ctx.web capability seam through Exa's hosted MCP endpoint",
   "version": "0.2.2-rc.1",
   "repository": {
@@ -26,15 +26,15 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-web": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-web": "workspace:*"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~",
-    "@deepseek-ai/dsh-web": "workspace:*"
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-web": "workspace:*"
   },
   "dependencies": {
-    "@deepseek-ai/schemastery": "workspace:~"
+    "@janhq/schemastery": "workspace:~"
   },
   "private": true
 }

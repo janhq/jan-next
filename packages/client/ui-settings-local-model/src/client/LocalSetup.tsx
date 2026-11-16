@@ -1,8 +1,8 @@
 /** First-run option: offer the local model, then own the step body while it downloads and starts. */
 import { useEffect, useRef, type ReactNode } from 'react'
-import { Button, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type {} from '@deepseek-ai/dsh-client-ui-settings-models/client'
+import { Button, Tag } from '@janhq/jan-client-ui-primitives'
+import type { InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
+import type {} from '@janhq/jan-client-ui-settings-models/client'
 import type { LocalModelInjected } from './actions.ts'
 import type { NS } from './locales.ts'
 import { downloadSize, Failure, Progress, Status } from './parts.tsx'

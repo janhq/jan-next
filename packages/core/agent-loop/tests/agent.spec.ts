@@ -1,19 +1,19 @@
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
-import { createUserMessage } from '@deepseek-ai/dsh-llm'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
+import { createUserMessage } from '@janhq/jan-llm'
 import { describe, expect, it, vi } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import AgentRegistry, { type Agent } from '@deepseek-ai/dsh-agent'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
-import LlmRuntime from '@deepseek-ai/dsh-llm'
-import type { MessageSource } from '@deepseek-ai/dsh-llm'
-import type { ContextFormed } from '@deepseek-ai/dsh-llm'
-import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime from '@deepseek-ai/dsh-tools'
+import { Context } from '@janhq/cordis'
+import AgentRegistry, { type Agent } from '@janhq/jan-agent'
+import AgentLoop from '@janhq/jan-agent-loop'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
+import LlmRuntime from '@janhq/jan-llm'
+import type { MessageSource } from '@janhq/jan-llm'
+import type { ContextFormed } from '@janhq/jan-llm'
+import SessionStore, { SessionId } from '@janhq/jan-session'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import ToolRuntime from '@janhq/jan-tools'
 import { MockAdapter, textResponse } from './mock-adapter.ts'
 
-declare module '@deepseek-ai/dsh-llm' {
+declare module '@janhq/jan-llm' {
   interface MessageSourceMap {
     'p': { kind: 'p' } & ContextFormed
     'test': { kind: 'test' } & ContextFormed

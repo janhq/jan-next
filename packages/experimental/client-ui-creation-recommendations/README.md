@@ -3,7 +3,7 @@ description: "Show completed-answer creation cards with location choice, Undo an
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-client-ui-creation-recommendations
+# @janhq/jan-client-ui-creation-recommendations
 
 ## Summary
 

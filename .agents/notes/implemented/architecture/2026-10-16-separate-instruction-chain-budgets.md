@@ -4,7 +4,7 @@ Status: implemented
 
 ## Problem
 
-`dsh-agent-instructions` rendered the user-global and project files as one chain under one `maxBytes`. Rendering omits the broadest files first, and user-global files are the broadest, so a large project chain removed them: under the shipped 65,536-byte budget, 20 KiB user-global, 30 KiB project root, and 20 KiB nested files rendered without the user-global file.
+`jan-agent-instructions` rendered the user-global and project files as one chain under one `maxBytes`. Rendering omits the broadest files first, and user-global files are the broadest, so a large project chain removed them: under the shipped 65,536-byte budget, 20 KiB user-global, 30 KiB project root, and 20 KiB nested files rendered without the user-global file.
 
 ## Decision
 

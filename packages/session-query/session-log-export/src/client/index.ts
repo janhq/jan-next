@@ -1,28 +1,28 @@
 /** Browser plugin owning ZIP download and Markdown copy state, plus feedback controls. */
 
-import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type {} from '@deepseek-ai/dsh-client-locale/client'
-import type {} from '@deepseek-ai/dsh-client-ui-commands/client'
-import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type {} from '@deepseek-ai/dsh-client-ui-message-feedback/client'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type {} from '@deepseek-ai/dsh-client-ui-context-menu/client'
-import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
-import { IconCopyOutlineRegular, IconDownloadOutlineRegular, IconPaperPlaneOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { Context as ClientContext } from '@janhq/cordis'
+import type { SessionId } from '@janhq/jan-session/types'
+import type {} from '@janhq/jan-client-locale/client'
+import type {} from '@janhq/jan-client-ui-commands/client'
+import type {} from '@janhq/jan-client-ui-renderer/client'
+import type {} from '@janhq/jan-client-ui-message-feedback/client'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import type {} from '@janhq/jan-client-ui-context-menu/client'
+import type {} from '@janhq/jan-client-ui-conversation/client'
+import { IconCopyOutlineRegular, IconDownloadOutlineRegular, IconPaperPlaneOutlineRegular } from '@janhq/jan-client-ui-primitives'
 import { SessionLogDownloadController } from './controller.ts'
 import { SessionMarkdownCopyController } from './copy-controller.ts'
 import { SessionMarkdownCopyToast, type SessionMarkdownCopyToastInjected } from './CopyToast.tsx'
 import { SessionLogDownloadDialog, type SessionLogDownloadDialogInjected } from './Dialog.tsx'
 import { en, ja, es, fr, de, ru, pt, NS, zh, type SessionLogDownloadKey } from './locales.ts'
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     sessionLogDownload: SessionLogDownloadController
   }
 }
 
-declare module '@deepseek-ai/dsh-client-ui-slots' {
+declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
     'session-log-download': SessionLogDownloadKey
   }

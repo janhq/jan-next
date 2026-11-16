@@ -1,5 +1,5 @@
 /**
- * SessionTelemetryBackend Service Definition for the DeepSeek Harness.
+ * SessionTelemetryBackend Service Definition for the Jan.
  *
  * This package owns the CAPTURE side of session-event reporting — the complete
  * one-record-per-event ledger mirror, what records carry, when
@@ -11,13 +11,13 @@
  * backend responsibilities are documented in the
  * [Session telemetry reference](../README.md#understand-the-implementation).
  *
- * @module @deepseek-ai/dsh-session-telemetry
+ * @module @janhq/jan-session-telemetry
  */
 
-import { Context, Service } from '@deepseek-ai/cordis'
-import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session'
+import { Context, Service } from '@janhq/cordis'
+import type { SessionEvent, SessionId } from '@janhq/jan-session'
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     sessionTelemetry: SessionTelemetryBackend
   }

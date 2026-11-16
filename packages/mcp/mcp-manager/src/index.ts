@@ -1,5 +1,5 @@
 /**
- * MCP server manager (`ctx.mcpManager`): one fleet of `dsh-mcp-client`
+ * MCP server manager (`ctx.mcpManager`): one fleet of `jan-mcp-client`
  * instances built from two sources. Volatile `Config.servers` holds configured
  * entries, which Settings exposes under the owning Loader entry id with profile
  * inheritance and revision checks; plugins contribute registered entries for
@@ -14,23 +14,23 @@
  * mount under the manager's fiber, so disposing the manager unwinds every
  * instance and its registered tools.
  *
- * @module @deepseek-ai/dsh-mcp-manager
+ * @module @janhq/jan-mcp-manager
  */
 
-import { Context, Service } from '@deepseek-ai/cordis'
-import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
-import type { Fiber, Volatile, VolatileSnapshot } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
-import * as McpClient from '@deepseek-ai/dsh-mcp-client'
-import { ReconnectSchema, SERVER_NAME_PATTERN, connectionStatusOf, probeServer, resolveReconnectPolicy } from '@deepseek-ai/dsh-mcp-client'
-import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
-import type { McpCloseResult, McpProbeOptions, McpProbeResult, ReconnectConfig } from '@deepseek-ai/dsh-mcp-client'
-import { deepEqualJson } from '@deepseek-ai/dsh-util-values'
-import { assertTemplateSyntax } from '@deepseek-ai/dsh-mcp-client'
+import { Context, Service } from '@janhq/cordis'
+import { Remote, TypertRemoteService } from '@janhq/jan-typert-protocol'
+import type { Fiber, Volatile, VolatileSnapshot } from '@janhq/cordis'
+import z from '@janhq/schemastery'
+import * as McpClient from '@janhq/jan-mcp-client'
+import { ReconnectSchema, SERVER_NAME_PATTERN, connectionStatusOf, probeServer, resolveReconnectPolicy } from '@janhq/jan-mcp-client'
+import { MAX_TIMER_DELAY_MS } from '@janhq/jan-timeout'
+import type { McpCloseResult, McpProbeOptions, McpProbeResult, ReconnectConfig } from '@janhq/jan-mcp-client'
+import { deepEqualJson } from '@janhq/jan-util-values'
+import { assertTemplateSyntax } from '@janhq/jan-mcp-client'
 import type { McpManagedServerStatus, McpManagedServerView } from './types.ts'
 // Side-effect type imports: declare the tool service and Loader's volatile events.
-import type {} from '@deepseek-ai/dsh-tools'
-import type {} from '@deepseek-ai/cordis-plugin-loader'
+import type {} from '@janhq/jan-tools'
+import type {} from '@janhq/cordis-plugin-loader'
 
 export type { McpManagedServerStatus, McpManagedServerView } from './types.ts'
 
@@ -178,7 +178,7 @@ interface ManagedRecord {
   detachStatus?: () => void
 }
 
-declare module '@deepseek-ai/cordis' {
+declare module '@janhq/cordis' {
   interface Context {
     /** The MCP server manager. */
     mcpManager: McpServerManager

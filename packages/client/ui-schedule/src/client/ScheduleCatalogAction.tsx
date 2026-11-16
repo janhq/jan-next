@@ -6,10 +6,10 @@ import {
   IconClockOutlineRegular,
   IconTrashOutlineRegular,
   useDismissOnOutsidePointer,
-} from '@deepseek-ai/dsh-client-ui-primitives'
-import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { ScheduleId, ScheduleCatalogEntry } from '@deepseek-ai/dsh-schedule/client'
+} from '@janhq/jan-client-ui-primitives'
+import type { InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
+import type {} from '@janhq/jan-client-ui-conversation/client'
+import type { ScheduleId, ScheduleCatalogEntry } from '@janhq/jan-schedule/client'
 import type { CatalogInjected } from './catalog-source.ts'
 import { NS } from './locales.ts'
 import { taskNextRunAt } from './task-record.ts'
@@ -54,7 +54,7 @@ function SessionScheduleCatalog({
   const rootRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const catalogRef = useRef<HTMLUListElement>(null)
-  const anchorName = `--dsh-schedule-catalog-${useId().replaceAll(':', '')}`
+  const anchorName = `--jan-schedule-catalog-${useId().replaceAll(':', '')}`
 
   useDismissOnOutsidePointer(rootRef, open, setOpen, catalogRef)
 

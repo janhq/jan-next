@@ -2,22 +2,22 @@
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { Context } from '@deepseek-ai/cordis'
-import { provideWorkingDirectoryFixture } from '@deepseek-ai/dsh-agent-loop-testkit'
-import { FsVersion } from '@deepseek-ai/dsh-fs'
-import type { FsObservation } from '@deepseek-ai/dsh-fs'
-import { LocalFileSystem } from '@deepseek-ai/dsh-fs-local'
-import { SandboxedFileSystem } from '@deepseek-ai/dsh-fs-sandbox'
-import * as FsPolicy from '@deepseek-ai/dsh-fs-observation-policy'
-import { ToolCallId } from '@deepseek-ai/dsh-llm'
-import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime from '@deepseek-ai/dsh-tools'
-import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
-import * as PtcToolExecutor from '@deepseek-ai/dsh-tool-executor-ptc'
-import type { ToolExecution, ToolExecutionToken } from '@deepseek-ai/dsh-tools'
-import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
-import SandboxPolicyService from '@deepseek-ai/dsh-sandbox-policy'
-import type { SandboxMode } from '@deepseek-ai/dsh-sandbox'
+import { Context } from '@janhq/cordis'
+import { provideWorkingDirectoryFixture } from '@janhq/jan-agent-loop-testkit'
+import { FsVersion } from '@janhq/jan-fs'
+import type { FsObservation } from '@janhq/jan-fs'
+import { LocalFileSystem } from '@janhq/jan-fs-local'
+import { SandboxedFileSystem } from '@janhq/jan-fs-sandbox'
+import * as FsPolicy from '@janhq/jan-fs-observation-policy'
+import { ToolCallId } from '@janhq/jan-llm'
+import SystemPrompt from '@janhq/jan-system-prompt'
+import ToolRuntime from '@janhq/jan-tools'
+import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
+import * as PtcToolExecutor from '@janhq/jan-tool-executor-ptc'
+import type { ToolExecution, ToolExecutionToken } from '@janhq/jan-tools'
+import SessionProjectionRegistry from '@janhq/jan-session-projection'
+import SandboxPolicyService from '@janhq/jan-sandbox-policy'
+import type { SandboxMode } from '@janhq/jan-sandbox'
 import { onTestFinished, vi } from 'vitest'
 import * as ToolFs from '../../src/index.ts'
 import { executePatch } from '../../src/patch/index.ts'
@@ -32,7 +32,7 @@ export const move = (source: string, destination: string, before = 'old', after 
   `*** Update File: ${source}\n*** Move to: ${destination}\n@@\n-${before}\n+${after}`
 
 export async function setup(options: { policy?: boolean; mode?: SandboxMode; provider?: typeof LocalFileSystem; applyPatch?: boolean; toolMode?: 'native' | 'ptc' } = {}) {
-  const root = await realpath(await mkdtemp(join(tmpdir(), 'dsh-patch-executor-')))
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'jan-patch-executor-')))
   onTestFinished(() => rm(root, { recursive: true, force: true }))
   const workspace = join(root, 'workspace')
   const providerRoot = join(root, 'provider')

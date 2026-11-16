@@ -3,11 +3,11 @@ description: "The shipped shell backend for persistent terminal sessions: intera
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-terminal-bash
+# @janhq/jan-terminal-bash
 
 ## Summary
 
-`dsh-terminal-bash` starts a persistent interactive shell under the deployment's sandbox policy: the session stays alive across tool calls, readiness for input is detected, and bounded line-oriented output is retained for reads. It provides the `shell` backend type and supports bash on POSIX and pwsh on Windows through a `shellDialect` setting. The same backend composes with local or remote execution worlds through the mounted subprocess provider. Full-screen terminal applications are outside its line-oriented contract.
+`jan-terminal-bash` starts a persistent interactive shell under the deployment's sandbox policy: the session stays alive across tool calls, readiness for input is detected, and bounded line-oriented output is retained for reads. It provides the `shell` backend type and supports bash on POSIX and pwsh on Windows through a `shellDialect` setting. The same backend composes with local or remote execution worlds through the mounted subprocess provider. Full-screen terminal applications are outside its line-oriented contract.
 
 ## Table of Contents
 
@@ -25,23 +25,23 @@ kind: "package-reference"
 
 A terminal without an explicit initial directory starts in the owner's current Session directory. Its sandbox permission root remains governed by Session policy.
 
-Mount this backend when a composition needs persistent shell sessions — state such as cwd, exported variables, functions, or running interactive children must survive across tool calls. It is the default `shell` type: a composition that mounts `@deepseek-ai/dsh-terminal` without it has no sessions to open.
+Mount this backend when a composition needs persistent shell sessions — state such as cwd, exported variables, functions, or running interactive children must survive across tool calls. It is the default `shell` type: a composition that mounts `@janhq/jan-terminal` without it has no sessions to open.
 
 ### When to choose it
 
-Choose this backend when work needs an interactive shell or REPL whose state persists: stepping a debugger, exploring in a Python or Node REPL, or returning to a shell after interrupting a foreground command. Choose the one-shot bash tool for bounded commands that should start and end in one call. The bash dialect targets POSIX; the pwsh dialect targets Windows hosts where `dsh-pwsh-local` can resolve a pwsh executable.
+Choose this backend when work needs an interactive shell or REPL whose state persists: stepping a debugger, exploring in a Python or Node REPL, or returning to a shell after interrupting a foreground command. Choose the one-shot bash tool for bounded commands that should start and end in one call. The bash dialect targets POSIX; the pwsh dialect targets Windows hosts where `jan-pwsh-local` can resolve a pwsh executable.
 
 ### Composition
 
 Mount the terminal service, a subprocess provider, the sandbox and policy services, this backend, and a tool package:
 
 ```yaml
-- name: '@deepseek-ai/dsh-terminal'
-- name: '@deepseek-ai/dsh-subprocess-local'
-- name: '@deepseek-ai/dsh-sandbox-local'
-- name: '@deepseek-ai/dsh-sandbox-policy'
-- name: '@deepseek-ai/dsh-terminal-bash'
-- name: '@deepseek-ai/dsh-tool-terminal'
+- name: '@janhq/jan-terminal'
+- name: '@janhq/jan-subprocess-local'
+- name: '@janhq/jan-sandbox-local'
+- name: '@janhq/jan-sandbox-policy'
+- name: '@janhq/jan-terminal-bash'
+- name: '@janhq/jan-tool-terminal'
 ```
 
 `danger-full-access` starts the shell directly. Confined modes require a same-world `ctx.sandbox` provider: without one, the spawn fails before the shell starts. Confinement preparation receives the opening signal; cancellation prevents terminal allocation even if the provider returns later.
@@ -132,7 +132,7 @@ Read these pages when the package-level contract is not enough. They move from t
 
 #### What the model sees
 
-This package registers no prompt or tool. Through `@deepseek-ai/dsh-tool-terminal` or another PTY consumer, the model may receive bounded startup output, send deltas, scrollback pages, readiness reasons, and cleanup errors.
+This package registers no prompt or tool. Through `@janhq/jan-tool-terminal` or another PTY consumer, the model may receive bounded startup output, send deltas, scrollback pages, readiness reasons, and cleanup errors.
 
 #### Token effect
 

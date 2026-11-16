@@ -14,7 +14,7 @@
  * tabs alike, so the two documents are identical.
  *
  * The committed files under `public/` are the output; rerun
- * `pnpm --filter @deepseek-ai/dsh-web-frontend run render:app-icons` after the
+ * `pnpm --filter @janhq/jan-web-frontend run render:app-icons` after the
  * logo changes.
  * @module render-app-icons
  */
@@ -22,7 +22,7 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { assertNever } from '@deepseek-ai/dsh-util-values'
+import { assertNever } from '@janhq/jan-util-values'
 
 /** Raster logo owned by the brand plugin; the single home of the artwork. */
 export const LOGO_SOURCE = fileURLToPath(new URL('../../../packages/client/ui-brand-official/src/client/assets/jan-logo.png', import.meta.url))

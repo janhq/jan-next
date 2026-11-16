@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-sdk-minimal",
+  "name": "@janhq/jan-sdk-minimal",
   "description": "The standalone minimal SDK profile bundle: JSON-RPC, the Tokamak model route, persistent shell, and JSONL sessions",
   "version": "0.2.2-rc.1",
   "publishConfig": {
@@ -7,7 +7,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/bundle/sdk-minimal"
   },
   "type": "module",
@@ -28,50 +28,50 @@
     "lib/types/**/*.d.ts"
   ],
   "license": "MIT",
-  "dsh": {
+  "jan": {
     "bundle": {
       "patch": "./cordis.patch.yml"
     }
   },
   "dependencies": {
-    "@deepseek-ai/cordis-plugin-timer": "workspace:~",
-    "@deepseek-ai/dsh-agent": "workspace:*",
-    "@deepseek-ai/dsh-agent-loop": "workspace:*",
-    "@deepseek-ai/dsh-attachment-local": "workspace:*",
-    "@deepseek-ai/dsh-compaction-basic": "workspace:*",
-    "@deepseek-ai/dsh-compaction-image-offload": "workspace:*",
-    "@deepseek-ai/dsh-jobs-local": "workspace:*",
-    "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-llm-pi-ai": "workspace:*",
-    "@deepseek-ai/dsh-llm-retry": "workspace:*",
-    "@deepseek-ai/dsh-mcp-resources": "workspace:*",
-    "@deepseek-ai/dsh-sandbox-local": "workspace:*",
-    "@deepseek-ai/dsh-sandbox-policy": "workspace:*",
-    "@deepseek-ai/dsh-sdk-app": "workspace:*",
-    "@deepseek-ai/dsh-sdk-jsonrpc-server": "workspace:*",
-    "@deepseek-ai/dsh-session": "workspace:*",
-    "@deepseek-ai/dsh-session-checkpoint-policy": "workspace:*",
-    "@deepseek-ai/dsh-session-persistence-jsonl": "workspace:*",
-    "@deepseek-ai/dsh-session-projection": "workspace:*",
-    "@deepseek-ai/dsh-session-title": "workspace:*",
-    "@deepseek-ai/dsh-subprocess-local": "workspace:*",
-    "@deepseek-ai/dsh-system-prompt": "workspace:*",
-    "@deepseek-ai/dsh-terminal": "workspace:*",
-    "@deepseek-ai/dsh-terminal-bash": "workspace:*",
-    "@deepseek-ai/dsh-token-meter": "workspace:*",
-    "@deepseek-ai/dsh-tool-bash-persistent": "workspace:*",
-    "@deepseek-ai/dsh-tool-executor-native": "workspace:*",
-    "@deepseek-ai/dsh-tool-fs": "workspace:*",
-    "@deepseek-ai/dsh-tool-pwsh-persistent": "workspace:*",
-    "@deepseek-ai/dsh-tools": "workspace:*",
-    "@deepseek-ai/dsh-working-directory": "workspace:*",
-    "@deepseek-ai/dsh-tool-working-directory": "workspace:*",
-    "@deepseek-ai/dsh-fs-local": "workspace:*"
+    "@janhq/cordis-plugin-timer": "workspace:~",
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-agent-loop": "workspace:*",
+    "@janhq/jan-attachment-local": "workspace:*",
+    "@janhq/jan-compaction-basic": "workspace:*",
+    "@janhq/jan-compaction-image-offload": "workspace:*",
+    "@janhq/jan-jobs-local": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-llm-pi-ai": "workspace:*",
+    "@janhq/jan-llm-retry": "workspace:*",
+    "@janhq/jan-mcp-resources": "workspace:*",
+    "@janhq/jan-sandbox-local": "workspace:*",
+    "@janhq/jan-sandbox-policy": "workspace:*",
+    "@janhq/jan-sdk-app": "workspace:*",
+    "@janhq/jan-sdk-jsonrpc-server": "workspace:*",
+    "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-session-checkpoint-policy": "workspace:*",
+    "@janhq/jan-session-persistence-jsonl": "workspace:*",
+    "@janhq/jan-session-projection": "workspace:*",
+    "@janhq/jan-session-title": "workspace:*",
+    "@janhq/jan-subprocess-local": "workspace:*",
+    "@janhq/jan-system-prompt": "workspace:*",
+    "@janhq/jan-terminal": "workspace:*",
+    "@janhq/jan-terminal-bash": "workspace:*",
+    "@janhq/jan-token-meter": "workspace:*",
+    "@janhq/jan-tool-bash-persistent": "workspace:*",
+    "@janhq/jan-tool-executor-native": "workspace:*",
+    "@janhq/jan-tool-fs": "workspace:*",
+    "@janhq/jan-tool-pwsh-persistent": "workspace:*",
+    "@janhq/jan-tools": "workspace:*",
+    "@janhq/jan-working-directory": "workspace:*",
+    "@janhq/jan-tool-working-directory": "workspace:*",
+    "@janhq/jan-fs-local": "workspace:*"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/cordis": "workspace:~"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:~"
+    "@janhq/cordis": "workspace:~"
   }
 }

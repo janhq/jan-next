@@ -5,11 +5,11 @@
  * configured onboarding route. The step reuses that page's credential editor in
  * the onboarding plugin's shared modal, so the key is entered once.
  */
-import type { TrackProductEvent } from '@deepseek-ai/dsh-client-product-analytics/client'
+import type { TrackProductEvent } from '@janhq/jan-client-product-analytics/client'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { InjectFace, PropsRuntime, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
+import type { SnapshotStore } from '@janhq/jan-client-store'
+import type { InjectFace, PropsRuntime, PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import type { ModelsSettingsState, ModelsSettingsStore } from './store.ts'
 import { onboardingReadiness, onboardingRow, type OnboardingRouteMatch } from './store.ts'
 import type { ModelsOperations } from './operations.ts'
@@ -18,7 +18,7 @@ import { ProviderEditor } from './ProviderEditor.tsx'
 import type {} from './slot-contract.ts'
 import type { en } from './locales.ts'
 import { OnboardingModal } from './OnboardingModal.tsx'
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button } from '@janhq/jan-client-ui-primitives'
 import styles from './GetStartedDialog.module.css'
 
 /** Registration-side dependencies of {@link GetStartedDialog}. */

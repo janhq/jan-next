@@ -3,7 +3,7 @@ description: "Domain data form (ctx.storageDomain) for hosts and maintainers cho
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-storage-domain
+# @janhq/jan-storage-domain
 
 ## Summary
 

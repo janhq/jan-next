@@ -4,14 +4,14 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { PassThrough, Writable } from 'node:stream'
 import { describe, expect, it } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import Loader from '@deepseek-ai/cordis-plugin-loader'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import { LlmAdapter } from '@deepseek-ai/dsh-llm'
-import type { GenerateOptions, StreamChunk } from '@deepseek-ai/dsh-llm'
+import { Context } from '@janhq/cordis'
+import Loader from '@janhq/cordis-plugin-loader'
+import AgentLoop from '@janhq/jan-agent-loop'
+import { mountAgentLoopTestDependencies } from '@janhq/jan-agent-loop-testkit'
+import { LlmAdapter } from '@janhq/jan-llm'
+import type { GenerateOptions, StreamChunk } from '@janhq/jan-llm'
 import { MockAdapter, textResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
-import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
+import * as JsonlSessionPersistence from '@janhq/jan-session-persistence-jsonl'
 import * as jsonrpc from '../src/index.ts'
 
 /**
@@ -141,9 +141,9 @@ async function mountPlugin(
   }
 }
 
-describe('dsh-sdk-jsonrpc-server plugin apply', () => {
+describe('jan-sdk-jsonrpc-server plugin apply', () => {
   it('serves initialize over the injected stdio pair', async () => {
-    const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-apply-init-'))
+    const storageDir = await mkdtemp(join(tmpdir(), 'jan-jsonrpc-apply-init-'))
     const harness = await mountPlugin(storageDir, {
       beforeServer: (ctx) => { ctx.llm.registerAdapter(['mock'], new MockAdapter([])) },
     })
@@ -154,7 +154,7 @@ describe('dsh-sdk-jsonrpc-server plugin apply', () => {
       expect(response).toEqual({
         jsonrpc: '2.0',
         id: 'init-1',
-        result: { serverInfo: { name: 'deepseek-harness-sdk-runtime', version: '0.0.1' } },
+        result: { serverInfo: { name: 'jan-sdk-runtime', version: '0.0.1' } },
       })
       expect(harness.exits()).toEqual([])
     } finally {
@@ -164,7 +164,7 @@ describe('dsh-sdk-jsonrpc-server plugin apply', () => {
   })
 
   it('waits for Loader-owned adapter registration before initialize', async () => {
-    const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-apply-readiness-'))
+    const storageDir = await mkdtemp(join(tmpdir(), 'jan-jsonrpc-apply-readiness-'))
     let markStarted!: () => void
     let release!: () => void
     const started = new Promise<void>((resolve) => { markStarted = resolve })
@@ -206,7 +206,7 @@ describe('dsh-sdk-jsonrpc-server plugin apply', () => {
       const response = await harness.waitForFrame(frame => frame.id === 'init-delayed', 'initialize response after Loader settlement')
       expect(response).toMatchObject({
         id: 'init-delayed',
-        result: { serverInfo: { name: 'deepseek-harness-sdk-runtime' } },
+        result: { serverInfo: { name: 'jan-sdk-runtime' } },
       })
       expect(harness.ctx.llm.listProviders()).toContainEqual({ id: 'delayed-private', name: 'delayed-private' })
     } finally {
@@ -218,7 +218,7 @@ describe('dsh-sdk-jsonrpc-server plugin apply', () => {
   })
 
   it('drives a session/prompt turn end-to-end and forwards session notifications as output frames', async () => {
-    const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-apply-prompt-'))
+    const storageDir = await mkdtemp(join(tmpdir(), 'jan-jsonrpc-apply-prompt-'))
     const adapter = new MockAdapter([textResponse('done')])
     const harness = await mountPlugin(storageDir, {
       beforeServer: (ctx) => { ctx.llm.registerAdapter(['mock'], adapter) },
@@ -259,7 +259,7 @@ describe('dsh-sdk-jsonrpc-server plugin apply', () => {
   })
 
   it('answers shutdown before exiting 0 exactly once, even against a racing second shutdown', async () => {
-    const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-apply-shutdown-'))
+    const storageDir = await mkdtemp(join(tmpdir(), 'jan-jsonrpc-apply-shutdown-'))
     const harness = await mountPlugin(storageDir, { writeDelayMs: 10 })
     try {
       // One chunk makes the two deferred exit callbacks race.
@@ -302,7 +302,7 @@ describe('dsh-sdk-jsonrpc-server plugin apply', () => {
   })
 
   it('still disposes and exits once when the flush callback fails', async () => {
-    const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-apply-flush-failure-'))
+    const storageDir = await mkdtemp(join(tmpdir(), 'jan-jsonrpc-apply-flush-failure-'))
     const harness = await mountPlugin(storageDir, { failFlush: true })
     try {
       harness.send({ jsonrpc: '2.0', id: 'sd-fail', method: 'shutdown' })
@@ -324,7 +324,7 @@ describe('dsh-sdk-jsonrpc-server plugin apply', () => {
   })
 
   it('stops serving on a bare fiber dispose (HMR-style unload) without calling exit', async () => {
-    const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-apply-dispose-'))
+    const storageDir = await mkdtemp(join(tmpdir(), 'jan-jsonrpc-apply-dispose-'))
     const harness = await mountPlugin(storageDir)
     try {
       // Prove the handler-rejection path is live before disposal.
@@ -332,7 +332,7 @@ describe('dsh-sdk-jsonrpc-server plugin apply', () => {
       const error = await harness.waitForFrame(frame => frame.id === 'probe-1', 'error response for unknown method')
       expect(error.error).toMatchObject({
         code: -32603,
-        message: 'unknown DeepSeek Harness SDK runtime method: nope/unknown',
+        message: 'unknown Jan SDK runtime method: nope/unknown',
       })
 
       await harness.fiber.dispose()

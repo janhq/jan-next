@@ -1,17 +1,17 @@
 /** Session-owned MCP browser processes and provider catalog activation. @module */
 
-import type { Context } from '@deepseek-ai/cordis'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import Schema from '@deepseek-ai/schemastery'
-import { BrowserUseProviderName } from '@deepseek-ai/dsh-browser-use/brand'
-import * as McpClient from '@deepseek-ai/dsh-mcp-client'
-import { createScope } from '@deepseek-ai/dsh-scope'
-import type { Scope } from '@deepseek-ai/dsh-scope'
+import type { Context } from '@janhq/cordis'
+import type { Agent } from '@janhq/jan-agent'
+import Schema from '@janhq/schemastery'
+import { BrowserUseProviderName } from '@janhq/jan-browser-use/brand'
+import * as McpClient from '@janhq/jan-mcp-client'
+import { createScope } from '@janhq/jan-scope'
+import type { Scope } from '@janhq/jan-scope'
 import { SessionResources } from './index.ts'
-import type {} from '@deepseek-ai/dsh-browser-use'
-import type {} from '@deepseek-ai/dsh-tools'
-import type {} from '@deepseek-ai/dsh-system-prompt'
-import type {} from '@deepseek-ai/dsh-working-directory'
+import type {} from '@janhq/jan-browser-use'
+import type {} from '@janhq/jan-tools'
+import type {} from '@janhq/jan-system-prompt'
+import type {} from '@janhq/jan-working-directory'
 
 /** Browser launch settings shared by the MCP integrations. */
 export interface BrowserMcpLaunchConfig {

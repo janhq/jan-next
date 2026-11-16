@@ -3,11 +3,11 @@ description: "All-messages LLM session-title provider for users and maintainers 
 kind: "package-reference"
 ---
 
-# @deepseek-ai/dsh-session-title-all-prompts-llm
+# @janhq/jan-session-title-all-prompts-llm
 
 ## Summary
 
-`dsh-session-title-all-prompts-llm` summarizes every eligible human message through `ctx.llm` as an optional `ctx.sessionTitle` provider. It registers the `all-prompts` cadence and starts a new revision after each new human prompt, using seeded history and child-session prompts. A newer revision aborts and supersedes older work, and even a provider that ignores cancellation cannot commit stale output. It owns both its initial-generation prompt and its revision prompt, and shares only the [execution module](../../session/session-title-llm/README.md) from `dsh-session-title-llm` with the first-prompt provider. Automatic behavior and configuration come first; the implementation is a small provider strategy over that executor.
+`jan-session-title-all-prompts-llm` summarizes every eligible human message through `ctx.llm` as an optional `ctx.sessionTitle` provider. It registers the `all-prompts` cadence and starts a new revision after each new human prompt, using seeded history and child-session prompts. A newer revision aborts and supersedes older work, and even a provider that ignores cancellation cannot commit stale output. It owns both its initial-generation prompt and its revision prompt, and shares only the [execution module](../../session/session-title-llm/README.md) from `jan-session-title-llm` with the first-prompt provider. Automatic behavior and configuration come first; the implementation is a small provider strategy over that executor.
 
 ## Table of Contents
 
