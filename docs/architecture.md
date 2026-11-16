@@ -57,7 +57,7 @@ There is one desktop destination. The old shell selector, return-to-Jan action a
 | Rust DSH launcher | Locate the CLI and bundled shell plugin, generate startup configuration, supervise the Node child process | Active |
 | DSH web host and built-in plugins | Conversation UI, DSH sessions, workspaces, agent execution, settings and plugin management | Active |
 | `ow-shell` host plugin | Serve a fixed set of font/logo assets and provide appearance configuration to the client | Active |
-| `ow-shell` client plugin | Apply Jan styling, register branding/footer contributions and expose native window buttons | Active; exact layout parity incomplete |
+| `ow-shell` client plugin | Apply Jan identity (palette, fonts, wordmark, hand mark, line icons) and Jan's navigation positions over DSH's own chat layout; expose native window buttons | Active |
 | Native feature host plugins | Own assistant storage, model management and download tasks through `ow-native` | Implemented; flow verification continues |
 | Rust model and device services | llama.cpp worker, hardware, downloads and other native operations | Active behind the scoped host bridge |
 | Legacy Jan routes and stdio adapter | Earlier frontend and runtime integration | Still present in source; scheduled for removal after migration |
@@ -106,11 +106,11 @@ The current client uses DSH's slot, locale, theme and layout services. Its brand
 
 **The current native exception is window control.** The shell's browser code can call the narrowly granted Tauri window APIs. That permission does not give arbitrary DSH plugins access to model loading, the filesystem or other native services.
 
-### Jan layout through focused DSH slots
+### Jan identity on DSH's layout
 
-DSH's composition system tracks child-outlet ownership. Replacing a parent and registering its existing child outlets again is rejected. The matching runtime now exposes focused slots for sidebar actions and headings, the hero headline and suggestions, the composer placeholder, and a header model selector.
+The chat area, composer and transcript are DSH's own. Exact Jan layout parity was dropped. The shell keeps Jan's identity and the places Jan users look for things: New Chat, New project and Search rows, a plain Chats list (blank sessions hidden, as in Jan), Model Hub, Plugin manager and Settings in the footer, and the model pill at the top left.
 
-The shell supplies Jan components through those slots while preserving DSH's action callbacks, model directory and session state. The native desktop rendered the new sidebar rows, hero, composer placeholder and header model selector. A real remote turn completed and remained after reload. Search visibility and the remaining visual comparison are still under verification. The global DSH installation is unchanged.
+DSH's composition system tracks child-outlet ownership, so the shell does not replace parents. The matching runtime exposes focused slots for sidebar actions and headings, the hero, the composer placeholder, the header model selector and plugin card artwork, plus a `data-blank` marker on blank session rows. The shell fills those slots while DSH keeps its callbacks, model directory and session state. The global DSH installation is unchanged.
 
 ## 6. Native feature plugins
 
@@ -132,10 +132,11 @@ Rust starts a loopback-only native API with a per-launch bearer token. Only the 
 | Plugin | Responsibility | Observed desktop coverage |
 |---|---|---|
 | `ow-native` | Native requests and event delivery, host only | Rust handled engine and assistant calls |
+| `ow-log-bridge` | DSH warnings, errors and session activation failures to the app log (adapted from dataelement/dsh-desktop, MIT) | e2e run: `[dsh-log]` warnings appear at WARN level in the app log |
 | `ow-assistant` | Existing assistant JSON storage, CRUD and session instructions | Saved assistant applied to a session and returned its configured response |
 | `ow-download` | Model import tasks, progress and pause/resume/cancel | Real 1.1 MiB GGUF URL import reached Completed at 100%; scratch model removed afterward. Pause/resume/cancel remain under verification |
 | `ow-llamacpp` | Engine lifecycle, installed models, imports, catalog and settings | Installed list, hardware status, GGUF lookup and fresh Minimal-mode local chat exercised |
-| `ow-shell` | Appearance, branding, asset serving and native window buttons | Active; full Jan layout parity remains unfinished |
+| `ow-shell` | Appearance, branding, asset serving and native window buttons | Active; checked by the desktop e2e |
 | `ow-server` | Retained stdio protocol for remaining legacy callers | Separate from the desktop web-host path |
 
 Assistant storage and llama.cpp business logic have one shared source under `dsh/`; retained legacy callers import those sources. The native worker and Jan data paths are unchanged. Previously removed RAG and vector-storage implementations are not reintroduced.
@@ -158,6 +159,9 @@ The import walkthrough found and corrected a native bridge validation mismatch: 
 | `src-tauri/src/core/dsh/native.rs` | Loopback native bridge with bearer auth and an operation allowlist |
 | `src-tauri/capabilities/dsh-shell.json` | Limits the remote shell's native window permissions |
 | `dsh/native/` | `ow-native` host transport |
+| `dsh/log-bridge/` | `ow-log-bridge` runtime log export |
+| `dsh/templates/ui-plugin/` | Starting template for a new UI plugin (see `dsh/README.md`) |
+| `scripts/e2e-desktop.mjs` | End-to-end check of the real desktop build |
 | `dsh/assistant/` | `ow-assistant` store and host, shared with legacy callers |
 | `dsh/download/` | `ow-download` import tasks and client panel |
 | `dsh/llamacpp/` | `ow-llamacpp` engine runtime, local provider and client panel |
@@ -165,14 +169,14 @@ The import walkthrough found and corrected a native bridge validation mismatch: 
 
 ## 8. Verification and remaining work
 
-At the committed checkpoint, the desktop flow was exercised with a configured remote endpoint: send a message, receive a reply, reopen the saved DSH session after reload, open Settings, and install, enable, reload, disable and remove a separate UI plugin.
+`node scripts/e2e-desktop.mjs` launches the debug build on a temporary Jan data root and drives the window over the WebView2 DevTools protocol. It checks the sidebar controls, that no blank chat row is listed, that the log bridge loaded, that Settings and the Plugin manager open, that an experimental bundle applies live (its Discover tab appears without a reload), and optionally installs a local plugin folder and waits for a real reply. Setup and flags are in `dsh/README.md`. The latest runs passed every step with Jan's configured providers.
 
-Selected local-model startup was also verified with a completed Minimal-mode turn and reload. Automatic migration of old Jan chats, complete Jan visual parity and packaged-release readiness remain unverified.
+Selected local-model startup was verified earlier with a completed Minimal-mode turn and reload. Automatic migration of old Jan chats and packaged-release readiness remain unverified.
 
 Remaining work:
 
-- Finish native import/download control verification and saved-session model migration.
-- Build and integrate focused composition leaves for Jan's sidebar, header and composer layout through `OW_DSH_CLI`.
+- Bundle apply takes 13 to 20 s in the host's HMR reconcile before the bundle's UI appears.
+- Finish native import/download pause, resume and cancel verification.
 - Add voice controls through a DSH plugin if that work is requested.
 - Package a pinned DSH runtime with the application.
 - Remove the obsolete Jan UI and stdio paths once their required behavior has moved.
