@@ -588,7 +588,7 @@ class ResolutionRouter {
     const target = resolution.entries.get(name)
     const candidates: string[] = []
     const localSearchPaths: string[] = []
-    for (const searchPath of createRequire(parent).resolve.paths(name) as string[]) {
+    for (const searchPath of createRequire(parent).resolve.paths(request) ?? []) {
       if (!searchPath.startsWith(layer.localPrefix)) break
       localSearchPaths.push(searchPath)
       const candidate = localPackageCandidate(searchPath, name, flavor)
