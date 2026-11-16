@@ -1,6 +1,10 @@
+import { createRequire } from 'node:module'
+// Bundled plugins live outside DSH's node_modules, so resolve DSH's own schema
+// library from the running CLI entry.
+const { default: z } = await import(pathToFileURL(createRequire(process.argv[1]).resolve('@deepseek-ai/schemastery')).href)
 // MIT License. Copyright (c) 2026 DataElement. Ported for open-waifu.
 import { readFile } from 'node:fs/promises'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createSettings } from './lib/settings.js'
 import { generate, readBounded, safeError } from './lib/provider.js'
 import { assetDirectory, normalizeImage, workspaceFor } from './lib/assets.js'
@@ -8,6 +12,13 @@ import { commitImage, writerPlan } from './lib/commit.js'
 import { previewImage } from './lib/preview.js'
 
 export const name = 'ow-image-generation'
+// Volatile so the settings service may persist edits into this entry.
+export const Config = z.object({
+  revision: z.natural().default(0).volatile(),
+  provider: z.string().default('openai').volatile(),
+  profiles: z.dict(z.any()).default({}).volatile(),
+})
+
 export const inject = ['owNative', 'connection', 'tools', 'skills', 'systemPrompt', 'sandboxPolicy', 'sandbox', 'subprocess', 'sessionController']
 export const IMAGE_PROMPT_SECTION = 'tool:image-generation'
 export const UNCONFIGURED_IMAGE_PROMPT = 'Do not call image_generate. Direct the user to Settings > Plugins > Image generation. Never ask for an API key in conversation.'
@@ -65,8 +76,8 @@ export function imageTool(ctx, settings) {
   }
 }
 
-export async function apply(ctx) {
-  const settings = createSettings(ctx)
+export async function apply(ctx, config) {
+  const settings = createSettings(ctx, config)
   const jsonResponse = async (run) => {
     try {
       return Response.json(await run(), { headers: { 'Cache-Control': 'no-store' } })

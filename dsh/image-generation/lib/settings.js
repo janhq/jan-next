@@ -1,16 +1,15 @@
 // MIT License. Copyright (c) 2026 DataElement. Ported for open-waifu.
 import { DEFAULTS, MODEL_CATALOG, ImageError, listModels, profile, validateConnection } from './provider.js'
 
-const CONFIG_KEY = 'dsh.image-generation'
-const EMPTY = () => ({ revision: 0, provider: 'openai', profiles: {} })
-
-export function createSettings(ctx, validate = validateConnection) {
+// Non-secret choices live in this plugin's own DSH profile entry, the way stock
+// DSH plugins keep settings, so a DSH profile carries them unchanged. The key
+// stays in the OS keyring.
+export function createSettings(ctx, config, validate = validateConnection) {
   const invoke = (command, args) => ctx.owNative.invoke(command, args)
+  const entry = ctx.fiber.entry?.options.id
   let writes = Promise.resolve()
-  const read = async () => {
-    const stored = await invoke('settings_get', { key: CONFIG_KEY })
-    return stored ? JSON.parse(stored) : EMPTY()
-  }
+  // Volatile Config fields are live refs; the settings service updates them.
+  const read = async () => ({ revision: config.revision.get(), provider: config.provider.get(), profiles: structuredClone(config.profiles.get()) })
   const key = async () => await invoke('image_key_get') || ''
   async function describe() {
     const state = await read()
@@ -50,10 +49,11 @@ export function createSettings(ctx, validate = validateConnection) {
       const oldKey = await key()
       await invoke('image_key_set', { value: apiKey })
       try {
-        await invoke('settings_set', { key: CONFIG_KEY, value: JSON.stringify({
-          revision: before.revision + 1, provider: input.provider,
-          profiles: { ...before.profiles, [input.provider]: { ...spec, validation } },
-        }) })
+        const next = { revision: before.revision + 1, provider: input.provider,
+          profiles: { ...before.profiles, [input.provider]: { ...spec, validation } } }
+        const store = ctx.get('settings')
+        if (store === undefined || entry === undefined) throw new ImageError('CONFIGURATION', 'Settings storage is unavailable.')
+        await store.update(entry, next)
       } catch (error) {
         await invoke('image_key_set', { value: oldKey })
         throw error
