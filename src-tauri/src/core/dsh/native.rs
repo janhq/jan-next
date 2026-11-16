@@ -231,11 +231,18 @@ fn legacy_path<R: Runtime>(app: &tauri::AppHandle<R>, raw: &str) -> Option<PathB
     path.starts_with(canonical_scope_path(&root).join("models")).then_some(path)
 }
 
-fn scoped<R: Runtime>(app: &tauri::AppHandle<R>, raw: &str, imported: bool) -> Result<PathBuf, String> {
+/// Jan data folders the bridge may write: the engine owns `llamacpp`, the
+/// legacy assistant store owns `assistants`.
+const WRITE_DIRS: &[&str] = &["llamacpp", "assistants"];
+/// Reads also cover `threads`: the assistant importer reads a conversation's
+/// applied instructions from `threads/<id>/thread.json` and never writes it.
+const READ_DIRS: &[&str] = &["llamacpp", "assistants", "threads"];
+
+fn scoped_dirs<R: Runtime>(app: &tauri::AppHandle<R>, raw: &str, imported: bool, dirs: &[&str]) -> Result<PathBuf, String> {
     use filesystem::helpers::{canonical_scope_path, resolve_path_within_jan_data_folder};
     let root = get_jan_data_folder_path(app.clone());
     if let Ok((_, path)) = resolve_path_within_jan_data_folder(&root, raw) {
-        if ["llamacpp", "assistants"].iter().any(|dir| path.starts_with(canonical_scope_path(&root).join(dir))) {
+        if dirs.iter().any(|dir| path.starts_with(canonical_scope_path(&root).join(dir))) {
             return Ok(path);
         }
     }
@@ -248,6 +255,14 @@ fn scoped<R: Runtime>(app: &tauri::AppHandle<R>, raw: &str, imported: bool) -> R
         return filesystem::helpers::resolve_app_read_path(app.clone(), raw);
     }
     Err("native bridge path must be in llamacpp/assistants or an explicitly granted GGUF import".into())
+}
+
+fn scoped<R: Runtime>(app: &tauri::AppHandle<R>, raw: &str, imported: bool) -> Result<PathBuf, String> {
+    scoped_dirs(app, raw, imported, WRITE_DIRS)
+}
+
+fn scoped_read<R: Runtime>(app: &tauri::AppHandle<R>, raw: &str, imported: bool) -> Result<PathBuf, String> {
+    scoped_dirs(app, raw, imported, READ_DIRS)
 }
 
 fn validate<R: Runtime>(app: &tauri::AppHandle<R>, command: &str, args: &mut Value) -> Result<(), String> {
@@ -269,16 +284,23 @@ fn validate<R: Runtime>(app: &tauri::AppHandle<R>, command: &str, args: &mut Val
             let root_probe = name == "exists_sync"
                 && filesystem::helpers::resolve_path_within_jan_data_folder(&get_jan_data_folder_path(app.clone()), path)
                     .is_ok_and(|(root, target)| root == target);
-            if !legacy && !root_probe { scoped(app, path, matches!(name, "exists_sync" | "read_file_sync"))?; }
+            if !legacy && !root_probe {
+                let read = matches!(name, "exists_sync" | "read_file_sync" | "readdir_sync");
+                if read { scoped_read(app, path, matches!(name, "exists_sync" | "read_file_sync"))?; }
+                else { scoped(app, path, false)?; }
+            }
             if name == "mv" {
                 let destination = values.get(1).ok_or("missing destination")?;
                 if legacy_path(app, destination).is_none() { scoped(app, destination, false)?; }
             }
         }
-        "file_stat" => { scoped(app, &field::<String>(args, "args")?, true)?; }
+        "file_stat" => { scoped_read(app, &field::<String>(args, "args")?, true)?; }
         "read_yaml" | "write_yaml" => {
             let path: String = field(args, if name == "read_yaml" { "path" } else { "savePath" })?;
-            if !(name == "read_yaml" && legacy_path(app, &path).is_some()) { scoped(app, &path, false)?; }
+            if !(name == "read_yaml" && legacy_path(app, &path).is_some()) {
+                if name == "read_yaml" { scoped_read(app, &path, false)?; }
+                else { scoped(app, &path, false)?; }
+            }
             if name == "write_yaml" {
                 let data: Value = field(args, "data")?;
                 for key in ["model_path", "mmproj_path", "mtp_model_path"] {
