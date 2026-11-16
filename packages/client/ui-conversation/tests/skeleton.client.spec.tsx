@@ -210,6 +210,8 @@ function mount(
       seatOwners.push({ key, owner })
     }
     if (key === 'conversation.hero.workspace') { pickerOwner = owner; return null }
+    // An unoccupied headline seat renders the built-in headline.
+    if (key === 'conversation.hero.headline' || key === 'conversation.hero.brand.mark') return opts?.fallback ?? null
     if (key === 'conversation.hero.frame') {
       // A hoc slot with no layers renders its content unchanged.
       frameOwners.push(owner as HeroFrameOwnerProps)
@@ -370,6 +372,7 @@ function mount(
       ...allowAllAccess,
       useProjection: (() => undefined),
       useComposerBlock: select => select(options.composerBlock),
+      useHeroPlaceholder: select => select(undefined),
       useInput,
       inputActions,
       renderSlot,
@@ -422,8 +425,8 @@ function mount(
 
 describe('Hero chrome', () => {
   it('renders the English preview badge through the hero locale seat', () => {
-    const renderSlot = vi.fn<HeroShellProps['renderSlot']>((_name, _owner, options) => options?.fallback ?? null)
-    const view = render(<HeroShell t={makeTranslate(en, commonEn)} renderSlot={renderSlot} />)
+    const renderSlot = vi.fn((_name: string, _owner: object, options?: { fallback?: ReactNode }) => options?.fallback ?? null)
+    const view = render(<HeroShell t={makeTranslate(en, commonEn)} renderSlot={renderSlot as unknown as HeroShellProps['renderSlot']} />)
     expect(view.getByText('Into the Unknown')).toBeTruthy()
     expect(view.getByText('Preview')).toBeTruthy()
     const brandMarkCall = renderSlot.mock.calls.find(([name]) => name === 'conversation.hero.brand.mark')

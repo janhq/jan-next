@@ -475,12 +475,14 @@ export type ConvViewProps = PropsRuntime<'conversation.view'>
 /** Business callbacks injected into the resident Conversation shell. */
 export interface ConversationInjected {
   pickSuggestion: (text: string) => void
-  /** Product copy replacing the empty-conversation composer placeholder. */
-  heroPlaceholder: string | undefined
   /** Connect and open a blank Session in the selected Workspace. */
   selectWorkspace: (workspaceId: WorkspaceId) => Promise<void>
   /** Session-addressed composer block source, or the stable absent source. */
-  hooks: { composerBlock: ObservableSnapshot<ComposerBlock | undefined> }
+  hooks: {
+    composerBlock: ObservableSnapshot<ComposerBlock | undefined>
+    /** Product copy replacing the empty-conversation composer placeholder. */
+    heroPlaceholder: ObservableSnapshot<string | undefined>
+  }
 }
 
 /** Business callbacks injected into the strict Session body. */

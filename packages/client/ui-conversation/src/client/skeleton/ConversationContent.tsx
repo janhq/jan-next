@@ -23,7 +23,7 @@ export function ConversationContent(props: ConversationContentProps) {
   const {
     sessionId, phase, hero, useSession, useSessions, useSessionStatus,
     useWorkspaces, useInput, useAccess, useComposerBlock, renderSlot, renderSlotChain,
-    selectWorkspace, pickSuggestion, t, useFactorySlot, heroPlaceholder,
+    selectWorkspace, pickSuggestion, t, useFactorySlot, useHeroPlaceholder,
   } = props
   const session = useSession(snapshot => snapshot)
   const Views = useFactorySlot('views', ConversationSessionView)
@@ -37,6 +37,7 @@ export function ConversationContent(props: ConversationContentProps) {
   // A plugin this package cannot import (ui-model-selection) says this session cannot
   // send; its reason is already localized by whoever raised it.
   const composerBlock = useComposerBlock(block => block)
+  const heroPlaceholder = useHeroPlaceholder(text => text)
 
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pendingWorkspaceId, setPendingWorkspaceId] = useState<WorkspaceId | undefined>()
