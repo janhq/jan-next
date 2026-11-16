@@ -12,18 +12,18 @@ import type {
   SessionListState,
 } from '@janhq/jan-api-session-controller/client'
 // Type-only: pulls the `agentPreset` Session projection value into this program.
-import type {} from '@janhq/jan-agent-preset-registry/types'
+import type { } from '@janhq/jan-agent-preset-registry/types'
 import { createSnapshotStore } from '@janhq/jan-client-store'
 import type { SubagentAddress } from '@janhq/jan-subagent/client'
 import type {
   IWorkspaces, WorkspaceId, WorkspaceSnapshot, WorkspaceView,
 } from '@janhq/jan-api-workspace-controller/client'
 import type { SessionId } from '@janhq/jan-session/types'
-import type {} from '@janhq/jan-client-ui-layout/client'
+import type { } from '@janhq/jan-client-ui-layout/client'
 import type { DraftInitializationOptions } from '@janhq/jan-client-ui-conversation/client'
 import type { RowToast } from './contract/slots.ts'
 import { pinOrderAccounts, pinOrderSource } from './pin-order.ts'
-import type { WorkspaceViewStoreActions } from './stores.ts'
+import type { SessionGroupBy, WorkspaceViewStoreActions } from './stores.ts'
 
 interface MainSelection {
   readonly sessionId?: SessionId
@@ -38,6 +38,8 @@ export interface StartSessionOptions extends DraftInitializationOptions {
 
 /** Workspace archive and directory operations consumed by Client UI domains. */
 export interface UiWorkspace {
+  /** Change the browser's grouping through its existing persisted view store. */
+  setSessionGrouping(mode: SessionGroupBy): void
   /**
    * Select a Session and show its Conversation as one UI navigation action.
    * @param target - known Session identity or durable direct-parent subagent address to display.
@@ -189,7 +191,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     private readonly directoryPicker: ClientRemote['directoryPicker'],
     private readonly workspaces: IWorkspaces,
     private readonly sessions: ISessions,
-    private readonly view: Pick<WorkspaceViewStoreActions, 'pinSessionOrder'>,
+    private readonly view: Pick<WorkspaceViewStoreActions, 'pinSessionOrder' | 'setGroupBy'>,
     private readonly notify: (toast: RowToast) => void,
   ) {
     super(ctx, 'uiWorkspace')
@@ -203,6 +205,10 @@ class UiWorkspaceService extends Service implements UiWorkspace {
         reference?.release()
       }
     }, 'ui-workspace: Workspace navigation policy')
+  }
+
+  setSessionGrouping(mode: SessionGroupBy): void {
+    this.view.setGroupBy(mode)
   }
 
   connectWorkspace(workspaceId: WorkspaceId, options: Pick<StartSessionOptions, 'agentPreset'> = {}): Promise<SessionId> {

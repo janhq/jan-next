@@ -188,7 +188,7 @@ function renderTab(
     },
     renderSlot: (name, owner, opts) => {
       const body = bodies[`${name}:${opts?.only ?? opts?.entryKey ?? ''}`]
-      if (body === undefined) return null
+      if (body === undefined) return opts?.fallback ?? null
       if (name === 'plugins.bundle.activation') return body('activation', owner)
       if (name === 'plugins.add.actions') return body('add', owner)
       if (name === 'plugins.tab') return body('tab', owner)

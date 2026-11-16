@@ -17,20 +17,23 @@ export interface ModelLabelOwner {
   selected: boolean
 }
 
+/** Owner share of one session option row in the model menu. */
+export interface ModelOptionsOwner {
+  /** Whether the composer currently refuses selection changes. */
+  locked: boolean
+  /** Close the menu and focus its trigger synchronously before opening another overlay. */
+  dismiss: () => void
+  /** Report a failed selection through the menu owner's persistent toast. */
+  reportFailure: (message: string) => void
+}
+
 declare module '@janhq/jan-client-ui-slots' {
   interface SlotMap {
     /** Session options appended after model and reasoning controls in the root menu. */
     'conversation.input.model.options': {
       kind: 'list'
       scope: 'session'
-      owner: {
-        /** Whether the composer currently refuses selection changes. */
-        locked: boolean
-        /** Close the menu and focus its trigger synchronously before opening another overlay. */
-        dismiss: () => void
-        /** Report a failed selection through the menu owner's persistent toast. */
-        reportFailure: (message: string) => void
-      }
+      owner: ModelOptionsOwner
     }
     /**
      * Non-interactive inline model label; selection controls remain owner-managed.
@@ -47,6 +50,12 @@ declare module '@janhq/jan-client-ui-slots' {
      *   },
      * }
      */
+    'conversation.header.model.label': {
+      kind: 'single'
+      scope: 'session'
+      inline: true
+      owner: ModelLabelOwner
+    }
     'conversation.input.model.label': {
       kind: 'single'
       scope: 'session'

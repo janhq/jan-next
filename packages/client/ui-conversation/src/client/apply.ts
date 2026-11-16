@@ -1,6 +1,6 @@
-import type {} from '@janhq/jan-client-ui-context-menu/client'
+import type { } from '@janhq/jan-client-ui-context-menu/client'
 /** Registers the target-neutral Conversation assembly, shell, input, and docks. */
-import type {} from '@janhq/jan-client-product-analytics/client'
+import type { } from '@janhq/jan-client-product-analytics/client'
 import type { Context } from '@janhq/cordis'
 import z from '@janhq/schemastery'
 import type { ISessions, SessionBinding } from '@janhq/jan-api-session-controller/client'
@@ -9,10 +9,10 @@ import { createSnapshotStore, type BoundActions } from '@janhq/jan-client-store'
 import { resolveSlotLabel } from '@janhq/jan-client-ui-slots'
 import type { SessionId } from '@janhq/jan-session/types'
 // Type-only service and declaration merges used by this assembly.
-import type {} from '@janhq/jan-client-locale/client'
-import type {} from '@janhq/jan-client-ui-renderer/client'
-import type {} from '@janhq/jan-client-ui-session/client'
-import type {} from '@janhq/jan-client-ui-settings/client'
+import type { } from '@janhq/jan-client-locale/client'
+import type { } from '@janhq/jan-client-ui-renderer/client'
+import type { } from '@janhq/jan-client-ui-session/client'
+import type { } from '@janhq/jan-client-ui-settings/client'
 import type { ShortcutCommandId, ShortcutFixedCommand } from '@janhq/jan-client-shortcuts/client'
 import { UiConversation } from './conversation/assembly.ts'
 import { UserText, PlainUserText, SessionReference } from './user-text/UserText.tsx'
@@ -33,6 +33,7 @@ import type { IConversation } from './service.ts'
 import { ComposerBlockRegistry } from './input/blocks.ts'
 import type { ComposerBlock } from './contract/composer-blocks.ts'
 import { InputHub } from './input/hub.ts'
+import { focusDraftEditor, revealDraftSelection } from './input/editor/view-binding.ts'
 import { ComposerSubmissionPolicy } from './input/submission-policy.ts'
 import { queueDockEntry } from './queue/QueueDock.tsx'
 import { EnterBehaviorRow } from './settings/EnterBehaviorRow.tsx'
@@ -77,25 +78,25 @@ export const Config: z<Config> = z.object({
 // hook order unchanged across current-Session transitions.
 const ABSENT_NOTICES = {
   getSnapshot: (): InputNotice | null => null,
-  subscribe: () => () => {},
+  subscribe: () => () => { },
 }
 const ABSENT_BLOCK = {
   getSnapshot: (): ComposerBlock | undefined => undefined,
-  subscribe: () => () => {},
+  subscribe: () => () => { },
 }
 const EMPTY_LEXICON: ReadonlyMap<'/' | '@', readonly string[]> = new Map()
 const ABSENT_LEXICON = {
   getSnapshot: () => EMPTY_LEXICON,
-  subscribe: () => () => {},
+  subscribe: () => () => { },
 }
 const ABSENT_MENU_LAUNCHER = {
   getSnapshot: (): string | null => null,
-  subscribe: () => () => {},
+  subscribe: () => () => { },
 }
 const EMPTY_FILE_UPLOADS: DraftFileUploads = {}
 const ABSENT_FILE_UPLOADS = {
   getSnapshot: () => EMPTY_FILE_UPLOADS,
-  subscribe: () => () => {},
+  subscribe: () => () => { },
 }
 
 /**
@@ -181,7 +182,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
       reportTransformFailure: (error) => { console.error('[ui-conversation] user-text transformation failed:', error) },
     }),
   }, UserText)
-  slots.inject('conversation.user.text.node', function* () {
+  slots.inject('conversation.user.text.node', function*() {
     yield slots.register({ name: 'conversation.user.text.node', key: 'text', priority: 100 }, PlainUserText)
     yield slots.register({ name: 'conversation.user.text.node', key: 'session', priority: 100 }, SessionReference)
   })
@@ -270,18 +271,28 @@ export function apply(ctx: Context, config: Config = Config({})): void {
   const stopShortcut = createSnapshotStore<readonly string[]>([])
   ctx.inject(['shortcuts'], (scope) => {
     const fixedInputs: readonly ShortcutFixedCommand[] = [
-      { id: 'fixed.send' as ShortcutCommandId, label: () => t('input.send'), keys: ['Enter'],
-        bindings: [{ code: 'Enter', modifiers: [] }], group: 'input' },
-      { id: 'fixed.newline' as ShortcutCommandId, label: () => t('shortcut.newline'),
+      {
+        id: 'fixed.send' as ShortcutCommandId, label: () => t('input.send'), keys: ['Enter'],
+        bindings: [{ code: 'Enter', modifiers: [] }], group: 'input'
+      },
+      {
+        id: 'fixed.newline' as ShortcutCommandId, label: () => t('shortcut.newline'),
         keys: scope.shortcuts.describeBinding({ code: 'Enter', modifiers: ['shift'] }).keys,
-        bindings: [{ code: 'Enter', modifiers: ['shift'] }], group: 'input' },
-      { id: 'fixed.complementary' as ShortcutCommandId, label: () => t('shortcut.complementary'),
+        bindings: [{ code: 'Enter', modifiers: ['shift'] }], group: 'input'
+      },
+      {
+        id: 'fixed.complementary' as ShortcutCommandId, label: () => t('shortcut.complementary'),
         keys: scope.shortcuts.describeBinding({ code: 'Enter', modifiers: ['primary'] }).keys,
-        bindings: [{ code: 'Enter', modifiers: ['control'] }, { code: 'Enter', modifiers: ['meta'] }], group: 'input' },
-      { id: 'fixed.slash' as ShortcutCommandId, label: () => t('shortcut.slash'), keys: ['/'],
-        bindings: [{ code: 'Slash', modifiers: [] }], group: 'input' },
-      { id: 'fixed.mention' as ShortcutCommandId, label: () => t('shortcut.mention'), keys: ['@'],
-        bindings: [{ code: 'Digit2', modifiers: ['shift'] }], group: 'input' },
+        bindings: [{ code: 'Enter', modifiers: ['control'] }, { code: 'Enter', modifiers: ['meta'] }], group: 'input'
+      },
+      {
+        id: 'fixed.slash' as ShortcutCommandId, label: () => t('shortcut.slash'), keys: ['/'],
+        bindings: [{ code: 'Slash', modifiers: [] }], group: 'input'
+      },
+      {
+        id: 'fixed.mention' as ShortcutCommandId, label: () => t('shortcut.mention'), keys: ['@'],
+        bindings: [{ code: 'Digit2', modifiers: ['shift'] }], group: 'input'
+      },
     ]
     for (const command of fixedInputs) {
       scope.effect(() => scope.shortcuts.registerFixed(command), `ui-conversation: ${command.id}`)
@@ -350,6 +361,8 @@ export function apply(ctx: Context, config: Config = Config({})): void {
       'conversation.composer.bar': { kind: 'single', scope: 'session-maybe' },
       'conversation.input.dock': { kind: 'list', scope: 'session' },
       'conversation.hero.frame': { kind: 'hoc', scope: 'root' },
+      'conversation.hero.headline': { kind: 'single', scope: 'root' },
+      'conversation.hero.suggestions': { kind: 'single', scope: 'session-maybe' },
       'conversation.hero.brand.mark': { kind: 'single', scope: 'root' },
       'conversation.hero.workspace': { kind: 'single', scope: 'root' },
       'conversation.hero.agentPreset': { kind: 'single', scope: 'session-maybe' },
@@ -360,6 +373,20 @@ export function apply(ctx: Context, config: Config = Config({})): void {
       widthControls: { scope: 'root' },
     },
     inject: (sessionId: SessionId | undefined): ConversationInjected => ({
+      pickSuggestion: (text) => {
+        if (sessionId === undefined) return
+        const binding = sessions.binding(sessionId)
+        const snapshot = binding?.session.getSnapshot()
+        const shell = inputHub.shell(sessionId)
+        if (snapshot === undefined || snapshot.removed || snapshot.subagent !== null
+          || composerBlocks.storeFor(sessionId).getSnapshot() !== undefined
+          || (shell.snapshot.phase !== 'plain' && shell.snapshot.phase !== 'claimed')) return
+        shell.actions.setDraft(text)
+        focusDraftEditor(shell.editor, () => {
+          const scroll = shell.editor.getRootElement()?.closest<HTMLDivElement>('[data-input-scroll]') ?? null
+          revealDraftSelection({ current: scroll })
+        })
+      },
       hooks: {
         composerBlock: sessionId === undefined ? ABSENT_BLOCK : composerBlocks.storeFor(sessionId),
       },
@@ -433,6 +460,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
   const registerHeader = () => slots.register({
     name: 'conversation.header',
     children: {
+      'conversation.header.model': { kind: 'single', scope: 'session' },
       'conversation.header.leading': { kind: 'single', scope: 'root' },
       'conversation.session.header': { kind: 'single', scope: 'session' },
     },
@@ -464,6 +492,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
     name: 'conversation.composer.bar',
     locale: NS,
     children: {
+      'conversation.input.placeholder': { kind: 'single', scope: 'session-maybe' },
       'conversation.input.attachments': { kind: 'single', scope: 'session-maybe' },
       'conversation.input.overlay': { kind: 'list', scope: 'session' },
       'conversation.input.permission': { kind: 'single', scope: 'session' },
@@ -577,7 +606,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
     },
   }, InputBar)
 
-  slots.inject('main', function* () {
+  slots.inject('main', function*() {
     yield slots.register({
       name: 'main',
       key: 'conversation',

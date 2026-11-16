@@ -1,13 +1,13 @@
 /** Registers the sidebar shell and global panel navigation. */
-import type {} from '@janhq/jan-client-product-analytics/client'
+import type { } from '@janhq/jan-client-product-analytics/client'
 import type { Context as ClientContext } from '@janhq/cordis'
 import { createSnapshotStore } from '@janhq/jan-client-store'
 import { resolveSlotLabel } from '@janhq/jan-client-ui-slots'
 import type { MainPanelId } from '@janhq/jan-client-ui-layout/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
-import type {} from '@janhq/jan-client-locale/client'
+import type { } from '@janhq/jan-client-locale/client'
 // Type-only: pulls the SlotRegistry service merge (ctx.slots).
-import type {} from '@janhq/jan-client-ui-renderer/client'
+import type { } from '@janhq/jan-client-ui-renderer/client'
 // Type-only: pulls the Session root standard-props merge.
 import type {} from '@janhq/jan-client-ui-session/client'
 import type { SidebarPanelMetadata, SidebarRootInjected, SidebarSectionInjected } from './contract/slots.ts'
@@ -18,7 +18,7 @@ import { PanelIcon } from './PanelIcon.tsx'
 import { en, ja, es, fr, de, ru, pt, zh, type SidebarKey } from './locales.ts'
 
 export type {
-  SidebarBrandMarkOwnerProps, SidebarBrandNameOwnerProps, SidebarFooterActionOwnerProps,
+  SidebarNewSessionOwnerProps, SidebarBrandMarkOwnerProps, SidebarBrandNameOwnerProps, SidebarFooterActionOwnerProps,
   SidebarPanelActionEntry, SidebarPanelActionsOwnerProps, SidebarPanelIconOwnerProps, SidebarPanelMetadata,
   SidebarRootComponentProps, SidebarRootInjected, SidebarSectionOwnerProps, SidebarSettingsOwnerProps,
   SectionScroller, SidebarSectionHookContext, SidebarSectionInjected, UseSectionScroller,
@@ -94,6 +94,8 @@ export function apply(ctx: ClientContext): void {
       name: 'sidebar',
       locale: NS,
       children: {
+        'sidebar.session.new': { kind: 'single', scope: 'root' },
+        'sidebar.workspaces.primary': { kind: 'single', scope: 'root' },
         'sidebar.brand.mark': { kind: 'single', scope: 'root' },
         'sidebar.brand.name': { kind: 'single', scope: 'root' },
         'sidebar.toggle.badge': { kind: 'single', scope: 'root' },

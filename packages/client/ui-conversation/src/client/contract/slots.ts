@@ -233,6 +233,10 @@ declare module '@janhq/jan-client-ui-slots' {
       scope: 'session'
       owner: { view?: string }
     }
+    'conversation.hero.headline': { kind: 'single'; scope: 'root'; owner: HeroHeadlineOwnerProps }
+    'conversation.hero.suggestions': { kind: 'single'; scope: 'session-maybe'; owner: HeroSuggestionsOwnerProps }
+    'conversation.input.placeholder': { kind: 'single'; scope: 'session-maybe'; owner: InputPlaceholderOwnerProps }
+    'conversation.header.model': { kind: 'single'; scope: 'session'; owner: InputControlOwnerProps }
     /** Resident navigation container, including when no Session is selected. */
     'conversation.header': { kind: 'single'; scope: 'session-maybe' }
     /** Strict per-Session title, actions, and View navigation. */
@@ -373,6 +377,8 @@ declare module '@janhq/jan-client-ui-slots' {
         'conversation.composer.bar': { kind: 'single'; scope: 'session-maybe' }
         'conversation.input.dock': { kind: 'list'; scope: 'session' }
         'conversation.hero.frame': { kind: 'hoc'; scope: 'root' }
+        'conversation.hero.headline': { kind: 'single'; scope: 'root' }
+        'conversation.hero.suggestions': { kind: 'single'; scope: 'session-maybe' }
         'conversation.hero.brand.mark': { kind: 'single'; scope: 'root' }
         'conversation.hero.workspace': { kind: 'single'; scope: 'root' }
         'conversation.hero.agentPreset': { kind: 'single'; scope: 'session-maybe' }
@@ -468,6 +474,7 @@ export type ConvViewProps = PropsRuntime<'conversation.view'>
 
 /** Business callbacks injected into the resident Conversation shell. */
 export interface ConversationInjected {
+  pickSuggestion: (text: string) => void
   /** Connect and open a blank Session in the selected Workspace. */
   selectWorkspace: (workspaceId: WorkspaceId) => Promise<void>
   /** Session-addressed composer block source, or the stable absent source. */
@@ -540,6 +547,15 @@ export interface ConversationSessionHeaderInjected {
   /** Select and activate one registered Conversation View. */
   selectView: (view: string) => void
 }
+
+/** Copy supplied to the replaceable hero headline. */
+export interface HeroHeadlineOwnerProps { headline: string; preview: string }
+
+/** Suggestion selection stages a draft without submitting it. */
+export interface HeroSuggestionsOwnerProps { disabled: boolean; onPick: (text: string) => void }
+
+/** Ordinary visual placeholder; native accessible naming remains owner-managed. */
+export interface InputPlaceholderOwnerProps { text: string; variant: 'hero' | 'composer' }
 
 /** Owner share of the resident composer bar. */
 export interface ComposerBarOwnerProps {
@@ -615,6 +631,7 @@ export type ComposerBarProps =
     | 'conversation.input.attachments' | 'conversation.input.overlay'
     | 'conversation.input.permission'
     | 'conversation.input.left' | 'conversation.input.plan'
+    | 'conversation.input.placeholder'
     | 'conversation.input.right' | 'conversation.input.model' | 'conversation.input.activity'
     | 'conversation.composer.dock'
   >
@@ -689,7 +706,7 @@ export type ConversationSessionSlotProps =
 /** Full props of the resident navigation header. */
 export type ConversationHeaderProps =
   PropsRuntime<'conversation.header'>
-  & PropsRenderSlots<'conversation.header.leading' | 'conversation.session.header'>
+  & PropsRenderSlots<'conversation.header.leading' | 'conversation.header.model' | 'conversation.session.header'>
 
 /** Full props of the strict Session header. */
 export type ConversationSessionHeaderSlotProps =

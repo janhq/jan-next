@@ -34,15 +34,16 @@
  * the row's Session identity; a Session binding would activate and retain
  * every listed Session.
  */
+import type { ReactNode, RefObject } from 'react'
 import type { ContextMenuTarget } from '@janhq/jan-client-ui-context-menu/client'
 import type {
   HostObservable, InjectFace, PropsHooks, PropsLocale, PropsRenderFactories, PropsRenderSlots, PropsRuntime, PropsStore, SlotHookFactory,
 } from '@janhq/jan-client-ui-slots'
 // Type-only: pull the owner SlotMap merges into programs that resolve the
 // runtime shares below.
-import type {} from '@janhq/jan-client-ui-sidebar/client'
-import type {} from '@janhq/jan-client-ui-conversation/client'
-import type {} from '@janhq/jan-client-ui-layout/client'
+import type { } from '@janhq/jan-client-ui-sidebar/client'
+import type { } from '@janhq/jan-client-ui-conversation/client'
+import type { } from '@janhq/jan-client-ui-layout/client'
 import type { SessionSearchResultItem } from '@janhq/jan-api-session-controller/client'
 import type { RemoteHostFacts } from '@janhq/jan-api-remotes/client'
 import type { SessionActivity, WorkspaceId, WorkspaceView } from '@janhq/jan-api-workspace-controller/client'
@@ -50,8 +51,42 @@ import type { SessionId } from '@janhq/jan-session/types'
 import type { ShortcutCatalogEntry } from '@janhq/jan-client-shortcuts/client'
 import type { WorkspaceShortcutState } from '../shortcuts.ts'
 import type { StartSessionOptions } from '../navigation.ts'
-import type {} from './toast.ts'
+import type { } from './toast.ts'
 import type { createWorkspaceViewStore } from '../stores.ts'
+
+/** Primary actions retain the browser's shared picker anchor and shortcuts. */
+export interface WorkspaceActionsOwnerProps {
+  wide: boolean
+  canAddWorkspace: boolean
+  onSearch: () => void
+  onAddWorkspace: () => void
+  addWorkspaceButtonRef: RefObject<HTMLButtonElement>
+  searchLabel: string
+  addWorkspaceLabel: string
+  searchShortcut: ShortcutCatalogEntry | undefined
+  addWorkspaceShortcut: ShortcutCatalogEntry | undefined
+}
+
+/** Keep search mounted while wide; it contains the browser-owned input and refs. */
+export interface WorkspaceHeaderOwnerProps {
+  wide: boolean
+  heading: string
+  canAddWorkspace: boolean
+  onSearch: () => void
+  onAddWorkspace: () => void
+  addWorkspaceButtonRef: RefObject<HTMLButtonElement>
+  searchExpanded: boolean
+  search: ReactNode
+  viewOptions: ReactNode
+  primaryActions: boolean
+}
+
+declare module '@janhq/jan-client-ui-slots' {
+  interface SlotMap {
+    'sidebar.workspaces.actions': { kind: 'single'; scope: 'root'; owner: WorkspaceActionsOwnerProps }
+    'sidebar.workspaces.header': { kind: 'single'; scope: 'root'; owner: WorkspaceHeaderOwnerProps }
+  }
+}
 
 declare module '@janhq/jan-client-ui-context-menu/client' {
   interface ContextMenuTargetMap {
@@ -195,10 +230,12 @@ declare module '@janhq/jan-client-ui-slots' {
       scope: 'root'
       owner: SessionRowOwnerProps
       hookContext: MenuOpenState
-      inject: { hooks: {
-        menuOpenState: SlotHookFactory<'sidebar.workspaces.session.menu.item', UseMenuOpenState>
-        shortcuts: HostObservable<readonly ShortcutCatalogEntry[]>
-      } }
+      inject: {
+        hooks: {
+          menuOpenState: SlotHookFactory<'sidebar.workspaces.session.menu.item', UseMenuOpenState>
+          shortcuts: HostObservable<readonly ShortcutCatalogEntry[]>
+        }
+      }
     }
     /**
      * The hover buttons at the end of one Session row, in ascending `order`,
@@ -241,9 +278,11 @@ export type DirectoryPickingHooks = PropsHooks<DirectoryPickingInjected['hooks']
  * browsing region drives.
  */
 export type WorkspaceBrowserInjected = {
+  addWorkspaceButtonRef: RefObject<HTMLButtonElement>
   /** Dismiss the settled Workspace dialog. */
   settleWorkspaceAction: () => void
   hooks: DirectoryPickingInjected['hooks'] & {
+    primaryActions: HostObservable<boolean>
     workspaceActionRequest: HostObservable<WorkspaceActionRequest | null>
     contextMenuTarget: HostObservable<ContextMenuTarget | null>
     /**
@@ -496,6 +535,7 @@ export type WorkspaceBrowserProps =
   PropsRuntime<'sidebar.workspaces'>
   & PropsRenderFactories
   & PropsRenderSlots<
+    | 'sidebar.workspaces.header'
     | 'sidebar.workspaces.directoryFlow'
     | 'sidebar.workspaces.session.row.action'
     | 'sidebar.session.row.trailing'

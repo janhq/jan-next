@@ -11,16 +11,19 @@
  * history outside the direct-parent continuation path.
  */
 // Type-only: the carrier types, the forwarded Host-event face and the ctx.remote merge.
+import { createElement } from 'react'
+import type { SessionId } from '@janhq/jan-session/types'
+import type { PropsLocale, PropsRenderSlots, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import type { ModelSelection } from '@janhq/jan-api-session-controller/types'
-import type {} from '@janhq/jan-api-session-controller/client'
+import type { } from '@janhq/jan-api-session-controller/client'
 import type { Context as ClientContext } from '@janhq/cordis'
 import type { CommandUiContract, SelectOption } from '@janhq/jan-client-ui-commands/client'
 // Type-only: pulls the ui-conversation SlotMap merge (the input.model seat).
-import type {} from '@janhq/jan-client-ui-conversation/client'
+import type { } from '@janhq/jan-client-ui-conversation/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
-import type {} from '@janhq/jan-client-locale/client'
-import type {} from '@janhq/jan-client-ui-renderer/client'
-import type {} from '@janhq/jan-client-ui-session/client'
+import type { } from '@janhq/jan-client-locale/client'
+import type { } from '@janhq/jan-client-ui-renderer/client'
+import type { } from '@janhq/jan-client-ui-session/client'
 import type { TranslateNS } from '@janhq/jan-client-ui-slots'
 import { IconDataOutlineRegular } from '@janhq/jan-client-ui-primitives'
 import type { ModelDirectoryState } from './directory.ts'
@@ -32,13 +35,42 @@ import { en, ja, es, fr, de, ru, pt, zh, type ModelKey } from './locales.ts'
 export { ModelDirectory } from './directory.ts'
 export type { ModelDirectoryState } from './directory.ts'
 export { ModelDirectoryResolver } from './service.ts'
-export type { ModelLabelOwner, ModelSelectInjected } from './slots.ts'
+export type { ModelLabelOwner, ModelOptionsOwner, ModelSelectInjected } from './slots.ts'
 export type { ModelKey } from './locales.ts'
 
 declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** The model selection surfaces' copy (/model popup + composer seat). */
     model: ModelKey
+  }
+}
+
+/** Optional header selector plugin; compose with ctx.plugin(HeaderModelSelection). */
+export const HeaderModelSelection = {
+  inject: ['slots', 'modelDirectories', 'sessions', 'locale'],
+  apply(ctx: ClientContext): void {
+    ctx.slots.inject('conversation.header.model', () => ctx.slots.register({
+      name: 'conversation.header.model', locale: NS,
+      children: { 'conversation.header.model.label': { kind: 'single', scope: 'session', inline: true } },
+      inject: modelInjection(ctx),
+    }, ({ renderSlot, ...props }: ModelSelectInjected & PropsRuntime<'conversation.header.model'>
+      & PropsLocale<'model'> & PropsRenderSlots<'conversation.header.model.label'>) => createElement(ModelSelect, {
+        ...props, placement: 'header',
+        renderLabel: (owner, fallback) => renderSlot('conversation.header.model.label', owner, { fallback }),
+      })))
+  },
+}
+
+function modelInjection(ctx: ClientContext): (sessionId: SessionId) => ModelSelectInjected {
+  return (sessionId) => {
+    const directory = ctx.modelDirectories.directoryFor(sessionId)
+    const available = ctx.sessions.subagentAddress(sessionId) === undefined
+    return {
+      available, directory: directory.store,
+      load: () => { if (available) void directory.load().catch(() => { /* surfaced on the store */ }) },
+      resolveText: text => ctx.locale.resolveText(text),
+      select: (selection: ModelSelection) => available ? directory.select(selection) : Promise.resolve(undefined),
+    }
   }
 }
 
@@ -163,10 +195,7 @@ export function apply(ctx: ClientContext): void {
     }), 'ui-model-selection: /model contribution')
   })
 
-  // Entry 2: the composer's named model seat over the SAME directory.
   ctx.inject(['slots', 'modelDirectories'], (scope: ClientContext) => {
-    const models = scope.modelDirectories
-    const sessions = scope.sessions
     scope.slots.inject('conversation.input.model', () => scope.slots.register({
       name: 'conversation.input.model',
       locale: NS,
@@ -174,21 +203,12 @@ export function apply(ctx: ClientContext): void {
         'conversation.input.model.label': { kind: 'single', scope: 'session', inline: true },
         'conversation.input.model.options': { kind: 'list', scope: 'session' },
       },
-      inject: (sessionId): ModelSelectInjected => {
-        const directory = models.directoryFor(sessionId)
-        const available = sessions.subagentAddress(sessionId) === undefined
-        return {
-          available,
-          directory: directory.store,
-          load: () => {
-            if (available) directory.load().catch(() => { /* surfaced on the store */ })
-          },
-          resolveText: text => ctx.locale.resolveText(text),
-          select: (selection: ModelSelection) => available
-            ? directory.select(selection)
-            : Promise.resolve(undefined),
-        }
-      },
-    }, ModelSelect))
+      inject: modelInjection(scope),
+    }, ({ renderSlot, ...props }: ModelSelectInjected & PropsRuntime<'conversation.input.model'> & PropsLocale<'model'>
+      & PropsRenderSlots<'conversation.input.model.label' | 'conversation.input.model.options'>) => createElement(ModelSelect, {
+        ...props, placement: 'composer',
+        renderLabel: (owner, fallback) => renderSlot('conversation.input.model.label', owner, { fallback }),
+        renderOptions: owner => renderSlot('conversation.input.model.options', owner),
+      })))
   })
 }

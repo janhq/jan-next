@@ -10,6 +10,7 @@
  */
 import type { BoundActions, HostObservable } from '@janhq/jan-client-ui-slots'
 import type { Branded } from '@janhq/jan-brand'
+import type { SidebarBounds } from './columns.ts'
 import type { createLayoutStore } from './stores.ts'
 
 /** Identity shared by a sidebar panel entry and its main-slot occupant. */
@@ -39,7 +40,16 @@ export interface ILayout {
    * @returns a signal aborted by the next navigation or layout disposal; check it before committing UI state.
    */
   beginNavigation(): AbortSignal
-  /** Toggle the sidebar panel (closed ⟷ contract default width). */
+  /**
+   * Configure the sidebar width contract.
+   * The current preference is preserved unless it is still the previous
+   * default width; that untouched default moves to the new default and a
+   * user-dragged width is clamped into the new range.
+   * @param bounds - finite positive widths with minWidth <= defaultWidth <= maxWidth.
+   * @throws if the range is invalid.
+   */
+  configureSidebar(bounds: SidebarBounds): void
+  /** Toggle the sidebar panel (closed ⟷ configured default width). */
   toggleSidebar(): void
   /**
    * Report the right panel's presentation without changing its expanded state.
@@ -66,7 +76,7 @@ export class LayoutController implements ILayout {
     private readonly panels: PanelActions,
     private readonly hasMainPanel: (id: MainPanelId) => boolean,
     readonly panelInfo: HostObservable<PanelInfo>,
-  ) {}
+  ) { }
 
   /** Select a global panel or return to the Conversation. */
   selectPanel(panelId: MainPanelId | null): void {
@@ -89,7 +99,12 @@ export class LayoutController implements ILayout {
     this.navigation.abort()
   }
 
-  /** Toggle the sidebar panel (closed ⟷ contract default width). */
+  /** Configure the sidebar width contract (see {@link ILayout.configureSidebar}). */
+  configureSidebar(bounds: SidebarBounds): void {
+    this.panels.configureSidebar(bounds)
+  }
+
+  /** Toggle the sidebar panel (closed ⟷ configured default width). */
   toggleSidebar(): void {
     this.panels.toggleSidebar()
   }

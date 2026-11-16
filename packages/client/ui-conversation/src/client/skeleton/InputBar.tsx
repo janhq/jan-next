@@ -21,9 +21,9 @@ import {
 } from '@janhq/jan-client-ui-primitives'
 // Type-only: the `plan` projection key merge (the TodoDock posture — the
 // composer reads a host-computed value; the domain owns the key).
-import type {} from '@janhq/jan-plan-mode/client'
+import type { } from '@janhq/jan-plan-mode/client'
 // Type-only: the `goal` projection key merge (hint disambiguation).
-import type {} from '@janhq/jan-goal/client'
+import type { } from '@janhq/jan-goal/client'
 // The `imageLimits` projection key merge (intake pre-check) arrives with the
 // wire types: apiproxy's sessions contract declares it, and client-runtime's
 // api-remotes import already places it in every client program.
@@ -483,6 +483,9 @@ export const InputBar = memo(function InputBar({
           editorDisabled={editorDisabled}
           phase={input?.phase ?? 'inert'}
           placeholderText={placeholderText}
+          placeholderContent={!disabled && !blocked && !planActive && !canSteerQueue
+            ? renderSlot('conversation.input.placeholder', { text: placeholderText, variant }, { fallback: placeholderText })
+            : undefined}
           ariaLabel={workspaceTrigger ? t('hero.chooseWorkspace') : placeholderText}
           workspaceTrigger={workspaceTrigger}
           workspacePickerOpen={workspacePickerOpen}

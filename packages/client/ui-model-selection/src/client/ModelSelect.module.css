@@ -129,6 +129,13 @@
   --jan-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
+/* The header seat sits at the top of the frame, so its card opens downward. */
+.menu.menuBelow {
+  top: calc(anchor(bottom) + 8px);
+  bottom: 12px;
+  align-self: safe start;
+}
+
 .status,
 .empty {
   padding: 8px;

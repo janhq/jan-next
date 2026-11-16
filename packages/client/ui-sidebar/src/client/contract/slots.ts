@@ -27,6 +27,10 @@ declare module '@janhq/jan-client-ui-slots' {
     }
   }
   interface SlotMap {
+    /** New-session control, with access and analytics retained by the shell. */
+    'sidebar.session.new': { kind: 'single'; scope: 'root'; owner: SidebarNewSessionOwnerProps }
+    /** Workspace primary navigation before global panel extras. */
+    'sidebar.workspaces.primary': { kind: 'single'; scope: 'root'; owner: SidebarSectionOwnerProps }
     /** Non-interactive notification inside the collapsed sidebar expand button. */
     'sidebar.toggle.badge': { kind: 'single'; scope: 'root'; owner: Record<never, never> }
     /**
@@ -74,6 +78,16 @@ declare module '@janhq/jan-client-ui-slots' {
      */
     'sidebar.footer.action': { kind: 'list'; scope: 'root'; owner: SidebarFooterActionOwnerProps }
   }
+}
+
+/** Presentation and invocation of the access-gated New Session action. */
+export interface SidebarNewSessionOwnerProps {
+  wide: boolean
+  label: string
+  ariaLabel: string
+  shortcutKeys: ShortcutCatalogEntry['keys'] | undefined
+  shortcutAria: string | undefined
+  onStart: () => void
 }
 
 /** Geometry supplied to the sidebar brand-mark occupant. */
@@ -231,6 +245,8 @@ export type SidebarRootInjected = {
 export type SidebarRootComponentProps =
   PropsRuntime<'sidebar'>
   & PropsRenderSlots<
+    | 'sidebar.session.new'
+    | 'sidebar.workspaces.primary'
     | 'sidebar.brand.mark'
     | 'sidebar.brand.name'
     | 'sidebar.toggle.badge'

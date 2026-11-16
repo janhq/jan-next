@@ -137,6 +137,7 @@ export function apply(ctx: ClientContext): void {
         inject: () => ({ ...face, createHeaderRef: createPluginHeaderRef }),
         children: {
           'plugins.add.actions': { kind: 'list', scope: 'root' },
+          'plugins.artwork': { kind: 'keyed', scope: 'root' },
           'plugins.tab': { kind: 'list', scope: 'root' },
           'plugins.item': { kind: 'list', scope: 'root' },
           'plugins.bundle.activation': { kind: 'keyed', scope: 'root' },

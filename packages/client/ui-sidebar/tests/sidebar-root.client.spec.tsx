@@ -83,11 +83,14 @@ function mountShell({ collapsed = false, width = 300, drawer = false, shortcuts 
       renderSlot={((
         key: string,
         owner: SidebarFooterActionOwnerProps | SidebarSectionOwnerProps | SidebarSettingsOwnerProps,
-        opts?: { hookContext?: SidebarSectionHookContext },
+        opts?: { hookContext?: SidebarSectionHookContext; fallback?: ReactNode },
       ) => {
         if (key === 'sidebar.brand.mark') return brandMark
         if (key === 'sidebar.brand.name') return brandName
         if (key === 'sidebar.toggle.badge') return null
+        // Unoccupied theme seats: the built-in New Session, no extra row.
+        if (key === 'sidebar.session.new') return opts?.fallback ?? null
+        if (key === 'sidebar.workspaces.primary') return null
         if (key === 'sidebar.panellist') return <span aria-hidden="true">P</span>
         if (key === 'sidebar.settings') {
           settingsOwner = owner
@@ -228,9 +231,10 @@ describe('SidebarRoot shell', () => {
       useRemoteAccess={useRemoteAccess}
       startSession={startSession} toggleSidebar={toggleSidebar} trackEntryClick={vi.fn()} t={t}
       renderFactorySlot={() => null}
-      renderSlot={((key: string) => {
+      renderSlot={((key: string, _owner: unknown, options?: { fallback?: ReactNode }) => {
         if (key === 'sidebar.brand.mark') return <span data-testid="brand-mark">M</span>
         if (key === 'sidebar.brand.name') return <span data-testid="brand-name">Brand</span>
+        if (key === 'sidebar.session.new') return options?.fallback ?? null
         return null
       }) as SidebarRootComponentProps['renderSlot']}
     />)

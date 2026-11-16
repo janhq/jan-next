@@ -30,7 +30,7 @@
 import { MenuGroup, MenuSurface, observeStickyMenuGroups } from '@janhq/jan-client-ui-primitives'
 import {
   useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore,
-  type CSSProperties, type KeyboardEvent, type FocusEvent,
+  type CSSProperties, type KeyboardEvent, type FocusEvent, type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
 import clsx from 'clsx'
@@ -39,8 +39,8 @@ import {
   IconCheckOutlineRegular, IconChevronDownOutlineRegular, IconChevronRightOutlineRegular, IconCloseFillRegular,
   IconDataOutlineRegular, IconWarningOutlineRegular, Input, isMobileDevice, rankByName, StateDot, Tag, Toast,
 } from '@janhq/jan-client-ui-primitives'
-import type { PropsLocale, PropsRenderSlots, PropsRuntime } from '@janhq/jan-client-ui-slots'
-import type { ModelLabelOwner, ModelSelectInjected } from './slots.ts'
+import type { PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
+import type { ModelLabelOwner, ModelOptionsOwner, ModelSelectInjected } from './slots.ts'
 import css from './ModelSelect.module.css'
 
 /** Which pane the dropdown shows: the two-row root or one drilled-in list. */
@@ -60,9 +60,14 @@ interface EffortChoice {
  * @returns the trigger and, while open, the two-level menu.
  */
 export function ModelSelect(
-  { locked, available, directory, load, select, resolveText, t, renderSlot }:
-  ModelSelectInjected & Pick<PropsRuntime<'conversation.input.model'>, 'locked'> & PropsLocale<'model'>
-    & Omit<PropsRenderSlots<'conversation.input.model.label' | 'conversation.input.model.options'>, 'SessionProvider'>,
+  { locked, available, directory, load, select, resolveText, t, renderLabel, renderOptions, placement = 'composer' }:
+    ModelSelectInjected & Pick<PropsRuntime<'conversation.input.model'>, 'locked'> & PropsLocale<'model'> & {
+      /** The composer seat opens upward; the header seat opens below its trigger. */
+      placement?: 'header' | 'composer'
+      renderLabel: (owner: ModelLabelOwner, fallback: ReactNode) => ReactNode
+      /** Session options appended to the root menu; absent where the seat has none. */
+      renderOptions?: (owner: ModelOptionsOwner) => ReactNode
+    },
 ) {
   const state = useSyncExternalStore(
     fn => directory.subscribe(fn),
@@ -188,13 +193,13 @@ export function ModelSelect(
       // first row.
       const checked = menuRef.current?.querySelector<HTMLElement>('[role="menuitemradio"][aria-checked="true"]:not([disabled])')
       const target = checked ?? itemRefs.current.find(item => item !== null && !item.disabled)
-      // Rows a selection in flight disabled cannot take the keyboard; the
-      // trigger does, so the card's keys still reach the menu.
-      ;(target ?? triggerRef.current)?.focus()
+        // Rows a selection in flight disabled cannot take the keyboard; the
+        // trigger does, so the card's keys still reach the menu.
+        ; (target ?? triggerRef.current)?.focus()
       return
     }
     const cell = itemRefs.current[intent === 'effort' ? 1 : 0]
-    ;(cell !== null && cell !== undefined && !cell.disabled ? cell : triggerRef.current)?.focus()
+      ; (cell !== null && cell !== undefined && !cell.disabled ? cell : triggerRef.current)?.focus()
   }, [open, pane, showSearch])
 
   useEffect(() => {
@@ -324,7 +329,7 @@ export function ModelSelect(
         return
       }
       const checked = menuRef.current?.querySelector<HTMLElement>('[role="menuitemradio"][aria-checked="true"]:not([disabled])')
-      ;(checked ?? rows.find(item => !item.disabled))?.focus()
+        ; (checked ?? rows.find(item => !item.disabled))?.focus()
       return
     }
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -391,7 +396,7 @@ export function ModelSelect(
   const modelLabel = waiting
     ? t('trigger.loading')
     : currentChoice?.model.name
-      ?? t('trigger.fallback')
+    ?? t('trigger.fallback')
   const triggerLabel = effortLabel === undefined ? modelLabel : `${modelLabel} · ${effortLabel}`
   const triggerAria = waiting
     ? t('trigger.loading')
@@ -405,17 +410,15 @@ export function ModelSelect(
     placement: ModelLabelOwner['placement'], selected: boolean,
   ) => (
     <span data-provider-id={provider.id} data-model-id={model.id}>
-      {renderSlot('conversation.input.model.label', {
+      {renderLabel({
         provider, model, placement, selected,
-      }, {
-        fallback: model.badge === undefined ? model.name : (
-          <span className={css.badgedName}>
-            {placement === 'trigger' ? <><Tag className={css.badge} tone={model.badge.tone}>{resolveText(model.badge.text)}</Tag>{' '}</> : null}
-            <span className={css.badgedNameText}>{model.name}</span>
-            {placement === 'trigger' ? null : <>{' '}<Tag className={css.badge} tone={model.badge.tone}>{resolveText(model.badge.text)}</Tag></>}
-          </span>
-        ),
-      })}
+      }, model.badge === undefined ? model.name : (
+        <span className={css.badgedName}>
+          {placement === 'trigger' ? <><Tag className={css.badge} tone={model.badge.tone}>{resolveText(model.badge.text)}</Tag>{' '}</> : null}
+          <span className={css.badgedNameText}>{model.name}</span>
+          {placement === 'trigger' ? null : <>{' '}<Tag className={css.badge} tone={model.badge.tone}>{resolveText(model.badge.text)}</Tag></>}
+        </span>
+      ))}
     </span>
   )
   let itemIndex = 0
@@ -475,7 +478,7 @@ export function ModelSelect(
         <MenuSurface
           ref={menuRef}
           id={`${id}-menu`}
-          className={css.menu}
+          className={clsx(css.menu, placement === 'header' && css.menuBelow)}
           style={anchorStyle}
           role={pane === 'model' ? 'group' : 'menu'}
           aria-label={t('menu.aria')}
@@ -497,7 +500,7 @@ export function ModelSelect(
                   <IconChevronRightOutlineRegular className={css.cellChevron} />
                 </button>
               )}
-              {renderSlot('conversation.input.model.options', {
+              {renderOptions?.({
                 locked: locked || busy,
                 dismiss: () => {
                   close()
@@ -655,7 +658,7 @@ export function ModelSelect(
           key={toast.seq}
           text={toast.text}
           icon={<IconWarningOutlineRegular />}
-          anchor={rootRef.current?.closest<HTMLElement>('[data-composer-card]') ?? null}
+          anchor={placement === 'header' ? triggerRef.current : rootRef.current?.closest<HTMLElement>('[data-composer-card]') ?? null}
           onDone={() => { setToast(null) }}
         />
       )}

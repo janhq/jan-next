@@ -18,6 +18,7 @@ export function ConversationHeader({ sessionId, useSession, useConversation, ren
     <header className={clsx(css.header, blank && css.headerBlank)} data-window-drag>
       <div className={css.headerLeading} data-conversation-header-leading="">
         {renderSlot('conversation.header.leading', {})}
+        {sessionId === undefined ? null : renderSlot('conversation.header.model', { locked: session === undefined || session.removed })}
       </div>
       {sessionId === undefined
         // The empty title row keeps the blank-Session header height, so the

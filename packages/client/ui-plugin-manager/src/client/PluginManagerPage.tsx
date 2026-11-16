@@ -44,7 +44,7 @@ export type PluginManagerPageProps =
   & PropsLocale<'pluginManager'>
   & PropsRenderSlots<
     | 'plugins.item' | 'plugins.bundle.config' | 'plugins.row.config' | 'plugins.bundle.activation'
-    | 'plugins.add.actions' | 'plugins.tab'
+    | 'plugins.add.actions' | 'plugins.tab' | 'plugins.artwork'
     | 'plugins.detail.actions' | 'plugins.detail.badge' | 'plugins.detail.section'
   >
   & InjectFace<PluginManagerFace & PluginHeaderLayoutFace>
@@ -208,9 +208,15 @@ const ITEM_ARTWORK = new Map<string, (props: IconProps) => ReactNode>([
 ])
 
 /** An official plugin's card and page artwork; plugins without their own get the default. */
-function itemArtwork(id: string): ReactNode {
+function itemArtwork(id: string, renderSlot: RenderConfig): ReactNode {
   const Artwork = ITEM_ARTWORK.get(id) ?? PluginArtworkDefault
-  return <Artwork size={CARD_ARTWORK_SIZE} />
+  return renderSlot('plugins.artwork', { size: CARD_ARTWORK_SIZE }, { entryKey: id, fallback: <Artwork size={CARD_ARTWORK_SIZE} /> })
+}
+
+/** A bundle or row artwork: a themed `plugins.artwork` entry for the package wins over the manifest image. */
+function packageArtwork(name: string, src: string | undefined, renderSlot: RenderConfig, row = false, size?: number): ReactNode {
+  const fallback = <PackageArtwork key={src} src={src} row={row} {...size === undefined ? {} : { size }} />
+  return renderSlot('plugins.artwork', { size: size ?? (row ? ROW_ARTWORK_SIZE : CARD_ARTWORK_SIZE) }, { entryKey: name, fallback })
 }
 
 /** Manifest images remain isolated from the page DOM; a failed decode keeps the position's default artwork. */
@@ -530,8 +536,9 @@ function updateAvailable(pkg: PackageView): boolean {
 }
 
 /** One package as a card that opens its page: its name, its one-liner, its tags, and its bundle switch. */
-function PackageCard({ pkg, t, resolveText, busy, highlighted, newer, onOpen, onSetEnabled }: {
+function PackageCard({ pkg, t, resolveText, busy, highlighted, newer, onOpen, onSetEnabled, renderSlot }: {
   readonly pkg: PackageView
+  readonly renderSlot: RenderConfig
   /** The newer registry version a version check offers. */
   readonly newer: string | undefined
   readonly t: Translate
@@ -554,7 +561,7 @@ function PackageCard({ pkg, t, resolveText, busy, highlighted, newer, onOpen, on
         title={title}
         t={t}
         onOpen={onOpen}
-        icon={<PackageArtwork key={pkg.meta?.icon} src={pkg.meta?.icon} />}
+        icon={packageArtwork(pkg.name, pkg.meta?.icon, renderSlot)}
         tags={(
           <>
             {beta ? <Tag className={css.statusTag} tone="info">{t('statusBeta')}</Tag> : null}
@@ -584,7 +591,7 @@ function ItemCard({ item, t, onOpen, renderSlot }: {
 }): ReactNode {
   return (
     <li className={`${css.card} ${css.cardLink}`} data-plugin-item={item.id}>
-      <CardHead title={item.label} t={t} onOpen={onOpen} icon={itemArtwork(item.id)} description={renderSlot('plugins.item', { view: 'summary' }, { only: item.id })} />
+      <CardHead title={item.label} t={t} onOpen={onOpen} icon={itemArtwork(item.id, renderSlot)} description={renderSlot('plugins.item', { view: 'summary' }, { only: item.id })} />
     </li>
   )
 }
@@ -626,7 +633,7 @@ function ItemDetail({ item, t, onBack, renderSlot, form }: {
         crumbLabel={t('backToList')}
         crumbText={t('crumbRoot')}
         onBack={onBack}
-        icon={itemArtwork(item.id)}
+        icon={itemArtwork(item.id, renderSlot)}
         actions={<div className={css.detailActions}>{renderSlot('plugins.detail.actions', { subject })}</div>}
       />
       <div className={css.detailMain}>
@@ -669,7 +676,7 @@ function RowDetail({ pkg, row, t, resolveText, onBack, renderSlot, form }: {
         crumbLabel={t('backToPackage', { name: title })}
         crumbText={title}
         onBack={onBack}
-        icon={<PackageArtwork key={row.meta?.icon} src={row.meta?.icon} row size={CARD_ARTWORK_SIZE} />}
+        icon={packageArtwork(row.moduleName, row.meta?.icon, renderSlot, true, CARD_ARTWORK_SIZE)}
         actions={<div className={css.detailActions}>{renderSlot('plugins.detail.actions', { subject })}</div>}
       />
       <div className={css.detailMain}>
@@ -739,7 +746,7 @@ function PackageDetail({
         crumbLabel={inMore ? t('backToPackage', { name: t('moreTitle') }) : t('backToList')}
         crumbText={t(inMore ? 'moreTitle' : 'crumbRoot')}
         onBack={onBack}
-        icon={<PackageArtwork key={pkg.meta?.icon} src={pkg.meta?.icon} />}
+        icon={packageArtwork(pkg.name, pkg.meta?.icon, renderSlot)}
         actions={(
           <div className={css.detailActions}>
             {renderSlot('plugins.detail.actions', { subject })}
@@ -1624,6 +1631,7 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
     <PackageCard
       key={pkg.name}
       pkg={pkg}
+      renderSlot={renderSlot}
       t={t}
       resolveText={resolveText}
       busy={packageBusy(pkg)}
