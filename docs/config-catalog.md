@@ -1927,62 +1927,130 @@ export interface Config {
 ## `@deepseek-ai/dsh-llama-cpp`
 
 - `inject`: `subprocess` · `credentials`
-- `source`: [`packages/llm/llama-cpp/src/config.ts:23`](../packages/llm/llama-cpp/src/config.ts)
+- `source`: [`packages/llm/llama-cpp/src/config.ts:15`](../packages/llm/llama-cpp/src/config.ts)
 
 ```ts config-catalog
-/** Paths, backend and launch settings. */
+/** Paths, worker and launch settings. */
 export interface Config {
-  /** Absolute directory for the engine, model and state. */
+  /** Absolute directory for models, the preset and state. */
   dataRoot: string
-  /** Linux/Windows build: CPU, or Vulkan for GPU offload (needs a Vulkan driver). macOS always uses its Metal build. */
-  backend: 'cpu' | 'vulkan'
-  /** Which pinned model to install; `small` is a 429 MB test model. */
+  /**
+   * Absolute path of the bundled `jan-llama-worker` executable, with its ggml libraries beside it.
+   * Absent or unusable, the service reports `failed` at boot and starts nothing.
+   */
+  workerPath?: string | undefined
+  /** Which curated model the first-run offer installs; `small` is a 429 MB test model. */
   model: 'default' | 'small'
-  /** Loopback port the server listens on; must match the `local` route's baseURL. */
-  port: number
-  /** Credential reference the `local` route reads, and the key the server requires. */
+  /** Hugging Face origin for repository lookups and their downloads. */
+  huggingFaceURL: string
+  /**
+   * `llm-pi-ai` settings namespace whose `providers.<provider>.models` the plugin keeps equal to
+   * the installed models plus the default's alias, so the model picker names what the worker
+   * serves; empty disables the sync.
+   */
+  routeNamespace: string
+  /** `maxTokens` written for each route entry. */
+  routeMaxTokens: number
+  /**
+   * Route model id that is an alias of the default model (an `alias-of` preset section), beside each
+   * model's own id. Stable, so a session that selected it follows the default; no installed model
+   * takes this id.
+   */
+  routeModelId: string
+  /** Credential reference the `local` route reads its key from, and the key the worker requires. */
   apiKeyRef: string
+  /** Credential reference the `local` route reads its endpoint from (`baseURLEnv`); set while the worker serves. */
+  baseURLRef: string
   /** Model provider route that serves the model (shown to clients). */
   provider: string
-  /** Start the server at boot when it is installed. */
+  /** Start the worker at boot when a model is installed and the user left it running. */
   autoStart: boolean
   /**
-   * Context window passed as `-c`; the harness's own prompt and tools take about 12k tokens.
-   * `0` leaves it to `--fit`, which starts from the model's trained context and shrinks it to
-   * fit memory (never below {@link Config.fitCtx}); the route's `contextWindow` must then be
-   * no larger than what the server reports.
+   * Resident models the worker keeps loaded (`--models-max`); loading another unloads the least
+   * recently used idle one, and a request is refused while every resident model is busy. 1, as in
+   * Jan, because one model usually fills the accelerator; 0 removes the bound.
+   */
+  modelsMax: number
+  /**
+   * Context window (`ctx-size`); the harness's own prompt and tools take about 12k tokens. A model
+   * trained with a shorter context is served at its trained context. `0` leaves it to `fit`, which
+   * starts from the trained context and shrinks it to fit memory (never below {@link Config.fitCtx}).
+   * The route's `contextWindow` follows the context the worker reports once a model runs.
    */
   ctxSize: number
-  /** Let llama.cpp size unset arguments (GPU layers, and context when `ctxSize` is 0) to device memory. */
-  fit: boolean
-  /** Memory `--fit` keeps free on each device, in MiB. */
+  /**
+   * Let llama.cpp size unset options (GPU layers, and context when `ctxSize` is 0) to device memory.
+   * Unset: on, except on macOS, where Metal counts the whole memory-mapped file against its working
+   * set and `fit` plans loads that then fail (janhq/jan#9198).
+   */
+  fit?: boolean | undefined
+  /** Memory `fit` keeps free on each device, in MiB. */
   fitTargetMiB: number
-  /** Smallest context `--fit` may choose when `ctxSize` is 0. */
+  /** Smallest context `fit` may choose when `ctxSize` is 0; also the context the route lists before the worker reports one. */
   fitCtx: number
-  /** KV cache element type (`-ctk`/`-ctv`); `q8_0` halves its memory against `f16`. */
+  /** KV cache element type; `q8_0` halves its memory against `f16` and needs flash attention. */
   cacheType: 'f16' | 'q8_0'
-  /** CPU threads (`-t`); omitted lets llama.cpp decide. */
+  /** Flash attention (`flash-attn`); `off` requires `cacheType: f16`. */
+  flashAttn: 'auto' | 'on' | 'off'
+  /** CPU threads; omitted lets llama.cpp decide. */
   threads?: number | undefined
-  /** Layers offloaded to the GPU (`-ngl`) on Metal and Vulkan builds; omitted lets `--fit` decide (or offloads all with fit off). */
+  /**
+   * Layers offloaded to the GPU; omitted lets `fit` decide (or offloads all with fit off). Setting
+   * it with fit on stops `fit` from sizing anything.
+   */
   gpuLayers?: number | undefined
-  /** Readiness deadline after spawning. */
+  /** Logical batch size (`batch-size`); omitted keeps llama.cpp's 2048. */
+  batchSize?: number | undefined
+  /** Physical batch size (`ubatch-size`); omitted keeps llama.cpp's 512. */
+  ubatchSize?: number | undefined
+  /**
+   * Requests decoded at once (`parallel`), each with the full context, as the KV cache is unified
+   * across them; omitted lets llama.cpp decide.
+   */
+  parallel?: number | undefined
+  /** MoE layers whose expert weights stay in system memory (`n-cpu-moe`); omitted keeps them all offloadable. */
+  nCpuMoe?: number | undefined
+  /**
+   * GPU cache, in MiB, for expert weights kept in system memory (`moe-cache-mib`). Written only for
+   * a model whose file declares experts, and never with `splitMode: tensor` or `device: none`, where
+   * llama.cpp refuses to load with it.
+   */
+  moeCacheMiB?: number | undefined
+  /** Comma-separated devices to offload to (`device`), e.g. `Vulkan0`, or `none`; omitted uses every device. */
+  device?: string | undefined
+  /** How layers are split across several GPUs (`split-mode`); omitted keeps llama.cpp's `layer`. */
+  splitMode?: 'none' | 'layer' | 'row' | 'tensor' | undefined
+  /** GPU used with `splitMode: none`, or for intermediate results with `row` (`main-gpu`). */
+  mainGpu?: number | undefined
+  /** Keep the KV cache on the GPU; `false` writes `no-kv-offload`, which saves VRAM at a speed cost. */
+  kvOffload: boolean
+  /** How weights are read (`load-mode`); omitted lets llama.cpp memory-map them where devices allow. */
+  loadMode?: 'none' | 'mmap' | 'mlock' | 'mmap+mlock' | undefined
+  /** Run each model's vision projector on the GPU; `false` writes `mmproj-offload = false`, which keeps it in system memory. */
+  mmprojOffload: boolean
+  /** Prompt cache in system memory, in MiB (`cache-ram`); `-1` removes the bound, `0` disables it, omitted keeps llama.cpp's 8192. */
+  cacheRamMiB?: number | undefined
+  /**
+   * Disk budget, in MiB, for per-thread KV state under `<dataRoot>/slots` (`--slot-cache-mib`);
+   * `0` saves nothing. A request is cached only when it names its thread, which the `llm-pi-ai`
+   * route does not send yet.
+   */
+  slotCacheMiB: number
+  /** Deadline from spawn until the handshake and the active model's load complete. */
   startTimeoutMs: number
-  /** Grace period between SIGTERM and SIGKILL. */
+  /**
+   * Delay before each attempt to resubscribe to a running worker's model feed after it errored or
+   * ended; the attempt also re-reads every model's status.
+   */
+  feedRetryMs: number
+  /** Wait after closing the worker's stdin (it drains requests and saves KV state) before terminating it. */
+  stopTimeoutMs: number
+  /** Grace period between SIGTERM and SIGKILL once the worker is terminated. */
   graceMs: number
   /** Minimum interval between download progress notifications. */
   progressIntervalMs: number
-  /** Test-only: an existing server executable that replaces the downloaded engine. */
-  binaryPath?: string | undefined
-  /** Test-only: replaces the pinned downloads (engine, model). */
-  artifactOverrides?: ArtifactOverrides | undefined
-}
-
-/** Test-only replacements for the pinned downloads. */
-export interface ArtifactOverrides {
-  /** Engine archive (`tar.gz` containing `llama-server`). */
-  engine?: ArtifactOverride | undefined
-  /** GGUF model file. */
-  model?: ArtifactOverride | undefined
+  /** Test-only: replaces the pinned download of the first-run model. */
+  firstModelOverride?: ArtifactOverride | undefined
 }
 
 /** One pinned download: where it comes from and what it must hash to. */
@@ -2040,7 +2108,7 @@ export interface Config extends ProtocolConfig, ModelListingConfig {
 
 - `inject`: `llm`
 - `refs`: `Api` (`@earendil-works/pi-ai`) · `CacheRetention` (`@earendil-works/pi-ai`) · `Model` (`@earendil-works/pi-ai`) · `ModelThinkingLevel` (`@earendil-works/pi-ai`) · `OpenAICompletionsCompat` (`@earendil-works/pi-ai`) · [`RetryPolicyConfig`](../packages/llm/llm/src/index.ts) · `ThinkingBudgets` (`@earendil-works/pi-ai`) · `Transport` (`@earendil-works/pi-ai`) · `Volatile` (`@deepseek-ai/cordis`)
-- `source`: [`packages/llm/llm-pi-ai/src/config.ts:251`](../packages/llm/llm-pi-ai/src/config.ts)
+- `source`: [`packages/llm/llm-pi-ai/src/config.ts:258`](../packages/llm/llm-pi-ai/src/config.ts)
 
 ```ts config-catalog
 /** Plugin configuration: the provider routes this instance owns. */
@@ -2067,6 +2135,11 @@ export interface PiAiProviderProfile {
   api?: string
   /** Endpoint for this route's models; defaults to the installed catalog's endpoint. */
   baseURL?: string
+  /**
+   * Credential reference whose value is this route's endpoint, resolved per request like
+   * {@link apiKeyEnv}; excludes {@link baseURL}. The route offers no models while it is unset.
+   */
+  baseURLEnv?: string
   /**
    * This route's model catalog. Omission serves the installed catalog for the
    * route unchanged; an explicit list replaces it, each entry defaulting its
@@ -4908,6 +4981,29 @@ export interface Config {
 }
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-web-search-deepseek -->
+
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-web-search-exa -->
+<a id="deepseek-aidsh-web-search-exa"></a>
+
+## `@deepseek-ai/dsh-web-search-exa`
+
+- `inject`: `web`
+- `source`: [`packages/web/web-search-exa/src/index.ts:25`](../packages/web/web-search-exa/src/index.ts)
+
+```ts config-catalog
+/** Plugin config; every field has a default. */
+export interface Config {
+  /** Exa MCP endpoint. */
+  url?: string
+  /** Results requested when the caller sets no bound, at most {@link EXA_MAX_RESULTS}. */
+  numResults?: number
+  /** Characters of page text one fetch requests. */
+  maxCharacters?: number
+  /** Milliseconds one search or fetch may take. */
+  timeoutMs?: number
+}
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-web-search-exa -->
 
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-webhook-github -->
 <a id="deepseek-aidsh-webhook-github"></a>

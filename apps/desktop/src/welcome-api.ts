@@ -28,11 +28,10 @@ export interface WelcomeLocalModel {
   readonly phase: string
   /** Model being installed or run. */
   readonly name: string
-  /** Bytes of the whole first download, engine included. */
+  /** Bytes of the first-run model download. */
   readonly totalBytes: number
   /** Present while downloading. */
   readonly progress?: {
-    readonly step: 'engine' | 'model'
     readonly receivedBytes: number
     readonly totalBytes: number
     readonly bytesPerSecond: number

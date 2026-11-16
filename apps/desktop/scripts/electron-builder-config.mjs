@@ -34,6 +34,7 @@ import {
   verifyMacOSAppUpdateConfig,
   writeMacOSAppUpdateConfig,
 } from './macos-app-update-config.mjs'
+import { assertStagedLlamaWorker, LLAMA_WORKER_STAGE } from './llama-worker-stage.mjs'
 
 /**
  * Create electron-builder configuration from one release environment.
@@ -59,6 +60,10 @@ export function createElectronBuilderConfig(
     throw new Error('desktop package: DSH_DESKTOP_UNSIGNED must be 0 or 1')
   }
   const unsigned = env.DSH_DESKTOP_UNSIGNED === '1'
+  if (env.DSH_DESKTOP_OMIT_LLAMA_WORKER !== undefined && !['0', '1'].includes(env.DSH_DESKTOP_OMIT_LLAMA_WORKER)) {
+    throw new Error('desktop package: DSH_DESKTOP_OMIT_LLAMA_WORKER must be 0 or 1')
+  }
+  const omitLlamaWorker = env.DSH_DESKTOP_OMIT_LLAMA_WORKER === '1'
   const skipNotarization = env.DSH_DESKTOP_MACOS_SKIP_NOTARIZATION === '1'
   if (env.DSH_DESKTOP_MACOS_SKIP_NOTARIZATION !== undefined && !['0', '1'].includes(env.DSH_DESKTOP_MACOS_SKIP_NOTARIZATION)) {
     throw new Error('desktop package: DSH_DESKTOP_MACOS_SKIP_NOTARIZATION must be 0 or 1')
@@ -163,6 +168,7 @@ export function createElectronBuilderConfig(
       { from: fileURLToPath(new URL('../resources/icon-windows.png', import.meta.url)), to: 'icon.png' },
       // Windows tray bitmaps; macOS keeps the Dock and ships no menu bar icon.
       ...(packagesWindows ? [{ from: fileURLToPath(new URL('../resources/tray-windows.ico', import.meta.url)), to: 'tray.ico' }] : []),
+      ...(omitLlamaWorker ? [] : [{ from: LLAMA_WORKER_STAGE, to: 'llama-worker' }]),
     ],
     mac: {
       icon: fileURLToPath(new URL('../resources/icon-macos.png', import.meta.url)),
@@ -189,6 +195,7 @@ export function createElectronBuilderConfig(
       writeUpdateInfo: false,
     },
     beforePack: async context => {
+      if (!omitLlamaWorker) assertStagedLlamaWorker(resolvedPlatform, resolvedArch)
       const office = await officePackageDirectories(buildPaths.dsh, { platform: resolvedPlatform, arch: resolvedArch })
       const patterns = office.map(directory => `**/${relative(buildPaths.dsh, directory).split(sep).join('/')}/**/*`)
       const existing = context.packager.config.asarUnpack ?? []

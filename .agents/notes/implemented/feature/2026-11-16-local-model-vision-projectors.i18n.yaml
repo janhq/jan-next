@@ -1,0 +1,19 @@
+# Bilingual-pair consistency record for 2026-11-16-local-model-vision-projectors.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-11-16-local-model-vision-projectors.md
+/agent-note-local-models-read-images-through-vision-projectors:
+  en: 43bc2539c417e2ca
+  zh: 47826006d89d37fb
+/agent-note-local-models-read-images-through-vision-projectors/problem:
+  en: 02a000085c6ba355
+  zh: 131d1e110e153d1e
+/agent-note-local-models-read-images-through-vision-projectors/decision:
+  en: c4b844c10a77fd44
+  zh: bfad2a0a27284a75
+/agent-note-local-models-read-images-through-vision-projectors/alternatives-considered:
+  en: 17a7b2738232ed20
+  zh: 112334b7b8847cd0
+/agent-note-local-models-read-images-through-vision-projectors/consequences:
+  en: bf5c55a6b1f55534
+  zh: ea5b1216e22597f8

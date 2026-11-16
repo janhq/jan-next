@@ -60,8 +60,8 @@ flowchart LR
   cfg --> plugin_dsh_base_credentials
   plugin_dsh_base_llm_pi_ai["llm-pi-ai<br/>@deepseek-ai/dsh-llm-pi-ai"]
   cfg --> plugin_dsh_base_llm_pi_ai
-  plugin_dsh_base_jan_v3_5_4b["jan-v3.5-4b<br/>Jan v3.5 4B (local)"]
-  cfg --> plugin_dsh_base_jan_v3_5_4b
+  plugin_dsh_base_local["local<br/>Jan v3.5 4B (local)"]
+  cfg --> plugin_dsh_base_local
   plugin_dsh_base_session_persistence_jsonl["session-persistence-jsonl<br/>@deepseek-ai/dsh-session-persistence-jsonl"]
   cfg --> plugin_dsh_base_session_persistence_jsonl
   plugin_dsh_base_attachment_local["attachment-local<br/>@deepseek-ai/dsh-attachment-local"]
@@ -188,6 +188,8 @@ flowchart LR
   cfg --> plugin_dsh_base_web_deepseek_api
   plugin_dsh_base_web_fetch_http["web-fetch-http<br/>@deepseek-ai/dsh-web-fetch-http"]
   cfg --> plugin_dsh_base_web_fetch_http
+  plugin_dsh_base_web_search_exa["web-search-exa<br/>@deepseek-ai/dsh-web-search-exa"]
+  cfg --> plugin_dsh_base_web_search_exa
   plugin_dsh_base_tool_web["tool-web<br/>@deepseek-ai/dsh-tool-web"]
   cfg --> plugin_dsh_base_tool_web
   plugin_dsh_base_mcp_resources["mcp-resources<br/>@deepseek-ai/dsh-mcp-resources"]
@@ -238,7 +240,7 @@ flowchart LR
 | `deepseek-account` | `@deepseek-ai/dsh-tokamak-account` |
 | `credentials` | `@deepseek-ai/dsh-credentials-local` |
 | `llm-pi-ai` | `@deepseek-ai/dsh-llm-pi-ai` |
-| `jan-v3.5-4b` | `Jan v3.5 4B (local)` |
+| `local` | `Jan v3.5 4B (local)` |
 | `session-persistence-jsonl` | `@deepseek-ai/dsh-session-persistence-jsonl` |
 | `attachment-local` | `@deepseek-ai/dsh-attachment-local` |
 | `session-query-sqlite` | `@deepseek-ai/dsh-session-query-sqlite` |
@@ -302,6 +304,7 @@ flowchart LR
 | `web-search-deepseek` | `@deepseek-ai/dsh-web-search-deepseek` |
 | `web-deepseek-api` | `@deepseek-ai/dsh-web-deepseek-api` |
 | `web-fetch-http` | `@deepseek-ai/dsh-web-fetch-http` |
+| `web-search-exa` | `@deepseek-ai/dsh-web-search-exa` |
 | `tool-web` | `@deepseek-ai/dsh-tool-web` |
 | `mcp-resources` | `@deepseek-ai/dsh-mcp-resources` |
 | `tools` | `@deepseek-ai/dsh-tools` |

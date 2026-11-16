@@ -25,7 +25,7 @@ import {
 } from '../src/core-package-set.ts'
 import { capture } from '../../../scripts/release/process.ts'
 import { tarballFiles } from '../../../scripts/release/tarball.ts'
-import { desktopTargetPlatform, resolveDesktopBuildTarget, resolveDesktopTargetBuildPaths } from './desktop-build-paths.mjs'
+import { desktopTargetPlatform, resolveDesktopBuildTarget, resolveDesktopTargetBuildPaths, type DesktopReleasePlatform } from './desktop-build-paths.mjs'
 
 const DSH_PACKAGE = '@deepseek-ai/dsh'
 const ROOT_PACKAGES = [DSH_PACKAGE, DESKTOP_HOST_PACKAGE] as const
@@ -70,7 +70,7 @@ function dependencyNames(manifest: Readonly<Record<string, unknown>>, section: s
  */
 export function selectDesktopPackageClosure(
   available: ReadonlyMap<string, PackedDesktopPackage>,
-  target: ReturnType<typeof desktopTargetPlatform>,
+  target: DesktopReleasePlatform,
 ): PackedDesktopPackage[] {
   const workspace = yaml.load(readFileSync(join(REPOSITORY_ROOT, 'pnpm-workspace.yaml'), 'utf8')) as { packages: string[] }
   const workspaceNames = new Set(globSync(workspace.packages.map(pattern => `${pattern}/package.json`), { cwd: REPOSITORY_ROOT })
@@ -149,7 +149,7 @@ export function assertDesktopHostPackageFiles(files: readonly string[]): void {
  * @param target - Platform and architecture of the installer payload.
  */
 export function prepareDesktopPackageSet(
-  inputs: readonly string[], output: string, target: ReturnType<typeof desktopTargetPlatform>,
+  inputs: readonly string[], output: string, target: DesktopReleasePlatform,
 ): void {
   const selected = selectDesktopPackageClosure(packedPackages(inputs), target)
   const host = selected.find(packed => packed.manifest.name === DESKTOP_HOST_PACKAGE)

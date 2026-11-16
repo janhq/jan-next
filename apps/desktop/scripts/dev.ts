@@ -7,7 +7,7 @@ import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { DESKTOP_HOST_PROTOCOL_VERSION } from '../src/host-protocol.ts'
 import type { DesktopRelease } from '../src/release.ts'
-import { developmentRuntimeDirectory, resolveDesktopBuildTarget } from './desktop-build-paths.mjs'
+import { developmentRuntimeDirectory, resolveDesktopDevelopmentTarget } from './desktop-build-paths.mjs'
 import { prepareDevelopmentProject } from './development-project.ts'
 import { prepareDevelopmentApp } from './development-app.ts'
 import { preparePrimaryRuntime } from './prepare-primary-runtime.ts'
@@ -72,6 +72,8 @@ async function launchElectron(): Promise<void> {
     DSH_DESKTOP_HOST_INSPECT_PORT: String(hostPort),
     DSH_DESKTOP_OPEN_DEVTOOLS: process.env.DSH_DESKTOP_OPEN_DEVTOOLS ?? '1',
     ELECTRON_ENABLE_LOGGING: process.env.ELECTRON_ENABLE_LOGGING ?? '1',
+    JAN_LLAMA_WORKER: process.env.JAN_LLAMA_WORKER
+      ?? join(REPOSITORY_ROOT, 'native', 'llama-worker', 'dist', process.platform === 'win32' ? 'jan-llama-worker.exe' : 'jan-llama-worker'),
   }
   console.log(`desktop development: DSH_HOME=${home}`)
   console.log(`desktop development: userData=${userData}`)
@@ -102,6 +104,7 @@ async function main(): Promise<void> {
   ]) {
     if (!existsSync(path)) throw new Error(`desktop development: missing built artifact ${path}`)
   }
+  const target = resolveDesktopDevelopmentTarget()
   const version = packageVersion(join(APP_ROOT, 'package.json'), 'desktop package')
   const pnpmVersion = packageVersion(join(APP_ROOT, 'node_modules', 'pnpm', 'package.json'), 'pnpm package')
   const release: DesktopRelease = {
@@ -118,9 +121,9 @@ async function main(): Promise<void> {
     hostDir: join(REPOSITORY_ROOT, 'apps', 'desktop-host'),
     dependencyDir: join(REPOSITORY_ROOT, 'node_modules', '.pnpm', 'node_modules'),
     release,
-    target: resolveDesktopBuildTarget(),
+    target,
   })
-  await preparePrimaryRuntime()
+  await preparePrimaryRuntime(target)
   await launchElectron()
 }
 

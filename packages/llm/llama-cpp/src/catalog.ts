@@ -15,6 +15,8 @@ export interface CatalogModel extends Artifact {
   readonly repo: string
   /** Shown first and labelled recommended. */
   readonly recommended: boolean
+  /** Vision projector downloaded beside the model, which lets it read images. */
+  readonly mmproj?: Artifact
 }
 
 const hf = (repo: string, revision: string, file: string): string => `https://huggingface.co/${repo}/resolve/${revision}/${file}`
@@ -52,6 +54,15 @@ export const CATALOG: readonly CatalogModel[] = [
     id: SMALL_MODEL_ID, name: 'Qwen3 0.6B', repo: 'ggml-org/Qwen3-0.6B-GGUF', recommended: false,
     url: hf('ggml-org/Qwen3-0.6B-GGUF', '13ac06624948e4d8589cb4b6f90100837342fcb8', 'Qwen3-0.6B-Q4_0.gguf'),
     sha256: 'da2572f16c06133561ce56accaa822216f2391ef4d37fba427801cd6736417d4', bytes: 428_970_080,
+  },
+  {
+    id: 'qwen3-vl-2b-instruct', name: 'Qwen3 VL 2B Instruct', repo: 'unsloth/Qwen3-VL-2B-Instruct-GGUF', recommended: false,
+    url: hf('unsloth/Qwen3-VL-2B-Instruct-GGUF', '8dcb98e52a1d1d02dce9249e5ab15bae8121c666', 'Qwen3-VL-2B-Instruct-Q4_K_M.gguf'),
+    sha256: '858fcf2a39dc73b26dd86592cb0a5f949b59d1edb365d1dea98e46b02e955e56', bytes: 1_107_410_624,
+    mmproj: {
+      url: hf('unsloth/Qwen3-VL-2B-Instruct-GGUF', '8dcb98e52a1d1d02dce9249e5ab15bae8121c666', 'mmproj-F16.gguf'),
+      sha256: 'cd5a851d3928697fa1bd76d459d2cc409b6cf40c9d9682b2f5c8e7c6a9f9630f', bytes: 819_395_232,
+    },
   },
 ]
 

@@ -6,7 +6,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings-models/client'
 import type { LocalModelInjected } from './actions.ts'
 import type { NS } from './locales.ts'
 import { ModelManager } from './ModelManager.tsx'
-import { downloadSize, Failure, Progress, Status } from './parts.tsx'
+import { downloadSize, Failure, HardwareSummary, Progress, Status } from './parts.tsx'
 import css from './LocalModel.module.css'
 
 /** Footer-slot props plus the plugin's injected state and actions. */
@@ -25,6 +25,7 @@ export function LocalModelCard({ useLocalModel, actions, t }: LocalModelCardProp
         <div>
           <h3 className={css.title}>{state.models.length === 0 ? t('title') : `${t('title')} · ${state.model.name}`}</h3>
           <p className={css.muted}>{t('subtitle')}</p>
+          <HardwareSummary hardware={state.hardware} t={t} />
         </div>
         <Status state={state} t={t} />
       </div>

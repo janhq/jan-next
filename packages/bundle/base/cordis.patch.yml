@@ -133,6 +133,7 @@
         apiBaseURL: !!js (process.env.TOKAMAK_BASE_URL || 'https://api.tokamak.sh/v1').trim().replace(/\/+$/, '').replace(/^(https?:\/\/[^/]+)$/, '$1/v1')
         webOrigin: !!js process.env.TOKAMAK_WEB_URL || ''
         allowLoopbackHttp: !!js "['1', 'true', 'yes'].includes((process.env.TOKAMAK_ALLOW_LOOPBACK_HTTP ?? '').toLowerCase())"
+        clientName: Jan Alpha
 
     - id: credentials
       name: '@deepseek-ai/dsh-credentials-local'
@@ -167,12 +168,13 @@
               - id: anthropic/claude-haiku-5-5[1m]
                 contextWindow: 1000000
               - id: openai/gpt-6-sol
-          # tokamak-harness: the managed local model (web-app row `llama-cpp`). Its key
-          # exists only while that server runs, so otherwise the route offers no models.
+          # tokamak-harness: the managed local model (web-app row `llama-cpp`). Its key and
+          # endpoint (the worker's OS-assigned port) exist only while that worker runs, so
+          # otherwise the route offers no models.
           local:
             displayName: Local (llama.cpp)
             api: openai-completions
-            baseURL: http://127.0.0.1:39281/v1
+            baseURLEnv: LLAMA_CPP_BASE_URL
             apiKeyEnv: LLAMA_CPP_API_KEY
             # A CPU-only machine can take minutes to read the harness's ~12k-token
             # prompt before the first token; wait instead of retrying from scratch.
@@ -182,7 +184,7 @@
               # the name equal to it through the llm-pi-ai settings section.
               - id: local
                 name: Jan v3.5 4B (local)
-                # Matches the llama-cpp row's ctxSize (32768).
+                # The llama-cpp row's ctxSize (32768) until it writes the context the worker serves.
                 contextWindow: 32768
                 maxTokens: 8192
 

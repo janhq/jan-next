@@ -1,7 +1,7 @@
 /** Pieces shared by the Models card and the first-run option. */
 import type { ReactNode } from 'react'
-import { StateDot, type StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { LlamaCppPhase, LlamaCppProgress, LlamaCppState } from '@deepseek-ai/dsh-api-llama-cpp-controller'
+import { StateDot, Tag, type StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { LlamaCppHardware, LlamaCppPhase, LlamaCppProgress, LlamaCppState, ModelFit } from '@deepseek-ai/dsh-api-llama-cpp-controller'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { estimateRemaining, formatBytes } from './state.ts'
 import type { NS } from './locales.ts'
@@ -22,9 +22,9 @@ function tone(phase: LlamaCppPhase): StateDotState {
   return 'idle'
 }
 
-/** @returns the total first download for this backend and model. */
+/** @returns the size of the first-run model download. */
 export function downloadSize(state: LlamaCppState): string {
-  return formatBytes(state.model.modelBytes + state.model.engineBytes)
+  return formatBytes(state.model.modelBytes)
 }
 
 /** Phase dot and label. */
@@ -35,14 +35,14 @@ export function Status({ state, t }: { state: LlamaCppState; t: T }): ReactNode 
 }
 
 /**
- * One download's progress: a bar over the whole download, then percent, bytes, speed and time left.
+ * One download's progress: a bar, then percent, bytes, speed and time left.
  * @returns the bar and its caption.
  */
 export function DownloadProgress({ progress, name, t }: { progress: LlamaCppProgress; name: string; t: T }): ReactNode {
-  const received = progress.overallReceivedBytes
-  const total = Math.max(progress.overallTotalBytes, 1)
+  const received = progress.receivedBytes
+  const total = Math.max(progress.totalBytes, 1)
   const percent = Math.min(100, Math.floor((received / total) * 100))
-  const step = progress.phase === 'engine' ? t('progressEngineStep') : t('progressModelStep', { name })
+  const step = t('progressModelStep', { name })
   const eta = estimateRemaining(total - received, progress.bytesPerSecond)
   const detail = [
     t('progressDetail', { percent: String(percent), received: formatBytes(received), total: formatBytes(total) }),
@@ -63,7 +63,7 @@ export function Progress({ state, t }: { state: LlamaCppState; t: T }): ReactNod
   return <DownloadProgress progress={progress} name={running?.name ?? state.model.name} t={t} />
 }
 
-/** Failure message with the engine's last log lines. */
+/** Failure message with the worker's last log lines. */
 export function Failure({ state, t }: { state: LlamaCppState; t: T }): ReactNode {
   if (state.phase !== 'failed') return null
   return <div role="alert">
@@ -73,4 +73,34 @@ export function Failure({ state, t }: { state: LlamaCppState; t: T }): ReactNode
       <pre className={css.log}>{state.logTail}</pre>
     </details>}
   </div>
+}
+
+const FIT = {
+  fits: { label: 'fitFits', hint: 'fitFitsHint', tone: 'success' },
+  tight: { label: 'fitTight', hint: 'fitTightHint', tone: 'warning' },
+  'too-large': { label: 'fitTooLarge', hint: 'fitTooLargeHint', tone: 'danger' },
+} as const satisfies Record<ModelFit, { label: string; hint: string; tone: 'success' | 'warning' | 'danger' }>
+
+/** How a model compares with this machine's memory; nothing while that is unknown. */
+export function FitTag({ fit, t }: { fit: ModelFit | undefined; t: T }): ReactNode {
+  if (fit === undefined) return null
+  const copy = FIT[fit]
+  return <span title={t(copy.hint)} data-testid="local-model-fit" data-fit={fit}><Tag tone={copy.tone}>{t(copy.label)}</Tag></span>
+}
+
+/** Marks a model that reads images through its vision projector. */
+export function VisionTag({ t }: { t: T }): ReactNode {
+  return <span title={t('visionHint')} data-testid="local-model-vision"><Tag tone="neutral">{t('visionTag')}</Tag></span>
+}
+
+/** One line naming the accelerators, the backend and system memory the worker found. */
+export function HardwareSummary({ hardware, t }: { hardware: LlamaCppHardware | undefined; t: T }): ReactNode {
+  if (hardware === undefined) return null
+  const devices = hardware.devices.map(device => `${device.name} (${formatBytes(device.totalMiB * 1024 * 1024)})`).join(', ')
+  const parts = [
+    hardware.devices.length === 0 ? t('hardwareCpuOnly') : t('hardwareDevices', { devices }),
+    t('hardwareBackend', { backend: hardware.backend }),
+    t('hardwareMemory', { memory: formatBytes(hardware.memoryBytes) }),
+  ]
+  return <p className={css.muted} data-testid="local-model-hardware">{parts.join(' · ')}</p>
 }

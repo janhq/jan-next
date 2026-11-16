@@ -40,8 +40,8 @@ const cookie = 'dsh-auth-fixture=signed'
 describe('desktop welcome local model', () => {
   const state = {
     phase: 'downloading', provider: 'local', error: 'kept only in failed',
-    model: { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', modelBytes: 2_000, engineBytes: 500, backend: 'metal', engineVersion: 'b1' },
-    progress: { phase: 'model', receivedBytes: 100, totalBytes: 2_000, overallReceivedBytes: 600, overallTotalBytes: 2_500, bytesPerSecond: 50 },
+    model: { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', modelBytes: 2_000 },
+    progress: { receivedBytes: 600, totalBytes: 2_000, bytesPerSecond: 50 },
     models: [], downloads: [], catalog: [], logTail: '/private/path',
   }
 
@@ -57,8 +57,8 @@ describe('desktop welcome local model', () => {
     await backend.localModel.start()
     expect(host.installs).toEqual(['llamaCpp/beginInstall'])
     expect(await backend.localModel.read()).toEqual({
-      phase: 'downloading', name: 'Jan v3.5 4B', totalBytes: 2_500, error: 'kept only in failed',
-      progress: { step: 'model', receivedBytes: 600, totalBytes: 2_500, bytesPerSecond: 50 },
+      phase: 'downloading', name: 'Jan v3.5 4B', totalBytes: 2_000, error: 'kept only in failed',
+      progress: { receivedBytes: 600, totalBytes: 2_000, bytesPerSecond: 50 },
     })
     expect(await backend.read()).toMatchObject({ hasLocalModel: false })
   })

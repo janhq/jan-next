@@ -171,7 +171,19 @@ it('samples the language and UTC offset on every Platform request', async () => 
   manager.close()
 })
 
-it.each([null, {}, { ...bounds, width: NaN }, { ...bounds, x: -1 }, { ...bounds, y: Infinity }])('rejects malformed IPC rectangles', (value) => {
+it('identifies a shell without a desktop Platform client, such as Linux, as web', async () => {
+  const owner = Object.assign(new EventEmitter(), {
+    webContents: new EventEmitter(), contentView: { addChildView: vi.fn(), removeChildView: vi.fn() }, isDestroyed: () => false,
+  })
+  const manager = new DesktopPlatformView('/bundled/preload.cjs', () => 'en_US', null, () => false)
+  manager.setSession({ origin: 'https://platform.deepseek.com', userId: null, token: 'fixture-secret' })
+  await manager.open(owner, 'usage', bounds)
+  expect(interceptHeaders(1, 'https://platform.deepseek.com/usage', { 'x-client-platform': 'stale' }))
+    .toMatchObject({ 'x-client-platform': 'web' })
+  manager.close()
+})
+
+it.each([null, {},{ ...bounds, width: NaN }, { ...bounds, x: -1 }, { ...bounds, y: Infinity }])('rejects malformed IPC rectangles', (value) => {
   expect(() => platformBounds(value)).toThrow()
 })
 

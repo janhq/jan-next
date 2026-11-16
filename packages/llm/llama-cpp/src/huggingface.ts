@@ -1,6 +1,7 @@
 /**
  * Hugging Face repository lookup for the model manager: list a repository's single-file GGUF
- * models with the LFS digest and size a verified download needs, pinned to the current commit.
+ * models and its vision projector with the LFS digest and size a verified download needs, pinned to
+ * the current commit.
  */
 
 /** One downloadable GGUF file of a repository. */
@@ -25,6 +26,11 @@ export interface HuggingFaceRepo {
   readonly revision: string
   /** Downloadable files, smallest first. */
   readonly files: readonly HuggingFaceFile[]
+  /**
+   * Vision projector downloaded beside any of {@link files}: the one named `mmproj-f16` (any case),
+   * else the first in the repository's listing; absent when the repository has none.
+   */
+  readonly projector?: HuggingFaceFile
 }
 
 /** Why a lookup failed, phrased for the person who typed the repository. */
@@ -72,9 +78,9 @@ interface ApiSibling {
 }
 
 /**
- * Look up a repository's downloadable GGUF files. Projector (`mmproj`) files, importance matrices,
- * speculative-decoding drafts and split multi-part models are left out; files without an LFS digest
- * cannot be verified and are left out too.
+ * Look up a repository's downloadable GGUF files and its projector. Importance matrices,
+ * speculative-decoding drafts and split multi-part files are left out; files without an LFS digest
+ * cannot be verified and are left out too. Projector (`mmproj`) files are not offered as models.
  * @param origin - Hugging Face origin, e.g. `https://huggingface.co`.
  * @param input - repository id or URL as typed.
  * @param signal - cancellation.
@@ -103,21 +109,25 @@ export async function lookupRepo(origin: string, input: string, signal?: AbortSi
   }
   const revision = body.sha
   const files: HuggingFaceFile[] = []
+  const projectors: HuggingFaceFile[] = []
   for (const sibling of body.siblings as ApiSibling[]) {
     const file = sibling.rfilename
-    if (typeof file !== 'string' || !file.toLowerCase().endsWith('.gguf') || /mmproj/i.test(file) || SPLIT.test(file)
-      || COMPANION.test(file)) continue
+    if (typeof file !== 'string' || !file.toLowerCase().endsWith('.gguf') || SPLIT.test(file) || COMPANION.test(file)) continue
     const sha256 = sibling.lfs?.sha256
     const bytes = sibling.lfs?.size ?? sibling.size
     if (typeof sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(sha256) || typeof bytes !== 'number' || bytes <= 0) continue
-    const quant = QUANT.exec(file.split('/').at(-1) ?? file)?.[1]?.toUpperCase()
-    files.push({
+    const name = file.split('/').at(-1) ?? file
+    const quant = QUANT.exec(name)?.[1]?.toUpperCase()
+    const entry: HuggingFaceFile = {
       file, bytes, sha256,
       url: `${origin}/${repo}/resolve/${revision}/${file.split('/').map(encodeURIComponent).join('/')}`,
       ...quant === undefined ? {} : { quant },
       recommended: quant !== undefined && RECOMMENDED.test(quant),
-    })
+    }
+    if (/mmproj/i.test(file)) projectors.push(entry)
+    else files.push(entry)
   }
   files.sort((a, b) => a.bytes - b.bytes)
-  return { repo, revision, files }
+  const projector = projectors.find(entry => /^mmproj-f16\.gguf$/i.test(entry.file.split('/').at(-1) ?? entry.file)) ?? projectors[0]
+  return { repo, revision, files, ...projector === undefined ? {} : { projector } }
 }

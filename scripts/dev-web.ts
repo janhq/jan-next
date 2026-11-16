@@ -379,6 +379,8 @@ if (isMain) {
   for (const [name, value] of Object.entries(buildEnvironment)) {
     if (name.startsWith('DSH_CLIENT_') && value !== undefined) process.env[name] = value
   }
+  // The served Host's llama-cpp row runs the `pnpm run stage:llama-worker` output unless one is named.
+  process.env.JAN_LLAMA_WORKER ??= join(repoRoot, 'native', 'llama-worker', 'dist', process.platform === 'win32' ? 'jan-llama-worker.exe' : 'jan-llama-worker')
 
   const pluginDirs = discoverPluginDirs()
   const libraryDirs = discoverLibraryDirs()

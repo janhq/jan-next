@@ -52,19 +52,15 @@ function record(value: unknown): value is Record<string, unknown> {
  */
 export function welcomeLocalModel(value: unknown): WelcomeLocalModel {
   if (!record(value) || typeof value.phase !== 'string' || !record(value.model) || typeof value.model.name !== 'string'
-    || typeof value.model.modelBytes !== 'number' || typeof value.model.engineBytes !== 'number') {
+    || typeof value.model.modelBytes !== 'number') {
     throw new Error('desktop welcome: invalid local model state')
   }
   const progress = value.progress
   return {
-    phase: value.phase, name: value.model.name, totalBytes: value.model.modelBytes + value.model.engineBytes,
-    ...record(progress) && (progress.phase === 'engine' || progress.phase === 'model')
-      && typeof progress.overallReceivedBytes === 'number' && typeof progress.overallTotalBytes === 'number'
+    phase: value.phase, name: value.model.name, totalBytes: value.model.modelBytes,
+    ...record(progress) && typeof progress.receivedBytes === 'number' && typeof progress.totalBytes === 'number'
       && typeof progress.bytesPerSecond === 'number'
-      ? { progress: {
-        step: progress.phase, receivedBytes: progress.overallReceivedBytes, totalBytes: progress.overallTotalBytes,
-        bytesPerSecond: progress.bytesPerSecond,
-      } }
+      ? { progress: { receivedBytes: progress.receivedBytes, totalBytes: progress.totalBytes, bytesPerSecond: progress.bytesPerSecond } }
       : {},
     ...typeof value.error === 'string' ? { error: value.error } : {},
   }

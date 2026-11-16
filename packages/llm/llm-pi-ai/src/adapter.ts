@@ -56,6 +56,7 @@ import type {
   StreamChunk,
   ToolSchema,
 } from '@deepseek-ai/dsh-llm'
+import type { CredentialRef } from '@deepseek-ai/dsh-credentials'
 import type { AttachmentStore, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import { idleWatchdog, timeoutOf } from '@deepseek-ai/dsh-timeout'
 import type { ResolvedPiAiProviderProfile } from './config.ts'
@@ -96,6 +97,12 @@ export interface PiAiAdapterOptions {
    * `MISSING_CREDENTIAL` rather than falling back.
    */
   resolveApiKey: (provider: string, profile: ResolvedPiAiProviderProfile) => Promise<string | undefined>
+  /**
+   * Resolve the endpoint of a profile that names `baseURLEnv`; called and frozen like
+   * {@link resolveApiKey}, and throws `MISSING_CREDENTIAL` while the reference is unset. Without it
+   * such a route fails every request with `INVALID_CONFIG`.
+   */
+  resolveBaseURL?: (provider: string, profile: ResolvedPiAiProviderProfile & { baseURLEnv: CredentialRef }) => Promise<string>
   /**
    * How every collection this adapter builds resolves auth the request-level
    * `apiKey` override does not cover. Required rather than optional: a
@@ -323,6 +330,16 @@ export class PiAiAdapter extends LlmAdapter {
     return resolved
   }
 
+  /** @returns the per-request endpoint of a `baseURLEnv` route, or undefined for a configured one. */
+  private async endpointOf(provider: string, profile: ResolvedPiAiProviderProfile): Promise<string | undefined> {
+    const { baseURLEnv } = profile
+    if (baseURLEnv === undefined) return undefined
+    if (this.config.resolveBaseURL === undefined) {
+      throw new LlmError(`pi-ai adapter cannot resolve baseURLEnv for provider "${provider}"`, 'INVALID_CONFIG')
+    }
+    return await this.config.resolveBaseURL(provider, { ...profile, baseURLEnv })
+  }
+
   override providerInfo(provider: string): LlmProviderInfo {
     // The configured name, not the route key: `displayName` exists so a
     // deployment can label a route, and a label only the configuration surface
@@ -338,9 +355,12 @@ export class PiAiAdapter extends LlmAdapter {
     return Promise.resolve().then(async () => {
       const snapshot = this.current()
       const profile = this.profileOf(snapshot, provider)
-      try { await this.config.resolveApiKey(provider, profile) }
+      try {
+        await this.config.resolveApiKey(provider, profile)
+        await this.endpointOf(provider, profile)
+      }
       catch (error) {
-        // A route whose named key does not resolve cannot serve a request, so it offers no models until the key is stored.
+        // A route whose named key or endpoint does not resolve cannot serve a request, so it offers no models until both are stored.
         if (error instanceof LlmError && error.code === 'MISSING_CREDENTIAL') return []
         throw error
       }
@@ -408,11 +428,11 @@ export class PiAiAdapter extends LlmAdapter {
     // mid-request builds a separate snapshot, so this request finishes under
     // the one it started with and the next call picks up the new one.
     const profile = this.profileOf(snapshot, options.provider)
-    const model = this.modelOf(snapshot, options.provider, options.model)
-    const updates = conversationUpdates(model)
+    const configured = this.modelOf(snapshot, options.provider, options.model)
+    const updates = conversationUpdates(configured)
     // pi-ai collapses Anthropic tool updates without an initially active declaration.
     const tools = options.tools ?? []
-    const needsPlaceholder = model.api === 'anthropic-messages' && updates.toolUpdate === 'in-history'
+    const needsPlaceholder = configured.api === 'anthropic-messages' && updates.toolUpdate === 'in-history'
       && tools.every(tool => tool.deferLoading === true)
       && options.messages.some(message => message.role === 'developer'
         && message.content.some(block => block.type === 'tool-addition' || block.type === 'tool-removal'))
@@ -420,10 +440,12 @@ export class PiAiAdapter extends LlmAdapter {
       ? { ...options, tools: [ANTHROPIC_TOOL_UPDATE_PLACEHOLDER, ...tools] }
       : options
     const reasoning = resolveReasoningLevel(
-      model,
+      configured,
       options.reasoningEffort ?? profile.reasoning,
     )
     const apiKey = await this.config.resolveApiKey(options.provider, profile)
+    const endpoint = await this.endpointOf(options.provider, profile)
+    const model = endpoint === undefined ? configured : { ...configured, baseUrl: endpoint }
 
     const consumer = new AbortController()
     const upstream = options.signal === undefined

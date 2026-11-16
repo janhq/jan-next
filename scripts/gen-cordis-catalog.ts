@@ -990,6 +990,8 @@ export const FOUNDATION_TYPE_NAMES: ReadonlySet<string> = new Set([
 /** Project types deliberately documented outside the subsystems catalog. */
 export const TYPE_LINK_EXEMPTIONS: Readonly<Record<string, string>> = {
   LlamaCppState: 'tokamak-harness local model state is owned by packages/llm/llama-cpp/src/types.ts and README-tokamak.md',
+  HuggingFaceRepoInfo: 'tokamak-harness Hugging Face lookup result is owned by packages/llm/llama-cpp/src/types.ts and README-tokamak.md',
+  ImportModelOptions: 'tokamak-harness local model import options are owned by packages/llm/llama-cpp/src/types.ts and README-tokamak.md',
   ActionCardDecision: 'packages/experimental/action-cards/README.md',
   ActionCardKind: 'packages/experimental/action-cards/README.md',
   ActionCardResult: 'packages/experimental/action-cards/README.md',

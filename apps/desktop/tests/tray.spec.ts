@@ -15,7 +15,7 @@ const native = await vi.hoisted(async () => {
   const menus: MenuItemConstructorOptions[][] = []
   return {
     trays, FakeTray, menus,
-    createFromPath: vi.fn((path: string) => ({ path })),
+    createFromPath: vi.fn((path: string) => ({ path, resize: (size: { width: number; height: number }) => ({ path, ...size }) })),
     buildFromTemplate: vi.fn((template: MenuItemConstructorOptions[]) => { menus.push(template); return { template } }),
   }
 })
@@ -42,10 +42,18 @@ function labels(menu: MenuItemConstructorOptions[]): (string | undefined)[] {
 it('shows the application icon with its name as the tooltip and an Open / Quit menu', () => {
   const f = setup()
   expect(native.createFromPath).toHaveBeenCalledWith('C:/app/resources/tray.ico')
-  expect(f.native.image).toEqual({ path: 'C:/app/resources/tray.ico' })
+  expect(f.native.image).toMatchObject({ path: 'C:/app/resources/tray.ico' })
+  expect(f.native.image).not.toHaveProperty('width')
   expect(f.native.setToolTip).toHaveBeenCalledWith('Jan Alpha')
   expect(labels(native.menus[0]!)).toEqual(['Open Jan Alpha', 'separator', 'Quit Jan Alpha'])
   expect(f.native.setContextMenu).toHaveBeenCalledWith({ template: native.menus[0] })
+})
+
+it('scales the icon to the requested edge', () => {
+  const tray = new DesktopTray({ iconPath: '/opt/jan/resources/icon.png', edge: 32, locale: () => resolveDesktopLocale('en'),
+    open: vi.fn(), quit: vi.fn() })
+  expect(native.trays[0]!.image).toEqual({ path: '/opt/jan/resources/icon.png', width: 32, height: 32 })
+  tray.dispose()
 })
 
 it('opens the window on a single click and routes menu entries to the open and quit actions', () => {

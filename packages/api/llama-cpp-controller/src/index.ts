@@ -5,8 +5,9 @@ import type {} from '@deepseek-ai/dsh-llama-cpp'
 import type { HuggingFaceRepoInfo, LlamaCppState } from '@deepseek-ai/dsh-llama-cpp/types'
 
 export type {
-  CatalogModelInfo, HuggingFaceFileInfo, HuggingFaceRepoInfo, LlamaCppDownload, LlamaCppModelInfo, LlamaCppPhase,
-  LlamaCppProgress, LlamaCppState, LocalModelEntry, LocalModelSource,
+  CatalogModelInfo, HuggingFaceFileInfo, HuggingFaceRepoInfo, ImportModelOptions, LlamaCppDevice, LlamaCppDownload, LlamaCppHardware,
+  LlamaCppHostPlatform, LlamaCppModelInfo, LlamaCppPhase, LlamaCppProgress, LlamaCppState, LocalModelEntry, LocalModelSource,
+  LocalModelStatus, ModelFit,
 } from '@deepseek-ai/dsh-llama-cpp/types'
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
@@ -28,7 +29,7 @@ function failed(error: unknown): RemoteError {
   return new RemoteError('llama-cpp/failed', reason, { reason })
 }
 
-/** Install, start, stop and remove the local engine and its models; progress arrives through {@link follow}. */
+/** Install, start, stop and remove the local models and the worker serving them; progress arrives through {@link follow}. */
 export default class LlamaCppController extends TypertRemoteService {
   static inject = ['llamaCpp', 'typert']
 
@@ -53,7 +54,7 @@ export default class LlamaCppController extends TypertRemoteService {
     for await (const state of this.ctx.llamaCpp.follow(signal)) yield state
   }
 
-  /** First run: download the engine and the first-run model, verify them, then start the server. */
+  /** First run: download and verify the first-run model, then start the worker; with a model installed, start it. */
   @Remote
   beginInstall(): void {
     try { this.ctx.llamaCpp.install() } catch (error) { throw failed(error) }
@@ -118,25 +119,49 @@ export default class LlamaCppController extends TypertRemoteService {
   /**
    * Add a GGUF file from this computer, left where it is.
    * @param path - absolute path on the Host.
+   * @param projector - absolute Host path of the model's vision projector (mmproj) file; omitted for a text-only model.
    * @returns the model id.
    */
   @Remote
-  async importModel(path: string): Promise<string> {
-    try { return await this.ctx.llamaCpp.importModel(path) } catch (error) { throw failed(error) }
+  async importModel(path: string, projector?: string): Promise<string> {
+    try {
+      return await this.ctx.llamaCpp.importModel(path, projector === undefined ? undefined : { projector })
+    } catch (error) { throw failed(error) }
   }
 
   /**
-   * Run an installed model, restarting the server with it.
+   * Make an installed model the default, which the route's alias id serves, and load it; a stopped
+   * worker starts. A start failure arrives through {@link follow}.
    * @param id - installed model id.
-   * @returns after the server runs it or has failed.
+   * @returns after the worker serves it or has failed to start.
    */
   @Remote
-  async selectModel(id: string): Promise<void> {
-    try { await this.ctx.llamaCpp.select(id) } catch (error) { throw failed(error) }
+  async setDefaultModel(id: string): Promise<void> {
+    try { await this.ctx.llamaCpp.setDefault(id) } catch (error) { throw failed(error) }
   }
 
   /**
-   * Remove an installed model; an imported file is only forgotten.
+   * Load an installed model now instead of on its first request, starting a stopped worker.
+   * @param id - installed model id.
+   * @returns after it is loaded.
+   */
+  @Remote
+  async loadModel(id: string): Promise<void> {
+    try { await this.ctx.llamaCpp.loadModel(id) } catch (error) { throw failed(error) }
+  }
+
+  /**
+   * Free a loaded model's memory; it loads again on its next request.
+   * @param id - installed model id.
+   * @returns after it is unloaded.
+   */
+  @Remote
+  async unloadModel(id: string): Promise<void> {
+    try { await this.ctx.llamaCpp.unloadModel(id) } catch (error) { throw failed(error) }
+  }
+
+  /**
+   * Remove an installed model, unloading it first; an imported file is only forgotten.
    * @param id - installed model id.
    * @returns after it is removed.
    */
@@ -146,14 +171,14 @@ export default class LlamaCppController extends TypertRemoteService {
   }
 
   /**
-   * Start the installed server.
+   * Start the worker with the default model.
    * @returns after it is running or has failed.
    */
   @Remote
   async startServer(): Promise<void> { await this.ctx.llamaCpp.start() }
 
   /**
-   * Stop the server.
+   * Stop the worker.
    * @returns after it has exited.
    */
   @Remote
@@ -162,7 +187,7 @@ export default class LlamaCppController extends TypertRemoteService {
   }
 
   /**
-   * Delete the engine and every downloaded model and remove the route key.
+   * Stop the worker, delete every downloaded model and remove the route credentials.
    * @returns after the files are gone.
    */
   @Remote

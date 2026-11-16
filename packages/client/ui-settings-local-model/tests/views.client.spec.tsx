@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
@@ -12,11 +12,15 @@ import type { LocalModelActions } from '../src/client/actions.ts'
 
 afterEach(cleanup)
 
-const model = { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', modelBytes: 2_716_066_656, engineBytes: 23_109_987, backend: 'cpu' as const, engineVersion: 'b12211' }
-const jan: LocalModelEntry = { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', bytes: 2_716_066_656, source: 'catalog', active: true }
+const model = { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', modelBytes: 2_716_066_656 }
+const jan: LocalModelEntry = {
+  id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', bytes: 2_716_066_656, source: 'catalog', active: true, status: 'loaded', architecture: 'qwen3',
+  vision: false,
+}
 const catalog: CatalogModelInfo[] = [
-  { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', bytes: 2_716_066_656, repo: 'janhq/Jan-v3.5-4B-gguf', recommended: true, installed: false },
-  { id: 'qwen3-8b', name: 'Qwen3 8B', bytes: 5_027_784_512, repo: 'unsloth/Qwen3-8B-GGUF', recommended: false, installed: false },
+  { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', bytes: 2_716_066_656, repo: 'janhq/Jan-v3.5-4B-gguf', recommended: true, installed: false, vision: false },
+  { id: 'qwen3-8b', name: 'Qwen3 8B', bytes: 5_027_784_512, repo: 'unsloth/Qwen3-8B-GGUF', recommended: false, installed: false, vision: false },
+  { id: 'qwen3-vl-2b', name: 'Qwen3 VL 2B Instruct', bytes: 1_900_000_000, repo: 'unsloth/Qwen3-VL-2B-Instruct-GGUF', recommended: false, installed: false, vision: true },
 ]
 
 function t(key: keyof typeof en, params?: Record<string, string>): string {
@@ -26,7 +30,7 @@ function t(key: keyof typeof en, params?: Record<string, string>): string {
 }
 
 function progress(receivedBytes: number, totalBytes: number, extra: Partial<LlamaCppProgress> = {}): LlamaCppProgress {
-  return { phase: 'model', receivedBytes, totalBytes, overallReceivedBytes: receivedBytes, overallTotalBytes: totalBytes, bytesPerSecond: 0, ...extra }
+  return { receivedBytes, totalBytes, bytesPerSecond: 0, ...extra }
 }
 
 type StateInput = Partial<LlamaCppState> & Pick<LlamaCppState, 'phase'>
@@ -34,14 +38,18 @@ type StateInput = Partial<LlamaCppState> & Pick<LlamaCppState, 'phase'>
 const INSTALLED = new Set(['installed', 'stopped', 'starting', 'running'])
 
 function full(state: StateInput): LlamaCppState {
-  return { provider: 'local', model, models: INSTALLED.has(state.phase) ? [jan] : [], downloads: [], catalog, ...state }
+  return { hostPlatform: 'linux', provider: 'local', model, models: INSTALLED.has(state.phase) ? [jan] : [], downloads: [], catalog, ...state }
 }
 
 function fixture(state: StateInput) {
   const store = createSnapshotStore<LocalModelMirror>({ state: full(state), connected: true })
   const actions = {
     install: vi.fn(), cancel: vi.fn(), start: vi.fn(), stop: vi.fn(), uninstall: vi.fn(),
-    downloadModel: vi.fn(), cancelDownload: vi.fn(), retryDownload: vi.fn(), selectModel: vi.fn(), deleteModel: vi.fn(),
+    downloadModel: vi.fn(), cancelDownload: vi.fn(), retryDownload: vi.fn(),
+    setDefaultModel: vi.fn<LocalModelActions['setDefaultModel']>(async () => ({ ok: true, value: undefined })),
+    loadModel: vi.fn<LocalModelActions['loadModel']>(async () => ({ ok: true, value: undefined })),
+    unloadModel: vi.fn<LocalModelActions['unloadModel']>(async () => ({ ok: true, value: undefined })),
+    deleteModel: vi.fn<LocalModelActions['deleteModel']>(async () => ({ ok: true, value: undefined })),
     lookupRepo: vi.fn<LocalModelActions['lookupRepo']>(), downloadRepoFile: vi.fn<LocalModelActions['downloadRepoFile']>(),
     importModel: vi.fn<LocalModelActions['importModel']>(),
   }
@@ -82,13 +90,6 @@ it('offers the download with its total size, then shows percent, speed, time lef
   expect(screen.queryByTestId('local-model-downloads')).toBeNull()
 })
 
-it('names the engine step while the engine downloads', () => {
-  const engine = progress(10_000_000, 23_109_987, { phase: 'engine', overallTotalBytes: 2_739_176_643 })
-  const f = fixture({ phase: 'downloading', progress: engine, downloads: [{ id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', progress: engine }] })
-  card(f)
-  expect(screen.getByTestId('local-model-progress').textContent).toBe('Downloading the llama.cpp engine: 0% · 10 MB of 2.7 GB')
-})
-
 it('starts, stops and removes an installed model', () => {
   const f = fixture({ phase: 'stopped' })
   const view = card(f)
@@ -104,38 +105,73 @@ it('starts, stops and removes an installed model', () => {
   expect(f.actions.stop).toHaveBeenCalledOnce()
 })
 
-it('shows a failure with the engine log and offers a retry', () => {
-  const f = fixture({ phase: 'failed', error: 'the local model server exited (code 3)', logTail: 'failed to load model' })
+it('shows a failure with the worker log and offers a retry', () => {
+  const f = fixture({ phase: 'failed', error: 'the local model worker exited with code 4: it could not read its preset', logTail: 'failed to load model' })
   card(f)
-  expect(screen.getByRole('alert').textContent).toContain('exited (code 3)')
+  expect(screen.getByRole('alert').textContent).toContain('exited with code 4')
   expect(screen.getByText('failed to load model')).toBeTruthy()
   fireEvent.click(screen.getByTestId('local-model-retry'))
   expect(f.actions.install).toHaveBeenCalledOnce()
 })
 
-it('lists installed models, switches the active one, and deletes after confirmation', () => {
-  const imported: LocalModelEntry = { id: 'mine', name: 'Mine', bytes: 1_000_000, source: 'import', active: false }
-  const f = fixture({ phase: 'running', models: [jan, imported] })
+it('lists installed models with fit, context and residency, and loads, unloads, makes default and deletes them', async () => {
+  const imported: LocalModelEntry = {
+    id: 'mine', name: 'Mine', bytes: 1_000_000, source: 'import', active: false, status: 'unloaded', architecture: 'llama',
+    contextLength: 8192, fit: 'too-large', vision: true,
+  }
+  const f = fixture({ phase: 'running', models: [{ ...jan, contextSize: 32768, fit: 'fits' }, imported] })
   card(f)
   const rows = screen.getByTestId('local-model-installed').querySelectorAll('li')
   expect([...rows].map(row => row.textContent)).toEqual([
-    'Jan v3.5 4B2.7 GB · CuratedIn useDelete',
-    'Mine1 MB · Imported fileUseDelete',
+    'Jan v3.5 4BDefaultFits2.7 GB · qwen3 · 32,768-token context · CuratedLoadedUnloadDelete',
+    'MineVisionToo large1 MB · llama · trained on 8,192 tokens · Imported fileNot loadedLoadMake defaultDelete',
   ])
-  fireEvent.click(screen.getByTestId('local-model-use'))
-  expect(f.actions.selectModel).toHaveBeenCalledWith('mine')
+  expect(rows[1]?.querySelector('[data-fit]')?.getAttribute('title')).toBe(en.fitTooLargeHint)
+  expect(rows[0]?.querySelector('[data-testid="local-model-vision"]')).toBeNull()
+  expect(rows[1]?.querySelector('[data-testid="local-model-vision"]')?.getAttribute('title')).toBe(en.visionHint)
+  fireEvent.click(screen.getByTestId('local-model-unload'))
+  expect(f.actions.unloadModel).toHaveBeenCalledWith('jan-v3.5-4b')
+  fireEvent.click(screen.getByTestId('local-model-load'))
+  expect(f.actions.loadModel).toHaveBeenCalledWith('mine')
+  // The row waits for its operation before offering another.
+  expect(screen.getByTestId('local-model-make-default').hasAttribute('disabled')).toBe(true)
+  await waitFor(() => { expect(screen.getByTestId('local-model-make-default').hasAttribute('disabled')).toBe(false) })
+  fireEvent.click(screen.getByTestId('local-model-make-default'))
+  expect(f.actions.setDefaultModel).toHaveBeenCalledWith('mine')
+  f.actions.deleteModel.mockResolvedValueOnce({ ok: false, error: 'the model has requests in flight; retry once they finish' })
+  await waitFor(() => { expect(screen.getAllByTestId('local-model-delete')[1]?.hasAttribute('disabled')).toBe(false) })
   fireEvent.click(screen.getAllByTestId('local-model-delete')[1]!)
   expect(screen.getByText('Remove Mine from the list? The file stays on disk.')).toBeTruthy()
   fireEvent.click(screen.getByTestId('local-model-confirm-delete'))
   expect(f.actions.deleteModel).toHaveBeenCalledWith('mine')
+  // A refused removal keeps the row and says why on it.
+  expect((await screen.findByRole('alert')).textContent).toBe('the model has requests in flight; retry once they finish')
+  expect(screen.getByTestId('local-model-installed').querySelectorAll('li')).toHaveLength(2)
+})
+
+it('hides residency and load controls while the server is stopped, and summarizes the hardware', () => {
+  const f = fixture({
+    phase: 'stopped', models: [{ ...jan, status: 'unloaded' }],
+    hardware: { backend: 'vulkan', devices: [{ id: 'Vulkan0', name: 'Radeon RX 7800 XT', totalMiB: 16_368, freeMiB: 15_000 }], memoryBytes: 32e9 },
+  })
+  card(f)
+  expect(screen.queryByTestId('local-model-residency')).toBeNull()
+  expect(screen.queryByTestId('local-model-load')).toBeNull()
+  expect(screen.getByTestId('local-model-hardware').textContent).toBe('GPU: Radeon RX 7800 XT (17.2 GB) · Backend: vulkan · System memory: 32.0 GB')
+  cleanup()
+  f.set({ phase: 'stopped', hardware: { backend: 'cpu', devices: [], memoryBytes: 8e9 } })
+  card(f)
+  expect(screen.getByTestId('local-model-hardware').textContent).toBe('No GPU found; models run on the CPU · Backend: cpu · System memory: 8.0 GB')
 })
 
 it('downloads a curated model and shows it in the downloads list with its progress', () => {
-  const f = fixture({ phase: 'running', models: [jan], catalog: catalog.map(entry => ({ ...entry, installed: entry.id === jan.id })) })
+  const f = fixture({ phase: 'running', models: [jan], catalog: catalog.map(entry => ({ ...entry, installed: entry.id === jan.id, fit: 'fits' as const })) })
   const view = card(f)
   const rows = screen.getByTestId('local-model-catalog').querySelectorAll('li')
   expect(rows[0]?.textContent).toContain('Installed')
-  fireEvent.change(screen.getByTestId('local-model-search'), { target: { value: 'qwen' } })
+  expect(rows[1]?.querySelector('[data-fit]')?.textContent).toBe(en.fitFits)
+  expect([...rows].map(row => row.querySelector('[data-testid="local-model-vision"]')?.textContent)).toEqual([undefined, undefined, en.visionTag])
+  fireEvent.change(screen.getByTestId('local-model-search'), { target: { value: 'qwen3 8b' } })
   expect(screen.getByTestId('local-model-catalog').querySelectorAll('li')).toHaveLength(1)
   fireEvent.click(screen.getByTestId('local-model-catalog-download'))
   expect(f.actions.downloadModel).toHaveBeenCalledWith('qwen3-8b')
@@ -158,7 +194,7 @@ it('looks up a pasted Hugging Face repository and downloads one of its files', a
   const f = fixture({ phase: 'running', models: [jan] })
   f.actions.lookupRepo.mockResolvedValue({ ok: true, value: { repo: 'acme/tiny-GGUF', files: [
     { file: 'tiny-Q2_K.gguf', bytes: 1_000_000, quant: 'Q2_K', recommended: false, installed: true },
-    { file: 'tiny-Q4_K_M.gguf', bytes: 2_000_000, quant: 'Q4_K_M', recommended: true, installed: false },
+    { file: 'tiny-Q4_K_M.gguf', bytes: 2_000_000, quant: 'Q4_K_M', recommended: true, installed: false, fit: 'tight' },
   ] } })
   f.actions.downloadRepoFile.mockResolvedValue({ ok: true, value: 'tiny-q4_k_m' })
   card(f)
@@ -169,6 +205,9 @@ it('looks up a pasted Hugging Face repository and downloads one of its files', a
   const rows = screen.getByTestId('local-model-repo-files').querySelectorAll('li')
   expect(rows[0]?.textContent).toContain('Installed')
   expect(rows[1]?.textContent).toContain('2 MB · Q4_K_M')
+  expect(rows[1]?.querySelector('[data-fit]')?.textContent).toBe(en.fitTight)
+  expect(rows[0]?.querySelector('[data-fit]')).toBeNull()
+  expect(screen.queryByTestId('local-model-repo-projector')).toBeNull()
   await act(async () => {
     fireEvent.click(screen.getByTestId('local-model-repo-download'))
     f.set({ phase: 'running', models: [jan], downloads: [{ id: 'tiny-q4_k_m', name: 'tiny-Q4_K_M' }] })
@@ -176,7 +215,7 @@ it('looks up a pasted Hugging Face repository and downloads one of its files', a
   expect(f.actions.downloadRepoFile).toHaveBeenCalledWith('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')
   expect(screen.queryByTestId('local-model-repo-download')).toBeNull()
   // The row follows the live state: installed, then offered again once the model is deleted.
-  const tiny: LocalModelEntry = { id: 'tiny-q4_k_m', name: 'tiny-Q4_K_M', bytes: 2_000_000, source: 'huggingface', active: false }
+  const tiny: LocalModelEntry = { id: 'tiny-q4_k_m', name: 'tiny-Q4_K_M', bytes: 2_000_000, source: 'huggingface', active: false, status: 'unloaded', architecture: 'qwen3', vision: false }
   await act(async () => { f.set({ phase: 'running', models: [jan, tiny] }) })
   expect(screen.getByTestId('local-model-repo-files').querySelectorAll('li')[1]?.textContent).toContain('Installed')
   await act(async () => { f.set({ phase: 'running', models: [jan] }) })
@@ -204,9 +243,49 @@ it('imports a file by path and reports a refusal', async () => {
   expect(screen.getByRole('alert').textContent).toBe('notes.gguf is not a GGUF model file')
   fireEvent.change(field, { target: { value: '/tmp/Mine.gguf' } })
   await act(async () => { fireEvent.click(screen.getByTestId('local-model-import')) })
-  expect(f.actions.importModel).toHaveBeenLastCalledWith('/tmp/Mine.gguf')
+  expect(f.actions.importModel).toHaveBeenLastCalledWith('/tmp/Mine.gguf', undefined)
   expect(screen.getByText('Added Mine.gguf.')).toBeTruthy()
   expect((field as HTMLInputElement).value).toBe('')
+})
+
+it('imports a vision model with its projector file and clears both paths', async () => {
+  const f = fixture({ phase: 'running', models: [jan] })
+  f.actions.importModel.mockResolvedValue({ ok: true, value: 'vl' })
+  card(f)
+  const projector = screen.getByTestId('local-model-import-projector')
+  expect(projector.getAttribute('aria-label')).toBe(en.importProjectorLabel)
+  fireEvent.change(screen.getByTestId('local-model-import-path'), { target: { value: ' /tmp/VL.gguf ' } })
+  fireEvent.change(projector, { target: { value: ' /tmp/mmproj-VL.gguf ' } })
+  await act(async () => { fireEvent.click(screen.getByTestId('local-model-import')) })
+  expect(f.actions.importModel).toHaveBeenLastCalledWith('/tmp/VL.gguf', '/tmp/mmproj-VL.gguf')
+  expect((projector as HTMLInputElement).value).toBe('')
+  // A blank projector field means a text-only model.
+  fireEvent.change(screen.getByTestId('local-model-import-path'), { target: { value: '/tmp/Text.gguf' } })
+  fireEvent.change(projector, { target: { value: '   ' } })
+  await act(async () => { fireEvent.click(screen.getByTestId('local-model-import')) })
+  expect(f.actions.importModel).toHaveBeenLastCalledWith('/tmp/Text.gguf', undefined)
+})
+
+it('says a looked-up repository downloads its vision projector with the model', async () => {
+  const f = fixture({ phase: 'running', models: [jan] })
+  f.actions.lookupRepo.mockResolvedValue({ ok: true, value: { repo: 'acme/vl-GGUF', projector: { file: 'mmproj-F16.gguf', bytes: 800_000_000 }, files: [
+    { file: 'vl-Q4_K_M.gguf', bytes: 2_000_000_000, quant: 'Q4_K_M', recommended: true, installed: false },
+  ] } })
+  card(f)
+  fireEvent.change(screen.getByTestId('local-model-search'), { target: { value: 'acme/vl-GGUF' } })
+  await act(async () => { fireEvent.click(screen.getByTestId('local-model-lookup')) })
+  expect(screen.getByTestId('local-model-repo-projector').textContent)
+    .toBe(`${en.visionTag}Each download includes the vision projector mmproj-F16.gguf (800 MB).`)
+})
+
+it.each([
+  ['linux', '/home/you/models/model.gguf', '/home/you/models/mmproj.gguf'],
+  ['macos', '/Users/you/models/model.gguf', '/Users/you/models/mmproj.gguf'],
+  ['windows', 'C:\\Users\\you\\models\\model.gguf', 'C:\\Users\\you\\models\\mmproj.gguf'],
+] as const)('suggests import paths in the form a %s Host resolves', (hostPlatform, example, projectorExample) => {
+  card(fixture({ phase: 'running', models: [jan], hostPlatform }))
+  expect(screen.getByTestId('local-model-import-path').getAttribute('placeholder')).toBe(example)
+  expect(screen.getByTestId('local-model-import-projector').getAttribute('placeholder')).toBe(`Vision projector (optional), e.g. ${projectorExample}`)
 })
 
 function setup(f: ReturnType<typeof fixture>, owner: Partial<LocalSetupProps> = {}) {
@@ -236,7 +315,7 @@ it('first run: an installed model is started instead of downloaded again', () =>
 })
 
 it('first run: reopening during a download goes straight to its progress', () => {
-  const f = fixture({ phase: 'downloading', progress: progress(1, 2, { phase: 'engine' }) })
+  const f = fixture({ phase: 'downloading', progress: progress(1, 2) })
   const { props } = setup(f)
   expect(props.expand).toHaveBeenCalledOnce()
 })

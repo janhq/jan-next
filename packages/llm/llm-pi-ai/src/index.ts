@@ -59,6 +59,7 @@ import type {} from '@deepseek-ai/dsh-settings'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
 
 import type { Context } from '@deepseek-ai/cordis'
+import type { CredentialRef } from '@deepseek-ai/dsh-credentials'
 import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
 import { assertUsableApiKey, LlmError, resolveImageAttachmentAccess } from '@deepseek-ai/dsh-llm'
 import type { AdapterRegistrationHandle, DirectoryRegistrationHandle, LlmConfigurableProvider } from '@deepseek-ai/dsh-llm'
@@ -235,6 +236,30 @@ export function apply(ctx: Context, config: Config): void {
     return raw
   })
 
+  const lookupCredential = async (ref: CredentialRef): Promise<string | undefined> => {
+    const credentials = ctx.get('credentials')
+    const hit = credentials !== undefined
+      ? (await credentials.resolve(ref))?.value
+      // Without the seam the environment is the whole credential plane.
+      : launchEnvironmentOf(ctx).get(ref)?.value
+    return hit === undefined || hit.length === 0 ? undefined : hit
+  }
+
+  const resolveBaseURL = async (provider: string, ref: CredentialRef): Promise<string> => {
+    const hit = await lookupCredential(ref)
+    if (hit === undefined) {
+      throw new LlmError(
+        `llm-pi-ai: no endpoint for provider route "${provider}"; its profile resolves ${ref}, which is not set`
+        + ' — the service that runs this route publishes it while it serves, or export it',
+        'MISSING_CREDENTIAL',
+      )
+    }
+    if (!URL.canParse(hit) || !/^https?:$/.test(new URL(hit).protocol)) {
+      throw new LlmError(`llm-pi-ai: ${ref} for provider route "${provider}" is not an http(s) URL`, 'INVALID_CONFIG')
+    }
+    return hit
+  }
+
   const resolveApiKey = async (
     provider: string,
     profile: ResolvedPiAiProviderProfile,
@@ -246,12 +271,8 @@ export function apply(ctx: Context, config: Config): void {
     // (OPENAI_API_KEY and friends), billing another tenant for a request the
     // deployment meant to authenticate differently.
     if (ref === undefined) return undefined
-    const credentials = ctx.get('credentials')
-    const hit = credentials !== undefined
-      ? (await credentials.resolve(ref))?.value
-      // Without the seam the environment is the whole credential plane.
-      : launchEnvironmentOf(ctx).get(ref)?.value
-    if (hit !== undefined && hit.length > 0) return assertUsableApiKey(hit, 'llm-pi-ai', ref)
+    const hit = await lookupCredential(ref)
+    if (hit !== undefined) return assertUsableApiKey(hit, 'llm-pi-ai', ref)
     throw new LlmError(
       `llm-pi-ai: no credential for provider route "${provider}"; its profile resolves ${ref}, which is not`
       + ` set — store ${ref} through the credentials service (the web Models page writes it) or export it,`
@@ -267,6 +288,7 @@ export function apply(ctx: Context, config: Config): void {
   const adapter = new PiAiAdapter({
     profiles,
     resolveApiKey,
+    resolveBaseURL: (provider, profile) => resolveBaseURL(provider, profile.baseURLEnv),
     auth,
     prepareHeaders: (request, headers) => ctx.waterfall('llm-pi-ai/request-headers', request, headers, () => headers),
     resolveAttachments: () => ctx.get('attachments'),

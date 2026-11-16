@@ -316,7 +316,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | Package | Config | Description |
 |---|---|---|
 | `@deepseek-ai/dsh-deepseek-llm-api-extensions` | no | Additive request-field registry for the official DeepSeek LLM API adapter |
-| `@deepseek-ai/dsh-llama-cpp` | yes | Download, verify and supervise a local llama.cpp server with one pinned model |
+| `@deepseek-ai/dsh-llama-cpp` | yes | Download and verify GGUF models and supervise the bundled jan-llama-worker that serves them |
 | `@deepseek-ai/dsh-llm` | no | Provider-neutral LLM service interface for the DeepSeek Harness |
 | `@deepseek-ai/dsh-llm-deepseek-account` | yes | DeepSeek account provider authentication and discovery |
 | `@deepseek-ai/dsh-llm-deepseek-api-key` | yes | DeepSeek api-key provider authentication and discovery |

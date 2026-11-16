@@ -128,7 +128,7 @@ describe.skipIf(MODE === 'record')('web e2e: DeepSeek account sign-in in a plain
     const menu = page.getByRole('button', { name: 'Account menu', exact: true })
     await menu.click()
     const tab = context.waitForEvent('page')
-    await page.getByRole('menuitem', { name: 'Sign in', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Sign in with Tokamak', exact: true }).click()
     const authorization = await tab
     await authorization.waitForURL(url => url.pathname === '/dsh/authorized', { timeout: 30_000 })
     expect(await authorization.evaluate(() => window.opener === null)).toBe(true)

@@ -1918,14 +1918,14 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
   },
   {
     key: 'llamaCpp',
-    summary: 'One local engine with one model; every mutation is serialized through LlamaCpp.task.',
-    description: 'One local engine with one model; every mutation is serialized through LlamaCpp.task.',
+    summary: 'Local worker with an installed model set.',
+    description: 'Local worker with an installed model set. Record and process mutations are serialized through LlamaCpp.task; downloads run outside it and commit through it.',
     methods: [
       {
         signature: 'snapshot(): LlamaCppState',
         description: 'Read the current state.',
         parameters: [],
-        returns: 'phase, model facts and progress; never paths or keys.',
+        returns: 'phase, model facts, installed models, downloads and catalog; never paths or keys.',
       },
       {
         signature: 'subscribe(listener: () => void): () => void',
@@ -1941,35 +1941,96 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'install(): void',
-        description: 'Download what is missing, then start the server. Joins an install already in progress. Resolves when the install task is accepted; progress and outcome arrive through follow.',
+        description: 'First-run install: download the first-run model, then start the worker. With a model already installed it starts the active model instead. Returns once accepted; progress and outcome arrive through follow. Nothing downloads while the worker is unavailable.',
         parameters: [],
       },
       {
-        signature: 'async cancel(): Promise<void>',
-        description: 'Stop an install in progress; the partial download is kept and resumed by the next install.',
-        parameters: [],
+        signature: 'downloadCatalog(id: string): void',
+        description: 'Download a curated model, with its vision projector when it has one. Ignored when it is installed or already downloading.',
+        parameters: [{ name: 'id', description: 'catalog id.' }],
+        throws: ['Error for an unknown id.'],
+      },
+      {
+        signature: 'async lookupHuggingFace(input: string, signal?: AbortSignal): Promise<HuggingFaceRepoInfo>',
+        description: 'Look up a Hugging Face repository\'s downloadable GGUF files.',
+        parameters: [{ name: 'input', description: '`owner/name` or a huggingface.co link.' }, { name: 'signal', description: 'cancellation.' }],
+        returns: 'the repository, its files marking those already installed, and the projector each downloads with.',
+        throws: ['{@link HuggingFaceLookupError} for bad input, a missing repository or an unreachable API.'],
+      },
+      {
+        signature: 'async downloadHuggingFace(input: string, file: string, signal?: AbortSignal): Promise<string>',
+        description: 'Download one file of a Hugging Face repository, and the repository\'s vision projector after it, re-reading the repository so the digests and sizes come from Hugging Face, not the caller.',
+        parameters: [{ name: 'input', description: '`owner/name` or a huggingface.co link.' }, { name: 'file', description: 'file name inside the repository.' }, { name: 'signal', description: 'cancellation of the lookup.' }],
+        returns: 'the model id the download installs as.',
+        throws: ['{@link HuggingFaceLookupError} when the repository or file cannot be found.'],
+      },
+      {
+        signature: 'retry(id: string): void',
+        description: 'Start a failed download again, from its partial file.',
+        parameters: [{ name: 'id', description: 'model id of the failed download.' }],
+        throws: ['Error when no failed download has that id.'],
+      },
+      {
+        signature: 'async cancel(id?: string): Promise<void>',
+        description: 'Stop downloads: one by id, or all, discarding their partial files (a download interrupted by shutting down is kept and resumes instead); a failed entry is dismissed.',
+        parameters: [{ name: 'id', description: 'model id, or undefined for every download.' }],
+      },
+      {
+        signature: 'importModel(path: string, options: ImportModelOptions = {}): Promise<string>',
+        description: 'Add a GGUF file from disk, left where it is, recording its header facts, with an optional vision projector also left where it is. The first model added becomes the default and starts; a later one joins the running worker\'s preset. Importing an already imported file with a projector attaches that projector to it, replacing any earlier one.',
+        parameters: [{ name: 'path', description: 'absolute path of a `.gguf` file.' }, { name: 'options', description: 'display name, defaulting to the file name, and projector path.' }],
+        returns: 'the model id.',
+        throws: ['Error when the path is not an absolute path to a readable GGUF file, the file is a vision projector or embedding model rather than a chat model, or the projector is not an absolute path to a readable projector GGUF file.'],
+      },
+      {
+        signature: 'setDefault(id: string): Promise<void>',
+        description: 'Make an installed model the default: the route\'s alias id serves it and it loads when the worker starts. A running worker retargets the alias without reloading any model, then loads it; a stopped one starts. An agent default on another model of this route moves to the alias id.',
+        parameters: [{ name: 'id', description: 'installed model id.' }],
+        returns: 'once the worker serves it; a failed start is published as the `failed` phase.',
+        throws: ['Error for an id that is not installed, or carrying the worker\'s reason when a running worker could not load it; the worker keeps running, and the model stays the default.'],
+      },
+      {
+        signature: 'loadModel(id: string): Promise<void>',
+        description: 'Load an installed model into the running worker, starting the worker first when it is stopped. With Config.modelsMax models resident, the least recently used idle one is unloaded.',
+        parameters: [{ name: 'id', description: 'installed model id.' }],
+        returns: 'once the model is loaded.',
+        throws: ['Error for an id that is not installed, or carrying the worker\'s reason when it could not load the model (all resident models busy, or a load failure).'],
+      },
+      {
+        signature: 'unloadModel(id: string): Promise<void>',
+        description: 'Unload a model from the running worker; it loads again on its next request.',
+        parameters: [{ name: 'id', description: 'installed model id.' }],
+        returns: 'once it is unloaded, or at once when the worker does not hold it.',
+        throws: ['Error carrying the worker\'s reason when the model has requests in flight.'],
+      },
+      {
+        signature: 'removeModel(id: string): Promise<void>',
+        description: 'Remove an installed model. A downloaded file or projector is deleted; an imported one is only forgotten. A resident model is unloaded first, because Windows cannot delete a file the worker maps. Removing the default makes the next installed model the default and loads it into a running worker, as setDefault does; removing the last stops the worker.',
+        parameters: [{ name: 'id', description: 'installed model id.' }],
+        returns: 'once the record and the worker reflect the removal.',
+        throws: ['Error carrying the worker\'s reason when the model has requests in flight, or when the running worker could not load the new default; the removal stands and the worker keeps running.'],
       },
       {
         signature: 'start(): Promise<void>',
-        description: 'Start the installed server, and on later boots. No-op while it is running or starting.',
+        description: 'Start the worker with the active model, now and on later boots. No-op while it is running or starting.',
         parameters: [],
       },
       {
         signature: 'stop(): Promise<void>',
-        description: 'Stop the server, also while it is still starting; the install stays and later boots leave it stopped.',
+        description: 'Stop the worker, also while it is still starting; the install stays and later boots leave it stopped.',
         parameters: [],
       },
       {
-        signature: 'uninstall(): Promise<void>',
-        description: 'Stop the server, delete the engine, model and partial downloads, and remove the route key.',
+        signature: 'async uninstall(): Promise<void>',
+        description: 'Stop the worker, cancel downloads, delete downloaded models, partial files and saved KV state, and remove the route credentials.',
         parameters: [],
       },
     ],
   },
   {
     key: 'llamaCppController',
-    summary: 'Install, start, stop and remove the local model; progress arrives through follow.',
-    description: 'Install, start, stop and remove the local model; progress arrives through follow.',
+    summary: 'Install, start, stop and remove the local models and the worker serving them; progress arrives through follow.',
+    description: 'Install, start, stop and remove the local models and the worker serving them; progress arrives through follow.',
     methods: [
       {
         signature: '@Remote readState(): LlamaCppState',
@@ -1985,30 +2046,88 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: '@Remote beginInstall(): void',
-        description: 'Download what is missing, verify it, then start the server.',
+        description: 'First run: download and verify the first-run model, then start the worker; with a model installed, start it.',
         parameters: [],
       },
       {
         signature: '@Remote async cancelInstall(): Promise<void>',
-        description: 'Stop a download in progress; it resumes on the next install.',
+        description: 'Stop every download in progress; each resumes when it is started again.',
         parameters: [],
-        returns: 'after the install task settles.',
+        returns: 'after the downloads settle.',
+      },
+      {
+        signature: '@Remote downloadModel(id: string): void',
+        description: 'Download a curated model; the first model installed also starts.',
+        parameters: [{ name: 'id', description: 'catalog id from the state\'s `catalog`.' }],
+      },
+      {
+        signature: '@Remote async lookupRepo(repo: string, signal: AbortSignal): Promise<HuggingFaceRepoInfo>',
+        description: 'List the downloadable GGUF files of a Hugging Face repository.',
+        parameters: [{ name: 'repo', description: '`owner/name` or a huggingface.co link.' }, { name: 'signal', description: 'Client cancellation.' }],
+        returns: 'the repository and its files.',
+      },
+      {
+        signature: '@Remote async downloadRepoFile(repo: string, file: string, signal: AbortSignal): Promise<string>',
+        description: 'Download one file of a Hugging Face repository.',
+        parameters: [{ name: 'repo', description: '`owner/name` or a huggingface.co link.' }, { name: 'file', description: 'file name from {@link lookupRepo}.' }, { name: 'signal', description: 'Client cancellation of the lookup that precedes the download.' }],
+        returns: 'the model id it installs as.',
+      },
+      {
+        signature: '@Remote retryDownload(id: string): void',
+        description: 'Start a failed download again.',
+        parameters: [{ name: 'id', description: 'model id of the failed download.' }],
+      },
+      {
+        signature: '@Remote async cancelDownload(id: string): Promise<void>',
+        description: 'Stop one download, or dismiss it when it failed.',
+        parameters: [{ name: 'id', description: 'model id of the download.' }],
+        returns: 'after it settles.',
+      },
+      {
+        signature: '@Remote async importModel(path: string, projector?: string): Promise<string>',
+        description: 'Add a GGUF file from this computer, left where it is.',
+        parameters: [{ name: 'path', description: 'absolute path on the Host.' }, { name: 'projector', description: 'absolute Host path of the model\'s vision projector (mmproj) file; omitted for a text-only model.' }],
+        returns: 'the model id.',
+      },
+      {
+        signature: '@Remote async setDefaultModel(id: string): Promise<void>',
+        description: 'Make an installed model the default, which the route\'s alias id serves, and load it; a stopped worker starts. A start failure arrives through follow.',
+        parameters: [{ name: 'id', description: 'installed model id.' }],
+        returns: 'after the worker serves it or has failed to start.',
+      },
+      {
+        signature: '@Remote async loadModel(id: string): Promise<void>',
+        description: 'Load an installed model now instead of on its first request, starting a stopped worker.',
+        parameters: [{ name: 'id', description: 'installed model id.' }],
+        returns: 'after it is loaded.',
+      },
+      {
+        signature: '@Remote async unloadModel(id: string): Promise<void>',
+        description: 'Free a loaded model\'s memory; it loads again on its next request.',
+        parameters: [{ name: 'id', description: 'installed model id.' }],
+        returns: 'after it is unloaded.',
+      },
+      {
+        signature: '@Remote async deleteModel(id: string): Promise<void>',
+        description: 'Remove an installed model, unloading it first; an imported file is only forgotten.',
+        parameters: [{ name: 'id', description: 'installed model id.' }],
+        returns: 'after it is removed.',
       },
       {
         signature: '@Remote async startServer(): Promise<void>',
-        description: 'Start the installed server.',
+        description: 'Start the worker with the default model.',
         parameters: [],
         returns: 'after it is running or has failed.',
       },
       {
         signature: '@Remote async stopServer(): Promise<void>',
-        description: 'Stop the server.',
+        description: 'Stop the worker.',
         parameters: [],
         returns: 'after it has exited.',
       },
       {
         signature: '@Remote async removeInstall(): Promise<void>',
-        description: 'Delete the engine and model and remove the route key.',
+        description: 'Stop the worker, delete every downloaded model and remove the route credentials.',
         parameters: [],
         returns: 'after the files are gone.',
       },
@@ -5910,6 +6029,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ButtonProps {\n    readonly label: string;\n    readonly hotkey?: string | undefined;\n    readonly disabled?: boolean | undefined;\n    readonly onPress?: (() => unknown) | undefined;\n}',
   },
   {
+    name: 'CatalogModelInfo',
+    declaration: 'export interface CatalogModelInfo {\n    id: string;\n    name: string;\n    bytes: number;\n    repo: string;\n    recommended: boolean;\n    installed: boolean;\n    vision: boolean;\n    fit?: ModelFit;\n}',
+  },
+  {
     name: 'ChangeRequestCheck',
     declaration: 'export interface ChangeRequestCheck {\n    readonly name: string;\n    readonly state: CheckState;\n    readonly url: string | null;\n    readonly workflow: string | null;\n    readonly startedAt: string | null;\n    readonly completedAt: string | null;\n}',
   },
@@ -6806,6 +6929,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface HostConnectionRpc {\n    handle(channel: string, handler: ConnectionRpcHandler): () => Promise<void>;\n    intercept(channel: \'/api\', matches: ConnectionRpcEndpointMatcher, handler: ConnectionRpcHandler): () => Promise<void>;\n}',
   },
   {
+    name: 'HuggingFaceFileInfo',
+    declaration: 'export interface HuggingFaceFileInfo {\n    file: string;\n    bytes: number;\n    quant?: string;\n    recommended: boolean;\n    installed: boolean;\n    fit?: ModelFit;\n}',
+  },
+  {
+    name: 'HuggingFaceRepoInfo',
+    declaration: 'export interface HuggingFaceRepoInfo {\n    repo: string;\n    files: HuggingFaceFileInfo[];\n    projector?: {\n        file: string;\n        bytes: number;\n    };\n}',
+  },
+  {
     name: 'ImageAttachmentLimits',
     declaration: 'export interface ImageAttachmentLimits {\n    maxImageBytes: number;\n    maxImagesPerMessage: number;\n    maxMessageImageBytes: number;\n    maxImagePixels: number;\n    maxImageDimension: number;\n    mediaTypes: readonly ImageMediaType[];\n}',
   },
@@ -6832,6 +6963,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ImageVariantId',
     declaration: 'export type ImageVariantId = Branded<\'ImageVariantId\'>;',
+  },
+  {
+    name: 'ImportModelOptions',
+    declaration: 'export interface ImportModelOptions {\n    name?: string;\n    projector?: string;\n}',
   },
   {
     name: 'IncompatiblePlugin',
@@ -7042,12 +7177,24 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ListVersionsOptions {\n    readonly registry?: Registry;\n}',
   },
   {
-    name: 'LlamaCppDownloadPhase',
-    declaration: 'export type LlamaCppDownloadPhase = \'engine\' | \'model\';',
+    name: 'LlamaCppDevice',
+    declaration: 'export interface LlamaCppDevice {\n    id: string;\n    name: string;\n    totalMiB: number;\n    freeMiB: number;\n}',
+  },
+  {
+    name: 'LlamaCppDownload',
+    declaration: 'export interface LlamaCppDownload {\n    id: string;\n    name: string;\n    progress?: LlamaCppProgress;\n    error?: string;\n}',
+  },
+  {
+    name: 'LlamaCppHardware',
+    declaration: 'export interface LlamaCppHardware {\n    backend: string;\n    devices: LlamaCppDevice[];\n    memoryBytes: number;\n}',
+  },
+  {
+    name: 'LlamaCppHostPlatform',
+    declaration: 'export type LlamaCppHostPlatform = \'linux\' | \'macos\' | \'windows\';',
   },
   {
     name: 'LlamaCppModelInfo',
-    declaration: 'export interface LlamaCppModelInfo {\n    id: string;\n    name: string;\n    modelBytes: number;\n    engineBytes: number;\n    backend: \'cpu\' | \'metal\' | \'vulkan\';\n    engineVersion: string;\n}',
+    declaration: 'export interface LlamaCppModelInfo {\n    id: string;\n    name: string;\n    modelBytes: number;\n}',
   },
   {
     name: 'LlamaCppPhase',
@@ -7055,11 +7202,11 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'LlamaCppProgress',
-    declaration: 'export interface LlamaCppProgress {\n    phase: LlamaCppDownloadPhase;\n    receivedBytes: number;\n    totalBytes: number;\n}',
+    declaration: 'export interface LlamaCppProgress {\n    receivedBytes: number;\n    totalBytes: number;\n    bytesPerSecond: number;\n}',
   },
   {
     name: 'LlamaCppState',
-    declaration: 'export interface LlamaCppState {\n    phase: LlamaCppPhase;\n    model: LlamaCppModelInfo;\n    provider: string;\n    progress?: LlamaCppProgress;\n    error?: string;\n    contextSize?: number;\n    logTail?: string;\n}',
+    declaration: 'export interface LlamaCppState {\n    phase: LlamaCppPhase;\n    hostPlatform: LlamaCppHostPlatform;\n    model: LlamaCppModelInfo;\n    provider: string;\n    progress?: LlamaCppProgress;\n    error?: string;\n    contextSize?: number;\n    logTail?: string;\n    models: LocalModelEntry[];\n    downloads: LlamaCppDownload[];\n    catalog: CatalogModelInfo[];\n    hardware?: LlamaCppHardware;\n}',
   },
   {
     name: 'LlmAdapter',
@@ -7160,6 +7307,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'LocalizedText',
     declaration: 'export type LocalizedText = string | {\n    readonly en: string;\n    readonly [locale: string]: string;\n};',
+  },
+  {
+    name: 'LocalModelEntry',
+    declaration: 'export interface LocalModelEntry {\n    id: string;\n    name: string;\n    bytes: number;\n    source: LocalModelSource;\n    vision: boolean;\n    active: boolean;\n    status: LocalModelStatus;\n    contextSize?: number;\n    architecture: string;\n    contextLength?: number;\n    fit?: ModelFit;\n}',
+  },
+  {
+    name: 'LocalModelSource',
+    declaration: 'export type LocalModelSource = \'catalog\' | \'huggingface\' | \'import\';',
+  },
+  {
+    name: 'LocalModelStatus',
+    declaration: 'export type LocalModelStatus = \'loading\' | \'loaded\' | \'unloaded\';',
   },
   {
     name: 'LogExporterOptions',
@@ -7460,6 +7619,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ModelCatalogModel',
     declaration: 'export interface ModelCatalogModel {\n    readonly id: string;\n    readonly name: string;\n    readonly description?: string;\n    readonly reasoning?: ModelReasoning;\n    readonly badge?: LlmModelBadge;\n}',
+  },
+  {
+    name: 'ModelFit',
+    declaration: 'export type ModelFit = \'fits\' | \'tight\' | \'too-large\';',
   },
   {
     name: 'ModelMessageSource',

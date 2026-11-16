@@ -69,6 +69,7 @@ import { DesktopBrowserGuests } from './browser-guests.ts'
 import { installDesktopShortcuts } from './keyboard.ts'
 import { DesktopUpdateOverlays } from './update-overlay.ts'
 import { DesktopQuitConfirmation } from './quit-confirmation.ts'
+import { detectStatusNotifierHost, resolveDesktopStatusNotifierConfig } from './status-notifier.ts'
 import { DesktopTray } from './tray.ts'
 import { DesktopBackgroundNotice } from './background-notice.ts'
 
@@ -215,6 +216,14 @@ function runtimeResources(): RuntimeResources {
   const dsh = (development ? process.env.DSH_DESKTOP_DSH_DIR : undefined)
     ?? (development ? join(app.getAppPath(), '.desktop-build', 'development', 'project') : join(app.getAppPath(), 'dsh'))
   return { node, nodeBin, pnpm, dsh }
+}
+
+/** @returns the Host's `JAN_LLAMA_WORKER`: the bundled worker, or in development the one `scripts/dev.ts` names. */
+function llamaWorkerEnvironment(): NodeJS.ProcessEnv {
+  const worker = app.isPackaged
+    ? join(process.resourcesPath, 'llama-worker', process.platform === 'win32' ? 'jan-llama-worker.exe' : 'jan-llama-worker')
+    : process.env.JAN_LLAMA_WORKER
+  return worker === undefined ? {} : { JAN_LLAMA_WORKER: worker }
 }
 
 function developmentPrimaryRuntime(): string {
@@ -437,6 +446,10 @@ async function main(): Promise<void> {
   let mandatoryUI: DesktopMandatoryUpdateWindow | undefined
   let policyAuth: DesktopPolicyTestAuth | undefined
   let tray: DesktopTray | undefined
+  /** Pending Linux StatusNotifier host query; it settles without rejecting and is cleared once the tray decision is made. */
+  let linuxTrayDetection: Promise<void> | undefined
+  /** A main-window close is waiting for {@link linuxTrayDetection}; later closes join it. */
+  let closeAwaitsTrayDetection = false
   /**
    * The operating system is ending the session: the quit skips its confirmation. Windows sets it
    * on the definitive session-end message. macOS sets it on the power-off notification, which
@@ -520,12 +533,13 @@ async function main(): Promise<void> {
     return next.promise
   }
   const platformView = new DesktopPlatformView(join(app.getAppPath(), 'lib', 'preload-platform-account.cjs'),
-    () => locale.id === 'zh-CN' ? 'zh_CN' : 'en_US', process.platform === 'win32' ? 'win32' : 'darwin',
+    () => locale.id === 'zh-CN' ? 'zh_CN' : 'en_US',
+    process.platform === 'win32' || process.platform === 'darwin' ? process.platform : null,
     owner => isMandatory() || updateOverlays.input(owner).blocked)
   const backend = new DesktopBackendController((onFailure) => {
     const hostInspectPort = developmentHostInspectPort(development)
     const host = new DesktopHostProcess(resources.node, resources.dsh, activeProject,
-      hostInspectPort, { ...hostEnvironment, DSH_CLIENT_VERSION: desktopClientVersion() }, onFailure,
+      hostInspectPort, { ...hostEnvironment, ...llamaWorkerEnvironment(), DSH_CLIENT_VERSION: desktopClientVersion() }, onFailure,
       primaryRuntime,
       resources, (next) => { platformView.setSession(next) }, (record) => {
         operationJournal ??= new OperationJournal(join(app.getPath('userData'), 'plugin-operations'), {
@@ -1214,14 +1228,24 @@ async function main(): Promise<void> {
   }
   refreshApplicationMenu()
   const trayIconPath = development ? join(app.getAppPath(), 'resources', 'tray-windows.ico') : join(process.resourcesPath, 'tray.ico')
-  if (process.platform === 'win32') {
-    // The tray is the way back to a hidden window; without it, relaunching the application still focuses it.
+  // The tray is the way back to a hidden window; without it, relaunching the application still focuses it.
+  const createTray = (): void => {
     try {
-      tray = new DesktopTray({ iconPath: trayIconPath, locale: currentDesktopLocale,
-        open: () => { focusPrimaryWindow() }, quit: () => { app.quit() } })
+      tray = new DesktopTray({
+        ...process.platform === 'win32' ? { iconPath: trayIconPath } : { iconPath: applicationIconPath, edge: 32 },
+        locale: currentDesktopLocale, open: () => { focusPrimaryWindow() }, quit: () => { app.quit() } })
     } catch (error) { console.warn('desktop tray: unavailable', error) }
   }
-  const backgroundNotice = process.platform === 'win32'
+  if (process.platform === 'win32') createTray()
+  else if (process.platform === 'linux') {
+    // Electron creates a Linux tray without error even when no StatusNotifier host would display it.
+    linuxTrayDetection = detectStatusNotifierHost(resolveDesktopStatusNotifierConfig(process.env)).then((host) => {
+      linuxTrayDetection = undefined
+      if (!host.present) console.warn(`desktop tray: no status notifier host (${host.reason}); closing the window quits`)
+      else if (!quitting && !shuttingDown) createTray()
+    })
+  }
+  const backgroundNotice = process.platform === 'win32' || process.platform === 'linux'
     ? new DesktopBackgroundNotice({ markerPath: join(app.getPath('userData'), 'background-close-confirmed'),
       locale: () => locale, show: ordinaryMessageBox, focus: () => { updateDialog.focus() } })
     : undefined
@@ -1299,15 +1323,29 @@ async function main(): Promise<void> {
     shortcuts.attach(window)
     window.on('focus', automaticCheck)
     // Closing hides: the page and the Host keep running, and the next show resumes the same document.
-    window.on('close', (event) => {
-      if (quitting || shellInstallerOwnsQuit || sessionEnding) return
-      event.preventDefault()
+    const closeMainWindow = (): void => {
       if (updateDialog.isOpen) { updateDialog.focus(); return }
+      // Linux has no Dock; without a visible tray nothing could show the hidden window again.
+      if (process.platform === 'linux' && tray === undefined) {
+        if (linuxTrayDetection === undefined) { app.quit(); return }
+        if (closeAwaitsTrayDetection) return
+        closeAwaitsTrayDetection = true
+        void linuxTrayDetection.then(() => {
+          closeAwaitsTrayDetection = false
+          if (!quitting && !shellInstallerOwnsQuit && !sessionEnding && !window.isDestroyed()) closeMainWindow()
+        })
+        return
+      }
       const hide = (): void => {
         if (!quitting && !shellInstallerOwnsQuit && !sessionEnding && !window.isDestroyed()) hideMainWindow(window)
       }
       if (backgroundNotice === undefined) hide()
       else backgroundNotice.close(hide)
+    }
+    window.on('close', (event) => {
+      if (quitting || shellInstallerOwnsQuit || sessionEnding) return
+      event.preventDefault()
+      closeMainWindow()
     })
     if (process.platform === 'win32') {
       // Shutdown, restart, and log-off must not wait on a confirmation. query-session-end is only a

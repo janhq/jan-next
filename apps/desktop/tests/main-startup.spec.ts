@@ -1,5 +1,6 @@
 import { parsePluginOperationRecord } from '@deepseek-ai/dsh-plugin-manager/diagnostic'
 import type { DesktopHostProcess } from '../src/host-process.ts'
+import type { DesktopStatusNotifierHost } from '../src/status-notifier.ts'
 import type { AccountView } from '@deepseek-ai/dsh-deepseek-account/types'
 import { WINDOWS_TITLEBAR_HEIGHT } from '../src/windows-layout.ts'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
@@ -71,6 +72,7 @@ const harness = await vi.hoisted(async () => {
     environment: { ...base, DSH_TEST_LOGIN_SHELL: 'login' }, failures: [{ shell: '/account/shell', reason: 'timeout' }],
   })
   const loginShell = vi.fn((base: NodeJS.ProcessEnv, _config: unknown, _options: { signal?: AbortSignal }) => readLoginShell(base))
+  const statusNotifierHost = vi.fn(async (_config: unknown): Promise<DesktopStatusNotifierHost> => ({ present: true }))
   const updateCheck = vi.fn(async (_manual?: boolean): Promise<DesktopUpdateState> => updateState)
   const updateDownload = vi.fn(async (_version: string, _revision?: number): Promise<DesktopUpdateState> => updateState)
   const updateInstall = vi.fn(async (_version: string, _revision?: number): Promise<DesktopUpdateState> => updateState)
@@ -206,11 +208,16 @@ const harness = await vi.hoisted(async () => {
   const analytics = vi.fn(async (_event: unknown) => {})
   const nativeTheme = { themeSource: 'system', shouldUseDarkColors: false }
   const trays: FakeTray[] = []
+  let trayFailure: Error | undefined
   class FakeTray extends EventEmitter {
     readonly setToolTip = vi.fn()
     readonly setContextMenu = vi.fn()
     readonly destroy = vi.fn()
-    constructor(readonly image: unknown) { super(); trays.push(this) }
+    constructor(readonly image: unknown) {
+      if (trayFailure !== undefined) throw trayFailure
+      super()
+      trays.push(this)
+    }
   }
   const backgroundNotice = { close: vi.fn((hide: () => void) => { hide() }), dispose: vi.fn(), markerPath: undefined as string | undefined }
   const shellDialog = { isOpen: false, focus: vi.fn() }
@@ -219,7 +226,7 @@ const harness = await vi.hoisted(async () => {
     windows, views, hosts, handlers, app, FakeWindow, FakeView, FakeHost, powerMonitor, nativeTheme, analytics,
     trays, FakeTray, backgroundNotice, shellDialog,
     menu, popup, socketHeaders: vi.fn(), connectWelcome: vi.fn(), removeLegacyHostCookies: vi.fn(async () => {}), hostCookies: {},
-    loginShell, readLoginShell, updateCheck, updateDownload, updateInstall,
+    loginShell, readLoginShell, statusNotifierHost, updateCheck, updateDownload, updateInstall,
     platformDispose,
     platformCloseAndWait,
 
@@ -263,11 +270,13 @@ const harness = await vi.hoisted(async () => {
     get pluginsEnabled() { return pluginsEnabled },
     set pluginsEnabled(value: boolean) { pluginsEnabled = value },
     set closeWindowsOnQuit(value: boolean) { closeWindowsOnQuit = value },
+    set trayFailure(value: Error | undefined) { trayFailure = value },
     reset() {
       accountListener = undefined
       windows.length = 0
       views.length = 0; hosts.length = 0; handlers.clear(); app.removeAllListeners()
       trays.length = 0
+      trayFailure = undefined
       backgroundNotice.markerPath = undefined
       shellDialog.isOpen = false
       powerMonitor.removeAllListeners()
@@ -280,6 +289,7 @@ const harness = await vi.hoisted(async () => {
       updateState = { phase: 'idle' }
       updateCheck.mockReset().mockImplementation(async () => updateState)
       loginShell.mockReset().mockImplementation(base => readLoginShell(base))
+      statusNotifierHost.mockReset().mockResolvedValue({ present: true })
       updateDownload.mockReset().mockImplementation(async () => updateState)
       updateInstall.mockReset().mockImplementation(async () => updateState)
       nativeTheme.themeSource = 'system'; nativeTheme.shouldUseDarkColors = false
@@ -327,7 +337,7 @@ vi.mock('electron', () => ({
   protocol: { registerSchemesAsPrivileged: vi.fn(), handle: harness.protocolHandle },
   powerMonitor: harness.powerMonitor,
   Tray: harness.FakeTray,
-  nativeImage: { createFromPath: (path: string) => ({ path }) },
+  nativeImage: { createFromPath: (path: string) => ({ path, resize: (size: { width: number; height: number }) => ({ path, ...size }) }) },
 }))
 vi.mock('../src/background-notice.ts', () => ({ DesktopBackgroundNotice: class {
   constructor(options: { markerPath: string }) { harness.backgroundNotice.markerPath = options.markerPath }
@@ -346,6 +356,10 @@ vi.mock('node:fs/promises', async (importOriginal) => {
 vi.mock('../src/login-shell-environment.ts', async importOriginal => ({
   ...await importOriginal<typeof import('../src/login-shell-environment.ts')>(),
   readDesktopLoginShellEnvironment: harness.loginShell,
+}))
+vi.mock('../src/status-notifier.ts', async importOriginal => ({
+  ...await importOriginal<typeof import('../src/status-notifier.ts')>(),
+  detectStatusNotifierHost: harness.statusNotifierHost,
 }))
 vi.mock('../src/runtime-tree.ts', () => ({ readDesktopRuntime: () => ({ release: { version: '1.0.0' } }) }))
 vi.mock('../src/paths.ts', () => ({ resolveDesktopPaths: () => ({ profile: 'desktop-test-profile' }) }))
@@ -828,7 +842,8 @@ describe('desktop main startup', () => {
       { sender, senderFrame: sender.mainFrame }, nextLocale,
     )
     const refreshed = platform === 'win32' ? applicationMenuItems()
-      : harness.menu.mock.lastCall![0][0]!.submenu as MenuItemConstructorOptions[]
+      // The tray relabels after the application menu, so take the last template with a submenu.
+      : harness.menu.mock.calls.findLast(([template]) => template[0]?.submenu !== undefined)![0][0]!.submenu as MenuItemConstructorOptions[]
     expect(refreshed.filter(item => item.role === 'toggleDevTools' && item.visible !== false)).toEqual([
       { role: 'toggleDevTools', label: nextLocale === 'en' ? en.toggleDevToolsMenu : zh.toggleDevToolsMenu },
     ])
@@ -1616,7 +1631,8 @@ describe('desktop main startup', () => {
     const host = await readyWorkspace()
     const window = harness.windows[0]!
     expect(harness.trays).toHaveLength(1)
-    expect(harness.trays[0]!.image).toEqual({ path: join('desktop-test-resources', 'tray.ico') })
+    expect(harness.trays[0]!.image).toMatchObject({ path: join('desktop-test-resources', 'tray.ico') })
+    expect(harness.trays[0]!.image).not.toHaveProperty('width')
     expect(harness.backgroundNotice.markerPath).toBe(join(harness.app.getPath('userData'), 'background-close-confirmed'))
     window.show.mockClear()
     window.close()
@@ -1634,6 +1650,100 @@ describe('desktop main startup', () => {
     const relabels = harness.trays[0]!.setContextMenu.mock.calls.length
     harness.ipcOn.mock.calls.find(call => call[0] === DESKTOP_IPC.localeChanged)![1]({ sender: window.webContents, senderFrame: window.webContents.mainFrame }, 'zh')
     expect(harness.trays[0]!.setContextMenu.mock.calls.length).toBe(relabels + 1)
+  })
+
+  it('hides to a Linux tray drawn from the application icon and keeps the Host running', async () => {
+    vi.stubGlobal('process', { ...process, platform: 'linux', arch: 'x64', resourcesPath: 'desktop-test-resources' })
+    const host = await readyWorkspace()
+    const window = harness.windows[0]!
+    expect(harness.trays).toHaveLength(1)
+    expect(harness.trays[0]!.image).toEqual({ path: join('desktop-test-resources', 'icon.png'), width: 32, height: 32 })
+    expect(harness.backgroundNotice.markerPath).toBe(join(harness.app.getPath('userData'), 'background-close-confirmed'))
+    window.show.mockClear()
+    window.close()
+    expect(window.isDestroyed()).toBe(false)
+    expect(window.hide).toHaveBeenCalledOnce()
+    expect(harness.backgroundNotice.close).toHaveBeenCalledOnce()
+    expect(harness.app.quit).not.toHaveBeenCalled()
+    expect(host.stop).not.toHaveBeenCalled()
+    harness.trays[0]!.emit('click')
+    expect(window.show).toHaveBeenCalledOnce()
+  })
+
+  it('creates no Linux tray and quits on close when no status notifier host is registered', async () => {
+    vi.stubGlobal('process', { ...process, platform: 'linux', arch: 'x64', resourcesPath: 'desktop-test-resources' })
+    harness.statusNotifierHost.mockResolvedValue({ present: false, reason: 'gdbus: exit 1' })
+    const host = await readyWorkspace()
+    const window = harness.windows[0]!
+    expect(harness.statusNotifierHost).toHaveBeenCalledWith({ timeoutMs: 2_000 })
+    expect(harness.trays).toHaveLength(0)
+    expect(console.warn).toHaveBeenCalledWith(
+      'desktop tray: no status notifier host (gdbus: exit 1); closing the window quits')
+    window.close()
+    expect(window.hide).not.toHaveBeenCalled()
+    expect(harness.backgroundNotice.close).not.toHaveBeenCalled()
+    expect(harness.app.quit).toHaveBeenCalledOnce()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(host.inspectQuit).toHaveBeenCalledOnce()
+  })
+
+  it('does not query a status notifier host on Windows', async () => {
+    await readyWorkspace()
+    expect(harness.statusNotifierHost).not.toHaveBeenCalled()
+    expect(harness.trays).toHaveLength(1)
+  })
+
+  it('quits on Linux close when no tray could be created', async () => {
+    vi.stubGlobal('process', { ...process, platform: 'linux', arch: 'x64', resourcesPath: 'desktop-test-resources' })
+    harness.trayFailure = new Error('no status notifier host')
+    const host = await readyWorkspace()
+    const window = harness.windows[0]!
+    expect(harness.trays).toHaveLength(0)
+    window.close()
+    expect(window.hide).not.toHaveBeenCalled()
+    expect(harness.backgroundNotice.close).not.toHaveBeenCalled()
+    expect(harness.app.quit).toHaveBeenCalledOnce()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(host.inspectQuit).toHaveBeenCalledOnce()
+  })
+
+  it('waits for a pending Linux status notifier query on close and hides to the tray it creates', async () => {
+    vi.stubGlobal('process', { ...process, platform: 'linux', arch: 'x64', resourcesPath: 'desktop-test-resources' })
+    const query = Promise.withResolvers<DesktopStatusNotifierHost>()
+    harness.statusNotifierHost.mockReturnValue(query.promise)
+    const host = await readyWorkspace()
+    const window = harness.windows[0]!
+    expect(harness.trays).toHaveLength(0)
+    window.close()
+    window.close()
+    expect(window.isDestroyed()).toBe(false)
+    expect(window.hide).not.toHaveBeenCalled()
+    expect(harness.app.quit).not.toHaveBeenCalled()
+    query.resolve({ present: true })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(harness.trays).toHaveLength(1)
+    expect(harness.backgroundNotice.close).toHaveBeenCalledOnce()
+    expect(window.hide).toHaveBeenCalledOnce()
+    expect(harness.app.quit).not.toHaveBeenCalled()
+    expect(host.stop).not.toHaveBeenCalled()
+  })
+
+  it('waits for a pending Linux status notifier query on close and quits once when no host answers', async () => {
+    vi.stubGlobal('process', { ...process, platform: 'linux', arch: 'x64', resourcesPath: 'desktop-test-resources' })
+    const query = Promise.withResolvers<DesktopStatusNotifierHost>()
+    harness.statusNotifierHost.mockReturnValue(query.promise)
+    const host = await readyWorkspace()
+    const window = harness.windows[0]!
+    window.close()
+    window.close()
+    expect(harness.app.quit).not.toHaveBeenCalled()
+    query.resolve({ present: false, reason: 'gdbus: timed out' })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(harness.trays).toHaveLength(0)
+    expect(window.hide).toHaveBeenCalledOnce()
+    expect(harness.backgroundNotice.close).not.toHaveBeenCalled()
+    expect(harness.app.quit).toHaveBeenCalledOnce()
+    expect(host.inspectQuit).toHaveBeenCalledOnce()
   })
 
   it('hides a macOS owner with a mandatory view without quitting or stopping the Host', async () => {

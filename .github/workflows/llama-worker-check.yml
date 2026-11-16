@@ -1,0 +1,66 @@
+# Checks native/llama-worker on changes to it: formatting, Clippy and the tests
+# that need no llama.cpp on every change, then one Linux engine build through
+# the reusable llama-worker.yml.
+name: llama.cpp worker check
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/llama-worker.yml'
+      - '.github/workflows/llama-worker-check.yml'
+      - 'native/llama-worker/**'
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/llama-worker.yml'
+      - '.github/workflows/llama-worker-check.yml'
+      - 'native/llama-worker/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  lint-test:
+    name: Format, Clippy and tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: native/llama-worker
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install the Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt,clippy --no-self-update
+          rustup default stable
+
+      - uses: actions/cache@v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            native/llama-worker/target
+          key: llama-worker-check-${{ hashFiles('native/llama-worker/Cargo.lock') }}
+          restore-keys: llama-worker-check-
+
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      - run: cargo test --locked
+
+  engine:
+    name: Engine build
+    uses: ./.github/workflows/llama-worker.yml
+    with:
+      targets: linux-x64
