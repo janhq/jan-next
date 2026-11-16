@@ -9,7 +9,7 @@ This file is GENERATED from source (`scripts/gen-config-catalog.ts`) and verifie
 
 Each package entry labels its data with three identifiers: `inject` lists the service keys the plugin injects, so its `cordis.yml` tree must also load providers for those services; `refs` lists the referenced types that are not pasted here; `source` links the file that declares the config. Scope is the harness tier (`packages/`); the vendored cordis plugins a config tree may also load (the console logger, …) are pinned upstream source ([vendoring policy](../vendor/README.md)) and not catalogued here.
 
-<a id="deepseek-aidsh-acp"></a>
+<a id="janhqjan-acp"></a>
 
 ## `@janhq/jan-acp`
 
@@ -31,7 +31,7 @@ export interface AcpConfig {
 }
 ```
 
-<a id="deepseek-aidsh-action-cards"></a>
+<a id="janhqjan-action-cards"></a>
 
 ## `@janhq/jan-action-cards`
 
@@ -44,7 +44,7 @@ export interface AcpConfig {
 export type Config = z.infer<typeof Config>
 ```
 
-<a id="deepseek-aidsh-agent-default-model"></a>
+<a id="janhqjan-agent-default-model"></a>
 
 ## `@janhq/jan-agent-default-model`
 
@@ -63,7 +63,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-agent-instructions"></a>
+<a id="janhqjan-agent-instructions"></a>
 
 ## `@janhq/jan-agent-instructions`
 
@@ -96,7 +96,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-agent-loop"></a>
+<a id="janhqjan-agent-loop"></a>
 
 ## `@janhq/jan-agent-loop`
 
@@ -126,7 +126,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-agent-preset"></a>
+<a id="janhqjan-agent-preset"></a>
 
 ## `@janhq/jan-agent-preset`
 
@@ -139,7 +139,7 @@ export interface Config {
 export type Config = PresetDefinition
 ```
 
-<a id="deepseek-aidsh-agent-preset-registry"></a>
+<a id="janhqjan-agent-preset-registry"></a>
 
 ## `@janhq/jan-agent-preset-registry`
 
@@ -157,7 +157,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-agent-team"></a>
+<a id="janhqjan-agent-team"></a>
 
 ## `@janhq/jan-agent-team`
 
@@ -174,7 +174,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-agent-tool-presentation"></a>
+<a id="janhqjan-agent-tool-presentation"></a>
 
 ## `@janhq/jan-agent-tool-presentation`
 
@@ -198,7 +198,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-api-gateway"></a>
+<a id="janhqjan-api-gateway"></a>
 
 ## `@janhq/jan-api-gateway`
 
@@ -217,7 +217,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-api-job-controller"></a>
+<a id="janhqjan-api-job-controller"></a>
 
 ## `@janhq/jan-api-job-controller`
 
@@ -234,7 +234,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-api-session-controller"></a>
+<a id="janhqjan-api-session-controller"></a>
 
 ## `@janhq/jan-api-session-controller`
 
@@ -251,7 +251,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-api-settings-controller"></a>
+<a id="janhqjan-api-settings-controller"></a>
 
 ## `@janhq/jan-api-settings-controller`
 
@@ -265,7 +265,7 @@ export interface SettingsControllerInternals {
 }
 ```
 
-<a id="deepseek-aidsh-api-terminal-controller"></a>
+<a id="janhqjan-api-terminal-controller"></a>
 
 ## `@janhq/jan-api-terminal-controller`
 
@@ -309,7 +309,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-api-workspace-controller"></a>
+<a id="janhqjan-api-workspace-controller"></a>
 
 ## `@janhq/jan-api-workspace-controller`
 
@@ -326,7 +326,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-api-workspace-files"></a>
+<a id="janhqjan-api-workspace-files"></a>
 
 ## `@janhq/jan-api-workspace-files`
 
@@ -353,7 +353,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-attachment-local"></a>
+<a id="janhqjan-attachment-local"></a>
 
 ## `@janhq/jan-attachment-local`
 
@@ -388,7 +388,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-bash-local"></a>
+<a id="janhqjan-bash-local"></a>
 
 ## `@janhq/jan-bash-local`
 
@@ -414,12 +414,12 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-bash-sandbox"></a>
+<a id="janhqjan-bash-sandbox"></a>
 
 ## `@janhq/jan-bash-sandbox`
 
 - `inject`: `subprocess` · `sandbox` · `sandboxPolicy`
-- `refs`: [`LocalConfig`](#deepseek-aidsh-bash-local)
+- `refs`: [`LocalConfig`](#janhqjan-bash-local)
 - `source`: [`packages/shell/bash-sandbox/src/index.ts:36`](../packages/shell/bash-sandbox/src/index.ts)
 
 ```ts config-catalog
@@ -433,7 +433,7 @@ export interface Config {
 export type Config = LocalConfig
 ```
 
-<a id="deepseek-aidsh-client-connection"></a>
+<a id="janhqjan-client-connection"></a>
 
 ## `@janhq/jan-client-connection`
 
@@ -476,7 +476,7 @@ export interface ConnectionRecoveryConfig {
 }
 ```
 
-<a id="deepseek-aidsh-client-hmr"></a>
+<a id="janhqjan-client-hmr"></a>
 
 ## `@janhq/jan-client-hmr`
 
@@ -491,7 +491,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-client-product-analytics"></a>
+<a id="janhqjan-client-product-analytics"></a>
 
 ## `@janhq/jan-client-product-analytics`
 
@@ -513,7 +513,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-client-shortcuts"></a>
+<a id="janhqjan-client-shortcuts"></a>
 
 ## `@janhq/jan-client-shortcuts`
 
@@ -527,7 +527,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-client-ui-plugin-manager"></a>
+<a id="janhqjan-client-ui-plugin-manager"></a>
 
 ## `@janhq/jan-client-ui-plugin-manager`
 
@@ -545,7 +545,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-client-ui-settings-account"></a>
+<a id="janhqjan-client-ui-settings-account"></a>
 
 ## `@janhq/jan-client-ui-settings-account`
 
@@ -593,7 +593,7 @@ export type OnboardingPurpose = 'office' | 'development' | 'both'
 export type OnboardingProcess = 'compact' | 'standard' | 'detailed'
 ```
 
-<a id="deepseek-aidsh-client-ui-settings-models"></a>
+<a id="janhqjan-client-ui-settings-models"></a>
 
 ## `@janhq/jan-client-ui-settings-models`
 
@@ -619,7 +619,7 @@ export interface OnboardingRoute {
 }
 ```
 
-<a id="deepseek-aidsh-client-ui-sidebar-documentpreview"></a>
+<a id="janhqjan-client-ui-sidebar-documentpreview"></a>
 
 ## `@janhq/jan-client-ui-sidebar-documentpreview`
 
@@ -651,7 +651,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-client-ui-theme"></a>
+<a id="janhqjan-client-ui-theme"></a>
 
 ## `@janhq/jan-client-ui-theme`
 
@@ -681,7 +681,7 @@ export interface Config {
 export type ThemePreference = typeof THEME_PREFERENCES[number]
 ```
 
-<a id="deepseek-aidsh-client-ui-trajectory"></a>
+<a id="janhqjan-client-ui-trajectory"></a>
 
 ## `@janhq/jan-client-ui-trajectory`
 
@@ -696,7 +696,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-compaction-basic"></a>
+<a id="janhqjan-compaction-basic"></a>
 
 ## `@janhq/jan-compaction-basic`
 
@@ -743,7 +743,7 @@ export interface ModelCompactPolicyConfig extends CompactionPolicyConfig {
 }
 ```
 
-<a id="deepseek-aidsh-compaction-tool-result-pruner"></a>
+<a id="janhqjan-compaction-tool-result-pruner"></a>
 
 ## `@janhq/jan-compaction-tool-result-pruner`
 
@@ -762,7 +762,7 @@ export interface ToolResultPruneConfig {
 }
 ```
 
-<a id="deepseek-aidsh-cordis-host-runner"></a>
+<a id="janhqjan-cordis-host-runner"></a>
 
 ## `@janhq/jan-cordis-host-runner`
 
@@ -779,7 +779,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-credentials-local"></a>
+<a id="janhqjan-credentials-local"></a>
 
 ## `@janhq/jan-credentials-local`
 
@@ -799,7 +799,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-experimental-api-speech-to-text"></a>
+<a id="janhqjan-experimental-api-speech-to-text"></a>
 
 ## `@janhq/jan-experimental-api-speech-to-text`
 
@@ -816,7 +816,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-experimental-browser-use-chrome-devtools-mcp"></a>
+<a id="janhqjan-experimental-browser-use-chrome-devtools-mcp"></a>
 
 ## `@janhq/jan-experimental-browser-use-chrome-devtools-mcp`
 
@@ -829,7 +829,7 @@ export interface Config {
 export type Config = BrowserMcpConfig
 ```
 
-<a id="deepseek-aidsh-experimental-browser-use-playwright-mcp"></a>
+<a id="janhqjan-experimental-browser-use-playwright-mcp"></a>
 
 ## `@janhq/jan-experimental-browser-use-playwright-mcp`
 
@@ -842,7 +842,7 @@ export type Config = BrowserMcpConfig
 export type Config = BrowserMcpConfig
 ```
 
-<a id="deepseek-aidsh-experimental-browser-use-stagehand-native"></a>
+<a id="janhqjan-experimental-browser-use-stagehand-native"></a>
 
 ## `@janhq/jan-experimental-browser-use-stagehand-native`
 
@@ -882,7 +882,7 @@ export interface StagehandModelConfig {
 }
 ```
 
-<a id="deepseek-aidsh-experimental-claude-code-mods"></a>
+<a id="janhqjan-experimental-claude-code-mods"></a>
 
 ## `@janhq/jan-experimental-claude-code-mods`
 
@@ -907,7 +907,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-experimental-client-ui-cot-translation"></a>
+<a id="janhqjan-experimental-client-ui-cot-translation"></a>
 
 ## `@janhq/jan-experimental-client-ui-cot-translation`
 
@@ -933,7 +933,7 @@ export interface CotTranslationPreferences {
 }
 ```
 
-<a id="deepseek-aidsh-experimental-client-ui-forge"></a>
+<a id="janhqjan-experimental-client-ui-forge"></a>
 
 ## `@janhq/jan-experimental-client-ui-forge`
 
@@ -969,7 +969,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-experimental-computer-use-cua-driver-mcp"></a>
+<a id="janhqjan-experimental-computer-use-cua-driver-mcp"></a>
 
 ## `@janhq/jan-experimental-computer-use-cua-driver-mcp`
 
@@ -991,7 +991,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-experimental-cua-macos"></a>
+<a id="janhqjan-experimental-cua-macos"></a>
 
 ## `@janhq/jan-experimental-cua-macos`
 
@@ -1021,7 +1021,7 @@ export type SourceSigning = 'ad-hoc' | {
 }
 ```
 
-<a id="deepseek-aidsh-experimental-forge"></a>
+<a id="janhqjan-experimental-forge"></a>
 
 ## `@janhq/jan-experimental-forge`
 
@@ -1041,7 +1041,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-experimental-forge-github"></a>
+<a id="janhqjan-experimental-forge-github"></a>
 
 ## `@janhq/jan-experimental-forge-github`
 
@@ -1062,7 +1062,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-experimental-forge-session"></a>
+<a id="janhqjan-experimental-forge-session"></a>
 
 ## `@janhq/jan-experimental-forge-session`
 
@@ -1077,7 +1077,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-experimental-inspector"></a>
+<a id="janhqjan-experimental-inspector"></a>
 
 ## `@janhq/jan-experimental-inspector`
 
@@ -1144,7 +1144,7 @@ export interface InspectorOptions {
 }
 ```
 
-<a id="deepseek-aidsh-experimental-ptc-runtime-python"></a>
+<a id="janhqjan-experimental-ptc-runtime-python"></a>
 
 ## `@janhq/jan-experimental-ptc-runtime-python`
 
@@ -1211,7 +1211,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-experimental-speech-to-text"></a>
+<a id="janhqjan-experimental-speech-to-text"></a>
 
 ## `@janhq/jan-experimental-speech-to-text`
 
@@ -1228,7 +1228,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-experimental-speech-to-text-sensevoice"></a>
+<a id="janhqjan-experimental-speech-to-text-sensevoice"></a>
 
 ## `@janhq/jan-experimental-speech-to-text-sensevoice`
 
@@ -1287,7 +1287,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-experimental-subagent-oar"></a>
+<a id="janhqjan-experimental-subagent-oar"></a>
 
 ## `@janhq/jan-experimental-subagent-oar`
 
@@ -1314,7 +1314,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-experimental-tool-subagent-oar"></a>
+<a id="janhqjan-experimental-tool-subagent-oar"></a>
 
 ## `@janhq/jan-experimental-tool-subagent-oar`
 
@@ -1331,7 +1331,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-experimental-translator"></a>
+<a id="janhqjan-experimental-translator"></a>
 
 ## `@janhq/jan-experimental-translator`
 
@@ -1358,7 +1358,7 @@ export interface Config {
 export type TranslationProvider = 'google' | 'bing'
 ```
 
-<a id="deepseek-aidsh-experimental-worktree"></a>
+<a id="janhqjan-experimental-worktree"></a>
 
 ## `@janhq/jan-experimental-worktree`
 
@@ -1385,7 +1385,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-file-reference-local"></a>
+<a id="janhqjan-file-reference-local"></a>
 
 ## `@janhq/jan-file-reference-local`
 
@@ -1404,7 +1404,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-fs-local"></a>
+<a id="janhqjan-fs-local"></a>
 
 ## `@janhq/jan-fs-local`
 
@@ -1423,12 +1423,12 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-fs-sandbox"></a>
+<a id="janhqjan-fs-sandbox"></a>
 
 ## `@janhq/jan-fs-sandbox`
 
 - `inject`: `sandboxPolicy`
-- `refs`: [`LocalConfig`](#deepseek-aidsh-fs-local)
+- `refs`: [`LocalConfig`](#janhqjan-fs-local)
 - `source`: [`packages/fs/fs-sandbox/src/index.ts:45`](../packages/fs/fs-sandbox/src/index.ts)
 
 ```ts config-catalog
@@ -1441,7 +1441,7 @@ export interface Config {
 export type Config = LocalConfig
 ```
 
-<a id="deepseek-aidsh-goal"></a>
+<a id="janhqjan-goal"></a>
 
 ## `@janhq/jan-goal`
 
@@ -1456,7 +1456,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-headless"></a>
+<a id="janhqjan-headless"></a>
 
 ## `@janhq/jan-headless`
 
@@ -1480,7 +1480,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-hmr"></a>
+<a id="janhqjan-hmr"></a>
 
 ## `@janhq/jan-hmr`
 
@@ -1501,7 +1501,7 @@ export interface HmrConfig extends ChokidarOptions {
 }
 ```
 
-<a id="deepseek-aidsh-hooks-claude-code"></a>
+<a id="janhqjan-hooks-claude-code"></a>
 
 ## `@janhq/jan-hooks-claude-code`
 
@@ -1538,7 +1538,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-hooks-codex"></a>
+<a id="janhqjan-hooks-codex"></a>
 
 ## `@janhq/jan-hooks-codex`
 
@@ -1564,7 +1564,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-host-directory-picker-browse"></a>
+<a id="janhqjan-host-directory-picker-browse"></a>
 
 ## `@janhq/jan-host-directory-picker-browse`
 
@@ -1578,7 +1578,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-host-frontend-static"></a>
+<a id="janhqjan-host-frontend-static"></a>
 
 ## `@janhq/jan-host-frontend-static`
 
@@ -1593,7 +1593,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-host-open-in-app"></a>
+<a id="janhqjan-host-open-in-app"></a>
 
 ## `@janhq/jan-host-open-in-app`
 
@@ -1623,7 +1623,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-host-product-telemetry-otel"></a>
+<a id="janhqjan-host-product-telemetry-otel"></a>
 
 ## `@janhq/jan-host-product-telemetry-otel`
 
@@ -1658,7 +1658,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-host-webserver"></a>
+<a id="janhqjan-host-webserver"></a>
 
 ## `@janhq/jan-host-webserver`
 
@@ -1709,7 +1709,7 @@ export interface TlsConfig {
 }
 ```
 
-<a id="deepseek-aidsh-jobs-local"></a>
+<a id="janhqjan-jobs-local"></a>
 
 ## `@janhq/jan-jobs-local`
 
@@ -1736,7 +1736,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-llama-cpp"></a>
+<a id="janhqjan-llama-cpp"></a>
 
 ## `@janhq/jan-llama-cpp`
 
@@ -1878,7 +1878,7 @@ export interface ArtifactOverride {
 }
 ```
 
-<a id="deepseek-aidsh-llm-pi-ai"></a>
+<a id="janhqjan-llm-pi-ai"></a>
 
 ## `@janhq/jan-llm-pi-ai`
 
@@ -2168,7 +2168,7 @@ export type PiAiThinkingFormat = NonNullable<OpenAICompletionsCompat['thinkingFo
 export type PiAiThinkingTokenBudgetField = NonNullable<OpenAICompletionsCompat['thinkingTokenBudgetField']>
 ```
 
-<a id="deepseek-aidsh-llm-replay"></a>
+<a id="janhqjan-llm-replay"></a>
 
 ## `@janhq/jan-llm-replay`
 
@@ -2249,7 +2249,7 @@ export interface ReplayModelConfig {
 }
 ```
 
-<a id="deepseek-aidsh-llm-retry"></a>
+<a id="janhqjan-llm-retry"></a>
 
 ## `@janhq/jan-llm-retry`
 
@@ -2261,7 +2261,7 @@ export interface ReplayModelConfig {
 export type Config = Readonly<Record<string, never>>
 ```
 
-<a id="deepseek-aidsh-lsp-stdio"></a>
+<a id="janhqjan-lsp-stdio"></a>
 
 ## `@janhq/jan-lsp-stdio`
 
@@ -2302,7 +2302,7 @@ export interface LspLocalServerConfig {
 }
 ```
 
-<a id="deepseek-aidsh-mcp-client"></a>
+<a id="janhqjan-mcp-client"></a>
 
 ## `@janhq/jan-mcp-client`
 
@@ -2390,7 +2390,7 @@ export interface ReconnectConfig {
 }
 ```
 
-<a id="deepseek-aidsh-mcp-manager"></a>
+<a id="janhqjan-mcp-manager"></a>
 
 ## `@janhq/jan-mcp-manager`
 
@@ -2439,7 +2439,7 @@ export interface McpManagedServerEntry {
 }
 ```
 
-<a id="deepseek-aidsh-message-feedback"></a>
+<a id="janhqjan-message-feedback"></a>
 
 ## `@janhq/jan-message-feedback`
 
@@ -2454,7 +2454,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-office-to-pdf"></a>
+<a id="janhqjan-office-to-pdf"></a>
 
 ## `@janhq/jan-office-to-pdf`
 
@@ -2504,7 +2504,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-permission-presets"></a>
+<a id="janhqjan-permission-presets"></a>
 
 ## `@janhq/jan-permission-presets`
 
@@ -2542,7 +2542,7 @@ export interface PresetSpec {
 }
 ```
 
-<a id="deepseek-aidsh-persona"></a>
+<a id="janhqjan-persona"></a>
 
 ## `@janhq/jan-persona`
 
@@ -2570,7 +2570,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-plan-mode"></a>
+<a id="janhqjan-plan-mode"></a>
 
 ## `@janhq/jan-plan-mode`
 
@@ -2585,7 +2585,7 @@ export interface PlanModeConfig {
 }
 ```
 
-<a id="deepseek-aidsh-plugin-manager"></a>
+<a id="janhqjan-plugin-manager"></a>
 
 ## `@janhq/jan-plugin-manager`
 
@@ -2633,7 +2633,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-plugin-market"></a>
+<a id="janhqjan-plugin-market"></a>
 
 ## `@janhq/jan-plugin-market`
 
@@ -2671,7 +2671,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-ptc-runtime-node"></a>
+<a id="janhqjan-ptc-runtime-node"></a>
 
 ## `@janhq/jan-ptc-runtime-node`
 
@@ -2721,7 +2721,7 @@ export type LaunchConfig = {
 }
 ```
 
-<a id="deepseek-aidsh-pwsh-local"></a>
+<a id="janhqjan-pwsh-local"></a>
 
 ## `@janhq/jan-pwsh-local`
 
@@ -2754,12 +2754,12 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-pwsh-sandbox"></a>
+<a id="janhqjan-pwsh-sandbox"></a>
 
 ## `@janhq/jan-pwsh-sandbox`
 
 - `inject`: `subprocess` · `sandbox` · `sandboxPolicy`
-- `refs`: [`LocalConfig`](#deepseek-aidsh-pwsh-local)
+- `refs`: [`LocalConfig`](#janhqjan-pwsh-local)
 - `source`: [`packages/shell/pwsh-sandbox/src/index.ts:40`](../packages/shell/pwsh-sandbox/src/index.ts)
 
 ```ts config-catalog
@@ -2774,7 +2774,7 @@ export interface Config {
 export type Config = LocalConfig
 ```
 
-<a id="deepseek-aidsh-repeat-tool-reminder"></a>
+<a id="janhqjan-repeat-tool-reminder"></a>
 
 ## `@janhq/jan-repeat-tool-reminder`
 
@@ -2808,7 +2808,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-sandbox-local"></a>
+<a id="janhqjan-sandbox-local"></a>
 
 ## `@janhq/jan-sandbox-local`
 
@@ -2840,7 +2840,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-sandbox-policy"></a>
+<a id="janhqjan-sandbox-policy"></a>
 
 ## `@janhq/jan-sandbox-policy`
 
@@ -2876,7 +2876,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-schedule"></a>
+<a id="janhqjan-schedule"></a>
 
 ## `@janhq/jan-schedule`
 
@@ -2904,7 +2904,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-sdk-app"></a>
+<a id="janhqjan-sdk-app"></a>
 
 ## `@janhq/jan-sdk-app`
 
@@ -2919,7 +2919,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-sdk-jsonrpc-server"></a>
+<a id="janhqjan-sdk-jsonrpc-server"></a>
 
 ## `@janhq/jan-sdk-jsonrpc-server`
 
@@ -2941,7 +2941,7 @@ export interface JsonRpcConfig {
 }
 ```
 
-<a id="deepseek-aidsh-session-log-export"></a>
+<a id="janhqjan-session-log-export"></a>
 
 ## `@janhq/jan-session-log-export`
 
@@ -2959,7 +2959,7 @@ export interface Config {
 export type SessionLogCompressionLevel = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 ```
 
-<a id="deepseek-aidsh-session-persistence-jsonl"></a>
+<a id="janhqjan-session-persistence-jsonl"></a>
 
 ## `@janhq/jan-session-persistence-jsonl`
 
@@ -2990,7 +2990,7 @@ export interface Config {
 export type JsonlCompression = 'zstd' | 'none'
 ```
 
-<a id="deepseek-aidsh-session-projection-cache"></a>
+<a id="janhqjan-session-projection-cache"></a>
 
 ## `@janhq/jan-session-projection-cache`
 
@@ -3013,7 +3013,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-session-query-sqlite"></a>
+<a id="janhqjan-session-query-sqlite"></a>
 
 ## `@janhq/jan-session-query-sqlite`
 
@@ -3059,7 +3059,7 @@ export type OpenAt = 'startup' | 'first-search' | 'never'
 export type JournalMode = 'wal' | 'delete' | 'truncate' | 'persist'
 ```
 
-<a id="deepseek-aidsh-session-reference"></a>
+<a id="janhqjan-session-reference"></a>
 
 ## `@janhq/jan-session-reference`
 
@@ -3080,7 +3080,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-session-telemetry-otel"></a>
+<a id="janhqjan-session-telemetry-otel"></a>
 
 ## `@janhq/jan-session-telemetry-otel`
 
@@ -3125,7 +3125,7 @@ export enum SessionTelemetryMode {
 }
 ```
 
-<a id="deepseek-aidsh-session-title"></a>
+<a id="janhqjan-session-title"></a>
 
 ## `@janhq/jan-session-title`
 
@@ -3144,7 +3144,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-session-title-all-prompts-llm"></a>
+<a id="janhqjan-session-title-all-prompts-llm"></a>
 
 ## `@janhq/jan-session-title-all-prompts-llm`
 
@@ -3162,7 +3162,7 @@ export interface Config extends SessionTitleLlmConfig {
 }
 ```
 
-<a id="deepseek-aidsh-session-title-first-prompt-llm"></a>
+<a id="janhqjan-session-title-first-prompt-llm"></a>
 
 ## `@janhq/jan-session-title-first-prompt-llm`
 
@@ -3180,7 +3180,7 @@ export interface Config extends SessionTitleLlmConfig {
 }
 ```
 
-<a id="deepseek-aidsh-shell-env"></a>
+<a id="janhqjan-shell-env"></a>
 
 ## `@janhq/jan-shell-env`
 
@@ -3194,7 +3194,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-skill"></a>
+<a id="janhqjan-skill"></a>
 
 ## `@janhq/jan-skill`
 
@@ -3208,7 +3208,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-skill-filesystem"></a>
+<a id="janhqjan-skill-filesystem"></a>
 
 ## `@janhq/jan-skill-filesystem`
 
@@ -3245,7 +3245,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-skill-office"></a>
+<a id="janhqjan-skill-office"></a>
 
 ## `@janhq/jan-skill-office`
 
@@ -3264,7 +3264,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-spill-local"></a>
+<a id="janhqjan-spill-local"></a>
 
 ## `@janhq/jan-spill-local`
 
@@ -3293,7 +3293,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-spill-policy"></a>
+<a id="janhqjan-spill-policy"></a>
 
 ## `@janhq/jan-spill-policy`
 
@@ -3308,7 +3308,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-ssh"></a>
+<a id="janhqjan-ssh"></a>
 
 ## `@janhq/jan-ssh`
 
@@ -3353,7 +3353,7 @@ export type HelperLaunch = {
 }
 ```
 
-<a id="deepseek-aidsh-storage-domain"></a>
+<a id="janhqjan-storage-domain"></a>
 
 ## `@janhq/jan-storage-domain`
 
@@ -3375,7 +3375,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-storage-json"></a>
+<a id="janhqjan-storage-json"></a>
 
 ## `@janhq/jan-storage-json`
 
@@ -3395,7 +3395,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-storage-sqlite"></a>
+<a id="janhqjan-storage-sqlite"></a>
 
 ## `@janhq/jan-storage-sqlite`
 
@@ -3434,7 +3434,7 @@ export interface Config {
 export type JournalMode = 'wal' | 'delete' | 'truncate' | 'persist'
 ```
 
-<a id="deepseek-aidsh-subagent"></a>
+<a id="janhqjan-subagent"></a>
 
 ## `@janhq/jan-subagent`
 
@@ -3452,7 +3452,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-subagent-acp"></a>
+<a id="janhqjan-subagent-acp"></a>
 
 ## `@janhq/jan-subagent-acp`
 
@@ -3496,7 +3496,7 @@ export interface Config {
 export type PermissionPolicy = 'allow' | 'reject'
 ```
 
-<a id="deepseek-aidsh-subagent-claude-code"></a>
+<a id="janhqjan-subagent-claude-code"></a>
 
 ## `@janhq/jan-subagent-claude-code`
 
@@ -3530,7 +3530,7 @@ export interface Config {
 export type ClaudeCodePermissionMode = typeof CLAUDE_CODE_PERMISSION_MODES[number]
 ```
 
-<a id="deepseek-aidsh-subagent-codex"></a>
+<a id="janhqjan-subagent-codex"></a>
 
 ## `@janhq/jan-subagent-codex`
 
@@ -3562,7 +3562,22 @@ export type CodexPermissionMode =
   | 'dangerously-bypass-approvals-and-sandbox'
 ```
 
-<a id="deepseek-aidsh-subagent-jan-sdk"></a>
+<a id="janhqjan-subagent-fork-in-process"></a>
+
+## `@janhq/jan-subagent-fork-in-process`
+
+- `inject`: `subagents`
+- `source`: [`packages/subagent/subagent-fork-in-process/src/index.ts:29`](../packages/subagent/subagent-fork-in-process/src/index.ts)
+
+```ts config-catalog
+/** Config: the registry name to register the provider under. */
+export interface Config {
+  /** Provider name on `ctx.subagents` (default `fork`). */
+  providerName: string
+}
+```
+
+<a id="janhqjan-subagent-jan-sdk"></a>
 
 ## `@janhq/jan-subagent-jan-sdk`
 
@@ -3608,22 +3623,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-subagent-fork-in-process"></a>
-
-## `@janhq/jan-subagent-fork-in-process`
-
-- `inject`: `subagents`
-- `source`: [`packages/subagent/subagent-fork-in-process/src/index.ts:29`](../packages/subagent/subagent-fork-in-process/src/index.ts)
-
-```ts config-catalog
-/** Config: the registry name to register the provider under. */
-export interface Config {
-  /** Provider name on `ctx.subagents` (default `fork`). */
-  providerName: string
-}
-```
-
-<a id="deepseek-aidsh-subagent-spawn-in-process"></a>
+<a id="janhqjan-subagent-spawn-in-process"></a>
 
 ## `@janhq/jan-subagent-spawn-in-process`
 
@@ -3638,7 +3638,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-system-prompt"></a>
+<a id="janhqjan-system-prompt"></a>
 
 ## `@janhq/jan-system-prompt`
 
@@ -3670,7 +3670,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-terminal-bash"></a>
+<a id="janhqjan-terminal-bash"></a>
 
 ## `@janhq/jan-terminal-bash`
 
@@ -3728,7 +3728,7 @@ export interface Config {
 export type ShellDialect = 'bash' | 'pwsh'
 ```
 
-<a id="deepseek-aidsh-time-context"></a>
+<a id="janhqjan-time-context"></a>
 
 ## `@janhq/jan-time-context`
 
@@ -3745,7 +3745,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-tmux-context"></a>
+<a id="janhqjan-tmux-context"></a>
 
 ## `@janhq/jan-tmux-context`
 
@@ -3760,7 +3760,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-tokamak-account"></a>
+<a id="janhqjan-tokamak-account"></a>
 
 ## `@janhq/jan-tokamak-account`
 
@@ -3787,7 +3787,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-token-meter"></a>
+<a id="janhqjan-token-meter"></a>
 
 ## `@janhq/jan-token-meter`
 
@@ -3799,7 +3799,7 @@ export interface Config {
 export type TokenMeterConfig = Record<string, never>
 ```
 
-<a id="deepseek-aidsh-tool-agent-team"></a>
+<a id="janhqjan-tool-agent-team"></a>
 
 ## `@janhq/jan-tool-agent-team`
 
@@ -3811,7 +3811,7 @@ export type TokenMeterConfig = Record<string, never>
 export type Config = Record<never, never>
 ```
 
-<a id="deepseek-aidsh-tool-ask-user"></a>
+<a id="janhqjan-tool-ask-user"></a>
 
 ## `@janhq/jan-tool-ask-user`
 
@@ -3828,7 +3828,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-tool-bash"></a>
+<a id="janhqjan-tool-bash"></a>
 
 ## `@janhq/jan-tool-bash`
 
@@ -3856,7 +3856,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-tool-bash-persistent"></a>
+<a id="janhqjan-tool-bash-persistent"></a>
 
 ## `@janhq/jan-tool-bash-persistent`
 
@@ -3877,7 +3877,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-tool-executor-ptc"></a>
+<a id="janhqjan-tool-executor-ptc"></a>
 
 ## `@janhq/jan-tool-executor-ptc`
 
@@ -3894,7 +3894,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-tool-fs"></a>
+<a id="janhqjan-tool-fs"></a>
 
 ## `@janhq/jan-tool-fs`
 
@@ -3925,7 +3925,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-tool-fs-search"></a>
+<a id="janhqjan-tool-fs-search"></a>
 
 ## `@janhq/jan-tool-fs-search`
 
@@ -3959,7 +3959,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-tool-goal"></a>
+<a id="janhqjan-tool-goal"></a>
 
 ## `@janhq/jan-tool-goal`
 
@@ -3974,7 +3974,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-tool-jobs"></a>
+<a id="janhqjan-tool-jobs"></a>
 
 ## `@janhq/jan-tool-jobs`
 
@@ -4016,7 +4016,7 @@ export interface Config {
 export type CompletionDelivery = 'quiet' | 'wakeup'
 ```
 
-<a id="deepseek-aidsh-tool-lsp"></a>
+<a id="janhqjan-tool-lsp"></a>
 
 ## `@janhq/jan-tool-lsp`
 
@@ -4035,7 +4035,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-tool-present"></a>
+<a id="janhqjan-tool-present"></a>
 
 ## `@janhq/jan-tool-present`
 
@@ -4050,7 +4050,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-tool-pwsh"></a>
+<a id="janhqjan-tool-pwsh"></a>
 
 ## `@janhq/jan-tool-pwsh`
 
@@ -4078,7 +4078,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-tool-pwsh-persistent"></a>
+<a id="janhqjan-tool-pwsh-persistent"></a>
 
 ## `@janhq/jan-tool-pwsh-persistent`
 
@@ -4099,7 +4099,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-tool-ralph"></a>
+<a id="janhqjan-tool-ralph"></a>
 
 ## `@janhq/jan-tool-ralph`
 
@@ -4120,7 +4120,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-tool-session-query"></a>
+<a id="janhqjan-tool-session-query"></a>
 
 ## `@janhq/jan-tool-session-query`
 
@@ -4137,7 +4137,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-tool-skill"></a>
+<a id="janhqjan-tool-skill"></a>
 
 ## `@janhq/jan-tool-skill`
 
@@ -4152,7 +4152,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-tool-str-replace-editor"></a>
+<a id="janhqjan-tool-str-replace-editor"></a>
 
 ## `@janhq/jan-tool-str-replace-editor`
 
@@ -4169,7 +4169,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-tool-subagent"></a>
+<a id="janhqjan-tool-subagent"></a>
 
 ## `@janhq/jan-tool-subagent`
 
@@ -4225,7 +4225,7 @@ export interface PresetSelectionConfig {
 }
 ```
 
-<a id="deepseek-aidsh-tool-subagent-control"></a>
+<a id="janhqjan-tool-subagent-control"></a>
 
 ## `@janhq/jan-tool-subagent-control`
 
@@ -4240,7 +4240,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-tool-terminal"></a>
+<a id="janhqjan-tool-terminal"></a>
 
 ## `@janhq/jan-tool-terminal`
 
@@ -4257,7 +4257,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-tool-todo"></a>
+<a id="janhqjan-tool-todo"></a>
 
 ## `@janhq/jan-tool-todo`
 
@@ -4278,7 +4278,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-tool-web"></a>
+<a id="janhqjan-tool-web"></a>
 
 ## `@janhq/jan-tool-web`
 
@@ -4307,7 +4307,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-tool-workflow"></a>
+<a id="janhqjan-tool-workflow"></a>
 
 ## `@janhq/jan-tool-workflow`
 
@@ -4332,7 +4332,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-tool-workspace-dependencies"></a>
+<a id="janhqjan-tool-workspace-dependencies"></a>
 
 ## `@janhq/jan-tool-workspace-dependencies`
 
@@ -4353,7 +4353,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-typert-loader"></a>
+<a id="janhqjan-typert-loader"></a>
 
 ## `@janhq/jan-typert-loader`
 
@@ -4368,7 +4368,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-user-approval"></a>
+<a id="janhqjan-user-approval"></a>
 
 ## `@janhq/jan-user-approval`
 
@@ -4400,7 +4400,7 @@ export interface Config {
 export type ApprovalPolicy = 'ask' | 'never'
 ```
 
-<a id="deepseek-aidsh-web"></a>
+<a id="janhqjan-web"></a>
 
 ## `@janhq/jan-web`
 
@@ -4424,7 +4424,7 @@ export interface WebRuntimeConfig {
 }
 ```
 
-<a id="deepseek-aidsh-web-app"></a>
+<a id="janhqjan-web-app"></a>
 
 ## `@janhq/jan-web-app`
 
@@ -4454,7 +4454,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-web-fetch-http"></a>
+<a id="janhqjan-web-fetch-http"></a>
 
 ## `@janhq/jan-web-fetch-http`
 
@@ -4477,7 +4477,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-web-search-exa"></a>
+<a id="janhqjan-web-search-exa"></a>
 
 ## `@janhq/jan-web-search-exa`
 
@@ -4498,7 +4498,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-webhook-github"></a>
+<a id="janhqjan-webhook-github"></a>
 
 ## `@janhq/jan-webhook-github`
 
@@ -4519,7 +4519,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-workflow-ptc"></a>
+<a id="janhqjan-workflow-ptc"></a>
 
 ## `@janhq/jan-workflow-ptc`
 
@@ -4542,7 +4542,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-working-directory"></a>
+<a id="janhqjan-working-directory"></a>
 
 ## `@janhq/jan-working-directory`
 
@@ -4557,7 +4557,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-workspace-changes"></a>
+<a id="janhqjan-workspace-changes"></a>
 
 ## `@janhq/jan-workspace-changes`
 

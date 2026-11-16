@@ -462,8 +462,8 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@janhq/jan-subagent-acp` | yes | Out-of-process ACP subagent backend: drives a child agent in a spawned subprocess over the Agent Client Protocol |
 | `@janhq/jan-subagent-claude-code` | yes | One-shot Claude Code subagent provider over the official Agent SDK |
 | `@janhq/jan-subagent-codex` | yes | One-shot Codex subagent provider over the official app-server protocol |
-| `@janhq/jan-subagent-jan-sdk` | yes | Out-of-process SDK subagent backend: drives a child Jan runtime subprocess over stdio JSON-RPC through the TypeScript SDK client |
 | `@janhq/jan-subagent-fork-in-process` | yes | In-process fork subagent backend: runs a child agent seeded with a prefix of the parent's log |
+| `@janhq/jan-subagent-jan-sdk` | yes | Out-of-process SDK subagent backend: drives a child Jan runtime subprocess over stdio JSON-RPC through the TypeScript SDK client |
 | `@janhq/jan-subagent-spawn-in-process` | yes | In-process spawn subagent backend: runs a fresh child agent on ctx.agents |
 | `@janhq/jan-tool-subagent` | yes | Model-facing subagent delegation tool over the ctx.subagents seam |
 | `@janhq/jan-tool-subagent-control` | yes | Shared messaging, interruption, and child discovery tools for subagents |

@@ -6475,14 +6475,6 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface DomainTableSpec<K extends string = string, V = unknown> {\n    readonly valueSchema: ZodType<V>;\n    readonly __key?: K;\n}',
   },
   {
-    name: 'JanEnvironment',
-    declaration: 'export type JanEnvironment = Readonly<Record<JanEnvironmentKey, string>>;',
-  },
-  {
-    name: 'JanEnvironmentKey',
-    declaration: 'export type JanEnvironmentKey = `${typeof JAN_ENV_PREFIX}${string}`;',
-  },
-  {
     name: 'DynamicCordisPackage',
     declaration: 'export interface DynamicCordisPackage {\n    pluginId: CordisDynamicPluginId;\n    packageId: CordisDynamicPackageId;\n    pluginRunId: CordisDynamicPluginRunId;\n    name: string;\n}',
   },
@@ -6957,6 +6949,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'InvokeRemoteRequest',
     declaration: 'export interface InvokeRemoteRequest {\n    readonly namespace: string;\n    readonly method: string;\n    readonly args: Readonly<Record<string, unknown>>;\n    readonly uplink?: AsyncIterable<unknown>;\n    readonly uplinkWindow?: RemoteUplinkWindow | undefined;\n    readonly peer: PeerScope;\n    readonly signal?: AbortSignal;\n}',
+  },
+  {
+    name: 'JanEnvironment',
+    declaration: 'export type JanEnvironment = Readonly<Record<JanEnvironmentKey, string>>;',
+  },
+  {
+    name: 'JanEnvironmentKey',
+    declaration: 'export type JanEnvironmentKey = `${typeof JAN_ENV_PREFIX}${string}`;',
   },
   {
     name: 'JobAppendOptions',
