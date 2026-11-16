@@ -84,8 +84,7 @@ fn plugin_root<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, 
     let dev = Path::new(env!("CARGO_MANIFEST_DIR")).join("../dsh");
     let bundled = app.path().resource_dir().map(|d| d.join("_up_/dsh")).ok();
     [Some(dev), bundled].into_iter().flatten()
-        .find(|root| ["native", "log-bridge", "download", "llamacpp", "assistant", "image-generation", "jan-import", "open-waifu-shell"]
-            .iter().all(|name| root.join(name).join("index.mjs").is_file()))
+        .find(|root| BUILTINS.iter().all(|(_, name)| root.join(name).join("index.mjs").is_file()))
         .map(|root| crate::core::filesystem::helpers::canonical_scope_path(&root))
         .ok_or_else(|| "the bundled open-waifu DSH plugins are missing from this build".to_string())
 }
@@ -119,6 +118,48 @@ fn seed_profile(home: &Path) -> Result<(), String> {
     std::fs::write(&manifest, text).map_err(|e| e.to_string())
 }
 
+/// The bundled open-waifu plugins, as `(entry id, folder under dsh/)`.
+const BUILTINS: &[(&str, &str)] = &[
+    ("ow-native", "native"), ("ow-log-bridge", "log-bridge"), ("ow-download", "download"),
+    ("ow-llamacpp", "llamacpp"), ("ow-assistant", "assistant"), ("ow-image-generation", "image-generation"),
+    ("ow-jan-import", "jan-import"), ("ow-onboarding", "onboarding"), ("ow-shell", "open-waifu-shell"),
+];
+const BUNDLE: &str = "@open-waifu/dsh-bundle";
+
+/// Mounts the bundled plugins as a DSH bundle layer. Bundle layers apply before
+/// the profile's own patch, so a setting the user saves for one of these
+/// plugins lands in the profile and survives; an insert in the `--patch`
+/// overlay would come after it and DSH would refuse every such save.
+fn write_bundle(home: &Path, plugins: &Path) -> Result<(), String> {
+    let dir = home.join("node_modules").join(BUNDLE);
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let rows = BUILTINS.iter().map(|(id, folder)| map(vec![
+        ("id", Value::from(*id)),
+        ("name", Value::from(plugins.join(folder).join("index.mjs").to_string_lossy().replace('\\', "/"))),
+    ])).collect();
+    let patch = Value::Sequence(vec![map(vec![("insert", Value::Sequence(rows))])]);
+    std::fs::write(dir.join("cordis.patch.yml"), serde_yaml::to_string(&patch).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
+    let manifest = serde_json::json!({
+        "name": BUNDLE, "version": "0.0.0", "private": true,
+        "dsh": { "bundle": { "patch": "./cordis.patch.yml" } },
+    });
+    std::fs::write(dir.join("package.json"), serde_json::to_string_pretty(&manifest).map_err(|e| e.to_string())? + "\n")
+        .map_err(|e| e.to_string())?;
+    // Profiles made before this bundle existed list it now; nothing else changes.
+    let profile = home.join("profiles/web/package.json");
+    let text = std::fs::read_to_string(&profile).map_err(|e| e.to_string())?;
+    let mut value: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+    let bundles = value.pointer_mut("/dsh/profile/bundles").and_then(|b| b.as_array_mut())
+        .ok_or("the web profile lists no bundles")?;
+    if !bundles.iter().any(|b| b == BUNDLE) {
+        bundles.push(serde_json::Value::from(BUNDLE));
+        std::fs::write(&profile, serde_json::to_string_pretty(&value).map_err(|e| e.to_string())? + "\n")
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 /// DSH route ids are lowercase words joined by `-`; Jan names are free text.
 fn route_id(name: &str) -> String {
     let mut id = String::new();
@@ -148,7 +189,7 @@ fn map(pairs: Vec<(&str, Value)>) -> Value {
 
 /// The patch layered over DSH's `web` profile. Keys stay out of it: each
 /// provider names an environment variable the host is started with.
-fn patch(setup: &ShellSetup, plugins: &Path) -> Value {
+fn patch(setup: &ShellSetup) -> Value {
     let shell_config = map(vec![
         (
             "look",
@@ -162,21 +203,9 @@ fn patch(setup: &ShellSetup, plugins: &Path) -> Value {
     let selected_local = setup.default_model.as_ref()
         .filter(|(provider, _)| provider == "llamacpp")
         .map(|(_, model)| Value::from(model.clone())).unwrap_or(Value::Null);
-    let mut builtins = Vec::new();
-    for (id, folder) in [("ow-native", "native"), ("ow-log-bridge", "log-bridge"), ("ow-download", "download"), ("ow-llamacpp", "llamacpp"), ("ow-assistant", "assistant"), ("ow-image-generation", "image-generation"), ("ow-jan-import", "jan-import"), ("ow-shell", "open-waifu-shell")] {
-        let config = match id {
-            "ow-shell" => shell_config.clone(),
-            "ow-llamacpp" => map(vec![("selectedModel", selected_local.clone())]),
-            _ => map(vec![]),
-        };
-        builtins.push(map(vec![
-            ("id", Value::from(id)),
-            ("name", Value::from(plugins.join(folder).join("index.mjs").to_string_lossy().replace('\\', "/"))),
-            ("config", config),
-        ]));
-    }
     let mut entries = vec![
-        map(vec![("insert", Value::Sequence(builtins))]),
+        map(vec![("id", Value::from("ow-shell")), ("config", shell_config)]),
+        map(vec![("id", Value::from("ow-llamacpp")), ("config", map(vec![("selectedModel", selected_local)]))]),
         map(vec![
             ("id", Value::from("ui-theme")),
             ("name", Value::from("@deepseek-ai/dsh-client-ui-theme")),
@@ -278,8 +307,9 @@ pub(crate) async fn start<R: tauri::Runtime>(
     std::fs::create_dir_all(&home).map_err(|e| e.to_string())?;
     std::fs::create_dir_all(&workspace).map_err(|e| e.to_string())?;
     seed_profile(&home)?;
+    write_bundle(&home, &plugins)?;
     let patch_file = data_dir.join("web.patch.yml");
-    let text = serde_yaml::to_string(&patch(&setup, &plugins)).map_err(|e| e.to_string())?;
+    let text = serde_yaml::to_string(&patch(&setup)).map_err(|e| e.to_string())?;
     std::fs::write(&patch_file, text).map_err(|e| e.to_string())?;
 
     let names: Vec<String> = setup.providers.iter().map(|p| p.name.clone()).collect();

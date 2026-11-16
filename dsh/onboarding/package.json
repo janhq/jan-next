@@ -1,0 +1,21 @@
+{
+  "name": "@open-waifu/dsh-onboarding",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "First-run welcome that gets a new user to a working model: local, provider or ready route.",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-primitives",
+        "@deepseek-ai/dsh-client-ui-settings"
+      ]
+    }
+  }
+}

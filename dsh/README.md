@@ -14,6 +14,7 @@ The desktop window is DeepSeek Harness's web host. Every screen comes from a DSH
 | `assistant/` | `ow-assistant` | Jan assistants and their per-session instructions |
 | `image-generation/` | `ow-image-generation` | OpenAI-compatible and Seedream image tool, settings and inline previews; API key stays in the OS keyring |
 | `jan-import/` | `ow-jan-import` | Read-only upstream Jan chat import into native DSH sessions, in Settings > Plugins > Import from Jan |
+| `onboarding/` | `ow-onboarding` | First-run welcome on `settings.onboarding`: open Model Hub, connect a provider, or start chatting; shown once per copy version |
 | `server/` | none | Legacy stdio JSON-RPC server, not used by the desktop window |
 | `templates/ui-plugin/` | `open-waifu-plugin-hello` | Starting point for a new plugin |
 
