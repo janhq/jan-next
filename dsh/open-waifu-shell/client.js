@@ -91,6 +91,101 @@ window.__ModuleLoader__.load({
         h('p', null, 'Theme and font size are in General. Automatic conversation titles are in Plugin manager > Conversation-following titles. Token statistics are in General > Performance usage.'),
         error && h('p', { role: 'alert' }, error), h('p', { role: 'status' }, busy ? 'Saving appearance…' : notice))
     }
+    async function agentApi(method, params = {}) {
+      const response = await fetch('/ow-api/agent-settings', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
+      const body = await response.json()
+      if (!response.ok || body.error) throw new Error(body.error || 'Settings could not be saved.')
+      return body.result
+    }
+    const agentDrafts = new Map()
+    function useAgentDraft(key, initial) {
+      const [value, update] = React.useState(() => agentDrafts.has(key) ? agentDrafts.get(key) : initial)
+      return [value, next => { agentDrafts.set(key, next); update(next) }]
+    }
+    function AgentSettings({ skills = false }) {
+      const { Input, Modal, RiskConfirmation } = require('@deepseek-ai/dsh-client-ui-primitives')
+      const [data, setData] = React.useState(null)
+      const [error, setError] = React.useState('')
+      const [notice, setNotice] = React.useState('')
+      const [busy, setBusy] = React.useState(false)
+      const [draft, setDraft] = useAgentDraft('server', null)
+      const [original, setOriginal] = useAgentDraft('original', '')
+      const [replaceSecrets, setReplaceSecrets] = useAgentDraft('replaceSecrets', false)
+      const [importText, setImportText] = useAgentDraft('import', '')
+      const [preview, setPreview] = React.useState(null)
+      const [importOpen, setImportOpen] = React.useState(false)
+      const [skillQuery, setSkillQuery] = useAgentDraft('skillQuery', '')
+      const [directories, setDirectories] = useAgentDraft('directories', null)
+      const [instruction, setInstruction] = useAgentDraft('instruction', null)
+      const [confirmation, setConfirmation] = React.useState(null)
+      const [acknowledged, setAcknowledged] = React.useState(false)
+      const hasDraft = !!draft || !!importText || !!instruction
+      React.useEffect(() => {
+        if (!hasDraft) return
+        const warn = event => { event.preventDefault(); event.returnValue = '' }
+        window.addEventListener('beforeunload', warn)
+        return () => window.removeEventListener('beforeunload', warn)
+      }, [hasDraft])
+      async function refresh() {
+        const next = await agentApi('list')
+        setData(next); if (directories === null) setDirectories(next.directories.join('\n'))
+      }
+      React.useEffect(() => { let live = true; agentApi('list').then(next => { if (live) { setData(next); if (directories === null) setDirectories(next.directories.join('\n')) } }).catch(failure => { if (live) setError(failure.message) }); return () => { live = false } }, [])
+      async function run(action, message) {
+        setBusy(true); setError(''); setNotice('')
+        try { await action(); await refresh(); setNotice(message) }
+        catch (failure) { setError(failure.message) }
+        finally { setBusy(false) }
+      }
+      function ask(title, description, action) { setAcknowledged(false); setConfirmation({ title, description, action }) }
+      function edit(row) {
+        setOriginal(row?.name || ''); setReplaceSecrets(!row)
+        setDraft(row ? { ...row, args: (row.args ?? []).join('\n'), env: '{}', headers: '{}' } : { name: '', transport: 'stdio', command: '', args: '', env: '{}', headers: '{}', url: '', cwd: '', enabled: false })
+      }
+      const field = (label, key, multiline = false, props = {}) => h('label', { className: 'ow-agent-field' }, label, h(multiline ? 'textarea' : Input, { value: draft[key] ?? '', disabled: busy, onChange: event => setDraft({ ...draft, [key]: event.target.value }), ...props }))
+      const actions = (...children) => h('div', { className: 'ow-agent-actions' }, ...children)
+      const button = (text, action, props = {}) => h(Button, { variant: 'outline', disabled: busy, onClick: action, ...props }, text)
+      const message = h(React.Fragment, null, error && h('p', { role: 'alert' }, error), h('p', { role: 'status' }, busy ? 'Applying settings…' : notice))
+      return h('section', { className: 'ow-appearance ow-agent-settings', 'aria-busy': busy },
+        h('h2', null, skills ? 'Skills' : 'MCP Servers'),
+        h('p', null, skills ? 'Skills are reusable instructions. DSH discovers compatible SKILL.md folders in .agents/skills and .dsh/skills. Add another folder below to reuse an existing library without copying it.' : 'MCP servers connect the agent to external tools. A local command runs with your account permissions. Enable only servers you trust.'),
+        h('details', null, h('summary', null, skills ? 'Compatibility with Claude and Codex' : 'MCP, skills, plugins and agent presets'), h('p', null, skills ? 'Claude and Codex skill instructions may work when they use the same format. Their hooks, plugin manifests, permissions and unavailable tool names are not imported. Review instructions and scripts before use.' : 'MCP servers provide tools. Skills provide reusable instructions. Plugins add app features through Plugin manager. Agent presets hold saved instructions and working modes.')),
+        !data && !error && h('p', { role: 'status' }, 'Loading settings…'),
+        skills ? h(React.Fragment, null,
+          h('label', { className: 'ow-agent-field' }, 'Additional skill folders (one absolute path per line)', h('textarea', { value: directories ?? '', disabled: busy, onChange: event => setDirectories(event.target.value) })),
+          actions(data?.canPickDirectory && button('Choose skill folder', () => run(async () => { const path = await agentApi('pickDirectory'); if (path) setDirectories([directories, path].filter(Boolean).join('\n')) }, 'Folder selection completed. Save folders to apply.')), button('Save skill folders', () => run(() => agentApi('saveDirectories', { directories: (directories ?? '').split('\n').map(path => path.trim()).filter(Boolean) }), 'Skill folders saved.'))),
+          data?.skills.complete === false && h('p', { role: 'alert' }, 'Skill discovery is incomplete. Some sources could not be read.'),
+          h('p', null, 'Editing a linked skill changes its original file, including use by other agents. Removing a folder here leaves its files untouched. Unsaved drafts stay during navigation but are lost on reload.'),
+          h('label', { className: 'ow-agent-field' }, 'Search skills', h(Input, { value: skillQuery, onChange: event => setSkillQuery(event.target.value) })),
+          ...(data?.skills.skills ?? []).filter(row => `${row.name} ${row.description}`.toLowerCase().includes(skillQuery.toLowerCase())).map(row => h('div', { className: 'ow-interface-row', key: row.name }, h('div', null, h('h3', null, row.name), h('p', null, row.description), h('small', null, row.path || row.source || row.provider)), row.path && button('Edit instructions', () => run(async () => setInstruction({ name: row.name, ...await agentApi('readSkill', { name: row.name }) }), 'Skill opened.')))),
+          instruction && h(Modal, { open: true, title: instruction.name, closeLabel: 'Close skill editor', onClose: () => setInstruction(null), className: 'ow-appearance ow-agent-settings ow-agent-modal', contentClassName: 'ow-agent-modal-content', footer: actions(button('Save instructions', () => ask('Save skill instructions?', 'This writes to the original skill file. Other agents using this folder will see the change.', () => run(async () => setInstruction({ name: instruction.name, ...await agentApi('saveSkill', instruction) }), 'Skill instructions saved.')), { variant: 'primary' }), button('Close editor', () => setInstruction(null))) }, h('p', null, instruction.path), h('label', { className: 'ow-agent-field' }, 'Skill instruction file', h('textarea', { rows: 16, value: instruction.text, onChange: event => setInstruction({ ...instruction, text: event.target.value }), disabled: busy })), error && h('p', { role: 'alert' }, error), h('p', { role: 'status' }, notice))
+        ) : h(React.Fragment, null,
+          actions(button('Add MCP server', () => edit(null))),
+          data && data.servers.length === 0 && h('p', null, 'No MCP servers configured. Add a server or import your existing Jan or Claude Desktop JSON.'),
+          ...(data?.servers ?? []).map(row => h('div', { className: 'ow-interface-row', key: row.name }, h('div', null, h('h3', null, row.name), h('p', null, row.status), row.secretConfigured && h('small', null, 'Credentials stored separately'), row.tools?.length > 0 && h('details', null, h('summary', null, 'Available tools'), ...row.tools.map(name => h('p', { key: name }, name.replace(`mcp__${row.name}__`, '')))), h('small', null, row.transport === 'stdio' ? row.command : row.url)), actions(h(Switch, { label: `Enable ${row.name}`, checked: row.enabled, disabled: busy, onChange: enabled => enabled ? ask('Enable MCP server?', 'The server can run commands or access external services. Enable it only if you trust its source.', () => run(() => agentApi('toggle', { name: row.name, enabled }), 'Server enabled. Check its connection status below.')) : run(() => agentApi('toggle', { name: row.name, enabled }), 'Server disabled.') }), row.enabled && button('Reconnect', () => run(() => agentApi('toggle', { name: row.name, enabled: true }), 'Connection refreshed. Check the tools and connection status.'), { 'aria-label': `Reconnect ${row.name}` }), button('Edit', () => edit(row), { 'aria-label': `Edit ${row.name}` }), button('Remove', () => ask('Remove MCP server?', 'This removes the connection and its saved credentials. It does not uninstall the server software.', () => run(() => agentApi('remove', { name: row.name, confirmed: true }), 'Server removed.')), { 'aria-label': `Remove ${row.name}` })))),
+          draft && h(Modal, {
+            open: true, title: original ? `Edit ${original}` : 'Add MCP server', closeLabel: 'Close editor', onClose: () => setDraft(null), className: 'ow-appearance ow-agent-settings ow-agent-modal', contentClassName: 'ow-agent-modal-content', footer: actions(button('Save server', () => run(async () => {
+              const value = { ...draft, args: draft.args === '' ? [] : draft.args.split('\n'), env: JSON.parse(draft.env), headers: JSON.parse(draft.headers) }
+              await agentApi('saveServer', { value, originalName: original || undefined, replaceSecrets }); setDraft(null)
+            }, 'MCP server saved.'), { variant: 'primary' }), button('Cancel', () => setDraft(null)))
+          },
+            field('Server name', 'name', false, { disabled: busy || !!original }),
+            h('label', { className: 'ow-agent-field' }, 'Transport', h('select', { value: draft.transport, disabled: busy, onChange: event => setDraft({ ...draft, transport: event.target.value }) }, h('option', { value: 'stdio' }, 'Local command (stdio)'), h('option', { value: 'streamable-http' }, 'Remote endpoint (Streamable HTTP)'))),
+            draft.transport === 'stdio' ? h(React.Fragment, null, field('Command', 'command'), field('Arguments (one per line)', 'args', true, { rows: 2 })) : field('MCP endpoint URL', 'url'),
+            h('details', null, h('summary', null, 'Advanced: working directory and credentials'),
+              draft.transport === 'stdio' && field('Working directory (optional absolute path)', 'cwd'),
+              original && h('label', null, h('input', { type: 'checkbox', checked: replaceSecrets, onChange: event => setReplaceSecrets(event.target.checked) }), ' Replace saved environment / headers'),
+              replaceSecrets && (draft.transport === 'stdio' ? field('Environment (JSON object, stored as credentials)', 'env', true, { autoComplete: 'off', spellCheck: false }) : field('Headers (JSON object, stored as credentials)', 'headers', true, { autoComplete: 'off', spellCheck: false }))),
+            h('p', null, 'Saved connections persist. Unsaved drafts stay while switching sections, but are lost on reload. Credentials are never displayed after saving.'),
+            error && h('p', { role: 'alert' }, error)),
+          button('Import MCP JSON', () => setImportOpen(true)),
+          importOpen && h(Modal, { open: true, title: 'Import MCP JSON', closeLabel: 'Close import', onClose: () => setImportOpen(false), className: 'ow-appearance ow-agent-settings ow-agent-modal', contentClassName: 'ow-agent-modal-content', footer: actions(button('Review import', () => run(async () => setPreview(await agentApi('previewImport', { text: importText })), 'Import reviewed. Nothing has been saved.')), preview && button('Import disabled servers', () => run(async () => { await agentApi('importServers', { text: importText, confirmed: true }); setImportText(''); setPreview(null); setImportOpen(false) }, 'Servers imported disabled.'), { variant: 'primary' }), button('Cancel', () => setImportOpen(false))) },
+            h('p', null, 'Paste an object containing mcpServers. Imports are all-or-nothing, never overwrite names, and stay disabled until you enable them. Codex TOML, Claude plugins and legacy SSE need separate conversion.'),
+            h('label', { className: 'ow-agent-field' }, 'MCP configuration JSON', h('textarea', { rows: 6, value: importText, autoComplete: 'off', spellCheck: false, onChange: event => { setImportText(event.target.value); setPreview(null) } })),
+            preview && h('div', null, ...preview.map(row => h('p', { key: row.name }, `${row.name}: ${row.transport}, disabled. Credential fields: ${[...row.environmentKeys, ...row.headerKeys].join(', ') || 'none'}`))), error && h('p', { role: 'alert' }, error))
+        ), message,
+        h(RiskConfirmation, { open: !!confirmation, title: confirmation?.title || '', description: confirmation?.description || '', acknowledgeLabel: 'I understand this change', cancelLabel: 'Cancel', closeLabel: 'Close', confirmLabel: 'Confirm', acknowledged, disabled: busy, onAcknowledgedChange: setAcknowledged, onCancel: () => setConfirmation(null), onConfirm: () => { const action = confirmation.action; setConfirmation(null); action() } }))
+    }
     const both = (v) => ({ light: v, dark: v })
     // Jan's palette (web-app/src/index.css) mapped onto DSH's alias tokens.
     const TOKENS = {
@@ -133,6 +228,21 @@ window.__ModuleLoader__.load({
     }
 
     const CSS = `
+.ow-agent-modal { display: flex; flex-direction: column; width: min(620px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); }
+.ow-agent-modal-content { min-height: 0; overflow-y: auto; }
+.ow-agent-field { display: grid; gap: 6px; margin-block: 12px; }
+.ow-agent-field textarea, .ow-agent-field select { width: 100%; box-sizing: border-box; padding: 8px 12px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); font: inherit; }
+.ow-agent-field textarea { min-height: 80px; resize: vertical; }
+.ow-agent-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ow-agent-editor { margin-block: 16px; padding: 16px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 12px; }
+.ow-agent-settings small, .ow-agent-settings p { overflow-wrap: anywhere; }
+.ow-agent-settings small { display: block; color: var(--dsw-alias-label-secondary); margin-block: 4px; }
+.ow-agent-settings .ow-interface-row { align-items: flex-start; flex-wrap: wrap; gap: 12px; }
+.ow-agent-settings .ow-interface-row > div:first-child { flex: 1 1 220px; min-width: 0; }
+.ow-agent-settings .ow-interface-row > .ow-agent-actions { justify-content: flex-end; }
+.ow-agent-settings .ow-interface-row details { margin-block: 8px; }
+.ow-agent-settings details { margin-block: 20px; }
+.ow-agent-settings summary { cursor: pointer; }
 .ow-appearance h2, .ow-appearance h3 { text-wrap: balance; font-size: 16px; font-weight: 500; margin: 0; }
 .ow-appearance p { text-wrap: pretty; color: var(--dsw-alias-label-secondary); margin-block: 6px; line-height: 1.5; }
 .ow-interface-row { display: flex; align-items: center; justify-content: space-between; gap: 32px; padding-block: 12px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
@@ -434,6 +544,8 @@ html[data-ow-shell][data-windows-titlebar] [data-sidebar-right-panel] { top: var
       apply(ctx) {
         applyAppearance(preferences)
         ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'ow-appearance', order: 5, label: 'Appearance' }, AppearanceSettings))
+        ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'ow-mcp', order: 30, label: 'MCP Servers' }, () => h(AgentSettings, { key: 'mcp' })))
+        ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'ow-skills', order: 31, label: 'Skills' }, () => h(AgentSettings, { skills: true, key: 'skills' })))
         const style = document.createElement('style')
         style.dataset.plugin = '@open-waifu/dsh-shell'
         style.textContent = CSS

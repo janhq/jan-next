@@ -7,15 +7,18 @@ import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 import { registerApi } from '../native/api.mjs'
+import { mountAgentSettings } from './agent-settings.mjs'
 
 const { default: z } = await import(pathToFileURL(createRequire(process.argv[1]).resolve('@deepseek-ai/schemastery')).href)
 export const Config = z.object({
   look: z.any().default(null),
   appearance: z.dict(z.any()).default({}).volatile(),
+  mcpServers: z.array(z.any()).default([]),
+  skillDirectories: z.array(z.string()).default([]),
 })
 
 export const name = 'ow-shell'
-export const inject = ['webServer', 'connection', 'settings']
+export const inject = ['webServer', 'connection', 'settings', 'configEditor', 'credentials', 'skills', 'tools']
 
 const ASSETS = new URL('./assets/', import.meta.url)
 // A fixed list: the route serves these files and nothing else in the folder.
@@ -31,7 +34,8 @@ const TYPES = {
  * @param {import('@deepseek-ai/cordis').Context} ctx
  * @param {{ look?: { primary: string, sidebar: { light: string, dark: string } } }} config
  */
-export function apply(ctx, config = {}) {
+export async function apply(ctx, config = {}) {
+  await mountAgentSettings(ctx, config)
   const appearance = () => config.appearance.get()
   const entry = ctx.fiber.entry?.options.id
   let writes = Promise.resolve()
