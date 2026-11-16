@@ -7,7 +7,6 @@ This matrix shows which packages dispatch each harness-owned event and which pac
 
 Application listeners are outside this package matrix. Desktop Host subscribes to `plugin-manager/operation` through [`installOperationDiagnostics`](../apps/desktop-host/src/operation-diagnostics.ts) and forwards bounded records to the shell.
 
-<!-- BEGIN GENERATED event-producer-consumer:events -->
 | Event | Mode | Declared in | Dispatchers | Listeners |
 | --- | --- | --- | --- | --- |
 | `agent-loop/config-start-failed` | `emit` | [`packages/core/agent-loop/src/index.ts:198`](../packages/core/agent-loop/src/index.ts) | [`agent-loop`](../packages/core/agent-loop) (`events.dispatch`) | - |
@@ -100,11 +99,9 @@ Application listeners are outside this package matrix. Desktop Host subscribes t
 | `workflow/start` | `emit` | [`packages/workflow/workflow/src/index.ts:43`](../packages/workflow/workflow/src/index.ts) | [`workflow`](../packages/workflow/workflow) (`events.dispatch`) | - |
 | `workspace/session-activity` | `waterfall` | [`packages/workspace/workspace/src/index.ts:129`](../packages/workspace/workspace/src/index.ts) | [`workspace`](../packages/workspace/workspace) (`waterfall`) | [`agent`](../packages/core/agent), [`jobs`](../packages/jobs/jobs), [`schedule`](../packages/schedule/schedule), [`subagent`](../packages/subagent/subagent) |
 | `workspace/session-stop` | `parallel` | [`packages/workspace/workspace/src/index.ts:147`](../packages/workspace/workspace/src/index.ts) | [`workspace`](../packages/workspace/workspace) (`parallel`) | [`agent`](../packages/core/agent), [`jobs`](../packages/jobs/jobs), [`schedule`](../packages/schedule/schedule), [`subagent`](../packages/subagent/subagent) |
-<!-- END GENERATED event-producer-consumer:events -->
 
 ## Non-harness or undeclared event strings seen in package source
 
-<!-- BEGIN GENERATED event-producer-consumer:undeclared -->
 | Event string | Dispatchers | Listeners |
 | --- | --- | --- |
 | `agent/request` | [`agent-loop`](../packages/core/agent-loop) (`waterfall`) | [`compaction-basic`](../packages/compaction/compaction-basic) |
@@ -118,6 +115,5 @@ Application listeners are outside this package matrix. Desktop Host subscribes t
 | `locale/change` | `locale` (`emit`) | `locale` |
 | `slots/changed` | `ui-renderer` (`emit`) | - |
 | `theme/change` | `ui-theme` (`emit`) | `ui-layout`, `ui-theme` |
-<!-- END GENERATED event-producer-consumer:undeclared -->
 
 Maintenance mode: generated: Cordis event declarations and producer/listener edges are resolved from the repository TypeScript Program.

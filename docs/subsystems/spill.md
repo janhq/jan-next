@@ -1,7 +1,5 @@
 # Spill Storage
 
-English | [中文](spill.zh.md)
-
 The spill storage [capability seam](../../.agents/notes/implemented/architecture/2026-07-08-tool-output-spill-files.md) persists caller-provided text and returns a model-facing locator with retrieval guidance. Its Service Definition is [dsh-spill](../../packages/spill/spill) (`ctx.spillStore`), and its local Service Provider is [dsh-spill-local](../../packages/spill/spill-local). Consumers include the [tool-result policy](../../packages/spill/spill-policy) and [session references](../../packages/context/session-reference/README.md). Spill is optional, not part of the [agent-loop spine](core.md); consumers own preview and spill decisions, while storage saves the supplied text verbatim.
 
 Source: [`packages/spill/spill/src/types.ts`](../../packages/spill/spill/src/types.ts)
@@ -97,7 +95,7 @@ The local backend ([dsh-spill-local](../../packages/spill/spill-local)) writes u
 
 ## Cordis API
 
-Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`). Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
 <a id="ctxspillstore--spillstore-abstract-seam"></a>
 

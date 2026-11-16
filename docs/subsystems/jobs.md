@@ -1,7 +1,5 @@
 # Background Job Runtime
 
-English | [中文](jobs.zh.md)
-
 Types shared by long-running producers, `ctx.jobs`, and job controls. The [seam consolidation Agent Note](../../.agents/notes/implemented/architecture/2026-09-03-jobs-seam-consolidation.md) owns the current design and the [runtime reference](../../packages/jobs/jobs/README.md) its origin; this page records the exact fields and variants from [`packages/jobs/jobs/src/types.ts`](../../packages/jobs/jobs/src/types.ts) and the client-safe [`view.ts`](../../packages/jobs/jobs/src/view.ts) leaf.
 
 ## Ids and status
@@ -391,7 +389,7 @@ The abstract [`JobRegistry`](../../packages/jobs/jobs/src/index.ts) Service Defi
 
 ## Cordis API
 
-Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`). Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
 <a id="ctxjobcontroller--jobcontroller"></a>
 

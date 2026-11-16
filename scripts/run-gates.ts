@@ -844,7 +844,6 @@ function docSyncLeafGates(options: {
     pnpmScript('cordis-inspect-catalog', 'verify-cordis-inspect-catalog', { label: 'Cordis inspect catalog' }),
     pnpmScript('workflow-guest', 'verify-workflow-guest', { label: 'workflow guest source' }),
     pnpmScript('mermaid', 'verify-mermaid'),
-    pnpmScript('translation-pairing', 'verify-translation-pairing', { label: 'translation pairing', quick: true }),
     pnpmScript('markdown-wrap', 'verify-md-wrap', { label: 'markdown wrap', quick: true }),
     pnpmScript('client-catalog', 'verify-client-catalog', { label: 'client catalog' }),
     pnpmScript('export-jsdoc', 'verify-export-jsdoc', { label: 'export jsdoc' }),
@@ -870,7 +869,6 @@ function docSyncLeafGates(options: {
     pnpmScript('agent-note-classification', 'verify-agent-note-classification', { label: 'agent note classification', quick: true }),
     pnpmScript('agent-note-format', 'verify-agent-note-format', { label: 'agent note format', quick: true }),
     pnpmScript('skill-invocation-metadata', 'verify-skill-invocation-metadata', { label: 'skill invocation metadata', quick: true }),
-    pnpmScript('translation-prompt', 'verify-translation-prompt', { label: 'translation prompt', quick: true }),
     pnpmScript('doc-budgets', 'verify-doc-budgets', { label: 'doc budgets', quick: true }),
     pnpmScript('upgrade-guides', 'verify-upgrade-guides', { label: 'upgrade guides', quick: true }),
     pnpmExec('doc-standard-tests', ['vitest', 'run', 'scripts/doc-standard.spec.ts'], {
@@ -893,7 +891,7 @@ function docSyncLeafGates(options: {
 
 /**
  * The quick comprehensive documentation-standard aggregate for `test:docs`.
- * It covers the prose, pairing, README, budget, and Agent Note gates
+ * It covers the prose, README, budget, and Agent Note gates
  * without builds, generator regeneration, or the VitePress site build.
  */
 function docQuickLeafGates(): Gate[] {

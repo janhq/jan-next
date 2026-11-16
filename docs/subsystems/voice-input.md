@@ -1,7 +1,5 @@
 # Voice input
 
-English | [中文](voice-input.zh.md)
-
 Experimental speech recognition has three roles: the [Service Definition](../../packages/experimental/speech-to-text/README.md) routes named providers, the [SenseVoice provider](../../packages/experimental/speech-to-text-sensevoice/README.md) owns local inference, and the [Remote consumer](../../packages/experimental/api-speech-to-text/README.md) serves the browser. The [optional bundle](../../packages/experimental/voice-input-bundle/README.md) composes them with the microphone UI.
 
 ## Provider selection
@@ -36,7 +34,7 @@ The [voice input decision](../../.agents/notes/implemented/architecture/2026-09-
 
 ## Cordis API
 
-Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`). Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
 <a id="ctxspeechcontroller--speechcontroller"></a>
 

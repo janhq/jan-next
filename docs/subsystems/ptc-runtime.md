@@ -1,7 +1,5 @@
 # PTC runtime
 
-English | [中文](ptc-runtime.zh.md)
-
 The PTC execution [capability seam](../../.agents/notes/implemented/architecture/2026-06-13-capability-seams.md) supplies `ctx.ptcRuntime` through [dsh-ptc-runtime](../../packages/ptc-runtime/ptc-runtime). It runs one program against host bindings and reports output, failure and applicable sandbox facts. PTC execution is optional rather than part of [the agent-loop spine](core.md). The [PTC foundation](../../.agents/notes/implemented/feature/2026-06-15-ptc.md) owns registry presentation, the [typed-return contract](../../.agents/notes/implemented/feature/2026-07-20-ptc-typed-tool-returns.md) owns binding values, and the [sandboxed Node decision](../../.agents/notes/implemented/architecture/2026-09-11-sandboxed-node-ptc-runtime.md) owns the shipped execution provider.
 
 Source: [`packages/ptc-runtime/ptc-runtime/src/types.ts`](../../packages/ptc-runtime/ptc-runtime/src/types.ts)
@@ -219,7 +217,7 @@ interface PtcRunFailure {
 
 ## Cordis API
 
-Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`). Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
 <a id="ctxptcruntime--ptcruntime-abstract-seam"></a>
 

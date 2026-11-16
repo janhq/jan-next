@@ -5,11 +5,10 @@
 
 Every `config:` block a `cordis.yml` entry can set: for each loadable harness package, the verbatim config declaration (JSDoc included) its `apply` function or service constructor receives, with every referenced type pasted alongside (package-local types) or linked (everything else). The paste is the plugin's full declared config type — a field the runtime schema deliberately excludes is a runtime-only seam (its own JSDoc says so) and is not settable from `cordis.yml`. This is the **deployment**-axis reference — the wiring a plugin author works against is the generated Cordis API region on each [subsystem page](subsystems/core.md), the model-facing tool schemas are the [tool catalog](tool-catalog.md), and [subsystems/](subsystems/core.md) documents the types these declarations reference.
 
-Both language versions of this file are GENERATED from source (`scripts/gen-config-catalog.ts`) and verified fresh by `pnpm run verify-config-catalog` (part of `doc-sync`) — do not edit them by hand. Declaration blocks use a `ts config-catalog` fence (skipped by doc-typecheck, since a lone declaration referencing imports is not standalone-compilable). The generator also cross-checks the runtime schemastery schema against the pasted declaration — every schema-validated key, nested keys included, must be locatable on the declared config type — so the paste cannot hide a loader-accepted field.
+This file is GENERATED from source (`scripts/gen-config-catalog.ts`) and verified fresh by `pnpm run verify-config-catalog` (part of `doc-sync`) — do not edit it by hand. Declaration blocks use a `ts config-catalog` fence (skipped by doc-typecheck, since a lone declaration referencing imports is not standalone-compilable). The generator also cross-checks the runtime schemastery schema against the pasted declaration — every schema-validated key, nested keys included, must be locatable on the declared config type — so the paste cannot hide a loader-accepted field.
 
 Each package entry labels its data with three identifiers: `inject` lists the service keys the plugin injects, so its `cordis.yml` tree must also load providers for those services; `refs` lists the referenced types that are not pasted here; `source` links the file that declares the config. Scope is the harness tier (`packages/`); the vendored cordis plugins a config tree may also load (the console logger, …) are pinned upstream source ([vendoring policy](../vendor/README.md)) and not catalogued here.
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-acp -->
 <a id="deepseek-aidsh-acp"></a>
 
 ## `@deepseek-ai/dsh-acp`
@@ -31,9 +30,7 @@ export interface AcpConfig {
   stream?: Stream
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-acp -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-action-cards -->
 <a id="deepseek-aidsh-action-cards"></a>
 
 ## `@deepseek-ai/dsh-action-cards`
@@ -46,9 +43,7 @@ export interface AcpConfig {
 /** Validated card limits after schema defaults. */
 export type Config = z.infer<typeof Config>
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-action-cards -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-agent-default-model -->
 <a id="deepseek-aidsh-agent-default-model"></a>
 
 ## `@deepseek-ai/dsh-agent-default-model`
@@ -67,9 +62,7 @@ export interface Config {
   reasoningEffort: Volatile<string | undefined>
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-agent-default-model -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-agent-instructions -->
 <a id="deepseek-aidsh-agent-instructions"></a>
 
 ## `@deepseek-ai/dsh-agent-instructions`
@@ -102,9 +95,7 @@ export interface Config {
   localInstructionFileCandidates?: string[]
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-agent-instructions -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-agent-loop -->
 <a id="deepseek-aidsh-agent-loop"></a>
 
 ## `@deepseek-ai/dsh-agent-loop`
@@ -134,9 +125,7 @@ export interface Config {
   })[]
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-agent-loop -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-agent-preset -->
 <a id="deepseek-aidsh-agent-preset"></a>
 
 ## `@deepseek-ai/dsh-agent-preset`
@@ -149,9 +138,7 @@ export interface Config {
 /** Definition submitted to the preset registry. */
 export type Config = PresetDefinition
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-agent-preset -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-agent-preset-registry -->
 <a id="deepseek-aidsh-agent-preset-registry"></a>
 
 ## `@deepseek-ai/dsh-agent-preset-registry`
@@ -169,9 +156,7 @@ export interface Config {
   selectedDefault: Volatile<string | undefined>
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-agent-preset-registry -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-agent-team -->
 <a id="deepseek-aidsh-agent-team"></a>
 
 ## `@deepseek-ai/dsh-agent-team`
@@ -188,9 +173,7 @@ export interface Config {
   readonly maxTasks?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-agent-team -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-agent-tool-presentation -->
 <a id="deepseek-aidsh-agent-tool-presentation"></a>
 
 ## `@deepseek-ai/dsh-agent-tool-presentation`
@@ -214,9 +197,7 @@ export interface Config {
   mode: 'native' | 'ptc'
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-agent-tool-presentation -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-api-gateway -->
 <a id="deepseek-aidsh-api-gateway"></a>
 
 ## `@deepseek-ai/dsh-api-gateway`
@@ -235,9 +216,7 @@ export interface Config {
   readonly websocketCompression?: 'none' | 'deflate'
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-api-gateway -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-api-job-controller -->
 <a id="deepseek-aidsh-api-job-controller"></a>
 
 ## `@deepseek-ai/dsh-api-job-controller`
@@ -254,9 +233,7 @@ export interface Config {
   readonly observeMaxFrameBytes?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-api-job-controller -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-api-session-controller -->
 <a id="deepseek-aidsh-api-session-controller"></a>
 
 ## `@deepseek-ai/dsh-api-session-controller`
@@ -273,9 +250,7 @@ export interface Config {
   readonly listWorkSliceMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-api-session-controller -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-api-settings-controller -->
 <a id="deepseek-aidsh-api-settings-controller"></a>
 
 ## `@deepseek-ai/dsh-api-settings-controller`
@@ -289,9 +264,7 @@ export interface SettingsControllerInternals {
   readonly openTextFile?: (path: string, signal: AbortSignal) => Promise<void>
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-api-settings-controller -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-api-terminal-controller -->
 <a id="deepseek-aidsh-api-terminal-controller"></a>
 
 ## `@deepseek-ai/dsh-api-terminal-controller`
@@ -335,9 +308,7 @@ export interface Config {
   readonly cleanupRetryMs: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-api-terminal-controller -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-api-workspace-controller -->
 <a id="deepseek-aidsh-api-workspace-controller"></a>
 
 ## `@deepseek-ai/dsh-api-workspace-controller`
@@ -354,9 +325,7 @@ export interface Config {
   documentsLookupTimeoutMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-api-workspace-controller -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-api-workspace-files -->
 <a id="deepseek-aidsh-api-workspace-files"></a>
 
 ## `@deepseek-ai/dsh-api-workspace-files`
@@ -383,9 +352,7 @@ export interface Config {
   readonly maxEntries: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-api-workspace-files -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-attachment-local -->
 <a id="deepseek-aidsh-attachment-local"></a>
 
 ## `@deepseek-ai/dsh-attachment-local`
@@ -420,9 +387,7 @@ export interface Config {
   imageCompressionConcurrency?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-attachment-local -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-bash-local -->
 <a id="deepseek-aidsh-bash-local"></a>
 
 ## `@deepseek-ai/dsh-bash-local`
@@ -448,9 +413,7 @@ export interface Config {
   graceMs: Volatile<number>
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-bash-local -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-bash-sandbox -->
 <a id="deepseek-aidsh-bash-sandbox"></a>
 
 ## `@deepseek-ai/dsh-bash-sandbox`
@@ -469,9 +432,7 @@ export interface Config {
  */
 export type Config = LocalConfig
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-bash-sandbox -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-client-connection -->
 <a id="deepseek-aidsh-client-connection"></a>
 
 ## `@deepseek-ai/dsh-client-connection`
@@ -514,9 +475,7 @@ export interface ConnectionRecoveryConfig {
   generationReadyTimeoutMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-connection -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-client-hmr -->
 <a id="deepseek-aidsh-client-hmr"></a>
 
 ## `@deepseek-ai/dsh-client-hmr`
@@ -531,9 +490,7 @@ export interface Config {
   pollIntervalMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-hmr -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-client-product-analytics -->
 <a id="deepseek-aidsh-client-product-analytics"></a>
 
 ## `@deepseek-ai/dsh-client-product-analytics`
@@ -555,9 +512,7 @@ export interface Config {
   environmentQueryMaxOutputBytes: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-product-analytics -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-client-shortcuts -->
 <a id="deepseek-aidsh-client-shortcuts"></a>
 
 ## `@deepseek-ai/dsh-client-shortcuts`
@@ -571,9 +526,7 @@ export interface Config {
   stopSequenceMs: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-shortcuts -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-client-ui-plugin-manager -->
 <a id="deepseek-aidsh-client-ui-plugin-manager"></a>
 
 ## `@deepseek-ai/dsh-client-ui-plugin-manager`
@@ -591,9 +544,7 @@ export interface Config {
   registryProbeCacheTtlMs: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-ui-plugin-manager -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-client-ui-settings-account -->
 <a id="deepseek-aidsh-client-ui-settings-account"></a>
 
 ## `@deepseek-ai/dsh-client-ui-settings-account`
@@ -641,9 +592,7 @@ export type OnboardingPurpose = 'office' | 'development' | 'both'
 /** Work-detail mode applied to Chat when onboarding completes. */
 export type OnboardingProcess = 'compact' | 'standard' | 'detailed'
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-ui-settings-account -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-client-ui-settings-models -->
 <a id="deepseek-aidsh-client-ui-settings-models"></a>
 
 ## `@deepseek-ai/dsh-client-ui-settings-models`
@@ -669,9 +618,7 @@ export interface OnboardingRoute {
   settingsPath: string[]
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-ui-settings-models -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-client-ui-sidebar-documentpreview -->
 <a id="deepseek-aidsh-client-ui-sidebar-documentpreview"></a>
 
 ## `@deepseek-ai/dsh-client-ui-sidebar-documentpreview`
@@ -703,9 +650,7 @@ export interface Config {
   }
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-ui-sidebar-documentpreview -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-client-ui-theme -->
 <a id="deepseek-aidsh-client-ui-theme"></a>
 
 ## `@deepseek-ai/dsh-client-ui-theme`
@@ -735,9 +680,7 @@ export interface Config {
 /** Theme preference persisted by the product Appearance row. */
 export type ThemePreference = typeof THEME_PREFERENCES[number]
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-ui-theme -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-client-ui-trajectory -->
 <a id="deepseek-aidsh-client-ui-trajectory"></a>
 
 ## `@deepseek-ai/dsh-client-ui-trajectory`
@@ -752,9 +695,7 @@ export interface Config {
   maxResultsPerSession: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-ui-trajectory -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-compaction-basic -->
 <a id="deepseek-aidsh-compaction-basic"></a>
 
 ## `@deepseek-ai/dsh-compaction-basic`
@@ -801,9 +742,7 @@ export interface ModelCompactPolicyConfig extends CompactionPolicyConfig {
   model: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-compaction-basic -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-compaction-tool-result-pruner -->
 <a id="deepseek-aidsh-compaction-tool-result-pruner"></a>
 
 ## `@deepseek-ai/dsh-compaction-tool-result-pruner`
@@ -822,9 +761,7 @@ export interface ToolResultPruneConfig {
   tailChars?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-compaction-tool-result-pruner -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-cordis-host-runner -->
 <a id="deepseek-aidsh-cordis-host-runner"></a>
 
 ## `@deepseek-ai/dsh-cordis-host-runner`
@@ -841,9 +778,7 @@ export interface Config {
   clientInspectTimeoutMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-cordis-host-runner -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-credentials-local -->
 <a id="deepseek-aidsh-credentials-local"></a>
 
 ## `@deepseek-ai/dsh-credentials-local`
@@ -863,9 +798,7 @@ export interface Config {
   debounceMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-credentials-local -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-deepseek-account-platform -->
 <a id="deepseek-aidsh-deepseek-account-platform"></a>
 
 ## `@deepseek-ai/dsh-deepseek-account-platform`
@@ -904,9 +837,7 @@ export interface Config {
   attemptTimeoutMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-deepseek-account-platform -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-api-speech-to-text -->
 <a id="deepseek-aidsh-experimental-api-speech-to-text"></a>
 
 ## `@deepseek-ai/dsh-experimental-api-speech-to-text`
@@ -923,9 +854,7 @@ export interface Config {
   maxDurationSeconds: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-api-speech-to-text -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-browser-use-chrome-devtools-mcp -->
 <a id="deepseek-aidsh-experimental-browser-use-chrome-devtools-mcp"></a>
 
 ## `@deepseek-ai/dsh-experimental-browser-use-chrome-devtools-mcp`
@@ -938,9 +867,7 @@ export interface Config {
 /** Fixed Chromium launch or existing-browser attachment settings. */
 export type Config = BrowserMcpConfig
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-browser-use-chrome-devtools-mcp -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-browser-use-playwright-mcp -->
 <a id="deepseek-aidsh-experimental-browser-use-playwright-mcp"></a>
 
 ## `@deepseek-ai/dsh-experimental-browser-use-playwright-mcp`
@@ -953,9 +880,7 @@ export type Config = BrowserMcpConfig
 /** Fixed Chromium launch or existing-browser attachment settings. */
 export type Config = BrowserMcpConfig
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-browser-use-playwright-mcp -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-browser-use-stagehand-native -->
 <a id="deepseek-aidsh-experimental-browser-use-stagehand-native"></a>
 
 ## `@deepseek-ai/dsh-experimental-browser-use-stagehand-native`
@@ -995,9 +920,7 @@ export interface StagehandModelConfig {
   headers?: Record<string, string>
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-browser-use-stagehand-native -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-claude-code-mods -->
 <a id="deepseek-aidsh-experimental-claude-code-mods"></a>
 
 ## `@deepseek-ai/dsh-experimental-claude-code-mods`
@@ -1022,9 +945,7 @@ export interface Config {
   bandRows?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-claude-code-mods -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-client-ui-cot-translation -->
 <a id="deepseek-aidsh-experimental-client-ui-cot-translation"></a>
 
 ## `@deepseek-ai/dsh-experimental-client-ui-cot-translation`
@@ -1050,9 +971,7 @@ export interface CotTranslationPreferences {
   targetLanguage: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-client-ui-cot-translation -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-client-ui-forge -->
 <a id="deepseek-aidsh-experimental-client-ui-forge"></a>
 
 ## `@deepseek-ai/dsh-experimental-client-ui-forge`
@@ -1088,9 +1007,7 @@ export interface Config {
   maxCachedDiffBytes?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-client-ui-forge -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-computer-use-cua-driver-mcp -->
 <a id="deepseek-aidsh-experimental-computer-use-cua-driver-mcp"></a>
 
 ## `@deepseek-ai/dsh-experimental-computer-use-cua-driver-mcp`
@@ -1112,9 +1029,7 @@ export interface Config {
   reconnect: McpClient.ReconnectConfig
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-computer-use-cua-driver-mcp -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-cua-macos -->
 <a id="deepseek-aidsh-experimental-cua-macos"></a>
 
 ## `@deepseek-ai/dsh-experimental-cua-macos`
@@ -1144,9 +1059,7 @@ export type SourceSigning = 'ad-hoc' | {
   keychain: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-cua-macos -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-forge -->
 <a id="deepseek-aidsh-experimental-forge"></a>
 
 ## `@deepseek-ai/dsh-experimental-forge`
@@ -1166,9 +1079,7 @@ export interface Config {
   fetchTimeoutMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-forge -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-forge-github -->
 <a id="deepseek-aidsh-experimental-forge-github"></a>
 
 ## `@deepseek-ai/dsh-experimental-forge-github`
@@ -1189,9 +1100,7 @@ export interface Config {
   maxOutputBytes?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-forge-github -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-forge-session -->
 <a id="deepseek-aidsh-experimental-forge-session"></a>
 
 ## `@deepseek-ai/dsh-experimental-forge-session`
@@ -1206,9 +1115,7 @@ export interface Config {
   discoveryTimeoutMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-forge-session -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-inspector -->
 <a id="deepseek-aidsh-experimental-inspector"></a>
 
 ## `@deepseek-ai/dsh-experimental-inspector`
@@ -1275,9 +1182,7 @@ export interface InspectorOptions {
   readonly maxDisconnectedCordisTrees?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-inspector -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-ptc-runtime-python -->
 <a id="deepseek-aidsh-experimental-ptc-runtime-python"></a>
 
 ## `@deepseek-ai/dsh-experimental-ptc-runtime-python`
@@ -1344,9 +1249,7 @@ export interface Config {
   pythonBin?: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-ptc-runtime-python -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-speech-to-text -->
 <a id="deepseek-aidsh-experimental-speech-to-text"></a>
 
 ## `@deepseek-ai/dsh-experimental-speech-to-text`
@@ -1363,9 +1266,7 @@ export interface Config {
   language: Volatile<string>
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-speech-to-text -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-speech-to-text-sensevoice -->
 <a id="deepseek-aidsh-experimental-speech-to-text-sensevoice"></a>
 
 ## `@deepseek-ai/dsh-experimental-speech-to-text-sensevoice`
@@ -1424,9 +1325,7 @@ export interface Config {
   progressIntervalMs: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-speech-to-text-sensevoice -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-subagent-oar -->
 <a id="deepseek-aidsh-experimental-subagent-oar"></a>
 
 ## `@deepseek-ai/dsh-experimental-subagent-oar`
@@ -1453,9 +1352,7 @@ export interface Config {
   timeoutMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-subagent-oar -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-tool-subagent-oar -->
 <a id="deepseek-aidsh-experimental-tool-subagent-oar"></a>
 
 ## `@deepseek-ai/dsh-experimental-tool-subagent-oar`
@@ -1472,9 +1369,7 @@ export interface Config {
   toolName?: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-tool-subagent-oar -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-translator -->
 <a id="deepseek-aidsh-experimental-translator"></a>
 
 ## `@deepseek-ai/dsh-experimental-translator`
@@ -1511,9 +1406,7 @@ export type AnonymousTranslationProvider = 'google' | 'bing'
 /** Explicit native DeepSeek credential route selected for paid translation. */
 export type PaidTranslationProvider = 'deepseek-account' | 'deepseek-official'
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-translator -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-worktree -->
 <a id="deepseek-aidsh-experimental-worktree"></a>
 
 ## `@deepseek-ai/dsh-experimental-worktree`
@@ -1540,9 +1433,7 @@ export interface Config {
   maxOutputBytes?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-experimental-worktree -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-file-reference-local -->
 <a id="deepseek-aidsh-file-reference-local"></a>
 
 ## `@deepseek-ai/dsh-file-reference-local`
@@ -1561,9 +1452,7 @@ export interface Config {
   excludedDirectories?: string[]
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-file-reference-local -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-fs-local -->
 <a id="deepseek-aidsh-fs-local"></a>
 
 ## `@deepseek-ai/dsh-fs-local`
@@ -1582,9 +1471,7 @@ export interface Config {
   diffBasisMaxBytes?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-fs-local -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-fs-sandbox -->
 <a id="deepseek-aidsh-fs-sandbox"></a>
 
 ## `@deepseek-ai/dsh-fs-sandbox`
@@ -1602,9 +1489,7 @@ export interface Config {
  */
 export type Config = LocalConfig
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-fs-sandbox -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-goal -->
 <a id="deepseek-aidsh-goal"></a>
 
 ## `@deepseek-ai/dsh-goal`
@@ -1619,9 +1504,7 @@ export interface Config {
   defaultMaxGoalRounds?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-goal -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-headless -->
 <a id="deepseek-aidsh-headless"></a>
 
 ## `@deepseek-ai/dsh-headless`
@@ -1645,9 +1528,7 @@ export interface Config {
   approvalPolicy?: ApprovalPolicy
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-headless -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-hmr -->
 <a id="deepseek-aidsh-hmr"></a>
 
 ## `@deepseek-ai/dsh-hmr`
@@ -1668,9 +1549,7 @@ export interface HmrConfig extends ChokidarOptions {
   ignored: string[]
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-hmr -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-hooks-claude-code -->
 <a id="deepseek-aidsh-hooks-claude-code"></a>
 
 ## `@deepseek-ai/dsh-hooks-claude-code`
@@ -1707,9 +1586,7 @@ export interface Config {
   stderrSummaryMaxChars?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-hooks-claude-code -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-hooks-codex -->
 <a id="deepseek-aidsh-hooks-codex"></a>
 
 ## `@deepseek-ai/dsh-hooks-codex`
@@ -1735,9 +1612,7 @@ export interface Config {
   stderrSummaryMaxChars?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-hooks-codex -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-host-directory-picker-browse -->
 <a id="deepseek-aidsh-host-directory-picker-browse"></a>
 
 ## `@deepseek-ai/dsh-host-directory-picker-browse`
@@ -1751,9 +1626,7 @@ export interface Config {
   maxEntries: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-host-directory-picker-browse -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-host-frontend-static -->
 <a id="deepseek-aidsh-host-frontend-static"></a>
 
 ## `@deepseek-ai/dsh-host-frontend-static`
@@ -1768,9 +1641,7 @@ export interface Config {
   distIndex: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-host-frontend-static -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-host-open-in-app -->
 <a id="deepseek-aidsh-host-open-in-app"></a>
 
 ## `@deepseek-ai/dsh-host-open-in-app`
@@ -1800,9 +1671,7 @@ export interface Config {
   readonly launchWatchMs: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-host-open-in-app -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-host-product-telemetry-otel -->
 <a id="deepseek-aidsh-host-product-telemetry-otel"></a>
 
 ## `@deepseek-ai/dsh-host-product-telemetry-otel`
@@ -1837,9 +1706,7 @@ export interface Config {
   shutdownTimeoutMillis: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-host-product-telemetry-otel -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-host-webserver -->
 <a id="deepseek-aidsh-host-webserver"></a>
 
 ## `@deepseek-ai/dsh-host-webserver`
@@ -1890,9 +1757,7 @@ export interface TlsConfig {
   keyFile: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-host-webserver -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-jobs-local -->
 <a id="deepseek-aidsh-jobs-local"></a>
 
 ## `@deepseek-ai/dsh-jobs-local`
@@ -1919,9 +1784,7 @@ export interface Config {
   pumpPollMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-jobs-local -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-llama-cpp -->
 <a id="deepseek-aidsh-llama-cpp"></a>
 
 ## `@deepseek-ai/dsh-llama-cpp`
@@ -2063,9 +1926,7 @@ export interface ArtifactOverride {
   bytes: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-llama-cpp -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-llm-deepseek-account -->
 <a id="deepseek-aidsh-llm-deepseek-account"></a>
 
 ## `@deepseek-ai/dsh-llm-deepseek-account`
@@ -2081,9 +1942,7 @@ export interface Config extends Omit<ProtocolConfig, 'models'>, ModelListingConf
   modelOverrides: Volatile<Record<string, ModelOverride>>
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-llm-deepseek-account -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-llm-deepseek-api-key -->
 <a id="deepseek-aidsh-llm-deepseek-api-key"></a>
 
 ## `@deepseek-ai/dsh-llm-deepseek-api-key`
@@ -2099,9 +1958,7 @@ export interface Config extends ProtocolConfig, ModelListingConfig {
   apiKeyEnv: Volatile<string>
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-llm-deepseek-api-key -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-llm-pi-ai -->
 <a id="deepseek-aidsh-llm-pi-ai"></a>
 
 ## `@deepseek-ai/dsh-llm-pi-ai`
@@ -2391,9 +2248,7 @@ export type PiAiThinkingFormat = NonNullable<OpenAICompletionsCompat['thinkingFo
 /** The reasoning-budget field spellings pi-ai accepts. */
 export type PiAiThinkingTokenBudgetField = NonNullable<OpenAICompletionsCompat['thinkingTokenBudgetField']>
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-llm-pi-ai -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-llm-replay -->
 <a id="deepseek-aidsh-llm-replay"></a>
 
 ## `@deepseek-ai/dsh-llm-replay`
@@ -2474,9 +2329,7 @@ export interface ReplayModelConfig {
   badge?: LlmModelBadge
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-llm-replay -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-llm-retry -->
 <a id="deepseek-aidsh-llm-retry"></a>
 
 ## `@deepseek-ai/dsh-llm-retry`
@@ -2488,9 +2341,7 @@ export interface ReplayModelConfig {
 /** This policy executor has no config; providers own `retryPolicy`. */
 export type Config = Readonly<Record<string, never>>
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-llm-retry -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-lsp-stdio -->
 <a id="deepseek-aidsh-lsp-stdio"></a>
 
 ## `@deepseek-ai/dsh-lsp-stdio`
@@ -2531,9 +2382,7 @@ export interface LspLocalServerConfig {
   killGraceMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-lsp-stdio -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-mcp-client -->
 <a id="deepseek-aidsh-mcp-client"></a>
 
 ## `@deepseek-ai/dsh-mcp-client`
@@ -2621,9 +2470,7 @@ export interface ReconnectConfig {
   maxAttempts?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-mcp-client -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-mcp-manager -->
 <a id="deepseek-aidsh-mcp-manager"></a>
 
 ## `@deepseek-ai/dsh-mcp-manager`
@@ -2672,9 +2519,7 @@ export interface McpManagedServerEntry {
   reconnect: ReconnectConfig
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-mcp-manager -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-message-feedback -->
 <a id="deepseek-aidsh-message-feedback"></a>
 
 ## `@deepseek-ai/dsh-message-feedback`
@@ -2689,9 +2534,7 @@ export interface Config {
   readonly maxNoteBytes: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-message-feedback -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-office-to-pdf -->
 <a id="deepseek-aidsh-office-to-pdf"></a>
 
 ## `@deepseek-ai/dsh-office-to-pdf`
@@ -2741,9 +2584,7 @@ export interface Config {
   maxLoadedFontBytes: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-office-to-pdf -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-permission-presets -->
 <a id="deepseek-aidsh-permission-presets"></a>
 
 ## `@deepseek-ai/dsh-permission-presets`
@@ -2781,9 +2622,7 @@ export interface PresetSpec {
   description?: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-permission-presets -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-persona -->
 <a id="deepseek-aidsh-persona"></a>
 
 ## `@deepseek-ai/dsh-persona`
@@ -2811,9 +2650,7 @@ export interface Config {
   includeRuntimeContext?: boolean
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-persona -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-plan-mode -->
 <a id="deepseek-aidsh-plan-mode"></a>
 
 ## `@deepseek-ai/dsh-plan-mode`
@@ -2828,9 +2665,7 @@ export interface PlanModeConfig {
   section: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-plan-mode -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-plugin-manager -->
 <a id="deepseek-aidsh-plugin-manager"></a>
 
 ## `@deepseek-ai/dsh-plugin-manager`
@@ -2878,9 +2713,7 @@ export interface Config {
   detailNpmFileSources?: NpmFileSource[]
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-plugin-manager -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-plugin-market -->
 <a id="deepseek-aidsh-plugin-market"></a>
 
 ## `@deepseek-ai/dsh-plugin-market`
@@ -2918,9 +2751,7 @@ export interface Config {
   detailGitlabHosts: string[]
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-plugin-market -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-plugin-package-inventory-deepseek -->
 <a id="deepseek-aidsh-plugin-package-inventory-deepseek"></a>
 
 ## `@deepseek-ai/dsh-plugin-package-inventory-deepseek`
@@ -2935,9 +2766,7 @@ export interface Config {
   enabled?: boolean
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-plugin-package-inventory-deepseek -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-ptc-runtime-node -->
 <a id="deepseek-aidsh-ptc-runtime-node"></a>
 
 ## `@deepseek-ai/dsh-ptc-runtime-node`
@@ -2987,9 +2816,7 @@ export type LaunchConfig = {
   executable: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-ptc-runtime-node -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-pwsh-local -->
 <a id="deepseek-aidsh-pwsh-local"></a>
 
 ## `@deepseek-ai/dsh-pwsh-local`
@@ -3022,9 +2849,7 @@ export interface Config {
   pwshPath: Volatile<string | undefined>
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-pwsh-local -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-pwsh-sandbox -->
 <a id="deepseek-aidsh-pwsh-sandbox"></a>
 
 ## `@deepseek-ai/dsh-pwsh-sandbox`
@@ -3044,9 +2869,7 @@ export interface Config {
  */
 export type Config = LocalConfig
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-pwsh-sandbox -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-repeat-tool-reminder -->
 <a id="deepseek-aidsh-repeat-tool-reminder"></a>
 
 ## `@deepseek-ai/dsh-repeat-tool-reminder`
@@ -3080,9 +2903,7 @@ export interface Config {
   argumentsPreviewChars?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-repeat-tool-reminder -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-sandbox-local -->
 <a id="deepseek-aidsh-sandbox-local"></a>
 
 ## `@deepseek-ai/dsh-sandbox-local`
@@ -3114,9 +2935,7 @@ export interface Config {
   probeTimeoutMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-sandbox-local -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-sandbox-policy -->
 <a id="deepseek-aidsh-sandbox-policy"></a>
 
 ## `@deepseek-ai/dsh-sandbox-policy`
@@ -3152,9 +2971,7 @@ export interface Config {
   additionalWritableRoots?: string[]
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-sandbox-policy -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-schedule -->
 <a id="deepseek-aidsh-schedule"></a>
 
 ## `@deepseek-ai/dsh-schedule`
@@ -3182,9 +2999,7 @@ export interface Config {
   newSessionIntervalSeconds?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-schedule -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-sdk-app -->
 <a id="deepseek-aidsh-sdk-app"></a>
 
 ## `@deepseek-ai/dsh-sdk-app`
@@ -3199,9 +3014,7 @@ export interface Config {
   profile?: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-sdk-app -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-sdk-jsonrpc-server -->
 <a id="deepseek-aidsh-sdk-jsonrpc-server"></a>
 
 ## `@deepseek-ai/dsh-sdk-jsonrpc-server`
@@ -3223,9 +3036,7 @@ export interface JsonRpcConfig {
   exit?: (code: number) => void
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-sdk-jsonrpc-server -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-session-log-deepseek -->
 <a id="deepseek-aidsh-session-log-deepseek"></a>
 
 ## `@deepseek-ai/dsh-session-log-deepseek`
@@ -3247,9 +3058,7 @@ export interface Config {
   maxBytes: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-session-log-deepseek -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-session-log-export -->
 <a id="deepseek-aidsh-session-log-export"></a>
 
 ## `@deepseek-ai/dsh-session-log-export`
@@ -3267,9 +3076,7 @@ export interface Config {
 /** Valid fflate DEFLATE levels accepted by session-log export. */
 export type SessionLogCompressionLevel = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-session-log-export -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-session-persistence-jsonl -->
 <a id="deepseek-aidsh-session-persistence-jsonl"></a>
 
 ## `@deepseek-ai/dsh-session-persistence-jsonl`
@@ -3300,9 +3107,7 @@ export interface Config {
 /** Physical encoding selected for JSONL session artifacts. */
 export type JsonlCompression = 'zstd' | 'none'
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-session-persistence-jsonl -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-session-projection-cache -->
 <a id="deepseek-aidsh-session-projection-cache"></a>
 
 ## `@deepseek-ai/dsh-session-projection-cache`
@@ -3325,9 +3130,7 @@ export interface Config {
   writeIntervalMs: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-session-projection-cache -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-session-query-sqlite -->
 <a id="deepseek-aidsh-session-query-sqlite"></a>
 
 ## `@deepseek-ai/dsh-session-query-sqlite`
@@ -3373,9 +3176,7 @@ export type OpenAt = 'startup' | 'first-search' | 'never'
 /** Supported SQLite journal modes. */
 export type JournalMode = 'wal' | 'delete' | 'truncate' | 'persist'
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-session-query-sqlite -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-session-reference -->
 <a id="deepseek-aidsh-session-reference"></a>
 
 ## `@deepseek-ai/dsh-session-reference`
@@ -3396,9 +3197,7 @@ export interface Config {
   referenceContextFraction?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-session-reference -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-session-telemetry-otel -->
 <a id="deepseek-aidsh-session-telemetry-otel"></a>
 
 ## `@deepseek-ai/dsh-session-telemetry-otel`
@@ -3443,9 +3242,7 @@ export enum SessionTelemetryMode {
   DISABLED = 'DISABLED',
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-session-telemetry-otel -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-session-title -->
 <a id="deepseek-aidsh-session-title"></a>
 
 ## `@deepseek-ai/dsh-session-title`
@@ -3464,9 +3261,7 @@ export interface Config {
   readonly maxTitleBytes: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-session-title -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-session-title-all-prompts-llm -->
 <a id="deepseek-aidsh-session-title-all-prompts-llm"></a>
 
 ## `@deepseek-ai/dsh-session-title-all-prompts-llm`
@@ -3484,9 +3279,7 @@ export interface Config extends SessionTitleLlmConfig {
   readonly targetCjkCharacters: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-session-title-all-prompts-llm -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-session-title-first-prompt-llm -->
 <a id="deepseek-aidsh-session-title-first-prompt-llm"></a>
 
 ## `@deepseek-ai/dsh-session-title-first-prompt-llm`
@@ -3504,9 +3297,7 @@ export interface Config extends SessionTitleLlmConfig {
   readonly targetCjkCharacters: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-session-title-first-prompt-llm -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-shell-env -->
 <a id="deepseek-aidsh-shell-env"></a>
 
 ## `@deepseek-ai/dsh-shell-env`
@@ -3520,9 +3311,7 @@ export interface Config {
   dshHome?: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-shell-env -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-skill -->
 <a id="deepseek-aidsh-skill"></a>
 
 ## `@deepseek-ai/dsh-skill`
@@ -3536,9 +3325,7 @@ export interface Config {
   readonly collectCacheMaxEntries?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-skill -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-skill-filesystem -->
 <a id="deepseek-aidsh-skill-filesystem"></a>
 
 ## `@deepseek-ai/dsh-skill-filesystem`
@@ -3575,9 +3362,7 @@ export interface Config {
   bundledSkillDir?: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-skill-filesystem -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-skill-office -->
 <a id="deepseek-aidsh-skill-office"></a>
 
 ## `@deepseek-ai/dsh-skill-office`
@@ -3596,9 +3381,7 @@ export interface Config {
   cli?: string | false
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-skill-office -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-spill-local -->
 <a id="deepseek-aidsh-spill-local"></a>
 
 ## `@deepseek-ai/dsh-spill-local`
@@ -3627,9 +3410,7 @@ export interface Config {
   cleanupPeriodDays?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-spill-local -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-spill-policy -->
 <a id="deepseek-aidsh-spill-policy"></a>
 
 ## `@deepseek-ai/dsh-spill-policy`
@@ -3644,9 +3425,7 @@ export interface Config {
   maxInlineTokens?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-spill-policy -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-ssh -->
 <a id="deepseek-aidsh-ssh"></a>
 
 ## `@deepseek-ai/dsh-ssh`
@@ -3691,9 +3470,7 @@ export type HelperLaunch = {
   kind: 'executable'
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-ssh -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-storage-domain -->
 <a id="deepseek-aidsh-storage-domain"></a>
 
 ## `@deepseek-ai/dsh-storage-domain`
@@ -3715,9 +3492,7 @@ export interface Config {
   routes?: Record<string, string>
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-storage-domain -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-storage-json -->
 <a id="deepseek-aidsh-storage-json"></a>
 
 ## `@deepseek-ai/dsh-storage-json`
@@ -3737,9 +3512,7 @@ export interface Config {
   root: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-storage-json -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-storage-sqlite -->
 <a id="deepseek-aidsh-storage-sqlite"></a>
 
 ## `@deepseek-ai/dsh-storage-sqlite`
@@ -3778,9 +3551,7 @@ export interface Config {
  */
 export type JournalMode = 'wal' | 'delete' | 'truncate' | 'persist'
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-storage-sqlite -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-subagent -->
 <a id="deepseek-aidsh-subagent"></a>
 
 ## `@deepseek-ai/dsh-subagent`
@@ -3798,9 +3569,7 @@ export interface Config {
   maxDepth: Volatile<number>
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-subagent -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-subagent-acp -->
 <a id="deepseek-aidsh-subagent-acp"></a>
 
 ## `@deepseek-ai/dsh-subagent-acp`
@@ -3844,9 +3613,7 @@ export interface Config {
 /** Fixed response to child permission requests: reject by default, or select the first allow option. */
 export type PermissionPolicy = 'allow' | 'reject'
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-subagent-acp -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-subagent-claude-code -->
 <a id="deepseek-aidsh-subagent-claude-code"></a>
 
 ## `@deepseek-ai/dsh-subagent-claude-code`
@@ -3880,9 +3647,7 @@ export interface Config {
 /** Profile-selectable non-interactive Claude Code permission mode. */
 export type ClaudeCodePermissionMode = typeof CLAUDE_CODE_PERMISSION_MODES[number]
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-subagent-claude-code -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-subagent-codex -->
 <a id="deepseek-aidsh-subagent-codex"></a>
 
 ## `@deepseek-ai/dsh-subagent-codex`
@@ -3914,9 +3679,7 @@ export type CodexPermissionMode =
   | 'approve-for-me'
   | 'dangerously-bypass-approvals-and-sandbox'
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-subagent-codex -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-subagent-dsh-sdk -->
 <a id="deepseek-aidsh-subagent-dsh-sdk"></a>
 
 ## `@deepseek-ai/dsh-subagent-dsh-sdk`
@@ -3962,9 +3725,7 @@ export interface Config {
   disposeGraceMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-subagent-dsh-sdk -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-subagent-fork-in-process -->
 <a id="deepseek-aidsh-subagent-fork-in-process"></a>
 
 ## `@deepseek-ai/dsh-subagent-fork-in-process`
@@ -3979,9 +3740,7 @@ export interface Config {
   providerName: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-subagent-fork-in-process -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-subagent-spawn-in-process -->
 <a id="deepseek-aidsh-subagent-spawn-in-process"></a>
 
 ## `@deepseek-ai/dsh-subagent-spawn-in-process`
@@ -3996,9 +3755,7 @@ export interface Config {
   providerName: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-subagent-spawn-in-process -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-system-prompt -->
 <a id="deepseek-aidsh-system-prompt"></a>
 
 ## `@deepseek-ai/dsh-system-prompt`
@@ -4030,9 +3787,7 @@ export interface Config {
   toolOrder?: string[]
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-system-prompt -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-terminal-bash -->
 <a id="deepseek-aidsh-terminal-bash"></a>
 
 ## `@deepseek-ai/dsh-terminal-bash`
@@ -4090,9 +3845,7 @@ export interface Config {
 /** One supported interactive shell dialect. */
 export type ShellDialect = 'bash' | 'pwsh'
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-terminal-bash -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-time-context -->
 <a id="deepseek-aidsh-time-context"></a>
 
 ## `@deepseek-ai/dsh-time-context`
@@ -4109,9 +3862,7 @@ export interface Config {
   refreshIntervalMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-time-context -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tmux-context -->
 <a id="deepseek-aidsh-tmux-context"></a>
 
 ## `@deepseek-ai/dsh-tmux-context`
@@ -4126,9 +3877,7 @@ export interface Config {
   refreshIntervalMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tmux-context -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tokamak-account -->
 <a id="deepseek-aidsh-tokamak-account"></a>
 
 ## `@deepseek-ai/dsh-tokamak-account`
@@ -4155,9 +3904,7 @@ export interface Config {
   attemptTimeoutMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tokamak-account -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-token-meter -->
 <a id="deepseek-aidsh-token-meter"></a>
 
 ## `@deepseek-ai/dsh-token-meter`
@@ -4169,9 +3916,7 @@ export interface Config {
 /** Token-meter plugin configuration; the fixed estimator has no settings. */
 export type TokenMeterConfig = Record<string, never>
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-token-meter -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-agent-team -->
 <a id="deepseek-aidsh-tool-agent-team"></a>
 
 ## `@deepseek-ai/dsh-tool-agent-team`
@@ -4183,9 +3928,7 @@ export type TokenMeterConfig = Record<string, never>
 /** The Team tool plugin takes no configuration. */
 export type Config = Record<never, never>
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-agent-team -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-ask-user -->
 <a id="deepseek-aidsh-tool-ask-user"></a>
 
 ## `@deepseek-ai/dsh-tool-ask-user`
@@ -4202,9 +3945,7 @@ export interface Config {
   timeout?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-ask-user -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-bash -->
 <a id="deepseek-aidsh-tool-bash"></a>
 
 ## `@deepseek-ai/dsh-tool-bash`
@@ -4232,9 +3973,7 @@ export interface Config {
   promoteOnTimeout?: boolean
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-bash -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-bash-persistent -->
 <a id="deepseek-aidsh-tool-bash-persistent"></a>
 
 ## `@deepseek-ai/dsh-tool-bash-persistent`
@@ -4255,9 +3994,7 @@ export interface Config {
   description?: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-bash-persistent -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-executor-ptc -->
 <a id="deepseek-aidsh-tool-executor-ptc"></a>
 
 ## `@deepseek-ai/dsh-tool-executor-ptc`
@@ -4274,9 +4011,7 @@ export interface Config {
   maxParallelSubCalls: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-executor-ptc -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-fs -->
 <a id="deepseek-aidsh-tool-fs"></a>
 
 ## `@deepseek-ai/dsh-tool-fs`
@@ -4307,9 +4042,7 @@ export interface Config {
   readStreamMinSize?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-fs -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-fs-search -->
 <a id="deepseek-aidsh-tool-fs-search"></a>
 
 ## `@deepseek-ai/dsh-tool-fs-search`
@@ -4343,9 +4076,7 @@ export interface Config {
   timeoutMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-fs-search -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-goal -->
 <a id="deepseek-aidsh-tool-goal"></a>
 
 ## `@deepseek-ai/dsh-tool-goal`
@@ -4360,9 +4091,7 @@ export interface Config {
   blockedAfterConsecutiveRounds?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-goal -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-jobs -->
 <a id="deepseek-aidsh-tool-jobs"></a>
 
 ## `@deepseek-ai/dsh-tool-jobs`
@@ -4404,9 +4133,7 @@ export interface Config {
  */
 export type CompletionDelivery = 'quiet' | 'wakeup'
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-jobs -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-lsp -->
 <a id="deepseek-aidsh-tool-lsp"></a>
 
 ## `@deepseek-ai/dsh-tool-lsp`
@@ -4425,9 +4152,7 @@ export interface Config {
   timeoutMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-lsp -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-present -->
 <a id="deepseek-aidsh-tool-present"></a>
 
 ## `@deepseek-ai/dsh-tool-present`
@@ -4442,9 +4167,7 @@ export interface Config {
   maxFiles: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-present -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-pwsh -->
 <a id="deepseek-aidsh-tool-pwsh"></a>
 
 ## `@deepseek-ai/dsh-tool-pwsh`
@@ -4472,9 +4195,7 @@ export interface Config {
   promoteOnTimeout?: boolean
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-pwsh -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-pwsh-persistent -->
 <a id="deepseek-aidsh-tool-pwsh-persistent"></a>
 
 ## `@deepseek-ai/dsh-tool-pwsh-persistent`
@@ -4495,9 +4216,7 @@ export interface Config {
   description?: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-pwsh-persistent -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-ralph -->
 <a id="deepseek-aidsh-tool-ralph"></a>
 
 ## `@deepseek-ai/dsh-tool-ralph`
@@ -4518,9 +4237,7 @@ export interface Config {
   maxResultChars?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-ralph -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-session-query -->
 <a id="deepseek-aidsh-tool-session-query"></a>
 
 ## `@deepseek-ai/dsh-tool-session-query`
@@ -4537,9 +4254,7 @@ export interface Config {
   searchTimeoutMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-session-query -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-skill -->
 <a id="deepseek-aidsh-tool-skill"></a>
 
 ## `@deepseek-ai/dsh-tool-skill`
@@ -4554,9 +4269,7 @@ export interface Config {
   catalogDescriptionMaxLength?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-skill -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-str-replace-editor -->
 <a id="deepseek-aidsh-tool-str-replace-editor"></a>
 
 ## `@deepseek-ai/dsh-tool-str-replace-editor`
@@ -4573,9 +4286,7 @@ export interface Config {
   description?: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-str-replace-editor -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-subagent -->
 <a id="deepseek-aidsh-tool-subagent"></a>
 
 ## `@deepseek-ai/dsh-tool-subagent`
@@ -4631,9 +4342,7 @@ export interface PresetSelectionConfig {
   allowedAgentPresets?: string[] | undefined
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-subagent -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-subagent-control -->
 <a id="deepseek-aidsh-tool-subagent-control"></a>
 
 ## `@deepseek-ai/dsh-tool-subagent-control`
@@ -4648,9 +4357,7 @@ export interface Config {
   interrupt?: boolean
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-subagent-control -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-terminal -->
 <a id="deepseek-aidsh-tool-terminal"></a>
 
 ## `@deepseek-ai/dsh-tool-terminal`
@@ -4667,9 +4374,7 @@ export interface Config {
   maxResultBytes?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-terminal -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-todo -->
 <a id="deepseek-aidsh-tool-todo"></a>
 
 ## `@deepseek-ai/dsh-tool-todo`
@@ -4690,9 +4395,7 @@ export interface Config {
   allowParallelInProgress: boolean
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-todo -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-web -->
 <a id="deepseek-aidsh-tool-web"></a>
 
 ## `@deepseek-ai/dsh-tool-web`
@@ -4721,9 +4424,7 @@ export interface Config {
   fetchMaxOutputChars?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-web -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-workflow -->
 <a id="deepseek-aidsh-tool-workflow"></a>
 
 ## `@deepseek-ai/dsh-tool-workflow`
@@ -4748,9 +4449,7 @@ export interface Config {
   enableRunInBackground?: boolean
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-workflow -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-tool-workspace-dependencies -->
 <a id="deepseek-aidsh-tool-workspace-dependencies"></a>
 
 ## `@deepseek-ai/dsh-tool-workspace-dependencies`
@@ -4771,9 +4470,7 @@ export interface Config {
   readonly root?: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-workspace-dependencies -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-typert-loader -->
 <a id="deepseek-aidsh-typert-loader"></a>
 
 ## `@deepseek-ai/dsh-typert-loader`
@@ -4788,9 +4485,7 @@ export interface Config {
   packages?: string[]
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-typert-loader -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-user-approval -->
 <a id="deepseek-aidsh-user-approval"></a>
 
 ## `@deepseek-ai/dsh-user-approval`
@@ -4822,9 +4517,7 @@ export interface Config {
  */
 export type ApprovalPolicy = 'ask' | 'never'
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-user-approval -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-web -->
 <a id="deepseek-aidsh-web"></a>
 
 ## `@deepseek-ai/dsh-web`
@@ -4848,9 +4541,7 @@ export interface WebRuntimeConfig {
   readonly fetchProvider: Volatile<string | undefined>
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-web -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-web-app -->
 <a id="deepseek-aidsh-web-app"></a>
 
 ## `@deepseek-ai/dsh-web-app`
@@ -4880,9 +4571,7 @@ export interface Config {
   publicUrl?: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-web-app -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-web-deepseek-api -->
 <a id="deepseek-aidsh-web-deepseek-api"></a>
 
 ## `@deepseek-ai/dsh-web-deepseek-api`
@@ -4925,9 +4614,7 @@ export interface Config {
   fetchApiKeyEnv: Volatile<string | undefined>
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-web-deepseek-api -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-web-fetch-http -->
 <a id="deepseek-aidsh-web-fetch-http"></a>
 
 ## `@deepseek-ai/dsh-web-fetch-http`
@@ -4950,9 +4637,7 @@ export interface Config {
   userAgent?: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-web-fetch-http -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-web-search-deepseek -->
 <a id="deepseek-aidsh-web-search-deepseek"></a>
 
 ## `@deepseek-ai/dsh-web-search-deepseek`
@@ -4980,7 +4665,6 @@ export interface Config {
   maxUses: Volatile<number>
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-web-search-deepseek -->
 
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-web-search-exa -->
 <a id="deepseek-aidsh-web-search-exa"></a>
@@ -5026,9 +4710,7 @@ export interface Config {
   readonly maxBodyBytes: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-webhook-github -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-workflow-ptc -->
 <a id="deepseek-aidsh-workflow-ptc"></a>
 
 ## `@deepseek-ai/dsh-workflow-ptc`
@@ -5051,9 +4733,7 @@ export interface Config {
   syncTimeoutMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-workflow-ptc -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-working-directory -->
 <a id="deepseek-aidsh-working-directory"></a>
 
 ## `@deepseek-ai/dsh-working-directory`
@@ -5068,9 +4748,7 @@ export interface Config {
   defaultDirectory?: string
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-working-directory -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-workspace-changes -->
 <a id="deepseek-aidsh-workspace-changes"></a>
 
 ## `@deepseek-ai/dsh-workspace-changes`
@@ -5096,13 +4774,11 @@ export interface Config {
   diffTimeoutMs: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-workspace-changes -->
 
 ## Loadable plugins with no config
 
 These load from a `cordis.yml` entry with no `config:` block; they declare no configuration API.
 
-<!-- BEGIN GENERATED config-catalog:no-config -->
 | `package` | `inject` | `source` |
 | --- | --- | --- |
 | `@deepseek-ai/dsh-acp-app` | `cmdlineArgs` | [`packages/bundle/acp-app/src/index.ts`](../packages/bundle/acp-app/src/index.ts) |
@@ -5226,13 +4902,11 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | `@deepseek-ai/dsh-user-questions` | — | [`packages/interaction/user-questions/src/index.ts`](../packages/interaction/user-questions/src/index.ts) |
 | `@deepseek-ai/dsh-webhook` | `agents` · `agentDefaultModel` · `agentPresets` · `permissionPresets` · `sessionTitle` · `workspaceRegistry` | [`packages/experimental/webhook/src/index.ts`](../packages/experimental/webhook/src/index.ts) |
 | `@deepseek-ai/dsh-workspace` | `storageDomain` · `sessionPersistence` | [`packages/workspace/workspace/src/index.ts`](../packages/workspace/workspace/src/index.ts) |
-<!-- END GENERATED config-catalog:no-config -->
 
 ## Seam packages (not directly loadable)
 
 Abstract service classes — a deployment loads a concrete implementation package instead ([capability seams](../.agents/notes/implemented/architecture/2026-06-13-capability-seams.md)).
 
-<!-- BEGIN GENERATED config-catalog:seam -->
 | `package` | `class` | `inject` | `source` |
 | --- | --- | --- | --- |
 | `@deepseek-ai/dsh-attachment` | `AttachmentStore` | — | [`packages/attachment/attachment/src/index.ts`](../packages/attachment/attachment/src/index.ts) |
@@ -5251,13 +4925,11 @@ Abstract service classes — a deployment loads a concrete implementation packag
 | `@deepseek-ai/dsh-spill` | `SpillStore` | — | [`packages/spill/spill/src/index.ts`](../packages/spill/spill/src/index.ts) |
 | `@deepseek-ai/dsh-subprocess` | `SubprocessRuntime` | — | [`packages/subprocess/subprocess/src/index.ts`](../packages/subprocess/subprocess/src/index.ts) |
 | `@deepseek-ai/dsh-workflow` | `WorkflowEngine` | — | [`packages/workflow/workflow/src/index.ts`](../packages/workflow/workflow/src/index.ts) |
-<!-- END GENERATED config-catalog:seam -->
 
 ## Library packages (no plugin entry)
 
 Imported as libraries by other packages; a `cordis.yml` cannot load them.
 
-<!-- BEGIN GENERATED config-catalog:library -->
 | `package` | `inject` | `source` |
 | --- | --- | --- |
 | `@deepseek-ai/dsh-agent-loop-testkit` | — | [`packages/test-support/agent-loop-testkit/src/index.ts`](../packages/test-support/agent-loop-testkit/src/index.ts) |
@@ -5335,4 +5007,3 @@ Imported as libraries by other packages; a `cordis.yml` cannot load them.
 | `@deepseek-ai/dsh-util-values` | — | [`packages/util/values/src/index.ts`](../packages/util/values/src/index.ts) |
 | `@deepseek-ai/dsh-util-workspace-path` | — | [`packages/util/workspace-path/src/index.ts`](../packages/util/workspace-path/src/index.ts) |
 | `@deepseek-ai/dsh-win32-process` | — | [`packages/subprocess/win32-process/src/index.ts`](../packages/subprocess/win32-process/src/index.ts) |
-<!-- END GENERATED config-catalog:library -->

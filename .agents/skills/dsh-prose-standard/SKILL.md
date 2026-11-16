@@ -5,7 +5,7 @@ description: Use when writing, reviewing, restoring, trimming, or auditing prose
 
 # DeepSeek Harness Prose Standard
 
-Write enough to preserve the contract, then remove reasoning transcripts, repetition, and decoration. A contract is an obligation, invariant, precondition, postcondition, or compatibility promise that a caller, callee, implementer, producer, or consumer relies on. This skill owns editorial judgment and required prose coverage; use [dsh-doc](../dsh-doc/SKILL.md) for placement, budgets, bilingual pairs, and documentation gates, and [dsh-trim-cot-leakage](../dsh-trim-cot-leakage/SKILL.md) for hunting and fixing reasoning-transcript leakage. It is guidance, not a script.
+Write enough to preserve the contract, then remove reasoning transcripts, repetition, and decoration. A contract is an obligation, invariant, precondition, postcondition, or compatibility promise that a caller, callee, implementer, producer, or consumer relies on. This skill owns editorial judgment and required prose coverage; use [dsh-doc](../dsh-doc/SKILL.md) for placement, budgets, and documentation gates, and [dsh-trim-cot-leakage](../dsh-trim-cot-leakage/SKILL.md) for hunting and fixing reasoning-transcript leakage. It is guidance, not a script.
 
 Treat `contract`, `boundary`, `shape`, `surface`, `seam`, `gate`, and `vocabulary` as terms to check before use, not banned words. First ask whether the exact rule, API, field set, type, validation, timing point, component split, or failure states the fact better. Keep a term when it names the exact technical subject, including caller/callee contracts and security/process boundaries.
 
@@ -21,7 +21,7 @@ Accept `mode: automatic | interactive`; default to `automatic`. Enter interactiv
 
 Always exclude `vendor/` from discovery, review, and edits, even when the requested scope is the whole repository. Do not follow a symlink into it. Put exclusions after inclusion globs so a later include cannot re-admit it: for example, end ripgrep commands with `--glob '!vendor/**'`, and give Git commands an explicit `:(exclude)vendor/**` pathspec. If the requested scope contains only `vendor/`, report that no eligible files remain.
 
-Treat generated catalogs, snapshots, and fixtures as derivative. Trace every consumer before editing: source JSDoc may also feed a generated model-visible catalog. Edit the owning source or scenario first, then regenerate every derivative. When a generator extracts a summary from owner prose, make the extracted sentence complete for that surface. Bilingual pairs have no permanent owner: either language may be the authored side for an update. Follow the [lightweight routine path](../../../docs/AGENTS.md#writing-rules), update the counterpart minimally, and re-record the pair.
+Treat generated catalogs, snapshots, and fixtures as derivative. Trace every consumer before editing: source JSDoc may also feed a generated model-visible catalog. Edit the owning source or scenario first, then regenerate every derivative. When a generator extracts a summary from owner prose, make the extracted sentence complete for that surface.
 
 ## Preserve the complete proposition
 

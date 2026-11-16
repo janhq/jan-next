@@ -1,7 +1,5 @@
 # Agent Notes
 
-English | [中文](README.zh.md)
-
 One kind of design doc lives here. An **Agent Note** records a decision or proposal that affects this codebase — the *why* and *what we gave up*, the parts code and docs can't carry. This file defines where Agent Notes live, when to write one, and [the in-file format](#the-file-format).
 
 ## Layout and naming
@@ -35,7 +33,7 @@ The `architecture` / `process` line: **architecture** is about the source we shi
 
 ## Deletion
 
-Delete an implemented Agent Note that only describes small UI adjustments or purely mechanical changes. A local bug fix, performance change, new capability, or substantive behavior decision does not qualify merely because its implementation is small. Delete other implemented notes only when the shipped decision is complete and its rationale is unlikely to guide future work. Keep a note when its alternatives, ownership boundary, negative guarantee, durable or wire semantics, security rule, or reintroduction condition remains useful. Never delete a proposed note directly: reject an obsolete proposal. Keep a rejected note only while it prevents a plausible mistake. Deletion removes the English, Chinese, and sidecar files together and repairs or removes inbound links. Use the calibrated [`dsh-prune-agent-notes`](../skills/dsh-prune-agent-notes/SKILL.md) workflow rather than word count, age, or a target quota.
+Delete an implemented Agent Note that only describes small UI adjustments or purely mechanical changes. A local bug fix, performance change, new capability, or substantive behavior decision does not qualify merely because its implementation is small. Delete other implemented notes only when the shipped decision is complete and its rationale is unlikely to guide future work. Keep a note when its alternatives, ownership boundary, negative guarantee, durable or wire semantics, security rule, or reintroduction condition remains useful. Never delete a proposed note directly: reject an obsolete proposal. Keep a rejected note only while it prevents a plausible mistake. Deletion repairs or removes inbound links. Use the calibrated [`dsh-prune-agent-notes`](../skills/dsh-prune-agent-notes/SKILL.md) workflow rather than word count, age, or a target quota.
 
 ## When to write one
 
@@ -43,7 +41,7 @@ Add or update an Agent Note in the same PR only for lasting decision rationale t
 
 Updating the Agent Note that already owns the decision satisfies the rule; do not create a duplicate. Mechanical or local edits, including local UI presentation and interaction changes, are exempt. An Agent Note is never edited into a *different decision*: supersede it with a new one, and keep both notes cross-linked unless the old note is later fully consolidated under the rule below. Editing an `implemented/` Agent Note to track where its existing decision lives is required, not forbidden; see [implemented/AGENTS.md](implemented/AGENTS.md).
 
-An implemented Agent Note that is fully superseded may be consolidated into the current owning note and deleted. Before deletion, the owner must preserve every unique rationale, alternative, consequence, required verification, and named coverage gap; repair every inbound link; and delete the Chinese counterpart and consistency record in the same change. Partial supersession does not qualify: keep both notes cross-linked and update every fact that remains current. Consolidation must not rewrite the old file into its opposite or rely on git history as the only copy of rationale.
+An implemented Agent Note that is fully superseded may be consolidated into the current owning note and deleted. Before deletion, the owner must preserve every unique rationale, alternative, consequence, required verification, and named coverage gap; and repair every inbound link. Partial supersession does not qualify: keep both notes cross-linked and update every fact that remains current. Consolidation must not rewrite the old file into its opposite or rely on git history as the only copy of rationale.
 
 A feature-addition note may be consolidated into the later removal note only when the feature is absent from production code, configuration, schemas, durable or wire formats, migration, and compatibility behavior; no current documentation presents it as available; and no test exercises it as supported behavior. Removal rationale and tests that verify absence may remain. The removal owner preserves the original motivation, why it no longer justified the feature, alternatives to full removal, the capability given up, conditions for reintroduction, and verification of complete absence. Obsolete implementation inventories and tests that only verified the deleted behavior are not current verification evidence. Removing one transport, default, implementation, or presentation is partial supersession, as is any surviving durable data or compatibility handling.
 
@@ -115,7 +113,3 @@ Alternatives are recorded, never invented. An Agent Note dated before 2026-07-05
 ### Moving between lifecycles
 
 Moving a file between lifecycle folders means updating the `Status:` line and re-satisfying that folder's skeleton in the same change — the gate fails the move otherwise. Concretely, `proposed/` → `implemented/` rewrites `## Proposal` into a present-tense `## Decision`, folds `## Acceptance criteria` and `## Risks` into `## Consequences` (or a present-tense `## Testing`/`## Verification` section for what now pins the behavior), and drops plans in favor of what shipped — the rewrite [implemented/AGENTS.md](implemented/AGENTS.md) requires, made mechanical. `proposed/` → `rejected/` only adds the reason to the `Status:` line and freezes the file.
-
-### Chinese counterparts
-
-A `.zh.md` counterpart mirrors its English sibling's structure section-for-section under the [i18n contract](../../docs/i18n/README.md); the machine-checked header tokens (`# Agent Note: ` and the `Status:` line) stay in English verbatim. The format gate skips `.zh.md` files — the pairing gate checks their consistency.

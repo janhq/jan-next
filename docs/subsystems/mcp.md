@@ -1,7 +1,5 @@
 # MCP
 
-English | [中文](mcp.zh.md)
-
 ## Summary
 
 Model Context Protocol (MCP) connects the model to tools supplied by external servers. Each configured server contributes ordinary harness tools with cancellation, permission checks, recorded results, and supported image output. Shared tools discover and read resources when a server is configured in the caller's scope, while server instructions join the logged system prompt. The official SDK negotiates modern or supported legacy protocol revisions. This reference covers the MCP package group's responsibilities, scope, and composition choices; the [client README](../../packages/mcp/mcp-client/README.md) owns server configuration.
@@ -120,7 +118,7 @@ MCP prompt templates, human-input elicitation, task-based execution, and resourc
 
 ## Cordis API
 
-Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`). Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
 <a id="ctxmcpmanager--mcpservermanager"></a>
 

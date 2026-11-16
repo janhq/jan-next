@@ -17,14 +17,6 @@ import {
   graphNodeId as nodeId,
   type PackageGraphNode,
 } from './package-graph.ts'
-import { rewriteTranslationLinkLocales } from './translation-links.ts'
-import {
-  generatedRegions,
-  parseTranslationPairingManifest,
-  renderGeneratedRegion,
-  spliceGeneratedRegion,
-  translationPairSourcePredicate,
-} from './translation-pairing.ts'
 import { TypeScriptProject } from './ts-project.ts'
 
 const root = resolve(import.meta.dirname, '..')
@@ -1591,7 +1583,7 @@ function renderEventRelations(pkgs: Pkg[], events: readonly EventEntry[]): strin
     const relation = relations.get(event.name) ?? { dispatchers: new Map<string, Set<string>>(), listeners: new Set<string>() }
     rows.push(`| \`${event.name}\` | \`${event.mode}\` | ${sourceLink(event.source)} | ${relationPackages(relation.dispatchers, pkgsByShort)} | ${listenerPackages(relation.listeners, pkgsByShort)} |`)
   }
-  lines.push(renderGeneratedRegion('event-producer-consumer:events', rows.join('\n')))
+  lines.push(...rows)
   // Every declared event needs a dispatcher: zero means dead vocabulary or an
   // unrecognized semantic dispatch form. Listener-free extension points remain
   // valid. Client-declared events are exempt: the relation scan seeds the HOST
@@ -1623,7 +1615,7 @@ function renderEventRelations(pkgs: Pkg[], events: readonly EventEntry[]): strin
       '',
       '## Non-harness or undeclared event strings seen in package source',
       '',
-      renderGeneratedRegion('event-producer-consumer:undeclared', extraRows.join('\n')),
+      ...extraRows,
     )
   }
   lines.push('', ...maintenanceFooter(maintenance))
@@ -1804,29 +1796,7 @@ function renderDocs(): GraphDoc[] {
     { rel: 'docs/tool-execution-pipeline.md', content: renderToolPipeline() },
   ]
   docs.unshift({ rel: 'docs/graph-atlas.md', content: renderIndex(docs) })
-  const events = docs.find(doc => doc.rel === 'docs/event-producer-consumer.md')
-  if (events !== undefined) docs.push(spliceChineseRegions(events))
   return docs
-}
-
-/**
- * Splice a generated page's regions into its authored Chinese counterpart,
- * localizing paired-document links; the surrounding Chinese prose stays authored.
- */
-function spliceChineseRegions(doc: GraphDoc): GraphDoc {
-  const rel = doc.rel.replace(/\.md$/, '.zh.md')
-  const context = {
-    repoRoot: root,
-    sourcePath: rel,
-    isTranslationPairSource: translationPairSourcePredicate(parseTranslationPairingManifest(
-      readFileSync(resolve(root, 'scripts/translation-pairing.manifest.json'), 'utf8'),
-    )),
-  }
-  let content = readFileSync(resolve(root, rel), 'utf8')
-  for (const region of generatedRegions(doc.content)) {
-    content = spliceGeneratedRegion(content, rewriteTranslationLinkLocales(region.text, context).content)
-  }
-  return { rel, content }
 }
 
 function renderIndex(docs: GraphDoc[]): string {

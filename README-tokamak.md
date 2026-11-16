@@ -137,7 +137,7 @@ TOKAMAK_BASE_URL=http://127.0.0.1:8787/v1 TOKAMAK_ALLOW_LOOPBACK_HTTP=1 pnpm dsh
 - Desktop welcome: a **Download a local model** page (`apps/desktop/src/client/WelcomePage.tsx`, `welcome-backend.ts`), and `needsWelcome` counts an installed local model.
 
 Some repository checks are expected to fail in this fork, because it doesn't follow upstream's release rules:
-- Fork packages are `private` and don't have bilingual package READMEs.
+- Fork packages are `private`.
 - The disabled DeepSeek and telemetry packages count as unused.
 - `TOKAMAK_BASE_URL` is inlined in the bundle YAML.
 

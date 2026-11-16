@@ -1,7 +1,5 @@
 # Host-wide Schedule
 
-English | [中文](schedule.zh.md)
-
 Schedule stores Host tasks independently of Session activation. One management API addresses tasks by id, and one evaluator handles seven authoritative timing kinds: `after`, `at`, `every`, `daily`, `weekly`, `cron`, and `rrule`. Targets reuse an existing Session, create one Session and reuse it, or create a Session for each delivery. The [package README](../../packages/schedule/schedule/README.md) owns composition and reminder framing; [`types.ts`](../../packages/schedule/schedule/src/types.ts) owns the complete value and request types.
 
 <a id="durable-tasks"></a>
@@ -143,7 +141,7 @@ Historical version-1 `schedule/change` events retain the frozen `LegacyScheduleR
 
 ## Cordis API
 
-Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`). Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
 <a id="ctxschedule--scheduleservice"></a>
 

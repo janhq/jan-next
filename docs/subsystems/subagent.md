@@ -1,7 +1,5 @@
 # Subagents
 
-English | [中文](subagent.zh.md)
-
 The unified activation API manages local conversations and external executions. Creation ancestry, runtime ownership, and communication belong to the subagent tree. [Subagent controls](../../packages/subagent/tool-subagent-control/README.md) own agent identity and exact-caller inbox waiting; Team tools add shared tasks and task policy.
 
 ## Capabilities and activation requests
@@ -424,7 +422,7 @@ type SubagentDescendantListEntry = SubagentListEntry & {
 
 ## Cordis API
 
-Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`). Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
 <a id="ctxsubagentmodelselection--subagentmodelselectionconfig"></a>
 

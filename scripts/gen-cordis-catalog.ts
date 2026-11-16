@@ -2,13 +2,11 @@
  * Generate the per-subsystem Cordis service/event reference regions from the
  * Typert catalog projection. Every harness `ctx.<key>` service and event scope
  * maps to exactly one `docs/subsystems/` page through the curated tables below;
- * the generator injects each page's Cordis API reference between its GENERATED markers —
- * into both language sides of the pair, localizing paired document paths for
- * the Chinese side while retaining every other byte — and re-records a pair's
- * `.i18n.yaml` only when nothing outside the region changed. The
- * projection enforces event modes, JSDoc parameter/return completeness, and
- * signature type-link coverage; the inherited (vendor) tier renders to
- * `docs/cordis-api/inherited.md`. `--check` verifies every generated artifact.
+ * the generator injects each page's Cordis API reference between its GENERATED
+ * markers, retaining every other byte. The projection enforces event modes,
+ * JSDoc parameter/return completeness, and signature type-link coverage; the
+ * inherited (vendor) tier renders to `docs/cordis-api/inherited.md`. `--check`
+ * verifies every generated artifact.
  *
  * Generated regions embed `file:line` source pointers, so inserting lines ABOVE a
  * recorded symbol makes the committed output stale even though nothing about the
@@ -30,11 +28,6 @@ import {
 import type { CordisCatalogPolicy } from '@deepseek-ai/dsh-typert-generator'
 import { renderCordisCoreApiPages } from './cordis-core-api.ts'
 import { contextKeyMap, contextMergeFiles, eventNameList } from './cordis-walk.ts'
-import {
-  parseTranslationPairingManifest,
-  translationPairSourcePredicate,
-} from './translation-pairing.ts'
-import { rewriteTranslationLinkLocales } from './translation-links.ts'
 
 const root = resolve(import.meta.dirname, '..')
 const SUBSYSTEMS_DIR = 'docs/subsystems'
@@ -1194,9 +1187,8 @@ export const CORDIS_CATALOG_POLICY: CordisCatalogPolicy = {
  * The page must contain exactly one `cordis-surface` marker region (the markers are
  * part of the hand-owned page skeleton once, then owned by the generator);
  * zero or several is a partition error the caller reports with the page path.
- * The match is on THIS generator's exact markers, not the generic region
- * grammar, so a page carrying only some other generator's region fails loud
- * instead of having that region overwritten.
+ * The match is on this generator's exact markers, so a page without them fails
+ * loud instead of having another region overwritten.
  * @param content - the page's current full Markdown text.
  * @param region - the freshly rendered marker-delimited region.
  * @returns the page text with the region replaced.
@@ -1234,19 +1226,6 @@ export interface WalkPartitionMaps {
   readonly serviceWalkExemptions: Readonly<Record<string, string>>
   readonly eventScopePage: Readonly<Record<string, string>>
   readonly eventWalkExemptions: Readonly<Record<string, string>>
-}
-
-/** Project paired Markdown destinations in one generated region to the page's locale. */
-export function localizePageRegion(region: string, pageRel: string, scanRoot: string = root): string {
-  if (!pageRel.endsWith('.zh.md')) return region
-  const manifest = parseTranslationPairingManifest(
-    readFileSync(resolve(scanRoot, 'scripts/translation-pairing.manifest.json'), 'utf8'),
-  )
-  return rewriteTranslationLinkLocales(region, {
-    repoRoot: scanRoot,
-    sourcePath: pageRel,
-    isTranslationPairSource: translationPairSourcePredicate(manifest),
-  }).content
 }
 
 /**
@@ -1321,12 +1300,12 @@ export function walkPartitionProblems(input: WalkPartitionInput, maps: WalkParti
 
 /**
  * Compute every generated artifact: the inherited-tier page, the model-facing
- * runtime API module, plus, per mapped subsystems page, the pair's two updated
- * documents with the injected region. Fail-loud partition checks live here: an
- * unmapped service/event scope, a mapping whose page file does not exist, a
- * curated entry whose key/scope the projection no longer discovers, a declared
- * Context key or Events member the projection cannot see without a named walk
- * exemption, and a mapped page missing its markers are all aggregated errors.
+ * runtime API module, plus each mapped subsystems page with its injected
+ * region. Fail-loud partition checks live here: an unmapped service/event
+ * scope, a mapping whose page file does not exist, a curated entry whose
+ * key/scope the projection no longer discovers, a declared Context key or
+ * Events member the projection cannot see without a named walk exemption, and
+ * a mapped page missing its markers are all aggregated errors.
  * @returns `[repo-relative path, exact content]` for every generated artifact.
  */
 export function computeOutputs(): [string, string][] {
@@ -1370,23 +1349,19 @@ export function computeOutputs(): [string, string][] {
       events.filter(e => EVENT_SCOPE_PAGE[e.scope] === page),
       CORDIS_CATALOG_POLICY,
     )
-    for (const side of [page, page.replace(/\.md$/, '.zh.md')]) {
-      const rel = `${SUBSYSTEMS_DIR}/${side}`
-      const localizedRegion = localizePageRegion(region, rel)
-      let current: string
-      try {
-        current = readFileSync(resolve(root, rel), 'utf8')
-      } catch {
-        // Both pair sides must exist before a region can be injected; the
-        // pairing gate owns pair completeness, this generator names the miss.
-        problems.push(`${rel}: mapped subsystems page does not exist.`)
-        continue
-      }
-      try {
-        outputs.push([rel, spliceRegion(current, localizedRegion)])
-      } catch (error) {
-        problems.push(`${rel}: ${error instanceof Error ? error.message : String(error)}`)
-      }
+    const rel = `${SUBSYSTEMS_DIR}/${page}`
+    let current: string
+    try {
+      current = readFileSync(resolve(root, rel), 'utf8')
+    } catch {
+      // The page must exist before a region can be injected; this generator names the miss.
+      problems.push(`${rel}: mapped subsystems page does not exist.`)
+      continue
+    }
+    try {
+      outputs.push([rel, spliceRegion(current, region)])
+    } catch (error) {
+      problems.push(`${rel}: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
   if (problems.length > 0) throw new Error(`gen-cordis-catalog: ${problems.length} page violation(s):\n${problems.map(p => `  ${p}`).join('\n')}`)

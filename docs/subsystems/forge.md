@@ -1,7 +1,5 @@
 # Forges
 
-English | [中文](forge.zh.md)
-
 The experimental forge capability seam reads change requests, meaning pull requests and merge requests, from code hosts. [`dsh-experimental-forge`](../../packages/experimental/forge/README.md) is the Service Definition and provides `ctx.forge`; [`dsh-experimental-forge-github`](../../packages/experimental/forge-github/README.md) is the Service Provider for GitHub hosts; [`dsh-experimental-forge-session`](../../packages/experimental/forge-session/README.md) is the Consumer that binds change requests to Sessions and provides `ctx.forgeSession`; [`dsh-experimental-client-ui-forge`](../../packages/experimental/client-ui-forge/README.md) is the GUI Consumer that provides `ctx.forgePanel`. The default-disabled [forge bundle](../../packages/experimental/forge-bundle/README.md) composes all four, with the [worktree model tool](../../packages/experimental/tool-worktree/README.md) and an isolated [worktree service](../../packages/experimental/worktree/README.md) for the panel, from the Plugins page; otherwise they load only through explicit composition.
 
 ## Providers and change requests
@@ -722,7 +720,7 @@ interface ForgeLocalChanges {
 
 ## Cordis API
 
-Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`). Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
 <a id="ctxforge--forgeservice"></a>
 

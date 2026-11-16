@@ -1,7 +1,5 @@
 # OTel reporting
 
-English | [中文](otel.zh.md)
-
 The [OTel plugin](../../packages/telemetry/otel/README.md) registers `ctx.otel`, a shared factory for independent ordinary-event and Session-log channels. It owns transport and SDK batching implementations. Business consumers inject the service, supply explicit transport/resource/scope options, and own each returned channel's shutdown.
 
 UI feedback reaches the Session feedback services through their existing Remote APIs. Feedback recording authorizes the Session adapter's canonical-prefix capture and redaction before it reports through an OTel channel. Ordinary product consumers submit selected fields through the product adapter. The shared service has no automatic identity or capture policy, and channels never share queues or requests.
@@ -14,7 +12,7 @@ The [product adapter](../../packages/host/product-telemetry-otel/README.md) and 
 
 ## Cordis API
 
-Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`). Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
 <a id="ctxotel--otel"></a>
 

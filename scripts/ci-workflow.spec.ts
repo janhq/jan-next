@@ -1704,6 +1704,7 @@ describe('Documentation site publication', () => {
   })
 })
 
+
 function loadWorkflow(path: string): Record<string, unknown> {
   const workflow: unknown = yaml.load(readFileSync(resolve(root, path), 'utf8'))
   if (!isRecord(workflow)) throw new TypeError(`${path} must define a workflow`)

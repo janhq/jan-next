@@ -5,8 +5,6 @@ kind: "package-reference"
 
 # @deepseek-ai/dsh-client-ui-brand-official
 
-English | [中文](README.zh.md)
-
 ## Summary
 
 This package supplies the Jan brand in tokamak-harness: the Jan waving-hand logo in the sidebar mark and the conversation hero mark in every build profile, and the name "Jan" beside the sidebar mark in an `official` build. The shipped Web and Desktop compositions load it by default. It adds no model requests.
