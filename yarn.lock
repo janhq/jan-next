@@ -9164,6 +9164,7 @@ __metadata:
     "@vitest/coverage-v8": "npm:^3.2.7"
     cpx: "npm:^1.5.0"
     cross-env: "npm:^7.0.3"
+    esbuild: "npm:^0.25.0"
     jsdom: "npm:^26.1.0"
     run-script-os: "npm:^1.1.6"
     tar: "npm:^7.5.22"

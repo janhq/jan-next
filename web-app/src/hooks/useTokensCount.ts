@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ThreadMessage } from '@janhq/core'
-import type { LocalModelProps } from '@/lib/llamacpp'
+import type { LocalModelProps } from '../../../dsh/llamacpp/src'
 import { parseContextOverflow } from '@/utils/error'
 import { getLocalPropsExtension } from '@/lib/llamacppRouterProps'
 import { useModelProvider } from './useModelProvider'

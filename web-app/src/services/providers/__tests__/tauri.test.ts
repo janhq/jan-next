@@ -10,7 +10,7 @@ vi.mock('@tauri-apps/api/core', () => ({
 }))
 
 const EngineManager = vi.hoisted(() => ({ instance: vi.fn() }))
-vi.mock('@/lib/llamacpp', () => ({
+vi.mock('../../../../../dsh/llamacpp/src', () => ({
   listLocalEngines: () => [...(EngineManager.instance().engines ?? [])],
   getLocalEngine: (provider: string) => EngineManager.instance().get(provider),
   startLlamacppEngine: vi.fn().mockResolvedValue(undefined),
@@ -132,7 +132,7 @@ describe('TauriProvidersService', () => {
         engines: new Map([['test-engine', mockEngine]]),
       } as any)
 
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { })
       const result = await svc.getProviders()
       expect(result.find((p: any) => p.provider === 'test-engine')).toBeDefined()
       expect(warnSpy).toHaveBeenCalled()
@@ -143,7 +143,7 @@ describe('TauriProvidersService', () => {
       vi.mocked(EngineManager.instance).mockImplementation(() => {
         throw new Error('boom')
       })
-      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
       const result = await svc.getProviders()
       expect(result).toEqual([])
       errSpy.mockRestore()
@@ -221,7 +221,7 @@ describe('TauriProvidersService', () => {
         json: vi.fn().mockResolvedValue({ unexpected: true }),
       } as any)
 
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { })
       const result = await svc.fetchModelsFromProvider(baseProvider)
       expect(result).toEqual([])
       warnSpy.mockRestore()
@@ -234,7 +234,7 @@ describe('TauriProvidersService', () => {
         statusText: 'Unauthorized',
       } as any)
 
-      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
       await expect(svc.fetchModelsFromProvider(baseProvider))
         .rejects.toThrow('Authentication failed')
       errSpy.mockRestore()
@@ -247,7 +247,7 @@ describe('TauriProvidersService', () => {
         statusText: 'Unauthorized',
       } as any)
 
-      vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.spyOn(console, 'error').mockImplementation(() => { })
       const err = await svc.fetchModelsFromProvider(baseProvider).catch((e) => e)
       expect(err).not.toBeInstanceOf(ProviderUnreachableError)
     })
@@ -259,7 +259,7 @@ describe('TauriProvidersService', () => {
         statusText: 'Forbidden',
       } as any)
 
-      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
       await expect(svc.fetchModelsFromProvider(baseProvider))
         .rejects.toThrow('Access forbidden')
       errSpy.mockRestore()
@@ -272,7 +272,7 @@ describe('TauriProvidersService', () => {
         statusText: 'Not Found',
       } as any)
 
-      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
       await expect(svc.fetchModelsFromProvider(baseProvider))
         .rejects.toThrow('Models endpoint not found')
       errSpy.mockRestore()
@@ -285,7 +285,7 @@ describe('TauriProvidersService', () => {
         statusText: 'Server Error',
       } as any)
 
-      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
       await expect(svc.fetchModelsFromProvider(baseProvider))
         .rejects.toThrow('Failed to fetch models from')
       errSpy.mockRestore()
@@ -294,7 +294,7 @@ describe('TauriProvidersService', () => {
     it('throws connection error on fetch failure', async () => {
       vi.mocked(fetchTauri).mockRejectedValueOnce(new Error('fetch failed'))
 
-      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
       await expect(svc.fetchModelsFromProvider(baseProvider))
         .rejects.toThrow('Cannot connect to')
       errSpy.mockRestore()
@@ -303,7 +303,7 @@ describe('TauriProvidersService', () => {
     it('throws generic fallback for non-fetch errors', async () => {
       vi.mocked(fetchTauri).mockRejectedValueOnce(new Error('something else'))
 
-      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
       await expect(svc.fetchModelsFromProvider(baseProvider))
         .rejects.toThrow('Unexpected error')
       errSpy.mockRestore()
@@ -319,7 +319,7 @@ describe('TauriProvidersService', () => {
 
       beforeEach(() => {
         platform.mac = false
-        vi.spyOn(console, 'error').mockImplementation(() => {})
+        vi.spyOn(console, 'error').mockImplementation(() => { })
       })
 
       it('explains the failure instead of saying "Unknown error"', async () => {
@@ -492,7 +492,7 @@ describe('TauriProvidersService', () => {
         }),
       } as any)
 
-      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
       await expect(svc.updateSettings('test', [])).rejects.toThrow('fail')
       errSpy.mockRestore()
     })
@@ -509,7 +509,7 @@ describe('TauriProvidersService', () => {
 
     it('swallows and logs errors so a failed delete never throws', async () => {
       vi.mocked(invoke).mockRejectedValueOnce(new Error('keyring down'))
-      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
       await expect(svc.deleteProviderKeys('openai')).resolves.toBeUndefined()
       expect(errSpy).toHaveBeenCalled()
       errSpy.mockRestore()

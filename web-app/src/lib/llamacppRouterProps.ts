@@ -2,7 +2,7 @@ import {
   getLlamacppEngine,
   type LlamacppService,
   type LocalEngineService,
-} from '@/lib/llamacpp'
+} from '../../../dsh/llamacpp/src'
 
 /** Post-fit `nCtx` is only available once the router has actually loaded the
  *  model; callers must fall back to a configured/default context size until then. */

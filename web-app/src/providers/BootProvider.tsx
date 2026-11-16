@@ -1,6 +1,6 @@
 import { bridgeModelValidationStarted } from '@/lib/modelValidationBridge'
 import { getServiceHub } from '@/hooks/useServiceHub'
-import { startLlamacppEngine } from '@/lib/llamacpp'
+import { startLlamacppEngine } from '../../../dsh/llamacpp/src'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { emit } from '@tauri-apps/api/event'
 import { PropsWithChildren, useEffect, useState } from 'react'

@@ -1,0 +1,5 @@
+# One row: the host half below. DSH finds the browser half (client.js)
+# through `dsh.client` in package.json.
+- insert:
+    - id: open-waifu-plugin-hello
+      name: open-waifu-plugin-hello

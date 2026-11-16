@@ -6,7 +6,10 @@
   ],
   "compilerOptions": {
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@janhq/core": ["../core/src/index.ts"],
+      "@janhq/tauri-plugin-llamacpp-api": ["../src-tauri/plugins/tauri-plugin-llamacpp/guest-js/index.ts"],
+      "@janhq/tauri-plugin-hardware-api": ["../src-tauri/plugins/tauri-plugin-hardware/guest-js/index.ts"]
     }
   }
 }

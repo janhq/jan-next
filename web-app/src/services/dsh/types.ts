@@ -12,7 +12,7 @@ export interface DshLaunch {
 
 /** What the DSH shell takes over from the Jan UI on each start. */
 export interface DshShellSetup {
-  /** OpenAI-compatible endpoints; keys are read from the keyring by name. */
+  /** Remote keys come from the keyring. For llamacpp, Rust resolves the live endpoint and key. */
   providers: { name: string; baseUrl: string; models: string[] }[]
   /** `[provider name, model id]` of the Jan UI's selected model. */
   defaultModel: [string, string] | null

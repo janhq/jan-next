@@ -6,11 +6,11 @@ use tauri::{
 };
 
 pub mod cleanup;
-mod commands;
+pub mod commands;
 pub mod diagnostics;
 pub mod engine;
 mod error;
-mod gguf;
+pub mod gguf;
 mod process;
 pub mod state;
 pub use cleanup::cleanup_llama_processes;

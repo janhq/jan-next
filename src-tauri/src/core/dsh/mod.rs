@@ -7,6 +7,7 @@
 
 pub mod commands;
 pub mod plugins;
+pub mod native;
 pub mod web;
 
 use std::path::{Path, PathBuf};

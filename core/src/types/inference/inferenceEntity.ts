@@ -1,5 +1,3 @@
-import { ContentType, ContentValue } from '../message'
-
 /**
  * The role of the author of this message.
  */
@@ -27,8 +25,8 @@ export type ChatCompletionMessage = {
 export type ChatCompletionMessageContent =
   | string
   | (ChatCompletionMessageContentText &
-      ChatCompletionMessageContentImage &
-      ChatCompletionMessageContentDoc)[]
+    ChatCompletionMessageContentImage &
+    ChatCompletionMessageContentDoc)[]
 
 export enum ChatCompletionMessageContentType {
   Text = 'text',

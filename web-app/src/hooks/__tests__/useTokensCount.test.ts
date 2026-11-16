@@ -6,7 +6,7 @@ import { useTokensCount } from '../useTokensCount'
 const mockGetModelProps = vi.fn()
 
 // The local engine answers for its own loaded models.
-vi.mock('@/lib/llamacpp', () => ({
+vi.mock('../../../../dsh/llamacpp/src', () => ({
   getLlamacppEngine: () => ({ getModelProps: mockGetModelProps }),
 }))
 

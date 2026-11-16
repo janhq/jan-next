@@ -1,0 +1,18 @@
+{
+  "name": "@open-waifu/dsh-download",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Native model download lifecycle and Downloads panel for open-waifu.",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": []
+    }
+  }
+}

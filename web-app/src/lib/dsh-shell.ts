@@ -19,19 +19,27 @@ function shellSetup(): DshShellSetup {
       baseUrl: p.base_url!,
       models: p.models.map((m) => m.id),
     }))
+  const localModel = providers
+    .find((provider) => provider.provider === 'llamacpp')
+    ?.models.find((model) => !model.embedding)
+  const defaultModel: DshShellSetup['defaultModel'] = selectedModel
+    ? [selectedProvider, selectedModel.id]
+    : localModel
+      ? ['llamacpp', localModel.id]
+      : null
   const accent = ACCENT_COLORS.find(
     (c) => c.value === useInterfaceSettings.getState().accentColor
   )
   const theme = useTheme.getState().activeTheme
   return {
     providers: endpoints,
-    defaultModel: selectedModel ? [selectedProvider, selectedModel.id] : null,
+    defaultModel,
     look: accent ? { primary: accent.primary, sidebar: accent.sidebar } : null,
     theme: theme === 'auto' ? 'system' : theme,
   }
 }
 
-/** Starts the DSH shell and moves the main window onto it. */
-export function openDshShell(): Promise<void> {
-  return getServiceHub().dsh().webStart(shellSetup())
+/** The DSH host plugins own native engine startup and model loading. */
+export async function openDshShell(): Promise<void> {
+  await getServiceHub().dsh().webStart(shellSetup())
 }

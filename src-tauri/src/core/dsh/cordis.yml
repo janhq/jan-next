@@ -3,9 +3,9 @@
 
 # open-waifu's server: upstream wire plus resume, session/cancel, plugins/list,
 # per-session instructions, image blocks and history seeding. Source lives in
-# extensions/dsh-openwaifu-server and is written next to this file at start.
-- id: sdk-jsonrpc-server
-  name: ./plugins/dsh-openwaifu-server/index.js
+# dsh/server and is written next to this file at start.
+- id: ow-server
+  name: ./plugins/ow-server/index.js
   config:
     maxTokensAsSuccess: !!js "process.env.DSH_MAX_TOKENS_AS_SUCCESS === undefined ? true : JSON.parse(process.env.DSH_MAX_TOKENS_AS_SUCCESS)"
 

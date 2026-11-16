@@ -7,7 +7,7 @@
  *
  * Bare imports resolve through `<data>/dsh/node_modules`, a junction to the
  * deepseek-harness checkout's `examples/node_modules`, so this folder is
- * copied to `<data>/dsh/plugins/dsh-openwaifu-server/` by the app.
+ * copied to `<data>/dsh/plugins/ow-server/` by the app.
  * stdout is the protocol channel: never log to it.
  */
 import { createRequire } from 'node:module'
@@ -22,7 +22,7 @@ const here = createRequire(import.meta.url)
 const upstream = createRequire(here.resolve('@deepseek-ai/dsh-sdk-jsonrpc-server/package.json'))
 const { JsonRpcLineTransport } = await import(pathToFileURL(upstream.resolve('@deepseek-ai/dsh-sdk-protocol')).href)
 
-export const name = 'openwaifu-server'
+export const name = 'ow-server'
 export const inject = ['agents']
 
 // Mirror of cordis FiberState (const enum, not importable at runtime).

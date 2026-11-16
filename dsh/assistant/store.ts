@@ -4,6 +4,12 @@ import { fs, joinPath, logger } from '@/lib/native'
 const V2_IDENTITY_LINE =
   'You are Jan, a helpful AI assistant who assists users with their requests. Jan is trained by Menlo Research (https://www.menlo.ai).'
 
+export function validateAssistantId(id: unknown): asserts id is string {
+  if (typeof id !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(id)) {
+    throw new Error('Assistant ID must contain only letters, numbers, underscores, or hyphens (maximum 128 characters).')
+  }
+}
+
 /** Assistants stored as `file://assistants/<id>/assistant.json`. */
 export class Assistants implements AssistantInterface {
   private readonly CURRENT_MIGRATION_VERSION = 3
@@ -17,11 +23,11 @@ export class Assistants implements AssistantInterface {
       await this.fs.mkdir('file://assistants')
     }
 
-    // Run migrations if needed
+    const firstUse = !(await this.fs.existsSync(this.MIGRATION_FILE))
     await this.runMigrations()
 
     const assistants = await this.readAssistantsFromDisk()
-    if (assistants.length === 0) {
+    if (firstUse && assistants.length === 0) {
       // Add default parameters when creating the assistant
       const assistantWithParams = {
         ...this.defaultAssistant,
@@ -238,16 +244,15 @@ Current date: {{current_date}}`
     }
   }
 
-  /**
-   * Reads only the assistants persisted on disk. May be empty; callers that
-   * need a guaranteed assistant use getAssistants (which falls back to the
-   * default), while prepare uses this to decide whether to seed the default.
-   */
+  /** Read persisted assistants; prepare seeds the default on first use. */
   private async readAssistantsFromDisk(): Promise<Assistant[]> {
     if (!(await this.fs.existsSync('file://assistants'))) return []
     const assistants = await this.fs.readdirSync('file://assistants')
     const assistantsData: Assistant[] = []
-    for (const assistant of assistants) {
+    for (const entry of assistants) {
+      // Native readdir returns absolute paths on both desktop platforms.
+      const assistant = entry.replaceAll('\\', '/').split('/').pop() ?? ''
+      if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(assistant)) continue
       const assistantPath = await joinPath([
         'file://assistants',
         assistant,
@@ -257,6 +262,10 @@ Current date: {{current_date}}`
 
       try {
         const assistantData = JSON.parse(await this.fs.readFileSync(assistantPath))
+        if (assistantData?.id !== assistant) {
+          this.log.error(`Assistant identity does not match its folder: ${assistant}`)
+          continue
+        }
         assistantsData.push(assistantData as Assistant)
       } catch (error) {
         this.log.error(`Failed to read assistant ${assistant}:`, error)
@@ -266,12 +275,11 @@ Current date: {{current_date}}`
   }
 
   async getAssistants(): Promise<Assistant[]> {
-    const assistantsData = await this.readAssistantsFromDisk()
-    // Fall back to the default if none are persisted yet.
-    return assistantsData.length > 0 ? assistantsData : [this.defaultAssistant]
+    return this.readAssistantsFromDisk()
   }
 
   async createAssistant(assistant: Assistant): Promise<void> {
+    validateAssistantId(assistant.id)
     const assistantPath = await joinPath([
       'file://assistants',
       assistant.id,
@@ -285,6 +293,7 @@ Current date: {{current_date}}`
   }
 
   async deleteAssistant(assistant: Assistant): Promise<void> {
+    validateAssistantId(assistant.id)
     const assistantPath = await joinPath([
       'file://assistants',
       assistant.id,

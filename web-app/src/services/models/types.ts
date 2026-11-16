@@ -3,8 +3,8 @@
  */
 
 import { ThreadMessage } from '@janhq/core'
-import { SessionInfo, modelInfo, UnloadResult } from '@/lib/llamacpp/engine-types'
-import type { SpecDraftKind } from '@/lib/llamacpp/engine-types'
+import { SessionInfo, modelInfo, UnloadResult } from '../../../../dsh/llamacpp/src/engine-types'
+import type { SpecDraftKind } from '../../../../dsh/llamacpp/src/engine-types'
 import { Model as CoreModel } from '@janhq/core'
 
 // Types for model catalog

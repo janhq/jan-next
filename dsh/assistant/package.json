@@ -1,0 +1,18 @@
+{
+  "name": "@open-waifu/dsh-assistant",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Saved assistants and conversation instructions for open-waifu.",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": []
+    }
+  }
+}

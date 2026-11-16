@@ -9,7 +9,7 @@ const engine1 = vi.hoisted(() => ({
   getLoadedModels: vi.fn(),
   unload: vi.fn(),
 }))
-vi.mock('@/lib/llamacpp', () => ({
+vi.mock('../../../../../dsh/llamacpp/src', () => ({
   listLocalEngines: () => [['engine1', engine1]],
 }))
 
@@ -106,7 +106,7 @@ describe('TauriAppService – coverage', () => {
 
   describe('getJanDataFolder', () => {
     it('returns undefined on error', async () => {
-      const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => { })
       mockApis.getAppConfigurations.mockRejectedValue(new Error('fail'))
 
       const result = await svc.getJanDataFolder()

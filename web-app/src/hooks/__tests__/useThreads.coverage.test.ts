@@ -41,7 +41,7 @@ vi.mock('@/hooks/useServiceHub', () => ({
 }))
 
 const engine = vi.hoisted(() => ({ forgetThreadCache: vi.fn() }))
-vi.mock('@/lib/llamacpp', () => ({
+vi.mock('../../../../dsh/llamacpp/src', () => ({
   getLocalEngine: () => engine,
 }))
 

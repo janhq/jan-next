@@ -7,7 +7,7 @@ import {
   getSystemUsage,
   refreshSystemInfo,
 } from '@janhq/tauri-plugin-hardware-api'
-import { getLlamacppEngine } from '@/lib/llamacpp'
+import { getLlamacppEngine } from '../../../../dsh/llamacpp/src'
 import type { HardwareData, SystemUsage, DeviceList } from './types'
 import { DefaultHardwareService } from './default'
 

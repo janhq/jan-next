@@ -10,7 +10,7 @@ const { mockEvents, mockDownloadEvent } = vi.hoisted(() => ({
 
 const EngineManager = vi.hoisted(() => ({ instance: vi.fn() }))
 
-vi.mock('@/lib/llamacpp', () => ({
+vi.mock('../../../../dsh/llamacpp/src', () => ({
   getLocalEngine: (provider: string) => EngineManager.instance().get(provider),
   listLocalEngines: () => [],
 }))
@@ -53,7 +53,7 @@ describe('DefaultModelsService', () => {
   beforeEach(() => {
     modelsService = new DefaultModelsService()
     vi.clearAllMocks()
-    ;(EngineManager.instance as any).mockReturnValue(mockEngineManager)
+      ; (EngineManager.instance as any).mockReturnValue(mockEngineManager)
     mockEvents.emit.mockClear()
   })
 
@@ -68,17 +68,17 @@ describe('DefaultModelsService', () => {
   describe('fetchModelCatalog', () => {
     it('should fetch model catalog successfully', async () => {
       const mockCatalog = [{ model_name: 'GPT-4', description: 'LLM' }]
-      ;(fetch as any).mockResolvedValue({ ok: true, json: vi.fn().mockResolvedValue(mockCatalog) })
+        ; (fetch as any).mockResolvedValue({ ok: true, json: vi.fn().mockResolvedValue(mockCatalog) })
       expect(await modelsService.fetchModelCatalog()).toEqual(mockCatalog)
     })
 
     it('should handle fetch error', async () => {
-      ;(fetch as any).mockResolvedValue({ ok: false, status: 404, statusText: 'Not Found' })
+      ; (fetch as any).mockResolvedValue({ ok: false, status: 404, statusText: 'Not Found' })
       await expect(modelsService.fetchModelCatalog()).rejects.toThrow('Failed to fetch model catalog: 404 Not Found')
     })
 
     it('should handle network error', async () => {
-      ;(fetch as any).mockRejectedValue(new Error('Network error'))
+      ; (fetch as any).mockRejectedValue(new Error('Network error'))
       await expect(modelsService.fetchModelCatalog()).rejects.toThrow('Failed to fetch model catalog: Network error')
     })
   })
@@ -187,7 +187,7 @@ describe('DefaultModelsService', () => {
 
     it('should fetch HuggingFace repo with blobs=true', async () => {
       const mockRepoData = { modelId: 'microsoft/DialoGPT-medium', siblings: [] }
-      ;(fetch as any).mockResolvedValue({ ok: true, json: vi.fn().mockResolvedValue(mockRepoData) })
+        ; (fetch as any).mockResolvedValue({ ok: true, json: vi.fn().mockResolvedValue(mockRepoData) })
 
       const result = await modelsService.fetchHuggingFaceRepo('microsoft/DialoGPT-medium')
       expect(result).toEqual(mockRepoData)
@@ -202,7 +202,7 @@ describe('DefaultModelsService', () => {
       ['domain prefix', 'huggingface.co/microsoft/DialoGPT-medium'],
       ['trailing slash', 'microsoft/DialoGPT-medium/'],
     ])('should clean %s input format', async (_label, input) => {
-      ;(fetch as any).mockResolvedValue({ ok: true, json: vi.fn().mockResolvedValue({}) })
+      ; (fetch as any).mockResolvedValue({ ok: true, json: vi.fn().mockResolvedValue({}) })
       await modelsService.fetchHuggingFaceRepo(input)
       expect(fetch).toHaveBeenCalledWith(
         'https://huggingface.co/api/models/microsoft/DialoGPT-medium?blobs=true&files_metadata=true',
@@ -215,7 +215,7 @@ describe('DefaultModelsService', () => {
     })
 
     it('should return null for 404', async () => {
-      ;(fetch as any).mockResolvedValue({ ok: false, status: 404, statusText: 'Not Found' })
+      ; (fetch as any).mockResolvedValue({ ok: false, status: 404, statusText: 'Not Found' })
       expect(await modelsService.fetchHuggingFaceRepo('nonexistent/model')).toBeNull()
     })
 
@@ -223,7 +223,7 @@ describe('DefaultModelsService', () => {
       ['HTTP 500', () => (fetch as any).mockResolvedValue({ ok: false, status: 500, statusText: 'Error' })],
       ['network error', () => (fetch as any).mockRejectedValue(new Error('Network error'))],
     ])('should return null and log error on %s', async (_label, setupMock) => {
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
       setupMock()
       expect(await modelsService.fetchHuggingFaceRepo('microsoft/DialoGPT-medium')).toBeNull()
       expect(consoleSpy).toHaveBeenCalledWith('Error fetching HuggingFace repository:', expect.any(Error))
@@ -236,7 +236,7 @@ describe('DefaultModelsService', () => {
       ['mixed files', { siblings: [{ rfilename: 'model.gguf', size: 2147483648, blobId: 'b1' }, { rfilename: 'README.md', size: 1024, blobId: 'b2' }] }],
     ])('should handle repo with %s', async (_label, overrides) => {
       const mockRepoData = { id: 'microsoft/DialoGPT-medium', ...overrides }
-      ;(fetch as any).mockResolvedValue({ ok: true, json: vi.fn().mockResolvedValue(mockRepoData) })
+        ; (fetch as any).mockResolvedValue({ ok: true, json: vi.fn().mockResolvedValue(mockRepoData) })
       const result = await modelsService.fetchHuggingFaceRepo('microsoft/DialoGPT-medium')
       expect(result).toEqual(mockRepoData)
     })

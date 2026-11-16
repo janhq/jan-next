@@ -3,7 +3,7 @@
  */
 
 import type { SettingComponentProps } from '@janhq/core'
-import { listLocalEngines, getLocalEngine, startLlamacppEngine } from '@/lib/llamacpp'
+import { listLocalEngines, getLocalEngine, startLlamacppEngine } from '../../../../dsh/llamacpp/src'
 import { ModelCapabilities } from '@/types/models'
 import { modelSettings } from '@/lib/predefined'
 import { fetch as fetchTauri } from '@tauri-apps/plugin-http'

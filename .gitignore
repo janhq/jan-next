@@ -47,3 +47,4 @@ JAN.md
 # Vendored llama.cpp: a shallow clone of the pinned tag, fetched by
 # `make engine-source`. Never committed -- the pin lives in build.rs.
 src-tauri/plugins/tauri-plugin-llamacpp/vendor/
+e2e-results/

@@ -1,5 +1,5 @@
 import { ChatCompletionMessage } from '@janhq/core'
-import { chatCompletionRequestMessage } from '@/lib/llamacpp/engine-types'
+import { chatCompletionRequestMessage } from '../../../dsh/llamacpp/src/engine-types'
 
 // Helper function to get reasoning content from an object
 function getReasoning(

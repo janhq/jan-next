@@ -43,7 +43,7 @@
       "resources/LICENSE",
       "resources/bin/jan-llama-worker.exe",
       "resources/bin/*.dll",
-      "../dsh/open-waifu-shell/**/*"
+      "../dsh/**/*"
     ],
     "externalBin": [
       "resources/bin/bun",

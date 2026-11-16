@@ -12,8 +12,8 @@ import type {
   modelInfo,
   UnloadResult,
   SpecDraftKind,
-} from '@/lib/llamacpp/engine-types'
-import { getLocalEngine } from '@/lib/llamacpp'
+} from '../../../../dsh/llamacpp/src/engine-types'
+import { getLocalEngine } from '../../../../dsh/llamacpp/src'
 import type {
   ModelsService,
   ModelCatalog,

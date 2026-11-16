@@ -8,7 +8,7 @@ vi.mock('@janhq/tauri-plugin-hardware-api', () => ({
 const h = vi.hoisted(() => ({
   engine: { getDevices: vi.fn(), reconcileEngineDevices: vi.fn() },
 }))
-vi.mock('@/lib/llamacpp', () => ({
+vi.mock('../../../../../dsh/llamacpp/src', () => ({
   getLlamacppEngine: () => h.engine,
 }))
 

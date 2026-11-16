@@ -7,7 +7,7 @@ vi.mock('@tauri-apps/api/core', () => ({
 }))
 
 // Mock the local engines
-vi.mock('@/lib/llamacpp', () => ({
+vi.mock('../../../../dsh/llamacpp/src', () => ({
   listLocalEngines: () => [
     [
       'engine1',

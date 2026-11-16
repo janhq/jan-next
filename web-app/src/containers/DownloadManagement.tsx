@@ -13,7 +13,7 @@ import { useTranslation } from '@/i18n/react-i18next-compat'
 import { DownloadIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatBytes } from '@/lib/utils'
-import { downloadService } from '@/lib/llamacpp/download-service'
+import { downloadService } from '../../../dsh/llamacpp/src/download-service'
 
 export function DownloadManagement() {
   const { t } = useTranslation()

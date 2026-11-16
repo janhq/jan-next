@@ -36,7 +36,7 @@ export const EventParams = z.object({
 })
 export type SessionEvent = z.infer<typeof EventParams>['event']
 
-// openwaifu-server's interaction bridge (extensions/dsh-openwaifu-server).
+// ow-server's interaction bridge (dsh/server).
 const AskQuestion = z.object({
   id: z.string(),
   question: z.string(),

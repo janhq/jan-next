@@ -26,7 +26,7 @@ export class TauriAppService extends DefaultAppService {
    * resolves, so clearing here would race the restart flush.
    */
   async factoryReset(options?: FactoryResetOptions): Promise<void> {
-    const { listLocalEngines } = await import('@/lib/llamacpp')
+    const { listLocalEngines } = await import('../../../../dsh/llamacpp/src')
     for (const [, engine] of listLocalEngines()) {
       const activeModels = await engine.getLoadedModels()
       if (activeModels) {

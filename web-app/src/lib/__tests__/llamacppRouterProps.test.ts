@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 
 const h = vi.hoisted(() => ({ engine: { getModelProps: vi.fn() } }))
-vi.mock('@/lib/llamacpp', () => ({
+vi.mock('../../../../dsh/llamacpp/src', () => ({
   getLlamacppEngine: () => h.engine,
 }))
 

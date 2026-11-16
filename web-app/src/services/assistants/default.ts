@@ -4,7 +4,7 @@
 
 import type { Assistant } from '@janhq/core'
 import type { AssistantsService } from './types'
-import { Assistants } from './store'
+import { Assistants } from '../../../../dsh/assistant/store'
 
 // Migrations and default seeding run once, on first use.
 let store: Promise<Assistants> | undefined

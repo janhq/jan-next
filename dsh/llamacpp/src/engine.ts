@@ -1283,7 +1283,7 @@ export class LlamacppEngine extends AIEngine implements EmbeddingEngine {
  }
 
  onSettingUpdate<T>(key: string, value: T): void {
-  ;(this.config as unknown as Record<string, unknown>)[key] = value
+  ; (this.config as unknown as Record<string, unknown>)[key] = value
 
   if (key === 'llamacpp_env') {
    this.llamacpp_env = value as string

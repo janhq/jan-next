@@ -39,6 +39,11 @@ export default defineConfig(() => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
+        '@janhq/core': path.resolve(__dirname, '../core'),
+        '@janhq/tauri-plugin-llamacpp-api': path.resolve(__dirname, '../src-tauri/plugins/tauri-plugin-llamacpp/guest-js/index.ts'),
+        '@janhq/tauri-plugin-hardware-api': path.resolve(__dirname, '../src-tauri/plugins/tauri-plugin-hardware/guest-js/index.ts'),
+        '@tauri-apps/api/core': path.resolve(__dirname, './node_modules/@tauri-apps/api/core.js'),
+        '@tauri-apps/api/event': path.resolve(__dirname, './node_modules/@tauri-apps/api/event.js'),
       },
     },
     define: {
@@ -74,10 +79,10 @@ export default defineConfig(() => {
       host: host || false,
       hmr: host
         ? {
-            protocol: 'ws',
-            host,
-            port: 1421,
-          }
+          protocol: 'ws',
+          host,
+          port: 1421,
+        }
         : undefined,
       watch: {
         // 3. tell vite to ignore watching `src-tauri`

@@ -15,7 +15,7 @@ const { mockEvents, mockDownloadEvent, mockExtractContent, mockExtractMetadata }
 
 const EngineManager = vi.hoisted(() => ({ instance: vi.fn() }))
 
-vi.mock('@/lib/llamacpp', () => ({
+vi.mock('../../../../../dsh/llamacpp/src', () => ({
   getLocalEngine: (provider: string) => EngineManager.instance().get(provider),
   listLocalEngines: () => [],
 }))
@@ -54,7 +54,7 @@ describe('DefaultModelsService - additional coverage', () => {
   beforeEach(() => {
     svc = new DefaultModelsService()
     vi.clearAllMocks()
-    ;(EngineManager.instance as any).mockReturnValue(mockEngineManager)
+      ; (EngineManager.instance as any).mockReturnValue(mockEngineManager)
     mockEngineManager.get.mockReturnValue(mockEngine)
     mockExtractContent.mockReturnValue('')
     mockExtractMetadata.mockReturnValue('')
@@ -85,17 +85,17 @@ describe('DefaultModelsService - additional coverage', () => {
       ['array response', [{ model_name: 'jan-nano' }, { model_name: 'jan-micro' }], { model_name: 'jan-nano' }],
       ['empty array', [], null],
     ])('handles %s', async (_label, response, expected) => {
-      ;(fetch as any).mockResolvedValue({ ok: true, json: vi.fn().mockResolvedValue(response) })
+      ; (fetch as any).mockResolvedValue({ ok: true, json: vi.fn().mockResolvedValue(response) })
       expect(await svc.fetchLatestJanModel()).toEqual(expected)
     })
 
     it('returns null on non-ok response', async () => {
-      ;(fetch as any).mockResolvedValue({ ok: false, status: 500, statusText: 'Error' })
+      ; (fetch as any).mockResolvedValue({ ok: false, status: 500, statusText: 'Error' })
       expect(await svc.fetchLatestJanModel()).toBeNull()
     })
 
     it('returns null on network error', async () => {
-      ;(fetch as any).mockRejectedValue(new Error('network'))
+      ; (fetch as any).mockRejectedValue(new Error('network'))
       expect(await svc.fetchLatestJanModel()).toBeNull()
     })
   })
@@ -113,7 +113,7 @@ describe('DefaultModelsService - additional coverage', () => {
     })
 
     it('fetches metadata when skipVerification is false', async () => {
-      ;(fetch as any).mockResolvedValue({
+      ; (fetch as any).mockResolvedValue({
         ok: true,
         json: vi.fn().mockResolvedValue({
           siblings: [
@@ -130,7 +130,7 @@ describe('DefaultModelsService - additional coverage', () => {
     })
 
     it('continues without metadata when HF fetch fails', async () => {
-      ;(fetch as any).mockRejectedValue(new Error('fail'))
+      ; (fetch as any).mockRejectedValue(new Error('fail'))
       mockEngine.import.mockResolvedValue(undefined)
       await svc.pullModelWithMetadata('id1', hfUrl, undefined, undefined, false)
       expect(mockEngine.import).toHaveBeenCalled()
@@ -261,7 +261,7 @@ describe('DefaultModelsService - additional coverage', () => {
         state: { providers: [{ provider: 'llamacpp', models: [{ id: 'm1', settings: {} }] }] },
       }
       const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockReturnValue(JSON.stringify(storageData))
-      const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {})
+      const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { })
       const result = await svc.checkMmprojExistsAndUpdateOffloadMMprojSetting('m1')
       expect(result).toEqual({ exists: true, settingsUpdated: true })
       expect(setItemSpy).toHaveBeenCalled()
@@ -275,7 +275,7 @@ describe('DefaultModelsService - additional coverage', () => {
         state: { providers: [{ provider: 'llamacpp', models: [{ id: 'm1', settings: { offload_mmproj: {} } }] }] },
       }
       const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockReturnValue(JSON.stringify(storageData))
-      const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {})
+      const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { })
       const result = await svc.checkMmprojExistsAndUpdateOffloadMMprojSetting('m1')
       expect(result).toEqual({ exists: true, settingsUpdated: false })
       expect(setItemSpy).not.toHaveBeenCalled()

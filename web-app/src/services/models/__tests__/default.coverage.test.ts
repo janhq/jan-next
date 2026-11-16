@@ -9,7 +9,7 @@ const { mockEvents } = vi.hoisted(() => ({
 
 const EngineManager = vi.hoisted(() => ({ instance: vi.fn() }))
 
-vi.mock('@/lib/llamacpp', () => ({
+vi.mock('../../../../../dsh/llamacpp/src', () => ({
   getLocalEngine: (provider: string) => EngineManager.instance().get(provider),
   listLocalEngines: () => [],
 }))
@@ -75,7 +75,7 @@ describe('DefaultModelsService - coverage supplement', () => {
   beforeEach(() => {
     svc = new DefaultModelsService()
     vi.clearAllMocks()
-    ;(EngineManager.instance as any).mockReturnValue(mockEngineManager)
+      ; (EngineManager.instance as any).mockReturnValue(mockEngineManager)
     mockEngineManager.get.mockReturnValue(mockEngine)
   })
 
@@ -83,26 +83,26 @@ describe('DefaultModelsService - coverage supplement', () => {
   describe('fetchModelCatalog', () => {
     it('returns catalog on success', async () => {
       const catalog = { models: [{ id: 'm1' }] }
-      ;(fetch as any).mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue(catalog),
-      })
+        ; (fetch as any).mockResolvedValue({
+          ok: true,
+          json: vi.fn().mockResolvedValue(catalog),
+        })
       const result = await svc.fetchModelCatalog()
       expect(result).toEqual(catalog)
     })
 
     it('throws on non-ok response', async () => {
-      ;(fetch as any).mockResolvedValue({ ok: false, status: 500, statusText: 'Server Error' })
+      ; (fetch as any).mockResolvedValue({ ok: false, status: 500, statusText: 'Server Error' })
       await expect(svc.fetchModelCatalog()).rejects.toThrow('Failed to fetch model catalog')
     })
 
     it('throws on network error', async () => {
-      ;(fetch as any).mockRejectedValue(new Error('network down'))
+      ; (fetch as any).mockRejectedValue(new Error('network down'))
       await expect(svc.fetchModelCatalog()).rejects.toThrow('Failed to fetch model catalog: network down')
     })
 
     it('throws with Unknown error for non-Error', async () => {
-      ;(fetch as any).mockRejectedValue('string error')
+      ; (fetch as any).mockRejectedValue('string error')
       await expect(svc.fetchModelCatalog()).rejects.toThrow('Unknown error')
     })
   })
@@ -111,16 +111,16 @@ describe('DefaultModelsService - coverage supplement', () => {
   describe('fetchHuggingFaceRepo', () => {
     it('fetches repo with clean ID', async () => {
       const repoData = { modelId: 'org/repo' }
-      ;(fetch as any).mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue(repoData),
-      })
+        ; (fetch as any).mockResolvedValue({
+          ok: true,
+          json: vi.fn().mockResolvedValue(repoData),
+        })
       const result = await svc.fetchHuggingFaceRepo('org/repo')
       expect(result).toEqual(repoData)
     })
 
     it('cleans URL-format repoId', async () => {
-      ;(fetch as any).mockResolvedValue({
+      ; (fetch as any).mockResolvedValue({
         ok: true,
         json: vi.fn().mockResolvedValue({}),
       })
@@ -132,7 +132,7 @@ describe('DefaultModelsService - coverage supplement', () => {
     })
 
     it('passes hfToken as Bearer header', async () => {
-      ;(fetch as any).mockResolvedValue({
+      ; (fetch as any).mockResolvedValue({
         ok: true,
         json: vi.fn().mockResolvedValue({}),
       })
@@ -156,25 +156,25 @@ describe('DefaultModelsService - coverage supplement', () => {
     })
 
     it('returns null on 404', async () => {
-      ;(fetch as any).mockResolvedValue({ ok: false, status: 404 })
+      ; (fetch as any).mockResolvedValue({ ok: false, status: 404 })
       const result = await svc.fetchHuggingFaceRepo('org/repo')
       expect(result).toBeNull()
     })
 
     it('returns null on non-404 error', async () => {
-      ;(fetch as any).mockResolvedValue({ ok: false, status: 500, statusText: 'Error' })
+      ; (fetch as any).mockResolvedValue({ ok: false, status: 500, statusText: 'Error' })
       const result = await svc.fetchHuggingFaceRepo('org/repo')
       expect(result).toBeNull()
     })
 
     it('returns null on network error', async () => {
-      ;(fetch as any).mockRejectedValue(new Error('network'))
+      ; (fetch as any).mockRejectedValue(new Error('network'))
       const result = await svc.fetchHuggingFaceRepo('org/repo')
       expect(result).toBeNull()
     })
 
     it('cleans huggingface.co prefix without protocol', async () => {
-      ;(fetch as any).mockResolvedValue({
+      ; (fetch as any).mockResolvedValue({
         ok: true,
         json: vi.fn().mockResolvedValue({}),
       })

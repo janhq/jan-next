@@ -92,7 +92,7 @@ vi.mock('@/constants/routes', () => ({
 }))
 
 // The cancel branch for llamacpp tasks goes to the Downloads service.
-vi.mock('@/lib/llamacpp/download-service', () => ({
+vi.mock('../../../../dsh/llamacpp/src/download-service', () => ({
   downloadService: { cancelDownload: hoisted.cancelDownloadMock },
 }))
 

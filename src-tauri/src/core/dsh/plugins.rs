@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 const BASE: &str = include_str!("cordis.yml");
-const SERVER_JS: &str = include_str!("../../../../extensions/dsh-openwaifu-server/index.js");
+const SERVER_JS: &str = include_str!("../../../../dsh/server/index.js");
 
 /// One entry of the user layer. `name` is the module specifier the Loader
 /// imports; an entry whose `id` matches a base entry only contributes
@@ -305,7 +305,7 @@ pub fn compose(dir: &Path, data_root: &Path, root: &Path) -> Result<String, Stri
 /// Writes our server plugin where the composition's relative path finds it.
 /// `plugins/package.json` marks the folder as ESM for Node.
 pub fn write_server(dir: &Path) -> Result<(), String> {
-    let plugin = dir.join("plugins").join("dsh-openwaifu-server");
+    let plugin = dir.join("plugins").join("ow-server");
     std::fs::create_dir_all(&plugin).map_err(|e| e.to_string())?;
     std::fs::write(dir.join("plugins").join("package.json"), "{\"type\":\"module\"}\n")
         .map_err(|e| e.to_string())?;

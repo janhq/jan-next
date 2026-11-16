@@ -1,0 +1,16 @@
+{
+  "name": "open-waifu-plugin-hello",
+  "version": "0.1.0",
+  "description": "A starting point for a DSH plugin that adds a sidebar button and a panel to open-waifu.",
+  "type": "module",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.js",
+    "./package.json": "./package.json",
+    "./cordis.patch.yml": "./cordis.patch.yml"
+  },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": { "platform": "web", "inject": [] }
+  }
+}
