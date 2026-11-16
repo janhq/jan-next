@@ -5,13 +5,14 @@
  */
 import { readFile } from 'node:fs/promises'
 
-export const name = 'open-waifu-shell'
+export const name = 'ow-shell'
 export const inject = ['webServer']
 
 const ASSETS = new URL('./assets/', import.meta.url)
 // A fixed list: the route serves these files and nothing else in the folder.
 const TYPES = {
   'logo.png': 'image/png',
+  'jan-original.png': 'image/png',
   'InterVariable.woff2': 'font/woff2',
   'StudioFeixenSans-Medium.otf': 'font/otf',
 }
