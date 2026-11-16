@@ -799,7 +799,6 @@ export interface Config {
 }
 ```
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-api-speech-to-text -->
 <a id="deepseek-aidsh-experimental-api-speech-to-text"></a>
 
 ## `@deepseek-ai/dsh-experimental-api-speech-to-text`
@@ -1749,28 +1748,30 @@ export interface Config {
 export interface Config {
   /** Absolute directory for models, the preset and state. */
   dataRoot: string
-  /** Linux/Windows build: CPU, or Vulkan for GPU offload (needs a Vulkan driver). macOS always uses its Metal build. */
-  backend: 'cpu' | 'vulkan'
+  /**
+   * Absolute path of the bundled `jan-llama-worker` executable, with its ggml libraries beside it.
+   * Absent or unusable, the service reports `failed` at boot and starts nothing.
+   */
+  workerPath?: string | undefined
   /** Which curated model the first-run offer installs; `small` is a 429 MB test model. */
   model: 'default' | 'small'
   /** Hugging Face origin for repository lookups and their downloads. */
   huggingFaceURL: string
   /**
    * `llm-pi-ai` settings namespace whose `providers.<provider>.models` the plugin keeps equal to
-   * the active model, so the model picker names what the server runs; empty disables the sync.
+   * the installed models plus the default's alias, so the model picker names what the worker
+   * serves; empty disables the sync.
    */
   routeNamespace: string
-  /** `maxTokens` written for the active model's route entry. */
+  /** `maxTokens` written for each route entry. */
   routeMaxTokens: number
   /**
-   * Model id the route serves whichever installed model is active (`--alias`). Stable, so a session
-   * on the local route keeps its selection when another model is put in use; only the display name
-   * the route lists changes.
+   * Route model id that is an alias of the default model (an `alias-of` preset section), beside each
+   * model's own id. Stable, so a session that selected it follows the default; no installed model
+   * takes this id.
    */
   routeModelId: string
-  /** Loopback port the server listens on; must match the `local` route's baseURL. */
-  port: number
-  /** Credential reference the `local` route reads, and the key the server requires. */
+  /** Credential reference the `local` route reads its key from, and the key the worker requires. */
   apiKeyRef: string
   /** Credential reference the `local` route reads its endpoint from (`baseURLEnv`); set while the worker serves. */
   baseURLRef: string
@@ -1862,18 +1863,8 @@ export interface Config {
   graceMs: number
   /** Minimum interval between download progress notifications. */
   progressIntervalMs: number
-  /** Test-only: an existing server executable that replaces the downloaded engine. */
-  binaryPath?: string | undefined
-  /** Test-only: replaces the pinned downloads (engine, the first-run model). */
-  artifactOverrides?: ArtifactOverrides | undefined
-}
-
-/** Test-only replacements for the pinned downloads. */
-export interface ArtifactOverrides {
-  /** Engine archive (`tar.gz` containing `llama-server`). */
-  engine?: ArtifactOverride | undefined
-  /** GGUF model file. */
-  model?: ArtifactOverride | undefined
+  /** Test-only: replaces the pinned download of the first-run model. */
+  firstModelOverride?: ArtifactOverride | undefined
 }
 
 /** One pinned download: where it comes from and what it must hash to. */
@@ -1887,7 +1878,6 @@ export interface ArtifactOverride {
 }
 ```
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-llm-pi-ai -->
 <a id="deepseek-aidsh-llm-pi-ai"></a>
 
 ## `@deepseek-ai/dsh-llm-pi-ai`
@@ -2681,7 +2671,6 @@ export interface Config {
 }
 ```
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-ptc-runtime-node -->
 <a id="deepseek-aidsh-ptc-runtime-node"></a>
 
 ## `@deepseek-ai/dsh-ptc-runtime-node`
@@ -2952,7 +2941,6 @@ export interface JsonRpcConfig {
 }
 ```
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-session-log-export -->
 <a id="deepseek-aidsh-session-log-export"></a>
 
 ## `@deepseek-ai/dsh-session-log-export`
@@ -4466,7 +4454,6 @@ export interface Config {
 }
 ```
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-web-fetch-http -->
 <a id="deepseek-aidsh-web-fetch-http"></a>
 
 ## `@deepseek-ai/dsh-web-fetch-http`
@@ -4490,7 +4477,6 @@ export interface Config {
 }
 ```
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-web-search-exa -->
 <a id="deepseek-aidsh-web-search-exa"></a>
 
 ## `@deepseek-ai/dsh-web-search-exa`
@@ -4511,9 +4497,7 @@ export interface Config {
   timeoutMs?: number
 }
 ```
-<!-- END GENERATED config-catalog:@deepseek-ai/dsh-web-search-exa -->
 
-<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-webhook-github -->
 <a id="deepseek-aidsh-webhook-github"></a>
 
 ## `@deepseek-ai/dsh-webhook-github`

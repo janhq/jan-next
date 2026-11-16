@@ -983,7 +983,7 @@ Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnp
 
 ### `ctx.llamaCpp` — `LlamaCpp`
 
-Local engine with an installed model set. Record and process mutations are serialized through LlamaCpp.task, except the engine install, which records itself outside it because a launch inside the queue may be what asked for the engine; record writes are chained in order.
+Local worker with an installed model set. Record and process mutations are serialized through LlamaCpp.task; downloads run outside it and commit through it.
 
 ```ts cordis-catalog
 /**
@@ -1007,14 +1007,15 @@ subscribe(listener: () => void): () => void
 async *follow(caller: AbortSignal): AsyncIterable<LlamaCppState>
 
 /**
- * First-run install: download the engine and the first-run model, then start the server. With a
- * model already installed it starts the active model instead. Returns once accepted; progress and
- * outcome arrive through {@link follow}.
+ * First-run install: download the first-run model, then start the worker. With a model already
+ * installed it starts the active model instead. Returns once accepted; progress and outcome arrive
+ * through {@link follow}. Nothing downloads while the worker is unavailable.
  */
 install(): void
 
 /**
- * Download a curated model. Ignored when it is installed or already downloading.
+ * Download a curated model, with its vision projector when it has one. Ignored when it is installed
+ * or already downloading.
  * @param id - catalog id.
  * @throws Error for an unknown id.
  */
@@ -1024,14 +1025,14 @@ downloadCatalog(id: string): void
  * Look up a Hugging Face repository's downloadable GGUF files.
  * @param input - `owner/name` or a huggingface.co link.
  * @param signal - cancellation.
- * @returns the repository and its files, marking those already installed.
+ * @returns the repository, its files marking those already installed, and the projector each downloads with.
  * @throws {@link HuggingFaceLookupError} for bad input, a missing repository or an unreachable API.
  */
 async lookupHuggingFace(input: string, signal?: AbortSignal): Promise<HuggingFaceRepoInfo>
 
 /**
- * Download one file of a Hugging Face repository, re-reading the repository so the digest and size
- * come from Hugging Face, not the caller.
+ * Download one file of a Hugging Face repository, and the repository's vision projector after it,
+ * re-reading the repository so the digests and sizes come from Hugging Face, not the caller.
  * @param input - `owner/name` or a huggingface.co link.
  * @param file - file name inside the repository.
  * @param signal - cancellation of the lookup.
@@ -1055,38 +1056,67 @@ retry(id: string): void
 async cancel(id?: string): Promise<void>
 
 /**
- * Add a GGUF file from disk, left where it is. The first model added becomes active and starts.
+ * Add a GGUF file from disk, left where it is, recording its header facts, with an optional vision
+ * projector also left where it is. The first model added becomes the default and starts; a later
+ * one joins the running worker's preset. Importing an already imported file with a projector
+ * attaches that projector to it, replacing any earlier one.
  * @param path - absolute path of a `.gguf` file.
- * @param name - display name; defaults to the file name.
+ * @param options - display name, defaulting to the file name, and projector path.
  * @returns the model id.
- * @throws Error when the path is not an absolute path to a readable GGUF file.
+ * @throws Error when the path is not an absolute path to a readable GGUF file, the file is a
+ * vision projector or embedding model rather than a chat model, or the projector is not an
+ * absolute path to a readable projector GGUF file.
  */
-importModel(path: string, name?: string): Promise<string>
+importModel(path: string, options: ImportModelOptions = {}): Promise<string>
 
 /**
- * Make an installed model the active one and (re)start the server with it.
+ * Make an installed model the default: the route's alias id serves it and it loads when the worker
+ * starts. A running worker retargets the alias without reloading any model, then loads it; a
+ * stopped one starts. An agent default on another model of this route moves to the alias id.
  * @param id - installed model id.
- * @returns once the server is running with it or has failed.
- * @throws Error for an id that is not installed.
+ * @returns once the worker serves it; a failed start is published as the `failed` phase.
+ * @throws Error for an id that is not installed, or carrying the worker's reason when a running
+ * worker could not load it; the worker keeps running, and the model stays the default.
  */
-select(id: string): Promise<void>
+setDefault(id: string): Promise<void>
 
 /**
- * Remove an installed model. A downloaded file is deleted; an imported file is only forgotten.
- * Removing the active model makes the next installed model active and restarts the server with
- * it if it was running.
+ * Load an installed model into the running worker, starting the worker first when it is stopped.
+ * With {@link Config.modelsMax} models resident, the least recently used idle one is unloaded.
  * @param id - installed model id.
- * @returns once the record and the server reflect the removal.
+ * @returns once the model is loaded.
+ * @throws Error for an id that is not installed, or carrying the worker's reason when it could not
+ * load the model (all resident models busy, or a load failure).
+ */
+loadModel(id: string): Promise<void>
+
+/**
+ * Unload a model from the running worker; it loads again on its next request.
+ * @param id - installed model id.
+ * @returns once it is unloaded, or at once when the worker does not hold it.
+ * @throws Error carrying the worker's reason when the model has requests in flight.
+ */
+unloadModel(id: string): Promise<void>
+
+/**
+ * Remove an installed model. A downloaded file or projector is deleted; an imported one is only forgotten. A
+ * resident model is unloaded first, because Windows cannot delete a file the worker maps.
+ * Removing the default makes the next installed model the default and loads it into a running worker,
+ * as {@link setDefault} does; removing the last stops the worker.
+ * @param id - installed model id.
+ * @returns once the record and the worker reflect the removal.
+ * @throws Error carrying the worker's reason when the model has requests in flight, or when the
+ * running worker could not load the new default; the removal stands and the worker keeps running.
  */
 removeModel(id: string): Promise<void>
 
-/** Start the active model's server, and on later boots. No-op while it is running or starting. */
+/** Start the worker with the active model, now and on later boots. No-op while it is running or starting. */
 start(): Promise<void>
 
 /** Stop the worker, also while it is still starting; the install stays and later boots leave it stopped. */
 stop(): Promise<void>
 
-/** Stop the server, cancel downloads, delete the engine, downloaded models and partial files, and remove the route key. */
+/** Stop the worker, cancel downloads, delete downloaded models, partial files and saved KV state, and remove the route credentials. */
 async uninstall(): Promise<void>
 ```
 
@@ -1096,7 +1126,7 @@ Source: [`packages/llm/llama-cpp/src/index.ts`](../../packages/llm/llama-cpp/src
 
 ### `ctx.llamaCppController` — `LlamaCppController`
 
-Install, start, stop and remove the local engine and its models; progress arrives through follow.
+Install, start, stop and remove the local models and the worker serving them; progress arrives through follow.
 
 ```ts cordis-catalog
 /**
@@ -1112,7 +1142,7 @@ Install, start, stop and remove the local engine and its models; progress arrive
  */
 @Remote({ mode: 'stream' }) async *follow(signal: AbortSignal): AsyncIterable<LlamaCppState>
 
-/** First run: download the engine and the first-run model, verify them, then start the server. */
+/** First run: download and verify the first-run model, then start the worker; with a model installed, start it. */
 @Remote beginInstall(): void
 
 /**
@@ -1160,26 +1190,42 @@ Install, start, stop and remove the local engine and its models; progress arrive
 /**
  * Add a GGUF file from this computer, left where it is.
  * @param path - absolute path on the Host.
+ * @param projector - absolute Host path of the model's vision projector (mmproj) file; omitted for a text-only model.
  * @returns the model id.
  */
-@Remote async importModel(path: string): Promise<string>
+@Remote async importModel(path: string, projector?: string): Promise<string>
 
 /**
- * Run an installed model, restarting the server with it.
+ * Make an installed model the default, which the route's alias id serves, and load it; a stopped
+ * worker starts. A start failure arrives through {@link follow}.
  * @param id - installed model id.
- * @returns after the server runs it or has failed.
+ * @returns after the worker serves it or has failed to start.
  */
-@Remote async selectModel(id: string): Promise<void>
+@Remote async setDefaultModel(id: string): Promise<void>
 
 /**
- * Remove an installed model; an imported file is only forgotten.
+ * Load an installed model now instead of on its first request, starting a stopped worker.
+ * @param id - installed model id.
+ * @returns after it is loaded.
+ */
+@Remote async loadModel(id: string): Promise<void>
+
+/**
+ * Free a loaded model's memory; it loads again on its next request.
+ * @param id - installed model id.
+ * @returns after it is unloaded.
+ */
+@Remote async unloadModel(id: string): Promise<void>
+
+/**
+ * Remove an installed model, unloading it first; an imported file is only forgotten.
  * @param id - installed model id.
  * @returns after it is removed.
  */
 @Remote async deleteModel(id: string): Promise<void>
 
 /**
- * Start the installed server.
+ * Start the worker with the default model.
  * @returns after it is running or has failed.
  */
 @Remote async startServer(): Promise<void>
@@ -1191,7 +1237,7 @@ Install, start, stop and remove the local engine and its models; progress arrive
 @Remote async stopServer(): Promise<void>
 
 /**
- * Delete the engine and every downloaded model and remove the route key.
+ * Stop the worker, delete every downloaded model and remove the route credentials.
  * @returns after the files are gone.
  */
 @Remote async removeInstall(): Promise<void>

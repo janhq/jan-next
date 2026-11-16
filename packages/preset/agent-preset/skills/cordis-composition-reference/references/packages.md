@@ -313,7 +313,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 
 | Package | Config | Description |
 |---|---|---|
-| `@deepseek-ai/dsh-llama-cpp` | yes | Download, verify and supervise a local llama.cpp server and the GGUF models it can run |
+| `@deepseek-ai/dsh-llama-cpp` | yes | Download and verify GGUF models and supervise the bundled jan-llama-worker that serves them |
 | `@deepseek-ai/dsh-llm` | no | Provider-neutral LLM service interface for Jan |
 | `@deepseek-ai/dsh-llm-pi-ai` | yes | pi-ai-backed multi-provider adapter for the Jan LLM seam |
 | `@deepseek-ai/dsh-llm-retry` | yes | Provider-routed LLM request retry policy for Jan |
