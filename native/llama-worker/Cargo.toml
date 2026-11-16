@@ -1,7 +1,7 @@
 [package]
 name = "jan-llama-worker"
 # Tracks the pinned llama.cpp semantic version (build.rs LLAMA_CPP_VERSION).
-version = "0.9.0"
+version = "1.0.0"
 description = "Supervised llama.cpp worker process serving OpenAI-compatible HTTP on loopback"
 license = "Apache-2.0"
 edition = "2021"

@@ -45,7 +45,7 @@
 
 ## Pinned llama.cpp
 
-`build.rs` 通过 `LLAMA_CPP_TAG`、`LLAMA_CPP_COMMIT`、`LLAMA_CPP_BUILD_NUMBER` 和 `LLAMA_CPP_VERSION` 声明固定版本；crate 版本等于 `LLAMA_CPP_VERSION`。当前固定为标签 `b12110`、llama.cpp 版本 0.9.0、提交 `cd959bae99ff4bed22bef2604f45241c09bbb8c8`。llama.cpp 源码从不提交到仓库：`scripts/fetch-llama-cpp.sh` 从 `build.rs` 读取标签和提交，从上游 GitHub 仓库浅克隆该标签到被忽略的 `vendor/llama.cpp`，并且只有当 `HEAD` 等于固定提交时才会成功。启动时，worker 会将所链接 llama.cpp 的构建号与固定版本比较，不一致时以退出码 3 退出。
+`build.rs` 通过 `LLAMA_CPP_TAG`、`LLAMA_CPP_COMMIT`、`LLAMA_CPP_BUILD_NUMBER` 和 `LLAMA_CPP_VERSION` 声明固定版本；crate 版本等于 `LLAMA_CPP_VERSION`。当前固定为标签 `b12359`、llama.cpp 版本 1.0.0、提交 `b1b770d90d94cad9e9ea5b993bdbc383a522fb28`。llama.cpp 源码从不提交到仓库：`scripts/fetch-llama-cpp.sh` 从 `build.rs` 读取标签和提交，从上游 GitHub 仓库浅克隆该标签到被忽略的 `vendor/llama.cpp`，并且只有当 `HEAD` 等于固定提交时才会成功。启动时，worker 会将所链接 llama.cpp 的构建号与固定版本比较，不一致时以退出码 3 退出。
 
 更新固定版本时，需要同时修改全部四个常量和 crate 版本，删除 `vendor/llama.cpp`，然后重新运行获取脚本。单元测试会拒绝与 `build.rs` 不一致的 crate 版本、编译时常量或获取脚本。对于 CUDA 构建，当上游默认的 CUDA 架构列表与 `build.rs` 推导出的列表不再一致时，构建也会失败。
 

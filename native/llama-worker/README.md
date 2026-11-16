@@ -45,7 +45,7 @@ The binary is written to `target/release/jan-llama-worker`. ggml is built as sha
 
 ## Pinned llama.cpp
 
-`build.rs` declares the pin in `LLAMA_CPP_TAG`, `LLAMA_CPP_COMMIT`, `LLAMA_CPP_BUILD_NUMBER`, and `LLAMA_CPP_VERSION`; the crate version equals `LLAMA_CPP_VERSION`. The current pin is tag `b12110`, llama.cpp version 0.9.0, at commit `cd959bae99ff4bed22bef2604f45241c09bbb8c8`. llama.cpp source is never committed: `scripts/fetch-llama-cpp.sh` reads the tag and commit from `build.rs`, shallow-clones the tag from the upstream GitHub repository into the ignored `vendor/llama.cpp`, and fails unless `HEAD` equals the pinned commit. At startup the worker compares the linked llama.cpp build number with the pin and exits with code 3 on a mismatch.
+`build.rs` declares the pin in `LLAMA_CPP_TAG`, `LLAMA_CPP_COMMIT`, `LLAMA_CPP_BUILD_NUMBER`, and `LLAMA_CPP_VERSION`; the crate version equals `LLAMA_CPP_VERSION`. The current pin is tag `b12359`, llama.cpp version 1.0.0, at commit `b1b770d90d94cad9e9ea5b993bdbc383a522fb28`. llama.cpp source is never committed: `scripts/fetch-llama-cpp.sh` reads the tag and commit from `build.rs`, shallow-clones the tag from the upstream GitHub repository into the ignored `vendor/llama.cpp`, and fails unless `HEAD` equals the pinned commit. At startup the worker compares the linked llama.cpp build number with the pin and exits with code 3 on a mismatch.
 
 To move the pin, update all four constants and the crate version together, delete `vendor/llama.cpp`, and rerun the fetch script. Unit tests reject a crate version, compiled-in constant, or fetch script that disagrees with `build.rs`. A CUDA build additionally fails when upstream's default CUDA architecture list no longer matches the list `build.rs` derives.
 

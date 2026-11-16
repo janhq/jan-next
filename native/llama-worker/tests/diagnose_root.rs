@@ -130,7 +130,7 @@ fn plan(families: &[&str]) -> DiagnosePlan {
         preset: DiagPreset::Quick,
         engine: EngineBuild {
             version: "0.0.0".into(),
-            tag: "b12110".into(),
+            tag: "b12359".into(),
             commit: "deadbeef".into(),
         },
         devices: vec![device("CPU")],

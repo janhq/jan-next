@@ -38,7 +38,7 @@ The desktop app has its own welcome window instead of the popup. Its first butto
 
 ## Local model (llama.cpp)
 
-The first-run model is **Jan v3.5 4B** (`janhq/Jan-v3.5-4B-gguf`, Q4_K_M, 2.7 GB, Apache-2.0), served by `jan-llama-worker`, a Rust executable that links llama.cpp build `b12110` and ships with the app ([`native/llama-worker`](native/llama-worker/README.md)). More models can be added from the model manager ([below](#model-manager)). The harness:
+The first-run model is **Jan v3.5 4B** (`janhq/Jan-v3.5-4B-gguf`, Q4_K_M, 2.7 GB, Apache-2.0), served by `jan-llama-worker`, a Rust executable that links llama.cpp build `b12359` and ships with the app ([`native/llama-worker`](native/llama-worker/README.md)). More models can be added from the model manager ([below](#model-manager)). The harness:
 
 1. Downloads the model from Hugging Face, pinned by sha256 and size. An interrupted download resumes from `*.partial`. It then reads the file's GGUF header and refuses a vision projector or embedding model as the model file.
 2. Writes a llama.cpp router preset to `run/preset.ini`: a `[*]` block with the settings below, one section per installed model named by its model id, and a `[local]` section holding only `alias-of = <default model id>`, and starts `jan-llama-worker --preset run/preset.ini --port 0 --models-max 1 --slot-cache-mib 0`. A fresh random key per launch, passed through `JAN_LLAMA_API_KEY` (never on the command line), protects the worker. The worker binds a port the OS chooses and prints it in a one-line JSON handshake on stdout.
