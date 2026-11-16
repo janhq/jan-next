@@ -4,7 +4,7 @@
 // exits non-zero on the first failed step. Screenshots land in --out.
 //
 //   node scripts/e2e-desktop.mjs [--exe path] [--out dir] [--plugin dir] [--prompt text]
-//                                [--providers-from <Jan data folder>] [--import-from <Jan data folder>] [--perf] [--profile] [--keep]
+//                                [--providers-from <Jan data folder>] [--import-from <Jan data folder>] [--perf] [--profile] [--keep] [--root dir] [--expect-no-welcome]
 //
 // Each step records its wall time, main-thread long tasks and slowest
 // requests in steps.json; --perf also prints the requests.
@@ -25,7 +25,9 @@ const root = resolve(import.meta.dirname, '..')
 const exe = resolve(args.exe ?? join(root, 'src-tauri/target/debug', process.platform === 'win32' ? 'Jan-Desktop.exe' : 'Jan-Desktop'))
 const out = resolve(args.out ?? join(root, 'e2e-results'))
 const port = 9400 + Math.floor(Math.random() * 400)
-const dataRoot = mkdtempSync(join(tmpdir(), 'ow-e2e-'))
+// --root reuses a data folder (with --keep) to check what survives a relaunch.
+const dataRoot = args.root ? resolve(String(args.root)) : mkdtempSync(join(tmpdir(), 'ow-e2e-'))
+if (args.root) mkdirSync(dataRoot, { recursive: true })
 mkdirSync(out, { recursive: true })
 
 // --providers-from copies only the provider list (endpoints, models, selection)
@@ -180,6 +182,18 @@ try {
   if (args.profile) { await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 200 }); await cdp.send('Profiler.start') }
   await step('shell opens', () => until('DSH shell with composer', async () =>
     (await evaluate('location.origin.startsWith("http://127.0.0.1")')) && (await evaluate('!!document.querySelector("[contenteditable=true]")')), 120_000))
+  // A fresh data folder opens on the welcome; its primary action leaves it.
+  if (args['expect-no-welcome']) {
+    await step('welcome stays dismissed', async () => {
+      await sleep(3000)
+      if (await visible('Welcome to Jan')) throw new Error('the welcome came back after it was dismissed')
+    })
+  } else await step('welcome shows once', async () => {
+    await until('welcome', () => visible('Welcome to Jan'), 30_000)
+    const action = await until('welcome action', () => evaluate(`['Start chatting', 'Skip for now'].find(label => [...document.querySelectorAll('button')].some(b => b.offsetParent !== null && !b.disabled && b.textContent.trim() === label))`), 15_000)
+    if (!(await click(action))) throw new Error(`welcome action ${action} is not clickable`)
+    await until('welcome closed', async () => !(await visible('Welcome to Jan')), 10_000)
+  })
   for (const label of ['New Chat', 'New project', 'Search', 'Model Hub', 'Plugin manager', 'Settings']) {
     if (!(await visible(label))) throw new Error(`sidebar control "${label}" is missing`)
   }
