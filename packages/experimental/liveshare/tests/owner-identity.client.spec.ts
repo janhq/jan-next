@@ -112,6 +112,6 @@ describe('owner identity status', () => {
 
   it('names the Relay verification entry once, with this page as the return address', () => {
     expect(ownerLoginHref('https://relay.example.test/', 'https://jan.example.test/?ownerStartupToken=s'))
-      .toBe('https://relay.example.test/__liveshare/auth/start?returnTo=https%3A%2F%2Fdsh.example.test%2F')
+      .toBe('https://relay.example.test/__liveshare/auth/start?returnTo=https%3A%2F%2Fjan.example.test%2F')
   })
 })

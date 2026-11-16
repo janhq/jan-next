@@ -68,7 +68,7 @@ if (office !== undefined) {
     },
   })
   process.env.JAN_BUNDLED_OFFICE_NODE = join(office, 'node', 'bin', process.platform === 'win32' ? 'node.exe' : 'node')
-  process.env.JAN_BUNDLED_OFFICE_CLI = join(office, 'node_modules', '@janhq', 'libreoffice-kit', 'lib', 'cli.js')
+  process.env.JAN_BUNDLED_OFFICE_CLI = join(office, 'node_modules', '@deepseek-ai', 'libreoffice-kit', 'lib', 'cli.js')
 } else if (isSea()) {
   process.env.JAN_BUNDLED_OFFICE_CLI = ''
 }

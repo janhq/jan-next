@@ -87,7 +87,7 @@ describe('owner authorization transactions', () => {
       instanceKey: 'instance-one',
       origin: 'https://jan.example.test',
     })).toBe('https://relay.example/__liveshare/owner-authorize?state=state-one&code_challenge=challenge-one'
-      + '&instance=instance-one&origin=https%3A%2F%2Fdsh.example.test')
+      + '&instance=instance-one&origin=https%3A%2F%2Fjan.example.test')
   })
 
   it('gives a transaction the production lifetime and clock when the host passes neither', () => {

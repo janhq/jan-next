@@ -85,7 +85,7 @@ it.skipIf(process.platform === 'win32')('keeps npm tarball bytes when reusing a 
     expect(result.isCanceled).toBe(false)
     expect(result.signal).toBeUndefined()
     expect(result.exitCode, result.stderr).toBe(0)
-    const tarball = join(output, 'deepseek-ai-jan-experimental-cua-macos-1.0.0.tgz')
+    const tarball = join(output, 'janhq-jan-experimental-cua-macos-1.0.0.tgz')
     await verifyCuaHelperTarball(tarball, identity)
     return readFileSync(tarball)
   }
@@ -122,7 +122,7 @@ it('keeps company signing outside pull-request release rehearsals', () => {
   expect(workflow).toContain('workflow_dispatch:')
   expect(workflow).toContain('workflow_call:')
   expect(workflow).not.toContain('pull_request:')
-  expect(workflow).toContain('jan-mac-package-trial')
+  expect(workflow).toContain('dsh-mac-package-trial')
   const release = readFileSync(resolve('.github/workflows/release-publish.yml'), 'utf8')
   expect(release).toContain('needs: cua-helper')
   expect(release).toContain('scripts/cua-helper/stage.ts')

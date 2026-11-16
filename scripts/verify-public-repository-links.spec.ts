@@ -31,7 +31,7 @@ describe('repository link policy', () => {
   })
 
   it('rejects references in Agent Notes', () => {
-    const unavailableRepository = ['deepseek-ai', 'jan-sdk'].join('/')
+    const unavailableRepository = ['deepseek-ai', 'deepseek-harness-sdk'].join('/')
 
     expect(findUnavailableRepositoryReferences(
       '.agents/notes/implemented/process/active-record.md',
