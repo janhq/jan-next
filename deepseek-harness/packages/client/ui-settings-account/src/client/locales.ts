@@ -17,7 +17,7 @@ export const en = {
   loading: 'Loading…', backToHarness: 'Back to Tokamak Harness',
   settings: 'Settings', contactUs: 'Feedback', menu: 'Account menu',
   nav: 'Account', signedIn: 'Signed in to Tokamak', signedOut: 'Not signed in',
-  signIn: 'Sign in', signOut: 'Sign out',
+  signIn: 'Sign in with Tokamak', signOut: 'Sign out',
   signOutUnknownDescription: 'Could not check running tasks. Signing out may interrupt tasks using this account. Sign out now?',
   signOutDescription: 'Signing out will not delete any data. You can sign in to this account again.',
   signOutRunningDescription: 'Tasks are currently running. Signing out will interrupt them. Sign out now?', cancel: 'Cancel', open: 'Open browser',
