@@ -24,6 +24,10 @@ Rust (`src-tauri/src/core/dsh/web.rs`) mounts built-in plugins through the gener
 
 Settings > Appearance adapts the original Jan accent swatches and colored-user-bubble switch. Changes save automatically in the shell plugin's DSH profile configuration. Theme and typography remain in General. Reset restores Jan's gray accent and colored bubbles. The shell reads live preferences on every navigation so reload preserves the selected palette.
 
+## Microphone consent
+
+Voice input leaves the microphone off until an explicit test or recording. On Windows, the native Jan permission dialog explains the requested access, distinguishes the input-level test from recognition, and offers Allow microphone and Don't allow. Only the running DSH host origin in the main window can receive this grant. The decision is not stored in the browser profile. Stop microphone test releases the preview capture. macOS retains its platform permission prompt.
+
 ## MCP servers and skills
 
 Settings > MCP Servers supports local stdio commands and remote Streamable HTTP endpoints. Add or edit a connection, inspect its available tools, reconnect, disable or remove it. New connections start disabled. JSON import accepts the `mcpServers` object used by Jan and Claude Desktop, previews names and credential field names, rejects unsupported fields and duplicate names, and imports the whole set disabled. Codex TOML, plugin manifests, environment interpolation and legacy SSE require explicit conversion.

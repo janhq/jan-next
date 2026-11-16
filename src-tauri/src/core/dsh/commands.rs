@@ -178,8 +178,18 @@ pub async fn dsh_web_start<R: Runtime>(
     // SameSite=Strict cookie and redirects, and a chain the Jan origin starts
     // is cross-site, so the cookie would be withheld and the shell answer 401.
     // An app-initiated navigation has no initiating site.
-    app.get_webview_window(super::web::WINDOW_LABEL)
-        .ok_or("no main window")?
-        .navigate(url)
+    let window = app.get_webview_window(super::web::WINDOW_LABEL)
+        .ok_or("no main window")?;
+    // Cookies ignore ports, but DSH signs each one for its exact authority.
+    // Random launch ports otherwise accumulate unusable cookies until 431.
+    for cookie in window.cookies_for_url(url.clone()).map_err(|e| e.to_string())? {
+        if cookie.name().starts_with("dsh-auth-")
+            && cookie.domain().is_some_and(|domain| domain == "127.0.0.1")
+            && cookie.path() == Some("/")
+        {
+            window.delete_cookie(cookie).map_err(|e| e.to_string())?;
+        }
+    }
+    window.navigate(url)
         .map_err(|e| e.to_string())
 }
