@@ -22,16 +22,16 @@ import type { SessionBinding } from '@janhq/jan-api-session-controller/client'
 import type { SessionId } from '@janhq/jan-session/types'
 import { WeakMapWithValues } from '@janhq/jan-util-values'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
-import type {} from '@janhq/jan-client-locale/client'
+import type { } from '@janhq/jan-client-locale/client'
 // Type-only: pulls the ctx.remote merge and the forwarded-event key face
 // (the settings invalidation rides the allowlist) into this program.
-import type {} from '@janhq/jan-api-remotes/client'
+import type { } from '@janhq/jan-api-remotes/client'
 // Type-only: pulls the settings shell's SlotMap merge (the 'settings.section' entry).
-import type {} from '@janhq/jan-client-ui-settings/client'
-import type {} from '@janhq/jan-client-ui-renderer/client'
+import type { } from '@janhq/jan-client-ui-settings/client'
+import type { } from '@janhq/jan-client-ui-renderer/client'
 // Type-only: pulls the Workspace UI navigation service merge (ctx.uiWorkspace).
-import type {} from '@janhq/jan-client-ui-workspace/client'
-import type {} from '@janhq/jan-client-ui-plugin-manager/client'
+import type { } from '@janhq/jan-client-ui-workspace/client'
+import type { } from '@janhq/jan-client-ui-plugin-manager/client'
 import type { Context as ClientContext } from '@janhq/cordis'
 import { AgentPresetLabel } from './AgentPresetLabel.tsx'
 import { CreatePluginMenuItem } from './CreatePluginMenuItem.tsx'
@@ -45,6 +45,8 @@ import { AgentPresetSectionController } from './section-store.ts'
 import { en, ja, es, fr, de, ru, pt, zh, type AgentPresetSettingsKey } from './locales.ts'
 import { AGENT_PRESET_SETTINGS_NS, AgentPresetSettingsController } from './settings-store.ts'
 import { analyticsMode } from './analytics.ts'
+// Type-only: pulls the custom-editor seat declaration into this registration.
+import type { } from './slot-contract.ts'
 
 declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -139,7 +141,7 @@ export function apply(ctx: ClientContext): void {
       requested++
       pending ??= Promise.resolve().then(async () => {
         try {
-          for (;;) {
+          for (; ;) {
             const revision = requested
             await section.reconcileCodingTools(codingToolsDisabled)
             if (!active || requested === revision) return
@@ -209,8 +211,24 @@ export function apply(ctx: ClientContext): void {
     }
 
     const labelInjected = (): AgentPresetLabelInjected => ({
-      hooks: { agentPresets: controller.store },
+      hooks: {
+        agentPresets: controller.store,
+        developerTools: ctx.configForms.developerTools.enabled,
+      },
       load: () => controller.load(),
+      select: async (sessionId, id) => {
+        try {
+          const result = await ctx.remote.agentPresets.select(sessionId, id)
+          if (result.ok) return undefined
+          const { error } = result
+          // Prefer the bare cause; the banner already names the rejected preset.
+          return 'reason' in error.details && typeof error.details.reason === 'string'
+            ? error.details.reason
+            : error.message
+        } catch (error) {
+          return error instanceof Error ? error.message : String(error)
+        }
+      },
     })
 
     const startCreatorDraft = () => {
@@ -286,6 +304,7 @@ export function apply(ctx: ClientContext): void {
     order: 20,
     label: () => ctx.locale.bind('settings.agentPreset')('nav'),
     locale: 'settings.agentPreset',
+    children: { 'settings.agentPresets.custom': { kind: 'single', scope: 'root' } },
     inject: sectionInjected,
   }, AgentPresetSection))
 }

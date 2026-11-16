@@ -1,11 +1,11 @@
 // Web e2e scenario: agent-preset selection. Every lane mounts the plugin's
 // own shipped presets; this is the lane that puts them in front of a browser.
 //
-// Two surfaces, one host rule: a session's composition is fixed when the
-// session starts. Before that, the new-session chip stages the choice beside
-// the workspace picker — the only screen where it still works. After it, the
-// session header names what the session runs and offers no control at all,
-// because the host answers `agent-preset-locked` to anything else.
+// Two surfaces, one host rule: a session's composition can change only at a
+// turn boundary. Before the first turn the new-session chip stages the choice
+// beside the workspace picker; after it, the session header names what the
+// session runs and offers the switch menu, which the host accepts between
+// turns and refuses while a reply is running.
 //
 // Zero model calls: no replay fixture mounts, so a stray stream fails loud.
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -24,7 +24,8 @@ import {
   captureStableAria, compareOrRefreshGolden, launchWebScaffold, seedSession, watchConsole,
   webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { openSettings,
+import {
+  openSettings,
   connectFreshWorkspace, newEnglishPage, saveFailureShot, writeComposerDraft,
 } from './support.ts'
 
@@ -427,12 +428,12 @@ describe('web e2e: agent-preset selection', () => {
 
     await compareOrRefreshGolden(HEADER_EXPECTED, snapshot, MODE)
     expect(snapshot).toContain('Minimal mode')
+    expect(snapshot).toContain('button "Switch the agent preset for this task: Minimal mode"')
     expect(snapshot).toContain('button "1 subagent"')
     expect(snapshot.indexOf('Minimal mode')).toBeLessThan(snapshot.indexOf('button "1 subagent"'))
     expect(snapshot.indexOf('button "1 subagent"')).toBeLessThan(snapshot.indexOf('button "More actions"'))
-    // Static chrome, not a control: the header can only report a composition
-    // the host would refuse to change.
-    expect(snapshot).not.toContain('button "Minimal mode"')
+    // The header reports the composition and switches it: a resumed, idle
+    // session accepts a new preset without losing the turn above it.
   })
 
   it('drove every surface without a page error or a stream warning', () => {

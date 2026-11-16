@@ -2,11 +2,10 @@
  * The agent-preset chip on the new-session screen, beside the workspace
  * picker.
  *
- * It lives here rather than in the composer because the choice is only
- * available before a conversation starts: once a turn has run, the session's
- * history was produced under that preset's tools and the host refuses to swap
- * them. A control that spends most of its life disabled belongs on the screen
- * where it still works.
+ * It lives here rather than in the composer because the new-session screen is
+ * where the choice is staged before any Session exists. A conversation that
+ * already has turns keeps them and switches from the header control at a turn
+ * boundary; this chip stages the next Session's composition.
  *
  * The menu opens on the staged choice, which starts as the deployment default.
  * Picking stages; the choice reaches a session when one becomes current.
@@ -19,7 +18,7 @@ import {
   IconAgentPresetOutlineRegular, IconChevronDownOutlineRegular, IconWarningOutlineRegular, Menu, Toast,
 } from '@janhq/jan-client-ui-primitives'
 // Type-only: pulls the ui-conversation SlotMap merge (the hero seat).
-import type {} from '@janhq/jan-client-ui-conversation/client'
+import type { } from '@janhq/jan-client-ui-conversation/client'
 import type { AgentPresetSeatState } from './seat-store.ts'
 import { presetDisplayText } from './locales.ts'
 import { requiresCodingTools } from './settings-store.ts'

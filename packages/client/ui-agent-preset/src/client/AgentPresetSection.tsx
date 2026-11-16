@@ -5,11 +5,13 @@ import {
   Button, IconBrowseOutlineRegular, IconPlusOutlineRegular, Modal, Tag, Tooltip,
 } from '@janhq/jan-client-ui-primitives'
 import type { ObservableSnapshot, SnapshotStore } from '@janhq/jan-client-store'
-import type { InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
+import type { InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import type { AgentPresetSectionState } from './section-store.ts'
 import { isBuiltInPreset, presetDisplayText } from './locales.ts'
 import { requiresCodingTools } from './settings-store.ts'
 import { PresetGuideDialog, presetGuide, trapPresetReaderTab, type PresetGuidePage } from './PresetGuideDialog.tsx'
+// Type-only: pulls this package's SlotMap merge for the custom-editor seat.
+import type { } from './slot-contract.ts'
 import css from './AgentPresetSection.module.css'
 
 /** Settings actions and their shared controller state. */
@@ -29,7 +31,10 @@ export interface AgentPresetSectionInjected {
   makeDefault: (id: string) => Promise<void>
 }
 /** Props assembled by the settings renderer. */
-export type AgentPresetSectionProps = PropsRuntime<'settings.section'> & PropsLocale<'settings.agentPreset'> & InjectFace<AgentPresetSectionInjected>
+export type AgentPresetSectionProps = PropsRuntime<'settings.section'>
+  & PropsLocale<'settings.agentPreset'>
+  & PropsRenderSlots<'settings.agentPresets.custom'>
+  & InjectFace<AgentPresetSectionInjected>
 
 function CardDescription({ text }: { text: string }): ReactNode {
   const ref = useRef<HTMLSpanElement | null>(null)
@@ -63,7 +68,7 @@ function CardDescription({ text }: { text: string }): ReactNode {
  */
 export function AgentPresetSection({
   useAgentPresetSection, load, view, closeView, makeDefault, startCreatorDraft,
-  close: closeSettings, useDeveloperTools, t,
+  close: closeSettings, useDeveloperTools, renderSlot, t,
 }: AgentPresetSectionProps) {
   const state = useAgentPresetSection(value => value)
   const developerTools = useDeveloperTools(enabled => enabled)
@@ -159,6 +164,7 @@ export function AgentPresetSection({
         {entry}
       </section>
     })}
+    {renderSlot('settings.agentPresets.custom', {})}
     {guide === null ? null : <PresetGuideDialog guide={guide.content} initialPage={guide.page} t={t} onClose={() => { setGuide(null) }} />}
     <Modal open={viewed !== null} onClose={closeViewer} closeLabel={t('close')}
       onKeyDownCapture={(event) => {
