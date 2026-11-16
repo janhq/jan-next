@@ -65,6 +65,8 @@ describe('dsh-sdk-minimal bundle', () => {
       ['session-checkpoint-policy', '@deepseek-ai/dsh-session-checkpoint-policy'],
     ])
     expect(rows.find(row => row.id === 'sdk-app-startup')?.config).toEqual({ profile: 'sdk-minimal' })
+    // tokamak-harness: Session-log upload is opt-in.
+    expect(rows.find(row => row.id === 'session-log-deepseek')?.config).toEqual({ enabled: false })
     expect(rows.find(row => row.id === 'sdk-jsonrpc-server')).toMatchObject({
       inject: ['sdkAppStartup', 'loader'],
       config: { maxTokensAsSuccess: false },
