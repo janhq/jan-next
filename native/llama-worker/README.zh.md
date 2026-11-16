@@ -81,9 +81,9 @@ worker 监听 `127.0.0.1`，并对每个请求检查 `Authorization: Bearer <key
 
 | 方法与路径 | 用途 |
 |---|---|
-| `GET /v1/models`、`GET /models` | 列出所有已注册模型及其 llama.cpp 路由器 `status` 和 `busy` 标志，以及解析到它的 `aliases` |
+| `GET /v1/models`、`GET /models` | 列出所有已注册模型及其 llama.cpp 路由器 `status`、在流式响应结束前保持置位的 `busy` 标志，以及解析到它的 `aliases` |
 | `GET /models/sse` | 以服务器发送事件推送模型生命周期事件及加载进度 |
-| `POST /models/load`、`POST /models/unload` | 加载或卸载 `{"model": id}` |
+| `POST /models/load`、`POST /models/unload` | 加载或卸载 `{"model": id}`；模型有进行中的请求或流时，卸载返回 409 |
 | `POST /models/reload` | 重新读取 `{"preset_path", "models_max"?}`，只重新加载发生变化的模型 |
 | `POST /slots/state/erase` | 删除 `{"thread"}` 或 `{"model"}` 已保存的 KV 状态 |
 | `POST /v1/chat/completions`、`/v1/completions`、`/v1/embeddings`、`/rerank`、`/tokenize`、`/detokenize`、`/apply-template` | llama.cpp 自身的处理器，包括流式输出 |

@@ -84,7 +84,7 @@ kind: "package-reference"
 
 启动时以 `--port 0` 运行 worker，由操作系统分配回环端口，并通过 `JAN_LLAMA_API_KEY` 环境变量传入新生成的 API 密钥。默认模型加载后，服务把端点存入 `LLAMA_CPP_BASE_URL`、把密钥存入 `LLAMA_CPP_API_KEY`；worker 停止时撤回两者，因此没有进程服务时路由不提供模型。停止操作关闭 worker 的 stdin，并在 `stopTimeoutMs` 后终止 worker。之后的启动只在用户未停止 worker 时运行它。
 
-服务写入 `<dataRoot>/run/preset.ini`：每个已安装模型一个以模型 id 命名的分区，另加别名分区 `[local]`，内容为 `alias-of = <default model id>`。带投影器的模型在其分区中写入 `mmproj = <投影器绝对路径>`，`mmprojOffload` 为 `false` 时再写入 `mmproj-offload = false`。对 `local` 的请求直接到达默认模型的引擎，不会重复加载。安装、导入、移除或更改默认模型会改写 preset，并在运行中的 worker 上调用 `POST /models/reload`，无需重启；worker 只重新加载变化的分区，因此别名改指向不会重新加载任何模型。随后 **Make default** 和移除默认模型会把新的默认模型加载到运行中的 worker；加载失败时进入 `failed` 阶段。
+服务写入 `<dataRoot>/run/preset.ini`：每个已安装模型一个以模型 id 命名的分区，另加别名分区 `[local]`，内容为 `alias-of = <default model id>`。带投影器的模型在其分区中写入 `mmproj = <投影器绝对路径>`，`mmprojOffload` 为 `false` 时再写入 `mmproj-offload = false`。对 `local` 的请求直接到达默认模型的引擎，不会重复加载。安装、导入、移除或更改默认模型会改写 preset，并在运行中的 worker 上调用 `POST /models/reload`，无需重启；worker 只重新加载变化的分区，因此别名改指向不会重新加载任何模型。随后 **Make default** 和移除默认模型会把新的默认模型加载到运行中的 worker；加载失败时该请求以 worker 给出的原因失败，worker 继续运行，该模型仍为默认模型。
 
 模型在首次请求或显式加载时加载。最多 `modelsMax` 个模型常驻：加载新模型会逐出最近最少使用的空闲模型，所有常驻模型都忙时 worker 返回 HTTP 503。移除会先卸载常驻模型，因为 Windows 无法删除 worker 映射中的文件；模型仍有进行中的请求时移除失败。
 

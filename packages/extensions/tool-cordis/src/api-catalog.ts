@@ -1987,7 +1987,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Make an installed model the default: the route\'s alias id serves it and it loads when the worker starts. A running worker retargets the alias without reloading any model, then loads it; a stopped one starts. An agent default on another model of this route moves to the alias id.',
         parameters: [{ name: 'id', description: 'installed model id.' }],
         returns: 'once the worker serves it; a failed start is published as the `failed` phase.',
-        throws: ['Error for an id that is not installed, or carrying the worker\'s reason when a running worker could not load it.'],
+        throws: ['Error for an id that is not installed, or carrying the worker\'s reason when a running worker could not load it; the worker keeps running, and the model stays the default.'],
       },
       {
         signature: 'loadModel(id: string): Promise<void>',
@@ -2007,8 +2007,8 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         signature: 'removeModel(id: string): Promise<void>',
         description: 'Remove an installed model. A downloaded file or projector is deleted; an imported one is only forgotten. A resident model is unloaded first, because Windows cannot delete a file the worker maps. Removing the default makes the next installed model the default and loads it into a running worker, as setDefault does; removing the last stops the worker.',
         parameters: [{ name: 'id', description: 'installed model id.' }],
-        returns: 'once the record and the worker reflect the removal; a failed load of the new default is published as the `failed` phase.',
-        throws: ['Error carrying the worker\'s reason when the model has requests in flight.'],
+        returns: 'once the record and the worker reflect the removal.',
+        throws: ['Error carrying the worker\'s reason when the model has requests in flight, or when the running worker could not load the new default; the removal stands and the worker keeps running.'],
       },
       {
         signature: 'start(): Promise<void>',

@@ -1118,7 +1118,7 @@ importModel(path: string, options: ImportModelOptions = {}): Promise<string>
  * @param id - installed model id.
  * @returns once the worker serves it; a failed start is published as the `failed` phase.
  * @throws Error for an id that is not installed, or carrying the worker's reason when a running
- * worker could not load it.
+ * worker could not load it; the worker keeps running, and the model stays the default.
  */
 setDefault(id: string): Promise<void>
 
@@ -1146,9 +1146,9 @@ unloadModel(id: string): Promise<void>
  * Removing the default makes the next installed model the default and loads it into a running worker,
  * as {@link setDefault} does; removing the last stops the worker.
  * @param id - installed model id.
- * @returns once the record and the worker reflect the removal; a failed load of the new default is
- * published as the `failed` phase.
- * @throws Error carrying the worker's reason when the model has requests in flight.
+ * @returns once the record and the worker reflect the removal.
+ * @throws Error carrying the worker's reason when the model has requests in flight, or when the
+ * running worker could not load the new default; the removal stands and the worker keeps running.
  */
 removeModel(id: string): Promise<void>
 

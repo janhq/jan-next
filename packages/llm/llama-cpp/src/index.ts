@@ -927,7 +927,7 @@ export class LlamaCpp extends Service {
    * @param id - installed model id.
    * @returns once the worker serves it; a failed start is published as the `failed` phase.
    * @throws Error for an id that is not installed, or carrying the worker's reason when a running
-   * worker could not load it.
+   * worker could not load it; the worker keeps running, and the model stays the default.
    */
   setDefault(id: string): Promise<void> {
     if (!this.record.models.some(model => model.id === id)) return Promise.reject(new Error(`no installed model "${id}"`))
@@ -944,10 +944,13 @@ export class LlamaCpp extends Service {
       }
       await this.rememberStart(true)
       const running = this.running
-      if (running?.client === undefined || running.stopping) await this.launch()
-      else await this.loadInto(running, running.client, id)
-      await this.adoptDefault(true)
-    }).catch((error: unknown) => { this.fail(error) })
+      try {
+        if (running?.client === undefined || running.stopping) await this.launch()
+        else await this.loadInto(running, running.client, id)
+      } finally {
+        await this.adoptDefault(true)
+      }
+    })
   }
 
   /**
@@ -992,9 +995,9 @@ export class LlamaCpp extends Service {
    * Removing the default makes the next installed model the default and loads it into a running worker,
    * as {@link setDefault} does; removing the last stops the worker.
    * @param id - installed model id.
-   * @returns once the record and the worker reflect the removal; a failed load of the new default is
-   * published as the `failed` phase.
-   * @throws Error carrying the worker's reason when the model has requests in flight.
+   * @returns once the record and the worker reflect the removal.
+   * @throws Error carrying the worker's reason when the model has requests in flight, or when the
+   * running worker could not load the new default; the removal stands and the worker keeps running.
    */
   removeModel(id: string): Promise<void> {
     if (this.record.active === id) this.launching?.abort()
@@ -1040,8 +1043,7 @@ export class LlamaCpp extends Service {
       const current = this.running
       const successor = this.record.active
       if (!wasActive || successor === undefined || current?.client === undefined || current.stopping) return
-      try { await this.loadInto(current, current.client, successor) }
-      catch (error) { this.fail(error) }
+      await this.loadInto(current, current.client, successor)
     })
   }
 

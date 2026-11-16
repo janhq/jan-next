@@ -595,7 +595,7 @@ it('downloads a model from a Hugging Face repository, makes it the default, and 
   await expect(f.llama.lookupHuggingFace('acme/absent')).rejects.toMatchObject({ reason: 'not-found' })
 }, 30_000)
 
-it('removes the default and reports a new default the running worker cannot load', async () => {
+it('removes the default and rejects when the running worker cannot load the new default, staying running', async () => {
   const f = await fixture({ extraFiles: HF_FILES })
   f.llama.install()
   await f.until(s => s.phase === 'running')
@@ -603,11 +603,31 @@ it('removes the default and reports a new default the running worker cannot load
   await f.until(s => s.models.length === 2 && s.downloads.length === 0)
   await f.llama.setDefault(id)
   await writeFile(join(f.bin, 'fake-mode.json'), JSON.stringify({ loadError: 'out of memory' }))
-  await f.llama.removeModel(id)
+  await expect(f.llama.removeModel(id)).rejects.toThrow('could not load Jan v3.5 4B: out of memory')
   expect(f.llama.snapshot()).toMatchObject({
-    phase: 'failed', error: 'could not load Jan v3.5 4B: out of memory', model: { id: 'jan-v3.5-4b' }, models: [{ id: 'jan-v3.5-4b', active: true }],
+    phase: 'running', model: { id: 'jan-v3.5-4b' }, models: [{ id: 'jan-v3.5-4b', active: true }],
   })
+  expect(f.llama.snapshot().error).toBeUndefined()
   await expect(stat(join(f.home, 'data', 'models', id))).rejects.toThrow()
+
+  // The worker still serves: once the load succeeds, Make default loads the model.
+  await writeFile(join(f.bin, 'fake-mode.json'), JSON.stringify({}))
+  await f.llama.setDefault('jan-v3.5-4b')
+  await f.until(s => s.models[0]?.status === 'loaded')
+}, 30_000)
+
+it('rejects a new default the running worker cannot load, keeping the worker running and the default chosen', async () => {
+  const f = await fixture({ extraFiles: HF_FILES })
+  f.llama.install()
+  await f.until(s => s.phase === 'running')
+  const id = await f.llama.downloadHuggingFace('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')
+  await f.until(s => s.models.length === 2 && s.downloads.length === 0)
+  await writeFile(join(f.bin, 'fake-mode.json'), JSON.stringify({ loadError: 'out of memory' }))
+  await expect(f.llama.setDefault(id)).rejects.toThrow(/^could not load .*: out of memory$/)
+  const state = f.llama.snapshot()
+  expect(state.phase).toBe('running')
+  expect(state.error).toBeUndefined()
+  expect(state.models.find(model => model.id === id)).toMatchObject({ active: true })
 }, 30_000)
 
 it('keeps a model whose unload the worker refuses while it serves requests', async () => {

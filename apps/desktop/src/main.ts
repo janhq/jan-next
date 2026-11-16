@@ -69,6 +69,7 @@ import { DesktopBrowserGuests } from './browser-guests.ts'
 import { installDesktopShortcuts } from './keyboard.ts'
 import { DesktopUpdateOverlays } from './update-overlay.ts'
 import { DesktopQuitConfirmation } from './quit-confirmation.ts'
+import { detectStatusNotifierHost, resolveDesktopStatusNotifierConfig } from './status-notifier.ts'
 import { DesktopTray } from './tray.ts'
 import { DesktopBackgroundNotice } from './background-notice.ts'
 
@@ -1223,13 +1224,21 @@ async function main(): Promise<void> {
   }
   refreshApplicationMenu()
   const trayIconPath = development ? join(app.getAppPath(), 'resources', 'tray-windows.ico') : join(process.resourcesPath, 'tray.ico')
-  if (process.platform === 'win32' || process.platform === 'linux') {
-    // The tray is the way back to a hidden window; without it, relaunching the application still focuses it.
+  // The tray is the way back to a hidden window; without it, relaunching the application still focuses it.
+  const createTray = (): void => {
     try {
       tray = new DesktopTray({
         ...process.platform === 'win32' ? { iconPath: trayIconPath } : { iconPath: applicationIconPath, edge: 32 },
         locale: currentDesktopLocale, open: () => { focusPrimaryWindow() }, quit: () => { app.quit() } })
     } catch (error) { console.warn('desktop tray: unavailable', error) }
+  }
+  if (process.platform === 'win32') createTray()
+  else if (process.platform === 'linux') {
+    // Electron creates a Linux tray without error even when no StatusNotifier host would display it.
+    void detectStatusNotifierHost(resolveDesktopStatusNotifierConfig(process.env)).then((host) => {
+      if (!host.present) console.warn(`desktop tray: no status notifier host (${host.reason}); closing the window quits`)
+      else if (!quitting && !shuttingDown) createTray()
+    })
   }
   const backgroundNotice = process.platform === 'win32' || process.platform === 'linux'
     ? new DesktopBackgroundNotice({ markerPath: join(app.getPath('userData'), 'background-close-confirmed'),
@@ -1313,7 +1322,7 @@ async function main(): Promise<void> {
       if (quitting || shellInstallerOwnsQuit || sessionEnding) return
       event.preventDefault()
       if (updateDialog.isOpen) { updateDialog.focus(); return }
-      // Linux has no Dock; without a tray nothing could show the hidden window again.
+      // Linux has no Dock; without a visible tray nothing could show the hidden window again.
       if (process.platform === 'linux' && tray === undefined) { app.quit(); return }
       const hide = (): void => {
         if (!quitting && !shellInstallerOwnsQuit && !sessionEnding && !window.isDestroyed()) hideMainWindow(window)

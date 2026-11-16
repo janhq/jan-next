@@ -1,5 +1,6 @@
 import { parsePluginOperationRecord } from '@deepseek-ai/dsh-plugin-manager/diagnostic'
 import type { DesktopHostProcess } from '../src/host-process.ts'
+import type { DesktopStatusNotifierHost } from '../src/status-notifier.ts'
 import type { AccountView } from '@deepseek-ai/dsh-deepseek-account/types'
 import { WINDOWS_TITLEBAR_HEIGHT } from '../src/windows-layout.ts'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
@@ -71,6 +72,7 @@ const harness = await vi.hoisted(async () => {
     environment: { ...base, DSH_TEST_LOGIN_SHELL: 'login' }, failures: [{ shell: '/account/shell', reason: 'timeout' }],
   })
   const loginShell = vi.fn((base: NodeJS.ProcessEnv, _config: unknown, _options: { signal?: AbortSignal }) => readLoginShell(base))
+  const statusNotifierHost = vi.fn(async (_config: unknown): Promise<DesktopStatusNotifierHost> => ({ present: true }))
   const updateCheck = vi.fn(async (_manual?: boolean): Promise<DesktopUpdateState> => updateState)
   const updateDownload = vi.fn(async (_version: string, _revision?: number): Promise<DesktopUpdateState> => updateState)
   const updateInstall = vi.fn(async (_version: string, _revision?: number): Promise<DesktopUpdateState> => updateState)
@@ -224,7 +226,7 @@ const harness = await vi.hoisted(async () => {
     windows, views, hosts, handlers, app, FakeWindow, FakeView, FakeHost, powerMonitor, nativeTheme, analytics,
     trays, FakeTray, backgroundNotice, shellDialog,
     menu, popup, socketHeaders: vi.fn(), connectWelcome: vi.fn(), removeLegacyHostCookies: vi.fn(async () => {}), hostCookies: {},
-    loginShell, readLoginShell, updateCheck, updateDownload, updateInstall,
+    loginShell, readLoginShell, statusNotifierHost, updateCheck, updateDownload, updateInstall,
     platformDispose,
     platformCloseAndWait,
 
@@ -287,6 +289,7 @@ const harness = await vi.hoisted(async () => {
       updateState = { phase: 'idle' }
       updateCheck.mockReset().mockImplementation(async () => updateState)
       loginShell.mockReset().mockImplementation(base => readLoginShell(base))
+      statusNotifierHost.mockReset().mockResolvedValue({ present: true })
       updateDownload.mockReset().mockImplementation(async () => updateState)
       updateInstall.mockReset().mockImplementation(async () => updateState)
       nativeTheme.themeSource = 'system'; nativeTheme.shouldUseDarkColors = false
@@ -353,6 +356,10 @@ vi.mock('node:fs/promises', async (importOriginal) => {
 vi.mock('../src/login-shell-environment.ts', async importOriginal => ({
   ...await importOriginal<typeof import('../src/login-shell-environment.ts')>(),
   readDesktopLoginShellEnvironment: harness.loginShell,
+}))
+vi.mock('../src/status-notifier.ts', async importOriginal => ({
+  ...await importOriginal<typeof import('../src/status-notifier.ts')>(),
+  detectStatusNotifierHost: harness.statusNotifierHost,
 }))
 vi.mock('../src/runtime-tree.ts', () => ({ readDesktopRuntime: () => ({ release: { version: '1.0.0' } }) }))
 vi.mock('../src/paths.ts', () => ({ resolveDesktopPaths: () => ({ profile: 'desktop-test-profile' }) }))
@@ -1661,6 +1668,29 @@ describe('desktop main startup', () => {
     expect(host.stop).not.toHaveBeenCalled()
     harness.trays[0]!.emit('click')
     expect(window.show).toHaveBeenCalledOnce()
+  })
+
+  it('creates no Linux tray and quits on close when no status notifier host is registered', async () => {
+    vi.stubGlobal('process', { ...process, platform: 'linux', arch: 'x64', resourcesPath: 'desktop-test-resources' })
+    harness.statusNotifierHost.mockResolvedValue({ present: false, reason: 'gdbus: exit 1' })
+    const host = await readyWorkspace()
+    const window = harness.windows[0]!
+    expect(harness.statusNotifierHost).toHaveBeenCalledWith({ timeoutMs: 2_000 })
+    expect(harness.trays).toHaveLength(0)
+    expect(console.warn).toHaveBeenCalledWith(
+      'desktop tray: no status notifier host (gdbus: exit 1); closing the window quits')
+    window.close()
+    expect(window.hide).not.toHaveBeenCalled()
+    expect(harness.backgroundNotice.close).not.toHaveBeenCalled()
+    expect(harness.app.quit).toHaveBeenCalledOnce()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(host.inspectQuit).toHaveBeenCalledOnce()
+  })
+
+  it('does not query a status notifier host on Windows', async () => {
+    await readyWorkspace()
+    expect(harness.statusNotifierHost).not.toHaveBeenCalled()
+    expect(harness.trays).toHaveLength(1)
   })
 
   it('quits on Linux close when no tray could be created', async () => {

@@ -484,6 +484,25 @@ impl Registry {
                 .map(|(id, m)| (id.as_str(), m.inflight, m.last_used)),
         )
     }
+
+    /// Registers `model_id` and makes it resident and idle without a load,
+    /// which the default feature config cannot otherwise do: `acquire` always
+    /// fails there.
+    #[cfg(all(test, not(feature = "engine")))]
+    pub(crate) fn insert_resident_stub(&mut self, model_id: &str) {
+        self.register(
+            model_id,
+            LoadSpec::Args(vec!["llama-server".into(), "-m".into(), model_id.into()]),
+        );
+        self.loaded.insert(
+            model_id.to_string(),
+            LoadedModel {
+                engine: Arc::new(Engine::stub()),
+                inflight: 0,
+                last_used: next_tick(),
+            },
+        );
+    }
 }
 
 /// The eviction policy, over plain data so it can be tested without starting an
@@ -533,20 +552,10 @@ mod tests {
         r
     }
 
-    /// Puts a model in `loaded` without a load, which the default feature
-    /// config cannot do: `acquire` always fails there.
     #[cfg(not(feature = "engine"))]
     fn resident(r: &mut Registry, models: &[&str]) {
         for m in models {
-            r.register(*m, spec(m));
-            r.loaded.insert(
-                (*m).to_string(),
-                LoadedModel {
-                    engine: Arc::new(Engine::stub()),
-                    inflight: 0,
-                    last_used: next_tick(),
-                },
-            );
+            r.insert_resident_stub(m);
         }
     }
 

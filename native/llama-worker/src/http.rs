@@ -104,6 +104,44 @@ fn strip_thread_field(body: &str) -> String {
 /// unbounded memory.
 const STREAM_BUFFER: usize = 32;
 
+/// One request's claim on a model's in-flight count, taken by
+/// `Registry::acquire` and given back exactly once when this is dropped.
+///
+/// A streamed response outlives `dispatch`, so the claim travels with the
+/// generator and ends only when generation does: until then the model stays
+/// busy, `unload` refuses it, and eviction skips it. Dropping also covers a
+/// cancelled request future and a panicking engine task.
+struct InflightGuard {
+    registry: Arc<Mutex<Registry>>,
+    model: String,
+}
+
+impl InflightGuard {
+    /// Wraps a claim the caller has already taken with `Registry::acquire`.
+    fn new(registry: Arc<Mutex<Registry>>, model: String) -> Self {
+        Self { registry, model }
+    }
+}
+
+impl Drop for InflightGuard {
+    fn drop(&mut self) {
+        if let Ok(mut reg) = self.registry.try_lock() {
+            reg.release(&self.model);
+            return;
+        }
+        // Drop can run on the reactor, where blocking on the lock would stall
+        // it, so a contended release finishes on a task instead.
+        let registry = Arc::clone(&self.registry);
+        let model = std::mem::take(&mut self.model);
+        match tokio::runtime::Handle::try_current() {
+            Ok(rt) => {
+                rt.spawn(async move { registry.lock().await.release(&model) });
+            }
+            Err(_) => registry.blocking_lock().release(&model),
+        }
+    }
+}
+
 impl EngineServer {
     /// Binds `127.0.0.1:port`. Pass 0 to let the OS choose, then read `port`
     /// back -- unlike the old `49152 + random` guess, this cannot collide.
@@ -659,11 +697,14 @@ impl EngineServer {
             return self.dispatch_any(route, body).await;
         };
 
-        let engine = {
+        let (engine, claim) = {
             let mut reg = self.registry.lock().await;
             // acquire may start an engine, which blocks; see load_model.
             match tokio::task::block_in_place(|| reg.acquire(&model)) {
-                Ok(e) => e,
+                Ok(e) => (
+                    e,
+                    InflightGuard::new(Arc::clone(&self.registry), model.clone()),
+                ),
                 Err(RegistryError::Full { models_max }) => {
                     return json_error(
                         StatusCode::SERVICE_UNAVAILABLE,
@@ -687,27 +728,22 @@ impl EngineServer {
             body
         };
 
-        let out = run(engine, route, body, STREAM_BUFFER).await;
-        self.registry.lock().await.release(&model);
-        out
+        run(engine, claim, route, body, STREAM_BUFFER).await
     }
 
     /// For routes with no model in the body: use the first resident engine.
     async fn dispatch_any(&self, route: Route, body: String) -> HttpResponse<Body> {
-        let engine = {
+        let (engine, claim) = {
             let mut reg = self.registry.lock().await;
             let Some(first) = reg.loaded_models().into_iter().next() else {
                 return json_error(StatusCode::SERVICE_UNAVAILABLE, "no model is loaded");
             };
             match tokio::task::block_in_place(|| reg.acquire(&first)) {
-                Ok(e) => (e, first),
+                Ok(e) => (e, InflightGuard::new(Arc::clone(&self.registry), first)),
                 Err(e) => return json_error(StatusCode::SERVICE_UNAVAILABLE, &format!("{e:?}")),
             }
         };
-        let (eng, id) = engine;
-        let out = run(eng, route, body, STREAM_BUFFER).await;
-        self.registry.lock().await.release(&id);
-        out
+        run(engine, claim, route, body, STREAM_BUFFER).await
     }
 }
 
@@ -832,8 +868,13 @@ async fn slot_tokens(engine: &Arc<super::Engine>, slot: i32) -> u64 {
 }
 
 /// Issues one request and adapts the engine's response to an HTTP body.
+///
+/// `claim` is held until the engine is done with the request: past the
+/// returned headers for a stream, and past this future's cancellation while
+/// the engine call is still running.
 async fn run(
     engine: Arc<super::Engine>,
+    claim: InflightGuard,
     route: Route,
     body: String,
     buffer: usize,
@@ -856,11 +897,18 @@ async fn run(
         // real 0% partial instead of an empty one, so the duplicate fired on
         // every streaming completion rather than being latent.
         let first = if is_stream { String::new() } else { res.body() };
-        (res.status(), res.content_type(), first, is_stream, res)
+        (
+            res.status(),
+            res.content_type(),
+            first,
+            is_stream,
+            res,
+            claim,
+        )
     })
     .await;
 
-    let Ok((status, content_type, first, is_stream, mut res)) = head else {
+    let Ok((status, content_type, first, is_stream, res, claim)) = head else {
         return json_error(StatusCode::INTERNAL_SERVER_ERROR, "engine task panicked");
     };
 
@@ -879,12 +927,12 @@ async fn run(
     // cancels generation instead of running it to completion for nobody.
     let (tx, rx) = mpsc::channel::<Result<Frame<Bytes>, Infallible>>(buffer);
     tokio::task::spawn_blocking(move || {
-        // `res` is a bare handle into the engine's server context, and
-        // `dispatch` releases its registry reference the moment `run` returns
-        // -- which is now, while this is still draining. Without an owning
-        // clone here the model looks idle, eviction or an unload drops the last
-        // Arc, and `next_chunk` reads a deleted server_context.
+        // Bound in this order so they drop in reverse, on unwinding too: `res`
+        // is a bare handle into the engine's server context, so it goes first,
+        // and the model becomes idle only after nothing here can touch it.
+        let _claim = claim;
         let _engine = engine;
+        let mut res = res;
         loop {
             match res.next_chunk() {
                 Ok(Some(chunk)) => {
@@ -1166,6 +1214,116 @@ mod tests {
                 .unwrap();
         let res = server.erase_slot_state(r#"{"model":"m"}"#).await;
         assert_eq!(res.status(), StatusCode::NOT_IMPLEMENTED);
+    }
+
+    #[cfg(not(feature = "engine"))]
+    struct Claimed {
+        server: EngineServer,
+        reg: Arc<Mutex<Registry>>,
+        engine: Arc<crate::Engine>,
+        claim: InflightGuard,
+    }
+
+    /// A registry with one resident stub model, claimed once as `dispatch`
+    /// claims it for a request.
+    #[cfg(not(feature = "engine"))]
+    async fn claimed(model: &str) -> Claimed {
+        let reg = Arc::new(Mutex::new(Registry::new(1)));
+        reg.lock().await.insert_resident_stub(model);
+        let engine = reg
+            .lock()
+            .await
+            .acquire(model)
+            .expect("a resident model is acquirable");
+        let (server, _l) = EngineServer::bind(Arc::clone(&reg), 0, String::new())
+            .await
+            .unwrap();
+        let claim = InflightGuard::new(Arc::clone(&reg), model.to_string());
+        Claimed {
+            server,
+            reg,
+            engine,
+            claim,
+        }
+    }
+
+    #[cfg(not(feature = "engine"))]
+    async fn wait_idle(reg: &Mutex<Registry>, model: &str) {
+        tokio::time::timeout(Duration::from_secs(5), async {
+            while reg.lock().await.busy_models().iter().any(|m| m == model) {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("the claim was never released");
+    }
+
+    // The streaming generator owns the claim on a blocking thread after
+    // `dispatch` has returned; unload has to keep refusing until it ends.
+    #[cfg(not(feature = "engine"))]
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_claim_held_by_a_generator_keeps_the_model_busy_until_it_ends() {
+        let Claimed {
+            server, reg, claim, ..
+        } = claimed("m").await;
+        let (finish, finished) = std::sync::mpsc::channel::<()>();
+        let generator = tokio::task::spawn_blocking(move || {
+            let _claim = claim;
+            finished.recv().ok();
+        });
+
+        assert_eq!(reg.lock().await.busy_models(), vec!["m".to_string()]);
+        assert_eq!(
+            server.unload_model("m").await.status(),
+            StatusCode::CONFLICT
+        );
+        let listed = server.list_models().await.into_body().collect().await;
+        let listed: serde_json::Value =
+            serde_json::from_slice(&listed.unwrap().to_bytes()).unwrap();
+        assert_eq!(listed["data"][0]["busy"], true);
+
+        finish.send(()).unwrap();
+        generator.await.unwrap();
+        wait_idle(&reg, "m").await;
+        assert_eq!(server.unload_model("m").await.status(), StatusCode::OK);
+    }
+
+    #[cfg(not(feature = "engine"))]
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_panicking_generator_still_releases_its_claim() {
+        let Claimed { reg, claim, .. } = claimed("m").await;
+        let generator = tokio::task::spawn_blocking(move || {
+            let _claim = claim;
+            panic!("generator failed");
+        });
+        assert!(generator.await.is_err());
+        wait_idle(&reg, "m").await;
+    }
+
+    // Dropping on the reactor while the registry lock is held must neither
+    // block nor lose the release.
+    #[cfg(not(feature = "engine"))]
+    #[tokio::test]
+    async fn a_claim_dropped_under_a_held_lock_is_released_once_it_frees() {
+        let Claimed { reg, claim, .. } = claimed("m").await;
+        let held = reg.lock().await;
+        drop(claim);
+        assert_eq!(held.busy_models(), vec!["m".to_string()]);
+        drop(held);
+        wait_idle(&reg, "m").await;
+    }
+
+    // The non-streaming path hands the claim back when the response is built.
+    #[cfg(not(feature = "engine"))]
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_buffered_response_releases_its_claim_when_run_returns() {
+        let Claimed {
+            reg, engine, claim, ..
+        } = claimed("m").await;
+        let res = run(engine, claim, Route::Health, String::new(), 1).await;
+        assert_eq!(res.status(), StatusCode::SERVICE_UNAVAILABLE);
+        wait_idle(&reg, "m").await;
+        assert!(reg.lock().await.unload("m"));
     }
 
     #[test]

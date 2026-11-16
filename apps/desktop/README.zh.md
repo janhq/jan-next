@@ -201,7 +201,7 @@ pnpm run dev:desktop
 pnpm run start:desktop
 ```
 
-两个启动器都可在 macOS arm64 和 x64、Windows x64 及 Linux x64 上运行；Windows arm64 宿主准备 x64 目标。Linux x64 只是开发目标：打包、签名和上传只解析发布目标，会拒绝 `linux-x64`，也不产出 Linux 安装包（[打包](packaging/README.zh.md)）。与 macOS 相同，Linux 上的启动器将 `JAN_LLAMA_WORKER` 默认设为已暂存的 `native/llama-worker/dist/jan-llama-worker`。嵌入的 Platform 文档将该壳标识为 `web`，因为 Platform 只为 macOS 和 Windows 定义了桌面客户端身份。在 Linux 上，关闭主窗口会在与 Windows 相同的首次确认后隐藏到托盘，托盘图标由应用图标缩放为 32 像素；无法创建托盘时，关闭会改为退出。原生 GNOME 需要 AppIndicator 扩展才显示该图标，再次启动仍会聚焦隐藏的窗口。Linux 没有终端命令安装器、窗口材质或 `dsh://` 处理程序注册；配置了强制更新策略时，启动会以 `desktop policy: unsupported platform` 失败。
+两个启动器都可在 macOS arm64 和 x64、Windows x64 及 Linux x64 上运行；Windows arm64 宿主准备 x64 目标。Linux x64 只是开发目标：打包、签名和上传只解析发布目标，会拒绝 `linux-x64`，也不产出 Linux 安装包（[打包](packaging/README.zh.md)）。与 macOS 相同，Linux 上的启动器将 `JAN_LLAMA_WORKER` 默认设为已暂存的 `native/llama-worker/dist/jan-llama-worker`。嵌入的 Platform 文档将该壳标识为 `web`，因为 Platform 只为 macOS 和 Windows 定义了桌面客户端身份。在 Linux 上，只有会话总线报告已注册 StatusNotifier 宿主时，Desktop 才创建托盘图标（由应用图标缩放为 32 像素）：`org.kde.StatusNotifierWatcher` 通过 `gdbus`（未安装 `gdbus` 时通过 `dbus-send`）对 `IsStatusNotifierHostRegistered` 答复 true。每次查询超过 `DSH_DESKTOP_STATUS_NOTIFIER_TIMEOUT_MS`（1000 到 2147483647 的整数毫秒，默认 `2000`）即被终止。有托盘时，关闭主窗口会在与 Windows 相同的首次确认后隐藏窗口。没有宿主、查询失败、超时或答复无法识别，或查询尚未答复时，关闭会改为退出；无法创建托盘时同样退出。查询只在启动时运行一次，因此原生 GNOME 只有在 Desktop 启动时已启用 AppIndicator 扩展才显示托盘。再次启动仍会聚焦隐藏的窗口。Linux 没有终端命令安装器、窗口材质或 `dsh://` 处理程序注册；配置了强制更新策略时，启动会以 `desktop policy: unsupported platform` 失败。
 
 桌面包准备过程按安装包目标的操作系统和架构筛选可选原生包。Windows 的包集合不包含 macOS Computer Use tarball，即使输入包是在 macOS 上打包的。
 
