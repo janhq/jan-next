@@ -199,6 +199,22 @@ window.__ModuleLoader__.load({
 html[data-ow-shell][data-windows-titlebar] [data-slot='root'] > :has(> [data-shell-overlay]) { padding-top: 0; }
 html[data-ow-shell][data-windows-titlebar] [data-slot='root'] > :has(> [data-shell-overlay]) > :has([data-slot='main']),
 html[data-ow-shell][data-windows-titlebar] [data-slot='root'] > :has(> [data-shell-overlay]) > [data-rightbar-col] { padding-top: var(--dsh-windows-titlebar-height); }
+/* Guide labels remain readable when shortcut hints consume a narrow card. */
+html[data-ow-shell] [data-sidebar-right-guide-entry='files'] > span:nth-child(2) > span,
+html[data-ow-shell] [data-sidebar-right-guide-entry='terminal'] > span:nth-of-type(2) > span:last-child { white-space: normal; overflow-wrap: anywhere; }
+/* Guide providers keep their actions; the shell supplies Jan's line artwork. */
+html[data-ow-shell] [data-sidebar-right-guide-entry='files'] > span:first-of-type,
+html[data-ow-shell] [data-sidebar-right-guide-entry='terminal'] > span:first-of-type { color: var(--dsw-alias-label-secondary); }
+html[data-ow-shell] [data-sidebar-right-guide-entry='files'] > span:first-of-type > svg,
+html[data-ow-shell] [data-sidebar-right-guide-entry='terminal'] > span:first-of-type > svg { display: none; }
+html[data-ow-shell] [data-sidebar-right-guide-entry='files'] > span:first-of-type::before,
+html[data-ow-shell] [data-sidebar-right-guide-entry='terminal'] > span:first-of-type::before { content: ''; display: block; width: 22px; height: 22px; background: currentColor; mask: var(--ow-guide-icon) center / contain no-repeat; }
+html[data-ow-shell] [data-sidebar-right-guide-entry='files'] { --ow-guide-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7V6a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z'/%3E%3Cpath d='M3 9h18'/%3E%3C/svg%3E"); }
+html[data-ow-shell] [data-sidebar-right-guide-entry='terminal'] { --ow-guide-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='16' rx='2'/%3E%3Cpath d='m8 9 3 3-3 3m5 0h3'/%3E%3C/svg%3E"); }
+html[data-ow-shell] [data-sidebar-right-panel] button[aria-haspopup='menu'] > span:first-child > svg { stroke: currentColor; color: var(--dsw-alias-label-secondary); }
+/* Positioned dock panels ignore their column's padding. Reserve the caption on
+   the panel itself so both normal and fullscreen chrome stay below it. */
+html[data-ow-shell][data-windows-titlebar] [data-sidebar-right-panel] { top: var(--dsh-windows-titlebar-height); }
 
 `
 
@@ -284,6 +300,14 @@ html[data-ow-shell][data-windows-titlebar] [data-slot='root'] > :has(> [data-she
       stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round', strokeLinejoin: 'round',
       className: 'ow-artwork', 'aria-hidden': true,
     }, nodes.map(([tag, attrs], i) => h(tag, { key: i, ...attrs })))
+
+    function FilesTabTitle({ useTabInfo }) {
+      const { tab } = useTabInfo()
+      return h(React.Fragment, null,
+        h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+          h('path', { d: 'M3 7V6a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z' }), h('path', { d: 'M3 9h18' })),
+        tab.title)
+    }
 
     // Jan has no panel launcher rows, so the native More menu becomes the one
     // list of management pages. Plugins and Model Hub keep their footer seats;
@@ -388,6 +412,7 @@ html[data-ow-shell][data-windows-titlebar] [data-slot='root'] > :has(> [data-she
         ctx.slots.inject('sidebar.session.new', () => ctx.slots.register({ name: 'sidebar.session.new', priority: -1, locale: 'open-waifu.shell' }, NewSession))
         ctx.slots.inject('sidebar.workspaces.actions', () => ctx.slots.register({ name: 'sidebar.workspaces.actions', priority: -1, locale: 'open-waifu.shell' }, WorkspaceActions))
         ctx.slots.inject('sidebar.workspaces.header', () => ctx.slots.register({ name: 'sidebar.workspaces.header', priority: -1, locale: 'open-waifu.shell' }, WorkspaceHeader))
+        ctx.slots.inject('sidebar.right.pane.tab.title', () => ctx.slots.register({ name: 'sidebar.right.pane.tab.title', key: '@deepseek-ai/dsh-client-ui-sidebar-files', priority: -1 }, FilesTabTitle))
         // Jan's greeting replaces the bundled headline stack; the rest of the
         // hero and composer stay DSH's own.
         ctx.slots.inject('conversation.hero.headline', () => ctx.slots.register({ name: 'conversation.hero.headline', priority: -1, locale: 'open-waifu.shell' }, HeroHeadline))
