@@ -206,6 +206,11 @@ fn patch(setup: &ShellSetup) -> Value {
     let mut entries = vec![
         map(vec![("id", Value::from("ow-shell")), ("config", shell_config)]),
         map(vec![("id", Value::from("ow-llamacpp")), ("config", map(vec![("selectedModel", selected_local)]))]),
+        // DSH's empty composer asks what to build; this is a chat app.
+        map(vec![
+            ("id", Value::from("ui-conversation")),
+            ("config", map(vec![("heroPlaceholder", Value::from("Ask anything, / for commands, @ for files or chats"))])),
+        ]),
         map(vec![
             ("id", Value::from("ui-theme")),
             ("name", Value::from("@deepseek-ai/dsh-client-ui-theme")),

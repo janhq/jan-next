@@ -194,6 +194,8 @@ try {
     if (!(await click(action))) throw new Error(`welcome action ${action} is not clickable`)
     await until('welcome closed', async () => !(await visible('Welcome to Jan')), 10_000)
   })
+  const placeholder = await evaluate(`document.querySelector('[contenteditable=true]')?.closest('[data-slot], div')?.parentElement?.innerText ?? ''`)
+  if (/what you want to build/i.test(String(placeholder) + await evaluate('document.body.innerText'))) throw new Error('the empty composer still asks what to build')
   for (const label of ['New Chat', 'New project', 'Search', 'Model Hub', 'Plugin manager', 'Settings']) {
     if (!(await visible(label))) throw new Error(`sidebar control "${label}" is missing`)
   }
