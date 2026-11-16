@@ -337,6 +337,7 @@ impl Registry {
         m.last_used = next_tick();
         if m.inflight == 0 && self.stale.remove(model_id) {
             self.loaded.remove(model_id);
+            self.dropped.push(model_id.to_string());
             self.events
                 .emit(model_id, Transition::Unloaded { exit_code: 0 });
         }
@@ -604,6 +605,28 @@ mod tests {
         assert!(!r.unload("a"), "unload must refuse a busy model");
         r.retire("a");
         assert!(r.take_dropped().is_empty());
+    }
+
+    /// A reload that supersedes a busy model defers its drop to the last
+    /// `release`, which must record it like every other drop path.
+    #[cfg(not(feature = "engine"))]
+    #[test]
+    fn the_last_release_of_a_superseded_model_records_the_drop() {
+        let mut r = Registry::new(2);
+        resident(&mut r, &["a"]);
+        r.loaded.get_mut("a").unwrap().inflight = 2;
+        let mut specs = HashMap::new();
+        specs.insert("a".to_string(), spec("a-moved"));
+        assert_eq!(r.reload(specs, 2).changed, vec!["a".to_string()]);
+        assert!(r.take_dropped().is_empty());
+
+        r.release("a");
+        assert!(r.is_loaded("a"));
+        assert!(r.take_dropped().is_empty());
+
+        r.release("a");
+        assert!(!r.is_loaded("a"));
+        assert_eq!(r.take_dropped(), vec!["a".to_string()]);
     }
 
     #[test]

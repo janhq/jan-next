@@ -18,7 +18,7 @@ use tokio::sync::broadcast;
 
 /// Room for a burst (a reload evicting several models) without a subscriber
 /// that is mid-write missing the transition it was waiting for.
-const CHANNEL_CAPACITY: usize = 64;
+pub(crate) const CHANNEL_CAPACITY: usize = 64;
 
 /// A lifecycle *transition*, as opposed to `registry::ModelStatus`, which is
 /// the steady state `GET /models` reports.

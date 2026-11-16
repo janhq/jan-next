@@ -446,6 +446,10 @@ async function main(): Promise<void> {
   let mandatoryUI: DesktopMandatoryUpdateWindow | undefined
   let policyAuth: DesktopPolicyTestAuth | undefined
   let tray: DesktopTray | undefined
+  /** Pending Linux StatusNotifier host query; it settles without rejecting and is cleared once the tray decision is made. */
+  let linuxTrayDetection: Promise<void> | undefined
+  /** A main-window close is waiting for {@link linuxTrayDetection}; later closes join it. */
+  let closeAwaitsTrayDetection = false
   /**
    * The operating system is ending the session: the quit skips its confirmation. Windows sets it
    * on the definitive session-end message. macOS sets it on the power-off notification, which
@@ -1235,7 +1239,8 @@ async function main(): Promise<void> {
   if (process.platform === 'win32') createTray()
   else if (process.platform === 'linux') {
     // Electron creates a Linux tray without error even when no StatusNotifier host would display it.
-    void detectStatusNotifierHost(resolveDesktopStatusNotifierConfig(process.env)).then((host) => {
+    linuxTrayDetection = detectStatusNotifierHost(resolveDesktopStatusNotifierConfig(process.env)).then((host) => {
+      linuxTrayDetection = undefined
       if (!host.present) console.warn(`desktop tray: no status notifier host (${host.reason}); closing the window quits`)
       else if (!quitting && !shuttingDown) createTray()
     })
@@ -1318,17 +1323,29 @@ async function main(): Promise<void> {
     shortcuts.attach(window)
     window.on('focus', automaticCheck)
     // Closing hides: the page and the Host keep running, and the next show resumes the same document.
-    window.on('close', (event) => {
-      if (quitting || shellInstallerOwnsQuit || sessionEnding) return
-      event.preventDefault()
+    const closeMainWindow = (): void => {
       if (updateDialog.isOpen) { updateDialog.focus(); return }
       // Linux has no Dock; without a visible tray nothing could show the hidden window again.
-      if (process.platform === 'linux' && tray === undefined) { app.quit(); return }
+      if (process.platform === 'linux' && tray === undefined) {
+        if (linuxTrayDetection === undefined) { app.quit(); return }
+        if (closeAwaitsTrayDetection) return
+        closeAwaitsTrayDetection = true
+        void linuxTrayDetection.then(() => {
+          closeAwaitsTrayDetection = false
+          if (!quitting && !shellInstallerOwnsQuit && !sessionEnding && !window.isDestroyed()) closeMainWindow()
+        })
+        return
+      }
       const hide = (): void => {
         if (!quitting && !shellInstallerOwnsQuit && !sessionEnding && !window.isDestroyed()) hideMainWindow(window)
       }
       if (backgroundNotice === undefined) hide()
       else backgroundNotice.close(hide)
+    }
+    window.on('close', (event) => {
+      if (quitting || shellInstallerOwnsQuit || sessionEnding) return
+      event.preventDefault()
+      closeMainWindow()
     })
     if (process.platform === 'win32') {
       // Shutdown, restart, and log-off must not wait on a confirmation. query-session-end is only a

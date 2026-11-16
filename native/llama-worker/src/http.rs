@@ -946,7 +946,8 @@ const SSE_KEEPALIVE: Duration = Duration::from_secs(15);
 const SSE_KEEPALIVE_FRAME: &str = ": keepalive\n\n";
 
 /// Streams `rx`'s transitions as SSE frames, plus a keepalive comment whenever
-/// `keepalive` passes without a frame, until the client goes away.
+/// `keepalive` passes without a frame, until the client goes away or falls
+/// behind the event channel.
 fn sse_body(mut rx: broadcast::Receiver<ModelEvent>, keepalive: Duration) -> Body {
     let (tx, out) = mpsc::channel::<Result<Frame<Bytes>, Infallible>>(STREAM_BUFFER);
     tokio::spawn(async move {
@@ -957,11 +958,11 @@ fn sse_body(mut rx: broadcast::Receiver<ModelEvent>, keepalive: Duration) -> Bod
                 received = rx.recv() => match received {
                     Ok(event) => event.to_sse_frame(),
                     // A subscriber too slow for CHANNEL_CAPACITY has missed
-                    // events it cannot recover, and inventing them would be
-                    // worse than the gap: keep streaming from here.
+                    // transitions; ending the feed makes the client resync from
+                    // `GET /models` instead of mirroring a stale state.
                     Err(broadcast::error::RecvError::Lagged(n)) => {
-                        log::warn!("a /models/sse subscriber lagged and missed {n} event(s)");
-                        continue;
+                        log::warn!("a /models/sse subscriber lagged and missed {n} event(s); ending its feed");
+                        return;
                     }
                     Err(broadcast::error::RecvError::Closed) => return,
                 },
@@ -1383,5 +1384,19 @@ mod tests {
         assert!(frame.starts_with("data: "), "{frame:?}");
         assert!(frame.contains(r#""status":"loaded""#), "{frame:?}");
         assert_eq!(next_frame(&mut body).await, ": keepalive\n\n");
+    }
+
+    #[tokio::test]
+    async fn a_lagged_model_feed_ends() {
+        let bus = crate::events::EventBus::new();
+        let rx = bus.subscribe();
+        for _ in 0..=crate::events::CHANNEL_CAPACITY {
+            bus.emit("m", crate::events::Transition::Loaded);
+        }
+        let mut body = sse_body(rx, Duration::from_secs(3600));
+        let end = tokio::time::timeout(Duration::from_secs(5), body.frame())
+            .await
+            .expect("the lagged feed stayed open");
+        assert!(end.is_none(), "{end:?}");
     }
 }

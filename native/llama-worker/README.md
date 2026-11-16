@@ -63,7 +63,7 @@ To move the pin, update all four constants and the crate version together, delet
 
 The preset is the llama.cpp router preset INI format. Each section other than `[*]` registers one model whose id is the section name; `[*]` holds defaults applied to every section, and a section's own keys override them. Keys are llama.cpp server option names without leading dashes, such as `model`, `ctx-size`, `n-gpu-layers`, `device`, `flash-attn`, `cache-type-k`, `cache-type-v`, `fit`, and `split-mode`; unknown keys are ignored. The worker itself reads `slot-save-path` from `[*]` and creates that directory before serving. A section whose only key is `alias-of = <section>` is an alias rather than a model: requests, loads, and `/props?model=` naming the alias reach its target engine, and the worker rejects an alias that names a missing section, another alias, or itself. Models load on the first request that names them or on `POST /models/load`.
 
-The bearer token is read from the `JAN_LLAMA_API_KEY` environment variable and removed from the process environment; an empty or unset value disables authentication.
+The bearer token is read from the `JAN_LLAMA_API_KEY` environment variable and removed from the environment that child processes inherit; an empty or unset value disables authentication.
 
 ## Handshake
 
@@ -82,7 +82,7 @@ The worker listens on `127.0.0.1` and checks `Authorization: Bearer <key>` on ev
 | Method and path | Purpose |
 |---|---|
 | `GET /v1/models`, `GET /models` | Every registered model with its llama.cpp router `status`, a `busy` flag that stays set until a streamed response ends, and the `aliases` that resolve to it |
-| `GET /models/sse` | Server-sent model lifecycle events with load progress, and a `: keepalive` comment after any 15 s without a frame |
+| `GET /models/sse` | Server-sent model lifecycle events with load progress, and a `: keepalive` comment after any 15 s without a frame; the stream ends when the subscriber falls behind, so the client resyncs from `GET /models` |
 | `POST /models/load`, `POST /models/unload` | Loads or unloads `{"model": id}`; unload answers 409 while the model has a request or stream in flight |
 | `POST /models/reload` | Re-reads `{"preset_path", "models_max"?}` and reloads only changed models |
 | `POST /slots/state/erase` | Deletes saved KV state for `{"thread"}` or `{"model"}` |

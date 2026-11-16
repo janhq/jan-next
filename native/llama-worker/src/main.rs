@@ -239,8 +239,24 @@ impl log::Log for StderrLogger {
 
 static LOGGER: StderrLogger = StderrLogger;
 
-#[tokio::main]
-async fn main() {
+fn main() {
+    // Taken before the runtime starts any thread, since `remove_var` races with
+    // concurrent environment reads; removal keeps the key from child processes
+    // such as the debugger ggml forks on abort.
+    let api_key = std::env::var(API_KEY_ENV).unwrap_or_default();
+    std::env::remove_var(API_KEY_ENV);
+
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("failed to build the tokio runtime");
+    runtime.block_on(run(api_key));
+    // Not a plain drop, which joins the blocking pool, where `stdin_eof` may
+    // still be reading a pipe the supervisor holds open (a SIGTERM stop).
+    runtime.shutdown_background();
+}
+
+async fn run(api_key: String) {
     if log::set_logger(&LOGGER).is_ok() {
         log::set_max_level(log::LevelFilter::Info);
     }
@@ -272,12 +288,7 @@ async fn main() {
     // The root is the one mode that must never hold ggml: it supervises the
     // leaves that do, so a kernel that aborts cannot take the run with it.
     if args.mode == Mode::Diagnose {
-        diagnose_root(&args.diag).await;
-        // Exit rather than return: the cancel watcher is a blocking read on
-        // stdin, and tokio waits for its blocking pool when the runtime drops,
-        // so a parent still holding the pipe would keep a finished root alive.
-        // Every event has already been written and flushed.
-        std::process::exit(0);
+        return diagnose_root(&args.diag).await;
     }
 
     // Must precede any ggml call, including device enumeration.
@@ -362,10 +373,6 @@ async fn main() {
     }
 
     let registry = Arc::new(Mutex::new(registry));
-    // Taken (not read) so it does not linger in this process's environment,
-    // which is also readable via /proc on Linux.
-    let api_key = std::env::var(API_KEY_ENV).unwrap_or_default();
-    std::env::remove_var(API_KEY_ENV);
 
     let registry_for_teardown = Arc::clone(&registry);
     let (server, listener) = match EngineServer::bind(registry, args.port, api_key).await {

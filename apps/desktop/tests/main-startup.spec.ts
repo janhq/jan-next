@@ -1707,6 +1707,45 @@ describe('desktop main startup', () => {
     expect(host.inspectQuit).toHaveBeenCalledOnce()
   })
 
+  it('waits for a pending Linux status notifier query on close and hides to the tray it creates', async () => {
+    vi.stubGlobal('process', { ...process, platform: 'linux', arch: 'x64', resourcesPath: 'desktop-test-resources' })
+    const query = Promise.withResolvers<DesktopStatusNotifierHost>()
+    harness.statusNotifierHost.mockReturnValue(query.promise)
+    const host = await readyWorkspace()
+    const window = harness.windows[0]!
+    expect(harness.trays).toHaveLength(0)
+    window.close()
+    window.close()
+    expect(window.isDestroyed()).toBe(false)
+    expect(window.hide).not.toHaveBeenCalled()
+    expect(harness.app.quit).not.toHaveBeenCalled()
+    query.resolve({ present: true })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(harness.trays).toHaveLength(1)
+    expect(harness.backgroundNotice.close).toHaveBeenCalledOnce()
+    expect(window.hide).toHaveBeenCalledOnce()
+    expect(harness.app.quit).not.toHaveBeenCalled()
+    expect(host.stop).not.toHaveBeenCalled()
+  })
+
+  it('waits for a pending Linux status notifier query on close and quits once when no host answers', async () => {
+    vi.stubGlobal('process', { ...process, platform: 'linux', arch: 'x64', resourcesPath: 'desktop-test-resources' })
+    const query = Promise.withResolvers<DesktopStatusNotifierHost>()
+    harness.statusNotifierHost.mockReturnValue(query.promise)
+    const host = await readyWorkspace()
+    const window = harness.windows[0]!
+    window.close()
+    window.close()
+    expect(harness.app.quit).not.toHaveBeenCalled()
+    query.resolve({ present: false, reason: 'gdbus: timed out' })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(harness.trays).toHaveLength(0)
+    expect(window.hide).toHaveBeenCalledOnce()
+    expect(harness.backgroundNotice.close).not.toHaveBeenCalled()
+    expect(harness.app.quit).toHaveBeenCalledOnce()
+    expect(host.inspectQuit).toHaveBeenCalledOnce()
+  })
+
   it('hides a macOS owner with a mandatory view without quitting or stopping the Host', async () => {
     vi.stubGlobal('process', { ...process, platform: 'darwin' })
     harness.embeddedPolicy = { origin: 'https://policy.example.com', allowedPageOrigins: ['https://downloads.example.com'] }

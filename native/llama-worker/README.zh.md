@@ -63,7 +63,7 @@
 
 预设采用 llama.cpp 路由器预设的 INI 格式。除 `[*]` 外，每个节注册一个模型，模型 id 即节名；`[*]` 保存应用于所有节的默认值，节内自己的键会覆盖它们。键是去掉前导短横线的 llama.cpp 服务器选项名，例如 `model`、`ctx-size`、`n-gpu-layers`、`device`、`flash-attn`、`cache-type-k`、`cache-type-v`、`fit` 和 `split-mode`；未知的键会被忽略。worker 自身会从 `[*]` 读取 `slot-save-path`，并在开始服务前创建该目录。唯一键为 `alias-of = <节名>` 的节是别名而非模型：指定该别名的请求、加载和 `/props?model=` 都会到达其目标引擎；指向不存在的节、其他别名或自身的别名会被 worker 拒绝。模型在第一个指定它的请求到来时加载，或在收到 `POST /models/load` 时加载。
 
-bearer token 从 `JAN_LLAMA_API_KEY` 环境变量读取，读取后从进程环境中移除；值为空或未设置时禁用认证。
+bearer token 从 `JAN_LLAMA_API_KEY` 环境变量读取，读取后从子进程继承的环境中移除；值为空或未设置时禁用认证。
 
 ## Handshake
 
@@ -82,7 +82,7 @@ worker 监听 `127.0.0.1`，并对每个请求检查 `Authorization: Bearer <key
 | 方法与路径 | 用途 |
 |---|---|
 | `GET /v1/models`、`GET /models` | 列出所有已注册模型及其 llama.cpp 路由器 `status`、在流式响应结束前保持置位的 `busy` 标志，以及解析到它的 `aliases` |
-| `GET /models/sse` | 以服务器发送事件推送模型生命周期事件及加载进度；15 秒内无帧时发送一条 `: keepalive` 注释 |
+| `GET /models/sse` | 以服务器发送事件推送模型生命周期事件及加载进度；15 秒内无帧时发送一条 `: keepalive` 注释；订阅者跟不上事件时流会结束，客户端应通过 `GET /models` 重新同步 |
 | `POST /models/load`、`POST /models/unload` | 加载或卸载 `{"model": id}`；模型有进行中的请求或流时，卸载返回 409 |
 | `POST /models/reload` | 重新读取 `{"preset_path", "models_max"?}`，只重新加载发生变化的模型 |
 | `POST /slots/state/erase` | 删除 `{"thread"}` 或 `{"model"}` 已保存的 KV 状态 |
