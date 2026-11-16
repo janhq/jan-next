@@ -84,7 +84,7 @@ fn plugin_root<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, 
     let dev = Path::new(env!("CARGO_MANIFEST_DIR")).join("../dsh");
     let bundled = app.path().resource_dir().map(|d| d.join("_up_/dsh")).ok();
     [Some(dev), bundled].into_iter().flatten()
-        .find(|root| ["native", "log-bridge", "download", "llamacpp", "assistant", "image-generation", "open-waifu-shell"]
+        .find(|root| ["native", "log-bridge", "download", "llamacpp", "assistant", "image-generation", "jan-import", "open-waifu-shell"]
             .iter().all(|name| root.join(name).join("index.mjs").is_file()))
         .map(|root| crate::core::filesystem::helpers::canonical_scope_path(&root))
         .ok_or_else(|| "the bundled open-waifu DSH plugins are missing from this build".to_string())
@@ -163,7 +163,7 @@ fn patch(setup: &ShellSetup, plugins: &Path) -> Value {
         .filter(|(provider, _)| provider == "llamacpp")
         .map(|(_, model)| Value::from(model.clone())).unwrap_or(Value::Null);
     let mut builtins = Vec::new();
-    for (id, folder) in [("ow-native", "native"), ("ow-log-bridge", "log-bridge"), ("ow-download", "download"), ("ow-llamacpp", "llamacpp"), ("ow-assistant", "assistant"), ("ow-image-generation", "image-generation"), ("ow-shell", "open-waifu-shell")] {
+    for (id, folder) in [("ow-native", "native"), ("ow-log-bridge", "log-bridge"), ("ow-download", "download"), ("ow-llamacpp", "llamacpp"), ("ow-assistant", "assistant"), ("ow-image-generation", "image-generation"), ("ow-jan-import", "jan-import"), ("ow-shell", "open-waifu-shell")] {
         let config = match id {
             "ow-shell" => shell_config.clone(),
             "ow-llamacpp" => map(vec![("selectedModel", selected_local.clone())]),
@@ -182,13 +182,24 @@ fn patch(setup: &ShellSetup, plugins: &Path) -> Value {
             ("name", Value::from("@deepseek-ai/dsh-client-ui-theme")),
             ("config", map(vec![("preference", Value::from(setup.theme.clone()))])),
         ]),
+    ];
+    // DSH finds Documents by spawning PowerShell on Windows, which costs one to
+    // four seconds on every boot; Rust already knows the folder.
+    if let Some(docs) = dirs::document_dir() {
+        entries.push(map(vec![
+            ("id", Value::from("workspace-controller")),
+            ("name", Value::from("@deepseek-ai/dsh-api-workspace-controller")),
+            ("config", map(vec![("documentsDirectory", Value::from(docs.to_string_lossy().into_owned()))])),
+        ]));
+    }
+    entries.extend([
         // The shell opens on DSH's one-time preview notice otherwise.
         map(vec![
             ("id", Value::from("ui-settings-general")),
             ("name", Value::from("@deepseek-ai/dsh-client-ui-settings-general")),
             ("config", map(vec![("welcomeNoticeVersion", Value::from("2026-09-28.1"))])),
         ]),
-    ];
+    ]);
 
     let mut providers = Mapping::new();
     for (i, p) in setup.providers.iter().enumerate() {

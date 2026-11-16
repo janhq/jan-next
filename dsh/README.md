@@ -13,6 +13,7 @@ The desktop window is DeepSeek Harness's web host. Every screen comes from a DSH
 | `download/` | `ow-download` | Model downloads and the Downloads panel |
 | `assistant/` | `ow-assistant` | Jan assistants and their per-session instructions |
 | `image-generation/` | `ow-image-generation` | OpenAI-compatible and Seedream image tool, settings and inline previews; API key stays in the OS keyring |
+| `jan-import/` | `ow-jan-import` | Read-only upstream Jan chat import into native DSH sessions, in Settings > Plugins > Import from Jan |
 | `server/` | none | Legacy stdio JSON-RPC server, not used by the desktop window |
 | `templates/ui-plugin/` | `open-waifu-plugin-hello` | Starting point for a new plugin |
 
@@ -23,6 +24,14 @@ Rust (`src-tauri/src/core/dsh/web.rs`) lists the built-in plugins in `<data>/dsh
 In **Settings > Plugins > Image generation**, choose OpenAI (including compatible routers) or Seedream, enter an image model ID and API key, and set the API base URL under Advanced settings. HTTPS is supported everywhere; HTTP is allowed on loopback, RFC1918 LANs and the 100.64/10 shared-address range. Save validates the connection without generating a paid image. OpenAI-compatible routers must provide model metadata at `/models/{model}` and return PNG `b64_json` from `/images/generations`.
 
 The active API key is stored only in the OS keyring (`open-waifu-image-generation` / `api-key`), never in YAML or browser storage. Changing provider or API origin requires entering a key again. Non-secret provider profiles and model settings use Jan's settings store. The agent gets `image_generate` and the bundled `generate-image` skill; results are workspace PNGs with authenticated inline chat previews. PNG bytes are preserved without native image codecs or thumbnail conversion.
+
+## Import from Jan
+
+Open **Settings > Plugins > Import from Jan**, scan a Jan data folder, select chats and import. The default is the Jan data folder two levels above `DSH_HOME` (`<data>/dsh/web-home`); an upstream installation such as `%APPDATA%/Jan/data` can be entered explicitly. The importer only reads `threads/<id>/thread.json`, `messages.jsonl` and referenced local images. It never changes Jan files. Imports use native DSH persistence and the default workspace, not a parallel chat store. Session IDs are `jan-<threadId>`; existing IDs and existing `metadata.dshSession.id` links are reported as already imported.
+
+Mapping preserves message IDs, user/assistant text, reasoning, thread creation time (Jan thread seconds converted to milliseconds), message times (already milliseconds), and titles pinned with a user-sourced `session/title` event. Embedded tools with known outputs, and calls with matching separate tool messages, become assistant tool-call blocks followed by native call/result events. Assistant segments split around tools. Turn/step brackets are structural reconstruction, not evidence of actual historical model requests; `stream` is empty because Jan does not retain original deltas. Stopped, pending and failed messages retain interrupted/error lifecycle markers. Known usage counters map to native accounting; snake-case prompt totals subtract known cache counts, while native camel-case input counts are already uncached. Unknown or inconsistent usage is omitted with a warning.
+
+Available data-URL/local-file images are saved through DSH attachments; remote URLs are not fetched. Per-thread results report missing images, unsupported content, orphan/unpaired tool records and invalid usage. Audio/video, annotations, arbitrary metadata, non-image legacy attachments, Jan assistant instructions, retrieval/tool configuration and model parameters are not migrated. Original tool argument JSON formatting is lost when Jan stored parsed objects. Historical provider/model names are attribution only, not newly configured routes; continuation uses the current DSH composition. Native session sorting derives activity from user messages, so Jan's independent `updated` time is shown during scanning but is not forced into native activity. The original Jan files remain the archive for unmapped information.
 
 ## Add a plugin
 

@@ -1,0 +1,3 @@
+- insert:
+    - id: ow-jan-import
+      name: '@open-waifu/dsh-jan-import'
