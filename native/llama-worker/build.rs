@@ -159,6 +159,27 @@ mod engine {
         );
     }
 
+    /// Links the static MSVC runtime (`/MT`) into every Windows binary, so the
+    /// worker and its ggml DLLs import no `vcruntime140.dll` or
+    /// `msvcp140.dll` and start without the Visual C++ Redistributable. Each
+    /// binary then carries its own CRT heap; ggml's C API releases its objects
+    /// only through its own `*_free` functions, so no allocation crosses a heap.
+    /// `cc` follows the Rust `crt-static` target feature for the shim, so that
+    /// feature is required here; the repository's `.cargo/config.toml` sets it.
+    fn windows_static_runtime(cmd: &mut Command) {
+        if env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default() != "msvc" {
+            return;
+        }
+        let features = env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or_default();
+        assert!(
+            features.split(',').any(|f| f == "crt-static"),
+            "the engine needs `-C target-feature=+crt-static` on Windows MSVC, which the \
+             repository's .cargo/config.toml sets; a RUSTFLAGS environment variable replaces \
+             that setting, so add the flag to it"
+        );
+        cmd.arg("-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded");
+    }
+
     /// cmake takes forward slashes on every platform and treats a backslash as
     /// an escape in some contexts, so paths handed to `-D` go through here.
     fn cmake_path(p: &Path) -> String {
@@ -365,7 +386,9 @@ mod engine {
         fs::create_dir_all(&wrapper).expect("could not create the ggml wrapper dir");
         fs::write(
             wrapper.join("CMakeLists.txt"),
-            "cmake_minimum_required(VERSION 3.14)\n\
+            // The range matches llama.cpp's own, whose upper bound sets CMP0091
+            // so CMAKE_MSVC_RUNTIME_LIBRARY takes effect.
+            "cmake_minimum_required(VERSION 3.14...3.28)\n\
              project(jan_ggml C CXX ASM)\n\
              add_subdirectory(${JAN_GGML_SRC} ggml)\n",
         )
@@ -402,6 +425,7 @@ mod engine {
 
         let mut cfg = Command::new("cmake");
         windows_generator(&mut cfg, src);
+        windows_static_runtime(&mut cfg);
         cfg.arg("-S").arg(&wrapper).arg("-B").arg(&build);
         cfg.arg(format!("-DJAN_GGML_SRC={}", src.join("ggml").display()));
         cfg.arg(format!("-DCMAKE_INSTALL_PREFIX={}", prefix.display()));
@@ -604,6 +628,7 @@ mod engine {
 
         let mut cfg = Command::new("cmake");
         windows_generator(&mut cfg, src);
+        windows_static_runtime(&mut cfg);
         cfg.arg("-S").arg(src).arg("-B").arg(&out);
         cfg.arg(format!("-DCMAKE_PREFIX_PATH={}", ggml_prefix.display()));
         cfg.args([

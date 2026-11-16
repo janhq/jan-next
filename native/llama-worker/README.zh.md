@@ -19,7 +19,7 @@
 
 ## Build
 
-构建需要稳定版 Rust 工具链、CMake 3.14 或更高版本、C++17 编译器和 git。找到 `ccache` 或 `sccache` 时会使用它们。每个 GPU 后端还需要各自的工具链：Vulkan 需要 Vulkan 头文件、加载器和 `glslc`；CUDA 需要 `nvcc`；HIP 需要带 rocWMMA 的 ROCm；Metal 需要 Xcode。Windows 构建需要 Ninja 和 clang-cl。
+构建需要稳定版 Rust 工具链、CMake 3.14 或更高版本、C++17 编译器和 git。找到 `ccache` 或 `sccache` 时会使用它们。每个 GPU 后端还需要各自的工具链：Vulkan 需要 Vulkan 头文件、加载器和 `glslc`；CUDA 需要 `nvcc`；HIP 需要带 rocWMMA 的 ROCm；Metal 需要 Xcode。Windows 构建需要 Ninja、clang-cl 和 CMake 3.15 或更高版本。它们静态链接 MSVC 运行时，因此 worker 及其 DLL 无需 Visual C++ Redistributable 即可运行；仓库的 `.cargo/config.toml` 设置所需的 `crt-static` 目标特性，缺少该特性时构建失败，例如 `RUSTFLAGS` 环境变量替换了该设置时。
 
 在仓库根目录运行 `pnpm run build:llama-worker`，会获取固定版本的 llama.cpp，并以 release 模式构建 CPU worker。额外的 Cargo 参数会追加到 `cargo build` 之后；例如 `pnpm run build:llama-worker --features engine-vulkan` 会加入 Vulkan 后端。在本目录中，先运行一次 `scripts/fetch-llama-cpp.sh`，再运行 `cargo build --release --features <features>`。
 
@@ -107,7 +107,7 @@ worker 在 stdin 到达文件末尾时停止，在 Unix 上收到 SIGTERM 时也
 
 ## Continuous integration
 
-`pnpm run check:llama-worker <dir> <x64|arm64>`（或在本目录中运行 `scripts/check-stage.sh`）检查已暂存的目录。其中每个 ELF、Mach-O 或 PE 文件都必须面向给定架构，除 `$ORIGIN` 或 `@loader_path` 外没有其他运行路径，并且只加载已暂存的库或操作系统库：Linux 上为 C 与 C++ 运行时、Vulkan 加载器和 CUDA 驱动；macOS 上为 `/usr/lib` 和 `/System/Library`；Windows 上为 System32 中的 DLL 以及 Vulkan 和 CUDA 驱动 DLL。脚本随后把目录复制到别处，在清空的环境中于该处运行 `--version`，worker 报告的不是固定的标签时失败。它会打印 `--list-devices` 的输出但不因其失败，因为没有 GPU 驱动的 runner 无法枚举设备。
+`pnpm run check:llama-worker <dir> <x64|arm64>`（或在本目录中运行 `scripts/check-stage.sh`）检查已暂存的目录。其中每个 ELF、Mach-O 或 PE 文件都必须面向给定架构，除 `$ORIGIN` 或 `@loader_path` 外没有其他运行路径，并且只加载已暂存的库或操作系统库：Linux 上为 C 与 C++ 运行时、Vulkan 加载器和 CUDA 驱动；macOS 上为 `/usr/lib` 和 `/System/Library`；Windows 上为 System32 中除 Visual C++ 运行时（`msvcp*`、`vcruntime*`、`concrt*`、`vcomp*`）以外的 DLL，以及 Vulkan 和 CUDA 驱动 DLL。脚本随后把目录复制到别处，在清空的环境中于该处运行 `--version`，worker 报告的不是固定的标签时失败。它会打印 `--list-devices` 的输出但不因其失败，因为没有 GPU 驱动的 runner 无法枚举设备。
 
 可复用的 [llama.cpp worker 工作流](../../.github/workflows/llama-worker.yml) 为每个选中的目标构建 worker，在不启用引擎的情况下运行 `cargo test`，编译引擎测试，把 worker 暂存到 `dist/`，并运行上述检查。其 `targets` 输入接受逗号分隔的列表，`ref` 输入选择源码；手动运行时两者均可用。
 

@@ -19,7 +19,7 @@ English | [中文](README.zh.md)
 
 ## Build
 
-The build needs a stable Rust toolchain, CMake 3.14 or later, a C++17 compiler, and git. `ccache` or `sccache` is used when found. Each GPU backend adds its own toolchain: Vulkan needs the Vulkan headers, loader, and `glslc`; CUDA needs `nvcc`; HIP needs ROCm with rocWMMA; Metal needs Xcode. Windows builds need Ninja and clang-cl.
+The build needs a stable Rust toolchain, CMake 3.14 or later, a C++17 compiler, and git. `ccache` or `sccache` is used when found. Each GPU backend adds its own toolchain: Vulkan needs the Vulkan headers, loader, and `glslc`; CUDA needs `nvcc`; HIP needs ROCm with rocWMMA; Metal needs Xcode. Windows builds need Ninja, clang-cl, and CMake 3.15 or later. They link the MSVC runtime statically, so the worker and its DLLs run without the Visual C++ Redistributable; the repository's `.cargo/config.toml` sets the required `crt-static` target feature, and the build fails without it, for example when a `RUSTFLAGS` environment variable replaces that setting.
 
 From the repository root, `pnpm run build:llama-worker` fetches the pinned llama.cpp and builds the CPU worker in release mode. Extra Cargo arguments are appended to `cargo build`; for example, `pnpm run build:llama-worker --features engine-vulkan` adds the Vulkan backend. From this directory, run `scripts/fetch-llama-cpp.sh` once and then `cargo build --release --features <features>`.
 
@@ -107,7 +107,7 @@ The worker stops when its stdin reaches end of file, and on Unix also on SIGTERM
 
 ## Continuous integration
 
-`pnpm run check:llama-worker <dir> <x64|arm64>`, or `scripts/check-stage.sh` from this directory, verifies a staged directory. Every ELF, Mach-O, or PE file in it must target the given architecture, have no run path other than `$ORIGIN` or `@loader_path`, and load only staged libraries or OS libraries: the C and C++ runtimes, the Vulkan loader, and the CUDA driver on Linux; `/usr/lib` and `/System/Library` on macOS; System32 DLLs and the Vulkan and CUDA driver DLLs on Windows. The script then copies the directory elsewhere, runs `--version` there with a scrubbed environment, and fails unless the worker reports the pinned tag. It prints `--list-devices` output but does not fail on it, because a runner without a GPU driver cannot enumerate devices.
+`pnpm run check:llama-worker <dir> <x64|arm64>`, or `scripts/check-stage.sh` from this directory, verifies a staged directory. Every ELF, Mach-O, or PE file in it must target the given architecture, have no run path other than `$ORIGIN` or `@loader_path`, and load only staged libraries or OS libraries: the C and C++ runtimes, the Vulkan loader, and the CUDA driver on Linux; `/usr/lib` and `/System/Library` on macOS; System32 DLLs other than the Visual C++ runtime (`msvcp*`, `vcruntime*`, `concrt*`, `vcomp*`), and the Vulkan and CUDA driver DLLs, on Windows. The script then copies the directory elsewhere, runs `--version` there with a scrubbed environment, and fails unless the worker reports the pinned tag. It prints `--list-devices` output but does not fail on it, because a runner without a GPU driver cannot enumerate devices.
 
 The reusable [llama.cpp worker workflow](../../.github/workflows/llama-worker.yml) builds the worker for each selected target, runs `cargo test` without the engine, compiles the engine tests, stages the worker into `dist/`, and runs the check. Its `targets` input takes a comma-separated list and its `ref` input selects the source; both are available from a manual run.
 

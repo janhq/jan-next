@@ -2,8 +2,9 @@
 # Verifies a staged jan-llama-worker directory before it is packaged:
 #   check-stage.sh <dir> <x64|arm64>
 # Every executable file must target <arch>, load only from its own directory
-# or the OS, and carry no run path but $ORIGIN or @loader_path. A copy of the
-# directory must then start from an unrelated location with a scrubbed
+# or the OS, and carry no run path but $ORIGIN or @loader_path. Windows files
+# must not import the Visual C++ runtime, which is not part of the OS. A copy
+# of the directory must then start from an unrelated location with a scrubbed
 # environment and report the llama.cpp tag pinned in build.rs.
 set -euo pipefail
 
@@ -111,6 +112,13 @@ check_windows() {
     lower="$(tr '[:upper:]' '[:lower:]' <<<"$dep")"
     case "$lower" in api-ms-win-*|ext-ms-*) continue ;; esac
     [[ "$WINDOWS_DRIVER_DLLS" == *" $lower "* ]] && continue
+    # The Visual C++ Redistributable installs these, so a build host has them
+    # in System32 while a clean user machine does not.
+    case "$lower" in
+      msvcp*.dll|vcruntime*.dll|concrt*.dll|vcomp*.dll)
+        problem "$name imports $dep from the Visual C++ Redistributable; build with the static MSVC runtime"
+        continue ;;
+    esac
     [ -n "$(find "$DIR" -maxdepth 1 -iname "$dep" -print -quit)" ] && continue
     [ -n "$(find "$system32" -maxdepth 1 -iname "$dep" -print -quit 2>/dev/null)" ] && continue
     problem "$name imports $dep, which is neither staged nor in System32"

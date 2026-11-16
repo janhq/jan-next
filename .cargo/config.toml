@@ -1,0 +1,7 @@
+# At the repository root because cargo reads config from the working directory
+# and its parents, not the manifest's: CI and package.json run cargo from here.
+# The MSVC runtime is linked statically so the worker starts on machines without
+# the Visual C++ Redistributable; native/llama-worker/build.rs refuses to build
+# the engine without it.
+[target.'cfg(all(windows, target_env = "msvc"))']
+rustflags = ["-C", "target-feature=+crt-static"]
