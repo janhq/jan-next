@@ -33,7 +33,7 @@ export interface WebSearchRequest {
   /**
    * Upper bound on returned sources; the seam truncates to it. Omitted = no
    * bound. `jan-tool-web` always sets it. A provider whose API supports a
-   * result-count control (the DeepSeek Search API's `count`) should apply it
+   * result-count control should apply it
    * at the request layer as a cost/latency optimization; the seam enforces the
    * bound regardless.
    */
@@ -42,8 +42,7 @@ export interface WebSearchRequest {
 
 /**
  * Normalized search outcome. `content` is optional provider-generated answer
- * text or summary (DeepSeek returns none; a provider whose API generates an
- * answer returns it here).
+ * text or summary; a provider whose API generates an answer returns it here.
  * `sources[]` is the portable citation shape. `truncated` is set by the seam
  * when it cut `sources[]` down to `maxResults`.
  */

@@ -34,8 +34,8 @@ Agents declared in config start automatically when the plugin loads. Each entry 
   config:
     agents:
       - id: 'main'
-        provider: deepseek
-        model: deepseek-chat
+        provider: tokamak
+        model: tokamak-1-preview
         reasoningEffort: high
         cwd: /workspace
 ```
@@ -61,7 +61,7 @@ Plugins and hosts create agents through `ctx.agents.create()` and resume persist
 ```text
 const handle = await ctx.agents.create({
   sessionId,
-  agentOptions: { provider: 'deepseek', model: 'deepseek-chat' },
+  agentOptions: { provider: 'tokamak', model: 'tokamak-1-preview' },
   setup: (agentCtx, agent) => { /* scoped registrations plus explicit unpublished Agent */ },
 })
 ```

@@ -1,6 +1,6 @@
 # Jan
 
-Jan (`jan`) is an open-source agent harness developed by [DeepSeek AI](https://deepseek.com).
+Jan (`jan`) is an open-source agent harness, forked from DeepSeek Harness by [DeepSeek AI](https://deepseek.com).
 
 It is built on an **everything-is-a-plugin** architecture and powered by [Cordis](https://github.com/cordiverse/cordis), whose design is described in [_A Programming Paradigm for Spatiotemporal Composability_](https://arxiv.org/abs/2608.25512).
 

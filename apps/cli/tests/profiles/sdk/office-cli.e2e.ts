@@ -19,8 +19,9 @@ const repo = fileURLToPath(new URL('../../../../../', import.meta.url))
 const carrier = process.env.JAN_OFFICE_TEST_CARRIER ?? 'npm'
 const executable = process.env.JAN_OFFICE_TEST_EXECUTABLE ?? process.execPath
 const entry = process.env.JAN_OFFICE_TEST_ENTRY ?? join(repo, 'apps/cli/lib/bin.js')
+const model = process.env.MODEL_NAME ?? 'tokamak-1-preview'
 
-it.skipIf(!process.env.DEEPSEEK_API_KEY || process.platform === 'win32')(`agent discovers and executes the ${carrier} Office CLI without Node on PATH`, async () => {
+it.skipIf(!process.env.TOKAMAK_API_KEY || process.platform === 'win32')(`agent discovers and executes the ${carrier} Office CLI without Node on PATH`, async () => {
   const root = await mkdtemp(join(tmpdir(), 'jan office discovery '))
   try {
     await writeFile(join(root, 'input.docx'), zipSync({
@@ -32,9 +33,7 @@ it.skipIf(!process.env.DEEPSEEK_API_KEY || process.platform === 'win32')(`agent 
     const node = process.env.JAN_OFFICE_TEST_NODE, cli = process.env.JAN_OFFICE_TEST_CLI
     const assetRoot = process.env.JAN_OFFICE_TEST_ASSETS
     await writeFile(patch, JSON.stringify([
-      process.env.JAN_OFFICE_TEST_API === 'openai-completions'
-        ? { id: 'llm-pi-ai', config: { providers: { 'office-test': { api: 'openai-completions', apiKeyEnv: 'DEEPSEEK_API_KEY', baseURL: process.env.DEEPSEEK_BASE_URL, compat: { thinkingFormat: 'deepseek' }, models: [{ id: process.env.MODEL_NAME ?? 'deepseek-v4-flash', contextWindow: 128000, maxTokens: 8000 }] } } } }
-        : { id: 'llm-pi-ai', config: { providers: { deepseek: { apiKeyEnv: 'DEEPSEEK_API_KEY' } } } },
+      { id: 'llm-pi-ai', config: { providers: { 'office-test': { api: 'openai-completions', apiKeyEnv: 'TOKAMAK_API_KEY', baseURL: process.env.TOKAMAK_BASE_URL ?? 'https://api.tokamak.sh/v1', models: [{ id: model, contextWindow: 128000, maxTokens: 8000 }] } } } },
       { id: 'session-persistence-jsonl', config: { root: join(root, 'sessions'), compression: 'none' } },
       { id: 'skill-office', disabled: false },
       { id: 'skill-office', config: { ...assetRoot === undefined ? {} : { assetRoot }, ...node === undefined ? {} : { node }, ...cli === undefined ? {} : { cli } } },
@@ -62,7 +61,7 @@ it.skipIf(!process.env.DEEPSEEK_API_KEY || process.platform === 'win32')(`agent 
         PATH: path, JAN_HOME: join(root, 'home'), JAN_AGENTS_HOME: join(root, 'agents'),
         JAN_PERMISSION_MODE: 'danger-full-access', JAN_TELEMETRY_DISABLED: '1',
         JAN_PRIMARY_RUNTIME: carrier === 'sdk' ? undefined : '',
-        DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
+        TOKAMAK_API_KEY: process.env.TOKAMAK_API_KEY,
       },
       timeout: 110_000, killSignal: 'SIGKILL', reject: false,
     })
@@ -87,9 +86,7 @@ it.skipIf(!process.env.DEEPSEEK_API_KEY || process.platform === 'win32')(`agent 
       }
     })
     try {
-      send(1, 'initialize', { cwd: root, ...process.env.JAN_OFFICE_TEST_API === 'openai-completions'
-        ? { provider: 'office-test', model: process.env.MODEL_NAME ?? 'deepseek-v4-flash' }
-        : { provider: 'deepseek', model: process.env.MODEL_NAME ?? 'deepseek-flash' }, maxTokens: 8000 })
+      send(1, 'initialize', { cwd: root, provider: 'office-test', model, maxTokens: 8000 })
       const result = await child
       const diagnostic = `${result.stderr}\n${result.stdout}`
       expect(protocolError, diagnostic).toBeUndefined()

@@ -24,8 +24,7 @@ export const WEB_SEARCH_MAX_QUERIES = 10
 
 /**
  * Default cap on one source summary, in characters: the upper end of the
- * 600–800 character range the DeepSeek Search guide gives for summaries meant
- * for model reading. One call's summaries total at most this cap times the
+ * 600–800 character range suited to summaries meant for model reading. One call's summaries total at most this cap times the
  * source cap.
  */
 export const WEB_SEARCH_SUMMARY_MAX_CHARS = 800

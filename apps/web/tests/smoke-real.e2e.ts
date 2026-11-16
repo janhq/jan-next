@@ -1,6 +1,6 @@
 // Real-host smoke: spawn `jan web` with a real key, walk the full flow
 // list in a real chromium, screenshot every screen into .artifacts/ for the
-// figma comparison pass. Self-skips without DEEPSEEK_API_KEY (repo e2e
+// figma comparison pass. Self-skips without TOKAMAK_API_KEY (repo e2e
 // convention); vitest.web.config.ts loads the repo-root .env before this file
 // runs (the CLI only auto-loads .env from its cwd — a temp dir here, so
 // sessions never land in the repo's .sessions).
@@ -322,7 +322,7 @@ describe('jan web keyless CLI smoke', () => {
         cwd: sessionsDir,
         env: {
           ...process.env,
-          DEEPSEEK_API_KEY: 'keyless-web-no-call',
+          TOKAMAK_API_KEY: 'keyless-web-no-call',
           JAN_HOME: join(sessionsDir, '.jan'),
           JAN_AGENTS_HOME: join(sessionsDir, '.agents'),
           TSX_TSCONFIG_PATH: join(REPO_ROOT, 'tsconfig.json'),
@@ -444,8 +444,8 @@ describe('jan web keyless CLI smoke', () => {
         cwd: workspace,
         env: {
           ...process.env,
-          DEEPSEEK_API_KEY: 'keyless-web-workspace',
-          DEEPSEEK_BASE_URL: `http://127.0.0.1:${address.port}`,
+          TOKAMAK_API_KEY: 'keyless-web-workspace',
+          TOKAMAK_BASE_URL: `http://127.0.0.1:${address.port}`,
           JAN_HOME: join(workspace, '.jan'),
           JAN_AGENTS_HOME: join(workspace, '.agents'),
           TSX_TSCONFIG_PATH: join(REPO_ROOT, 'tsconfig.json'),
@@ -557,8 +557,8 @@ describe('jan web keyless CLI smoke', () => {
         cwd: workspace,
         env: {
           ...process.env,
-          DEEPSEEK_API_KEY: 'keyless-web-retry',
-          DEEPSEEK_BASE_URL: `http://127.0.0.1:${address.port}`,
+          TOKAMAK_API_KEY: 'keyless-web-retry',
+          TOKAMAK_BASE_URL: `http://127.0.0.1:${address.port}`,
           JAN_HOME: join(workspace, '.jan'),
           TSX_TSCONFIG_PATH: join(REPO_ROOT, 'tsconfig.json'),
         },
@@ -645,8 +645,8 @@ describe('jan web keyless CLI smoke', () => {
         cwd: workspace,
         env: {
           ...process.env,
-          DEEPSEEK_API_KEY: 'keyless-web-ptc',
-          DEEPSEEK_BASE_URL: `http://127.0.0.1:${address.port}`,
+          TOKAMAK_API_KEY: 'keyless-web-ptc',
+          TOKAMAK_BASE_URL: `http://127.0.0.1:${address.port}`,
           JAN_TOOLS_MODE: mode === 'native' ? 'ptc' : 'native',
           JAN_HOME: join(workspace, '.jan'),
           JAN_AGENTS_HOME: join(workspace, '.agents'),
@@ -699,7 +699,7 @@ describe('jan web keyless CLI smoke', () => {
   })
 })
 
-describe.skipIf(!process.env.DEEPSEEK_API_KEY || notReady.length > 0)('web smoke (real host, real key)', () => {
+describe.skipIf(!process.env.TOKAMAK_API_KEY || notReady.length > 0)('web smoke (real host, real key)', () => {
   let child: ChildProcess
   let sessionsDir: string
   let baseUrl: string
@@ -774,7 +774,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY || notReady.length > 0)('web smoke
   it('empty-state first send completes a real model round', async () => {
     onTestFailed(() => saveFailureShot(page, 'w5-first-round'))
     // This scenario spawns its own server against a fresh $JAN_HOME with the
-    // DeepSeek credential inherited from the environment, so no onboarding
+    // model credential inherited from the environment, so no onboarding
     // step mounts and the page is immediately interactive.
     // Fresh world: connect a Workspace so the composer starts live.
     await connectFreshWorkspace(page, sessionsDir)

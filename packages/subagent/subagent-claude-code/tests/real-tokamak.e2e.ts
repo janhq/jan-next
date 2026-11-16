@@ -22,8 +22,8 @@ import LocalSubprocessRuntime from '@janhq/jan-subprocess-local'
 import * as claudeCode from '../src/index.ts'
 
 const execFileAsync = promisify(execFile)
-const OFFICIAL_DEEPSEEK_MESSAGES_BASE_URL = 'https://api.deepseek.com/anthropic'
-const DEEPSEEK_MODEL = 'deepseek-v4-flash'
+const TOKAMAK_MESSAGES_BASE_URL = (process.env.TOKAMAK_BASE_URL ?? 'https://api.tokamak.sh/v1').replace(/\/v1\/?$/u, '')
+const TOKAMAK_MODEL = 'tokamak-1-preview'
 const sdkRoot = dirname(fileURLToPath(
   import.meta.resolve('@anthropic-ai/claude-agent-sdk'),
 ))
@@ -58,13 +58,13 @@ async function expectQuiescent(handles: readonly SubprocessHandle[]): Promise<vo
   }
 }
 
-describe.skipIf(!process.env.DEEPSEEK_API_KEY)(
-  'Claude Code provider with real DeepSeek API',
+describe.skipIf(!process.env.TOKAMAK_API_KEY)(
+  'Claude Code provider with real Tokamak API',
   () => {
     it('returns one unique nonce through the production provider and real SDK/CLI', async () => {
-      const apiKey = process.env.DEEPSEEK_API_KEY
-      if (apiKey === undefined) throw new Error('e2e ran without DEEPSEEK_API_KEY')
-      const root = mkdtempSync(join(tmpdir(), 'jan-claude-deepseek-e2e-'))
+      const apiKey = process.env.TOKAMAK_API_KEY
+      if (apiKey === undefined) throw new Error('e2e ran without TOKAMAK_API_KEY')
+      const root = mkdtempSync(join(tmpdir(), 'jan-claude-tokamak-e2e-'))
       roots.push(root)
       const workspace = join(root, 'workspace')
       const claudeConfig = join(root, 'claude-config')
@@ -83,12 +83,12 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)(
 
       const env = {
         ANTHROPIC_AUTH_TOKEN: apiKey,
-        ANTHROPIC_BASE_URL: OFFICIAL_DEEPSEEK_MESSAGES_BASE_URL,
-        ANTHROPIC_MODEL: DEEPSEEK_MODEL,
-        ANTHROPIC_DEFAULT_OPUS_MODEL: DEEPSEEK_MODEL,
-        ANTHROPIC_DEFAULT_SONNET_MODEL: DEEPSEEK_MODEL,
-        ANTHROPIC_DEFAULT_HAIKU_MODEL: DEEPSEEK_MODEL,
-        CLAUDE_CODE_SUBAGENT_MODEL: DEEPSEEK_MODEL,
+        ANTHROPIC_BASE_URL: TOKAMAK_MESSAGES_BASE_URL,
+        ANTHROPIC_MODEL: TOKAMAK_MODEL,
+        ANTHROPIC_DEFAULT_OPUS_MODEL: TOKAMAK_MODEL,
+        ANTHROPIC_DEFAULT_SONNET_MODEL: TOKAMAK_MODEL,
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: TOKAMAK_MODEL,
+        CLAUDE_CODE_SUBAGENT_MODEL: TOKAMAK_MODEL,
         CLAUDE_CODE_EFFORT_LEVEL: 'max',
         CLAUDE_CONFIG_DIR: claudeConfig,
         HOME: root,
@@ -129,8 +129,8 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)(
       })
       expect(version.stdout.trim()).toBe('2.1.263 (Claude Code)')
 
-      const nonce = `JAN_CLAUDE_DEEPSEEK_${randomUUID()}`
-      const parent = await harness.create(SessionId('deepseek-e2e-parent'), {}, { cwd: workspace })
+      const nonce = `JAN_CLAUDE_TOKAMAK_${randomUUID()}`
+      const parent = await harness.create(SessionId('tokamak-e2e-parent'), {}, { cwd: workspace })
       const run = await startExternalActivation(ctx, 'claude-code', {
         prompt: [{
           type: 'text',

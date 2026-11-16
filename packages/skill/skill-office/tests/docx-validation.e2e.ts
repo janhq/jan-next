@@ -13,7 +13,7 @@ const repo = fileURLToPath(new URL('../../../../', import.meta.url))
 const runtime = process.env.JAN_PRIMARY_RUNTIME
 const python = runtime && join(runtime, 'dependencies/python', process.platform === 'win32' ? 'python.exe' : 'bin/python3')
 
-it.skipIf(!process.env.DEEPSEEK_API_KEY || !runtime).each(['native', 'ptc'])('checks a Word content edit without package-wide investigation (%s)', async (mode) => {
+it.skipIf(!process.env.TOKAMAK_API_KEY || !runtime).each(['native', 'ptc'])('checks a Word content edit without package-wide investigation (%s)', async (mode) => {
   await runLoaderSmoke({
     label: 'Word content validation', tempDirPrefix: 'jan-docx-validation-',
     binScript: join(repo, 'apps/cli/src/bin.ts'), sourceImport: 'tsx/esm', tsconfigPath: join(repo, 'tsconfig.base.json'),

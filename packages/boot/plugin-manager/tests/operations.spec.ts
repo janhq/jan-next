@@ -931,7 +931,7 @@ it('handles manifests without dependency or bundle selections', async () => {
 
 it.each(['cli', 'service'] as const)('uses the %s environment and interaction policy', async (execution) => {
   const { context } = fixture()
-  const names = ['NPM_TOKEN', 'NODE_AUTH_TOKEN', 'GH_TOKEN', 'GITHUB_TOKEN', 'DEEPSEEK_API_KEY']
+  const names = ['NPM_TOKEN', 'NODE_AUTH_TOKEN', 'GH_TOKEN', 'GITHUB_TOKEN', 'TOKAMAK_API_KEY']
   const originals = names.map(name => process.env[name])
   onTestFinished(() => {
     names.forEach((name, index) => {

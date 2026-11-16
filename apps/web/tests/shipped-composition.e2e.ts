@@ -530,7 +530,7 @@ afterEach(async () => {
 })
 
 it('assembles the shipped Web transport, catalog, guidance, and defaults', async () => {
-  scaffold = await launchWebScaffold({ deepSeekMissingCredential: true })
+  scaffold = await launchWebScaffold({ missingModelCredential: true })
   const ctx = scaffold.ctx
   expect(ctx.agentDefaultModel.currentSelection()).toEqual({ provider: 'tokamak', model: 'tokamak-1-preview' })
   const index = await fetch(`http://127.0.0.1:${String(ctx.webServer.port)}`, {
@@ -645,7 +645,7 @@ it('assembles the shipped Web transport, catalog, guidance, and defaults', async
 }, 120_000)
 
 it('ships PTC with run_code but without the general workflow SDK binding', async () => {
-  scaffold = await launchWebScaffold({ deepSeekMissingCredential: true })
+  scaffold = await launchWebScaffold({ missingModelCredential: true })
   const ctx = scaffold.ctx
   const handle = await ctx.agents.create({
     sessionId: SessionId('shipped-ptc-composition'),

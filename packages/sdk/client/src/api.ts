@@ -148,7 +148,7 @@ export class Jan implements AsyncDisposable {
 }
 
 /** Construct the high-level API against a generic process for package-local fake-runtime tests. */
-export function createProcessDeepSeekHarness(
+export function createProcessJan(
   runtime: RuntimeProcessOptions,
   options: JanOptions = {},
 ): Jan {

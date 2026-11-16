@@ -32,7 +32,7 @@ Mount `jan-agent` with `jan-session-projection`: it provides `ctx.agents`, the `
 ```text
 const handle = await ctx.agents.create({
   sessionId,
-  agentOptions: { provider: 'deepseek', model: 'deepseek-chat' },
+  agentOptions: { provider: 'tokamak', model: 'tokamak-1-preview' },
 })
 // later:
 await handle.dispose()   // stops the loop, unregisters, removes the session, unwinds the scope

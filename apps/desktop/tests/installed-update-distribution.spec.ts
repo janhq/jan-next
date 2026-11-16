@@ -12,7 +12,7 @@ const versions = ['0.1.6-nightly.20260914.1', '0.1.6-nightly.20260914.2'] as con
 async function fixture<T>(body: (manifest: string) => Promise<T>): Promise<T> {
   const directory = await mkdtemp(join(tmpdir(), 'jan-update-distribution-'))
   try {
-    const run = await createInstalledUpdateRun(directory, versions, { version: '0.1.5-rc.2', commit: 'a'.repeat(40), dirtyFiles: [] })
+    const run = await createInstalledUpdateRun(directory, versions, { version: '0.1.5-rc.2', commit: 'a'.repeat(40), dirtyFiles: [] }, { origin: 'https://download-test.example.com', bucket: 'download-test-1250000000' })
     for (const version of versions) {
       const output = join(run.root, version, 'installer')
       await mkdir(output, { recursive: true })
@@ -40,7 +40,7 @@ describe('qualification distribution file planning', () => {
       expect(next!.publicationAuthorized).toBe(false)
       expect(next!.verified).toBe('file-integrity-only')
       expect(load(next!.feed.contents)).toMatchObject({ version: versions[1],
-        files: [{ url: `https://download-test.deepseek.com/${next!.binaries[0]!.key}` }] })
+        files: [{ url: `https://download-test.example.com/${next!.binaries[0]!.key}` }] })
     })
   })
 

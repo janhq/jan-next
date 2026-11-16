@@ -7,6 +7,7 @@ import { prepareInstalledUpdateBootstrap } from './prepare-installed-update-boot
 import { prepareInstalledUpdateRuntime } from './prepare-installed-update-runtime.ts'
 import { planInstalledUpdateDistribution } from './installed-update-distribution.ts'
 import { prepareInstalledUpdateApplication } from './prepare-installed-update-application.ts'
+import { loadDesktopPackageEnvironment } from './desktop-package-environment.mjs'
 
 const repository = resolve(import.meta.dirname, '../../..')
 
@@ -45,10 +46,11 @@ async function main(): Promise<void> {
   }
   const metadata = JSON.parse(await readFile(resolve(repository, 'package.json'), 'utf8')) as { version: string }
   const git = (args: string[]): string => execFileSync('git', args, { cwd: repository, encoding: 'utf8', windowsHide: true }).trim()
+  const environment = loadDesktopPackageEnvironment('win32')
   const run = await createInstalledUpdateRun(resolve(repository, 'apps/desktop/.desktop-build/qualification'), [original, successor], {
     version: metadata.version, commit: git(['rev-parse', 'HEAD']),
     dirtyFiles: git(['status', '--porcelain=v1', '--untracked-files=normal']).split('\n').filter(Boolean),
-  })
+  }, { origin: environment.DOWNLOAD_TEST_ORIGIN?.trim() ?? '', bucket: environment.DOWNLOAD_TEST_COS_BUCKET?.trim() ?? '' })
   console.log(JSON.stringify({ manifest: resolve(run.root, 'run.json'), appId: run.appId,
     versions: run.versions, feedUrl: `${run.origin}/${run.feedKey}`, artifactsPrepared: false, published: false }, null, 2))
 }

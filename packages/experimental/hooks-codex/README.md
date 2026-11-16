@@ -37,7 +37,7 @@ Use it when you own a Codex `hooks.json` and its command hooks should gate promp
 - name: '@janhq/jan-hooks-codex'
   config:
     configPath: ./.codex/hooks.json
-    model: deepseek-v4
+    model: tokamak-1-preview
 ```
 
 | Field | Default | Meaning |

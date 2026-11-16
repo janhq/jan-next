@@ -100,7 +100,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@janhq/jan-client-ui-secret-mask` | no | Web display masking for recognized credentials in sent user text |
 | `@janhq/jan-client-ui-session` | no | Session Controller adapter for React and session-scoped slots |
 | `@janhq/jan-client-ui-settings` | no | Settings domain base plugin: shared configuration forms and the canonical settings slot-type contract |
-| `@janhq/jan-client-ui-settings-account` | yes | Manage DeepSeek login and open Platform billing pages |
+| `@janhq/jan-client-ui-settings-account` | yes | Manage Tokamak login and open Platform billing pages |
 | `@janhq/jan-client-ui-settings-agent-loop` | no | Settings page of the agent loop on the jan web client's Plugins page: the parallel tool-call cap of the agent-loop namespace |
 | `@janhq/jan-client-ui-settings-general` | no | Settings ownerless-copy and product onboarding plugin: the General section, shell trigger/header chrome content, settings dictionaries, and the versioned welcome notice |
 | `@janhq/jan-client-ui-settings-local-model` | no | Download, start and stop the managed local llama.cpp model from Settings and first-run setup |

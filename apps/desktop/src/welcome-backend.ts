@@ -67,7 +67,7 @@ export function welcomeLocalModel(value: unknown): WelcomeLocalModel {
 }
 
 /**
- * tokamak-harness: the welcome key belongs to the `llm-pi-ai` `tokamak` route when the DeepSeek route is not mounted.
+ * Resolve the welcome key's credential reference from the `llm-pi-ai` `tokamak` route.
  * @param namespaces - Settings namespaces from `settings/describe`.
  * @returns the route's credential reference, or `undefined` when the route is absent.
  */

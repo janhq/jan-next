@@ -25,8 +25,8 @@ import type { ReactNode } from 'react'
 import type { CredentialInfo, LlmNativeAuth, SettingsNamespaceView, SettingsPathOpView } from '@janhq/jan-api-remotes/client'
 import type { JsonValue } from '@janhq/jan-util-values'
 import { Tooltip } from '@janhq/jan-client-ui-primitives'
-import { modelDrafts, validateDeepSeekModels } from './DeepSeekModelsEditor.tsx'
-import type { DeepSeekModelsValidationFailure } from './DeepSeekModelsEditor.tsx'
+import { modelDrafts, validateModelDrafts } from './model-drafts.ts'
+import type { ModelsValidationFailure } from './model-drafts.ts'
 import { apiKeyFailure } from './apiKey.ts'
 import { EditorFooter } from './EditorFooter.tsx'
 import { ModelListEditor } from './ModelListEditor.tsx'
@@ -226,8 +226,8 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
     [layout, props.declared, namespace, schema],
   )
   const editsReasoning = reasoningLevels.length > 0
-  const validateModels = (value: unknown): DeepSeekModelsValidationFailure | ReasoningEffortsFailure | undefined =>
-    validateDeepSeekModels(value) ?? (editsReasoning ? validateReasoningEfforts(value) : undefined)
+  const validateModels = (value: unknown): ModelsValidationFailure | ReasoningEffortsFailure | undefined =>
+    validateModelDrafts(value) ?? (editsReasoning ? validateReasoningEfforts(value) : undefined)
   const modelFailure = validateModels(schema.getPath(draft, ['models']))
   const keyFailure = apiKeyFailure(keyDraft)
   // What a probe or a write must carry: the typed key with paste whitespace

@@ -91,7 +91,7 @@ Before a card skill loads, the tool adds no tokens. Afterwards each request of t
 
 #### KV Cache effect
 
-Activation is append-only on routes that declare tool updates, such as DeepSeek-V4.1-Flash: when the condition turns true the loop logs a header change and a `tool-addition` developer message, and those routes receive the definition as a deferred declaration referenced at that position, so the cached prefix is kept. A route without tool updates receives the tool in its declaration list from that step on, which changes the request prefix once. Disposing the Agent drops the activation; a reopened Session declares the tool again only after a card skill loads again, logging a removal and a later addition.
+Activation is append-only on routes that declare tool updates: when the condition turns true the loop logs a header change and a `tool-addition` developer message, and those routes receive the definition as a deferred declaration referenced at that position, so the cached prefix is kept. A route without tool updates receives the tool in its declaration list from that step on, which changes the request prefix once. Disposing the Agent drops the activation; a reopened Session declares the tool again only after a card skill loads again, logging a removal and a later addition.
 
 ### Card status notice
 

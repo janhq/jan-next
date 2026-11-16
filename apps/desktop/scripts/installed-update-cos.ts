@@ -1,4 +1,4 @@
-/** Fixed test-COS transport; callers authorize writes separately from local planning. */
+/** Test-COS transport; callers authorize writes separately from local planning. */
 import { createReadStream } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { Readable, Writable } from 'node:stream'
@@ -6,9 +6,6 @@ import { cosOperation } from './cos-operation.ts'
 import { createDesktopCos, DESKTOP_COS_REGION } from './desktop-cos.ts'
 import { loadDesktopPackageEnvironment } from './desktop-package-environment.mjs'
 import type { InstalledUpdatePublicationStore, InstalledUpdateRemoteObject } from './installed-update-publication.ts'
-
-const BUCKET = 'bj-toc-download-test-1320056602'
-const ORIGIN = 'https://download-test.deepseek.com'
 
 /** COS reports a missing key through this error code; no other status means absence. */
 function isMissingObject(error: unknown): boolean {
@@ -23,16 +20,18 @@ async function hashStream(stream: AsyncIterable<Uint8Array>): Promise<InstalledU
 }
 
 /**
- * Create a fixed test transport from .env.windows, passing only test upload credentials to the SDK.
+ * Create a test transport from the .env.windows destination, passing only test upload credentials to the SDK.
  * Version queries have a 30-second total deadline; object reads and PUTs have 15 minutes.
  * Expiration aborts HTTP requests and waits for closure before releasing the publication operation.
  * @returns Store whose writes are streamed and therefore cannot be repeated by the SDK.
  */
 export function createInstalledUpdateCos(): InstalledUpdatePublicationStore {
   const environment = loadDesktopPackageEnvironment('win32')
-  if (environment.JAN_DESKTOP_AUTO_UPDATE_ENV !== 'test' || environment.DOWNLOAD_TEST_ORIGIN !== ORIGIN
-    || environment.DOWNLOAD_TEST_COS_BUCKET !== BUCKET || !environment.DOWNLOAD_TEST_COS_SECRET_ID?.trim()
+  const origin = environment.DOWNLOAD_TEST_ORIGIN?.trim()
+  const bucket = environment.DOWNLOAD_TEST_COS_BUCKET?.trim()
+  if (environment.JAN_DESKTOP_AUTO_UPDATE_ENV !== 'test' || !origin || !bucket || !environment.DOWNLOAD_TEST_COS_SECRET_ID?.trim()
     || !environment.DOWNLOAD_TEST_COS_SECRET_KEY?.trim()) throw new Error('installed update: complete test upload settings are required')
+  const publicOrigin = new URL(origin).origin
   const credentials = {
     secretId: environment.DOWNLOAD_TEST_COS_SECRET_ID,
     secretKey: environment.DOWNLOAD_TEST_COS_SECRET_KEY,
@@ -46,7 +45,7 @@ export function createInstalledUpdateCos(): InstalledUpdatePublicationStore {
   return {
     async versioningDisabled() {
       const cos = client()
-      const response = await cosOperation(cos, 30_000, () => cos.getBucketVersioning({ Bucket: BUCKET, Region: DESKTOP_COS_REGION }))
+      const response = await cosOperation(cos, 30_000, () => cos.getBucketVersioning({ Bucket: bucket, Region: DESKTOP_COS_REGION }))
       const status: 'Enabled' | 'Suspended' | undefined = response.VersioningConfiguration.Status
       return response.statusCode === 200 && status === undefined
     },
@@ -60,7 +59,7 @@ export function createInstalledUpdateCos(): InstalledUpdatePublicationStore {
       })
       try {
         const cos = client()
-        await cosOperation(cos, 900_000, () => cos.getObject({ Bucket: BUCKET, Region: DESKTOP_COS_REGION, Key: key, Output: output }))
+        await cosOperation(cos, 900_000, () => cos.getObject({ Bucket: bucket, Region: DESKTOP_COS_REGION, Key: key, Output: output }))
       } catch (error) {
         if (isMissingObject(error)) return null
         throw error
@@ -69,7 +68,7 @@ export function createInstalledUpdateCos(): InstalledUpdatePublicationStore {
     },
     async publicRead(url) {
       const parsed = new URL(url)
-      if (parsed.origin !== ORIGIN || parsed.search || parsed.hash) throw new Error('installed update: exact test public URL is required')
+      if (parsed.origin !== publicOrigin || parsed.search || parsed.hash) throw new Error('installed update: exact test public URL is required')
       keyAllowed(parsed.pathname.slice(1))
       const response = await fetch(url, { redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(900_000) })
       if (response.status === 404) { await response.body?.cancel(); return null }
@@ -102,7 +101,7 @@ export function createInstalledUpdateCos(): InstalledUpdatePublicationStore {
       try {
         const cos = client()
         const response = await cosOperation(cos, 900_000, () => cos.putObject({
-          Bucket: BUCKET, Region: DESKTOP_COS_REGION, Key: key, Body: body,
+          Bucket: bucket, Region: DESKTOP_COS_REGION, Key: key, Body: body,
           ContentLength: object.size, ContentType: key.endsWith('.yml') ? 'application/yaml' : 'application/octet-stream',
           CacheControl: 'no-store', Headers: headers }))
         return response.RequestId === undefined ? {} : { requestId: response.RequestId }

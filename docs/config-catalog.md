@@ -495,7 +495,7 @@ export interface Config {
 
 ## `@janhq/jan-client-product-analytics`
 
-- `inject`: `deepseekAccount` · `productTelemetry`
+- `inject`: `tokamakAccount` · `productTelemetry`
 - `refs`: `Volatile` (`@janhq/cordis`)
 - `source`: [`packages/client/product-analytics/src/index.ts:15`](../packages/client/product-analytics/src/index.ts)
 
@@ -3476,7 +3476,7 @@ export interface Config {
   permission: PermissionPolicy
   /**
    * Extra environment variables for the child process — e.g. the child
-   * harness's own `DEEPSEEK_API_KEY`. Forwarded on top of a credential-scrubbed
+   * harness's own `TOKAMAK_API_KEY`. Forwarded on top of a credential-scrubbed
    * copy of the parent env, so an explicit key here reaches the child while
    * ambient secrets do not leak implicitly.
    */
@@ -3605,7 +3605,7 @@ export interface Config {
   maxTokens?: number
   /**
    * Extra environment variables for the child process — e.g. the child
-   * runtime's own `DEEPSEEK_API_KEY`. Forwarded on top of a credential-scrubbed copy of the parent
+   * runtime's own `TOKAMAK_API_KEY`. Forwarded on top of a credential-scrubbed copy of the parent
    * env, so an explicit key here reaches the child while ambient secrets do
    * not leak implicitly.
    */
@@ -3778,6 +3778,8 @@ export interface Config {
   clientName?: string
   /** Credential reference the model route reads the key from. */
   apiKeyRef?: string
+  /** Model route id whose running tasks sign-out cancels. */
+  modelProvider?: string
   /** Allow HTTP on loopback for local mocks. */
   allowLoopbackHttp?: boolean
   /** Deadline for each HTTP request. */
@@ -4591,7 +4593,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | --- | --- | --- |
 | `@janhq/jan-acp-app` | `cmdlineArgs` | [`packages/bundle/acp-app/src/index.ts`](../packages/bundle/acp-app/src/index.ts) |
 | `@janhq/jan-agent` | `sessionProjections` | [`packages/core/agent/src/index.ts`](../packages/core/agent/src/index.ts) |
-| `@janhq/jan-api-account-controller` | `deepseekAccount` · `agents` | [`packages/api/account-controller/src/index.ts`](../packages/api/account-controller/src/index.ts) |
+| `@janhq/jan-api-account-controller` | `tokamakAccount` · `agents` | [`packages/api/account-controller/src/index.ts`](../packages/api/account-controller/src/index.ts) |
 | `@janhq/jan-api-llama-cpp-controller` | `llamaCpp` · `typert` | [`packages/api/llama-cpp-controller/src/index.ts`](../packages/api/llama-cpp-controller/src/index.ts) |
 | `@janhq/jan-api-remote-access` | — | [`packages/api/remote-access/src/index.ts`](../packages/api/remote-access/src/index.ts) |
 | `@janhq/jan-api-remotes` | `typertGateway` | [`packages/api/remotes/src/index.ts`](../packages/api/remotes/src/index.ts) |

@@ -66,7 +66,7 @@ export function registerVisualIntentCases(selected: readonly DocumentFormat[], o
     ...options.blank === true ? [{ ...formats[0], kind: 'format', intent: 'blank', suffix: intents[0].suffix }] : [],
   ]
 
-  it.skipIf(!process.env.DEEPSEEK_API_KEY || !runtime).each(cases)('$format $kind $intent visual intent', async ({ format, kind, task, seed, verify, intent, suffix }) => {
+  it.skipIf(!process.env.TOKAMAK_API_KEY || !runtime).each(cases)('$format $kind $intent visual intent', async ({ format, kind, task, seed, verify, intent, suffix }) => {
     const controlRoot = await mkdtemp(join(tmpdir(), 'jan-office-control-test-'))
     try {
       const previewRoot = join(controlRoot, 'tmp')

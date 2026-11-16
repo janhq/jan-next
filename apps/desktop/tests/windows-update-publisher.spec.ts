@@ -87,7 +87,7 @@ describe('Windows update publisher', () => {
         JAN_DESKTOP_WINDOWS_SIGNTOOL: signTool,
         JAN_DESKTOP_WINDOWS_KEY_CONTAINER: 'test-container',
         JAN_DESKTOP_WINDOWS_TOKEN_PIN: 'test-pin',
-        JAN_DESKTOP_AUTO_UPDATE_ENV: 'production',
+        JAN_DESKTOP_AUTO_UPDATE_ENV: 'production', DOWNLOAD_PROD_ORIGIN: 'https://downloads.example.com',
       }, 'win32', 'x64')
       expect(config.win.forceCodeSigning).toBe(true)
       expect(config.artifactName).toBe('jan-${version}-${os}-${arch}.${ext}')

@@ -134,7 +134,6 @@ it.each([en, zh].flatMap(copy => ([false, true, 'unknown'] as const).map(running
     useTheme={selector => selector(operations.hooks.theme.getSnapshot())} wide openOnboarding={() => {}} openSettings={openSettings}
     t={key => key in copy ? copy[key as AccountKey] : key} />)
   fireEvent.click(screen.getByRole('button', { name: copy.menu }))
-  // tokamak-harness: the third-party DeepSeek feedback form is not offered.
   expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual([copy.settings, copy.signOut])
   await expect(`${screen.getByRole('menu').textContent}\n`).toMatchFileSnapshot(`./expected/menu-${copy === en ? 'en' : 'zh'}.txt`)
   fireEvent.click(screen.getByRole('menuitem', { name: copy.settings }))
@@ -529,17 +528,17 @@ it.each(['initializing', 'waiting-browser', 'exchanging'] as const)('shows %s an
 })
 
 it('opens the authorization link with the active application palette and follows later switches', () => {
-  const authorizeUrl = 'https://platform.deepseek.com/jan/authorize?state=example'
+  const authorizeUrl = 'https://tokamak.sh/cli/authorize?state=example'
   const operations = operationsOf({ status: 'signed-out', attempt: { id: 'attempt' as SignInAttemptId, phase: 'waiting-browser', authorizeUrl } })
   const element = (theme: ThemeSnapshot) => <AccountSection {...({} as GlobalStandardProps)} {...operations}
     useAccount={selector => selector(operations.hooks.account.getSnapshot())}
     useTheme={selector => selector(theme)} close={() => {}} t={key => key in en ? en[key as AccountKey] : key} />
   const view = render(element(themeOf('dark')))
   expect(screen.getByRole('link', { name: en.open }).getAttribute('href'))
-    .toBe('https://platform.deepseek.com/jan/authorize?state=example&theme=dark')
+    .toBe('https://tokamak.sh/cli/authorize?state=example&theme=dark')
   view.rerender(element(themeOf('light')))
   expect(screen.getByRole('link', { name: en.open }).getAttribute('href'))
-    .toBe('https://platform.deepseek.com/jan/authorize?state=example&theme=light')
+    .toBe('https://tokamak.sh/cli/authorize?state=example&theme=light')
 })
 
 it.each(['failed', 'expired'] as const)('allows a new sign-in after the attempt is %s', (phase) => {
@@ -616,7 +615,7 @@ it('dismisses a collapsed menu and hands its login dialog to Settings for an API
   fireEvent.click(screen.getByRole('button', { name: en.close }))
   expect(operations.showLogin).toHaveBeenLastCalledWith(false)
   fireEvent.click(screen.getByRole('button', { name: en.addApiKey }))
-  // tokamak-harness: the DeepSeek onboarding step is gone; Settings → Models saves TOKAMAK_API_KEY.
+  // Settings → Models saves TOKAMAK_API_KEY; no onboarding step opens.
   expect(openSettings).toHaveBeenCalledOnce()
   expect(openOnboarding).not.toHaveBeenCalled()
   snapshot = { ...snapshot, onboarding: true }

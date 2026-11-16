@@ -8,7 +8,7 @@ import type { AccountView, SignInAttemptId } from './types.ts'
 
 /** Account commands and reconnect-safe state stream. */
 export class AccountController extends TypertRemoteService {
-  static inject = ['deepseekAccount', 'agents']
+  static inject = ['tokamakAccount', 'agents']
   /** @param ctx - Host with the account provider mounted. */
   constructor(ctx: Context) { super(ctx, 'accountController', { namespace: 'account' }) }
   /**
@@ -16,7 +16,7 @@ export class AccountController extends TypertRemoteService {
    * @returns current account and attempt state.
    */
   @Remote
-  getState(): Promise<AccountView> { return this.ctx.deepseekAccount.getState() }
+  getState(): Promise<AccountView> { return this.ctx.tokamakAccount.getState() }
   /**
    * Query display-safe Platform profile data.
    * @param client - identity of the requesting UI; the Host derives Platform request headers from it.
@@ -24,7 +24,7 @@ export class AccountController extends TypertRemoteService {
    */
   @Remote
   getProfile(client: AccountClientMetadata): Promise<AccountDetails['profile'] | null> {
-    return this.ctx.deepseekAccount.getProfile(client)
+    return this.ctx.tokamakAccount.getProfile(client)
   }
   /**
    * Query Platform recharge-wallet balances.
@@ -33,7 +33,7 @@ export class AccountController extends TypertRemoteService {
    */
   @Remote
   getBalance(client: AccountClientMetadata): Promise<AccountDetails['balance'] | null> {
-    return this.ctx.deepseekAccount.getBalance(client)
+    return this.ctx.tokamakAccount.getBalance(client)
   }
   /**
    * Query the granted bonuses Platform has not yet recorded as displayed.
@@ -42,7 +42,7 @@ export class AccountController extends TypertRemoteService {
    */
   @Remote
   getUnnotifiedBonuses(client: AccountClientMetadata): Promise<AccountBonusBatch | null> {
-    return this.ctx.deepseekAccount.getUnnotifiedBonuses(client)
+    return this.ctx.tokamakAccount.getUnnotifiedBonuses(client)
   }
   /**
    * Record one displayed bonus as notified for the account it belongs to.
@@ -53,7 +53,7 @@ export class AccountController extends TypertRemoteService {
    */
   @Remote
   ackBonusNotified(accountId: AccountUserId, orderId: AccountBonusOrderId, client: AccountClientMetadata): Promise<boolean> {
-    return this.ctx.deepseekAccount.ackBonusNotified(accountId, orderId, client)
+    return this.ctx.tokamakAccount.ackBonusNotified(accountId, orderId, client)
   }
   /**
    * Begin browser sign-in.
@@ -64,7 +64,7 @@ export class AccountController extends TypertRemoteService {
    */
   @Remote
   startSignIn(client: AccountClientMetadata, callbackOrigin: string, loginSource: 'web' | 'desktop'): Promise<AccountView> {
-    return this.ctx.deepseekAccount.startSignIn(client, callbackOrigin, loginSource)
+    return this.ctx.tokamakAccount.startSignIn(client, callbackOrigin, loginSource)
   }
   /**
    * Cancel the named local attempt.
@@ -72,14 +72,15 @@ export class AccountController extends TypertRemoteService {
    * @returns settled cancellation or commit state.
    */
   @Remote
-  cancelSignIn(attemptId: SignInAttemptId): Promise<AccountView> { return this.ctx.deepseekAccount.cancelSignIn(attemptId) }
+  cancelSignIn(attemptId: SignInAttemptId): Promise<AccountView> { return this.ctx.tokamakAccount.cancelSignIn(attemptId) }
   /**
    * Inspect the latest logged request providers of running tasks, including tools and retries.
    * @returns whether running work has a latest request context on the account route.
    */
   @Remote
   hasRunningAccountTasks(): boolean {
-    return this.ctx.agents.list().some(isRunningAccountTask)
+    const provider = this.ctx.tokamakAccount.modelProvider
+    return this.ctx.agents.list().some(agent => isRunningAccountTask(agent, provider))
   }
   /**
    * Remove the local account grant and revoke it through Platform in the background, without deleting API keys.
@@ -87,7 +88,7 @@ export class AccountController extends TypertRemoteService {
    * @returns state after removing the local account grant.
    */
   @Remote
-  signOut(client: AccountClientMetadata): Promise<AccountView> { return this.ctx.deepseekAccount.signOut(client) }
+  signOut(client: AccountClientMetadata): Promise<AccountView> { return this.ctx.tokamakAccount.signOut(client) }
   /**
    * Subscribe to credential expiry without replaying prior notifications.
    * @param signal - stream lifetime.
@@ -97,7 +98,7 @@ export class AccountController extends TypertRemoteService {
   async *watchExpiry(signal: AbortSignal): AsyncIterable<'session-expired'> {
     let pending = 0
     let wake: (() => void) | undefined
-    const stop = this.ctx.on('deepseek-account/session-expired', () => { pending++; wake?.() })
+    const stop = this.ctx.on('tokamak-account/session-expired', () => { pending++; wake?.() })
     const abort = (): void => { wake?.() }
     signal.addEventListener('abort', abort, { once: true })
     try {
@@ -116,6 +117,6 @@ export class AccountController extends TypertRemoteService {
    * @returns initial snapshot and subsequent changes.
    */
   @Remote({ mode: 'stream' })
-  watch(signal: AbortSignal): AsyncIterable<AccountView> { return this.ctx.deepseekAccount.watch(signal) }
+  watch(signal: AbortSignal): AsyncIterable<AccountView> { return this.ctx.tokamakAccount.watch(signal) }
 }
 export default AccountController

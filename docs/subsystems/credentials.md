@@ -54,7 +54,7 @@ interface CredentialInfo {
 
 ## Embedded Platform credentials
 
-PlatformSession is a Host-only snapshot from getPlatformSession: origin names the configured Platform issuer and token contains its stored account credential. userId repeats the stable account ID from the most recent successful getProfile, and is null until one succeeds or when that profile carries no ID. The snapshot reuses that ID without issuing a profile request of its own, so an unknown ID leaves userId null instead of delaying the caller; a profile read whose stable ID first becomes available or changes notifies only Host subscribers using `watch(signal, true)`, which lets identity consumers re-read the snapshot. Consumers key persistent browser storage by origin and userId and fall back to temporary storage for null. Signed-out accounts and credentials changed during the credential read return no snapshot; a mismatched issuer fails. Native consumers own document invalidation when credentials change. This snapshot is excluded from account-controller RPC, AccountView, and AccountDetails.
+TokamakPlatformSession is a Host-only snapshot from getPlatformSession: origin names the configured Platform issuer and token contains its stored account credential. userId repeats the stable account ID from the most recent successful getProfile, and is null until one succeeds or when that profile carries no ID. The snapshot reuses that ID without issuing a profile request of its own, so an unknown ID leaves userId null instead of delaying the caller; a profile read whose stable ID first becomes available or changes notifies only Host subscribers using `watch(signal, true)`, which lets identity consumers re-read the snapshot. Consumers key persistent browser storage by origin and userId and fall back to temporary storage for null. Signed-out accounts and credentials changed during the credential read return no snapshot; a mismatched issuer fails. Native consumers own document invalidation when credentials change. This snapshot is excluded from account-controller RPC, AccountView, and AccountDetails.
 
 AccountDetails.balance projects recharge wallets in value and promotional wallets in bonusWallets, with independent currency and decimal balance strings. Failed queries contain no wallet arrays.
 
@@ -259,9 +259,9 @@ Host service backing the generated `ctx.remote.credentials` namespace. It carrie
 
 Source: [`packages/api/settings-controller/src/credentials.ts`](../../packages/api/settings-controller/src/credentials.ts)
 
-<a id="ctxdeepseekaccount--deepseekaccount-abstract-seam"></a>
+<a id="ctxtokamakaccount--tokamakaccount-abstract-seam"></a>
 
-### `ctx.deepseekAccount` — `DeepSeekAccount` (abstract seam)
+### `ctx.tokamakAccount` — `TokamakAccount` (abstract seam)
 
 Account operations; only Host consumers can obtain a request credential.
 
@@ -354,7 +354,7 @@ abstract rejectToken(token: string): Promise<void>
  * pair them with the account ID from the last successful profile read; no profile request is made.
  * @returns a Host-only snapshot, or null while signed out or when the credential changed during the read.
  */
-abstract getPlatformSession(): Promise<PlatformSession | null>
+abstract getPlatformSession(): Promise<TokamakPlatformSession | null>
 
 /**
  * Read existing login identity without creating a device or returning credentials.
@@ -436,13 +436,13 @@ Committed change to a provider-managed credential source: a `set`, an `unset`, o
 
 Source: [`packages/credentials/credentials/src/types.ts`](../../packages/credentials/credentials/src/types.ts)
 
-<a id="deepseek-account-events"></a>
+<a id="tokamak-account-events"></a>
 
-### `deepseek-account/*` events
+### `tokamak-account/*` events
 
-<a id="deepseek-accountmodel-sign-in-required--emit"></a>
+<a id="tokamak-accountmodel-sign-in-required--emit"></a>
 
-#### `deepseek-account/model-sign-in-required` — emit
+#### `tokamak-account/model-sign-in-required` — emit
 
 An account model request requires the user to sign in.
 
@@ -450,14 +450,14 @@ An account model request requires the user to sign in.
 /** An account model request requires the user to sign in.
  * @mode emit
  */
-'deepseek-account/model-sign-in-required'(): void
+'tokamak-account/model-sign-in-required'(): void
 ```
 
 Source: [`packages/credentials/tokamak-account/src/types.ts`](../../packages/credentials/tokamak-account/src/types.ts)
 
-<a id="deepseek-accountsession-expired--emit"></a>
+<a id="tokamak-accountsession-expired--emit"></a>
 
-#### `deepseek-account/session-expired` — emit
+#### `tokamak-account/session-expired` — emit
 
 Server rejection removed the current account credential; this notification is not replayed.
 
@@ -465,14 +465,14 @@ Server rejection removed the current account credential; this notification is no
 /** Server rejection removed the current account credential; this notification is not replayed.
  * @mode emit
  */
-'deepseek-account/session-expired'(): void
+'tokamak-account/session-expired'(): void
 ```
 
 Source: [`packages/credentials/tokamak-account/src/types.ts`](../../packages/credentials/tokamak-account/src/types.ts)
 
-<a id="deepseek-accountsigned-out--emit"></a>
+<a id="tokamak-accountsigned-out--emit"></a>
 
-#### `deepseek-account/signed-out` — emit
+#### `tokamak-account/signed-out` — emit
 
 Local grant removal has completed.
 
@@ -480,7 +480,7 @@ Local grant removal has completed.
 /** Local grant removal has completed.
  * @mode emit
  */
-'deepseek-account/signed-out'(): void
+'tokamak-account/signed-out'(): void
 ```
 
 Source: [`packages/credentials/tokamak-account/src/account.ts`](../../packages/credentials/tokamak-account/src/account.ts)

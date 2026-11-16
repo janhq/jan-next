@@ -42,7 +42,10 @@ const PERSONA = 'You are a coding agent. You work by writing TypeScript programs
   + 'batch related tool work into one program and print or return ONLY the findings that matter.'
 const WORKSPACE_PROBE = 'dragonfruit-8675309'
 
-const E2E_LLM_CONFIG = { providers: { [E2E_MODEL.provider]: { apiKeyEnv: 'DEEPSEEK_API_KEY' } } }
+const E2E_LLM_CONFIG = { providers: { [E2E_MODEL.provider]: {
+  api: 'openai-completions', baseURL: process.env.TOKAMAK_BASE_URL ?? 'https://api.tokamak.sh/v1',
+  apiKeyEnv: 'TOKAMAK_API_KEY', models: [{ id: E2E_MODEL.model }],
+} } }
 
 let ctx: Context | undefined
 let workdir: string | undefined
@@ -327,7 +330,7 @@ function waitForIdle(harness: Context, agent: Agent): Promise<void> {
   })
 }
 
-describe.skipIf(!process.env.DEEPSEEK_API_KEY)('PTC mode: real model writes a program over real tools', () => {
+describe.skipIf(!process.env.TOKAMAK_API_KEY)('PTC mode: real model writes a program over real tools', () => {
   it('collapses the wire tool list to [run_code], bridges sub-calls, and returns curated output', async () => {
     workdir = await mkdtemp(join(tmpdir(), 'jan-ptc-e2e-'))
     ctx = await ptcModeHarness(workdir)

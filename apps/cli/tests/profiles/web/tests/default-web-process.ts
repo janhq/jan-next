@@ -71,7 +71,7 @@ export async function withDefaultWeb(
         JAN_HOME: join(root, 'home'),
         JAN_AGENTS_HOME: join(root, '.agents'),
         JAN_TELEMETRY_DISABLED: '1',
-        DEEPSEEK_API_KEY: 'keyless-default-web-no-call',
+        TOKAMAK_API_KEY: 'keyless-default-web-no-call',
         NODE_NO_WARNINGS: '1',
       },
     })

@@ -1,15 +1,15 @@
 /** Keeps Electron's private Platform credentials bound to the active account provider. */
 import type { Context } from '@janhq/cordis'
-import type { PlatformSession } from '@janhq/jan-tokamak-account'
+import type { TokamakPlatformSession } from '@janhq/jan-tokamak-account'
 
 /**
  * Publish account sessions for each provider lifetime, clearing them on removal or stream termination.
  * @param ctx - Host context owning the account dependency subscription.
  * @param publish - Synchronous private IPC delivery; never forwards credentials to the renderer.
  */
-export function installPlatformSessionPublisher(ctx: Context, publish: (session: PlatformSession | null) => void): void {
-  ctx.inject(['deepseekAccount'], (accountCtx) => {
-    const account = accountCtx.deepseekAccount
+export function installPlatformSessionPublisher(ctx: Context, publish: (session: TokamakPlatformSession | null) => void): void {
+  ctx.inject(['tokamakAccount'], (accountCtx) => {
+    const account = accountCtx.tokamakAccount
     accountCtx.effect(() => {
       const lifetime = new AbortController()
       const updates = (async () => {

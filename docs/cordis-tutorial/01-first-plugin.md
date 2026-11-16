@@ -90,4 +90,4 @@ One caveat worth knowing early: a config entry whose module cannot be **resolved
 
 Next: [Lifecycle and effects](02-lifecycle-and-effects.md) — what happens when a plugin unloads.
 
-[![](https://img.shields.io/badge/powered_by-jan-4D6BFE?style=flat-square&logo=deepseek&logoColor=white)](https://github.com/janhq/jan-next)
+[![](https://img.shields.io/badge/powered_by-jan-4D6BFE?style=flat-square)](https://github.com/janhq/jan-next)

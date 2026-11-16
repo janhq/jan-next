@@ -15,7 +15,7 @@ import * as Spawn from '../src/index.ts'
 import * as ToolSubagent from '@janhq/jan-tool-subagent'
 
 /**
- * Shared harness for the spawn-backend e2e: the full real stack (pi-ai DeepSeek
+ * Shared harness for the spawn-backend e2e: the full real stack (pi-ai Tokamak
  * route + real bash tool + the subagent tool bound to the spawn backend), so
  * a real parent agent can delegate to a real in-process child that does real
  * work (writes a file). Lives outside the *.e2e.ts pattern so importing it never
@@ -32,7 +32,7 @@ export async function spawnHarness(workdir: string): Promise<Context> {
     systemPrompt: { personaPrefix: 'You are a coding agent. Report only when the requested work is done.' },
   })
   await ctx.plugin(AgentLoop, { agents: [] })
-  await ctx.plugin(LlmPiAi, { providers: { deepseek: { apiKeyEnv: 'DEEPSEEK_API_KEY' } } })
+  await ctx.plugin(LlmPiAi, { providers: { tokamak: { api: 'openai-completions', baseURL: process.env.TOKAMAK_BASE_URL ?? 'https://api.tokamak.sh/v1', apiKeyEnv: 'TOKAMAK_API_KEY', models: [{ id: 'tokamak-1-preview' }] } } })
   await ctx.plugin(LocalSubprocessRuntime)
   await ctx.plugin(BashEnvPlugin)
   await ctx.plugin(LocalBashExecutor, { cwd: workdir, timeoutMs: 30_000 })

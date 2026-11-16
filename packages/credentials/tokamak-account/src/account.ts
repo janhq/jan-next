@@ -9,15 +9,15 @@ declare module '@janhq/cordis' {
     /** Local grant removal has completed.
      * @mode emit
      */
-    'deepseek-account/signed-out'(): void
+    'tokamak-account/signed-out'(): void
   }
   interface Context {
-    deepseekAccount: DeepSeekAccount
+    tokamakAccount: TokamakAccount
   }
 }
 
 /** Host-only credentials for an embedded Platform document; never expose through account RPC. */
-export interface PlatformSession {
+export interface TokamakPlatformSession {
   readonly origin: string
   readonly token: string
   /** Stable issuer account ID from the last successful profile read; null requires disposable browser storage. */
@@ -29,9 +29,11 @@ export interface PlatformSession {
 }
 
 /** Account operations; only Host consumers can obtain a request credential. */
-export abstract class DeepSeekAccount extends Service {
+export abstract class TokamakAccount extends Service {
   /** @param ctx - context owning this account implementation. */
-  constructor(ctx: Context) { super(ctx, 'deepseekAccount') }
+  constructor(ctx: Context) { super(ctx, 'tokamakAccount') }
+  /** Model route whose requests authenticate with this account's credential. */
+  abstract readonly modelProvider: string
   /**
    * Read stored-account presence and the latest login attempt.
    * @returns a snapshot without credentials or PKCE secrets.
@@ -109,14 +111,14 @@ export abstract class DeepSeekAccount extends Service {
    * pair them with the account ID from the last successful profile read; no profile request is made.
    * @returns a Host-only snapshot, or null while signed out or when the credential changed during the read.
    */
-  abstract getPlatformSession(): Promise<PlatformSession | null>
+  abstract getPlatformSession(): Promise<TokamakPlatformSession | null>
   /**
    * Read existing login identity without creating a device or returning credentials.
    * @returns optional device/account identifiers and the provider's OS version string.
    */
   abstract getDeviceIdentity(): Promise<{ deviceId?: string; userId?: AccountUserId; osVersion: string }>
 }
-export default DeepSeekAccount
+export default TokamakAccount
 
 
 /** Merge Cookie header pairs by case-sensitive name, retaining unrelated cookies.

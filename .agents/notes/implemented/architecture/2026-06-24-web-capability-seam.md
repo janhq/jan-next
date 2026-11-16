@@ -4,7 +4,7 @@ Status: implemented
 
 ## Problem
 
-The harness needs model-facing web tools without binding the model contract to one vendor's API shape. Search is the immediate pressure point: search APIs return deliberately different formats (Exa returns a flat `results[]` of `{title, url, highlights, publishedDate}`, Perplexity returns a generated answer plus citations, and the DeepSeek Search API returns a flat `results[]` with snippets and summaries), and the normalized web contract must accept each of them without mirroring one vendor. The seam was designed against the Exa and Perplexity formats; neither provider ships, and a plugin can register one. Fetch is a separate operation: an anonymous public HTTP(S) fetch backend has transport, security, redirect, decoding, and size-limit concerns that are not the same as provider-backed search.
+The harness needs model-facing web tools without binding the model contract to one vendor's API shape. Search is the immediate pressure point: search APIs return deliberately different formats (Exa returns a flat `results[]` of `{title, url, highlights, publishedDate}`, and Perplexity returns a generated answer plus citations), and the normalized web contract must accept each of them without mirroring one vendor. The seam was designed against the Exa and Perplexity formats; Exa ships, and a plugin can register another provider. Fetch is a separate operation: an anonymous public HTTP(S) fetch backend has transport, security, redirect, decoding, and size-limit concerns that are not the same as provider-backed search.
 
 The model-facing API must stay stable while backends change. A search provider swap should not change how the model asks for a query, and a fetch implementation swap should not change how the model asks for a URL. Conversely, a provider package should not expose its own model-facing tool schema just because it has extra provider-specific knobs.
 
@@ -17,7 +17,7 @@ There is also a provider-selection question. Existing `tool-bash` and `tool-fs` 
 Web access is a first-class capability seam following [the capability-seam Agent Note](2026-06-13-capability-seams.md):
 
 1. `@janhq/jan-web` (`packages/web/web`) owns `ctx.web`, provider registration, provider selection, shared request/result vocabulary, and web-specific errors.
-2. Provider packages implement concrete backends and register capabilities with `ctx.web`, for example `@janhq/jan-web-search-deepseek`, `@janhq/jan-web-deepseek-api`, and `@janhq/jan-web-fetch-http`.
+2. Provider packages implement concrete backends and register capabilities with `ctx.web`, for example `@janhq/jan-web-search-exa` and `@janhq/jan-web-fetch-http`.
 3. `@janhq/jan-tool-web` (`packages/web/tool-web`) owns the model-facing `web_search` and `web_fetch` tool schemas, prompt sections, argument validation, result formatting, and tool-owned presentation over `ctx.web`.
 
 Providers do not register tools. Providers register capabilities. `jan-tool-web` is the only owner of model-facing names, descriptions, prompt guidance, JSON schemas, and presentation.
@@ -41,10 +41,8 @@ The three-package Service Definition / Service Provider / Consumer split follows
 The dependency direction mirrors bash and filesystem:
 
 ```text
-@janhq/jan-tool-web  --depends on-->  @janhq/jan-web  <--depends on--  @janhq/jan-web-search-deepseek
+@janhq/jan-tool-web  --depends on-->  @janhq/jan-web  <--depends on--  @janhq/jan-web-search-exa
         consumer                                 interface                       implementation
-                                                                 <--depends on--  @janhq/jan-web-deepseek-api
-                                                                                  implementation
                                                                  <--depends on--  @janhq/jan-web-fetch-http
                                                                                   implementation
 ```
@@ -53,8 +51,7 @@ At runtime, provider packages register capabilities with `ctx.web`; `tool-web` r
 
 ```mermaid
 flowchart LR
-  deepseek["@janhq/jan-web-search-deepseek"] -->|registerSearchProvider| web["@janhq/jan-web / ctx.web"]
-  deepseekApi["@janhq/jan-web-deepseek-api"] -->|registerSearchProvider / registerFetchProvider| web
+  exa["@janhq/jan-web-search-exa"] -->|registerSearchProvider / registerFetchProvider| web["@janhq/jan-web / ctx.web"]
   fetchLocal["@janhq/jan-web-fetch-http"] -->|registerFetchProvider| web
   toolWeb["@janhq/jan-tool-web"] -->|search/fetch| web
   toolWeb -->|ctx.tools.register| webSearch["tool: web_search"]
@@ -132,14 +129,11 @@ The "single provider auto-selects" rule is for tests, demos, and simple deployme
 - id: web
   name: '@janhq/jan-web'
   config:
-    searchProvider: deepseek-search-api
+    searchProvider: exa
     fetchProvider: http
 
-- id: web-search-deepseek
-  name: '@janhq/jan-web-search-deepseek'
-
-- id: web-deepseek-api
-  name: '@janhq/jan-web-deepseek-api'
+- id: web-search-exa
+  name: '@janhq/jan-web-search-exa'
 
 - id: web-fetch-http
   name: '@janhq/jan-web-fetch-http'
@@ -148,9 +142,9 @@ The "single provider auto-selects" rule is for tests, demos, and simple deployme
   name: '@janhq/jan-tool-web'
 ```
 
-Operational overrides feed the same explicit selection path: `JAN_WEB_SEARCH_PROVIDER=deepseek-search-api` is equivalent to config `searchProvider: deepseek-search-api`, not a hidden priority chain inside `jan-tool-web`.
+Operational overrides feed the same explicit selection path: `JAN_WEB_SEARCH_PROVIDER=exa` is equivalent to config `searchProvider: exa`, not a hidden priority chain inside `jan-tool-web`.
 
-Each search or fetch reads the configured id when it runs, so a saved settings change selects another provider for the next operation without remounting `jan-web`. The Search and Fetch menus on the Web search and fetch settings page rely on this to switch each capability's provider independently, including the [DeepSeek Search and Fetch APIs](../feature/2026-10-15-deepseek-search-fetch-api.md); the [web provider selection decision](2026-10-29-web-provider-selection.md) owns the shipped defaults.
+Each search or fetch reads the configured id when it runs, so a saved settings change selects another provider for the next operation without remounting `jan-web`. The Search and Fetch menus on the Web search and fetch settings page rely on this to switch each capability's provider independently; the [web provider selection decision](2026-10-29-web-provider-selection.md) owns the shipped defaults.
 
 `ctx.web.search()` and `ctx.web.fetch()` resolve the provider at execution time using the selection rules above. If the selected capability is unavailable, they throw `WebError` with a structured code such as `WEB_PROVIDER_UNAVAILABLE`, `WEB_PROVIDER_CONFIGURED_MISSING`, `WEB_PROVIDER_CONFIGURED_UNAVAILABLE`, or `WEB_PROVIDER_AMBIGUOUS`. If no provider is explicitly configured and no usable provider exists, the execution error is the generic `WEB_PROVIDER_UNAVAILABLE` case; there is deliberately no diagnostic summary of every unavailable provider.
 
@@ -166,7 +160,7 @@ The `web_search` model-facing tool is small. The only model-facing argument is:
 
 - `jan-tool-web` owns the value and puts it on `WebSearchRequest.maxResults`.
 - `ctx.web` passes the request through to the selected provider unchanged.
-- A provider applies `maxResults` at the request layer when its API supports it (the DeepSeek Search API's `count`), as a cost/latency optimization.
+- A provider applies `maxResults` at the request layer when its API supports it (such as a result-count parameter), as a cost/latency optimization.
 - `ctx.web` enforces the bound on the result: if a provider returns more than `maxResults` sources — because its API has no result-count control or ignored the hint — the seam truncates `sources[]` to `maxResults` and sets `WebSearchResult.truncated` to `true` before returning. This makes the bound a single cross-provider guarantee the model-facing layer can rely on, rather than something each provider must remember to honor.
 
 The seam request carries no provider-specific controls — no Perplexity model selection, search recency, domain filters, Exa `livecrawl`, Exa `type`, regional hints, generated-answer budgets, or search depth. Such a field is added only when it has provider-neutral semantics that both the tool schema and selected providers can honor honestly.
@@ -193,9 +187,9 @@ interface WebSearchSource {
 }
 ```
 
-`content` is optional provider-generated answer text, search context, or summary. `sources[]` is the portable citation shape. A source always has a URL; title, snippet, summary, and `publishedAt` are optional because not every provider returns them. `snippet` is a short excerpt for display, and `summary` is a longer excerpt for model reading whose length the consumer bounds. `title` is not required: Perplexity-style citations may provide only URLs, and forcing adapters to invent titles would make the seam lie. `jan-tool-web` renders a `title ?? hostname(url)`-style fallback label for display. `publishedAt` is an optional publication/crawl timestamp as an ISO-8601 string — the DeepSeek Search API returns it as a nullable `date` on each result, Exa as `publishedDate`, and Perplexity as `date`, so it is real provider data, not derived; the seam carries it as a string and leaves date parsing to the consumer.
+`content` is optional provider-generated answer text, search context, or summary. `sources[]` is the portable citation shape. A source always has a URL; title, snippet, summary, and `publishedAt` are optional because not every provider returns them. `snippet` is a short excerpt for display, and `summary` is a longer excerpt for model reading whose length the consumer bounds. `title` is not required: Perplexity-style citations may provide only URLs, and forcing adapters to invent titles would make the seam lie. `jan-tool-web` renders a `title ?? hostname(url)`-style fallback label for display. `publishedAt` is an optional publication/crawl timestamp as an ISO-8601 string — Exa returns it as `publishedDate` and Perplexity as `date`, so it is real provider data, not derived; the seam carries it as a string and leaves date parsing to the consumer.
 
-The DeepSeek Search API provider maps each entry of the response's `results[]` into a `WebSearchSource`: `url` ← `url`, `title` ← `title`, `snippet` ← `snippet`, `summary` ← `summary`, `publishedAt` ← `date`, omitting empty values. It returns no provider-generated answer, so `content` is omitted. If a provider returns fewer structured fields than the seam supports, the adapter omits those optional fields.
+If a provider returns fewer structured fields than the seam supports, the adapter omits those optional fields.
 
 Full page retrieval remains the job of `web_fetch(url)`. Search snippets are discovery context, not fetched page bodies.
 
@@ -320,7 +314,7 @@ Rejected for the shipped presets. Per-call confirmation would interrupt ordinary
 
 ## Consequences
 
-**The search schema is deliberately thin.** Search APIs expose useful provider-specific controls, such as Exa's `livecrawl`, Perplexity's search recency, and the DeepSeek Search API's `localization`; a control is added only once it can be defined provider-neutrally and enforced honestly by both tool registration and provider execution.
+**The search schema is deliberately thin.** Search APIs expose useful provider-specific controls, such as Exa's `livecrawl` and Perplexity's search recency; a control is added only once it can be defined provider-neutrally and enforced honestly by both tool registration and provider execution.
 
 **Citations can be sparse.** A Perplexity-style citation may be only a URL. Making `title` and `snippet` optional keeps the seam truthful but means `tool-web` renders fallback labels.
 

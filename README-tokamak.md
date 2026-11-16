@@ -123,11 +123,11 @@ TOKAMAK_BASE_URL=http://127.0.0.1:8787/v1 TOKAMAK_ALLOW_LOOPBACK_HTTP=1 pnpm jan
 
 ## What changed versus upstream
 
-- New `packages/credentials/tokamak-account`. It implements the existing `deepseekAccount` service seam, so the account UI, controller and events work as before.
+- New `packages/credentials/tokamak-account`. It implements the existing `tokamakAccount` service seam, so the account UI, controller and events work as before.
 - `packages/bundle/base/cordis.patch.yml`:
   - The account row uses the Tokamak package.
   - `llm-pi-ai` gets a `tokamak` route, and the default model is `tokamak/tokamak-1-preview`.
-  - The DeepSeek model routes and DeepSeek web search are disabled.
+  - The upstream DeepSeek model routes, account, web search and session-log packages are removed.
   - Web search uses the new `packages/web/web-search-exa`; see [Web search](#web-search).
 - `SignInAttemptView.userCode`, an optional field. The sign-in dialog and the account page show it.
 - Account UI strings say Tokamak. The balance card is hidden for accounts without wallets.
@@ -138,7 +138,7 @@ TOKAMAK_BASE_URL=http://127.0.0.1:8787/v1 TOKAMAK_ALLOW_LOOPBACK_HTTP=1 pnpm jan
 
 Some repository checks are expected to fail in this fork, because it doesn't follow upstream's release rules:
 - Fork packages are `private`.
-- The disabled DeepSeek and telemetry packages count as unused.
+- The disabled telemetry packages count as unused.
 - `TOKAMAK_BASE_URL` is inlined in the bundle YAML.
 
 `pnpm run build` passes.
@@ -157,7 +157,7 @@ To build the macOS app locally: `pnpm --filter @janhq/jan-desktop run package:ma
 
 Everything that reports usage is unmounted in every profile:
 
-- `session-telemetry-otel` (session-log export to DeepSeek's collector)
+- `session-telemetry-otel` (session-log export to an OTLP collector named by `JAN_TELEMETRY_OTLP_URL`)
 - `otel`
 - `desktop-product-telemetry`
 - `product-analytics`
@@ -166,7 +166,7 @@ The rows are `disabled: true` in the bundle YAML, not gated on environment varia
 
 The account menu no longer links to DeepSeek's feedback form, which was a third-party Feishu page. The Plugins page no longer probes npm registries in the background. Plugins install from `registry.npmjs.org`, with no npmmirror fallback.
 
-The web and CLI profiles have no update checker. Desktop auto-update (download.deepseek.com) is out of scope, because the desktop app isn't built for Linux. The plugin market contacts npm registries, and the experimental translator contacts Google Translate, but only when you use those features.
+The web and CLI profiles have no update checker. Desktop auto-update reads its download origin from `DOWNLOAD_TEST_ORIGIN` / `DOWNLOAD_PROD_ORIGIN` and is out of scope, because the desktop app isn't built for Linux. The plugin market contacts npm registries, and the experimental translator contacts Google Translate, but only when you use those features.
 
 ## Other profiles
 

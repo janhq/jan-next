@@ -27,7 +27,7 @@ it.each(['arm64', 'x64'] as const)('embeds stable in a prerelease macOS %s packa
   const version = `${desktopBuildVersionPrefix(manifest.version)}20261103.1`
   const config = createElectronBuilderConfig({
     JAN_DESKTOP_APP_ID: 'com.example.channel-test',
-    JAN_DESKTOP_AUTO_UPDATE_ENV: 'production',
+    JAN_DESKTOP_AUTO_UPDATE_ENV: 'production', DOWNLOAD_PROD_ORIGIN: 'https://downloads.example.com',
     JAN_DESKTOP_UPDATE_CHANNEL: 'stable',
     JAN_DESKTOP_BUILD_VERSION: version,
     JAN_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN: 'https://policy.example.com',
@@ -36,7 +36,7 @@ it.each(['arm64', 'x64'] as const)('embeds stable in a prerelease macOS %s packa
     APPLE_KEYCHAIN_PROFILE: 'channel-test',
   }, 'darwin', arch)
   expect(config.extraMetadata).toMatchObject({ version, janDesktopUpdateChannel: 'stable' })
-  expect(config.publish).toEqual([{ provider: 'generic', url: `https://download.deepseek.com/jan-desk/feeds/mac-${arch}/`, channel: 'stable' }])
+  expect(config.publish).toEqual([{ provider: 'generic', url: `https://downloads.example.com/jan-desk/feeds/mac-${arch}/`, channel: 'stable' }])
 })
 
 it('accepts a stable prerelease in an unsigned Windows x64 configuration', () => {
@@ -44,7 +44,7 @@ it('accepts a stable prerelease in an unsigned Windows x64 configuration', () =>
   const version = `${desktopBuildVersionPrefix(manifest.version)}20261103.1`
   const config = createElectronBuilderConfig({
     JAN_DESKTOP_APP_ID: 'com.example.channel-test',
-    JAN_DESKTOP_AUTO_UPDATE_ENV: 'production',
+    JAN_DESKTOP_AUTO_UPDATE_ENV: 'production', DOWNLOAD_PROD_ORIGIN: 'https://downloads.example.com',
     JAN_DESKTOP_UPDATE_CHANNEL: 'stable',
     JAN_DESKTOP_BUILD_VERSION: version,
     JAN_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN: 'https://policy.example.com',

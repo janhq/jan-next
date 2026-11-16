@@ -45,7 +45,7 @@ async function fixture(body: (manifest: string, root: string) => Promise<void>):
   try {
     state.home = root
     state.loads = 0
-    const run = await createInstalledUpdateRun(root, versions, { version: '0.1.5-rc.2', commit: 'a'.repeat(40), dirtyFiles: [] })
+    const run = await createInstalledUpdateRun(root, versions, { version: '0.1.5-rc.2', commit: 'a'.repeat(40), dirtyFiles: [] }, { origin: 'https://download-test.example.com', bucket: 'download-test-1250000000' })
     const certificate = join(root, 'certificate.cer')
     const tool = join(root, 'signtool.exe')
     await writeFile(certificate, 'inert public certificate fixture')
@@ -81,7 +81,7 @@ describe('operator-driven packaging entry', () => {
   it('strips unrelated secrets and preload overrides while retaining signing inputs and the Windows archive filter', () => {
     expect(installedUpdatePackagingEnvironment({ JAN_DESKTOP_TARGET_PLATFORM: 'win32', PATH: 'tool-path',
       JAN_DESKTOP_WINDOWS_TOKEN_PIN: 'pin', JAN_DESKTOP_WINDOWS_KEY_CONTAINER: 'container',
-      DEEPSEEK_API_KEY: 'llm', DOWNLOAD_TEST_COS_SECRET_KEY: 'cos', NODE_OPTIONS: 'preload', NODE_PATH: 'injected' }))
+      TOKAMAK_API_KEY: 'llm', DOWNLOAD_TEST_COS_SECRET_KEY: 'cos', NODE_OPTIONS: 'preload', NODE_PATH: 'injected' }))
       .toEqual({ JAN_DESKTOP_TARGET_PLATFORM: 'win32', PATH: 'tool-path', JAN_DESKTOP_WINDOWS_TOKEN_PIN: 'pin',
         JAN_DESKTOP_WINDOWS_KEY_CONTAINER: 'container', JAN_DESKTOP_UNSIGNED: '0', ELECTRON_BUILDER_7Z_FILTER: 'BCJ' })
   })

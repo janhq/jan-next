@@ -78,7 +78,7 @@ This section explains the design decisions behind the policy; the observable beh
 
 ### Design philosophy
 
-The pure retention function selects ordered content by cost; the plugin owns policy, recovery text, and storage calls. Text uses the existing token-meter estimate. Images use the active route's `imageRequestPricing`, including descriptor text. DeepSeek routes reuse the provider's image-dimension calculator. The budget is an estimate, not an exact tokenizer guarantee.
+The pure retention function selects ordered content by cost; the plugin owns policy, recovery text, and storage calls. Text uses the existing token-meter estimate. Images use the active route's `imageRequestPricing`, including descriptor text. The budget is an estimate, not an exact tokenizer guarantee.
 
 ### The two arms
 

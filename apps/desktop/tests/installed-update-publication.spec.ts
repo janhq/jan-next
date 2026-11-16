@@ -46,7 +46,7 @@ async function fixture(body: (context: {
   try {
     vi.spyOn(console, 'log').mockImplementation(() => undefined)
     const run = await createInstalledUpdateRun(parent, ['0.1.6-nightly.20260914.1', '0.1.6-nightly.20260914.2'],
-      { version: '0.1.5-rc.2', commit: 'a'.repeat(40), dirtyFiles: [] })
+      { version: '0.1.5-rc.2', commit: 'a'.repeat(40), dirtyFiles: [] }, { origin: 'https://download-test.example.com', bucket: 'download-test-1250000000' })
     const manifest = join(run.root, 'run.json')
     const receipts: string[] = []
     for (const version of run.versions) {

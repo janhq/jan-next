@@ -56,7 +56,7 @@ import { credentialRef } from '@janhq/jan-credentials'
 
 declare const ctx: Context
 
-const ref = credentialRef('DEEPSEEK_API_KEY')
+const ref = credentialRef('TOKAMAK_API_KEY')
 await ctx.credentials.set(ref, 'sk-…')          // save
 await ctx.credentials.describe(ref)             // { configured, source?, writable } — never the value
 await ctx.credentials.unset(ref)                // remove
@@ -71,11 +71,11 @@ Keys are resolved in one fixed order — the first place that has a value wins:
 | Place | Writable? | Wins over |
 |---|---|---|
 | The stored file | yes (`set`/`unset`) | everything |
-| The environment you launched in (`DEEPSEEK_API_KEY=… jan`) | not here | both `.env` files |
+| The environment you launched in (`TOKAMAK_API_KEY=… jan`) | not here | both `.env` files |
 | Your project's `.env` (`<invocation cwd>/.env`) | not here | your home `.env` |
 | Your home `.env` (`$JAN_HOME/.env`) | not here | nothing |
 
-The stored file wins because a credential explicitly saved through the product must take effect consistently for every provider ([decision](../../../.agents/notes/implemented/architecture/2026-10-09-stored-credential-precedence.md)). The launching environment — `DEEPSEEK_API_KEY=… jan`, a CI secret, or a container `-e` — is the fallback when no stored value exists; a project `.env` then outranks the harness-home `.env`. A save always writes the winning layer, so `describe` reports `writable: true` for every reference, and its `source` names the place that currently supplies the value. The environment layer is the launcher's snapshot taken at launch ([environment snapshot](../../util/launch-environment/README.md)), so a variable exported after startup is not seen.
+The stored file wins because a credential explicitly saved through the product must take effect consistently for every provider ([decision](../../../.agents/notes/implemented/architecture/2026-10-09-stored-credential-precedence.md)). The launching environment — `TOKAMAK_API_KEY=… jan`, a CI secret, or a container `-e` — is the fallback when no stored value exists; a project `.env` then outranks the harness-home `.env`. A save always writes the winning layer, so `describe` reports `writable: true` for every reference, and its `source` names the place that currently supplies the value. The environment layer is the launcher's snapshot taken at launch ([environment snapshot](../../util/launch-environment/README.md)), so a variable exported after startup is not seen.
 
 ### The credential file
 
@@ -85,7 +85,7 @@ A versioned YAML document with one section per key space, and nothing else:
 version: 1
 
 refs:
-  DEEPSEEK_API_KEY: sk-…
+  TOKAMAK_API_KEY: sk-…
   OPENAI_API_KEY: sk-…
 
 records:

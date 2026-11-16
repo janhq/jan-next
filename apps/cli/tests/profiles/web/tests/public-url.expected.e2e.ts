@@ -53,7 +53,7 @@ function spawnWeb(root: string, patch: string, interrupt: string, flags: string[
     cwd: root,
     env: {
       ...process.env,
-      DEEPSEEK_API_KEY: 'keyless-web-public-url-no-call',
+      TOKAMAK_API_KEY: 'keyless-web-public-url-no-call',
       JAN_AGENTS_HOME: join(root, '.agents'),
       JAN_HOME: join(root, 'home'),
       JAN_TELEMETRY_DISABLED: '1',

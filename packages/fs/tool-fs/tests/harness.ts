@@ -17,7 +17,7 @@ export async function fsHarness(fsCwd: string, persona = ''): Promise<Context> {
   const ctx = new Context()
   await mountAgentLoopTestDependencies(ctx, { systemPrompt: { personaPrefix: persona } })
   await ctx.plugin(AgentLoop, { agents: [] })
-  await ctx.plugin(LlmPiAi, { providers: { deepseek: { apiKeyEnv: 'DEEPSEEK_API_KEY' } } })
+  await ctx.plugin(LlmPiAi, { providers: { tokamak: { api: 'openai-completions', baseURL: process.env.TOKAMAK_BASE_URL ?? 'https://api.tokamak.sh/v1', apiKeyEnv: 'TOKAMAK_API_KEY', models: [{ id: 'tokamak-1-preview' }] } } })
   await ctx.plugin(LocalFileSystem, { cwd: fsCwd })
   await ctx.plugin(WorkingDirectory, { defaultDirectory: fsCwd })
   await ctx.plugin(FsPolicy)

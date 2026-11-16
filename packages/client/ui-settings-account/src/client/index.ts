@@ -96,7 +96,7 @@ export function apply(ctx: Context): void {
       let value: AccountDetails[K] | null
       try { value = await query() }
       catch { value = { status: 'failed' } }
-      if (value?.status === 'failed') console.error('[deepseek-account] account read failed', { field })
+      if (value?.status === 'failed') console.error('[tokamak-account] account read failed', { field })
       if (generation === revision && value !== null) publish({ ...snapshot, details: { ...snapshot.details, [field]: value } })
     }
     const request = Promise.all([
@@ -186,8 +186,8 @@ export function apply(ctx: Context): void {
     })
   const operations: AccountSectionInjected = {
     avatarFailed: (value) => { avatar.failed(value) },
-    subscribeSessionExpired: listener => ctx.remote.$on('deepseek-account/session-expired', listener),
-    subscribeModelSignInRequired: listener => ctx.remote.$on('deepseek-account/model-sign-in-required', listener),
+    subscribeSessionExpired: listener => ctx.remote.$on('tokamak-account/session-expired', listener),
+    subscribeModelSignInRequired: listener => ctx.remote.$on('tokamak-account/model-sign-in-required', listener),
     ...nativePlatform === undefined ? {} : { openPlatformPage: platformPageOpener(refreshAccount) },
     refreshAccount,
     contactUs() {

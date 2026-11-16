@@ -22,7 +22,7 @@ async function harness(): Promise<Context> {
   await mountAgentLoopTestDependencies(built, { workingDirectory: true })
   await mountPtcRuntime(built)
   await built.plugin(AgentLoop, { agents: [] })
-  await built.plugin(LlmPiAi, { providers: { deepseek: { apiKeyEnv: 'DEEPSEEK_API_KEY' } } })
+  await built.plugin(LlmPiAi, { providers: { tokamak: { api: 'openai-completions', baseURL: process.env.TOKAMAK_BASE_URL ?? 'https://api.tokamak.sh/v1', apiKeyEnv: 'TOKAMAK_API_KEY', models: [{ id: 'tokamak-1-preview' }] } } })
   await built.plugin(SubagentRuntime)
   await built.plugin(Spawn, { providerName: 'spawn' })
   await built.plugin(PtcWorkflowEngine, { provider: 'spawn' })
@@ -45,12 +45,12 @@ const judged = await agent(
 )
 return { prose, containsFour: judged === null ? null : judged.containsFour }`
 
-describe.skipIf(!process.env.DEEPSEEK_API_KEY)('PTC workflow engine with-key e2e', () => {
+describe.skipIf(!process.env.TOKAMAK_API_KEY)('PTC workflow engine with-key e2e', () => {
   it('runs a two-phase script in the Node PTC runtime over real children, one through the structured runtime', async () => {
     ctx = await harness()
     const parentHandle = await ctx.agents.create({
       sessionId: 'wf-ptc-e2e-session' as never,
-      agentOptions: { provider: 'deepseek', model: 'deepseek-flash' },
+      agentOptions: { provider: 'tokamak', model: 'tokamak-1-preview' },
     })
 
     const events: string[] = []

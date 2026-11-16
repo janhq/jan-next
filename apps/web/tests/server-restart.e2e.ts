@@ -32,8 +32,8 @@ class RestartableServer {
       env: {
         ...process.env, NODE_OPTIONS: '',
         JAN_HOME: join(this.world, 'home'), JAN_AGENTS_HOME: join(this.world, 'agents'),
-        JAN_TELEMETRY_DISABLED: '1', DEEPSEEK_API_KEY: 'keyless-server-restart-fixture',
-        DEEPSEEK_BASE_URL: this.modelUrl,
+        JAN_TELEMETRY_DISABLED: '1', TOKAMAK_API_KEY: 'keyless-server-restart-fixture',
+        TOKAMAK_BASE_URL: this.modelUrl,
         JAN_WEB_RESTART_HOLD_STARTUP: holdStartup ? '1' : '0',
       },
       stdio: ['ignore', 'pipe', 'pipe', 'ipc'],

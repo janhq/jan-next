@@ -198,7 +198,7 @@ describe('Windows token signing', () => {
     expect(buildWindowsSigningEnvironment({
       SystemRoot: 'C:\\Windows',
       JAN_DESKTOP_WINDOWS_TOKEN_PIN: 'inherited-token-secret',
-      DEEPSEEK_API_KEY: 'api-secret',
+      TOKAMAK_API_KEY: 'api-secret',
       BUILD_PASSWORD: 'build-secret',
     }, {
       certificateFile: CERTIFICATE_FILE,
@@ -303,7 +303,7 @@ describe('Windows token signing', () => {
       JAN_DESKTOP_WINDOWS_CER_FILE: 'C:\\release\\server.cer',
       JAN_DESKTOP_WINDOWS_SIGNTOOL: 'C:\\tools\\signtool.exe',
       JAN_DESKTOP_WINDOWS_TOKEN_PIN: 'token-secret',
-      DEEPSEEK_API_KEY: 'api-secret',
+      TOKAMAK_API_KEY: 'api-secret',
       BUILD_PASSWORD: 'build-secret',
     })).toEqual({ SystemRoot: 'C:\\Windows' })
 

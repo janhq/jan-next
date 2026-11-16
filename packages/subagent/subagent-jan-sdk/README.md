@@ -62,7 +62,7 @@ Request `agentOptions` override `provider`, `model`, and `maxTokens` independent
     janHome: !!js janHomePath('children')
     maxTokens: 49152
     env:
-      DEEPSEEK_API_KEY: !!js process.env.DEEPSEEK_API_KEY
+      TOKAMAK_API_KEY: !!js process.env.TOKAMAK_API_KEY
 - id: tool-subagent
   name: '@janhq/jan-tool-subagent'
   config: { provider: jan-sdk, toolName: subagent, maxDepth: 'provider-managed' }

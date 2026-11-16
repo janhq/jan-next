@@ -48,10 +48,10 @@ function runBuiltWeb(cwd: string): Promise<{ stdout: string; stderr: string; cod
   return new Promise((resolveRun, rejectRun) => {
     const env: NodeJS.ProcessEnv = {
       ...process.env,
-      DEEPSEEK_API_KEY: 'jan-cli-smoke-dummy-key',
+      TOKAMAK_API_KEY: 'jan-cli-smoke-dummy-key',
       JAN_HOME: join(cwd, '.jan'),
     }
-    delete env.DEEPSEEK_BASE_URL
+    delete env.TOKAMAK_BASE_URL
     delete env.NODE_OPTIONS
     delete env.NODE_NO_WARNINGS
     const child = spawn(process.execPath, [

@@ -21,7 +21,7 @@ describe('installer preparation preserves application dependencies', () => {
   it.each(['win32', 'darwin'] as const)('rejects a missing production policy before signing on %s', async (platform) => {
     const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
     expect(() => createElectronBuilderConfig({ JAN_DESKTOP_APP_ID: 'com.example.installer',
-      JAN_DESKTOP_AUTO_UPDATE_ENV: 'production',
+      JAN_DESKTOP_AUTO_UPDATE_ENV: 'production', DOWNLOAD_PROD_ORIGIN: 'https://downloads.example.com',
       JAN_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'https://test.example.com',
     }, platform, 'x64')).toThrow('JAN_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN')
   })
@@ -51,7 +51,7 @@ describe('installer preparation preserves application dependencies', () => {
         metadata: { value: metadata },
       })
       const appInfo = new AppInfo(metadataPackager, undefined)
-      expect(appInfo.companyName).toBe('Hangzhou DeepSeek Artificial Intelligence Co., Ltd.')
+      expect(appInfo.companyName).toBe('Jan')
       expect(appInfo.copyright).toBe(`Copyright © ${new Date().getFullYear()} Jan Alpha`)
       if (platform === 'win32') {
         expect(expandMacro(config.nsis.uninstallDisplayName, null, appInfo, {}, false)).toBe('Jan Alpha')
@@ -114,8 +114,8 @@ describe('installer preparation preserves application dependencies', () => {
     const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
     const config = createElectronBuilderConfig({
       JAN_DESKTOP_APP_ID: 'com.example.installer',
-      JAN_DESKTOP_AUTO_UPDATE_ENV: 'production',
-      JAN_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'https://harness-test.deepseek.com',
+      JAN_DESKTOP_AUTO_UPDATE_ENV: 'production', DOWNLOAD_PROD_ORIGIN: 'https://downloads.example.com',
+      JAN_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'https://policy-test.example.com',
       JAN_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN: 'https://policy.example.com',
       JAN_DESKTOP_MACOS_SIGNING_IDENTITY: 'Example Company (TEAMID1234)',
       JAN_DESKTOP_MACOS_TEAM_ID: 'TEAMID1234',

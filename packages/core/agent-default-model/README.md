@@ -32,8 +32,8 @@ The composition requires a provider and model. Consumers read the live reference
 ```yaml
 - name: '@janhq/jan-agent-default-model'
   config:
-    provider: deepseek
-    model: deepseek-chat
+    provider: tokamak
+    model: tokamak-1-preview
 ```
 
 | Field | Default | Meaning |

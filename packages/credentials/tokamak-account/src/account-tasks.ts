@@ -7,27 +7,29 @@ import type {} from './account.ts'
 /**
  * Identify running work whose latest bound request used the account route.
  * @param agent - live Agent with its durable request context.
+ * @param provider - model route that authenticates with the account credential.
  * @returns whether account sign-out should interrupt this task.
  */
-export function isRunningAccountTask(agent: Pick<Agent, 'status' | 'session'>): boolean {
-  return agent.status === 'running' && agent.session.requestContext()?.provider === 'deepseek-account'
+export function isRunningAccountTask(agent: Pick<Agent, 'status' | 'session'>, provider: string): boolean {
+  return agent.status === 'running' && agent.session.requestContext()?.provider === provider
 }
 
 /**
  * Cancel signed-out account tasks and publish sign-in guidance for rejected requests.
  * @param ctx - account provider lifetime; Agents may attach later.
+ * @param provider - model route that authenticates with the account credential.
  */
-export function installAccountTaskCancellation(ctx: Context): void {
+export function installAccountTaskCancellation(ctx: Context, provider: string): void {
   ctx.inject(['agents'], (scope) => {
     scope.on('agent/error', ({ error }) => {
       if (error instanceof LlmError && error.code === 'ACCOUNT_SIGN_IN_REQUIRED') {
-        scope.emit('deepseek-account/model-sign-in-required')
+        scope.emit('tokamak-account/model-sign-in-required')
       }
     })
-    scope.on('deepseek-account/signed-out', () => {
+    scope.on('tokamak-account/signed-out', () => {
       for (const agent of scope.agents.list()) {
-        if (isRunningAccountTask(agent)) {
-          agent.cancel({ kind: 'hook', reason: 'deepseek-account/signed-out' }, { keepInbox: true })
+        if (isRunningAccountTask(agent, provider)) {
+          agent.cancel({ kind: 'hook', reason: 'tokamak-account/signed-out' }, { keepInbox: true })
         }
       }
     })

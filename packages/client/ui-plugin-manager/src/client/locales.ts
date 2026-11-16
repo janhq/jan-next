@@ -681,7 +681,7 @@ export const ja = {
   'installPathTemplateHint': 'ローカルプラグインディレクトリの実際のパスに置き換えてください。',
   'installGuideFill': '例を使用',
   'installGuideFillAria': '例{example}を使用',
-  'installGuideSafety': '信頼できるプラグインのみをインストールしてください。プラグインはあなたの権限で動作し、DeepSeek Harnessを破壊したりデータを漏洩させたりする可能性があります。',
+  'installGuideSafety': '信頼できるプラグインのみをインストールしてください。プラグインはあなたの権限で動作し、Janを破壊したりデータを漏洩させたりする可能性があります。',
   'installUpgradeNotice': 'オンデマンドの公式プラグインは、バージョンがJanと異なる場合に更新を提供します。その他のプラグインを更新するには、アンインストールして再インストールしてください。',
   'registryToggle': 'レジストリ',
   'registryLegend': 'プラグインのダウンロード元のnpmレジストリ',

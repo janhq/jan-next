@@ -506,10 +506,10 @@ describe('web e2e: sidebar search alignment and row action targets', () => {
 
   it.each([false, true])('keeps account footer geometry in wide and rail layouts (signed in: %s)', async (signedIn) => {
     onTestFailed(() => saveFailureShot(page, `web-e2e-sidebar-account-${String(signedIn)}`))
-    const account = scaffold.ctx.deepseekAccount
+    const account = scaffold.ctx.tokamakAccount
     const state: AccountView = {
       status: 'credential-stored', attempt: null,
-      links: { usageUrl: 'https://platform.deepseek.com/usage', topUpUrl: 'https://platform.deepseek.com/top_up' },
+      links: { usageUrl: 'https://tokamak.sh/usage', topUpUrl: 'https://tokamak.sh/top_up' },
     }
     // Only Platform identity is synthetic; the account provider's RPC and client renderer remain composed.
     const mocks = signedIn ? [

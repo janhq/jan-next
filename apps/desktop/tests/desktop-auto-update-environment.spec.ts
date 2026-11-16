@@ -61,16 +61,16 @@ describe('desktop auto-update environment', () => {
 
   it.each([undefined, RELEASE_ID, 'unused-test-value'])('keeps production paths independent of test release ID %s', (id) => {
     expect(resolveDesktopAutoUpdateConfig({
-      JAN_DESKTOP_AUTO_UPDATE_ENV: 'production',
+      JAN_DESKTOP_AUTO_UPDATE_ENV: 'production', DOWNLOAD_PROD_ORIGIN: 'https://downloads.example.com',
       DOWNLOAD_TEST_RELEASE_ID: id,
     }, 'win32', 'x64')).toMatchObject({
       environment: 'production',
       target: 'win-x64',
-      publicUrl: 'https://download.deepseek.com/jan-desk/feeds/win-x64/',
+      publicUrl: 'https://downloads.example.com/jan-desk/feeds/win-x64/',
       binaryKeyPrefix: 'jan-desk/bin/win-x64',
     })
     expect(resolveDesktopUploadConfig({
-      JAN_DESKTOP_AUTO_UPDATE_ENV: 'production',
+      JAN_DESKTOP_AUTO_UPDATE_ENV: 'production', DOWNLOAD_PROD_ORIGIN: 'https://downloads.example.com',
       DOWNLOAD_PROD_COS_BUCKET: 'production-download-bucket',
     }, 'win32', 'x64')).toMatchObject({
       bucket: 'production-download-bucket',
@@ -91,7 +91,7 @@ describe('desktop auto-update environment', () => {
       DOWNLOAD_TEST_RELEASE_ID: RELEASE_ID,
     }, 'darwin', 'arm64')).toThrow(/DOWNLOAD_TEST_COS_BUCKET/u)
     expect(() => resolveDesktopUploadConfig({
-      JAN_DESKTOP_AUTO_UPDATE_ENV: 'production',
+      JAN_DESKTOP_AUTO_UPDATE_ENV: 'production', DOWNLOAD_PROD_ORIGIN: 'https://downloads.example.com',
     }, 'win32', 'x64')).toThrow(/DOWNLOAD_PROD_COS_BUCKET/u)
   })
 
@@ -126,12 +126,12 @@ it.each([
   ['mac-x64', 'jan-latest-macos-x64.dmg'],
   ['win-x64', 'jan-latest-windows-x64.exe'],
 ] as const)('uses the production origin for website target %s', (target, filename) => {
-  expect(desktopWebsiteInstallerUrl(target)).toBe(`https://download.deepseek.com/desktop/${filename}`)
+  expect(desktopWebsiteInstallerUrl('https://downloads.example.com', target)).toBe(`https://downloads.example.com/desktop/${filename}`)
 })
 
 it.each([['darwin', 'arm64', 'mac-arm64', 'stable-mac.yml'], ['darwin', 'x64', 'mac-x64', 'stable-mac.yml'], ['win32', 'x64', 'win-x64', 'stable.yml']] as const)
 ('routes stable metadata and binaries separately for %s %s', (platform, arch, target, filename) => {
-  const config = resolveDesktopAutoUpdateConfig({ JAN_DESKTOP_AUTO_UPDATE_ENV: 'production', JAN_DESKTOP_UPDATE_CHANNEL: 'stable' }, platform, arch)
+  const config = resolveDesktopAutoUpdateConfig({ JAN_DESKTOP_AUTO_UPDATE_ENV: 'production', DOWNLOAD_PROD_ORIGIN: 'https://downloads.example.com', JAN_DESKTOP_UPDATE_CHANNEL: 'stable' }, platform, arch)
   expect(config.channel).toBe('stable')
   expect(config.keyPrefix).toBe(`jan-desk/feeds/${target}`)
   expect(config.binaryKeyPrefix).toBe(`jan-desk/bin/${target}/stable`)

@@ -162,7 +162,7 @@ describe('headless credential policy', { retry: 0 }, () => {
           if (empty) await writeFile(join(cwd, '.env'), `MOCK_LLM_API_KEY=${projectKey}\n`)
           await writeFile(join(cwd, 'route.patch.json'), JSON.stringify([
             ...mockRoutePatch(server.baseURL),
-            ...restoring ? ['credentials', 'authorization', 'deepseek-account'].map(id => ({ id, disabled: false })) : [],
+            ...restoring ? ['credentials', 'authorization', 'tokamak-account'].map(id => ({ id, disabled: false })) : [],
           ]))
         },
         inspect: async (cwd) => {

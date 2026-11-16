@@ -985,7 +985,7 @@ describe('PythonPtcRuntime — programs and bindings', () => {
         '    "tmpdir": os.environ.get("TMPDIR"),',
         '    "path": os.environ.get("PATH"),',
         '    "home": os.environ.get("HOME"),',
-        '    "token": os.environ.get("DEEPSEEK_API_KEY"),',
+        '    "token": os.environ.get("TOKAMAK_API_KEY"),',
         '}',
       ].join('\n'),
       bindings: [],

@@ -13,8 +13,8 @@ const state = vi.hoisted(() => ({
 }))
 
 vi.mock('../scripts/desktop-package-environment.mjs', () => ({ loadDesktopPackageEnvironment: () => ({
-  JAN_DESKTOP_AUTO_UPDATE_ENV: state.settings, DOWNLOAD_TEST_ORIGIN: 'https://download-test.deepseek.com',
-  DOWNLOAD_TEST_COS_BUCKET: 'bj-toc-download-test-1320056602', DOWNLOAD_TEST_COS_SECRET_ID: 'fixture-id',
+  JAN_DESKTOP_AUTO_UPDATE_ENV: state.settings, DOWNLOAD_TEST_ORIGIN: 'https://download-test.example.com',
+  DOWNLOAD_TEST_COS_BUCKET: 'download-test-1250000000', DOWNLOAD_TEST_COS_SECRET_ID: 'fixture-id',
   DOWNLOAD_TEST_COS_SECRET_KEY: 'fixture-key', JAN_DESKTOP_WINDOWS_TOKEN_PIN: 'fixture-pin-not-for-sdk',
 }) }))
 
@@ -42,7 +42,7 @@ afterEach(async () => {
   finally { await Promise.all(paths.map(path => rm(path, { recursive: true, force: true }))) }
 })
 
-const BUCKET = 'bj-toc-download-test-1320056602'
+const BUCKET = 'download-test-1250000000'
 const key = `jan-desk/bin/qualification/${'a'.repeat(24)}/win-x64/package.exe`
 
 /** Store whose SDK client sends every request to a fresh loopback origin. */
@@ -177,7 +177,7 @@ describe('qualification COS transport with real SDK serialization over a loopbac
     const fetch = vi.fn(async () => new Response('public bytes'))
     vi.stubGlobal('fetch', fetch)
     const { store: cos } = await store((_request, response) => { answer(response) })
-    const url = `https://download-test.deepseek.com/${key}`
+    const url = `https://download-test.example.com/${key}`
     expect(await cos.publicRead(url)).toEqual({ size: 12, sha512: createHash('sha512').update('public bytes').digest('base64') })
     expect(fetch).toHaveBeenCalledWith(url, expect.objectContaining({ redirect: 'error', cache: 'no-store' }))
     await expect(cos.publicRead(`${url}?fresh=1`)).rejects.toThrow('exact test public URL')

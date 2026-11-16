@@ -50,7 +50,7 @@ async function fixture(body: (context: {
   const root = await mkdtemp(join(tmpdir(), 'jan-package-content-'))
   const archive = join(root, 'payload/resources/app.asar')
   try {
-    const run = await createInstalledUpdateRun(root, versions, { version: '0.1.5-rc.2', commit: 'a'.repeat(40), dirtyFiles: [] })
+    const run = await createInstalledUpdateRun(root, versions, { version: '0.1.5-rc.2', commit: 'a'.repeat(40), dirtyFiles: [] }, { origin: 'https://download-test.example.com', bucket: 'download-test-1250000000' })
     const manifest = join(run.root, 'run.json')
     await prepareInstalledUpdateBootstrap(manifest)
     const source = join(root, 'source')

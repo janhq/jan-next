@@ -12,7 +12,7 @@ Native hover first uses a same-window element or ancestor advertising both `AXSh
 
 Model-facing coordinate input defaults to pixels in the returned screenshot. `relative: true` accepts integer thousandths from 0 to 999 for click, hover, scroll and drag; it does not apply to AX indices. The Host owns the mapping to native window points. An application-wide observation refreshes its inventory; a scoped observation preserves other windows' image mappings. Window resizing invalidates the old image, while movement preserves local coordinates. Relative endpoints remain inside the window and do not depend on screenshot resolution.
 
-`LlmAdapter.imageRequestTarget` exposes the same dimensions and byte target used by image serialization. DeepSeek and pi-ai share their existing projection functions with this method. Other adapters preserve normalized images unless they declare resizing. Screenshot bytes returned to programs match the request image; its durable source is admitted and stored once. The native PNG metadata is checked against decoded source dimensions before any input mapping is published.
+`LlmAdapter.imageRequestTarget` exposes the same dimensions and byte target used by image serialization. Other adapters preserve normalized images unless they declare resizing. Screenshot bytes returned to programs match the request image; its durable source is admitted and stored once. The native PNG metadata is checked against decoded source dimensions before any input mapping is published.
 
 ## Alternatives considered
 

@@ -133,10 +133,10 @@ it('shares settings card materials and control sizes in both palettes', async ()
     { op: 'set', path: ['step'], value: 'done' },
     { op: 'set', path: ['completion'], value: 'completed' },
   ])
-  const account = scaffold.ctx.deepseekAccount
+  const account = scaffold.ctx.tokamakAccount
   const state: AccountView = {
     status: 'credential-stored', attempt: null,
-    links: { usageUrl: 'https://platform.deepseek.com/usage', topUpUrl: 'https://platform.deepseek.com/top_up' },
+    links: { usageUrl: 'https://tokamak.sh/usage', topUpUrl: 'https://tokamak.sh/top_up' },
   }
   // The Platform provider supplies synthetic identity and wallets; renderer, RPC, and settings remain real.
   const mocks = [

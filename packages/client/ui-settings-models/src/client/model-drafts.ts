@@ -4,7 +4,7 @@
  */
 
 /** One catalog entry kept structurally open so hidden or future fields survive an edit. */
-export type DeepSeekModelDraft = Record<string, unknown>
+export type ModelDraft = Record<string, unknown>
 
 /** Accepted capacity spellings: a decimal count with an optional K/M suffix. */
 const CAPACITY_PATTERN = /^(\d+(?:\.\d+)?)([km])?$/i
@@ -17,7 +17,7 @@ const CAPACITY_SCALE = { k: 1_000, m: 1_000_000 } as const
  * zeroes. The stored value stays a plain token count.
  * @param text - raw field text.
  * @returns the count; `undefined` when blank (inherit), `NaN` when unreadable
- * (rejected by {@link validateDeepSeekModels} before any write).
+ * (rejected by {@link validateModelDrafts} before any write).
  */
 export function parseCapacity(text: string): number | undefined {
   const trimmed = text.trim()
@@ -48,7 +48,7 @@ export function formatCapacity(value: number): string {
 }
 
 /** A localized validation failure for one user-owned model array. */
-export interface DeepSeekModelsValidationFailure {
+export interface ModelsValidationFailure {
   /** Zero-based model position. */
   index: number
   /** Message key owned by the Models settings section. */
@@ -56,12 +56,16 @@ export interface DeepSeekModelsValidationFailure {
   | 'modelMaxTokensInvalid'
 }
 
-/** Convert a schema-validated catalog value into records without dropping hidden fields. */
-export function modelDrafts(value: unknown): DeepSeekModelDraft[] {
+/**
+ * Convert a schema-validated catalog value into records without dropping hidden fields.
+ * @param value - user-owned `models` value.
+ * @returns one draft per entry; a non-record entry becomes an empty draft.
+ */
+export function modelDrafts(value: unknown): ModelDraft[] {
   if (!Array.isArray(value)) return []
   return value.map(entry =>
     typeof entry === 'object' && entry !== null && !Array.isArray(entry)
-      ? entry as DeepSeekModelDraft
+      ? entry as ModelDraft
       : {})
 }
 
@@ -70,7 +74,7 @@ export function modelDrafts(value: unknown): DeepSeekModelDraft[] {
  * @param value - user-owned `models` value, or undefined while inherited.
  * @returns the first invalid row, or undefined when the adapter will accept it.
  */
-export function validateDeepSeekModels(value: unknown): DeepSeekModelsValidationFailure | undefined {
+export function validateModelDrafts(value: unknown): ModelsValidationFailure | undefined {
   if (value === undefined) return undefined
   const models = modelDrafts(value)
   const seen = new Set<string>()

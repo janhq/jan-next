@@ -35,7 +35,7 @@ async function run(cwd: string, home: string, args: readonly string[]) {
       JAN_HOME: home,
       JAN_AGENTS_HOME: join(cwd, '.agents'),
       JAN_TELEMETRY_DISABLED: '1',
-      DEEPSEEK_API_KEY: '',
+      TOKAMAK_API_KEY: '',
       NODE_OPTIONS: [
         process.env.NODE_OPTIONS,
         '--disable-warning=ExperimentalWarning',

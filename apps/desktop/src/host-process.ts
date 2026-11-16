@@ -3,7 +3,7 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { join } from 'node:path'
 import { z } from 'zod'
-import type { PlatformSession } from '@janhq/jan-tokamak-account'
+import type { TokamakPlatformSession } from '@janhq/jan-tokamak-account'
 import { desktopNodeEnvironment } from './node-environment.ts'
 import { parsePluginOperationRecord, type PluginOperationRecord, type PluginOperationRunId } from '@janhq/jan-plugin-manager/diagnostic'
 
@@ -22,7 +22,7 @@ interface FatalEvent {
 
 interface PlatformSessionEvent {
   readonly type: 'platform-session'
-  readonly session: PlatformSession | null
+  readonly session: TokamakPlatformSession | null
 }
 
 type DesktopHostEvent = ReadyEvent | FatalEvent | PlatformSessionEvent | {
@@ -198,7 +198,7 @@ export class DesktopHostProcess {
     private readonly primaryRuntime?: string,
     private readonly packageManager?: { readonly pnpm: string; readonly nodeBin: string },
 
-    private readonly onPlatformSession?: (session: PlatformSession | null) => void,
+    private readonly onPlatformSession?: (session: TokamakPlatformSession | null) => void,
     private readonly onPluginOperation?: (record: PluginOperationRecord) => void,
   ) {}
 

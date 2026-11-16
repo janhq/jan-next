@@ -27,7 +27,7 @@ const withoutAccountAccess = createClientTest({ roster: webApp }, { access: acti
 const SELF = '@janhq/jan-client-ui-settings-account'
 const view: AccountView = {
   status: 'signed-out', attempt: null,
-  links: { usageUrl: 'https://platform.deepseek.com/usage', topUpUrl: 'https://platform.deepseek.com/top_up' },
+  links: { usageUrl: 'https://tokamak.sh/usage', topUpUrl: 'https://tokamak.sh/top_up' },
 }
 const stored: AccountView = { ...view, status: 'credential-stored' }
 const profile: AccountDetails['profile'] = { status: 'ready', value: { id: 'account-user' as AccountUserId, name: 'User', contact: null } }
@@ -272,21 +272,21 @@ it('keeps successful account refreshes silent and reports only failed reads', as
   await vi.waitFor(() => { expect(actions.hooks.account.getSnapshot().details?.profile).toEqual(profile) })
   await actions.refreshAccount()
   for (const spy of [output, info, log]) {
-    expect(spy.mock.calls.filter(call => String(call[0]).startsWith('[deepseek-account]'))).toEqual([])
+    expect(spy.mock.calls.filter(call => String(call[0]).startsWith('[tokamak-account]'))).toEqual([])
   }
   c.mock.remote.account.getProfile.mockResolvedValueOnce(ok({ status: 'failed' }))
   c.mock.remote.account.getBalance.mockRejectedValueOnce(new Error('private-transport-detail'))
   await actions.refreshAccount()
-  expect(output).toHaveBeenCalledWith('[deepseek-account] account read failed', expect.objectContaining({
+  expect(output).toHaveBeenCalledWith('[tokamak-account] account read failed', expect.objectContaining({
     field: 'profile',
   }))
-  expect(output).toHaveBeenCalledWith('[deepseek-account] account read failed', expect.objectContaining({
+  expect(output).toHaveBeenCalledWith('[tokamak-account] account read failed', expect.objectContaining({
     field: 'balance',
   }))
   expect(JSON.stringify(output.mock.calls)).not.toContain('private-transport-detail')
   c.mock.remote.account.getBalance.mockResolvedValueOnce({ ok: false, error: new RemoteError('gateway/internal', 'private-rpc-detail', {}) })
   await actions.refreshAccount()
-  expect(output).toHaveBeenCalledWith('[deepseek-account] account read failed', expect.objectContaining({
+  expect(output).toHaveBeenCalledWith('[tokamak-account] account read failed', expect.objectContaining({
     field: 'balance',
   }))
   expect(JSON.stringify(output.mock.calls)).not.toContain('private-rpc-detail')
@@ -358,7 +358,7 @@ it('navigates the preopened browser tab to the themed authorization page', async
   vi.spyOn(window, 'open').mockReturnValue(popup as Window)
   const c = await start()
   const actions = operations(c)
-  const attempt = { id: 'attempt' as SignInAttemptId, phase: 'waiting-browser' as const, authorizeUrl: 'https://platform.deepseek.com/jan/authorize' }
+  const attempt = { id: 'attempt' as SignInAttemptId, phase: 'waiting-browser' as const, authorizeUrl: 'https://tokamak.sh/cli/authorize' }
   mock.remote.account.startSignIn.mockResolvedValue(ok({ ...view, attempt: { id: attempt.id, phase: 'initializing' } }))
   await actions.start()
   c.mock.streams.push('account/watch', { ...view, attempt })
@@ -714,7 +714,7 @@ it('forwards live account notices and removes their subscriptions', async ({ sta
   const unavailable = vi.fn()
   const offExpired = actions.subscribeSessionExpired!(expired)
   const offUnavailable = actions.subscribeModelSignInRequired!(unavailable)
-  for (const event of ['deepseek-account/session-expired', 'deepseek-account/model-sign-in-required']) {
+  for (const event of ['tokamak-account/session-expired', 'tokamak-account/model-sign-in-required']) {
     c.mock.streams.push('$events', { type: 'emit', event, args: [] })
   }
   await c.flush()
@@ -722,7 +722,7 @@ it('forwards live account notices and removes their subscriptions', async ({ sta
   expect(unavailable).toHaveBeenCalledOnce()
   offExpired()
   offUnavailable()
-  for (const event of ['deepseek-account/session-expired', 'deepseek-account/model-sign-in-required']) {
+  for (const event of ['tokamak-account/session-expired', 'tokamak-account/model-sign-in-required']) {
     c.mock.streams.push('$events', { type: 'emit', event, args: [] })
   }
   await c.flush()

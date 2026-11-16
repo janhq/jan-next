@@ -431,7 +431,7 @@ describe('ui-model-selection dual entry', () => {
       const face = b.seat().inject!(sid('s1'))
       await b.ctx.modelDirectories.directoryFor(sid('s1')).load()
       b.setCatalogFailure(true)
-      b.remote.emit('credentials/record-updated', ['DEEPSEEK_API_KEY'])
+      b.remote.emit('credentials/record-updated', ['TOKAMAK_API_KEY'])
       await vi.waitFor(() => {
         expect(face.directory.getSnapshot()).toMatchObject({
           current: { provider: 'example', model: 'deepseek-v4-flash' },

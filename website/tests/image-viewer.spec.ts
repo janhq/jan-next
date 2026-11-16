@@ -92,7 +92,7 @@ function render(complete = true) {
   const container = document.createElement('p')
   const image = document.createElement('img')
   image.src = 'https://docs.example/provider.png'
-  image.alt = 'DeepSeek API settings'
+  image.alt = 'Model API settings'
   container.append(image)
   required(document.querySelector('main')).append(container)
   return { image, container, state: imageState(image, complete) }
@@ -104,12 +104,12 @@ function install(): ImageViewer {
 }
 
 function entry(): HTMLElement {
-  return getByRole(document.body, 'button', { name: 'View image fullscreen: DeepSeek API settings' })
+  return getByRole(document.body, 'button', { name: 'View image fullscreen: Model API settings' })
 }
 
 function open(): HTMLDialogElement {
   entry().click()
-  return getByRole(document.body, 'dialog', { name: 'DeepSeek API settings' }) as HTMLDialogElement
+  return getByRole(document.body, 'dialog', { name: 'Model API settings' }) as HTMLDialogElement
 }
 
 function enlarged(dialog: HTMLElement): HTMLImageElement {
@@ -165,7 +165,7 @@ describe('documentation image viewer', () => {
 
   it.each(['image', 'button'])('opens the loaded image with accessible controls from the %s', async (trigger) => {
     const { image, state } = render()
-    const title = 'DeepSeek API settings'
+    const title = 'Model API settings'
     const name = `View image fullscreen: ${title}`
     image.alt = title
     state.currentSrc = 'https://docs.example/provider@2x.png'

@@ -20,7 +20,7 @@ async function fixture<T>(body: (directory: string) => Promise<T>): Promise<T> {
 describe('installed-update bootstrap', () => {
   it('executes the generated entry for both versions with isolated persistent paths before main imports', async () => {
     await fixture(async (directory) => {
-      const run = await createInstalledUpdateRun(directory, versions, source)
+      const run = await createInstalledUpdateRun(directory, versions, source, { origin: 'https://download-test.example.com', bucket: 'download-test-1250000000' })
       const bootstrap = await prepareInstalledUpdateBootstrap(join(run.root, 'run.json'))
       await mkdir(join(bootstrap, 'node_modules/electron'), { recursive: true })
       await mkdir(join(bootstrap, 'lib'))
@@ -69,7 +69,7 @@ console.log(JSON.stringify({ paths: app.paths, home: process.env.JAN_HOME, journ
   it.each(['origin', 'bucket', 'appId', 'root', 'feedKey', 'binPrefix', 'versions', 'source'])(
     'rejects altered %s in a retained manifest', async (field) => {
       await fixture(async (directory) => {
-        const run = await createInstalledUpdateRun(directory, versions, source)
+        const run = await createInstalledUpdateRun(directory, versions, source, { origin: 'https://download-test.example.com', bucket: 'download-test-1250000000' })
         const path = join(run.root, 'run.json')
         const changed = { ...run, [field]: field === 'versions' ? [...versions].reverse() : 'unexpected' }
         await writeFile(path, JSON.stringify(changed))
@@ -81,7 +81,7 @@ console.log(JSON.stringify({ paths: app.paths, home: process.env.JAN_HOME, journ
 
   it('loads the original manifest without adding credential fields to bootstrap output', async () => {
     await fixture(async (directory) => {
-      const run = await createInstalledUpdateRun(directory, versions, source)
+      const run = await createInstalledUpdateRun(directory, versions, source, { origin: 'https://download-test.example.com', bucket: 'download-test-1250000000' })
       expect(await readInstalledUpdateRun(join(run.root, 'run.json'))).toEqual(run)
       const bootstrap = await prepareInstalledUpdateBootstrap(join(run.root, 'run.json'))
       const entry = await readFile(join(bootstrap, 'qualification-bootstrap.mjs'), 'utf8')

@@ -25,7 +25,7 @@ The non-secret ordering and the environment restrictions in configuration source
 
 ## Per-run overrides
 
-The previous order existed so that CI, containers, and a one-shot `DEEPSEEK_API_KEY=… jan` could override a credential without editing machine state. A fresh CI or container harness home has no `.credentials.yaml`, so its exported secret is still the effective value. A harness home holds a stored key only because someone saved it there, through the Models page or by editing the file. To use an exported value for that name, the user deletes the `refs` entry, or launches with a separate `JAN_HOME`.
+A fresh CI or container harness home has no `.credentials.yaml`, so its exported secret is still the effective value. A harness home holds a stored key only because someone saved it there, through the Models page or by editing the file. To use an exported value for that name, the user deletes the `refs` entry, or launches with a separate `JAN_HOME`.
 
 ## Alternatives considered
 

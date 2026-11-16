@@ -48,8 +48,8 @@ flowchart LR
   cfg --> plugin_jan_base_settings
   plugin_jan_base_authorization["authorization<br/>@janhq/jan-authorization"]
   cfg --> plugin_jan_base_authorization
-  plugin_jan_base_deepseek_account["deepseek-account<br/>@janhq/jan-tokamak-account"]
-  cfg --> plugin_jan_base_deepseek_account
+  plugin_jan_base_tokamak_account["tokamak-account<br/>@janhq/jan-tokamak-account"]
+  cfg --> plugin_jan_base_tokamak_account
   plugin_jan_base_credentials["credentials<br/>@janhq/jan-credentials-local"]
   cfg --> plugin_jan_base_credentials
   plugin_jan_base_llm_pi_ai["llm-pi-ai<br/>@janhq/jan-llm-pi-ai"]
@@ -220,7 +220,7 @@ flowchart LR
 | `config-editor` | `@janhq/jan-config-editor` |
 | `settings` | `@janhq/jan-settings` |
 | `authorization` | `@janhq/jan-authorization` |
-| `deepseek-account` | `@janhq/jan-tokamak-account` |
+| `tokamak-account` | `@janhq/jan-tokamak-account` |
 | `credentials` | `@janhq/jan-credentials-local` |
 | `llm-pi-ai` | `@janhq/jan-llm-pi-ai` |
 | `local` | `Jan v3.5 4B (local)` |

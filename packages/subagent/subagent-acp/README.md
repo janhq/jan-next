@@ -55,7 +55,7 @@ A Jan child uses the product launcher and an explicit absolute `JAN_HOME`. The i
     permission: reject
     env:
       JAN_HOME: /absolute/path/to/isolated-child-home
-      DEEPSEEK_API_KEY: !!js process.env.DEEPSEEK_API_KEY
+      TOKAMAK_API_KEY: !!js process.env.TOKAMAK_API_KEY
 ```
 
 ### What you get

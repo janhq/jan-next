@@ -1,5 +1,5 @@
 /**
- * Tokamak account provider: implements the `deepseekAccount` service seam with Tokamak's CLI
+ * Tokamak account provider: implements the `tokamakAccount` service seam with Tokamak's CLI
  * device sign-in, so the existing account UI, controller and model routes work unchanged.
  *
  * On approval the minted API key is stored twice:
@@ -14,9 +14,9 @@ import { Context, Service } from '@janhq/cordis'
 import Schema from '@janhq/schemastery'
 import { z } from 'zod'
 import {
-  DeepSeekAccount, installAccountTaskCancellation,
+  TokamakAccount, installAccountTaskCancellation,
   type AccountBonusBatch, type AccountClientMetadata, type AccountDetails, type AccountUserId, type AccountView,
-  type PlatformSession, type SignInAttemptId, type SignInAttemptView,
+  type TokamakPlatformSession, type SignInAttemptId, type SignInAttemptView,
 } from './account.ts'
 import { credentialKey, credentialRef, type CredentialRef } from '@janhq/jan-credentials'
 import type { AuthorizationSession } from '@janhq/jan-authorization'
@@ -55,6 +55,8 @@ export interface Config {
   clientName?: string
   /** Credential reference the model route reads the key from. */
   apiKeyRef?: string
+  /** Model route id whose running tasks sign-out cancels. */
+  modelProvider?: string
   /** Allow HTTP on loopback for local mocks. */
   allowLoopbackHttp?: boolean
   /** Deadline for each HTTP request. */
@@ -67,6 +69,7 @@ export const Config = Schema.object({
   webOrigin: Schema.string().default(''),
   clientName: Schema.string().default('Tokamak Harness'),
   apiKeyRef: Schema.string().default('TOKAMAK_API_KEY'),
+  modelProvider: Schema.string().min(1).default('tokamak'),
   allowLoopbackHttp: Schema.boolean().default(false),
   requestTimeoutMs: Schema.number().min(1).max(120_000).default(30_000),
   attemptTimeoutMs: Schema.number().min(1).max(3_600_000).default(600_000),
@@ -83,7 +86,7 @@ interface Attempt {
 }
 
 /** Tokamak implementation of the account service. */
-export class TokamakAccount extends DeepSeekAccount {
+export class TokamakAccountProvider extends TokamakAccount {
   static inject = ['credentials', 'authorization']
   static Config = Config
   /** Normalized API base (`…/v1`). */
@@ -92,6 +95,7 @@ export class TokamakAccount extends DeepSeekAccount {
   readonly root: string
   /** Web app origin that hosts the approval page. */
   readonly web: string
+  readonly modelProvider: string
   private readonly clientName: string
   private readonly keyRef: CredentialRef
   private readonly requestTimeout: number
@@ -106,8 +110,9 @@ export class TokamakAccount extends DeepSeekAccount {
   /** @param ctx - Host with authorization and credentials services. @param config - deployment options. */
   constructor(ctx: Context, config: Config = {}) {
     super(ctx)
-    installAccountTaskCancellation(ctx)
     const resolved = Config(config)
+    this.modelProvider = resolved.modelProvider
+    installAccountTaskCancellation(ctx, resolved.modelProvider)
     this.baseUrl = normalizeBaseUrl(resolved.apiBaseURL, resolved.allowLoopbackHttp)
     this.root = apiRoot(this.baseUrl)
     this.web = webRoot(this.baseUrl, resolved.webOrigin)
@@ -198,7 +203,7 @@ export class TokamakAccount extends DeepSeekAccount {
 
   override ackBonusNotified(): Promise<boolean> { return Promise.resolve(false) }
 
-  override getPlatformSession(): Promise<PlatformSession | null> { return Promise.resolve(null) }
+  override getPlatformSession(): Promise<TokamakPlatformSession | null> { return Promise.resolve(null) }
 
   override getDeviceIdentity(): Promise<{ deviceId?: string; userId?: AccountUserId; osVersion: string }> {
     return Promise.resolve({ osVersion: `${platform()} ${release()}` })
@@ -222,9 +227,9 @@ export class TokamakAccount extends DeepSeekAccount {
       const cancelled = this.attempt
       if (cancelled !== undefined) await this.cancelSignIn(cancelled.view.id)
       await this.clearStored(stored)
-      this.ctx.emit('deepseek-account/session-expired')
+      this.ctx.emit('tokamak-account/session-expired')
       if (this.attempt === cancelled) this.attempt = undefined
-      this.ctx.emit('deepseek-account/signed-out')
+      this.ctx.emit('tokamak-account/signed-out')
       this.changed()
       return this.getState()
     })().finally(() => { this.removing = undefined })
@@ -293,7 +298,7 @@ export class TokamakAccount extends DeepSeekAccount {
       }
       // A sign-in started while this one was settling stays visible and cancellable.
       if (this.attempt === cancelled) this.attempt = undefined
-      this.ctx.emit('deepseek-account/signed-out')
+      this.ctx.emit('tokamak-account/signed-out')
       this.changed()
       return this.getState()
     })().finally(() => { this.removing = undefined })
@@ -473,7 +478,7 @@ export class TokamakAccount extends DeepSeekAccount {
     }
   }
 }
-export default TokamakAccount
+export default TokamakAccountProvider
 
 function isActive(phase: SignInAttemptView['phase']): boolean {
   return phase === 'initializing' || phase === 'waiting-browser' || phase === 'exchanging' || phase === 'committing'

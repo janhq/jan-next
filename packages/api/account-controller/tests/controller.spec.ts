@@ -1,6 +1,6 @@
 /** Account Remote delegation preserves provider results, failures, and stream lifetime. */
 import { Context } from '@janhq/cordis'
-import type { DeepSeekAccount } from '@janhq/jan-tokamak-account'
+import type { TokamakAccount } from '@janhq/jan-tokamak-account'
 import type { AccountBonusBatch, AccountBonusOrderId, AccountClientMetadata, AccountUserId } from '@janhq/jan-tokamak-account/types'
 import type { AccountView, SignInAttemptId } from '../src/types.ts'
 import { afterEach, expect, it, vi } from 'vitest'
@@ -15,17 +15,17 @@ function fixture() {
   const ctx = new Context()
   roots.push(ctx)
   const provider = {
-    getState: vi.fn<DeepSeekAccount['getState']>().mockResolvedValue(state),
-    getProfile: vi.fn<DeepSeekAccount['getProfile']>().mockResolvedValue({ status: 'failed' }),
-    getBalance: vi.fn<DeepSeekAccount['getBalance']>().mockResolvedValue(null),
-    getUnnotifiedBonuses: vi.fn<DeepSeekAccount['getUnnotifiedBonuses']>().mockResolvedValue(null),
-    ackBonusNotified: vi.fn<DeepSeekAccount['ackBonusNotified']>().mockResolvedValue(false),
-    startSignIn: vi.fn<DeepSeekAccount['startSignIn']>().mockResolvedValue(state),
-    cancelSignIn: vi.fn<DeepSeekAccount['cancelSignIn']>().mockResolvedValue(state),
-    signOut: vi.fn<DeepSeekAccount['signOut']>().mockResolvedValue(state),
-    watch: vi.fn<DeepSeekAccount['watch']>(),
+    getState: vi.fn<TokamakAccount['getState']>().mockResolvedValue(state),
+    getProfile: vi.fn<TokamakAccount['getProfile']>().mockResolvedValue({ status: 'failed' }),
+    getBalance: vi.fn<TokamakAccount['getBalance']>().mockResolvedValue(null),
+    getUnnotifiedBonuses: vi.fn<TokamakAccount['getUnnotifiedBonuses']>().mockResolvedValue(null),
+    ackBonusNotified: vi.fn<TokamakAccount['ackBonusNotified']>().mockResolvedValue(false),
+    startSignIn: vi.fn<TokamakAccount['startSignIn']>().mockResolvedValue(state),
+    cancelSignIn: vi.fn<TokamakAccount['cancelSignIn']>().mockResolvedValue(state),
+    signOut: vi.fn<TokamakAccount['signOut']>().mockResolvedValue(state),
+    watch: vi.fn<TokamakAccount['watch']>(),
   }
-  ctx.provide('deepseekAccount', provider as never)
+  ctx.provide('tokamakAccount', provider as never)
   return { ctx, provider, controller: new AccountController(ctx) }
 }
 
@@ -77,11 +77,11 @@ it('passes the subscriber lifetime to the provider and returns its state stream'
 
 it('delivers expiry only to current subscribers and stops on disconnect', async () => {
   const { ctx, controller } = fixture()
-  ctx.emit('deepseek-account/session-expired')
+  ctx.emit('tokamak-account/session-expired')
   const lifetime = new AbortController()
   const iterator = controller.watchExpiry(lifetime.signal)[Symbol.asyncIterator]()
   const first = iterator.next()
-  ctx.emit('deepseek-account/session-expired')
+  ctx.emit('tokamak-account/session-expired')
   expect(await first).toEqual({ done: false, value: 'session-expired' })
   const next = iterator.next()
   lifetime.abort()

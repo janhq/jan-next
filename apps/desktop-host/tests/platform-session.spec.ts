@@ -1,5 +1,5 @@
 import { Context } from '@janhq/cordis'
-import { DeepSeekAccount, type AccountView, type PlatformSession } from '@janhq/jan-tokamak-account'
+import { TokamakAccount, type AccountView, type TokamakPlatformSession } from '@janhq/jan-tokamak-account'
 import { expect, it } from 'vitest'
 import { installPlatformSessionPublisher } from '../src/platform-session.ts'
 
@@ -8,14 +8,15 @@ const state: AccountView = {
   links: { usageUrl: 'https://platform.example/usage', topUpUrl: 'https://platform.example/top_up' },
 }
 
-class Account extends DeepSeekAccount {
+class Account extends TokamakAccount {
+  readonly modelProvider = 'tokamak'
   getDeviceIdentity = async () => ({ osVersion: 'test-os' })
   fail = false
   identityChangesRequested = false
   ended = Promise.withResolvers<undefined>()
   reading = Promise.withResolvers<undefined>()
   finished = Promise.withResolvers<undefined>()
-  read: () => Promise<PlatformSession | null> = async () => ({ origin: 'https://platform.example', userId: null, token: 'test' })
+  read: () => Promise<TokamakPlatformSession | null> = async () => ({ origin: 'https://platform.example', userId: null, token: 'test' })
   override async getState() { return state }
   override async getProfile() { return null }
   override async getBalance() { return null }
@@ -44,15 +45,15 @@ class Account extends DeepSeekAccount {
 
 it('clears removed credentials and publishes the replacement provider session', async () => {
   const ctx = new Context()
-  const sessions: (PlatformSession | null)[] = []
+  const sessions: (TokamakPlatformSession | null)[] = []
   let delivered = Promise.withResolvers<undefined>()
   installPlatformSessionPublisher(ctx, (session) => { sessions.push(session); delivered.resolve(undefined) })
   try {
     const first = await ctx.plugin(Account)
     await delivered.promise
-    expect(ctx.deepseekAccount).toBeInstanceOf(Account)
-    if (!(ctx.deepseekAccount instanceof Account)) throw new Error('missing account fixture')
-    expect(ctx.deepseekAccount.identityChangesRequested).toBe(true)
+    expect(ctx.tokamakAccount).toBeInstanceOf(Account)
+    if (!(ctx.tokamakAccount instanceof Account)) throw new Error('missing account fixture')
+    expect(ctx.tokamakAccount.identityChangesRequested).toBe(true)
     expect(sessions.at(-1)?.token).toBe('test')
     await first.dispose()
     expect(sessions.at(-1)).toBeNull()
@@ -74,7 +75,7 @@ it.each([false, true])('clears credentials when the account stream ends (failure
   installPlatformSessionPublisher(ctx, (session) => { if (session === null) cleared.resolve(undefined) })
   try {
     await ctx.plugin(Account)
-    const account = ctx.get('deepseekAccount')
+    const account = ctx.get('tokamakAccount')
     expect(account).toBeInstanceOf(Account)
     if (!(account instanceof Account)) throw new Error('missing account fixture')
     await account.reading.promise
@@ -89,16 +90,16 @@ it.each([false, true])('clears credentials when the account stream ends (failure
 
 it('suppresses a credential read that completes during provider disposal', async () => {
   const ctx = new Context()
-  const pending = Promise.withResolvers<PlatformSession | null>()
+  const pending = Promise.withResolvers<TokamakPlatformSession | null>()
   const cleared = Promise.withResolvers<undefined>()
-  const sessions: (PlatformSession | null)[] = []
+  const sessions: (TokamakPlatformSession | null)[] = []
   installPlatformSessionPublisher(ctx, (session) => { sessions.push(session); if (session === null) cleared.resolve(undefined) })
   try {
     const provider = await ctx.plugin((scope) => {
       const account = new Account(scope)
       account.read = () => pending.promise
     })
-    const account = ctx.deepseekAccount
+    const account = ctx.tokamakAccount
     if (!(account instanceof Account)) throw new Error('missing account fixture')
     await account.reading.promise
     const disposed = provider.dispose()

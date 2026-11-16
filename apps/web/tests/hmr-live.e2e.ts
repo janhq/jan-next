@@ -120,7 +120,7 @@ it('hot-reloads a real client-plugin source edit without refreshing the page', a
       [process.execPath, binPath, 'web', '--no-open', '--port', '0'],
       world,
       {
-        DEEPSEEK_API_KEY: 'keyless-hmr-no-call',
+        TOKAMAK_API_KEY: 'keyless-hmr-no-call',
         JAN_HOME: join(world, '.jan'),
       },
     ))

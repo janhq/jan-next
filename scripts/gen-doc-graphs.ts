@@ -480,9 +480,9 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Configuration carries references to secrets; providers own the values. Consumers resolve per operation, so a rotated credential reaches the very next request; the settings controller exposes value-free views and write-only storage.',
   },
   {
-    key: 'deepseekAccount',
+    key: 'tokamakAccount',
     pkg: 'tokamak-account',
-    title: 'DeepSeek account',
+    title: 'Tokamak account',
     mode: 'seam',
     implementations: ['tokamak-account'],
     consumers: ['api-account-controller'],

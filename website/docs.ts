@@ -163,8 +163,6 @@ const subsystemGroups = [
 ] as const
 
 const reference = [
-  // `docs/deepseek-llm-api-wire-extensions.md` is a repository-only provider protocol reference.
-  // Projected links intentionally resolve to its GitHub source instead of a public site route.
   ...sectionPages('reference', 'Concepts', [
     { source: 'docs/architecture.md', route: 'reference/index.md', label: 'Architecture' },
     { source: 'docs/cordis-primer.md', route: 'reference/cordis-primer.md', label: 'Cordis primer' },

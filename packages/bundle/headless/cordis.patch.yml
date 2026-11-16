@@ -44,5 +44,5 @@
 - id: authorization
   disabled: true
 
-- id: deepseek-account
+- id: tokamak-account
   disabled: true

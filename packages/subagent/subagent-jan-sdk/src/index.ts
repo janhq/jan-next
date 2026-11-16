@@ -1,6 +1,6 @@
 /**
- * Out-of-process SDK subagent backend. Each child is a complete DeepSeek
- * Harness runtime in its own process — own named profile and patch composition,
+ * Out-of-process SDK subagent backend. Each child is a complete Jan
+ * runtime in its own process — own named profile and patch composition,
  * session, model route, and tools — driven over stdio JSON-RPC through the
  * TypeScript SDK client, so it shares no Cordis context. It accepts the
  * provider/model/reasoning/maxTokens subset of `agentOptions`; other start
@@ -50,7 +50,7 @@ export interface Config {
   maxTokens?: number
   /**
    * Extra environment variables for the child process — e.g. the child
-   * runtime's own `DEEPSEEK_API_KEY`. Forwarded on top of a credential-scrubbed copy of the parent
+   * runtime's own `TOKAMAK_API_KEY`. Forwarded on top of a credential-scrubbed copy of the parent
    * env, so an explicit key here reaches the child while ambient secrets do
    * not leak implicitly.
    */

@@ -18,7 +18,7 @@ import type { BasicCompactionConfig } from '@janhq/jan-compaction-basic'
 
 /**
  * Shared harness for the headless-agent e2e suites: the full plugin stack
- * with the real pi-ai `deepseek` route and the real bash + todo_write tools. Lives
+ * with the real pi-ai `tokamak` route and the real bash + todo_write tools. Lives
  * outside the *.e2e.ts pattern so importing it never re-registers another
  * file's tests.
  */
@@ -35,7 +35,7 @@ export const TODO_SYSTEM_PROMPT = 'You are a coding agent. For multi-step work, 
   + 'completed as soon as it is done.'
 
 /** The key-gated pi-ai route every headless e2e Agent uses. */
-export const E2E_MODEL = { provider: 'deepseek', model: 'deepseek-flash' } as const
+export const E2E_MODEL = { provider: 'tokamak', model: 'tokamak-1-preview' } as const
 
 /** Options for {@link codingHarness}. */
 export interface CodingHarnessOptions {
@@ -76,15 +76,14 @@ export async function codingHarness(workdir: string, options: CodingHarnessOptio
   await ctx.plugin(LlmPiAi, {
     providers: {
       [E2E_MODEL.provider]: {
-        apiKeyEnv: 'DEEPSEEK_API_KEY',
-        ...options.modelContextWindow === undefined && options.modelMaxTokens === undefined ? {} : {
-          modelOverrides: {
-            [E2E_MODEL.model]: {
-              ...options.modelContextWindow === undefined ? {} : { contextWindow: options.modelContextWindow },
-              ...options.modelMaxTokens === undefined ? {} : { maxTokens: options.modelMaxTokens },
-            },
-          },
-        },
+        api: 'openai-completions',
+        baseURL: process.env.TOKAMAK_BASE_URL ?? 'https://api.tokamak.sh/v1',
+        apiKeyEnv: 'TOKAMAK_API_KEY',
+        models: [{
+          id: E2E_MODEL.model,
+          ...options.modelContextWindow === undefined ? {} : { contextWindow: options.modelContextWindow },
+          ...options.modelMaxTokens === undefined ? {} : { maxTokens: options.modelMaxTokens },
+        }],
       },
     },
   })

@@ -53,7 +53,7 @@ async function fixture(
   const base = `jan-${version}-${os}-${arch}`
   const origin = environment === 'test'
     ? TEST_ORIGIN
-    : 'https://download.deepseek.com'
+    : 'https://downloads.example.com'
   await writeFile(join(artifactsRoot, `${target}-release.json`), `${JSON.stringify({
     schemaVersion: 1,
     channel,
@@ -103,7 +103,7 @@ async function fixture(
       }
       : {
         JAN_DESKTOP_UPDATE_CHANNEL: channel,
-        JAN_DESKTOP_AUTO_UPDATE_ENV: 'production',
+        JAN_DESKTOP_AUTO_UPDATE_ENV: 'production', DOWNLOAD_PROD_ORIGIN: 'https://downloads.example.com',
         DOWNLOAD_PROD_COS_BUCKET: PRODUCTION_BUCKET,
       },
   }
@@ -199,7 +199,7 @@ describe('desktop upload plan', () => {
         const payload = plan.artifacts.find(file => file.filename.endsWith(target === 'win-x64' ? '.exe' : '.zip'))!
         expect(payload.key).toContain(`/bin/${target}/stable/`)
         expect(load(feed.contents!)).toMatchObject({ version, files: [{
-          url: `${environment === 'test' ? TEST_ORIGIN : 'https://download.deepseek.com'}/${payload.key}`,
+          url: `${environment === 'test' ? TEST_ORIGIN : 'https://downloads.example.com'}/${payload.key}`,
         }] })
         summaries.push({ environment, version, keys: plan.artifacts.map(file => file.key) })
       }
@@ -218,7 +218,7 @@ describe('desktop upload plan', () => {
     expect(load(plan.artifacts[2]!.contents!)).toMatchObject({
       version: '1.2.3',
       files: [{
-        url: 'https://download.deepseek.com/jan-desk/bin/win-x64/jan-1.2.3-win-x64.exe',
+        url: 'https://downloads.example.com/jan-desk/bin/win-x64/jan-1.2.3-win-x64.exe',
         sha512: digest('signed NSIS executable fixture'),
       }],
     })
@@ -293,7 +293,7 @@ describe('desktop upload plan', () => {
       'nightly.yml',
     ])
     expect(plan).toMatchObject({
-      publicUrl: 'https://download.deepseek.com/jan-desk/feeds/win-x64/',
+      publicUrl: 'https://downloads.example.com/jan-desk/feeds/win-x64/',
       bucket: PRODUCTION_BUCKET,
     })
   })

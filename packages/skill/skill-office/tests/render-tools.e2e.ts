@@ -36,7 +36,7 @@ async function sessionEvents(cwd: string) {
   return events
 }
 
-it.skipIf(!process.env.DEEPSEEK_API_KEY || !runtime).each([{ format: 'docx', mode: 'native' }, { format: 'pdf', mode: 'native' }, { format: 'docx', mode: 'ptc' }])('loads the operation skill and renders $format through the shell in $mode mode', async ({ format, mode }) => {
+it.skipIf(!process.env.TOKAMAK_API_KEY || !runtime).each([{ format: 'docx', mode: 'native' }, { format: 'pdf', mode: 'native' }, { format: 'docx', mode: 'ptc' }])('loads the operation skill and renders $format through the shell in $mode mode', async ({ format, mode }) => {
   let original: Buffer | undefined
   await runLoaderSmoke({
     label: 'Office CLI rendering', tempDirPrefix: 'jan-office-render-',
@@ -91,7 +91,7 @@ it.skipIf(!process.env.DEEPSEEK_API_KEY || !runtime).each([{ format: 'docx', mod
   })
 })
 
-it.skipIf(!process.env.DEEPSEEK_API_KEY || !runtime)('keeps Office skills and the renderer unloaded for an ordinary task', async () => {
+it.skipIf(!process.env.TOKAMAK_API_KEY || !runtime)('keeps Office skills and the renderer unloaded for an ordinary task', async () => {
   await runLoaderSmoke({
     ...launch,
     label: 'ordinary task with Office routing', tempDirPrefix: 'jan-office-unused-',
@@ -109,7 +109,7 @@ it.skipIf(!process.env.DEEPSEEK_API_KEY || !runtime)('keeps Office skills and th
   })
 })
 
-it.skipIf(!process.env.DEEPSEEK_API_KEY || !runtime)('exports PDF through the operation skill and preserves the source', async () => {
+it.skipIf(!process.env.TOKAMAK_API_KEY || !runtime)('exports PDF through the operation skill and preserves the source', async () => {
   let original: Buffer | undefined
   await runLoaderSmoke({
     ...launch,

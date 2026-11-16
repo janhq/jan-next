@@ -88,7 +88,7 @@ async function runHeadlessPtySmoke(): Promise<string> {
       env: {
         JAN_HOME: home,
         JAN_AGENTS_HOME: join(cwd, '.agents'),
-        DEEPSEEK_API_KEY: 'keyless-shutdown-no-call',
+        TOKAMAK_API_KEY: 'keyless-shutdown-no-call',
         JAN_TELEMETRY_DISABLED: '1',
         JAN_TEST_SHUTDOWN_ARM_FILE: join(cwd, 'shutdown-armed'),
       },

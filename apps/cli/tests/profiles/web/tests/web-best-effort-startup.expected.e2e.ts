@@ -144,7 +144,7 @@ describe.skipIf(!builtArtifactsExist)('jan Web profile best-effort startup', () 
       cwd: fixture.root,
       env: {
         ...process.env,
-        DEEPSEEK_API_KEY: 'keyless-web-best-effort-no-call',
+        TOKAMAK_API_KEY: 'keyless-web-best-effort-no-call',
         JAN_AGENTS_HOME: join(fixture.root, '.agents'),
         JAN_HOME: fixture.home,
         JAN_TELEMETRY_DISABLED: '1',
@@ -223,7 +223,7 @@ describe.skipIf(!builtArtifactsExist)('jan Web profile best-effort startup', () 
         cwd: fixture.root,
         env: {
           ...process.env,
-          DEEPSEEK_API_KEY: 'keyless-web-required-no-call',
+          TOKAMAK_API_KEY: 'keyless-web-required-no-call',
           JAN_AGENTS_HOME: join(fixture.root, '.agents'),
           JAN_HOME: fixture.home,
           JAN_TELEMETRY_DISABLED: '1',
@@ -276,7 +276,7 @@ describe.skipIf(!builtArtifactsExist)('jan Web profile best-effort startup', () 
         cwd: root,
         env: {
           ...process.env,
-          DEEPSEEK_API_KEY: 'keyless-web-required-bind-no-call',
+          TOKAMAK_API_KEY: 'keyless-web-required-bind-no-call',
           JAN_AGENTS_HOME: join(root, '.agents'),
           JAN_HOME: home,
           JAN_TELEMETRY_DISABLED: '1',
@@ -357,7 +357,7 @@ describe.skipIf(!builtArtifactsExist)('jan Web profile best-effort startup', () 
         cwd: fixture.root,
         env: {
           ...process.env,
-          DEEPSEEK_API_KEY: 'keyless-web-detached-no-call',
+          TOKAMAK_API_KEY: 'keyless-web-detached-no-call',
           JAN_AGENTS_HOME: join(fixture.root, '.agents'),
           JAN_HOME: fixture.home,
           JAN_TELEMETRY_DISABLED: '1',

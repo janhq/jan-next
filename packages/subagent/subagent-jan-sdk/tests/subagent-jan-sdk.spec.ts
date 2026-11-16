@@ -22,7 +22,7 @@ import {
   HarnessClient,
   SdkProtocolError,
 } from '@janhq/jan-sdk-client'
-import { createProcessDeepSeekHarness } from '../../../sdk/client/src/api.ts'
+import { createProcessJan } from '../../../sdk/client/src/api.ts'
 import type { RuntimeProcessOptions } from '../../../sdk/client/src/launch.ts'
 import type { JanOptions } from '@janhq/jan-sdk-client'
 import { ReasoningEffortId } from '@janhq/jan-llm'
@@ -61,7 +61,7 @@ beforeEach(() => {
       ...options.disposeEofGraceMs === undefined ? {} : { disposeEofGraceMs: options.disposeEofGraceMs },
       ...options.disposeGraceMs === undefined ? {} : { disposeGraceMs: options.disposeGraceMs },
     }
-    return createProcessDeepSeekHarness(runtime, options)
+    return createProcessJan(runtime, options)
   }
 })
 
@@ -293,15 +293,15 @@ describe('jan-subagent-jan-sdk provider', () => {
     process.env.JAN_TEST_AMBIENT_SECRET_KEY = 'leak-me-not'
     try {
       const ctx = await setup({
-        FAKE_ECHO_ENV: 'JAN_TEST_AMBIENT_SECRET_KEY,DEEPSEEK_API_KEY',
-        DEEPSEEK_API_KEY: 'explicit-child-key',
+        FAKE_ECHO_ENV: 'JAN_TEST_AMBIENT_SECRET_KEY,TOKAMAK_API_KEY',
+        TOKAMAK_API_KEY: 'explicit-child-key',
         FAKE_TEXT: 'done',
       })
       const run = await startExternalActivation(ctx, 'jan-sdk', request())
       const result = await run.result
       const answer = text(result.output)
       expect(answer).toContain('JAN_TEST_AMBIENT_SECRET_KEY=\n')
-      expect(answer).toContain('DEEPSEEK_API_KEY=explicit-child-key')
+      expect(answer).toContain('TOKAMAK_API_KEY=explicit-child-key')
       await run.dispose()
       await ctx.fiber.dispose()
     } finally {

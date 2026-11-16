@@ -92,10 +92,10 @@ declare module '@janhq/cordis' {
     /** Server rejection removed the current account credential; this notification is not replayed.
      * @mode emit
      */
-    'deepseek-account/session-expired'(): void
+    'tokamak-account/session-expired'(): void
     /** An account model request requires the user to sign in.
      * @mode emit
      */
-    'deepseek-account/model-sign-in-required'(): void
+    'tokamak-account/model-sign-in-required'(): void
   }
 }

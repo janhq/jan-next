@@ -909,7 +909,7 @@ function installedArtifactEnvironment(consumerRoot: string): NodeJS.ProcessEnv {
   environment.JAN_HOME = resolve(consumerRoot, '.jan')
   environment.JAN_AGENTS_HOME = resolve(consumerRoot, '.agents')
   environment.JAN_TELEMETRY_DISABLED = '1'
-  environment.DEEPSEEK_API_KEY = 'keyless-installed-web-no-call'
+  environment.TOKAMAK_API_KEY = 'keyless-installed-web-no-call'
   environment.LANG = 'en_US.UTF-8'
   environment.LC_ALL = 'en_US.UTF-8'
   environment.LC_CTYPE = 'en_US.UTF-8'

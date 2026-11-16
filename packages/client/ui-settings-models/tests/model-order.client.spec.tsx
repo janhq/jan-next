@@ -3,22 +3,22 @@
 import { useState } from 'react'
 import { act, cleanup, createEvent, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { DeepSeekModelDraft } from '../src/client/DeepSeekModelsEditor.tsx'
+import type { ModelDraft } from '../src/client/model-drafts.ts'
 import { ModelListEditor } from '../src/client/ModelListEditor.tsx'
 import { en } from '../src/client/locales.ts'
 
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
 function Editor(props: {
-  initial: DeepSeekModelDraft[]
-  changed: (models: DeepSeekModelDraft[]) => void
+  initial: ModelDraft[]
+  changed: (models: ModelDraft[]) => void
   disabled?: boolean
 }) {
   const [models, setModels] = useState(props.initial)
   const shared = {
     models, disabled: props.disabled === true, overridden: true,
     t: (key: keyof typeof en) => en[key],
-    onChange: (next: DeepSeekModelDraft[]): void => { props.changed(next); setModels(next) },
+    onChange: (next: ModelDraft[]): void => { props.changed(next); setModels(next) },
     onReset: (): void => { setModels(props.initial) },
   }
   return <ModelListEditor

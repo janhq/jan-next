@@ -11,6 +11,22 @@ export interface InstalledUpdateSource {
   readonly dirtyFiles: readonly string[]
 }
 
+/** Test download origin and COS bucket that receive qualification objects. */
+export interface InstalledUpdateDestination {
+  readonly origin: string
+  readonly bucket: string
+}
+
+function isInstalledUpdateDestination(origin: unknown, bucket: unknown): boolean {
+  if (typeof origin !== 'string' || typeof bucket !== 'string' || !/^[a-z0-9-]+-\d+$/u.test(bucket)) return false
+  try {
+    const url = new URL(origin)
+    return url.protocol === 'https:' && url.origin === origin
+  } catch {
+    return false
+  }
+}
+
 /** A private test namespace; creating it performs no signing, installation, or remote operation. */
 export interface InstalledUpdateRun {
   readonly schemaVersion: 1
@@ -33,12 +49,16 @@ export interface InstalledUpdateRun {
  * @param parent Ignored material directory; each invocation acquires a separate child atomically.
  * @param versions Explicit original and successor test versions, in increasing order.
  * @param source Source version, Git commit, and dirty-file list captured before material preparation.
+ * @param destination Test download origin and COS bucket configured for this machine.
  * @returns The retained run manifest; no package or publication is implied by its presence.
  */
 export async function createInstalledUpdateRun(
-  parent: string, versions: readonly [string, string], source: InstalledUpdateSource,
+  parent: string, versions: readonly [string, string], source: InstalledUpdateSource, destination: InstalledUpdateDestination,
 ): Promise<InstalledUpdateRun> {
   validateVersions(versions)
+  if (!isInstalledUpdateDestination(destination.origin, destination.bucket)) {
+    throw new Error('installed update: an HTTPS test origin and a COS bucket name are required')
+  }
   if (valid(source.version) === null || !/^[a-f0-9]{40,64}$/u.test(source.commit)) {
     throw new Error('installed update: valid source version and Git commit are required')
   }
@@ -48,7 +68,7 @@ export async function createInstalledUpdateRun(
   const run: InstalledUpdateRun = {
     schemaVersion: 1, id, root, createdAt: new Date().toISOString(), source, versions,
     appId: `com.janhq.jan.qualification.q${id}`, productName: `Jan Update Test ${id}`,
-    environment: 'test', origin: 'https://download-test.deepseek.com', bucket: 'bj-toc-download-test-1320056602',
+    environment: 'test', origin: destination.origin, bucket: destination.bucket,
     feedKey: `jan-desk/feeds/qualification/${id}/win-x64/nightly.yml`,
     binPrefix: `jan-desk/bin/qualification/${id}/win-x64`,
   }
@@ -75,7 +95,7 @@ export async function readInstalledUpdateRun(path: string): Promise<InstalledUpd
   const row = value as Record<string, unknown>
   if (row.schemaVersion !== 1 || typeof row.id !== 'string' || !/^[a-f0-9]{24}$/u.test(row.id)
     || row.root !== resolve(dirname(path)) || row.environment !== 'test'
-    || row.origin !== 'https://download-test.deepseek.com' || row.bucket !== 'bj-toc-download-test-1320056602'
+    || !isInstalledUpdateDestination(row.origin, row.bucket)
     || row.appId !== `com.janhq.jan.qualification.q${row.id}` || row.productName !== `Jan Update Test ${row.id}`
     || row.feedKey !== `jan-desk/feeds/qualification/${row.id}/win-x64/nightly.yml`
     || row.binPrefix !== `jan-desk/bin/qualification/${row.id}/win-x64`

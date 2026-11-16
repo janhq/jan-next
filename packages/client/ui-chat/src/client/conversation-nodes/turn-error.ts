@@ -39,8 +39,8 @@ function endFailure(reason: TurnEndReason): { readonly message: string; readonly
       return reason.error
     case 'aborted':
       // User and parent cancellations show only the stopped turn summary.
-      return reason.reason.kind === 'hook' && reason.reason.reason === 'deepseek-account/signed-out'
-        ? { message: 'Stopped because you signed out of DeepSeek.', code: 'ACCOUNT_SIGNED_OUT' }
+      return reason.reason.kind === 'hook' && reason.reason.reason === 'tokamak-account/signed-out'
+        ? { message: 'Stopped because you signed out of Tokamak.', code: 'ACCOUNT_SIGNED_OUT' }
         : undefined
     case 'interrupted':
       return { message: 'The Jan process exited before this turn finished.', code: 'INTERRUPTED' }

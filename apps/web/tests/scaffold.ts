@@ -5,7 +5,7 @@
 // layer stack the profile boot composes), patched the
 // snapshot way — so a real chromium exercises the real HTTP uplink/WebSocket
 // downlink, api-gateway, agent loop, tools, and persistence. Modes ride $JAN_SNAPSHOT:
-// replay (default, keyless: normally disables the direct DeepSeek rows and
+// replay (default, keyless: normally disables the direct model rows and
 // inserts jan-llm-replay in providers mode), record (real adapter + key,
 // harvests fixtures from live session memory), refresh (keyless replay that
 // rewrites goldens). A first-run option keeps the real adapter mounted while
@@ -388,9 +388,9 @@ export interface LaunchOptions {
   replayContextWindow?: number
   /**
    * Boot only the shipped model routes and default model, with no replay or route-only adapter,
-   * while masking the process environment's DEEPSEEK_API_KEY. This is the keyless first-run lane.
+   * while masking the process environment's TOKAMAK_API_KEY. This is the keyless first-run lane.
    */
-  deepSeekMissingCredential?: boolean
+  missingModelCredential?: boolean
   /** Leave the current welcome notice pending; ordinary scenarios pre-acknowledge it before browser boot. */
   welcomeNoticePending?: boolean
   /** Leave first-use Workspace initialization eligible; ordinary scenarios start after the default was removed. */
@@ -469,20 +469,20 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     // Recorded fixtures route through `deepseek-official`, which no shipped adapter serves.
     throw new Error('web e2e record mode needs a live adapter for the deepseek-official replay route; none is composed')
   }
-  const maskDeepSeekCredential = options.deepSeekMissingCredential === true
+  const maskModelCredential = options.missingModelCredential === true
   // A keyless run that replays recorded model calls pins the snapshot replay placeholder because
   // recordings ran with a real key. Other runs keep the launching environment, as their goldens do.
-  const pinDeepSeekCredential = !maskDeepSeekCredential
+  const pinModelCredential = !maskModelCredential
     && options.replayFixture !== undefined && options.replayProvidersOnly !== true
-  const originalDeepSeekCredential = process.env.DEEPSEEK_API_KEY
+  const originalModelCredential = process.env.TOKAMAK_API_KEY
   let credentialEnvironmentRestored = false
   const restoreCredentialEnvironment = (): void => {
-    if (credentialEnvironmentRestored || (!maskDeepSeekCredential && !pinDeepSeekCredential)) return
+    if (credentialEnvironmentRestored || (!maskModelCredential && !pinModelCredential)) return
     credentialEnvironmentRestored = true
-    if (originalDeepSeekCredential === undefined) {
-      Reflect.deleteProperty(process.env, 'DEEPSEEK_API_KEY')
+    if (originalModelCredential === undefined) {
+      Reflect.deleteProperty(process.env, 'TOKAMAK_API_KEY')
     } else {
-      process.env.DEEPSEEK_API_KEY = originalDeepSeekCredential
+      process.env.TOKAMAK_API_KEY = originalModelCredential
     }
   }
   const workspaceParent = await realpath(tmpdir())
@@ -536,8 +536,8 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     if (failures.length > 1) throw new AggregateError(failures, 'web scaffold temp-root setup failed')
     throw error
   }
-  if (maskDeepSeekCredential) Reflect.deleteProperty(process.env, 'DEEPSEEK_API_KEY')
-  if (pinDeepSeekCredential) Object.assign(process.env, REPLAY_CREDENTIAL_ENV)
+  if (maskModelCredential) Reflect.deleteProperty(process.env, 'TOKAMAK_API_KEY')
+  if (pinModelCredential) Object.assign(process.env, REPLAY_CREDENTIAL_ENV)
 
   // The include patch set — the same layer stack the profile boot composes
   // (bundle patches in jan.profile.bundles order), applied over the SAME empty root (a
@@ -559,7 +559,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     // Without HMR the profile applies configuration changes at its next start.
     ...options.profile?.hmr === false ? [{ id: 'hmr', disabled: true }] : [],
     { id: 'ui-plugin-manager', config: { registryProbeEnabled: false } },
-    ...options.deepSeekMissingCredential === true
+    ...options.missingModelCredential === true
       ? []
       : [{ id: 'agent-default-model', config: { provider: 'deepseek-official', model: 'deepseek-v4-flash' } }],
     ...extraOverlayPatches,
@@ -861,7 +861,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
         ...(replayChildFixtures === undefined ? {} : { childFiles: replayChildFixtures }),
         ...(options.paceMs === undefined ? {} : { paceMs: options.paceMs }),
       })
-    } else if (options.deepSeekMissingCredential !== true) {
+    } else if (options.missingModelCredential !== true) {
       // No fixture and no shipped adapter would leave the tree with ZERO
       // provider routes — a state no product composition has, and one the
       // composer refuses to type into. Register the same routes

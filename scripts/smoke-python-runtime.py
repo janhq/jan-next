@@ -306,6 +306,11 @@ def write_mcp_patch(root: Path, sessions: Path, server_script: Path) -> Path:
     }])
 
 
+def smoke_route(models: list[dict[str, object]]) -> dict[str, object]:
+    """Point the `tokamak` route at the Messages mock that TOKAMAK_BASE_URL names."""
+    return {"api": "anthropic-messages", "baseURLEnv": "TOKAMAK_BASE_URL", "apiKeyEnv": "TOKAMAK_API_KEY", "models": models}
+
+
 class MockModelHandler(BaseHTTPRequestHandler):
     """Return deterministic text, worker, and orchestration completions."""
 
@@ -982,7 +987,7 @@ def _smoke_sdk_authoring_cached(base_url: str, executable: Path, update_snapshot
             patch.write_text(json.dumps(patch_rows))
             first = len(MockModelHandler.requests)
             with Jan(
-                provider="deepseek-official", model="smoke-model", cwd=str(root),
+                provider="tokamak", model="smoke-model", cwd=str(root),
                 jan_bin=str(executable), jan_home=str(home), patches=(str(patch),),
                 api_key="sk-keyless-smoke", base_url=base_url,
                 env={"JAN_PERMISSION_MODE": "danger-full-access", "JAN_TELEMETRY_DISABLED": "1", "JAN_RESOURCE_CACHE": str(cache)},
@@ -1057,7 +1062,7 @@ def smoke_sdk_plugin_manager(base_url: str, executable: Path, cache: Path) -> No
         home = root / "home"
         environment = {"PATH": "", "JAN_RESOURCE_CACHE": str(cache),
                        "JAN_PERMISSION_MODE": "workspace-write", "JAN_TELEMETRY_DISABLED": "1"}
-        config = dict(provider="deepseek-official", model="smoke-model", cwd=str(root),
+        config = dict(provider="tokamak", model="smoke-model", cwd=str(root),
                       jan_bin=str(executable), jan_home=str(home), env=environment,
                       api_key="sk-keyless-smoke", base_url=base_url, request_timeout_seconds=60)
         with ThreadPoolExecutor(max_workers=2) as worker:
@@ -1090,8 +1095,8 @@ def smoke_sdk_plugin_manager(base_url: str, executable: Path, cache: Path) -> No
             assert result.final_response == PROFILE_PLUGIN_TEXT, result.final_response
         example = Path(__file__).resolve().parent.parent / "python/sdk/examples/manage_plugins.py"
         example_home = root / "example-home"
-        example_environment = {**os.environ, **environment, "DEEPSEEK_BASE_URL": base_url,
-                               "DEEPSEEK_API_KEY": "sk-keyless-smoke"}
+        example_environment = {**os.environ, **environment, "TOKAMAK_BASE_URL": base_url,
+                               "TOKAMAK_API_KEY": "sk-keyless-smoke"}
         example_args = [sys.executable, str(example), "--jan-home", str(example_home),
                         "--workspace", str(root), "--jan-bin", str(executable)]
         for decision, expected in (("n", "plugin installation rejected"), ("y", "plugin installation saved")):
@@ -1160,7 +1165,7 @@ def smoke_sdk_office(executable: Path) -> None:
                        "imageInput": str(documents["pptx"]), "imageOutput": str(root / "node-pptx")},
         }]}]))
         with Jan(
-            provider="deepseek-official",
+            provider="tokamak",
             model="smoke-model",
             cwd=str(root),
             jan_bin=str(relocated),
@@ -1264,12 +1269,12 @@ def smoke_sdk_live() -> None:
     """Run a real-model, tool-using two-turn task through installed wheels."""
     from jan import Jan
 
-    api_key = os.environ.get("DEEPSEEK_API_KEY")
-    base_url = os.environ.get("DEEPSEEK_BASE_URL")
+    api_key = os.environ.get("TOKAMAK_API_KEY")
+    base_url = os.environ.get("TOKAMAK_BASE_URL")
     if not api_key:
-        raise AssertionError("sdk-live requires DEEPSEEK_API_KEY")
+        raise AssertionError("sdk-live requires TOKAMAK_API_KEY")
     if not base_url:
-        raise AssertionError("sdk-live requires an explicit DEEPSEEK_BASE_URL")
+        raise AssertionError("sdk-live requires an explicit TOKAMAK_BASE_URL")
 
     with tempfile.TemporaryDirectory(prefix="jan-sdk-live-") as temporary:
         root = Path(temporary).resolve()
@@ -1284,8 +1289,8 @@ def smoke_sdk_live() -> None:
             f"Then reply with exactly {LIVE_API_SENTINEL}.\n{marker}"
         )
         with Jan(
-            provider="deepseek-official",
-            model="deepseek-v4-flash",
+            provider="tokamak",
+            model="tokamak-1-preview",
             cwd=str(root),
             jan_home=str(jan_home),
             env={
@@ -1381,7 +1386,7 @@ def smoke_sdk_default(base_url: str) -> None:
         jan_home = root / "home"
         sessions = jan_home / "sessions"
         with Jan(
-            provider="deepseek-official",
+            provider="tokamak",
             model="smoke-model",
             cwd=str(root),
             jan_home=str(jan_home),
@@ -1403,7 +1408,7 @@ def smoke_sdk_default(base_url: str) -> None:
         # The installed runtime starts with an empty PATH; no checkout or global pnpm can satisfy the tool.
         before = (jan_home / "profiles/sdk/package.json").read_bytes()
         with Jan(
-            provider="deepseek-official", model="smoke-model", cwd=str(root), jan_home=str(jan_home),
+            provider="tokamak", model="smoke-model", cwd=str(root), jan_home=str(jan_home),
             env={"JAN_PERMISSION_MODE": "danger-full-access", "JAN_TELEMETRY_DISABLED": "1", "PATH": "",
                  "JAN_PRIMARY_RUNTIME": "", "JAN_RESOURCE_CACHE": str(root / "empty-resource-cache")},
             api_key="sk-keyless-smoke", base_url=base_url, request_timeout_seconds=60,
@@ -1427,7 +1432,7 @@ def smoke_sdk_custom(base_url: str, executable: Path) -> None:
             sessions = jan_home / "sessions"
             patch = write_advanced_profile_patch(root, "custom.patch.yml", sessions, mode)
             with Jan(
-                provider="deepseek-official",
+                provider="tokamak",
                 model="smoke-model",
                 cwd=str(root),
                 jan_bin=str(executable),
@@ -1463,9 +1468,9 @@ def smoke_sdk_minimal(
         if in_history:
             patch = root / "in-history.patch.yml"
             patch.write_text(json.dumps([
-                {"id": "llm-deepseek", "config": {"models": [
+                {"id": "llm-pi-ai", "config": {"providers": {"tokamak": smoke_route([
                     {"id": "smoke-model", "systemPromptUpdate": "in-history"},
-                ]}},
+                ])}}},
                 {"insert": [{
                     "id": "in-history-prompt",
                     "name": (Path(__file__).resolve().parent / "fixtures/python-sdk-in-history-prompt.mjs").as_uri(),
@@ -1473,7 +1478,7 @@ def smoke_sdk_minimal(
             ]))
             patches = (str(patch),)
         with Jan(
-            provider="deepseek-official",
+            provider="tokamak",
             model="smoke-model",
             cwd=str(root),
             jan_bin=str(executable),
@@ -1522,9 +1527,9 @@ def smoke_sdk_dynamic_tools(base_url: str, executable: Path, update_snapshots: b
         task.write_text("Call snapshot_ping once.\n", encoding="utf-8")
         patch = write_profile_patch(root, "dynamic-tools.patch.yml", sessions, [
             {"id": "tool-fs", "config": {"applyPatch": True}},
-            {"id": "llm-deepseek", "config": {"models": [
+            {"id": "llm-pi-ai", "config": {"providers": {"tokamak": smoke_route([
                 {"id": "smoke-model", "toolUpdate": "addition-only"},
-            ]}},
+            ])}}},
             {"id": "tool-bash", "disabled": True},
             {"id": "tool-pwsh", "disabled": True},
             {"id": "session-title-llm", "disabled": True},
@@ -1534,7 +1539,7 @@ def smoke_sdk_dynamic_tools(base_url: str, executable: Path, update_snapshots: b
             }]},
         ])
         with Jan(
-            provider="deepseek-official", model="smoke-model", cwd=str(root),
+            provider="tokamak", model="smoke-model", cwd=str(root),
             jan_bin=str(executable), jan_home=str(jan_home), patches=(str(patch),),
             env={
                 "JAN_PERMISSION_MODE": "danger-full-access", "JAN_TELEMETRY_DISABLED": "1",
@@ -1572,7 +1577,7 @@ def smoke_sdk_fs_search(base_url: str, executable: Path) -> None:
             {"id": "tool-fs-search", "config": {"sampleOverCapGlobResults": False}},
         ])
         with Jan(
-            provider="deepseek-official",
+            provider="tokamak",
             model="smoke-model",
             cwd=str(root),
             jan_bin=str(executable),
@@ -1602,7 +1607,7 @@ def smoke_sdk_spawn_node(base_url: str, executable: Path) -> None:
         sessions = jan_home / "sessions"
         patch = write_profile_patch(root, "spawn-node.patch.yml", sessions, [])
         with Jan(
-            provider="deepseek-official",
+            provider="tokamak",
             model="smoke-model",
             cwd=str(root),
             jan_bin=str(executable),
@@ -1635,7 +1640,7 @@ def smoke_sdk_mcp(base_url: str, executable: Path | None) -> None:
         patch = write_mcp_patch(root, sessions, server_script)
         discovery_log = server_script.with_suffix(".log")
         with Jan(
-            provider="deepseek-official",
+            provider="tokamak",
             model="smoke-model",
             cwd=str(root),
             jan_bin=None if executable is None else str(executable),
@@ -1720,7 +1725,7 @@ def smoke_sdk_profile_plugin(base_url: str) -> None:
             raise AssertionError(f"jan plugin did not activate the external bundle: {manifest}")
 
         harness = Jan(
-            provider="deepseek-official",
+            provider="tokamak",
             model="smoke-model",
             cwd=str(root),
             jan_home=str(jan_home),
@@ -1787,7 +1792,7 @@ def smoke_sdk_snapshot_mode(
             }]},
         ])
         with Jan(
-            provider="deepseek-official",
+            provider="tokamak",
             model="smoke-model",
             cwd=str(root),
             jan_bin=str(executable),
@@ -1898,7 +1903,7 @@ def smoke_sdk_restart_snapshot(base_url: str, executable: Path, update_snapshots
 
         def connect(model: str = "smoke-model") -> Jan:
             return Jan(
-                provider="deepseek-official",
+                provider="tokamak",
                 model=model,
                 cwd=str(root),
                 jan_bin=str(executable),
@@ -1992,7 +1997,7 @@ def smoke_sdk_restart_snapshot(base_url: str, executable: Path, update_snapshots
             if record.get("type") == "model/selection"
         ]
         if selection_events != [{"type": "model/selection", "data": {
-            "provider": "deepseek-official", "model": "resumed-smoke-model",
+            "provider": "tokamak", "model": "resumed-smoke-model",
         }}]:
             raise AssertionError(f"resume did not persist the initialized model: {selection_events}")
         if requests[0].get("model") != "resumed-smoke-model":
@@ -2033,7 +2038,7 @@ def smoke_sdk_scheduler_recovery(base_url: str, executable: Path, update_snapsho
 
         def connect() -> Jan:
             return Jan(
-                provider="deepseek-official", model="smoke-model", cwd=str(root),
+                provider="tokamak", model="smoke-model", cwd=str(root),
                 jan_bin=str(executable), jan_home=str(jan_home),
                 patches=(str(base_patch), str(patch)),
                 env={"JAN_PERMISSION_MODE": "danger-full-access", "JAN_TELEMETRY_DISABLED": "1"},
@@ -2110,8 +2115,8 @@ def smoke_direct(base_url: str, executable: Path) -> None:
             "JAN_HOME": str(jan_home),
             "JAN_PERMISSION_MODE": "danger-full-access",
             "JAN_TELEMETRY_DISABLED": "1",
-            "DEEPSEEK_API_KEY": "sk-keyless-smoke",
-            "DEEPSEEK_BASE_URL": base_url,
+            "TOKAMAK_API_KEY": "sk-keyless-smoke",
+            "TOKAMAK_BASE_URL": base_url,
         }
         peer = RuntimePeer(
             [str(executable), "--profile", "sdk", "--patch", str(patch)],
@@ -2119,7 +2124,7 @@ def smoke_direct(base_url: str, executable: Path) -> None:
             environment,
         )
         try:
-            peer.send({"jsonrpc": "2.0", "id": "initialize", "method": "initialize", "params": {"cwd": str(root), "provider": "deepseek-official", "model": "smoke-model"}})
+            peer.send({"jsonrpc": "2.0", "id": "initialize", "method": "initialize", "params": {"cwd": str(root), "provider": "tokamak", "model": "smoke-model"}})
             peer.read_until(lambda message: message.get("id") == "initialize")
             peer.send({
                 "jsonrpc": "2.0",

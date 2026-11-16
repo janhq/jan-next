@@ -2,7 +2,7 @@
 import type { EventEmitter } from 'node:events'
 import { createHash, randomUUID } from 'node:crypto'
 import { WebContentsView, session, shell, type Session, type View, type WebFrameMain } from 'electron'
-import { mergePlatformCookies, platformClientHeaders, type PlatformSession } from '@janhq/jan-tokamak-account'
+import { mergePlatformCookies, platformClientHeaders, type TokamakPlatformSession } from '@janhq/jan-tokamak-account'
 import { desktopClientMetadata } from './client-metadata.ts'
 
 import { PLATFORM_IPC, type PlatformLocale } from './platform-ipc.ts'
@@ -39,7 +39,7 @@ type PlatformSender = { sender: object; senderFrame: Pick<WebFrameMain, 'url'> |
 
 /** Native view and its credential snapshot are discarded together. */
 export class DesktopPlatformView {
-  private account: PlatformSession | null = null
+  private account: TokamakPlatformSession | null = null
   private view: WebContentsView | undefined
   private owner: PlatformOwner | undefined
   private releaseOwner: (() => void) | undefined
@@ -57,7 +57,7 @@ export class DesktopPlatformView {
     private readonly platform: 'darwin' | 'win32' | null, private readonly blocked: (owner: PlatformOwner) => boolean) {}
 
   /** @param next - private Host credentials; identity enrichment preserves an already open temporary document. */
-  setSession(next: PlatformSession | null): void {
+  setSession(next: TokamakPlatformSession | null): void {
     if (next?.token === this.account?.token && next?.origin === this.account?.origin
       && next?.embeddedPageDist === this.account?.embeddedPageDist
       && JSON.stringify(next?.requestHeaders) === JSON.stringify(this.account?.requestHeaders)) {
@@ -194,7 +194,7 @@ export class DesktopPlatformView {
    * @param event - Electron-provided sender identity.
    * @returns credentials and current language copied into the isolated preload.
    */
-  bootstrap(event: PlatformSender): Pick<PlatformSession, 'origin' | 'token'> & { locale: PlatformLocale } {
+  bootstrap(event: PlatformSender): Pick<TokamakPlatformSession, 'origin' | 'token'> & { locale: PlatformLocale } {
     const view = this.view
     const account = this.account
     if (view === undefined || account === null || event.sender !== view.webContents

@@ -118,7 +118,7 @@
     # credential the `tokamak` model route reads. TOKAMAK_BASE_URL / TOKAMAK_WEB_URL
     # point it at another deployment (e.g. https://api-stag.tokamak.sh); a bare
     # host gets /v1, identically for this row and the model route.
-    - id: deepseek-account
+    - id: tokamak-account
       name: '@janhq/jan-tokamak-account'
       config:
         apiBaseURL: !!js (process.env.TOKAMAK_BASE_URL || 'https://api.tokamak.sh/v1').trim().replace(/\/+$/, '').replace(/^(https?:\/\/[^/]+)$/, '$1/v1')
@@ -250,7 +250,8 @@
 
     # OTel releases a Session-log prefix only after explicit user feedback,
     # regardless of model provider. Ordinary activity never triggers capture.
-    # JAN_TELEMETRY_OTLP_URL overrides the production endpoint. A non-empty
+    # JAN_TELEMETRY_OTLP_URL supplies the collector endpoint; enabling the row
+    # without it fails at load. A non-empty
     # JAN_TELEMETRY_DISABLED — any value, including '0'/'false' — opts the
     # process out (the launchers patch the row disabled; config cannot disable
     # a row). Exports carry the harness home's anonymous user id ($JAN_HOME/.anonymous-user-id,
@@ -270,7 +271,7 @@
         shutdownTimeoutMillis: 3000
         maxRequestBytes: 4000000
         exporter:
-          url: !!js process.env.JAN_TELEMETRY_OTLP_URL ?? 'https://jan-otel-collector.deepseeksvc.com/v1/logs'
+          url: !!js process.env.JAN_TELEMETRY_OTLP_URL
           compression: gzip
           timeoutMillis: 1000
         processor:

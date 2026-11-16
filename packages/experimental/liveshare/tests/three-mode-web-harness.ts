@@ -426,7 +426,7 @@ export async function bootWebOwner(options: WebOwnerOptions = {}): Promise<WebOw
       JAN_HOME: home,
       JAN_AGENTS_HOME: join(cwd, '.agents'),
       JAN_TELEMETRY_DISABLED: '1',
-      DEEPSEEK_API_KEY: '',
+      TOKAMAK_API_KEY: '',
       // Diagnostic only: the fixture appends one line per adapter call to this temp file.
       BASE_LLM_LOG: join(cwd, 'base-llm.log'),
       // Diagnostic only: proves the loader activated the fixture plugin at all.

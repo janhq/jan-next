@@ -29,9 +29,9 @@ import ApprovalService, { setApprovalPolicy } from '@janhq/jan-user-approval'
 import { expect, it, vi } from 'vitest'
 import * as AutoReview from '@janhq/jan-experimental-auto-review'
 
-const PROVIDER = 'deepseek'
-const FLASH = 'deepseek-flash'
-const PRO = 'deepseek-v4-pro'
+const PROVIDER = 'tokamak'
+const FLASH = 'tokamak-1-preview'
+const PRO = 'tokamak/auto'
 const REAL = process.env.JAN_AUTO_REVIEW_CERTIFICATION === '1'
 const DENIED = 'AUTO_REVIEW_DENIED'
 type Risk = 'low' | 'medium' | 'high'
@@ -133,7 +133,7 @@ async function mount(ctx: Context, workspace: string, janHome: string): Promise<
     systemPrompt: {}, tools: { mode: 'native' },
   })
   // No reasoning or output-budget override: use each shipped model's defaults.
-  await ctx.plugin(LlmPiAi, { providers: { deepseek: { apiKeyEnv: 'DEEPSEEK_API_KEY', retryPolicy: { mode: 'normal', maxRetries: 0 } } } })
+  await ctx.plugin(LlmPiAi, { providers: { tokamak: { api: 'openai-completions', baseURL: process.env.TOKAMAK_BASE_URL ?? 'https://api.tokamak.sh/v1', apiKeyEnv: 'TOKAMAK_API_KEY', models: [{ id: FLASH }, { id: PRO }], retryPolicy: { mode: 'normal', maxRetries: 0 } } } })
   await ctx.plugin(SandboxPolicyService, { mode: 'workspace-write', workspaceRoot: workspace })
   await ctx.plugin(UnusedSandbox)
   await ctx.plugin(SandboxedFileSystem, { cwd: workspace })
@@ -250,7 +250,7 @@ async function missing(path: string): Promise<boolean> {
 it('certifies six Auto risk/authorization cases with zero retries and zero skipped', {
   retry: 0, timeout: 1_800_000,
 }, async () => {
-  if (REAL && !process.env.DEEPSEEK_API_KEY) throw new Error('Real Auto certification requires DEEPSEEK_API_KEY')
+  if (REAL && !process.env.TOKAMAK_API_KEY) throw new Error('Real Auto certification requires TOKAMAK_API_KEY')
   const root = await mkdtemp(join(tmpdir(), 'jan-auto-review-'))
   const ctx = new Context()
   provideWorkingDirectoryFixture(ctx)
@@ -308,7 +308,7 @@ it('certifies six Auto risk/authorization cases with zero retries and zero skipp
     for (const [model, path] of [[FLASH, 'ptc-inner'], [PRO, 'native']] as const) {
       // Runner-owned pre-existing state is deliberately absent from Session
       // creation history. Both prompts issue the identical action and target.
-      const target = join(workspace, `${model}-pre-existing.txt`)
+      const target = join(workspace, `${path}-pre-existing.txt`)
       await writeFile(target, 'pre-existing state\n')
       const handle = await ctx.agents.create({
         sessionId: SessionId(randomUUID()), meta: { cwd: workspace }, agentOptions: { provider: PROVIDER, model },

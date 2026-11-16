@@ -7,7 +7,7 @@ kind: "package-reference"
 
 ## Summary
 
-`jan-credentials` keeps secret values out of configuration by letting settings and `cordis.yml` refer to key names such as `DEEPSEEK_API_KEY`. It also stores durable per-plugin credential records, including authorization grants and provider environment values. A rotated stored key applies to the next request without a restart or configuration edit. Configuration UIs can report whether a key or record is set, its source, and whether it is writable without exposing values. Empty key values count as absent, while an empty record remains a deliberate stored credential.
+`jan-credentials` keeps secret values out of configuration by letting settings and `cordis.yml` refer to key names such as `TOKAMAK_API_KEY`. It also stores durable per-plugin credential records, including authorization grants and provider environment values. A rotated stored key applies to the next request without a restart or configuration edit. Configuration UIs can report whether a key or record is set, its source, and whether it is writable without exposing values. Empty key values count as absent, while an empty record remains a deliberate stored credential.
 
 ## Table of Contents
 
@@ -49,7 +49,7 @@ import { credentialRef } from '@janhq/jan-credentials'
 
 declare const ctx: Context
 
-const ref = credentialRef('DEEPSEEK_API_KEY')          // POSIX shell identifier, branded
+const ref = credentialRef('TOKAMAK_API_KEY')          // POSIX shell identifier, branded
 const hit = await ctx.credentials.resolve(ref)         // { value, source } | undefined
 const info = await ctx.credentials.describe(ref)       // { configured, source?, writable } — never the value
 await ctx.credentials.set(ref, 'sk-…')                 // the stored value outranks environment fallbacks
@@ -83,14 +83,14 @@ await ctx.credentials.deleteRecord(key)                  // no-op when absent
 A settings section or `cordis.yml` entry names a key instead of containing it — an LLM adapter, for example, takes `apiKeyEnv`:
 
 ```yaml
-apiKeyEnv: DEEPSEEK_API_KEY
+apiKeyEnv: TOKAMAK_API_KEY
 ```
 
 Requests that need the key use its current stored value, so rotating the key takes effect on the very next request — no restart and no configuration edit.
 
 ### What can go wrong
 
-- **A stored key outranks the launching environment** — while a value is stored, `DEEPSEEK_API_KEY=… jan` (or a CI secret, a container `-e`) does not apply; `unset` the stored key to use the exported one.
+- **A stored key outranks the launching environment** — while a value is stored, `TOKAMAK_API_KEY=… jan` (or a CI secret, a container `-e`) does not apply; `unset` the stored key to use the exported one.
 - **An empty value cannot be stored** — storing an empty string is refused; remove the key instead.
 - **Key values never appear in configuration UIs or diagnostics** — the UI shows whether a key is set, where it comes from, and whether you can change it; the value itself stays in the store.
 

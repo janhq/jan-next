@@ -202,7 +202,7 @@ export default defineConfig({
   test: {
     ...localWorkerBudget,
     setupFiles: [
-      './scripts/test-proxy-environment.ts', './scripts/test-dom-environment.ts', './scripts/test-official-listing-guard.ts',
+      './scripts/test-proxy-environment.ts', './scripts/test-dom-environment.ts',
     ],
     // .tsx: client component specs (jsdom via per-file @vitest-environment pragma).
     include: testIncludes,
@@ -222,7 +222,7 @@ export default defineConfig({
           pool: 'forks',
           ...laneTestBudget,
           setupFiles: [
-            './scripts/test-proxy-environment.ts', './scripts/test-dom-environment.ts', './scripts/test-official-listing-guard.ts',
+            './scripts/test-proxy-environment.ts', './scripts/test-dom-environment.ts',
           ],
           include: testIncludes,
           exclude: [
@@ -242,7 +242,7 @@ export default defineConfig({
           pool: 'forks',
           ...laneTestBudget,
           setupFiles: [
-            './scripts/test-proxy-environment.ts', './scripts/test-dom-environment.ts', './scripts/test-official-listing-guard.ts',
+            './scripts/test-proxy-environment.ts', './scripts/test-dom-environment.ts',
           ],
           include: processBoundTests,
           exclude: [

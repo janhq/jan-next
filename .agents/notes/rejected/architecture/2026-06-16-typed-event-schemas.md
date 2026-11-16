@@ -26,7 +26,7 @@ A migration of the event/vocabulary API to runtime schemas touches, at minimum:
 - **Six merge-extensible maps** (~370 LOC of core types): `ContentBlockMap`, `MessageSourceMap`, `FinishReasonMap` (in `jan-llm`); `TurnTriggerMap`, `TurnEndReasonMap`, `SessionEventMap` (in `jan-session`).
 - **~10 `declare module` augmentation sites** across `jan-agent`, `jan-agent-loop`, `jan-shell`, `jan-llm`, `jan-session`, `jan-session-persistence`, `jan-system-prompt`, `jan-tools` — each would move from declaration merging to a runtime `register()` call.
 - **The event producers** — 16 `session.append(...)` call sites in the loop — unchanged in shape but now validated at the boundary.
-- **~7 switch-consumers** that branch on these unions: `deriveMessages` and the package-owned invariant companion (`jan-session`), `BlockAssembler` (`jan-llm`), both LLM adapters (`jan-llm-deepseek`, `jan-llm-pi-ai`), and the tool schema layer (`jan-tools`). The `assertNever`-on-closed-unions vs fall-through-on-extensible-unions convention (a documented lint rule) would need rethinking — runtime variants are not statically exhaustive.
+- The `assertNever`-on-closed-unions vs fall-through-on-extensible-unions convention (a documented lint rule) would need rethinking — runtime variants are not statically exhaustive.
 - **The `defineTool` `InferArgs` DSL** (`jan-tools`), which derives zero-cast `execute` arg types from a compile-time schema spec — the showcase of the current approach.
 - **Docs**: architecture.md (the pattern is described as foundational), [dev-mode invariants](../../implemented/architecture/2026-06-11-dev-invariants-over-deep-readonly.md), and any Agent Note that references the pattern.
 

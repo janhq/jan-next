@@ -1693,7 +1693,7 @@
     "f85c96616fff1bb1e21886bd2fad64e9e34d89d090ab96ab7804f702278cd23d": 4,
     "fa05a5e504ed74b5a07cb6281c787b507eb6c44db768803f4dad034dd69cb3b9": 1
   },
-  "packages/subagent/subagent-codex/tests/real-deepseek.e2e.ts": {
+  "packages/subagent/subagent-codex/tests/real-tokamak.e2e.ts": {
     "dee4487a97778a2383f1b378d59b3dae098152273d956dc360f23c69680fe0ea": 1
   },
   "packages/subagent/subagent-codex/tests/real-product.spec.ts": {
