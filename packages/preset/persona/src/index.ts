@@ -15,7 +15,7 @@
 
 import type { Context } from '@janhq/cordis'
 import z from '@janhq/schemastery'
-import type {} from '@janhq/jan-system-prompt'
+import type { } from '@janhq/jan-system-prompt'
 import { PERSONA_PREFIX_SECTION, PERSONA_SUFFIX_SECTION } from '@janhq/jan-system-prompt'
 
 export { PERSONA_PREFIX_SECTION, PERSONA_SUFFIX_SECTION }
@@ -43,6 +43,12 @@ export interface Config {
   complete?: boolean
   /** Suppress dynamic runtime-context snapshots for this persona's agent scope. */
   includeRuntimeContext?: boolean
+  /**
+   * Resolve `{{variable}}` groups in the prefix and suffix; defaults to true.
+   * False keeps imported persona prose literal, so braces a user wrote are not
+   * re-read as prompt variables.
+   */
+  interpolate?: boolean
 }
 
 /** Runtime schema for the persona row. */
@@ -51,6 +57,7 @@ export const Config: z<Config> = z.object({
   suffix: z.string().default(''),
   complete: z.boolean().default(false),
   includeRuntimeContext: z.boolean().default(true),
+  interpolate: z.boolean().default(true),
 })
 
 /**
@@ -65,11 +72,13 @@ export function apply(ctx: Context, config: Config): void {
     order: ctx.systemPrompt.getSectionOrder('DEPLOYMENT_PERSONA_PREFIX'),
     text: config.prefix,
     ...(config.complete ? { complete: true } : {}),
+    ...(config.interpolate === false ? { interpolate: false } : {}),
   }), 'persona.section()')
   ctx.effect(() => ctx.systemPrompt.section({
     name: PERSONA_SUFFIX_SECTION,
     order: ctx.systemPrompt.getSectionOrder('DEPLOYMENT_PERSONA_SUFFIX'),
     text: config.suffix ?? '',
+    ...(config.interpolate === false ? { interpolate: false } : {}),
   }), 'persona.suffix()')
   if (!(config.includeRuntimeContext ?? true)) ctx.systemPrompt.suppressRuntimeContext()
 }

@@ -102,7 +102,7 @@ describe('declarative preset revisions', () => {
     expect(ctx.agentPresets.composeFrom(createScope(ctx, {}).ctx, ctx)).toBeUndefined()
   })
 
-  it('logs selection and rejects preset changes after the first turn', async () => {
+  it('logs selection, refuses while a turn is open, and switches between turns', async () => {
     const ctx = await setup()
     await declare(ctx, contribution('standard'))
     await declare(ctx, contribution('minimal'))
@@ -110,7 +110,11 @@ describe('declarative preset revisions', () => {
     expect(await ctx.agentPresets.select(agent, 'minimal')).toBe('minimal')
     expect(ctx.sessionProjections.checkpoint(agent.session).agentPreset?.val).toBe('minimal')
     agent.session.append('turn/start', { turn: 1 })
-    await expect(ctx.agentPresets.select(agent, 'standard')).rejects.toThrow('already started')
+    await expect(ctx.agentPresets.select(agent, 'standard')).rejects.toThrow('running turn')
+    agent.session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+    expect(await ctx.agentPresets.select(agent, 'standard')).toBe('standard')
+    expect(ctx.sessionProjections.checkpoint(agent.session).agentPreset?.val).toBe('standard')
+    expect(agent.session.snapshotEvents().some(event => event.type === 'turn/start')).toBe(true)
   })
 
   it('inventories active and disabled child entries and declared display metadata', async () => {
@@ -183,11 +187,13 @@ it('waits for a Host provider still activating instead of recording the preset a
   const paused = new Promise<void>((resolve) => { release = resolve })
   let entered!: () => void
   const started = new Promise<void>((resolve) => { entered = resolve })
-  ctx.loader.builtins.slowProvider = { async apply(host: Context) {
-    entered()
-    await paused
-    host.provide('serviceThatDoesNotExist', { label: 'late host' })
-  } }
+  ctx.loader.builtins.slowProvider = {
+    async apply(host: Context) {
+      entered()
+      await paused
+      host.provide('serviceThatDoesNotExist', { label: 'late host' })
+    }
+  }
   const hostUpdate = ctx.loader.root.update([{ id: 'slow', name: 'cordis:slowProvider' }])
   await started
   await declare(ctx, { id: 'late', plugins: [{ name: plugin('needs-missing') }] })
@@ -202,16 +208,22 @@ it('waits for a Host provider still activating instead of recording the preset a
   await hostUpdate
   const lease = await acquiring
   expect(await ctx.agentPresets.resolve('late')).toEqual({ id: 'late' })
-  expect((await ctx.agentPresets.compositionInventory())[0]).toMatchObject({ id: 'late',
-    rows: [expect.objectContaining({ moduleName: plugin('needs-missing'), enabled: true })] })
+  expect((await ctx.agentPresets.compositionInventory())[0]).toMatchObject({
+    id: 'late',
+    rows: [expect.objectContaining({ moduleName: plugin('needs-missing'), enabled: true })]
+  })
   await lease[Symbol.asyncDispose]()
 })
 
 it('allows an isolated service and resolves it through the Agent composition', async () => {
   const ctx = await setup()
   const { plugin } = await import('./harness.ts')
-  await declare(ctx, { id: 'standard', plugins: [{ name: 'cordis:group', group: true,
-    isolate: { fixtureService: true }, config: [{ name: plugin('global-service'), config: { service: 'fixtureService', label: 'scoped' } }] }] })
+  await declare(ctx, {
+    id: 'standard', plugins: [{
+      name: 'cordis:group', group: true,
+      isolate: { fixtureService: true }, config: [{ name: plugin('global-service'), config: { service: 'fixtureService', label: 'scoped' } }]
+    }]
+  })
   const scope = createScope(ctx, {})
   await ctx.agentPresets.mount(scope.ctx)
   expect(ctx.agentPresets.serviceFor({ ctx: scope.ctx }, 'fixtureService' as string & keyof Context)).toEqual({ label: 'scoped' })
@@ -354,12 +366,16 @@ it('does not lose the durable selection when a tools observer rejects notificati
 
 it('inventories failed conditional entries without executing their expressions again', async () => {
   const ctx = await setup()
-  await declare(ctx, { id: 'broken', name: 'Broken', plugins: [
-    { name: 'missing', disabled: { __jsExpr: 'false' } },
-  ] })
+  await declare(ctx, {
+    id: 'broken', name: 'Broken', plugins: [
+      { name: 'missing', disabled: { __jsExpr: 'false' } },
+    ]
+  })
   const inventory = await ctx.agentPresets.compositionInventory()
-  expect(inventory[0]).toMatchObject({ id: 'broken', broken: expect.any(String) as string,
-    rows: [{ moduleName: 'missing', enabled: 'conditional', condition: 'false' }] })
+  expect(inventory[0]).toMatchObject({
+    id: 'broken', broken: expect.any(String) as string,
+    rows: [{ moduleName: 'missing', enabled: 'conditional', condition: 'false' }]
+  })
 })
 
 it('does not bind a definition removed while acquisition yields, and disposal is idempotent', async () => {
@@ -405,10 +421,12 @@ it.each([
 
 it('reports every process-global service published by a preset', async () => {
   const ctx = await setup()
-  ctx.loader.builtins.leaks = { apply(child: Context) {
-    child.provide('presetZulu', {})
-    child.provide('presetAlpha', {})
-  } }
+  ctx.loader.builtins.leaks = {
+    apply(child: Context) {
+      child.provide('presetZulu', {})
+      child.provide('presetAlpha', {})
+    }
+  }
   await declare(ctx, { id: 'leaks', plugins: [{ name: 'cordis:leaks' }] })
   expect((await ctx.agentPresets.resolve('leaks')).broken).toContain('presetAlpha, presetZulu')
 })

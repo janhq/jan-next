@@ -2,15 +2,15 @@
 import type { ProjectionHandle } from '@janhq/jan-session-projection'
 import { Context, Service } from '@janhq/cordis'
 import z from '@janhq/schemastery'
-import { Remote, RemoteError, TypertRemoteService } from '@janhq/jan-typert-protocol'
+import { Remote, RemoteError, remoteErrorOf, TypertRemoteService } from '@janhq/jan-typert-protocol'
 import { bindScopeParent, createScope, scopeOf, scopeParentOf, type Scope, type ScopeKey, type ScopeParentBinding } from '@janhq/jan-scope'
 import { entryListSchema } from '@janhq/cordis-plugin-include'
 import { dump } from 'js-yaml'
 import type { Agent } from '@janhq/jan-agent'
 import type { Session } from '@janhq/jan-session'
 // Type-only: the optional `settings` service this registry keeps off the generated pages.
-import type {} from '@janhq/jan-settings'
-import type {} from '@janhq/jan-tools'
+import type { } from '@janhq/jan-settings'
+import type { } from '@janhq/jan-tools'
 import type { AgentPresetDocument, AgentPresetRoster } from './types.ts'
 import { entryListProblem, type PresetDefinition } from './definition.ts'
 import type { AgentPreset, Config } from './preset.ts'
@@ -63,7 +63,6 @@ export class AgentPresetRegistry extends TypertRemoteService {
   private readonly generations = new Map<ScopeKey, Generation>()
   private readonly bindings = new WeakMap<ScopeKey, Binding>()
   private readonly switches = new Map<string, Promise<unknown>>()
-
   constructor(ctx: Context, public config: Config) {
     super(ctx, 'agentPresets')
     this.owner = ctx
@@ -88,6 +87,24 @@ export class AgentPresetRegistry extends TypertRemoteService {
    */
   presetForSession(session: Session): string | null {
     return this.agentPresetProjectionHandle.stateOf(session)
+  }
+
+  /**
+   * Read one declaration's composed definition without mounting it.
+   * Registrants that derive a preset (a custom composition based on a shipped
+   * one) need the child plugin rows the declaration was registered with,
+   * including profile overrides; the read-only `readDocument` view is YAML.
+   * @param id - preset identity.
+   * @returns The registered definition; plugin rows are copied so a caller
+   * cannot mutate the registry's declaration.
+   */
+  definitionFor(id: string): PresetDefinition {
+    const record = this.definitions.get(id)
+    if (record === undefined) {
+      throw new RemoteError('agent-preset/not-found', `Unknown agent preset: ${id}`,
+        { agentPreset: id, available: [...this.definitions.keys()] })
+    }
+    return { ...record.config, plugins: [...record.config.plugins] }
   }
 
   /** Register and eagerly load a definition; activation failure remains visible in the roster.
@@ -354,9 +371,11 @@ export class AgentPresetRegistry extends TypertRemoteService {
     return preset
   }
 
-  /** Select a preset before a session starts its first turn. A Session whose
-   * log records the preset and whose Agent runs its current revision keeps its
-   * composition; nothing is logged or announced.
+  /** Select a preset for a Session at a turn boundary. A Session with no
+   * recorded preset that already runs the current revision keeps its
+   * composition; nothing is logged or announced. A started Session may switch
+   * once no turn is open: messages are never rewritten, the selection is
+   * appended to the log, and every later turn runs under the new composition.
    * @param agent Target Agent.
    * @param agentPreset Requested identity.
    * @returns Committed preset identity.
@@ -364,16 +383,24 @@ export class AgentPresetRegistry extends TypertRemoteService {
   @Remote('select')
   async select(agent: Agent, agentPreset: string): Promise<string> {
     const turn = (this.switches.get(agent.id) ?? Promise.resolve()).then(async () => {
+      const busy = (): RemoteError => new RemoteError('agent-preset/locked', 'Wait for the running turn to finish before changing the agent preset.', { sessionId: agent.id, agentPreset })
       const boundary = this.owner.agents.turnBoundaryOf(agent.session)
-      if (boundary.openTurnStartSeq !== null || boundary.lastTurn > 0) {
-        throw new RemoteError('agent-preset/locked', 'This session has already started', { sessionId: agent.id, agentPreset })
-      }
+      if (boundary.openTurnStartSeq !== null) throw busy()
       const current = this.definitions.get(agentPreset)?.generation
       if (current !== undefined && this.generationFor(agent.ctx) === current
         && this.agentPresetProjectionHandle.stateOf(agent.session) === agentPreset) return agentPreset
-      const preset = await this.recompose(agent.ctx, agentPreset)
-      agent.session.append('agent-preset/selected', { agentPreset: preset.id })
-      return preset.id
+      // Maintenance owns the Agent for the swap, so a turn cannot start under
+      // a half-replaced composition; it refuses when one already owns the Agent.
+      try {
+        return await agent.runMaintenance(async () => {
+          const preset = await this.recompose(agent.ctx, agentPreset)
+          agent.session.append('agent-preset/selected', { agentPreset: preset.id })
+          return preset.id
+        })
+      } catch (error) {
+        if (remoteErrorOf(error) !== undefined) throw error
+        throw busy()
+      }
     })
     const guard = turn.catch(() => undefined)
     this.switches.set(agent.id, guard)
@@ -389,12 +416,14 @@ export class AgentPresetRegistry extends TypertRemoteService {
   async acquireScope(id?: string): Promise<{ key: ScopeKey } & AsyncDisposable> {
     const generation = await this.retain(id)
     let disposed = false
-    return { key: generation.key, [Symbol.asyncDispose]: async () => {
-      if (disposed) return
-      disposed = true
-      generation.users--
-      await this.collect(generation)
-    } }
+    return {
+      key: generation.key, [Symbol.asyncDispose]: async () => {
+        if (disposed) return
+        disposed = true
+        generation.users--
+        await this.collect(generation)
+      }
+    }
   }
 
   /** Read plugin rows without creating an Agent.
@@ -405,10 +434,12 @@ export class AgentPresetRegistry extends TypertRemoteService {
       const { id, name, description } = record.config
       const broken = await this.diagnostic(record)
       const read = definitionComposition(record.config.plugins, () => { throw new Error('Inactive definition') })
-      return { id, ...(name === undefined ? {} : { name }), ...(description === undefined ? {} : { description }),
+      return {
+        id, ...(name === undefined ? {} : { name }), ...(description === undefined ? {} : { description }),
         isDefault: id === this.defaultId,
         ...(broken === undefined ? {} : { broken }),
-        rows: record.generation === undefined ? ('rows' in read ? read.rows : []) : mountedCompositionRows(record.generation.mount.tree) }
+        rows: record.generation === undefined ? ('rows' in read ? read.rows : []) : mountedCompositionRows(record.generation.mount.tree)
+      }
     }))
   }
 }
