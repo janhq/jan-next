@@ -653,6 +653,7 @@ export function SessionNodeItem({
     <div
       ref={rowRef}
       data-row-key={`session:${node.id}`}
+      data-blank={row.blank ? '' : undefined}
       className={clsx(
         css.sessionRow, selected && css.selected, menuOpen && css.menuOpen,
         row.archived && css.archived,
@@ -664,12 +665,14 @@ export function SessionNodeItem({
       tabIndex={0}
 
       onClick={() => { onOpen(node.id) }}
-      {...getTriggerProps(row.blank ? undefined : { kind: 'session', value: { sessionId: node.id, displayTitle: row.title } }, { onKeyDown: (event) => {
-        if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) return
-        if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
-        event.preventDefault()
-        onOpen(node.id)
-      } })}
+      {...getTriggerProps(row.blank ? undefined : { kind: 'session', value: { sessionId: node.id, displayTitle: row.title } }, {
+        onKeyDown: (event) => {
+          if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) return
+          if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+          event.preventDefault()
+          onOpen(node.id)
+        }
+      })}
       onPointerEnter={marquee.enter}
       onPointerLeave={() => { if (!menuOpen) marquee.leave() }}
       draggable={draggable}
