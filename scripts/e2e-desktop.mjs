@@ -85,8 +85,10 @@ function connect(url) {
   const ws = new WebSocket(url)
   let id = 0
   const pending = new Map()
+  const handlers = new Map()
   ws.onmessage = ({ data }) => {
     const msg = JSON.parse(data)
+    if (msg.method) handlers.get(msg.method)?.(msg.params)
     const waiter = pending.get(msg.id)
     if (!waiter) return
     pending.delete(msg.id)
@@ -97,7 +99,7 @@ function connect(url) {
     ws.send(JSON.stringify({ id, method, params }))
   })
   return new Promise((ok, fail) => {
-    ws.onopen = () => ok({ send, close: () => ws.close() })
+    ws.onopen = () => ok({ send, on: (method, fn) => handlers.set(method, fn), close: () => ws.close() })
     ws.onerror = () => fail(new Error(`cannot open ${url}`))
   })
 }
@@ -135,6 +137,9 @@ try {
   cdp = await connect(page.webSocketDebuggerUrl)
   await cdp.send('Page.enable')
   await cdp.send('Runtime.enable')
+  cdp.on('Runtime.consoleAPICalled', ({ type, args: a }) => {
+    if (type === 'warning' || type === 'error') log += `[page ${type}] ${a.map(x => x.value ?? x.description ?? '').join(' ')}\n`
+  })
 
   await step('shell opens', () => until('DSH shell with composer', async () =>
     (await evaluate('location.origin.startsWith("http://127.0.0.1")')) && (await evaluate('!!document.querySelector("[contenteditable=true]")')), 120_000))
@@ -153,6 +158,19 @@ try {
     if (!(await click('Plugin manager'))) throw new Error('Plugin manager is not clickable')
     await until('enabled Add plugin', () => evaluate(`[...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Add plugin' && !b.disabled)`), 60_000)
   })
+  // An experimental bundle must apply live: its card promises a Discover tab.
+  await step('experimental plugin applies live', async () => {
+    const toggled = await evaluate(`(() => {
+      const sw = document.querySelector('[aria-label="Enable Custom plugin indexes"]')
+      if (!sw) return false
+      if (!(sw.checked || sw.getAttribute('aria-checked') === 'true')) sw.click()
+      return true
+    })()`)
+    if (!toggled) throw new Error('no switch for Custom plugin indexes')
+    const t = Date.now()
+    await until('Discover tab', () => visible('Discover'), 30_000)
+    console.log(`     Discover tab after ${((Date.now() - t) / 1000).toFixed(1)} s`)
+  })
   if (args.plugin) {
     const folder = resolve(String(args.plugin))
     await step('local plugin installs', async () => {
@@ -163,6 +181,21 @@ try {
       await cdp.send('Input.insertText', { text: folder })
       await until('Install enabled', () => click('Install'), 10_000)
       await until('Enable now', () => click('Enable now'), 180_000)
+      // The row's own switch must agree with the "is active" claim right away.
+      const label = `Enable ${JSON.parse(readFileSync(join(folder, 'package.json'), 'utf8')).name}`
+      const enabledAt = Date.now()
+      const state = () => evaluate(`(() => {
+        const sw = [...document.querySelectorAll('[aria-label^="Enable "]')].find(el => el.getAttribute('aria-label').includes(${JSON.stringify(label.slice(7))}))
+        return sw ? String(sw.checked ?? sw.getAttribute('aria-checked')) : 'absent'
+      })()`)
+      let seen = await state()
+      const changes = [`0.0 s ${seen}`]
+      await until('installed row switch on', async () => {
+        const now = await state()
+        if (now !== seen) { seen = now; changes.push(`${((Date.now() - enabledAt) / 1000).toFixed(1)} s ${now}`) }
+        return now === 'true'
+      }, 30_000)
+      console.log(`     row switch: ${changes.join(' -> ')}`)
     })
   }
   if (args.prompt) {
