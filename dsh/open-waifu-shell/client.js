@@ -177,7 +177,9 @@ window.__ModuleLoader__.load({
   html[data-ow-shell] [data-conversation-header-leading] [data-slot='conversation.header.model'] button { height: 36px; padding: 0 14px; gap: 6px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 999px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); font-size: 14px; font-weight: 500; }
   html[data-ow-shell] [data-conversation-header-leading] [data-slot='conversation.header.model'] button > svg:first-child { display: none; }
   html[data-ow-shell] [data-conversation-header-leading] [data-slot='conversation.header.model'] button:hover:not(:disabled) { background: var(--dsw-alias-bg-layer-2); }
-  html[data-ow-shell] [data-chat-running-mark] { background: url('/ow-shell/assets/jan-original.png') center / contain no-repeat; }
+  /* A thin line waving hand in Jan's icon style. The SVG animates itself and
+     honours reduced motion; as a mask it takes the status text's colour. */
+  html[data-ow-shell] [data-chat-running-mark] { background: currentColor; -webkit-mask: url('/ow-shell/assets/hand-wave.svg') center / contain no-repeat; mask: url('/ow-shell/assets/hand-wave.svg') center / contain no-repeat; }
   html[data-ow-shell] [data-chat-running-mark] > * { display: none; }
   .ow-hero-title { width: 100%; margin: 0 0 16px; font-family: 'StudioFeixenSans', 'Inter', sans-serif; font-size: 24px; font-weight: 500; line-height: 32px; color: var(--dsw-alias-label-primary); text-align: center; text-wrap: balance; }
 .ow-footer-action { width: 100%; min-height: 36px; display: flex; align-items: center; gap: 8px; padding: 7px 9px; border: 0; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-secondary); font: inherit; text-align: left; cursor: pointer; }

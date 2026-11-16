@@ -13,6 +13,7 @@ const ASSETS = new URL('./assets/', import.meta.url)
 const TYPES = {
   'logo.png': 'image/png',
   'jan-original.png': 'image/png',
+  'hand-wave.svg': 'image/svg+xml',
   'InterVariable.woff2': 'font/woff2',
   'StudioFeixenSans-Medium.otf': 'font/otf',
 }
