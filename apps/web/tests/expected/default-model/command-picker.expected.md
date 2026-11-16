@@ -1,10 +1,10 @@
 - textbox "筛选选项":
   - /placeholder: 搜索模型…
 - listbox "/model 匹配项":
-  - group "DeepSeek":
-    - text: DeepSeek
-    - option "DeepSeek-V4-Flash"
-    - option "DeepSeek-V4-Flash-Vision-Exp"
+  - group "Tokamak":
+    - text: Tokamak
+    - option "Tokamak 1 Preview"
+    - option "Tokamak 1 Vision Experimental"
   - group "Origin Gateway":
     - text: Origin Gateway
     - option "Origin Large"

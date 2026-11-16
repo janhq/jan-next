@@ -18,7 +18,7 @@
     {
       "type": "model/selection",
       "data": {
-        "provider": "deepseek-official",
+        "provider": "tokamak-official",
         "model": "resumed-smoke-model"
       }
     }

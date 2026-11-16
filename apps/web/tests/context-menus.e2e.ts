@@ -27,7 +27,7 @@ function fixture(title: string): string {
   session.append('step/start', { turn: 1, step: 1 })
   session.append('assistant/message', { stream: [], turn: 1, step: 1, message: createAssistantMessage({
     content: [{ type: 'text', text: '[First file](first.txt#L2) [Second file](second.txt) [Website](https://example.com/path?q=1#fragment)\n\n![Original](original.gif) ![Remote](https://images.example/original.gif)\n\nCONTEXT_MENU_READY' }],
-    source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+    source: { provider: 'tokamak-official', model: 'tokamak-1-preview' },
   }) }, { surfaceOp: 'append' })
   session.append('step/end', { turn: 1, step: 1 })
   session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })

@@ -460,7 +460,7 @@ describe('OpenTelemetrySessionBackend wire', () => {
         processor: { scheduledDelayMillis: 1 },
       })
       const session = ctx.sessions.create(SessionId('direct-default'), { meta: {} })
-      session.append('request/header', { header: { config: { provider: 'deepseek-official', model: 'mock' } }, reason: 'initial' })
+      session.append('request/header', { header: { config: { provider: 'tokamak-official', model: 'mock' } }, reason: 'initial' })
       session.append('turn/start', { turn: 1 })
       expect(captures).toEqual([])
       recordFeedback(session, { text: 'explicit report' })
@@ -476,7 +476,7 @@ describe('OpenTelemetrySessionBackend wire', () => {
 })
 
 describe('OpenTelemetrySessionBackend route and feedback', () => {
-  it.each(['deepseek-official', 'mock', undefined])('uploads new text feedback for %s while the host stays alive', async (provider) => {
+  it.each(['tokamak-official', 'mock', undefined])('uploads new text feedback for %s while the host stays alive', async (provider) => {
     const { url, captures } = await mockCollector()
     const ctx = new Context()
     ctx.plugin(OTel)
@@ -493,7 +493,7 @@ describe('OpenTelemetrySessionBackend route and feedback', () => {
       const expected = session.snapshotEvents().map(event => event.type)
       await expect.poll(() => eventTypes(captures)).toEqual(expected)
       session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
-      session.append('request/header', { header: { config: { provider: 'deepseek-official', model: 'm' } }, reason: 'change' })
+      session.append('request/header', { header: { config: { provider: 'tokamak-official', model: 'm' } }, reason: 'change' })
       await ctx.sessionTelemetry.shutdown()
       expect(eventTypes(captures)).toEqual(expected)
     } finally {
@@ -513,7 +513,7 @@ describe('OpenTelemetrySessionBackend route and feedback', () => {
       const first = await ctx.plugin(OpenTelemetrySessionBackend, { mode: SessionTelemetryMode.FEEDBACK_ONLY, exporter: { url } })
       const session = ctx.sessions.create(SessionId('ordinary'))
       session.append('turn/start', { turn: 1 })
-      for (const provider of ['mock', 'deepseek-official']) {
+      for (const provider of ['mock', 'tokamak-official']) {
         session.append('model/selection', { provider, model: 'm' })
         session.append('request/header', { header: { config: { provider, model: 'm' } }, reason: 'change' })
       }
@@ -530,7 +530,7 @@ describe('OpenTelemetrySessionBackend route and feedback', () => {
     expect(captures).toEqual([])
   })
 
-  it.each(['deepseek-official', 'mock', undefined])('uploads live ratings, notes and withdrawal for %s without further interaction', async (provider) => {
+  it.each(['tokamak-official', 'mock', undefined])('uploads live ratings, notes and withdrawal for %s without further interaction', async (provider) => {
     const { url, captures } = await mockCollector()
     const root = mkdtempSync(join(tmpdir(), 'jan-otel-live-'))
     const ctx = new Context()
@@ -660,7 +660,7 @@ describe('OpenTelemetrySessionBackend route and feedback', () => {
 
   it.each([
     ['mock', SessionTelemetryMode.FEEDBACK_ONLY],
-    ['deepseek-official', SessionTelemetryMode.FEEDBACK_ONLY],
+    ['tokamak-official', SessionTelemetryMode.FEEDBACK_ONLY],
     [undefined, SessionTelemetryMode.FEEDBACK_ONLY],
     ['mock', SessionTelemetryMode.DISABLED],
   ] as const)('captures cold put, note edit and withdrawal for %s in %s without opening a live Session', async (provider, mode) => {

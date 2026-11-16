@@ -26,24 +26,24 @@
       name: '@janhq/jan-llm-replay'
       config:
         providers:
-          - id: deepseek-official
-            name: DeepSeek
+          - id: tokamak-official
+            name: Tokamak
             models:
-              - id: deepseek-v4-flash
+              - id: tokamak-1-preview
                 contextWindow: 1000000
                 defaultMaxTokens: 256000
                 reasoningEfforts: ['off', 'low', 'high', 'max']
                 defaultReasoningEffort: max
-              - id: deepseek-v4-pro
-          - id: deepseek-messages
-            name: DeepSeek Messages
+              - id: tokamak-1-pro
+          - id: tokamak-messages
+            name: Tokamak Messages
             models:
-              - id: deepseek-v4-flash
+              - id: tokamak-1-preview
                 contextWindow: 1000000
                 defaultMaxTokens: 256000
                 reasoningEfforts: ['off', 'low', 'high', 'max']
                 defaultReasoningEffort: max
-              - id: deepseek-v4-pro
+              - id: tokamak-1-pro
 
 - id: tool-plugin-manager
   disabled: false

@@ -84,7 +84,7 @@ describe('PopupSelectView', () => {
     const alpha = { name: 'alpha', label: 'Alpha provider' }
     const beta = { name: 'beta', label: 'Beta provider' }
     const options: SelectOption[] = [
-      { id: 'a-deep', label: 'DeepSeek Flash', group: alpha },
+      { id: 'a-deep', label: 'Tokamak Flash', group: alpha },
       { id: 'b-flash', label: 'Flash Beta', group: beta },
       { id: 'a-prefix', label: 'Flash Lite', group: alpha, active: true },
       { id: 'other', label: 'Unmatched', group: { name: 'other', label: 'Other provider' } },
@@ -93,9 +93,9 @@ describe('PopupSelectView', () => {
     const { search } = await mountOpen({ searchMode: 'fuzzy-label', options: () => Promise.resolve(options), onSelect })
     expect(screen.getAllByRole('group').map(group => group.querySelector('[data-menu-group-heading]')?.textContent))
       .toEqual(['Alpha provider', 'Beta provider', 'Other provider'])
-    expect(rowLabels()).toEqual(['DeepSeek Flash', 'Flash Lite', 'Flash Beta', 'Unmatched'])
+    expect(rowLabels()).toEqual(['Tokamak Flash', 'Flash Lite', 'Flash Beta', 'Unmatched'])
     fireEvent.change(search, { target: { value: 'flash' } })
-    expect(rowLabels()).toEqual(['Flash Lite', 'DeepSeek Flash', 'Flash Beta'])
+    expect(rowLabels()).toEqual(['Flash Lite', 'Tokamak Flash', 'Flash Beta'])
     expect(screen.queryByRole('group', { name: 'Other provider' })).toBeNull()
     expect(document.activeElement).toBe(search)
     fireEvent.keyDown(search, { key: 'ArrowUp' })

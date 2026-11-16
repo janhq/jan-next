@@ -51,7 +51,7 @@ const WAIT_POLL_INTERVAL_MS = 10
  * Credential environment every keyless replay layers under its scenario environment. Recordings
  * ran with a real key, so a replay supplies a placeholder instead of whatever the runner exports.
  */
-export const REPLAY_CREDENTIAL_ENV: Readonly<Record<string, string>> = { DEEPSEEK_API_KEY: 'snapshot-replay-key' }
+export const REPLAY_CREDENTIAL_ENV: Readonly<Record<string, string>> = { TOKAMAK_API_KEY: 'snapshot-replay-key' }
 
 /**
  * One step of a scenario's deterministic input script (`input.json`). The

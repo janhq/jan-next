@@ -7,8 +7,8 @@
 - id: acp
   name: '@janhq/jan-acp'
   config:
-    provider: deepseek-official
-    model: deepseek-v4-flash-vision-exp
+    provider: tokamak-official
+    model: tokamak-1-vision
 
 - id: session-persistence-jsonl
   name: '@janhq/jan-session-persistence-jsonl'

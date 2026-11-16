@@ -192,7 +192,7 @@
       "data": {
         "header": {
           "config": {
-            "provider": "deepseek-official",
+            "provider": "tokamak-official",
             "model": "smoke-model",
             "maxTokens": 256000,
             "reasoningEffort": "high"
@@ -221,7 +221,7 @@
       "seq": 15,
       "time": 0,
       "data": {
-        "provider": "deepseek-official",
+        "provider": "tokamak-official",
         "model": "smoke-model",
         "contextWindow": 1000000
       }
@@ -288,7 +288,7 @@
       "data": {
         "header": {
           "config": {
-            "provider": "deepseek-official",
+            "provider": "tokamak-official",
             "model": "smoke-model",
             "maxTokens": 256000,
             "reasoningEffort": "high"
@@ -341,11 +341,11 @@
           ],
           "source": {
             "kind": "model",
-            "provider": "deepseek-official",
+            "provider": "tokamak-official",
             "model": "smoke-model",
             "replayState": {
               "response": {
-                "kind": "deepseek-messages",
+                "kind": "tokamak-messages",
                 "version": 1,
                 "model": "smoke-model"
               },
@@ -430,7 +430,7 @@
               },
               "replayState": {
                 "response": {
-                  "kind": "deepseek-messages",
+                  "kind": "tokamak-messages",
                   "version": 1,
                   "model": "smoke-model"
                 },
@@ -570,11 +570,11 @@
           ],
           "source": {
             "kind": "model",
-            "provider": "deepseek-official",
+            "provider": "tokamak-official",
             "model": "smoke-model",
             "replayState": {
               "response": {
-                "kind": "deepseek-messages",
+                "kind": "tokamak-messages",
                 "version": 1,
                 "model": "smoke-model"
               },
@@ -659,7 +659,7 @@
               },
               "replayState": {
                 "response": {
-                  "kind": "deepseek-messages",
+                  "kind": "tokamak-messages",
                   "version": 1,
                   "model": "smoke-model"
                 },
@@ -768,11 +768,11 @@
           ],
           "source": {
             "kind": "model",
-            "provider": "deepseek-official",
+            "provider": "tokamak-official",
             "model": "smoke-model",
             "replayState": {
               "response": {
-                "kind": "deepseek-messages",
+                "kind": "tokamak-messages",
                 "version": 1,
                 "model": "smoke-model"
               },
@@ -857,7 +857,7 @@
               },
               "replayState": {
                 "response": {
-                  "kind": "deepseek-messages",
+                  "kind": "tokamak-messages",
                   "version": 1,
                   "model": "smoke-model"
                 },
@@ -1014,11 +1014,11 @@
           ],
           "source": {
             "kind": "model",
-            "provider": "deepseek-official",
+            "provider": "tokamak-official",
             "model": "smoke-model",
             "replayState": {
               "response": {
-                "kind": "deepseek-messages",
+                "kind": "tokamak-messages",
                 "version": 1,
                 "model": "smoke-model"
               },
@@ -1103,7 +1103,7 @@
               },
               "replayState": {
                 "response": {
-                  "kind": "deepseek-messages",
+                  "kind": "tokamak-messages",
                   "version": 1,
                   "model": "smoke-model"
                 },
@@ -1300,11 +1300,11 @@
           ],
           "source": {
             "kind": "model",
-            "provider": "deepseek-official",
+            "provider": "tokamak-official",
             "model": "smoke-model",
             "replayState": {
               "response": {
-                "kind": "deepseek-messages",
+                "kind": "tokamak-messages",
                 "version": 1,
                 "model": "smoke-model"
               },
@@ -1375,7 +1375,7 @@
               },
               "replayState": {
                 "response": {
-                  "kind": "deepseek-messages",
+                  "kind": "tokamak-messages",
                   "version": 1,
                   "model": "smoke-model"
                 },
@@ -1754,7 +1754,7 @@
           "data": {
             "header": {
               "config": {
-                "provider": "deepseek-official",
+                "provider": "tokamak-official",
                 "model": "smoke-model",
                 "maxTokens": 256000,
                 "reasoningEffort": "high"
@@ -1789,7 +1789,7 @@
           "seq": 15,
           "time": 0,
           "data": {
-            "provider": "deepseek-official",
+            "provider": "tokamak-official",
             "model": "smoke-model",
             "contextWindow": 1000000
           }
@@ -1880,7 +1880,7 @@
           "data": {
             "header": {
               "config": {
-                "provider": "deepseek-official",
+                "provider": "tokamak-official",
                 "model": "smoke-model",
                 "maxTokens": 256000,
                 "reasoningEffort": "high"
@@ -1945,11 +1945,11 @@
               ],
               "source": {
                 "kind": "model",
-                "provider": "deepseek-official",
+                "provider": "tokamak-official",
                 "model": "smoke-model",
                 "replayState": {
                   "response": {
-                    "kind": "deepseek-messages",
+                    "kind": "tokamak-messages",
                     "version": 1,
                     "model": "smoke-model"
                   },
@@ -2034,7 +2034,7 @@
                   },
                   "replayState": {
                     "response": {
-                      "kind": "deepseek-messages",
+                      "kind": "tokamak-messages",
                       "version": 1,
                       "model": "smoke-model"
                     },
@@ -2222,11 +2222,11 @@
               ],
               "source": {
                 "kind": "model",
-                "provider": "deepseek-official",
+                "provider": "tokamak-official",
                 "model": "smoke-model",
                 "replayState": {
                   "response": {
-                    "kind": "deepseek-messages",
+                    "kind": "tokamak-messages",
                     "version": 1,
                     "model": "smoke-model"
                   },
@@ -2311,7 +2311,7 @@
                   },
                   "replayState": {
                     "response": {
-                      "kind": "deepseek-messages",
+                      "kind": "tokamak-messages",
                       "version": 1,
                       "model": "smoke-model"
                     },
@@ -2456,11 +2456,11 @@
               ],
               "source": {
                 "kind": "model",
-                "provider": "deepseek-official",
+                "provider": "tokamak-official",
                 "model": "smoke-model",
                 "replayState": {
                   "response": {
-                    "kind": "deepseek-messages",
+                    "kind": "tokamak-messages",
                     "version": 1,
                     "model": "smoke-model"
                   },
@@ -2545,7 +2545,7 @@
                   },
                   "replayState": {
                     "response": {
-                      "kind": "deepseek-messages",
+                      "kind": "tokamak-messages",
                       "version": 1,
                       "model": "smoke-model"
                     },
@@ -2601,7 +2601,7 @@
             "mode": "continuable",
             "provider": "spawn",
             "label": "Check direct child",
-            "agentProvider": "deepseek-official",
+            "agentProvider": "tokamak-official",
             "agentModel": "smoke-model",
             "agentReasoningEffort": "high"
           }
@@ -3032,7 +3032,7 @@
           "data": {
             "header": {
               "config": {
-                "provider": "deepseek-official",
+                "provider": "tokamak-official",
                 "model": "smoke-model",
                 "reasoningEffort": "high",
                 "maxTokens": 256000
@@ -3066,7 +3066,7 @@
           "seq": 15,
           "time": 0,
           "data": {
-            "provider": "deepseek-official",
+            "provider": "tokamak-official",
             "model": "smoke-model",
             "contextWindow": 1000000
           }
@@ -3130,11 +3130,11 @@
               ],
               "source": {
                 "kind": "model",
-                "provider": "deepseek-official",
+                "provider": "tokamak-official",
                 "model": "smoke-model",
                 "replayState": {
                   "response": {
-                    "kind": "deepseek-messages",
+                    "kind": "tokamak-messages",
                     "version": 1,
                     "model": "smoke-model"
                   },
@@ -3205,7 +3205,7 @@
                   },
                   "replayState": {
                     "response": {
-                      "kind": "deepseek-messages",
+                      "kind": "tokamak-messages",
                       "version": 1,
                       "model": "smoke-model"
                     },
@@ -3344,11 +3344,11 @@
               ],
               "source": {
                 "kind": "model",
-                "provider": "deepseek-official",
+                "provider": "tokamak-official",
                 "model": "smoke-model",
                 "replayState": {
                   "response": {
-                    "kind": "deepseek-messages",
+                    "kind": "tokamak-messages",
                     "version": 1,
                     "model": "smoke-model"
                   },
@@ -3433,7 +3433,7 @@
                   },
                   "replayState": {
                     "response": {
-                      "kind": "deepseek-messages",
+                      "kind": "tokamak-messages",
                       "version": 1,
                       "model": "smoke-model"
                     },
@@ -3504,7 +3504,7 @@
             "mode": "continuable",
             "provider": "spawn",
             "label": "advanced-exe-snapshot child 1",
-            "agentProvider": "deepseek-official",
+            "agentProvider": "tokamak-official",
             "agentModel": "smoke-model",
             "agentReasoningEffort": "high"
           }
@@ -3860,7 +3860,7 @@
           "data": {
             "header": {
               "config": {
-                "provider": "deepseek-official",
+                "provider": "tokamak-official",
                 "model": "smoke-model",
                 "reasoningEffort": "high",
                 "maxTokens": 256000
@@ -3894,7 +3894,7 @@
           "seq": 15,
           "time": 0,
           "data": {
-            "provider": "deepseek-official",
+            "provider": "tokamak-official",
             "model": "smoke-model",
             "contextWindow": 1000000
           }
@@ -3958,11 +3958,11 @@
               ],
               "source": {
                 "kind": "model",
-                "provider": "deepseek-official",
+                "provider": "tokamak-official",
                 "model": "smoke-model",
                 "replayState": {
                   "response": {
-                    "kind": "deepseek-messages",
+                    "kind": "tokamak-messages",
                     "version": 1,
                     "model": "smoke-model"
                   },
@@ -4033,7 +4033,7 @@
                   },
                   "replayState": {
                     "response": {
-                      "kind": "deepseek-messages",
+                      "kind": "tokamak-messages",
                       "version": 1,
                       "model": "smoke-model"
                     },
@@ -4294,11 +4294,11 @@
               ],
               "source": {
                 "kind": "model",
-                "provider": "deepseek-official",
+                "provider": "tokamak-official",
                 "model": "smoke-model",
                 "replayState": {
                   "response": {
-                    "kind": "deepseek-messages",
+                    "kind": "tokamak-messages",
                     "version": 1,
                     "model": "smoke-model"
                   },
@@ -4369,7 +4369,7 @@
                   },
                   "replayState": {
                     "response": {
-                      "kind": "deepseek-messages",
+                      "kind": "tokamak-messages",
                       "version": 1,
                       "model": "smoke-model"
                     },

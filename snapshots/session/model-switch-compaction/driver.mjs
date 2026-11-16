@@ -11,7 +11,7 @@ export function apply(ctx) {
     const result = await next()
     if (exec.name === 'bash' && !result.isError) {
       if (exec.agent === undefined) throw new Error('model-switch compaction requires a calling Agent')
-      exec.agent.model.select({ provider: 'deepseek-official', model: 'deepseek-v4-pro' })
+      exec.agent.model.select({ provider: 'tokamak-official', model: 'tokamak-1-pro' })
     }
     return result
   })

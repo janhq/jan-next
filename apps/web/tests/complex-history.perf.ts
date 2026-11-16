@@ -208,7 +208,7 @@ function appendSystemPrompt(session: Session, turn: number, step: number): void 
 function appendRequestHeader(session: Session, turn: number, step: number): void {
   session.append('request/header', {
     header: {
-      config: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      config: { provider: 'tokamak-official', model: 'tokamak-1-preview' },
     },
     reason: turn === 1 && step === 1 ? 'initial' : 'change',
   })
@@ -226,7 +226,7 @@ function appendAssistant(
     step,
     message: createAssistantMessage({
       content: text(body),
-      source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      source: { provider: 'tokamak-official', model: 'tokamak-1-preview' },
     }),
     usage: {
       inputTokens: 4_000 + turn * 10,
@@ -269,7 +269,7 @@ function appendToolStep(
           arguments: args,
         })),
       ],
-      source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      source: { provider: 'tokamak-official', model: 'tokamak-1-preview' },
     }),
     usage: {
       inputTokens: 6_000 + turn * 10,

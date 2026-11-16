@@ -202,7 +202,7 @@ describe('Assembled viewer page global configuration privacy', () => {
       expect([...document.querySelectorAll<HTMLImageElement>('img')].some(image =>
         image.src.startsWith('data:image/png') || image.src.startsWith('blob:'))).toBe(true)
     }, { timeout: 15_000 })
-    await waitFor(() => { expect(document.querySelector('[data-liveshare-viewer-seat="model"]')?.textContent).toMatch(/deepseek/iu) })
+    await waitFor(() => { expect(document.querySelector('[data-liveshare-viewer-seat="model"]')?.textContent).toMatch(/tokamak/iu) })
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: earlier })) })
     await waitFor(() => { expect(document.body.textContent).toContain('问题 50') }, { timeout: 15_000 })
     expect(relay.ordinaryCalls).toEqual(expect.arrayContaining(['session/page', 'session/attachment', 'session/modelCatalog']))

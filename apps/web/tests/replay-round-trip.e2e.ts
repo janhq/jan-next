@@ -103,7 +103,7 @@ describe('web e2e: fresh round trip through the real assembly', () => {
     await page.reload({ waitUntil: 'load' })
     await page.locator('[data-composer-input]').first().waitFor({ timeout: 15_000 })
     await page.getByRole('button', { name: 'Standard mode', exact: true }).waitFor({ timeout: 15_000 })
-    await page.getByRole('button', { name: 'Select model, current DeepSeek-V4-Flash' }).waitFor({ timeout: 15_000 })
+    await page.getByRole('button', { name: 'Select model, current Tokamak 1 Preview' }).waitFor({ timeout: 15_000 })
     await expect.poll(() => page.evaluate(() => localStorage.getItem('jan.sessions.current'))).toBe(beforeReload)
     if (MODE !== 'record') {
       await compareOrRefreshGolden(BLANK_EXPECTED,
@@ -227,7 +227,7 @@ describe('web e2e: fresh round trip through the real assembly', () => {
     const paragraphs = system.split('\n\n')
     expect(paragraphs.slice(0, 2)).toEqual([
       'You are an AI agent powered by Jan.',
-      'You are a coding agent powered by the deepseek-v4-flash model.',
+      'You are a coding agent powered by the tokamak-1-preview model.',
     ])
     const cwd = agent.session.header.cwd
     if (cwd === undefined) throw new Error('the Web session has no working directory')
@@ -309,7 +309,7 @@ describe('web e2e: fresh round trip through the real assembly', () => {
     await expect(page.getByRole('textbox').first().isVisible()).resolves.toBe(true)
     expect(await page.getByText('WEB_E2E_OK', { exact: false }).count()).toBeGreaterThanOrEqual(1)
     await page.getByRole('button', {
-      name: 'Select model, current DeepSeek-V4-Flash',
+      name: 'Select model, current Tokamak 1 Preview',
     }).waitFor({ timeout: 10_000 })
     const snapshot = await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(UI_EXPECTED, snapshot, MODE)

@@ -2,11 +2,15 @@
 # with recorded JSONL, pin the recorded top-level model, and keep persistence
 # raw for fixture harvesting.
 
+- id: llm-pi-ai
+  name: '@janhq/jan-llm-pi-ai'
+  disabled: true
+
 - id: acp
   name: '@janhq/jan-acp'
   config:
-    provider: deepseek-official
-    model: deepseek-v4-flash
+    provider: tokamak-official
+    model: tokamak-1-preview
 
 - id: session-persistence-jsonl
   name: '@janhq/jan-session-persistence-jsonl'
@@ -30,11 +34,11 @@
       name: '@janhq/jan-llm-replay'
       config:
         providers:
-          - id: deepseek-official
-            name: DeepSeek
+          - id: tokamak-official
+            name: Tokamak
             models:
-              - id: deepseek-v4-flash
-              - id: deepseek-v4-pro
+              - id: tokamak-1-preview
+              - id: tokamak-1-pro
 
     - id: subagent-settlement-marker
       name: './subagent-settlement-marker.ts'

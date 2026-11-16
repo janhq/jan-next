@@ -3,8 +3,8 @@
 - id: agent-default-model
   name: '@janhq/jan-agent-default-model'
   config:
-    provider: deepseek-official
-    model: deepseek-v4-flash
+    provider: tokamak-official
+    model: tokamak-1-preview
 
 - id: session-persistence-jsonl
   name: '@janhq/jan-session-persistence-jsonl'
@@ -36,14 +36,14 @@
       name: '@janhq/jan-llm-replay'
       config:
         providers:
-          - id: deepseek-official
-            name: DeepSeek
+          - id: tokamak-official
+            name: Tokamak
             models:
               # Capability parity with the live adapter so replay
               # reconstructs the freshly recorded request header.
-              - id: deepseek-v4-flash
+              - id: tokamak-1-preview
                 contextWindow: 1000000
                 defaultMaxTokens: 256000
                 reasoningEfforts: ['off', 'low', 'high', 'max']
                 defaultReasoningEffort: max
-              - id: deepseek-v4-pro
+              - id: tokamak-1-pro

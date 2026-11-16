@@ -2,11 +2,15 @@
 # the adapter and re-pins the recorded vision model. The replay catalog declares image input,
 # so the strict read_image gate accepts the route and the tool result carries
 # the durable image block.
+- id: llm-pi-ai
+  name: '@janhq/jan-llm-pi-ai'
+  disabled: true
+
 - id: acp
   name: '@janhq/jan-acp'
   config:
-    provider: deepseek-official
-    model: deepseek-v4-flash-vision-exp
+    provider: tokamak-official
+    model: tokamak-1-vision
 
 - id: session-persistence-jsonl
   name: '@janhq/jan-session-persistence-jsonl'
@@ -32,14 +36,14 @@
       name: '@janhq/jan-llm-replay'
       config:
         providers:
-          - id: deepseek-official
-            name: DeepSeek
+          - id: tokamak-official
+            name: Tokamak
             models:
-              - id: deepseek-v4-flash
+              - id: tokamak-1-preview
                 inputModalities: [text]
-              - id: deepseek-v4-pro
+              - id: tokamak-1-pro
                 inputModalities: [text]
-              - id: deepseek-v4-flash-vision-exp
+              - id: tokamak-1-vision
                 inputModalities: [text, image]
                 # Route-priced request images at the provider cap; the small
                 # context window turns that visual pressure into an automatic

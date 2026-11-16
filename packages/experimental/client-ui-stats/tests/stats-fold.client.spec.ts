@@ -104,7 +104,7 @@ function assistantMessage(content: readonly ContentBlock[] = []): AssistantMessa
     role: 'assistant',
     id: MessageId('assistant-1'),
     content,
-    source: { kind: 'model', provider: 'deepseek', model: 'deepseek-chat' },
+    source: { kind: 'model', provider: 'tokamak', model: 'tokamak-chat' },
   }
 }
 
@@ -162,7 +162,7 @@ function retry(turn: number, step: number, time: number): SessionEventLike {
     turn,
     step,
     retryId: RetryId('retry-1'),
-    provider: 'deepseek',
+    provider: 'tokamak',
     mode: 'normal',
     policyKey: 'default',
     retry: 1,

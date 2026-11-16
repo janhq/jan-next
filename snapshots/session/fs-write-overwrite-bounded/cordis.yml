@@ -2,13 +2,13 @@
 # the fs backend's overwrite diff-basis limit shrunk so a modest replacement
 # crosses the exclusive bound and the write result falls back to a whole-file
 # diff. A config patch replaces the row's whole config, so `cwd` is restated
-# verbatim, and the acp-agent restatement re-pins `deepseek-v4-flash` to match
+# verbatim, and the acp-agent restatement re-pins `tokamak-1-preview` to match
 # the recorded corpus and its pinned request headers.
 - id: agent-default-model
   name: '@janhq/jan-agent-default-model'
   config:
-    provider: deepseek-official
-    model: deepseek-v4-flash
+    provider: tokamak-official
+    model: tokamak-1-preview
 
 - id: session-persistence-jsonl
   name: '@janhq/jan-session-persistence-jsonl'

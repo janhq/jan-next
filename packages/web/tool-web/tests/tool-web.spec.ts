@@ -1205,7 +1205,7 @@ describe('web tool admission per model step', () => {
     const fiber = await ctx.plugin(ToolWeb, {})
     const agent = { id: SessionId('web-search-admission') } as Agent
     await ctx.plugin(Object.assign((inner: Context) => { createScope(inner, agent) }, { inject: ['tools'] }))
-    const selection: ModelSelection = { provider: setup.route ?? 'tokamak', model: 'deepseek-v4-flash' }
+    const selection: ModelSelection = { provider: setup.route ?? 'tokamak', model: 'tokamak-1-preview' }
     const step = async (): Promise<{ toolSet: ResolvedToolSet; tools: string[]; prompt: string }> => {
       const modelSelection = { ...selection }
       const toolSet = await ctx.tools.resolve({ agent, modelSelection, signal: testToolSignal })

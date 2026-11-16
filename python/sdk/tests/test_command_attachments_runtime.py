@@ -20,7 +20,7 @@ from test_goal_runtime import _command, _until
 from test_plan_runtime import _GUIDANCE, _effective_system
 
 
-_IMAGE_MODEL = "deepseek-flash"
+_IMAGE_MODEL = "tokamak-flash"
 _RED = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg=="
 _BLUE = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYPj/HwADAgH/5ncLrgAAAABJRU5ErkJggg=="
 

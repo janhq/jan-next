@@ -3,10 +3,10 @@
       name: '@janhq/jan-llm-replay'
       config:
         providers:
-          - id: deepseek-official
-            name: DeepSeek
+          - id: tokamak-official
+            name: Tokamak
             models:
-              - id: deepseek-v4-flash
+              - id: tokamak-1-preview
                 toolUpdate: in-history
                 defaultMaxTokens: 256000
                 reasoningEfforts: [off, low, high, max]

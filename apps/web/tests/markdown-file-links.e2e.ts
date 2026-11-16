@@ -39,7 +39,7 @@ function parentPathFixture(path: string): string {
     turn: 1, step: 1, stream: [],
     message: createAssistantMessage({
       content: [{ type: 'tool-call', id: callId, name: 'read', arguments: args }],
-      source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      source: { provider: 'tokamak-official', model: 'tokamak-1-preview' },
     }),
   }, { surfaceOp: 'append' })
   const call = session.append('tool/call', { turn: 1, step: 1, callId, name: 'read', arguments: args })
@@ -53,7 +53,7 @@ function parentPathFixture(path: string): string {
     turn: 1, step: 2, stream: [],
     message: createAssistantMessage({
       content: [{ type: 'text', text: `[Parent file:24–30](<${path}#L24-L30>) · [Parent file:30](<${path}#L30>)` }],
-      source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      source: { provider: 'tokamak-official', model: 'tokamak-1-preview' },
     }),
   }, { surfaceOp: 'append' })
   session.append('step/end', { turn: 1, step: 2 })
@@ -82,7 +82,7 @@ function changedDirectoryFixture(path: string): string {
     turn: 1, step: 1, stream: [],
     message: createAssistantMessage({
       content: [{ type: 'text', text: `[Worktree notes](${path})` }],
-      source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      source: { provider: 'tokamak-official', model: 'tokamak-1-preview' },
     }),
   }, { surfaceOp: 'append' })
   session.append('step/end', { turn: 1, step: 1 })

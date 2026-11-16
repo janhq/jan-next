@@ -28,7 +28,7 @@ const PROVIDERS = [
     : { id: `${provider.prefix.toLowerCase()}-model-${index + 1}`, name: `${provider.prefix} Model ${index + 1}${index === 6 ? ' with a long name that exceeds the model card width' : ''}` }),
 }))
 const EXPECTED_GROUPS = [
-  { label: 'DeepSeek', rows: ['DeepSeek-V4-Flash', 'DeepSeek-V4-Flash-Vision-Exp'] },
+  { label: 'Tokamak', rows: ['Tokamak 1 Preview', 'Tokamak 1 Vision Experimental'] },
   ...PROVIDERS.map(provider => ({ label: provider.name, rows: provider.models.map(model => model.name) })),
 ]
 

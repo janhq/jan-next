@@ -40,8 +40,8 @@ describe('jan run with Agent Teams enabled', () => {
       await writeFile(join(profileDir, 'cordis.patch.yml'), [
         '- id: agent-default-model',
         '  config:',
-        '    provider: deepseek-official',
-        '    model: deepseek-v4-flash',
+        '    provider: tokamak-official',
+        '    model: tokamak-1-preview',
         '- id: session-persistence-jsonl',
         '  config:',
         `    root: '${sessions}'`,

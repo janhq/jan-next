@@ -238,7 +238,7 @@ function galleryFixture(imageUrl: string): string {
         name: call.name,
         arguments: call.argsJson,
       })),
-      source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      source: { provider: 'tokamak-official', model: 'tokamak-1-preview' },
     }),
   }, { surfaceOp: 'append' })
   for (const call of calls) {
@@ -293,7 +293,7 @@ function galleryFixture(imageUrl: string): string {
         '',
         '[^1]: Footnote references stay inert superscripts.',
       ].join('\n')),
-      source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      source: { provider: 'tokamak-official', model: 'tokamak-1-preview' },
     }),
   }, { surfaceOp: 'append' })
   session.append('step/end', { turn: 1, step: 2 })

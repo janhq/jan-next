@@ -256,7 +256,7 @@ const SDK_ASSERTIONS: Readonly<Record<string, SdkAssertions>> = {
     },
   },
   'subagent-jan-sdk-dynamic-route': {
-    environment: { JAN_TEST_PARENT_PROVIDER: 'deepseek-official' },
+    environment: { JAN_TEST_PARENT_PROVIDER: 'tokamak-official' },
     janSdkChild: {
       config: janSdkChildConfig,
       agentConfig: {
@@ -940,7 +940,7 @@ async function runScenario(scenario: CorpusScenario): Promise<{
           subscription.close()
           await harness.close()
           await prepareTurnReplay(action.turn)
-          harness = createHarness('deepseek-v4-pro')
+          harness = createHarness('tokamak-1-pro')
           await harness.start()
           subscription = harness.client.subscribeSessionTree(sessionId)
           await expect(harness.resumeSession('missing-session')).rejects.toThrow()

@@ -49,5 +49,5 @@ export const inject = ['llm']
  * @param {import('@janhq/cordis').Context} ctx - plugin context carrying the LLM service.
  */
 export function apply(ctx) {
-  ctx.llm.registerAdapter(['deepseek-official'], new RetrySnapshotAdapter())
+  ctx.llm.registerAdapter(['tokamak-official'], new RetrySnapshotAdapter())
 }

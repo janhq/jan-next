@@ -536,7 +536,7 @@ async function createChild(scaffold: WebScaffold, parentId: SessionId, scenario:
   const ordered = [
     ...parsed.events.slice(0, firstUser + 1),
     { type: 'subagent/descriptor', data: snapshotSubagentDescriptor({
-      mode: 'continuable', provider: 'spawn', label: CHILD_LABEL, agentProvider: 'deepseek-official', agentModel: 'deepseek-v4-flash',
+      mode: 'continuable', provider: 'spawn', label: CHILD_LABEL, agentProvider: 'tokamak-official', agentModel: 'tokamak-1-preview',
     }) },
     ...parsed.events.slice(firstUser + 1),
   ]

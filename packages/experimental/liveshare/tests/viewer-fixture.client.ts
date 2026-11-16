@@ -778,7 +778,7 @@ const WEB_FETCH_META = {
   truncated: false,
 } satisfies JsonValue
 
-const DEEPSEEK_REASONING = {
+const TOKAMAK_REASONING = {
   efforts: [
     { id: 'off', name: 'Off' },
     { id: 'high', name: 'High' },
@@ -801,20 +801,20 @@ const OPENAI_REASONING = {
 function fixtureModelGroups(): ModelProviderGroup[] {
   return [
     {
-      id: 'deepseek',
-      name: 'DeepSeek',
+      id: 'tokamak',
+      name: 'Tokamak',
       models: [
         {
-          id: 'deepseek-v4-flash',
-          name: 'DeepSeek-V4-Flash',
+          id: 'tokamak-1-preview',
+          name: 'Tokamak 1 Preview',
           description: '快速响应',
-          reasoning: DEEPSEEK_REASONING,
+          reasoning: TOKAMAK_REASONING,
         },
         {
-          id: 'deepseek-v4-pro',
-          name: 'DeepSeek-V4-Pro',
+          id: 'tokamak-1-pro',
+          name: 'Tokamak 1 Pro',
           description: '复杂任务',
-          reasoning: DEEPSEEK_REASONING,
+          reasoning: TOKAMAK_REASONING,
         },
       ],
     },
@@ -907,7 +907,7 @@ function buildAlphaLog(presented = false): SessionEvent[] {
   // Completed fixture requests retain the route capacity recorded with them.
   push({
     type: 'request/context',
-    data: { provider: 'deepseek', model: 'deepseek-v4-flash', contextWindow: 128_000 },
+    data: { provider: 'tokamak', model: 'tokamak-1-preview', contextWindow: 128_000 },
   })
   for (let turn = 0; turn < 60; turn++) {
     push({ type: 'turn/start', data: { turn } })
@@ -2064,7 +2064,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
   const goalActivations = new Map<SessionId, 'armed' | 'disarmed'>()
   const modelSelections = new Map<SessionId, ModelSelection>(sessions.map(session => [
     session.sessionId,
-    { provider: 'deepseek', model: 'deepseek-v4-flash' },
+    { provider: 'tokamak', model: 'tokamak-1-preview' },
   ]))
   const attachments = new Map<string, { attachment: ImageAttachmentRef; data: string }>([[
     String(FIXTURE_IMAGE_REF.attachmentId),
@@ -2073,13 +2073,13 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
   /** Credential store double: set/unset flip the describe badge, values never read back. */
   const fixtureCredentials = new Map<string, true>([
     // The assembled fixture represents an already-configured shipped
-    // DeepSeek route so unrelated GUI journeys do not enter first-run setup.
-    ['DEEPSEEK_API_KEY', true],
+    // Tokamak route so unrelated GUI journeys do not enter first-run setup.
+    ['TOKAMAK_API_KEY', true],
   ])
 
   /** Canonical fixture implementation of the generated Settings Remote contract. */
   const settingsRemotes = {
-    // Only the resolved DeepSeek address needed by first-run readiness is
+    // Only the resolved Tokamak address needed by first-run readiness is
     // represented here. Fixture-backed journeys do not open its Models editor;
     // real schema-driven forms ride the HTTP transport.
     describe(): RpcResult<SettingsDescribeValue> {
@@ -2092,9 +2092,9 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
             ns: 'llm-pi-ai',
             autoGenerate: true,
             schema: {},
-            value: { providers: { deepseek: { apiKeyEnv: 'DEEPSEEK_API_KEY' } } },
+            value: { providers: { tokamak: { apiKeyEnv: 'TOKAMAK_API_KEY' } } },
             applies: 'live',
-            secrets: [{ path: ['providers', 'deepseek', 'apiKey'], set: false }],
+            secrets: [{ path: ['providers', 'tokamak', 'apiKey'], set: false }],
             revision: 0,
           }],
         },
@@ -3483,7 +3483,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         sessionId: requestedId ?? sid(`fx-${nextSession++}`), updatedAt: Date.now(), running: false, blank: true, cwd,
       }
       sessions.push(created)
-      modelSelections.set(created.sessionId, { provider: 'deepseek', model: 'deepseek-v4-flash' })
+      modelSelections.set(created.sessionId, { provider: 'tokamak', model: 'tokamak-1-preview' })
       const emitSession = (): void => {
         emitRemote('api-session/added', [created])
       }
@@ -3690,7 +3690,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
       // Capacity parallel of the host token-meter's request/context record:
       // log-only, appended inside the open turn, and deduplicated against the
       // route already recorded (the fixture never varies contextWindow).
-      const selection = modelSelections.get(id) ?? { provider: 'deepseek', model: 'deepseek-v4-flash' }
+      const selection = modelSelections.get(id) ?? { provider: 'tokamak', model: 'tokamak-1-preview' }
       const previousHeader = logOf(id).findLast(event => event.type === 'request/header')
       const previousSelection = previousHeader?.type === 'request/header'
         ? {
@@ -4303,8 +4303,8 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         case 'session/modelCatalog': return Promise.resolve({
           ok: true,
           value: {
-            default: { provider: 'deepseek', model: 'deepseek-v4-flash' },
-            routableProviders: ['deepseek', 'openai', 'acme-gateway'],
+            default: { provider: 'tokamak', model: 'tokamak-1-preview' },
+            routableProviders: ['tokamak', 'openai', 'acme-gateway'],
             groups: fixtureModelGroups(),
             failures: [],
           },
@@ -4312,7 +4312,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         case 'llm/listProviders': return Promise.resolve({
           ok: true,
           value: [
-            { id: 'deepseek', name: 'DeepSeek' },
+            { id: 'tokamak', name: 'Tokamak' },
             { id: 'openai', name: 'openai' },
             { id: 'acme-gateway', name: 'Acme Gateway' },
           ],
@@ -4320,7 +4320,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         case 'llm/listConfigurableProviders': return Promise.resolve({
           ok: true,
           value: [
-            { provider: 'deepseek', displayName: 'DeepSeek', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'deepseek'], declared: true },
+            { provider: 'tokamak', displayName: 'Tokamak', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'tokamak'], declared: true },
             { provider: 'openai', displayName: 'openai', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'], declared: false },
             { provider: 'anthropic', displayName: 'anthropic', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'anthropic'], declared: false },
             { provider: 'acme-gateway', displayName: 'Acme Gateway', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'acme-gateway'], declared: true },

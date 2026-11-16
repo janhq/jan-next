@@ -126,7 +126,7 @@ function completedTailFixture(raw: string): string {
         message: {
           role: 'assistant',
           content: [{ type: 'text', text: 'DONE' }],
-          source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+          source: { kind: 'model', provider: 'tokamak-official', model: 'tokamak-1-preview' },
           id: '{{message:99}}',
         },
         stream: [
@@ -169,7 +169,7 @@ function completedTailFixture(raw: string): string {
         turn: 3, step: 1,
         message: {
           role: 'assistant', id: '{{message:101}}',
-          source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+          source: { kind: 'model', provider: 'tokamak-official', model: 'tokamak-1-preview' },
           content: [{ type: 'text', text: 'ORIGINAL ONLY' }],
         },
         stream: [

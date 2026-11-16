@@ -175,8 +175,8 @@
         "seq": 71,
         "val": {
           "lastUsed": {
-            "provider": "deepseek-official",
-            "model": "deepseek-v4-flash",
+            "provider": "tokamak-official",
+            "model": "tokamak-1-preview",
             "reasoningEffort": "high"
           },
           "pending": null

@@ -240,5 +240,5 @@ export function apply(ctx) {
     }
     return result
   })
-  ctx.llm.registerAdapter(['deepseek-official'], new TeamFixtureAdapter())
+  ctx.llm.registerAdapter(['tokamak-official'], new TeamFixtureAdapter())
 }

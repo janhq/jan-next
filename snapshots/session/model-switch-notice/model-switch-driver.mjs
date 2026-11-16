@@ -1,6 +1,6 @@
 /** Test-only explicit initial selection and model switch after the first step's tool call. */
 
-const SELECTED = { provider: 'deepseek-official', model: 'deepseek-v4-pro', reasoningEffort: 'max' }
+const SELECTED = { provider: 'tokamak-official', model: 'tokamak-1-pro', reasoningEffort: 'max' }
 
 export const name = 'model-switch-driver'
 export const inject = ['tools']

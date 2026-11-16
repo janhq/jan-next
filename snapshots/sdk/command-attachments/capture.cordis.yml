@@ -2,9 +2,9 @@
   config:
     providers:
       - id: snapshot-command-images
-        name: DeepSeek
+        name: Tokamak
         models:
-          - id: deepseek-flash
+          - id: tokamak-flash
             inputModalities: [text, image]
 
 - insert:

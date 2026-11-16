@@ -3,11 +3,11 @@
       name: '@janhq/jan-llm-replay'
       config:
         providers:
-          - id: deepseek-official
-            name: DeepSeek
+          - id: tokamak-official
+            name: Tokamak
             models:
-              - id: deepseek-v4-flash
-              - id: deepseek-v4-pro
+              - id: tokamak-1-preview
+              - id: tokamak-1-pro
 
 - insert:
     - id: experimental-subagent-oar-codex

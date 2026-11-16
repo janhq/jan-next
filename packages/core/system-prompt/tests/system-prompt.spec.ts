@@ -690,10 +690,10 @@ describe('SystemPrompt', () => {
     it('interpolates {{name}} references in section text at render — the persona included', async () => {
       const ctx = new Context()
       await ctx.plugin(SystemPrompt, { personaPrefix: 'You run on {{model}} in {{cwd}}.' })
-      ctx.systemPrompt.variable('model', () => 'deepseek-v4')
+      ctx.systemPrompt.variable('model', () => 'tokamak-1')
       ctx.systemPrompt.variable('cwd', () => '/work')
 
-      expect(renderPrompt(await ctx.systemPrompt.assemble())).toBe(`${IDENTITY}\n\nYou run on deepseek-v4 in /work.`)
+      expect(renderPrompt(await ctx.systemPrompt.assemble())).toBe(`${IDENTITY}\n\nYou run on tokamak-1 in /work.`)
     })
 
     it.each([

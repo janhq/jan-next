@@ -3,8 +3,8 @@
 - id: agent-default-model
   name: '@janhq/jan-agent-default-model'
   config:
-    provider: deepseek-official
-    model: deepseek-flash
+    provider: tokamak-official
+    model: tokamak-flash
 
 - id: session-persistence-jsonl
   name: '@janhq/jan-session-persistence-jsonl'
@@ -17,10 +17,10 @@
       name: '@janhq/jan-llm-replay'
       config:
         providers:
-          - id: deepseek-official
-            name: DeepSeek
+          - id: tokamak-official
+            name: Tokamak
             models:
-              - id: deepseek-flash
+              - id: tokamak-flash
                 systemPromptUpdate: in-history
                 inputModalities: [text, image]
     - id: in-history-prompt-update

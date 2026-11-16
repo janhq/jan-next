@@ -210,13 +210,13 @@ const INSTALL_ANCHOR = join(REPO_ROOT, 'apps/cli/package.json')
 // post-step pressure check would warn every step). The published
 // contextWindow keeps that pressure path provably inert for small fixtures.
 const REPLAY_PROVIDERS = [{
-  id: 'deepseek-official',
-  name: 'DeepSeek',
+  id: 'tokamak-official',
+  name: 'Tokamak',
   models: [
-    { id: 'deepseek-v4-flash', name: 'DeepSeek-V4-Flash', contextWindow: 128_000 },
+    { id: 'tokamak-1-preview', name: 'Tokamak 1 Preview', contextWindow: 128_000 },
     {
-      id: 'deepseek-v4-flash-vision-exp',
-      name: 'DeepSeek-V4-Flash-Vision-Exp',
+      id: 'tokamak-1-vision',
+      name: 'Tokamak 1 Vision Experimental',
       contextWindow: 1_000_000,
       inputModalities: ['text', 'image'] as const,
       defaultMaxTokens: 256_000,
@@ -466,8 +466,8 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     : `/${(publicMount.prefix ?? 'tools/jan/').replace(/^\/+|\/+$/gu, '')}/`
   const browserHost = options.remoteAuthority ?? '127.0.0.1'
   if (mode === 'record') {
-    // Recorded fixtures route through `deepseek-official`, which no shipped adapter serves.
-    throw new Error('web e2e record mode needs a live adapter for the deepseek-official replay route; none is composed')
+    // Recorded fixtures route through `tokamak-official`, which no shipped adapter serves.
+    throw new Error('web e2e record mode needs a live adapter for the tokamak-official replay route; none is composed')
   }
   const maskModelCredential = options.missingModelCredential === true
   // A keyless run that replays recorded model calls pins the snapshot replay placeholder because
@@ -561,7 +561,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     { id: 'ui-plugin-manager', config: { registryProbeEnabled: false } },
     ...options.missingModelCredential === true
       ? []
-      : [{ id: 'agent-default-model', config: { provider: 'deepseek-official', model: 'deepseek-v4-flash' } }],
+      : [{ id: 'agent-default-model', config: { provider: 'tokamak-official', model: 'tokamak-1-preview' } }],
     ...extraOverlayPatches,
     { id: 'agent-preset-registry', config: { default: 'standard' } },
     { id: 'session-persistence-jsonl', config: { root: persistenceRoot } },

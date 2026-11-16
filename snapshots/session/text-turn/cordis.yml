@@ -1,7 +1,7 @@
 # Live-recording patch shared by the ordinary headless snapshot composition.
 # The shipped profile owns application startup; this patch fixes only the
 # deterministic test composition and raw persistence needed for recording.
-# Recorded headers name the `deepseek-official` route, which no shipped adapter
+# Recorded headers name the `tokamak-official` route, which no shipped adapter
 # registers; re-recording needs a patch that supplies that provider route.
 
 - id: sandbox-policy

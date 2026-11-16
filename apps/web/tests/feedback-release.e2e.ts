@@ -35,8 +35,8 @@ interface OtlpCapture {
 
 const PROMPT = 'Reply with the single word LIGHTHOUSE and stop.'
 
-describe.each(MODE === 'record' ? ['deepseek-official'] : ['deepseek-official', 'feedback-mock'])('web e2e: feedback release for %s', (provider) => {
-  const official = provider === 'deepseek-official'
+describe.each(MODE === 'record' ? ['tokamak-official'] : ['tokamak-official', 'feedback-mock'])('web e2e: feedback release for %s', (provider) => {
+  const official = provider === 'tokamak-official'
   let scaffold: WebScaffold
   let browser: Browser
   let page: Page
@@ -115,8 +115,8 @@ describe.each(MODE === 'record' ? ['deepseek-official'] : ['deepseek-official', 
       telemetryMode: 'FEEDBACK_ONLY',
       telemetryScheduledDelayMillis: 10,
       replayProviders: [
-        { id: 'deepseek-official', name: 'DeepSeek', models: [
-          { id: 'deepseek-v4-flash', name: 'DeepSeek-V4-Flash', contextWindow: 128_000 },
+        { id: 'tokamak-official', name: 'Tokamak', models: [
+          { id: 'tokamak-1-preview', name: 'Tokamak 1 Preview', contextWindow: 128_000 },
         ] },
         { id: 'feedback-mock', name: 'Feedback mock', models: [
           { id: 'feedback-mock', name: 'Feedback mock', contextWindow: 128_000 },
@@ -175,7 +175,7 @@ describe.each(MODE === 'record' ? ['deepseek-official'] : ['deepseek-official', 
     // Both routes render the same composer without changing the actual request header.
     if (MODE !== 'record') {
       await selectModel('Feedback mock')
-      await selectModel('DeepSeek-V4-Flash')
+      await selectModel('Tokamak 1 Preview')
     }
     expect(agent?.session.requestHeader()?.config.provider).toBe(provider)
     expect(uploads).toEqual([])
@@ -210,7 +210,7 @@ describe.each(MODE === 'record' ? ['deepseek-official'] : ['deepseek-official', 
     expect(events.at(-1)?.type).toBe('command/done')
     expect(events.at(-1)!.seq).toBeGreaterThan(authorized.at(-1)!.seq)
     await selectModel('Feedback mock')
-    await selectModel('DeepSeek-V4-Flash')
+    await selectModel('Tokamak 1 Preview')
     const warningStart = tripwire.warnings.length
     await page.reload({ waitUntil: 'load' })
     acknowledgeReloadConnectionLoss(tripwire, warningStart)
@@ -288,7 +288,7 @@ describe.each(MODE === 'record' ? ['deepseek-official'] : ['deepseek-official', 
 
   it.skipIf(MODE === 'record')('releases headerless feedback without capturing another session’s provider-change tail', async () => {
     await selectModel('Feedback mock')
-    await selectModel('DeepSeek-V4-Flash')
+    await selectModel('Tokamak 1 Preview')
     expect(captured()).toHaveLength(releasedCount)
     await page.getByRole('button', { name: 'New session', exact: true }).last().click()
     const input = page.locator('[data-composer-input][contenteditable="true"][data-placeholder="Describe what you want to build, / commands, @ files or sessions"]')

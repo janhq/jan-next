@@ -31,7 +31,7 @@ function shellFixture(arguments_: typeof ARGS, output: string): string {
     stream: [], turn: 1, step: 1,
     message: createAssistantMessage({
       content: [{ type: 'tool-call', id: callId, name: 'bash', arguments: args }],
-      source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      source: { provider: 'tokamak-official', model: 'tokamak-1-preview' },
     }),
   }, { surfaceOp: 'append' })
   const call = session.append('tool/call', { turn: 1, step: 1, callId, name: 'bash', arguments: args })
@@ -45,7 +45,7 @@ function shellFixture(arguments_: typeof ARGS, output: string): string {
     stream: [], turn: 1, step: 2,
     message: createAssistantMessage({
       content: [{ type: 'text', text: 'Diagnostic worker launched.' }],
-      source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      source: { provider: 'tokamak-official', model: 'tokamak-1-preview' },
     }),
   }, { surfaceOp: 'append' })
   session.append('step/end', { turn: 1, step: 2 })
@@ -173,7 +173,7 @@ it.each([
         turn: 2, step: 1, stream: [],
         message: createAssistantMessage({
           content: [{ type: 'tool-call', id: callId, name, arguments: args }],
-          source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+          source: { provider: 'tokamak-official', model: 'tokamak-1-preview' },
         }),
       }, { surfaceOp: 'append' })
       const call = session.append('tool/call', { turn: 2, step: 1, callId, name, arguments: args })

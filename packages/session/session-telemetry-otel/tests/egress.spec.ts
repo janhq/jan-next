@@ -74,7 +74,7 @@ function proxyEnv(): { get(name: string): { value: string } | undefined } {
 }
 
 describe('session-telemetry-otel egress', () => {
-  it.each(['mock', 'deepseek-official', 'unknown-provider', undefined])(
+  it.each(['mock', 'tokamak-official', 'unknown-provider', undefined])(
     'exports only explicit feedback directly for provider %s, ignoring the configured proxy',
     async (provider) => {
       seen.length = 0

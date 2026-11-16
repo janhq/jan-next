@@ -938,7 +938,7 @@ describe('turn rows', () => {
         compaction({
           startTime: BASE + 2_000, endTime: BASE + 3_000, wall: 1_000,
           context: 1_100, output: 50, cacheHit: 100 / 1_100, cacheRead: 100, cacheWrite: 20,
-          provider: 'deepseek-official', model: 'deepseek-flash',
+          provider: 'tokamak-official', model: 'tokamak-flash',
           shadowedTokens: 4_000, summaryChars: 30,
         }),
         compaction({
@@ -955,7 +955,7 @@ describe('turn rows', () => {
     expect(marker).toBeGreaterThan(first)
     expect(marker).toBeLessThan(second)
     const completed = cellsOf(rows[marker]!)
-    expect(completed[1]?.textContent).toBe('deepseek-official / deepseek-flash')
+    expect(completed[1]?.textContent).toBe('tokamak-official / tokamak-flash')
     expect(rows[marker]?.textContent).toContain(say('compaction.shadowed', { tokens: formatTokens(4_000) }))
     expect(completed[3]?.textContent).toBe(formatTokensShort(1_100))
     const running = rows.filter(row => (row.textContent ?? '').startsWith(say('compaction.label'))).at(-1)!

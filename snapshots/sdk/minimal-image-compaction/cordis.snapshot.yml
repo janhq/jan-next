@@ -3,10 +3,10 @@
       name: '@janhq/jan-llm-replay'
       config:
         providers:
-          - id: deepseek-official
-            name: DeepSeek
+          - id: tokamak-official
+            name: Tokamak
             models:
-              - id: deepseek-flash
+              - id: tokamak-flash
                 inputModalities: [text, image]
                 contextWindow: 1000000
 

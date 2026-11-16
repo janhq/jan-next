@@ -6,8 +6,8 @@
 - id: agent-default-model
   name: '@janhq/jan-agent-default-model'
   config:
-    provider: deepseek-official
-    model: deepseek-v4-flash
+    provider: tokamak-official
+    model: tokamak-1-preview
 
 - id: session-persistence-jsonl
   name: '@janhq/jan-session-persistence-jsonl'

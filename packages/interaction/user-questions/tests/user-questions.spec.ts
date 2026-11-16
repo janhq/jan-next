@@ -623,7 +623,7 @@ describe('late replies', () => {
     agent.session.append('turn/start', { turn: 1 })
     agent.session.append('step/start', { turn: 1, step: 1 })
     agent.session.append('request/header', {
-      header: { config: { provider: 'deepseek-official', model: 'deepseek-v4-flash' }, tools },
+      header: { config: { provider: 'tokamak-official', model: 'tokamak-1-preview' }, tools },
       reason: 'initial',
     })
     agent.session.append('tool/call', {

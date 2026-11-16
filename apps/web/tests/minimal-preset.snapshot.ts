@@ -59,7 +59,7 @@ describe('minimal agent preset', () => {
     agentHandle = await scaffold.ctx.agents.create({
       sessionId: SessionId('minimal-preset-smoke'),
       meta: { cwd: scaffold.workspaceCwd, agentPreset: 'minimal' },
-      agentOptions: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      agentOptions: { provider: 'tokamak-official', model: 'tokamak-1-preview' },
       setup: agentCtx => scaffold.ctx.agentPresets.mount(agentCtx, 'minimal').then(() => undefined),
     })
     agentHandle.agent.followup(createUserMessage({
@@ -228,7 +228,7 @@ describe('minimal manual compaction', () => {
     handle = await scaffold.ctx.agents.create({
       sessionId: SessionId('minimal-compact-smoke'),
       meta: { cwd: scaffold.workspaceCwd, agentPreset: 'minimal' },
-      agentOptions: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      agentOptions: { provider: 'tokamak-official', model: 'tokamak-1-preview' },
       setup: agentCtx => scaffold.ctx.agentPresets.mount(agentCtx, 'minimal').then(() => undefined),
     })
     handle.agent.followup(createUserMessage({
@@ -372,7 +372,7 @@ describe('minimal image reading', () => {
     handle = await scaffold.ctx.agents.create({
       sessionId: SessionId('minimal-image-smoke'),
       meta: { cwd: scaffold.workspaceCwd, agentPreset: 'minimal' },
-      agentOptions: { provider: 'deepseek-official', model: 'deepseek-v4-flash-vision-exp' },
+      agentOptions: { provider: 'tokamak-official', model: 'tokamak-1-vision' },
       setup: agentCtx => scaffold.ctx.agentPresets.mount(agentCtx, 'minimal').then(() => undefined),
     })
     handle.agent.followup(createUserMessage({ content: [{ type: 'text', text: prompt }], source: { kind: 'user' } }))

@@ -215,7 +215,7 @@ describe('web e2e: assistant IconActions wait for the turn to end', () => {
     expect(await trigger.getAttribute('aria-expanded')).toBe('true')
     const dialog = page.getByRole('dialog', { name: 'Turn usage' })
     expect(await dialog.count()).toBe(1)
-    expect(await dialog.getByText('deepseek-official/deepseek-v4-flash', { exact: true }).count()).toBe(1)
+    expect(await dialog.getByText('tokamak-official/tokamak-1-preview', { exact: true }).count()).toBe(1)
     expect(await dialog.getByText('49.7%', { exact: true }).count()).toBe(1)
     expect(await dialog.getByText('7,891 tok', { exact: true }).count()).toBe(1)
     expect(await dialog.getByText('7,808 tok', { exact: true }).count()).toBe(1)

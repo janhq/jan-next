@@ -3,9 +3,9 @@
 - term: Status
 - definition: Pending
 - term: Provider
-- definition: deepseek-official
+- definition: tokamak-official
 - term: Model
-- definition: deepseek-v4-flash
+- definition: tokamak-1-preview
 - term: Tool calls
 - definition: "0"
 - term: Last attempt error
@@ -20,9 +20,9 @@
 - term: Status
 - definition: Completed
 - term: Provider
-- definition: deepseek-official
+- definition: tokamak-official
 - term: Model
-- definition: deepseek-v4-flash
+- definition: tokamak-1-preview
 - term: Tool calls
 - definition: "0"
 - term: Last attempt error

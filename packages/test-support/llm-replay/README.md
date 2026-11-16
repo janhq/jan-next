@@ -36,8 +36,8 @@ With `providers` configured, the plugin registers a replay-only adapter whose ca
   name: '@janhq/jan-llm-replay'
   config:
     providers:
-      - id: deepseek-official
-        name: DeepSeek
+      - id: tokamak-official
+        name: Tokamak
         retryPolicy:
           mode: normal
           backoff:
@@ -45,9 +45,9 @@ With `providers` configured, the plugin registers a replay-only adapter whose ca
             maxDelayMs: 1
             jitterRatio: 0
         models:
-          - id: deepseek-v4-flash
+          - id: tokamak-1-preview
             contextWindow: 128000
-          - id: deepseek-v4-pro
+          - id: tokamak-1-pro
   # file/overrideFile/childFiles default to $JAN_SNAPSHOT_FILE /
   # $JAN_SNAPSHOT_OVERRIDE / $JAN_SNAPSHOT_CHILD_FILES, set by the snapshot
   # harness per scenario.

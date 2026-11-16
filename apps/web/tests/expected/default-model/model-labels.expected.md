@@ -1,15 +1,15 @@
 [
   {
-    "provider": "deepseek-official",
-    "model": "deepseek-v4-flash",
-    "name": "DeepSeek-V4-Flash",
+    "provider": "tokamak-official",
+    "model": "tokamak-1-preview",
+    "name": "Tokamak 1 Preview",
     "slot": "conversation.input.model.label",
     "inline": true
   },
   {
-    "provider": "deepseek-official",
-    "model": "deepseek-v4-flash-vision-exp",
-    "name": "DeepSeek-V4-Flash-Vision-Exp",
+    "provider": "tokamak-official",
+    "model": "tokamak-1-vision",
+    "name": "Tokamak 1 Vision Experimental",
     "slot": "conversation.input.model.label",
     "inline": true
   },

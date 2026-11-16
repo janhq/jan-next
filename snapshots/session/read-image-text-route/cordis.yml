@@ -1,12 +1,12 @@
 # Text-route image overlay: the attachment store registers read_image, but the
 # strict execution gate refuses on a route that does not declare image input,
 # so a text-only deployment keeps its durable history text-clean. The ACP row
-# re-pins `deepseek-v4-flash` for the authored fixture and header class.
+# re-pins `tokamak-1-preview` for the authored fixture and header class.
 - id: agent-default-model
   name: '@janhq/jan-agent-default-model'
   config:
-    provider: deepseek-official
-    model: deepseek-v4-flash
+    provider: tokamak-official
+    model: tokamak-1-preview
 
 - id: session-persistence-jsonl
   name: '@janhq/jan-session-persistence-jsonl'

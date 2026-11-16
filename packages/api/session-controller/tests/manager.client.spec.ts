@@ -1536,7 +1536,7 @@ describe('connected generation', () => {
       cursor: 5,
       records: entries(plainTurn(SessionSeq(0), 0, 'a', 'b')) as never[],
       hasMore: false,
-      modelSelection: { provider: 'example', model: 'deepseek-chat' },
+      modelSelection: { provider: 'example', model: 'tokamak-chat' },
     })))
     const client = await start()
     const manager = new SessionManager(client.ctx.remote)

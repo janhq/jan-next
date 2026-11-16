@@ -18,10 +18,10 @@
       name: '@janhq/jan-llm-replay'
       config:
         providers:
-          - id: deepseek-official
-            name: DeepSeek
+          - id: tokamak-official
+            name: Tokamak
             models:
-              - id: deepseek-v4-flash
+              - id: tokamak-1-preview
                 contextWindow: 128000
 
 # Fixed-budget compaction scenario: keep the recorded tool set, whose token counts the thresholds were tuned to.

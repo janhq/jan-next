@@ -65,22 +65,22 @@
     "ok": true,
     "value": {
       "default": {
-        "provider": "deepseek-official",
-        "model": "deepseek-v4-flash"
+        "provider": "tokamak-official",
+        "model": "tokamak-1-preview"
       },
       "routableProviders": [
-        "deepseek-official",
+        "tokamak-official",
         "openai",
         "acme-gateway"
       ],
       "groups": [
         {
-          "id": "deepseek-official",
-          "name": "DeepSeek",
+          "id": "tokamak-official",
+          "name": "Tokamak",
           "models": [
             {
-              "id": "deepseek-v4-flash",
-              "name": "DeepSeek-V4-Flash",
+              "id": "tokamak-1-preview",
+              "name": "Tokamak 1 Preview",
               "description": "快速响应",
               "reasoning": {
                 "efforts": [
@@ -101,8 +101,8 @@
               }
             },
             {
-              "id": "deepseek-v4-pro",
-              "name": "DeepSeek-V4-Pro",
+              "id": "tokamak-1-pro",
+              "name": "Tokamak 1 Pro",
               "description": "复杂任务",
               "reasoning": {
                 "efforts": [

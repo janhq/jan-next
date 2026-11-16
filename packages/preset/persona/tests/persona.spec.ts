@@ -112,7 +112,7 @@ describe('the persona row', () => {
   it('interpolates prompt variables strictly, like any other section', async () => {
     const ctx = await harness('')
     const key: ScopeKey = { agent: 'a1' }
-    ctx.systemPrompt.variable('model', () => 'deepseek-v4-pro')
+    ctx.systemPrompt.variable('model', () => 'tokamak-1-pro')
 
     await createScope(ctx, key).ctx.plugin(Persona, { prefix: 'You run on {{model}}.' })
 
@@ -120,7 +120,7 @@ describe('the persona row', () => {
     // stage that resolves `{{…}}` against the assembly's variables.
     expect(await personaText(ctx, key)).toBe('You run on {{model}}.')
     expect(renderPrompt(await ctx.systemPrompt.assemble({ scope: key })))
-      .toContain('You run on deepseek-v4-pro.')
+      .toContain('You run on tokamak-1-pro.')
   })
 
   it('makes a complete persona the exact prompt after every other contribution', async () => {
