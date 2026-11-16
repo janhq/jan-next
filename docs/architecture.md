@@ -2,7 +2,7 @@
 
 This fork is moving from a Jan React interface backed by DeepSeek Harness (DSH) to a desktop window that displays DSH's own web interface. Jan's appearance and app-specific features are being added as DSH plugins. Tauri and Rust continue to own native resources.
 
-**Status:** experimental migration. The single-window cutover is committed in `223399397`. Remote chat, saved DSH sessions and UI plugin installation have been exercised in the desktop app. Local-model handoff, native feature screens and full Jan layout parity are unfinished. This document distinguishes the committed path from planned work.
+**Status:** experimental migration. The single-window cutover is committed in `223399397`. Remote chat, selected-local-model handoff, saved DSH sessions, UI plugin installation, and the converted assistant, download and llama.cpp feature plugins have been exercised in the desktop app. Full Jan layout parity and packaged-release readiness are unfinished. This document distinguishes verified behavior from planned work.
 
 ## Why change the architecture?
 
@@ -44,7 +44,7 @@ flowchart TD
     Native["Rust native services\nllama.cpp, hardware, downloads, speech"]
 ```
 
-The native services remain in the application, but their full integration into DSH is still pending. The diagram deliberately leaves them outside the verified remote-chat path.
+The native services remain in the application. Feature plugins call them through the scoped host bridge described in section 6. Remote chat continues to use the configured endpoint directly.
 
 There is one desktop destination. The old shell selector, return-to-Jan action and `?shell=jan` escape have been removed. Some legacy React routes and the stdio transport remain in source during migration; the desktop entry does not load that route tree.
 
@@ -56,9 +56,10 @@ There is one desktop destination. The old shell selector, return-to-Jan action a
 | React desktop bootstrap | Initialize ServiceHub, restore persisted settings, request DSH startup, show startup failures and Retry | Active |
 | Rust DSH launcher | Locate the CLI and bundled shell plugin, generate startup configuration, supervise the Node child process | Active |
 | DSH web host and built-in plugins | Conversation UI, DSH sessions, workspaces, agent execution, settings and plugin management | Active |
-| `open-waifu-shell` host plugin | Serve a fixed set of font/logo assets and provide appearance configuration to the client | Active |
-| `open-waifu-shell` client plugin | Apply Jan styling, register branding/footer contributions and expose native window buttons | Active; exact layout parity incomplete |
-| Rust model and device services | llama.cpp worker, hardware, downloads and other native operations | Retained; DSH integration incomplete |
+| `ow-shell` host plugin | Serve a fixed set of font/logo assets and provide appearance configuration to the client | Active |
+| `ow-shell` client plugin | Apply Jan styling, register branding/footer contributions and expose native window buttons | Active; exact layout parity incomplete |
+| Native feature host plugins | Own assistant storage, model management and download tasks through `ow-native` | Implemented; flow verification continues |
+| Rust model and device services | llama.cpp worker, hardware, downloads and other native operations | Active behind the scoped host bridge |
 | Legacy Jan routes and stdio adapter | Earlier frontend and runtime integration | Still present in source; scheduled for removal after migration |
 
 DSH sessions live in the app's isolated DSH home. Existing Jan thread files are not automatically converted by the shell cutover.
@@ -82,7 +83,7 @@ sequenceDiagram
     Window->>DSH: Load interface and client plugins
 ```
 
-- **Runtime:** development currently uses the global `@deepseek-ai/dsh` installation, version 0.2.2. `OW_DSH_CLI` can select another built CLI entry. A packaged, app-managed runtime is still needed.
+- **Runtime:** the layout and local compaction changes require the matching isolated DSH checkout, Node >=24.9 and `OW_DSH_CLI` set to its built `apps/cli/lib/bin.js`. The global installation does not contain these new APIs. A packaged, app-managed runtime is still needed.
 - **State:** `<Jan data>/dsh/web-home` is passed as `DSH_HOME`. The app does not use the user's ordinary `~/.dsh` state.
 - **Configuration:** `<Jan data>/dsh/web.patch.yml` adds the shell plugin, appearance settings, active remote provider routes and the selected model when that route is available.
 - **Secrets:** Rust reads API keys from the OS keyring and passes them to the host through `OW_PROVIDER_KEY_<i>` environment variables. They are excluded from the patch file.
@@ -105,28 +106,43 @@ The current client uses DSH's slot, locale, theme and layout services. Its brand
 
 **The current native exception is window control.** The shell's browser code can call the narrowly granted Tauri window APIs. That permission does not give arbitrary DSH plugins access to model loading, the filesystem or other native services.
 
-### Why Jan layout parity needs more work
+### Jan layout through focused DSH slots
 
-DSH's composition system tracks child-outlet ownership. Registering a replacement parent with child outlets that already exist is rejected. A replacement component also cannot assume it has permission to render another entry's children.
+DSH's composition system tracks child-outlet ownership. Replacing a parent and registering its existing child outlets again is rejected. The matching runtime now exposes focused slots for sidebar actions and headings, the hero headline and suggestions, the composer placeholder, and a header model selector.
 
-That affects larger changes such as replacing the sidebar structure, moving the model picker into the header and rearranging the composer while preserving third-party contributions.
+The shell supplies Jan components through those slots while preserving DSH's action callbacks, model directory and session state. The native desktop rendered the new sidebar rows, hero, composer placeholder and header model selector. A real remote turn completed and remained after reload. Search visibility and the remaining visual comparison are still under verification. The global DSH installation is unchanged.
 
-The supported leaf slots and theme hooks already allow branding and smaller contributions. Full layout replacement needs an appropriate host extension point, such as lifecycle-safe entry decoration or more focused layout slots. No installed DSH bundles are being patched to bypass this restriction.
+## 6. Native feature plugins
 
-## 6. Native integration target
+The retained assistant, download and llama.cpp implementations now have DSH host plugins and client panels. Their package names use `@open-waifu/dsh-<feature>`, registration ids use `ow-<feature>`, and service keys use `ow<Feature>`.
 
-The intended next step is a DSH host-side bridge to Rust's native services, with client plugins for the corresponding screens.
+```mermaid
+flowchart LR
+    Client["DSH client panels"] --> API["Authenticated same-origin host APIs"]
+    API --> Features["Assistant, download and llama.cpp host plugins"]
+    Features --> Bridge["ow-native host transport"]
+    Bridge --> Native["Rust native allowlist"]
+    Native --> Engine["jan-llama-worker"]
+    Native --> Files["Scoped Jan data files"]
+    Native --> Downloads["Native downloader and events"]
+```
 
-| Planned path | What it enables |
-|---|---|
-| DSH model provider → native engine bridge → llama.cpp worker | Local model selection and inference |
-| Model Hub client plugin → host bridge → native downloads | Model browsing, download progress and installation |
-| Engine settings client plugin → host bridge → Rust hardware/engine services | Device and inference configuration |
-| Voice client plugin → host bridge → speech services | Dictation and read-aloud controls |
+Rust starts a loopback-only native API with a per-launch bearer token. Only the Node host receives that token. The bridge accepts a fixed operation allowlist and checks native file scopes. Browser panels call DSH-authenticated host routes; they do not receive the native bearer or a generic Tauri invoke endpoint. Window controls retain their separate narrow Tauri capability.
 
-The transport, authentication and permission contract for this bridge remain design work. The current window-control capability must not be expanded into unrestricted native access.
+| Plugin | Responsibility | Observed desktop coverage |
+|---|---|---|
+| `ow-native` | Native requests and event delivery, host only | Rust handled engine and assistant calls |
+| `ow-assistant` | Existing assistant JSON storage, CRUD and session instructions | Saved assistant applied to a session and returned its configured response |
+| `ow-download` | Model import tasks, progress and pause/resume/cancel | Real 1.1 MiB GGUF URL import reached Completed at 100%; scratch model removed afterward. Pause/resume/cancel remain under verification |
+| `ow-llamacpp` | Engine lifecycle, installed models, imports, catalog and settings | Installed list, hardware status, GGUF lookup and fresh Minimal-mode local chat exercised |
+| `ow-shell` | Appearance, branding, asset serving and native window buttons | Active; full Jan layout parity remains unfinished |
+| `ow-server` | Retained stdio protocol for remaining legacy callers | Separate from the desktop web-host path |
 
-A selected-local-model startup and endpoint-handoff fix is in progress outside the documented checkpoint. It has passed TypeScript and Rust checks, but has not yet been verified with a real local-model conversation. It is not included in the verified architecture above.
+Assistant storage and llama.cpp business logic have one shared source under `dsh/`; retained legacy callers import those sources. The native worker and Jan data paths are unchanged. Previously removed RAG and vector-storage implementations are not reintroduced.
+
+Fresh and reopened Minimal-mode sessions selected Jan-v3.5-4B through the local adapter and returned the requested responses, including `local-priority-ok`. The provider migrates saved `llamacpp` selections to `ow-llamacpp` through DSH's durable session APIs. Per-model compaction policies register separately for each preset's isolated backend through the matching runtime's public registration API. The model keeps its reported 8,192-token capacity; registration does not inflate that capacity.
+
+The import walkthrough found and corrected a native bridge validation mismatch: the engine uses `provider/model` task ids, while the new boundary initially rejected `/`. A real GGUF URL import then completed with native progress in the desktop. Pause/resume and cancellation still need their own walkthrough. Speech remains a native service; voice controls have not moved into a DSH panel yet.
 
 ## 7. Code map
 
@@ -139,21 +155,26 @@ A selected-local-model startup and endpoint-handoff fix is in progress outside t
 | `web-app/src/services/dsh/` | ServiceHub interface and Tauri command adapter |
 | `src-tauri/src/core/dsh/commands.rs` | Exposes desktop DSH commands and initiates navigation |
 | `src-tauri/src/core/dsh/web.rs` | Generates the patch and supervises the web host |
+| `src-tauri/src/core/dsh/native.rs` | Loopback native bridge with bearer auth and an operation allowlist |
 | `src-tauri/capabilities/dsh-shell.json` | Limits the remote shell's native window permissions |
+| `dsh/native/` | `ow-native` host transport |
+| `dsh/assistant/` | `ow-assistant` store and host, shared with legacy callers |
+| `dsh/download/` | `ow-download` import tasks and client panel |
+| `dsh/llamacpp/` | `ow-llamacpp` engine runtime, local provider and client panel |
 | `dsh/open-waifu-shell/` | App-specific DSH host/client plugin |
 
 ## 8. Verification and remaining work
 
 At the committed checkpoint, the desktop flow was exercised with a configured remote endpoint: send a message, receive a reply, reopen the saved DSH session after reload, open Settings, and install, enable, reload, disable and remove a separate UI plugin.
 
-These observations do not establish local-model support, automatic migration of old Jan chats, complete Jan visual parity or packaged-release readiness.
+Selected local-model startup was also verified with a completed Minimal-mode turn and reload. Automatic migration of old Jan chats, complete Jan visual parity and packaged-release readiness remain unverified.
 
 Remaining work:
 
-- Verify selected local-model startup and endpoint handoff in the native app.
-- Resolve the public composition seam needed for Jan's sidebar, header and composer layout.
-- Add native Model Hub, engine and voice screens through DSH plugins.
+- Finish native import/download control verification and saved-session model migration.
+- Build and integrate focused composition leaves for Jan's sidebar, header and composer layout through `OW_DSH_CLI`.
+- Add voice controls through a DSH plugin if that work is requested.
 - Package a pinned DSH runtime with the application.
-- Remove obsolete Jan UI and stdio paths after their required behavior has moved.
+- Remove the obsolete Jan UI and stdio paths once their required behavior has moved.
 
 See [the migration plan](plans/2026-11-13-dsh-host-shell.md) for the implementation sequence.

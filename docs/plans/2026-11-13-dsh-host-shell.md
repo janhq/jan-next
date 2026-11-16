@@ -1,73 +1,85 @@
-# Plan: the app window is DSH's web host; Jan's screens become DSH UI plugins
+# DSH desktop migration plan
 
-Status: desktop shell cutover implemented (2026-11-16). Jan visual parity remains under verification. The owner requires one DSH UI with Jan's layout; Plugins and Automation may remain as additional features.
+## Owner direction: DSH layout, Jan identity
 
-## Desktop cutover verification
+The owner dropped 1:1 Jan layout parity (2026-11-16). The chat area, composer and transcript stay DSH's own. Jan supplies identity and familiar places: palette, fonts, wordmark, the hand activity mark, Tabler line icons on plugin cards, and Jan's navigation positions sketched below. Do not re-impose Jan's composer or transcript geometry.
 
-- Vite selects `web-app/src/main-desktop.tsx` for Tauri and scans that entry for dependencies. It initializes settings and starts DSH without loading Jan's legacy route tree.
-- `ServiceHubProvider` starts DSH unconditionally on desktop. The shell selector, `?shell=jan` escape, setup return URL and return-to-Jan footer were removed. A startup failure shows its reason and Retry.
-- Three measured reloads displayed a working composer in 3.9, 3.1 and 3.0 seconds (median 3.1 seconds). Earlier baseline was 21.4 seconds. These are dev-build reloads with the DSH host already running, not cold installation timings.
-- Actual UI proof: send a message and receive a reply, reopen the saved chat after reload, install a separate local UI plugin, enable it, observe its footer and accent contribution after reload, disable and uninstall it. Screenshots and limitations are recorded in `C:/Users/thinhlpg/.co/asset-work/open-waifu-dsh-shell/notes.md`.
-- The shell plugin registers a separate locale namespace and uses slot registrations and theme tokens. Its branding seats use priority -1, so user plugins can replace them at -2 or lower. Settings and Plugin manager footer actions use DSH services.
-- P1 migration blocker: `shellSetup` filters out llama.cpp and the desktop bootstrap does not start the engine. A selected local-only model therefore cannot chat through the DSH desktop path yet. The verified flow uses 9router. This checkpoint is experimental, not a behavior-preserving release.
-- Remaining: local model startup and provider handoff, full Jan sidebar/composer/model-picker parity, plugin-manager first-open loading feedback, and migration of native Model Hub/engine/voice controls. The legacy routes still exist in source; their removal is not complete.
-- Checkpoint checks: TypeScript passed; both shell JavaScript files passed `node --check`; the native desktop launched and displayed the saved chat and Settings. `yarn lint` reported 33 errors in untouched llama.cpp, native filesystem, legacy service and model-service files. No test suite was run.
-- The owner's 2026-11-16 commit/push checkpoint pauses further UI edits. Unregistered wrapper experiments were removed from the package and saved outside the repository for later work.
-
-## Runtime configuration
-
-- The host currently uses global `@deepseek-ai/dsh` 0.2.2; `OW_DSH_CLI` selects another built CLI entry. A checkout is needed only for the legacy stdio transport.
-- Rust writes `<data>/dsh/web.patch.yml` on startup with the shell plugin, theme, active provider routes and selected model. Provider keys come from the OS keyring through `OW_PROVIDER_KEY_<i>` environment variables and are never written to the patch.
-- Host state is stored in `<data>/dsh/web-home`, separate from `~/.dsh`.
-- Rust starts navigation to the launch URL so DSH's SameSite=Strict authentication cookie survives the redirect. The `dsh-shell` capability grants only native window controls to loopback pages in the main window.
-- A fresh profile previously took about 100 seconds to install. Cold startup has not been remeasured for this checkpoint.
+```text
+[ Jan             collapse ] [ provider / model pill ]       [ window buttons ]
+[ New Chat          Ctrl N ]
+[ New project       Ctrl P ]
+[ Search            Ctrl K ]
+[ Chats               ... ]          DSH chat area and composer
+[ plain chat title rows    ]
+[ Model Hub               ]
+[ Plugin manager          ]
+[ Settings                ]
+```
 
 ## Goal
 
-open-waifu's UI works the way DSH's does: everything on screen is a DSH UI plugin, composed in slots. Jan's current screens (chat skin, Model Hub, llama.cpp and audio.cpp engines, voice, settings) become a set of DSH client plugins among the others. DSH's own modes come for free:
+Keep one DSH desktop UI and convert every retained Jan builtin responsibility into real DSH plugins. Preserve native Rust backends and existing user data. Naming: npm `@open-waifu/dsh-<feature>`, loader/export id `ow-<feature>`, service key `ow<Feature>`. Existing native Jan package/crate identifiers stay unchanged.
 
-- **Creator mode**: DSH's shipped `cordis` preset (standard tools plus `tool-cordis`, runtime inspection, plugin experiments and preset authoring).
-- **Super agent**: DeepSeek's `dsh-superagent` bundle (GitHub/Feishu sources, a policy, tickets, one DSH session per ticket, and its own "Superagent" panel in the sidebar).
+## Local-first priority
 
-## What DSH gives us (checked 2026-11-13)
+Local models are the owner's first priority, matching Jan. Prioritize local model discovery, import/download, load/unload, model selection, inference and restored selection over remote-provider polish. Keep user-added remote endpoints optional. Never silently fall back to a remote model. Verify the local path in the real desktop before claiming parity complete.
 
-- `dsh web` (checkout `apps/cli/lib/bin.js web --host 127.0.0.1 --port N`, with `DSH_HOME` set) boots the full host: web server, `__DSH_BOOT__` graph, `/plugins/<id>/client.js` bundles, the preset roster and the session API. Booted in about 5 s from a fresh `DSH_HOME`. The mode picker lists Standard, Code, Minimal and Creator.
-- UI composition: the shell renders only `root`. Every feature registers with `ctx.slots.register({ name, children?, store?, inject? }, Component)` (`packages/client/AGENTS.md`). A package joins by declaring `dsh.client` in `package.json` and exporting `./client`.
-- Profiles: `$DSH_HOME/profiles/<name>/` holds `package.json` (`dsh.profile.bundles` plus out-of-tree plugin deps) and `cordis.patch.yml`. Then `$DSH_HOME/cordis.patch.yml`, then `--patch` overlays. A bundle such as `dsh-superagent` is a dependency whose `dsh.bundle.patch` joins the stack.
+## Transcript
 
-## Target shape
+The transcript is DSH's own (dropped from Jan parity with the layout). The one Jan element kept is the original upstream Jan hand logo beside "Deep diving…", replacing DSH's dolphin; the owner rejected the hand-with-rose image for it. Done and verified (`hand-route-fixed-annotated.png`).
+
+## Current evidence and resume point
+
+- DSH-only desktop entry, remote chat persistence, selected local-model startup and plugin installation were exercised in the native app. Evidence is stored in `C:/Users/thinhlpg/.co/asset-work/open-waifu-dsh-shell/notes.md`.
+- Full sidebar/header/composer parity remains unfinished. Isolated matching DSH checkout: `C:/Users/thinhlpg/orca/workspaces/deepseek-harness/open-waifu-layout`. Dependencies installed. Node 24.11.1 installed for its >=24.9 floor. Use `OW_DSH_CLI` for its built CLI; preserve the older unrelated checkout.
+- Owner interruption: annotated screenshots are now explicitly required in `00-self-improve`, including numbered finding ids, read-back inspection and annotated before/after fix evidence. Structure lint passed.
+- Retained assistant and llama.cpp sources now live in `dsh/assistant` and `dsh/llamacpp/src`; legacy callers import the shared sources. Downloads, assistant management and local models have DSH host/client packages. RAG/vector storage implementations were previously removed; no replacement stubs or resurrection is in scope. Hardware and speech remain native services. Server and shell plugin ids are normalized.
+- Integration check: Rust desktop compilation, web TypeScript and `build:dsh` passed. The real desktop opened all three management panels. Runtime checks found a provider ESM export-resolution failure and an assistant save/read-back inconsistency; both were corrected and re-exercised: a fresh Minimal-mode local session answered, and a saved assistant applied to a session.
+- Import walkthrough on the real desktop: catalog lookup returned the repository files, catalog rendering now keeps only rows with a downloadable GGUF (197 of 283), Engine settings rendered the full native schema, and starting an import exposed a native task-id validation mismatch (`provider/model` rejected). The corrected boundary needs a rebuild and another desktop pass.
+- Compaction: shipped `BasicCompactionEngine` freezes exact model policies at construction and exposes no registration hook, so a scoped public registration API is being added to the matching DSH checkout instead of mutating private config.
+- Native download-ID correction compiled successfully. `openwaifu-native-plugin-check4` displayed startup failure before printing a host URL; no successful corrected-import claim. Task browser closed after capturing `migration-startup-failure.png`. The new compaction API requires the matching runtime, so the next launch must use `OW_DSH_CLI` and Node 24.11.1.
+- Matching layout leaves and disposable exact-model compaction policy registration are built in the isolated checkout. The serial artifact build passed all 8 steps in 752.57 seconds. Native launch through `OW_DSH_CLI` displayed the new sidebar actions, hero, suggestions, composer placeholder and header model selector. A real remote turn returned `matching-runtime-ok`, persisted after reload, and the saved verification assistant returned `OW-ASSISTANT-VERIFIED` after application.
+- Local provider activation now reaches preset-specific compaction engines through `agentPresets.serviceFor`, with explicit incompatible-runtime errors. The real desktop showed native engine/device state and completed a 1.1 MiB GGUF URL import; scratch model removed afterward. Reopened Minimal-mode local session returned `local-priority-ok` in 53 seconds. Model ordering and unselected bootstrap now prioritize the local engine; bootstrap TypeScript passed.
+- Original upstream waving-hand logo is saved as `dsh/open-waifu-shell/assets/jan-original.png` and allowlisted by the shell host. Main added a focused `data-chat-running-mark` hook in matching DSH and shell styling; real activity verification awaits client rebuild/relaunch.
+- Client rebuild found stale test-fixture contracts introduced by the focused layout seams: `pickSuggestion`, `renderLabel`, `addWorkspaceButtonRef`. Existing shell worker owns only those fixture migrations. Transcript worker owns transcript-specific shell CSS; main owns runtime integration. Do not run tests. Current app service is `openwaifu-matching-provider`; task browser `ow-plugin-migration`.
+- New worker tasks use `9router/deepseek-flash:max`, per the owner's session instruction.
+- Latest integration: client TypeScript, client bundles and web Vite build passed. Search now stops its opening click before the document dismissor; visible focused input and stacked footer rows verified in `search-fixed-annotated.png`.
+- Added `UiWorkspace.setSessionGrouping` in the matching checkout, delegating to the existing persisted viewing store. Its scoped TypeScript and bundle build passed. Shell selects `flat`; real desktop shows saved chats directly (`flat-transcript-annotated.png`). Bubble computed styles are 8px padding/radius and 20px line height. Remaining composer/header and transcript structural parity stays open.
+- Local Minimal-mode reply `local-hand-verified` completed in 1 second and survived reload and native relaunch. A longer local stream rendered the original yellow hand beside Deep diving (`hand-route-fixed-annotated.png`, inspected). The first image request returned 404 because the host predated the asset allowlist; task-owned app restart loaded it, then the exact resource returned 200 image/png. Current app service `openwaifu-hand-route`, host port 54124, CDP page AFC5121A62406C32200517EC9D308E2F. Browser `ow-plugin-migration` remains attached while verification continues.
+
+## Architecture
+
+Rust serves a loopback-only, per-launch bearer-authenticated API for a fixed native-operation allowlist. Only the Node host receives its URL/token through environment variables. No arbitrary invoke, generic command execution or browser exposure of the bearer. DSH host plugins own retained assistant, download and llama.cpp business logic. Browser plugins use same-origin host endpoints guarded by DSH authentication and origin checks, never direct native engine IPC.
+
+- `@open-waifu/dsh-native` / `ow-native`: host-only native request and event transport.
+- `@open-waifu/dsh-assistant` / `ow-assistant`: existing assistant JSON store, migrations, CRUD and selection-to-session persona.
+- `@open-waifu/dsh-download` / `ow-download`: existing native download orchestration, progress, pause/cancel/resume.
+- `@open-waifu/dsh-llamacpp` / `ow-llamacpp`: existing engine lifecycle, model data/migrations, preset generation, imports, embeddings and settings. Engine remains the native `jan-llama-worker`.
+- `@open-waifu/dsh-shell` / `ow-shell`: existing shell and native window chrome.
+- `@open-waifu/dsh-server` / `ow-server`: retained stdio protocol until its remaining legacy callers are removed.
+
+## Execution
+
+- [x] Inventory current implementations and actual registered native commands.
+- [x] Establish package/id/service naming.
+- [x] Implement scoped native bridge and host transport with progress/event delivery.
+- [x] Move retained business logic into host plugin packages; legacy callers consume those modules rather than duplicate it.
+- [x] Register host plugins on desktop startup, remove local-engine bootstrap from the abandoned renderer once host startup owns it.
+- [x] Add DSH client management surfaces using existing slots, primitives, status/error feedback and keyboard-accessible forms.
+- [x] Verify real native flow: `scripts/e2e-desktop.mjs` launches the debug build on a temporary data root and passes shell, Settings, Plugins, local plugin install (`dsh/templates/ui-plugin`) and a real reply (2026-11-16).
+- [ ] Complete remaining layout work and full mission re-walk; report exact coverage and limitations.
+
+## Plugin management layout
 
 ```text
-Tauri window ──webview──► http://127.0.0.1:<port>/   (DSH web shell, DSH UI plugins)
-     │                                   ▲
-     │ spawns + supervises               │ DSH host (node, `dsh web` profile "open-waifu")
-     ▼                                   │   bundles: dsh-web-app, open-waifu, dsh-superagent
-Rust core (src-tauri) ◄──HTTP (loopback, bearer)── open-waifu host plugins
-  llama.cpp worker, audio.cpp, hardware, downloads   (engines, hub, voice: Node half)
+DSH sidebar                  Feature panel
+  Model Hub                  Installed models | Catalog | Import
+  Assistants                 Assistant list | editable instructions | Save
+  Downloads                  Task | transferred/total | Pause / Resume / Cancel
+Settings > Plugins           llama.cpp configuration and runtime state
+Chat composer                Existing DSH model picker, local provider included
 ```
 
-- Rust keeps what needs native access: llama.cpp (`jan-llama-worker`), audio.cpp, hardware probes, downloads, file dialogs, window control.
-- New `open-waifu` DSH bundle (pnpm package, in this repo under `dsh/`):
-  - host plugins: `ow-engines` (talks to the Rust core over a loopback HTTP API with a per-launch token; exposes llama.cpp and audio.cpp as an LLM provider and speech services), `ow-hub` (model catalogue and downloads).
-  - client plugins (`dsh.client`): `ow-settings-engines` (llama.cpp and audio.cpp cards in Settings → Plugins), `ow-hub` (Model Hub page), `ow-voice` (read aloud and dictation in the composer), `ow-theme` (the app's look).
-- The window loads the DSH shell URL. Tauri commands stay available to the shell only through the host plugins, so a DSH client plugin never calls `invoke`.
+## Acceptance
 
-## Phases
-
-1. **Desktop shell cutover, implemented.** Rust starts global `dsh web` on a free loopback port (`--port 0`, URL read from the `dsh web:` line). The desktop bootstrap always opens that host. Jan branding and native window controls come from `open-waifu-shell`; full layout parity remains in progress.
-2. **Engines as a provider.** `ow-engines` host plugin registers llama.cpp as an OpenAI-compatible LLM provider in DSH's model settings (it already speaks `/chat/completions` on the local server). audio.cpp shows as a speech service.
-3. **Jan screens as client plugins.** Port Model Hub, engines settings and voice to `dsh.client` packages. Chat, threads, workspace, plan, approvals, questions, subagents and settings come from DSH's own plugins, so Jan's versions are deleted, not ported.
-4. **Super agent.** Add `dsh-superagent` to the profile's bundles. Its setup (`SETUP.md`) needs a GitHub repo and token; Feishu is optional.
-5. **Cut over.** Remove the Jan React shell, `web-app/` routes that DSH replaces, the old `jsonrpc-demo` path and `dsh-openwaifu-server`. Update `AGENTS.md`.
-
-## Open decisions
-
-- **Host distribution.** Development currently uses global `@deepseek-ai/dsh` 0.2.2. A packaged release still needs a pinned, app-managed runtime instead of depending on a global Node/npm installation.
-- **Chat look.** DSH's chat is a coding-agent UI. The waifu chat look becomes either a theme plus a custom `conversation.chat.node` renderer, or a separate client plugin with its own route.
-- **React versions.** DSH ships React 18 and the web-app uses 19. Client plugins share DSH's React, so ported screens target 18.
-
-## Acceptance per phase
-
-- Phase 1: the app window shows the DSH shell, a chat with the 9router model answers, and Creator mode appears in the mode picker and starts a session.
-- Phase 2: a local GGUF model loaded by `jan-llama-worker` answers a DSH chat.
-- Phase 4: the Superagent panel opens in the sidebar and shows its setup state.
+Retained methods must have real implementations. DSH panels must display native errors and progress. User data stays under the existing Jan data folder. Local models must be manageable and selectable without the old Jan route tree. Assistants must persist and apply to a DSH session. Downloads must retain pause/resume/hash verification behavior. Completion claims require an actual desktop walkthrough and inspected annotated evidence for the relevant flow. No tests unless explicitly requested; no commits, publishing or deployment without owner authorization.
