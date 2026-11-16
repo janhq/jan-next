@@ -6,7 +6,7 @@ English | [中文](2026-08-08-windows-acl-restricted-token-sandbox.zh.md)
 
 ## Problem
 
-The original [historical sandbox decision](../../archived/feature/2026-07-06-sandbox.md) left `PLATFORM_CHAINS.win32` empty, so shipped Windows profiles degraded to danger-full-access because no confining executor existed. The win32 rung must govern the two file-effect modes in the sandbox vocabulary — `read-only` (no explicit writable root) and `workspace-write` (writes under the workspace root plus a backend-defined temp area) — while reporting any effects its mechanism cannot govern; reads, network, and process visibility remain outside this vocabulary.
+The original sandbox decision left `PLATFORM_CHAINS.win32` empty, so shipped Windows profiles degraded to danger-full-access because no confining executor existed. The win32 rung must govern the two file-effect modes in the sandbox vocabulary — `read-only` (no explicit writable root) and `workspace-write` (writes under the workspace root plus a backend-defined temp area) — while reporting any effects its mechanism cannot govern; reads, network, and process visibility remain outside this vocabulary.
 
 ## Decision
 
@@ -47,8 +47,6 @@ Bought: write-only confinement with no new OS floor (`CreateRestrictedToken` pre
 The product-visible Windows roster flip is win32-only, so keyless snapshots that must replay on macOS/Linux cannot cover it; bundle composition specs plus the win32 real-runner suites are the substitute evidence, and the CI Windows lane owns the assembled signal. `sandbox-local/tests/acl-grants.spec.ts` pins random temp allocation, per-session/workspace reuse, fork/workspace separation, crash-resume non-collision, paired argv SIDs, failure cleanup, and standing-versus-revocable lifecycle with Win32 mocked. On Windows, `workspace-sid.spec.ts` pins workspace/temp derivation and domain separation; `acl.spec.ts` pins the real DACL, ambient-delete deny, and mandatory-label lifecycle; and `runner.spec.ts` pins the Low integrity level, paired-SID validation, sibling temp denial under a shared workspace SID, the outside-delete regression through `cmd`, .NET, `Remove-Item`, and libuv, the cross-root delete regression against another workspace and another live temp tree, per-call agentless temp creation/removal, TMP/TEMP rewriting, mode downgrade, Public and Everyone denial, the hard-link partial boundary, mode-specific PowerShell language behavior, and grandchild stdio. ARM64 and emulated x64 native runs own the architecture-specific acceptance evidence.
 
 ## Related
-
-The [pwsh executor decision](../../archived/feature/2026-08-01-pwsh-tool-and-executor.md) owns the pwsh-sandbox/tool-pwsh dialect split this rung consumes.
 
 The [delete-confinement decision](2026-09-19-windows-acl-mandatory-integrity-confinement.md) extends this rung with the Low integrity layer and the ambient-delete deny; it supersedes only the delete route documented here.
 

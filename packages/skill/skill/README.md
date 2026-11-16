@@ -108,13 +108,12 @@ The registry has no TTL: only a provider calling its registration-scoped `invali
 <a id="further-exploration"></a>
 ## Further Exploration
 
-Read these pages when the package-level contract is not enough. They move from the shared skill vocabulary to the shipped provider, the model-facing consumer, and the design rationale.
+Read these pages when the package-level contract is not enough. They move from the shared skill vocabulary to the shipped provider and the model-facing consumer.
 
 - [Skill subsystem reference](../../../docs/subsystems/skills.md) — the registry, provider contract, and local discovery priority.
 - [skill-filesystem package](../skill-filesystem/README.md) — the shipped local provider that discovers skills from disk.
 - [tool-skill package](../tool-skill/README.md) — the consumer that renders the session catalog and the `skill` tool.
 - [Generated configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-skill) — every config field and its source declaration.
-- [historical Skill invocation policy Agent Note](../../../.agents/notes/archived/feature/2026-07-28-skill-invocation-policy.md) — the rationale for the model and user invocation controls.
 
 -----
 

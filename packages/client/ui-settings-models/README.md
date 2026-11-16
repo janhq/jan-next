@@ -110,13 +110,12 @@ The notice step owns its exact copy in `src/client/locales.ts` and its acknowled
 <a id="further-exploration"></a>
 ## Further Exploration
 
-These pages cover the settings base, the seams this page joins, and the design rationale.
+These pages cover the settings base and the seams this page joins.
 
 - [ui-settings](../ui-settings/README.md) — the domain base whose scope and schema services this page builds on.
 - [settings](../../settings/README.md) — the durable user-settings seam and its file provider.
 - [credentials](../../credentials/README.md) — the credential-reference seam this page writes keys through.
 - [llm](../../llm/README.md) — the adapter registry whose providers this page configures.
-- [Web config plane](../../../.agents/notes/archived/architecture/2026-07-30-web-config-plane.md) — the hand-written editor's design rationale.
 
 -----
 

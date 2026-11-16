@@ -74,7 +74,7 @@ This section explains the design decisions behind the tool and points at the cod
 
 ### Design philosophy
 
-- **A deliberate twin of `dsh-tool-bash-persistent`.** The session registry, polling loop, and reset contract mirror the persistent bash tool by design ([pwsh persistent PTY Agent Note](../../../.agents/notes/archived/architecture/2026-08-11-pwsh-persistent-pty.md)).
+- **A deliberate twin of `dsh-tool-bash-persistent`.** The session registry, polling loop, and reset contract mirror the persistent bash tool by design.
 - **Backend-owned prompt readiness.** The shell's `prompt` function belongs to the backend: it prints a BEL-terminated OSC marker plus the controlled printable prompt. The backend accepts recognized prompt text through its fast path and otherwise uses its own readiness checks or silence tier. The tool neither installs nor matches a prompt of its own.
 - **Readiness after scrolling and restart.** The [Loader composition test](tests/loader-composition.spec.ts) checks the complete send-settlement sequence, including a command on the same shell after large output and the first command after `exit`. Its failure timeline distinguishes the bundled OpenConsole used on Windows from the unused system conhost.
 - **PSReadLine echo stripped by anchoring.** PowerShell renders submitted input back into the stream; the marker-anchored extraction and a wrapper-source strip remove the echo, and a wrapper that wraps across the terminal width may leave a partial echo in partial-output results.
@@ -97,12 +97,11 @@ A first command spawns the shell through `ctx.terminals.spawn`, whose pwsh start
 <a id="further-exploration"></a>
 ## Further Exploration
 
-Read these pages when the package-level contract is not enough. They move from the terminal family to the seam, the backends, and the design notes behind the persistent-shell design.
+Read these pages when the package-level contract is not enough. They move from the terminal family to the seam, the backends, and the design note behind the persistent-shell design.
 
 - [terminal package map](../../terminal/README.md) — the persistent PTY capability family.
 - [terminal seam](../../terminal/terminal/README.md) — the `ctx.terminals` service behind the tool.
 - [terminal-bash backend](../../terminal/terminal-bash/README.md) — the default backend, configured with `shellDialect: pwsh`.
-- [pwsh persistent PTY Agent Note](../../../.agents/notes/archived/architecture/2026-08-11-pwsh-persistent-pty.md) — the pwsh-side session design and its rationale.
 - [Persistent PTY sessions Agent Note](../../../.agents/notes/implemented/feature/2026-07-16-persistent-pty-sessions.md) — the owner-scoped session design and its rationale.
 - [Generated tool catalog](../../../docs/tool-catalog.md#deepseek-aidsh-tool-pwsh-persistent) — the exact `pwsh` argument schema.
 - [Generated configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-tool-pwsh-persistent) — every accepted config field and its source declaration.

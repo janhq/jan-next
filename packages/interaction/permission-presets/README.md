@@ -105,10 +105,9 @@ The service requires `ctx.sessionProjections` and awaits registration of `permis
 <a id="further-exploration"></a>
 ## Further Exploration
 
-Read these pages when the package-level contract is not enough. They move from the preset vocabulary to the enforcement knobs and the design rationale.
+Read these pages when the package-level contract is not enough. They move from the preset vocabulary to the enforcement knobs.
 
 - [Permission presets subsystem reference](../../../docs/subsystems/permission-presets.md) — the preset table, process catalog, current selection, and `ctx.permissionPresets` Cordis API.
-- [historical Sandbox switching design Agent Note](../../../.agents/notes/archived/feature/2026-07-06-sandbox.md) — how sandbox mode and approval policy compose and switch.
 - [Approval subsystem reference](../../../docs/subsystems/approval.md) — the approval policy knob this service bundles.
 - [Interaction group map](../README.md) — adjacent command, approval, and question packages.
 

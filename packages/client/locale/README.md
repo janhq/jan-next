@@ -111,10 +111,9 @@ The typed object form requires complete dictionaries for both baseline locales. 
 <a id="further-exploration"></a>
 ## Further Exploration
 
-Read these when the locale contract is not enough: the slot face it implements, the settings surface it rides, and the persistence decision behind the preference.
+Read these when the locale contract is not enough: the slot face it implements and the settings surface it rides.
 
 - [Client slot system](../ui-slots/README.md) — the slot model and the `LocaleFace` seat this package implements.
-- [historical Host-backed preferences decision](../../../.agents/notes/archived/bug-fix/2026-08-06-host-backed-web-preferences.md) — why the preference persists in Host settings instead of the browser.
 - [Settings group map](../../settings/README.md) — the settings service that stores the preference.
 - [Client group map](../README.md) — the browser half this package belongs to.
 

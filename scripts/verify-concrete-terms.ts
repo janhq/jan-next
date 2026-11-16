@@ -8,7 +8,6 @@ import { historicalSchemaRegion } from './historical-schema-region.ts'
 
 const root = resolve(import.meta.dirname, '..')
 const blockedTerm = 'prove' + 'nance'
-const excludedPrefixes = ['vendor/', '.agents/notes/archived/'] as const
 
 /** One blocked term occurrence in a tracked path or text line. */
 export interface ConcreteTermViolation {
@@ -19,7 +18,7 @@ export interface ConcreteTermViolation {
 }
 
 function isExcluded(file: string): boolean {
-  return excludedPrefixes.some(prefix => file.startsWith(prefix))
+  return file.startsWith('vendor/')
     // Release snapshots retain the identifiers present in their pinned source;
     // historical-format pairing records key sections by those identifiers' headings.
     || /^docs\/persistence-changes\/releases\/dsh-v\d+\.\d+\.\d+-(?:alpha|rc)\.\d+\.schema\.json$/u.test(file)
@@ -34,7 +33,7 @@ function containsBlockedTerm(value: string): boolean {
  * Find the blocked term in one maintained tracked file.
  * @param file - repository-relative tracked path.
  * @param source - text contents or symlink target.
- * @returns violations outside vendored sources, frozen Agent Notes, historical schemas and their checked generated regions.
+ * @returns violations outside vendored sources, historical schemas and their checked generated regions.
  */
 export function findConcreteTermViolations(file: string, source: string): ConcreteTermViolation[] {
   if (isExcluded(file)) return []
@@ -56,8 +55,7 @@ function trackedFiles(repoRoot: string): string[] {
   if (!files.includes('AGENTS.md')
     || !files.some(file => file.startsWith('packages/'))
     || !files.some(file => file.startsWith('docs/'))
-    || !files.some(file => file.startsWith('vendor/'))
-    || !files.some(file => file.startsWith('.agents/notes/archived/'))) {
+    || !files.some(file => file.startsWith('vendor/'))) {
     throw new Error('verify-concrete-terms: tracked-file discovery omitted a required repository area')
   }
   return files

@@ -115,13 +115,12 @@ The review intent carries the originating tool-call id, so the Web client can re
 <a id="further-exploration"></a>
 ## Further Exploration
 
-Read these pages when the package-level contract is not enough. They move from the subsystem semantics to the generated catalogs and the design decision.
+Read these pages when the package-level contract is not enough. They move from the subsystem semantics to the generated catalogs.
 
 - [Plan mode subsystem reference](../../../docs/subsystems/plan.md) — how plan mode behaves, its configuration, and the exit tool's contract.
 - [plan/ package map](../README.md) — the group and its single package.
 - [exit_plan_mode tool catalog entry](../../../docs/tool-catalog.md#deepseek-aidsh-plan-mode) — the exact schema the model receives.
 - [Generated configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-plan-mode) — every accepted config field and its meaning.
-- [archived Plan-specific collaboration state](../../../.agents/notes/archived/simplification/2026-07-22-plan-specific-collaboration-state.md) — the design decision behind plan mode.
 
 -----
 

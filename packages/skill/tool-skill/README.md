@@ -95,12 +95,11 @@ The `/name` gesture listener scans only claimed user messages: a whitespace-boun
 <a id="further-exploration"></a>
 ## Further Exploration
 
-Read these pages when the package-level contract is not enough. They move from the registry vocabulary behind the catalog to the exact tool schema and the design rationale.
+Read these pages when the package-level contract is not enough. They move from the registry vocabulary behind the catalog to the exact tool schema.
 
 - [Skill subsystem reference](../../../docs/subsystems/skills.md) — the registry and provider vocabulary behind the catalog.
 - [skill package](../skill/README.md) — the registry and the shared `renderSkillContent` rendering.
 - [Generated tool catalog](../../../docs/tool-catalog.md#deepseek-aidsh-tool-skill) — the exact `skill` schema the model receives.
-- [User-explicit skill invocation Agent Note](../../../.agents/notes/archived/feature/2026-08-08-user-explicit-skill-invocation.md) — the `/name` gesture design.
 
 -----
 

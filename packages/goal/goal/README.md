@@ -121,12 +121,11 @@ This section explains how the service realizes the behavior above; the observabl
 <a id="further-exploration"></a>
 ## Further Exploration
 
-The package-level contract is enough for most consumers; read these when you need the surrounding domain and the design rationale.
+The package-level contract is enough for most consumers; read these when you need the surrounding domain.
 
 - [Goal subsystem](../../../docs/subsystems/goal.md) — the goal types, durable change payloads, and generated service API.
 - [Goal group map](../README.md) — the goal packages and how they compose.
 - [Generated configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-goal) — every accepted config field and its source declaration.
-- [historical Goal domain Agent Note](../../../.agents/notes/archived/feature/2026-07-19-persisted-same-session-goal-domain.md) — the domain design, alternatives, and decisions.
 
 -----
 

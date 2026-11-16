@@ -75,13 +75,10 @@ Native opening uses an authenticated POST addressed by the viewed Session, event
 <a id="further-exploration"></a>
 ## Further Exploration
 
-Read these pages when the deliverables surface is not enough. They move from the card to the Host recorder, the turn-tail hole, and the decisions behind the vocabulary.
+Read these pages when the deliverables surface is not enough. They move from the card to the Host recorder and the turn-tail hole.
 
 - [workspace-changes](../../deliverables/workspace-changes/README.md) — the Host plugin that records and serves the summary the card renders.
 - [ui-chat](../ui-chat/README.md) — declares the `conversation.chat.turnTail` hole and renders the closing prose.
-- [historical Turn changed-files card](../../../.agents/notes/archived/feature/2026-09-11-turn-changed-files-card.md) — the decision behind git-recorded summaries replacing the mutation-call row.
-- [historical Workspace file links](../../../.agents/notes/archived/feature/2026-07-31-web-workspace-file-links.md) — the decision behind the earlier produced-files row; its Host open path is superseded by the [right Sidebar](../../../.agents/notes/implemented/feature/2026-09-04-right-sidebar-docking-infrastructure.md).
-- [Inline file mentions](../../../.agents/notes/archived/feature/2026-08-07-web-inline-file-mentions.md) — the decision behind clickable mentions in the closing prose.
 - [Client package map](../README.md) — adjacent browser UI packages.
 
 -----

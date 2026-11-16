@@ -167,10 +167,9 @@ The child environment starts from the subprocess seam's `scrubbedParentEnv()` �
 <a id="further-exploration"></a>
 ## Further Exploration
 
-Read these pages when the package-level contract is not enough. They move from the shared tool registry to the bridge's design evidence and worked example configurations.
+Read these pages when the package-level contract is not enough. They move from the shared tool registry to worked example configurations.
 
 - [Tools subsystem reference](../../../docs/subsystems/tools.md) — the `ToolRuntime` and `ctx.tools.register()` contract that receives the bridged tools.
-- [historical MCP client plugin Agent Note](../../../.agents/notes/archived/feature/2026-07-07-mcp-client-plugin.md) — the naming invariants, discovery and execution design, alternatives, and consequences.
 - [Canonical tool output contract reference](../../core/tools/README.md) — how MCP results map into the canonical tool-output contract.
 - [Third-party memory MCP guide](../../../docs/user/guide/mcp-memory.md) — three memory-server overlays using this package.
 - [Generated configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-mcp-client) — every accepted config field and its source declaration.
