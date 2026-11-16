@@ -1,0 +1,51 @@
+{
+  "name": "@open-waifu/dsh-image-generation",
+  "version": "0.1.0",
+  "description": "Shared OpenAI and ByteDance image generation for DSH conversations, presentations and documents.",
+  "type": "module",
+  "main": "./index.mjs",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.js",
+    "./package.json": "./package.json",
+    "./cordis.patch.yml": "./cordis.patch.yml"
+  },
+  "files": [
+    "index.mjs",
+    "client.js",
+    "lib",
+    "skills",
+    "cordis.patch.yml",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dataelement/dsh-desktop.git",
+    "directory": "packages/dsh-image-generation"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "image-generation",
+    "seedream",
+    "openai"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-primitives",
+        "@deepseek-ai/dsh-client-ui-settings-plugins",
+        "@deepseek-ai/dsh-client-ui-chat",
+        "@deepseek-ai/dsh-client-ui-attachment"
+      ],
+      "platform": "web"
+    }
+  }
+}

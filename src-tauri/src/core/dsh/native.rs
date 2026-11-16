@@ -374,6 +374,28 @@ async fn invoke<R: Runtime>(app: tauri::AppHandle<R>, command: &str, args: Value
         }
         "pause_download_task" => encoded(downloads::commands::pause_download_task(app.state(), &field::<String>(&args,"taskId")?).await?),
         "cancel_download_task" => encoded(downloads::commands::cancel_download_task(app.state(), &field::<String>(&args,"taskId")?).await?),
+        "image_key_get" => {
+            let entry = keyring::Entry::new("open-waifu-image-generation", "api-key").map_err(|e| e.to_string())?;
+            match entry.get_password() {
+                Ok(value) => encoded(Some(value)),
+                Err(keyring::Error::NoEntry) => encoded(None::<String>),
+                Err(error) => Err(error.to_string()),
+            }
+        }
+        "image_key_set" => {
+            let value: String = field(&args, "value")?;
+            if value.len() > 4096 { return Err("image API key is too long".into()); }
+            let entry = keyring::Entry::new("open-waifu-image-generation", "api-key").map_err(|e| e.to_string())?;
+            if value.is_empty() {
+                match entry.delete_credential() {
+                    Ok(()) | Err(keyring::Error::NoEntry) => {}
+                    Err(error) => return Err(error.to_string()),
+                }
+            } else {
+                entry.set_password(&value).map_err(|e| e.to_string())?;
+            }
+            encoded(())
+        }
         "get_secret" => encoded(crate::core::server::provider_secrets::get_secret(field(&args,"key")?).await),
         "open_dialog" => {
             // Only the native picker can grant access to external model files.

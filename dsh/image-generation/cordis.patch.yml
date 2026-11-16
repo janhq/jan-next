@@ -1,0 +1,3 @@
+- insert:
+    - id: ow-image-generation
+      name: "@open-waifu/dsh-image-generation"

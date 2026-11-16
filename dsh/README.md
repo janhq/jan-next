@@ -12,10 +12,17 @@ The desktop window is DeepSeek Harness's web host. Every screen comes from a DSH
 | `llamacpp/` | `ow-llamacpp` | Local model engine, Local models panel, model selection |
 | `download/` | `ow-download` | Model downloads and the Downloads panel |
 | `assistant/` | `ow-assistant` | Jan assistants and their per-session instructions |
+| `image-generation/` | `ow-image-generation` | OpenAI-compatible and Seedream image tool, settings and inline previews; API key stays in the OS keyring |
 | `server/` | none | Legacy stdio JSON-RPC server, not used by the desktop window |
 | `templates/ui-plugin/` | `open-waifu-plugin-hello` | Starting point for a new plugin |
 
-Rust (`src-tauri/src/core/dsh/web.rs`) lists the five built-in plugins in `<data>/dsh/web.patch.yml` on every start. Their files load from this folder in development, so a client or host edit only needs an app restart. `assistant/index.mjs` and `llamacpp/runtime.mjs` are generated: run `corepack yarn build:dsh` after editing their TypeScript sources.
+Rust (`src-tauri/src/core/dsh/web.rs`) lists the built-in plugins in `<data>/dsh/web.patch.yml` on every start. Their files load from this folder in development, so a client or host edit only needs an app restart. `assistant/index.mjs` and `llamacpp/runtime.mjs` are generated: run `corepack yarn build:dsh` after editing their TypeScript sources.
+
+## Image generation
+
+In **Settings > Plugins > Image generation**, choose OpenAI (including compatible routers) or Seedream, enter an image model ID and API key, and set the API base URL under Advanced settings. HTTPS is supported everywhere; HTTP is allowed on loopback, RFC1918 LANs and the 100.64/10 shared-address range. Save validates the connection without generating a paid image. OpenAI-compatible routers must provide model metadata at `/models/{model}` and return PNG `b64_json` from `/images/generations`.
+
+The active API key is stored only in the OS keyring (`open-waifu-image-generation` / `api-key`), never in YAML or browser storage. Changing provider or API origin requires entering a key again. Non-secret provider profiles and model settings use Jan's settings store. The agent gets `image_generate` and the bundled `generate-image` skill; results are workspace PNGs with authenticated inline chat previews. PNG bytes are preserved without native image codecs or thumbnail conversion.
 
 ## Add a plugin
 
