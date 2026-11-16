@@ -133,7 +133,7 @@ Rust starts a loopback-only native API with a per-launch bearer token. Only the 
 |---|---|---|
 | `ow-native` | Native requests and event delivery, host only | Rust handled engine and assistant calls |
 | `ow-log-bridge` | DSH warnings, errors and session activation failures to the app log (adapted from dataelement/dsh-desktop, MIT) | e2e run: `[dsh-log]` warnings appear at WARN level in the app log |
-| `ow-assistant` | Existing assistant JSON storage, CRUD and session instructions | Saved assistant applied to a session and returned its configured response |
+| `ow-assistant` | Legacy Jan assistant import into DSH agent presets, plus the Custom instructions editor | Imported assistants appear as presets; the editor creates and edits them, and conversations switch preset at a turn boundary |
 | `ow-download` | Model import tasks, progress and pause/resume/cancel | Real 1.1 MiB GGUF URL import reached Completed at 100%; scratch model removed afterward. Pause/resume/cancel remain under verification |
 | `ow-llamacpp` | Engine lifecycle, installed models, imports, catalog and settings | Installed list, hardware status, GGUF lookup and fresh Minimal-mode local chat exercised |
 | `ow-shell` | Appearance, branding, asset serving and native window buttons | Active; checked by the desktop e2e |

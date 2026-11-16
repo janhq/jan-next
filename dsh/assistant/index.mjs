@@ -19726,7 +19726,7 @@ function date4(params) {
 }
 
 // dsh/assistant/host.ts
-import { fs as fs2 } from "../native/runtime.mjs";
+import { fs as fs2, joinPath as joinPath2 } from "../native/runtime.mjs";
 import { registerApi } from "../native/api.mjs";
 
 // dsh/assistant/store.ts
@@ -20042,6 +20042,37 @@ Helpful Answer:`
 // dsh/assistant/host.ts
 var name = "ow-assistant";
 var inject = ["owNative", "webServer", "connection", "agentPresets", "configEditor", "sessionProjections", "agents", "sessionPersistence"];
+function legacyPresetId(id) {
+  const safe = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,121}$/.test(id) ? id : createHash("sha256").update(id).digest("hex");
+  return `jan-${safe}`;
+}
+function legacyAvatar(legacy) {
+  const value = legacy?.avatar;
+  return typeof value === "string" && value !== "" && [...value].length <= 8 && !/[/\\:]/.test(value) ? value : void 0;
+}
+async function readAppliedInstructions(log) {
+  const root = "file://threads";
+  if (!await fs2.existsSync(root)) return [];
+  const rows = [];
+  for (const entry of await fs2.readdirSync(root)) {
+    const folder = entry.replaceAll("\\", "/").split("/").pop() ?? "";
+    const path = await joinPath2([root, folder, "thread.json"]);
+    if (!await fs2.existsSync(path)) continue;
+    try {
+      const thread = JSON.parse(await fs2.readFileSync(path));
+      const applied = Array.isArray(thread.assistants) ? thread.assistants[0] : void 0;
+      if (typeof applied?.id !== "string" || typeof applied.instructions !== "string" || applied.instructions.trim() === "") continue;
+      rows.push({
+        sessionId: `jan-${typeof thread.id === "string" ? thread.id : folder}`,
+        assistantId: applied.id,
+        instructions: applied.instructions
+      });
+    } catch (error62) {
+      log.warn(`Skipping Jan thread ${folder}: ${String(error62)}`);
+    }
+  }
+  return rows;
+}
 async function apply(ctx, config2 = {}) {
   const editor = ctx.get("configEditor");
   const entry = ctx.fiber.entry;
@@ -20065,12 +20096,25 @@ async function apply(ctx, config2 = {}) {
   ctx.effect(() => async () => {
     for (const dispose of mounted) await dispose();
   }, "ow-assistant: custom agent presets");
+  let base;
+  for (const id of ["standard", registry2.defaultId]) {
+    try {
+      base = registry2.definitionFor(id);
+      break;
+    } catch (error62) {
+      ctx.logger.warn(`Custom presets: no "${id}" composition: ${String(error62)}`);
+    }
+  }
   for (const input2 of presets) {
-    const preset = validate2(input2);
-    const base = registry2.definitionFor("standard");
-    const plugins = base.plugins.filter((row) => row.id !== "persona");
-    plugins.unshift({ id: "persona", name: "@deepseek-ai/dsh-persona", config: { prefix: preset.instructions, interpolate: false } });
-    mounted.push(await registry2.register({ id: preset.id, name: preset.name, description: preset.description, plugins }));
+    if (base === void 0) break;
+    try {
+      const preset = validate2(input2);
+      const plugins = base.plugins.filter((row2) => row2.id !== "persona");
+      plugins.unshift({ id: "persona", name: "@deepseek-ai/dsh-persona", config: { prefix: preset.instructions, interpolate: false } });
+      mounted.push(await registry2.register({ id: preset.id, name: preset.name, description: preset.description, plugins }));
+    } catch (error62) {
+      ctx.logger.error(`Agent preset "${input2.id}" was not registered: ${String(error62)}`);
+    }
   }
   const importedSelection = await ctx.sessionProjections.register({
     key: "owAssistantImportedSelection",
@@ -20082,38 +20126,71 @@ async function apply(ctx, config2 = {}) {
   const restoreAssignment = async (agent) => {
     const presetId = config2.assignments?.[agent.id];
     if (!presetId || importedSelection.stateOf(agent.session)) return;
+    if (!(await registry2.list()).some((row2) => row2.id === presetId)) {
+      ctx.logger.warn(`Imported preset "${presetId}" is unavailable for "${agent.id}"; keeping the default composition.`);
+      return;
+    }
     await registry2.recompose(agent.ctx, presetId);
     agent.session.append("agent-preset/selected", { agentPreset: presetId });
   };
   ctx.on("agent/created", async ({ agent }) => {
-    await restoreAssignment(agent);
+    try {
+      await restoreAssignment(agent);
+    } catch (error62) {
+      ctx.logger.warn(`Imported preset not restored for "${agent.id}": ${String(error62)}`);
+    }
   });
   for (const agent of ctx.agents.list()) {
-    if (config2.assignments?.[agent.id] && !importedSelection.stateOf(agent.session)) {
+    if (!config2.assignments?.[agent.id] || importedSelection.stateOf(agent.session)) continue;
+    try {
       await agent.runMaintenance(async () => {
         await restoreAssignment(agent);
       });
+    } catch (error62) {
+      ctx.logger.warn(`Imported preset not restored for "${agent.id}": ${String(error62)}`);
     }
   }
   const write = (change) => editor.edit(entry, (current) => ({
     ...current,
-    presets: change(current.presets ?? []),
-    importedAssistants: true
+    presets: change(current.presets ?? [])
   }));
+  const locked = (id) => Object.values(config2.assignments ?? {}).includes(id);
+  const row = (item) => {
+    const avatar = legacyAvatar(item.legacy);
+    return {
+      id: item.id,
+      name: item.name,
+      description: item.description,
+      instructions: item.instructions,
+      // A conversation snapshot is history, not a template: its text is what an
+      // imported conversation was answered with, so the editor shows it read-only.
+      locked: locked(item.id),
+      ...avatar === void 0 ? {} : { avatar }
+    };
+  };
   const service = {
     async list() {
-      return presets;
+      return presets.map(row);
     },
     async save({ assistant }) {
       const preset = validate2(assistant);
-      if (Object.values(config2.assignments ?? {}).includes(preset.id)) throw new Error("This preset preserves the instructions applied to an imported conversation. Create a new preset to customize them.");
-      await write((current) => current.some((item) => item.id === preset.id) ? current.map((item) => item.id === preset.id ? preset : item) : [...current, preset]);
-      return preset;
+      if (locked(preset.id)) throw new Error("This preset preserves the instructions applied to an imported conversation. Create a new preset to customize them.");
+      const existing = presets.find((item) => item.id === preset.id);
+      const next = {
+        ...preset,
+        ...preset.legacy === void 0 && existing?.legacy !== void 0 ? { legacy: existing.legacy } : {}
+      };
+      if (existing === void 0 && (await registry2.list()).some((item) => item.id === next.id)) {
+        throw new Error("That preset id is already in use. Create the preset again to get a new id.");
+      }
+      await write((current) => current.some((item) => item.id === next.id) ? current.map((item) => item.id === next.id ? next : item) : [...current, next]);
+      return row(next);
     },
     async remove({ id, confirmed }) {
       validateAssistantId(id);
       if (confirmed !== true) throw new Error("Confirm deletion before removing a preset.");
-      if (Object.values(config2.assignments ?? {}).includes(id)) throw new Error("This imported preset preserves saved conversation instructions and cannot be deleted.");
+      if (locked(id)) throw new Error("This imported preset preserves saved conversation instructions and cannot be deleted.");
+      if (registry2.defaultId === id) throw new Error("This preset is the new-task default. Set another default preset in Agent presets before deleting it.");
       for (const agent of ctx.agents.list()) {
         if (registry2.presetForSession(agent.session) === id) throw new Error("This preset is used by a conversation. Switch that conversation to another preset before deleting it.");
       }
@@ -20132,23 +20209,62 @@ async function apply(ctx, config2 = {}) {
     }
   };
   ctx.effect(() => registerApi(ctx, "assistant", service), "ow-assistant: preset editor API");
-  if (!config2.importedAssistants) {
+  if (!config2.importedAssistants || !config2.appliedInstructions) {
     const timer = setTimeout(() => {
       void (async () => {
         const store = new Assistants();
-        const legacy = (await store.getAssistants()).map((item) => validate2({ ...item, legacy: item, id: item.id.length <= 123 ? `jan-${item.id}` : `jan-${createHash("sha256").update(item.id).digest("hex")}` }));
-        const assignmentFile = "file://assistants/.session_assignments.json";
-        const saved = await fs2.existsSync(assignmentFile) ? JSON.parse(await fs2.readFileSync(assignmentFile)) : {};
-        const assignments = {};
-        for (const [sessionId, value] of Object.entries(saved)) {
-          const assignment = value;
-          if (typeof assignment.instructions !== "string" || typeof assignment.assistantId !== "string") continue;
-          const id = `jan-applied-${createHash("sha256").update(assignment.assistantId + "\\0" + assignment.instructions).digest("hex")}`;
-          const source = legacy.find((item) => item.id === `jan-${assignment.assistantId}`);
-          if (!legacy.some((item) => item.id === id)) legacy.push(validate2({ id, name: `${source?.name ?? assignment.assistantId} (saved conversation)`, description: "Imported applied instructions from a Jan conversation.", instructions: assignment.instructions }));
-          assignments[sessionId] = id;
+        const known = [...presets];
+        const added = [];
+        let assistantsDone = config2.importedAssistants === true;
+        if (!config2.importedAssistants) {
+          try {
+            for (const item of await store.getAssistants()) {
+              try {
+                const preset = validate2({ ...item, legacy: item, id: legacyPresetId(item.id) });
+                if (!known.some((row2) => row2.id === preset.id)) added.push(preset);
+              } catch (error62) {
+                ctx.logger.warn(`Skipping Jan assistant ${item.id}: ${String(error62)}`);
+              }
+            }
+            assistantsDone = true;
+          } catch (error62) {
+            ctx.logger.error(`Assistant import failed: ${String(error62)}`);
+          }
         }
-        await editor.edit(entry, (current) => ({ ...current, importedAssistants: true, assignments, presets: [...current.presets ?? [], ...legacy.filter((item) => !(current.presets ?? []).some((saved2) => saved2.id === item.id))] }));
+        const assignments = { ...config2.assignments ?? {} };
+        let appliedDone = config2.appliedInstructions === true;
+        if (!config2.appliedInstructions) {
+          try {
+            for (const applied of await readAppliedInstructions(ctx.logger)) {
+              const id = `jan-applied-${createHash("sha256").update(applied.assistantId + "\0" + applied.instructions).digest("hex")}`;
+              try {
+                if (!known.some((item) => item.id === id) && !added.some((item) => item.id === id)) {
+                  const source = [...known, ...added].find((item) => item.id === legacyPresetId(applied.assistantId));
+                  added.push(validate2({
+                    id,
+                    name: `${source?.name ?? applied.assistantId} (saved conversation)`,
+                    description: "Imported applied instructions from a Jan conversation.",
+                    instructions: applied.instructions
+                  }));
+                }
+                assignments[applied.sessionId] = id;
+              } catch (error62) {
+                ctx.logger.warn(`Skipping applied instructions for ${applied.sessionId}: ${String(error62)}`);
+              }
+            }
+            appliedDone = true;
+          } catch (error62) {
+            ctx.logger.error(`Applied instructions import failed: ${String(error62)}`);
+          }
+        }
+        if (added.length === 0 && assistantsDone === config2.importedAssistants && appliedDone === config2.appliedInstructions) return;
+        await editor.edit(entry, (current) => ({
+          ...current,
+          ...assistantsDone ? { importedAssistants: true } : {},
+          ...appliedDone ? { appliedInstructions: true } : {},
+          assignments,
+          presets: [...current.presets ?? [], ...added.filter((item) => !(current.presets ?? []).some((saved) => saved.id === item.id))]
+        }));
       })().catch((error62) => ctx.logger.error(`Assistant import failed: ${String(error62)}`));
     }, 0);
     ctx.effect(() => () => clearTimeout(timer), "ow-assistant: import scheduling");

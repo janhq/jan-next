@@ -24,11 +24,21 @@ Rust (`src-tauri/src/core/dsh/web.rs`) mounts built-in plugins through the gener
 
 Settings > Appearance adapts the original Jan accent swatches and colored-user-bubble switch. Changes save automatically in the shell plugin's DSH profile configuration. Theme and typography remain in General. Reset restores Jan's gray accent and colored bubbles. The shell reads live preferences on every navigation so reload preserves the selected palette.
 
+## MCP servers and skills
+
+Settings > MCP Servers supports local stdio commands and remote Streamable HTTP endpoints. Add or edit a connection, inspect its available tools, reconnect, disable or remove it. New connections start disabled. JSON import accepts the `mcpServers` object used by Jan and Claude Desktop, previews names and credential field names, rejects unsupported fields and duplicate names, and imports the whole set disabled. Codex TOML, plugin manifests, environment interpolation and legacy SSE require explicit conversion.
+
+Connection settings live in the shell's DSH profile namespace. Environment values and HTTP headers are stored separately in DSH credentials and are never returned to the browser after saving. Editing a connection preserves those values unless replacement is selected. Removing a connection also deletes its stored credential record.
+
+Settings > Skills discovers the standard DSH skill roots and allows linking additional absolute folders. Search the discovered instructions or edit a filesystem skill after acknowledging that saving changes its original file for every agent sharing that folder. Saves reject files changed elsewhere and preserve the skill's name and description frontmatter. Removing a linked folder leaves its files untouched. Compatible Claude or Codex skill instructions may be reused; hooks, manifests, permissions and unavailable tools are not imported. Unsaved drafts survive section navigation but not page reload.
+
 ## Agent preset customization
 
-Settings > Agent presets contains the custom instruction editor. Legacy assistant folders are read only during a one-time import into the `ow-assistant` profile configuration. Imported names, descriptions, instructions and source metadata are retained. Previously applied conversation instructions become separate saved snapshot presets, so editing the original assistant cannot change that historical assignment. Source files remain untouched.
+Settings > Agent presets ends with the custom instruction editor: pick a preset, then edit its name, description and instructions directly. Legacy Jan assistants are read only during a one-time import into the `ow-assistant` profile configuration. Imported names, descriptions, instructions, avatars and the whole source record are retained (`presets[].legacy`). Each Jan conversation's applied assistant instructions (`threads/<id>/thread.json`, `assistants[0]`) become separate saved snapshot presets assigned to that imported `jan-<threadId>` session, so editing the original assistant cannot change what a historical conversation was answered with, and those snapshots are read-only in the editor. Source files remain untouched.
 
-New presets use Standard mode tools with a literal persona prefix. A saved conversation records its selected preset through native DSH selection events. Presets still referenced by saved conversations cannot be deleted until those conversations select another preset.
+New presets use Standard mode tools with a literal persona prefix (`interpolate: false`), so braces a user wrote are not re-read as prompt variables. The session header names the preset the conversation runs and opens the switch menu: a preset may change at any turn boundary (no reply in progress), the selection is appended to the native DSH session log, every message stays, and the next turn runs under the new composition. Presets still referenced by saved conversations cannot be deleted until those conversations select another preset, and a preset cannot be deleted while it is the new-task default.
+
+The editor's writes go through `configEditor`; that reconciliation restarts `ow-assistant`, which re-registers every preset with the DSH registry. Presets are registered with `registry.definitionFor('standard')`, a Host API added in the matching `open-waifu-layout` checkout.
 
 ## Image generation
 
