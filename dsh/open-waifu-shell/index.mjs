@@ -4,9 +4,18 @@
  * `client.js`, found by DSH's client-module scanner through `dsh.client`.
  */
 import { readFile } from 'node:fs/promises'
+import { createRequire } from 'node:module'
+import { pathToFileURL } from 'node:url'
+import { registerApi } from '../native/api.mjs'
+
+const { default: z } = await import(pathToFileURL(createRequire(process.argv[1]).resolve('@deepseek-ai/schemastery')).href)
+export const Config = z.object({
+  look: z.any().default(null),
+  appearance: z.dict(z.any()).default({}).volatile(),
+})
 
 export const name = 'ow-shell'
-export const inject = ['webServer']
+export const inject = ['webServer', 'connection', 'settings']
 
 const ASSETS = new URL('./assets/', import.meta.url)
 // A fixed list: the route serves these files and nothing else in the folder.
@@ -23,10 +32,28 @@ const TYPES = {
  * @param {{ look?: { primary: string, sidebar: { light: string, dark: string } } }} config
  */
 export function apply(ctx, config = {}) {
-  const shell = { look: config.look ?? null }
-  // `<` escaped so a value can never close the script element.
-  const json = JSON.stringify(shell).replaceAll('<', '\\u003c')
+  const appearance = () => config.appearance.get()
+  const entry = ctx.fiber.entry?.options.id
+  let writes = Promise.resolve()
+  ctx.effect(() => registerApi(ctx, 'appearance', {
+    get: () => appearance(),
+    save: ({ accent, coloredUserBubble }) => {
+      const colors = ['gray', 'red', 'orange', 'green', 'emerald', 'teal', 'cyan', 'blue', 'purple', 'pink', 'rose']
+      if (!colors.includes(accent) || typeof coloredUserBubble !== 'boolean') throw new Error('Choose a valid accent color and message bubble preference.')
+      const operation = writes.then(async () => {
+        const settings = ctx.get('settings')
+        if (!settings || !entry) throw new Error('Appearance settings are unavailable. Reopen Settings and try again.')
+        const next = { accent, coloredUserBubble }
+        await settings.update(entry, { appearance: next })
+        return appearance()
+      })
+      writes = operation.catch(() => { })
+      return operation
+    },
+  }), 'open-waifu-shell: appearance preferences')
   ctx.effect(() => ctx.webServer.tapIndex((html) => {
+    // Read live profile values on every navigation, including reload.
+    const json = JSON.stringify({ look: config.look ?? null, appearance: appearance() }).replaceAll('<', '\\u003c')
     const script = `<script>window.__OW_SHELL__ = ${json}</script>`
     const head = html.indexOf('<head>')
     return head === -1 ? script + html : html.slice(0, head + 6) + script + html.slice(head + 6)

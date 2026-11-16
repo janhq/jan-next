@@ -9,7 +9,7 @@ window.__ModuleLoader__.load({
     const {
       IconPluginPinwheelOutlineRegular, IconSettingsOutlineMedium, IconDatabaseOutlineRegular, IconCheckOutlineRegular,
       IconNewChatOutlineMedium, IconNewChatOutlineRegular, IconProjectAddOutlineRegular, IconSearchOutlineRegular,
-      MenuItemButton, ShortcutKeys,
+      MenuItemButton, ShortcutKeys, Button, Switch,
     } = require('@deepseek-ai/dsh-client-ui-primitives')
     // Optional: the matching host publishes the header model seat. An older
     // host leaves the composer's own selector in place instead.
@@ -27,6 +27,70 @@ window.__ModuleLoader__.load({
 
     // Jan's blue accent, the app's default when the settings carry none.
     const look = shell.look ?? { primary: '#456BDE', sidebar: { light: '#C4D0F3', dark: '#0F2157' } }
+    const PALETTES = [
+      ['gray', 'Gray', '#f17455', '#f1f1f1', '#171717'],
+      ['red', 'Red', '#F0614B', '#F3CBC4', '#5E1308'],
+      ['orange', 'Orange', '#E9A23F', '#F3DFC4', '#5C3A0A'],
+      ['green', 'Green', '#88BA42', '#DFF3C4', '#374B1B'],
+      ['emerald', 'Emerald', '#38AB51', '#C4F3CE', '#194D24'],
+      ['teal', 'Teal', '#38AB8D', '#C4F3E6', '#194D3F'],
+      ['cyan', 'Cyan', '#45BBDE', '#C4E8F3', '#0F4657'],
+      ['blue', 'Blue', '#456BDE', '#C4D0F3', '#0F2157'],
+      ['purple', 'Purple', '#865EEA', '#D2C4F3', '#220C5A'],
+      ['pink', 'Pink', '#D55EF3', '#FFDAE9', '#4D075F'],
+      ['rose', 'Rose', '#F655B8', '#F3C4E1', '#61053E'],
+    ]
+    let preferences = { accent: PALETTES.find(p => p[2].toLowerCase() === look.primary.toLowerCase())?.[0] || 'blue', coloredUserBubble: true, ...shell.appearance }
+    const appearanceListeners = new Set()
+    const applyAppearance = (value) => {
+      preferences = value
+      const palette = PALETTES.find(p => p[0] === value.accent) || PALETTES[7]
+      const primary = palette[2]
+      const root = document.documentElement
+      root.style.setProperty('--ow-accent', primary)
+      root.style.setProperty('--ow-sidebar-light', palette[3])
+      root.style.setProperty('--ow-sidebar-dark', palette[4])
+      root.style.setProperty('--ow-bubble-light', value.coloredUserBubble ? `color-mix(in oklch, ${primary} 22%, white)` : 'var(--dsw-alias-bg-layer-2)')
+      root.style.setProperty('--ow-bubble-dark', value.coloredUserBubble ? `color-mix(in oklch, ${primary} 70%, black)` : 'var(--dsw-alias-bg-layer-2)')
+      appearanceListeners.forEach(listener => listener())
+    }
+    async function appearanceApi(method, params = {}) {
+      const response = await fetch('/ow-api/appearance', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
+      const body = await response.json()
+      if (!response.ok || body.error) throw new Error(body.error || 'Appearance settings could not be saved.')
+      return body.result
+    }
+    function AppearanceSettings() {
+      const value = React.useSyncExternalStore(listener => { appearanceListeners.add(listener); return () => appearanceListeners.delete(listener) }, () => preferences)
+      const [busy, setBusy] = React.useState(false)
+      const [error, setError] = React.useState('')
+      const [notice, setNotice] = React.useState('')
+      const uid = React.useId()
+      async function save(next) {
+        setBusy(true); setError(''); setNotice('')
+        try { const saved = await appearanceApi('save', next); applyAppearance({ ...preferences, ...saved }); setNotice('Appearance saved.') }
+        catch (failure) { setError(failure.message) }
+        finally { setBusy(false) }
+      }
+      return h('section', { className: 'ow-appearance', 'aria-labelledby': `${uid}-title`, 'aria-busy': busy },
+        h('h2', { id: `${uid}-title` }, 'Interface'),
+        h('div', { className: 'ow-interface-row' },
+          h('div', null, h('h3', null, 'Accent color'), h('p', null, 'Customize the accent color of the application.')),
+          h('div', { className: 'ow-color-options', role: 'group', 'aria-label': 'Accent color' }, PALETTES.map(palette => h('button', {
+            key: palette[0], type: 'button', className: 'ow-color-swatch', disabled: busy,
+            title: palette[1], 'aria-label': palette[1], 'aria-pressed': value.accent === palette[0],
+            style: { backgroundColor: palette[0] === 'gray' ? 'var(--dsw-alias-bg-base)' : palette[2] },
+            onClick: () => save({ ...value, accent: palette[0] }),
+          })))),
+        h('div', { className: 'ow-interface-row' },
+          h('div', null, h('h3', null, 'Colored user bubbles'), h('p', null, 'Use the accent color for your messages.')),
+          h(Switch, { label: 'Colored user bubbles', checked: value.coloredUserBubble, disabled: busy, onChange: checked => save({ ...value, coloredUserBubble: checked }) })),
+        h('div', { className: 'ow-interface-row' },
+          h('div', null, h('h3', null, 'Reset to default'), h('p', null, 'Reset accent color and user bubble preferences.')),
+          h(Button, { variant: 'outline', disabled: busy, onClick: () => save({ accent: 'gray', coloredUserBubble: true }) }, 'Reset')),
+        h('p', null, 'Theme and font size are in General. Automatic conversation titles are in Plugin manager > Conversation-following titles. Token statistics are in General > Performance usage.'),
+        error && h('p', { role: 'alert' }, error), h('p', { role: 'status' }, busy ? 'Saving appearance…' : notice))
+    }
     const both = (v) => ({ light: v, dark: v })
     // Jan's palette (web-app/src/index.css) mapped onto DSH's alias tokens.
     const TOKENS = {
@@ -39,36 +103,44 @@ window.__ModuleLoader__.load({
       '--dsw-alias-border-l2': { light: 'oklch(0.88 0 0)', dark: 'oklch(1 0 0 / 15%)' },
       '--dsw-alias-label-primary': { light: 'oklch(0.145 0 0)', dark: 'oklch(0.985 0 0)' },
       '--dsw-alias-label-secondary': { light: 'oklch(0.556 0 0)', dark: 'oklch(0.708 0 0)' },
-      '--dsw-alias-button-primary-fill': both(look.primary),
-      '--dsw-alias-button-info-fill': both(look.primary),
-      '--dsw-alias-state-business-primary': both(look.primary),
+      '--dsw-alias-button-primary-fill': both('var(--ow-accent)'),
+      '--dsw-alias-button-info-fill': both('var(--ow-accent)'),
+      '--dsw-alias-state-business-primary': both('var(--ow-accent)'),
       // The running "Deep diving" status and its hand; DSH tints them its own blue.
       '--dsw-alias-label-deep-diving': {
-        light: `color-mix(in oklch, ${look.primary} 85%, black)`,
-        dark: `color-mix(in oklch, ${look.primary} 80%, white)`,
+        light: `color-mix(in oklch, var(--ow-accent) 85%, black)`,
+        dark: `color-mix(in oklch, var(--ow-accent) 80%, white)`,
       },
       '--dsw-specific-input-major': { light: 'oklch(0.97 0 0)', dark: 'oklch(0.235 0 0)' },
       '--dsw-specific-selector': { light: 'oklch(0.94 0 0)', dark: 'oklch(0.269 0 0)' },
       '--dsw-specific-bubble': {
-        light: `color-mix(in oklch, ${look.primary} 22%, white)`,
-        dark: `color-mix(in oklch, ${look.primary} 70%, black)`,
+        light: 'var(--ow-bubble-light)',
+        dark: 'var(--ow-bubble-dark)',
       },
-      '--dsw-specific-sidebar-fill': look.sidebar,
+      '--dsw-specific-sidebar-fill': { light: 'var(--ow-sidebar-light)', dark: 'var(--ow-sidebar-dark)' },
       '--dsw-specific-sidebar-nav-item-hover': {
-        light: `color-mix(in oklch, ${look.sidebar.light} 85%, black)`,
-        dark: `color-mix(in oklch, ${look.sidebar.dark} 85%, white)`,
+        light: `color-mix(in oklch, var(--ow-sidebar-light) 85%, black)`,
+        dark: `color-mix(in oklch, var(--ow-sidebar-dark) 85%, white)`,
       },
       '--dsw-specific-sidebar-nav-item-active': {
-        light: `color-mix(in oklch, ${look.sidebar.light} 75%, black)`,
-        dark: `color-mix(in oklch, ${look.sidebar.dark} 75%, white)`,
+        light: `color-mix(in oklch, var(--ow-sidebar-light) 75%, black)`,
+        dark: `color-mix(in oklch, var(--ow-sidebar-dark) 75%, white)`,
       },
       '--dsw-specific-sidebar-nav-item-active-accent': {
-        light: `color-mix(in oklch, ${look.sidebar.light} 75%, black)`,
-        dark: `color-mix(in oklch, ${look.sidebar.dark} 75%, white)`,
+        light: `color-mix(in oklch, var(--ow-sidebar-light) 75%, black)`,
+        dark: `color-mix(in oklch, var(--ow-sidebar-dark) 75%, white)`,
       },
     }
 
     const CSS = `
+.ow-appearance h2, .ow-appearance h3 { text-wrap: balance; font-size: 16px; font-weight: 500; margin: 0; }
+.ow-appearance p { text-wrap: pretty; color: var(--dsw-alias-label-secondary); margin-block: 6px; line-height: 1.5; }
+.ow-interface-row { display: flex; align-items: center; justify-content: space-between; gap: 32px; padding-block: 12px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
+.ow-color-options { display: flex; flex-wrap: wrap; gap: 6px; max-width: 180px; flex-shrink: 0; padding: 4px; }
+.ow-color-swatch { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--dsw-alias-bg-layer-2); cursor: pointer; }
+.ow-color-swatch[aria-pressed='true'] { outline: 2px solid var(--ow-accent); outline-offset: 2px; border-color: transparent; }
+.ow-color-swatch:focus-visible { outline: 2px solid var(--dsw-alias-label-primary); outline-offset: 3px; }
+@media (max-width: 640px) { .ow-interface-row { flex-wrap: wrap; gap: 12px; } }
 @font-face { font-family: 'Inter'; font-display: swap; font-weight: 100 900; src: url('/ow-shell/assets/InterVariable.woff2') format('woff2'); }
 @font-face { font-family: 'StudioFeixenSans'; font-display: swap; font-weight: 500; src: url('/ow-shell/assets/StudioFeixenSans-Medium.otf') format('opentype'); }
 .ow-name { font-family: 'StudioFeixenSans', 'Inter', sans-serif; font-size: 16px; font-weight: 500; color: var(--dsw-alias-label-primary); }
@@ -360,6 +432,8 @@ html[data-ow-shell][data-windows-titlebar] [data-sidebar-right-panel] { top: var
       name: 'ow-shell',
       inject: ['slots'],
       apply(ctx) {
+        applyAppearance(preferences)
+        ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'ow-appearance', order: 5, label: 'Appearance' }, AppearanceSettings))
         const style = document.createElement('style')
         style.dataset.plugin = '@open-waifu/dsh-shell'
         style.textContent = CSS

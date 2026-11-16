@@ -20,6 +20,10 @@ The desktop window is DeepSeek Harness's web host. Every screen comes from a DSH
 
 Rust (`src-tauri/src/core/dsh/web.rs`) mounts built-in plugins through the generated `@open-waifu/dsh-bundle`. The initial theme is a bundle default, so Settings > General can save an overriding appearance preference in the DSH profile. The app-owned provider and shell values remain in `<data>/dsh/web.patch.yml`. Their files load from this folder in development, so a client or host edit only needs an app restart. `assistant/index.mjs` and `llamacpp/runtime.mjs` are generated: run `corepack yarn build:dsh` after editing their TypeScript sources.
 
+## Interface preferences
+
+Settings > Appearance adapts the original Jan accent swatches and colored-user-bubble switch. Changes save automatically in the shell plugin's DSH profile configuration. Theme and typography remain in General. Reset restores Jan's gray accent and colored bubbles. The shell reads live preferences on every navigation so reload preserves the selected palette.
+
 ## Agent preset customization
 
 Settings > Agent presets contains the custom instruction editor. Legacy assistant folders are read only during a one-time import into the `ow-assistant` profile configuration. Imported names, descriptions, instructions and source metadata are retained. Previously applied conversation instructions become separate saved snapshot presets, so editing the original assistant cannot change that historical assignment. Source files remain untouched.
