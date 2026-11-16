@@ -44,8 +44,11 @@
     - id: session
       name: '@deepseek-ai/dsh-session'
 
+    # tokamak-harness: Session-log upload is opt-in; the Settings switch enables it.
     - id: session-log-deepseek
       name: '@deepseek-ai/dsh-session-log-deepseek'
+      config:
+        enabled: false
 
     - id: typert
       name: '@deepseek-ai/dsh-typert-registry'

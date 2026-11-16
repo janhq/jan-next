@@ -16,6 +16,7 @@ import { newEnglishPage, saveFailureShot, scrollIntoView } from './support.ts'
 // Borrowed read-only: this scenario needs any settled assistant message to
 // address, not a new recording (message-actions / sidebar-scrollbar pattern).
 const SEED = fileURLToPath(new URL('../../../snapshots/web/seeded-history/session.v3.jsonl', import.meta.url))
+const FEEDBACK_OVERLAY = fileURLToPath(new URL('./message-feedback.overlay.yml', import.meta.url))
 const MODE = webSnapshotMode()
 const SEED_ID = 'message-feedback-web-e2e'
 const POSITIVE_NOTE = 'Clear and complete.'
@@ -28,7 +29,7 @@ describe('web e2e: durable per-message feedback', () => {
   let tripwire: ReturnType<typeof watchConsole>
 
   beforeAll(async () => {
-    scaffold = await launchWebScaffold({})
+    scaffold = await launchWebScaffold({ extraOverlayPath: FEEDBACK_OVERLAY })
     await seedSession(scaffold, await readFile(SEED, 'utf8'), SEED_ID)
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
