@@ -149,6 +149,7 @@ try {
   if (await evaluate(`[...document.querySelectorAll('[role=treeitem]')].some(el => el.offsetParent !== null && el.textContent.includes('New Session'))`)) {
     throw new Error('the chat list shows an empty "New Session" row')
   }
+  if (!log.includes('[dsh-log] ready')) throw new Error('ow-log-bridge did not load; DSH errors would not reach the app log')
   await step('settings opens', async () => {
     if (!(await click('Settings'))) throw new Error('Settings is not clickable')
     await until('Settings dialog', () => evaluate('!!document.querySelector("[role=dialog]")'), 15_000)

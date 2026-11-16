@@ -1,0 +1,9 @@
+{
+  "name": "@open-waifu/dsh-log-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Writes DSH runtime warnings, errors and session activation failures to the app log.",
+  "license": "MIT",
+  "exports": { ".": "./index.mjs" }
+}

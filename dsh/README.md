@@ -8,6 +8,7 @@ The desktop window is DeepSeek Harness's web host. Every screen comes from a DSH
 |---|---|---|
 | `open-waifu-shell/` | `ow-shell` | Jan look: palette, wordmark, sidebar rows, footer, model pill, plugin card icons, window buttons |
 | `native/` | `ow-native` | Host-only bridge to the Rust side (authenticated loopback, fixed operation list) |
+| `log-bridge/` | `ow-log-bridge` | Writes DSH runtime warnings, errors and session activation failures to the app log (adapted from dataelement/dsh-desktop, MIT) |
 | `llamacpp/` | `ow-llamacpp` | Local model engine, Local models panel, model selection |
 | `download/` | `ow-download` | Model downloads and the Downloads panel |
 | `assistant/` | `ow-assistant` | Jan assistants and their per-session instructions |
