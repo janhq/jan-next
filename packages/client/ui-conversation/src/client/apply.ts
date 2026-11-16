@@ -67,11 +67,14 @@ export const inject = [
 export interface Config {
   /** Maximum generic-file uploads allowed to run concurrently in browser Workers. */
   maxConcurrentFileUploads?: number
+  /** Product copy for the empty-conversation composer; the built-in dictionary text when omitted. */
+  heroPlaceholder?: string
 }
 
 /** Validated Conversation runtime configuration. */
 export const Config: z<Config> = z.object({
   maxConcurrentFileUploads: z.natural().min(1).default(2),
+  heroPlaceholder: z.string().min(1),
 })
 
 // Stable no-session sources keep the renderer's observable-hook cache and
@@ -373,6 +376,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
       widthControls: { scope: 'root' },
     },
     inject: (sessionId: SessionId | undefined): ConversationInjected => ({
+      heroPlaceholder: config.heroPlaceholder,
       pickSuggestion: (text) => {
         if (sessionId === undefined) return
         const binding = sessions.binding(sessionId)

@@ -23,7 +23,7 @@ export function ConversationContent(props: ConversationContentProps) {
   const {
     sessionId, phase, hero, useSession, useSessions, useSessionStatus,
     useWorkspaces, useInput, useAccess, useComposerBlock, renderSlot, renderSlotChain,
-    selectWorkspace, pickSuggestion, t, useFactorySlot,
+    selectWorkspace, pickSuggestion, t, useFactorySlot, heroPlaceholder,
   } = props
   const session = useSession(snapshot => snapshot)
   const Views = useFactorySlot('views', ConversationSessionView)
@@ -162,7 +162,7 @@ export function ConversationContent(props: ConversationContentProps) {
         // block keeps the model seat live because choosing a model is how the
         // user clears it.
         ? { blocked: composerBlock, placeholder: composerBlock.reason }
-        : hero ? { placeholder: t('placeholder.hero') } : {}),
+        : hero ? { placeholder: heroPlaceholder ?? t('placeholder.hero') } : {}),
   })
 
   const composerBar = (
