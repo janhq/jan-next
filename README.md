@@ -8,6 +8,10 @@
 
 My personal fork of [Jan](https://github.com/janhq/jan) for hobby and learning purposes: a waifu chat app for macOS and Windows. The desktop window runs DeepSeek Harness (DSH). A DSH UI plugin supplies Jan's styling and native window controls. Rust retains the llama.cpp engine and other native services; their DSH settings and Model Hub integration are still in progress.
 
+## Architecture
+
+Read [the architecture guide](docs/architecture.md) for before/after diagrams, startup flow, plugin boundaries and migration status.
+
 ## Project tree
 
 ```text
