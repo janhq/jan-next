@@ -37,6 +37,8 @@
 /* Table shared by the turn rows and their nested step rows. */
 .table {
   width: 100%;
+  /* Preserve metric columns in split panes; the scrollport owns horizontal overflow. */
+  min-width: 72rem;
   table-layout: fixed;
   border-collapse: collapse;
   border-spacing: 0;
