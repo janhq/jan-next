@@ -82,7 +82,7 @@ The worker listens on `127.0.0.1` and checks `Authorization: Bearer <key>` on ev
 | Method and path | Purpose |
 |---|---|
 | `GET /v1/models`, `GET /models` | Every registered model with its llama.cpp router `status`, a `busy` flag that stays set until a streamed response ends, and the `aliases` that resolve to it |
-| `GET /models/sse` | Server-sent model lifecycle events with load progress |
+| `GET /models/sse` | Server-sent model lifecycle events with load progress, and a `: keepalive` comment after any 15 s without a frame |
 | `POST /models/load`, `POST /models/unload` | Loads or unloads `{"model": id}`; unload answers 409 while the model has a request or stream in flight |
 | `POST /models/reload` | Re-reads `{"preset_path", "models_max"?}` and reloads only changed models |
 | `POST /slots/state/erase` | Deletes saved KV state for `{"thread"}` or `{"model"}` |

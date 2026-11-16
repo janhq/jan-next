@@ -104,7 +104,7 @@ At boot the service runs the worker with `--list-devices` and reads system memor
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-One `LlamaCpp` service serializes install-record and worker mutations through a task queue. Downloads run one at a time on a separate queue and commit through the task queue, so Start and Stop stay responsive during a download. The worker's handshake line names its port and aliases; the service then subscribes to `/models/sse` to mirror residency and, after each load, reads the settled context from `/props` and rewrites the route list.
+One `LlamaCpp` service serializes install-record and worker mutations through a task queue. Downloads run one at a time on a separate queue and commit through the task queue, so Start and Stop stay responsive during a download. The worker's handshake line names its port and aliases; the service then subscribes to `/models/sse` to mirror residency and, after each load, reads the settled context from `/props` and rewrites the route list. When that feed errors or ends while the worker runs, the service logs one warning, resubscribes every `feedRetryMs` until it succeeds, and replaces the mirror with the worker's `GET /models` list taken after the new subscription opens; it stops retrying when the worker stops or the service is disposed.
 
 | File | Owns |
 |---|---|

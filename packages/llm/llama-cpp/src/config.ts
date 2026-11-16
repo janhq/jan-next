@@ -119,6 +119,11 @@ export interface Config {
   slotCacheMiB: number
   /** Deadline from spawn until the handshake and the active model's load complete. */
   startTimeoutMs: number
+  /**
+   * Delay before each attempt to resubscribe to a running worker's model feed after it errored or
+   * ended; the attempt also re-reads every model's status.
+   */
+  feedRetryMs: number
   /** Wait after closing the worker's stdin (it drains requests and saves KV state) before terminating it. */
   stopTimeoutMs: number
   /** Grace period between SIGTERM and SIGKILL once the worker is terminated. */
@@ -173,6 +178,7 @@ export const Config: z<Partial<Config>, Config> = z.object({
   cacheRamMiB: z.union([z.number().step(1).min(-1), z.const(undefined)]),
   slotCacheMiB: z.natural().default(0),
   startTimeoutMs: z.natural().min(1).default(120_000),
+  feedRetryMs: z.natural().min(1).default(1000),
   stopTimeoutMs: z.natural().min(1).default(15_000),
   graceMs: z.natural().min(1).default(5000),
   progressIntervalMs: z.natural().min(1).default(250),

@@ -2040,6 +2040,11 @@ export interface Config {
   slotCacheMiB: number
   /** Deadline from spawn until the handshake and the active model's load complete. */
   startTimeoutMs: number
+  /**
+   * Delay before each attempt to resubscribe to a running worker's model feed after it errored or
+   * ended; the attempt also re-reads every model's status.
+   */
+  feedRetryMs: number
   /** Wait after closing the worker's stdin (it drains requests and saves KV state) before terminating it. */
   stopTimeoutMs: number
   /** Grace period between SIGTERM and SIGKILL once the worker is terminated. */

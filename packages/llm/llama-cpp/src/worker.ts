@@ -163,6 +163,30 @@ export function parseModelEvent(data: string): WorkerModelEvent | undefined {
   }
 }
 
+/**
+ * Parse a `GET /models` body: `{ data: [{ id, status: { value } }] }`.
+ * @param text - the response body.
+ * @returns model section name to its status.
+ * @throws {@link WorkerProtocolError} for anything else.
+ */
+export function parseModelList(text: string): Map<string, LocalModelStatus> {
+  let raw: unknown
+  try { raw = JSON.parse(text) }
+  catch { throw new WorkerProtocolError(`the local model worker listed its models unreadably: ${text.slice(0, 200)}`) }
+  const data = isRecord(raw) ? raw.data : undefined
+  if (!Array.isArray(data)) throw new WorkerProtocolError(`the local model worker listed invalid models: ${text.slice(0, 200)}`)
+  const models = new Map<string, LocalModelStatus>()
+  for (const entry of data) {
+    const status = isRecord(entry) && isRecord(entry.status) ? entry.status.value : undefined
+    if (!isRecord(entry) || typeof entry.id !== 'string' || !isModelStatus(status)) {
+      throw new WorkerProtocolError(`the local model worker listed invalid models: ${text.slice(0, 200)}`)
+    }
+    models.set(entry.id, status)
+  }
+  return models
+}
+
+/** Yield the model transitions of an SSE body; comment lines such as `: keepalive` carry no data and are skipped. */
 async function* modelEvents(body: ReadableStream<Uint8Array>): AsyncIterable<WorkerModelEvent> {
   const decoder = new TextDecoder()
   let buffered = ''
@@ -221,6 +245,21 @@ export class WorkerClient {
       throw new Error(`the local model worker refused its event feed: HTTP ${String(response.status)}`)
     }
     return modelEvents(response.body)
+  }
+
+  /**
+   * Read the status of every preset model; aliases are not listed.
+   * @param signal - cancellation.
+   * @returns model section name to its status, as `GET /models` reports it.
+   * @throws Error when the worker refuses; {@link WorkerProtocolError} for a list that does not follow the protocol.
+   */
+  async models(signal: AbortSignal): Promise<Map<string, LocalModelStatus>> {
+    const response = await fetch(`${this.origin}/models`, { headers: this.headers(), signal })
+    if (!response.ok) {
+      await response.body?.cancel()
+      throw new Error(`the local model worker refused its model list: HTTP ${String(response.status)}`)
+    }
+    return parseModelList(await response.text())
   }
 
   /**

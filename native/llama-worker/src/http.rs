@@ -23,6 +23,7 @@ use hyper_util::rt::TokioIo;
 use tokio::net::TcpListener;
 use tokio::sync::{broadcast, mpsc, watch, Mutex};
 
+use super::events::ModelEvent;
 use super::registry::{Registry, RegistryError};
 use super::slots::{Claim, Identity, SlotOccupancy, StateStore, MIN_TOKENS_TO_SAVE};
 use super::Route;
@@ -587,39 +588,15 @@ impl EngineServer {
     ///
     /// Subscribing before the response is returned is what makes this usable
     /// as a load watcher: a caller that opens the stream and only then posts
-    /// `/models/load` cannot miss the `loading` event.
-    ///
-    /// No keepalive comments: the connection is loopback and short-lived, so
-    /// there is no proxy idle timeout to defeat.
+    /// `/models/load` cannot miss the `loading` event. A comment frame every
+    /// [`SSE_KEEPALIVE`] keeps an idle subscription inside client idle timeouts.
     async fn models_sse(&self) -> HttpResponse<Body> {
-        let mut rx = self.registry.lock().await.events().subscribe();
-        let (tx, out) = mpsc::channel::<Result<Frame<Bytes>, Infallible>>(STREAM_BUFFER);
-
-        tokio::spawn(async move {
-            loop {
-                match rx.recv().await {
-                    Ok(event) => {
-                        let frame = Bytes::from(event.to_sse_frame());
-                        if tx.send(Ok(Frame::data(frame))).await.is_err() {
-                            return; // client gone
-                        }
-                    }
-                    // A subscriber too slow for CHANNEL_CAPACITY has missed
-                    // events it cannot recover, and inventing them would be
-                    // worse than the gap: keep streaming from here.
-                    Err(broadcast::error::RecvError::Lagged(n)) => {
-                        log::warn!("a /models/sse subscriber lagged and missed {n} event(s)");
-                    }
-                    Err(broadcast::error::RecvError::Closed) => return,
-                }
-            }
-        });
-
+        let rx = self.registry.lock().await.events().subscribe();
         HttpResponse::builder()
             .status(StatusCode::OK)
             .header(hyper::header::CONTENT_TYPE, "text/event-stream")
             .header(hyper::header::CACHE_CONTROL, "no-cache")
-            .body(StreamBody::new(tokio_stream_wrapper(out)).boxed())
+            .body(sse_body(rx, SSE_KEEPALIVE))
             .unwrap_or_else(|_| json_error(StatusCode::INTERNAL_SERVER_ERROR, "bad response"))
     }
 
@@ -959,6 +936,44 @@ async fn run(
         .header(hyper::header::CACHE_CONTROL, "no-cache")
         .body(StreamBody::new(tokio_stream_wrapper(rx)).boxed())
         .unwrap_or_else(|_| json_error(StatusCode::INTERNAL_SERVER_ERROR, "bad response"))
+}
+
+/// Interval between `/models/sse` keepalive comments: well below the 300 s
+/// body idle timeout of Node's fetch, the supervisor's client.
+const SSE_KEEPALIVE: Duration = Duration::from_secs(15);
+
+/// One SSE comment frame; parsers drop it without dispatching an event.
+const SSE_KEEPALIVE_FRAME: &str = ": keepalive\n\n";
+
+/// Streams `rx`'s transitions as SSE frames, plus a keepalive comment whenever
+/// `keepalive` passes without a frame, until the client goes away.
+fn sse_body(mut rx: broadcast::Receiver<ModelEvent>, keepalive: Duration) -> Body {
+    let (tx, out) = mpsc::channel::<Result<Frame<Bytes>, Infallible>>(STREAM_BUFFER);
+    tokio::spawn(async move {
+        let mut idle = tokio::time::interval_at(tokio::time::Instant::now() + keepalive, keepalive);
+        idle.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        loop {
+            let frame = tokio::select! {
+                received = rx.recv() => match received {
+                    Ok(event) => event.to_sse_frame(),
+                    // A subscriber too slow for CHANNEL_CAPACITY has missed
+                    // events it cannot recover, and inventing them would be
+                    // worse than the gap: keep streaming from here.
+                    Err(broadcast::error::RecvError::Lagged(n)) => {
+                        log::warn!("a /models/sse subscriber lagged and missed {n} event(s)");
+                        continue;
+                    }
+                    Err(broadcast::error::RecvError::Closed) => return,
+                },
+                _ = idle.tick() => SSE_KEEPALIVE_FRAME.to_string(),
+            };
+            idle.reset();
+            if tx.send(Ok(Frame::data(Bytes::from(frame)))).await.is_err() {
+                return; // client gone
+            }
+        }
+    });
+    StreamBody::new(tokio_stream_wrapper(out)).boxed()
 }
 
 fn tokio_stream_wrapper(
@@ -1341,5 +1356,32 @@ mod tests {
         assert!(!authorized("secret", &headers(Some("secret"))));
         // Scheme comparison is case-sensitive, matching what the extension sends.
         assert!(!authorized("secret", &headers(Some("bearer secret"))));
+    }
+
+    async fn next_frame(body: &mut Body) -> String {
+        let frame = tokio::time::timeout(Duration::from_secs(5), body.frame())
+            .await
+            .expect("the feed went quiet")
+            .expect("the feed ended")
+            .unwrap();
+        String::from_utf8(frame.into_data().unwrap().to_vec()).unwrap()
+    }
+
+    // An idle subscription has to keep bytes flowing, or a client body idle
+    // timeout drops it; events still arrive between the comments.
+    #[tokio::test]
+    async fn an_idle_model_feed_sends_keepalive_comments_between_events() {
+        let bus = crate::events::EventBus::new();
+        let mut body = sse_body(bus.subscribe(), Duration::from_millis(20));
+        assert_eq!(next_frame(&mut body).await, ": keepalive\n\n");
+        assert_eq!(next_frame(&mut body).await, ": keepalive\n\n");
+        bus.emit("m", crate::events::Transition::Loaded);
+        let mut frame = next_frame(&mut body).await;
+        while frame == SSE_KEEPALIVE_FRAME {
+            frame = next_frame(&mut body).await;
+        }
+        assert!(frame.starts_with("data: "), "{frame:?}");
+        assert!(frame.contains(r#""status":"loaded""#), "{frame:?}");
+        assert_eq!(next_frame(&mut body).await, ": keepalive\n\n");
     }
 }

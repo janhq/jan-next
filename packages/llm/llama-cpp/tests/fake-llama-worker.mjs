@@ -3,6 +3,7 @@
 // `--list-devices`, `alias-of` sections, lifecycle routes with `--models-max` LRU eviction, `/models/sse`
 // and an OpenAI-style stream that loads its model on demand; stops on stdin end of file.
 // Behaviour switches are read from `fake-mode.json` next to this script; events go to `fake-events.jsonl`.
+// Feeds send a `: keepalive` comment every `mode.keepaliveMs`, as the worker does.
 import { createServer } from 'node:http'
 import { appendFileSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -55,6 +56,13 @@ if (mode.exitCode !== undefined) { console.error('fake worker: failed to start')
 const loaded = new Map()
 const feeds = new Set()
 const emit = (model, status) => {
+  // `dropFeed` (read at each event): `end` or `destroy` every open feed instead of sending the event.
+  const { dropFeed } = readMode()
+  if (dropFeed !== undefined) {
+    for (const res of feeds) { if (dropFeed === 'end') res.end(); else res.destroy() }
+    feeds.clear()
+    return
+  }
   const frame = `data: ${JSON.stringify({ model, event: 'status_change', data: { status, ...status === 'unloaded' ? { exit_code: 0 } : {} } })}\n\n`
   for (const res of feeds) res.write(frame)
 }
@@ -81,15 +89,18 @@ const body = req => new Promise(resolve => { let text = ''; req.on('data', chunk
 const server = createServer(async (req, res) => {
   if (req.headers.authorization !== `Bearer ${key}`) { json(res, 401, { error: { message: 'invalid api key', code: 401 } }); return }
   const url = new URL(req.url ?? '/', 'http://x')
-  if (req.method === 'GET' && url.pathname === '/v1/models') {
+  if (req.method === 'GET' && (url.pathname === '/v1/models' || url.pathname === '/models')) {
     json(res, 200, { object: 'list', data: Object.keys(preset.models).map(id => ({ id, status: { value: loaded.has(id) ? 'loaded' : 'unloaded' } })) })
     return
   }
   if (req.method === 'GET' && url.pathname === '/models/sse') {
+    log({ type: 'subscribe' })
+    if (readMode().dropFeed !== undefined) { json(res, 503, { error: { message: 'feed unavailable', code: 503 } }); return }
     res.writeHead(200, { 'content-type': 'text/event-stream' })
     res.write(': subscribed\n\n')
     feeds.add(res)
-    res.on('close', () => { feeds.delete(res) })
+    const keepalive = mode.keepaliveMs === undefined ? undefined : setInterval(() => { res.write(': keepalive\n\n') }, mode.keepaliveMs)
+    res.on('close', () => { feeds.delete(res); clearInterval(keepalive) })
     return
   }
   if (req.method === 'POST' && url.pathname === '/models/reload') {

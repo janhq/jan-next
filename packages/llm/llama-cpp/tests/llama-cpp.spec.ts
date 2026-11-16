@@ -4,13 +4,13 @@ import { createServer, type Server } from 'node:http'
 import { tmpdir, totalmem } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
 import { Context, Service } from '@deepseek-ai/cordis'
 import LocalSubprocess from '@deepseek-ai/dsh-subprocess-local'
 import { LocalCredentialProvider } from '@deepseek-ai/dsh-credentials-local'
 import {
-  describeExit, download, DownloadError, hostPlatformOf, LlamaCpp, lookupRepo, modelFacts, parseHandshake, parseRepo, RateMeter,
-  WorkerProtocolError, type LlamaCppState,
+  describeExit, download, DownloadError, hostPlatformOf, LlamaCpp, lookupRepo, modelFacts, parseHandshake, parseModelList, parseRepo,
+  RateMeter, WorkerProtocolError, type LlamaCppState,
 } from '../src/index.ts'
 import { chatModel, ggufFile } from './gguf-fixture.ts'
 
@@ -130,7 +130,7 @@ const MODEL = ggufFile(chatModel(40960), 256 * 1024)
 /** One line the fake worker appends to `fake-events.jsonl`. */
 interface FakeEvent {
   pid: number
-  type: 'start' | 'reload' | 'load' | 'unload' | 'exit'
+  type: 'start' | 'reload' | 'load' | 'unload' | 'exit' | 'subscribe'
   argv?: string[]
   hasKey?: boolean
   keyInArgv?: boolean
@@ -536,6 +536,61 @@ it('serves each model under its own id and the default under the alias, keeping 
   await f.llama.loadModel(id)
   expect(f.llama.snapshot()).toMatchObject({ phase: 'running', models: [{ status: 'loaded' }, { status: 'loaded' }] })
 }, 30_000)
+
+it.each(['end', 'destroy'] as const)('resubscribes after the worker\'s model feed is lost (%s) and resynchronises from its model list', async (dropFeed) => {
+  const f = await fixture({ extraFiles: HF_FILES, config: { feedRetryMs: 20 } })
+  f.llama.install()
+  await f.until(s => s.phase === 'running')
+  const id = await f.llama.downloadHuggingFace('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')
+  await f.until(s => s.models.length === 2 && s.downloads.length === 0)
+  expect(f.llama.snapshot().models.map(model => model.status)).toEqual(['loaded', 'unloaded'])
+
+  // The feed drops on the eviction; the swap that follows happens while no feed is open.
+  await writeFile(join(f.bin, 'fake-mode.json'), JSON.stringify({ dropFeed }))
+  expect(await chat(f, id)).toContain(join('models', id))
+  await expect.poll(async () => (await f.events()).filter(event => event.type === 'subscribe').length).toBeGreaterThan(2)
+  expect(f.llama.snapshot().models.map(model => model.status)).toEqual(['loaded', 'unloaded'])
+
+  await writeFile(join(f.bin, 'fake-mode.json'), JSON.stringify({}))
+  await f.until(s => s.models[0]?.status === 'unloaded' && s.models[1]?.status === 'loaded')
+  // Transitions after the resubscription arrive through the new feed.
+  expect(await chat(f, 'local')).toContain(join('models', 'jan-v3.5-4b'))
+  await f.until(s => s.models[0]?.status === 'loaded' && s.models[1]?.status === 'unloaded')
+  expect(f.llama.snapshot().phase).toBe('running')
+}, 30_000)
+
+it('stops resubscribing to a lost model feed once the plugin is disposed', async () => {
+  const f = await fixture({ config: { feedRetryMs: 20 } })
+  f.llama.install()
+  await f.until(s => s.phase === 'running')
+  await writeFile(join(f.bin, 'fake-mode.json'), JSON.stringify({ dropFeed: 'destroy' }))
+  await f.llama.unloadModel('jan-v3.5-4b')
+  await expect.poll(async () => (await f.events()).filter(event => event.type === 'subscribe').length).toBeGreaterThan(2)
+  const fetches = vi.spyOn(globalThis, 'fetch')
+  cleanups.push(async () => { fetches.mockRestore() })
+  await f.dispose()
+  const after = fetches.mock.calls.length
+  await new Promise(resolve => setTimeout(resolve, 200))
+  expect(fetches.mock.calls.slice(after)).toEqual([])
+}, 30_000)
+
+it('skips SSE comments such as keepalives in the worker\'s model feed', async () => {
+  const f = await fixture({ mode: { keepaliveMs: 10 }, extraFiles: HF_FILES, config: { modelsMax: 2 } })
+  f.llama.install()
+  await f.until(s => s.phase === 'running')
+  const id = await f.llama.downloadHuggingFace('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')
+  await f.until(s => s.models.length === 2 && s.downloads.length === 0)
+  await new Promise(resolve => setTimeout(resolve, 50))
+  await f.llama.loadModel(id)
+  await f.until(s => s.models.every(model => model.status === 'loaded'))
+}, 30_000)
+
+it('reads the worker\'s model list and refuses anything else', () => {
+  expect(parseModelList('{"object":"list","data":[{"id":"a","status":{"value":"loaded","failed":false}},{"id":"b","status":{"value":"unloaded"}}]}'))
+    .toEqual(new Map([['a', 'loaded'], ['b', 'unloaded']]))
+  expect(() => parseModelList('{"data":[{"id":"a","status":{"value":"gone"}}]}')).toThrow(WorkerProtocolError)
+  expect(() => parseModelList('not json')).toThrow(WorkerProtocolError)
+})
 
 it('evicts the least recently used model at a bound of one', async () => {
   const f = await fixture({ extraFiles: HF_FILES })

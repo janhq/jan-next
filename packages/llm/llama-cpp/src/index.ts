@@ -16,6 +16,7 @@ import { randomBytes } from 'node:crypto'
 import { constants, access, mkdir, readFile, rename, rm, rmdir, stat, writeFile } from 'node:fs/promises'
 import { arch, platform, totalmem } from 'node:os'
 import { basename, dirname, isAbsolute, join, relative } from 'node:path'
+import { setTimeout as sleep } from 'node:timers/promises'
 import { Context, Service } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-credentials'
 import { credentialRef, type CredentialRef } from '@deepseek-ai/dsh-credentials'
@@ -59,7 +60,7 @@ export type { MachineMemory } from './memory.ts'
 export { plannedContext, renderPreset, resolvePresetSettings } from './preset.ts'
 export type { PresetModel, PresetSettings } from './preset.ts'
 export { RateMeter } from './rate.ts'
-export { describeExit, parseDeviceList, parseHandshake, parseModelEvent, WorkerProtocolError } from './worker.ts'
+export { describeExit, parseDeviceList, parseHandshake, parseModelEvent, parseModelList, WorkerProtocolError } from './worker.ts'
 export type { WorkerDevice, WorkerHandshake, WorkerModelEvent } from './worker.ts'
 
 declare module '@deepseek-ai/cordis' {
@@ -143,9 +144,9 @@ interface Running {
   key: string
   /** Present once the handshake named the port. */
   client?: WorkerClient
-  /** Model ids the worker reported loading or loaded through `/models/sse`; absent ones are unloaded. */
+  /** Model ids the worker reported loading or loaded through `/models/sse` or a resync from `GET /models`; absent ones are unloaded. */
   resident: Map<string, Exclude<LocalModelStatus, 'unloaded'>>
-  /** Ends the `/models/sse` subscription. */
+  /** Ends the `/models/sse` subscription and its resubscription retries. */
   feed: AbortController
   stopping: boolean
   /** Set when {@link LlamaCpp.terminate} had to kill it. */
@@ -1283,22 +1284,63 @@ export class LlamaCpp extends Service {
 
   /**
    * Mirror which models the worker holds from its `/models/sse` feed, and read the context each one
-   * settled on once it loads. A feed that ends while the worker runs is logged, leaving the last state.
+   * settled on once it loads. A feed that errors or ends while the worker runs is replaced through
+   * {@link resubscribe}, logging one warning per loss, until the worker stops or the plugin is disposed.
    * @param running - the worker.
    * @param client - its lifecycle client.
    * @param feed - its subscribed transitions.
    */
   private async mirrorResidency(running: Running, client: WorkerClient, feed: AsyncIterable<WorkerModelEvent>): Promise<void> {
-    try {
-      for await (const event of feed) {
-        if (event.status === 'unloaded') running.resident.delete(event.model)
-        else running.resident.set(event.model, event.status)
+    let current: AsyncIterable<WorkerModelEvent> | undefined = feed
+    while (current !== undefined) {
+      let reason = 'the worker ended it'
+      try {
+        for await (const event of current) {
+          if (event.status === 'unloaded') running.resident.delete(event.model)
+          else running.resident.set(event.model, event.status)
+          this.emit()
+          if (event.status === 'loaded') void this.readContext(running, client, event.model)
+        }
+      } catch (error) { reason = messageOf(error) }
+      if (this.feedClosed(running)) return
+      this.ctx.logger.warn(`llama-cpp: lost the worker's model feed: ${reason}; resubscribing`)
+      current = await this.resubscribe(running, client)
+    }
+  }
+
+  private feedClosed(running: Running): boolean {
+    return running.feed.signal.aborted || this.lifetime.signal.aborted
+  }
+
+  /**
+   * Subscribe to the worker's feed again, then replace the mirrored residency with its `GET /models`
+   * snapshot. Subscribing first buffers every transition after the snapshot, so replaying them keeps
+   * the mirror current. A failed attempt is retried every {@link Config.feedRetryMs}.
+   * @param running - the worker.
+   * @param client - its lifecycle client.
+   * @returns the new feed, or undefined once the worker stops or the plugin is disposed.
+   */
+  private async resubscribe(running: Running, client: WorkerClient): Promise<AsyncIterable<WorkerModelEvent> | undefined> {
+    const closed = AbortSignal.any([running.feed.signal, this.lifetime.signal])
+    for (;;) {
+      // Only `closed` rejects the delay: the worker stopped or the plugin was disposed.
+      try { await sleep(this.config.feedRetryMs, undefined, { signal: closed }) }
+      catch (_closed) { return undefined }
+      const attempt = new AbortController()
+      try {
+        const feed = await client.events(AbortSignal.any([closed, attempt.signal]))
+        const snapshot = await client.models(AbortSignal.any([closed, AbortSignal.timeout(this.config.startTimeoutMs)]))
+        running.resident.clear()
+        for (const [model, status] of snapshot) if (status !== 'unloaded') running.resident.set(model, status)
         this.emit()
-        if (event.status === 'loaded') void this.readContext(running, client, event.model)
+        for (const [model, status] of snapshot) if (status === 'loaded') void this.readContext(running, client, model)
+        this.ctx.logger.info('llama-cpp: resubscribed to the worker\'s model feed')
+        return feed
+      } catch (_failed) {
+        // Ends an accepted subscription whose snapshot failed; the next attempt opens another.
+        attempt.abort()
+        if (closed.aborted) return undefined
       }
-    } catch (error) {
-      if (running.feed.signal.aborted) return
-      this.ctx.logger.warn(`llama-cpp: lost the worker's model feed: ${messageOf(error)}`)
     }
   }
 
