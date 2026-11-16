@@ -63,8 +63,11 @@ export interface LocalModelEntry {
   /** Stable id; the route serves it as `<provider>/<id>`. */
   id: string
   name: string
+  /** Bytes of the model file plus its vision projector, if any. */
   bytes: number
   source: LocalModelSource
+  /** It has a vision projector that encodes images, so the route accepts image input for it. */
+  vision: boolean
   /** The default model, which the route's alias id also serves and which loads when the worker starts. */
   active: boolean
   status: LocalModelStatus
@@ -74,7 +77,7 @@ export interface LocalModelEntry {
   architecture: string
   /** Context the model was trained with, when its file declares it. */
   contextLength?: number
-  /** Weights plus the KV cache at the configured context against this machine; absent until the hardware is known. */
+  /** Weights, projector and the KV cache at the configured context against this machine; absent until the hardware is known. */
   fit?: ModelFit
 }
 
@@ -82,12 +85,15 @@ export interface LocalModelEntry {
 export interface CatalogModelInfo {
   id: string
   name: string
+  /** Bytes of the model file plus its vision projector, if any. */
   bytes: number
   /** Hugging Face repository it comes from. */
   repo: string
   recommended: boolean
   installed: boolean
-  /** File size against this machine; absent until the hardware is known. */
+  /** It downloads with a vision projector and accepts image input. */
+  vision: boolean
+  /** Download size against this machine; absent until the hardware is known. */
   fit?: ModelFit
 }
 
@@ -111,7 +117,7 @@ export interface HuggingFaceFileInfo {
   recommended: boolean
   /** Already installed from this repository. */
   installed: boolean
-  /** File size against this machine; absent until the hardware is known. */
+  /** File size plus the repository's projector against this machine; absent until the hardware is known. */
   fit?: ModelFit
 }
 
@@ -121,6 +127,16 @@ export interface HuggingFaceRepoInfo {
   repo: string
   /** Downloadable single-file GGUF models, smallest first. */
   files: HuggingFaceFileInfo[]
+  /** Vision projector downloaded beside whichever file is chosen; absent when the repository has none. */
+  projector?: { file: string; bytes: number }
+}
+
+/** Options of a model import. */
+export interface ImportModelOptions {
+  /** Display name; defaults to the file name. */
+  name?: string
+  /** Absolute path of a vision projector (`mmproj`) GGUF file for the model, left where it is. */
+  projector?: string
 }
 
 /** Operating system of the Host, which resolves every model path a client sends; other POSIX systems report `linux`. */

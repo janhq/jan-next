@@ -9,7 +9,7 @@ kind: "package-reference"
 
 ## 概述
 
-无需 API 密钥即可在本机运行对话模型。该服务从精选目录或 Hugging Face 仓库下载并校验 GGUF 模型，或导入本地文件，并通过内置的 `jan-llama-worker` 在回环端口上服务所有已安装模型。模型选择器把每个模型列为 `local/<model id>`，`local/local` 始终指向默认模型。模型在首次使用时加载，默认只常驻一个。适配度标记估算模型能否装入本机内存，但不阻止任何操作。
+无需 API 密钥即可在本机运行对话模型。该服务从精选目录或 Hugging Face 仓库下载并校验 GGUF 模型，或导入本地文件，并通过内置的 `jan-llama-worker` 在回环端口上服务所有已安装模型。模型选择器把每个模型列为 `local/<model id>`，`local/local` 始终指向默认模型。模型在首次使用时加载，默认只常驻一个。带视觉投影器的模型也接受图片。适配度标记估算模型能否装入本机内存，但不阻止任何操作。
 
 ## 目录
 
@@ -51,6 +51,7 @@ kind: "package-reference"
 | `modelsMax` | `1` | 常驻模型数；`0` 取消上限 |
 | `ctxSize` | `32768` | 请求的上下文长度；`0` 交给 `fit` 选择，从训练上下文开始，不低于 `fitCtx`（`16384`） |
 | `fit` | 开启；macOS 上关闭 | 让 llama.cpp 按设备内存确定 GPU 层数，以及 `ctxSize` 为 `0` 时的上下文 |
+| `mmprojOffload` | `true` | 在 GPU 上运行视觉投影器；`false` 把它们留在系统内存中 |
 | `slotCacheMiB` | `0` | `<dataRoot>/slots` 下按线程保存 KV 状态的磁盘预算；`0` 不保存 |
 | `autoStart` | `true` | 已安装模型且用户未停止 worker 时，在启动时运行 worker |
 | `provider`、`routeModelId` | `local`、`local` | 路由名称，以及默认模型的别名模型 id |
@@ -61,27 +62,39 @@ kind: "package-reference"
 
 ### 模型与选择器
 
-服务把已安装模型记录在 `<dataRoot>/install.json`（版本 3）中，并保存从每个 GGUF 头部读取的信息：架构、训练上下文和 KV cache 维度。下载在记录前按 SHA-256 摘要和大小校验。导入的文件保留在原位置，不计算哈希。视觉投影器（CLIP）和纯嵌入模型文件会被拒绝。移除下载的模型会删除其文件；移除导入的模型只会将其从列表中忘记。
+服务把已安装模型记录在 `<dataRoot>/install.json`（版本 3）中，并保存从每个 GGUF 头部读取的信息：架构、训练上下文和 KV cache 维度。下载在记录前按 SHA-256 摘要和大小校验。导入的文件保留在原位置，不计算哈希。投影器（CLIP）和纯嵌入模型文件不能作为模型使用。移除下载的模型会删除其文件；移除导入的模型只会将其从列表中忘记。
 
-第一个安装的模型成为默认模型并启动 worker。选择器把每个已安装模型列为 `local/<model id>`，`local/local` 始终选择默认模型，因此记录了 `local/local` 的已发布 Session 在默认模型变更后仍可使用。当设置分区声明了 `local` 提供商时，服务使其 `models` 列表与已安装模型一致：先是别名条目 `<name> (local default)`，然后每个模型一条 `<name> (local)`。每个 `contextWindow` 取 worker 最近为该模型确定的上下文，否则取计划上下文，且不超过训练上下文。
+第一个安装的模型成为默认模型并启动 worker。选择器把每个已安装模型列为 `local/<model id>`，`local/local` 始终选择默认模型，因此记录了 `local/local` 的已发布 Session 在默认模型变更后仍可使用。当设置分区声明了 `local` 提供商时，服务使其 `models` 列表与已安装模型一致：先是别名条目 `<name> (local default)`，然后每个模型一条 `<name> (local)`。每个 `contextWindow` 取 worker 最近为该模型确定的上下文，否则取计划上下文，且不超过训练上下文。模型带有能编码图片的投影器时，条目的 `input` 为 `['text', 'image']`，否则为 `['text']`；`llm-pi-ai` 只对前者接受图片附件。
 
 当 agent 默认模型指向本路由不服务的模型，或指向没有可用模型的其他路由时，服务把它改为 `local/local`。**Make default** 还会把指向其他本地模型 id 的默认值改为 `local/local`。其他路由上可用的默认值保持不变。
+
+### 视觉投影器
+
+一个模型可以带一个多模态投影器（`mmproj`）GGUF 文件，使其能读取图片。投影器必须声明 `general.architecture = clip`；`clip.has_vision_encoder` 为 `true` 时它编码图片，没有该键时，除非 `clip.has_audio_encoder` 为 `true`，也视为编码图片。`install.json` 记录投影器的路径、大小、下载所得投影器的 SHA-256 摘要，以及它是否编码图片。
+
+- 带投影器的精选条目在模型文件之后下载投影器；目录中的 **Qwen3 VL 2B Instruct** 带有投影器。
+- Hugging Face 下载同时下载该仓库的投影器，且不能跳过：优先选文件名为 `mmproj-f16.gguf`（不区分大小写）的文件，否则选列表中第一个 `mmproj` 文件。投影器文件不作为模型列出。
+- 下载的投影器与模型一样经过校验，保存为 `<dataRoot>/models/<id>/mmproj-<SHA-256 前 16 位十六进制>.gguf`。
+- 导入时可以指定投影器路径；投影器保留在原位置，不计算哈希。对已导入的模型再次带投影器导入，会替换该模型的投影器。
+- 移除模型会删除下载的投影器，导入的投影器文件保留在磁盘上。
+- 启动时，投影器缺失或大小改变的模型仍保留在列表中，但不再带投影器，服务记录一条警告，并删除该模型下载的投影器。
+- 取消下载会删除该下载的模型文件和投影器文件，包括已校验的模型文件。
 
 ### Worker 生命周期
 
 启动时以 `--port 0` 运行 worker，由操作系统分配回环端口，并通过 `JAN_LLAMA_API_KEY` 环境变量传入新生成的 API 密钥。默认模型加载后，服务把端点存入 `LLAMA_CPP_BASE_URL`、把密钥存入 `LLAMA_CPP_API_KEY`；worker 停止时撤回两者，因此没有进程服务时路由不提供模型。停止操作关闭 worker 的 stdin，并在 `stopTimeoutMs` 后终止 worker。之后的启动只在用户未停止 worker 时运行它。
 
-服务写入 `<dataRoot>/run/preset.ini`：每个已安装模型一个以模型 id 命名的分区，另加别名分区 `[local]`，内容为 `alias-of = <default model id>`。对 `local` 的请求直接到达默认模型的引擎，不会重复加载。安装、导入、移除或更改默认模型会改写 preset，并在运行中的 worker 上调用 `POST /models/reload`，无需重启；worker 只重新加载变化的分区，因此别名改指向不会重新加载任何模型。随后 **Make default** 和移除默认模型会把新的默认模型加载到运行中的 worker；加载失败时进入 `failed` 阶段。
+服务写入 `<dataRoot>/run/preset.ini`：每个已安装模型一个以模型 id 命名的分区，另加别名分区 `[local]`，内容为 `alias-of = <default model id>`。带投影器的模型在其分区中写入 `mmproj = <投影器绝对路径>`，`mmprojOffload` 为 `false` 时再写入 `mmproj-offload = false`。对 `local` 的请求直接到达默认模型的引擎，不会重复加载。安装、导入、移除或更改默认模型会改写 preset，并在运行中的 worker 上调用 `POST /models/reload`，无需重启；worker 只重新加载变化的分区，因此别名改指向不会重新加载任何模型。随后 **Make default** 和移除默认模型会把新的默认模型加载到运行中的 worker；加载失败时进入 `failed` 阶段。
 
 模型在首次请求或显式加载时加载。最多 `modelsMax` 个模型常驻：加载新模型会逐出最近最少使用的空闲模型，所有常驻模型都忙时 worker 返回 HTTP 503。移除会先卸载常驻模型，因为 Windows 无法删除 worker 映射中的文件；模型仍有进行中的请求时移除失败。
 
 ### 硬件适配度
 
-启动时服务以 `--list-devices` 运行 worker 并读取系统内存。之后每个已安装模型、目录条目和 Hugging Face 文件都带有 `fits`、`tight` 或 `too-large` 适配度。已安装模型按权重加上计划上下文下估算的 KV cache 计算；目录条目和仓库文件按文件大小计算。适配度只是提示，不阻止任何操作。设备列举失败时适配度未知。
+启动时服务以 `--list-devices` 运行 worker 并读取系统内存。之后每个已安装模型、目录条目和 Hugging Face 文件都带有 `fits`、`tight` 或 `too-large` 适配度。已安装模型按权重和投影器加上计划上下文下估算的 KV cache 计算；目录条目和仓库文件按文件大小加上随之下载的投影器计算。显示的模型大小包含投影器。适配度只是提示，不阻止任何操作。设备列举失败时适配度未知。
 
 ### 状态
 
-`follow()` 流式发送完整快照：阶段、Host 平台（`linux`、`macos` 或 `windows`）、默认模型、带 `status`（`loading`、`loaded` 或 `unloaded`）和 `contextSize` 的已安装模型、带进度的下载、目录以及硬件摘要。快照不含路径或密钥。[Remote 控制器](../../api/llama-cpp-controller/README.zh.md)把快照转发给浏览器。
+`follow()` 流式发送完整快照：阶段、Host 平台（`linux`、`macos` 或 `windows`）、默认模型、带 `status`（`loading`、`loaded` 或 `unloaded`）、`contextSize` 和 `vision` 的已安装模型、带进度的下载、每个条目带 `vision` 的目录以及硬件摘要。快照不含路径或密钥。[Remote 控制器](../../api/llama-cpp-controller/README.zh.md)把快照转发给浏览器。
 
 -----
 
@@ -126,7 +139,7 @@ kind: "package-reference"
 
 #### What the model sees
 
-对 `local/<model id>` 或 `local/local` 的请求经 `llm-pi-ai` 的 `openai-completions` 路由到达所选 GGUF 模型。服务不添加提示文本；llama.cpp 使用模型内嵌的对话模板格式化消息，文件没有模板时使用通用模板。
+对 `local/<model id>` 或 `local/local` 的请求经 `llm-pi-ai` 的 `openai-completions` 路由到达所选 GGUF 模型。服务不添加提示文本；llama.cpp 使用模型内嵌的对话模板格式化消息，文件没有模板时使用通用模板。对投影器能编码图片的模型，图片附件以 OpenAI `image_url` data URL 形式发送给 worker，由投影器编码进提示。
 
 #### Token effect
 
@@ -140,9 +153,12 @@ kind: "package-reference"
 
 <a id="known-limitations-and-deferred-work"></a>
 
-worker 以共享的启动选项服务纯文本对话模型。
+worker 以共享的启动选项服务对话模型，并通过投影器接受图片输入。
 
-- preset 没有视觉投影器、嵌入或推测解码分区；投影器和嵌入文件在安装时被拒绝。
+- preset 没有嵌入或推测解码分区；嵌入文件在安装时被拒绝。
+- 服务自行选择仓库的投影器；没有投影器选择器，也不提供音频输入。
+- 导入的投影器不会与其模型核对；不匹配的投影器可能导致模型加载失败。
+- 失去投影器的下载模型只接受文本；移除后重新下载即可恢复图片输入。
 - 启动选项作用于所有模型；没有按模型的设置，也没有对应的设置界面。
 - 跨重启的 KV 状态复用默认关闭：`slotCacheMiB` 默认为 `0`，且 `llm-pi-ai` 路由不发送 worker 用于缓存的线程名。
 - 适配度阈值是对驱动和操作系统开销的估算；标为 `fits` 的模型仍可能加载失败，标为 `too-large` 的模型也可能加载成功。

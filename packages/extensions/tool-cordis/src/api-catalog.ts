@@ -1946,7 +1946,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'downloadCatalog(id: string): void',
-        description: 'Download a curated model. Ignored when it is installed or already downloading.',
+        description: 'Download a curated model, with its vision projector when it has one. Ignored when it is installed or already downloading.',
         parameters: [{ name: 'id', description: 'catalog id.' }],
         throws: ['Error for an unknown id.'],
       },
@@ -1954,12 +1954,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         signature: 'async lookupHuggingFace(input: string, signal?: AbortSignal): Promise<HuggingFaceRepoInfo>',
         description: 'Look up a Hugging Face repository\'s downloadable GGUF files.',
         parameters: [{ name: 'input', description: '`owner/name` or a huggingface.co link.' }, { name: 'signal', description: 'cancellation.' }],
-        returns: 'the repository and its files, marking those already installed.',
+        returns: 'the repository, its files marking those already installed, and the projector each downloads with.',
         throws: ['{@link HuggingFaceLookupError} for bad input, a missing repository or an unreachable API.'],
       },
       {
         signature: 'async downloadHuggingFace(input: string, file: string, signal?: AbortSignal): Promise<string>',
-        description: 'Download one file of a Hugging Face repository, re-reading the repository so the digest and size come from Hugging Face, not the caller.',
+        description: 'Download one file of a Hugging Face repository, and the repository\'s vision projector after it, re-reading the repository so the digests and sizes come from Hugging Face, not the caller.',
         parameters: [{ name: 'input', description: '`owner/name` or a huggingface.co link.' }, { name: 'file', description: 'file name inside the repository.' }, { name: 'signal', description: 'cancellation of the lookup.' }],
         returns: 'the model id the download installs as.',
         throws: ['{@link HuggingFaceLookupError} when the repository or file cannot be found.'],
@@ -1976,11 +1976,11 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [{ name: 'id', description: 'model id, or undefined for every download.' }],
       },
       {
-        signature: 'importModel(path: string, name?: string): Promise<string>',
-        description: 'Add a GGUF file from disk, left where it is, recording its header facts. The first model added becomes the default and starts; a later one joins the running worker\'s preset.',
-        parameters: [{ name: 'path', description: 'absolute path of a `.gguf` file.' }, { name: 'name', description: 'display name; defaults to the file name.' }],
+        signature: 'importModel(path: string, options: ImportModelOptions = {}): Promise<string>',
+        description: 'Add a GGUF file from disk, left where it is, recording its header facts, with an optional vision projector also left where it is. The first model added becomes the default and starts; a later one joins the running worker\'s preset. Importing an already imported file with a projector attaches that projector to it, replacing any earlier one.',
+        parameters: [{ name: 'path', description: 'absolute path of a `.gguf` file.' }, { name: 'options', description: 'display name, defaulting to the file name, and projector path.' }],
         returns: 'the model id.',
-        throws: ['Error when the path is not an absolute path to a readable GGUF file, or the file is a vision projector or embedding model rather than a chat model.'],
+        throws: ['Error when the path is not an absolute path to a readable GGUF file, the file is a vision projector or embedding model rather than a chat model, or the projector is not an absolute path to a readable projector GGUF file.'],
       },
       {
         signature: 'setDefault(id: string): Promise<void>',
@@ -2005,7 +2005,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'removeModel(id: string): Promise<void>',
-        description: 'Remove an installed model. A downloaded file is deleted; an imported file is only forgotten. A resident model is unloaded first, because Windows cannot delete a file the worker maps. Removing the default makes the next installed model the default and loads it into a running worker, as setDefault does; removing the last stops the worker.',
+        description: 'Remove an installed model. A downloaded file or projector is deleted; an imported one is only forgotten. A resident model is unloaded first, because Windows cannot delete a file the worker maps. Removing the default makes the next installed model the default and loads it into a running worker, as setDefault does; removing the last stops the worker.',
         parameters: [{ name: 'id', description: 'installed model id.' }],
         returns: 'once the record and the worker reflect the removal; a failed load of the new default is published as the `failed` phase.',
         throws: ['Error carrying the worker\'s reason when the model has requests in flight.'],
@@ -2084,9 +2084,9 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'after it settles.',
       },
       {
-        signature: '@Remote async importModel(path: string): Promise<string>',
+        signature: '@Remote async importModel(path: string, projector?: string): Promise<string>',
         description: 'Add a GGUF file from this computer, left where it is.',
-        parameters: [{ name: 'path', description: 'absolute path on the Host.' }],
+        parameters: [{ name: 'path', description: 'absolute path on the Host.' }, { name: 'projector', description: 'absolute Host path of the model\'s vision projector (mmproj) file; omitted for a text-only model.' }],
         returns: 'the model id.',
       },
       {
@@ -6030,7 +6030,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'CatalogModelInfo',
-    declaration: 'export interface CatalogModelInfo {\n    id: string;\n    name: string;\n    bytes: number;\n    repo: string;\n    recommended: boolean;\n    installed: boolean;\n    fit?: ModelFit;\n}',
+    declaration: 'export interface CatalogModelInfo {\n    id: string;\n    name: string;\n    bytes: number;\n    repo: string;\n    recommended: boolean;\n    installed: boolean;\n    vision: boolean;\n    fit?: ModelFit;\n}',
   },
   {
     name: 'ChangeRequestCheck',
@@ -6934,7 +6934,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'HuggingFaceRepoInfo',
-    declaration: 'export interface HuggingFaceRepoInfo {\n    repo: string;\n    files: HuggingFaceFileInfo[];\n}',
+    declaration: 'export interface HuggingFaceRepoInfo {\n    repo: string;\n    files: HuggingFaceFileInfo[];\n    projector?: {\n        file: string;\n        bytes: number;\n    };\n}',
   },
   {
     name: 'ImageAttachmentLimits',
@@ -6963,6 +6963,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ImageVariantId',
     declaration: 'export type ImageVariantId = Branded<\'ImageVariantId\'>;',
+  },
+  {
+    name: 'ImportModelOptions',
+    declaration: 'export interface ImportModelOptions {\n    name?: string;\n    projector?: string;\n}',
   },
   {
     name: 'IncompatiblePlugin',
@@ -7306,7 +7310,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'LocalModelEntry',
-    declaration: 'export interface LocalModelEntry {\n    id: string;\n    name: string;\n    bytes: number;\n    source: LocalModelSource;\n    active: boolean;\n    status: LocalModelStatus;\n    contextSize?: number;\n    architecture: string;\n    contextLength?: number;\n    fit?: ModelFit;\n}',
+    declaration: 'export interface LocalModelEntry {\n    id: string;\n    name: string;\n    bytes: number;\n    source: LocalModelSource;\n    vision: boolean;\n    active: boolean;\n    status: LocalModelStatus;\n    contextSize?: number;\n    architecture: string;\n    contextLength?: number;\n    fit?: ModelFit;\n}',
   },
   {
     name: 'LocalModelSource',

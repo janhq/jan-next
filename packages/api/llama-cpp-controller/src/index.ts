@@ -5,8 +5,9 @@ import type {} from '@deepseek-ai/dsh-llama-cpp'
 import type { HuggingFaceRepoInfo, LlamaCppState } from '@deepseek-ai/dsh-llama-cpp/types'
 
 export type {
-  CatalogModelInfo, HuggingFaceFileInfo, HuggingFaceRepoInfo, LlamaCppDevice, LlamaCppDownload, LlamaCppHardware, LlamaCppHostPlatform,
-  LlamaCppModelInfo, LlamaCppPhase, LlamaCppProgress, LlamaCppState, LocalModelEntry, LocalModelSource, LocalModelStatus, ModelFit,
+  CatalogModelInfo, HuggingFaceFileInfo, HuggingFaceRepoInfo, ImportModelOptions, LlamaCppDevice, LlamaCppDownload, LlamaCppHardware,
+  LlamaCppHostPlatform, LlamaCppModelInfo, LlamaCppPhase, LlamaCppProgress, LlamaCppState, LocalModelEntry, LocalModelSource,
+  LocalModelStatus, ModelFit,
 } from '@deepseek-ai/dsh-llama-cpp/types'
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
@@ -118,11 +119,14 @@ export default class LlamaCppController extends TypertRemoteService {
   /**
    * Add a GGUF file from this computer, left where it is.
    * @param path - absolute path on the Host.
+   * @param projector - absolute Host path of the model's vision projector (mmproj) file; omitted for a text-only model.
    * @returns the model id.
    */
   @Remote
-  async importModel(path: string): Promise<string> {
-    try { return await this.ctx.llamaCpp.importModel(path) } catch (error) { throw failed(error) }
+  async importModel(path: string, projector?: string): Promise<string> {
+    try {
+      return await this.ctx.llamaCpp.importModel(path, projector === undefined ? undefined : { projector })
+    } catch (error) { throw failed(error) }
   }
 
   /**

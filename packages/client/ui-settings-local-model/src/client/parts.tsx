@@ -88,6 +88,11 @@ export function FitTag({ fit, t }: { fit: ModelFit | undefined; t: T }): ReactNo
   return <span title={t(copy.hint)} data-testid="local-model-fit" data-fit={fit}><Tag tone={copy.tone}>{t(copy.label)}</Tag></span>
 }
 
+/** Marks a model that reads images through its vision projector. */
+export function VisionTag({ t }: { t: T }): ReactNode {
+  return <span title={t('visionHint')} data-testid="local-model-vision"><Tag tone="neutral">{t('visionTag')}</Tag></span>
+}
+
 /** One line naming the accelerators, the backend and system memory the worker found. */
 export function HardwareSummary({ hardware, t }: { hardware: LlamaCppHardware | undefined; t: T }): ReactNode {
   if (hardware === undefined) return null

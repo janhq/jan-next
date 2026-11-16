@@ -9,8 +9,8 @@
   en: c1f1b87c96756180
   zh: 601d51710caca77f
 /deepseek-ai-dsh-llama-cpp/summary:
-  en: 58c158cbee300836
-  zh: 9663cbd8d36f0df7
+  en: b0d0636aecde17c3
+  zh: b6df9023d2974c02
 /deepseek-ai-dsh-llama-cpp/table-of-contents:
   en: d152484eb41ac6b4
   zh: 09388d293f9be9cb
@@ -21,20 +21,23 @@
   en: 0163fcf1dbe84a23
   zh: 82e86dde2e58bf19
 /deepseek-ai-dsh-llama-cpp/use-this-package/minimal-configuration:
-  en: 8fac3201c3304cbf
-  zh: a96971501525aecc
+  en: 2b5152422d53ce5e
+  zh: 2c7018bacb444073
 /deepseek-ai-dsh-llama-cpp/use-this-package/models-and-the-picker:
-  en: c3dbe02164262319
-  zh: a6941f428a6f9af2
+  en: 627e6d7b6f7469e1
+  zh: 42f174b20b21146c
+/deepseek-ai-dsh-llama-cpp/use-this-package/vision-projectors:
+  en: dd5e2835e1ab7747
+  zh: cb566a7ac246d4a3
 /deepseek-ai-dsh-llama-cpp/use-this-package/worker-lifecycle:
-  en: e268e794579d4308
-  zh: 2e7cea958e805e14
+  en: cd549cbc0ea2f512
+  zh: 33633225bdff097b
 /deepseek-ai-dsh-llama-cpp/use-this-package/hardware-fit:
-  en: d22685880b56964c
-  zh: 095b9b4fb24335ee
+  en: 6f72486602dba130
+  zh: 4d82ef410b01dab8
 /deepseek-ai-dsh-llama-cpp/use-this-package/state:
-  en: 44a5e2ea6ac08a82
-  zh: adee1f5a9d8ddcfb
+  en: 8d408e73550b640c
+  zh: bd84f5bad4b1247c
 /deepseek-ai-dsh-llama-cpp/understand-the-implementation:
   en: b4cba3a54d97028e
   zh: 08bf1d0cc21b6fab
@@ -48,8 +51,8 @@
   en: 447331c930c07a00
   zh: 1c63999d270a9c81
 /deepseek-ai-dsh-llama-cpp/model-experience/local-model-requests/what-the-model-sees:
-  en: 68e52a5f50cc612a
-  zh: 97626aa5ddbec13d
+  en: 7ba0a41c06474c56
+  zh: 8044965c347070ce
 /deepseek-ai-dsh-llama-cpp/model-experience/local-model-requests/token-effect:
   en: d65801ff9f637bd1
   zh: 080f6bdfbe6a46d0
@@ -57,8 +60,8 @@
   en: 5d88cf471c42b198
   zh: d0a8d5e812b09c46
 /deepseek-ai-dsh-llama-cpp/known-limitations-and-deferred-work:
-  en: 660d5ab34eb77069
-  zh: 691ec6e1294f8431
+  en: 21e844ff5ebee325
+  zh: 860865088e2a83e6
 /deepseek-ai-dsh-llama-cpp/known-limitations-and-deferred-work/dev-note:
   en: e67f633dc6fe7773
   zh: 3bb0c20c93f16f98

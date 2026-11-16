@@ -16,6 +16,7 @@ function fixture() {
     loadModel: vi.fn<LlamaCpp['loadModel']>().mockResolvedValue(undefined),
     unloadModel: vi.fn<LlamaCpp['unloadModel']>().mockResolvedValue(undefined),
     removeModel: vi.fn<LlamaCpp['removeModel']>().mockResolvedValue(undefined),
+    importModel: vi.fn<LlamaCpp['importModel']>().mockResolvedValue('mine'),
   }
   ctx.provide('llamaCpp', service as never)
   return { service, controller: new LlamaCppController(ctx) }
@@ -44,4 +45,15 @@ it('reports a refused operation as a llama-cpp/failed Remote error carrying the 
   await expect(controller.loadModel('gemma')).rejects.toMatchObject({ code: 'llama-cpp/failed' })
   service.setDefault.mockRejectedValueOnce(new Error('no installed model "absent"'))
   await expect(controller.setDefaultModel('absent')).rejects.toMatchObject({ details: { reason: 'no installed model "absent"' } })
+})
+
+it('imports a file with its vision projector only when one is given', async () => {
+  const { service, controller } = fixture()
+  await expect(controller.importModel('/models/mine.gguf')).resolves.toBe('mine')
+  expect(service.importModel).toHaveBeenLastCalledWith('/models/mine.gguf', undefined)
+  await controller.importModel('/models/mine.gguf', '/models/mmproj-mine.gguf')
+  expect(service.importModel).toHaveBeenLastCalledWith('/models/mine.gguf', { projector: '/models/mmproj-mine.gguf' })
+  service.importModel.mockRejectedValueOnce(new Error('notes.gguf is not a vision projector: no clip metadata'))
+  await expect(controller.importModel('/models/mine.gguf', '/models/notes.gguf'))
+    .rejects.toMatchObject({ code: 'llama-cpp/failed', details: { reason: 'notes.gguf is not a vision projector: no clip metadata' } })
 })

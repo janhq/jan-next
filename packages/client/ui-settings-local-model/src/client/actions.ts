@@ -37,8 +37,8 @@ export interface LocalModelActions {
   lookupRepo: (repo: string, signal?: AbortSignal) => Promise<Outcome<HuggingFaceRepoInfo>>
   /** Download one file of a Hugging Face repository. */
   downloadRepoFile: (repo: string, file: string) => Promise<Outcome<string>>
-  /** Add a GGUF file from the Host's disk. */
-  importModel: (path: string) => Promise<Outcome<string>>
+  /** Add a GGUF file from the Host's disk, with its vision projector file when `projector` is given. */
+  importModel: (path: string, projector?: string) => Promise<Outcome<string>>
 }
 
 /** Registration-side dependencies of every view. */
@@ -82,6 +82,6 @@ export function createActions(ctx: Context): LocalModelActions {
     deleteModel: id => answer(() => ctx.remote.llamaCpp.deleteModel(id)),
     lookupRepo: (repo, signal) => answer(() => ctx.remote.llamaCpp.lookupRepo(repo, signal)),
     downloadRepoFile: (repo, file) => answer(() => ctx.remote.llamaCpp.downloadRepoFile(repo, file)),
-    importModel: path => answer(() => ctx.remote.llamaCpp.importModel(path)),
+    importModel: (path, projector) => answer(() => ctx.remote.llamaCpp.importModel(path, projector)),
   }
 }

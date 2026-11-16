@@ -11,7 +11,8 @@ import type { ModelFacts } from './gguf.ts'
 /** Server options after defaulting, written to the `[*]` block or, where model-dependent, a model section. */
 export interface PresetSettings extends Pick<Config,
   | 'ctxSize' | 'fitTargetMiB' | 'fitCtx' | 'cacheType' | 'flashAttn' | 'threads' | 'gpuLayers' | 'batchSize' | 'ubatchSize'
-  | 'parallel' | 'nCpuMoe' | 'moeCacheMiB' | 'device' | 'splitMode' | 'mainGpu' | 'kvOffload' | 'loadMode' | 'cacheRamMiB'> {
+  | 'parallel' | 'nCpuMoe' | 'moeCacheMiB' | 'device' | 'splitMode' | 'mainGpu' | 'kvOffload' | 'loadMode' | 'cacheRamMiB'
+  | 'mmprojOffload'> {
   fit: boolean
   /** Absolute directory llama.cpp saves slot state in (`slot-save-path`). */
   slotSavePath: string
@@ -23,6 +24,8 @@ export interface PresetModel {
   id: string
   /** Absolute GGUF path. */
   path: string
+  /** Absolute path of the model's vision projector, when it has one. */
+  mmproj?: string
   facts: ModelFacts
 }
 
@@ -46,7 +49,8 @@ export function resolvePresetSettings(config: Config, platform: NodeJS.Platform,
     cacheType: config.cacheType, flashAttn: config.flashAttn, threads: config.threads, gpuLayers: config.gpuLayers,
     batchSize: config.batchSize, ubatchSize: config.ubatchSize, parallel: config.parallel, nCpuMoe: config.nCpuMoe,
     moeCacheMiB: config.moeCacheMiB, device: config.device, splitMode: config.splitMode, mainGpu: config.mainGpu,
-    kvOffload: config.kvOffload, loadMode: config.loadMode, cacheRamMiB: config.cacheRamMiB, slotSavePath,
+    kvOffload: config.kvOffload, loadMode: config.loadMode, cacheRamMiB: config.cacheRamMiB, mmprojOffload: config.mmprojOffload,
+    slotSavePath,
   }
 }
 
@@ -112,6 +116,8 @@ export function renderPreset(settings: PresetSettings, models: readonly PresetMo
     const trained = model.facts.contextLength
     const lines = [
       `model = ${value(model.path)}`,
+      ...optional('mmproj', model.mmproj),
+      ...model.mmproj !== undefined && !settings.mmprojOffload ? ['mmproj-offload = false'] : [],
       // llama.cpp would run past the trained context and degrade; fit already starts from it.
       ...sharedContext > 0 && trained !== undefined && trained < sharedContext ? [`ctx-size = ${String(trained)}`] : [],
       ...moeCacheAllowed && model.facts.expertCount > 0 ? optional('moe-cache-mib', settings.moeCacheMiB) : [],

@@ -9,8 +9,8 @@ import { Context, Service } from '@deepseek-ai/cordis'
 import LocalSubprocess from '@deepseek-ai/dsh-subprocess-local'
 import { LocalCredentialProvider } from '@deepseek-ai/dsh-credentials-local'
 import {
-  describeExit, download, DownloadError, hostPlatformOf, LlamaCpp, parseHandshake, parseRepo, RateMeter, WorkerProtocolError,
-  type LlamaCppState,
+  describeExit, download, DownloadError, hostPlatformOf, LlamaCpp, lookupRepo, modelFacts, parseHandshake, parseRepo, RateMeter,
+  WorkerProtocolError, type LlamaCppState,
 } from '../src/index.ts'
 import { chatModel, ggufFile } from './gguf-fixture.ts'
 
@@ -135,7 +135,7 @@ interface FakeEvent {
   hasKey?: boolean
   keyInArgv?: boolean
   cwd?: string
-  preset?: { shared: Record<string, string>; models: Record<string, { model?: string; 'ctx-size'?: string }>; aliases: Record<string, string> }
+  preset?: { shared: Record<string, string>; models: Record<string, { model?: string; mmproj?: string; 'ctx-size'?: string }>; aliases: Record<string, string> }
   model?: string
   modelsMax?: number
   reason?: string
@@ -443,20 +443,17 @@ it('removes the install and the route credentials', async () => {
 
 // ── model manager ───────────────────────────────────────────────────────────
 
-// ── model manager ───────────────────────────────────────────────────────────
-
 /** A small chat model trained with an 8192-token context; the fake worker never reads it. */
 const TINY = ggufFile(chatModel(8192), 64 * 1024)
 const REVISION = 'abc123'
 
-/** A Hugging Face repository listing: one usable file, plus files the lookup must leave out. */
+/** A Hugging Face repository listing: one usable file, plus files the lookup must leave out; it has no projector. */
 const HF_FILES = {
   '/api/models/acme/tiny-GGUF?blobs=true': Buffer.from(JSON.stringify({
     id: 'acme/tiny-GGUF', sha: REVISION,
     siblings: [
       { rfilename: 'README.md', size: 10 },
       { rfilename: 'tiny-Q4_K_M.gguf', size: TINY.length, lfs: { sha256: sha(TINY), size: TINY.length } },
-      { rfilename: 'mmproj-tiny-f16.gguf', size: 100, lfs: { sha256: 'a'.repeat(64), size: 100 } },
       { rfilename: 'big-Q8_0-00001-of-00002.gguf', size: 100, lfs: { sha256: 'b'.repeat(64), size: 100 } },
       { rfilename: 'unverified-Q2_K.gguf', size: 100 },
       { rfilename: 'imatrix_unsloth.gguf', size: 100, lfs: { sha256: 'd'.repeat(64), size: 100 } },
@@ -561,6 +558,7 @@ it('downloads a model from a Hugging Face repository, makes it the default, and 
   const repo = await f.llama.lookupHuggingFace(`${f.server.origin}/acme/tiny-GGUF/tree/main`)
   expect(repo).toMatchObject({ repo: 'acme/tiny-GGUF', files: [{ file: 'tiny-Q4_K_M.gguf', bytes: TINY.length, quant: 'Q4_K_M', recommended: true, installed: false }] })
   expect(repo.files).toHaveLength(1)
+  expect(repo).not.toHaveProperty('projector')
 
   const id = await f.llama.downloadHuggingFace('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')
   expect(id).toBe('tiny-q4_k_m')
@@ -570,7 +568,7 @@ it('downloads a model from a Hugging Face repository, makes it the default, and 
   expect(added).toMatchObject({ phase: 'running', model: { id: 'jan-v3.5-4b' } })
   expect(added.models).toMatchObject([
     { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', bytes: MODEL.length, source: 'catalog', active: true, architecture: 'qwen3', contextLength: 40960 },
-    { id, name: 'tiny-Q4_K_M', bytes: TINY.length, source: 'huggingface', active: false, status: 'unloaded', architecture: 'qwen3', contextLength: 8192 },
+    { id, name: 'tiny-Q4_K_M', bytes: TINY.length, source: 'huggingface', vision: false, active: false, status: 'unloaded', architecture: 'qwen3', contextLength: 8192 },
   ])
   expect((await f.llama.lookupHuggingFace('acme/tiny-GGUF')).files[0]?.installed).toBe(true)
   // Asking again for an installed file names the installed model.
@@ -737,13 +735,13 @@ it('lists every installed model and the default\'s alias on the local route when
   } })
   f.llama.install()
   await f.until(s => s.phase === 'running')
-  const jan = { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B (local)', contextWindow: 32768, maxTokens: 8192 }
+  const jan = { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B (local)', contextWindow: 32768, maxTokens: 8192, input: ['text'] }
   const alias = { ...jan, id: 'local', name: 'Jan v3.5 4B (local default)' }
   expect(settings.current?.writes).toEqual([{ ns: 'llm-pi-ai', ops: [{ op: 'set', path: ['providers', 'local', 'models'], value: [alias, jan] }] }])
   const id = await f.llama.downloadHuggingFace('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')
   await f.until(s => s.models.length === 2)
   // The new model is listed with its planned context, capped at its trained 8192.
-  const tiny = { id, name: 'tiny-Q4_K_M (local)', contextWindow: 8192, maxTokens: 8192 }
+  const tiny = { id, name: 'tiny-Q4_K_M (local)', contextWindow: 8192, maxTokens: 8192, input: ['text'] }
   expect(settings.current?.value.providers.local?.models).toEqual([alias, jan, tiny])
   await f.llama.setDefault(id)
   expect(settings.current?.value.providers.local?.models).toEqual([{ ...tiny, id: 'local', name: 'tiny-Q4_K_M (local default)' }, jan, tiny])
@@ -917,3 +915,187 @@ it('fails the download of a file that is not a chat model and keeps nothing of i
   expect(failed.models).toEqual([])
   await expect(stat(join(f.home, 'data', 'models', id, `${sha(embedding).slice(0, 16)}.gguf`))).rejects.toThrow()
 })
+
+// ── vision projectors ───────────────────────────────────────────────────────
+
+const PROJECTOR = ggufFile({ 'general.architecture': 'clip', 'clip.has_vision_encoder': true }, 32 * 1024)
+const VISION = ggufFile(chatModel(4096), 48 * 1024)
+
+/** A repository with a model and two projectors; `MMPROJ-F16` is chosen though another is listed first. */
+const VISION_FILES = {
+  '/api/models/acme/vision-GGUF?blobs=true': Buffer.from(JSON.stringify({
+    id: 'acme/vision-GGUF', sha: REVISION,
+    siblings: [
+      { rfilename: 'mmproj-vision-BF16.gguf', size: 100, lfs: { sha256: 'a'.repeat(64), size: 100 } },
+      { rfilename: 'vision-Q4_K_M.gguf', size: VISION.length, lfs: { sha256: sha(VISION), size: VISION.length } },
+      { rfilename: 'MMPROJ-F16.gguf', size: PROJECTOR.length, lfs: { sha256: sha(PROJECTOR), size: PROJECTOR.length } },
+    ],
+  })),
+  [`/acme/vision-GGUF/resolve/${REVISION}/vision-Q4_K_M.gguf`]: VISION,
+  [`/acme/vision-GGUF/resolve/${REVISION}/MMPROJ-F16.gguf`]: PROJECTOR,
+  '/api/models/acme/first-GGUF?blobs=true': Buffer.from(JSON.stringify({
+    id: 'acme/first-GGUF', sha: REVISION,
+    siblings: [
+      { rfilename: 'mmproj-first-Q8_0.gguf', size: 100, lfs: { sha256: 'b'.repeat(64), size: 100 } },
+      { rfilename: 'mmproj-first-BF16.gguf', size: 200, lfs: { sha256: 'c'.repeat(64), size: 200 } },
+      { rfilename: 'mmproj-split-00001-of-00002.gguf', size: 50, lfs: { sha256: 'd'.repeat(64), size: 50 } },
+    ],
+  })),
+}
+
+/** Settings holder the route sync writes through, mounted before the service. */
+function withSettings(): { holder: { current?: FakeSettings }; before: (ctx: Context) => Promise<unknown> } {
+  const holder: { current?: FakeSettings } = {}
+  return {
+    holder,
+    before: async (ctx) => {
+      await ctx.plugin(FakeSettings)
+      holder.current = ctx.get('settings') as never
+    },
+  }
+}
+
+it('picks the mmproj-f16 projector of a repository, else its first, and offers none as a model', async () => {
+  const server = await files(VISION_FILES)
+  const vision = await lookupRepo(server.origin, 'acme/vision-GGUF')
+  expect(vision.files.map(file => file.file)).toEqual(['vision-Q4_K_M.gguf'])
+  expect(vision.projector).toMatchObject({ file: 'MMPROJ-F16.gguf', bytes: PROJECTOR.length, sha256: sha(PROJECTOR) })
+  const first = await lookupRepo(server.origin, 'acme/first-GGUF')
+  expect(first.files).toEqual([])
+  expect(first.projector?.file).toBe('mmproj-first-Q8_0.gguf')
+})
+
+it('downloads a Hugging Face model with its projector, serves it with image input, and deletes both on removal', async () => {
+  const settings = withSettings()
+  const f = await fixture({ extraFiles: VISION_FILES, before: settings.before })
+  f.llama.install()
+  await f.until(s => s.phase === 'running')
+  const repo = await f.llama.lookupHuggingFace('acme/vision-GGUF')
+  expect(repo).toMatchObject({
+    repo: 'acme/vision-GGUF', projector: { file: 'MMPROJ-F16.gguf', bytes: PROJECTOR.length },
+    files: [{ file: 'vision-Q4_K_M.gguf', bytes: VISION.length, quant: 'Q4_K_M', recommended: true, installed: false }],
+  })
+
+  const id = await f.llama.downloadHuggingFace('acme/vision-GGUF', 'vision-Q4_K_M.gguf')
+  const added = await f.until(s => s.models.length === 2 && s.downloads.length === 0)
+  expect(f.seen.some(s => s.downloads[0]?.progress?.totalBytes === VISION.length + PROJECTOR.length)).toBe(true)
+  expect(added.models).toMatchObject([
+    { id: 'jan-v3.5-4b', vision: false, bytes: MODEL.length },
+    { id, vision: true, bytes: VISION.length + PROJECTOR.length },
+  ])
+  const file = join('models', id, `mmproj-${sha(PROJECTOR).slice(0, 16)}.gguf`)
+  const projector = join(f.home, 'data', file)
+  expect((await stat(projector)).size).toBe(PROJECTOR.length)
+  const record = JSON.parse(await readFile(join(f.home, 'data', 'install.json'), 'utf8')) as { models: Array<{ id: string; mmproj?: unknown }> }
+  expect(record.models.find(model => model.id === id)?.mmproj)
+    .toEqual({ file, bytes: PROJECTOR.length, sha256: sha(PROJECTOR), vision: true })
+  const reload = (await f.events()).filter(event => event.type === 'reload').at(-1)
+  expect(reload?.preset?.models[id]).toMatchObject({ model: join(f.home, 'data', 'models', id, `${sha(VISION).slice(0, 16)}.gguf`), mmproj: projector })
+  expect(reload?.preset?.models['jan-v3.5-4b']).not.toHaveProperty('mmproj')
+  expect(settings.holder.current?.value.providers.local?.models).toEqual([
+    expect.objectContaining({ id: 'local', input: ['text'] }),
+    expect.objectContaining({ id: 'jan-v3.5-4b', input: ['text'] }),
+    expect.objectContaining({ id, input: ['text', 'image'] }),
+  ])
+  await f.llama.setDefault(id)
+  expect(settings.holder.current?.value.providers.local?.models).toContainEqual(expect.objectContaining({ id: 'local', input: ['text', 'image'] }))
+
+  await f.llama.removeModel(id)
+  await expect(stat(projector)).rejects.toThrow()
+  await expect(stat(join(f.home, 'data', 'models', id))).rejects.toThrow()
+}, 30_000)
+
+it('imports a model with a projector in place, refuses other projector files, and attaches one later', async () => {
+  const settings = withSettings()
+  const f = await fixture({ before: settings.before })
+  await f.until(s => s.phase === 'missing')
+  const dir = await temp('llama-import-vision-')
+  const model = join(dir, 'Seer.gguf')
+  const plain = join(dir, 'plain.gguf')
+  const projector = join(dir, 'mmproj.gguf')
+  await writeFile(model, TINY)
+  await writeFile(plain, VISION)
+  await writeFile(projector, PROJECTOR)
+  await writeFile(join(dir, 'notes.gguf'), 'not a model')
+  await expect(f.llama.importModel(model, { projector: 'mmproj.gguf' })).rejects.toThrow(/full path of the vision projector/)
+  await expect(f.llama.importModel(model, { projector: join(dir, 'absent.gguf') })).rejects.toThrow(/No file/)
+  await expect(f.llama.importModel(model, { projector: plain }))
+    .rejects.toThrow('plain.gguf is not a vision projector: it has "qwen3" architecture, not a vision projector (clip)')
+  await expect(f.llama.importModel(model, { projector: join(dir, 'notes.gguf') }))
+    .rejects.toThrow('notes.gguf is not a vision projector: it is not a GGUF file')
+  expect(f.llama.snapshot().models).toEqual([])
+
+  const id = await f.llama.importModel(model, { name: 'Seeing model', projector })
+  expect(id).toBe('seeing-model')
+  const running = await f.until(s => s.phase === 'running' || s.phase === 'failed')
+  expect(running).toMatchObject({ phase: 'running', models: [{ id, name: 'Seeing model', vision: true, bytes: TINY.length + PROJECTOR.length }] })
+  expect((await f.events())[0]?.preset?.models[id]).toMatchObject({ model, mmproj: projector })
+  const routeModels = (): Array<{ id: string; input: unknown }> =>
+    settings.holder.current?.value.providers.local?.models as Array<{ id: string; input: unknown }>
+  const input = (route: string): unknown => routeModels().find(entry => entry.id === route)?.input
+  expect([input('local'), input(id)]).toEqual([['text', 'image'], ['text', 'image']])
+
+  const other = await f.llama.importModel(plain)
+  expect(input(other)).toEqual(['text'])
+  expect(f.llama.snapshot().models[1]).toMatchObject({ id: other, vision: false })
+  // Importing the same file again with a projector attaches it.
+  expect(await f.llama.importModel(plain, { projector })).toBe(other)
+  expect(f.llama.snapshot().models[1]).toMatchObject({ id: other, vision: true })
+  expect(input(other)).toEqual(['text', 'image'])
+  expect((await f.events()).filter(event => event.type === 'reload').at(-1)?.preset?.models[other]?.mmproj).toBe(projector)
+
+  await f.llama.removeModel(id)
+  expect((await stat(projector)).size).toBe(PROJECTOR.length)
+}, 30_000)
+
+it('discards a model verified before its projector when the download is cancelled', async () => {
+  const projector = ggufFile({ 'general.architecture': 'clip', 'clip.has_vision_encoder': true }, 256 * 1024)
+  const f = await fixture({
+    throttle: true,
+    extraFiles: {
+      '/api/models/acme/slow-GGUF?blobs=true': Buffer.from(JSON.stringify({
+        id: 'acme/slow-GGUF', sha: REVISION,
+        siblings: [
+          { rfilename: 'slow-Q4_K_M.gguf', size: VISION.length, lfs: { sha256: sha(VISION), size: VISION.length } },
+          { rfilename: 'mmproj-f16.gguf', size: projector.length, lfs: { sha256: sha(projector), size: projector.length } },
+        ],
+      })),
+      [`/acme/slow-GGUF/resolve/${REVISION}/slow-Q4_K_M.gguf`]: VISION,
+      [`/acme/slow-GGUF/resolve/${REVISION}/mmproj-f16.gguf`]: projector,
+    },
+  })
+  f.llama.install()
+  await f.until(s => s.phase === 'running')
+  const id = await f.llama.downloadHuggingFace('acme/slow-GGUF', 'slow-Q4_K_M.gguf')
+  await f.until(s => (s.downloads[0]?.progress?.receivedBytes ?? 0) > VISION.length + 20_000)
+  await f.llama.cancel(id)
+  const dir = join(f.home, 'data', 'models', id)
+  await expect(stat(join(dir, `${sha(VISION).slice(0, 16)}.gguf`))).rejects.toThrow()
+  await expect(stat(join(dir, `mmproj-${sha(projector).slice(0, 16)}.gguf.partial`))).rejects.toThrow()
+  expect(f.llama.snapshot().models.map(model => model.id)).toEqual(['jan-v3.5-4b'])
+}, 30_000)
+
+it('keeps a model whose projector is missing or changed on disk, without the projector', async () => {
+  const home = await temp('llama-gone-mmproj-')
+  const file = join('models', 'jan-v3.5-4b', `${sha(MODEL).slice(0, 16)}.gguf`)
+  await mkdir(join(home, 'data', 'models', 'jan-v3.5-4b'), { recursive: true })
+  await writeFile(join(home, 'data', file), MODEL)
+  await writeFile(join(home, 'data', 'install.json'), JSON.stringify({
+    version: 3, active: 'jan-v3.5-4b',
+    models: [{
+      id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', file, bytes: MODEL.length, sha256: sha(MODEL), source: 'catalog', repo: 'janhq/Jan-v3.5-4B-gguf',
+      facts: modelFacts(chatModel(40960)),
+      mmproj: { file: join('models', 'jan-v3.5-4b', 'mmproj-changed.gguf'), bytes: 10, sha256: 'f'.repeat(64), vision: true },
+    }],
+  }))
+  const changed = join(home, 'data', 'models', 'jan-v3.5-4b', 'mmproj-changed.gguf')
+  await writeFile(changed, 'short')
+  const f = await fixture({ home })
+  const state = await f.until(s => s.phase === 'running' || s.phase === 'failed')
+  expect(state).toMatchObject({ phase: 'running', models: [{ id: 'jan-v3.5-4b', vision: false, bytes: MODEL.length }] })
+  expect((await f.events())[0]?.preset?.models['jan-v3.5-4b']).not.toHaveProperty('mmproj')
+  const record = JSON.parse(await readFile(join(home, 'data', 'install.json'), 'utf8')) as { models: object[] }
+  expect(record.models).toHaveLength(1)
+  expect(record.models[0]).not.toHaveProperty('mmproj')
+  await expect(stat(changed)).rejects.toThrow()
+}, 20_000)

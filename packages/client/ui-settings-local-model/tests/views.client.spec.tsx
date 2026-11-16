@@ -15,10 +15,12 @@ afterEach(cleanup)
 const model = { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', modelBytes: 2_716_066_656 }
 const jan: LocalModelEntry = {
   id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', bytes: 2_716_066_656, source: 'catalog', active: true, status: 'loaded', architecture: 'qwen3',
+  vision: false,
 }
 const catalog: CatalogModelInfo[] = [
-  { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', bytes: 2_716_066_656, repo: 'janhq/Jan-v3.5-4B-gguf', recommended: true, installed: false },
-  { id: 'qwen3-8b', name: 'Qwen3 8B', bytes: 5_027_784_512, repo: 'unsloth/Qwen3-8B-GGUF', recommended: false, installed: false },
+  { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', bytes: 2_716_066_656, repo: 'janhq/Jan-v3.5-4B-gguf', recommended: true, installed: false, vision: false },
+  { id: 'qwen3-8b', name: 'Qwen3 8B', bytes: 5_027_784_512, repo: 'unsloth/Qwen3-8B-GGUF', recommended: false, installed: false, vision: false },
+  { id: 'qwen3-vl-2b', name: 'Qwen3 VL 2B Instruct', bytes: 1_900_000_000, repo: 'unsloth/Qwen3-VL-2B-Instruct-GGUF', recommended: false, installed: false, vision: true },
 ]
 
 function t(key: keyof typeof en, params?: Record<string, string>): string {
@@ -115,16 +117,18 @@ it('shows a failure with the worker log and offers a retry', () => {
 it('lists installed models with fit, context and residency, and loads, unloads, makes default and deletes them', async () => {
   const imported: LocalModelEntry = {
     id: 'mine', name: 'Mine', bytes: 1_000_000, source: 'import', active: false, status: 'unloaded', architecture: 'llama',
-    contextLength: 8192, fit: 'too-large',
+    contextLength: 8192, fit: 'too-large', vision: true,
   }
   const f = fixture({ phase: 'running', models: [{ ...jan, contextSize: 32768, fit: 'fits' }, imported] })
   card(f)
   const rows = screen.getByTestId('local-model-installed').querySelectorAll('li')
   expect([...rows].map(row => row.textContent)).toEqual([
     'Jan v3.5 4BDefaultFits2.7 GB · qwen3 · 32,768-token context · CuratedLoadedUnloadDelete',
-    'MineToo large1 MB · llama · trained on 8,192 tokens · Imported fileNot loadedLoadMake defaultDelete',
+    'MineVisionToo large1 MB · llama · trained on 8,192 tokens · Imported fileNot loadedLoadMake defaultDelete',
   ])
   expect(rows[1]?.querySelector('[data-fit]')?.getAttribute('title')).toBe(en.fitTooLargeHint)
+  expect(rows[0]?.querySelector('[data-testid="local-model-vision"]')).toBeNull()
+  expect(rows[1]?.querySelector('[data-testid="local-model-vision"]')?.getAttribute('title')).toBe(en.visionHint)
   fireEvent.click(screen.getByTestId('local-model-unload'))
   expect(f.actions.unloadModel).toHaveBeenCalledWith('jan-v3.5-4b')
   fireEvent.click(screen.getByTestId('local-model-load'))
@@ -166,7 +170,8 @@ it('downloads a curated model and shows it in the downloads list with its progre
   const rows = screen.getByTestId('local-model-catalog').querySelectorAll('li')
   expect(rows[0]?.textContent).toContain('Installed')
   expect(rows[1]?.querySelector('[data-fit]')?.textContent).toBe(en.fitFits)
-  fireEvent.change(screen.getByTestId('local-model-search'), { target: { value: 'qwen' } })
+  expect([...rows].map(row => row.querySelector('[data-testid="local-model-vision"]')?.textContent)).toEqual([undefined, undefined, en.visionTag])
+  fireEvent.change(screen.getByTestId('local-model-search'), { target: { value: 'qwen3 8b' } })
   expect(screen.getByTestId('local-model-catalog').querySelectorAll('li')).toHaveLength(1)
   fireEvent.click(screen.getByTestId('local-model-catalog-download'))
   expect(f.actions.downloadModel).toHaveBeenCalledWith('qwen3-8b')
@@ -202,6 +207,7 @@ it('looks up a pasted Hugging Face repository and downloads one of its files', a
   expect(rows[1]?.textContent).toContain('2 MB · Q4_K_M')
   expect(rows[1]?.querySelector('[data-fit]')?.textContent).toBe(en.fitTight)
   expect(rows[0]?.querySelector('[data-fit]')).toBeNull()
+  expect(screen.queryByTestId('local-model-repo-projector')).toBeNull()
   await act(async () => {
     fireEvent.click(screen.getByTestId('local-model-repo-download'))
     f.set({ phase: 'running', models: [jan], downloads: [{ id: 'tiny-q4_k_m', name: 'tiny-Q4_K_M' }] })
@@ -209,7 +215,7 @@ it('looks up a pasted Hugging Face repository and downloads one of its files', a
   expect(f.actions.downloadRepoFile).toHaveBeenCalledWith('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')
   expect(screen.queryByTestId('local-model-repo-download')).toBeNull()
   // The row follows the live state: installed, then offered again once the model is deleted.
-  const tiny: LocalModelEntry = { id: 'tiny-q4_k_m', name: 'tiny-Q4_K_M', bytes: 2_000_000, source: 'huggingface', active: false, status: 'unloaded', architecture: 'qwen3' }
+  const tiny: LocalModelEntry = { id: 'tiny-q4_k_m', name: 'tiny-Q4_K_M', bytes: 2_000_000, source: 'huggingface', active: false, status: 'unloaded', architecture: 'qwen3', vision: false }
   await act(async () => { f.set({ phase: 'running', models: [jan, tiny] }) })
   expect(screen.getByTestId('local-model-repo-files').querySelectorAll('li')[1]?.textContent).toContain('Installed')
   await act(async () => { f.set({ phase: 'running', models: [jan] }) })
@@ -237,18 +243,49 @@ it('imports a file by path and reports a refusal', async () => {
   expect(screen.getByRole('alert').textContent).toBe('notes.gguf is not a GGUF model file')
   fireEvent.change(field, { target: { value: '/tmp/Mine.gguf' } })
   await act(async () => { fireEvent.click(screen.getByTestId('local-model-import')) })
-  expect(f.actions.importModel).toHaveBeenLastCalledWith('/tmp/Mine.gguf')
+  expect(f.actions.importModel).toHaveBeenLastCalledWith('/tmp/Mine.gguf', undefined)
   expect(screen.getByText('Added Mine.gguf.')).toBeTruthy()
   expect((field as HTMLInputElement).value).toBe('')
 })
 
+it('imports a vision model with its projector file and clears both paths', async () => {
+  const f = fixture({ phase: 'running', models: [jan] })
+  f.actions.importModel.mockResolvedValue({ ok: true, value: 'vl' })
+  card(f)
+  const projector = screen.getByTestId('local-model-import-projector')
+  expect(projector.getAttribute('aria-label')).toBe(en.importProjectorLabel)
+  fireEvent.change(screen.getByTestId('local-model-import-path'), { target: { value: ' /tmp/VL.gguf ' } })
+  fireEvent.change(projector, { target: { value: ' /tmp/mmproj-VL.gguf ' } })
+  await act(async () => { fireEvent.click(screen.getByTestId('local-model-import')) })
+  expect(f.actions.importModel).toHaveBeenLastCalledWith('/tmp/VL.gguf', '/tmp/mmproj-VL.gguf')
+  expect((projector as HTMLInputElement).value).toBe('')
+  // A blank projector field means a text-only model.
+  fireEvent.change(screen.getByTestId('local-model-import-path'), { target: { value: '/tmp/Text.gguf' } })
+  fireEvent.change(projector, { target: { value: '   ' } })
+  await act(async () => { fireEvent.click(screen.getByTestId('local-model-import')) })
+  expect(f.actions.importModel).toHaveBeenLastCalledWith('/tmp/Text.gguf', undefined)
+})
+
+it('says a looked-up repository downloads its vision projector with the model', async () => {
+  const f = fixture({ phase: 'running', models: [jan] })
+  f.actions.lookupRepo.mockResolvedValue({ ok: true, value: { repo: 'acme/vl-GGUF', projector: { file: 'mmproj-F16.gguf', bytes: 800_000_000 }, files: [
+    { file: 'vl-Q4_K_M.gguf', bytes: 2_000_000_000, quant: 'Q4_K_M', recommended: true, installed: false },
+  ] } })
+  card(f)
+  fireEvent.change(screen.getByTestId('local-model-search'), { target: { value: 'acme/vl-GGUF' } })
+  await act(async () => { fireEvent.click(screen.getByTestId('local-model-lookup')) })
+  expect(screen.getByTestId('local-model-repo-projector').textContent)
+    .toBe(`${en.visionTag}Each download includes the vision projector mmproj-F16.gguf (800 MB).`)
+})
+
 it.each([
-  ['linux', '/home/you/models/model.gguf'],
-  ['macos', '/Users/you/models/model.gguf'],
-  ['windows', 'C:\\Users\\you\\models\\model.gguf'],
-] as const)('suggests an import path in the form a %s Host resolves', (hostPlatform, example) => {
+  ['linux', '/home/you/models/model.gguf', '/home/you/models/mmproj.gguf'],
+  ['macos', '/Users/you/models/model.gguf', '/Users/you/models/mmproj.gguf'],
+  ['windows', 'C:\\Users\\you\\models\\model.gguf', 'C:\\Users\\you\\models\\mmproj.gguf'],
+] as const)('suggests import paths in the form a %s Host resolves', (hostPlatform, example, projectorExample) => {
   card(fixture({ phase: 'running', models: [jan], hostPlatform }))
   expect(screen.getByTestId('local-model-import-path').getAttribute('placeholder')).toBe(example)
+  expect(screen.getByTestId('local-model-import-projector').getAttribute('placeholder')).toBe(`Vision projector (optional), e.g. ${projectorExample}`)
 })
 
 function setup(f: ReturnType<typeof fixture>, owner: Partial<LocalSetupProps> = {}) {

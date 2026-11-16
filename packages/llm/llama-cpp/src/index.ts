@@ -29,13 +29,15 @@ import { CATALOG, catalogModel, DEFAULT_MODEL_ID, SMALL_MODEL_ID, type CatalogMo
 import { Config } from './config.ts'
 import { download } from './download.ts'
 import { HuggingFaceLookupError, lookupRepo, type HuggingFaceRepo } from './huggingface.ts'
-import { estimateKvBytes, readModelFacts, UnsupportedModelError, type ModelFacts } from './gguf.ts'
+import {
+  estimateKvBytes, NotAProjectorError, readModelFacts, readProjectorFacts, UnsupportedModelError, type ModelFacts, type ProjectorFacts,
+} from './gguf.ts'
 import { accelerators, assessFit, backendOf, type MachineMemory } from './memory.ts'
-import { plannedContext, renderPreset, resolvePresetSettings, type PresetSettings } from './preset.ts'
+import { plannedContext, renderPreset, resolvePresetSettings, type PresetModel, type PresetSettings } from './preset.ts'
 import { RateMeter } from './rate.ts'
 import type {
-  HuggingFaceRepoInfo, LlamaCppDownload, LlamaCppHostPlatform, LlamaCppPhase, LlamaCppProgress, LlamaCppState, LocalModelEntry,
-  LocalModelSource, LocalModelStatus, ModelFit,
+  HuggingFaceRepoInfo, ImportModelOptions, LlamaCppDownload, LlamaCppHostPlatform, LlamaCppPhase, LlamaCppProgress, LlamaCppState,
+  LocalModelEntry, LocalModelSource, LocalModelStatus, ModelFit,
 } from './types.ts'
 import {
   describeExit, parseDeviceList, parseHandshake, readFirstLine, WorkerClient, WorkerProtocolError, type WorkerModelEvent,
@@ -48,8 +50,10 @@ export type { CatalogModel } from './catalog.ts'
 export { download, DownloadError, isVerified } from './download.ts'
 export { HuggingFaceLookupError, lookupRepo, parseRepo } from './huggingface.ts'
 export type { HuggingFaceFile, HuggingFaceRepo } from './huggingface.ts'
-export { estimateKvBytes, modelFacts, readModelFacts, UnsupportedModelError } from './gguf.ts'
-export type { KvCacheType, ModelFacts } from './gguf.ts'
+export {
+  estimateKvBytes, modelFacts, NotAProjectorError, projectorFacts, readModelFacts, readProjectorFacts, UnsupportedModelError,
+} from './gguf.ts'
+export type { KvCacheType, ModelFacts, ProjectorFacts } from './gguf.ts'
 export { accelerators, assessFit, backendOf } from './memory.ts'
 export type { MachineMemory } from './memory.ts'
 export { plannedContext, renderPreset, resolvePresetSettings } from './preset.ts'
@@ -78,6 +82,18 @@ interface ModelRecord {
   repo?: string
   /** Read from the GGUF header when the model was installed. */
   facts: ModelFacts
+  /** Vision projector the worker loads with the model. */
+  mmproj?: ProjectorRecord
+}
+
+/** A model's projector; `file` is relative to `dataRoot` when downloaded, absolute when imported in place. */
+interface ProjectorRecord {
+  file: string
+  bytes: number
+  /** Absent for an imported file, which is not hashed. */
+  sha256?: string
+  /** Read from the GGUF header when the projector was installed. */
+  vision: boolean
 }
 
 /** Installed facts written after verification, so boot does not re-hash multi-GB files or re-read headers. */
@@ -106,6 +122,8 @@ interface ModelSpec extends Artifact {
   name: string
   source: Exclude<LocalModelSource, 'import'>
   repo: string
+  /** Vision projector downloaded after the model. */
+  mmproj?: Artifact
 }
 
 interface Job {
@@ -141,6 +159,8 @@ interface RouteModel {
   name: string
   contextWindow: number
   maxTokens: number
+  /** `image` only for a model whose projector encodes images. */
+  input: Array<'text' | 'image'>
 }
 
 /** Worker-side fields of the state; the model list, downloads and catalog are derived on publish. */
@@ -200,6 +220,14 @@ function aborted(signal: AbortSignal): boolean {
 export function hostPlatformOf(os: NodeJS.Platform): LlamaCppHostPlatform {
   if (os === 'darwin') return 'macos'
   return os === 'win32' ? 'windows' : 'linux'
+}
+
+/**
+ * @param model - an installed model.
+ * @returns bytes of its file and its projector.
+ */
+function installedBytes(model: ModelRecord): number {
+  return model.bytes + (model.mmproj?.bytes ?? 0)
 }
 
 function messageOf(error: unknown): string {
@@ -290,7 +318,10 @@ export class LlamaCpp extends Service {
   private get presetPath(): string { return join(this.config.dataRoot, 'run', 'preset.ini') }
   private modelDir(id: string): string { return join(this.config.dataRoot, 'models', id) }
   private modelFile(spec: { id: string; sha256: string }): string { return join(this.modelDir(spec.id), `${spec.sha256.slice(0, 16)}.gguf`) }
-  private modelPath(model: Pick<ModelRecord, 'file'>): string { return isAbsolute(model.file) ? model.file : join(this.config.dataRoot, model.file) }
+  private projectorFile(id: string, projector: Artifact): string { return join(this.modelDir(id), `mmproj-${projector.sha256.slice(0, 16)}.gguf`) }
+  private storedPath(stored: { file: string }): string {
+    return isAbsolute(stored.file) ? stored.file : join(this.config.dataRoot, stored.file)
+  }
 
   /** @returns whether the user left the worker running (install and Start say yes, Stop says no). */
   private async wantsStart(): Promise<boolean> {
@@ -417,19 +448,22 @@ export class LlamaCpp extends Service {
         const kvBytes = estimateKvBytes(model.facts, plannedContext(this.preset, model.facts), this.preset.cacheType) ?? 0
         const settled = this.contexts.get(model.id)
         return {
-          id: model.id, name: model.name, bytes: model.bytes, source: model.source, active: model.id === this.record.active,
+          id: model.id, name: model.name, bytes: installedBytes(model), source: model.source, vision: model.mmproj?.vision === true,
+          active: model.id === this.record.active,
           status: this.running?.resident.get(model.id) ?? 'unloaded',
           ...settled === undefined ? {} : { contextSize: settled },
           architecture: model.facts.architecture,
           ...model.facts.contextLength === undefined ? {} : { contextLength: model.facts.contextLength },
-          ...this.fitOf(model.bytes + kvBytes),
+          ...this.fitOf(installedBytes(model) + kvBytes),
         }
       }),
       downloads,
-      catalog: CATALOG.map((entry) => {
-        const bytes = entry.id === this.firstModel.id ? this.firstModel.bytes : entry.bytes
+      catalog: CATALOG.map((listed) => {
+        const entry = listed.id === this.firstModel.id ? this.firstModel : listed
+        const bytes = entry.bytes + (entry.mmproj?.bytes ?? 0)
         return {
           id: entry.id, name: entry.name, bytes, repo: entry.repo, recommended: entry.recommended, installed: installed.has(entry.id),
+          vision: entry.mmproj !== undefined,
           ...this.fitOf(bytes),
         }
       }),
@@ -483,8 +517,9 @@ export class LlamaCpp extends Service {
   // ── install record ─────────────────────────────────────────────────────
 
   /**
-   * Load the record, keeping only models whose files are still present at their recorded size.
-   * Records of earlier builds gain the header facts of each file and are written back once.
+   * Load the record, keeping only models whose files are still present at their recorded size; a
+   * model whose projector is missing or changed stays without it. Records of earlier builds gain the
+   * header facts of each file. A changed record is written back once.
    */
   private async readInstall(): Promise<void> {
     // Earlier builds downloaded a llama-server engine here; the bundled worker replaces it.
@@ -496,15 +531,35 @@ export class LlamaCpp extends Service {
       : raw.version === 1 ? this.fromV1(raw)
         : Array.isArray(raw.models) ? raw : { version: 3, models: [] }
     const models: ModelRecord[] = []
+    let projectorDropped = false
     for (const model of record.models) {
-      const size = await stat(this.modelPath(model)).then(info => info.size, () => undefined)
+      const size = await stat(this.storedPath(model)).then(info => info.size, () => undefined)
       if (size !== model.bytes) {
         this.ctx.logger.warn(`llama-cpp: ${model.name} is missing or changed on disk; it is no longer listed`)
         continue
       }
-      if ('facts' in model) { models.push(model); continue }
-      try { models.push({ ...model, facts: await readModelFacts(this.modelPath(model)) }) }
-      catch (error) { this.ctx.logger.warn(`llama-cpp: ${model.name} cannot be served (${messageOf(error)}); it is no longer listed`) }
+      let kept: ModelRecord
+      if ('facts' in model) kept = model
+      else {
+        try { kept = { ...model, facts: await readModelFacts(this.storedPath(model)) } }
+        catch (error) {
+          this.ctx.logger.warn(`llama-cpp: ${model.name} cannot be served (${messageOf(error)}); it is no longer listed`)
+          continue
+        }
+      }
+      if (kept.mmproj !== undefined) {
+        const projector = this.storedPath(kept.mmproj)
+        const projectorSize = await stat(projector).then(info => info.size, () => undefined)
+        if (projectorSize !== kept.mmproj.bytes) {
+          this.ctx.logger.warn(`llama-cpp: the vision projector ${projector} of ${model.name} is missing or changed on disk; the model is listed without it`)
+          // A downloaded projector belongs to this install; an imported one is the user's file.
+          if (!isAbsolute(kept.mmproj.file)) await rm(projector, { force: true }).catch(() => undefined)
+          kept = { ...kept }
+          delete kept.mmproj
+          projectorDropped = true
+        }
+      }
+      models.push(kept)
     }
     // The alias section takes the route model id, so a model installed under it moves to a free id.
     const clash = models.find(model => model.id === this.config.routeModelId)
@@ -517,7 +572,7 @@ export class LlamaCpp extends Service {
     }
     if (!models.some(model => model.id === active)) active = models[0]?.id
     this.record = { version: 3, models, ...active === undefined ? {} : { active } }
-    if (record.version !== 3 || clash !== undefined) await this.writeRecord()
+    if (record.version !== 3 || clash !== undefined || projectorDropped) await this.writeRecord()
   }
 
   /** Convert the one-model record of earlier builds; its model file stays where it is. */
@@ -566,7 +621,8 @@ export class LlamaCpp extends Service {
   }
 
   /**
-   * Download a curated model. Ignored when it is installed or already downloading.
+   * Download a curated model, with its vision projector when it has one. Ignored when it is installed
+   * or already downloading.
    * @param id - catalog id.
    * @throws Error for an unknown id.
    */
@@ -580,25 +636,27 @@ export class LlamaCpp extends Service {
    * Look up a Hugging Face repository's downloadable GGUF files.
    * @param input - `owner/name` or a huggingface.co link.
    * @param signal - cancellation.
-   * @returns the repository and its files, marking those already installed.
+   * @returns the repository, its files marking those already installed, and the projector each downloads with.
    * @throws {@link HuggingFaceLookupError} for bad input, a missing repository or an unreachable API.
    */
   async lookupHuggingFace(input: string, signal?: AbortSignal): Promise<HuggingFaceRepoInfo> {
     const repo = await lookupRepo(this.config.huggingFaceURL, input, signal)
     const installed = new Set(this.record.models.filter(model => model.repo === repo.repo).map(model => model.sha256))
+    const projector = repo.projector
     return {
       repo: repo.repo,
       files: repo.files.map(file => ({
         file: file.file, bytes: file.bytes, recommended: file.recommended, installed: installed.has(file.sha256),
         ...file.quant === undefined ? {} : { quant: file.quant },
-        ...this.fitOf(file.bytes),
+        ...this.fitOf(file.bytes + (projector?.bytes ?? 0)),
       })),
+      ...projector === undefined ? {} : { projector: { file: projector.file, bytes: projector.bytes } },
     }
   }
 
   /**
-   * Download one file of a Hugging Face repository, re-reading the repository so the digest and size
-   * come from Hugging Face, not the caller.
+   * Download one file of a Hugging Face repository, and the repository's vision projector after it,
+   * re-reading the repository so the digests and sizes come from Hugging Face, not the caller.
    * @param input - `owner/name` or a huggingface.co link.
    * @param file - file name inside the repository.
    * @param signal - cancellation of the lookup.
@@ -619,7 +677,11 @@ export class LlamaCpp extends Service {
     }
     const name = basename(found.file).replace(/\.gguf$/i, '')
     const id = this.freeId(slug(name))
-    this.enqueue({ id, name, url: found.url, sha256: found.sha256, bytes: found.bytes, source: 'huggingface', repo: repo.repo })
+    const projector = repo.projector
+    this.enqueue({
+      id, name, url: found.url, sha256: found.sha256, bytes: found.bytes, source: 'huggingface', repo: repo.repo,
+      ...projector === undefined ? {} : { mmproj: { url: projector.url, sha256: projector.sha256, bytes: projector.bytes } },
+    })
     return id
   }
 
@@ -674,25 +736,48 @@ export class LlamaCpp extends Service {
     this.downloadQueue = this.downloadQueue.then(run, run)
   }
 
+  /**
+   * Download, verify and record a job's model, then its projector; progress counts both files.
+   * @param job - the queued job.
+   */
   private async runJob(job: Job): Promise<void> {
     if (this.jobs.get(job.spec.id) !== job) return
     const signal = AbortSignal.any([job.abort.signal, this.lifetime.signal])
+    const projector = job.spec.mmproj
+    const projectorPath = projector === undefined ? undefined : this.projectorFile(job.spec.id, projector)
     try {
       signal.throwIfAborted()
       const meter = new RateMeter()
-      const report = (receivedBytes: number, totalBytes: number): void => {
+      const totalBytes = job.spec.bytes + (projector?.bytes ?? 0)
+      const reportFrom = (offset: number) => (stepReceived: number, stepBytes: number): void => {
+        const receivedBytes = offset + stepReceived
         job.progress = { receivedBytes, totalBytes, bytesPerSecond: meter.sample(receivedBytes, performance.now()) }
-        this.emit(true, receivedBytes === totalBytes)
+        this.emit(true, stepReceived === stepBytes)
       }
-      report(0, job.spec.bytes)
+      reportFrom(0)(0, totalBytes)
       const path = this.modelFile(job.spec)
-      await download(job.spec, path, 'model', signal, report)
+      await download(job.spec, path, 'model', signal, reportFrom(0))
       signal.throwIfAborted()
       let facts: ModelFacts
       try { facts = await readModelFacts(path) }
       catch (error) {
         await rm(path, { force: true })
         throw new Error(`${job.spec.name} cannot be served: ${messageOf(error)}`, { cause: error })
+      }
+      let mmproj: ProjectorRecord | undefined
+      if (projector !== undefined && projectorPath !== undefined) {
+        await download(projector, projectorPath, 'vision projector', signal, reportFrom(job.spec.bytes))
+        signal.throwIfAborted()
+        let projectorFacts: ProjectorFacts
+        try { projectorFacts = await readProjectorFacts(projectorPath) }
+        catch (error) {
+          await rm(projectorPath, { force: true })
+          throw new Error(`the vision projector of ${job.spec.name} cannot be used: ${messageOf(error)}`, { cause: error })
+        }
+        mmproj = {
+          file: relative(this.config.dataRoot, projectorPath), bytes: projector.bytes, sha256: projector.sha256,
+          vision: projectorFacts.vision,
+        }
       }
       await this.task(async () => {
         // Cancel or uninstall may have landed while this commit waited behind another task.
@@ -703,7 +788,7 @@ export class LlamaCpp extends Service {
           ...previous,
           models: [...previous.models, {
             id: job.spec.id, name: job.spec.name, file: relative(this.config.dataRoot, path), bytes: job.spec.bytes,
-            sha256: job.spec.sha256, source: job.spec.source, repo: job.spec.repo, facts,
+            sha256: job.spec.sha256, source: job.spec.source, repo: job.spec.repo, facts, ...mmproj === undefined ? {} : { mmproj },
           }],
           ...first ? { active: job.spec.id } : {},
         }
@@ -724,9 +809,13 @@ export class LlamaCpp extends Service {
     } catch (error) {
       if (this.jobs.get(job.spec.id) !== job) return
       const cancelled = job.abort.signal.aborted || this.lifetime.signal.aborted
-      // A user's Cancel discards the partial file; shutting down keeps it so the next launch resumes.
+      // A user's Cancel discards the job's files, including a model verified before its projector
+      // finished, which no record references; shutting down keeps them so the next launch resumes.
       if (job.abort.signal.aborted && !this.lifetime.signal.aborted) {
-        await rm(`${this.modelFile(job.spec)}.partial`, { force: true }).catch(() => undefined)
+        for (const file of [this.modelFile(job.spec), projectorPath]) {
+          if (file === undefined) continue
+          for (const target of [file, `${file}.partial`]) await rm(target, { force: true }).catch(() => undefined)
+        }
       }
       if (cancelled) this.jobs.delete(job.spec.id)
       else job.error = messageOf(error)
@@ -743,34 +832,42 @@ export class LlamaCpp extends Service {
   // ── installed models ───────────────────────────────────────────────────
 
   /**
-   * Add a GGUF file from disk, left where it is, recording its header facts. The first model added
-   * becomes the default and starts; a later one joins the running worker's preset.
+   * Add a GGUF file from disk, left where it is, recording its header facts, with an optional vision
+   * projector also left where it is. The first model added becomes the default and starts; a later
+   * one joins the running worker's preset. Importing an already imported file with a projector
+   * attaches that projector to it, replacing any earlier one.
    * @param path - absolute path of a `.gguf` file.
-   * @param name - display name; defaults to the file name.
+   * @param options - display name, defaulting to the file name, and projector path.
    * @returns the model id.
-   * @throws Error when the path is not an absolute path to a readable GGUF file, or the file is a
-   * vision projector or embedding model rather than a chat model.
+   * @throws Error when the path is not an absolute path to a readable GGUF file, the file is a
+   * vision projector or embedding model rather than a chat model, or the projector is not an
+   * absolute path to a readable projector GGUF file.
    */
-  importModel(path: string, name?: string): Promise<string> {
+  importModel(path: string, options: ImportModelOptions = {}): Promise<string> {
     return this.task(async () => {
       const file = path.trim()
       if (!isAbsolute(file)) throw new Error('Enter the full path of a .gguf file')
       const info = await stat(file).catch(() => undefined)
       if (info === undefined || !info.isFile()) throw new Error(`No file at ${file}`)
+      const mmproj = options.projector === undefined ? undefined : await this.importedProjector(options.projector)
       const existing = this.record.models.find(model => model.source === 'import' && model.file === file)
-      if (existing !== undefined) return existing.id
+      if (existing !== undefined) {
+        if (mmproj !== undefined) await this.attachProjector(existing, mmproj)
+        return existing.id
+      }
       let facts: ModelFacts
       try { facts = await readModelFacts(file) }
       catch (error) {
         if (error instanceof UnsupportedModelError) throw new Error(`${basename(file)} cannot be used for chat: ${error.message}`, { cause: error })
         throw new Error(`${basename(file)} is not a GGUF model file`, { cause: error })
       }
-      const label = name?.trim() || basename(file).replace(/\.gguf$/i, '')
+      const label = options.name?.trim() || basename(file).replace(/\.gguf$/i, '')
       const id = this.freeId(slug(label))
       const previous = this.record
       const first = previous.active === undefined
+      const model: ModelRecord = { id, name: label, file, bytes: info.size, source: 'import', facts, ...mmproj === undefined ? {} : { mmproj } }
       this.record = {
-        ...previous, models: [...previous.models, { id, name: label, file, bytes: info.size, source: 'import', facts }],
+        ...previous, models: [...previous.models, model],
         ...first ? { active: id } : {},
       }
       try { await this.writeRecord() }
@@ -786,6 +883,41 @@ export class LlamaCpp extends Service {
       }
       return id
     })
+  }
+
+  /**
+   * Check a projector file to import in place.
+   * @param path - absolute path of a projector `.gguf` file.
+   * @returns its record.
+   * @throws Error when the path is not an absolute path to a readable projector GGUF file.
+   */
+  private async importedProjector(path: string): Promise<ProjectorRecord> {
+    const file = path.trim()
+    if (!isAbsolute(file)) throw new Error('Enter the full path of the vision projector .gguf file')
+    const info = await stat(file).catch(() => undefined)
+    if (info === undefined || !info.isFile()) throw new Error(`No file at ${file}`)
+    let facts: ProjectorFacts
+    try { facts = await readProjectorFacts(file) }
+    catch (error) {
+      const reason = error instanceof NotAProjectorError ? error.message : 'it is not a GGUF file'
+      throw new Error(`${basename(file)} is not a vision projector: ${reason}`, { cause: error })
+    }
+    return { file, bytes: info.size, vision: facts.vision }
+  }
+
+  /**
+   * Replace an imported model's projector and bring the route and a running worker up to date.
+   * @param model - an installed imported model.
+   * @param mmproj - the projector, imported in place.
+   */
+  private async attachProjector(model: ModelRecord, mmproj: ProjectorRecord): Promise<void> {
+    const previous = this.record
+    const models = previous.models.map(candidate => candidate.id === model.id ? { ...candidate, mmproj } : candidate)
+    this.record = { ...previous, models }
+    try { await this.writeRecord() }
+    catch (error) { this.record = previous; throw error }
+    this.emit()
+    await this.modelsChanged()
   }
 
   /**
@@ -855,7 +987,7 @@ export class LlamaCpp extends Service {
   }
 
   /**
-   * Remove an installed model. A downloaded file is deleted; an imported file is only forgotten. A
+   * Remove an installed model. A downloaded file or projector is deleted; an imported one is only forgotten. A
    * resident model is unloaded first, because Windows cannot delete a file the worker maps.
    * Removing the default makes the next installed model the default and loads it into a running worker,
    * as {@link setDefault} does; removing the last stops the worker.
@@ -891,11 +1023,18 @@ export class LlamaCpp extends Service {
         await this.modelsChanged()
         await this.adoptDefault(false)
       }
-      if (model.source !== 'import') {
-        const file = this.modelPath(model)
+      const downloaded: Array<{ file: string }> = [
+        ...model.source === 'import' ? [] : [model],
+        ...model.mmproj === undefined || isAbsolute(model.mmproj.file) ? [] : [model.mmproj],
+      ]
+      for (const stored of downloaded) {
+        const file = this.storedPath(stored)
         await rm(file, { force: true })
         await rm(`${file}.partial`, { force: true })
-        try { await rmdir(dirname(file)) }
+      }
+      const [first] = downloaded
+      if (first !== undefined) {
+        try { await rmdir(dirname(this.storedPath(first))) }
         catch (_notEmpty) { /* The directory still holds another file of this model id; it stays. */ }
       }
       const current = this.running
@@ -938,7 +1077,8 @@ export class LlamaCpp extends Service {
    * Keep the route's model list equal to the installed models, so the picker names every model the
    * worker serves: the alias id of the default model first, then each model under its own id, with
    * the context the worker last settled on for it, otherwise the planned one, never above the trained
-   * context. Skipped without a settings service or namespace, and when the list already matches.
+   * context, and image input when its projector encodes images. Skipped without a settings service or
+   * namespace, and when the list already matches.
    */
   private async syncRoute(): Promise<void> {
     const settings = this.ctx.get('settings')
@@ -947,6 +1087,7 @@ export class LlamaCpp extends Service {
     if (settings === undefined || ns === '' || active === undefined) return
     const entry = (id: string, name: string, model: ModelRecord): RouteModel => ({
       id, name, contextWindow: this.routeContext(model), maxTokens: this.config.routeMaxTokens,
+      input: model.mmproj?.vision === true ? ['text', 'image'] : ['text'],
     })
     const models = [
       entry(this.config.routeModelId, `${active.name} (local default)`, active),
@@ -1206,7 +1347,10 @@ export class LlamaCpp extends Service {
     if (active === undefined) throw new Error('no model is installed')
     await mkdir(dirname(this.presetPath), { recursive: true })
     const temp = `${this.presetPath}.tmp`
-    const sections = this.record.models.map(model => ({ id: model.id, path: this.modelPath(model), facts: model.facts }))
+    const sections = this.record.models.map((model): PresetModel => ({
+      id: model.id, path: this.storedPath(model), facts: model.facts,
+      ...model.mmproj === undefined ? {} : { mmproj: this.storedPath(model.mmproj) },
+    }))
     await writeFile(temp, renderPreset(this.preset, sections, { [this.config.routeModelId]: active.id }), { mode: 0o600 })
     await rename(temp, this.presetPath)
   }

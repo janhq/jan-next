@@ -2028,6 +2028,8 @@ export interface Config {
   kvOffload: boolean
   /** How weights are read (`load-mode`); omitted lets llama.cpp memory-map them where devices allow. */
   loadMode?: 'none' | 'mmap' | 'mlock' | 'mmap+mlock' | undefined
+  /** Run each model's vision projector on the GPU; `false` writes `mmproj-offload = false`, which keeps it in system memory. */
+  mmprojOffload: boolean
   /** Prompt cache in system memory, in MiB (`cache-ram`); `-1` removes the bound, `0` disables it, omitted keeps llama.cpp's 8192. */
   cacheRamMiB?: number | undefined
   /**

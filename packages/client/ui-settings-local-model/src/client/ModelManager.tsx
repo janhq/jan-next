@@ -1,7 +1,8 @@
 /**
- * Local model manager inside the Models card: installed models (fit, context, residency; load,
- * unload, make default, delete), downloads in progress, curated models with a search box that also
- * looks up Hugging Face repositories, and import of a GGUF file from disk.
+ * Local model manager inside the Models card: installed models (fit, vision, context, residency;
+ * load, unload, make default, delete), downloads in progress, curated models with a search box that
+ * also looks up Hugging Face repositories, and import of a GGUF file, with an optional vision
+ * projector file, from disk.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Button, Input, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -10,7 +11,7 @@ import type {
 } from '@deepseek-ai/dsh-api-llama-cpp-controller'
 import type { LocalModelActions, Outcome } from './actions.ts'
 import { formatBytes } from './state.ts'
-import { DownloadProgress, FitTag, type T } from './parts.tsx'
+import { DownloadProgress, FitTag, VisionTag, type T } from './parts.tsx'
 import css from './LocalModel.module.css'
 
 const SOURCE_KEY = { catalog: 'sourceCatalog', huggingface: 'sourceHuggingFace', import: 'sourceImport' } as const
@@ -18,6 +19,9 @@ const STATUS_KEY = { loaded: 'statusLoaded', loading: 'statusLoading', unloaded:
 /** The Host resolves the imported path, so the example follows its platform, not the browser's. */
 const IMPORT_PLACEHOLDER_KEY = {
   linux: 'importPlaceholderLinux', macos: 'importPlaceholderMacos', windows: 'importPlaceholderWindows',
+} as const satisfies Record<LlamaCppHostPlatform, string>
+const IMPORT_PROJECTOR_PLACEHOLDER_KEY = {
+  linux: 'importProjectorPlaceholderLinux', macos: 'importProjectorPlaceholderMacos', windows: 'importProjectorPlaceholderWindows',
 } as const satisfies Record<LlamaCppHostPlatform, string>
 
 /** Text that names a Hugging Face repository rather than a catalog search. */
@@ -73,6 +77,7 @@ function InstalledModels({ state, actions, t }: SectionProps): ReactNode {
             <span className={css.offerHead}>
               <span className={css.rowName} title={model.name}>{model.name}</span>
               {model.active && <span title={t('defaultHint')}><Tag tone="info">{t('defaultTag')}</Tag></span>}
+              {model.vision && <VisionTag t={t} />}
               <FitTag fit={model.fit} t={t} />
             </span>
             <span className={css.muted}>{detail}</span>
@@ -190,6 +195,7 @@ function AddModel({ state, actions, t }: SectionProps): ReactNode {
             <span className={css.offerHead}>
               <span className={css.rowName}>{entry.name}</span>
               {entry.recommended && <Tag tone="info">{t('recommended')}</Tag>}
+              {entry.vision && <VisionTag t={t} />}
               <FitTag fit={entry.fit} t={t} />
             </span>
             <span className={css.muted}>{formatBytes(entry.bytes)} · {entry.repo}</span>
@@ -242,6 +248,10 @@ function RepoFiles({ result, state, actions, t, started, onStarted }: RepoFilesP
   if (result.files.length === 0) return <p className={css.muted}>{t('repoEmpty', { repo: result.repo })}</p>
   return <>
     <p className={css.muted}>{t('repoFiles', { repo: result.repo })}</p>
+    {result.projector !== undefined && <p className={`${css.muted} ${css.offerHead}`} data-testid="local-model-repo-projector">
+      <VisionTag t={t} />
+      <span>{t('repoProjector', { file: result.projector.file, size: formatBytes(result.projector.bytes) })}</span>
+    </p>}
     <ul className={css.list} data-testid="local-model-repo-files">
       {result.files.map((file) => { const fileStatus = status(file); return <li key={file.file} className={css.row}>
         <span className={css.rowMain}>
@@ -271,6 +281,7 @@ function RepoFiles({ result, state, actions, t, started, onStarted }: RepoFilesP
 
 function ImportModel({ state, actions, t }: SectionProps): ReactNode {
   const [path, setPath] = useState('')
+  const [projector, setProjector] = useState('')
   const [status, setStatus] = useState<{ kind: 'idle' } | { kind: 'busy' } | { kind: 'done'; name: string } | { kind: 'failed'; error: string }>({ kind: 'idle' })
   return <section className={css.section} aria-label={t('importTitle')}>
     <h4 className={css.sectionTitle}>{t('importTitle')}</h4>
@@ -278,16 +289,21 @@ function ImportModel({ state, actions, t }: SectionProps): ReactNode {
       event.preventDefault()
       const file = path.trim()
       if (file === '') return
+      const projectorFile = projector.trim()
       setStatus({ kind: 'busy' })
-      void actions.importModel(file).then((outcome) => {
+      void actions.importModel(file, projectorFile === '' ? undefined : projectorFile).then((outcome) => {
         if (!outcome.ok) { setStatus({ kind: 'failed', error: outcome.error }); return }
         setPath('')
+        setProjector('')
         setStatus({ kind: 'done', name: file.split(/[\\/]/).at(-1) ?? file })
       })
     }}>
       <Input className={css.input ?? ''} aria-label={t('importLabel')} placeholder={t(IMPORT_PLACEHOLDER_KEY[state.hostPlatform])} value={path}
         data-testid="local-model-import-path" spellCheck={false} autoCapitalize="off"
         onChange={(event) => { setPath(event.target.value); setStatus({ kind: 'idle' }) }} />
+      <Input className={css.input ?? ''} aria-label={t('importProjectorLabel')} placeholder={t(IMPORT_PROJECTOR_PLACEHOLDER_KEY[state.hostPlatform])}
+        value={projector} data-testid="local-model-import-projector" spellCheck={false} autoCapitalize="off"
+        onChange={(event) => { setProjector(event.target.value); setStatus({ kind: 'idle' }) }} />
       <Button variant="outline" size="sm" type="submit" data-testid="local-model-import" disabled={status.kind === 'busy' || path.trim() === ''}>
         {t(status.kind === 'busy' ? 'importing' : 'importAction')}
       </Button>

@@ -107,6 +107,8 @@ export interface Config {
   kvOffload: boolean
   /** How weights are read (`load-mode`); omitted lets llama.cpp memory-map them where devices allow. */
   loadMode?: 'none' | 'mmap' | 'mlock' | 'mmap+mlock' | undefined
+  /** Run each model's vision projector on the GPU; `false` writes `mmproj-offload = false`, which keeps it in system memory. */
+  mmprojOffload: boolean
   /** Prompt cache in system memory, in MiB (`cache-ram`); `-1` removes the bound, `0` disables it, omitted keeps llama.cpp's 8192. */
   cacheRamMiB?: number | undefined
   /**
@@ -167,6 +169,7 @@ export const Config: z<Partial<Config>, Config> = z.object({
   mainGpu: z.union([z.natural(), z.const(undefined)]),
   kvOffload: z.boolean().default(true),
   loadMode: z.union([z.union(['none', 'mmap', 'mlock', 'mmap+mlock']), z.const(undefined)]),
+  mmprojOffload: z.boolean().default(true),
   cacheRamMiB: z.union([z.number().step(1).min(-1), z.const(undefined)]),
   slotCacheMiB: z.natural().default(0),
   startTimeoutMs: z.natural().min(1).default(120_000),

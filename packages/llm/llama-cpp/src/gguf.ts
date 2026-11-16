@@ -1,6 +1,6 @@
 /**
  * Facts read from a GGUF header: whether the file is a chat model the worker can serve, its
- * trained context, and the dimensions its KV cache grows with.
+ * trained context, and the dimensions its KV cache grows with; or whether a projector encodes images.
  */
 import { GGMLFileQuantizationType, gguf, type MetadataValue } from '@huggingface/gguf'
 
@@ -97,10 +97,50 @@ export function modelFacts(metadata: Readonly<Record<string, MetadataValue>>): M
  * @throws {@link UnsupportedModelError} for a file the worker cannot serve as a chat model, or Error when it is not a readable GGUF file.
  */
 export async function readModelFacts(path: string): Promise<ModelFacts> {
+  return modelFacts(await readMetadata(path))
+}
+
+async function readMetadata(path: string): Promise<Record<string, MetadataValue>> {
   const { metadata } = await gguf(path, { allowLocalFile: true })
   // The library types metadata per known architecture; facts are read for any architecture.
-  const entries: Record<string, MetadataValue> = Object.fromEntries(Object.entries(metadata))
-  return modelFacts(entries)
+  return Object.fromEntries(Object.entries(metadata))
+}
+
+/** What the plugin records about one multimodal projector (`mmproj`) file. */
+export interface ProjectorFacts {
+  /** Whether it encodes images; an audio-only projector does not. */
+  vision: boolean
+}
+
+/** A readable GGUF file that is not a multimodal projector. */
+export class NotAProjectorError extends Error {}
+
+/**
+ * Derive projector facts from parsed metadata. A projector declaring neither encoder flag is taken
+ * as a vision projector, as Jan does.
+ * @param metadata - GGUF key/value metadata.
+ * @returns the facts.
+ * @throws {@link NotAProjectorError} when `general.architecture` is not `clip`.
+ */
+export function projectorFacts(metadata: Readonly<Record<string, MetadataValue>>): ProjectorFacts {
+  const architecture = metadata['general.architecture']
+  if (architecture !== 'clip') {
+    const named = typeof architecture === 'string' && architecture !== '' ? `"${architecture}"` : 'no'
+    throw new NotAProjectorError(`it has ${named} architecture, not a vision projector (clip)`)
+  }
+  const vision = metadata['clip.has_vision_encoder']
+  if (typeof vision === 'boolean') return { vision }
+  return { vision: metadata['clip.has_audio_encoder'] !== true }
+}
+
+/**
+ * Read a local GGUF file's header and derive its projector facts.
+ * @param path - absolute path of the file.
+ * @returns the facts.
+ * @throws {@link NotAProjectorError} for a GGUF file that is not a projector, or Error when it is not a readable GGUF file.
+ */
+export async function readProjectorFacts(path: string): Promise<ProjectorFacts> {
+  return projectorFacts(await readMetadata(path))
 }
 
 /**

@@ -1050,7 +1050,8 @@ async *follow(caller: AbortSignal): AsyncIterable<LlamaCppState>
 install(): void
 
 /**
- * Download a curated model. Ignored when it is installed or already downloading.
+ * Download a curated model, with its vision projector when it has one. Ignored when it is installed
+ * or already downloading.
  * @param id - catalog id.
  * @throws Error for an unknown id.
  */
@@ -1060,14 +1061,14 @@ downloadCatalog(id: string): void
  * Look up a Hugging Face repository's downloadable GGUF files.
  * @param input - `owner/name` or a huggingface.co link.
  * @param signal - cancellation.
- * @returns the repository and its files, marking those already installed.
+ * @returns the repository, its files marking those already installed, and the projector each downloads with.
  * @throws {@link HuggingFaceLookupError} for bad input, a missing repository or an unreachable API.
  */
 async lookupHuggingFace(input: string, signal?: AbortSignal): Promise<HuggingFaceRepoInfo>
 
 /**
- * Download one file of a Hugging Face repository, re-reading the repository so the digest and size
- * come from Hugging Face, not the caller.
+ * Download one file of a Hugging Face repository, and the repository's vision projector after it,
+ * re-reading the repository so the digests and sizes come from Hugging Face, not the caller.
  * @param input - `owner/name` or a huggingface.co link.
  * @param file - file name inside the repository.
  * @param signal - cancellation of the lookup.
@@ -1091,15 +1092,18 @@ retry(id: string): void
 async cancel(id?: string): Promise<void>
 
 /**
- * Add a GGUF file from disk, left where it is, recording its header facts. The first model added
- * becomes the default and starts; a later one joins the running worker's preset.
+ * Add a GGUF file from disk, left where it is, recording its header facts, with an optional vision
+ * projector also left where it is. The first model added becomes the default and starts; a later
+ * one joins the running worker's preset. Importing an already imported file with a projector
+ * attaches that projector to it, replacing any earlier one.
  * @param path - absolute path of a `.gguf` file.
- * @param name - display name; defaults to the file name.
+ * @param options - display name, defaulting to the file name, and projector path.
  * @returns the model id.
- * @throws Error when the path is not an absolute path to a readable GGUF file, or the file is a
- * vision projector or embedding model rather than a chat model.
+ * @throws Error when the path is not an absolute path to a readable GGUF file, the file is a
+ * vision projector or embedding model rather than a chat model, or the projector is not an
+ * absolute path to a readable projector GGUF file.
  */
-importModel(path: string, name?: string): Promise<string>
+importModel(path: string, options: ImportModelOptions = {}): Promise<string>
 
 /**
  * Make an installed model the default: the route's alias id serves it and it loads when the worker
@@ -1131,7 +1135,7 @@ loadModel(id: string): Promise<void>
 unloadModel(id: string): Promise<void>
 
 /**
- * Remove an installed model. A downloaded file is deleted; an imported file is only forgotten. A
+ * Remove an installed model. A downloaded file or projector is deleted; an imported one is only forgotten. A
  * resident model is unloaded first, because Windows cannot delete a file the worker maps.
  * Removing the default makes the next installed model the default and loads it into a running worker,
  * as {@link setDefault} does; removing the last stops the worker.
@@ -1222,9 +1226,10 @@ Install, start, stop and remove the local models and the worker serving them; pr
 /**
  * Add a GGUF file from this computer, left where it is.
  * @param path - absolute path on the Host.
+ * @param projector - absolute Host path of the model's vision projector (mmproj) file; omitted for a text-only model.
  * @returns the model id.
  */
-@Remote async importModel(path: string): Promise<string>
+@Remote async importModel(path: string, projector?: string): Promise<string>
 
 /**
  * Make an installed model the default, which the route's alias id serves, and load it; a stopped

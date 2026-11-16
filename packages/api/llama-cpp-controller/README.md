@@ -34,13 +34,13 @@ Mount the row beside `llama-cpp`; it requires the `llamaCpp` and `typert` servic
 |---|---|
 | `readState`, `follow` | Read the current state; `follow` streams the current snapshot, then one per change, until the caller disconnects |
 | `beginInstall`, `cancelInstall` | First run: download the first-run model and start the worker, or start the installed default; stop every download |
-| `downloadModel`, `lookupRepo`, `downloadRepoFile` | Download a curated model; list a Hugging Face repository's GGUF files; download one of them and return its model id |
+| `downloadModel`, `lookupRepo`, `downloadRepoFile` | Download a curated model; list a Hugging Face repository's GGUF files and its vision projector; download one of them, with the repository's projector, and return its model id |
 | `retryDownload`, `cancelDownload` | Restart a failed download from its partial file; stop one download or dismiss a failed one |
-| `importModel` | Add a `.gguf` file by its absolute Host path, left in place, and return its model id |
+| `importModel` | Add a `.gguf` file by its absolute Host path, with an optional absolute path of its vision projector, both left in place, and return its model id; a projector given for an already imported file replaces that model's projector |
 | `setDefaultModel`, `loadModel`, `unloadModel`, `deleteModel` | Make a model the default and load it; load or unload a model now; remove a model |
 | `startServer`, `stopServer`, `removeInstall` | Start or stop the worker; stop it and delete every downloaded model and the route credentials |
 
-A failed operation throws a `RemoteError` with code `llama-cpp/failed` and details `{ reason }`, where `reason` is the service's message. A worker start failure from `startServer` or `setDefaultModel` arrives as the `failed` phase on `follow` instead. State snapshots carry no paths or keys; `importModel` accepts a path but returns only an id.
+A failed operation throws a `RemoteError` with code `llama-cpp/failed` and details `{ reason }`, where `reason` is the service's message. A worker start failure from `startServer` or `setDefaultModel` arrives as the `failed` phase on `follow` instead. State snapshots carry no paths or keys; `importModel` accepts paths but returns only an id.
 
 <a id="understand-the-implementation"></a>
 ## Understand the implementation
@@ -74,7 +74,7 @@ Unloading, deleting, stopping, or removing through the controller discards the w
 <a id="known-limitations-and-deferred-work"></a>
 
 - Failures carry one free-text `reason`; callers cannot distinguish a busy model, a missing file, or an unreachable Hugging Face by code.
-- `importModel` takes a path on the Host's filesystem; a remote browser cannot upload a file through it.
+- `importModel` takes paths on the Host's filesystem; a remote browser cannot upload a model or projector file through it.
 
 <a id="dev-note"></a>
 ### Dev Note

@@ -3,8 +3,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
-  accelerators, assessFit, backendOf, Config, estimateKvBytes, modelFacts, parseDeviceList, plannedContext, readModelFacts,
-  renderPreset, resolvePresetSettings, UnsupportedModelError, WorkerProtocolError, type ModelFacts,
+  accelerators, assessFit, backendOf, CATALOG, Config, estimateKvBytes, modelFacts, NotAProjectorError, parseDeviceList, plannedContext,
+  projectorFacts, readModelFacts, readProjectorFacts, renderPreset, resolvePresetSettings, UnsupportedModelError, WorkerProtocolError,
+  type ModelFacts,
 } from '../src/index.ts'
 import { chatModel, ggufFile } from './gguf-fixture.ts'
 
@@ -44,6 +45,32 @@ describe('GGUF facts', () => {
     await writeFile(join(dir, 'b.gguf'), 'not a model')
     expect((await readModelFacts(join(dir, 'a.gguf'))).contextLength).toBe(8192)
     await expect(readModelFacts(join(dir, 'b.gguf'))).rejects.toThrow()
+  })
+
+  it('reads whether a projector encodes images, taking one that declares no encoder as a vision projector', () => {
+    expect(projectorFacts({ 'general.architecture': 'clip' })).toEqual({ vision: true })
+    expect(projectorFacts({ 'general.architecture': 'clip', 'clip.has_vision_encoder': true })).toEqual({ vision: true })
+    expect(projectorFacts({ 'general.architecture': 'clip', 'clip.has_vision_encoder': false, 'clip.has_audio_encoder': true })).toEqual({ vision: false })
+    expect(projectorFacts({ 'general.architecture': 'clip', 'clip.has_audio_encoder': true })).toEqual({ vision: false })
+    expect(projectorFacts({ 'general.architecture': 'clip', 'clip.has_audio_encoder': false })).toEqual({ vision: true })
+    expect(projectorFacts({ 'general.architecture': 'clip', 'clip.has_vision_encoder': true, 'clip.has_audio_encoder': true })).toEqual({ vision: true })
+  })
+
+  it('refuses a projector that is not clip, and reads one from disk', async () => {
+    expect(() => projectorFacts(chatModel(4096))).toThrow(NotAProjectorError)
+    expect(() => projectorFacts(chatModel(4096))).toThrow('it has "qwen3" architecture, not a vision projector (clip)')
+    expect(() => projectorFacts({})).toThrow('it has no architecture, not a vision projector (clip)')
+    const dir = await mkdtemp(join(tmpdir(), 'llama-mmproj-'))
+    cleanups.push(() => rm(dir, { recursive: true, force: true }))
+    await writeFile(join(dir, 'mmproj.gguf'), ggufFile({ 'general.architecture': 'clip', 'clip.has_vision_encoder': true }, 2048))
+    expect(await readProjectorFacts(join(dir, 'mmproj.gguf'))).toEqual({ vision: true })
+  })
+
+  it('pins a vision projector beside the curated vision model only', () => {
+    expect(CATALOG.filter(entry => entry.mmproj !== undefined).map(entry => [entry.id, entry.mmproj?.bytes])).toEqual([
+      ['qwen3-vl-2b-instruct', 819_395_232],
+    ])
+    expect(CATALOG.find(entry => entry.id === 'qwen3-vl-2b-instruct')?.mmproj?.url).toMatch(/\/mmproj-F16\.gguf$/)
   })
 
   it('estimates the KV cache at the context, capped at the trained one, and averages sliding windows', () => {
@@ -172,6 +199,15 @@ describe('preset', () => {
     expect(renderPreset({ ...settings, moeCacheMiB: 2048 }, [moe], {})).toContain('[local]\nmodel = /m/a.gguf\nmoe-cache-mib = 2048\n')
     expect(renderPreset({ ...settings, moeCacheMiB: 2048, splitMode: 'tensor' }, [moe], {})).not.toContain('moe-cache-mib')
     expect(renderPreset({ ...settings, moeCacheMiB: 2048, device: 'none' }, [moe], {})).not.toContain('moe-cache-mib')
+  })
+
+  it('names a model\'s projector after its file, and keeps it off the GPU only when configured', () => {
+    const vision = { ...model, mmproj: '/m/mmproj.gguf' }
+    expect(renderPreset(settings, [vision], {})).toContain('[local]\nmodel = /m/a.gguf\nmmproj = /m/mmproj.gguf\n')
+    expect(renderPreset(settings, [vision], {})).not.toContain('mmproj-offload')
+    const cpu = resolvePresetSettings(Config({ dataRoot: '/data', mmprojOffload: false }), 'linux', '/data/slots')
+    expect(renderPreset(cpu, [vision], {})).toContain('[local]\nmodel = /m/a.gguf\nmmproj = /m/mmproj.gguf\nmmproj-offload = false\n')
+    expect(renderPreset(cpu, [model], {})).not.toContain('mmproj')
   })
 
   it('keeps every value on one line', () => {
