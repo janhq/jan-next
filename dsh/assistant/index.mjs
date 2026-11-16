@@ -353,10 +353,8 @@ async function apply(ctx) {
       current.assignment = assignment;
       return;
     }
-    const entry = {
-      assignment, dispose: () => {
-      }
-    };
+    const entry = { assignment, dispose: () => {
+    } };
     entry.dispose = agent.ctx.systemPrompt.section({
       name: "open-waifu.assistant",
       order: agent.ctx.systemPrompt.getSectionOrder("DEPLOYMENT_PERSONA_PREFIX"),
@@ -424,6 +422,7 @@ async function apply(ctx) {
       await store.deleteAssistant(assistant);
       return { id: assistant.id };
     },
+    /** Durable assignment for one session; null when none is stored. */
     async getAssignment({ sessionId }) {
       if (typeof sessionId !== "string" || !sessionId) throw new Error("Select a running DSH session.");
       await prepare();
