@@ -141,6 +141,9 @@ try {
   for (const label of ['New Chat', 'New project', 'Search', 'Model Hub', 'Plugin manager', 'Settings']) {
     if (!(await visible(label))) throw new Error(`sidebar control "${label}" is missing`)
   }
+  if (await evaluate(`[...document.querySelectorAll('[role=treeitem]')].some(el => el.offsetParent !== null && el.textContent.includes('New Session'))`)) {
+    throw new Error('the chat list shows an empty "New Session" row')
+  }
   await step('settings opens', async () => {
     if (!(await click('Settings'))) throw new Error('Settings is not clickable')
     await until('Settings dialog', () => evaluate('!!document.querySelector("[role=dialog]")'), 15_000)
