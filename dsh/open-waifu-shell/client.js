@@ -181,9 +181,8 @@ window.__ModuleLoader__.load({
 .ow-footer-action:hover { background: var(--dsw-specific-sidebar-nav-item-hover); color: var(--dsw-alias-label-primary); }
 .ow-footer-action:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -2px; }
 .ow-footer-action[data-rail] { justify-content: center; padding-inline: 0; }
-.ow-plugin-footer { display: flex; flex-direction: column; width: 100%; min-width: 0; }
-.ow-inventory-status { margin: 0; padding: 4px 9px; color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 18px; text-wrap: pretty; }
 .ow-menu-entry { display: flex; align-items: center; gap: 8px; width: 100%; }
+.ow-artwork { color: var(--dsw-alias-label-primary); }
 .ow-menu-check { flex: none; margin-left: auto; color: var(--dsw-alias-state-business-primary); }
 /* Native titlebar rules need to outrank DSH's platform rules; they never touch
    third-party panel or composer contents. The existing DSH track motion stays. */
@@ -267,6 +266,15 @@ html[data-ow-shell][data-windows-titlebar] [data-slot='root'] > :has(> [data-she
 
     const HeroHeadline = ({ t }) => h('h1', { className: 'ow-hero-title' }, t('hero.headline'))
 
+    // Jan draws every plugin with Tabler outline glyphs (MIT), so the cards use
+    // the same line icons in the label colour instead of DSH's filled artwork.
+    const JAN_ARTWORK = {"shell":[["path",{"d":"M8 9l3 3l-3 3"}],["path",{"d":"M13 15l3 0"}],["path",{"d":"M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z"}]],"agent-loop":[["path",{"d":"M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"}],["path",{"d":"M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"}]],"subagent":[["path",{"d":"M10 13a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"}],["path",{"d":"M8 21v-1a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2v1"}],["path",{"d":"M15 5a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"}],["path",{"d":"M17 10h2a2 2 0 0 1 2 2v1"}],["path",{"d":"M5 5a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"}],["path",{"d":"M3 13v-1a2 2 0 0 1 2 -2h2"}]],"web-search":[["path",{"d":"M21 12a9 9 0 1 0 -9 9"}],["path",{"d":"M3.6 9h16.8"}],["path",{"d":"M3.6 15h7.9"}],["path",{"d":"M11.5 3a17 17 0 0 0 0 18"}],["path",{"d":"M12.5 3a16.984 16.984 0 0 1 2.574 8.62"}],["path",{"d":"M18 18m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"}],["path",{"d":"M20.2 20.2l1.8 1.8"}]],"@deepseek-ai/dsh-experimental-agent-team-profile":[["path",{"d":"M9 7m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0"}],["path",{"d":"M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2"}],["path",{"d":"M16 3.13a4 4 0 0 1 0 7.75"}],["path",{"d":"M21 21v-2a4 4 0 0 0 -3 -3.85"}]],"@deepseek-ai/dsh-experimental-voice-input-bundle":[["path",{"d":"M9 2m0 3a3 3 0 0 1 3 -3h0a3 3 0 0 1 3 3v5a3 3 0 0 1 -3 3h0a3 3 0 0 1 -3 -3z"}],["path",{"d":"M5 10a7 7 0 0 0 14 0"}],["path",{"d":"M8 21l8 0"}],["path",{"d":"M12 17l0 4"}]],"@deepseek-ai/dsh-experimental-plugin-market-bundle":[["path",{"d":"M4 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z"}],["path",{"d":"M4 14m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z"}],["path",{"d":"M14 14m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z"}],["path",{"d":"M14 7l6 0"}],["path",{"d":"M17 4l0 6"}]],"@deepseek-ai/dsh-experimental-auto-review":[["path",{"d":"M11.46 20.846a12 12 0 0 1 -7.96 -14.846a12 12 0 0 0 8.5 -3a12 12 0 0 0 8.5 3a12 12 0 0 1 -.09 7.06"}],["path",{"d":"M15 19l2 2l4 -4"}]],"@deepseek-ai/dsh-experimental-forge-bundle":[["path",{"d":"M6 18m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"}],["path",{"d":"M6 6m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"}],["path",{"d":"M18 18m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"}],["path",{"d":"M6 8l0 8"}],["path",{"d":"M11 6h5a2 2 0 0 1 2 2v8"}],["path",{"d":"M14 9l-3 -3l3 -3"}]],"@deepseek-ai/dsh-personalized-recommendations":[["path",{"d":"M16 18a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2zm0 -12a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2zm-7 12a6 6 0 0 1 6 -6a6 6 0 0 1 -6 -6a6 6 0 0 1 -6 6a6 6 0 0 1 6 6z"}]],"@deepseek-ai/dsh-experimental-inspector-profile":[["path",{"d":"M9 9v-1a3 3 0 0 1 6 0v1"}],["path",{"d":"M8 9h8a6 6 0 0 1 1 3v3a5 5 0 0 1 -10 0v-3a6 6 0 0 1 1 -3"}],["path",{"d":"M3 13l4 0"}],["path",{"d":"M17 13l4 0"}],["path",{"d":"M12 20l0 -6"}],["path",{"d":"M4 19l3.35 -2"}],["path",{"d":"M20 19l-3.35 -2"}],["path",{"d":"M4 7l3.75 2.4"}],["path",{"d":"M20 7l-3.75 2.4"}]],"@deepseek-ai/dsh-cua-bundle":[["path",{"d":"M7.904 17.563a1.2 1.2 0 0 0 2.228 .308l2.09 -3.093l4.907 4.907a1.067 1.067 0 0 0 1.509 0l1.047 -1.047a1.067 1.067 0 0 0 0 -1.509l-4.907 -4.907l3.113 -2.09a1.2 1.2 0 0 0 -.309 -2.228l-13.582 -3.904l3.904 13.563z"}]],"@deepseek-ai/dsh-experimental-cot-translation-bundle":[["path",{"d":"M4 5h7"}],["path",{"d":"M9 3v2c0 4.418 -2.239 8 -5 8"}],["path",{"d":"M5 9c0 2.144 2.952 3.908 6.7 4"}],["path",{"d":"M12 20l4 -9l4 9"}],["path",{"d":"M19.1 18h-6.2"}]],"@deepseek-ai/dsh-experimental-session-search":[["path",{"d":"M8 9h8"}],["path",{"d":"M8 13h5"}],["path",{"d":"M11.008 19.195l-3.008 1.805v-3h-2a3 3 0 0 1 -3 -3v-8a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v4.5"}],["path",{"d":"M18 18m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"}],["path",{"d":"M20.2 20.2l1.8 1.8"}]],"@deepseek-ai/dsh-experimental-session-titles-bundle":[["path",{"d":"M7 12h10"}],["path",{"d":"M7 5v14"}],["path",{"d":"M17 5v14"}],["path",{"d":"M15 19h4"}],["path",{"d":"M15 5h4"}],["path",{"d":"M5 19h4"}],["path",{"d":"M5 5h4"}]],"@deepseek-ai/dsh-experimental-badge-skill-bundle":[["path",{"d":"M12 9m-6 0a6 6 0 1 0 12 0a6 6 0 1 0 -12 0"}],["path",{"d":"M12 15l3.4 5.89l1.598 -3.233l3.598 .232l-3.4 -5.889"}],["path",{"d":"M6.802 12l-3.4 5.89l3.598 -.233l1.598 3.232l3.4 -5.889"}]],"@deepseek-ai/dsh-experimental-ralph-bundle":[["path",{"d":"M4 12v-3a3 3 0 0 1 3 -3h13m-3 -3l3 3l-3 3"}],["path",{"d":"M20 12v3a3 3 0 0 1 -3 3h-13m3 3l-3 -3l3 -3"}]],"@deepseek-ai/dsh-subagent-codex":[["path",{"d":"M6 4m0 2a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2z"}],["path",{"d":"M12 2v2"}],["path",{"d":"M9 12v9"}],["path",{"d":"M15 12v9"}],["path",{"d":"M5 16l4 -2"}],["path",{"d":"M15 14l4 2"}],["path",{"d":"M9 18h6"}],["path",{"d":"M10 8v.01"}],["path",{"d":"M14 8v.01"}]],"@deepseek-ai/dsh-subagent-claude-code":[["path",{"d":"M6 4m0 2a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2z"}],["path",{"d":"M12 2v2"}],["path",{"d":"M9 12v9"}],["path",{"d":"M15 12v9"}],["path",{"d":"M5 16l4 -2"}],["path",{"d":"M15 14l4 2"}],["path",{"d":"M9 18h6"}],["path",{"d":"M10 8v.01"}],["path",{"d":"M14 8v.01"}]],"@deepseek-ai/dsh-experimental-liveshare":[["path",{"d":"M6 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"}],["path",{"d":"M18 6m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"}],["path",{"d":"M18 18m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"}],["path",{"d":"M8.7 10.7l6.6 -3.4"}],["path",{"d":"M8.7 13.3l6.6 3.4"}]]}
+    const JanArtwork = ({ nodes, size }) => h('svg', {
+      width: Math.round(size * 0.7), height: Math.round(size * 0.7), viewBox: '0 0 24 24', fill: 'none',
+      stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round', strokeLinejoin: 'round',
+      className: 'ow-artwork', 'aria-hidden': true,
+    }, nodes.map(([tag, attrs], i) => h(tag, { key: i, ...attrs })))
+
     // Jan has no panel launcher rows, so the native More menu becomes the one
     // list of management pages. Plugins and Model Hub keep their footer seats;
     // every other registered panel is opened from here, so hiding its launcher
@@ -285,19 +293,14 @@ html[data-ow-shell][data-windows-titlebar] [data-slot='root'] > :has(> [data-she
         })))))
     }
 
-    function PluginManagerAction({ wide, useAvailable, useInventoryStatus, usePanelInfo, openPlugins, t }) {
+    function PluginManagerAction({ wide, useAvailable, openPlugins, t }) {
       const available = useAvailable((value) => value)
-      const inventoryStatus = useInventoryStatus((value) => value)
-      const active = usePanelInfo((value) => value.activePanelId === 'plugins')
       if (!available) return null
-      const reading = active && (inventoryStatus === 'idle' || inventoryStatus === 'loading')
-      return h('div', { className: 'ow-plugin-footer' },
-        h('button', {
-          type: 'button', className: 'ow-footer-action', 'data-rail': !wide || undefined,
-          'aria-label': t('plugins'), title: !wide ? t('plugins') : undefined,
-          onClick: openPlugins,
-        }, h(IconPluginPinwheelOutlineRegular, { size: 16 }), wide && t('plugins')),
-        reading && h('p', { className: 'ow-inventory-status', role: 'status', 'aria-live': 'polite' }, t('plugins.reading')))
+      return h('button', {
+        type: 'button', className: 'ow-footer-action', 'data-rail': !wide || undefined,
+        'aria-label': t('plugins'), title: !wide ? t('plugins') : undefined,
+        onClick: openPlugins,
+      }, h(IconPluginPinwheelOutlineRegular, { size: 16 }), wide && t('plugins'))
     }
 
     function ModelHubAction({ wide, useAvailable, openModelHub, t }) {
@@ -352,7 +355,7 @@ html[data-ow-shell][data-windows-titlebar] [data-slot='root'] > :has(> [data-she
               newProject: 'New project',
               search: 'Search',
               modelHub: 'Model Hub',
-              plugins: 'Plugin manager', 'plugins.reading': 'Reading plugins...', settings: 'Settings',
+              plugins: 'Plugin manager', settings: 'Settings',
             },
             zh: {
               'hero.headline': '今天有什么可以帮您？',
@@ -361,7 +364,7 @@ html[data-ow-shell][data-windows-titlebar] [data-slot='root'] > :has(> [data-she
               newProject: '新项目',
               search: '搜索',
               modelHub: '中心',
-              plugins: '插件管理', 'plugins.reading': '正在读取插件...', settings: '设置',
+              plugins: '插件管理', settings: '设置',
             },
           }), 'open-waifu-shell: owned copy')
         })
@@ -378,6 +381,11 @@ html[data-ow-shell][data-windows-titlebar] [data-slot='root'] > :has(> [data-she
         // Jan's greeting replaces the bundled headline stack; the rest of the
         // hero and composer stay DSH's own.
         ctx.slots.inject('conversation.hero.headline', () => ctx.slots.register({ name: 'conversation.hero.headline', priority: -1, locale: 'open-waifu.shell' }, HeroHeadline))
+        // One icon language on the Plugins page: each known plugin keeps its
+        // card, only the artwork inside the frame becomes Jan's line glyph.
+        for (const [key, nodes] of Object.entries(JAN_ARTWORK)) {
+          ctx.slots.inject('plugins.artwork', () => ctx.slots.register({ name: 'plugins.artwork', key }, ({ size }) => h(JanArtwork, { nodes, size })))
+        }
         // The More menu's real panel destinations. Registering it also keeps
         // the More trigger present, so no launcher row is hidden without a
         // reachable menu entry.
@@ -398,33 +406,6 @@ html[data-ow-shell][data-windows-titlebar] [data-slot='root'] > :has(> [data-she
             getSnapshot: () => scope.slots.entriesOfSlot('main').some((entry) => entry.options.key === 'plugins'),
             subscribe: (listener) => scope.slots.subscribe('main', listener),
           }
-          // Observe only the elected Plugins page's injected inventory. Registrant
-          // names are diagnostic labels, not stable package identifiers. A custom
-          // page without this observable owns its own loading presentation.
-          const sources = new WeakMap()
-          const inventorySource = () => {
-            const entry = scope.slots.entriesOfSlot('main').find((candidate) => candidate.options.key === 'plugins')
-            if (!entry) return undefined
-            if (!sources.has(entry)) {
-              const source = entry.inject?.().hooks?.pluginManager
-              sources.set(entry, typeof source?.getSnapshot === 'function' && typeof source?.subscribe === 'function' ? source : undefined)
-            }
-            return sources.get(entry)
-          }
-          const inventoryStatus = {
-            getSnapshot: () => inventorySource()?.getSnapshot().status,
-            subscribe: (listener) => {
-              let offSource = () => { }
-              const bind = () => {
-                offSource()
-                offSource = inventorySource()?.subscribe(listener) ?? (() => { })
-                listener()
-              }
-              const offLedger = scope.slots.subscribe('main', bind)
-              bind()
-              return () => { offLedger(); offSource() }
-            },
-          }
           const modelHubAvailable = {
             getSnapshot: () => scope.slots.entriesOfSlot('sidebar.panellist').some((entry) => entry.options.id === 'ow-models'),
             subscribe: (listener) => scope.slots.subscribe('sidebar.panellist', listener),
@@ -441,7 +422,7 @@ html[data-ow-shell][data-windows-titlebar] [data-slot='root'] > :has(> [data-she
             name: 'sidebar.footer.action', id: 'ow-plugin-manager', order: 0,
             locale: 'open-waifu.shell',
             inject: () => ({
-              hooks: { available, inventoryStatus },
+              hooks: { available },
               openPlugins: () => scope.layout.selectPanel('plugins'),
             }),
           }, PluginManagerAction))
