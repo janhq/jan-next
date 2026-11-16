@@ -819,6 +819,7 @@ export class PluginManagerController {
         void this.run(packageName, { packageName, action: enabled ? 'enable' : 'disable' }, async () => {
           const result = await this.ctx.remote.pluginManager.setBundleEnabled(packageName, enabled)
           this.applied(result, packageName)
+          if (result.ok && result.value.application === 'applied') this.showEnabled(packageName, enabled)
           if (result.ok && (result.value.application === 'applied' || result.value.application === 'restart-required')) this.trackToggle(packageName, enabled)
         })
       },
@@ -1463,6 +1464,7 @@ export class PluginManagerController {
         result.ok ? result.value.error?.code : result.error.code, name)
       try {
         this.applied(result, name)
+        if (result.ok && result.value.application === 'applied') this.showEnabled(name, true)
         if (result.ok && (result.value.application === 'applied' || result.value.application === 'restart-required')) this.trackToggle(name, true)
       } catch (error) {
         this.patch({ notice: failedNotice(error, { packageName: name, action: 'enable' }, ++this.noticeSeq) })
@@ -1518,6 +1520,17 @@ export class PluginManagerController {
       case 'applied':
         return
     }
+  }
+
+  /**
+   * Show a change the Host has applied before the full re-read returns: the
+   * bundle is already live, and a switch still reading the old state for the
+   * seconds the inventory takes contradicts what the page shows.
+   */
+  private showEnabled(name: string, enabled: boolean): void {
+    const packages = this.getSnapshot().packages
+    if (!packages.some(pkg => pkg.name === name && pkg.enabled !== enabled)) return
+    this.patch({ packages: packages.map(pkg => pkg.name === name ? { ...pkg, enabled } : pkg) })
   }
 
   private trackToggle(name: string, enabled: boolean, row = false): void {
