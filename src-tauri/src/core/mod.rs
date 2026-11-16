@@ -5,6 +5,8 @@ pub mod downloads;
 pub mod dsh;
 pub mod filesystem;
 pub mod mcp_config;
+#[cfg(windows)]
+pub mod microphone;
 // Desktop-only: the webview navigation guard.
 pub mod navigation;
 pub mod openai_schema;

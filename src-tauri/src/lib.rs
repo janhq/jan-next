@@ -221,6 +221,11 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_llamacpp::init());
 
+    #[cfg(windows)]
+    {
+        app_builder = app_builder.plugin(core::microphone::init());
+    }
+
     #[cfg(feature = "deep-link")]
     {
         app_builder = app_builder.plugin(tauri_plugin_deep_link::init());
