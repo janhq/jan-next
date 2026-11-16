@@ -53,4 +53,5 @@ async function bundle(entry, output) {
 await Promise.all([
   bundle('dsh/llamacpp/src/host.ts', 'dsh/llamacpp/runtime.mjs'),
   bundle('dsh/assistant/host.ts', 'dsh/assistant/index.mjs'),
+  bundle('dsh/preset-square/host.mjs', 'dsh/preset-square/index.mjs'),
 ])

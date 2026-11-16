@@ -122,7 +122,8 @@ fn seed_profile(home: &Path) -> Result<(), String> {
 const BUILTINS: &[(&str, &str)] = &[
     ("ow-native", "native"), ("ow-log-bridge", "log-bridge"), ("ow-download", "download"),
     ("ow-llamacpp", "llamacpp"), ("ow-assistant", "assistant"), ("ow-image-generation", "image-generation"),
-    ("ow-jan-import", "jan-import"), ("ow-onboarding", "onboarding"), ("ow-shell", "open-waifu-shell"),
+    ("ow-jan-import", "jan-import"), ("ow-onboarding", "onboarding"), ("ow-preset-square", "preset-square"),
+    ("ow-shell", "open-waifu-shell"),
 ];
 const BUNDLE: &str = "@open-waifu/dsh-bundle";
 

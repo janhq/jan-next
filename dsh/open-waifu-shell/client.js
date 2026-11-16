@@ -42,6 +42,11 @@ window.__ModuleLoader__.load({
       '--dsw-alias-button-primary-fill': both(look.primary),
       '--dsw-alias-button-info-fill': both(look.primary),
       '--dsw-alias-state-business-primary': both(look.primary),
+      // The running "Deep diving" status and its hand; DSH tints them its own blue.
+      '--dsw-alias-label-deep-diving': {
+        light: `color-mix(in oklch, ${look.primary} 85%, black)`,
+        dark: `color-mix(in oklch, ${look.primary} 80%, white)`,
+      },
       '--dsw-specific-input-major': { light: 'oklch(0.97 0 0)', dark: 'oklch(0.235 0 0)' },
       '--dsw-specific-selector': { light: 'oklch(0.94 0 0)', dark: 'oklch(0.269 0 0)' },
       '--dsw-specific-bubble': {

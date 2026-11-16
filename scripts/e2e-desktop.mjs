@@ -255,8 +255,11 @@ try {
     })
   }
   if (args.plugin) {
-    const folder = resolve(String(args.plugin))
-    await step('local plugin installs', async () => {
+    // A folder installs from disk; anything else is a registry spec such as dsh-ppt@0.20.5.
+    const local = existsSync(resolve(String(args.plugin)))
+    const folder = local ? resolve(String(args.plugin)) : String(args.plugin)
+    const packageName = local ? JSON.parse(readFileSync(join(folder, 'package.json'), 'utf8')).name : folder.replace(/(?<=.)@[^@/]*$/, '')
+    await step(local ? 'local plugin installs' : 'registry plugin installs', async () => {
       await click('Choose how to add a plugin')
       await until('install menu', () => click('Install a third-party plugin'), 10_000)
       await until('package field', () => evaluate('!!document.querySelector("input[aria-label=\'Package name or address\'], [role=dialog] input")'), 10_000)
@@ -265,7 +268,7 @@ try {
       await until('Install enabled', () => click('Install'), 10_000)
       await until('Enable now', () => click('Enable now'), 180_000)
       // The row's own switch must agree with the "is active" claim right away.
-      const label = `Enable ${JSON.parse(readFileSync(join(folder, 'package.json'), 'utf8')).name}`
+      const label = `Enable ${packageName}`
       const enabledAt = Date.now()
       const state = () => evaluate(`(() => {
         const sw = [...document.querySelectorAll('[aria-label^="Enable "]')].find(el => el.getAttribute('aria-label').includes(${JSON.stringify(label.slice(7))}))
@@ -281,6 +284,40 @@ try {
       console.log(`     row switch: ${changes.join(' -> ')}`)
     })
   }
+  // --preset installs one Preset Square entry by title and expects it in the
+  // new chat's mode menu without a restart.
+  if (args.preset) {
+    const title = String(args.preset)
+    await step('preset installs from Preset Square', async () => {
+      if (!(await click('Presets'))) {
+        if (!(await click('More'))) throw new Error('the sidebar has no More menu')
+        await until('Presets entry', () => click('Presets'), 10_000).catch(() => { throw new Error('the Presets panel is not in the sidebar') })
+      }
+      await until('gallery listed', () => evaluate(`document.querySelectorAll('.ow-presets-card').length > 0 || !!document.querySelector('.ow-presets [role=alert]')`), 30_000)
+      const failure = await evaluate(`document.querySelector('.ow-presets [role=alert]')?.textContent ?? ''`)
+      if (failure) throw new Error(`Preset Square: ${failure}`)
+      const clicked = await evaluate(`(() => {
+        const card = [...document.querySelectorAll('.ow-presets-card')].find(c => c.querySelector('h2')?.textContent.trim() === ${JSON.stringify(title)})
+        const button = card && [...card.querySelectorAll('button')].find(b => b.textContent.trim() === 'Install' && !b.disabled)
+        if (!button) return false
+        button.click(); return true
+      })()`)
+      if (!clicked) throw new Error(`no Install button for "${title}"`)
+      await until('risk acknowledged', () => evaluate(`(() => { const box = document.querySelector('[role=dialog] input[type=checkbox], [role=dialog] [role=checkbox]'); if (!box) return false; box.click(); return true })()`), 10_000)
+      await until('install confirmed', () => evaluate(`(() => { const b = [...document.querySelectorAll('[role=dialog] button')].find(b => b.textContent.trim() === 'Install' && !b.disabled); if (!b) return false; b.click(); return true })()`), 10_000)
+      await until('installed', () => evaluate(`/is installed/.test(document.querySelector('.ow-presets [role=status]')?.textContent ?? '') || !!document.querySelector('.ow-presets [role=alert]')`), 90_000)
+      const error = await evaluate(`document.querySelector('.ow-presets [role=alert]')?.textContent ?? ''`)
+      if (error) throw new Error(`install failed: ${error}`)
+    })
+    await step('installed preset in mode menu', async () => {
+      await click('New Chat')
+      // New Chat re-renders the hero; reopen the chip until its menu shows.
+      const menuOpen = `[...document.querySelectorAll('[role=menuitem],[role=option],[role=menuitemradio]')].some(el => el.offsetParent !== null)`
+      await until('mode menu open', async () => (await evaluate(menuOpen)) || (await click('Standard mode'), await sleep(400), evaluate(menuOpen)), 15_000)
+      await until('preset in menu', () => evaluate(`(() => { const item = [...document.querySelectorAll('[role=menuitem],[role=option],[role=menuitemradio]')].find(el => el.offsetParent !== null && el.textContent.includes(${JSON.stringify(title)})); item?.scrollIntoView({ block: 'nearest' }); return !!item })()`), 15_000)
+      // The step screenshot keeps the open menu as evidence; the next step's New Chat closes it.
+    })
+  }
   if (args.prompt) {
     await step('reply arrives', async () => {
       await click('New Chat')
@@ -292,6 +329,11 @@ try {
       await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 })
       // Count finished turns so a transcript already on screen cannot pass this step.
       const before = await evaluate(`(document.body.innerText.match(/Completed in|This turn failed/g) ?? []).length`)
+      // The running status is tinted with the app accent; keep one frame of it.
+      if (await until('running status', () => evaluate('!!document.querySelector("[data-chat-running]")'), 30_000).catch(() => false)) {
+        const shot = await cdp.send('Page.captureScreenshot', { format: 'png' })
+        writeFileSync(join(out, 'running-status.png'), Buffer.from(shot.data, 'base64'))
+      }
       await until('finished turn', () => evaluate(`(document.body.innerText.match(/Completed in|This turn failed/g) ?? []).length > ${before}`), 180_000)
       if (await evaluate(`document.body.innerText.includes('This turn failed')`)) throw new Error('the turn failed; see the screenshot')
     })
