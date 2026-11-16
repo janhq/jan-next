@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-11-13-bundled-llama-worker.zh.md)
-
 ## Problem
 
 The `llama-cpp` plugin downloaded a pinned prebuilt `llama-server` archive from GitHub on first use, unpacked it with `tar`, and ran it on the fixed port 39281 that the `llm-pi-ai` `local` route also hardcoded. That design had four costs. The first run depended on GitHub release availability, so the plugin carried mirror fallbacks and a shared engine-install state machine. Only the CPU and Vulkan builds llama.cpp publishes were available, so CUDA and HIP were out of reach. A second process on port 39281 blocked the start, which required a pre-spawn health probe and a key check. Switching models restarted the server, and a supervisor killed with SIGKILL left `llama-server` running.

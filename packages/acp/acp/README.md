@@ -36,8 +36,8 @@ Every session the server creates uses the provider and model configured here. Bo
 ```yaml
 - name: '@deepseek-ai/dsh-acp'
   config:
-    provider: deepseek-official
-    model: deepseek-v4-pro
+    provider: tokamak
+    model: tokamak-1-preview
 ```
 
 | Field | Default | Meaning |

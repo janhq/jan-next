@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { Context } from '@deepseek-ai/cordis'
-import { codingHarness, finalText, SYSTEM_PROMPT, waitForIdle } from './harness.ts'
+import { codingHarness, E2E_MODEL, finalText, SYSTEM_PROMPT, waitForIdle } from './harness.ts'
 import { SessionId } from '@deepseek-ai/dsh-session'
 
 /**
@@ -49,7 +49,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('compaction: a long session compa
       },
       persistenceRoot: join(workdir, '.sessions'),
     })
-    const agent = await ctx.agentLoop.create(SessionId('e2e-compaction'), { provider: 'deepseek-official', model: 'deepseek-v4-flash' }, { cwd: workdir })
+    const agent = await ctx.agentLoop.create(SessionId('e2e-compaction'), E2E_MODEL, { cwd: workdir })
 
     // Completed read turns cannot collapse into one retained parallel tool group.
     for (let i = 1; i <= 4; i++) {

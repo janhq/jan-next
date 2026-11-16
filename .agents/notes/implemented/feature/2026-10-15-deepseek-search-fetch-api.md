@@ -8,7 +8,7 @@ DeepSeek web retrieval through Messages requires an auxiliary model request for 
 
 ## Decision
 
-The [DeepSeek Search and Fetch guide](https://api-docs.deepseek.com/zh-cn/guides/search), checked on 2026-10-16, defines the upstream API. The [web-deepseek-api plugin](../../../../packages/web/web-deepseek-api/README.md) implements it behind the existing `web_search` and `web_fetch` tools. The [web capability decision](../architecture/2026-06-24-web-capability-seam.md) continues to own provider selection, tool responsibilities, and the fetch result fields, and the [web provider selection decision](../architecture/2026-10-29-web-provider-selection.md) owns how users choose each provider and which providers the shipped composition selects.
+The [DeepSeek Search and Fetch guide](https://api-docs.deepseek.com/zh-cn/guides/search), checked on 2026-10-16, defines the upstream API. The web-deepseek-api plugin implements it behind the existing `web_search` and `web_fetch` tools. The [web capability decision](../architecture/2026-06-24-web-capability-seam.md) continues to own provider selection, tool responsibilities, and the fetch result fields, and the [web provider selection decision](../architecture/2026-10-29-web-provider-selection.md) owns how users choose each provider and which providers the shipped composition selects.
 
 ### Protocol selection and deployment
 
@@ -38,7 +38,7 @@ The shipped composition selects `deepseek-search-api`; the [selection decision](
 
 ### Legacy Messages search
 
-The independent `dsh-web-search-deepseek` provider sends Messages search requests when `deepseek-official` is selected, as the [selection decision](../architecture/2026-10-29-web-provider-selection.md) records. Its `web/deepseek-search-llm-request` Session event type, including the optional `thinking: { type: 'disabled' }` body field that the [persistence acknowledgement](../../../../docs/persistence-changes/2026-10-13-deepseek-search-thinking.md) covers, stays declared and written in `dsh-web-search-deepseek`, so released Sessions that contain the event still open. Messages search sends that field because Harness discards the generated answer and the auxiliary request needs no reasoning.
+The independent `dsh-web-search-deepseek` provider sends Messages search requests when `deepseek-official` is selected, as the [selection decision](../architecture/2026-10-29-web-provider-selection.md) records. Its `web/deepseek-search-llm-request` Session event type, including the optional `thinking: { type: 'disabled' }` body field that the persistence acknowledgement covers, stays declared and written in `dsh-web-search-deepseek`, so released Sessions that contain the event still open. Messages search sends that field because Harness discards the generated answer and the auxiliary request needs no reasoning.
 
 ## Alternatives considered
 
@@ -50,7 +50,7 @@ The independent `dsh-web-search-deepseek` provider sends Messages search request
 
 **Keep the APIs inside the Messages provider behind a provider-local switch.** A switch inside the Messages provider cannot change fetch routing, so `web_fetch` would stay on HTTP unless the user also edited `web.fetchProvider`; it also ties the APIs' lifecycle to Messages search. Separate registrations let the web service's existing selection choose each provider, without coupling either API to the Messages provider.
 
-**Share one transport between Messages search and the new APIs.** A shared web transport would couple different request formats and failure mappings. Credential values instead come from the shared [`llm-deepseek` credential helpers](../../../../packages/llm/llm-deepseek/src/credential.ts); Messages search and the Search/Fetch API transports remain independent.
+**Share one transport between Messages search and the new APIs.** A shared web transport would couple different request formats and failure mappings. Credential values instead come from the shared `llm-deepseek` credential helpers; Messages search and the Search/Fetch API transports remain independent.
 
 **Split Search and Fetch into separate packages.** The guide serves both APIs from one base with one credential; separate packages would duplicate settings that address one deployment. Independent selection does not require separate packages, because each API registers its own provider id. Each operation lives in its own module, so either API can change without the other.
 
@@ -68,7 +68,7 @@ Search and Fetch each have an account-wide 5 QPS limit, independent of model con
 
 ## Verification and remaining API adoption
 
-Provider tests cover request mapping, empty results, malformed responses, independent and derived bases, account-token authentication and its invalidation after HTTP 401, cancellation, and blank configuration. Settings tests and the [plugin configuration browser scenario](../../../../apps/web/tests/plugin-config.e2e.ts) cover staged saves, the result count, and independent Search and Fetch selection. The [web search replay](../../../../apps/web/tests/web-search-round.e2e.ts) and [Fetch Session replay](../../../../snapshots/session/deepseek-fetch/snapshot.yml) pin model-visible results. On 2026-10-16 the [real provider tests](../../../../packages/web/web-deepseek-api/tests/web-deepseek-api.e2e.ts) passed Search and Fetch against the public base, and a headless round on the shipped profile returned eight sources and fetched Markdown without an auxiliary request event. The account-token, gateway, and status observations above come from manual probes the same day.
+Provider tests cover request mapping, empty results, malformed responses, independent and derived bases, account-token authentication and its invalidation after HTTP 401, cancellation, and blank configuration. Settings tests and the [plugin configuration browser scenario](../../../../apps/web/tests/plugin-config.e2e.ts) cover staged saves, the result count, and independent Search and Fetch selection. The web search replay and Fetch Session replay pin model-visible results. On 2026-10-16 the real provider tests passed Search and Fetch against the public base, and a headless round on the shipped profile returned eight sources and fetched Markdown without an auxiliary request event. The account-token, gateway, and status observations above come from manual probes the same day.
 
 The following capabilities remain outside the implemented integration:
 

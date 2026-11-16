@@ -8,7 +8,7 @@ import WebServer from '@deepseek-ai/dsh-host-webserver'
 import AuthorizationService from '@deepseek-ai/dsh-authorization'
 import { LocalCredentialProvider } from '@deepseek-ai/dsh-credentials-local'
 import { credentialKey, credentialRef } from '@deepseek-ai/dsh-credentials'
-import type { AccountClientMetadata, AccountView } from '@deepseek-ai/dsh-deepseek-account'
+import type { AccountClientMetadata, AccountView } from '../src/account.ts'
 import { TokamakAccount } from '../src/index.ts'
 import { startMockTokamak, type MockTokamak } from './mock-tokamak.ts'
 

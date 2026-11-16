@@ -799,45 +799,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-deepseek-account-platform"></a>
-
-## `@deepseek-ai/dsh-deepseek-account-platform`
-
-- `inject`: `credentials` · `authorization`
-- `source`: [`packages/credentials/deepseek-account-platform/src/index.ts:23`](../packages/credentials/deepseek-account-platform/src/index.ts)
-
-```ts config-catalog
-/** Deployment-specific platform and request deadlines. */
-export interface Config {
-  /** Platform origin serving auth-api and browser pages. */
-  platformOrigin?: string
-  /** Native desktop identity for Host API and embedded Platform requests; null identifies the client as web. */
-  desktopPlatform?: 'darwin' | 'win32' | null
-  /** Optional frontend deployment selector for embedded Usage and Top-up pages. */
-  embeddedPageDist?: string
-  /** Exact HTTP(S) origin allowed to receive account tokens for inference and files. */
-  inferenceOrigin?: string
-  /** Allow HTTP only on loopback for the development Mock. */
-  allowLoopbackHttp?: boolean
-  /** Map authorization and completion pages to platformOrigin for private development proxies. */
-  rewriteBrowserOrigin?: boolean
-  /** Host-only headers sent exclusively to platformOrigin; account authorization cannot be overridden. */
-  requestHeaders?: Record<string, string>
-  /** Overrides for profile, balance and embedded Platform requests; Cookie pairs merge by name. Logout retains requestHeaders. */
-  accountRequestHeaders?: Record<string, string>
-  /** Deadline for each platform HTTP request. */
-  requestTimeoutMs?: number
-  /** Deadline for recharge-wallet queries; timeout returns a failed balance outcome. */
-  balanceTimeoutMs?: number
-  /** Additional logout attempts after the first request fails, at most five. */
-  logoutMaxRetries?: number
-  /** Delay before the first logout retry; each later delay doubles. */
-  logoutRetryDelayMs?: number
-  /** Upper bound for the entire local attempt, even if the server advertises a longer TTL. */
-  attemptTimeoutMs?: number
-}
-```
-
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-api-speech-to-text -->
 <a id="deepseek-aidsh-experimental-api-speech-to-text"></a>
 
 ## `@deepseek-ai/dsh-experimental-api-speech-to-text`
@@ -1374,10 +1336,10 @@ export interface Config {
 
 ## `@deepseek-ai/dsh-experimental-translator`
 
-- `source`: [`packages/experimental/translator/src/index.ts:25`](../packages/experimental/translator/src/index.ts)
+- `source`: [`packages/experimental/translator/src/index.ts:22`](../packages/experimental/translator/src/index.ts)
 
 ```ts config-catalog
-/** Routing and bounds for anonymous requests and independent native model translation. */
+/** Routing and bounds for anonymous translation requests. */
 export interface Config {
   /** Provider selected when a consumer omits it. */
   provider: TranslationProvider
@@ -1389,22 +1351,12 @@ export interface Config {
   timeoutMs: number
   /** Maximum UTF-16 code units per request; at least two to admit one supplementary-plane character. */
   maxTextChars: number
-  /** Maximum anonymous JSON-body bytes or paid assembled UTF-8 translation bytes. */
+  /** Maximum JSON-body bytes accepted from the provider. */
   maxResponseBytes: number
-  /** Deadline for native admission and complete translation output, in milliseconds. */
-  deepseekTimeoutMs: number
-  /** Requested output-token cap for independent native Flash translation. */
-  deepseekMaxOutputTokens: number
 }
 
-/** Explicit anonymous endpoint or native paid model route. */
-export type TranslationProvider = AnonymousTranslationProvider | PaidTranslationProvider
-
 /** Anonymous browser endpoint selected for one translation. */
-export type AnonymousTranslationProvider = 'google' | 'bing'
-
-/** Explicit native DeepSeek credential route selected for paid translation. */
-export type PaidTranslationProvider = 'deepseek-account' | 'deepseek-official'
+export type TranslationProvider = 'google' | 'bing'
 ```
 
 <a id="deepseek-aidsh-experimental-worktree"></a>
@@ -1797,30 +1749,28 @@ export interface Config {
 export interface Config {
   /** Absolute directory for models, the preset and state. */
   dataRoot: string
-  /**
-   * Absolute path of the bundled `jan-llama-worker` executable, with its ggml libraries beside it.
-   * Absent or unusable, the service reports `failed` at boot and starts nothing.
-   */
-  workerPath?: string | undefined
+  /** Linux/Windows build: CPU, or Vulkan for GPU offload (needs a Vulkan driver). macOS always uses its Metal build. */
+  backend: 'cpu' | 'vulkan'
   /** Which curated model the first-run offer installs; `small` is a 429 MB test model. */
   model: 'default' | 'small'
   /** Hugging Face origin for repository lookups and their downloads. */
   huggingFaceURL: string
   /**
    * `llm-pi-ai` settings namespace whose `providers.<provider>.models` the plugin keeps equal to
-   * the installed models plus the default's alias, so the model picker names what the worker
-   * serves; empty disables the sync.
+   * the active model, so the model picker names what the server runs; empty disables the sync.
    */
   routeNamespace: string
-  /** `maxTokens` written for each route entry. */
+  /** `maxTokens` written for the active model's route entry. */
   routeMaxTokens: number
   /**
-   * Route model id that is an alias of the default model (an `alias-of` preset section), beside each
-   * model's own id. Stable, so a session that selected it follows the default; no installed model
-   * takes this id.
+   * Model id the route serves whichever installed model is active (`--alias`). Stable, so a session
+   * on the local route keeps its selection when another model is put in use; only the display name
+   * the route lists changes.
    */
   routeModelId: string
-  /** Credential reference the `local` route reads its key from, and the key the worker requires. */
+  /** Loopback port the server listens on; must match the `local` route's baseURL. */
+  port: number
+  /** Credential reference the `local` route reads, and the key the server requires. */
   apiKeyRef: string
   /** Credential reference the `local` route reads its endpoint from (`baseURLEnv`); set while the worker serves. */
   baseURLRef: string
@@ -1912,8 +1862,18 @@ export interface Config {
   graceMs: number
   /** Minimum interval between download progress notifications. */
   progressIntervalMs: number
-  /** Test-only: replaces the pinned download of the first-run model. */
-  firstModelOverride?: ArtifactOverride | undefined
+  /** Test-only: an existing server executable that replaces the downloaded engine. */
+  binaryPath?: string | undefined
+  /** Test-only: replaces the pinned downloads (engine, the first-run model). */
+  artifactOverrides?: ArtifactOverrides | undefined
+}
+
+/** Test-only replacements for the pinned downloads. */
+export interface ArtifactOverrides {
+  /** Engine archive (`tar.gz` containing `llama-server`). */
+  engine?: ArtifactOverride | undefined
+  /** GGUF model file. */
+  model?: ArtifactOverride | undefined
 }
 
 /** One pinned download: where it comes from and what it must hash to. */
@@ -1927,38 +1887,7 @@ export interface ArtifactOverride {
 }
 ```
 
-<a id="deepseek-aidsh-llm-deepseek-account"></a>
-
-## `@deepseek-ai/dsh-llm-deepseek-account`
-
-- `inject`: `llm`
-- `refs`: [`ModelListingConfig`](../packages/llm/llm-deepseek/src/index.ts) · [`ModelOverride`](../packages/llm/llm-deepseek/src/index.ts) · [`ProtocolConfig`](../packages/llm/llm-deepseek/src/index.ts) · `Volatile` (`@deepseek-ai/cordis`)
-- `source`: [`packages/llm/llm-deepseek-account/src/config.ts:15`](../packages/llm/llm-deepseek-account/src/config.ts)
-
-```ts config-catalog
-/** Account route configuration; authentication comes exclusively from the account service. */
-export interface Config extends Omit<ProtocolConfig, 'models'>, ModelListingConfig {
-  /** Field overrides by model id, layered over the account listing and the built-in catalog. */
-  modelOverrides: Volatile<Record<string, ModelOverride>>
-}
-```
-
-<a id="deepseek-aidsh-llm-deepseek-api-key"></a>
-
-## `@deepseek-ai/dsh-llm-deepseek-api-key`
-
-- `inject`: `llm`
-- `refs`: [`ModelListingConfig`](../packages/llm/llm-deepseek/src/index.ts) · [`ProtocolConfig`](../packages/llm/llm-deepseek/src/index.ts) · `Volatile` (`@deepseek-ai/cordis`)
-- `source`: [`packages/llm/llm-deepseek-api-key/src/config.ts:18`](../packages/llm/llm-deepseek-api-key/src/config.ts)
-
-```ts config-catalog
-/** Messages configuration with a per-request API-key reference. */
-export interface Config extends ProtocolConfig, ModelListingConfig {
-  /** Credential reference resolved per request; defaults to DEEPSEEK_API_KEY. */
-  apiKeyEnv: Volatile<string>
-}
-```
-
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-llm-pi-ai -->
 <a id="deepseek-aidsh-llm-pi-ai"></a>
 
 ## `@deepseek-ai/dsh-llm-pi-ai`
@@ -2255,7 +2184,7 @@ export type PiAiThinkingTokenBudgetField = NonNullable<OpenAICompletionsCompat['
 
 - `inject`: `llm`
 - `refs`: [`LlmModelBadge`](../packages/llm/llm/src/index.ts) · [`ModelModality`](../packages/llm/llm/src/index.ts) · [`RetryPolicyConfig`](../packages/llm/llm/src/index.ts) · [`SystemPromptUpdate`](../packages/llm/llm/src/index.ts) · [`ToolUpdate`](../packages/llm/llm/src/index.ts)
-- `source`: [`packages/test-support/llm-replay/src/index.ts:1115`](../packages/test-support/llm-replay/src/index.ts)
+- `source`: [`packages/test-support/llm-replay/src/index.ts:1078`](../packages/test-support/llm-replay/src/index.ts)
 
 ```ts config-catalog
 /** Plugin config: the {@link ReplayConfig} inputs, each defaulting to its `DSH_SNAPSHOT_*` env var in `apply`. */
@@ -2752,21 +2681,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-plugin-package-inventory-deepseek"></a>
-
-## `@deepseek-ai/dsh-plugin-package-inventory-deepseek`
-
-- `inject`: `agents` · `deepseekLlmApiExtensions` · `loader`
-- `source`: [`packages/llm/plugin-package-inventory-deepseek/src/index.ts:32`](../packages/llm/plugin-package-inventory-deepseek/src/index.ts)
-
-```ts config-catalog
-/** Plugin-package request contribution configuration. */
-export interface Config {
-  /** Contribute `dsh_plugin_packages` to official DeepSeek requests. Defaults to `true`. */
-  enabled?: boolean
-}
-```
-
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-ptc-runtime-node -->
 <a id="deepseek-aidsh-ptc-runtime-node"></a>
 
 ## `@deepseek-ai/dsh-ptc-runtime-node`
@@ -3037,28 +2952,7 @@ export interface JsonRpcConfig {
 }
 ```
 
-<a id="deepseek-aidsh-session-log-deepseek"></a>
-
-## `@deepseek-ai/dsh-session-log-deepseek`
-
-- `inject`: `deepseekLlmApiExtensions` · `sessions`
-- `refs`: `Volatile` (`@deepseek-ai/cordis`)
-- `source`: [`packages/session/session-log-deepseek/src/index.ts:47`](../packages/session/session-log-deepseek/src/index.ts)
-
-```ts config-catalog
-/** Session-log request contribution configuration. */
-export interface Config {
-  /** Contribute `dsh_session_log` to official DeepSeek requests. Defaults to `true`. */
-  enabled: Volatile<boolean>
-  /**
-   * Largest serialized `dsh_session_log` field, in UTF-8 bytes, that one request carries.
-   * A request uploads the longest pending event prefix that fits; later requests continue
-   * after its acceptance. Defaults to 8 MiB.
-   */
-  maxBytes: number
-}
-```
-
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-session-log-export -->
 <a id="deepseek-aidsh-session-log-export"></a>
 
 ## `@deepseek-ai/dsh-session-log-export`
@@ -3700,9 +3594,9 @@ export interface Config {
   patches: string[]
   /** Absolute isolated Harness home for every nested child process. */
   dshHome: string
-  /** Provider route the child runtime initializes with (default `deepseek-official`). */
+  /** Provider route the child runtime initializes with (default `tokamak`). */
   provider: string
-  /** Model the child runtime initializes with (default `deepseek-v4-flash`). */
+  /** Model the child runtime initializes with (default `tokamak-1-preview`). */
   model: string
   /** Optional per-request output-token cap for the child runtime. */
   maxTokens?: number
@@ -3883,7 +3777,7 @@ export interface Config {
 ## `@deepseek-ai/dsh-tokamak-account`
 
 - `inject`: `credentials` · `authorization`
-- `source`: [`packages/credentials/tokamak-account/src/index.ts:48`](../packages/credentials/tokamak-account/src/index.ts)
+- `source`: [`packages/credentials/tokamak-account/src/index.ts:49`](../packages/credentials/tokamak-account/src/index.ts)
 
 ```ts config-catalog
 /** Deployment options. */
@@ -4572,49 +4466,7 @@ export interface Config {
 }
 ```
 
-<a id="deepseek-aidsh-web-deepseek-api"></a>
-
-## `@deepseek-ai/dsh-web-deepseek-api`
-
-- `inject`: `web`
-- `refs`: `Volatile` (`@deepseek-ai/cordis`)
-- `source`: [`packages/web/web-deepseek-api/src/index.ts:58`](../packages/web/web-deepseek-api/src/index.ts)
-
-```ts config-catalog
-/**
- * Settings read by the next search or fetch without re-registering either provider. A non-empty `*BaseURL` or
- * `*ApiKeyEnv` gives that capability its own endpoint and key; with neither, it follows the conversation's DeepSeek
- * credential. Stored fields of earlier settings (`baseURL`, `apiKeyEnv`, `apiKey`) are not schema fields: they load
- * without error and have no effect.
- */
-export interface Config {
-  /** Search API results per search, from 1 through 50; a smaller request bound wins. Defaults to 10. */
-  count: Volatile<number>
-  /**
-   * Most Search requests this plugin instance sends in any one-second window; later searches wait,
-   * and the wait counts against the caller's timeout. Other processes and clients on the same account
-   * share the account limit without coordination. Defaults to 5.
-   */
-  searchRequestsPerSecond: Volatile<number>
-  /** Send the triggering user question, bounded to 128 characters, as `ori_question`. Defaults to true. */
-  sendOriginalQuestion: Volatile<boolean>
-  /**
-   * Own Search API base including its path prefix; `/search` is appended. With only {@link searchApiKeyEnv} set, the
-   * official base applies.
-   */
-  searchBaseURL: Volatile<string | undefined>
-  /** Own Search API credential reference. With only {@link searchBaseURL} set, `DEEPSEEK_API_KEY` applies. */
-  searchApiKeyEnv: Volatile<string | undefined>
-  /**
-   * Own Fetch API base including its path prefix; `/fetch` is appended. With only {@link fetchApiKeyEnv} set, the
-   * official base applies.
-   */
-  fetchBaseURL: Volatile<string | undefined>
-  /** Own Fetch API credential reference. With only {@link fetchBaseURL} set, `DEEPSEEK_API_KEY` applies. */
-  fetchApiKeyEnv: Volatile<string | undefined>
-}
-```
-
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-web-fetch-http -->
 <a id="deepseek-aidsh-web-fetch-http"></a>
 
 ## `@deepseek-ai/dsh-web-fetch-http`
@@ -4635,34 +4487,6 @@ export interface Config {
   maxRedirects?: number
   /** `User-Agent` header sent on every request. */
   userAgent?: string
-}
-```
-
-<a id="deepseek-aidsh-web-search-deepseek"></a>
-
-## `@deepseek-ai/dsh-web-search-deepseek`
-
-- `inject`: `web`
-- `refs`: `Volatile` (`@deepseek-ai/cordis`)
-- `source`: [`packages/web/web-search-deepseek/src/index.ts:54`](../packages/web/web-search-deepseek/src/index.ts)
-
-```ts config-catalog
-/** Plugin config (all optional — `apply` fills env-var and constant defaults). */
-export interface Config {
-  /** Literal DeepSeek API key; prefer {@link apiKeyEnv} so no secret enters configuration files. */
-  apiKey: Volatile<string | undefined>
-  /** Credential reference resolved for each search; defaults to `DEEPSEEK_API_KEY`. */
-  apiKeyEnv: Volatile<string>
-  /** Anthropic-compatible endpoint base; `/messages` is appended. */
-  baseURL: Volatile<string | undefined>
-  /** Anthropic-format model name. Defaults to `deepseek-v4-flash`. */
-  model: Volatile<string>
-  /** `anthropic-version` header value. Defaults to `2023-06-01`. */
-  apiVersion: Volatile<string>
-  /** Upper bound on generated tokens for the Messages request. Defaults to 4096. */
-  maxTokens: Volatile<number>
-  /** Maximum `web_search` server-tool uses per request. Defaults to 5. */
-  maxUses: Volatile<number>
 }
 ```
 
@@ -4833,7 +4657,6 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | `@deepseek-ai/dsh-client-ui-settings-local-model` | — | [`packages/client/ui-settings-local-model/src/index.ts`](../packages/client/ui-settings-local-model/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-settings-plugin-inventory` | — | [`packages/client/ui-settings-plugin-inventory/src/index.ts`](../packages/client/ui-settings-plugin-inventory/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-settings-plugins` | — | [`packages/client/ui-settings-plugins/src/index.ts`](../packages/client/ui-settings-plugins/src/index.ts) |
-| `@deepseek-ai/dsh-client-ui-settings-session-log` | — | [`packages/client/ui-settings-session-log/src/index.ts`](../packages/client/ui-settings-session-log/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-settings-shell` | — | [`packages/client/ui-settings-shell/src/index.ts`](../packages/client/ui-settings-shell/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-settings-subagent` | — | [`packages/client/ui-settings-subagent/src/index.ts`](../packages/client/ui-settings-subagent/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-settings-web-search` | — | [`packages/client/ui-settings-web-search/src/index.ts`](../packages/client/ui-settings-web-search/src/index.ts) |
@@ -4859,7 +4682,6 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | `@deepseek-ai/dsh-cordis-client-runner` | — | [`packages/extensions/cordis-client-runner/src/index.ts`](../packages/extensions/cordis-client-runner/src/index.ts) |
 | `@deepseek-ai/dsh-creation-recommendations` | `tools` · `pluginManager` · `agents` · `subagents` · `profileContext` · `skills` · `actionCards` | [`packages/experimental/creation-recommendations/src/index.ts`](../packages/experimental/creation-recommendations/src/index.ts) |
 | `@deepseek-ai/dsh-cua` | — | [`packages/experimental/cua/src/index.ts`](../packages/experimental/cua/src/index.ts) |
-| `@deepseek-ai/dsh-deepseek-llm-api-extensions` | — | [`packages/llm/deepseek-llm-api-extensions/src/index.ts`](../packages/llm/deepseek-llm-api-extensions/src/index.ts) |
 | `@deepseek-ai/dsh-deliverable-file-references` | `systemPrompt` | [`packages/deliverables/deliverable-file-references/src/index.ts`](../packages/deliverables/deliverable-file-references/src/index.ts) |
 | `@deepseek-ai/dsh-experimental-auto-review` | `approval` · `llm` · `permissionPresets` · `sessions` · `tools` · `workingDirectory` | [`packages/experimental/auto-review/src/index.ts`](../packages/experimental/auto-review/src/index.ts) |
 | `@deepseek-ai/dsh-experimental-client-ui-claude-code-mods` | — | [`packages/experimental/client-ui-claude-code-mods/src/index.ts`](../packages/experimental/client-ui-claude-code-mods/src/index.ts) |
@@ -4912,7 +4734,6 @@ Abstract service classes — a deployment loads a concrete implementation packag
 | `@deepseek-ai/dsh-attachment` | `AttachmentStore` | — | [`packages/attachment/attachment/src/index.ts`](../packages/attachment/attachment/src/index.ts) |
 | `@deepseek-ai/dsh-compaction` | `CompactionEngine` | — | [`packages/compaction/compaction/src/index.ts`](../packages/compaction/compaction/src/index.ts) |
 | `@deepseek-ai/dsh-credentials` | `CredentialProvider` | — | [`packages/credentials/credentials/src/index.ts`](../packages/credentials/credentials/src/index.ts) |
-| `@deepseek-ai/dsh-deepseek-account` | `DeepSeekAccount` | — | [`packages/credentials/deepseek-account/src/index.ts`](../packages/credentials/deepseek-account/src/index.ts) |
 | `@deepseek-ai/dsh-file-reference` | `FileReferenceService` | — | [`packages/context/file-reference/src/index.ts`](../packages/context/file-reference/src/index.ts) |
 | `@deepseek-ai/dsh-fs` | `FileSystem` | — | [`packages/fs/fs/src/index.ts`](../packages/fs/fs/src/index.ts) |
 | `@deepseek-ai/dsh-host-directory-picker` | `DirectoryPicker` | — | [`packages/host/directory-picker/src/index.ts`](../packages/host/directory-picker/src/index.ts) |
@@ -4969,7 +4790,6 @@ Imported as libraries by other packages; a `cordis.yml` cannot load them.
 | `@deepseek-ai/dsh-http-proxy` | — | [`packages/util/http-proxy/src/index.ts`](../packages/util/http-proxy/src/index.ts) |
 | `@deepseek-ai/dsh-launch-environment` | — | [`packages/util/launch-environment/src/index.ts`](../packages/util/launch-environment/src/index.ts) |
 | `@deepseek-ai/dsh-lazy-require` | — | [`packages/util/lazy-require/src/index.ts`](../packages/util/lazy-require/src/index.ts) |
-| `@deepseek-ai/dsh-llm-deepseek` | — | [`packages/llm/llm-deepseek/src/index.ts`](../packages/llm/llm-deepseek/src/index.ts) |
 | `@deepseek-ai/dsh-llm-mock-server` | — | [`packages/test-support/llm-mock-server/src/index.ts`](../packages/test-support/llm-mock-server/src/index.ts) |
 | `@deepseek-ai/dsh-loader-smoke` | — | [`packages/test-support/loader-smoke/src/index.ts`](../packages/test-support/loader-smoke/src/index.ts) |
 | `@deepseek-ai/dsh-native-command` | — | [`packages/util/native-command/src/index.ts`](../packages/util/native-command/src/index.ts) |

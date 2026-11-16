@@ -1062,25 +1062,6 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
-    key: 'deepseekLlmApiExtensions',
-    summary: 'Registry of independently owned top-level fields for official DeepSeek requests.',
-    description: 'Registry of independently owned top-level fields for official DeepSeek requests.',
-    methods: [
-      {
-        signature: 'register<K extends keyof DeepSeekLlmApiExtensionMap>( field: K, provider: DeepSeekLlmApiExtensionProvider<DeepSeekLlmApiExtensionMap[K]>, ): () => Promise<void>',
-        description: 'Register the sole provider of one top-level request field. Registration is effect-scoped.',
-        parameters: [{ name: 'field', description: 'declaration-merged field owned by the provider.' }, { name: 'provider', description: 'request-time field preparation and optional acceptance behavior.' }],
-        returns: 'disposer that releases the field.',
-      },
-      {
-        signature: 'async prepare(request: DeepSeekLlmApiExtensionRequest): Promise<PreparedDeepSeekLlmApiExtensions>',
-        description: 'Prepare every currently registered field from one immutable base request. A provider whose preparation throws, or whose value cannot be cloned, is omitted from this request; the first such failure per field is logged. Only cancellation rejects. Field values are cloned and frozen; providers retain no mutable alias to the outgoing request.',
-        parameters: [{ name: 'request', description: 'exact serialized request facts before extension fields.' }],
-        returns: 'detached fields and their idempotent joint acceptance transaction.',
-      },
-    ],
-  },
-  {
     key: 'directoryPicker',
     summary: 'Abstract directory-picking service.',
     description: 'Abstract directory-picking service. Subclass, implement `capability()`, and load the subclass as a plugin — it registers as `ctx.directoryPicker` (one implementation per context; loading a second throws, cordis\' standard duplicate-service behavior). The capability object must be stable for the service lifetime: consumers may capture it across calls.',
@@ -1918,8 +1899,8 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
   },
   {
     key: 'llamaCpp',
-    summary: 'Local worker with an installed model set.',
-    description: 'Local worker with an installed model set. Record and process mutations are serialized through LlamaCpp.task; downloads run outside it and commit through it.',
+    summary: 'Local engine with an installed model set.',
+    description: 'Local engine with an installed model set. Record and process mutations are serialized through LlamaCpp.task, except the engine install, which records itself outside it because a launch inside the queue may be what asked for the engine; record writes are chained in order.',
     methods: [
       {
         signature: 'snapshot(): LlamaCppState',
@@ -1941,12 +1922,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'install(): void',
-        description: 'First-run install: download the first-run model, then start the worker. With a model already installed it starts the active model instead. Returns once accepted; progress and outcome arrive through follow. Nothing downloads while the worker is unavailable.',
+        description: 'First-run install: download the engine and the first-run model, then start the server. With a model already installed it starts the active model instead. Returns once accepted; progress and outcome arrive through follow.',
         parameters: [],
       },
       {
         signature: 'downloadCatalog(id: string): void',
-        description: 'Download a curated model, with its vision projector when it has one. Ignored when it is installed or already downloading.',
+        description: 'Download a curated model. Ignored when it is installed or already downloading.',
         parameters: [{ name: 'id', description: 'catalog id.' }],
         throws: ['Error for an unknown id.'],
       },
@@ -1954,12 +1935,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         signature: 'async lookupHuggingFace(input: string, signal?: AbortSignal): Promise<HuggingFaceRepoInfo>',
         description: 'Look up a Hugging Face repository\'s downloadable GGUF files.',
         parameters: [{ name: 'input', description: '`owner/name` or a huggingface.co link.' }, { name: 'signal', description: 'cancellation.' }],
-        returns: 'the repository, its files marking those already installed, and the projector each downloads with.',
+        returns: 'the repository and its files, marking those already installed.',
         throws: ['{@link HuggingFaceLookupError} for bad input, a missing repository or an unreachable API.'],
       },
       {
         signature: 'async downloadHuggingFace(input: string, file: string, signal?: AbortSignal): Promise<string>',
-        description: 'Download one file of a Hugging Face repository, and the repository\'s vision projector after it, re-reading the repository so the digests and sizes come from Hugging Face, not the caller.',
+        description: 'Download one file of a Hugging Face repository, re-reading the repository so the digest and size come from Hugging Face, not the caller.',
         parameters: [{ name: 'input', description: '`owner/name` or a huggingface.co link.' }, { name: 'file', description: 'file name inside the repository.' }, { name: 'signal', description: 'cancellation of the lookup.' }],
         returns: 'the model id the download installs as.',
         throws: ['{@link HuggingFaceLookupError} when the repository or file cannot be found.'],
@@ -1976,43 +1957,28 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [{ name: 'id', description: 'model id, or undefined for every download.' }],
       },
       {
-        signature: 'importModel(path: string, options: ImportModelOptions = {}): Promise<string>',
-        description: 'Add a GGUF file from disk, left where it is, recording its header facts, with an optional vision projector also left where it is. The first model added becomes the default and starts; a later one joins the running worker\'s preset. Importing an already imported file with a projector attaches that projector to it, replacing any earlier one.',
-        parameters: [{ name: 'path', description: 'absolute path of a `.gguf` file.' }, { name: 'options', description: 'display name, defaulting to the file name, and projector path.' }],
+        signature: 'importModel(path: string, name?: string): Promise<string>',
+        description: 'Add a GGUF file from disk, left where it is. The first model added becomes active and starts.',
+        parameters: [{ name: 'path', description: 'absolute path of a `.gguf` file.' }, { name: 'name', description: 'display name; defaults to the file name.' }],
         returns: 'the model id.',
-        throws: ['Error when the path is not an absolute path to a readable GGUF file, the file is a vision projector or embedding model rather than a chat model, or the projector is not an absolute path to a readable projector GGUF file.'],
+        throws: ['Error when the path is not an absolute path to a readable GGUF file.'],
       },
       {
-        signature: 'setDefault(id: string): Promise<void>',
-        description: 'Make an installed model the default: the route\'s alias id serves it and it loads when the worker starts. A running worker retargets the alias without reloading any model, then loads it; a stopped one starts. An agent default on another model of this route moves to the alias id.',
+        signature: 'select(id: string): Promise<void>',
+        description: 'Make an installed model the active one and (re)start the server with it.',
         parameters: [{ name: 'id', description: 'installed model id.' }],
-        returns: 'once the worker serves it; a failed start is published as the `failed` phase.',
-        throws: ['Error for an id that is not installed, or carrying the worker\'s reason when a running worker could not load it; the worker keeps running, and the model stays the default.'],
-      },
-      {
-        signature: 'loadModel(id: string): Promise<void>',
-        description: 'Load an installed model into the running worker, starting the worker first when it is stopped. With Config.modelsMax models resident, the least recently used idle one is unloaded.',
-        parameters: [{ name: 'id', description: 'installed model id.' }],
-        returns: 'once the model is loaded.',
-        throws: ['Error for an id that is not installed, or carrying the worker\'s reason when it could not load the model (all resident models busy, or a load failure).'],
-      },
-      {
-        signature: 'unloadModel(id: string): Promise<void>',
-        description: 'Unload a model from the running worker; it loads again on its next request.',
-        parameters: [{ name: 'id', description: 'installed model id.' }],
-        returns: 'once it is unloaded, or at once when the worker does not hold it.',
-        throws: ['Error carrying the worker\'s reason when the model has requests in flight.'],
+        returns: 'once the server is running with it or has failed.',
+        throws: ['Error for an id that is not installed.'],
       },
       {
         signature: 'removeModel(id: string): Promise<void>',
-        description: 'Remove an installed model. A downloaded file or projector is deleted; an imported one is only forgotten. A resident model is unloaded first, because Windows cannot delete a file the worker maps. Removing the default makes the next installed model the default and loads it into a running worker, as setDefault does; removing the last stops the worker.',
+        description: 'Remove an installed model. A downloaded file is deleted; an imported file is only forgotten. Removing the active model makes the next installed model active and restarts the server with it if it was running.',
         parameters: [{ name: 'id', description: 'installed model id.' }],
-        returns: 'once the record and the worker reflect the removal.',
-        throws: ['Error carrying the worker\'s reason when the model has requests in flight, or when the running worker could not load the new default; the removal stands and the worker keeps running.'],
+        returns: 'once the record and the server reflect the removal.',
       },
       {
         signature: 'start(): Promise<void>',
-        description: 'Start the worker with the active model, now and on later boots. No-op while it is running or starting.',
+        description: 'Start the active model\'s server, and on later boots. No-op while it is running or starting.',
         parameters: [],
       },
       {
@@ -2022,15 +1988,15 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'async uninstall(): Promise<void>',
-        description: 'Stop the worker, cancel downloads, delete downloaded models, partial files and saved KV state, and remove the route credentials.',
+        description: 'Stop the server, cancel downloads, delete the engine, downloaded models and partial files, and remove the route key.',
         parameters: [],
       },
     ],
   },
   {
     key: 'llamaCppController',
-    summary: 'Install, start, stop and remove the local models and the worker serving them; progress arrives through follow.',
-    description: 'Install, start, stop and remove the local models and the worker serving them; progress arrives through follow.',
+    summary: 'Install, start, stop and remove the local engine and its models; progress arrives through follow.',
+    description: 'Install, start, stop and remove the local engine and its models; progress arrives through follow.',
     methods: [
       {
         signature: '@Remote readState(): LlamaCppState',
@@ -2046,7 +2012,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: '@Remote beginInstall(): void',
-        description: 'First run: download and verify the first-run model, then start the worker; with a model installed, start it.',
+        description: 'First run: download the engine and the first-run model, verify them, then start the server.',
         parameters: [],
       },
       {
@@ -2084,32 +2050,20 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'after it settles.',
       },
       {
-        signature: '@Remote async importModel(path: string, projector?: string): Promise<string>',
+        signature: '@Remote async importModel(path: string): Promise<string>',
         description: 'Add a GGUF file from this computer, left where it is.',
-        parameters: [{ name: 'path', description: 'absolute path on the Host.' }, { name: 'projector', description: 'absolute Host path of the model\'s vision projector (mmproj) file; omitted for a text-only model.' }],
+        parameters: [{ name: 'path', description: 'absolute path on the Host.' }],
         returns: 'the model id.',
       },
       {
-        signature: '@Remote async setDefaultModel(id: string): Promise<void>',
-        description: 'Make an installed model the default, which the route\'s alias id serves, and load it; a stopped worker starts. A start failure arrives through follow.',
+        signature: '@Remote async selectModel(id: string): Promise<void>',
+        description: 'Run an installed model, restarting the server with it.',
         parameters: [{ name: 'id', description: 'installed model id.' }],
-        returns: 'after the worker serves it or has failed to start.',
-      },
-      {
-        signature: '@Remote async loadModel(id: string): Promise<void>',
-        description: 'Load an installed model now instead of on its first request, starting a stopped worker.',
-        parameters: [{ name: 'id', description: 'installed model id.' }],
-        returns: 'after it is loaded.',
-      },
-      {
-        signature: '@Remote async unloadModel(id: string): Promise<void>',
-        description: 'Free a loaded model\'s memory; it loads again on its next request.',
-        parameters: [{ name: 'id', description: 'installed model id.' }],
-        returns: 'after it is unloaded.',
+        returns: 'after the server runs it or has failed.',
       },
       {
         signature: '@Remote async deleteModel(id: string): Promise<void>',
-        description: 'Remove an installed model, unloading it first; an imported file is only forgotten.',
+        description: 'Remove an installed model; an imported file is only forgotten.',
         parameters: [{ name: 'id', description: 'installed model id.' }],
         returns: 'after it is removed.',
       },
@@ -2127,7 +2081,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: '@Remote async removeInstall(): Promise<void>',
-        description: 'Stop the worker, delete every downloaded model and remove the route credentials.',
+        description: 'Delete the engine and every downloaded model and remove the route key.',
         parameters: [],
         returns: 'after the files are gone.',
       },
@@ -2929,12 +2883,6 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the normalized selection installed for the Session, without waiting for default persistence.',
       },
       {
-        signature: '@Remote async initializeDefaultModel(): Promise<void>',
-        description: 'Select the first available account model after login when no provider API key is configured.',
-        parameters: [],
-        returns: 'after saving the first available model or retaining the existing default.',
-      },
-      {
         signature: '@Remote(\'modelCatalog\') modelCatalog(): Promise<ModelCatalog>',
         description: 'Describe every currently routable model for Host-generation selectors.',
         parameters: [],
@@ -3081,19 +3029,6 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'List file and directory candidates for one Agent\'s working directory.',
         parameters: [{ name: 'agent', description: 'target Agent resolved from the Session identity on the wire.' }, { name: 'query', description: 'path text following `@` or `@"`.' }, { name: 'signal', description: 'caller cancellation.' }],
         returns: 'deterministic path-only candidates from the composed provider.',
-      },
-    ],
-  },
-  {
-    key: 'sessionLogDeepSeek',
-    summary: 'Incremental Session-log contributor with caller-owned upload exclusions.',
-    description: 'Incremental Session-log contributor with caller-owned upload exclusions.',
-    methods: [
-      {
-        signature: 'registerExclusion(exclude: SessionLogUploadExclusion): () => Promise<void>',
-        description: 'Exclude matching requests before reading or preparing their log contribution. Any matching rule suppresses both the field and its acceptance callback. With no matching rules, normal upload eligibility applies. A throwing rule fails this contribution; the request-extension registry omits it and reports the error.',
-        parameters: [{ name: 'exclude', description: 'synchronous, side-effect-free predicate; `true` skips this upload.' }],
-        returns: 'effect disposer that removes this registration when called or when the caller unloads.',
       },
     ],
   },
@@ -4367,10 +4302,10 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     description: 'One Host service with explicit routing, cancellation and quiescent unload.',
     methods: [
       {
-        signature: 'async availableProviders(signal?: AbortSignal): Promise<readonly TranslationProvider[]>',
-        description: 'Inspect eligible native routes without inference; saved results remain readable for unavailable routes.',
+        signature: 'availableProviders(signal?: AbortSignal): Promise<readonly TranslationProvider[]>',
+        description: 'List selectable providers.',
         parameters: [{ name: 'signal', description: 'optional caller cancellation, combined with service disposal.' }],
-        returns: 'anonymous choices followed by eligible explicitly selected paid routes.',
+        returns: 'every anonymous endpoint.',
       },
       {
         signature: 'resolve(request: TranslationRequest): TranslationSpec',
@@ -5313,14 +5248,6 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [],
   },
   {
-    name: 'llm/models-updated',
-    mode: 'emit',
-    signature: '\'llm/models-updated\'(provider: string): void',
-    summary: 'A provider\'s advertised models or display metadata changed; consumers reload `listModels()`.',
-    description: 'A provider\'s advertised models or display metadata changed; consumers reload `listModels()`.',
-    parameters: [{ name: 'provider', description: 'route whose model catalog changed.' }],
-  },
-  {
     name: 'llm/stream',
     mode: 'waterfall',
     signature: '\'llm/stream\'(this: LlmRuntime, options: GenerateOptions, next: () => AsyncIterable<StreamChunk>): AsyncIterable<StreamChunk>',
@@ -5801,14 +5728,6 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type AnalyticsPreset = \'creator\' | \'ptc\' | \'minimal\' | \'standard\';',
   },
   {
-    name: 'AnonymousTranslationProvider',
-    declaration: 'export type AnonymousTranslationProvider = \'google\' | \'bing\';',
-  },
-  {
-    name: 'AnonymousTranslationSpec',
-    declaration: 'export interface AnonymousTranslationSpec extends TranslationSpecFields {\n    readonly provider: AnonymousTranslationProvider;\n}',
-  },
-  {
     name: 'AnyHook',
     declaration: 'export type AnyHook = ModHook<unknown, unknown>;',
   },
@@ -6030,7 +5949,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'CatalogModelInfo',
-    declaration: 'export interface CatalogModelInfo {\n    id: string;\n    name: string;\n    bytes: number;\n    repo: string;\n    recommended: boolean;\n    installed: boolean;\n    vision: boolean;\n    fit?: ModelFit;\n}',
+    declaration: 'export interface CatalogModelInfo {\n    id: string;\n    name: string;\n    bytes: number;\n    repo: string;\n    recommended: boolean;\n    installed: boolean;\n}',
   },
   {
     name: 'ChangeRequestCheck',
@@ -6237,6 +6156,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ConnectionTrustRequest {\n    readonly headers: Headers | Readonly<Record<string, string | readonly string[] | undefined>>;\n}',
   },
   {
+    name: 'ContentBlock',
+    declaration: 'export type ContentBlock = ContentBlockMap[ContentBlockType];',
+  },
+  {
     name: 'ContentBlockMap',
     declaration: 'export interface ContentBlockMap {\n    \'text\': TextBlock;\n    \'reasoning\': ReasoningBlock;\n    \'image\': ImageBlock;\n    \'file\': FileBlock;\n    \'tool-call\': ToolCallBlock;\n    \'tool-addition\': ToolAdditionBlock;\n    \'tool-removal\': ToolRemovalBlock;\n}',
   },
@@ -6435,22 +6358,6 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'DailyScheduleRecord',
     declaration: 'export interface DailyScheduleRecord {\n    readonly id: ScheduleId;\n    readonly kind: \'daily\';\n    readonly title: string;\n    readonly prompt: string;\n    readonly time: string;\n    readonly timeZone: string;\n    readonly scheduledAt: string;\n}',
-  },
-  {
-    name: 'DeepSeekLlmApiExtensionMap',
-    declaration: 'export interface DeepSeekLlmApiExtensionMap {\n}',
-  },
-  {
-    name: 'DeepSeekLlmApiExtensionProvider',
-    declaration: 'export interface DeepSeekLlmApiExtensionProvider<T extends DeepSeekLlmApiJson> {\n    prepare(request: DeepSeekLlmApiExtensionRequest): PreparedDeepSeekLlmApiExtension<T> | undefined | Promise<PreparedDeepSeekLlmApiExtension<T> | undefined>;\n}',
-  },
-  {
-    name: 'DeepSeekLlmApiExtensionRequest',
-    declaration: 'export interface DeepSeekLlmApiExtensionRequest {\n    readonly body: Readonly<Record<string, DeepSeekLlmApiJson>>;\n    readonly sessionId?: string;\n    readonly purpose?: string;\n    readonly signal: AbortSignal;\n}',
-  },
-  {
-    name: 'DeepSeekLlmApiJson',
-    declaration: 'export type DeepSeekLlmApiJson = null | boolean | number | string | DeepSeekLlmApiJson[] | {\n    [key: string]: DeepSeekLlmApiJson;\n};',
   },
   {
     name: 'DeliveryRetentionBounds',
@@ -6930,11 +6837,11 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'HuggingFaceFileInfo',
-    declaration: 'export interface HuggingFaceFileInfo {\n    file: string;\n    bytes: number;\n    quant?: string;\n    recommended: boolean;\n    installed: boolean;\n    fit?: ModelFit;\n}',
+    declaration: 'export interface HuggingFaceFileInfo {\n    file: string;\n    bytes: number;\n    quant?: string;\n    recommended: boolean;\n    installed: boolean;\n}',
   },
   {
     name: 'HuggingFaceRepoInfo',
-    declaration: 'export interface HuggingFaceRepoInfo {\n    repo: string;\n    files: HuggingFaceFileInfo[];\n    projector?: {\n        file: string;\n        bytes: number;\n    };\n}',
+    declaration: 'export interface HuggingFaceRepoInfo {\n    repo: string;\n    files: HuggingFaceFileInfo[];\n}',
   },
   {
     name: 'ImageAttachmentLimits',
@@ -7177,20 +7084,12 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ListVersionsOptions {\n    readonly registry?: Registry;\n}',
   },
   {
-    name: 'LlamaCppDevice',
-    declaration: 'export interface LlamaCppDevice {\n    id: string;\n    name: string;\n    totalMiB: number;\n    freeMiB: number;\n}',
-  },
-  {
     name: 'LlamaCppDownload',
     declaration: 'export interface LlamaCppDownload {\n    id: string;\n    name: string;\n    progress?: LlamaCppProgress;\n    error?: string;\n}',
   },
   {
-    name: 'LlamaCppHardware',
-    declaration: 'export interface LlamaCppHardware {\n    backend: string;\n    devices: LlamaCppDevice[];\n    memoryBytes: number;\n}',
-  },
-  {
-    name: 'LlamaCppHostPlatform',
-    declaration: 'export type LlamaCppHostPlatform = \'linux\' | \'macos\' | \'windows\';',
+    name: 'LlamaCppDownloadPhase',
+    declaration: 'export type LlamaCppDownloadPhase = \'engine\' | \'model\';',
   },
   {
     name: 'LlamaCppModelInfo',
@@ -7202,11 +7101,11 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'LlamaCppProgress',
-    declaration: 'export interface LlamaCppProgress {\n    receivedBytes: number;\n    totalBytes: number;\n    bytesPerSecond: number;\n}',
+    declaration: 'export interface LlamaCppProgress {\n    phase: LlamaCppDownloadPhase;\n    receivedBytes: number;\n    totalBytes: number;\n    overallReceivedBytes: number;\n    overallTotalBytes: number;\n    bytesPerSecond: number;\n}',
   },
   {
     name: 'LlamaCppState',
-    declaration: 'export interface LlamaCppState {\n    phase: LlamaCppPhase;\n    hostPlatform: LlamaCppHostPlatform;\n    model: LlamaCppModelInfo;\n    provider: string;\n    progress?: LlamaCppProgress;\n    error?: string;\n    contextSize?: number;\n    logTail?: string;\n    models: LocalModelEntry[];\n    downloads: LlamaCppDownload[];\n    catalog: CatalogModelInfo[];\n    hardware?: LlamaCppHardware;\n}',
+    declaration: 'export interface LlamaCppState {\n    phase: LlamaCppPhase;\n    model: LlamaCppModelInfo;\n    provider: string;\n    progress?: LlamaCppProgress;\n    error?: string;\n    contextSize?: number;\n    logTail?: string;\n    models: LocalModelEntry[];\n    downloads: LlamaCppDownload[];\n    catalog: CatalogModelInfo[];\n}',
   },
   {
     name: 'LlmAdapter',
@@ -7310,15 +7209,11 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'LocalModelEntry',
-    declaration: 'export interface LocalModelEntry {\n    id: string;\n    name: string;\n    bytes: number;\n    source: LocalModelSource;\n    vision: boolean;\n    active: boolean;\n    status: LocalModelStatus;\n    contextSize?: number;\n    architecture: string;\n    contextLength?: number;\n    fit?: ModelFit;\n}',
+    declaration: 'export interface LocalModelEntry {\n    id: string;\n    name: string;\n    bytes: number;\n    source: LocalModelSource;\n    active: boolean;\n}',
   },
   {
     name: 'LocalModelSource',
     declaration: 'export type LocalModelSource = \'catalog\' | \'huggingface\' | \'import\';',
-  },
-  {
-    name: 'LocalModelStatus',
-    declaration: 'export type LocalModelStatus = \'loading\' | \'loaded\' | \'unloaded\';',
   },
   {
     name: 'LogExporterOptions',
@@ -7761,14 +7656,6 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface PackageResult {\n    exitCode: number;\n    output: string;\n    truncated: boolean;\n    logPath: string;\n    kind?: PluginInstallFailureKind;\n    timedOut?: boolean;\n    incompatible?: IncompatiblePlugin[];\n}',
   },
   {
-    name: 'PaidTranslationProvider',
-    declaration: 'export type PaidTranslationProvider = \'deepseek-account\' | \'deepseek-official\';',
-  },
-  {
-    name: 'PaidTranslationSpec',
-    declaration: 'export interface PaidTranslationSpec extends TranslationSpecFields {\n    readonly provider: PaidTranslationProvider;\n    readonly sessionId: SessionId;\n}',
-  },
-  {
     name: 'PaneOpenArgs',
     declaration: 'export interface PaneOpenArgs {\n    id: string;\n    title?: string;\n    focus?: true;\n    closeOnEscape?: true;\n    holdToasts?: true;\n    rows?: number;\n    columns?: number;\n}',
   },
@@ -7923,14 +7810,6 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'PreparedAdapterCall',
     declaration: 'export interface PreparedAdapterCall {\n    readonly model: LlmResolvedModelInfo;\n    stream(options: GenerateOptions): AsyncIterable<StreamChunk>;\n}',
-  },
-  {
-    name: 'PreparedDeepSeekLlmApiExtension',
-    declaration: 'export interface PreparedDeepSeekLlmApiExtension<T extends DeepSeekLlmApiJson> {\n    readonly value: T;\n    accept?(): void | Promise<void>;\n}',
-  },
-  {
-    name: 'PreparedDeepSeekLlmApiExtensions',
-    declaration: 'export interface PreparedDeepSeekLlmApiExtensions {\n    readonly fields: Readonly<Partial<DeepSeekLlmApiExtensionMap>>;\n    accept(): Promise<void>;\n}',
   },
   {
     name: 'PreparedLlmCall',
@@ -8835,14 +8714,6 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'SessionLogSnapshot',
     declaration: 'export interface SessionLogSnapshot {\n    session: SessionHeader;\n    inheritedEventCount: SessionLogOffset;\n    events: SessionEvent[];\n}',
-  },
-  {
-    name: 'SessionLogUploadExclusion',
-    declaration: 'export type SessionLogUploadExclusion = (request: SessionLogUploadRequest) => boolean;',
-  },
-  {
-    name: 'SessionLogUploadRequest',
-    declaration: 'export interface SessionLogUploadRequest {\n    readonly sessionId: SessionId;\n    readonly purpose?: string;\n}',
   },
   {
     name: 'SessionMessage',
@@ -9829,6 +9700,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface TestPublishRequest {\n    readonly sessionId: string;\n}',
   },
   {
+    name: 'TextBlock',
+    declaration: 'export interface TextBlock {\n    type: \'text\';\n    text: string;\n}',
+  },
+  {
     name: 'TextProps',
     declaration: 'export interface TextProps {\n    readonly color?: string | undefined;\n    readonly bold?: boolean | undefined;\n    readonly dimColor?: boolean | undefined;\n    readonly italic?: boolean | undefined;\n    readonly underline?: boolean | undefined;\n    readonly children?: UiNode | undefined;\n}',
   },
@@ -10026,7 +9901,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'TranslationProvider',
-    declaration: 'export type TranslationProvider = AnonymousTranslationProvider | PaidTranslationProvider;',
+    declaration: 'export type TranslationProvider = \'google\' | \'bing\';',
   },
   {
     name: 'TranslationRequest',
@@ -10034,7 +9909,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'TranslationSpec',
-    declaration: 'export type TranslationSpec = AnonymousTranslationSpec | PaidTranslationSpec;',
+    declaration: 'export interface TranslationSpec {\n    readonly provider: TranslationProvider;\n    readonly text: string;\n    readonly targetLanguage: string;\n    readonly sourceLanguage: string;\n    readonly sessionId?: SessionId;\n}',
   },
   {
     name: 'TurnBoundaryProjection',

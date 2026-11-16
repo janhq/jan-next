@@ -1,6 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-llm-pi-ai",
-  "description": "pi-ai-backed DeepSeek adapter for the Jan LLM seam (design-verification twin of dsh-llm-deepseek)",
+  "description": "pi-ai-backed multi-provider adapter for the Jan LLM seam",
   "version": "0.2.2-rc.1",
   "publishConfig": {
     "access": "public"
@@ -56,8 +56,6 @@
     "@deepseek-ai/dsh-http-proxy": "workspace:*",
     "@deepseek-ai/dsh-launch-environment": "workspace:*",
     "@deepseek-ai/dsh-llm": "workspace:*",
-    "@deepseek-ai/dsh-llm-deepseek": "workspace:*",
-    "@deepseek-ai/dsh-llm-deepseek-api-key": "workspace:*",
     "@deepseek-ai/dsh-session": "workspace:*",
     "@deepseek-ai/dsh-settings": "workspace:*",
     "@deepseek-ai/dsh-timeout": "workspace:*",

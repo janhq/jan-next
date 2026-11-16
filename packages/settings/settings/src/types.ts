@@ -22,7 +22,7 @@ export interface SettingsSecretView {
 export interface SettingsNamespaceView {
   /** Generate a page if no custom page is registered for this instance. */
   autoGenerate: boolean
-  /** Namespace key (`llm-deepseek`, `llm-pi-ai`, …). */
+  /** Namespace key (`llm-pi-ai`, `web`, …). */
   ns: string
   /** Serialized schemastery schema envelope (`schema.toJSON()`); rehydrate with `new Schema(json)`. */
   schema: JsonValue

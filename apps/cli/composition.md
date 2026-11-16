@@ -18,12 +18,8 @@ flowchart LR
   cfg --> plugin_dsh_base_hmr
   plugin_dsh_base_llm["llm<br/>@deepseek-ai/dsh-llm"]
   cfg --> plugin_dsh_base_llm
-  plugin_dsh_base_deepseek_llm_api_extensions["deepseek-llm-api-extensions<br/>@deepseek-ai/dsh-deepseek-llm-api-extensions"]
-  cfg --> plugin_dsh_base_deepseek_llm_api_extensions
   plugin_dsh_base_session["session<br/>@deepseek-ai/dsh-session"]
   cfg --> plugin_dsh_base_session
-  plugin_dsh_base_session_log_deepseek["session-log-deepseek<br/>@deepseek-ai/dsh-session-log-deepseek"]
-  cfg --> plugin_dsh_base_session_log_deepseek
   plugin_dsh_base_typert["typert<br/>@deepseek-ai/dsh-typert-registry"]
   cfg --> plugin_dsh_base_typert
   plugin_dsh_base_typert_loader["typert-loader<br/>@deepseek-ai/dsh-typert-loader"]
@@ -40,8 +36,6 @@ flowchart LR
   cfg --> plugin_dsh_base_user_questions
   plugin_dsh_base_agent["agent<br/>@deepseek-ai/dsh-agent"]
   cfg --> plugin_dsh_base_agent
-  plugin_dsh_base_plugin_package_inventory_deepseek["plugin-package-inventory-deepseek<br/>@deepseek-ai/dsh-plugin-package-inventory-deepseek"]
-  cfg --> plugin_dsh_base_plugin_package_inventory_deepseek
   plugin_dsh_base_agent_default_model["agent-default-model<br/>@deepseek-ai/dsh-agent-default-model"]
   cfg --> plugin_dsh_base_agent_default_model
   plugin_dsh_base_jobs["jobs<br/>@deepseek-ai/dsh-jobs-local"]
@@ -182,10 +176,6 @@ flowchart LR
   cfg --> plugin_dsh_base_repeat_tool_reminder
   plugin_dsh_base_web["web<br/>@deepseek-ai/dsh-web"]
   cfg --> plugin_dsh_base_web
-  plugin_dsh_base_web_search_deepseek["web-search-deepseek<br/>@deepseek-ai/dsh-web-search-deepseek"]
-  cfg --> plugin_dsh_base_web_search_deepseek
-  plugin_dsh_base_web_deepseek_api["web-deepseek-api<br/>@deepseek-ai/dsh-web-deepseek-api"]
-  cfg --> plugin_dsh_base_web_deepseek_api
   plugin_dsh_base_web_fetch_http["web-fetch-http<br/>@deepseek-ai/dsh-web-fetch-http"]
   cfg --> plugin_dsh_base_web_fetch_http
   plugin_dsh_base_web_search_exa["web-search-exa<br/>@deepseek-ai/dsh-web-search-exa"]
@@ -206,10 +196,6 @@ flowchart LR
   cfg --> plugin_dsh_base_agent_loop
   plugin_dsh_base_fs_sandbox["fs-sandbox<br/>@deepseek-ai/dsh-fs-sandbox"]
   cfg --> plugin_dsh_base_fs_sandbox
-  plugin_dsh_base_llm_deepseek["llm-deepseek<br/>@deepseek-ai/dsh-llm-deepseek-api-key"]
-  cfg --> plugin_dsh_base_llm_deepseek
-  plugin_dsh_base_llm_deepseek_account["llm-deepseek-account<br/>@deepseek-ai/dsh-llm-deepseek-account"]
-  cfg --> plugin_dsh_base_llm_deepseek_account
 ```
 
 | Plugin id | Package / module |
@@ -219,9 +205,7 @@ flowchart LR
 | `timer` | `@deepseek-ai/cordis-plugin-timer` |
 | `hmr` | `@deepseek-ai/dsh-hmr` |
 | `llm` | `@deepseek-ai/dsh-llm` |
-| `deepseek-llm-api-extensions` | `@deepseek-ai/dsh-deepseek-llm-api-extensions` |
 | `session` | `@deepseek-ai/dsh-session` |
-| `session-log-deepseek` | `@deepseek-ai/dsh-session-log-deepseek` |
 | `typert` | `@deepseek-ai/dsh-typert-registry` |
 | `typert-loader` | `@deepseek-ai/dsh-typert-loader` |
 | `typert-gateway` | `@deepseek-ai/dsh-api-gateway` |
@@ -230,7 +214,6 @@ flowchart LR
 | `session-title-llm` | `@deepseek-ai/dsh-session-title-first-prompt-llm` |
 | `user-questions` | `@deepseek-ai/dsh-user-questions` |
 | `agent` | `@deepseek-ai/dsh-agent` |
-| `plugin-package-inventory-deepseek` | `@deepseek-ai/dsh-plugin-package-inventory-deepseek` |
 | `agent-default-model` | `@deepseek-ai/dsh-agent-default-model` |
 | `jobs` | `@deepseek-ai/dsh-jobs-local` |
 | `llm-retry` | `@deepseek-ai/dsh-llm-retry` |
@@ -301,8 +284,6 @@ flowchart LR
 | `tool-goal` | `@deepseek-ai/dsh-tool-goal` |
 | `repeat-tool-reminder` | `@deepseek-ai/dsh-repeat-tool-reminder` |
 | `web` | `@deepseek-ai/dsh-web` |
-| `web-search-deepseek` | `@deepseek-ai/dsh-web-search-deepseek` |
-| `web-deepseek-api` | `@deepseek-ai/dsh-web-deepseek-api` |
 | `web-fetch-http` | `@deepseek-ai/dsh-web-fetch-http` |
 | `web-search-exa` | `@deepseek-ai/dsh-web-search-exa` |
 | `tool-web` | `@deepseek-ai/dsh-tool-web` |
@@ -313,8 +294,6 @@ flowchart LR
 | `system-prompt` | `@deepseek-ai/dsh-system-prompt` |
 | `agent-loop` | `@deepseek-ai/dsh-agent-loop` |
 | `fs-sandbox` | `@deepseek-ai/dsh-fs-sandbox` |
-| `llm-deepseek` | `@deepseek-ai/dsh-llm-deepseek-api-key` |
-| `llm-deepseek-account` | `@deepseek-ai/dsh-llm-deepseek-account` |
 
 Source config: [`packages/bundle/base/cordis.patch.yml`](../../packages/bundle/base/cordis.patch.yml).
 

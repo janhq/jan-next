@@ -217,7 +217,7 @@ export const name = 'team-fixture-llm'
 /** LLM registry dependency. */
 export const inject = ['llm', 'tools', 'agentTeams']
 
-/** Register the keyless adapter on the shipped default provider route. */
+/** Register the keyless adapter on the route the team scenarios select. */
 export function apply(ctx) {
   ctx.on('agent/created', async ({ agent }) => {
     if (agent.session.header.parentSession === undefined) await ctx.agentTeams.setEnabled(agent, true)

@@ -10,7 +10,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type {} from '@deepseek-ai/dsh-api-remote-access/client'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
-import type { AccountView, AccountDetails } from '@deepseek-ai/dsh-deepseek-account/types'
+import type { AccountView, AccountDetails } from '@deepseek-ai/dsh-tokamak-account/types'
 import type { OnboardingChange } from './onboarding-contract.ts'
 import type { PlatformBridge } from './PlatformOverlay.tsx'
 import { ContactConfig, CONTACT_CONFIG_GLOBAL } from '../contact-config.ts'
@@ -42,7 +42,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 
 /** Services required by account settings. */
-export const inject = ['slots', 'locale', 'remote', 'remote.account', 'remote.session', 'theme', 'configForms', 'remoteAccess']
+export const inject = ['slots', 'locale', 'remote', 'remote.account', 'theme', 'configForms', 'remoteAccess']
 /** Register account UI in Desktop and plain Web clients. @param ctx - client plugin context. */
 export function apply(ctx: Context): void {
   const desktop = 'dshDesktop' in globalThis
@@ -148,8 +148,6 @@ export function apply(ctx: Context): void {
         revision++
         refreshing = undefined
         avatar.reset()
-        const initialize = frame.value.status === 'credential-stored' && frame.value.attempt?.phase === 'succeeded'
-          && snapshot.view?.attempt?.phase !== 'succeeded'
         const { notices: previousNotices, ...previous } = snapshot
         publish({ ...previous, view: frame.value, details: undefined, avatar: undefined, failed: false,
           ...(frame.value.status === 'credential-stored' && previousNotices ? { notices: previousNotices } : {}) })
@@ -157,14 +155,6 @@ export function apply(ctx: Context): void {
         frame.accept()
         if (frame.value.status === 'credential-stored') notices.begin()
         else notices.end()
-        if (initialize) void (async () => {
-          try {
-            const initialized = await ctx.remote.session.initializeDefaultModel()
-            if (!initialized.ok) console.error('[deepseek-account] default model initialization failed', { reason: 'refused' })
-          } catch (_error) {
-            console.error('[deepseek-account] default model initialization failed', { reason: 'disconnected' })
-          }
-        })()
         void refresh()
       }
     })().catch(() => { if (!grant.ended) publish({ ...snapshot, failed: true }) })

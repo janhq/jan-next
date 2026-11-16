@@ -8,7 +8,8 @@ import { DeepSeekHarness } from '@deepseek-ai/dsh-sdk-client'
 import { expect, it } from 'vitest'
 import { z } from 'zod'
 import { profileEnvironment } from './fixtures/profile-environment.ts'
-import { messagesResponse } from './fixtures/messages-response.ts'
+import { MOCK_MODEL_PROVIDER, writeMockModelRoute } from './fixtures/mock-model-route.ts'
+import { lastToolResult, messagesResponse, toolResultText } from './fixtures/messages-response.ts'
 
 it.for(['standard', 'ptc'] as const)('keeps %s plugin changes pending until the SDK runtime restarts', async (mode, test) => {
   const root = await mkdtemp(join(tmpdir(), 'sdk-plugin-manager-'))
@@ -30,9 +31,7 @@ it.for(['standard', 'ptc'] as const)('keeps %s plugin changes pending until the 
         requests.push(current)
         if (requests.length === 1) args = { action: 'list_plugins', limit: 100 }
         else if (phase === 'list') {
-          const messages = current.messages as { content: { type: string; content?: { text: string }[] }[] }[]
-          const result = messages.flatMap(message => message.content).findLast(block => block.type === 'tool_result')
-          const page = listPage.parse(JSON.parse(result!.content![0]!.text))
+          const page = listPage.parse(JSON.parse(toolResultText(lastToolResult(current.messages))!))
           const row = page.entries.find(entry => entry.moduleName === '@deepseek-ai/dsh-tool-web')
           if (row !== undefined) {
             args = { action: 'set_plugin', target: row.entryId, enabled: false }
@@ -66,10 +65,11 @@ it.for(['standard', 'ptc'] as const)('keeps %s plugin changes pending until the 
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
   const address = server.address()
   if (address === null || typeof address === 'string') throw new Error('model fixture has no TCP address')
-  const env = profileEnvironment(root, `http://127.0.0.1:${address.port}`)
+  const env = profileEnvironment(root)
+  const route = await writeMockModelRoute(root, `http://127.0.0.1:${address.port}`, ['mock-model'])
   const options = {
-    cwd: root, processCwd: root, dshHome: join(root, 'home'), env, model: 'deepseek-v4-pro',
-    patches: mode === 'ptc' ? [fileURLToPath(new URL('../../../config/examples/ptc.yml', import.meta.url))] : [],
+    cwd: root, processCwd: root, dshHome: join(root, 'home'), env, provider: MOCK_MODEL_PROVIDER, model: 'mock-model',
+    patches: [...mode === 'ptc' ? [fileURLToPath(new URL('../../../config/examples/ptc.yml', import.meta.url))] : [], route],
   }
   async function run(restarted: boolean): Promise<void> {
     const harness = new DeepSeekHarness(options)
@@ -132,14 +132,15 @@ it.for(['unavailable', 'approved', 'missing-pnpm'] as const)('reports the %s plu
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
   const address = server.address()
   if (address === null || typeof address === 'string') throw new Error('model fixture has no TCP address')
-  const env = profileEnvironment(root, `http://127.0.0.1:${address.port}`)
+  const env = profileEnvironment(root)
+  const route = await writeMockModelRoute(root, `http://127.0.0.1:${address.port}`, ['mock-model'])
   env.DSH_PERMISSION_MODE = scenario === 'missing-pnpm' ? 'danger-full-access' : 'workspace-write'
   if (scenario === 'missing-pnpm') {
     for (const key of Object.keys(env)) if (key.toLowerCase() === 'path') Reflect.deleteProperty(env, key)
     env.PATH = root
   }
   const harness = new DeepSeekHarness({ cwd: root, processCwd: root, dshHome: join(root, 'home'),
-    env, model: 'deepseek-v4-pro', approvalRequests: scenario === 'approved' })
+    env, provider: MOCK_MODEL_PROVIDER, model: 'mock-model', patches: [route], approvalRequests: scenario === 'approved' })
   let approvals = 0
   const abort = (): void => { void harness.close() }
   test.signal.addEventListener('abort', abort, { once: true })
@@ -155,13 +156,11 @@ it.for(['unavailable', 'approved', 'missing-pnpm'] as const)('reports the %s plu
     const result = JSON.stringify(requests.at(-1)?.messages)
     if (scenario === 'unavailable') expect(result).toContain('unavailable')
     else if (scenario === 'missing-pnpm') {
-      const messages = requests.at(-1)!.messages as { content: { type: string; content?: { text: string }[] }[] }[]
-      const toolResult = messages.flatMap(message => message.content).findLast(block => block.type === 'tool_result')
       const failure = z.object({
         changed: z.literal(false), application: z.literal('failed'),
         packageResult: z.object({ exitCode: z.number(), output: z.string().min(1) }),
         error: z.object({ code: z.literal('operation-error'), diagnostic: z.string().min(1) }),
-      }).parse(JSON.parse(toolResult!.content![0]!.text))
+      }).parse(JSON.parse(toolResultText(lastToolResult(requests.at(-1)!.messages))!))
       // cmd.exe reports 1 for a missing command; POSIX spawn reports 127.
       expect(failure.packageResult.exitCode).toBe(process.platform === 'win32' ? 1 : 127)
       expect(failure.error.diagnostic).toContain('pnpm')

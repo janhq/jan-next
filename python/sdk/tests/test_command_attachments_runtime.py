@@ -30,8 +30,10 @@ def _image(name: str = "reference.png", data: str = _RED) -> dict:
 
 
 def _request_images(request: dict) -> list[dict]:
-    return [block for message in request["messages"] for block in message["content"]
-            if block["type"] == "image"]
+    # Prompt-cache breakpoints are request framing, not image content.
+    return [{key: value for key, value in block.items() if key != "cache_control"}
+            for message in request["messages"] if isinstance(message["content"], list)
+            for block in message["content"] if block["type"] == "image"]
 
 
 def _assert_request_images(request: dict, *images: dict) -> None:

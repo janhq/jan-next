@@ -217,8 +217,10 @@ describe('released event and payload inventory', () => {
     expect(RELEASED_V0_EVENT_TYPES).toHaveLength(51)
     expect(RELEASED_V0_EVENT_TYPES.filter(type => !KNOWN_SESSION_EVENT_TYPES.has(type))).toEqual([
       'assistant/chunk',
+      'session-log-deepseek/delivery-accepted',
       'tool/code-dispatch',
       'tool/code-dispatch-start',
+      'web/deepseek-search-llm-request',
     ])
     expect(KNOWN_SESSION_EVENT_TYPES.has('tool/ptc-dispatch')).toBe(true)
     expect(KNOWN_SESSION_EVENT_TYPES.has('tool/ptc-dispatch-start')).toBe(true)

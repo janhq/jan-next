@@ -23,8 +23,7 @@ async function fixture(failure = false, preferences: CotTranslationPreferences =
   class TestRemote extends Service {
     constructor() { super(ctx, 'remote') }
     $on(event: string, listener: () => void) {
-      expect(['settings/document-updated', 'llm/adapters-updated', 'deepseek-account/session-expired',
-        'deepseek-account/model-sign-in-required', 'credentials/record-updated', 'credentials/reference-updated']).toContain(event)
+      expect(event).toBe('settings/document-updated')
       let group = listeners.get(event)
       if (group === undefined) { group = new Set(); listeners.set(event, group) }
       group.add(listener)
@@ -47,8 +46,7 @@ async function fixture(failure = false, preferences: CotTranslationPreferences =
   } } as never, () => null)
   return { ctx, limits, translate, unmount, scope, listeners,
     setCatalog: (value: CotTranslationSnapshot) => { catalog = value },
-    invalidate: () => { for (const listener of listeners.get('settings/document-updated') ?? []) listener() },
-    emitEvent: (event: string) => { for (const listener of listeners.get(event) ?? []) listener() } }
+    invalidate: () => { for (const listener of listeners.get('settings/document-updated') ?? []) listener() } }
 }
 
 function bodyFace(value: Record<string, unknown>): asserts value is Record<string, unknown> & TranslationBodyInjected {
@@ -351,64 +349,4 @@ it('retains an invalidation raised synchronously while a refreshed snapshot is b
     expect(b.limits).toHaveBeenCalledTimes(3)
     await dispose()
   } finally { unsubscribe?.(); await b.ctx.fiber.dispose() }
-})
-
-
-it('advertises eligible paid routes without changing Bing selection or sending a translation', async () => {
-  const b = await fixture()
-  b.setCatalog({ maxTextChars: 12, availableProviders: ['bing', 'google', 'deepseek-account', 'deepseek-official'],
-    preferences: { provider: 'bing', targetLanguage: 'auto' } })
-  try {
-    const dispose = await mountTranslation(b.ctx, contribution)
-    const settings = b.ctx.slots.entries('plugins.bundle.config')[0]!.inject!()
-    assert(typeof settings.refreshProviders === 'function')
-    expect(settings.hooks).toBeTruthy()
-    const body = injectReasoning(b.ctx.slots.entries('conversation.chat.reasoning.body')[0]!, SessionId('reasoning-session'))
-    bodyFace(body)
-    expect(body.hooks.preferences.getSnapshot()).toEqual({ provider: 'bing', targetLanguage: 'auto' })
-    expect(b.translate).not.toHaveBeenCalled()
-    await dispose()
-  } finally { await b.ctx.fiber.dispose() }
-})
-
-it.each(['deepseek-account', 'deepseek-official'] as const)('binds selected paid route %s and delegates unavailable cache lookup to the Host', async (provider) => {
-  const b = await fixture(false, { provider, targetLanguage: 'auto' })
-  const catalog: CotTranslationSnapshot = { maxTextChars: 12,
-    availableProviders: ['bing', 'google', 'deepseek-account', 'deepseek-official'], preferences: { provider, targetLanguage: 'auto' } }
-  b.setCatalog(catalog)
-  try {
-    const dispose = await mountTranslation(b.ctx, contribution)
-    const sessionId = SessionId('existing-viewed-session')
-    const body = injectReasoning(b.ctx.slots.entries('conversation.chat.reasoning.body')[0]!, sessionId)
-    bodyFace(body)
-    expect(b.translate).not.toHaveBeenCalled()
-    await body.translate({ text: 'original', provider, targetLanguage: 'zh', sessionId: SessionId('other-session') },
-      new AbortController().signal)
-    expect(b.translate).toHaveBeenCalledWith({ text: 'original', provider, targetLanguage: 'zh', sessionId }, expect.any(AbortSignal))
-    await body.translate({ text: 'another', provider, targetLanguage: 'zh' }, new AbortController().signal)
-    expect(b.limits).toHaveBeenCalledOnce()
-    b.setCatalog({ ...catalog, availableProviders: ['bing', 'google'] })
-    b.emitEvent('credentials/record-updated')
-    expect(await body.translate({ text: 'original', provider, targetLanguage: 'zh' }, new AbortController().signal)).toBe('translated')
-    expect(b.translate).toHaveBeenCalledTimes(3)
-    expect(body.hooks.preferences.getSnapshot()).toEqual({ provider, targetLanguage: 'auto' })
-    await dispose()
-  } finally { await b.ctx.fiber.dispose() }
-})
-
-it.each(['llm/adapters-updated', 'deepseek-account/session-expired', 'deepseek-account/model-sign-in-required',
-  'credentials/record-updated', 'credentials/reference-updated'])('refreshes eligibility when %s is forwarded', async (event) => {
-  const b = await fixture()
-  try {
-    const dispose = await mountTranslation(b.ctx, contribution)
-    const settings = b.ctx.slots.entries('plugins.bundle.config')[0]!.inject!()
-    const hooks = settings.hooks as { availableProviders: { getSnapshot: () => readonly string[] } }
-    expect(hooks.availableProviders.getSnapshot()).toEqual(['bing', 'google'])
-    b.setCatalog({ maxTextChars: 12, availableProviders: ['bing', 'google', 'deepseek-official'],
-      preferences: { provider: 'bing', targetLanguage: 'auto' } })
-    b.emitEvent(event)
-    await vi.waitFor(() => { expect(hooks.availableProviders.getSnapshot()).toContain('deepseek-official') })
-    expect(b.translate).not.toHaveBeenCalled()
-    await dispose()
-  } finally { await b.ctx.fiber.dispose() }
 })

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Account surfaces follow `account/watch` access: a revocation withdraws them and a later grant restores them. */
 import { afterEach, expect, it, vi } from 'vitest'
-import type { AccountView } from '@deepseek-ai/dsh-deepseek-account/types'
+import type { AccountView } from '@deepseek-ai/dsh-tokamak-account/types'
 import { apply, type AccountSectionInjected } from '../src/client/index.ts'
 
 afterEach(() => { vi.unstubAllEnvs() })
@@ -70,7 +70,6 @@ it('withdraws every account surface and the account stream on revocation, and re
     },
     remote: {
       $on: () => () => {},
-      session: { initializeDefaultModel: async () => ({ ok: true, value: undefined }) },
       account: { getProfile: async () => ({ ok: true, value: null }), getBalance: async () => ({ ok: true, value: null }) },
       $stream: () => {
         const abort = new AbortController()
@@ -146,7 +145,6 @@ it('drops reads a revoked grant started, and the next grant shows no account sec
     },
     remote: {
       $on: () => () => {},
-      session: { initializeDefaultModel: async () => ({ ok: true, value: undefined }) },
       account: { getProfile: async () => await profile.promise, getBalance: async () => ({ ok: true, value: null }) },
       $stream: () => {
         const abort = new AbortController()
@@ -236,7 +234,6 @@ function revocationHarness(scripts: StreamScript[]) {
     },
     remote: {
       $on: () => () => {},
-      session: { initializeDefaultModel: async () => ({ ok: true, value: undefined }) },
       account: {
         getProfile, getBalance: async () => ({ ok: true, value: null }), getUnnotifiedBonuses, startSignIn,
       },

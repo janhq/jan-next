@@ -59,9 +59,15 @@ def run_smoke(repo_root: Path, keep_sessions: bool) -> None:
     print(f"repo_root={repo_root}")
     print(f"dsh_home={dsh_home}")
     print(f"mock_base_url={base_url}")
+    route = dsh_home / "mock-model.patch.json"
+    route.write_text(json.dumps([{"id": "llm-pi-ai", "config": {"providers": {"sdk-smoke": {
+        "api": "anthropic-messages", "baseURL": base_url, "apiKeyEnv": "SDK_SMOKE_API_KEY",
+        "models": [{"id": "sdk-smoke-model"}],
+    }}}}]))
 
     try:
         with DeepSeekHarness(
+            provider="sdk-smoke",
             model="sdk-smoke-model",
             cwd=str(repo_root / "python/sdk"),
             runtime_cwd=str(repo_root),
@@ -72,13 +78,14 @@ def run_smoke(repo_root: Path, keep_sessions: bool) -> None:
                 str(runtime_entry),
                 "--profile",
                 "sdk",
+                "--patch",
+                str(route),
             ),
             env={
                 "DSH_HOME": str(dsh_home),
                 "DSH_PERMISSION_MODE": "danger-full-access",
                 "DSH_TELEMETRY_DISABLED": "1",
-                "DEEPSEEK_BASE_URL": base_url,
-                "DEEPSEEK_API_KEY": "sdk-smoke-key",
+                "SDK_SMOKE_API_KEY": "sdk-smoke-key",
             },
             request_timeout_seconds=20,
             shutdown_timeout_seconds=2,

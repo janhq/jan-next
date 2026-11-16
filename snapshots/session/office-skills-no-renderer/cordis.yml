@@ -6,14 +6,6 @@
         node: !!js process.cwd() + '/office-node'
         cli: !!js process.cwd() + '/render-cli.cjs'
 
-- id: llm-deepseek
-  config:
-    thinking: enabled
-    reasoningEffort: high
-    maxTokens: 8192
-    models:
-      - id: deepseek-v4-flash
-
 - id: tool-bash
   disabled: true
 

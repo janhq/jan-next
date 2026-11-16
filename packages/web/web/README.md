@@ -37,7 +37,7 @@ Load the service and let a single mounted backend auto-select, or pin a provider
 - name: '@deepseek-ai/dsh-web'
   config:
     fetchProvider: http
-- name: '@deepseek-ai/dsh-web-deepseek-api'
+- name: '@deepseek-ai/dsh-web-search-exa'
 - name: '@deepseek-ai/dsh-web-fetch-http'
 ```
 
@@ -75,8 +75,6 @@ Each call resolves its provider at execution time, and registration or load orde
 | no id, no usable provider | `WEB_PROVIDER_UNAVAILABLE` |
 | no id, multiple usable providers | `WEB_PROVIDER_AMBIGUOUS` |
 
-The shipped `deepseek-official` and `deepseek-search-api` search ids select legacy Messages search and the direct Search API respectively.
-
 A provider's availability is a cheap local check — for example whether its API key is present — and never makes network calls, so selection stays fast and deterministic.
 
 <a id="listing-providers"></a>
@@ -113,8 +111,8 @@ A search or fetch backend outside the shipped composition is a plugin package th
 
 ```text
 // false only when the selected provider cannot authenticate this route's operations:
-const searchOffered = await ctx.web.searchReady('deepseek-official')
-const fetchOffered = await ctx.web.fetchReady('deepseek-official')
+const searchOffered = await ctx.web.searchReady('tokamak')
+const fetchOffered = await ctx.web.fetchReady('tokamak')
 ```
 
 ### Failures and recovery

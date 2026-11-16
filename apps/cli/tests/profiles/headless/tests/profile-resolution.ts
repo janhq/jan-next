@@ -227,7 +227,6 @@ export function testProfileResolution(mode: ExampleMode): void {
           { id: 'headless-startup', disabled: true },
           { id: 'sandbox-policy', inject: [], config: { mode: process.env.DSH_PERMISSION_MODE ?? 'workspace-write' } },
           { id: 'headless-runner', disabled: true },
-          { id: 'llm-deepseek', disabled: true },
           { insert: [
             { id: 'external-plugin', name: pluginName },
             { id: 'resolution-probe', name: join(profileDir, 'probe.mjs') },

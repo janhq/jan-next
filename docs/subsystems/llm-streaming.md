@@ -252,7 +252,7 @@ interface LlmFailure {
 
 ## Request-image pricing
 
-An adapter whose provider charges visual tokens for request images declares per-route pricing by overriding `LlmAdapter.imageRequestPricing`, and `ctx.llm.imageRequestPricing(provider, model)` resolves it synchronously for consumers. The token meter resolves the routed model's pricing on every measurement so compaction pressure, retention, and range selection price image history as the routed request actually sends it; the DeepSeek adapter prices each retained occurrence at its per-model request target with the published vision accounting and each occurrence selected by a logged image-offload decision as its placeholder text, while provider usage remains the authoritative anchor for completed requests.
+An adapter whose provider charges visual tokens for request images declares per-route pricing by overriding `LlmAdapter.imageRequestPricing`, and `ctx.llm.imageRequestPricing(provider, model)` resolves it synchronously for consumers. The token meter resolves the routed model's pricing on every measurement so compaction pressure, retention, and range selection price image history as the routed request actually sends it, while provider usage remains the authoritative anchor for completed requests.
 
 ```ts type-equiv
 /**
@@ -298,7 +298,7 @@ Every adapter MUST obey these, and every consumer may rely on them:
 - **Two sanctioned error paths, one `LlmFailure` type.** A failure may either THROW from `stream()` (transport/protocol errors) **or** end the stream with `finish {kind:'error'|'aborted', failure}` (provider in-band errors, for adapters that can't throw mid-stream). `LlmError.failure` carries the same `LlmFailure`. After the call selects its adapter, the stream preserves the exact thrown `Error` object and associates immutable facts plus the serving registration's immutable retry policy with that call; the agent loop commits the attempt stream as `assistant/attempt`, closes the failed step, and offers the error, facts, immutable prior-retried facts, serving policy, and turn signal to `agent/request-error`. A handling listener returns `{ kind: 'retry' }` after its awaited repair; absent recovery the structured failure becomes the turn error, and no surface Assistant message or tool side effect is committed for that attempt.
 - **One adapter call is one provider attempt.** Adapters disable library retries. Agent-level recovery opens another durable numbered turn; direct `ctx.llm.stream()` callers remain single-attempt.
 - **Provider stalls are bounded at the transport.** Both shipping remote adapters expose positive finite `streamIdleTimeoutMs` with a five-minute default. The watchdog arms only while iterator `next()` is outstanding, uses one stable signal for the whole request, maps its own expiry to `TIMEOUT`, and keeps an earlier caller abort as `ABORTED`.
-- **Context overflow has one canonical code.** Both DeepSeek adapters classify explicit provider detail through `isContextWindowExceededError()` and surface `CONTEXT_WINDOW_EXCEEDED`, whether the failure arrives as a thrown HTTP `LlmError` or an in-band finish error. Consumers route on the code, never provider text.
+- **Context overflow has one canonical code.** Adapters classify explicit provider detail through `isContextWindowExceededError()` and surface `CONTEXT_WINDOW_EXCEEDED`, whether the failure arrives as a thrown HTTP `LlmError` or an in-band finish error. Consumers route on the code, never provider text.
 - **An empty completion is a retryable error, not a silent success.** Both adapters map a terminal `stop` finish that carried no content blocks to `finish {kind:'error'}` with the canonical `EMPTY_RESPONSE` code, and `dsh-llm-retry` retries it by default.
 - **Every provider HTTP request carries the app-attribution header.** Adapters send `attributionHeaders()` (below) - the `User-Agent` baseline - and prove it with a wire-level test.
 - **Replay state is adapter-owned; its split is shared.** A successful `finish` may carry a `ReplayEnvelope`: opaque response-level metadata plus optional per-block entries aligned with the emitted block sequence. The alignment is the harness's vocabulary — when assembly drops a block it drops the entry at the same position, so stored metadata always describes stored content. The loop stores the pruned envelope with the assembled assistant message. On a later request, `LlmRuntime` passes the state only when the historical provider and target provider are currently registered to the exact same adapter instance. That adapter validates the state and owns any cross-model or cross-provider conversion; other adapters receive the provider-neutral content plus provider/model fields without the private state. Durable content stays authoritative: a stored state the reading adapter cannot use degrades that one message to provider-neutral conversion with a diagnostic instead of failing the request.
@@ -852,12 +852,6 @@ interface LlmCallConfigAdapterDefaults {
 }
 ```
 
-## Official DeepSeek request extensions
-
-`ctx.deepseekLlmApiExtensions` is the provider-specific registry for additive top-level fields on `deepseek-official` requests. Contributor plugins use `register(field, provider)` to claim one field; the adapter calls `prepare(request)` after serializing its base body and merges the returned fields before HTTP. The prepared `accept()` transaction runs after 2xx, so a contributor can commit delivery state without treating a transport or provider rejection as acceptance. A contributor whose preparation throws is logged and omitted from that request, and an acceptance failure is logged without failing the request; a base-field collision uses `REQUEST_EXTENSION` and fails the model request. A merged body that fails to serialize is sent without extension fields; acceptance is skipped and the provider plugin logs the omitted field names.
-
-The [wire reference](../deepseek-llm-api-wire-extensions.md) defines the exact request headers, extension transaction, field versions, and receiver obligations. The shipped composition registers [`dsh_session_log`](../../packages/session/session-log-deepseek/README.md) as a lossless incremental canonical-log suffix and [`dsh_plugin_packages`](../../packages/llm/plugin-package-inventory-deepseek/README.md) as the complete active Loader-backed package set. These fields remain outside model messages and are absent from the pi-ai adapter path.
-
 ## Pi-ai request headers
 
 `PiAiRequestHeaderContext` contains the prepared call's provider, model, resolved model `baseURL`, and optional Session id and auxiliary purpose. It is immutable, contains no messages or authentication fields, and accompanies a request-owned `Headers` object in the synchronous `llm-pi-ai/request-headers` waterfall. The [adapter's request-header documentation](../../packages/llm/llm-pi-ai/README.md#request-headers) defines contribution ownership, attribution precedence, and failure behavior. This extension point is specific to pi-ai inference requests.
@@ -985,39 +979,11 @@ declare abstract class LlmAdapter {
 
 Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`). Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
-<a id="ctxdeepseekllmapiextensions--deepseekllmapiextensionregistry"></a>
-
-### `ctx.deepseekLlmApiExtensions` — `DeepSeekLlmApiExtensionRegistry`
-
-Registry of independently owned top-level fields for official DeepSeek requests.
-
-```ts cordis-catalog
-/**
- * Register the sole provider of one top-level request field. Registration is effect-scoped.
- * @param field - declaration-merged field owned by the provider.
- * @param provider - request-time field preparation and optional acceptance behavior.
- * @returns disposer that releases the field.
- */
-register<K extends keyof DeepSeekLlmApiExtensionMap>( field: K, provider: DeepSeekLlmApiExtensionProvider<DeepSeekLlmApiExtensionMap[K]>, ): () => Promise<void>
-
-/**
- * Prepare every currently registered field from one immutable base request.
- * A provider whose preparation throws, or whose value cannot be cloned, is omitted
- * from this request; the first such failure per field is logged. Only cancellation rejects. Field values are cloned
- * and frozen; providers retain no mutable alias to the outgoing request.
- * @param request - exact serialized request facts before extension fields.
- * @returns detached fields and their idempotent joint acceptance transaction.
- */
-async prepare(request: DeepSeekLlmApiExtensionRequest): Promise<PreparedDeepSeekLlmApiExtensions>
-```
-
-Source: [`packages/llm/deepseek-llm-api-extensions/src/index.ts`](../../packages/llm/deepseek-llm-api-extensions/src/index.ts)
-
 <a id="ctxllamacpp--llamacpp"></a>
 
 ### `ctx.llamaCpp` — `LlamaCpp`
 
-Local worker with an installed model set. Record and process mutations are serialized through LlamaCpp.task; downloads run outside it and commit through it.
+Local engine with an installed model set. Record and process mutations are serialized through LlamaCpp.task, except the engine install, which records itself outside it because a launch inside the queue may be what asked for the engine; record writes are chained in order.
 
 ```ts cordis-catalog
 /**
@@ -1041,15 +1007,14 @@ subscribe(listener: () => void): () => void
 async *follow(caller: AbortSignal): AsyncIterable<LlamaCppState>
 
 /**
- * First-run install: download the first-run model, then start the worker. With a model already
- * installed it starts the active model instead. Returns once accepted; progress and outcome arrive
- * through {@link follow}. Nothing downloads while the worker is unavailable.
+ * First-run install: download the engine and the first-run model, then start the server. With a
+ * model already installed it starts the active model instead. Returns once accepted; progress and
+ * outcome arrive through {@link follow}.
  */
 install(): void
 
 /**
- * Download a curated model, with its vision projector when it has one. Ignored when it is installed
- * or already downloading.
+ * Download a curated model. Ignored when it is installed or already downloading.
  * @param id - catalog id.
  * @throws Error for an unknown id.
  */
@@ -1059,14 +1024,14 @@ downloadCatalog(id: string): void
  * Look up a Hugging Face repository's downloadable GGUF files.
  * @param input - `owner/name` or a huggingface.co link.
  * @param signal - cancellation.
- * @returns the repository, its files marking those already installed, and the projector each downloads with.
+ * @returns the repository and its files, marking those already installed.
  * @throws {@link HuggingFaceLookupError} for bad input, a missing repository or an unreachable API.
  */
 async lookupHuggingFace(input: string, signal?: AbortSignal): Promise<HuggingFaceRepoInfo>
 
 /**
- * Download one file of a Hugging Face repository, and the repository's vision projector after it,
- * re-reading the repository so the digests and sizes come from Hugging Face, not the caller.
+ * Download one file of a Hugging Face repository, re-reading the repository so the digest and size
+ * come from Hugging Face, not the caller.
  * @param input - `owner/name` or a huggingface.co link.
  * @param file - file name inside the repository.
  * @param signal - cancellation of the lookup.
@@ -1090,67 +1055,38 @@ retry(id: string): void
 async cancel(id?: string): Promise<void>
 
 /**
- * Add a GGUF file from disk, left where it is, recording its header facts, with an optional vision
- * projector also left where it is. The first model added becomes the default and starts; a later
- * one joins the running worker's preset. Importing an already imported file with a projector
- * attaches that projector to it, replacing any earlier one.
+ * Add a GGUF file from disk, left where it is. The first model added becomes active and starts.
  * @param path - absolute path of a `.gguf` file.
- * @param options - display name, defaulting to the file name, and projector path.
+ * @param name - display name; defaults to the file name.
  * @returns the model id.
- * @throws Error when the path is not an absolute path to a readable GGUF file, the file is a
- * vision projector or embedding model rather than a chat model, or the projector is not an
- * absolute path to a readable projector GGUF file.
+ * @throws Error when the path is not an absolute path to a readable GGUF file.
  */
-importModel(path: string, options: ImportModelOptions = {}): Promise<string>
+importModel(path: string, name?: string): Promise<string>
 
 /**
- * Make an installed model the default: the route's alias id serves it and it loads when the worker
- * starts. A running worker retargets the alias without reloading any model, then loads it; a
- * stopped one starts. An agent default on another model of this route moves to the alias id.
+ * Make an installed model the active one and (re)start the server with it.
  * @param id - installed model id.
- * @returns once the worker serves it; a failed start is published as the `failed` phase.
- * @throws Error for an id that is not installed, or carrying the worker's reason when a running
- * worker could not load it; the worker keeps running, and the model stays the default.
+ * @returns once the server is running with it or has failed.
+ * @throws Error for an id that is not installed.
  */
-setDefault(id: string): Promise<void>
+select(id: string): Promise<void>
 
 /**
- * Load an installed model into the running worker, starting the worker first when it is stopped.
- * With {@link Config.modelsMax} models resident, the least recently used idle one is unloaded.
+ * Remove an installed model. A downloaded file is deleted; an imported file is only forgotten.
+ * Removing the active model makes the next installed model active and restarts the server with
+ * it if it was running.
  * @param id - installed model id.
- * @returns once the model is loaded.
- * @throws Error for an id that is not installed, or carrying the worker's reason when it could not
- * load the model (all resident models busy, or a load failure).
- */
-loadModel(id: string): Promise<void>
-
-/**
- * Unload a model from the running worker; it loads again on its next request.
- * @param id - installed model id.
- * @returns once it is unloaded, or at once when the worker does not hold it.
- * @throws Error carrying the worker's reason when the model has requests in flight.
- */
-unloadModel(id: string): Promise<void>
-
-/**
- * Remove an installed model. A downloaded file or projector is deleted; an imported one is only forgotten. A
- * resident model is unloaded first, because Windows cannot delete a file the worker maps.
- * Removing the default makes the next installed model the default and loads it into a running worker,
- * as {@link setDefault} does; removing the last stops the worker.
- * @param id - installed model id.
- * @returns once the record and the worker reflect the removal.
- * @throws Error carrying the worker's reason when the model has requests in flight, or when the
- * running worker could not load the new default; the removal stands and the worker keeps running.
+ * @returns once the record and the server reflect the removal.
  */
 removeModel(id: string): Promise<void>
 
-/** Start the worker with the active model, now and on later boots. No-op while it is running or starting. */
+/** Start the active model's server, and on later boots. No-op while it is running or starting. */
 start(): Promise<void>
 
 /** Stop the worker, also while it is still starting; the install stays and later boots leave it stopped. */
 stop(): Promise<void>
 
-/** Stop the worker, cancel downloads, delete downloaded models, partial files and saved KV state, and remove the route credentials. */
+/** Stop the server, cancel downloads, delete the engine, downloaded models and partial files, and remove the route key. */
 async uninstall(): Promise<void>
 ```
 
@@ -1160,7 +1096,7 @@ Source: [`packages/llm/llama-cpp/src/index.ts`](../../packages/llm/llama-cpp/src
 
 ### `ctx.llamaCppController` — `LlamaCppController`
 
-Install, start, stop and remove the local models and the worker serving them; progress arrives through follow.
+Install, start, stop and remove the local engine and its models; progress arrives through follow.
 
 ```ts cordis-catalog
 /**
@@ -1176,7 +1112,7 @@ Install, start, stop and remove the local models and the worker serving them; pr
  */
 @Remote({ mode: 'stream' }) async *follow(signal: AbortSignal): AsyncIterable<LlamaCppState>
 
-/** First run: download and verify the first-run model, then start the worker; with a model installed, start it. */
+/** First run: download the engine and the first-run model, verify them, then start the server. */
 @Remote beginInstall(): void
 
 /**
@@ -1224,42 +1160,26 @@ Install, start, stop and remove the local models and the worker serving them; pr
 /**
  * Add a GGUF file from this computer, left where it is.
  * @param path - absolute path on the Host.
- * @param projector - absolute Host path of the model's vision projector (mmproj) file; omitted for a text-only model.
  * @returns the model id.
  */
-@Remote async importModel(path: string, projector?: string): Promise<string>
+@Remote async importModel(path: string): Promise<string>
 
 /**
- * Make an installed model the default, which the route's alias id serves, and load it; a stopped
- * worker starts. A start failure arrives through {@link follow}.
+ * Run an installed model, restarting the server with it.
  * @param id - installed model id.
- * @returns after the worker serves it or has failed to start.
+ * @returns after the server runs it or has failed.
  */
-@Remote async setDefaultModel(id: string): Promise<void>
+@Remote async selectModel(id: string): Promise<void>
 
 /**
- * Load an installed model now instead of on its first request, starting a stopped worker.
- * @param id - installed model id.
- * @returns after it is loaded.
- */
-@Remote async loadModel(id: string): Promise<void>
-
-/**
- * Free a loaded model's memory; it loads again on its next request.
- * @param id - installed model id.
- * @returns after it is unloaded.
- */
-@Remote async unloadModel(id: string): Promise<void>
-
-/**
- * Remove an installed model, unloading it first; an imported file is only forgotten.
+ * Remove an installed model; an imported file is only forgotten.
  * @param id - installed model id.
  * @returns after it is removed.
  */
 @Remote async deleteModel(id: string): Promise<void>
 
 /**
- * Start the worker with the default model.
+ * Start the installed server.
  * @returns after it is running or has failed.
  */
 @Remote async startServer(): Promise<void>
@@ -1271,7 +1191,7 @@ Install, start, stop and remove the local models and the worker serving them; pr
 @Remote async stopServer(): Promise<void>
 
 /**
- * Stop the worker, delete every downloaded model and remove the route credentials.
+ * Delete the engine and every downloaded model and remove the route key.
  * @returns after the files are gone.
  */
 @Remote async removeInstall(): Promise<void>
@@ -1472,23 +1392,6 @@ The provider topology changed: an adapter registered or unregistered routes, or 
  * @mode emit
  */
 'llm/adapters-updated'(): void
-```
-
-Source: [`packages/llm/llm/src/types.ts`](../../packages/llm/llm/src/types.ts)
-
-<a id="llmmodels-updated--emit"></a>
-
-#### `llm/models-updated` — emit
-
-A provider's advertised models or display metadata changed; consumers reload `listModels()`.
-
-```ts cordis-catalog
-/**
- * A provider's advertised models or display metadata changed; consumers reload `listModels()`.
- * @mode emit
- * @param provider - route whose model catalog changed.
- */
-'llm/models-updated'(provider: string): void
 ```
 
 Source: [`packages/llm/llm/src/types.ts`](../../packages/llm/llm/src/types.ts)

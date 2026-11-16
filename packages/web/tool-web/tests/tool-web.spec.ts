@@ -1205,7 +1205,7 @@ describe('web tool admission per model step', () => {
     const fiber = await ctx.plugin(ToolWeb, {})
     const agent = { id: SessionId('web-search-admission') } as Agent
     await ctx.plugin(Object.assign((inner: Context) => { createScope(inner, agent) }, { inject: ['tools'] }))
-    const selection: ModelSelection = { provider: setup.route ?? 'deepseek-official', model: 'deepseek-v4-flash' }
+    const selection: ModelSelection = { provider: setup.route ?? 'tokamak', model: 'deepseek-v4-flash' }
     const step = async (): Promise<{ toolSet: ResolvedToolSet; tools: string[]; prompt: string }> => {
       const modelSelection = { ...selection }
       const toolSet = await ctx.tools.resolve({ agent, modelSelection, signal: testToolSignal })
@@ -1217,16 +1217,16 @@ describe('web tool admission per model step', () => {
 
   it('withholds web_search and its guidance when the selected provider cannot authenticate the route', async () => {
     const asked: (string | undefined)[] = []
-    const { step } = await compose({ providers: [routeProvider('deepseek', ['deepseek-account'], asked)] })
+    const { step } = await compose({ providers: [routeProvider('deepseek', ['local'], asked)] })
     const { tools, prompt } = await step()
     expect(tools).toContain('web_fetch')
     expect(tools).not.toContain('web_search')
     expect(prompt).not.toContain(searchGuidance)
-    expect(asked).toEqual(['deepseek-official'])
+    expect(asked).toEqual(['tokamak'])
   })
 
   it('offers web_search and its guidance when the selected provider can authenticate the route', async () => {
-    const { step } = await compose({ providers: [routeProvider('deepseek', ['deepseek-account'])], route: 'deepseek-account' })
+    const { step } = await compose({ providers: [routeProvider('deepseek', ['local'])], route: 'local' })
     const { tools, prompt } = await step()
     expect(tools).toContain('web_search')
     expect(prompt).toContain(searchGuidance)
@@ -1236,24 +1236,24 @@ describe('web tool admission per model step', () => {
     const deepseekAsked: (string | undefined)[] = []
     const { step } = await compose({
       searchProvider: 'exa',
-      providers: [routeProvider('exa', ['deepseek-official']), routeProvider('deepseek', [], deepseekAsked)],
+      providers: [routeProvider('exa', ['tokamak']), routeProvider('deepseek', [], deepseekAsked)],
     })
     expect((await step()).tools).toContain('web_search')
     expect(deepseekAsked).toEqual([])
   })
 
   it('follows the model selected for each step', async () => {
-    const { selection, step } = await compose({ providers: [routeProvider('deepseek', ['deepseek-account'])], route: 'deepseek-account' })
+    const { selection, step } = await compose({ providers: [routeProvider('deepseek', ['local'])], route: 'local' })
     expect((await step()).tools).toContain('web_search')
-    selection.provider = 'deepseek-official'
+    selection.provider = 'tokamak'
     expect((await step()).tools).not.toContain('web_search')
-    selection.provider = 'deepseek-account'
+    selection.provider = 'local'
     expect((await step()).tools).toContain('web_search')
   })
 
   it('refuses a web_search call in a step that withheld it', async () => {
     const searched: string[] = []
-    const { ctx, agent, step } = await compose({ providers: [routeProvider('deepseek', ['deepseek-account'], [], searched)] })
+    const { ctx, agent, step } = await compose({ providers: [routeProvider('deepseek', ['local'], [], searched)] })
     const { toolSet } = await step()
     const result = await executeToolFixture(ctx, {
       agent, toolSet, signal: testToolSignal, callId: ToolCallId('withheld-search'), name: 'web_search', arguments: { queries: ['q'] },
@@ -1265,20 +1265,20 @@ describe('web tool admission per model step', () => {
   it('withholds web_fetch, its guidance, and its mention in search guidance when the selected fetch provider cannot authenticate the route', async () => {
     const asked: (string | undefined)[] = []
     const { step } = await compose({
-      providers: [routeProvider('deepseek', ['deepseek-official'])],
-      fetchProviders: [fetchRouteProvider('deepseek-fetch', ['deepseek-account'], asked)],
+      providers: [routeProvider('deepseek', ['tokamak'])],
+      fetchProviders: [fetchRouteProvider('deepseek-fetch', ['local'], asked)],
     })
     const { tools, prompt } = await step()
     expect(tools).toContain('web_search')
     expect(tools).not.toContain('web_fetch')
     expect(prompt).not.toContain(fetchGuidance)
     expect(prompt).toContain('Use the returned source snippets when available')
-    expect(asked).toEqual(['deepseek-official'])
+    expect(asked).toEqual(['tokamak'])
   })
 
   it('offers web_fetch and its guidance when the selected fetch provider can authenticate the route', async () => {
     const { step } = await compose({
-      providers: [], fetchProviders: [fetchRouteProvider('deepseek-fetch', ['deepseek-account'])], route: 'deepseek-account',
+      providers: [], fetchProviders: [fetchRouteProvider('deepseek-fetch', ['local'])], route: 'local',
     })
     const { tools, prompt } = await step()
     expect(tools).toContain('web_fetch')
@@ -1290,7 +1290,7 @@ describe('web tool admission per model step', () => {
     const { step } = await compose({
       providers: [],
       fetchProvider: 'http',
-      fetchProviders: [fetchRouteProvider('http', ['deepseek-official']), fetchRouteProvider('deepseek-fetch', [], deepseekAsked)],
+      fetchProviders: [fetchRouteProvider('http', ['tokamak']), fetchRouteProvider('deepseek-fetch', [], deepseekAsked)],
     })
     expect((await step()).tools).toContain('web_fetch')
     expect(deepseekAsked).toEqual([])
@@ -1299,7 +1299,7 @@ describe('web tool admission per model step', () => {
   it('refuses a web_fetch call in a step that withheld it', async () => {
     const fetched: string[] = []
     const { ctx, agent, step } = await compose({
-      providers: [], fetchProviders: [fetchRouteProvider('deepseek-fetch', ['deepseek-account'], [], fetched)],
+      providers: [], fetchProviders: [fetchRouteProvider('deepseek-fetch', ['local'], [], fetched)],
     })
     const { toolSet } = await step()
     const result = await executeToolFixture(ctx, {

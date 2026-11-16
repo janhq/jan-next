@@ -106,14 +106,6 @@ describe('V3 parent catalog completion', () => {
     expect(migrate([catalog], [], false, undefined, true).events).toEqual([catalog])
   })
 
-  it('refuses target delivery activation and invalid current delivery ownership', () => {
-    const preceding = { type: 'feedback/record', seq: 0, time: 1, data: { text: 'prior' } }
-    const delivery = { type: 'session-log-deepseek/delivery-accepted', seq: 1, time: 1,
-      data: { sessionId: 'other', throughSeq: 0, sessionFormatVersion: 4 } }
-    expect(() => migrate([preceding, delivery], [])).toThrow('claims target format v4')
-    expect(() => migrate([preceding, { ...delivery, data: { ...delivery.data, sessionFormatVersion: 3 } }], [])).toThrow('wrong Session')
-  })
-
   it('retains unknown children while validating available descriptor fields', () => {
     const artifact = { header: { ...header, origin: 'subagent' as const, parentSession: 'parent' }, inheritedEventCount: 0, events: [] }
     expect(() => historicalChildCatalogSource({ ...artifact, header })).toThrow('direct parent')
@@ -164,15 +156,7 @@ describe('V3 parent catalog completion', () => {
     expect(() => migrate(existing, [{ ...source, descriptor: { ...source.descriptor, provider: 'spawn', label: 'different' } }])).toThrow('conflicts')
   })
 
-  it('validates predecessor delivery before preserving its generation identity', () => {
-    const prior = { type: 'feedback/record', seq: 0, time: 1, data: { text: 'prior' } }
-    const marker = { type: 'session-log-deepseek/delivery-accepted', seq: 1, time: 1,
-      data: { sessionId: 'ancestor', throughSeq: 0, sessionFormatVersion: 3 } }
-    const seed = { type: 'session/end-seed', seq: 2, time: 2, data: { inherited: true } }
-    expect(migrate([prior, marker, seed], [], true).events).toEqual([prior, marker, seed])
-    expect(() => migrate([prior, { ...seed, seq: 1 }, { ...marker, seq: 2 }], [], true)).toThrow('wrong Session')
-    expect(migrate([prior, { ...marker, data: { ...marker.data, sessionFormatVersion: 2 } }], []).events).toHaveLength(2)
-    expect(migrate([prior, { ...marker, data: { ...marker.data, sessionId: 'parent' } }], []).events).toHaveLength(2)
+  it('derives a historical child catalog fact from its descriptor', () => {
     expect(childCatalogFact(historicalChildCatalogSource({ header: { ...header, origin: 'subagent', parentSession: 'ancestor' }, inheritedEventCount: 0,
       events: [{ type: 'subagent/descriptor', seq: 0, time: 1, data: { version: 3, mode: 'one-shot', provider: 'spawn' } }] }))).toEqual({ version: 0, childId: 'parent', childCreatedAt: 1, mode: 'one-shot' })
   })

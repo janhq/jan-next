@@ -42,7 +42,6 @@ import {
 import type { PropsLocale, PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ModelLabelOwner, ModelSelectInjected } from './slots.ts'
 import css from './ModelSelect.module.css'
-import { orderModelProviders } from './provider-order.ts'
 
 /** Which pane the dropdown shows: the two-row root or one drilled-in list. */
 type Pane = 'root' | 'model' | 'effort'
@@ -92,14 +91,10 @@ export function ModelSelect(
     '--dsh-model-anchor': `--dsh-model-${id.replaceAll(':', '')}`,
   }
 
-  const accountProviderName = t('provider.account')
-  const groups = useMemo(() => orderModelProviders(state.groups).map(group => ({
+  const groups = useMemo(() => state.groups.map(group => ({
     ...group,
-    provider: {
-      id: group.id,
-      name: group.id === 'deepseek-account' ? accountProviderName : group.name,
-    },
-  })), [state.groups, accountProviderName])
+    provider: { id: group.id, name: group.name },
+  })), [state.groups])
   const choices = useMemo(() => groups.flatMap(group =>
     group.models.map(model => ({
       group,
@@ -555,7 +550,7 @@ export function ModelSelect(
               )}
               {state.failures.map(failure => (
                 <div className={css.warning} key={failure.id}>
-                  <span>{t('warning.groupLoad', { name: failure.id === 'deepseek-account' ? t('provider.account') : failure.name, message: failure.message })}</span>
+                  <span>{t('warning.groupLoad', { name: failure.name, message: failure.message })}</span>
                   <button type="button" className={css.retry} onClick={reload}>{t('retry')}</button>
                 </div>
               ))}

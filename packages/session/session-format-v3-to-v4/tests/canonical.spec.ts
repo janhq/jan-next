@@ -71,18 +71,6 @@ describe('canonical V4 integration', () => {
     expect(decoder.finish(output)).toBe(0)
   })
 
-  it('keeps earlier-generation delivery markers ignored and validates native current ownership', () => {
-    const marker = (version: number): SessionFormatEvent => ({ type: 'session-log-deepseek/delivery-accepted', seq: 0, time: 1, data: { sessionId: 'other', throughSeq: 0, sessionFormatVersion: version } })
-    const { type: _type, ...logical } = header
-    const artifact = { header: { ...logical, version: 4, isSeeded: false }, inheritedEventCount: 0, events: [marker(3)] }
-    expect(restoreReleasedV4Artifact(artifact, new Set([marker(3).type]))).toBe(artifact)
-    expect(() => restoreReleasedV4Artifact({ ...artifact, events: [{ type: 'feedback/record', seq: 0, time: 1, ignorable: true, data: {} }, { ...marker(4), seq: 1 }] }, new Set(['feedback/record', marker(4).type]))).toThrow(/wrong Session/)
-    const reader = createSessionFormatCatalogWithChildren([]).createRestore({ ...header, version: 3, isSeeded: false }, { recovery: 'strict', validation: 'current' })
-    reader.decodeRow({ type: 'turn/start', seq: 0, time: 1, data: { turn: 1 } })
-    reader.decodeRow({ ...marker(3), seq: 1, time: 2 })
-    expect(() => reader.finish()).toThrow(/wrong Session/)
-  })
-
   it('retains native compaction checkpoint sources during restoration', () => {
     const artifact: SessionFormatArtifact = {
       header: { version: 4, id: 'compact-v4', createdAt: 1, isSeeded: false, delegationDepth: 0 },

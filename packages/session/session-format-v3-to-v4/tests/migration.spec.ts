@@ -1,17 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { restoreReleasedV3Artifact } from '@deepseek-ai/dsh-session-format-v2-to-v3'
 import { SessionFormatEventCollector } from '@deepseek-ai/dsh-session-format'
-import type { SessionFormatEvent, SessionFormatHeader, SessionFormatJsonObject } from '@deepseek-ai/dsh-session-format'
+import type { SessionFormatEvent, SessionFormatHeader } from '@deepseek-ai/dsh-session-format'
 import { createSessionFormatCatalogWithChildren, historicalSessionFormatCatalog, sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
 import { releasedV3SessionFormatCodec, createSessionFormatV3ToV4, sessionFormatV3ToV4 } from '../src/index.ts'
 
 const header: SessionFormatHeader = { version: 3, id: 'identity', createdAt: 1, isSeeded: false, delegationDepth: 0 }
 const fact: SessionFormatEvent = { type: 'feedback/record', seq: 0, time: 2, data: { text: 'retained' } }
 const seed: SessionFormatEvent = { type: 'session/end-seed', seq: 1, time: 3, data: { inherited: true } }
-const delivery = (version: number | undefined, sessionId = header.id): SessionFormatEvent => ({
-  type: 'session-log-deepseek/delivery-accepted', seq: 1, time: 3,
-  data: { sessionId, throughSeq: 0, ...(version === undefined ? {} : { sessionFormatVersion: version }) },
-})
+const second: SessionFormatEvent = { ...fact, seq: 1, time: 3, data: { text: 'second' } }
 
 function stage(sourceHeader = header, sourceInheritedEventCount?: number) {
   return createSessionFormatV3ToV4([]).createStage({
@@ -74,7 +71,7 @@ describe('V3 to V4 source preservation', () => {
   })
 
   it('changes only the header version and retains event objects, payloads, timestamps, and coordinates', () => {
-    const rows = [fact, delivery(3)]
+    const rows = [fact, second]
     const before = JSON.stringify({ header, rows })
     expect(sessionFormatV3ToV4.migrateHeader(header)).toEqual({ ...header, version: 4 })
     expect(migrate(rows)).toEqual({ events: rows, cut: 0 })
@@ -119,36 +116,10 @@ describe('V3 to V4 source preservation', () => {
     expect(() => migrate([fact, { ...seed, data: {} }], { ...header, isSeeded: true })).toThrow('inherited event count')
   })
 
-  it('refuses target-generation delivery while retaining other generations unchanged', () => {
-    expect(() => migrate([fact, delivery(4)])).toThrow('claims target format v4')
-    expect(() => restore([fact, delivery(4)])).toThrow('claims target format v4')
-    for (const version of [undefined, 0, 1, 2, 3, 5, 99]) {
-      const marker = delivery(version)
-      expect(migrate([fact, marker]).events[1]).toBe(marker)
-      expect(restore([fact, marker]).events[1]).toEqual(marker)
-    }
-  })
-
-  it('checks active V3 coordinates before the delivery becomes historical', () => {
-    const marker = delivery(3)
-    const data = marker.data as SessionFormatJsonObject
-    for (const throughSeq of [-1, 1, 1.5]) {
-      expect(() => migrate([fact, { ...marker, data: { ...data, throughSeq } }])).toThrow('throughSeq')
-    }
-    expect(() => migrate([fact, { ...marker, data: { ...data, sessionId: '' } }])).toThrow('nonempty')
-    expect(() => restore([fact, { ...marker, data: { ...data, throughSeq: 1 } }])).toThrow('throughSeq')
-    const historical = { ...marker, data: { sessionId: 'ancestor', throughSeq: 500, sessionFormatVersion: 2 } }
-    expect(restore([fact, historical]).events[1]).toEqual(historical)
-  })
-
-  it('permits foreign active deliveries only inside a parent seed', () => {
-    const foreign = delivery(3, 'ancestor')
-    expect(() => migrate([fact, foreign])).toThrow('wrong Session')
-    expect(() => migrate([fact, foreign], { ...header, parentSession: 'ancestor' })).toThrow('wrong Session')
-    const rows = [fact, foreign, { ...seed, seq: 2 }]
-    expect(migrate(rows, { ...header, isSeeded: true, parentSession: 'ancestor' }).cut).toBe(2)
-    expect(() => migrate(rows, { ...header, isSeeded: true })).toThrow('wrong Session')
-    expect(() => migrate([fact, seed, { ...foreign, seq: 2 }], { ...header, isSeeded: true, parentSession: 'ancestor' })).toThrow('wrong Session')
+  it('converts a V3 delivery marker that V4 restoration no longer interprets', () => {
+    const marker = { ...second, type: 'session-log-deepseek/delivery-accepted', data: { sessionId: header.id, throughSeq: 0, sessionFormatVersion: 3 } }
+    expect(migrate([fact, marker]).events[1]).toBe(marker)
+    expect(() => restore([fact, marker])).toThrow('unknown event type')
   })
 
   it('retains unknown ignorable values and refuses unknown required events during strict catalog restoration', () => {
@@ -193,9 +164,9 @@ describe('V3 to V4 source preservation', () => {
     expect(JSON.stringify({ physical, source })).toBe(before)
   })
 
-  it.each(['strict', 'recoverable'] as const)('retains delivery inside a nested inherited prefix during %s restoration', (recovery) => {
+  it.each(['strict', 'recoverable'] as const)('retains events inside a nested inherited prefix during %s restoration', (recovery) => {
     const physical = { type: 'session', ...header, isSeeded: true, parentSession: 'ancestor' }
-    const rows = [fact, seed, { ...delivery(3, 'ancestor'), seq: 2 }, { ...seed, seq: 3 }]
+    const rows = [fact, seed, { ...second, seq: 2 }, { ...seed, seq: 3 }]
     const decoder = releasedV3SessionFormatCodec.createDecoder(physical, 'strict')
     const source = new SessionFormatEventCollector()
     for (const row of rows) decoder.decodeRow(row, source)
@@ -208,13 +179,4 @@ describe('V3 to V4 source preservation', () => {
     expect(reader.finish()).toEqual({ ...artifact, header: { ...artifact.header, version: 4 } })
   })
 
-  it.each(['strict', 'recoverable'] as const)('refuses foreign delivery after the final inherited cut during %s restoration', (recovery) => {
-    const reader = createSessionFormatCatalogWithChildren([]).createRestore({ type: 'session', ...header, isSeeded: true, parentSession: 'ancestor' }, {
-      recovery, validation: 'current',
-    })
-    for (const row of [fact, seed, { ...delivery(3, 'ancestor'), seq: 2 }, { ...seed, seq: 3 }, { ...delivery(3, 'ancestor'), seq: 4 }]) {
-      reader.decodeRow(row)
-    }
-    expect(() => reader.finish()).toThrow('wrong Session')
-  })
 })

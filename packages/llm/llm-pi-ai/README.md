@@ -29,7 +29,7 @@ The adapter accepts the LLM service's [request-only user inputs](../llm/README.m
 
 ### When to choose it
 
-Choose this adapter when the same composition serves several providers, when a route needs pi-ai's catalog defaults with a few fields corrected, or when a hand-declared gateway must be reached through its own endpoint and protocol. Choose `dsh-llm-deepseek` for the direct DeepSeek route when the deployment needs no other provider. Both adapters can be mounted together because their route names do not collide; registering a route another adapter already owns fails plugin loading.
+Choose this adapter when the same composition serves several providers, when a route needs pi-ai's catalog defaults with a few fields corrected, or when a hand-declared gateway must be reached through its own endpoint and protocol. Registering a route another adapter already owns fails plugin loading.
 
 ### Configure provider routes
 
@@ -200,13 +200,11 @@ Successful assistant responses store a versioned, lossless-JSON replay state bes
 <a id="further-exploration"></a>
 ## Further Exploration
 
-Read these pages when the package-level contract is not enough. They move from the service contract to the twin adapter and the shared types.
+Read these pages when the package-level contract is not enough. They move from the service contract to the shared types.
 
 - [dsh-llm service](../llm/README.md) — the provider-neutral service this adapter registers on.
-- [llm-deepseek adapter](../llm-deepseek/README.md) — the direct DeepSeek twin for the `deepseek-official` route.
 - [LLM streaming subsystem](../../../docs/subsystems/llm-streaming.md) — the `StreamChunk` protocol and adapter contract.
 - [llm-retry](../llm-retry/README.md) — the retry executor that applies each profile's `retryPolicy`.
-- [Twin LLM adapters](../../../.agents/notes/implemented/architecture/2026-06-13-twin-llm-adapters.md) — why the DeepSeek route ships two structurally different adapters.
 - [Generated configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-llm-pi-ai) — every accepted config field and its source declaration.
 
 -----

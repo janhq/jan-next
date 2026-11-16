@@ -38,8 +38,10 @@ describe('dsh run with Agent Teams enabled', () => {
         },
       }, undefined, 2) + '\n')
       await writeFile(join(profileDir, 'cordis.patch.yml'), [
-        '- id: llm-deepseek',
-        '  disabled: true',
+        '- id: agent-default-model',
+        '  config:',
+        '    provider: deepseek-official',
+        '    model: deepseek-v4-flash',
         '- id: session-persistence-jsonl',
         '  config:',
         `    root: '${sessions}'`,

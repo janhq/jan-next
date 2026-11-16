@@ -3,7 +3,7 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { join } from 'node:path'
 import { z } from 'zod'
-import type { PlatformSession } from '@deepseek-ai/dsh-deepseek-account'
+import type { PlatformSession } from '@deepseek-ai/dsh-tokamak-account'
 import { desktopNodeEnvironment } from './node-environment.ts'
 import { parsePluginOperationRecord, type PluginOperationRecord, type PluginOperationRunId } from '@deepseek-ai/dsh-plugin-manager/diagnostic'
 

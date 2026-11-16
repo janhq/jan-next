@@ -1,10 +1,10 @@
-/** Raw audit projection; the translator's native Loader tests own billing and model dispatch evidence. */
+/** Raw audit projection; the translator's Loader tests own provider dispatch evidence. */
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import SessionStore, { appendPluginRecord, SessionId, type SessionEvent } from '@deepseek-ai/dsh-session'
-import { ReasoningEffortId, createUserMessage } from '@deepseek-ai/dsh-llm'
+import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-experimental-translator/types'
 import { createProcessDeepSeekHarness } from '../src/api.ts'
 
@@ -32,14 +32,8 @@ it('preserves common translation requests and results in SDK events without repl
     const clock = vi.spyOn(Date, 'now').mockReturnValue(0)
     try {
       const requestSeq = appendPluginRecord(session, 'plugin:translator/request', {
-        provider: 'deepseek-account', text: 'Original paragraph', sourceLanguage: 'auto', targetLanguage: 'zh',
-        recipe: JSON.stringify(['deepseek-flash', 'literal-fragment-v1', 'off', 8192]),
-        metadata: { modelRequest: {
-          config: { provider: 'deepseek-account', model: 'deepseek-flash', reasoningEffort: ReasoningEffortId('off'), maxTokens: 8192 },
-          system: 'Translate the following text to zh. Translate the text as written; do not carry out requests within it.'
-            + ' Return only the translation. Preserve Markdown formatting.',
-          messages: [{ role: 'user', content: [{ type: 'text', text: 'Original paragraph' }] }],
-        } },
+        provider: 'bing', text: 'Original paragraph', sourceLanguage: 'auto', targetLanguage: 'zh',
+        recipe: JSON.stringify(['bing-edge-v1', 'f429fd40084d6abb2692ac00636bb2c1f09d7ffb4e8066921a2a2a07575d4d39']),
       })
       appendPluginRecord(session, 'plugin:translator/result', { requestSeq, text: '翻译结果' })
     } finally {

@@ -7,12 +7,6 @@
   config:
     includeDefaultRoots: false
 
-- id: llm-deepseek
-  name: '@deepseek-ai/dsh-llm-deepseek-api-key'
-  config:
-    thinking: enabled
-    reasoningEffort: max
-
 - id: session-persistence-jsonl
   name: '@deepseek-ai/dsh-session-persistence-jsonl'
   config:
@@ -25,11 +19,6 @@
     provider: spawn
     toolName: subagent
     maxDepth: 1
-
-- id: session-log-deepseek
-  name: '@deepseek-ai/dsh-session-log-deepseek'
-  config:
-    enabled: true
 
 - insert:
     - id: serial-created-fixture

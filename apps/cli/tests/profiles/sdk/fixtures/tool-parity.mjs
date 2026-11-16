@@ -39,7 +39,7 @@ export function apply(ctx, config) {
     if (presets === undefined) throw new Error('Web tool parity requires the shipped presets')
     const handle = await ctx.agents.create({
       sessionId: 'tool-parity', cwd: config.cwd,
-      agentOptions: { provider: 'deepseek-official', model: 'deepseek-v4-pro' },
+      agentOptions: { provider: 'mock-messages', model: 'mock-model' },
       setup: scope => presets.mount(scope, config.preset).then(() => undefined),
     })
     try {

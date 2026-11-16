@@ -6,8 +6,10 @@ function transport(preference?: string, llamaCpp?: Record<string, unknown>) {
   const keys = new Map<string, string>()
   const installs: string[] = []
   const namespaces: Array<{ ns: string; value: Record<string, unknown> }> = [
-    { ns: 'llm-deepseek', value: { apiKeyEnv: 'CUSTOM_DEEPSEEK_KEY' } },
-    { ns: 'llm-pi-ai', value: { profiles: { example: { apiKeyEnv: 'EXAMPLE_API_KEY' } } } },
+    { ns: 'llm-pi-ai', value: {
+      providers: { tokamak: { apiKeyEnv: 'TOKAMAK_API_KEY' } },
+      profiles: { example: { apiKeyEnv: 'EXAMPLE_API_KEY' } },
+    } },
     { ns: 'locale', value: preference === undefined ? {} : { preference } },
   ]
   const send = vi.fn<NonNullable<Parameters<typeof connectDesktopWelcome>[2]>>(async (_input, init) => {
@@ -75,7 +77,7 @@ describe('desktop welcome Web operations', () => {
     const backend = connectDesktopWelcome(url, cookie, host.send)
     expect(await backend.analyticsEnabled()).toBe(true)
     expect(await backend.save('sk-example')).toEqual({ ok: true })
-    expect(host.keys.get('CUSTOM_DEEPSEEK_KEY')).toBe('sk-example')
+    expect(host.keys.get('TOKAMAK_API_KEY')).toBe('sk-example')
     expect(await backend.read()).toEqual({ loggedIn: false, hasApiKey: true, hasLocalModel: false, writable: true, localePreference: null })
     for (const [input, init] of host.send.mock.calls) {
       expect(input).toMatch(/^http:\/\/127\.0\.0\.1:19387\/api\//u)
@@ -103,25 +105,15 @@ describe('desktop welcome Web operations', () => {
     expect(host.send.mock.calls[0]![0]).toContain('/api/settings/describe')
   })
 
-  it('allows profiles without the official provider and retains custom key detection', async () => {
+  it('allows profiles without the Tokamak route and retains custom key detection', async () => {
     const host = transport()
-    host.namespaces.splice(0, 1)
+    host.namespaces[0] = { ns: 'llm-pi-ai', value: { profiles: { example: { apiKeyEnv: 'EXAMPLE_API_KEY' } } } }
     const backend = connectDesktopWelcome(url, cookie, host.send)
     expect(await backend.read()).toMatchObject({ hasApiKey: false, writable: false })
     host.keys.set('EXAMPLE_API_KEY', 'custom-key')
     expect(await backend.read()).toMatchObject({ hasApiKey: true, writable: false })
     expect(await backend.save('official-key')).toEqual({ ok: false })
     expect(host.keys.has('undefined')).toBe(false)
-  })
-
-  it('stores the welcome key on the Tokamak route when the official provider is not mounted', async () => {
-    const host = transport()
-    host.namespaces.splice(0, 2, { ns: 'llm-pi-ai', value: { providers: { tokamak: { apiKeyEnv: 'TOKAMAK_API_KEY' } } } })
-    const backend = connectDesktopWelcome(url, cookie, host.send)
-    expect(await backend.read()).toMatchObject({ hasApiKey: false, writable: true })
-    expect(await backend.save('sk_live_example')).toEqual({ ok: true })
-    expect(host.keys.get('TOKAMAK_API_KEY')).toBe('sk_live_example')
-    expect(await backend.read()).toMatchObject({ hasApiKey: true })
   })
 
   it.each(['', 'bad key', 'key\n'])('rejects malformed keys without contacting a provider: %s', async (value) => {

@@ -532,15 +532,14 @@ afterEach(async () => {
 it('assembles the shipped Web transport, catalog, guidance, and defaults', async () => {
   scaffold = await launchWebScaffold({ deepSeekMissingCredential: true })
   const ctx = scaffold.ctx
-  expect(ctx.llm.listProviders().some(provider => provider.id === 'deepseek-messages')).toBe(false)
-  expect(ctx.agentDefaultModel.currentSelection()).toEqual({ provider: 'deepseek-official', model: 'deepseek-flash' })
+  expect(ctx.agentDefaultModel.currentSelection()).toEqual({ provider: 'tokamak', model: 'tokamak-1-preview' })
   const index = await fetch(`http://127.0.0.1:${String(ctx.webServer.port)}`, {
     headers: { 'accept-encoding': 'gzip' },
   })
   expect(index.headers.get('content-encoding')).toBe('gzip')
   expect(index.headers.get('vary')).toContain('Accept-Encoding')
   await index.body?.cancel()
-  expect(ctx.llm.providerRetryPolicy('deepseek-official')).toMatchInlineSnapshot(`
+  expect(ctx.llm.providerRetryPolicy('tokamak')).toMatchInlineSnapshot(`
     {
       "initialDelayMs": 500,
       "jitterRatio": 0.1,
@@ -554,17 +553,6 @@ it('assembles the shipped Web transport, catalog, guidance, and defaults', async
         "TIMEOUT",
         "TRANSPORT",
       ],
-    }
-  `)
-  await ctx.settings.update('llm-deepseek', {
-    retryPolicy: { mode: 'always', maxRetries: 5 },
-  })
-  expect(ctx.llm.providerRetryPolicy('deepseek-official')).toMatchInlineSnapshot(`
-    {
-      "initialDelayMs": 500,
-      "jitterRatio": 0.1,
-      "maxDelayMs": 10000,
-      "mode": "always",
     }
   `)
   await ctx.settings.update('llm-pi-ai', {

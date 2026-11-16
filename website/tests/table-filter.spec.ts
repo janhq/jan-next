@@ -52,7 +52,7 @@ function renderTable(count = 10) {
   for (let index = 0; index < count; index++) {
     const row = body.insertRow()
     row.innerHTML = index === 0
-      ? '<td><code>ctx.llm</code></td><td><a href="/reference/llm">llm-deepseek</a></td><td>Streams completions</td>'
+      ? '<td><code>ctx.llm</code></td><td><a href="/reference/llm">llm-pi-ai</a></td><td>Streams completions</td>'
       : `<td>service-${index}</td><td>package-${index}</td><td>说明 ${index}</td>`
     for (const cell of row.cells) {
       // jsdom has no layout-backed innerText; these fixtures contain only visible text.
@@ -102,7 +102,7 @@ describe('documentation table filtering', () => {
   })
 
   it.each([
-    ['  CTX.LLM  ', 0], ['LLM-DEEPSEEK', 0], ['streams', 0], ['说明 9', 9],
+    ['  CTX.LLM  ', 0], ['LLM-PI-AI', 0], ['streams', 0], ['说明 9', 9],
   ])('matches visible text across columns for %s', (query, index) => {
     const fixture = renderTable()
     install()
@@ -114,7 +114,7 @@ describe('documentation table filtering', () => {
   it('retains cell content and links and restores row order and input focus on clear', () => {
     const fixture = renderTable()
     const content = fixture.table.textContent
-    const link = getByRole(fixture.table, 'link', { name: 'llm-deepseek' })
+    const link = getByRole(fixture.table, 'link', { name: 'llm-pi-ai' })
     install()
     expect(queryAllByRole(fixture.section, 'button')).toHaveLength(0)
     const input = filter(fixture.section, 'unmatched')
@@ -126,7 +126,7 @@ describe('documentation table filtering', () => {
     clear.focus()
     clear.click()
     expect(visible(fixture.table)).toEqual(fixture.rows)
-    expect(getByRole(fixture.table, 'link', { name: 'llm-deepseek' })).toBe(link)
+    expect(getByRole(fixture.table, 'link', { name: 'llm-pi-ai' })).toBe(link)
     expect(link.getAttribute('href')).toBe('/reference/llm')
     expect(document.activeElement).toBe(input)
     expect(input.value).toBe('')

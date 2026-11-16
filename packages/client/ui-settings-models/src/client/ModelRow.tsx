@@ -26,7 +26,6 @@ interface ModelRowProps {
   rowKey: number
   position: number
   order: ModelRowOrder
-  inputField: 'inputModalities' | 'input'
   inputFallback?: readonly string[] | undefined
   inputLoading?: boolean
   /** Levels the row's `reasoningEfforts` may declare; absent or empty shows no reasoning control. */
@@ -168,7 +167,7 @@ export function ModelRow(props: ModelRowProps): ReactNode {
                 </label>
               ))}
               <ModelInputTypes
-                model={model} field={props.inputField} position={position}
+                model={model} position={position}
                 fallback={props.inputFallback} disabled={disabled || props.inputLoading === true} t={t} onChange={props.onChange}
               />
               {props.reasoningLevels !== undefined && props.reasoningLevels.length > 0

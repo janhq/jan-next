@@ -15,14 +15,14 @@ class DeepSeekHarnessConfig:
     """Configuration for launching the local DeepSeek Harness SDK runtime.
 
     The runtime inherits the caller's environment by default, so existing
-    DEEPSEEK_API_KEY and DEEPSEEK_BASE_URL settings keep working. Use ``env`` to
+    TOKAMAK_API_KEY and TOKAMAK_BASE_URL settings keep working. Use ``env`` to
     intentionally override or inject variables for a subprocess.
     These values are startup input, not a live Session state mirror; Session
     commands do not rewrite this object.
     """
 
-    provider: str = "deepseek-official"
-    model: str = "deepseek-v4-flash"
+    provider: str = "tokamak"
+    model: str = "tokamak-1-preview"
     reasoning_effort: str | None = None
     max_tokens: int | None = None
     cwd: str | None = None
@@ -122,9 +122,9 @@ class DeepSeekHarness:
         self._cwd = cwd
         env = dict(self.config.env)
         if self.config.base_url is not None:
-            env["DEEPSEEK_BASE_URL"] = self.config.base_url
+            env["TOKAMAK_BASE_URL"] = self.config.base_url
         if self.config.api_key is not None:
-            env["DEEPSEEK_API_KEY"] = self.config.api_key
+            env["TOKAMAK_API_KEY"] = self.config.api_key
 
         self._client = HarnessClient(
             HarnessConfig(

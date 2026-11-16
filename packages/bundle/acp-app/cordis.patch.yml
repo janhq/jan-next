@@ -18,7 +18,6 @@
       name: '@deepseek-ai/dsh-acp'
       inject: [acpAppStartup]
       config:
-        # tokamak-harness: DeepSeek routes are unmounted; ACP uses the Tokamak route.
         provider: tokamak
         model: tokamak-1-preview
 

@@ -193,5 +193,5 @@ export function apply(ctx) {
   if (process.env.BASE_LLM_LOADED) {
     try { writeFileSync(process.env.BASE_LLM_LOADED, 'loaded\n') } catch {}
   }
-  ctx.llm.registerAdapter(['deepseek-official'], new BaseFixtureAdapter())
+  ctx.llm.registerAdapter(['tokamak'], new BaseFixtureAdapter())
 }

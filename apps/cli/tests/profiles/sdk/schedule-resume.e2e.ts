@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url'
 import { DeepSeekHarness } from '@deepseek-ai/dsh-sdk-client'
 import { clearAmbientProxyEnv } from '../../../../../scripts/test-proxy-environment.ts'
 import { expect, it, onTestFinished, vi } from 'vitest'
-import { messagesResponse } from './fixtures/messages-response.ts'
+import { findToolResult, messagesResponse, toolResultText } from './fixtures/messages-response.ts'
+import { MOCK_MODEL_KEY_ENV, MOCK_MODEL_PROVIDER, writeMockModelRoute } from './fixtures/mock-model-route.ts'
 
 it('delivers an overdue reminder with the SDK route and lets the client resume that same Session', async () => {
   const root = await mkdtemp(join(tmpdir(), 'sdk-schedule-resume-'))
@@ -51,23 +52,24 @@ it('delivers an overdue reminder with the SDK route and lets the client resume t
   const address = server.address()
   if (address === null || typeof address === 'string') throw new Error('model fixture has no port')
   const env = { ...process.env, DSH_PERMISSION_MODE: 'danger-full-access', DSH_TELEMETRY_DISABLED: '1',
-    DEEPSEEK_API_KEY: 'keyless-schedule-fixture', DEEPSEEK_BASE_URL: `http://127.0.0.1:${String(address.port)}` }
+    [MOCK_MODEL_KEY_ENV]: 'keyless-schedule-fixture' }
+  const route = await writeMockModelRoute(root, `http://127.0.0.1:${String(address.port)}`, ['mock-pro', 'mock-flash'])
   clearAmbientProxyEnv(env)
-  const first = new DeepSeekHarness({ cwd: root, dshHome: join(root, '.dsh'), patches: [patch],
-    model: 'deepseek-v4-pro', maxTokens: 5678, initializeTimeoutMs: 30_000,
+  const first = new DeepSeekHarness({ cwd: root, dshHome: join(root, '.dsh'), patches: [route, patch],
+    provider: MOCK_MODEL_PROVIDER, model: 'mock-pro', maxTokens: 5678, initializeTimeoutMs: 30_000,
     env: { ...env, DSH_TEST_SCHEDULE_NOW: String(Date.parse('2030-01-01T00:00:00Z')) } })
   clients.push(first)
   expect(await first.session('saved').run('Set a reminder')).toMatchObject({ finalResponse: 'ready' })
   expect(requests).toHaveLength(2)
   await first.close()
   restarting = true
-  const second = new DeepSeekHarness({ cwd: root, dshHome: join(root, '.dsh'), patches: [patch],
-    model: 'deepseek-v4-flash', maxTokens: 1234, initializeTimeoutMs: 30_000,
+  const second = new DeepSeekHarness({ cwd: root, dshHome: join(root, '.dsh'), patches: [route, patch],
+    provider: MOCK_MODEL_PROVIDER, model: 'mock-flash', maxTokens: 1234, initializeTimeoutMs: 30_000,
     env: { ...env, DSH_TEST_SCHEDULE_NOW: String(Date.parse('2030-01-03T00:00:00Z')) } })
   clients.push(second)
   await second.start()
   await vi.waitFor(() => { expect(restored).toHaveLength(1) }, { timeout: 30_000 })
-  expect(restored[0]).toMatchObject({ model: 'deepseek-v4-flash', max_tokens: 1234 })
+  expect(restored[0]).toMatchObject({ model: 'mock-flash', max_tokens: 1234 })
   const session = await second.resumeSession('saved')
   expect(await session.run('Continue after the reminder')).toMatchObject({ finalResponse: 'ready' })
 })
@@ -106,20 +108,16 @@ it('refuses new Session destinations before storing tasks in the shipped SDK pro
   const address = server.address()
   if (address === null || typeof address === 'string') throw new Error('model fixture has no port')
   const env = { ...process.env, DSH_PERMISSION_MODE: 'danger-full-access', DSH_TELEMETRY_DISABLED: '1',
-    DEEPSEEK_API_KEY: 'keyless-schedule-fixture', DEEPSEEK_BASE_URL: `http://127.0.0.1:${String(address.port)}` }
+    [MOCK_MODEL_KEY_ENV]: 'keyless-schedule-fixture' }
+  const route = await writeMockModelRoute(root, `http://127.0.0.1:${String(address.port)}`, ['mock-pro', 'mock-flash'])
   clearAmbientProxyEnv(env)
-  const client = new DeepSeekHarness({ cwd: root, dshHome: join(root, '.dsh'),
-    model: 'deepseek-v4-pro', initializeTimeoutMs: 30_000, env })
+  const client = new DeepSeekHarness({ cwd: root, dshHome: join(root, '.dsh'), patches: [route],
+    provider: MOCK_MODEL_PROVIDER, model: 'mock-pro', initializeTimeoutMs: 30_000, env })
   clients.push(client)
   expect((await client.session('schedule-owner').run('Check the supported schedule destinations')).finalResponse).toBe('ready')
   expect(requests).toHaveLength(calls.length + 1)
   const results = calls.map((call, index) => {
-    const messages = requests[index + 1]?.messages as {
-      content: { type: string; tool_use_id?: string; content?: { type: string; text?: string }[] }[]
-    }[]
-    const result = messages.flatMap(message => message.content)
-      .find(block => block.type === 'tool_result' && block.tool_use_id === call.id)
-    const text = result?.content?.find(block => block.type === 'text')?.text
+    const text = toolResultText(findToolResult(requests[index + 1]?.messages, call.id))
     if (text === undefined) throw new Error(`SDK model request has no result for ${call.id}`)
     return JSON.parse(text) as Record<string, unknown>
   })

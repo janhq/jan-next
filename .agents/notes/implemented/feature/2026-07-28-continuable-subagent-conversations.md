@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-07-28-continuable-subagent-conversations.zh.md)
-
 This record replaces the Task-backed continuation manager of continuable background subagents. It retains the single `ctx.subagents` service.
 
 ## Problem

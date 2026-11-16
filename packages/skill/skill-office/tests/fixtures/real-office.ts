@@ -7,17 +7,17 @@ export function officeModelPatches() {
   const model = process.env.MODEL_NAME ?? 'deepseek-flash'
   const completions = process.env.DSH_OFFICE_TEST_API === 'openai-completions'
   return [
-    ...completions ? [
-      { id: 'llm-deepseek', disabled: true },
-      { id: 'llm-pi-ai', config: { providers: { 'office-test': {
+    completions
+      ? { id: 'llm-pi-ai', config: { providers: { 'office-test': {
         api: 'openai-completions', apiKeyEnv: 'DEEPSEEK_API_KEY', baseURL: process.env.DEEPSEEK_BASE_URL,
         compat: { thinkingFormat: 'deepseek' },
         models: [{ id: model, contextWindow: 128000, maxTokens: 8192, input: ['text', 'image'] }],
+      } } } }
+      : { id: 'llm-pi-ai', config: { providers: { deepseek: {
+        apiKeyEnv: 'DEEPSEEK_API_KEY', reasoning: 'high',
+        modelOverrides: { [model]: { contextWindow: 128000, maxTokens: 8192, input: ['text', 'image'] } },
       } } } },
-    ] : [{ id: 'llm-deepseek', config: { thinking: 'enabled', reasoningEffort: 'high', maxTokens: 8192,
-      models: [{ id: model, contextWindow: 128000, maxTokens: 8192, inputModalities: ['text', 'image'] }],
-    } }],
-    { id: 'agent-default-model', config: { provider: completions ? 'office-test' : 'deepseek-official', model } },
+    { id: 'agent-default-model', config: { provider: completions ? 'office-test' : 'deepseek', model } },
   ]
 }
 

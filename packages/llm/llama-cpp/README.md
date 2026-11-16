@@ -5,8 +5,6 @@ kind: "package-reference"
 
 # @deepseek-ai/dsh-llama-cpp
 
-English | [中文](README.zh.md)
-
 ## Summary
 
 Run chat models on this computer without an API key. The service downloads verified GGUF models from a curated catalog or a Hugging Face repository, or imports a local file, and serves every installed model through the bundled `jan-llama-worker` on a loopback port. The model picker lists each model as `local/<model id>`, and `local/local` follows the default model. Models load on first use, and one stays resident by default. Models with a vision projector also accept images. Fit badges estimate whether a model fits the machine's memory; they block nothing.

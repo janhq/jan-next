@@ -1,4 +1,4 @@
-/** Tool-role V3-to-V4 migration with native V4 framing and delivery validation. */
+/** Tool-role V3-to-V4 migration with native V4 framing validation. */
 
 export { releasedV3SessionFormatCodec } from '@deepseek-ai/dsh-session-format-v2-to-v3'
 export * from './codec.ts'

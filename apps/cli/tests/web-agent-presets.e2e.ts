@@ -324,7 +324,7 @@ describe('the shipped Web composition', () => {
     })
     await ctx.settings.update(SUBAGENT_MODEL_SELECTION_SETTINGS_NAMESPACE, {
       enabled: true,
-      allowedModels: [{ provider: 'deepseek-official', model: 'deepseek-v4-flash' }],
+      allowedModels: [{ provider: 'tokamak', model: 'tokamak-1-preview' }],
     })
     const enabled = await ctx.agents.create({
       sessionId: SessionId('preset-model-selection-enabled'),
@@ -338,7 +338,7 @@ describe('the shipped Web composition', () => {
       ]))
       expect(policy.stateOf(disabled.agent.session)).toBeNull()
       expect(policy.stateOf(enabled.agent.session)).toEqual([
-        { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+        { provider: 'tokamak', model: 'tokamak-1-preview' },
       ])
       expect(toolNames(ctx, enabled.agent)).toContain('list_subagent_models')
       expect(toolParameterNames(ctx, enabled.agent, 'subagent')).toEqual(expect.arrayContaining([

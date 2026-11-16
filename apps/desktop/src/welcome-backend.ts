@@ -27,7 +27,7 @@ export interface DesktopWelcomeBackend {
   /** @returns The saved UI language without account or provider requests. */
   readLocalePreference(): Promise<string | null>
   /**
-   * @param apiKey - User-entered official provider key.
+   * @param apiKey - User-entered Tokamak API key.
    * @returns A safe write outcome without provider diagnostics.
    */
   save(apiKey: string): Promise<{ ok: boolean }>
@@ -116,12 +116,7 @@ export function connectDesktopWelcome(
   const settingsAndReference = async () => {
     const settings = await invoke({ namespace: 'settings', method: 'describe', args: {} })
     if (!record(settings) || !Array.isArray(settings.namespaces)) throw new Error('desktop welcome: missing settings namespaces')
-    const official: unknown = settings.namespaces.find((item: unknown) => record(item) && item.ns === 'llm-deepseek')
-    if (official === undefined) return { settings: { namespaces: settings.namespaces }, ref: tokamakReference(settings.namespaces) }
-    if (!record(official) || !record(official.value) || typeof official.value.apiKeyEnv !== 'string') {
-      throw new Error('desktop welcome: missing official DeepSeek credential reference')
-    }
-    return { settings: { namespaces: settings.namespaces }, ref: official.value.apiKeyEnv }
+    return { settings: { namespaces: settings.namespaces }, ref: tokamakReference(settings.namespaces) }
   }
   const localePreference = (namespaces: unknown[]): string | null => {
     const locale: unknown = namespaces.find((item: unknown) => record(item) && item.ns === 'locale')

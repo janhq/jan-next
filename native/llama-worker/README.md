@@ -1,7 +1,5 @@
 # jan-llama-worker
 
-English | [中文](README.zh.md)
-
 ## Summary
 
 `jan-llama-worker` is a standalone Rust executable that links llama.cpp and serves OpenAI-compatible HTTP on a loopback port. A supervisor starts one worker process, reads a single JSON handshake line from its stdout, sends requests with a bearer token, and stops it by closing its stdin. The process boundary contains `GGML_ASSERT` aborts and GPU driver faults, so a failed model costs the worker rather than its supervisor. The crate is not part of the pnpm workspace, and no install or build script compiles it.

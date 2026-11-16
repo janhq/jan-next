@@ -113,16 +113,6 @@
   background: var(--dsw-alias-state-error-primary);
 }
 
-.accountStatus {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  line-height: 20px;
-  color: var(--dsw-alias-state-success-primary);
-}
-
 .rowActions {
   display: inline-flex;
   align-items: center;
@@ -391,8 +381,7 @@
   display: none;
 }
 
-.addCard,
-.setupCard {
+.addCard {
   border-radius: var(--dsw-radius-lg);
   background: var(--dsw-alias-bg-module-platform);
   padding: 14px 16px;
@@ -403,8 +392,7 @@
 }
 
 /* Nested in a card that already carries the module chrome. */
-.addCard .editor,
-.setupCard .editor {
+.addCard .editor {
   background: none;
   padding: 0;
 }

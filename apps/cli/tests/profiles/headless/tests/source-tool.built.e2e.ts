@@ -34,7 +34,6 @@ describe.skipIf(!existsSync(join(repoRoot, 'apps/cli/lib/bin.js')))('dsh SOURCE 
         { id: 'headless-startup', disabled: true },
         { id: 'sandbox-policy', inject: [], config: { mode: process.env.DSH_PERMISSION_MODE ?? 'workspace-write', workspaceRoot: cwd } },
         { id: 'headless-runner', disabled: true },
-        { id: 'llm-deepseek', disabled: true },
         { id: 'agent-default-model', config: { provider: 'cli-mock', model: 'cli-mock' } },
         { insert: [
           {

@@ -1,10 +1,3 @@
-- id: llm-deepseek
-  config:
-    thinking: enabled
-    reasoningEffort: max
-    models:
-      - id: deepseek-flash
-
 # The template resolves through the credential store, which the headless profile disables.
 - id: credentials
   disabled: false

@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { act, cleanup, createEvent, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { DeepSeekModelsEditor } from '../src/client/DeepSeekModelsEditor.tsx'
 import type { DeepSeekModelDraft } from '../src/client/DeepSeekModelsEditor.tsx'
 import { ModelListEditor } from '../src/client/ModelListEditor.tsx'
 import { en } from '../src/client/locales.ts'
@@ -11,7 +10,6 @@ import { en } from '../src/client/locales.ts'
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
 function Editor(props: {
-  family: 'deepseek' | 'pi-ai'
   initial: DeepSeekModelDraft[]
   changed: (models: DeepSeekModelDraft[]) => void
   disabled?: boolean
@@ -23,12 +21,10 @@ function Editor(props: {
     onChange: (next: DeepSeekModelDraft[]): void => { props.changed(next); setModels(next) },
     onReset: (): void => { setModels(props.initial) },
   }
-  return props.family === 'deepseek'
-    ? <DeepSeekModelsEditor {...shared} defaultContextWindow={undefined} defaultMaxTokens={undefined} />
-    : <ModelListEditor
-      {...shared} probe={{ settingsNs: 'llm-pi-ai' }} onBusyChange={() => {}}
-      operations={{ discoverModels: vi.fn(), storeCredential: vi.fn(), removeCredential: vi.fn(), writeSettings: vi.fn() }}
-    />
+  return <ModelListEditor
+    {...shared} probe={{ settingsNs: 'llm-pi-ai' }} onBusyChange={() => {}}
+    operations={{ discoverModels: vi.fn(), storeCredential: vi.fn(), removeCredential: vi.fn(), writeSettings: vi.fn() }}
+  />
 }
 
 function handle(position: number): HTMLButtonElement {
@@ -61,9 +57,9 @@ function leave(target: HTMLElement, relatedTarget: Node | null = null) {
   fireEvent(target, event)
 }
 
-describe.each(['deepseek', 'pi-ai'] as const)('%s model ordering', (family) => {
+describe('model ordering', () => {
   it('keeps name editing expanded after blur and restores disclosure focus on collapse', () => {
-    render(<Editor family={family} initial={[{ id: 'first', name: 'First' }]} changed={vi.fn()} />)
+    render(<Editor initial={[{ id: 'first', name: 'First' }]} changed={vi.fn()} />)
     const name = screen.getByLabelText<HTMLInputElement>(`${en.modelName} 1`)
     const toggle = screen.getByRole('button', { name: `${en.modelAdvanced} 1` })
     act(() => { name.focus() })
@@ -82,7 +78,7 @@ describe.each(['deepseek', 'pi-ai'] as const)('%s model ordering', (family) => {
     const second = { id: 'second', maxTokens: 1024 }
     const third = { id: 'third' }
     const changed = vi.fn()
-    render(<Editor family={family} initial={[first, second, third]} changed={changed} />)
+    render(<Editor initial={[first, second, third]} changed={changed} />)
     const identity = screen.getByLabelText<HTMLInputElement>(`${en.modelId} 1`)
     const source = handle(1)
     const destination = row(handle(3))
@@ -111,7 +107,7 @@ describe.each(['deepseek', 'pi-ai'] as const)('%s model ordering', (family) => {
 
   it('moves with arrow keys, retains focus, and ignores moves past either end', () => {
     const changed = vi.fn()
-    render(<Editor family={family} initial={[{ id: 'first' }, { id: 'second' }]} changed={changed} />)
+    render(<Editor initial={[{ id: 'first' }, { id: 'second' }]} changed={changed} />)
     const source = handle(1)
     expect(source.getAttribute('aria-description')).toBe(en.reorderModelHelp)
     source.focus()
@@ -129,7 +125,7 @@ describe.each(['deepseek', 'pi-ai'] as const)('%s model ordering', (family) => {
 
   it('marks and inserts before or after a row, ignoring adjacent insertions that keep the order', () => {
     const changed = vi.fn()
-    render(<Editor family={family} initial={[{ id: 'first' }, { id: 'second' }, { id: 'third' }]} changed={changed} />)
+    render(<Editor initial={[{ id: 'first' }, { id: 'second' }, { id: 'third' }]} changed={changed} />)
     const source = handle(3)
     const destination = row(handle(1))
     vi.spyOn(destination, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 100, 200, 40))
@@ -158,7 +154,7 @@ describe.each(['deepseek', 'pi-ai'] as const)('%s model ordering', (family) => {
   })
 
   it('previews the whole expanded row from its handle and cleans it up at drag end or unmount', () => {
-    const view = render(<Editor family={family} initial={[{ id: 'first' }]} changed={vi.fn()} />)
+    const view = render(<Editor initial={[{ id: 'first' }]} changed={vi.fn()} />)
     const source = handle(1)
     fireEvent.click(screen.getByRole('button', { name: `${en.modelAdvanced} 1` }))
     const dataTransfer = transfer()
@@ -182,7 +178,7 @@ describe.each(['deepseek', 'pi-ai'] as const)('%s model ordering', (family) => {
   it('keeps canceled, same-row, foreign, and disabled drops from changing the draft', () => {
     const changed = vi.fn()
     const initial = [{ id: 'first' }, { id: 'second' }]
-    const view = render(<Editor family={family} initial={initial} changed={changed} />)
+    const view = render(<Editor initial={initial} changed={changed} />)
     const source = handle(1)
     const destination = row(handle(2))
     const dataTransfer = transfer()
@@ -195,7 +191,7 @@ describe.each(['deepseek', 'pi-ai'] as const)('%s model ordering', (family) => {
     fireEvent.drop(destination, { dataTransfer })
     expect(changed).not.toHaveBeenCalled()
 
-    view.rerender(<Editor family={family} initial={initial} changed={changed} disabled />)
+    view.rerender(<Editor initial={initial} changed={changed} disabled />)
     expect(source.disabled).toBe(true)
     expect(source.draggable).toBe(false)
     fireEvent.keyDown(source, { key: 'ArrowDown' })
@@ -205,7 +201,7 @@ describe.each(['deepseek', 'pi-ai'] as const)('%s model ordering', (family) => {
 
   it('clears an outside insertion marker without clearing another row or an internal transition', () => {
     const changed = vi.fn()
-    render(<Editor family={family} initial={[{ id: 'first' }, { id: 'second' }, { id: 'third' }]} changed={changed} />)
+    render(<Editor initial={[{ id: 'first' }, { id: 'second' }, { id: 'third' }]} changed={changed} />)
     const source = handle(1)
     const second = row(handle(2))
     const third = row(handle(3))
@@ -227,7 +223,7 @@ describe.each(['deepseek', 'pi-ai'] as const)('%s model ordering', (family) => {
   })
 
   it('keeps the animated list mounted when its last row is removed', () => {
-    render(<Editor family={family} initial={[{ id: 'first' }]} changed={vi.fn()} />)
+    render(<Editor initial={[{ id: 'first' }]} changed={vi.fn()} />)
     const list = row(handle(1)).parentElement!
     fireEvent.click(screen.getByRole('button', { name: `${en.removeModel} 1` }))
     expect(list.isConnected).toBe(true)
@@ -235,7 +231,7 @@ describe.each(['deepseek', 'pi-ai'] as const)('%s model ordering', (family) => {
   })
 
   it('keeps blank rows distinct through editing, moves, removal, and addition', () => {
-    render(<Editor family={family} initial={[{ id: '' }, { id: '' }]} changed={vi.fn()} />)
+    render(<Editor initial={[{ id: '' }, { id: '' }]} changed={vi.fn()} />)
     const first = screen.getByLabelText<HTMLInputElement>(`${en.modelId} 1`)
     const second = screen.getByLabelText<HTMLInputElement>(`${en.modelId} 2`)
     first.focus()
@@ -253,7 +249,7 @@ describe.each(['deepseek', 'pi-ai'] as const)('%s model ordering', (family) => {
   })
 
   it('restores inherited order and clears row drafts when defaults are restored', () => {
-    render(<Editor family={family} initial={[{ id: 'first' }, { id: 'second' }]} changed={vi.fn()} />)
+    render(<Editor initial={[{ id: 'first' }, { id: 'second' }]} changed={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: `${en.modelAdvanced} 1` }))
     fireEvent.change(screen.getByLabelText(`${en.contextWindow} 1`), { target: { value: 'bad' } })
     fireEvent.keyDown(handle(1), { key: 'ArrowDown' })
@@ -268,8 +264,8 @@ describe.each(['deepseek', 'pi-ai'] as const)('%s model ordering', (family) => {
 it('does not accept another provider editor\'s dragged model', () => {
   const firstChanged = vi.fn()
   const secondChanged = vi.fn()
-  const first = render(<Editor family="pi-ai" initial={[{ id: 'a' }, { id: 'b' }]} changed={firstChanged} />)
-  const second = render(<Editor family="deepseek" initial={[{ id: 'c' }, { id: 'd' }]} changed={secondChanged} />)
+  const first = render(<Editor initial={[{ id: 'a' }, { id: 'b' }]} changed={firstChanged} />)
+  const second = render(<Editor initial={[{ id: 'c' }, { id: 'd' }]} changed={secondChanged} />)
   const source = within(first.container).getByRole<HTMLButtonElement>('button', { name: `${en.reorderModel} 1` })
   const destination = within(second.container).getByRole<HTMLButtonElement>('button', { name: `${en.reorderModel} 2` })
   const dataTransfer = transfer()

@@ -40,8 +40,8 @@ The provider advertises `agentOptions: true`, with `agentPreset`/`outputSchema`/
 | `profile` | `sdk` | Named child profile |
 | `patches` | `[]` | Ordered per-launch profile patch files, resolved and checked at plugin load |
 | `dshHome` | required | Absolute isolated Harness home for every nested child process |
-| `provider` | `deepseek-official` | Provider route sent in the child's `initialize` |
-| `model` | `deepseek-v4-flash` | Model sent in the child's `initialize` |
+| `provider` | `tokamak` | Provider route sent in the child's `initialize` |
+| `model` | `tokamak-1-preview` | Model sent in the child's `initialize` |
 | `maxTokens` | adapter/provider route default | Per-request output-token cap sent in the child's `initialize` |
 | `env` | `{}` | Explicit child environment layered over the credential-scrubbed parent environment |
 | `shutdownTimeoutMs` | `1000` | Bound on the protocol `shutdown` exchange during dispose |

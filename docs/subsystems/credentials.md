@@ -363,7 +363,7 @@ abstract getPlatformSession(): Promise<PlatformSession | null>
 abstract getDeviceIdentity(): Promise<{ deviceId?: string; userId?: AccountUserId; osVersion: string }>
 ```
 
-Source: [`packages/credentials/deepseek-account/src/index.ts`](../../packages/credentials/deepseek-account/src/index.ts)
+Source: [`packages/credentials/tokamak-account/src/account.ts`](../../packages/credentials/tokamak-account/src/account.ts)
 
 <a id="authorization-events"></a>
 
@@ -453,7 +453,7 @@ An account model request requires the user to sign in.
 'deepseek-account/model-sign-in-required'(): void
 ```
 
-Source: [`packages/credentials/deepseek-account/src/types.ts`](../../packages/credentials/deepseek-account/src/types.ts)
+Source: [`packages/credentials/tokamak-account/src/types.ts`](../../packages/credentials/tokamak-account/src/types.ts)
 
 <a id="deepseek-accountsession-expired--emit"></a>
 
@@ -468,7 +468,7 @@ Server rejection removed the current account credential; this notification is no
 'deepseek-account/session-expired'(): void
 ```
 
-Source: [`packages/credentials/deepseek-account/src/types.ts`](../../packages/credentials/deepseek-account/src/types.ts)
+Source: [`packages/credentials/tokamak-account/src/types.ts`](../../packages/credentials/tokamak-account/src/types.ts)
 
 <a id="deepseek-accountsigned-out--emit"></a>
 
@@ -483,9 +483,9 @@ Local grant removal has completed.
 'deepseek-account/signed-out'(): void
 ```
 
-Source: [`packages/credentials/deepseek-account/src/index.ts`](../../packages/credentials/deepseek-account/src/index.ts)
+Source: [`packages/credentials/tokamak-account/src/account.ts`](../../packages/credentials/tokamak-account/src/account.ts)
 <!-- END GENERATED cordis-surface -->
 
-The account Service Definition exposes getState, getProfile, getBalance, getUnnotifiedBonuses, ackBonusNotified, startSignIn, cancelSignIn, signOut, watch, and Host-only resolveToken and getPlatformSession. The platform provider implements it with an AuthorizationFlow and a private GrantRecord. AccountView distinguishes stored presence from server validation; attempt IDs bind cancellation to one local flow. See [the account package](../../packages/credentials/deepseek-account/README.md).
+The account Service Definition exposes getState, getProfile, getBalance, getUnnotifiedBonuses, ackBonusNotified, startSignIn, cancelSignIn, signOut, watch, and Host-only resolveToken and getPlatformSession. [dsh-tokamak-account](../../packages/credentials/tokamak-account) declares it and implements it with Tokamak device sign-in. AccountView distinguishes stored presence from server validation; attempt IDs bind cancellation to one local flow.
 
 `AccountClientMetadata` carries `version` from the caller’s `DSH_CLIENT_VERSION`, its active UI `locale`, and `timezoneOffsetSeconds` sampled when the operation begins. The offset is local time minus UTC in seconds: UTC+8 is `28800`. It contains no credentials. Login attempts retain their initiating metadata through exchange and cancellation; sign-out retains its metadata for revocation retries.

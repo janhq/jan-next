@@ -1,7 +1,7 @@
 import { parsePluginOperationRecord } from '@deepseek-ai/dsh-plugin-manager/diagnostic'
 import type { DesktopHostProcess } from '../src/host-process.ts'
 import type { DesktopStatusNotifierHost } from '../src/status-notifier.ts'
-import type { AccountView } from '@deepseek-ai/dsh-deepseek-account/types'
+import type { AccountView } from '@deepseek-ai/dsh-tokamak-account/types'
 import { WINDOWS_TITLEBAR_HEIGHT } from '../src/windows-layout.ts'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import type { IpcMainInvokeEvent } from 'electron'

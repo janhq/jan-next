@@ -10,7 +10,7 @@ import type { ComponentProps } from 'react'
 import type { OwnerOf } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ModelDirectoryState } from '../src/client/directory.ts'
 import { ModelSelect } from '../src/client/ModelSelect.tsx'
-import { en, zh } from '../src/client/locales.ts'
+import { zh } from '../src/client/locales.ts'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
 
 // The seat's key domain is model ∪ common; the stub mirrors the real lookup
@@ -39,10 +39,10 @@ const reasoning = {
 
 function state(overrides: Partial<ModelDirectoryState> = {}): ModelDirectoryState {
   return {
-    current: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+    current: { provider: 'example', model: 'deepseek-v4-flash' },
     routable: true,
     groups: [{
-      id: 'deepseek-official',
+      id: 'example',
       name: 'DeepSeek',
       models: [{
         id: 'deepseek-v4-flash',
@@ -158,9 +158,9 @@ describe('ModelSelect label slot', () => {
 describe('ModelSelect catalog badges', () => {
   const BADGE = { text: { en: 'New', zh: '新' }, tone: 'info' } as const
   const badged = () => state({
-    current: { provider: 'deepseek-official', model: 'deepseek-flash' },
+    current: { provider: 'example', model: 'deepseek-flash' },
     groups: [{
-      id: 'deepseek-official',
+      id: 'example',
       name: 'DeepSeek',
       models: [
         { id: 'deepseek-flash', name: 'DeepSeek-V4.1-Flash', badge: BADGE },
@@ -234,7 +234,7 @@ describe('ModelSelect reasoning effort', () => {
     fireEvent.click(screen.getByRole('menuitemradio', { name: /Max/ }))
     await waitFor(() => {
       expect(select).toHaveBeenCalledWith({
-        provider: 'deepseek-official',
+        provider: 'example',
         model: 'deepseek-v4-flash',
         reasoningEffort: 'max',
       })
@@ -275,7 +275,7 @@ describe('ModelSelect reasoning effort', () => {
 
   it('opens model choices without exposing a saved route absent from the catalog', () => {
     const directory = createSnapshotStore(state({
-      current: { provider: 'deepseek-official', model: 'removed-model' },
+      current: { provider: 'example', model: 'removed-model' },
     }))
     const select = vi.fn().mockResolvedValue({ ok: true, value: undefined })
     render(<ModelSelect renderSlot={renderLabel}
@@ -296,7 +296,7 @@ describe('ModelSelect reasoning effort', () => {
     expect(screen.getByRole('menuitemradio', { name: 'DeepSeek-V4-Flash' })).toBeTruthy()
     expect(screen.queryByText('Fast catalog description')).toBeNull()
     expect(select).not.toHaveBeenCalled()
-    expect(directory.getSnapshot().current).toEqual({ provider: 'deepseek-official', model: 'removed-model' })
+    expect(directory.getSnapshot().current).toEqual({ provider: 'example', model: 'removed-model' })
     fireEvent.keyDown(screen.getByRole('menuitemradio', { name: 'DeepSeek-V4-Flash' }), { key: 'Escape' })
     expect(screen.queryByRole('group', { name: '模型与推理等级' })).toBeNull()
   })
@@ -347,7 +347,7 @@ describe('ModelSelect reasoning effort', () => {
 
   it.each([false, true])('announces rejected selections with ownership guidance only for held writers (%s)', async (sessionInUse) => {
     const groups = [{
-      id: 'deepseek-official',
+      id: 'example',
       name: 'DeepSeek',
       models: [
         { id: 'deepseek-v4-flash', name: 'DeepSeek-V4-Flash', reasoning },
@@ -358,7 +358,7 @@ describe('ModelSelect reasoning effort', () => {
     const select = vi.fn(async () => {
       const error = sessionInUse
         ? new RemoteError('session/writer-held', 'writer held', { sessionId: SessionId('owned') })
-        : new RemoteError('session/model-unavailable', 'session already contains images', { provider: 'deepseek-official', model: 'deepseek-v4-pro' })
+        : new RemoteError('session/model-unavailable', 'session already contains images', { provider: 'example', model: 'deepseek-v4-pro' })
       directory.set(state({ groups, status: 'error', error: 'unrelated catalog refresh' }))
       return { ok: false as const, error }
     })
@@ -391,7 +391,7 @@ describe('ModelSelect reasoning effort', () => {
 
   it('spins on the trigger and the chosen model row until the selection settles, across pane changes', async () => {
     const groups = [{
-      id: 'deepseek-official',
+      id: 'example',
       name: 'DeepSeek',
       models: [
         { id: 'deepseek-v4-flash', name: 'DeepSeek-V4-Flash', reasoning },
@@ -620,7 +620,7 @@ describe('ModelSelect keyboard walk', () => {
     fireEvent.keyDown(rows[1]!, { key: 'ArrowDown' }) // High → Max
     expect(fireEvent.keyDown(rows[2]!, { key: 'Tab' })).toBe(false)
     expect(select).toHaveBeenCalledWith({
-      provider: 'deepseek-official', model: 'deepseek-v4-flash', reasoningEffort: 'max',
+      provider: 'example', model: 'deepseek-v4-flash', reasoningEffort: 'max',
     })
     await waitFor(() => { expect(screen.queryByRole('menu')).toBeNull() })
   })
@@ -763,7 +763,7 @@ describe('ModelSelect keyboard walk', () => {
 describe('ModelSelect catalog size', () => {
   it.each([0, 1, 4, 5])('shows search only above four models (%i models)', (count) => {
     const groups = modelGroups(count)
-    const current = { provider: 'deepseek-official', model: count > 1 ? 'model-2' : 'deepseek-v4-flash' }
+    const current = { provider: 'example', model: count > 1 ? 'model-2' : 'deepseek-v4-flash' }
     render(<ModelSelect renderSlot={renderLabel} locked={false} available directory={createSnapshotStore(state({ groups, current }))}
       load={vi.fn()} resolveText={resolveText} select={vi.fn()} t={t} />)
     const trigger = screen.getByRole('button', { name: /选择模型/ })
@@ -799,7 +799,7 @@ describe('ModelSelect catalog size', () => {
   })
 
   it.each([true, false])('clears search and restores focus across 5 → 4 → 5 models (checked: %s)', (checked) => {
-    const current = { provider: 'deepseek-official', model: checked ? 'model-3' : 'removed' }
+    const current = { provider: 'example', model: checked ? 'model-3' : 'removed' }
     const directory = createSnapshotStore(state({ groups: modelGroups(5), current }))
     render(<ModelSelect renderSlot={renderLabel} locked={false} available directory={directory} load={vi.fn()}
       resolveText={resolveText} select={vi.fn()} t={t} />)
@@ -830,7 +830,7 @@ describe('ModelSelect catalog size', () => {
   it('moves actual row focus with arrows, leaves Enter native, and selects with Tab in a small catalog', async () => {
     const select = vi.fn().mockResolvedValue({ ok: true, value: undefined })
     render(<ModelSelect renderSlot={renderLabel} locked={false} available
-      directory={createSnapshotStore(state({ groups: modelGroups(4), current: { provider: 'deepseek-official', model: 'model-2' } }))}
+      directory={createSnapshotStore(state({ groups: modelGroups(4), current: { provider: 'example', model: 'model-2' } }))}
       load={vi.fn()} resolveText={resolveText} select={select} t={t} />)
     const trigger = screen.getByRole('button', { name: /选择模型/ })
     fireEvent.click(trigger)
@@ -853,7 +853,7 @@ describe('ModelSelect catalog size', () => {
     expect(document.activeElement).toBe(rows[2])
     expect(select).not.toHaveBeenCalled()
     expect(fireEvent.keyDown(rows[2]!, { key: 'Tab' })).toBe(false)
-    expect(select).toHaveBeenCalledWith({ provider: 'deepseek-official', model: 'model-3' })
+    expect(select).toHaveBeenCalledWith({ provider: 'example', model: 'model-3' })
     await waitFor(() => { expect(document.activeElement).toBe(trigger) })
     expect(screen.queryByRole('group', { name: '模型与推理等级' })).toBeNull()
     expect(trigger.hasAttribute('data-selection-focus')).toBe(true)
@@ -870,7 +870,7 @@ describe('ModelSelect catalog size', () => {
     expect(document.activeElement).toBe(row)
     expect(row.hasAttribute('data-highlighted')).toBe(true)
     expect(fireEvent.keyDown(row, { key: 'Tab' })).toBe(false)
-    expect(select).toHaveBeenCalledWith({ provider: 'deepseek-official', model: 'model-3' })
+    expect(select).toHaveBeenCalledWith({ provider: 'example', model: 'model-3' })
     await waitFor(() => { expect(screen.queryByRole('group', { name: '模型与推理等级' })).toBeNull() })
   })
 
@@ -945,9 +945,9 @@ describe('ModelSelect search', () => {
   it.each(['Enter', 'Tab'])('keeps typing focus while arrows wrap across groups and %s accepts the highlight', async (key) => {
     const select = vi.fn().mockResolvedValue({ ok: true, value: undefined })
     const directory = createSnapshotStore(state({
-      current: { provider: 'deepseek-official', model: 'beta' },
+      current: { provider: 'example', model: 'beta' },
       groups: [
-        { id: 'deepseek-official', name: 'DeepSeek', models: [{ id: 'alpha', name: 'Alpha' }, { id: 'beta', name: 'Beta' }] },
+        { id: 'example', name: 'DeepSeek', models: [{ id: 'alpha', name: 'Alpha' }, { id: 'beta', name: 'Beta' }] },
         { id: 'other', name: 'Other', models: [
           { id: 'delta', name: 'Delta' }, { id: 'epsilon', name: 'Epsilon' }, { id: 'gamma', name: 'Gamma' },
         ] },
@@ -1073,8 +1073,8 @@ it('hides the inherited effort until a listed model is selected', async () => {
 })
 
 
-it('places account and official models before third-party models', async () => {
-  const groups = ['custom', 'deepseek-official', 'deepseek-account', 'another'].map(id => ({
+it('lists providers in catalog order', async () => {
+  const groups = ['custom', 'example', 'account', 'another'].map(id => ({
     id, name: id, models: [1, 2].map(index => ({ id: `${id}-${index}`, name: `${id}-${index}` })),
   }))
   const directory = createSnapshotStore<ModelDirectoryState>(state({ current: null, groups }))
@@ -1082,32 +1082,14 @@ it('places account and official models before third-party models', async () => {
     resolveText={resolveText} select={vi.fn()} t={t} />)
   fireEvent.click(screen.getByRole('button', { name: '请选择模型' }))
   const names = screen.getAllByRole('menuitemradio').map(row => row.textContent)
-  expect(names).toEqual([
-    'deepseek-account-1', 'deepseek-account-2', 'deepseek-official-1', 'deepseek-official-2',
-    'custom-1', 'custom-2', 'another-1', 'another-2',
-  ])
-  expect(groups.map(group => group.id)).toEqual(['custom', 'deepseek-official', 'deepseek-account', 'another'])
-  await expect(`${names.join('\n')}\n`).toMatchFileSnapshot('./expected/account-first.txt')
-})
-
-it.each([en, zh])('localizes the account group while preserving external names', (copy) => {
-  const groups = ['deepseek-account', 'custom'].map(id => ({
-    id, name: id === 'deepseek-account' ? 'DeepSeek Account' : 'My Gateway',
-    models: [{ id: 'model', name: 'Model' }],
-  }))
-  render(<ModelSelect renderSlot={renderLabel} locked={false} available
-    directory={createSnapshotStore(state({ current: null, groups }))}
-    load={vi.fn()} resolveText={resolveText} select={vi.fn()} t={key => key in copy ? copy[key as keyof typeof copy] : key} />)
-  fireEvent.click(screen.getByRole('button', { name: copy['trigger.selectAria'] }))
-  expect(screen.getByRole('group', { name: copy['provider.account'] })).toBeTruthy()
-  expect(screen.getByRole('group', { name: 'My Gateway' })).toBeTruthy()
+  await expect(`${names.join('\n')}\n`).toMatchFileSnapshot('./expected/catalog-order.txt')
 })
 
 it('restores the account model name after login without changing the saved route', () => {
-  const groups = [{ id: 'deepseek-account', name: 'DeepSeek Account', models: [
+  const groups = [{ id: 'account', name: 'Account', models: [
     { id: 'deepseek-flash', name: 'DeepSeek Flash', reasoning },
   ] }]
-  const selected = { provider: 'deepseek-account', model: 'deepseek-flash', reasoningEffort: 'high' }
+  const selected = { provider: 'account', model: 'deepseek-flash', reasoningEffort: 'high' }
   const directory = createSnapshotStore(state({ current: selected, groups, retainedEffort: 'High' }))
   render(<ModelSelect renderSlot={renderLabel} locked={false} available directory={directory} load={vi.fn()}
     resolveText={resolveText} select={vi.fn()} t={t} />)

@@ -120,7 +120,7 @@ describe('PiAiAdapter provider routing', () => {
       model: 'deepseek-flash',
       messages: [createUserMessage({
         content: [{ type: 'text', text: 'hi' }],
-        source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+        source: { kind: 'model', provider: 'deepseek', model: 'deepseek-flash' },
       })],
     })
     expect(result.message.content).toEqual([{ type: 'text', text: 'hello' }])
@@ -380,7 +380,7 @@ describe('PiAiAdapter provider routing', () => {
       model: 'gpt-4.1',
       messages: [createUserMessage({
         content: [{ type: 'image', attachment: ref }],
-        source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+        source: { kind: 'model', provider: 'deepseek', model: 'deepseek-flash' },
       })],
     })
 
@@ -1069,7 +1069,7 @@ describe('provider profile lifecycle', () => {
       model: 'deepseek-v4-pro',
       messages: [createUserMessage({
         content: [{ type: 'image', attachment: IMAGE_REF }],
-        source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+        source: { kind: 'model', provider: 'deepseek', model: 'deepseek-flash' },
       })],
     })).rejects.toMatchObject({
       code: 'UNSUPPORTED_CONTENT',
@@ -1080,7 +1080,7 @@ describe('provider profile lifecycle', () => {
       model: 'gpt-4.1',
       messages: [createUserMessage({
         content: [{ type: 'image', attachment: IMAGE_REF }],
-        source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+        source: { kind: 'model', provider: 'deepseek', model: 'deepseek-flash' },
       })],
     })).rejects.toMatchObject({ code: 'UNSUPPORTED_CONTENT' })
     await expect(drain({

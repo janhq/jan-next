@@ -23,13 +23,13 @@ Use `@deepseek-ai/dsh-llm` to stream model calls through configured provider ada
 <a id="use-this-package"></a>
 ## Use this package
 
-`listModels` describes models offered by catalog-driven interfaces. Core resolution and streaming can still accept unlisted ids. The GUI requires catalog membership for selection and submission; adapters intended for GUI use must implement `listModels` and advertise their available models. The base implementation returns an empty list and therefore offers no GUI models. An entry's optional `badge` holds selector text (one literal, or translations keyed by lowercase language id that include `en`) and a `neutral`, `info`, `success`, or `warning` tone; `resolveModelInfo` omits it, and no model request carries it. Providers publish `llm/models-updated(provider)` when their advertised catalog changes; clients reload the complete catalog, including omitted badges.
+`listModels` describes models offered by catalog-driven interfaces. Core resolution and streaming can still accept unlisted ids. The GUI requires catalog membership for selection and submission; adapters intended for GUI use must implement `listModels` and advertise their available models. The base implementation returns an empty list and therefore offers no GUI models. An entry's optional `badge` holds selector text (one literal, or translations keyed by lowercase language id that include `en`) and a `neutral`, `info`, `success`, or `warning` tone; `resolveModelInfo` omits it, and no model request carries it.
 
 Any composition that calls a model provider — an agent loop, a session-title generator, a compaction summarizer — streams its requests through this service. Mount it together with at least one provider adapter; the service itself has no configuration and no provider wire code.
 
 ### When to choose it
 
-Choose this package whenever a plugin or composition needs to call a model: it is the only supported path into provider adapters, and it keeps one vocabulary across the loop, the session log, and every consumer. Do not reach for it when you need provider-specific wire behavior (that belongs in an adapter such as `dsh-llm-deepseek` or `dsh-llm-pi-ai`) or retry execution (that belongs in `dsh-llm-retry`).
+Choose this package whenever a plugin or composition needs to call a model: it is the only supported path into provider adapters, and it keeps one vocabulary across the loop, the session log, and every consumer. Do not reach for it when you need provider-specific wire behavior (that belongs in an adapter such as `dsh-llm-pi-ai`) or retry execution (that belongs in `dsh-llm-retry`).
 
 ### Minimal composition
 
@@ -37,17 +37,19 @@ Mount the service and at least one adapter, then select the provider by name in 
 
 ```yaml
 - name: '@deepseek-ai/dsh-llm'
-- name: '@deepseek-ai/dsh-llm-deepseek-api-key'
+- name: '@deepseek-ai/dsh-llm-pi-ai'
   config:
-    apiKeyEnv: DEEPSEEK_API_KEY
+    providers:
+      deepseek:
+        apiKeyEnv: DEEPSEEK_API_KEY
 ```
 
 A stream returns token-level chunks and always ends with one terminal `finish` chunk. `BlockAssembler` turns the chunks into content blocks and messages; `AssistantStreamAccumulator` preserves their exact timestamps and token boundaries in a compact representation that the loop embeds in one durable attempt settlement:
 
 ```text
 for await (const chunk of ctx.llm.stream({
-  provider: 'deepseek-official',
-  model: 'deepseek-v4-flash',
+  provider: 'deepseek',
+  model: 'deepseek-flash',
   messages: [{ role: 'user', content: [{ type: 'text', text: 'Hello' }] }],
 })) {
   // chunks: block-start, text-delta, ..., usage, finish
@@ -148,11 +150,9 @@ File detection reads current content, including tool-role result content, on eve
 Read these pages when the package-level contract is not enough. They move from the shared types to the concrete adapters, the retry executor, and the measurement service.
 
 - [LLM streaming subsystem](../../../docs/subsystems/llm-streaming.md) — the message and block types, compact Assistant stream records, the `StreamChunk` protocol, and the adapter contract.
-- [llm-deepseek adapter](../llm-deepseek/README.md) — the direct DeepSeek Messages implementation.
 - [llm-pi-ai adapter](../llm-pi-ai/README.md) — the pi-ai-backed multi-provider implementation.
 - [llm-retry](../llm-retry/README.md) — the retry executor that re-runs failed model requests.
 - [Token meter](../token-meter/README.md) — replay-aware request and context pressure measurement.
-- [Twin LLM adapters](../../../.agents/notes/implemented/architecture/2026-06-13-twin-llm-adapters.md) — why the DeepSeek route ships two structurally different adapters.
 - [Terminal LLM stream failures](../../../.agents/notes/implemented/architecture/2026-07-29-terminal-llm-stream-failures.md) — the service boundary between model-request outcomes and plugin failures.
 
 -----

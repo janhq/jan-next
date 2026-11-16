@@ -17,7 +17,7 @@ import {
   DeepSeekAccount, installAccountTaskCancellation,
   type AccountBonusBatch, type AccountClientMetadata, type AccountDetails, type AccountUserId, type AccountView,
   type PlatformSession, type SignInAttemptId, type SignInAttemptView,
-} from '@deepseek-ai/dsh-deepseek-account'
+} from './account.ts'
 import { credentialKey, credentialRef, type CredentialRef } from '@deepseek-ai/dsh-credentials'
 import type { AuthorizationSession } from '@deepseek-ai/dsh-authorization'
 import {
@@ -25,6 +25,7 @@ import {
   normalizeBaseUrl, pollOnce, revokeKey, verifyKey, webRoot, type Minted,
 } from './protocol.ts'
 
+export * from './account.ts'
 export * from './protocol.ts'
 
 const KEY = credentialKey('tokamak-account', 'default')

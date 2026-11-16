@@ -15,6 +15,7 @@ import { z } from 'zod'
 import { DeepSeekHarness } from '@deepseek-ai/dsh-sdk-client'
 import { expect, it, type TestContext } from 'vitest'
 import { profileEnvironment } from './fixtures/profile-environment.ts'
+import { MOCK_MODEL_PROVIDER, mockModelRouteRow } from './fixtures/mock-model-route.ts'
 import { messagesResponse } from './fixtures/messages-response.ts'
 import { assertToolParity, type ToolMode } from './tool-parity.ts'
 
@@ -49,7 +50,8 @@ async function fixture(test: TestContext) {
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
   const address = server.address()
   if (address === null || typeof address === 'string') throw new Error('model fixture has no TCP address')
-  const env = profileEnvironment(root, `http://127.0.0.1:${address.port}`)
+  const env = profileEnvironment(root)
+  const route = mockModelRouteRow(`http://127.0.0.1:${address.port}`, ['mock-model'])
 
   async function collect(side: 'sdk' | 'desktop', mode: ToolMode, mutations: object[] = []): Promise<Inventory> {
     const cwd = await mkdtemp(join(root, `${side}-${mode}-`))
@@ -57,6 +59,7 @@ async function fixture(test: TestContext) {
     const patch = join(cwd, 'observer.patch.yml')
     await writeFile(patch, JSON.stringify([
       { id: 'session-title-llm', disabled: true },
+      route,
       { insert: [{ id: 'tool-parity-observer', name: observer,
         config: { output, cwd, ...(side === 'desktop' ? { preset: mode } : {}) } }] },
       ...mutations,
@@ -65,7 +68,7 @@ async function fixture(test: TestContext) {
     let inventory: Inventory
     if (side === 'sdk') {
       const harness = new DeepSeekHarness({
-        cwd, processCwd: cwd, dshHome: join(cwd, 'home'), env, model: 'deepseek-v4-pro',
+        cwd, processCwd: cwd, dshHome: join(cwd, 'home'), env, provider: MOCK_MODEL_PROVIDER, model: 'mock-model',
         patches: [...mode === 'ptc' ? [join(repo, 'apps/cli/config/examples/ptc.yml')] : [], patch],
       })
       const abort = (): void => { void harness.close() }

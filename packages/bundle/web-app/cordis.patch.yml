@@ -339,13 +339,6 @@
 
     - id: ui-settings-models
       name: '@deepseek-ai/dsh-client-ui-settings-models'
-      config:
-        # tokamak-harness: the first-run step offers the Tokamak route (sign in,
-        # local model, or a pasted key) instead of the disabled DeepSeek route.
-        onboardingRoute:
-          provider: tokamak
-          settingsNs: llm-pi-ai
-          settingsPath: [providers, tokamak]
 
     # Plugin management: the sidebar Plugins page installs, enables, disables,
     # and removes the profile's bundles through the `pluginManager` Remote.
@@ -476,9 +469,6 @@
     # plugin draft.
     - id: entry-customization
       name: '@deepseek-ai/dsh-client-ui-entry-customization'
-
-    - id: ui-settings-session-log
-      name: '@deepseek-ai/dsh-client-ui-settings-session-log'
 
     # The Built-in plugins settings section: the navigation entry and the tab
     # row the inventory tab registers into. The official configuration pages

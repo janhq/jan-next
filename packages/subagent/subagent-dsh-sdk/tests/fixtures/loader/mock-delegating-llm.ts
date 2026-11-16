@@ -62,8 +62,7 @@ export const inject = ['llm']
  * @param ctx - the plugin context supplying `ctx.llm`.
  */
 export function apply(ctx: Context): void {
-  const providers = process.env.DSH_TEST_PARENT_PROVIDER === 'deepseek-official'
-    ? ['deepseek-official', 'mock']
-    : ['mock']
+  const parentProvider = process.env.DSH_TEST_PARENT_PROVIDER
+  const providers = parentProvider === undefined || parentProvider === 'mock' ? ['mock'] : [parentProvider, 'mock']
   ctx.llm.registerAdapter(providers, new MockDelegatingAdapter())
 }

@@ -401,7 +401,7 @@ export async function bootWebOwner(options: WebOwnerOptions = {}): Promise<WebOw
     },
   }, undefined, 2) + '\n')
   if (options.existingCwd === undefined) await writeFile(join(profileDir, 'cordis.patch.yml'), [
-    '- id: llm-deepseek',
+    '- id: llm-pi-ai',
     '  disabled: true',
     '- id: session-persistence-jsonl',
     '  config:',

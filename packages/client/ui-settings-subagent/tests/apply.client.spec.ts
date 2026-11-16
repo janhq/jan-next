@@ -95,7 +95,7 @@ describe('ui-settings-subagent apply', () => {
 
     remote.emit('llm/adapters-updated', [])
     expect(refresh).toHaveBeenCalledTimes(1)
-    remote.emit('settings/document-updated', ['llm-deepseek', 1])
+    remote.emit('settings/document-updated', ['llm-pi-ai', 1])
     expect(refresh).toHaveBeenCalledTimes(2)
     ctx.emit('connection/reset')
     expect(reset).toHaveBeenCalledTimes(1)

@@ -5,8 +5,6 @@ kind: "package-reference"
 
 # @deepseek-ai/dsh-client-ui-settings-local-model
 
-English | [中文](README.zh.md)
-
 ## Summary
 
 Users run models on their own computer from Settings → Models and from first-run setup. The Local model card starts, stops, and removes the local worker, lists installed models with fit, context, and residency, and adds models from the curated list, a Hugging Face repository, or a `.gguf` path. First-run setup offers the recommended model as the primary choice and shows its download. The [dsh-llama-cpp](../../llm/llama-cpp/README.md) service on the Host does the work.

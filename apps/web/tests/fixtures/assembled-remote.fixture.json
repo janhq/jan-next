@@ -35,20 +35,17 @@
       "hasDocument": true,
       "namespaces": [
         {
-          "ns": "llm-deepseek",
+          "ns": "llm-pi-ai",
           "schema": {},
           "value": {
-            "apiKeyEnv": "DEEPSEEK_API_KEY"
+            "providers": {
+              "tokamak": {
+                "apiKeyEnv": "TOKAMAK_API_KEY"
+              }
+            }
           },
           "applies": "live",
-          "secrets": [
-            {
-              "path": [
-                "apiKey"
-              ],
-              "set": false
-            }
-          ],
+          "secrets": [],
           "revision": 0
         }
       ]
@@ -57,7 +54,7 @@
   "credentialsDescribe": {
     "ok": true,
     "value": {
-      "DEEPSEEK_API_KEY": {
+      "TOKAMAK_API_KEY": {
         "configured": true,
         "source": "file",
         "writable": true

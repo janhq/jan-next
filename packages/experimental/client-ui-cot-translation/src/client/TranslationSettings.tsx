@@ -11,7 +11,7 @@ import css from './Translation.module.css'
 /** Settings snapshots and explicit refresh callback supplied by the Host mirror. */
 export interface TranslationSettingsInjected extends TranslationFormInjected {
   hooks: TranslationFormInjected['hooks'] & { availableProviders: HostObservable<readonly TranslationProvider[]> }
-  /** Refresh native route eligibility without sending reasoning or starting inference. */
+  /** Refresh provider availability without sending reasoning. */
   refreshProviders: () => void
 }
 
@@ -21,8 +21,6 @@ function providerLabel(provider: string, t: TranslationSettingsProps['t']): stri
   switch (provider) {
     case 'bing': return t('bing')
     case 'google': return t('google')
-    case 'deepseek-account': return t('deepseekAccount')
-    case 'deepseek-official': return t('deepseekOfficial')
     default: return provider
   }
 }
@@ -39,11 +37,10 @@ export function TranslationSettings(props: TranslationSettingsProps) {
   const availableProviders = props.useAvailableProviders(value => value)
   useEffect(() => { props.refreshProviders() }, [props.refreshProviders])
   const missingProvider = state.provider.text !== '' && !availableProviders.some(provider => provider === state.provider.text)
-  const paid = state.provider.text === 'deepseek-account' || state.provider.text === 'deepseek-official'
   const disabled = !state.writable || state.saving
   return <SettingsForm labels={formLabels(t)} state={state} onSave={props.save} onDiscard={props.discard}>
     <p className={css.notice}>{t('privacy')}</p>
-    <p className={css.notice}>{t(paid ? 'paidNotice' : 'anonymousNotice')}</p>
+    <p className={css.notice}>{t('anonymousNotice')}</p>
     <div className={css.field}>
       <div className={css.toolbar}>
         <label htmlFor={providerId}>{t('provider')}</label>

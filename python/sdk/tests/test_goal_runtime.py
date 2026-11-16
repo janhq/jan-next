@@ -38,8 +38,8 @@ def _until(subscription: NotificationSubscription, event_type: str, operation: s
 
 
 def _complete_goal(request: dict) -> tuple[str, dict]:
-    results = [block for message in request["messages"] for block in message["content"]
-               if block["type"] == "tool_result"]
+    results = [block for message in request["messages"] if isinstance(message["content"], list)
+               for block in message["content"] if block["type"] == "tool_result"]
     current = json.loads("\n".join(_text_blocks(results[-1]["content"])))
     goal = current["goal"]
     assert goal["phase"] == "active" and current["activation"] == "armed"

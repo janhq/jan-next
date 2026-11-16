@@ -14,24 +14,28 @@
       config:
         maxTokensAsSuccess: false
 
-    - id: deepseek-llm-api-extensions
-      name: '@deepseek-ai/dsh-deepseek-llm-api-extensions'
-
-    # tokamak-harness: Session-log upload is opt-in, as in the base bundle.
-    - id: session-log-deepseek
-      name: '@deepseek-ai/dsh-session-log-deepseek'
+    # Tokamak router route; another deployment replaces baseURL through a profile patch.
+    - id: llm-pi-ai
+      name: '@deepseek-ai/dsh-llm-pi-ai'
       config:
-        enabled: false
-
-    - id: plugin-package-inventory-deepseek
-      name: '@deepseek-ai/dsh-plugin-package-inventory-deepseek'
-
-    - id: llm-deepseek
-      name: '@deepseek-ai/dsh-llm-deepseek-api-key'
-      config:
-        apiKeyEnv: DEEPSEEK_API_KEY
-        defaultContextWindow: !!js Number(process.env.DSH_CONTEXT_WINDOW ?? 1000000)
-        streamIdleTimeoutMs: 172800000
+        providers:
+          tokamak:
+            displayName: Tokamak
+            api: openai-completions
+            baseURL: https://api.tokamak.sh/v1
+            apiKeyEnv: TOKAMAK_API_KEY
+            defaultContextWindow: !!js Number(process.env.DSH_CONTEXT_WINDOW ?? 200000)
+            streamIdleTimeoutMs: 172800000
+            models:
+              - id: tokamak-1-preview
+              - id: tokamak/auto
+              - id: anthropic/claude-sonnet-5-5[1m]
+                contextWindow: 1000000
+              - id: anthropic/claude-opus-5-5[1m]
+                contextWindow: 1000000
+              - id: anthropic/claude-haiku-5-5[1m]
+                contextWindow: 1000000
+              - id: openai/gpt-6-sol
 
     - id: sandbox
       name: '@deepseek-ai/dsh-sandbox-local'

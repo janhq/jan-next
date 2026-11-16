@@ -1,4 +1,4 @@
-/** Real attachments, filesystem recovery, Node PTC, and DeepSeek image request bytes without a desktop or API key. */
+/** Real attachments, filesystem recovery, Node PTC, and request image bytes without a desktop or API key. */
 import { executeModelToolFixture } from '@deepseek-ai/dsh-tool-testkit'
 import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import * as PtcToolExecutor from '@deepseek-ai/dsh-tool-executor-ptc'
@@ -8,18 +8,11 @@ import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import { provideWorkingDirectoryFixture } from '@deepseek-ai/dsh-agent-loop-testkit'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import LocalAttachments from '@deepseek-ai/dsh-attachment-local'
 import FileSystem from '@deepseek-ai/dsh-fs-local'
 import * as ToolFs from '@deepseek-ai/dsh-tool-fs'
-import {
-  createAssistantMessage, createToolResultMessage, createUserMessage, LlmAdapter, LlmRuntime,
-  resolveImageAttachmentAccess, ToolCallId,
-} from '@deepseek-ai/dsh-llm'
-import type { ContentBlock, GenerateOptions, ImageBlock, StreamChunk, UserMessage } from '@deepseek-ai/dsh-llm'
-import { deepSeekImageRequestPricing, resolveAdapterOptions } from '@deepseek-ai/dsh-llm-deepseek'
-import { prepareImages } from '@deepseek-ai/dsh-llm-deepseek/src/images.ts'
-import { serialize } from '@deepseek-ai/dsh-llm-deepseek/src/serialize.ts'
+import { LlmAdapter, LlmRuntime, ToolCallId } from '@deepseek-ai/dsh-llm'
+import type { ContentBlock, GenerateOptions, ImageBlock, LlmImageRequestPricing, StreamChunk, UserMessage } from '@deepseek-ai/dsh-llm'
 import { createMcpToolDefinition } from '@deepseek-ai/dsh-mcp-client'
 import NodeRuntime from '@deepseek-ai/dsh-ptc-runtime-node'
 import Sandbox from '@deepseek-ai/dsh-sandbox-local'
@@ -40,7 +33,6 @@ const CAP = 12500
 const MODEL = 'vision-fixture'
 const LONG = `${'X'.repeat(100)}\n`.repeat(600)
 const SMALL = 'S'.repeat(36000)
-const connection = resolveAdapterOptions({ models: [{ id: MODEL, inputModalities: ['text', 'image'] }] })
 const text = (value: string): ContentBlock => ({ type: 'text', text: value })
 const textOf = (content: readonly ContentBlock[]): string => content.filter(block => block.type === 'text').map(block => block.text).join('')
 const imagesOf = (content: readonly ContentBlock[]): ImageBlock[] => content.filter((block): block is ImageBlock => block.type === 'image')
@@ -62,10 +54,11 @@ async function setup(mode: 'native' | 'ptc' = 'native') {
   await ctx.plugin(SessionProjections)
   await ctx.plugin(SessionStore)
   await ctx.plugin(LlmRuntime)
-  const access = (ref: ImageAttachmentRef) => resolveImageAttachmentAccess(
-    ctx.attachments, path => ctx.fs.processPathFromHostPath(path), ref,
-  )
-  const pricing = deepSeekImageRequestPricing(connection, MODEL, access)
+  const pricing: LlmImageRequestPricing = {
+    priceImages: images => images.map(({ attachment }) => ({
+      visualTokens: Math.ceil(attachment.width / 28) * Math.ceil(attachment.height / 28), text: '',
+    })),
+  }
   class VisionRoute extends LlmAdapter {
     override async resolveModel(provider: string, model: string) {
       return { provider, id: model, name: model, inputModalities: ['text', 'image'] as Array<'text' | 'image'> }
@@ -103,22 +96,11 @@ async function setup(mode: 'native' | 'ptc' = 'native') {
   const cost = (content: ContentBlock[]) => estimateContent(content.filter(block => block.type === 'text'))
     + pricing.priceImages(imagesOf(content)).reduce((sum, price) => sum + price.visualTokens + estimateContent([text(price.text)]), 0)
   const requestImages = async (content: ContentBlock[], contexts: UserMessage[] = []) => {
-    const callId = ToolCallId('visible-result')
-    const history = [
-      createUserMessage({ source: { kind: 'user' }, content: [text('Inspect the supplied images.')] }),
-      createAssistantMessage({ source: { provider: 'vision', model: MODEL }, content: [
-        { type: 'tool-call', id: callId, name: 'inspect', arguments: '{}' },
-      ] }),
-      createToolResultMessage({ callId, content, isError: false }),
-      ...contexts,
-    ]
-    const prepared = await prepareImages(history, connection, MODEL, ctx.attachments, access, new AbortController().signal)
-    const body = serialize({ provider: 'vision', model: MODEL, messages: history }, connection, prepared.messages, prepared.versions, access)
-    const blocks = body.messages.flatMap(message => message.content.flatMap(block => block.type === 'tool_result' ? block.content : [block]))
-    const images = blocks.filter(block => block.type === 'image')
-    return Promise.all(images.map(async (block) => {
-      if (block.source.type !== 'base64') throw new Error('expected prepared inline image bytes')
-      const data = Buffer.from(block.source.data, 'base64')
+    const images = imagesOf([...content, ...contexts.flatMap(message => message.content)])
+      .filter(block => block.offloaded !== true)
+    return Promise.all(images.map(async ({ attachment }) => {
+      const target = { width: attachment.width, height: attachment.height, maxBytes: attachment.bytes }
+      const { data } = await ctx.attachments.readImageRequest(attachment, target)
       const { dominant } = await sharp(data).stats()
       return dominant.r > 200 ? 'red' : dominant.g > 200 ? 'green' : dominant.b > 200 ? 'blue' : 'unexpected'
     }))
@@ -140,7 +122,7 @@ describe('multimodal recovery through real providers', () => {
     expect(await requestImages(result.content)).toEqual(['green'])
   })
 
-  it('retains two distinct end images in both the tool result and DeepSeek request', async () => {
+  it('retains two distinct end images in both the tool result and the model request', async () => {
     const { execute, originals, cost, requestImages } = await setup()
     const result = await execute('ends')
     expect(result.isError).toBe(false)

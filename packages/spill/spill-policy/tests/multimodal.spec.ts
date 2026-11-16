@@ -14,7 +14,6 @@ import type { ImageAttachmentRef, SaveImageAttachment, StoredImageAttachment } f
 import FileSystem from '@deepseek-ai/dsh-fs-local'
 import { LlmAdapter, LlmRuntime, ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions, StreamChunk, ImageBlock, LlmImageRequestPricing, LlmResolvedModelInfo } from '@deepseek-ai/dsh-llm'
-import { deepSeekImageTokens } from '@deepseek-ai/dsh-llm-deepseek'
 import { estimateContent } from '@deepseek-ai/dsh-token-meter/estimate'
 import { createMcpToolDefinition } from '@deepseek-ai/dsh-mcp-client'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
@@ -54,13 +53,15 @@ class TestAttachments extends AttachmentStore {
   }
 }
 
+const imageTokens = (width: number, height: number): number => Math.ceil(width / 16) * Math.ceil(height / 16)
+
 class VisionAdapter extends LlmAdapter {
   override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
     return Promise.resolve({ provider, id: model, name: model, inputModalities: ['text', 'image'] })
   }
   override imageRequestPricing(): LlmImageRequestPricing {
     return { priceImages: images => images.map(({ attachment }) => ({
-      visualTokens: deepSeekImageTokens(attachment.width, attachment.height), text: '',
+      visualTokens: imageTokens(attachment.width, attachment.height), text: '',
     })) }
   }
   stream(_options: GenerateOptions): AsyncIterable<StreamChunk> { throw new Error('fixture does not stream') }
@@ -121,7 +122,7 @@ describe('multimodal spill', () => {
     expect(paths).toHaveLength(2)
     for (const path of paths) expect(await readFile(path)).toEqual(PNG)
     const visual = result.content.filter((block): block is ImageBlock => block.type === 'image')
-      .reduce((total, block) => total + deepSeekImageTokens(block.attachment.width, block.attachment.height) + 4, 0)
+      .reduce((total, block) => total + imageTokens(block.attachment.width, block.attachment.height) + 4, 0)
     expect(visual + estimateContent(result.content.filter(block => block.type === 'text'))).toBeLessThanOrEqual(1000)
   })
 

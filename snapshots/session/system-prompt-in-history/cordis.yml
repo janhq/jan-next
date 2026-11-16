@@ -1,13 +1,7 @@
-# In-history system prompt patch: the route declares `systemPromptUpdate:
-# in-history`, and a fixture section changes the rendered prompt after the
-# first read, so the second step appends a `system/message` after the cached
-# history instead of replacing node 0.
-- id: llm-deepseek
-  name: '@deepseek-ai/dsh-llm-deepseek-api-key'
-  config:
-    thinking: enabled
-    reasoningEffort: max
-
+# In-history system prompt patch: the route must declare `systemPromptUpdate:
+# in-history` (re-recording needs such a provider route), and a fixture section
+# changes the rendered prompt after the first read, so the second step appends
+# a `system/message` after the cached history instead of replacing node 0.
 - id: agent-default-model
   name: '@deepseek-ai/dsh-agent-default-model'
   config:

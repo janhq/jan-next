@@ -352,7 +352,6 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
             order={order}
             model={model}
             position={index + 1}
-            inputField="input"
             inputFallback={inputDefaults.get(textOf(model, 'id')) ?? props.defaultInput}
             inputLoading={catalogProvider !== undefined && catalog === undefined}
             reasoningLevels={props.reasoningLevels}

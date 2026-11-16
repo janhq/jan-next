@@ -19,7 +19,7 @@
  */
 import type {
   AccountBonusBatch, AccountBonusOrderId, AccountUserId,
-} from '@deepseek-ai/dsh-deepseek-account/types'
+} from '@deepseek-ai/dsh-tokamak-account/types'
 
 /** Notice eligible for display; the message is server-authored for the active locale. */
 export interface BonusNotice {

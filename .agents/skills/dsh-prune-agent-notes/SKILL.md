@@ -13,18 +13,18 @@ Read [the Agent Note rules](../../notes/README.md) and the applicable lifecycle 
 
 ## Check supersession when adding a note
 
-Before drafting, apply the [creation criteria](../../notes/README.md#when-to-write-one). Every new Agent Note triggers a scoped audit of active notes covering the same decision, mechanism, or rejected alternative. Classify each full or partial supersession while writing the new note: delete qualifying implemented triplets in the same PR, retain and cross-link partial supersessions or independently useful rationale, reject obsolete proposals, and delete rejected notes that no longer prevent a plausible mistake. Apply the Agent Note consolidation rule when the new owner absorbs every unique proposition; do not defer a known match to a later corpus audit.
+Before drafting, apply the [creation criteria](../../notes/README.md#when-to-write-one). Every new Agent Note triggers a scoped audit of active notes covering the same decision, mechanism, or rejected alternative. Classify each full or partial supersession while writing the new note: delete qualifying implemented notes in the same PR, retain and cross-link partial supersessions or independently useful rationale, reject obsolete proposals, and delete rejected notes that no longer prevent a plausible mistake. Apply the Agent Note consolidation rule when the new owner absorbs every unique proposition; do not defer a known match to a later corpus audit.
 
 ## Classify by future value
 
 Apply these lifecycle-specific outcomes:
 
-- **Implemented — delete as mechanical:** delete complete triplets that only describe small UI adjustments or purely mechanical changes. Local bug fixes, performance changes, new capabilities, and substantive behavior or ownership decisions do not qualify merely because they are implemented.
+- **Implemented — delete as mechanical:** delete notes that only describe small UI adjustments or purely mechanical changes. Local bug fixes, performance changes, new capabilities, and substantive behavior or ownership decisions do not qualify merely because they are implemented.
 - **Implemented — keep:** retain a note when its rationale, alternatives, negative guarantees, durable/wire semantics, ownership boundary, security rule, or reintroduction condition is likely to guide a future change. Classify the decision, not the mechanics of its implementation: a mechanical rename or type extraction can still record lasting naming, compatibility, or ownership rules. Length does not matter.
 - **Implemented — delete as complete:** delete a substantive decision when it is complete and unlikely to guide future work. Git history remains the only copy, so keep the note when in doubt.
 - **Proposed — never delete directly:** keep a live proposal; if it is no longer worth pursuing, reject it with an honest reason and satisfy the rejected lifecycle format.
 - **Rejected — keep only as a guardrail:** retain a rejection only when the losing proposal remains a tempting, meaningful mistake and the note explains why it loses.
-- **Rejected — delete:** delete the whole triplet when the rejected idea is obsolete, superseded, no longer plausible, or unlikely to prevent re-litigation.
+- **Rejected — delete:** delete the note when the rejected idea is obsolete, superseded, no longer plausible, or unlikely to prevent re-litigation.
 
 Do not delete toward a quota. Inspect every note in scope, classify analogous groups under one principle, use best judgment for close cases, and record genuinely borderline decisions for the handoff.
 
@@ -51,9 +51,9 @@ For rejected notes:
 - delete streaming workflow progress through tool calls — 972 words: its ACP/UI premise is obsolete;
 - delete dropping ACP terminal metadata — 362 words: the later automation-only ACP decision resolved the question.
 
-## Delete one triplet
+## Delete one note
 
-1. Delete the complete `foo.md`, `foo.zh.md`, and `foo.i18n.yaml` triplet together.
+1. Delete `foo.md`.
 2. Search for inbound links from the repository. Redirect each to current authority when one exists; otherwise delete the citation, or the sentence or list item when it exists only to cite the deleted note. Do not invent replacement rationale.
 
 ## Validate and report

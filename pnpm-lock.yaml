@@ -577,9 +577,6 @@ importers:
       '@deepseek-ai/dsh-credentials-local':
         specifier: workspace:*
         version: link:../../packages/credentials/credentials-local
-      '@deepseek-ai/dsh-deepseek-llm-api-extensions':
-        specifier: workspace:*
-        version: link:../../packages/llm/deepseek-llm-api-extensions
       '@deepseek-ai/dsh-experimental-ptc-runtime-python':
         specifier: workspace:*
         version: link:../../packages/experimental/ptc-runtime-python
@@ -604,15 +601,6 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../packages/llm/llm
-      '@deepseek-ai/dsh-llm-deepseek':
-        specifier: workspace:*
-        version: link:../../packages/llm/llm-deepseek
-      '@deepseek-ai/dsh-llm-deepseek-account':
-        specifier: workspace:*
-        version: link:../../packages/llm/llm-deepseek-account
-      '@deepseek-ai/dsh-llm-deepseek-api-key':
-        specifier: workspace:*
-        version: link:../../packages/llm/llm-deepseek-api-key
       '@deepseek-ai/dsh-llm-mock-server':
         specifier: workspace:*
         version: link:../../packages/test-support/llm-mock-server
@@ -625,9 +613,6 @@ importers:
       '@deepseek-ai/dsh-loader-smoke':
         specifier: workspace:*
         version: link:../../packages/test-support/loader-smoke
-      '@deepseek-ai/dsh-plugin-package-inventory-deepseek':
-        specifier: workspace:*
-        version: link:../../packages/llm/plugin-package-inventory-deepseek
       '@deepseek-ai/dsh-sandbox-local':
         specifier: workspace:*
         version: link:../../packages/sandbox/sandbox-local
@@ -643,9 +628,6 @@ importers:
       '@deepseek-ai/dsh-session-checkpoint-policy':
         specifier: workspace:*
         version: link:../../packages/session/session-checkpoint-policy
-      '@deepseek-ai/dsh-session-log-deepseek':
-        specifier: workspace:*
-        version: link:../../packages/session/session-log-deepseek
       '@deepseek-ai/dsh-session-persistence-jsonl':
         specifier: workspace:*
         version: link:../../packages/session/session-persistence-jsonl
@@ -758,9 +740,6 @@ importers:
       '@deepseek-ai/dsh-client-ui-theme':
         specifier: workspace:*
         version: link:../../packages/client/ui-theme
-      '@deepseek-ai/dsh-deepseek-account':
-        specifier: workspace:*
-        version: link:../../packages/credentials/deepseek-account
       '@deepseek-ai/dsh-home-paths':
         specifier: workspace:*
         version: link:../../packages/util/home-paths
@@ -770,6 +749,9 @@ importers:
       '@deepseek-ai/dsh-plugin-manager':
         specifier: workspace:*
         version: link:../../packages/boot/plugin-manager
+      '@deepseek-ai/dsh-tokamak-account':
+        specifier: workspace:*
+        version: link:../../packages/credentials/tokamak-account
       '@deepseek-ai/dsh-util-file-drag':
         specifier: workspace:*
         version: link:../../packages/util/file-drag
@@ -857,9 +839,6 @@ importers:
       '@deepseek-ai/dsh-client-connection':
         specifier: workspace:*
         version: link:../../packages/client/connection
-      '@deepseek-ai/dsh-deepseek-account':
-        specifier: workspace:*
-        version: link:../../packages/credentials/deepseek-account
       '@deepseek-ai/dsh-home-paths':
         specifier: workspace:*
         version: link:../../packages/util/home-paths
@@ -878,6 +857,9 @@ importers:
       '@deepseek-ai/dsh-skill-office':
         specifier: workspace:*
         version: link:../../packages/skill/skill-office
+      '@deepseek-ai/dsh-tokamak-account':
+        specifier: workspace:*
+        version: link:../../packages/credentials/tokamak-account
       '@deepseek-ai/dsh-tool-workspace-dependencies':
         specifier: workspace:*
         version: link:../../packages/skill/tool-workspace-dependencies
@@ -1341,9 +1323,9 @@ importers:
       '@deepseek-ai/dsh-agent':
         specifier: workspace:*
         version: link:../../core/agent
-      '@deepseek-ai/dsh-deepseek-account':
+      '@deepseek-ai/dsh-tokamak-account':
         specifier: workspace:*
-        version: link:../../credentials/deepseek-account
+        version: link:../../credentials/tokamak-account
       '@deepseek-ai/dsh-typert-protocol':
         specifier: workspace:*
         version: link:../../typert/protocol
@@ -1555,9 +1537,6 @@ importers:
       '@deepseek-ai/dsh-credentials':
         specifier: workspace:*
         version: link:../../credentials/credentials
-      '@deepseek-ai/dsh-deepseek-account':
-        specifier: workspace:*
-        version: link:../../credentials/deepseek-account
       '@deepseek-ai/dsh-file-reference':
         specifier: workspace:*
         version: link:../../context/file-reference
@@ -1606,6 +1585,9 @@ importers:
       '@deepseek-ai/dsh-subagent':
         specifier: workspace:*
         version: link:../../subagent/subagent
+      '@deepseek-ai/dsh-tokamak-account':
+        specifier: workspace:*
+        version: link:../../credentials/tokamak-account
       '@deepseek-ai/dsh-typert-protocol':
         specifier: workspace:*
         version: link:../../typert/protocol
@@ -1688,9 +1670,6 @@ importers:
       '@deepseek-ai/dsh-commands':
         specifier: workspace:*
         version: link:../../interaction/commands
-      '@deepseek-ai/dsh-credentials':
-        specifier: workspace:*
-        version: link:../../credentials/credentials
       '@deepseek-ai/dsh-file-reference':
         specifier: workspace:*
         version: link:../../context/file-reference
@@ -1736,9 +1715,6 @@ importers:
       '@deepseek-ai/dsh-session-title':
         specifier: workspace:*
         version: link:../../session/session-title
-      '@deepseek-ai/dsh-settings':
-        specifier: workspace:*
-        version: link:../../settings/settings
       '@deepseek-ai/dsh-skill':
         specifier: workspace:*
         version: link:../../skill/skill
@@ -2476,12 +2452,6 @@ importers:
       '@deepseek-ai/dsh-credentials-local':
         specifier: workspace:*
         version: link:../../credentials/credentials-local
-      '@deepseek-ai/dsh-deepseek-account-platform':
-        specifier: workspace:*
-        version: link:../../credentials/deepseek-account-platform
-      '@deepseek-ai/dsh-deepseek-llm-api-extensions':
-        specifier: workspace:*
-        version: link:../../llm/deepseek-llm-api-extensions
       '@deepseek-ai/dsh-fs-local':
         specifier: workspace:*
         version: link:../../fs/fs-local
@@ -2506,12 +2476,6 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../llm/llm
-      '@deepseek-ai/dsh-llm-deepseek-account':
-        specifier: workspace:*
-        version: link:../../llm/llm-deepseek-account
-      '@deepseek-ai/dsh-llm-deepseek-api-key':
-        specifier: workspace:*
-        version: link:../../llm/llm-deepseek-api-key
       '@deepseek-ai/dsh-llm-pi-ai':
         specifier: workspace:*
         version: link:../../llm/llm-pi-ai
@@ -2533,9 +2497,6 @@ importers:
       '@deepseek-ai/dsh-plugin-manager':
         specifier: workspace:*
         version: link:../../boot/plugin-manager
-      '@deepseek-ai/dsh-plugin-package-inventory-deepseek':
-        specifier: workspace:*
-        version: link:../../llm/plugin-package-inventory-deepseek
       '@deepseek-ai/dsh-ptc-runtime-node':
         specifier: workspace:*
         version: link:../../ptc-runtime/ptc-runtime-node
@@ -2557,9 +2518,6 @@ importers:
       '@deepseek-ai/dsh-session-checkpoint-policy':
         specifier: workspace:*
         version: link:../../session/session-checkpoint-policy
-      '@deepseek-ai/dsh-session-log-deepseek':
-        specifier: workspace:*
-        version: link:../../session/session-log-deepseek
       '@deepseek-ai/dsh-session-persistence-jsonl':
         specifier: workspace:*
         version: link:../../session/session-persistence-jsonl
@@ -2701,15 +2659,9 @@ importers:
       '@deepseek-ai/dsh-web':
         specifier: workspace:*
         version: link:../../web/web
-      '@deepseek-ai/dsh-web-deepseek-api':
-        specifier: workspace:*
-        version: link:../../web/web-deepseek-api
       '@deepseek-ai/dsh-web-fetch-http':
         specifier: workspace:*
         version: link:../../web/web-fetch-http
-      '@deepseek-ai/dsh-web-search-deepseek':
-        specifier: workspace:*
-        version: link:../../web/web-search-deepseek
       '@deepseek-ai/dsh-web-search-exa':
         specifier: workspace:*
         version: link:../../web/web-search-exa
@@ -2863,9 +2815,6 @@ importers:
       '@deepseek-ai/dsh-compaction-image-offload':
         specifier: workspace:*
         version: link:../../compaction/compaction-image-offload
-      '@deepseek-ai/dsh-deepseek-llm-api-extensions':
-        specifier: workspace:*
-        version: link:../../llm/deepseek-llm-api-extensions
       '@deepseek-ai/dsh-fs-local':
         specifier: workspace:*
         version: link:../../fs/fs-local
@@ -2875,18 +2824,15 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../llm/llm
-      '@deepseek-ai/dsh-llm-deepseek-api-key':
+      '@deepseek-ai/dsh-llm-pi-ai':
         specifier: workspace:*
-        version: link:../../llm/llm-deepseek-api-key
+        version: link:../../llm/llm-pi-ai
       '@deepseek-ai/dsh-llm-retry':
         specifier: workspace:*
         version: link:../../llm/llm-retry
       '@deepseek-ai/dsh-mcp-resources':
         specifier: workspace:*
         version: link:../../mcp/mcp-resources
-      '@deepseek-ai/dsh-plugin-package-inventory-deepseek':
-        specifier: workspace:*
-        version: link:../../llm/plugin-package-inventory-deepseek
       '@deepseek-ai/dsh-sandbox-local':
         specifier: workspace:*
         version: link:../../sandbox/sandbox-local
@@ -2905,9 +2851,6 @@ importers:
       '@deepseek-ai/dsh-session-checkpoint-policy':
         specifier: workspace:*
         version: link:../../session/session-checkpoint-policy
-      '@deepseek-ai/dsh-session-log-deepseek':
-        specifier: workspace:*
-        version: link:../../session/session-log-deepseek
       '@deepseek-ai/dsh-session-persistence-jsonl':
         specifier: workspace:*
         version: link:../../session/session-persistence-jsonl
@@ -3143,9 +3086,6 @@ importers:
       '@deepseek-ai/dsh-client-ui-settings-plugins':
         specifier: workspace:*
         version: link:../../client/ui-settings-plugins
-      '@deepseek-ai/dsh-client-ui-settings-session-log':
-        specifier: workspace:*
-        version: link:../../client/ui-settings-session-log
       '@deepseek-ai/dsh-client-ui-settings-shell':
         specifier: workspace:*
         version: link:../../client/ui-settings-shell
@@ -3617,9 +3557,6 @@ importers:
       '@deepseek-ai/dsh-compaction':
         specifier: workspace:*
         version: link:../../compaction/compaction
-      '@deepseek-ai/dsh-deepseek-account':
-        specifier: workspace:*
-        version: link:../../credentials/deepseek-account
       '@deepseek-ai/dsh-host-product-telemetry-otel':
         specifier: workspace:*
         version: link:../../host/product-telemetry-otel
@@ -3641,6 +3578,9 @@ importers:
       '@deepseek-ai/dsh-settings':
         specifier: workspace:*
         version: link:../../settings/settings
+      '@deepseek-ai/dsh-tokamak-account':
+        specifier: workspace:*
+        version: link:../../credentials/tokamak-account
 
   packages/client/resources:
     devDependencies:
@@ -5745,15 +5685,15 @@ importers:
       '@deepseek-ai/dsh-client-ui-theme':
         specifier: workspace:*
         version: link:../ui-theme
-      '@deepseek-ai/dsh-deepseek-account':
-        specifier: workspace:*
-        version: link:../../credentials/deepseek-account
       '@deepseek-ai/dsh-host-webserver':
         specifier: workspace:*
         version: link:../../host/webserver
       '@deepseek-ai/dsh-settings':
         specifier: workspace:*
         version: link:../../settings/settings
+      '@deepseek-ai/dsh-tokamak-account':
+        specifier: workspace:*
+        version: link:../../credentials/tokamak-account
       '@testing-library/react':
         specifier: ^16.3.3
         version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -6056,45 +5996,6 @@ importers:
       react:
         specifier: ^18.2.0
         version: 18.3.1
-
-  packages/client/ui-settings-session-log:
-    devDependencies:
-      '@deepseek-ai/cordis':
-        specifier: workspace:~
-        version: link:../../../vendor/cordis
-      '@deepseek-ai/dsh-api-remotes':
-        specifier: workspace:*
-        version: link:../../api/remotes
-      '@deepseek-ai/dsh-client-locale':
-        specifier: workspace:*
-        version: link:../locale
-      '@deepseek-ai/dsh-client-store':
-        specifier: workspace:*
-        version: link:../store
-      '@deepseek-ai/dsh-client-test-runtime':
-        specifier: workspace:*
-        version: link:../../test-support/client-runtime
-      '@deepseek-ai/dsh-client-ui-layout':
-        specifier: workspace:*
-        version: link:../ui-layout
-      '@deepseek-ai/dsh-client-ui-primitives':
-        specifier: workspace:*
-        version: link:../ui-primitives
-      '@deepseek-ai/dsh-client-ui-renderer':
-        specifier: workspace:*
-        version: link:../ui-renderer
-      '@deepseek-ai/dsh-client-ui-settings':
-        specifier: workspace:*
-        version: link:../ui-settings
-      '@deepseek-ai/dsh-client-ui-slots':
-        specifier: workspace:*
-        version: link:../ui-slots
-      react:
-        specifier: ^18.2.0
-        version: 18.3.1
-      react-dom:
-        specifier: ^18.2.0
-        version: 18.3.1(react@18.3.1)
 
   packages/client/ui-settings-shell:
     devDependencies:
@@ -7468,9 +7369,6 @@ importers:
       '@deepseek-ai/dsh-agent-loop-testkit':
         specifier: workspace:*
         version: link:../../test-support/agent-loop-testkit
-      '@deepseek-ai/dsh-attachment':
-        specifier: workspace:*
-        version: link:../../attachment/attachment
       '@deepseek-ai/dsh-compaction':
         specifier: workspace:*
         version: link:../compaction
@@ -7480,9 +7378,6 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../llm/llm
-      '@deepseek-ai/dsh-llm-deepseek':
-        specifier: workspace:*
-        version: link:../../llm/llm-deepseek
       '@deepseek-ai/dsh-session':
         specifier: workspace:*
         version: link:../../core/session
@@ -7575,12 +7470,9 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../llm/llm
-      '@deepseek-ai/dsh-llm-deepseek':
+      '@deepseek-ai/dsh-llm-pi-ai':
         specifier: workspace:*
-        version: link:../../llm/llm-deepseek
-      '@deepseek-ai/dsh-llm-deepseek-api-key':
-        specifier: workspace:*
-        version: link:../../llm/llm-deepseek-api-key
+        version: link:../../llm/llm-pi-ai
       '@deepseek-ai/dsh-session':
         specifier: workspace:*
         version: link:../../core/session
@@ -7955,9 +7847,6 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../llm/llm
-      '@deepseek-ai/dsh-llm-deepseek-api-key':
-        specifier: workspace:*
-        version: link:../../llm/llm-deepseek-api-key
       '@deepseek-ai/dsh-llm-pi-ai':
         specifier: workspace:*
         version: link:../../llm/llm-pi-ai
@@ -8236,49 +8125,6 @@ importers:
         specifier: workspace:*
         version: link:../../util/launch-environment
 
-  packages/credentials/deepseek-account:
-    devDependencies:
-      '@deepseek-ai/cordis':
-        specifier: workspace:~
-        version: link:../../../vendor/cordis
-      '@deepseek-ai/dsh-agent':
-        specifier: workspace:*
-        version: link:../../core/agent
-      '@deepseek-ai/dsh-brand':
-        specifier: workspace:*
-        version: link:../../util/brand
-      '@deepseek-ai/dsh-llm':
-        specifier: workspace:*
-        version: link:../../llm/llm
-      '@deepseek-ai/dsh-util-values':
-        specifier: workspace:*
-        version: link:../../util/values
-
-  packages/credentials/deepseek-account-platform:
-    dependencies:
-      '@deepseek-ai/schemastery':
-        specifier: link:../../../vendor/schemastery
-        version: link:../../../vendor/schemastery
-      zod:
-        specifier: 4.4.3
-        version: 4.4.3
-    devDependencies:
-      '@deepseek-ai/cordis':
-        specifier: workspace:~
-        version: link:../../../vendor/cordis
-      '@deepseek-ai/dsh-authorization':
-        specifier: workspace:*
-        version: link:../authorization
-      '@deepseek-ai/dsh-credentials':
-        specifier: workspace:*
-        version: link:../credentials
-      '@deepseek-ai/dsh-deepseek-account':
-        specifier: workspace:*
-        version: link:../deepseek-account
-      '@deepseek-ai/dsh-host-webserver':
-        specifier: workspace:*
-        version: link:../../host/webserver
-
   packages/credentials/tokamak-account:
     dependencies:
       '@deepseek-ai/schemastery':
@@ -8291,18 +8137,27 @@ importers:
       '@deepseek-ai/cordis':
         specifier: workspace:~
         version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-agent':
+        specifier: workspace:*
+        version: link:../../core/agent
       '@deepseek-ai/dsh-authorization':
         specifier: workspace:*
         version: link:../authorization
+      '@deepseek-ai/dsh-brand':
+        specifier: workspace:*
+        version: link:../../util/brand
       '@deepseek-ai/dsh-credentials':
         specifier: workspace:*
         version: link:../credentials
-      '@deepseek-ai/dsh-deepseek-account':
-        specifier: workspace:*
-        version: link:../deepseek-account
       '@deepseek-ai/dsh-host-webserver':
         specifier: workspace:*
         version: link:../../host/webserver
+      '@deepseek-ai/dsh-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@deepseek-ai/dsh-util-values':
+        specifier: workspace:*
+        version: link:../../util/values
 
   packages/deliverables/deliverable-file-references:
     devDependencies:
@@ -8579,12 +8434,9 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../llm/llm
-      '@deepseek-ai/dsh-llm-deepseek':
+      '@deepseek-ai/dsh-llm-pi-ai':
         specifier: workspace:*
-        version: link:../../llm/llm-deepseek
-      '@deepseek-ai/dsh-llm-deepseek-api-key':
-        specifier: workspace:*
-        version: link:../../llm/llm-deepseek-api-key
+        version: link:../../llm/llm-pi-ai
       '@deepseek-ai/dsh-permission-presets':
         specifier: workspace:*
         version: link:../../interaction/permission-presets
@@ -9876,9 +9728,6 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../llm/llm
-      '@deepseek-ai/dsh-llm-deepseek':
-        specifier: workspace:*
-        version: link:../../llm/llm-deepseek
       '@deepseek-ai/dsh-loader-smoke':
         specifier: workspace:*
         version: link:../../test-support/loader-smoke
@@ -10029,9 +9878,6 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../llm/llm
-      '@deepseek-ai/dsh-llm-deepseek':
-        specifier: workspace:*
-        version: link:../../llm/llm-deepseek
       '@deepseek-ai/dsh-ptc-runtime':
         specifier: workspace:*
         version: link:../../ptc-runtime/ptc-runtime
@@ -11494,45 +11340,18 @@ importers:
       '@deepseek-ai/dsh-app-boot':
         specifier: workspace:*
         version: link:../../boot/app-boot
-      '@deepseek-ai/dsh-credentials':
-        specifier: workspace:*
-        version: link:../../credentials/credentials
-      '@deepseek-ai/dsh-deepseek-account':
-        specifier: workspace:*
-        version: link:../../credentials/deepseek-account
-      '@deepseek-ai/dsh-deepseek-llm-api-extensions':
-        specifier: workspace:*
-        version: link:../../llm/deepseek-llm-api-extensions
-      '@deepseek-ai/dsh-launch-environment':
-        specifier: workspace:*
-        version: link:../../util/launch-environment
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../llm/llm
-      '@deepseek-ai/dsh-llm-deepseek':
-        specifier: workspace:*
-        version: link:../../llm/llm-deepseek
-      '@deepseek-ai/dsh-llm-deepseek-account':
-        specifier: workspace:*
-        version: link:../../llm/llm-deepseek-account
-      '@deepseek-ai/dsh-llm-deepseek-api-key':
-        specifier: workspace:*
-        version: link:../../llm/llm-deepseek-api-key
       '@deepseek-ai/dsh-session':
         specifier: workspace:*
         version: link:../../core/session
-      '@deepseek-ai/dsh-session-log-deepseek':
-        specifier: workspace:*
-        version: link:../../session/session-log-deepseek
       '@deepseek-ai/dsh-session-persistence':
         specifier: workspace:*
         version: link:../../session/session-persistence
       '@deepseek-ai/dsh-session-persistence-jsonl':
         specifier: workspace:*
         version: link:../../session/session-persistence-jsonl
-      '@deepseek-ai/dsh-session-query-sqlite':
-        specifier: workspace:*
-        version: link:../../session-query/session-query-sqlite
       '@deepseek-ai/dsh-timeout':
         specifier: workspace:*
         version: link:../../util/timeout
@@ -12202,12 +12021,9 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../llm/llm
-      '@deepseek-ai/dsh-llm-deepseek':
+      '@deepseek-ai/dsh-llm-pi-ai':
         specifier: workspace:*
-        version: link:../../llm/llm-deepseek
-      '@deepseek-ai/dsh-llm-deepseek-api-key':
-        specifier: workspace:*
-        version: link:../../llm/llm-deepseek-api-key
+        version: link:../../llm/llm-pi-ai
       '@deepseek-ai/dsh-ptc-runtime':
         specifier: workspace:*
         version: link:../../ptc-runtime/ptc-runtime
@@ -13090,12 +12906,6 @@ importers:
         specifier: workspace:*
         version: link:../../core/tools
 
-  packages/llm/deepseek-llm-api-extensions:
-    devDependencies:
-      '@deepseek-ai/cordis':
-        specifier: workspace:~
-        version: link:../../../vendor/cordis
-
   packages/llm/llama-cpp:
     dependencies:
       '@deepseek-ai/schemastery':
@@ -13161,180 +12971,6 @@ importers:
         specifier: workspace:*
         version: link:../../util/package-manifest
 
-  packages/llm/llm-deepseek:
-    dependencies:
-      '@deepseek-ai/cosmokit':
-        specifier: link:../../../vendor/cosmokit
-        version: link:../../../vendor/cosmokit
-      '@deepseek-ai/dsh-brand':
-        specifier: workspace:*
-        version: link:../../util/brand
-      '@deepseek-ai/dsh-util-values':
-        specifier: workspace:*
-        version: link:../../util/values
-      '@deepseek-ai/schemastery':
-        specifier: link:../../../vendor/schemastery
-        version: link:../../../vendor/schemastery
-      eventsource-parser:
-        specifier: ^3.1.0
-        version: 3.1.0
-      semver:
-        specifier: ^7.8.5
-        version: 7.8.5
-    devDependencies:
-      '@deepseek-ai/cordis':
-        specifier: workspace:~
-        version: link:../../../vendor/cordis
-      '@deepseek-ai/cordis-plugin-include':
-        specifier: workspace:~
-        version: link:../../../vendor/include
-      '@deepseek-ai/cordis-plugin-loader':
-        specifier: workspace:~
-        version: link:../../../vendor/loader
-      '@deepseek-ai/dsh-agent':
-        specifier: workspace:*
-        version: link:../../core/agent
-      '@deepseek-ai/dsh-agent-loop':
-        specifier: workspace:*
-        version: link:../../core/agent-loop
-      '@deepseek-ai/dsh-anonymous-user-id':
-        specifier: workspace:*
-        version: link:../../identity/anonymous-user-id
-      '@deepseek-ai/dsh-atomic-write':
-        specifier: workspace:*
-        version: link:../../util/atomic-write
-      '@deepseek-ai/dsh-attachment':
-        specifier: workspace:*
-        version: link:../../attachment/attachment
-      '@deepseek-ai/dsh-attachment-local':
-        specifier: workspace:*
-        version: link:../../attachment/attachment-local
-      '@deepseek-ai/dsh-credentials':
-        specifier: workspace:*
-        version: link:../../credentials/credentials
-      '@deepseek-ai/dsh-credentials-local':
-        specifier: workspace:*
-        version: link:../../credentials/credentials-local
-      '@deepseek-ai/dsh-deepseek-account':
-        specifier: workspace:*
-        version: link:../../credentials/deepseek-account
-      '@deepseek-ai/dsh-deepseek-llm-api-extensions':
-        specifier: workspace:*
-        version: link:../deepseek-llm-api-extensions
-      '@deepseek-ai/dsh-fs':
-        specifier: workspace:*
-        version: link:../../fs/fs
-      '@deepseek-ai/dsh-home-paths':
-        specifier: workspace:*
-        version: link:../../util/home-paths
-      '@deepseek-ai/dsh-http-proxy':
-        specifier: workspace:*
-        version: link:../../util/http-proxy
-      '@deepseek-ai/dsh-launch-environment':
-        specifier: workspace:*
-        version: link:../../util/launch-environment
-      '@deepseek-ai/dsh-llm':
-        specifier: workspace:*
-        version: link:../llm
-      '@deepseek-ai/dsh-llm-deepseek-account':
-        specifier: workspace:*
-        version: link:../llm-deepseek-account
-      '@deepseek-ai/dsh-llm-deepseek-api-key':
-        specifier: workspace:*
-        version: link:../llm-deepseek-api-key
-      '@deepseek-ai/dsh-plugin-package-inventory-deepseek':
-        specifier: workspace:*
-        version: link:../plugin-package-inventory-deepseek
-      '@deepseek-ai/dsh-session':
-        specifier: workspace:*
-        version: link:../../core/session
-      '@deepseek-ai/dsh-session-log-deepseek':
-        specifier: workspace:*
-        version: link:../../session/session-log-deepseek
-      '@deepseek-ai/dsh-session-projection':
-        specifier: workspace:*
-        version: link:../../session/session-projection
-      '@deepseek-ai/dsh-settings':
-        specifier: workspace:*
-        version: link:../../settings/settings
-      '@deepseek-ai/dsh-system-prompt':
-        specifier: workspace:*
-        version: link:../../core/system-prompt
-      '@deepseek-ai/dsh-timeout':
-        specifier: workspace:*
-        version: link:../../util/timeout
-      '@deepseek-ai/dsh-tool-executor-native':
-        specifier: workspace:*
-        version: link:../../core/tool-executor-native
-      '@deepseek-ai/dsh-tool-testkit':
-        specifier: workspace:*
-        version: link:../../test-support/tool-testkit
-      '@deepseek-ai/dsh-tools':
-        specifier: workspace:*
-        version: link:../../core/tools
-      '@types/semver':
-        specifier: ^7.8.0
-        version: 7.8.0
-
-  packages/llm/llm-deepseek-account:
-    dependencies:
-      '@deepseek-ai/cosmokit':
-        specifier: link:../../../vendor/cosmokit
-        version: link:../../../vendor/cosmokit
-      '@deepseek-ai/schemastery':
-        specifier: link:../../../vendor/schemastery
-        version: link:../../../vendor/schemastery
-    devDependencies:
-      '@deepseek-ai/cordis':
-        specifier: workspace:~
-        version: link:../../../vendor/cordis
-      '@deepseek-ai/cordis-plugin-loader':
-        specifier: workspace:~
-        version: link:../../../vendor/loader
-      '@deepseek-ai/dsh-deepseek-account':
-        specifier: workspace:*
-        version: link:../../credentials/deepseek-account
-      '@deepseek-ai/dsh-launch-environment':
-        specifier: workspace:*
-        version: link:../../util/launch-environment
-      '@deepseek-ai/dsh-llm':
-        specifier: workspace:*
-        version: link:../llm
-      '@deepseek-ai/dsh-llm-deepseek':
-        specifier: workspace:*
-        version: link:../llm-deepseek
-      '@deepseek-ai/dsh-llm-deepseek-api-key':
-        specifier: workspace:*
-        version: link:../llm-deepseek-api-key
-      '@deepseek-ai/dsh-timeout':
-        specifier: workspace:*
-        version: link:../../util/timeout
-
-  packages/llm/llm-deepseek-api-key:
-    dependencies:
-      '@deepseek-ai/schemastery':
-        specifier: link:../../../vendor/schemastery
-        version: link:../../../vendor/schemastery
-    devDependencies:
-      '@deepseek-ai/cordis':
-        specifier: workspace:~
-        version: link:../../../vendor/cordis
-      '@deepseek-ai/cordis-plugin-loader':
-        specifier: workspace:~
-        version: link:../../../vendor/loader
-      '@deepseek-ai/dsh-credentials':
-        specifier: workspace:*
-        version: link:../../credentials/credentials
-      '@deepseek-ai/dsh-launch-environment':
-        specifier: workspace:*
-        version: link:../../util/launch-environment
-      '@deepseek-ai/dsh-llm':
-        specifier: workspace:*
-        version: link:../llm
-      '@deepseek-ai/dsh-llm-deepseek':
-        specifier: workspace:*
-        version: link:../llm-deepseek
-
   packages/llm/llm-pi-ai:
     dependencies:
       '@deepseek-ai/dsh-brand':
@@ -13380,12 +13016,6 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../llm
-      '@deepseek-ai/dsh-llm-deepseek':
-        specifier: workspace:*
-        version: link:../llm-deepseek
-      '@deepseek-ai/dsh-llm-deepseek-api-key':
-        specifier: workspace:*
-        version: link:../llm-deepseek-api-key
       '@deepseek-ai/dsh-session':
         specifier: workspace:*
         version: link:../../core/session
@@ -13435,15 +13065,12 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../llm
-      '@deepseek-ai/dsh-llm-deepseek':
-        specifier: workspace:*
-        version: link:../llm-deepseek
-      '@deepseek-ai/dsh-llm-deepseek-api-key':
-        specifier: workspace:*
-        version: link:../llm-deepseek-api-key
       '@deepseek-ai/dsh-llm-mock-server':
         specifier: workspace:*
         version: link:../../test-support/llm-mock-server
+      '@deepseek-ai/dsh-llm-pi-ai':
+        specifier: workspace:*
+        version: link:../llm-pi-ai
       '@deepseek-ai/dsh-session':
         specifier: workspace:*
         version: link:../../core/session
@@ -13468,46 +13095,6 @@ importers:
       '@deepseek-ai/dsh-tools':
         specifier: workspace:*
         version: link:../../core/tools
-
-  packages/llm/plugin-package-inventory-deepseek:
-    dependencies:
-      '@deepseek-ai/dsh-brand':
-        specifier: workspace:*
-        version: link:../../util/brand
-      '@deepseek-ai/schemastery':
-        specifier: link:../../../vendor/schemastery
-        version: link:../../../vendor/schemastery
-    devDependencies:
-      '@deepseek-ai/cordis':
-        specifier: workspace:~
-        version: link:../../../vendor/cordis
-      '@deepseek-ai/cordis-plugin-include':
-        specifier: workspace:~
-        version: link:../../../vendor/include
-      '@deepseek-ai/cordis-plugin-loader':
-        specifier: workspace:~
-        version: link:../../../vendor/loader
-      '@deepseek-ai/dsh-agent':
-        specifier: workspace:*
-        version: link:../../core/agent
-      '@deepseek-ai/dsh-agent-preset-registry':
-        specifier: workspace:*
-        version: link:../../preset/agent-preset-registry
-      '@deepseek-ai/dsh-app-boot':
-        specifier: workspace:*
-        version: link:../../boot/app-boot
-      '@deepseek-ai/dsh-deepseek-llm-api-extensions':
-        specifier: workspace:*
-        version: link:../deepseek-llm-api-extensions
-      '@deepseek-ai/dsh-scope':
-        specifier: workspace:*
-        version: link:../../core/scope
-      '@deepseek-ai/dsh-session':
-        specifier: workspace:*
-        version: link:../../core/session
-      '@deepseek-ai/dsh-session-projection':
-        specifier: workspace:*
-        version: link:../../session/session-projection
 
   packages/llm/token-meter:
     dependencies:
@@ -14417,9 +14004,6 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../llm/llm
-      '@deepseek-ai/dsh-llm-deepseek-api-key':
-        specifier: workspace:*
-        version: link:../../llm/llm-deepseek-api-key
       '@deepseek-ai/dsh-permission-presets':
         specifier: workspace:*
         version: link:../../interaction/permission-presets
@@ -14802,55 +14386,6 @@ importers:
         specifier: workspace:~
         version: link:../../../vendor/cordis
 
-  packages/session/session-log-deepseek:
-    dependencies:
-      '@deepseek-ai/dsh-brand':
-        specifier: workspace:*
-        version: link:../../util/brand
-      '@deepseek-ai/dsh-util-values':
-        specifier: workspace:*
-        version: link:../../util/values
-      '@deepseek-ai/schemastery':
-        specifier: link:../../../vendor/schemastery
-        version: link:../../../vendor/schemastery
-    devDependencies:
-      '@deepseek-ai/cordis':
-        specifier: workspace:~
-        version: link:../../../vendor/cordis
-      '@deepseek-ai/cordis-plugin-include':
-        specifier: workspace:~
-        version: link:../../../vendor/include
-      '@deepseek-ai/cordis-plugin-loader':
-        specifier: workspace:~
-        version: link:../../../vendor/loader
-      '@deepseek-ai/dsh-command-feedback':
-        specifier: workspace:*
-        version: link:../../feedback/command-feedback
-      '@deepseek-ai/dsh-deepseek-llm-api-extensions':
-        specifier: workspace:*
-        version: link:../../llm/deepseek-llm-api-extensions
-      '@deepseek-ai/dsh-llm':
-        specifier: workspace:*
-        version: link:../../llm/llm
-      '@deepseek-ai/dsh-llm-deepseek':
-        specifier: workspace:*
-        version: link:../../llm/llm-deepseek
-      '@deepseek-ai/dsh-llm-deepseek-api-key':
-        specifier: workspace:*
-        version: link:../../llm/llm-deepseek-api-key
-      '@deepseek-ai/dsh-llm-mock-server':
-        specifier: workspace:*
-        version: link:../../test-support/llm-mock-server
-      '@deepseek-ai/dsh-message-feedback':
-        specifier: workspace:*
-        version: link:../../feedback/message-feedback
-      '@deepseek-ai/dsh-session':
-        specifier: workspace:*
-        version: link:../../core/session
-      '@deepseek-ai/dsh-session-persistence-jsonl':
-        specifier: workspace:*
-        version: link:../session-persistence-jsonl
-
   packages/session/session-persistence:
     dependencies:
       '@deepseek-ai/dsh-util-values':
@@ -15122,12 +14657,6 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../llm/llm
-      '@deepseek-ai/dsh-llm-deepseek':
-        specifier: workspace:*
-        version: link:../../llm/llm-deepseek
-      '@deepseek-ai/dsh-llm-deepseek-api-key':
-        specifier: workspace:*
-        version: link:../../llm/llm-deepseek-api-key
       '@deepseek-ai/dsh-llm-pi-ai':
         specifier: workspace:*
         version: link:../../llm/llm-pi-ai
@@ -15986,9 +15515,6 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../llm/llm
-      '@deepseek-ai/dsh-llm-deepseek':
-        specifier: workspace:*
-        version: link:../../llm/llm-deepseek
       '@deepseek-ai/dsh-mcp-client':
         specifier: workspace:*
         version: link:../../mcp/mcp-client
@@ -16379,6 +15905,9 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../llm/llm
+      '@deepseek-ai/dsh-llm-pi-ai':
+        specifier: workspace:*
+        version: link:../../llm/llm-pi-ai
       '@deepseek-ai/dsh-permission-presets':
         specifier: workspace:*
         version: link:../../interaction/permission-presets
@@ -16662,12 +16191,6 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../llm/llm
-      '@deepseek-ai/dsh-llm-deepseek':
-        specifier: workspace:*
-        version: link:../../llm/llm-deepseek
-      '@deepseek-ai/dsh-llm-deepseek-api-key':
-        specifier: workspace:*
-        version: link:../../llm/llm-deepseek-api-key
       '@deepseek-ai/dsh-loader-smoke':
         specifier: workspace:*
         version: link:../../test-support/loader-smoke
@@ -16769,12 +16292,9 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../llm/llm
-      '@deepseek-ai/dsh-llm-deepseek':
+      '@deepseek-ai/dsh-llm-pi-ai':
         specifier: workspace:*
-        version: link:../../llm/llm-deepseek
-      '@deepseek-ai/dsh-llm-deepseek-api-key':
-        specifier: workspace:*
-        version: link:../../llm/llm-deepseek-api-key
+        version: link:../../llm/llm-pi-ai
       '@deepseek-ai/dsh-session':
         specifier: workspace:*
         version: link:../../core/session
@@ -17045,9 +16565,6 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../llm/llm
-      '@deepseek-ai/dsh-llm-deepseek':
-        specifier: workspace:*
-        version: link:../../llm/llm-deepseek
       '@deepseek-ai/dsh-scope':
         specifier: workspace:*
         version: link:../../core/scope
@@ -17368,9 +16885,6 @@ importers:
       '@deepseek-ai/dsh-compaction':
         specifier: workspace:*
         version: link:../../compaction/compaction
-      '@deepseek-ai/dsh-deepseek-llm-api-extensions':
-        specifier: workspace:*
-        version: link:../../llm/deepseek-llm-api-extensions
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../llm/llm
@@ -17836,9 +17350,6 @@ importers:
       '@deepseek-ai/dsh-agent':
         specifier: workspace:*
         version: link:../../core/agent
-      '@deepseek-ai/dsh-launch-environment':
-        specifier: workspace:*
-        version: link:../../util/launch-environment
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../llm/llm
@@ -17875,12 +17386,12 @@ importers:
       '@deepseek-ai/dsh-web':
         specifier: workspace:*
         version: link:../web
-      '@deepseek-ai/dsh-web-deepseek-api':
-        specifier: workspace:*
-        version: link:../web-deepseek-api
       '@deepseek-ai/dsh-web-fetch-http':
         specifier: workspace:*
         version: link:../web-fetch-http
+      '@deepseek-ai/dsh-web-search-exa':
+        specifier: workspace:*
+        version: link:../web-search-exa
       '@types/turndown':
         specifier: ^5.0.6
         version: 5.0.6
@@ -17904,61 +17415,6 @@ importers:
         specifier: workspace:*
         version: link:../../llm/llm
 
-  packages/web/web-deepseek-api:
-    dependencies:
-      '@deepseek-ai/schemastery':
-        specifier: link:../../../vendor/schemastery
-        version: link:../../../vendor/schemastery
-    devDependencies:
-      '@deepseek-ai/cordis':
-        specifier: workspace:~
-        version: link:../../../vendor/cordis
-      '@deepseek-ai/cordis-plugin-loader':
-        specifier: workspace:~
-        version: link:../../../vendor/loader
-      '@deepseek-ai/dsh-agent':
-        specifier: workspace:*
-        version: link:../../core/agent
-      '@deepseek-ai/dsh-app-boot':
-        specifier: workspace:*
-        version: link:../../boot/app-boot
-      '@deepseek-ai/dsh-credentials':
-        specifier: workspace:*
-        version: link:../../credentials/credentials
-      '@deepseek-ai/dsh-credentials-local':
-        specifier: workspace:*
-        version: link:../../credentials/credentials-local
-      '@deepseek-ai/dsh-deepseek-account':
-        specifier: workspace:*
-        version: link:../../credentials/deepseek-account
-      '@deepseek-ai/dsh-http-proxy':
-        specifier: workspace:*
-        version: link:../../util/http-proxy
-      '@deepseek-ai/dsh-launch-environment':
-        specifier: workspace:*
-        version: link:../../util/launch-environment
-      '@deepseek-ai/dsh-llm':
-        specifier: workspace:*
-        version: link:../../llm/llm
-      '@deepseek-ai/dsh-llm-deepseek':
-        specifier: workspace:*
-        version: link:../../llm/llm-deepseek
-      '@deepseek-ai/dsh-llm-deepseek-account':
-        specifier: workspace:*
-        version: link:../../llm/llm-deepseek-account
-      '@deepseek-ai/dsh-llm-deepseek-api-key':
-        specifier: workspace:*
-        version: link:../../llm/llm-deepseek-api-key
-      '@deepseek-ai/dsh-session':
-        specifier: workspace:*
-        version: link:../../core/session
-      '@deepseek-ai/dsh-session-projection':
-        specifier: workspace:*
-        version: link:../../session/session-projection
-      '@deepseek-ai/dsh-web':
-        specifier: workspace:*
-        version: link:../web
-
   packages/web/web-fetch-http:
     dependencies:
       '@deepseek-ai/schemastery':
@@ -17977,43 +17433,6 @@ importers:
       '@deepseek-ai/dsh-timeout':
         specifier: workspace:*
         version: link:../../util/timeout
-      '@deepseek-ai/dsh-web':
-        specifier: workspace:*
-        version: link:../web
-
-  packages/web/web-search-deepseek:
-    dependencies:
-      '@deepseek-ai/schemastery':
-        specifier: link:../../../vendor/schemastery
-        version: link:../../../vendor/schemastery
-    devDependencies:
-      '@deepseek-ai/cordis':
-        specifier: workspace:~
-        version: link:../../../vendor/cordis
-      '@deepseek-ai/dsh-agent':
-        specifier: workspace:*
-        version: link:../../core/agent
-      '@deepseek-ai/dsh-credentials':
-        specifier: workspace:*
-        version: link:../../credentials/credentials
-      '@deepseek-ai/dsh-credentials-local':
-        specifier: workspace:*
-        version: link:../../credentials/credentials-local
-      '@deepseek-ai/dsh-deepseek-account':
-        specifier: workspace:*
-        version: link:../../credentials/deepseek-account
-      '@deepseek-ai/dsh-http-proxy':
-        specifier: workspace:*
-        version: link:../../util/http-proxy
-      '@deepseek-ai/dsh-launch-environment':
-        specifier: workspace:*
-        version: link:../../util/launch-environment
-      '@deepseek-ai/dsh-llm-deepseek':
-        specifier: workspace:*
-        version: link:../../llm/llm-deepseek
-      '@deepseek-ai/dsh-session':
-        specifier: workspace:*
-        version: link:../../core/session
       '@deepseek-ai/dsh-web':
         specifier: workspace:*
         version: link:../web
@@ -18140,9 +17559,9 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../llm/llm
-      '@deepseek-ai/dsh-llm-deepseek-api-key':
+      '@deepseek-ai/dsh-llm-pi-ai':
         specifier: workspace:*
-        version: link:../../llm/llm-deepseek-api-key
+        version: link:../../llm/llm-pi-ai
       '@deepseek-ai/dsh-ptc-runtime':
         specifier: workspace:*
         version: link:../../ptc-runtime/ptc-runtime
@@ -18339,12 +17758,6 @@ importers:
       '@deepseek-ai/dsh-credentials':
         specifier: workspace:*
         version: link:../../packages/credentials/credentials
-      '@deepseek-ai/dsh-deepseek-account':
-        specifier: workspace:*
-        version: link:../../packages/credentials/deepseek-account
-      '@deepseek-ai/dsh-deepseek-llm-api-extensions':
-        specifier: workspace:*
-        version: link:../../packages/llm/deepseek-llm-api-extensions
       '@deepseek-ai/dsh-file-reference':
         specifier: workspace:*
         version: link:../../packages/context/file-reference
@@ -18390,15 +17803,6 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../packages/llm/llm
-      '@deepseek-ai/dsh-llm-deepseek':
-        specifier: workspace:*
-        version: link:../../packages/llm/llm-deepseek
-      '@deepseek-ai/dsh-llm-deepseek-account':
-        specifier: workspace:*
-        version: link:../../packages/llm/llm-deepseek-account
-      '@deepseek-ai/dsh-llm-deepseek-api-key':
-        specifier: workspace:*
-        version: link:../../packages/llm/llm-deepseek-api-key
       '@deepseek-ai/dsh-llm-pi-ai':
         specifier: workspace:*
         version: link:../../packages/llm/llm-pi-ai
@@ -18435,9 +17839,6 @@ importers:
       '@deepseek-ai/dsh-plugin-market':
         specifier: workspace:*
         version: link:../../packages/boot/plugin-market
-      '@deepseek-ai/dsh-plugin-package-inventory-deepseek':
-        specifier: workspace:*
-        version: link:../../packages/llm/plugin-package-inventory-deepseek
       '@deepseek-ai/dsh-ptc-runtime':
         specifier: workspace:*
         version: link:../../packages/ptc-runtime/ptc-runtime
@@ -18477,9 +17878,6 @@ importers:
       '@deepseek-ai/dsh-session-checkpoint-policy':
         specifier: workspace:*
         version: link:../../packages/session/session-checkpoint-policy
-      '@deepseek-ai/dsh-session-log-deepseek':
-        specifier: workspace:*
-        version: link:../../packages/session/session-log-deepseek
       '@deepseek-ai/dsh-session-persistence':
         specifier: workspace:*
         version: link:../../packages/session/session-persistence
@@ -18567,6 +17965,9 @@ importers:
       '@deepseek-ai/dsh-timeout':
         specifier: workspace:*
         version: link:../../packages/util/timeout
+      '@deepseek-ai/dsh-tokamak-account':
+        specifier: workspace:*
+        version: link:../../packages/credentials/tokamak-account
       '@deepseek-ai/dsh-token-meter':
         specifier: workspace:*
         version: link:../../packages/llm/token-meter
@@ -18672,9 +18073,6 @@ importers:
       '@deepseek-ai/dsh-web-fetch-http':
         specifier: workspace:*
         version: link:../../packages/web/web-fetch-http
-      '@deepseek-ai/dsh-web-search-deepseek':
-        specifier: workspace:*
-        version: link:../../packages/web/web-search-deepseek
       '@deepseek-ai/dsh-workflow':
         specifier: workspace:*
         version: link:../../packages/workflow/workflow

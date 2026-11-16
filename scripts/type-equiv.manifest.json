@@ -2,16 +2,6 @@
   "comment": "Maps each ` ```ts type-equiv ` or ` ```ts public-api ` block (by doc + declared symbol + projection) to the source declaration and original JSDoc it must match. Omit projection for the complete declaration; use public-api with a ` ```ts public-api ` block for a body-stripped public class declaration. verify-type-equiv.ts enforces a 1:1 correspondence between blocks and entries. Add an entry when you add a source-equivalence block; remove it when you remove the block.",
   "entries": [
     {
-      "doc": "docs/subsystems/session.md",
-      "symbol": "SessionLogUploadRequest",
-      "source": "packages/session/session-log-deepseek/src/types.ts"
-    },
-    {
-      "doc": "docs/subsystems/session.md",
-      "symbol": "SessionLogUploadExclusion",
-      "source": "packages/session/session-log-deepseek/src/types.ts"
-    },
-    {
       "doc": "docs/subsystems/compaction.md",
       "symbol": "ImageOffloadTarget",
       "source": "packages/compaction/compaction-image-offload/src/projection.ts"

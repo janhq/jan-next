@@ -269,7 +269,6 @@ def write_advanced_profile_patch(
                 "persona": "You are a coding agent powered by the {{model}} model. Your working directory is {{cwd}}.",
             },
         },
-        {"id": "session-log-deepseek", "config": {"enabled": True}},
         *({"id": row_id, "disabled": True} for row_id in LEGACY_CUSTOM_DISABLED_ROWS),
         {"id": "tool-bash", "disabled": True},
         {"id": "tool-pwsh", "disabled": True},
@@ -1529,8 +1528,6 @@ def smoke_sdk_dynamic_tools(base_url: str, executable: Path, update_snapshots: b
             {"id": "tool-bash", "disabled": True},
             {"id": "tool-pwsh", "disabled": True},
             {"id": "session-title-llm", "disabled": True},
-            # Export acknowledgements can change the request header sequence numbers.
-            {"id": "session-log-deepseek", "config": {"enabled": False}},
             {"insert": [{
                 "id": "dynamic-tools",
                 "name": (Path(__file__).resolve().parent / "fixtures/python-sdk-dynamic-tools.mjs").as_uri(),
@@ -2025,7 +2022,6 @@ def smoke_sdk_scheduler_recovery(base_url: str, executable: Path, update_snapsho
         patch = write_profile_patch(root, "recovery.patch.yml", sessions, [
             {"id": "tool-todo", "disabled": False},
             {"id": "session-title-llm", "disabled": True},
-            {"id": "session-log-deepseek", "config": {"enabled": False}},
             {"insert": [{
                 "id": "scheduler-failure-fixture",
                 "name": (

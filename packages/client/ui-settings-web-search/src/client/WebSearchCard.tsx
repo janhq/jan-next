@@ -1,15 +1,12 @@
 /**
  * The web search and fetch settings page: one section per capability, each
- * with a provider menu and its explanation. The selected provider's settings
- * below the menu sit in one gray panel: the result count for the DeepSeek
- * Search API, and the key, endpoint, and search limit for legacy Messages
- * search. A provider with no settings here shows no panel.
+ * with a provider menu and its explanation.
  */
 
 import { useRef, useState, type ReactNode } from 'react'
 import type {} from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
 import {
-  Button, IconChevronDownOutlineRegular, Menu, SettingsForm, SettingsSecretField, SettingsValueField,
+  Button, IconChevronDownOutlineRegular, Menu, SettingsForm,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { formLabels, type WebSearchSettingsLocaleKey } from './locales.ts'
@@ -28,10 +25,7 @@ type T = WebSearchCardProps['t']
 
 /** Dictionary names of the official providers; any other provider shows its registered title or id. */
 const PROVIDER_LABELS: Record<string, WebSearchSettingsLocaleKey> = {
-  [PROVIDER_IDS.apiSearch]: 'providerDeepSeek',
-  [PROVIDER_IDS.legacySearch]: 'providerLegacy',
   [PROVIDER_IDS.localFetch]: 'providerLocal',
-  [PROVIDER_IDS.apiFetch]: 'providerDeepSeekFetch',
 }
 
 /**
@@ -71,41 +65,7 @@ export function WebSearchCard(props: WebSearchCardProps) {
           section={search} disabled={menuDisabled} field="searchProvider" onSelect={props.selectProvider}
           providersFailed={state.providersFailed} onRetry={props.retryProviders}
           description={describe(search)}
-          hint={search.kind === 'deepseek'
-            ? <a className={styles.link} href={t('searchGuideUrl')} target="_blank" rel="noopener noreferrer">{t('searchGuide')}</a>
-            : search.kind === 'plugin' ? t('pluginProviderHint') : undefined} />
-        {search.kind === 'deepseek' && (
-          <div className={styles.panel}>
-            <SettingsValueField id="plugin-config-web-search-count" label={t('count')} hint={t('countHint')} numeric
-              overriddenLabel={t('overridden')} resetLabel={t('reset')} invalidLabel={t('invalidCount')} disabled={disabled}
-              {...state.count}
-              onEdit={(text) => { props.edit('count', text) }} onReset={() => { props.resetField('count') }} />
-          </div>
-        )}
-        {search.kind === 'legacy' && state.legacyKey !== undefined && (
-          <div className={styles.panel}>
-            <SettingsSecretField id="plugin-config-web-search-key" label={t('credential')}
-              hint={t('legacyKeyHint', { ref: state.legacyKey.ref })}
-              // The credentials domain accepts a key even when the settings document
-              // itself is read-only; they are separate stores with separate refusals,
-              // so the settings document's writability does not disable this control.
-              // The key's own writability does (a key sourced from the process
-              // environment cannot be written from here), and so does a save in
-              // flight, which would discard an edit made before it settles.
-              disabled={!state.legacyKey.writable || state.saving} text={state.legacyKey.text}
-              configured={state.legacyKey.configured}
-              stateLabel={state.legacyKey.configured ? t('apiKeySet') : t('apiKeyUnsetApi')}
-              onEdit={(text) => { props.edit('legacyApiKey', text) }} />
-            <SettingsValueField id="plugin-config-web-search-endpoint" label={t('baseUrl')} hint={t('baseUrlHint', { path: '/messages' })}
-              overriddenLabel={t('overridden')} resetLabel={t('reset')} invalidLabel={t('invalidNumber')} disabled={disabled}
-              {...state.messagesBaseURL}
-              onEdit={(text) => { props.edit('messagesBaseURL', text) }} onReset={() => { props.resetField('messagesBaseURL') }} />
-            <SettingsValueField id="plugin-config-web-search-max-uses" label={t('maxUses')} hint={t('maxUsesHint')} numeric
-              overriddenLabel={t('overridden')} resetLabel={t('reset')} invalidLabel={t('invalidMaxUses')} disabled={disabled}
-              {...state.maxUses}
-              onEdit={(text) => { props.edit('maxUses', text) }} onReset={() => { props.resetField('maxUses') }} />
-          </div>
-        )}
+          hint={search.kind === 'plugin' ? t('pluginProviderHint') : undefined} />
       </section>
       <section className={styles.section} aria-labelledby="plugin-config-web-fetch-section">
         <h4 id="plugin-config-web-fetch-section" className={styles.sectionTitle}>{t('fetchSection')}</h4>

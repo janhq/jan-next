@@ -801,7 +801,7 @@ const OPENAI_REASONING = {
 function fixtureModelGroups(): ModelProviderGroup[] {
   return [
     {
-      id: 'deepseek-official',
+      id: 'deepseek',
       name: 'DeepSeek',
       models: [
         {
@@ -907,7 +907,7 @@ function buildAlphaLog(presented = false): SessionEvent[] {
   // Completed fixture requests retain the route capacity recorded with them.
   push({
     type: 'request/context',
-    data: { provider: 'deepseek-official', model: 'deepseek-v4-flash', contextWindow: 128_000 },
+    data: { provider: 'deepseek', model: 'deepseek-v4-flash', contextWindow: 128_000 },
   })
   for (let turn = 0; turn < 60; turn++) {
     push({ type: 'turn/start', data: { turn } })
@@ -2064,7 +2064,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
   const goalActivations = new Map<SessionId, 'armed' | 'disarmed'>()
   const modelSelections = new Map<SessionId, ModelSelection>(sessions.map(session => [
     session.sessionId,
-    { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+    { provider: 'deepseek', model: 'deepseek-v4-flash' },
   ]))
   const attachments = new Map<string, { attachment: ImageAttachmentRef; data: string }>([[
     String(FIXTURE_IMAGE_REF.attachmentId),
@@ -2089,12 +2089,12 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
           writable: true,
           hasDocument: true,
           namespaces: [{
-            ns: 'llm-deepseek',
+            ns: 'llm-pi-ai',
             autoGenerate: true,
             schema: {},
-            value: { apiKeyEnv: 'DEEPSEEK_API_KEY' },
+            value: { providers: { deepseek: { apiKeyEnv: 'DEEPSEEK_API_KEY' } } },
             applies: 'live',
-            secrets: [{ path: ['apiKey'], set: false }],
+            secrets: [{ path: ['providers', 'deepseek', 'apiKey'], set: false }],
             revision: 0,
           }],
         },
@@ -3483,7 +3483,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         sessionId: requestedId ?? sid(`fx-${nextSession++}`), updatedAt: Date.now(), running: false, blank: true, cwd,
       }
       sessions.push(created)
-      modelSelections.set(created.sessionId, { provider: 'deepseek-official', model: 'deepseek-v4-flash' })
+      modelSelections.set(created.sessionId, { provider: 'deepseek', model: 'deepseek-v4-flash' })
       const emitSession = (): void => {
         emitRemote('api-session/added', [created])
       }
@@ -4303,8 +4303,8 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         case 'session/modelCatalog': return Promise.resolve({
           ok: true,
           value: {
-            default: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
-            routableProviders: ['deepseek-official', 'openai', 'acme-gateway'],
+            default: { provider: 'deepseek', model: 'deepseek-v4-flash' },
+            routableProviders: ['deepseek', 'openai', 'acme-gateway'],
             groups: fixtureModelGroups(),
             failures: [],
           },
@@ -4312,7 +4312,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         case 'llm/listProviders': return Promise.resolve({
           ok: true,
           value: [
-            { id: 'deepseek-official', name: 'DeepSeek' },
+            { id: 'deepseek', name: 'DeepSeek' },
             { id: 'openai', name: 'openai' },
             { id: 'acme-gateway', name: 'Acme Gateway' },
           ],
@@ -4320,7 +4320,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         case 'llm/listConfigurableProviders': return Promise.resolve({
           ok: true,
           value: [
-            { provider: 'deepseek-official', displayName: 'DeepSeek', settingsNs: 'llm-deepseek', settingsPath: [] },
+            { provider: 'deepseek', displayName: 'DeepSeek', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'deepseek'], declared: true },
             { provider: 'openai', displayName: 'openai', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'], declared: false },
             { provider: 'anthropic', displayName: 'anthropic', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'anthropic'], declared: false },
             { provider: 'acme-gateway', displayName: 'Acme Gateway', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'acme-gateway'], declared: true },

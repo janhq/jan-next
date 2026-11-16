@@ -41,7 +41,6 @@ describe('external tasks with a nested fork', () => {
     let run: Awaited<ReturnType<typeof startSdkRun>> | undefined
     try {
       await writeFile(patch, JSON.stringify([
-        { id: 'llm-deepseek', disabled: true },
         { id: 'agent-instructions', disabled: true },
         { id: 'skill-filesystem', config: { includeDefaultRoots: false } },
         { id: 'typert-loader', disabled: true },

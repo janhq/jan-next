@@ -2,8 +2,6 @@
 
 Status: proposed
 
-English | [中文](2026-06-11-api-extractor-reports.zh.md)
-
 > The doc-block-typechecking and event-taxonomy parts shipped; this remaining API-report part is deferred as a standalone proposal.
 
 ## Problem

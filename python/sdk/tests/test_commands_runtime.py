@@ -30,7 +30,10 @@ from deepseek_harness.client import UserQuestionHandler
 
 _WAIT_SECONDS = 30
 _SESSION_ID = "commands-runtime"
-_MODEL = "deepseek-v4-flash"
+_PROVIDER = "commands-mock"
+_MODEL = "commands-model"
+_MODEL_KEY_ENV = "COMMANDS_MODEL_API_KEY"
+_MODEL_ENV = {_MODEL_KEY_ENV: "keyless-commands-runtime"}
 _HISTORY_MARKER = "DSH_COMMANDS_OLD_USER_INPUT"
 _FIRST_REPLY = "SDK_COMPACT_READY"
 _CHECKPOINT = "## Primary Request and Intent\n- DSH_COMMANDS_CHECKPOINT: retain the earlier task."
@@ -92,11 +95,8 @@ class _ModelServer:
 
             def do_POST(self) -> None:
                 payload = self.rfile.read(int(self.headers["Content-Length"]))
-                if self.path == "/v1/files":
-                    # The model fixture accepts inline images through the provider's Files fallback.
-                    self.send_error(404, "Images are accepted inline")
-                    return
-                assert self.path == "/v1/messages", f"unexpected model endpoint: {self.path}"
+                path = self.path.split("?", 1)[0]
+                assert path == "/v1/messages", f"unexpected model endpoint: {self.path}"
                 body = json.loads(payload)
                 assert isinstance(body, dict) and isinstance(body.get("model"), str)
                 with owner.lock:
@@ -233,6 +233,16 @@ def _wait_activity(runtime: _Runtime, session: Session) -> None:
     runtime.call(runtime.harness.client.request, "session/wait", {"sessionId": session.id}, response_model=_WaitResult)
 
 
+def _model_route_patch(directory: Path, url: str, model: str = _MODEL) -> Path:
+    """Route the mock Anthropic Messages server through a keyless pi-ai provider."""
+    route = directory / "commands-model.patch.yml"
+    route.write_text(json.dumps([{"id": "llm-pi-ai", "config": {"providers": {_PROVIDER: {
+        "api": "anthropic-messages", "baseURL": url, "apiKeyEnv": _MODEL_KEY_ENV,
+        "models": [{"id": model, "input": ["text", "image"]}],
+    }}}}]), encoding="utf-8")
+    return route
+
+
 @contextmanager
 def _runtime(
     tmp_path: Path, completions: list[_Completion], *, capture_patch: Path | None = None,
@@ -255,16 +265,17 @@ def _runtime(
     if max_goal_rounds is not None:
         with patch.open("a", encoding="utf-8") as extra:
             extra.write(f"- id: goal\n  config:\n    defaultMaxGoalRounds: {max_goal_rounds}\n")
-    patches = (patch,) if capture_patch is None else (patch, capture_patch.resolve())
     dsh_bin = _dsh_bin()
     with _ModelServer(completions) as model_server, ThreadPoolExecutor(max_workers=2) as workers:
+        route = _model_route_patch(tmp_path, model_server.url, model)
+        patches = (patch, route) if capture_patch is None else (patch, route, capture_patch.resolve())
         harness = DeepSeekHarness(
             cwd=str(workspace), runtime_cwd=str(workspace), dsh_home=str(home),
-            dsh_bin=dsh_bin, profile="sdk", patches=tuple(str(item) for item in patches), model=model,
-            base_url=model_server.url, api_key="keyless-commands-runtime",
+            dsh_bin=dsh_bin, profile="sdk", patches=tuple(str(item) for item in patches),
+            provider=_PROVIDER, model=model,
             initialize_timeout_seconds=60, request_timeout_seconds=20, shutdown_timeout_seconds=20,
             on_user_question=on_user_question,
-            env={"DSH_PERMISSION_MODE": initial_permission,
+            env={"DSH_PERMISSION_MODE": initial_permission, **_MODEL_ENV,
                  "DSH_TELEMETRY_DISABLED": "1", "DSH_TOOLS_MODE": "native"},
         )
         try:
@@ -435,7 +446,7 @@ def run_compaction_scenario(tmp_path: Path, *, capture_patch: Path | None = None
         summary = summaries[0]
         assert summary["seq"] == execution.result.source_event_seq
         assert summary["data"]["llmStreamCall"] is True
-        assert summary["data"]["provider"] == "deepseek-official"
+        assert summary["data"]["provider"] == _PROVIDER
         assert summary["data"]["model"] == _MODEL
         for event in [starts[0], summary, ends[0]]:
             assert event["data"]["sourceCommandId"] == execution.command_id

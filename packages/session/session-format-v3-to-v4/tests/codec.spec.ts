@@ -1,18 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { SessionFormatEventCollector } from '@deepseek-ai/dsh-session-format'
 import type { SessionFormatEvent, SessionFormatJsonObject } from '@deepseek-ai/dsh-session-format'
-import { sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
 import { releasedV2SessionFormatCodec } from '@deepseek-ai/dsh-session-format-v2-to-v3'
 import { assertReleasedV4Header, assertV4RowAdmission, releasedV4SessionFormatCodec, restoreReleasedV4Artifact } from '../src/index.ts'
 
 const header = { version: 4, id: 'parent', createdAt: 1, isSeeded: false, delegationDepth: 0 }
 const fact: SessionFormatEvent = { type: 'feedback/record', seq: 0, time: 1, data: { text: 'retained' } }
 const catalog: SessionFormatEvent = { type: 'subagent/catalog', seq: 0, time: 1, data: { version: 0, childId: 'child', childCreatedAt: 2, mode: 'one-shot' } }
-const types = new Set(['subagent/catalog', 'feedback/record', 'session-log-deepseek/delivery-accepted', 'session/end-seed'])
-const delivery = (version: number | undefined, sessionId = header.id): SessionFormatEvent => ({
-  type: 'session-log-deepseek/delivery-accepted', seq: 1, time: 2,
-  data: { sessionId, throughSeq: 0, ...(version === undefined ? {} : { sessionFormatVersion: version }) },
-})
+const types = new Set(['subagent/catalog', 'feedback/record', 'session/end-seed'])
 
 function restore(events: readonly SessionFormatEvent[], sourceHeader = header) {
   return restoreReleasedV4Artifact({ header: sourceHeader, events, inheritedEventCount: 0 }, types)
@@ -66,45 +61,6 @@ describe('V4 framing and restoration', () => {
       type: 'tool/result', seq: 0, time: 1, data: { message: { role: 'user' } },
     }
     expect(() => { assertV4RowAdmission(wrapperRow) }).toThrow(/first-class message/)
-  })
-
-  it('retains predecessor and future delivery generations without activating their watermarks', () => {
-    for (const version of [undefined, 0, 1, 2, 3, 5]) {
-      const marker = { ...delivery(version, 'foreign'), data: { ...delivery(version).data as SessionFormatJsonObject, sessionId: 'foreign', throughSeq: 500 } }
-      expect(restore([fact, marker]).events[1]).toBe(marker)
-    }
-    const current = delivery(4)
-    expect(restore([fact, current]).events[1]).toBe(current)
-    expect(() => restore([fact, delivery(4, 'foreign')])).toThrow('wrong Session')
-  })
-
-  it('rejects malformed active delivery coordinates and malformed generation identifiers', () => {
-    const marker = delivery(4)
-    const data = marker.data as SessionFormatJsonObject
-    for (const throughSeq of [-1, 1, 1.5]) {
-      expect(() => restore([fact, { ...marker, data: { ...data, throughSeq } }])).toThrow('throughSeq')
-    }
-    for (const sessionId of ['', null, 3]) {
-      expect(() => restore([fact, { ...marker, data: { ...data, sessionId } }])).toThrow('nonempty')
-    }
-    for (const sessionFormatVersion of [-1, -0, 1.5, '4', null]) {
-      expect(() => restore([fact, { ...marker, data: { ...data, sessionFormatVersion } }])).toThrow('sessionFormatVersion')
-    }
-    expect(() => restore([fact, { ...marker, data: null }])).toThrow('data must be an object')
-    const reader = sessionFormatCatalog.createRestore({ type: 'session', ...header }, { recovery: 'strict', validation: 'current' })
-    reader.decodeRow(fact)
-    reader.decodeRow({ ...marker, data: { ...data, throughSeq: 1 } })
-    expect(() => reader.finish()).toThrow('throughSeq')
-  })
-
-  it('preserves inherited and local events and admits foreign active deliveries inside the seed only', () => {
-    const inherited = delivery(4, 'ancestor')
-    const artifact = {
-      header: { ...header, isSeeded: true, parentSession: 'ancestor' }, inheritedEventCount: 2,
-      events: [fact, inherited, { type: 'session/end-seed', seq: 2, time: 3, data: { inherited: true } }, { ...fact, seq: 3 }],
-    }
-    expect(restoreReleasedV4Artifact(artifact, types)).toBe(artifact)
-    expect(() => restoreReleasedV4Artifact({ ...artifact, inheritedEventCount: 1 }, types)).toThrow('marker')
   })
 
   it('rejects invalid inherited cuts, sparse rows, and unseeded inherited markers', () => {

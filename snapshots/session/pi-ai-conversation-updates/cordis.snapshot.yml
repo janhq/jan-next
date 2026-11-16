@@ -1,6 +1,3 @@
-- id: llm-deepseek
-  disabled: true
-
 - id: llm-pi-ai
   config:
     providers:

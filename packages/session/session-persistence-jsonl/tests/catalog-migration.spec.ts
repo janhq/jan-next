@@ -48,16 +48,6 @@ describe.each(['none', 'zstd'] as const)('historical catalog publication (%s)', 
     return { root, ctx, parent, header, descriptor, write, read }
   }
 
-  it.each(['read', 'write'] as const)('refuses foreign native V4 delivery through %s access', async (access) => {
-    const f = await fixture()
-    await f.write(f.parent, [
-      { type: 'feedback/record', seq: 0, time: 1, data: {} },
-      { type: 'session-log-deepseek/delivery-accepted', seq: 1, time: 2,
-        data: { sessionId: 'other', sessionFormatVersion: 4, throughSeq: 0 } },
-    ], false, 4)
-    await expect(f.ctx.sessionPersistence.open(f.parent, access)).rejects.toThrow('wrong Session')
-  })
-
   it.each(compression === 'none' ? ['json'] as const : ['json', 'magic', 'checksum', 'lines'] as const)(
     'opens the parent when another Session header has corrupt %s', async (damage) => {
       const f = await fixture()

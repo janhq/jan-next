@@ -15,7 +15,7 @@ import {
   WELCOME_NOTICE_ACK_FIELD, WELCOME_NOTICE_SETTINGS_NAMESPACE, WELCOME_NOTICE_VERSION,
 } from '../src/onboarding-copy.ts'
 import { ModelsSection } from '../src/client/ModelsSection.tsx'
-import { DeepSeekOnboardingDialog } from '../src/client/DeepSeekOnboardingDialog.tsx'
+import { GetStartedDialog } from '../src/client/GetStartedDialog.tsx'
 import { WelcomeNotice } from '../src/client/WelcomeNotice.tsx'
 import type { IndexInjection, WebServer } from '@deepseek-ai/dsh-host-webserver'
 import * as hostPlugin from '../src/index.ts'
@@ -50,7 +50,6 @@ async function bench(mock = RemoteMock.create().load(remoteDefaultResponses), se
       ...services,
     },
     settings: mock.remote.settings,
-    session: { initializeDefaultModel: vi.fn(async () => ({ ok: true, value: undefined })) },
   })
   await ctx.plugin({ inject: [...settingsInject], apply: settingsApply }).await()
   return { ctx, slots: ctx.get('slots') as SlotRegistry, locale, remote }
@@ -80,13 +79,13 @@ describe('ui-settings-models apply', () => {
       ctx.emit('webserver/index-inject', rows, PAGE_PEER)
       expect(rows).toEqual([{ kind: 'global', name: ONBOARDING_CONFIG_GLOBAL, value: {
         credentialOnboarding: false,
-        onboardingRoute: { provider: 'deepseek-official', settingsNs: 'llm-deepseek', settingsPath: [] },
+        onboardingRoute: { provider: 'tokamak', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'tokamak'] },
       } }])
       for (const row of rows) if (row.kind === 'global') vi.stubGlobal(row.name, row.value)
       const plugin = ctx.plugin({ inject: [...inject], apply })
       await plugin.await()
-      expect(slots.entries('settings.onboarding').map(entry => entry.options.id)).toEqual(['welcome-notice', 'deepseek-official'])
-      const onboarding = slots.entries('settings.onboarding').find(entry => entry.options.id === 'deepseek-official')!
+      expect(slots.entries('settings.onboarding').map(entry => entry.options.id)).toEqual(['welcome-notice', 'get-started'])
+      const onboarding = slots.entries('settings.onboarding').find(entry => entry.options.id === 'get-started')!
       expect((onboarding.inject as () => { automatic: boolean })().automatic).toBe(false)
       expect(slots.entries('settings.section').map(entry => entry.options.id)).toEqual(['models'])
       await plugin.dispose()
@@ -103,7 +102,7 @@ describe('ui-settings-models apply', () => {
   it('defaults to browser onboarding and rejects malformed bootstrap options', async () => {
     expect(hostPlugin.Config({})).toEqual({
       credentialOnboarding: true,
-      onboardingRoute: { provider: 'deepseek-official', settingsNs: 'llm-deepseek', settingsPath: [] },
+      onboardingRoute: { provider: 'tokamak', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'tokamak'] },
     })
     expect(hostPlugin.Config['~standard'].validate({ credentialOnboarding: 'false' })).toHaveProperty('issues')
     const { ctx } = await bench()
@@ -117,7 +116,7 @@ describe('ui-settings-models apply', () => {
 
   it('declares the services it uses', () => {
     expect(inject).toEqual([
-      'slots', 'locale', 'remote', 'remote.credentials', 'remote.llm', 'remote.settings', 'remote.session',
+      'slots', 'locale', 'remote', 'remote.credentials', 'remote.llm', 'remote.settings',
       'configForms', 'settingsSchema',
     ])
   })
@@ -146,20 +145,20 @@ describe('ui-settings-models apply', () => {
       component: WelcomeNotice,
       options: { id: 'welcome-notice', order: -100 },
     })
-    const deepSeek = onboarding.find(entry => entry.options.id === 'deepseek-official')!
-    expect(deepSeek.component).toBe(DeepSeekOnboardingDialog)
-    const analytics = (deepSeek.inject!() as object) as import('../src/client/DeepSeekOnboardingDialog.tsx').DeepSeekOnboardingInjected
+    const getStarted = onboarding.find(entry => entry.options.id === 'get-started')!
+    expect(getStarted.component).toBe(GetStartedDialog)
+    const analytics = (getStarted.inject!() as object) as import('../src/client/GetStartedDialog.tsx').GetStartedInjected
     analytics.track?.('api_key_save_click', {})
     const track = vi.fn()
     before.ctx.provide('productAnalytics', { track } as never)
     analytics.track?.('api_key_save_click', {})
     expect(track).toHaveBeenCalledWith('api_key_save_click', {})
-    expect(deepSeek.options).toMatchObject({ id: 'deepseek-official', order: 0 })
-    const deepSeekInjected = (
-      deepSeek.inject as unknown as () => import('../src/client/DeepSeekOnboardingDialog.tsx').DeepSeekOnboardingInjected
+    expect(getStarted.options).toMatchObject({ id: 'get-started', order: 0 })
+    const getStartedInjected = (
+      getStarted.inject as unknown as () => import('../src/client/GetStartedDialog.tsx').GetStartedInjected
     )()
-    expect(deepSeekInjected.hooks.models).toBe(injected.controller.store)
-    expect(typeof deepSeekInjected.operations.storeCredential).toBe('function')
+    expect(getStartedInjected.hooks.models).toBe(injected.controller.store)
+    expect(typeof getStartedInjected.operations.storeCredential).toBe('function')
 
     const after = await bench()
     await after.ctx.plugin({ inject: [...inject], apply }).await()
@@ -284,10 +283,10 @@ describe('pushed invalidations', () => {
     declare(b.slots)
     await b.ctx.plugin({ inject: [...inject], apply }).await()
     const entry = b.slots.entries('settings.onboarding')
-      .find(candidate => candidate.options.id === 'deepseek-official')!
+      .find(candidate => candidate.options.id === 'get-started')!
     const injected = (
       entry.inject as unknown as
-      () => import('../src/client/DeepSeekOnboardingDialog.tsx').DeepSeekOnboardingInjected
+      () => import('../src/client/GetStartedDialog.tsx').GetStartedInjected
     )()
     injected.controller.store.update((state) => { state.status = 'ready' })
     const load = vi.spyOn(injected.controller, 'load').mockResolvedValue()

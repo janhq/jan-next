@@ -124,7 +124,7 @@ pnpm run build
 
 ### Environment variables
 
-The real DeepSeek adapter and key-backed agent demos read credentials from the environment or from a gitignored `.env` at the repo root:
+Real-API tests and key-backed agent demos read credentials from the environment or from a gitignored `.env` at the repo root:
 
 ```sh
 DEEPSEEK_API_KEY=sk-...

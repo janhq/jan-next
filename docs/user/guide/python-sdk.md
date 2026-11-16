@@ -7,7 +7,7 @@ This tutorial installs the published Python SDK, runs the shipped standalone min
 - Python 3.10 or newer
 - Git
 - Linux x64, Linux arm64, macOS 14 or newer on arm64, or Windows x64
-- A DeepSeek-compatible API endpoint and credential
+- A Tokamak API credential
 - An isolated workspace and an isolated Harness home
 
 ## Install the SDK
@@ -41,7 +41,7 @@ The installation includes a matching native runtime wheel and the `dsh` command.
 
 ## Run the checked-in example
 
-Export the credential and, when needed, a compatible proxy endpoint:
+Export the credential and, when needed, another Tokamak deployment endpoint:
 
 <div>
 <a id="linux-and-macos-1"></a>
@@ -51,13 +51,13 @@ Export the credential and, when needed, a compatible proxy endpoint:
 ::: code-group
 
 ```sh [Linux/macOS]
-export DEEPSEEK_API_KEY=sk-your-key-here
-# export DEEPSEEK_BASE_URL=http://127.0.0.1:8000/v1
+export TOKAMAK_API_KEY=your-tokamak-key
+# export TOKAMAK_BASE_URL=https://api.tokamak.sh/v1
 ```
 
 ```powershell [Windows PowerShell]
-$env:DEEPSEEK_API_KEY = "sk-your-key-here"
-# $env:DEEPSEEK_BASE_URL = "http://127.0.0.1:8000/v1"
+$env:TOKAMAK_API_KEY = "your-tokamak-key"
+# $env:TOKAMAK_BASE_URL = "https://api.tokamak.sh/v1"
 ```
 
 :::
@@ -101,8 +101,8 @@ from deepseek_harness import DeepSeekHarness
 workspace = Path("/absolute/path/to/disposable-workspace").resolve()
 dsh_home = Path("/absolute/path/to/example-dsh-home").resolve()
 with DeepSeekHarness(
-    provider="deepseek-official",
-    model="deepseek-v4-flash",
+    provider="tokamak",
+    model="tokamak-1-preview",
     max_tokens=49_152,
     cwd=str(workspace),
     dsh_home=str(dsh_home),
@@ -180,14 +180,14 @@ Create a new root Session and ask it to create and list a shared task. Its first
 | Property | Value |
 |---|---|
 | System prompt | `DSH_SYSTEM_PROMPT`, falling back to `You are a helpful software engineer assistant.` |
-| Model in `minimal.py` | `--model`, then `DSH_MODEL`, then `deepseek-v4-flash` |
+| Model in `minimal.py` | `--model`, then `DSH_MODEL`, then `tokamak-1-preview` |
 | Model-facing tools | Persistent `bash` on Linux/macOS or `pwsh` on Windows, `read_image`, and `working_directory` |
 | Shell timeout | 300 seconds |
 | Optional runtime context | Absent |
 | Context compaction | Automatic; summarizes older history through an additional model request |
 | Session persistence | Uncompressed JSONL under `<dsh_home>/sessions` |
 
-The profile's sole bundle inserts the complete tree over an empty root and does not include `dsh-base`; later base-profile tools therefore cannot appear implicitly. It contains the SDK protocol, one environment-configured DeepSeek adapter, local execution, and persistence, while text file tools, settings, managed credentials, OTel telemetry, Web tools, subagents, and local instruction discovery are absent. The [DeepSeek session-log contributor](../../../packages/session/session-log-deepseek/README.md) uploads unaccepted log events with DeepSeek requests by default, at most `maxBytes` (8 MiB) per request; set `session-log-deepseek.enabled: false` in a profile patch to disable it. It pins `danger-full-access`, so the platform-selected persistent shell can modify any path visible to the runtime; use a disposable checkout or container.
+The profile's sole bundle inserts the complete tree over an empty root and does not include `dsh-base`; later base-profile tools therefore cannot appear implicitly. It contains the SDK protocol, one environment-configured Tokamak route, local execution, and persistence, while text file tools, settings, managed credentials, OTel telemetry, Web tools, subagents, and local instruction discovery are absent. It pins `danger-full-access`, so the platform-selected persistent shell can modify any path visible to the runtime; use a disposable checkout or container.
 
 Image reading requires an image-capable route. Automatic compaction preserves the complete Session log; see the [bundle reference](../../../packages/bundle/sdk-minimal/README.md) for model and storage effects. In this `sdk-minimal` composition, unsupported slash input remains ordinary prompt text.
 

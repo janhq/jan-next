@@ -2,8 +2,6 @@
 
 Status: implemented
 
-English | [中文](2026-07-29-dsh-source-launch-tsx-esm.zh.md)
-
 > Supersedes native TypeScript source launch: Node removed the capability that decision was built on.
 
 ## Problem

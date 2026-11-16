@@ -77,15 +77,6 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
-/* The gray panel holding a section's settings below its provider menu. */
-.panel {
-  display: flex;
-  flex-direction: column;
-  padding: 0 16px;
-  border-radius: var(--dsw-radius-md);
-  background: var(--dsw-alias-bg-module-platform);
-}
-
 .hint {
   margin: 0;
   font-size: 12px;
@@ -101,15 +92,4 @@
   font-size: 12px;
   line-height: 1.5;
   color: var(--dsw-alias-state-error-primary);
-}
-
-.link {
-  color: var(--dsw-alias-link);
-  text-decoration: none;
-}
-
-@media (hover: hover) {
-  .link:hover {
-    text-decoration: underline;
-  }
 }

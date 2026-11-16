@@ -18,7 +18,7 @@ import { LocalBashExecutor } from '@deepseek-ai/dsh-bash-local'
 import * as BashEnvPlugin from '@deepseek-ai/dsh-shell-env'
 import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
 import * as ToolBash from '@deepseek-ai/dsh-tool-bash'
-import * as LlmDeepSeek from '@deepseek-ai/dsh-llm-deepseek-api-key'
+import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
 import NodeRuntime from '@deepseek-ai/dsh-ptc-runtime-node'
 import Sandbox from '@deepseek-ai/dsh-sandbox-local'
 import SandboxPolicy from '@deepseek-ai/dsh-sandbox-policy'
@@ -30,6 +30,7 @@ import * as ToolJobs from '@deepseek-ai/dsh-tool-jobs'
 import CordisHostRunner from '@deepseek-ai/dsh-cordis-host-runner'
 import * as ToolCordis from '@deepseek-ai/dsh-tool-cordis'
 import * as CordisInspectProviders from '@deepseek-ai/dsh-tool-cordis/host'
+import { E2E_MODEL } from './harness.ts'
 
 /**
  * With-key PTC mode proof: a real model receives only `run_code`, composes two
@@ -40,6 +41,8 @@ import * as CordisInspectProviders from '@deepseek-ai/dsh-tool-cordis/host'
 const PERSONA = 'You are a coding agent. You work by writing TypeScript programs for run_code: '
   + 'batch related tool work into one program and print or return ONLY the findings that matter.'
 const WORKSPACE_PROBE = 'dragonfruit-8675309'
+
+const E2E_LLM_CONFIG = { providers: { [E2E_MODEL.provider]: { apiKeyEnv: 'DEEPSEEK_API_KEY' } } }
 
 let ctx: Context | undefined
 let workdir: string | undefined
@@ -62,7 +65,7 @@ async function ptcModeHarness(cwd: string): Promise<Context> {
     tools: { mode: 'ptc' },
   })
   await harness.plugin(AgentLoop, { agents: [] })
-  await harness.plugin(LlmDeepSeek)
+  await harness.plugin(LlmPiAi, E2E_LLM_CONFIG)
   if (harness.get('subprocess') === undefined) await harness.plugin(LocalSubprocessRuntime)
   await harness.plugin(BashEnvPlugin)
   await harness.plugin(LocalBashExecutor, { cwd, timeoutMs: 30_000 })
@@ -82,7 +85,7 @@ async function workspacePtcModeHarness(): Promise<Context> {
   await harness.plugin(ToolFs)
   await harness.plugin(AgentInstructions, { maxBytes: 65536 })
   await harness.plugin(AgentLoop, { agents: [] })
-  await harness.plugin(LlmDeepSeek, { models: [{ id: 'deepseek-v4-flash' }] })
+  await harness.plugin(LlmPiAi, E2E_LLM_CONFIG)
   await mountRuntime(harness)
   return harness
 }
@@ -328,7 +331,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('PTC mode: real model writes a pr
   it('collapses the wire tool list to [run_code], bridges sub-calls, and returns curated output', async () => {
     workdir = await mkdtemp(join(tmpdir(), 'dsh-ptc-e2e-'))
     ctx = await ptcModeHarness(workdir)
-    const agent = await ctx.agentLoop.create(SessionId('e2e-ptc'), { provider: 'deepseek-official', model: 'deepseek-v4-flash' }, { cwd: workdir })
+    const agent = await ctx.agentLoop.create(SessionId('e2e-ptc'), E2E_MODEL, { cwd: workdir })
 
     agent.followup(createUserMessage({
       content: [{
@@ -380,7 +383,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('PTC mode: real model writes a pr
     const handle = await ctx.agents.create({
       sessionId: SessionId('e2e-ptc-workspace-session'),
       meta: { cwd: workdir },
-      agentOptions: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      agentOptions: E2E_MODEL,
     })
 
     handle.agent.followup(createUserMessage({

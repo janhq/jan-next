@@ -5,8 +5,6 @@ kind: "package-reference"
 
 # @deepseek-ai/dsh-api-llama-cpp-controller
 
-English | [中文](README.zh.md)
-
 ## Summary
 
 Browser screens manage local models through authenticated Remote operations and one state stream. They can download, import, load, unload, delete, and choose the default model, and start, stop, or remove the local worker. The controller forwards each operation to [dsh-llama-cpp](../../llm/llama-cpp/README.md) and never returns file paths or keys.

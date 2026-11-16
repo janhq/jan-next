@@ -24,10 +24,10 @@ export interface OnboardingRoute {
 export const Config: z<Partial<Config>, Config> = z.object({
   credentialOnboarding: z.boolean().default(true),
   onboardingRoute: z.object({
-    provider: z.string().min(1).default('deepseek-official'),
-    settingsNs: z.string().min(1).default('llm-deepseek'),
-    settingsPath: z.array(z.string()).default([]),
-  }).default({ provider: 'deepseek-official', settingsNs: 'llm-deepseek', settingsPath: [] }),
+    provider: z.string().min(1).default('tokamak'),
+    settingsNs: z.string().min(1).default('llm-pi-ai'),
+    settingsPath: z.array(z.string()).default(['providers', 'tokamak']),
+  }).default({ provider: 'tokamak', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'tokamak'] }),
 })
 
 /** Page-global key carrying only the public onboarding options. */

@@ -387,35 +387,14 @@ export interface LaunchOptions {
   /** Synthetic model capacity for UI scenarios whose seeded history must remain uncompacted. */
   replayContextWindow?: number
   /**
-   * Keep the shipped DeepSeek adapter mounted while masking the process
-   * environment's DEEPSEEK_API_KEY for this scaffold lifetime. This is the
-   * keyless first-run configuration lane; the default disables the adapter.
+   * Boot only the shipped model routes and default model, with no replay or route-only adapter,
+   * while masking the process environment's DEEPSEEK_API_KEY. This is the keyless first-run lane.
    */
   deepSeekMissingCredential?: boolean
   /** Leave the current welcome notice pending; ordinary scenarios pre-acknowledge it before browser boot. */
   welcomeNoticePending?: boolean
   /** Leave first-use Workspace initialization eligible; ordinary scenarios start after the default was removed. */
   firstUse?: boolean
-  /** Pin the legacy Messages search endpoint and credential reference. */
-  deepSeekSearch?: {
-    /** Anthropic-compatible base URL; `/messages` is appended. */
-    baseURL?: string
-    /** Credential reference read for each search. */
-    apiKeyEnv: string
-  }
-  /**
-   * Give both sections of the shipped DeepSeek Search and Fetch API row their
-   * own credential reference and, when given, endpoint, so neither follows the
-   * conversation's DeepSeek credential. Browser search scenarios keep the real
-   * providers and credentials seam while avoiding external search traffic and
-   * ambient keys.
-   */
-  deepSeekWebApi?: {
-    /** Base URL of both sections; omitted uses the official base. The providers append `/search` or `/fetch`. */
-    baseURL?: string
-    /** Credential reference of both sections. */
-    apiKeyEnv: string
-  }
   /** Preset selection default and additional declarative definitions for this scenario. */
   agentPresets?: {
     default: string
@@ -487,20 +466,13 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     : `/${(publicMount.prefix ?? 'tools/dsh/').replace(/^\/+|\/+$/gu, '')}/`
   const browserHost = options.remoteAuthority ?? '127.0.0.1'
   if (mode === 'record') {
-    // Both owning vitest configs (web unconditionally, snapshot in record
-    // mode) load the repo-root .env before this file runs.
-    if (process.env.DEEPSEEK_API_KEY === undefined || process.env.DEEPSEEK_API_KEY.length === 0) {
-      throw new Error('web e2e record mode needs DEEPSEEK_API_KEY (env or repo-root .env)')
-    }
+    // Recorded fixtures route through `deepseek-official`, which no shipped adapter serves.
+    throw new Error('web e2e record mode needs a live adapter for the deepseek-official replay route; none is composed')
   }
-  if (mode === 'record' && options.deepSeekMissingCredential === true) {
-    throw new Error('deepSeekMissingCredential is a keyless replay/refresh option')
-  }
-  const maskDeepSeekCredential = mode !== 'record' && options.deepSeekMissingCredential === true
-  // A keyless run that replays recorded model calls pins the snapshot replay placeholder: shipped
-  // compositions offer web_search only while a DeepSeek search key is configured, and recordings
-  // ran with a real key. Other runs keep the launching environment, as their goldens do.
-  const pinDeepSeekCredential = mode !== 'record' && !maskDeepSeekCredential
+  const maskDeepSeekCredential = options.deepSeekMissingCredential === true
+  // A keyless run that replays recorded model calls pins the snapshot replay placeholder because
+  // recordings ran with a real key. Other runs keep the launching environment, as their goldens do.
+  const pinDeepSeekCredential = !maskDeepSeekCredential
     && options.replayFixture !== undefined && options.replayProvidersOnly !== true
   const originalDeepSeekCredential = process.env.DEEPSEEK_API_KEY
   let credentialEnvironmentRestored = false
@@ -586,9 +558,8 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
   const overlayPatches: PatchOptions[] = [
     // Without HMR the profile applies configuration changes at its next start.
     ...options.profile?.hmr === false ? [{ id: 'hmr', disabled: true }] : [],
-    { id: 'session-log-deepseek', config: { enabled: false } },
     { id: 'ui-plugin-manager', config: { registryProbeEnabled: false } },
-    ...mode === 'record' || options.deepSeekMissingCredential === true
+    ...options.deepSeekMissingCredential === true
       ? []
       : [{ id: 'agent-default-model', config: { provider: 'deepseek-official', model: 'deepseek-v4-flash' } }],
     ...extraOverlayPatches,
@@ -686,26 +657,6 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
       { id: 'agent-preset-registry', config: { default: options.agentPresets.default } },
       { insert: (options.agentPresets.definitions ?? []).map(config => ({ id: `preset-${config.id}`, name: '@deepseek-ai/dsh-agent-preset', config })) },
     ],
-    ...options.deepSeekWebApi === undefined ? [] : [
-      {
-        id: 'web-deepseek-api',
-        config: {
-          searchApiKeyEnv: options.deepSeekWebApi.apiKeyEnv,
-          fetchApiKeyEnv: options.deepSeekWebApi.apiKeyEnv,
-          ...options.deepSeekWebApi.baseURL === undefined ? {} : {
-            searchBaseURL: options.deepSeekWebApi.baseURL, fetchBaseURL: options.deepSeekWebApi.baseURL,
-          },
-        },
-      },
-    ],
-    ...options.deepSeekSearch === undefined ? [] : [{
-      id: 'web-search-deepseek',
-      config: {
-        apiKeyEnv: options.deepSeekSearch.apiKeyEnv,
-        ...options.deepSeekSearch.baseURL === undefined ? {} : { baseURL: options.deepSeekSearch.baseURL },
-      },
-    }],
-    { id: 'llm-deepseek', disabled: mode !== 'record' && !maskDeepSeekCredential },
   ]
 
   // Recorded standard sessions pin the optional patch tool in their request headers.
@@ -723,9 +674,9 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
   }
 
   // Live fields use a shared deployment layer; process-specific ports and roots stay in CLI overlays.
-  const formEntries = new Set(['agent-default-model', 'agent-preset-registry', 'llm-deepseek', 'llm-pi-ai',
-    'web', 'web-search-deepseek', 'web-deepseek-api', 'agent-loop', 'subagent', 'bash-sandbox', 'pwsh-sandbox',
-    'session-log-deepseek', 'ui-theme', 'locale', 'ui-chat', 'ui-conversation', 'ui-settings', 'ui-settings-general', 'permission'])
+  const formEntries = new Set(['agent-default-model', 'agent-preset-registry', 'llm-pi-ai',
+    'web', 'agent-loop', 'subagent', 'bash-sandbox', 'pwsh-sandbox',
+    'ui-theme', 'locale', 'ui-chat', 'ui-conversation', 'ui-settings', 'ui-settings-general', 'permission'])
   const formDefaults: PatchOptions[] = []
   const processOverlays = overlayPatches.map((patch) => {
     if (patch.id === undefined || !formEntries.has(patch.id) || patch.config === undefined) return patch
@@ -899,7 +850,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
         throw new Error('replayProvidersOnly fixture must record no model calls')
       }
     }
-    if (mode !== 'record' && replayFixture !== undefined) {
+    if (replayFixture !== undefined) {
       replayHandle = installLlmReplay(ctx, {
         file: replayFixture,
         providers: (options.replayProviders ?? replayProviders(options.replayContextWindow)).map(provider => ({
@@ -910,7 +861,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
         ...(replayChildFixtures === undefined ? {} : { childFiles: replayChildFixtures }),
         ...(options.paceMs === undefined ? {} : { paceMs: options.paceMs }),
       })
-    } else if (mode !== 'record' && options.deepSeekMissingCredential !== true) {
+    } else if (options.deepSeekMissingCredential !== true) {
       // No fixture and no shipped adapter would leave the tree with ZERO
       // provider routes — a state no product composition has, and one the
       // composer refuses to type into. Register the same routes
@@ -975,7 +926,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     // Barrier stack: the in-process turn/end identifies the session, its
     // explicit flush makes the transcript durable, and the caller's browser
     // settled-poll comes last because host completion strictly precedes render.
-    whenTurnSettled(timeoutMs = mode === 'record' ? 180_000 : 30_000): Promise<SessionId> {
+    whenTurnSettled(timeoutMs = 30_000): Promise<SessionId> {
       return new Promise<SessionId>((resolveSettled, reject) => {
         const timer = setTimeout(() => {
           off()
@@ -992,8 +943,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     },
     async close(): Promise<void> {
       const failures: unknown[] = []
-      if (mode !== 'record'
-        && replayFixture !== undefined
+      if (replayFixture !== undefined
         && options.replayProvidersOnly !== true
         && compareReplaySession) {
         try {
@@ -1176,12 +1126,9 @@ export function normalizeWebSessionVolatiles(log: string, workspaceCwd?: string)
         .replace(/Current DeepSeek Harness Web GUI URL: "(?:[^"\\]|\\.)*"\./g, 'Current DeepSeek Harness Web GUI URL: "{{webUrl}}".')
       for (const cwd of cwdSpellings) normalized = replaceWebCwd(normalized, cwd)
       return normalized
-    })) as { type?: unknown; data?: { endpoint?: unknown } }
-    if (record.type === 'web/deepseek-search-llm-request' && typeof record.data?.endpoint === 'string') {
-      record.data.endpoint = '{{webSearchEndpoint}}'
-    }
+    }))
     if (isTimeContextReading(record)) {
-      record = mapJsonStringValues(record, tokenizeTimeContextReading) as typeof record
+      record = mapJsonStringValues(record, tokenizeTimeContextReading)
     }
     return JSON.stringify(record)
   }).join('\n')

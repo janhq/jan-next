@@ -5,8 +5,6 @@ description: "The llama-cpp plugin runs the bundled jan-llama-worker on an OS-as
 
 # `llama-cpp` runs the bundled `jan-llama-worker`
 
-English | [中文](guide.zh.md)
-
 ## Change
 
 The `@deepseek-ai/dsh-llama-cpp` row no longer downloads a `llama-server` engine. It runs the `jan-llama-worker` executable named by the new `workerPath` key, which the desktop app and `pnpm run dev:web` set through `JAN_LLAMA_WORKER`; without a usable worker the row reports `failed` at startup. The worker binds a port the OS chooses, and the row publishes it as the `LLAMA_CPP_BASE_URL` credential while the worker serves. The keys `backend`, `port`, `binaryPath` and `artifactOverrides` are removed, and `LLAMA_CPP_BACKEND` is no longer read. The `llm-pi-ai` `local` route reads its endpoint through the new `baseURLEnv` key instead of `baseURL: http://127.0.0.1:39281/v1`. The `llamaCpp/readState` and `llamaCpp/follow` results drop `model.engineBytes`, `model.backend`, `model.engineVersion`, `progress.phase`, `progress.overallReceivedBytes` and `progress.overallTotalBytes`. Startup deletes `$DSH_HOME/llama-cpp/engine/` and `downloads/`, keeping installed models.

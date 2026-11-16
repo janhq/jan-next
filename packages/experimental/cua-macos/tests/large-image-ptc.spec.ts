@@ -13,12 +13,8 @@ import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import LocalAttachmentStore from '@deepseek-ai/dsh-attachment-local'
 import ComputerUseRegistry from '@deepseek-ai/dsh-computer-use'
 import FileSystem from '@deepseek-ai/dsh-fs-local'
-import LlmRuntime, { LlmAdapter, ToolCallId, createUserMessage, resolveImageAttachmentAccess } from '@deepseek-ai/dsh-llm'
+import LlmRuntime, { LlmAdapter, ToolCallId, createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions, LlmResolvedModelInfo, StreamChunk } from '@deepseek-ai/dsh-llm'
-import { resolveAdapterOptions } from '@deepseek-ai/dsh-llm-deepseek'
-import { inlineImages, prepareImages } from '@deepseek-ai/dsh-llm-deepseek/src/images.ts'
-import { serialize } from '@deepseek-ai/dsh-llm-deepseek/src/serialize.ts'
-import { resolveRequestImageTarget } from '@deepseek-ai/dsh-llm-deepseek/src/request-pricing.ts'
 import NodePtcRuntime from '@deepseek-ai/dsh-ptc-runtime-node'
 import Sandbox from '@deepseek-ai/dsh-sandbox-local'
 import SandboxPolicy from '@deepseek-ai/dsh-sandbox-policy'
@@ -86,18 +82,12 @@ it.skipIf(process.platform === 'win32')('delivers a valid PNG larger than 4 MiB 
   await context.loader.await()
   for (const entry of context.loader.entries()) await entry.fiber?.await()
 
-  const connection = resolveAdapterOptions({ models: [{ id: MODEL, inputModalities: ['text', 'image'] }] })
-  const access = (ref: ImageAttachmentRef) => resolveImageAttachmentAccess(
-    context.attachments, path => context.fs.processPathFromHostPath(path), ref,
-  )
   class VisionModel extends LlmAdapter {
     readonly requests: GenerateOptions[] = []
     readonly requestImages: Buffer[] = []
 
-    override imageRequestTarget(_provider: string, _model: string, image: ImageAttachmentRef) {
-      const entry = connection.models.find(model => model.id === MODEL)
-      if (!entry) throw new Error('Missing image fixture route')
-      return resolveRequestImageTarget(entry, image)
+    override imageRequestTarget(_provider: string, _model: string, _image: ImageAttachmentRef) {
+      return { width: WIDTH / 2, height: HEIGHT / 2, maxBytes: 1024 * 1024 }
     }
 
     override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
@@ -118,17 +108,12 @@ it.skipIf(process.platform === 'win32')('delivers a valid PNG larger than 4 MiB 
         yield { type: 'finish', reason: { kind: 'tool-calls' } }
         return
       }
-      // Serialize the real next AgentLoop request using the provider's image reader
-      // and message serializer, but do not contact a model endpoint.
-      const prepared = await prepareImages(options.messages, connection, MODEL, context.attachments, access,
-        options.signal ?? new AbortController().signal)
-      const history = inlineImages(prepared.messages, prepared.versions, connection)
-      const body = serialize(options, connection, history, prepared.versions, access)
-      const blocks = body.messages.flatMap(message => message.content.flatMap(block => block.type === 'tool_result' ? block.content : [block]))
-      for (const block of blocks) {
+      // Derive request image bytes for the next AgentLoop request without contacting a model endpoint.
+      for (const block of options.messages.flatMap(message => message.content)) {
         if (block.type !== 'image') continue
-        if (block.source.type !== 'base64') throw new Error('Expected inline request image bytes')
-        this.requestImages.push(Buffer.from(block.source.data, 'base64'))
+        const target = this.imageRequestTarget(options.provider ?? '', MODEL, block.attachment)
+        const image = await context.attachments.readImageRequest(block.attachment, target, options.signal)
+        this.requestImages.push(Buffer.from(image.data))
       }
       yield { type: 'block-start', index: 0, blockType: 'text' }
       yield { type: 'block-end', index: 0, block: { type: 'text', text: 'Received the screenshot through PTC.' } }

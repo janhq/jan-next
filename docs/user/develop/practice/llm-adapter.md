@@ -142,12 +142,9 @@ The first argument lists provider routes handled by the adapter. `GenerateOption
 
 ## Reference implementations
 
-The repository contains complete implementations:
+The repository contains a complete implementation:
 
-- `packages/llm/llm-deepseek/` — DeepSeek adapter using the Messages API
-- `packages/llm/llm-pi-ai/` — Pi AI adapter using a different API format
-
-Compare the two shipped adapters to see the same harness contract implemented over different provider SDKs.
+- `packages/llm/llm-pi-ai/` — Pi AI adapter serving many providers through one LLM library
 
 ## Error handling
 

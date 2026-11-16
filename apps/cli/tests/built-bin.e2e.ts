@@ -32,6 +32,26 @@ const dshBin = join(repoRoot, 'apps/cli/lib/bin.js')
 const invalidProvider = fileURLToPath(new URL('./fixtures/invalid-provider.cordis.yml', import.meta.url))
 const webReadyExitHook = new URL('./fixtures/web-browser-open/register.mjs', import.meta.url).href
 
+/**
+ * Write a patch that routes the default Agent and ACP sessions to a mock Messages server.
+ * @param dir - directory that receives the patch file.
+ * @param baseURL - mock server origin; its key comes from `MOCK_LLM_API_KEY`.
+ * @returns the patch file path.
+ */
+function writeMockRoutePatch(dir: string, baseURL: string): string {
+  const route = { provider: 'mock', model: 'mock-model' }
+  const patch = join(dir, 'mock-route.patch.json')
+  writeFileSync(patch, JSON.stringify([
+    { id: 'agent-default-model', config: route },
+    { id: 'acp', config: route },
+    { id: 'llm-pi-ai', config: { providers: { mock: {
+      api: 'anthropic-messages', baseURL, apiKeyEnv: 'MOCK_LLM_API_KEY',
+      models: [{ id: route.model, contextWindow: 32_768, maxTokens: 1024 }],
+    } } } },
+  ]))
+  return patch
+}
+
 async function runBuiltBin(
   args: readonly string[] = [],
   env: Readonly<Record<string, string | undefined>> = {},
@@ -192,8 +212,8 @@ function createEnvironmentProbeProfile(home: string, project: string): void {
     '  void ctx.loader.await().then(async () => {',
     "    let text = ''",
     '    for await (const chunk of ctx.llm.stream({',
-    "      provider: 'deepseek-official',",
-    "      model: 'deepseek-v4-flash',",
+    "      provider: 'mock',",
+    "      model: 'mock-model',",
     '      messages: [],',
     '      maxTokens: 32,',
     '    })) {',
@@ -215,6 +235,15 @@ function createEnvironmentProbeProfile(home: string, project: string): void {
     dsh: { profile: { bundles: ['@deepseek-ai/dsh-base'] } },
   }, undefined, 2))
   writeFileSync(join(profileDir, 'cordis.patch.yml'), [
+    '- id: llm-pi-ai',
+    '  config:',
+    '    providers:',
+    '      mock:',
+    '        api: anthropic-messages',
+    '        baseURL: !!js process.env.MOCK_LLM_BASE_URL',
+    '        apiKeyEnv: MOCK_LLM_API_KEY',
+    '        models:',
+    '          - id: mock-model',
     '- insert:',
     '    - id: environment-probe',
     `      name: ${pathToFileURL(pluginFile).href}`,
@@ -445,7 +474,6 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
       const result = await runBuiltBin(['--profile', 'sdk', '--patch', patch], {
         DSH_HOME: home,
         DSH_TELEMETRY_DISABLED: '1',
-        DEEPSEEK_API_KEY: 'built-sdk-startup-failure-no-call',
       }, home)
       expect(result.code).toBe(0)
       expect(result.stdout).toBe('')
@@ -457,8 +485,7 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
   }, SPAWN_TIMEOUT_MS + 30_000)
 
   it('serves the SDK protocol with an absolute-path overlay plugin and exits after shutdown', async () => {
-    // On the official endpoint the route requests its model listing with this key;
-    // the loopback mock keeps the run offline and records any model call.
+    // The loopback mock keeps the run offline and records any model call.
     const server = await startMockLlmServer({ sequence: ['success'] })
     const home = mkdtempSync(join(tmpdir(), 'dsh-built-sdk-'))
     const pluginPath = join(home, 'plugin #100%.mjs')
@@ -481,8 +508,8 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
         ...process.env,
         DSH_HOME: home,
         DSH_TELEMETRY_DISABLED: '1',
-        DEEPSEEK_API_KEY: 'built-sdk-profile-no-call',
-        DEEPSEEK_BASE_URL: server.baseURL,
+        TOKAMAK_API_KEY: 'built-sdk-profile-no-call',
+        TOKAMAK_BASE_URL: server.baseURL,
       },
       extendEnv: false,
     })
@@ -507,7 +534,7 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
         jsonrpc: '2.0',
         id: 1,
         method: 'initialize',
-        params: { cwd: home, provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+        params: { cwd: home, provider: 'tokamak', model: 'tokamak-1-preview' },
       })}\n`)
       const initialized = await response(1)
       expect(initialized, `${JSON.stringify(initialized)}\n${stderr}`).toMatchObject({
@@ -540,7 +567,7 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
       successText: 'ACP BUILT PROFILE OK',
     })
     const home = mkdtempSync(join(tmpdir(), 'dsh-built-acp-'))
-    const child = execa(process.execPath, [dshBin, '--profile', 'acp'], {
+    const child = execa(process.execPath, [dshBin, '--profile', 'acp', '--patch', writeMockRoutePatch(home, server.baseURL)], {
       cwd: home,
       reject: false,
       timeout: SPAWN_TIMEOUT_MS,
@@ -549,8 +576,7 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
         ...process.env,
         DSH_HOME: home,
         DSH_TELEMETRY_DISABLED: '1',
-        DEEPSEEK_API_KEY: apiKey,
-        DEEPSEEK_BASE_URL: server.baseURL,
+        MOCK_LLM_API_KEY: apiKey,
         DSH_PERMISSION_MODE: 'danger-full-access',
       },
       extendEnv: false,
@@ -626,11 +652,11 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
     })
     const home = mkdtempSync(join(tmpdir(), 'dsh-built-headless-'))
     try {
-      const result = await runBuiltBin(['--profile', 'headless', 'answer', 'from', 'the', 'published', 'entry'], {
+      const patch = writeMockRoutePatch(home, server.baseURL)
+      const result = await runBuiltBin(['--profile', 'headless', '--patch', patch, 'answer', 'from', 'the', 'published', 'entry'], {
         DSH_HOME: home,
         DSH_TELEMETRY_DISABLED: '1',
-        DEEPSEEK_API_KEY: apiKey,
-        DEEPSEEK_BASE_URL: server.baseURL,
+        MOCK_LLM_API_KEY: apiKey,
       })
       expect(result.code, result.stderr).toBe(0)
       expect(result.stdout).toBe('published headless profile reached the mock')
@@ -762,7 +788,7 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
     })
     const home = mkdtempSync(join(tmpdir(), 'dsh-home-environment-'))
     const project = mkdtempSync(join(tmpdir(), 'dsh-home-project-'))
-    writeFileSync(join(home, '.credentials.yaml'), `version: 1\nrefs:\n  DEEPSEEK_API_KEY: ${apiKey}\n`, { mode: 0o600 })
+    writeFileSync(join(home, '.credentials.yaml'), `version: 1\nrefs:\n  MOCK_LLM_API_KEY: ${apiKey}\n`, { mode: 0o600 })
     createEnvironmentProbeProfile(home, project)
     try {
       const result = await runBuiltBin(
@@ -770,8 +796,8 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
         {
           DSH_HOME: home,
           DSH_TELEMETRY_DISABLED: '1',
-          DEEPSEEK_API_KEY: undefined,
-          DEEPSEEK_BASE_URL: server.baseURL,
+          MOCK_LLM_API_KEY: undefined,
+          MOCK_LLM_BASE_URL: server.baseURL,
         },
         project,
       )
@@ -799,7 +825,6 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
       const result = await runBuiltBin(['--profile', 'web', '--patch', invalidProvider, '--port', '0', '--no-open'], {
         DSH_HOME: home,
         DSH_BROWSER_OPEN_TEST_EXIT_ON_READY: '1',
-        DEEPSEEK_API_KEY: 'keyless-invalid-config',
         DSH_TELEMETRY_DISABLED: '1',
         NODE_OPTIONS: `--import=${webReadyExitHook}`,
       })
@@ -1263,10 +1288,7 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
       expect(rows.map(row => [row.id, row.name])).toEqual([
         ['sdk-app-startup', '@deepseek-ai/dsh-sdk-app'],
         ['sdk-jsonrpc-server', '@deepseek-ai/dsh-sdk-jsonrpc-server'],
-        ['deepseek-llm-api-extensions', '@deepseek-ai/dsh-deepseek-llm-api-extensions'],
-        ['session-log-deepseek', '@deepseek-ai/dsh-session-log-deepseek'],
-        ['plugin-package-inventory-deepseek', '@deepseek-ai/dsh-plugin-package-inventory-deepseek'],
-        ['llm-deepseek', '@deepseek-ai/dsh-llm-deepseek-api-key'],
+        ['llm-pi-ai', '@deepseek-ai/dsh-llm-pi-ai'],
         ['sandbox', '@deepseek-ai/dsh-sandbox-local'],
         ['filesystem', '@deepseek-ai/dsh-fs-local'],
         ['attachment-local', '@deepseek-ai/dsh-attachment-local'],

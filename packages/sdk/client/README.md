@@ -65,8 +65,8 @@ await using harness = new DeepSeekHarness({
   profile: 'sdk',
   dshHome: '/absolute/path/to/dsh-home',
   patches: ['./automation.cordis.yml'],
-  provider: 'deepseek-official',
-  model: 'deepseek-v4-flash',
+  provider: 'tokamak',
+  model: 'tokamak-1-preview',
   reasoningEffort: ReasoningEffortId('max'),
   maxTokens: 49_152,
 })

@@ -18,8 +18,6 @@ import * as SubagentSpawn from '@deepseek-ai/dsh-subagent-spawn-in-process'
 import { renderPrompt, renderContextSnapshot } from '@deepseek-ai/dsh-system-prompt'
 import * as ToolSubagentControl from '@deepseek-ai/dsh-tool-subagent-control'
 import { defineContentToolFixture } from '@deepseek-ai/dsh-tool-testkit'
-import { resolveAdapterOptions } from '@deepseek-ai/dsh-llm-deepseek'
-import { serialize } from '@deepseek-ai/dsh-llm-deepseek/src/serialize.ts'
 import type { GenerateOptions } from '@deepseek-ai/dsh-llm'
 import { MockAdapter, textResponse, toolCallResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 import { mountWorkingDirectoryFixture } from '../../../subagent/subagent/tests/working-directory-fixture.ts'
@@ -27,9 +25,8 @@ import { bindSubagentActivation } from '../../../subagent/subagent/tests/manager
 import TeamService, { TeamId } from '../../agent-team/src/index.ts'
 import * as toolTeam from '../src/index.ts'
 
-function serializeRequest(request: GenerateOptions) {
-  const connection = resolveAdapterOptions({ models: [{ id: request.model, systemPromptUpdate: 'in-history' }] })
-  return serialize(request, connection, request.messages, new Map(), () => undefined)
+function requestPrefix(request: GenerateOptions) {
+  return { system: request.system, tools: request.tools, messages: request.messages }
 }
 
 function runtimeContextText(request: GenerateOptions) {
@@ -298,12 +295,12 @@ describe('dsh-tool-team', () => {
     const { ctx, lead, adapter } = await setup([textResponse('parent answer'), textResponse('child answer')])
     if (systemPromptUpdate !== undefined) adapter.systemPromptUpdate = systemPromptUpdate
     await runTurn(lead, 'Parent task')
-    const parentRequest = serializeRequest(adapter.requests[0]!)
+    const parentRequest = requestPrefix(adapter.requests[0]!)
     const parentHistory = structuredClone(lead.session.deriveMessages())
     const childActivation = await spawn(ctx, lead, 'reviewer', 'Review the work', provider)
     const childId = childActivation.childId
     await waitNoAgent(ctx, childId)
-    const childRequest = serializeRequest(adapter.requests[1]!)
+    const childRequest = requestPrefix(adapter.requests[1]!)
     expect(childRequest.tools).toEqual(parentRequest.tools)
     expect(childRequest.system).toEqual(parentRequest.system)
     if (provider === 'fork') {
@@ -330,8 +327,8 @@ describe('dsh-tool-team', () => {
     expect(ctx.agentTeams.isEnabled(handle.agent)).toBe(false)
     await ctx.agentTeams.setEnabled(handle.agent, true)
     await runTurn(handle.agent, 'Continue independently')
-    const parentRequest = serializeRequest(adapter.requests[0]!)
-    const childRequest = serializeRequest(adapter.requests[1]!)
+    const parentRequest = requestPrefix(adapter.requests[0]!)
+    const childRequest = requestPrefix(adapter.requests[1]!)
     expect(childRequest.tools).toEqual(parentRequest.tools)
     expect(childRequest.messages.slice(0, parentRequest.messages.length)).toEqual(parentRequest.messages)
     expect(childRequest.messages.at(-1)?.content).toContainEqual({ type: 'text', text: 'Continue independently' })
@@ -378,9 +375,9 @@ describe('dsh-tool-team', () => {
       await ctx.agentTeams.setEnabled(handle.agent, true)
       const inheritedHistory = structuredClone(handle.agent.session.deriveMessages())
       await runTurn(handle.agent, 'Continue independently')
-      const original = serializeRequest(adapter.requests.find(request => request.sessionId === teammateId)!)
+      const original = requestPrefix(adapter.requests.find(request => request.sessionId === teammateId)!)
       const forkRequest = adapter.requests.find(request => request.sessionId === handle.agent.id)!
-      const fork = serializeRequest(forkRequest)
+      const fork = requestPrefix(forkRequest)
       expect(fork.tools).toEqual(original.tools)
       expect(fork.messages.slice(0, original.messages.length)).toEqual(original.messages)
       expect(forkRequest.messages.slice(0, inheritedHistory.length)).toEqual(inheritedHistory)

@@ -95,7 +95,7 @@ describe('three-mode acceptance: real-profile base', () => {
         dsh: { profile: { bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-headless'] } },
       }, undefined, 2) + '\n')
       await writeFile(join(profileDir, 'cordis.patch.yml'), [
-        '- id: llm-deepseek',
+        '- id: llm-pi-ai',
         '  disabled: true',
         '- id: session-persistence-jsonl',
         '  config:',

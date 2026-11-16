@@ -1614,8 +1614,8 @@ describe('headless recorded-session snapshots', () => {
         }
         expect(await fixtureSessions(scenario), 'historical replay input remains unchanged').toEqual(fixtures)
       }
-      const actualSnapshots = normalizeSessionSnapshots(actualLogs.map(log => log.content), actualContext, { nativeWriterOutput: true })
-      const expectedSnapshots = normalizeSessionSnapshots(expected, contextOf(expected), { nativeWriterOutput: true })
+      const actualSnapshots = normalizeSessionSnapshots(actualLogs.map(log => log.content), actualContext)
+      const expectedSnapshots = normalizeSessionSnapshots(expected, contextOf(expected))
       for (const [index, actual] of actualSnapshots.entries()) {
         const actualRecords = records(actual)
         const expectedRecords = scenario.name === 'session-reference-spill' && index === 0

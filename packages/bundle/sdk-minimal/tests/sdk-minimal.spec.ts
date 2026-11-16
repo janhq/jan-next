@@ -28,10 +28,7 @@ describe('dsh-sdk-minimal bundle', () => {
     expect(rows.map(row => [row.id, row.name])).toEqual([
       ['sdk-app-startup', '@deepseek-ai/dsh-sdk-app'],
       ['sdk-jsonrpc-server', '@deepseek-ai/dsh-sdk-jsonrpc-server'],
-      ['deepseek-llm-api-extensions', '@deepseek-ai/dsh-deepseek-llm-api-extensions'],
-      ['session-log-deepseek', '@deepseek-ai/dsh-session-log-deepseek'],
-      ['plugin-package-inventory-deepseek', '@deepseek-ai/dsh-plugin-package-inventory-deepseek'],
-      ['llm-deepseek', '@deepseek-ai/dsh-llm-deepseek-api-key'],
+      ['llm-pi-ai', '@deepseek-ai/dsh-llm-pi-ai'],
       ['sandbox', '@deepseek-ai/dsh-sandbox-local'],
       ['filesystem', '@deepseek-ai/dsh-fs-local'],
       ['attachment-local', '@deepseek-ai/dsh-attachment-local'],
@@ -71,11 +68,15 @@ describe('dsh-sdk-minimal bundle', () => {
       inject: ['sdkAppStartup', 'loader'],
       config: { maxTokensAsSuccess: false },
     })
-    expect(rows.find(row => row.id === 'llm-deepseek')?.config).toEqual({
-      apiKeyEnv: 'DEEPSEEK_API_KEY',
-      defaultContextWindow: { __jsExpr: 'Number(process.env.DSH_CONTEXT_WINDOW ?? 1000000)' },
+    const providers = rows.find(row => row.id === 'llm-pi-ai')?.config?.providers as Record<string, Record<string, unknown>>
+    expect(Object.keys(providers)).toEqual(['tokamak'])
+    expect(providers.tokamak).toMatchObject({
+      api: 'openai-completions',
+      apiKeyEnv: 'TOKAMAK_API_KEY',
+      defaultContextWindow: { __jsExpr: 'Number(process.env.DSH_CONTEXT_WINDOW ?? 200000)' },
       streamIdleTimeoutMs: 172800000,
     })
+    expect(providers.tokamak?.models).toContainEqual({ id: 'tokamak-1-preview' })
     expect(rows.find(row => row.id === 'system-prompt')?.config).toEqual({
       includeHarnessIdentity: false,
       includeRuntimeContext: false,

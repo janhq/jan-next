@@ -81,9 +81,6 @@ A terminal account-state stream failure appears in the sign-in dialog or Account
 
 The balance card shows recharge funds and bonus credit in separate rows. While signed in, the bonus row appears during loading, after a failed wallet read, and when a wallet holds positive bonus credit; a successful read without positive bonus credit omits the row. A failed wallet read shows the existing unavailable copy as a link to Platform — the same destination and behavior as the Usage action, so the embedded page opens on Desktop and a new tab elsewhere — while the loading state stays plain text. Currencies retain their own amounts, and a notice date is rendered only inside the server’s own message.
 
-
-A successful login selects the first available `deepseek-account` model as the default when no other provider has a configured API key, even if a previous default was saved. Configured keys preserve the existing default even when their provider has no available models. Session-specific selections remain unchanged.
-
 <a id="model-experience"></a>
 ## Model Experience
 
@@ -114,6 +111,6 @@ The [desktop login decision](../../../.agents/notes/implemented/architecture/202
 
 Usage and top-up show a centered 24px loading indicator without visible loading text until the native document loads; the return action remains available. The loading SVG is embedded locally from Figma node 2957:72553.
 
-Default-model initialization runs after publishing and accepting the sign-in frame, without delaying subsequent account frames. Failures are recorded with `console.error` in the renderer Console and do not mark the signed-in account as failed. Profile and balance reads also report only failures, without account data or raw exceptions; successful refreshes and account frames are silent.
+Profile and balance reads report only failures, without account data or raw exceptions; successful refreshes and account frames are silent.
 
 Read-only onboarding settings and a failed initial account stream leave the workspace accessible. A failed initial settings read exposes Retry, which reissues the shared settings read. Overlapping onboarding and Platform overlays release background interaction only after their last owner unmounts.
