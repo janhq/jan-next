@@ -20046,6 +20046,14 @@ function legacyPresetId(id) {
   const safe = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,121}$/.test(id) ? id : createHash("sha256").update(id).digest("hex");
   return `jan-${safe}`;
 }
+function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value !== null && typeof value === "object") {
+    const record2 = value;
+    return `{${Object.keys(record2).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(record2[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
+}
 function legacyAvatar(legacy) {
   const value = legacy?.avatar;
   return typeof value === "string" && value !== "" && [...value].length <= 8 && !/[/\\:]/.test(value) ? value : void 0;
@@ -20065,7 +20073,8 @@ async function readAppliedInstructions(log) {
       rows.push({
         sessionId: `jan-${typeof thread.id === "string" ? thread.id : folder}`,
         assistantId: applied.id,
-        instructions: applied.instructions
+        instructions: applied.instructions,
+        clone: applied
       });
     } catch (error62) {
       log.warn(`Skipping Jan thread ${folder}: ${String(error62)}`);
@@ -20236,15 +20245,18 @@ async function apply(ctx, config2 = {}) {
         if (!config2.appliedInstructions) {
           try {
             for (const applied of await readAppliedInstructions(ctx.logger)) {
-              const id = `jan-applied-${createHash("sha256").update(applied.assistantId + "\0" + applied.instructions).digest("hex")}`;
+              const id = `jan-applied-${createHash("sha256").update([applied.assistantId, applied.instructions, canonicalJson(applied.clone)].join("\0")).digest("hex")}`;
               try {
                 if (!known.some((item) => item.id === id) && !added.some((item) => item.id === id)) {
                   const source = [...known, ...added].find((item) => item.id === legacyPresetId(applied.assistantId));
+                  const cloneName = typeof applied.clone.name === "string" && applied.clone.name.trim() !== "" ? applied.clone.name.trim() : void 0;
                   added.push(validate2({
                     id,
-                    name: `${source?.name ?? applied.assistantId} (saved conversation)`,
+                    name: `${cloneName ?? source?.name ?? applied.assistantId} (saved conversation)`,
                     description: "Imported applied instructions from a Jan conversation.",
-                    instructions: applied.instructions
+                    instructions: applied.instructions,
+                    // History keeps the whole applied clone, not only its text.
+                    legacy: applied.clone
                   }));
                 }
                 assignments[applied.sessionId] = id;

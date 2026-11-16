@@ -31,11 +31,26 @@ function legacyPresetId(id: string): string {
   return `jan-${safe}`
 }
 
-/** One Jan conversation's applied assistant instructions. */
+/**
+ * Stable JSON for hashing stored records: object keys sorted at every depth, so
+ * the same record hashes the same regardless of the order Jan wrote its keys.
+ */
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
+  if (value !== null && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    return `{${Object.keys(record).sort().map(key => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(',')}}`
+  }
+  return JSON.stringify(value) ?? 'null'
+}
+
+/** One Jan conversation's applied assistant instructions and record. */
 interface JanAssignment {
   sessionId: string
   assistantId: string
   instructions: string
+  /** The whole thread-level assistant clone, kept as the preset's legacy record. */
+  clone: Record<string, unknown>
 }
 
 /** The stored Jan avatar when it is short text (an emoji), not a path or URL. */
@@ -66,6 +81,7 @@ async function readAppliedInstructions(log: { warn: (...args: unknown[]) => void
         sessionId: `jan-${typeof thread.id === 'string' ? thread.id : folder}`,
         assistantId: applied.id,
         instructions: applied.instructions,
+        clone: applied as Record<string, unknown>,
       })
     } catch (error) {
       log.warn(`Skipping Jan thread ${folder}: ${String(error)}`)
@@ -242,15 +258,23 @@ export async function apply(ctx: Context, config: Config = {}) {
         if (!config.appliedInstructions) {
           try {
             for (const applied of await readAppliedInstructions(ctx.logger)) {
-              const id = `jan-applied-${createHash('sha256').update(applied.assistantId + '\0' + applied.instructions).digest('hex')}`
+              // The clone record is part of a snapshot's identity: two Jan
+              // conversations can share instructions but differ in model or
+              // tools, and each must keep the record it actually ran.
+              const id = `jan-applied-${createHash('sha256').update([applied.assistantId, applied.instructions, canonicalJson(applied.clone)].join('\0')).digest('hex')}`
               try {
                 if (!known.some(item => item.id === id) && !added.some(item => item.id === id)) {
                   const source = [...known, ...added].find(item => item.id === legacyPresetId(applied.assistantId))
+                  // The clone's own name distinguishes records that share text.
+                  const cloneName = typeof applied.clone.name === 'string' && applied.clone.name.trim() !== ''
+                    ? applied.clone.name.trim() : undefined
                   added.push(validate({
                     id,
-                    name: `${source?.name ?? applied.assistantId} (saved conversation)`,
+                    name: `${cloneName ?? source?.name ?? applied.assistantId} (saved conversation)`,
                     description: 'Imported applied instructions from a Jan conversation.',
                     instructions: applied.instructions,
+                    // History keeps the whole applied clone, not only its text.
+                    legacy: applied.clone,
                   }))
                 }
                 assignments[applied.sessionId] = id
