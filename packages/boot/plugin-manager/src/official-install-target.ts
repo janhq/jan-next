@@ -11,6 +11,28 @@ function manifestAt(file: string): WorkspaceManifest {
   return JSON.parse(readFileSync(file, 'utf8')) as WorkspaceManifest
 }
 
+// The plugin list asks for every catalog entry on each refresh; globbing and
+// parsing every workspace manifest each time cost seconds on a source checkout.
+// The checkout's package set does not change while the host runs.
+const workspaceIndex = new Map<string, Map<string, { file: string; manifest: WorkspaceManifest }[]>>()
+
+function workspacePackages(root: string): Map<string, { file: string; manifest: WorkspaceManifest }[]> {
+  let index = workspaceIndex.get(root)
+  if (index === undefined) {
+    index = new Map()
+    for (const relative of globSync('packages/*/*/package.json', { cwd: root })) {
+      const file = join(root, relative)
+      const manifest = manifestAt(file)
+      if (typeof manifest.name !== 'string') continue
+      const list = index.get(manifest.name) ?? []
+      list.push({ file, manifest })
+      index.set(manifest.name, list)
+    }
+    workspaceIndex.set(root, index)
+  }
+  return index
+}
+
 /**
  * Offer a source checkout link or an exact published package version. Source installations are
  * identified by the real CLI manifest and its unpacked workspace dependencies, including Desktop's
@@ -33,9 +55,7 @@ export function officialBundleInstallTarget(name: string, installAnchor: string,
     || manifestAt(join(root, 'package.json')).name !== '@janhq/jan-root') {
     throw new Error(`Official bundle ${name}: source Jan installation ${anchor} requires its complete workspace checkout`)
   }
-  const matches = globSync('packages/*/*/package.json', { cwd: root })
-    .map(file => ({ file: join(root, file), manifest: manifestAt(join(root, file)) }))
-    .filter(entry => entry.manifest.name === name)
+  const matches = (workspacePackages(root).get(name) ?? [])
   const selected = matches[0]
   if (matches.length !== 1 || selected === undefined) {
     throw new Error(`Official bundle ${name}: expected one workspace package in ${root}, found ${matches.length}; restore the checkout and run pnpm install`)

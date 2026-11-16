@@ -502,6 +502,7 @@ export class PluginManager extends TypertRemoteService {
     const names = [...new Set([...selected, ...dependencies, ...Object.keys(installation.dependencies ?? {}), ...catalog.keys()])]
     const bundles: Omit<BundleInfo, 'updatable'>[] = []
     const runtimeVersion = getJanRuntimeVersion()
+    const packages = this.ctx.get('pluginPackages')
     for (const name of names) {
       const installed = dependencies.includes(name)
       const optional = OPTIONAL_BUNDLES.includes(name)
@@ -554,7 +555,8 @@ export class PluginManager extends TypertRemoteService {
         const compatibility = evaluatePluginCompatibility(info, exemptions)
         if (compatibility !== undefined && !compatibility.exempted) throw new ManagementFailure('incompatible-version', [incompatiblePlugin(compatibility)])
         const dir = resolveBundleDir('jan', name, this.profile.installAnchor, this.profile.dir)
-        const meta = offered?.meta ?? readPluginMeta(info.name ?? name, pathToFileURL(join(dir, 'package.json')).href)
+        const metaBase = pathToFileURL(join(dir, 'package.json')).href
+        const meta = offered?.meta ?? (packages === undefined ? readPluginMeta(info.name ?? name, metaBase) : packages.metaOf(info.name ?? name, metaBase))
         let platformError: ManagementError | undefined
         try { assertBundlePlatform(info.jan?.bundle?.platforms, process.platform) }
         catch (error) { platformError = managementError(error) }
