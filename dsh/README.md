@@ -34,6 +34,18 @@ Mapping preserves message IDs, user/assistant text, reasoning, thread creation t
 
 Available data-URL/local-file images are saved through DSH attachments; remote URLs are not fetched. Per-thread results report missing images, unsupported content, orphan/unpaired tool records and invalid usage. Audio/video, annotations, arbitrary metadata, non-image legacy attachments, Jan assistant instructions, retrieval/tool configuration and model parameters are not migrated. Original tool argument JSON formatting is lost when Jan stored parsed objects. Historical provider/model names are attribution only, not newly configured routes; continuation uses the current DSH composition. Native session sorting derives activity from user messages, so Jan's independent `updated` time is shown during scanning but is not forced into native activity. The original Jan files remain the archive for unmapped information.
 
+## PPT template gallery
+
+`ppt-runtime/` contains the matching `dsh-ppt` and `dsh-ppt-composer` 0.1.1-rc.2 package archives assembled from `dataelement/dsh-desktop/packages/ppt-runtime`. Their MIT licenses, template attribution and third-party notices are included in each archive. This runtime is separate from the unrelated npm `dsh-ppt` 0.20.x workbench.
+
+With the app stopped, run with Node 24 and Corepack installed:
+
+```bash
+node scripts/install-ppt-runtime.mjs "<DSH_HOME>"
+```
+
+The installer backs up the web profile manifest, copies the archives into `DSH_HOME/vendor/open-waifu-ppt`, pins their paired dependency, and replaces the old PPT bundle entry with `dsh-ppt-composer`. Existing presentation files are left intact. Restart, click **PPT** above the new-chat composer, and select or preview a template. The matching `open-waifu-layout` DSH runtime must include the scoped npm subpath resolution fix and render `conversation.composer.dock` for the hero composer.
+
 ## Add a plugin
 
 1. Copy `templates/ui-plugin/` to a new folder and rename `open-waifu-plugin-hello` in all four files.
