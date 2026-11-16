@@ -17,7 +17,12 @@ function shellSetup(): DshShellSetup {
     .map((p) => ({
       name: p.provider,
       baseUrl: p.base_url!,
-      models: p.models.map((m) => m.id),
+      models: p.models.map((m) => ({
+        id: m.id,
+        input: m.capabilities?.includes('vision')
+          ? ['text', 'image'] as ('text' | 'image')[]
+          : ['text'] as ('text' | 'image')[],
+      })),
     }))
   const localModel = providers
     .find((provider) => provider.provider === 'llamacpp')

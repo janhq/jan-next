@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Saved assistants and conversation instructions for open-waifu.",
+  "description": "Custom Agent presets and read-only import of legacy Jan assistants.",
   "exports": {
     ".": "./index.mjs",
     "./client": "./client.js",

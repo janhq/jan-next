@@ -32,7 +32,13 @@ pub struct ShellProvider {
     /// The Jan provider name; its keys are read from the keyring under it.
     pub name: String,
     pub base_url: String,
-    pub models: Vec<String>,
+    pub models: Vec<ShellModel>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+pub struct ShellModel {
+    pub id: String,
+    pub input: Vec<String>,
 }
 
 /// What the Jan UI hands the shell on each start.
@@ -131,14 +137,20 @@ const BUNDLE: &str = "@open-waifu/dsh-bundle";
 /// the profile's own patch, so a setting the user saves for one of these
 /// plugins lands in the profile and survives; an insert in the `--patch`
 /// overlay would come after it and DSH would refuse every such save.
-fn write_bundle(home: &Path, plugins: &Path) -> Result<(), String> {
+fn write_bundle(home: &Path, plugins: &Path, theme: &str) -> Result<(), String> {
     let dir = home.join("node_modules").join(BUNDLE);
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let rows = BUILTINS.iter().map(|(id, folder)| map(vec![
         ("id", Value::from(*id)),
         ("name", Value::from(plugins.join(folder).join("index.mjs").to_string_lossy().replace('\\', "/"))),
     ])).collect();
-    let patch = Value::Sequence(vec![map(vec![("insert", Value::Sequence(rows))])]);
+    let patch = Value::Sequence(vec![
+        map(vec![("insert", Value::Sequence(rows))]),
+        map(vec![
+            ("id", Value::from("ui-theme")),
+            ("config", map(vec![("preference", Value::from(theme))])),
+        ]),
+    ]);
     std::fs::write(dir.join("cordis.patch.yml"), serde_yaml::to_string(&patch).map_err(|e| e.to_string())?)
         .map_err(|e| e.to_string())?;
     let manifest = serde_json::json!({
@@ -212,11 +224,7 @@ fn patch(setup: &ShellSetup) -> Value {
             ("id", Value::from("ui-conversation")),
             ("config", map(vec![("heroPlaceholder", Value::from("Ask anything, / for commands, @ for files or chats"))])),
         ]),
-        map(vec![
-            ("id", Value::from("ui-theme")),
-            ("name", Value::from("@deepseek-ai/dsh-client-ui-theme")),
-            ("config", map(vec![("preference", Value::from(setup.theme.clone()))])),
-        ]),
+
     ];
     // DSH finds Documents by spawning PowerShell on Windows, which costs one to
     // four seconds on every boot; Rust already knows the folder.
@@ -242,7 +250,11 @@ fn patch(setup: &ShellSetup) -> Value {
         let models = p
             .models
             .iter()
-            .map(|m| map(vec![("id", Value::from(m.clone())), ("name", Value::from(m.clone()))]))
+            .map(|m| map(vec![
+                ("id", Value::from(m.id.clone())),
+                ("name", Value::from(m.id.clone())),
+                ("input", Value::Sequence(m.input.iter().cloned().map(Value::from).collect())),
+            ]))
             .collect();
         providers.insert(
             Value::from(route_of(i, &p.name)),
@@ -263,7 +275,7 @@ fn patch(setup: &ShellSetup) -> Value {
     }
     let default = setup.default_model.as_ref().and_then(|(provider, model)| {
         if provider == "llamacpp" { return Some(("ow-llamacpp".to_string(), model)); }
-        let i = setup.providers.iter().position(|p| &p.name == provider && p.models.contains(model))?;
+        let i = setup.providers.iter().position(|p| &p.name == provider && p.models.iter().any(|m| &m.id == model))?;
         Some((route_of(i, provider), model))
     });
     if let Some((route, model)) = default {
@@ -313,7 +325,7 @@ pub(crate) async fn start<R: tauri::Runtime>(
     std::fs::create_dir_all(&home).map_err(|e| e.to_string())?;
     std::fs::create_dir_all(&workspace).map_err(|e| e.to_string())?;
     seed_profile(&home)?;
-    write_bundle(&home, &plugins)?;
+    write_bundle(&home, &plugins, &setup.theme)?;
     let patch_file = data_dir.join("web.patch.yml");
     let text = serde_yaml::to_string(&patch(&setup)).map_err(|e| e.to_string())?;
     std::fs::write(&patch_file, text).map_err(|e| e.to_string())?;

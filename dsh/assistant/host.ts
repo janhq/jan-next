@@ -1,158 +1,128 @@
+import { createHash } from 'node:crypto'
+import { z } from 'zod'
+import { fs } from '../native/runtime.mjs'
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import type { Assistant } from '@janhq/core'
-import { fs } from '../native/runtime.mjs'
 import { registerApi } from '../native/api.mjs'
 import { Assistants, validateAssistantId } from './store'
 
 export const name = 'ow-assistant'
-export const inject = ['owNative', 'webServer', 'connection', 'agents']
+export const inject = ['owNative', 'webServer', 'connection', 'agentPresets', 'configEditor', 'sessionProjections', 'agents', 'sessionPersistence']
 
-interface Assignment {
-  assistantId: string
+interface CustomPreset {
+  id: string
+  name: string
+  description: string
   instructions: string
+  legacy?: Record<string, unknown>
+}
+interface Config {
+  presets?: CustomPreset[]
+  importedAssistants?: boolean
+  assignments?: Record<string, string>
 }
 
-export async function apply(ctx: Context) {
-  const store = new Assistants()
-  const assignmentFile = 'file://assistants/.session_assignments.json'
-  const assignments: Record<string, Assignment> = Object.create(null)
-  const registrations = new Map<Agent, { assignment: Assignment; dispose: () => void }>()
-  let preparation: Promise<void> | undefined
-  let writes = Promise.resolve()
-
-  const prepare = () => (preparation ??= (async () => {
-    await store.prepare()
-    if (await fs.existsSync(assignmentFile)) {
-      const saved: unknown = JSON.parse(await fs.readFileSync(assignmentFile))
-      if (!saved || typeof saved !== 'object' || Array.isArray(saved)) {
-        throw new Error('Saved assistant session assignments are invalid.')
-      }
-      for (const [sessionId, value] of Object.entries(saved)) {
-        if (!value || typeof value !== 'object') continue
-        const assignment = value as Assignment
-        if (typeof assignment.assistantId !== 'string' || typeof assignment.instructions !== 'string') continue
-        validateAssistantId(assignment.assistantId)
-        assignments[sessionId] = assignment
-      }
+// Legacy assistant folders are import-only. All subsequent edits belong to
+// the DSH profile, so copying DSH_HOME also carries the user's personas.
+export async function apply(ctx: Context, config: Config = {}) {
+  const editor = ctx.get('configEditor')
+  const entry = ctx.fiber.entry
+  if (!editor || !entry) throw new Error('Agent presets require an editable DSH profile.')
+  const registry = ctx.get('agentPresets')
+  const mounted: Array<() => Promise<void>> = []
+  const presets = config.presets ?? []
+  const validate = (input: unknown): CustomPreset => {
+    if (!input || typeof input !== 'object') throw new Error('Enter an agent preset.')
+    const value = input as Record<string, unknown>
+    validateAssistantId(value.id)
+    const field = (key: string, max: number) => {
+      const text = value[key] ?? ''
+      if (typeof text !== 'string' || text.length > max) throw new Error(`${key} must be text no longer than ${max} characters.`)
+      return text
     }
-    for (const agent of ctx.agents.list()) {
-      const assignment = assignments[agent.id]
-      if (assignment) install(agent, assignment)
+    const name = field('name', 200).trim()
+    if (!name) throw new Error('Enter a name for this preset.')
+    return { id: value.id, name, description: field('description', 4000), instructions: field('instructions', 262144), ...(value.legacy && typeof value.legacy === 'object' ? { legacy: value.legacy as Record<string, unknown> } : {}) }
+  }
+  ctx.effect(() => async () => { for (const dispose of mounted) await dispose() }, 'ow-assistant: custom agent presets')
+  for (const input of presets) {
+    const preset = validate(input)
+    const base = registry.definitionFor('standard')
+    const plugins = base.plugins.filter((row: { id?: string }) => row.id !== 'persona')
+    plugins.unshift({ id: 'persona', name: '@deepseek-ai/dsh-persona', config: { prefix: preset.instructions, interpolate: false } })
+    mounted.push(await registry.register({ id: preset.id, name: preset.name, description: preset.description, plugins }))
+  }
+  const importedSelection = await ctx.sessionProjections.register({
+    key: 'owAssistantImportedSelection', stateSchema: z.boolean(), stateVersion: 1,
+    init: () => false,
+    apply: (state, event) => state || (event.type === 'agent-preset/selected' && event.data.agentPreset.startsWith('jan-applied-')),
+  })
+  const restoreAssignment = async (agent: Agent) => {
+    const presetId = config.assignments?.[agent.id]
+    if (!presetId || importedSelection.stateOf(agent.session)) return
+    // Creation listeners finish before any queued prompt can run. The native
+    // selection event is also the durable migration marker after later switches.
+    await registry.recompose(agent.ctx, presetId)
+    agent.session.append('agent-preset/selected', { agentPreset: presetId })
+  }
+  ctx.on('agent/created', async ({ agent }) => { await restoreAssignment(agent) })
+  for (const agent of ctx.agents.list()) {
+    if (config.assignments?.[agent.id] && !importedSelection.stateOf(agent.session)) {
+      await agent.runMaintenance(async () => { await restoreAssignment(agent) })
     }
-  })().catch((error) => {
-    preparation = undefined
-    throw error
+  }
+  const write = (change: (current: CustomPreset[]) => CustomPreset[]) => editor.edit(entry, (current: Record<string, unknown>) => ({
+    ...current, presets: change((current.presets as CustomPreset[] | undefined) ?? []), importedAssistants: true,
   }))
-
-  const install = (agent: Agent, assignment: Assignment) => {
-    const current = registrations.get(agent)
-    if (current) {
-      current.assignment = assignment
-      return
-    }
-    const entry = { assignment, dispose: () => { } }
-    entry.dispose = agent.ctx.systemPrompt.section({
-      name: 'open-waifu.assistant',
-      order: agent.ctx.systemPrompt.getSectionOrder('DEPLOYMENT_PERSONA_PREFIX'),
-      interpolate: false,
-      text: () => entry.assignment.instructions.replaceAll('{{current_date}}', new Date().toISOString().slice(0, 10)),
-    })
-    registrations.set(agent, entry)
-  }
-
-  ctx.on('agent/created', async ({ agent }) => {
-    await prepare()
-    const assignment = assignments[agent.id]
-    if (assignment) install(agent, assignment)
-  })
-  ctx.on('agent/disposed', ({ agent }) => {
-    registrations.delete(agent)
-  })
-  ctx.effect(() => () => {
-    for (const entry of registrations.values()) entry.dispose()
-    registrations.clear()
-  }, 'ow-assistant: session instructions')
-
-  const text = (value: unknown, label: string, max: number) => {
-    if (typeof value !== 'string' || value.length > max) {
-      throw new Error(`${label} must be text no longer than ${max} characters.`)
-    }
-    return value
-  }
-  const find = async (id: unknown) => {
-    validateAssistantId(id)
-    await prepare()
-    const assistant = (await store.getAssistants()).find((item) => item.id === id)
-    if (!assistant) throw new Error('Assistant no longer exists. Refresh the list and try again.')
-    return assistant
-  }
   const service = {
-    async list(_params: Record<string, unknown>) {
-      await prepare()
-      return store.getAssistants()
-    },
-    async save({ assistant: input }: { assistant?: unknown }) {
-      if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Expected an assistant object.')
-      const value = input as Record<string, unknown>
-      validateAssistantId(value.id)
-      const assistantName = text(value.name, 'Name', 200).trim()
-      if (!assistantName) throw new Error('Enter a name for this assistant.')
-      const description = text(value.description ?? '', 'Description', 4000)
-      const instructions = text(value.instructions ?? '', 'Instructions', 262144)
-      await prepare()
-      const existing = (await store.getAssistants()).find((item) => item.id === value.id)
-      const assistant = {
-        ...existing,
-        id: value.id,
-        object: 'assistant',
-        created_at: existing?.created_at ?? Date.now() / 1000,
-        model: existing?.model ?? '*',
-        name: assistantName,
-        description,
-        instructions,
-      } as Assistant
-      await store.createAssistant(assistant)
-      return assistant
+    async list() { return presets },
+    async save({ assistant }: { assistant?: unknown }) {
+      const preset = validate(assistant)
+      if (Object.values(config.assignments ?? {}).includes(preset.id)) throw new Error('This preset preserves the instructions applied to an imported conversation. Create a new preset to customize them.')
+      await write(current => current.some(item => item.id === preset.id) ? current.map(item => item.id === preset.id ? preset : item) : [...current, preset])
+      return preset
     },
     async remove({ id, confirmed }: { id?: unknown; confirmed?: unknown }) {
-      if (confirmed !== true) throw new Error('Confirm deletion before removing an assistant.')
-      const assistant = await find(id)
-      await store.deleteAssistant(assistant)
-      return { id: assistant.id }
-    },
-    /** Durable assignment for one session; null when none is stored. */
-    async getAssignment({ sessionId }: { sessionId?: unknown }): Promise<{ id: string; name: string | null } | null> {
-      if (typeof sessionId !== 'string' || !sessionId) throw new Error('Select a running DSH session.')
-      await prepare()
-      const assignment = assignments[sessionId]
-      if (!assignment) return null
-      const assistant = (await store.getAssistants()).find((item) => item.id === assignment.assistantId)
-      return { id: assignment.assistantId, name: assistant?.name ?? null }
-    },
-    async apply({ id, sessionId }: { id?: unknown; sessionId?: unknown }) {
-      const assistant = await find(id)
-      if (typeof sessionId !== 'string' || !sessionId) throw new Error('Select a running DSH session.')
-      const agent = ctx.agents.get(sessionId as Parameters<typeof ctx.agents.get>[0])
-      if (!agent) throw new Error('This session is not loaded. Open the conversation, then try again.')
-      if (agent.session.header.origin === 'subagent') throw new Error('Choose a conversation rather than a subagent session.')
-      if (agent.status !== 'idle') throw new Error('Wait for the session to finish its current turn before applying an assistant.')
-      const assignment = { assistantId: assistant.id, instructions: assistant.instructions ?? '' }
-      // Serialize read-modify-write so a failed persistence never changes the live prompt.
-      const operation = writes.then(() => agent.runMaintenance(async (signal) => {
-        signal.throwIfAborted()
-        if (ctx.agents.get(agent.id) !== agent) throw new Error('The selected session was closed. Open it and try again.')
-        const saved = { ...assignments, [sessionId]: assignment }
-        await fs.writeFileSync(assignmentFile, JSON.stringify(saved, null, 2))
-        assignments[sessionId] = assignment
-        install(agent, assignment)
-        return { assistantId: assistant.id, sessionId }
-      }))
-      writes = operation.then(() => { }, () => { })
-      return operation
+      validateAssistantId(id)
+      if (confirmed !== true) throw new Error('Confirm deletion before removing a preset.')
+      if (Object.values(config.assignments ?? {}).includes(id)) throw new Error('This imported preset preserves saved conversation instructions and cannot be deleted.')
+      for (const agent of ctx.agents.list()) {
+        if (registry.presetForSession(agent.session) === id) throw new Error('This preset is used by a conversation. Switch that conversation to another preset before deleting it.')
+      }
+      for (const stored of await ctx.sessionPersistence.list()) {
+        const handle = await ctx.sessionPersistence.open(stored.header.id, 'read')
+        try {
+          let selected = handle.header.agentPreset
+          for (const event of (await handle.read()).events) if (event.type === 'agent-preset/selected') selected = event.data.agentPreset
+          if (selected === id) throw new Error('This preset is used by a saved conversation. Switch that conversation to another preset before deleting it.')
+        } finally { await handle.close() }
+      }
+      await write(current => current.filter(item => item.id !== id))
+      return { id }
     },
   }
-  await prepare()
-  ctx.provide('owAssistant', service)
-  ctx.effect(() => registerApi(ctx, 'assistant', service), 'ow-assistant: API')
+  ctx.effect(() => registerApi(ctx, 'assistant', service), 'ow-assistant: preset editor API')
+  if (!config.importedAssistants) {
+    // Reconciliation restarts this entry. Run after activation has returned.
+    const timer = setTimeout(() => {
+      void (async () => {
+        // Read without prepare(): importing must never seed or rewrite Jan data.
+        const store = new Assistants()
+        const legacy = (await store.getAssistants()).map(item => validate({ ...item, legacy: item, id: item.id.length <= 123 ? `jan-${item.id}` : `jan-${createHash('sha256').update(item.id).digest('hex')}` }))
+        const assignmentFile = 'file://assistants/.session_assignments.json'
+        const saved = await fs.existsSync(assignmentFile) ? JSON.parse(await fs.readFileSync(assignmentFile)) : {}
+        const assignments: Record<string, string> = {}
+        for (const [sessionId, value] of Object.entries(saved)) {
+          const assignment = value as { assistantId?: string; instructions?: string }
+          if (typeof assignment.instructions !== 'string' || typeof assignment.assistantId !== 'string') continue
+          const id = `jan-applied-${createHash('sha256').update(assignment.assistantId + '\\0' + assignment.instructions).digest('hex')}`
+          const source = legacy.find(item => item.id === `jan-${assignment.assistantId}`)
+          if (!legacy.some(item => item.id === id)) legacy.push(validate({ id, name: `${source?.name ?? assignment.assistantId} (saved conversation)`, description: 'Imported applied instructions from a Jan conversation.', instructions: assignment.instructions }))
+          assignments[sessionId] = id
+        }
+        await editor.edit(entry, (current: Record<string, unknown>) => ({ ...current, importedAssistants: true, assignments, presets: [...((current.presets as CustomPreset[]) ?? []), ...legacy.filter(item => !((current.presets as CustomPreset[]) ?? []).some(saved => saved.id === item.id))] }))
+      })().catch(error => ctx.logger.error(`Assistant import failed: ${String(error)}`))
+    }, 0)
+    ctx.effect(() => () => clearTimeout(timer), 'ow-assistant: import scheduling')
+  }
 }

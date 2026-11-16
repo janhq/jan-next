@@ -31,6 +31,7 @@ async function bundle(entry, output) {
     define: { IS_MACOS: 'owIsMacOS' },
     banner: { js: "const owIsMacOS = process.platform === 'darwin'" },
     alias: {
+      'zod': path.join(root, 'web-app/node_modules/zod/index.js'),
       '@janhq/tauri-plugin-llamacpp-api': path.join(root, 'src-tauri/plugins/tauri-plugin-llamacpp/guest-js/index.ts'),
       '@janhq/tauri-plugin-hardware-api': path.join(root, 'src-tauri/plugins/tauri-plugin-hardware/guest-js/index.ts'),
     },

@@ -11,14 +11,20 @@ The desktop window is DeepSeek Harness's web host. Every screen comes from a DSH
 | `log-bridge/` | `ow-log-bridge` | Writes DSH runtime warnings, errors and session activation failures to the app log (adapted from dataelement/dsh-desktop, MIT) |
 | `llamacpp/` | `ow-llamacpp` | Local model engine, Local models panel, model selection |
 | `download/` | `ow-download` | Model downloads and the Downloads panel |
-| `assistant/` | `ow-assistant` | Jan assistants and their per-session instructions |
+| `assistant/` | `ow-assistant` | Custom Agent preset instruction editor in Settings; imports legacy Jan assistants into the DSH profile |
 | `image-generation/` | `ow-image-generation` | OpenAI-compatible and Seedream image tool, settings and inline previews; API key stays in the OS keyring |
 | `jan-import/` | `ow-jan-import` | Read-only upstream Jan chat import into native DSH sessions, in Settings > Plugins > Import from Jan |
 | `onboarding/` | `ow-onboarding` | First-run welcome on `settings.onboarding`: open Model Hub, connect a provider, or start chatting; shown once per copy version |
 | `server/` | none | Legacy stdio JSON-RPC server, not used by the desktop window |
 | `templates/ui-plugin/` | `open-waifu-plugin-hello` | Starting point for a new plugin |
 
-Rust (`src-tauri/src/core/dsh/web.rs`) lists the built-in plugins in `<data>/dsh/web.patch.yml` on every start. Their files load from this folder in development, so a client or host edit only needs an app restart. `assistant/index.mjs` and `llamacpp/runtime.mjs` are generated: run `corepack yarn build:dsh` after editing their TypeScript sources.
+Rust (`src-tauri/src/core/dsh/web.rs`) mounts built-in plugins through the generated `@open-waifu/dsh-bundle`. The initial theme is a bundle default, so Settings > General can save an overriding appearance preference in the DSH profile. The app-owned provider and shell values remain in `<data>/dsh/web.patch.yml`. Their files load from this folder in development, so a client or host edit only needs an app restart. `assistant/index.mjs` and `llamacpp/runtime.mjs` are generated: run `corepack yarn build:dsh` after editing their TypeScript sources.
+
+## Agent preset customization
+
+Settings > Agent presets contains the custom instruction editor. Legacy assistant folders are read only during a one-time import into the `ow-assistant` profile configuration. Imported names, descriptions, instructions and source metadata are retained. Previously applied conversation instructions become separate saved snapshot presets, so editing the original assistant cannot change that historical assignment. Source files remain untouched.
+
+New presets use Standard mode tools with a literal persona prefix. A saved conversation records its selected preset through native DSH selection events. Presets still referenced by saved conversations cannot be deleted until those conversations select another preset.
 
 ## Image generation
 
