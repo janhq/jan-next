@@ -42,7 +42,8 @@
     "resources": [
       "resources/LICENSE",
       "resources/bin/jan-llama-worker",
-      "resources/bin/libggml*"
+      "resources/bin/libggml*",
+      "../dsh/open-waifu-shell/**/*"
     ],
     "externalBin": [
       "resources/bin/bun",

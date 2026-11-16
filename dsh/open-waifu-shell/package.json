@@ -1,0 +1,18 @@
+{
+  "name": "@open-waifu/dsh-shell",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Jan appearance for open-waifu's DSH interface, with native window controls and overridable branding slots.",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": []
+    }
+  }
+}

@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-open-waifu is a personal fork of [Jan](https://github.com/janhq/jan) for hobby and learning: a local-first AI chat app (future waifu chat) on Tauri 2, macOS and Windows desktop only. Jan's React UI is kept; the chat core is DeepSeek Harness (DSH, a separate `deepseek-harness` checkout), a Node agent runtime the app spawns and drives over JSON-RPC.
+open-waifu is a personal fork of [Jan](https://github.com/janhq/jan) for hobby and learning: a local-first AI chat app (future waifu chat) on Tauri 2, macOS and Windows desktop only. The desktop window runs DeepSeek Harness (DSH) with Jan styling supplied by a DSH UI plugin. A small React bootstrap initializes settings and starts the host. Legacy Jan routes and the stdio transport remain in source for migration, but the desktop entry never loads those routes.
 
 - **Removed from upstream; do not reintroduce:**
   - Build and platforms: CI, the docs site, Linux and mobile targets, MLX, the ADKs, the headless `jan` CLI/TUI and `protocol/`, the e2e/WebDriver hooks, the auto-updater, PostHog/GA telemetry.
@@ -14,16 +14,16 @@ open-waifu is a personal fork of [Jan](https://github.com/janhq/jan) for hobby a
 ## Architecture & Data Flow
 
 ```text
-React UI (web-app) ──ServiceHub──► Tauri commands (src-tauri/src/core)
-  │                                 ├─ dsh/: spawns the DSH runtime, composes cordis.yml, plugin layer, dsh web host
-  │                                 ├─ plugins: llamacpp (jan-llama-worker), hardware
-  │                                 └─ threads, settings, downloads, speech, mcp_config, local API server
-  └─ DshChatTransport ──JSON-RPC over the node process's stdio (dsh-line events)──► DSH runtime
-                                                    ├─ llm → llama.cpp worker or a custom OpenAI-compatible endpoint
-                                                    └─ tools, mcp-client, approvals, plan mode, sessions
+Desktop bootstrap (main-desktop.tsx) → ServiceHub → dsh_web_start
+  → Rust supervises dsh web → main window navigates to its loopback origin
+  → DSH client plugins compose chat, sessions, settings and plugin management
+  → open-waifu-shell supplies Jan styling, branding and native window controls
+
+Legacy web routes → DshChatTransport → stdio DSH runtime
+Rust retains llama.cpp, hardware, settings, downloads, speech and local API code.
 ```
 
-- **A chat turn** (`web-app/src/lib/dsh-chat-transport.ts`):
+- **Legacy Jan chat path, not the desktop shell** (`web-app/src/lib/dsh-chat-transport.ts`):
   1. `resolveEndpoint` picks the model endpoint: for `llamacpp` it starts the model and uses `127.0.0.1:<port>/v1`; for a custom provider its `base_url` and first key.
   2. `DshConnection.ensure` calls `dsh_start` (restarts the one shared process when the launch config changed) and sends `initialize`.
   3. `session/prompt` carries content blocks (text, `image-data`), `instructions`, `history` (only when seeding a new session), `cwd`, `editPolicy`, `plan` and `options.maxTokens`. DSH takes no temperature/top_p.
@@ -34,10 +34,12 @@ React UI (web-app) ──ServiceHub──► Tauri commands (src-tauri/src/core)
 - **Plugin config** (`src-tauri/src/core/dsh/plugins.rs`): on every start it writes `<data>/dsh/cordis.yml` from the embedded base `core/dsh/cordis.yml`, the user layer `<data>/dsh/plugins.yml`, and one `mcp-client` row per server in `<data>/mcp_config.json` (inactive ones as `disabled: true`). npm installs go to `<data>/dsh/user_modules`. A loader `name` that is an absolute path must be a `file:///` URL, or Node rejects `C:/…` as a URL scheme; base rows use the `{{DSH_PACKAGES}}` token for DSH packages missing from `examples/node_modules` (e.g. `dsh-pwsh-sandbox`).
 - **Base composition** mirrors DSH's `packages/bundle/base`: the shell is `pwsh` on Windows and `bash` on macOS, both through `dsh-sandbox-local` + `dsh-sandbox-policy` (writes limited to the thread workspace, a denial reaches the model as the tool result); file tools go through `dsh-fs-sandbox`. Also mounted: skills, background jobs, goals, workspace instructions (AGENTS.md), time context, subagent spawn/fork/control/report, workflow and Ralph, spill/timeout/pruner/repeat-reminder policies.
 - **DSH commands:** `dsh_start|send|stop|status|restart|check_root`, `dsh_plugins_list`, `dsh_plugin_set_enabled|set_config|install|remove`, `dsh_thread_workspace`, `dsh_read_workspace_file`, `dsh_web_start` (DSH's own web host; it stops with the app, see `docs/plans/2026-11-13-dsh-host-shell.md`).
-- **Local models** have no extension layer: `services/models/default.ts` → `LlamacppEngine` (`web-app/src/lib/llamacpp/engine.ts`) → `@janhq/tauri-plugin-llamacpp-api` → Rust spawns `jan-llama-worker`. Engine settings schema: `lib/llamacpp/settings.json`. Downloads: `lib/llamacpp/download-service.ts` → `lib/native/download.ts` → Rust `download_files`. Devices are filtered to those the running engine reported before load.
+- **DSH shell is the only desktop UI.** Vite selects `web-app/src/main-desktop.tsx` and scans that entry for dependencies. `ServiceHubProvider` hydrates settings, calls `dsh_web_start`, and shows the real startup error with Retry on failure. No shell selector, `?shell=jan` escape, or return-to-Jan action exists. `core/dsh/web.rs` writes `<data>/dsh/web.patch.yml`: the bundled `dsh/open-waifu-shell` plugin, theme, active endpoints as `openai-completions` routes (keys via `OW_PROVIDER_KEY_<i>` from the keyring, never in the file), and the selected model. `DSH_HOME` is `<data>/dsh/web-home`. The host uses global `@deepseek-ai/dsh` (`OW_DSH_CLI` overrides its entry). Capability `dsh-shell` grants loopback pages window controls only. Navigate from Rust: the launch cookie is SameSite=Strict.
+- **Current migration blocker:** desktop `shellSetup` excludes llama.cpp, and `main-desktop.tsx` does not mount the legacy engine bootstrap. Local-only chat is not working in the DSH desktop path yet. Restore engine startup and handoff before calling the migration complete.
+- **Legacy local models** have no extension layer: `services/models/default.ts` → `LlamacppEngine` (`web-app/src/lib/llamacpp/engine.ts`) → `@janhq/tauri-plugin-llamacpp-api` → Rust spawns `jan-llama-worker`. Engine settings schema: `lib/llamacpp/settings.json`. Downloads: `lib/llamacpp/download-service.ts` → `lib/native/download.ts` → Rust `download_files`. Devices are filtered to those the running engine reported before load.
 - **ServiceHub** (`web-app/src/services/index.ts`): defaults are field initializers; on Tauri `initialize()` swaps in `tauri.ts` variants for theme, window, events, hardware, app, mcp, providers, dialog, opener, path, core, deeplink, speech and dsh. Threads, messages, models, assistants, projects and uploads stay default-only and reach Rust through `APIs` in `lib/service.ts` (several routes there have no Rust command and fail at runtime; check `lib.rs` before using one).
 - **Rust commands:** one `generate_handler!` list in `invoke_commands_with_extras!` in `src-tauri/src/lib.rs`. A command missing from it fails only at runtime. Plugins and `AppState` are registered in `run()`.
-- **Plugins:** `src-tauri/plugins/tauri-plugin-{llamacpp,hardware}/`, each with a `guest-js/` wrapper (`@janhq/tauri-plugin-<name>-api`) and a `COMMANDS` list in `build.rs` generating `permissions/autogenerated/`. App permissions: `src-tauri/capabilities/{default,desktop}.json`.
+- **Plugins:** `src-tauri/plugins/tauri-plugin-{llamacpp,hardware}/`, each with a `guest-js/` wrapper (`@janhq/tauri-plugin-<name>-api`) and a `COMMANDS` list in `build.rs` generating `permissions/autogenerated/`. App permissions: `src-tauri/capabilities/{default,desktop,dsh-shell}.json`.
 - **Model providers:** exactly two kinds, `llamacpp` and user-added OpenAI-compatible endpoints. No vendor SDKs or per-vendor converters.
 - **Storage:** threads are `thread.json` + `messages.jsonl` per thread under the Jan data folder with per-thread async locks (`core/threads/`). DSH keeps sessions in `<data>/dsh/sessions` and per-thread workspaces in `<data>/dsh/workspace/threads/<id>`.
 - **Local API server** (`src-tauri/src/core/server/proxy.rs`, hyper 1.x): routes `/chat/completions`, `/completions`, `/embeddings`, `/models`, `/openapi.json`; it only proxies to the engine. Auth is `Authorization: Bearer` or `x-api-key`; spec `src-tauri/static/openapi.json`.
@@ -76,7 +78,7 @@ cargo check --manifest-path src-tauri/Cargo.toml   # add --no-default-features -
 ```
 
 - **Build order:** `yarn build:tauri:plugin:api` → `yarn build:core` → web → tauri. Rebuild `core/` or a plugin `guest-js/` after editing it (the web-app imports their builds; vitest aliases the guest-js sources).
-- **DSH is not built here.** Chats need a `deepseek-harness` checkout, set in Settings → DeepSeek Harness (`useDshSettings`), built with `pnpm install` (and `pnpm run build` for the `dsh web` host), plus `node` on PATH. The runtime entry is `<checkout>/packages/examples/jsonrpc-demo/lib/bin.js`.
+- **DSH is not built here.** Desktop startup needs Node 22+ and global `@deepseek-ai/dsh`, or `OW_DSH_CLI` pointing to a built CLI entry. The separate `deepseek-harness` checkout and its `packages/examples/jsonrpc-demo/lib/bin.js` entry are needed only by the legacy stdio transport.
 - **Engine knobs:** `JAN_ENGINE_CUDA_ARCHS`, `JAN_ENGINE_HIP_TARGETS`, `JAN_ENGINE_JOBS`, `JAN_ENGINE_VULKAN_FALLBACK` (default 1), `JAN_ENGINE_PROFILE`; log at `src-tauri/target/engine-build.log`.
 - **Windows:** run make from Git Bash (engine/stage scripts are `sh`). Engine builds need VS 2022 Build Tools, LLVM (`clang-cl`), Ninja, CMake, `glslc` for Vulkan, and the CUDA Toolkit for CUDA.
 
@@ -95,7 +97,7 @@ cargo check --manifest-path src-tauri/Cargo.toml   # add --no-default-features -
 
 ## Important Files
 
-- **Entry points:** `web-app/src/main.tsx` (`boot()`, retries once then shows a reload screen), `web-app/src/providers/BootProvider.tsx` (main window only: starts the engine, signals ready, 20 s watchdog), `src-tauri/src/lib.rs` (`run()`, command list).
+- **Entry points:** `web-app/src/main-desktop.tsx` (desktop bootstrap, DSH only), `web-app/src/main.tsx` (legacy web routes), `web-app/src/providers/ServiceHubProvider.tsx` (settings hydration and shell startup), `src-tauri/src/lib.rs` (`run()`, command list). `BootProvider.tsx` belongs to the legacy route tree and is not mounted by the desktop entry.
 - **DSH:** `web-app/src/lib/dsh-chat-transport.ts`, `lib/dsh-protocol.ts`, `src-tauri/src/core/dsh/{mod,commands,plugins,web}.rs`, `src-tauri/src/core/dsh/cordis.yml`, `extensions/dsh-openwaifu-server/index.js`.
 - **Config:** root `package.json` (workspaces `core`, `web-app`), `Makefile`, `src-tauri/Cargo.toml`, `src-tauri/tauri{,.macos,.windows}.conf.json`, `web-app/vite.config.ts` (`IS_TAURI`, `PLATFORM`, `VERSION` defines), `vitest.config.ts`.
 - **Do not hand-edit:** `web-app/src/routeTree.gen.ts`, `src-tauri/plugins/*/permissions/autogenerated/`, generated icons in `src-tauri/icons/` (only `icon.png` sources are tracked), `src-tauri/resources/`, `src-tauri/gen/`, `vendor/llama.cpp`.

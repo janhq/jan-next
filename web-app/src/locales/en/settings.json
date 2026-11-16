@@ -347,12 +347,7 @@
     "stopped": "Starts with the first message",
     "stop": "Stop",
     "rootOk": "Harness folder is ready",
-    "rootInvalid": "Harness folder is not usable",
-    "app": "DSH app",
-    "appOpen": "Open DSH app",
-    "appStarting": "Starting…",
-    "appWindow": "DeepSeek Harness",
-    "appDesc": "DSH's own interface in a new window, built entirely from plugins. Pick Creator mode in its mode menu. Needs a built harness folder (pnpm run build)."
+    "rootInvalid": "Harness folder is not usable"
   },
   "voice": {
     "engine": "Local voice engine",

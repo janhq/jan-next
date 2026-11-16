@@ -20,7 +20,7 @@ describe('windows constants', () => {
   })
 
   it('should have all required keys', () => {
-    const expectedKeys = ['logsAppWindow', 'dshApp', 'logsWindowLocalApiServer', 'systemMonitorWindow']
+    const expectedKeys = ['logsAppWindow', 'logsWindowLocalApiServer', 'systemMonitorWindow']
     const actualKeys = Object.keys(windowKey)
     
     expect(actualKeys).toEqual(expect.arrayContaining(expectedKeys))

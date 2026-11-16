@@ -10,8 +10,6 @@ import { useTranslation } from '@/i18n/react-i18next-compat'
 import { useServiceHub } from '@/hooks/useServiceHub'
 import { useDshSettings } from '@/hooks/useDshSettings'
 import type { DshStatus } from '@/services/dsh/types'
-import { toast } from 'sonner'
-import { windowKey } from '@/constants/windows'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const Route = createFileRoute(route.settings.dsh as any)({
@@ -90,29 +88,6 @@ function DshSettings() {
       current = false
     }
   }, [serviceHub, root])
-
-  const [opening, setOpening] = useState(false)
-  // DSH's own shell, where every screen is a DSH UI plugin and its modes
-  // (Creator mode among them) live. Its own window until it replaces this UI.
-  const openDshApp = async () => {
-    setOpening(true)
-    try {
-      const url = await serviceHub.dsh().webStart(root.trim())
-      await serviceHub.window().openWindow({
-        label: windowKey.dshApp,
-        url,
-        title: t('settings:dsh.appWindow'),
-        width: 1280,
-        height: 860,
-        center: true,
-        resizable: true,
-      })
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
-    } finally {
-      setOpening(false)
-    }
-  }
 
   const stopRuntime = async () => {
     await serviceHub.dsh().stop()
@@ -205,22 +180,6 @@ function DshSettings() {
                       {t('settings:dsh.stop')}
                     </Button>
                   )
-                }
-              />
-            </Card>
-            <Card title={t('settings:dsh.app')}>
-              <CardItem
-                title={t('settings:dsh.appOpen')}
-                description={<span className="text-pretty">{t('settings:dsh.appDesc')}</span>}
-                actions={
-                  <Button
-                    size="sm"
-                    data-testid="dsh-open-app"
-                    disabled={rootError !== '' || opening}
-                    onClick={openDshApp}
-                  >
-                    {opening ? t('settings:dsh.appStarting') : t('settings:dsh.appOpen')}
-                  </Button>
                 }
               />
             </Card>

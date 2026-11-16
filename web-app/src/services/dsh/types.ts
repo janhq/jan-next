@@ -10,6 +10,16 @@ export interface DshLaunch {
   cwd: string
 }
 
+/** What the DSH shell takes over from the Jan UI on each start. */
+export interface DshShellSetup {
+  /** OpenAI-compatible endpoints; keys are read from the keyring by name. */
+  providers: { name: string; baseUrl: string; models: string[] }[]
+  /** `[provider name, model id]` of the Jan UI's selected model. */
+  defaultModel: [string, string] | null
+  look: { primary: string; sidebar: { light: string; dark: string } } | null
+  theme: 'light' | 'dark' | 'system'
+}
+
 export interface DshStatus {
   running: boolean
   launch: DshLaunch | null
@@ -62,10 +72,10 @@ export interface DshService {
   /** Reads `path` (relative or absolute) inside `folder`; refuses one outside it. */
   readWorkspaceFile(folder: string, path: string): Promise<WorkspaceFile>
   /**
-   * Starts DSH's own web host (every screen a DSH UI plugin) from the
-   * checkout at `root` and resolves to its loopback URL.
+   * Starts DSH's own web host (every screen a DSH UI plugin) with `setup`
+   * and moves the main window onto it. Restarts it when `setup` changed.
    */
-  webStart(root: string): Promise<string>
+  webStart(setup: DshShellSetup): Promise<void>
   /** One parsed JSON-RPC frame from the runtime's stdout. */
   onFrame(cb: (frame: Record<string, unknown>) => void): Promise<() => void>
   /** The runtime exited; `stderr` is its last lines. */

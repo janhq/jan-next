@@ -1,6 +1,26 @@
 # Plan: the app window is DSH's web host; Jan's screens become DSH UI plugins
 
-Status: proposed (2026-11-13). Owner picked this over keeping Jan's React shell.
+Status: desktop shell cutover implemented (2026-11-16). Jan visual parity remains under verification. The owner requires one DSH UI with Jan's layout; Plugins and Automation may remain as additional features.
+
+## Desktop cutover verification
+
+- Vite selects `web-app/src/main-desktop.tsx` for Tauri and scans that entry for dependencies. It initializes settings and starts DSH without loading Jan's legacy route tree.
+- `ServiceHubProvider` starts DSH unconditionally on desktop. The shell selector, `?shell=jan` escape, setup return URL and return-to-Jan footer were removed. A startup failure shows its reason and Retry.
+- Three measured reloads displayed a working composer in 3.9, 3.1 and 3.0 seconds (median 3.1 seconds). Earlier baseline was 21.4 seconds. These are dev-build reloads with the DSH host already running, not cold installation timings.
+- Actual UI proof: send a message and receive a reply, reopen the saved chat after reload, install a separate local UI plugin, enable it, observe its footer and accent contribution after reload, disable and uninstall it. Screenshots and limitations are recorded in `C:/Users/thinhlpg/.co/asset-work/open-waifu-dsh-shell/notes.md`.
+- The shell plugin registers a separate locale namespace and uses slot registrations and theme tokens. Its branding seats use priority -1, so user plugins can replace them at -2 or lower. Settings and Plugin manager footer actions use DSH services.
+- P1 migration blocker: `shellSetup` filters out llama.cpp and the desktop bootstrap does not start the engine. A selected local-only model therefore cannot chat through the DSH desktop path yet. The verified flow uses 9router. This checkpoint is experimental, not a behavior-preserving release.
+- Remaining: local model startup and provider handoff, full Jan sidebar/composer/model-picker parity, plugin-manager first-open loading feedback, and migration of native Model Hub/engine/voice controls. The legacy routes still exist in source; their removal is not complete.
+- Checkpoint checks: TypeScript passed; both shell JavaScript files passed `node --check`; the native desktop launched and displayed the saved chat and Settings. `yarn lint` reported 33 errors in untouched llama.cpp, native filesystem, legacy service and model-service files. No test suite was run.
+- The owner's 2026-11-16 commit/push checkpoint pauses further UI edits. Unregistered wrapper experiments were removed from the package and saved outside the repository for later work.
+
+## Runtime configuration
+
+- The host currently uses global `@deepseek-ai/dsh` 0.2.2; `OW_DSH_CLI` selects another built CLI entry. A checkout is needed only for the legacy stdio transport.
+- Rust writes `<data>/dsh/web.patch.yml` on startup with the shell plugin, theme, active provider routes and selected model. Provider keys come from the OS keyring through `OW_PROVIDER_KEY_<i>` environment variables and are never written to the patch.
+- Host state is stored in `<data>/dsh/web-home`, separate from `~/.dsh`.
+- Rust starts navigation to the launch URL so DSH's SameSite=Strict authentication cookie survives the redirect. The `dsh-shell` capability grants only native window controls to loopback pages in the main window.
+- A fresh profile previously took about 100 seconds to install. Cold startup has not been remeasured for this checkpoint.
 
 ## Goal
 
@@ -34,7 +54,7 @@ Rust core (src-tauri) ◄──HTTP (loopback, bearer)── open-waifu host plu
 
 ## Phases
 
-1. **Shell swap behind a flag.** Rust starts `dsh web --profile open-waifu` on a free loopback port (`--port 0`, URL read from the `dsh web:` line) instead of `jsonrpc-demo`. A setting switches the main window between the current Jan UI and the DSH shell. Creator mode works here.
+1. **Desktop shell cutover, implemented.** Rust starts global `dsh web` on a free loopback port (`--port 0`, URL read from the `dsh web:` line). The desktop bootstrap always opens that host. Jan branding and native window controls come from `open-waifu-shell`; full layout parity remains in progress.
 2. **Engines as a provider.** `ow-engines` host plugin registers llama.cpp as an OpenAI-compatible LLM provider in DSH's model settings (it already speaks `/chat/completions` on the local server). audio.cpp shows as a speech service.
 3. **Jan screens as client plugins.** Port Model Hub, engines settings and voice to `dsh.client` packages. Chat, threads, workspace, plan, approvals, questions, subagents and settings come from DSH's own plugins, so Jan's versions are deleted, not ported.
 4. **Super agent.** Add `dsh-superagent` to the profile's bundles. Its setup (`SETUP.md`) needs a GitHub repo and token; Feishu is optional.
@@ -42,7 +62,7 @@ Rust core (src-tauri) ◄──HTTP (loopback, bearer)── open-waifu host plu
 
 ## Open decisions
 
-- **Where DSH comes from.** Today: a local `deepseek-harness` checkout. Shipping needs a pinned install (`@deepseek-ai/dsh` from npm, `0.1.0-rc.5`) under the app data dir.
+- **Host distribution.** Development currently uses global `@deepseek-ai/dsh` 0.2.2. A packaged release still needs a pinned, app-managed runtime instead of depending on a global Node/npm installation.
 - **Chat look.** DSH's chat is a coding-agent UI. The waifu chat look becomes either a theme plus a custom `conversation.chat.node` renderer, or a separate client plugin with its own route.
 - **React versions.** DSH ships React 18 and the web-app uses 19. Client plugins share DSH's React, so ported screens target 18.
 

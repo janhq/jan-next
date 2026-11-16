@@ -17,7 +17,8 @@
         "default",
         "log-app-window",
         "logs-window",
-        "system-monitor-window"
+        "system-monitor-window",
+        "dsh-shell"
       ],
       "csp": {
         "default-src": "'self' customprotocol: asset: http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*",
@@ -58,6 +59,6 @@
       "icons/macos/icon.icns",
       "icons/windows/icon.ico"
     ],
-    "resources": ["resources/LICENSE"]
+    "resources": ["resources/LICENSE", "../dsh/open-waifu-shell/**/*"]
   }
 }

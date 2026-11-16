@@ -163,12 +163,23 @@ fn checkout_root(dir: &std::path::Path) -> std::path::PathBuf {
         .unwrap_or_default()
 }
 
-/// Starts DSH's own web host from the checkout at `root` and returns its URL.
+/// Starts DSH's own web host with the Jan UI's providers and look, and moves
+/// the main window onto it.
 #[tauri::command]
 pub async fn dsh_web_start<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, AppState>,
-    root: String,
-) -> Result<String, String> {
-    super::web::start(&state.dsh_web, &data_dir(&app), std::path::Path::new(&root)).await
+    setup: super::web::ShellSetup,
+) -> Result<(), String> {
+    use tauri::Manager;
+    let url = super::web::start(&app, &state.dsh_web, &data_dir(&app), setup).await?;
+    let url = tauri::Url::parse(&url).map_err(|e| e.to_string())?;
+    // From here, not `location` in the page: DSH's launch URL sets a
+    // SameSite=Strict cookie and redirects, and a chain the Jan origin starts
+    // is cross-site, so the cookie would be withheld and the shell answer 401.
+    // An app-initiated navigation has no initiating site.
+    app.get_webview_window(super::web::WINDOW_LABEL)
+        .ok_or("no main window")?
+        .navigate(url)
+        .map_err(|e| e.to_string())
 }

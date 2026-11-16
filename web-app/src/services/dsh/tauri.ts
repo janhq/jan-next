@@ -3,6 +3,7 @@ import { listen } from '@tauri-apps/api/event'
 import type {
   DshLaunch,
   DshPluginEntry,
+  DshShellSetup,
   DshService,
   DshStatus,
   WorkspaceFile,
@@ -21,8 +22,8 @@ export class TauriDshService implements DshService {
   status() {
     return invoke<DshStatus>('dsh_status')
   }
-  webStart(root: string) {
-    return invoke<string>('dsh_web_start', { root })
+  webStart(setup: DshShellSetup) {
+    return invoke<void>('dsh_web_start', { setup })
   }
   checkRoot(root: string) {
     return invoke<void>('dsh_check_root', { root })

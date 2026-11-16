@@ -11,6 +11,14 @@ const host = process.env.TAURI_DEV_HOST
 export default defineConfig(() => {
   return {
     plugins: [
+      {
+        name: 'desktop-bootstrap-entry',
+        transformIndexHtml(html) {
+          return process.env.IS_TAURI && process.env.IS_TAURI !== 'false'
+            ? html.replace('/src/main.tsx', '/src/main-desktop.tsx')
+            : html
+        },
+      },
       TanStackRouterVite({
         target: 'react',
         autoCodeSplitting: true,
@@ -22,6 +30,12 @@ export default defineConfig(() => {
         include: ['path'],
       }),
     ],
+    optimizeDeps: {
+      entries:
+        process.env.IS_TAURI && process.env.IS_TAURI !== 'false'
+          ? ['src/main-desktop.tsx']
+          : ['index.html'],
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),

@@ -117,8 +117,9 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             if is_app_url(url, dev_url.as_ref()) {
                 return true;
             }
-            // DSH's web host is the app's content for its own window: it may
-            // stay on the loopback origin the app started it on, and only there.
+            // DSH's web host is the app's content when the main window shows
+            // the DSH shell: it may use the loopback origin the app started
+            // it on, and only that one.
             if webview.label() == crate::core::dsh::web::WINDOW_LABEL
                 && crate::core::dsh::web::is_host_url(webview.app_handle(), url)
             {
