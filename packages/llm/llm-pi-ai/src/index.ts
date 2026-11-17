@@ -223,9 +223,11 @@ export function apply(ctx: Context, config: Config): void {
   const listings = new RouteModelListings({
     target: (provider, profile) => listingTarget(provider, profile),
     signal: unloading.signal,
-    onChange: (provider, models) => {
+    onChange: (provider, models, fetched) => {
       registration?.modelsChanged()
-      void adoptListedDefault(provider, models)
+      // Only a listing fetched with the current endpoint and credential may
+      // move the saved default; a stored one may belong to another account.
+      if (fetched) void adoptListedDefault(provider, models)
     },
     onStale: (provider, error) => {
       ctx.logger.warn(`llm-pi-ai: could not refresh the model listing of provider route "${provider}"; keeping the last listing`)

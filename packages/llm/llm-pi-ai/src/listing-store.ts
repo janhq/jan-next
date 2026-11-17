@@ -1,7 +1,7 @@
 /**
  * Durable copies of runtime model listings, kept through the optional
- * `storageDomain` service so a listing route serves its last listing from the
- * first read after a restart, including while its endpoint is unreachable.
+ * `storageDomain` service so that after a restart a listing route serves its
+ * last listing while the launch refresh runs and after it fails.
  *
  * Each record holds the route's listed models, when they were fetched, and the
  * SHA-256 fingerprint of the endpoint and credential that fetched them; the
@@ -61,6 +61,8 @@ export async function openListingStore(facility: DomainFacility): Promise<Opened
   const spec = defineDomain({
     name: DOMAIN_NAME,
     version: 1,
+    // Listings are disposable copies: an unreadable record is set aside, not fatal.
+    invalidRecords: 'backup-and-skip',
     tables: { listings: domainTable<string, PersistedListing>(persistedListingSchema) },
   })
   const domain = await facility.open(spec)

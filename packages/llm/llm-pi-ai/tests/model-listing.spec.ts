@@ -213,6 +213,16 @@ describe('modelListing configuration', () => {
     expect(profile?.piProvider?.getModels().map(model => model.id)).toEqual(['openai/gpt-6-sol', 'axbc'])
   })
 
+  it('serves nothing from an emptied listing on a route the installed catalog also describes', () => {
+    for (const listed of [[], [{ id: 'gpt-image-1' }]]) {
+      const profile = resolveProfiles({
+        openai: { api: 'openai-completions', baseURL: 'http://x', modelListing: { exclude: ['gpt-image-*'] } },
+      }, 'deferred', new Map([['openai', listed]])).get('openai')
+      expect(profile?.piProvider).toBeUndefined()
+      expect(profile?.catalogError).toBeUndefined()
+    }
+  })
+
   it('serves nothing, without a diagnostic, for an empty listing', () => {
     const profile = resolveProfiles(
       { r: { api: 'openai-completions', baseURL: 'http://x', modelListing: {} } },
@@ -338,8 +348,8 @@ describe('runtime model listing', () => {
       await ctx.credentials.unset(credentialRef('TOKAMAK_LISTING_KEY'))
       await expect(ctx.llm.listModels('tokamak')).rejects.toMatchObject({ code: 'MISSING_CREDENTIAL' })
       gate.resolve(undefined)
-      // The superseded request stores nothing for the signed-out route.
-      expect(await stale).toEqual([])
+      // The superseded request stores nothing; its reader answers for the signed-out state.
+      await expect(stale).rejects.toMatchObject({ code: 'MISSING_CREDENTIAL' })
       server.listings.length = 0
     }
   })
@@ -507,6 +517,23 @@ describe('runtime model listing', () => {
       expect((await online.ctx.llm.listModels('tokamak')).map(model => model.id)).toEqual(['tokamak/auto'])
     })
     expect(server.listings.length).toBeGreaterThan(before)
+  })
+
+  it('serves the stored listing while a slow launch refresh runs, without moving the default', async () => {
+    const server = await router()
+    const root = await storageRoot()
+    const first = await boot(route(server.url, { refreshIntervalMs: 1 }), { key: 'tk-one', storage: root })
+    await first.ctx.llm.listModels('tokamak')
+    await first.ctx.fiber.dispose()
+
+    server.hang = true
+    const restarted = await boot(route(server.url, { refreshIntervalMs: 60000, timeoutMs: 60000 }), { key: 'tk-one', storage: root, defaults: true })
+    // Storage opening announces the stored listing.
+    const booted = restarted.updates()
+    await vi.waitFor(() => { expect(restarted.updates()).toBeGreaterThan(booted) })
+    expect((await restarted.ctx.llm.listModels('tokamak')).map(model => model.id)).toEqual(['tokamak/auto', 'anthropic/opus'])
+    // The default names an unlisted model, but only a fetched listing may move it.
+    expect(restarted.defaults?.saves).toEqual([])
   })
 
   it('does not serve another account\'s stored listing, and forgets it on sign-out', async () => {

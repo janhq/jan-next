@@ -38,8 +38,12 @@ export interface RouteModelListingsOptions {
    * `MISSING_CREDENTIAL` while the route's credential or endpoint is unset.
    */
   target: (provider: string, profile: ListingProfile) => Promise<ListingTarget>
-  /** Observe a stored listing whose models differ from the one it replaced. */
-  onChange: (provider: string, models: readonly LlmDiscoveredModel[]) => void
+  /**
+   * Observe a held listing whose models differ from the one it replaced.
+   * `fetched` is true for a listing this process fetched, and false for one
+   * adopted from the attached store or dropped.
+   */
+  onChange: (provider: string, models: readonly LlmDiscoveredModel[], fetched: boolean) => void
   /** Observe a failed refresh that kept the previous listing. */
   onStale: (provider: string, error: unknown) => void
   /** Observe a failed write to the attached {@link ListingStore}. */
@@ -93,7 +97,8 @@ function fingerprintOf(target: ListingTarget): string {
 /** Stored model listings for every listing route of one plugin instance. */
 export class RouteModelListings {
   private readonly stored = new Map<string, StoredListing>()
-  private readonly inflight = new Map<string, { fingerprint: string; done: Promise<void> }>()
+  /** One running request per route; `done` resolves false when a later state superseded it. */
+  private readonly inflight = new Map<string, { fingerprint: string; done: Promise<boolean> }>()
   private readonly now: () => number
   private version = 0
   private store: ListingStore | undefined
@@ -115,7 +120,7 @@ export class RouteModelListings {
       if (this.stored.has(provider)) continue
       this.stored.set(provider, { ...listing, checkedAt: listing.fetchedAt })
       this.version += 1
-      this.options.onChange(provider, listing.models)
+      this.options.onChange(provider, listing.models, false)
     }
     for (const [provider, { fingerprint, models, fetchedAt }] of this.stored) {
       if (persisted.get(provider)?.fetchedAt !== fetchedAt) this.persist(provider, { fingerprint, models, fetchedAt })
@@ -143,7 +148,10 @@ export class RouteModelListings {
   /**
    * Make sure one route's listing is current. A listing fetched with the same
    * endpoint and credential within `refreshIntervalMs` is kept without a
-   * request unless `force` is set; concurrent callers share one request.
+   * request unless `force` is set, and so is an older one while a request for
+   * the same endpoint and credential is already running; concurrent callers
+   * share one request. A caller whose request is superseded by a sign-out or
+   * another credential settles against that newer state.
    * @param provider - the listing route.
    * @param profile - the route's resolved profile.
    * @param force - fetch even when the stored listing is fresh.
@@ -161,23 +169,35 @@ export class RouteModelListings {
     }
     const fingerprint = fingerprintOf(target)
     const current = this.stored.get(provider)
-    if (!force && current?.fingerprint === fingerprint
-      && this.now() - current.checkedAt < profile.modelListing.refreshIntervalMs) return
     const pending = this.inflight.get(provider)
-    if (pending?.fingerprint === fingerprint) return pending.done
-    const done = this.fetch(provider, profile, target, fingerprint)
-      .finally(() => { if (this.inflight.get(provider)?.done === done) this.inflight.delete(provider) })
-    this.inflight.set(provider, { fingerprint, done })
-    return done
+    if (!force && current?.fingerprint === fingerprint && (
+      this.now() - current.checkedAt < profile.modelListing.refreshIntervalMs
+      // A refresh for this account is running: serve its last listing meanwhile.
+      || pending?.fingerprint === fingerprint
+    )) return
+    let request = pending
+    if (request?.fingerprint !== fingerprint) {
+      const started = { fingerprint, done: Promise.resolve(false) }
+      started.done = this.fetch(provider, profile, target, () => this.inflight.get(provider) !== started)
+        .finally(() => { if (this.inflight.get(provider) === started) this.inflight.delete(provider) })
+      this.inflight.set(provider, started)
+      request = started
+    }
+    if (await request.done) return
+    await this.ensure(provider, profile, force)
   }
 
-  /** Forget one route's listing, publishing the change when one was stored. */
+  /**
+   * Forget one route's listing and settle its running request, publishing the
+   * change and deleting the persisted copy when a listing was held.
+   * @param provider - the listing route.
+   */
   drop(provider: string): void {
     this.inflight.delete(provider)
     if (!this.stored.delete(provider)) return
     this.persist(provider, undefined)
     this.version += 1
-    this.options.onChange(provider, [])
+    this.options.onChange(provider, [], false)
   }
 
   /** Write or remove one route's persisted listing; a failure is reported, never thrown. */
@@ -189,15 +209,18 @@ export class RouteModelListings {
   }
 
   /**
-   * Whether a request for `fingerprint` no longer owns the route's result:
-   * the route was dropped, or a request for another endpoint or credential
-   * started since.
+   * Run one listing request and store its result.
+   * @param superseded - whether the route was dropped or another request
+   *   started since this one, which then stores nothing.
+   * @returns false when superseded, true once this request settled the route.
    */
-  private superseded(provider: string, fingerprint: string): boolean {
-    return this.inflight.get(provider)?.fingerprint !== fingerprint
-  }
-
-  private async fetch(provider: string, profile: ListingProfile, target: ListingTarget, fingerprint: string): Promise<void> {
+  private async fetch(
+    provider: string,
+    profile: ListingProfile,
+    target: ListingTarget,
+    superseded: () => boolean,
+  ): Promise<boolean> {
+    const fingerprint = fingerprintOf(target)
     const timeout = AbortSignal.timeout(profile.modelListing.timeoutMs)
     let models: readonly LlmDiscoveredModel[]
     try {
@@ -210,7 +233,7 @@ export class RouteModelListings {
         () => ({ headers: profile.headers, resolveApiKey: () => Promise.resolve(target.apiKey) }),
       )
     } catch (error) {
-      if (this.superseded(provider, fingerprint)) return
+      if (superseded()) return false
       const failure = timeout.aborted && !this.options.signal.aborted
         ? new LlmError(
           `${target.baseURL} did not list its models within ${String(profile.modelListing.timeoutMs)} ms`,
@@ -223,15 +246,16 @@ export class RouteModelListings {
       // fetched; the next attempt waits for the refresh interval.
       current.checkedAt = this.now()
       this.options.onStale(provider, failure)
-      return
+      return true
     }
-    if (this.superseded(provider, fingerprint)) return
+    if (superseded()) return false
     const previous = this.stored.get(provider)
     const fetchedAt = this.now()
     this.stored.set(provider, { fingerprint, models, fetchedAt, checkedAt: fetchedAt })
     this.persist(provider, { fingerprint, models, fetchedAt })
-    if (previous !== undefined && deepEqualJson(previous.models, models)) return
+    if (previous !== undefined && deepEqualJson(previous.models, models)) return true
     this.version += 1
-    this.options.onChange(provider, models)
+    this.options.onChange(provider, models, true)
+    return true
   }
 }

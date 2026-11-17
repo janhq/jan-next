@@ -696,7 +696,11 @@ export function resolveProfiles(
     // A listing route that has no listing yet serves no models and reports no
     // diagnostic. Its configured entries are still validated on writes.
     const models = listing === undefined ? source.models : listed === undefined ? undefined : listedModels(listed, source.models)
-    const resolvesModels = listing === undefined || listed !== undefined || (validation === 'strict' && (source.models?.length ?? 0) > 0)
+    // An empty `models` list means "the installed catalog" to resolveRouteModels,
+    // so an empty served listing resolves nothing instead.
+    const resolvesModels = listing === undefined
+      ? true
+      : listed === undefined ? validation === 'strict' && (source.models?.length ?? 0) > 0 : listed.length > 0
     if (resolvesModels) try {
       catalog = resolveRouteModels({
         provider,
@@ -722,9 +726,6 @@ export function resolveProfiles(
       if (validation === 'strict' || !(error instanceof PiAiCatalogError)) throw error
       catalogError ??= error.message
     }
-    // Listed models that resolve no serviceable entry, such as an empty
-    // listing, leave the route offering nothing rather than a catalog error.
-    if (listing !== undefined && listed !== undefined && listed.length === 0) catalogError = undefined
     const { apiKeyEnv, baseURLEnv, retryPolicy, models: _models, displayName: _displayName, modelListing: _modelListing, ...rest } = source
     resolved.set(provider, {
       ...rest,
