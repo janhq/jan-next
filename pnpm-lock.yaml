@@ -5834,6 +5834,9 @@ importers:
       '@janhq/cordis':
         specifier: workspace:~
         version: link:../../../vendor/cordis
+      '@janhq/jan-agent':
+        specifier: workspace:*
+        version: link:../../core/agent
       '@janhq/jan-api-llama-cpp-controller':
         specifier: workspace:*
         version: link:../../api/llama-cpp-controller
@@ -5849,6 +5852,9 @@ importers:
       '@janhq/jan-client-test-runtime':
         specifier: workspace:*
         version: link:../../test-support/client-runtime
+      '@janhq/jan-client-ui-chat':
+        specifier: workspace:*
+        version: link:../ui-chat
       '@janhq/jan-client-ui-primitives':
         specifier: workspace:*
         version: link:../ui-primitives
@@ -12982,6 +12988,9 @@ importers:
       '@janhq/jan-llm':
         specifier: workspace:*
         version: link:../llm
+      '@janhq/jan-llm-pi-ai':
+        specifier: workspace:*
+        version: link:../llm-pi-ai
       '@janhq/jan-settings':
         specifier: workspace:*
         version: link:../../settings/settings
