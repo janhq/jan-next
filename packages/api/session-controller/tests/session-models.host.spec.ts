@@ -13,7 +13,7 @@ import { Context } from '@janhq/cordis'
 import AgentRegistry from '@janhq/jan-agent'
 import type { Agent } from '@janhq/jan-agent'
 import AttachmentStore from '@janhq/jan-attachment'
-import LlmRuntime, { LlmAdapter, ReasoningEffortId } from '@janhq/jan-llm'
+import LlmRuntime, { LlmAdapter, LlmError, ReasoningEffortId } from '@janhq/jan-llm'
 import type {
   GenerateOptions, LlmCallConfigAdapterDefaults, LlmModelInfo,
   LlmModelReasoningInfo, LlmProviderInfo, LlmResolvedModelInfo, StreamChunk,
@@ -364,6 +364,7 @@ describe('Web session model selection', () => {
         id: 'duplicate',
         name: 'Duplicate Provider',
         message: 'adapter returned invalid or duplicate model metadata for provider "duplicate"',
+        code: 'INVALID_CATALOG',
       },
     ])
     await ctx.fiber.dispose()
@@ -386,6 +387,11 @@ describe('Web session model selection', () => {
         return Promise.reject('string catalog failure')
       }
     }('String Failure', []))
+    ctx.llm.registerAdapter(['signed-out'], new class extends CatalogAdapter {
+      override listModels(): Promise<readonly LlmModelInfo[]> {
+        return Promise.reject(new LlmError('no credential for provider route "signed-out"', 'MISSING_CREDENTIAL'))
+      }
+    }('Signed Out', []))
     await createSessionTestRemote(ctx, {
       defaultModelSelection: () => ({ provider: 'example', model: 'tokamak-chat' }),
       cwd: '/tmp',
@@ -411,6 +417,9 @@ describe('Web session model selection', () => {
     ]))
     expect(catalog.failures).toContainEqual({
       id: 'string-failure', name: 'String Failure', message: 'string catalog failure',
+    })
+    expect(catalog.failures).toContainEqual({
+      id: 'signed-out', name: 'Signed Out', message: 'no credential for provider route "signed-out"', code: 'MISSING_CREDENTIAL',
     })
     await ctx.fiber.dispose()
   })
