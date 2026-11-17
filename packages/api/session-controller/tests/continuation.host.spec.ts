@@ -21,8 +21,12 @@ it.each(['RATE_LIMIT', 'SERVER', 'TIMEOUT', 'TRANSPORT', 'EMPTY_RESPONSE', 'STRE
     expect(definition.wire.view(fold(events(failed(code))))).toBe(5)
   },
 )
+it('accepts a context-window failure for an admitted turn after the local model is resized', () => {
+  expect(definition.wire.view(fold(events(failed('CONTEXT_WINDOW_EXCEEDED'))))).toBe(5)
+  expect(definition.wire.view(fold(events(failed('INVALID_REQUEST'))))).toBeNull()
+})
 it.each(['AUTH', 'QUOTA', 'ACCOUNT_QUOTA', 'MISSING_CREDENTIAL', 'INVALID_CREDENTIAL', 'UNKNOWN_MODEL',
-  'INVALID_REQUEST', 'CONTEXT_WINDOW_EXCEEDED', 'TOOL_ACTIVATION_FAILED', 'MALFORMED_RESPONSE', 'PI_AI_ERROR', 'UNKNOWN'])(
+  'INVALID_REQUEST', 'TOOL_ACTIVATION_FAILED', 'MALFORMED_RESPONSE', 'PI_AI_ERROR', 'UNKNOWN'])(
   'leaves %s to its own recovery action', (code) => {
     expect(definition.wire.view(fold(events(failed(code))))).toBeNull()
   },
