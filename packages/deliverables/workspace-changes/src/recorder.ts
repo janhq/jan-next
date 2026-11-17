@@ -174,13 +174,15 @@ export class TurnRecorder {
   }
 
   /**
-   * Record the turn's changes inside the turn, before `turn/end` commits.
+   * Record the turn's changes inside the turn, before `turn/end` commits. A
+   * turn without tool results has nothing to record, so it stops at once
+   * instead of waiting for its baseline snapshot.
    * @param turn - the stopping turn.
    * @returns after the event is appended or the attempt failed.
    */
   stopping(turn: number): Promise<void> {
     const state = this.state
-    if (turn !== state.turn) return Promise.resolve()
+    if (turn !== state.turn || state.lastToolResultSeq < 0) return Promise.resolve()
     return this.enqueue(signal => this.record(state, signal))
   }
 
