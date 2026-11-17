@@ -136,6 +136,7 @@ export function renderPreset(settings: PresetSettings, models: readonly PresetMo
       ...model.ctxSize !== undefined || (sharedContext > 0 && trained !== undefined && trained < sharedContext)
         ? [`ctx-size = ${String(context)}`] : [],
       ...model.fit !== undefined ? [`fit = ${modelFit ? 'on' : 'off'}`] : [],
+      ...modelFit && !fit ? [`n-gpu-layers = ${String(gpuLayers ?? -1)}`] : [],
       ...!modelFit && fit ? [`n-gpu-layers = ${String(gpuLayers ?? ALL_LAYERS)}`] : [],
       ...moeCacheAllowed && model.facts.expertCount > 0 ? optional('moe-cache-mib', settings.moeCacheMiB) : [],
     ]

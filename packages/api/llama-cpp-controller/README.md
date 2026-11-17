@@ -36,6 +36,7 @@ Mount the row beside `llama-cpp`; it requires the `llamaCpp` and `typert` servic
 | `pauseDownload`, `retryDownload`, `cancelDownload` | Pause a running or queued download, keeping its partial file; restart a failed or paused download from that file; stop one download and discard its files, or dismiss a failed one |
 | `importModel` | Add a `.gguf` file by its absolute Host path, with an optional absolute path of its vision projector, both left in place, and return its model id; a projector given for an already imported file replaces that model's projector |
 | `setDefaultModel`, `loadModel`, `unloadModel`, `deleteModel` | Make a model the default and load it; load or unload a model now; remove a model |
+| `getModelContext`, `setModelContext`, `setModelFit`, `increaseModelContext` | Read the current and GGUF-trained maximum context; save a per-model context length or auto-fit choice and reload the running worker; grow in 8k -> 32k -> 1.5x steps up to the maximum, returning `null` at the limit |
 | `startServer`, `stopServer`, `removeInstall` | Start or stop the worker; stop it and delete every downloaded model and the route credentials |
 
 A failed operation throws a `RemoteError` with code `llama-cpp/failed` and details `{ reason }`, where `reason` is the service's message. A worker start failure from `startServer` or `setDefaultModel` arrives as the `failed` phase on `follow` instead. State snapshots carry no paths or keys; `importModel` accepts paths but returns only an id.

@@ -172,6 +172,11 @@ describe('preset', () => {
     expect(preset).toContain('[other]\nmodel = /m/b.gguf\nctx-size = 8192\nfit = off\nn-gpu-layers = 999\n')
   })
 
+  it('lets a model enable auto-fit even when the shared macOS default pins GPU layers', () => {
+    const preset = renderPreset({ ...settings, fit: false }, [{ ...model, fit: true }], {})
+    expect(preset).toContain('[local]\nmodel = /m/a.gguf\nfit = on\nn-gpu-layers = -1\n')
+  })
+
   it('lets fit choose the context when ctxSize is 0, and pins context and layers with fit off', () => {
     const auto = renderPreset({ ...settings, ctxSize: 0, threads: 4 }, [model], {})
     expect(auto).toContain('fit = on\nfit-target = 1024\nfit-ctx = 16384\n')
