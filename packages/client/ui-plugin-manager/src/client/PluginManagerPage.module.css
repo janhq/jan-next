@@ -691,6 +691,11 @@
   white-space: pre-wrap;
 }
 
+/* A saved change waiting for a restart is pending, not an error. */
+.reasonPending {
+  color: var(--dsw-alias-label-secondary);
+}
+
 .partsHead .subLabel {
   margin: 0;
 }
