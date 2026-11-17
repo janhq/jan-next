@@ -2,12 +2,16 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createSnapshotStore } from '@janhq/jan-client-store'
+import type { TranslateNS } from '@janhq/jan-client-ui-slots'
 import type { ConfigForm, ConfigFormSnapshot } from '@janhq/jan-client-ui-settings/client'
-import { FallbackCard } from '../src/client/FallbackCard.tsx'
-import { ContextCard } from '../src/client/ContextCard.tsx'
+import { FallbackCard, type FallbackCardProps } from '../src/client/FallbackCard.tsx'
+import { ContextCard, type ContextCardProps } from '../src/client/ContextCard.tsx'
 import { en } from '../src/client/locales.ts'
 
-const t = (key: keyof typeof en) => en[key]
+const t: TranslateNS<'settings.modelPolicy'> = key => (en as Record<string, string>)[key] ?? key
+// The cards read only these props; the slot runtime props are never touched.
+const fallbackProps = (form: FallbackCardProps['form']) => ({ form, loadCatalog, t }) as FallbackCardProps
+const contextProps = (form: ContextCardProps['form']) => ({ form, loadCatalog, t }) as ContextCardProps
 const catalog = {
   default: { provider: 'alpha', model: 'a' }, routableProviders: ['alpha', 'beta'], failures: [],
   groups: [
@@ -39,7 +43,7 @@ describe('Fallback models', () => {
   it('renders named ordered routes, then adds, reorders and removes the exact chain', async () => {
     const chain = [{ provider: 'alpha', model: 'a' }, { provider: 'beta', model: 'c' }]
     const { api, store } = form<Fallback>({ chain, cooldownSeconds: 300, switchBackBelowPercent: 30 })
-    render(<FallbackCard form={api} loadCatalog={loadCatalog} t={t} />)
+    render(<FallbackCard {...fallbackProps(api)} />)
     await waitFor(() => { expect(screen.getByText('Model A')).toBeTruthy() })
     expect(screen.getByText('Model C')).toBeTruthy()
     expect(screen.getByText('Provider A')).toBeTruthy()
@@ -63,7 +67,7 @@ describe('Fallback models', () => {
 
   it('shows custom cooldown and disables every write when read-only', async () => {
     const { api } = form<Fallback>({ chain: [], cooldownSeconds: 42, switchBackBelowPercent: 30 }, false)
-    render(<FallbackCard form={api} loadCatalog={loadCatalog} t={t} />)
+    render(<FallbackCard {...fallbackProps(api)} />)
     expect(screen.getByText(en.fallbackEmpty)).toBeTruthy()
     expect(screen.getByRole('status').textContent).toBe(en.readOnly)
     expect(screen.getByRole('option', { name: '42 s' })).toBeTruthy()
@@ -75,7 +79,7 @@ describe('Fallback models', () => {
   it('offers catalog retry after a failed load', async () => {
     loadCatalog.mockRejectedValueOnce(new Error('offline'))
     const { api } = form<Fallback>({ chain: [], cooldownSeconds: 300, switchBackBelowPercent: 30 })
-    render(<FallbackCard form={api} loadCatalog={loadCatalog} t={t} />)
+    render(<FallbackCard {...fallbackProps(api)} />)
     await waitFor(() => { expect(screen.getByText(en.catalogError)).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: en.retry }))
     await waitFor(() => { expect(screen.getByRole('option', { name: 'Model A (Provider A)' })).toBeTruthy() })
@@ -86,7 +90,7 @@ describe('Fallback models', () => {
 describe('Context', () => {
   it('toggles auto-compaction and writes both summary fields in one atomic mutation', async () => {
     const { api } = form<Compaction>({ auto: true, thresholdRatio: 0.8, summarizationProvider: '', summarizationModel: '' })
-    render(<ContextCard form={api} loadCatalog={loadCatalog} t={t} />)
+    render(<ContextCard {...contextProps(api)} />)
     await waitFor(() => { expect(screen.getByRole('option', { name: 'Model C (Provider B)' })).toBeTruthy() })
     fireEvent.click(screen.getByRole('switch', { name: en.autoCompact }))
     expect(api.set).toHaveBeenCalledWith('auto', false)
@@ -104,7 +108,7 @@ describe('Context', () => {
 
   it('shows the backend defaults before the user sets any preference', () => {
     const { api } = form<Compaction>({})
-    render(<ContextCard form={api} loadCatalog={loadCatalog} t={t} />)
+    render(<ContextCard {...contextProps(api)} />)
     expect(screen.getByRole('switch', { name: en.autoCompact }).getAttribute('aria-checked')).toBe('true')
     expect(screen.getByLabelText(en.threshold)).toHaveProperty('value', '0.8')
     expect(screen.getByLabelText(en.summaryModel)).toHaveProperty('value', '')
@@ -112,7 +116,7 @@ describe('Context', () => {
 
   it('disables the threshold while auto is off and every control while read-only', () => {
     const { api } = form<Compaction>({ auto: false, thresholdRatio: 0.8, summarizationProvider: '', summarizationModel: '' }, false)
-    render(<ContextCard form={api} loadCatalog={loadCatalog} t={t} />)
+    render(<ContextCard {...contextProps(api)} />)
     expect(screen.getByRole('status').textContent).toBe(en.readOnly)
     expect(screen.getByRole('switch', { name: en.autoCompact })).toHaveProperty('disabled', true)
     expect(screen.getByLabelText(en.threshold)).toHaveProperty('disabled', true)
