@@ -2,6 +2,11 @@
 # desktop profile template. Only the desktop app mounts these rows; the plain
 # web profile keeps the stock shell.
 
+# The stock empty composer asks what to build; this is a chat app.
+- id: ui-conversation
+  config:
+    heroPlaceholder: Ask anything, / for commands, @ for files or chats
+
 - insert:
     # Jan's palette, sidebar, appearance settings and window controls.
     - id: jan-theme
