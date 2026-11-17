@@ -57,8 +57,6 @@ window.__ModuleLoader__.load({
       root.style.setProperty('--jt-accent', primary)
       root.style.setProperty('--jt-sidebar-light', palette[3])
       root.style.setProperty('--jt-sidebar-dark', palette[4])
-      root.style.setProperty('--jt-bubble-light', value.coloredUserBubble ? `color-mix(in oklch, ${primary} 22%, white)` : 'var(--dsw-alias-bg-layer-2)')
-      root.style.setProperty('--jt-bubble-dark', value.coloredUserBubble ? `color-mix(in oklch, ${primary} 70%, black)` : 'var(--dsw-alias-bg-layer-2)')
       retheme?.()
       appearanceListeners.forEach(listener => listener())
     }
@@ -219,6 +217,11 @@ window.__ModuleLoader__.load({
         '--dsw-alias-button-primary-fill': both(accent),
         '--dsw-alias-button-info-fill': both(accent),
         '--dsw-alias-state-business-primary': both(accent),
+        // Set where the overrides land (body), so the neutral grey resolves
+        // against the layer-2 token defined there; from :root it would not.
+        '--dsw-specific-bubble': value.coloredUserBubble
+          ? { light: `color-mix(in oklch, ${accent} 22%, white)`, dark: `color-mix(in oklch, ${accent} 70%, black)` }
+          : both('var(--dsw-alias-bg-layer-2)'),
       }
     }
     const TOKENS = {
@@ -241,10 +244,6 @@ window.__ModuleLoader__.load({
       },
       '--dsw-specific-input-major': { light: 'oklch(0.97 0 0)', dark: 'oklch(0.235 0 0)' },
       '--dsw-specific-selector': { light: 'oklch(0.94 0 0)', dark: 'oklch(0.269 0 0)' },
-      '--dsw-specific-bubble': {
-        light: 'var(--jt-bubble-light)',
-        dark: 'var(--jt-bubble-dark)',
-      },
       '--dsw-specific-sidebar-fill': { light: 'var(--jt-sidebar-light)', dark: 'var(--jt-sidebar-dark)' },
       '--dsw-specific-sidebar-nav-item-hover': {
         light: `color-mix(in oklch, var(--jt-sidebar-light) 85%, black)`,
