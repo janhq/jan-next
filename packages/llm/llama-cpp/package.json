@@ -39,6 +39,7 @@
     "@janhq/jan-agent-default-model": "workspace:*",
     "@janhq/jan-credentials": "workspace:*",
     "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-llm-pi-ai": "workspace:*",
     "@janhq/jan-settings": "workspace:*",
     "@janhq/jan-subprocess": "workspace:*"
   },
@@ -47,6 +48,7 @@
     "@janhq/jan-agent-default-model": "workspace:*",
     "@janhq/jan-credentials": "workspace:*",
     "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-llm-pi-ai": "workspace:*",
     "@janhq/jan-settings": "workspace:*",
     "@janhq/jan-subprocess": "workspace:*",
     "@janhq/jan-subprocess-local": "workspace:*"
@@ -57,6 +59,9 @@
       "optional": true
     },
     "@janhq/jan-llm": {
+      "optional": true
+    },
+    "@janhq/jan-llm-pi-ai": {
       "optional": true
     },
     "@janhq/jan-settings": {

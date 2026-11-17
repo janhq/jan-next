@@ -25,6 +25,7 @@ import type { SubprocessHandle, SubprocessOutcome } from '@janhq/jan-subprocess'
 import type {} from '@janhq/jan-agent-default-model'
 import type {} from '@janhq/jan-llm'
 import type {} from '@janhq/jan-settings'
+import type {} from '@janhq/jan-llm-pi-ai'
 import type { Artifact } from './artifacts.ts'
 import { CATALOG, catalogModel, DEFAULT_MODEL_ID, SMALL_MODEL_ID, type CatalogModel } from './catalog.ts'
 import { Config } from './config.ts'
@@ -37,8 +38,8 @@ import { accelerators, assessFit, backendOf, type MachineMemory } from './memory
 import { plannedContext, renderPreset, resolvePresetSettings, type PresetModel, type PresetSettings } from './preset.ts'
 import { RateMeter } from './rate.ts'
 import type {
-  HuggingFaceRepoInfo, ImportModelOptions, LlamaCppDownload, LlamaCppHostPlatform, LlamaCppPhase, LlamaCppProgress, LlamaCppState,
-  LocalModelEntry, LocalModelSource, LocalModelStatus, ModelFit,
+  HuggingFaceRepoInfo, ImportModelOptions, LlamaCppDownload, LlamaCppHostPlatform, LlamaCppPhase, LlamaCppPrefill, LlamaCppProgress,
+  LlamaCppState, LocalModelEntry, LocalModelSource, LocalModelStatus, ModelFit,
 } from './types.ts'
 import {
   describeExit, parseDeviceList, parseHandshake, readFirstLine, WorkerClient, WorkerProtocolError, type WorkerModelEvent,
@@ -257,6 +258,8 @@ export class LlamaCpp extends Service {
   private downloadQueue: Promise<unknown> = Promise.resolve()
   private readonly jobs = new Map<string, Job>()
   private lastProgressAt = 0
+  /** Prompt reading of the request in flight on this plugin's route; shown only while the worker runs. */
+  private prefill: LlamaCppPrefill | undefined
   private record: InstallRecord = { version: 3, models: [] }
   /** Record writes in order. */
   private recordWrite: Promise<unknown> = Promise.resolve()
@@ -286,6 +289,13 @@ export class LlamaCpp extends Service {
     if (pinned === undefined) throw new Error('llama-cpp: the catalog has no first-run model')
     this.firstModel = config.firstModelOverride === undefined ? pinned : { ...pinned, ...config.firstModelOverride }
     this.state = this.view()
+    // The route's prompt progress: a read prompt (or an ended call, reported as read) drops it. Reports
+    // come once per batch, seconds apart on a slow machine, so none is throttled.
+    ctx.on('llm-pi-ai/prompt-progress', ({ provider, sessionId, processed, total, cache }) => {
+      if (provider !== config.provider) return
+      this.prefill = processed >= total ? undefined : { ...sessionId === undefined ? {} : { sessionId }, processed, total, cache }
+      this.emit()
+    })
     ctx.effect(() => {
       void this.task(async () => {
         // A key left by a crash or kill belongs to no worker.
@@ -448,6 +458,7 @@ export class LlamaCpp extends Service {
       ...this.server.error === undefined ? {} : { error: this.server.error },
       ...this.server.logTail === undefined ? {} : { logTail: this.server.logTail },
       ...contextSize === undefined ? {} : { contextSize },
+      ...this.prefill === undefined || this.server.phase !== 'running' ? {} : { prefill: this.prefill },
       models: this.record.models.map((model): LocalModelEntry => {
         const kvBytes = estimateKvBytes(model.facts, plannedContext(this.preset, model.facts), this.preset.cacheType) ?? 0
         const settled = this.contexts.get(model.id)
@@ -1129,11 +1140,18 @@ export class LlamaCpp extends Service {
       ...this.record.models.map(model => entry(model.id, `${model.name} (local)`, model)),
     ]
     try {
-      type Section = { providers?: Record<string, { models?: unknown }> } | undefined
+      type Section = { providers?: Record<string, { models?: unknown; promptProgress?: unknown }> } | undefined
       const value = settings.describe().find(row => row.ns === ns)?.value as Section
-      if (value?.providers?.[this.config.provider] === undefined) return
-      if (JSON.stringify(value.providers[this.config.provider]?.models) === JSON.stringify(models)) return
-      await settings.mutate(ns, [{ op: 'set', path: ['providers', this.config.provider, 'models'], value: models }])
+      const route = value?.providers?.[this.config.provider]
+      if (route === undefined) return
+      const path = (key: string): string[] => ['providers', this.config.provider, key]
+      const ops = [
+        ...JSON.stringify(route.models) === JSON.stringify(models) ? [] : [{ op: 'set' as const, path: path('models'), value: models }],
+        // The worker is llama.cpp's server, which reports prompt reading when asked; a route saved
+        // before the flag existed gains it, an explicit choice stays.
+        ...route.promptProgress === undefined ? [{ op: 'set' as const, path: path('promptProgress'), value: true }] : [],
+      ]
+      if (ops.length > 0) await settings.mutate(ns, ops)
     } catch (error) {
       this.ctx.logger.warn(`llama-cpp: could not list the local models on the ${this.config.provider} route`)
       this.ctx.logger.warn(error)

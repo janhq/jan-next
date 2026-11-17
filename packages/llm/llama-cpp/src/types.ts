@@ -15,6 +15,17 @@ export interface LlamaCppProgress {
   bytesPerSecond: number
 }
 
+/** How far the worker got reading the prompt of the request in flight, in tokens. */
+export interface LlamaCppPrefill {
+  /** Session the request belongs to, when the caller named one. */
+  sessionId?: string
+  /** Prompt tokens read so far, including {@link cache}. */
+  processed: number
+  total: number
+  /** Prompt tokens reused from the worker's cache. */
+  cache: number
+}
+
 /** Facts about the default model, or the model the first-run offer installs when none is installed. */
 export interface LlamaCppModelInfo {
   /** Installed or catalog model id. */
@@ -157,6 +168,8 @@ export interface LlamaCppState {
   error?: string
   /** Context size the default model settled on (after `fit`), present while running. */
   contextSize?: number
+  /** Prompt reading of the request in flight, present from its first report until the prompt is read. */
+  prefill?: LlamaCppPrefill
   /** Last worker log lines, present when the worker failed. */
   logTail?: string
   /** Installed models; exactly one is active (the default) when any is installed. */

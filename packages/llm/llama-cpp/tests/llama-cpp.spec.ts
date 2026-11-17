@@ -820,13 +820,13 @@ it('removes the engine directories earlier builds downloaded', async () => {
 
 /** Settings stand-in holding the `llm-pi-ai` section the route sync reads and writes. */
 class FakeSettings extends Service {
-  value: { providers: Record<string, { models?: unknown }> } = { providers: { local: { models: [{ id: 'jan-v3.5-4b' }] } } }
+  value: { providers: Record<string, Record<string, unknown>> } = { providers: { local: { models: [{ id: 'jan-v3.5-4b' }] } } }
   readonly writes: unknown[] = []
   constructor(ctx: Context) { super(ctx, 'settings') }
   describe(): Array<{ ns: string; value: unknown }> { return [{ ns: 'llm-pi-ai', value: this.value }] }
   mutate(ns: string, ops: Array<{ path: string[]; value: unknown }>): Promise<void> {
     this.writes.push({ ns, ops })
-    for (const op of ops) this.value.providers.local = { models: op.value }
+    for (const op of ops) this.value.providers.local = { ...this.value.providers.local, [op.path[2]!]: op.value }
     return Promise.resolve()
   }
 }
@@ -841,7 +841,11 @@ it('lists every installed model and the default\'s alias on the local route when
   await f.until(s => s.phase === 'running')
   const jan = { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B (local)', contextWindow: 32768, maxTokens: 8192, input: ['text'] }
   const alias = { ...jan, id: 'local', name: 'Jan v3.5 4B (local default)' }
-  expect(settings.current?.writes).toEqual([{ ns: 'llm-pi-ai', ops: [{ op: 'set', path: ['providers', 'local', 'models'], value: [alias, jan] }] }])
+  // The first sync also asks the route for prompt-reading progress, once.
+  expect(settings.current?.writes).toEqual([{ ns: 'llm-pi-ai', ops: [
+    { op: 'set', path: ['providers', 'local', 'models'], value: [alias, jan] },
+    { op: 'set', path: ['providers', 'local', 'promptProgress'], value: true },
+  ] }])
   const id = await f.llama.downloadHuggingFace('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')
   await f.until(s => s.models.length === 2)
   // The new model is listed with its planned context, capped at its trained 8192.
