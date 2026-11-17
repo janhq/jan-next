@@ -534,7 +534,7 @@ describe.skipIf(!existsSync(janBin))('jan BUILT bin (node lib/bin.js, no tsx)', 
         jsonrpc: '2.0',
         id: 1,
         method: 'initialize',
-        params: { cwd: home, provider: 'tokamak', model: 'tokamak-1-preview' },
+        params: { cwd: home, provider: 'tokamak', model: 'tokamak/auto' },
       })}\n`)
       const initialized = await response(1)
       expect(initialized, `${JSON.stringify(initialized)}\n${stderr}`).toMatchObject({

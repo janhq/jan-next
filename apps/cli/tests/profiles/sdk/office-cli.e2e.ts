@@ -19,7 +19,7 @@ const repo = fileURLToPath(new URL('../../../../../', import.meta.url))
 const carrier = process.env.JAN_OFFICE_TEST_CARRIER ?? 'npm'
 const executable = process.env.JAN_OFFICE_TEST_EXECUTABLE ?? process.execPath
 const entry = process.env.JAN_OFFICE_TEST_ENTRY ?? join(repo, 'apps/cli/lib/bin.js')
-const model = process.env.MODEL_NAME ?? 'tokamak-1-preview'
+const model = process.env.MODEL_NAME ?? 'tokamak/auto'
 
 it.skipIf(!process.env.TOKAMAK_API_KEY || process.platform === 'win32')(`agent discovers and executes the ${carrier} Office CLI without Node on PATH`, async () => {
   const root = await mkdtemp(join(tmpdir(), 'jan office discovery '))

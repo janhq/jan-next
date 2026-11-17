@@ -85,9 +85,11 @@
     - id: agent-default-model
       name: '@janhq/jan-agent-default-model'
       config:
-        # tokamak-harness: default to the Tokamak router (llm-pi-ai `tokamak` route below).
+        # tokamak-harness: default to the Tokamak router's automatic model (llm-pi-ai
+        # `tokamak` route below). When the router does not list the saved default, the
+        # route moves it to a listed model (`modelListing.preferredDefaults`).
         provider: tokamak
-        model: tokamak-1-preview
+        model: tokamak/auto
 
     - id: jobs
       name: '@janhq/jan-jobs-local'
@@ -142,23 +144,21 @@
         providers:
           # tokamak-harness: Tokamak router, OpenAI-compatible, keyed by the
           # TOKAMAK_API_KEY credential that Tokamak sign-in writes (or the env var).
+          # The router decides which models it serves: the route lists them from
+          # GET {baseURL}/models at startup, after sign-in, and every refreshIntervalMs,
+          # and offers none while signed out or before the first listing succeeds.
           tokamak:
             displayName: Tokamak
             api: openai-completions
             # Same normalization as the account row: a bare host gets /v1.
             baseURL: !!js (process.env.TOKAMAK_BASE_URL || 'https://api.tokamak.sh/v1').trim().replace(/\/+$/, '').replace(/^(https?:\/\/[^/]+)$/, '$1/v1')
             apiKeyEnv: TOKAMAK_API_KEY
+            # Used only for a listed model whose listing reports no context_length.
             defaultContextWindow: 200000
-            models:
-              - id: tokamak-1-preview
-              - id: tokamak/auto
-              - id: anthropic/claude-sonnet-5-5[1m]
-                contextWindow: 1000000
-              - id: anthropic/claude-opus-5-5[1m]
-                contextWindow: 1000000
-              - id: anthropic/claude-haiku-5-5[1m]
-                contextWindow: 1000000
-              - id: openai/gpt-6-sol
+            modelListing:
+              refreshIntervalMs: 600000
+              timeoutMs: 15000
+              preferredDefaults: [tokamak/auto]
           # tokamak-harness: the managed local model (web-app row `llama-cpp`). Its key and
           # endpoint (the worker's OS-assigned port) exist only while that worker runs, so
           # otherwise the route offers no models.
