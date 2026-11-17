@@ -117,7 +117,7 @@ The model picker lists every installed model as `local/<model id>`, so a session
 ## Local mock (no Tokamak account needed)
 
 ```sh
-pnpm tsx packages/credentials/tokamak-account/tests/mock-tokamak.ts 8787   # auto-approves sign-ins
+pnpm tsx packages/credentials/tokamak-account/tests/mock-tokamak.ts 8787   # auto-approves sign-ins; MOCK_TOKAMAK_FAIL_MODELS=503 fails the model listing
 TOKAMAK_BASE_URL=http://127.0.0.1:8787/v1 TOKAMAK_ALLOW_LOOPBACK_HTTP=1 pnpm jan web
 ```
 
