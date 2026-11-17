@@ -1,8 +1,6 @@
 /** Sidebar account launcher and locally authoritative sign-out action. */
 import { useEffect, useRef, useState } from 'react'
-import {
-  Toast, Menu, IconSettingsOutlineMedium, IconUserOutlineMedium,
-} from '@janhq/jan-client-ui-primitives'
+import { Toast, Menu, IconSettingsOutlineMedium } from '@janhq/jan-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import type { AccountSectionInjected } from './AccountSection.tsx'
 import { SignOutDialog } from './SignOutDialog.tsx'
@@ -53,8 +51,6 @@ export function AccountMenu({
     catch (_error) { setSignOutImpact('unknown'); setOpen(false) }
     finally { setBusy(false) }
   }
-  // The plugin's start publishes `loginFailed` before it rejects, so the dialog owns the report.
-  const beginSignIn = (): void => { setOpen(false); void start().catch(() => undefined) }
   return <div ref={anchor} className={css.root} data-inset={signedIn && wide}>
     {signInNotice > 0 && <Toast key={signInNotice} text={t('modelSignInRequired')} onDone={() => { setSignInNotice(0) }} />}
     {expiryNotice && <Toast text={t('sessionExpired')} onDone={() => { setExpiryNotice(false) }} />}
@@ -62,9 +58,12 @@ export function AccountMenu({
       notices={account.notices}
       anchor={anchor} title={t('bonusNoticeTitle')} closeLabel={t('close')}
       onShown={bonusNoticeShown} onDismiss={bonusNoticeDismissed} />}
-    <Menu open={open} side="top" portal autoFocus className={css.anchor} listClassName={signedIn ? undefined : css.signedOutMenu}
-      anchor={<button ref={trigger} type="button" className={css.trigger} data-collapsed={!wide} data-signed-out={!signedIn} aria-label={t('menu')}
-        aria-haspopup="menu" aria-expanded={open} onClick={() => { setOpen(value => !value) }}>
+    {/* Signed out, the row is plain Settings: sign-in has its own Login row in the sidebar footer. */}
+    <Menu open={signedIn && open} side="top" portal autoFocus className={css.anchor}
+      anchor={<button ref={trigger} type="button" className={css.trigger} data-account-row data-collapsed={!wide} data-signed-out={!signedIn}
+        aria-label={signedIn ? t('menu') : t('settings')} title={wide ? undefined : t('settings')}
+        {...signedIn ? { 'aria-haspopup': 'menu' as const, 'aria-expanded': open } : {}}
+        onClick={() => { if (signedIn) setOpen(value => !value); else openSettings() }}>
         {signedIn
           ? <span className={css.avatar} data-avatar-status={account.avatar?.status}>
             <AccountAvatar avatar={account.avatar} avatarFailed={avatarFailed} />
@@ -75,14 +74,12 @@ export function AccountMenu({
       items={[
         { id: 'settings', label: t('settings'), icon: <IconSettingsOutlineMedium size={16} />,
           ...(settingsShortcut === undefined ? {} : { shortcut: settingsShortcut }) },
-        ...(signedIn ? [{ id: 'signout', label: t('signOut'), icon: <LogoutIcon />, disabled: busy }]
-          : [{ id: 'signin', label: t('signIn'), icon: <IconUserOutlineMedium size={16} /> }]),
+        { id: 'signout', label: t('signOut'), icon: <LogoutIcon />, disabled: busy },
       ]}
       onClose={() => { setOpen(false) }}
       onSelect={(id) => {
         if (id === 'settings') { setOpen(false); trigger.current?.focus(); openSettings() }
         else if (id === 'contact') { setOpen(false); contactUs() }
-        else if (id === 'signin') beginSignIn()
         else void requestSignOut()
       }} />
     {account.loginVisible && !account.onboarding && <SignInDialog account={account} colorScheme={colorScheme}

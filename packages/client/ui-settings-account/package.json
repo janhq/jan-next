@@ -60,6 +60,7 @@
     "@janhq/jan-client-ui-primitives": "workspace:*",
     "@janhq/jan-client-ui-renderer": "workspace:*",
     "@janhq/jan-client-ui-settings": "workspace:*",
+    "@janhq/jan-client-ui-sidebar": "workspace:*",
     "@janhq/jan-client-ui-slots": "workspace:*",
     "@janhq/jan-client-ui-theme": "workspace:*",
     "@janhq/jan-tokamak-account": "workspace:*",
