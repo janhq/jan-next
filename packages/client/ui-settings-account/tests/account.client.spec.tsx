@@ -186,7 +186,8 @@ it.each([en, zh])('offers settings, contact and sign-in from the signed-out acco
     useTheme={selector => selector(operations.hooks.theme.getSnapshot())} wide openOnboarding={() => {}} openSettings={openSettings}
     t={key => key in copy ? copy[key as AccountKey] : key} />)
   const trigger = screen.getByRole('button', { name: copy.menu })
-  expect(trigger.textContent).toBe(copy.settings)
+  // Signed out, the row reads "Jan · Local": answers come from this computer.
+  expect(trigger.textContent).toBe(`${copy.localAccount}${copy.local}`)
   expect(trigger.querySelector('svg')).not.toBeNull()
   fireEvent.click(trigger)
   expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual([copy.settings, copy.signIn])
@@ -421,7 +422,7 @@ it.each([
     useAccount={selector => selector(operations.hooks.account.getSnapshot())}
     useTheme={selector => selector(operations.hooks.theme.getSnapshot())}
     wide openSettings={() => {}} openOnboarding={() => {}} t={key => en[key as AccountKey]} />)
-  expect(screen.getByRole('button', { name: en.menu }).textContent).toBe(expected)
+  expect(screen.getByRole('button', { name: en.menu }).textContent).toBe(`${expected}${en.tokamak}`)
 })
 
 it('shows the same shared picture outcome in settings and the sidebar', async () => {

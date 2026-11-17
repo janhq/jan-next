@@ -10,6 +10,9 @@
 .avatar { display: flex; align-items: center; justify-content: center; flex: none; width: 24px; height: 24px; border-radius: 50%;
   corner-shape: round; background: var(--dsw-alias-bg-skeleton); color: var(--dsw-alias-label-tertiary); }
 .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* "· Local" / "· Tokamak" after the name says where answers come from. */
+.provider { flex: none; color: var(--dsw-alias-label-tertiary); font-size: 12px; white-space: nowrap; }
+.provider::before { content: '\00B7'; margin-right: 6px; }
 /* Signed-out launcher: a 32px More row carrying the 14px ellipsis. */
 .trigger[data-signed-out='true']:not([data-collapsed='true']) { height: 32px; padding: 6px calc(var(--jan-sidebar-row-padding) - var(--jan-sidebar-paint-inset)); line-height: 20px; }
 
