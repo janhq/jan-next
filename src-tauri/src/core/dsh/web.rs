@@ -137,19 +137,23 @@ const BUNDLE: &str = "@open-waifu/dsh-bundle";
 /// the profile's own patch, so a setting the user saves for one of these
 /// plugins lands in the profile and survives; an insert in the `--patch`
 /// overlay would come after it and DSH would refuse every such save.
-fn write_bundle(home: &Path, plugins: &Path, theme: &str) -> Result<(), String> {
+fn write_bundle(home: &Path, plugins: &Path, setup: &ShellSetup) -> Result<(), String> {
     let dir = home.join("node_modules").join(BUNDLE);
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let rows = BUILTINS.iter().map(|(id, folder)| map(vec![
         ("id", Value::from(*id)),
         ("name", Value::from(plugins.join(folder).join("index.mjs").to_string_lossy().replace('\\', "/"))),
     ])).collect();
+    // Jan's accent is only the starting look: Settings > Appearance saves over
+    // it, which an overlay row would pin.
+    let look = setup.look.as_ref().and_then(|l| serde_yaml::to_value(l).ok()).unwrap_or(Value::Null);
     let patch = Value::Sequence(vec![
         map(vec![("insert", Value::Sequence(rows))]),
         map(vec![
             ("id", Value::from("ui-theme")),
-            ("config", map(vec![("preference", Value::from(theme))])),
+            ("config", map(vec![("preference", Value::from(setup.theme.clone()))])),
         ]),
+        map(vec![("id", Value::from("ow-shell")), ("config", map(vec![("look", look)]))]),
     ]);
     std::fs::write(dir.join("cordis.patch.yml"), serde_yaml::to_string(&patch).map_err(|e| e.to_string())?)
         .map_err(|e| e.to_string())?;
@@ -203,21 +207,10 @@ fn map(pairs: Vec<(&str, Value)>) -> Value {
 /// The patch layered over DSH's `web` profile. Keys stay out of it: each
 /// provider names an environment variable the host is started with.
 fn patch(setup: &ShellSetup) -> Value {
-    let shell_config = map(vec![
-        (
-            "look",
-            setup
-                .look
-                .as_ref()
-                .and_then(|l| serde_yaml::to_value(l).ok())
-                .unwrap_or(Value::Null),
-        ),
-    ]);
     let selected_local = setup.default_model.as_ref()
         .filter(|(provider, _)| provider == "llamacpp")
         .map(|(_, model)| Value::from(model.clone())).unwrap_or(Value::Null);
     let mut entries = vec![
-        map(vec![("id", Value::from("ow-shell")), ("config", shell_config)]),
         map(vec![("id", Value::from("ow-llamacpp")), ("config", map(vec![("selectedModel", selected_local)]))]),
         // DSH's empty composer asks what to build; this is a chat app.
         map(vec![
@@ -325,7 +318,7 @@ pub(crate) async fn start<R: tauri::Runtime>(
     std::fs::create_dir_all(&home).map_err(|e| e.to_string())?;
     std::fs::create_dir_all(&workspace).map_err(|e| e.to_string())?;
     seed_profile(&home)?;
-    write_bundle(&home, &plugins, &setup.theme)?;
+    write_bundle(&home, &plugins, &setup)?;
     let patch_file = data_dir.join("web.patch.yml");
     let text = serde_yaml::to_string(&patch(&setup)).map_err(|e| e.to_string())?;
     std::fs::write(&patch_file, text).map_err(|e| e.to_string())?;
