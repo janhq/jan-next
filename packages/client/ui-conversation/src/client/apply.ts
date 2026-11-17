@@ -464,7 +464,6 @@ export function apply(ctx: Context, config: Config = Config({})): void {
   const registerHeader = () => slots.register({
     name: 'conversation.header',
     children: {
-      'conversation.header.model': { kind: 'single', scope: 'session' },
       'conversation.header.leading': { kind: 'single', scope: 'root' },
       'conversation.session.header': { kind: 'single', scope: 'session' },
     },

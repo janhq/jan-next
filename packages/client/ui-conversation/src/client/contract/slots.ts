@@ -236,7 +236,6 @@ declare module '@janhq/jan-client-ui-slots' {
     'conversation.hero.headline': { kind: 'single'; scope: 'root'; owner: HeroHeadlineOwnerProps }
     'conversation.hero.suggestions': { kind: 'single'; scope: 'session-maybe'; owner: HeroSuggestionsOwnerProps }
     'conversation.input.placeholder': { kind: 'single'; scope: 'session-maybe'; owner: InputPlaceholderOwnerProps }
-    'conversation.header.model': { kind: 'single'; scope: 'session'; owner: InputControlOwnerProps }
     /** Resident navigation container, including when no Session is selected. */
     'conversation.header': { kind: 'single'; scope: 'session-maybe' }
     /** Strict per-Session title, actions, and View navigation. */
@@ -710,7 +709,7 @@ export type ConversationSessionSlotProps =
 /** Full props of the resident navigation header. */
 export type ConversationHeaderProps =
   PropsRuntime<'conversation.header'>
-  & PropsRenderSlots<'conversation.header.leading' | 'conversation.header.model' | 'conversation.session.header'>
+  & PropsRenderSlots<'conversation.header.leading' | 'conversation.session.header'>
 
 /** Full props of the strict Session header. */
 export type ConversationSessionHeaderSlotProps =
