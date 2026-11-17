@@ -3083,6 +3083,9 @@ importers:
       '@janhq/jan-client-ui-settings-local-model':
         specifier: workspace:*
         version: link:../../client/ui-settings-local-model
+      '@janhq/jan-client-ui-settings-model-policy':
+        specifier: workspace:*
+        version: link:../../client/ui-settings-model-policy
       '@janhq/jan-client-ui-settings-models':
         specifier: workspace:*
         version: link:../../client/ui-settings-models
