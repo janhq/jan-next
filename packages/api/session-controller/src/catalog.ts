@@ -44,6 +44,7 @@ export async function buildModelCatalog(
           ...(reasoning === undefined ? {} : { reasoning }),
           ...(model.badge === undefined ? {} : { badge: model.badge }),
           ...(resolved.context === undefined ? {} : { contextWindow: resolved.context.contextWindow }),
+          ...(resolved.inputModalities === undefined ? {} : { imageInput: resolved.inputModalities.includes('image') }),
         }
       }))
       return {

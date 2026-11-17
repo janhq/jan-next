@@ -117,6 +117,8 @@ export interface ModelCatalogModel {
   readonly badge?: LlmModelBadge
   /** Maximum combined request and response context in tokens, when the route advertises one. */
   readonly contextWindow?: number
+  /** Whether the route reads image input; absent when the route does not declare its input modalities. */
+  readonly imageInput?: boolean
 }
 
 /** One provider and its successfully loaded model catalog. */
