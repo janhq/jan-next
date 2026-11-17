@@ -2,8 +2,8 @@
  * Resolve the version one build publishes, which is not always the version the
  * repository declares.
  *
- * Desktop CI version mode `build-number` uses UTC date, workflow run number and attempt as
- * `.YYYYMMDD.run.attempt`; these identify unpublished builds, not release sequences.
+ * Validation also accepts a `.YYYYMMDD.run.attempt` suffix; it identifies an unpublished build,
+ * not a release sequence.
  *
  * A production release publishes the version in the manifests, aligned with the
  * `jan` npm package. A test build publishes a version that appends a date and a
