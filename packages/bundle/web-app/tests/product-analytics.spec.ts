@@ -1,5 +1,5 @@
 import OTel from '@deepseek-ai/dsh-otel'
-/** tokamak-harness: product telemetry and analytics stay unmounted on every profile. */
+/** tokamak-harness: product telemetry, analytics, and message ratings stay unmounted on every profile. */
 import { createServer } from 'node:http'
 import { once } from 'node:events'
 import { fileURLToPath } from 'node:url'
@@ -51,4 +51,12 @@ it.each(['desktop', 'web'])('never mounts product telemetry or analytics: %s', a
   void received.promise.then(() => { delivered = true })
   await Promise.resolve()
   expect(delivered).toBe(false)
+})
+
+it('does not mount the message rating surface', () => {
+  const rows = loadOverlayPatches('ratings', fileURLToPath(new URL('../cordis.patch.yml', import.meta.url)))
+    .flatMap(patch => patch.insert ?? [])
+  expect(rows.find(row => row.id === 'ui-message-feedback')).toMatchObject({
+    name: '@deepseek-ai/dsh-client-ui-message-feedback', disabled: true,
+  })
 })

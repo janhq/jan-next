@@ -1,0 +1,4 @@
+# tokamak-harness: the shipped Web bundle leaves the message rating surface
+# unmounted; the feedback scenarios mount it to keep covering the package.
+- id: ui-message-feedback
+  disabled: false
