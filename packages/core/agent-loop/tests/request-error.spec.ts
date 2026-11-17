@@ -51,6 +51,38 @@ describe('agent/request-error', () => {
     expect(adapter.requests).toHaveLength(0)
   })
 
+  it('keeps a prompt whose request preparation failed in history for the next turn', async () => {
+    const adapter = new MockAdapter([textResponse('ok')])
+    const ctx = await harness(adapter)
+    const agent = await ctx.agentLoop.create(SessionId('request-error-admit'), { provider: 'mock', model: 'mock' })
+    let failPreparation = true
+    ctx.on('agent/request', (_payload, next) => {
+      if (failPreparation) throw new LlmError('switch failed', 'MODEL_SWITCH_COMPACTION_FAILED')
+      return next()
+    })
+    const userTexts = (messages: readonly { role: string; content: readonly { type: string; text?: string }[] }[]) => messages
+      .filter(message => message.role === 'user')
+      .map(message => message.content.map(block => block.text ?? '').join(''))
+
+    agent.followup(createUserMessage({ content: [{ type: 'text', text: 'first' }], source: { kind: 'user' } }))
+    await agent.whenIdle()
+
+    const events = agent.session.snapshotEvents()
+    expect(userTexts(events.flatMap(event => event.type === 'user/message' ? [event.data] : []))).toEqual(['first'])
+    const turnEnd = events.findLast(event => event.type === 'turn/end')
+    expect(turnEnd?.type === 'turn/end' && turnEnd.data.reason.kind === 'error'
+      ? turnEnd.data.reason.error.code
+      : undefined).toBe('MODEL_SWITCH_COMPACTION_FAILED')
+    expect(adapter.requests).toHaveLength(0)
+
+    failPreparation = false
+    agent.followup(createUserMessage({ content: [{ type: 'text', text: 'second' }], source: { kind: 'user' } }))
+    await agent.whenIdle()
+
+    expect(adapter.requests).toHaveLength(1)
+    expect(userTexts(adapter.requests[0]!.messages)).toEqual(['first', 'second'])
+  })
+
   it('lets each failed request return a retry action before its turn closes', async () => {
     const adapter = new MockAdapter([
       fail('busy', 'RATE_LIMIT'),

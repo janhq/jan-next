@@ -442,7 +442,18 @@ export class ReactLoopAgent implements Agent {
     const renderedPrompt = renderPrompt(assembly)
     let firstAttempt = true
     while (true) {
-      const { config, preparedCall } = await this.prepareRequest(turn, step, decision.selection, signal)
+      let prepared: { config: LlmCallConfig; preparedCall?: PreparedLlmCall } | undefined
+      let preparationError: unknown
+      try {
+        prepared = await this.prepareRequest(turn, step, decision.selection, signal)
+      } catch (error: unknown) {
+        // Cancellation commits neither the prompt nor the claimed batch. A failed
+        // first preparation still admits the batch as an unbound route would, so
+        // claimed input stays in history above the turn error instead of vanishing.
+        if (!firstAttempt || signal.aborted) throw error
+        preparationError = error
+      }
+      const preparedCall = prepared?.preparedCall
       const currentContext = this.loopCtx.systemPrompt.refreshContext(assembly, {
         ...assembleContextFor(this, signal), modelSelection: decision.selection,
       })
@@ -475,8 +486,9 @@ export class ReactLoopAgent implements Agent {
       if (context !== undefined && !contextAdmitted) {
         this.session.append('user/message', context, { surfaceOp: 'append' })
       }
+      if (prepared === undefined) throw preparationError
       firstAttempt = false
-      const request = this.buildRequest(config, preparedCall, assembly.tools, { turn, step }, startsRequestSeries, signal)
+      const request = this.buildRequest(prepared.config, preparedCall, assembly.tools, { turn, step }, startsRequestSeries, signal)
       const live = new AssistantStreamAttempt(
         this.session.id,
         ++this.assistantAttemptCounter,

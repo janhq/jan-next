@@ -356,7 +356,8 @@ declare module '@janhq/cordis' {
      * reasoning effort selection. On step admission,
      * this runs after assembly and `step/start`, before the system prompt and
      * accepted user batch are committed. Cancellation here or during subsequent
-     * `prepareCall()` resolution commits neither. The prepared call capability
+     * `prepareCall()` resolution commits neither; a thrown failure still commits
+     * the batch before the turn ends with it. The prepared call capability
      * governs prompt admission. Model-visible content must use logged channels;
      * this waterfall cannot mutate messages.
      * @deprecated Retained for existing listeners; do not add new listeners.
