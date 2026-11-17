@@ -112,8 +112,9 @@ pub async fn is_model_supported(
     // Apple Silicon: macOS + ARM64 + no discrete GPUs = unified memory.
     // The cpu.arch check guards against Intel Macs with no discrete GPU
     // (x86_64) accidentally taking this path.
+    // sysinfo names the macOS arm64 kernel arch `arm64`, not Rust's `aarch64`.
     if system_info.os_type == "macos"
-        && system_info.cpu.arch == "aarch64"
+        && matches!(system_info.cpu.arch.as_str(), "aarch64" | "arm64")
         && system_info.gpus.is_empty()
     {
         return check_apple_silicon_compatibility(&system_info, total_required);
@@ -247,7 +248,7 @@ mod tests {
             cpu: CpuStaticInfo {
                 name: "Apple M2".to_string(),
                 core_count: 8,
-                arch: "aarch64".to_string(),
+                arch: "arm64".to_string(),
                 extensions: vec![],
             },
             os_type: "macos".to_string(),
