@@ -38,12 +38,10 @@ export interface RouteModelListingsOptions {
    * `MISSING_CREDENTIAL` while the route's credential or endpoint is unset.
    */
   target: (provider: string, profile: ListingProfile) => Promise<ListingTarget>
-  /**
-   * Observe a held listing whose models differ from the one it replaced.
-   * `fetched` is true for a listing this process fetched, and false for one
-   * adopted from the attached store or dropped.
-   */
-  onChange: (provider: string, models: readonly LlmDiscoveredModel[], fetched: boolean) => void
+  /** Observe a held listing whose models differ from the one it replaced, fetched, stored, or dropped. */
+  onChange: (provider: string) => void
+  /** Observe every successful fetch, changed or not, after it is held. */
+  onFetched: (provider: string, models: readonly LlmDiscoveredModel[]) => void
   /** Observe a failed refresh that kept the previous listing. */
   onStale: (provider: string, error: unknown) => void
   /** Observe a failed write to the attached {@link ListingStore}. */
@@ -120,7 +118,7 @@ export class RouteModelListings {
       if (this.stored.has(provider)) continue
       this.stored.set(provider, { ...listing, checkedAt: listing.fetchedAt })
       this.version += 1
-      this.options.onChange(provider, listing.models, false)
+      this.options.onChange(provider)
     }
     for (const [provider, { fingerprint, models, fetchedAt }] of this.stored) {
       if (persisted.get(provider)?.fetchedAt !== fetchedAt) this.persist(provider, { fingerprint, models, fetchedAt })
@@ -197,7 +195,7 @@ export class RouteModelListings {
     if (!this.stored.delete(provider)) return
     this.persist(provider, undefined)
     this.version += 1
-    this.options.onChange(provider, [], false)
+    this.options.onChange(provider)
   }
 
   /** Write or remove one route's persisted listing; a failure is reported, never thrown. */
@@ -253,9 +251,10 @@ export class RouteModelListings {
     const fetchedAt = this.now()
     this.stored.set(provider, { fingerprint, models, fetchedAt, checkedAt: fetchedAt })
     this.persist(provider, { fingerprint, models, fetchedAt })
+    this.options.onFetched(provider, models)
     if (previous !== undefined && deepEqualJson(previous.models, models)) return true
     this.version += 1
-    this.options.onChange(provider, models, true)
+    this.options.onChange(provider)
     return true
   }
 }

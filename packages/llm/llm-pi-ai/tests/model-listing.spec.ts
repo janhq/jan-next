@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context, Service } from '@janhq/cordis'
 import { liveConfig } from '../../../settings/settings/tests/live-config.ts'
-import LlmRuntime from '@janhq/jan-llm'
+import LlmRuntime, { LlmError } from '@janhq/jan-llm'
 import { credentialRef } from '@janhq/jan-credentials'
 import { LocalCredentialProvider } from '@janhq/jan-credentials-local'
 import * as LlmPiAi from '@janhq/jan-llm-pi-ai'
@@ -15,6 +15,8 @@ import * as StorageDomain from '@janhq/jan-storage-domain'
 import * as StorageJson from '@janhq/jan-storage-json'
 import { resolveProfiles } from '../src/config.ts'
 import { openListingStore } from '../src/listing-store.ts'
+import { PiAiAdapter } from '../src/adapter.ts'
+import { memoryAuth } from './auth-double.ts'
 import { assemble } from './assemble.ts'
 
 /** A router stand-in serving `GET /v1/models` for its known keys and a streamed chat completion. */
@@ -289,7 +291,8 @@ describe('runtime model listing', () => {
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => undefined)
 
     await expect(ctx.llm.listModels('tokamak')).rejects.toMatchObject({ code: 'DISCOVERY_FAILED', message: `${server.url}/models answered 503` })
-    await expect(ctx.llm.resolveModelInfo('tokamak', 'tokamak/auto')).rejects.toMatchObject({ code: 'DISCOVERY_FAILED' })
+    // Without a listing, an exact model resolves provisionally; the request decides.
+    expect((await ctx.llm.resolveModelInfo('tokamak', 'tokamak/auto')).context?.contextWindow).toBe(200000)
 
     server.fail = undefined
     expect((await ctx.llm.listModels('tokamak')).map(model => model.id)).toEqual(['tokamak/auto', 'anthropic/opus'])
@@ -297,6 +300,36 @@ describe('runtime model listing', () => {
     await new Promise(resolve => setTimeout(resolve, 5))
     expect((await ctx.llm.listModels('tokamak')).map(model => model.id)).toEqual(['tokamak/auto', 'anthropic/opus'])
     expect(warn).toHaveBeenCalledWith('llm-pi-ai: could not refresh the model listing of provider route "tokamak"; keeping the last listing')
+  })
+
+  it('resolves and prepares an exact model without a listing, leaving the failure to the request', async () => {
+    const server = await router()
+    server.fail = 503
+    const { ctx } = await boot(route(server.url))
+
+    // An SDK handshake validates the route before any key is stored or the router answers.
+    await expect(ctx.llm.listModels('tokamak')).rejects.toMatchObject({ code: 'MISSING_CREDENTIAL' })
+    expect(await ctx.llm.resolveModelInfo('tokamak', 'anything/listed-later')).toMatchObject({ id: 'anything/listed-later' })
+    const keyless = (await assemble(ctx, { provider: 'tokamak', model: 'tokamak/auto', messages: [] })).finish
+    expect(keyless.kind === 'error' ? keyless.failure.code : keyless.kind).toBe('MISSING_CREDENTIAL')
+
+    await ctx.credentials.set(credentialRef('TOKAMAK_LISTING_KEY'), 'tk-one')
+    await assemble(ctx, { provider: 'tokamak', model: 'tokamak/auto', messages: [] })
+    expect(server.chats).toEqual(['tokamak/auto'])
+    // The provisional model never joins the shared catalog.
+    await expect(ctx.llm.listModels('tokamak')).rejects.toMatchObject({ code: 'DISCOVERY_FAILED' })
+  })
+
+  it('fails an exact-model read with the listing error when the adapter has no provisional profile', async () => {
+    const profiles = resolveProfiles({ r: { api: 'openai-completions', baseURL: 'http://127.0.0.1:9', modelListing: {} } })
+    const adapter = new PiAiAdapter({
+      profiles: () => profiles,
+      resolveApiKey: () => Promise.resolve(undefined),
+      auth: memoryAuth(),
+      ensureModels: () => Promise.reject(new LlmError('listing down', 'DISCOVERY_FAILED')),
+    })
+    await expect(adapter.resolveModel('r', 'm')).rejects.toMatchObject({ code: 'DISCOVERY_FAILED' })
+    await expect(adapter.prepareCall('r', 'm')).rejects.toMatchObject({ code: 'DISCOVERY_FAILED' })
   })
 
   it('lists an unauthenticated route without a credential', async () => {
@@ -534,6 +567,18 @@ describe('runtime model listing', () => {
     expect((await restarted.ctx.llm.listModels('tokamak')).map(model => model.id)).toEqual(['tokamak/auto', 'anthropic/opus'])
     // The default names an unlisted model, but only a fetched listing may move it.
     expect(restarted.defaults?.saves).toEqual([])
+  })
+
+  it('moves a stale default after an unchanged fetch of a stored listing', async () => {
+    const server = await router()
+    const root = await storageRoot()
+    const first = await boot(route(server.url), { key: 'tk-one', storage: root })
+    await first.ctx.llm.listModels('tokamak')
+    await first.ctx.fiber.dispose()
+
+    // The launch fetch returns the stored models unchanged, yet still re-checks the default.
+    const restarted = await boot(route(server.url), { key: 'tk-one', storage: root, defaults: true })
+    await vi.waitFor(() => { expect(restarted.defaults?.saves).toEqual([{ provider: 'tokamak', model: 'tokamak/auto' }]) })
   })
 
   it('does not serve another account\'s stored listing, and forgets it on sign-out', async () => {

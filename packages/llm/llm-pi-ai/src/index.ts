@@ -223,12 +223,11 @@ export function apply(ctx: Context, config: Config): void {
   const listings = new RouteModelListings({
     target: (provider, profile) => listingTarget(provider, profile),
     signal: unloading.signal,
-    onChange: (provider, models, fetched) => {
-      registration?.modelsChanged()
-      // Only a listing fetched with the current endpoint and credential may
-      // move the saved default; a stored one may belong to another account.
-      if (fetched) void adoptListedDefault(provider, models)
-    },
+    onChange: () => { registration?.modelsChanged() },
+    // Every fetch, changed or not, re-checks the default: a stored listing
+    // (possibly another account's) never moves it, and an earlier move may
+    // have failed or the default may have been edited since.
+    onFetched: (provider, models) => { void adoptListedDefault(provider, models) },
     onStale: (provider, error) => {
       ctx.logger.warn(`llm-pi-ai: could not refresh the model listing of provider route "${provider}"; keeping the last listing`)
       ctx.logger.warn(error)
@@ -411,6 +410,17 @@ export function apply(ctx: Context, config: Config): void {
     auth,
     prepareHeaders: (request, headers) => ctx.waterfall('llm-pi-ai/request-headers', request, headers, () => headers),
     ensureModels: (provider, profile) => listings.ensure(provider, profile),
+    provisionalProfile: (provider, model) => {
+      const raw = config.providers.get()[provider]
+      /* v8 ignore next -- the route left the configuration while its listing request was failing. */
+      return raw === undefined
+        ? undefined
+        : resolveProfiles(
+          { [provider]: structuredClone(raw) } as import('./config.ts').Options['providers'],
+          'deferred',
+          new Map([[provider, [{ id: model }]]]),
+        ).get(provider)
+    },
     resolveAttachments: () => ctx.get('attachments'),
     resolveImageAccess: (attachments, ref) => resolveImageAttachmentAccess(
       attachments,

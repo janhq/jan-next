@@ -130,10 +130,19 @@ export interface PiAiAdapterOptions {
    * Bring the model listing of a route with `modelListing` up to date before
    * its models are read. Called by `listModels`, `resolveModel`, and
    * `prepareCall` for such a route only, before the operation captures its
-   * snapshot; a rejection fails that operation, including `MISSING_CREDENTIAL`,
-   * which `listModels` then reports instead of offering no models.
+   * snapshot. `listModels` reports a rejection, including `MISSING_CREDENTIAL`,
+   * instead of offering no models; `resolveModel` and `prepareCall` fall back
+   * to {@link provisionalProfile}.
    */
   ensureModels?: (provider: string, profile: ListingProfile) => Promise<void>
+  /**
+   * The listing route's profile serving `model` alone, for one `resolveModel`
+   * or `prepareCall` whose listing could not be obtained: catalog membership
+   * is advisory, so the request itself then reports whether the endpoint and
+   * credential serve the model. Undefined, or omitted, fails the operation
+   * with the listing's error.
+   */
+  provisionalProfile?: (provider: string, model: string) => ResolvedPiAiProviderProfile | undefined
   /** Resolve the optional durable attachment service at request time. */
   resolveAttachments?: () => AttachmentStore | undefined
   /** Bridge one attachment reference into the current model-tool execution world. */
@@ -310,12 +319,35 @@ export class PiAiAdapter extends LlmAdapter {
   private current(): PiAiSnapshot {
     const profiles = this.config.profiles()
     if (this.snapshot?.profiles === profiles) return this.snapshot
+    this.snapshot = this.build(profiles)
+    return this.snapshot
+  }
+
+  /** A new collection serving exactly `profiles`. */
+  private build(profiles: ReadonlyMap<string, ResolvedPiAiProviderProfile>): PiAiSnapshot {
     const models: MutableModels = createModels(this.config.auth)
     for (const profile of profiles.values()) {
       if (profile.piProvider !== undefined) models.setProvider(profile.piProvider)
     }
-    this.snapshot = { profiles, models }
-    return this.snapshot
+    return { profiles, models }
+  }
+
+  /**
+   * The snapshot one exact-model operation captures. A listing route whose
+   * listing cannot be obtained serves `model` provisionally in an
+   * operation-local snapshot, leaving the shared one and the listing alone.
+   */
+  private async snapshotFor(provider: string, model: string): Promise<PiAiSnapshot> {
+    const profile = this.profileOf(this.current(), provider)
+    if (!isListingProfile(profile)) return this.current()
+    try {
+      await this.config.ensureModels?.(provider, profile)
+      return this.current()
+    } catch (error) {
+      const provisional = this.config.provisionalProfile?.(provider, model)
+      if (provisional === undefined) throw error
+      return this.build(new Map([...this.current().profiles, [provider, provisional]]))
+    }
   }
 
   /** The profile for one route within one snapshot, or the not-owned failure. */
@@ -402,11 +434,7 @@ export class PiAiAdapter extends LlmAdapter {
     model: string,
     _signal?: AbortSignal,
   ): Promise<LlmResolvedModelInfo> {
-    return Promise.resolve().then(async () => {
-      await this.listed(provider)
-      const snapshot = this.current()
-      return this.modelInfo(snapshot, provider, model)
-    })
+    return Promise.resolve().then(async () => this.modelInfo(await this.snapshotFor(provider, model), provider, model))
   }
 
   private modelInfo(snapshot: PiAiSnapshot, provider: string, model: string): LlmResolvedModelInfo {
@@ -429,8 +457,7 @@ export class PiAiAdapter extends LlmAdapter {
   }
 
   override async prepareCall(provider: string, model: string, _signal?: AbortSignal): Promise<PreparedAdapterCall> {
-    await this.listed(provider)
-    const snapshot = this.current()
+    const snapshot = await this.snapshotFor(provider, model)
     return {
       model: this.modelInfo(snapshot, provider, model),
       stream: options => this.streamWithSnapshot(options, snapshot),
