@@ -938,6 +938,20 @@ describe('mapStopReason / mapUsage', () => {
     }))).toMatchObject({ kind: 'error', failure: { code: 'PI_AI_ERROR' } })
   })
 
+  it('maps refusal and content-filter stops to REFUSAL but keeps a refused connection transport', () => {
+    for (const errorMessage of [
+      'The model refused to complete the request',
+      'claude refusal (reasoning_extraction): This request was blocked',
+      'Provider finish_reason: content_filter',
+      'Provider stopped with: sensitive',
+    ]) {
+      expect(mapStopReason(assistant({ stopReason: 'error', errorMessage })))
+        .toMatchObject({ kind: 'error', failure: { code: 'REFUSAL' } })
+    }
+    expect(mapStopReason(assistant({ stopReason: 'error', errorMessage: 'connect ECONNREFUSED: connection refused' })))
+      .toMatchObject({ kind: 'error', failure: { code: 'TRANSPORT' } })
+  })
+
   it.each([
     'other side closed',
     'HTTP2 request did not get a response',
