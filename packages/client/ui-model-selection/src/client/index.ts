@@ -31,6 +31,8 @@ import { ModelDirectoryResolver } from './service.ts'
 import type { ModelSelectInjected } from './slots.ts'
 import { ModelSelect } from './ModelSelect.tsx'
 import { en, ja, es, fr, de, ru, pt, zh, type ModelKey } from './locales.ts'
+import { overflowOf } from './send-check.ts'
+import type { ContextPressureProjection } from '@janhq/jan-token-meter/client'
 
 export { ModelDirectory } from './directory.ts'
 export type { ModelDirectoryState } from './directory.ts'
@@ -172,6 +174,19 @@ export function apply(ctx: ClientContext): void {
   const t = ctx.locale.bind(NS)
 
   ctx.plugin(ModelDirectoryResolver)
+
+  // Warn before a plain message the selected model cannot hold.
+  ctx.inject(['conversation', 'modelDirectories'], (scope: ClientContext) => {
+    scope.effect(() => scope.conversation.input.addSendCheck((sessionId, text) => {
+      const pressure = scope.sessions.binding(sessionId)?.session.projections.faceOf('contextPressure')
+        .getSnapshot() as ContextPressureProjection | undefined
+      const overflow = overflowOf(text, { directory: scope.modelDirectories.directoryFor(sessionId).store.getSnapshot(), pressure })
+      if (overflow === undefined) return undefined
+      return t('send.tooLong', {
+        tokens: overflow.tokens.toLocaleString(), window: overflow.contextWindow.toLocaleString(), model: overflow.model,
+      })
+    }), 'ui-model-selection: context-window send check')
+  })
 
   // Entry 1: the /model popupSelect over the shared directory.
   ctx.inject(['commandUi', 'modelDirectories'], (scope: ClientContext) => {

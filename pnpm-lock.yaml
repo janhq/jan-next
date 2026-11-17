@@ -4933,6 +4933,9 @@ importers:
       '@janhq/jan-session':
         specifier: workspace:*
         version: link:../../core/session
+      '@janhq/jan-token-meter':
+        specifier: workspace:*
+        version: link:../../llm/token-meter
       '@janhq/jan-typert-protocol':
         specifier: workspace:*
         version: link:../../typert/protocol

@@ -32,6 +32,7 @@ export const zh = {
   'search.empty': '没有匹配的模型。',
   'empty.models': '暂无可用模型',
   'empty.efforts': '当前模型未提供推理等级。',
+  'send.tooLong': '这条消息约 {tokens} token，超过 {model} 的上下文窗口（{window}）。发送后此对话会一直失败。请缩短消息或换用上下文更大的模型；再次发送将忽略此提示。',
 } satisfies Record<string, string>
 
 /** The model namespace key union. */
@@ -61,6 +62,7 @@ export const en = {
   'search.empty': 'No matching models.',
   'empty.models': 'No models available.',
   'empty.efforts': 'This model provides no reasoning effort levels.',
+  'send.tooLong': "This message is about {tokens} tokens, more than {model}'s context window ({window}). Sending it would leave this chat failing. Shorten it or pick a model with a larger context window; send again to send anyway.",
 } satisfies Record<ModelKey, string>
 
 /** Japanese copy, checked against the English keys. */
@@ -87,6 +89,7 @@ export const ja = {
   'search.empty': '一致するモデルがありません。',
   'empty.models': '利用可能なモデルがありません。',
   'empty.efforts': 'このモデルには推論強度の設定がありません。',
+  'send.tooLong': 'このメッセージは約 {tokens} トークンで、{model} のコンテキストウィンドウ（{window}）を超えています。送信するとこのチャットは失敗し続けます。短くするか、より大きなコンテキストのモデルを選んでください。もう一度送信するとそのまま送信します。',
 } satisfies Record<keyof typeof en, string>
 
 /** Spanish dictionary, checked against the English keys. */
@@ -113,6 +116,7 @@ export const es = {
   'search.empty': 'No hay modelos coincidentes.',
   'empty.models': 'No hay modelos disponibles.',
   'empty.efforts': 'Este modelo no proporciona niveles de esfuerzo de razonamiento.',
+  'send.tooLong': 'Este mensaje tiene unos {tokens} tokens, más que la ventana de contexto de {model} ({window}). Enviarlo dejaría este chat fallando. Acórtelo o elija un modelo con más contexto; envíelo de nuevo para enviarlo igualmente.',
 } satisfies Record<keyof typeof en, string>
 
 /** French dictionary, checked against the English keys. */
@@ -139,6 +143,7 @@ export const fr = {
   'search.empty': 'Aucun modèle correspondant.',
   'empty.models': 'Aucun modèle disponible.',
   'empty.efforts': 'Ce modèle ne fournit aucun niveau d’effort de raisonnement.',
+  'send.tooLong': 'Ce message fait environ {tokens} jetons, plus que la fenêtre de contexte de {model} ({window}). L’envoyer ferait échouer cette conversation. Raccourcissez-le ou choisissez un modèle avec plus de contexte ; renvoyez-le pour l’envoyer quand même.',
 } satisfies Record<keyof typeof en, string>
 
 /** German dictionary, checked against the English keys. */
@@ -165,6 +170,7 @@ export const de = {
   'search.empty': 'Keine passenden Modelle.',
   'empty.models': 'Keine Modelle verfügbar.',
   'empty.efforts': 'Dieses Modell liefert keine Argumentationsaufwandsstufen.',
+  'send.tooLong': 'Diese Nachricht hat etwa {tokens} Tokens, mehr als das Kontextfenster von {model} ({window}). Danach würde dieser Chat weiter fehlschlagen. Kürzen Sie sie oder wählen Sie ein Modell mit mehr Kontext; erneut senden, um sie trotzdem zu senden.',
 } satisfies Record<keyof typeof en, string>
 
 /** Russian dictionary, checked against the English keys. */
@@ -191,6 +197,7 @@ export const ru = {
   'search.empty': 'Нет подходящих моделей.',
   'empty.models': 'Нет доступных моделей.',
   'empty.efforts': 'Эта модель не обеспечивает обоснования уровней усилий.',
+  'send.tooLong': 'В этом сообщении около {tokens} токенов, больше контекстного окна {model} ({window}). После отправки этот чат будет продолжать выдавать ошибку. Сократите его или выберите модель с большим контекстом; отправьте ещё раз, чтобы всё равно отправить.',
 } satisfies Record<keyof typeof en, string>
 
 /** Portuguese dictionary, checked against the English keys. */
@@ -217,4 +224,5 @@ export const pt = {
   'search.empty': 'Não há modelos correspondentes.',
   'empty.models': 'Nenhum modelo disponível.',
   'empty.efforts': 'Este modelo não fornece níveis de esforço de raciocínio.',
+  'send.tooLong': 'Esta mensagem tem cerca de {tokens} tokens, mais que a janela de contexto de {model} ({window}). Enviá-la deixaria esta conversa falhando. Encurte-a ou escolha um modelo com mais contexto; envie de novo para enviar mesmo assim.',
 } satisfies Record<keyof typeof en, string>
