@@ -19,3 +19,7 @@
     # Browse and install agent presets from the Preset Square gallery.
     - id: jan-preset-square
       name: '@janhq/jan-preset-square'
+
+    # Every local model download in one page, opened from the More menu.
+    - id: jan-downloads
+      name: '@janhq/jan-downloads'

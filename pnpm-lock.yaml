@@ -17647,12 +17647,17 @@ importers:
       '@janhq/jan-client-ui-jan-theme':
         specifier: workspace:*
         version: link:../jan-theme
+      '@janhq/jan-downloads':
+        specifier: workspace:*
+        version: link:../downloads
       '@janhq/jan-legacy-import':
         specifier: workspace:*
         version: link:../legacy-import
       '@janhq/jan-preset-square':
         specifier: workspace:*
         version: link:../preset-square
+
+  plugins/downloads: {}
 
   plugins/jan-theme:
     dependencies:
