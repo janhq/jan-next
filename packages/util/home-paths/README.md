@@ -29,12 +29,12 @@ Use these helpers wherever a package must agree with the rest of the harness abo
 ```ts
 import { resolveJanHome, janHomePath, janCachePath } from '@janhq/jan-home-paths'
 
-const home = resolveJanHome()                // configured path, else $JAN_HOME, else ~/.jan
+const home = resolveJanHome()                // configured path, else $JAN_HOME, else ~/.config/jan-alpha
 const settings = janHomePath('settings')     // join one child onto the resolved home
-const cache = janCachePath('models')         // $JAN_HOME/cache/models, default ~/.jan/cache/models
+const cache = janCachePath('models')         // $JAN_HOME/cache/models, default ~/.config/jan-alpha/cache/models
 ```
 
-An explicit configured path has the highest precedence, then `$JAN_HOME`, then the default `~/.jan`. An empty or whitespace-only `$JAN_HOME` is treated as unset, so a blank override never resolves the home to the current working directory.
+An explicit configured path has the highest precedence, then `$JAN_HOME`, then the default `~/.config/jan-alpha` on every platform; `$XDG_CONFIG_HOME` is not consulted. An empty or whitespace-only `$JAN_HOME` is treated as unset, so a blank override never resolves the home to the current working directory.
 
 `janCachePath(...segments)` derives paths from the resolved home's `cache` directory. With no segments it returns the cache directory itself. Pass an initial options object, `janCachePath({ janHome: home }, ...segments)`, to use an explicit configured home with the same precedence and tilde expansion. It returns an absolute path without creating directories.
 
@@ -51,7 +51,7 @@ agentsHomeDisplay(agents)            // ~/.agents, or $JAN_AGENTS_HOME for any c
 
 ### Displaying a home
 
-For user-facing paths, render a root symbolically rather than as a machine path: the default harness home displays as `~/.jan`, any configured harness home as `$JAN_HOME`, the default shared agents root as `~/.agents`, and any configured shared agents root as `$JAN_AGENTS_HOME`. Neither display form leaks an absolute machine path.
+For user-facing paths, render a root symbolically rather than as a machine path: the default harness home displays as `~/.config/jan-alpha`, any configured harness home as `$JAN_HOME`, the default shared agents root as `~/.agents`, and any configured shared agents root as `$JAN_AGENTS_HOME`. Neither display form leaks an absolute machine path.
 
 ### Expanding user paths
 
@@ -79,7 +79,7 @@ The package is built on one principle: harness user data lives under one root, a
 
 ### Resolution rules
 
-`resolveJanHome` reads the explicit override, then `$JAN_HOME`, then falls back to the operating-system home joined with `.jan`. `resolveAgentsHome` reads the same three levels for `$JAN_AGENTS_HOME` and `~/.agents`. The chosen value is tilde-expanded and normalized to an absolute path; `janHomePath` joins child segments with Node's platform path rules. `janHomeDisplay` and `agentsHomeDisplay` compare the resolved path against the default root and return the symbolic label, so a configured root never leaks its absolute path.
+`resolveJanHome` reads the explicit override, then `$JAN_HOME`, then falls back to the operating-system home joined with `DEFAULT_JAN_HOME_SEGMENTS` (`.config/jan-alpha`). `resolveAgentsHome` reads the same three levels for `$JAN_AGENTS_HOME` and `~/.agents`. The chosen value is tilde-expanded and normalized to an absolute path; `janHomePath` joins child segments with Node's platform path rules. `janHomeDisplay` and `agentsHomeDisplay` compare the resolved path against the default root and return the symbolic label, so a configured root never leaks its absolute path.
 
 ### Canonicalization mechanics
 

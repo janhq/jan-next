@@ -362,7 +362,7 @@ export interface Config {
 ```ts config-catalog
 /** Local attachment backend configuration. */
 export interface Config {
-  /** Explicit harness home; omitted follows `JAN_HOME`, then `~/.jan`. */
+  /** Explicit harness home; omitted follows `JAN_HOME`, then `~/.config/jan-alpha`. */
   janHome?: string
   /** Maximum encoded bytes accepted for one submitted image. Default: 50 MiB. */
   maxImageBytes?: number
@@ -790,7 +790,7 @@ export interface Config {
 export interface Config {
   /** Credentials document path; defaults to `.credentials.yaml` under the harness home. */
   path?: string
-  /** Harness home used when `path` is omitted; defaults to `$JAN_HOME` or `~/.jan`. */
+  /** Harness home used when `path` is omitted; defaults to `$JAN_HOME` or `~/.config/jan-alpha`. */
   janHome?: string
   /** Watch the document and hot-publish external edits; defaults to true. */
   watch?: boolean
@@ -3230,7 +3230,7 @@ export interface Config extends SessionTitleLlmConfig {
 ```ts config-catalog
 /** Plugin config (all optional — the built-in facts resolve without defaults). */
 export interface Config {
-  /** Jan home directory exposed as `JAN_HOME`; defaults to `$JAN_HOME` or `~/.jan`. */
+  /** Jan home directory exposed as `JAN_HOME`; defaults to `$JAN_HOME` or `~/.config/jan-alpha`. */
   janHome?: string
 }
 ```
@@ -3263,7 +3263,7 @@ export interface Config {
   providerName?: string
   /** Whether project and user roots are included around custom roots. */
   includeDefaultRoots?: boolean
-  /** Jan config root. Defaults to `$JAN_HOME` or `~/.jan`. */
+  /** Jan config root. Defaults to `$JAN_HOME` or `~/.config/jan-alpha`. */
   janHome?: string
   /** Shared agent config root. Defaults to `$JAN_AGENTS_HOME` or `~/.agents`. */
   agentsHome?: string

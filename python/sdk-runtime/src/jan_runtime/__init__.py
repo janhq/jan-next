@@ -198,7 +198,7 @@ def main() -> None:
     if not os.environ.get("JAN_HOME", "").strip():
         print(
             "jan: the Python runtime command requires an explicit JAN_HOME; "
-            "it never uses ~/.jan implicitly",
+            "it never uses ~/.config/jan-alpha implicitly",
             file=sys.stderr,
         )
         raise SystemExit(2)

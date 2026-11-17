@@ -41,6 +41,7 @@
     "@janhq/cordis": "workspace:~",
     "@janhq/jan-agent": "workspace:*",
     "@janhq/jan-app-boot": "workspace:*",
+    "@janhq/jan-home-paths": "workspace:*",
     "@janhq/jan-llm": "workspace:*",
     "@janhq/jan-session": "workspace:*",
     "@janhq/jan-tools": "workspace:*",

@@ -1,8 +1,8 @@
 /** Web-only host plugin: owner sign-in routes, the share-management Remote, and gateway lifetime. */
 
-import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { Context } from '@janhq/cordis'
+import { janHomePath } from '@janhq/jan-home-paths'
 import type {} from '@janhq/jan-api-remote-access'
 import type {} from '@janhq/jan-api-session-controller'
 import type {} from '@janhq/jan-client-connection'
@@ -614,8 +614,7 @@ export async function apply(ctx: Context, config: Config): Promise<() => Promise
 }
 
 function defaultOwnerStateFile(): string {
-  const janHome = nonEmpty(process.env.JAN_HOME) ?? join(homedir(), '.jan')
-  return join(janHome, 'liveshare', 'owner-shares.json')
+  return janHomePath('liveshare', 'owner-shares.json')
 }
 
 function nonEmpty(value: string | undefined): string | undefined {

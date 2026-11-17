@@ -40,7 +40,7 @@ The shipped protocol profiles reserve stdout for protocol frames, expose help wi
 
 SDK users customize plugins through profiles. `jan plugin --profile <name> ...` manages persistent dependencies and bundle order, the profile's `cordis.patch.yml` owns persistent row changes, and launch `patches` supply ordered ephemeral overrides. A custom profile must retain `@janhq/jan-sdk-app` or another SDK server row. Relative CLI-module, patch, explicit home, and process-cwd paths become absolute before spawn, and initialization has a finite bound whose diagnostic names the selected profile.
 
-Direct SDK use follows normal Harness-home resolution: explicit `janHome`, inherited `JAN_HOME`, then `~/.jan`. `subagent-jan-sdk` instead requires an explicit absolute home, so a nested runtime cannot discover a person's profiles, installed plugins, credentials, or sessions through the operating-system home. Jan-specific ACP child examples also pass an isolated home; the ACP backend itself remains generic for non-Jan agents.
+Direct SDK use follows normal Harness-home resolution: explicit `janHome`, inherited `JAN_HOME`, then `~/.config/jan-alpha`. `subagent-jan-sdk` instead requires an explicit absolute home, so a nested runtime cannot discover a person's profiles, installed plugins, credentials, or sessions through the operating-system home. Jan-specific ACP child examples also pass an isolated home; the ACP backend itself remains generic for non-Jan agents.
 
 ### Python runtime
 

@@ -605,7 +605,7 @@ class HarnessClient:
         elif not env.get("JAN_HOME", "").strip():
             raise ValueError(
                 "HarnessConfig requires an explicit jan_home or non-empty JAN_HOME; "
-                "the Python SDK never uses ~/.jan implicitly"
+                "the Python SDK never uses ~/.config/jan-alpha implicitly"
             )
 
         patches = tuple(

@@ -63,7 +63,7 @@ export const MAX_IMAGE_COMPRESSION_CONCURRENCY = 8
 
 /** Local attachment backend configuration. */
 export interface Config {
-  /** Explicit harness home; omitted follows `JAN_HOME`, then `~/.jan`. */
+  /** Explicit harness home; omitted follows `JAN_HOME`, then `~/.config/jan-alpha`. */
   janHome?: string
   /** Maximum encoded bytes accepted for one submitted image. Default: 50 MiB. */
   maxImageBytes?: number

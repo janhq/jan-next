@@ -87,6 +87,8 @@ const PEER_REQUIRED_HOST_EXPORTS = {
   '@janhq/jan-experimental-worktree': ['generatedWorktreeName'],
   // The forge panel matches ctx.fs failures with `instanceof FsError`.
   '@janhq/jan-fs': ['FsError'],
+  // Stateless; peer resolution keeps Liveshare's default owner-state path on the host's home resolver.
+  '@janhq/jan-home-paths': ['janHomePath'],
   '@janhq/jan-scope': ['carrierKeyOf', 'createScope', 'scopeOf', 'scopeTarget'],
   // appendPluginRecord writes through the Session class's private log; pluginRecordOf is stateless.
   '@janhq/jan-session': ['SESSION_FORMAT_VERSION', 'appendPluginRecord', 'pluginRecordOf'],

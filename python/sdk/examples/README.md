@@ -15,7 +15,7 @@ python python/sdk/examples/minimal.py \
   "Inspect the repository and fix the failing tests."
 ```
 
-Set `TOKAMAK_BASE_URL` for another Tokamak deployment, `JAN_MODEL` for the script's default model, or `JAN_SYSTEM_PROMPT` for the deployment persona. `--model` is the single runtime model selection; no matching environment variable is required. `--profile` can select another SDK-serving profile. The selected home stores the generated `sdk-minimal` profile and uncompressed JSONL session logs under `sessions/`; the script never reads `~/.jan` implicitly.
+Set `TOKAMAK_BASE_URL` for another Tokamak deployment, `JAN_MODEL` for the script's default model, or `JAN_SYSTEM_PROMPT` for the deployment persona. `--model` is the single runtime model selection; no matching environment variable is required. `--profile` can select another SDK-serving profile. The selected home stores the generated `sdk-minimal` profile and uncompressed JSONL session logs under `sessions/`; the script never reads `~/.config/jan-alpha` implicitly.
 
 The shipped [`@janhq/jan-sdk-minimal` bundle](../../../packages/bundle/sdk-minimal/README.md) is the complete explicit Cordis tree for this mode. It exposes exactly:
 

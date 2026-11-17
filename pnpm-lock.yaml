@@ -10529,6 +10529,9 @@ importers:
       '@janhq/jan-fs-sandbox':
         specifier: workspace:*
         version: link:../../fs/fs-sandbox
+      '@janhq/jan-home-paths':
+        specifier: workspace:*
+        version: link:../../util/home-paths
       '@janhq/jan-host-webserver':
         specifier: workspace:*
         version: link:../../host/webserver
@@ -16925,6 +16928,9 @@ importers:
       '@janhq/jan-app-boot':
         specifier: workspace:*
         version: link:../../boot/app-boot
+      '@janhq/jan-home-paths':
+        specifier: workspace:*
+        version: link:../../util/home-paths
       '@janhq/jan-http-proxy':
         specifier: workspace:*
         version: link:../../util/http-proxy

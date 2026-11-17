@@ -28,7 +28,7 @@ The authoring environment is independently optional through `jan_runtime.downloa
 
 The Python SDK has no separate application entrypoint. It launches the bundled `jan` CLI with `--profile sdk`; the selected profile owns the JSON-RPC server, agent composition, credentials, persistence, tools, and shutdown behavior.
 
-Every launch requires an explicit Harness home. Pass `jan_home` or provide a non-empty `JAN_HOME` in the child environment. The SDK deliberately never discovers `~/.jan`.
+Every launch requires an explicit Harness home. Pass `jan_home` or provide a non-empty `JAN_HOME` in the child environment. The SDK deliberately never discovers `~/.config/jan-alpha`.
 
 ```py
 from jan import Jan

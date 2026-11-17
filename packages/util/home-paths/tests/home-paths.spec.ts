@@ -6,7 +6,7 @@ import {
   AGENTS_HOME_DIR_NAME,
   DEFAULT_AGENTS_HOME_DISPLAY,
   DEFAULT_JAN_HOME_DISPLAY,
-  JAN_HOME_DIR_NAME,
+  DEFAULT_JAN_HOME_SEGMENTS,
   agentsHomeDisplay,
   canonicalizeWatchPath,
   defaultAgentsHome,
@@ -24,18 +24,18 @@ afterEach(() => {
 })
 
 describe('jan path helpers', () => {
-  it('owns the shared default Jan home directory name', () => {
-    expect(JAN_HOME_DIR_NAME).toBe('.jan')
-    expect(DEFAULT_JAN_HOME_DISPLAY).toBe('~/.jan')
-    expect(defaultJanHome()).toBe(join(homedir(), '.jan'))
+  it('owns the shared default Jan home path', () => {
+    expect(DEFAULT_JAN_HOME_SEGMENTS).toEqual(['.config', 'jan-alpha'])
+    expect(DEFAULT_JAN_HOME_DISPLAY).toBe('~/.config/jan-alpha')
+    expect(defaultJanHome()).toBe(join(homedir(), '.config', 'jan-alpha'))
   })
 
   it('expands tilde paths without changing non-tilde paths', () => {
     expect(expandHomePath('~')).toBe(homedir())
-    expect(expandHomePath('~/.jan')).toBe(join(homedir(), '.jan'))
-    expect(expandHomePath('~\\.jan')).toBe(join(homedir(), '.jan'))
-    expect(expandHomePath('/tmp/.jan')).toBe('/tmp/.jan')
-    expect(expandHomePath('~other/.jan')).toBe('~other/.jan')
+    expect(expandHomePath('~/data')).toBe(join(homedir(), 'data'))
+    expect(expandHomePath('~\\data')).toBe(join(homedir(), 'data'))
+    expect(expandHomePath('/tmp/data')).toBe('/tmp/data')
+    expect(expandHomePath('~other/data')).toBe('~other/data')
   })
 
   it('resolves explicit path before JAN_HOME and the default', () => {
@@ -58,7 +58,7 @@ describe('jan path helpers', () => {
   })
 
   it('labels a resolved home by whether it is the default root', () => {
-    expect(janHomeDisplay(resolve(defaultJanHome()))).toBe('~/.jan')
+    expect(janHomeDisplay(resolve(defaultJanHome()))).toBe('~/.config/jan-alpha')
     expect(janHomeDisplay('/some/other/root')).toBe('$JAN_HOME')
   })
 
@@ -87,9 +87,9 @@ describe('jan path helpers', () => {
   })
 
   it.each([
-    [undefined, join(homedir(), '.jan')],
-    ['', join(homedir(), '.jan')],
-    ['   ', join(homedir(), '.jan')],
+    [undefined, join(homedir(), '.config', 'jan-alpha')],
+    ['', join(homedir(), '.config', 'jan-alpha')],
+    ['   ', join(homedir(), '.config', 'jan-alpha')],
     ['~/env-jan', join(homedir(), 'env-jan')],
     ['./relative-jan', resolve('./relative-jan')],
   ] as const)('resolves cache paths with JAN_HOME=%j', (home, expectedHome) => {

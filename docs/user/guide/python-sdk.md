@@ -89,7 +89,7 @@ python python/sdk/examples/minimal.py `
 
 :::
 
-The script prints the final assistant response or the command result supplied by the selected profile. The selected home receives the generated `sdk-minimal` profile, installed plugins, and uncompressed JSONL session logs under `sessions/`. The example and SDK never silently read `~/.jan`.
+The script prints the final assistant response or the command result supplied by the selected profile. The selected home receives the generated `sdk-minimal` profile, installed plugins, and uncompressed JSONL session logs under `sessions/`. The example and SDK never silently read `~/.config/jan-alpha`.
 
 ## Use the SDK in your program
 

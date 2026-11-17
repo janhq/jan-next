@@ -77,7 +77,7 @@ describe('ShellEnvRegistry', () => {
 
     vi.stubEnv('JAN_HOME', undefined)
     const fromDefault = new ShellEnvRegistry(new Context())
-    expect(fromDefault.collect(execution()).JAN_HOME).toBe(join(homedir(), '.jan'))
+    expect(fromDefault.collect(execution()).JAN_HOME).toBe(join(homedir(), '.config', 'jan-alpha'))
   })
 
   it('collects declared contributor variables and omits unavailable values', () => {
