@@ -90,8 +90,8 @@ describe('ui-settings-general shell', () => {
 
   it('opens the registered Models section through the client navigation service', async ({ start }) => {
     const c = await start()
-    const settings = c.ctx.slots.entries('sidebar.settings')[0]!.store!
-    const instance = settings.create()
+    const decl = c.ctx.slots.entries('sidebar.settings')[0]!.store!
+    const instance = (typeof decl === 'function' ? decl() : decl).create()
     expect(c.ctx.settingsNavigation.availability.getSnapshot()).toBe(true)
     expect(instance.getSnapshot().open).toBe(false)
     expect(c.ctx.settingsNavigation.open('models')).toBe(true)
