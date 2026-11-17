@@ -395,7 +395,13 @@ window.__ModuleLoader__.load({
      the last row (blue with the accent, grey with the base). Drop the overlay;
      the list keeps its own clip. */
   html[data-jan-theme] [data-slot='sidebar.workspaces'] > div > div > div:has([role='tree']) > span:last-child { display: none; }
-  html[data-jan-theme] [data-slot='sidebar.settings'] { color: var(--dsw-alias-label-secondary); }
+  /* Footer rows read like the nav rows above the list: primary label, secondary
+     icon, 36px, the same hover. The account rows (Settings launcher, Login) are
+     the stock triggers, so they are matched from here rather than given a
+     second look of their own. */
+  html[data-jan-theme] [data-slot='sidebar'] button[data-account-row] { height: 36px; border-radius: 6px; color: var(--dsw-alias-label-primary); font-size: 14px; }
+  html[data-jan-theme] [data-slot='sidebar'] button[data-account-row] > svg { color: var(--dsw-alias-label-secondary); }
+  @media (hover: hover) { html[data-jan-theme] [data-slot='sidebar'] button[data-account-row]:hover { background: var(--dsw-specific-sidebar-nav-item-hover); } }
   html[data-jan-theme] [data-slot='sidebar'] div:has(> [data-slot='sidebar.footer.action']) { flex-direction: column; align-items: stretch; }
   /* Jan's plain navigation rows. The leaves supply the real callbacks; the
      shell owns only how New Chat / New project / Search read. */
@@ -427,8 +433,9 @@ window.__ModuleLoader__.load({
   html[data-jan-theme] [data-chat-running-mark] { background: currentColor; -webkit-mask: url('/jan-theme/assets/hand-wave.svg') center / contain no-repeat; mask: url('/jan-theme/assets/hand-wave.svg') center / contain no-repeat; }
   html[data-jan-theme] [data-chat-running-mark] > * { display: none; }
   .jt-hero-title { width: 100%; margin: 0 0 16px; font-family: 'StudioFeixenSans', 'Inter', sans-serif; font-size: 24px; font-weight: 500; line-height: 32px; color: var(--dsw-alias-label-primary); text-align: center; text-wrap: balance; }
-.jt-footer-action { width: 100%; min-height: 36px; display: flex; align-items: center; gap: 8px; padding: 7px 9px; border: 0; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-secondary); font: inherit; text-align: left; cursor: pointer; }
-.jt-footer-action:hover { background: var(--dsw-specific-sidebar-nav-item-hover); color: var(--dsw-alias-label-primary); }
+.jt-footer-action { width: 100%; min-height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 14px; line-height: 20px; text-align: left; cursor: pointer; }
+.jt-footer-action > svg { flex: none; color: var(--dsw-alias-label-secondary); }
+.jt-footer-action:hover { background: var(--dsw-specific-sidebar-nav-item-hover); }
 .jt-footer-action:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -2px; }
 .jt-footer-action[data-rail] { justify-content: center; padding-inline: 0; }
 .jt-menu-entry { display: flex; align-items: center; gap: 8px; width: 100%; }
