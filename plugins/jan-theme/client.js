@@ -683,8 +683,10 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
             }),
           }, PluginManagerAction))
         })
+        // The account menu carries Settings plus Sign in with Tokamak; it
+        // registers at the default rank, so ours renders only without it.
         ctx.slots.inject('settings.launcher', () => ctx.slots.register({
-          name: 'settings.launcher', priority: -1, locale: 'jan-theme',
+          name: 'settings.launcher', priority: 1, locale: 'jan-theme',
         }, SettingsLauncher))
 
         if (mac) {
