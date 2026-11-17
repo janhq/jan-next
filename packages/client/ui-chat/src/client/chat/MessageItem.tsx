@@ -50,10 +50,18 @@ interface RetryCountdown {
   seconds: number
 }
 
-/** Settings availability and action scoped to terminal turn errors. */
+/** Context recovery is available only on the local llama.cpp route. */
+export interface ContextRecovery {
+  modelFor: (failureSeq: number) => string | undefined
+  contextFor: (id: string) => Promise<{ current: number; maximum?: number } | undefined>
+  increase: (id: string) => Promise<{ ok: true; value: number | null } | { ok: false; error: string }>
+  retry: (failureSeq: number) => void
+}
+
 interface TurnErrorInjected {
   hooks: { settingsAvailability: ObservableSnapshot<boolean> }
   openModelsSettings: () => void
+  recovery?: ContextRecovery
 }
 
 function failureMessage(
@@ -164,20 +172,53 @@ function ModelSwitchItem({ node, t }: {
 }
 
 /** Persistent, turn-positioned feedback for a terminal failure. */
-function TurnErrorItem({ node, t, canOpenModelsSettings, openModelsSettings }: {
+function TurnErrorItem({ node, t, canOpenModelsSettings, openModelsSettings, recovery }: {
   node: TurnErrorNode
   t: ChatViewSlotProps['t']
   canOpenModelsSettings: boolean
   openModelsSettings: () => void
+  recovery?: ContextRecovery
 }) {
+  const [working, setWorking] = useState(false)
+  const [error, setError] = useState<string>()
+  const [context, setContext] = useState<{ current: number; maximum?: number }>()
+  const [exhausted, setExhausted] = useState(false)
+  const modelId = node.code === 'CONTEXT_WINDOW_EXCEEDED' ? recovery?.modelFor(node.seq) : undefined
+  useEffect(() => {
+    if (modelId === undefined) return
+    let live = true
+    void recovery?.contextFor(modelId).then((value) => { if (live) setContext(value) }, () => {})
+    return () => { live = false }
+  }, [modelId, recovery])
+  const atMaximum = exhausted || (context?.maximum !== undefined && context.current >= context.maximum)
+  const grow = async (): Promise<void> => {
+    if (modelId === undefined || recovery === undefined || working) return
+    setWorking(true)
+    setError(undefined)
+    try {
+      const result = await recovery.increase(modelId)
+      if (!result.ok) setError(result.error)
+      else if (result.value === null) setExhausted(true)
+      else recovery.retry(node.seq)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason))
+    } finally { setWorking(false) }
+  }
   return (
     <div className={css.turnErrorRow} role="status">
       <StateDot state="error" className={css.turnErrorDot} />
       <div className={css.turnErrorCopy}>
         <span className={css.turnErrorTitle}>{node.code === 'ACCOUNT_SIGNED_OUT' || node.code === 'INTERRUPTED' ? t('message.taskStopped') : t('message.turnError')}</span>
-        <span className={css.turnErrorMessage}>{failureMessage(node.message, node.code, t)}</span>
+        <span className={css.turnErrorMessage}>{modelId === undefined ? failureMessage(node.message, node.code, t)
+          : t('message.failure.localContextWindow')}</span>
         {node.code === 'MISSING_CREDENTIAL' && canOpenModelsSettings && <button type="button" className={css.turnErrorAction}
           onClick={openModelsSettings}>{t('message.failure.openModels')}</button>}
+        {modelId !== undefined && (atMaximum
+          ? <span className={css.turnErrorLimit}>{t('message.failure.contextMaximum')}</span>
+          : <button type="button" className={css.turnErrorAction} disabled={working} onClick={() => { void grow() }}>
+            {t(working ? 'message.failure.increasingContext' : 'message.failure.increaseContext')}
+          </button>)}
+        {error !== undefined && <span className={css.turnErrorMessage} role="alert">{error}</span>}
       </div>
       {node.code !== undefined && node.code !== 'INTERRUPTED' && <code className={css.turnErrorCode}>{node.code}</code>}
     </div>
@@ -430,10 +471,11 @@ export const ModelSwitchNodeView = memo(function ModelSwitchNodeView({ node, t }
 })
 
 /** Terminal turn-error keyed Chat renderer. */
-export const TurnErrorNodeView = memo(function TurnErrorNodeView({ node, t, useSettingsAvailability, openModelsSettings }:
+export const TurnErrorNodeView = memo(function TurnErrorNodeView({ node, t, useSettingsAvailability, openModelsSettings, recovery }:
   ChatNodeViewProps<'turn-error'> & InjectFace<TurnErrorInjected>) {
   const canOpenModelsSettings = useSettingsAvailability(available => available)
-  return <TurnErrorItem node={node.data} t={t} canOpenModelsSettings={canOpenModelsSettings} openModelsSettings={openModelsSettings} />
+  return <TurnErrorItem node={node.data} t={t} canOpenModelsSettings={canOpenModelsSettings}
+    openModelsSettings={openModelsSettings} recovery={recovery} />
 })
 
 /** Max-tokens turn-end notice keyed Chat renderer. */

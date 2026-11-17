@@ -44,6 +44,42 @@ export function ModelManager(props: SectionProps): ReactNode {
   </>
 }
 
+function ModelContextControls({ model, disabled, actions, t, perform, setError }: {
+  model: LocalModelEntry
+  disabled: boolean
+  actions: LocalModelActions
+  t: T
+  perform: (id: string, call: (id: string) => Promise<Outcome<void>>) => void
+  setError: (id: string, message: string) => void
+}): ReactNode {
+  const [draft, setDraft] = useState(String(model.configuredContextSize))
+  useEffect(() => { setDraft(String(model.configuredContextSize)) }, [model.configuredContextSize])
+  const commit = (): void => {
+    const value = Number(draft)
+    if (!Number.isSafeInteger(value) || value <= 0 || (model.contextLength !== undefined && value > model.contextLength)) {
+      setError(model.id, t('invalidContext'))
+      setDraft(String(model.configuredContextSize))
+    } else if (value !== model.configuredContextSize) perform(model.id, id => actions.setModelContext(id, value))
+  }
+  return <span className={`${css.rowWide} ${css.modelSettings}`}>
+    <label className={css.modelSetting}>
+      {t('contextLengthLabel')}
+      <input type="number" min={1} max={model.contextLength} step={1} aria-label={t('contextLengthLabel')}
+        value={draft} disabled={disabled} onChange={(event) => { setDraft(event.currentTarget.value) }}
+        onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur() }}
+        onBlur={commit} />
+      {model.contextLength !== undefined && <span className={css.muted}>
+        {t('contextMax', { tokens: model.contextLength.toLocaleString() })}
+      </span>}
+    </label>
+    <label className={css.modelSetting} title={t('autoFitHint')}>
+      <input type="checkbox" checked={model.autoFit} disabled={disabled}
+        onChange={(event) => { perform(model.id, id => actions.setModelFit(id, event.target.checked)) }} />
+      {t('autoFitLabel')}
+    </label>
+  </span>
+}
+
 function InstalledModels({ state, actions, t }: SectionProps): ReactNode {
   const [confirming, setConfirming] = useState<string | undefined>()
   // One model operation at a time per row; its failure stays on the row until the next attempt.
@@ -82,6 +118,8 @@ function InstalledModels({ state, actions, t }: SectionProps): ReactNode {
             </span>
             <span className={css.muted}>{detail}</span>
           </span>
+          <ModelContextControls model={model} disabled={disabled} actions={actions} t={t} perform={perform}
+            setError={(id, message) => { setErrors(current => new Map(current).set(id, message)) }} />
           {confirming === model.id ? <span className={css.actions}>
             <span className={css.muted}>
               {t(model.source === 'import' ? 'forgetConfirm' : 'deleteConfirm', { name: model.name, size: formatBytes(model.bytes) })}
@@ -126,7 +164,7 @@ function Downloads({ state, actions, t }: SectionProps): ReactNode {
   return <section className={css.section} aria-label={t('downloadsTitle')}>
     <h4 className={css.sectionTitle}>{t('downloadsTitle')}</h4>
     <ul className={css.list} data-testid="local-model-downloads">
-      {items.map(item => {
+      {items.map((item) => {
         const running = item.error === undefined && item.paused === undefined
         return <li key={item.id} className={css.row} data-model-id={item.id}>
           <span className={css.rowMain}>

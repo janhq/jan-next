@@ -191,6 +191,29 @@
   min-width: 0;
 }
 
+.modelSettings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.modelSetting {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.modelSetting input[type='number'] {
+  width: 100px;
+  padding: 4px 6px;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-sm);
+}
+
 /* Beside the chat's running clock: same line, quieter than the clock itself. */
 .runningDetail {
   min-width: 0;

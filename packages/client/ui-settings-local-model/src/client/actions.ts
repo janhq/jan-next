@@ -29,6 +29,10 @@ export interface LocalModelActions {
   pauseDownload: (id: string) => void
   /** Make an installed model the default and load it. */
   setDefaultModel: (id: string) => Promise<Outcome<void>>
+  /** Change the model's persisted context length and wait for worker reload. */
+  setModelContext: (id: string, contextSize: number) => Promise<Outcome<void>>
+  /** Change automatic GPU offload fit for one model. */
+  setModelFit: (id: string, fit: boolean) => Promise<Outcome<void>>
   /** Load an installed model now. */
   loadModel: (id: string) => Promise<Outcome<void>>
   /** Free a loaded model's memory. */
@@ -80,6 +84,8 @@ export function createActions(ctx: Context): LocalModelActions {
     retryDownload: (id) => { run(() => ctx.remote.llamaCpp.retryDownload(id)) },
     pauseDownload: (id) => { run(() => ctx.remote.llamaCpp.pauseDownload(id)) },
     setDefaultModel: id => answer(() => ctx.remote.llamaCpp.setDefaultModel(id)),
+    setModelContext: (id, contextSize) => answer(() => ctx.remote.llamaCpp.setModelContext(id, contextSize)),
+    setModelFit: (id, fit) => answer(() => ctx.remote.llamaCpp.setModelFit(id, fit)),
     loadModel: id => answer(() => ctx.remote.llamaCpp.loadModel(id)),
     unloadModel: id => answer(() => ctx.remote.llamaCpp.unloadModel(id)),
     deleteModel: id => answer(() => ctx.remote.llamaCpp.deleteModel(id)),

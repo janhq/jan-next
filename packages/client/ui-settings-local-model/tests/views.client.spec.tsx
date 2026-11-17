@@ -15,7 +15,7 @@ afterEach(cleanup)
 const model = { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', modelBytes: 2_716_066_656 }
 const jan: LocalModelEntry = {
   id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', bytes: 2_716_066_656, source: 'catalog', active: true, status: 'loaded', architecture: 'qwen3',
-  vision: false,
+  vision: false, configuredContextSize: 32768, autoFit: false,
 }
 const catalog: CatalogModelInfo[] = [
   { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', bytes: 2_716_066_656, repo: 'janhq/Jan-v3.5-4B-gguf', recommended: true, installed: false, vision: false },
@@ -47,6 +47,8 @@ function fixture(state: StateInput) {
     install: vi.fn(), cancel: vi.fn(), start: vi.fn(), stop: vi.fn(), uninstall: vi.fn(),
     downloadModel: vi.fn(), cancelDownload: vi.fn(), retryDownload: vi.fn(), pauseDownload: vi.fn(),
     setDefaultModel: vi.fn<LocalModelActions['setDefaultModel']>(async () => ({ ok: true, value: undefined })),
+    setModelContext: vi.fn<LocalModelActions['setModelContext']>(async () => ({ ok: true, value: undefined })),
+    setModelFit: vi.fn<LocalModelActions['setModelFit']>(async () => ({ ok: true, value: undefined })),
     loadModel: vi.fn<LocalModelActions['loadModel']>(async () => ({ ok: true, value: undefined })),
     unloadModel: vi.fn<LocalModelActions['unloadModel']>(async () => ({ ok: true, value: undefined })),
     deleteModel: vi.fn<LocalModelActions['deleteModel']>(async () => ({ ok: true, value: undefined })),
@@ -117,14 +119,14 @@ it('shows a failure with the worker log and offers a retry', () => {
 it('lists installed models with fit, context and residency, and loads, unloads, makes default and deletes them', async () => {
   const imported: LocalModelEntry = {
     id: 'mine', name: 'Mine', bytes: 1_000_000, source: 'import', active: false, status: 'unloaded', architecture: 'llama',
-    contextLength: 8192, fit: 'too-large', vision: true,
+    contextLength: 8192, configuredContextSize: 8192, autoFit: false, fit: 'too-large', vision: true,
   }
   const f = fixture({ phase: 'running', models: [{ ...jan, contextSize: 32768, fit: 'fits' }, imported] })
   card(f)
   const rows = screen.getByTestId('local-model-installed').querySelectorAll('li')
   expect([...rows].map(row => row.textContent)).toEqual([
-    'Jan v3.5 4BDefaultFits2.7 GB · qwen3 · 32,768-token context · CuratedLoadedUnloadDelete',
-    'MineVisionToo large1 MB · llama · trained on 8,192 tokens · Imported fileNot loadedLoadMake defaultDelete',
+    'Jan v3.5 4BDefaultFits2.7 GB · qwen3 · 32,768-token context · CuratedContext lengthAuto-fitLoadedUnloadDelete',
+    'MineVisionToo large1 MB · llama · trained on 8,192 tokens · Imported fileContext lengthMaximum: 8,192 tokensAuto-fitNot loadedLoadMake defaultDelete',
   ])
   expect(rows[1]?.querySelector('[data-fit]')?.getAttribute('title')).toBe(en.fitTooLargeHint)
   expect(rows[0]?.querySelector('[data-testid="local-model-vision"]')).toBeNull()
@@ -147,6 +149,28 @@ it('lists installed models with fit, context and residency, and loads, unloads, 
   // A refused removal keeps the row and says why on it.
   expect((await screen.findByRole('alert')).textContent).toBe('the model has requests in flight; retry once they finish')
   expect(screen.getByTestId('local-model-installed').querySelectorAll('li')).toHaveLength(2)
+})
+
+it('changes per-model context length and automatic fit while preserving the installed row', async () => {
+  const f = fixture({ phase: 'running', models: [{ ...jan, configuredContextSize: 32768, autoFit: false, contextLength: 131072 }] })
+  card(f)
+  expect(screen.getByRole<HTMLInputElement>('spinbutton', { name: 'Context length' }).value).toBe('32768')
+  fireEvent.change(screen.getByRole('spinbutton', { name: 'Context length' }), { target: { value: '49152' } })
+  fireEvent.blur(screen.getByRole('spinbutton', { name: 'Context length' }))
+  await waitFor(() => expect(f.actions.setModelContext).toHaveBeenCalledWith(jan.id, 49152))
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Auto-fit' }))
+  await waitFor(() => expect(f.actions.setModelFit).toHaveBeenCalledWith(jan.id, true))
+})
+
+it('rejects an invalid context without changing the saved setting', () => {
+  const f = fixture({ phase: 'running', models: [{ ...jan, configuredContextSize: 32768, contextLength: 65536 }] })
+  card(f)
+  const input = screen.getByRole<HTMLInputElement>('spinbutton', { name: 'Context length' })
+  fireEvent.change(input, { target: { value: '70000' } })
+  fireEvent.blur(input)
+  expect(f.actions.setModelContext).not.toHaveBeenCalled()
+  expect(screen.getByRole('alert').textContent).toBe(en.invalidContext)
+  expect(input.value).toBe('32768')
 })
 
 it('hides residency and load controls while the server is stopped, and summarizes the hardware', () => {

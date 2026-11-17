@@ -67,6 +67,8 @@ Generic command rows retain the ordinary command glyph in every lifecycle state;
 
 Missing-credential turn failures show localized setup guidance instead of provider configuration instructions: Settings -> Models offers a free local download without an account; sign-in to Tokamak and API-key setup are alternatives. Their Settings -> Models action opens that section directly when Settings is available.
 
+On a `CONTEXT_WINDOW_EXCEEDED` turn from a local llama.cpp model, Chat offers **Increase context size** below that failed turn. The controller grows and reloads the model first, then the existing continuation input submits an empty retry into the same Session; the original user message remains in its history. At the GGUF-trained maximum the card instead recommends a new chat or a larger-context model. Cloud routes cannot grow their context and keep plain-language guidance to start a new chat or switch models.
+
 Chat adapts Markdown targets at `MarkdownDelegateProvider.getTriggerProps`. The assistant-node Slot obtains `useContextMenu` directly and passes a file-path adapter to the optional mention service; intermediate flow and node owners carry no menu callbacks. Paths resolve against the originating Session’s current working directory when the gesture begins. Menus retain that captured path and line even if focus changes. Undeclared plugin links keep native behavior.
 
 -----

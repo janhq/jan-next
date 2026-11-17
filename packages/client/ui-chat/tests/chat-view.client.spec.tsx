@@ -271,6 +271,7 @@ type UserChainRenderer = typeof userChainDispatch<'conversation.chat.user.before
 type UserChainState = { readonly renderer: UserChainRenderer | undefined }
 type HarnessStandardProps = ChatViewSlotProps & PropsRenderFactories & Pick<React.ComponentProps<typeof AssistantNodeView>, 'fileMentions'> & {
   openModelsSettings: () => void
+  recovery?: React.ComponentProps<typeof TurnErrorNodeView>['recovery']
 }
 
 function isImageOwner(owner: object): owner is MessageImagesOwnerProps {
@@ -351,7 +352,7 @@ function HarnessChatNode({
       return <RetryNodeView {...nodeProps} node={owner.node} />
     case 'turn-error':
       return <TurnErrorNodeView {...nodeProps} node={owner.node} useSettingsAvailability={selector => selector(true)}
-        openModelsSettings={standard.openModelsSettings} />
+        openModelsSettings={standard.openModelsSettings} recovery={standard.recovery} />
     case 'turn-max-tokens':
       return <TurnMaxTokensNodeView {...nodeProps} node={owner.node} />
     case 'turn-process':
@@ -2640,6 +2641,50 @@ describe('ChatView', () => {
     expect(view.queryByRole('button', { name: '去充值' })).toBeNull()
     fireEvent.click(view.getByRole('button', { name: '前往设置 -> 模型' }))
     expect(h.openModelsSettings).toHaveBeenCalledOnce()
+  })
+
+  it('offers a local context increase and retries the same failed turn only after reload', async () => {
+    const h = makeHarness({ nodes: [user(1, 'original prompt'), turnError(2, 'CONTEXT_WINDOW_EXCEEDED')] })
+    const reload = Promise.withResolvers<{ ok: true; value: number | null }>()
+    const increase = vi.fn(() => reload.promise)
+    const retry = vi.fn()
+    h.props.recovery = { modelFor: () => 'jan-v3.5-4b', contextFor: async () => ({ current: 32768, maximum: 131072 }), increase, retry }
+    const view = render(<h.ChatView {...h.props} />)
+    fireEvent.click(view.getByRole('button', { name: zh['message.failure.increaseContext'] }))
+    expect(increase).toHaveBeenCalledWith('jan-v3.5-4b')
+    expect(retry).not.toHaveBeenCalled()
+    reload.resolve({ ok: true, value: 49152 })
+    await waitFor(() => expect(retry).toHaveBeenCalledWith(2))
+    expect(view.getByText('original prompt')).toBeTruthy()
+  })
+
+  it('explains the trained maximum instead of offering another increase', async () => {
+    const h = makeHarness({ nodes: [user(1, 'prompt'), turnError(2, 'CONTEXT_WINDOW_EXCEEDED')] })
+    h.props.recovery = { modelFor: () => 'local', contextFor: async () => ({ current: 32768, maximum: 32768 }),
+      increase: vi.fn(), retry: vi.fn() }
+    const view = render(<h.ChatView {...h.props} />)
+    expect(await view.findByText(zh['message.failure.contextMaximum'])).toBeTruthy()
+    expect(view.queryByRole('button', { name: zh['message.failure.increaseContext'] })).toBeNull()
+  })
+
+  it('keeps cloud failures plain and offers no local growth action', () => {
+    const h = makeHarness({ nodes: [user(1, 'cloud prompt'), turnError(2, 'CONTEXT_WINDOW_EXCEEDED')] })
+    h.props.recovery = { modelFor: () => undefined, contextFor: vi.fn(), increase: vi.fn(), retry: vi.fn() }
+    const view = render(<h.ChatView {...h.props} />)
+    expect(view.getByRole('status').textContent).toContain(zh['message.failure.contextWindow'])
+    expect(view.queryByRole('button', { name: zh['message.failure.increaseContext'] })).toBeNull()
+  })
+
+  it('does not retry a failed context increase and leaves the user prompt in place', async () => {
+    const h = makeHarness({ nodes: [user(1, 'keep this'), turnError(2, 'CONTEXT_WINDOW_EXCEEDED')] })
+    const retry = vi.fn()
+    h.props.recovery = { modelFor: () => 'local', contextFor: async () => undefined,
+      increase: async () => ({ ok: false, error: 'Not enough memory' }), retry }
+    const view = render(<h.ChatView {...h.props} />)
+    fireEvent.click(view.getByRole('button', { name: zh['message.failure.increaseContext'] }))
+    expect(await view.findByRole('alert')).toHaveProperty('textContent', 'Not enough memory')
+    expect(retry).not.toHaveBeenCalled()
+    expect(view.getByText('keep this')).toBeTruthy()
   })
 
   it('renders the max-tokens notice with localized guidance, distinct from turn errors', () => {
