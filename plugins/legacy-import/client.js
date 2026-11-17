@@ -167,7 +167,9 @@ window.__ModuleLoader__.load({
       return h(Modal, {
         open: true, title: 'Import from Jan', closeLabel: 'Close import', onClose: importing ? () => {} : onClose,
         className: 'jan-legacy-import-dialog', footer,
-        description: threads.length ? `${plural(threads.length, 'chat', 'chats')} found in the earlier Jan app, ${eligible.length} ready to bring over. Your Jan folder is only read, never changed.` : 'Your Jan folder is only read, never changed.',
+        description: !threads.length ? 'Your Jan folder is only read, never changed.'
+          : eligible.length ? `${plural(threads.length, 'chat', 'chats')} found in the earlier Jan app, ${eligible.length} ready to bring over. Your Jan folder is only read, never changed.`
+          : 'Every chat from the earlier Jan app is here. Your Jan folder was only read, never changed.',
       },
         h('div', { className: 'jan-legacy-import jan-legacy-import-in-dialog', 'aria-busy': busy },
           h('div', { className: 'jan-legacy-import-source' },
