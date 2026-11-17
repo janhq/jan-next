@@ -14,7 +14,8 @@ declare module '@janhq/cordis' {
   interface Events {
     /**
      * The provider topology changed: an adapter registered or unregistered
-     * routes, or the configurable-provider directory gained or lost entries.
+     * routes, an adapter announced a changed model set for its routes, or the
+     * configurable-provider directory gained or lost entries.
      * This payload-free registry notification fires at each commit point
      * (including registration disposal); consumers re-read `listProviders()`,
      * `listModels()`, or `listConfigurableProviders()` for the new state.
