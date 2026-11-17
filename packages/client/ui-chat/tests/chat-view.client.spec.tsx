@@ -269,7 +269,9 @@ type ImageRenderer = (owner: MessageImagesOwnerProps) => React.ReactNode
 declare const userChainDispatch: PropsRenderSlots<'conversation.chat.user.before'>['renderSlotChain']
 type UserChainRenderer = typeof userChainDispatch<'conversation.chat.user.before'>
 type UserChainState = { readonly renderer: UserChainRenderer | undefined }
-type HarnessStandardProps = ChatViewSlotProps & PropsRenderFactories & Pick<React.ComponentProps<typeof AssistantNodeView>, 'fileMentions'>
+type HarnessStandardProps = ChatViewSlotProps & PropsRenderFactories & Pick<React.ComponentProps<typeof AssistantNodeView>, 'fileMentions'> & {
+  openModelsSettings: () => void
+}
 
 function isImageOwner(owner: object): owner is MessageImagesOwnerProps {
   return 'images' in owner && Array.isArray(owner.images)
@@ -348,7 +350,8 @@ function HarnessChatNode({
     case 'model-retry':
       return <RetryNodeView {...nodeProps} node={owner.node} />
     case 'turn-error':
-      return <TurnErrorNodeView {...nodeProps} node={owner.node} />
+      return <TurnErrorNodeView {...nodeProps} node={owner.node} useSettingsAvailability={selector => selector(true)}
+        openModelsSettings={standard.openModelsSettings} />
     case 'turn-max-tokens':
       return <TurnMaxTokensNodeView {...nodeProps} node={owner.node} />
     case 'turn-process':
@@ -427,6 +430,7 @@ function makeHarness(
   let outlineValue: unknown
   const openView = vi.fn<(view: string, focus: string) => void>()
   // In-memory scroll memory matching the apply.ts per-session map contract.
+  const openModelsSettings = vi.fn()
   let savedScroll: ReturnType<ChatViewSlotProps['chatScroll']['read']> = null
   const chatScroll: ChatViewSlotProps['chatScroll'] = {
     save: (position) => { savedScroll = position },
@@ -497,6 +501,7 @@ function makeHarness(
   const props: HarnessStandardProps = {
     fileDrag,
     resolveFilePath: vi.fn((path: string) => path),
+    openModelsSettings,
     renderFactorySlot,
     usePanelInfo: selector => selector({ activePanelId: null }),
     sessionId: SID,
@@ -578,6 +583,7 @@ function makeHarness(
     set, setSession: session.set, setChat: chatSource.set, ChatView, props,
     setConnection: (state: ConnectionState) => { connection.set(state) },
     openFile, openUserFile, loadOlder, loadThrough, openView,
+    openModelsSettings,
     setOutline: (value: unknown) => { outlineValue = value },
     chatScroll, forkAt, toolOwners,
     setPerformanceUsage: (mode: 'compact' | 'detailed') => { performanceUsage.set(mode) },
@@ -2612,7 +2618,7 @@ describe('ChatView', () => {
   it('renders every terminal failure inline with neutral quota copy and no transient notice', () => {
     const h = makeHarness({ nodes: [
       user(1, 'try'), turnError(2, 'AUTH'), turnError(3), turnError(4, 'QUOTA'), turnError(5, 'ACCOUNT_QUOTA'),
-      turnError(6, 'INTERRUPTED'), turnError(7, 'CONTEXT_WINDOW_EXCEEDED'),
+      turnError(6, 'INTERRUPTED'), turnError(7, 'CONTEXT_WINDOW_EXCEEDED'), turnError(8, 'MISSING_CREDENTIAL'),
     ] })
     const view = render(<h.ChatView {...h.props} />)
     const statuses = view.getAllByRole('status')
@@ -2623,12 +2629,15 @@ describe('ChatView', () => {
       '本轮运行失败当前请求的额度已用尽ACCOUNT_QUOTA',
       '任务已停止Jan 进程在本轮完成前退出（例如被强制结束、崩溃或关闭超时），重新启动后本轮已中止。未完成的工具调用结果未知。',
       '本轮运行失败这个对话已超出当前模型的上下文窗口，之后的消息也会失败。请用更短的内容开始新对话，或切换到上下文窗口更大的模型。CONTEXT_WINDOW_EXCEEDED',
+      '本轮运行失败当前模型需要登录或 API 密钥。前往设置 -> 模型下载免费的本地模型（在此电脑上运行，无需账号），或登录 Tokamak 或添加 API 密钥。前往设置 -> 模型MISSING_CREDENTIAL',
     ])
     // The transient notice is the frame-wide host's job; the failure row keeps
     // neither a recharge affordance nor a toast of its own.
     expect(view.queryByRole('alert')).toBeNull()
     expect(view.queryByRole('dialog')).toBeNull()
     expect(view.queryByRole('button', { name: '去充值' })).toBeNull()
+    fireEvent.click(view.getByRole('button', { name: '前往设置 -> 模型' }))
+    expect(h.openModelsSettings).toHaveBeenCalledOnce()
   })
 
   it('renders the max-tokens notice with localized guidance, distinct from turn errors', () => {

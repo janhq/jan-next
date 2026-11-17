@@ -3995,6 +3995,9 @@ importers:
       '@janhq/jan-client-ui-settings':
         specifier: workspace:*
         version: link:../ui-settings
+      '@janhq/jan-client-ui-settings-general':
+        specifier: workspace:*
+        version: link:../ui-settings-general
       '@janhq/jan-client-ui-sidebar-browser':
         specifier: workspace:*
         version: link:../ui-sidebar-browser

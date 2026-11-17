@@ -1,7 +1,8 @@
 import { memo, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { PendingSubmission } from '@janhq/jan-api-session-controller/client'
-import type { PropsRenderFactories, PropsRenderSlots } from '@janhq/jan-client-ui-slots'
+import type { InjectFace, PropsRenderFactories, PropsRenderSlots } from '@janhq/jan-client-ui-slots'
+import type { ObservableSnapshot } from '@janhq/jan-client-store'
 import type { UserTextFacts } from '@janhq/jan-client-ui-conversation/client'
 import { JsonBlock, StateDot, TextShimmer } from '@janhq/jan-client-ui-primitives'
 import type {
@@ -49,6 +50,12 @@ interface RetryCountdown {
   seconds: number
 }
 
+/** Settings availability and action scoped to terminal turn errors. */
+interface TurnErrorInjected {
+  hooks: { settingsAvailability: ObservableSnapshot<boolean> }
+  openModelsSettings: () => void
+}
+
 function failureMessage(
   message: string,
   code: unknown,
@@ -59,6 +66,7 @@ function failureMessage(
   if (code === 'ACCOUNT_SIGN_IN_REQUIRED') return t('message.failure.accountSignInRequired')
   if (code === 'QUOTA' || code === 'ACCOUNT_QUOTA') return t('message.failure.quota')
   if (code === 'CONTEXT_WINDOW_EXCEEDED') return t('message.failure.contextWindow')
+  if (code === 'MISSING_CREDENTIAL') return t('message.failure.missingCredential')
   return code === 'AUTH' ? t('message.failure.auth') : message
 }
 
@@ -155,9 +163,11 @@ function ModelSwitchItem({ node, t }: {
 }
 
 /** Persistent, turn-positioned feedback for a terminal failure. */
-function TurnErrorItem({ node, t }: {
+function TurnErrorItem({ node, t, canOpenModelsSettings, openModelsSettings }: {
   node: TurnErrorNode
   t: ChatViewSlotProps['t']
+  canOpenModelsSettings: boolean
+  openModelsSettings: () => void
 }) {
   return (
     <div className={css.turnErrorRow} role="status">
@@ -165,6 +175,8 @@ function TurnErrorItem({ node, t }: {
       <div className={css.turnErrorCopy}>
         <span className={css.turnErrorTitle}>{node.code === 'ACCOUNT_SIGNED_OUT' || node.code === 'INTERRUPTED' ? t('message.taskStopped') : t('message.turnError')}</span>
         <span className={css.turnErrorMessage}>{failureMessage(node.message, node.code, t)}</span>
+        {node.code === 'MISSING_CREDENTIAL' && canOpenModelsSettings && <button type="button" className={css.turnErrorAction}
+          onClick={openModelsSettings}>{t('message.failure.openModels')}</button>}
       </div>
       {node.code !== undefined && node.code !== 'INTERRUPTED' && <code className={css.turnErrorCode}>{node.code}</code>}
     </div>
@@ -417,8 +429,10 @@ export const ModelSwitchNodeView = memo(function ModelSwitchNodeView({ node, t }
 })
 
 /** Terminal turn-error keyed Chat renderer. */
-export const TurnErrorNodeView = memo(function TurnErrorNodeView({ node, t }: ChatNodeViewProps<'turn-error'>) {
-  return <TurnErrorItem node={node.data} t={t} />
+export const TurnErrorNodeView = memo(function TurnErrorNodeView({ node, t, useSettingsAvailability, openModelsSettings }:
+  ChatNodeViewProps<'turn-error'> & InjectFace<TurnErrorInjected>) {
+  const canOpenModelsSettings = useSettingsAvailability(available => available)
+  return <TurnErrorItem node={node.data} t={t} canOpenModelsSettings={canOpenModelsSettings} openModelsSettings={openModelsSettings} />
 })
 
 /** Max-tokens turn-end notice keyed Chat renderer. */

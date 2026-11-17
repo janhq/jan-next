@@ -22,6 +22,7 @@ import type {} from '@janhq/jan-client-ui-layout/client'
 import type {} from '@janhq/jan-client-ui-renderer/client'
 import type {} from '@janhq/jan-client-ui-session/client'
 import type {} from '@janhq/jan-client-ui-settings/client'
+import type {} from '@janhq/jan-client-ui-settings-general/client'
 import type {} from '@janhq/jan-client-ui-workspace/client'
 import type { ConnectionHandle } from '@janhq/jan-client-connection/client'
 import type {
