@@ -3,14 +3,23 @@ import { homedir } from 'node:os'
 import { resolve, join, extname, isAbsolute } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import z from '@janhq/schemastery'
+import { credentialRef } from '@janhq/jan-credentials'
 import { registerApi } from '@janhq/jan-plugin-api'
 import { convertThread, coworkMessages, threadUpdated } from './convert.mjs'
+import { janKeyNames, readJanKey } from './jan-secrets.mjs'
+import { assistantPresetId, derivePreset, keyRef, providerProfile, readJanSettings } from './settings.mjs'
 
 export const Config = z.object({
   // The first-launch offer: `dismissed` once the user answered it.
   offer: z.dict(z.any()).default({}).volatile(),
+  // Jan assistants brought over, by preset id; each is registered as a preset at startup.
+  assistants: z.dict(z.any()).default({}).volatile(),
 })
 export const inject = ['webServer', 'connection', 'settings', 'sessions', 'sessionPersistence', 'workspaceRegistry', 'attachments']
+// The preset an imported assistant is built on: its tools and guidance, with
+// the assistant's instructions as the persona.
+const BASE_PRESET = 'standard'
+const PROVIDERS_NS = 'llm-pi-ai'
 const errorText = error => error instanceof Error ? error.message : String(error)
 const validId = id => typeof id === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(id)
 const parseMessages = text => text.split(/\r?\n/).filter(line => line.trim()).map((line, index) => {
@@ -62,16 +71,34 @@ export function apply(ctx, config = {}) {
       }
     }
     threads.sort((a, b) => (b.updated ?? 0) - (a.updated ?? 0))
-    return { folder: source, threads }
+    return { folder: source, threads, settings: await settingsSummary(source) }
+  }
+  // What else Jan holds, for the import choices; never a secret value.
+  const settingsSummary = async source => {
+    try {
+      const { providers, mcp, assistants } = await readJanSettings(source, await janKeyNames(source))
+      const stored = config.assistants?.get() ?? {}
+      return {
+        providers: providers.map(({ id, route, hasKey }) => ({ id, route, hasKey })),
+        mcp: { names: Object.keys(mcp.servers), renamed: mcp.renamed, skipped: mcp.skipped },
+        assistants: assistants.map(({ id, name }) => ({ id, name, alreadyImported: Object.hasOwn(stored, id) })),
+      }
+    } catch (error) { return { error: errorText(error), providers: [], mcp: { names: [], renamed: {}, skipped: [] }, assistants: [] } }
   }
   // Offered once on first launch when the earlier Jan left chats that are not
   // here yet; a relocated Jan folder is only reachable from Settings.
   const offer = async () => {
     if (config.offer?.get()?.dismissed === true) return { show: false, count: 0 }
     try {
-      const { threads } = await list({})
+      const { threads, settings } = await list({})
       const count = threads.filter(thread => !thread.error && !thread.alreadyImported && thread.messageCount > 0).length
-      return { show: count > 0, count }
+      // Names the settings that come along, so the offer says what it moves.
+      const extras = [
+        settings.providers.length ? 'model providers' : null,
+        settings.mcp.names.length ? 'MCP servers' : null,
+        settings.assistants.some(item => !item.alreadyImported) ? 'assistants' : null,
+      ].filter(Boolean)
+      return { show: count > 0, count, extras }
     } catch (error) {
       if (missing(error)) return { show: false, count: 0 }
       throw error
@@ -104,14 +131,108 @@ export function apply(ctx, config = {}) {
     }
     return images
   }
-  const importSelected = async ({ folder, ids }) => {
+  // Jan assistants registered as presets in this run of the plugin, by id.
+  const mountedPresets = new Map()
+  const mountAssistant = async (presets, base, record) => {
+    if (mountedPresets.has(record.id)) return
+    mountedPresets.set(record.id, await presets.register(derivePreset(base, record)))
+  }
+  // The base preset's declaration can register after this plugin starts.
+  const basePreset = async presets => {
+    for (let attempt = 0; attempt < 60; attempt++) {
+      if ((await presets.list()).some(preset => preset.id === BASE_PRESET)) return presets.definitionFor(BASE_PRESET)
+      await new Promise(resolve => setTimeout(resolve, 500))
+    }
+    throw new Error(`The ${BASE_PRESET} agent preset never registered.`)
+  }
+  ctx.effect(() => {
+    let stopped = false
+    void (async () => {
+      const records = Object.values(config.assistants?.get() ?? {})
+      const presets = ctx.get('agentPresets')
+      if (!records.length || !presets) return
+      const base = await basePreset(presets)
+      for (const record of records) {
+        if (stopped) return
+        try { await mountAssistant(presets, base, record) } catch (error) { ctx.logger?.warn?.(`Jan assistant ${record.name}: ${errorText(error)}`) }
+      }
+    })().catch(error => ctx.logger?.warn?.(`Jan assistants: ${errorText(error)}`))
+    return () => {
+      stopped = true
+      for (const dispose of mountedPresets.values()) void dispose().catch(() => { })
+      mountedPresets.clear()
+    }
+  }, 'Jan assistants as agent presets')
+  const importAssistants = async (records, run) => {
+    const settings = ctx.get('settings')
+    const presets = ctx.get('agentPresets')
+    if (!settings || !entry || !presets) throw new Error('Agent presets are unavailable, so assistants cannot come over.')
+    run.current = 'Assistants'
+    const stored = config.assistants?.get() ?? {}
+    const added = records.filter(record => !Object.hasOwn(stored, record.id))
+    if (added.length) await settings.update(entry, { assistants: Object.fromEntries(added.map(record => [record.id, record])) })
+    const base = await basePreset(presets)
+    return Promise.all(records.map(async record => {
+      try {
+        await mountAssistant(presets, base, record)
+        return { id: record.id, name: record.name, status: Object.hasOwn(stored, record.id) ? 'already here' : 'imported' }
+      } catch (error) { return { id: record.id, name: record.name, status: 'failed', reason: errorText(error) } }
+    }))
+  }
+  // A provider becomes an `llm-pi-ai` route; its key is read from Jan's
+  // keyring (the OS may ask to allow it) and stored as a jan-next credential.
+  // Routes and keys already here are kept.
+  const importProvider = async (source, row) => {
+    const settings = ctx.get('settings')
+    const credentials = ctx.get('credentials')
+    if (!settings || !credentials) throw new Error('Model provider settings are unavailable.')
+    const descriptor = settings.describe().find(item => item.ns === PROVIDERS_NS)
+    if (!descriptor) throw new Error('Model provider settings are unavailable.')
+    const existing = descriptor.value?.providers?.[row.route]
+    const ref = typeof existing?.apiKeyEnv === 'string' && existing.apiKeyEnv ? existing.apiKeyEnv : keyRef(row.route)
+    let key = 'none'
+    let reason
+    if (row.hasKey) {
+      const read = await readJanKey(source, row.id)
+      if ('error' in read) { key = 'not read'; reason = read.error }
+      else if ((await credentials.describe(credentialRef(ref))).configured) key = 'kept'
+      else { await credentials.set(credentialRef(ref), read.key); key = 'imported' }
+    }
+    const named = key === 'imported' || key === 'kept'
+    const ops = !existing ? [{ op: 'set', path: ['providers', row.route], value: providerProfile(row, named ? ref : undefined) }]
+      : named && !existing.apiKeyEnv ? [{ op: 'set', path: ['providers', row.route, 'apiKeyEnv'], value: ref }] : []
+    if (ops.length) await settings.mutate(PROVIDERS_NS, ops)
+    return { id: row.id, route: row.route, status: existing ? 'already here' : 'imported', key, ...(reason ? { reason } : {}) }
+  }
+  // The MCP servers as a document for the MCP settings import, which stores
+  // their env and header values as credentials and adds them turned off.
+  const mcpDocument = async ({ folder }) => {
+    const { mcp } = await readJanSettings(await realpath(folderOf(folder)), [])
+    return { text: JSON.stringify({ mcpServers: mcp.servers }), renamed: mcp.renamed, skipped: mcp.skipped }
+  }
+  const importSelected = async ({ folder, ids, providers = false, assistants = false }) => {
     if (job?.running) throw new Error('A Jan import is already running.')
-    if (!Array.isArray(ids) || !ids.length || ids.some(id => !validId(id))) throw new Error('Select valid Jan thread IDs.')
+    if (!Array.isArray(ids) || ids.some(id => !validId(id))) throw new Error('Select valid Jan thread IDs.')
+    if (!ids.length && !providers && !assistants) throw new Error('Choose chats or settings to import.')
     const unique = [...new Set(ids)]
-    job = { running: true, total: unique.length, done: 0, current: null, results: [] }
+    job = { running: true, total: unique.length, done: 0, current: null, results: [], settings: { providers: [], assistants: [] } }
     const run = job
     try {
       const source = await realpath(folderOf(folder))
+      const janSettings = providers || assistants ? await readJanSettings(source, providers ? await janKeyNames(source) : []) : undefined
+      if (providers) run.total += janSettings.providers.length
+      if (assistants) run.total++
+      // Assistants first, so imported chats can name their preset.
+      if (assistants) {
+        try { run.settings.assistants = await importAssistants(janSettings.assistants, run) } catch (error) { run.settings.assistantsError = errorText(error) }
+        run.done++
+      }
+      if (providers) for (const row of janSettings.providers) {
+        run.current = `Provider ${row.id}`
+        try { run.settings.providers.push(await importProvider(source, row)) } catch (error) { run.settings.providers.push({ id: row.id, status: 'failed', reason: errorText(error) }) }
+        run.done++
+      }
+      if (!unique.length) return { results: run.results, settings: run.settings }
       const workspace = await ctx.workspaceRegistry.initializeDefault(async () => process.cwd())
       if (!workspace) throw new Error('The default workspace is unavailable. Restore it before importing.')
       for (const id of unique) {
@@ -129,23 +250,26 @@ export function apply(ctx, config = {}) {
           } else {
             const converted = convertThread(thread, messages, await saveImages(source, messages))
             const prepared = ctx.sessions.prepare(sessionId, { seed: converted.events, meta: { createdAt: converted.createdAt, cwd: workspace.path, isSeeded: false } })
-            const handle = await ctx.sessionPersistence.create(prepared.header)
+            // A chat with an imported assistant keeps running as that assistant.
+            const preset = typeof thread.assistants?.[0]?.id === 'string' ? assistantPresetId(thread.assistants[0].id) : undefined
+            const header = preset && mountedPresets.has(preset) ? { ...prepared.header, agentPreset: preset } : prepared.header
+            const handle = await ctx.sessionPersistence.create(header)
             try { await handle.append(converted.events); await handle.flush() } finally { await handle.close() }
             // The Chats list reads titles from the projection cache, which only
             // live sessions write; fold the imported log once so the row is titled.
-            ctx.get('sessionProjectionCache')?.coldSnapshot(prepared.header, prepared.inheritedEventCount, converted.events)
+            ctx.get('sessionProjectionCache')?.coldSnapshot(header, prepared.inheritedEventCount, converted.events)
             await workspace.attachSession(sessionId)
             run.results.push({ id, status: 'imported', sessionId, losses: [...losses, ...converted.losses] })
           }
         } catch (error) { run.results.push({ id, status: 'failed', reason: errorText(error) }) }
         run.done++
       }
-      return { results: run.results }
+      return { results: run.results, settings: run.settings }
     } catch (error) {
       run.error = errorText(error)
       throw error
     } finally { run.running = false; run.current = null }
   }
   const progress = async () => job
-  ctx.effect(() => registerApi(ctx, 'legacy-import', { list, import: importSelected, progress, offer, dismissOffer }), 'Jan read-only import API')
+  ctx.effect(() => registerApi(ctx, 'legacy-import', { list, import: importSelected, progress, offer, dismissOffer, mcpDocument }), 'Jan read-only import API')
 }

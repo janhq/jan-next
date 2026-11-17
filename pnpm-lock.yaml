@@ -17679,6 +17679,9 @@ importers:
 
   plugins/legacy-import:
     dependencies:
+      '@janhq/jan-credentials':
+        specifier: workspace:*
+        version: link:../../packages/credentials/credentials
       '@janhq/jan-plugin-api':
         specifier: workspace:*
         version: link:../plugin-api

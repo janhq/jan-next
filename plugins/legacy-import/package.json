@@ -10,6 +10,7 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
+    "@janhq/jan-credentials": "workspace:*",
     "@janhq/jan-plugin-api": "workspace:*",
     "@janhq/schemastery": "workspace:~"
   },
