@@ -115,6 +115,8 @@ export function createElectronBuilderConfig(
     appId,
     protocols: [{ name: 'Jan Alpha', schemes: ['jan'] }],
     extraMetadata: {
+      // Electron reports this as the Linux app_id / WM_CLASS; syncDesktopName names the .desktop entry to match.
+      desktopName: 'jan-alpha.desktop',
       janDesktopAppId: appId,
       janDesktopUpdateChannel: update?.channel ?? 'nightly',
       ...(policy === undefined ? {} : { janMandatoryUpdatePolicy: policy }),
@@ -267,6 +269,7 @@ export function createElectronBuilderConfig(
       category: 'Development',
       // smoke-packaged-runtime.ts and cli/jan locate the application by this name.
       executableName: 'jan-alpha',
+      syncDesktopName: true,
       maintainer: 'Menlo Research Pte. Ltd.',
       target: ['AppImage', 'deb'],
     },

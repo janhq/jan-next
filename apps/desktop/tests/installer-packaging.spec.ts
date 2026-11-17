@@ -110,7 +110,8 @@ describe('installer preparation preserves application dependencies', () => {
       JAN_DESKTOP_TARGET_ARCH: 'x64',
       JAN_DESKTOP_UNSIGNED: '1',
     }, 'linux', 'x64')
-    expect(config.linux).toMatchObject({ target: ['AppImage', 'deb'], executableName: 'jan-alpha' })
+    expect(config.linux).toMatchObject({ target: ['AppImage', 'deb'], executableName: 'jan-alpha', syncDesktopName: true })
+    expect(config.extraMetadata).toMatchObject({ desktopName: 'jan-alpha.desktop' })
     expect(config.artifactName).toBe('jan-${version}-${os}-${arch}-unsigned.${ext}')
     expect(config.extraMetadata).not.toHaveProperty('janMandatoryUpdatePolicy')
     expect(config.publish).toBeNull()
