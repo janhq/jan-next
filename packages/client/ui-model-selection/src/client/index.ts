@@ -32,6 +32,7 @@ import type { ModelDirectoryState } from './directory.ts'
 import { ModelDirectoryResolver } from './service.ts'
 import type { ModelSelectInjected } from './slots.ts'
 import { ModelSelect } from './ModelSelect.tsx'
+import { ImageNotice, type ImageNoticeInjected } from './ImageNotice.tsx'
 import { en, ja, es, fr, de, ru, pt, zh, type ModelKey } from './locales.ts'
 import { overflowOf } from './send-check.ts'
 import type { ContextPressureProjection } from '@janhq/jan-token-meter/client'
@@ -199,6 +200,28 @@ export function apply(ctx: ClientContext): void {
         tokens: overflow.tokens.toLocaleString(), window: overflow.contextWindow.toLocaleString(), model: overflow.model,
       })
     }), 'ui-model-selection: context-window send check')
+  })
+
+  // Say at attach time that the selected model cannot read the draft's images.
+  ctx.inject(['slots', 'conversation', 'modelDirectories'], (scope: ClientContext) => {
+    scope.slots.inject('conversation.input.dock', () => scope.slots.register({
+      name: 'conversation.input.dock', id: 'model-image', order: 30, locale: NS,
+      inject: (sessionId: SessionId): ImageNoticeInjected => {
+        const actx = scope.sessions.scope(sessionId)
+        if (actx === undefined) throw new Error(`ui-model-selection: session "${String(sessionId)}" resolved no scope`)
+        const input = scope.conversation.input.for(actx).state
+        const directory = scope.modelDirectories.directoryFor(sessionId)
+        return {
+          directory: directory.store,
+          draftHasImage: {
+            getSnapshot: () => scope.conversation.resolveDraftAttachments(input.getSnapshot().attachmentIds)
+              .some(attachment => attachment.kind === 'image'),
+            subscribe: listener => input.subscribe(listener),
+          },
+          select: async selection => (await directory.select(selection)).ok,
+        }
+      },
+    }, ImageNotice))
   })
 
   // Entry 1: the /model popupSelect over the shared directory.

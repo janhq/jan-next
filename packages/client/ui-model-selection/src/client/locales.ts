@@ -34,6 +34,9 @@ export const zh = {
   'empty.openModels': '前往设置 -> 模型',
   'empty.efforts': '当前模型未提供推理等级。',
   'send.tooLong': '这条消息约 {tokens} token，超过 {model} 的上下文窗口（{window}）。发送后此对话会一直失败。请缩短消息或换用上下文更大的模型；再次发送将忽略此提示。',
+  'image.unreadable': '{model} 无法读取图片。请移除图片，或换用能读取图片的模型。',
+  'image.unreadableNone': '{model} 无法读取图片。请移除图片，或在设置中添加能读取图片的模型。',
+  'image.useModel': '改用 {model}',
 } satisfies Record<string, string>
 
 /** The model namespace key union. */
@@ -65,6 +68,9 @@ export const en = {
   'empty.openModels': 'Open Settings -> Models',
   'empty.efforts': 'This model provides no reasoning effort levels.',
   'send.tooLong': "This message is about {tokens} tokens, more than {model}'s context window ({window}). Sending it would leave this chat failing. Shorten it or pick a model with a larger context window; send again to send anyway.",
+  'image.unreadable': "{model} can't read images. Remove the image or switch to a model that can.",
+  'image.unreadableNone': "{model} can't read images. Remove the image, or add a model that can in Settings.",
+  'image.useModel': 'Use {model}',
 } satisfies Record<ModelKey, string>
 
 /** Japanese copy, checked against the English keys. */
@@ -93,6 +99,9 @@ export const ja = {
   'empty.openModels': '設定 -> モデルを開く',
   'empty.efforts': 'このモデルには推論強度の設定がありません。',
   'send.tooLong': 'このメッセージは約 {tokens} トークンで、{model} のコンテキストウィンドウ（{window}）を超えています。送信するとこのチャットは失敗し続けます。短くするか、より大きなコンテキストのモデルを選んでください。もう一度送信するとそのまま送信します。',
+  'image.unreadable': '{model} は画像を読み取れません。画像を削除するか、画像を読み取れるモデルに切り替えてください。',
+  'image.unreadableNone': '{model} は画像を読み取れません。画像を削除するか、設定で画像を読み取れるモデルを追加してください。',
+  'image.useModel': '{model} を使う',
 } satisfies Record<keyof typeof en, string>
 
 /** Spanish dictionary, checked against the English keys. */
@@ -121,6 +130,9 @@ export const es = {
   'empty.openModels': 'Abrir Configuración -> Modelos',
   'empty.efforts': 'Este modelo no proporciona niveles de esfuerzo de razonamiento.',
   'send.tooLong': 'Este mensaje tiene unos {tokens} tokens, más que la ventana de contexto de {model} ({window}). Enviarlo dejaría este chat fallando. Acórtelo o elija un modelo con más contexto; envíelo de nuevo para enviarlo igualmente.',
+  'image.unreadable': '{model} no puede leer imágenes. Quite la imagen o cambie a un modelo que pueda.',
+  'image.unreadableNone': '{model} no puede leer imágenes. Quite la imagen o añada en Ajustes un modelo que pueda.',
+  'image.useModel': 'Usar {model}',
 } satisfies Record<keyof typeof en, string>
 
 /** French dictionary, checked against the English keys. */
@@ -149,6 +161,9 @@ export const fr = {
   'empty.openModels': 'Ouvrir Paramètres -> Modèles',
   'empty.efforts': 'Ce modèle ne fournit aucun niveau d’effort de raisonnement.',
   'send.tooLong': 'Ce message fait environ {tokens} jetons, plus que la fenêtre de contexte de {model} ({window}). L’envoyer ferait échouer cette conversation. Raccourcissez-le ou choisissez un modèle avec plus de contexte ; renvoyez-le pour l’envoyer quand même.',
+  'image.unreadable': '{model} ne peut pas lire les images. Retirez l’image ou passez à un modèle qui le peut.',
+  'image.unreadableNone': '{model} ne peut pas lire les images. Retirez l’image ou ajoutez dans les Paramètres un modèle qui le peut.',
+  'image.useModel': 'Utiliser {model}',
 } satisfies Record<keyof typeof en, string>
 
 /** German dictionary, checked against the English keys. */
@@ -177,6 +192,9 @@ export const de = {
   'empty.openModels': 'Einstellungen -> Modelle öffnen',
   'empty.efforts': 'Dieses Modell liefert keine Argumentationsaufwandsstufen.',
   'send.tooLong': 'Diese Nachricht hat etwa {tokens} Tokens, mehr als das Kontextfenster von {model} ({window}). Danach würde dieser Chat weiter fehlschlagen. Kürzen Sie sie oder wählen Sie ein Modell mit mehr Kontext; erneut senden, um sie trotzdem zu senden.',
+  'image.unreadable': '{model} kann keine Bilder lesen. Entfernen Sie das Bild oder wechseln Sie zu einem Modell, das es kann.',
+  'image.unreadableNone': '{model} kann keine Bilder lesen. Entfernen Sie das Bild oder fügen Sie in den Einstellungen ein Modell hinzu, das es kann.',
+  'image.useModel': '{model} verwenden',
 } satisfies Record<keyof typeof en, string>
 
 /** Russian dictionary, checked against the English keys. */
@@ -205,6 +223,9 @@ export const ru = {
   'empty.openModels': 'Открыть Настройки -> Модели',
   'empty.efforts': 'Эта модель не обеспечивает обоснования уровней усилий.',
   'send.tooLong': 'В этом сообщении около {tokens} токенов, больше контекстного окна {model} ({window}). После отправки этот чат будет продолжать выдавать ошибку. Сократите его или выберите модель с большим контекстом; отправьте ещё раз, чтобы всё равно отправить.',
+  'image.unreadable': '{model} не умеет читать изображения. Удалите изображение или переключитесь на модель, которая умеет.',
+  'image.unreadableNone': '{model} не умеет читать изображения. Удалите изображение или добавьте в настройках модель, которая умеет.',
+  'image.useModel': 'Использовать {model}',
 } satisfies Record<keyof typeof en, string>
 
 /** Portuguese dictionary, checked against the English keys. */
@@ -233,4 +254,7 @@ export const pt = {
   'empty.openModels': 'Abrir Configurações -> Modelos',
   'empty.efforts': 'Este modelo não fornece níveis de esforço de raciocínio.',
   'send.tooLong': 'Esta mensagem tem cerca de {tokens} tokens, mais que a janela de contexto de {model} ({window}). Enviá-la deixaria esta conversa falhando. Encurte-a ou escolha um modelo com mais contexto; envie de novo para enviar mesmo assim.',
+  'image.unreadable': '{model} não consegue ler imagens. Remova a imagem ou mude para um modelo que consiga.',
+  'image.unreadableNone': '{model} não consegue ler imagens. Remova a imagem ou adicione nas Configurações um modelo que consiga.',
+  'image.useModel': 'Usar {model}',
 } satisfies Record<keyof typeof en, string>
