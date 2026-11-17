@@ -17639,6 +17639,56 @@ importers:
         specifier: workspace:*
         version: link:../../typert/protocol
 
+  plugins/desktop-app:
+    dependencies:
+      '@janhq/jan-client-ui-jan-theme':
+        specifier: workspace:*
+        version: link:../jan-theme
+      '@janhq/jan-legacy-import':
+        specifier: workspace:*
+        version: link:../legacy-import
+      '@janhq/jan-preset-square':
+        specifier: workspace:*
+        version: link:../preset-square
+
+  plugins/jan-theme:
+    dependencies:
+      '@janhq/jan-credentials':
+        specifier: workspace:*
+        version: link:../../packages/credentials/credentials
+      '@janhq/jan-mcp-client':
+        specifier: workspace:*
+        version: link:../../packages/mcp/mcp-client
+      '@janhq/jan-plugin-api':
+        specifier: workspace:*
+        version: link:../plugin-api
+      '@janhq/jan-skill-filesystem':
+        specifier: workspace:*
+        version: link:../../packages/skill/skill-filesystem
+      '@janhq/schemastery':
+        specifier: link:../../vendor/schemastery
+        version: link:../../vendor/schemastery
+
+  plugins/legacy-import:
+    dependencies:
+      '@janhq/jan-plugin-api':
+        specifier: workspace:*
+        version: link:../plugin-api
+
+  plugins/plugin-api: {}
+
+  plugins/preset-square:
+    dependencies:
+      '@janhq/jan-plugin-api':
+        specifier: workspace:*
+        version: link:../plugin-api
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
+      js-yaml:
+        specifier: ^4.3.2
+        version: 4.3.2
+
   python/sdk-runtime:
     dependencies:
       '@janhq/cordis':

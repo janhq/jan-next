@@ -1,0 +1,16 @@
+# The Jan desktop bundle patch, layered over jan-base and jan-web-app by the
+# desktop profile template. Only the desktop app mounts these rows; the plain
+# web profile keeps the stock shell.
+
+- insert:
+    # Jan's palette, sidebar, appearance settings and window controls.
+    - id: jan-theme
+      name: '@janhq/jan-client-ui-jan-theme'
+
+    # Read-only import of chats from the earlier Jan desktop app.
+    - id: jan-legacy-import
+      name: '@janhq/jan-legacy-import'
+
+    # Browse and install agent presets from the Preset Square gallery.
+    - id: jan-preset-square
+      name: '@janhq/jan-preset-square'

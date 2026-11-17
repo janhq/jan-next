@@ -1,0 +1,24 @@
+{
+  "name": "@janhq/jan-legacy-import",
+  "version": "0.2.2-rc.1",
+  "private": true,
+  "description": "Read-only import of chats from the earlier Jan desktop app into sessions.",
+  "type": "module",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@janhq/jan-plugin-api": "workspace:*"
+  },
+  "jan": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@janhq/jan-client-ui-primitives",
+        "@janhq/jan-client-ui-settings-plugins"
+      ]
+    }
+  }
+}
