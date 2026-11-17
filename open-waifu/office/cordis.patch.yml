@@ -1,0 +1,8 @@
+- insert:
+    - id: ow-office-modes
+      name: "@open-waifu/dsh-desktop-office/modes"
+    - id: ow-desktop-office
+      name: "@open-waifu/dsh-desktop-office"
+      config:
+        resources: !!js process.env.JAN_OFFICE_RESOURCES
+        cli: !!js process.env.JAN_OFFICE_CLI

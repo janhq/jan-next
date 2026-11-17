@@ -1,0 +1,35 @@
+{
+  "name": "@open-waifu/dsh-desktop-office",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": ["index.js", "office-modes.js", "prepare-resources.mjs", "client.js", "lib", "business-skills", "sources", "cordis.patch.yml", "LICENSE"],
+  "peerDependencies": {
+    "@janhq/jan-skill": "*",
+    "@janhq/jan-tools": "*",
+    "@janhq/jan-llm": "*",
+    "@janhq/jan-client-connection": "*",
+    "@janhq/jan-skill-office": "*",
+    "@janhq/jan-tool-workspace-dependencies": "*"
+  },
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./modes": "./office-modes.js",
+    "./package.json": "./package.json",
+    "./cordis.patch.yml": "./cordis.patch.yml"
+  },
+  "jan": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@janhq/jan-client-connection",
+        "@janhq/jan-client-locale",
+        "@janhq/jan-client-ui-conversation"
+      ]
+    }
+  },
+  "license": "MIT"
+}
