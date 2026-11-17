@@ -30,6 +30,7 @@ import {
   selectCompactableRange,
 } from './region.ts'
 import { summarizeWithLlm } from './summarizer.ts'
+import type {} from './settings.ts'
 import type { SummarizationInput, SummaryResult } from './summarizer.ts'
 import type {
   BasicCompactionConfig,
@@ -163,13 +164,17 @@ export class BasicCompactionEngine extends CompactionEngine {
     this._registerAutomaticCompaction()
   }
 
-  /** Resolve changed settings once per snapshot; an invalid update preserves the last good policy. */
+  /**
+   * Resolve changed settings once per snapshot; an invalid update preserves the last good policy.
+   * A host `compactionSettings` preference wins over this entry's own value for the same field.
+   */
   get config(): ResolvedConfig {
     const { runtimeConfig, liveValues } = this
-    const auto = liveValue(runtimeConfig.auto)
-    const thresholdRatio = liveValue(runtimeConfig.thresholdRatio)
-    const summarizationProvider = liveValue(runtimeConfig.summarizationProvider)
-    const summarizationModel = liveValue(runtimeConfig.summarizationModel)
+    const preferences = this.ctx.get('compactionSettings')?.current()
+    const auto = preferences?.auto ?? liveValue(runtimeConfig.auto)
+    const thresholdRatio = preferences?.thresholdRatio ?? liveValue(runtimeConfig.thresholdRatio)
+    const summarizationProvider = preferences?.summarizationProvider ?? liveValue(runtimeConfig.summarizationProvider)
+    const summarizationModel = preferences?.summarizationModel ?? liveValue(runtimeConfig.summarizationModel)
     if (Object.is(auto, liveValues.auto) && Object.is(thresholdRatio, liveValues.thresholdRatio)
       && Object.is(summarizationProvider, liveValues.summarizationProvider)
       && Object.is(summarizationModel, liveValues.summarizationModel)) return this.resolvedConfig

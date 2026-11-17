@@ -444,6 +444,7 @@
       "@janhq/jan-commands": ["./packages/interaction/commands/src"],
       "@janhq/jan-compaction": ["./packages/compaction/compaction/src"],
       "@janhq/jan-compaction-basic": ["./packages/compaction/compaction-basic/src"],
+      "@janhq/jan-compaction-basic/settings": ["./packages/compaction/compaction-basic/src/settings.ts"],
       "@janhq/jan-compaction-image-offload": ["./packages/compaction/compaction-image-offload/src"],
       "@janhq/jan-compaction-tool-result-pruner": ["./packages/compaction/compaction-tool-result-pruner/src"],
       "@janhq/jan-config-editor": ["./packages/boot/config-editor/src"],

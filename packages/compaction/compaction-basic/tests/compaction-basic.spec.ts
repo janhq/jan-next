@@ -6,6 +6,7 @@ import BasicCompactionEngine from '@janhq/jan-compaction-basic'
 import type { BasicCompactionConfig, BasicCompactionRuntimeConfig } from '@janhq/jan-compaction-basic'
 import { selectCompactableRange } from '@janhq/jan-compaction-basic/src/region.ts'
 import { frameSummary } from '@janhq/jan-compaction-basic/src/summarizer.ts'
+import CompactionSettings from '@janhq/jan-compaction-basic/settings'
 import type { SummarizationInput, SummaryResult } from '@janhq/jan-compaction-basic/src/summarizer.ts'
 import { CompactionId, toolPairingBalancedAfter, toolPairingBalancedBefore } from '@janhq/jan-compaction'
 import {
@@ -2025,6 +2026,32 @@ describe('automatic listener and loader composition', () => {
     await preStep(ctx, owner)
     expect(compact.calls).toHaveLength(1)
     expect(compact.config.thresholdRatio).toBe(0.5)
+  })
+
+  it('lets host compaction preferences override a preset backend live, and falls back to its own config when unset', async () => {
+    const ctx = createContext()
+    const preferred = {
+      auto: createVolatile<boolean | undefined>(undefined),
+      thresholdRatio: createVolatile<number | undefined>(undefined),
+    }
+    void new CompactionSettings(ctx, {
+      ...preferred,
+      summarizationProvider: createVolatile<string | undefined>(undefined),
+      summarizationModel: createVolatile<string | undefined>(undefined),
+    })
+    const compact = new TestCompactionEngine(ctx, {
+      thresholdRatio: 0.99, headroomTokens: 0, maxTokens: 8192, retainTokens: 180,
+    })
+    const owner = agent(conversation(4), MODEL)
+
+    await preStep(ctx, owner)
+    expect(compact.calls).toHaveLength(0)
+    updateVolatile(preferred.thresholdRatio, createVolatile<number | undefined>(0.5))
+    await preStep(ctx, owner)
+    expect(compact.calls).toHaveLength(1)
+    updateVolatile(preferred.auto, createVolatile<boolean | undefined>(false))
+    updateVolatile(preferred.thresholdRatio, createVolatile<number | undefined>(undefined))
+    expect(compact.config).toMatchObject({ auto: false, thresholdRatio: 0.99 })
   })
 
   it('keeps the last valid config when live values conflict and warns only once', async () => {
