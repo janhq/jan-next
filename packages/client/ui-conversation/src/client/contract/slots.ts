@@ -316,7 +316,7 @@ declare module '@janhq/jan-client-ui-slots' {
      * Ambient entries below the composer card; fixed overlays must portal to the document body
      * because the docked composer contains them.
      */
-    'conversation.composer.dock': { kind: 'list'; scope: 'session' }
+    'conversation.composer.dock': { kind: 'list'; scope: 'session'; owner: InputControlOwnerProps }
     /**
      * Compact controls at the left of the composer tool row; fixed overlays must portal to the
      * document body because the docked composer contains them.
