@@ -50,6 +50,15 @@ export const EMPTY_RESPONSE_CODE = 'EMPTY_RESPONSE'
  */
 export const INVALID_CREDENTIAL_CODE = 'INVALID_CREDENTIAL'
 
+/**
+ * Canonical provider-neutral code for a request the provider's safety layer
+ * refused or filtered: a refusal stop, a content filter, or a sensitive-content
+ * stop. The same route usually refuses the same request again, so it is
+ * outside the default retryable set; deployment policy may route it to
+ * another model instead.
+ */
+export const CONTENT_REFUSED_CODE = 'REFUSAL'
+
 /** Structured codes and plain phrases that explicitly name a context bound being exceeded. */
 const STRUCTURED_CONTEXT_OVERFLOW = new RegExp(
   String.raw`(?:^|[^a-z0-9])context[\s_-](?:length|window)[\s_-]`
