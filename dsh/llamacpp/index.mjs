@@ -1,4 +1,4 @@
-import { LlamacppEngine } from './runtime.mjs'
+import { LlamacppEngine, modelSettingDefinitions } from './runtime.mjs'
 import { registerLocalProvider } from './provider.mjs'
 import { registerApi } from '../native/api.mjs'
 import { invoke, fs, joinPath, getJanDataFolderPath, listen } from '../native/runtime.mjs'
@@ -77,7 +77,16 @@ export async function apply(ctx, config = {}) {
       const keys = ['temperature', 'top_k', 'top_p', 'min_p', 'repeat_last_n', 'repeat_penalty', 'presence_penalty', 'frequency_penalty', 'ctx_len', 'ngl', 'chat_template', 'grammar', 'batch_size', 'ubatch_size', 'cpu_moe', 'n_cpu_moe', 'n_cpu_ffn', 'moe_cache_mib']
       const yamlKeys = { ctx_len: 'ctx_size', ngl: 'n_gpu_layers' }
       return {
-        settings: keys.map(key => ({ key, title: key.replaceAll('_', ' '), controllerType: key === 'cpu_moe' ? 'checkbox' : 'input', controllerProps: { type: ['chat_template', 'grammar'].includes(key) ? 'text' : 'number', value: config[yamlKeys[key] ?? key] ?? '' } })),
+        settings: keys.map(key => {
+          const known = modelSettingDefinitions[key]
+          return {
+            key,
+            title: known?.title ?? (key === 'ubatch_size' ? 'Micro Batch Size' : key.replaceAll('_', ' ')),
+            description: known?.description,
+            controllerType: key === 'cpu_moe' ? 'checkbox' : 'input',
+            controllerProps: { type: ['chat_template', 'grammar'].includes(key) ? 'text' : 'number', placeholder: known?.controller_props?.placeholder, value: config[yamlKeys[key] ?? key] ?? '' },
+          }
+        }),
         modelProps: await engine.getModelProps(id),
       }
     },
