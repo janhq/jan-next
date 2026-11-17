@@ -76,9 +76,11 @@ export function convertThread(thread, messages, images = new Map()) {
   }
   const results = new Map(messages.filter(m => m.role === 'tool' && m.tool_call_id).map(m => [m.tool_call_id, m]))
   const usedResults = new Set(), usedCalls = new Set()
-  let turn = 0, step = 0, open = false, lastTime = createdAt, reason = { kind: 'completed' }
+  let turn = 0, step = 0, open = false, active = false, lastTime = createdAt, reason = { kind: 'completed' }
+  const endStep = () => { if (active) { emit('step/end', { turn, step }, lastTime); active = false } }
   const close = () => {
     if (!open) return
+    endStep()
     emit('turn/end', { turn, reason }, lastTime)
     open = false
   }
@@ -86,6 +88,12 @@ export function convertThread(thread, messages, images = new Map()) {
     if (open) return
     turn++; step = 0; open = true; reason = { kind: 'completed' }
     emit('turn/start', { turn }, time)
+    if (turn > 1) return
+    // Surface node 0 belongs to the system prompt; a log without it is
+    // unreadable once Jan appends its prompt on the first live turn.
+    step++; active = true
+    emit('step/start', { turn, step }, time)
+    emit('system/message', { turn, step, message: { id: `${thread.id}:system`, role: 'system', source: { kind: 'system-prompt' }, content: [] } }, time, true)
   }
   const blocks = (message, parts, offset = 0) => parts.flatMap((part, index) => {
     if (part.type === 'text' || part.type === 'reasoning') {
@@ -119,7 +127,7 @@ export function convertThread(thread, messages, images = new Map()) {
     start(time)
     const assistant = thread.assistants?.find(a => a.id === message.assistant_id) ?? thread.assistants?.[0]
     const source = { kind: 'model', provider: String(thread.model?.provider ?? assistant?.model?.engine ?? 'jan-import'), model: String(thread.model?.id ?? assistant?.model?.id ?? 'unknown') }
-    let content = [], chunk = 0, active = false
+    let content = [], chunk = 0
     const begin = () => { if (!active) { step++; emit('step/start', { turn, step }, time); active = true } }
     const finish = (usage) => {
       if (!content.length && !usage) return
@@ -127,7 +135,6 @@ export function convertThread(thread, messages, images = new Map()) {
       emit('assistant/message', { turn, step, message: { id: chunk++ ? `${message.id}:part-${chunk}` : message.id, role: 'assistant', source, content }, stream: [], ...(usage ? { usage } : {}), ...(['stopped', 'pending', 'error'].includes(message.status) ? { interrupted: true } : {}) }, time, true)
       content = []
     }
-    const endStep = () => { if (active) { emit('step/end', { turn, step }, lastTime); active = false } }
     const parts = message.content ?? []
     for (let index = 0; index < parts.length; index++) {
       const part = parts[index]
