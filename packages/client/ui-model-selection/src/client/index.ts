@@ -45,18 +45,22 @@ declare module '@janhq/jan-client-ui-slots' {
   }
 }
 
-/** Optional header selector plugin; compose with ctx.plugin(HeaderModelSelection). */
-export const HeaderModelSelection = {
+/** Optional dock selector plugin: the seat under the composer card; compose with ctx.plugin(DockModelSelection). */
+export const DockModelSelection = {
   inject: ['slots', 'modelDirectories', 'sessions', 'locale'],
   apply(ctx: ClientContext): void {
-    ctx.slots.inject('conversation.header.model', () => ctx.slots.register({
-      name: 'conversation.header.model', locale: NS,
-      children: { 'conversation.header.model.label': { kind: 'single', scope: 'session', inline: true } },
+    ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register({
+      name: 'conversation.composer.dock', id: 'model', order: 2, locale: NS,
+      children: {
+        'conversation.input.model.label': { kind: 'single', scope: 'session', inline: true },
+        'conversation.input.model.options': { kind: 'list', scope: 'session' },
+      },
       inject: modelInjection(ctx),
-    }, ({ renderSlot, ...props }: ModelSelectInjected & PropsRuntime<'conversation.header.model'>
-      & PropsLocale<'model'> & PropsRenderSlots<'conversation.header.model.label'>) => createElement(ModelSelect, {
-        ...props, placement: 'header',
-        renderLabel: (owner, fallback) => renderSlot('conversation.header.model.label', owner, { fallback }),
+    }, ({ renderSlot, ...props }: ModelSelectInjected & PropsRuntime<'conversation.composer.dock'> & PropsLocale<'model'>
+      & PropsRenderSlots<'conversation.input.model.label' | 'conversation.input.model.options'>) => createElement(ModelSelect, {
+        ...props, placement: 'dock',
+        renderLabel: (owner, fallback) => renderSlot('conversation.input.model.label', owner, { fallback }),
+        renderOptions: owner => renderSlot('conversation.input.model.options', owner),
       })))
   },
 }

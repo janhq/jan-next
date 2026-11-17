@@ -62,8 +62,8 @@ interface EffortChoice {
 export function ModelSelect(
   { locked, available, directory, load, select, resolveText, t, renderLabel, renderOptions, placement = 'composer' }:
     ModelSelectInjected & Pick<PropsRuntime<'conversation.input.model'>, 'locked'> & PropsLocale<'model'> & {
-      /** The composer seat opens upward; the header seat opens below its trigger. */
-      placement?: 'header' | 'composer'
+      /** The composer seat toasts over the composer card; the dock seat (the row under the card) over its trigger. */
+      placement?: 'composer' | 'dock'
       renderLabel: (owner: ModelLabelOwner, fallback: ReactNode) => ReactNode
       /** Session options appended to the root menu; absent where the seat has none. */
       renderOptions?: (owner: ModelOptionsOwner) => ReactNode
@@ -478,7 +478,7 @@ export function ModelSelect(
         <MenuSurface
           ref={menuRef}
           id={`${id}-menu`}
-          className={clsx(css.menu, placement === 'header' && css.menuBelow)}
+          className={css.menu}
           style={anchorStyle}
           role={pane === 'model' ? 'group' : 'menu'}
           aria-label={t('menu.aria')}
@@ -658,7 +658,7 @@ export function ModelSelect(
           key={toast.seq}
           text={toast.text}
           icon={<IconWarningOutlineRegular />}
-          anchor={placement === 'header' ? triggerRef.current : rootRef.current?.closest<HTMLElement>('[data-composer-card]') ?? null}
+          anchor={placement === 'composer' ? rootRef.current?.closest<HTMLElement>('[data-composer-card]') ?? null : triggerRef.current}
           onDone={() => { setToast(null) }}
         />
       )}

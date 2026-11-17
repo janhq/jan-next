@@ -50,12 +50,6 @@ declare module '@janhq/jan-client-ui-slots' {
      *   },
      * }
      */
-    'conversation.header.model.label': {
-      kind: 'single'
-      scope: 'session'
-      inline: true
-      owner: ModelLabelOwner
-    }
     'conversation.input.model.label': {
       kind: 'single'
       scope: 'session'
