@@ -112,6 +112,8 @@ export const en = {
   readyDetail: '{name} is ready. Pick it in the model menu at any time.',
   details: 'Details',
   connectionLost: 'Lost connection to the harness. Reconnecting…',
+  runningLoading: 'Loading {name}…',
+  runningReading: 'Reading your message · {percent}%',
 } as const
 
 /** Dictionary keys. */
@@ -156,6 +158,8 @@ export const zh: Dictionary = {
   readyDetail: '{name} 已就绪，可随时在模型菜单中选择。',
   details: '详情',
   connectionLost: '与服务的连接已断开，正在重连…',
+  runningLoading: '正在加载 {name}…',
+  runningReading: '正在读取你的消息 · {percent}%',
 }
 
 /** Japanese. */
@@ -188,6 +192,8 @@ export const ja: Dictionary = {
   readyDetail: '{name} の準備ができました。モデルメニューからいつでも選べます。',
   details: '詳細',
   connectionLost: 'ハーネスとの接続が切れました。再接続しています…',
+  runningLoading: '{name} を読み込んでいます…',
+  runningReading: 'メッセージを読み込み中 · {percent}%',
 }
 
 /** Spanish. */
@@ -220,6 +226,8 @@ export const es: Dictionary = {
   readyDetail: '{name} está listo. Elíjalo en el menú de modelos cuando quiera.',
   details: 'Detalles',
   connectionLost: 'Se perdió la conexión. Reconectando…',
+  runningLoading: 'Cargando {name}…',
+  runningReading: 'Leyendo tu mensaje · {percent}%',
 }
 
 /** French. */
@@ -252,6 +260,8 @@ export const fr: Dictionary = {
   readyDetail: '{name} est prêt. Choisissez-le à tout moment dans le menu des modèles.',
   details: 'Détails',
   connectionLost: 'Connexion perdue. Reconnexion…',
+  runningLoading: 'Chargement de {name}…',
+  runningReading: 'Lecture de votre message · {percent} %',
 }
 
 /** German. */
@@ -284,6 +294,8 @@ export const de: Dictionary = {
   readyDetail: '{name} ist bereit. Wählen Sie es jederzeit im Modellmenü.',
   details: 'Details',
   connectionLost: 'Verbindung verloren. Neuer Verbindungsversuch…',
+  runningLoading: '{name} wird geladen…',
+  runningReading: 'Nachricht wird gelesen · {percent} %',
 }
 
 /** Russian. */
@@ -316,6 +328,8 @@ export const ru: Dictionary = {
   readyDetail: '{name} готова. Её можно выбрать в меню моделей.',
   details: 'Подробности',
   connectionLost: 'Соединение потеряно. Переподключение…',
+  runningLoading: 'Загрузка {name}…',
+  runningReading: 'Чтение сообщения · {percent}%',
 }
 
 /** Portuguese. */
@@ -348,4 +362,6 @@ export const pt: Dictionary = {
   readyDetail: '{name} está pronto. Escolha-o no menu de modelos quando quiser.',
   details: 'Detalhes',
   connectionLost: 'Conexão perdida. Reconectando…',
+  runningLoading: 'Carregando {name}…',
+  runningReading: 'Lendo sua mensagem · {percent}%',
 }

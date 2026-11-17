@@ -44,9 +44,11 @@
   },
   "devDependencies": {
     "@janhq/cordis": "workspace:~",
+    "@janhq/jan-agent": "workspace:*",
     "@janhq/jan-api-llama-cpp-controller": "workspace:*",
     "@janhq/jan-api-remotes": "workspace:*",
     "@janhq/jan-client-locale": "workspace:*",
+    "@janhq/jan-client-ui-chat": "workspace:*",
     "@janhq/jan-client-store": "workspace:*",
     "@janhq/jan-client-test-runtime": "workspace:*",
     "@janhq/jan-client-ui-primitives": "workspace:*",

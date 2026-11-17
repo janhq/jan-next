@@ -190,3 +190,13 @@
   flex: 1 1 220px;
   min-width: 0;
 }
+
+/* Beside the chat's running clock: same line, quieter than the clock itself. */
+.runningDetail {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--dsw-alias-label-secondary);
+  font-variant-numeric: tabular-nums;
+}

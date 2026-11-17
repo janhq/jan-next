@@ -9,6 +9,7 @@ import { createActions, type LocalModelInjected } from './actions.ts'
 import { LocalModelCard } from './LocalModelCard.tsx'
 import { LocalSetup } from './LocalSetup.tsx'
 import { de, en, es, fr, ja, NS, pt, ru, zh } from './locales.ts'
+import { RunningDetail } from './RunningDetail.tsx'
 import { observeLocalModel } from './state.ts'
 
 export const inject = ['remote', 'slots', 'locale']
@@ -24,6 +25,9 @@ function registerUi(ctx: Context): void {
   ctx.slots.inject('settings.models.local-setup', () => ctx.slots.register({
     name: 'settings.models.local-setup', locale: NS, inject: injected,
   }, LocalSetup))
+  ctx.slots.inject('conversation.chat.running-detail', () => ctx.slots.register({
+    name: 'conversation.chat.running-detail', id: 'local-model', locale: NS, inject: injected,
+  }, RunningDetail))
 }
 
 /**
