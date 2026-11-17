@@ -22,13 +22,13 @@ import {
 import type { DesktopPaths } from './paths.ts'
 import type { DesktopRelease } from './release.ts'
 import { readDesktopRuntime } from './runtime-tree.ts'
-import { initProfile, removeLinkProjections, sanitizeProfile } from '@janhq/jan-app-boot'
+import { initProfile, normalizeShippedProfile, readProfileManifest, removeLinkProjections, sanitizeProfile } from '@janhq/jan-app-boot'
 import { PROFILE_TEMPLATES, type ProfileTemplate } from '@janhq/jan-official-bundles'
 
 const PROJECT_NAME = '@janhq/jan-desktop-runtime'
 const JAN_PACKAGE = '@janhq/jan'
 const CORE_BUILD_PACKAGE = '@janhq/jan-subprocess-local'
-const WEB_PROFILE = PROFILE_TEMPLATES.web as ProfileTemplate
+const DESKTOP_PROFILE = PROFILE_TEMPLATES.desktop as ProfileTemplate
 const WORKSPACE_SETTINGS = 'nodeLinker: hoisted\nautoInstallPeers: false\n'
 function writeJson(path: string, value: unknown): void {
   writeFileSync(path, `${JSON.stringify(value, undefined, 2)}\n`, { mode: 0o600 })
@@ -73,7 +73,7 @@ export class DesktopProjectManager {
    * @returns Backup path after the locked profile write, or undefined if the patch was absent.
    */
   async disableAllPlugins(): Promise<string | undefined> {
-    return this.withLock(() => sanitizeProfile('jan', this.paths.profile, WEB_PROFILE.bundles))
+    return this.withLock(() => sanitizeProfile('jan', this.paths.profile, DESKTOP_PROFILE.bundles))
   }
 
   /**
@@ -85,6 +85,8 @@ export class DesktopProjectManager {
       readDesktopRuntime(this.runtime.jan)
       migrateProfileSettings(this.paths.profile)
       createPluginProfile(this.paths.profile)
+      // A profile an earlier release created with the plain Web tuple gains the desktop bundle.
+      normalizeShippedProfile('desktop', this.paths.profile, readProfileManifest('jan', this.paths.profile))
       removeLinkProjections(this.paths.profile)
     })
   }
@@ -138,7 +140,7 @@ export function createRuntimeProjectMetadata(projectDir: string, release: Deskto
     private: true,
     version: '0.0.0',
     dependencies: desktopCorePackageOverrides(packageSet),
-    jan: { profile: { bundles: [...WEB_PROFILE.bundles] } },
+    jan: { profile: { bundles: [...DESKTOP_PROFILE.bundles] } },
   }
   writeJson(join(projectDir, 'package.json'), manifest)
   writeFileSync(
@@ -163,7 +165,7 @@ export function createDevelopmentProjectMetadata(projectDir: string, release: De
       [JAN_PACKAGE]: release.version,
       [DESKTOP_HOST_PACKAGE]: release.version,
     },
-    jan: { profile: { bundles: [...WEB_PROFILE.bundles] } },
+    jan: { profile: { bundles: [...DESKTOP_PROFILE.bundles] } },
   }
   writeJson(join(projectDir, 'package.json'), manifest)
   writeFileSync(join(projectDir, 'pnpm-workspace.yaml'), workspaceFile(), { mode: 0o600 })
@@ -171,5 +173,5 @@ export function createDevelopmentProjectMetadata(projectDir: string, release: De
 
 /** Create the first external plugin profile without running a package manager. */
 export function createPluginProfile(projectDir: string): void {
-  initProfile(projectDir, WEB_PROFILE.bundles)
+  initProfile(projectDir, DESKTOP_PROFILE.bundles)
 }

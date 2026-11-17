@@ -26,7 +26,8 @@
     "@janhq/jan-skill-office": "workspace:*",
     "@janhq/jan-tokamak-account": "workspace:*",
     "@janhq/jan-workspace": "workspace:*",
-    "@janhq/jan-plugin-manager": "workspace:*"
+    "@janhq/jan-plugin-manager": "workspace:*",
+    "@janhq/jan-desktop-app": "workspace:*"
   },
   "devDependencies": {
     "@janhq/cordis-plugin-loader": "workspace:~",

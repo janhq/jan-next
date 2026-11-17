@@ -842,6 +842,9 @@ importers:
       '@janhq/jan-client-connection':
         specifier: workspace:*
         version: link:../../packages/client/connection
+      '@janhq/jan-desktop-app':
+        specifier: workspace:*
+        version: link:../../plugins/desktop-app
       '@janhq/jan-home-paths':
         specifier: workspace:*
         version: link:../../packages/util/home-paths
