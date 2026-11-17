@@ -12992,6 +12992,9 @@ importers:
       '@janhq/cordis-plugin-loader':
         specifier: workspace:~
         version: link:../../../vendor/loader
+      '@janhq/jan-agent-default-model':
+        specifier: workspace:*
+        version: link:../../core/agent-default-model
       '@janhq/jan-agent-loop-testkit':
         specifier: workspace:*
         version: link:../../test-support/agent-loop-testkit

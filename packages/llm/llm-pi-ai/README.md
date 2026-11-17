@@ -80,6 +80,7 @@ Each profile may set a `retryPolicy`; omission uses normal mode with five retrie
 | `baseURL` | catalog endpoint | Endpoint of every model on the route |
 | `models` | installed catalog | Replaces the route's catalog wholesale; each entry defaults from the installed model |
 | `modelOverrides` | none | Reshapes individual installed-catalog models without replacing the rest |
+| `modelListing` | absent | Takes the served model set from the endpoint's model listing at runtime; `models` entries then describe listed models |
 | `compat` | catalog detection | Wire-compatibility switches for unrecognized endpoints |
 | `defaultContextWindow` | `1,000,000` | Capacity fallback for undescribed models |
 | `defaultMaxTokens` | `128,000` | Output-cap fallback for undescribed models |
@@ -99,6 +100,34 @@ A provider pi-ai ships a login for can be signed into through the harness author
 ### Resolve the model catalog
 
 A profile's `models` list replaces the route's installed catalog rather than extending it; each entry defaults its unset fields from the installed model of the same id, so narrowing a route to two models, correcting one capacity, or adding a model newer than the installed catalog are one-line edits. `modelOverrides` reshapes individual installed-catalog models without that cost — correct one model, keep the other thirty-seven — and is refused when set beside a `models` list, on a hand-declared route, or naming a model the catalog does not describe, because a silently unchanged model would be a typo someone hunts for later.
+
+### List models from the endpoint at runtime
+
+A route with `modelListing` serves exactly the models its endpoint's listing returns (`GET {baseURL}/models` for OpenAI protocols, authenticated with the route's own credential and `headers`), so a gateway such as a model router decides its own catalog. The route needs a listable `api` and `baseURL` or `baseURLEnv`, and refuses `modelOverrides`; a `models` entry describes the listed model of the same id, field by field over what the listing disclosed, and is not served while unlisted. A listing's output size describes the model; only a configured `maxTokens` becomes a request default.
+
+```yaml
+tokamak:
+  api: openai-completions
+  baseURL: https://api.tokamak.sh/v1
+  apiKeyEnv: TOKAMAK_API_KEY
+  modelListing:
+    refreshIntervalMs: 600000
+    timeoutMs: 15000
+    preferredDefaults: [tokamak/auto]
+  models:
+    - id: anthropic/claude-opus-5-5[1m]
+      contextWindow: 1000000
+```
+
+| `modelListing` field | Default | Meaning |
+|---|---|---|
+| `refreshIntervalMs` | `600,000` | Listing age after which it is fetched again |
+| `timeoutMs` | `15,000` | Bound on one listing request |
+| `preferredDefaults` | none | Ids the agent default moves to, in order, when it names an unlisted model of this route |
+
+The plugin fetches every listing route's models at startup or when the route appears, again in the background every `refreshIntervalMs` of that route, and on any model read — `listModels`, `resolveModel`, `prepareCall` — once the stored listing is older than its interval or was fetched with another endpoint or credential. A sign-in therefore lists the new account's models on the next read, and concurrent reads share one request. A listing whose model set changed publishes `llm/adapters-updated`, so selectors reload. While the agent default names the route and a model the new listing omits, the plugin saves the first listed `preferredDefaults` id, otherwise the first listed model, as the new default.
+
+Until a listing succeeds the route serves no models. A model read then fails with the listing's failure: `MISSING_CREDENTIAL` while the route's credential or endpoint is unset, which also drops a stored listing, or `DISCOVERY_FAILED` when the endpoint refuses, times out, or answers with something other than a listing. A failed refresh keeps the last listing fetched with the same endpoint and credential and logs a warning. No configured list stands in for an unreachable endpoint: a route that cannot list its models cannot be trusted to serve the ones configuration names either.
 
 ### Run with reasoning and wire compatibility
 
@@ -124,7 +153,7 @@ Config updates strictly validate changed providers. Initial loading retains stor
 
 Changing `displayName`, `apiKeyEnv`, or `baseURL` without resolving the provider's model errors still rejects the save. For example, renaming an OpenRouter route whose model `111` needs an `api` cannot be saved on its own: repair or remove that model in the same editor draft, then save the complete provider configuration. Intermediate repairs remain in the draft until the whole provider validates; other providers can be saved independently.
 
-Model discovery resolves each route’s credential configuration. A missing required credential yields an empty catalog; other resolution errors propagate. Routes with native authentication or no required key retain their configured catalog. This check does not probe the inference endpoint.
+Model discovery resolves each route’s credential configuration. A missing required credential yields an empty catalog, except on a `modelListing` route, which reports `MISSING_CREDENTIAL`; other resolution errors propagate. Routes with native authentication or no required key retain their configured catalog. This check does not probe the inference endpoint.
 
 -----
 
@@ -165,6 +194,7 @@ This event covers inference calls with or without a Session id, including auxili
 | [`src/stream.ts`](src/stream.ts) | pi-ai event conversion into harness `StreamChunk` values |
 | [`src/replay.ts`](src/replay.ts) | Versioned `ReplayEnvelope` storage and validation |
 | [`src/discovery.ts`](src/discovery.ts) | Endpoint interrogation for configuration surfaces |
+| [`src/listing.ts`](src/listing.ts) | Runtime model listings for `modelListing` routes |
 
 ### Registration and directory
 
@@ -255,7 +285,9 @@ These limits define where the adapter stops and future work begins. They are cur
 - **Reset restores inherited configuration** — resetting a route supplied by a lower profile layer restores that route.
 - **Complete Config replacement can remove inherited dictionary entries** — a field reset instead restores its inherited value.
 - **`headers` can carry a credential the redactor never sees** — profile resolution rejects names and values Fetch cannot represent, but the dict remains plain strings; store credentials as `apiKeyEnv` references.
-- **Discovery does not change configured models** — adopt discovery results explicitly into the route configuration.
+- **Discovery does not change configured models** — adopt discovery results explicitly into the route configuration; only a `modelListing` route takes its models from the endpoint.
+- **A listing route's models depend on its listing endpoint** — while the listing endpoint fails and no listing is stored, the route serves nothing even if its inference endpoint works.
+- **Listings live in memory** — every process start lists again before its first read of a listing route; nothing is persisted.
 - **Anthropic discovery reads at most 1,000 models** — the request uses the API's maximum page size but does not traverse `has_more`; entries beyond the first page must be added by hand.
 - **Uncataloged models need an unambiguous protocol** — catalog routes preserve each model's protocol, including both Azure APIs under `azure`. A model absent from a mixed-protocol catalog needs an explicit route-level `api`, which overrides every model on the route and must be one of the supported custom protocols. For Azure deployment names, keep the catalog model ID and set `AZURE_OPENAI_DEPLOYMENT_NAME_MAP`.
 - **A modality declaration is not verified** — a model declaring `image` its gateway does not serve is refused by the provider after prompt admission. The durable image remains in history and the same misdeclared model can fail again; switching to a text-only model remains possible because the shared LLM runtime projects image references into stable text for that request.

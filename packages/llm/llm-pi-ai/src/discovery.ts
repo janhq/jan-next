@@ -36,7 +36,7 @@ import { catalogModels } from './catalog.ts'
  * guessing at either would report an authentication failure as a provider
  * with no models. pi-ai's remaining protocols are absent for the same reason.
  */
-const LISTABLE_PROTOCOLS: ReadonlySet<string> = new Set([
+export const LISTABLE_PROTOCOLS: ReadonlySet<string> = new Set([
   'anthropic-messages',
   'openai-completions',
   'openai-responses',

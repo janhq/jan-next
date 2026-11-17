@@ -61,6 +61,8 @@ import type { AttachmentStore, ImageAttachmentRef } from '@janhq/jan-attachment'
 import { idleWatchdog, timeoutOf } from '@janhq/jan-timeout'
 import type { ResolvedPiAiProviderProfile } from './config.ts'
 import { requestImageTarget, toPiContext } from './context.ts'
+import { isListingProfile } from './listing.ts'
+import type { ListingProfile } from './listing.ts'
 import { conversationUpdates, createModels, getSupportedThinkingLevels } from './models.ts'
 import { toStreamChunks } from './stream.ts'
 import type { PiAiRequestHeaderContext } from './types.ts'
@@ -124,6 +126,14 @@ export interface PiAiAdapterOptions {
    * @returns headers to pass to pi-ai after applying Harness attribution.
    */
   prepareHeaders?: (request: PiAiRequestHeaderContext, headers: Headers) => Headers
+  /**
+   * Bring the model listing of a route with `modelListing` up to date before
+   * its models are read. Called by `listModels`, `resolveModel`, and
+   * `prepareCall` for such a route only, before the operation captures its
+   * snapshot; a rejection fails that operation, including `MISSING_CREDENTIAL`,
+   * which `listModels` then reports instead of offering no models.
+   */
+  ensureModels?: (provider: string, profile: ListingProfile) => Promise<void>
   /** Resolve the optional durable attachment service at request time. */
   resolveAttachments?: () => AttachmentStore | undefined
   /** Bridge one attachment reference into the current model-tool execution world. */
@@ -351,11 +361,25 @@ export class PiAiAdapter extends LlmAdapter {
     return this.current().profiles.get(provider)?.retryPolicy
   }
 
+  /**
+   * Bring a listing route's models up to date; a no-op for any other route.
+   * @returns true when the route takes its models from a runtime listing.
+   */
+  private async listed(provider: string): Promise<boolean> {
+    const profile = this.profileOf(this.current(), provider)
+    if (!isListingProfile(profile)) return false
+    await this.config.ensureModels?.(provider, profile)
+    return true
+  }
+
   override listModels(provider: string): Promise<readonly LlmModelInfo[]> {
     return Promise.resolve().then(async () => {
+      // A listing route has already authenticated its listing request, and
+      // reports a missing credential so a selector can ask for one.
+      const listing = await this.listed(provider)
       const snapshot = this.current()
       const profile = this.profileOf(snapshot, provider)
-      try {
+      if (!listing) try {
         await this.config.resolveApiKey(provider, profile)
         await this.endpointOf(provider, profile)
       }
@@ -378,7 +402,8 @@ export class PiAiAdapter extends LlmAdapter {
     model: string,
     _signal?: AbortSignal,
   ): Promise<LlmResolvedModelInfo> {
-    return Promise.resolve().then(() => {
+    return Promise.resolve().then(async () => {
+      await this.listed(provider)
       const snapshot = this.current()
       return this.modelInfo(snapshot, provider, model)
     })
@@ -403,12 +428,13 @@ export class PiAiAdapter extends LlmAdapter {
     }
   }
 
-  override prepareCall(provider: string, model: string, _signal?: AbortSignal): Promise<PreparedAdapterCall> {
+  override async prepareCall(provider: string, model: string, _signal?: AbortSignal): Promise<PreparedAdapterCall> {
+    await this.listed(provider)
     const snapshot = this.current()
-    return Promise.resolve({
+    return {
       model: this.modelInfo(snapshot, provider, model),
       stream: options => this.streamWithSnapshot(options, snapshot),
-    })
+    }
   }
 
   stream(options: GenerateOptions): AsyncIterable<StreamChunk> {

@@ -64,6 +64,8 @@ import { launchEnvironmentOf } from '@janhq/jan-launch-environment'
 import { assertUsableApiKey, LlmError, resolveImageAttachmentAccess } from '@janhq/jan-llm'
 import type { AdapterRegistrationHandle, DirectoryRegistrationHandle, LlmConfigurableProvider } from '@janhq/jan-llm'
 import type {} from '@janhq/jan-fs'
+import type {} from '@janhq/jan-agent-default-model'
+import type { LlmDiscoveredModel } from '@janhq/jan-llm'
 import { deepEqualJson } from '@janhq/jan-util-values'
 import { PiAiAdapter } from './adapter.ts'
 import { authContextFrom, credentialStoreFrom } from './auth.ts'
@@ -72,6 +74,8 @@ import { assertServiceable, Config, resolveProfiles } from './config.ts'
 import type { ResolvedPiAiProviderProfile } from './config.ts'
 import { discoverModels } from './discovery.ts'
 import type { StoredModelDiscoveryProfile } from './discovery.ts'
+import { isListingProfile, RouteModelListings } from './listing.ts'
+import type { ListingProfile } from './listing.ts'
 import { registerPiAiFlows } from './login.ts'
 import { providerDefaultsOf } from './provider-data.ts'
 import type { PiAiRequestHeaderContext } from './types.ts'
@@ -83,6 +87,8 @@ export { Config } from './config.ts'
 export type {
   Options,
   PiAiCompatProfile,
+  PiAiModelListing,
+  ResolvedPiAiModelListing,
   PiAiModality,
   PiAiModelOverride,
   PiAiModelProfile,
@@ -206,7 +212,25 @@ export function apply(ctx: Context, config: Config): void {
   ctx.inject(['settings'], (child) => { child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)) })
   const settingsNs = ctx.fiber.entry?.options.id ?? NS
   let lastRaw: ReturnType<Config['providers']['get']> | undefined
+  let lastListings = -1
   let memoized: ReadonlyMap<string, ResolvedPiAiProviderProfile> | undefined
+  // Settles in-flight listing requests when this plugin instance unloads.
+  const unloading = new AbortController()
+  ctx.effect(() => () => { unloading.abort() }, 'llm-pi-ai model listings')
+  // Routes with `modelListing` take their models from here. The callbacks
+  // run only once a listing is requested, after every binding below exists.
+  const listings = new RouteModelListings({
+    target: (provider, profile) => listingTarget(provider, profile),
+    signal: unloading.signal,
+    onChange: (provider, models) => {
+      registration?.modelsChanged()
+      void adoptListedDefault(provider, models)
+    },
+    onStale: (provider, error) => {
+      ctx.logger.warn(`llm-pi-ai: could not refresh the model listing of provider route "${provider}"; keeping the last listing`)
+      ctx.logger.warn(error)
+    },
+  })
   /**
    * The resolved profiles for the current configuration, memoized by the raw
    * snapshot's identity — which is also what makes the adapter's own snapshot
@@ -214,13 +238,20 @@ export function apply(ctx: Context, config: Config): void {
    *
    * Catalog diagnostics stay in the snapshot beside serviceable models, so
    * stored configuration remains visible after an installed catalog changes.
-   * Scalar configuration errors still reject resolution.
+   * Scalar configuration errors still reject resolution. A stored model
+   * listing change also produces a new snapshot.
    */
   const profiles = (): ReadonlyMap<string, ResolvedPiAiProviderProfile> => {
     const raw = config.providers.get()
-    if (raw === lastRaw && memoized !== undefined) return memoized
-    const next = resolveProfiles(structuredClone(raw) as import('./config.ts').Options['providers'], 'deferred')
+    const generation = listings.generation
+    if (raw === lastRaw && generation === lastListings && memoized !== undefined) return memoized
+    const next = resolveProfiles(
+      structuredClone(raw) as import('./config.ts').Options['providers'],
+      'deferred',
+      listings.snapshot(),
+    )
     lastRaw = raw
+    lastListings = generation
     memoized = next
     return next
   }
@@ -281,6 +312,57 @@ export function apply(ctx: Context, config: Config): void {
     )
   }
 
+  const listingTarget = async (provider: string, profile: ListingProfile): Promise<{ baseURL: string; apiKey: string | undefined }> => {
+    const apiKey = await resolveApiKey(provider, profile)
+    const baseURL = profile.baseURLEnv === undefined
+      ? profile.baseURL
+      : await resolveBaseURL(provider, profile.baseURLEnv)
+    // Profile resolution requires baseURL or baseURLEnv on a listing route.
+    /* v8 ignore next -- unreachable after resolveProfiles validation. */
+    if (baseURL === undefined) throw new LlmError(`llm-pi-ai: provider route "${provider}" has no endpoint to list`, 'INVALID_CONFIG')
+    return { baseURL, apiKey }
+  }
+  /**
+   * Move the agent default to a listed model when it names this route and a
+   * model the new listing does not serve: the first listed id of the route's
+   * `preferredDefaults`, otherwise the first listed model. Never rejects.
+   */
+  const adoptListedDefault = async (provider: string, models: readonly LlmDiscoveredModel[]): Promise<void> => {
+    const defaults = ctx.get('agentDefaultModel')
+    const profile = profiles().get(provider)
+    const [first] = models
+    if (defaults === undefined || profile?.modelListing === undefined || first === undefined) return
+    try {
+      const current = defaults.currentSelection()
+      if (current.provider !== provider || models.some(model => model.id === current.model)) return
+      const next = profile.modelListing.preferredDefaults.find(id => models.some(model => model.id === id))
+        ?? first.id
+      await defaults.saveSelection({ provider, model: next })
+      ctx.logger.info(`llm-pi-ai: default model ${provider}/${current.model} is not listed; set to ${provider}/${next}`)
+    } catch (error) {
+      ctx.logger.warn(`llm-pi-ai: could not move the default model to a model provider route "${provider}" lists`)
+      ctx.logger.warn(error)
+    }
+  }
+
+  /**
+   * Bring one listing route up to date in the background; `force` fetches
+   * even a fresh listing. A failure is logged at debug level only: every model
+   * read of the route reports it, and a route that cannot authenticate is
+   * skipped without a log. Never rejects.
+   */
+  const refreshListing = async (provider: string, force: boolean): Promise<void> => {
+    const profile = profiles().get(provider)
+    /* v8 ignore next -- a timer can fire after a config change removed the route and before loader/volatile-update clears it. */
+    if (profile === undefined || !isListingProfile(profile)) return
+    try { await listings.ensure(provider, profile, force) }
+    catch (error) {
+      if (unloading.signal.aborted || (error instanceof LlmError && error.code === 'MISSING_CREDENTIAL')) return
+      ctx.logger.debug(`llm-pi-ai: could not list the models of provider route "${provider}"`)
+      ctx.logger.debug(error)
+    }
+  }
+
   // One store and one ambient context for the whole plugin instance: both read
   // through `ctx` per call, so they stay correct across the collection rebuilds
   // a configuration change causes, and a sign-in survives one.
@@ -291,6 +373,7 @@ export function apply(ctx: Context, config: Config): void {
     resolveBaseURL: (provider, profile) => resolveBaseURL(provider, profile.baseURLEnv),
     auth,
     prepareHeaders: (request, headers) => ctx.waterfall('llm-pi-ai/request-headers', request, headers, () => headers),
+    ensureModels: (provider, profile) => listings.ensure(provider, profile),
     resolveAttachments: () => ctx.get('attachments'),
     resolveImageAccess: (attachments, ref) => resolveImageAttachmentAccess(
       attachments,
@@ -384,8 +467,34 @@ export function apply(ctx: Context, config: Config): void {
   }
   ensureRegistrationFacts()
 
+  // Each listing route lists at startup, or when it first appears, and then
+  // refetches every refreshIntervalMs on its own timer. Reads past the
+  // interval refetch on demand.
+  const refreshTimers = new Map<string, { interval: number; timer: ReturnType<typeof setInterval> }>()
+  const scheduleListingRefresh = (): void => {
+    const wanted = new Map([...profiles()].flatMap(([provider, profile]) =>
+      profile.modelListing === undefined ? [] : [[provider, profile.modelListing.refreshIntervalMs] as const]))
+    for (const [provider, scheduled] of refreshTimers) {
+      if (wanted.get(provider) === scheduled.interval) continue
+      clearInterval(scheduled.timer)
+      refreshTimers.delete(provider)
+    }
+    for (const [provider, interval] of wanted) {
+      if (refreshTimers.has(provider)) continue
+      const timer = setInterval(() => { void refreshListing(provider, true) }, interval)
+      timer.unref()
+      refreshTimers.set(provider, { interval, timer })
+      void refreshListing(provider, false)
+    }
+  }
+  ctx.effect(() => () => {
+    for (const { timer } of refreshTimers.values()) clearInterval(timer)
+    refreshTimers.clear()
+  }, 'llm-pi-ai listing refresh')
+  scheduleListingRefresh()
+
   ctx.on('loader/volatile-update', () => {
-    try { ensureRegistrationFacts(); ensureDirectory() }
+    try { ensureRegistrationFacts(); ensureDirectory(); scheduleListingRefresh() }
     catch (error) {
       ctx.logger.error('llm-pi-ai: configuration conflicts with an existing provider route')
       ctx.logger.error(error)

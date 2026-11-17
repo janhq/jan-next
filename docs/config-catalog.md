@@ -1884,7 +1884,7 @@ export interface ArtifactOverride {
 
 - `inject`: `llm`
 - `refs`: `Api` (`@earendil-works/pi-ai`) · `CacheRetention` (`@earendil-works/pi-ai`) · `Model` (`@earendil-works/pi-ai`) · `ModelThinkingLevel` (`@earendil-works/pi-ai`) · `OpenAICompletionsCompat` (`@earendil-works/pi-ai`) · [`RetryPolicyConfig`](../packages/llm/llm/src/index.ts) · `ThinkingBudgets` (`@earendil-works/pi-ai`) · `Transport` (`@earendil-works/pi-ai`) · `Volatile` (`@janhq/cordis`)
-- `source`: [`packages/llm/llm-pi-ai/src/config.ts:258`](../packages/llm/llm-pi-ai/src/config.ts)
+- `source`: [`packages/llm/llm-pi-ai/src/config.ts:314`](../packages/llm/llm-pi-ai/src/config.ts)
 
 ```ts config-catalog
 /** Plugin configuration: the provider routes this instance owns. */
@@ -1919,9 +1919,21 @@ export interface PiAiProviderProfile {
   /**
    * This route's model catalog. Omission serves the installed catalog for the
    * route unchanged; an explicit list replaces it, each entry defaulting its
-   * unset fields from the installed model of the same id.
+   * unset fields from the installed model of the same id. With
+   * {@link modelListing}, entries describe models the listing may return and
+   * are served only while it does.
    */
   models?: PiAiModelProfile[]
+  /**
+   * Take the served model set from the endpoint's model listing at runtime
+   * instead of from configuration. Requires `api` to name a protocol with a
+   * readable listing (`openai-completions`, `openai-responses`, or
+   * `anthropic-messages`), an endpoint through `baseURL` or `baseURLEnv`, and
+   * no `modelOverrides`. The route offers no models until a listing succeeds;
+   * a failed refresh keeps the last listing fetched with the same credential
+   * and endpoint.
+   */
+  modelListing?: PiAiModelListing
   /**
    * Installed-catalog customizations by model id: each entry reshapes that
    * one model with the same fields a {@link models} entry takes, while the
@@ -2045,6 +2057,29 @@ export interface PiAiModelProfile {
   reasoningEfforts?: false | PiAiReasoningEfforts
   /** pi-ai wire-compatibility switches for this model, winning over the route's per field; one its protocol does not declare is refused. */
   compat?: PiAiCompatProfile
+}
+
+/**
+ * Runtime model listing for a route whose endpoint, not configuration, decides
+ * which models it serves. The route lists the ids its endpoint's model-listing
+ * endpoint (`GET {baseURL}/models` for OpenAI protocols) returns, authenticated
+ * with the route's own credential and headers.
+ */
+export interface PiAiModelListing {
+  /**
+   * Age in milliseconds after which the listing is fetched again (default
+   * 600,000). A background refresh runs at this interval while the plugin is
+   * mounted, and a model read past it refetches before answering.
+   */
+  refreshIntervalMs?: number
+  /** Bound on one listing request in milliseconds (default 15,000). */
+  timeoutMs?: number
+  /**
+   * Model ids, in preference order, that the agent default moves to when it
+   * names this route and a model the latest listing does not serve. When none
+   * of them is listed, the first listed model is used.
+   */
+  preferredDefaults?: string[]
 }
 
 /**
