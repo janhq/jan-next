@@ -11,4 +11,8 @@ while [ -L "$launcher" ]; do
   esac
 done
 resources=$(CDPATH= cd -- "$(dirname -- "$launcher")/../../.." && pwd -P)
-ELECTRON_RUN_AS_NODE=1 exec "$resources/../MacOS/Jan Alpha" --expose-internals "$resources/app.asar/jan/node_modules/@janhq/jan-desktop-host/lib/cli.js" "$@"
+case "$(uname -s)" in
+  Darwin) executable="$resources/../MacOS/Jan Alpha" ;;
+  *) executable="$resources/../jan-alpha" ;;
+esac
+ELECTRON_RUN_AS_NODE=1 exec "$executable" --expose-internals "$resources/app.asar/jan/node_modules/@janhq/jan-desktop-host/lib/cli.js" "$@"

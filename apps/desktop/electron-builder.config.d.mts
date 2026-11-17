@@ -46,6 +46,10 @@ export interface DesktopElectronBuilderConfig {
       readonly signingHashAlgorithms: readonly string[]
     }
   }
+  readonly linux: {
+    readonly executableName: 'jan-alpha'
+    readonly target: readonly ['AppImage', 'deb']
+  }
   readonly nsis: {
     readonly uninstallDisplayName: '${productName}'
     readonly include: string

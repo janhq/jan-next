@@ -16,6 +16,8 @@ Build Desktop installers locally, choose deployment and signing mode, and retrie
 - [macOS machine configuration](#macos-machine-configuration)
 - [Unsigned Windows test installer](#unsigned-windows-test-installer)
 - [Local macOS DMG without release signing](#local-macos-dmg-without-release-signing)
+- [Unsigned Linux packages](#unsigned-linux-packages)
+- [GitHub Actions](#github-actions)
 - [macOS release signing and diagnostics](#macos-release-signing)
 - [Directory builds and preparation](#directory-and-preparation)
 - [Local Official bundles from a loopback registry](#local-official-bundles-from-a-loopback-registry)
@@ -92,7 +94,7 @@ pnpm run package:desktop:mac:x64
 pnpm run package:desktop:win:x64
 ```
 
-The macOS arm64 command requires Apple Silicon. The macOS x64 command runs on Intel macOS or Apple Silicon with Rosetta. The Windows x64 command requires Windows x64. Linux is not a supported Desktop release target.
+The macOS arm64 command requires Apple Silicon. The macOS x64 command runs on Intel macOS or Apple Silicon with Rosetta. The Windows x64 command requires Windows x64. Linux x64 builds only [unsigned packages](#unsigned-linux-packages) on a Linux x64 host.
 
 Every package bundles the staged llama.cpp worker in `native/llama-worker/dist` as `<resources>/llama-worker`; [build and stage it](../../../native/llama-worker/README.md#build) for the package's platform and architecture first. Packaging stops before assembly when that directory has no worker or its worker targets another platform or architecture; `JAN_DESKTOP_OMIT_LLAMA_WORKER=1` packages without it, and without local models. electron-builder signs the worker and its libraries with the rest of the application on signed macOS and Windows builds.
 
@@ -130,7 +132,7 @@ On Windows x64, use the complete unsigned packaging command for local installati
 pnpm run package:desktop:win:x64:unsigned
 ```
 
-The command reads `.env.windows` and requires `JAN_DESKTOP_APP_ID` and the [mandatory-update policy settings](../README.md#mandatory-update-policy), including a real HTTPS service origin. The local run and CI use Node 24; the remaining tools are the root `packageManager` version of pnpm, Git, PowerShell 7 (`pwsh`), tar, Python, Visual C++ Build Tools and a Windows SDK. Set `PYTHON` when Python is absent from `PATH`. It writes the installer to `.desktop-build/targets/win-x64/unsigned-artifacts/`, omits ordinary automatic-update configuration, strips signing credentials, and creates no release completion record. EV and upload credentials are unnecessary. Signed packaging and upload retain their release requirements.
+No `.env.windows`, certificate, or update service configuration is required: the command ignores inherited release settings, uses `com.janhq.jan-alpha` as the app ID, and omits automatic-update and mandatory-update configuration. The local run and CI use Node 24; the remaining tools are the root `packageManager` version of pnpm, Git, PowerShell 7 (`pwsh`), tar, Python, Visual C++ Build Tools and a Windows SDK. Set `PYTHON` when Python is absent from `PATH`. It writes the installer to `.desktop-build/targets/win-x64/unsigned-artifacts/`, strips signing credentials, and creates no release completion record. EV and upload credentials are unnecessary. Signed packaging and upload retain their release requirements.
 
 Run `pnpm install --frozen-lockfile`, then `pnpm run package:desktop:win:x64:unsigned --check` to validate configuration and tooling before the full command above. Packaging performs its own complete build and isolated runtime smoke without an online model. Stage logs remain under `.desktop-build/packaging-runs/`; a successful build alone does not qualify the installer. Dependency installation and runtime preparation need access to npm, GitHub release assets and nodejs.org; use the existing registry and proxy configuration when the network requires it. Caches and tool locations belong to the build machine, not tracked personal paths.
 
@@ -147,7 +149,37 @@ pnpm run package:desktop:mac:x64:unsigned
 
 Add `--check` to validate local configuration and tools without building, or `--dir` to stop at the unpacked application. The DMG is `apps/desktop/.desktop-build/targets/<target>/unsigned-artifacts/jan-<version>-mac-<arch>-unsigned.dmg`. After all checks pass, the command prints `DMG:` followed by its absolute path. Open it and copy the application to a local test directory.
 
-These commands ignore `.env.macos` and inherited release settings, use `com.janhq.harness` as the app ID, and omit automatic-update and mandatory-update configuration. Build tools, standard network proxies, and `JAN_DESKTOP_NPM_REGISTRY` remain available from the shell. They skip Developer ID signing, Apple notarization, temporary signing keychains, and notarization proxy changes. Electron receives a local ad-hoc signature without certificates so the modified executable can run; the DMG is unsigned. Both preparation and the assembled application still run runtime integrity and smoke checks. Local builds omit update feeds, ZIPs, and release completion records, and the upload commands cannot publish them. macOS may require approval in System Settings → Privacy & Security to open an unnotarized application. These builds stage no Computer Use helper, so Computer Use reports the missing helper when it prepares.
+These commands ignore `.env.macos` and inherited release settings, use `com.janhq.jan-alpha` as the app ID, and omit automatic-update and mandatory-update configuration. Build tools, standard network proxies, and `JAN_DESKTOP_NPM_REGISTRY` remain available from the shell. They skip Developer ID signing, Apple notarization, temporary signing keychains, and notarization proxy changes. Electron receives a local ad-hoc signature without certificates so the modified executable can run; the DMG is unsigned. Both preparation and the assembled application still run runtime integrity and smoke checks. Local builds omit update feeds, ZIPs, and release completion records, and the upload commands cannot publish them. macOS may require approval in System Settings → Privacy & Security to open an unnotarized application. These builds stage no Computer Use helper, so Computer Use reports the missing helper when it prepares.
+
+<a id="unsigned-linux-packages"></a>
+
+## Unsigned Linux packages
+
+On Linux x64, after `pnpm install`, build the AppImage and Debian package, or stop at the unpacked application:
+
+```sh
+pnpm run package:desktop:linux:x64:unsigned
+pnpm run package:desktop:linux:x64:dir
+```
+
+Linux has no release signing, update feed, or mandatory-update policy, so every Linux build is unsigned and a Linux build without `--unsigned` fails. The commands ignore inherited release settings and use `com.janhq.jan-alpha` as the app ID. The packages are `apps/desktop/.desktop-build/targets/linux-x64/unsigned-artifacts/jan-<version>-linux-x86_64-unsigned.AppImage` and `jan-<version>-linux-amd64-unsigned.deb`; the unpacked application is `linux-unpacked/jan-alpha` in the same directory. Stage a Linux x64 llama.cpp worker first, as for the other targets.
+
+<a id="github-actions"></a>
+
+## GitHub Actions
+
+[Desktop package](../../../.github/workflows/desktop-package.yml) builds every target on GitHub-hosted runners through the reusable [Desktop build](../../../.github/workflows/template-desktop-build.yml) workflow, which first runs the [llama.cpp worker workflow](../../../.github/workflows/llama-worker.yml) for its target from the same commit.
+
+| Target | Runner | Artifact |
+|---|---|---|
+| `mac-arm64` | `macos-15` | DMG |
+| `mac-x64` | `macos-15-intel` | DMG |
+| `win-x64` | `windows-2025` | NSIS installer |
+| `linux-x64` | `ubuntu-22.04` | AppImage and Debian package |
+
+Pushing a `jan-v<version>` tag whose version equals the root `package.json` version packages that product version, creates a draft GitHub release for the tag, and uploads every installer to it. A manual run packages the selected `ref`; its `build_version` defaults to `<product version>.<YYYYMMDD>.<run>.<attempt>`, or `<product version>-test.<YYYYMMDD>.<run>.<attempt>` for a stable product version. Each target uploads its installers as the workflow artifact `desktop-installer-<target>`, kept for 14 days, and a failed build uploads `packaging-logs-<target>`. With `publish` selected, a manual run also uploads the installers to a draft release tagged `jan-v<build version>`. Only the two release jobs receive `contents: write`.
+
+Every workflow package is unsigned, as built by the `:unsigned` commands above, and reads no repository secrets. Signed packages also require an update feed and a mandatory-update policy service, which Jan does not operate yet, and Windows signing uses a hardware-token signer rather than Azure Key Vault. Automatic-update feed integration is a follow-up; signed workflow packages will use the existing Jan secret names: `CODE_SIGN_P12_BASE64`, `CODE_SIGN_P12_PASSWORD`, `NOTARY_ISSUER`, `NOTARY_KEY_ID`, and `NOTARIZE_P8_BASE64` for macOS, and `AZURE_KEY_VAULT_URI`, `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_CLIENT_SECRET`, and `AZURE_CERT_NAME` for Windows.
 
 <a id="macos-release-signing"></a>
 

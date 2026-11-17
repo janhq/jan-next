@@ -1,0 +1,155 @@
+# Packages the Desktop app on GitHub-hosted runners. A `jan-v<version>` tag
+# creates a draft GitHub release and uploads every installer to it; a manual
+# run uploads workflow artifacts and, with `publish`, a draft release too.
+# Packages are unsigned until update-feed integration lands; see
+# apps/desktop/packaging/README.md#github-actions.
+name: Desktop package
+
+on:
+  push:
+    tags: ['jan-v*']
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag or commit to package; empty packages the selected branch.
+        type: string
+        default: ''
+        required: false
+      build_version:
+        description: Desktop build version; empty uses <product version><date>.<run>.<attempt>.
+        type: string
+        default: ''
+        required: false
+      publish:
+        description: Also upload the installers to a draft GitHub release named jan-v<build version>.
+        type: boolean
+        default: false
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-package-${{ github.ref }}-${{ inputs.ref }}
+  cancel-in-progress: false
+
+jobs:
+  get-version:
+    name: Resolve source and version
+    runs-on: ubuntu-24.04
+    outputs:
+      commit: ${{ steps.version.outputs.commit }}
+      version: ${{ steps.version.outputs.version }}
+      build_version: ${{ steps.version.outputs.build_version }}
+      release_tag: ${{ steps.version.outputs.release_tag }}
+      publish: ${{ steps.version.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.ref }}
+      - id: version
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          REQUESTED: ${{ inputs.build_version }}
+          PUBLISH: ${{ inputs.publish }}
+        run: |
+          product=$(jq -r .version package.json)
+          desktop=$(jq -r .version apps/desktop/package.json)
+          if [[ "$product" != "$desktop" ]]; then
+            echo "::error::apps/desktop version $desktop does not match jan version $product"
+            exit 1
+          fi
+          if [[ "$EVENT" == push ]]; then
+            if [[ "$REF_NAME" != "jan-v$product" ]]; then
+              echo "::error::tag $REF_NAME does not match jan version $product"
+              exit 1
+            fi
+            version=$product
+            build_version=''
+            publish=true
+          else
+            # package-target.ts validates the version; this only selects the default.
+            if [[ -n "$REQUESTED" ]]; then version=$REQUESTED
+            elif [[ "$product" == *-* ]]; then version="$product.$(date -u +%Y%m%d).$GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT"
+            else version="$product-test.$(date -u +%Y%m%d).$GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT"
+            fi
+            build_version=$version
+            publish=$PUBLISH
+          fi
+          {
+            echo "commit=$(git rev-parse HEAD)"
+            echo "version=$version"
+            echo "build_version=$build_version"
+            echo "release_tag=jan-v$version"
+            echo "publish=$publish"
+          } >> "$GITHUB_OUTPUT"
+
+  create-draft-release:
+    name: Create draft release
+    needs: get-version
+    if: needs.get-version.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: softprops/action-gh-release@v2.6.2
+        with:
+          tag_name: ${{ needs.get-version.outputs.release_tag }}
+          target_commitish: ${{ needs.get-version.outputs.commit }}
+          name: Jan Desktop ${{ needs.get-version.outputs.version }}
+          draft: true
+          prerelease: ${{ contains(needs.get-version.outputs.version, '-') }}
+          generate_release_notes: true
+
+  build-mac-arm64:
+    needs: get-version
+    uses: ./.github/workflows/template-desktop-build.yml
+    with:
+      ref: ${{ needs.get-version.outputs.commit }}
+      target: mac-arm64
+      build_version: ${{ needs.get-version.outputs.build_version }}
+
+  build-mac-x64:
+    needs: get-version
+    uses: ./.github/workflows/template-desktop-build.yml
+    with:
+      ref: ${{ needs.get-version.outputs.commit }}
+      target: mac-x64
+      build_version: ${{ needs.get-version.outputs.build_version }}
+
+  build-windows-x64:
+    needs: get-version
+    uses: ./.github/workflows/template-desktop-build.yml
+    with:
+      ref: ${{ needs.get-version.outputs.commit }}
+      target: win-x64
+      build_version: ${{ needs.get-version.outputs.build_version }}
+
+  build-linux-x64:
+    needs: get-version
+    uses: ./.github/workflows/template-desktop-build.yml
+    with:
+      ref: ${{ needs.get-version.outputs.commit }}
+      target: linux-x64
+      build_version: ${{ needs.get-version.outputs.build_version }}
+
+  upload-release-assets:
+    name: Upload installers to the draft release
+    needs: [get-version, create-draft-release, build-mac-arm64, build-mac-x64, build-windows-x64, build-linux-x64]
+    if: needs.get-version.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8.0.1
+        with:
+          pattern: desktop-installer-*
+          path: installers
+          merge-multiple: true
+      - name: Upload installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.get-version.outputs.release_tag }}
+        run: gh release upload "$TAG" installers/* --clobber --repo "$GITHUB_REPOSITORY"
