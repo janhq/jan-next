@@ -23,6 +23,7 @@ window.__ModuleLoader__.load({
 .ow-models-error{padding:12px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-2);overflow-wrap:anywhere}
 .ow-models-fault{margin:8px 0 0;padding-left:12px;border-left:3px solid var(--dsw-alias-state-danger, var(--dsw-alias-state-business-primary));color:var(--dsw-alias-label-primary);font-size:13px;line-height:20px;text-wrap:pretty}.ow-models-empty{padding:24px;border:1px solid var(--dsw-alias-border-l1);border-radius:12px;display:grid;gap:12px;justify-items:start}.ow-models-files{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:12px}.ow-models-files li{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}.ow-models-files span{overflow-wrap:anywhere;min-width:0;flex:1}
 .ow-models details summary{cursor:pointer;font-weight:500;overflow-wrap:anywhere}.ow-models details summary:focus-visible,.ow-model-field select:focus-visible,.ow-model-check input:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:3px}.ow-models-note{padding:12px;border-radius:8px;background:var(--dsw-alias-bg-layer-2);display:grid;gap:6px}.ow-models dl{margin:0;display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 16px}.ow-models dd{margin:0;overflow-wrap:anywhere}
+.ow-model-modal{display:flex;flex-direction:column;width:min(620px,calc(100vw - 32px));max-height:calc(100dvh - 32px)}.ow-model-modal-content{min-height:0;overflow-y:auto}
 @media(max-width:600px){.ow-models-inner{padding:16px}.ow-models dl{grid-template-columns:1fr}.ow-models-row{align-items:flex-start}.ow-models-name{flex-basis:100%}}
 `
 
@@ -454,7 +455,7 @@ window.__ModuleLoader__.load({
           tab === 'import' ? h(ImportForm, { draft, setDraft, openDownloads, onStarted: () => { void refresh() } }) : null,
           tab === 'catalog' ? h(Catalog, { onImport: selectImport, openDownloads }) : null,
           tab === 'settings' ? h('div', { className: 'ow-model-form' }, h('h2', null, 'Engine settings'), h(SettingsForm, null)) : null),
-        h(Modal, { open: Boolean(editing), onClose: () => setEditing(null), title: `Settings: ${editing?.name || editing?.id || ''}`, closeLabel: 'Close model settings' }, editing ? h(SettingsForm, { key: editing.id, modelId: editing.id }) : null),
+        h(Modal, { open: Boolean(editing), onClose: () => setEditing(null), title: `Settings: ${editing?.name || editing?.id || ''}`, closeLabel: 'Close model settings', className: 'ow-model-modal', contentClassName: 'ow-model-modal-content' }, editing ? h(SettingsForm, { key: editing.id, modelId: editing.id }) : null),
         h(RiskConfirmation, {
           open: Boolean(deleting), title: 'Delete local model?',
           description: `Delete ${deleting?.name || deleting?.id || 'this model'} and its local model files? This cannot be undone.${error ? ` Error: ${error}` : ''}`,
