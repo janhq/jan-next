@@ -48,6 +48,7 @@ window.__ModuleLoader__.load({
     ]
     let preferences = { accent: PALETTES.find(p => p[2].toLowerCase() === look.primary.toLowerCase())?.[0] || 'blue', coloredUserBubble: true, ...shell.appearance }
     const appearanceListeners = new Set()
+    let retheme = null
     const applyAppearance = (value) => {
       preferences = value
       const palette = PALETTES.find(p => p[0] === value.accent) || PALETTES[7]
@@ -58,6 +59,7 @@ window.__ModuleLoader__.load({
       root.style.setProperty('--jt-sidebar-dark', palette[4])
       root.style.setProperty('--jt-bubble-light', value.coloredUserBubble ? `color-mix(in oklch, ${primary} 22%, white)` : 'var(--dsw-alias-bg-layer-2)')
       root.style.setProperty('--jt-bubble-dark', value.coloredUserBubble ? `color-mix(in oklch, ${primary} 70%, black)` : 'var(--dsw-alias-bg-layer-2)')
+      retheme?.()
       appearanceListeners.forEach(listener => listener())
     }
     async function appearanceApi(method, params = {}) {
@@ -194,6 +196,18 @@ window.__ModuleLoader__.load({
     }
     const both = (v) => ({ light: v, dark: v })
     // Jan's palette (web-app/src/index.css) mapped onto the app's alias tokens.
+    // Accent tokens carry the literal colour, not var(--jt-accent): WebKit keeps
+    // a transitioning background (the send button) on the old colour when only
+    // the root variable it resolves through changes.
+    const tokensFor = (value) => {
+      const accent = (PALETTES.find(p => p[0] === value.accent) || PALETTES[7])[2]
+      return {
+        ...TOKENS,
+        '--dsw-alias-button-primary-fill': both(accent),
+        '--dsw-alias-button-info-fill': both(accent),
+        '--dsw-alias-state-business-primary': both(accent),
+      }
+    }
     const TOKENS = {
       '--jan-font-family-text': both("'Inter', 'Segoe UI', sans-serif"),
       '--dsw-alias-bg-base': { light: 'oklch(1 0 0)', dark: 'oklch(0.18 0 0)' },
@@ -569,7 +583,12 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         ctx.effect(() => () => style.remove(), 'jan-theme: styles')
 
         ctx.inject(['theme'], (scope) => {
-          scope.effect(() => scope.theme.overrideTokens('jan-theme', TOKENS), 'jan-theme: Jan palette')
+          scope.effect(() => {
+            // Re-overriding the same source replaces the layer; the first disposer then no-ops.
+            let dispose = scope.theme.overrideTokens('jan-theme', tokensFor(preferences))
+            retheme = () => { dispose = scope.theme.overrideTokens('jan-theme', tokensFor(preferences)) }
+            return () => { retheme = null; dispose() }
+          }, 'jan-theme: Jan palette')
         })
 
         const html = document.documentElement
