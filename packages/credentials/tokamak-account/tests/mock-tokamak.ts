@@ -55,6 +55,9 @@ export async function startMockTokamak(port = 0): Promise<MockTokamak> {
       { id: 'tokamak/auto', display_name: 'Tokamak Auto', context_length: 1_000_000, max_completion_tokens: 128_000 },
       { id: 'anthropic/claude-opus-5-5[1m]', display_name: 'claude-opus-5-5', context_length: 1_000_000, max_completion_tokens: 128_000 },
       { id: 'openai/gpt-6-sol', display_name: 'gpt-6-sol', context_length: 1_050_000, max_completion_tokens: 128_000 },
+      // Non-chat entries the route leaves out: one by `exclude`, one by its declared output.
+      { id: 'openai/gpt-image-2', display_name: 'gpt-image-2', context_length: 1_000_000 },
+      { id: 'acme/painter', display_name: 'painter', architecture: { input_modalities: ['text'], output_modalities: ['image'] } },
     ],
     approveAfter: undefined, interval: 1,
     revokeKey(key) { keys.delete(key) },

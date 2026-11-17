@@ -31,6 +31,7 @@
               refreshIntervalMs: 600000
               timeoutMs: 15000
               preferredDefaults: [tokamak/auto]
+              exclude: [openai/gpt-image-*]
 
     - id: sandbox
       name: '@janhq/jan-sandbox-local'

@@ -9,7 +9,7 @@ description: "The `tokamak` model route lists its models from the Tokamak router
 
 Before, the `tokamak` route of the `llm-pi-ai` row in the `jan-base` and `jan-sdk-minimal` bundles served a fixed `models` list, and the default model was `tokamak-1-preview` in the `agent-default-model` row, the `acp` row of `jan-acp-app`, the TypeScript SDK's `JanOptions.model`, and the Python SDK's `model`. The router no longer serves `tokamak-1-preview`, so requests for it failed with `404 chat completion request rejected`.
 
-Now the route sets `modelListing` and serves exactly the models `GET {baseURL}/models` returns for the stored `TOKAMAK_API_KEY`. While signed out, the model picker asks for a sign-in instead of listing Tokamak models. Every default above is `tokamak/auto`. A saved default that names an unlisted Tokamak model moves to `tokamak/auto` after the first successful listing; an explicit SDK or `acp` model is not moved.
+Now the route sets `modelListing` and serves the chat models `GET {baseURL}/models` returns for the stored `TOKAMAK_API_KEY`, without image generation models. The last listing is kept in Jan's storage and refreshed at each launch. While signed out, the model picker asks for a sign-in instead of listing Tokamak models. Every default above is `tokamak/auto`. A saved default that names an unlisted Tokamak model moves to `tokamak/auto` after the first successful listing; an explicit SDK or `acp` model is not moved.
 
 Affected: profile patches that override the `tokamak` route's `models` list, and SDK or ACP callers that pass `tokamak-1-preview`.
 

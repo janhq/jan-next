@@ -55,7 +55,7 @@ describe('jan-base bundle', () => {
     expect(tokamak).toMatchObject({
       api: 'openai-completions',
       apiKeyEnv: 'TOKAMAK_API_KEY',
-      modelListing: { refreshIntervalMs: 600000, timeoutMs: 15000, preferredDefaults: ['tokamak/auto'] },
+      modelListing: { refreshIntervalMs: 600000, timeoutMs: 15000, preferredDefaults: ['tokamak/auto'], exclude: ['openai/gpt-image-*'] },
     })
     expect(tokamak?.['models']).toBeUndefined()
     expect(manifest.dependencies).toHaveProperty('@janhq/jan-tokamak-account')

@@ -146,7 +146,9 @@
           # TOKAMAK_API_KEY credential that Tokamak sign-in writes (or the env var).
           # The router decides which models it serves: the route lists them from
           # GET {baseURL}/models at startup, after sign-in, and every refreshIntervalMs,
-          # and offers none while signed out or before the first listing succeeds.
+          # and offers none while signed out or before the first listing succeeds; the
+          # last listing is kept in storage and served after a restart until the launch
+          # refresh replaces it.
           tokamak:
             displayName: Tokamak
             api: openai-completions
@@ -159,6 +161,8 @@
               refreshIntervalMs: 600000
               timeoutMs: 15000
               preferredDefaults: [tokamak/auto]
+              # The router lists image generation models without marking them as non-chat.
+              exclude: [openai/gpt-image-*]
           # tokamak-harness: the managed local model (web-app row `llama-cpp`). Its key and
           # endpoint (the worker's OS-assigned port) exist only while that worker runs, so
           # otherwise the route offers no models.

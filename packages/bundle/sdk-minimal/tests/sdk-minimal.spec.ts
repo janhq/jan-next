@@ -74,7 +74,7 @@ describe('jan-sdk-minimal bundle', () => {
       defaultContextWindow: { __jsExpr: 'Number(process.env.JAN_CONTEXT_WINDOW ?? 200000)' },
       streamIdleTimeoutMs: 172800000,
     })
-    expect(providers.tokamak?.modelListing).toEqual({ refreshIntervalMs: 600000, timeoutMs: 15000, preferredDefaults: ['tokamak/auto'] })
+    expect(providers.tokamak?.modelListing).toEqual({ refreshIntervalMs: 600000, timeoutMs: 15000, preferredDefaults: ['tokamak/auto'], exclude: ['openai/gpt-image-*'] })
     expect(providers.tokamak?.models).toBeUndefined()
     expect(rows.find(row => row.id === 'system-prompt')?.config).toEqual({
       includeHarnessIdentity: false,
