@@ -1,5 +1,5 @@
 /** Running Turn clock isolated from the transcript's render cycle. */
-import { memo, useEffect, useState } from 'react'
+import { memo, useEffect, useState, type ReactNode } from 'react'
 import { TextShimmer } from '@janhq/jan-client-ui-primitives'
 import type { ChatViewSlotProps } from '../contract/slots.ts'
 import { formatRunDuration, LIVE_RUN_CLOCK_INTERVAL_MS } from './message-chrome.ts'
@@ -14,15 +14,17 @@ interface RunningStatusProps {
   /** Keep the slot without showing or announcing the status: the Session stopped before its Turn closed. */
   readonly holding?: boolean
   readonly t: ChatViewSlotProps['t']
+  /** Feature details shown after the clock, e.g. a local model's prompt reading progress. */
+  readonly detail?: ReactNode
 }
 
 /**
  * Show live elapsed time after the current Turn's content without announcing ticks.
- * @param props - Current Turn start time, pause state, and localized copy.
+ * @param props - Current Turn start time, pause state, details, and localized copy.
  * @returns the blue running indicator; mount while the Session is running, or holding its slot hidden until the
  * Turn's actions row replaces it.
  */
-export const RunningStatus = memo(function RunningStatus({ startTime, paused, holding = false, t }: RunningStatusProps) {
+export const RunningStatus = memo(function RunningStatus({ startTime, paused, holding = false, t, detail }: RunningStatusProps) {
   const [now, setNow] = useState(Date.now)
   useEffect(() => {
     if (startTime === undefined || paused || holding) return
@@ -42,6 +44,7 @@ export const RunningStatus = memo(function RunningStatus({ startTime, paused, ho
       <span className={css.runningContent}>
         <RunningWhaleTail />
         <TextShimmer active={!holding} className={css.runningText}>{label}</TextShimmer>
+        {detail}
       </span>
     </div>
   )

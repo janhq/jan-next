@@ -63,6 +63,12 @@ export interface TurnTailOwnerProps {
   openFile: (path: string) => void
 }
 
+/** Owner share of running-status details: entries read their state from the Session. */
+export interface RunningDetailOwnerProps {
+  /** Marker field: the running status passes nothing. */
+  children?: never
+}
+
 /** Owner currency of finalized-assistant actions. */
 export interface AssistantActionOwnerProps {
   messageId: MessageId
@@ -378,7 +384,7 @@ export interface ChatFlowOwnerProps extends Pick<ChatNodeOwnerProps,
 /** Full props of the Chat-owned flow renderer. */
 export type ChatFlowSlotProps =
   PropsRuntime<'conversation.chat.flow'>
-  & PropsRenderSlots<'conversation.chat.node'>
+  & PropsRenderSlots<'conversation.chat.node' | 'conversation.chat.running-detail'>
   & PropsRenderFactories
   & PropsStore<ChatStore>
   & InjectFace<ChatFlowDataInjected>
@@ -485,6 +491,12 @@ declare module '@janhq/jan-client-ui-slots' {
      * adds an entry; entries without content return null.
      */
     'conversation.chat.turnTail': { kind: 'list'; scope: 'session'; owner: TurnTailOwnerProps }
+    /**
+     * Ordered details beside the running status of a Session, e.g. how far a local model got
+     * reading the prompt. Each entry reads its own state and returns null when it has nothing
+     * to say; the status renders none while it holds its slot hidden.
+     */
+    'conversation.chat.running-detail': { kind: 'list'; scope: 'session'; owner: RunningDetailOwnerProps }
     /**
      * Ordered actions for one finalized assistant message. Each entry receives
      * the durable message id; a fresh `id` adds an action and reusing one replaces
