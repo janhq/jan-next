@@ -33,9 +33,23 @@ import {
  readSettingsFile,
  writeSettingsFile,
  settingsFileExists,
+ mutateSettingsFile,
+ preserveInvalidSettingsFile,
 } from './settings-store'
 import { applyPlatformFitDefault } from './fit-default'
 import { findModelEntries } from './model-tree'
+import {
+ contextBudget,
+ contextCandidates,
+ estimateCatalogFit,
+ pickRecommendation,
+ vramContextBound,
+ FIT_FLOOR_CTX_SIZE,
+ type CatalogFit,
+ type ContextBudget,
+ type ContextRecommendation,
+ type FitVerdict,
+} from './context'
 
 import {
  getProxyConfig,
@@ -694,39 +708,40 @@ export class LlamacppEngine extends AIEngine implements EmbeddingEngine {
  override async updateSettings(
   componentProps: Partial<SettingComponentProps>[]
  ): Promise<void> {
-  const current = await readSettingsFile()
-  const changed: { key: string; value: unknown }[] = []
-  const updated = current.length
-   ? current.map((s) => {
-    const patch = componentProps.find((p) => p.key === s.key)
-    if (patch?.controllerProps) {
-     const nextValue = (patch.controllerProps as { value?: unknown })
-      .value
-     const prevValue = (s.controllerProps as { value?: unknown }).value
-     if (nextValue !== prevValue) {
-      changed.push({ key: s.key, value: nextValue })
-     }
-     return {
-      ...s,
-      controllerProps: { ...s.controllerProps, value: nextValue },
-     } as SettingComponentProps
-    }
-    return s
-   })
-   : ((): SettingComponentProps[] => {
-    const arr = componentProps as SettingComponentProps[]
-    for (const s of arr) {
-     changed.push({
-      key: s.key,
-      value: (s.controllerProps as { value?: unknown })?.value,
-     })
-    }
-    return arr
-   })()
-  await writeSettingsFile(updated)
   const previousConfig = { ...this.config }
   const previousTimeout = this.timeout
   const previousEnv = this.llamacpp_env
+  const changed: { key: string; previous: unknown; value: unknown }[] = []
+  // Read and write inside the store's lock. Reading here and writing later
+  // lets a second save overwrite the first one's change: both read the same
+  // old file and each writes only its own new value. An unreadable file
+  // throws out of the store, which is the correct answer for a save: merging
+  // onto nothing would discard every stored value.
+  await mutateSettingsFile((current) => {
+   changed.length = 0
+   if (current.length === 0) {
+    const list = componentProps as SettingComponentProps[]
+    for (const s of list) {
+     changed.push({ key: s.key, previous: undefined, value: s.controllerProps.value })
+    }
+    return list
+   }
+   const updated = current.map((s) => {
+    const patch = componentProps.find((p) => p.key === s.key)
+    if (!patch?.controllerProps) return s
+    const nextValue = patch.controllerProps.value
+    const prevValue = s.controllerProps.value
+    if (nextValue !== prevValue) {
+     changed.push({ key: s.key, previous: prevValue, value: nextValue })
+    }
+    return {
+     ...s,
+     controllerProps: { ...s.controllerProps, value: nextValue },
+    } as SettingComponentProps
+   })
+   return changed.length === 0 ? null : updated
+  })
+  if (changed.length === 0) return
   for (const { key, value } of changed) {
    this.onSettingUpdate(key, value)
   }
@@ -743,8 +758,40 @@ export class LlamacppEngine extends AIEngine implements EmbeddingEngine {
      this.config = previousConfig
      this.timeout = previousTimeout
      this.llamacpp_env = previousEnv
-     await writeSettingsFile(current)
-     throw error
+     // Only the values the reload actually applies go back. Reverting every
+     // key the save touched is what turned a failed preset reload into a
+     // silently reverted timeout: the file said 600 again, and the user was
+     // told nothing. A cosmetic key stays saved, and the reload failure is
+     // reported on its own terms.
+     const reverted = changed.filter((c) =>
+      PRESET_AFFECTING_KEYS.has(c.key) || c.key === 'models_max'
+     )
+     if (reverted.length > 0) {
+      // Only these keys go back: rewriting a whole snapshot taken before the
+      // write would discard a concurrent save. A key that had no stored value
+      // before this save (the file was empty) is removed again rather than
+      // written back as `undefined`, which would leave a row the shipped
+      // defaults no longer own.
+      await mutateSettingsFile((file) => {
+       const restored = file.flatMap((s) => {
+        const touched = reverted.find((c) => c.key === s.key)
+        if (touched === undefined) return [s]
+        if (touched.previous === undefined) return []
+        return [{
+         ...s,
+         controllerProps: { ...s.controllerProps, value: touched.previous },
+        } as SettingComponentProps]
+       })
+       return restored
+      })
+      throw new Error(
+       `Saved, but the engine could not apply ${reverted.map((c) => c.key).join(', ')}: ${error instanceof Error ? error.message : String(error)}`
+      )
+     }
+     logger.warn(
+      `Engine preset reload failed after saving ${changed.map((c) => c.key).join(', ')}; the saved values stand:`,
+      error
+     )
     }
    }
   }
@@ -756,7 +803,21 @@ export class LlamacppEngine extends AIEngine implements EmbeddingEngine {
   settings.forEach((s) => {
    s.extensionName = PACKAGE_NAME
   })
-  const old = await readSettingsFile()
+  // An unreadable file must not stop the engine from starting, and it must not
+  // be written over either: the user's values are moved aside first, so the
+  // shipped defaults replace a file that could not be used while the original
+  // stays on disk for recovery.
+  let old: SettingComponentProps[]
+  try {
+   old = await readSettingsFile()
+  } catch (error) {
+   const backup = await preserveInvalidSettingsFile()
+   logger.error(
+    `Engine settings could not be read (${error instanceof Error ? error.message : String(error)}); ` +
+    (backup ? `kept them at ${backup} and reset to defaults` : 'could not keep a copy, resetting to defaults')
+   )
+   old = []
+  }
   if (old.length) {
    settings.forEach((s) => {
     const prev = old.find((o) => o.key === s.key)
@@ -1357,6 +1418,229 @@ export class LlamacppEngine extends AIEngine implements EmbeddingEngine {
   const { metadata } = await readGgufMetadata(path)
   const limit = Number(metadata?.[`${metadata?.['general.architecture']}.context_length`])
   return Number.isInteger(limit) && limit > 0 ? limit : undefined
+ }
+
+ /**
+  * The context this model is configured to load with, and the output a request
+  * may reserve against it. `nCtx` wins when the model is loaded, because the
+  * router reports what fit actually settled on; otherwise the per-model
+  * `ctx_size` is the answer, and failing that the preset's own guard applies.
+  *
+  * This is the single source for both the chat adapter and the compaction
+  * policy, so the two can never price a request against different windows.
+  */
+ async getModelContextBudget(modelId: string): Promise<ContextBudget> {
+  let nCtx: number | undefined
+  let configured: number | undefined
+  try {
+   nCtx = (await this.getModelProps(modelId))?.nCtx
+  } catch (e) {
+   logger.warn(`Could not read the loaded context of ${modelId}:`, e)
+  }
+  try {
+   configured = await this.getModelContextSize(modelId)
+  } catch (e) {
+   logger.warn(`Could not read ctx_size of ${modelId}:`, e)
+  }
+  return contextBudget({
+   nCtx,
+   configured,
+   fit: this.config.fit !== false,
+   fitFloor: Number(this.config.fit_ctx),
+  })
+ }
+
+ /**
+  * `ctx_size` from model.yml. `0` means "the model's own trained context", so
+  * it is reported as undefined here: what the engine will serve becomes the
+  * GGUF's limit, not zero.
+  */
+ private async getModelContextSize(modelId: string): Promise<number | undefined> {
+  const config = await fs.readYaml<ModelConfig & { ctx_size?: number }>(
+   await joinPath([await this.getProviderPath(), 'models', modelId, 'model.yml'])
+  )
+  const size = config?.ctx_size
+  if (typeof size !== 'number' || !Number.isFinite(size) || size <= 0) {
+   return undefined
+  }
+  return Math.floor(size)
+ }
+
+ /**
+  * The largest context this machine can hold for the model, from the engine's
+  * own device-fit estimate at each candidate size.
+  *
+  * This is the number that fixes the reported failure: with fit off, the preset
+  * pins 8192 for every model, so a model trained for 262144 tokens is served
+  * 8192 and a normal agent prompt overruns it. Auto-configuration writes the
+  * per-model `ctx_size` the device supports instead, and the published window
+  * comes from the same figure, so the prompt is budgeted against reality.
+  * @param modelId - installed model id.
+  * @returns the recommendation, with `fit: 'RED'` when nothing fits.
+  */
+ async getRecommendedContext(modelId: string): Promise<ContextRecommendation> {
+  const floor = Number(this.config.fit_ctx)
+  const fallbackFloor =
+   Number.isFinite(floor) && floor > 0 ? Math.floor(floor) : FIT_FLOOR_CTX_SIZE
+  let nativeLimit: number | undefined
+  let modelPath: string
+  try {
+   const config = await fs.readYaml<ModelConfig>(
+    await joinPath([await this.getProviderPath(), 'models', modelId, 'model.yml'])
+   )
+   modelPath = await joinPath([await getJanDataFolderPath(), config.model_path])
+   nativeLimit = await this.getModelContextLimit(modelId)
+  } catch (e) {
+   logger.warn(`No context recommendation for ${modelId}:`, e)
+   return {
+    tokens: fallbackFloor,
+    fit: 'RED',
+    unknown: 'the model file could not be read',
+   }
+  }
+  if (nativeLimit === undefined) {
+   return {
+    tokens: fallbackFloor,
+    fit: 'RED',
+    unknown: 'the model file does not declare a trained context length',
+   }
+  }
+  // Descending, and it stops at the first size that is not over budget: every
+  // larger size already failed, so there is nothing left to learn from them and
+  // each probe costs a read of the model file. The list is first capped by what
+  // the dedicated VRAM holds, because the probe's own VRAM figure can include
+  // shared system memory and then bless a window that spills the cache.
+  const candidates = contextCandidates(nativeLimit, fallbackFloor)
+  let bounded = candidates
+  let ceiling: number | undefined
+  try {
+   ceiling = await this.getVramContextCeiling(modelId)
+  } catch (e) {
+   logger.warn(`Could not bound the context of ${modelId} by VRAM:`, e)
+  }
+  if (ceiling !== undefined) {
+   const inside = candidates.filter((tokens) => tokens <= ceiling)
+   if (inside.length > 0) bounded = inside
+  }
+  const probes: { tokens: number; fit: FitVerdict }[] = []
+  for (const tokens of bounded) {
+   let fit: FitVerdict
+   try {
+    fit = await this.isModelSupported(modelPath, tokens)
+   } catch (e) {
+    logger.warn(`Device-fit probe failed at ${tokens} tokens:`, e)
+    break
+   }
+   probes.push({ tokens, fit })
+   if (fit !== 'RED') break
+  }
+  return pickRecommendation({ probes, nativeLimit, floor: fallbackFloor, vramBound: ceiling })
+ }
+
+ /**
+  * The context the GPUs' dedicated memory can hold for this model.
+  *
+  * `isModelSupported` answers the same question from the driver's own VRAM
+  * report, which on Windows Vulkan includes the shared pool: every large window
+  * comes back GREEN and the automatic pick then runs with the KV cache in system
+  * RAM. This bound uses the hardware plugin's dedicated figures, the model's
+  * own size and the KV bytes per token its GGUF metadata implies, so a window it
+  * allows stays on the GPU.
+  * @returns the largest token count, or undefined when a term is unknown.
+  */
+ private async getVramContextCeiling(modelId: string): Promise<number | undefined> {
+  const config = await fs.readYaml<ModelConfig & { size_bytes?: number }>(
+   await joinPath([await this.getProviderPath(), 'models', modelId, 'model.yml'])
+  )
+  const path = await joinPath([await getJanDataFolderPath(), config.model_path])
+  const { metadata } = await readGgufMetadata(path)
+  const arch = metadata?.['general.architecture']
+  if (typeof arch !== 'string') return undefined
+  const number = (key: string) => {
+   const raw = metadata?.[`${arch}.${key}`]
+   const value = typeof raw === 'string' ? Number(raw) : undefined
+   return value !== undefined && Number.isFinite(value) && value > 0 ? value : undefined
+  }
+  const layers = number('block_count')
+  const heads = number('attention.head_count_kv') ?? number('attention.head_count')
+  const headCount = number('attention.head_count')
+  const embedding = number('embedding_length')
+  let keyLength = number('attention.key_length')
+  let valueLength = number('attention.value_length')
+  if ((keyLength === undefined || valueLength === undefined) && embedding !== undefined && headCount !== undefined) {
+   const headDim = embedding / headCount
+   keyLength = keyLength ?? headDim
+   valueLength = valueLength ?? headDim
+  }
+  if (layers === undefined || heads === undefined || keyLength === undefined || valueLength === undefined) return undefined
+  // The cache is held in f16, as the engine's own estimator assumes.
+  const kvBytesPerToken = layers * heads * (keyLength + valueLength) * 2
+  const usage = await getSystemUsage()
+  const free = (usage?.gpus ?? [])
+   .map((gpu) =>
+    // The hardware plugin reports both figures in MiB.
+    typeof gpu?.total_memory === 'number' && typeof gpu?.used_memory === 'number'
+     ? (gpu.total_memory - gpu.used_memory) * 1024 * 1024
+     : undefined
+   )
+   .filter((value): value is number => typeof value === 'number' && Number.isFinite(value) && value > 0)
+  const vram = free.length > 0 ? free.reduce((sum, value) => sum + value, 0) : undefined
+  return vramContextBound({ weightsBytes: config.size_bytes, kvBytesPerToken, vramBytes: vram })
+ }
+
+ /**
+  * Give a model a context it can actually be used at, once.
+  *
+  * A model with no per-model `ctx_size` inherits the preset's guard (8192 with
+  * fit off, the fit floor with it on), which is not what the model or this
+  * machine can do. Writing the recommendation makes the loaded window, the
+  * published window and the trained maximum agree. A value the user set is
+  * never overwritten, and a recommendation that is not backed by a real device
+  * probe is never written.
+  * @param modelId - installed model id.
+  * @param options.overwrite - replace an existing `ctx_size` as well.
+  * @returns what was written, or the reason nothing was.
+  */
+ async configureModelContext(
+  modelId: string,
+  options: { overwrite?: boolean; automatic?: boolean } = {}
+ ): Promise<{ applied?: number; reason?: string; recommendation: ContextRecommendation }> {
+  const recommendation = await this.getRecommendedContext(modelId)
+  // Auto-fit already shrinks the window to what the device holds, and a pinned
+  // per-model ctx-size would stop it from doing that. The automatic path stays
+  // out of the way; a user asking for a size explicitly still gets one.
+  if (options.automatic === true && this.config.fit !== false) {
+   return { reason: 'auto-fit sizes this model at load', recommendation }
+  }
+  if (recommendation.unknown !== undefined) {
+   return { reason: recommendation.unknown, recommendation }
+  }
+  if (recommendation.fit === 'RED') {
+   return {
+    reason: 'this model does not fit the available device memory at any tested context',
+    recommendation,
+   }
+  }
+  let existing: number | undefined
+  try {
+   existing = await this.getModelContextSize(modelId)
+  } catch (e) {
+   return {
+    reason: `ctx_size could not be read: ${e instanceof Error ? e.message : String(e)}`,
+    recommendation,
+   }
+  }
+  if (existing !== undefined && !options.overwrite) {
+   return { reason: 'the model already sets its own context size', recommendation }
+  }
+  if (existing === recommendation.tokens) {
+   return { reason: 'the model already uses the recommended context', recommendation }
+  }
+  await this.updateModelSettings(modelId, { ctx_len: recommendation.tokens })
+  logger.info(
+   `Configured ${modelId} context at ${recommendation.tokens} tokens (${recommendation.fit}, trained maximum ${recommendation.nativeLimit})`
+  )
+  return { applied: recommendation.tokens, recommendation }
  }
 
  /**
@@ -2112,6 +2396,16 @@ export class LlamacppEngine extends AIEngine implements EmbeddingEngine {
    })
   }
 
+  if (!isEmbedding) {
+   // Before the preset is written, so the first load already has the window
+   // this machine can hold rather than the preset's guard.
+   try {
+    await this.configureModelContext(modelId, { automatic: true })
+   } catch (e) {
+    logger.warn(`Could not configure the context of imported ${modelId}:`, e)
+   }
+  }
+
   try {
    await this.refreshEnginePreset()
   } catch (e) {
@@ -2221,6 +2515,21 @@ export class LlamacppEngine extends AIEngine implements EmbeddingEngine {
   isEmbedding: boolean = false
  ): Promise<SessionInfo> {
   await this.ensureEngineReady()
+  if (!isEmbedding) {
+   // First-class default: a model with no context of its own would otherwise
+   // be served the preset's 8192-token guard, which is far below what both the
+   // model and this machine can hold, and a normal agent prompt then overruns
+   // the window. This writes the recommended size once; a value the user set
+   // is never touched, and a load must still proceed if this fails.
+   try {
+    const configured = await this.configureModelContext(modelId, { automatic: true })
+    if (configured.applied !== undefined) {
+     logger.info(`Using ${configured.applied} tokens of context for ${modelId}`)
+    }
+   } catch (e) {
+    logger.warn(`Could not configure the context of ${modelId} before loading:`, e)
+   }
+  }
   // The worker lists GPUs once, at start. A laptop that left eco mode (or lost
   // its dGPU) since then would load this model onto the wrong device, and the
   // user would have to find Settings > Hardware > Refresh to fix it.
@@ -2942,6 +3251,65 @@ export class LlamacppEngine extends AIEngine implements EmbeddingEngine {
    logger.error('Failed to query devices:\n', error)
    throw new Error('Failed to load llamacpp backend')
   }
+ }
+
+ /**
+  * How much memory this machine has for a model, for a catalog entry that has
+  * not been downloaded.
+  *
+  * Both numbers come from the hardware plugin in bytes: free VRAM is what its
+  * GPU usage reports as unused, and RAM is the installed total. The engine's own
+  * device list is deliberately not used: llama.cpp reports those figures in
+  * MiB, so mixing the two understated the machine by six orders of magnitude
+  * and labelled every download "Unlikely to fit". Either value is reported as
+  * unknown rather than guessed when its source fails, so the label can say so.
+  *
+  * @returns free VRAM across devices and total RAM, both in bytes.
+  */
+ async getMemoryTotals(): Promise<{ vram?: number; ram?: number; unknown?: string }> {
+  let vram: number | undefined
+  const problems: string[] = []
+  try {
+   const usage = await getSystemUsage()
+   const free = (usage?.gpus ?? [])
+    .map((gpu) =>
+     // The hardware plugin reports both figures in MiB.
+     typeof gpu?.total_memory === 'number' && typeof gpu?.used_memory === 'number'
+      ? (gpu.total_memory - gpu.used_memory) * 1024 * 1024
+      : undefined
+    )
+    .filter((value): value is number => typeof value === 'number' && Number.isFinite(value) && value > 0)
+   if (free.length > 0) vram = free.reduce((sum, value) => sum + value, 0)
+   else problems.push('no GPU usage was reported')
+  } catch (e) {
+   logger.warn('Could not read GPU usage for a fit estimate:', e)
+   problems.push('GPU memory could not be read')
+  }
+  let ram: number | undefined
+  try {
+   const total = (await getSystemInfo())?.total_memory
+   // The hardware plugin reports installed RAM in MiB.
+   if (typeof total === 'number' && Number.isFinite(total) && total > 0) ram = Math.floor(total) * 1024 * 1024
+   else problems.push('system memory could not be read')
+  } catch (e) {
+   logger.warn('Could not read system memory for a fit estimate:', e)
+   problems.push('system memory could not be read')
+  }
+  return {
+   vram,
+   ram,
+   ...(problems.length > 0 ? { unknown: problems.join('; ') } : {}),
+  }
+ }
+
+ /**
+  * The label a catalog quant gets before it is downloaded.
+  * @param bytes - the quant's published download size.
+  * @returns the label, its detail line and the tone the panel paints it in.
+  */
+ async catalogFit(bytes: number): Promise<CatalogFit> {
+  const totals = await this.getMemoryTotals()
+  return estimateCatalogFit({ bytes, vram: totals.vram, ram: totals.ram })
  }
 
  /**

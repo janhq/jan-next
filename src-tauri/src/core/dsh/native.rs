@@ -232,11 +232,14 @@ fn legacy_path<R: Runtime>(app: &tauri::AppHandle<R>, raw: &str) -> Option<PathB
 }
 
 /// Jan data folders the bridge may write: the engine owns `llamacpp`, the
-/// legacy assistant store owns `assistants`.
-const WRITE_DIRS: &[&str] = &["llamacpp", "assistants"];
+/// legacy assistant store owns `assistants`, and the engine's settings live in
+/// its own DSH profile namespace so a profile keeps its configured values with
+/// the rest of the harness state. That last path is deliberately the namespace
+/// and not the whole `web-home`, which also holds sessions and credentials.
+const WRITE_DIRS: &[&str] = &["llamacpp", "assistants", "dsh/web-home/ow-llamacpp"];
 /// Reads also cover `threads`: the assistant importer reads a conversation's
 /// applied instructions from `threads/<id>/thread.json` and never writes it.
-const READ_DIRS: &[&str] = &["llamacpp", "assistants", "threads"];
+const READ_DIRS: &[&str] = &["llamacpp", "assistants", "threads", "dsh/web-home/ow-llamacpp"];
 
 fn scoped_dirs<R: Runtime>(app: &tauri::AppHandle<R>, raw: &str, imported: bool, dirs: &[&str]) -> Result<PathBuf, String> {
     use filesystem::helpers::{canonical_scope_path, resolve_path_within_jan_data_folder};
@@ -254,7 +257,7 @@ fn scoped_dirs<R: Runtime>(app: &tauri::AppHandle<R>, raw: &str, imported: bool,
         && app.state::<filesystem::grants::ReadGrants>().allows(&path) {
         return filesystem::helpers::resolve_app_read_path(app.clone(), raw);
     }
-    Err("native bridge path must be in llamacpp/assistants or an explicitly granted GGUF import".into())
+    Err("native bridge path must be in llamacpp/assistants, the ow-llamacpp profile namespace, or an explicitly granted GGUF import".into())
 }
 
 fn scoped<R: Runtime>(app: &tauri::AppHandle<R>, raw: &str, imported: bool) -> Result<PathBuf, String> {

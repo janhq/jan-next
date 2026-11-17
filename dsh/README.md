@@ -9,7 +9,7 @@ The desktop window is DeepSeek Harness's web host. Every screen comes from a DSH
 | `open-waifu-shell/` | `ow-shell` | Jan look: palette, wordmark, sidebar rows, footer, model pill, plugin card icons, window buttons |
 | `native/` | `ow-native` | Host-only bridge to the Rust side (authenticated loopback, fixed operation list) |
 | `log-bridge/` | `ow-log-bridge` | Writes DSH runtime warnings, errors and session activation failures to the app log (adapted from dataelement/dsh-desktop, MIT) |
-| `llamacpp/` | `ow-llamacpp` | Local model engine, Local models panel, model selection |
+| `llamacpp/` | `ow-llamacpp` | Local model engine, Model Hub panel (catalog, installed models, engine settings), model selection |
 | `download/` | `ow-download` | Model downloads and the Downloads panel |
 | `assistant/` | `ow-assistant` | Custom Agent preset instruction editor in Settings; imports legacy Jan assistants into the DSH profile |
 | `image-generation/` | `ow-image-generation` | OpenAI-compatible and Seedream image tool, settings and inline previews; API key stays in the OS keyring |
@@ -19,6 +19,16 @@ The desktop window is DeepSeek Harness's web host. Every screen comes from a DSH
 | `templates/ui-plugin/` | `open-waifu-plugin-hello` | Starting point for a new plugin |
 
 Rust (`src-tauri/src/core/dsh/web.rs`) mounts built-in plugins through the generated `@open-waifu/dsh-bundle`. The initial theme is a bundle default, so Settings > General can save an overriding appearance preference in the DSH profile. The app-owned provider and shell values remain in `<data>/dsh/web.patch.yml`. Their files load from this folder in development, so a client or host edit only needs an app restart. `assistant/index.mjs` and `llamacpp/runtime.mjs` are generated: run `corepack yarn build:dsh` after editing their TypeScript sources.
+
+## Local models (Model Hub)
+
+Sidebar **Model Hub** shows the `ow-llamacpp` panel. It opens on **Catalog**, which lists the Jan model catalog; pick a card to expand its quantization variants, then Download hands the file to `ow-download` and the panel offers **View download progress** to jump to the Downloads panel. **Installed** lists local models with Load, Model settings and Delete; **Import model** takes a URL or a local path; **Engine settings** edits the llama.cpp settings schema.
+
+Catalog capability chips state only what the catalog publishes: tool calling from its `tools` field, vision from `image-text-to-text` or a projector, embeddings from the pipeline tag used for that purpose. Everything else is one `Unverified` chip naming the unverified abilities, because absence in the catalog is not evidence of absence. A chip is metadata, not a llama.cpp compatibility test.
+
+A variant's fit label compares the published file size with free VRAM from the engine's own device list and total RAM from the hardware plugin, adding 25% of the file size for the KV cache and compute buffers a chat-sized context needs, and calling a file likely to fit only when 10% of the free VRAM would stay free. The catalog does not publish architecture or serving context, so the label is an estimate: `Likely fits`, `May need CPU offload`, `Unlikely to fit`, or `Fit unknown` when the size or the memory totals cannot be read. Hovering a label shows the numbers it used.
+
+`context`, `recommendation`, `configureContext` and `catalogFit` are the host methods behind this UI. `context` reports the window the engine actually serves (live `nCtx`, else the model's `ctx_size`, else the fit floor or the preset guard) with the output cap derived from it, and the chat adapter and compaction policy both take their window from that one figure. A model served at the preset's 8192-token guard while DSH budgets a larger prompt is the failure automatic configuration fixes: **Model settings** offers **Automatic context configuration**, which halves down from the GGUF's trained maximum asking the engine's device-fit probe at each size, then writes the largest size the device holds into that model's `ctx_size`. A size the probe expects to keep the KV cache in VRAM wins over a larger one that only loads by pushing the cache into system RAM, because that larger size makes prompt processing an order of magnitude slower. It refuses a RAM-only guess, a RED probe, or an unreadable model file instead of writing a number nobody proved. Saving model or engine settings reads the file back and fails visibly when the bytes did not land, and an unreadable settings file is preserved instead of being overwritten with defaults. Engine settings are stored in the profile at `<DSH_HOME>/ow-llamacpp/settings.json`; the legacy `<Jan data>/llamacpp/settings.json` is read once as input and never written, and the native bridge's file scope names that profile directory (`dsh/web-home/ow-llamacpp`) rather than the whole `web-home`, which also holds sessions and credentials.
 
 ## Interface preferences
 

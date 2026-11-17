@@ -73,6 +73,19 @@ export async function apply(ctx, config = {}) {
       if (!settings || typeof settings !== 'object' || Array.isArray(settings)) throw new Error('Expected model settings.')
       await engine.updateModelSettings(idOf(id), settings)
     },
+    context: async ({ id }) => {
+      const modelId = idOf(id)
+      const budget = await engine.getModelContextBudget(modelId)
+      let nativeLimit
+      try { nativeLimit = await engine.getModelContextLimit(modelId) } catch { nativeLimit = undefined }
+      return { id: modelId, ...budget, ...(nativeLimit === undefined ? {} : { nativeLimit }) }
+    },
+    recommendation: async ({ id }) => engine.getRecommendedContext(idOf(id)),
+    configureContext: async ({ id, overwrite }) => engine.configureModelContext(idOf(id), { overwrite: overwrite === true }),
+    catalogFit: async ({ bytes }) => {
+      if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes <= 0) throw new Error('Expected the quant download size in bytes.')
+      return engine.catalogFit(bytes)
+    },
     catalog: async () => {
       const response = await fetch('https://raw.githubusercontent.com/janhq/model-catalog/main/model_catalog_v2.json')
       if (!response.ok) throw new Error(`Could not read the model catalog (${response.status}).`)

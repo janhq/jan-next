@@ -92,16 +92,27 @@ export async function registerLocalProvider(ctx, engine) {
     const retained = new Set()
     for (const model of localModels) {
       retained.add(model.id)
-      const budget = Math.max(1, Math.floor(model.contextWindow / 8))
+      // The request reserves the same cap the model entry declares, so the
+      // prompt budget is the window minus what one reply may take. Headroom is
+      // sized under whatever is left: a budget of zero is the failure this
+      // replaces, where the whole window was reserved for output and pressure
+      // compaction could never price a prompt at all.
+      const reserved = model.maxTokens
+      const messageBudget = model.contextWindow - reserved
+      const headroom = Math.max(1, Math.min(
+        Math.floor(model.contextWindow / 8),
+        Math.floor(Math.max(1, messageBudget) / 4),
+      ))
+      const key = `${model.contextWindow}:${reserved}:${headroom}`
       const previous = current.get(model.id)
-      if (previous?.budget === budget) continue
+      if (previous?.key === key) continue
       const dispose = engine.registerModelPolicy({
         provider: providerId,
         model: model.id,
-        headroomTokens: budget,
-        maxTokens: budget,
+        headroomTokens: headroom,
+        maxTokens: reserved,
       })
-      current.set(model.id, { budget, dispose })
+      current.set(model.id, { key, dispose })
       previous?.dispose()
     }
     for (const [id, policy] of current) {
@@ -153,14 +164,17 @@ export async function registerLocalProvider(ctx, engine) {
     if (disposed) return
     const [installed, endpoint] = await Promise.all([engine.list(), engine.getEngineInfo()])
     const models = await Promise.all(installed.filter(model => !model.embedding).map(async model => {
-      const props = await engine.getModelProps(model.id)
-      // Unloaded models use the preset's 8192-token floor until loading reports auto-fit's actual context.
-      const contextWindow = props?.nCtx ?? 8192
+      // The engine owns the number: the loaded window when the model is
+      // running, the configured one otherwise. The output cap is a fraction of
+      // it, never the whole window -- declaring the window as the completion
+      // cap is what let a prompt be budgeted against 8192 tokens the engine did
+      // not have.
+      const budget = await engine.getModelContextBudget(model.id)
       return {
         id: model.id,
         name: model.name || model.id,
-        contextWindow,
-        maxTokens: contextWindow,
+        contextWindow: budget.contextWindow,
+        maxTokens: budget.maxOutputTokens,
         input: model.capabilities?.includes('vision') ? ['text', 'image'] : ['text'],
       }
     }))

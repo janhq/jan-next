@@ -691,33 +691,85 @@ var settings_default = [
 
 // dsh/llamacpp/src/settings-store.ts
 import { fs, joinPath, getJanDataFolderPath } from "../native/runtime.mjs";
-var DIR_NAME = "llamacpp";
+var DIR_NAME = "ow-llamacpp";
+var LEGACY_DIR_NAME = "llamacpp";
 var FILE_NAME = "settings.json";
 var TMP_NAME = "settings.json.tmp";
 var writeChain = Promise.resolve();
 async function paths() {
-  const root = await getJanDataFolderPath();
-  const dir = await joinPath([root, DIR_NAME]);
+  const profileHome = process.env.DSH_HOME?.trim();
+  if (!profileHome) {
+    const root = await getJanDataFolderPath();
+    const dir2 = await joinPath([root, LEGACY_DIR_NAME]);
+    const file2 = await joinPath([dir2, FILE_NAME]);
+    const tmp2 = await joinPath([dir2, TMP_NAME]);
+    return { dir: dir2, file: file2, tmp: tmp2 };
+  }
+  const dir = await joinPath([profileHome, DIR_NAME]);
   const file = await joinPath([dir, FILE_NAME]);
   const tmp = await joinPath([dir, TMP_NAME]);
   return { dir, file, tmp };
 }
+async function legacyPath() {
+  const root = await getJanDataFolderPath();
+  return await joinPath([root, LEGACY_DIR_NAME, FILE_NAME]);
+}
+function reasonOf(error) {
+  return error instanceof Error ? error.message : String(error);
+}
 async function readSettingsFile() {
   const { file } = await paths();
-  if (!await fs.existsSync(file)) return [];
+  if (await fs.existsSync(file)) return await readSettingsAt(file);
+  if (!process.env.DSH_HOME?.trim()) return [];
+  const legacy = await legacyPath();
+  if (!await fs.existsSync(legacy)) return [];
   try {
-    const raw = await fs.readFileSync(file, "utf8");
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return await readSettingsAt(legacy);
   } catch {
     return [];
   }
 }
-async function writeSettingsFile(settings) {
+async function readSettingsAt(file) {
+  let raw;
+  try {
+    raw = await fs.readFileSync(file, "utf8");
+  } catch (error) {
+    throw new Error(`Engine settings could not be read from ${file}: ${reasonOf(error)}`);
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    throw new Error(`Engine settings at ${file} are not valid JSON: ${reasonOf(error)}`);
+  }
+  if (!Array.isArray(parsed)) {
+    throw new Error(`Engine settings at ${file} are not a settings list, so they were left untouched`);
+  }
+  return parsed;
+}
+async function preserveInvalidSettingsFile() {
+  const { file } = await paths();
+  try {
+    if (!await fs.existsSync(file)) return void 0;
+    const backup = `${file}.invalid-${Date.now()}`;
+    await fs.mv(file, backup);
+    return backup;
+  } catch {
+    return void 0;
+  }
+}
+async function mutateSettingsFile(mutate) {
+  let landed = [];
   const task = async () => {
     const { dir, file, tmp } = await paths();
+    const current = await readSettingsFile();
+    const next = mutate(current);
+    if (next === null) {
+      landed = current;
+      return;
+    }
     if (!await fs.existsSync(dir)) await fs.mkdir(dir);
-    const json = JSON.stringify(settings, null, 2);
+    const json = JSON.stringify(next, null, 2);
     await fs.writeFileSync(tmp, json);
     try {
       await fs.mv(tmp, file);
@@ -728,13 +780,29 @@ async function writeSettingsFile(settings) {
       } catch {
       }
     }
+    let written;
+    try {
+      written = await fs.readFileSync(file, "utf8");
+    } catch (error) {
+      throw new Error(`Engine settings were not saved to ${file}: ${reasonOf(error)}`);
+    }
+    if (written !== json) {
+      throw new Error(`Engine settings were not saved to ${file}: the file does not hold what was just written`);
+    }
+    landed = next;
   };
   writeChain = writeChain.then(task, task);
   await writeChain;
+  return landed;
+}
+async function writeSettingsFile(settings) {
+  await mutateSettingsFile(() => settings);
 }
 async function settingsFileExists() {
   const { file } = await paths();
-  return await fs.existsSync(file);
+  if (await fs.existsSync(file)) return true;
+  if (!process.env.DSH_HOME?.trim()) return false;
+  return await fs.existsSync(await legacyPath());
 }
 
 // dsh/llamacpp/src/fit-default.ts
@@ -773,6 +841,128 @@ async function findModelEntries(modelsDir) {
     }
   }
   return entries;
+}
+
+// dsh/llamacpp/src/context.ts
+var FIT_FLOOR_CTX_SIZE = 4096;
+var PRESET_CTX_SIZE = 8192;
+var MAX_OUTPUT_TOKENS = 8192;
+function outputCapFor(contextWindow) {
+  const quarter = Math.floor(contextWindow / 4);
+  return Math.max(1, Math.min(MAX_OUTPUT_TOKENS, quarter));
+}
+function resolveEffectiveContext(input) {
+  const { nCtx, configured, fit, fitFloor } = input;
+  if (typeof nCtx === "number" && Number.isFinite(nCtx) && nCtx > 0) {
+    return { tokens: Math.floor(nCtx), source: "engine" };
+  }
+  if (typeof configured === "number" && Number.isFinite(configured) && configured > 0) {
+    return { tokens: Math.floor(configured), source: "model-settings" };
+  }
+  if (fit !== false) {
+    const floor = typeof fitFloor === "number" && Number.isFinite(fitFloor) && fitFloor > 0 ? Math.floor(fitFloor) : FIT_FLOOR_CTX_SIZE;
+    return { tokens: floor, source: "fit-floor" };
+  }
+  return { tokens: PRESET_CTX_SIZE, source: "preset" };
+}
+function contextBudget(input) {
+  const { tokens, source } = resolveEffectiveContext(input);
+  return { contextWindow: tokens, maxOutputTokens: outputCapFor(tokens), source };
+}
+function contextCandidates(nativeLimit, floor) {
+  const lower = Math.max(1, Math.floor(floor));
+  const upper = Math.max(lower, Math.floor(nativeLimit));
+  const candidates = [];
+  for (let size = upper; size > lower; size = Math.floor(size / 2)) {
+    candidates.push(size);
+  }
+  candidates.push(lower);
+  return candidates;
+}
+function pickRecommendation(input) {
+  const { probes, nativeLimit, vramBound, floor } = input;
+  const bounded = vramBound === void 0 ? {} : { vramBound };
+  if (probes.length === 0) {
+    return {
+      tokens: floor,
+      fit: "RED",
+      nativeLimit,
+      ...bounded,
+      unknown: "no device-fit probe was possible"
+    };
+  }
+  const usable = probes.find((probe) => probe.fit !== "RED");
+  if (usable === void 0) {
+    return { tokens: probes[probes.length - 1].tokens, fit: "RED", nativeLimit, ...bounded };
+  }
+  const resident = probes.find((probe) => probe.fit === "GREEN");
+  return resident === void 0 ? { tokens: usable.tokens, fit: usable.fit, nativeLimit, ...bounded } : { tokens: resident.tokens, fit: "GREEN", nativeLimit, ...bounded };
+}
+function vramContextBound(input) {
+  const positive = (value) => typeof value === "number" && Number.isFinite(value) && value > 0 ? value : void 0;
+  const weights = positive(input.weightsBytes);
+  const perToken = positive(input.kvBytesPerToken);
+  const vram = positive(input.vramBytes);
+  if (weights === void 0 || perToken === void 0 || vram === void 0) return void 0;
+  const budget = vram * (input.fill ?? VRAM_FILL_LIMIT) - weights;
+  if (budget <= 0) return void 0;
+  return Math.floor(budget / perToken);
+}
+var KV_OVERHEAD_RATIO = 0.25;
+var VRAM_FILL_LIMIT = 0.9;
+function estimateCatalogFit(input) {
+  const { bytes, vram, ram } = input;
+  const usable = (value) => typeof value === "number" && Number.isFinite(value) && value > 0 ? value : void 0;
+  const size = usable(bytes);
+  const gpu = usable(vram);
+  const memory = usable(ram);
+  if (size === void 0) {
+    return {
+      label: "Fit unknown",
+      tone: "neutral",
+      detail: "The download size of this quant is not published, so memory use cannot be estimated."
+    };
+  }
+  const gb = (value) => `${(value / 1024 ** 3).toFixed(1)} GB`;
+  if (gpu === void 0 && memory === void 0) {
+    return {
+      label: "Fit unknown",
+      tone: "neutral",
+      detail: `The weights are ${gb(size)}. This machine's memory could not be read, so no estimate is possible.`
+    };
+  }
+  const weightsWithOverhead = Math.ceil(size * (1 + KV_OVERHEAD_RATIO));
+  const notes = [
+    `${gb(size)} of weights`,
+    `${Math.round(KV_OVERHEAD_RATIO * 100)}% added for the KV cache and compute buffers a chat-sized context needs`,
+    "the real overhead depends on the architecture and context, which a catalog entry does not publish"
+  ];
+  if (gpu !== void 0 && weightsWithOverhead <= gpu * VRAM_FILL_LIMIT) {
+    return {
+      label: "Likely fits",
+      tone: "success",
+      detail: `Fits in ${gb(gpu)} of free VRAM, keeping ${Math.round((1 - VRAM_FILL_LIMIT) * 100)}% free: ${notes.join("; ")}.`
+    };
+  }
+  const fitsRam = memory !== void 0 && weightsWithOverhead <= memory;
+  const fitsVramAlone = gpu !== void 0 && size <= gpu;
+  if (fitsVramAlone || fitsRam) {
+    const where = fitsVramAlone ? `the weights alone fit in ${gb(gpu)} of free VRAM, but not with room for the KV cache and a working reserve` : `${gb(memory ?? 0)} of RAM holds the weights and that overhead`;
+    return {
+      label: "May need CPU offload",
+      tone: "warning",
+      detail: `Runs only with layers offloaded to the CPU: ${where}; ${notes.join("; ")}.`
+    };
+  }
+  const available = [
+    gpu === void 0 ? null : `${gb(gpu)} of free VRAM`,
+    memory === void 0 ? null : `${gb(memory)} of RAM`
+  ].filter(Boolean).join(" and ");
+  return {
+    label: "Unlikely to fit",
+    tone: "danger",
+    detail: `${gb(size)} of weights against ${available || "an unreadable memory total"}: ${notes.join("; ")}.`
+  };
 }
 
 // dsh/llamacpp/src/util.ts
@@ -1993,36 +2183,35 @@ var LlamacppEngine = class extends AIEngine {
     return readSettingsFile();
   }
   async updateSettings(componentProps) {
-    const current = await readSettingsFile();
+    const previousConfig = { ...this.config };
+    const previousTimeout = this.timeout;
+    const previousEnv = this.llamacpp_env;
     const changed = [];
-    const updated = current.length ? current.map((s) => {
-      const patch = componentProps.find((p) => p.key === s.key);
-      if (patch?.controllerProps) {
+    await mutateSettingsFile((current) => {
+      changed.length = 0;
+      if (current.length === 0) {
+        const list = componentProps;
+        for (const s of list) {
+          changed.push({ key: s.key, previous: void 0, value: s.controllerProps.value });
+        }
+        return list;
+      }
+      const updated = current.map((s) => {
+        const patch = componentProps.find((p) => p.key === s.key);
+        if (!patch?.controllerProps) return s;
         const nextValue = patch.controllerProps.value;
         const prevValue = s.controllerProps.value;
         if (nextValue !== prevValue) {
-          changed.push({ key: s.key, value: nextValue });
+          changed.push({ key: s.key, previous: prevValue, value: nextValue });
         }
         return {
           ...s,
           controllerProps: { ...s.controllerProps, value: nextValue }
         };
-      }
-      return s;
-    }) : (() => {
-      const arr = componentProps;
-      for (const s of arr) {
-        changed.push({
-          key: s.key,
-          value: s.controllerProps?.value
-        });
-      }
-      return arr;
-    })();
-    await writeSettingsFile(updated);
-    const previousConfig = { ...this.config };
-    const previousTimeout = this.timeout;
-    const previousEnv = this.llamacpp_env;
+      });
+      return changed.length === 0 ? null : updated;
+    });
+    if (changed.length === 0) return;
     for (const { key, value } of changed) {
       this.onSettingUpdate(key, value);
     }
@@ -2036,8 +2225,30 @@ var LlamacppEngine = class extends AIEngine {
           this.config = previousConfig;
           this.timeout = previousTimeout;
           this.llamacpp_env = previousEnv;
-          await writeSettingsFile(current);
-          throw error;
+          const reverted = changed.filter(
+            (c) => PRESET_AFFECTING_KEYS.has(c.key) || c.key === "models_max"
+          );
+          if (reverted.length > 0) {
+            await mutateSettingsFile((file) => {
+              const restored = file.flatMap((s) => {
+                const touched = reverted.find((c) => c.key === s.key);
+                if (touched === void 0) return [s];
+                if (touched.previous === void 0) return [];
+                return [{
+                  ...s,
+                  controllerProps: { ...s.controllerProps, value: touched.previous }
+                }];
+              });
+              return restored;
+            });
+            throw new Error(
+              `Saved, but the engine could not apply ${reverted.map((c) => c.key).join(", ")}: ${error instanceof Error ? error.message : String(error)}`
+            );
+          }
+          logger4.warn(
+            `Engine preset reload failed after saving ${changed.map((c) => c.key).join(", ")}; the saved values stand:`,
+            error
+          );
         }
       }
     }
@@ -2046,7 +2257,16 @@ var LlamacppEngine = class extends AIEngine {
     settings.forEach((s) => {
       s.extensionName = PACKAGE_NAME;
     });
-    const old = await readSettingsFile();
+    let old;
+    try {
+      old = await readSettingsFile();
+    } catch (error) {
+      const backup = await preserveInvalidSettingsFile();
+      logger4.error(
+        `Engine settings could not be read (${error instanceof Error ? error.message : String(error)}); ` + (backup ? `kept them at ${backup} and reset to defaults` : "could not keep a copy, resetting to defaults")
+      );
+      old = [];
+    }
     if (old.length) {
       settings.forEach((s) => {
         const prev = old.find((o) => o.key === s.key);
@@ -2535,6 +2755,209 @@ var LlamacppEngine = class extends AIEngine {
     const { metadata } = await readGgufMetadata(path);
     const limit = Number(metadata?.[`${metadata?.["general.architecture"]}.context_length`]);
     return Number.isInteger(limit) && limit > 0 ? limit : void 0;
+  }
+  /**
+   * The context this model is configured to load with, and the output a request
+   * may reserve against it. `nCtx` wins when the model is loaded, because the
+   * router reports what fit actually settled on; otherwise the per-model
+   * `ctx_size` is the answer, and failing that the preset's own guard applies.
+   *
+   * This is the single source for both the chat adapter and the compaction
+   * policy, so the two can never price a request against different windows.
+   */
+  async getModelContextBudget(modelId) {
+    let nCtx;
+    let configured;
+    try {
+      nCtx = (await this.getModelProps(modelId))?.nCtx;
+    } catch (e) {
+      logger4.warn(`Could not read the loaded context of ${modelId}:`, e);
+    }
+    try {
+      configured = await this.getModelContextSize(modelId);
+    } catch (e) {
+      logger4.warn(`Could not read ctx_size of ${modelId}:`, e);
+    }
+    return contextBudget({
+      nCtx,
+      configured,
+      fit: this.config.fit !== false,
+      fitFloor: Number(this.config.fit_ctx)
+    });
+  }
+  /**
+   * `ctx_size` from model.yml. `0` means "the model's own trained context", so
+   * it is reported as undefined here: what the engine will serve becomes the
+   * GGUF's limit, not zero.
+   */
+  async getModelContextSize(modelId) {
+    const config = await fs4.readYaml(
+      await joinPath4([await this.getProviderPath(), "models", modelId, "model.yml"])
+    );
+    const size = config?.ctx_size;
+    if (typeof size !== "number" || !Number.isFinite(size) || size <= 0) {
+      return void 0;
+    }
+    return Math.floor(size);
+  }
+  /**
+   * The largest context this machine can hold for the model, from the engine's
+   * own device-fit estimate at each candidate size.
+   *
+   * This is the number that fixes the reported failure: with fit off, the preset
+   * pins 8192 for every model, so a model trained for 262144 tokens is served
+   * 8192 and a normal agent prompt overruns it. Auto-configuration writes the
+   * per-model `ctx_size` the device supports instead, and the published window
+   * comes from the same figure, so the prompt is budgeted against reality.
+   * @param modelId - installed model id.
+   * @returns the recommendation, with `fit: 'RED'` when nothing fits.
+   */
+  async getRecommendedContext(modelId) {
+    const floor = Number(this.config.fit_ctx);
+    const fallbackFloor = Number.isFinite(floor) && floor > 0 ? Math.floor(floor) : FIT_FLOOR_CTX_SIZE;
+    let nativeLimit;
+    let modelPath;
+    try {
+      const config = await fs4.readYaml(
+        await joinPath4([await this.getProviderPath(), "models", modelId, "model.yml"])
+      );
+      modelPath = await joinPath4([await getJanDataFolderPath2(), config.model_path]);
+      nativeLimit = await this.getModelContextLimit(modelId);
+    } catch (e) {
+      logger4.warn(`No context recommendation for ${modelId}:`, e);
+      return {
+        tokens: fallbackFloor,
+        fit: "RED",
+        unknown: "the model file could not be read"
+      };
+    }
+    if (nativeLimit === void 0) {
+      return {
+        tokens: fallbackFloor,
+        fit: "RED",
+        unknown: "the model file does not declare a trained context length"
+      };
+    }
+    const candidates = contextCandidates(nativeLimit, fallbackFloor);
+    let bounded = candidates;
+    let ceiling;
+    try {
+      ceiling = await this.getVramContextCeiling(modelId);
+    } catch (e) {
+      logger4.warn(`Could not bound the context of ${modelId} by VRAM:`, e);
+    }
+    if (ceiling !== void 0) {
+      const inside = candidates.filter((tokens) => tokens <= ceiling);
+      if (inside.length > 0) bounded = inside;
+    }
+    const probes = [];
+    for (const tokens of bounded) {
+      let fit;
+      try {
+        fit = await this.isModelSupported(modelPath, tokens);
+      } catch (e) {
+        logger4.warn(`Device-fit probe failed at ${tokens} tokens:`, e);
+        break;
+      }
+      probes.push({ tokens, fit });
+      if (fit !== "RED") break;
+    }
+    return pickRecommendation({ probes, nativeLimit, floor: fallbackFloor, vramBound: ceiling });
+  }
+  /**
+   * The context the GPUs' dedicated memory can hold for this model.
+   *
+   * `isModelSupported` answers the same question from the driver's own VRAM
+   * report, which on Windows Vulkan includes the shared pool: every large window
+   * comes back GREEN and the automatic pick then runs with the KV cache in system
+   * RAM. This bound uses the hardware plugin's dedicated figures, the model's
+   * own size and the KV bytes per token its GGUF metadata implies, so a window it
+   * allows stays on the GPU.
+   * @returns the largest token count, or undefined when a term is unknown.
+   */
+  async getVramContextCeiling(modelId) {
+    const config = await fs4.readYaml(
+      await joinPath4([await this.getProviderPath(), "models", modelId, "model.yml"])
+    );
+    const path = await joinPath4([await getJanDataFolderPath2(), config.model_path]);
+    const { metadata } = await readGgufMetadata(path);
+    const arch = metadata?.["general.architecture"];
+    if (typeof arch !== "string") return void 0;
+    const number = (key) => {
+      const raw = metadata?.[`${arch}.${key}`];
+      const value = typeof raw === "string" ? Number(raw) : void 0;
+      return value !== void 0 && Number.isFinite(value) && value > 0 ? value : void 0;
+    };
+    const layers = number("block_count");
+    const heads = number("attention.head_count_kv") ?? number("attention.head_count");
+    const headCount = number("attention.head_count");
+    const embedding = number("embedding_length");
+    let keyLength = number("attention.key_length");
+    let valueLength = number("attention.value_length");
+    if ((keyLength === void 0 || valueLength === void 0) && embedding !== void 0 && headCount !== void 0) {
+      const headDim = embedding / headCount;
+      keyLength = keyLength ?? headDim;
+      valueLength = valueLength ?? headDim;
+    }
+    if (layers === void 0 || heads === void 0 || keyLength === void 0 || valueLength === void 0) return void 0;
+    const kvBytesPerToken = layers * heads * (keyLength + valueLength) * 2;
+    const usage = await getSystemUsage();
+    const free = (usage?.gpus ?? []).map(
+      (gpu) => (
+        // The hardware plugin reports both figures in MiB.
+        typeof gpu?.total_memory === "number" && typeof gpu?.used_memory === "number" ? (gpu.total_memory - gpu.used_memory) * 1024 * 1024 : void 0
+      )
+    ).filter((value) => typeof value === "number" && Number.isFinite(value) && value > 0);
+    const vram = free.length > 0 ? free.reduce((sum, value) => sum + value, 0) : void 0;
+    return vramContextBound({ weightsBytes: config.size_bytes, kvBytesPerToken, vramBytes: vram });
+  }
+  /**
+   * Give a model a context it can actually be used at, once.
+   *
+   * A model with no per-model `ctx_size` inherits the preset's guard (8192 with
+   * fit off, the fit floor with it on), which is not what the model or this
+   * machine can do. Writing the recommendation makes the loaded window, the
+   * published window and the trained maximum agree. A value the user set is
+   * never overwritten, and a recommendation that is not backed by a real device
+   * probe is never written.
+   * @param modelId - installed model id.
+   * @param options.overwrite - replace an existing `ctx_size` as well.
+   * @returns what was written, or the reason nothing was.
+   */
+  async configureModelContext(modelId, options = {}) {
+    const recommendation = await this.getRecommendedContext(modelId);
+    if (options.automatic === true && this.config.fit !== false) {
+      return { reason: "auto-fit sizes this model at load", recommendation };
+    }
+    if (recommendation.unknown !== void 0) {
+      return { reason: recommendation.unknown, recommendation };
+    }
+    if (recommendation.fit === "RED") {
+      return {
+        reason: "this model does not fit the available device memory at any tested context",
+        recommendation
+      };
+    }
+    let existing;
+    try {
+      existing = await this.getModelContextSize(modelId);
+    } catch (e) {
+      return {
+        reason: `ctx_size could not be read: ${e instanceof Error ? e.message : String(e)}`,
+        recommendation
+      };
+    }
+    if (existing !== void 0 && !options.overwrite) {
+      return { reason: "the model already sets its own context size", recommendation };
+    }
+    if (existing === recommendation.tokens) {
+      return { reason: "the model already uses the recommended context", recommendation };
+    }
+    await this.updateModelSettings(modelId, { ctx_len: recommendation.tokens });
+    logger4.info(
+      `Configured ${modelId} context at ${recommendation.tokens} tokens (${recommendation.fit}, trained maximum ${recommendation.nativeLimit})`
+    );
+    return { applied: recommendation.tokens, recommendation };
   }
   /**
    * Checks if embedding status is known. If not, reads GGUF, detects it,
@@ -3097,6 +3520,13 @@ var LlamacppEngine = class extends AIEngine {
         downloadType: "Model"
       });
     }
+    if (!isEmbedding) {
+      try {
+        await this.configureModelContext(modelId, { automatic: true });
+      } catch (e) {
+        logger4.warn(`Could not configure the context of imported ${modelId}:`, e);
+      }
+    }
     try {
       await this.refreshEnginePreset();
     } catch (e) {
@@ -3171,6 +3601,16 @@ var LlamacppEngine = class extends AIEngine {
   }
   async performLoad(modelId, isEmbedding = false) {
     await this.ensureEngineReady();
+    if (!isEmbedding) {
+      try {
+        const configured = await this.configureModelContext(modelId, { automatic: true });
+        if (configured.applied !== void 0) {
+          logger4.info(`Using ${configured.applied} tokens of context for ${modelId}`);
+        }
+      } catch (e) {
+        logger4.warn(`Could not configure the context of ${modelId} before loading:`, e);
+      }
+    }
     try {
       await this.reconcileEngineDevices(modelId);
     } catch (e) {
@@ -3732,6 +4172,60 @@ var LlamacppEngine = class extends AIEngine {
       logger4.error("Failed to query devices:\n", error);
       throw new Error("Failed to load llamacpp backend");
     }
+  }
+  /**
+   * How much memory this machine has for a model, for a catalog entry that has
+   * not been downloaded.
+   *
+   * Both numbers come from the hardware plugin in bytes: free VRAM is what its
+   * GPU usage reports as unused, and RAM is the installed total. The engine's own
+   * device list is deliberately not used: llama.cpp reports those figures in
+   * MiB, so mixing the two understated the machine by six orders of magnitude
+   * and labelled every download "Unlikely to fit". Either value is reported as
+   * unknown rather than guessed when its source fails, so the label can say so.
+   *
+   * @returns free VRAM across devices and total RAM, both in bytes.
+   */
+  async getMemoryTotals() {
+    let vram;
+    const problems = [];
+    try {
+      const usage = await getSystemUsage();
+      const free = (usage?.gpus ?? []).map(
+        (gpu) => (
+          // The hardware plugin reports both figures in MiB.
+          typeof gpu?.total_memory === "number" && typeof gpu?.used_memory === "number" ? (gpu.total_memory - gpu.used_memory) * 1024 * 1024 : void 0
+        )
+      ).filter((value) => typeof value === "number" && Number.isFinite(value) && value > 0);
+      if (free.length > 0) vram = free.reduce((sum, value) => sum + value, 0);
+      else problems.push("no GPU usage was reported");
+    } catch (e) {
+      logger4.warn("Could not read GPU usage for a fit estimate:", e);
+      problems.push("GPU memory could not be read");
+    }
+    let ram;
+    try {
+      const total = (await getSystemInfo())?.total_memory;
+      if (typeof total === "number" && Number.isFinite(total) && total > 0) ram = Math.floor(total) * 1024 * 1024;
+      else problems.push("system memory could not be read");
+    } catch (e) {
+      logger4.warn("Could not read system memory for a fit estimate:", e);
+      problems.push("system memory could not be read");
+    }
+    return {
+      vram,
+      ram,
+      ...problems.length > 0 ? { unknown: problems.join("; ") } : {}
+    };
+  }
+  /**
+   * The label a catalog quant gets before it is downloaded.
+   * @param bytes - the quant's published download size.
+   * @returns the label, its detail line and the tone the panel paints it in.
+   */
+  async catalogFit(bytes) {
+    const totals = await this.getMemoryTotals();
+    return estimateCatalogFit({ bytes, vram: totals.vram, ram: totals.ram });
   }
   /**
    * Resolves the default/preferred embedding model, importing and loading
