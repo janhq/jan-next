@@ -682,6 +682,11 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           // stands down while it is mounted.
           ctx.plugin(DockModelSelection)
         }
+        // Jan's row under the composer holds only the model and the context
+        // ring; run statistics stay in each turn's expanded footer.
+        for (const [id, order] of [['activity', 0], ['usage', 1]]) {
+          ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register({ name: 'conversation.composer.dock', id, order, priority: -1 }, () => null))
+        }
 
         ctx.inject(['layout'], (scope) => {
           scope.layout.configureSidebar({ defaultWidth: 240, minWidth: 224, maxWidth: 320 })
