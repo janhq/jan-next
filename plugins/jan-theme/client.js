@@ -419,6 +419,9 @@ window.__ModuleLoader__.load({
      text-only model trigger. The composer card keeps no second selector. */
   html[data-jan-theme] [data-composer-dock] { box-sizing: border-box; width: 100%; max-width: var(--jan-composer-card-max-width); padding-inline: 12px; justify-content: flex-end; }
   html[data-jan-theme] [data-composer-dock] button[aria-haspopup='menu'] > svg:first-child { display: none; }
+  /* The dock seat has no composer measurement: let its trigger shrink with
+     the seat so a long model name ellipsizes instead of running under the ring. */
+  html[data-jan-theme] [data-composer-dock] button[aria-haspopup='menu'] { max-width: 100%; }
   /* A thin line waving hand in Jan's icon style. The SVG animates itself and
      honours reduced motion; as a mask it takes the status text's colour. */
   html[data-jan-theme] [data-chat-running-mark] { background: currentColor; -webkit-mask: url('/jan-theme/assets/hand-wave.svg') center / contain no-repeat; mask: url('/jan-theme/assets/hand-wave.svg') center / contain no-repeat; }
