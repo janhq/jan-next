@@ -343,6 +343,10 @@
 
     - id: ui-settings
       name: '@janhq/jan-client-ui-settings'
+      # Jan: Coding Tools (Trajectory tab, code diffs, interactive HTML
+      # preview) start off; Settings > General turns them on.
+      config:
+        enabled: false
 
     - id: ui-settings-general
       name: '@janhq/jan-client-ui-settings-general'
