@@ -46,6 +46,12 @@ export interface IConversation {
    */
   readonly blocks: ComposerBlocks
   /**
+   * Resolve ordered input-state ids to the scoped session's live draft attachments.
+   * @param ids - draft attachment ids from the input state.
+   * @returns descriptors that remain live, in requested order.
+   */
+  resolveDraftAttachments(ids: readonly DraftAttachmentId[]): readonly ComposerAttachment[]
+  /**
    * Send a prompt into the caller scope's session (queued turn).
    * @param text - prompt text, sent verbatim as one text block.
    * @returns completion; business failures reject (and land in promptError).
