@@ -33,7 +33,7 @@ Mount the row beside `llama-cpp`; it requires the `llamaCpp` and `typert` servic
 | `readState`, `follow` | Read the current state; `follow` streams the current snapshot, then one per change, until the caller disconnects |
 | `beginInstall`, `cancelInstall` | First run: download the first-run model and start the worker, or start the installed default; stop every download |
 | `downloadModel`, `lookupRepo`, `downloadRepoFile` | Download a curated model; list a Hugging Face repository's GGUF files and its vision projector; download one of them, with the repository's projector, and return its model id |
-| `retryDownload`, `cancelDownload` | Restart a failed download from its partial file; stop one download or dismiss a failed one |
+| `pauseDownload`, `retryDownload`, `cancelDownload` | Pause a running or queued download, keeping its partial file; restart a failed or paused download from that file; stop one download and discard its files, or dismiss a failed one |
 | `importModel` | Add a `.gguf` file by its absolute Host path, with an optional absolute path of its vision projector, both left in place, and return its model id; a projector given for an already imported file replaces that model's projector |
 | `setDefaultModel`, `loadModel`, `unloadModel`, `deleteModel` | Make a model the default and load it; load or unload a model now; remove a model |
 | `startServer`, `stopServer`, `removeInstall` | Start or stop the worker; stop it and delete every downloaded model and the route credentials |

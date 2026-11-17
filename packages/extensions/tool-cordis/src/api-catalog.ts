@@ -1982,12 +1982,17 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: '@Remote retryDownload(id: string): void',
-        description: 'Start a failed download again.',
-        parameters: [{ name: 'id', description: 'model id of the failed download.' }],
+        description: 'Start a failed or paused download again, from its partial file.',
+        parameters: [{ name: 'id', description: 'model id of the failed or paused download.' }],
+      },
+      {
+        signature: '@Remote pauseDownload(id: string): void',
+        description: 'Pause a running or queued download, keeping its partial file for retryDownload.',
+        parameters: [{ name: 'id', description: 'model id of the download.' }],
       },
       {
         signature: '@Remote async cancelDownload(id: string): Promise<void>',
-        description: 'Stop one download, or dismiss it when it failed.',
+        description: 'Stop one download and discard its files, or dismiss it when it failed.',
         parameters: [{ name: 'id', description: 'model id of the download.' }],
         returns: 'after it settles.',
       },

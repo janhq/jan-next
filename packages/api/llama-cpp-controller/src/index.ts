@@ -100,8 +100,8 @@ export default class LlamaCppController extends TypertRemoteService {
   }
 
   /**
-   * Start a failed download again.
-   * @param id - model id of the failed download.
+   * Start a failed or paused download again, from its partial file.
+   * @param id - model id of the failed or paused download.
    */
   @Remote
   retryDownload(id: string): void {
@@ -109,7 +109,16 @@ export default class LlamaCppController extends TypertRemoteService {
   }
 
   /**
-   * Stop one download, or dismiss it when it failed.
+   * Pause a running or queued download, keeping its partial file for {@link retryDownload}.
+   * @param id - model id of the download.
+   */
+  @Remote
+  pauseDownload(id: string): void {
+    try { this.ctx.llamaCpp.pause(id) } catch (error) { throw failed(error) }
+  }
+
+  /**
+   * Stop one download and discard its files, or dismiss it when it failed.
    * @param id - model id of the download.
    * @returns after it settles.
    */

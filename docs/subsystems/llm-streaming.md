@@ -1182,13 +1182,19 @@ Install, start, stop and remove the local models and the worker serving them; pr
 @Remote async downloadRepoFile(repo: string, file: string, signal: AbortSignal): Promise<string>
 
 /**
- * Start a failed download again.
- * @param id - model id of the failed download.
+ * Start a failed or paused download again, from its partial file.
+ * @param id - model id of the failed or paused download.
  */
 @Remote retryDownload(id: string): void
 
 /**
- * Stop one download, or dismiss it when it failed.
+ * Pause a running or queued download, keeping its partial file for {@link retryDownload}.
+ * @param id - model id of the download.
+ */
+@Remote pauseDownload(id: string): void
+
+/**
+ * Stop one download and discard its files, or dismiss it when it failed.
  * @param id - model id of the download.
  * @returns after it settles.
  */
