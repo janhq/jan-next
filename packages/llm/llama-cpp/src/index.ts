@@ -35,7 +35,7 @@ import {
   estimateKvBytes, NotAProjectorError, readModelFacts, readProjectorFacts, UnsupportedModelError, type ModelFacts, type ProjectorFacts,
 } from './gguf.ts'
 import { accelerators, assessFit, backendOf, type MachineMemory } from './memory.ts'
-import { plannedContext, renderPreset, resolvePresetSettings, type PresetModel, type PresetSettings } from './preset.ts'
+import { nextContextSize, plannedContext, renderPreset, resolvePresetSettings, type PresetModel, type PresetSettings } from './preset.ts'
 import { RateMeter } from './rate.ts'
 import type {
   HuggingFaceRepoInfo, ImportModelOptions, LlamaCppDownload, LlamaCppHostPlatform, LlamaCppPhase, LlamaCppPrefill, LlamaCppProgress,
@@ -58,7 +58,7 @@ export {
 export type { KvCacheType, ModelFacts, ProjectorFacts } from './gguf.ts'
 export { accelerators, assessFit, backendOf } from './memory.ts'
 export type { MachineMemory } from './memory.ts'
-export { plannedContext, renderPreset, resolvePresetSettings } from './preset.ts'
+export { nextContextSize, plannedContext, renderPreset, resolvePresetSettings } from './preset.ts'
 export type { PresetModel, PresetSettings } from './preset.ts'
 export { RateMeter } from './rate.ts'
 export { describeExit, parseDeviceList, parseHandshake, parseModelEvent, parseModelList, WorkerProtocolError } from './worker.ts'
@@ -84,6 +84,9 @@ interface ModelRecord {
   repo?: string
   /** Read from the GGUF header when the model was installed. */
   facts: ModelFacts
+  /** Optional context and memory-fit overrides saved with this installed model. */
+  ctxSize?: number
+  autoFit?: boolean
   /** Vision projector the worker loads with the model. */
   mmproj?: ProjectorRecord
 }
@@ -439,6 +442,88 @@ export class LlamaCpp extends Service {
     return this.record.models.find(model => model.id === this.record.active)
   }
 
+  private resolveModel(id: string): ModelRecord {
+    const model = id === this.config.routeModelId ? this.activeModel() : this.record.models.find(candidate => candidate.id === id)
+    if (model === undefined) throw new Error(`no installed model "${id}"`)
+    return model
+  }
+
+  /** Requested and trained context of an installed model; `local` names the default. */
+  getModelContext(id: string): { current: number; maximum?: number; fit: boolean } {
+    const model = this.resolveModel(id)
+    const requested = model.ctxSize ?? this.preset.ctxSize
+    const current = this.contexts.get(model.id) ?? plannedContext({ ctxSize: requested, fitCtx: this.preset.fitCtx }, model.facts)
+    return {
+      current, ...model.facts.contextLength === undefined ? {} : { maximum: model.facts.contextLength },
+      fit: model.autoFit ?? this.preset.fit,
+    }
+  }
+
+  /** Save a model's context and reload its preset section in a running worker. */
+  setModelContext(id: string, contextSize: number): Promise<void> {
+    return this.task(async () => {
+      const model = this.resolveModel(id)
+      if (!Number.isSafeInteger(contextSize) || contextSize <= 0) throw new Error('context length must be a positive integer')
+      if (model.facts.contextLength !== undefined && contextSize > model.facts.contextLength) {
+        throw new Error(`context length exceeds the model maximum of ${String(model.facts.contextLength)}`)
+      }
+      if (model.ctxSize === contextSize) return
+      const previous = model.ctxSize
+      model.ctxSize = contextSize
+      try { await this.writeRecord() } catch (error) {
+        if (previous === undefined) delete model.ctxSize
+        else model.ctxSize = previous
+        throw error
+      }
+      this.contexts.delete(model.id)
+      this.emit()
+      await this.modelsChanged()
+      await this.reloadChangedModel(model.id)
+    })
+  }
+
+  /** Save the automatic memory-fit choice for one model. */
+  setModelFit(id: string, fit: boolean): Promise<void> {
+    return this.task(async () => {
+      const model = this.resolveModel(id)
+      if (typeof fit !== 'boolean') throw new Error('auto-fit must be on or off')
+      if (model.autoFit === fit) return
+      const previous = model.autoFit
+      model.autoFit = fit
+      try { await this.writeRecord() } catch (error) {
+        if (previous === undefined) delete model.autoFit
+        else model.autoFit = previous
+        throw error
+      }
+      this.contexts.delete(model.id)
+      this.emit()
+      await this.modelsChanged()
+      await this.reloadChangedModel(model.id)
+    })
+  }
+
+  /** Grow to the next classic-Jan context step, bounded by GGUF metadata when available. */
+  increaseModelContext(id: string): Promise<number | null> {
+    return this.task(async () => {
+      const { current, maximum } = this.getModelContext(id)
+      const next = nextContextSize(current, maximum)
+      if (next === null) return null
+      const model = this.resolveModel(id)
+      const previous = model.ctxSize
+      model.ctxSize = next
+      try { await this.writeRecord() } catch (error) {
+        if (previous === undefined) delete model.ctxSize
+        else model.ctxSize = previous
+        throw error
+      }
+      this.contexts.delete(model.id)
+      this.emit()
+      await this.modelsChanged()
+      await this.reloadChangedModel(model.id)
+      return next
+    })
+  }
+
   private view(): LlamaCppState {
     const active = this.activeModel()
     const offered = active ?? { id: this.firstModel.id, name: this.firstModel.name, bytes: this.firstModel.bytes }
@@ -460,13 +545,15 @@ export class LlamaCpp extends Service {
       ...contextSize === undefined ? {} : { contextSize },
       ...this.prefill === undefined || this.server.phase !== 'running' ? {} : { prefill: this.prefill },
       models: this.record.models.map((model): LocalModelEntry => {
-        const kvBytes = estimateKvBytes(model.facts, plannedContext(this.preset, model.facts), this.preset.cacheType) ?? 0
+        const context = plannedContext({ ctxSize: model.ctxSize ?? this.preset.ctxSize, fitCtx: this.preset.fitCtx }, model.facts)
+        const kvBytes = estimateKvBytes(model.facts, context, this.preset.cacheType) ?? 0
         const settled = this.contexts.get(model.id)
         return {
           id: model.id, name: model.name, bytes: installedBytes(model), source: model.source, vision: model.mmproj?.vision === true,
           active: model.id === this.record.active,
           status: this.running?.resident.get(model.id) ?? 'unloaded',
           ...settled === undefined ? {} : { contextSize: settled },
+          configuredContextSize: model.ctxSize ?? this.preset.ctxSize, autoFit: model.autoFit ?? this.preset.fit,
           architecture: model.facts.architecture,
           ...model.facts.contextLength === undefined ? {} : { contextLength: model.facts.contextLength },
           ...this.fitOf(installedBytes(model) + kvBytes),
@@ -1159,8 +1246,16 @@ export class LlamaCpp extends Service {
   }
 
   private routeContext(model: ModelRecord): number {
-    const settled = this.contexts.get(model.id) ?? plannedContext(this.preset, model.facts)
+    const settings = { ctxSize: model.ctxSize ?? this.preset.ctxSize, fitCtx: this.preset.fitCtx }
+    const settled = this.contexts.get(model.id) ?? plannedContext(settings, model.facts)
     return Math.min(settled, model.facts.contextLength ?? Number.POSITIVE_INFINITY)
+  }
+
+  /** Load the changed model after the worker applied its new preset section. */
+  private async reloadChangedModel(id: string): Promise<void> {
+    const running = this.running
+    if (running?.client === undefined || running.stopping) return
+    await this.loadInto(running, running.client, id)
   }
 
   /**
@@ -1443,6 +1538,8 @@ export class LlamaCpp extends Service {
     const temp = `${this.presetPath}.tmp`
     const sections = this.record.models.map((model): PresetModel => ({
       id: model.id, path: this.storedPath(model), facts: model.facts,
+      ...model.ctxSize === undefined ? {} : { ctxSize: model.ctxSize },
+      ...model.autoFit === undefined ? {} : { fit: model.autoFit },
       ...model.mmproj === undefined ? {} : { mmproj: this.storedPath(model.mmproj) },
     }))
     await writeFile(temp, renderPreset(this.preset, sections, { [this.config.routeModelId]: active.id }), { mode: 0o600 })

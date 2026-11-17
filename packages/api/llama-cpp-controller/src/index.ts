@@ -149,6 +149,30 @@ export default class LlamaCppController extends TypertRemoteService {
     try { await this.ctx.llamaCpp.setDefault(id) } catch (error) { throw failed(error) }
   }
 
+  /** Current served context, GGUF-trained maximum when known, and auto-fit for one installed model. */
+  @Remote
+  getModelContext(id: string): { current: number; maximum?: number; fit: boolean } {
+    try { return this.ctx.llamaCpp.getModelContext(id) } catch (error) { throw failed(error) }
+  }
+
+  /** Persist a per-model context length and wait for the worker's new preset to load. */
+  @Remote
+  async setModelContext(id: string, contextSize: number): Promise<void> {
+    try { await this.ctx.llamaCpp.setModelContext(id, contextSize) } catch (error) { throw failed(error) }
+  }
+
+  /** Persist and apply automatic GPU/memory fit for one installed model. */
+  @Remote
+  async setModelFit(id: string, fit: boolean): Promise<void> {
+    try { await this.ctx.llamaCpp.setModelFit(id, fit) } catch (error) { throw failed(error) }
+  }
+
+  /** Grow the context to the next step, reload the model, or answer null at its maximum. */
+  @Remote
+  async increaseModelContext(id: string): Promise<number | null> {
+    try { return await this.ctx.llamaCpp.increaseModelContext(id) } catch (error) { throw failed(error) }
+  }
+
   /**
    * Load an installed model now instead of on its first request, starting a stopped worker.
    * @param id - installed model id.

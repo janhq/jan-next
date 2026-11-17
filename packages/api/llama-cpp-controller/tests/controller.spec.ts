@@ -17,6 +17,10 @@ function fixture() {
     unloadModel: vi.fn<LlamaCpp['unloadModel']>().mockResolvedValue(undefined),
     removeModel: vi.fn<LlamaCpp['removeModel']>().mockResolvedValue(undefined),
     importModel: vi.fn<LlamaCpp['importModel']>().mockResolvedValue('mine'),
+    getModelContext: vi.fn<LlamaCpp['getModelContext']>().mockReturnValue({ current: 8192, maximum: 131072, fit: false }),
+    setModelContext: vi.fn<LlamaCpp['setModelContext']>().mockResolvedValue(undefined),
+    setModelFit: vi.fn<LlamaCpp['setModelFit']>().mockResolvedValue(undefined),
+    increaseModelContext: vi.fn<LlamaCpp['increaseModelContext']>().mockResolvedValue(32768),
   }
   ctx.provide('llamaCpp', service as never)
   return { service, controller: new LlamaCppController(ctx) }
@@ -32,6 +36,17 @@ it('delegates the per-model operations by installed model id', async () => {
   expect(service.unloadModel).toHaveBeenCalledExactlyOnceWith('gemma')
   await controller.deleteModel('gemma')
   expect(service.removeModel).toHaveBeenCalledExactlyOnceWith('gemma')
+})
+
+it('exposes saved context, automatic fit and the reload-before-retry context step', async () => {
+  const { service, controller } = fixture()
+  expect(controller.getModelContext('local')).toEqual({ current: 8192, maximum: 131072, fit: false })
+  await controller.setModelContext('local', 32768)
+  await controller.setModelFit('local', true)
+  expect(await controller.increaseModelContext('local')).toBe(32768)
+  expect(service.setModelContext).toHaveBeenCalledWith('local', 32768)
+  expect(service.setModelFit).toHaveBeenCalledWith('local', true)
+  expect(service.increaseModelContext).toHaveBeenCalledWith('local')
 })
 
 it('reports a refused operation as a llama-cpp/failed Remote error carrying the reason', async () => {

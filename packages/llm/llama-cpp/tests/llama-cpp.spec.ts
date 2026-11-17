@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { createServer, type Server } from 'node:http'
-import { tmpdir, totalmem } from 'node:os'
+import { platform, tmpdir, totalmem } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { afterEach, expect, it, vi } from 'vitest'
@@ -234,18 +234,48 @@ it('installs the model, publishes the worker endpoint and key, and serves the ro
   // macOS reports the realpath of a symlinked tmpdir (/var -> /private/var) as the child's cwd.
   expect(start?.cwd).toBe(await realpath(f.bin))
   expect(start?.preset?.shared).toMatchObject({
-    'ctx-size': '32768', fit: 'on', 'fit-target': '1024', 'flash-attn': 'on', 'cache-type-k': 'q8_0',
+    'ctx-size': '32768', fit: platform() === 'darwin' ? 'off' : 'on', 'flash-attn': 'on', 'cache-type-k': 'q8_0',
     'slot-save-path': join(f.home, 'data', 'slots'),
   })
-  expect(start?.preset?.shared).not.toHaveProperty('n-gpu-layers')
+  if (platform() !== 'darwin') expect(start?.preset?.shared).toMatchObject({ 'fit-target': '1024' })
+  if (platform() !== 'darwin') expect(start?.preset?.shared).not.toHaveProperty('n-gpu-layers')
   expect(start?.preset?.shared).not.toHaveProperty('jinja')
   expect(start?.preset?.models['jan-v3.5-4b']?.model).toBe(join(f.home, 'data', 'models', 'jan-v3.5-4b', `${sha(MODEL).slice(0, 16)}.gguf`))
   expect(start?.preset?.aliases).toEqual({ local: 'jan-v3.5-4b' })
   expect(running.contextSize).toBe(32768)
 })
 
+it('persists a model context and auto-fit choice, reloads the worker, and restores both after boot', async () => {
+  const f = await fixture()
+  f.llama.install()
+  await f.until(s => s.phase === 'running')
+  const id = 'jan-v3.5-4b'
+  await f.llama.setModelContext(id, 40960)
+  await f.llama.setModelFit(id, false)
+  expect(f.llama.getModelContext(id)).toMatchObject({ current: 40960, maximum: 40960, fit: false })
+  expect(f.llama.snapshot().models[0]).toMatchObject({ contextSize: 40960, configuredContextSize: 40960, autoFit: false })
+  expect((await f.events()).filter(event => event.type === 'reload').at(-1)?.preset?.models[id]).toMatchObject({ 'ctx-size': '40960', fit: 'off' })
+  expect(JSON.parse(await readFile(join(f.home, 'data', 'install.json'), 'utf8')).models[0]).toMatchObject({ ctxSize: 40960, autoFit: false })
+  await f.dispose()
+  const restored = await fixture({ home: f.home })
+  await restored.until(s => s.phase === 'running')
+  expect(restored.llama.getModelContext(id)).toMatchObject({ current: 40960, maximum: 40960, fit: false })
+  expect((await restored.events()).filter(event => event.type === 'start').at(-1)?.preset?.models[id]).toMatchObject({ 'ctx-size': '40960', fit: 'off' })
+})
+
+it('increases context to the trained maximum and refuses further increases', async () => {
+  const f = await fixture()
+  f.llama.install()
+  await f.until(s => s.phase === 'running')
+  expect(await f.llama.increaseModelContext('local')).toBe(40960)
+  expect(f.llama.snapshot().models[0]?.configuredContextSize).toBe(40960)
+  expect(await f.llama.increaseModelContext('jan-v3.5-4b')).toBeNull()
+  await expect(f.llama.setModelContext('jan-v3.5-4b', 40961)).rejects.toThrow(/maximum/)
+  await expect(f.llama.setModelContext('jan-v3.5-4b', -1)).rejects.toThrow(/positive/)
+})
+
 it('lets fit choose the context when ctxSize is 0, and passes the resident model bound', async () => {
-  const f = await fixture({ config: { ctxSize: 0, modelsMax: 3, slotCacheMiB: 512 } })
+  const f = await fixture({ config: { ctxSize: 0, fit: true, modelsMax: 3, slotCacheMiB: 512 } })
   f.llama.install()
   const running = await f.until(s => s.phase === 'running' || s.phase === 'failed')
   const [start] = await f.events()

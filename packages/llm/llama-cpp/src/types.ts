@@ -84,6 +84,10 @@ export interface LocalModelEntry {
   status: LocalModelStatus
   /** Context the worker settled on the last time it loaded this model. */
   contextSize?: number
+  /** Saved context requested for this model, or the plugin default. */
+  configuredContextSize: number
+  /** Automatically fit GPU offload and (when context is zero) context to memory. */
+  autoFit: boolean
   /** `general.architecture` of the GGUF file. */
   architecture: string
   /** Context the model was trained with, when its file declares it. */
