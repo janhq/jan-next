@@ -174,6 +174,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the recorded preset, or null when none was selected.',
       },
       {
+        signature: 'definitionFor(id: string): PresetDefinition',
+        description: 'Read one declaration\'s composed definition without mounting it. Registrants that derive a preset (a custom composition based on a shipped one) need the child plugin rows the declaration was registered with, including profile overrides; the read-only `readDocument` view is YAML.',
+        parameters: [{ name: 'id', description: 'preset identity.' }],
+        returns: 'The registered definition; plugin rows are copied so a caller cannot mutate the registry\'s declaration.',
+      },
+      {
         signature: 'async register(definition: PresetDefinition): Promise<() => Promise<void>>',
         description: 'Register and eagerly load a definition; activation failure remains visible in the roster.',
         parameters: [{ name: 'definition', description: 'Parsed configuration supplied by the declaring plugin.' }],
@@ -241,7 +247,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: '@Remote(\'select\') async select(agent: Agent, agentPreset: string): Promise<string>',
-        description: 'Select a preset before a session starts its first turn. A Session whose log records the preset and whose Agent runs its current revision keeps its composition; nothing is logged or announced.',
+        description: 'Select a preset for a Session at a turn boundary. A Session with no recorded preset that already runs the current revision keeps its composition; nothing is logged or announced. A started Session may switch once no turn is open: messages are never rewritten, the selection is appended to the log, and every later turn runs under the new composition.',
         parameters: [{ name: 'agent', description: 'Target Agent.' }, { name: 'agentPreset', description: 'Requested identity.' }],
         returns: 'Committed preset identity.',
       },
