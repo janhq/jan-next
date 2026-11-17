@@ -11,6 +11,8 @@ import type { ModelDirectoryState } from '../src/client/directory.ts'
 import type { ModelOptionsOwner } from '../src/client/slots.ts'
 import { ModelSelect } from '../src/client/ModelSelect.tsx'
 import { zh } from '../src/client/locales.ts'
+import { DockModelSelection, apply, inject } from '../src/client/index.ts'
+import { LocaleRuntime } from '@janhq/jan-client-locale/client'
 import { zh as commonZh } from '@janhq/jan-client-locale/src/locales/zh.ts'
 
 // The seat's key domain is model ∪ common; the stub mirrors the real lookup
@@ -1126,4 +1128,40 @@ it('dismisses contributed options with focus on the trigger before opening anoth
     expect(document.activeElement).toBe(trigger)
   })
   expect(screen.queryByRole('menu')).toBeNull()
+})
+
+describe('model seats', () => {
+  async function composer() {
+    const runtime = await SlotTestRuntime.create()
+    onTestFinished(() => runtime.dispose())
+    runtime.ctx.provide('commandUi', { register: () => () => {} })
+    runtime.remote.provideNamespaces({ session: { modelCatalog: () => new Promise(() => {}), selectModel: vi.fn() } })
+    runtime.ctx.provide('locale', new LocaleRuntime(runtime.ctx))
+    await runtime.root.declare({
+      'conversation.input.model': { kind: 'single', scope: 'session' },
+      'conversation.composer.dock': { kind: 'list', scope: 'session' },
+    }, () => null)
+    return runtime
+  }
+
+  const occupants = (runtime: SlotTestRuntime) => ({
+    composer: runtime.slots.entries('conversation.input.model').length,
+    dock: runtime.slots.entries('conversation.composer.dock').map(entry => entry.options.id),
+  })
+
+  it.each(['composer seat', 'dock seat'])('moves the picker and its child slots to the dock when the %s mounts first', async (first) => {
+    const runtime = await composer()
+    let dock: { dispose: () => Promise<void> } | undefined
+    if (first === 'dock seat') {
+      const fiber = runtime.ctx.plugin(DockModelSelection)
+      dock = { dispose: async () => { await act(async () => { await fiber.dispose() }) } }
+    }
+    await runtime.mount({ inject: [...inject], apply })
+    if (dock === undefined) dock = await runtime.mount(DockModelSelection)
+    await act(async () => { await Promise.resolve() })
+
+    expect(occupants(runtime)).toEqual({ composer: 0, dock: ['model'] })
+    await dock.dispose()
+    expect(occupants(runtime)).toEqual({ composer: 1, dock: [] })
+  })
 })

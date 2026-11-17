@@ -45,10 +45,28 @@ declare module '@janhq/jan-client-ui-slots' {
   }
 }
 
-/** Optional dock selector plugin: the seat under the composer card; compose with ctx.plugin(DockModelSelection). */
+/**
+ * Live dock seat mounts. One entry may declare the model label and options
+ * child slots, so while a dock seat is mounted the composer seat stands down
+ * and contributions to those slots follow the picker into the dock.
+ */
+let dockSeats = 0
+const dockSeatListeners = new Set<() => void>()
+
+function changeDockSeats(delta: 1 | -1): void {
+  dockSeats += delta
+  for (const listener of [...dockSeatListeners]) listener()
+}
+
+/** Optional dock selector plugin: the seat under the composer card, replacing the composer seat. */
 export const DockModelSelection = {
   inject: ['slots', 'modelDirectories', 'sessions', 'locale'],
   apply(ctx: ClientContext): void {
+    // Claim before registering: the composer seat releases the child slots synchronously.
+    ctx.effect(() => {
+      changeDockSeats(1)
+      return () => { changeDockSeats(-1) }
+    }, 'ui-model-selection: dock seat claim')
     ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register({
       name: 'conversation.composer.dock', id: 'model', order: 2, locale: NS,
       children: {
@@ -58,10 +76,10 @@ export const DockModelSelection = {
       inject: modelInjection(ctx),
     }, ({ renderSlot, ...props }: ModelSelectInjected & PropsRuntime<'conversation.composer.dock'> & PropsLocale<'model'>
       & PropsRenderSlots<'conversation.input.model.label' | 'conversation.input.model.options'>) => createElement(ModelSelect, {
-        ...props, placement: 'dock',
-        renderLabel: (owner, fallback) => renderSlot('conversation.input.model.label', owner, { fallback }),
-        renderOptions: owner => renderSlot('conversation.input.model.options', owner),
-      })))
+      ...props, placement: 'dock',
+      renderLabel: (owner, fallback) => renderSlot('conversation.input.model.label', owner, { fallback }),
+      renderOptions: owner => renderSlot('conversation.input.model.options', owner),
+    })))
   },
 }
 
@@ -200,19 +218,36 @@ export function apply(ctx: ClientContext): void {
   })
 
   ctx.inject(['slots', 'modelDirectories'], (scope: ClientContext) => {
-    scope.slots.inject('conversation.input.model', () => scope.slots.register({
-      name: 'conversation.input.model',
-      locale: NS,
-      children: {
-        'conversation.input.model.label': { kind: 'single', scope: 'session', inline: true },
-        'conversation.input.model.options': { kind: 'list', scope: 'session' },
-      },
-      inject: modelInjection(scope),
-    }, ({ renderSlot, ...props }: ModelSelectInjected & PropsRuntime<'conversation.input.model'> & PropsLocale<'model'>
-      & PropsRenderSlots<'conversation.input.model.label' | 'conversation.input.model.options'>) => createElement(ModelSelect, {
+    let seat: (() => void) | undefined
+    const sync = (): void => {
+      if (dockSeats > 0) {
+        seat?.()
+        seat = undefined
+        return
+      }
+      seat ??= scope.slots.inject('conversation.input.model', () => scope.slots.register({
+        name: 'conversation.input.model',
+        locale: NS,
+        children: {
+          'conversation.input.model.label': { kind: 'single', scope: 'session', inline: true },
+          'conversation.input.model.options': { kind: 'list', scope: 'session' },
+        },
+        inject: modelInjection(scope),
+      }, ({ renderSlot, ...props }: ModelSelectInjected & PropsRuntime<'conversation.input.model'> & PropsLocale<'model'>
+        & PropsRenderSlots<'conversation.input.model.label' | 'conversation.input.model.options'>) => createElement(ModelSelect, {
         ...props, placement: 'composer',
         renderLabel: (owner, fallback) => renderSlot('conversation.input.model.label', owner, { fallback }),
         renderOptions: owner => renderSlot('conversation.input.model.options', owner),
       })))
+    }
+    scope.effect(() => {
+      dockSeatListeners.add(sync)
+      sync()
+      return () => {
+        dockSeatListeners.delete(sync)
+        seat?.()
+        seat = undefined
+      }
+    }, 'ui-model-selection: composer seat')
   })
 }
