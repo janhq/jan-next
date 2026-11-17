@@ -122,7 +122,7 @@ it('keeps company signing outside pull-request release rehearsals', () => {
   expect(workflow).toContain('workflow_dispatch:')
   expect(workflow).toContain('workflow_call:')
   expect(workflow).not.toContain('pull_request:')
-  expect(workflow).toContain('dsh-mac-package-trial')
+  expect(workflow).toContain('jan-mac-package-trial')
   const release = readFileSync(resolve('.github/workflows/release-publish.yml'), 'utf8')
   expect(release).toContain('needs: cua-helper')
   expect(release).toContain('scripts/cua-helper/stage.ts')

@@ -1,7 +1,5 @@
 # PR preview runner sizing
 
-English | [中文](README.zh.md)
-
 ## Summary
 
 The [preview workflow](../workflows/build-preview-cloudflare.yml) builds pull-request previews on standard GitHub-hosted `ubuntu-24.04`. Runner sizing compares complete job cost, not price per minute or core count alone.
@@ -10,7 +8,6 @@ The [preview workflow](../workflows/build-preview-cloudflare.yml) builds pull-re
 
 - [Comparison requirements](#comparison-requirements)
 - [Publication semantics](#publication-semantics)
-- [Dev Note](#dev-note)
 
 <a id="comparison-requirements"></a>
 
@@ -27,9 +24,3 @@ A build-only benchmark does not deploy, access Cloudflare credentials, or post p
 ## Publication semantics
 
 Runner selection does not alter pull-request events, per-PR cancellation, immutable installation, restore-only dependency caching, full workspace build, preview packing, sourcemap removal, or the preview page copied to the deployment root. Cloudflare uploads only the built site to the PR branch alias. The protected-image check requires HTTP 200, no transport content encoding, and gzip magic bytes; the URL comment remains idempotent. Dependabot and other PR authors remain on GitHub-hosted machines.
-
-<a id="dev-note"></a>
-
-## Dev Note
-
-The [archived runner decision](../../.agents/notes/archived/process/2026-09-06-preview-hosted-runner-sizing.md) records measurements, cost estimates, and image/CPU variation. The build-only experiment does not verify production deployment.

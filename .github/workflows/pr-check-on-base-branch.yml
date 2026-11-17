@@ -1,7 +1,7 @@
 name: Policy
 on:
   push:
-    branches: [master, 'release/dsh-[0-9]+.[0-9]+.[0-9]+']
+    branches: [master, 'release/jan-[0-9]+.[0-9]+.[0-9]+']
   workflow_dispatch:
 permissions: {}
 concurrency:
@@ -27,4 +27,4 @@ jobs:
         with:
           check: recheck
           base-branch: ${{ github.ref_name }}
-          recheck-label-token: ${{ secrets.DSH_RECHECK_LABEL_TOKEN }}
+          recheck-label-token: ${{ secrets.JAN_RECHECK_LABEL_TOKEN }}
