@@ -414,6 +414,35 @@ it('cancels a download and discards its partial file, so the next install starts
   expect(f.server.requests.at(-1)?.range).toBeUndefined()
 }, 30_000)
 
+it('pauses a download keeping its partial file, then resumes it from that byte or discards it on cancel', async () => {
+  const f = await fixture({ throttle: true })
+  const partial = join(f.home, 'data', 'models', 'jan-v3.5-4b', `${sha(MODEL).slice(0, 16)}.gguf.partial`)
+  f.llama.install()
+  await f.until(s => s.phase === 'downloading' && (s.progress?.receivedBytes ?? 0) > 20_000)
+  f.llama.pause('jan-v3.5-4b')
+  const paused = await f.until(s => s.phase === 'missing')
+  expect(paused.downloads).toMatchObject([{ id: 'jan-v3.5-4b', paused: true, progress: { totalBytes: MODEL.length } }])
+  expect(paused.progress).toBeUndefined()
+  const kept = (await stat(partial)).size
+  expect(kept).toBeGreaterThan(20_000)
+  expect(() => { f.llama.pause('jan-v3.5-4b') }).toThrow(/no running download/)
+
+  f.llama.retry('jan-v3.5-4b')
+  await f.until(s => s.phase === 'running' || s.phase === 'failed')
+  expect(f.llama.snapshot().phase).toBe('running')
+  expect(f.server.requests.at(-1)?.range).toBe(`bytes=${String(kept)}-`)
+
+  // A paused download that is then cancelled leaves no file behind.
+  const g = await fixture({ throttle: true })
+  g.llama.install()
+  await g.until(s => s.phase === 'downloading' && (s.progress?.receivedBytes ?? 0) > 20_000)
+  g.llama.pause('jan-v3.5-4b')
+  await g.until(s => s.phase === 'missing')
+  await g.llama.cancel('jan-v3.5-4b')
+  expect(g.llama.snapshot().downloads).toEqual([])
+  await expect(stat(join(g.home, 'data', 'models', 'jan-v3.5-4b', `${sha(MODEL).slice(0, 16)}.gguf.partial`))).rejects.toThrow()
+}, 30_000)
+
 it('keeps a download interrupted by shutting down and resumes it on the next launch', async () => {
   const f = await fixture({ throttle: true })
   f.llama.install()
@@ -913,7 +942,7 @@ it('downloads one Hugging Face file once however often it is asked for, and retr
   await f.until(s => s.downloads.some(item => item.id === broken && item.error !== undefined))
   f.llama.retry(broken)
   expect(f.llama.snapshot().downloads.filter(item => item.id === broken).map(item => item.error)).toEqual([undefined])
-  expect(() => { f.llama.retry('tiny-q4_k_m') }).toThrow(/no failed download/)
+  expect(() => { f.llama.retry('tiny-q4_k_m') }).toThrow(/no failed or paused download/)
 }, 30_000)
 
 it('keeps curated ids for curated models', async () => {

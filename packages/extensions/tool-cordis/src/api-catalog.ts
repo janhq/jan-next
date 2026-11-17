@@ -1868,13 +1868,19 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'retry(id: string): void',
-        description: 'Start a failed download again, from its partial file.',
-        parameters: [{ name: 'id', description: 'model id of the failed download.' }],
-        throws: ['Error when no failed download has that id.'],
+        description: 'Start a failed or paused download again, from its partial file.',
+        parameters: [{ name: 'id', description: 'model id of the failed or paused download.' }],
+        throws: ['Error when no failed or paused download has that id.'],
+      },
+      {
+        signature: 'pause(id: string): void',
+        description: 'Pause a running or queued download, keeping its partial file so retry resumes it.',
+        parameters: [{ name: 'id', description: 'model id of the download.' }],
+        throws: ['Error when no running or queued download has that id.'],
       },
       {
         signature: 'async cancel(id?: string): Promise<void>',
-        description: 'Stop downloads: one by id, or all, discarding their partial files (a download interrupted by shutting down is kept and resumes instead); a failed entry is dismissed.',
+        description: 'Stop downloads: one by id, or all, discarding their files (a download interrupted by shutting down is kept and resumes instead); a failed entry is dismissed, a paused one discarded.',
         parameters: [{ name: 'id', description: 'model id, or undefined for every download.' }],
       },
       {
@@ -7127,7 +7133,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'LlamaCppDownload',
-    declaration: 'export interface LlamaCppDownload {\n    id: string;\n    name: string;\n    progress?: LlamaCppProgress;\n    error?: string;\n}',
+    declaration: 'export interface LlamaCppDownload {\n    id: string;\n    name: string;\n    progress?: LlamaCppProgress;\n    error?: string;\n    paused?: true;\n}',
   },
   {
     name: 'LlamaCppHardware',

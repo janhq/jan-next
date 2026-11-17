@@ -97,15 +97,17 @@ export interface CatalogModelInfo {
   fit?: ModelFit
 }
 
-/** One model download, in progress or failed. */
+/** One model download, in progress, paused or failed. */
 export interface LlamaCppDownload {
   /** Model id the download installs as. */
   id: string
   name: string
-  /** Present once bytes flow; absent while queued. */
+  /** Present once bytes flow; absent while queued. A paused download keeps the bytes it reached. */
   progress?: LlamaCppProgress
   /** Present when the download failed; retrying starts it again from its partial file. */
   error?: string
+  /** Present when the user paused it; its partial file is kept and retrying resumes it. */
+  paused?: true
 }
 
 /** One GGUF file of a looked-up Hugging Face repository. */
@@ -149,7 +151,7 @@ export interface LlamaCppState {
   model: LlamaCppModelInfo
   /** Model provider route that serves every installed model. */
   provider: string
-  /** Progress of the first download in {@link downloads} that is running (not failed or queued); present while bytes flow. */
+  /** Progress of the first download in {@link downloads} that is running (not failed, paused or queued); present while bytes flow. */
   progress?: LlamaCppProgress
   /** Human-readable failure, present in `failed`. */
   error?: string
@@ -159,7 +161,7 @@ export interface LlamaCppState {
   logTail?: string
   /** Installed models; exactly one is active (the default) when any is installed. */
   models: LocalModelEntry[]
-  /** Downloads in progress, queued or failed, in start order. */
+  /** Downloads in progress, queued, paused or failed, in start order. */
   downloads: LlamaCppDownload[]
   /** Curated models the manager offers. */
   catalog: CatalogModelInfo[]

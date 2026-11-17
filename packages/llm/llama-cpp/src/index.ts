@@ -132,6 +132,8 @@ interface Job {
   abort: AbortController
   progress?: LlamaCppProgress
   error?: string
+  /** Stopped by {@link LlamaCpp.pause}; its files are kept for {@link LlamaCpp.retry}. */
+  paused?: true
 }
 
 const LOG_LINES = 20
@@ -434,9 +436,10 @@ export class LlamaCpp extends Service {
       id: job.spec.id, name: job.spec.name,
       ...job.progress === undefined ? {} : { progress: job.progress },
       ...job.error === undefined ? {} : { error: job.error },
+      ...job.paused === undefined ? {} : { paused: job.paused },
     }))
     const installed = new Set(this.record.models.map(model => model.id))
-    const progress = downloads.find(item => item.error === undefined && item.progress !== undefined)?.progress
+    const progress = downloads.find(item => item.error === undefined && item.paused === undefined && item.progress !== undefined)?.progress
     const contextSize = this.server.phase === 'running' && active !== undefined ? this.contexts.get(active.id) : undefined
     return {
       phase: this.server.phase, hostPlatform: this.hostPlatform, provider: this.config.provider,
@@ -670,10 +673,10 @@ export class LlamaCpp extends Service {
     if (found === undefined) throw new HuggingFaceLookupError('not-found', `${repo.repo} has no downloadable file ${file}`)
     const existing = this.record.models.find(model => model.sha256 === found.sha256)
     if (existing !== undefined) return existing.id
-    // The same file already downloading (or failed) keeps its id; a failed one starts again.
+    // The same file already downloading (failed or paused) keeps its id; a stopped one starts again.
     const pending = [...this.jobs.values()].find(job => job.spec.sha256 === found.sha256)
     if (pending !== undefined) {
-      if (pending.error !== undefined) this.enqueue(pending.spec)
+      if (pending.error !== undefined || pending.paused !== undefined) this.enqueue(pending.spec)
       return pending.spec.id
     }
     const name = basename(found.file).replace(/\.gguf$/i, '')
@@ -687,29 +690,60 @@ export class LlamaCpp extends Service {
   }
 
   /**
-   * Start a failed download again, from its partial file.
-   * @param id - model id of the failed download.
-   * @throws Error when no failed download has that id.
+   * Start a failed or paused download again, from its partial file.
+   * @param id - model id of the failed or paused download.
+   * @throws Error when no failed or paused download has that id.
    */
   retry(id: string): void {
     const job = this.jobs.get(id)
-    if (job?.error === undefined) throw new Error(`no failed download "${id}"`)
+    if (job === undefined || (job.error === undefined && job.paused === undefined)) throw new Error(`no failed or paused download "${id}"`)
     this.enqueue(job.spec)
   }
 
   /**
-   * Stop downloads: one by id, or all, discarding their partial files (a download interrupted by
-   * shutting down is kept and resumes instead); a failed entry is dismissed.
+   * Pause a running or queued download, keeping its partial file so {@link retry} resumes it.
+   * @param id - model id of the download.
+   * @throws Error when no running or queued download has that id.
+   */
+  pause(id: string): void {
+    const job = this.jobs.get(id)
+    if (job === undefined || job.error !== undefined || job.paused !== undefined || job.abort.signal.aborted) {
+      throw new Error(`no running download "${id}"`)
+    }
+    job.paused = true
+    job.abort.abort(new Error('paused'))
+    this.emit()
+  }
+
+  /**
+   * Stop downloads: one by id, or all, discarding their files (a download interrupted by shutting
+   * down is kept and resumes instead); a failed entry is dismissed, a paused one discarded.
    * @param id - model id, or undefined for every download.
    */
   async cancel(id?: string): Promise<void> {
+    const discarded: Array<Promise<void>> = []
     for (const [key, job] of this.jobs) {
       if (id !== undefined && key !== id) continue
-      if (job.error !== undefined) this.jobs.delete(key)
+      if (job.paused !== undefined) {
+        this.jobs.delete(key)
+        discarded.push(this.discardFiles(job.spec))
+      } else if (job.error !== undefined) this.jobs.delete(key)
       else job.abort.abort(new Error('cancelled'))
     }
+    // A paused first download was the only job; the first-run offer comes back.
+    if (this.activeModel() === undefined && this.server.phase === 'downloading' && this.jobs.size === 0) this.setServer({ phase: 'missing' })
     this.emit()
+    await Promise.all(discarded)
     await this.downloadQueue
+  }
+
+  /** Remove a download's files, verified or partial; no record references them yet. */
+  private async discardFiles(spec: ModelSpec): Promise<void> {
+    const projector = spec.mmproj === undefined ? undefined : this.projectorFile(spec.id, spec.mmproj)
+    for (const file of [this.modelFile(spec), projector]) {
+      if (file === undefined) continue
+      for (const target of [file, `${file}.partial`]) await rm(target, { force: true }).catch(() => undefined)
+    }
   }
 
   /** @returns an id no installed model, download or curated model uses, derived from `base`. */
@@ -809,20 +843,18 @@ export class LlamaCpp extends Service {
       })
     } catch (error) {
       if (this.jobs.get(job.spec.id) !== job) return
-      const cancelled = job.abort.signal.aborted || this.lifetime.signal.aborted
+      // Pause keeps the job listed and its files on disk, so retry resumes from the partial file.
+      const paused = job.paused !== undefined && !this.lifetime.signal.aborted
+      const cancelled = !paused && (job.abort.signal.aborted || this.lifetime.signal.aborted)
       // A user's Cancel discards the job's files, including a model verified before its projector
       // finished, which no record references; shutting down keeps them so the next launch resumes.
-      if (job.abort.signal.aborted && !this.lifetime.signal.aborted) {
-        for (const file of [this.modelFile(job.spec), projectorPath]) {
-          if (file === undefined) continue
-          for (const target of [file, `${file}.partial`]) await rm(target, { force: true }).catch(() => undefined)
-        }
-      }
+      if (cancelled && !this.lifetime.signal.aborted) await this.discardFiles(job.spec)
       if (cancelled) this.jobs.delete(job.spec.id)
-      else job.error = messageOf(error)
+      else if (!paused) job.error = messageOf(error)
       if (this.lifetime.signal.aborted) return
-      if (this.activeModel() === undefined && this.server.phase === 'downloading' && ![...this.jobs.values()].some(other => other.error === undefined)) {
-        if (cancelled) this.setServer({ phase: 'missing' })
+      const running = [...this.jobs.values()].some(other => other.error === undefined && other.paused === undefined)
+      if (this.activeModel() === undefined && this.server.phase === 'downloading' && !running) {
+        if (cancelled || paused) this.setServer({ phase: 'missing' })
         else this.fail(error)
         return
       }

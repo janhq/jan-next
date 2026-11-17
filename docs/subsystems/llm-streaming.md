@@ -1042,15 +1042,22 @@ async lookupHuggingFace(input: string, signal?: AbortSignal): Promise<HuggingFac
 async downloadHuggingFace(input: string, file: string, signal?: AbortSignal): Promise<string>
 
 /**
- * Start a failed download again, from its partial file.
- * @param id - model id of the failed download.
- * @throws Error when no failed download has that id.
+ * Start a failed or paused download again, from its partial file.
+ * @param id - model id of the failed or paused download.
+ * @throws Error when no failed or paused download has that id.
  */
 retry(id: string): void
 
 /**
- * Stop downloads: one by id, or all, discarding their partial files (a download interrupted by
- * shutting down is kept and resumes instead); a failed entry is dismissed.
+ * Pause a running or queued download, keeping its partial file so {@link retry} resumes it.
+ * @param id - model id of the download.
+ * @throws Error when no running or queued download has that id.
+ */
+pause(id: string): void
+
+/**
+ * Stop downloads: one by id, or all, discarding their files (a download interrupted by shutting
+ * down is kept and resumes instead); a failed entry is dismissed, a paused one discarded.
  * @param id - model id, or undefined for every download.
  */
 async cancel(id?: string): Promise<void>
