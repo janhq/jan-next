@@ -120,7 +120,8 @@ export function registerChatNodeRenderers(
             // Only a real summary names its source event; "No compactable history yet." does not.
             return outcome.sourceEventSeq === undefined ? { ok: false, reason: 'empty' } : { ok: true }
           },
-          retry: (seq) => { ctx.get('conversation')?.input.retry(sessionId, seq as SessionSeq) },
+          // The recovery runs from the card while the composer may hold a draft; that draft must survive the retry.
+          retry: (seq) => { ctx.get('conversation')?.input.retryKeepingDraft(sessionId, seq as SessionSeq) },
         }
         // The failed turn a retry would answer; recovery is offered only on that banner, and the
         // banner follows it live so it stops offering once the retry turn starts.
