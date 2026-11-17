@@ -46,7 +46,7 @@ window.__ModuleLoader__.load({
       ['pink', 'Pink', '#D55EF3', '#FFDAE9', '#4D075F'],
       ['rose', 'Rose', '#F655B8', '#F3C4E1', '#61053E'],
     ]
-    let preferences = { accent: PALETTES.find(p => p[2].toLowerCase() === look.primary.toLowerCase())?.[0] || 'blue', coloredUserBubble: true, ...shell.appearance }
+    let preferences = { accent: PALETTES.find(p => p[2].toLowerCase() === look.primary.toLowerCase())?.[0] || 'blue', coloredUserBubble: false, ...shell.appearance }
     const appearanceListeners = new Set()
     let retheme = null
     const applyAppearance = (value) => {
@@ -95,7 +95,7 @@ window.__ModuleLoader__.load({
           h(Switch, { label: 'Colored user bubbles', checked: value.coloredUserBubble, disabled: busy, onChange: checked => save({ ...value, coloredUserBubble: checked }) })),
         h('div', { className: 'jt-interface-row' },
           h('div', null, h('h3', null, 'Reset to default'), h('p', null, 'Reset accent color and user bubble preferences.')),
-          h(Button, { variant: 'outline', disabled: busy, onClick: () => save({ accent: 'gray', coloredUserBubble: true }) }, 'Reset')),
+          h(Button, { variant: 'outline', disabled: busy, onClick: () => save({ accent: 'gray', coloredUserBubble: false }) }, 'Reset')),
         h('p', null, 'Theme and font size are in General. Automatic conversation titles are in Plugin manager > Conversation-following titles. Token statistics are in General > Performance usage.'),
         error && h('p', { role: 'alert' }, error), h('p', { role: 'status' }, busy ? 'Saving appearance…' : notice))
     }
