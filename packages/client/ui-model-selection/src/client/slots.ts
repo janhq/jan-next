@@ -2,7 +2,7 @@
 import type { RemoteResult } from '@janhq/jan-typert-protocol'
 import type { ModelSelection } from '@janhq/jan-api-remotes/client'
 import type { ModelCatalogModel, ModelProviderGroup } from '@janhq/jan-api-session-controller/types'
-import type { SnapshotStore } from '@janhq/jan-client-store'
+import type { SnapshotStore, ObservableSnapshot } from '@janhq/jan-client-store'
 import type { ModelDirectoryState } from './directory.ts'
 
 /** Catalog data for a model name inside the composer's existing controls. */
@@ -67,6 +67,10 @@ export interface ModelSelectInjected {
   directory: SnapshotStore<ModelDirectoryState>
   /** Ensure the shared advisory catalog is loaded (errors land on the store). */
   load: () => void
+  /** Whether Settings can currently open at the Models section. */
+  settingsAvailability: ObservableSnapshot<boolean>
+  /** Open Settings at the Models section to install a local model or configure a provider. */
+  openModelsSettings: () => void
   /**
    * Choose a catalog badge's provider-authored text for the active locale.
    * @param text - the badge's literal text or translations.

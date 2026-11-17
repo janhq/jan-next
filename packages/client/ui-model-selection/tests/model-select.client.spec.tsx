@@ -9,11 +9,20 @@ import { createSnapshotStore } from '@janhq/jan-client-store'
 import type { ComponentProps } from 'react'
 import type { ModelDirectoryState } from '../src/client/directory.ts'
 import type { ModelOptionsOwner } from '../src/client/slots.ts'
-import { ModelSelect } from '../src/client/ModelSelect.tsx'
+import { ModelSelect as Picker } from '../src/client/ModelSelect.tsx'
 import { zh } from '../src/client/locales.ts'
 import { DockModelSelection, apply, inject } from '../src/client/index.ts'
 import { LocaleRuntime } from '@janhq/jan-client-locale/client'
 import { zh as commonZh } from '@janhq/jan-client-locale/src/locales/zh.ts'
+
+function ModelSelect({ canOpenModelsSettings = false, openModelsSettings = vi.fn(), ...props }:
+  Omit<ComponentProps<typeof Picker>, 'settingsAvailability' | 'openModelsSettings'> & {
+    canOpenModelsSettings?: boolean
+    openModelsSettings?: ComponentProps<typeof Picker>['openModelsSettings']
+  }) {
+  const settingsAvailability = createSnapshotStore(canOpenModelsSettings)
+  return <Picker {...props} settingsAvailability={settingsAvailability} openModelsSettings={openModelsSettings} />
+}
 
 // The seat's key domain is model ∪ common; the stub mirrors the real lookup
 // chain: package dictionary, then common vocabulary, then the key.
@@ -69,7 +78,7 @@ function modelGroups(count: number): ModelDirectoryState['groups'] {
       ...Array.from({ length: Math.max(0, count - 1) }, (_, index) => ({
         id: `model-${index + 2}`, name: `Model ${index + 2}`,
       })),
-    ].slice(0, count)
+    ].slice(0, count),
   }]
 }
 
@@ -121,7 +130,7 @@ describe('ModelSelect label slot', () => {
           data-selected={selected}
           title={provider.name}
         >{provider.id}: {model.name}</span>))
-      }
+      },
     })
     expect(screen.getByTestId('trigger-trusted').textContent).toBe('trusted: Same model')
     expect(screen.getByTestId('trigger-trusted').title).toBe('trusted gateway')
@@ -880,7 +889,8 @@ describe('ModelSelect catalog size', () => {
 
   it('keeps Tab selection available after hovering a small-catalog row', async () => {
     const select = vi.fn().mockResolvedValue({ ok: true, value: undefined })
-    render(<ModelSelect renderLabel={renderLabel} locked={false} available directory={createSnapshotStore(state({ groups: modelGroups(4) }))}
+    render(<ModelSelect renderLabel={renderLabel} locked={false} available
+      directory={createSnapshotStore(state({ groups: modelGroups(4) }))}
       load={vi.fn()} resolveText={resolveText} select={select} t={t} />)
     fireEvent.click(screen.getByRole('button', { name: /选择模型/ }))
     fireEvent.click(screen.getByRole('menuitem', { name: /^模型/ }))
@@ -895,7 +905,8 @@ describe('ModelSelect catalog size', () => {
 
   it.each(['Escape', 'Tab'])('leaves a small model pane with %s and returns to its root cell', (key) => {
     const select = vi.fn()
-    render(<ModelSelect renderLabel={renderLabel} locked={false} available directory={createSnapshotStore(state({ groups: modelGroups(4) }))}
+    render(<ModelSelect renderLabel={renderLabel} locked={false} available
+      directory={createSnapshotStore(state({ groups: modelGroups(4) }))}
       load={vi.fn()} resolveText={resolveText} select={select} t={t} />)
     fireEvent.click(screen.getByRole('button', { name: /选择模型/ }))
     fireEvent.click(screen.getByRole('menuitem', { name: /^模型/ }))
@@ -931,7 +942,7 @@ describe('ModelSelect search', () => {
     const directory = createSnapshotStore(state({
       groups: [
         ...state().groups, { id: 'empty', name: 'Empty Provider', models: [] },
-      ]
+      ],
     }))
     render(<ModelSelect renderLabel={renderLabel} locked={false} available directory={directory} load={vi.fn()}
       resolveText={resolveText} select={vi.fn()} t={t} />)
@@ -941,6 +952,40 @@ describe('ModelSelect search', () => {
     act(() => { directory.set(state({ groups: [] })) })
     expect(screen.getByRole('status').textContent).toBe(zh['empty.models'])
     expect(screen.getByRole('status').closest('[role="menu"]')).toBeNull()
+  })
+
+  it('opens Models settings from the empty catalog and closes the picker', () => {
+    const openModelsSettings = vi.fn()
+    render(<ModelSelect renderLabel={renderLabel} locked={false} available
+      directory={createSnapshotStore(state({ groups: [], current: null }))} load={vi.fn()}
+      canOpenModelsSettings openModelsSettings={openModelsSettings} resolveText={resolveText} select={vi.fn()} t={t} />)
+    fireEvent.click(screen.getByRole('button', { name: '请选择模型' }))
+    expect(screen.getByRole('status').textContent).toBe(zh['empty.models'])
+    fireEvent.click(screen.getByRole('button', { name: zh['empty.openModels'] }))
+    expect(openModelsSettings).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('button', { name: zh['empty.openModels'] })).toBeNull()
+  })
+
+  it('shows the setup path without an unusable action when Settings is unavailable', () => {
+    render(<ModelSelect renderLabel={renderLabel} locked={false} available
+      directory={createSnapshotStore(state({ groups: [], current: null }))} load={vi.fn()}
+      resolveText={resolveText} select={vi.fn()} t={t} />)
+    fireEvent.click(screen.getByRole('button', { name: '请选择模型' }))
+    expect(screen.getByRole('status').textContent).toBe(zh['empty.models'])
+    expect(screen.queryByRole('button', { name: zh['empty.openModels'] })).toBeNull()
+  })
+
+  it('updates the action when Settings becomes available after the picker opens', () => {
+    const availability = createSnapshotStore(false)
+    render(<Picker renderLabel={renderLabel} locked={false} available
+      directory={createSnapshotStore(state({ groups: [], current: null }))} load={vi.fn()}
+      settingsAvailability={availability} openModelsSettings={vi.fn()} resolveText={resolveText} select={vi.fn()} t={t} />)
+    fireEvent.click(screen.getByRole('button', { name: '请选择模型' }))
+    expect(screen.queryByRole('button', { name: zh['empty.openModels'] })).toBeNull()
+    act(() => { availability.set(true) })
+    expect(screen.getByRole('button', { name: zh['empty.openModels'] })).toBeTruthy()
+    act(() => { availability.set(false) })
+    expect(screen.queryByRole('button', { name: zh['empty.openModels'] })).toBeNull()
   })
 
   it.each(['Enter', 'Tab'])('returns focus silently after %s accepts the current model, without suppressing later focus', async (key) => {
@@ -1026,7 +1071,7 @@ describe('ModelSelect search', () => {
       groups: [
         ...modelGroups(4),
         { id: 'other', name: 'Other', models: [{ id: 'gemini', name: 'Gemini Flash' }] },
-      ]
+      ],
     }))
     const select = vi.fn().mockResolvedValue({ ok: true, value: undefined })
     render(<ModelSelect renderLabel={renderLabel} locked={false} available directory={directory} load={vi.fn()}
@@ -1148,6 +1193,7 @@ describe('model seats', () => {
     runtime.ctx.provide('commandUi', { register: () => () => {} })
     runtime.remote.provideNamespaces({ session: { modelCatalog: () => new Promise(() => {}), selectModel: vi.fn() } })
     runtime.ctx.provide('locale', new LocaleRuntime(runtime.ctx))
+    runtime.ctx.provide('settingsNavigation', { availability: createSnapshotStore(true), open: vi.fn(() => true) })
     await runtime.root.declare({
       'conversation.input.model': { kind: 'single', scope: 'session' },
       'conversation.composer.dock': { kind: 'list', scope: 'session' },

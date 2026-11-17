@@ -60,7 +60,7 @@ interface EffortChoice {
  * @returns the trigger and, while open, the two-level menu.
  */
 export function ModelSelect(
-  { locked, available, directory, load, select, resolveText, t, renderLabel, renderOptions, placement = 'composer' }:
+  { locked, available, directory, load, settingsAvailability, openModelsSettings, select, resolveText, t, renderLabel, renderOptions, placement = 'composer' }:
     ModelSelectInjected & Pick<PropsRuntime<'conversation.input.model'>, 'locked'> & PropsLocale<'model'> & {
       /** The composer seat toasts over the composer card; the dock seat (the row under the card) over its trigger. */
       placement?: 'composer' | 'dock'
@@ -73,6 +73,7 @@ export function ModelSelect(
     fn => directory.subscribe(fn),
     () => directory.getSnapshot(),
   )
+  const canOpenModelsSettings = useSyncExternalStore(settingsAvailability.subscribe, settingsAvailability.getSnapshot)
   const [open, setOpen] = useState(false)
   const [pane, setPane] = useState<Pane>('root')
   const [query, setQuery] = useState('')
@@ -613,8 +614,14 @@ export function ModelSelect(
                   )
                 })}
               </div>
-              {state.status === 'ready' && filteredGroups.length === 0 && (
-                <div className={css.empty} role="status">{t(choices.length === 0 ? 'empty.models' : 'search.empty')}</div>
+              {state.status === 'ready' && filteredGroups.length === 0 && (choices.length === 0
+                ? <div className={css.empty}>
+                  <span role="status">{t('empty.models')}</span>
+                  {canOpenModelsSettings && <button type="button" className={css.emptyAction} onClick={() => { close(); openModelsSettings() }}>
+                    {t('empty.openModels')}
+                  </button>}
+                </div>
+                : <div className={css.empty} role="status">{t('search.empty')}</div>
               )}
             </>
           )}

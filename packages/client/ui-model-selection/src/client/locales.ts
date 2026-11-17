@@ -30,7 +30,8 @@ export const zh = {
   'search.placeholder': '搜索模型…',
   'search.clear': '清除搜索',
   'search.empty': '没有匹配的模型。',
-  'empty.models': '暂无可用模型',
+  'empty.models': '还没有可用的模型。前往设置 -> 模型免费下载本地模型，在这台电脑上运行，无需账号。',
+  'empty.openModels': '前往设置 -> 模型',
   'empty.efforts': '当前模型未提供推理等级。',
   'send.tooLong': '这条消息约 {tokens} token，超过 {model} 的上下文窗口（{window}）。发送后此对话会一直失败。请缩短消息或换用上下文更大的模型；再次发送将忽略此提示。',
 } satisfies Record<string, string>
@@ -60,7 +61,8 @@ export const en = {
   'search.placeholder': 'Search models…',
   'search.clear': 'Clear search',
   'search.empty': 'No matching models.',
-  'empty.models': 'No models available.',
+  'empty.models': 'No models yet. Go to Settings -> Models to download a free local model that runs on this computer, no account needed.',
+  'empty.openModels': 'Open Settings -> Models',
   'empty.efforts': 'This model provides no reasoning effort levels.',
   'send.tooLong': "This message is about {tokens} tokens, more than {model}'s context window ({window}). Sending it would leave this chat failing. Shorten it or pick a model with a larger context window; send again to send anyway.",
 } satisfies Record<ModelKey, string>
@@ -87,7 +89,8 @@ export const ja = {
   'search.placeholder': 'モデルを検索…',
   'search.clear': '検索をクリア',
   'search.empty': '一致するモデルがありません。',
-  'empty.models': '利用可能なモデルがありません。',
+  'empty.models': 'まだモデルがありません。設定 -> モデルで無料のローカルモデルをダウンロードできます。このコンピューターで動作し、アカウントは不要です。',
+  'empty.openModels': '設定 -> モデルを開く',
   'empty.efforts': 'このモデルには推論強度の設定がありません。',
   'send.tooLong': 'このメッセージは約 {tokens} トークンで、{model} のコンテキストウィンドウ（{window}）を超えています。送信するとこのチャットは失敗し続けます。短くするか、より大きなコンテキストのモデルを選んでください。もう一度送信するとそのまま送信します。',
 } satisfies Record<keyof typeof en, string>
@@ -114,7 +117,8 @@ export const es = {
   'search.placeholder': 'Buscar modelos…',
   'search.clear': 'Borrar búsqueda',
   'search.empty': 'No hay modelos coincidentes.',
-  'empty.models': 'No hay modelos disponibles.',
+  'empty.models': 'Todavía no hay modelos. Vaya a Configuración -> Modelos para descargar gratis un modelo local que funcione en este equipo, sin necesidad de cuenta.',
+  'empty.openModels': 'Abrir Configuración -> Modelos',
   'empty.efforts': 'Este modelo no proporciona niveles de esfuerzo de razonamiento.',
   'send.tooLong': 'Este mensaje tiene unos {tokens} tokens, más que la ventana de contexto de {model} ({window}). Enviarlo dejaría este chat fallando. Acórtelo o elija un modelo con más contexto; envíelo de nuevo para enviarlo igualmente.',
 } satisfies Record<keyof typeof en, string>
@@ -141,7 +145,8 @@ export const fr = {
   'search.placeholder': 'Rechercher des modèles…',
   'search.clear': 'Effacer la recherche',
   'search.empty': 'Aucun modèle correspondant.',
-  'empty.models': 'Aucun modèle disponible.',
+  'empty.models': 'Aucun modèle pour le moment. Allez dans Paramètres -> Modèles pour télécharger gratuitement un modèle local qui fonctionne sur cet ordinateur, sans compte.',
+  'empty.openModels': 'Ouvrir Paramètres -> Modèles',
   'empty.efforts': 'Ce modèle ne fournit aucun niveau d’effort de raisonnement.',
   'send.tooLong': 'Ce message fait environ {tokens} jetons, plus que la fenêtre de contexte de {model} ({window}). L’envoyer ferait échouer cette conversation. Raccourcissez-le ou choisissez un modèle avec plus de contexte ; renvoyez-le pour l’envoyer quand même.',
 } satisfies Record<keyof typeof en, string>
@@ -168,7 +173,8 @@ export const de = {
   'search.placeholder': 'Modelle suchen…',
   'search.clear': 'Suche löschen',
   'search.empty': 'Keine passenden Modelle.',
-  'empty.models': 'Keine Modelle verfügbar.',
+  'empty.models': 'Noch keine Modelle vorhanden. Öffnen Sie Einstellungen -> Modelle, um kostenlos ein lokales Modell herunterzuladen, das auf diesem Computer ohne Konto läuft.',
+  'empty.openModels': 'Einstellungen -> Modelle öffnen',
   'empty.efforts': 'Dieses Modell liefert keine Argumentationsaufwandsstufen.',
   'send.tooLong': 'Diese Nachricht hat etwa {tokens} Tokens, mehr als das Kontextfenster von {model} ({window}). Danach würde dieser Chat weiter fehlschlagen. Kürzen Sie sie oder wählen Sie ein Modell mit mehr Kontext; erneut senden, um sie trotzdem zu senden.',
 } satisfies Record<keyof typeof en, string>
@@ -195,7 +201,8 @@ export const ru = {
   'search.placeholder': 'Поиск моделей…',
   'search.clear': 'Очистить поиск',
   'search.empty': 'Нет подходящих моделей.',
-  'empty.models': 'Нет доступных моделей.',
+  'empty.models': 'Моделей пока нет. Откройте Настройки -> Модели, чтобы скачать бесплатную локальную модель, которая работает на этом компьютере без учётной записи.',
+  'empty.openModels': 'Открыть Настройки -> Модели',
   'empty.efforts': 'Эта модель не обеспечивает обоснования уровней усилий.',
   'send.tooLong': 'В этом сообщении около {tokens} токенов, больше контекстного окна {model} ({window}). После отправки этот чат будет продолжать выдавать ошибку. Сократите его или выберите модель с большим контекстом; отправьте ещё раз, чтобы всё равно отправить.',
 } satisfies Record<keyof typeof en, string>
@@ -222,7 +229,8 @@ export const pt = {
   'search.placeholder': 'Pesquisar modelos…',
   'search.clear': 'Limpar pesquisa',
   'search.empty': 'Não há modelos correspondentes.',
-  'empty.models': 'Nenhum modelo disponível.',
+  'empty.models': 'Ainda não há modelos. Acesse Configurações -> Modelos para baixar gratuitamente um modelo local que funciona neste computador, sem precisar de conta.',
+  'empty.openModels': 'Abrir Configurações -> Modelos',
   'empty.efforts': 'Este modelo não fornece níveis de esforço de raciocínio.',
   'send.tooLong': 'Esta mensagem tem cerca de {tokens} tokens, mais que a janela de contexto de {model} ({window}). Enviá-la deixaria esta conversa falhando. Encurte-a ou escolha um modelo com mais contexto; envie de novo para enviar mesmo assim.',
 } satisfies Record<keyof typeof en, string>

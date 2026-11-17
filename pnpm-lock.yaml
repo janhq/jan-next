@@ -4927,6 +4927,9 @@ importers:
       '@janhq/jan-client-ui-session':
         specifier: workspace:*
         version: link:../ui-session
+      '@janhq/jan-client-ui-settings-general':
+        specifier: workspace:*
+        version: link:../ui-settings-general
       '@janhq/jan-client-ui-slots':
         specifier: workspace:*
         version: link:../ui-slots

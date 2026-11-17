@@ -24,7 +24,9 @@ import type { } from '@janhq/jan-client-ui-conversation/client'
 import type { } from '@janhq/jan-client-locale/client'
 import type { } from '@janhq/jan-client-ui-renderer/client'
 import type { } from '@janhq/jan-client-ui-session/client'
+import type {} from '@janhq/jan-client-ui-settings-general/client'
 import type { TranslateNS } from '@janhq/jan-client-ui-slots'
+import type { ObservableSnapshot } from '@janhq/jan-client-store'
 import { IconDataOutlineRegular } from '@janhq/jan-client-ui-primitives'
 import type { ModelDirectoryState } from './directory.ts'
 import { ModelDirectoryResolver } from './service.ts'
@@ -64,6 +66,7 @@ function changeDockSeats(delta: 1 | -1): void {
 export const DockModelSelection = {
   inject: ['slots', 'modelDirectories', 'sessions', 'locale'],
   apply(ctx: ClientContext): void {
+    const settingsUnavailable: ObservableSnapshot<boolean> = { getSnapshot: () => false, subscribe: () => () => {} }
     // Claim before registering: the composer seat releases the child slots synchronously.
     ctx.effect(() => {
       changeDockSeats(1)
@@ -75,7 +78,7 @@ export const DockModelSelection = {
         'conversation.input.model.label': { kind: 'single', scope: 'session', inline: true },
         'conversation.input.model.options': { kind: 'list', scope: 'session' },
       },
-      inject: modelInjection(ctx),
+      inject: modelInjection(ctx, settingsUnavailable),
     }, ({ renderSlot, ...props }: ModelSelectInjected & PropsRuntime<'conversation.composer.dock'> & PropsLocale<'model'>
       & PropsRenderSlots<'conversation.input.model.label' | 'conversation.input.model.options'>) => createElement(ModelSelect, {
       ...props, placement: 'dock',
@@ -84,14 +87,23 @@ export const DockModelSelection = {
     })))
   },
 }
-
-function modelInjection(ctx: ClientContext): (sessionId: SessionId) => ModelSelectInjected {
+/**
+ * Compose one model seat without requiring the optional Settings shell.
+ * @param ctx - client plugin context.
+ * @param settingsUnavailable - stable false source for profiles without Settings.
+ * @returns injection for one session's model seat.
+ */
+function modelInjection(
+  ctx: ClientContext, settingsUnavailable: ObservableSnapshot<boolean>,
+): (sessionId: SessionId) => ModelSelectInjected {
   return (sessionId) => {
     const directory = ctx.modelDirectories.directoryFor(sessionId)
     const available = ctx.sessions.subagentAddress(sessionId) === undefined
     return {
       available, directory: directory.store,
       load: () => { if (available) void directory.load().catch(() => { /* surfaced on the store */ }) },
+      settingsAvailability: ctx.get('settingsNavigation')?.availability ?? settingsUnavailable,
+      openModelsSettings: () => { ctx.get('settingsNavigation')?.open('models') },
       resolveText: text => ctx.locale.resolveText(text),
       select: (selection: ModelSelection) => available ? directory.select(selection) : Promise.resolve(undefined),
     }
@@ -167,6 +179,7 @@ export const inject = ['commandUi', 'locale', 'sessions', 'slots', 'remote', 're
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
+  const settingsUnavailable: ObservableSnapshot<boolean> = { getSnapshot: () => false, subscribe: () => () => {} }
   ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-model-selection: dictionaries')
 
   // Non-slot faces (the command description, the popup option builder) read
@@ -246,7 +259,7 @@ export function apply(ctx: ClientContext): void {
           'conversation.input.model.label': { kind: 'single', scope: 'session', inline: true },
           'conversation.input.model.options': { kind: 'list', scope: 'session' },
         },
-        inject: modelInjection(scope),
+        inject: modelInjection(scope, settingsUnavailable),
       }, ({ renderSlot, ...props }: ModelSelectInjected & PropsRuntime<'conversation.input.model'> & PropsLocale<'model'>
         & PropsRenderSlots<'conversation.input.model.label' | 'conversation.input.model.options'>) => createElement(ModelSelect, {
         ...props, placement: 'composer',
