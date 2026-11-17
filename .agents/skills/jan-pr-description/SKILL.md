@@ -6,7 +6,7 @@ user-invocable: false
 
 # Writing PR descriptions
 
-This skill defines what a jan PR description contains, how to write it, and when to update it. The [PR template](../../../.github/pull_request_template.md) supplies only the section headings and placeholders; this skill owns the requirements for each section. Every PR description follows this skill, including PRs created with `gh pr create --body-file`, which skips the template.
+This skill defines what a jan PR description contains, how to write it, and when to update it. The [PR template](../../../.github/pull_request_template.md) is the short form shared with the Jan app; it does not define this skill's sections. Every PR description follows this skill, including PRs created with `gh pr create --body-file`, which skips the template.
 
 ## Scope
 
