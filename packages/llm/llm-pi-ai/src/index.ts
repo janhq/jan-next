@@ -118,6 +118,7 @@ declare module '@janhq/cordis' {
      * emitted as the server reports it (llama.cpp sends one per batch). A call that ends before
      * its prompt is read reports it read, so observers can drop the progress. Transient: not logged.
      * @mode emit
+     * @param progress - the call's route, prompt tokens read so far, and prompt total.
      */
     'llm-pi-ai/prompt-progress'(progress: PiAiPromptProgress): void
   }

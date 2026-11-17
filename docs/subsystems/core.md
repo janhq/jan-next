@@ -1049,14 +1049,17 @@ Source: [`packages/core/agent/src/runtime-types.ts`](../../packages/core/agent/s
 
 #### `agent/request-error` — waterfall
 
-Handle one failed model-request attempt before the loop retries or closes its step. A listener returns `{ kind: 'retry' }` without calling `next()` when it owns recovery, or calls `next()` to delegate. The default `undefined` leaves the failure terminal.
+Handle one failed model-request attempt before the loop retries or closes its step. A listener returns `{ kind: 'retry' }` without calling `next()` when it owns recovery, or calls `next()` to delegate. The default `undefined` leaves the failure terminal. A retry re-runs the failed step on its route, unless the listener recorded a different provider/model with `agent.model.select()`: the loop then closes the failed step and retries in a fresh step prepared for that selection (model fallback).
 
 ```ts cordis-catalog
 /**
  * Handle one failed model-request attempt before the loop retries or closes
  * its step. A listener returns `{ kind: 'retry' }` without calling `next()`
  * when it owns recovery, or calls `next()` to delegate. The default
- * `undefined` leaves the failure terminal.
+ * `undefined` leaves the failure terminal. A retry re-runs the failed step
+ * on its route, unless the listener recorded a different provider/model
+ * with `agent.model.select()`: the loop then closes the failed step and
+ * retries in a fresh step prepared for that selection (model fallback).
  * @param payload.agent - the agent whose request failed.
  * @param payload.turn - the turn containing the failed request.
  * @param payload.step - the step containing the failed request attempt.

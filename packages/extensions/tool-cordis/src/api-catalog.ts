@@ -712,6 +712,19 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'compactionSettings',
+    summary: 'Host settings owner that every compaction backend consults.',
+    description: 'Host settings owner that every compaction backend consults.',
+    methods: [
+      {
+        signature: 'current(): CompactionPreferences',
+        description: 'Read the preferences the user has set.',
+        parameters: [],
+        returns: 'only the fields with a value; the backend validates them.',
+      },
+    ],
+  },
+  {
     key: 'computerUse',
     summary: 'Owns one optional provider registration in the shared computer-use service.',
     description: 'Owns one optional provider registration in the shared computer-use service.',
@@ -4997,7 +5010,7 @@ export const EVENT_API: readonly EventApiEntry[] = [
     mode: 'waterfall',
     signature: '\'agent/request-error\'(this: Scoped<Agent>, payload: { agent: Agent; turn: number; step: number; provider: string; failure: LlmFailure; retryPolicy: ResolvedRetryPolicy | undefined; signal: AbortSignal }, next: () => Promise<RequestErrorAction>): Promise<RequestErrorAction>',
     summary: 'Handle one failed model-request attempt before the loop retries or closes its step.',
-    description: 'Handle one failed model-request attempt before the loop retries or closes its step. A listener returns `{ kind: \'retry\' }` without calling `next()` when it owns recovery, or calls `next()` to delegate. The default `undefined` leaves the failure terminal.',
+    description: 'Handle one failed model-request attempt before the loop retries or closes its step. A listener returns `{ kind: \'retry\' }` without calling `next()` when it owns recovery, or calls `next()` to delegate. The default `undefined` leaves the failure terminal. A retry re-runs the failed step on its route, unless the listener recorded a different provider/model with `agent.model.select()`: the loop then closes the failed step and retries in a fresh step prepared for that selection (model fallback).',
     parameters: [{ name: 'payload', description: '.signal - the turn abort signal. Scope-filtered dispatch (`@janhq/jan-scope`): agent-scoped listeners receive only that agent.' }],
   },
   {
@@ -5255,6 +5268,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     summary: 'Module replacements have finished loading.',
     description: 'Module replacements have finished loading.',
     parameters: [{ name: 'reloads', description: 'Replaced plugins and their module locations.' }],
+  },
+  {
+    name: 'llm-pi-ai/prompt-progress',
+    mode: 'emit',
+    signature: '\'llm-pi-ai/prompt-progress\'(progress: PiAiPromptProgress): void',
+    summary: 'Prompt-processing progress of one call on a route whose profile sets `promptProgress`, emitted as the server reports it (llama.cpp sends one per batch).',
+    description: 'Prompt-processing progress of one call on a route whose profile sets `promptProgress`, emitted as the server reports it (llama.cpp sends one per batch). A call that ends before its prompt is read reports it read, so observers can drop the progress. Transient: not logged.',
+    parameters: [{ name: 'progress', description: 'the call\'s route, prompt tokens read so far, and prompt total.' }],
   },
   {
     name: 'llm-pi-ai/request-headers',
@@ -6115,6 +6136,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'CompactionId',
     declaration: 'export type CompactionId = Branded<\'CompactionId\'>;',
+  },
+  {
+    name: 'CompactionPreferences',
+    declaration: 'export interface CompactionPreferences {\n    auto?: boolean;\n    thresholdRatio?: number;\n    summarizationProvider?: string;\n    summarizationModel?: string;\n}',
   },
   {
     name: 'CompactionResult',
@@ -7157,12 +7182,16 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type LlamaCppPhase = \'checking\' | \'missing\' | \'downloading\' | \'installed\' | \'starting\' | \'running\' | \'stopped\' | \'failed\';',
   },
   {
+    name: 'LlamaCppPrefill',
+    declaration: 'export interface LlamaCppPrefill {\n    sessionId?: string;\n    processed: number;\n    total: number;\n    cache: number;\n}',
+  },
+  {
     name: 'LlamaCppProgress',
     declaration: 'export interface LlamaCppProgress {\n    receivedBytes: number;\n    totalBytes: number;\n    bytesPerSecond: number;\n}',
   },
   {
     name: 'LlamaCppState',
-    declaration: 'export interface LlamaCppState {\n    phase: LlamaCppPhase;\n    hostPlatform: LlamaCppHostPlatform;\n    model: LlamaCppModelInfo;\n    provider: string;\n    progress?: LlamaCppProgress;\n    error?: string;\n    contextSize?: number;\n    logTail?: string;\n    models: LocalModelEntry[];\n    downloads: LlamaCppDownload[];\n    catalog: CatalogModelInfo[];\n    hardware?: LlamaCppHardware;\n}',
+    declaration: 'export interface LlamaCppState {\n    phase: LlamaCppPhase;\n    hostPlatform: LlamaCppHostPlatform;\n    model: LlamaCppModelInfo;\n    provider: string;\n    progress?: LlamaCppProgress;\n    error?: string;\n    contextSize?: number;\n    prefill?: LlamaCppPrefill;\n    logTail?: string;\n    models: LocalModelEntry[];\n    downloads: LlamaCppDownload[];\n    catalog: CatalogModelInfo[];\n    hardware?: LlamaCppHardware;\n}',
   },
   {
     name: 'LlmAdapter',
@@ -7574,7 +7603,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ModelCatalogModel',
-    declaration: 'export interface ModelCatalogModel {\n    readonly id: string;\n    readonly name: string;\n    readonly description?: string;\n    readonly reasoning?: ModelReasoning;\n    readonly badge?: LlmModelBadge;\n}',
+    declaration: 'export interface ModelCatalogModel {\n    readonly id: string;\n    readonly name: string;\n    readonly description?: string;\n    readonly reasoning?: ModelReasoning;\n    readonly badge?: LlmModelBadge;\n    readonly contextWindow?: number;\n}',
   },
   {
     name: 'ModelFit',
@@ -7751,6 +7780,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'PermissionCatalog',
     declaration: 'export interface PermissionCatalog {\n    options: PresetOption[];\n    defaultOptions: PresetOption[];\n    defaultPreset: string;\n}',
+  },
+  {
+    name: 'PiAiPromptProgress',
+    declaration: 'export interface PiAiPromptProgress {\n    readonly provider: string;\n    readonly model: string;\n    readonly sessionId?: string;\n    readonly processed: number;\n    readonly total: number;\n    readonly cache: number;\n}',
   },
   {
     name: 'PiAiRequestHeaderContext',

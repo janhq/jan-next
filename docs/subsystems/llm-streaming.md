@@ -1483,6 +1483,25 @@ Source: [`packages/llm/llm/src/index.ts`](../../packages/llm/llm/src/index.ts)
 
 ### `llm-pi-ai/*` events
 
+<a id="llm-pi-aiprompt-progress--emit"></a>
+
+#### `llm-pi-ai/prompt-progress` — emit
+
+Prompt-processing progress of one call on a route whose profile sets `promptProgress`, emitted as the server reports it (llama.cpp sends one per batch). A call that ends before its prompt is read reports it read, so observers can drop the progress. Transient: not logged.
+
+```ts cordis-catalog
+/**
+ * Prompt-processing progress of one call on a route whose profile sets `promptProgress`,
+ * emitted as the server reports it (llama.cpp sends one per batch). A call that ends before
+ * its prompt is read reports it read, so observers can drop the progress. Transient: not logged.
+ * @mode emit
+ * @param progress - the call's route, prompt tokens read so far, and prompt total.
+ */
+'llm-pi-ai/prompt-progress'(progress: PiAiPromptProgress): void
+```
+
+Source: [`packages/llm/llm-pi-ai/src/index.ts`](../../packages/llm/llm-pi-ai/src/index.ts)
+
 <a id="llm-pi-airequest-headers--waterfall"></a>
 
 #### `llm-pi-ai/request-headers` — waterfall
