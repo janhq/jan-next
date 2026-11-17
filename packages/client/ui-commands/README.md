@@ -33,7 +33,7 @@ A popupSelect spec may supply `searchLabels()` to resolve its placeholder, empty
 
 Options may carry `group: { name, label }`: `name` identifies the group and `label` supplies its localized sticky heading. Equal names share one group; groups retain first-occurrence order in the loaded options, including when a query hides earlier rows. Ungrouped options form one headingless block at their first occurrence. Groups without matching rows are hidden.
 
-The optional `searchMode` defaults to `'substring'`, matching `label` and `detail` case-insensitively without ranking. `'fuzzy-label'` matches only labels as ordered, case-insensitive subsequences and ranks within each group: prefixes first, then alignment score, then original row order. Both modes ignore leading and trailing query spaces; a blank query keeps every row in group order. Rendering, keyboard navigation, and selection use the same filtered order. `/model` opts into `'fuzzy-label'`; other commands retain substring matching unless they opt in.
+Popup search matches `label` and `detail` case-insensitively as one contiguous run of the typed text, without ranking. Leading and trailing query spaces are ignored; a blank query keeps every row in group order. Rendering, keyboard navigation, and selection use the same filtered order.
 
 ### Built-in row faces
 
