@@ -123,6 +123,7 @@ describe('draft-provider model discovery', () => {
           { id: 'acme-camel', displayName: 'Acme Camel', contextWindow: 131_072, maxOutputTokens: 8192 },
           { id: 'acme-mixed', name: 'Acme Mixed', context_window: 32_768, maxTokens: 2048 },
           { id: 'acme-legacy', max_tokens: 1024 },
+          { id: 'acme-router', display_name: 'Acme Router', context_length: 1_000_000, max_completion_tokens: 128_000 },
           { id: 'acme-small' },
         ],
       }),
@@ -136,6 +137,7 @@ describe('draft-provider model discovery', () => {
       { id: 'acme-camel', name: 'Acme Camel', contextWindow: 131_072, maxTokens: 8192 },
       { id: 'acme-mixed', name: 'Acme Mixed', contextWindow: 32_768, maxTokens: 2048 },
       { id: 'acme-legacy', name: 'acme-legacy', maxTokens: 1024 },
+      { id: 'acme-router', name: 'Acme Router', contextWindow: 1_000_000, maxTokens: 128_000 },
       { id: 'acme-small', name: 'acme-small' },
     ])
     expect(server.paths).toEqual(['/v1/models'])

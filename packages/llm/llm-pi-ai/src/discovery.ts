@@ -82,6 +82,7 @@ interface ListingEntry {
   maxOutputTokens?: unknown
   max_tokens?: unknown
   max_output_tokens?: unknown
+  max_completion_tokens?: unknown
   maxTokens?: unknown
   limit?: ListingLimit | null
   top_provider?: ListingTopProvider | null
@@ -214,6 +215,7 @@ function readListing(body: unknown): LlmDiscoveredModel[] {
     const maxTokens = capacity(
       entry?.maxOutputTokens,
       entry?.max_output_tokens,
+      entry?.max_completion_tokens,
       entry?.maxTokens,
       entry?.max_tokens,
       entry?.limit?.output,
