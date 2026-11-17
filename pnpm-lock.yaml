@@ -5876,6 +5876,48 @@ importers:
         specifier: ^18.2.0
         version: 18.3.1(react@18.3.1)
 
+  packages/client/ui-settings-model-policy:
+    devDependencies:
+      '@janhq/cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@janhq/jan-api-remotes':
+        specifier: workspace:*
+        version: link:../../api/remotes
+      '@janhq/jan-client-locale':
+        specifier: workspace:*
+        version: link:../locale
+      '@janhq/jan-client-store':
+        specifier: workspace:*
+        version: link:../store
+      '@janhq/jan-client-test-runtime':
+        specifier: workspace:*
+        version: link:../../test-support/client-runtime
+      '@janhq/jan-client-ui-primitives':
+        specifier: workspace:*
+        version: link:../ui-primitives
+      '@janhq/jan-client-ui-renderer':
+        specifier: workspace:*
+        version: link:../ui-renderer
+      '@janhq/jan-client-ui-settings':
+        specifier: workspace:*
+        version: link:../ui-settings
+      '@janhq/jan-client-ui-settings-models':
+        specifier: workspace:*
+        version: link:../ui-settings-models
+      '@janhq/jan-client-ui-slots':
+        specifier: workspace:*
+        version: link:../ui-slots
+      '@testing-library/react':
+        specifier: ^16.3.3
+        version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.2.0
+        version: 18.3.1(react@18.3.1)
+
   packages/client/ui-settings-models:
     dependencies:
       '@janhq/schemastery':

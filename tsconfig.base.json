@@ -59,6 +59,8 @@
       "@janhq/jan-api-llama-cpp-controller": ["./packages/api/llama-cpp-controller/src/index.ts"],
       "@janhq/jan-client-ui-settings-local-model": ["./packages/client/ui-settings-local-model/src/index.ts"],
       "@janhq/jan-client-ui-settings-local-model/client": ["./packages/client/ui-settings-local-model/src/client/index.ts"],
+      "@janhq/jan-client-ui-settings-model-policy": ["./packages/client/ui-settings-model-policy/src/index.ts"],
+      "@janhq/jan-client-ui-settings-model-policy/client": ["./packages/client/ui-settings-model-policy/src/client/index.ts"],
       "@janhq/jan-experimental-speech-to-text": ["./packages/experimental/speech-to-text/src/index.ts"],
       "@janhq/jan-experimental-translator": ["./packages/experimental/translator/src/index.ts"],
       "@janhq/jan-experimental-translator/types": ["./packages/experimental/translator/src/types.ts"],

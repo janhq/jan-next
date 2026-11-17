@@ -1,0 +1,67 @@
+{
+  "name": "@janhq/jan-client-ui-settings-model-policy",
+  "description": "Settings Models page cards for the model fallback chain and context compaction",
+  "version": "0.2.2-rc.1",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/janhq/jan-next.git",
+    "directory": "packages/client/ui-settings-model-policy"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "types": "./lib/types/client/index.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "jan": {
+    "client": {
+      "inject": [
+        "@janhq/jan-api-remotes",
+        "@janhq/jan-client-locale",
+        "@janhq/jan-client-ui-settings",
+        "@janhq/jan-client-ui-settings-models"
+      ],
+      "platform": "web"
+    }
+  },
+  "scripts": {
+    "bundle": "tsdown",
+    "watch": "tsdown --watch"
+  },
+  "license": "MIT",
+  "peerDependencies": {
+    "@janhq/cordis": "workspace:~"
+  },
+  "devDependencies": {
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-api-remotes": "workspace:*",
+    "@janhq/jan-client-locale": "workspace:*",
+    "@janhq/jan-client-store": "workspace:*",
+    "@janhq/jan-client-test-runtime": "workspace:*",
+    "@janhq/jan-client-ui-primitives": "workspace:*",
+    "@janhq/jan-client-ui-renderer": "workspace:*",
+    "@janhq/jan-client-ui-settings": "workspace:*",
+    "@janhq/jan-client-ui-settings-models": "workspace:*",
+    "@janhq/jan-client-ui-slots": "workspace:*",
+    "@testing-library/react": "^16.3.3",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "files": [
+    "locale/*.json",
+    "lib/index.js",
+    "lib/client.js",
+    "lib/types/**/*.d.ts"
+  ],
+  "private": true
+}

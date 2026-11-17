@@ -76,6 +76,7 @@
     { "path": "./packages/core/tool-executor-ptc" },
     { "path": "./packages/client/ui-settings-account" },
     { "path": "./packages/client/ui-settings-local-model" },
+    { "path": "./packages/client/ui-settings-model-policy" },
     // Shared leaf: web e2e boots the real host webserver (fixture + real-host
     // smoke policy). webserver has zero workspace deps and no cordis merge,
     // so it cannot drag host-side Context augmentation into this program.

@@ -4687,6 +4687,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | `@janhq/jan-client-ui-settings-agent-loop` | — | [`packages/client/ui-settings-agent-loop/src/index.ts`](../packages/client/ui-settings-agent-loop/src/index.ts) |
 | `@janhq/jan-client-ui-settings-general` | — | [`packages/client/ui-settings-general/src/index.ts`](../packages/client/ui-settings-general/src/index.ts) |
 | `@janhq/jan-client-ui-settings-local-model` | — | [`packages/client/ui-settings-local-model/src/index.ts`](../packages/client/ui-settings-local-model/src/index.ts) |
+| `@janhq/jan-client-ui-settings-model-policy` | — | [`packages/client/ui-settings-model-policy/src/index.ts`](../packages/client/ui-settings-model-policy/src/index.ts) |
 | `@janhq/jan-client-ui-settings-plugin-inventory` | — | [`packages/client/ui-settings-plugin-inventory/src/index.ts`](../packages/client/ui-settings-plugin-inventory/src/index.ts) |
 | `@janhq/jan-client-ui-settings-plugins` | — | [`packages/client/ui-settings-plugins/src/index.ts`](../packages/client/ui-settings-plugins/src/index.ts) |
 | `@janhq/jan-client-ui-settings-shell` | — | [`packages/client/ui-settings-shell/src/index.ts`](../packages/client/ui-settings-shell/src/index.ts) |
