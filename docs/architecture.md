@@ -83,7 +83,7 @@ sequenceDiagram
     Window->>DSH: Load interface and client plugins
 ```
 
-- **Runtime:** the layout and local compaction changes require the matching isolated DSH checkout, Node >=24.9 and `OW_DSH_CLI` set to its built `apps/cli/lib/bin.js`. The global installation does not contain these new APIs. A packaged, app-managed runtime is still needed.
+- **Runtime:** the harness is vendored at `deepseek-harness/` with the layout and local compaction changes. `make dsh` builds it (Node >=24.9) and the app runs its `apps/cli/lib/bin.js`; `OW_DSH_CLI` overrides that path. The stock npm release does not contain these APIs. A release bundle that ships the built harness inside the app is still needed.
 - **State:** `<Jan data>/dsh/web-home` is passed as `DSH_HOME`. The app does not use the user's ordinary `~/.dsh` state.
 - **Configuration:** `<Jan data>/dsh/web.patch.yml` adds the shell plugin, appearance settings, active remote provider routes and the selected model when that route is available.
 - **Secrets:** Rust reads API keys from the OS keyring and passes them to the host through `OW_PROVIDER_KEY_<i>` environment variables. They are excluded from the patch file.

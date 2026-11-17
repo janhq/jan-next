@@ -18,6 +18,7 @@ Read [the architecture guide](docs/architecture.md) for before/after diagrams, s
 open-waifu/
 ├── web-app/            desktop bootstrap and legacy web routes (Vite, React)
 ├── dsh/                DSH plugins: Jan shell, native bridge, llama.cpp, downloads, assistants, plugin template (see dsh/README.md)
+├── deepseek-harness/   our DeepSeek Harness fork, the desktop host (built by `make dsh`)
 ├── core/               @janhq/core: shared types
 ├── src-tauri/          desktop app (Rust)
 │   ├── src/                app code
@@ -36,9 +37,17 @@ open-waifu/
 
 ## Run
 
-Needs Node.js 22+, Yarn 4 (corepack), Rust and Make. On Windows, run make from Git Bash.
+Needs Node.js 24.9+ with corepack (it supplies Yarn 4 for the app and pnpm for the harness), Rust and Make. On macOS also install CMake and Ninja (`brew install cmake ninja`) and the Xcode command line tools. On Windows, run make from Git Bash.
 
-Install the DSH host with `npm install -g @deepseek-ai/dsh` (the current integration uses 0.2.2). `OW_DSH_CLI` can point to another built `lib/bin.js`. The app keeps its DSH profile and sessions under the Jan data folder, separate from your own DSH installation's state.
+```bash
+git clone -b thinh-test https://github.com/janhq/jan-next.git open-waifu
+cd open-waifu
+make dev
+```
+
+`make dev` builds everything a fresh clone needs, in order: the app's packages, the DeepSeek Harness in `deepseek-harness/` (`make dsh`), the bundled tools, the llama.cpp engine (Metal on macOS) and then launches the app. The first run takes a while because the harness and the engine compile from source.
+
+DeepSeek Harness (DSH) is vendored in this repo with our own changes. Do not install `@deepseek-ai/dsh` from npm for this app: the stock release lacks those changes and the app refuses to start on it. `OW_DSH_CLI` can point to another `lib/bin.js` built from `deepseek-harness/`. The app keeps its DSH profile and sessions under the Jan data folder, separate from your own DSH installation's state.
 
 The desktop opens DSH directly. There is no separate Jan UI destination. Existing Jan provider endpoints and the selected model are passed to the host at startup; API keys are read from the OS keyring. UI plugins are installed and managed through DSH's Plugins page.
 
@@ -51,13 +60,14 @@ To add a feature as a plugin, or to run the desktop end-to-end check, read [dsh/
 | Command | Does |
 |---|---|
 | `make dev` | Install, build, launch the app |
+| `make dsh` | Build only the vendored DeepSeek Harness |
 | `make dev-web` | UI only, in a browser |
 | `make build` | Production build |
 | `make test` | Lint and all tests |
 | `make clean` | Delete build output |
 | `node scripts/e2e-desktop.mjs` | Launch the real desktop on a temporary data root and check its main screens |
 
-The llama.cpp engine backend is set with `JAN_ENGINE_VARIANT` (`cpu`, `vulkan`, `metal`, `cuda12`, `cuda13`, `hip`), for example `make dev JAN_ENGINE_VARIANT=cuda13`. On Windows the engine needs VS 2022 Build Tools, LLVM (`clang-cl`), Ninja and CMake on `PATH`, plus the CUDA Toolkit for CUDA builds.
+The llama.cpp engine backend is set with `JAN_ENGINE_VARIANT` (`cpu`, `vulkan`, `metal`, `cuda12`, `cuda13`, `hip`; default `metal` on macOS, `vulkan` on Windows), for example `make dev JAN_ENGINE_VARIANT=cuda13`. On Windows the engine needs VS 2022 Build Tools, LLVM (`clang-cl`), Ninja and CMake on `PATH`, plus the CUDA Toolkit for CUDA builds.
 
 ## License
 

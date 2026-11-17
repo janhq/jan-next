@@ -14,6 +14,7 @@ import {
 } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import lefthookPackage from 'lefthook/package.json' with { type: 'json' }
 
 const MINIMUM_GIT = [2, 26, 0]
@@ -626,6 +627,11 @@ async function main() {
   const probe = spawnSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' })
   if (probe.status !== 0) return
   const root = stripGitLineTerminator(probe.stdout)
+  // Vendored inside another repository (open-waifu), the harness's commit hooks
+  // and lefthook.yml would land in that repository's .git and root.
+  const harnessRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+  const prefix = spawnSync('git', ['rev-parse', '--show-prefix'], { cwd: harnessRoot, encoding: 'utf8' })
+  if (prefix.status !== 0 || stripGitLineTerminator(prefix.stdout) !== '') return
   const isWindows = process.platform === 'win32'
   const lefthook = join(root, 'node_modules', '.bin', isWindows ? 'lefthook.cmd' : 'lefthook')
   if (!existsSync(lefthook)) return
