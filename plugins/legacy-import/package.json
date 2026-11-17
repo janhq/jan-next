@@ -10,12 +10,14 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@janhq/jan-plugin-api": "workspace:*"
+    "@janhq/jan-plugin-api": "workspace:*",
+    "@janhq/schemastery": "workspace:~"
   },
   "jan": {
     "client": {
       "platform": "web",
       "inject": [
+        "@janhq/jan-client-ui-layout",
         "@janhq/jan-client-ui-primitives",
         "@janhq/jan-client-ui-settings-plugins"
       ]
