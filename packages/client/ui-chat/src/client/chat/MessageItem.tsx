@@ -58,6 +58,7 @@ function failureMessage(
   if (code === 'INTERRUPTED') return t('message.failure.interrupted')
   if (code === 'ACCOUNT_SIGN_IN_REQUIRED') return t('message.failure.accountSignInRequired')
   if (code === 'QUOTA' || code === 'ACCOUNT_QUOTA') return t('message.failure.quota')
+  if (code === 'CONTEXT_WINDOW_EXCEEDED') return t('message.failure.contextWindow')
   return code === 'AUTH' ? t('message.failure.auth') : message
 }
 
