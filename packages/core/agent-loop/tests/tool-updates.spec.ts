@@ -169,7 +169,7 @@ describe('step-time tool activation', () => {
     expect(agent.session.snapshotEvents().filter(event => ['request/header', 'system/message', 'user/message'].includes(event.type))).toEqual([])
   })
 
-  it('keeps one model selection, tool set, and prompt across retries without admitting users again', async () => {
+  it('keeps one model selection, tool set, and prompt across a same-route retry without admitting users again', async () => {
     const adapter = new MockAdapter([
       [{ type: 'finish', reason: { kind: 'error', failure: { code: 'SERVER', message: 'retry', status: 503 } } }],
       textResponse('done'),
@@ -182,7 +182,6 @@ describe('step-time tool activation', () => {
     ctx.on('agent/request-error', async (_input, next) => {
       await next()
       retried = true
-      agent.model.select({ provider: 'mock', model: 'second' })
       return { kind: 'retry' }
     })
     ctx.tools.register(defineContentToolFixture({

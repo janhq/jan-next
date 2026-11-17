@@ -487,10 +487,9 @@ describe('prepared-route prompt admission', () => {
     })
   })
 
-  it('retains the captured selection for a retry and uses a pending choice on the next step', async () => {
+  it('prepares a fresh step for a selection recorded during recovery and keeps it for the next turn', async () => {
     const adapter = new MockAdapter([
       () => { throw new LlmError('retry this request', 'SERVER') },
-      textResponse('recovered'),
     ], { efforts: [{ id: ReasoningEffortId('high'), name: 'High' }] })
     const h = await harness(adapter)
     const selection = { provider: 'capable', model: 'model', reasoningEffort: ReasoningEffortId('high') }
@@ -510,15 +509,16 @@ describe('prepared-route prompt admission', () => {
     })
 
     await send(h.agent, 'retry once')
-    expect(prepared).toEqual([selection, selection])
+    const next = { provider: 'plain', model: 'next-model' }
+    expect(prepared).toEqual([selection, selection, next, next])
     expect(adapter.requests.map(({ provider, model, reasoningEffort }) => ({ provider, model, reasoningEffort })))
-      .toEqual([selection, selection])
-    expect(h.plain.requests).toHaveLength(0)
-    expect(h.agent.model.current())
-      .toEqual({ provider: 'plain', model: 'next-model' })
+      .toEqual([selection])
+    expect(h.plain.requests).toHaveLength(1)
+    expect(h.plain.requests[0]).toMatchObject(next)
+    expect(h.agent.session.snapshotEvents().filter(event => event.type === 'user/message' && event.data.source.kind === 'user')).toHaveLength(1)
 
     await send(h.agent, 'use the pending choice')
-    expect(h.plain.requests[0]).toMatchObject({ provider: 'plain', model: 'next-model' })
+    expect(h.plain.requests[1]).toMatchObject(next)
     expect(h.ctx.sessionProjections.snapshot(h.agent.session).values.modelSelection)
       .toEqual({ lastUsed: { provider: 'plain', model: 'next-model' }, next: { provider: 'plain', model: 'next-model' } })
   })
