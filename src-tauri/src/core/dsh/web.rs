@@ -66,22 +66,22 @@ pub struct DshWebState {
     pub(crate) host: Mutex<Option<WebHost>>,
 }
 
-/// The CLI of the global `npm i -g @deepseek-ai/dsh`. `OW_DSH_CLI` points at
-/// another `lib/bin.js` (a checkout build, a pinned copy).
+/// The CLI of the harness vendored in `deepseek-harness/`, built by `make dsh`.
+/// The stock npm release lacks the layout seams and compaction hook the
+/// bundled plugins need, so it is never used. `OW_DSH_CLI` points at another
+/// `lib/bin.js` built from the same source.
 fn cli() -> Result<PathBuf, String> {
     if let Some(path) = std::env::var_os("OW_DSH_CLI") {
         return Ok(PathBuf::from(path));
     }
-    let global = if cfg!(windows) {
-        std::env::var_os("APPDATA").map(|d| PathBuf::from(d).join("npm/node_modules"))
-    } else {
-        // npm's default prefix on macOS (Homebrew and the official installer).
-        Some(PathBuf::from("/usr/local/lib/node_modules"))
-    };
-    global
-        .map(|d| d.join("@deepseek-ai/dsh/lib/bin.js"))
-        .filter(|p| p.is_file())
-        .ok_or_else(|| "DSH is not installed; run `npm i -g @deepseek-ai/dsh`".to_string())
+    let vendored = Path::new(env!("CARGO_MANIFEST_DIR")).join("../deepseek-harness/apps/cli/lib/bin.js");
+    if vendored.is_file() {
+        return Ok(vendored);
+    }
+    Err(format!(
+        "the bundled DeepSeek Harness is not built ({} is missing); run `make dsh` in the repository root",
+        vendored.display()
+    ))
 }
 
 /// Tauri maps the source-relative `../dsh` resource directory to `_up_/dsh`.

@@ -1,12 +1,13 @@
 # open-waifu (macOS and Windows)
 #
-#   make dev        install, build core, try the engine, launch the app
+#   make dev        install, build core and the vendored harness, try the engine, launch the app
 #   make build      production build
+#   make dsh        install and build deepseek-harness/ (the desktop host)
 #   make test       lint, vitest and the Rust tests
 #   make clean      delete build output and caches
 #
 # Engine backends: JAN_ENGINE_VARIANT=cpu|vulkan|metal|cuda12|cuda13|hip, joined
-# by `-` (default vulkan). CUDA/HIP builds also get vulkan as a runtime fallback
+# by `-` (default metal on macOS, vulkan elsewhere). CUDA/HIP builds also get vulkan as a runtime fallback
 # unless JAN_ENGINE_VULKAN_FALLBACK=0. JAN_ENGINE_JOBS limits engine parallelism.
 
 ifeq ($(OS),Windows_NT)
@@ -23,19 +24,26 @@ else
     MKDIR = mkdir -p $(1)
 endif
 
-.PHONY: all install dev dev-web build test test-rust lint \
+.PHONY: all install dsh dev dev-web build test test-rust lint \
         stub-resources build-engine build-engine-dev \
         engine-source check-engine-toolchain build-engine-dev-if-possible clean
 
 all:
-	@echo "Targets: dev dev-web build test lint build-engine clean"
+	@echo "Targets: dev dev-web build test lint dsh build-engine clean"
 
 install:
 	yarn install
 	yarn build:tauri:plugin:api
 	yarn build:core
 
-dev: install
+# The desktop host runs the harness vendored in deepseek-harness/. It needs
+# Node >=24.9 and pnpm (corepack supplies the version its package.json pins).
+DSH_DIR := deepseek-harness
+dsh:
+	cd $(DSH_DIR) && corepack pnpm install --frozen-lockfile
+	cd $(DSH_DIR) && corepack pnpm run build:artifacts
+
+dev: install dsh
 	yarn download:bin
 	$(MAKE) build-engine-dev-if-possible
 	yarn dev
@@ -46,7 +54,7 @@ dev-web:
 	yarn build:core
 	yarn dev:web
 
-build: install
+build: install dsh
 ifeq ($(DETECTED_OS),Darwin)
 	rustup target add x86_64-apple-darwin aarch64-apple-darwin
 endif
@@ -80,7 +88,12 @@ test-rust: stub-resources
 
 COMMA := ,
 SPACE := $(subst ,, )
+# Apple GPUs run llama.cpp through Metal; a Mac has no Vulkan SDK by default.
+ifeq ($(DETECTED_OS),Darwin)
+JAN_ENGINE_VARIANT ?= metal
+else
 JAN_ENGINE_VARIANT ?= vulkan
+endif
 JAN_ENGINE_VULKAN_FALLBACK ?= 1
 JAN_ENGINE_CUDA_ARCHS ?=
 JAN_ENGINE_HIP_TARGETS ?=
