@@ -131,6 +131,8 @@ export interface PackageView {
   readonly readOnlyReason?: ReadOnlyReason
   /** Why the Host cannot read or enable the bundle. */
   readonly error?: ManagementError
+  /** Latest enablement outcome, retained while the saved selection differs from active code. */
+  readonly application?: { readonly kind: 'restart'; readonly reason?: RestartReason } | { readonly kind: 'failed'; readonly message: string } | undefined
   readonly rows: readonly PackageRow[]
 }
 
@@ -520,6 +522,11 @@ function failureOf(
     ...failedAt === undefined ? {} : { failedAt },
     ...pendingBuilds === undefined || pendingBuilds.length === 0 ? {} : { pendingBuilds },
   }
+}
+
+/** The persistent card state for an enable request the Host refused or could not apply. */
+function failedApplication(error: unknown): PackageView['application'] {
+  return { kind: 'failed', message: error instanceof Error ? error.message : String(error) }
 }
 
 /** The notice a thrown failure becomes: a refusal keeps its code, anything else its words. */
@@ -1114,10 +1121,15 @@ export class PluginManagerController {
           continue
         }
         this.hasCachedInventory = true
+        const current = new Map(this.getSnapshot().packages.map(pkg => [pkg.name, pkg]))
         this.patch({
           status: 'ready',
           refreshStatus: this.getSnapshot().refreshStatus === 'refreshing' ? 'refreshing' : 'idle',
-          packages: sortPackages(bundles.value.map(bundle => packageView(bundle, plugins.value))),
+          packages: sortPackages(bundles.value.map((bundle) => {
+            const next = packageView(bundle, plugins.value)
+            const previous = current.get(next.name)
+            return previous?.application === undefined ? next : { ...next, application: previous.application }
+          })),
         })
         this.dropStaleVersions()
       } while (this.shouldRerun())
@@ -1468,6 +1480,7 @@ export class PluginManagerController {
         if (result.ok && (result.value.application === 'applied' || result.value.application === 'restart-required')) this.trackToggle(name, true)
       } catch (error) {
         this.patch({ notice: failedNotice(error, { packageName: name, action: 'enable' }, ++this.noticeSeq) })
+        this.setApplication(name, failedApplication(error))
       }
     }
     this.patch({ install: IDLE_INSTALL, highlight: name })
@@ -1490,18 +1503,20 @@ export class PluginManagerController {
     } catch (error) {
       // `patch` drops the notice after disposal.
       this.patch({ notice: failedNotice(error, subject, ++this.noticeSeq) })
+      if (subject.action === 'enable') this.setApplication(subject.packageName, failedApplication(error))
     } finally {
       this.patch({ busy: this.getSnapshot().busy.filter(entry => entry !== key) })
     }
     await this.load()
   }
 
-  /**
-   * Publish a change's outcome: a refused answer or a change the Host could
-   * not apply throws for {@link run} to report; a change that waits for the
-   * next start, that a higher layer overrides, or that the Host stopped is
-   * said in passing.
-   */
+  /** Keep the last enablement application outcome on the package after inventory refreshes. */
+  private setApplication(name: string | undefined, application: PackageView['application']): void {
+    if (name === undefined) return
+    this.patch({ packages: this.getSnapshot().packages.map(pkg => pkg.name === name ? { ...pkg, application } : pkg) })
+  }
+
+  /** Publish a Host change's application outcome and a short-lived toast. */
   private applied(answer: Answer<ChangeResult>, packageName: string): void {
     if (!answer.ok) throw new RemoteAnswerError(answer.error.message)
     const result = answer.value
@@ -1513,11 +1528,13 @@ export class PluginManagerController {
         return
       case 'restart-required':
         this.patch({ notice: { kind: 'restart', packageName, reason: result.restartReason, seq: ++this.noticeSeq } })
+        this.setApplication(packageName, { kind: 'restart', ...result.restartReason === undefined ? {} : { reason: result.restartReason } })
         return
       case 'overridden':
         this.patch({ notice: { kind: 'overridden', packageName, seq: ++this.noticeSeq } })
         return
       case 'applied':
+        this.setApplication(packageName, undefined)
         return
     }
   }

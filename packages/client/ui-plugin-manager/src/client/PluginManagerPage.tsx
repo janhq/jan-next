@@ -427,8 +427,19 @@ function EnableSwitch({ pkg, title, t, busy, onSetEnabled }: {
 
 /** The status one card carries: running, off, or a problem the Host reported. */
 function packageStatus(pkg: PackageView): 'running' | 'disabled' | 'problem' {
-  if (pkg.error !== undefined || (pkg.enabled && pkg.rows.some(row => row.phase === 'failed'))) return 'problem'
+  if (pkg.application?.kind === 'failed' || pkg.error !== undefined || (pkg.enabled && pkg.rows.some(row => row.phase === 'failed'))) return 'problem'
   return pkg.enabled ? 'running' : 'disabled'
+}
+
+/** A saved enablement that is not running remains explicit after its toast disappears. */
+function ApplicationStatus({ pkg, t }: { readonly pkg: PackageView; readonly t: Translate }): ReactNode {
+  if (pkg.application?.kind === 'restart') {
+    return <p className={css.reason} role="status">{restartText('restartNotice', pkg.application.reason, t)}</p>
+  }
+  if (pkg.application?.kind === 'failed') {
+    return <p className={css.reason} role="alert">{t('applicationNotActive', { message: pkg.application.message || t('statusProblem') })}</p>
+  }
+  return null
 }
 
 /** The head every card shares: the artwork, the name that opens the page beside its tags, its one-liner, and what sits at the end. */
@@ -566,6 +577,7 @@ function PackageCard({ pkg, t, resolveText, busy, highlighted, newer, onOpen, on
           <>
             {beta ? <Tag className={css.statusTag} tone="info">{t('statusBeta')}</Tag> : null}
             {status === 'problem' ? <Tag className={css.statusTag} tone="danger">{t('statusProblem')}</Tag> : null}
+            {pkg.application?.kind === 'restart' ? <Tag className={css.statusTag} tone="info">{t('statusRestartToApply')}</Tag> : null}
             {pkg.availability === 'missing' ? <Tag className={css.statusTag}>{t(pkg.installed ? 'statusMissingFiles' : 'statusNotInstalled')}</Tag> : null}
             {updateAvailable(pkg) || newer !== undefined ? <Tag className={css.statusTag} tone="info">{t('statusUpdateAvailable')}</Tag> : null}
           </>
@@ -575,6 +587,7 @@ function PackageCard({ pkg, t, resolveText, busy, highlighted, newer, onOpen, on
       />
       <MetadataError error={pkg.meta?.error} t={t} />
       {pkg.error?.code === 'unsupported-platform' && <p className={css.reason} role="status">{managementText(pkg.error, t)}</p>}
+      <ApplicationStatus pkg={pkg} t={t} />
     </li>
   )
 }
@@ -787,6 +800,7 @@ function PackageDetail({
           {pkg.version === undefined ? null : <Tag className={css.versionTag} tone="neutral">{t('versionTag', { version: pkg.version })}</Tag>}
           {beta ? <Tag className={css.statusTag} tone="info">{t('statusBeta')}</Tag> : null}
           {status === 'problem' ? <Tag className={css.statusTag} tone="danger">{t('statusProblem')}</Tag> : null}
+          {pkg.application?.kind === 'restart' ? <Tag className={css.statusTag} tone="info">{t('statusRestartToApply')}</Tag> : null}
           {pkg.availability === 'missing' ? <Tag className={css.statusTag}>{t(pkg.installed ? 'statusMissingFiles' : 'statusNotInstalled')}</Tag> : null}
           {updateAvailable(pkg) || newer !== undefined ? <Tag className={css.statusTag} tone="info">{t('statusUpdateAvailable')}</Tag> : null}
           {renderSlot('plugins.detail.badge', { subject })}
@@ -796,6 +810,7 @@ function PackageDetail({
       </div>
       <MetadataError error={pkg.meta?.error} t={t} />
       {pkg.error === undefined ? null : <p className={css.reason} role="status">{t('reasonLabel')}: {managementText(pkg.error, t)}</p>}
+      <ApplicationStatus pkg={pkg} t={t} />
       {pkg.readOnlyReason === undefined ? null : <p className={css.reason} role="status">{managementText({ code: pkg.readOnlyReason }, t)}</p>}
       <div className={css.detailSections}>
         {detail}

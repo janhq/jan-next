@@ -489,6 +489,33 @@ describe('PluginManagerController', () => {
     expect(state().status).toBe('ready')
   })
 
+  it('retains restart-required and failed enablement after refreshes until a later change applies', async () => {
+    const { face, state, controller, plugins } = bench({ setBundleEnabled: vi.fn()
+      .mockResolvedValueOnce(ok({ ...APPLIED, application: 'restart-required', restartReason: 'package-moved' }))
+      .mockResolvedValueOnce(ok(failed({ code: 'operation-error', diagnostic: 'module failed to load' })))
+      .mockResolvedValueOnce(ok(APPLIED))
+      .mockResolvedValueOnce(ok(failed({ code: 'operation-error', diagnostic: 'disable failed' }))),
+    })
+    await controller.load()
+    face.setEnabled(BUNDLE.name, true)
+    await vi.waitFor(() => { expect(state().packages[0]?.application).toEqual({ kind: 'restart', reason: 'package-moved' }) })
+    face.dismissNotice()
+    await controller.load()
+    expect(state().packages[0]?.application).toEqual({ kind: 'restart', reason: 'package-moved' })
+    face.setEnabled(BUNDLE.name, true)
+    await vi.waitFor(() => { expect(state().packages[0]?.application).toEqual({ kind: 'failed', message: 'module failed to load' }) })
+    face.dismissNotice()
+    await controller.load()
+    expect(state().packages[0]?.application).toEqual({ kind: 'failed', message: 'module failed to load' })
+    face.setEnabled(BUNDLE.name, true)
+    await vi.waitFor(() => { expect(state().packages[0]?.application).toBeUndefined() })
+    // A refused disable leaves the bundle running; it is not reported as inactive.
+    face.setEnabled(BUNDLE.name, false)
+    await vi.waitFor(() => { expect(state().notice?.kind).toBe('failed') })
+    expect(state().packages[0]?.application).toBeUndefined()
+    expect(plugins.setBundleEnabled).toHaveBeenCalledTimes(4)
+  })
+
   it('enables a bundle, marks it busy meanwhile, and says when a restart is needed or a layer overrides it', async () => {
     const gate = deferred<ReturnType<typeof ok<ChangeResult>>>()
     const { plugins, face, state, controller } = bench({

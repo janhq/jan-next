@@ -762,6 +762,19 @@ describe('PluginManagerPage', () => {
     expect(locked.getAttribute('title')).toBe(en.reasonManagementRequired)
   })
 
+  it('keeps restart-required and failed enablement visible on cards and detail pages', () => {
+    const { store, actions } = renderTab({ packages: [
+      pkg({ name: 'dsh-ppt', enabled: true, application: { kind: 'restart', reason: 'package-moved' } }),
+      pkg({ name: 'dsh-cad', enabled: true, application: { kind: 'failed', message: 'Cannot load plugin' } }),
+    ] })
+    expect(screen.getByText('Restart to apply')).toBeTruthy()
+    expect(screen.getByText('Not active: Cannot load plugin')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'View dsh-ppt' }))
+    expect(screen.getByText('Restart to apply')).toBeTruthy()
+    expect(actions.setEnabled).not.toHaveBeenCalled()
+    expect(store.getSnapshot().packages).toHaveLength(2)
+  })
+
   it('omits profile and persistent-terminal bundles while retaining other optional and third-party bundles', () => {
     renderTab({
       packages: [
