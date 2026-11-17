@@ -21,10 +21,12 @@ export interface LocalModelActions {
   uninstall: () => void
   /** Download a curated model by catalog id. */
   downloadModel: (id: string) => void
-  /** Stop a download, or dismiss a failed one. */
+  /** Stop a download and discard its files, or dismiss a failed one. */
   cancelDownload: (id: string) => void
-  /** Start a failed download again. */
+  /** Start a failed or paused download again, from its partial file. */
   retryDownload: (id: string) => void
+  /** Pause a running or queued download, keeping its partial file. */
+  pauseDownload: (id: string) => void
   /** Make an installed model the default and load it. */
   setDefaultModel: (id: string) => Promise<Outcome<void>>
   /** Load an installed model now. */
@@ -76,6 +78,7 @@ export function createActions(ctx: Context): LocalModelActions {
     downloadModel: (id) => { run(() => ctx.remote.llamaCpp.downloadModel(id)) },
     cancelDownload: (id) => { run(() => ctx.remote.llamaCpp.cancelDownload(id)) },
     retryDownload: (id) => { run(() => ctx.remote.llamaCpp.retryDownload(id)) },
+    pauseDownload: (id) => { run(() => ctx.remote.llamaCpp.pauseDownload(id)) },
     setDefaultModel: id => answer(() => ctx.remote.llamaCpp.setDefaultModel(id)),
     loadModel: id => answer(() => ctx.remote.llamaCpp.loadModel(id)),
     unloadModel: id => answer(() => ctx.remote.llamaCpp.unloadModel(id)),

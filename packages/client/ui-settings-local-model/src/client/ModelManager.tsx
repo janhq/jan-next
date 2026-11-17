@@ -110,29 +110,46 @@ function InstalledModels({ state, actions, t }: SectionProps): ReactNode {
   </section>
 }
 
+/** Percent of a paused download's bytes already on disk. */
+function pausedPercent(item: LlamaCppState['downloads'][number]): string {
+  const progress = item.progress
+  if (progress === undefined || progress.totalBytes <= 0) return '0'
+  return String(Math.min(100, Math.floor((progress.receivedBytes / progress.totalBytes) * 100)))
+}
+
 function Downloads({ state, actions, t }: SectionProps): ReactNode {
-  // While nothing is installed the card's own progress line shows the first download.
-  const items = state.models.length === 0 ? state.downloads.filter(item => item.error !== undefined) : state.downloads
+  // While nothing is installed the card's own progress line shows the running first download.
+  const items = state.models.length === 0
+    ? state.downloads.filter(item => item.error !== undefined || item.paused !== undefined)
+    : state.downloads
   if (items.length === 0) return null
   return <section className={css.section} aria-label={t('downloadsTitle')}>
     <h4 className={css.sectionTitle}>{t('downloadsTitle')}</h4>
     <ul className={css.list} data-testid="local-model-downloads">
-      {items.map(item => <li key={item.id} className={css.row} data-model-id={item.id}>
-        <span className={css.rowMain}>
-          <span className={css.rowName} title={item.name}>{item.name}</span>
-          {item.error !== undefined && <span className={css.error} role="alert">{item.error}</span>}
-          {item.error === undefined && item.progress === undefined && <span className={css.muted}>{t('queued')}</span>}
-        </span>
-        <span className={css.actions}>
-          {item.error !== undefined && <Button variant="outline" size="sm" data-testid="local-model-retry-download"
-            onClick={() => { actions.retryDownload(item.id) }}>{t('retryDownload')}</Button>}
-          <Button variant="ghost" size="sm" onClick={() => { actions.cancelDownload(item.id) }}>
-            {t(item.error === undefined ? 'cancel' : 'dismiss')}
-          </Button>
-        </span>
-        {item.progress !== undefined && item.error === undefined
-          && <span className={css.rowWide}><DownloadProgress progress={item.progress} name={item.name} t={t} /></span>}
-      </li>)}
+      {items.map(item => {
+        const running = item.error === undefined && item.paused === undefined
+        return <li key={item.id} className={css.row} data-model-id={item.id}>
+          <span className={css.rowMain}>
+            <span className={css.rowName} title={item.name}>{item.name}</span>
+            {item.error !== undefined && <span className={css.error} role="alert">{item.error}</span>}
+            {item.paused !== undefined && <span className={css.muted}>{t('pausedAt', { percent: pausedPercent(item) })}</span>}
+            {running && item.progress === undefined && <span className={css.muted}>{t('queued')}</span>}
+          </span>
+          <span className={css.actions}>
+            {item.error !== undefined && <Button variant="outline" size="sm" data-testid="local-model-retry-download"
+              onClick={() => { actions.retryDownload(item.id) }}>{t('retryDownload')}</Button>}
+            {item.paused !== undefined && <Button variant="outline" size="sm" data-testid="local-model-resume-download"
+              onClick={() => { actions.retryDownload(item.id) }}>{t('resumeDownload')}</Button>}
+            {running && <Button variant="outline" size="sm" data-testid="local-model-pause-download"
+              onClick={() => { actions.pauseDownload(item.id) }}>{t('pauseDownload')}</Button>}
+            <Button variant="ghost" size="sm" onClick={() => { actions.cancelDownload(item.id) }}>
+              {t(item.error === undefined ? 'cancel' : 'dismiss')}
+            </Button>
+          </span>
+          {running && item.progress !== undefined
+            && <span className={css.rowWide}><DownloadProgress progress={item.progress} name={item.name} t={t} /></span>}
+        </li>
+      })}
     </ul>
   </section>
 }
@@ -156,7 +173,8 @@ function AddModel({ state, actions, t }: SectionProps): ReactNode {
   const needle = text.toLowerCase()
   const matches = looksLikeRepo ? [] : state.catalog.filter(entry =>
     needle === '' || entry.name.toLowerCase().includes(needle) || entry.repo.toLowerCase().includes(needle))
-  const downloading = new Set(state.downloads.filter(item => item.error === undefined).map(item => item.id))
+  // A paused download offers Download again, which resumes it from its partial file.
+  const downloading = new Set(state.downloads.filter(item => item.error === undefined && item.paused === undefined).map(item => item.id))
 
   const runLookup = (): void => {
     pending.current?.abort()
@@ -241,7 +259,7 @@ function RepoFiles({ result, state, actions, t, started, onStarted }: RepoFilesP
     const id = started.get(key)
     if (id === undefined) return 'queued'
     if (state.models.some(model => model.id === id)) return 'installed'
-    const download = state.downloads.find(item => item.id === id && item.error === undefined)
+    const download = state.downloads.find(item => item.id === id && item.error === undefined && item.paused === undefined)
     if (download === undefined) return 'available'
     return download.progress === undefined ? 'queued' : 'downloading'
   }

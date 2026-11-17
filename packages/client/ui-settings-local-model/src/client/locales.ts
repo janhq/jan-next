@@ -76,6 +76,9 @@ const MANAGER_EN = {
   imported: 'Added {name}.',
   dismiss: 'Dismiss',
   retryDownload: 'Retry',
+  pauseDownload: 'Pause',
+  resumeDownload: 'Resume',
+  pausedAt: 'Paused at {percent}%',
   downloadsTitle: 'Downloads',
 } as const
 

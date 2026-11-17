@@ -45,7 +45,7 @@ function fixture(state: StateInput) {
   const store = createSnapshotStore<LocalModelMirror>({ state: full(state), connected: true })
   const actions = {
     install: vi.fn(), cancel: vi.fn(), start: vi.fn(), stop: vi.fn(), uninstall: vi.fn(),
-    downloadModel: vi.fn(), cancelDownload: vi.fn(), retryDownload: vi.fn(),
+    downloadModel: vi.fn(), cancelDownload: vi.fn(), retryDownload: vi.fn(), pauseDownload: vi.fn(),
     setDefaultModel: vi.fn<LocalModelActions['setDefaultModel']>(async () => ({ ok: true, value: undefined })),
     loadModel: vi.fn<LocalModelActions['loadModel']>(async () => ({ ok: true, value: undefined })),
     unloadModel: vi.fn<LocalModelActions['unloadModel']>(async () => ({ ok: true, value: undefined })),
@@ -179,11 +179,19 @@ it('downloads a curated model and shows it in the downloads list with its progre
   f.set({ phase: 'running', models: [jan], downloads: [
     { id: 'qwen3-8b', name: 'Qwen3 8B', progress: progress(2_500_000_000, 5_027_784_512) },
     { id: 'broken', name: 'Broken', error: 'Could not download model: HTTP 404' },
+    { id: 'gemma', name: 'Gemma', paused: true, progress: progress(1_000_000_000, 4_000_000_000) },
   ] })
   card(f)
   const downloads = screen.getByTestId('local-model-downloads')
   expect(downloads.textContent).toContain('Downloading Qwen3 8B: 49% · 2.5 GB of 5.0 GB')
   expect(downloads.textContent).toContain('Could not download model: HTTP 404')
+  expect(downloads.textContent).toContain('Paused at 25%')
+  // Only the running download offers Pause; only the paused one offers Resume.
+  expect(screen.getAllByTestId('local-model-pause-download')).toHaveLength(1)
+  fireEvent.click(screen.getByTestId('local-model-pause-download'))
+  expect(f.actions.pauseDownload).toHaveBeenCalledWith('qwen3-8b')
+  fireEvent.click(screen.getByTestId('local-model-resume-download'))
+  expect(f.actions.retryDownload).toHaveBeenCalledWith('gemma')
   fireEvent.click(screen.getByTestId('local-model-retry-download'))
   expect(f.actions.retryDownload).toHaveBeenCalledWith('broken')
   fireEvent.click(screen.getByRole('button', { name: en.dismiss }))
