@@ -1736,8 +1736,9 @@ describe('model-switch pressure', () => {
     )
   }
 
+  /** An `undefined` key drops the harness default, so the engine's own default applies. */
   function harness(
-    config: BasicCompactionConfig = {},
+    config: { [K in keyof BasicCompactionConfig]?: BasicCompactionConfig[K] | undefined } = {},
     finish?: Extract<StreamChunk, { type: 'finish' }>['reason'],
   ) {
     const ctx = new Context()
@@ -1748,9 +1749,10 @@ describe('model-switch pressure', () => {
     const adapter = new ScriptedAdapter([{ type: 'text', text: 'checkpoint' }], finish)
     ctx.llm.registerAdapter(['small'], new ContextAdapter(1_000))
     ctx.llm.registerAdapter([MODEL], adapter)
-    const compact = new BasicCompactionEngine(ctx, {
-      headroomTokens: 0, maxTokens: 32, thresholdRatio: 0.5, retainTokens: 100, ...config,
-    })
+    const merged = { headroomTokens: 0, maxTokens: 32, thresholdRatio: 0.5, retainTokens: 100, ...config }
+    const compact = new BasicCompactionEngine(ctx, Object.fromEntries(
+      Object.entries(merged).filter(([, value]) => value !== undefined),
+    ) as BasicCompactionConfig)
     return { ctx, adapter, compact }
   }
 
