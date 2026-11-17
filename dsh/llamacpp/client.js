@@ -280,7 +280,29 @@ window.__ModuleLoader__.load({
         h('span', { className: 'ow-models-capability', 'data-tone': fit?.tone || 'neutral' }, h(ModelIcon, { kind: 'installed', size: 16 }), label))
     }
 
-    function CatalogCard({ model, onImport }) {
+    // A catalog Download starts the transfer where the user clicked it; sending
+    // them to the Import form dropped their filter and scroll position.
+    function QuantDownload({ quant, openDownloads }) {
+      const [state, setState] = React.useState({ phase: 'idle' })
+      async function start() {
+        setState({ phase: 'starting' })
+        try {
+          const result = await api('import', { id: quant.model_id, modelPath: quant.path })
+          const taskId = typeof result === 'string' ? result : result?.taskId || result?.id
+          if (!taskId) throw new Error('The download did not start. Refresh and try again.')
+          setState({ phase: 'started' })
+        } catch (error) { setState({ phase: 'failed', error: errorText(error) }) }
+      }
+      if (state.phase === 'started') {
+        return h('span', { className: 'ow-models-actions', role: 'status' }, h('span', { className: 'ow-muted' }, 'Downloading'),
+          h(Button, { variant: 'outline', size: 'sm', onClick: () => openDownloads?.() }, 'View progress'))
+      }
+      return h('span', { className: 'ow-models-actions' },
+        state.phase === 'failed' ? h('span', { role: 'alert' }, state.error) : null,
+        h(Button, { variant: 'outline', size: 'sm', disabled: state.phase === 'starting', onClick: start }, h(ModelIcon, { kind: 'import', size: 16 }), state.phase === 'starting' ? 'Starting…' : state.phase === 'failed' ? 'Retry download' : 'Download'))
+    }
+
+    function CatalogCard({ model, openDownloads }) {
       const [expanded, setExpanded] = React.useState(false)
       const downloads = Number(model.downloads)
       const quants = Array.isArray(model.quants) ? model.quants : []
@@ -298,10 +320,10 @@ window.__ModuleLoader__.load({
               h('div', { className: 'ow-models-variant' },
                 h('span', { className: 'ow-models-stat' }, quant.model_id, quant.file_size ? ` (${quant.file_size})` : ''),
                 h(FitLabel, { bytes: catalogBytes(quant.file_size) })),
-              h(Button, { variant: 'outline', size: 'sm', onClick: () => onImport({ id: quant.model_id, modelPath: quant.path }) }, h(ModelIcon, { kind: 'import', size: 16 }), 'Download'))))) : null))
+              h(QuantDownload, { quant, openDownloads }))))) : null))
     }
 
-    function Catalog({ onImport }) {
+    function Catalog({ onImport, openDownloads }) {
       const [models, setModels] = React.useState(null)
       const [error, setError] = React.useState('')
       const [query, setQuery] = React.useState('')
@@ -353,7 +375,7 @@ window.__ModuleLoader__.load({
         error ? h('div', null, h(Button, { variant: 'outline', onClick: () => setAttempt(value => value + 1) }, 'Retry catalog')) : null,
         !models && !error ? h(Notice, null, 'Loading catalog…') : null,
         models ? h('p', { className: 'ow-muted ow-models-stat', role: 'status' }, `${filtered.length} ${filtered.length === 1 ? 'model' : 'models'}`) : null,
-        h('ul', { className: 'ow-models-list' }, filtered.map(model => h(CatalogCard, { key: model.model_name, model, onImport }))))
+        h('ul', { className: 'ow-models-list' }, filtered.map(model => h(CatalogCard, { key: model.model_name, model, openDownloads }))))
     }
 
     function ModelPanel({ openDownloads }) {
@@ -430,7 +452,7 @@ window.__ModuleLoader__.load({
                   h(Button, { variant: 'ghost', disabled: Boolean(busy), onClick: () => { setDeleting(model); setAcknowledged(false) } }, 'Delete')))
             }))) : null,
           tab === 'import' ? h(ImportForm, { draft, setDraft, openDownloads, onStarted: () => { void refresh() } }) : null,
-          tab === 'catalog' ? h(Catalog, { onImport: selectImport }) : null,
+          tab === 'catalog' ? h(Catalog, { onImport: selectImport, openDownloads }) : null,
           tab === 'settings' ? h('div', { className: 'ow-model-form' }, h('h2', null, 'Engine settings'), h(SettingsForm, null)) : null),
         h(Modal, { open: Boolean(editing), onClose: () => setEditing(null), title: `Settings: ${editing?.name || editing?.id || ''}`, closeLabel: 'Close model settings' }, editing ? h(SettingsForm, { key: editing.id, modelId: editing.id }) : null),
         h(RiskConfirmation, {
