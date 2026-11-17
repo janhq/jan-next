@@ -2479,6 +2479,9 @@ importers:
       '@janhq/jan-llm':
         specifier: workspace:*
         version: link:../../llm/llm
+      '@janhq/jan-llm-fallback':
+        specifier: workspace:*
+        version: link:../../llm/llm-fallback
       '@janhq/jan-llm-pi-ai':
         specifier: workspace:*
         version: link:../../llm/llm-pi-ai
@@ -12973,6 +12976,43 @@ importers:
       '@janhq/jan-package-manifest':
         specifier: workspace:*
         version: link:../../util/package-manifest
+
+  packages/llm/llm-fallback:
+    dependencies:
+      '@janhq/schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+    devDependencies:
+      '@janhq/cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@janhq/cosmokit':
+        specifier: link:../../../vendor/cosmokit
+        version: link:../../../vendor/cosmokit
+      '@janhq/jan-agent':
+        specifier: workspace:*
+        version: link:../../core/agent
+      '@janhq/jan-agent-loop':
+        specifier: workspace:*
+        version: link:../../core/agent-loop
+      '@janhq/jan-agent-loop-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/agent-loop-testkit
+      '@janhq/jan-llm':
+        specifier: workspace:*
+        version: link:../llm
+      '@janhq/jan-llm-retry':
+        specifier: workspace:*
+        version: link:../llm-retry
+      '@janhq/jan-session':
+        specifier: workspace:*
+        version: link:../../core/session
+      '@janhq/jan-session-projection':
+        specifier: workspace:*
+        version: link:../../session/session-projection
+      '@janhq/jan-token-meter':
+        specifier: workspace:*
+        version: link:../token-meter
 
   packages/llm/llm-pi-ai:
     dependencies:

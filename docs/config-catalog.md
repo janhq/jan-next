@@ -1878,6 +1878,38 @@ export interface ArtifactOverride {
 }
 ```
 
+<a id="janhqjan-llm-fallback"></a>
+
+## `@janhq/jan-llm-fallback`
+
+- `inject`: `llm` · `tokenMeter`
+- `refs`: `Volatile` (`@janhq/cordis`)
+- `source`: [`packages/llm/llm-fallback/src/index.ts:37`](../packages/llm/llm-fallback/src/index.ts)
+
+```ts config-catalog
+/** Live-editable fallback policy; every field is a volatile reference. */
+export interface Config {
+  /** Ordered models tried after the selected one fails; empty turns fallback off (default `[]`). */
+  chain: Volatile<FallbackRoute[]>
+  /** Seconds a failed model rests before Jan tries it again or switches back to it (default 300). */
+  cooldownSeconds: Volatile<number>
+  /**
+   * Return to the user's model at a turn start only while the conversation
+   * uses less than this percent of that model's context window (default 30).
+   * Switching models drops the provider prompt cache.
+   */
+  switchBackBelowPercent: Volatile<number>
+}
+
+/** One provider route in the fallback chain. */
+export interface FallbackRoute {
+  /** Registered provider route id. */
+  provider: string
+  /** Provider-owned model id. */
+  model: string
+}
+```
+
 <a id="janhqjan-llm-pi-ai"></a>
 
 ## `@janhq/jan-llm-pi-ai`

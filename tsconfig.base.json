@@ -477,6 +477,7 @@
       "@janhq/jan-llm-mock-server": ["./packages/test-support/llm-mock-server/src"],
       "@janhq/jan-llm-pi-ai": ["./packages/llm/llm-pi-ai/src"],
       "@janhq/jan-llm-replay": ["./packages/test-support/llm-replay/src"],
+      "@janhq/jan-llm-fallback": ["./packages/llm/llm-fallback/src"],
       "@janhq/jan-llm-retry": ["./packages/llm/llm-retry/src"],
       "@janhq/jan-loader-smoke": ["./packages/test-support/loader-smoke/src"],
       "@janhq/jan-lsp": ["./packages/lsp/lsp/src"],

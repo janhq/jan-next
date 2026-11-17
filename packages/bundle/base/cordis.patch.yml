@@ -95,6 +95,11 @@
     - id: llm-retry
       name: '@janhq/jan-llm-retry'
 
+    # Jan: continue a rate-limited, out-of-quota or refused reply on the next
+    # model the user listed in Settings > Models; empty chain = off.
+    - id: model-fallback
+      name: '@janhq/jan-llm-fallback'
+
     # Live Config forms persist through the active profile patch.
 
     # Live configuration forms persist through the launcher's profile.
