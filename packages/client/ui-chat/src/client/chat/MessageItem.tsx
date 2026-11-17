@@ -7,6 +7,7 @@ import { JsonBlock, StateDot, TextShimmer } from '@janhq/jan-client-ui-primitive
 import type {
   ChatNodeOwnerProps, ChatNodeViewProps, ChatViewSlotProps, UserContentAttachment, UserContentData, UserContentInput,
 } from '../contract/slots.ts'
+import type { ModelSwitchChatData } from '../contract/chat-nodes.ts'
 import type { ModelRetryNode, TurnErrorNode, UserMessageNode } from '../contract/snapshot.ts'
 import { CompactionItem } from './CompactionItem.tsx'
 import { ContextInjectionRow } from './ContextInjectionRow.tsx'
@@ -119,6 +120,30 @@ function ModelRetryItem({ node, active, t }: {
           <span className={css.retryDetailLabel}>{t('message.retry.delay')}</span>
           {t('duration.milliseconds', { milliseconds: Math.round(node.delayMs) })}
         </div>
+        <div>
+          <span className={css.retryDetailLabel}>{t('message.retry.failure')}</span>
+          {failureMessage(node.failure.message, node.failure.code, t)}
+        </div>
+      </div>
+    </details>
+  )
+}
+
+/** A visible record that another model took over after the model in use failed. */
+function ModelSwitchItem({ node, t }: {
+  node: ModelSwitchChatData
+  t: ChatViewSlotProps['t']
+}) {
+  return (
+    <details className={css.retryRow}>
+      <summary className={css.retrySummary}>
+        <span className={css.retryText} role="status">
+          {node.from === undefined
+            ? t('message.modelSwitch.statusUnknown', { to: node.to })
+            : t('message.modelSwitch.status', { from: node.from, to: node.to })}
+        </span>
+      </summary>
+      <div className={css.retryDetails}>
         <div>
           <span className={css.retryDetailLabel}>{t('message.retry.failure')}</span>
           {failureMessage(node.failure.message, node.failure.code, t)}
@@ -383,6 +408,11 @@ export const CompactionNodeView = memo(function CompactionNodeView({ node, t }: 
 export const RetryNodeView = memo(function RetryNodeView({ node, t }: ChatNodeViewProps<'model-retry'>) {
   const data = node.data
   return <ModelRetryItem node={data.current} active={data.current.retryState === 'scheduled'} t={t} />
+})
+
+/** Mid-Turn model-switch keyed Chat renderer. */
+export const ModelSwitchNodeView = memo(function ModelSwitchNodeView({ node, t }: ChatNodeViewProps<'model-switch'>) {
+  return <ModelSwitchItem node={node.data} t={t} />
 })
 
 /** Terminal turn-error keyed Chat renderer. */

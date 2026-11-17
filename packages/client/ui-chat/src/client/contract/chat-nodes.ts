@@ -67,6 +67,15 @@ export interface RetryChatData {
   readonly current: ModelRetryNode
 }
 
+/** A model switch recorded mid-Turn right after the model in use failed its attempt. */
+export interface ModelSwitchChatData {
+  readonly seq: number
+  /** Model that failed; absent when no earlier request or selection is loaded. */
+  readonly from?: string
+  readonly to: string
+  readonly failure: { readonly message: string; readonly code?: string }
+}
+
 /** One provider/model route that contributed a billed request attempt. */
 export interface TurnTokenUsageRoute {
   readonly provider: string
