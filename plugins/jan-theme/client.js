@@ -7,9 +7,9 @@ window.__ModuleLoader__.load({
     const React = require('react')
     const h = React.createElement
     const {
-      IconPluginPinwheelOutlineRegular, IconSettingsOutlineMedium, IconDatabaseOutlineRegular, IconCheckOutlineRegular,
+      IconPluginPinwheelOutlineRegular, IconCheckOutlineRegular, IconFolderCloseRegular, IconSettingsOutlineMedium,
       IconNewChatOutlineMedium, IconNewChatOutlineRegular, IconProjectAddOutlineRegular, IconSearchOutlineRegular,
-      MenuItemButton, ShortcutKeys, Button, Switch,
+      MenuItemButton, ShortcutKeys, Button, Switch, IconPlusOutlineRegular, IconLayersOutlineRegular,
     } = require('@janhq/jan-client-ui-primitives')
     // Optional: the matching host publishes the dock model seat. An older
     // host leaves the composer's own selector in place instead.
@@ -395,20 +395,39 @@ window.__ModuleLoader__.load({
      the last row (blue with the accent, grey with the base). Drop the overlay;
      the list keeps its own clip. */
   html[data-jan-theme] [data-slot='sidebar.workspaces'] > div > div > div:has([role='tree']) > span:last-child { display: none; }
-  /* Footer rows read like the nav rows above the list: primary label, secondary
-     icon, 36px, the same hover. The account rows (Settings launcher, Login) are
-     the stock triggers, so they are matched from here rather than given a
-     second look of their own. */
-  html[data-jan-theme] [data-slot='sidebar'] button[data-account-row] { height: 36px; border-radius: 6px; color: var(--dsw-alias-label-primary); font-size: 14px; }
-  html[data-jan-theme] [data-slot='sidebar'] button[data-account-row] > svg { color: var(--dsw-alias-label-secondary); }
-  @media (hover: hover) { html[data-jan-theme] [data-slot='sidebar'] button[data-account-row]:hover { background: var(--dsw-specific-sidebar-nav-item-hover); } }
-  html[data-jan-theme] [data-slot='sidebar'] div:has(> [data-slot='sidebar.footer.action']) { flex-direction: column; align-items: stretch; }
   /* Jan's plain navigation rows. The leaves supply the real callbacks; the
-     shell owns only how New Chat / New project / Search read. */
+     shell owns only how New chat / Search / Projects / Plugins read. */
   .jt-nav-row { display: flex; align-items: center; gap: 8px; width: 100%; height: 36px; margin: 0 0 2px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 14px; font-weight: 400; line-height: 20px; text-align: left; cursor: pointer; }
   .jt-nav-row > svg { flex: none; color: var(--dsw-alias-label-secondary); }
   .jt-nav-row:hover { background: var(--dsw-specific-sidebar-nav-item-hover); }
   .jt-nav-row:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -2px; }
+  .jt-nav-row[data-current] { background: var(--dsw-specific-sidebar-nav-item-active); }
+  /* Row + hover quick-create: the "+" sits over the row's right edge and
+     shows while the row is hovered or anything in it has focus. */
+  .jt-nav-item { position: relative; }
+  .jt-nav-quick { position: absolute; top: 6px; right: 6px; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; opacity: 0; }
+  .jt-nav-item:hover > .jt-nav-quick, .jt-nav-item:focus-within > .jt-nav-quick { opacity: 1; }
+  .jt-nav-quick:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
+  .jt-nav-quick:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -2px; opacity: 1; }
+  /* Projects page. */
+  .jt-projects { box-sizing: border-box; width: 100%; max-width: 880px; margin: 0 auto; padding: 48px 32px; color: var(--dsw-alias-label-primary); }
+  .jt-projects-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .jt-projects-head h1 { margin: 0; font-size: 28px; font-weight: 500; line-height: 36px; }
+  .jt-projects-head button { display: inline-flex; align-items: center; gap: 6px; }
+  .jt-projects-lede { margin: 4px 0 24px; color: var(--dsw-alias-label-secondary); font-size: 14px; line-height: 20px; }
+  .jt-projects-search { display: flex; align-items: center; gap: 8px; height: 40px; margin-bottom: 20px; padding: 0 12px; border: 1px solid var(--dsw-alias-border-primary, var(--dsw-alias-separator)); border-radius: 8px; color: var(--dsw-alias-label-secondary); }
+  .jt-projects-search:focus-within { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -1px; }
+  .jt-projects-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 14px; }
+  .jt-projects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+  .jt-project-card { display: flex; flex-direction: column; align-items: stretch; gap: 6px; width: 100%; min-height: 104px; padding: 16px; border: 1px solid var(--dsw-alias-border-primary, var(--dsw-alias-separator)); border-radius: 12px; background: var(--dsw-alias-bg-primary, transparent); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  .jt-project-card:hover { background: var(--dsw-alias-interactive-bg-hover); }
+  .jt-project-card:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 2px; }
+  .jt-project-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 500; line-height: 22px; }
+  .jt-project-title > svg { flex: none; color: var(--dsw-alias-label-secondary); }
+  .jt-project-path { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--dsw-alias-label-secondary); font-size: 12px; direction: rtl; text-align: left; }
+  .jt-project-meta { margin-top: auto; color: var(--dsw-alias-label-tertiary); font-size: 12px; }
+  .jt-projects-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 64px 0; color: var(--dsw-alias-label-secondary); font-size: 14px; }
+  @media (max-width: 600px) { .jt-projects { padding: 24px 16px; } }
   .jt-nav-row[data-rail] { justify-content: center; padding: 0; }
   .jt-nav-row[data-rail] > svg { color: inherit; }
   .jt-nav-label { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
@@ -489,15 +508,27 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
 
     // One row shape for the sidebar controls Jan keeps plain. The rail keeps
     // the glyph and its accessible name; wide rows add the label and hint.
-    function NavRow({ icon, label, shortcutKeys, shortcutAria, rail, buttonRef, onClick }) {
-      return h('button', {
+    function NavRow({ icon, label, shortcutKeys, shortcutAria, rail, buttonRef, current, onClick, quick }) {
+      const row = h('button', {
         type: 'button', className: 'jt-nav-row', 'data-rail': rail || undefined,
+        'data-current': current || undefined, 'aria-current': current ? 'page' : undefined,
         'aria-label': label, title: rail ? label : undefined,
         'aria-keyshortcuts': shortcutAria, ref: buttonRef, onClick,
       }, icon,
         !rail && h('span', { className: 'jt-nav-label' }, label),
         !rail && shortcutKeys !== undefined && shortcutKeys.length > 0
         && h(ShortcutKeys, { keys: shortcutKeys, className: 'jt-nav-shortcut' }))
+      if (rail || quick === undefined) return row
+      // The quick-create button is a sibling, not a child: a button cannot
+      // nest inside the row's button. It shows on row hover or focus.
+      return h('div', { className: 'jt-nav-item' }, row,
+        h('button', {
+          type: 'button', className: 'jt-nav-quick', 'aria-label': quick.label, title: quick.label,
+          onClick: (event) => {
+            event.stopPropagation()
+            quick.onClick()
+          },
+        }, h(IconPlusOutlineRegular, { size: 14, 'aria-hidden': true })))
     }
 
     const NewSession = ({ wide, onStart, shortcutKeys, shortcutAria, t }) => h(NavRow, {
@@ -505,27 +536,41 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       label: t('newChat'), shortcutKeys, shortcutAria, rail: !wide, onClick: onStart,
     })
 
-    // The browser keeps the add flow and its anchor; forwarding the ref onto
-    // the visible row is what lets the picker hang off the Jan control.
+    // Search, Projects, Artifacts and Plugins follow New chat (Claude's order).
+    // Each destination with something to create carries a hover "+" for it.
     function WorkspaceActions({
-      wide, canAddWorkspace, onSearch, onAddWorkspace, addWorkspaceButtonRef,
-      searchShortcut, addWorkspaceShortcut, t,
+      wide, onSearch, searchShortcut, usePanelInfo, usePluginsAvailable, useArtifactsAvailable,
+      openPanel, addProject, newChat, createPlugin, t,
     }) {
+      const active = usePanelInfo((info) => info.activePanelId)
+      const plugins = usePluginsAvailable((value) => value)
+      const artifacts = useArtifactsAvailable((value) => value)
+      const size = wide ? 16 : 18
       // The opening click must not reach the browser's outside-click dismissor.
       const requestSearch = (event) => {
         event.stopPropagation()
         onSearch()
       }
       return h(React.Fragment, null,
-        canAddWorkspace && h(NavRow, {
-          icon: h(IconProjectAddOutlineRegular, { size: wide ? 16 : 18 }),
-          label: t('newProject'), shortcutKeys: addWorkspaceShortcut?.keys, shortcutAria: addWorkspaceShortcut?.aria,
-          rail: !wide, buttonRef: addWorkspaceButtonRef, onClick: onAddWorkspace,
-        }),
         h(NavRow, {
-          icon: h(IconSearchOutlineRegular, { size: wide ? 16 : 18 }),
+          icon: h(IconSearchOutlineRegular, { size }),
           label: t('search'), shortcutKeys: searchShortcut?.keys, shortcutAria: searchShortcut?.aria,
           rail: !wide, onClick: requestSearch,
+        }),
+        h(NavRow, {
+          icon: h(IconFolderCloseRegular, { size }), label: t('projects'), rail: !wide,
+          current: active === PROJECTS_PANEL, onClick: () => { openPanel(PROJECTS_PANEL) },
+          quick: { label: t('newProject'), onClick: () => { void addProject() } },
+        }),
+        artifacts && h(NavRow, {
+          icon: h(IconLayersOutlineRegular, { size }), label: t('artifacts'), rail: !wide,
+          current: active === ARTIFACTS_PANEL, onClick: () => { openPanel(ARTIFACTS_PANEL) },
+          quick: { label: t('newArtifact'), onClick: newChat },
+        }),
+        plugins && h(NavRow, {
+          icon: h(IconPluginPinwheelOutlineRegular, { size }), label: t('plugins'), rail: !wide,
+          current: active === 'plugins', onClick: () => { openPanel('plugins') },
+          quick: { label: t('createPlugin'), onClick: createPlugin },
         }))
     }
 
@@ -557,14 +602,9 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
     }
 
     // Jan has no panel launcher rows, so the native More menu becomes the one
-    // list of management pages. Plugins and Model Hub keep their footer seats;
-    // every other registered panel is opened from here, so hiding its launcher
-    // never removes its only destination.
+    // list of the remaining management pages (Plugins and Artifacts have nav rows).
     function PanelDestinations({ entries, onOpen, onDismiss }) {
-      // Model Hub already owns the Local models panel from the footer; every
-      // other panel is listed here so Jan's launcher-less sidebar keeps each
-      // destination.
-      const rows = entries.filter(entry => entry.id !== 'ow-models')
+      const rows = entries.filter(entry => entry.id !== 'plugins' && entry.id !== ARTIFACTS_PANEL)
       return h(React.Fragment, null, rows.map(entry => h(MenuItemButton, {
         key: entry.id, current: entry.active === true,
         onSelect: () => { onDismiss(); onOpen(entry.id) },
@@ -574,26 +614,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         })))))
     }
 
-    function PluginManagerAction({ wide, useAvailable, openPlugins, t }) {
-      const available = useAvailable((value) => value)
-      if (!available) return null
-      return h('button', {
-        type: 'button', className: 'jt-footer-action', 'data-rail': !wide || undefined,
-        'aria-label': t('plugins'), title: !wide ? t('plugins') : undefined,
-        onClick: openPlugins,
-      }, h(IconPluginPinwheelOutlineRegular, { size: 16 }), wide && t('plugins'))
-    }
-
-    function ModelHubAction({ wide, useAvailable, openModelHub, t }) {
-      const available = useAvailable((value) => value)
-      if (!available) return null
-      return h('button', {
-        type: 'button', className: 'jt-footer-action', 'data-rail': !wide || undefined,
-        'aria-label': t('modelHub'), title: !wide ? t('modelHub') : undefined,
-        onClick: () => { if (available) openModelHub() },
-      }, h(IconDatabaseOutlineRegular, { size: 16 }), wide && t('modelHub'))
-    }
-
+    // Fallback launcher when the account menu is absent.
     function SettingsLauncher({ wide, settingsOpen, settingsShortcut, openSettings, t }) {
       return h('button', {
         type: 'button', className: 'jt-footer-action', 'data-rail': !wide || undefined,
@@ -601,6 +622,53 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         'aria-haspopup': 'dialog', 'aria-expanded': settingsOpen,
         'aria-keyshortcuts': settingsShortcut?.aria, onClick: openSettings,
       }, h(IconSettingsOutlineMedium, { size: 16 }), wide && t('settings'))
+    }
+
+    const PROJECTS_PANEL = 'jt-projects'
+    // Registered by ui-deliverables; the row appears only while it is.
+    const ARTIFACTS_PANEL = 'artifacts'
+    const relative = (iso) => {
+      const minutes = Math.round((Date.now() - Date.parse(iso)) / 60000)
+      if (!(minutes >= 0)) return ''
+      if (minutes < 60) return `${minutes}m`
+      if (minutes < 60 * 24) return `${Math.round(minutes / 60)}h`
+      return `${Math.round(minutes / 60 / 24)}d`
+    }
+
+    // Projects page: every project folder Jan knows, newest first. A card
+    // starts a chat inside that project; New project picks a folder.
+    function ProjectsPanel({ useWorkspaces, startSession, addProject, t }) {
+      const items = useWorkspaces((snapshot) => snapshot.items)
+      const [query, setQuery] = React.useState('')
+      const [busy, setBusy] = React.useState(false)
+      const needle = query.trim().toLowerCase()
+      const rows = [...items]
+        .filter(row => needle === '' || row.title.toLowerCase().includes(needle) || row.path.toLowerCase().includes(needle))
+        .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+      const add = async () => {
+        setBusy(true)
+        try { await addProject() } finally { setBusy(false) }
+      }
+      return h('section', { className: 'jt-projects', 'aria-labelledby': 'jt-projects-title' },
+        h('header', { className: 'jt-projects-head' },
+          h('h1', { id: 'jt-projects-title' }, t('projects')),
+          h(Button, { variant: 'primary', size: 'sm', disabled: busy, onClick: () => { void add() } },
+            h(IconProjectAddOutlineRegular, { size: 16, 'aria-hidden': true }), t('newProject'))),
+        h('p', { className: 'jt-projects-lede' }, t('projects.lede')),
+        items.length > 0 && h('label', { className: 'jt-projects-search' },
+          h(IconSearchOutlineRegular, { size: 16, 'aria-hidden': true }),
+          h('input', { type: 'search', value: query, placeholder: t('projects.search'), 'aria-label': t('projects.search'), onChange: (event) => { setQuery(event.target.value) } })),
+        items.length === 0
+          ? h('div', { className: 'jt-projects-empty' },
+            h(IconFolderCloseRegular, { size: 32, 'aria-hidden': true }),
+            h('p', null, t('projects.empty')))
+          : h('ul', { className: 'jt-projects-grid' }, rows.map(row => h('li', { key: row.workspaceId },
+            h('button', { type: 'button', className: 'jt-project-card', title: row.path, onClick: () => { startSession(row.workspaceId) } },
+              h('span', { className: 'jt-project-title' }, h(IconFolderCloseRegular, { size: 16, 'aria-hidden': true }), row.title),
+              h('span', { className: 'jt-project-path' }, row.path),
+              h('span', { className: 'jt-project-meta' },
+                t(row.sessionIds.length === 1 ? 'projects.chat' : 'projects.chats', { count: row.sessionIds.length }),
+                ' · ', t('projects.updated', { ago: relative(row.updatedAt) })))))))
     }
 
     return {
@@ -642,19 +710,33 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'hero.headline': 'How can I help you today?',
               chats: 'Chats',
               newChat: 'New Chat',
-              newProject: 'Open folder…',
+              newProject: 'New project',
               search: 'Search',
-              modelHub: 'Model Hub',
-              plugins: 'Plugin manager', settings: 'Settings',
+              projects: 'Projects', plugins: 'Plugins', settings: 'Settings', artifacts: 'Artifacts',
+              newArtifact: 'New artifact', createPlugin: 'Create plugin',
+              'newArtifact.prompt': 'Create a file for me: ',
+              'createPlugin.prompt': 'Create a Jan plugin with a left sidebar entry.',
+              'projects.lede': 'Each project is a folder. Chats started in it can read and write its files.',
+              'projects.search': 'Search projects',
+              'projects.empty': 'No projects yet. Create one from a folder on this computer.',
+              'projects.chat': '{count} chat', 'projects.chats': '{count} chats',
+              'projects.updated': 'updated {ago} ago',
             },
             zh: {
               'hero.headline': '今天有什么可以帮您？',
               chats: '聊天',
               newChat: '新对话',
-              newProject: '打开文件夹…',
+              newProject: '新建项目',
               search: '搜索',
-              modelHub: '中心',
-              plugins: '插件管理', settings: '设置',
+              projects: '项目', plugins: '插件', settings: '设置', artifacts: '成果',
+              newArtifact: '新建成果', createPlugin: '创建插件',
+              'newArtifact.prompt': '帮我创建一个文件：',
+              'createPlugin.prompt': '创建一个带左侧栏入口的 Jan 插件。',
+              'projects.lede': '每个项目对应一个文件夹，在其中开始的对话可以读写该文件夹的文件。',
+              'projects.search': '搜索项目',
+              'projects.empty': '还没有项目。从本机的文件夹创建一个。',
+              'projects.chat': '{count} 个对话', 'projects.chats': '{count} 个对话',
+              'projects.updated': '{ago}前更新',
             },
           }), 'jan-theme: owned copy')
         })
@@ -666,7 +748,6 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         // Jan's navigation rows and chat heading. Each leaf keeps the browser's
         // own callback, ref, search node and view options.
         ctx.slots.inject('sidebar.session.new', () => ctx.slots.register({ name: 'sidebar.session.new', priority: -1, locale: 'jan-theme' }, NewSession))
-        ctx.slots.inject('sidebar.workspaces.actions', () => ctx.slots.register({ name: 'sidebar.workspaces.actions', priority: -1, locale: 'jan-theme' }, WorkspaceActions))
         ctx.slots.inject('sidebar.workspaces.header', () => ctx.slots.register({ name: 'sidebar.workspaces.header', priority: -1, locale: 'jan-theme' }, WorkspaceHeader))
         ctx.slots.inject('sidebar.right.pane.tab.title', () => ctx.slots.register({ name: 'sidebar.right.pane.tab.title', key: '@janhq/jan-client-ui-sidebar-files', priority: -1 }, FilesTabTitle))
         // Jan's greeting replaces the bundled headline stack; the rest of the
@@ -683,6 +764,11 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         ctx.slots.inject('sidebar.panellist.actions', () => ctx.slots.register({
           name: 'sidebar.panellist.actions', id: 'jt-panel-destinations', order: -100,
         }, PanelDestinations))
+        // The stock "Browse other plugins" / "Create your plugin" rows repeat
+        // the Plugins row and its "+"; shadow that sidebar entry with nothing.
+        ctx.slots.inject('sidebar.panellist.actions', () => ctx.slots.register({
+          name: 'sidebar.panellist.actions', id: 'entry-customization', priority: -1,
+        }, () => null))
 
         if (DockModelSelection !== undefined) {
           // The dock seat replaces the composer card's seat; the composer seat
@@ -697,30 +783,52 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
 
         ctx.inject(['layout'], (scope) => {
           scope.layout.configureSidebar({ defaultWidth: 240, minWidth: 224, maxWidth: 320 })
-          const available = {
-            getSnapshot: () => scope.slots.entriesOfSlot('main').some((entry) => entry.options.key === 'plugins'),
+        })
+        ctx.inject(['layout', 'uiWorkspace', 'workspaces', 'locale'], (scope) => {
+          const mainKeyAvailable = (key) => ({
+            getSnapshot: () => scope.slots.entriesOfSlot('main').some((entry) => entry.options.key === key),
             subscribe: (listener) => scope.slots.subscribe('main', listener),
+          })
+          const t = scope.locale.bind('jan-theme')
+          const startDraft = (prompt, agentPreset) => {
+            scope.layout.selectPanel(null)
+            scope.uiWorkspace.startSession(undefined, {
+              prompt, whenDraftExists: 'append', ...agentPreset === undefined ? {} : { agentPreset },
+            })
           }
-          const modelHubAvailable = {
-            getSnapshot: () => scope.slots.entriesOfSlot('sidebar.panellist').some((entry) => entry.options.id === 'ow-models'),
-            subscribe: (listener) => scope.slots.subscribe('sidebar.panellist', listener),
+          const addProject = async () => {
+            const path = await scope.uiWorkspace.pickDirectory()
+            if (path === null) return
+            const workspace = await scope.workspaces.create({ path })
+            scope.layout.selectPanel(null)
+            scope.uiWorkspace.startSession(workspace.workspaceId)
           }
-          scope.slots.inject('sidebar.footer.action', () => scope.slots.register({
-            name: 'sidebar.footer.action', id: 'jt-model-hub', order: -10,
-            locale: 'jan-theme',
+          scope.slots.inject('sidebar.workspaces.actions', () => scope.slots.register({
+            name: 'sidebar.workspaces.actions', priority: -1, locale: 'jan-theme',
             inject: () => ({
-              hooks: { available: modelHubAvailable },
-              openModelHub: () => scope.layout.selectPanel('ow-models'),
+              hooks: {
+                panelInfo: scope.layout.panelInfo,
+                pluginsAvailable: mainKeyAvailable('plugins'),
+                artifactsAvailable: mainKeyAvailable(ARTIFACTS_PANEL),
+              },
+              openPanel: (id) => scope.layout.selectPanel(id),
+              addProject,
+              newChat: () => { startDraft(t('newArtifact.prompt')) },
+              // Same draft the stock More menu's "Create your plugin" starts.
+              createPlugin: () => { startDraft(t('createPlugin.prompt'), 'cordis') },
             }),
-          }, ModelHubAction))
-          scope.slots.inject('sidebar.footer.action', () => scope.slots.register({
-            name: 'sidebar.footer.action', id: 'jt-plugin-manager', order: 0,
-            locale: 'jan-theme',
+          }, WorkspaceActions))
+          scope.slots.inject('main', () => scope.slots.register({
+            name: 'main', key: PROJECTS_PANEL, locale: 'jan-theme',
             inject: () => ({
-              hooks: { available },
-              openPlugins: () => scope.layout.selectPanel('plugins'),
+              hooks: { workspaces: scope.workspaces.list },
+              startSession: (workspaceId) => {
+                scope.layout.selectPanel(null)
+                scope.uiWorkspace.startSession(workspaceId)
+              },
+              addProject,
             }),
-          }, PluginManagerAction))
+          }, ProjectsPanel))
         })
         // The account menu carries Settings plus Sign in with Tokamak; it
         // registers at the default rank, so ours renders only without it.
