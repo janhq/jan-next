@@ -227,7 +227,8 @@ export class DesktopOnboardingController {
     if (done || this.saving || this.completing || this.draft !== undefined || unavailable || host.status !== 'ready' || this.chat.getSnapshot().status !== 'ready'
       || account?.status !== 'signed-out') return
     if (this.hasApiKey === true && this.error === null) {
-      void this.save({ ...progress, step: 'done', process: 'standard', usage: 'detailed', developerTools: true, completion: 'api-key' }, true)
+      // Jan: an API key (every Jan import carries one) is not a choice of Coding Tools.
+      void this.save({ ...progress, step: 'done', process: 'standard', usage: 'detailed', developerTools: false, completion: 'api-key' }, true)
     } else if (this.hasApiKey === undefined && !this.checkingKeys) {
       this.checkingKeys = true
       const generation = this.credentialGeneration
