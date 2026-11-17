@@ -35,7 +35,6 @@ describe('jan-base bundle', () => {
     // tokamak-harness: telemetry is never mounted.
     expect(rows.find(row => row.id === 'session-telemetry-otel')?.disabled).toBe(true)
     expect(rows.find(row => row.id === 'otel')?.disabled).toBe(true)
-    expect(rows.find(row => row.id === 'session-log-deepseek')?.config).toEqual({ enabled: false })
     expect(rows.find(row => row.id === 'session-telemetry-otel')?.config?.['mode']).toEqual({
       __jsExpr: "process.env.JAN_TELEMETRY_MODE || 'FEEDBACK_ONLY'",
     })

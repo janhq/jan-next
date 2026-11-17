@@ -57,6 +57,6 @@ it('does not mount the message rating surface', () => {
   const rows = loadOverlayPatches('ratings', fileURLToPath(new URL('../cordis.patch.yml', import.meta.url)))
     .flatMap(patch => patch.insert ?? [])
   expect(rows.find(row => row.id === 'ui-message-feedback')).toMatchObject({
-    name: '@deepseek-ai/dsh-client-ui-message-feedback', disabled: true,
+    name: '@janhq/jan-client-ui-message-feedback', disabled: true,
   })
 })
