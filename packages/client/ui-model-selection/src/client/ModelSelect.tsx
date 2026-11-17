@@ -37,7 +37,7 @@ import clsx from 'clsx'
 import type { ModelReasoningEffort, ModelSelection } from '@janhq/jan-api-remotes/client'
 import {
   IconCheckOutlineRegular, IconChevronDownOutlineRegular, IconChevronRightOutlineRegular, IconCloseFillRegular,
-  IconDataOutlineRegular, IconWarningOutlineRegular, Input, isMobileDevice, rankByName, StateDot, Tag, Toast,
+  IconDataOutlineRegular, IconWarningOutlineRegular, Input, isMobileDevice, StateDot, Tag, Toast,
 } from '@janhq/jan-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import type { ModelLabelOwner, ModelOptionsOwner, ModelSelectInjected } from './slots.ts'
@@ -113,9 +113,14 @@ export function ModelSelect(
       } satisfies ModelSelection,
     }))), [groups])
   const showSearch = choices.length > 4
-  const filteredGroups = useMemo(() => groups.map(group => ({
-    ...group, models: rankByName(group.models, showSearch ? query.trim() : ''),
-  })).filter(group => group.models.length > 0), [groups, query, showSearch])
+  // A model name matches when it contains the typed text: "lam" finds Llama, not
+  // cLAude-opus[1M]. Scattered-letter matching suits short command names, not model names.
+  const filteredGroups = useMemo(() => {
+    const needle = showSearch ? query.trim().toLowerCase() : ''
+    return groups.map(group => ({
+      ...group, models: needle === '' ? group.models : group.models.filter(model => model.name.toLowerCase().includes(needle)),
+    })).filter(group => group.models.length > 0)
+  }, [groups, query, showSearch])
   const visibleModels = useMemo(() => filteredGroups.flatMap(group => group.models.map(model => ({
     provider: group.id, model: model.id,
   }))), [filteredGroups])

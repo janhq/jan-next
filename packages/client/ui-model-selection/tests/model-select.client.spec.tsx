@@ -806,6 +806,17 @@ describe('ModelSelect catalog size', () => {
     if (count <= 4) expect(screen.queryByRole('searchbox')).toBeNull()
   })
 
+  it('matches the typed text as one run of a model name, not scattered letters', () => {
+    const group = state().groups[0]!
+    const models = ['Jan v3.5 4B', 'claude-opus-5-5[1M]', 'Llama 3.2 3B', 'gemma-3', 'TinyLlama'].map(name => ({ id: name, name }))
+    render(<ModelSelect renderLabel={renderLabel} locked={false} available
+      directory={createSnapshotStore(state({ groups: [{ ...group, models }], current: null }))}
+      load={vi.fn()} resolveText={resolveText} select={vi.fn()} t={t} />)
+    fireEvent.click(screen.getByRole('button', { name: '请选择模型' }))
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'LAM' } })
+    expect(screen.getAllByRole('menuitemradio').map(row => row.textContent)).toEqual(['Llama 3.2 3B', 'TinyLlama'])
+  })
+
   it.each([true, false])('clears search and restores focus across 5 → 4 → 5 models (checked: %s)', (checked) => {
     const current = { provider: 'example', model: checked ? 'model-3' : 'removed' }
     const directory = createSnapshotStore(state({ groups: modelGroups(5), current }))
@@ -1010,7 +1021,7 @@ describe('ModelSelect search', () => {
     expect(trigger.hasAttribute('data-selection-focus')).toBe(true)
   })
 
-  it('filters model names fuzzily, hides empty groups, clears on reopening, and selects a result', async () => {
+  it('filters model names by typed text, hides empty groups, clears on reopening, and selects a result', async () => {
     const directory = createSnapshotStore(state({
       groups: [
         ...modelGroups(4),
@@ -1028,7 +1039,7 @@ describe('ModelSelect search', () => {
     expect(search.closest('[role="menu"]')).toBeNull()
     expect(fireEvent.keyDown(search, { key: 'ArrowDown', isComposing: true })).toBe(true)
     expect(document.activeElement).toBe(search)
-    fireEvent.change(search, { target: { value: '  GMFL  ' } })
+    fireEvent.change(search, { target: { value: '  FLASH  ' } })
     expect(screen.getAllByRole('menuitemradio').map(row => row.textContent)).toEqual(['Gemini Flash'])
     expect(screen.getByRole('searchbox')).toBe(search)
     expect(document.activeElement).toBe(search)
@@ -1046,12 +1057,12 @@ describe('ModelSelect search', () => {
     expect(document.activeElement).toBe(search)
     expect(screen.queryByRole('button', { name: '清除搜索' })).toBeNull()
     expect(screen.getAllByRole('menuitemradio')).toHaveLength(5)
-    fireEvent.change(search, { target: { value: 'gmfl' } })
+    fireEvent.change(search, { target: { value: 'gemini' } })
     fireEvent.keyDown(search, { key: 'Escape' })
     fireEvent.click(screen.getByRole('menuitem', { name: /模型/ }))
     expect(screen.getByRole('searchbox').getAttribute('value')).toBe('')
     const reopened = screen.getByRole('searchbox')
-    fireEvent.change(reopened, { target: { value: 'gmfl' } })
+    fireEvent.change(reopened, { target: { value: 'gemini' } })
     const row = screen.getByRole('menuitemradio', { name: 'Gemini Flash' })
     expect(screen.getByRole('menu', { name: '模型' }).contains(row)).toBe(true)
     fireEvent.keyDown(reopened, { key: 'ArrowDown' })
