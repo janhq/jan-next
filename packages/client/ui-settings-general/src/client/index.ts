@@ -18,6 +18,7 @@ import type { ConnectionHandle } from '@janhq/jan-client-connection/client'
 import type {} from '@janhq/jan-client-modules/client'
 import { resolveSlotLabel } from '@janhq/jan-client-ui-slots'
 import { closeTopModal } from '@janhq/jan-client-ui-primitives'
+import { createSnapshotStore, type ObservableSnapshot } from '@janhq/jan-client-store'
 // Type-only: the settings slot declarations plus the ctx.configForms Context
 // merge. Cross-plugin collaboration goes through the service, never a value
 // import (client bundle purity gate).
@@ -47,6 +48,22 @@ import type { SettingsDocumentActionInjected } from './SettingsDocumentAction.ts
 import { SettingsDocumentStore } from './settings-document-store.ts'
 import { HostReleasePrompt, type HostReleasePromptInjected } from './HostReleasePrompt.tsx'
 import { en, ja, es, fr, de, ru, pt, zh, type SettingsKey } from './locales.ts'
+
+declare module '@janhq/cordis' {
+  interface Context {
+    /** Navigation into the active Settings shell; unavailable shells report false. */
+    settingsNavigation: {
+      /** Live availability of the Settings dialog. */
+      availability: ObservableSnapshot<boolean>
+      /**
+       * Open the Settings dialog at a registered section when access allows it.
+       * @param section - id of a Settings section, such as `models`.
+       * @returns whether Settings opened at that section.
+       */
+      open(section: string): boolean
+    }
+  }
+}
 
 export type {
   CloseLabelProps, HeaderContentProps, TriggerContentProps,
@@ -82,6 +99,16 @@ export const inject = ['slots', 'locale', 'connection', 'remote', 'remote.settin
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
+  const availability = createSnapshotStore(false)
+  let openSection: ((section: string) => void) | undefined
+  ctx.provide('settingsNavigation', {
+    availability,
+    open: (section: string) => {
+      if (openSection === undefined) return false
+      openSection(section)
+      return true
+    },
+  })
   ctx.slots.inject('settings.general.item', () => ctx.slots.register({
     name: 'settings.general.item', id: 'developer-tools', order: 15, locale: NS,
     inject: (): DeveloperToolsRowInjected => ({
@@ -245,7 +272,9 @@ export function apply(ctx: ClientContext): void {
         },
         inject: shellInjected,
       }, SettingsRoot)
-      return () => { disposeCommand(); disposeSlot() }
+      openSection = (section: string) => { shellInstance.actions.openSection(section) }
+      availability.set(true)
+      return () => { openSection = undefined; availability.set(false); disposeCommand(); disposeSlot() }
     }))
 
   ctx.slots.inject('settings.trigger', () =>
