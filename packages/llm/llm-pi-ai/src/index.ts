@@ -410,6 +410,7 @@ export function apply(ctx: Context, config: Config): void {
     auth,
     prepareHeaders: (request, headers) => ctx.waterfall('llm-pi-ai/request-headers', request, headers, () => headers),
     ensureModels: (provider, profile) => listings.ensure(provider, profile),
+    holdsListing: (provider, profile) => listings.holds(provider, profile),
     provisionalProfile: (provider, model) => {
       const raw = config.providers.get()[provider]
       /* v8 ignore next -- the route left the configuration while its listing request was failing. */

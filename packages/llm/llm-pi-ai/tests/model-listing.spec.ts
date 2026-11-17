@@ -320,7 +320,7 @@ describe('runtime model listing', () => {
     await expect(ctx.llm.listModels('tokamak')).rejects.toMatchObject({ code: 'DISCOVERY_FAILED' })
   })
 
-  it('fails an exact-model read with the listing error when the adapter has no provisional profile', async () => {
+  it('fails an exact-model read without a held listing when the adapter has no provisional profile', async () => {
     const profiles = resolveProfiles({ r: { api: 'openai-completions', baseURL: 'http://127.0.0.1:9', modelListing: {} } })
     const adapter = new PiAiAdapter({
       profiles: () => profiles,
@@ -328,8 +328,35 @@ describe('runtime model listing', () => {
       auth: memoryAuth(),
       ensureModels: () => Promise.reject(new LlmError('listing down', 'DISCOVERY_FAILED')),
     })
-    await expect(adapter.resolveModel('r', 'm')).rejects.toMatchObject({ code: 'DISCOVERY_FAILED' })
-    await expect(adapter.prepareCall('r', 'm')).rejects.toMatchObject({ code: 'DISCOVERY_FAILED' })
+    await expect(adapter.resolveModel('r', 'm')).rejects.toMatchObject({ code: 'UNKNOWN_MODEL' })
+    await expect(adapter.prepareCall('r', 'm')).rejects.toMatchObject({ code: 'UNKNOWN_MODEL' })
+    await expect(adapter.listModels('r')).rejects.toMatchObject({ code: 'DISCOVERY_FAILED' })
+  })
+
+  it('never waits for a hanging listing request on an exact-model read', async () => {
+    const server = await router()
+    server.hang = true
+    const { ctx } = await boot(route(server.url, { timeoutMs: 60000 }), { key: 'tk-one' })
+    const started = Date.now()
+    expect((await ctx.llm.resolveModelInfo('tokamak', 'tokamak/auto')).id).toBe('tokamak/auto')
+    expect(Date.now() - started).toBeLessThan(2000)
+  })
+
+  it('backs off background listing requests after a failure while no listing is held', async () => {
+    const server = await router()
+    server.fail = 503
+    const { ctx } = await boot(route(server.url), { key: 'tk-one' })
+    // The launch refresh fails once; exact-model reads within the interval send no more requests.
+    await vi.waitFor(() => { expect(server.listings).toHaveLength(1) })
+    await expect(ctx.llm.listModels('tokamak')).rejects.toMatchObject({ code: 'DISCOVERY_FAILED' })
+    const afterRead = server.listings.length
+    for (let turn = 0; turn < 3; turn++) await ctx.llm.resolveModelInfo('tokamak', 'tokamak/auto')
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(server.listings).toHaveLength(afterRead)
+
+    // A selector read retries directly, and a success ends the back-off.
+    server.fail = undefined
+    expect(await ctx.llm.listModels('tokamak')).toHaveLength(2)
   })
 
   it('lists an unauthenticated route without a credential', async () => {
@@ -351,6 +378,10 @@ describe('runtime model listing', () => {
 
     await ctx.credentials.set(credentialRef('TOKAMAK_LISTING_URL'), 'not a url')
     await expect(ctx.llm.listModels('tokamak')).rejects.toMatchObject({ code: 'INVALID_CONFIG' })
+    // An exact-model read resolves provisionally; the request reports the bad endpoint.
+    expect((await ctx.llm.resolveModelInfo('tokamak', 'tokamak/auto')).id).toBe('tokamak/auto')
+    const bad = (await assemble(ctx, { provider: 'tokamak', model: 'tokamak/auto', messages: [] })).finish
+    expect(bad.kind === 'error' ? bad.failure.code : bad.kind).toBe('INVALID_CONFIG')
     await ctx.credentials.set(credentialRef('TOKAMAK_LISTING_URL'), server.url)
     expect((await ctx.llm.listModels('tokamak')).map(model => model.id)).toEqual(['tokamak/auto', 'anthropic/opus'])
   })

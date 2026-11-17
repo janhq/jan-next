@@ -131,16 +131,23 @@ export interface PiAiAdapterOptions {
    * its models are read. Called by `listModels`, `resolveModel`, and
    * `prepareCall` for such a route only, before the operation captures its
    * snapshot. `listModels` reports a rejection, including `MISSING_CREDENTIAL`,
-   * instead of offering no models; `resolveModel` and `prepareCall` fall back
-   * to {@link provisionalProfile}.
+   * instead of offering no models.
    */
   ensureModels?: (provider: string, profile: ListingProfile) => Promise<void>
   /**
+   * Whether a route with `modelListing` holds a listing for its current
+   * endpoint and credential, answered without waiting for a listing request;
+   * a missing or stale listing may be refreshed in the background. Called by
+   * `resolveModel` and `prepareCall`, which use {@link provisionalProfile}
+   * when it answers false or is omitted.
+   */
+  holdsListing?: (provider: string, profile: ListingProfile) => Promise<boolean>
+  /**
    * The listing route's profile serving `model` alone, for one `resolveModel`
-   * or `prepareCall` whose listing could not be obtained: catalog membership
-   * is advisory, so the request itself then reports whether the endpoint and
-   * credential serve the model. Undefined, or omitted, fails the operation
-   * with the listing's error.
+   * or `prepareCall` while no listing for the current credential is held:
+   * catalog membership is advisory, so the request itself then reports
+   * whether the endpoint and credential serve the model. Undefined, or
+   * omitted, fails the operation with `UNKNOWN_MODEL`.
    */
   provisionalProfile?: (provider: string, model: string) => ResolvedPiAiProviderProfile | undefined
   /** Resolve the optional durable attachment service at request time. */
@@ -333,21 +340,23 @@ export class PiAiAdapter extends LlmAdapter {
   }
 
   /**
-   * The snapshot one exact-model operation captures. A listing route whose
-   * listing cannot be obtained serves `model` provisionally in an
-   * operation-local snapshot, leaving the shared one and the listing alone.
+   * The snapshot one exact-model operation captures, without waiting for a
+   * listing request. A listing route without a listing for its current
+   * credential serves `model` provisionally in an operation-local snapshot,
+   * leaving the shared one and the listing alone.
    */
   private async snapshotFor(provider: string, model: string): Promise<PiAiSnapshot> {
     const profile = this.profileOf(this.current(), provider)
     if (!isListingProfile(profile)) return this.current()
-    try {
-      await this.config.ensureModels?.(provider, profile)
-      return this.current()
-    } catch (error) {
-      const provisional = this.config.provisionalProfile?.(provider, model)
-      if (provisional === undefined) throw error
-      return this.build(new Map([...this.current().profiles, [provider, provisional]]))
+    if (await this.config.holdsListing?.(provider, profile) === true) return this.current()
+    const provisional = this.config.provisionalProfile?.(provider, model)
+    if (provisional === undefined) {
+      throw new LlmError(
+        `pi-ai provider "${provider}" holds no model listing for its current credential to resolve "${model}"`,
+        'UNKNOWN_MODEL',
+      )
     }
+    return this.build(new Map([...this.current().profiles, [provider, provisional]]))
   }
 
   /** The profile for one route within one snapshot, or the not-owned failure. */

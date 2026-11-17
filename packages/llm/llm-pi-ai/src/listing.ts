@@ -97,6 +97,8 @@ export class RouteModelListings {
   private readonly stored = new Map<string, StoredListing>()
   /** One running request per route; `done` resolves false when a later state superseded it. */
   private readonly inflight = new Map<string, { fingerprint: string; done: Promise<boolean> }>()
+  /** The last failed request per route without a listing for its endpoint and credential. */
+  private readonly failed = new Map<string, { fingerprint: string; at: number }>()
   private readonly now: () => number
   private version = 0
   private store: ListingStore | undefined
@@ -186,6 +188,38 @@ export class RouteModelListings {
   }
 
   /**
+   * Whether a listing fetched with the route's current endpoint and
+   * credential is held, without waiting for the network. When that listing is
+   * missing or stale, a refresh starts in the background, unless a request
+   * for the same endpoint and credential failed within `refreshIntervalMs`
+   * and no listing is held.
+   * @param provider - the listing route.
+   * @param profile - the route's resolved profile.
+   * @returns true when the held listing belongs to the current endpoint and credential.
+   */
+  async holds(provider: string, profile: ListingProfile): Promise<boolean> {
+    let target: ListingTarget
+    try {
+      target = await this.options.target(provider, profile)
+    } catch (error) {
+      if (error instanceof LlmError && error.code === 'MISSING_CREDENTIAL') this.drop(provider)
+      return false
+    }
+    const fingerprint = fingerprintOf(target)
+    const current = this.stored.get(provider)
+    const interval = profile.modelListing.refreshIntervalMs
+    const failed = this.failed.get(provider)
+    const backingOff = current?.fingerprint !== fingerprint
+      && failed?.fingerprint === fingerprint && this.now() - failed.at < interval
+    if (!backingOff && (current?.fingerprint !== fingerprint || this.now() - current.checkedAt >= interval)) {
+      this.ensure(provider, profile).catch((_reportedByListModels: unknown) => {
+        // A model listing read reports this failure; this caller never waits for it.
+      })
+    }
+    return current?.fingerprint === fingerprint
+  }
+
+  /**
    * Forget one route's listing and settle its running request, publishing the
    * change and deleting the persisted copy when a listing was held.
    * @param provider - the listing route.
@@ -239,7 +273,10 @@ export class RouteModelListings {
         )
         : error
       const current = this.stored.get(provider)
-      if (current?.fingerprint !== fingerprint || this.options.signal.aborted) throw failure
+      if (current?.fingerprint !== fingerprint || this.options.signal.aborted) {
+        this.failed.set(provider, { fingerprint, at: this.now() })
+        throw failure
+      }
       // A transient failure keeps serving the listing this account last
       // fetched; the next attempt waits for the refresh interval.
       current.checkedAt = this.now()
@@ -249,6 +286,7 @@ export class RouteModelListings {
     if (superseded()) return false
     const previous = this.stored.get(provider)
     const fetchedAt = this.now()
+    this.failed.delete(provider)
     this.stored.set(provider, { fingerprint, models, fetchedAt, checkedAt: fetchedAt })
     this.persist(provider, { fingerprint, models, fetchedAt })
     this.options.onFetched(provider, models)
