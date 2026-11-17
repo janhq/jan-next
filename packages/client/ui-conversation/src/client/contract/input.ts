@@ -9,7 +9,7 @@
 import type { Context } from '@janhq/cordis'
 import type { SessionBinding } from '@janhq/jan-api-session-controller/client'
 import type { InboxState } from '@janhq/jan-agent/types'
-import type { SessionId } from '@janhq/jan-session/types'
+import type { SessionId, SessionSeq } from '@janhq/jan-session/types'
 import type { ObservableSnapshot, SnapshotStore } from '@janhq/jan-client-store'
 import type { Branded } from '@janhq/jan-brand'
 import type { ArbitrateKey, ArbitrateOutcome, DraftQuote, Occurrence, ReferenceInsert, TokenSpan } from './draft-editor.ts'
@@ -245,6 +245,14 @@ export interface SessionInputResolver {
    * @returns disposer removing the check.
    */
   addSendCheck(check: SendCheck): () => void
+  /**
+   * Retry the Session's failed turn without consulting the composer: a draft, its attachments, and the
+   * composer phase stay untouched. Ignored unless `failureSeq` is still the retryable failure and the
+   * Session is idle.
+   * @param id - retained ordinary Session identity.
+   * @param failureSeq - failed turn/end sequence the caller addresses.
+   */
+  retryKeepingDraft(id: SessionId, failureSeq: SessionSeq): void
 }
 
 /** Initial text for a target Session; attachments remain under their existing owner. */

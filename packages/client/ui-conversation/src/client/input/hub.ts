@@ -58,6 +58,8 @@ interface ConversationAttachmentFace {
 export class InputHub implements SessionInputResolver {
   private readonly shells = new WeakMap<SessionBinding, SessionInputShell>()
   private readonly sendChecks = new Set<SendCheck>()
+  /** Sessions with a draft-preserving retry prompt still in flight. */
+  private readonly retrying = new WeakSet<SessionBinding>()
 
   /**
    * @param ctx - client root context (services resolved lazily per call — boot order stays free).
@@ -223,6 +225,21 @@ export class InputHub implements SessionInputResolver {
   }
 
   /**
+   * The failed turn the displayed button addresses is still the retryable one and the Session
+   * is idle: no active or queued work, no pending submission, and no blocked composer.
+   */
+  private canRetry(id: SessionId, binding: SessionBinding, failureSeq: SessionSeq): boolean {
+    if (binding.session.projections.faceOf('conversationContinuation').getSnapshot() !== failureSeq) return false
+    const session = binding.session.getSnapshot()
+    const inbox = binding.session.projections.faceOf('inbox').getSnapshot() as InboxState | undefined
+    return !(session.running || session.removed || session.openState !== 'open' || session.subagent !== null
+      || session.pendingSubmissions.length > 0
+      || (inbox?.['next-turn'].length ?? 0) > 0
+      || inbox?.['next-step'].some(message => message.source.kind === 'user')
+      || this.conversation().blocks.storeFor(id).getSnapshot() !== undefined)
+  }
+
+  /**
    * Submit empty input to retry a failed generation through the ordinary composer. Stale
    * failures, active work, and drafts keep their current input unchanged.
    * @param id - retained ordinary Session identity.
@@ -230,19 +247,26 @@ export class InputHub implements SessionInputResolver {
    */
   retry(id: SessionId, failureSeq: SessionSeq): void {
     const binding = this.sessions().binding(id)
-    if (binding === undefined
-      || binding.session.projections.faceOf('conversationContinuation').getSnapshot() !== failureSeq) return
-    const session = binding.session.getSnapshot()
+    if (binding === undefined || !this.canRetry(id, binding, failureSeq)) return
     const shell = this.shellFor(binding)
     const input = shell.snapshot
-    const inbox = binding.session.projections.faceOf('inbox').getSnapshot() as InboxState | undefined
-    if (session.running || session.removed || session.openState !== 'open' || session.subagent !== null
-      || session.pendingSubmissions.length > 0 || input.phase !== 'plain'
-      || input.draft.trim() !== '' || input.attachmentIds.length > 0
-      || (inbox?.['next-turn'].length ?? 0) > 0
-      || inbox?.['next-step'].some(message => message.source.kind === 'user')
-      || this.conversation().blocks.storeFor(id).getSnapshot() !== undefined) return
+    if (input.phase !== 'plain' || input.draft.trim() !== '' || input.attachmentIds.length > 0) return
     shell.submit('queue', 'click', true)
+  }
+
+  /**
+   * Retry a failed generation for a recovery action that ran while the composer holds a draft:
+   * the empty retry prompt goes straight to the Session, so the draft, its attachments, and the
+   * composer phase stay exactly as they are. Stale failures and active work are ignored like
+   * {@link retry}; a refused prompt lands in the Session's prompt error.
+   * @param id - retained ordinary Session identity.
+   * @param failureSeq - failed turn/end sequence the recovery card addresses.
+   */
+  retryKeepingDraft(id: SessionId, failureSeq: SessionSeq): void {
+    const binding = this.sessions().binding(id)
+    if (binding === undefined || this.retrying.has(binding) || !this.canRetry(id, binding, failureSeq)) return
+    this.retrying.add(binding)
+    void binding.session.prompt([], 'queue').finally(() => { this.retrying.delete(binding) })
   }
 
   /**
