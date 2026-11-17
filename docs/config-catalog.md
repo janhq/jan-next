@@ -2613,6 +2613,12 @@ export interface Config {
   complete?: boolean
   /** Suppress dynamic runtime-context snapshots for this persona's agent scope. */
   includeRuntimeContext?: boolean
+  /**
+   * Resolve `{{variable}}` groups in the prefix and suffix; defaults to true.
+   * False keeps imported persona prose literal, so braces a user wrote are not
+   * re-read as prompt variables.
+   */
+  interpolate?: boolean
 }
 ```
 
