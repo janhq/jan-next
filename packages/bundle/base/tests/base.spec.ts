@@ -49,7 +49,7 @@ describe('jan-base bundle', () => {
     expect(manifest.dependencies).toHaveProperty('@janhq/jan-web-search-exa')
     expect(rows.find(row => row.id === 'web-fetch-http')).toBeDefined()
     expect(rows.find(row => row.id === 'tokamak-account')).toMatchObject({ name: '@janhq/jan-tokamak-account' })
-    expect(rows.find(row => row.id === 'agent-default-model')?.config).toEqual({ provider: 'tokamak', model: 'tokamak-1-preview' })
+    expect(rows.find(row => row.id === 'agent-default-model')?.config).toEqual({ provider: 'tokamak', model: 'anthropic/claude-sonnet-5-5[1m]' })
     expect(rows.find(row => row.id === 'llm-pi-ai')?.config).toMatchObject({
       providers: { tokamak: { api: 'openai-completions', apiKeyEnv: 'TOKAMAK_API_KEY' } },
     })

@@ -126,7 +126,7 @@ TOKAMAK_BASE_URL=http://127.0.0.1:8787/v1 TOKAMAK_ALLOW_LOOPBACK_HTTP=1 pnpm jan
 - New `packages/credentials/tokamak-account`. It implements the existing `tokamakAccount` service seam, so the account UI, controller and events work as before.
 - `packages/bundle/base/cordis.patch.yml`:
   - The account row uses the Tokamak package.
-  - `llm-pi-ai` gets a `tokamak` route, and the default model is `tokamak/tokamak-1-preview`.
+  - `llm-pi-ai` gets a `tokamak` route, and the default model is `tokamak/anthropic/claude-sonnet-5-5[1m]`.
   - The upstream DeepSeek model routes, account, web search and session-log packages are removed.
   - Web search uses the new `packages/web/web-search-exa`; see [Web search](#web-search).
 - `SignInAttemptView.userCode`, an optional field. The sign-in dialog and the account page show it.

@@ -24,7 +24,7 @@ The automation-only ACP stdio application as a `jan` profile bundle over [`jan-b
 
 The startup provider binds stdin EOF to the launcher's bounded successful shutdown. ACP connection close, SIGINT, and SIGTERM drain the bridge-owned agents and the root profile tree before exit. Stdout is reserved for newline-delimited ACP JSON-RPC frames. The bundle disables model-generated session titles because ACP exposes no title surface; deterministic fallback titles remain durable without an auxiliary model request. The inherited projection cache checkpoints ACP-created sessions for later consumers; its durability barrier flushes each covered log prefix before publishing the cache row and may split otherwise coalesced JSONL runs. A deployment selects a different complete composition through profile bundles and patch files, not another app bin.
 
-The shipped row creates sessions with `tokamak` and `tokamak-1-preview`; a later patch can replace that row's complete config. The base profile owns adapters, tools, persistence, policy, settings, credentials, and the per-session workspace supplied by the ACP client.
+The shipped row creates sessions with `tokamak` and `anthropic/claude-sonnet-5-5[1m]`; a later patch can replace that row's complete config. The base profile owns adapters, tools, persistence, policy, settings, credentials, and the per-session workspace supplied by the ACP client.
 
 -----
 

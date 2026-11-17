@@ -87,7 +87,7 @@
       config:
         # tokamak-harness: default to the Tokamak router (llm-pi-ai `tokamak` route below).
         provider: tokamak
-        model: tokamak-1-preview
+        model: anthropic/claude-sonnet-5-5[1m]
 
     - id: jobs
       name: '@janhq/jan-jobs-local'
