@@ -18,7 +18,7 @@
       config:
         # tokamak-harness: DeepSeek routes are unmounted; ACP uses the Tokamak route.
         provider: tokamak
-        model: tokamak-1-preview
+        model: anthropic/claude-sonnet-5-5[1m]
 
 - id: hmr
   disabled: true

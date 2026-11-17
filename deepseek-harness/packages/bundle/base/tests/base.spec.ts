@@ -51,7 +51,7 @@ describe('dsh-base bundle', () => {
       name: '@deepseek-ai/dsh-web-search-deepseek', disabled: true, config: { apiKeyEnv: 'DEEPSEEK_API_KEY' },
     })
     expect(rows.find(row => row.id === 'deepseek-account')).toMatchObject({ name: '@deepseek-ai/dsh-tokamak-account' })
-    expect(rows.find(row => row.id === 'agent-default-model')?.config).toEqual({ provider: 'tokamak', model: 'tokamak-1-preview' })
+    expect(rows.find(row => row.id === 'agent-default-model')?.config).toEqual({ provider: 'tokamak', model: 'anthropic/claude-sonnet-5-5[1m]' })
     expect(rows.find(row => row.id === 'llm-pi-ai')?.config).toMatchObject({
       providers: { tokamak: { api: 'openai-completions', apiKeyEnv: 'TOKAMAK_API_KEY' } },
     })

@@ -46,7 +46,7 @@ TOKAMAK_BASE_URL=http://127.0.0.1:8787/v1 TOKAMAK_ALLOW_LOOPBACK_HTTP=1 pnpm dsh
 - New `packages/credentials/tokamak-account`. It implements the existing `deepseekAccount` service seam, so the account UI, controller and events work as before.
 - `packages/bundle/base/cordis.patch.yml`:
   - The account row uses the Tokamak package.
-  - `llm-pi-ai` gets a `tokamak` route, and the default model is `tokamak/tokamak-1-preview`.
+  - `llm-pi-ai` gets a `tokamak` route, and the default model is `tokamak/anthropic/claude-sonnet-5-5[1m]`.
   - The DeepSeek model routes and DeepSeek web search are disabled.
 - `SignInAttemptView.userCode`, an optional field. The sign-in dialog and the account page show it.
 - Account UI strings say Tokamak. The balance card is hidden for accounts without wallets.
