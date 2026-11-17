@@ -4,7 +4,9 @@
  * @module @janhq/jan-compaction-basic
  */
 
+import { isVolatile } from '@janhq/cosmokit'
 import { Context } from '@janhq/cordis'
+import type { Volatile } from '@janhq/cordis'
 import z from '@janhq/schemastery'
 import { CompactionEngine, ManualCompactionError } from '@janhq/jan-compaction'
 import type { CompactionResult, CompactionTrigger } from '@janhq/jan-compaction'
@@ -31,12 +33,14 @@ import { summarizeWithLlm } from './summarizer.ts'
 import type { SummarizationInput, SummaryResult } from './summarizer.ts'
 import type {
   BasicCompactionConfig,
+  BasicCompactionRuntimeConfig,
   ModelCompactPolicyConfig,
   ResolvedConfig,
 } from './types.ts'
 
 export type {
   BasicCompactionConfig,
+  BasicCompactionRuntimeConfig,
   CompactionPolicyConfig,
   ModelCompactPolicyConfig,
   ResolvedCompactSpec,
@@ -77,6 +81,16 @@ function conversationTarget(
   return { provider: agent.options.provider, model: agent.options.model }
 }
 
+/** Read either legacy plain config or the Loader's stable live reference. */
+function liveValue<T>(value: T | Volatile<T>): T {
+  return isVolatile(value) ? value.get() as T : value
+}
+
+type LiveValues = {
+  [K in 'auto' | 'thresholdRatio' | 'summarizationProvider' | 'summarizationModel']-?:
+    BasicCompactionConfig[K] | undefined
+}
+
 const thresholdRatioSchema = z.number()
 const headroomTokensSchema = z.number().step(1).min(0)
 const retainRatioSchema = z.number()
@@ -112,31 +126,62 @@ const modelPolicy: z<ModelCompactPolicyConfig> = z.object({
 export class BasicCompactionEngine extends CompactionEngine {
   static inject = ['llm', 'tokenMeter', 'sessions']
 
-  static Config: z<BasicCompactionConfig> = z.object({
-    thresholdRatio: thresholdRatioSchema,
+  // Input stays the plain cordis.yml shape so unknown keys remain type errors; output carries the live references.
+  static Config: z<BasicCompactionConfig, BasicCompactionRuntimeConfig> = z.object({
+    thresholdRatio: thresholdRatioSchema.volatile(),
     headroomTokens: headroomTokensSchema,
     retainRatio: retainRatioSchema,
     retainTokens: retainTokensSchema,
-    summarizationProvider: summarizationProviderSchema,
-    summarizationModel: summarizationModelSchema,
+    summarizationProvider: summarizationProviderSchema.volatile(),
+    summarizationModel: summarizationModelSchema.volatile(),
     maxTokens: maxTokensSchema,
     compactionRetries: compactionRetriesSchema,
     maxOverflowRetries: maxOverflowRetriesSchema,
     modelPolicies: z.array(modelPolicy),
-    auto: z.boolean(),
+    auto: z.boolean().volatile(),
   })
 
-  /** Resolved and validated compaction configuration. */
-  readonly config: ResolvedConfig
+  /** Most recent valid, detached compaction configuration. */
+  private resolvedConfig: ResolvedConfig
+  private readonly runtimeConfig: BasicCompactionRuntimeConfig
+  private liveValues: LiveValues
 
   private readonly warnedPressureConfigTargets = new Set<string>()
   private readonly overflowRetries = new WeakMap<Agent, number>()
   private readonly overflowAgents = new WeakMap<Session, Agent>()
 
-  constructor(ctx: Context, config: BasicCompactionConfig = {}) {
+  constructor(ctx: Context, config: BasicCompactionRuntimeConfig = {}) {
     super(ctx)
-    this.config = resolveConfig(config)
-    if (this.config.auto) this._registerAutomaticCompaction()
+    this.runtimeConfig = config
+    this.liveValues = {
+      auto: liveValue(config.auto),
+      thresholdRatio: liveValue(config.thresholdRatio),
+      summarizationProvider: liveValue(config.summarizationProvider),
+      summarizationModel: liveValue(config.summarizationModel),
+    }
+    this.resolvedConfig = resolveConfig({ ...config, ...this.liveValues } as BasicCompactionConfig)
+    this._registerAutomaticCompaction()
+  }
+
+  /** Resolve changed settings once per snapshot; an invalid update preserves the last good policy. */
+  get config(): ResolvedConfig {
+    const { runtimeConfig, liveValues } = this
+    const auto = liveValue(runtimeConfig.auto)
+    const thresholdRatio = liveValue(runtimeConfig.thresholdRatio)
+    const summarizationProvider = liveValue(runtimeConfig.summarizationProvider)
+    const summarizationModel = liveValue(runtimeConfig.summarizationModel)
+    if (Object.is(auto, liveValues.auto) && Object.is(thresholdRatio, liveValues.thresholdRatio)
+      && Object.is(summarizationProvider, liveValues.summarizationProvider)
+      && Object.is(summarizationModel, liveValues.summarizationModel)) return this.resolvedConfig
+
+    this.liveValues = { auto, thresholdRatio, summarizationProvider, summarizationModel }
+    try {
+      this.resolvedConfig = resolveConfig({ ...runtimeConfig, ...this.liveValues } as BasicCompactionConfig)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error)
+      this.ctx.logger.warn(`compaction-basic: invalid live settings: ${message}; keeping the previous configuration`)
+    }
+    return this.resolvedConfig
   }
 
   /**
@@ -158,7 +203,7 @@ export class BasicCompactionEngine extends CompactionEngine {
       { agent, signal },
       next,
     ): Promise<PreStepDecision> => {
-      if (!signal.aborted) {
+      if (this.config.auto && !signal.aborted) {
         try {
           const result = await this.compactIfNeeded(agent, 'pressure', signal)
           if (result !== null) logResult(result, 'step pressure')
@@ -183,7 +228,7 @@ export class BasicCompactionEngine extends CompactionEngine {
     ctx.on('agent/request', async ({ agent, signal }, next) => {
       const config = await next()
       const previous = agent.session.requestHeader()
-      if (signal.aborted || previous === undefined || config.provider === '' || config.model === ''
+      if (!this.config.auto || signal.aborted || previous === undefined || config.provider === '' || config.model === ''
         || (previous.config.provider === config.provider && previous.config.model === config.model)) return config
       try {
         const header = { ...previous, config }
@@ -214,7 +259,7 @@ export class BasicCompactionEngine extends CompactionEngine {
       { agent, failure, signal },
       next,
     ) => {
-      if (failure.code !== CONTEXT_WINDOW_EXCEEDED_CODE || signal.aborted) return next()
+      if (!this.config.auto || failure.code !== CONTEXT_WINDOW_EXCEEDED_CODE || signal.aborted) return next()
       this.overflowAgents.set(agent.session, agent)
       const target = routedTarget(agent.session)
       if (target === undefined) return next()

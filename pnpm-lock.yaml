@@ -7298,6 +7298,9 @@ importers:
 
   packages/compaction/compaction-basic:
     dependencies:
+      '@janhq/cosmokit':
+        specifier: link:../../../vendor/cosmokit
+        version: link:../../../vendor/cosmokit
       '@janhq/jan-util-values':
         specifier: workspace:*
         version: link:../../util/values

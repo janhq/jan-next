@@ -61,6 +61,8 @@ You can verify success by watching the conversation continue past the point wher
 
 All settings are optional. With context window `W`, effective request output cap `O`, and headroom `B`, the default trigger is `floor(min(W × 0.8, W − O − B))`, where `B = 65,536` tokens. Retention keeps the newest 16% of `W − O` verbatim. The table below lists every setting; the generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-compaction-basic) also includes their types.
 
+In Jan, `auto`, `thresholdRatio`, `summarizationProvider`, and `summarizationModel` are live-editable from Settings > Models > Context; changes take effect on the next compaction decision without reloading the plugin. Set both summarization fields to `''` to use the chat's own routed model (falling back to its agent model before a route exists). `/compact` remains available when `auto` is off. An invalid live combination leaves the last valid policy active and logs one warning until the values change.
+
 | Field | Default | Meaning |
 |---|---|---|
 | `thresholdRatio` | `0.8` | Window fraction used in `floor(min(W × thresholdRatio, W − O − headroomTokens))`. |

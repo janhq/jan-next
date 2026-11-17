@@ -701,9 +701,23 @@ export interface Config {
 ## `@janhq/jan-compaction-basic`
 
 - `inject`: `llm` · `tokenMeter` · `sessions`
-- `source`: [`packages/compaction/compaction-basic/src/types.ts:46`](../packages/compaction/compaction-basic/src/types.ts)
+- `refs`: `Volatile` (`@janhq/cordis`)
+- `source`: [`packages/compaction/compaction-basic/src/types.ts:55`](../packages/compaction/compaction-basic/src/types.ts)
 
 ```ts config-catalog
+/** Four top-level settings accept plain values or Loader-managed live references. */
+export interface BasicCompactionRuntimeConfig extends Omit<BasicCompactionConfig,
+  'auto' | 'thresholdRatio' | 'summarizationProvider' | 'summarizationModel'> {
+  /** Live toggle for automatic compaction; manual compaction remains available. */
+  auto?: boolean | Volatile<boolean | undefined>
+  /** Live context-window pressure fraction. */
+  thresholdRatio?: number | Volatile<number | undefined>
+  /** Live summary provider, paired with summarizationModel. */
+  summarizationProvider?: string | Volatile<string | undefined>
+  /** Live summary model, paired with summarizationProvider. */
+  summarizationModel?: string | Volatile<string | undefined>
+}
+
 /** Basic compaction configuration with an optional exact-target policy table. */
 export interface BasicCompactionConfig extends CompactionPolicyConfig {
   /** Exact provider/model overrides; duplicate targets fail plugin load. */

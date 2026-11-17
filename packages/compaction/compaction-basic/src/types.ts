@@ -11,6 +11,7 @@ declare module '@janhq/jan-llm/types' {
 }
 
 import type { LlmCallConfig } from '@janhq/jan-llm'
+import type { Volatile } from '@janhq/cordis'
 
 /** Policy fields shared by the default policy and exact model overrides. */
 export interface CompactionPolicyConfig {
@@ -48,6 +49,19 @@ export interface BasicCompactionConfig extends CompactionPolicyConfig {
   modelPolicies?: ModelCompactPolicyConfig[]
   /** Enable automatic step-boundary pressure and overflow-recovery listeners. Defaults to `true`. */
   auto?: boolean
+}
+
+/** Four top-level settings accept plain values or Loader-managed live references. */
+export interface BasicCompactionRuntimeConfig extends Omit<BasicCompactionConfig,
+  'auto' | 'thresholdRatio' | 'summarizationProvider' | 'summarizationModel'> {
+  /** Live toggle for automatic compaction; manual compaction remains available. */
+  auto?: boolean | Volatile<boolean | undefined>
+  /** Live context-window pressure fraction. */
+  thresholdRatio?: number | Volatile<number | undefined>
+  /** Live summary provider, paired with summarizationModel. */
+  summarizationProvider?: string | Volatile<string | undefined>
+  /** Live summary model, paired with summarizationProvider. */
+  summarizationModel?: string | Volatile<string | undefined>
 }
 
 /** Exactly one validated retention form. */
