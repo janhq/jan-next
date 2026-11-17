@@ -8,7 +8,6 @@ import type {} from '@janhq/jan-client-ui-renderer/client'
 import type {} from '@janhq/jan-client-ui-theme/client'
 import type {} from '@janhq/jan-client-ui-chat/client'
 import type {} from '@janhq/jan-client-ui-layout/client'
-import type {} from '@janhq/jan-client-ui-sidebar/client'
 import type {} from '@janhq/jan-api-remote-access/client'
 import type {} from '@janhq/jan-api-remotes/client'
 import type { AccountView, AccountDetails } from '@janhq/jan-tokamak-account/types'
@@ -21,7 +20,6 @@ import { BrowserLogin } from './browser-login.ts'
 import { AccountOnboarding } from './AccountOnboarding.tsx'
 import { AccountPlatformHost, type AccountPlatformHostInjected } from './AccountPlatformHost.tsx'
 import { AccountMenu } from './AccountMenu.tsx'
-import { LoginAction, type LoginActionInjected } from './LoginAction.tsx'
 import { createPlatformPages, type PlatformPages } from './platform-pages.ts'
 import { AccountSection, type AccountSnapshot, type AccountSectionInjected } from './AccountSection.tsx'
 import { createBonusNoticeController } from './bonus-notices.ts'
@@ -325,10 +323,6 @@ export function apply(ctx: Context): void {
   ctx.remoteAccess.whenAccess('account/watch', () => ctx.slots.inject('settings.launcher', () => ctx.slots.register({
     name: 'settings.launcher', locale: 'settings.account', inject: () => operations,
   }, AccountMenu)))
-  ctx.remoteAccess.whenAccess('account/watch', () => ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
-    name: 'sidebar.footer.action', id: 'account.login', order: -10, locale: 'settings.account',
-    inject: (): LoginActionInjected => ({ hooks: { account: operations.hooks.account }, start: operations.start }),
-  }, LoginAction)))
   ctx.remoteAccess.whenAccess('account/watch', () => ctx.slots.inject('settings.section', () => {
     let unregister: (() => void) | undefined
     const update = () => {

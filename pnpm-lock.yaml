@@ -5698,9 +5698,6 @@ importers:
       '@janhq/jan-client-ui-settings-models':
         specifier: workspace:*
         version: link:../ui-settings-models
-      '@janhq/jan-client-ui-sidebar':
-        specifier: workspace:*
-        version: link:../ui-sidebar
       '@janhq/jan-client-ui-slots':
         specifier: workspace:*
         version: link:../ui-slots
