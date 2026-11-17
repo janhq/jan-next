@@ -152,13 +152,19 @@
             models:
               - id: tokamak-1-preview
               - id: tokamak/auto
+              # Routed vision models: without `input` the route's text-only
+              # defaultInput refuses image prompts before they reach the router.
               - id: anthropic/claude-sonnet-5-5[1m]
                 contextWindow: 1000000
+                input: [text, image]
               - id: anthropic/claude-opus-5-5[1m]
                 contextWindow: 1000000
+                input: [text, image]
               - id: anthropic/claude-haiku-5-5[1m]
                 contextWindow: 1000000
+                input: [text, image]
               - id: openai/gpt-6-sol
+                input: [text, image]
           # tokamak-harness: the managed local model (web-app row `llama-cpp`). Its key and
           # endpoint (the worker's OS-assigned port) exist only while that worker runs, so
           # otherwise the route offers no models.
