@@ -37,7 +37,8 @@ function fixture(): { root: string; source: string; project: string } {
   return { root, source, project }
 }
 
-it('classifies the current workspace and shares only runtime patch bytes', () => {
+// Classifies the real workspace lockfile, which takes about 5s on a loaded machine.
+it('classifies the current workspace and shares only runtime patch bytes', { timeout: 30_000 }, () => {
   const { project } = fixture()
   const repository = resolve(import.meta.dirname, '../../..')
   const before = readFileSync(join(repository, 'pnpm-lock.yaml'))
