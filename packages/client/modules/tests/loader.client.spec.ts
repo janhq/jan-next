@@ -173,6 +173,14 @@ describe('lazy CJS arrival', () => {
     expect(b.target.mode).toBe('live')
   })
 
+  it('maps DSH browser factory requires onto Jan static modules', async () => {
+    const seed = { Toast: 'Jan toast' }
+    const b = bench([row('dsh-ppt')], { 'dsh-ppt': require => ({ Toast: (require('@deepseek-ai/dsh-client-ui-primitives') as typeof seed).Toast }) }, {
+      seed: { '@janhq/jan-client-ui-primitives': seed },
+    })
+    expect(await b.loader.import('dsh-ppt', '', {})).toEqual({ Toast: 'Jan toast' })
+  })
+
   it('prefetch loads and registers but does not run the factory', async () => {
     const ran: string[] = []
     const b = bench([row('a')], { a: () => { ran.push('a'); return {} } })

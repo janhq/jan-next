@@ -38,6 +38,7 @@ const CONFIGURATION_ONLY_DEV_DEPENDENCIES = {
 const DUPLICATE_SAFE_PACKAGES: readonly string[] = [
   '@janhq/jan-brand',
   '@janhq/jan-lazy-require',
+  '@janhq/jan-package-manifest',
   '@janhq/jan-typert-protocol',
   '@janhq/jan-util-code-language',
   '@janhq/jan-util-crypto',

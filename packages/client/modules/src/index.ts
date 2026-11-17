@@ -42,6 +42,7 @@ import type { IndexInjection } from '@janhq/jan-host-webserver'
 import { PACKAGE_ASSET_SEGMENT, packageAssetMediaType } from './assets.ts'
 import { exactPackageSpecifier, parseJanClient, stripClientSuffix } from './client/manifest.ts'
 import type { WebBootBatch, WebBootBatchPhase, WebBootEntry, WebBootGraph, WebBootRelease } from './client/manifest.ts'
+import { janDeclaration } from '@janhq/jan-package-manifest'
 
 export { stripClientSuffix } from './client/manifest.ts'
 export type {
@@ -897,11 +898,8 @@ export class ClientModuleRegistry extends Service {
     }
     const { packageName, path: pkgPath } = located
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as Record<string, unknown>
-    const jan = pkg.jan
-    const decl = parseJanClient(
-      packageName,
-      jan !== null && typeof jan === 'object' ? (jan as Record<string, unknown>).client : undefined,
-    )
+    const declaration = janDeclaration(pkg as { jan?: { client?: unknown }; dsh?: { client?: unknown } })
+    const decl = parseJanClient(packageName, declaration?.client)
     if (decl === undefined || decl.platform !== 'web') return null
     const clientRel = clientExportOf(packageName, pkg.exports)
     if (clientRel === undefined) {

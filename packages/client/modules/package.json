@@ -38,11 +38,13 @@
     "watch": "tsdown --watch"
   },
   "license": "MIT",
+  "dependencies": {
+    "@janhq/jan-package-manifest": "workspace:*"
+  },
   "devDependencies": {
     "@janhq/cordis-plugin-loader": "workspace:~",
     "@janhq/jan-host-webserver": "workspace:*",
     "@janhq/cordis": "workspace:~",
-    "@janhq/jan-package-manifest": "workspace:*",
     "@janhq/jan-client-store": "workspace:*"
   },
   "files": [

@@ -33,6 +33,7 @@ import type {} from '@janhq/cordis'
 import type { JanClientManifest } from '@janhq/jan-package-manifest'
 import type { ClientEntries } from './entries.ts'
 import type { ClientModuleSystem } from './system.ts'
+import { janSpecifier } from '@janhq/jan-package-manifest'
 
 declare module '@janhq/cordis' {
   interface Context {
@@ -187,7 +188,7 @@ export function parseJanClient(pkgName: string, value: unknown): JanClientManife
   return {
     platform: decl.platform,
     ...(inject !== undefined ? { inject } : {}),
-    ...(external !== undefined ? { external } : {}),
+    ...(external !== undefined ? { external: external.map(janSpecifier) } : {}),
     ...(decl.immediately !== undefined ? { immediately: decl.immediately } : {}),
   }
 }
@@ -216,7 +217,8 @@ export function exactPackageSpecifier(specifier: string): string | undefined {
  * @returns the specifier with a trailing `/client` removed.
  */
 export function stripClientSuffix(spec: string): string {
-  return spec.endsWith('/client') ? spec.slice(0, -'/client'.length) : spec
+  const normalized = janSpecifier(spec)
+  return normalized.endsWith('/client') ? normalized.slice(0, -'/client'.length) : normalized
 }
 
 /**

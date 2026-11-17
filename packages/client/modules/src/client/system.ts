@@ -5,6 +5,7 @@
  * state tables and the load/materialize machinery.
  */
 import { stripClientSuffix } from './manifest.ts'
+import { janSpecifier } from '@janhq/jan-package-manifest'
 import { ClientEntries } from './entries.ts'
 import { removeOwnedStyles } from './entry-lifecycle.ts'
 import type {
@@ -327,7 +328,8 @@ export class ClientModuleSystem implements ClientModuleLoader {
   private makeRequire(ownerId: string, edges: Set<string>): ClientBundleRequire {
     const require = (spec: string): unknown => {
       edges.add(spec)
-      if (this.seed.has(spec)) return this.seed.get(spec)
+      const normalized = janSpecifier(spec)
+      if (this.seed.has(normalized)) return this.seed.get(normalized)
       const id = stripClientSuffix(spec)
       const record = this.loadCache.get(id)
       if (record !== undefined) return record.exports
@@ -381,7 +383,8 @@ export class ClientModuleSystem implements ClientModuleLoader {
   }
 
   async import(specifier: string): Promise<unknown> {
-    if (this.seed.has(specifier)) return this.seed.get(specifier)
+    const normalized = janSpecifier(specifier)
+    if (this.seed.has(normalized)) return this.seed.get(normalized)
     const id = stripClientSuffix(specifier)
     const existing = this.loadCache.get(id)
     if (existing !== undefined) return existing.exports

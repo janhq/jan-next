@@ -3522,6 +3522,10 @@ importers:
         version: 18.3.1
 
   packages/client/modules:
+    dependencies:
+      '@janhq/jan-package-manifest':
+        specifier: workspace:*
+        version: link:../../util/package-manifest
     devDependencies:
       '@janhq/cordis':
         specifier: workspace:~
@@ -3535,9 +3539,6 @@ importers:
       '@janhq/jan-host-webserver':
         specifier: workspace:*
         version: link:../../host/webserver
-      '@janhq/jan-package-manifest':
-        specifier: workspace:*
-        version: link:../../util/package-manifest
 
   packages/client/product-analytics:
     dependencies:

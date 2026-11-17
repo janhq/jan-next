@@ -1400,6 +1400,16 @@ describe('package manifest refresh', () => {
     jan: { client: { platform: 'web', ...client } },
   })
 
+  it('publishes an unmodified DSH client declaration as a web graph row', () => {
+    const name = '@fixture/dsh-client'
+    writeBuiltPackage(name, {})
+    const declaration = clientManifest({ external: ['@deepseek-ai/dsh-client-ui-primitives'] })
+    writeManifest(name, { exports: declaration.exports, dsh: declaration.jan })
+    expect(construct([name]).graph().entries).toMatchObject([{
+      id: name, external: ['@janhq/jan-client-ui-primitives'],
+    }])
+  })
+
   it('publishes a reinstalled declaration when its Loader entry restarts, and nothing for an unchanged restart', async () => {
     const packageName = '@fixture/refresh-declaration'
     writeBuiltPackage(packageName, { external: ['react'] })
