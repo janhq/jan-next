@@ -59,25 +59,25 @@ You can verify success by watching the conversation continue past the point wher
 
 ### Tuning when condensation starts
 
-All settings are optional. With context window `W`, effective request output cap `O`, and headroom `B`, the default trigger is `floor(min(W × 0.8, W − O − B))`, where `B = 65,536` tokens. Retention keeps the newest 16% of `W − O` verbatim. The table below lists every setting; the generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-compaction-basic) also includes their types.
+All settings are optional. With context window `W`, effective request output cap `O`, threshold ratio `r`, and headroom `B`, the trigger is `floor(min(W × r, W − O − B))`. Unless `headroomTokens` is set, `B = min(65,536, floor(W × max(1 − r, 0.1)))`: each window keeps its share above the threshold, so the trigger lands at `r` of the window when `O` is small, and small local windows keep a budget. Retention keeps the newest 16% of `W − O` verbatim. The table below lists every setting; the generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-compaction-basic) also includes their types.
 
 In Jan, `auto`, `thresholdRatio`, `summarizationProvider`, and `summarizationModel` are live-editable from Settings > Models > Context; changes take effect on the next compaction decision without reloading the plugin. Settings writes them to the host-plane `@janhq/jan-compaction-basic/settings` entry (id `compaction-settings`), because each agent preset mounts its own compaction backend in an isolated realm that Settings does not serve. A field set there overrides the same field of every mounted backend; an unset field keeps that backend's own value. Set both summarization fields to `''` to use the chat's own routed model (falling back to its agent model before a route exists). `/compact` remains available when `auto` is off. An invalid live combination leaves the last valid policy active and logs one warning until the values change.
 
 | Field | Default | Meaning |
 |---|---|---|
 | `thresholdRatio` | `0.8` | Window fraction used in `floor(min(W × thresholdRatio, W − O − headroomTokens))`. |
-| `headroomTokens` | `65536` | Additional pressure headroom beyond the routed output reservation; a non-negative integer. |
+| `headroomTokens` | `min(65536, floor(W × max(1 − r, 0.1)))` | Additional pressure headroom beyond the routed output reservation; a non-negative integer that replaces the window-scaled default. |
 | `retainRatio` | `0.16` | Recent conversation kept verbatim as a fraction of `W − O`; mutually exclusive with `retainTokens`. |
 | `retainTokens` | — | Absolute recent-conversation budget kept verbatim; mutually exclusive with `retainRatio` and must be below the resolved threshold. |
 | `summarizationProvider` | `''` | Set together with `summarizationModel`; an empty pair uses the latest routed request target, then the `AgentOptions` pair. |
 | `summarizationModel` | `''` | Set together with `summarizationProvider`; an empty pair uses the latest routed request target, then the `AgentOptions` pair. |
-| `maxTokens` | `headroomTokens` (`65536`) | Positive summary output cap, including any provider-counted reasoning tokens. Explicit per-model caps override explicit global caps; otherwise the cap follows the resolved headroom. |
+| `maxTokens` | explicit `headroomTokens`, else the summarizing model's default headroom | Positive summary output cap, including any provider-counted reasoning tokens. Explicit per-model caps override explicit global caps; otherwise the cap follows an explicit headroom, or the window-scaled default of the model that writes the summary (`65536` when it declares no window). |
 | `compactionRetries` | `1` | Extra condensation attempts after the first when pressure remains above threshold. |
 | `maxOverflowRetries` | `1` | Maximum retries after a confirmed context-window overflow; `0` disables recovery only. |
 | `modelPolicies` | `[]` | Exact `{ provider, model, ...partialPolicy }` overrides for individual model routes. |
 | `auto` | `true` | Enable automatic condensation and overflow recovery; set `false` for manual-only operation. |
 
-Misconfiguration fails fast: unknown settings, duplicate per-model overrides, invalid token counts, both retention forms together, or a retention ratio at least as large as the threshold ratio reject the plugin at load. When the model is first used, `W − O − B` must be positive and the resolved retained budget must be below the trigger. Zero headroom requires an explicit positive `maxTokens`, globally or in that model policy. Small-window deployments must configure headroom that fits their capacity; lower `thresholdRatio` to compact earlier.
+Misconfiguration fails fast: unknown settings, duplicate per-model overrides, invalid token counts, both retention forms together, or a retention ratio at least as large as the threshold ratio reject the plugin at load. When the model is first used, `W − O − B` must be positive and the resolved retained budget must be below the trigger. Zero headroom requires an explicit positive `maxTokens`, globally or in that model policy. An explicit headroom must fit the smallest window it applies to; lower `thresholdRatio` to compact earlier.
 
 ### What happens when condensation runs
 
@@ -87,7 +87,7 @@ The oldest balanced span is replaced by one summary message and the recent tail 
 
 Before a changed provider/model request is committed, automatic compaction measures the existing history against the destination model's capacity, output reservation, and pressure policy. When condensation is needed, it uses the previous routed model and its summary settings; an explicitly configured summary target still takes precedence. The destination request proceeds only after history falls below its threshold. Failure reports `MODEL_SWITCH_COMPACTION_FAILED` and leaves the previous request header intact; select a larger model or retry after correcting the reported cause. Completed pruning or condensation remains in the session even when a later attempt fails. The check runs when the next request is prepared, and `auto: false` disables it.
 
-The destination must have a registered adapter, declared context capacity, and a valid pressure budget even for short history. The default 65,536-token headroom does not fit a window of that size or smaller; set `modelPolicies[].headroomTokens` for that route as in the example above. See the [upgrade guide](../../../docs/upgrade-guide/v0.2.1-alpha.4/model-switch-compaction/guide.md) for migration.
+The destination must have a registered adapter, declared context capacity, and a valid pressure budget even for short history. The window-scaled default headroom fits every declared window; an explicit `headroomTokens` at or above a route's window does not, so give that route its own `modelPolicies[].headroomTokens` as in the example above. See the [upgrade guide](../../../docs/upgrade-guide/v0.2.1-alpha.4/model-switch-compaction/guide.md) for migration.
 
 ### On-demand condensation with /compact
 

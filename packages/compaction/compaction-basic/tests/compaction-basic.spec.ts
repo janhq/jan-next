@@ -315,16 +315,16 @@ describe('compact configuration and defaults', () => {
 
     expect(resolved).toEqual({
       thresholdRatio: 0.8,
-      headroomTokens: 65_536,
       retainRatio: 0.16,
       summarizationProvider: '',
       summarizationModel: '',
-      maxTokens: 65_536,
       compactionRetries: 1,
       maxOverflowRetries: 1,
       modelPolicies: [],
       auto: true,
     })
+    expect(resolved).not.toHaveProperty('headroomTokens')
+    expect(resolved).not.toHaveProperty('maxTokens')
     expect(Object.isFrozen(resolved)).toBe(true)
   })
 
@@ -462,6 +462,25 @@ describe('compact configuration and defaults', () => {
       thresholdTokens: threshold,
       retainTokens: retained,
     })
+  })
+
+  it.each([
+    [8_192, 0, 1, 7_373, 819],
+    [16_000, 0, 0.75, 12_000, 4_000],
+    [131_072, 32_768, 0.75, 65_536, 32_768],
+    [1_000_000, 0, 0.75, 750_000, 65_536],
+  ])('scales the default headroom to window %i with output cap %i at ratio %f', (window, output, thresholdRatio, threshold, summaryCap) => {
+    const policy = resolveTargetPolicy(resolveConfig({ thresholdRatio }), { provider: MODEL, model: MODEL })
+
+    expect(resolveCompactSpec(policy, window, output)).toMatchObject({
+      thresholdTokens: threshold,
+      maxTokens: summaryCap,
+    })
+  })
+
+  it('honors the default ratio on a 200K window instead of the 64K headroom', () => {
+    const policy = resolveTargetPolicy(resolveConfig({}), { provider: MODEL, model: MODEL })
+    expect(resolveCompactSpec(policy, 200_000, 0).thresholdTokens).toBe(160_000)
   })
 
   it.each([500, 501])('rejects headroom %i that exhausts the remaining capacity', (headroomTokens) => {
@@ -1778,6 +1797,26 @@ describe('model-switch pressure', () => {
     else await expect(switching).rejects.toMatchObject({ code: 'MODEL_SWITCH_COMPACTION_FAILED' })
     expect(session.requestHeader()).toEqual(previous)
     expect(adapter.lastOptions).toBeUndefined()
+  })
+
+  it('switches to a small-window model under the default headroom', async () => {
+    const { ctx, adapter } = harness({ headroomTokens: undefined, maxTokens: undefined })
+    ctx.llm.registerAdapter(['16k'], new ContextAdapter(16_000))
+    const session = conversation(1, 'short')
+    const selected = { provider: '16k', model: '16k' }
+    await expect(request(ctx, session, selected)).resolves.toEqual(selected)
+    expect(adapter.lastOptions).toBeUndefined()
+  })
+
+  it('caps a default summary to the headroom of the summarizing model window', async () => {
+    const { ctx, adapter } = harness({ headroomTokens: undefined, maxTokens: undefined })
+    vi.spyOn(adapter, 'resolveModel').mockImplementation(async (provider, model) => ({
+      provider, id: model, name: model, context: { contextWindow: 32_768 },
+    }))
+    const session = conversation(4, 'fixture '.repeat(80))
+    const selected = { provider: 'small', model: 'small' }
+    await expect(request(ctx, session, selected)).resolves.toEqual(selected)
+    expect(adapter.lastOptions).toMatchObject({ provider: MODEL, model: MODEL, maxTokens: 16_384 })
   })
 
   it('repeatedly summarizes on the previous route until destination pressure is below threshold', async () => {

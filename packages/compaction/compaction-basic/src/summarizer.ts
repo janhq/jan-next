@@ -11,11 +11,14 @@ import type {
   ContentBlock, FinishReason, GenerateOptions, Message, RequestMessage, TokenUsage, ToolSchema,
 } from '@janhq/jan-llm'
 import type { Agent } from '@janhq/jan-agent'
+import { defaultSummaryMaxTokens } from './config.ts'
 
 interface SummaryConfig {
   readonly summarizationProvider: string
   readonly summarizationModel: string
-  readonly maxTokens: number
+  readonly thresholdRatio: number
+  /** Absent when unconfigured: the cap then follows the summarizing model's window. */
+  readonly maxTokens?: number
 }
 
 /** Tags wrapping the structured summary inside the landed checkpoint node. */
@@ -140,6 +143,8 @@ export async function summarizeWithLlm(
       'no provider/model available for summarization: set both BasicCompactionConfig summarization fields, route one request, or set both AgentOptions fields',
     )
   }
+  const maxTokens = config.maxTokens
+    ?? defaultSummaryMaxTokens(await summaryWindow(ctx, target, signal), config.thresholdRatio)
 
   const assembler = new BlockAssembler()
   const messages: RequestMessage[] = [
@@ -155,7 +160,7 @@ export async function summarizeWithLlm(
     messages,
     toolHistory: agent.session.toolHistory(),
     ...input.tools === undefined ? {} : { tools: [...input.tools] },
-    maxTokens: config.maxTokens,
+    maxTokens,
     sessionId: agent.session.id,
     purpose: 'compaction',
     ...signal === undefined ? {} : { signal },
@@ -175,8 +180,22 @@ export async function summarizeWithLlm(
     llmStreamCall: true,
     provider: options.provider,
     model: options.model,
-    maxTokens: config.maxTokens,
+    maxTokens,
     ...(assembler.usage === undefined ? {} : { usage: assembler.usage }),
+  }
+}
+
+/** Window the summarizing model declares; `undefined` when it declares none or middleware serves its route. */
+async function summaryWindow(
+  ctx: Context,
+  target: { readonly provider: string; readonly model: string },
+  signal?: AbortSignal,
+): Promise<number | undefined> {
+  try {
+    return (await ctx.llm.resolveModelInfo(target.provider, target.model, signal)).context?.contextWindow
+  } catch (error: unknown) {
+    if (error instanceof LlmError && error.code === 'NO_ADAPTER') return undefined
+    throw error
   }
 }
 

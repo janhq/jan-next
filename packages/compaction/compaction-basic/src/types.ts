@@ -17,7 +17,10 @@ import type { Volatile } from '@janhq/cordis'
 export interface CompactionPolicyConfig {
   /** Window fraction for pressure; capped at context window minus reserved output and `headroomTokens`. Defaults to `0.8`. */
   thresholdRatio?: number
-  /** Additional pressure headroom beyond the routed output reservation. Non-negative integer; defaults to `65536`. */
+  /**
+   * Additional pressure headroom beyond the routed output reservation. Non-negative integer.
+   * Unset, each window keeps its share above `thresholdRatio` (at least a tenth), capped at `65536`.
+   */
   headroomTokens?: number
   /** Recent context retained as a fraction of context window minus reserved output tokens. Defaults to `0.16`. */
   retainRatio?: number
@@ -27,7 +30,10 @@ export interface CompactionPolicyConfig {
   summarizationProvider?: string
   /** Summary model; set together with `summarizationProvider`, or inherit the conversation target. */
   summarizationModel?: string
-  /** Provider generation cap for summarization. Defaults to the resolved `headroomTokens`; an explicit cap must be positive. */
+  /**
+   * Provider generation cap for summarization; an explicit cap must be positive. Defaults to an
+   * explicit `headroomTokens`, else to the default headroom of the summarizing model's window.
+   */
   maxTokens?: number
   /** Extra attempts after the first compaction when pressure remains above threshold. Defaults to `1`. */
   compactionRetries?: number
@@ -72,10 +78,12 @@ export type ResolvedRetention =
 /** Validated policy fields shared before and after exact-target matching. */
 interface ResolvedPolicyFields {
   readonly thresholdRatio: number
-  readonly headroomTokens: number
+  /** Absent when unset: the default then scales with each model window. */
+  readonly headroomTokens?: number
   readonly summarizationProvider: string
   readonly summarizationModel: string
-  readonly maxTokens: number
+  /** Absent when neither it nor `headroomTokens` is set: the cap then follows the summarizing window. */
+  readonly maxTokens?: number
   readonly compactionRetries: number
   readonly maxOverflowRetries: number
 }
@@ -92,9 +100,11 @@ export type ResolvedTargetPolicy = ResolvedPolicyFields & ResolvedRetention & {
 }
 
 /** One routed model's concrete pressure and retention budget. */
-export type ResolvedCompactSpec = Omit<ResolvedTargetPolicy, 'retainRatio' | 'retainTokens' | 'headroomTokens'> & {
+export type ResolvedCompactSpec = Omit<ResolvedTargetPolicy, 'retainRatio' | 'retainTokens' | 'headroomTokens' | 'maxTokens'> & {
   /** Adapter-declared full window; token budgets below exclude reserved output tokens. */
   readonly contextWindow: number
   readonly thresholdTokens: number
   readonly retainTokens: number
+  /** Summary cap for this target: the policy's cap, else its effective headroom. */
+  readonly maxTokens: number
 }

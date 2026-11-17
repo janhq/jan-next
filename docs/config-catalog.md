@@ -702,7 +702,7 @@ export interface Config {
 
 - `inject`: `llm` · `tokenMeter` · `sessions`
 - `refs`: `Volatile` (`@janhq/cordis`)
-- `source`: [`packages/compaction/compaction-basic/src/types.ts:55`](../packages/compaction/compaction-basic/src/types.ts)
+- `source`: [`packages/compaction/compaction-basic/src/types.ts:61`](../packages/compaction/compaction-basic/src/types.ts)
 
 ```ts config-catalog
 /** Four top-level settings accept plain values or Loader-managed live references. */
@@ -730,7 +730,10 @@ export interface BasicCompactionConfig extends CompactionPolicyConfig {
 export interface CompactionPolicyConfig {
   /** Window fraction for pressure; capped at context window minus reserved output and `headroomTokens`. Defaults to `0.8`. */
   thresholdRatio?: number
-  /** Additional pressure headroom beyond the routed output reservation. Non-negative integer; defaults to `65536`. */
+  /**
+   * Additional pressure headroom beyond the routed output reservation. Non-negative integer.
+   * Unset, each window keeps its share above `thresholdRatio` (at least a tenth), capped at `65536`.
+   */
   headroomTokens?: number
   /** Recent context retained as a fraction of context window minus reserved output tokens. Defaults to `0.16`. */
   retainRatio?: number
@@ -740,7 +743,10 @@ export interface CompactionPolicyConfig {
   summarizationProvider?: string
   /** Summary model; set together with `summarizationProvider`, or inherit the conversation target. */
   summarizationModel?: string
-  /** Provider generation cap for summarization. Defaults to the resolved `headroomTokens`; an explicit cap must be positive. */
+  /**
+   * Provider generation cap for summarization; an explicit cap must be positive. Defaults to an
+   * explicit `headroomTokens`, else to the default headroom of the summarizing model's window.
+   */
   maxTokens?: number
   /** Extra attempts after the first compaction when pressure remains above threshold. Defaults to `1`. */
   compactionRetries?: number
