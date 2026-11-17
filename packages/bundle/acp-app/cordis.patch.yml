@@ -19,7 +19,7 @@
       inject: [acpAppStartup]
       config:
         provider: tokamak
-        model: tokamak-1-preview
+        model: tokamak/auto
 
 - id: hmr
   disabled: true

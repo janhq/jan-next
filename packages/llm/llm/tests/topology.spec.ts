@@ -89,6 +89,20 @@ describe('llm/adapters-updated', () => {
     expect(observed).toEqual([['a']])
   })
 
+  it('announces a changed model set with the routes unchanged, and stays silent once released', async () => {
+    const ctx = await setup()
+    const observed: string[][] = []
+    const registration = ctx.llm.registerAdapter(['a'], new NoopAdapter())
+    ctx.on('llm/adapters-updated', () => {
+      observed.push(ctx.llm.listProviders().map(provider => provider.id))
+    })
+    registration.modelsChanged()
+    expect(observed).toEqual([['a']])
+    registration()
+    registration.modelsChanged()
+    expect(observed).toEqual([['a'], []])
+  })
+
 })
 
 describe('configurable-provider directory', () => {

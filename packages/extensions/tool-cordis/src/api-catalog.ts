@@ -5251,8 +5251,8 @@ export const EVENT_API: readonly EventApiEntry[] = [
     name: 'llm/adapters-updated',
     mode: 'emit',
     signature: '\'llm/adapters-updated\'(): void',
-    summary: 'The provider topology changed: an adapter registered or unregistered routes, or the configurable-provider directory gained or lost entries.',
-    description: 'The provider topology changed: an adapter registered or unregistered routes, or the configurable-provider directory gained or lost entries. This payload-free registry notification fires at each commit point (including registration disposal); consumers re-read `listProviders()`, `listModels()`, or `listConfigurableProviders()` for the new state. Observer failures are contained and cannot veto the registry mutation.',
+    summary: 'The provider topology changed: an adapter registered or unregistered routes, an adapter announced a changed model set for its routes, or the configurable-provider directory gained or lost entries.',
+    description: 'The provider topology changed: an adapter registered or unregistered routes, an adapter announced a changed model set for its routes, or the configurable-provider directory gained or lost entries. This payload-free registry notification fires at each commit point (including registration disposal); consumers re-read `listProviders()`, `listModels()`, or `listConfigurableProviders()` for the new state. Observer failures are contained and cannot veto the registry mutation.',
     parameters: [],
   },
   {
@@ -5685,7 +5685,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'AdapterRegistrationHandle',
-    declaration: 'export interface AdapterRegistrationHandle {\n    (): void;\n    replace(providers: string[]): void;\n}',
+    declaration: 'export interface AdapterRegistrationHandle {\n    (): void;\n    replace(providers: string[]): void;\n    modelsChanged(): void;\n}',
   },
   {
     name: 'AdmittedPromptContentPart',
@@ -7553,7 +7553,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ModelCatalogFailure',
-    declaration: 'export interface ModelCatalogFailure {\n    readonly id: string;\n    readonly name: string;\n    readonly message: string;\n}',
+    declaration: 'export interface ModelCatalogFailure {\n    readonly id: string;\n    readonly name: string;\n    readonly message: string;\n    readonly code?: string;\n}',
   },
   {
     name: 'ModelCatalogModel',

@@ -49,10 +49,15 @@ describe('jan-base bundle', () => {
     expect(manifest.dependencies).toHaveProperty('@janhq/jan-web-search-exa')
     expect(rows.find(row => row.id === 'web-fetch-http')).toBeDefined()
     expect(rows.find(row => row.id === 'tokamak-account')).toMatchObject({ name: '@janhq/jan-tokamak-account' })
-    expect(rows.find(row => row.id === 'agent-default-model')?.config).toEqual({ provider: 'tokamak', model: 'tokamak-1-preview' })
-    expect(rows.find(row => row.id === 'llm-pi-ai')?.config).toMatchObject({
-      providers: { tokamak: { api: 'openai-completions', apiKeyEnv: 'TOKAMAK_API_KEY' } },
+    expect(rows.find(row => row.id === 'agent-default-model')?.config).toEqual({ provider: 'tokamak', model: 'tokamak/auto' })
+    // The router, not this file, decides which models the route serves.
+    const tokamak = (rows.find(row => row.id === 'llm-pi-ai')?.config?.['providers'] as Record<string, Record<string, unknown>>)['tokamak']
+    expect(tokamak).toMatchObject({
+      api: 'openai-completions',
+      apiKeyEnv: 'TOKAMAK_API_KEY',
+      modelListing: { refreshIntervalMs: 600000, timeoutMs: 15000, preferredDefaults: ['tokamak/auto'], exclude: ['openai/gpt-image-*'] },
     })
+    expect(tokamak?.['models']).toBeUndefined()
     expect(manifest.dependencies).toHaveProperty('@janhq/jan-tokamak-account')
     expect(rows.find(row => row.id === 'tool-web')?.config).toMatchObject({ fetch: true })
     expect(manifest.dependencies).not.toHaveProperty('@janhq/jan-subagent-codex')

@@ -550,7 +550,11 @@ export function ModelSelect(
               )}
               {state.failures.map(failure => (
                 <div className={css.warning} key={failure.id}>
-                  <span>{t('warning.groupLoad', { name: failure.name, message: failure.message })}</span>
+                  <span>
+                    {failure.code === 'MISSING_CREDENTIAL'
+                      ? t('warning.groupSignedOut', { name: failure.name })
+                      : t('warning.groupLoad', { name: failure.name, message: failure.message })}
+                  </span>
                   <button type="button" className={css.retry} onClick={reload}>{t('retry')}</button>
                 </div>
               ))}

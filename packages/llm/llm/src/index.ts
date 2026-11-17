@@ -324,6 +324,13 @@ export interface AdapterRegistrationHandle {
    * @param providers - the complete next route set for this registration.
    */
   replace(providers: string[]): void
+  /**
+   * Announce that the models this registration's routes advertise changed
+   * without a route change, by publishing `llm/adapters-updated`. Call it after
+   * the adapter commits the new model set, so observers that re-read
+   * `listModels()` see it. A no-op once the registration has been released.
+   */
+  modelsChanged(): void
 }
 
 /**
@@ -425,6 +432,9 @@ export class LlmRuntime extends TypertRemoteService {
         throw new LlmError('a disposed adapter registration cannot replace its routes', 'REGISTRATION_DISPOSED')
       }
       this.commitRoutes(owned, this.prepareRoutes(next, adapter, owned))
+    }
+    handle.modelsChanged = (): void => {
+      if (!released) this.emitAdaptersUpdated()
     }
     return handle
   }

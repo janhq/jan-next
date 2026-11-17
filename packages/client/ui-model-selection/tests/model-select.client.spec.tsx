@@ -710,6 +710,28 @@ describe('ModelSelect keyboard walk', () => {
     expect(screen.queryByRole('group', { name: '模型与推理等级' })).toBeNull()
   })
 
+  it('asks a provider that cannot list models without a credential to be signed in, and reports other failures', () => {
+    const directory = createSnapshotStore<ModelDirectoryState>(state({
+      failures: [
+        { id: 'tokamak', name: 'Tokamak', message: 'no credential for provider route "tokamak"', code: 'MISSING_CREDENTIAL' },
+        { id: 'gateway', name: 'Gateway', message: 'answered 503', code: 'DISCOVERY_FAILED' },
+      ],
+    }))
+    render(<ModelSelect renderSlot={renderLabel}
+      locked={false}
+      available
+      directory={directory}
+      load={vi.fn()} resolveText={resolveText}
+      select={vi.fn().mockResolvedValue({ ok: true, value: undefined })}
+      t={t}
+    />)
+    fireEvent.click(screen.getByRole('button', { name: /选择模型/ }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /^模型/ }))
+    expect(screen.getByText('登录 Tokamak 或添加 API 密钥后即可加载其模型')).toBeTruthy()
+    expect(screen.queryByText(/no credential/)).toBeNull()
+    expect(screen.getByText('Gateway 加载失败：answered 503')).toBeTruthy()
+  })
+
   it('focuses the checked model in a small catalog', () => {
     mountOpen()
     fireEvent.click(screen.getByRole('menuitem', { name: /^模型/ }))

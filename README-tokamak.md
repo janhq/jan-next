@@ -117,7 +117,7 @@ The model picker lists every installed model as `local/<model id>`, so a session
 ## Local mock (no Tokamak account needed)
 
 ```sh
-pnpm tsx packages/credentials/tokamak-account/tests/mock-tokamak.ts 8787   # auto-approves sign-ins
+pnpm tsx packages/credentials/tokamak-account/tests/mock-tokamak.ts 8787   # auto-approves sign-ins; MOCK_TOKAMAK_FAIL_MODELS=503 fails the model listing
 TOKAMAK_BASE_URL=http://127.0.0.1:8787/v1 TOKAMAK_ALLOW_LOOPBACK_HTTP=1 pnpm jan web
 ```
 
@@ -126,7 +126,7 @@ TOKAMAK_BASE_URL=http://127.0.0.1:8787/v1 TOKAMAK_ALLOW_LOOPBACK_HTTP=1 pnpm jan
 - New `packages/credentials/tokamak-account`. It implements the existing `tokamakAccount` service seam, so the account UI, controller and events work as before.
 - `packages/bundle/base/cordis.patch.yml`:
   - The account row uses the Tokamak package.
-  - `llm-pi-ai` gets a `tokamak` route, and the default model is `tokamak/tokamak-1-preview`.
+  - `llm-pi-ai` gets a `tokamak` route whose models come from the router's `GET /v1/models` (`modelListing`), refreshed at launch, after sign-in and every 10 minutes, and kept in storage for the next launch; image generation models are left out; signed out, the picker asks for a sign-in. The default model is `tokamak/tokamak/auto`.
   - The upstream DeepSeek model routes, account, web search and session-log packages are removed.
   - Web search uses the new `packages/web/web-search-exa`; see [Web search](#web-search).
 - `SignInAttemptView.userCode`, an optional field. The sign-in dialog and the account page show it.

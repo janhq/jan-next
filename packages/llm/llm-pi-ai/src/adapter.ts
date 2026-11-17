@@ -61,6 +61,8 @@ import type { AttachmentStore, ImageAttachmentRef } from '@janhq/jan-attachment'
 import { idleWatchdog, timeoutOf } from '@janhq/jan-timeout'
 import type { ResolvedPiAiProviderProfile } from './config.ts'
 import { requestImageTarget, toPiContext } from './context.ts'
+import { isListingProfile } from './listing.ts'
+import type { ListingProfile } from './listing.ts'
 import { conversationUpdates, createModels, getSupportedThinkingLevels } from './models.ts'
 import { toStreamChunks } from './stream.ts'
 import type { PiAiRequestHeaderContext } from './types.ts'
@@ -124,6 +126,30 @@ export interface PiAiAdapterOptions {
    * @returns headers to pass to pi-ai after applying Harness attribution.
    */
   prepareHeaders?: (request: PiAiRequestHeaderContext, headers: Headers) => Headers
+  /**
+   * Bring the model listing of a route with `modelListing` up to date before
+   * its models are read. Called by `listModels`, `resolveModel`, and
+   * `prepareCall` for such a route only, before the operation captures its
+   * snapshot. `listModels` reports a rejection, including `MISSING_CREDENTIAL`,
+   * instead of offering no models.
+   */
+  ensureModels?: (provider: string, profile: ListingProfile) => Promise<void>
+  /**
+   * Whether a route with `modelListing` holds a listing for its current
+   * endpoint and credential, answered without waiting for a listing request;
+   * a missing or stale listing may be refreshed in the background. Called by
+   * `resolveModel` and `prepareCall`, which use {@link provisionalProfile}
+   * when it answers false or is omitted.
+   */
+  holdsListing?: (provider: string, profile: ListingProfile) => Promise<boolean>
+  /**
+   * The listing route's profile serving `model` alone, for one `resolveModel`
+   * or `prepareCall` while no listing for the current credential is held:
+   * catalog membership is advisory, so the request itself then reports
+   * whether the endpoint and credential serve the model. Undefined, or
+   * omitted, fails the operation with `UNKNOWN_MODEL`.
+   */
+  provisionalProfile?: (provider: string, model: string) => ResolvedPiAiProviderProfile | undefined
   /** Resolve the optional durable attachment service at request time. */
   resolveAttachments?: () => AttachmentStore | undefined
   /** Bridge one attachment reference into the current model-tool execution world. */
@@ -300,12 +326,37 @@ export class PiAiAdapter extends LlmAdapter {
   private current(): PiAiSnapshot {
     const profiles = this.config.profiles()
     if (this.snapshot?.profiles === profiles) return this.snapshot
+    this.snapshot = this.build(profiles)
+    return this.snapshot
+  }
+
+  /** A new collection serving exactly `profiles`. */
+  private build(profiles: ReadonlyMap<string, ResolvedPiAiProviderProfile>): PiAiSnapshot {
     const models: MutableModels = createModels(this.config.auth)
     for (const profile of profiles.values()) {
       if (profile.piProvider !== undefined) models.setProvider(profile.piProvider)
     }
-    this.snapshot = { profiles, models }
-    return this.snapshot
+    return { profiles, models }
+  }
+
+  /**
+   * The snapshot one exact-model operation captures, without waiting for a
+   * listing request. A listing route without a listing for its current
+   * credential serves `model` provisionally in an operation-local snapshot,
+   * leaving the shared one and the listing alone.
+   */
+  private async snapshotFor(provider: string, model: string): Promise<PiAiSnapshot> {
+    const profile = this.profileOf(this.current(), provider)
+    if (!isListingProfile(profile)) return this.current()
+    if (await this.config.holdsListing?.(provider, profile) === true) return this.current()
+    const provisional = this.config.provisionalProfile?.(provider, model)
+    if (provisional === undefined) {
+      throw new LlmError(
+        `pi-ai provider "${provider}" holds no model listing for its current credential to resolve "${model}"`,
+        'UNKNOWN_MODEL',
+      )
+    }
+    return this.build(new Map([...this.current().profiles, [provider, provisional]]))
   }
 
   /** The profile for one route within one snapshot, or the not-owned failure. */
@@ -351,11 +402,25 @@ export class PiAiAdapter extends LlmAdapter {
     return this.current().profiles.get(provider)?.retryPolicy
   }
 
+  /**
+   * Bring a listing route's models up to date; a no-op for any other route.
+   * @returns true when the route takes its models from a runtime listing.
+   */
+  private async listed(provider: string): Promise<boolean> {
+    const profile = this.profileOf(this.current(), provider)
+    if (!isListingProfile(profile)) return false
+    await this.config.ensureModels?.(provider, profile)
+    return true
+  }
+
   override listModels(provider: string): Promise<readonly LlmModelInfo[]> {
     return Promise.resolve().then(async () => {
+      // A listing route has already authenticated its listing request, and
+      // reports a missing credential so a selector can ask for one.
+      const listing = await this.listed(provider)
       const snapshot = this.current()
       const profile = this.profileOf(snapshot, provider)
-      try {
+      if (!listing) try {
         await this.config.resolveApiKey(provider, profile)
         await this.endpointOf(provider, profile)
       }
@@ -378,10 +443,7 @@ export class PiAiAdapter extends LlmAdapter {
     model: string,
     _signal?: AbortSignal,
   ): Promise<LlmResolvedModelInfo> {
-    return Promise.resolve().then(() => {
-      const snapshot = this.current()
-      return this.modelInfo(snapshot, provider, model)
-    })
+    return Promise.resolve().then(async () => this.modelInfo(await this.snapshotFor(provider, model), provider, model))
   }
 
   private modelInfo(snapshot: PiAiSnapshot, provider: string, model: string): LlmResolvedModelInfo {
@@ -403,12 +465,12 @@ export class PiAiAdapter extends LlmAdapter {
     }
   }
 
-  override prepareCall(provider: string, model: string, _signal?: AbortSignal): Promise<PreparedAdapterCall> {
-    const snapshot = this.current()
-    return Promise.resolve({
+  override async prepareCall(provider: string, model: string, _signal?: AbortSignal): Promise<PreparedAdapterCall> {
+    const snapshot = await this.snapshotFor(provider, model)
+    return {
       model: this.modelInfo(snapshot, provider, model),
       stream: options => this.streamWithSnapshot(options, snapshot),
-    })
+    }
   }
 
   stream(options: GenerateOptions): AsyncIterable<StreamChunk> {

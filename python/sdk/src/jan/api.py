@@ -22,7 +22,7 @@ class JanConfig:
     """
 
     provider: str = "tokamak"
-    model: str = "tokamak-1-preview"
+    model: str = "tokamak/auto"
     reasoning_effort: str | None = None
     max_tokens: int | None = None
     cwd: str | None = None

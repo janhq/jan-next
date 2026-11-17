@@ -11,7 +11,7 @@
     agents:
       - id: main
         provider: tokamak
-        model: tokamak-1-preview
+        model: tokamak/auto
         cwd: !!js process.cwd()
 
 - id: session-persistence-jsonl

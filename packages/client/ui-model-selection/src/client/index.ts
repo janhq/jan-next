@@ -67,7 +67,9 @@ function optionsOf(directory: ModelDirectoryState, t: TranslateNS<'model'>): Sel
     rows.push({
       id: `failure/${failure.id}`,
       label: failure.name,
-      detail: t('option.loadError', { message: failure.message }),
+      detail: failure.code === 'MISSING_CREDENTIAL'
+        ? t('option.signedOut')
+        : t('option.loadError', { message: failure.message }),
     })
   }
   return rows

@@ -24,7 +24,7 @@ def main() -> None:
     parser.add_argument("--profile", default="sdk-minimal")
     parser.add_argument("--session-id")
     parser.add_argument("--provider", default="tokamak")
-    parser.add_argument("--model", default=os.environ.get("JAN_MODEL", "tokamak-1-preview"))
+    parser.add_argument("--model", default=os.environ.get("JAN_MODEL", "tokamak/auto"))
     parser.add_argument("--max-tokens", type=int)
     args = parser.parse_args()
     if args.jan_home is None:

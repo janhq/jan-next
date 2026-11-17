@@ -20,7 +20,7 @@ import { credentialRef } from '@janhq/jan-credentials'
 import type { CredentialRef } from '@janhq/jan-credentials'
 import { MAX_TIMER_DELAY_MS } from '@janhq/jan-timeout'
 import { resolveRetryPolicy, RetryPolicySchema } from '@janhq/jan-llm'
-import type { ResolvedRetryPolicy, RetryPolicyConfig } from '@janhq/jan-llm'
+import type { LlmDiscoveredModel, ResolvedRetryPolicy, RetryPolicyConfig } from '@janhq/jan-llm'
 import { deepEqualJson } from '@janhq/jan-util-values'
 import {
   CACHE_CONTROL_FORMATS,
@@ -41,6 +41,7 @@ import type {
   PiAiReasoningEfforts,
   RouteCatalog,
 } from './catalog.ts'
+import { LISTABLE_PROTOCOLS } from './discovery.ts'
 import { buildProvider, supportedProtocols } from './provider.ts'
 
 /** Default maximum idle interval while an adapter stream read is outstanding. */
@@ -74,6 +75,12 @@ export const DEFAULT_REQUEST_IMAGE_PIXEL_BUDGET = 2048 * 2048
 /** Default raw encoded-byte target before inline base64 expansion; the smallest quality-ladder output is used when no quality fits. */
 export const DEFAULT_REQUEST_IMAGE_MAX_BYTES = 1024 * 1024
 
+/** Default age after which a route's model listing is fetched again. */
+export const DEFAULT_MODEL_LISTING_REFRESH_INTERVAL_MS = 600_000
+
+/** Default bound on one model-listing request. */
+export const DEFAULT_MODEL_LISTING_TIMEOUT_MS = 15_000
+
 /** Context capacity assumed for a model neither configuration nor the catalog sizes. */
 export const DEFAULT_CONTEXT_WINDOW = 1_000_000
 
@@ -101,6 +108,49 @@ export type {
   PiAiThinkingFormat,
 } from './catalog.ts'
 
+/**
+ * Runtime model listing for a route whose endpoint, not configuration, decides
+ * which models it serves. The route lists the ids its endpoint's model-listing
+ * endpoint (`GET {baseURL}/models` for OpenAI protocols) returns, authenticated
+ * with the route's own credential and headers.
+ */
+export interface PiAiModelListing {
+  /**
+   * Age in milliseconds after which the listing is fetched again (default
+   * 600,000). A background refresh runs at this interval while the plugin is
+   * mounted, and a model read past it refetches before answering.
+   */
+  refreshIntervalMs?: number
+  /** Bound on one listing request in milliseconds (default 15,000). */
+  timeoutMs?: number
+  /**
+   * Model ids, in preference order, that the agent default moves to when it
+   * names this route and a model the latest listing does not serve. When none
+   * of them is listed, the first listed model is used.
+   */
+  preferredDefaults?: string[]
+  /**
+   * Id patterns of listed models this route does not serve, such as image
+   * generation models a listing does not mark as non-chat. `*` matches any
+   * run of characters; every other character matches itself.
+   */
+  exclude?: string[]
+}
+
+/** {@link PiAiModelListing} with every default resolved. */
+export interface ResolvedPiAiModelListing {
+  /** The route's protocol, whose model-listing endpoint is read. */
+  api: string
+  /** Positive listing age bound in milliseconds. */
+  refreshIntervalMs: number
+  /** Positive per-request bound in milliseconds. */
+  timeoutMs: number
+  /** Agent-default preference order; possibly empty. */
+  preferredDefaults: readonly string[]
+  /** Id patterns of listed models the route does not serve; possibly empty. */
+  exclude: readonly string[]
+}
+
 /** Configuration for one pi-ai provider route; the `providers` dict key IS the route. */
 export interface PiAiProviderProfile {
   /** Credential reference (environment-variable name) resolved per request through `ctx.credentials`. */
@@ -123,9 +173,21 @@ export interface PiAiProviderProfile {
   /**
    * This route's model catalog. Omission serves the installed catalog for the
    * route unchanged; an explicit list replaces it, each entry defaulting its
-   * unset fields from the installed model of the same id.
+   * unset fields from the installed model of the same id. With
+   * {@link modelListing}, entries describe models the listing may return and
+   * are served only while it does.
    */
   models?: PiAiModelProfile[]
+  /**
+   * Take the served model set from the endpoint's model listing at runtime
+   * instead of from configuration. Requires `api` to name a protocol with a
+   * readable listing (`openai-completions`, `openai-responses`, or
+   * `anthropic-messages`), an endpoint through `baseURL` or `baseURLEnv`, and
+   * no `modelOverrides`. The route offers no models until a listing succeeds;
+   * a failed refresh keeps the last listing fetched with the same credential
+   * and endpoint.
+   */
+  modelListing?: PiAiModelListing
   /**
    * Installed-catalog customizations by model id: each entry reshapes that
    * one model with the same fields a {@link models} entry takes, while the
@@ -214,7 +276,7 @@ export interface PiAiProviderProfile {
 
 /** Validated profile with its route stamped and every adapter-owned default resolved. */
 export interface ResolvedPiAiProviderProfile
-  extends Omit<PiAiProviderProfile, 'apiKeyEnv' | 'baseURLEnv' | 'retryPolicy' | 'models' | 'displayName'> {
+  extends Omit<PiAiProviderProfile, 'apiKeyEnv' | 'baseURLEnv' | 'retryPolicy' | 'models' | 'displayName' | 'modelListing'> {
   /** Harness route key and the `Models` collection key (the configuration dict key). */
   provider: string
   /** Resolved display name for selectors and configuration surfaces. */
@@ -237,6 +299,8 @@ export interface ResolvedPiAiProviderProfile
   requestImageMaxBytes: number
   /** Immutable retry policy captured with this provider route. */
   retryPolicy: ResolvedRetryPolicy
+  /** Resolved runtime listing settings; absent for a route whose configuration decides its models. */
+  modelListing?: ResolvedPiAiModelListing
   /**
    * The pi-ai provider containing this route's serviceable models. Absent when
    * a stored route cannot be constructed; its configuration remains editable.
@@ -359,6 +423,18 @@ const modelProfile: z<PiAiModelProfile> = z.object({
 /** A {@link modelProfile} whose id lives in the `modelOverrides` dict key. */
 const modelOverride: z<PiAiModelOverride> = z.object(modelFields)
 
+/**
+ * A one-member union, not a bare object: schemastery materializes an absent
+ * object as `{}`, and absence must stay distinguishable because the field's
+ * presence is what turns listing on.
+ */
+const modelListing: z<PiAiModelListing> = z.union([z.object({
+  refreshIntervalMs: z.number().step(1).min(1).max(MAX_TIMER_DELAY_MS).default(DEFAULT_MODEL_LISTING_REFRESH_INTERVAL_MS),
+  timeoutMs: z.number().step(1).min(1).max(MAX_TIMER_DELAY_MS).default(DEFAULT_MODEL_LISTING_TIMEOUT_MS),
+  preferredDefaults: z.array(z.string()),
+  exclude: z.array(z.string()),
+})])
+
 const profile = z.object({
   apiKeyEnv: z.string().role('credential-ref'),
   displayName: z.string(),
@@ -366,6 +442,7 @@ const profile = z.object({
   baseURL: z.string(),
   baseURLEnv: z.string(),
   models: z.array(modelProfile),
+  modelListing,
   modelOverrides: z.dict(modelOverride),
   compat: compatProfile,
   defaultContextWindow: z.number().step(1).min(1).default(DEFAULT_CONTEXT_WINDOW),
@@ -424,6 +501,100 @@ function rejectRemovedFields(provider: string, source: PiAiProviderProfile): voi
   }
 }
 
+/**
+ * Validate and default one route's `modelListing`.
+ * @param provider - the route key, for diagnostics.
+ * @param source - the route's configured profile.
+ * @returns the resolved listing settings, or undefined when the route sets none.
+ * @throws Error when the route cannot be listed as configured.
+ */
+function resolveModelListing(provider: string, source: PiAiProviderProfile): ResolvedPiAiModelListing | undefined {
+  const listing = source.modelListing
+  if (listing === undefined) return undefined
+  if (source.api === undefined || !LISTABLE_PROTOCOLS.has(source.api)) {
+    throw new Error(
+      `llm-pi-ai: provider "${provider}" sets modelListing, which needs api set to one of `
+      + [...LISTABLE_PROTOCOLS].join(', '),
+    )
+  }
+  if (source.baseURL === undefined && source.baseURLEnv === undefined) {
+    throw new Error(`llm-pi-ai: provider "${provider}" sets modelListing, which needs baseURL or baseURLEnv`)
+  }
+  if (source.modelOverrides !== undefined && Object.keys(source.modelOverrides).length > 0) {
+    throw new Error(
+      `llm-pi-ai: provider "${provider}" sets modelOverrides beside modelListing;`
+      + ' describe listed models in its models list instead',
+    )
+  }
+  const refreshIntervalMs = listing.refreshIntervalMs ?? DEFAULT_MODEL_LISTING_REFRESH_INTERVAL_MS
+  const timeoutMs = listing.timeoutMs ?? DEFAULT_MODEL_LISTING_TIMEOUT_MS
+  for (const [field, value] of [['refreshIntervalMs', refreshIntervalMs], ['timeoutMs', timeoutMs]] as const) {
+    if (!Number.isSafeInteger(value) || value <= 0 || value > MAX_TIMER_DELAY_MS) {
+      throw new Error(
+        `llm-pi-ai: provider "${provider}" modelListing.${field} must be a positive integer no greater than ${MAX_TIMER_DELAY_MS}`,
+      )
+    }
+  }
+  const preferredDefaults = [...listing.preferredDefaults ?? []]
+  if (preferredDefaults.some(id => id.length === 0)) {
+    throw new Error(`llm-pi-ai: provider "${provider}" modelListing.preferredDefaults has an empty model id`)
+  }
+  const exclude = [...listing.exclude ?? []]
+  if (exclude.some(pattern => pattern.length === 0)) {
+    throw new Error(`llm-pi-ai: provider "${provider}" modelListing.exclude has an empty pattern`)
+  }
+  return { api: source.api, refreshIntervalMs, timeoutMs, preferredDefaults, exclude }
+}
+
+/**
+ * The listed models a listing route serves: the listing without the models
+ * its `exclude` patterns name, in listing order.
+ * @param listing - the route's resolved listing settings.
+ * @param listed - the endpoint's latest listing.
+ * @returns the served subset of `listed`.
+ */
+export function servedListing(
+  listing: ResolvedPiAiModelListing,
+  listed: readonly LlmDiscoveredModel[],
+): readonly LlmDiscoveredModel[] {
+  if (listing.exclude.length === 0) return listed
+  const excluded = listing.exclude.map(pattern =>
+    new RegExp(`^${pattern.split('*').map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*')}$`))
+  return listed.filter(model => !excluded.some(pattern => pattern.test(model.id)))
+}
+
+/**
+ * The model entries a listing route serves: one per listed id, in listing
+ * order, with the configured entry of the same id winning field by field over
+ * what the listing disclosed.
+ * @param listed - the endpoint's latest listing.
+ * @param configured - the route's configured `models` entries.
+ * @returns the entries to resolve as the route's catalog.
+ */
+function listedModels(
+  listed: readonly LlmDiscoveredModel[],
+  configured: readonly PiAiModelProfile[] | undefined,
+): PiAiModelProfile[] {
+  const byId = new Map((configured ?? []).map(entry => [entry.id, entry]))
+  return listed.map((model) => {
+    const disclosed: PiAiModelProfile = {
+      id: model.id,
+      ...model.name === undefined ? {} : { name: model.name },
+      ...model.contextWindow === undefined ? {} : { contextWindow: model.contextWindow },
+      ...model.maxTokens === undefined ? {} : { maxTokens: model.maxTokens },
+      ...model.inputModalities === undefined
+        ? {}
+        : { input: MODALITIES.filter(modality => model.inputModalities?.includes(modality)) },
+    }
+    const entry = byId.get(model.id)
+    if (entry === undefined) return disclosed
+    // An empty `input` is the schema's materialized absence, not an answer.
+    const answered = Object.entries(entry).filter(([, value]) =>
+      value !== undefined && !(Array.isArray(value) && value.length === 0))
+    return { ...disclosed, ...Object.fromEntries(answered) }
+  })
+}
+
 /** Reject a profile header that Fetch cannot put on a provider request. */
 function assertValidHeaders(provider: string, headers: Readonly<Record<string, string>> | undefined): void {
   for (const [name, value] of Object.entries(headers ?? {})) {
@@ -442,13 +613,18 @@ function assertValidHeaders(provider: string, headers: Readonly<Record<string, s
  * Resolve scalar defaults and materialize each route's serviceable models.
  * Deferred catalog validation retains diagnostics without deleting configured
  * routes. An omitted dict resolves to the empty, dormant route set.
+ * A route with `modelListing` serves exactly the models of its entry in
+ * `listings`, each taking its unset fields from the configured `models` entry
+ * of the same id and then from the listing; without an entry it serves none.
  * @param providers - configured provider profiles keyed by route.
  * @param validation - writes require a complete catalog; stored reads retain catalog diagnostics.
+ * @param listings - the latest successful model listing per listing route.
  * @returns validated profiles in configuration order.
  */
 export function resolveProfiles(
   providers: Readonly<Record<string, PiAiProviderProfile>> | undefined,
   validation: 'strict' | 'deferred' = 'strict',
+  listings: ReadonlyMap<string, readonly LlmDiscoveredModel[]> = new Map(),
 ): Map<string, ResolvedPiAiProviderProfile> {
   if (Array.isArray(providers)) {
     throw new Error('llm-pi-ai: providers is now a dict keyed by provider route, not an array of profiles')
@@ -507,6 +683,9 @@ export function resolveProfiles(
     if (defaultInput.length === 0) {
       throw new Error(`llm-pi-ai: provider "${provider}" defaultInput must name at least one modality`)
     }
+    const listing = resolveModelListing(provider, source)
+    const fetched = listing === undefined ? undefined : listings.get(provider)
+    const listed = listing === undefined || fetched === undefined ? undefined : servedListing(listing, fetched)
     // The route key, not the installed provider's own name: the directory has
     // always shown route keys, and a catalog route must not silently rename
     // itself on every configuration surface just because it gained a profile.
@@ -514,12 +693,20 @@ export function resolveProfiles(
     let catalog: RouteCatalog | undefined
     let piProvider: Provider | undefined
     let catalogError: string | undefined
-    try {
+    // A listing route that has no listing yet serves no models and reports no
+    // diagnostic. Its configured entries are still validated on writes.
+    const models = listing === undefined ? source.models : listed === undefined ? undefined : listedModels(listed, source.models)
+    // An empty `models` list means "the installed catalog" to resolveRouteModels,
+    // so an empty served listing resolves nothing instead.
+    const resolvesModels = listing === undefined
+      ? true
+      : listed === undefined ? validation === 'strict' && (source.models?.length ?? 0) > 0 : listed.length > 0
+    if (resolvesModels) try {
       catalog = resolveRouteModels({
         provider,
         ...source.api === undefined ? {} : { api: source.api },
         ...baseURL === undefined ? {} : { baseURL },
-        ...source.models === undefined ? {} : { models: source.models },
+        ...(models ?? source.models) === undefined ? {} : { models: models ?? source.models },
         ...source.modelOverrides === undefined ? {} : { modelOverrides: source.modelOverrides },
         ...source.compat === undefined ? {} : { compat: source.compat },
         defaultInput,
@@ -539,7 +726,7 @@ export function resolveProfiles(
       if (validation === 'strict' || !(error instanceof PiAiCatalogError)) throw error
       catalogError ??= error.message
     }
-    const { apiKeyEnv, baseURLEnv, retryPolicy, models: _models, displayName: _displayName, ...rest } = source
+    const { apiKeyEnv, baseURLEnv, retryPolicy, models: _models, displayName: _displayName, modelListing: _modelListing, ...rest } = source
     resolved.set(provider, {
       ...rest,
       provider,
@@ -553,9 +740,14 @@ export function resolveProfiles(
       requestImagePixelBudget,
       requestImageMaxBytes,
       retryPolicy: resolveRetryPolicy(retryPolicy, `llm-pi-ai: provider "${provider}" retryPolicy`),
+      ...listing === undefined ? {} : { modelListing: listing },
       ...rest.headers === undefined ? {} : { headers: { ...rest.headers } },
       ...rest.thinkingBudgets === undefined ? {} : { thinkingBudgets: { ...rest.thinkingBudgets } },
-      configuredMaxTokens: catalog?.configuredMaxTokens ?? new Map(),
+      configuredMaxTokens: listing === undefined
+        ? catalog?.configuredMaxTokens ?? new Map()
+        // A listing's output size describes the model; only a configured entry sets a request default.
+        : new Map([...catalog?.configuredMaxTokens ?? []].filter(([id]) =>
+          source.models?.some(entry => entry.id === id && entry.maxTokens !== undefined))),
       modelErrors: catalog?.modelErrors ?? new Map(),
       ...piProvider === undefined ? {} : { piProvider },
       ...catalogError === undefined ? {} : { catalogError },

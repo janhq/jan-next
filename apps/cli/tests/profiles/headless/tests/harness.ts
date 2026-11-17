@@ -35,7 +35,7 @@ export const TODO_SYSTEM_PROMPT = 'You are a coding agent. For multi-step work, 
   + 'completed as soon as it is done.'
 
 /** The key-gated pi-ai route every headless e2e Agent uses. */
-export const E2E_MODEL = { provider: 'tokamak', model: 'tokamak-1-preview' } as const
+export const E2E_MODEL = { provider: 'tokamak', model: 'tokamak/auto' } as const
 
 /** Options for {@link codingHarness}. */
 export interface CodingHarnessOptions {
