@@ -42,7 +42,7 @@ The complete supported method matrix, MCP trust model, update mapping, and stop 
 
 #### What the model sees
 
-The profile supplies `You are a coding agent powered by the {{model}} model.` before first-party guidance; the ACP route resolves `{{model}}`. Each Session receives its current directory in required user-role context from [`jan-working-directory`](../../session/working-directory/README.md).
+The profile replaces the default identity sentence with `You are Jan, an AI agent. You are a coding agent powered by the {{model}} model.` before first-party guidance; the ACP route resolves `{{model}}`. Each Session receives its current directory in required user-role context from [`jan-working-directory`](../../session/working-directory/README.md).
 
 #### Token effect
 
