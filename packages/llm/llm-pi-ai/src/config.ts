@@ -183,6 +183,12 @@ export interface PiAiProviderProfile {
   /** Maximum provider idle time while one stream read is outstanding. */
   streamIdleTimeoutMs?: number
   /**
+   * Ask a llama.cpp server for prompt-processing progress (`return_progress`) and publish it as
+   * `llm-pi-ai/prompt-progress`, so a slow local prefill shows how far it got. Only for servers that
+   * accept the field; other OpenAI-compatible endpoints may reject unknown request fields.
+   */
+  promptProgress?: boolean
+  /**
    * Maximum base64-encoded image payload per request. When a request's
    * accumulated images exceed it, the oldest images are replaced by text
    * placeholders until the request fits, so a long session keeps completing
@@ -379,6 +385,7 @@ const profile = z.object({
   timeoutMs: z.natural(),
   websocketConnectTimeoutMs: z.natural(),
   streamIdleTimeoutMs: z.number().min(Number.MIN_VALUE).max(MAX_TIMER_DELAY_MS).default(DEFAULT_STREAM_IDLE_TIMEOUT_MS),
+  promptProgress: z.boolean(),
   maxRequestImageBytes: z.number().step(1).min(1).default(DEFAULT_MAX_REQUEST_IMAGE_BYTES),
   maxRequestImages: z.number().step(1).min(1).default(DEFAULT_MAX_REQUEST_IMAGES),
   imageOffloadCountQuantum: z.number().step(1).min(1),
