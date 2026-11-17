@@ -115,6 +115,8 @@ export interface ModelCatalogModel {
   readonly reasoning?: ModelReasoning
   /** Provider-authored label shown beside the name; display data only. */
   readonly badge?: LlmModelBadge
+  /** Maximum combined request and response context in tokens, when the route advertises one. */
+  readonly contextWindow?: number
 }
 
 /** One provider and its successfully loaded model catalog. */
