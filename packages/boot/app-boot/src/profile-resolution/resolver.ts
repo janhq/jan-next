@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { getEnvironmentData, setEnvironmentData } from 'node:worker_threads'
 import type { ModuleLoaderV1, ModuleLoaderV2, ResolveResult } from '@janhq/cordis-plugin-loader'
 import { imports as resolvePackageImports, type Package as ResolvePackageManifest } from 'resolve.exports'
+import { janSpecifier } from '@janhq/jan-package-manifest'
 import type { RuntimeResolutionEntry, RuntimeResolution } from '../profile.ts'
 
 const WORKER_RESOLUTION_KEY = '@janhq/jan-app-boot/profile-resolution'
@@ -571,6 +572,14 @@ class ResolutionRouter {
   ): ResolutionRouteState | undefined {
     const { parent, layer, requests } = parentRoutes
     const memo = layer.kind === 'profile' && (cjs === undefined || cjs.cacheable)
+    const translated = janSpecifier(request)
+    if (translated !== request) {
+      const canonical = this.routeScoped(translated, parentRoutes, resolution, flavor, cjs)
+      if (canonical !== undefined && canonical.route.kind === 'interception') {
+        if (memo) requests.set(request, canonical)
+        return canonical
+      }
+    }
     const name = barePackageName(request)
     if (name === undefined) return undefined
 
@@ -873,7 +882,7 @@ export function installRuntimeInterception(
       try {
         let result: ResolveResult | Promise<ResolveResult>
         try {
-          result = native(request, routedParent, attributes)
+          result = native(route.kind === 'interception' ? janSpecifier(request) : request, routedParent, attributes)
         } catch (error) {
           return restoreImporter(error)
         }
@@ -1000,7 +1009,7 @@ export function installRuntimeInterception(
       resolveEntry: (entry, after) => {
         delegatedCjs++
         try {
-          return resolveRoutedCjs(request, { kind: 'interception', entry, after }, parent, main, routedOptions)
+          return resolveRoutedCjs(janSpecifier(request), { kind: 'interception', entry, after }, parent, main, routedOptions)
         } finally {
           delegatedCjs--
         }
@@ -1026,7 +1035,7 @@ export function installRuntimeInterception(
     try {
       let expected: string
       try {
-        expected = resolveRoutedCjs(request, route, parent, main, routedOptions)
+        expected = resolveRoutedCjs(route.kind === 'interception' ? janSpecifier(request) : request, route, parent, main, routedOptions)
       } catch (error) {
         if (route.kind !== 'interception' || !isUnselectedPackageMiss(error)) throw error
         expected = resolveRoutedCjs(

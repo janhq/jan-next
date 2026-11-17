@@ -28,6 +28,7 @@ import type { EntryOptions } from '@janhq/cordis-plugin-loader'
 import { applyEntryPatches, type PatchOptions } from '@janhq/cordis-plugin-include'
 import { resolveJanHome } from '@janhq/jan-home-paths'
 import type { JanBundleManifest, JanPackageManifest } from '@janhq/jan-package-manifest'
+import { janDeclaration } from '@janhq/jan-package-manifest'
 import { INSTALLATION_OWNED_PROFILE_TUPLES, PROFILE_TEMPLATES, RETIRED_BUNDLES } from '@janhq/jan-official-bundles'
 import { assertBundlePlatform } from './bundle-platform.ts'
 import { evaluatePluginCompatibility, pluginCompatibilityWarning } from './plugin-compatibility.ts'
@@ -42,7 +43,7 @@ export const PROFILES_DIR = 'profiles'
 export const PROFILE_PATCH_FILENAME = 'cordis.patch.yml'
 
 /** Package metadata accepted by the profile reader; local profiles need no published identity. */
-export type ProfileManifest = Partial<JanPackageManifest>
+export type ProfileManifest = Partial<JanPackageManifest> & { dsh?: JanPackageManifest['jan'] }
 
 /**
  * The patch files a bundle declares, as written: one file for a string
@@ -558,7 +559,7 @@ export function readProfileManifest(binName: string, dir: string): ProfileManife
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
     throw new Error(`${binName}: profile manifest ${path} must hold a JSON object`)
   }
-  return parsed
+  return parsed.jan !== undefined || parsed.dsh?.bundle === undefined ? parsed : { ...parsed, jan: parsed.dsh }
 }
 
 /**
@@ -690,7 +691,7 @@ export function loadProfileDirectory(
     try {
       const packageDir = resolveBundleDir(binName, packageName, installAnchor, dir)
       const bundleManifest = readProfileManifest(binName, packageDir)
-      const bundle = bundleManifest.jan?.bundle
+      const bundle = janDeclaration(bundleManifest)?.bundle
       if (bundle === undefined) {
         throw new Error(`${binName}: profile bundle ${JSON.stringify(packageName)} declares no jan.bundle in its package.json`)
       }

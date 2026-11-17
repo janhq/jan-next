@@ -76,6 +76,21 @@ function stageInstallation(
   return join(appDir, 'package.json')
 }
 
+it('loads a DSH bundle declaration without rewriting its installed manifest', () => {
+  const anchor = stageInstallation({ 'dsh-ppt': { patch: '- insert:\n  - id: slides\n    name: dsh-ppt\n' } })
+  const bundleDir = join(dirname(anchor), 'node_modules', 'dsh-ppt')
+  const manifestPath = join(bundleDir, 'package.json')
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>
+  manifest.dsh = manifest.jan
+  delete manifest.jan
+  writeFileSync(manifestPath, JSON.stringify(manifest))
+  const profileDir = join(tmp(), 'profile')
+  initProfile(profileDir, ['dsh-ppt'])
+  expect(loadProfileDirectory('jan', profileDir, anchor).layers.map(layer => layer.packageName)).toEqual(['dsh-ppt'])
+  expect(readProfileManifest('jan', bundleDir).jan?.bundle?.patch).toBe('./cordis.patch.yml')
+  expect(JSON.parse(readFileSync(manifestPath, 'utf8'))).not.toHaveProperty('jan')
+})
+
 it('skips an unsupported saved bundle before composing any runtime overrides and retains the selection', () => {
   const unsupported = process.platform === 'darwin' ? 'win32' : 'darwin'
   const anchor = stageInstallation({
