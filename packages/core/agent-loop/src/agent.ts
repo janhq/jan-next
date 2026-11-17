@@ -560,6 +560,11 @@ export class ReactLoopAgent implements Agent {
           if (action?.kind !== 'retry') {
             throw new LlmError(finish.failure.message, finish.failure.code, finish.failure)
           }
+          // Recovery that recorded another route (a model fallback) retries on
+          // it: close this failed step so the next one prepares the new selection.
+          const reselected = this.model.current()
+          if (reselected !== undefined && (reselected.provider !== decision.selection.provider
+            || reselected.model !== decision.selection.model)) return null
           continue
         }
 

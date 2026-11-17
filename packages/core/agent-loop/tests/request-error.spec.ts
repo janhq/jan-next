@@ -104,6 +104,33 @@ describe('agent/request-error', () => {
       event.type === 'request/header' ? [event.data.reason] : [])).toEqual(['initial'])
   })
 
+  it('retries on the route a recovery listener selected, in a fresh step of the same turn', async () => {
+    const primary = new MockAdapter([fail('busy', 'RATE_LIMIT'), textResponse('unused')])
+    const backup = new MockAdapter([textResponse('from backup')])
+    const ctx = await harness(primary)
+    ctx.llm.registerAdapter(['backup'], backup)
+    const agent = await ctx.agentLoop.create(SessionId('request-error-reroute'), { provider: 'mock', model: 'mock' })
+    ctx.on('agent/request-error', async ({ agent: subject }) => {
+      subject.model.select({ provider: 'backup', model: 'backup-model' })
+      return { kind: 'retry' }
+    })
+
+    agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
+    await agent.whenIdle()
+
+    expect(primary.requests).toHaveLength(1)
+    expect(backup.requests).toHaveLength(1)
+    expect(backup.requests[0]?.model).toBe('backup-model')
+    const texts = (backup.requests[0]?.messages ?? []).flatMap(message =>
+      message.role === 'user' ? message.content.flatMap(block => block.type === 'text' ? [block.text] : []) : [])
+    expect(texts).toContain('go')
+    const events = agent.session.snapshotEvents()
+    expect(events.filter(event => event.type === 'turn/start')).toHaveLength(1)
+    expect(events.flatMap(event => event.type === 'step/start' ? [event.data.step] : [])).toEqual([1, 2])
+    expect(events.flatMap(event => event.type === 'turn/end' ? [event.data.reason.kind] : [])).toEqual(['completed'])
+    expect(agent.model.current()).toMatchObject({ provider: 'backup', model: 'backup-model' })
+  })
+
   it('lets cancellation win over a retry action', async () => {
     const adapter = new MockAdapter([fail('busy', 'RATE_LIMIT'), textResponse('unused')])
     const ctx = await harness(adapter)
