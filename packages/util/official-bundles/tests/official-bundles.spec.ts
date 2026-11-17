@@ -24,6 +24,7 @@ describe('Shipped profile templates', () => {
     expect(PROFILE_TEMPLATES).toEqual({
       acp: { bundles: ['@janhq/jan-base', '@janhq/jan-acp-app'] },
       web: { bundles: ['@janhq/jan-base', '@janhq/jan-web-app'] },
+      desktop: { bundles: ['@janhq/jan-base', '@janhq/jan-web-app', '@janhq/jan-desktop-app'] },
       headless: { bundles: ['@janhq/jan-base', '@janhq/jan-headless'] },
       sdk: { bundles: ['@janhq/jan-base', '@janhq/jan-sdk-app'] },
       'sdk-minimal': { bundles: ['@janhq/jan-sdk-minimal'] },

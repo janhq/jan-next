@@ -14,6 +14,10 @@ export const PROFILE_TEMPLATES: Record<string, ProfileTemplate> = {
   web: {
     bundles: ['@janhq/jan-base', '@janhq/jan-web-app'],
   },
+  // The desktop app's Web surface plus Jan's theme, legacy chat import, and preset catalog.
+  desktop: {
+    bundles: ['@janhq/jan-base', '@janhq/jan-web-app', '@janhq/jan-desktop-app'],
+  },
   headless: {
     bundles: ['@janhq/jan-base', '@janhq/jan-headless'],
   },
@@ -31,6 +35,7 @@ export const PROFILE_TEMPLATES: Record<string, ProfileTemplate> = {
  */
 export const INSTALLATION_OWNED_PROFILE_TUPLES: Readonly<Record<string, readonly string[]>> = {
   headless: ['@janhq/jan-base', '@janhq/jan-web-app', '@janhq/jan-headless'],
+  desktop: ['@janhq/jan-base', '@janhq/jan-web-app'],
 }
 
 /** Bundles an earlier release shipped and the installation no longer carries; app-boot removes them from profiles. */
