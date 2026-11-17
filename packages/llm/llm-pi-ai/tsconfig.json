@@ -52,6 +52,9 @@
     },
     {
       "path": "../../core/agent-default-model"
+    },
+    {
+      "path": "../../storage/storage-domain"
     }
   ]
 }

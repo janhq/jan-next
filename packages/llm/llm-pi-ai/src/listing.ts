@@ -42,17 +42,36 @@ export interface RouteModelListingsOptions {
   onChange: (provider: string, models: readonly LlmDiscoveredModel[]) => void
   /** Observe a failed refresh that kept the previous listing. */
   onStale: (provider: string, error: unknown) => void
+  /** Observe a failed write to the attached {@link ListingStore}. */
+  onPersistFailure: (provider: string, error: unknown) => void
   /** Aborts every in-flight request when the owning plugin unloads. */
   signal: AbortSignal
   /** Current time in milliseconds. */
   now?: () => number
 }
 
-/** One route's stored listing. */
-interface StoredListing {
-  /** Hash of the endpoint and credential the listing was fetched with. */
+/** One route's listing as a {@link ListingStore} keeps it across restarts. */
+export interface PersistedListing {
+  /** SHA-256 of the endpoint and credential the listing was fetched with. */
   fingerprint: string
+  /** The listed models. */
   models: readonly LlmDiscoveredModel[]
+  /** When the listing was fetched, in milliseconds since the epoch. */
+  fetchedAt: number
+}
+
+/** Durable listing copies keyed by route; writes resolve once durable. */
+export interface ListingStore {
+  /** @returns every persisted listing with its route. */
+  entries: () => Iterable<[string, PersistedListing]>
+  /** Persist one route's listing, replacing any earlier one. */
+  save: (provider: string, listing: PersistedListing) => Promise<void>
+  /** Forget one route's listing. */
+  remove: (provider: string) => Promise<void>
+}
+
+/** One route's stored listing. */
+interface StoredListing extends PersistedListing {
   /** When the listing was last fetched or last failed to refresh. */
   checkedAt: number
 }
@@ -77,9 +96,35 @@ export class RouteModelListings {
   private readonly inflight = new Map<string, { fingerprint: string; done: Promise<void> }>()
   private readonly now: () => number
   private version = 0
+  private store: ListingStore | undefined
 
   constructor(private readonly options: RouteModelListingsOptions) {
     this.now = options.now ?? Date.now
+  }
+
+  /**
+   * Keep listings in `store` from now on. A persisted listing is adopted for
+   * a route that holds none yet, with its fetch time, so it is served until
+   * a request replaces it; listings already held are written to the store.
+   * @param store - the durable store to read and write.
+   */
+  attach(store: ListingStore): void {
+    const persisted = new Map(store.entries())
+    this.store = store
+    for (const [provider, listing] of persisted) {
+      if (this.stored.has(provider)) continue
+      this.stored.set(provider, { ...listing, checkedAt: listing.fetchedAt })
+      this.version += 1
+      this.options.onChange(provider, listing.models)
+    }
+    for (const [provider, { fingerprint, models, fetchedAt }] of this.stored) {
+      if (persisted.get(provider)?.fetchedAt !== fetchedAt) this.persist(provider, { fingerprint, models, fetchedAt })
+    }
+  }
+
+  /** Stop writing to the attached store; listings already held stay. */
+  detach(): void {
+    this.store = undefined
   }
 
   /** Incremented whenever {@link snapshot} changes; used to memoize resolved profiles. */
@@ -130,8 +175,17 @@ export class RouteModelListings {
   drop(provider: string): void {
     this.inflight.delete(provider)
     if (!this.stored.delete(provider)) return
+    this.persist(provider, undefined)
     this.version += 1
     this.options.onChange(provider, [])
+  }
+
+  /** Write or remove one route's persisted listing; a failure is reported, never thrown. */
+  private persist(provider: string, listing: PersistedListing | undefined): void {
+    const store = this.store
+    if (store === undefined) return
+    const write = listing === undefined ? store.remove(provider) : store.save(provider, listing)
+    write.catch((error: unknown) => { this.options.onPersistFailure(provider, error) })
   }
 
   /**
@@ -173,7 +227,9 @@ export class RouteModelListings {
     }
     if (this.superseded(provider, fingerprint)) return
     const previous = this.stored.get(provider)
-    this.stored.set(provider, { fingerprint, models, checkedAt: this.now() })
+    const fetchedAt = this.now()
+    this.stored.set(provider, { fingerprint, models, fetchedAt, checkedAt: fetchedAt })
+    this.persist(provider, { fingerprint, models, fetchedAt })
     if (previous !== undefined && deepEqualJson(previous.models, models)) return
     this.version += 1
     this.options.onChange(provider, models)

@@ -1884,7 +1884,7 @@ export interface ArtifactOverride {
 
 - `inject`: `llm`
 - `refs`: `Api` (`@earendil-works/pi-ai`) · `CacheRetention` (`@earendil-works/pi-ai`) · `Model` (`@earendil-works/pi-ai`) · `ModelThinkingLevel` (`@earendil-works/pi-ai`) · `OpenAICompletionsCompat` (`@earendil-works/pi-ai`) · [`RetryPolicyConfig`](../packages/llm/llm/src/index.ts) · `ThinkingBudgets` (`@earendil-works/pi-ai`) · `Transport` (`@earendil-works/pi-ai`) · `Volatile` (`@janhq/cordis`)
-- `source`: [`packages/llm/llm-pi-ai/src/config.ts:314`](../packages/llm/llm-pi-ai/src/config.ts)
+- `source`: [`packages/llm/llm-pi-ai/src/config.ts:322`](../packages/llm/llm-pi-ai/src/config.ts)
 
 ```ts config-catalog
 /** Plugin configuration: the provider routes this instance owns. */
@@ -2080,6 +2080,12 @@ export interface PiAiModelListing {
    * of them is listed, the first listed model is used.
    */
   preferredDefaults?: string[]
+  /**
+   * Id patterns of listed models this route does not serve, such as image
+   * generation models a listing does not mark as non-chat. `*` matches any
+   * run of characters; every other character matches itself.
+   */
+  exclude?: string[]
 }
 
 /**

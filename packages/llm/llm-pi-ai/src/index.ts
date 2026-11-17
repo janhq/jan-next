@@ -70,11 +70,12 @@ import { deepEqualJson } from '@janhq/jan-util-values'
 import { PiAiAdapter } from './adapter.ts'
 import { authContextFrom, credentialStoreFrom } from './auth.ts'
 import { catalogProvider, catalogProviderIds } from './catalog.ts'
-import { assertServiceable, Config, resolveProfiles } from './config.ts'
+import { assertServiceable, Config, resolveProfiles, servedListing } from './config.ts'
 import type { ResolvedPiAiProviderProfile } from './config.ts'
 import { discoverModels } from './discovery.ts'
 import type { StoredModelDiscoveryProfile } from './discovery.ts'
 import { isListingProfile, RouteModelListings } from './listing.ts'
+import { openListingStore } from './listing-store.ts'
 import type { ListingProfile } from './listing.ts'
 import { registerPiAiFlows } from './login.ts'
 import { providerDefaultsOf } from './provider-data.ts'
@@ -230,6 +231,38 @@ export function apply(ctx: Context, config: Config): void {
       ctx.logger.warn(`llm-pi-ai: could not refresh the model listing of provider route "${provider}"; keeping the last listing`)
       ctx.logger.warn(error)
     },
+    onPersistFailure: (provider, error) => {
+      ctx.logger.warn(`llm-pi-ai: could not save the model listing of provider route "${provider}"`)
+      ctx.logger.warn(error)
+    },
+  })
+  // With storage mounted, listings survive restarts: a route serves its last
+  // listing from the first read, and the launch refresh below replaces it.
+  ctx.inject(['storageDomain'], (scoped) => {
+    scoped.effect(() => {
+      let released = false
+      let close: (() => Promise<void>) | undefined
+      const opened = openListingStore(scoped.storageDomain).then(
+        async (result) => {
+          if (released) {
+            await result.close()
+            return
+          }
+          listings.attach(result.store)
+          close = result.close
+        },
+        (error: unknown) => {
+          ctx.logger.warn('llm-pi-ai: model listings will not survive a restart; their storage did not open')
+          ctx.logger.warn(error)
+        },
+      )
+      return async () => {
+        released = true
+        listings.detach()
+        await opened
+        await close?.()
+      }
+    }, 'llm-pi-ai model listing storage')
   })
   /**
    * The resolved profiles for the current configuration, memoized by the raw
@@ -323,15 +356,17 @@ export function apply(ctx: Context, config: Config): void {
     return { baseURL, apiKey }
   }
   /**
-   * Move the agent default to a listed model when it names this route and a
-   * model the new listing does not serve: the first listed id of the route's
-   * `preferredDefaults`, otherwise the first listed model. Never rejects.
+   * Move the agent default to a served model when it names this route and a
+   * model the new listing does not serve: the first served id of the route's
+   * `preferredDefaults`, otherwise the first served model. Never rejects.
    */
-  const adoptListedDefault = async (provider: string, models: readonly LlmDiscoveredModel[]): Promise<void> => {
+  const adoptListedDefault = async (provider: string, listed: readonly LlmDiscoveredModel[]): Promise<void> => {
     const defaults = ctx.get('agentDefaultModel')
     const profile = profiles().get(provider)
+    if (defaults === undefined || profile?.modelListing === undefined) return
+    const models = servedListing(profile.modelListing, listed)
     const [first] = models
-    if (defaults === undefined || profile?.modelListing === undefined || first === undefined) return
+    if (first === undefined) return
     try {
       const current = defaults.currentSelection()
       if (current.provider !== provider || models.some(model => model.id === current.model)) return
@@ -467,7 +502,7 @@ export function apply(ctx: Context, config: Config): void {
   }
   ensureRegistrationFacts()
 
-  // Each listing route lists at startup, or when it first appears, and then
+  // Each listing route lists at launch, or when it first appears, and then
   // refetches every refreshIntervalMs on its own timer. Reads past the
   // interval refetch on demand.
   const refreshTimers = new Map<string, { interval: number; timer: ReturnType<typeof setInterval> }>()
@@ -484,7 +519,9 @@ export function apply(ctx: Context, config: Config): void {
       const timer = setInterval(() => { void refreshListing(provider, true) }, interval)
       timer.unref()
       refreshTimers.set(provider, { interval, timer })
-      void refreshListing(provider, false)
+      // A route lists again whenever it is scheduled, at launch included, even
+      // over a stored listing that is still fresh.
+      void refreshListing(provider, true)
     }
   }
   ctx.effect(() => () => {

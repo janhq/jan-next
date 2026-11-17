@@ -114,6 +114,7 @@ tokamak:
     refreshIntervalMs: 600000
     timeoutMs: 15000
     preferredDefaults: [tokamak/auto]
+    exclude: [openai/gpt-image-*]
   models:
     - id: anthropic/claude-opus-5-5[1m]
       contextWindow: 1000000
@@ -124,8 +125,13 @@ tokamak:
 | `refreshIntervalMs` | `600,000` | Listing age after which it is fetched again |
 | `timeoutMs` | `15,000` | Bound on one listing request |
 | `preferredDefaults` | none | Ids the agent default moves to, in order, when it names an unlisted model of this route |
+| `exclude` | none | Id patterns (`*` matches any run of characters) of listed models the route does not serve |
 
-The plugin fetches every listing route's models at startup or when the route appears, again in the background every `refreshIntervalMs` of that route, and on any model read — `listModels`, `resolveModel`, `prepareCall` — once the stored listing is older than its interval or was fetched with another endpoint or credential. A sign-in therefore lists the new account's models on the next read, and concurrent reads share one request. A listing whose model set changed publishes `llm/adapters-updated`, so selectors reload. While the agent default names the route and a model the new listing omits, the plugin saves the first listed `preferredDefaults` id, otherwise the first listed model, as the new default.
+The route serves only chat models: a listing entry whose `architecture.output_modalities` omits `text` is dropped, its `architecture.input_modalities` become the model's input modalities, and `exclude` drops non-chat models the listing does not describe. OpenAI's model listing marks neither chat capability nor a default model, so `preferredDefaults` names the default and `exclude` names what is not chat.
+
+The plugin fetches every listing route's models at launch or when the route appears, even over a stored listing, again in the background every `refreshIntervalMs` of that route, and on any model read — `listModels`, `resolveModel`, `prepareCall` — once the stored listing is older than its interval or was fetched with another endpoint or credential. A sign-in therefore lists the new account's models on the next read, and concurrent reads share one request. A listing whose model set changed publishes `llm/adapters-updated`, so selectors reload. While the agent default names the route and a model the new listing omits, the plugin saves the first served `preferredDefaults` id, otherwise the first served model, as the new default.
+
+With the `storageDomain` service mounted, each listing is also kept in the `llm_pi_ai_model_listings` storage domain together with its fetch time and a SHA-256 fingerprint of the endpoint and credential; the credential itself is not stored. After a restart the route serves that listing from its first read, so the picker is populated before the launch refresh completes and while the endpoint is unreachable. A listing fetched with another endpoint or credential is never served past the first model read, and signing out deletes the stored listing. Without the service, listings live in memory.
 
 Until a listing succeeds the route serves no models. A model read then fails with the listing's failure: `MISSING_CREDENTIAL` while the route's credential or endpoint is unset, which also drops a stored listing, or `DISCOVERY_FAILED` when the endpoint refuses, times out, or answers with something other than a listing. A failed refresh keeps the last listing fetched with the same endpoint and credential and logs a warning. No configured list stands in for an unreachable endpoint: a route that cannot list its models cannot be trusted to serve the ones configuration names either.
 
@@ -195,6 +201,7 @@ This event covers inference calls with or without a Session id, including auxili
 | [`src/replay.ts`](src/replay.ts) | Versioned `ReplayEnvelope` storage and validation |
 | [`src/discovery.ts`](src/discovery.ts) | Endpoint interrogation for configuration surfaces |
 | [`src/listing.ts`](src/listing.ts) | Runtime model listings for `modelListing` routes |
+| [`src/listing-store.ts`](src/listing-store.ts) | Durable listing copies through the optional storage domain |
 
 ### Registration and directory
 
@@ -287,7 +294,8 @@ These limits define where the adapter stops and future work begins. They are cur
 - **`headers` can carry a credential the redactor never sees** — profile resolution rejects names and values Fetch cannot represent, but the dict remains plain strings; store credentials as `apiKeyEnv` references.
 - **Discovery does not change configured models** — adopt discovery results explicitly into the route configuration; only a `modelListing` route takes its models from the endpoint.
 - **A listing route's models depend on its listing endpoint** — while the listing endpoint fails and no listing is stored, the route serves nothing even if its inference endpoint works.
-- **Listings live in memory** — every process start lists again before its first read of a listing route; nothing is persisted.
+- **One instance keeps listings across restarts** — the storage domain opens once per process, so a second `llm-pi-ai` instance keeps its listings in memory and logs a warning.
+- **Chat capability is declared, not detected** — an OpenAI-compatible listing that omits `architecture.output_modalities` gives no sign that a model is not a chat model; name such models in `exclude`.
 - **Anthropic discovery reads at most 1,000 models** — the request uses the API's maximum page size but does not traverse `has_more`; entries beyond the first page must be added by hand.
 - **Uncataloged models need an unambiguous protocol** — catalog routes preserve each model's protocol, including both Azure APIs under `azure`. A model absent from a mixed-protocol catalog needs an explicit route-level `api`, which overrides every model on the route and must be one of the supported custom protocols. For Azure deployment names, keep the catalog model ID and set `AZURE_OPENAI_DEPLOYMENT_NAME_MAP`.
 - **A modality declaration is not verified** — a model declaring `image` its gateway does not serve is refused by the provider after prompt admission. The durable image remains in history and the same misdeclared model can fail again; switching to a text-only model remains possible because the shared LLM runtime projects image references into stable text for that request.

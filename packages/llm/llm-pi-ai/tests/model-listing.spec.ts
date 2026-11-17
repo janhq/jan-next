@@ -10,7 +10,11 @@ import LlmRuntime from '@janhq/jan-llm'
 import { credentialRef } from '@janhq/jan-credentials'
 import { LocalCredentialProvider } from '@janhq/jan-credentials-local'
 import * as LlmPiAi from '@janhq/jan-llm-pi-ai'
+import Storage from '@janhq/jan-storage'
+import * as StorageDomain from '@janhq/jan-storage-domain'
+import * as StorageJson from '@janhq/jan-storage-json'
 import { resolveProfiles } from '../src/config.ts'
+import { openListingStore } from '../src/listing-store.ts'
 import { assemble } from './assemble.ts'
 
 /** A router stand-in serving `GET /v1/models` for its known keys and a streamed chat completion. */
@@ -119,7 +123,7 @@ function route(url: string, listing: LlmPiAi.PiAiModelListing = {}): LlmPiAi.Opt
 
 async function boot(
   config: LlmPiAi.Options,
-  options: { key?: string; defaults?: boolean } = {},
+  options: { key?: string; defaults?: boolean; storage?: string } = {},
 ): Promise<{ ctx: Context; defaults: FakeDefaults | undefined; updates: () => number }> {
   vi.stubEnv('TOKAMAK_LISTING_KEY', '')
   const dir = await mkdtemp(join(tmpdir(), 'jan-pi-listing-'))
@@ -132,10 +136,23 @@ async function boot(
   await ctx.plugin(LlmRuntime)
   await ctx.plugin(LocalCredentialProvider, { path: join(dir, '.credentials.yaml'), watch: false })
   if (options.defaults === true) await ctx.plugin(FakeDefaults)
+  if (options.storage !== undefined) await mountStorage(ctx, options.storage)
   let updates = 0
   ctx.on('llm/adapters-updated', () => { updates += 1 })
   await ctx.plugin(LlmPiAi, config)
   return { ctx, defaults: ctx.get('agentDefaultModel') as FakeDefaults | undefined, updates: () => updates }
+}
+
+async function mountStorage(ctx: Context, root: string): Promise<void> {
+  await ctx.plugin(Storage)
+  await ctx.plugin(StorageJson, { root })
+  await ctx.plugin(StorageDomain, { backend: 'json' })
+}
+
+async function storageRoot(): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), 'jan-pi-listing-storage-'))
+  cleanups.push(() => rm(root, { recursive: true, force: true }))
+  return root
 }
 
 describe('modelListing configuration', () => {
@@ -143,7 +160,7 @@ describe('modelListing configuration', () => {
     const profiles = resolveProfiles({ plain: { api: 'openai-completions', baseURL: 'http://127.0.0.1:9', models: [{ id: 'm' }] } })
     expect(profiles.get('plain')?.modelListing).toBeUndefined()
     const listed = resolveProfiles({ listed: { api: 'openai-completions', baseURL: 'http://127.0.0.1:9', modelListing: {} } })
-    expect(listed.get('listed')?.modelListing).toEqual({ api: 'openai-completions', refreshIntervalMs: 600000, timeoutMs: 15000, preferredDefaults: [] })
+    expect(listed.get('listed')?.modelListing).toEqual({ api: 'openai-completions', refreshIntervalMs: 600000, timeoutMs: 15000, preferredDefaults: [], exclude: [] })
     // No listing yet: no models, and no diagnostic to repair.
     expect(listed.get('listed')?.piProvider).toBeUndefined()
     expect(listed.get('listed')?.catalogError).toBeUndefined()
@@ -162,6 +179,8 @@ describe('modelListing configuration', () => {
       .toThrow(/modelListing.timeoutMs must be a positive integer/)
     expect(() => resolveProfiles({ r: { api: 'openai-completions', baseURL: 'http://x', modelListing: { preferredDefaults: [''] } } }))
       .toThrow(/preferredDefaults has an empty model id/)
+    expect(() => resolveProfiles({ r: { api: 'openai-completions', baseURL: 'http://x', modelListing: { exclude: [''] } } }))
+      .toThrow(/exclude has an empty pattern/)
   })
 
   it('describes listed models from the listing where configuration is silent', () => {
@@ -183,6 +202,15 @@ describe('modelListing configuration', () => {
       ['configured', 'Configured name', 64000, 128000, ['text']],
     ])
     expect([...profile?.configuredMaxTokens ?? []]).toEqual([['bare', 500]])
+  })
+
+  it('leaves out listed models an exclude pattern names', () => {
+    const listed = [{ id: 'openai/gpt-image-2' }, { id: 'openai/gpt-6-sol' }, { id: 'a.b(c)' }, { id: 'axbc' }]
+    const profile = resolveProfiles({
+      r: { api: 'openai-completions', baseURL: 'http://x', modelListing: { exclude: ['openai/gpt-image-*', 'a.b(c)'] } },
+    }, 'deferred', new Map([['r', listed]])).get('r')
+    // Only `*` is a wildcard: `.` and parentheses match themselves.
+    expect(profile?.piProvider?.getModels().map(model => model.id)).toEqual(['openai/gpt-6-sol', 'axbc'])
   })
 
   it('serves nothing, without a diagnostic, for an empty listing', () => {
@@ -408,9 +436,13 @@ describe('runtime model listing', () => {
     expect(server.listings.length).toBe(settled)
   })
 
-  it('moves an unlisted agent default to the first preferred listed model', async () => {
+  it('moves an unlisted agent default to the first preferred served model', async () => {
     const server = await router()
-    const { defaults } = await boot(route(server.url, { preferredDefaults: ['missing', 'anthropic/opus'] }), { key: 'tk-one', defaults: true })
+    server.models = [{ id: 'openai/gpt-image-2' }, ...server.models]
+    const { defaults } = await boot(route(server.url, {
+      preferredDefaults: ['missing', 'openai/gpt-image-2', 'anthropic/opus'],
+      exclude: ['openai/gpt-image-*'],
+    }), { key: 'tk-one', defaults: true })
 
     await vi.waitFor(() => { expect(defaults?.saves).toEqual([{ provider: 'tokamak', model: 'anthropic/opus' }]) })
   })
@@ -442,6 +474,162 @@ describe('runtime model listing', () => {
     await vi.waitFor(() => {
       expect(warn).toHaveBeenCalledWith('llm-pi-ai: could not move the default model to a model provider route "tokamak" lists')
     })
+  })
+
+  it('moves no default when every listed model is excluded', async () => {
+    const server = await router()
+    const { ctx, defaults } = await boot(route(server.url, { exclude: ['*'] }), { key: 'tk-one', defaults: true })
+    expect(await ctx.llm.listModels('tokamak')).toEqual([])
+    expect(defaults?.saves).toEqual([])
+  })
+
+  it('serves the stored listing after a restart while the endpoint is down, then replaces it at launch', async () => {
+    const server = await router()
+    const root = await storageRoot()
+    const first = await boot(route(server.url), { key: 'tk-one', storage: root })
+    expect((await first.ctx.llm.listModels('tokamak')).map(model => model.id)).toEqual(['tokamak/auto', 'anthropic/opus'])
+    await first.ctx.fiber.dispose()
+
+    // Offline restart: the stored listing answers.
+    server.fail = 503
+    const offline = await boot(route(server.url), { key: 'tk-one', storage: root })
+    await vi.waitFor(async () => {
+      expect((await offline.ctx.llm.listModels('tokamak')).map(model => model.id)).toEqual(['tokamak/auto', 'anthropic/opus'])
+    })
+    await offline.ctx.fiber.dispose()
+
+    // Online restart: launch refetches even though the stored listing is fresh.
+    server.fail = undefined
+    server.models = [{ id: 'tokamak/auto' }]
+    const before = server.listings.length
+    const online = await boot(route(server.url), { key: 'tk-one', storage: root })
+    await vi.waitFor(async () => {
+      expect((await online.ctx.llm.listModels('tokamak')).map(model => model.id)).toEqual(['tokamak/auto'])
+    })
+    expect(server.listings.length).toBeGreaterThan(before)
+  })
+
+  it('does not serve another account\'s stored listing, and forgets it on sign-out', async () => {
+    const server = await router()
+    server.keys.add('tk-two')
+    const root = await storageRoot()
+    const first = await boot(route(server.url), { key: 'tk-one', storage: root })
+    await first.ctx.llm.listModels('tokamak')
+    await first.ctx.fiber.dispose()
+
+    server.models = [{ id: 'anthropic/opus' }]
+    const other = await boot(route(server.url), { key: 'tk-two', storage: root })
+    expect((await other.ctx.llm.listModels('tokamak')).map(model => model.id)).toEqual(['anthropic/opus'])
+    await other.ctx.credentials.unset(credentialRef('TOKAMAK_LISTING_KEY'))
+    await expect(other.ctx.llm.listModels('tokamak')).rejects.toMatchObject({ code: 'MISSING_CREDENTIAL' })
+    await other.ctx.fiber.dispose()
+
+    // Nothing remains to serve offline for the signed-out route.
+    server.fail = 503
+    const offline = await boot(route(server.url), { key: 'tk-two', storage: root })
+    await expect(offline.ctx.llm.listModels('tokamak')).rejects.toMatchObject({ code: 'DISCOVERY_FAILED' })
+  })
+
+  it('keeps serving from memory when its storage cannot open or write', async () => {
+    const server = await router()
+    const ctx = new Context()
+    cleanups.push(async () => { await ctx.fiber.dispose() })
+    const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => undefined)
+    vi.stubEnv('TOKAMAK_LISTING_KEY', 'tk-one')
+    await ctx.plugin(LlmRuntime)
+    const broken = class extends Service {
+      constructor(scope: Context) { super(scope, 'storageDomain') }
+      open(): Promise<never> { return Promise.reject(new Error('already-open')) }
+    }
+    await ctx.plugin(broken)
+    await ctx.plugin(LlmPiAi, route(server.url))
+    expect((await ctx.llm.listModels('tokamak')).map(model => model.id)).toEqual(['tokamak/auto', 'anthropic/opus'])
+    await vi.waitFor(() => {
+      expect(warn).toHaveBeenCalledWith('llm-pi-ai: model listings will not survive a restart; their storage did not open')
+    })
+  })
+
+  it('writes a listing held before its storage opened, keeps the newer one, and reports a failed write', async () => {
+    const server = await router()
+    const gate = Promise.withResolvers<undefined>()
+    const saved: string[] = []
+    const closed = vi.fn()
+    const ctx = new Context()
+    cleanups.push(async () => { await ctx.fiber.dispose() })
+    const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => undefined)
+    vi.stubEnv('TOKAMAK_LISTING_KEY', 'tk-one')
+    await ctx.plugin(LlmRuntime)
+    const slow = class extends Service {
+      constructor(scope: Context) { super(scope, 'storageDomain') }
+      async open(): Promise<unknown> {
+        await gate.promise
+        const stale = { fingerprint: '0'.repeat(64), fetchedAt: 1, models: [{ id: 'stale' }] }
+        return {
+          table: () => ({
+            entries: () => new Map([['tokamak', stale]]).entries(),
+            put: (key: string) => { saved.push(key); return Promise.reject(new Error('disk full')) },
+            delete: () => Promise.resolve(true),
+          }),
+          close: () => { closed(); return Promise.resolve() },
+        }
+      }
+    }
+    await ctx.plugin(slow)
+    await ctx.plugin(LlmPiAi, route(server.url))
+    expect((await ctx.llm.listModels('tokamak')).map(model => model.id)).toEqual(['tokamak/auto', 'anthropic/opus'])
+    gate.resolve(undefined)
+    await vi.waitFor(() => {
+      expect(warn).toHaveBeenCalledWith('llm-pi-ai: could not save the model listing of provider route "tokamak"')
+    })
+    expect(saved).toEqual(['tokamak'])
+    // The fetched listing wins over the older stored one.
+    expect((await ctx.llm.listModels('tokamak')).map(model => model.id)).toEqual(['tokamak/auto', 'anthropic/opus'])
+    await ctx.fiber.dispose()
+    expect(closed).toHaveBeenCalledTimes(1)
+  })
+
+  it('closes storage that opens only after the plugin unloaded', async () => {
+    const server = await router()
+    const gate = Promise.withResolvers<undefined>()
+    const closed = vi.fn()
+    const ctx = new Context()
+    vi.stubEnv('TOKAMAK_LISTING_KEY', 'tk-one')
+    await ctx.plugin(LlmRuntime)
+    const slow = class extends Service {
+      constructor(scope: Context) { super(scope, 'storageDomain') }
+      async open(): Promise<unknown> {
+        await gate.promise
+        return { table: () => ({ entries: () => [][Symbol.iterator]() }), close: () => { closed(); return Promise.resolve() } }
+      }
+    }
+    await ctx.plugin(slow)
+    const fiber = await ctx.plugin(LlmPiAi, route(server.url))
+    const unloading = fiber.dispose()
+    gate.resolve(undefined)
+    await unloading
+    await vi.waitFor(() => { expect(closed).toHaveBeenCalledTimes(1) })
+    await ctx.fiber.dispose()
+  })
+
+  it('stores a listing so that it reads back field for field', async () => {
+    const root = await storageRoot()
+    const listing = {
+      fingerprint: 'a'.repeat(64),
+      fetchedAt: 5,
+      models: [
+        { id: 'bare' },
+        { id: 'full', name: 'Full', contextWindow: 64000, maxTokens: 4000, inputModalities: ['text', 'image'] as const },
+      ],
+    }
+    for (const step of ['write', 'read'] as const) {
+      const ctx = new Context()
+      await mountStorage(ctx, root)
+      const { store, close } = await openListingStore(ctx.storageDomain)
+      if (step === 'write') await store.save('tokamak', listing)
+      else expect([...store.entries()]).toEqual([['tokamak', listing]])
+      await close()
+      await ctx.fiber.dispose()
+    }
   })
 
   it('leaves an agent default on another route alone', async () => {

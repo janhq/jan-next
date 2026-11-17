@@ -129,6 +129,12 @@ export interface PiAiModelListing {
    * of them is listed, the first listed model is used.
    */
   preferredDefaults?: string[]
+  /**
+   * Id patterns of listed models this route does not serve, such as image
+   * generation models a listing does not mark as non-chat. `*` matches any
+   * run of characters; every other character matches itself.
+   */
+  exclude?: string[]
 }
 
 /** {@link PiAiModelListing} with every default resolved. */
@@ -141,6 +147,8 @@ export interface ResolvedPiAiModelListing {
   timeoutMs: number
   /** Agent-default preference order; possibly empty. */
   preferredDefaults: readonly string[]
+  /** Id patterns of listed models the route does not serve; possibly empty. */
+  exclude: readonly string[]
 }
 
 /** Configuration for one pi-ai provider route; the `providers` dict key IS the route. */
@@ -424,6 +432,7 @@ const modelListing: z<PiAiModelListing> = z.union([z.object({
   refreshIntervalMs: z.number().step(1).min(1).max(MAX_TIMER_DELAY_MS).default(DEFAULT_MODEL_LISTING_REFRESH_INTERVAL_MS),
   timeoutMs: z.number().step(1).min(1).max(MAX_TIMER_DELAY_MS).default(DEFAULT_MODEL_LISTING_TIMEOUT_MS),
   preferredDefaults: z.array(z.string()),
+  exclude: z.array(z.string()),
 })])
 
 const profile = z.object({
@@ -530,7 +539,28 @@ function resolveModelListing(provider: string, source: PiAiProviderProfile): Res
   if (preferredDefaults.some(id => id.length === 0)) {
     throw new Error(`llm-pi-ai: provider "${provider}" modelListing.preferredDefaults has an empty model id`)
   }
-  return { api: source.api, refreshIntervalMs, timeoutMs, preferredDefaults }
+  const exclude = [...listing.exclude ?? []]
+  if (exclude.some(pattern => pattern.length === 0)) {
+    throw new Error(`llm-pi-ai: provider "${provider}" modelListing.exclude has an empty pattern`)
+  }
+  return { api: source.api, refreshIntervalMs, timeoutMs, preferredDefaults, exclude }
+}
+
+/**
+ * The listed models a listing route serves: the listing without the models
+ * its `exclude` patterns name, in listing order.
+ * @param listing - the route's resolved listing settings.
+ * @param listed - the endpoint's latest listing.
+ * @returns the served subset of `listed`.
+ */
+export function servedListing(
+  listing: ResolvedPiAiModelListing,
+  listed: readonly LlmDiscoveredModel[],
+): readonly LlmDiscoveredModel[] {
+  if (listing.exclude.length === 0) return listed
+  const excluded = listing.exclude.map(pattern =>
+    new RegExp(`^${pattern.split('*').map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*')}$`))
+  return listed.filter(model => !excluded.some(pattern => pattern.test(model.id)))
 }
 
 /**
@@ -654,7 +684,8 @@ export function resolveProfiles(
       throw new Error(`llm-pi-ai: provider "${provider}" defaultInput must name at least one modality`)
     }
     const listing = resolveModelListing(provider, source)
-    const listed = listing === undefined ? undefined : listings.get(provider)
+    const fetched = listing === undefined ? undefined : listings.get(provider)
+    const listed = listing === undefined || fetched === undefined ? undefined : servedListing(listing, fetched)
     // The route key, not the installed provider's own name: the directory has
     // always shown route keys, and a catalog route must not silently rename
     // itself on every configuration surface just because it gained a profile.
