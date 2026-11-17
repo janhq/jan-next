@@ -9,6 +9,7 @@
 import type { Context } from '@janhq/cordis'
 import type { SessionBinding } from '@janhq/jan-api-session-controller/client'
 import type { InboxState } from '@janhq/jan-agent/types'
+import type { SessionId } from '@janhq/jan-session/types'
 import type { ObservableSnapshot, SnapshotStore } from '@janhq/jan-client-store'
 import type { Branded } from '@janhq/jan-brand'
 import type { ArbitrateKey, ArbitrateOutcome, DraftQuote, Occurrence, ReferenceInsert, TokenSpan } from './draft-editor.ts'
@@ -218,6 +219,14 @@ export interface SessionInput extends InputTarget {
   readonly state: SnapshotStore<InputState>
 }
 
+/**
+ * Pre-send check over one plain message. Returns a notice that pauses the send:
+ * the composer shows it and keeps the draft, and a second send of the unchanged
+ * draft goes through. Undefined lets the send proceed. Checks run synchronously
+ * and must not throw; a throwing check is skipped.
+ */
+export type SendCheck = (sessionId: SessionId, text: string) => string | undefined
+
 /** Session-addressed access to the per-session input facade. */
 export interface SessionInputResolver {
   /** Resolve the facade for one session-scope ctx. */
@@ -230,6 +239,12 @@ export interface SessionInputResolver {
    * @throws when binding is not the currently retained Session generation.
    */
   requestDraftInitialization(binding: SessionBinding, options: DraftInitializationOptions): DraftInitializationResult
+  /**
+   * Add a pre-send check for plain messages in every Session.
+   * @param check - answers a pausing notice or undefined.
+   * @returns disposer removing the check.
+   */
+  addSendCheck(check: SendCheck): () => void
 }
 
 /** Initial text for a target Session; attachments remain under their existing owner. */

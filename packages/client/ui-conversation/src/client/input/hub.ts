@@ -18,7 +18,7 @@ import type { ModelSelectionProjection } from '@janhq/jan-agent/types'
 import type { ObservableSnapshot } from '@janhq/jan-client-store'
 import type {
   DraftAttachmentId, DraftAttachmentSerializationResult, DraftInitializationOptions, DraftInitializationResult, InputTriggerController,
-  SessionInputResolver, SessionInput, SubmitOutcome,
+  SendCheck, SessionInputResolver, SessionInput, SubmitOutcome,
 } from '../contract/input.ts'
 import type { ComposerKeyboard } from '../contract/draft-editor.ts'
 import type { ComposerBlocks } from '../contract/composer-blocks.ts'
@@ -57,6 +57,7 @@ interface ConversationAttachmentFace {
 /** Session-addressed input facade registry (SessionInputResolver face + composer-layer extras). */
 export class InputHub implements SessionInputResolver {
   private readonly shells = new WeakMap<SessionBinding, SessionInputShell>()
+  private readonly sendChecks = new Set<SendCheck>()
 
   /**
    * @param ctx - client root context (services resolved lazily per call — boot order stays free).
@@ -87,6 +88,11 @@ export class InputHub implements SessionInputResolver {
       throw new Error('conversation.input.requestDraftInitialization requires a retained Session binding')
     }
     return this.shellFor(binding).requestDraftInitialization(options)
+  }
+
+  addSendCheck(check: SendCheck): () => void {
+    this.sendChecks.add(check)
+    return () => { this.sendChecks.delete(check) }
   }
 
   /**
@@ -122,6 +128,15 @@ export class InputHub implements SessionInputResolver {
         })
       },
       messageSubmitted: (submission) => { reportMessageSubmission(this.rootCtx, submission) },
+      sendCheck: (text) => {
+        for (const check of this.sendChecks) {
+          try {
+            const notice = check(session.sessionId, text)
+            if (notice !== undefined) return notice
+          } catch (_error) { /* A failing check is skipped; it never blocks sending. */ }
+        }
+        return undefined
+      },
       inputTriggers: () => this.controller(actx),
       popup: () => this.popup(actx),
       inbox: session.projections.faceOf('inbox') as ObservableSnapshot<InboxState | undefined>,
