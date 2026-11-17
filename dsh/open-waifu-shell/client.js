@@ -72,7 +72,7 @@ window.__ModuleLoader__.load({
       async function save(next) {
         setBusy(true); setError(''); setNotice('')
         try { const saved = await appearanceApi('save', next); applyAppearance({ ...preferences, ...saved }); setNotice('Appearance saved.') }
-        catch (failure) { setError(failure.message) }
+        catch (failure) { setError(`Appearance was not saved, so the previous color stays. ${failure.message}`) }
         finally { setBusy(false) }
       }
       return h('section', { className: 'ow-appearance', 'aria-labelledby': `${uid}-title`, 'aria-busy': busy },

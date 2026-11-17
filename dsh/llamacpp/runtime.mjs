@@ -911,7 +911,7 @@ function vramContextBound(input) {
 var KV_OVERHEAD_RATIO = 0.25;
 var VRAM_FILL_LIMIT = 0.9;
 function estimateCatalogFit(input) {
-  const { bytes, vram, ram } = input;
+  const { bytes, vram, ram, unified } = input;
   const usable = (value) => typeof value === "number" && Number.isFinite(value) && value > 0 ? value : void 0;
   const size = usable(bytes);
   const gpu = usable(vram);
@@ -937,6 +937,28 @@ function estimateCatalogFit(input) {
     `${Math.round(KV_OVERHEAD_RATIO * 100)}% added for the KV cache and compute buffers a chat-sized context needs`,
     "the real overhead depends on the architecture and context, which a catalog entry does not publish"
   ];
+  if (unified === true && memory !== void 0) {
+    const pool = memory - 2.5 * 1024 ** 3 - memory * 0.1;
+    if (weightsWithOverhead <= pool * VRAM_FILL_LIMIT) {
+      return {
+        label: "Likely fits",
+        tone: "success",
+        detail: `Fits in this Mac's ${gb(memory)} of unified memory, which the GPU shares, after the system's reserve: ${notes.join("; ")}.`
+      };
+    }
+    if (weightsWithOverhead <= pool) {
+      return {
+        label: "Tight fit",
+        tone: "warning",
+        detail: `Fits in ${gb(memory)} of unified memory only with little left for other apps; a long context may not fit: ${notes.join("; ")}.`
+      };
+    }
+    return {
+      label: "Unlikely to fit",
+      tone: "danger",
+      detail: `${gb(size)} of weights against ${gb(memory)} of unified memory, after the system's reserve: ${notes.join("; ")}.`
+    };
+  }
   if (gpu !== void 0 && weightsWithOverhead <= gpu * VRAM_FILL_LIMIT) {
     return {
       label: "Likely fits",
@@ -4225,7 +4247,9 @@ var LlamacppEngine = class extends AIEngine {
    */
   async catalogFit(bytes) {
     const totals = await this.getMemoryTotals();
-    return estimateCatalogFit({ bytes, vram: totals.vram, ram: totals.ram });
+    const info = await getSystemInfo().catch(() => void 0);
+    const unified = info?.os_type === "macos" && ["arm64", "aarch64"].includes(info?.cpu?.arch) && (info?.gpus?.length ?? 0) === 0;
+    return estimateCatalogFit({ bytes, vram: totals.vram, ram: totals.ram, unified });
   }
   /**
    * Resolves the default/preferred embedding model, importing and loading

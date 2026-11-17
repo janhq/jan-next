@@ -21,7 +21,7 @@ window.__ModuleLoader__.load({
 .ow-model-form{display:grid;gap:18px}.ow-model-field{display:grid;gap:6px;min-width:0}.ow-model-field>label,.ow-model-field>span:first-child{font-weight:500}.ow-model-field select{width:100%;box-sizing:border-box;min-height:36px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;padding:6px 10px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-1);font:inherit}
 .ow-model-field input[type=range]{width:100%;accent-color:var(--dsw-alias-state-business-primary)}.ow-model-check{display:flex;align-items:center;gap:8px}.ow-model-check input{accent-color:var(--dsw-alias-state-business-primary)}
 .ow-models-error{padding:12px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-2);overflow-wrap:anywhere}
-.ow-models-empty{padding:24px;border:1px solid var(--dsw-alias-border-l1);border-radius:12px;display:grid;gap:12px;justify-items:start}.ow-models-files{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:12px}.ow-models-files li{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}.ow-models-files span{overflow-wrap:anywhere;min-width:0;flex:1}
+.ow-models-fault{margin:8px 0 0;padding-left:12px;border-left:3px solid var(--dsw-alias-state-danger, var(--dsw-alias-state-business-primary));color:var(--dsw-alias-label-primary);font-size:13px;line-height:20px;text-wrap:pretty}.ow-models-empty{padding:24px;border:1px solid var(--dsw-alias-border-l1);border-radius:12px;display:grid;gap:12px;justify-items:start}.ow-models-files{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:12px}.ow-models-files li{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}.ow-models-files span{overflow-wrap:anywhere;min-width:0;flex:1}
 .ow-models details summary{cursor:pointer;font-weight:500;overflow-wrap:anywhere}.ow-models details summary:focus-visible,.ow-model-field select:focus-visible,.ow-model-check input:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:3px}.ow-models-note{padding:12px;border-radius:8px;background:var(--dsw-alias-bg-layer-2);display:grid;gap:6px}.ow-models dl{margin:0;display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 16px}.ow-models dd{margin:0;overflow-wrap:anywhere}
 @media(max-width:600px){.ow-models-inner{padding:16px}.ow-models dl{grid-template-columns:1fr}.ow-models-row{align-items:flex-start}.ow-models-name{flex-basis:100%}}
 `
@@ -352,7 +352,7 @@ window.__ModuleLoader__.load({
         h(ErrorNotice, { error }),
         error ? h('div', null, h(Button, { variant: 'outline', onClick: () => setAttempt(value => value + 1) }, 'Retry catalog')) : null,
         !models && !error ? h(Notice, null, 'Loading catalog…') : null,
-        models ? h('p', { className: 'ow-muted ow-models-stat', role: 'status' }, `${filtered.length} models`) : null,
+        models ? h('p', { className: 'ow-muted ow-models-stat', role: 'status' }, `${filtered.length} ${filtered.length === 1 ? 'model' : 'models'}`) : null,
         h('ul', { className: 'ow-models-list' }, filtered.map(model => h(CatalogCard, { key: model.model_name, model, onImport }))))
     }
 
@@ -417,9 +417,13 @@ window.__ModuleLoader__.load({
             !loading && !error && models.length === 0 ? h('div', { className: 'ow-models-empty' }, h('p', null, 'No local models are installed.'), h(Button, { variant: 'primary', onClick: () => setTab('import') }, 'Import a model')) : null,
             h('ul', { className: 'ow-models-list' }, models.map(model => {
               const loaded = model.loaded === true
+              const fault = loaded ? model.fault : null
               return h('li', { key: model.id, className: 'ow-models-card' },
                 h('div', { className: 'ow-models-row' }, h('div', { className: 'ow-models-name' }, h('h3', null, model.name || model.id), h('p', { className: 'ow-muted' }, model.id)),
-                  h('span', { className: 'ow-muted' }, loaded ? 'Loaded' : 'Not loaded')),
+                  h('span', { className: fault ? undefined : 'ow-muted' }, fault ? `Loaded, last reply failed: ${fault.kind}` : loaded ? 'Loaded' : 'Not loaded')),
+                fault ? h('p', { role: 'alert', className: 'ow-models-fault' }, fault.kind === 'Out of memory'
+                  ? 'The engine ran out of memory while answering. Lower the context size in Model settings, or pick a smaller quantization, then load the model again.'
+                  : `The engine reported: ${fault.detail}`) : null,
                 h('div', { className: 'ow-models-actions' },
                   h(Button, { variant: loaded ? 'outline' : 'primary', disabled: Boolean(busy) || loading, onClick: () => action(loaded ? 'unload' : 'load', model) }, busy === `load:${model.id}` ? 'Loading…' : busy === `unload:${model.id}` ? 'Unloading…' : loaded ? 'Unload' : 'Load'),
                   h(Button, { variant: 'outline', disabled: Boolean(busy), onClick: () => setEditing(model) }, 'Model settings'),

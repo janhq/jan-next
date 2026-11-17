@@ -1,7 +1,7 @@
 import { LlamacppEngine } from './runtime.mjs'
 import { registerLocalProvider } from './provider.mjs'
 import { registerApi } from '../native/api.mjs'
-import { invoke, fs, joinPath, getJanDataFolderPath } from '../native/runtime.mjs'
+import { invoke, fs, joinPath, getJanDataFolderPath, listen } from '../native/runtime.mjs'
 
 export const name = 'ow-llamacpp'
 // No static `compaction`: the web composition gives each agent preset its own
@@ -24,11 +24,22 @@ export async function apply(ctx, config = {}) {
     pauseImport: id => engine.pauseImport(id),
     abortImport: id => engine.abortImport(id),
   }), 'ow-llamacpp: download owner')
+  // The worker survives an out-of-memory or backend fault with the model still
+  // listed as loaded, so the panel would claim it works. Keep the engine's own
+  // words until the user loads it again.
+  let fault = null
+  for (const [event, kind] of [['llamacpp-router-oom', 'Out of memory'], ['llamacpp-router-backend-error', 'Engine error']]) {
+    const stop = await listen(event, ({ payload }) => { fault = { kind, detail: String(payload ?? '').slice(0, 400), at: Date.now() } })
+    ctx.effect(() => stop, `ow-llamacpp: ${event}`)
+  }
   const api = {
     list: async () => {
       const models = await engine.list()
       const loaded = await invoke('plugin:llamacpp|get_loaded_models')
-      return models.map(model => ({ ...model, loaded: loaded.includes(model.id) }))
+      return models.map(model => {
+        const isLoaded = loaded.includes(model.id)
+        return { ...model, loaded: isLoaded, fault: isLoaded ? fault : null }
+      })
     },
     status: async () => {
       const [info, version, devices] = await Promise.all([engine.getEngineInfo(), engine.getEngineVersion(), engine.getDevices()])
@@ -36,6 +47,7 @@ export async function apply(ctx, config = {}) {
     },
     load: async ({ id }) => {
       idOf(id)
+      fault = null
       const existing = await invoke('plugin:llamacpp|find_session_by_model', { modelId: id })
       if (!existing) {
         const model = await engine.get(id)
@@ -45,7 +57,7 @@ export async function apply(ctx, config = {}) {
       await provider.refresh()
       return { id, loaded: true }
     },
-    unload: async ({ id }) => { await engine.unload(idOf(id)); return { id, loaded: false } },
+    unload: async ({ id }) => { await engine.unload(idOf(id)); fault = null; return { id, loaded: false } },
     remove: async ({ id }) => { await engine.delete(idOf(id)); await provider.refresh() },
     import: async ({ id, modelPath, mmprojPath, specDraftPath, specDraftKind }) => {
       idOf(id)

@@ -3309,7 +3309,9 @@ export class LlamacppEngine extends AIEngine implements EmbeddingEngine {
   */
  async catalogFit(bytes: number): Promise<CatalogFit> {
   const totals = await this.getMemoryTotals()
-  return estimateCatalogFit({ bytes, vram: totals.vram, ram: totals.ram })
+  const info = await getSystemInfo().catch(() => undefined)
+  const unified = info?.os_type === 'macos' && ['arm64', 'aarch64'].includes(info?.cpu?.arch) && (info?.gpus?.length ?? 0) === 0
+  return estimateCatalogFit({ bytes, vram: totals.vram, ram: totals.ram, unified })
  }
 
  /**

@@ -224,7 +224,7 @@ export function vramContextBound(input: {
  * fit when the headroom the unknown costs need is not there.
  */
 export interface CatalogFit {
-  label: 'Likely fits' | 'May need CPU offload' | 'Unlikely to fit' | 'Fit unknown'
+  label: 'Likely fits' | 'May need CPU offload' | 'Tight fit' | 'Unlikely to fit' | 'Fit unknown'
   detail: string
   tone: 'success' | 'warning' | 'danger' | 'neutral'
 }
@@ -255,8 +255,13 @@ export function estimateCatalogFit(input: {
   vram?: number | undefined
   /** Total system RAM in bytes; undefined when unknown. */
   ram?: number | undefined
+  /**
+   * Apple Silicon: the GPU runs from the same RAM, so there is no separate VRAM
+   * and nothing to offload to. `ram` is then the pool the model runs in.
+   */
+  unified?: boolean | undefined
 }): CatalogFit {
-  const { bytes, vram, ram } = input
+  const { bytes, vram, ram, unified } = input
   const usable = (value?: number) =>
     typeof value === 'number' && Number.isFinite(value) && value > 0
       ? value
@@ -285,6 +290,30 @@ export function estimateCatalogFit(input: {
     `${Math.round(KV_OVERHEAD_RATIO * 100)}% added for the KV cache and compute buffers a chat-sized context needs`,
     'the real overhead depends on the architecture and context, which a catalog entry does not publish',
   ]
+  if (unified === true && memory !== undefined) {
+    // macOS keeps about 2.5 GB plus a tenth of the pool for itself and Metal,
+    // the same reserve the engine's load check uses.
+    const pool = memory - 2.5 * 1024 ** 3 - memory * 0.1
+    if (weightsWithOverhead <= pool * VRAM_FILL_LIMIT) {
+      return {
+        label: 'Likely fits',
+        tone: 'success',
+        detail: `Fits in this Mac's ${gb(memory)} of unified memory, which the GPU shares, after the system's reserve: ${notes.join('; ')}.`,
+      }
+    }
+    if (weightsWithOverhead <= pool) {
+      return {
+        label: 'Tight fit',
+        tone: 'warning',
+        detail: `Fits in ${gb(memory)} of unified memory only with little left for other apps; a long context may not fit: ${notes.join('; ')}.`,
+      }
+    }
+    return {
+      label: 'Unlikely to fit',
+      tone: 'danger',
+      detail: `${gb(size)} of weights against ${gb(memory)} of unified memory, after the system's reserve: ${notes.join('; ')}.`,
+    }
+  }
   if (gpu !== undefined && weightsWithOverhead <= gpu * VRAM_FILL_LIMIT) {
     return {
       label: 'Likely fits',

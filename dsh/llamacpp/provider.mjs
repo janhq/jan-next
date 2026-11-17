@@ -228,8 +228,17 @@ export async function registerLocalProvider(ctx, engine) {
       localApiKey: endpoint.apiKey,
     }]])
   }
+  // The model picker caches the catalog and only re-reads it on this event, so
+  // a model downloaded or loaded after boot stayed invisible until restart.
+  let published = ''
+  const publish = () => {
+    const signature = JSON.stringify([profiles.has(providerId), localModels])
+    if (disposed || signature === published) return
+    published = signature
+    ctx.emit('llm/models-updated', providerId)
+  }
   const refresh = () => {
-    const operation = updating.then(update)
+    const operation = updating.then(update).then(publish)
     updating = operation.catch(() => { })
     return operation
   }
