@@ -24,7 +24,7 @@ def main() -> None:
     parser.add_argument("--workspace", type=Path, default=Path.cwd())
     parser.add_argument("--preset", required=True)
     parser.add_argument("--provider", default="tokamak")
-    parser.add_argument("--model", default=os.environ.get("JAN_MODEL", "tokamak-1-preview"))
+    parser.add_argument("--model", default=os.environ.get("JAN_MODEL", "tokamak/auto"))
     args = parser.parse_args()
     if not args.preset.strip():
         parser.error("--preset must be non-blank")

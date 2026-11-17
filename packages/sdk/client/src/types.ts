@@ -60,7 +60,7 @@ export interface JanOptions extends HarnessClientOptions {
   cwd?: string
   /** Provider route for SDK-created agents (default `tokamak`). */
   provider?: string
-  /** Model for SDK-created agents (default `tokamak-1-preview`). */
+  /** Model for SDK-created agents (default `tokamak/auto`). */
   model?: string
   /** Adapter-owned reasoning effort for the selected provider/model route. */
   reasoningEffort?: ReasoningEffortId

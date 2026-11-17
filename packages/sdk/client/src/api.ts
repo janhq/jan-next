@@ -40,7 +40,7 @@ export class Jan implements AsyncDisposable {
     // relative value would double-resolve (e.g. `worker` → `worker/worker`).
     this.cwd = resolve(options.cwd ?? options.processCwd ?? process.cwd())
     this.provider = options.provider ?? 'tokamak'
-    this.model = options.model ?? 'tokamak-1-preview'
+    this.model = options.model ?? 'tokamak/auto'
     this.reasoningEffort = options.reasoningEffort
     this.maxTokens = options.maxTokens
     this.approvalRequests = options.approvalRequests

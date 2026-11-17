@@ -66,7 +66,7 @@ await using harness = new Jan({
   janHome: '/absolute/path/to/jan-home',
   patches: ['./automation.cordis.yml'],
   provider: 'tokamak',
-  model: 'tokamak-1-preview',
+  model: 'tokamak/auto',
   reasoningEffort: ReasoningEffortId('max'),
   maxTokens: 49_152,
 })

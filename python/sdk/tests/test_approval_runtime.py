@@ -37,7 +37,7 @@ def test_python_approval_controls_runtime_operation(tmp_path: Path, outcome: str
                                "JAN_TELEMETRY_DISABLED": "1", "TOKAMAK_API_KEY": "keyless-no-model-call"}),
             _launch_args=(node, str(binary), "--profile", "sdk", "--patch", str(patch)),
         ) as client:
-            client.initialize(cwd=str(tmp_path), provider="tokamak", model="tokamak-1-preview",
+            client.initialize(cwd=str(tmp_path), provider="tokamak", model="tokamak/auto",
                               approval_requests=True)
             client.session_prompt("main", [{"type": "text", "text": "Request the marker write."}])
             request = worker.submit(client.next_request).result(timeout=20)

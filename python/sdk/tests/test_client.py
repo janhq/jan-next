@@ -166,7 +166,7 @@ for line in sys.stdin:
 
     with Jan(
         approval_requests=True,
-        model="tokamak-1-preview",
+        model="tokamak/auto",
         reasoning_effort="max",
         max_tokens=4096,
         cwd=str(tmp_path),
@@ -215,7 +215,7 @@ for line in sys.stdin:
         "approvalRequests": True,
         "cwd": str(tmp_path),
         "provider": "tokamak",
-        "model": "tokamak-1-preview",
+        "model": "tokamak/auto",
         "reasoningEffort": "max",
         "maxTokens": 4096,
     }

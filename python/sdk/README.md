@@ -37,7 +37,7 @@ with Jan(
     jan_home="/absolute/path/to/isolated-jan-home",
     cwd="/absolute/path/to/workspace",
     provider="tokamak",
-    model="tokamak-1-preview",
+    model="tokamak/auto",
     max_tokens=49_152,
 ) as harness:
     result = harness.run("Say hi.", session_id="example-001")
@@ -88,7 +88,7 @@ from jan import ApprovalRequestParams, HarnessClient, HarnessConfig
 
 with HarnessClient(HarnessConfig(jan_home="/absolute/path/to/jan-home")) as client:
     client.initialize(cwd="/absolute/path/to/workspace", provider="tokamak",
-                      model="tokamak-1-preview", approval_requests=True)
+                      model="tokamak/auto", approval_requests=True)
     client.session_prompt("main", [{"type": "text", "text": "Run the operation requiring approval."}])
     request = client.next_request()
     if request.method == "approval/request":
