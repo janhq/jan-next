@@ -676,10 +676,9 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         }, PanelDestinations))
 
         if (DockModelSelection !== undefined) {
-          // The dock seat replaces the composer card's seat; both read one
-          // native directory, so the shell declares no child slots of its own.
+          // The dock seat replaces the composer card's seat; the composer seat
+          // stands down while it is mounted.
           ctx.plugin(DockModelSelection)
-          ctx.slots.inject('conversation.input.model', () => ctx.slots.register({ name: 'conversation.input.model', priority: -1 }, () => null))
         }
 
         ctx.inject(['layout'], (scope) => {
