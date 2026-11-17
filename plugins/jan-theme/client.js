@@ -110,6 +110,19 @@ window.__ModuleLoader__.load({
       const [value, update] = React.useState(() => agentDrafts.has(key) ? agentDrafts.get(key) : initial)
       return [value, next => { agentDrafts.set(key, next); update(next) }]
     }
+    // One MCP tool: name plus the first line of its description; opening it
+    // shows the whole description and each argument the agent will fill in.
+    function McpTool({ tool: { name, description, args }, server }) {
+      const short = name.replace(`mcp__${server}__`, '')
+      return h('li', null, h('details', { className: 'jt-mcp-tool' },
+        h('summary', null, h('code', null, short), description && h('span', null, description.split('\n')[0])),
+        h('div', { className: 'jt-mcp-tool-body' },
+          h('p', null, description || 'The server gave no description for this tool.'),
+          args.length ? h('dl', null, args.flatMap(arg => [
+            h('dt', { key: `${arg.name}:t` }, h('code', null, arg.name), h('em', null, [arg.type, arg.required ? 'required' : 'optional'].filter(Boolean).join(', '))),
+            h('dd', { key: `${arg.name}:d` }, arg.description || '-'),
+          ])) : h('small', null, 'Takes no arguments.'))))
+    }
     function AgentSettings({ skills = false }) {
       const { Input, Modal, RiskConfirmation } = require('@janhq/jan-client-ui-primitives')
       const [data, setData] = React.useState(null)
@@ -170,7 +183,7 @@ window.__ModuleLoader__.load({
         ) : h(React.Fragment, null,
           actions(button('Add MCP server', () => edit(null))),
           data && data.servers.length === 0 && h('p', null, 'No MCP servers configured. Add a server or import your existing Jan or Claude Desktop JSON.'),
-          ...(data?.servers ?? []).map(row => h('div', { className: 'jt-interface-row', key: row.name }, h('div', null, h('h3', null, row.name), h('p', null, row.status), row.secretConfigured && h('small', null, 'Credentials stored separately'), row.tools?.length > 0 && h('details', null, h('summary', null, 'Available tools'), ...row.tools.map(name => h('p', { key: name }, name.replace(`mcp__${row.name}__`, '')))), h('small', null, row.transport === 'stdio' ? row.command : row.url)), actions(h(Switch, { label: `Enable ${row.name}`, checked: row.enabled, disabled: busy, onChange: enabled => enabled ? ask('Enable MCP server?', 'The server can run commands or access external services. Enable it only if you trust its source.', () => run(() => agentApi('toggle', { name: row.name, enabled }), 'Server enabled. Check its connection status below.')) : run(() => agentApi('toggle', { name: row.name, enabled }), 'Server disabled.') }), row.enabled && button('Reconnect', () => run(() => agentApi('toggle', { name: row.name, enabled: true }), 'Connection refreshed. Check the tools and connection status.'), { 'aria-label': `Reconnect ${row.name}` }), button('Edit', () => edit(row), { 'aria-label': `Edit ${row.name}` }), button('Remove', () => ask('Remove MCP server?', 'This removes the connection and its saved credentials. It does not uninstall the server software.', () => run(() => agentApi('remove', { name: row.name, confirmed: true }), 'Server removed.')), { 'aria-label': `Remove ${row.name}` })))),
+          ...(data?.servers ?? []).map(row => h('div', { className: 'jt-interface-row', key: row.name }, h('div', null, h('h3', null, row.name), h('p', null, row.status), row.secretConfigured && h('small', null, 'Credentials stored separately'), h('small', null, row.transport === 'stdio' ? row.command : row.url)), actions(h(Switch, { label: `Enable ${row.name}`, checked: row.enabled, disabled: busy, onChange: enabled => enabled ? ask('Enable MCP server?', 'The server can run commands or access external services. Enable it only if you trust its source.', () => run(() => agentApi('toggle', { name: row.name, enabled }), 'Server enabled. Check its connection status below.')) : run(() => agentApi('toggle', { name: row.name, enabled }), 'Server disabled.') }), row.enabled && button('Reconnect', () => run(() => agentApi('toggle', { name: row.name, enabled: true }), 'Connection refreshed. Check the tools and connection status.'), { 'aria-label': `Reconnect ${row.name}` }), button('Edit', () => edit(row), { 'aria-label': `Edit ${row.name}` }), button('Remove', () => ask('Remove MCP server?', 'This removes the connection and its saved credentials. It does not uninstall the server software.', () => run(() => agentApi('remove', { name: row.name, confirmed: true }), 'Server removed.')), { 'aria-label': `Remove ${row.name}` })), row.tools?.length > 0 && h('details', { className: 'jt-mcp-tools' }, h('summary', null, `Available tools (${row.tools.length})`), h('ul', null, row.tools.map(tool => h(McpTool, { key: tool.name, tool, server: row.name })))))),
           draft && h(Modal, {
             open: true, title: original ? `Edit ${original}` : 'Add MCP server', closeLabel: 'Close editor', onClose: () => setDraft(null), className: 'jt-appearance jt-agent-settings jt-agent-modal', contentClassName: 'jt-agent-modal-content', footer: actions(button('Save server', () => run(async () => {
               const value = { ...draft, args: draft.args === '' ? [] : draft.args.split('\n'), env: JSON.parse(draft.env), headers: JSON.parse(draft.headers) }
@@ -263,6 +276,20 @@ window.__ModuleLoader__.load({
 .jt-agent-settings .jt-interface-row details { margin-block: 8px; }
 .jt-agent-settings details { margin-block: 20px; }
 .jt-agent-settings summary { cursor: pointer; }
+.jt-agent-settings .jt-mcp-tools .jt-mcp-tool { margin: 0; }
+.jt-agent-settings .jt-interface-row > .jt-mcp-tools { flex: 1 0 100%; min-width: 0; margin: 0; }
+.jt-mcp-tools > ul { list-style: none; margin: 6px 0 0; padding: 0; border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; }
+.jt-mcp-tools > ul > li + li { border-top: 1px solid var(--dsw-alias-border-l1); }
+.jt-mcp-tool > summary { display: flex; align-items: baseline; gap: 10px; padding: 8px 12px; min-width: 0; list-style-position: inside; }
+.jt-mcp-tool > summary code { flex: none; font-size: 13px; color: var(--dsw-alias-label-primary); }
+.jt-mcp-tool > summary span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--dsw-alias-label-secondary); }
+.jt-mcp-tool[open] > summary span { display: none; }
+.jt-mcp-tool-body { padding: 0 12px 12px 28px; font-size: 13px; }
+.jt-agent-settings .jt-mcp-tool-body p { margin: 0 0 8px; white-space: pre-wrap; color: var(--dsw-alias-label-primary); line-height: 1.5; }
+.jt-mcp-tool-body dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px; margin: 0; }
+.jt-mcp-tool-body dt code { font-size: 12px; }
+.jt-mcp-tool-body dt em { margin-inline-start: 6px; font-style: normal; font-size: 12px; color: var(--dsw-alias-label-secondary); }
+.jt-mcp-tool-body dd { margin: 0; color: var(--dsw-alias-label-secondary); overflow-wrap: anywhere; }
 .jt-appearance h2, .jt-appearance h3 { text-wrap: balance; font-size: 16px; font-weight: 500; margin: 0; }
 .jt-appearance p { text-wrap: pretty; color: var(--dsw-alias-label-secondary); margin-block: 6px; line-height: 1.5; }
 .jt-interface-row { display: flex; align-items: center; justify-content: space-between; gap: 32px; padding-block: 12px; border-bottom: 1px solid var(--dsw-alias-border-l1); }

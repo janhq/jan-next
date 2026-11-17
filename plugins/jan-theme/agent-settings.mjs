@@ -6,6 +6,23 @@ import { registerApi } from '@janhq/jan-plugin-api'
 
 const plain = value => value && typeof value === 'object' && !Array.isArray(value)
 const strings = value => plain(value) && Object.values(value).every(item => typeof item === 'string')
+// Server names allow capitals and underscores; credential key segments do not.
+// Names that already fit keep `mcp-<name>`, so stored secrets stay where they
+// are; the rest go hex-encoded under `mcpx-`, which no plain key can start with.
+export const mcpSecretId = name => /^[a-z0-9-]+$/.test(name) ? `mcp-${name}` : `mcpx-${Buffer.from(name).toString('hex')}`
+// What Settings shows for one tool: its description and each top-level argument.
+const toolInfo = ({ name, description, parameters }) => {
+  const properties = plain(parameters?.properties) ? parameters.properties : {}
+  const required = new Set(Array.isArray(parameters?.required) ? parameters.required : [])
+  return {
+    name, description: typeof description === 'string' ? description.trim() : '',
+    args: Object.entries(properties).map(([arg, schema]) => ({
+      name: arg, required: required.has(arg),
+      type: Array.isArray(schema?.type) ? schema.type.join(' | ') : schema?.type ?? (Array.isArray(schema?.enum) ? 'enum' : ''),
+      description: typeof schema?.description === 'string' ? schema.description.trim() : '',
+    })),
+  }
+}
 
 function server(input) {
   if (!plain(input)) throw new Error('Enter an MCP server configuration.')
@@ -51,7 +68,7 @@ export async function mountAgentSettings(ctx, config) {
   const entry = ctx.fiber.entry
   const credentials = ctx.get('credentials')
   if (!editor || !entry || !credentials) throw new Error('Agent settings require the profile editor and credential store.')
-  const key = name => credentialKey('jan-theme', `mcp-${name}`)
+  const key = name => credentialKey('jan-theme', mcpSecretId(name))
   const servers = config.mcpServers ?? []
   const status = new Map()
   const mcp = await import('@janhq/jan-mcp-client')
@@ -68,7 +85,7 @@ export async function mountAgentSettings(ctx, config) {
     await ctx.plugin(filesystem, { providerName: 'jan-theme-custom', includeDefaultRoots: false, customSkillDirs: config.skillDirectories })
   }
   const publicRows = async () => Promise.all(servers.map(async row => {
-    const tools = ctx.tools.definitions().filter(tool => tool.name.startsWith(`mcp__${row.name}__`)).map(tool => tool.name)
+    const tools = ctx.tools.definitions().filter(tool => tool.name.startsWith(`mcp__${row.name}__`)).map(toolInfo)
     return { ...row, secretConfigured: (await credentials.describeRecord(key(row.name))).configured, tools, status: !row.enabled ? 'Disabled' : tools.length ? `${tools.length} tools available` : status.get(row.name) ?? 'No tools available' }
   }))
   const persist = change => editor.edit(entry, current => ({ ...current, ...change(current) }))
