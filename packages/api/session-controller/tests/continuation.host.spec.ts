@@ -73,6 +73,20 @@ it('keeps unrelated events and repeated settlements reference-stable', () => {
   expect(reset.failedAttempt).toBe(false)
 })
 
+it('keeps a context-window failure retryable after a manual compaction rewrites older history', () => {
+  const base = events(failed('CONTEXT_WINDOW_EXCEEDED'))
+  const user = base.find(event => event.type === 'user/message')!
+  const at = (seq: number) => SessionSeq(seq)
+  // The shapes `/compact` appends after the failed turn: a lifecycle pair and a replacing checkpoint, never a turn/start.
+  const compaction = [
+    { type: 'compaction/start', seq: at(6), time: 0 },
+    { type: 'compaction/summary', seq: at(7), time: 0 },
+    { ...user, seq: at(8), surfaceOp: { op: 'replace', startSeq: at(0), endSeq: at(1) } },
+    { type: 'compaction/end', seq: at(9), time: 0 },
+  ] as unknown as SessionEvent[]
+  expect(definition.wire.view(fold([...base, ...compaction]))).toBe(5)
+})
+
 it('restores a checkpoint plus suffix identically to full replay and retires on a new turn', () => {
   const base = events(failed('SERVER'))
   const prefix = fold(base.slice(0, 3))
