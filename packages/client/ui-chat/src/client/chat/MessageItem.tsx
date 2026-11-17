@@ -67,6 +67,7 @@ function failureMessage(
   if (code === 'QUOTA' || code === 'ACCOUNT_QUOTA') return t('message.failure.quota')
   if (code === 'CONTEXT_WINDOW_EXCEEDED') return t('message.failure.contextWindow')
   if (code === 'MISSING_CREDENTIAL') return t('message.failure.missingCredential')
+  if (code === 'MODEL_SWITCH_COMPACTION_FAILED') return t('message.failure.switchCompaction')
   return code === 'AUTH' ? t('message.failure.auth') : message
 }
 

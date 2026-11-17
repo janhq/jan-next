@@ -2619,6 +2619,7 @@ describe('ChatView', () => {
     const h = makeHarness({ nodes: [
       user(1, 'try'), turnError(2, 'AUTH'), turnError(3), turnError(4, 'QUOTA'), turnError(5, 'ACCOUNT_QUOTA'),
       turnError(6, 'INTERRUPTED'), turnError(7, 'CONTEXT_WINDOW_EXCEEDED'), turnError(8, 'MISSING_CREDENTIAL'),
+      turnError(9, 'MODEL_SWITCH_COMPACTION_FAILED'),
     ] })
     const view = render(<h.ChatView {...h.props} />)
     const statuses = view.getAllByRole('status')
@@ -2630,6 +2631,7 @@ describe('ChatView', () => {
       '任务已停止Jan 进程在本轮完成前退出（例如被强制结束、崩溃或关闭超时），重新启动后本轮已中止。未完成的工具调用结果未知。',
       '本轮运行失败这个对话已超出当前模型的上下文窗口，之后的消息也会失败。请用更短的内容开始新对话，或切换到上下文窗口更大的模型。CONTEXT_WINDOW_EXCEEDED',
       '本轮运行失败当前模型需要登录或 API 密钥。前往设置 -> 模型下载免费的本地模型（在此电脑上运行，无需账号），或登录 Tokamak 或添加 API 密钥。前往设置 -> 模型MISSING_CREDENTIAL',
+      '本轮运行失败这个对话无法压缩到所选模型的上下文窗口内。请切回之前的模型、开始新对话，或选择上下文窗口更大的模型。MODEL_SWITCH_COMPACTION_FAILED',
     ])
     // The transient notice is the frame-wide host's job; the failure row keeps
     // neither a recharge affordance nor a toast of its own.
