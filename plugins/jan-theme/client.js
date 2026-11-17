@@ -11,14 +11,14 @@ window.__ModuleLoader__.load({
       IconNewChatOutlineMedium, IconNewChatOutlineRegular, IconProjectAddOutlineRegular, IconSearchOutlineRegular,
       MenuItemButton, ShortcutKeys, Button, Switch,
     } = require('@janhq/jan-client-ui-primitives')
-    // Optional: the matching host publishes the header model seat. An older
+    // Optional: the matching host publishes the dock model seat. An older
     // host leaves the composer's own selector in place instead.
-    let HeaderModelSelection
+    let DockModelSelection
     try {
-      HeaderModelSelection = require('@janhq/jan-client-ui-model-selection/client').HeaderModelSelection
+      DockModelSelection = require('@janhq/jan-client-ui-model-selection/client').DockModelSelection
     } catch (error) {
-      console.warn('jan-theme: header model selection unavailable', error)
-      HeaderModelSelection = undefined
+      console.warn('jan-theme: dock model selection unavailable', error)
+      DockModelSelection = undefined
     }
     const shell = window.__JAN_THEME__ ?? { look: null }
     // Tauri: the shell draws the title row itself. Electron owns its window
@@ -416,11 +416,10 @@ window.__ModuleLoader__.load({
   .jt-list-actions { display: flex; align-items: center; }
   .jt-list-header[data-search-expanded] .jt-list-heading, .jt-list-header[data-search-expanded] .jt-list-actions { display: none; }
   .jt-list-header[data-search-expanded] .jt-list-tools { flex: 1; }
-  /* Jan's provider/model pill sits at the main area's top left, before the
-     Session title. The composer keeps no second selector. */
-  html[data-jan-theme] [data-conversation-header-leading] [data-slot='conversation.header.model'] button { height: 36px; padding: 0 14px; gap: 6px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 999px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); font-size: 14px; font-weight: 500; }
-  html[data-jan-theme] [data-conversation-header-leading] [data-slot='conversation.header.model'] button > svg:first-child { display: none; }
-  html[data-jan-theme] [data-conversation-header-leading] [data-slot='conversation.header.model'] button:hover:not(:disabled) { background: var(--dsw-alias-bg-layer-2); }
+  /* Jan's row under the composer: model and context reading at the right,
+     text-only model trigger. The composer card keeps no second selector. */
+  html[data-jan-theme] [data-composer-dock] { box-sizing: border-box; width: 100%; max-width: var(--jan-composer-card-max-width); padding-inline: 12px; justify-content: flex-end; }
+  html[data-jan-theme] [data-composer-dock] button[aria-haspopup='menu'] > svg:first-child { display: none; }
   /* A thin line waving hand in Jan's icon style. The SVG animates itself and
      honours reduced motion; as a mask it takes the status text's colour. */
   html[data-jan-theme] [data-chat-running-mark] { background: currentColor; -webkit-mask: url('/jan-theme/assets/hand-wave.svg') center / contain no-repeat; mask: url('/jan-theme/assets/hand-wave.svg') center / contain no-repeat; }
@@ -676,10 +675,10 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           name: 'sidebar.panellist.actions', id: 'jt-panel-destinations', order: -100,
         }, PanelDestinations))
 
-        if (HeaderModelSelection !== undefined) {
-          // The header pill and the composer row read one native directory; the
-          // shell moves the seat and declares no child slots of its own.
-          ctx.plugin(HeaderModelSelection)
+        if (DockModelSelection !== undefined) {
+          // The dock seat replaces the composer card's seat; both read one
+          // native directory, so the shell declares no child slots of its own.
+          ctx.plugin(DockModelSelection)
           ctx.slots.inject('conversation.input.model', () => ctx.slots.register({ name: 'conversation.input.model', priority: -1 }, () => null))
         }
 
