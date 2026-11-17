@@ -54,6 +54,41 @@ test('assistants become presets keyed by a stable id', () => {
   assert.deepEqual(rows, [{ id: 'jan-assistant-jan', source: 'jan', name: 'Jan', description: 'Helper', instructions: 'Answer briefly.' }])
 })
 
+// Jan's default assistant prompt as Jan ships it (web-app/src/hooks/useAssistant.ts).
+const JAN_PROMPT = `You must output your response in the exact language used in the latest user message. Do not provide translations or switch languages unless explicitly instructed to do so. If the input is mostly English, respond in English.
+
+When handling user queries:
+
+1. Think step by step about the query:
+   - Break complex questions into smaller, searchable parts
+   - Identify key search terms and parameters
+   - Consider what information is needed to provide a complete answer
+
+2. Mandatory logical analysis:
+   - Before engaging any tools, articulate your complete thought process in natural language. You must act as a "professional tool caller," demonstrating rigorous logic.
+   - Analyze the information gap: explicitly state what data is missing.
+   - Derive the strategy: explain why a specific tool is the logical next step.
+   - Justify parameters: explain why you chose those specific search keywords or that specific URL.
+
+You have tools to search for and access real-time, up-to-date data. Use them. Search before stating that you can't or don't know.
+
+Current date: {{current_date}}`
+
+test("Jan's default prompt loses only the bullet Claude refuses; an edited prompt arrives as written", () => {
+  const refused = '   - Before engaging any tools, articulate your complete thought process in natural language. You must act as a "professional tool caller," demonstrating rigorous logic.'
+  const reworded = '   - Before calling a tool, briefly say what you are about to do and why.'
+  const identity = 'You are Jan, a helpful AI assistant who assists users with their requests. Jan is trained by Menlo Research (https://www.menlo.ai).'
+  const edited = `${JAN_PROMPT}\n\nAlways answer in haiku.`
+  const [current, v2, custom] = janAssistants([
+    { id: 'jan', instructions: JAN_PROMPT },
+    { id: 'old', instructions: `${identity}\n\n${JAN_PROMPT}` },
+    { id: 'mine', instructions: edited },
+  ])
+  assert.equal(current.instructions, JAN_PROMPT.replace(refused, reworded))
+  assert.equal(v2.instructions, `${identity}\n\n${JAN_PROMPT.replace(refused, reworded)}`)
+  assert.equal(custom.instructions, edited)
+})
+
 test('a derived preset swaps only the persona text, kept literal', () => {
   const base = { id: 'standard', plugins: [{ id: 'persona', name: '@janhq/jan-persona', config: { prefix: 'You are a coding agent.' } }, { id: 'tool-fs', name: '@janhq/jan-tool-fs' }] }
   const preset = derivePreset(base, { id: 'jan-assistant-jan', name: 'Jan', description: '', instructions: 'Use {{current_date}}.' })

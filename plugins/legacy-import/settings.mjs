@@ -97,6 +97,35 @@ export function janMcpServers(config) {
   return { servers, renamed, skipped }
 }
 
+// Jan's shipped default assistant prompt. One bullet in it, asking the model to
+// "articulate your complete thought process", makes Claude Sonnet and Opus
+// refuse every request as reasoning extraction. A prompt still equal to the
+// default (with or without the identity line Jan's own migration strips) gets
+// that bullet reworded; a prompt the user edited arrives as written.
+const JAN_REFUSED_BULLET = '   - Before engaging any tools, articulate your complete thought process in natural language. You must act as a "professional tool caller," demonstrating rigorous logic.'
+const JAN_TOOL_BULLET = '   - Before calling a tool, briefly say what you are about to do and why.'
+const JAN_DEFAULT_INSTRUCTIONS = `You must output your response in the exact language used in the latest user message. Do not provide translations or switch languages unless explicitly instructed to do so. If the input is mostly English, respond in English.
+
+When handling user queries:
+
+1. Think step by step about the query:
+   - Break complex questions into smaller, searchable parts
+   - Identify key search terms and parameters
+   - Consider what information is needed to provide a complete answer
+
+2. Mandatory logical analysis:
+${JAN_REFUSED_BULLET}
+   - Analyze the information gap: explicitly state what data is missing.
+   - Derive the strategy: explain why a specific tool is the logical next step.
+   - Justify parameters: explain why you chose those specific search keywords or that specific URL.
+
+You have tools to search for and access real-time, up-to-date data. Use them. Search before stating that you can't or don't know.
+
+Current date: {{current_date}}`
+const JAN_IDENTITY_LINE = 'You are Jan, a helpful AI assistant who assists users with their requests. Jan is trained by Menlo Research (https://www.menlo.ai).'
+const JAN_DEFAULTS = new Set([JAN_DEFAULT_INSTRUCTIONS, `${JAN_IDENTITY_LINE}\n\n${JAN_DEFAULT_INSTRUCTIONS}`])
+const importedInstructions = text => JAN_DEFAULTS.has(text) ? text.replace(JAN_REFUSED_BULLET, JAN_TOOL_BULLET) : text
+
 /**
  * The preset id one Jan assistant becomes; hashed when Jan's id is unusable.
  * @param {string} id - Jan's assistant id.
@@ -115,7 +144,7 @@ export function janAssistants(assistants) {
     source: item.id,
     name: typeof item.name === 'string' && item.name.trim() ? item.name.trim() : item.id,
     description: typeof item.description === 'string' ? item.description : '',
-    instructions: typeof item.instructions === 'string' ? item.instructions : '',
+    instructions: typeof item.instructions === 'string' ? importedInstructions(item.instructions) : '',
   }))
 }
 
