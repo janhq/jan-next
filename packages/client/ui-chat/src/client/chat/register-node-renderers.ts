@@ -1,5 +1,6 @@
 import type { Context } from '@janhq/cordis'
 import type {} from '@janhq/jan-api-llama-cpp-controller/remote'
+import type {} from '@janhq/jan-api-remotes/client'
 import type {} from '@janhq/jan-client-ui-conversation/client'
 import type { ModelSelectionProjection } from '@janhq/jan-agent/types'
 import type { SessionId, SessionSeq } from '@janhq/jan-session/types'
@@ -91,10 +92,8 @@ export function registerChatNodeRenderers(
     { name: 'conversation.chat.node', key: 'turn-error', locale: NS,
       inject: (sessionId: SessionId) => {
         const recovery: ContextRecovery = {
-          modelFor: (failureSeq) => {
-            const session = ctx.sessions.binding(sessionId)?.session
-            if (session?.projections.faceOf('conversationContinuation').getSnapshot() !== failureSeq) return undefined
-            const projected = session.projections.faceOf('modelSelection').getSnapshot() as ModelSelectionProjection | undefined
+          modelFor: () => {
+            const projected = ctx.sessions.binding(sessionId)?.session.projections.faceOf('modelSelection').getSnapshot() as ModelSelectionProjection | undefined
             const selection = projected?.lastUsed ?? projected?.next
             return selection?.provider === 'local' ? selection.model : undefined
           },
@@ -110,10 +109,27 @@ export function registerChatNodeRenderers(
             const result = await remote.increaseModelContext(id)
             return result.ok ? { ok: true, value: result.value } : { ok: false, error: result.error.message }
           },
+          compact: async () => {
+            const remote = ctx.get('remote.commands')
+            if (remote === undefined) return { ok: false, reason: 'failed', error: 'Compaction is unavailable.' }
+            const result = await remote.execute(sessionId, '/compact', [])
+            if (!result.ok) return { ok: false, reason: 'failed', error: result.error.message }
+            const outcome = result.value?.result
+            if (outcome === undefined) return { ok: false, reason: 'failed', error: 'Compaction is unavailable.' }
+            if (outcome.kind === 'error') return { ok: false, reason: 'failed', error: outcome.text }
+            // Only a real summary names its source event; "No compactable history yet." does not.
+            return outcome.sourceEventSeq === undefined ? { ok: false, reason: 'empty' } : { ok: true }
+          },
           retry: (seq) => { ctx.get('conversation')?.input.retry(sessionId, seq as SessionSeq) },
         }
+        // The failed turn a retry would answer; recovery is offered only on that banner, and the
+        // banner follows it live so it stops offering once the retry turn starts.
+        const continuation: ObservableSnapshot<number | null> = {
+          getSnapshot: () => (ctx.sessions.binding(sessionId)?.session.projections.faceOf('conversationContinuation').getSnapshot() as number | null | undefined) ?? null,
+          subscribe: fn => ctx.sessions.binding(sessionId)?.session.projections.faceOf('conversationContinuation').subscribe(fn) ?? (() => {}),
+        }
         return {
-          hooks: { settingsAvailability: ctx.get('settingsNavigation')?.availability ?? settingsUnavailable },
+          hooks: { settingsAvailability: ctx.get('settingsNavigation')?.availability ?? settingsUnavailable, continuation },
           openModelsSettings: () => { ctx.get('settingsNavigation')?.open('models') },
           recovery,
         }

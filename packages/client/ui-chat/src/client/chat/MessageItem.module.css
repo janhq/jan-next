@@ -294,11 +294,6 @@
   color: var(--dsw-alias-label-secondary);
 }
 
-.turnErrorLimit {
-  display: block;
-  color: var(--dsw-alias-label-secondary);
-}
-
 .turnErrorAction {
   display: block;
   padding: 0;
