@@ -110,7 +110,7 @@ The generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-a
 
 Blockquotes travel as ordinary prompt text without quote metadata. Local submission echoes and durable messages use the same text rendering rules; queue edits replace content while retaining prompt correlation.
 
-An empty `prompt.content` array requests a new turn only for an eligible failed, idle ordinary Session in queue mode. Pending human input prevents admission; non-waking injected context is retained. `conversationContinuation` supplies the shared six-code manual policy, independently of provider retry configuration. The input follows ordinary inbox and Loop admission and records an empty `user/message` with `source.kind: 'retry'`; its input identity and caller metadata support deduplication and recovery. Whitespace-only text parts remain invalid.
+An empty `prompt.content` array requests a new turn only for an eligible failed, idle ordinary Session in queue mode. Pending human input prevents admission; non-waking injected context is retained. `conversationContinuation` supplies the shared manual policy for `RATE_LIMIT`, `SERVER`, `TIMEOUT`, `TRANSPORT`, `EMPTY_RESPONSE`, `STREAM_CLOSED`, and `CONTEXT_WINDOW_EXCEEDED`, independently of provider retry configuration. A context overflow becomes continuable only after its caller has raised the local model's context; other provider failures keep their own recovery guidance. The input follows ordinary inbox and Loop admission and records an empty `user/message` with `source.kind: 'retry'`; its input identity and caller metadata support deduplication and recovery. Whitespace-only text parts remain invalid.
 
 <a id="model-experience"></a>
 ## Model Experience
