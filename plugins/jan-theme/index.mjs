@@ -8,6 +8,7 @@ import z from '@janhq/schemastery'
 import { registerApi } from '@janhq/jan-plugin-api'
 import { mountAgentSettings } from './agent-settings.mjs'
 import { mountStartupHealth } from './startup-health.mjs'
+import { mountProjectHome } from './project-home.mjs'
 
 export const Config = z.object({
   look: z.any().default(null),
@@ -35,6 +36,7 @@ const TYPES = {
  */
 export async function apply(ctx, config = {}) {
   mountStartupHealth(ctx)
+  mountProjectHome(ctx)
   await mountAgentSettings(ctx, config)
   const appearance = () => config.appearance.get()
   const entry = ctx.fiber.entry?.options.id

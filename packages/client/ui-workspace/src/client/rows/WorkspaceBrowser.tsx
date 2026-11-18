@@ -254,7 +254,7 @@ function workspaceGroupHalf(e: { clientY: number; currentTarget: HTMLElement }):
 type SessionTreeProps = Pick<
   WorkspaceBrowserProps,
   'useSessionStatus' | 'startSession' | 'open' | 'renderFactorySlot' | 'useContextMenuTarget' | 'useContextMenu'
-  | 'insertWorkspaceBefore' | 't' | 'usePanelInfo'
+  | 'insertWorkspaceBefore' | 't' | 'usePanelInfo' | 'openProject'
   | 'useRemoteAccess' | 'useSessionAccess' | 'useWorkspaceAccess'
 > & PropsRenderSlots<
   | 'sidebar.workspaces.session.row.action'
@@ -293,6 +293,8 @@ type SessionTreeProps = Pick<
   revealSessionId?: SessionId | undefined
   /** Acknowledge that the chosen Session row has been revealed. */
   onSessionRevealed: (sessionId: SessionId) => void
+  /** A project surface takes Workspace row clicks; the chevron then expands and collapses. */
+  projectSurface: boolean
 }
 
 /** The list-empty placeholder — a glyph over the text; the archived-only view names its filter and offers the way back. */
@@ -321,7 +323,7 @@ function SessionTree({
   insertWorkspaceBefore,
   nestWorkspaces, groupExpansion, setGroupExpanded,
   setSessionOrder, home, t,
-  revealSessionId, onSessionRevealed, shortcuts,
+  revealSessionId, onSessionRevealed, shortcuts, openProject, projectSurface,
 }: SessionTreeProps) {
   const panelActive = usePanelInfo(info => info.activePanelId !== null)
   const statuses = useSessionStatus(s => s)
@@ -565,6 +567,9 @@ function SessionTree({
             if (group.expanded) dropWatermarks(key => withinGroup(key, group.key))
             setGroupExpanded(group.key, !group.expanded)
           }}
+          onOpenProject={projectSurface && group.workspaceId !== undefined
+            ? (() => { const id = group.workspaceId; return () => { openProject(id) } })()
+            : undefined}
           onCreate={() => {
             if (group.workspaceId !== undefined) {
               setGroupExpanded(group.key, true)
@@ -928,10 +933,13 @@ export function WorkspaceBrowser({
   requestAddWorkspace,
   closeAddWorkspace,
   setDirectoryBusy,
+  openProject,
+  useProjectSurface,
   renderSlot, renderFactorySlot, useContextMenuTarget, useContextMenu,
   t,
 }: WorkspaceBrowserProps) {
   const home = useHostInfo(info => info.home)
+  const projectSurface = useProjectSurface(present => present)
   const shortcuts = useShortcuts(rows => rows)
   const searchShortcut = shortcuts.find(row => row.id === 'session.search')
   const addShortcut = shortcuts.find(row => row.id === 'workspace.add')
@@ -1241,9 +1249,6 @@ export function WorkspaceBrowser({
           aria-label={t('search.sessions.aria')}
           aria-keyshortcuts={searchShortcut?.aria}
           aria-expanded={searchExpanded}
-          onClick={() => {
-            requestSearch()
-          }}
         >
           <IconSearchOutlineRegular size={searchExpanded ? 11 : 14} />
         </button>
@@ -1446,6 +1451,8 @@ export function WorkspaceBrowser({
                 insertWorkspaceBefore={insertWorkspaceBefore}
                 revealSessionId={revealSessionId}
                 onSessionRevealed={acknowledgeSessionReveal}
+                openProject={openProject}
+                projectSurface={projectSurface}
                 home={home}
                 t={t}
               />

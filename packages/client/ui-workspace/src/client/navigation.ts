@@ -163,6 +163,22 @@ export interface UiWorkspace {
    * @returns idempotent disposer owned by the caller's Cordis fiber.
    */
   whenAccess(workspaceId: WorkspaceId, action: RemoteEndpoint, callback: () => AccessEffect): () => void
+  /**
+   * Route every Search request (the `session.search` command and the sidebar Search controls) to a
+   * replacement surface, such as an application-wide palette. Without a handler, Search expands and
+   * focuses the sidebar's Session search field. The latest registration wins.
+   * @param open - opens the replacement surface.
+   * @returns idempotent disposer; removing the latest handler restores the previous one.
+   */
+  registerSearchHandler(open: () => void): () => void
+  /**
+   * Route a click on a sidebar Workspace row to a project surface, such as a project home page.
+   * Without a handler the row click expands or collapses the Workspace's Sessions; with one, the row
+   * click opens the surface and its chevron keeps expanding and collapsing. The latest registration wins.
+   * @param open - opens the surface for the clicked Workspace.
+   * @returns idempotent disposer; removing the latest handler restores the previous one.
+   */
+  registerProjectHandler(open: (workspaceId: WorkspaceId) => void): () => void
 }
 
 declare module '@janhq/cordis' {
@@ -201,6 +217,12 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   )
   private mainReference: SessionReference | undefined
   private restorationNavigation: AbortSignal | undefined
+  /** Replacement search surfaces in registration order; the last one receives Search. */
+  private readonly searchHandlers: { readonly open: () => void }[] = []
+  /** Project surfaces in registration order; the last one receives Workspace row clicks. */
+  private readonly projectHandlers: { readonly open: (workspaceId: WorkspaceId) => void }[] = []
+  /** Whether a project surface is registered, for row components choosing click behavior. */
+  readonly projectSurface = createSnapshotStore(false)
 
   /**
    * @param ctx - Client root Context.
@@ -464,6 +486,50 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     /* v8 ignore next -- this plugin injects remoteAccess, so the service is active while uiWorkspace is reachable. */
     if (access === undefined) throw new Error('ui-workspace: whenAccess requires the remoteAccess service')
     return access.whenResourceAccess('workspace', workspaceId, action, callback)
+  }
+
+  registerSearchHandler(open: () => void): () => void {
+    // A fresh wrapper keeps two registrations of one function independently removable.
+    const entry = { open }
+    this.searchHandlers.push(entry)
+    return () => {
+      const at = this.searchHandlers.indexOf(entry)
+      if (at !== -1) this.searchHandlers.splice(at, 1)
+    }
+  }
+
+  registerProjectHandler(open: (workspaceId: WorkspaceId) => void): () => void {
+    const entry = { open }
+    this.projectHandlers.push(entry)
+    this.projectSurface.set(true)
+    return () => {
+      const at = this.projectHandlers.indexOf(entry)
+      if (at !== -1) this.projectHandlers.splice(at, 1)
+      this.projectSurface.set(this.projectHandlers.length > 0)
+    }
+  }
+
+  /**
+   * Open the latest registered project surface for one Workspace.
+   * @param workspaceId - the clicked Workspace.
+   * @returns whether a handler took the request; false leaves the row to expand or collapse.
+   */
+  openProjectSurface(workspaceId: WorkspaceId): boolean {
+    const handler = this.projectHandlers.at(-1)
+    if (handler === undefined) return false
+    handler.open(workspaceId)
+    return true
+  }
+
+  /**
+   * Open the latest registered search surface.
+   * @returns whether a handler took the request; false leaves it to the sidebar field.
+   */
+  openSearchSurface(): boolean {
+    const handler = this.searchHandlers.at(-1)
+    if (handler === undefined) return false
+    handler.open()
+    return true
   }
 
   private watchNavigation(): () => void {

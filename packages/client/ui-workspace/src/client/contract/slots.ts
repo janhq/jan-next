@@ -303,7 +303,14 @@ export type WorkspaceBrowserInjected = {
     hostInfo: HostObservable<RemoteHostFacts>
     workspaceShortcuts: HostObservable<WorkspaceShortcutState>
     shortcuts: HostObservable<readonly ShortcutCatalogEntry[]>
+    /** Whether a project surface takes Workspace row clicks; the chevron then owns expand and collapse. */
+    projectSurface: HostObservable<boolean>
   }
+  /**
+   * Open the registered project surface for a Workspace row.
+   * @param workspaceId - the clicked Workspace.
+   */
+  openProject: (workspaceId: WorkspaceId) => void
   /** Open the browser search and focus its input. */
   requestSearch: () => void
   /** Request the existing directory picker. */

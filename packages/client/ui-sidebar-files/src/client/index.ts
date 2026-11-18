@@ -1,4 +1,4 @@
-import type {} from '@janhq/jan-client-ui-context-menu/client'
+import type { } from '@janhq/jan-client-ui-context-menu/client'
 /**
  * Browser half: register `files` as a right-Sidebar tab type, and the
  * workspace navigator beside every file preview. The navigator, the page body,
@@ -7,10 +7,10 @@ import type {} from '@janhq/jan-client-ui-context-menu/client'
  */
 import type { ShortcutCommandId } from '@janhq/jan-client-shortcuts/client'
 import type { Context as ClientContext } from '@janhq/cordis'
-import type {} from '@janhq/jan-api-remotes/client'
-import type {} from '@janhq/jan-client-ui-renderer/client'
-import type {} from '@janhq/jan-client-ui-session/client'
-import type {} from '@janhq/jan-client-ui-sidebar-right/client'
+import type { } from '@janhq/jan-api-remotes/client'
+import type { } from '@janhq/jan-client-ui-renderer/client'
+import type { } from '@janhq/jan-client-ui-session/client'
+import type { } from '@janhq/jan-client-ui-sidebar-right/client'
 import type { BoundActions } from '@janhq/jan-client-store'
 import type { TabId } from '@janhq/jan-client-ui-dockkit'
 import type { SessionId } from '@janhq/jan-session/types'
@@ -122,9 +122,10 @@ export function apply(ctx: ClientContext): void {
     ctx.effect(() => ctx.shortcuts.register({
       id: 'workspace.files' as ShortcutCommandId, label: () => t('guide.title'), aliases: ['workspace files', 'files'],
       defaults: {
-        'desktop:macos': { code: 'KeyP', modifiers: ['primary'] },
-        'desktop:windows': { code: 'KeyP', modifiers: ['primary'] },
-        'desktop:linux': { code: 'KeyP', modifiers: ['primary'] },
+        // Mod+P belongs to universal Search, as in VS Code's Quick Open.
+        'desktop:macos': { code: 'KeyP', modifiers: ['primary', 'alt'] },
+        'desktop:windows': { code: 'KeyP', modifiers: ['primary', 'alt'] },
+        'desktop:linux': { code: 'KeyP', modifiers: ['primary', 'alt'] },
         'web:macos': { code: 'KeyP', modifiers: ['primary', 'alt'] },
         'web:windows': { code: 'KeyP', modifiers: ['primary', 'alt'] },
       },
@@ -135,17 +136,19 @@ export function apply(ctx: ClientContext): void {
         const target = ctx.sidebarRight.commandTarget(element)
         if (target === undefined) return { status: 'blocked', reason: t('shortcut.noSession') }
         /* jscpd:ignore-end */
-        return { status: 'handled', run: () => {
-          // A docked tab with a navigator beside its content that can draw a tree keeps it: the navigator is shown and takes the keyboard.
-          const placed = target.tabId === undefined ? undefined : beside.get(target.sessionId)?.get(target.tabId)
-          if (target.host === 'dock' && placed !== undefined) {
-            if (!ctx.sidebarRight.isExpanded()) ctx.sidebarRight.toggleExpanded()
-            placed.face.focus(target.paneId)
-            return
+        return {
+          status: 'handled', run: () => {
+            // A docked tab with a navigator beside its content that can draw a tree keeps it: the navigator is shown and takes the keyboard.
+            const placed = target.tabId === undefined ? undefined : beside.get(target.sessionId)?.get(target.tabId)
+            if (target.host === 'dock' && placed !== undefined) {
+              if (!ctx.sidebarRight.isExpanded()) ctx.sidebarRight.toggleExpanded()
+              placed.face.focus(target.paneId)
+              return
+            }
+            // Elsewhere the files page opens or is revealed and focused; its tree always shows.
+            ctx.sidebarRight.openTabFromTarget(FILES_KIND, target)
           }
-          // Elsewhere the files page opens or is revealed and focused; its tree always shows.
-          ctx.sidebarRight.openTabFromTarget(FILES_KIND, target)
-        } }
+        }
       },
     }), 'ui-sidebar-files: shortcut')
   })

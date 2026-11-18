@@ -1,7 +1,7 @@
 /** Browser command service, with one keyboard adapter per plugin lifetime. */
 import { Service } from '@janhq/cordis'
 import type { Context } from '@janhq/cordis'
-import type {} from '@janhq/jan-client-locale/client'
+import type { } from '@janhq/jan-client-locale/client'
 import { ShortcutRegistry } from './registry.ts'
 import { detectEnvironment, installKeyboard } from './dom.ts'
 import { bindingIssue, initialShortcutConfig, normalizeBinding, overlappingBindings, presentBinding } from '../protocol.ts'
@@ -80,6 +80,10 @@ export default class ShortcutsService extends Service implements Shortcuts {
     return () => { off(); this.syncDefinitions() }
   }
 
+  invoke(id: Parameters<Shortcuts['invoke']>[0], context: Parameters<Shortcuts['invoke']>[1]): void {
+    this.registry.invoke(id, context)
+  }
+
   registerFixed(command: Parameters<Shortcuts['registerFixed']>[0]): () => void {
     const off = this.registry.registerFixed(command)
     this.syncDefinitions()
@@ -96,9 +100,11 @@ export default class ShortcutsService extends Service implements Shortcuts {
     for (const listener of [...this.fixedListeners]) {
       if (!this.fixedListeners.has(listener)) continue
       try {
-        listener(input.type === 'reset' ? input : { ...input,
+        listener(input.type === 'reset' ? input : {
+          ...input,
           gesture: { ...input.gesture, defaultPrevented: input.gesture.defaultPrevented || consumed },
-          consume: () => { consumed = true; input.consume() } })
+          consume: () => { consumed = true; input.consume() }
+        })
       } catch (error) {
         console.error('Fixed shortcut handler failed', error)
       }
@@ -107,13 +113,15 @@ export default class ShortcutsService extends Service implements Shortcuts {
 
   describeBinding(binding: Parameters<Shortcuts['describeBinding']>[0]): ReturnType<Shortcuts['describeBinding']> {
     const normalized = binding === null ? null : normalizeBinding(binding, this.platform)
-    return { binding: normalized,
+    return {
+      binding: normalized,
       keys: presentBinding(normalized, this.platform).keys,
       issue: normalized === null ? null : bindingIssue(normalized, this.runtime, this.platform),
       conflicts: normalized === null ? [] : [...this.catalog.getSnapshot().filter(row => row.binding !== null
         && overlappingBindings(row.binding, normalized)).map(row => row.id),
       ...this.fixedCatalog.getSnapshot().filter(row => row.bindings.some(binding => overlappingBindings(binding, normalized)))
-        .map(row => row.id)] }
+        .map(row => row.id)]
+    }
   }
 
   private syncDefinitions(): void {

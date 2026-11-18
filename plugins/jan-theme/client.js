@@ -7,11 +7,13 @@ window.__ModuleLoader__.load({
     const React = require('react')
     const h = React.createElement
     const {
-      IconPluginPinwheelOutlineRegular, IconCheckOutlineRegular, IconFolderCloseRegular, IconSettingsOutlineMedium,
+      IconPluginPinwheelOutlineRegular, IconCheckOutlineRegular, IconFolderCloseRegular, IconSettingsOutlineMedium, IconSettingsOutlineRegular,
       IconNewChatOutlineMedium, IconNewChatOutlineRegular, IconProjectAddOutlineRegular, IconSearchOutlineRegular,
       MenuItemButton, Button, Switch, IconLayersOutlineRegular, IconClockOutlineRegular,
       IconToolOutlineMedium, IconSkillOutlineMedium,
       NavRow, SectionHeading, ColorSwatchGroup, ProjectCard, WindowControls,
+      Modal, ShortcutKeys, FileTypeIcon, rankByName, IconSparkleRegular, IconRightUpOutlineRegular,
+      IconWarningTriangleOutlineRegular, IconCloseOutlineRegular, IconSendOutlineRegular,
     } = require('@janhq/jan-client-ui-primitives')
     // Optional: the matching host publishes the dock model seat. An older
     // host leaves the composer's own selector in place instead.
@@ -107,11 +109,20 @@ window.__ModuleLoader__.load({
       return h(GeneralRow, { title: 'Reset colors', description: 'Reset accent color and user bubble preferences.' },
         h(Button, { variant: 'outline', disabled: busy, onClick: () => saveAppearance({ accent: DEFAULT_ACCENT, coloredUserBubble: false }) }, 'Reset'))
     }
+    // A saved MCP or skill change reloads this plugin, and its route is absent until the reload ends.
+    // Reads retry through that gap; a write is sent once, because the Host may already have applied it.
     async function agentApi(method, params = {}) {
-      const response = await fetch('/jan-api/agent-settings', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
-      const body = await response.json()
-      if (!response.ok || body.error) throw new Error(body.error || 'Settings could not be saved.')
-      return body.result
+      const read = method === 'list' || method === 'readSkill' || method === 'previewImport'
+      for (let attempt = 0; ; attempt++) {
+        const response = await fetch('/jan-api/agent-settings', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
+        const body = response.headers.get('content-type')?.startsWith('application/json') ? await response.json() : undefined
+        if (body !== undefined) {
+          if (!response.ok || body.error) throw new Error(body.error || 'Settings could not be saved.')
+          return body.result
+        }
+        if (!read || attempt === 20) throw new Error('Jan is applying the change. Reopen this section in a few seconds.')
+        await new Promise(resolve => setTimeout(resolve, 500))
+      }
     }
     const agentDrafts = new Map()
     function useAgentDraft(key, initial) {
@@ -472,6 +483,97 @@ window.__ModuleLoader__.load({
   .jt-projects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
   .jt-projects-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 64px 0; color: var(--dsw-alias-label-secondary); font-size: 14px; }
   @media (max-width: 600px) { .jt-projects { padding: 24px 16px; } }
+  /* Project home: the main column (title, composer, recents) and a details rail. */
+  .jt-project { box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 40px; width: 100%; max-width: 1120px; margin: 0 auto; padding: 40px 32px 48px; color: var(--dsw-alias-label-primary); }
+  .jt-project-back { display: inline-flex; align-items: center; gap: 4px; margin: 0 0 12px -6px; padding: 2px 6px; border: 0; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 13px; line-height: 20px; cursor: pointer; }
+  .jt-project-back:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }
+  @media (hover: hover) { .jt-project-back:hover { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-interactive-bg-hover); } }
+  .jt-project-title { margin: 0; font-size: 28px; font-weight: 500; line-height: 36px; overflow-wrap: anywhere; }
+  .jt-project-path { margin: 4px 0 24px; color: var(--dsw-alias-label-tertiary); font-size: 13px; line-height: 18px; overflow-wrap: anywhere; }
+  .jt-project-composer { display: flex; flex-direction: column; gap: 8px; padding: 12px 12px 10px 16px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 16px; background: var(--dsw-alias-bg-base); box-shadow: 0 1px 2px rgb(0 0 0 / 0.04); }
+  .jt-project-composer:focus-within { border-color: var(--dsw-alias-state-business-primary); }
+  .jt-project-composer textarea { box-sizing: border-box; width: 100%; min-height: 56px; max-height: 240px; padding: 4px 0; border: 0; outline: 0; resize: none; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 15px; line-height: 22px; field-sizing: content; }
+  .jt-project-composer textarea::placeholder { color: var(--dsw-alias-label-tertiary); }
+  .jt-project-composer-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .jt-project-hint { color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 16px; }
+  .jt-project-send { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 999px; background: var(--dsw-alias-state-business-primary); color: #fff; cursor: pointer; }
+  .jt-project-send:disabled { opacity: 0.4; cursor: default; }
+  .jt-project-send:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 2px; }
+  .jt-project-recents { margin-top: 32px; }
+  .jt-project-heading { margin: 0 0 8px; color: var(--dsw-alias-label-secondary); font-size: 13px; font-weight: 500; line-height: 20px; }
+  .jt-project-sessions { margin: 0; padding: 0; list-style: none; border-top: 0.5px solid var(--dsw-alias-border-l2); }
+  .jt-project-session { display: flex; align-items: baseline; gap: 12px; width: 100%; padding: 12px 4px; border: 0; border-bottom: 0.5px solid var(--dsw-alias-border-l2); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  .jt-project-session:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -2px; border-radius: 6px; }
+  @media (hover: hover) { .jt-project-session:hover { background: var(--dsw-alias-interactive-bg-hover); } }
+  .jt-project-session-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; line-height: 20px; }
+  .jt-project-session-date { flex: none; color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 16px; font-variant-numeric: tabular-nums; }
+  .jt-project-empty { margin: 0; padding: 20px 4px; color: var(--dsw-alias-label-secondary); font-size: 14px; line-height: 20px; }
+  .jt-project-rail { display: flex; flex-direction: column; gap: 12px; align-self: start; position: sticky; top: 24px; }
+  .jt-project-card { padding: 14px 16px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 12px; }
+  .jt-project-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .jt-project-card-head h2 { margin: 0; font-size: 14px; font-weight: 600; line-height: 20px; }
+  .jt-project-card-text { margin: 4px 0 0; color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 18px; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; }
+  .jt-project-card-text[data-empty='true'] { color: var(--dsw-alias-label-tertiary); }
+  .jt-project-files { margin: 8px 0 0; padding: 0; list-style: none; max-height: 220px; overflow-y: auto; }
+  .jt-project-file { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; line-height: 18px; }
+  .jt-project-file-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .jt-project-file-size { flex: none; color: var(--dsw-alias-label-tertiary); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .jt-project-tasks { margin: 8px 0 0; padding: 0; list-style: none; }
+  .jt-project-task { padding: 6px 0; border-top: 0.5px solid var(--dsw-alias-border-l2); font-size: 13px; line-height: 18px; }
+  .jt-project-task:first-child { border-top: 0; }
+  .jt-project-task-meta { color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 16px; }
+  .jt-project-error { margin: 8px 0 0; color: var(--dsw-alias-state-error-primary); font-size: 13px; line-height: 18px; }
+  /* Text-style card links align with the card text instead of the button's inner padding. */
+  .jt-project-card .jt-project-link { margin: 6px 0 0 -10px; }
+  .jt-project-editor { display: flex; flex-direction: column; gap: 12px; }
+  .jt-project-editor textarea { box-sizing: border-box; width: 100%; min-height: 280px; padding: 10px 12px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font: 13px/20px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; resize: vertical; }
+  .jt-project-editor textarea:focus { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -1px; }
+  .jt-project-editor input, .jt-project-editor select { box-sizing: border-box; width: 100%; height: 36px; padding: 0 10px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font: inherit; font-size: 14px; }
+  .jt-project-editor label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; line-height: 18px; color: var(--dsw-alias-label-secondary); }
+  .jt-project-editor-note { margin: 0; color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 16px; }
+  .jt-project-editor-actions { display: flex; justify-content: flex-end; gap: 8px; }
+  @media (max-width: 900px) { .jt-project { grid-template-columns: minmax(0, 1fr); } .jt-project-rail { position: static; } }
+  @media (max-width: 600px) { .jt-project { padding: 24px 16px; } }
+  /* Startup failure notices: a bottom-right stack, newest last. */
+  .jt-startup { position: absolute; right: 16px; bottom: 16px; z-index: 40; display: flex; flex-direction: column; gap: 8px; width: min(380px, calc(100% - 32px)); pointer-events: none; }
+  .jt-startup-card { display: grid; grid-template-columns: 20px minmax(0, 1fr) 24px; column-gap: 12px; padding: 14px 12px 14px 16px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 14px; background: var(--dsw-alias-bg-base); box-shadow: 0 8px 24px rgb(0 0 0 / 0.14); color: var(--dsw-alias-label-primary); pointer-events: auto; animation: jt-startup-in 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+  .jt-startup-glyph { padding-top: 1px; color: var(--dsw-alias-state-warning-primary, #d99a00); }
+  .jt-startup-title { margin: 0; font-size: 14px; font-weight: 600; line-height: 20px; overflow-wrap: anywhere; }
+  .jt-startup-text { margin: 2px 0 0; font-size: 13px; line-height: 18px; color: var(--dsw-alias-label-secondary); text-wrap: pretty; }
+  .jt-startup-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .jt-startup-close { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; }
+  .jt-startup-close:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }
+  @media (hover: hover) { .jt-startup-close:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); } }
+  @keyframes jt-startup-in { from { opacity: 0; transform: translateY(8px); } }
+  @media (prefers-reduced-motion: reduce) { .jt-startup-card { animation: none; } }
+  /* Universal search: a top-anchored command palette over the shared modal. */
+  .jt-palette { box-sizing: border-box; width: min(640px, 100%); max-height: min(560px, 100%); align-self: flex-start; margin-top: 8vh; padding: 0; gap: 0; border-radius: 16px; }
+  .jt-palette:focus { outline: none; }
+  .jt-palette-body { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+  /* Two shared axes: icons start 20px in (row glyph boxes sit 18px in with 2px of slack), text starts 48px in. */
+  .jt-palette-field, .jt-palette-tabs, .jt-palette-footer { flex: none; }
+  .jt-palette-field { display: flex; align-items: center; gap: 12px; height: 52px; padding: 0 20px; border-bottom: 0.5px solid var(--dsw-alias-border-l2); color: var(--dsw-alias-label-tertiary); }
+  .jt-palette-field input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 15px; line-height: 22px; }
+  .jt-palette-field input::placeholder { color: var(--dsw-alias-label-tertiary); }
+  .jt-palette-tabs { display: flex; gap: 4px; padding: 10px 8px 2px; overflow-x: auto; scrollbar-width: none; }
+  .jt-palette-tab { flex: none; height: 28px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 13px; cursor: pointer; }
+  .jt-palette-tab[aria-selected='true'] { background: var(--dsw-alias-bg-module-platform); color: var(--dsw-alias-label-primary); }
+  @media (hover: hover) { .jt-palette-tab:hover { color: var(--dsw-alias-label-primary); } }
+  .jt-palette-list { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 8px 8px; }
+  .jt-palette-heading { padding: 10px 10px 4px; color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 16px; }
+  .jt-palette-option { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 6px 10px; border-radius: 8px; color: var(--dsw-alias-label-primary); cursor: pointer; }
+  .jt-palette-option[aria-selected='true'] { background: var(--dsw-alias-interactive-bg-hover); }
+  .jt-palette-glyph { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; color: var(--dsw-alias-label-secondary); }
+  .jt-palette-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .jt-palette-name, .jt-palette-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .jt-palette-name { font-size: 14px; line-height: 20px; }
+  .jt-palette-detail { color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 16px; }
+  .jt-palette-keys { flex: none; color: var(--dsw-alias-label-tertiary); }
+  .jt-palette-enter { flex: none; color: var(--dsw-alias-label-tertiary); }
+  .jt-palette-empty { margin: 0; padding: 32px 12px; color: var(--dsw-alias-label-secondary); font-size: 14px; text-align: center; }
+  .jt-palette-footer { display: flex; gap: 16px; padding: 10px 18px; border-top: 0.5px solid var(--dsw-alias-border-l2); color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 16px; }
+  .jt-palette-footer span { display: inline-flex; align-items: center; gap: 4px; }
+  .jt-palette-footer kbd { min-width: 18px; height: 18px; padding: 0 4px; box-sizing: border-box; border-radius: 4px; background: var(--dsw-alias-bg-module-platform); font: inherit; font-size: 11px; line-height: 18px; text-align: center; }
   /* Jan's "Chats" heading. The browser-owned search and view-options nodes stay
      mounted inside it; only their presentation folds while search is open. */
   .jt-list-header { flex: none; display: flex; align-items: center; gap: 4px; height: 36px; margin: 2px -4px 4px 0; padding-left: var(--jan-sidebar-row-padding, 12px); color: var(--dsw-alias-label-tertiary); }
@@ -675,7 +777,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
 
     // Projects page: every project folder Jan knows, newest first. A card
     // starts a chat inside that project; New project picks a folder.
-    function ProjectsPanel({ useWorkspaces, startSession, addProject, t }) {
+    function ProjectsPanel({ useWorkspaces, openProject, addProject, t }) {
       const items = useWorkspaces((snapshot) => snapshot.items)
       const [query, setQuery] = React.useState('')
       const [busy, setBusy] = React.useState(false)
@@ -704,9 +806,536 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
             h('p', null, t('projects.empty')))
           : h('ul', { className: 'jt-projects-grid' }, rows.map(row => h('li', { key: row.workspaceId },
             h(ProjectCard, {
-              title: row.title, path: row.path, onClick: () => { startSession(row.workspaceId) },
+              title: row.title, path: row.path, onClick: () => { openProject(row.workspaceId) },
               meta: [t(row.sessionIds.length === 1 ? 'projects.chat' : 'projects.chats', { count: row.sessionIds.length }), ' · ', t('projects.updated', { ago: relative(row.updatedAt) })].join(''),
             })))))
+    }
+
+    // Project home: one Workspace's page. Which project it shows is a plain
+    // module store, because the main panel registration is shared by all.
+    const PROJECT_PANEL = 'jt-project'
+    const currentProject = (() => {
+      let workspaceId = null
+      const listeners = new Set()
+      return {
+        getSnapshot: () => workspaceId,
+        subscribe: (listener) => { listeners.add(listener); return () => { listeners.delete(listener) } },
+        set(next) { workspaceId = next; for (const listener of listeners) listener() },
+      }
+    })()
+    async function projectApi(method, params = {}) {
+      const response = await fetch('/jan-api/project-home', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
+      // A settings save reloads the Host plugin; its route is briefly absent and answers without JSON.
+      if (!response.headers.get('content-type')?.startsWith('application/json')) throw new Error('Jan is reloading. Try again in a moment.')
+      const body = await response.json()
+      if (!response.ok || body.error) throw new Error(body.error || 'Request failed.')
+      return body.result
+    }
+    const fileSize = (bytes) => bytes === undefined ? ''
+      : bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`
+    const readBase64 = (file) => new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => { resolve(String(reader.result).split(',', 2)[1] ?? '') }
+      reader.onerror = () => { reject(reader.error ?? new Error('The file could not be read.')) }
+      reader.readAsDataURL(file)
+    })
+    const scheduleZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+    const sameFolder = (a, b) => a !== undefined && b !== undefined
+      && a.replace(/[\\/]+$/, '').toLowerCase() === b.replace(/[\\/]+$/, '').toLowerCase()
+
+    // Edits one instruction file; the draft survives closing the dialog until it is saved.
+    const projectDrafts = new Map()
+    function ProjectTextEditor({ open, title, description, note, initial, draftKey, onSave, onClose, t }) {
+      const [text, setText] = React.useState(initial)
+      const [busy, setBusy] = React.useState(false)
+      const [error, setError] = React.useState('')
+      React.useEffect(() => {
+        if (open) { setText(projectDrafts.get(draftKey) ?? initial); setError('') }
+      }, [open, draftKey, initial])
+      const change = (value) => { projectDrafts.set(draftKey, value); setText(value) }
+      const save = async () => {
+        setBusy(true)
+        setError('')
+        try {
+          await onSave(text)
+          projectDrafts.delete(draftKey)
+          onClose()
+        } catch (failure) { setError(failure instanceof Error ? failure.message : String(failure)) } finally { setBusy(false) }
+      }
+      return h(Modal, {
+        open, onClose, title, description,
+        footer: h('div', { className: 'jt-project-editor-actions' },
+          h(Button, { variant: 'outline', onClick: onClose }, t('project.cancel')),
+          h(Button, { variant: 'primary', disabled: busy, onClick: () => { void save() } }, busy ? t('project.saving') : t('project.save'))),
+      }, h('div', { className: 'jt-project-editor' },
+        h('textarea', {
+          'data-modal-autofocus': '', value: text, 'aria-label': title, spellCheck: true,
+          onChange: (event) => { change(event.target.value) },
+          onKeyDown: (event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) { event.preventDefault(); void save() } },
+        }),
+        h('p', { className: 'jt-project-editor-note' }, note),
+        error && h('p', { className: 'jt-project-error', role: 'alert' }, error)))
+    }
+
+    const TASK_TIMES = [['daily', 'project.task.daily'], ['weekdays', 'project.task.weekdays'], ['weekly', 'project.task.weekly'], ['once', 'project.task.once']]
+    function ProjectTaskEditor({ open, onCreate, onClose, t }) {
+      const [title, setTitle] = React.useState('')
+      const [prompt, setPrompt] = React.useState('')
+      const [repeat, setRepeat] = React.useState('daily')
+      const [time, setTime] = React.useState('09:00')
+      const [busy, setBusy] = React.useState(false)
+      const [error, setError] = React.useState('')
+      React.useEffect(() => { if (open) { setError('') } }, [open])
+      const timing = () => {
+        const zone = scheduleZone()
+        if (repeat === 'once') {
+          const [hours, minutes] = time.split(':').map(Number)
+          const at = new Date()
+          at.setHours(hours, minutes, 0, 0)
+          if (at.getTime() <= Date.now()) at.setDate(at.getDate() + 1)
+          return { kind: 'at', at: at.toISOString() }
+        }
+        if (repeat === 'daily') return { kind: 'daily', daily: { time: `${time}:00`, time_zone: zone } }
+        // ISO weekdays, Monday 1 through Sunday 7; Weekly repeats on today's weekday.
+        const weekdays = repeat === 'weekdays' ? [1, 2, 3, 4, 5] : [new Date().getDay() || 7]
+        return { kind: 'weekly', weekly: { time: `${time}:00`, time_zone: zone, weekdays } }
+      }
+      const create = async () => {
+        if (title.trim() === '' || prompt.trim() === '') { setError(t('project.task.missing')); return }
+        setBusy(true)
+        setError('')
+        try {
+          await onCreate({ title: title.trim(), prompt: prompt.trim(), timing: timing() })
+          setTitle(''); setPrompt(''); onClose()
+        } catch (failure) { setError(failure instanceof Error ? failure.message : String(failure)) } finally { setBusy(false) }
+      }
+      return h(Modal, {
+        open, onClose, title: t('project.task.title'), description: t('project.task.description'),
+        footer: h('div', { className: 'jt-project-editor-actions' },
+          h(Button, { variant: 'outline', onClick: onClose }, t('project.cancel')),
+          h(Button, { variant: 'primary', disabled: busy, onClick: () => { void create() } }, busy ? t('project.saving') : t('project.task.create'))),
+      }, h('div', { className: 'jt-project-editor' },
+        h('label', null, t('project.task.name'), h('input', { 'data-modal-autofocus': '', value: title, maxLength: 120, onChange: (event) => { setTitle(event.target.value) } })),
+        h('label', null, t('project.task.prompt'), h('textarea', { value: prompt, style: { minHeight: '120px', fontFamily: 'inherit', fontSize: '14px' }, onChange: (event) => { setPrompt(event.target.value) } })),
+        h('label', null, t('project.task.repeat'), h('select', { value: repeat, onChange: (event) => { setRepeat(event.target.value) } },
+          TASK_TIMES.map(([value, label]) => h('option', { key: value, value }, t(label))))),
+        h('label', null, t('project.task.time'), h('input', { type: 'time', value: time, required: true, onChange: (event) => { setTime(event.target.value || '09:00') } })),
+        h('p', { className: 'jt-project-editor-note' }, t('project.task.note', { zone: scheduleZone() })),
+        error && h('p', { className: 'jt-project-error', role: 'alert' }, error)))
+    }
+
+    function ProjectHome({ useProject, useWorkspaces, useArchived, useSessions, startSession, openChat, backToProjects, loadSchedules, createSchedule, openScheduled, t }) {
+      const workspaceId = useProject(value => value)
+      const workspace = useWorkspaces(snapshot => snapshot.items.find(item => item.workspaceId === workspaceId))
+      const sessions = useSessions(value => value)
+      const archivedIds = useArchived(value => value)
+      const [details, setDetails] = React.useState(null)
+      const [error, setError] = React.useState('')
+      const [editing, setEditing] = React.useState(null)
+      const [tasks, setTasks] = React.useState([])
+      const [taskError, setTaskError] = React.useState('')
+      const [addingTask, setAddingTask] = React.useState(false)
+      const [fileError, setFileError] = React.useState('')
+      const [draft, setDraft] = React.useState('')
+      const fileInput = React.useRef(null)
+      const reload = React.useCallback(async () => {
+        if (workspaceId === null) return
+        try { setDetails(await projectApi('read', { workspaceId })); setError('') } catch (failure) { setError(failure.message) }
+      }, [workspaceId])
+      const reloadTasks = React.useCallback(async () => {
+        const pending = loadSchedules()
+        if (pending === undefined) { setTasks(null); return }
+        try {
+          const result = await pending
+          if (!result.ok) throw new Error(result.error.message)
+          setTasks(result.value)
+          setTaskError('')
+        } catch (failure) { setTaskError(failure.message) }
+      }, [])
+      React.useEffect(() => { setDetails(null); setDraft(''); void reload(); void reloadTasks() }, [workspaceId])
+      if (workspaceId === null || workspace === undefined) {
+        return h('section', { className: 'jt-projects' },
+          h('p', { className: 'jt-projects-empty' }, t('project.missing')),
+          h(Button, { variant: 'outline', onClick: backToProjects }, t('project.back')))
+      }
+      const archived = new Set(archivedIds)
+      const recents = workspace.sessionIds
+        .map(id => sessions.byId[id])
+        .filter(summary => summary !== undefined && !summary.blank && summary.origin !== 'subagent' && summary.parentId === undefined && !archived.has(summary.id))
+        .sort((a, b) => b.updatedAt - a.updatedAt)
+      const projectTasks = tasks === null ? null : tasks.filter(task => task.status !== 'ended'
+        && (task.target.kind === 'session' ? workspace.sessionIds.includes(task.target.sessionId) : sameFolder(task.target.create?.cwd, workspace.path)))
+      const send = () => {
+        const text = draft.trim()
+        if (text === '') return
+        setDraft('')
+        startSession(workspaceId, text)
+      }
+      const addFiles = async (files) => {
+        setFileError('')
+        for (const file of files) {
+          try { await projectApi('addFile', { workspaceId, name: file.name, data: await readBase64(file) }) } catch (failure) { setFileError(failure.message) }
+        }
+        await reload()
+      }
+      const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+      const card = (titleKey, action, body) => h('section', { className: 'jt-project-card', 'aria-label': t(titleKey) },
+        h('div', { className: 'jt-project-card-head' }, h('h2', null, t(titleKey)), action), body)
+      const preview = (text, emptyKey) => h('p', { className: 'jt-project-card-text', 'data-empty': text.trim() === '' || undefined },
+        text.trim() === '' ? t(emptyKey) : text.trim())
+      return h('div', { className: 'jt-project' },
+        h('div', null,
+          h('button', { type: 'button', className: 'jt-project-back', onClick: backToProjects }, '‹ ', t('projects')),
+          h('h1', { className: 'jt-project-title' }, workspace.title),
+          h('p', { className: 'jt-project-path' }, workspace.path),
+          h('form', { className: 'jt-project-composer', onSubmit: (event) => { event.preventDefault(); send() } },
+            h('textarea', {
+              value: draft, rows: 2, 'aria-label': t('project.newSession', { name: workspace.title }),
+              placeholder: t('project.newSession', { name: workspace.title }),
+              onChange: (event) => { setDraft(event.target.value) },
+              onKeyDown: (event) => {
+                if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); send() }
+              },
+            }),
+            h('div', { className: 'jt-project-composer-row' },
+              h('span', { className: 'jt-project-hint' }, t('project.composerHint')),
+              h('button', { type: 'submit', className: 'jt-project-send', disabled: draft.trim() === '', 'aria-label': t('project.start') },
+                h(IconSendOutlineRegular, { size: 16, 'aria-hidden': true })))),
+          h('section', { className: 'jt-project-recents', 'aria-labelledby': 'jt-project-recents' },
+            h('h2', { className: 'jt-project-heading', id: 'jt-project-recents' }, t('project.recents')),
+            recents.length === 0
+              ? h('p', { className: 'jt-project-empty' }, t('project.noSessions'))
+              : h('ul', { className: 'jt-project-sessions' }, recents.map(summary => h('li', { key: summary.id },
+                h('button', { type: 'button', className: 'jt-project-session', onClick: () => { openChat(summary.id) } },
+                  h('span', { className: 'jt-project-session-title' }, summary.displayTitle),
+                  h('span', { className: 'jt-project-session-date' }, dateFormat.format(new Date(summary.updatedAt))))))))),
+        h('aside', { className: 'jt-project-rail', 'aria-label': t('project.details') },
+          error && h('p', { className: 'jt-project-error', role: 'alert' }, error),
+          card('project.instructions',
+            h(Button, { size: 'sm', variant: 'outline', disabled: details === null, onClick: () => { setEditing('instructions') } }, t(details?.instructions.trim() ? 'project.edit' : 'project.add')),
+            preview(details?.instructions ?? '', 'project.instructions.empty')),
+          card('project.context',
+            h(Button, { size: 'sm', variant: 'outline', disabled: details === null, onClick: () => { fileInput.current?.click() } }, t('project.addFiles')),
+            h(React.Fragment, null,
+              h('input', { ref: fileInput, type: 'file', multiple: true, hidden: true, onChange: (event) => { const files = [...event.target.files]; event.target.value = ''; void addFiles(files) } }),
+              details === null ? null : details.files.length === 0
+                ? preview('', 'project.context.empty')
+                : h('ul', { className: 'jt-project-files' }, details.files.map(file => h('li', { key: file.name, className: 'jt-project-file' },
+                  h(file.directory ? IconFolderCloseRegular : FileTypeIcon, file.directory ? { size: 16, 'aria-hidden': true } : { path: file.name, size: 16 }),
+                  h('span', { className: 'jt-project-file-name', title: file.name }, file.name),
+                  h('span', { className: 'jt-project-file-size' }, fileSize(file.size))))),
+              details?.truncated && h('p', { className: 'jt-project-card-text' }, t('project.context.more')),
+              h(Button, { size: 'sm', variant: 'ghost', className: 'jt-project-link', onClick: () => { void projectApi('openFolder', { workspaceId }).catch(failure => { setFileError(failure.message) }) } }, t('project.openFolder')),
+              fileError && h('p', { className: 'jt-project-error', role: 'alert' }, fileError))),
+          card('project.memory',
+            h(Button, { size: 'sm', variant: 'outline', disabled: details === null, onClick: () => { setEditing('memory') } }, t(details?.memory.trim() ? 'project.edit' : 'project.add')),
+            preview(details?.memory ?? '', 'project.memory.empty')),
+          projectTasks !== null && card('project.scheduled',
+            h(Button, { size: 'sm', variant: 'outline', onClick: () => { setAddingTask(true) } }, t('project.add')),
+            h(React.Fragment, null,
+              projectTasks.length === 0
+                ? preview('', 'project.scheduled.empty')
+                : h('ul', { className: 'jt-project-tasks' }, projectTasks.map(task => h('li', { key: task.id, className: 'jt-project-task' },
+                  h('div', null, task.title),
+                  h('div', { className: 'jt-project-task-meta' }, task.status === 'paused' ? t('project.task.paused') : t('project.task.next', { when: new Date(task.scheduledAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) }))))),
+              projectTasks.length > 0 && h(Button, { size: 'sm', variant: 'ghost', className: 'jt-project-link', onClick: openScheduled }, t('project.task.manage')),
+              taskError && h('p', { className: 'jt-project-error', role: 'alert' }, taskError)))),
+        h(ProjectTextEditor, {
+          open: editing !== null, t,
+          title: editing === 'memory' ? t('project.memory') : t('project.instructions'),
+          description: editing === 'memory' ? t('project.memory.description') : t('project.instructions.description'),
+          note: editing === 'memory' ? t('project.memory.note') : t('project.instructions.note'),
+          initial: editing === 'memory' ? details?.memory ?? '' : details?.instructions ?? '',
+          draftKey: `${workspaceId}:${editing}`,
+          onSave: async (text) => { await projectApi('save', { workspaceId, kind: editing, text }); await reload() },
+          onClose: () => { setEditing(null) },
+        }),
+        h(ProjectTaskEditor, {
+          open: addingTask, t,
+          onCreate: async (request) => { await createSchedule({ ...request, target: { kind: 'new', create: { cwd: workspace.path } } }); await reloadTasks() },
+          onClose: () => { setAddingTask(false) },
+        }))
+    }
+
+    // Universal search (Mod+K and the Search row): chats, artifacts, projects,
+    // scheduled tasks and app actions in one keyboard-driven list.
+    const palette = (() => {
+      let snapshot = { open: false, seq: 0, kind: 'all' }
+      const listeners = new Set()
+      return {
+        getSnapshot: () => snapshot,
+        subscribe: (listener) => { listeners.add(listener); return () => { listeners.delete(listener) } },
+        // Opening again while open re-targets the tab, as VS Code's Ctrl+P / Ctrl+Shift+P do.
+        set(open, kind = 'all') {
+          if (!open && !snapshot.open) return
+          snapshot = open ? { open, seq: snapshot.seq + 1, kind } : { ...snapshot, open }
+          for (const listener of listeners) listener()
+        },
+      }
+    })()
+    // Search-only kinds in All results; the Commands tab lists actions then settings.
+    const PALETTE_KINDS = ['chats', 'artifacts', 'projects', 'scheduled', 'actions', 'settings']
+    const COMMAND_KINDS = ['actions', 'settings']
+    const PALETTE_COMMANDS = ['search.quickOpen', 'search.commands']
+    const RESULTS_PER_GROUP = 5
+    const RESULTS_PER_TAB = 50
+    const RECENTS = 8
+    const baseName = (path) => path.split(/[\\/]/).filter(Boolean).at(-1) ?? path
+    const ChatGlyph = () => h(IconNewChatOutlineRegular, { size: 16 })
+    const KIND_ICON = {
+      chats: ChatGlyph,
+      artifacts: () => h(IconLayersOutlineRegular, { size: 16 }),
+      projects: () => h(IconFolderCloseRegular, { size: 16 }),
+      scheduled: () => h(IconClockOutlineRegular, { size: 16 }),
+      actions: () => h(IconSparkleRegular, { size: 16 }),
+      settings: () => h(IconSettingsOutlineRegular, { size: 16 }),
+    }
+
+    // Title matches rank first (prefix, then alignment); keywords such as a
+    // path or alias match only as plain substrings so long text stays quiet.
+    const rankItems = (items, query) => {
+      if (query === '') return items
+      const titled = rankByName(items.map(item => ({ name: item.title, item })), query).map(match => match.item)
+      const seen = new Set(titled)
+      const needle = query.toLowerCase()
+      return [...titled, ...items.filter(item => !seen.has(item)
+        && (item.keywords ?? []).some(keyword => keyword.toLowerCase().includes(needle)))]
+    }
+    const byTime = (a, b) => (b.time ?? 0) - (a.time ?? 0)
+
+    async function healthApi(method, params = {}) {
+      const response = await fetch('/jan-api/startup-health', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
+      // A settings save reloads the Host plugin; its route is briefly absent and answers without JSON.
+      if (!response.headers.get('content-type')?.startsWith('application/json')) throw new Error('unavailable')
+      const body = await response.json()
+      if (!response.ok || body.error) throw new Error(body.error || 'Request failed.')
+      return body.result
+    }
+    // Failures of plugins and MCP servers that could not start. The Host
+    // already switched them off; each notice says so and offers the log,
+    // removal of an MCP server, and the matching Settings section.
+    function StartupNotices({ openSettings }) {
+      const [state, setState] = React.useState({ failures: [], logAvailable: false })
+      const [error, setError] = React.useState('')
+      React.useEffect(() => {
+        let live = true
+        let timer
+        const poll = async (attempt) => {
+          let pending = true
+          try {
+            const next = await healthApi('list')
+            if (!live) return
+            setState(next)
+            pending = next.pending
+          } catch { /* The route returns after the Host plugin reloads; keep asking. */ }
+          // Starts settle within the MCP start budget; stop asking after about two minutes.
+          if (live && pending && attempt < 60) timer = setTimeout(() => poll(attempt + 1), 2000)
+        }
+        poll(0)
+        return () => { live = false; clearTimeout(timer) }
+      }, [])
+      const forget = (key) => setState(value => ({ ...value, failures: value.failures.filter(item => item.key !== key) }))
+      const act = async (task) => { setError(''); try { await task() } catch (failure) { setError(failure.message) } }
+      const dismiss = (item) => { forget(item.key); void healthApi('dismiss', { key: item.key }).catch(() => { }) }
+      if (!state.failures.length) return null
+      return h('div', { className: 'jt-startup', role: 'region', 'aria-label': 'Startup problems' },
+        state.failures.map(item => h('section', { key: item.key, className: 'jt-startup-card', role: 'alert', 'aria-labelledby': `jt-startup-${item.key}` },
+          h('span', { className: 'jt-startup-glyph', 'aria-hidden': true }, h(IconWarningTriangleOutlineRegular, { size: 20 })),
+          h('div', null,
+            h('p', { className: 'jt-startup-title', id: `jt-startup-${item.key}` }, `${item.name} couldn't start`),
+            h('p', { className: 'jt-startup-text' }, `${item.reason} ${item.disabled ? 'Jan turned it off so it won\'t slow down startup. ' : ''}${item.kind === 'mcp' ? 'Remove it, or fix it in Settings.' : 'Check its settings, or open the log for details.'}`),
+            error ? h('p', { className: 'jt-startup-text', role: 'status' }, error) : null,
+            h('div', { className: 'jt-startup-actions' },
+              state.logAvailable && h(Button, { size: 'sm', onClick: () => act(() => healthApi('openLog')) }, 'Open log'),
+              item.kind === 'mcp' && h(Button, { size: 'sm', onClick: () => act(async () => { await agentApi('remove', { name: item.id, confirmed: true }); dismiss(item) }) }, 'Remove'),
+              h(Button, { size: 'sm', onClick: () => { openSettings(item.kind === 'mcp' ? 'jt-mcp' : 'plugins'); dismiss(item) } }, 'Open settings'))),
+          h('button', { type: 'button', className: 'jt-startup-close', 'aria-label': `Dismiss ${item.name} notice`, onClick: () => dismiss(item) }, h(IconCloseOutlineRegular, { size: 16 })))))
+    }
+    function SearchPalette({
+      usePalette, useSessions, useWorkspaces, useCatalog, useArtifactsAvailable, useScheduledAvailable, usePluginsAvailable,
+      useSettingsTargets, closePalette, loadSchedules, openChat, openProject, openArtifact, openPanel, openSettings, runCommand, t,
+    }) {
+      const { open, seq, kind: initialKind } = usePalette(value => value)
+      const settingsTargets = useSettingsTargets(value => value)
+      const sessions = useSessions(value => value)
+      const workspaces = useWorkspaces(value => value)
+      const catalog = useCatalog(value => value)
+      const artifactsAvailable = useArtifactsAvailable(value => value)
+      const scheduledAvailable = useScheduledAvailable(value => value)
+      const pluginsAvailable = usePluginsAvailable(value => value)
+      const [query, setQuery] = React.useState('')
+      const [kind, setKind] = React.useState('all')
+      const [active, setActive] = React.useState(0)
+      const [schedules, setSchedules] = React.useState([])
+      const list = React.useRef(null)
+      React.useEffect(() => {
+        if (!open) return
+        setQuery('')
+        setKind(initialKind)
+        setActive(0)
+        let live = true
+        const pending = loadSchedules()
+        if (pending !== undefined) {
+          pending.then((result) => { if (live && result.ok) setSchedules(result.value) },
+            (error) => { console.warn('jan-theme: scheduled tasks unavailable to search', error) })
+        }
+        return () => { live = false }
+      }, [open, seq])
+      React.useEffect(() => { setActive(0) }, [query, kind])
+      React.useEffect(() => {
+        list.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' })
+      }, [active, open])
+
+      const items = React.useMemo(() => {
+        if (!open) return null
+        const archived = new Set(workspaces.archivedSessionIds)
+        const workspaceOf = new Map()
+        for (const workspace of workspaces.items) for (const id of workspace.sessionIds) workspaceOf.set(id, workspace.title)
+        const chats = []
+        const artifacts = []
+        for (const id of sessions.ids) {
+          const summary = sessions.byId[id]
+          if (summary === undefined || summary.origin === 'subagent' || summary.parentId !== undefined || archived.has(id)) continue
+          if (!summary.blank) {
+            chats.push({
+              kind: 'chats', key: `chat:${id}`, title: summary.displayTitle, detail: workspaceOf.get(id),
+              time: summary.updatedAt, open: () => { openChat(id) },
+            })
+          }
+          const files = sessions.projectionsBySession[id]?.values?.presentedFiles ?? summary.projectionValues?.presentedFiles ?? []
+          for (const file of files) {
+            artifacts.push({
+              kind: 'artifacts', key: `artifact:${id}:${file.seq}:${file.index}`, title: baseName(file.path),
+              detail: summary.displayTitle, keywords: [file.path, file.description ?? ''], time: file.time,
+              icon: () => h(FileTypeIcon, { path: file.path, size: 16 }),
+              open: () => { openArtifact(id, file.seq, file.index) },
+            })
+          }
+        }
+        const projects = workspaces.items.map(workspace => ({
+          kind: 'projects', key: `project:${workspace.workspaceId}`, title: workspace.title, detail: workspace.path,
+          keywords: [workspace.path], time: Date.parse(workspace.updatedAt), open: () => { openProject(workspace.workspaceId) },
+        }))
+        const scheduled = schedules.map(task => ({
+          kind: 'scheduled', key: `scheduled:${task.id}`, title: task.title, detail: task.prompt,
+          keywords: [task.prompt], open: () => { openPanel(SCHEDULED_PANEL) },
+        }))
+        const panels = [
+          ['projects', PROJECTS_PANEL, true],
+          ['artifacts', ARTIFACTS_PANEL, artifactsAvailable],
+          ['scheduled', SCHEDULED_PANEL, scheduledAvailable],
+          ['plugins', 'plugins', pluginsAvailable],
+        ]
+        const actions = [
+          ...catalog.filter(row => row.id !== 'session.search' && !PALETTE_COMMANDS.includes(row.id)).map(row => ({
+            kind: 'actions', key: `command:${row.id}`, title: row.label, keys: row.keys.length > 0 ? row.keys : undefined,
+            keywords: row.aliases, open: () => { runCommand(row.id) },
+          })),
+          ...panels.filter(([, , available]) => available).map(([label, id]) => ({
+            kind: 'actions', key: `panel:${id}`, title: t('palette.goTo', { page: t(label) }),
+            open: () => { openPanel(id) },
+          })),
+        ]
+        const settings = settingsTargets.map(target => ({
+          kind: 'settings', key: `settings:${target.section}:${target.id}`, title: target.title,
+          detail: target.title === target.sectionTitle ? t('palette.settings') : `${t('palette.settings')} › ${target.sectionTitle}`,
+          keywords: [target.sectionTitle, target.id], open: () => { openSettings(target.section) },
+        }))
+        return { chats, artifacts, projects, scheduled, actions, settings }
+      }, [open, sessions, workspaces, catalog, schedules, settingsTargets, artifactsAvailable, scheduledAvailable, pluginsAvailable, t])
+
+      if (items === null) return null
+      const kindLabel = (group) => group === 'actions' || group === 'settings' || group === 'commands' || group === 'all'
+        ? t(`palette.${group}`) : t(group)
+      const needle = query.trim()
+      const sections = []
+      if (kind === 'all') {
+        if (needle === '') {
+          sections.push({
+            id: 'recents', label: t('palette.recents'),
+            items: [...items.chats, ...items.artifacts, ...items.projects].sort(byTime).slice(0, RECENTS)
+          })
+          sections.push({ id: 'actions', label: t('palette.actions'), items: items.actions.slice(0, RESULTS_PER_GROUP) })
+        } else {
+          for (const group of PALETTE_KINDS) {
+            sections.push({ id: group, label: kindLabel(group), items: rankItems(items[group], needle).slice(0, RESULTS_PER_GROUP) })
+          }
+        }
+      } else if (kind === 'commands') {
+        for (const group of COMMAND_KINDS) {
+          sections.push({ id: group, label: kindLabel(group), items: rankItems(items[group], needle).slice(0, RESULTS_PER_TAB) })
+        }
+      } else {
+        const source = needle === '' ? [...items[kind]].sort(byTime) : rankItems(items[kind], needle)
+        sections.push({ id: kind, label: kindLabel(kind), items: source.slice(0, RESULTS_PER_TAB) })
+      }
+      const visible = sections.filter(section => section.items.length > 0)
+      const flat = visible.flatMap(section => section.items)
+      const selected = Math.min(active, Math.max(flat.length - 1, 0))
+      const choose = (item) => {
+        closePalette()
+        // The modal restores focus on close; the destination may then take it.
+        window.setTimeout(item.open, 0)
+      }
+      const onKeyDown = (event) => {
+        if (event.nativeEvent.isComposing) return
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          event.preventDefault()
+          if (flat.length === 0) return
+          const step = event.key === 'ArrowDown' ? 1 : -1
+          setActive((selected + step + flat.length) % flat.length)
+        } else if (event.key === 'Enter') {
+          event.preventDefault()
+          const item = flat[selected]
+          if (item !== undefined) choose(item)
+        }
+      }
+      const tabs = ['all', 'chats', 'artifacts', 'projects', ...(scheduledAvailable || items.scheduled.length > 0 ? ['scheduled'] : []), 'commands']
+      let index = -1
+      return h(Modal, {
+        open, onClose: closePalette, title: t('palette.title'), headless: true, shortcutModal: 'search', className: 'jt-palette',
+      }, h('div', { className: 'jt-palette-body' },
+        h('div', { className: 'jt-palette-field' },
+          h(IconSearchOutlineRegular, { size: 16, 'aria-hidden': true }),
+          h('input', {
+            'data-modal-autofocus': '', type: 'text', value: query,
+            placeholder: t(kind === 'commands' ? 'palette.commandsPlaceholder' : 'palette.placeholder'),
+            'aria-label': t('palette.title'), role: 'combobox', 'aria-expanded': true, 'aria-controls': 'jt-palette-list',
+            'aria-activedescendant': flat.length > 0 ? `jt-palette-option-${selected}` : undefined, autoComplete: 'off', spellCheck: false,
+            onChange: (event) => { setQuery(event.target.value) }, onKeyDown,
+          })),
+        h('div', { className: 'jt-palette-tabs', role: 'tablist', 'aria-label': t('palette.filter') }, tabs.map(tab => h('button', {
+          key: tab, type: 'button', role: 'tab', className: 'jt-palette-tab', 'aria-selected': kind === tab,
+          onMouseDown: (event) => { event.preventDefault() },
+          onClick: () => { setKind(tab) },
+        }, kindLabel(tab)))),
+        h('div', { id: 'jt-palette-list', className: 'jt-palette-list', role: 'listbox', 'aria-label': t('palette.title'), ref: list },
+          visible.length === 0
+            ? h('p', { className: 'jt-palette-empty' }, needle === '' ? t('palette.nothing') : t('palette.noResults', { query: needle }))
+            : visible.map(section => h('div', { key: section.id, role: 'group', 'aria-label': section.label },
+              h('div', { className: 'jt-palette-heading', 'aria-hidden': true }, section.label),
+              section.items.map((item) => {
+                index += 1
+                const position = index
+                const Glyph = item.icon ?? KIND_ICON[item.kind]
+                return h('div', {
+                  key: item.key, id: `jt-palette-option-${position}`, role: 'option', 'aria-selected': position === selected,
+                  className: 'jt-palette-option',
+                  onMouseMove: () => { if (position !== selected) setActive(position) },
+                  onMouseDown: (event) => { event.preventDefault() },
+                  onClick: () => { choose(item) },
+                },
+                  h('span', { className: 'jt-palette-glyph', 'aria-hidden': true }, h(Glyph)),
+                  h('span', { className: 'jt-palette-text' },
+                    h('span', { className: 'jt-palette-name' }, item.title),
+                    item.detail && h('span', { className: 'jt-palette-detail' }, item.detail)),
+                  item.keys !== undefined && h(ShortcutKeys, { keys: item.keys, className: 'jt-palette-keys' }),
+                  position === selected && h(IconRightUpOutlineRegular, { size: 14, className: 'jt-palette-enter', 'aria-hidden': true }))
+              })))),
+        h('footer', { className: 'jt-palette-footer', 'aria-hidden': true },
+          h('span', null, h('kbd', null, '↑'), h('kbd', null, '↓'), t('palette.navigate')),
+          h('span', null, h('kbd', null, '↵'), t('palette.open')),
+          h('span', null, h('kbd', null, 'Esc'), t('palette.close')))))
     }
 
     return {
@@ -769,12 +1398,61 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'newArtifact.prompt': 'Create a file for me: ',
               'createPlugin.prompt': 'Create a Jan plugin with a left sidebar entry.',
               'projects.lede': 'Each project is a folder. Chats started in it can read and write its files.',
+              'project.back': "Back to projects",
+              'project.missing': "This project is no longer in Jan.",
+              'project.newSession': "New session in {name}",
+              'project.composerHint': "Enter starts a session in this project. Shift+Enter adds a line.",
+              'project.start': "Start session",
+              'project.recents': "Recents",
+              'project.noSessions': "No sessions in this project yet.",
+              'project.details': "Project details",
+              'project.instructions': "Instructions",
+              'project.instructions.empty': "Tell the agent how to work in this project.",
+              'project.instructions.description': "Every new session in this project reads these instructions first.",
+              'project.instructions.note': "Saved as AGENTS.md in the project folder, where other agents can read it too.",
+              'project.context': "Context",
+              'project.context.empty': "No files in this folder yet.",
+              'project.context.more': "Showing the first 300 items.",
+              'project.addFiles': "Add files",
+              'project.openFolder': "Open folder",
+              'project.memory': "Memory",
+              'project.memory.empty': "Notes the agent keeps about this project.",
+              'project.memory.description': "Private notes every new session in this project reads after its instructions.",
+              'project.memory.note': "Saved as AGENTS.local.md in the project folder. Keep it out of version control.",
+              'project.scheduled': "Scheduled",
+              'project.scheduled.empty': "No scheduled tasks run in this project.",
+              'project.add': "Add",
+              'project.edit': "Edit",
+              'project.save': "Save",
+              'project.saving': "Saving…",
+              'project.cancel': "Cancel",
+              'project.task.title': "New scheduled task",
+              'project.task.description': "Each run starts a new session in this project.",
+              'project.task.name': "Name",
+              'project.task.prompt': "Instructions",
+              'project.task.repeat': "Repeat",
+              'project.task.time': "Time",
+              'project.task.daily': "Every day",
+              'project.task.weekdays': "Weekdays",
+              'project.task.weekly': "Every week on this weekday",
+              'project.task.once': "Once",
+              'project.task.note': "Times use {zone}.",
+              'project.task.create': "Create task",
+              'project.task.missing': "Give the task a name and instructions.",
+              'project.task.next': "Next {when}",
+              'project.task.paused': "Paused",
+              'project.task.manage': "Manage scheduled tasks",
               'projects.search': 'Search projects',
               'projects.empty': 'No projects yet. Create one from a folder on this computer.',
               'projects.chat': '{count} chat', 'projects.chats': '{count} chats',
               'projects.updated': 'updated {ago} ago',
               'projects.addFailed': 'Could not add the project: {reason}',
               'section.mcp': 'MCP Servers', 'section.skills': 'Skills',
+              'palette.title': 'Search', 'palette.placeholder': 'Search chats, artifacts, projects and actions',
+              'palette.filter': 'Filter results', 'palette.all': 'All', 'palette.recents': 'Recents', 'palette.actions': 'Actions',
+              'palette.goTo': 'Go to {page}', 'palette.nothing': 'Nothing here yet', 'palette.noResults': 'No results for “{query}”',
+              'palette.navigate': 'Navigate', 'palette.open': 'Open', 'palette.close': 'Close',
+              'palette.commands': 'Commands', 'palette.settings': 'Settings', 'palette.quickOpen': 'Quick open', 'palette.commandPalette': 'Command palette', 'palette.commandsPlaceholder': 'Search actions and settings',
             },
             zh: {
               'hero.headline': '今天有什么可以帮您？',
@@ -787,11 +1465,60 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'newArtifact.prompt': '帮我创建一个文件：',
               'createPlugin.prompt': '创建一个带左侧栏入口的 Jan 插件。',
               'projects.lede': '每个项目对应一个文件夹，在其中开始的对话可以读写该文件夹的文件。',
+              'project.back': "返回项目",
+              'project.missing': "该项目已不在 Jan 中。",
+              'project.newSession': "在{name}中新建会话",
+              'project.composerHint': "按 Enter 在此项目中开始会话，Shift+Enter 换行。",
+              'project.start': "开始会话",
+              'project.recents': "最近",
+              'project.noSessions': "此项目还没有会话。",
+              'project.details': "项目详情",
+              'project.instructions': "说明",
+              'project.instructions.empty': "告诉智能体在此项目中如何工作。",
+              'project.instructions.description': "此项目中的每个新会话都会先读取这些说明。",
+              'project.instructions.note': "保存为项目文件夹中的 AGENTS.md，其他智能体也能读取。",
+              'project.context': "上下文",
+              'project.context.empty': "此文件夹中还没有文件。",
+              'project.context.more': "仅显示前 300 项。",
+              'project.addFiles': "添加文件",
+              'project.openFolder': "打开文件夹",
+              'project.memory': "记忆",
+              'project.memory.empty': "智能体为此项目保存的笔记。",
+              'project.memory.description': "此项目中的每个新会话在读取说明后都会读取这些私人笔记。",
+              'project.memory.note': "保存为项目文件夹中的 AGENTS.local.md，请勿加入版本控制。",
+              'project.scheduled': "定时任务",
+              'project.scheduled.empty': "此项目中没有定时任务。",
+              'project.add': "添加",
+              'project.edit': "编辑",
+              'project.save': "保存",
+              'project.saving': "正在保存…",
+              'project.cancel': "取消",
+              'project.task.title': "新建定时任务",
+              'project.task.description': "每次运行都会在此项目中开始一个新会话。",
+              'project.task.name': "名称",
+              'project.task.prompt': "说明",
+              'project.task.repeat': "重复",
+              'project.task.time': "时间",
+              'project.task.daily': "每天",
+              'project.task.weekdays': "工作日",
+              'project.task.weekly': "每周的今天",
+              'project.task.once': "一次",
+              'project.task.note': "时间采用 {zone}。",
+              'project.task.create': "创建任务",
+              'project.task.missing': "请填写任务名称和说明。",
+              'project.task.next': "下次 {when}",
+              'project.task.paused': "已暂停",
+              'project.task.manage': "管理定时任务",
               'projects.search': '搜索项目',
               'projects.empty': '还没有项目。从本机的文件夹创建一个。',
               'projects.chat': '{count} 个对话', 'projects.chats': '{count} 个对话',
               'projects.updated': '{ago}前更新',
               'section.mcp': 'MCP 服务器', 'section.skills': '技能',
+              scheduled: '定时任务', 'palette.title': '搜索', 'palette.placeholder': '搜索对话、成果、项目和操作',
+              'palette.filter': '筛选结果', 'palette.all': '全部', 'palette.recents': '最近', 'palette.actions': '操作',
+              'palette.goTo': '前往{page}', 'palette.nothing': '暂无内容', 'palette.noResults': '没有与“{query}”匹配的结果',
+              'palette.navigate': '选择', 'palette.open': '打开', 'palette.close': '关闭',
+              'palette.commands': '命令', 'palette.settings': '设置', 'palette.quickOpen': '快速打开', 'palette.commandPalette': '命令面板', 'palette.commandsPlaceholder': '搜索操作和设置',
             },
             ja: {
               'hero.headline': '今日はどのようにお手伝いできますか？',
@@ -804,11 +1531,60 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'newArtifact.prompt': 'ファイルを作成してください: ',
               'createPlugin.prompt': '左サイドバーに項目を持つ Jan プラグインを作成してください。',
               'projects.lede': '各プロジェクトはフォルダーです。その中で始めたチャットは、そのフォルダーのファイルを読み書きできます。',
+              'project.back': "プロジェクトに戻る",
+              'project.missing': "このプロジェクトは Jan にありません。",
+              'project.newSession': "{name} で新しいセッション",
+              'project.composerHint': "Enter でこのプロジェクトのセッションを開始、Shift+Enter で改行。",
+              'project.start': "セッションを開始",
+              'project.recents': "最近",
+              'project.noSessions': "このプロジェクトにはまだセッションがありません。",
+              'project.details': "プロジェクトの詳細",
+              'project.instructions': "指示",
+              'project.instructions.empty': "このプロジェクトでの作業方法をエージェントに伝えます。",
+              'project.instructions.description': "このプロジェクトの新しいセッションは、最初にこの指示を読みます。",
+              'project.instructions.note': "プロジェクトフォルダーの AGENTS.md に保存され、他のエージェントも読めます。",
+              'project.context': "コンテキスト",
+              'project.context.empty': "このフォルダーにはまだファイルがありません。",
+              'project.context.more': "最初の 300 件を表示しています。",
+              'project.addFiles': "ファイルを追加",
+              'project.openFolder': "フォルダーを開く",
+              'project.memory': "メモリー",
+              'project.memory.empty': "このプロジェクトについてエージェントが残すメモ。",
+              'project.memory.description': "このプロジェクトの新しいセッションが指示の後に読む非公開のメモです。",
+              'project.memory.note': "プロジェクトフォルダーの AGENTS.local.md に保存されます。バージョン管理に含めないでください。",
+              'project.scheduled': "スケジュール",
+              'project.scheduled.empty': "このプロジェクトで実行されるタスクはありません。",
+              'project.add': "追加",
+              'project.edit': "編集",
+              'project.save': "保存",
+              'project.saving': "保存中…",
+              'project.cancel': "キャンセル",
+              'project.task.title': "新しいスケジュールタスク",
+              'project.task.description': "実行のたびにこのプロジェクトで新しいセッションを開始します。",
+              'project.task.name': "名前",
+              'project.task.prompt': "指示",
+              'project.task.repeat': "繰り返し",
+              'project.task.time': "時刻",
+              'project.task.daily': "毎日",
+              'project.task.weekdays': "平日",
+              'project.task.weekly': "毎週この曜日",
+              'project.task.once': "1 回",
+              'project.task.note': "時刻は {zone} です。",
+              'project.task.create': "タスクを作成",
+              'project.task.missing': "タスクの名前と指示を入力してください。",
+              'project.task.next': "次回 {when}",
+              'project.task.paused': "一時停止中",
+              'project.task.manage': "スケジュールタスクを管理",
               'projects.search': 'プロジェクトを検索',
               'projects.empty': 'プロジェクトはまだありません。このコンピューター上のフォルダーから作成してください。',
               'projects.chat': '{count} 件のチャット', 'projects.chats': '{count} 件のチャット',
               'projects.updated': '{ago}前に更新',
               'section.mcp': 'MCP サーバー', 'section.skills': 'スキル',
+              scheduled: 'スケジュール', 'palette.title': '検索', 'palette.placeholder': 'チャット、成果物、プロジェクト、操作を検索',
+              'palette.filter': '結果を絞り込む', 'palette.all': 'すべて', 'palette.recents': '最近', 'palette.actions': '操作',
+              'palette.goTo': '{page}へ移動', 'palette.nothing': 'まだ何もありません', 'palette.noResults': '「{query}」に一致する結果はありません',
+              'palette.navigate': '移動', 'palette.open': '開く', 'palette.close': '閉じる',
+              'palette.commands': 'コマンド', 'palette.settings': '設定', 'palette.quickOpen': 'クイックオープン', 'palette.commandPalette': 'コマンドパレット', 'palette.commandsPlaceholder': '操作と設定を検索',
             },
             es: {
               'hero.headline': '¿En qué puedo ayudarte hoy?',
@@ -821,11 +1597,60 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'newArtifact.prompt': 'Crea un archivo para mí: ',
               'createPlugin.prompt': 'Crea un complemento de Jan con una entrada en la barra lateral izquierda.',
               'projects.lede': 'Cada proyecto es una carpeta. Los chats iniciados en él pueden leer y escribir sus archivos.',
+              'project.back': "Volver a proyectos",
+              'project.missing': "Este proyecto ya no está en Jan.",
+              'project.newSession': "Nueva sesión en {name}",
+              'project.composerHint': "Enter inicia una sesión en este proyecto. Mayús+Enter añade una línea.",
+              'project.start': "Iniciar sesión",
+              'project.recents': "Recientes",
+              'project.noSessions': "Este proyecto todavía no tiene sesiones.",
+              'project.details': "Detalles del proyecto",
+              'project.instructions': "Instrucciones",
+              'project.instructions.empty': "Indica al agente cómo trabajar en este proyecto.",
+              'project.instructions.description': "Cada sesión nueva de este proyecto lee primero estas instrucciones.",
+              'project.instructions.note': "Se guardan como AGENTS.md en la carpeta del proyecto, donde otros agentes también pueden leerlas.",
+              'project.context': "Contexto",
+              'project.context.empty': "Esta carpeta todavía no tiene archivos.",
+              'project.context.more': "Se muestran los primeros 300 elementos.",
+              'project.addFiles': "Añadir archivos",
+              'project.openFolder': "Abrir carpeta",
+              'project.memory': "Memoria",
+              'project.memory.empty': "Notas que el agente guarda sobre este proyecto.",
+              'project.memory.description': "Notas privadas que cada sesión nueva de este proyecto lee después de sus instrucciones.",
+              'project.memory.note': "Se guardan como AGENTS.local.md en la carpeta del proyecto. Déjalas fuera del control de versiones.",
+              'project.scheduled': "Programadas",
+              'project.scheduled.empty': "No hay tareas programadas en este proyecto.",
+              'project.add': "Añadir",
+              'project.edit': "Editar",
+              'project.save': "Guardar",
+              'project.saving': "Guardando…",
+              'project.cancel': "Cancelar",
+              'project.task.title': "Nueva tarea programada",
+              'project.task.description': "Cada ejecución inicia una sesión nueva en este proyecto.",
+              'project.task.name': "Nombre",
+              'project.task.prompt': "Instrucciones",
+              'project.task.repeat': "Repetir",
+              'project.task.time': "Hora",
+              'project.task.daily': "Todos los días",
+              'project.task.weekdays': "Días laborables",
+              'project.task.weekly': "Cada semana este día",
+              'project.task.once': "Una vez",
+              'project.task.note': "Las horas usan {zone}.",
+              'project.task.create': "Crear tarea",
+              'project.task.missing': "Pon un nombre y unas instrucciones a la tarea.",
+              'project.task.next': "Siguiente: {when}",
+              'project.task.paused': "En pausa",
+              'project.task.manage': "Gestionar tareas programadas",
               'projects.search': 'Buscar proyectos',
               'projects.empty': 'Aún no hay proyectos. Crea uno a partir de una carpeta de este equipo.',
               'projects.chat': '{count} chat', 'projects.chats': '{count} chats',
               'projects.updated': 'actualizado hace {ago}',
               'section.mcp': 'Servidores MCP', 'section.skills': 'Habilidades',
+              scheduled: 'Programadas', 'palette.title': 'Buscar', 'palette.placeholder': 'Buscar chats, artefactos, proyectos y acciones',
+              'palette.filter': 'Filtrar resultados', 'palette.all': 'Todo', 'palette.recents': 'Recientes', 'palette.actions': 'Acciones',
+              'palette.goTo': 'Ir a {page}', 'palette.nothing': 'Todavía no hay nada', 'palette.noResults': 'No hay resultados para “{query}”',
+              'palette.navigate': 'Navegar', 'palette.open': 'Abrir', 'palette.close': 'Cerrar',
+              'palette.commands': 'Comandos', 'palette.settings': 'Configuración', 'palette.quickOpen': 'Apertura rápida', 'palette.commandPalette': 'Paleta de comandos', 'palette.commandsPlaceholder': 'Buscar acciones y configuración',
             },
             fr: {
               'hero.headline': "Comment puis-je vous aider aujourd'hui ?",
@@ -838,11 +1663,60 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'newArtifact.prompt': 'Crée un fichier pour moi : ',
               'createPlugin.prompt': 'Crée un plugin Jan avec une entrée dans la barre latérale gauche.',
               'projects.lede': 'Chaque projet est un dossier. Les discussions qui y sont lancées peuvent lire et écrire ses fichiers.',
+              'project.back': "Retour aux projets",
+              'project.missing': "Ce projet n'est plus dans Jan.",
+              'project.newSession': "Nouvelle séance dans {name}",
+              'project.composerHint': "Entrée lance une séance dans ce projet. Maj+Entrée ajoute une ligne.",
+              'project.start': "Lancer la séance",
+              'project.recents': "Récents",
+              'project.noSessions': "Ce projet n'a pas encore de séance.",
+              'project.details': "Détails du projet",
+              'project.instructions': "Instructions",
+              'project.instructions.empty': "Expliquez à l'agent comment travailler dans ce projet.",
+              'project.instructions.description': "Chaque nouvelle séance de ce projet lit d’abord ces instructions.",
+              'project.instructions.note': "Enregistrées dans AGENTS.md dans le dossier du projet, que d'autres agents peuvent aussi lire.",
+              'project.context': "Contexte",
+              'project.context.empty': "Ce dossier n'a pas encore de fichiers.",
+              'project.context.more': "Les 300 premiers éléments sont affichés.",
+              'project.addFiles': "Ajouter des fichiers",
+              'project.openFolder': "Ouvrir le dossier",
+              'project.memory': "Mémoire",
+              'project.memory.empty': "Notes que l'agent garde sur ce projet.",
+              'project.memory.description': "Notes privées que chaque nouvelle séance de ce projet lit après ses instructions.",
+              'project.memory.note': "Enregistrées dans AGENTS.local.md dans le dossier du projet. Gardez-les hors du contrôle de version.",
+              'project.scheduled': "Planifiées",
+              'project.scheduled.empty': "Aucune tâche planifiée dans ce projet.",
+              'project.add': "Ajouter",
+              'project.edit': "Modifier",
+              'project.save': "Enregistrer",
+              'project.saving': "Enregistrement…",
+              'project.cancel': "Annuler",
+              'project.task.title': "Nouvelle tâche planifiée",
+              'project.task.description': "Chaque exécution lance une nouvelle séance dans ce projet.",
+              'project.task.name': "Nom",
+              'project.task.prompt': "Instructions",
+              'project.task.repeat': "Répéter",
+              'project.task.time': "Heure",
+              'project.task.daily': "Tous les jours",
+              'project.task.weekdays': "Jours ouvrés",
+              'project.task.weekly': "Chaque semaine ce jour-ci",
+              'project.task.once': "Une fois",
+              'project.task.note': "Les heures suivent {zone}.",
+              'project.task.create': "Créer la tâche",
+              'project.task.missing': "Donnez un nom et des instructions à la tâche.",
+              'project.task.next': "Prochaine : {when}",
+              'project.task.paused': "En pause",
+              'project.task.manage': "Gérer les tâches planifiées",
               'projects.search': 'Rechercher des projets',
               'projects.empty': 'Aucun projet pour le moment. Créez-en un à partir d’un dossier de cet ordinateur.',
               'projects.chat': '{count} discussion', 'projects.chats': '{count} discussions',
               'projects.updated': 'mis à jour il y a {ago}',
               'section.mcp': 'Serveurs MCP', 'section.skills': 'Compétences',
+              scheduled: 'Planifiées', 'palette.title': 'Rechercher', 'palette.placeholder': 'Rechercher des discussions, artefacts, projets et actions',
+              'palette.filter': 'Filtrer les résultats', 'palette.all': 'Tout', 'palette.recents': 'Récents', 'palette.actions': 'Actions',
+              'palette.goTo': 'Aller à {page}', 'palette.nothing': 'Rien pour le moment', 'palette.noResults': 'Aucun résultat pour « {query} »',
+              'palette.navigate': 'Naviguer', 'palette.open': 'Ouvrir', 'palette.close': 'Fermer',
+              'palette.commands': 'Commandes', 'palette.settings': 'Paramètres', 'palette.quickOpen': 'Ouverture rapide', 'palette.commandPalette': 'Palette de commandes', 'palette.commandsPlaceholder': 'Rechercher des actions et des paramètres',
             },
             de: {
               'hero.headline': 'Wie kann ich dir heute helfen?',
@@ -855,11 +1729,60 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'newArtifact.prompt': 'Erstelle eine Datei für mich: ',
               'createPlugin.prompt': 'Erstelle ein Jan-Plugin mit einem Eintrag in der linken Seitenleiste.',
               'projects.lede': 'Jedes Projekt ist ein Ordner. Darin gestartete Chats können seine Dateien lesen und schreiben.',
+              'project.back': "Zurück zu Projekten",
+              'project.missing': "Dieses Projekt ist nicht mehr in Jan.",
+              'project.newSession': "Neue Sitzung in {name}",
+              'project.composerHint': "Eingabe startet eine Sitzung in diesem Projekt. Umschalt+Eingabe fügt eine Zeile ein.",
+              'project.start': "Sitzung starten",
+              'project.recents': "Zuletzt",
+              'project.noSessions': "Dieses Projekt hat noch keine Sitzungen.",
+              'project.details': "Projektdetails",
+              'project.instructions': "Anweisungen",
+              'project.instructions.empty': "Sag dem Agenten, wie er in diesem Projekt arbeiten soll.",
+              'project.instructions.description': "Jede neue Sitzung in diesem Projekt liest zuerst diese Anweisungen.",
+              'project.instructions.note': "Gespeichert als AGENTS.md im Projektordner, wo auch andere Agenten sie lesen können.",
+              'project.context': "Kontext",
+              'project.context.empty': "Dieser Ordner enthält noch keine Dateien.",
+              'project.context.more': "Die ersten 300 Einträge werden angezeigt.",
+              'project.addFiles': "Dateien hinzufügen",
+              'project.openFolder': "Ordner öffnen",
+              'project.memory': "Gedächtnis",
+              'project.memory.empty': "Notizen, die der Agent zu diesem Projekt führt.",
+              'project.memory.description': "Private Notizen, die jede neue Sitzung in diesem Projekt nach den Anweisungen liest.",
+              'project.memory.note': "Gespeichert als AGENTS.local.md im Projektordner. Nicht in die Versionsverwaltung aufnehmen.",
+              'project.scheduled': "Geplant",
+              'project.scheduled.empty': "In diesem Projekt laufen keine geplanten Aufgaben.",
+              'project.add': "Hinzufügen",
+              'project.edit': "Bearbeiten",
+              'project.save': "Speichern",
+              'project.saving': "Wird gespeichert…",
+              'project.cancel': "Abbrechen",
+              'project.task.title': "Neue geplante Aufgabe",
+              'project.task.description': "Jeder Lauf startet eine neue Sitzung in diesem Projekt.",
+              'project.task.name': "Name",
+              'project.task.prompt': "Anweisungen",
+              'project.task.repeat': "Wiederholen",
+              'project.task.time': "Uhrzeit",
+              'project.task.daily': "Jeden Tag",
+              'project.task.weekdays': "Werktags",
+              'project.task.weekly': "Jede Woche an diesem Wochentag",
+              'project.task.once': "Einmal",
+              'project.task.note': "Uhrzeiten gelten in {zone}.",
+              'project.task.create': "Aufgabe erstellen",
+              'project.task.missing': "Gib der Aufgabe einen Namen und Anweisungen.",
+              'project.task.next': "Nächste: {when}",
+              'project.task.paused': "Pausiert",
+              'project.task.manage': "Geplante Aufgaben verwalten",
               'projects.search': 'Projekte suchen',
               'projects.empty': 'Noch keine Projekte. Erstelle eines aus einem Ordner auf diesem Computer.',
               'projects.chat': '{count} Chat', 'projects.chats': '{count} Chats',
               'projects.updated': 'vor {ago} aktualisiert',
               'section.mcp': 'MCP-Server', 'section.skills': 'Skills',
+              scheduled: 'Geplant', 'palette.title': 'Suchen', 'palette.placeholder': 'Chats, Artefakte, Projekte und Aktionen suchen',
+              'palette.filter': 'Ergebnisse filtern', 'palette.all': 'Alle', 'palette.recents': 'Zuletzt', 'palette.actions': 'Aktionen',
+              'palette.goTo': 'Zu {page}', 'palette.nothing': 'Noch nichts vorhanden', 'palette.noResults': 'Keine Ergebnisse für „{query}“',
+              'palette.navigate': 'Auswählen', 'palette.open': 'Öffnen', 'palette.close': 'Schließen',
+              'palette.commands': 'Befehle', 'palette.settings': 'Einstellungen', 'palette.quickOpen': 'Schnell öffnen', 'palette.commandPalette': 'Befehlspalette', 'palette.commandsPlaceholder': 'Aktionen und Einstellungen suchen',
             },
             ru: {
               'hero.headline': 'Чем я могу помочь сегодня?',
@@ -872,11 +1795,60 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'newArtifact.prompt': 'Создай для меня файл: ',
               'createPlugin.prompt': 'Создай плагин Jan с пунктом в левой боковой панели.',
               'projects.lede': 'Каждый проект - это папка. Чаты, начатые в нем, могут читать и изменять ее файлы.',
+              'project.back': "К проектам",
+              'project.missing': "Этого проекта больше нет в Jan.",
+              'project.newSession': "Новая сессия в {name}",
+              'project.composerHint': "Enter начинает сессию в этом проекте, Shift+Enter добавляет строку.",
+              'project.start': "Начать сессию",
+              'project.recents': "Недавние",
+              'project.noSessions': "В этом проекте пока нет сессий.",
+              'project.details': "Сведения о проекте",
+              'project.instructions': "Инструкции",
+              'project.instructions.empty': "Объясните агенту, как работать в этом проекте.",
+              'project.instructions.description': "Каждая новая сессия в этом проекте сначала читает эти инструкции.",
+              'project.instructions.note': "Сохраняются в AGENTS.md в папке проекта, их могут читать и другие агенты.",
+              'project.context': "Контекст",
+              'project.context.empty': "В этой папке пока нет файлов.",
+              'project.context.more': "Показаны первые 300 элементов.",
+              'project.addFiles': "Добавить файлы",
+              'project.openFolder': "Открыть папку",
+              'project.memory': "Память",
+              'project.memory.empty': "Заметки агента об этом проекте.",
+              'project.memory.description': "Личные заметки, которые каждая новая сессия в этом проекте читает после инструкций.",
+              'project.memory.note': "Сохраняются в AGENTS.local.md в папке проекта. Не добавляйте их в систему контроля версий.",
+              'project.scheduled': "Запланированные",
+              'project.scheduled.empty': "В этом проекте нет запланированных задач.",
+              'project.add': "Добавить",
+              'project.edit': "Изменить",
+              'project.save': "Сохранить",
+              'project.saving': "Сохранение…",
+              'project.cancel': "Отмена",
+              'project.task.title': "Новая запланированная задача",
+              'project.task.description': "Каждый запуск начинает новую сессию в этом проекте.",
+              'project.task.name': "Название",
+              'project.task.prompt': "Инструкции",
+              'project.task.repeat': "Повтор",
+              'project.task.time': "Время",
+              'project.task.daily': "Каждый день",
+              'project.task.weekdays': "По будням",
+              'project.task.weekly': "Каждую неделю в этот день",
+              'project.task.once': "Один раз",
+              'project.task.note': "Время указано в {zone}.",
+              'project.task.create': "Создать задачу",
+              'project.task.missing': "Укажите название и инструкции задачи.",
+              'project.task.next': "Следующий запуск: {when}",
+              'project.task.paused': "Приостановлена",
+              'project.task.manage': "Управлять задачами",
               'projects.search': 'Поиск проектов',
               'projects.empty': 'Проектов пока нет. Создайте проект из папки на этом компьютере.',
               'projects.chat': 'Чатов: {count}', 'projects.chats': 'Чатов: {count}',
               'projects.updated': 'обновлено {ago} назад',
               'section.mcp': 'MCP-серверы', 'section.skills': 'Навыки',
+              scheduled: 'Запланированные', 'palette.title': 'Поиск', 'palette.placeholder': 'Поиск чатов, артефактов, проектов и действий',
+              'palette.filter': 'Фильтр результатов', 'palette.all': 'Все', 'palette.recents': 'Недавние', 'palette.actions': 'Действия',
+              'palette.goTo': 'Перейти: {page}', 'palette.nothing': 'Здесь пока пусто', 'palette.noResults': 'Нет результатов для «{query}»',
+              'palette.navigate': 'Выбор', 'palette.open': 'Открыть', 'palette.close': 'Закрыть',
+              'palette.commands': 'Команды', 'palette.settings': 'Настройки', 'palette.quickOpen': 'Быстрое открытие', 'palette.commandPalette': 'Палитра команд', 'palette.commandsPlaceholder': 'Поиск действий и настроек',
             },
             pt: {
               'hero.headline': 'Como posso ajudar hoje?',
@@ -889,11 +1861,60 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'newArtifact.prompt': 'Crie um arquivo para mim: ',
               'createPlugin.prompt': 'Crie um plug-in do Jan com uma entrada na barra lateral esquerda.',
               'projects.lede': 'Cada projeto é uma pasta. As conversas iniciadas nele podem ler e gravar seus arquivos.',
+              'project.back': "Voltar aos projetos",
+              'project.missing': "Este projeto não está mais no Jan.",
+              'project.newSession': "Nova sessão em {name}",
+              'project.composerHint': "Enter inicia uma sessão neste projeto. Shift+Enter adiciona uma linha.",
+              'project.start': "Iniciar sessão",
+              'project.recents': "Recentes",
+              'project.noSessions': "Este projeto ainda não tem sessões.",
+              'project.details': "Detalhes do projeto",
+              'project.instructions': "Instruções",
+              'project.instructions.empty': "Diga ao agente como trabalhar neste projeto.",
+              'project.instructions.description': "Cada nova sessão neste projeto lê estas instruções primeiro.",
+              'project.instructions.note': "Salvas como AGENTS.md na pasta do projeto, onde outros agentes também podem lê-las.",
+              'project.context': "Contexto",
+              'project.context.empty': "Esta pasta ainda não tem arquivos.",
+              'project.context.more': "Mostrando os primeiros 300 itens.",
+              'project.addFiles': "Adicionar arquivos",
+              'project.openFolder': "Abrir pasta",
+              'project.memory': "Memória",
+              'project.memory.empty': "Anotações que o agente mantém sobre este projeto.",
+              'project.memory.description': "Anotações privadas que cada nova sessão neste projeto lê depois das instruções.",
+              'project.memory.note': "Salvas como AGENTS.local.md na pasta do projeto. Mantenha-as fora do controle de versão.",
+              'project.scheduled': "Agendadas",
+              'project.scheduled.empty': "Nenhuma tarefa agendada neste projeto.",
+              'project.add': "Adicionar",
+              'project.edit': "Editar",
+              'project.save': "Salvar",
+              'project.saving': "Salvando…",
+              'project.cancel': "Cancelar",
+              'project.task.title': "Nova tarefa agendada",
+              'project.task.description': "Cada execução inicia uma nova sessão neste projeto.",
+              'project.task.name': "Nome",
+              'project.task.prompt': "Instruções",
+              'project.task.repeat': "Repetir",
+              'project.task.time': "Horário",
+              'project.task.daily': "Todos os dias",
+              'project.task.weekdays': "Dias úteis",
+              'project.task.weekly': "Toda semana neste dia",
+              'project.task.once': "Uma vez",
+              'project.task.note': "Horários em {zone}.",
+              'project.task.create': "Criar tarefa",
+              'project.task.missing': "Dê um nome e instruções à tarefa.",
+              'project.task.next': "Próxima: {when}",
+              'project.task.paused': "Pausada",
+              'project.task.manage': "Gerenciar tarefas agendadas",
               'projects.search': 'Pesquisar projetos',
               'projects.empty': 'Nenhum projeto ainda. Crie um a partir de uma pasta deste computador.',
               'projects.chat': '{count} conversa', 'projects.chats': '{count} conversas',
               'projects.updated': 'atualizado há {ago}',
               'section.mcp': 'Servidores MCP', 'section.skills': 'Habilidades',
+              scheduled: 'Agendadas', 'palette.title': 'Pesquisar', 'palette.placeholder': 'Pesquisar conversas, artefatos, projetos e ações',
+              'palette.filter': 'Filtrar resultados', 'palette.all': 'Tudo', 'palette.recents': 'Recentes', 'palette.actions': 'Ações',
+              'palette.goTo': 'Ir para {page}', 'palette.nothing': 'Nada aqui ainda', 'palette.noResults': 'Nenhum resultado para “{query}”',
+              'palette.navigate': 'Navegar', 'palette.open': 'Abrir', 'palette.close': 'Fechar',
+              'palette.commands': 'Comandos', 'palette.settings': 'Configurações', 'palette.quickOpen': 'Abertura rápida', 'palette.commandPalette': 'Paleta de comandos', 'palette.commandsPlaceholder': 'Pesquisar ações e configurações',
             },
           }), 'jan-theme: owned copy')
         })
@@ -941,6 +1962,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         ctx.inject(['layout'], (scope) => {
           scope.layout.configureSidebar({ defaultWidth: 240, minWidth: 224, maxWidth: 320 })
         })
+        let scheduleCatalog
+        let scheduleCreate
         ctx.inject(['layout', 'uiWorkspace', 'workspaces', 'locale'], (scope) => {
           const mainKeyAvailable = (key) => ({
             getSnapshot: () => scope.slots.entriesOfSlot('main').some((entry) => entry.options.key === key),
@@ -982,17 +2005,172 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               createPlugin: () => { startDraft(t('createPlugin.prompt'), 'cordis') },
             }),
           }, WorkspaceActions))
+          const openProject = (workspaceId) => {
+            currentProject.set(workspaceId)
+            scope.layout.selectPanel(PROJECT_PANEL)
+          }
           scope.slots.inject('main', () => scope.slots.register({
             name: 'main', key: PROJECTS_PANEL, locale: 'jan-theme',
             inject: () => ({
               hooks: { workspaces: scope.workspaces.list },
-              startSession: (workspaceId) => {
-                scope.layout.selectPanel(null)
-                scope.uiWorkspace.startSession(workspaceId)
-              },
+              openProject,
               addProject,
             }),
           }, ProjectsPanel))
+          // An older ui-workspace keeps the row click as expand and collapse.
+          if (typeof scope.uiWorkspace.registerProjectHandler === 'function') {
+            scope.effect(() => scope.uiWorkspace.registerProjectHandler(openProject), 'jan-theme: project home')
+          }
+        })
+        ctx.inject(['layout', 'uiWorkspace', 'workspaces', 'sessions', 'locale'], (scope) => {
+          const archived = {
+            getSnapshot: () => scope.workspaces.list.getSnapshot().archivedSessionIds,
+            subscribe: (listener) => scope.workspaces.list.subscribe(listener),
+          }
+          scope.slots.inject('main', () => scope.slots.register({
+            name: 'main', key: PROJECT_PANEL, locale: 'jan-theme',
+            inject: () => ({
+              hooks: { project: currentProject, workspaces: scope.workspaces.list, archived, sessions: scope.sessions.list },
+              // The typed text becomes the new Session's draft and is sent from there,
+              // so the Session's own composer owns attachments, commands and send checks.
+              startSession: (workspaceId, text) => {
+                scope.layout.selectPanel(null)
+                scope.uiWorkspace.startSession(workspaceId, { prompt: text, whenDraftExists: 'append' })
+              },
+              openChat: (sessionId) => {
+                scope.layout.selectPanel(null)
+                scope.uiWorkspace.openSession(sessionId)
+              },
+              backToProjects: () => { scope.layout.selectPanel(PROJECTS_PANEL) },
+              openScheduled: () => { scope.layout.selectPanel(SCHEDULED_PANEL) },
+              loadSchedules: () => {
+                const read = scheduleCatalog
+                return read === undefined ? undefined : Promise.resolve().then(read)
+              },
+              createSchedule: async (request) => {
+                const create = scheduleCreate
+                if (create === undefined) throw new Error('Scheduled tasks are not available.')
+                const result = await create(request)
+                if (!result.ok) throw new Error(result.error.message)
+                return result.value
+              },
+            }),
+          }, ProjectHome))
+        })
+        // Scheduled tasks join the palette and project pages only while the schedule namespace exists.
+        ctx.inject(['remote', 'remote.schedule'], (scope) => {
+          scheduleCatalog = () => scope.remote.schedule.catalog()
+          scheduleCreate = (request) => scope.remote.schedule.create(request)
+          scope.effect(() => () => { scheduleCatalog = undefined; scheduleCreate = undefined }, 'jan-theme: schedule source')
+        })
+        let settingsNavigation
+        ctx.inject(['settingsNavigation'], (scope) => {
+          settingsNavigation = scope.settingsNavigation
+          scope.effect(() => () => { settingsNavigation = undefined }, 'jan-theme: settings search target')
+        })
+        ctx.slots.inject('shell.overlay', () => ctx.slots.register({ name: 'shell.overlay', id: 'jt-startup-notices' }, () => h(StartupNotices, {
+          openSettings: (section) => {
+            if (settingsNavigation?.open(section) !== true) console.warn(`jan-theme: settings section ${section} is unavailable`)
+          },
+        })))
+        ctx.inject(['layout', 'uiWorkspace', 'workspaces', 'sessions', 'shortcuts', 'locale'], (scope) => {
+          // An older ui-workspace keeps its own sidebar search field.
+          if (typeof scope.uiWorkspace.registerSearchHandler !== 'function') return
+          const mainKeyAvailable = (key) => ({
+            getSnapshot: () => scope.slots.entriesOfSlot('main').some((entry) => entry.options.key === key),
+            subscribe: (listener) => scope.slots.subscribe('main', listener),
+          })
+          const closePalette = () => { palette.set(false) }
+          scope.effect(() => scope.uiWorkspace.registerSearchHandler(() => { palette.set(true) }), 'jan-theme: universal search')
+          scope.effect(() => closePalette, 'jan-theme: close search on unload')
+          // VS Code's pair: Mod+P quick-opens anything, Mod+Shift+P lists commands and settings.
+          // Browsers keep Mod+P for printing and Web already gives Mod+Alt+P to Files, so Quick open is desktop-only.
+          const paletteCommand = (id, kind, label, aliases, desktop, web) => scope.effect(() => scope.shortcuts.register({
+            id, label: () => t(label), aliases,
+            defaults: Object.fromEntries(['desktop:macos', 'desktop:windows', 'desktop:linux', 'web:macos', 'web:windows']
+              .filter(profile => profile.startsWith('desktop') || web !== undefined)
+              .map(profile => [profile, { code: 'KeyP', modifiers: profile.startsWith('desktop') ? desktop : web }])),
+            regions: ['page', 'editable', 'terminal'], modals: ['search', 'sidebar'],
+            resolve: () => ({ status: 'handled', run: () => { palette.set(true, kind) } }),
+          }), `jan-theme: ${id}`)
+          const t = scope.locale.bind('jan-theme')
+          paletteCommand('search.quickOpen', 'all', 'palette.quickOpen', ['quick open', 'go to file', 'search everything'], ['primary'])
+          paletteCommand('search.commands', 'commands', 'palette.commandPalette', ['command palette', 'show all commands', 'settings'], ['primary', 'shift'], ['primary', 'shift'])
+          // Settings sections and General rows, read from their live slot registrations.
+          const labelOf = (entry) => typeof entry.options.label === 'function' ? entry.options.label() : entry.options.label
+          let settingsCache
+          const settingsTargets = {
+            getSnapshot: () => {
+              if (settingsCache !== undefined) return settingsCache
+              const sections = scope.slots.entriesOfSlot('settings.section').filter(entry => entry.options.id !== undefined)
+              const general = sections.find(entry => entry.options.id === 'general')
+              const humanize = (id) => id.replace(/[-_.]/g, ' ').replace(/^./, c => c.toUpperCase())
+              settingsCache = [
+                ...sections.map(entry => {
+                  const title = labelOf(entry) ?? humanize(entry.options.id)
+                  return { section: entry.options.id, id: entry.options.id, title, sectionTitle: title }
+                }),
+                ...(general === undefined ? [] : scope.slots.entriesOfSlot('settings.general.item')
+                  .filter(entry => entry.options.id !== undefined)
+                  .map(entry => ({ section: 'general', id: entry.options.id, title: labelOf(entry) ?? humanize(entry.options.id), sectionTitle: labelOf(general) ?? 'General' }))),
+              ]
+              return settingsCache
+            },
+            subscribe: (listener) => {
+              const changed = () => { settingsCache = undefined; listener() }
+              const stops = [
+                scope.slots.subscribe('settings.section', changed),
+                scope.slots.subscribe('settings.general.item', changed),
+                scope.locale.subscribe(changed),
+              ]
+              return () => { for (const stop of stops) stop() }
+            },
+          }
+          scope.slots.inject('shell.overlay', () => scope.slots.register({
+            name: 'shell.overlay', id: 'jt-search-palette', locale: 'jan-theme',
+            inject: () => ({
+              hooks: {
+                palette,
+                sessions: scope.sessions.list,
+                workspaces: scope.workspaces.list,
+                catalog: scope.shortcuts.catalog,
+                artifactsAvailable: mainKeyAvailable(ARTIFACTS_PANEL),
+                scheduledAvailable: mainKeyAvailable(SCHEDULED_PANEL),
+                pluginsAvailable: mainKeyAvailable('plugins'),
+                settingsTargets,
+              },
+              closePalette,
+              openSettings: (section) => {
+                if (settingsNavigation?.open(section) !== true) console.warn(`jan-theme: settings section ${section} is unavailable`)
+              },
+              // Read on each open: the catalog is small and changes outside this window.
+              loadSchedules: () => {
+                const read = scheduleCatalog
+                return read === undefined ? undefined : Promise.resolve().then(read)
+              },
+              openChat: (sessionId) => {
+                scope.layout.selectPanel(null)
+                scope.uiWorkspace.openSession(sessionId)
+              },
+              openProject: (workspaceId) => {
+                scope.layout.selectPanel(null)
+                scope.uiWorkspace.startSession(workspaceId)
+              },
+              openArtifact: (sessionId, seq, index) => {
+                const query = new URLSearchParams({ sessionId, seq: String(seq), index: String(index) })
+                fetch(`api/present.open?${query}`, { method: 'POST' }).then((response) => {
+                  if (response.ok) return
+                  console.warn(`jan-theme: artifact open failed (${response.status}); showing its chat`)
+                  scope.layout.selectPanel(null)
+                  scope.uiWorkspace.openSession(sessionId)
+                }, (error) => { console.warn('jan-theme: artifact open failed', error) })
+              },
+              openPanel: (id) => { scope.layout.selectPanel(id) },
+              runCommand: (id) => {
+                scope.shortcuts.invoke(id, { target: document.activeElement, region: 'page', modal: null, source: 'menu' })
+              },
+            }),
+          }, SearchPalette))
         })
         // The account menu carries Settings plus Sign in with Tokamak; it
         // registers at the default rank, so ours renders only without it.

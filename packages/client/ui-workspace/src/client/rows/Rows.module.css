@@ -161,6 +161,21 @@
   .projectRow:hover .folder { display: none; }
 }
 
+/* With a project page the row opens it, and this button alone expands and collapses. */
+.chevronButton {
+  border: none;
+  border-radius: var(--dsw-radius-xs);
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.projectRow:has(.chevronButton:focus-visible) .chevron { display: inline-flex; }
+.projectRow:has(.chevronButton:focus-visible) .folder { display: none; }
+.chevronButton:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 0; }
+@media (hover: hover) {
+  .chevronButton:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
+}
+
 /* Expand arrow (filled triangle): points right closed, rotates to point down open. */
 .arrow {
   transition: transform 150ms var(--ds-ease-in-out);
