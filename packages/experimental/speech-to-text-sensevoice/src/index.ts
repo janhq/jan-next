@@ -12,6 +12,13 @@ export { Config } from './config.ts'
 export const name = 'experimental-speech-to-text-sensevoice'
 export const inject = ['speechToText', 'subprocess']
 
+declare module '@janhq/cordis' {
+  interface Context {
+    /** Mounted SenseVoice provider, including while its download or worker is settling. */
+    senseVoiceWorker: SenseVoiceWorker
+  }
+}
+
 /**
  * Register the local recognizer and inspect disk caches without downloading or loading models.
  * @param ctx - Host registry and subprocess owner.
@@ -23,6 +30,7 @@ export function apply(ctx: Context, config: Config): void {
   }
   for (const origin of config.modelOrigin === undefined ? config.modelOrigins : [config.modelOrigin]) new URL(origin)
   const worker = new SenseVoiceWorker(ctx, config)
+  ctx.provide('senseVoiceWorker', worker)
   const estimatedBytes = config.precision === 'int8' ? 1_000_000_000 : 2_000_000_000
   ctx.effect(() => {
     const unregister = ctx.speechToText.register({
