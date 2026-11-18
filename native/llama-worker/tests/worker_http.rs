@@ -482,7 +482,7 @@ async fn serve_preset(ini_path: &str) -> String {
         .await
         .expect("loopback bind");
     let base = format!("http://127.0.0.1:{}", server.port);
-    tokio::spawn(server.serve(listener));
+    tokio::spawn(server.with_managed_preset(ini_path.to_string()).serve(listener));
     base
 }
 
@@ -552,16 +552,24 @@ async fn guarded_removal_only_publishes_a_preset_without_the_target() {
     let dir = tempfile::tempdir().unwrap();
     let preset = write_preset(dir.path(), PRESET_TWO);
     let base = serve_preset(&preset).await;
-    let replacement = dir.path().join("remove.ini");
+    let replacement = format!("{preset}.remove");
     std::fs::write(&replacement, PRESET_TWO).unwrap();
     let request = serde_json::json!({
         "preset_path": preset,
-        "replacement_preset_path": replacement,
         "remove_if_unloaded": "beta",
     }).to_string();
     let (status, body) = post(&base, "/models/reload", &request, Some(KEY)).await;
     assert_eq!(status, 400, "{body}");
     assert_eq!(std::fs::read_to_string(&preset).unwrap(), PRESET_TWO);
+
+    let outside = dir.path().join("unmanaged.ini");
+    let outside_request = serde_json::json!({
+        "preset_path": outside,
+        "remove_if_unloaded": "beta",
+    }).to_string();
+    let (status, body) = post(&base, "/models/reload", &outside_request, Some(KEY)).await;
+    assert_eq!(status, 400, "{body}");
+    assert!(!outside.exists());
 
     std::fs::write(&replacement, PRESET_ONE).unwrap();
     let (status, body) = post(&base, "/models/reload", &request, Some(KEY)).await;
@@ -570,7 +578,7 @@ async fn guarded_removal_only_publishes_a_preset_without_the_target() {
     assert_eq!(reply["guarded_removal"], "beta");
     assert_eq!(reply["removed"], serde_json::json!(["beta"]));
     assert_eq!(std::fs::read_to_string(&preset).unwrap(), PRESET_ONE);
-    assert!(!replacement.exists());
+    assert!(!std::path::Path::new(&replacement).exists());
 }
 
 #[tokio::test(flavor = "multi_thread")]
