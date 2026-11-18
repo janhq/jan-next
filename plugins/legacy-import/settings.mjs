@@ -16,9 +16,8 @@ const missing = error => error?.code === 'ENOENT'
 const httpUrl = value => {
   try { return ['http:', 'https:'].includes(new URL(value).protocol) } catch { return false }
 }
-const routeOf = id => Object.hasOwn(BUILT_IN, id) && BUILT_IN[id] !== null
-  ? BUILT_IN[id]
-  : id.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64) || 'jan-provider'
+const catalogRouteFor = id => Object.hasOwn(BUILT_IN, id) ? BUILT_IN[id] : undefined
+const unroutedProviderSlug = id => id.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64) || 'jan-provider'
 
 /**
  * The credential reference a route's key is stored under; the same name the
@@ -44,15 +43,15 @@ export function janProviders(settings, keyNames) {
     const id = provider?.provider
     if (typeof id !== 'string' || !id || LOCAL.has(id)) return []
     const hasKey = keyed.has(id)
-    const builtIn = Object.hasOwn(BUILT_IN, id)
-    const catalog = builtIn && BUILT_IN[id] !== null
-    if (builtIn && !hasKey) return []
+    const catalogRoute = catalogRouteFor(id)
+    const catalog = typeof catalogRoute === 'string'
+    if (catalogRoute !== undefined && !hasKey) return []
     const baseURL = typeof provider.base_url === 'string' ? provider.base_url.trim() : ''
     if (!catalog && !httpUrl(baseURL)) return []
     const models = (Array.isArray(provider.models) ? provider.models : [])
       .filter(model => typeof model?.id === 'string' && model.id)
       .map(model => ({ id: model.id, ...(typeof model.name === 'string' && model.name && model.name !== model.id ? { name: model.name } : {}) }))
-    return [{ id, route: routeOf(id), catalog, baseURL, models, hasKey }]
+    return [{ id, route: catalogRoute ?? unroutedProviderSlug(id), catalog, baseURL, models, hasKey }]
   })
   const used = new Set([...Object.keys(BUILT_IN), ...Object.values(BUILT_IN).filter(Boolean)])
   for (const row of rows.filter(row => !row.catalog).sort((a, b) => a.id.localeCompare(b.id) || a.baseURL.localeCompare(b.baseURL))) {

@@ -20,6 +20,18 @@ test('brings keyed built-ins and every custom provider, never local engines or O
   assert.deepEqual(rows[2].models, [{ id: 'qwen3', name: 'Qwen 3' }])
 })
 
+test('a built-in without a catalog route needs a key, unlike a custom provider', () => {
+  const settings = providerState([
+    { provider: 'azure', base_url: 'https://azure.example/v1' },
+    { provider: 'Azure', base_url: 'https://custom.example/v1' },
+    { provider: 'constructor', base_url: 'https://custom.example/other' },
+  ])
+  assert.deepEqual(janProviders(settings, []).map(({ id }) => id), ['Azure', 'constructor'])
+  assert.deepEqual(janProviders(settings, ['azure']).map(({ id, catalog, hasKey }) => [id, catalog, hasKey]), [
+    ['azure', false, true], ['Azure', false, false], ['constructor', false, false],
+  ])
+})
+
 test('custom routes never reuse catalog ids or another custom route, regardless of provider order', () => {
   const providers = [
     { provider: 'openai', base_url: 'https://api.openai.com/v1' },
