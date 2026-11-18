@@ -34,7 +34,7 @@ import {
   packageAssetRevision,
   packageAssetRevisionedPath,
 } from './modules/src/assets.ts'
-import { optionalStringArray } from './modules/src/client/manifest.ts'
+import { optionalStringArray } from './modules/src/client/string-array.ts'
 import { PLATFORM_MODULES, PRELOADED_CLIENT_EXTERNALS } from './web/src/platform.ts'
 import { clientBuildEnvironmentDefines, clientBuildValueDefines } from '../../scripts/client-build-environment.ts'
 import { isExperimentalPackageName } from '../../scripts/experimental-package-policy.ts'
