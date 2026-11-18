@@ -2,9 +2,12 @@
   "name": "@janhq/jan-web-search-exa",
   "description": "Keyless web search and fetch for the ctx.web capability seam through Exa's hosted MCP endpoint",
   "version": "0.2.2-rc.1",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jamesdam/tokamak-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/web/web-search-exa"
   },
   "type": "module",
@@ -35,6 +38,5 @@
   },
   "dependencies": {
     "@janhq/schemastery": "workspace:~"
-  },
-  "private": true
+  }
 }

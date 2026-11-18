@@ -2,9 +2,12 @@
   "name": "@janhq/jan-api-llama-cpp-controller",
   "description": "Authenticated browser access to the managed local llama.cpp model",
   "version": "0.2.2-rc.1",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jamesdam/tokamak-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/api/llama-cpp-controller"
   },
   "type": "module",
@@ -30,7 +33,6 @@
   "files": [
     "locale/*.json",
     "lib/index.js",
-    "lib/types/**/*.js",
     "lib/types/**/*.d.ts",
     "lib/typert.host.js",
     "lib/typert.host.d.ts",
@@ -47,6 +49,5 @@
     "@janhq/cordis": "workspace:~",
     "@janhq/jan-llama-cpp": "workspace:*",
     "@janhq/jan-typert-protocol": "workspace:*"
-  },
-  "private": true
+  }
 }

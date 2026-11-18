@@ -76,16 +76,16 @@ export function Failure({ state, t }: { state: LlamaCppState; t: T }): ReactNode
 }
 
 const FIT = {
-  fits: { label: 'fitFits', hint: 'fitFitsHint', tone: 'success' },
-  tight: { label: 'fitTight', hint: 'fitTightHint', tone: 'warning' },
-  'too-large': { label: 'fitTooLarge', hint: 'fitTooLargeHint', tone: 'danger' },
-} as const satisfies Record<ModelFit, { label: string; hint: string; tone: 'success' | 'warning' | 'danger' }>
+  fits: { labelKey: 'fitFits', hintKey: 'fitFitsHint', tone: 'success' },
+  tight: { labelKey: 'fitTight', hintKey: 'fitTightHint', tone: 'warning' },
+  'too-large': { labelKey: 'fitTooLarge', hintKey: 'fitTooLargeHint', tone: 'danger' },
+} as const satisfies Record<ModelFit, { labelKey: string; hintKey: string; tone: 'success' | 'warning' | 'danger' }>
 
 /** How a model compares with this machine's memory; nothing while that is unknown. */
 export function FitTag({ fit, t }: { fit: ModelFit | undefined; t: T }): ReactNode {
   if (fit === undefined) return null
   const copy = FIT[fit]
-  return <span title={t(copy.hint)} data-testid="local-model-fit" data-fit={fit}><Tag tone={copy.tone}>{t(copy.label)}</Tag></span>
+  return <span title={t(copy.hintKey)} data-testid="local-model-fit" data-fit={fit}><Tag tone={copy.tone}>{t(copy.labelKey)}</Tag></span>
 }
 
 /** Marks a model that reads images through its vision projector. */
