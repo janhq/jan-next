@@ -54,7 +54,7 @@ function listOf(chats: Readonly<Record<string, Chat>>): SessionListState {
     }
     if (chat.summaryOnly !== true) projectionsBySession[id] = { values, state: chat.state ?? 'idle', error: null }
   }
-  return { ids: Object.keys(chats), byId, phase: 'ready', projectionsBySession } as unknown as SessionListState
+  return { ids: Object.keys(chats), byId, phase: 'ready', projectionsBySession } as never
 }
 
 const LIBRARY = listOf({
@@ -177,7 +177,7 @@ describe('ArtifactsPage', () => {
     const hydrate = vi.fn<ArtifactsInjected['hydrate']>()
     const availabilityStore = createSnapshotStore(availability)
     const scanning = createSnapshotStore(0)
-    const props = {
+    const props: Parameters<typeof ArtifactsPage>[0] = {
       t: makeTranslate(en),
       useSessions: <T,>(select: (state: SessionListState) => T): T => select(list),
       usePresentedOpen: <T,>(select: (state: ReturnType<typeof open.state.getSnapshot>) => T): T => select(open.state.getSnapshot()),
@@ -185,8 +185,8 @@ describe('ArtifactsPage', () => {
       useAvailability: <T,>(select: (state: ArtifactAvailabilityMap) => T): T => select(availabilityStore.getSnapshot()),
       useScanning: <T,>(select: (state: number) => T): T => select(scanning.getSnapshot()),
       reloadPresentedHost: vi.fn(() => open.loadHost()), openPresented, checkAvailability, hydrate, openChat,
-    }
-    const view = render(<ArtifactsPage {...props as unknown as Parameters<typeof ArtifactsPage>[0]} />)
+    } as never
+    const view = render(<ArtifactsPage {...props} />)
     return { view, openChat, openPresented, checkAvailability, hydrate }
   }
 
@@ -295,7 +295,7 @@ describe('artifacts registration', () => {
     expect(panel?.options.id).toBe('artifacts')
     expect(resolveSlotLabel(panel?.options.label)).toBe('Artifacts')
 
-    const face = main!.inject!() as unknown as ArtifactsInjected
+    const face: ArtifactsInjected = main!.inject!() as never
     face.openChat(sid('chat-7'))
     expect(openSession).toHaveBeenCalledWith('chat-7')
     face.hydrate([sid('legacy')])

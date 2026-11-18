@@ -9,7 +9,6 @@ import { HostConnectionService } from '@janhq/jan-client-connection'
 import type { BrowserAuth } from '@janhq/jan-client-connection/src/browser-auth.ts'
 import { SessionId } from '@janhq/jan-session'
 import { SessionQueryError } from '@janhq/jan-session-query'
-import SessionProjectionRegistry from '@janhq/jan-session-projection'
 import type { SessionEventReadRequest } from '@janhq/jan-session-query'
 import type { WorkspaceChangedFile, WorkspaceChangesSummary, WorkspaceFileDiff } from '@janhq/jan-workspace-changes/types'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -65,8 +64,6 @@ async function fixture() {
   const applications = vi.fn(async () => [{ id: 'player', name: 'Player', default: true, icon: null }])
   ctx.provide('sessionController', { workspacePathApplications: applications, openWorkspacePath: opener, workspaceDesktop: () => ({ name: 'desktop', available: true, fileManager: 'finder' }) } as never)
   const connection = new HostConnectionService(ctx, [], {} as BrowserAuth)
-  // The plugin also registers the presented-files projection.
-  await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(deliverables)
   const handler = connection.createSharedFetchHandler('/api')
   const open = (query = '?sessionId=owner&seq=9&index=0') => handler.fetch(new Request(`http://localhost${CHANGES_OPEN_PATH}${query}`, { method: 'POST' }), connection.browserPeer)
@@ -225,9 +222,4 @@ it('rejects an unsupported changed-file action before invoking the desktop', asy
   const { open, opener } = await fixture()
   expect((await open('?sessionId=owner&seq=9&index=0&action=remove')).status).toBe(400)
   expect(opener).not.toHaveBeenCalled()
-})
-
-it('indexes presented files per Session so the Session list carries them for chats that are not open', async () => {
-  const { ctx } = await fixture()
-  expect(ctx.sessionProjections.summaryKeys().has('presentedFiles')).toBe(true)
 })

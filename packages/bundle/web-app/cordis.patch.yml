@@ -416,6 +416,11 @@
     - id: ui-deliverables
       name: '@janhq/jan-client-ui-deliverables'
 
+    # The presented-files index the Artifacts library reads from the Session
+    # list. The present tool is mounted per agent, so the Host mounts the index.
+    - id: presented-files-projection
+      name: '@janhq/jan-tool-present/projection'
+
     # Records each top-level turn's changed files from git working-tree
     # snapshots; the changed-files card above renders its events.
     - id: workspace-changes

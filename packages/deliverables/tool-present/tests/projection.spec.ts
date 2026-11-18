@@ -4,7 +4,8 @@ import { Context } from '@janhq/cordis'
 import { ToolCallId } from '@janhq/jan-llm'
 import { SESSION_FORMAT_VERSION, Session, SessionId, type SessionEvent, type SessionLogOffset } from '@janhq/jan-session'
 import SessionProjectionRegistry from '@janhq/jan-session-projection'
-import { applyPresentedFiles, presentedFilesProjectionDefinition, type PresentedFilesState } from '../src/projection.ts'
+import * as presentedFilesProjection from '../src/projection.ts'
+import { applyPresentedFiles, type PresentedFilesState } from '../src/projection.ts'
 
 const empty = (inherited = 0): PresentedFilesState => ({ inheritedEventCount: inherited as SessionLogOffset, files: [] })
 let counter = 0
@@ -66,11 +67,11 @@ describe('presentedFiles projection registration', () => {
     cleanups.length = 0
   })
 
-  it('serves the distinct files as a summary key of a live Session', async () => {
+  it('registers the distinct files as a summary key of a live Session when mounted', async () => {
     const ctx = new Context()
     cleanups.push(() => ctx.fiber.dispose())
     await ctx.plugin(SessionProjectionRegistry)
-    const handle = await ctx.sessionProjections.register(presentedFilesProjectionDefinition)
+    await ctx.plugin(presentedFilesProjection)
     const id = SessionId('present-projection')
     const session = Session.create(id, [], { version: SESSION_FORMAT_VERSION, id, createdAt: 0, cwd: '/w', isSeeded: false })
     session.append('turn/start', { turn: 1 })
@@ -81,6 +82,5 @@ describe('presentedFiles projection registration', () => {
     const files = values.presentedFiles ?? []
     expect(files.map(file => file.path)).toEqual(['/w/a.pdf', '/w/b.csv'])
     expect(files[0]!.seq).toBeLessThan(files[1]!.seq)
-    expect(handle.stateOf(session).files).toEqual(files)
   })
 })

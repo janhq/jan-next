@@ -51,7 +51,13 @@ export function artifactGroup(path: string): ArtifactGroup {
   }
 }
 
-/** Key of one row's availability and open state across list refreshes. */
+/**
+ * Key of one row's availability and open state across list refreshes.
+ * @param sessionId - Session that produced the artifact.
+ * @param seq - transcript entry sequence that presented it.
+ * @param index - position of the file within that entry.
+ * @returns a key stable across refreshes of the same list.
+ */
 export function artifactKey(sessionId: SessionId, seq: number, index: number): string {
   return `${sessionId}:${seq}:${index}`
 }

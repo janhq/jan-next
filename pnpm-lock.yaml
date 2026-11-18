@@ -4329,9 +4329,6 @@ importers:
 
   packages/client/ui-deliverables:
     dependencies:
-      '@janhq/jan-tool-present':
-        specifier: workspace:*
-        version: link:../../deliverables/tool-present
       '@janhq/jan-typert-protocol':
         specifier: workspace:*
         version: link:../../typert/protocol
@@ -4417,15 +4414,15 @@ importers:
       '@janhq/jan-session':
         specifier: workspace:*
         version: link:../../core/session
-      '@janhq/jan-session-projection':
-        specifier: workspace:*
-        version: link:../../session/session-projection
       '@janhq/jan-session-query':
         specifier: workspace:*
         version: link:../../session-query/session-query
       '@janhq/jan-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@janhq/jan-tool-present':
+        specifier: workspace:*
+        version: link:../../deliverables/tool-present
       '@janhq/jan-util-values':
         specifier: workspace:*
         version: link:../../util/values
