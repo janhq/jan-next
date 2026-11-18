@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "网页搜索",
+    "description": "通过 Exa、Tavily、SearXNG 或 You.com 搜索网页并读取页面。Exa 和 You.com 无需账号；Tavily 需要 API 密钥，SearXNG 需要你自己的实例。"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Pesquisa web",
+    "description": "Pesquisa na web e leitura de páginas através da Exa, Tavily, SearXNG ou You.com. Exa e You.com funcionam sem conta; a Tavily requer uma chave de API e o SearXNG a sua própria instância."
+  }
+}

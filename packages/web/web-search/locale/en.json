@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Web search",
+    "description": "Web search and page reading through Exa, Tavily, SearXNG, or You.com. Exa and You.com work without an account; Tavily needs an API key and SearXNG your own instance."
+  }
+}

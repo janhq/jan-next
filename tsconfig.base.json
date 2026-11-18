@@ -611,6 +611,7 @@
       "@janhq/jan-web": ["./packages/web/web/src"],
       "@janhq/jan-web-app": ["./packages/bundle/web-app/src"],
       "@janhq/jan-web-fetch-http": ["./packages/web/web-fetch-http/src"],
+      "@janhq/jan-web-search": ["./packages/web/web-search/src"],
       "@janhq/jan-web-search-exa": ["./packages/web/web-search-exa/src"],
       "@janhq/jan-webhook": ["./packages/experimental/webhook/src"],
       "@janhq/jan-webhook-github": ["./packages/experimental/webhook-github/src"],

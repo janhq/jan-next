@@ -326,6 +326,7 @@
     { "path": "./packages/llm/llama-cpp" },
     { "path": "./packages/api/llama-cpp-controller" },
     { "path": "./packages/web/web-search-exa" },
+    { "path": "./packages/web/web-search" },
     { "path": "./packages/client/ui-deliverables/tsconfig.host.json" },
     { "path": "./vendor/cosmokit" },
     { "path": "./vendor/schemastery" },

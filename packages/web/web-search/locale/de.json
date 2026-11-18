@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Websuche",
+    "description": "Websuche und Seitenabruf über Exa, Tavily, SearXNG oder You.com. Exa und You.com funktionieren ohne Konto; Tavily benötigt einen API-Schlüssel und SearXNG eine eigene Instanz."
+  }
+}
