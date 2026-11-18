@@ -57,6 +57,26 @@ export function apply(ctx, config = {}) {
   }
   const titleOf = thread => String(thread.title || '').replace(/\s+/g, ' ').trim() || 'Untitled Jan chat'
   const exists = async id => Boolean(ctx.sessions.get(id) || await ctx.sessionPersistence.stat(id))
+  // Stored events of a session no live Agent holds; undefined when it is live or absent.
+  const storedLength = async id => {
+    if (ctx.sessions.get(id)) return undefined
+    const snapshot = await ctx.sessionPersistence.stat(id)
+    if (!snapshot) return undefined
+    if (typeof snapshot.eventCount === 'number') return snapshot.eventCount
+    const handle = await ctx.sessionPersistence.open(id, 'read')
+    try { return (await handle.read()).events.length } finally { await handle.close() }
+  }
+  // Storage has no delete, so a chat whose import stopped after create is resumed,
+  // not reported as imported. Images only change block content, never the event count.
+  const partialImport = async (sessionId, thread, messages) => {
+    const stored = await storedLength(sessionId)
+    return stored !== undefined && messages.length > 0 && stored < convertThread(thread, messages).events.length
+  }
+  const imported = async (thread, messages) => {
+    const sessionId = `jan-${thread.id}`
+    if (await exists(sessionId)) return !await partialImport(sessionId, thread, messages)
+    return typeof thread.metadata?.dshSession?.id === 'string' && await exists(thread.metadata.dshSession.id)
+  }
   const list = async ({ folder }) => {
     const source = await realpath(folderOf(folder))
     const entries = await readdir(join(source, 'threads'), { withFileTypes: true })
@@ -65,7 +85,7 @@ export function apply(ctx, config = {}) {
       if (!entry.isDirectory() || !validId(entry.name)) continue
       try {
         const { thread, kind, messages } = await readThread(source, entry.name)
-        threads.push({ id: thread.id, title: titleOf(thread), kind, messageCount: messages.length, updated: threadUpdated(thread, messages), alreadyImported: await exists(`jan-${thread.id}`) || (typeof thread.metadata?.dshSession?.id === 'string' && await exists(thread.metadata.dshSession.id)) })
+        threads.push({ id: thread.id, title: titleOf(thread), kind, messageCount: messages.length, updated: threadUpdated(thread, messages), alreadyImported: await imported(thread, messages) })
       } catch (error) {
         threads.push({ id: entry.name, title: entry.name, messageCount: 0, error: errorText(error) })
       }
@@ -243,7 +263,8 @@ export function apply(ctx, config = {}) {
           const { thread, messages, losses } = await readThread(source, id)
           run.current = titleOf(thread)
           const linkedId = thread.metadata?.dshSession?.id
-          if (await exists(sessionId) || (typeof linkedId === 'string' && await exists(linkedId))) {
+          const partial = await exists(sessionId) && await partialImport(sessionId, thread, messages)
+          if (!partial && (await exists(sessionId) || (typeof linkedId === 'string' && await exists(linkedId)))) {
             // Retry workspace membership when a prior import persisted successfully but attachment failed.
             if (await exists(sessionId)) await workspace.attachSession(sessionId)
             run.results.push({ id, status: 'already imported', sessionId: await exists(sessionId) ? sessionId : linkedId })
@@ -251,15 +272,28 @@ export function apply(ctx, config = {}) {
             run.results.push({ id, status: 'skipped', reason: 'empty chat' })
           } else {
             const converted = convertThread(thread, messages, await saveImages(source, messages))
-            const prepared = ctx.sessions.prepare(sessionId, { seed: converted.events, meta: { createdAt: converted.createdAt, cwd: workspace.path, isSeeded: false } })
-            // A chat with an imported assistant keeps running as that assistant.
-            const preset = typeof thread.assistants?.[0]?.id === 'string' ? assistantPresetId(thread.assistants[0].id) : undefined
-            const header = preset && mountedPresets.has(preset) ? { ...prepared.header, agentPreset: preset } : prepared.header
-            const handle = await ctx.sessionPersistence.create(header)
-            try { await handle.append(converted.events); await handle.flush() } finally { await handle.close() }
+            let header, inheritedEventCount, handle
+            if (partial) {
+              // Finish a log an earlier run created but did not fill; its stored prefix stays as written.
+              handle = await ctx.sessionPersistence.open(sessionId, 'write')
+              header = handle.header
+              inheritedEventCount = handle.inheritedEventCount
+            } else {
+              const prepared = ctx.sessions.prepare(sessionId, { seed: converted.events, meta: { createdAt: converted.createdAt, cwd: workspace.path, isSeeded: false } })
+              // A chat with an imported assistant keeps running as that assistant.
+              const preset = typeof thread.assistants?.[0]?.id === 'string' ? assistantPresetId(thread.assistants[0].id) : undefined
+              header = preset && mountedPresets.has(preset) ? { ...prepared.header, agentPreset: preset } : prepared.header
+              inheritedEventCount = prepared.inheritedEventCount
+              handle = await ctx.sessionPersistence.create(header)
+            }
+            try {
+              const written = partial ? (await handle.read()).events.length : 0
+              if (written < converted.events.length) await handle.append(converted.events.slice(written))
+              await handle.flush()
+            } finally { await handle.close() }
             // The Chats list reads titles from the projection cache, which only
             // live sessions write; fold the imported log once so the row is titled.
-            ctx.get('sessionProjectionCache')?.coldSnapshot(header, prepared.inheritedEventCount, converted.events)
+            ctx.get('sessionProjectionCache')?.coldSnapshot(header, inheritedEventCount, converted.events)
             await workspace.attachSession(sessionId)
             run.results.push({ id, status: 'imported', sessionId, losses: [...losses, ...converted.losses] })
           }
