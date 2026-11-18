@@ -120,7 +120,11 @@ describe('master-only platform scheduling', () => {
     expect(preflight.if).toContain("github.event_name != 'pull_request'")
     expect(preflight.if).toContain('github.event.pull_request.head.repo.fork')
     expect(preflight.if).toContain("github.event.pull_request.user.login == 'dependabot[bot]'")
-    expect(preflight.run).toContain('exit 1')
+    // An unconfigured secret disables the real-API test with a notice instead of failing the run.
+    expect(preflight.run).toContain('::notice')
+    expect(preflight.run).toContain('configured=false')
+    const live = build.steps!.find(step => step.name === 'Run installed-wheel real API black-box test (POSIX)')!
+    expect(live.if).toContain("steps.live-preflight-posix.outputs.configured == 'true'")
   })
 
   it('runs Wine once on hosted master CI and seeds its own apt cache', () => {
