@@ -271,7 +271,7 @@ type UserChainRenderer = typeof userChainDispatch<'conversation.chat.user.before
 type UserChainState = { readonly renderer: UserChainRenderer | undefined }
 type HarnessStandardProps = ChatViewSlotProps & PropsRenderFactories & Pick<React.ComponentProps<typeof AssistantNodeView>, 'fileMentions'> & {
   openModelsSettings: () => void
-  recovery?: React.ComponentProps<typeof TurnErrorNodeView>['recovery']
+  recovery?: NonNullable<React.ComponentProps<typeof TurnErrorNodeView>['recovery']>
   /** Failed turn/end a retry would answer; null when none. */
   continuation?: number | null
 }
@@ -355,8 +355,7 @@ function HarnessChatNode({
     case 'turn-error':
       return <TurnErrorNodeView {...nodeProps} node={owner.node} useSettingsAvailability={selector => selector(true)}
         useContinuation={selector => selector(standard.continuation ?? null)}
-        openModelsSettings={standard.openModelsSettings}
-        {...(standard.recovery === undefined ? {} : { recovery: standard.recovery })} />
+        openModelsSettings={standard.openModelsSettings} />
     case 'turn-max-tokens':
       return <TurnMaxTokensNodeView {...nodeProps} node={owner.node} />
     case 'turn-process':
