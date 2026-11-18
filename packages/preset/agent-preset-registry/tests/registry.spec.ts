@@ -302,10 +302,10 @@ it('reports busy only when other work owns the Agent and keeps a failed swap cau
   await expect(ctx.agentPresets.select(agent, 'minimal')).rejects.toMatchObject({ code: 'agent-preset/locked' })
   gate.resolve(undefined)
   await held
-  const append = agent.session.append.bind(agent.session)
+  const append = agent.session.append.bind(agent.session) as (type: string, data: unknown) => unknown
   agent.session.append = ((type: string, data: unknown) => {
     if (type === 'agent-preset/selected') throw new Error('log append failed')
-    return append(type as never, data as never)
+    return append(type, data)
   }) as typeof agent.session.append
   await expect(ctx.agentPresets.select(agent, 'minimal')).rejects.toThrow('log append failed')
 })
