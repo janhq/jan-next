@@ -3,6 +3,7 @@ import { onboardingZh, onboardingEn, onboardingJa, onboardingEs, onboardingFr, o
 
 /** English account dictionary. */
 export const en = {
+  localAccount: 'Jan', local: 'Local', tokamak: 'Tokamak', language: 'Language', inference: 'Inference configuration', changelog: 'View changelog', learnMore: 'Learn more',
   modelSignInRequired: 'Model unavailable. Please sign in and try again.',
   sessionExpired: 'You have signed out of your account, please log in again.',
   ...onboardingEn,
@@ -40,6 +41,7 @@ export const en = {
 export type AccountKey = keyof typeof en
 /** Chinese account settings copy. */
 export const zh: Record<AccountKey, string> = {
+  localAccount: 'Jan', local: '本地', tokamak: 'Tokamak', language: '语言', inference: '推理配置', changelog: '查看更新日志', learnMore: '了解更多',
   modelSignInRequired: '当前模型暂不可用，请登录后再试',
   sessionExpired: '登录信息已失效，请重新登录',
   ...onboardingZh,
@@ -76,6 +78,7 @@ export const zh: Record<AccountKey, string> = {
 
 /** Japanese copy, checked against the English keys. */
 export const ja = {
+  'localAccount': 'Jan', 'local': 'ローカル', 'tokamak': 'Tokamak', 'language': '言語', 'inference': '推論の設定', 'changelog': '変更履歴を見る', 'learnMore': '詳しく見る',
   ...onboardingJa,
   'modelSignInRequired': 'モデルを利用できません。ログインしてから再試行してください。',
   'sessionExpired': 'アカウントからログアウトしました。もう一度ログインしてください。',
@@ -137,6 +140,7 @@ export const ja = {
 
 /** Spanish dictionary, checked against the English keys. */
 export const es = {
+  localAccount: 'Jan', local: 'Local', tokamak: 'Tokamak', language: 'Idioma', inference: 'Configuración de inferencia', changelog: 'Ver registro de cambios', learnMore: 'Más información',
   modelSignInRequired: 'Modelo no disponible. Por favor inicia sesión y vuelve a intentarlo.',
   sessionExpired: 'Has cerrado sesión en tu cuenta, inicia sesión nuevamente.',
   ...onboardingEs,
@@ -173,6 +177,7 @@ export const es = {
 
 /** French dictionary, checked against the English keys. */
 export const fr = {
+  localAccount: 'Jan', local: 'Local', tokamak: 'Tokamak', language: 'Langue', inference: 'Configuration de l\'inférence', changelog: 'Voir le journal des modifications', learnMore: 'En savoir plus',
   modelSignInRequired: 'Modèle indisponible. Veuillez vous connecter et réessayer.',
   sessionExpired: 'Vous vous êtes déconnecté de votre compte, veuillez vous reconnecter.',
   ...onboardingFr,
@@ -209,6 +214,7 @@ export const fr = {
 
 /** German dictionary, checked against the English keys. */
 export const de = {
+  localAccount: 'Jan', local: 'Lokal', tokamak: 'Tokamak', language: 'Sprache', inference: 'Inferenz-Konfiguration', changelog: 'Änderungsprotokoll ansehen', learnMore: 'Mehr erfahren',
   modelSignInRequired: 'Modell nicht verfügbar. Bitte melden Sie sich an und versuchen Sie es erneut.',
   sessionExpired: 'Sie haben sich von Ihrem Konto abgemeldet. Bitte melden Sie sich erneut an.',
   ...onboardingDe,
@@ -245,6 +251,7 @@ export const de = {
 
 /** Russian dictionary, checked against the English keys. */
 export const ru = {
+  localAccount: 'Jan', local: 'Локально', tokamak: 'Tokamak', language: 'Язык', inference: 'Настройки инференса', changelog: 'Список изменений', learnMore: 'Подробнее',
   modelSignInRequired: 'Модель недоступна. Пожалуйста, войдите в систему и повторите попытку.',
   sessionExpired: 'Вы вышли из своей учетной записи, пожалуйста, войдите снова.',
   ...onboardingRu,
@@ -281,6 +288,7 @@ export const ru = {
 
 /** Portuguese dictionary, checked against the English keys. */
 export const pt = {
+  localAccount: 'Jan', local: 'Local', tokamak: 'Tokamak', language: 'Idioma', inference: 'Configuração de inferência', changelog: 'Ver registro de alterações', learnMore: 'Saiba mais',
   modelSignInRequired: 'Modelo indisponível. Faça login e tente novamente.',
   sessionExpired: 'Você saiu da sua conta, faça login novamente.',
   ...onboardingPt,
