@@ -1,13 +1,15 @@
 /** Authenticated, cancellation-aware browser access to the managed local llama.cpp model. */
 import { Context } from '@janhq/cordis'
+import { resolveJanHome } from '@janhq/jan-home-paths'
 import { Remote, RemoteError, TypertRemoteService } from '@janhq/jan-typert-protocol'
 import type {} from '@janhq/jan-llama-cpp'
-import type { HuggingFaceRepoInfo, LlamaCppState } from '@janhq/jan-llama-cpp/types'
+import type { HuggingFaceRepoInfo, LlamaCppState, StoredDownload } from '@janhq/jan-llama-cpp/types'
+import { repositoryCaches, speechCaches, type RepositoryCacheOwner } from './stored-caches.ts'
 
 export type {
   CatalogModelInfo, HuggingFaceFileInfo, HuggingFaceRepoInfo, ImportModelOptions, LlamaCppDevice, LlamaCppDownload, LlamaCppHardware,
   LlamaCppHostPlatform, LlamaCppModelInfo, LlamaCppPhase, LlamaCppProgress, LlamaCppState, LocalModelEntry, LocalModelSource,
-  LocalModelStatus, ModelFit,
+  LocalModelStatus, ModelFit, StoredDownload,
 } from '@janhq/jan-llama-cpp/types'
 
 declare module '@janhq/jan-typert-protocol' {
@@ -124,6 +126,37 @@ export default class LlamaCppController extends TypertRemoteService {
    */
   @Remote
   async cancelDownload(id: string): Promise<void> { await this.ctx.llamaCpp.cancel(id) }
+
+  /** Jan's on-disk downloads and caches, with paths relative to the Jan data folder. */
+  @Remote
+  async listStoredDownloads(): Promise<StoredDownload[]> {
+    try {
+      const home = resolveJanHome(this.ctx.get('profileContext')?.home)
+      const [models, caches] = await Promise.all([this.ctx.llamaCpp.listStoredDownloads(home), this.storedCaches(home)])
+      return [...models, ...caches.map(cache => cache.item)].sort((a, b) => a.name.localeCompare(b.name) || a.path.localeCompare(b.path))
+    } catch (error) { throw failed(error) }
+  }
+
+  /** Remove one currently listed download. @param path - exact Jan-home-relative path from the list. */
+  @Remote
+  async deleteStoredDownload(path: string): Promise<void> {
+    try {
+      const home = resolveJanHome(this.ctx.get('profileContext')?.home)
+      const cache = (await this.storedCaches(home)).find(entry => entry.item.path === path)
+      if (cache === undefined) await this.ctx.llamaCpp.deleteStoredDownload(home, path)
+      else await cache.delete()
+    } catch (error) { throw failed(error) }
+  }
+
+  private async storedCaches(home: string) {
+    const market: RepositoryCacheOwner | undefined = this.ctx.get('pluginMarket')
+    const speech = this.ctx.get('senseVoiceWorker', false)
+    const [voice, repositories] = await Promise.all([
+      speechCaches(home, speech === undefined ? undefined : 'Disable the Voice Input plugin before deleting its speech files.'),
+      market === undefined ? [] : repositoryCaches(home, market),
+    ])
+    return [...voice, ...repositories]
+  }
 
   /**
    * Add a GGUF file from this computer, left where it is.

@@ -38,6 +38,9 @@
     "lib/typert.remote-client.d.ts"
   ],
   "license": "MIT",
+  "dependencies": {
+    "@janhq/jan-home-paths": "workspace:*"
+  },
   "peerDependencies": {
     "@janhq/cordis": "workspace:~",
     "@janhq/jan-llama-cpp": "workspace:*",

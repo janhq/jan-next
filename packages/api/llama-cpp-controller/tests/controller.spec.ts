@@ -1,14 +1,17 @@
 /** The local model Remote delegates to the service and reports service failures as typed Remote errors. */
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
 import { Context } from '@janhq/cordis'
 import type { LlamaCpp } from '@janhq/jan-llama-cpp'
 import { RemoteError } from '@janhq/jan-typert-protocol'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
 import LlamaCppController from '../src/index.ts'
 
 const roots: Context[] = []
 afterEach(async () => { await Promise.all(roots.splice(0).map(ctx => ctx.fiber.dispose())) })
 
-function fixture() {
+function fixture(home?: string) {
   const ctx = new Context()
   roots.push(ctx)
   const service = {
@@ -21,8 +24,11 @@ function fixture() {
     setModelContext: vi.fn<LlamaCpp['setModelContext']>().mockResolvedValue(undefined),
     setModelFit: vi.fn<LlamaCpp['setModelFit']>().mockResolvedValue(undefined),
     increaseModelContext: vi.fn<LlamaCpp['increaseModelContext']>().mockResolvedValue(32768),
+    listStoredDownloads: vi.fn<LlamaCpp['listStoredDownloads']>().mockResolvedValue([]),
+    deleteStoredDownload: vi.fn<LlamaCpp['deleteStoredDownload']>().mockResolvedValue(undefined),
   }
   ctx.provide('llamaCpp', service as never)
+  if (home !== undefined) ctx.provide('profileContext', { home, dir: join(home, 'profiles', 'desktop') })
   return { service, controller: new LlamaCppController(ctx) }
 }
 
@@ -71,4 +77,26 @@ it('imports a file with its vision projector only when one is given', async () =
   service.importModel.mockRejectedValueOnce(new Error('notes.gguf is not a vision projector: no clip metadata'))
   await expect(controller.importModel('/models/mine.gguf', '/models/notes.gguf'))
     .rejects.toMatchObject({ code: 'llama-cpp/failed', details: { reason: 'notes.gguf is not a vision projector: no clip metadata' } })
+})
+
+it('lists only known Jan speech cache files and confines deletion to one listed file', async () => {
+  const parent = await mkdtemp(join(tmpdir(), 'jan-speech-cache-'))
+  onTestFinished(() => rm(parent, { recursive: true, force: true }))
+  const home = join(parent, 'jan')
+  const cache = 'speech-to-text/sensevoice/models/sensevoice-onnx'
+  const model = `${cache}/model.int8.onnx`
+  const outside = join(parent, 'outside.txt')
+  await mkdir(dirname(join(home, model)), { recursive: true })
+  await Promise.all([join(home, model), join(home, cache, 'private.txt'), outside].map(path => writeFile(path, '1234')))
+  await symlink(outside, join(home, cache, 'model.onnx'), 'file')
+  const { controller, service } = fixture(home)
+  expect(await controller.listStoredDownloads()).toEqual([{ name: 'SenseVoice speech model (INT8)', kind: 'cache', bytes: 4, path: model }])
+  for (const path of [outside, '../outside.txt', `${cache}/private.txt`, `${cache}/model.onnx`]) {
+    service.deleteStoredDownload.mockRejectedValueOnce(new Error('This item is not a Jan download.'))
+    await expect(controller.deleteStoredDownload(path)).rejects.toThrow('not a Jan download')
+  }
+  await controller.deleteStoredDownload(model)
+  expect(await controller.listStoredDownloads()).toEqual([])
+  expect(await readFile(outside, 'utf8')).toBe('1234')
+  expect(await readFile(join(home, cache, 'private.txt'), 'utf8')).toBe('1234')
 })

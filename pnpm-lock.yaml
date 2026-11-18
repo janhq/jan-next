@@ -1426,6 +1426,10 @@ importers:
         version: link:../../typert/registry
 
   packages/api/llama-cpp-controller:
+    dependencies:
+      '@janhq/jan-home-paths':
+        specifier: workspace:*
+        version: link:../../util/home-paths
     devDependencies:
       '@janhq/cordis':
         specifier: workspace:~
