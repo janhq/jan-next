@@ -55,7 +55,7 @@ async function setup(
   await ctx.plugin(TokenMeter)
   if (options.retry === true) await ctx.plugin(LlmRetry)
   // Raw values, as a cordis.yml supplies them: the plugin's schema turns them into volatile references.
-  await ctx.plugin(LlmFallback, config as unknown as LlmFallback.Config)
+  await ctx.plugin(LlmFallback, config)
   for (const [provider, route] of Object.entries(routes)) ctx.llm.registerAdapter([provider], route)
   const harness = await mountAgentLoopTestHarness(ctx)
   const agent = await harness.create(SessionId(`fallback-${Math.random()}`), { provider: 'main', model: 'main-model' })

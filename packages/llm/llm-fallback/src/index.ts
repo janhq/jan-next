@@ -48,14 +48,14 @@ export interface Config {
 }
 
 /** Runtime schema for {@link Config}. */
-export const Config: z<Config> = z.object({
+export const Config = z.object({
   chain: z.array(z.object({
     provider: z.string().required(),
     model: z.string().required(),
   })).default([]).volatile(),
   cooldownSeconds: z.natural().max(86_400).default(300).volatile(),
   switchBackBelowPercent: z.number().min(0).max(100).default(30).volatile(),
-}) as unknown as z<Config>
+})
 
 /** Failures the selected route will likely repeat right away: switch before same-route retries. */
 const SWITCH_NOW: ReadonlySet<string> = new Set([
