@@ -111,6 +111,8 @@ interface BenchOptions {
   deniedEndpoints?: readonly string[]
   addFiles?: (files: readonly File[], directories?: ReadonlySet<File>) => string | null
   commandMenuOpen?: boolean
+  /** The selected model's window the context meter falls back to. */
+  selectedWindow?: number
   busyEnter?: 'queue' | 'steer'
   toggleCommandMenu?: (selection: { start: number; end: number }) => void
 }
@@ -225,6 +227,7 @@ function bench(over?: BenchOptions) {
     useNotices: bindSnapshotSelector(shell.notices),
     useLexicon: bindSnapshotSelector(shell.lexicon),
     useMenuLauncher: bindSnapshotSelector(menuLauncher),
+    useContextWindow: bindSnapshotSelector(createSnapshotStore<number | undefined>(over?.selectedWindow)),
     stop,
     // Mirrors the real lookup chain (conversation namespace, then common).
     t: over?.t ?? makeTranslate(zh, commonZh),

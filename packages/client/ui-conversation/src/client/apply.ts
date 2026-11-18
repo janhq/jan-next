@@ -1,6 +1,6 @@
-import type {} from '@janhq/jan-client-ui-context-menu/client'
+import type { } from '@janhq/jan-client-ui-context-menu/client'
 /** Registers the target-neutral Conversation assembly, shell, input, and docks. */
-import type {} from '@janhq/jan-client-product-analytics/client'
+import type { } from '@janhq/jan-client-product-analytics/client'
 import type { Context } from '@janhq/cordis'
 import z from '@janhq/schemastery'
 import type { ISessions, SessionBinding } from '@janhq/jan-api-session-controller/client'
@@ -9,10 +9,10 @@ import { createSnapshotStore, type BoundActions } from '@janhq/jan-client-store'
 import { resolveSlotLabel } from '@janhq/jan-client-ui-slots'
 import type { SessionId } from '@janhq/jan-session/types'
 // Type-only service and declaration merges used by this assembly.
-import type {} from '@janhq/jan-client-locale/client'
-import type {} from '@janhq/jan-client-ui-renderer/client'
-import type {} from '@janhq/jan-client-ui-session/client'
-import type {} from '@janhq/jan-client-ui-settings/client'
+import type { } from '@janhq/jan-client-locale/client'
+import type { } from '@janhq/jan-client-ui-renderer/client'
+import type { } from '@janhq/jan-client-ui-session/client'
+import type { } from '@janhq/jan-client-ui-settings/client'
 import type { ShortcutCommandId, ShortcutFixedCommand } from '@janhq/jan-client-shortcuts/client'
 import { UiConversation } from './conversation/assembly.ts'
 import { UserText, PlainUserText, SessionReference } from './user-text/UserText.tsx'
@@ -78,25 +78,29 @@ export const Config: z<Config> = z.object({
 // hook order unchanged across current-Session transitions.
 const ABSENT_NOTICES = {
   getSnapshot: (): InputNotice | null => null,
-  subscribe: () => () => {},
+  subscribe: () => () => { },
 }
 const ABSENT_BLOCK = {
   getSnapshot: (): ComposerBlock | undefined => undefined,
-  subscribe: () => () => {},
+  subscribe: () => () => { },
 }
 const EMPTY_LEXICON: ReadonlyMap<'/' | '@', readonly string[]> = new Map()
 const ABSENT_LEXICON = {
   getSnapshot: () => EMPTY_LEXICON,
-  subscribe: () => () => {},
+  subscribe: () => () => { },
 }
 const ABSENT_MENU_LAUNCHER = {
   getSnapshot: (): string | null => null,
-  subscribe: () => () => {},
+  subscribe: () => () => { },
+}
+const ABSENT_CONTEXT_WINDOW = {
+  getSnapshot: (): number | undefined => undefined,
+  subscribe: () => () => { },
 }
 const EMPTY_FILE_UPLOADS: DraftFileUploads = {}
 const ABSENT_FILE_UPLOADS = {
   getSnapshot: () => EMPTY_FILE_UPLOADS,
-  subscribe: () => () => {},
+  subscribe: () => () => { },
 }
 
 /**
@@ -182,7 +186,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
       reportTransformFailure: (error) => { console.error('[ui-conversation] user-text transformation failed:', error) },
     }),
   }, UserText)
-  slots.inject('conversation.user.text.node', function* () {
+  slots.inject('conversation.user.text.node', function*() {
     yield slots.register({ name: 'conversation.user.text.node', key: 'text', priority: 100 }, PlainUserText)
     yield slots.register({ name: 'conversation.user.text.node', key: 'session', priority: 100 }, SessionReference)
   })
@@ -274,18 +278,28 @@ export function apply(ctx: Context, config: Config = Config({})): void {
   const stopShortcut = createSnapshotStore<readonly string[]>([])
   ctx.inject(['shortcuts'], (scope) => {
     const fixedInputs: readonly ShortcutFixedCommand[] = [
-      { id: 'fixed.send' as ShortcutCommandId, label: () => t('input.send'), keys: ['Enter'],
-        bindings: [{ code: 'Enter', modifiers: [] }], group: 'input' },
-      { id: 'fixed.newline' as ShortcutCommandId, label: () => t('shortcut.newline'),
+      {
+        id: 'fixed.send' as ShortcutCommandId, label: () => t('input.send'), keys: ['Enter'],
+        bindings: [{ code: 'Enter', modifiers: [] }], group: 'input'
+      },
+      {
+        id: 'fixed.newline' as ShortcutCommandId, label: () => t('shortcut.newline'),
         keys: scope.shortcuts.describeBinding({ code: 'Enter', modifiers: ['shift'] }).keys,
-        bindings: [{ code: 'Enter', modifiers: ['shift'] }], group: 'input' },
-      { id: 'fixed.complementary' as ShortcutCommandId, label: () => t('shortcut.complementary'),
+        bindings: [{ code: 'Enter', modifiers: ['shift'] }], group: 'input'
+      },
+      {
+        id: 'fixed.complementary' as ShortcutCommandId, label: () => t('shortcut.complementary'),
         keys: scope.shortcuts.describeBinding({ code: 'Enter', modifiers: ['primary'] }).keys,
-        bindings: [{ code: 'Enter', modifiers: ['control'] }, { code: 'Enter', modifiers: ['meta'] }], group: 'input' },
-      { id: 'fixed.slash' as ShortcutCommandId, label: () => t('shortcut.slash'), keys: ['/'],
-        bindings: [{ code: 'Slash', modifiers: [] }], group: 'input' },
-      { id: 'fixed.mention' as ShortcutCommandId, label: () => t('shortcut.mention'), keys: ['@'],
-        bindings: [{ code: 'Digit2', modifiers: ['shift'] }], group: 'input' },
+        bindings: [{ code: 'Enter', modifiers: ['control'] }, { code: 'Enter', modifiers: ['meta'] }], group: 'input'
+      },
+      {
+        id: 'fixed.slash' as ShortcutCommandId, label: () => t('shortcut.slash'), keys: ['/'],
+        bindings: [{ code: 'Slash', modifiers: [] }], group: 'input'
+      },
+      {
+        id: 'fixed.mention' as ShortcutCommandId, label: () => t('shortcut.mention'), keys: ['@'],
+        bindings: [{ code: 'Digit2', modifiers: ['shift'] }], group: 'input'
+      },
     ]
     for (const command of fixedInputs) {
       scope.effect(() => scope.shortcuts.registerFixed(command), `ui-conversation: ${command.id}`)
@@ -514,6 +528,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
             notices: ABSENT_NOTICES,
             lexicon: ABSENT_LEXICON,
             menuLauncher: ABSENT_MENU_LAUNCHER,
+            contextWindow: ABSENT_CONTEXT_WINDOW,
           },
         }
       }
@@ -594,12 +609,13 @@ export function apply(ctx: Context, config: Config = Config({})): void {
           notices: shell.notices,
           lexicon: shell.lexicon,
           menuLauncher: inputTriggers?.launcher ?? ABSENT_MENU_LAUNCHER,
+          contextWindow: inputHub.contextWindowOf(sessionId),
         },
       }
     },
   }, InputBar)
 
-  slots.inject('main', function* () {
+  slots.inject('main', function*() {
     yield slots.register({
       name: 'main',
       key: 'conversation',

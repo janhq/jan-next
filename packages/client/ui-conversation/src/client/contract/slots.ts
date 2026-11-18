@@ -624,6 +624,8 @@ export interface ComposerBarInjected {
     notices: ObservableSnapshot<InputNotice | null>
     lexicon: ObservableSnapshot<ReadonlyMap<'/' | '@', readonly string[]>>
     menuLauncher: ObservableSnapshot<string | null>
+    /** The selected model's context window, shown by the meter before a request reports one. */
+    contextWindow: ObservableSnapshot<number | undefined>
   }
 }
 

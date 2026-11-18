@@ -49,17 +49,19 @@ function formatTokens(value: number, t: ComposerBarProps['t']): string {
 
 export interface ContextMeterProps {
   useProjection: UseProjection
+  /** The selected model's window; shown with nothing used before a request reports pressure. */
+  selectedWindow?: number | undefined
   /** The owning bar's locale seat, passed down as a plain prop. */
   t: ComposerBarProps['t']
 }
 
-export function ContextMeter({ useProjection, t }: ContextMeterProps) {
+export function ContextMeter({ useProjection, selectedWindow, t }: ContextMeterProps) {
   const pressure = useProjection('contextPressure')
   const breakdown = useProjection('contextBreakdown')
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLSpanElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
-  const context = contextOccupancy(pressure)
+  const context = contextOccupancy(pressure, selectedWindow)
   const available = context !== null
   const anchorName = `--jan-context-${useId().replaceAll(':', '')}`
   useDismissOnOutsidePointer(rootRef, open && available, setOpen, panelRef)

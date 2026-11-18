@@ -4,7 +4,7 @@
  * catalog subscription. Saved drafts enter the model before the first lookup
  * returns; Session-scope disposal releases the shell and its resources.
  */
-import type {} from '@janhq/jan-client-product-analytics/client'
+import type { } from '@janhq/jan-client-product-analytics/client'
 import type { PlanProjection } from '@janhq/jan-plan-mode/types'
 import type { GoalProjection } from '@janhq/jan-goal/types'
 import type { Context } from '@janhq/cordis'
@@ -18,7 +18,7 @@ import type { ModelSelectionProjection } from '@janhq/jan-agent/types'
 import type { ObservableSnapshot } from '@janhq/jan-client-store'
 import type {
   DraftAttachmentId, DraftAttachmentSerializationResult, DraftInitializationOptions, DraftInitializationResult, InputTriggerController,
-  SendCheck, SessionInputResolver, SessionInput, SubmitOutcome,
+  ContextWindowSource, SendCheck, SessionInputResolver, SessionInput, SubmitOutcome,
 } from '../contract/input.ts'
 import type { ComposerKeyboard } from '../contract/draft-editor.ts'
 import type { ComposerBlocks } from '../contract/composer-blocks.ts'
@@ -58,6 +58,8 @@ interface ConversationAttachmentFace {
 export class InputHub implements SessionInputResolver {
   private readonly shells = new WeakMap<SessionBinding, SessionInputShell>()
   private readonly sendChecks = new Set<SendCheck>()
+  private windowSource: ContextWindowSource | undefined
+  private readonly windows = new Map<SessionId, ObservableSnapshot<number | undefined> & { refresh(): void }>()
   /** Sessions with a draft-preserving retry prompt still in flight. */
   private readonly retrying = new WeakSet<SessionBinding>()
 
@@ -68,7 +70,7 @@ export class InputHub implements SessionInputResolver {
   constructor(
     private readonly rootCtx: Context,
     private readonly t: TranslateNS<'conversation'>,
-  ) {}
+  ) { }
 
   /**
    * Resolve the facade for one session-scope ctx (SessionInputResolver face).
@@ -97,6 +99,52 @@ export class InputHub implements SessionInputResolver {
     return () => { this.sendChecks.delete(check) }
   }
 
+  setContextWindowSource(source: ContextWindowSource): () => void {
+    const previous = this.windowSource
+    this.windowSource = source
+    this.windowSourceChanged()
+    return () => {
+      if (this.windowSource !== source) return
+      this.windowSource = previous
+      this.windowSourceChanged()
+    }
+  }
+
+  contextWindowOf(sessionId: SessionId): ObservableSnapshot<number | undefined> {
+    const existing = this.windows.get(sessionId)
+    if (existing !== undefined) return existing
+    // The source can arrive or change after the meter subscribed, so this store follows it.
+    const listeners = new Set<() => void>()
+    let inner: ObservableSnapshot<number | undefined> | undefined
+    let unsubscribeInner: (() => void) | undefined
+    const resolve = (): void => {
+      unsubscribeInner?.()
+      inner = this.windowSource?.(sessionId)
+      unsubscribeInner = listeners.size === 0 ? undefined : inner?.subscribe(() => { for (const fn of listeners) fn() })
+    }
+    const store: ObservableSnapshot<number | undefined> & { refresh(): void } = {
+      getSnapshot: () => inner?.getSnapshot(),
+      subscribe: (fn) => {
+        if (listeners.size === 0) { listeners.add(fn); resolve() } else listeners.add(fn)
+        return () => {
+          listeners.delete(fn)
+          if (listeners.size > 0) return
+          unsubscribeInner?.(); unsubscribeInner = undefined
+          // An unwatched Session's store is rebuilt on the next read, so closed Sessions are not retained.
+          this.windows.delete(sessionId)
+        }
+      },
+      refresh: () => { resolve(); for (const fn of listeners) fn() },
+    }
+    resolve()
+    this.windows.set(sessionId, store)
+    return store
+  }
+
+  private windowSourceChanged(): void {
+    for (const store of this.windows.values()) store.refresh()
+  }
+
   /**
    * Resolve the resident shell for an already-retained, addressable Session binding.
    * Draft import completes before return. The Session scope owns input listeners,
@@ -119,10 +167,12 @@ export class InputHub implements SessionInputResolver {
         const selection = model?.next ?? model?.lastUsed
         return Object.freeze({
           ...state.blank ? {} : { sessionId: state.sessionId },
-          ...selection == null ? {} : { model: Object.freeze({
-            provider: selection.provider, name: selection.model,
-            ...selection.reasoningEffort === undefined ? {} : { effort: selection.reasoningEffort },
-          }) },
+          ...selection == null ? {} : {
+            model: Object.freeze({
+              provider: selection.provider, name: selection.model,
+              ...selection.reasoningEffort === undefined ? {} : { effort: selection.reasoningEffort },
+            })
+          },
           runMode: plan?.active ? 'plan' : goal?.goal.phase === 'active' ? 'goal' : 'default',
           running: state.running,
           newSession: state.blank,

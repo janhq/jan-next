@@ -24,7 +24,7 @@ import type { } from '@janhq/jan-client-ui-conversation/client'
 import type { } from '@janhq/jan-client-locale/client'
 import type { } from '@janhq/jan-client-ui-renderer/client'
 import type { } from '@janhq/jan-client-ui-session/client'
-import type {} from '@janhq/jan-client-ui-settings-general/client'
+import type { } from '@janhq/jan-client-ui-settings-general/client'
 import type { TranslateNS } from '@janhq/jan-client-ui-slots'
 import type { ObservableSnapshot } from '@janhq/jan-client-store'
 import { IconDataOutlineRegular } from '@janhq/jan-client-ui-primitives'
@@ -67,7 +67,7 @@ function changeDockSeats(delta: 1 | -1): void {
 export const DockModelSelection = {
   inject: ['slots', 'modelDirectories', 'sessions', 'locale'],
   apply(ctx: ClientContext): void {
-    const settingsUnavailable: ObservableSnapshot<boolean> = { getSnapshot: () => false, subscribe: () => () => {} }
+    const settingsUnavailable: ObservableSnapshot<boolean> = { getSnapshot: () => false, subscribe: () => () => { } }
     // Claim before registering: the composer seat releases the child slots synchronously.
     ctx.effect(() => {
       changeDockSeats(1)
@@ -82,10 +82,10 @@ export const DockModelSelection = {
       inject: modelInjection(ctx, settingsUnavailable),
     }, ({ renderSlot, ...props }: ModelSelectInjected & PropsRuntime<'conversation.composer.dock'> & PropsLocale<'model'>
       & PropsRenderSlots<'conversation.input.model.label' | 'conversation.input.model.options'>) => createElement(ModelSelect, {
-      ...props, placement: 'dock',
-      renderLabel: (owner, fallback) => renderSlot('conversation.input.model.label', owner, { fallback }),
-      renderOptions: owner => renderSlot('conversation.input.model.options', owner),
-    })))
+        ...props, placement: 'dock',
+        renderLabel: (owner, fallback) => renderSlot('conversation.input.model.label', owner, { fallback }),
+        renderOptions: owner => renderSlot('conversation.input.model.options', owner),
+      })))
   },
 }
 /**
@@ -115,6 +115,9 @@ function modelInjection(
 function rowId(providerId: string, modelId: string): string {
   return `${providerId}/${modelId}`
 }
+
+/** Window store for a Session that has no model directory. */
+const NO_WINDOW = { getSnapshot: (): number | undefined => undefined, subscribe: () => () => { } }
 
 /** Flatten the directory into popup rows; failure rows are listed for visibility but never selectable. */
 function optionsOf(directory: ModelDirectoryState, t: TranslateNS<'model'>): SelectOption[] {
@@ -182,7 +185,7 @@ export const inject = ['commandUi', 'locale', 'sessions', 'slots', 'remote', 're
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
-  const settingsUnavailable: ObservableSnapshot<boolean> = { getSnapshot: () => false, subscribe: () => () => {} }
+  const settingsUnavailable: ObservableSnapshot<boolean> = { getSnapshot: () => false, subscribe: () => () => { } }
   ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-model-selection: dictionaries')
 
   // Non-slot faces (the command description, the popup option builder) read
@@ -202,6 +205,22 @@ export function apply(ctx: ClientContext): void {
         tokens: overflow.tokens.toLocaleString(), window: overflow.contextWindow.toLocaleString(), model: overflow.model,
       })
     }), 'ui-model-selection: context-window send check')
+    // The context meter reads the selected model's window until the first request reports one.
+    scope.effect(() => scope.conversation.input.setContextWindowSource((sessionId) => {
+      // A Session without a retained scope (an addressed subagent, a closing tab) has no directory.
+      if (scope.sessions.scope(sessionId) === undefined || scope.sessions.binding(sessionId) === undefined) return NO_WINDOW
+      const directory = scope.modelDirectories.directoryFor(sessionId)
+      const windowOf = (state: ModelDirectoryState): number | undefined => {
+        const current = state.current
+        return current === null ? undefined : state.groups.find(group => group.id === current.provider)
+          ?.models.find(model => model.id === current.model)?.contextWindow
+      }
+      if (directory.store.getSnapshot().groups.length === 0) void directory.load().catch(() => undefined)
+      return {
+        getSnapshot: () => windowOf(directory.store.getSnapshot()),
+        subscribe: listener => directory.store.subscribe(listener),
+      }
+    }), 'ui-model-selection: context-window source')
   })
 
   // Say at attach time that the selected model cannot read the draft's images.
@@ -287,10 +306,10 @@ export function apply(ctx: ClientContext): void {
         inject: modelInjection(scope, settingsUnavailable),
       }, ({ renderSlot, ...props }: ModelSelectInjected & PropsRuntime<'conversation.input.model'> & PropsLocale<'model'>
         & PropsRenderSlots<'conversation.input.model.label' | 'conversation.input.model.options'>) => createElement(ModelSelect, {
-        ...props, placement: 'composer',
-        renderLabel: (owner, fallback) => renderSlot('conversation.input.model.label', owner, { fallback }),
-        renderOptions: owner => renderSlot('conversation.input.model.options', owner),
-      })))
+          ...props, placement: 'composer',
+          renderLabel: (owner, fallback) => renderSlot('conversation.input.model.label', owner, { fallback }),
+          renderOptions: owner => renderSlot('conversation.input.model.options', owner),
+        })))
     }
     scope.effect(() => {
       dockSeatListeners.add(sync)

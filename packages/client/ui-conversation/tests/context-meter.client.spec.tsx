@@ -39,6 +39,13 @@ describe('ContextMeter', () => {
     expect(contextOccupancy({ pressureTokens: 300_000, contextWindow: 128_000 })?.percent).toBe(100)
   })
 
+  it('falls back to the selected model window before a request reports capacity', () => {
+    expect(contextOccupancy(undefined, 200_000)).toEqual({ percent: 0, usedTokens: 0, contextWindow: 200_000 })
+    expect(contextOccupancy({ pressureTokens: 20_000 }, 200_000)).toEqual({ percent: 10, usedTokens: 20_000, contextWindow: 200_000 })
+    expect(contextOccupancy({ pressureTokens: 32_000, contextWindow: 128_000 }, 200_000)?.contextWindow).toBe(128_000)
+    expect(render(<ContextMeter useProjection={projections({})} selectedWindow={200_000} t={t} />).container.textContent).toContain('0%')
+  })
+
   it('renders nothing until both pressure and capacity are known', () => {
     expect(meter({}).container.textContent).toBe('')
     expect(meter({ contextPressure: { pressureTokens: 32_000 } }).container.textContent).toBe('')

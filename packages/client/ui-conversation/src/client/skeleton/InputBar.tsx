@@ -47,7 +47,7 @@ export const InputBar = memo(function InputBar({
   useSession, useInput, inputActions, keyboard, addFiles, removeAttachment, resolveDraftAttachments,
   retryFileUpload,
   toggleCommandMenu, stop, retry, t,
-  renderSlot, useBusyEnter, useFileUploads, useNotices, useLexicon, useMenuLauncher, useStopShortcut,
+  renderSlot, useBusyEnter, useFileUploads, useNotices, useLexicon, useMenuLauncher, useStopShortcut, useContextWindow,
   useAccess,
   useProjection, sessionId, variant, disabled: inert = false, blocked,
   workspacePickerOpen = false, onRequestWorkspace,
@@ -57,6 +57,7 @@ export const InputBar = memo(function InputBar({
   const notice = useNotices(s => s)
   const busyEnter = useBusyEnter(s => s)
   const stopKeys = useStopShortcut(keys => keys)
+  const selectedWindow = useContextWindow(value => value)
   // A page whose access snapshot excludes prompting, stopping, or uploading to this Session is offered
   // no Send, no Stop, or no file intake rather than a disabled control. `useAccess` is undefined only
   // without a Session, where the bar is an inert placeholder with no keyboard, stop, or file intake.
@@ -416,9 +417,9 @@ export const InputBar = memo(function InputBar({
 
   const placeholderText = placeholder ?? (disabled
     ? t('placeholder.unavailable')
-  // The steer hint deliberately outranks the plan placeholder:
-  // while it shows, the whole-queue gesture is genuinely available
-  // (the gate never consults plan mode), so the actionable hint wins.
+    // The steer hint deliberately outranks the plan placeholder:
+    // while it shows, the whole-queue gesture is genuinely available
+    // (the gate never consults plan mode), so the actionable hint wins.
     : canSteerQueue
       ? t('placeholder.steerQueue')
       : planActive ? t('placeholder.plan') : t('placeholder.default'))
@@ -589,7 +590,7 @@ export const InputBar = memo(function InputBar({
         {input !== undefined && sessionId !== undefined
           ? renderSlot('conversation.composer.dock', { locked: modelSeatLocked })
           : null}
-        {activity ? null : <ContextMeter useProjection={useProjection} t={t} />}
+        {activity ? null : <ContextMeter useProjection={useProjection} selectedWindow={selectedWindow} t={t} />}
       </div>
     </div>
   )
