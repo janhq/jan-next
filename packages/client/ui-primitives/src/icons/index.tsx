@@ -486,6 +486,12 @@ export const IconScheduledTaskOutlineRegular = productIcon('scheduled-task-outli
 /** Medium document-and-clock artwork for scheduled tasks with a 1.3px stroke. */
 export const IconScheduledTaskOutlineMedium = productIcon('scheduled-task-outline', 'medium')
 
+/** Regular one-pixel wrench artwork for tools and MCP servers. */
+export const IconToolOutlineRegular = productIcon('tool-outline', 'regular')
+
+/** Medium wrench artwork for tools and MCP servers with a 1.3px stroke. */
+export const IconToolOutlineMedium = productIcon('tool-outline', 'medium')
+
 /** Regular one-pixel IconAlarmClockOutline artwork. */
 export const IconAlarmClockOutlineRegular = productIcon('alarm-clock-outline', 'regular')
 
