@@ -9,6 +9,8 @@ import { expect, it, vi } from 'vitest'
 
 const client = readFileSync(resolve(import.meta.dirname, '../../../plugins/downloads/client.js'), 'utf8')
 
+type Translate = (key: string, values?: Record<string, string>) => string
+
 it('warns with the model name and size, leaves it on cancel, and refreshes after confirmed deletion', async () => {
   const path = 'llama-cpp/models/example/0123456789abcdef.gguf'
   const remote = {
@@ -41,8 +43,8 @@ it('warns with the model name and size, leaves it on cancel, and refreshes after
     },
     slots: {
       inject(_slot: string, activate: () => void) { activate() },
-      register(options: { name: string; inject?: () => object }, Component: React.ComponentType) {
-        if (options.name === 'main') Page = () => <Component {...{ t: scope.locale.bind(), ...options.inject?.() }} />
+      register(options: { name: string; inject?: () => object }, Component: React.ComponentType<{ t: Translate }>) {
+        if (options.name === 'main') Page = () => <Component {...options.inject?.()} t={scope.locale.bind()} />
       },
     },
   }
@@ -60,12 +62,12 @@ it('warns with the model name and size, leaves it on cancel, and refreshes after
     fireEvent.click(rowDelete)
     const dialog = within(screen.getByRole('dialog', { name: 'Delete this download?' }))
     expect(dialog.getByText('Delete Example model (2.5 KB) from this computer. You will need to download it again to use it.')).toBeTruthy()
-    expect((dialog.getByRole('button', { name: 'Delete', exact: true }) as HTMLButtonElement).disabled).toBe(true)
+    expect((dialog.getByRole('button', { name: /^Delete$/ }) as HTMLButtonElement).disabled).toBe(true)
     fireEvent.click(dialog.getByText('Keep download', { selector: 'button' }))
     expect(remote.deleteStoredDownload).not.toHaveBeenCalled()
     fireEvent.click(rowDelete)
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('checkbox'))
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete', exact: true }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^Delete$/ }))
     await screen.findByText('Nothing stored on this computer yet.')
     expect(remote.deleteStoredDownload).toHaveBeenCalledExactlyOnceWith(path)
     expect(screen.queryByText('Example model')).toBeNull()
