@@ -13,6 +13,8 @@ declare module '@janhq/jan-typert-protocol' {
     'plugin-i18n/not-consented': Record<string, never>
     /** The default model route could not complete the request. */
     'plugin-i18n/model-failed': { readonly reason: string }
+    /** A chosen translation model names a provider no adapter serves or an empty model. */
+    'plugin-i18n/invalid-route': { readonly provider: string; readonly model: string }
   }
 }
 
@@ -60,6 +62,13 @@ export interface PluginI18nJob {
   readonly message?: string
 }
 
+/** Runtime strings of one locale that a package displayed and the Host translated. */
+export interface PluginI18nRuntimeStatus {
+  readonly locale: string
+  /** Source texts the package displayed that have a stored translation. */
+  readonly strings: number
+}
+
 /** One locale of generated text stored for a package. */
 export interface PluginI18nLocaleStatus {
   readonly locale: string
@@ -80,6 +89,8 @@ export interface PluginI18nLocaleStatus {
 export interface PluginI18nStatus {
   readonly pkg: string
   readonly locales: PluginI18nLocaleStatus[]
+  /** Text the package renders itself, translated on screen, by locale. */
+  readonly runtime: PluginI18nRuntimeStatus[]
   /** The latest job, absent when none ran since the Host started. */
   readonly job: PluginI18nJob | null
   /** Whether the person consented to translating this package's text. */
@@ -100,10 +111,48 @@ export interface PluginI18nConsentChange {
   readonly allowed: boolean
 }
 
-/** The default model route that translations run on. */
-export interface PluginI18nRoute {
+/** A model by provider route and model id. */
+export interface PluginI18nRouteRef {
   readonly provider: string
   readonly model: string
+}
+
+/** Why a route is the one translations run on, in the order the Host tries them. */
+export type PluginI18nRouteSource =
+  /** The person picked it in the Translations tab. */
+  | 'saved'
+  /** The default model. */
+  | 'default'
+  /** The default model cannot be used and this local model is loaded. */
+  | 'loaded-local'
+  /** Neither the default model nor a loaded local model can be used; any configured model serves. */
+  | 'configured'
+
+/** The model that translations run on. */
+export interface PluginI18nRoute extends PluginI18nRouteRef {
+  readonly source: PluginI18nRouteSource
+}
+
+/** One model the person may pick for translations. */
+export interface PluginI18nModelChoice extends PluginI18nRouteRef {
+  /** Display name from the provider's catalog. */
+  readonly name: string
+  /** It runs on this computer. */
+  readonly local: boolean
+  /** It is a local model the worker holds in memory now. */
+  readonly loaded: boolean
+}
+
+/** The model in use, the person's saved pick, the default model, and every model that may be picked. */
+export interface PluginI18nRouteChoices {
+  /** The model translations run on now. */
+  readonly route: PluginI18nRoute
+  /** The model the person picked; null follows the default model. */
+  readonly saved: PluginI18nRouteRef | null
+  /** The default model and whether it can be used. */
+  readonly default: PluginI18nRouteRef & { readonly usable: boolean }
+  /** Models of every registered provider, local models first. */
+  readonly models: PluginI18nModelChoice[]
 }
 
 /** Generated text of one package for one locale, as a client registers it. */
@@ -118,6 +167,8 @@ export interface PluginI18nTables {
   readonly packages: Record<string, PluginI18nPackageTables>
   /** Runtime strings translated so far, keyed by exact source text; empty unless titles may be translated. */
   readonly strings: Record<string, string>
+  /** Source texts each package displayed, by package; the translations are in `strings`. */
+  readonly runtime: Record<string, string[]>
 }
 
 /** What changed; absent fields mean everything of that kind. */

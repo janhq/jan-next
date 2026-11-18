@@ -84,3 +84,59 @@
   display: flex;
   gap: 8px;
 }
+
+.model {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-sm);
+  padding: 12px 14px;
+}
+
+.modelField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.modelLabel {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.select {
+  width: 100%;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-primary);
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 13px;
+}
+
+.screenList {
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.screenRows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 220px;
+  margin: 6px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.screenRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 8px;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+}
