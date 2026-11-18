@@ -1,5 +1,5 @@
 ---
-description: "Models page cards for fallback models and automatic context compaction."
+description: "Agent loop settings for fallback models, automatic context compaction, and busy send behavior."
 kind: "package-reference"
 ---
 
@@ -7,7 +7,7 @@ kind: "package-reference"
 
 ## Summary
 
-**Settings > Models** shows a **Fallback models** card for the order Jan tries other models and a **Context** card for automatic compaction. Each card appears only when its Host settings namespace is served. Changes take effect immediately, without a Save button.
+**Settings > Agent loop** shows **Fallback models**, **Context**, and **Send behavior while busy** when available. Changes take effect immediately, without a Save button.
 
 ## Table of Contents
 
@@ -33,6 +33,8 @@ Add the browser plugin to the profile:
 
 Add and order fallback models from the available Host catalog. An empty chain disables fallback. Adjust when Jan tries the original model again and how small the conversation must be before switching back. In Context, toggle automatic compaction, choose its threshold and select a summary model. Manual `/compact` remains available when automatic compaction is off.
 
+Use **Send behavior while busy** to choose whether Enter and the Send button steer the current turn or queue a message for the next turn. Cmd/Ctrl+Enter uses the other behavior.
+
 -----
 
 <a id="understand-the-implementation"></a>
@@ -42,7 +44,9 @@ Add and order fallback models from the available Host catalog. An empty chain di
 <details>
 <summary>Implementation internals - click to expand</summary>
 
-The Host entry is inert; the browser entry registers two cards in `settings.models.footer`, separately gated by `ctx.configForms.whileServed` for `model-fallback` and `compaction-settings`. `compaction-settings` is the host-plane `@janhq/jan-compaction-basic/settings` entry: agent presets mount their own compaction backend in an isolated realm that Settings does not serve, so the shared preferences live on the host and override each backend's own value field by field. An unset field shows the backend default (auto on, 80%, same model as the chat). Each card reads its own `ctx.configForms.get` snapshot and writes changes immediately. The catalog loads after mounting a card; the summary model's provider and model are written together with one `mutate` call. All eight UI dictionaries live in `src/client/locales.ts`.
+The Host entry is inert. The browser entry declares `settings.agentLoop.item` and shows the section when the Host serves any of `model-fallback`, `compaction-settings`, or `ui-conversation`. The two cards register in the item slot through separate `ctx.configForms.whileServed` watches; ui-conversation contributes the send behavior row to the same slot.
+
+`compaction-settings` is the host-plane `@janhq/jan-compaction-basic/settings` entry: agent presets mount their own compaction backend in an isolated realm that Settings does not serve, so the shared preferences live on the host and override each backend's own value field by field. An unset field shows the backend default (auto on, 80%, same model as the chat). Each card reads its own `ctx.configForms.get` snapshot and writes changes immediately. The catalog loads after mounting a card; the summary model's provider and model are written together with one `mutate` call. All eight UI dictionaries live in `src/client/locales.ts`.
 
 </details>
 
@@ -52,7 +56,7 @@ The Host entry is inert; the browser entry registers two cards in `settings.mode
 
 ## Further Exploration
 
-- [ui-settings-models](../ui-settings-models/README.md) provides the Models page and its footer slot.
+- [ui-conversation](../ui-conversation/README.md) owns the busy send behavior preference.
 - [ui-settings](../ui-settings/README.md) provides the live config forms and served-namespace watch.
 - [ui-primitives](../ui-primitives/README.md) provides the card controls.
 

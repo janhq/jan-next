@@ -199,8 +199,8 @@ export function apply(ctx: Context, config: Config = Config({})): void {
 
   ctx.effect(() => () => { submissionPolicy.dispose() })
 
-  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
-    name: 'settings.general.item',
+  ctx.slots.inject('settings.agentLoop.item', () => ctx.slots.register({
+    name: 'settings.agentLoop.item',
     id: 'composer-enter',
     order: 20,
     locale: NS,
@@ -276,25 +276,25 @@ export function apply(ctx: Context, config: Config = Config({})): void {
     const fixedInputs: readonly ShortcutFixedCommand[] = [
       {
         id: 'fixed.send' as ShortcutCommandId, label: () => t('input.send'), keys: ['Enter'],
-        bindings: [{ code: 'Enter', modifiers: [] }], group: 'input'
+        bindings: [{ code: 'Enter', modifiers: [] }], group: 'input',
       },
       {
         id: 'fixed.newline' as ShortcutCommandId, label: () => t('shortcut.newline'),
         keys: scope.shortcuts.describeBinding({ code: 'Enter', modifiers: ['shift'] }).keys,
-        bindings: [{ code: 'Enter', modifiers: ['shift'] }], group: 'input'
+        bindings: [{ code: 'Enter', modifiers: ['shift'] }], group: 'input',
       },
       {
         id: 'fixed.complementary' as ShortcutCommandId, label: () => t('shortcut.complementary'),
         keys: scope.shortcuts.describeBinding({ code: 'Enter', modifiers: ['primary'] }).keys,
-        bindings: [{ code: 'Enter', modifiers: ['control'] }, { code: 'Enter', modifiers: ['meta'] }], group: 'input'
+        bindings: [{ code: 'Enter', modifiers: ['control'] }, { code: 'Enter', modifiers: ['meta'] }], group: 'input',
       },
       {
         id: 'fixed.slash' as ShortcutCommandId, label: () => t('shortcut.slash'), keys: ['/'],
-        bindings: [{ code: 'Slash', modifiers: [] }], group: 'input'
+        bindings: [{ code: 'Slash', modifiers: [] }], group: 'input',
       },
       {
         id: 'fixed.mention' as ShortcutCommandId, label: () => t('shortcut.mention'), keys: ['@'],
-        bindings: [{ code: 'Digit2', modifiers: ['shift'] }], group: 'input'
+        bindings: [{ code: 'Digit2', modifiers: ['shift'] }], group: 'input',
       },
     ]
     for (const command of fixedInputs) {

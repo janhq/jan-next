@@ -3,7 +3,6 @@ import { useSyncExternalStore } from 'react'
 import { Button, Switch } from '@janhq/jan-client-ui-primitives'
 import type { ConfigForm } from '@janhq/jan-client-ui-settings/client'
 import type { PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
-import type {} from '@janhq/jan-client-ui-settings-models/client'
 import { NS } from './locales.ts'
 import { useCatalog, type CatalogLoader } from './useCatalog.ts'
 import css from './PolicyCard.module.css'
@@ -15,7 +14,7 @@ export interface CompactionSettings {
   summarizationProvider?: string
   summarizationModel?: string
 }
-export type ContextCardProps = PropsRuntime<'settings.models.footer'> & PropsLocale<typeof NS> & {
+export type ContextCardProps = PropsRuntime<'settings.agentLoop.item'> & PropsLocale<typeof NS> & {
   form: ConfigForm<CompactionSettings>
   loadCatalog: CatalogLoader
 }

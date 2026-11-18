@@ -61,7 +61,7 @@
     - id: subagent-model-selection-settings
       name: '@janhq/jan-tool-subagent/model-selection-settings'
 
-    # Jan: compaction preferences the user edits on Settings > Models. Each
+    # Jan: compaction preferences the user edits in Settings > Agent loop. Each
     # preset mounts its own compaction backend in an isolated realm, so the
     # shared preferences live here on the host plane, where Settings serves them.
     - id: compaction-settings
@@ -177,7 +177,7 @@
     - id: ui-settings-local-model
       name: '@janhq/jan-client-ui-settings-local-model'
 
-    # Jan: fallback chain and context compaction cards on the Models page.
+    # Jan: Agent loop settings page for fallback, compaction, and busy send behavior.
     - id: ui-settings-model-policy
       name: '@janhq/jan-client-ui-settings-model-policy'
 

@@ -106,7 +106,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@janhq/jan-client-ui-settings-agent-loop` | no | Settings page of the agent loop on the jan web client's Plugins page: the parallel tool-call cap of the agent-loop namespace |
 | `@janhq/jan-client-ui-settings-general` | no | Settings ownerless-copy and product onboarding plugin: the General section, shell trigger/header chrome content, settings dictionaries, and the versioned welcome notice |
 | `@janhq/jan-client-ui-settings-local-model` | no | Download, start and stop the managed local llama.cpp model from Settings and first-run setup |
-| `@janhq/jan-client-ui-settings-model-policy` | no | Settings Models page cards for the model fallback chain and context compaction |
+| `@janhq/jan-client-ui-settings-model-policy` | no | Agent loop settings page for fallback models, context compaction, and busy send behavior |
 | `@janhq/jan-client-ui-settings-models` | yes | Models settings and shared product-onboarding dialogs over existing settings and credential joins |
 | `@janhq/jan-client-ui-settings-plugin-inventory` | no | Read-only Cordis Loader inventory tab in Web Plugins settings |
 | `@janhq/jan-client-ui-settings-plugins` | no | Built-in plugins settings section for the jan web client: the Settings navigation entry and the tab chrome feature-owned tabs register into |

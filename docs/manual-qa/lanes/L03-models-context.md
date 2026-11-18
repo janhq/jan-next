@@ -20,9 +20,9 @@ Needs: the seed and the lane's mock server. Port block 9430. The mock model has 
 | L03-10 | stub | Click "Compact" on an overflow card. | A summary replaces older turns, a card says how many tokens were saved, the turn then retries | P1 |
 | L03-11 | stub | Compact a chat that is already over its window. | Either the summary succeeds or the card says plainly it could not and why. It does not loop | P1 |
 | L03-12 | any | `+` > Compact on a short chat. | A notice says there is nothing worth compacting, or it compacts. No empty summary | P3 |
-| L03-13 | stub | Settings > Models > fallback chain: add `qa-mock / mock-model` then `qa-mock / mock-small`. Server `rate_limit` forever for the first, success for the second (run two servers, or `--sequence rate_limit,success`). Send. | After the failure the chat shows which model took over. The picker shows the model that is actually answering | P1 |
+| L03-13 | stub | Settings > Agent loop > Fallback models: add `qa-mock / mock-model` then `qa-mock / mock-small`. Server `rate_limit` forever for the first, success for the second (run two servers, or `--sequence rate_limit,success`). Send. | After the failure the chat shows which model took over. The picker shows the model that is actually answering | P1 |
 | L03-14 | stub | After L03-13, let the cooldown pass and send again. | The app switches back to the home model only if the history fits there, and says so, or stays and says why. No silent state | P2 |
-| L03-15 | any | Settings > Models > context policy cards: toggle auto-compaction, change the threshold, pick a summary model. | Each change takes effect for the next turn without a restart and survives relaunch | P1 |
+| L03-15 | any | Settings > Agent loop > Context: toggle auto-compaction, change the threshold, pick a summary model. | Each change takes effect for the next turn without a restart and survives relaunch | P1 |
 | L03-16 | any | Set the threshold to the extremes (lowest, highest). | Values clamp or reject with a message. No NaN, no empty field accepted | P2 |
 | L03-17 | stub | Attach an image and pick a text-only model. | A warning names the model and offers a model that can read images. Sending is still possible only after an explicit choice | P1 |
 | L03-18 | stub | Server `quota_exceeded`. Send. | A plain message about quota with a next step; no loop of retries | P1 |

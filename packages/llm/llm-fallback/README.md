@@ -7,7 +7,7 @@ kind: "package-reference"
 
 ## Summary
 
-Mount `@janhq/jan-llm-fallback` so a failed model request continues on the next model in an ordered chain inside the same turn, instead of ending the reply with an error. Rate limits, quota exhaustion and refusals switch right away; server, timeout and transport failures switch after the provider retry policy gives up. The model the user chose comes back at a later turn start, once its cooldown passed and the conversation is small enough that dropping the prompt cache costs little. Every field is live-editable from Settings > Models > Fallback models.
+Mount `@janhq/jan-llm-fallback` so a failed model request continues on the next model in an ordered chain inside the same turn, instead of ending the reply with an error. Rate limits, quota exhaustion and refusals switch right away; server, timeout and transport failures switch after the provider retry policy gives up. The model the user chose comes back at a later turn start, once its cooldown passed and the conversation is small enough that dropping the prompt cache costs little. Every field is live-editable from **Settings > Agent loop > Fallback models**.
 
 ## Table of Contents
 

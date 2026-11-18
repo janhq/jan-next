@@ -32,6 +32,7 @@ async function bench(options: { declareConversation?: boolean } = {}) {
     await runtime.root.declare({
       'main': { kind: 'keyed', scope: 'root' },
       'settings.general.item': { kind: 'list', scope: 'root' },
+      'settings.agentLoop.item': { kind: 'list', scope: 'root' },
     }, (_props: { renderSlot?: unknown }) => null)
   }
   const feature = await runtime.mount({ inject: [...inject], apply })
@@ -97,7 +98,7 @@ describe('target-neutral Conversation apply wiring', () => {
 
     await b.runtime.root.declare({
       'main': { kind: 'keyed', scope: 'root' },
-      'settings.general.item': { kind: 'list', scope: 'root' },
+      'settings.agentLoop.item': { kind: 'list', scope: 'root' },
     }, (_props: { renderSlot?: unknown }) => null)
     b.runtime.renderRoot()
     expect(b.runtime.slots.entries('main').map(row => row.options.key)).toEqual(['conversation'])
@@ -132,8 +133,9 @@ describe('target-neutral Conversation apply wiring', () => {
     expect(header?.store).toBe(session?.store)
     expect(b.runtime.slots.spec('conversation.composer'))
       .toEqual({ kind: 'chain', scope: 'session' })
-    expect(b.runtime.slots.entries('settings.general.item').map(row => row.options.id))
+    expect(b.runtime.slots.entries('settings.agentLoop.item').map(row => row.options.id))
       .toEqual(['composer-enter'])
+    expect(b.runtime.slots.entries('settings.general.item')).toHaveLength(0)
     await b.runtime.dispose()
   })
 
