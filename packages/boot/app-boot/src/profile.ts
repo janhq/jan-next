@@ -42,6 +42,9 @@ export const PROFILES_DIR = 'profiles'
 /** The user patch layer inside a profile directory (hot-reloaded on long-lived surfaces). */
 export const PROFILE_PATCH_FILENAME = 'cordis.patch.yml'
 
+/** Records that the desktop profile has been checked for its former Web-only default. */
+const DESKTOP_BUNDLE_MIGRATION_FILENAME = '.desktop-bundle-migration'
+
 /** Package metadata accepted by the profile reader; local profiles need no published identity. */
 export type ProfileManifest = Partial<JanPackageManifest> & { dsh?: JanPackageManifest['jan'] }
 
@@ -593,6 +596,7 @@ function withBundles(manifest: ProfileManifest, bundles: readonly string[]): Pro
 /**
  * Normalize an exact installation-owned bundle tuple to its shipped template,
  * preserving all other manifest fields. Other bundle lists remain untouched.
+ * Desktop checks once per profile so subsequent bundle selections are left alone.
  * @param name - profile name, keyed into the shipped templates.
  * @param dir - profile directory the manifest was read from.
  * @param manifest - profile manifest as read from disk.
@@ -602,12 +606,16 @@ export function normalizeShippedProfile(name: string, dir: string, manifest: Pro
   const installationOwned = INSTALLATION_OWNED_PROFILE_TUPLES[name]
   const template = PROFILE_TEMPLATES[name]
   const bundles = manifest.jan?.profile?.bundles
-  if (template === undefined || bundles === undefined) return manifest
-  const isRetiredTuple = installationOwned !== undefined && sameBundles(bundles, installationOwned)
-  if (!isRetiredTuple) return manifest
-  const normalized = withBundles(manifest, template.bundles)
-  writeProfileManifest(dir, normalized)
-  return normalized
+  if (template === undefined || installationOwned === undefined) return manifest
+  const marker = name === 'desktop' ? join(dir, DESKTOP_BUNDLE_MIGRATION_FILENAME) : undefined
+  if (marker !== undefined && existsSync(marker)) return manifest
+  if (bundles !== undefined && sameBundles(bundles, installationOwned)) {
+    manifest = withBundles(manifest, template.bundles)
+    writeProfileManifest(dir, manifest)
+  }
+  // Record completion even for fresh or customized profiles, after any manifest write succeeds.
+  if (marker !== undefined) writeFileSync(marker, '', { flag: 'a', mode: 0o600 })
+  return manifest
 }
 
 /**

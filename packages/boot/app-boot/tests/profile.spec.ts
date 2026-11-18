@@ -19,6 +19,7 @@ import {
   initProfile,
   loadProfile,
   loadProfileDirectory,
+  normalizeShippedProfile,
   PROFILE_COMPATIBILITY_FILENAME,
   PROFILE_PATCH_FILENAME,
   readProfileManifest,
@@ -407,6 +408,36 @@ describe('loadProfile', () => {
     expect(readProfileManifest('t', custom).jan?.profile?.bundles).toEqual([
       '@janhq/jan-base', '@janhq/jan-web-app', '@janhq/jan-headless', 'custom-bundle',
     ])
+  })
+
+  const webBundles = ['@janhq/jan-base', '@janhq/jan-web-app']
+  const desktopBundles = [...webBundles, '@janhq/jan-desktop-app']
+  const customBundles = [...webBundles, 'custom-bundle']
+  it.each([
+    { profile: 'legacy', initial: webBundles, expected: desktopBundles },
+    { profile: 'current', initial: desktopBundles, expected: desktopBundles },
+    { profile: 'custom', initial: customBundles, expected: customBundles },
+  ])('preserves a desktop bundle opt-out after first opening a $profile profile', ({ initial, expected }) => {
+    const anchor = stageInstallation({
+      '@janhq/jan-base': { patch: '[]\n' },
+      '@janhq/jan-web-app': { patch: '[]\n' },
+      '@janhq/jan-desktop-app': { patch: '[]\n' },
+    })
+    const home = tmp()
+    const dir = resolveProfileDir('desktop', home)
+    initProfile(dir, initial)
+
+    // Desktop runs this normalizer before starting its Host.
+    normalizeShippedProfile('desktop', dir, readProfileManifest('t', dir))
+    const manifest = readProfileManifest('t', dir)
+    expect(manifest.jan?.profile?.bundles).toEqual(expected)
+
+    writeProfileManifest(dir, {
+      ...manifest, jan: { ...manifest.jan, profile: { ...manifest.jan?.profile, bundles: webBundles } },
+    })
+    normalizeShippedProfile('desktop', dir, readProfileManifest('t', dir))
+    expect(readProfileManifest('t', dir).jan?.profile?.bundles).toEqual(webBundles)
+    expect(loadProfile('t', 'desktop', anchor, home).layers.map(layer => layer.packageName)).toEqual(webBundles)
   })
 
   it.each(['@janhq/jan-experimental-schedule-bundle', '@janhq/jan-experimental-agent-team-profile'])('removes retired %s and keeps the rest of an application-owned manifest', (retired) => {
