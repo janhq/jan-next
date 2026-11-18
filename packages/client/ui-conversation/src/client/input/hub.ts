@@ -266,7 +266,9 @@ export class InputHub implements SessionInputResolver {
     const binding = this.sessions().binding(id)
     if (binding === undefined || this.retrying.has(binding) || !this.canRetry(id, binding, failureSeq)) return
     this.retrying.add(binding)
-    void binding.session.prompt([], 'queue').finally(() => { this.retrying.delete(binding) })
+    void binding.session.prompt([], 'queue').catch(() => {
+      // The Session already records the prompt error for the conversation UI.
+    }).finally(() => { this.retrying.delete(binding) })
   }
 
   /**

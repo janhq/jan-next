@@ -258,6 +258,20 @@ describe('Conversation inject API', () => {
     expect(input.state.getSnapshot().attachmentIds).toEqual(attachments)
   })
 
+  it('releases the recovery retry lock when the Session prompt rejects', async () => {
+    const b = await bench()
+    onTestFinished(() => b.runtime.dispose())
+    await b.runtime.sessions.setProjection(ROOT, 'conversationContinuation', SessionSeq(5))
+    b.sessionFake.prompt.mockRejectedValueOnce(new Error('connection lost'))
+    const hub = b.runtime.ctx.conversation.input
+    hub.retryKeepingDraft(ROOT, SessionSeq(5))
+    await vi.waitFor(() => { expect(b.sessionFake.prompt).toHaveBeenCalledOnce() })
+    await Promise.resolve()
+    await Promise.resolve()
+    hub.retryKeepingDraft(ROOT, SessionSeq(5))
+    await vi.waitFor(() => { expect(b.sessionFake.prompt).toHaveBeenCalledTimes(2) })
+  })
+
   it('ignores a recovery retry for a stale failure or while the Session is busy', async () => {
     const b = await bench()
     onTestFinished(() => b.runtime.dispose())
