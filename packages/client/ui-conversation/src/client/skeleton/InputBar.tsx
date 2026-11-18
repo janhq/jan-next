@@ -70,7 +70,7 @@ export const InputBar = memo(function InputBar({
   useEffect(() => { setActivity(false) }, [sessionId])
   const promptError = useSession(s => s.promptError) ?? null
   const running = useSession(s => s.running) ?? false
-  const retryableFailure = useProjection('conversationContinuation') ?? undefined
+  const retryableFailure = useProjection('conversationContinuation', ending => typeof ending === 'number' ? ending : undefined)
   const pendingHumanInput = useProjection('inbox', inbox =>
     inbox?.['next-step'].some(message =>
       typeof message === 'object' && message !== null && 'source' in message

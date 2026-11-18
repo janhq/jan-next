@@ -9,7 +9,7 @@ import type { PlanProjection } from '@janhq/jan-plan-mode/types'
 import type { GoalProjection } from '@janhq/jan-goal/types'
 import type { Context } from '@janhq/cordis'
 import type {
-  ISessions, SessionBinding, SessionFace,
+  ISessions, SessionBinding, SessionFace, SessionProjectionMap,
 } from '@janhq/jan-api-session-controller/client'
 import type { SessionId, SessionSeq } from '@janhq/jan-session/types'
 import type { TranslateNS } from '@janhq/jan-client-locale/client'
@@ -225,11 +225,13 @@ export class InputHub implements SessionInputResolver {
   }
 
   /**
-   * The failed turn the displayed button addresses is still the retryable one and the Session
-   * is idle: no active or queued work, no pending submission, and no blocked composer.
+   * The addressed failure is current and the Session has no conflicting work. Recovery controls
+   * may also address an overflow; the Host verifies the recovery before admitting the retry.
    */
-  private canRetry(id: SessionId, binding: SessionBinding, failureSeq: SessionSeq): boolean {
-    if (binding.session.projections.faceOf('conversationContinuation').getSnapshot() !== failureSeq) return false
+  private canRetry(id: SessionId, binding: SessionBinding, failureSeq: SessionSeq, afterRecovery = false): boolean {
+    const projection = binding.session.projections.faceOf('conversationContinuation')
+    const ending = projection.getSnapshot() as SessionProjectionMap['conversationContinuation'] | undefined
+    if (ending !== failureSeq && !(afterRecovery && typeof ending === 'object' && ending?.overflow === failureSeq)) return false
     const session = binding.session.getSnapshot()
     const inbox = binding.session.projections.faceOf('inbox').getSnapshot() as InboxState | undefined
     return !(session.running || session.removed || session.openState !== 'open' || session.subagent !== null
@@ -264,7 +266,7 @@ export class InputHub implements SessionInputResolver {
    */
   retryKeepingDraft(id: SessionId, failureSeq: SessionSeq): void {
     const binding = this.sessions().binding(id)
-    if (binding === undefined || this.retrying.has(binding) || !this.canRetry(id, binding, failureSeq)) return
+    if (binding === undefined || this.retrying.has(binding) || !this.canRetry(id, binding, failureSeq, true)) return
     this.retrying.add(binding)
     void binding.session.prompt([], 'queue').catch(() => {
       // The Session already records the prompt error for the conversation UI.

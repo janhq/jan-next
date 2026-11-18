@@ -22,7 +22,7 @@ import {
   sessionSnapshot as sessionFixture,
 } from '@janhq/jan-client-test-runtime'
 import { createSnapshotStore } from '@janhq/jan-client-store'
-import type { SessionListState, SessionSnapshot } from '@janhq/jan-api-session-controller/client'
+import type { SessionListState, SessionProjectionMap, SessionSnapshot } from '@janhq/jan-api-session-controller/client'
 import type { ContextPressureProjection } from '@janhq/jan-token-meter/client'
 import { zh as commonZh } from '@janhq/jan-client-locale/src/locales/zh.ts'
 import type { Context } from '@janhq/cordis'
@@ -81,7 +81,7 @@ interface BenchOptions {
   }
   draft?: string
   running?: boolean
-  retryableFailure?: SessionSeq
+  retryableFailure?: SessionProjectionMap['conversationContinuation']
   subagent?: Exclude<SessionSnapshot['subagent'], null>
   disabled?: boolean
   inert?: boolean
@@ -257,7 +257,8 @@ function bench(over?: BenchOptions) {
   const plainMessageDraft = sendableDraft && !uploadsPending && !(over?.draft?.trimStart().startsWith('/') ?? false)
   const primaryLabel = primaryStops
     ? '停止生成'
-    : over?.retryableFailure !== undefined && !sendableDraft && over.running !== true && over.subagent === undefined && !composerLocked
+    : typeof over?.retryableFailure === 'number' && !sendableDraft && over.running !== true
+      && over.subagent === undefined && !composerLocked
       && !(over.nextStep ?? []).some(message => message.source.kind === 'user')
       ? '继续生成'
       : over?.running === true && steeringAvailable && !composerLocked && plainMessageDraft
@@ -287,6 +288,12 @@ it('offers the play action only for an empty, idle composer with an eligible fai
   await vi.waitFor(() => { expect(b.sink).toHaveBeenCalledOnce() })
   expect(b.sink.mock.calls[0]?.[0]).toBe('A new instruction')
   expect(b.retry).toHaveBeenCalledOnce()
+})
+
+it('does not offer a bare retry when context overflow needs recovery', () => {
+  const b = bench({ retryableFailure: { overflow: 2 as SessionSeq } })
+  expect(b.view.queryByRole('button', { name: '继续生成' })).toBeNull()
+  expect(b.view.getByRole<HTMLButtonElement>('button', { name: '发送消息' }).disabled).toBe(true)
 })
 
 it.each([

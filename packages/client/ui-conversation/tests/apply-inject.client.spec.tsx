@@ -233,7 +233,7 @@ describe('Conversation inject API', () => {
     const b = await bench()
     onTestFinished(() => b.runtime.dispose())
     await b.runtime.sessions.replaceEvents(ROOT, continuationTurn({ kind: 'error', error: { code: 'CONTEXT_WINDOW_EXCEEDED', message: 'too long' } }))
-    await b.runtime.sessions.setProjection(ROOT, 'conversationContinuation', SessionSeq(5))
+    await b.runtime.sessions.setProjection(ROOT, 'conversationContinuation', { overflow: SessionSeq(5) })
     const composer = b.composerApi(ROOT)
     const input = b.inputApi(ROOT)
     input.actions.setDraft('Keep my new instruction')
