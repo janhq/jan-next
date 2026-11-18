@@ -71,6 +71,9 @@ interface TurnErrorInjected {
   recovery?: ContextRecovery
 }
 
+/** Failures a plain retry can answer: the model service or the connection failed, not the request or the account. */
+const TRANSIENT_CODES: ReadonlySet<unknown> = new Set(['RATE_LIMIT', 'SERVER', 'TIMEOUT', 'TRANSPORT', 'EMPTY_RESPONSE', 'STREAM_CLOSED'])
+
 function failureMessage(
   message: string,
   code: unknown,
@@ -230,17 +233,21 @@ function TurnErrorItem({ node, t, canOpenModelsSettings, openModelsSettings, rec
       target.retry(node.seq)
     } else setError(result.reason === 'empty' ? t('message.failure.nothingToCompact') : result.error)
   })
-  const message = !recoverable ? failureMessage(node.message, node.code, t)
+  const message = !recoverable
+    ? (TRANSIENT_CODES.has(node.code) ? t('message.failure.transient') : failureMessage(node.message, node.code, t))
     : modelId === undefined ? t('message.failure.cloudContextWindow')
       : t(atMaximum ? 'message.failure.contextMaximum' : 'message.failure.localContextWindow')
+  const retryable = TRANSIENT_CODES.has(node.code) && current && recovery !== undefined
   return (
     <div className={css.turnErrorRow} role="status">
       <StateDot state="error" className={css.turnErrorDot} />
       <div className={css.turnErrorCopy}>
         <span className={css.turnErrorTitle}>{node.code === 'ACCOUNT_SIGNED_OUT' || node.code === 'INTERRUPTED' ? t('message.taskStopped') : t('message.turnError')}</span>
-        <span className={css.turnErrorMessage}>{message}</span>
+        <span className={css.turnErrorMessage} title={TRANSIENT_CODES.has(node.code) ? node.message : undefined}>{message}</span>
         {(node.code === 'MISSING_CREDENTIAL' || node.code === 'NO_ADAPTER') && canOpenModelsSettings && <button type="button" className={css.turnErrorAction}
           onClick={openModelsSettings}>{t('message.failure.openModels')}</button>}
+        {retryable && <button type="button" className={css.turnErrorAction}
+          onClick={() => { recovery.retry(node.seq) }}>{t('message.failure.retry')}</button>}
         {recoverable && (growable
           ? <button type="button" className={css.turnErrorAction} disabled={working} onClick={() => { void grow() }}>
             {t(working ? 'message.failure.increasingContext' : 'message.failure.increaseContext')}

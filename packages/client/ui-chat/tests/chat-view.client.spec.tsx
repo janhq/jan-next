@@ -2744,6 +2744,27 @@ describe('ChatView', () => {
     expect(view.getByText('keep this')).toBeTruthy()
   })
 
+  it('explains a model service failure in plain words and retries the same turn from the failure row', () => {
+    const h = makeHarness({ nodes: [user(1, 'ask'), turnError(2, 'SERVER')] })
+    const retry = vi.fn()
+    h.props.continuation = 2
+    h.props.recovery = overflowRecovery({ retry })
+    const view = render(<h.ChatView {...h.props} />)
+    const row = view.getByRole('status')
+    expect(row.textContent).toContain(zh['message.failure.transient'])
+    expect(row.textContent).not.toContain('API key is invalid')
+    fireEvent.click(view.getByRole('button', { name: zh['message.failure.retry'] }))
+    expect(retry).toHaveBeenCalledExactlyOnceWith(2)
+  })
+
+  it('offers no retry on a transient failure a newer turn has already replaced', () => {
+    const h = makeHarness({ nodes: [user(1, 'old'), turnError(2, 'SERVER')] })
+    h.props.continuation = null
+    h.props.recovery = overflowRecovery()
+    const view = render(<h.ChatView {...h.props} />)
+    expect(view.queryByRole('button', { name: zh['message.failure.retry'] })).toBeNull()
+  })
+
   it('renders the max-tokens notice with localized guidance, distinct from turn errors', () => {
     const h = makeHarness({ nodes: [user(1, 'try'), assistant(2, 'truncated'), turnMaxTokens(3)] })
     const view = render(<h.ChatView {...h.props} />)
