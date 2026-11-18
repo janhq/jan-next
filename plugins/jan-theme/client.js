@@ -10,6 +10,7 @@ window.__ModuleLoader__.load({
       IconPluginPinwheelOutlineRegular, IconCheckOutlineRegular, IconFolderCloseRegular, IconSettingsOutlineMedium,
       IconNewChatOutlineMedium, IconNewChatOutlineRegular, IconProjectAddOutlineRegular, IconSearchOutlineRegular,
       MenuItemButton, ShortcutKeys, Button, Switch, IconPlusOutlineRegular, IconLayersOutlineRegular,
+      IconLightOutlineMedium, IconApiOutlineMedium, IconSkillOutlineMedium,
     } = require('@janhq/jan-client-ui-primitives')
     // Optional: the matching host publishes the dock model seat. An older
     // host leaves the composer's own selector in place instead.
@@ -682,6 +683,10 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'jt-appearance', order: 5, label: 'Appearance' }, AppearanceSettings))
         ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'jt-mcp', order: 30, label: 'MCP Servers' }, () => h(AgentSettings, { key: 'mcp' })))
         ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'jt-skills', order: 31, label: 'Skills' }, () => h(AgentSettings, { skills: true, key: 'skills' })))
+        // Distinct nav glyphs: the settings dialog falls back to the gear for ids it does not know.
+        for (const [id, Icon] of [['jt-appearance', IconLightOutlineMedium], ['jt-mcp', IconApiOutlineMedium], ['jt-skills', IconSkillOutlineMedium]]) {
+          ctx.slots.inject('settings.section.icon', () => ctx.slots.register({ name: 'settings.section.icon', id }, ({ size }) => h(Icon, { size })))
+        }
         const style = document.createElement('style')
         style.dataset.plugin = '@janhq/jan-client-ui-jan-theme'
         style.textContent = CSS
