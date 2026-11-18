@@ -2,7 +2,7 @@
 import type { ProjectionHandle } from '@janhq/jan-session-projection'
 import { Context, Service } from '@janhq/cordis'
 import z from '@janhq/schemastery'
-import { Remote, RemoteError, remoteErrorOf, TypertRemoteService } from '@janhq/jan-typert-protocol'
+import { Remote, RemoteError, TypertRemoteService } from '@janhq/jan-typert-protocol'
 import { bindScopeParent, createScope, scopeOf, scopeParentOf, type Scope, type ScopeKey, type ScopeParentBinding } from '@janhq/jan-scope'
 import { entryListSchema } from '@janhq/cordis-plugin-include'
 import { dump } from 'js-yaml'
@@ -390,17 +390,20 @@ export class AgentPresetRegistry extends TypertRemoteService {
       if (current !== undefined && this.generationFor(agent.ctx) === current
         && this.agentPresetProjectionHandle.stateOf(agent.session) === agentPreset) return agentPreset
       // Maintenance owns the Agent for the swap, so a turn cannot start under
-      // a half-replaced composition; it refuses when one already owns the Agent.
+      // a half-replaced composition. runMaintenance refuses synchronously when
+      // other work already owns the Agent; only that refusal means busy, and
+      // a failure inside the swap keeps its own cause.
+      let swap: Promise<string>
       try {
-        return await agent.runMaintenance(async () => {
+        swap = agent.runMaintenance(async () => {
           const preset = await this.recompose(agent.ctx, agentPreset)
           agent.session.append('agent-preset/selected', { agentPreset: preset.id })
           return preset.id
         })
-      } catch (error) {
-        if (remoteErrorOf(error) !== undefined) throw error
+      } catch {
         throw busy()
       }
+      return await swap
     })
     const guard = turn.catch(() => undefined)
     this.switches.set(agent.id, guard)
@@ -422,7 +425,7 @@ export class AgentPresetRegistry extends TypertRemoteService {
         disposed = true
         generation.users--
         await this.collect(generation)
-      }
+      },
     }
   }
 
@@ -438,7 +441,7 @@ export class AgentPresetRegistry extends TypertRemoteService {
         id, ...(name === undefined ? {} : { name }), ...(description === undefined ? {} : { description }),
         isDefault: id === this.defaultId,
         ...(broken === undefined ? {} : { broken }),
-        rows: record.generation === undefined ? ('rows' in read ? read.rows : []) : mountedCompositionRows(record.generation.mount.tree)
+        rows: record.generation === undefined ? ('rows' in read ? read.rows : []) : mountedCompositionRows(record.generation.mount.tree),
       }
     }))
   }
