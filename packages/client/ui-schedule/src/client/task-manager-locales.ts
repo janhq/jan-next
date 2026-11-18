@@ -46,8 +46,8 @@ export const en = {
   'host.frequency.monthly': 'Every month',
   'host.frequency.advanced': 'Custom',
 
-  'panel': 'Automation tasks',
-  'title': 'Automation tasks',
+  'panel': 'Scheduled',
+  'title': 'Scheduled tasks',
   'new.action': 'New',
   'list.label': 'Task catalog',
   'list.nextPrefix': 'Next scheduled time: ',
@@ -212,8 +212,8 @@ export const zh: Record<TaskManagerKey, string> = {
   'host.frequency.monthly': '每月',
   'host.frequency.advanced': '自定义',
 
-  'panel': '自动化任务',
-  'title': '自动化任务',
+  'panel': '定时任务',
+  'title': '定时任务',
   'new.action': '新建',
   'list.label': '任务列表',
   'list.nextPrefix': '下次计划时间：',
@@ -375,8 +375,8 @@ export const ja = {
   'host.frequency.advanced': 'カスタム',
   'list.emptyActive': '有効な自動化タスクはありません',
   'list.emptyPaused': '一時停止中の自動化タスクはありません',
-  'panel': '自動化タスク',
-  'title': '自動化タスク',
+  'panel': 'スケジュール',
+  'title': 'スケジュールタスク',
   'new.action': '新規',
   'list.label': 'タスク一覧',
   'list.nextPrefix': '次回予定日時: ',
@@ -490,8 +490,8 @@ export const ja = {
 
 /** Spanish dictionary, checked against the English keys. */
 export const es = {
-  'panel': 'Tareas de automatización',
-  'title': 'Tareas de automatización',
+  'panel': 'Programadas',
+  'title': 'Tareas programadas',
   'new.action': 'Nuevo',
   'list.label': 'Catálogo de tareas',
   'list.nextPrefix': 'Próxima hora prevista: ',
@@ -651,8 +651,8 @@ export const es = {
 
 /** French dictionary, checked against the English keys. */
 export const fr = {
-  'panel': "Tâches d'automatisation",
-  'title': "Tâches d'automatisation",
+  'panel': 'Planifiées',
+  'title': 'Tâches planifiées',
   'new.action': 'Nouveau',
   'list.label': 'Catalogue de tâches',
   'list.nextPrefix': 'Prochaine heure programmée : ',
@@ -812,8 +812,8 @@ export const fr = {
 
 /** German dictionary, checked against the English keys. */
 export const de = {
-  'panel': 'Automatisierungsaufgaben',
-  'title': 'Automatisierungsaufgaben',
+  'panel': 'Geplant',
+  'title': 'Geplante Aufgaben',
   'new.action': 'Neu',
   'list.label': 'Aufgabenkatalog',
   'list.nextPrefix': 'Nächste geplante Zeit: ',
@@ -973,8 +973,8 @@ export const de = {
 
 /** Russian dictionary, checked against the English keys. */
 export const ru = {
-  'panel': 'Задачи автоматизации',
-  'title': 'Задачи автоматизации',
+  'panel': 'Запланированные',
+  'title': 'Запланированные задачи',
   'new.action': 'Новый',
   'list.label': 'Каталог задач',
   'list.nextPrefix': 'Следующее запланированное время: ',
@@ -1134,8 +1134,8 @@ export const ru = {
 
 /** Portuguese dictionary, checked against the English keys. */
 export const pt = {
-  'panel': 'Tarefas de automação',
-  'title': 'Tarefas de automação',
+  'panel': 'Agendadas',
+  'title': 'Tarefas agendadas',
   'new.action': 'Novo',
   'list.label': 'Catálogo de tarefas',
   'list.nextPrefix': 'Próximo horário agendado: ',

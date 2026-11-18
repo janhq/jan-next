@@ -540,7 +540,7 @@ describe.skipIf(MODE === 'record')('web e2e: conversational reminders', () => {
     // workspace-selection view and unmounts the Tasks page with it, so the
     // linked-Session assertions run with another Session in the main pane.
     await page.getByRole('treeitem', { name: /Explicit local-time reminder/ }).click()
-    await page.getByRole('button', { name: 'Automation tasks', exact: true }).click()
+    await page.getByRole('button', { name: 'Scheduled', exact: true }).click()
     const manager = page.getByTestId('task-manager-page')
     await manager.getByRole('button', { name: 'Ended', exact: true }).click()
     await manager.getByRole('list', { name: 'Task catalog' })
@@ -635,7 +635,7 @@ describe.skipIf(MODE === 'record')('web e2e: conversational reminders', () => {
     const original = everyRecords[0]
     const first = await scaffold.ctx.schedule.history({ id: original.id, limit: 20 })
     if ('code' in first || first.records.length !== 1) throw new Error('expected one actual recurring receipt')
-    await page.getByRole('button', { name: 'Automation tasks', exact: true }).click()
+    await page.getByRole('button', { name: 'Scheduled', exact: true }).click()
     const manager = page.getByTestId('task-manager-page')
     await manager.getByRole('list', { name: 'Task catalog' }).getByRole('button', { name: original.title, exact: true }).click()
     const detail = manager.getByRole('complementary', { name: 'Task details' })
@@ -846,9 +846,9 @@ describe.skipIf(MODE === 'record')('web e2e: active Schedule catalog', () => {
     const otherSessionId = SessionId('schedule-manager-other-session')
     await seedSession(scaffold, await readFile(CATALOG_FIXTURE, 'utf8'), otherSessionId, 'standard')
     const other = await scaffold.ctx.schedule.create({ prompt: 'Inspect the second workspace deployment', title: 'Second workspace deployment', timing: { kind: 'at', at: '2099-08-25T12:08:00.000Z' }, target: { kind: 'session', sessionId: otherSessionId } }, otherSessionId)
-    await page.getByRole('button', { name: 'Automation tasks', exact: true }).click()
+    await page.getByRole('button', { name: 'Scheduled', exact: true }).click()
     const manager = page.getByTestId('task-manager-page')
-    await manager.getByRole('heading', { name: 'Automation tasks', exact: true }).waitFor()
+    await manager.getByRole('heading', { name: 'Scheduled tasks', exact: true }).waitFor()
     const tasks = manager.getByRole('list', { name: 'Task catalog' })
     await expect.poll(() => tasks.getByRole('listitem').count()).toBe(4)
     expect(scaffold.ctx.agents.get(CATALOG_SESSION_ID)).toBeUndefined()
@@ -923,7 +923,7 @@ describe.skipIf(MODE === 'record')('web e2e: active Schedule catalog', () => {
   it('keeps a wide schedule catalog below its header trigger in a narrow viewport', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-schedule-catalog-anchor'))
     try {
-      await page.getByRole('button', { name: 'Automation tasks', exact: true }).click()
+      await page.getByRole('button', { name: 'Scheduled', exact: true }).click()
       const manager = page.getByTestId('task-manager-page')
       await manager.getByRole('button', { name: 'Check exact cadence', exact: true }).click()
       await manager.getByRole('button', { name: /^Linked session.*: open linked session$/ }).click()
@@ -996,7 +996,7 @@ describe.skipIf(MODE === 'record')('web e2e: active Schedule catalog', () => {
     expect(presetPlugins('preset-minimal').some(row => row.name === '@janhq/jan-time-context'
       || row.name === '@janhq/jan-tool-schedule')).toBe(false)
 
-    await page.getByRole('button', { name: 'Automation tasks', exact: true }).click()
+    await page.getByRole('button', { name: 'Scheduled', exact: true }).click()
     const manager = page.getByTestId('task-manager-page')
     await manager.getByRole('button', { name: 'Check exact cadence', exact: true }).click()
     await manager.getByRole('button', { name: /^Linked session.*: open linked session$/ }).click()
@@ -1166,7 +1166,7 @@ describe.skipIf(MODE === 'record')('web e2e: active Schedule catalog', () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-schedule-retention'))
     const record = await scaffold.ctx.schedule.create({ prompt: 'Review retained records', title: 'History retention review', timing: { kind: 'at', at: '2099-09-01T12:00:00.000Z' }, target: { kind: 'session', sessionId: CATALOG_SESSION_ID } }, CATALOG_SESSION_ID)
     try {
-      await page.getByRole('button', { name: 'Automation tasks', exact: true }).click()
+      await page.getByRole('button', { name: 'Scheduled', exact: true }).click()
       const manager = page.getByTestId('task-manager-page')
       await manager.getByRole('button', { name: 'All', exact: true }).click()
       await manager.getByRole('searchbox', { name: 'Search tasks' }).fill(record.title)
@@ -1268,7 +1268,7 @@ describe.skipIf(MODE === 'record')('web e2e: active Schedule catalog', () => {
       expect(created).toMatchObject({ rrule, status: 'active' })
       expect(clock.format(new Date(created.scheduledAt))).toBe(time)
       await page.clock.setFixedTime(new Date())
-      await page.getByRole('button', { name: 'Automation tasks', exact: true }).click()
+      await page.getByRole('button', { name: 'Scheduled', exact: true }).click()
       const manager = page.getByTestId('task-manager-page')
       await manager.getByRole('button', { name: 'All', exact: true }).click()
       await manager.getByRole('searchbox', { name: 'Search tasks' }).fill(prompt)
@@ -1339,7 +1339,7 @@ describe.skipIf(MODE === 'record')('web e2e: active Schedule catalog', () => {
     const created = await scaffold.ctx.schedule.create({ title: 'Destination recovery', prompt: 'Review the destination',
       timing: { kind: 'at', at: '2099-09-01T12:00:00.000Z' }, target: { kind: 'session', sessionId: before } })
     try {
-      await page.getByRole('button', { name: 'Automation tasks', exact: true }).click()
+      await page.getByRole('button', { name: 'Scheduled', exact: true }).click()
       const manager = page.getByTestId('task-manager-page')
       await manager.getByRole('searchbox', { name: 'Search tasks' }).fill('')
       await manager.getByRole('button', { name: 'All', exact: true }).click()
@@ -1397,7 +1397,7 @@ describe.skipIf(MODE === 'record')('web e2e: active Schedule catalog', () => {
       timing: { kind: 'at', at: '2099-08-25T12:08:00.000Z' },
     })
     try {
-      await page.getByRole('button', { name: 'Automation tasks', exact: true }).click()
+      await page.getByRole('button', { name: 'Scheduled', exact: true }).click()
       const manager = page.getByTestId('task-manager-page')
       // Earlier scenarios leave their own search text and status filter on this
       // shared page; this scenario asserts the complete list.

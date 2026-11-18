@@ -1214,7 +1214,7 @@ describe('web e2e: plugin manager', () => {
     expect(scheduleRows().every(entry => entry.fiber?.state === FiberState.ACTIVE)).toBe(true)
     expect(await panel.getByRole('button', { name: '查看 自动化任务', exact: true }).count()).toBe(0)
     expect(await panel.getByRole('switch', { name: '启用 自动化任务', exact: true }).count()).toBe(0)
-    await page.getByRole('navigation', { name: '全局面板' }).getByRole('button', { name: '自动化任务', exact: true }).waitFor()
+    await page.getByRole('navigation', { name: '全局面板' }).getByRole('button', { name: '定时任务', exact: true }).waitFor()
     expect(tripwire.pageErrors).toEqual([])
   }, 60_000)
 

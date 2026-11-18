@@ -9,7 +9,7 @@ export const NS = 'schedule.catalog'
 
 /** Simplified Chinese dictionary (the key-set source of truth). */
 export const zh = {
-  'trigger.label': '自动化任务',
+  'trigger.label': '定时任务',
   'list.loading': '正在加载自动化任务…',
   'list.error': '无法加载自动化任务。',
   'list.retry': '重试',
@@ -30,7 +30,7 @@ export const zh = {
 
 /** English dictionary, key-identical to the Chinese source of truth. */
 export const en: Record<ScheduleCatalogKey, string> = {
-  'trigger.label': 'Automation tasks',
+  'trigger.label': 'Scheduled tasks',
   'list.loading': 'Loading automation tasks…',
   'list.error': 'Could not load automation tasks.',
   'list.retry': 'Retry',
@@ -55,7 +55,7 @@ export type ScheduleCatalogKey = keyof typeof zh
 /** Japanese copy, checked against the English keys. */
 export const ja = {
   ...frequencyJa,
-  'trigger.label': '自動化タスク',
+  'trigger.label': 'スケジュールタスク',
   'list.loading': '自動化タスクを読み込み中…',
   'list.error': '自動化タスクを読み込めませんでした。',
   'list.retry': '再試行',
@@ -75,7 +75,7 @@ export const ja = {
 
 /** Spanish dictionary, checked against the English keys. */
 export const es = {
-  'trigger.label': 'Tareas de automatización',
+  'trigger.label': 'Tareas programadas',
   'list.loading': 'Cargando tareas de automatización…',
   'list.error': 'No se pudieron cargar las tareas de automatización.',
   'list.retry': 'Reintentar',
@@ -96,7 +96,7 @@ export const es = {
 
 /** French dictionary, checked against the English keys. */
 export const fr = {
-  'trigger.label': 'Tâches d\'automatisation',
+  'trigger.label': 'Tâches planifiées',
   'list.loading': 'Chargement des tâches d\'automatisation…',
   'list.error': 'Impossible de charger les tâches d\'automatisation.',
   'list.retry': 'Réessayer',
@@ -117,7 +117,7 @@ export const fr = {
 
 /** German dictionary, checked against the English keys. */
 export const de = {
-  'trigger.label': 'Automatisierungsaufgaben',
+  'trigger.label': 'Geplante Aufgaben',
   'list.loading': 'Automatisierungsaufgaben werden geladen…',
   'list.error': 'Automatisierungsaufgaben konnten nicht geladen werden.',
   'list.retry': 'Erneut versuchen',
@@ -138,7 +138,7 @@ export const de = {
 
 /** Russian dictionary, checked against the English keys. */
 export const ru = {
-  'trigger.label': 'Задачи автоматизации',
+  'trigger.label': 'Запланированные задачи',
   'list.loading': 'Загрузка задач автоматизации…',
   'list.error': 'Не удалось загрузить задачи автоматизации.',
   'list.retry': 'Повторить',
@@ -159,7 +159,7 @@ export const ru = {
 
 /** Portuguese dictionary, checked against the English keys. */
 export const pt = {
-  'trigger.label': 'Tarefas de automação',
+  'trigger.label': 'Tarefas agendadas',
   'list.loading': 'Carregando tarefas de automação…',
   'list.error': 'Não foi possível carregar as tarefas de automação.',
   'list.retry': 'Tentar novamente',

@@ -554,7 +554,7 @@ describe('Task manager catalog', () => {
 
   it('lists cross-session active records by target time without unsupported actions', () => {
     mount()
-    expect(screen.getByRole('heading', { level: 1, name: 'Automation tasks' })).toBeDefined()
+    expect(screen.getByRole('heading', { level: 1, name: 'Scheduled tasks' })).toBeDefined()
     expect(taskNames()).toEqual(['Send summary', 'Review release', 'Check metrics'])
     expect(screen.queryByText(alpha)).toBeNull()
     expect(screen.queryByText(beta)).toBeNull()
@@ -1656,7 +1656,7 @@ describe('Task manager details', () => {
 
   it('renders Chinese labels and local time without translating stored user data', () => {
     mount({}, zh)
-    expect(screen.getByRole('heading', { level: 1, name: '自动化任务' })).toBeDefined()
+    expect(screen.getByRole('heading', { level: 1, name: '定时任务' })).toBeDefined()
     expect(screen.getByRole('searchbox', { name: '搜索任务' })).toBeDefined()
     const statuses = screen.getByRole('group', { name: '任务状态' })
     expect(within(statuses).getAllByRole('button')[0]?.textContent).toBe('已开启')
@@ -1686,7 +1686,7 @@ describe('Task manager details', () => {
     h.view.rerender(<TaskManagerPage {...h.props} t={makeTranslate(zh)} />)
     expect(time?.textContent).toBe(absoluteNextRun(at.scheduledAt, zh))
     expect(relativeText(row)).toBe(relativeNextRun(at.scheduledAt, zh))
-    expect(screen.getByRole('heading', { level: 1, name: '自动化任务' })).toBeDefined()
+    expect(screen.getByRole('heading', { level: 1, name: '定时任务' })).toBeDefined()
   })
 
   it('states the next run in the device zone even when the rule stores another one', () => {

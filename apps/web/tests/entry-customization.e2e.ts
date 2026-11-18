@@ -28,16 +28,16 @@ describe('default navigation entry customization', () => {
   it('keeps navigation outside More and offers only browsing and creation after reload', async () => {
     onTestFailed(() => saveFailureShot(page, 'entry-customization'))
     const nav = page.getByRole('navigation', { name: 'Global panels' })
-    const tasks = nav.getByRole('button', { name: 'Automation tasks', exact: true })
+    const tasks = nav.getByRole('button', { name: 'Scheduled', exact: true })
     const more = nav.getByRole('button', { name: 'More', exact: true })
     await tasks.waitFor()
     await tasks.click()
-    await page.getByRole('heading', { name: 'Automation tasks', exact: true }).waitFor()
+    await page.getByRole('heading', { name: 'Scheduled tasks', exact: true }).waitFor()
     for (const reload of [false, true]) {
       if (reload) {
         await page.reload({ waitUntil: 'load' })
         await tasks.click()
-        await page.getByRole('heading', { name: 'Automation tasks', exact: true }).waitFor()
+        await page.getByRole('heading', { name: 'Scheduled tasks', exact: true }).waitFor()
       }
       await tasks.waitFor()
       await more.click()
@@ -50,7 +50,7 @@ describe('default navigation entry customization', () => {
       await menu.waitFor({ state: 'detached' })
       expect(await nav.getByRole('button', { name: 'Plugins', exact: true }).getAttribute('aria-current')).toBe('page')
       await tasks.click()
-      await page.getByRole('heading', { name: 'Automation tasks', exact: true }).waitFor()
+      await page.getByRole('heading', { name: 'Scheduled tasks', exact: true }).waitFor()
     }
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])
