@@ -548,6 +548,32 @@ async fn reload_applies_a_regenerated_preset_and_reports_the_diff() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn guarded_removal_only_publishes_a_preset_without_the_target() {
+    let dir = tempfile::tempdir().unwrap();
+    let preset = write_preset(dir.path(), PRESET_TWO);
+    let base = serve_preset(&preset).await;
+    let replacement = dir.path().join("remove.ini");
+    std::fs::write(&replacement, PRESET_TWO).unwrap();
+    let request = serde_json::json!({
+        "preset_path": preset,
+        "replacement_preset_path": replacement,
+        "remove_if_unloaded": "beta",
+    }).to_string();
+    let (status, body) = post(&base, "/models/reload", &request, Some(KEY)).await;
+    assert_eq!(status, 400, "{body}");
+    assert_eq!(std::fs::read_to_string(&preset).unwrap(), PRESET_TWO);
+
+    std::fs::write(&replacement, PRESET_ONE).unwrap();
+    let (status, body) = post(&base, "/models/reload", &request, Some(KEY)).await;
+    assert_eq!(status, 200, "{body}");
+    let reply: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(reply["guarded_removal"], "beta");
+    assert_eq!(reply["removed"], serde_json::json!(["beta"]));
+    assert_eq!(std::fs::read_to_string(&preset).unwrap(), PRESET_ONE);
+    assert!(!replacement.exists());
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn an_alias_selects_its_target_and_follows_a_reload() {
     let dir = tempfile::tempdir().unwrap();
     let preset = write_preset(
