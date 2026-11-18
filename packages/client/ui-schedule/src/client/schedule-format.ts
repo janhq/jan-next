@@ -496,6 +496,20 @@ export function formatScheduleRelative(
 }
 
 /**
+ * Format a past instant as locale-worded elapsed time in its largest natural unit.
+ * @param at - durable UTC instant at or before `now`.
+ * @param now - current epoch milliseconds.
+ * @param locale - BCP-47 locale owning the wording.
+ * @returns for example `15 hours ago` or `yesterday`.
+ */
+export function formatScheduleAgo(at: string, now: number, locale: string): string {
+  const seconds = Math.max(0, (now - Date.parse(at)) / SECOND_MS)
+  const selected = UNIT_SECONDS.find(candidate => seconds >= candidate.seconds) ?? SECOND_UNIT
+  return new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
+    .format(-Math.floor(seconds / selected.seconds), selected.unit)
+}
+
+/**
  * Order overdue records first and future records by ascending target time.
  * @param records - reminders to order without mutating the input.
  * @param now - current epoch milliseconds used to identify overdue targets.

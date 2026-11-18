@@ -119,11 +119,14 @@ export type TaskDetailProps = TaskDetailCommonProps & ({
   readonly authoritative: boolean
   readonly onCreateTask?: never
   readonly onCreated?: never
+  readonly template?: never
 } | {
   readonly task?: undefined
   readonly authoritative?: never
   readonly onCreateTask: (request: ScheduleCreateRequest) => Promise<TaskCreateOutcome>
   readonly onCreated: (task: ScheduleCatalogEntry) => void
+  /** Values the form starts with, such as a chosen template; omission starts blank. */
+  readonly template?: TaskEditorDraft | undefined
 })
 
 /** One task detail's selected tab, confirmation, and retained catalog row. */
@@ -199,7 +202,7 @@ function TaskDetailView(props: TaskDetailProps): ReactNode {
   const workspaces = useWorkspaces(snapshot => snapshot)
   const key = task === undefined ? 'new' : `task:${task.id}`
   const stored = props.useStore(state => state.drafts[key])
-  const [seed] = useState(newTaskDraft)
+  const [seed] = useState(() => props.template ?? newTaskDraft())
   const initial = stored?.initial ?? seed
   const changes = useMemo(() => stored?.base === undefined ? undefined : taskDraftPatch(stored.draft, stored.base),
     [stored?.draft, stored?.base])
