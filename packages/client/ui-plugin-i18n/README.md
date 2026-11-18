@@ -35,7 +35,7 @@ A stored table registers through `ctx.locale.registerGenerated`, below every reg
 
 ### Tool titles
 
-`ctx.pluginI18n.titles` is an observable of `{ display, request }`. `display` returns the cached translation of an exact title or the title itself; `request` queues titles written in a script the UI locale does not use, debounced and batched, once per title and locale. Nothing is requested before consent, per package or global. The tool card receives the view through its injected `titles` hook.
+`ctx.pluginI18n.titles` is an observable of `{ display, request }`. `display` returns the cached translation of an exact title or the title itself; `request` queues titles written in a script the UI locale does not use, debounced and batched, once per title and locale. New title requests require global consent; cached translations can still be displayed with package consent. The tool card receives the view through its injected `titles` hook.
 
 ### On-screen text
 
@@ -97,7 +97,7 @@ None; this package neither assembles nor sends a provider request.
 
 <a id="known-limitations-and-deferred-work"></a>
 
-- **No tool owner** — a tool card does not know which plugin registered the tool, so consent for any package also translates titles from other plugins.
+- **No tool owner** — a tool card does not know which plugin registered the tool, so new title translations require global consent.
 - **Boot-time attribution** — namespaces of plugins that activated before this plugin started are not attributed, so only their titles and later activations are covered.
 - **One source locale per request** — namespaces whose source locale differs from the request's are left out.
 

@@ -132,8 +132,8 @@ export function languageName(locale: string): string {
   }
 }
 
-/** Whether runtime strings may be sent for translation. */
-function titlesAllowed(consent: PluginI18nConsent): boolean {
+/** Whether cached runtime translations may be displayed. */
+function showCachedTitles(consent: PluginI18nConsent): boolean {
   return consent.global || consent.packages.length > 0
 }
 
@@ -404,7 +404,7 @@ export class PluginI18nClient implements PluginI18nService {
     return {
       display: (text) => {
         const translation = this.cache.get(text)
-        return translation !== undefined && titlesAllowed(this.getSnapshot().consent) ? translation : text
+        return translation !== undefined && showCachedTitles(this.getSnapshot().consent) ? translation : text
       },
       request: (text) => { this.requestTitle(text) },
     }
@@ -498,7 +498,7 @@ export class PluginI18nClient implements PluginI18nService {
   /** Queue a foreign-script string for translation, once per string and locale. */
   private requestTitle(text: string): void {
     if (this.disposed || this.cache.has(text) || this.requested.has(text)) return
-    if (!titlesAllowed(this.getSnapshot().consent) || !mismatchesLocale(text, this.locale())) return
+    if (!this.getSnapshot().consent.global || !mismatchesLocale(text, this.locale())) return
     this.requested.add(text)
     this.queue.add(text)
     clearTimeout(this.timer)
@@ -507,6 +507,11 @@ export class PluginI18nClient implements PluginI18nService {
 
   /** Send queued strings in batches; strings without a translation are not asked for again. */
   private async flushTitles(): Promise<void> {
+    if (!this.getSnapshot().consent.global) {
+      for (const text of this.queue) this.requested.delete(text)
+      this.queue.clear()
+      return
+    }
     const locale = this.locale()
     const batch = [...this.queue].slice(0, TITLE_BATCH)
     for (const text of batch) this.queue.delete(text)

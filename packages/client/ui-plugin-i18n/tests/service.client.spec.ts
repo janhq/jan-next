@@ -253,6 +253,40 @@ describe('PluginI18nClient', () => {
       expect(view.display('工程图 body1')).toBe('工程图 body1')
     })
 
+    it('does not request uncached titles on package consent alone and can request them after global consent', async () => {
+      const h = await harness('en')
+      h.state.consent = { global: false, packages: ['p'] }
+      h.state.tables = { locale: 'en', packages: {}, strings: { '导出': 'Export' }, runtime: { p: ['导出'] } }
+      h.state.strings = { '装配': 'Assembly' }
+      await h.client.refresh()
+      const view = h.client.titles.getSnapshot()
+      expect(view.display('导出')).toBe('Export')
+      view.request('装配')
+      await vi.advanceTimersByTimeAsync(200)
+      expect(h.face.translateStrings).not.toHaveBeenCalled()
+
+      await h.client.setGlobal(true)
+      h.client.titles.getSnapshot().request('装配')
+      await vi.advanceTimersByTimeAsync(200)
+      expect(h.face.translateStrings).toHaveBeenCalledExactlyOnceWith(['装配'], 'en')
+      expect(h.client.titles.getSnapshot().display('装配')).toBe('Assembly')
+    })
+
+    it('drops queued titles when global consent is withdrawn before the batch is sent', async () => {
+      const h = await harness('en')
+      h.state.consent = { global: true, packages: ['p'] }
+      await h.client.refresh()
+      h.client.titles.getSnapshot().request('装配')
+      await h.client.setGlobal(false)
+      await vi.advanceTimersByTimeAsync(200)
+      expect(h.face.translateStrings).not.toHaveBeenCalled()
+
+      await h.client.setGlobal(true)
+      h.client.titles.getSnapshot().request('装配')
+      await vi.advanceTimersByTimeAsync(200)
+      expect(h.face.translateStrings).toHaveBeenCalledExactlyOnceWith(['装配'], 'en')
+    })
+
     it('batches foreign-script titles, skips matching ones, and shows the source until the translation arrives', async () => {
       const h = await harness('en')
       h.state.consent = { global: true, packages: [] }
