@@ -98,6 +98,19 @@ it('keeps device choices available after permission denial', async () => {
   } finally { b.unmount(); await Promise.all(b.recordings.map(recording => recording.dispose())) }
 })
 
+it('clears a failed preview error when choosing another device with preview off', async () => {
+  const b = fixture()
+  b.getUserMedia.mockRejectedValueOnce(new DOMException('denied', 'NotAllowedError'))
+  try {
+    fireEvent.click(screen.getByRole('button', { name: zh.startPreview }))
+    await screen.findByText(zh.permission)
+    expect(screen.queryByRole('img', { name: zh.inputLevel })).toBeNull()
+    fireEvent.change(selector(), { target: { value: 'usb' } })
+    await waitFor(() => { expect(b.selection.getSnapshot().id).toBe('usb') })
+    expect(screen.queryByText(zh.permission)).toBeNull()
+  } finally { b.unmount(); await Promise.all(b.recordings.map(recording => recording.dispose())) }
+})
+
 it.each([null, 'usb', { id: 3, label: 'USB' }, { id: 'usb' }])('ignores invalid persisted microphone fields: %j', (saved) => {
   localStorage.setItem('jan.voice-input.microphone', JSON.stringify(saved))
   expect(createMicrophoneDeviceStore().getSnapshot()).toEqual({ id: '', label: '' })

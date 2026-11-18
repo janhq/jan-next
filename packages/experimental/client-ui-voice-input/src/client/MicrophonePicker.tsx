@@ -48,7 +48,7 @@ export function MicrophonePicker({ useMicrophoneDevice, selectMicrophone, create
       capture = undefined
     }
     setPreview(undefined)
-    if (previewEnabled) setError(undefined)
+    setError(undefined)
     const fail = (failure: unknown): void => {
       if (lifetime.signal.aborted) return
       setError({ failure })
@@ -88,9 +88,9 @@ export function MicrophonePicker({ useMicrophoneDevice, selectMicrophone, create
         const defaultLabel = physicalDefault?.label || activeDefault?.label || system?.label || ''
         // Our system row replaces default; communications keeps the OS's separate default communications input.
         const choices: DeviceChoice[] = [{ id: '', label: defaultLabel, unavailable: inputs.length === 0 },
-        ...inputs.filter(device => device.deviceId !== '' && device.deviceId !== 'default').map(device => ({
-          id: device.deviceId, label: device.label,
-        }))]
+          ...inputs.filter(device => device.deviceId !== '' && device.deviceId !== 'default').map(device => ({
+            id: device.deviceId, label: device.label,
+          }))]
         setDevices((previous) => {
           const next = [...choices]
           if (selected.id !== '' && !next.some(device => device.id === selected.id)) {
