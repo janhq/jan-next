@@ -1,5 +1,7 @@
 /** Complete-log continuation projection, including recovery and publication. */
 import { Context } from '@janhq/cordis'
+import { brandString } from '@janhq/jan-brand'
+import type { CompactionId } from '@janhq/jan-compaction/types'
 import SessionStore, { SessionId, SessionSeq, SessionLogOffset } from '@janhq/jan-session'
 import SessionProjectionRegistry from '@janhq/jan-session-projection'
 import { createAssistantMessage, createUserMessage } from '@janhq/jan-llm'
@@ -21,9 +23,8 @@ it.each(['RATE_LIMIT', 'SERVER', 'TIMEOUT', 'TRANSPORT', 'EMPTY_RESPONSE', 'STRE
     expect(definition.wire.view(fold(events(failed(code))))).toBe(5)
   },
 )
-it('accepts a context-window failure for an admitted turn after the local model is resized', () => {
-  expect(definition.wire.view(fold(events(failed('CONTEXT_WINDOW_EXCEEDED'))))).toBe(5)
-  expect(definition.wire.view(fold(events(failed('INVALID_REQUEST'))))).toBeNull()
+it('publishes a context-window failure as needing recovery, not ready to continue', () => {
+  expect(definition.wire.view(fold(events(failed('CONTEXT_WINDOW_EXCEEDED'))))).toEqual({ overflow: 5 })
 })
 it.each(['AUTH', 'QUOTA', 'ACCOUNT_QUOTA', 'MISSING_CREDENTIAL', 'INVALID_CREDENTIAL', 'UNKNOWN_MODEL',
   'INVALID_REQUEST', 'TOOL_ACTIVATION_FAILED', 'MALFORMED_RESPONSE', 'PI_AI_ERROR', 'UNKNOWN'])(
@@ -73,18 +74,31 @@ it('keeps unrelated events and repeated settlements reference-stable', () => {
   expect(reset.failedAttempt).toBe(false)
 })
 
-it('keeps a context-window failure retryable after a manual compaction rewrites older history', () => {
+it('makes a context-window failure continuable only after a successful standalone compaction', () => {
   const base = events(failed('CONTEXT_WINDOW_EXCEEDED'))
-  const user = base.find(event => event.type === 'user/message')!
-  const at = (seq: number) => SessionSeq(seq)
-  // The shapes `/compact` appends after the failed turn: a lifecycle pair and a replacing checkpoint, never a turn/start.
-  const compaction: SessionEvent[] = [
-    { type: 'compaction/start', seq: at(6), time: 0 },
-    { type: 'compaction/summary', seq: at(7), time: 0 },
-    { ...user, seq: at(8), surfaceOp: { op: 'replace', startSeq: at(0), endSeq: at(1) } },
-    { type: 'compaction/end', seq: at(9), time: 0 },
-  ] as never
-  expect(definition.wire.view(fold([...base, ...compaction]))).toBe(5)
+  const compactionId = brandString<CompactionId>('manual-compact')
+  const start: SessionEvent<'compaction/start'> = {
+    type: 'compaction/start', seq: SessionSeq(6), time: 0, data: { compactionId, turn: null },
+  }
+  const summary: SessionEvent<'compaction/summary'> = {
+    type: 'compaction/summary', seq: SessionSeq(7), time: 0,
+    data: {
+      compactionId, summary: [{ type: 'text', text: 'Summary' }], provider: 'mock', model: 'mock',
+      shadowedRange: { start: SessionSeq(2), end: SessionSeq(2) }, shadowedSeqs: [SessionSeq(2)], shadowedTokenCount: 8,
+    },
+  }
+  const replacement: SessionEvent<'user/message'> = {
+    type: 'user/message', seq: SessionSeq(8), time: 0,
+    data: createUserMessage({ content: summary.data.summary, source: { kind: 'compact-checkpoint', compactionId } }),
+    surfaceOp: { op: 'replace', startSeq: SessionSeq(2), endSeq: SessionSeq(2) },
+  }
+  const end: SessionEvent<'compaction/end'> = {
+    type: 'compaction/end', seq: SessionSeq(9), time: 0, data: { compactionId, turn: null },
+  }
+  expect(definition.wire.view(fold([...base, start]))).toEqual({ overflow: 5 })
+  expect(definition.wire.view(fold([...base, start, { ...end, data: { ...end.data, error: 'cancelled' } }]))).toEqual({ overflow: 5 })
+  expect(definition.wire.view(fold([...base, start, summary, replacement]))).toEqual({ overflow: 5 })
+  expect(definition.wire.view(fold([...base, start, summary, replacement, end]))).toBe(5)
 })
 
 it('restores a checkpoint plus suffix identically to full replay and retires on a new turn', () => {
@@ -95,6 +109,7 @@ it('restores a checkpoint plus suffix identically to full replay and retires on 
   const ended = fold(base)
   expect(definition.apply(ended, { type: 'turn/start', seq: SessionSeq(6), time: 1, data: { turn: 2 } }).ending).toBeNull()
   expect(definition.wire.viewSchema.parse(ended.ending)).toBe(5)
+  expect(definition.wire.viewSchema.parse({ overflow: 5 })).toEqual({ overflow: 5 })
   expect(() => definition.stateSchema.parse({ ...ended, ending: -1 })).toThrow()
   expect(() => definition.wire.viewSchema.parse('5')).toThrow()
 })
@@ -129,7 +144,7 @@ it('publishes a complete-log result independently of the visible page and releas
   expect(ctx.sessionProjections.snapshot(session).values.conversationContinuation).toBe(ending)
   expect(changed.mock.calls.map(([, key, value]) => [key, value])).toEqual([['conversationContinuation', null], ['conversationContinuation', ending]])
   expect(ctx.sessionProjections.checkpoint(session).conversationContinuation)
-    .toEqual({ ver: 4, seq: ending, val: { admitted: false, failedAttempt: false, ending } })
+    .toEqual({ ver: 5, seq: ending, val: { admitted: false, failedAttempt: false, ending } })
   session.append('turn/start', { turn: 2 })
   expect(ctx.sessionProjections.snapshot(session).values.conversationContinuation).toBeNull()
   expect(changed).toHaveBeenCalledTimes(3)
@@ -145,12 +160,17 @@ it('restores valid, absent and outdated checkpoints through the registry', async
   await ctx.sessionProjections.register(definition)
   const session = ctx.sessions.create(SessionId('restored'))
   const log = events(failed('SERVER'))
-  const checkpoint = { conversationContinuation: { ver: 4, seq: SessionSeq(2), val: fold(log.slice(0, 3)) } }
+  const checkpoint = { conversationContinuation: { ver: 5, seq: SessionSeq(2), val: fold(log.slice(0, 3)) } }
   const restore = (rows: typeof checkpoint | Record<string, never>, tail: readonly SessionEvent[], base: number) =>
     ctx.sessionProjections.restore(rows, tail, SessionLogOffset(base), session.header, session.inheritedEventCount)
   expect(restore(checkpoint, log.slice(3), 3).snapshot.values.conversationContinuation).toBe(5)
   expect(restore({}, log, 0).snapshot.values.conversationContinuation).toBe(5)
-  const outdated = { conversationContinuation: { ...checkpoint.conversationContinuation, ver: 3 } }
+  const overflow = events(failed('CONTEXT_WINDOW_EXCEEDED'))
+  const outdated = { conversationContinuation: { ...checkpoint.conversationContinuation, ver: 4 } }
+  const staleOverflow = {
+    conversationContinuation: { ver: 4, seq: SessionSeq(5), val: { admitted: false, failedAttempt: false, ending: 5 } },
+  }
+  expect(restore(staleOverflow, overflow, 0).snapshot.values.conversationContinuation).toEqual({ overflow: 5 })
   expect(restore(outdated, log, 0).snapshot.values.conversationContinuation).toBe(5)
   expect(() => restore(outdated, log.slice(3), 3)).toThrow('re-read from seq 0')
   expect(() => restore({}, log.slice(3), 3)).toThrow('re-read from seq 0')

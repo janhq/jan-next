@@ -1680,6 +1680,9 @@ importers:
       '@janhq/jan-commands':
         specifier: workspace:*
         version: link:../../interaction/commands
+      '@janhq/jan-compaction':
+        specifier: workspace:*
+        version: link:../../compaction/compaction
       '@janhq/jan-file-reference':
         specifier: workspace:*
         version: link:../../context/file-reference

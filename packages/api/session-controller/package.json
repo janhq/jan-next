@@ -133,6 +133,7 @@
     "@janhq/jan-client-store": "workspace:*",
     "@janhq/jan-client-test-runtime": "workspace:*",
     "@janhq/jan-commands": "workspace:*",
+    "@janhq/jan-compaction": "workspace:*",
     "@janhq/jan-file-reference": "workspace:*",
     "@janhq/jan-fs": "workspace:*",
     "@janhq/jan-fs-local": "workspace:*",

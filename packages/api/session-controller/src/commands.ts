@@ -323,14 +323,33 @@ export class SessionCommandController {
     if (this.hasPromptRequest(agent.session, request.requestId)) return { accepted: true }
     if (request.content.length === 0) {
       try {
-        return await agent.runMaintenance(() => {
+        return await agent.runMaintenance(async (signal) => {
           const inbox = agent.inbox
-          if (request.mode !== 'queue' || this.continuation.stateOf(agent.session).ending === null
-            || inbox.nextTurn.length > 0 || inbox.nextStep.some(message => message.source.kind === 'user')) {
+          const hasPendingTurnInput = () => inbox.nextTurn.length > 0 || inbox.nextStep.some(message => message.source.kind === 'user')
+          const { ending } = this.continuation.stateOf(agent.session)
+          if (request.mode !== 'queue' || ending === null || hasPendingTurnInput()) {
             throw new RemoteError('session/agent-busy', 'generation continuation is unavailable', { reason: 'NO_CONTINUABLE_FAILURE_OR_PENDING_INPUT' })
           }
+          if (typeof ending === 'object') {
+            const failedWindow = agent.session.requestContext()?.contextWindow
+            const selected = agent.model.current()
+            if (failedWindow === undefined || selected === undefined) {
+              throw new RemoteError('session/agent-busy', 'compact the conversation before continuing', { reason: 'CONTEXT_RECOVERY_REQUIRED' })
+            }
+            const model = await this.ctx.llm.resolveModelInfo(selected.provider, selected.model, signal)
+            signal.throwIfAborted()
+            const current = agent.model.current()
+            if ((model.context?.contextWindow ?? 0) <= failedWindow
+              || current?.provider !== selected.provider || current.model !== selected.model) {
+              throw new RemoteError('session/agent-busy', 'compact the conversation or increase the model context before continuing', { reason: 'CONTEXT_RECOVERY_REQUIRED' })
+            }
+            // Route lookup may yield while another caller queues new human work.
+            if (hasPendingTurnInput()) {
+              throw new RemoteError('session/agent-busy', 'generation continuation is unavailable', { reason: 'NO_CONTINUABLE_FAILURE_OR_PENDING_INPUT' })
+            }
+          }
           agent.followup(createUserMessage({ content: [], source }))
-          return Promise.resolve({ accepted: true as const })
+          return { accepted: true as const }
         })
       } catch (error: unknown) {
         if (remoteErrorOf(error) !== undefined) throw error

@@ -16,8 +16,8 @@ import type { WorkspaceId } from '@janhq/jan-workspace/types'
 
 declare module '@janhq/jan-session-projection/types' {
   interface SessionProjectionMap {
-    /** Eligible latest failed turn/end for an empty prompt, or null. */
-    conversationContinuation: SessionSeq | null
+    /** Latest eligible failed turn/end; an overflow still needing recovery carries its sequence separately. */
+    conversationContinuation: SessionSeq | { readonly overflow: SessionSeq } | null
     /** Persisted facts used to summarize a Session without activating it. */
     sessionListMetadata: SessionListMetadata
     /**

@@ -1,16 +1,19 @@
 /** Constant-size continuation eligibility over the complete durable Session. */
 import type {} from './types.ts'
+import type {} from '@janhq/jan-compaction/types'
 import type { ProjectionDefinition } from '@janhq/jan-session-projection'
 import type { SessionSeq } from '@janhq/jan-session/types'
 import { brandNumber } from '@janhq/jan-brand'
+import { CONTEXT_WINDOW_EXCEEDED_CODE } from '@janhq/jan-llm'
 import { z } from 'zod'
 
 // Explicit manual requests use a fixed product policy, independent of automatic retry configuration.
 const CONTINUABLE_FAILURES: ReadonlySet<string> = new Set([
-  'RATE_LIMIT', 'SERVER', 'TIMEOUT', 'TRANSPORT', 'EMPTY_RESPONSE', 'STREAM_CLOSED', 'CONTEXT_WINDOW_EXCEEDED',
+  'RATE_LIMIT', 'SERVER', 'TIMEOUT', 'TRANSPORT', 'EMPTY_RESPONSE', 'STREAM_CLOSED',
 ])
 
-const endingSchema = z.number().int().nonnegative().transform(brandNumber<SessionSeq>).nullable()
+const sequenceSchema = z.number().int().nonnegative().transform(brandNumber<SessionSeq>)
+const endingSchema = z.union([sequenceSchema, z.object({ overflow: sequenceSchema })]).nullable()
 const stateSchema = z.object({
   admitted: z.boolean(),
   failedAttempt: z.boolean(),
@@ -25,7 +28,7 @@ const EMPTY: ContinuationState = { admitted: false, failedAttempt: false, ending
 /** Eligibility requires admitted human work and a failed settlement in the last request step. */
 export const continuationProjectionDefinition = {
   key: 'conversationContinuation',
-  stateVersion: 4,
+  stateVersion: 5,
   stateSchema,
   init: (): ContinuationState => EMPTY,
   apply: (state, event) => {
@@ -43,10 +46,14 @@ export const continuationProjectionDefinition = {
       case 'assistant/attempt':
         return state.failedAttempt ? state : { ...state, failedAttempt: true }
       case 'turn/end': {
-        const ending = event.data.reason.kind === 'error' && CONTINUABLE_FAILURES.has(event.data.reason.error.code)
-          && state.admitted && state.failedAttempt ? event.seq : null
-        return ending === null ? EMPTY : { ...EMPTY, ending }
+        if (event.data.reason.kind !== 'error' || !state.admitted || !state.failedAttempt) return EMPTY
+        const { code } = event.data.reason.error
+        if (code === CONTEXT_WINDOW_EXCEEDED_CODE) return { ...EMPTY, ending: { overflow: event.seq } }
+        return CONTINUABLE_FAILURES.has(code) ? { ...EMPTY, ending: event.seq } : EMPTY
       }
+      case 'compaction/end':
+        return state.ending !== null && typeof state.ending === 'object' && event.data.turn === null && event.data.error === undefined
+          ? { ...EMPTY, ending: state.ending.overflow } : state
       default:
         return state
     }
