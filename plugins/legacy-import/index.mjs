@@ -1,6 +1,6 @@
 import { readFile, readdir, realpath } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { resolve, join, extname, isAbsolute } from 'node:path'
+import { resolve, join, extname, isAbsolute, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import z from '@janhq/schemastery'
 import { credentialRef } from '@janhq/jan-credentials'
@@ -122,7 +122,9 @@ export function apply(ctx, config = {}) {
         else {
           if (/^https?:/i.test(url)) throw new Error('remote images are not downloaded')
           const path = url.startsWith('file:') ? fileURLToPath(url) : isAbsolute(url) ? url : resolve(folder, url)
-          data = await readFile(path); name = path.split(/[\\/]/).at(-1)
+          const actual = await realpath(path)
+          if (!actual.startsWith(`${folder}${sep}`)) throw new Error('image is outside the Jan data folder')
+          data = await readFile(actual); name = path.split(/[\\/]/).at(-1)
           mediaType = ({ '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif' })[extname(path).toLowerCase()]
           if (!mediaType) throw new Error('unrecognized local image format')
         }
