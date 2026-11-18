@@ -15,7 +15,7 @@ import { RemoteError } from '@janhq/jan-client-test-runtime'
 import type { RemoteResult } from '@janhq/jan-api-remotes/client'
 import { SessionId } from '@janhq/jan-session/types'
 import { LayoutController } from '@janhq/jan-client-ui-layout/client'
-import type { MainPanelId } from '@janhq/jan-client-ui-layout/client'
+import type { MainPanelId, PanelInfo } from '@janhq/jan-client-ui-layout/client'
 import { LocaleRuntime } from '@janhq/jan-client-locale/client'
 import type { DraftInitializationOptions, SessionInputResolver } from '@janhq/jan-client-ui-conversation/client'
 import type { RowToast } from '../src/client/contract/slots.ts'
@@ -287,11 +287,14 @@ function bench(options: BenchOptions = {}) {
   ctx.provide('locale', locale)
   const requestDraftInitialization = vi.fn<SessionInputResolver['requestDraftInitialization']>(() => 'applied')
   if (options.conversation !== false) ctx.provide('conversation', { input: { requestDraftInitialization } })
+  const panelInfo = createSnapshotStore<PanelInfo>({ activePanelId: null })
+  const unregisteredPanels = new Set<MainPanelId>()
   const layout = new LayoutController({
-    selectPanel: vi.fn(), retainMainPanels: vi.fn(), configureSidebar: vi.fn(),
+    selectPanel: vi.fn((panelId: MainPanelId | null) => { panelInfo.set({ activePanelId: panelId }) }),
+    retainMainPanels: vi.fn(), configureSidebar: vi.fn(),
     setSidebar: vi.fn(), toggleSidebar: vi.fn(), setViewportWidth: vi.fn(),
     setRightbar: vi.fn(), openRightbar: vi.fn(), closeRightbar: vi.fn(),
-  }, () => true, createSnapshotStore({ activePanelId: null }))
+  }, id => !unregisteredPanels.has(id), panelInfo)
   const selectPanel = vi.spyOn(layout, 'selectPanel')
   ctx.provide('layout', layout)
   ctx.effect(() => () => { layout.dispose() })
@@ -310,7 +313,10 @@ function bench(options: BenchOptions = {}) {
     view.actions,
     notify,
   )
-  return { ctx, directoryPicker, sessions, uiWorkspace, workspaces, layout, selectPanel, view, notify, requestDraftInitialization }
+  return {
+    ctx, directoryPicker, sessions, uiWorkspace, workspaces, layout, selectPanel, view, notify, requestDraftInitialization,
+    unregisteredPanels,
+  }
 }
 
 function lastOpening(open: MockInstance<UiWorkspaceService['openWorkspace']>): Promise<void> {
@@ -1566,5 +1572,241 @@ describe('UiWorkspaceService', () => {
     await expect(b.uiWorkspace.createDirectory('/home/u', 'new')).rejects.toMatchObject({
       rpcError: { code: 'directory-picker/exists' },
     })
+  })
+})
+
+describe('UiWorkspaceService navigation history', () => {
+  /** Sessions a, b, c (plus `extra`) in one Workspace, with `a` restored from the saved selection. */
+  function fixture(extra: readonly string[] = []) {
+    const backing = persistSelection({ sessionId: sid('a') })
+    const ids = ['a', 'b', 'c', ...extra]
+    const b = bench({
+      workspaces: workspaceState([workspace('w', ids.map(sid))]),
+      sessions: sessionState(ids.map(id => summary(id))),
+    })
+    // Test-owned persistence: the store writes exactly `{ sessionId }`, so the parse is a known shape.
+    const shown = (): string => {
+      const saved: { sessionId: string } = JSON.parse(backing.get('jan.sessions.current')!)
+      return saved.sessionId
+    }
+    const availability = () => b.uiWorkspace.navigationHistory.getSnapshot()
+    return { b, shown, availability }
+  }
+
+  it('goes back to the previous Session and forward again', () => {
+    const { b, shown, availability } = fixture()
+    expect(availability()).toEqual({ canGoBack: false, canGoForward: false })
+    b.uiWorkspace.openSession(sid('b'))
+    expect(shown()).toBe('b')
+    expect(availability()).toEqual({ canGoBack: true, canGoForward: false })
+    b.uiWorkspace.goBack()
+    expect(shown()).toBe('a')
+    expect(availability()).toEqual({ canGoBack: false, canGoForward: true })
+    b.uiWorkspace.goForward()
+    expect(shown()).toBe('b')
+    expect(availability()).toEqual({ canGoBack: true, canGoForward: false })
+  })
+
+  it('does nothing when the direction has no entry', () => {
+    const { b, shown } = fixture()
+    b.uiWorkspace.goBack()
+    b.uiWorkspace.goForward()
+    expect(shown()).toBe('a')
+    expect(b.sessions.retain).toHaveBeenCalledExactlyOnceWith(sid('a'), { source: 'mainView' })
+  })
+
+  it('releases the Session it leaves and retains the one it returns to', () => {
+    const { b } = fixture()
+    b.uiWorkspace.openSession(sid('b'))
+    b.uiWorkspace.goBack()
+    expect(b.sessions.retain.mock.calls.map(args => args[0])).toEqual([sid('a'), sid('b'), sid('a')])
+    const [first, second, third] = b.sessions.retained
+    expect(first!.release).toHaveBeenCalledOnce()
+    expect(second!.release).toHaveBeenCalledOnce()
+    expect(third!.release).not.toHaveBeenCalled()
+  })
+
+  it('does not record the replay as a navigation', () => {
+    const { b, availability } = fixture()
+    b.uiWorkspace.openSession(sid('b'))
+    b.uiWorkspace.openSession(sid('c'))
+    b.uiWorkspace.goBack()
+    b.uiWorkspace.goBack()
+    expect(availability()).toEqual({ canGoBack: false, canGoForward: true })
+    b.uiWorkspace.goForward()
+    b.uiWorkspace.goForward()
+    expect(availability()).toEqual({ canGoBack: true, canGoForward: false })
+  })
+
+  it('clears Forward when a new navigation follows Back', () => {
+    const { b, shown, availability } = fixture()
+    b.uiWorkspace.openSession(sid('b'))
+    b.uiWorkspace.goBack()
+    expect(availability().canGoForward).toBe(true)
+    b.uiWorkspace.openSession(sid('c'))
+    expect(availability()).toEqual({ canGoBack: true, canGoForward: false })
+    b.uiWorkspace.goForward()
+    expect(shown()).toBe('c')
+    b.uiWorkspace.goBack()
+    expect(shown()).toBe('a')
+  })
+
+  it('ignores re-opening the Session already shown', () => {
+    const { b, availability } = fixture()
+    b.uiWorkspace.openSession(sid('a'))
+    expect(availability()).toEqual({ canGoBack: false, canGoForward: false })
+  })
+
+  it('republishes availability only when a flag changes', () => {
+    const { b } = fixture()
+    const listener = vi.fn()
+    b.uiWorkspace.navigationHistory.subscribe(listener)
+    b.uiWorkspace.openSession(sid('b'))
+    expect(listener).toHaveBeenCalledOnce()
+    b.uiWorkspace.openSession(sid('c'))
+    expect(listener).toHaveBeenCalledOnce()
+  })
+
+  it('records opening and closing a global panel as entries', () => {
+    const { b, shown } = fixture()
+    const panel = () => b.layout.panelInfo.getSnapshot().activePanelId
+    b.layout.selectPanel('plugins' as MainPanelId)
+    b.layout.selectPanel(null)
+    b.uiWorkspace.goBack()
+    expect(panel()).toBe('plugins')
+    expect(shown()).toBe('a')
+    b.uiWorkspace.goBack()
+    expect(panel()).toBeNull()
+    expect(b.uiWorkspace.navigationHistory.getSnapshot()).toEqual({ canGoBack: false, canGoForward: true })
+    b.uiWorkspace.goForward()
+    expect(panel()).toBe('plugins')
+    b.uiWorkspace.goForward()
+    expect(panel()).toBeNull()
+  })
+
+  it('records a Session opened over a panel as one entry and returns to both', () => {
+    const { b, shown } = fixture()
+    const panel = () => b.layout.panelInfo.getSnapshot().activePanelId
+    b.layout.selectPanel('plugins' as MainPanelId)
+    b.uiWorkspace.openSession(sid('b'))
+    expect(panel()).toBeNull()
+    b.uiWorkspace.goBack()
+    expect([shown(), panel()]).toEqual(['a', 'plugins'])
+    b.uiWorkspace.goBack()
+    expect([shown(), panel()]).toEqual(['a', null])
+    expect(b.uiWorkspace.navigationHistory.getSnapshot().canGoBack).toBe(false)
+  })
+
+  it('moves between panels on different Sessions', () => {
+    const { b, shown } = fixture()
+    const panel = () => b.layout.panelInfo.getSnapshot().activePanelId
+    b.uiWorkspace.openSession(sid('b'))
+    b.layout.selectPanel('plugins' as MainPanelId)
+    b.uiWorkspace.goBack()
+    expect([shown(), panel()]).toEqual(['b', null])
+    b.uiWorkspace.goBack()
+    expect([shown(), panel()]).toEqual(['a', null])
+    b.uiWorkspace.goForward()
+    b.uiWorkspace.goForward()
+    expect([shown(), panel()]).toEqual(['b', 'plugins'])
+  })
+
+  it('skips an entry whose panel is no longer registered', () => {
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { b, shown } = fixture()
+    const panel = () => b.layout.panelInfo.getSnapshot().activePanelId
+    b.layout.selectPanel('plugins' as MainPanelId)
+    b.uiWorkspace.openSession(sid('b'))
+    b.unregisteredPanels.add('plugins' as MainPanelId)
+    b.uiWorkspace.goBack()
+    expect([shown(), panel()]).toEqual(['a', null])
+    expect(warning).toHaveBeenCalledOnce()
+    expect(b.uiWorkspace.navigationHistory.getSnapshot()).toEqual({ canGoBack: false, canGoForward: true })
+  })
+
+  it('skips a deleted Session and disables Back once nothing remains', () => {
+    const { b, shown, availability } = fixture()
+    b.uiWorkspace.openSession(sid('b'))
+    b.uiWorkspace.openSession(sid('c'))
+    b.sessions.list.set(sessionState([summary('a'), summary('c')]))
+    expect(availability().canGoBack).toBe(true)
+    b.uiWorkspace.goBack()
+    expect(shown()).toBe('a')
+    b.uiWorkspace.openSession(sid('c'))
+    b.sessions.list.set(sessionState([summary('c')]))
+    expect(availability()).toEqual({ canGoBack: false, canGoForward: false })
+    b.uiWorkspace.goBack()
+    expect(shown()).toBe('c')
+  })
+
+  it('skips an archived Session in both directions', () => {
+    const { b, shown } = fixture()
+    b.uiWorkspace.openSession(sid('b'))
+    b.uiWorkspace.openSession(sid('c'))
+    b.uiWorkspace.goBack()
+    b.uiWorkspace.goBack()
+    expect(shown()).toBe('a')
+    b.workspaces.list.set(workspaceState([workspace('w', ['a', 'b', 'c'].map(sid))], [sid('b')]))
+    b.uiWorkspace.goForward()
+    expect(shown()).toBe('c')
+    b.uiWorkspace.goBack()
+    expect(shown()).toBe('a')
+  })
+
+  it('leaves no entry when archiving the Session on display, and Back still reaches the one before', async () => {
+    const { b, shown, availability } = fixture()
+    b.uiWorkspace.openSession(sid('b'))
+    await b.uiWorkspace.archiveSession(sid('b'))
+    expect(availability()).toEqual({ canGoBack: true, canGoForward: false })
+    b.uiWorkspace.goBack()
+    expect(shown()).toBe('a')
+  })
+
+  it('does not create an entry when startup restoration opens a Session', () => {
+    const { availability } = fixture()
+    expect(availability()).toEqual({ canGoBack: false, canGoForward: false })
+  })
+
+  it('does not create an entry when startup restoration replaces a saved blank', async () => {
+    persistSelection({ sessionId: sid('blank') })
+    const b = bench({
+      workspaces: workspaceState([workspace('w', [sid('blank')])]),
+      sessions: sessionState([summary('blank', { blank: true, cwd: '/w/w' })]),
+    })
+    await vi.waitFor(() => { expect(b.sessions.retain).toHaveBeenCalledWith(sid('blank'), { source: 'mainView' }) })
+    expect(b.uiWorkspace.navigationHistory.getSnapshot()).toEqual({ canGoBack: false, canGoForward: false })
+  })
+
+  it('records New Session as an entry that Back undoes', async () => {
+    persistSelection({ sessionId: sid('a') })
+    const b = bench({
+      workspaces: workspaceState([workspace('w', [sid('a'), sid('blank')])]),
+      sessions: sessionState([summary('a'), summary('blank', { blank: true, cwd: '/w/w' })]),
+    })
+    b.uiWorkspace.startSession(wid('w'))
+    await vi.waitFor(() => { expect(b.uiWorkspace.navigationHistory.getSnapshot().canGoBack).toBe(true) })
+    b.uiWorkspace.goBack()
+    expect(b.sessions.retain.mock.calls.at(-1)![0]).toBe(sid('a'))
+  })
+
+  it('caps the stack at 50 entries, dropping the oldest', () => {
+    const extra = Array.from({ length: 60 }, (_, index) => `s${index}`)
+    const { b, shown, availability } = fixture(extra)
+    for (const id of extra) b.uiWorkspace.openSession(sid(id))
+    let steps = 0
+    while (availability().canGoBack) {
+      b.uiWorkspace.goBack()
+      steps += 1
+    }
+    expect(steps).toBe(50)
+    expect(shown()).toBe('s9')
+  })
+
+  it('ignores Back and Forward after disposal', async () => {
+    const { b, shown } = fixture()
+    b.uiWorkspace.openSession(sid('b'))
+    await b.ctx.fiber.dispose()
+    b.uiWorkspace.goBack()
+    expect(shown()).toBe('b')
   })
 })

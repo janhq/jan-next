@@ -48,6 +48,7 @@ import {
   type WorkspaceActionRequest, type SessionIdInjected, type WorkspaceBrowserInjected, type WorkspacePickerInjected,
 } from './contract/slots.ts'
 import { createWorkspaceShortcutControls, installWorkspaceShortcuts } from './shortcuts.ts'
+import { installNavigationShortcuts } from './navigation-shortcuts.ts'
 import { UiWorkspaceService } from './navigation.ts'
 import { createWorkspaceViewStore } from './stores.ts'
 import { WorkspaceBrowser } from './rows/WorkspaceBrowser.tsx'
@@ -62,6 +63,7 @@ import { WorkspacePicker } from './WorkspacePicker.tsx'
 import { en, ja, es, fr, de, ru, pt, zh, type WorkspaceKey } from './locales.ts'
 
 export type { StartSessionOptions, UiWorkspace } from './navigation.ts'
+export type { NavigationAvailability, NavigationLocation } from './history.ts'
 export type {
   DirectoryFlowOwnerProps, DirectoryFlowSlotName, DirectoryPickingHooks, DirectoryPickingInjected,
   MenuOpenState, RowToast, SessionRenameTarget, SessionRowOwnerProps, UseMenuOpenState, WorkspaceBrowserInjected,
@@ -221,6 +223,7 @@ export function apply(ctx: Context): void {
   })
   installWorkspaceShortcuts(ctx, uiWorkspace, shortcutControls, archiveInjected().archiveSession,
     (reason) => { notify({ kind: 'shortcutForkFailed', reason }) })
+  installNavigationShortcuts(ctx, uiWorkspace)
   const archiveConfirmInjected = (): SessionArchiveConfirmInjected => ({
     hooks: { archiveRequest },
     settleSessionArchive: () => { archiveRequest.set(null) },
@@ -293,7 +296,7 @@ export function apply(ctx: Context): void {
     resolve: ({ workspaceId, displayTitle }) => ctx.remoteAccess.source('workspace', workspaceId, 'workspace/delete').getSnapshot()
       ? [{
         id: 'delete', label: ctx.locale.bind(NS)('delete.workspace'), icon: { key: 'workspace.delete' }, danger: true, separatorBefore: true,
-        run: () => { requestWorkspaceAction(workspaceId, displayTitle, 'delete') }
+        run: () => { requestWorkspaceAction(workspaceId, displayTitle, 'delete') },
       }] : [],
   }), 'workspace: delete menu action')
   const browserInjected = (): WorkspaceBrowserInjected => ({
@@ -320,7 +323,7 @@ export function apply(ctx: Context): void {
     setDirectoryBusy: shortcutControls.directoryBusy,
     hooks: {
       primaryActions, workspaceActionRequest, contextMenuTarget: ctx.contextMenus.active, directoryFlow: browserFlowSource, hostInfo,
-      workspaceShortcuts: shortcutControls.state, shortcuts: ctx.shortcuts.catalog
+      workspaceShortcuts: shortcutControls.state, shortcuts: ctx.shortcuts.catalog,
     },
   })
   const pickerInjected = (): WorkspacePickerInjected => ({
@@ -371,7 +374,7 @@ export function apply(ctx: Context): void {
     children: {
       'sidebar.workspaces.session.menu.item': {
         kind: 'list', scope: 'root', inject: { hooks: { menuOpenState: menuOpenStateFactory, shortcuts: ctx.shortcuts.catalog } },
-      }
+      },
     },
   }, SessionMenu))
   registerSessionMenus(ctx, {
