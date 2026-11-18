@@ -46,6 +46,8 @@ Account profile and balance cards share the [settings card material and radius](
 
 The sidebar account menu uses the shared Menu surface and backdrop blur. The signed-in menu keeps the shared row typography; the signed-out menu carries its own wider rows. Both menus label the questionnaire entry Feedback. Its Settings row shows the effective key combination supplied by the shell. Closing Settings returns focus to the sidebar account launcher.
 
+View changelog and Learn more open Jan's pages in a right-Sidebar Browser tab beside the chat on screen, so the chat and its draft stay in view. Choosing the same link again in that chat reveals the tab it opened, expanding a collapsed Sidebar, instead of adding another; once that tab is closed the next click opens a new one. With no chat on screen, or without the Browser tab type, they open in the system browser.
+
 The account card’s More account information link has no underline and opens the root of the Host-provided Platform usage URL in the system browser, following `platformOrigin`.
 
 Sign out first queries running account-token tasks and opens a confirmation dialog. The warning describes interruption when such tasks exist; otherwise it explains that data is retained and the account can be signed in again. Cancel, close, and Escape dismiss without signing out. Failed impact queries still open confirmation with an explicit unknown-task warning; failed sign-out keeps the dialog available for retry.

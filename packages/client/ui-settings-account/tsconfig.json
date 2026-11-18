@@ -51,6 +51,12 @@
       "path": "../ui-chat/tsconfig.client.json"
     },
     {
+      "path": "../ui-sidebar-browser/tsconfig.client.json"
+    },
+    {
+      "path": "../ui-sidebar-right"
+    },
+    {
       "path": "../ui-layout"
     },
     {

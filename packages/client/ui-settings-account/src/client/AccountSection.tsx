@@ -71,7 +71,7 @@ export interface AccountSectionInjected {
   contactUs: () => void
   /** Open Settings at one registered section (`general` for Language, `models` for inference). */
   openSettingsSection?: (section: string) => void
-  /** Open an external page (changelog, docs) in the system browser. */
+  /** Open one of Jan's pages (changelog, docs): in the right-Sidebar Browser beside the chat on screen, otherwise in the system browser. */
   openLink?: (url: string) => void
   /** Open or dismiss the login dialog. */
   showLogin: (visible: boolean) => void

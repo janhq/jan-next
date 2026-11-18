@@ -8,6 +8,8 @@ import type {} from '@janhq/jan-client-ui-renderer/client'
 import type {} from '@janhq/jan-client-ui-theme/client'
 import type {} from '@janhq/jan-client-ui-chat/client'
 import type {} from '@janhq/jan-client-ui-layout/client'
+import type {} from '@janhq/jan-client-ui-sidebar-browser/client'
+import type {} from '@janhq/jan-client-ui-sidebar-right/client'
 import type {} from '@janhq/jan-api-remote-access/client'
 import type {} from '@janhq/jan-api-remotes/client'
 import type { AccountView, AccountDetails } from '@janhq/jan-tokamak-account/types'
@@ -184,6 +186,10 @@ export function apply(ctx: Context): void {
       onClose(reason)
       if (reason === 'returned' && page === 'top-up') void refreshAfterReturn(refreshing, reRead)
     })
+  type SidebarTabId = Parameters<NonNullable<Context['sidebarRight']>['focus']>[0]
+  // The Browser tab each menu link opened, per chat and page: a repeat click
+  // reveals that tab instead of stacking another copy of the same page.
+  const linkTabs = new Map<string, SidebarTabId>()
   const operations: AccountSectionInjected = {
     avatarFailed: (value) => { avatar.failed(value) },
     subscribeSessionExpired: listener => ctx.remote.$on('tokamak-account/session-expired', listener),
@@ -191,7 +197,32 @@ export function apply(ctx: Context): void {
     ...nativePlatform === undefined ? {} : { openPlatformPage: platformPageOpener(refreshAccount) },
     refreshAccount,
     openSettingsSection: (section) => { ctx.get('settingsNavigation')?.open(section) },
-    openLink: (url) => { window.open(url, '_blank', 'noopener,noreferrer') },
+    // Jan's own pages open beside the chat on screen, so reading them keeps the
+    // chat and its draft in view; with no chat on screen there is no Sidebar to
+    // hold them and they open in the system browser.
+    openLink: (url) => {
+      const sidebar = ctx.get('sidebarRight')
+      const sessionId = sidebar?.mounted.getSnapshot()
+      if (sidebar === undefined || sessionId === undefined || ctx.get('sidebarRightTabs')?.get('browser') === undefined) {
+        window.open(url, '_blank', 'noopener,noreferrer')
+        return
+      }
+      const key = `${sessionId}\0${url}`
+      const tabs = sidebar.openTabs.getSnapshot()
+      const known = linkTabs.get(key)
+      if (known !== undefined && tabs.some(tab => tab.sessionId === sessionId && tab.tabId === known)) {
+        sidebar.focus(known)
+        if (!sidebar.isExpanded()) sidebar.toggleExpanded()
+        return
+      }
+      const before = new Set(tabs.map(tab => tab.tabId))
+      sidebar.openTab('browser', { params: { url } })
+      // The layout store publishes synchronously, so the new tab is already listed.
+      const added = sidebar.openTabs.getSnapshot()
+        .find(tab => tab.sessionId === sessionId && tab.kind === 'browser' && !before.has(tab.tabId))
+      if (added === undefined) linkTabs.delete(key)
+      else linkTabs.set(key, added.tabId)
+    },
     contactUs() {
       // Sample the account, build and environment before awaiting native information, so
       // a profile the read outlasts cannot replace the UID this click reported.
