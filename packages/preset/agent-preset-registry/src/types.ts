@@ -67,4 +67,4 @@ declare module '@janhq/cordis' {
   }
 }
 
-export { }
+export {}
