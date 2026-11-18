@@ -4,6 +4,7 @@ import type { SignInAttemptId } from '@janhq/jan-tokamak-account/types'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { app, BrowserWindow, ipcMain, type BrowserWindowConstructorOptions, type IpcMainInvokeEvent } from 'electron'
+import { applicationIconPath } from './application-icon.ts'
 import type { DesktopLocale } from './locale.ts'
 import { WELCOME_IPC, type WelcomeOperations } from './welcome-api.ts'
 
@@ -24,6 +25,8 @@ export function welcomeWindowOptions(platform: NodeJS.Platform, locale: DesktopL
     fullscreenable: false,
     show: false,
     title: locale.messages.welcomeTitle,
+    // macOS takes the Dock icon from the bundle; elsewhere a source run would show Electron's icon.
+    ...(platform === 'darwin' ? {} : { icon: applicationIconPath() }),
     backgroundColor: platform === 'darwin' || platform === 'win32' ? '#00000000' : '#FFFFFF',
     ...(platform === 'darwin' ? {
       titleBarStyle: 'hidden',

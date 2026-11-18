@@ -377,7 +377,7 @@ export class LlamaCpp extends Service {
       await access(path, constants.X_OK)
     } catch (error) {
       this.ctx.logger.warn(`llama-cpp: the worker at ${path} is unusable: ${messageOf(error)}`)
-      throw new Error('The bundled local model worker is missing or not executable; reinstall the app, or from source run `pnpm run stage:llama-worker`', { cause: error })
+      throw new Error('The bundled local model worker is missing or not executable; reinstall the app, or from source run `make llama-worker` (builds and stages it)', { cause: error })
     }
     return path
   }

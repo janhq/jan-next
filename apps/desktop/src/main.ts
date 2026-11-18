@@ -7,6 +7,7 @@ import { DesktopUpdateSettings } from './update-settings.ts'
 import { isDesktopUpdateChannel } from './settings-file.ts'
 import type { ProductEventMap, ProductEvent } from '@janhq/jan-client-product-analytics/types'
 import { WINDOWS_TITLEBAR_HEIGHT } from './windows-layout.ts'
+import { applicationIconPath } from './application-icon.ts'
 import { access, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -60,6 +61,7 @@ import { readDesktopLoginShellEnvironment, resolveDesktopLoginShellConfig } from
 import { DesktopMandatoryUpdatePolicy, resolveDesktopPolicyConfig, type DesktopPolicyState } from './mandatory-update-policy.ts'
 import { desktopClientMetadata, desktopClientVersion } from './client-metadata.ts'
 import { DesktopMandatoryUpdateWindow } from './mandatory-update-window.ts'
+import { MANDATORY_IPC } from './mandatory-update-ipc.ts'
 import { DesktopPolicyTestAuth } from './policy-test-auth.ts'
 import { readDesktopSettings } from './settings.ts'
 import { readDesktopLocaleCache, writeDesktopLocaleCache } from './locale-cache.ts'
@@ -276,6 +278,8 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
     minWidth: 520,
     minHeight: 600,
     show,
+    // macOS takes the Dock icon from the bundle; elsewhere a source run would show Electron's icon.
+    ...(process.platform === 'darwin' ? {} : { icon: applicationIconPath() }),
     ...(process.platform === 'win32' && primary ? {
       titleBarStyle: 'hidden' as const,
       titleBarOverlay: { height: WINDOWS_TITLEBAR_HEIGHT, color: chromeFallbackFill(),
@@ -1143,15 +1147,13 @@ async function main(): Promise<void> {
     updates.dispose()
   })
 
-  const applicationIconPath = development ? join(app.getAppPath(), 'resources', 'icon-windows.png')
-    : join(process.resourcesPath, 'icon.png')
   app.setAboutPanelOptions({
     applicationName: 'Jan Alpha',
     applicationVersion: app.getVersion(),
     // The release has no separate build number; omit Electron's bundle version.
     version: '',
     copyright: '',
-    iconPath: applicationIconPath,
+    iconPath: applicationIconPath(),
   })
   // A custom application menu replaces Electron's default menu, so macOS needs
   // its standard menus and application hide commands declared explicitly.
@@ -1233,7 +1235,7 @@ async function main(): Promise<void> {
   const createTray = (): void => {
     try {
       tray = new DesktopTray({
-        ...process.platform === 'win32' ? { iconPath: trayIconPath } : { iconPath: applicationIconPath, edge: 32 },
+        ...process.platform === 'win32' ? { iconPath: trayIconPath } : { iconPath: applicationIconPath(), edge: 32 },
         locale: currentDesktopLocale, open: () => { focusPrimaryWindow() }, quit: () => { app.quit() } })
     } catch (error) { console.warn('desktop tray: unavailable', error) }
   }
@@ -1615,6 +1617,9 @@ async function main(): Promise<void> {
     void mandatoryPolicy.check('launch').then((state) => {
       if (app.isPackaged && state.error === 'authentication-required' && !isQuitting()) queuePolicyAuthentication()
     }).catch((error: unknown) => { console.error(error) })
+  } else {
+    // Every app window's preload asks for the block state; without a policy there is none to show.
+    ipcMain.handle(MANDATORY_IPC.status, () => null)
   }
   automaticCheck()
   await reconcileBackend().catch(() => undefined)

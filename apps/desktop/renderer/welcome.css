@@ -406,6 +406,12 @@ body {
   margin: 0;
 }
 
+/* The shared error style is anchored under the API-key field; here it follows the status in flow. */
+#local-page .key-error {
+  position: static;
+  user-select: text;
+}
+
 #local-progress {
   display: block;
   width: 100%;

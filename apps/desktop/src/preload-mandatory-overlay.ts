@@ -67,10 +67,11 @@ export function installMandatoryUpdateOverlay(): void {
     frame.focus()
   }
   ipcRenderer.on(MANDATORY_IPC.state, receive)
-  void ipcRenderer.invoke(MANDATORY_IPC.status).then((initial: MandatoryUpdateView) => {
-    if (!disposed && state === undefined) { state = initial; render() }
-  }, () => {
-    // Development may omit policy configuration; a later main-frame load still resynchronizes configured policy.
+  // Null means this run has no mandatory-update policy, so no block can appear.
+  void ipcRenderer.invoke(MANDATORY_IPC.status).then((initial: MandatoryUpdateView | null) => {
+    if (!disposed && state === undefined && initial !== null) { state = initial; render() }
+  }, (_closedChannel: unknown) => {
+    // A failed read leaves no block; a later main-frame load resynchronizes configured policy.
   })
   window.addEventListener('keydown', blockBackgroundKey, true)
   window.addEventListener('DOMContentLoaded', render, { once: true })
