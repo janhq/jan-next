@@ -20,6 +20,25 @@ test('brings keyed built-ins and every custom provider, never local engines or O
   assert.deepEqual(rows[2].models, [{ id: 'qwen3', name: 'Qwen 3' }])
 })
 
+test('custom routes never reuse catalog ids or another custom route, regardless of provider order', () => {
+  const providers = [
+    { provider: 'openai', base_url: 'https://api.openai.com/v1' },
+    { provider: 'OpenAI', base_url: 'https://custom.example/openai' },
+    { provider: 'azure', base_url: 'https://azure.example/v1' },
+    { provider: 'Azure', base_url: 'https://custom.example/azure' },
+    { provider: 'Foo Bar', base_url: 'https://custom.example/first' },
+    { provider: 'foo-bar', base_url: 'https://custom.example/second' },
+  ]
+  const keys = ['openai', 'azure']
+  const routes = rows => Object.fromEntries(rows.map(row => [row.id, row.route]))
+  const expected = routes(janProviders(providerState(providers), keys))
+  assert.equal(expected.openai, 'openai')
+  assert.notEqual(expected.azure, 'azure')
+  assert.equal(new Set(Object.values(expected)).size, providers.length)
+  assert.equal(new Set(Object.values(routes(janProviders(providerState(providers.toReversed()), keys)))).size, providers.length)
+  assert.deepEqual(routes(janProviders(providerState(providers.toReversed()), keys)), expected)
+})
+
 test('a custom provider without a usable endpoint is left behind', () => {
   assert.deepEqual(janProviders(providerState([{ provider: 'broken', base_url: 'not a url', models: [] }]), []), [])
 })

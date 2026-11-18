@@ -40,7 +40,7 @@ export function janProviders(settings, keyNames) {
   let providers = []
   try { providers = JSON.parse(settings?.['model-provider'] ?? 'null')?.state?.providers ?? [] } catch { return [] }
   const keyed = new Set(keyNames.filter(name => !name.startsWith('auth:')))
-  return providers.flatMap(provider => {
+  const rows = providers.flatMap(provider => {
     const id = provider?.provider
     if (typeof id !== 'string' || !id || LOCAL.has(id)) return []
     const hasKey = keyed.has(id)
@@ -54,6 +54,19 @@ export function janProviders(settings, keyNames) {
       .map(model => ({ id: model.id, ...(typeof model.name === 'string' && model.name && model.name !== model.id ? { name: model.name } : {}) }))
     return [{ id, route: routeOf(id), catalog, baseURL, models, hasKey }]
   })
+  const used = new Set([...Object.keys(BUILT_IN), ...Object.values(BUILT_IN).filter(Boolean)])
+  for (const row of rows.filter(row => !row.catalog).sort((a, b) => a.id.localeCompare(b.id) || a.baseURL.localeCompare(b.baseURL))) {
+    const base = row.route
+    let route = base
+    if (used.has(route)) {
+      const suffix = `-${createHash('sha256').update(row.id).digest('hex').slice(0, 12)}`
+      route = `${base.slice(0, 64 - suffix.length)}${suffix}`
+      for (let index = 2; used.has(route); index++) route = `${base.slice(0, 64 - suffix.length - String(index).length - 1)}${suffix}-${index}`
+    }
+    row.route = route
+    used.add(route)
+  }
+  return rows
 }
 
 /**
