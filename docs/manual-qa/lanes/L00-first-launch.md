@@ -12,7 +12,7 @@ Needs: nothing. Home is `/tmp/jan-qa/L00/home`, empty, with its own empty fake h
 | L00-02 | any | Look at the first screen without clicking. | The screen says what Jan is and what to do next in one sentence. The primary action is the most prominent control. No placeholder text, no untranslated key like `settings.account.step` | P1 |
 | L00-03 | any | Resize the window from 1440 x 900 down to 900 x 600, then up to full screen. | Nothing overlaps, no control moves off screen, no horizontal scrollbar | P2 |
 | L00-04 | any | Walk onboarding using only the visible buttons. Write down the name of every step in the result file. Choose "use an API key" if offered. | Each step has one clear way forward and a way back. Finishing lands on the chat home ("How can I help you today?"), not on a blank page | P0 |
-| L00-05 | any | Quit the app. Edit `$JAN_HOME/profiles/desktop/cordis.patch.yml` and append the `qa-mock` provider block shown below. Relaunch with the README's Electron command (`LANE=00`, no `cp`). Open the model picker under the composer. | The picker lists `qa-mock / mock-model`. Selecting it shows the name under the composer on the right | P1 |
+| L00-05 | any | Quit the app. Edit `$JAN_HOME/profiles/desktop/cordis.patch.yml`: on a fresh home the file ends in a line containing only `[]`, so delete that line and put the `qa-mock` provider block shown below in its place. Relaunch with the README's Electron command (`LANE=00`, no `cp`). Open the model picker under the composer. | The app starts (a YAML mistake shows as a failed boot in the terminal, not a window). The picker lists a `QA mock` group with `mock-model` and `mock-small`. Selecting `mock-model` shows the name under the composer on the right | P1 |
 | L00-06 | stub | Start the mock server (`--sequence success --repeat-last`) on port 9403. Switch the model picker to `qa-mock / mock-model`. Send "hello". | A streamed reply appears within 5 seconds, the send button turns into a stop button while streaming and back after, and the chat appears in the sidebar list with a title | P0 |
 | L00-07 | any | Quit with Cmd+Q. Relaunch with the same home. | The window returns on the chat home, onboarding does not run again, and the chat from L00-06 is in the sidebar | P0 |
 | L00-08 | any | With the fake home empty (no original Jan data folder under it), look for any import prompt on first launch. | No import prompt appears when there is nothing to import. (L10 covers the prompt when there is) | P2 |
@@ -21,7 +21,7 @@ Needs: nothing. Home is `/tmp/jan-qa/L00/home`, empty, with its own empty fake h
 | L00-11 | any | On a machine where the original Jan app is installed and has chats (its real folder exists), run L00-01 and L00-07 as written and look at the sidebar, the top right corner, and Settings > Built-in plugins > Import from Jan after pressing Scan folder. | No import offer shows and none of the real chats is listed. The Import from Jan tab says "No Jan chats found. Choose another data folder and scan again." A lane never shows or reads the person's real chats. If any real chat shows, stop the walk and fix the recipe's `HOME` line before running another lane | P0 |
 | L00-12 | any | Make a second empty home (`/tmp/jan-qa/L00b/home`, fake home and user-data directory) and launch it with the README's `unset` loop run first, so no provider key is in the environment. Finish onboarding without adding a model or a key, then send "hello" with the default model. | The turn does not get a reply. A plain message says no credential is set for that model and gives the next step (Settings > Models), with a button or path that opens it. If a real reply streams, a key leaked in from the shell: stop, fix the environment, and treat it as a P0 finding against the recipe. The model picker offers no model that cannot run | P0 |
 
-`qa-mock` provider block for L00-05 (appended to the profile's patch file):
+`qa-mock` provider block for L00-05 (it replaces the `[]` line; a block left after `[]` is invalid YAML):
 
 ```yaml
 - id: llm-pi-ai
@@ -36,6 +36,10 @@ Needs: nothing. Home is `/tmp/jan-qa/L00/home`, empty, with its own empty fake h
         models:
           - id: mock-model
             contextWindow: 16000
+            input:
+              - text
+          - id: mock-small
+            contextWindow: 4000
             input:
               - text
 ```
