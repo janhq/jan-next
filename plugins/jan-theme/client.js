@@ -409,6 +409,9 @@ window.__ModuleLoader__.load({
   .jt-nav-item:hover > .jt-nav-quick, .jt-nav-item:focus-within > .jt-nav-quick { opacity: 1; }
   .jt-nav-quick:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
   .jt-nav-quick:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -2px; opacity: 1; }
+  /* The stock More launcher keeps its own 32px / 12px-radius pill; Jan draws
+     it as one more nav row so the column has a single row rhythm. */
+  html[data-jan-theme] button[aria-label][aria-haspopup='menu'][class*='panelRow'] { height: 36px; padding: 0 8px; border-width: 0; border-radius: 6px; gap: 8px; }
   /* Projects page. */
   .jt-projects { box-sizing: border-box; width: 100%; max-width: 880px; margin: 0 auto; padding: 48px 32px; color: var(--dsw-alias-label-primary); }
   .jt-projects-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
