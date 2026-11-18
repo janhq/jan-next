@@ -79,8 +79,10 @@ export function AccountMenu({
         {wide && <span className={css.provider}>{signedIn ? t('tokamak') : t('local')}</span>}
       </button>}
       items={[
-        { id: 'settings', label: t('settings'), icon: <IconSettingsOutlineMedium size={16} />,
-          ...(settingsShortcut === undefined ? {} : { shortcut: settingsShortcut }) },
+        {
+          id: 'settings', label: t('settings'), icon: <IconSettingsOutlineMedium size={16} />,
+          ...(settingsShortcut === undefined ? {} : { shortcut: settingsShortcut })
+        },
         ...(openSettingsSection === undefined ? [] : [
           { id: 'language', label: t('language'), icon: <IconGlobeOutlineMedium size={16} /> },
           { id: 'inference', label: t('inference'), icon: <IconSlidersTwoOutlineMedium size={16} /> },
@@ -93,6 +95,10 @@ export function AccountMenu({
         { type: 'separator' as const, id: 'account-separator' },
         ...(signedIn ? [{ id: 'signout', label: t('signOut'), icon: <LogoutIcon />, disabled: busy }]
           : [{ id: 'signin', label: t('signIn'), icon: <IconUserOutlineMedium size={16} /> }]),
+        ...(process.env.JAN_CLIENT_VERSION ? [
+          { type: 'separator' as const, id: 'version-separator' },
+          { type: 'label' as const, id: 'version', text: `${t('version')} ${process.env.JAN_CLIENT_VERSION}` },
+        ] : []),
       ]}
       onClose={() => { setOpen(false) }}
       onSelect={(id) => {
