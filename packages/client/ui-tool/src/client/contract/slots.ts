@@ -16,10 +16,8 @@ import type { ToolTitles } from '../tool/title-source.ts'
 declare module '@janhq/jan-client-ui-slots' {
   interface SlotMap {
     /**
-     * Keyed Tool view dispatched by wire name, including custom tools.
-     * Register with `key: '<tool name>'`; a typo never renders.
-     * Occupied keys replace the view; unclaimed keys use the generic row. Owner
-     * phase data includes `name` and lazy `args`; preparing arguments may be incomplete.
+     * Keyed Tool view by wire name, custom tools included; register `key: '<tool name>'` (a typo never renders).
+     * Occupied keys replace the generic row. Owner data has `name` and lazy `args`, incomplete while preparing.
      */
     'tool.call.toolview': {
       kind: 'keyed'

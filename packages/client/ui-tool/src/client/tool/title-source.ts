@@ -27,6 +27,11 @@ export class TitleBridge implements HostObservable<ToolTitles> {
     return this.current
   }
 
+  /**
+   * Listen for title changes.
+   * @param listener - called after each change.
+   * @returns unsubscribe.
+   */
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener)
     return () => { this.listeners.delete(listener) }
