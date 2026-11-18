@@ -13,9 +13,9 @@
  * ({@link Config.routeNamespace}).
  */
 import { randomBytes } from 'node:crypto'
-import { constants, access, mkdir, readFile, rename, rm, rmdir, stat, writeFile } from 'node:fs/promises'
+import { constants, access, mkdir, readFile, realpath, rename, rm, rmdir, stat, unlink, writeFile } from 'node:fs/promises'
 import { arch, platform, totalmem } from 'node:os'
-import { basename, dirname, isAbsolute, join, relative } from 'node:path'
+import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { Context, Service } from '@janhq/cordis'
 import type {} from '@janhq/jan-credentials'
@@ -37,9 +37,10 @@ import {
 import { accelerators, assessFit, backendOf, type MachineMemory } from './memory.ts'
 import { nextContextSize, plannedContext, renderPreset, resolvePresetSettings, type PresetModel, type PresetSettings } from './preset.ts'
 import { RateMeter } from './rate.ts'
+import { ifPresent, managedFile, managedRoot, modelFiles } from './stored-files.ts'
 import type {
   HuggingFaceRepoInfo, ImportModelOptions, LlamaCppDownload, LlamaCppHostPlatform, LlamaCppPhase, LlamaCppPrefill, LlamaCppProgress,
-  LlamaCppState, LocalModelEntry, LocalModelSource, LocalModelStatus, ModelFit,
+  LlamaCppState, LocalModelEntry, LocalModelSource, LocalModelStatus, ModelFit, StoredDownload,
 } from './types.ts'
 import {
   describeExit, parseDeviceList, parseHandshake, readFirstLine, WorkerClient, WorkerProtocolError, type WorkerModelEvent,
@@ -139,6 +140,17 @@ interface Job {
   /** Stopped by {@link LlamaCpp.pause}; its files are kept for {@link LlamaCpp.retry}. */
   paused?: true
 }
+
+interface StoredModelFile {
+  item: StoredDownload
+  root: string
+  id: string
+  files: [string, ...string[]]
+  model?: ModelRecord
+}
+
+const MODEL_IN_USE = 'This model is loaded or in use. Unload it in Settings > Models before deleting it.'
+const DOWNLOAD_IN_USE = 'This download is in progress. Pause or cancel it before deleting it.'
 
 const LOG_LINES = 20
 /** Longest handshake line accepted. */
@@ -261,6 +273,7 @@ export class LlamaCpp extends Service {
   private downloadQueue: Promise<unknown> = Promise.resolve()
   private readonly jobs = new Map<string, Job>()
   private lastProgressAt = 0
+  private deletingDownload: string | undefined
   /** Prompt reading of the request in flight on this plugin's route; shown only while the worker runs. */
   private prefill: LlamaCppPrefill | undefined
   private record: InstallRecord = { version: 3, models: [] }
@@ -722,6 +735,81 @@ export class LlamaCpp extends Service {
 
   // ── downloads ──────────────────────────────────────────────────────────
 
+  /** List registry-owned models and files left by Jan's GGUF downloader. */
+  listStoredDownloads(home: string): Promise<StoredDownload[]> {
+    return this.task(async () => (await this.storedModelFiles(home)).map(({ item }) => item))
+  }
+
+  /** Delete one listed artifact without unloading a resident model or touching an imported file. */
+  deleteStoredDownload(home: string, path: string): Promise<void> {
+    return this.task(async () => {
+      const entry = (await this.storedModelFiles(home)).find(({ item }) => item.path === path)
+      if (entry === undefined) throw new Error('This item is not a Jan download or is no longer on this computer.')
+      if (entry.item.inUse !== undefined) throw new Error(entry.item.inUse)
+      if (entry.model !== undefined) {
+        await this.removeInstalledModel(entry.model, entry)
+        return
+      }
+      const job = this.jobs.get(entry.id)
+      if (job !== undefined && job.error === undefined && job.paused === undefined) throw new Error(DOWNLOAD_IN_USE)
+      this.deletingDownload = entry.id
+      try { await this.unlinkDownloads(entry) }
+      finally { this.deletingDownload = undefined }
+      this.emit()
+    })
+  }
+
+  private async unlinkDownloads(entry: StoredModelFile): Promise<void> {
+    for (const file of entry.files) {
+      if (await managedFile(entry.root, file) === undefined) throw new Error('This Jan download changed on disk. Refresh the list and try again.')
+    }
+    for (const file of entry.files) await unlink(file)
+  }
+
+  private async storedModelFiles(home: string): Promise<StoredModelFile[]> {
+    const directory = join(this.config.dataRoot, 'models')
+    const root = await managedRoot(home, directory)
+    if (root === undefined) return []
+    const listed: StoredModelFile[] = []
+    const references = new Map<string, number>()
+    const filePath = (file: string): string => join(root, relative(directory, file))
+    const pathOf = (file: string): string => relative(home, join(directory, relative(root, file))).split(sep).join('/')
+    for (const model of this.record.models) {
+      for (const stored of model.mmproj === undefined ? [model] : [model, model.mmproj]) {
+        const file = await ifPresent(realpath(this.storedPath(stored)))
+        if (file !== undefined) references.set(file, (references.get(file) ?? 0) + 1)
+      }
+    }
+    for (const model of this.record.models) {
+      if (model.source === 'import' || isAbsolute(model.file)) continue
+      const files: [string, ...string[]] = [filePath(this.storedPath(model))]
+      if (model.mmproj !== undefined && !isAbsolute(model.mmproj.file)) files.push(filePath(this.storedPath(model.mmproj)))
+      let bytes = 0
+      let safe = true
+      for (const file of files) {
+        const info = await managedFile(root, file)
+        if (info === undefined || references.get(file) !== 1) { safe = false; break }
+        bytes += info.size
+      }
+      if (!safe) continue
+      listed.push({ root, id: model.id, model, files, item: { name: model.name, kind: 'model', bytes, path: pathOf(files[0]),
+        ...this.running?.resident.has(model.id) ? { inUse: MODEL_IN_USE } : {} } })
+    }
+    for await (const { id, file, partial } of modelFiles(root)) {
+      if (references.has(file) || references.has(file.replace(/\.partial$/, ''))) continue
+      const info = await managedFile(root, file)
+      if (info === undefined) continue
+      const job = this.jobs.get(id)
+      const inUse = job !== undefined && job.error === undefined && job.paused === undefined
+      const name = job?.spec.name ?? catalogModel(id)?.name ?? id
+      const projector = basename(file).startsWith('mmproj-')
+      listed.push({ root, id, files: [file], item: { name: projector ? `${name} vision projector` : name,
+        kind: partial || job !== undefined ? 'partial' : 'cache', bytes: info.size, path: pathOf(file),
+        ...inUse ? { inUse: DOWNLOAD_IN_USE } : {} } })
+    }
+    return listed
+  }
+
   /**
    * First-run install: download the first-run model, then start the worker. With a model already
    * installed it starts the active model instead. Returns once accepted; progress and outcome arrive
@@ -872,6 +960,7 @@ export class LlamaCpp extends Service {
 
   private enqueue(spec: ModelSpec): void {
     if (this.lifetime.signal.aborted || this.record.models.some(model => model.id === spec.id)) return
+    if (this.deletingDownload === spec.id) throw new Error('This download is being deleted. Try again once it finishes.')
     const current = this.jobs.get(spec.id)
     // A cancelled job still unwinding is replaced, so asking again right after Cancel starts it again.
     if (current !== undefined && current.error === undefined && !current.abort.signal.aborted) return
@@ -1151,47 +1240,71 @@ export class LlamaCpp extends Service {
     return this.task(async () => {
       const model = this.record.models.find(candidate => candidate.id === id)
       if (model === undefined) return
-      const running = this.running
-      // Asked even when the feed has not reported it resident yet; the worker answers that case at once.
-      if (running?.client !== undefined && !running.stopping) {
-        await running.client.unload(id, AbortSignal.any([this.lifetime.signal, AbortSignal.timeout(this.config.stopTimeoutMs)]))
-      }
-      const wasActive = this.record.active === id
-      this.record.models = this.record.models.filter(candidate => candidate.id !== id)
-      this.contexts.delete(id)
-      if (wasActive) {
-        const next = this.record.models[0]?.id
-        if (next === undefined) delete this.record.active
-        else this.record.active = next
-      }
-      await this.writeRecord()
-      if (this.activeModel() === undefined) {
-        await this.terminate()
-        this.setServer({ phase: 'missing' })
-      } else {
-        this.emit()
-        await this.modelsChanged()
-        await this.adoptDefault(false)
-      }
-      const downloaded: Array<{ file: string }> = [
-        ...model.source === 'import' ? [] : [model],
-        ...model.mmproj === undefined || isAbsolute(model.mmproj.file) ? [] : [model.mmproj],
-      ]
-      for (const stored of downloaded) {
-        const file = this.storedPath(stored)
-        await rm(file, { force: true })
-        await rm(`${file}.partial`, { force: true })
-      }
-      const [first] = downloaded
-      if (first !== undefined) {
-        try { await rmdir(dirname(this.storedPath(first))) }
-        catch (_notEmpty) { /* The directory still holds another file of this model id; it stays. */ }
-      }
-      const current = this.running
-      const successor = this.record.active
-      if (!wasActive || successor === undefined || current?.client === undefined || current.stopping) return
-      await this.loadInto(current, current.client, successor)
+      await this.removeInstalledModel(model)
     })
+  }
+
+  private async removeInstalledModel(model: ModelRecord, confined?: StoredModelFile): Promise<void> {
+    const id = model.id
+    const running = this.running
+    const previous = this.record
+    const wasActive = previous.active === id
+    const models = previous.models.filter(candidate => candidate.id !== id)
+    const active = wasActive ? models[0]?.id : previous.active
+    const next: InstallRecord = { version: 3, models, ...active === undefined ? {} : { active } }
+    if (running?.client !== undefined && !running.stopping) {
+      const signal = AbortSignal.any([this.lifetime.signal, AbortSignal.timeout(this.config.stopTimeoutMs)])
+      if (confined === undefined) {
+        // Settings explicitly asks to unload; storage management instead refuses a resident model.
+        await running.client.unload(id, signal)
+      } else {
+        const status = (await running.client.models(signal)).get(id)
+        if (status !== 'unloaded') throw new Error(MODEL_IN_USE)
+        const preset = `${this.presetPath}.remove`
+        await this.writePreset(next, preset)
+        try { await running.client.reload(this.presetPath, this.config.modelsMax, signal, { id, preset }) }
+        finally { await rm(preset, { force: true }) }
+      }
+    }
+    this.record = next
+    try { await this.writeRecord() }
+    catch (error) {
+      this.record = previous
+      if (confined !== undefined) await this.modelsChanged()
+      throw error
+    }
+    this.contexts.delete(id)
+    if (this.activeModel() === undefined) {
+      await this.terminate()
+      this.setServer({ phase: 'missing' })
+    } else {
+      this.emit()
+      if (confined === undefined) await this.modelsChanged()
+      else await this.syncRoute()
+      await this.adoptDefault(false)
+    }
+    if (confined !== undefined) {
+      await this.unlinkDownloads(confined)
+      return
+    }
+    const downloaded = [
+      ...model.source === 'import' ? [] : [model],
+      ...model.mmproj === undefined || isAbsolute(model.mmproj.file) ? [] : [model.mmproj],
+    ]
+    for (const stored of downloaded) {
+      const file = this.storedPath(stored)
+      await rm(file, { force: true })
+      await rm(`${file}.partial`, { force: true })
+    }
+    const [first] = downloaded
+    if (first !== undefined) {
+      try { await rmdir(dirname(this.storedPath(first))) }
+      catch { /* The directory still holds another file of this model id; it stays. */ }
+    }
+    const current = this.running
+    const successor = this.record.active
+    if (!wasActive || successor === undefined || current?.client === undefined || current.stopping) return
+    await this.loadInto(current, current.client, successor)
   }
 
   /**
@@ -1547,19 +1660,19 @@ export class LlamaCpp extends Service {
    * Write the preset through a temporary file, so the worker never reads half of it: one section per
    * installed model and the route's alias section for the default.
    */
-  private async writePreset(): Promise<void> {
-    const active = this.activeModel()
-    if (active === undefined) throw new Error('no model is installed')
-    await mkdir(dirname(this.presetPath), { recursive: true })
-    const temp = `${this.presetPath}.tmp`
-    const sections = this.record.models.map((model): PresetModel => ({
+  private async writePreset(record = this.record, path = this.presetPath): Promise<void> {
+    const active = record.active
+    await mkdir(dirname(path), { recursive: true })
+    const temp = `${path}.tmp`
+    const sections = record.models.map((model): PresetModel => ({
       id: model.id, path: this.storedPath(model), facts: model.facts,
       ...model.ctxSize === undefined ? {} : { ctxSize: model.ctxSize },
       ...model.autoFit === undefined ? {} : { fit: model.autoFit },
       ...model.mmproj === undefined ? {} : { mmproj: this.storedPath(model.mmproj) },
     }))
-    await writeFile(temp, renderPreset(this.preset, sections, { [this.config.routeModelId]: active.id }), { mode: 0o600 })
-    await rename(temp, this.presetPath)
+    const aliases = active === undefined ? {} : { [this.config.routeModelId]: active }
+    await writeFile(temp, renderPreset(this.preset, sections, aliases), { mode: 0o600 })
+    await rename(temp, path)
   }
 
   /**

@@ -125,6 +125,19 @@ export interface LlamaCppDownload {
   paused?: true
 }
 
+/** One Jan-owned download on disk. A model includes its downloaded vision projector, if any. */
+export interface StoredDownload {
+  readonly name: string
+  readonly kind: 'model' | 'partial' | 'cache'
+  readonly bytes: number
+  /** File or cache path relative to the Jan home, with forward separators on every platform. */
+  readonly path: string
+  /** Epoch milliseconds, for caches that explicitly track use. */
+  readonly lastUsed?: number
+  /** Why this item is temporarily unavailable for deletion. */
+  readonly inUse?: string
+}
+
 /** One GGUF file of a looked-up Hugging Face repository. */
 export interface HuggingFaceFileInfo {
   file: string

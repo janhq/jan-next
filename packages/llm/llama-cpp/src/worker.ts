@@ -267,9 +267,12 @@ export class WorkerClient {
    * @param presetPath - absolute preset path.
    * @param modelsMax - resident model bound.
    * @param signal - cancellation.
+   * @param removal - replacement preset and model that must not be resident when applied.
    */
-  async reload(presetPath: string, modelsMax: number, signal: AbortSignal): Promise<void> {
-    await this.post('/models/reload', { preset_path: presetPath, models_max: modelsMax }, signal)
+  async reload(presetPath: string, modelsMax: number, signal: AbortSignal, removal?: { id: string; preset: string }): Promise<void> {
+    await this.post('/models/reload', { preset_path: presetPath, models_max: modelsMax,
+      ...removal === undefined ? {} : { remove_if_unloaded: removal.id, replacement_preset_path: removal.preset },
+    }, signal, removal?.id)
   }
 
   /**
@@ -291,9 +294,18 @@ export class WorkerClient {
     return { authorization: `Bearer ${this.key}`, 'content-type': 'application/json' }
   }
 
-  private async post(path: string, body: object, signal: AbortSignal): Promise<void> {
+  private async post(path: string, body: object, signal: AbortSignal, unloadedModel?: string): Promise<void> {
     const response = await fetch(`${this.origin}${path}`, { method: 'POST', headers: this.headers(), body: JSON.stringify(body), signal })
-    if (response.ok) { await response.body?.cancel(); return }
+    if (response.ok) {
+      if (unloadedModel === undefined) await response.body?.cancel()
+      else {
+        const result: unknown = await response.json()
+        if (!isRecord(result) || result.guarded_removal !== unloadedModel) {
+          throw new Error('Stop the local model worker before deleting this model.')
+        }
+      }
+      return
+    }
     const text = await response.text()
     let message = text.trim() || `HTTP ${String(response.status)}`
     try {

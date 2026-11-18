@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto'
-import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { createServer, type Server } from 'node:http'
 import { platform, tmpdir, totalmem } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { afterEach, expect, it, vi } from 'vitest'
 import { Context, Service } from '@janhq/cordis'
@@ -205,6 +205,48 @@ function alive(pid: number): boolean {
   try { process.kill(pid, 0); return true }
   catch { return false }
 }
+
+it('lists only Jan model artifacts and deletes exactly one listed partial file', async () => {
+  const { home, llama } = await fixture()
+  const directory = join(home, 'data', 'models', 'interrupted')
+  const partial = join(directory, '0123456789abcdef.gguf.partial')
+  const other = join(directory, 'fedcba9876543210.gguf.partial')
+  const personal = join(directory, 'personal.gguf')
+  const outside = join(await temp('llama-outside-'), '0123456789abcdef.gguf.partial')
+  const session = join(home, 'sessions', '0123456789abcdef.gguf.partial')
+  await mkdir(directory, { recursive: true })
+  await mkdir(join(home, 'sessions'))
+  await Promise.all([partial, other, personal, outside, session].map(path => writeFile(path, '1234')))
+  await symlink(dirname(outside), join(home, 'data', 'models', 'linked'), 'junction')
+  await symlink(outside, join(directory, '9876543210abcdef.gguf.partial'), 'file')
+
+  const items = await llama.listStoredDownloads(home)
+  expect(items).toHaveLength(2)
+  expect(items).toContainEqual(expect.objectContaining({ kind: 'partial', bytes: 4, path: 'data/models/interrupted/0123456789abcdef.gguf.partial' }))
+  for (const path of [outside, '../outside', 'sessions/0123456789abcdef.gguf.partial', 'data/models/interrupted/personal.gguf',
+    'data/models/linked/0123456789abcdef.gguf.partial', 'data/models/interrupted/9876543210abcdef.gguf.partial']) {
+    await expect(llama.deleteStoredDownload(home, path)).rejects.toThrow('not a Jan download')
+  }
+  await llama.deleteStoredDownload(home, 'data/models/interrupted/0123456789abcdef.gguf.partial')
+  await expect(stat(partial)).rejects.toMatchObject({ code: 'ENOENT' })
+  expect(await Promise.all([other, personal, outside, session].map(path => readFile(path, 'utf8')))).toEqual(Array(4).fill('1234'))
+})
+
+it('refuses to delete a downloaded model while it is loaded, then removes it once unloaded', async () => {
+  const f = await fixture()
+  await f.until(s => s.phase === 'missing')
+  f.llama.install()
+  await f.until(s => s.models[0]?.status === 'loaded')
+  const [item] = await f.llama.listStoredDownloads(f.home)
+  expect(item).toMatchObject({ name: 'Jan v3.5 4B', kind: 'model', bytes: MODEL.length })
+  await expect(f.llama.deleteStoredDownload(f.home, item!.path)).rejects.toThrow('loaded or in use')
+  expect((await f.events()).filter(e => e.type === 'unload')).toHaveLength(0)
+  await f.llama.unloadModel('jan-v3.5-4b')
+  await f.until(s => s.models[0]?.status === 'unloaded')
+  await f.llama.deleteStoredDownload(f.home, item!.path)
+  expect(f.llama.snapshot().models).toHaveLength(0)
+  await expect(stat(join(f.home, item!.path))).rejects.toMatchObject({ code: 'ENOENT' })
+})
 
 it('installs the model, publishes the worker endpoint and key, and serves the route through them', async () => {
   const f = await fixture()
