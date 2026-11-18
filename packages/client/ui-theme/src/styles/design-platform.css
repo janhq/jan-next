@@ -210,9 +210,11 @@ body {
   --dsw-alias-button-ghost-active-hover: var(--dsw-static-neutral-bluish-150);
   --dsw-alias-button-info-fill: var(--dsw-static-brand-500);
   --dsw-alias-button-info-hover: var(--dsw-static-brand-400);
+  --dsw-alias-button-info-active: var(--dsw-alias-button-info-hover);
   --dsw-alias-button-primary-dimmed: var(--dsw-static-neutral-bluish-100);
   --dsw-alias-button-primary-fill: var(--dsw-alias-brand-primary);
   --dsw-alias-button-primary-hover: var(--dsw-static-neutral-bluish-750);
+  --dsw-alias-button-primary-active: var(--dsw-alias-button-primary-hover);
   --dsw-alias-button-tool-bar-fill-invisible: rgba(31, 31, 31, 0.36);
   --dsw-alias-button-tool-bar-fill: rgba(84, 85, 87, 0.5);
   --dsw-alias-button-tool-bar-hover: rgba(84, 85, 87, 0.6);
@@ -334,9 +336,11 @@ body[data-ds-dark-theme] {
   --dsw-alias-button-ghost-active-hover: var(--dsw-static-neutral-bluish-700);
   --dsw-alias-button-info-fill: var(--dsw-static-brand-400);
   --dsw-alias-button-info-hover: var(--dsw-static-brand-500);
+  --dsw-alias-button-info-active: var(--dsw-alias-button-info-hover);
   --dsw-alias-button-primary-dimmed: var(--dsw-static-neutral-bluish-750);
   --dsw-alias-button-primary-fill: var(--dsw-alias-brand-primary);
   --dsw-alias-button-primary-hover: var(--dsw-static-neutral-bluish-100);
+  --dsw-alias-button-primary-active: var(--dsw-alias-button-primary-hover);
   --dsw-alias-button-tool-bar-fill-invisible: rgba(31, 31, 31, 0.36);
   --dsw-alias-button-tool-bar-fill: rgba(84, 85, 87, 0.5);
   --dsw-alias-button-tool-bar-hover: rgba(84, 85, 87, 0.6);

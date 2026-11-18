@@ -36,7 +36,7 @@ window.__ModuleLoader__.load({
     // Jan's blue accent, the app's default when the settings carry none.
     const look = shell.look ?? { primary: '#456BDE', sidebar: { light: '#C4D0F3', dark: '#0F2157' } }
     const PALETTES = [
-      ['gray', 'Gray', '#f17455', '#f1f1f1', '#171717'],
+      ['gray', 'Gray', '#757575', '#f1f1f1', '#171717'],
       ['red', 'Red', '#F0614B', '#F3CBC4', '#5E1308'],
       ['orange', 'Orange', '#E9A23F', '#F3DFC4', '#5C3A0A'],
       ['green', 'Green', '#88BA42', '#DFF3C4', '#374B1B'],
@@ -54,9 +54,7 @@ window.__ModuleLoader__.load({
     const applyAppearance = (value) => {
       preferences = value
       const palette = PALETTES.find(p => p[0] === value.accent) || PALETTES[7]
-      const primary = palette[2]
       const root = document.documentElement
-      root.style.setProperty('--jt-accent', primary)
       root.style.setProperty('--jt-sidebar-light', palette[3])
       root.style.setProperty('--jt-sidebar-dark', palette[4])
       retheme?.()
@@ -86,7 +84,7 @@ window.__ModuleLoader__.load({
           h('div', null, h('h3', null, 'Accent color'), h('p', null, 'Customize the accent color of the application.')),
           h(ColorSwatchGroup, {
             label: 'Accent color', value: value.accent, disabled: busy, onChange: accent => save({ ...value, accent }),
-            swatches: PALETTES.map(palette => ({ id: palette[0], label: palette[1], color: palette[0] === 'gray' ? 'var(--dsw-alias-bg-base)' : palette[2] })),
+            swatches: PALETTES.map(([id, label, color]) => ({ id, label, color })),
           })),
         h('div', { className: 'jt-interface-row' },
           h('div', null, h('h3', null, 'Colored user bubbles'), h('p', null, 'Use the accent color for your messages.')),
@@ -207,16 +205,31 @@ window.__ModuleLoader__.load({
     }
     const both = (v) => ({ light: v, dark: v })
     // Jan's palette (web-app/src/index.css) mapped onto the app's alias tokens.
-    // Accent tokens carry the literal colour, not var(--jt-accent): WebKit keeps
-    // a transitioning background (the send button) on the old colour when only
-    // the root variable it resolves through changes.
+    // Publish concrete accent values on body. WebKit can retain a transitioning
+    // background when only an indirect root custom property changes.
     const tokensFor = (value) => {
       const accent = (PALETTES.find(p => p[0] === value.accent) || PALETTES[7])[2]
+      const shade = (weight) => ({
+        light: `color-mix(in oklch, ${accent} ${weight}%, black)`,
+        dark: `color-mix(in oklch, ${accent} ${weight}%, white)`,
+      })
+      const hover = shade(88)
+      const active = shade(76)
       return {
         ...TOKENS,
+        '--dsw-alias-brand-primary': both(accent),
+        '--dsw-alias-brand-primary-new-colorprimary-new-color': both(accent),
         '--dsw-alias-button-primary-fill': both(accent),
+        '--dsw-alias-button-primary-hover': hover,
+        '--dsw-alias-button-primary-active': active,
         '--dsw-alias-button-info-fill': both(accent),
+        '--dsw-alias-button-info-hover': hover,
+        '--dsw-alias-button-info-active': active,
         '--dsw-alias-state-business-primary': both(accent),
+        '--dsw-alias-label-deep-diving': {
+          light: `color-mix(in oklch, ${accent} 85%, black)`,
+          dark: `color-mix(in oklch, ${accent} 80%, white)`,
+        },
         // Set where the overrides land (body), so the neutral grey resolves
         // against the layer-2 token defined there; from :root it would not.
         '--dsw-specific-bubble': value.coloredUserBubble
@@ -234,14 +247,6 @@ window.__ModuleLoader__.load({
       '--dsw-alias-border-l2': { light: 'oklch(0.88 0 0)', dark: 'oklch(1 0 0 / 15%)' },
       '--dsw-alias-label-primary': { light: 'oklch(0.145 0 0)', dark: 'oklch(0.985 0 0)' },
       '--dsw-alias-label-secondary': { light: 'oklch(0.556 0 0)', dark: 'oklch(0.708 0 0)' },
-      '--dsw-alias-button-primary-fill': both('var(--jt-accent)'),
-      '--dsw-alias-button-info-fill': both('var(--jt-accent)'),
-      '--dsw-alias-state-business-primary': both('var(--jt-accent)'),
-      // The running "Deep diving" status and its hand; the stock theme tints them its own blue.
-      '--dsw-alias-label-deep-diving': {
-        light: `color-mix(in oklch, var(--jt-accent) 85%, black)`,
-        dark: `color-mix(in oklch, var(--jt-accent) 80%, white)`,
-      },
       '--dsw-specific-input-major': { light: 'oklch(0.97 0 0)', dark: 'oklch(0.235 0 0)' },
       '--dsw-specific-selector': { light: 'oklch(0.94 0 0)', dark: 'oklch(0.269 0 0)' },
       '--dsw-specific-sidebar-fill': { light: 'var(--jt-sidebar-light)', dark: 'var(--jt-sidebar-dark)' },

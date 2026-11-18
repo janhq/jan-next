@@ -1394,6 +1394,7 @@ label.registryOption {
 .dangerButton {
   --dsw-alias-button-primary-fill: var(--dsw-alias-state-error-primary);
   --dsw-alias-button-primary-hover: var(--dsw-alias-state-error-primary);
+  --dsw-alias-button-primary-active: var(--dsw-alias-state-error-primary);
 }
 
 .detail {

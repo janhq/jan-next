@@ -71,7 +71,7 @@ In pointer modality, `html[data-input-modality='pointer'] body :focus-visible:no
 
 Menu icons use `--dsw-alias-menu-icon`: neutral-bluish 800 in light mode and `label-primary-dimmed` in dark mode.
 
-The `--dsw-alias-illustration-*` tokens separate layered decorative artwork backgrounds, foreground surfaces, backing layers, shadows, inset fills, and details. Clock faces use the inset fill. The dark palette keeps foreground surfaces brighter than backing layers and backgrounds; inset fills and shadows share the backing tone.
+Primary buttons use `--dsw-alias-button-primary-fill`, `-hover`, and `-active`; the composer uses the parallel `button-info` tokens. The Jan Appearance plugin publishes these colors and `--dsw-alias-brand-primary` for checked controls together when the chosen accent changes.
 
 `base.css` suppresses only the outline of focused elements marked `data-jan-automatic-focus` by the [primitive focus helper](../ui-primitives/README.md); ordinary keyboard focus styling, borders, shadows, and error states remain intact.
 
