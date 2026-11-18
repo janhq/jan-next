@@ -318,6 +318,7 @@
       "@janhq/jan-client-ui-conversation/client": ["./packages/client/ui-conversation/src/client/index.ts"],
       "@janhq/jan-client-ui-tool": ["./packages/client/ui-tool/src"],
       "@janhq/jan-tool-present/types": ["./packages/deliverables/tool-present/src/types.ts"],
+      "@janhq/jan-tool-present/projection": ["./packages/deliverables/tool-present/src/projection.ts"],
       "@janhq/jan-workspace-changes/types": ["./packages/deliverables/workspace-changes/src/types.ts"],
       "@janhq/jan-client-ui-deliverables": ["./packages/client/ui-deliverables/src"],
       "@janhq/jan-client-ui-workflow-run": ["./packages/client/ui-workflow-run/src"],
