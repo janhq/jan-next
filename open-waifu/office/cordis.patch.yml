@@ -5,4 +5,5 @@
       name: "@open-waifu/dsh-desktop-office"
       config:
         resources: !!js process.env.JAN_OFFICE_RESOURCES
-        cli: !!js process.env.JAN_OFFICE_CLI
+        # Desktop's Host already registers the Office skills and load_workspace_dependencies.
+        runtime: host

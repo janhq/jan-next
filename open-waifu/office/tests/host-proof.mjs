@@ -8,7 +8,10 @@ const resources = process.env.JAN_OFFICE_RESOURCES
 if (!home || !resources) throw new Error('Set JAN_HOME and JAN_OFFICE_RESOURCES')
 const cwd = join(home, 'output')
 await mkdir(cwd, { recursive: true })
-const { ctx } = await runProfile({ environment: loadLayeredEnv('jan'), profile: 'office-r1', patchFiles: [], args: [] })
+// A base-only profile has no Desktop Host, so this package mounts the Office runtime itself.
+const overlay = join(home, 'office-bundled.patch.yml')
+await writeFile(overlay, JSON.stringify([{ id: 'ow-desktop-office', config: { resources, runtime: 'bundled', cli: process.env.JAN_OFFICE_CLI } }]))
+const { ctx } = await runProfile({ environment: loadLayeredEnv('jan'), profile: process.env.JAN_OFFICE_PROFILE ?? 'office-r1', patchFiles: [overlay], args: [] })
 try {
   await ctx.loader.await()
   const { createTemplateLibrary } = await import('../lib/templates.js')
@@ -26,7 +29,7 @@ try {
   const docs = library.entry('meeting-minutes')
   await modes.select(sessionId, 'word')
   await modes.selectTemplate(sessionId, { id: docs.id, mode: docs.mode, revision: docs.revision })
-  const docx = createDocxWorkflow(ctx, library, modes, resources)
+  const docx = createDocxWorkflow(ctx, library, modes)
   const copy = await templateTool(ctx, library, modes, docx).execute({ template_id: docs.id }, exec)
   console.log('Prepared Word:', copy.workspace_path, 'paragraphs:', copy.editable_paragraphs.length)
   const target = `office-meeting-${crypto.randomUUID()}.docx`
@@ -46,7 +49,12 @@ try {
   if (result.exitCode !== 0) throw new Error('Bundled Python could not edit the selected workbook')
   console.log('Written Excel: office-business.xlsx')
   console.log('Prepared Excel:', workbook.workspace_path)
-  await writeFile(join(home, 'proof.json'), JSON.stringify({ word: join(cwd, target), excel: join(cwd, `office-business-${sessionId}.xlsx`), wordTemplate: copy.workspace_path, excelTemplate: excel.id, skills: names }, null, 2))
+  await writeFile(join(cwd, 'build-deck.py'), `from pptx import Presentation\nfrom pptx.util import Inches, Pt\nfrom sys import argv\np=Presentation(); p.slide_width=Inches(13.333); p.slide_height=Inches(7.5)\ns=p.slides.add_slide(p.slide_layouts[6]); r=s.shapes.add_textbox(Inches(.6),Inches(.4),Inches(12),Inches(.8)).text_frame.paragraphs[0].add_run(); r.text='Jan Office deck'; r.font.size=Pt(30)\np.save(argv[1])\n`)
+  const deck = join(cwd, `office-deck-${sessionId}.pptx`)
+  const built = await ctx.subprocess.spawn({ argv: [runtime.python, '-I', '-B', join(cwd, 'build-deck.py'), deck], cwd, env: { PATH: process.env.PATH }, graceMs: 1000, stdio: { stdout: { maxBytes: 2048 }, stderr: { maxBytes: 2048 } } }).done
+  if (built.exitCode !== 0) throw new Error('Bundled Python could not build a presentation')
+  console.log('Written PowerPoint:', deck)
+  await writeFile(join(home, 'proof.json'), JSON.stringify({ word: join(cwd, target), excel: join(cwd, `office-business-${sessionId}.xlsx`), powerpoint: deck, wordTemplate: copy.workspace_path, excelTemplate: excel.id, skills: names }, null, 2))
 } finally {
   await ctx.fiber.dispose()
 }

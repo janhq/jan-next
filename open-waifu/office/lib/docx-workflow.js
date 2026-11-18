@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { defineTool } from '@janhq/jan-tools'
 import { workspacePolicy } from './template-tool.js'
@@ -16,12 +16,13 @@ export function docxWorkerArgv(python) {
 }
 
 /**
- * Confined Word interpreter. Windows uses pythonw.exe: python.exe is a console
+ * Confined Word interpreter, taken from the interpreter the Host's workspace
+ * dependencies report. Windows uses pythonw.exe: python.exe is a console
  * binary, and a console-less Electron host makes the ACL runner exit
  * 0xC0000142 before Python starts. Inherited pipes still carry the result.
  */
-export function docxWorkerPython(resources, platform = process.platform) {
-  return join(resources, 'primary-runtime/dependencies/python', platform === 'win32' ? 'pythonw.exe' : 'bin/python3')
+export function docxWorkerPython(python, platform = process.platform) {
+  return platform === 'win32' ? join(dirname(python), 'pythonw.exe') : python
 }
 
 /** Environment for the confined Word worker. Credentials stay behind. */
@@ -52,10 +53,16 @@ export function docxWorkerEnvironment(runtime = process, script) {
 
 /**
  * Host-owned source and confined Python execution; workspace contents stay in the sandbox.
+ * The interpreter comes from `load_workspace_dependencies`, which Desktop's Host or this
+ * package's `bundled` runtime registers, so one payload serves every Office tool.
  * @returns {DocxWorkflow}
  */
-export function createDocxWorkflow(ctx, library, modes, resources) {
-  const python = docxWorkerPython(resources)
+export function createDocxWorkflow(ctx, library, modes) {
+  async function interpreter(exec) {
+    const dependencies = ctx.tools.get('load_workspace_dependencies')
+    if (!dependencies) throw new Error('The Word template workflow needs the workspace dependencies runtime')
+    return docxWorkerPython((await dependencies.execute({}, exec)).python)
+  }
   let worker
   async function run(command, args, exec) {
     const id = exec.agent?.id
@@ -68,7 +75,7 @@ export function createDocxWorkflow(ctx, library, modes, resources) {
     const source = await library.asset(item.id, item.sampleFile)
     const profile = item.files['generation.json'] ? JSON.parse((await library.asset(item.id, 'generation.json')).toString('utf8')) : null
     worker ??= await readFile(fileURLToPath(new URL('./docx-layout.py', import.meta.url)), 'utf8')
-    const plan = await ctx.sandbox.confine(docxWorkerArgv(python), policy)
+    const plan = await ctx.sandbox.confine(docxWorkerArgv(await interpreter(exec)), policy)
     const env = docxWorkerEnvironment(process, worker)
     const signal = AbortSignal.any([AbortSignal.timeout(45_000), ...(exec.signal ? [exec.signal] : [])])
     const facts = { templateId: item.id, revision: item.revision, operation: command, path: args.path ?? args.output_path }
