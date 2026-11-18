@@ -1546,6 +1546,9 @@ importers:
       '@janhq/jan-goal':
         specifier: workspace:*
         version: link:../../goal/goal
+      '@janhq/jan-host-plugin-i18n':
+        specifier: workspace:*
+        version: link:../../host/plugin-i18n
       '@janhq/jan-host-plugin-inventory':
         specifier: workspace:*
         version: link:../../host/plugin-inventory
@@ -3197,6 +3200,9 @@ importers:
       '@janhq/jan-host-open-in-app':
         specifier: workspace:*
         version: link:../../host/open-in-app
+      '@janhq/jan-host-plugin-i18n':
+        specifier: workspace:*
+        version: link:../../host/plugin-i18n
       '@janhq/jan-host-plugin-inventory':
         specifier: workspace:*
         version: link:../../host/plugin-inventory
@@ -12615,6 +12621,37 @@ importers:
         specifier: workspace:*
         version: link:../webserver
 
+  packages/host/plugin-i18n:
+    dependencies:
+      '@janhq/jan-atomic-write':
+        specifier: workspace:*
+        version: link:../../util/atomic-write
+      '@janhq/jan-timeout':
+        specifier: workspace:*
+        version: link:../../util/timeout
+      '@janhq/schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@janhq/cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@janhq/jan-agent-default-model':
+        specifier: workspace:*
+        version: link:../../core/agent-default-model
+      '@janhq/jan-app-boot':
+        specifier: workspace:*
+        version: link:../../boot/app-boot
+      '@janhq/jan-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@janhq/jan-typert-protocol':
+        specifier: workspace:*
+        version: link:../../typert/protocol
+
   packages/host/plugin-inventory:
     dependencies:
       zod:
@@ -17975,6 +18012,9 @@ importers:
       '@janhq/jan-home-paths':
         specifier: workspace:*
         version: link:../../packages/util/home-paths
+      '@janhq/jan-host-plugin-i18n':
+        specifier: workspace:*
+        version: link:../../packages/host/plugin-i18n
       '@janhq/jan-host-plugin-inventory':
         specifier: workspace:*
         version: link:../../packages/host/plugin-inventory
