@@ -199,13 +199,13 @@ export function ModelSelect(
       // first row.
       const checked = menuRef.current?.querySelector<HTMLElement>('[role="menuitemradio"][aria-checked="true"]:not([disabled])')
       const target = checked ?? itemRefs.current.find(item => item !== null && !item.disabled)
-        // Rows a selection in flight disabled cannot take the keyboard; the
-        // trigger does, so the card's keys still reach the menu.
-        ; (target ?? triggerRef.current)?.focus()
+      // Rows a selection in flight disabled cannot take the keyboard; the
+      // trigger does, so the card's keys still reach the menu.
+      ;(target ?? triggerRef.current)?.focus()
       return
     }
     const cell = itemRefs.current[intent === 'effort' ? 1 : 0]
-      ; (cell !== null && cell !== undefined && !cell.disabled ? cell : triggerRef.current)?.focus()
+    ;(cell !== null && cell !== undefined && !cell.disabled ? cell : triggerRef.current)?.focus()
   }, [open, pane, showSearch])
 
   useEffect(() => {
@@ -335,7 +335,7 @@ export function ModelSelect(
         return
       }
       const checked = menuRef.current?.querySelector<HTMLElement>('[role="menuitemradio"][aria-checked="true"]:not([disabled])')
-        ; (checked ?? rows.find(item => !item.disabled))?.focus()
+      ;(checked ?? rows.find(item => !item.disabled))?.focus()
       return
     }
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -402,7 +402,7 @@ export function ModelSelect(
   const modelLabel = waiting
     ? t('trigger.loading')
     : currentChoice?.model.name
-    ?? t('trigger.fallback')
+      ?? t('trigger.fallback')
   const triggerLabel = effortLabel === undefined ? modelLabel : `${modelLabel} · ${effortLabel}`
   const triggerAria = waiting
     ? t('trigger.loading')
