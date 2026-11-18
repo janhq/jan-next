@@ -7,6 +7,8 @@
 const LOCAL_WELCOME_EN = {
   welcomeLocalModel: 'Download a local model',
   welcomeLocalHint: 'Free and private: runs on this computer and works offline',
+  welcomeLocalSize: '{name} · {size} download',
+  welcomeLocalCancel: 'Cancel download',
   welcomeLocalTitle: 'Setting up {name}',
   welcomeLocalDescription: 'The model runs on this computer, so your chats stay private and work offline.',
   welcomeLocalDownloading: 'Downloading {name}',

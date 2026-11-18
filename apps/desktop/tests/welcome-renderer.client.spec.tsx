@@ -135,6 +135,23 @@ describe('desktop welcome presentation', () => {
     expect(mount().document.querySelector<HTMLElement>('#key-form')!.hidden).toBe(true)
   })
 
+  it('skips from the entry without choosing a route, once, and reports a refused skip there', async () => {
+    const view = mount('en')
+    view.api.skip.mockRejectedValueOnce(new Error('closed'))
+    await act(async () => { fireEvent.click(view.button('#skip-entry')) })
+    expect(screen.getByRole('alert').textContent).toBe(view.api.messages.welcomeContinueFailed)
+    const skipped = Promise.withResolvers<undefined>()
+    view.api.skip.mockReturnValue(skipped.promise)
+    fireEvent.click(view.button('#skip-entry'))
+    fireEvent.click(view.button('#skip-entry'))
+    expect(view.button('#skip-entry').disabled).toBe(true)
+    await act(async () => { skipped.resolve(undefined) })
+    expect(view.api.skip).toHaveBeenCalledTimes(2)
+    expect(view.api.startLocalModel).not.toHaveBeenCalled()
+    expect(view.api.startSignIn).not.toHaveBeenCalled()
+    expect(view.api.saveApiKey).not.toHaveBeenCalled()
+  })
+
   it('returns to the entry without saving and clears the draft and validation error', () => {
     const view = mount()
     fireEvent.click(view.button('#api-key'))
@@ -354,8 +371,10 @@ describe('local model setup', () => {
   it('leads with the local download, starts it, and shows its progress', async () => {
     const view = mount('en')
     const entry = [...document.querySelectorAll('#entry-actions button')].map(item => item.id)
-    expect(entry).toEqual(['local-model', 'sign-in', 'api-key'])
+    expect(entry).toEqual(['local-model', 'sign-in', 'api-key', 'skip-entry'])
     expect(view.button('#local-model').className).toBe('primary')
+    await act(async () => { await Promise.resolve() })
+    expect(document.querySelector('#local-size')!.textContent).toBe('Jan v3.5 4B · 2.7 GB download')
     view.api.readLocalModel.mockResolvedValue(downloading(1_000_000_000))
     await act(async () => { fireEvent.click(view.button('#local-model')) })
     expect(view.api.startLocalModel).toHaveBeenCalledOnce()
@@ -365,6 +384,28 @@ describe('local model setup', () => {
     expect(document.querySelector('#local-detail')!.textContent).toBe('36% · 1.0 GB of 2.7 GB · 25 MB/s · about 2 min left')
     await act(async () => { fireEvent.click(view.button('#local-background')) })
     expect(view.api.skip).toHaveBeenCalledOnce()
+  })
+
+  it('cancels a running download and returns to the entry', async () => {
+    const view = mount('en')
+    view.api.startLocalModel.mockResolvedValue(downloading(10_000_000))
+    view.api.readLocalModel.mockResolvedValue(downloading(10_000_000))
+    await act(async () => { fireEvent.click(view.button('#local-model')) })
+    await act(async () => { fireEvent.click(view.button('#local-cancel')) })
+    expect(view.api.cancelLocalModel).toHaveBeenCalledOnce()
+    expect(view.api.skip).not.toHaveBeenCalled()
+    expect(document.querySelector('#entry-actions')!.hasAttribute('hidden')).toBe(false)
+  })
+
+  it('keeps the download page when cancelling is refused', async () => {
+    const view = mount('en')
+    view.api.startLocalModel.mockResolvedValue(downloading(10_000_000))
+    view.api.readLocalModel.mockResolvedValue(downloading(10_000_000))
+    view.api.cancelLocalModel.mockRejectedValue(new Error('closed'))
+    await act(async () => { fireEvent.click(view.button('#local-model')) })
+    await act(async () => { fireEvent.click(view.button('#local-cancel')) })
+    expect(document.querySelector('#local-page')!.hasAttribute('hidden')).toBe(false)
+    expect(view.button('#local-cancel').disabled).toBe(false)
   })
 
   it('offers to start chatting once the model runs', async () => {
