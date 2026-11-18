@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { PendingSubmission } from '@janhq/jan-api-session-controller/client'
+import type { PendingSubmission, SessionProjectionMap } from '@janhq/jan-api-session-controller/client'
 import type { InjectFace, PropsRenderFactories, PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import type { ObservableSnapshot } from '@janhq/jan-client-store'
 import type { UserTextFacts } from '@janhq/jan-client-ui-conversation/client'
@@ -64,8 +64,8 @@ export interface ContextRecovery {
 interface TurnErrorInjected {
   hooks: {
     settingsAvailability: ObservableSnapshot<boolean>
-    /** Seq of the failed turn/end a retry would answer, or null; a banner offers recovery only while it is that one. */
-    continuation: ObservableSnapshot<number | null>
+    /** Latest failed turn; the recovery offer retires when another turn starts. */
+    continuation: ObservableSnapshot<SessionProjectionMap['conversationContinuation']>
   }
   openModelsSettings: () => void
   recovery?: ContextRecovery
@@ -513,7 +513,7 @@ export const TurnErrorNodeView = memo(function TurnErrorNodeView({
   node, t, useSettingsAvailability, useContinuation, openModelsSettings, recovery,
 }: ChatNodeViewProps<'turn-error'> & InjectFace<TurnErrorInjected>) {
   const canOpenModelsSettings = useSettingsAvailability(available => available)
-  const current = useContinuation(ending => ending === node.data.seq)
+  const current = useContinuation(ending => (typeof ending === 'number' ? ending : ending?.overflow) === node.data.seq)
   return <TurnErrorItem node={node.data} t={t} canOpenModelsSettings={canOpenModelsSettings}
     openModelsSettings={openModelsSettings} recovery={recovery} current={current} />
 })

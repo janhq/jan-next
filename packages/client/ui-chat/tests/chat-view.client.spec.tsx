@@ -18,7 +18,7 @@ import type {
   TranscriptViewMode, UserContentInput, UserMessageNode,
 } from '@janhq/jan-client-ui-chat/client'
 import type {
-  SessionListState, SessionSnapshot,
+  SessionListState, SessionProjectionMap, SessionSnapshot,
 } from '@janhq/jan-api-session-controller/client'
 import type {
   ConversationGroupedView,
@@ -273,7 +273,7 @@ type HarnessStandardProps = ChatViewSlotProps & PropsRenderFactories & Pick<Reac
   openModelsSettings: () => void
   recovery?: NonNullable<React.ComponentProps<typeof TurnErrorNodeView>['recovery']>
   /** Failed turn/end a retry would answer; null when none. */
-  continuation?: number | null
+  continuation?: SessionProjectionMap['conversationContinuation']
 }
 
 function isImageOwner(owner: object): owner is MessageImagesOwnerProps {
@@ -2663,7 +2663,7 @@ describe('ChatView', () => {
     const reload = Promise.withResolvers<{ ok: true; value: number | null }>()
     const increase = vi.fn(() => reload.promise)
     const retry = vi.fn()
-    h.props.continuation = 2
+    h.props.continuation = { overflow: SessionSeq(2) }
     h.props.recovery = overflowRecovery({ modelFor: () => 'jan-v3.5-4b', contextFor: async () => ({ current: 32768, maximum: 131072 }), increase, retry })
     const view = render(<h.ChatView {...h.props} />)
     fireEvent.click(view.getByRole('button', { name: zh['message.failure.increaseContext'] }))
@@ -2678,7 +2678,7 @@ describe('ChatView', () => {
     const h = makeHarness({ nodes: [user(1, 'prompt'), turnError(2, 'CONTEXT_WINDOW_EXCEEDED')] })
     const compact = vi.fn(async () => ({ ok: true as const }))
     const retry = vi.fn()
-    h.props.continuation = 2
+    h.props.continuation = { overflow: SessionSeq(2) }
     h.props.recovery = overflowRecovery({ modelFor: () => 'local', contextFor: async () => ({ current: 32768, maximum: 32768 }), compact, retry })
     const view = render(<h.ChatView {...h.props} />)
     expect(await view.findByText(zh['message.failure.contextMaximum'])).toBeTruthy()
@@ -2695,7 +2695,7 @@ describe('ChatView', () => {
       compact: vi.fn(async () => { order.push('compact'); return { ok: true as const } }),
       retry: vi.fn(() => { order.push('retry') }),
     })
-    h.props.continuation = 2
+    h.props.continuation = { overflow: SessionSeq(2) }
     h.props.recovery = recovery
     const view = render(<h.ChatView {...h.props} />)
     expect(view.getByRole('status').textContent).toContain(zh['message.failure.cloudContextWindow'])
@@ -2710,7 +2710,7 @@ describe('ChatView', () => {
     const h = makeHarness({ nodes: [user(1, 'big prompt'), turnError(2, 'CONTEXT_WINDOW_EXCEEDED')] })
     const compact = vi.fn<NonNullable<HarnessStandardProps['recovery']>['compact']>(async () => ({ ok: false, reason: 'empty' }))
     const retry = vi.fn()
-    h.props.continuation = 2
+    h.props.continuation = { overflow: SessionSeq(2) }
     h.props.recovery = overflowRecovery({ compact, retry })
     const view = render(<h.ChatView {...h.props} />)
     fireEvent.click(view.getByRole('button', { name: zh['message.failure.compactRetry'] }))
@@ -2735,7 +2735,7 @@ describe('ChatView', () => {
   it('does not retry a failed context increase and leaves the user prompt in place', async () => {
     const h = makeHarness({ nodes: [user(1, 'keep this'), turnError(2, 'CONTEXT_WINDOW_EXCEEDED')] })
     const retry = vi.fn()
-    h.props.continuation = 2
+    h.props.continuation = { overflow: SessionSeq(2) }
     h.props.recovery = overflowRecovery({ modelFor: () => 'local', increase: async () => ({ ok: false, error: 'Not enough memory' }), retry })
     const view = render(<h.ChatView {...h.props} />)
     fireEvent.click(view.getByRole('button', { name: zh['message.failure.increaseContext'] }))
@@ -2747,7 +2747,7 @@ describe('ChatView', () => {
   it('explains a model service failure in plain words and retries the same turn from the failure row', () => {
     const h = makeHarness({ nodes: [user(1, 'ask'), turnError(2, 'SERVER')] })
     const retry = vi.fn()
-    h.props.continuation = 2
+    h.props.continuation = SessionSeq(2)
     h.props.recovery = overflowRecovery({ retry })
     const view = render(<h.ChatView {...h.props} />)
     const row = view.getByRole('status')

@@ -1,5 +1,6 @@
 import type { Context } from '@janhq/cordis'
 import type {} from '@janhq/jan-api-llama-cpp-controller/remote'
+import type { SessionProjectionMap } from '@janhq/jan-api-session-controller/client'
 import type {} from '@janhq/jan-api-remotes/client'
 import type {} from '@janhq/jan-client-ui-conversation/client'
 import type { ModelSelectionProjection } from '@janhq/jan-agent/types'
@@ -123,10 +124,12 @@ export function registerChatNodeRenderers(
           // The recovery runs from the card while the composer may hold a draft; that draft must survive the retry.
           retry: (seq) => { ctx.get('conversation')?.input.retryKeepingDraft(sessionId, seq as SessionSeq) },
         }
-        // The failed turn a retry would answer; recovery is offered only on that banner, and the
-        // banner follows it live so it stops offering once the retry turn starts.
-        const continuation: ObservableSnapshot<number | null> = {
-          getSnapshot: () => (ctx.sessions.binding(sessionId)?.session.projections.faceOf('conversationContinuation').getSnapshot() as number | null | undefined) ?? null,
+        // Follow the exact failed turn the card can recover until the next turn starts.
+        const continuation: ObservableSnapshot<SessionProjectionMap['conversationContinuation']> = {
+          getSnapshot: () => {
+            const value = ctx.sessions.binding(sessionId)?.session.projections.faceOf('conversationContinuation').getSnapshot()
+            return (value as SessionProjectionMap['conversationContinuation'] | undefined) ?? null
+          },
           subscribe: fn => ctx.sessions.binding(sessionId)?.session.projections.faceOf('conversationContinuation').subscribe(fn) ?? (() => {}),
         }
         return {
