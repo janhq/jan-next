@@ -10,7 +10,7 @@ window.__ModuleLoader__.load({
       IconPluginPinwheelOutlineRegular, IconCheckOutlineRegular, IconFolderCloseRegular, IconSettingsOutlineMedium,
       IconNewChatOutlineMedium, IconNewChatOutlineRegular, IconProjectAddOutlineRegular, IconSearchOutlineRegular,
       MenuItemButton, Button, Switch, IconLayersOutlineRegular, IconClockOutlineRegular,
-      IconLightOutlineMedium, IconToolOutlineMedium, IconSkillOutlineMedium,
+      IconToolOutlineMedium, IconSkillOutlineMedium,
       NavRow, SectionHeading, ColorSwatchGroup, ProjectCard, WindowControls,
     } = require('@janhq/jan-client-ui-primitives')
     // Optional: the matching host publishes the dock model seat. An older
@@ -67,34 +67,45 @@ window.__ModuleLoader__.load({
       if (!response.ok || body.error) throw new Error(body.error || 'Appearance settings could not be saved.')
       return body.result
     }
-    function AppearanceSettings() {
+    // Accent rows live in General beside theme and font size; they share one save state.
+    const appearanceSave = { busy: false, error: '' }
+    const appearanceSaveListeners = new Set()
+    async function saveAppearance(next) {
+      appearanceSave.busy = true; appearanceSave.error = ''
+      appearanceSaveListeners.forEach(listener => listener())
+      try { applyAppearance({ ...preferences, ...await appearanceApi('save', next) }) }
+      catch (failure) { appearanceSave.error = failure.message }
+      finally { appearanceSave.busy = false; appearanceSaveListeners.forEach(listener => listener()) }
+    }
+    function useAppearance() {
       const value = React.useSyncExternalStore(listener => { appearanceListeners.add(listener); return () => appearanceListeners.delete(listener) }, () => preferences)
-      const [busy, setBusy] = React.useState(false)
-      const [error, setError] = React.useState('')
-      const [notice, setNotice] = React.useState('')
-      const uid = React.useId()
-      async function save(next) {
-        setBusy(true); setError(''); setNotice('')
-        try { const saved = await appearanceApi('save', next); applyAppearance({ ...preferences, ...saved }); setNotice('Appearance saved.') }
-        catch (failure) { setError(failure.message) }
-        finally { setBusy(false) }
-      }
-      return h('section', { className: 'jt-appearance', 'aria-labelledby': `${uid}-title`, 'aria-busy': busy },
-        h('h2', { id: `${uid}-title` }, 'Interface'),
-        h('div', { className: 'jt-interface-row' },
-          h('div', null, h('h3', null, 'Accent color'), h('p', null, 'Customize the accent color of the application.')),
-          h(ColorSwatchGroup, {
-            label: 'Accent color', value: value.accent, disabled: busy, onChange: accent => save({ ...value, accent }),
-            swatches: PALETTES.map(([id, label, color]) => ({ id, label, color })),
-          })),
-        h('div', { className: 'jt-interface-row' },
-          h('div', null, h('h3', null, 'Colored user bubbles'), h('p', null, 'Use the accent color for your messages.')),
-          h(Switch, { label: 'Colored user bubbles', checked: value.coloredUserBubble, disabled: busy, onChange: checked => save({ ...value, coloredUserBubble: checked }) })),
-        h('div', { className: 'jt-interface-row' },
-          h('div', null, h('h3', null, 'Reset to default'), h('p', null, 'Reset accent color and user bubble preferences.')),
-          h(Button, { variant: 'outline', disabled: busy, onClick: () => save({ accent: DEFAULT_ACCENT, coloredUserBubble: false }) }, 'Reset')),
-        h('p', null, 'Theme and font size are in General. Automatic conversation titles are in Plugin manager > Conversation-following titles. Token statistics are in General > Performance usage.'),
-        error && h('p', { role: 'alert' }, error), h('p', { role: 'status' }, busy ? 'Saving appearance…' : notice))
+      const [, rerender] = React.useReducer(count => count + 1, 0)
+      React.useEffect(() => { appearanceSaveListeners.add(rerender); return () => { appearanceSaveListeners.delete(rerender) } }, [])
+      return { value, busy: appearanceSave.busy, error: appearanceSave.error }
+    }
+    function GeneralRow({ title, description, error, children }) {
+      return h('div', { className: 'jt-general-row' },
+        h('div', null, h('div', { className: 'jt-general-title' }, title), h('div', { className: 'jt-general-description' }, description),
+          error && h('div', { className: 'jt-general-error', role: 'alert' }, error)),
+        children)
+    }
+    function AccentColorRow() {
+      const { value, busy, error } = useAppearance()
+      return h(GeneralRow, { title: 'Accent color', description: 'Customize the accent color of the application.', error },
+        h(ColorSwatchGroup, {
+          label: 'Accent color', value: value.accent, disabled: busy, onChange: accent => saveAppearance({ ...value, accent }),
+          swatches: PALETTES.map(([id, label, color]) => ({ id, label, color })),
+        }))
+    }
+    function UserBubbleRow() {
+      const { value, busy } = useAppearance()
+      return h(GeneralRow, { title: 'Colored user bubbles', description: 'Use the accent color for your messages.' },
+        h(Switch, { label: 'Colored user bubbles', checked: value.coloredUserBubble, disabled: busy, onChange: checked => saveAppearance({ ...value, coloredUserBubble: checked }) }))
+    }
+    function AppearanceResetRow() {
+      const { busy } = useAppearance()
+      return h(GeneralRow, { title: 'Reset colors', description: 'Reset accent color and user bubble preferences.' },
+        h(Button, { variant: 'outline', disabled: busy, onClick: () => saveAppearance({ accent: DEFAULT_ACCENT, coloredUserBubble: false }) }, 'Reset'))
     }
     async function agentApi(method, params = {}) {
       const response = await fetch('/jan-api/agent-settings', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
@@ -343,8 +354,11 @@ window.__ModuleLoader__.load({
 .jt-mcp-tool-body dd { margin: 0; color: var(--dsw-alias-label-secondary); overflow-wrap: anywhere; }
 .jt-appearance h2, .jt-appearance h3 { text-wrap: balance; font-size: 16px; font-weight: 500; margin: 0; }
 .jt-appearance p { text-wrap: pretty; color: var(--dsw-alias-label-secondary); margin-block: 6px; line-height: 1.5; }
-.jt-interface-row { display: flex; align-items: center; justify-content: space-between; gap: 32px; padding-block: 12px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
-@media (max-width: 640px) { .jt-interface-row { flex-wrap: wrap; gap: 12px; } }
+.jt-general-row { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 16px 0; border-bottom: 0.5px solid var(--dsw-alias-border-l2); }
+.jt-general-title { font-size: 14px; line-height: 20px; }
+.jt-general-description { margin-top: 4px; color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 18px; }
+.jt-general-error { margin-top: 4px; color: var(--dsw-alias-state-error-primary); font-size: 12px; line-height: 18px; }
+@media (max-width: 640px) { .jt-general-row { flex-wrap: wrap; gap: 12px; } }
 @font-face { font-family: 'Inter'; font-display: swap; font-weight: 100 900; src: url('/jan-theme/assets/InterVariable.woff2') format('woff2'); }
 @font-face { font-family: 'StudioFeixenSans'; font-display: swap; font-weight: 500; src: url('/jan-theme/assets/StudioFeixenSans-Medium.otf') format('opentype'); }
 .jt-name { font-family: 'StudioFeixenSans', 'Inter', sans-serif; font-size: 16px; font-weight: 500; color: var(--dsw-alias-label-primary); }
@@ -702,12 +716,15 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         applyAppearance(preferences)
         ctx.inject(['locale'], (scope) => {
           const t = scope.locale.bind('jan-theme')
-          scope.slots.inject('settings.section', () => scope.slots.register({ name: 'settings.section', id: 'jt-appearance', order: 5, label: () => t('section.appearance'), locale: 'jan-theme' }, AppearanceSettings))
+          // Directly under General's theme (10) and font size (11) rows, before the conversation rows at 12.
+          scope.slots.inject('settings.general.item', () => scope.slots.register({ name: 'settings.general.item', id: 'jt-accent-color', order: 11.1, locale: 'jan-theme' }, AccentColorRow))
+          scope.slots.inject('settings.general.item', () => scope.slots.register({ name: 'settings.general.item', id: 'jt-user-bubble', order: 11.2, locale: 'jan-theme' }, UserBubbleRow))
+          scope.slots.inject('settings.general.item', () => scope.slots.register({ name: 'settings.general.item', id: 'jt-appearance-reset', order: 11.3, locale: 'jan-theme' }, AppearanceResetRow))
           scope.slots.inject('settings.section', () => scope.slots.register({ name: 'settings.section', id: 'jt-mcp', order: 30, label: () => t('section.mcp'), locale: 'jan-theme' }, () => h(AgentSettings, { key: 'mcp' })))
           scope.slots.inject('settings.section', () => scope.slots.register({ name: 'settings.section', id: 'jt-skills', order: 31, label: () => t('section.skills'), locale: 'jan-theme' }, () => h(AgentSettings, { skills: true, key: 'skills' })))
         })
         // Distinct nav glyphs: the settings dialog falls back to the gear for ids it does not know.
-        for (const [id, Icon] of [['jt-appearance', IconLightOutlineMedium], ['jt-mcp', IconToolOutlineMedium], ['jt-skills', IconSkillOutlineMedium]]) {
+        for (const [id, Icon] of [['jt-mcp', IconToolOutlineMedium], ['jt-skills', IconSkillOutlineMedium]]) {
           ctx.slots.inject('settings.section.icon', () => ctx.slots.register({ name: 'settings.section.icon', id }, ({ size }) => h(Icon, { size })))
         }
         const style = document.createElement('style')
@@ -757,7 +774,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.chat': '{count} chat', 'projects.chats': '{count} chats',
               'projects.updated': 'updated {ago} ago',
               'projects.addFailed': 'Could not add the project: {reason}',
-              'section.appearance': 'Appearance', 'section.mcp': 'MCP Servers', 'section.skills': 'Skills',
+              'section.mcp': 'MCP Servers', 'section.skills': 'Skills',
             },
             zh: {
               'hero.headline': '今天有什么可以帮您？',
@@ -774,7 +791,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.empty': '还没有项目。从本机的文件夹创建一个。',
               'projects.chat': '{count} 个对话', 'projects.chats': '{count} 个对话',
               'projects.updated': '{ago}前更新',
-              'section.appearance': '外观', 'section.mcp': 'MCP 服务器', 'section.skills': '技能',
+              'section.mcp': 'MCP 服务器', 'section.skills': '技能',
             },
             ja: {
               'hero.headline': '今日はどのようにお手伝いできますか？',
@@ -791,7 +808,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.empty': 'プロジェクトはまだありません。このコンピューター上のフォルダーから作成してください。',
               'projects.chat': '{count} 件のチャット', 'projects.chats': '{count} 件のチャット',
               'projects.updated': '{ago}前に更新',
-              'section.appearance': '外観', 'section.mcp': 'MCP サーバー', 'section.skills': 'スキル',
+              'section.mcp': 'MCP サーバー', 'section.skills': 'スキル',
             },
             es: {
               'hero.headline': '¿En qué puedo ayudarte hoy?',
@@ -808,7 +825,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.empty': 'Aún no hay proyectos. Crea uno a partir de una carpeta de este equipo.',
               'projects.chat': '{count} chat', 'projects.chats': '{count} chats',
               'projects.updated': 'actualizado hace {ago}',
-              'section.appearance': 'Apariencia', 'section.mcp': 'Servidores MCP', 'section.skills': 'Habilidades',
+              'section.mcp': 'Servidores MCP', 'section.skills': 'Habilidades',
             },
             fr: {
               'hero.headline': "Comment puis-je vous aider aujourd'hui ?",
@@ -825,7 +842,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.empty': 'Aucun projet pour le moment. Créez-en un à partir d’un dossier de cet ordinateur.',
               'projects.chat': '{count} discussion', 'projects.chats': '{count} discussions',
               'projects.updated': 'mis à jour il y a {ago}',
-              'section.appearance': 'Apparence', 'section.mcp': 'Serveurs MCP', 'section.skills': 'Compétences',
+              'section.mcp': 'Serveurs MCP', 'section.skills': 'Compétences',
             },
             de: {
               'hero.headline': 'Wie kann ich dir heute helfen?',
@@ -842,7 +859,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.empty': 'Noch keine Projekte. Erstelle eines aus einem Ordner auf diesem Computer.',
               'projects.chat': '{count} Chat', 'projects.chats': '{count} Chats',
               'projects.updated': 'vor {ago} aktualisiert',
-              'section.appearance': 'Darstellung', 'section.mcp': 'MCP-Server', 'section.skills': 'Skills',
+              'section.mcp': 'MCP-Server', 'section.skills': 'Skills',
             },
             ru: {
               'hero.headline': 'Чем я могу помочь сегодня?',
@@ -859,7 +876,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.empty': 'Проектов пока нет. Создайте проект из папки на этом компьютере.',
               'projects.chat': 'Чатов: {count}', 'projects.chats': 'Чатов: {count}',
               'projects.updated': 'обновлено {ago} назад',
-              'section.appearance': 'Оформление', 'section.mcp': 'MCP-серверы', 'section.skills': 'Навыки',
+              'section.mcp': 'MCP-серверы', 'section.skills': 'Навыки',
             },
             pt: {
               'hero.headline': 'Como posso ajudar hoje?',
@@ -876,7 +893,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.empty': 'Nenhum projeto ainda. Crie um a partir de uma pasta deste computador.',
               'projects.chat': '{count} conversa', 'projects.chats': '{count} conversas',
               'projects.updated': 'atualizado há {ago}',
-              'section.appearance': 'Aparência', 'section.mcp': 'Servidores MCP', 'section.skills': 'Habilidades',
+              'section.mcp': 'Servidores MCP', 'section.skills': 'Habilidades',
             },
           }), 'jan-theme: owned copy')
         })
