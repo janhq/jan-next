@@ -440,6 +440,8 @@ window.__ModuleLoader__.load({
      the last row (blue with the accent, grey with the base). Drop the overlay;
      the list keeps its own clip. */
   html[data-jan-theme] [data-slot='sidebar.workspaces'] > div > div > div:has([role='tree']) > span:last-child { display: none; }
+  /* The shell's sidebar-wide fade above the footer has the same single-colour band. */
+  html[data-jan-theme] [data-slot='sidebar'] > div > div:has([data-slot='sidebar.workspaces']) > span[aria-hidden='true']:last-child { display: none; }
   /* The stock More launcher keeps its own 32px / 12px-radius pill; Jan draws
      it as one more nav row so the column has a single row rhythm. */
   html[data-jan-theme] button[aria-label][aria-haspopup='menu'][class*='panelRow'] { height: 36px; padding: 0 8px; border-width: 0; border-radius: 6px; gap: 8px; }
