@@ -619,9 +619,12 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       inject: ['slots'],
       apply(ctx) {
         applyAppearance(preferences)
-        ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'jt-appearance', order: 5, label: 'Appearance' }, AppearanceSettings))
-        ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'jt-mcp', order: 30, label: 'MCP Servers' }, () => h(AgentSettings, { key: 'mcp' })))
-        ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'jt-skills', order: 31, label: 'Skills' }, () => h(AgentSettings, { skills: true, key: 'skills' })))
+        ctx.inject(['locale'], (scope) => {
+          const t = scope.locale.bind('jan-theme')
+          scope.slots.inject('settings.section', () => scope.slots.register({ name: 'settings.section', id: 'jt-appearance', order: 5, label: () => t('section.appearance'), locale: 'jan-theme' }, AppearanceSettings))
+          scope.slots.inject('settings.section', () => scope.slots.register({ name: 'settings.section', id: 'jt-mcp', order: 30, label: () => t('section.mcp'), locale: 'jan-theme' }, () => h(AgentSettings, { key: 'mcp' })))
+          scope.slots.inject('settings.section', () => scope.slots.register({ name: 'settings.section', id: 'jt-skills', order: 31, label: () => t('section.skills'), locale: 'jan-theme' }, () => h(AgentSettings, { skills: true, key: 'skills' })))
+        })
         // Distinct nav glyphs: the settings dialog falls back to the gear for ids it does not know.
         for (const [id, Icon] of [['jt-appearance', IconLightOutlineMedium], ['jt-mcp', IconApiOutlineMedium], ['jt-skills', IconSkillOutlineMedium]]) {
           ctx.slots.inject('settings.section.icon', () => ctx.slots.register({ name: 'settings.section.icon', id }, ({ size }) => h(Icon, { size })))
@@ -668,6 +671,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.empty': 'No projects yet. Create one from a folder on this computer.',
               'projects.chat': '{count} chat', 'projects.chats': '{count} chats',
               'projects.updated': 'updated {ago} ago',
+              'section.appearance': 'Appearance', 'section.mcp': 'MCP Servers', 'section.skills': 'Skills',
             },
             zh: {
               'hero.headline': '今天有什么可以帮您？',
@@ -684,6 +688,109 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.empty': '还没有项目。从本机的文件夹创建一个。',
               'projects.chat': '{count} 个对话', 'projects.chats': '{count} 个对话',
               'projects.updated': '{ago}前更新',
+              'section.appearance': '外观', 'section.mcp': 'MCP 服务器', 'section.skills': '技能',
+            },
+            ja: {
+              'hero.headline': '今日はどのようにお手伝いできますか？',
+              chats: 'チャット',
+              newChat: '新しいチャット',
+              newProject: '新しいプロジェクト',
+              search: '検索',
+              projects: 'プロジェクト', plugins: 'プラグイン', settings: '設定', artifacts: '成果物',
+              newArtifact: '新しい成果物', createPlugin: 'プラグインを作成',
+              'newArtifact.prompt': 'ファイルを作成してください: ',
+              'createPlugin.prompt': '左サイドバーに項目を持つ Jan プラグインを作成してください。',
+              'projects.lede': '各プロジェクトはフォルダーです。その中で始めたチャットは、そのフォルダーのファイルを読み書きできます。',
+              'projects.search': 'プロジェクトを検索',
+              'projects.empty': 'プロジェクトはまだありません。このコンピューター上のフォルダーから作成してください。',
+              'projects.chat': '{count} 件のチャット', 'projects.chats': '{count} 件のチャット',
+              'projects.updated': '{ago}前に更新',
+              'section.appearance': '外観', 'section.mcp': 'MCP サーバー', 'section.skills': 'スキル',
+            },
+            es: {
+              'hero.headline': '¿En qué puedo ayudarte hoy?',
+              chats: 'Chats',
+              newChat: 'Nuevo chat',
+              newProject: 'Nuevo proyecto',
+              search: 'Buscar',
+              projects: 'Proyectos', plugins: 'Complementos', settings: 'Configuración', artifacts: 'Artefactos',
+              newArtifact: 'Nuevo artefacto', createPlugin: 'Crear complemento',
+              'newArtifact.prompt': 'Crea un archivo para mí: ',
+              'createPlugin.prompt': 'Crea un complemento de Jan con una entrada en la barra lateral izquierda.',
+              'projects.lede': 'Cada proyecto es una carpeta. Los chats iniciados en él pueden leer y escribir sus archivos.',
+              'projects.search': 'Buscar proyectos',
+              'projects.empty': 'Aún no hay proyectos. Crea uno a partir de una carpeta de este equipo.',
+              'projects.chat': '{count} chat', 'projects.chats': '{count} chats',
+              'projects.updated': 'actualizado hace {ago}',
+              'section.appearance': 'Apariencia', 'section.mcp': 'Servidores MCP', 'section.skills': 'Habilidades',
+            },
+            fr: {
+              'hero.headline': "Comment puis-je vous aider aujourd'hui ?",
+              chats: 'Discussions',
+              newChat: 'Nouvelle discussion',
+              newProject: 'Nouveau projet',
+              search: 'Rechercher',
+              projects: 'Projets', plugins: 'Plugins', settings: 'Paramètres', artifacts: 'Artefacts',
+              newArtifact: 'Nouvel artefact', createPlugin: 'Créer un plugin',
+              'newArtifact.prompt': 'Crée un fichier pour moi : ',
+              'createPlugin.prompt': 'Crée un plugin Jan avec une entrée dans la barre latérale gauche.',
+              'projects.lede': 'Chaque projet est un dossier. Les discussions qui y sont lancées peuvent lire et écrire ses fichiers.',
+              'projects.search': 'Rechercher des projets',
+              'projects.empty': 'Aucun projet pour le moment. Créez-en un à partir d’un dossier de cet ordinateur.',
+              'projects.chat': '{count} discussion', 'projects.chats': '{count} discussions',
+              'projects.updated': 'mis à jour il y a {ago}',
+              'section.appearance': 'Apparence', 'section.mcp': 'Serveurs MCP', 'section.skills': 'Compétences',
+            },
+            de: {
+              'hero.headline': 'Wie kann ich dir heute helfen?',
+              chats: 'Chats',
+              newChat: 'Neuer Chat',
+              newProject: 'Neues Projekt',
+              search: 'Suchen',
+              projects: 'Projekte', plugins: 'Plugins', settings: 'Einstellungen', artifacts: 'Artefakte',
+              newArtifact: 'Neues Artefakt', createPlugin: 'Plugin erstellen',
+              'newArtifact.prompt': 'Erstelle eine Datei für mich: ',
+              'createPlugin.prompt': 'Erstelle ein Jan-Plugin mit einem Eintrag in der linken Seitenleiste.',
+              'projects.lede': 'Jedes Projekt ist ein Ordner. Darin gestartete Chats können seine Dateien lesen und schreiben.',
+              'projects.search': 'Projekte suchen',
+              'projects.empty': 'Noch keine Projekte. Erstelle eines aus einem Ordner auf diesem Computer.',
+              'projects.chat': '{count} Chat', 'projects.chats': '{count} Chats',
+              'projects.updated': 'vor {ago} aktualisiert',
+              'section.appearance': 'Darstellung', 'section.mcp': 'MCP-Server', 'section.skills': 'Skills',
+            },
+            ru: {
+              'hero.headline': 'Чем я могу помочь сегодня?',
+              chats: 'Чаты',
+              newChat: 'Новый чат',
+              newProject: 'Новый проект',
+              search: 'Поиск',
+              projects: 'Проекты', plugins: 'Плагины', settings: 'Настройки', artifacts: 'Артефакты',
+              newArtifact: 'Новый артефакт', createPlugin: 'Создать плагин',
+              'newArtifact.prompt': 'Создай для меня файл: ',
+              'createPlugin.prompt': 'Создай плагин Jan с пунктом в левой боковой панели.',
+              'projects.lede': 'Каждый проект - это папка. Чаты, начатые в нем, могут читать и изменять ее файлы.',
+              'projects.search': 'Поиск проектов',
+              'projects.empty': 'Проектов пока нет. Создайте проект из папки на этом компьютере.',
+              'projects.chat': 'Чатов: {count}', 'projects.chats': 'Чатов: {count}',
+              'projects.updated': 'обновлено {ago} назад',
+              'section.appearance': 'Оформление', 'section.mcp': 'MCP-серверы', 'section.skills': 'Навыки',
+            },
+            pt: {
+              'hero.headline': 'Como posso ajudar hoje?',
+              chats: 'Conversas',
+              newChat: 'Nova conversa',
+              newProject: 'Novo projeto',
+              search: 'Pesquisar',
+              projects: 'Projetos', plugins: 'Plug-ins', settings: 'Configurações', artifacts: 'Artefatos',
+              newArtifact: 'Novo artefato', createPlugin: 'Criar plug-in',
+              'newArtifact.prompt': 'Crie um arquivo para mim: ',
+              'createPlugin.prompt': 'Crie um plug-in do Jan com uma entrada na barra lateral esquerda.',
+              'projects.lede': 'Cada projeto é uma pasta. As conversas iniciadas nele podem ler e gravar seus arquivos.',
+              'projects.search': 'Pesquisar projetos',
+              'projects.empty': 'Nenhum projeto ainda. Crie um a partir de uma pasta deste computador.',
+              'projects.chat': '{count} conversa', 'projects.chats': '{count} conversas',
+              'projects.updated': 'atualizado há {ago}',
+              'section.appearance': 'Aparência', 'section.mcp': 'Servidores MCP', 'section.skills': 'Habilidades',
             },
           }), 'jan-theme: owned copy')
         })
