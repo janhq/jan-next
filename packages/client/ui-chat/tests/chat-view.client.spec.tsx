@@ -355,7 +355,8 @@ function HarnessChatNode({
     case 'turn-error':
       return <TurnErrorNodeView {...nodeProps} node={owner.node} useSettingsAvailability={selector => selector(true)}
         useContinuation={selector => selector(standard.continuation ?? null)}
-        openModelsSettings={standard.openModelsSettings} recovery={standard.recovery} />
+        openModelsSettings={standard.openModelsSettings}
+        {...(standard.recovery === undefined ? {} : { recovery: standard.recovery })} />
     case 'turn-max-tokens':
       return <TurnMaxTokensNodeView {...nodeProps} node={owner.node} />
     case 'turn-process':
