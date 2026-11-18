@@ -210,7 +210,7 @@
   padding: 4px 6px;
   color: inherit;
   background: transparent;
-  border: 1px solid var(--dsw-alias-border-l3);
+  border: 0.5px solid var(--dsw-alias-border-l3);
   border-radius: var(--dsw-radius-sm);
 }
 
