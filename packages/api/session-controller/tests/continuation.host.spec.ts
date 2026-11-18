@@ -168,7 +168,7 @@ it('restores valid, absent and outdated checkpoints through the registry', async
   const overflow = events(failed('CONTEXT_WINDOW_EXCEEDED'))
   const outdated = { conversationContinuation: { ...checkpoint.conversationContinuation, ver: 4 } }
   const staleOverflow = {
-    conversationContinuation: { ver: 4, seq: SessionSeq(5), val: { admitted: false, failedAttempt: false, ending: 5 } },
+    conversationContinuation: { ver: 4, seq: SessionSeq(5), val: { admitted: false, failedAttempt: false, ending: SessionSeq(5) } },
   }
   expect(restore(staleOverflow, overflow, 0).snapshot.values.conversationContinuation).toEqual({ overflow: 5 })
   expect(restore(outdated, log, 0).snapshot.values.conversationContinuation).toBe(5)
