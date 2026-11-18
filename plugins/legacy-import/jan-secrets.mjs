@@ -7,7 +7,7 @@ import { promisify } from 'node:util'
 const run = promisify(execFile)
 const salt = 'jan-provider-secrets-v1'
 const service = 'jan-providers'
-
+const KEYRING_TIMEOUT_MS = 5_000
 const validProvider = provider => typeof provider === 'string' && provider.trim() !== '' && !/[\0\r\n]/.test(provider)
 const firstKey = value => Array.isArray(value) ? value.find(key => typeof key === 'string' && key.length > 0) : undefined
 
@@ -94,12 +94,12 @@ async function keyringValue(provider, platform) {
     return stdout.trimEnd()
   }
   if (platform === 'linux') {
-    const { stdout } = await run('secret-tool', ['lookup', 'service', service, 'username', provider])
+    const { stdout } = await run('secret-tool', ['lookup', 'service', service, 'username', provider], { timeout: KEYRING_TIMEOUT_MS })
     return stdout.trimEnd()
   }
   if (platform === 'win32') {
     const { stdout } = await run('powershell', ['-NoProfile', '-NonInteractive', '-Command', windowsSecret], {
-      env: { ...process.env, JAN_CREDENTIAL_TARGET: `${provider}.${service}` },
+      env: { ...process.env, JAN_CREDENTIAL_TARGET: `${provider}.${service}` }, timeout: KEYRING_TIMEOUT_MS,
     })
     return Buffer.from(stdout.trim(), 'base64').toString('utf16le')
   }

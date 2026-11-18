@@ -68,3 +68,20 @@ test('includes fallback-only provider names with the native machine id', async t
     assert.deepEqual(await janKeyNames(folder), ['fallback-only'])
   })
 })
+
+test('keyring lookups time out and use the encrypted backup instead', async () => withFolder(async folder => {
+  await writeSecrets(folder, { groq: ['backup-key'] })
+  const bin = await mkdtemp(join(tmpdir(), 'jan-keyring-bin-'))
+  const priorPath = process.env.PATH
+  try {
+    const script = join(bin, 'secret-tool')
+    await writeFile(script, '#!/bin/sh\nexec sleep 20\n', { mode: 0o755 })
+    process.env.PATH = `${bin}:${priorPath}`
+    const started = Date.now()
+    assert.deepEqual(await readJanKey(folder, 'groq', { platform: 'linux', machineId }), { key: 'backup-key', source: 'file' })
+    assert.ok(Date.now() - started < 10_000, 'secret-tool should not block indefinitely')
+  } finally {
+    process.env.PATH = priorPath
+    await rm(bin, { recursive: true, force: true })
+  }
+}))
