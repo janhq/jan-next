@@ -38,6 +38,7 @@ export const PRODUCT_PACKAGE_POLICY: Readonly<Record<string, ProductPackagePolic
   'packages/session/session-telemetry': { category: 'optional', reason: 'Feedback-gated Session export that a deployment enables on the disabled jan-base row.' },
   'packages/session/session-telemetry-otel': { category: 'optional', reason: 'OTel exporter a deployment enables on the disabled jan-base row.' },
   'packages/host/product-telemetry-otel': { category: 'optional', reason: 'Product event exporter a deployment enables on the disabled web-app row.' },
+  'packages/client/ui-message-feedback': { category: 'optional', reason: 'Message rating controls a deployment enables on the disabled web-app row.' },
   'packages/telemetry/otel': { category: 'optional', reason: 'Shared OTel transport used only by the opt-in telemetry exporters.' },
   'packages/sdk/client': { category: 'sdk', reason: 'Published TypeScript embedding client runs in the consumer process.' },
   'packages/typert/generator': { category: 'build', reason: 'Build-time generation of type metadata.' },

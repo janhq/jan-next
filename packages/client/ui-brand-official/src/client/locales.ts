@@ -22,11 +22,18 @@ declare module '@janhq/jan-client-ui-slots' {
 
 type Dictionary = Record<BrandKey, string>
 
-// The tokamak-harness UI is English-only; the other languages show the English stage name.
+// The UI is English-only; the other languages show the English stage name.
+/** Chinese dictionary. */
 export const zh: Dictionary = { stage: 'Alpha' }
+/** Japanese dictionary. */
 export const ja: Dictionary = { stage: 'Alpha' }
+/** Spanish dictionary. */
 export const es: Dictionary = { stage: 'Alpha' }
+/** French dictionary. */
 export const fr: Dictionary = { stage: 'Alpha' }
+/** German dictionary. */
 export const de: Dictionary = { stage: 'Alpha' }
+/** Russian dictionary. */
 export const ru: Dictionary = { stage: 'Alpha' }
+/** Portuguese dictionary. */
 export const pt: Dictionary = { stage: 'Alpha' }
