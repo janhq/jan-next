@@ -83,6 +83,8 @@ export type {
 export { UserTextRun, ReferenceChip, type UserTextRunProps, type ReferenceChipProps } from './user-text.tsx'
 export { Tooltip } from './Tooltip.tsx'
 export type { TooltipSide } from './Tooltip.tsx'
+export { Toggletip, type ToggletipProps } from './Toggletip.tsx'
+export { Coachmark, type CoachmarkProps } from './Coachmark.tsx'
 export { pointerModality } from './input-modality.ts'
 export { Toast } from './Toast.tsx'
 export { fileSizeText } from './file-size.ts'
