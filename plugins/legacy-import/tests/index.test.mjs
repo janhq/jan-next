@@ -1,8 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, sep } from 'node:path'
+import { join } from 'node:path'
 import { apply } from '../index.mjs'
 
 async function withImporter(callback) {
@@ -10,13 +10,11 @@ async function withImporter(callback) {
   const source = join(root, 'jan-data')
   const outside = join(root, 'outside.png')
   const threadId = 'sample'
-  const sessionId = `jan-${threadId}`
   await mkdir(join(source, 'threads', threadId), { recursive: true })
   await writeFile(outside, 'outside image')
   const thread = { id: threadId, title: 'Images', created_at: 1000 }
   await writeFile(join(source, 'threads', threadId, 'thread.json'), JSON.stringify(thread))
   const saved = []
-  const handles = []
   const sessions = new Map()
   const persistence = {
     stat: async id => sessions.get(id),
@@ -26,7 +24,6 @@ async function withImporter(callback) {
         flush: async () => {},
         close: async () => {},
       }
-      handles.push(handle)
       return handle
     },
   }
@@ -37,7 +34,7 @@ async function withImporter(callback) {
     effect: callback => callback(),
     webServer: api,
     connection: { requestRejection: () => undefined },
-    sessions: { get: () => undefined, prepare: (id, { seed, meta }) => ({ header: { id, ...meta }, inheritedEventCount: 0 }) },
+    sessions: { get: () => undefined, prepare: (id, { meta }) => ({ header: { id, ...meta }, inheritedEventCount: 0 }) },
     sessionPersistence: persistence,
     workspaceRegistry: { initializeDefault: async () => workspace },
     attachments: { saveImage: async image => { saved.push(image); return { id: `image-${saved.length}` } } },
@@ -53,7 +50,7 @@ async function withImporter(callback) {
       api.handler(req, res).catch(reject)
     })
   }
-  try { await callback({ source, outside, sessionId, saved, sessions, persistence, handles, importImages }) }
+  try { await callback({ source, outside, saved, importImages }) }
   finally { await rm(root, { recursive: true, force: true }) }
 }
 
