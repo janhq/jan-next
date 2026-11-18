@@ -149,25 +149,41 @@ export default class LlamaCppController extends TypertRemoteService {
     try { await this.ctx.llamaCpp.setDefault(id) } catch (error) { throw failed(error) }
   }
 
-  /** Current served context, GGUF-trained maximum when known, and auto-fit for one installed model. */
+  /**
+   * Current served context, GGUF-trained maximum when known, and auto-fit for one installed model.
+   * @param id - installed model id; `local` names the default.
+   * @returns served context tokens, the trained maximum when the GGUF declares one, and whether auto-fit is on.
+   */
   @Remote
   getModelContext(id: string): { current: number; maximum?: number; fit: boolean } {
     try { return this.ctx.llamaCpp.getModelContext(id) } catch (error) { throw failed(error) }
   }
 
-  /** Persist a per-model context length and wait for the worker's new preset to load. */
+  /**
+   * Persist a per-model context length and wait for the worker's new preset to load.
+   * @param id - installed model id; `local` names the default.
+   * @param contextSize - positive token count, at most the model's trained maximum.
+   */
   @Remote
   async setModelContext(id: string, contextSize: number): Promise<void> {
     try { await this.ctx.llamaCpp.setModelContext(id, contextSize) } catch (error) { throw failed(error) }
   }
 
-  /** Persist and apply automatic GPU/memory fit for one installed model. */
+  /**
+   * Persist and apply automatic GPU/memory fit for one installed model.
+   * @param id - installed model id; `local` names the default.
+   * @param fit - whether llama.cpp fits the context and offload to free memory.
+   */
   @Remote
   async setModelFit(id: string, fit: boolean): Promise<void> {
     try { await this.ctx.llamaCpp.setModelFit(id, fit) } catch (error) { throw failed(error) }
   }
 
-  /** Grow the context to the next step, reload the model, or answer null at its maximum. */
+  /**
+   * Grow the context to the next step, reload the model, or answer null at its maximum.
+   * @param id - installed model id; `local` names the default.
+   * @returns the new context length, or null when the model cannot grow further.
+   */
   @Remote
   async increaseModelContext(id: string): Promise<number | null> {
     try { return await this.ctx.llamaCpp.increaseModelContext(id) } catch (error) { throw failed(error) }

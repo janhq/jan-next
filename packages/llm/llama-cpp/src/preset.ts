@@ -69,7 +69,12 @@ export function plannedContext(settings: Pick<PresetSettings, 'ctxSize' | 'fitCt
   return Math.min(wanted, facts.contextLength ?? wanted)
 }
 
-/** Next recoverable context length, or null when the model cannot grow further. */
+/**
+ * Next recoverable context length, or null when the model cannot grow further.
+ * @param current - context length served now.
+ * @param maximum - trained maximum from GGUF metadata; unknown caps at 131072.
+ * @returns 8192, then 32768, then 1.5x steps, capped at the maximum; null when already there.
+ */
 export function nextContextSize(current: number, maximum: number | undefined): number | null {
   const next = current < 8192 ? 8192 : current < 32768 ? 32768 : Math.round(current * 1.5)
   const capped = Math.min(next, maximum ?? 131072)

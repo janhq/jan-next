@@ -448,7 +448,11 @@ export class LlamaCpp extends Service {
     return model
   }
 
-  /** Requested and trained context of an installed model; `local` names the default. */
+  /**
+   * Requested and trained context of an installed model; `local` names the default.
+   * @param id - installed model id or the route model id.
+   * @returns served context tokens, the trained maximum when the GGUF declares one, and whether auto-fit is on.
+   */
   getModelContext(id: string): { current: number; maximum?: number; fit: boolean } {
     const model = this.resolveModel(id)
     const requested = model.ctxSize ?? this.preset.ctxSize
@@ -459,7 +463,11 @@ export class LlamaCpp extends Service {
     }
   }
 
-  /** Save a model's context and reload its preset section in a running worker. */
+  /**
+   * Save a model's context and reload its preset section in a running worker.
+   * @param id - installed model id or the route model id.
+   * @param contextSize - positive token count, at most the model's trained maximum.
+   */
   setModelContext(id: string, contextSize: number): Promise<void> {
     return this.task(async () => {
       const model = this.resolveModel(id)
@@ -482,7 +490,11 @@ export class LlamaCpp extends Service {
     })
   }
 
-  /** Save the automatic memory-fit choice for one model. */
+  /**
+   * Save the automatic memory-fit choice for one model.
+   * @param id - installed model id or the route model id.
+   * @param fit - whether llama.cpp fits the context and offload to free memory.
+   */
   setModelFit(id: string, fit: boolean): Promise<void> {
     return this.task(async () => {
       const model = this.resolveModel(id)
@@ -502,7 +514,11 @@ export class LlamaCpp extends Service {
     })
   }
 
-  /** Grow to the next classic-Jan context step, bounded by GGUF metadata when available. */
+  /**
+   * Grow to the next classic-Jan context step, bounded by GGUF metadata when available.
+   * @param id - installed model id or the route model id.
+   * @returns the new context length, or null when the model cannot grow further.
+   */
   increaseModelContext(id: string): Promise<number | null> {
     return this.task(async () => {
       const { current, maximum } = this.getModelContext(id)
