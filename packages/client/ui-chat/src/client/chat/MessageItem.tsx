@@ -81,7 +81,7 @@ function failureMessage(
   if (code === 'ACCOUNT_SIGN_IN_REQUIRED') return t('message.failure.accountSignInRequired')
   if (code === 'QUOTA' || code === 'ACCOUNT_QUOTA') return t('message.failure.quota')
   if (code === 'CONTEXT_WINDOW_EXCEEDED') return t('message.failure.contextWindow')
-  if (code === 'MISSING_CREDENTIAL') return t('message.failure.missingCredential')
+  if (code === 'MISSING_CREDENTIAL' || code === 'NO_ADAPTER') return t('message.failure.missingCredential')
   if (code === 'MODEL_SWITCH_COMPACTION_FAILED') return t('message.failure.switchCompaction')
   return code === 'AUTH' ? t('message.failure.auth') : message
 }
@@ -239,7 +239,7 @@ function TurnErrorItem({ node, t, canOpenModelsSettings, openModelsSettings, rec
       <div className={css.turnErrorCopy}>
         <span className={css.turnErrorTitle}>{node.code === 'ACCOUNT_SIGNED_OUT' || node.code === 'INTERRUPTED' ? t('message.taskStopped') : t('message.turnError')}</span>
         <span className={css.turnErrorMessage}>{message}</span>
-        {node.code === 'MISSING_CREDENTIAL' && canOpenModelsSettings && <button type="button" className={css.turnErrorAction}
+        {(node.code === 'MISSING_CREDENTIAL' || node.code === 'NO_ADAPTER') && canOpenModelsSettings && <button type="button" className={css.turnErrorAction}
           onClick={openModelsSettings}>{t('message.failure.openModels')}</button>}
         {recoverable && (growable
           ? <button type="button" className={css.turnErrorAction} disabled={working} onClick={() => { void grow() }}>

@@ -2623,7 +2623,7 @@ describe('ChatView', () => {
     const h = makeHarness({ nodes: [
       user(1, 'try'), turnError(2, 'AUTH'), turnError(3), turnError(4, 'QUOTA'), turnError(5, 'ACCOUNT_QUOTA'),
       turnError(6, 'INTERRUPTED'), turnError(7, 'CONTEXT_WINDOW_EXCEEDED'), turnError(8, 'MISSING_CREDENTIAL'),
-      turnError(9, 'MODEL_SWITCH_COMPACTION_FAILED'),
+      turnError(9, 'MODEL_SWITCH_COMPACTION_FAILED'), turnError(10, 'NO_ADAPTER'),
     ] })
     const view = render(<h.ChatView {...h.props} />)
     const statuses = view.getAllByRole('status')
@@ -2636,13 +2636,16 @@ describe('ChatView', () => {
       '本轮运行失败这个对话已超出当前模型的上下文窗口，之后的消息也会失败。请用更短的内容开始新对话，或切换到上下文窗口更大的模型。CONTEXT_WINDOW_EXCEEDED',
       '本轮运行失败当前模型需要登录或 API 密钥。前往设置 -> 模型下载免费的本地模型（在此电脑上运行，无需账号），或登录 Tokamak 或添加 API 密钥。前往设置 -> 模型MISSING_CREDENTIAL',
       '本轮运行失败这个对话无法压缩到所选模型的上下文窗口内。请切回之前的模型、开始新对话，或选择上下文窗口更大的模型。MODEL_SWITCH_COMPACTION_FAILED',
+      '本轮运行失败当前模型需要登录或 API 密钥。前往设置 -> 模型下载免费的本地模型（在此电脑上运行，无需账号），或登录 Tokamak 或添加 API 密钥。前往设置 -> 模型NO_ADAPTER',
     ])
     // The transient notice is the frame-wide host's job; the failure row keeps
     // neither a recharge affordance nor a toast of its own.
     expect(view.queryByRole('alert')).toBeNull()
     expect(view.queryByRole('dialog')).toBeNull()
     expect(view.queryByRole('button', { name: '去充值' })).toBeNull()
-    fireEvent.click(view.getByRole('button', { name: '前往设置 -> 模型' }))
+    const openModels = view.getAllByRole('button', { name: '前往设置 -> 模型' })
+    expect(openModels).toHaveLength(2)
+    fireEvent.click(openModels[1] as HTMLElement)
     expect(h.openModelsSettings).toHaveBeenCalledOnce()
   })
 
@@ -2667,7 +2670,7 @@ describe('ChatView', () => {
     expect(increase).toHaveBeenCalledWith('jan-v3.5-4b')
     expect(retry).not.toHaveBeenCalled()
     reload.resolve({ ok: true, value: 49152 })
-    await waitFor(() => expect(retry).toHaveBeenCalledExactlyOnceWith(2))
+    await waitFor(() => { expect(retry).toHaveBeenCalledExactlyOnceWith(2) })
     expect(view.getByText('original prompt')).toBeTruthy()
   })
 
@@ -2681,7 +2684,7 @@ describe('ChatView', () => {
     expect(await view.findByText(zh['message.failure.contextMaximum'])).toBeTruthy()
     expect(view.queryByRole('button', { name: zh['message.failure.increaseContext'] })).toBeNull()
     fireEvent.click(view.getByRole('button', { name: zh['message.failure.compactRetry'] }))
-    await waitFor(() => expect(retry).toHaveBeenCalledExactlyOnceWith(2))
+    await waitFor(() => { expect(retry).toHaveBeenCalledExactlyOnceWith(2) })
     expect(compact).toHaveBeenCalledOnce()
   })
 
@@ -2698,7 +2701,7 @@ describe('ChatView', () => {
     expect(view.getByRole('status').textContent).toContain(zh['message.failure.cloudContextWindow'])
     expect(view.queryByRole('button', { name: zh['message.failure.increaseContext'] })).toBeNull()
     fireEvent.click(view.getByRole('button', { name: zh['message.failure.compactRetry'] }))
-    await waitFor(() => expect(recovery.retry).toHaveBeenCalledExactlyOnceWith(2))
+    await waitFor(() => { expect(recovery.retry).toHaveBeenCalledExactlyOnceWith(2) })
     expect(order).toEqual(['compact', 'retry'])
     expect(view.getByText('cloud prompt')).toBeTruthy()
   })
@@ -2714,7 +2717,7 @@ describe('ChatView', () => {
     expect((await view.findByRole('alert')).textContent).toBe(zh['message.failure.nothingToCompact'])
     compact.mockResolvedValueOnce({ ok: false, reason: 'failed', error: 'Compaction could not produce a useful summary.' })
     fireEvent.click(view.getByRole('button', { name: zh['message.failure.compactRetry'] }))
-    await waitFor(() => expect(view.getByRole('alert').textContent).toBe('Compaction could not produce a useful summary.'))
+    await waitFor(() => { expect(view.getByRole('alert').textContent).toBe('Compaction could not produce a useful summary.') })
     expect(retry).not.toHaveBeenCalled()
     expect(view.getByText('big prompt')).toBeTruthy()
   })
