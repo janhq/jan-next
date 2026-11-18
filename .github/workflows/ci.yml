@@ -380,7 +380,7 @@ jobs:
           echo "path=$store_path" >> "$GITHUB_OUTPUT"
 
       # Pull requests restore the pnpm store and Playwright caches without paying
-      # compression and upload on the required path. No master job saves these
+      # compression and upload on the required path. No main-push job saves these
       # hosted cache keys, so each restore-keys fallback hits the matching archived
       # entry until it evicts, after which the store is cold. Self-hosted runners
       # reuse the shared persistent store instead of restoring the remote archive.

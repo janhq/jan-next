@@ -10,7 +10,7 @@ on:
       - '.github/workflows/llama-worker-check.yml'
       - 'native/llama-worker/**'
   push:
-    branches: [master]
+    branches: [main]
     paths:
       - '.github/workflows/llama-worker.yml'
       - '.github/workflows/llama-worker-check.yml'

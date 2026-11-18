@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { gatesForMode } from '../run-gates.ts'
 
 const root = resolve(import.meta.dirname, '../..')
-const masterPush = "github.event_name == 'push' && github.ref == 'refs/heads/master'"
+const masterPush = "github.event_name == 'push' && github.ref == 'refs/heads/main'"
 const runtimeBuilder = './.github/workflows/build-exe-for-python-sdk.yml'
 
 interface Job {
@@ -99,7 +99,7 @@ describe('master-only platform scheduling', () => {
 
   it('runs all three deferred carriers on master pushes with fail-loud API credentials', () => {
     const master = workflow('ci-master.yml')
-    expect(master.on.push).toEqual({ branches: ['master'] })
+    expect(master.on.push).toEqual({ branches: ['main'] })
     expect(Object.keys(master.on).sort()).toEqual(['push', 'workflow_dispatch'])
     const runtime = master.jobs['python-runtime']!
     expect(runtime).toMatchObject({
@@ -131,7 +131,7 @@ describe('master-only platform scheduling', () => {
     const master = workflow('ci-master.yml')
     const wine = master.jobs.windows!
     expect(wine).toMatchObject({
-      if: "(github.event_name == 'push' && github.ref == 'refs/heads/master') || (github.event_name == 'workflow_dispatch' && inputs.suite == 'wine')",
+      if: "(github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.suite == 'wine')",
       'runs-on': 'ubuntu-latest',
     })
     expect(wine.needs).toBeUndefined()

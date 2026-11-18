@@ -2,7 +2,7 @@ name: CI master
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   workflow_dispatch:
     inputs:
       suite:
@@ -16,7 +16,7 @@ on:
           - ssh-helper
           - wine
 
-# New master pushes and manual runs replace obsolete checks in this workflow/ref.
+# New main pushes and manual runs replace obsolete checks in this workflow/ref.
 # Standby drills share cancellation; use completed runs as readiness evidence.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -41,7 +41,7 @@ jobs:
 
   # These native runtime carriers are post-merge checks; release keeps all targets.
   python-runtime:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     name: python runtime / macOS and Linux ARM64
     uses: ./.github/workflows/build-exe-for-python-sdk.yml
     with:
@@ -50,9 +50,9 @@ jobs:
     secrets:
       TOKAMAK_API_KEY: ${{ secrets.TOKAMAK_API_KEY }}
 
-  # Wine runs on master pushes or an explicit suite=wine dispatch, independently of the manual suites.
+  # Wine runs on main pushes or an explicit suite=wine dispatch, independently of the manual suites.
   windows:
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/master') || (github.event_name == 'workflow_dispatch' && inputs.suite == 'wine')
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.suite == 'wine')
     runs-on: ubuntu-latest
     name: windows node 24 / wine
     timeout-minutes: 15
@@ -131,7 +131,7 @@ jobs:
 
   # TODO(hosted-serial-ci): Re-enable the one remaining disabled hosted serial
   # reference job (serial-macos) before release. Re-enabling serial-macos does
-  # not restore a Linux hosted-cache producer: decide whether to add a master
+  # not restore a Linux hosted-cache producer: decide whether to add a main-push
   # seeder or remove the restore-only steps if cold starts become a concern.
   serial-macos:
     if: false

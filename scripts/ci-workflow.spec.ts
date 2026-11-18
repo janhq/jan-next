@@ -748,7 +748,7 @@ describe('CI workflow', () => {
     const wine = workflowJob(master, 'windows')
     if (typeof wine.if !== 'string') throw new TypeError('Wine must define a trigger condition')
     for (const [event, ref, suite, expected] of [
-      ['push', 'refs/heads/master', '', true],
+      ['push', 'refs/heads/main', '', true],
       ['push', 'refs/heads/topic', '', false],
       ['pull_request', 'refs/pull/42/merge', 'wine', false],
       ['workflow_dispatch', 'refs/heads/topic', 'wine', true],
@@ -907,7 +907,7 @@ describe('CI workflow', () => {
       ['push', 'ssh-helper', false], ['pull_request', 'ssh-helper', false],
       ['workflow_dispatch', 'larger-runner-benchmark', false], ['workflow_dispatch', 'ssh-helper', true],
     ] as const) {
-      expect(runInNewContext(master.if, { github: { event_name: event, ref: 'refs/heads/master' }, inputs: { suite } }, { timeout: 1000 })).toBe(expected)
+      expect(runInNewContext(master.if, { github: { event_name: event, ref: 'refs/heads/main' }, inputs: { suite } }, { timeout: 1000 })).toBe(expected)
     }
     expect(master.with).toEqual({ targets: 'node24-linux-x64,node24-linux-arm64,node24-macos-arm64,node24-macos-x64' })
     const workflow = loadWorkflow('.github/workflows/build-exe-for-ssh-helper.yml')
@@ -1472,7 +1472,7 @@ describe('Documentation site publication', () => {
     // carries unreleased work, while it retains only the most recent tags:
     // following the dispatched tag would leave every source link on a deploy
     // from an older tag unresolvable.
-    expect(workflow.env.DOCS_REPOSITORY_REF).toBe('master')
+    expect(workflow.env.DOCS_REPOSITORY_REF).toBe('main')
 
     // The environment owns the deployment tag policy and the required reviewers.
     expect(deploy.environment).toMatchObject({ name: 'github-pages' })
