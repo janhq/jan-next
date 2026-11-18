@@ -16,18 +16,20 @@
   cursor: default;
 }
 
-.button:hover {
-  background: color-mix(in oklch, var(--dsw-alias-label-primary) 10%, transparent);
-  color: var(--dsw-alias-label-primary);
+@media (hover: hover) {
+  .button:hover {
+    background: color-mix(in oklch, var(--dsw-alias-label-primary) 10%, transparent);
+    color: var(--dsw-alias-label-primary);
+  }
+
+  /* Platform close red, the same in light and dark. */
+  .close:hover {
+    background: #c42b1c;
+    color: #fff;
+  }
 }
 
 .button:focus-visible {
-  outline: 2px solid var(--dsw-alias-state-business-primary);
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: -2px;
-}
-
-/* Platform close red, the same in light and dark. */
-.close:hover {
-  background: #c42b1c;
-  color: #fff;
 }

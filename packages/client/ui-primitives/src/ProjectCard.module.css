@@ -7,8 +7,8 @@
   width: 100%;
   min-height: 104px;
   padding: 16px;
-  border: 1px solid var(--dsw-alias-border-primary, var(--dsw-alias-separator));
-  border-radius: 12px;
+  border: 0.5px solid var(--dsw-alias-border-primary, var(--dsw-alias-separator));
+  border-radius: var(--dsw-radius-md);
   background: var(--dsw-alias-bg-primary, transparent);
   color: inherit;
   font: inherit;
@@ -16,12 +16,14 @@
   cursor: pointer;
 }
 
-.card:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
+@media (hover: hover) {
+  .card:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 
 .card:focus-visible {
-  outline: 2px solid var(--dsw-alias-state-business-primary);
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: 2px;
 }
 
