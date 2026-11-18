@@ -57,7 +57,8 @@ describe('jan-base bundle', () => {
       apiKeyEnv: 'TOKAMAK_API_KEY',
       modelListing: { refreshIntervalMs: 600000, timeoutMs: 15000, preferredDefaults: ['tokamak/auto'], exclude: ['openai/gpt-image-*'] },
     })
-    expect(tokamak?.['models']).toBeUndefined()
+    // Entries only fill fields the listing leaves out; the router still decides the served set.
+    expect(tokamak?.['models']).toEqual([{ id: 'tokamak/auto', input: ['text', 'image'] }])
     expect(manifest.dependencies).toHaveProperty('@janhq/jan-tokamak-account')
     expect(rows.find(row => row.id === 'tool-web')?.config).toMatchObject({ fetch: true })
     expect(manifest.dependencies).not.toHaveProperty('@janhq/jan-subagent-codex')
