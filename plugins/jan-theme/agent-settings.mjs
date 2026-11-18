@@ -4,6 +4,7 @@ import { isAbsolute } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { registerApi } from '@janhq/jan-plugin-api'
 import yaml from 'js-yaml'
+import { clearFailure, recordFailure, takeLaunchAudit, trackStart } from './startup-health.mjs'
 
 const plain = value => value && typeof value === 'object' && !Array.isArray(value)
 const strings = value => plain(value) && Object.values(value).every(item => typeof item === 'string')
@@ -73,14 +74,22 @@ export async function mountAgentSettings(ctx, config) {
   const servers = config.mcpServers ?? []
   const status = new Map()
   const mcp = await import('@janhq/jan-mcp-client')
-  for (const row of servers) {
-    if (!row.enabled) { status.set(row.name, 'Disabled'); continue }
+  // Servers start in the background: a slow or broken one must not hold up
+  // the rest of Jan. Once every start settles, the failed ones are switched
+  // off in one save, so the next launch does not try them again.
+  const starts = servers.map(async (row) => {
+    if (!row.enabled) { status.set(row.name, 'Disabled'); return undefined }
     try {
       const secret = (await credentials.readRecord(key(row.name)))?.payload ?? {}
       await ctx.plugin(mcp, { ...row, serverName: row.name, env: secret.env ?? {}, headers: secret.headers ?? {}, failOnStartupError: true })
       status.set(row.name, 'Connected at startup')
-    } catch { status.set(row.name, 'Connection failed. Check the command, endpoint and credentials, then reconnect.') }
-  }
+      return undefined
+    } catch (error) {
+      status.set(row.name, 'Connection failed. Check the command, endpoint and credentials, then reconnect.')
+      const cause = error instanceof Error && error.cause instanceof Error ? `\n${error.cause.stack ?? error.cause.message}` : ''
+      return { name: row.name, message: (error instanceof Error ? error.stack ?? error.message : String(error)) + cause }
+    }
+  })
   if (config.skillDirectories?.length) {
     const filesystem = await import('@janhq/jan-skill-filesystem')
     await ctx.plugin(filesystem, { providerName: 'jan-theme-custom', includeDefaultRoots: false, customSkillDirs: config.skillDirectories })
@@ -94,6 +103,23 @@ export async function mountAgentSettings(ctx, config) {
     return { ...row, secretConfigured, tools, state, status: !row.enabled ? 'Disabled' : tools.length ? `${tools.length} tools available` : status.get(row.name) ?? 'No tools available' }
   }))
   const persist = change => editor.edit(entry, current => ({ ...current, ...change(current) }))
+  // A reload or shutdown cancels starts still in flight; those are not broken servers.
+  let live = true
+  ctx.effect(() => () => { live = false }, 'jan-theme: MCP startup audit')
+  // After a settings save the row in Settings reports the failure; only launch switches servers off.
+  const launch = takeLaunchAudit()
+  void trackStart(Promise.all(starts).then(async (results) => {
+    const failed = results.filter(Boolean)
+    if (!launch || !live || !failed.length) return
+    for (const item of failed) recordFailure({ kind: 'mcp', id: item.name, name: item.name, message: item.message, disabled: true })
+    const names = new Set(failed.map(item => item.name))
+    try {
+      // Saving reloads this plugin; the recorded failures outlive the reload.
+      await persist(current => ({ mcpServers: (current.mcpServers ?? []).map(row => names.has(row.name) ? { ...row, enabled: false } : row) }))
+    } catch (error) {
+      for (const item of failed) recordFailure({ kind: 'mcp', id: item.name, name: item.name, message: `Turning it off failed: ${String(error)}`, disabled: false })
+    }
+  }))
   const saveRows = async rows => {
     const seen = new Set()
     for (const row of rows) {
@@ -150,12 +176,15 @@ export async function mountAgentSettings(ctx, config) {
     },
     async toggle({ name, enabled }) {
       if (typeof enabled !== 'boolean' || !servers.some(row => row.name === name)) throw new Error('Choose an existing MCP server.')
-      return saveRows(servers.map(row => row.name === name ? { ...row, enabled } : row))
+      const result = await saveRows(servers.map(row => row.name === name ? { ...row, enabled } : row))
+      clearFailure(`mcp:${name}`)
+      return result
     },
     async remove({ name, confirmed }) {
       if (confirmed !== true || !servers.some(row => row.name === name)) throw new Error('Confirm removal of an existing server.')
       await saveRows(servers.filter(row => row.name !== name))
       await credentials.deleteRecord(key(name))
+      clearFailure(`mcp:${name}`)
       return { saved: true }
     },
     previewImport: ({ text }) => imported(text).map(({ env, headers, ...row }) => ({ ...row, environmentKeys: Object.keys(env ?? {}), headerKeys: Object.keys(headers ?? {}) })),
