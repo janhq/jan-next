@@ -3,7 +3,7 @@
   "version": "0.2.2-rc.1",
   "private": true,
   "type": "module",
-  "description": "The Downloads page: every local model download on this computer, with pause, resume and cancel.",
+  "description": "Pause and resume active downloads and manage models and caches downloaded by Jan.",
   "exports": {
     ".": "./index.mjs",
     "./client": "./client.js",

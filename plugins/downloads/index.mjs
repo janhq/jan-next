@@ -1,5 +1,2 @@
-/**
- * Host half of the Downloads page: nothing. The page lives in `client.js` and
- * reads the `llamaCpp` Remote that jan-api-llama-cpp-controller serves.
- */
+/** The Downloads client uses the llamaCpp Remote for progress, storage inventory, and removal. */
 export function apply() {}

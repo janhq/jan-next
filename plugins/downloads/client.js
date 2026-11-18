@@ -3,7 +3,7 @@ window.__ModuleLoader__.load({
   factory(require) {
     const React = require('react')
     const h = React.createElement
-    const { Button, RiskConfirmation, IconDownloadOutlineRegular } = require('@janhq/jan-client-ui-primitives')
+    const { Button, RiskConfirmation, IconDownloadOutlineRegular, IconTrashOutlineRegular } = require('@janhq/jan-client-ui-primitives')
     const PANEL = 'jan-downloads'
 
     const COPY = {
@@ -25,6 +25,19 @@ window.__ModuleLoader__.load({
         'confirm.description': 'Cancel the download of {name} and discard its partial file. To keep the file, choose Keep download and then Pause.',
         'confirm.acknowledge': 'Discard the partial model file.',
         'confirm.keep': 'Keep download', 'confirm.discard': 'Discard file',
+        'storage.title': 'On this computer',
+        'storage.total': '{size} used',
+        'storage.loading': 'Checking what Jan has downloaded...',
+        'storage.empty': 'Nothing stored on this computer yet.',
+        'storage.error': 'Could not check downloads on disk: {error}',
+        'storage.deleteError': 'Could not delete {name}: {error}',
+        'storage.kind.model': 'Model', 'storage.kind.partial': 'Partial download', 'storage.kind.cache': 'Cache',
+        'storage.delete': 'Delete', 'storage.deleteLabel': 'Delete {name}', 'storage.deleting': 'Deleting...',
+        'storage.confirmTitle': 'Delete this download?',
+        'storage.confirmModel': 'Delete {name} ({size}) from this computer. You will need to download it again to use it.',
+        'storage.confirmPartial': 'Delete {name} ({size}) from this computer. Jan will need to download these bytes again.',
+        'storage.confirmCache': 'Delete {name} ({size}) from this computer. Jan may download it again when needed.',
+        'storage.acknowledge': 'I understand this removes the file from this computer.',
       },
       zh: {
         title: '下载',
@@ -169,6 +182,11 @@ window.__ModuleLoader__.load({
       return `${(size / 1000 ** unit).toLocaleString(locale, { maximumFractionDigits: unit ? 1 : 0 })} ${units[unit]}`
     }
     const message = error => error instanceof Error ? error.message : String(error)
+    async function answer(call) {
+      const result = await call
+      if (!result.ok) throw new Error(result.error.message)
+      return result.value
+    }
     const statusOf = item => item.error !== undefined ? 'failed' : item.paused ? 'paused' : item.progress === undefined ? 'queued' : 'downloading'
 
     // One reconnecting follower of the Host's local model state; a dropped
@@ -176,13 +194,21 @@ window.__ModuleLoader__.load({
     function follow(remote) {
       const controller = new AbortController()
       const listeners = new Set()
-      let snapshot = { downloads: null, error: '' }
+      let snapshot = { downloads: null, models: null, error: '', storageRevision: 0 }
       let timer
       const set = next => { snapshot = { ...snapshot, ...next }; for (const listener of listeners) listener() }
       void (async () => {
         while (!controller.signal.aborted) {
           try {
-            for await (const state of remote.follow(controller.signal)) set({ downloads: state.downloads, error: '' })
+            for await (const state of remote.follow(controller.signal)) {
+              const previous = snapshot.downloads
+              const changed = snapshot.error !== '' || previous === null || previous.length !== state.downloads.length || state.downloads.some((item, index) =>
+                item.id !== previous[index].id || statusOf(item) !== statusOf(previous[index]))
+              const models = state.models ?? []
+              const modelsChanged = snapshot.models === null || models.length !== snapshot.models.length || models.some((model, index) =>
+                model.id !== snapshot.models[index].id || model.status !== snapshot.models[index].status)
+              set({ downloads: state.downloads, models, error: '', storageRevision: snapshot.storageRevision + Number(changed || modelsChanged) })
+            }
           } catch (error) {
             if (controller.signal.aborted) return
             set({ error: message(error) })
@@ -197,9 +223,71 @@ window.__ModuleLoader__.load({
       }
     }
 
+    function StoredDownloads({ remote, t, locale, storageRevision }) {
+      const [items, setItems] = React.useState(null)
+      const [loadError, setLoadError] = React.useState('')
+      const [deleteError, setDeleteError] = React.useState('')
+      const [refresh, setRefresh] = React.useState(0)
+      const [confirm, setConfirm] = React.useState(null)
+      const [acknowledged, setAcknowledged] = React.useState(false)
+      const [deleting, setDeleting] = React.useState(null)
+      React.useEffect(() => {
+        let current = true
+        const load = async () => {
+          try {
+            const next = await answer(remote.listStoredDownloads())
+            if (current) { setItems(next); setLoadError('') }
+          } catch (error) {
+            if (current) setLoadError(message(error))
+          }
+        }
+        void load()
+        return () => { current = false }
+      }, [remote, storageRevision, refresh])
+
+      const remove = async item => {
+        setConfirm(null)
+        setDeleting(item.path)
+        setDeleteError('')
+        try { await answer(remote.deleteStoredDownload(item.path)) }
+        catch (error) { setDeleteError(t('storage.deleteError', { name: item.name, error: message(error) })) }
+        finally { setRefresh(value => value + 1); setDeleting(null) }
+      }
+      const total = items?.reduce((sum, item) => sum + item.bytes, 0)
+      return h('section', { className: 'jan-downloads-storage', 'aria-labelledby': 'jan-downloads-storage-heading' },
+        h('div', { className: 'jan-downloads-task-head' },
+          h('h2', { id: 'jan-downloads-storage-heading' }, t('storage.title')),
+          total === undefined ? null : h('span', { className: 'jan-downloads-state jan-downloads-size' }, t('storage.total', { size: bytes(total, locale) }))),
+        loadError ? h('p', { role: 'alert', className: 'jan-downloads-error' }, t('storage.error', { error: loadError })) : null,
+        deleteError ? h('p', { role: 'alert', className: 'jan-downloads-error' }, deleteError) : null,
+        items === null ? (loadError ? null : h('p', { role: 'status' }, t('storage.loading')))
+          : items.length === 0 ? h('p', null, t('storage.empty'))
+            : h('ul', { className: 'jan-downloads-stored-list' }, items.map(item => h('li', {
+              key: item.path, className: 'jan-downloads-stored-row', 'aria-busy': deleting === item.path,
+            }, h('div', { className: 'jan-downloads-stored-info' },
+              h('h3', { title: item.path }, item.name),
+              h('p', { className: 'jan-downloads-size' }, `${t(`storage.kind.${item.kind}`)} - ${bytes(item.bytes, locale)}`),
+              item.inUse ? h('p', null, item.inUse) : null),
+            h(Button, { variant: 'outline', size: 'sm', disabled: deleting !== null || Boolean(item.inUse),
+              'aria-label': t('storage.deleteLabel', { name: item.name }),
+              onClick: () => { setAcknowledged(false); setConfirm(item) },
+            }, h(IconTrashOutlineRegular, { size: 16, 'aria-hidden': true }), deleting === item.path ? t('storage.deleting') : t('storage.delete'))))),
+        h(RiskConfirmation, {
+          open: confirm !== null,
+          title: t('storage.confirmTitle'),
+          description: confirm === null ? '' : t(confirm.kind === 'model' ? 'storage.confirmModel' : confirm.kind === 'partial' ? 'storage.confirmPartial' : 'storage.confirmCache',
+            { name: confirm.name, size: bytes(confirm.bytes, locale) }),
+          acknowledgeLabel: t('storage.acknowledge'),
+          cancelLabel: t('confirm.keep'), closeLabel: t('confirm.keep'), confirmLabel: t('storage.delete'),
+          acknowledged, disabled: deleting !== null, onAcknowledgedChange: setAcknowledged,
+          onCancel: () => setConfirm(null),
+          onConfirm: () => { if (confirm) void remove(confirm) },
+        }))
+    }
+
     function DownloadsPanel({ feed, remote, t }) {
       const locale = document.documentElement.lang || undefined
-      const { downloads, error: loadError } = React.useSyncExternalStore(feed.subscribe, feed.get)
+      const { downloads, error: loadError, storageRevision } = React.useSyncExternalStore(feed.subscribe, feed.get)
       const [action, setAction] = React.useState(null)
       const [actionError, setActionError] = React.useState(null)
       const [confirm, setConfirm] = React.useState(null)
@@ -208,7 +296,7 @@ window.__ModuleLoader__.load({
         setConfirm(null)
         setAction({ id: item.id, method })
         setActionError(null)
-        try { await remote[method](item.id) }
+        try { await answer(remote[method](item.id)) }
         catch (error) { setActionError({ id: item.id, message: message(error) }) }
         finally { setAction(null) }
       }
@@ -257,6 +345,7 @@ window.__ModuleLoader__.load({
                   : button(item, 'cancelDownload', t('cancel'), t('cancelling'), () => { setAcknowledged(false); setConfirm(item) })),
               failure ? h('p', { role: 'alert', className: 'jan-downloads-error' }, failure) : null)
           })),
+        h(StoredDownloads, { remote, t, locale, storageRevision }),
         h(RiskConfirmation, {
           open: confirm !== null,
           title: t('confirm.title'),
@@ -286,6 +375,13 @@ window.__ModuleLoader__.load({
       .jan-downloads .jan-downloads-error{color:var(--dsw-alias-label-error,var(--dsw-alias-label-primary));overflow-wrap:anywhere}
       .jan-downloads-empty{padding:48px 0;text-align:center}
       .jan-downloads-empty h2{margin-top:16px}
+      .jan-downloads-storage{max-width:800px;margin:20px auto 0;padding-top:24px;border-top:1px solid var(--dsw-alias-border-l1)}
+      .jan-downloads-stored-list{list-style:none;margin:12px 0 0;padding:0}
+      .jan-downloads-stored-row{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid var(--dsw-alias-border-l1)}
+      .jan-downloads-stored-info{min-width:0;overflow-wrap:anywhere}
+      .jan-downloads-stored-info h3{margin:0;font-size:14px;font-weight:600}
+      .jan-downloads-stored-info p{margin:4px 0 0;font-size:13px}
+      .jan-downloads-stored-row button{flex-shrink:0}
       @media(max-width:600px){.jan-downloads{padding:20px}}
     `
     return {
