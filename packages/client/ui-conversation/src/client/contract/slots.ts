@@ -233,8 +233,20 @@ declare module '@janhq/jan-client-ui-slots' {
       scope: 'session'
       owner: { view?: string }
     }
+    /**
+     * Replaces the new-chat hero headline. Register one component; it receives the localized `headline`
+     * and the `preview` copy and replaces the default heading. Absent, the built-in heading renders.
+     */
     'conversation.hero.headline': { kind: 'single'; scope: 'root'; owner: HeroHeadlineOwnerProps }
+    /**
+     * Replaces the starter suggestions under the hero. The component receives `disabled` and `onPick`;
+     * `onPick(text)` stages a draft without sending it. Absent, the built-in suggestions render.
+     */
     'conversation.hero.suggestions': { kind: 'single'; scope: 'session-maybe'; owner: HeroSuggestionsOwnerProps }
+    /**
+     * Replaces the composer's visual placeholder. The component receives the default `text` and whether
+     * it shows in the `hero` or the `composer`; the input keeps its own accessible name.
+     */
     'conversation.input.placeholder': { kind: 'single'; scope: 'session-maybe'; owner: InputPlaceholderOwnerProps }
     /** Resident navigation container, including when no Session is selected. */
     'conversation.header': { kind: 'single'; scope: 'session-maybe' }
