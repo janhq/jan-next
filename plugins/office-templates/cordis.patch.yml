@@ -1,8 +1,8 @@
 - insert:
-    - id: ow-office-modes
-      name: "@open-waifu/dsh-desktop-office/modes"
-    - id: ow-desktop-office
-      name: "@open-waifu/dsh-desktop-office"
+    - id: office-templates-modes
+      name: "@janhq/jan-office-templates/modes"
+    - id: office-templates
+      name: "@janhq/jan-office-templates"
       config:
         resources: !!js process.env.JAN_OFFICE_RESOURCES
         # Desktop's Host already registers the Office skills and load_workspace_dependencies.

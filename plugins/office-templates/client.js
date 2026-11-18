@@ -1,6 +1,6 @@
-window.__ModuleLoader__.load({ id: '@open-waifu/dsh-desktop-office', factory: require => {
+window.__ModuleLoader__.load({ id: '@janhq/jan-office-templates', factory: require => {
   const React = require('react'), h = React.createElement
-  const NS = 'desktop-office', EVENT = 'dsh-office-mode-change', staged = '@staged'
+  const NS = 'office-templates', EVENT = 'office-templates-mode-change', staged = '@staged'
   const zh = { templates: '选择案例', preview: '查看案例', use: '做同款', close: '关闭预览', previous: '上一页', next: '下一页',
     select: '选用案例', loading: '正在加载…', retry: '重新加载', remove: '取消选择案例', selected: '已选案例',
     page: '第 {page} 页，共 {total} 页', spread: '第 {start}–{end} 页，共 {total} 页', pageNumber: '第 {page} 页', previousSpread: '上一组', nextSpread: '下一组', expired: '案例已更新，请重新选择',
@@ -83,22 +83,22 @@ window.__ModuleLoader__.load({ id: '@open-waifu/dsh-desktop-office', factory: re
     const frameRatio = excel ? 16 / 9 : ratio < 1 ? ratio * 2 : ratio
     // Fill the landscape frame with the top half of a sheet, beginning at its header.
     const sheetStyle = excel ? { width: `${Math.max(100, ratio * 2 / frameRatio * 100)}%`, height: 'auto' } : undefined
-    return h('span', { className: 'dso-thumbnail', style: { aspectRatio: frameRatio } },
+    return h('span', { className: 'ot-thumbnail', style: { aspectRatio: frameRatio } },
       h('img', { src: item.thumbnail, style: sheetStyle, alt: '', loading: 'lazy', draggable: false }))
   }
 
   function TemplateCard({ item, selected, busy, t, choose, preview }) {
-    return h('article', { className: 'dso-card', 'data-office-template': item.id, 'data-selected': selected },
-      h('button', { type: 'button', className: 'dso-card-select', disabled: busy, 'aria-pressed': selected,
+    return h('article', { className: 'ot-card', 'data-office-template': item.id, 'data-selected': selected },
+      h('button', { type: 'button', className: 'ot-card-select', disabled: busy, 'aria-pressed': selected,
         'aria-label': `${t('select')} ${item.title}`, onClick: () => choose(item) },
-        h('span', { className: 'dso-cover', 'data-mode': item.mode }, h(Thumbnail, { item })),
-        h('span', { className: 'dso-card-name' }, item.title)),
-      h('button', { type: 'button', className: 'dso-card-preview', disabled: busy, 'aria-label': `${t('preview')} ${item.title}`, onClick: () => preview(item) },
+        h('span', { className: 'ot-cover', 'data-mode': item.mode }, h(Thumbnail, { item })),
+        h('span', { className: 'ot-card-name' }, item.title)),
+      h('button', { type: 'button', className: 'ot-card-preview', disabled: busy, 'aria-label': `${t('preview')} ${item.title}`, onClick: () => preview(item) },
         h('svg', { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, 'aria-hidden': true },
           h('path', { d: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z' }), h('circle', { cx: 12, cy: 12, r: 3 }))))
   }
 
-  // Share the existing Composer seat geometry used by the PPT chooser.
+  // Share the Composer seat geometry so the gallery lines up with the composer card.
   function useDockGeometry(root, panel, visible) {
     React.useLayoutEffect(() => {
       if (!visible || !root.current || !panel.current) return
@@ -109,9 +109,9 @@ window.__ModuleLoader__.load({ id: '@open-waifu/dsh-desktop-office', factory: re
         const bodyRect = body.getBoundingClientRect(), cardRect = card.getBoundingClientRect(), rootRect = element.getBoundingClientRect()
         // Jan renders this seat above the composer card; the gallery opens below the card and its status row.
         const top = Math.max(0, Math.ceil((card.parentElement ?? card).getBoundingClientRect().bottom - rootRect.top))
-        element.style.setProperty('--dso-dock-top', `${top}px`)
-        element.style.setProperty('--dso-dock-width', `${Math.min(cardRect.width, bodyRect.width)}px`)
-        element.style.setProperty('--dso-dock-height', `${Math.max(200, Math.floor(bodyRect.bottom - (rootRect.top + top) - 20))}px`)
+        element.style.setProperty('--ot-dock-top', `${top}px`)
+        element.style.setProperty('--ot-dock-width', `${Math.min(cardRect.width, bodyRect.width)}px`)
+        element.style.setProperty('--ot-dock-height', `${Math.max(200, Math.floor(bodyRect.bottom - (rootRect.top + top) - 20))}px`)
       }
       const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(sync) : null
       observer?.observe(body); observer?.observe(card); if (card.parentElement) observer?.observe(card.parentElement)
@@ -119,7 +119,7 @@ window.__ModuleLoader__.load({ id: '@open-waifu/dsh-desktop-office', factory: re
       const frame = window.requestAnimationFrame(sync)
       return () => {
         window.cancelAnimationFrame(frame); observer?.disconnect(); window.removeEventListener('resize', sync)
-        element.style.removeProperty('--dso-dock-top'); element.style.removeProperty('--dso-dock-width'); element.style.removeProperty('--dso-dock-height')
+        element.style.removeProperty('--ot-dock-top'); element.style.removeProperty('--ot-dock-width'); element.style.removeProperty('--ot-dock-height')
       }
     }, [root, panel, visible])
   }
@@ -157,7 +157,7 @@ window.__ModuleLoader__.load({ id: '@open-waifu/dsh-desktop-office', factory: re
     const availableWidth = Math.max(0, bounds.width - 32), availableHeight = Math.max(0, bounds.height - 60)
     const paperHeight = spread ? Math.max(0, Math.min(availableHeight, Math.max(0, availableWidth - 16) / spreadRatio)) : 0
     const caption = page => [item.sheets?.find(sheet => sheet.pages.includes(page))?.name, t('pageNumber').replace('{page}', page)].filter(Boolean).join(' · ')
-    return h('dialog', { ref: dialog, className: 'dso-modal', 'data-spread': spread, tabIndex: -1, 'aria-modal': true, 'aria-label': item.title, onCancel: event => { event.preventDefault(); if (!busy) close() },
+    return h('dialog', { ref: dialog, className: 'ot-modal', 'data-spread': spread, tabIndex: -1, 'aria-modal': true, 'aria-label': item.title, onCancel: event => { event.preventDefault(); if (!busy) close() },
       onClick: event => {
         if (event.target !== dialog.current || busy) return
         const rect = dialog.current.getBoundingClientRect()
@@ -172,24 +172,24 @@ window.__ModuleLoader__.load({ id: '@open-waifu/dsh-desktop-office', factory: re
         if (event.target.tagName === 'SELECT' || busy) return
         if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) { event.preventDefault(); if (event.key === 'ArrowRight' && page + step > item.pages) return; move(event.key === 'Home' ? 1 : event.key === 'End' ? item.pages - (spread ? (item.pages - 1) % 2 : 0) : page + (event.key === 'ArrowRight' ? step : -step)) }
       } },
-      h('header', null, h('h2', null, item.title), h('span', { className: 'dso-preview-actions' },
-        h('button', { type: 'button', className: 'dso-close', onClick: close, disabled: busy, 'aria-label': t('close') }, '×'))),
-      item.sheets?.length ? h('nav', { className: 'dso-sheets', 'aria-label': 'Excel' }, item.sheets.map(sheet => h('button', { key: sheet.name, type: 'button', 'aria-pressed': sheet.pages.includes(page), onClick: () => move(sheet.pages[0]) }, sheet.name))) : null,
-      h('div', { ref: stage, className: 'dso-page', 'data-spread': spread, 'aria-busy': !preview && !error }, preview ? spread
-        ? h('div', { className: 'dso-spread' }, preview.map((value, index) => h('figure', { key: value.page, style: { width: paperHeight * ratios[index], flex: 'none' } },
+      h('header', null, h('h2', null, item.title), h('span', { className: 'ot-preview-actions' },
+        h('button', { type: 'button', className: 'ot-close', onClick: close, disabled: busy, 'aria-label': t('close') }, '×'))),
+      item.sheets?.length ? h('nav', { className: 'ot-sheets', 'aria-label': 'Excel' }, item.sheets.map(sheet => h('button', { key: sheet.name, type: 'button', 'aria-pressed': sheet.pages.includes(page), onClick: () => move(sheet.pages[0]) }, sheet.name))) : null,
+      h('div', { ref: stage, className: 'ot-page', 'data-spread': spread, 'aria-busy': !preview && !error }, preview ? spread
+        ? h('div', { className: 'ot-spread' }, preview.map((value, index) => h('figure', { key: value.page, style: { width: paperHeight * ratios[index], flex: 'none' } },
           h('img', { src: value.image, alt: `${item.title} · ${t('page').replace('{page}', value.page).replace('{total}', item.pages)}`, style: { height: paperHeight }, draggable: false }),
           h('figcaption', { title: caption(value.page) }, caption(value.page)))))
         : h('img', { src: preview[0].image, alt: `${item.title} · ${pageLabel}`, draggable: false })
         : error ? h('div', { role: 'alert' }, error, h('button', { type: 'button', onClick: () => setRetry(value => value + 1) }, t('retry'))) : h('span', { role: 'status' }, t('loading'))),
       actionError ? h('p', { role: 'alert' }, actionError) : null,
-      h('footer', null, h('div', { className: 'dso-pagination' }, h('button', { type: 'button', disabled: page === 1, onClick: () => move(page - step), 'aria-label': t(spread ? 'previousSpread' : 'previous') }, '‹'),
+      h('footer', null, h('div', { className: 'ot-pagination' }, h('button', { type: 'button', disabled: page === 1, onClick: () => move(page - step), 'aria-label': t(spread ? 'previousSpread' : 'previous') }, '‹'),
         h('span', { role: 'status', 'aria-live': 'polite' }, pageLabel), h('button', { type: 'button', disabled: page + step > item.pages, onClick: () => move(page + step), 'aria-label': t(spread ? 'nextSpread' : 'next') }, '›')),
-        choose ? h('button', { type: 'button', className: 'dso-use', disabled: busy || !!error || !preview, onClick: async () => { if (await choose(item) && active.current) close() } }, busy ? t('loading') : t('use')) : null))
+        choose ? h('button', { type: 'button', className: 'ot-use', disabled: busy || !!error || !preview, onClick: async () => { if (await choose(item) && active.current) close() } }, busy ? t('loading') : t('use')) : null))
   }
 
   function ModeActions({ store, sessionId, t }) {
     const state = useOffice(store, sessionId)
-    return h(React.Fragment, null, ['word', 'excel'].map(mode => h('button', { key: mode, type: 'button', className: 'dso-mode-action', 'data-office-mode': mode,
+    return h(React.Fragment, null, ['word', 'excel'].map(mode => h('button', { key: mode, type: 'button', className: 'ot-mode-action', 'data-office-mode': mode,
       'aria-pressed': state.mode === mode, 'aria-expanded': state.mode === mode, disabled: state.loading || state.busy, onClick: () => store.mutate(sessionId, 'mode', { mode: state.mode === mode ? null : mode }) }, h('svg', { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.75, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
         h('path', { d: mode === 'word' ? 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h6' : 'M4 3h16a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1ZM3 9h18M3 15h18M9 3v18M15 3v18' })), mode === 'word' ? 'Word' : 'Excel')),
       state.error ? h('span', { role: 'alert' }, state.error, h('button', { type: 'button', onClick: () => store.load(sessionId, true) }, t('retry'))) : null)
@@ -202,12 +202,12 @@ window.__ModuleLoader__.load({ id: '@open-waifu/dsh-desktop-office', factory: re
     React.useEffect(() => { if (opened && state.templates.find(item => item.id === opened.id)?.revision !== opened.revision) setOpened(null) }, [state.templates, opened])
     if (!visible) return null
     const items = state.templates.filter(item => item.mode === state.mode)
-    return h('div', { ref: root, className: 'dso-dock-root' }, h('section', { ref: panel, className: 'dso-dock', 'data-office-dock': state.mode, 'aria-label': t('templates') },
-      h('div', { className: 'dso-viewport', 'data-native-wheel-owner': '' },
+    return h('div', { ref: root, className: 'ot-dock-root' }, h('section', { ref: panel, className: 'ot-dock', 'data-office-dock': state.mode, 'aria-label': t('templates') },
+      h('div', { className: 'ot-viewport', 'data-native-wheel-owner': '' },
       state.error ? h('div', { role: 'alert' }, state.error, h('button', { type: 'button', onClick: () => store.load(sessionId, true) }, t('retry'))) : null,
       state.selectionExpired ? h('p', { role: 'status' }, t('expired')) : null,
       state.loading ? h('p', { role: 'status' }, t('loading')) : !items.length ? h('p', { role: 'status' }, t('empty')) : null,
-      h('div', { className: 'dso-grid' }, items.map(item => h(TemplateCard, { key: item.id, item, t, selected: state.selectedTemplateId === item.id,
+      h('div', { className: 'ot-grid' }, items.map(item => h(TemplateCard, { key: item.id, item, t, selected: state.selectedTemplateId === item.id,
         busy: state.busy || state.loading, preview: setOpened, choose: item => store.mutate(sessionId, 'select', { templateId: item.id, revision: item.revision }) })))),
       opened ? h(Preview, { key: `${sessionId}:${opened.id}`, item: opened, store, sessionId, t, close: () => setOpened(null), busy: state.busy, actionError: state.error,
         choose: item => store.mutate(sessionId, 'select', { templateId: item.id, revision: item.revision }) }) : null))
@@ -217,9 +217,9 @@ window.__ModuleLoader__.load({ id: '@open-waifu/dsh-desktop-office', factory: re
     React.useEffect(() => setOpened(false), [sessionId, state.selectedTemplateId, session?.blank])
     const item = state.templates.find(item => item.id === state.selectedTemplateId && item.mode === state.mode)
     if (!item) return null
-    return h('div', { className: 'dso-selected', 'data-office-selected': item.id },
-      h('span', { className: 'dso-selected-frame' }, h('button', { type: 'button', className: 'dso-selected-preview', 'aria-label': `${t('preview')} ${item.title}`, onClick: () => setOpened(true) }, h(Thumbnail, { item })),
-      h('button', { type: 'button', className: 'dso-selected-remove', disabled: state.busy, 'aria-label': t('remove'), onClick: () => store.mutate(sessionId, 'deselect', {}) }, '×')),
+    return h('div', { className: 'ot-selected', 'data-office-selected': item.id },
+      h('span', { className: 'ot-selected-frame' }, h('button', { type: 'button', className: 'ot-selected-preview', 'aria-label': `${t('preview')} ${item.title}`, onClick: () => setOpened(true) }, h(Thumbnail, { item })),
+      h('button', { type: 'button', className: 'ot-selected-remove', disabled: state.busy, 'aria-label': t('remove'), onClick: () => store.mutate(sessionId, 'deselect', {}) }, '×')),
       opened ? h(Preview, { item, store, sessionId, t, close: () => setOpened(false), busy: state.busy }) : null)
   }
   function OpeningTemplate({ store, sessionId, leading, t }) {
@@ -228,52 +228,52 @@ window.__ModuleLoader__.load({ id: '@open-waifu/dsh-desktop-office', factory: re
     React.useEffect(() => setOpened(false), [sessionId, state.selectedTemplateId, leading])
     if (leading !== true || !item) return null
     return h(React.Fragment, null,
-      h('div', { className: 'dso-opening-row', 'data-office-opening-template': item.id, 'data-mode': item.mode },
-        h('svg', { className: 'dso-opening-file', width: 22, height: 26, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.75, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+      h('div', { className: 'ot-opening-row', 'data-office-opening-template': item.id, 'data-mode': item.mode },
+        h('svg', { className: 'ot-opening-file', width: 22, height: 26, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.75, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
           h('path', { d: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6' }),
           h('path', { d: item.mode === 'word' ? 'M8 13h8M8 17h6' : 'M8 12h8v7H8zM8 15.5h8M12 12v7' })),
-        h('button', { type: 'button', className: 'dso-opening-title', 'aria-haspopup': 'dialog', 'aria-label': `${t('preview')} ${item.title}`, onClick: () => setOpened(true) }, item.title)),
+        h('button', { type: 'button', className: 'ot-opening-title', 'aria-haspopup': 'dialog', 'aria-label': `${t('preview')} ${item.title}`, onClick: () => setOpened(true) }, item.title)),
       opened ? h(Preview, { item, store, sessionId, t, close: () => setOpened(false), busy: state.busy }) : null)
   }
   const css = `
-.dso-opening-row{display:flex;align-items:center;gap:6px;min-width:0}.dso-opening-row:not(:first-child){margin-top:8px;padding-top:8px;border-top:.5px solid var(--dsw-alias-border-l2)}.dso-opening-file{flex:none;color:var(--dsw-alias-state-business-primary)}.dso-opening-row[data-mode=excel] .dso-opening-file{color:var(--dsw-alias-state-success-primary)}.dso-opening-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:0;background:transparent;padding:0;color:var(--dsw-alias-state-business-primary);font:inherit;font-size:13px;line-height:20px;text-align:left;cursor:pointer}.dso-opening-title:hover{text-decoration:underline}.dso-opening-title:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}
-.dso-preview-actions{display:flex;gap:12px;align-items:center}
-.dso-mode-action{display:inline-flex;align-items:center;gap:6px;line-height:16px;font:inherit;font-size:12px;border-radius:999px;padding:7px 13px;background:transparent;border:1px solid var(--dsw-alias-border-l2-darkmode-thin);color:var(--dsw-alias-label-secondary);cursor:pointer}.dso-mode-action[aria-pressed=true]{color:var(--dsw-alias-label-primary-foreground)!important;border-color:var(--dsw-alias-label-primary);background:var(--dsw-alias-label-primary)!important}
-.dso-dock-root{box-sizing:border-box;position:relative;width:100%;height:0;padding:0 var(--jan-composer-side-clearance);overflow:visible}.dso-dock{box-sizing:border-box;position:absolute;top:var(--dso-dock-top,0px);left:50%;transform:translateX(-50%);z-index:2;display:flex;flex-direction:column;width:var(--dso-dock-width,var(--jan-composer-card-max-width,100%));max-width:calc(100vw - 32px);height:var(--dso-dock-height,calc(100dvh - 178px));margin-top:8px;color:var(--dsw-alias-label-primary);font-size:12px}.dso-viewport{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:4px 4px 12px;scrollbar-width:none}.dso-viewport::-webkit-scrollbar{display:none}.dso-sheets{display:flex;align-items:center;flex:none;overflow:auto;gap:4px;scrollbar-width:none}.dso-sheets::-webkit-scrollbar{display:none}.dso-sheets button{font:inherit;font-size:11px;line-height:16px;border:0;border-radius:999px;padding:5px 10px;flex:none;color:var(--dsw-alias-label-caption);background:transparent;cursor:pointer}.dso-sheets button:hover{color:var(--dsw-alias-label-primary)}.dso-sheets button[aria-pressed=true]{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
-.dso-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 14px}.dso-card{min-width:0;position:relative}.dso-card-select{font:inherit;display:flex;flex-direction:column;width:100%;padding:0;min-width:0;border:0;text-align:center;background:transparent;color:var(--dsw-alias-label-tertiary);cursor:pointer}.dso-card-select:disabled{cursor:default;opacity:.65}.dso-cover{box-sizing:border-box;display:block;position:relative;width:100%;aspect-ratio:16/9;border:2px solid transparent;border-radius:9px;overflow:hidden;background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 5%,var(--dsw-alias-bg-layer-1))}.dso-cover[data-mode=excel]{background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 6%,var(--dsw-alias-bg-layer-1))}.dso-thumbnail{display:block;width:100%;border-radius:8px;overflow:hidden}.dso-thumbnail img{display:block;width:100%;height:auto}.dso-cover>.dso-thumbnail{position:absolute;left:13%;top:14%;width:74%;box-shadow:0 2px 10px color-mix(in srgb,var(--dsw-alias-label-primary) 15%,transparent);transform-origin:center top;transition:transform 180ms cubic-bezier(.23,1,.32,1)}.dso-cover[data-mode=excel]>.dso-thumbnail{left:8%;width:84%;height:100%}.dso-card[data-selected=true] .dso-cover{border-color:var(--dsw-alias-state-business-primary)}.dso-card-name{display:block;box-sizing:border-box;width:100%;padding-top:5px;text-align:center;font-size:12px;line-height:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dso-card[data-selected=true] .dso-card-name{color:var(--dsw-alias-label-primary)}.dso-card-preview{position:absolute;left:10px;top:10px;z-index:1;display:grid;place-items:center;width:28px;height:28px;padding:0;border:1px solid var(--dsw-alias-border-l2-darkmode-thin);border-radius:7px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);cursor:pointer;opacity:0;transition:opacity 120ms ease}.dso-card:hover .dso-card-preview,.dso-card:focus-within .dso-card-preview{opacity:1}.dso-card-preview:disabled{cursor:default}.dso-card-select:active:not(:focus-visible) .dso-thumbnail{transform:scale(.98)}
-@media(hover:hover) and (pointer:fine){.dso-card:has(.dso-card-select:enabled):hover .dso-thumbnail{transform:translateY(-3px) scale(1.045)}}@media(hover:none){.dso-card-preview{opacity:1}}@media(prefers-reduced-motion:reduce){.dso-cover>.dso-thumbnail,.dso-card-preview{transition:none}.dso-card:has(.dso-card-select:enabled):hover .dso-thumbnail,.dso-card-select:active:not(:focus-visible) .dso-thumbnail{transform:none}}
-/* Match the detailed viewer in PPT PR 675; Office keeps its native page navigation. */
-.dso-modal{box-sizing:border-box;width:min(1280px,calc(100vw - 32px));height:min(900px,calc(100dvh - 32px));max-width:calc(100vw - 32px);max-height:calc(100dvh - 32px);margin:auto;border:1px solid var(--dsw-alias-border-l2-darkmode-thin);border-radius:16px;padding:20px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit}
-.dso-modal[open]{display:flex;flex-direction:column;gap:16px}
-.dso-modal::backdrop{background:color-mix(in srgb,var(--dsw-alias-label-primary) 45%,transparent)}
-.dso-modal header,.dso-modal footer{display:flex;align-items:center;gap:12px;flex:none}
-.dso-modal header{justify-content:space-between}
-.dso-modal h2{margin:0;min-width:0;overflow-wrap:anywhere;font-size:16px;line-height:24px;font-weight:600}
-.dso-modal button{min-width:32px;min-height:32px;font:inherit;font-size:13px;border:1px solid var(--dsw-alias-border-l2-darkmode-thin);border-radius:7px;padding:0;background:var(--dsw-alias-bg-base);color:inherit;cursor:pointer}
-.dso-modal button:disabled{cursor:default;opacity:.35}
-.dso-modal .dso-close{display:grid;place-items:center;flex:none;width:32px;height:32px;font-size:18px}
-.dso-modal button:hover:enabled{background:var(--dsw-alias-interactive-bg-hover)}
-.dso-page{display:flex;justify-content:center;align-items:center;flex:1;min-height:0;min-width:0;overflow:auto;background:var(--dsw-alias-interactive-bg-hover);border-radius:8px;position:relative}
-.dso-page>img{width:100%;height:100%;object-fit:contain;min-height:0;display:block;margin:0 auto}
-.dso-page>[role]{display:grid;place-content:center;gap:12px;text-align:center;padding:16px;overflow-wrap:anywhere}
-.dso-page>[role] button{padding:0 14px;justify-self:center}
-.dso-modal footer{justify-content:center;flex-wrap:wrap;font-size:13px;font-variant-numeric:tabular-nums}
-.dso-pagination{display:flex;align-items:center;justify-content:center;gap:12px;color:var(--dsw-alias-label-primary);font-size:13px;font-variant-numeric:tabular-nums}
-.dso-pagination button{display:grid;place-items:center;width:32px;height:32px}
-.dso-modal .dso-use{width:auto;padding:0 14px;margin-left:8px;background:var(--dsw-alias-label-primary);color:var(--dsw-alias-bg-base);border-color:transparent;font-size:13px}
-.dso-modal .dso-use:hover:enabled{background:var(--dsw-alias-label-primary)}
-.dso-modal .dso-sheets button{min-width:0;min-height:28px;padding:5px 10px;border:0;border-radius:999px;background:transparent;font-size:11px;color:var(--dsw-alias-label-caption)}
-.dso-modal .dso-sheets button[aria-pressed=true],.dso-modal .dso-sheets button:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
-.dso-page[data-spread=true]{box-sizing:border-box;padding:16px}
-.dso-spread{display:flex;justify-content:center;align-items:flex-start;gap:16px;max-width:100%}
-.dso-spread figure{margin:0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:8px}
-.dso-spread img{display:block;width:100%;object-fit:contain;box-shadow:0 2px 12px color-mix(in srgb,var(--dsw-alias-label-primary) 10%,transparent)}
-.dso-spread figcaption{width:100%;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:20px;flex:none}
-.dso-selected{display:flex;align-items:flex-start}.dso-selected button{cursor:pointer}.dso-selected-frame{position:relative;display:block;flex:none;width:clamp(76px,10vw,92px);aspect-ratio:16/9;transform:rotate(-3deg);transform-origin:center}.dso-selected-preview{font:inherit;display:block;box-sizing:border-box;width:100%;height:100%;padding:0;border:2px solid var(--dsw-alias-state-business-primary);border-radius:9px;overflow:hidden;background:var(--dsw-alias-bg-base);box-shadow:0 4px 14px color-mix(in srgb,var(--dsw-alias-label-primary) 18%,transparent)}.dso-selected .dso-thumbnail{width:100%;height:100%;border-radius:0}.dso-selected .dso-thumbnail img{height:100%;object-fit:cover;object-position:top}.dso-selected-remove{position:absolute;top:-8px;right:-8px;z-index:2;display:grid;place-items:center;width:20px;height:20px;padding:0;border:1px solid var(--dsw-alias-border-l2);border-radius:50%;background:var(--dsw-alias-label-primary);color:var(--dsw-alias-bg-base);font:500 15px/1 ui-sans-serif,system-ui,sans-serif;opacity:0;pointer-events:none;transform:rotate(3deg);transition:opacity 120ms ease}.dso-selected-frame:hover .dso-selected-remove,.dso-selected-frame:focus-within .dso-selected-remove{opacity:1;pointer-events:auto}.dso-selected-remove:disabled{cursor:default}.dso-selected .dso-selected-preview:focus-visible{outline-offset:2px}@media(hover:none){.dso-selected-remove{opacity:1;pointer-events:auto}}@media(prefers-reduced-motion:reduce){.dso-selected-frame{transform:none}.dso-selected-remove{transform:none;transition:none}}.dso-mode-action:focus-visible,.dso-card-select:focus-visible,.dso-card-preview:focus-visible,.dso-modal button:focus-visible,.dso-selected button:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:3px}@media(max-width:540px){.dso-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.dso-modal{padding:10px}.dso-modal footer{gap:12px}.dso-pagination{gap:8px}}`
+.ot-opening-row{display:flex;align-items:center;gap:6px;min-width:0}.ot-opening-row:not(:first-child){margin-top:8px;padding-top:8px;border-top:.5px solid var(--dsw-alias-border-l2)}.ot-opening-file{flex:none;color:var(--dsw-alias-state-business-primary)}.ot-opening-row[data-mode=excel] .ot-opening-file{color:var(--dsw-alias-state-success-primary)}.ot-opening-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:0;background:transparent;padding:0;color:var(--dsw-alias-state-business-primary);font:inherit;font-size:13px;line-height:20px;text-align:left;cursor:pointer}.ot-opening-title:hover{text-decoration:underline}.ot-opening-title:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}
+.ot-preview-actions{display:flex;gap:12px;align-items:center}
+.ot-mode-action{display:inline-flex;align-items:center;gap:6px;line-height:16px;font:inherit;font-size:12px;border-radius:999px;padding:7px 13px;background:transparent;border:1px solid var(--dsw-alias-border-l2-darkmode-thin);color:var(--dsw-alias-label-secondary);cursor:pointer}.ot-mode-action[aria-pressed=true]{color:var(--dsw-alias-label-primary-foreground)!important;border-color:var(--dsw-alias-label-primary);background:var(--dsw-alias-label-primary)!important}
+.ot-dock-root{box-sizing:border-box;position:relative;width:100%;height:0;padding:0 var(--jan-composer-side-clearance);overflow:visible}.ot-dock{box-sizing:border-box;position:absolute;top:var(--ot-dock-top,0px);left:50%;transform:translateX(-50%);z-index:2;display:flex;flex-direction:column;width:var(--ot-dock-width,var(--jan-composer-card-max-width,100%));max-width:calc(100vw - 32px);height:var(--ot-dock-height,calc(100dvh - 178px));margin-top:8px;color:var(--dsw-alias-label-primary);font-size:12px}.ot-viewport{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:4px 4px 12px;scrollbar-width:none}.ot-viewport::-webkit-scrollbar{display:none}.ot-sheets{display:flex;align-items:center;flex:none;overflow:auto;gap:4px;scrollbar-width:none}.ot-sheets::-webkit-scrollbar{display:none}.ot-sheets button{font:inherit;font-size:11px;line-height:16px;border:0;border-radius:999px;padding:5px 10px;flex:none;color:var(--dsw-alias-label-caption);background:transparent;cursor:pointer}.ot-sheets button:hover{color:var(--dsw-alias-label-primary)}.ot-sheets button[aria-pressed=true]{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
+.ot-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 14px}.ot-card{min-width:0;position:relative}.ot-card-select{font:inherit;display:flex;flex-direction:column;width:100%;padding:0;min-width:0;border:0;text-align:center;background:transparent;color:var(--dsw-alias-label-tertiary);cursor:pointer}.ot-card-select:disabled{cursor:default;opacity:.65}.ot-cover{box-sizing:border-box;display:block;position:relative;width:100%;aspect-ratio:16/9;border:2px solid transparent;border-radius:9px;overflow:hidden;background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 5%,var(--dsw-alias-bg-layer-1))}.ot-cover[data-mode=excel]{background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 6%,var(--dsw-alias-bg-layer-1))}.ot-thumbnail{display:block;width:100%;border-radius:8px;overflow:hidden}.ot-thumbnail img{display:block;width:100%;height:auto}.ot-cover>.ot-thumbnail{position:absolute;left:13%;top:14%;width:74%;box-shadow:0 2px 10px color-mix(in srgb,var(--dsw-alias-label-primary) 15%,transparent);transform-origin:center top;transition:transform 180ms cubic-bezier(.23,1,.32,1)}.ot-cover[data-mode=excel]>.ot-thumbnail{left:8%;width:84%;height:100%}.ot-card[data-selected=true] .ot-cover{border-color:var(--dsw-alias-state-business-primary)}.ot-card-name{display:block;box-sizing:border-box;width:100%;padding-top:5px;text-align:center;font-size:12px;line-height:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ot-card[data-selected=true] .ot-card-name{color:var(--dsw-alias-label-primary)}.ot-card-preview{position:absolute;left:10px;top:10px;z-index:1;display:grid;place-items:center;width:28px;height:28px;padding:0;border:1px solid var(--dsw-alias-border-l2-darkmode-thin);border-radius:7px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);cursor:pointer;opacity:0;transition:opacity 120ms ease}.ot-card:hover .ot-card-preview,.ot-card:focus-within .ot-card-preview{opacity:1}.ot-card-preview:disabled{cursor:default}.ot-card-select:active:not(:focus-visible) .ot-thumbnail{transform:scale(.98)}
+@media(hover:hover) and (pointer:fine){.ot-card:has(.ot-card-select:enabled):hover .ot-thumbnail{transform:translateY(-3px) scale(1.045)}}@media(hover:none){.ot-card-preview{opacity:1}}@media(prefers-reduced-motion:reduce){.ot-cover>.ot-thumbnail,.ot-card-preview{transition:none}.ot-card:has(.ot-card-select:enabled):hover .ot-thumbnail,.ot-card-select:active:not(:focus-visible) .ot-thumbnail{transform:none}}
+/* Detailed page viewer; Office keeps its native page navigation. */
+.ot-modal{box-sizing:border-box;width:min(1280px,calc(100vw - 32px));height:min(900px,calc(100dvh - 32px));max-width:calc(100vw - 32px);max-height:calc(100dvh - 32px);margin:auto;border:1px solid var(--dsw-alias-border-l2-darkmode-thin);border-radius:16px;padding:20px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit}
+.ot-modal[open]{display:flex;flex-direction:column;gap:16px}
+.ot-modal::backdrop{background:color-mix(in srgb,var(--dsw-alias-label-primary) 45%,transparent)}
+.ot-modal header,.ot-modal footer{display:flex;align-items:center;gap:12px;flex:none}
+.ot-modal header{justify-content:space-between}
+.ot-modal h2{margin:0;min-width:0;overflow-wrap:anywhere;font-size:16px;line-height:24px;font-weight:600}
+.ot-modal button{min-width:32px;min-height:32px;font:inherit;font-size:13px;border:1px solid var(--dsw-alias-border-l2-darkmode-thin);border-radius:7px;padding:0;background:var(--dsw-alias-bg-base);color:inherit;cursor:pointer}
+.ot-modal button:disabled{cursor:default;opacity:.35}
+.ot-modal .ot-close{display:grid;place-items:center;flex:none;width:32px;height:32px;font-size:18px}
+.ot-modal button:hover:enabled{background:var(--dsw-alias-interactive-bg-hover)}
+.ot-page{display:flex;justify-content:center;align-items:center;flex:1;min-height:0;min-width:0;overflow:auto;background:var(--dsw-alias-interactive-bg-hover);border-radius:8px;position:relative}
+.ot-page>img{width:100%;height:100%;object-fit:contain;min-height:0;display:block;margin:0 auto}
+.ot-page>[role]{display:grid;place-content:center;gap:12px;text-align:center;padding:16px;overflow-wrap:anywhere}
+.ot-page>[role] button{padding:0 14px;justify-self:center}
+.ot-modal footer{justify-content:center;flex-wrap:wrap;font-size:13px;font-variant-numeric:tabular-nums}
+.ot-pagination{display:flex;align-items:center;justify-content:center;gap:12px;color:var(--dsw-alias-label-primary);font-size:13px;font-variant-numeric:tabular-nums}
+.ot-pagination button{display:grid;place-items:center;width:32px;height:32px}
+.ot-modal .ot-use{width:auto;padding:0 14px;margin-left:8px;background:var(--dsw-alias-label-primary);color:var(--dsw-alias-bg-base);border-color:transparent;font-size:13px}
+.ot-modal .ot-use:hover:enabled{background:var(--dsw-alias-label-primary)}
+.ot-modal .ot-sheets button{min-width:0;min-height:28px;padding:5px 10px;border:0;border-radius:999px;background:transparent;font-size:11px;color:var(--dsw-alias-label-caption)}
+.ot-modal .ot-sheets button[aria-pressed=true],.ot-modal .ot-sheets button:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
+.ot-page[data-spread=true]{box-sizing:border-box;padding:16px}
+.ot-spread{display:flex;justify-content:center;align-items:flex-start;gap:16px;max-width:100%}
+.ot-spread figure{margin:0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:8px}
+.ot-spread img{display:block;width:100%;object-fit:contain;box-shadow:0 2px 12px color-mix(in srgb,var(--dsw-alias-label-primary) 10%,transparent)}
+.ot-spread figcaption{width:100%;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:20px;flex:none}
+.ot-selected{display:flex;align-items:flex-start}.ot-selected button{cursor:pointer}.ot-selected-frame{position:relative;display:block;flex:none;width:clamp(76px,10vw,92px);aspect-ratio:16/9;transform:rotate(-3deg);transform-origin:center}.ot-selected-preview{font:inherit;display:block;box-sizing:border-box;width:100%;height:100%;padding:0;border:2px solid var(--dsw-alias-state-business-primary);border-radius:9px;overflow:hidden;background:var(--dsw-alias-bg-base);box-shadow:0 4px 14px color-mix(in srgb,var(--dsw-alias-label-primary) 18%,transparent)}.ot-selected .ot-thumbnail{width:100%;height:100%;border-radius:0}.ot-selected .ot-thumbnail img{height:100%;object-fit:cover;object-position:top}.ot-selected-remove{position:absolute;top:-8px;right:-8px;z-index:2;display:grid;place-items:center;width:20px;height:20px;padding:0;border:1px solid var(--dsw-alias-border-l2);border-radius:50%;background:var(--dsw-alias-label-primary);color:var(--dsw-alias-bg-base);font:500 15px/1 ui-sans-serif,system-ui,sans-serif;opacity:0;pointer-events:none;transform:rotate(3deg);transition:opacity 120ms ease}.ot-selected-frame:hover .ot-selected-remove,.ot-selected-frame:focus-within .ot-selected-remove{opacity:1;pointer-events:auto}.ot-selected-remove:disabled{cursor:default}.ot-selected .ot-selected-preview:focus-visible{outline-offset:2px}@media(hover:none){.ot-selected-remove{opacity:1;pointer-events:auto}}@media(prefers-reduced-motion:reduce){.ot-selected-frame{transform:none}.ot-selected-remove{transform:none;transition:none}}.ot-mode-action:focus-visible,.ot-card-select:focus-visible,.ot-card-preview:focus-visible,.ot-modal button:focus-visible,.ot-selected button:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:3px}@media(max-width:540px){.ot-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ot-modal{padding:10px}.ot-modal footer{gap:12px}.ot-pagination{gap:8px}}`
   function apply(ctx) {
     const store = new OfficeStore(ctx.get('connection'))
     ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'Office dictionaries')
-    ctx.effect(() => { if (document.querySelector('style[data-plugin-css="desktop-office/styles"]')) return; const tag = document.createElement('style'); tag.dataset.plugin = NS; tag.dataset.pluginCss = 'desktop-office/styles'; tag.textContent = css; document.head.append(tag); return () => tag.remove() }, 'Office styles')
+    ctx.effect(() => { if (document.querySelector('style[data-plugin-css="office-templates/styles"]')) return; const tag = document.createElement('style'); tag.dataset.plugin = NS; tag.dataset.pluginCss = 'office-templates/styles'; tag.textContent = css; document.head.append(tag); return () => tag.remove() }, 'Office styles')
     ctx.effect(() => { const listener = event => store.syncPpt(event.detail ?? {}); window.addEventListener(EVENT, listener); return () => { window.removeEventListener(EVENT, listener); store.dispose() } }, 'Office mode synchronization')
     ctx.on('connection/reset', () => store.reset())
     for (const [seat, component] of [['conversation.hero.options', ModeActions], ['conversation.input.dock', Dock], ['conversation.composer.dock', Accessory]]) {

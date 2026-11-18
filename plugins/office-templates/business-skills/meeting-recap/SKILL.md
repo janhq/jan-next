@@ -85,4 +85,4 @@ Optionally run scripts/validate_minutes.py to check a Markdown draft for section
 
 ## Sources and maintenance
 
-The starting point is meeting-recap from the user-provided "open-source skill-185 (1).zip"; the original license and attribution files ship with the package. After the original Office PR merged it, it moved into DSH Desktop. This version was rewritten by DSH Desktop with new organizing rules, Word delivery and validation. The archived name and the historical "Kimi 185" review label describe the local source; authorship follows the bundled license.
+The starting point is meeting-recap from the user-provided "open-source skill-185 (1).zip"; the original license and attribution files ship with the package. After the original Office PR merged it, it moved into this package. This version was rewritten here with new organizing rules, Word delivery and validation. The archived name and the historical "Kimi 185" review label describe the local source; authorship follows the bundled license.

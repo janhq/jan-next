@@ -5,7 +5,7 @@ import { registerOfficeContext, registerOfficeRoutes } from './lib/modes.js'
 import { templateTool } from './lib/template-tool.js'
 import { createDocxWorkflow, docxWriteTool, registerDocxDelivery } from './lib/docx-workflow.js'
 
-export const name = 'ow-desktop-office'
+export const name = 'office-templates'
 export const inject = ['skills', 'officeModes', 'tools', 'workingDirectory', 'sandboxPolicy', 'sandbox', 'subprocess']
 
 /**
@@ -16,11 +16,11 @@ export const inject = ['skills', 'officeModes', 'tools', 'workingDirectory', 'sa
  */
 export async function apply(ctx, config) {
   if (!config || typeof config.resources !== 'string' || !isAbsolute(config.resources)) {
-    throw new Error('ow-desktop-office: an absolute Office resources path is required')
+    throw new Error('office-templates: an absolute Office resources path is required')
   }
   const runtime = config.runtime ?? 'host'
   if (runtime === 'bundled') {
-    if (typeof config.cli !== 'string' || !isAbsolute(config.cli)) throw new Error('ow-desktop-office: the bundled runtime requires an absolute LibreOffice CLI path')
+    if (typeof config.cli !== 'string' || !isAbsolute(config.cli)) throw new Error('office-templates: the bundled runtime requires an absolute LibreOffice CLI path')
     const [officeSkills, workspaceDependencies] = await Promise.all([import('@janhq/jan-skill-office'), import('@janhq/jan-tool-workspace-dependencies')])
     const primaryRuntime = join(config.resources, 'primary-runtime')
     const paths = await workspaceDependencies.resolvePrimaryRuntime(primaryRuntime)
@@ -30,7 +30,7 @@ export async function apply(ctx, config) {
       node: paths.node ?? process.execPath,
       cli: config.cli,
     })
-  } else if (runtime !== 'host') throw new Error('ow-desktop-office: runtime must be "host" or "bundled"')
+  } else if (runtime !== 'host') throw new Error('office-templates: runtime must be "host" or "bundled"')
   registerBusinessSkills(ctx)
   const library = await createTemplateLibrary(join(config.resources, 'templates'))
   registerOfficeContext(ctx, library, ctx.officeModes)

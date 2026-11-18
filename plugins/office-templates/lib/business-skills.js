@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { BUNDLED_SKILL_RANK } from '@janhq/jan-skill'
 
-const provider = 'dsh-desktop-office-business'
+const provider = 'office-templates-business'
 const definitions = [
   { name: 'official-notice-writer', description: 'Official notices and memos: write organizational notices, announcements and memos from the audience, purpose and current materials, with office-docx and the official memo template for an editable Word file.' },
   { name: 'meeting-recap', description: 'Meeting minutes: organize topics, discussion, decisions, action items, owners and deadlines, delivered with office-docx and the meeting minutes example.' },

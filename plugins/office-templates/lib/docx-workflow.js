@@ -8,7 +8,7 @@ import { selectedTemplate } from './modes.js'
 // Short -c program. The worker source travels in the environment because Windows
 // Electron parses the confinement command line itself; inlining the script there
 // makes the runner exit before Python starts, with an empty stderr.
-const docxWorkerBootstrap = "import os; exec(compile(os.environ.pop('DSH_DOCX_LAYOUT_SOURCE'), 'docx-layout.py', 'exec'), {'__name__': '__main__'})"
+const docxWorkerBootstrap = "import os; exec(compile(os.environ.pop('JAN_OFFICE_DOCX_LAYOUT_SOURCE'), 'docx-layout.py', 'exec'), {'__name__': '__main__'})"
 
 /** Argv for the confined interpreter. The worker source is not an argument. */
 export function docxWorkerArgv(python) {
@@ -35,7 +35,7 @@ export function docxWorkerEnvironment(runtime = process, script) {
   // CreateProcessW rejects an environment block above 32767 characters.
   if (typeof script === 'string') {
     if (script.length > 24000) throw new Error('Word template worker exceeds the Windows environment limit')
-    env.DSH_DOCX_LAYOUT_SOURCE = script
+    env.JAN_OFFICE_DOCX_LAYOUT_SOURCE = script
   }
   return env
 }

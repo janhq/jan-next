@@ -32,4 +32,4 @@ Check the period, status, numbers, dates, owners and the evidence for each deliv
 
 ## Sources and maintenance
 
-The starting point is work-report-writer from the user-provided "open-source skill-185 (1).zip", brought in through the original Office PR. This version was rewritten by DSH Desktop with new rules for organizing materials, date and progress basis, and Word delivery; the original MIT license is kept.
+The starting point is work-report-writer from the user-provided "open-source skill-185 (1).zip", brought in through the original Office PR. This version was rewritten in this package with new rules for organizing materials, date and progress basis, and Word delivery; the original MIT license is kept.

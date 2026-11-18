@@ -1,7 +1,7 @@
-// The DSH PPT package normally provides officeModes. Jan's built-in Office
+// A presentation package normally provides officeModes. Jan's built-in Office
 // workflows do not require that package, so keep document selections scoped
 // to the live session while sharing the same service contract with Office.
-export const name = 'ow-office-modes'
+export const name = 'office-templates-modes'
 
 export function apply(ctx) {
   const states = new Map()

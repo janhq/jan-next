@@ -1,16 +1,17 @@
 {
-  "name": "@open-waifu/dsh-desktop-office",
-  "version": "0.1.0",
+  "name": "@janhq/jan-office-templates",
+  "version": "0.2.2-rc.1",
   "private": true,
+  "description": "Word and Excel template gallery, template-driven Office tools and business writing skills.",
   "type": "module",
   "files": ["index.js", "office-modes.js", "prepare-resources.mjs", "client.js", "lib", "business-skills", "sources", "cordis.patch.yml", "LICENSE"],
   "peerDependencies": {
-    "@janhq/jan-skill": "*",
-    "@janhq/jan-tools": "*",
-    "@janhq/jan-llm": "*",
-    "@janhq/jan-client-connection": "*",
-    "@janhq/jan-skill-office": "*",
-    "@janhq/jan-tool-workspace-dependencies": "*"
+    "@janhq/jan-skill": "workspace:*",
+    "@janhq/jan-tools": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-client-connection": "workspace:*",
+    "@janhq/jan-skill-office": "workspace:*",
+    "@janhq/jan-tool-workspace-dependencies": "workspace:*"
   },
   "main": "./index.js",
   "exports": {

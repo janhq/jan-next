@@ -17915,6 +17915,27 @@ importers:
         specifier: workspace:*
         version: link:../../packages/session/session-format-v3-to-v4
 
+  plugins/office-templates:
+    dependencies:
+      '@janhq/jan-client-connection':
+        specifier: workspace:*
+        version: link:../../packages/client/connection
+      '@janhq/jan-llm':
+        specifier: workspace:*
+        version: link:../../packages/llm/llm
+      '@janhq/jan-skill':
+        specifier: workspace:*
+        version: link:../../packages/skill/skill
+      '@janhq/jan-skill-office':
+        specifier: workspace:*
+        version: link:../../packages/skill/skill-office
+      '@janhq/jan-tool-workspace-dependencies':
+        specifier: workspace:*
+        version: link:../../packages/skill/tool-workspace-dependencies
+      '@janhq/jan-tools':
+        specifier: workspace:*
+        version: link:../../packages/core/tools
+
   plugins/plugin-api: {}
 
   plugins/preset-square:

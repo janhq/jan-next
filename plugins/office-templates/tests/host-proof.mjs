@@ -10,7 +10,7 @@ const cwd = join(home, 'output')
 await mkdir(cwd, { recursive: true })
 // A base-only profile has no Desktop Host, so this package mounts the Office runtime itself.
 const overlay = join(home, 'office-bundled.patch.yml')
-await writeFile(overlay, JSON.stringify([{ id: 'ow-desktop-office', config: { resources, runtime: 'bundled', cli: process.env.JAN_OFFICE_CLI } }]))
+await writeFile(overlay, JSON.stringify([{ id: 'office-templates', config: { resources, runtime: 'bundled', cli: process.env.JAN_OFFICE_CLI } }]))
 const { ctx } = await runProfile({ environment: loadLayeredEnv('jan'), profile: process.env.JAN_OFFICE_PROFILE ?? 'office-r1', patchFiles: [overlay], args: [] })
 try {
   await ctx.loader.await()

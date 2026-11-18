@@ -2,7 +2,7 @@ import { createUserMessage } from '@janhq/jan-llm'
 import { clientRequestSchema } from '@janhq/jan-client-connection'
 import { renderSkillContent } from '@janhq/jan-skill'
 
-const PLUGIN = 'dsh-desktop-office-composer'
+const PLUGIN = 'office-templates-composer'
 const sourcePlugin = source => source?.plugin ?? source?.kind?.replace(/^plugin:/, '')
 const businessNames = template => template?.businessSkills ?? (template?.businessSkill ? [template.businessSkill] : [])
 export function selectedTemplate(library, state) {
@@ -44,7 +44,7 @@ export function registerOfficeContext(ctx, library, modes) {
       if (event?.type !== 'user/message' || sourcePlugin(event.data?.source) !== PLUGIN) continue
       if (event.data.source.sections?.[0]?.name === fingerprint && fingerprint && event.data.source.cwd === cwd) { active = true; continue }
       agent.session.append('user/message', createUserMessage({ content: [{ type: 'text', text: 'The output format was updated to match the current session selection.' }],
-        source: { kind: 'plugin:dsh-desktop-office-updated', plugin: 'dsh-desktop-office-updated' } }),
+        source: { kind: 'plugin:office-templates-updated', plugin: 'office-templates-updated' } }),
       { surfaceOp: { op: 'replace', startSeq: seq, endSeq: seq }, sourceEventSeqs: [seq] })
     }
     if (!fingerprint || active) return decision

@@ -147,9 +147,9 @@ def marked_tables(root, marker):
     return matches
 
 
-TABLE_MARK = 'data-dsh-removable'
-LABEL_MARK = 'data-dsh-label'
-PARAGRAPH_MARK = 'data-dsh-remove'
+TABLE_MARK = 'data-office-removable'
+LABEL_MARK = 'data-office-label'
+PARAGRAPH_MARK = 'data-office-remove'
 
 
 def mark_removable_tables(root, profile):
