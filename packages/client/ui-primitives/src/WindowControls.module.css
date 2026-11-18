@@ -1,0 +1,33 @@
+.controls {
+  display: flex;
+  height: 100%;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: default;
+}
+
+.button:hover {
+  background: color-mix(in oklch, var(--dsw-alias-label-primary) 10%, transparent);
+  color: var(--dsw-alias-label-primary);
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--dsw-alias-state-business-primary);
+  outline-offset: -2px;
+}
+
+/* Platform close red, the same in light and dark. */
+.close:hover {
+  background: #c42b1c;
+  color: #fff;
+}
