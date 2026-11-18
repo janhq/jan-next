@@ -93,8 +93,9 @@ None, as the browser half sends no model request; the Host translates.
 
 None; this package neither assembles nor sends a provider request.
 
-<a id="known-limitations-and-deferred-work"></a>
 ## Known Limitations and Deferred Work
+
+<a id="known-limitations-and-deferred-work"></a>
 
 - **No tool owner** — a tool card does not know which plugin registered the tool, so consent for any package also translates titles from other plugins.
 - **Boot-time attribution** — namespaces of plugins that activated before this plugin started are not attributed, so only their titles and later activations are covered.

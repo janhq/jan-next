@@ -37,13 +37,13 @@ function packageOfRegion(element: Element): string | undefined {
 }
 
 /** Attributes whose value is text for the person. */
-const TEXT_ATTRIBUTES = ['title', 'placeholder', 'aria-label'] as const
+const READABLE_ATTRIBUTES = ['title', 'placeholder', 'aria-label'] as const
 
 /** Regions whose text is not interface copy: code, drawing surfaces, and anything the person edits. */
 const SKIPPED = 'code, pre, canvas, script, style, [contenteditable]:not([contenteditable="false"])'
 
 /** A textarea's text child is its value, so its text is never touched, though its `placeholder` is. */
-const SKIPPED_TEXT = `${SKIPPED}, textarea`
+const SKIPPED_NODE_PARENTS = `${SKIPPED}, textarea`
 
 const SHOW_ELEMENT = 1
 const SHOW_TEXT = 4
@@ -134,7 +134,7 @@ export class ScreenTranslator {
     if (this.observer !== undefined) return
     this.observer = new MutationObserver((records) => { this.handle(records) })
     this.observer.observe(this.doc.documentElement, {
-      childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: [...TEXT_ATTRIBUTES],
+      childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: [...READABLE_ATTRIBUTES],
     })
   }
 
@@ -183,7 +183,7 @@ export class ScreenTranslator {
       if (node instanceof Text) {
         this.processText(node, revalidate)
       } else if (node instanceof Element) {
-        for (const name of TEXT_ATTRIBUTES) this.processAttribute(node, name, revalidate)
+        for (const name of READABLE_ATTRIBUTES) this.processAttribute(node, name, revalidate)
       }
     }
   }
@@ -226,7 +226,7 @@ export class ScreenTranslator {
   /** The package that owns a text node when its region may be translated. */
   private textOwner(node: Text): string | undefined {
     const owner = this.ownerOf(node)
-    return owner !== undefined && node.parentElement?.closest(SKIPPED_TEXT) === null ? owner : undefined
+    return owner !== undefined && node.parentElement?.closest(SKIPPED_NODE_PARENTS) === null ? owner : undefined
   }
 
   /** The package that owns an element's attributes when its region may be translated. */

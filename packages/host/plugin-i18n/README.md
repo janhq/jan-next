@@ -7,7 +7,7 @@ kind: "package-reference"
 
 ## Summary
 
-The package registers the `pluginI18n` service and its Remote namespace. A client sends the text a plugin supplies, the Host translates it into the person's language, stores the result by package, source hash, and locale, and returns it at start-up. Text that plugins hard-code in one language, such as tool titles and what a plugin draws on screen, is translated as it is displayed and cached by its exact text. The model is the person's saved pick, else the default model, else a loaded local model, else any configured one. Nothing leaves the Host until the person consents, per package or globally.
+Registers the `pluginI18n` service and its Remote namespace. A client sends the text a plugin supplies, the Host translates it into the person's language, stores the result by package, source hash, and locale, and returns it at start-up. Text that plugins hard-code in one language, such as tool titles and what a plugin draws on screen, is translated as it is displayed and cached by its exact text. The model is the person's saved pick, else the default model, else a loaded local model, else any configured one. Nothing leaves the Host until the person consents, per package or globally.
 
 ## Table of Contents
 
@@ -127,10 +127,9 @@ Capped by `batchEntries`, `batchBytes`, and `maxOutputTokens` per call; a reques
 
 Independent of every conversation prefix; the request starts from the fixed system prompt.
 
------
+## Known Limitations and Deferred Work
 
 <a id="known-limitations-and-deferred-work"></a>
-## Known Limitations and Deferred Work
 
 - **No tool ownership** — the tool registry does not record which plugin registered a tool, so consent for any package also allows translating runtime tool titles from every plugin.
 - **Titles interpolate** — a runtime string such as a title with a target name is cached by its exact text, so each distinct title is translated once and the cache is bounded by `maxStrings`.

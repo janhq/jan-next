@@ -196,6 +196,11 @@ export class PluginI18nClient implements PluginI18nService {
     return this.store.getSnapshot()
   }
 
+  /**
+   * Listen for state changes.
+   * @param listener - called after each change.
+   * @returns unsubscribe.
+   */
   subscribe(listener: () => void): () => void {
     return this.store.subscribe(listener)
   }
