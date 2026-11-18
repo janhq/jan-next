@@ -293,7 +293,7 @@ it('offers the play action only for an empty, idle composer with an eligible fai
 it('does not offer a bare retry when context overflow needs recovery', () => {
   const b = bench({ retryableFailure: { overflow: 2 as SessionSeq } })
   expect(b.view.queryByRole('button', { name: '继续生成' })).toBeNull()
-  expect(b.view.getByRole<HTMLButtonElement>('button', { name: '发送消息' }).disabled).toBe(true)
+  expect((b.view.getByRole('button', { name: '发送消息' }) as HTMLButtonElement).disabled).toBe(true)
 })
 
 it.each([
