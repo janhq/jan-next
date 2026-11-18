@@ -6,6 +6,7 @@ import z from '@janhq/schemastery'
 import { credentialRef } from '@janhq/jan-credentials'
 import { registerApi } from '@janhq/jan-plugin-api'
 import { convertThread, coworkMessages, threadUpdated } from './convert.mjs'
+import { defaultFolders, listSessionFiles, mapLimit, readSessionFile, sessionHead } from './agents.mjs'
 import { janKeyNames, readJanKey } from './jan-secrets.mjs'
 import { assistantPresetId, derivePreset, keyRef, providerProfile, readJanSettings } from './settings.mjs'
 
@@ -77,21 +78,48 @@ export function apply(ctx, config = {}) {
     if (await exists(sessionId)) return !await partialImport(sessionId, thread, messages)
     return typeof thread.metadata?.dshSession?.id === 'string' && await exists(thread.metadata.dshSession.id)
   }
-  const list = async ({ folder }) => {
-    const source = await realpath(folderOf(folder))
-    const entries = await readdir(join(source, 'threads'), { withFileTypes: true })
+  // Other coding agents keep one JSONL transcript per session in a folder of their own.
+  const AGENTS = ['claude', 'codex', 'omp']
+  const agentSource = source => {
+    if (!AGENTS.includes(source)) throw new Error('Choose Jan, Claude Code, Codex or OMP.')
+    return source
+  }
+  const agentId = (source, id) => `${source}-${id}`
+  const agentFolder = async (source, folder) => realpath(folder ? resolve(folder) : defaultFolders()[source])
+  // `since` (epoch ms) keeps the list to recent sessions; a coding agent can hold thousands, and
+  // each listed one costs a file read and a store lookup.
+  const listAgent = async ({ source, folder, since }) => {
+    let root
+    try { root = await agentFolder(source, folder) } catch (error) {
+      if (!missing(error)) throw error
+      return { source, folder: folder ? resolve(folder) : defaultFolders()[source], threads: [], missing: true }
+    }
+    const all = await listSessionFiles(source, root)
+    const files = typeof since === 'number' ? all.filter(file => file.updated >= since) : all
+    const threads = await mapLimit(files, async file => {
+      try {
+        const head = await sessionHead(file.path)
+        return { id: file.id, title: head.title || file.id, project: head.cwd, size: file.size, updated: file.updated, alreadyImported: await exists(agentId(source, file.id)) }
+      } catch (error) { return { id: file.id, title: file.id, size: file.size, error: errorText(error) } }
+    })
+    return { source, folder: root, threads, older: all.length - files.length }
+  }
+  const list = async ({ source = 'jan', folder, since }) => {
+    if (source !== 'jan') return listAgent({ source: agentSource(source), folder, since })
+    const janFolder = await realpath(folderOf(folder))
+    const entries = await readdir(join(janFolder, 'threads'), { withFileTypes: true })
     const threads = []
     for (const entry of entries) {
       if (!entry.isDirectory() || !validId(entry.name)) continue
       try {
-        const { thread, kind, messages } = await readThread(source, entry.name)
+        const { thread, kind, messages } = await readThread(janFolder, entry.name)
         threads.push({ id: thread.id, title: titleOf(thread), kind, messageCount: messages.length, updated: threadUpdated(thread, messages), alreadyImported: await imported(thread, messages) })
       } catch (error) {
         threads.push({ id: entry.name, title: entry.name, messageCount: 0, error: errorText(error) })
       }
     }
     threads.sort((a, b) => (b.updated ?? 0) - (a.updated ?? 0))
-    return { folder: source, threads, settings: await settingsSummary(source) }
+    return { folder: janFolder, threads, settings: await settingsSummary(janFolder) }
   }
   // What else Jan holds, for the import choices; never a secret value.
   const settingsSummary = async source => {
@@ -232,15 +260,18 @@ export function apply(ctx, config = {}) {
     const { mcp } = await readJanSettings(await realpath(folderOf(folder)), [])
     return { text: JSON.stringify({ mcpServers: mcp.servers }), renamed: mcp.renamed, skipped: mcp.skipped }
   }
-  const importSelected = async ({ folder, ids, providers = false, assistants = false }) => {
-    if (job?.running) throw new Error('A Jan import is already running.')
-    if (!Array.isArray(ids) || ids.some(id => !validId(id))) throw new Error('Select valid Jan thread IDs.')
+  const importSelected = async ({ source: origin = 'jan', folder, ids, providers = false, assistants = false }) => {
+    if (job?.running) throw new Error('An import is already running.')
+    if (origin !== 'jan') agentSource(origin)
+    if (!Array.isArray(ids) || ids.some(id => !validId(id))) throw new Error('Select valid session IDs.')
+    if (origin !== 'jan' && (providers || assistants)) throw new Error('Providers and assistants come only from Jan.')
     if (!ids.length && !providers && !assistants) throw new Error('Choose chats or settings to import.')
     const unique = [...new Set(ids)]
     job = { running: true, total: unique.length, done: 0, current: null, results: [], settings: { providers: [], assistants: [] } }
     const run = job
     try {
-      const source = await realpath(folderOf(folder))
+      const source = origin === 'jan' ? await realpath(folderOf(folder)) : await agentFolder(origin, folder)
+      const agentFiles = origin === 'jan' ? undefined : new Map((await listSessionFiles(origin, source)).map(file => [file.id, file]))
       const janSettings = providers || assistants ? await readJanSettings(source, providers ? await janKeyNames(source) : []) : undefined
       if (providers) run.total += janSettings.providers.length
       if (assistants) run.total++
@@ -258,9 +289,11 @@ export function apply(ctx, config = {}) {
       const workspace = await ctx.workspaceRegistry.initializeDefault(async () => process.cwd())
       if (!workspace) throw new Error('The default workspace is unavailable. Restore it before importing.')
       for (const id of unique) {
-        const sessionId = `jan-${id}`
+        const sessionId = origin === 'jan' ? `jan-${id}` : agentId(origin, id)
         try {
-          const { thread, messages, losses } = await readThread(source, id)
+          const file = agentFiles?.get(id)
+          if (agentFiles && !file) throw new Error('This session file is no longer in the folder.')
+          const { thread, messages, losses } = file ? await readSessionFile(origin, file) : await readThread(source, id)
           run.current = titleOf(thread)
           const linkedId = thread.metadata?.dshSession?.id
           const partial = await exists(sessionId) && await partialImport(sessionId, thread, messages)
