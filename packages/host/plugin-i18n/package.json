@@ -1,0 +1,68 @@
+{
+  "name": "@janhq/jan-host-plugin-i18n",
+  "description": "Translates plugin UI text and tool titles with the default model, caches the results on disk, and serves them over the pluginI18n Remote",
+  "version": "0.2.2-rc.1",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/janhq/jan-next.git",
+    "directory": "packages/host/plugin-i18n"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./types": {
+      "types": "./lib/types/types.d.ts",
+      "default": "./lib/types/types.js"
+    },
+    "./typert": {
+      "types": "./lib/typert.host.d.ts",
+      "default": "./lib/typert.host.js"
+    },
+    "./remote": {
+      "types": "./lib/typert.remote-client.d.ts",
+      "default": "./lib/typert.remote-client.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "locale/*.json",
+    "lib/index.js",
+    "lib/types/**/*.js",
+    "lib/types/**/*.d.ts",
+    "lib/typert.host.js",
+    "lib/typert.host.d.ts",
+    "lib/typert.remote-client.js",
+    "lib/typert.remote-client.d.ts"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@janhq/jan-atomic-write": "workspace:*",
+    "@janhq/jan-timeout": "workspace:*",
+    "@janhq/schemastery": "workspace:~",
+    "zod": "4.4.3"
+  },
+  "peerDependencies": {
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-agent-default-model": "workspace:*",
+    "@janhq/jan-app-boot": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-typert-protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-agent-default-model": "workspace:*",
+    "@janhq/jan-app-boot": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-typert-protocol": "workspace:*"
+  }
+}

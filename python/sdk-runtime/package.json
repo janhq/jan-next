@@ -53,6 +53,7 @@
     "@janhq/jan-goal": "workspace:*",
     "@janhq/jan-goal-round-driver": "workspace:*",
     "@janhq/jan-home-paths": "workspace:*",
+    "@janhq/jan-host-plugin-i18n": "workspace:*",
     "@janhq/jan-host-plugin-inventory": "workspace:*",
     "@janhq/jan-host-webserver": "workspace:*",
     "@janhq/jan-http-proxy": "workspace:*",

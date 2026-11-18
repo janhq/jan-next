@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Plugin translation",
+    "description": "Translates plugin text and tool titles into your language with the default model and keeps the results on disk."
+  }
+}

@@ -11,6 +11,7 @@ import type { SessionId } from '@janhq/jan-session/types'
 import type {} from '@janhq/jan-tokamak-account/types'
 import type {} from '@janhq/jan-permission-presets/types'
 import type {} from '@janhq/jan-plugin-manager/types'
+import type {} from '@janhq/jan-host-plugin-i18n/types'
 import type {} from '@janhq/jan-plugin-market/types'
 import type {} from '@janhq/jan-schedule/client'
 import type { TypertForwardableEventEntry } from '@janhq/jan-typert-protocol'
@@ -46,6 +47,7 @@ export const API_REMOTE_FORWARDED_EVENTS = [
   { event: 'cordis/inspect-query-resolved', mode: 'emit' },
   { event: 'llm/adapters-updated', mode: 'emit' },
   { event: 'permission-presets/catalog-changed', mode: 'emit' },
+  { event: 'plugin-i18n/changed', mode: 'emit' },
   { event: 'plugin-manager/changed', mode: 'emit' },
   { event: 'plugin-manager/install-log', mode: 'emit' },
   { event: 'plugin-manager/install-state', mode: 'emit' },

@@ -122,6 +122,10 @@
     - id: plugin-inventory
       name: '@janhq/jan-host-plugin-inventory'
 
+    # Translates plugin text and tool titles with the default model and caches the results.
+    - id: plugin-i18n
+      name: '@janhq/jan-host-plugin-i18n'
+
     # Session commands, cold reads, and live control over Typert Remote.
     - id: session-controller
       name: '@janhq/jan-api-session-controller'

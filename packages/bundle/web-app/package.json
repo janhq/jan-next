@@ -145,6 +145,7 @@
     "@janhq/jan-host-directory-picker-native": "workspace:*",
     "@janhq/jan-host-frontend-static": "workspace:*",
     "@janhq/jan-host-open-in-app": "workspace:*",
+    "@janhq/jan-host-plugin-i18n": "workspace:*",
     "@janhq/jan-host-plugin-inventory": "workspace:*",
     "@janhq/jan-host-product-telemetry-otel": "workspace:*",
     "@janhq/jan-host-webserver": "workspace:*",
