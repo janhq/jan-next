@@ -113,6 +113,11 @@ const CHROME_ROWS: readonly ChromeRow[] = [
     markup: 'client/ui-plugin-manager/src/client/PluginManagerPage.tsx',
   },
   {
+    file: 'client/ui-deliverables/src/client/ArtifactsPage.module.css',
+    selector: '.head',
+    markup: 'client/ui-deliverables/src/client/ArtifactsPage.tsx',
+  },
+  {
     file: PLATFORM_OVERLAY,
     selector: '.header',
     markup: 'client/ui-settings-account/src/client/PlatformOverlay.tsx',
