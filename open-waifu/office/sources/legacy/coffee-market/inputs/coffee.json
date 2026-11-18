@@ -1,46 +1,46 @@
 {
-  "title": "中国现制咖啡市场调研报告",
-  "subtitle": "2024 年度公开资料研究",
+  "title": "China Freshly Made Coffee Market Research Report",
+  "subtitle": "Research Based on 2024 Public Disclosures",
   "sources": [
     {
       "id": 1,
-      "title": "Luckin Coffee 2024 财年与第四季度业绩",
+      "title": "Luckin Coffee FY2024 and Q4 Results",
       "publisher": "Luckin Coffee",
       "date": "2025-02-20",
       "url": "https://investor.lkcoffee.com/static-files/994b3727-f41f-4206-99a9-75efcc3bee67",
-      "note": "第 1–2、5 页；门店、直营与联营、同店及财年数据。瑞幸门店为集团口径，包含海外。"
+      "note": "pp. 1-2, 5; store counts, company-operated vs partnership stores, same-store sales and fiscal-year data. Luckin store counts are on a group basis and include overseas."
     },
     {
       "id": 2,
-      "title": "Starbucks 2024 财年与第四季度业绩",
+      "title": "Starbucks FY2024 and Q4 Results",
       "publisher": "Starbucks",
       "date": "2024-10-30",
       "url": "https://investor.starbucks.com/news/financial-releases/news-details/2024/Starbucks-Reports-Q4-and-Full-Fiscal-Year-2024-Results/default.aspx",
-      "note": "China Supplemental Data；财年末为 2024-09-29，季度亦截至该日。"
+      "note": "China Supplemental Data; fiscal year ended 2024-09-29, and the quarter also ended on that date."
     },
     {
       "id": 3,
-      "title": "Tims China 2024 年度与第四季度业绩",
+      "title": "Tims China Full-Year and Q4 2024 Results",
       "publisher": "TH International",
       "date": "2025-04-15",
       "url": "https://ir.timschina.com/news-releases/news-release-details/tims-china-announces-fourth-quarter-and-full-year-2024-financial",
-      "note": "2024 全年、Key Operating Data；门店及同店数据均采用 Tims 持续经营口径。"
+      "note": "Full-year 2024, Key Operating Data; store and same-store figures all use Tims' continuing-operations basis."
     },
     {
       "id": 4,
-      "title": "Luckin Coffee 2024 第一季度业绩",
+      "title": "Luckin Coffee Q1 2024 Results",
       "publisher": "Luckin Coffee",
       "date": "2024-04-30",
       "url": "https://investor.luckincoffee.com/news-releases/news-release-details/luckin-coffee-inc-announces-first-quarter-2024-financial-results/",
-      "note": "用于核对季度季节性、价格因素与同店变化。"
+      "note": "Used to cross-check quarterly seasonality, price effects and same-store changes."
     },
     {
       "id": 5,
-      "title": "Starbucks 2024 第二财季业绩",
+      "title": "Starbucks Q2 FY2024 Results",
       "publisher": "Starbucks",
       "date": "2024-04-30",
       "url": "https://investor.starbucks.com/news/financial-releases/news-details/2024/Starbucks-Reports-Q2-Fiscal-2024-Results/",
-      "note": "中国可比门店销售变化为 -11%；季度截至 2024-03-31。"
+      "note": "China comparable store sales change was -11%; quarter ended 2024-03-31."
     }
   ],
   "scenario": {

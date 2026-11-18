@@ -1,11 +1,11 @@
-# 年度经营与客户分析：版式与使用说明
+# Annual business and customer analysis: layout and usage notes
 
-业务方法：saas-metrics-coach。基础制作：office-xlsx。
+Business method: saas-metrics-coach. Base authoring: office-xlsx.
 
-六张工作表依次为经营总览、增长测算、增长质量、客户留存、月度经营数据、客户批次数据。共 11 个原生图表，含 365 点日度新增 MRR、7 日均线、产品收入结构、MRR 增减、客户批次热力图及三种预测情景。原生公式关联输入与指标。
+The six worksheets are Overview, Growth Forecast, Growth Quality, Retention, Monthly Data and Cohort Data. The workbook has 11 native charts: 365 points of daily new MRR with a 7-day average, revenue by plan, MRR movement, a cohort retention heat map and three forecast scenarios (Cautious, Base, Ambitious). Native formulas link inputs to metrics.
 
-版式采用纯白背景、深蓝标题、蓝绿与陶土色图表，按指标、图表、数据明细、计算来源组织内容。首页同时呈现年度指标、日度波动和季度明细。各工作表的计算来源位于展示区下方，长表按行连续预览，顶部标签用于切换工作表。
+The layout uses a plain white background, dark navy headings and teal, blue and terracotta chart colors. Each sheet is organized as metrics, charts, data detail and calculation source. The first sheet shows the annual metrics, daily swings and quarterly detail together. Calculation sources sit below the presentation area of each sheet, long tables continue row by row, and the tabs at the bottom switch between worksheets.
 
-澄云软件及所有经营数据均为模拟案例；日度新增 MRR 根据月度总額和周内、活动、月末权重拆分，月度合计保持一致。使用时按照当前任务替换输入和业务假设，核对金额单位、客户及 MRR 勾稽关系和情景结果，完成重算与预览检查。
+Clearcloud Software and all business figures are simulated. Daily new MRR is split from the monthly totals using weekday, campaign and month-end weights, so each month still sums to its monthly total. Amounts in the presentation area are in USD 10k; the data sheets are in USD. When reusing the workbook, replace the inputs and business assumptions for the current task, check the currency units and the MRR and customer reconciliations and scenario results, then recalculate and check the preview.
 
-用户点击卡片浏览案例，从预览底部点击“做同款”后，宿主绑定 `annual-business` 的当前修订。通过 office_template 准备原生 XLSX 和此说明，再使用 Office 工作流制作本次任务的文件。
+The user browses the example cards and chooses "Use this example" at the bottom of the preview; the host then binds the current revision of `annual-business`. Prepare the native XLSX and this note with office_template, then build the file for the current task with the Office workflow.

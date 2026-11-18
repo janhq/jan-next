@@ -1,30 +1,30 @@
 [
   {
-    "sheet": "实验总览",
+    "sheet": "Assay Overview",
     "cell": "B6",
     "expected": 288,
     "tolerance": 1e-06
   },
   {
-    "sheet": "实验总览",
+    "sheet": "Assay Overview",
     "cell": "F6",
     "expected": 3,
     "tolerance": 1e-06
   },
   {
-    "sheet": "剂量响应",
+    "sheet": "Dose Response",
     "cell": "E8",
     "expected": 0.9813081606668225,
     "tolerance": 1e-06
   },
   {
-    "sheet": "剂量响应",
+    "sheet": "Dose Response",
     "cell": "F8",
     "expected": 0.009659605609883335,
     "tolerance": 1e-06
   },
   {
-    "sheet": "剂量响应",
+    "sheet": "Dose Response",
     "cell": "E17",
     "expected": 0.03436098644535984,
     "tolerance": 1e-06

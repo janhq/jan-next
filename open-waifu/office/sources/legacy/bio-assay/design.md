@@ -1,9 +1,9 @@
-# 荧光酶活性筛选与批次质控
+# Fluorescent enzyme activity screen and batch QC
 
-## 版式与执行
+## Layout and workflow
 
-3 批次、288 个模拟孔位；剂量响应、技术重复 CV、跨批次统计与三板热力图。4 张工作表。
+3 batches and 288 simulated wells: dose response, technical replicate CV, cross-batch statistics and three plate heat maps. Four worksheets.
 
-调用 office_template 准备原生工作副本和参考输入。使用官方 office-docx 或 office-xlsx Skill 与安装级 Python 修改文稿、数据和图表；用官方 LibreOffice Kit 重算 Excel 并渲染最终文件，逐页核对结果，再用 present 交付。
+Call office_template to prepare the native working copy and the reference inputs. Use the official office-docx or office-xlsx skill and the installed Python to change the document, data and charts; recalculate the Excel file with the official LibreOffice Kit and render the final file, check each page, then deliver it with present.
 
-基础流程 office-xlsx，业务方法 dataset-health-audit、data-viz-gen。inputs/bio.json 为 3 个独立模拟批次，每批 96 孔，每剂量 8 个技术重复。先按本板空白与溶剂对照归一化，再计算三个批次均值的样本 SD（n=3）；技术重复用于评价板内稳定性。所有 288 孔保留，一处模拟偏差在 CV 与热力图中呈现。15% CV 为可调整的演示阈值。50% 区间公式先检查曲线方向，有回升时提示逐段复核。原始读数预览前 39 行；4 张原生图表和 3 板条件格式热力图可随数据更新。方法来源见工作簿。
+Base workflow: office-xlsx. Business methods: dataset-health-audit and data-viz-gen. inputs/bio.json holds 3 independent simulated batches of 96 wells each, with 8 technical replicates per dose. Readings are first normalized to each plate's blank and solvent control, then the sample SD of the three batch means is computed (n = 3); technical replicates are used to judge within-plate stability. All 288 wells are kept, and one simulated deviation shows up in the CV and heat map. The 15% CV is an adjustable demo threshold. The 50% interval formula checks the curve direction first and asks for a segment-by-segment review when the response rebounds. The Raw Readings sheet previews the first 39 rows; the 4 native charts and the 3-plate conditional-format heat maps update with the data. Method sources are listed in the workbook.

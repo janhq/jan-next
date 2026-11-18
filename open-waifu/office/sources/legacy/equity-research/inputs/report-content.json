@@ -1,5 +1,5 @@
 {
-  "sourceDocument": "小米汽车专题研究_从交付规模到盈利质量_20260910.docx",
+  "sourceDocument": "xiaomi-ev-research_delivery-scale-to-earnings-quality_20260910.docx",
   "sourceSha256": "4ed88227dae74e0dfbbcef12fc65145cd2d25bd95cbf84fb2a3220e10f1ac637",
   "contentPolicy": "Frozen prior-report content for Skill composition and output validation; no new investment recommendation or independent factual research.",
   "cover": [
@@ -16,24 +16,24 @@
               "role": "equation",
               "runs": [
                 {
-                  "text": "2026 年 9 月 10 日\t企业专题研究",
+                  "text": "September 10, 2026\tCompany special report",
                   "bold": false,
                   "italic": false
                 }
               ],
-              "text": "2026 年 9 月 10 日\t企业专题研究"
+              "text": "September 10, 2026\tCompany special report"
             },
             {
               "kind": "p",
               "role": "body",
               "runs": [
                 {
-                  "text": "小米汽车",
+                  "text": "Xiaomi EV",
                   "bold": true,
                   "italic": false
                 }
               ],
-              "text": "小米汽车"
+              "text": "Xiaomi EV"
             },
             {
               "kind": "p",
@@ -56,36 +56,36 @@
       "role": "body",
       "runs": [
         {
-          "text": "中国 / 新能源汽车",
+          "text": "China / New-energy vehicles",
           "bold": false,
           "italic": false
         }
       ],
-      "text": "中国 / 新能源汽车"
+      "text": "China / New-energy vehicles"
     },
     {
       "kind": "p",
       "role": "body",
       "runs": [
         {
-          "text": "从交付规模到盈利质量",
+          "text": "From delivery scale to earnings quality",
           "bold": true,
           "italic": false
         }
       ],
-      "text": "从交付规模到盈利质量"
+      "text": "From delivery scale to earnings quality"
     },
     {
       "kind": "p",
       "role": "body",
       "runs": [
         {
-          "text": "2026 年中期经营观察：规模、车型组合与投入强度的再平衡",
+          "text": "Mid-2026 operating review: rebalancing scale, model mix and investment intensity",
           "bold": false,
           "italic": false
         }
       ],
-      "text": "2026 年中期经营观察：规模、车型组合与投入强度的再平衡"
+      "text": "Mid-2026 operating review: rebalancing scale, model mix and investment intensity"
     },
     {
       "kind": "table",
@@ -102,120 +102,120 @@
               "role": "body",
               "runs": [
                 {
-                  "text": "规模基础已经建立",
+                  "text": "The scale base is in place",
                   "bold": true,
                   "italic": false
                 }
               ],
-              "text": "规模基础已经建立"
+              "text": "The scale base is in place"
             },
             {
               "kind": "p",
               "role": "body",
               "runs": [
                 {
-                  "text": "2025 年交付 41.11 万辆；2026 年上半年交付 18.51 万辆。第二季度恢复到 10.42 万辆，但尚未回到 2025 年第四季度的交付高点。[S1、S4]",
+                  "text": "Deliveries were 411,082 vehicles in 2025 and 185,055 in H1 2026. Q2 recovered to 104,199 but has not yet returned to the Q4 2025 peak. [S1, S4]",
                   "bold": false,
                   "italic": false
                 }
               ],
-              "text": "2025 年交付 41.11 万辆；2026 年上半年交付 18.51 万辆。第二季度恢复到 10.42 万辆，但尚未回到 2025 年第四季度的交付高点。[S1、S4]"
+              "text": "Deliveries were 411,082 vehicles in 2025 and 185,055 in H1 2026. Q2 recovered to 104,199 but has not yet returned to the Q4 2025 peak. [S1, S4]"
             },
             {
               "kind": "p",
               "role": "body",
               "runs": [
                 {
-                  "text": "收入增长需要结合售价阅读",
+                  "text": "Revenue growth must be read alongside pricing",
                   "bold": true,
                   "italic": false
                 }
               ],
-              "text": "收入增长需要结合售价阅读"
+              "text": "Revenue growth must be read alongside pricing"
             },
             {
               "kind": "p",
               "role": "body",
               "runs": [
                 {
-                  "text": "2026 年第二季度整车收入 239 亿元，交付同比增长 28.2%；ASP 为 22.93 万元。产品组合决定每一辆新增交付带来的收入含量。[S1]",
+                  "text": "Q2 2026 vehicle revenue was RMB 23.9 billion, with deliveries up 28.2% YoY; ASP was RMB 229,312. Product mix sets how much revenue each additional delivery brings. [S1]",
                   "bold": false,
                   "italic": false
                 }
               ],
-              "text": "2026 年第二季度整车收入 239 亿元，交付同比增长 28.2%；ASP 为 22.93 万元。产品组合决定每一辆新增交付带来的收入含量。[S1]"
+              "text": "Q2 2026 vehicle revenue was RMB 23.9 billion, with deliveries up 28.2% YoY; ASP was RMB 229,312. Product mix sets how much revenue each additional delivery brings. [S1]"
             },
             {
               "kind": "p",
               "role": "body",
               "runs": [
                 {
-                  "text": "毛利与费用共同决定兑现速度",
+                  "text": "Gross profit and expenses set the pace of payoff",
                   "bold": true,
                   "italic": false
                 }
               ],
-              "text": "毛利与费用共同决定兑现速度"
+              "text": "Gross profit and expenses set the pace of payoff"
             },
             {
               "kind": "p",
               "role": "body",
               "runs": [
                 {
-                  "text": "汽车、AI 及其他新业务分部第二季度毛利率为 19.2%，经营亏损约 26 亿元。该口径包含 AI 等投入，分析时需要保留分部边界。[S1]",
+                  "text": "The EV, AI and other new initiatives segment had a Q2 gross margin of 19.2% and an operating loss of about RMB 2.6 billion. This basis includes AI and other investment, so the segment boundary must be kept in analysis. [S1]",
                   "bold": false,
                   "italic": false
                 }
               ],
-              "text": "汽车、AI 及其他新业务分部第二季度毛利率为 19.2%，经营亏损约 26 亿元。该口径包含 AI 等投入，分析时需要保留分部边界。[S1]"
+              "text": "The EV, AI and other new initiatives segment had a Q2 gross margin of 19.2% and an operating loss of about RMB 2.6 billion. This basis includes AI and other investment, so the segment boundary must be kept in analysis. [S1]"
             },
             {
               "kind": "p",
               "role": "body",
               "runs": [
                 {
-                  "text": "车型扩展带来新的经营要求",
+                  "text": "Model expansion brings new operating demands",
                   "bold": true,
                   "italic": false
                 }
               ],
-              "text": "车型扩展带来新的经营要求"
+              "text": "Model expansion brings new operating demands"
             },
             {
               "kind": "p",
               "role": "body",
               "runs": [
                 {
-                  "text": "SU7 换代、YU7 产品分层以及新增预售车型扩大覆盖，也同步考验产能安排、渠道服务、零部件供应和产品质量管理。[S2、S3、S7]",
+                  "text": "The SU7 generation change, YU7 tiering and newly pre-sold models widen coverage, and also test capacity planning, channel service, parts supply and quality management. [S2, S3, S7]",
                   "bold": false,
                   "italic": false
                 }
               ],
-              "text": "SU7 换代、YU7 产品分层以及新增预售车型扩大覆盖，也同步考验产能安排、渠道服务、零部件供应和产品质量管理。[S2、S3、S7]"
+              "text": "The SU7 generation change, YU7 tiering and newly pre-sold models widen coverage, and also test capacity planning, channel service, parts supply and quality management. [S2, S3, S7]"
             },
             {
               "kind": "p",
               "role": "body",
               "runs": [
                 {
-                  "text": "后续判断围绕可验证指标",
+                  "text": "Next judgments rest on verifiable indicators",
                   "bold": true,
                   "italic": false
                 }
               ],
-              "text": "后续判断围绕可验证指标"
+              "text": "Next judgments rest on verifiable indicators"
             },
             {
               "kind": "p",
               "role": "body",
               "runs": [
                 {
-                  "text": "观察交付恢复能否伴随 ASP 与毛利企稳，以及费用增长能否低于毛利增长。单月订单热度和发布活动只提供部分证据。",
+                  "text": "Watch whether the delivery recovery comes with a stable ASP and gross margin, and whether expense growth stays below gross profit growth. Monthly order buzz and launch events are only partial evidence.",
                   "bold": false,
                   "italic": false
                 }
               ],
-              "text": "观察交付恢复能否伴随 ASP 与毛利企稳，以及费用增长能否低于毛利增长。单月订单热度和发布活动只提供部分证据。"
+              "text": "Watch whether the delivery recovery comes with a stable ASP and gross margin, and whether expense growth stays below gross profit growth. Monthly order buzz and launch events are only partial evidence."
             }
           ],
           [
@@ -232,121 +232,121 @@
               "role": "body",
               "runs": [
                 {
-                  "text": "报告信息",
+                  "text": "Report details",
                   "bold": true,
                   "italic": false
                 }
               ],
-              "text": "报告信息"
+              "text": "Report details"
             },
             {
               "kind": "p",
               "role": "body",
               "runs": [
                 {
-                  "text": "研究对象：小米汽车业务\n整理：Codex 研究整理\n财务基准：2026 年第二季度\n资料检索日：2026 年 9 月 10 日",
+                  "text": "Subject: Xiaomi EV business\nPrepared by: Codex research\nFinancial baseline: Q2 2026\nData retrieval date: September 10, 2026",
                   "bold": false,
                   "italic": false
                 }
               ],
-              "text": "研究对象：小米汽车业务\n整理：Codex 研究整理\n财务基准：2026 年第二季度\n资料检索日：2026 年 9 月 10 日"
+              "text": "Subject: Xiaomi EV business\nPrepared by: Codex research\nFinancial baseline: Q2 2026\nData retrieval date: September 10, 2026"
             },
             {
               "kind": "p",
               "role": "body",
               "runs": [
                 {
-                  "text": "5 个关键判断",
+                  "text": "5 key judgments",
                   "bold": true,
                   "italic": false
                 }
               ],
-              "text": "5 个关键判断"
+              "text": "5 key judgments"
             },
             {
               "kind": "p",
               "role": "body",
               "runs": [
                 {
-                  "text": "1. 交付是经营起点。",
+                  "text": "1. Deliveries are the starting point.",
                   "bold": true,
                   "italic": false
                 },
                 {
-                  "text": "\n收入和利润还取决于车型结构、成本与费用。",
+                  "text": "\nRevenue and profit also depend on model mix, costs and expenses.",
                   "bold": false,
                   "italic": false
                 }
               ],
-              "text": "1. 交付是经营起点。\n收入和利润还取决于车型结构、成本与费用。"
+              "text": "1. Deliveries are the starting point.\nRevenue and profit also depend on model mix, costs and expenses."
             },
             {
               "kind": "p",
               "role": "body",
               "runs": [
                 {
-                  "text": "2. 口径决定结论。",
+                  "text": "2. Basis determines conclusions.",
                   "bold": true,
                   "italic": false
                 },
                 {
-                  "text": "\n整车收入可单列，分部利润包含 AI 及其他新业务。",
+                  "text": "\nVehicle revenue can be shown separately; segment profit includes AI and other new initiatives.",
                   "bold": false,
                   "italic": false
                 }
               ],
-              "text": "2. 口径决定结论。\n整车收入可单列，分部利润包含 AI 及其他新业务。"
+              "text": "2. Basis determines conclusions.\nVehicle revenue can be shown separately; segment profit includes AI and other new initiatives."
             },
             {
               "kind": "p",
               "role": "body",
               "runs": [
                 {
-                  "text": "3. 年度目标有节奏约束。",
+                  "text": "3. The annual target sets a pace.",
                   "bold": true,
                   "italic": false
                 },
                 {
-                  "text": "\n以 3 月公布的 55 万辆为参照，下半年所需月均约 6.08 万辆。",
+                  "text": "\nBased on the 550,000-vehicle target announced in March, the required H2 monthly average is about 60,800 vehicles.",
                   "bold": false,
                   "italic": false
                 }
               ],
-              "text": "3. 年度目标有节奏约束。\n以 3 月公布的 55 万辆为参照，下半年所需月均约 6.08 万辆。"
+              "text": "3. The annual target sets a pace.\nBased on the 550,000-vehicle target announced in March, the required H2 monthly average is about 60,800 vehicles."
             },
             {
               "kind": "p",
               "role": "body",
               "runs": [
                 {
-                  "text": "4. 新车扩张需要验证。",
+                  "text": "4. New-model expansion needs validation.",
                   "bold": true,
                   "italic": false
                 },
                 {
-                  "text": "\n预售、锁单、量产、交付分别代表不同阶段。",
+                  "text": "\nPre-sale, locked orders, mass production and delivery represent different stages.",
                   "bold": false,
                   "italic": false
                 }
               ],
-              "text": "4. 新车扩张需要验证。\n预售、锁单、量产、交付分别代表不同阶段。"
+              "text": "4. New-model expansion needs validation.\nPre-sale, locked orders, mass production and delivery represent different stages."
             },
             {
               "kind": "p",
               "role": "body",
               "runs": [
                 {
-                  "text": "5. 盈利修复看组合。",
+                  "text": "5. Profit recovery depends on mix.",
                   "bold": true,
                   "italic": false
                 },
                 {
-                  "text": "\n收入规模、毛利率和费用控制需要共同改善。",
+                  "text": "\nRevenue scale, gross margin and expense control need to improve together.",
                   "bold": false,
                   "italic": false
                 }
               ],
-              "text": "5. 盈利修复看组合。\n收入规模、毛利率和费用控制需要共同改善。"
+              "text": "5. Profit recovery depends on mix.\nRevenue scale, gross margin and expense control need to improve together."
             }
           ]
         ]
@@ -357,24 +357,24 @@
       "role": "body",
       "runs": [
         {
-          "text": "本报告依据公开资料编制，用于企业经营研究与文档效果展示。情景测算属于条件推演；文中价格保留对应发布时点。汽车业务与小米集团合并口径分别标注。完整来源、方法及披露见第 9–12 页。",
+          "text": "This report is compiled from public information for corporate operating research and document showcase purposes. Scenario estimates are conditional projections; prices are kept at their respective publication dates. Vehicle business and Xiaomi Group consolidated bases are labeled separately. Full sources, methods and disclosures are on pages 9-12.",
           "bold": false,
           "italic": false
         }
       ],
-      "text": "本报告依据公开资料编制，用于企业经营研究与文档效果展示。情景测算属于条件推演；文中价格保留对应发布时点。汽车业务与小米集团合并口径分别标注。完整来源、方法及披露见第 9–12 页。"
+      "text": "This report is compiled from public information for corporate operating research and document showcase purposes. Scenario estimates are conditional projections; prices are kept at their respective publication dates. Vehicle business and Xiaomi Group consolidated bases are labeled separately. Full sources, methods and disclosures are on pages 9-12."
     },
     {
       "kind": "p",
       "role": "body",
       "runs": [
         {
-          "text": "Codex 研究整理",
+          "text": "Codex research",
           "bold": false,
           "italic": false
         }
       ],
-      "text": "Codex 研究整理"
+      "text": "Codex research"
     },
     {
       "kind": "p",
@@ -390,12 +390,12 @@
         "role": "h1",
         "runs": [
           {
-            "text": "目录",
+            "text": "Contents",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "目录",
+        "text": "Contents",
         "bookmark": "toc"
       },
       {
@@ -403,7 +403,7 @@
         "role": "toc",
         "runs": [
           {
-            "text": "执行摘要：盈利质量进入验证期",
+            "text": "Summary: earnings quality enters validation",
             "bold": true,
             "italic": false,
             "anchor": "summary"
@@ -414,14 +414,14 @@
             "italic": false
           }
         ],
-        "text": "执行摘要：盈利质量进入验证期\t3"
+        "text": "Summary: earnings quality enters validation\t3"
       },
       {
         "kind": "p",
         "role": "toc",
         "runs": [
           {
-            "text": "1. 交付规模：从季度波动看年度节奏",
+            "text": "1. Delivery scale and the annual pace",
             "bold": true,
             "italic": false,
             "anchor": "delivery"
@@ -432,14 +432,14 @@
             "italic": false
           }
         ],
-        "text": "1. 交付规模：从季度波动看年度节奏\t4"
+        "text": "1. Delivery scale and the annual pace\t4"
       },
       {
         "kind": "p",
         "role": "toc",
         "runs": [
           {
-            "text": "2. 产品组合：扩大覆盖与提高运营复杂度",
+            "text": "2. Product mix: coverage and complexity",
             "bold": true,
             "italic": false,
             "anchor": "products"
@@ -450,14 +450,14 @@
             "italic": false
           }
         ],
-        "text": "2. 产品组合：扩大覆盖与提高运营复杂度\t5"
+        "text": "2. Product mix: coverage and complexity\t5"
       },
       {
         "kind": "p",
         "role": "toc",
         "runs": [
           {
-            "text": "3. 经营质量：毛利改善与费用约束",
+            "text": "3. Operating quality: margin and expenses",
             "bold": true,
             "italic": false,
             "anchor": "economics"
@@ -468,14 +468,14 @@
             "italic": false
           }
         ],
-        "text": "3. 经营质量：毛利改善与费用约束\t6"
+        "text": "3. Operating quality: margin and expenses\t6"
       },
       {
         "kind": "p",
         "role": "toc",
         "runs": [
           {
-            "text": "4. 情景测算：把增长目标转为经营条件",
+            "text": "4. Scenarios: from targets to conditions",
             "bold": true,
             "italic": false,
             "anchor": "scenarios"
@@ -486,14 +486,14 @@
             "italic": false
           }
         ],
-        "text": "4. 情景测算：把增长目标转为经营条件\t7"
+        "text": "4. Scenarios: from targets to conditions\t7"
       },
       {
         "kind": "p",
         "role": "toc",
         "runs": [
           {
-            "text": "5. 风险与催化：建立可追踪的观察表",
+            "text": "5. Risks and catalysts: a watch list",
             "bold": true,
             "italic": false,
             "anchor": "risks"
@@ -504,14 +504,14 @@
             "italic": false
           }
         ],
-        "text": "5. 风险与催化：建立可追踪的观察表\t8"
+        "text": "5. Risks and catalysts: a watch list\t8"
       },
       {
         "kind": "p",
         "role": "toc",
         "runs": [
           {
-            "text": "附录 A：数据来源与检索入口",
+            "text": "Appendix A: Data sources and links",
             "bold": true,
             "italic": false,
             "anchor": "sources"
@@ -522,14 +522,14 @@
             "italic": false
           }
         ],
-        "text": "附录 A：数据来源与检索入口\t9"
+        "text": "Appendix A: Data sources and links\t9"
       },
       {
         "kind": "p",
         "role": "toc",
         "runs": [
           {
-            "text": "附录 B：计算方法与口径说明",
+            "text": "Appendix B: Methods and basis notes",
             "bold": true,
             "italic": false,
             "anchor": "methods"
@@ -540,14 +540,14 @@
             "italic": false
           }
         ],
-        "text": "附录 B：计算方法与口径说明\t10"
+        "text": "Appendix B: Methods and basis notes\t10"
       },
       {
         "kind": "p",
         "role": "toc",
         "runs": [
           {
-            "text": "术语表",
+            "text": "Glossary",
             "bold": true,
             "italic": false,
             "anchor": "glossary"
@@ -558,14 +558,14 @@
             "italic": false
           }
         ],
-        "text": "术语表\t11"
+        "text": "Glossary\t11"
       },
       {
         "kind": "p",
         "role": "toc",
         "runs": [
           {
-            "text": "披露附录",
+            "text": "Disclosure appendix",
             "bold": true,
             "italic": false,
             "anchor": "disclosure"
@@ -576,126 +576,126 @@
             "italic": false
           }
         ],
-        "text": "披露附录\t12"
+        "text": "Disclosure appendix\t12"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "经营与财务数据主要截至 2026 年 6 月 30 日；产品与召回事项按各自公告日期列示。",
+            "text": "Operating and financial data are mainly as of June 30, 2026; product and recall items are listed by their own announcement dates.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "经营与财务数据主要截至 2026 年 6 月 30 日；产品与召回事项按各自公告日期列示。"
+        "text": "Operating and financial data are mainly as of June 30, 2026; product and recall items are listed by their own announcement dates."
       },
       {
         "kind": "p",
         "role": "h2",
         "runs": [
           {
-            "text": "阅读路径",
+            "text": "Reading path",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "阅读路径"
+        "text": "Reading path"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "先看结论，再检查驱动因素。",
+            "text": "Start with the conclusions, then check the drivers.",
             "bold": true,
             "italic": false
           },
           {
-            "text": " 第 3 页概括研究判断；第 4–6 页依次解释交付、车型组合与经营利润；第 7 页将年度目标和盈利约束转化为可复算的条件；第 8 页列出后续验证节点。",
+            "text": " Page 3 summarizes the research view; pages 4-6 explain deliveries, model mix and operating profit in turn; page 7 turns the annual target and profit constraints into reproducible conditions; page 8 lists the follow-up validation points.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "先看结论，再检查驱动因素。 第 3 页概括研究判断；第 4–6 页依次解释交付、车型组合与经营利润；第 7 页将年度目标和盈利约束转化为可复算的条件；第 8 页列出后续验证节点。"
+        "text": "Start with the conclusions, then check the drivers. Page 3 summarizes the research view; pages 4-6 explain deliveries, model mix and operating profit in turn; page 7 turns the annual target and profit constraints into reproducible conditions; page 8 lists the follow-up validation points."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "用附录还原数字。",
+            "text": "Use the appendices to rebuild the numbers.",
             "bold": true,
             "italic": false
           },
           {
-            "text": " 第 9 页提供可点击的一手资料，第 10 页给出公式、单位和边界。图表中的收入、毛利率及经营利润均有明确口径，实际数据与本报告测算分别标示。",
+            "text": " Page 9 provides clickable primary sources and page 10 gives formulas, units and boundaries. Revenue, gross margin and operating profit in the exhibits each have a defined basis, and actual data and this report's estimates are labeled separately.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "用附录还原数字。 第 9 页提供可点击的一手资料，第 10 页给出公式、单位和边界。图表中的收入、毛利率及经营利润均有明确口径，实际数据与本报告测算分别标示。"
+        "text": "Use the appendices to rebuild the numbers. Page 9 provides clickable primary sources and page 10 gives formulas, units and boundaries. Revenue, gross margin and operating profit in the exhibits each have a defined basis, and actual data and this report's estimates are labeled separately."
       },
       {
         "kind": "p",
         "role": "h2",
         "runs": [
           {
-            "text": "三个分析层次",
+            "text": "Three analytical layers",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "三个分析层次"
+        "text": "Three analytical layers"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "整车业务：",
+            "text": "Vehicle business:",
             "bold": true,
             "italic": false
           },
           {
-            "text": " 交付量、整车销售收入和整车 ASP，用于分析规模及车型组合。\n",
+            "text": " Deliveries, vehicle sales revenue and vehicle ASP, used to analyze scale and model mix.\n",
             "bold": false,
             "italic": false
           },
           {
-            "text": "汽车、AI 及其他新业务分部：",
+            "text": "EV, AI and other new initiatives segment:",
             "bold": true,
             "italic": false
           },
           {
-            "text": " 毛利、经营费用和经营利润，用于观察公开披露的投入与回报。\n",
+            "text": " Gross profit, operating expenses and operating profit, used to observe disclosed investment and returns.\n",
             "bold": false,
             "italic": false
           },
           {
-            "text": "小米集团：",
+            "text": "Xiaomi Group:",
             "bold": true,
             "italic": false
           },
           {
-            "text": " 手机、AIoT 与其他业务构成整体财务背景；集团指标单独注明。",
+            "text": " smartphones, AIoT and other businesses form the overall financial backdrop; group metrics are flagged separately.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "整车业务： 交付量、整车销售收入和整车 ASP，用于分析规模及车型组合。\n汽车、AI 及其他新业务分部： 毛利、经营费用和经营利润，用于观察公开披露的投入与回报。\n小米集团： 手机、AIoT 与其他业务构成整体财务背景；集团指标单独注明。"
+        "text": "Vehicle business: Deliveries, vehicle sales revenue and vehicle ASP, used to analyze scale and model mix.\nEV, AI and other new initiatives segment: Gross profit, operating expenses and operating profit, used to observe disclosed investment and returns.\nXiaomi Group: smartphones, AIoT and other businesses form the overall financial backdrop; group metrics are flagged separately."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "本报告围绕经营基本面展开，价格、订单与产品状态保留具体日期。跨期比较优先采用季度公告的同口径序列，年度目标使用管理层在 2026 年 3 月披露的参照值。",
+            "text": "This report focuses on operating fundamentals; prices, orders and product status are kept at specific dates. Cross-period comparisons prefer the same-basis series from quarterly announcements, and the annual target uses the reference value management disclosed in March 2026.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "本报告围绕经营基本面展开，价格、订单与产品状态保留具体日期。跨期比较优先采用季度公告的同口径序列，年度目标使用管理层在 2026 年 3 月披露的参照值。"
+        "text": "This report focuses on operating fundamentals; prices, orders and product status are kept at specific dates. Cross-period comparisons prefer the same-basis series from quarterly announcements, and the annual target uses the reference value management disclosed in March 2026."
       }
     ],
     [
@@ -704,12 +704,12 @@
         "role": "h1",
         "runs": [
           {
-            "text": "执行摘要：盈利质量进入验证期",
+            "text": "Summary: earnings quality enters validation",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "执行摘要：盈利质量进入验证期",
+        "text": "Summary: earnings quality enters validation",
         "bookmark": "summary"
       },
       {
@@ -717,156 +717,156 @@
         "role": "body",
         "runs": [
           {
-            "text": "小米汽车已建立具有规模的交付基础，2026 年的关键问题转向增长如何形成稳定利润。第二季度交付回升，整车 ASP 与合并分部毛利率继续承压，说明销量、价格结构与投入强度需要联合观察。新车型扩展提供增长空间，也增加供应链、服务和质量管理要求。后续判断应以连续季度的交付、毛利及费用兑现为依据，并保留汽车与 AI 合并披露的边界。",
+            "text": "Xiaomi EV has built a delivery base of real scale, and the key question for 2026 is how growth turns into stable profit. Q2 deliveries rebounded while vehicle ASP and the combined segment gross margin stayed under pressure, so volume, price mix and investment intensity need to be read together. New models open room for growth and also raise demands on supply chain, service and quality management. Later judgments should rest on consecutive quarters of deliveries, gross profit and expense results, while keeping the boundary of the combined EV and AI disclosure.",
             "bold": true,
             "italic": false
           }
         ],
-        "text": "小米汽车已建立具有规模的交付基础，2026 年的关键问题转向增长如何形成稳定利润。第二季度交付回升，整车 ASP 与合并分部毛利率继续承压，说明销量、价格结构与投入强度需要联合观察。新车型扩展提供增长空间，也增加供应链、服务和质量管理要求。后续判断应以连续季度的交付、毛利及费用兑现为依据，并保留汽车与 AI 合并披露的边界。"
+        "text": "Xiaomi EV has built a delivery base of real scale, and the key question for 2026 is how growth turns into stable profit. Q2 deliveries rebounded while vehicle ASP and the combined segment gross margin stayed under pressure, so volume, price mix and investment intensity need to be read together. New models open room for growth and also raise demands on supply chain, service and quality management. Later judgments should rest on consecutive quarters of deliveries, gross profit and expense results, while keeping the boundary of the combined EV and AI disclosure."
       },
       {
         "kind": "p",
         "role": "h2",
         "runs": [
           {
-            "text": "一、恢复速度决定全年目标的可实现路径",
+            "text": "I. Recovery speed determines the path to the full-year target",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "一、恢复速度决定全年目标的可实现路径"
+        "text": "I. Recovery speed determines the path to the full-year target"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "2025 年四个季度合计交付 411,082 辆，第四季度达到 145,115 辆。2026 年上半年交付 185,055 辆，第二季度较第一季度增长 28.9%。展望下半年，恢复到过去高点与实现更高持续月均，分别代表不同强度的经营要求。[S1、S3、S4]",
+            "text": "Deliveries in the four quarters of 2025 totaled 411,082 vehicles, with Q4 reaching 145,115. H1 2026 deliveries were 185,055, and Q2 grew 28.9% over Q1. Looking at H2, returning to the earlier peak and sustaining a higher monthly average represent different levels of operating demand. [S1, S3, S4]",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "2025 年四个季度合计交付 411,082 辆，第四季度达到 145,115 辆。2026 年上半年交付 185,055 辆，第二季度较第一季度增长 28.9%。展望下半年，恢复到过去高点与实现更高持续月均，分别代表不同强度的经营要求。[S1、S3、S4]"
+        "text": "Deliveries in the four quarters of 2025 totaled 411,082 vehicles, with Q4 reaching 145,115. H1 2026 deliveries were 185,055, and Q2 grew 28.9% over Q1. Looking at H2, returning to the earlier peak and sustaining a higher monthly average represent different levels of operating demand. [S1, S3, S4]"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "以管理层 3 月披露的全年 55 万辆目标为参照，下半年需要交付 364,945 辆，月均约 60,824 辆，较第二季度月均提高约 75.1%。这一计算界定目标需要的节奏，实际完成程度仍取决于需求、生产和交付协同。详见 Exhibit 6。",
+            "text": "Taking the 550,000-vehicle full-year target management disclosed in March as the reference, H2 would need 364,945 deliveries, about 60,824 a month, roughly 75.1% above the Q2 monthly average. This calculation defines the pace the target requires; actual attainment still depends on demand, production and delivery coordination. See Exhibit 6.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "以管理层 3 月披露的全年 55 万辆目标为参照，下半年需要交付 364,945 辆，月均约 60,824 辆，较第二季度月均提高约 75.1%。这一计算界定目标需要的节奏，实际完成程度仍取决于需求、生产和交付协同。详见 Exhibit 6。"
+        "text": "Taking the 550,000-vehicle full-year target management disclosed in March as the reference, H2 would need 364,945 deliveries, about 60,824 a month, roughly 75.1% above the Q2 monthly average. This calculation defines the pace the target requires; actual attainment still depends on demand, production and delivery coordination. See Exhibit 6."
       },
       {
         "kind": "p",
         "role": "h2",
         "runs": [
           {
-            "text": "二、ASP 变化需要放回车型结构中解释",
+            "text": "II. ASP changes need to be read within the model mix",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "二、ASP 变化需要放回车型结构中解释"
+        "text": "II. ASP changes need to be read within the model mix"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "第二季度整车 ASP 为 229,312 元，同比下降 9.6%。公司将同比变化与 SU7 Ultra 占比下降联系起来，将环比变化与新一代 SU7 占比提升联系起来。因此，平均售价下降包含组合效应；评估单一车型价格竞争力还需要同配置成交价格和促销信息。[S1]",
+            "text": "Q2 vehicle ASP was RMB 229,312, down 9.6% YoY. The company links the YoY change to a lower share of the SU7 Ultra and the QoQ change to a higher share of the new-generation SU7. The decline in average price therefore contains a mix effect; assessing the price competitiveness of a single model also requires same-configuration transaction prices and promotion information. [S1]",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "第二季度整车 ASP 为 229,312 元，同比下降 9.6%。公司将同比变化与 SU7 Ultra 占比下降联系起来，将环比变化与新一代 SU7 占比提升联系起来。因此，平均售价下降包含组合效应；评估单一车型价格竞争力还需要同配置成交价格和促销信息。[S1]"
+        "text": "Q2 vehicle ASP was RMB 229,312, down 9.6% YoY. The company links the YoY change to a lower share of the SU7 Ultra and the QoQ change to a higher share of the new-generation SU7. The decline in average price therefore contains a mix effect; assessing the price competitiveness of a single model also requires same-configuration transaction prices and promotion information. [S1]"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "对经营结果更有意义的观察是：新增车型带来的销量能否覆盖其价格结构和新增成本影响，以及高价版本销量是否形成持续贡献。发布价格只描述产品定位，季度 ASP 更接近已交付产品的收入结构。",
+            "text": "The more meaningful question for operating results is whether the volume from new models can cover their price structure and added costs, and whether higher-priced versions deliver a lasting contribution. Launch prices describe product positioning, while quarterly ASP is closer to the revenue structure of vehicles actually delivered.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "对经营结果更有意义的观察是：新增车型带来的销量能否覆盖其价格结构和新增成本影响，以及高价版本销量是否形成持续贡献。发布价格只描述产品定位，季度 ASP 更接近已交付产品的收入结构。"
+        "text": "The more meaningful question for operating results is whether the volume from new models can cover their price structure and added costs, and whether higher-priced versions deliver a lasting contribution. Launch prices describe product positioning, while quarterly ASP is closer to the revenue structure of vehicles actually delivered."
       },
       {
         "kind": "p",
         "role": "h2",
         "runs": [
           {
-            "text": "三、分部利润修复需要毛利与费用共同作用",
+            "text": "III. Segment profit recovery needs gross profit and expenses to work together",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "三、分部利润修复需要毛利与费用共同作用"
+        "text": "III. Segment profit recovery needs gross profit and expenses to work together"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "第二季度汽车、AI 及其他新业务分部毛利率为 19.2%，经营亏损约 26 亿元。相比第一季度，交付和收入恢复带来更高毛利，但费用仍处在较高水平。2025 年全年该分部曾实现约 9 亿元经营利润，表明盈利状态对规模、组合和投入时点较为敏感。[S1、S3、S4]",
+            "text": "Q2 gross margin for the EV, AI and other new initiatives segment was 19.2%, with an operating loss of about RMB 2.6 billion. Compared with Q1, the recovery in deliveries and revenue brought higher gross profit, but expenses remain elevated. The segment earned an operating profit of about RMB 0.9 billion for full-year 2025, showing that profitability is sensitive to scale, mix and the timing of investment. [S1, S3, S4]",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "第二季度汽车、AI 及其他新业务分部毛利率为 19.2%，经营亏损约 26 亿元。相比第一季度，交付和收入恢复带来更高毛利，但费用仍处在较高水平。2025 年全年该分部曾实现约 9 亿元经营利润，表明盈利状态对规模、组合和投入时点较为敏感。[S1、S3、S4]"
+        "text": "Q2 gross margin for the EV, AI and other new initiatives segment was 19.2%, with an operating loss of about RMB 2.6 billion. Compared with Q1, the recovery in deliveries and revenue brought higher gross profit, but expenses remain elevated. The segment earned an operating profit of about RMB 0.9 billion for full-year 2025, showing that profitability is sensitive to scale, mix and the timing of investment. [S1, S3, S4]"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "在固定季度费用的静态模型中，收入或毛利率单独变化均能影响利润；现实经营还包含新车型开发、渠道投入与 AI 研发变化。本报告在 Exhibit 7 同时展示收入和毛利率的敏感度，避免把单一销量门槛当作盈利承诺。",
+            "text": "In a static model with fixed quarterly expenses, a change in either revenue or gross margin alone can move profit; real operations also include changes in new-model development, channel investment and AI R&D. This report shows the sensitivity to both revenue and gross margin in Exhibit 7, to avoid treating any single volume threshold as a profit promise.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "在固定季度费用的静态模型中，收入或毛利率单独变化均能影响利润；现实经营还包含新车型开发、渠道投入与 AI 研发变化。本报告在 Exhibit 7 同时展示收入和毛利率的敏感度，避免把单一销量门槛当作盈利承诺。"
+        "text": "In a static model with fixed quarterly expenses, a change in either revenue or gross margin alone can move profit; real operations also include changes in new-model development, channel investment and AI R&D. This report shows the sensitivity to both revenue and gross margin in Exhibit 7, to avoid treating any single volume threshold as a profit promise."
       },
       {
         "kind": "p",
         "role": "h2",
         "runs": [
           {
-            "text": "四、质量与服务是扩大规模后的必要能力",
+            "text": "IV. Quality and service are essential capabilities once scale expands",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "四、质量与服务是扩大规模后的必要能力"
+        "text": "IV. Quality and service are essential capabilities once scale expands"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "监管部门公布的 2025 年辅助驾驶相关召回，以及 2026 年车内应急机械拉手相关召回，分别涉及软件场景能力与紧急操作识别。后续应跟踪召回执行、改进措施和服务能力，并把不同批次及缺陷范围分开阅读。[S8、S9a、S9b]",
+            "text": "The 2025 driver-assistance recall and the 2026 in-car emergency mechanical door handle recall, both published by regulators, concern software scenario capability and emergency-operation recognition respectively. Follow-up should track recall execution, remedial measures and service capacity, and read different batches and defect scopes separately. [S8, S9a, S9b]",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "监管部门公布的 2025 年辅助驾驶相关召回，以及 2026 年车内应急机械拉手相关召回，分别涉及软件场景能力与紧急操作识别。后续应跟踪召回执行、改进措施和服务能力，并把不同批次及缺陷范围分开阅读。[S8、S9a、S9b]"
+        "text": "The 2025 driver-assistance recall and the 2026 in-car emergency mechanical door handle recall, both published by regulators, concern software scenario capability and emergency-operation recognition respectively. Follow-up should track recall execution, remedial measures and service capacity, and read different batches and defect scopes separately. [S8, S9a, S9b]"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "研究判断的上修信号是：交付增长与毛利企稳同时出现，分部费用占比下降，产品和服务问题得到持续闭环。若销量主要依赖低价组合、费用继续快于毛利增长，则利润改善可能晚于交付改善。上述判断属于本报告分析。",
+            "text": "Upgrade signals for the research view are delivery growth and a stable gross margin occurring together, a falling segment expense ratio, and product and service issues being closed out consistently. If volume relies mainly on low-priced mix and expenses keep growing faster than gross profit, profit improvement may lag delivery improvement. These judgments are this report's own analysis.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "研究判断的上修信号是：交付增长与毛利企稳同时出现，分部费用占比下降，产品和服务问题得到持续闭环。若销量主要依赖低价组合、费用继续快于毛利增长，则利润改善可能晚于交付改善。上述判断属于本报告分析。"
+        "text": "Upgrade signals for the research view are delivery growth and a stable gross margin occurring together, a falling segment expense ratio, and product and service issues being closed out consistently. If volume relies mainly on low-priced mix and expenses keep growing faster than gross profit, profit improvement may lag delivery improvement. These judgments are this report's own analysis."
       }
     ],
     [
@@ -875,12 +875,12 @@
         "role": "h1",
         "runs": [
           {
-            "text": "1. 交付规模：从季度波动看年度节奏",
+            "text": "1. Delivery scale and the annual pace",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "1. 交付规模：从季度波动看年度节奏",
+        "text": "1. Delivery scale and the annual pace",
         "bookmark": "delivery"
       },
       {
@@ -888,29 +888,29 @@
         "role": "body",
         "runs": [
           {
-            "text": "季度交付同时反映需求、供给和产品切换。",
+            "text": "Quarterly deliveries reflect demand, supply and product changeovers together.",
             "bold": true,
             "italic": false
           },
           {
-            "text": " 将半年累计与单季峰值一起阅读，可以区分阶段性恢复和持续增长能力。Exhibit 1 展示公司公告中的六个季度序列。",
+            "text": " Reading half-year totals alongside single-quarter peaks separates a temporary recovery from sustained growth capacity. Exhibit 1 shows the six-quarter series from company announcements.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "季度交付同时反映需求、供给和产品切换。 将半年累计与单季峰值一起阅读，可以区分阶段性恢复和持续增长能力。Exhibit 1 展示公司公告中的六个季度序列。"
+        "text": "Quarterly deliveries reflect demand, supply and product changeovers together. Reading half-year totals alongside single-quarter peaks separates a temporary recovery from sustained growth capacity. Exhibit 1 shows the six-quarter series from company announcements."
       },
       {
         "kind": "p",
         "role": "caption",
         "runs": [
           {
-            "text": "Exhibit 1: 2026 年第二季度交付回升，仍低于上一年末高点",
+            "text": "Exhibit 1: Q2 2026 deliveries rebounded but remain below the prior year-end peak",
             "bold": true,
             "italic": false
           }
         ],
-        "text": "Exhibit 1: 2026 年第二季度交付回升，仍低于上一年末高点",
+        "text": "Exhibit 1: Q2 2026 deliveries rebounded but remain below the prior year-end peak",
         "bookmark": "exhibit1"
       },
       {
@@ -925,60 +925,60 @@
         "role": "source",
         "runs": [
           {
-            "text": "资料来源：小米季度及年度业绩公告 [S1、S3–S6]；本报告换算为万辆。",
+            "text": "Source: Xiaomi quarterly and annual results announcements [S1, S3-S6]; converted to thousand vehicles by this report.",
             "bold": false,
             "italic": true
           }
         ],
-        "text": "资料来源：小米季度及年度业绩公告 [S1、S3–S6]；本报告换算为万辆。"
+        "text": "Source: Xiaomi quarterly and annual results announcements [S1, S3-S6]; converted to thousand vehicles by this report."
       },
       {
         "kind": "p",
         "role": "h2",
         "runs": [
           {
-            "text": "1.1 换代切换解释波动的一部分",
+            "text": "1.1 The model changeover explains part of the volatility",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "1.1 换代切换解释波动的一部分"
+        "text": "1.1 The model changeover explains part of the volatility"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "2026 年第一季度交付 80,856 辆，公司披露第一代 SU7 停售及产品过渡影响。新一代 SU7 于 3 月发布，第二季度交付恢复至 104,199 辆。公司披露的锁单和累计交付采用各自截止日期，研究中应分别保留，才能观察从需求到履约的转化。[S1、S3、S7]",
+            "text": "Q1 2026 deliveries were 80,856; the company cited the end of first-generation SU7 sales and the product transition. The new-generation SU7 launched in March, and Q2 deliveries recovered to 104,199. The company's order-lock and cumulative delivery figures use their own cut-off dates and should be kept separate in research, so that the conversion from demand to fulfillment can be observed. [S1, S3, S7]",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "2026 年第一季度交付 80,856 辆，公司披露第一代 SU7 停售及产品过渡影响。新一代 SU7 于 3 月发布，第二季度交付恢复至 104,199 辆。公司披露的锁单和累计交付采用各自截止日期，研究中应分别保留，才能观察从需求到履约的转化。[S1、S3、S7]"
+        "text": "Q1 2026 deliveries were 80,856; the company cited the end of first-generation SU7 sales and the product transition. The new-generation SU7 launched in March, and Q2 deliveries recovered to 104,199. The company's order-lock and cumulative delivery figures use their own cut-off dates and should be kept separate in research, so that the conversion from demand to fulfillment can be observed. [S1, S3, S7]"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "第一季度低基数有助于第二季度环比恢复，但同比、环比和两年累计分别回答不同问题。交付同比增长反映相对去年同季的规模扩张；环比恢复反映短期节奏；与第四季度高点比较则反映生产和渠道曾经达到的交付水平。",
+            "text": "The low Q1 base helps the QoQ recovery in Q2, but YoY, QoQ and two-year cumulative figures answer different questions. YoY growth reflects scale expansion against the same quarter last year; the QoQ recovery reflects short-term pace; comparison with the Q4 peak reflects the delivery level production and channels have previously reached.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "第一季度低基数有助于第二季度环比恢复，但同比、环比和两年累计分别回答不同问题。交付同比增长反映相对去年同季的规模扩张；环比恢复反映短期节奏；与第四季度高点比较则反映生产和渠道曾经达到的交付水平。"
+        "text": "The low Q1 base helps the QoQ recovery in Q2, but YoY, QoQ and two-year cumulative figures answer different questions. YoY growth reflects scale expansion against the same quarter last year; the QoQ recovery reflects short-term pace; comparison with the Q4 peak reflects the delivery level production and channels have previously reached."
       },
       {
         "kind": "p",
         "role": "caption",
         "runs": [
           {
-            "text": "Exhibit 2: 用三种比较口径描述第二季度的恢复程度",
+            "text": "Exhibit 2: Three comparison bases describe the extent of the Q2 recovery",
             "bold": true,
             "italic": false
           }
         ],
-        "text": "Exhibit 2: 用三种比较口径描述第二季度的恢复程度",
+        "text": "Exhibit 2: Three comparison bases describe the extent of the Q2 recovery",
         "bookmark": "exhibit2"
       },
       {
@@ -996,12 +996,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "比较维度",
+                    "text": "Comparison",
                     "bold": true,
                     "italic": false
                   }
                 ],
-                "text": "比较维度"
+                "text": "Comparison"
               }
             ],
             [
@@ -1010,12 +1010,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "计算结果",
+                    "text": "Result",
                     "bold": true,
                     "italic": false
                   }
                 ],
-                "text": "计算结果"
+                "text": "Result"
               }
             ],
             [
@@ -1024,12 +1024,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "经营含义",
+                    "text": "Operating meaning",
                     "bold": true,
                     "italic": false
                   }
                 ],
-                "text": "经营含义"
+                "text": "Operating meaning"
               }
             ]
           ],
@@ -1040,12 +1040,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "2026Q2 对 2026Q1",
+                    "text": "2026Q2 vs 2026Q1",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "2026Q2 对 2026Q1"
+                "text": "2026Q2 vs 2026Q1"
               }
             ],
             [
@@ -1068,12 +1068,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "换代后季度交付回升",
+                    "text": "Quarterly deliveries rebound after the changeover",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "换代后季度交付回升"
+                "text": "Quarterly deliveries rebound after the changeover"
               }
             ]
           ],
@@ -1084,12 +1084,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "2026Q2 对 2025Q2",
+                    "text": "2026Q2 vs 2025Q2",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "2026Q2 对 2025Q2"
+                "text": "2026Q2 vs 2025Q2"
               }
             ],
             [
@@ -1112,12 +1112,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "较去年同期扩大规模",
+                    "text": "Scale expanded versus a year earlier",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "较去年同期扩大规模"
+                "text": "Scale expanded versus a year earlier"
               }
             ]
           ],
@@ -1128,12 +1128,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "2026Q2 对 2025Q4",
+                    "text": "2026Q2 vs 2025Q4",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "2026Q2 对 2025Q4"
+                "text": "2026Q2 vs 2025Q4"
               }
             ],
             [
@@ -1156,12 +1156,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "距离上一年末高点仍有差距",
+                    "text": "Still short of the prior year-end peak",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "距离上一年末高点仍有差距"
+                "text": "Still short of the prior year-end peak"
               }
             ]
           ],
@@ -1172,12 +1172,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "2026H1 / 55 万辆参照目标",
+                    "text": "2026H1 / 550,000 reference target",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "2026H1 / 55 万辆参照目标"
+                "text": "2026H1 / 550,000 reference target"
               }
             ],
             [
@@ -1200,12 +1200,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "下半年需要承担更大交付份额",
+                    "text": "H2 must carry a larger share of deliveries",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "下半年需要承担更大交付份额"
+                "text": "H2 must carry a larger share of deliveries"
               }
             ]
           ]
@@ -1216,48 +1216,48 @@
         "role": "source",
         "runs": [
           {
-            "text": "资料来源：[S1、S3、S4]；本报告计算。55 万辆为 2026 年 3 月披露目标。",
+            "text": "Source: [S1, S3, S4]; calculated by this report. 550,000 vehicles is the target disclosed in March 2026.",
             "bold": false,
             "italic": true
           }
         ],
-        "text": "资料来源：[S1、S3、S4]；本报告计算。55 万辆为 2026 年 3 月披露目标。"
+        "text": "Source: [S1, S3, S4]; calculated by this report. 550,000 vehicles is the target disclosed in March 2026."
       },
       {
         "kind": "p",
         "role": "h2",
         "runs": [
           {
-            "text": "1.2 分清交付瓶颈，才能解释增长速度",
+            "text": "1.2 Separating delivery bottlenecks explains the speed of growth",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "1.2 分清交付瓶颈，才能解释增长速度"
+        "text": "1.2 Separating delivery bottlenecks explains the speed of growth"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "需求侧需要观察车型和版本的新增订单、取消及等待时长；供给侧需要观察关键部件与生产切换；履约侧需要观察车辆运输、门店交付和售后准备。公司交付公告提供结果，经营归因仍需更多对应证据。",
+            "text": "On the demand side, watch new orders, cancellations and wait times by model and version; on the supply side, watch key components and production changeovers; on the fulfillment side, watch vehicle transport, store handover and after-sales readiness. The company's delivery announcements give the outcome, while operating attribution still needs more matching evidence.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "需求侧需要观察车型和版本的新增订单、取消及等待时长；供给侧需要观察关键部件与生产切换；履约侧需要观察车辆运输、门店交付和售后准备。公司交付公告提供结果，经营归因仍需更多对应证据。"
+        "text": "On the demand side, watch new orders, cancellations and wait times by model and version; on the supply side, watch key components and production changeovers; on the fulfillment side, watch vehicle transport, store handover and after-sales readiness. The company's delivery announcements give the outcome, while operating attribution still needs more matching evidence."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "以第二季度节奏简单年化约为 41.68 万辆。这是观察运行速度的算术基准，季节性、新产品爬坡以及促销节奏都会改变下半年轨迹。报告第 7 页因此使用多个全年交付条件进行比较。",
+            "text": "Simply annualizing the Q2 pace gives about 416,800 vehicles. This is an arithmetic benchmark for the running rate; seasonality, new-product ramp-up and promotion cadence will all change the H2 trajectory. Page 7 therefore compares several full-year delivery conditions.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "以第二季度节奏简单年化约为 41.68 万辆。这是观察运行速度的算术基准，季节性、新产品爬坡以及促销节奏都会改变下半年轨迹。报告第 7 页因此使用多个全年交付条件进行比较。"
+        "text": "Simply annualizing the Q2 pace gives about 416,800 vehicles. This is an arithmetic benchmark for the running rate; seasonality, new-product ramp-up and promotion cadence will all change the H2 trajectory. Page 7 therefore compares several full-year delivery conditions."
       }
     ],
     [
@@ -1266,12 +1266,12 @@
         "role": "h1",
         "runs": [
           {
-            "text": "2. 产品组合：扩大覆盖与提高运营复杂度",
+            "text": "2. Product mix: coverage and complexity",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "2. 产品组合：扩大覆盖与提高运营复杂度",
+        "text": "2. Product mix: coverage and complexity",
         "bookmark": "products"
       },
       {
@@ -1279,29 +1279,29 @@
         "role": "body",
         "runs": [
           {
-            "text": "车型增多可以扩大客户覆盖，但产品组合的价值最终体现在交付和毛利。",
+            "text": "More models can widen customer coverage, but the value of the product mix ultimately shows up in deliveries and gross profit.",
             "bold": true,
             "italic": false
           },
           {
-            "text": " 小米已从 SU7 轿车延伸至 YU7 SUV，并公布新的预售产品。下表保留官方发布节点，价格为相应版本的发布或预售价。",
+            "text": " Xiaomi has extended from the SU7 sedan to the YU7 SUV and announced new pre-sale products. The table below keeps the official release milestones; prices are the launch or pre-sale prices of the respective versions.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "车型增多可以扩大客户覆盖，但产品组合的价值最终体现在交付和毛利。 小米已从 SU7 轿车延伸至 YU7 SUV，并公布新的预售产品。下表保留官方发布节点，价格为相应版本的发布或预售价。"
+        "text": "More models can widen customer coverage, but the value of the product mix ultimately shows up in deliveries and gross profit. Xiaomi has extended from the SU7 sedan to the YU7 SUV and announced new pre-sale products. The table below keeps the official release milestones; prices are the launch or pre-sale prices of the respective versions."
       },
       {
         "kind": "p",
         "role": "caption",
         "runs": [
           {
-            "text": "Exhibit 3: 核心产品节点与公开价格：按披露日期区分状态",
+            "text": "Exhibit 3: Key product milestones and public prices, by disclosure date",
             "bold": true,
             "italic": false
           }
         ],
-        "text": "Exhibit 3: 核心产品节点与公开价格：按披露日期区分状态",
+        "text": "Exhibit 3: Key product milestones and public prices, by disclosure date",
         "bookmark": "exhibit3"
       },
       {
@@ -1320,12 +1320,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "产品 / 版本",
+                    "text": "Product / version",
                     "bold": true,
                     "italic": false
                   }
                 ],
-                "text": "产品 / 版本"
+                "text": "Product / version"
               }
             ],
             [
@@ -1334,12 +1334,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "价格（万元）",
+                    "text": "Price (RMB)",
                     "bold": true,
                     "italic": false
                   }
                 ],
-                "text": "价格（万元）"
+                "text": "Price (RMB)"
               }
             ],
             [
@@ -1348,12 +1348,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "公开状态",
+                    "text": "Public status",
                     "bold": true,
                     "italic": false
                   }
                 ],
-                "text": "公开状态"
+                "text": "Public status"
               }
             ],
             [
@@ -1362,12 +1362,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "分析重点",
+                    "text": "Analytical focus",
                     "bold": true,
                     "italic": false
                   }
                 ],
-                "text": "分析重点"
+                "text": "Analytical focus"
               }
             ]
           ],
@@ -1378,12 +1378,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "新一代 SU7\nStandard / Pro / Max",
+                    "text": "New-generation SU7\nStandard / Pro / Max",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "新一代 SU7\nStandard / Pro / Max"
+                "text": "New-generation SU7\nStandard / Pro / Max"
               }
             ],
             [
@@ -1406,12 +1406,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "2026-03-19 发布",
+                    "text": "Launched 2026-03-19",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "2026-03-19 发布"
+                "text": "Launched 2026-03-19"
               }
             ],
             [
@@ -1420,12 +1420,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "换代承接、版本组合",
+                    "text": "Generation changeover, version mix",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "换代承接、版本组合"
+                "text": "Generation changeover, version mix"
               }
             ]
           ],
@@ -1436,12 +1436,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "YU7 新 Standard",
+                    "text": "YU7 new Standard",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "YU7 新 Standard"
+                "text": "YU7 new Standard"
               }
             ],
             [
@@ -1464,12 +1464,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "2026-05-21 发布",
+                    "text": "Launched 2026-05-21",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "2026-05-21 发布"
+                "text": "Launched 2026-05-21"
               }
             ],
             [
@@ -1478,12 +1478,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "新增价格覆盖与需求转化",
+                    "text": "New price coverage and demand conversion",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "新增价格覆盖与需求转化"
+                "text": "New price coverage and demand conversion"
               }
             ]
           ],
@@ -1522,12 +1522,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "2026-05-21 发布",
+                    "text": "Launched 2026-05-21",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "2026-05-21 发布"
+                "text": "Launched 2026-05-21"
               }
             ],
             [
@@ -1536,12 +1536,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "高价性能版本贡献",
+                    "text": "Contribution of the high-priced performance version",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "高价性能版本贡献"
+                "text": "Contribution of the high-priced performance version"
               }
             ]
           ],
@@ -1552,12 +1552,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "SkyNomad 澎程 N70 Max",
+                    "text": "SkyNomad N70 Max",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "SkyNomad 澎程 N70 Max"
+                "text": "SkyNomad N70 Max"
               }
             ],
             [
@@ -1580,12 +1580,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "截至 2026-08-18 为预售",
+                    "text": "Pre-sale as of 2026-08-18",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "截至 2026-08-18 为预售"
+                "text": "Pre-sale as of 2026-08-18"
               }
             ],
             [
@@ -1594,12 +1594,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "五座增程产品的量产兑现",
+                    "text": "Mass-production delivery of the five-seat EREV",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "五座增程产品的量产兑现"
+                "text": "Mass-production delivery of the five-seat EREV"
               }
             ]
           ],
@@ -1610,12 +1610,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "SkyNomad 澎程 N90 Max",
+                    "text": "SkyNomad N90 Max",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "SkyNomad 澎程 N90 Max"
+                "text": "SkyNomad N90 Max"
               }
             ],
             [
@@ -1638,12 +1638,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "截至 2026-08-18 为预售",
+                    "text": "Pre-sale as of 2026-08-18",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "截至 2026-08-18 为预售"
+                "text": "Pre-sale as of 2026-08-18"
               }
             ],
             [
@@ -1652,12 +1652,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "七座增程产品的用户覆盖",
+                    "text": "Customer coverage of the seven-seat EREV",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "七座增程产品的用户覆盖"
+                "text": "Customer coverage of the seven-seat EREV"
               }
             ]
           ]
@@ -1668,108 +1668,108 @@
         "role": "source",
         "runs": [
           {
-            "text": "资料来源：小米官方发布资料及业绩公告 [S1–S3、S7]。配置、优惠与最终售价以各自最新销售文件为准；预售资料称预计 2026 年 9 月上市。",
+            "text": "Source: Xiaomi official releases and results announcements [S1-S3, S7]. Configurations, discounts and final prices are subject to each latest sales document; pre-sale materials state a launch expected in September 2026.",
             "bold": false,
             "italic": true
           }
         ],
-        "text": "资料来源：小米官方发布资料及业绩公告 [S1–S3、S7]。配置、优惠与最终售价以各自最新销售文件为准；预售资料称预计 2026 年 9 月上市。"
+        "text": "Source: Xiaomi official releases and results announcements [S1-S3, S7]. Configurations, discounts and final prices are subject to each latest sales document; pre-sale materials state a launch expected in September 2026."
       },
       {
         "kind": "p",
         "role": "h2",
         "runs": [
           {
-            "text": "2.1 价格带覆盖与收入结构需要联动分析",
+            "text": "2.1 Price-band coverage and revenue mix need to be analyzed together",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "2.1 价格带覆盖与收入结构需要联动分析"
+        "text": "2.1 Price-band coverage and revenue mix need to be analyzed together"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "新一代 SU7 与 YU7 新版本覆盖相邻价格带，有助于满足不同车身形态偏好。YU7 GT 等高价版本可能提供更高收入贡献，但其规模、毛利以及对主力车型的影响需要季度结果验证。产品定位和品牌关注度可以形成需求线索，实际价值取决于成交与履约。",
+            "text": "The new-generation SU7 and the new YU7 versions cover adjacent price bands, which helps meet different body-style preferences. Higher-priced versions such as the YU7 GT may contribute more revenue, but their volume, gross margin and effect on core models need to be confirmed by quarterly results. Product positioning and brand attention can create demand leads; the actual value depends on transactions and fulfillment.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "新一代 SU7 与 YU7 新版本覆盖相邻价格带，有助于满足不同车身形态偏好。YU7 GT 等高价版本可能提供更高收入贡献，但其规模、毛利以及对主力车型的影响需要季度结果验证。产品定位和品牌关注度可以形成需求线索，实际价值取决于成交与履约。"
+        "text": "The new-generation SU7 and the new YU7 versions cover adjacent price bands, which helps meet different body-style preferences. Higher-priced versions such as the YU7 GT may contribute more revenue, but their volume, gross margin and effect on core models need to be confirmed by quarterly results. Product positioning and brand attention can create demand leads; the actual value depends on transactions and fulfillment."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "季度 ASP 是已交付车型组合的平均结果。例如高价版本占比下降时，即使各版本单独价格稳定，整体 ASP 也可能下降。为了识别促销影响，需要同时检查同配置成交价、金融优惠、选配权益及交付版本构成；仅用起售价变化推断全系降价会混合这些因素。",
+            "text": "Quarterly ASP is the average result of the delivered model mix. For example, when the share of higher-priced versions falls, overall ASP can decline even if each version's own price is stable. To identify the effect of promotions, check same-configuration transaction prices, financing offers, option benefits and the delivered version mix; inferring a price cut across the lineup from changes in the starting price alone would mix these factors.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "季度 ASP 是已交付车型组合的平均结果。例如高价版本占比下降时，即使各版本单独价格稳定，整体 ASP 也可能下降。为了识别促销影响，需要同时检查同配置成交价、金融优惠、选配权益及交付版本构成；仅用起售价变化推断全系降价会混合这些因素。"
+        "text": "Quarterly ASP is the average result of the delivered model mix. For example, when the share of higher-priced versions falls, overall ASP can decline even if each version's own price is stable. To identify the effect of promotions, check same-configuration transaction prices, financing offers, option benefits and the delivered version mix; inferring a price cut across the lineup from changes in the starting price alone would mix these factors."
       },
       {
         "kind": "p",
         "role": "h2",
         "runs": [
           {
-            "text": "2.2 多产品线对生产和服务提出更高要求",
+            "text": "2.2 A multi-model lineup places higher demands on production and service",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "2.2 多产品线对生产和服务提出更高要求"
+        "text": "2.2 A multi-model lineup places higher demands on production and service"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "轿车、SUV 和新增动力形式能够扩展用户场景，也会增加零部件种类、生产排程、备件供应及服务培训要求。增长质量取决于多车型之间的共享效率，以及新增复杂度是否被流程和能力吸收。对新产品的研究应从预售进展继续跟踪到量产稳定性和交付后的服务反馈。",
+            "text": "Sedans, SUVs and new powertrain types extend user scenarios, but also add parts variety, production scheduling, spare-parts supply and service training requirements. Growth quality depends on sharing efficiency across models and on whether the added complexity is absorbed by processes and capabilities. Research on new products should follow pre-sale progress through to mass-production stability and post-delivery service feedback.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "轿车、SUV 和新增动力形式能够扩展用户场景，也会增加零部件种类、生产排程、备件供应及服务培训要求。增长质量取决于多车型之间的共享效率，以及新增复杂度是否被流程和能力吸收。对新产品的研究应从预售进展继续跟踪到量产稳定性和交付后的服务反馈。"
+        "text": "Sedans, SUVs and new powertrain types extend user scenarios, but also add parts variety, production scheduling, spare-parts supply and service training requirements. Growth quality depends on sharing efficiency across models and on whether the added complexity is absorbed by processes and capabilities. Research on new products should follow pre-sale progress through to mass-production stability and post-delivery service feedback."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "公司披露，截至 2026 年 3 月 31 日，汽车销售网络有 490 家门店，覆盖 143 个城市。这一规模说明渠道覆盖已形成基础；店数仍需结合交付效率、售后承载和区域需求阅读。上述网络数据为第一季度末时点。[S3]",
+            "text": "The company disclosed that as of March 31, 2026 its automotive sales network had 490 stores covering 143 cities. This scale shows that channel coverage has a base; the store count still needs to be read together with delivery efficiency, after-sales capacity and regional demand. These network figures are as of the end of Q1. [S3]",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "公司披露，截至 2026 年 3 月 31 日，汽车销售网络有 490 家门店，覆盖 143 个城市。这一规模说明渠道覆盖已形成基础；店数仍需结合交付效率、售后承载和区域需求阅读。上述网络数据为第一季度末时点。[S3]"
+        "text": "The company disclosed that as of March 31, 2026 its automotive sales network had 490 stores covering 143 cities. This scale shows that channel coverage has a base; the store count still needs to be read together with delivery efficiency, after-sales capacity and regional demand. These network figures are as of the end of Q1. [S3]"
       },
       {
         "kind": "p",
         "role": "h2",
         "runs": [
           {
-            "text": "2.3 生态协同的商业价值，需要可量化证据",
+            "text": "2.3 The commercial value of ecosystem synergy needs quantifiable evidence",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "2.3 生态协同的商业价值，需要可量化证据"
+        "text": "2.3 The commercial value of ecosystem synergy needs quantifiable evidence"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "手机、汽车与家庭设备之间的体验衔接构成小米的差异化叙事。其商业回报可以通过线索转化、获客成本、用户留存和服务收入衡量。集团用户数描述生态触达，汽车实际购买人群及服务付费行为决定转化效果。本报告将生态协同作为待验证的增长机制，保持其与已确认整车收入的区分。",
+            "text": "The experience link between phones, cars and home devices forms Xiaomi's differentiation narrative. Its commercial return can be measured by lead conversion, customer acquisition cost, user retention and service revenue. Group user numbers describe ecosystem reach, while the actual car-buying population and paid service behavior determine conversion. This report treats ecosystem synergy as a growth mechanism to be validated, kept separate from confirmed vehicle revenue.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "手机、汽车与家庭设备之间的体验衔接构成小米的差异化叙事。其商业回报可以通过线索转化、获客成本、用户留存和服务收入衡量。集团用户数描述生态触达，汽车实际购买人群及服务付费行为决定转化效果。本报告将生态协同作为待验证的增长机制，保持其与已确认整车收入的区分。"
+        "text": "The experience link between phones, cars and home devices forms Xiaomi's differentiation narrative. Its commercial return can be measured by lead conversion, customer acquisition cost, user retention and service revenue. Group user numbers describe ecosystem reach, while the actual car-buying population and paid service behavior determine conversion. This report treats ecosystem synergy as a growth mechanism to be validated, kept separate from confirmed vehicle revenue."
       }
     ],
     [
@@ -1778,12 +1778,12 @@
         "role": "h1",
         "runs": [
           {
-            "text": "3. 经营质量：毛利改善与费用约束",
+            "text": "3. Operating quality: margin and expenses",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "3. 经营质量：毛利改善与费用约束",
+        "text": "3. Operating quality: margin and expenses",
         "bookmark": "economics"
       },
       {
@@ -1791,29 +1791,29 @@
         "role": "body",
         "runs": [
           {
-            "text": "汽车收入与分部利润采用不同披露边界。",
+            "text": "Vehicle revenue and segment profit use different disclosure boundaries.",
             "bold": true,
             "italic": false
           },
           {
-            "text": " 整车 ASP 反映销售结构；分部毛利率还包括 AI 及其他新业务。两条序列可以共同观察经营变化，归因需要保留各自口径。",
+            "text": " Vehicle ASP reflects the sales mix; segment gross margin also includes AI and other new initiatives. The two series can be read together to observe operating changes, while attribution must keep each basis.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "汽车收入与分部利润采用不同披露边界。 整车 ASP 反映销售结构；分部毛利率还包括 AI 及其他新业务。两条序列可以共同观察经营变化，归因需要保留各自口径。"
+        "text": "Vehicle revenue and segment profit use different disclosure boundaries. Vehicle ASP reflects the sales mix; segment gross margin also includes AI and other new initiatives. The two series can be read together to observe operating changes, while attribution must keep each basis."
       },
       {
         "kind": "p",
         "role": "caption",
         "runs": [
           {
-            "text": "Exhibit 4: 整车 ASP 自 2025 年第三季度高点回落",
+            "text": "Exhibit 4: Vehicle ASP has fallen from its Q3 2025 peak",
             "bold": true,
             "italic": false
           }
         ],
-        "text": "Exhibit 4: 整车 ASP 自 2025 年第三季度高点回落",
+        "text": "Exhibit 4: Vehicle ASP has fallen from its Q3 2025 peak",
         "bookmark": "exhibit4"
       },
       {
@@ -1828,24 +1828,24 @@
         "role": "source",
         "runs": [
           {
-            "text": "资料来源：小米业绩公告 [S1、S3–S6]。ASP 为整车口径，精确序列见附录 B。",
+            "text": "Source: Xiaomi results announcements [S1, S3-S6]. ASP is on a vehicle basis; the exact series is in Appendix B.",
             "bold": false,
             "italic": true
           }
         ],
-        "text": "资料来源：小米业绩公告 [S1、S3–S6]。ASP 为整车口径，精确序列见附录 B。"
+        "text": "Source: Xiaomi results announcements [S1, S3-S6]. ASP is on a vehicle basis; the exact series is in Appendix B."
       },
       {
         "kind": "p",
         "role": "caption",
         "runs": [
           {
-            "text": "Exhibit 5: 合并分部毛利率从 2025Q2 的 26.4% 降至 2026Q2 的 19.2%",
+            "text": "Exhibit 5: Combined segment gross margin fell from 26.4% in 2025Q2 to 19.2% in 2026Q2",
             "bold": true,
             "italic": false
           }
         ],
-        "text": "Exhibit 5: 合并分部毛利率从 2025Q2 的 26.4% 降至 2026Q2 的 19.2%",
+        "text": "Exhibit 5: Combined segment gross margin fell from 26.4% in 2025Q2 to 19.2% in 2026Q2",
         "bookmark": "exhibit5"
       },
       {
@@ -1860,60 +1860,60 @@
         "role": "source",
         "runs": [
           {
-            "text": "资料来源：小米业绩公告 [S1、S3–S6]。汽车、AI 及其他新业务合并分部口径。",
+            "text": "Source: Xiaomi results announcements [S1, S3-S6]. Combined EV, AI and other new initiatives segment basis.",
             "bold": false,
             "italic": true
           }
         ],
-        "text": "资料来源：小米业绩公告 [S1、S3–S6]。汽车、AI 及其他新业务合并分部口径。"
+        "text": "Source: Xiaomi results announcements [S1, S3-S6]. Combined EV, AI and other new initiatives segment basis."
       },
       {
         "kind": "p",
         "role": "h2",
         "runs": [
           {
-            "text": "3.1 量增与价降共同影响收入",
+            "text": "3.1 Higher volume and lower prices together shape revenue",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "3.1 量增与价降共同影响收入"
+        "text": "3.1 Higher volume and lower prices together shape revenue"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "第二季度交付同比增加 28.2%，整车收入同比增加 15.9%。公司解释的变化因素包括 SU7 Ultra 占比下降、产品组合变化及部分零部件成本上升。ASP 同比下降 9.6%，与交付变化共同解释收入增速低于销量增速。[S1]",
+            "text": "Q2 deliveries rose 28.2% YoY and vehicle revenue rose 15.9% YoY. Factors the company cites include a lower share of the SU7 Ultra, product mix changes and higher costs for some components. The 9.6% YoY ASP decline, together with the delivery change, explains why revenue growth was lower than volume growth. [S1]",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "第二季度交付同比增加 28.2%，整车收入同比增加 15.9%。公司解释的变化因素包括 SU7 Ultra 占比下降、产品组合变化及部分零部件成本上升。ASP 同比下降 9.6%，与交付变化共同解释收入增速低于销量增速。[S1]"
+        "text": "Q2 deliveries rose 28.2% YoY and vehicle revenue rose 15.9% YoY. Factors the company cites include a lower share of the SU7 Ultra, product mix changes and higher costs for some components. The 9.6% YoY ASP decline, together with the delivery change, explains why revenue growth was lower than volume growth. [S1]"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "第二季度分部毛利约 47.9 亿元，经营费用约 74 亿元，形成约 26 亿元经营亏损。该亏损反映汽车、AI 及其他新业务的合并结果。由此推算某一车型利润或“每辆车亏损”，会把不同业务投入分摊到交付量上，偏离披露口径。[S1]",
+            "text": "Q2 segment gross profit was about RMB 4.79 billion and operating expenses about RMB 7.4 billion, producing an operating loss of about RMB 2.6 billion. The loss reflects the combined result of EV, AI and other new initiatives. Deriving a per-model profit or a “loss per car” from it would spread different business investments over deliveries and depart from the disclosed basis. [S1]",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "第二季度分部毛利约 47.9 亿元，经营费用约 74 亿元，形成约 26 亿元经营亏损。该亏损反映汽车、AI 及其他新业务的合并结果。由此推算某一车型利润或“每辆车亏损”，会把不同业务投入分摊到交付量上，偏离披露口径。[S1]"
+        "text": "Q2 segment gross profit was about RMB 4.79 billion and operating expenses about RMB 7.4 billion, producing an operating loss of about RMB 2.6 billion. The loss reflects the combined result of EV, AI and other new initiatives. Deriving a per-model profit or a “loss per car” from it would spread different business investments over deliveries and depart from the disclosed basis. [S1]"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "盈利修复的观察重点是新增收入带来的毛利能否覆盖新增费用。单季产品组合、研发投放和交付节奏变化都会影响结果；持续性需要跨季度数据验证。第 7 页提供固定费用下的敏感度分析。",
+            "text": "The key to profit recovery is whether the gross profit from added revenue can cover added expenses. Single-quarter product mix, R&D timing and delivery cadence all affect the result; persistence needs multi-quarter data to verify. Page 7 provides a sensitivity analysis at fixed expenses.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "盈利修复的观察重点是新增收入带来的毛利能否覆盖新增费用。单季产品组合、研发投放和交付节奏变化都会影响结果；持续性需要跨季度数据验证。第 7 页提供固定费用下的敏感度分析。"
+        "text": "The key to profit recovery is whether the gross profit from added revenue can cover added expenses. Single-quarter product mix, R&D timing and delivery cadence all affect the result; persistence needs multi-quarter data to verify. Page 7 provides a sensitivity analysis at fixed expenses."
       }
     ],
     [
@@ -1922,12 +1922,12 @@
         "role": "h1",
         "runs": [
           {
-            "text": "4. 情景测算：把增长目标转为经营条件",
+            "text": "4. Scenarios: from targets to conditions",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "4. 情景测算：把增长目标转为经营条件",
+        "text": "4. Scenarios: from targets to conditions",
         "bookmark": "scenarios"
       },
       {
@@ -1935,34 +1935,34 @@
         "role": "body",
         "runs": [
           {
-            "text": "本节采用条件推演，",
+            "text": "This section uses conditional projections; ",
             "bold": false,
             "italic": false
           },
           {
-            "text": "各情景均为本报告设定，不赋予概率",
+            "text": "all scenarios are set by this report and assigned no probability",
             "bold": true,
             "italic": false
           },
           {
-            "text": "。交付测算用于展示完成不同全年规模需要的下半年节奏；利润测算采用合并分部口径，固定费用只为隔离变量。",
+            "text": ". The delivery estimates show the H2 pace needed to reach different full-year volumes; the profit estimates use the combined segment basis, and fixed expenses only isolate the variable.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "本节采用条件推演，各情景均为本报告设定，不赋予概率。交付测算用于展示完成不同全年规模需要的下半年节奏；利润测算采用合并分部口径，固定费用只为隔离变量。"
+        "text": "This section uses conditional projections; all scenarios are set by this report and assigned no probability. The delivery estimates show the H2 pace needed to reach different full-year volumes; the profit estimates use the combined segment basis, and fixed expenses only isolate the variable."
       },
       {
         "kind": "p",
         "role": "caption",
         "runs": [
           {
-            "text": "Exhibit 6: 全年交付条件对应的下半年月均要求",
+            "text": "Exhibit 6: H2 monthly average required under each full-year delivery condition",
             "bold": true,
             "italic": false
           }
         ],
-        "text": "Exhibit 6: 全年交付条件对应的下半年月均要求",
+        "text": "Exhibit 6: H2 monthly average required under each full-year delivery condition",
         "bookmark": "exhibit6"
       },
       {
@@ -1981,12 +1981,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "全年交付条件",
+                    "text": "Full-year deliveries",
                     "bold": true,
                     "italic": false
                   }
                 ],
-                "text": "全年交付条件"
+                "text": "Full-year deliveries"
               }
             ],
             [
@@ -1995,12 +1995,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "下半年需交付",
+                    "text": "H2 deliveries needed",
                     "bold": true,
                     "italic": false
                   }
                 ],
-                "text": "下半年需交付"
+                "text": "H2 deliveries needed"
               }
             ],
             [
@@ -2009,12 +2009,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "下半年月均",
+                    "text": "H2 monthly average",
                     "bold": true,
                     "italic": false
                   }
                 ],
-                "text": "下半年月均"
+                "text": "H2 monthly average"
               }
             ],
             [
@@ -2023,12 +2023,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "较 2026Q2 月均",
+                    "text": "vs 2026Q2 monthly avg.",
                     "bold": true,
                     "italic": false
                   }
                 ],
-                "text": "较 2026Q2 月均"
+                "text": "vs 2026Q2 monthly avg."
               }
             ]
           ],
@@ -2039,12 +2039,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "45 万辆",
+                    "text": "450,000",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "45 万辆"
+                "text": "450,000"
               }
             ],
             [
@@ -2053,12 +2053,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "264,945 辆",
+                    "text": "264,945",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "264,945 辆"
+                "text": "264,945"
               }
             ],
             [
@@ -2067,12 +2067,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "44,158 辆",
+                    "text": "44,158",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "44,158 辆"
+                "text": "44,158"
               }
             ],
             [
@@ -2097,12 +2097,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "50 万辆",
+                    "text": "500,000",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "50 万辆"
+                "text": "500,000"
               }
             ],
             [
@@ -2111,12 +2111,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "314,945 辆",
+                    "text": "314,945",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "314,945 辆"
+                "text": "314,945"
               }
             ],
             [
@@ -2125,12 +2125,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "52,491 辆",
+                    "text": "52,491",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "52,491 辆"
+                "text": "52,491"
               }
             ],
             [
@@ -2155,12 +2155,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "55 万辆（3 月目标）",
+                    "text": "550,000 (March target)",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "55 万辆（3 月目标）"
+                "text": "550,000 (March target)"
               }
             ],
             [
@@ -2169,12 +2169,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "364,945 辆",
+                    "text": "364,945",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "364,945 辆"
+                "text": "364,945"
               }
             ],
             [
@@ -2183,12 +2183,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "60,824 辆",
+                    "text": "60,824",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "60,824 辆"
+                "text": "60,824"
               }
             ],
             [
@@ -2213,60 +2213,60 @@
         "role": "source",
         "runs": [
           {
-            "text": "资料来源：[S1、S3、S4]；本报告计算。上半年已交付 185,055 辆；2026Q2 月均 34,733 辆。",
+            "text": "Source: [S1, S3, S4]; calculated by this report. Figures are in vehicles. H1 deliveries were 185,055; the 2026Q2 monthly average was 34,733.",
             "bold": false,
             "italic": true
           }
         ],
-        "text": "资料来源：[S1、S3、S4]；本报告计算。上半年已交付 185,055 辆；2026Q2 月均 34,733 辆。"
+        "text": "Source: [S1, S3, S4]; calculated by this report. Figures are in vehicles. H1 deliveries were 185,055; the 2026Q2 monthly average was 34,733."
       },
       {
         "kind": "p",
         "role": "h2",
         "runs": [
           {
-            "text": "4.1 用节奏要求检验增长假设",
+            "text": "4.1 Test growth assumptions against the required pace",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "4.1 用节奏要求检验增长假设"
+        "text": "4.1 Test growth assumptions against the required pace"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "即使全年达到 45 万辆，下半年月均仍需比第二季度提高约 27%。若采用 55 万辆参照，则要求更显著的持续提速。验证时应同时检查新增车型交付、既有车型稳定性和产能利用情况，并区分短期冲量与可持续运行速度。",
+            "text": "Even if the full year reaches 450,000 vehicles, the H2 monthly average must still rise about 27% above Q2. Against the 550,000 reference, a more marked and sustained acceleration is required. Validation should check deliveries of new models, stability of existing models and capacity utilization together, and distinguish a short-term push from a sustainable run rate.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "即使全年达到 45 万辆，下半年月均仍需比第二季度提高约 27%。若采用 55 万辆参照，则要求更显著的持续提速。验证时应同时检查新增车型交付、既有车型稳定性和产能利用情况，并区分短期冲量与可持续运行速度。"
+        "text": "Even if the full year reaches 450,000 vehicles, the H2 monthly average must still rise about 27% above Q2. Against the 550,000 reference, a more marked and sustained acceleration is required. Validation should check deliveries of new models, stability of existing models and capacity utilization together, and distinguish a short-term push from a sustainable run rate."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "管理层目标是企业经营计划；本报告情景是算术比较。将目标直接视作预测，会省略需求、供应与爬坡的不确定性。后续出现新的全年目标或实际交付数据时，应以新披露更新基准。",
+            "text": "A management target is a corporate operating plan; this report's scenarios are arithmetic comparisons. Treating a target directly as a forecast would omit the uncertainty of demand, supply and ramp-up. When a new full-year target or actual delivery data appears, the baseline should be updated with the new disclosure.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "管理层目标是企业经营计划；本报告情景是算术比较。将目标直接视作预测，会省略需求、供应与爬坡的不确定性。后续出现新的全年目标或实际交付数据时，应以新披露更新基准。"
+        "text": "A management target is a corporate operating plan; this report's scenarios are arithmetic comparisons. Treating a target directly as a forecast would omit the uncertainty of demand, supply and ramp-up. When a new full-year target or actual delivery data appears, the baseline should be updated with the new disclosure."
       },
       {
         "kind": "p",
         "role": "caption",
         "runs": [
           {
-            "text": "Exhibit 7: 固定季度费用 74 亿元时，分部经营利润对收入和毛利率的敏感度",
+            "text": "Exhibit 7: Segment operating profit (RMB bn) vs revenue and gross margin, fixed quarterly expenses of RMB 7.4 bn",
             "bold": true,
             "italic": false
           }
         ],
-        "text": "Exhibit 7: 固定季度费用 74 亿元时，分部经营利润对收入和毛利率的敏感度",
+        "text": "Exhibit 7: Segment operating profit (RMB bn) vs revenue and gross margin, fixed quarterly expenses of RMB 7.4 bn",
         "bookmark": "exhibit7"
       },
       {
@@ -2285,12 +2285,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "季度分部收入",
+                    "text": "Quarterly segment revenue (RMB bn)",
                     "bold": true,
                     "italic": false
                   }
                 ],
-                "text": "季度分部收入"
+                "text": "Quarterly segment revenue (RMB bn)"
               }
             ],
             [
@@ -2299,12 +2299,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "毛利率 18%",
+                    "text": "Gross margin 18%",
                     "bold": true,
                     "italic": false
                   }
                 ],
-                "text": "毛利率 18%"
+                "text": "Gross margin 18%"
               }
             ],
             [
@@ -2313,12 +2313,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "毛利率 21%",
+                    "text": "Gross margin 21%",
                     "bold": true,
                     "italic": false
                   }
                 ],
-                "text": "毛利率 21%"
+                "text": "Gross margin 21%"
               }
             ],
             [
@@ -2327,12 +2327,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "毛利率 24%",
+                    "text": "Gross margin 24%",
                     "bold": true,
                     "italic": false
                   }
                 ],
-                "text": "毛利率 24%"
+                "text": "Gross margin 24%"
               }
             ]
           ],
@@ -2343,12 +2343,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "250 亿元",
+                    "text": "25.0",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "250 亿元"
+                "text": "25.0"
               }
             ],
             [
@@ -2357,12 +2357,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "−29.0 亿元",
+                    "text": "-2.90",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "−29.0 亿元"
+                "text": "-2.90"
               }
             ],
             [
@@ -2371,12 +2371,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "−21.5 亿元",
+                    "text": "-2.15",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "−21.5 亿元"
+                "text": "-2.15"
               }
             ],
             [
@@ -2385,12 +2385,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "−14.0 亿元",
+                    "text": "-1.40",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "−14.0 亿元"
+                "text": "-1.40"
               }
             ]
           ],
@@ -2401,12 +2401,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "300 亿元",
+                    "text": "30.0",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "300 亿元"
+                "text": "30.0"
               }
             ],
             [
@@ -2415,12 +2415,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "−20.0 亿元",
+                    "text": "-2.00",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "−20.0 亿元"
+                "text": "-2.00"
               }
             ],
             [
@@ -2429,12 +2429,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "−11.0 亿元",
+                    "text": "-1.10",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "−11.0 亿元"
+                "text": "-1.10"
               }
             ],
             [
@@ -2443,12 +2443,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "−2.0 亿元",
+                    "text": "-0.20",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "−2.0 亿元"
+                "text": "-0.20"
               }
             ]
           ],
@@ -2459,12 +2459,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "350 亿元",
+                    "text": "35.0",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "350 亿元"
+                "text": "35.0"
               }
             ],
             [
@@ -2473,12 +2473,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "−11.0 亿元",
+                    "text": "-1.10",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "−11.0 亿元"
+                "text": "-1.10"
               }
             ],
             [
@@ -2487,12 +2487,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "−0.5 亿元",
+                    "text": "-0.05",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "−0.5 亿元"
+                "text": "-0.05"
               }
             ],
             [
@@ -2501,12 +2501,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "10.0 亿元",
+                    "text": "1.00",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "10.0 亿元"
+                "text": "1.00"
               }
             ]
           ]
@@ -2517,77 +2517,77 @@
         "role": "source",
         "runs": [
           {
-            "text": "资料来源：本报告条件测算；公式为分部收入 × 毛利率 − 经营费用。费用基准参考 [S1] 的季度近似值，包含汽车、AI 及其他新业务。",
+            "text": "Source: conditional projection by this report; formula is segment revenue x gross margin - operating expenses. The expense base refers to the approximate quarterly figure in [S1] and covers EV, AI and other new initiatives.",
             "bold": false,
             "italic": true
           }
         ],
-        "text": "资料来源：本报告条件测算；公式为分部收入 × 毛利率 − 经营费用。费用基准参考 [S1] 的季度近似值，包含汽车、AI 及其他新业务。"
+        "text": "Source: conditional projection by this report; formula is segment revenue x gross margin - operating expenses. The expense base refers to the approximate quarterly figure in [S1] and covers EV, AI and other new initiatives."
       },
       {
         "kind": "p",
         "role": "h2",
         "runs": [
           {
-            "text": "4.2 收入增长与毛利改善可以相互补充",
+            "text": "4.2 Revenue growth and margin improvement can complement each other",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "4.2 收入增长与毛利改善可以相互补充"
+        "text": "4.2 Revenue growth and margin improvement can complement each other"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "在毛利率固定为 19.2%、费用固定为 74 亿元的静态条件下，季度分部收入约需达到 385.4 亿元才接近经营盈亏平衡。若毛利率达到 24%，相同费用下对应收入约为 308.3 亿元。该差异说明盈利路径依赖质量与规模的组合。",
+            "text": "Under a static condition of a 19.2% gross margin and fixed expenses of RMB 7.4 billion, quarterly segment revenue would need to reach about RMB 38.54 billion to approach operating break-even. With a 24% gross margin, the same expenses imply revenue of about RMB 30.83 billion. This gap shows that the path to profit depends on the combination of quality and scale.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "在毛利率固定为 19.2%、费用固定为 74 亿元的静态条件下，季度分部收入约需达到 385.4 亿元才接近经营盈亏平衡。若毛利率达到 24%，相同费用下对应收入约为 308.3 亿元。该差异说明盈利路径依赖质量与规模的组合。"
+        "text": "Under a static condition of a 19.2% gross margin and fixed expenses of RMB 7.4 billion, quarterly segment revenue would need to reach about RMB 38.54 billion to approach operating break-even. With a 24% gross margin, the same expenses imply revenue of about RMB 30.83 billion. This gap shows that the path to profit depends on the combination of quality and scale."
       },
       {
         "kind": "p",
         "role": "equation",
         "runs": [
           {
-            "text": "静态盈亏平衡收入\t",
+            "text": "Static breakeven revenue\t",
             "bold": true,
             "italic": false
           },
           {
-            "text": "R = O / g = 74 / 19.2% ≈ 385.4 亿元",
+            "text": "R = O / g = 7.4 / 19.2% ≈ RMB 38.54 billion",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "静态盈亏平衡收入\tR = O / g = 74 / 19.2% ≈ 385.4 亿元"
+        "text": "Static breakeven revenue\tR = O / g = 7.4 / 19.2% ≈ RMB 38.54 billion"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "实际费用可能随新增车型、AI 投入和渠道扩张改变，毛利率也随产品组合与成本波动。上述收入门槛只用于理解关系；将合并分部收入直接换算成汽车销量，需要额外假设汽车收入占比及成本边界。",
+            "text": "Actual expenses may change with new models, AI investment and channel expansion, and gross margin moves with product mix and costs. The revenue thresholds above are only for understanding the relationships; converting combined segment revenue directly into vehicle volume needs additional assumptions about the vehicle share of revenue and cost boundaries.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "实际费用可能随新增车型、AI 投入和渠道扩张改变，毛利率也随产品组合与成本波动。上述收入门槛只用于理解关系；将合并分部收入直接换算成汽车销量，需要额外假设汽车收入占比及成本边界。"
+        "text": "Actual expenses may change with new models, AI investment and channel expansion, and gross margin moves with product mix and costs. The revenue thresholds above are only for understanding the relationships; converting combined segment revenue directly into vehicle volume needs additional assumptions about the vehicle share of revenue and cost boundaries."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "经营判断应采用“实际收入—实际毛利—实际费用”的逐季桥接，而估值还需要现金流、长期投入和资产负债信息。本报告保留经营分析范围，未设置股票目标价。",
+            "text": "Operating judgment should use a quarter-by-quarter bridge of “actual revenue - actual gross profit - actual expenses”, while valuation also needs cash flow, long-term investment and balance sheet information. This report stays within operating analysis and sets no stock target price.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "经营判断应采用“实际收入—实际毛利—实际费用”的逐季桥接，而估值还需要现金流、长期投入和资产负债信息。本报告保留经营分析范围，未设置股票目标价。"
+        "text": "Operating judgment should use a quarter-by-quarter bridge of “actual revenue - actual gross profit - actual expenses”, while valuation also needs cash flow, long-term investment and balance sheet information. This report stays within operating analysis and sets no stock target price."
       }
     ],
     [
@@ -2596,12 +2596,12 @@
         "role": "h1",
         "runs": [
           {
-            "text": "5. 风险与催化：建立可追踪的观察表",
+            "text": "5. Risks and catalysts: a watch list",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "5. 风险与催化：建立可追踪的观察表",
+        "text": "5. Risks and catalysts: a watch list",
         "bookmark": "risks"
       },
       {
@@ -2609,24 +2609,24 @@
         "role": "body",
         "runs": [
           {
-            "text": "风险观察要能对应经营指标和后续动作。产品扩展与交付增长提供上行空间，价格竞争、成本压力及服务能力则影响增长能否留存为利润。以下事项按证据与待验证结果分别表述。",
+            "text": "Risk observations should map to operating metrics and follow-up actions. Product expansion and delivery growth offer upside, while price competition, cost pressure and service capacity determine whether growth is retained as profit. The items below separate evidence from results still to be validated.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "风险观察要能对应经营指标和后续动作。产品扩展与交付增长提供上行空间，价格竞争、成本压力及服务能力则影响增长能否留存为利润。以下事项按证据与待验证结果分别表述。"
+        "text": "Risk observations should map to operating metrics and follow-up actions. Product expansion and delivery growth offer upside, while price competition, cost pressure and service capacity determine whether growth is retained as profit. The items below separate evidence from results still to be validated."
       },
       {
         "kind": "p",
         "role": "caption",
         "runs": [
           {
-            "text": "Exhibit 8: 经营观察表：把事件转化为验证指标",
+            "text": "Exhibit 8: Operating watch list: turning events into validation metrics",
             "bold": true,
             "italic": false
           }
         ],
-        "text": "Exhibit 8: 经营观察表：把事件转化为验证指标",
+        "text": "Exhibit 8: Operating watch list: turning events into validation metrics",
         "bookmark": "exhibit8"
       },
       {
@@ -2644,12 +2644,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "关注项",
+                    "text": "Watch item",
                     "bold": true,
                     "italic": false
                   }
                 ],
-                "text": "关注项"
+                "text": "Watch item"
               }
             ],
             [
@@ -2658,12 +2658,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "已有证据 / 状态",
+                    "text": "Evidence / status",
                     "bold": true,
                     "italic": false
                   }
                 ],
-                "text": "已有证据 / 状态"
+                "text": "Evidence / status"
               }
             ],
             [
@@ -2672,12 +2672,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "后续验证重点",
+                    "text": "What to validate next",
                     "bold": true,
                     "italic": false
                   }
                 ],
-                "text": "后续验证重点"
+                "text": "What to validate next"
               }
             ]
           ],
@@ -2688,12 +2688,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "交付恢复",
+                    "text": "Delivery recovery",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "交付恢复"
+                "text": "Delivery recovery"
               }
             ],
             [
@@ -2702,12 +2702,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "2026Q2 交付 10.42 万辆",
+                    "text": "2026Q2 deliveries of 104,199",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "2026Q2 交付 10.42 万辆"
+                "text": "2026Q2 deliveries of 104,199"
               }
             ],
             [
@@ -2716,12 +2716,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "交付提速是否持续；车型结构如何变化",
+                    "text": "Whether the faster pace is sustained; how the model mix changes",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "交付提速是否持续；车型结构如何变化"
+                "text": "Whether the faster pace is sustained; how the model mix changes"
               }
             ]
           ],
@@ -2732,12 +2732,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "量价关系",
+                    "text": "Volume and price",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "量价关系"
+                "text": "Volume and price"
               }
             ],
             [
@@ -2746,12 +2746,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "2026Q2 整车 ASP 22.93 万元",
+                    "text": "2026Q2 vehicle ASP of RMB 229,312",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "2026Q2 整车 ASP 22.93 万元"
+                "text": "2026Q2 vehicle ASP of RMB 229,312"
               }
             ],
             [
@@ -2760,12 +2760,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "主力版本成交价、优惠及高价版本占比",
+                    "text": "Transaction prices of core versions, discounts and share of high-priced versions",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "主力版本成交价、优惠及高价版本占比"
+                "text": "Transaction prices of core versions, discounts and share of high-priced versions"
               }
             ]
           ],
@@ -2776,12 +2776,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "分部盈利",
+                    "text": "Segment profitability",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "分部盈利"
+                "text": "Segment profitability"
               }
             ],
             [
@@ -2790,12 +2790,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "2026Q2 毛利率 19.2%；经营亏损约 26 亿元",
+                    "text": "2026Q2 gross margin 19.2%; operating loss of about RMB 2.6 billion",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "2026Q2 毛利率 19.2%；经营亏损约 26 亿元"
+                "text": "2026Q2 gross margin 19.2%; operating loss of about RMB 2.6 billion"
               }
             ],
             [
@@ -2804,12 +2804,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "毛利增长能否超过费用增长",
+                    "text": "Whether gross profit growth can exceed expense growth",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "毛利增长能否超过费用增长"
+                "text": "Whether gross profit growth can exceed expense growth"
               }
             ]
           ],
@@ -2820,12 +2820,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "新品兑现",
+                    "text": "New-product delivery",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "新品兑现"
+                "text": "New-product delivery"
               }
             ],
             [
@@ -2834,12 +2834,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "新产品已公布预售信息",
+                    "text": "Pre-sale information announced for new products",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "新产品已公布预售信息"
+                "text": "Pre-sale information announced for new products"
               }
             ],
             [
@@ -2848,12 +2848,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "正式上市、量产、交付三个节点",
+                    "text": "Three milestones: formal launch, mass production, delivery",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "正式上市、量产、交付三个节点"
+                "text": "Three milestones: formal launch, mass production, delivery"
               }
             ]
           ],
@@ -2864,12 +2864,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "服务承载",
+                    "text": "Service capacity",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "服务承载"
+                "text": "Service capacity"
               }
             ],
             [
@@ -2878,12 +2878,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "2026Q1 末 490 家销售门店",
+                    "text": "490 sales stores at end of 2026Q1",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "2026Q1 末 490 家销售门店"
+                "text": "490 sales stores at end of 2026Q1"
               }
             ],
             [
@@ -2892,12 +2892,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "区域交付效率、维修等待与备件保障",
+                    "text": "Regional delivery efficiency, repair wait times and spare-parts availability",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "区域交付效率、维修等待与备件保障"
+                "text": "Regional delivery efficiency, repair wait times and spare-parts availability"
               }
             ]
           ],
@@ -2908,12 +2908,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "召回执行",
+                    "text": "Recall execution",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "召回执行"
+                "text": "Recall execution"
               }
             ],
             [
@@ -2922,12 +2922,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "2025、2026 年分别有指定批次召回",
+                    "text": "Designated-batch recalls in 2025 and 2026",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "2025、2026 年分别有指定批次召回"
+                "text": "Designated-batch recalls in 2025 and 2026"
               }
             ],
             [
@@ -2936,12 +2936,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "通知覆盖、修复完成与新增产品改进",
+                    "text": "Notification coverage, repair completion and new product improvements",
                     "bold": false,
                     "italic": false
                   }
                 ],
-                "text": "通知覆盖、修复完成与新增产品改进"
+                "text": "Notification coverage, repair completion and new product improvements"
               }
             ]
           ]
@@ -2952,118 +2952,118 @@
         "role": "source",
         "runs": [
           {
-            "text": "资料来源：小米公告 [S1–S3]、监管公告 [S8、S9a、S9b]；右栏为本报告观察框架。",
+            "text": "Source: Xiaomi announcements [S1-S3], regulator announcements [S8, S9a, S9b]; the right-hand column is this report's observation framework.",
             "bold": false,
             "italic": true
           }
         ],
-        "text": "资料来源：小米公告 [S1–S3]、监管公告 [S8、S9a、S9b]；右栏为本报告观察框架。"
+        "text": "Source: Xiaomi announcements [S1-S3], regulator announcements [S8, S9a, S9b]; the right-hand column is this report's observation framework."
       },
       {
         "kind": "p",
         "role": "h2",
         "runs": [
           {
-            "text": "5.1 召回事件分别对应具体产品与缺陷",
+            "text": "5.1 Each recall relates to a specific product and defect",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "5.1 召回事件分别对应具体产品与缺陷"
+        "text": "5.1 Each recall relates to a specific product and defect"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "2025 年 9 月的官方公告涉及 116,887 辆指定批次 SU7 标准版，缺陷与部分场景下高速领航辅助驾驶的识别、提醒或处置能力有关，措施为 OTA 软件升级。分析应围绕公告缺陷和整改效果展开。[S8]",
+            "text": "The official announcement of September 2025 covered 116,887 designated-batch SU7 Standard vehicles; the defect relates to the recognition, warning or handling capability of highway navigation-assisted driving in some scenarios, and the remedy was an OTA software upgrade. Analysis should center on the announced defect and the effect of the fix. [S8]",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "2025 年 9 月的官方公告涉及 116,887 辆指定批次 SU7 标准版，缺陷与部分场景下高速领航辅助驾驶的识别、提醒或处置能力有关，措施为 OTA 软件升级。分析应围绕公告缺陷和整改效果展开。[S8]"
+        "text": "The official announcement of September 2025 covered 116,887 designated-batch SU7 Standard vehicles; the defect relates to the recognition, warning or handling capability of highway navigation-assisted driving in some scenarios, and the remedy was an OTA software upgrade. Analysis should center on the announced defect and the effect of the fix. [S8]"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "2026 年 8 月 21 日的两份备案分别涉及 339,069 辆与 51,366 辆，合计 390,435 辆。公告指出车内应急机械拉手的识别与操作存在安全隐患，措施包括加贴警示标识及优化中控解锁、降窗策略。两份公告的生产主体和车辆范围分别列示。[S9a、S9b]",
+            "text": "The two filings of August 21, 2026 cover 339,069 and 51,366 vehicles respectively, 390,435 in total. The announcements note that the recognition and operation of the in-car emergency mechanical door handle pose a safety risk; the remedies include adding warning labels and optimizing the central-screen unlock and window-lowering strategy. The producer entity and vehicle scope of each announcement are listed separately. [S9a, S9b]",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "2026 年 8 月 21 日的两份备案分别涉及 339,069 辆与 51,366 辆，合计 390,435 辆。公告指出车内应急机械拉手的识别与操作存在安全隐患，措施包括加贴警示标识及优化中控解锁、降窗策略。两份公告的生产主体和车辆范围分别列示。[S9a、S9b]"
+        "text": "The two filings of August 21, 2026 cover 339,069 and 51,366 vehicles respectively, 390,435 in total. The announcements note that the recognition and operation of the in-car emergency mechanical door handle pose a safety risk; the remedies include adding warning labels and optimizing the central-screen unlock and window-lowering strategy. The producer entity and vehicle scope of each announcement are listed separately. [S9a, S9b]"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "不同年度召回可能覆盖部分相同车辆，跨年数量直接相加会产生重复统计。召回规模用于理解处置工作量，不能单独推出事故发生率。经营层面应跟踪修复执行、用户触达、产品改进及服务资源投入。",
+            "text": "Recalls in different years may cover some of the same vehicles, so adding numbers across years would double count. Recall size helps in understanding the handling workload and cannot by itself imply an accident rate. At the operating level, track repair execution, customer outreach, product improvements and the service resources committed.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "不同年度召回可能覆盖部分相同车辆，跨年数量直接相加会产生重复统计。召回规模用于理解处置工作量，不能单独推出事故发生率。经营层面应跟踪修复执行、用户触达、产品改进及服务资源投入。"
+        "text": "Recalls in different years may cover some of the same vehicles, so adding numbers across years would double count. Recall size helps in understanding the handling workload and cannot by itself imply an accident rate. At the operating level, track repair execution, customer outreach, product improvements and the service resources committed."
       },
       {
         "kind": "p",
         "role": "h2",
         "runs": [
           {
-            "text": "5.2 判断上修与下修的触发条件",
+            "text": "5.2 Triggers for upgrading and downgrading the view",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "5.2 判断上修与下修的触发条件"
+        "text": "5.2 Triggers for upgrading and downgrading the view"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "上修条件：",
+            "text": "Upgrade conditions:",
             "bold": true,
             "italic": false
           },
           {
-            "text": " 连续季度交付增长伴随毛利企稳，分部费用增速低于毛利增速；新品从预售顺利推进至稳定交付；服务能力能吸收新增保有量。这些变化共同增强利润修复的可信度。",
+            "text": " consecutive quarters of delivery growth with a stable gross margin and segment expenses growing more slowly than gross profit; new products moving smoothly from pre-sale to stable delivery; service capacity able to absorb the added vehicle fleet. Together these strengthen the credibility of profit recovery.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "上修条件： 连续季度交付增长伴随毛利企稳，分部费用增速低于毛利增速；新品从预售顺利推进至稳定交付；服务能力能吸收新增保有量。这些变化共同增强利润修复的可信度。"
+        "text": "Upgrade conditions: consecutive quarters of delivery growth with a stable gross margin and segment expenses growing more slowly than gross profit; new products moving smoothly from pre-sale to stable delivery; service capacity able to absorb the added vehicle fleet. Together these strengthen the credibility of profit recovery."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "下修条件：",
+            "text": "Downgrade conditions:",
             "bold": true,
             "italic": false
           },
           {
-            "text": " 增长主要依赖低价组合且成本同步上升，新增费用消耗毛利改善，或量产、交付及服务出现持续拖延。发生上述情况时，应先调整经营假设，再更新全年收入与利润情景。",
+            "text": " growth relying mainly on a low-priced mix with rising costs, added expenses consuming the gross profit improvement, or persistent delays in mass production, delivery or service. If these occur, operating assumptions should be adjusted first, and the full-year revenue and profit scenarios updated afterwards.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "下修条件： 增长主要依赖低价组合且成本同步上升，新增费用消耗毛利改善，或量产、交付及服务出现持续拖延。发生上述情况时，应先调整经营假设，再更新全年收入与利润情景。"
+        "text": "Downgrade conditions: growth relying mainly on a low-priced mix with rising costs, added expenses consuming the gross profit improvement, or persistent delays in mass production, delivery or service. If these occur, operating assumptions should be adjusted first, and the full-year revenue and profit scenarios updated afterwards."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "集团生态和品牌能够支持用户触达，汽车业务的长期竞争力仍需通过产品质量、成本效率与持续现金回报体现。观察表为持续跟踪提供统一口径，判断随新的证据更新。",
+            "text": "The Group ecosystem and brand can support customer reach, while the long-term competitiveness of the vehicle business still has to show up in product quality, cost efficiency and sustained cash returns. The watch list gives continuous tracking a single basis, and judgments are updated as new evidence arrives.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "集团生态和品牌能够支持用户触达，汽车业务的长期竞争力仍需通过产品质量、成本效率与持续现金回报体现。观察表为持续跟踪提供统一口径，判断随新的证据更新。"
+        "text": "The Group ecosystem and brand can support customer reach, while the long-term competitiveness of the vehicle business still has to show up in product quality, cost efficiency and sustained cash returns. The watch list gives continuous tracking a single basis, and judgments are updated as new evidence arrives."
       }
     ],
     [
@@ -3072,12 +3072,12 @@
         "role": "h1",
         "runs": [
           {
-            "text": "附录 A：数据来源与检索入口",
+            "text": "Appendix A: Data sources and links",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "附录 A：数据来源与检索入口",
+        "text": "Appendix A: Data sources and links",
         "bookmark": "sources"
       },
       {
@@ -3085,298 +3085,298 @@
         "role": "body",
         "runs": [
           {
-            "text": "核心经营数据取自小米投资者关系公告，产品信息取自官方发布材料，召回事项取自监管部门。下列链接可直接打开对应文件；资料检索日期为 2026 年 9 月 10 日。",
+            "text": "Core operating data come from Xiaomi investor relations announcements, product information from official release materials, and recall items from regulators. The links below open the corresponding files directly; the data retrieval date is September 10, 2026.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "核心经营数据取自小米投资者关系公告，产品信息取自官方发布材料，召回事项取自监管部门。下列链接可直接打开对应文件；资料检索日期为 2026 年 9 月 10 日。"
+        "text": "Core operating data come from Xiaomi investor relations announcements, product information from official release materials, and recall items from regulators. The links below open the corresponding files directly; the data retrieval date is September 10, 2026."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "[S1] 小米集团：2026 年第二季度及中期业绩公告",
+            "text": "[S1] Xiaomi Corporation: Q2 and interim 2026 results announcement",
             "bold": true,
             "italic": false,
             "url": "https://ir.mi.com/static-files/4a85fc36-8a6d-4c24-b45b-b18d5d162e6c"
           }
         ],
-        "text": "[S1] 小米集团：2026 年第二季度及中期业绩公告"
+        "text": "[S1] Xiaomi Corporation: Q2 and interim 2026 results announcement"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "日期 / 期间：2026-08-18。第 6、10–14、18、20–22、36 页。季度交付、汽车收入、ASP、合并分部毛利及经营费用；中期财务数据未经审计并经审阅。",
+            "text": "Date / period: 2026-08-18. Pages 6, 10-14, 18, 20-22, 36. Quarterly deliveries, vehicle revenue, ASP, combined segment gross profit and operating expenses; interim financial data are unaudited and reviewed.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "日期 / 期间：2026-08-18。第 6、10–14、18、20–22、36 页。季度交付、汽车收入、ASP、合并分部毛利及经营费用；中期财务数据未经审计并经审阅。"
+        "text": "Date / period: 2026-08-18. Pages 6, 10-14, 18, 20-22, 36. Quarterly deliveries, vehicle revenue, ASP, combined segment gross profit and operating expenses; interim financial data are unaudited and reviewed."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "[S2] 小米集团：2026 年第二季度业绩演示材料",
+            "text": "[S2] Xiaomi Corporation: Q2 2026 results presentation",
             "bold": true,
             "italic": false,
             "url": "https://ir.mi.com/static-files/20793a18-42e5-43d1-9f2b-aad269cefcd4"
           }
         ],
-        "text": "[S2] 小米集团：2026 年第二季度业绩演示材料"
+        "text": "[S2] Xiaomi Corporation: Q2 2026 results presentation"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "日期 / 期间：2026-08-18。产品进展及 SkyNomad 澎程系列预售资料；预售价格和预计上市时间均保留公告时点。",
+            "text": "Date / period: 2026-08-18. Product progress and SkyNomad series pre-sale materials; pre-sale prices and expected launch dates are kept at the announcement date.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "日期 / 期间：2026-08-18。产品进展及 SkyNomad 澎程系列预售资料；预售价格和预计上市时间均保留公告时点。"
+        "text": "Date / period: 2026-08-18. Product progress and SkyNomad series pre-sale materials; pre-sale prices and expected launch dates are kept at the announcement date."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "[S3] 小米集团：2026 年第一季度业绩公告",
+            "text": "[S3] Xiaomi Corporation: Q1 2026 results announcement",
             "bold": true,
             "italic": false,
             "url": "https://ir.mi.com/static-files/098acc43-1b58-4d1b-b375-9ea25f35477b"
           }
         ],
-        "text": "[S3] 小米集团：2026 年第一季度业绩公告"
+        "text": "[S3] Xiaomi Corporation: Q1 2026 results announcement"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "日期 / 期间：2026-05-26。第 6–7、13、21 页等。Q1 交付与分部指标、YU7 新版本及 GT 发布信息、销售网络。",
+            "text": "Date / period: 2026-05-26. Pages 6-7, 13, 21, etc. Q1 deliveries and segment metrics, YU7 new version and GT launch information, sales network.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "日期 / 期间：2026-05-26。第 6–7、13、21 页等。Q1 交付与分部指标、YU7 新版本及 GT 发布信息、销售网络。"
+        "text": "Date / period: 2026-05-26. Pages 6-7, 13, 21, etc. Q1 deliveries and segment metrics, YU7 new version and GT launch information, sales network."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "[S4] 小米集团：2025 年全年及第四季度业绩公告",
+            "text": "[S4] Xiaomi Corporation: Full-year and Q4 2025 results announcement",
             "bold": true,
             "italic": false,
             "url": "https://ir.mi.com/system/files-encrypted/nasdaq_kms/assets/2026/03/24/5-35-03/25Q4%20EN%20AC%20Xiaomi.pdf"
           }
         ],
-        "text": "[S4] 小米集团：2025 年全年及第四季度业绩公告"
+        "text": "[S4] Xiaomi Corporation: Full-year and Q4 2025 results announcement"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "日期 / 期间：2026-03-24。第 8、13、21、30 页等。全年交付、汽车收入、分部经营利润、2026 年 55 万辆目标。",
+            "text": "Date / period: 2026-03-24. Pages 8, 13, 21, 30, etc. Full-year deliveries, vehicle revenue, segment operating profit, the 550,000 target for 2026.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "日期 / 期间：2026-03-24。第 8、13、21、30 页等。全年交付、汽车收入、分部经营利润、2026 年 55 万辆目标。"
+        "text": "Date / period: 2026-03-24. Pages 8, 13, 21, 30, etc. Full-year deliveries, vehicle revenue, segment operating profit, the 550,000 target for 2026."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "[S5] 小米集团：2025 年第三季度业绩公告",
+            "text": "[S5] Xiaomi Corporation: Q3 2025 results announcement",
             "bold": true,
             "italic": false,
             "url": "https://ir.mi.com/static-files/e4830480-8ce9-45f8-a09d-64e40b2bdfac"
           }
         ],
-        "text": "[S5] 小米集团：2025 年第三季度业绩公告"
+        "text": "[S5] Xiaomi Corporation: Q3 2025 results announcement"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "日期 / 期间：2025-Q3。第 6、11、13–14 页等。季度交付、ASP、分部毛利率和首次季度经营盈利。",
+            "text": "Date / period: 2025-Q3. Pages 6, 11, 13-14, etc. Quarterly deliveries, ASP, segment gross margin and the first quarterly operating profit.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "日期 / 期间：2025-Q3。第 6、11、13–14 页等。季度交付、ASP、分部毛利率和首次季度经营盈利。"
+        "text": "Date / period: 2025-Q3. Pages 6, 11, 13-14, etc. Quarterly deliveries, ASP, segment gross margin and the first quarterly operating profit."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "[S6] 小米集团：2025 年第二季度业绩公告",
+            "text": "[S6] Xiaomi Corporation: Q2 2025 results announcement",
             "bold": true,
             "italic": false,
             "url": "https://ir.mi.com/system/files-encrypted/nasdaq_kms/assets/2025/08/19/5-36-23/25Q2%20AC_ENG.pdf"
           }
         ],
-        "text": "[S6] 小米集团：2025 年第二季度业绩公告"
+        "text": "[S6] Xiaomi Corporation: Q2 2025 results announcement"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "日期 / 期间：2025-08-19。第 6、20 页等。2025 年上半年各季度交付、ASP 与分部指标。",
+            "text": "Date / period: 2025-08-19. Pages 6, 20, etc. Quarterly deliveries, ASP and segment metrics for each quarter of H1 2025.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "日期 / 期间：2025-08-19。第 6、20 页等。2025 年上半年各季度交付、ASP 与分部指标。"
+        "text": "Date / period: 2025-08-19. Pages 6, 20, etc. Quarterly deliveries, ASP and segment metrics for each quarter of H1 2025."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "[S7] 小米官方：新一代 SU7 发布介绍",
+            "text": "[S7] Xiaomi official: New-generation SU7 launch introduction",
             "bold": true,
             "italic": false,
             "url": "https://www.mi.com/global/discover/article?id=6117"
           }
         ],
-        "text": "[S7] 小米官方：新一代 SU7 发布介绍"
+        "text": "[S7] Xiaomi official: New-generation SU7 launch introduction"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "日期 / 期间：2026-03-26。对应 3 月 19 日发布活动；Standard、Pro、Max 发布价格及产品定位。",
+            "text": "Date / period: 2026-03-26. Corresponds to the March 19 launch event; Standard, Pro and Max launch prices and product positioning.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "日期 / 期间：2026-03-26。对应 3 月 19 日发布活动；Standard、Pro、Max 发布价格及产品定位。"
+        "text": "Date / period: 2026-03-26. Corresponds to the March 19 launch event; Standard, Pro and Max launch prices and product positioning."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "[S8] 市场监管总局：2025 年 SU7 标准版召回公告",
+            "text": "[S8] SAMR: 2025 SU7 Standard recall announcement",
             "bold": true,
             "italic": false,
             "url": "https://www.samr.gov.cn/zw/zh/art/2025/art_2152a981c72a430b9d10d6ef5cd9c09b.html"
           }
         ],
-        "text": "[S8] 市场监管总局：2025 年 SU7 标准版召回公告"
+        "text": "[S8] SAMR: 2025 SU7 Standard recall announcement"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "日期 / 期间：2025-09-19。116,887 辆指定批次车辆；辅助驾驶相关软件缺陷与 OTA 召回措施。",
+            "text": "Date / period: 2025-09-19. 116,887 designated-batch vehicles; driver-assistance software defect and OTA recall measure.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "日期 / 期间：2025-09-19。116,887 辆指定批次车辆；辅助驾驶相关软件缺陷与 OTA 召回措施。"
+        "text": "Date / period: 2025-09-19. 116,887 designated-batch vehicles; driver-assistance software defect and OTA recall measure."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "[S9a] 召回技术中心：2024 款 SU7 系列召回（一）",
+            "text": "[S9a] SAMR Defective Product Administrative Center: 2024 SU7 series recall (1)",
             "bold": true,
             "italic": false,
             "url": "https://www.samrdprc.org.cn/qczh/qczhgg1/202608/t20260821_115889.html"
           }
         ],
-        "text": "[S9a] 召回技术中心：2024 款 SU7 系列召回（一）"
+        "text": "[S9a] SAMR Defective Product Administrative Center: 2024 SU7 series recall (1)"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "日期 / 期间：2026-08-21。备案 S2026M0096V，339,069 辆；车内应急机械拉手识别与操作风险。",
+            "text": "Date / period: 2026-08-21. Filing S2026M0096V, 339,069 vehicles; recognition and operation risk of the in-car emergency mechanical door handle.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "日期 / 期间：2026-08-21。备案 S2026M0096V，339,069 辆；车内应急机械拉手识别与操作风险。"
+        "text": "Date / period: 2026-08-21. Filing S2026M0096V, 339,069 vehicles; recognition and operation risk of the in-car emergency mechanical door handle."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "[S9b] 召回技术中心：2024 款 SU7 系列召回（二）",
+            "text": "[S9b] SAMR Defective Product Administrative Center: 2024 SU7 series recall (2)",
             "bold": true,
             "italic": false,
             "url": "https://www.samrdprc.org.cn/qczh/qczhgg1/202608/t20260821_115890.html"
           }
         ],
-        "text": "[S9b] 召回技术中心：2024 款 SU7 系列召回（二）"
+        "text": "[S9b] SAMR Defective Product Administrative Center: 2024 SU7 series recall (2)"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "日期 / 期间：2026-08-21。备案 S2026M0097V，51,366 辆；措施包括加贴警示标识和软件升级。",
+            "text": "Date / period: 2026-08-21. Filing S2026M0097V, 51,366 vehicles; measures include adding warning labels and a software upgrade.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "日期 / 期间：2026-08-21。备案 S2026M0097V，51,366 辆；措施包括加贴警示标识和软件升级。"
+        "text": "Date / period: 2026-08-21. Filing S2026M0097V, 51,366 vehicles; measures include adding warning labels and a software upgrade."
       },
       {
         "kind": "p",
         "role": "h2",
         "runs": [
           {
-            "text": "资料使用顺序",
+            "text": "Order of source use",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "资料使用顺序"
+        "text": "Order of source use"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "优先使用业绩公告中的明确数值和分部说明，演示材料用于补充产品节点。跨期数据以可比的官方序列为准；价格保留对应版本及披露时点；召回以备案车辆范围和缺陷描述为准。",
+            "text": "Prefer the explicit figures and segment notes in results announcements; presentations supplement product milestones. For cross-period data, use comparable official series; keep prices at the corresponding version and disclosure date; for recalls, rely on the filed vehicle scope and defect description.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "优先使用业绩公告中的明确数值和分部说明，演示材料用于补充产品节点。跨期数据以可比的官方序列为准；价格保留对应版本及披露时点；召回以备案车辆范围和缺陷描述为准。"
+        "text": "Prefer the explicit figures and segment notes in results announcements; presentations supplement product milestones. For cross-period data, use comparable official series; keep prices at the corresponding version and disclosure date; for recalls, rely on the filed vehicle scope and defect description."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "所有分析段落均为本报告整理与推断。公司对经营变化的解释在正文中注明“公司披露”或“公司解释”；情景数据在标题及来源中注明测算属性。正文 [S1] 等编号可与本页来源逐项对应。",
+            "text": "All analytical passages are this report's own compilation and inference. Company explanations of operating changes are marked “company disclosure” or “company explanation” in the text; scenario data are labeled as estimates in titles and sources. The [S1] etc. numbers in the text map one-to-one to the sources on this page.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "所有分析段落均为本报告整理与推断。公司对经营变化的解释在正文中注明“公司披露”或“公司解释”；情景数据在标题及来源中注明测算属性。正文 [S1] 等编号可与本页来源逐项对应。"
+        "text": "All analytical passages are this report's own compilation and inference. Company explanations of operating changes are marked “company disclosure” or “company explanation” in the text; scenario data are labeled as estimates in titles and sources. The [S1] etc. numbers in the text map one-to-one to the sources on this page."
       }
     ],
     [
@@ -3385,12 +3385,12 @@
         "role": "h1",
         "runs": [
           {
-            "text": "附录 B：计算方法与口径说明",
+            "text": "Appendix B: Methods and basis notes",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "附录 B：计算方法与口径说明",
+        "text": "Appendix B: Methods and basis notes",
         "bookmark": "methods"
       },
       {
@@ -3398,12 +3398,12 @@
         "role": "caption",
         "runs": [
           {
-            "text": "Exhibit 9: 季度基础数据：交付、整车 ASP 与合并分部毛利率",
+            "text": "Exhibit 9: Quarterly base data: deliveries, vehicle ASP and combined segment gross margin",
             "bold": true,
             "italic": false
           }
         ],
-        "text": "Exhibit 9: 季度基础数据：交付、整车 ASP 与合并分部毛利率",
+        "text": "Exhibit 9: Quarterly base data: deliveries, vehicle ASP and combined segment gross margin",
         "bookmark": "exhibit9"
       },
       {
@@ -3422,12 +3422,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "期间",
+                    "text": "Period",
                     "bold": true,
                     "italic": false
                   }
                 ],
-                "text": "期间"
+                "text": "Period"
               }
             ],
             [
@@ -3436,12 +3436,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "交付量（辆）",
+                    "text": "Deliveries (vehicles)",
                     "bold": true,
                     "italic": false
                   }
                 ],
-                "text": "交付量（辆）"
+                "text": "Deliveries (vehicles)"
               }
             ],
             [
@@ -3450,12 +3450,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "整车 ASP（元）",
+                    "text": "Vehicle ASP (RMB)",
                     "bold": true,
                     "italic": false
                   }
                 ],
-                "text": "整车 ASP（元）"
+                "text": "Vehicle ASP (RMB)"
               }
             ],
             [
@@ -3464,12 +3464,12 @@
                 "role": "body",
                 "runs": [
                   {
-                    "text": "分部毛利率",
+                    "text": "Segment gross margin",
                     "bold": true,
                     "italic": false
                   }
                 ],
-                "text": "分部毛利率"
+                "text": "Segment gross margin"
               }
             ]
           ],
@@ -3828,48 +3828,48 @@
         "role": "source",
         "runs": [
           {
-            "text": "资料来源：小米业绩公告 [S1、S3–S6]。25Q1 表示 2025 年第一季度；毛利率包含汽车、AI 及其他新业务。",
+            "text": "Source: Xiaomi results announcements [S1, S3-S6]. 25Q1 means Q1 2025; gross margin includes EV, AI and other new initiatives.",
             "bold": false,
             "italic": true
           }
         ],
-        "text": "资料来源：小米业绩公告 [S1、S3–S6]。25Q1 表示 2025 年第一季度；毛利率包含汽车、AI 及其他新业务。"
+        "text": "Source: Xiaomi results announcements [S1, S3-S6]. 25Q1 means Q1 2025; gross margin includes EV, AI and other new initiatives."
       },
       {
         "kind": "p",
         "role": "h2",
         "runs": [
           {
-            "text": "主要计算",
+            "text": "Key calculations",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "主要计算"
+        "text": "Key calculations"
       },
       {
         "kind": "p",
         "role": "equation",
         "runs": [
           {
-            "text": "半年交付\t",
+            "text": "Half-year deliveries\t",
             "bold": true,
             "italic": false
           },
           {
-            "text": "D(H1) = 80,856 + 104,199 = 185,055 辆",
+            "text": "D(H1) = 80,856 + 104,199 = 185,055 vehicles",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "半年交付\tD(H1) = 80,856 + 104,199 = 185,055 辆"
+        "text": "Half-year deliveries\tD(H1) = 80,856 + 104,199 = 185,055 vehicles"
       },
       {
         "kind": "p",
         "role": "equation",
         "runs": [
           {
-            "text": "季度交付环比\t",
+            "text": "Quarterly deliveries QoQ\t",
             "bold": true,
             "italic": false
           },
@@ -3879,65 +3879,65 @@
             "italic": false
           }
         ],
-        "text": "季度交付环比\t104,199 / 80,856 − 1 ≈ 28.9%"
+        "text": "Quarterly deliveries QoQ\t104,199 / 80,856 − 1 ≈ 28.9%"
       },
       {
         "kind": "p",
         "role": "equation",
         "runs": [
           {
-            "text": "目标剩余交付\t",
+            "text": "Remaining deliveries to target\t",
             "bold": true,
             "italic": false
           },
           {
-            "text": "D(H2) = 550,000 − 185,055 = 364,945 辆",
+            "text": "D(H2) = 550,000 - 185,055 = 364,945 vehicles",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "目标剩余交付\tD(H2) = 550,000 − 185,055 = 364,945 辆"
+        "text": "Remaining deliveries to target\tD(H2) = 550,000 - 185,055 = 364,945 vehicles"
       },
       {
         "kind": "p",
         "role": "equation",
         "runs": [
           {
-            "text": "下半年月均要求\t",
+            "text": "Required H2 monthly average\t",
             "bold": true,
             "italic": false
           },
           {
-            "text": "D(H2) / 6 ≈ 60,824 辆/月",
+            "text": "D(H2) / 6 ≈ 60,824 vehicles / month",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "下半年月均要求\tD(H2) / 6 ≈ 60,824 辆/月"
+        "text": "Required H2 monthly average\tD(H2) / 6 ≈ 60,824 vehicles / month"
       },
       {
         "kind": "p",
         "role": "equation",
         "runs": [
           {
-            "text": "毛利率同比变化\t",
+            "text": "Gross margin YoY change\t",
             "bold": true,
             "italic": false
           },
           {
-            "text": "19.2% − 26.4% = −7.2 个百分点",
+            "text": "19.2% - 26.4% = -7.2 percentage points",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "毛利率同比变化\t19.2% − 26.4% = −7.2 个百分点"
+        "text": "Gross margin YoY change\t19.2% - 26.4% = -7.2 percentage points"
       },
       {
         "kind": "p",
         "role": "equation",
         "runs": [
           {
-            "text": "分部经营利润模型\t",
+            "text": "Segment operating profit model\t",
             "bold": true,
             "italic": false
           },
@@ -3947,99 +3947,99 @@
             "italic": false
           }
         ],
-        "text": "分部经营利润模型\tOP = R × g − O"
+        "text": "Segment operating profit model\tOP = R × g − O"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "式中 R 为季度合并分部收入，g 为同口径毛利率，O 为季度分部经营费用。Exhibit 7 使用 74 亿元近似费用作为固定条件；该模型与净利润、现金流和资本开支分别对应不同概念。",
+            "text": "Here R is quarterly combined segment revenue, g is the gross margin on the same basis and O is quarterly segment operating expenses. Exhibit 7 uses approximately RMB 7.4 billion of expenses as a fixed condition; this model is a different concept from net profit, cash flow and capital expenditure.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "式中 R 为季度合并分部收入，g 为同口径毛利率，O 为季度分部经营费用。Exhibit 7 使用 74 亿元近似费用作为固定条件；该模型与净利润、现金流和资本开支分别对应不同概念。"
+        "text": "Here R is quarterly combined segment revenue, g is the gross margin on the same basis and O is quarterly segment operating expenses. Exhibit 7 uses approximately RMB 7.4 billion of expenses as a fixed condition; this model is a different concept from net profit, cash flow and capital expenditure."
       },
       {
         "kind": "p",
         "role": "h2",
         "runs": [
           {
-            "text": "数据处理规则",
+            "text": "Data handling rules",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "数据处理规则"
+        "text": "Data handling rules"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "单位与舍入。",
+            "text": "Units and rounding.",
             "bold": true,
             "italic": false
           },
           {
-            "text": " 正文以亿元、万元及万辆呈现，基础表保留交付整数和 ASP 整数；百分比通常保留一位小数。采用公告中的近似收入与费用复算时，结果可能出现正常尾差。",
+            "text": " The text uses RMB billion and thousand vehicles, while base tables keep deliveries and ASP as integers; percentages are generally kept to one decimal. Recomputing with the approximate revenue and expenses in announcements may produce normal rounding differences.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "单位与舍入。 正文以亿元、万元及万辆呈现，基础表保留交付整数和 ASP 整数；百分比通常保留一位小数。采用公告中的近似收入与费用复算时，结果可能出现正常尾差。"
+        "text": "Units and rounding. The text uses RMB billion and thousand vehicles, while base tables keep deliveries and ASP as integers; percentages are generally kept to one decimal. Recomputing with the approximate revenue and expenses in announcements may produce normal rounding differences."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "统计边界。",
+            "text": "Statistical boundary.",
             "bold": true,
             "italic": false
           },
           {
-            "text": " 整车收入与 ASP 对应汽车销售；分部毛利率及经营利润包含 AI 和其他新业务。分部经营利润定义为分部毛利减经营费用。集团研发、现金和利润仅在明确注明集团口径时使用。",
+            "text": " Vehicle revenue and ASP correspond to car sales; segment gross margin and operating profit include AI and other new initiatives. Segment operating profit is defined as segment gross profit less operating expenses. Group R&D, cash and profit are used only when explicitly labeled on a group basis.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "统计边界。 整车收入与 ASP 对应汽车销售；分部毛利率及经营利润包含 AI 和其他新业务。分部经营利润定义为分部毛利减经营费用。集团研发、现金和利润仅在明确注明集团口径时使用。"
+        "text": "Statistical boundary. Vehicle revenue and ASP correspond to car sales; segment gross margin and operating profit include AI and other new initiatives. Segment operating profit is defined as segment gross profit less operating expenses. Group R&D, cash and profit are used only when explicitly labeled on a group basis."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "时点与比较。",
+            "text": "Timing and comparison.",
             "bold": true,
             "italic": false
           },
           {
-            "text": " 半年数据由两个季度汇总；环比比较相邻季度，同比比较去年同季度。年度目标引用 2026 年 3 月的管理层披露，价格与预售状态采用相应公告日期。报告检索日与财务期间分别列明。",
+            "text": " Half-year data are the sum of two quarters; QoQ compares adjacent quarters and YoY compares the same quarter of the prior year. The annual target cites management's March 2026 disclosure, and prices and pre-sale status use the corresponding announcement dates. The retrieval date and financial periods are stated separately.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "时点与比较。 半年数据由两个季度汇总；环比比较相邻季度，同比比较去年同季度。年度目标引用 2026 年 3 月的管理层披露，价格与预售状态采用相应公告日期。报告检索日与财务期间分别列明。"
+        "text": "Timing and comparison. Half-year data are the sum of two quarters; QoQ compares adjacent quarters and YoY compares the same quarter of the prior year. The annual target cites management's March 2026 disclosure, and prices and pre-sale status use the corresponding announcement dates. The retrieval date and financial periods are stated separately."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "条件推演。",
+            "text": "Conditional projection.",
             "bold": true,
             "italic": false
           },
           {
-            "text": " 交付情景采用 45、50、55 万辆三个全年规模；利润敏感度改变收入与毛利率，同时固定费用。模型没有预测概率，未包含全部经营变量，实际经营结果应持续更新。",
+            "text": " Delivery scenarios use three full-year volumes of 450,000, 500,000 and 550,000; the profit sensitivity varies revenue and gross margin while fixing expenses. The model assigns no probabilities and omits some operating variables, so actual results should be updated continuously.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "条件推演。 交付情景采用 45、50、55 万辆三个全年规模；利润敏感度改变收入与毛利率，同时固定费用。模型没有预测概率，未包含全部经营变量，实际经营结果应持续更新。"
+        "text": "Conditional projection. Delivery scenarios use three full-year volumes of 450,000, 500,000 and 550,000; the profit sensitivity varies revenue and gross margin while fixing expenses. The model assigns no probabilities and omits some operating variables, so actual results should be updated continuously."
       }
     ],
     [
@@ -4048,12 +4048,12 @@
         "role": "h1",
         "runs": [
           {
-            "text": "术语表",
+            "text": "Glossary",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "术语表",
+        "text": "Glossary",
         "bookmark": "glossary"
       },
       {
@@ -4061,267 +4061,267 @@
         "role": "body",
         "runs": [
           {
-            "text": "以下术语按英文缩写或名称排序，定义限于本报告使用场景。财务指标优先采用小米相关公告中的披露边界。",
+            "text": "Terms below are sorted by English abbreviation or name, and definitions are limited to their use in this report. Financial metrics prefer the disclosure boundaries in Xiaomi announcements.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "以下术语按英文缩写或名称排序，定义限于本报告使用场景。财务指标优先采用小米相关公告中的披露边界。"
+        "text": "Terms below are sorted by English abbreviation or name, and definitions are limited to their use in this report. Financial metrics prefer the disclosure boundaries in Xiaomi announcements."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "ASP / Average Selling Price｜平均售价",
+            "text": "ASP / Average Selling Price",
             "bold": true,
             "italic": false
           },
           {
-            "text": "\n一定期间的整车销售收入与对应销售数量之间的平均关系。可受车型、版本、配置及优惠结构影响；与某一款车的官方指导价含义不同。",
+            "text": "\nThe average relationship between vehicle sales revenue and the corresponding sales volume over a given period. It can be affected by model, trim, configuration and incentive structure, and differs in meaning from the official guide price of any single model.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "ASP / Average Selling Price｜平均售价\n一定期间的整车销售收入与对应销售数量之间的平均关系。可受车型、版本、配置及优惠结构影响；与某一款车的官方指导价含义不同。"
+        "text": "ASP / Average Selling Price\nThe average relationship between vehicle sales revenue and the corresponding sales volume over a given period. It can be affected by model, trim, configuration and incentive structure, and differs in meaning from the official guide price of any single model."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "BEV / Battery Electric Vehicle｜纯电动汽车",
+            "text": "BEV / Battery Electric Vehicle",
             "bold": true,
             "italic": false
           },
           {
-            "text": "\n由动力电池储能并以电动机驱动车辆。本文 SU7、YU7 的产品分类按公司发布信息使用。",
+            "text": "\nVehicles that store energy in a traction battery and are driven by electric motors. The product classification of SU7 and YU7 in this report follows the company's published information.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "BEV / Battery Electric Vehicle｜纯电动汽车\n由动力电池储能并以电动机驱动车辆。本文 SU7、YU7 的产品分类按公司发布信息使用。"
+        "text": "BEV / Battery Electric Vehicle\nVehicles that store energy in a traction battery and are driven by electric motors. The product classification of SU7 and YU7 in this report follows the company's published information."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "CLTC｜中国轻型汽车行驶工况",
+            "text": "CLTC / China Light-duty Vehicle Test Cycle",
             "bold": true,
             "italic": false
           },
           {
-            "text": "\n用于车辆测试的规定行驶工况。公告中的相应续航参数属于标准测试结果，实际使用还受到温度、道路、速度和驾驶方式影响。",
+            "text": "\nThe prescribed driving cycle used for vehicle testing. The corresponding range figures in regulatory announcements are standard test results; real-world range is also affected by temperature, road conditions, speed and driving style.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "CLTC｜中国轻型汽车行驶工况\n用于车辆测试的规定行驶工况。公告中的相应续航参数属于标准测试结果，实际使用还受到温度、道路、速度和驾驶方式影响。"
+        "text": "CLTC / China Light-duty Vehicle Test Cycle\nThe prescribed driving cycle used for vehicle testing. The corresponding range figures in regulatory announcements are standard test results; real-world range is also affected by temperature, road conditions, speed and driving style."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "Delivery｜交付量",
+            "text": "Delivery",
             "bold": true,
             "italic": false
           },
           {
-            "text": "\n公司披露的已交付车辆数量。订单、锁单、产量与终端零售统计分别对应不同业务节点和统计方法，比较时需使用一致口径。",
+            "text": "\nThe number of vehicles delivered as disclosed by the company. Orders, locked orders, production and retail statistics correspond to different business stages and methodologies; comparisons should use a consistent basis.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "Delivery｜交付量\n公司披露的已交付车辆数量。订单、锁单、产量与终端零售统计分别对应不同业务节点和统计方法，比较时需使用一致口径。"
+        "text": "Delivery\nThe number of vehicles delivered as disclosed by the company. Orders, locked orders, production and retail statistics correspond to different business stages and methodologies; comparisons should use a consistent basis."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "EREV / Extended-Range Electric Vehicle｜增程式电动车",
+            "text": "EREV / Extended-Range Electric Vehicle",
             "bold": true,
             "italic": false
           },
           {
-            "text": "\n以电驱为主要驱动方式并配备增程系统的车辆类别。本文仅使用公司预售材料中的产品定位，后续状态以正式披露为准。",
+            "text": "\nA vehicle category driven mainly by electric drive and equipped with a range-extender system. This report uses only the product positioning in the company's pre-sale materials; subsequent status is subject to formal disclosure.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "EREV / Extended-Range Electric Vehicle｜增程式电动车\n以电驱为主要驱动方式并配备增程系统的车辆类别。本文仅使用公司预售材料中的产品定位，后续状态以正式披露为准。"
+        "text": "EREV / Extended-Range Electric Vehicle\nA vehicle category driven mainly by electric drive and equipped with a range-extender system. This report uses only the product positioning in the company's pre-sale materials; subsequent status is subject to formal disclosure."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "Gross Margin｜毛利率",
+            "text": "Gross Margin",
             "bold": true,
             "italic": false
           },
           {
-            "text": "\n收入扣除销售成本后的毛利占收入比重。本文图表展示汽车、AI 及其他新业务分部毛利率，保留合并分部范围。",
+            "text": "\nGross profit (revenue minus cost of sales) as a share of revenue. Charts in this report show the gross margin of the Smart EV, AI and other new initiatives segment, retaining the combined segment scope.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "Gross Margin｜毛利率\n收入扣除销售成本后的毛利占收入比重。本文图表展示汽车、AI 及其他新业务分部毛利率，保留合并分部范围。"
+        "text": "Gross Margin\nGross profit (revenue minus cost of sales) as a share of revenue. Charts in this report show the gross margin of the Smart EV, AI and other new initiatives segment, retaining the combined segment scope."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "H1 / H2｜上半年 / 下半年",
+            "text": "H1 / H2 (first half / second half)",
             "bold": true,
             "italic": false
           },
           {
-            "text": "\nH1 对应 1–6 月，H2 对应 7–12 月。以半年合计除以六个月得到月均，仅用于节奏比较。",
+            "text": "\nH1 covers January-June and H2 covers July-December. Monthly averages are half-year totals divided by six and are used only to compare pace.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "H1 / H2｜上半年 / 下半年\nH1 对应 1–6 月，H2 对应 7–12 月。以半年合计除以六个月得到月均，仅用于节奏比较。"
+        "text": "H1 / H2 (first half / second half)\nH1 covers January-June and H2 covers July-December. Monthly averages are half-year totals divided by six and are used only to compare pace."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "Operating Expenses｜经营费用",
+            "text": "Operating Expenses",
             "bold": true,
             "italic": false
           },
           {
-            "text": "\n包括相关经营活动的研发、销售及行政等费用，具体按公司分部披露定义。本文的固定费用模型用于隔离收入和毛利率变化。",
+            "text": "\nIncludes R&D, selling and administrative expenses for the relevant operating activities, as defined in the company's segment disclosure. The fixed-expense model in this report is used to isolate changes in revenue and gross margin.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "Operating Expenses｜经营费用\n包括相关经营活动的研发、销售及行政等费用，具体按公司分部披露定义。本文的固定费用模型用于隔离收入和毛利率变化。"
+        "text": "Operating Expenses\nIncludes R&D, selling and administrative expenses for the relevant operating activities, as defined in the company's segment disclosure. The fixed-expense model in this report is used to isolate changes in revenue and gross margin."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "Operating Profit｜经营利润",
+            "text": "Operating Profit",
             "bold": true,
             "italic": false
           },
           {
-            "text": "\n本报告分部口径采用分部毛利减去分部经营费用。其与归母净利润、经调整净利润以及经营现金流分别对应不同层级。",
+            "text": "\nThe segment basis in this report is segment gross profit minus segment operating expenses. It sits at a different level from net profit attributable to shareholders, adjusted net profit and operating cash flow.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "Operating Profit｜经营利润\n本报告分部口径采用分部毛利减去分部经营费用。其与归母净利润、经调整净利润以及经营现金流分别对应不同层级。"
+        "text": "Operating Profit\nThe segment basis in this report is segment gross profit minus segment operating expenses. It sits at a different level from net profit attributable to shareholders, adjusted net profit and operating cash flow."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "OTA / Over-the-Air｜远程升级",
+            "text": "OTA / Over-the-Air",
             "bold": true,
             "italic": false
           },
           {
-            "text": "\n通过网络向车辆交付软件更新。召回中采用 OTA 时，仍需依据监管公告执行相应措施，并跟踪车辆更新完成情况。",
+            "text": "\nSoftware updates delivered to vehicles over a network. When OTA is used in a recall, the corresponding measures must still be carried out per the regulatory announcement, and vehicle update completion should be tracked.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "OTA / Over-the-Air｜远程升级\n通过网络向车辆交付软件更新。召回中采用 OTA 时，仍需依据监管公告执行相应措施，并跟踪车辆更新完成情况。"
+        "text": "OTA / Over-the-Air\nSoftware updates delivered to vehicles over a network. When OTA is used in a recall, the corresponding measures must still be carried out per the regulatory announcement, and vehicle update completion should be tracked."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "Product Mix｜产品组合",
+            "text": "Product Mix",
             "bold": true,
             "italic": false
           },
           {
-            "text": "\n不同车型、版本及配置在交付或收入中的构成。高价车型占比变化可能影响 ASP，产品成本差异也可能改变整体毛利率。",
+            "text": "\nThe composition of different models, trims and configurations within deliveries or revenue. Changes in the share of higher-priced models may affect ASP, and differences in product cost may also change overall gross margin.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "Product Mix｜产品组合\n不同车型、版本及配置在交付或收入中的构成。高价车型占比变化可能影响 ASP，产品成本差异也可能改变整体毛利率。"
+        "text": "Product Mix\nThe composition of different models, trims and configurations within deliveries or revenue. Changes in the share of higher-priced models may affect ASP, and differences in product cost may also change overall gross margin."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "QoQ / Quarter-on-Quarter｜环比",
+            "text": "QoQ / Quarter-on-Quarter",
             "bold": true,
             "italic": false
           },
           {
-            "text": "\n与相邻上一季度比较的变化率。换代切换和交付节奏可能使短期环比具有较大波动。",
+            "text": "\nThe rate of change versus the immediately preceding quarter. Model changeovers and delivery pacing can make short-term QoQ changes highly volatile.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "QoQ / Quarter-on-Quarter｜环比\n与相邻上一季度比较的变化率。换代切换和交付节奏可能使短期环比具有较大波动。"
+        "text": "QoQ / Quarter-on-Quarter\nThe rate of change versus the immediately preceding quarter. Model changeovers and delivery pacing can make short-term QoQ changes highly volatile."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "Scenario Analysis｜情景分析",
+            "text": "Scenario Analysis",
             "bold": true,
             "italic": false
           },
           {
-            "text": "\n在明确假设下比较可能结果。本文各情景是条件推演，用于理解达到某一结果需要的经营要求。",
+            "text": "\nComparison of possible outcomes under explicit assumptions. The scenarios in this report are conditional projections intended to show the operating requirements for reaching a given outcome.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "Scenario Analysis｜情景分析\n在明确假设下比较可能结果。本文各情景是条件推演，用于理解达到某一结果需要的经营要求。"
+        "text": "Scenario Analysis\nComparison of possible outcomes under explicit assumptions. The scenarios in this report are conditional projections intended to show the operating requirements for reaching a given outcome."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "Segment｜分部",
+            "text": "Segment",
             "bold": true,
             "italic": false
           },
           {
-            "text": "\n企业按业务管理及财务报告边界披露的经营单位。本文“合并分部”指汽车、AI 及其他新业务分部。",
+            "text": "\nAn operating unit disclosed by a company according to its business management and financial reporting boundaries. In this report, the \"combined segment\" refers to the Smart EV, AI and other new initiatives segment.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "Segment｜分部\n企业按业务管理及财务报告边界披露的经营单位。本文“合并分部”指汽车、AI 及其他新业务分部。"
+        "text": "Segment\nAn operating unit disclosed by a company according to its business management and financial reporting boundaries. In this report, the \"combined segment\" refers to the Smart EV, AI and other new initiatives segment."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "YoY / Year-on-Year｜同比",
+            "text": "YoY / Year-on-Year",
             "bold": true,
             "italic": false
           },
           {
-            "text": "\n与上一年相同期间比较的变化率，有助于降低部分季节性因素对比较的影响。产品周期变化仍会影响可比性。",
+            "text": "\nThe rate of change versus the same period of the prior year, which helps reduce the effect of some seasonal factors on comparisons. Changes in product cycles still affect comparability.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "YoY / Year-on-Year｜同比\n与上一年相同期间比较的变化率，有助于降低部分季节性因素对比较的影响。产品周期变化仍会影响可比性。"
+        "text": "YoY / Year-on-Year\nThe rate of change versus the same period of the prior year, which helps reduce the effect of some seasonal factors on comparisons. Changes in product cycles still affect comparability."
       }
     ],
     [
@@ -4330,12 +4330,12 @@
         "role": "h1",
         "runs": [
           {
-            "text": "披露附录",
+            "text": "Disclosure appendix",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "披露附录",
+        "text": "Disclosure appendix",
         "bookmark": "disclosure"
       },
       {
@@ -4343,216 +4343,216 @@
         "role": "h2",
         "runs": [
           {
-            "text": "报告属性与作者说明",
+            "text": "Report nature and author statement",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "报告属性与作者说明"
+        "text": "Report nature and author statement"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "本报告由 Codex 根据公开资料整理，属于 AI 辅助的企业经营研究与文档效果展示。研究对象为小米汽车业务及其所在披露分部。文中的研究判断、计算框架与情景假设由本报告形成；引用的经营事实与产品信息归属对应原始来源。",
+            "text": "This report was compiled by Codex from public information and is an AI-assisted corporate operating study and document showcase. The subject is the Xiaomi EV business and the disclosure segment it belongs to. The research views, calculation framework and scenario assumptions in the text are formed by this report; the operating facts and product information cited belong to their original sources.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "本报告由 Codex 根据公开资料整理，属于 AI 辅助的企业经营研究与文档效果展示。研究对象为小米汽车业务及其所在披露分部。文中的研究判断、计算框架与情景假设由本报告形成；引用的经营事实与产品信息归属对应原始来源。"
+        "text": "This report was compiled by Codex from public information and is an AI-assisted corporate operating study and document showcase. The subject is the Xiaomi EV business and the disclosure segment it belongs to. The research views, calculation framework and scenario assumptions in the text are formed by this report; the operating facts and product information cited belong to their original sources."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "本报告未以持牌证券分析师或证券研究机构名义出具，也未开展正式评级覆盖。报告不提供 Reg AC 分析师认证、评级分布或投行业务关系表。机构研报式的排版用于组织信息，作者身份及报告性质以本段说明为准。",
+            "text": "This report is not issued in the name of a licensed securities analyst or securities research institution, and no formal rating coverage has been carried out. It provides no Reg AC analyst certification, rating distribution or investment banking relationship table. Institutional-research-style layout is used to organize information; the author identity and nature of the report are as stated in this paragraph.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "本报告未以持牌证券分析师或证券研究机构名义出具，也未开展正式评级覆盖。报告不提供 Reg AC 分析师认证、评级分布或投行业务关系表。机构研报式的排版用于组织信息，作者身份及报告性质以本段说明为准。"
+        "text": "This report is not issued in the name of a licensed securities analyst or securities research institution, and no formal rating coverage has been carried out. It provides no Reg AC analyst certification, rating distribution or investment banking relationship table. Institutional-research-style layout is used to organize information; the author identity and nature of the report are as stated in this paragraph."
       },
       {
         "kind": "p",
         "role": "h2",
         "runs": [
           {
-            "text": "信息来源与时效",
+            "text": "Sources and timeliness",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "信息来源与时效"
+        "text": "Sources and timeliness"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "财务分析主要采用截至 2026 年 6 月 30 日的季度及中期数据，产品与召回信息采用各自公告日期。资料检索日为 2026 年 9 月 10 日。公开信息可能在报告形成后更新，发生更新时应重新核对产品状态、经营数据及研究假设。",
+            "text": "The financial analysis mainly uses quarterly and interim data as of June 30, 2026, while product and recall information use their respective announcement dates. The data retrieval date is September 10, 2026. Public information may be updated after the report is produced; when that happens, product status, operating data and research assumptions should be rechecked.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "财务分析主要采用截至 2026 年 6 月 30 日的季度及中期数据，产品与召回信息采用各自公告日期。资料检索日为 2026 年 9 月 10 日。公开信息可能在报告形成后更新，发生更新时应重新核对产品状态、经营数据及研究假设。"
+        "text": "The financial analysis mainly uses quarterly and interim data as of June 30, 2026, while product and recall information use their respective announcement dates. The data retrieval date is September 10, 2026. Public information may be updated after the report is produced; when that happens, product status, operating data and research assumptions should be rechecked."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "公司业绩公告、演示材料和官方产品说明体现公司的披露及解释；监管公告体现具体备案事项。本报告尽量区分已披露事实、管理层目标和本报告推断。来源汇编、数值舍入和跨期整理仍可能带来误差，重要结论应结合原始文件阅读。",
+            "text": "Company results announcements, presentations and official product materials reflect the company's disclosures and explanations; regulator announcements reflect specific filed matters. This report tries to separate disclosed facts, management targets and this report's inferences. Source compilation, rounding and cross-period consolidation may still introduce errors, and important conclusions should be read against the original files.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "公司业绩公告、演示材料和官方产品说明体现公司的披露及解释；监管公告体现具体备案事项。本报告尽量区分已披露事实、管理层目标和本报告推断。来源汇编、数值舍入和跨期整理仍可能带来误差，重要结论应结合原始文件阅读。"
+        "text": "Company results announcements, presentations and official product materials reflect the company's disclosures and explanations; regulator announcements reflect specific filed matters. This report tries to separate disclosed facts, management targets and this report's inferences. Source compilation, rounding and cross-period consolidation may still introduce errors, and important conclusions should be read against the original files."
       },
       {
         "kind": "p",
         "role": "h2",
         "runs": [
           {
-            "text": "财务口径与估值范围",
+            "text": "Financial basis and valuation scope",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "财务口径与估值范围"
+        "text": "Financial basis and valuation scope"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "小米汽车位于小米集团业务体系内，公开分部包含汽车、AI 及其他新业务。合并分部毛利、经营费用与经营利润不能直接还原为汽车独立净利润或某款车型利润。集团层面的收入、研发、现金及利润与汽车口径分别标注。",
+            "text": "Xiaomi EV sits within the Xiaomi Group's business system, and the public segment covers EV, AI and other new initiatives. Combined segment gross profit, operating expenses and operating profit cannot be directly restated as standalone EV net profit or the profit of any one model. Group-level revenue, R&D, cash and profit are labeled separately from the vehicle basis.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "小米汽车位于小米集团业务体系内，公开分部包含汽车、AI 及其他新业务。合并分部毛利、经营费用与经营利润不能直接还原为汽车独立净利润或某款车型利润。集团层面的收入、研发、现金及利润与汽车口径分别标注。"
+        "text": "Xiaomi EV sits within the Xiaomi Group's business system, and the public segment covers EV, AI and other new initiatives. Combined segment gross profit, operating expenses and operating profit cannot be directly restated as standalone EV net profit or the profit of any one model. Group-level revenue, R&D, cash and profit are labeled separately from the vehicle basis."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "本报告围绕经营基本面、风险和盈利条件展开，未提出证券买卖建议、评级或股票目标价。单独估计汽车业务价值还需要明确现金流、资本投入、资产负债、长期利润率及集团业务间的分配规则，并据此建立估值模型。",
+            "text": "This report centers on operating fundamentals, risks and profitability conditions, and makes no securities buy or sell recommendation, rating or stock target price. Valuing the vehicle business on its own would also require explicit cash flows, capital investment, balance sheet, long-term margins and allocation rules between group businesses, with a valuation model built on them.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "本报告围绕经营基本面、风险和盈利条件展开，未提出证券买卖建议、评级或股票目标价。单独估计汽车业务价值还需要明确现金流、资本投入、资产负债、长期利润率及集团业务间的分配规则，并据此建立估值模型。"
+        "text": "This report centers on operating fundamentals, risks and profitability conditions, and makes no securities buy or sell recommendation, rating or stock target price. Valuing the vehicle business on its own would also require explicit cash flows, capital investment, balance sheet, long-term margins and allocation rules between group businesses, with a valuation model built on them."
       },
       {
         "kind": "p",
         "role": "h2",
         "runs": [
           {
-            "text": "情景测算与前瞻性判断",
+            "text": "Scenario estimates and forward-looking views",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "情景测算与前瞻性判断"
+        "text": "Scenario estimates and forward-looking views"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "交付情景及利润敏感度依赖设定的收入、毛利率、费用和期间条件。各情景未赋予发生概率，也不代表管理层指引或业绩承诺。产品发布、供应链、竞争、促销、研发及市场环境变化均可能使实际结果显著偏离测算。",
+            "text": "The delivery scenarios and profit sensitivity depend on the stated revenue, gross margin, expense and period conditions. No scenario is assigned a probability, and none represents management guidance or a performance commitment. Product launches, supply chain, competition, promotions, R&D and market conditions could all cause actual results to deviate significantly from the estimates.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "交付情景及利润敏感度依赖设定的收入、毛利率、费用和期间条件。各情景未赋予发生概率，也不代表管理层指引或业绩承诺。产品发布、供应链、竞争、促销、研发及市场环境变化均可能使实际结果显著偏离测算。"
+        "text": "The delivery scenarios and profit sensitivity depend on the stated revenue, gross margin, expense and period conditions. No scenario is assigned a probability, and none represents management guidance or a performance commitment. Product launches, supply chain, competition, promotions, R&D and market conditions could all cause actual results to deviate significantly from the estimates."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "静态盈利门槛用于解释变量之间的关系。实际经营中的费用、产品组合与成本可能共同变化，因此应以新的季度数据更新模型。历史交付和历史盈利表现只构成分析基础，未来结果仍需后续证据验证。",
+            "text": "The static profitability threshold is used to explain relationships between variables. In real operations, expenses, product mix and costs may change together, so the model should be updated with new quarterly data. Historical deliveries and profitability form only an analytical basis; future results still need validation by later evidence.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "静态盈利门槛用于解释变量之间的关系。实际经营中的费用、产品组合与成本可能共同变化，因此应以新的季度数据更新模型。历史交付和历史盈利表现只构成分析基础，未来结果仍需后续证据验证。"
+        "text": "The static profitability threshold is used to explain relationships between variables. In real operations, expenses, product mix and costs may change together, so the model should be updated with new quarterly data. Historical deliveries and profitability form only an analytical basis; future results still need validation by later evidence."
       },
       {
         "kind": "p",
         "role": "h2",
         "runs": [
           {
-            "text": "产品价格、安全与召回信息",
+            "text": "Product prices, safety and recall information",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "产品价格、安全与召回信息"
+        "text": "Product prices, safety and recall information"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "文中价格对应特定车型、版本和公开日期，预售价与最终售价分别列示。续航或产品技术信息如被引用，按原文测试或说明条件理解。对具体车辆适用的召回措施，应以监管备案、车辆识别信息和生产者通知为准。",
+            "text": "Prices in the text correspond to specific models, versions and public dates, and pre-sale and final prices are listed separately. Range or technical information, if cited, should be understood under the original test or stated conditions. For recall measures applying to a specific vehicle, rely on the regulatory filing, vehicle identification information and the producer's notice.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "文中价格对应特定车型、版本和公开日期，预售价与最终售价分别列示。续航或产品技术信息如被引用，按原文测试或说明条件理解。对具体车辆适用的召回措施，应以监管备案、车辆识别信息和生产者通知为准。"
+        "text": "Prices in the text correspond to specific models, versions and public dates, and pre-sale and final prices are listed separately. Range or technical information, if cited, should be understood under the original test or stated conditions. For recall measures applying to a specific vehicle, rely on the regulatory filing, vehicle identification information and the producer's notice."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "召回数量描述指定范围，不能据此推算全部产品的故障率或事故率。不同年度召回范围可能重叠。本报告对召回的讨论用于经营风险研究，具体缺陷、处置流程及整改结果以官方文件为依据。",
+            "text": "Recall counts describe a designated scope and cannot be used to infer a failure or accident rate across all products. Recall scopes in different years may overlap. The discussion of recalls in this report serves operating-risk research; specific defects, handling procedures and remediation results are as stated in official documents.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "召回数量描述指定范围，不能据此推算全部产品的故障率或事故率。不同年度召回范围可能重叠。本报告对召回的讨论用于经营风险研究，具体缺陷、处置流程及整改结果以官方文件为依据。"
+        "text": "Recall counts describe a designated scope and cannot be used to infer a failure or accident rate across all products. Recall scopes in different years may overlap. The discussion of recalls in this report serves operating-risk research; specific defects, handling procedures and remediation results are as stated in official documents."
       },
       {
         "kind": "p",
         "role": "h2",
         "runs": [
           {
-            "text": "使用与独立判断",
+            "text": "Use and independent judgment",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "使用与独立判断"
+        "text": "Use and independent judgment"
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "本报告面向企业研究和信息讨论，不针对任何人的投资目标、财务状况或风险承受能力提供个性化意见。使用者应根据决策的重要程度核对原始资料、补充必要调查，并自行形成判断。报告中的观点与测算可随新信息调整。",
+            "text": "This report is intended for corporate research and information discussion and gives no personalized advice on anyone's investment objectives, financial situation or risk tolerance. Users should check original sources, carry out any necessary further inquiry and form their own judgment in proportion to the importance of the decision. Views and estimates in the report may be adjusted as new information arrives.",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "本报告面向企业研究和信息讨论，不针对任何人的投资目标、财务状况或风险承受能力提供个性化意见。使用者应根据决策的重要程度核对原始资料、补充必要调查，并自行形成判断。报告中的观点与测算可随新信息调整。"
+        "text": "This report is intended for corporate research and information discussion and gives no personalized advice on anyone's investment objectives, financial situation or risk tolerance. Users should check original sources, carry out any necessary further inquiry and form their own judgment in proportion to the importance of the decision. Views and estimates in the report may be adjusted as new information arrives."
       },
       {
         "kind": "p",
         "role": "body",
         "runs": [
           {
-            "text": "编制：Codex 研究整理  |  版本日期：2026 年 9 月 10 日",
+            "text": "Prepared by: Codex research  |  Version date: September 10, 2026",
             "bold": false,
             "italic": false
           }
         ],
-        "text": "编制：Codex 研究整理  |  版本日期：2026 年 9 月 10 日"
+        "text": "Prepared by: Codex research  |  Version date: September 10, 2026"
       }
     ]
   ],
@@ -4564,73 +4564,73 @@
   "sources": [
     {
       "id": "S1",
-      "title": "小米集团：2026 年第二季度及中期业绩公告",
+      "title": "Xiaomi Group: 2026 Q2 and Interim Results Announcement",
       "date": "2026-08-18",
       "url": "https://ir.mi.com/static-files/4a85fc36-8a6d-4c24-b45b-b18d5d162e6c",
-      "use": "第 6、10–14、18、20–22、36 页。季度交付、汽车收入、ASP、合并分部毛利及经营费用；中期财务数据未经审计并经审阅。"
+      "use": "Pages 6, 10-14, 18, 20-22, 36. Quarterly deliveries, EV revenue, ASP, combined segment gross profit and operating expenses; interim financial data are unaudited but reviewed."
     },
     {
       "id": "S2",
-      "title": "小米集团：2026 年第二季度业绩演示材料",
+      "title": "Xiaomi Group: 2026 Q2 Results Presentation",
       "date": "2026-08-18",
       "url": "https://ir.mi.com/static-files/20793a18-42e5-43d1-9f2b-aad269cefcd4",
-      "use": "产品进展及 SkyNomad 澎程系列预售资料；预售价格和预计上市时间均保留公告时点。"
+      "use": "Product progress and SkyNomad series pre-sale materials; pre-sale prices and expected launch timing are as of the announcement date."
     },
     {
       "id": "S3",
-      "title": "小米集团：2026 年第一季度业绩公告",
+      "title": "Xiaomi Group: 2026 Q1 Results Announcement",
       "date": "2026-05-26",
       "url": "https://ir.mi.com/static-files/098acc43-1b58-4d1b-b375-9ea25f35477b",
-      "use": "第 6–7、13、21 页等。Q1 交付与分部指标、YU7 新版本及 GT 发布信息、销售网络。"
+      "use": "Pages 6-7, 13, 21, etc. Q1 deliveries and segment metrics, new YU7 versions and GT launch information, sales network."
     },
     {
       "id": "S4",
-      "title": "小米集团：2025 年全年及第四季度业绩公告",
+      "title": "Xiaomi Group: 2025 Annual and Q4 Results Announcement",
       "date": "2026-03-24",
       "url": "https://ir.mi.com/system/files-encrypted/nasdaq_kms/assets/2026/03/24/5-35-03/25Q4%20EN%20AC%20Xiaomi.pdf",
-      "use": "第 8、13、21、30 页等。全年交付、汽车收入、分部经营利润、2026 年 55 万辆目标。"
+      "use": "Pages 8, 13, 21, 30, etc. Full-year deliveries, EV revenue, segment operating profit, 2026 target of 550,000 vehicles."
     },
     {
       "id": "S5",
-      "title": "小米集团：2025 年第三季度业绩公告",
+      "title": "Xiaomi Group: 2025 Q3 Results Announcement",
       "date": "2025-Q3",
       "url": "https://ir.mi.com/static-files/e4830480-8ce9-45f8-a09d-64e40b2bdfac",
-      "use": "第 6、11、13–14 页等。季度交付、ASP、分部毛利率和首次季度经营盈利。"
+      "use": "Pages 6, 11, 13-14, etc. Quarterly deliveries, ASP, segment gross margin and first quarterly operating profit."
     },
     {
       "id": "S6",
-      "title": "小米集团：2025 年第二季度业绩公告",
+      "title": "Xiaomi Group: 2025 Q2 Results Announcement",
       "date": "2025-08-19",
       "url": "https://ir.mi.com/system/files-encrypted/nasdaq_kms/assets/2025/08/19/5-36-23/25Q2%20AC_ENG.pdf",
-      "use": "第 6、20 页等。2025 年上半年各季度交付、ASP 与分部指标。"
+      "use": "Pages 6, 20, etc. Quarterly deliveries, ASP and segment metrics for H1 2025."
     },
     {
       "id": "S7",
-      "title": "小米官方：新一代 SU7 发布介绍",
+      "title": "Xiaomi official: New-generation SU7 launch introduction",
       "date": "2026-03-26",
       "url": "https://www.mi.com/global/discover/article?id=6117",
-      "use": "对应 3 月 19 日发布活动；Standard、Pro、Max 发布价格及产品定位。"
+      "use": "Corresponds to the March 19 launch event; Standard, Pro and Max launch prices and product positioning."
     },
     {
       "id": "S8",
-      "title": "市场监管总局：2025 年 SU7 标准版召回公告",
+      "title": "SAMR: 2025 SU7 Standard Edition recall announcement",
       "date": "2025-09-19",
       "url": "https://www.samr.gov.cn/zw/zh/art/2025/art_2152a981c72a430b9d10d6ef5cd9c09b.html",
-      "use": "116,887 辆指定批次车辆；辅助驾驶相关软件缺陷与 OTA 召回措施。"
+      "use": "116,887 vehicles in specified batches; driver-assistance software defect and OTA recall measures."
     },
     {
       "id": "S9a",
-      "title": "召回技术中心：2024 款 SU7 系列召回（一）",
+      "title": "Recall Technology Center: 2024 SU7 series recall (I)",
       "date": "2026-08-21",
       "url": "https://www.samrdprc.org.cn/qczh/qczhgg1/202608/t20260821_115889.html",
-      "use": "备案 S2026M0096V，339,069 辆；车内应急机械拉手识别与操作风险。"
+      "use": "Filing S2026M0096V, 339,069 vehicles; risk related to identification and operation of the in-cabin emergency mechanical door release."
     },
     {
       "id": "S9b",
-      "title": "召回技术中心：2024 款 SU7 系列召回（二）",
+      "title": "Recall Technology Center: 2024 SU7 series recall (II)",
       "date": "2026-08-21",
       "url": "https://www.samrdprc.org.cn/qczh/qczhgg1/202608/t20260821_115890.html",
-      "use": "备案 S2026M0097V，51,366 辆；措施包括加贴警示标识和软件升级。"
+      "use": "Filing S2026M0097V, 51,366 vehicles; measures include applying warning labels and a software upgrade."
     }
   ],
   "data": {

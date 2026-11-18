@@ -1,27 +1,27 @@
-# 会议纪要 发布会筹备
+# Meeting minutes: launch preparation
 
-此案例以用户认可的三页 DOCX 成品为权威模板输入。成品由 DSH 内置 `meeting-recap`、官方 `office-docx`、安装级 Python 和官方 Kit 实际制作，经同一 DSH 会话的内容与版式反馈修订，用户于 2026-10-12 确认可用。
+This example is the authoritative template input for a finished DOCX of meeting minutes. The finished file was made with the built-in `meeting-recap` skill, the official `office-docx` skill, the installed Python and the official Kit, revised through content and layout feedback, and approved as usable on 2026-10-12.
 
-内容底稿来自飞书官方“发布会筹备对齐”演示；成品为重新整理后的 Word 案例。原始转写及模型执行日志保存在本地评估目录，安装资源包含认可的成品和本说明。
+The content draft comes from an official Lark "launch preparation alignment" demo; the finished file is a re-organized Word example, with the people, schedule and tasks translated into English. The installed resources contain the approved file and this note.
 
-## 内容结构
+## Content structure
 
-会议名称与紧凑会议信息、主要工作安排、按主题组织的议题记录、连贯行动表、后续确认。五个议题覆盖宣传预热、脚本与演示、线上展示与物料、产品手册、体验区与排期。示例十五项行动记录用于展示任务、交付标准、责任、期限与来源的组织方式，新任务的数量随当前材料确定。
+Meeting name and compact meeting details, main arrangements, discussion record organized by topic, one continuous action table, and follow-up. The five topics cover promotion and warm-up, scripts and demos, online showcase and materials, the product manual, and the experience area and schedule. The fifteen sample action items show how to organize task, deliverable standard, owner, due date and source; the number of items for a new task follows the current material.
 
-当前用户材料提供事实，案例提供结构和版式。替换示例的主题、品牌、人员、日期、任务及来源位置；相对期限沿用原文，基准日期确认后再换算，建议保持建议状态。议题正文保留影响判断的理由与依赖，同一事实集中表达。
+The user's material supplies the facts and the example supplies structure and layout. Replace the sample topic, brand, people, dates, tasks and source positions. Keep relative deadlines as stated and convert them only once a base date is confirmed; keep suggestions marked as suggestions. Topic text keeps the reasons and dependencies that affect decisions, and states each fact in one place.
 
-## 原生版式
+## Native layout
 
-- A4 纵向，约 2cm 页边距；原件三页，新的页数随实际内容形成。
-- 原生 `Title`、`Heading 1`、`Heading 2`，黑色 23 / 14 / 12pt，正文 11pt、精确 16pt 行距；标题与后文绑定。Title 样式和标题段落均清除默认边框。
-- 保留原件 Arial 与冬青黑体的设计，中文使用真实字体族名 `Hiragino Sans GB W3`，粗体由原生引擎选择 W6。未带字重的别名 `Hiragino Sans GB` 在当前 macOS 原生引擎会错误匹配日文字体 Hiragino Sans，造成简体中文字形缺失，即使字体诊断为空也不能视为完整。修改字体时以当前官方 Kit 的字体诊断和逐页检查确认效果。
-- 行动表三列：任务与交付要求 / 责任分工 / 期限，宽度 10.2 / 3.1 / 3.7cm。任务单元格分层显示任务、交付与来源，来源小字；责任与期限居中。自动行高、完整表格行、重复表头与浅色交替行。
-- 修改列宽时同步原生 tblGrid 与单元格宽度；表格使用精确 14pt 行距。文档网格关闭，段落保持实际行距。页脚使用可编辑 PAGE / NUMPAGES 字段。
+- A4 portrait with about 2 cm margins. The original runs four pages in English; the page count of a new file follows its content.
+- Native `Title`, `Heading 1` and `Heading 2` in black at 23 / 14 / 12 pt, 11 pt body text with exact 16 pt line spacing; headings are kept with the text that follows. The Title style and heading paragraphs have no default border.
+- Arial throughout for Latin text. A CJK fallback font stays registered as the East Asian font for any non-Latin names; Latin text does not depend on it.
+- Three-column action table: Task and deliverable / Owner / Due, with widths of 10.2 / 3.1 / 3.7 cm. The task cell has layers for task, deliverable and source, with the source in small type; owner and due date are centered. Rows have automatic height, are never split across pages, repeat the header row and use light alternating fill.
+- When changing column widths, update the native tblGrid and the cell widths together; the table uses exact 14 pt line spacing. The document grid is off and paragraphs keep their actual line spacing. The footer uses editable PAGE / NUMPAGES fields.
 
-## 做同款流程
+## Using the example
 
-所选案例 ID 为 `meeting-minutes`。先调用 `office_template(template_id="meeting-minutes")` 准备当前修订的原生工作副本；使用 `meeting-recap` 组织用户当前材料，配合官方 `office-docx` 与 `load_workspace_dependencies` 提供的安装级 Python 更新工作副本。保持原生段落、标题、表格与页码。
+The selected example ID is `meeting-minutes`. Call `office_template(template_id="meeting-minutes")` first to prepare the native working copy of the current revision; organize the user's current material with `meeting-recap` and update the working copy with the official `office-docx` skill and the installed Python returned by `load_workspace_dependencies`. Keep the native paragraphs, headings, table and page numbers.
 
-用加载技能返回的检查器资源路径运行结构检查，用当前安装包 Kit 导出 PDF 并逐页检查。渲染路径、Python 与字体结果以当前安装资源为准，交付最终 DOCX。
+Run the structure check with the checker resource path returned by the loaded skill, export a PDF with the Kit of the current installation and check each page. Rendering path, Python and font results follow the current installed resources. Deliver the final DOCX.
 
-preview-checks.json 用于本案例构建预览的中文字形覆盖校验；用户当前材料与行动内容仍以会议原文为准。构建在发布缓存及每次复用时验证预览，逐页视觉检查继续核对正文、表格与分页。
+preview-checks.json drives the glyph-coverage check for this example's build preview: the title must be fully inked. The user's material and the action content still come from the meeting source; the visual check of each page keeps verifying body text, table and pagination.

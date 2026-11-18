@@ -1,9 +1,9 @@
-# 青岚港货物流向与作业效率
+# Bluehaven Port cargo flow and handling efficiency
 
-## 版式与执行
+## Layout and workflow
 
-365 天、2,190 条模拟装卸记录；吞吐波动、进出港结构、航线与作业效率。5 张工作表。
+365 days and 2,190 simulated handling records: throughput swings, inbound and outbound mix, routes and handling efficiency. Five worksheets.
 
-调用 office_template 准备原生工作副本和参考输入。使用官方 office-docx 或 office-xlsx Skill 与安装级 Python 修改文稿、数据和图表；用官方 LibreOffice Kit 重算 Excel 并渲染最终文件，逐页核对结果，再用 present 交付。
+Call office_template to prepare the native working copy and the reference inputs. Use the official office-docx or office-xlsx skill and the installed Python to change the document, data and charts; recalculate the Excel file with the official LibreOffice Kit and render the final file, check each page, then deliver it with present.
 
-基础流程 office-xlsx，业务方法 dataset-health-audit、data-viz-gen。港口名称与数据均为模拟。inputs/port.json 包含 365 天、2,190 条装卸记录，一条记录表示一次进港卸货或出港装货作业。货物吨数与箱量 TEU 分别统计，装卸总量按作业计算。所有原始记录保留，日度与作业明细预览前 39 行。8 张原生图表引用计算单元格，汇总与效率由公式推导。checks.json 从原始 JSON 独立计算。更换时间范围时同步调整脚本日期、公式边界、图表轴范围和检查值。
+Base workflow: office-xlsx. Business methods: dataset-health-audit and data-viz-gen. The port name and all data are simulated. inputs/port.json holds 365 days and 2,190 handling records; one record is one inbound unloading or outbound loading operation. Cargo tonnes and TEU container counts are tracked separately, and handled volume is counted per operation. All raw records are kept, and the Daily Summary and Operation Detail sheets preview the first 39 rows. Eight native charts reference calculated cells, and the summary and efficiency figures are derived by formulas. checks.json is computed independently from the raw JSON. When the date range changes, update the script dates, formula bounds, chart axis ranges and check values together.

@@ -1,7 +1,7 @@
-# 小米汽车研究报告
+# Xiaomi EV research report
 
-用途：公司、行业或专题的研究报告。重点是结论、证据、图表和口径之间的对应关系。
-版式：A4 竖版；正文宽 9412 twips；深蓝 003B5C、蓝色 4472C4、正文 333333、辅助灰 636363、表头 D6DCE4、浅底 F2F2F2。封面深蓝横向标题带，32pt 白色主标题；结论区与关键数据区分为双栏，保留中间留白。正文一级标题 17pt，二级 12pt，正文 10pt，表格 9pt，来源 8pt。
-页面节奏：封面给一句核心判断、关键指标和日期；接摘要、目录和研究范围；正文按市场、经营、业务拆解、投入产出、情景与风险展开；每个 Exhibit 包括结论标题、图或原生表格、来源和口径。附录解释计算、数据日期与来源链接。篇幅按材料完整性安排，样稿为 12 页。
-图表约正文全宽，优先用同尺度的可核对数据；正文表格使用原生单元格、重复表头与明确单位。目录使用真实标题层级与内部锚点。每页页眉与页脚统一，图片段落自动扩展高度。
-原生 DOCX 与 inputs 提供版式和素材参考。正式生成时替换公司、封面判断、图表、日期、风险与引用。示例财务数据是当次材料的冻结记录；用户本次提供的材料与实际核实来源决定新报告中的事实。
+Purpose: Research reports on a company, an industry, or a special topic. The focus is on how conclusions, evidence, charts, and data definitions correspond to one another.
+Layout: A4 portrait; body width 9412 twips; dark blue 003B5C, blue 4472C4, body text 333333, secondary gray 636363, table header D6DCE4, light background F2F2F2. The cover has a dark blue horizontal title band with a 32pt white main title. The conclusions area and key data area are split into two columns with white space kept between them. Body level-1 headings 17pt, level-2 headings 12pt, body text 10pt, tables 9pt, sources 8pt.
+Page flow: The cover gives one core thesis, key metrics, and the date. It is followed by the summary, table of contents, and research scope. The body covers the market, operations, business breakdown, investment and returns, and scenarios and risks. Each Exhibit includes a conclusion title, a chart or native table, the source, and the data definitions. The appendix explains calculations, data dates, and source links. Length depends on how complete the materials are; the sample is 12 pages.
+Charts span roughly the full body width, with preference for verifiable data on a consistent scale. Body tables use native cells, repeated header rows, and explicit units. The table of contents uses real heading levels and internal anchors. Headers and footers are consistent on every page, and image paragraphs expand their height automatically.
+The native DOCX and inputs provide layout and asset references. For final production, replace the company, cover thesis, charts, dates, risks, and citations. The sample financial data is a frozen record of the materials used at that time. The facts in the new report are determined by the materials the user provides this time and by actually verified sources.

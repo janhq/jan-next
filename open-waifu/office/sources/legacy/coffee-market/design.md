@@ -1,9 +1,9 @@
-# 中国现制咖啡市场调研报告
+# China Freshly Made Coffee Market Research Report
 
-## 版式与执行
+## Layout and Execution
 
-以公开披露为基础的 2024 年市场研究：品牌网络、同店表现、消费场景与门店贡献，7 页报告及来源索引。
+A 2024 market study based on public disclosures: brand networks, same-store performance, consumption scenarios and store contribution. 7-page report with a source index.
 
-调用 office_template 准备原生工作副本和参考输入。使用官方 office-docx 或 office-xlsx Skill 与安装级 Python 修改文稿、数据和图表；用官方 LibreOffice Kit 重算 Excel 并渲染最终文件，逐页核对结果，再用 present 交付。
+Call office_template to prepare the native working copy and reference inputs. Edit the document, data and charts with the official office-docx or office-xlsx Skill and the installed-level Python; recalculate Excel and render the final file with the official LibreOffice Kit, check the result page by page, then deliver with present.
 
-基础流程 office-docx，业务方法 research-writer。7 页 A4 研究报告，正文与表格为原生 Word 内容；4 张图表为随包 PNG。资料截至 2025-04-15，研究对象为 2024 年度。企业公开披露、分析判断和假设测算分别标识，来源链接列在末页。迁移到新行业时，替换正文事实、来源和匹配的图表资产；图表须与新数据一致。
+Base workflow: office-docx; business method: research-writer. A 7-page A4 research report; body text and tables are native Word content; the 4 charts are bundled PNG images. Sources are current to 2025-04-15 and the study covers the 2024 fiscal year. Company disclosures, analytical judgments and assumption-based estimates are labeled separately, and source links are listed on the last page. When moving to a new industry, replace the body facts, sources and the matching chart assets; the charts must agree with the new data.
