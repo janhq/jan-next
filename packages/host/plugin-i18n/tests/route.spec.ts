@@ -28,7 +28,7 @@ function contextOf(fixture: Fixture): Context {
     agentDefaultModel: { currentSelection: () => fixture.fallbackDefault },
     llamaCpp: fixture.local === undefined ? undefined : { snapshot: () => fixture.local },
   }
-  return { ...services, get: (name: string) => services[name] } as unknown as Context
+  return { ...services, get: (name: string) => services[name] } as never
 }
 
 describe('chooseRoute', () => {

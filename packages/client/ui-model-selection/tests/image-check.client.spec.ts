@@ -13,7 +13,7 @@ function directory(current: string, groups: Record<string, Entry[]>): ModelDirec
   return {
     current: { provider, model },
     groups: Object.entries(groups).map(([id, models]) => ({ id, name: id, models })),
-  } as unknown as ModelDirectoryState
+  } as never
 }
 
 describe('imageRefusalOf', () => {

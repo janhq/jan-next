@@ -26,7 +26,7 @@ import { ConversationHeader } from '../src/client/skeleton/ConversationHeader.ts
 import { ConversationMainPanel } from '../src/client/skeleton/ConversationMainPanel.tsx'
 import { ConversationSession, ConversationSessionHeader } from '../src/client/skeleton/ConversationSession.tsx'
 import { conversationPhase } from '../src/client/contract/snapshot.ts'
-import { HeroShell, type HeroShellProps } from '../src/client/skeleton/EmptyHero.tsx'
+import { HeroShell } from '../src/client/skeleton/EmptyHero.tsx'
 import './control-row-dom.ts'
 import { InputBar } from '../src/client/skeleton/InputBar.tsx'
 import type { InputBarProps } from '../src/client/skeleton/InputBar.tsx'
@@ -426,7 +426,7 @@ function mount(
 describe('Hero chrome', () => {
   it('renders the English preview badge through the hero locale seat', () => {
     const renderSlot = vi.fn((_name: string, _owner: object, options?: { fallback?: ReactNode }) => options?.fallback ?? null)
-    const view = render(<HeroShell t={makeTranslate(en, commonEn)} renderSlot={renderSlot as unknown as HeroShellProps['renderSlot']} />)
+    const view = render(<HeroShell t={makeTranslate(en, commonEn)} renderSlot={renderSlot as never} />)
     expect(view.getByText('Into the Unknown')).toBeTruthy()
     expect(view.getByText('Preview')).toBeTruthy()
     const brandMarkCall = renderSlot.mock.calls.find(([name]) => name === 'conversation.hero.brand.mark')

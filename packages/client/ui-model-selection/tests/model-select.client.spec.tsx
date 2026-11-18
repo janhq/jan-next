@@ -734,7 +734,7 @@ describe('ModelSelect keyboard walk', () => {
         { id: 'gateway', name: 'Gateway', message: 'answered 503', code: 'DISCOVERY_FAILED' },
       ],
     }))
-    render(<ModelSelect renderSlot={renderLabel}
+    render(<ModelSelect renderLabel={renderLabel}
       locked={false}
       available
       directory={directory}

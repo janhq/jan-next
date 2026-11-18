@@ -10,7 +10,7 @@ function directory(contextWindow: number | undefined): ModelDirectoryState {
   return {
     current: { provider: 'local', model: 'small' },
     groups: [{ id: 'local', name: 'Local', models: [{ id: 'small', name: 'Small', ...contextWindow === undefined ? {} : { contextWindow } }] }],
-  } as unknown as ModelDirectoryState
+  } as never
 }
 
 const paste = 'x'.repeat(40_000)

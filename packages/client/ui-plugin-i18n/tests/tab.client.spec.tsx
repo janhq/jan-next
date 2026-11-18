@@ -42,12 +42,12 @@ function mount(current: PluginI18nState, overrides: Record<string, unknown> = {}
     languageName: () => '日本語',
     ...overrides,
   }
-  const props = {
+  const props: PluginTranslationsTabProps = {
     t,
     useTranslations: (select: (value: PluginI18nState) => unknown) => select(current),
     useLocale: (select: (value: { active: string }) => unknown) => select({ active: 'ja' }),
     ...face,
-  } as unknown as PluginTranslationsTabProps
+  } as never
   return { face, ...render(<PluginTranslationsTab {...props} />) }
 }
 

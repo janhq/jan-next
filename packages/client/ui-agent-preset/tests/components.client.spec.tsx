@@ -90,7 +90,7 @@ function renderLabel(
   const sessions = createSnapshotStore({ byId: summary === undefined ? {} : { s1: summary } })
   const load = vi.fn(() => Promise.resolve())
   const select = vi.fn((_sessionId: string, _id: string) => Promise.resolve<string | undefined>(undefined))
-  const view = render(<AgentPresetLabel {...({
+  const props: AgentPresetLabelProps = {
     load,
     select,
     sessionId: 's1',
@@ -98,7 +98,8 @@ function renderLabel(
     useAgentPresets: bindSnapshotSelector(store),
     useDeveloperTools: bindSnapshotSelector(createSnapshotStore(true)),
     t: (key: keyof typeof en) => en[key],
-  } as unknown as AgentPresetLabelProps)} />)
+  } as never
+  const view = render(<AgentPresetLabel {...props} />)
   return { load, select, view }
 }
 
