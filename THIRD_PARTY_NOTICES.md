@@ -91,6 +91,7 @@ External packages installed for runtime use or embedded in distributed Host or b
 | [`cross-spawn`](https://github.com/moxystudio/node-cross-spawn) | MIT |
 | [`diff`](https://github.com/kpdecker/jsdiff) | BSD-3-Clause |
 | [`dompurify`](https://github.com/cure53/DOMPurify) | (MPL-2.0 OR Apache-2.0) |
+| [`driver.js`](https://github.com/nilbuild/driver.js) | MIT |
 | [`electron-updater`](https://github.com/electron-userland/electron-builder) | MIT |
 | [`eslint-scope`](https://github.com/eslint/js) | BSD-2-Clause |
 | [`eslint-visitor-keys`](https://github.com/eslint/js) | Apache-2.0 |

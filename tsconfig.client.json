@@ -111,6 +111,7 @@
     { "path": "./packages/test-support/tool-testkit" },
     { "path": "./packages/client/shortcuts/tsconfig.client.json" },
     { "path": "./packages/client/ui-shortcuts" },
+    { "path": "./packages/client/ui-guidance" },
     { "path": "./packages/client/ui-context-menu" },
     { "path": "./packages/client/ui-file-actions" },
     { "path": "./packages/client/ui-layout" },

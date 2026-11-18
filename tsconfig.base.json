@@ -309,6 +309,8 @@
       "@janhq/jan-client-shortcuts/protocol": ["./packages/client/shortcuts/src/protocol.ts"],
       "@janhq/jan-client-shortcuts": ["./packages/client/shortcuts/src"],
       "@janhq/jan-client-ui-shortcuts": ["./packages/client/ui-shortcuts/src"],
+      "@janhq/jan-client-ui-guidance": ["./packages/client/ui-guidance/src"],
+      "@janhq/jan-client-ui-guidance/client": ["./packages/client/ui-guidance/src/client/index.ts"],
       "@janhq/jan-client-ui-layout": ["./packages/client/ui-layout/src"],
       "@janhq/jan-client-ui-sidebar": ["./packages/client/ui-sidebar/src"],
       "@janhq/jan-client-ui-brand-official": ["./packages/client/ui-brand-official/src"],

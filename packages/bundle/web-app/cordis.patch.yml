@@ -305,6 +305,9 @@
     - id: ui-shortcuts
       name: '@janhq/jan-client-ui-shortcuts'
 
+    - id: ui-guidance
+      name: '@janhq/jan-client-ui-guidance'
+
     - id: ui-layout
       name: '@janhq/jan-client-ui-layout'
 

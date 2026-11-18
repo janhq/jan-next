@@ -84,6 +84,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@janhq/jan-client-ui-file-actions` | no | Original-file saving and image clipboard actions for Web and Desktop |
 | `@janhq/jan-client-ui-file-drag` | no | Application-owned file drag transfers and localized failure feedback |
 | `@janhq/jan-client-ui-goal` | no | Session goal surface: GoalBar docked above the composer, read from the goal session projection |
+| `@janhq/jan-client-ui-guidance` | no | Optional guided tours and local guidance preferences |
 | `@janhq/jan-client-ui-input-trigger` | no | Input trigger pipeline: '/' and '@' detection, candidate menu, pick routing to registered sources |
 | `@janhq/jan-client-ui-jobs` | no | Session-header background-job list with on-demand streaming record panels |
 | `@janhq/jan-client-ui-layout` | no | Shell plugin: three-column AppFrame with drag handles, ctx.layout viewing-state service (navigation + panels) |
