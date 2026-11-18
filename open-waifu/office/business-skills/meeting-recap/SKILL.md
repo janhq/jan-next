@@ -1,88 +1,88 @@
 ---
 name: meeting-recap
-description: 将会议文字稿、笔记或聊天记录整理为可执行的会议纪要，区分已定事项、讨论建议、待决事项和行动项，保留责任人、日期与原文依据，交付可编辑 Word。
+description: Turn meeting transcripts, notes or chat logs into actionable minutes that separate decisions, discussion and suggestions, open questions and action items, keep owners, dates and source evidence, and deliver an editable Word file.
 license: MIT
 ---
 
-# 会议纪要
+# Meeting Minutes
 
-根据当前用户材料整理一份供参会人确认、项目组执行的纪要。重点是决定了什么、仍需确认什么、谁负责推进以及何时交付。所选 DOCX 案例提供版式，当前用户材料提供事实。
+Prepare minutes from the user's materials that attendees can confirm and the project team can act on. The focus is what was decided, what still needs confirmation, who drives each item and when it is due. The selected DOCX example provides the layout; the user's materials provide the facts.
 
-## 1. 读取材料并建立事实依据
+## 1. Read the materials and build the evidence base
 
-完整读取文字稿、会议笔记和附件，记录文件名与段落、时间戳或发言位置。长材料先按议题分段，再合并同一议题的重复讨论。保留涉及范围、数值、条件、责任和时间的原文依据。
+Read the full transcript, meeting notes and attachments, and record file names plus paragraph, timestamp or speaker positions. For long materials, split by topic first, then merge repeated discussion of the same topic. Keep the original evidence for scope, numbers, conditions, responsibilities and dates.
 
-会议信息取自材料：名称、日期、时间、方式、参会人、主持人。已有信息直接填写，缺失字段统一写“待确认”。记录人填写用户指定的人；材料中出现的发言人和正式参会名单分别识别。
+Take meeting details from the materials: name, date, time, format, attendees, chair. Fill in what is available; write "To be confirmed" for missing fields. The note taker is the person the user names; speakers found in the materials and the formal attendee list are identified separately.
 
-文件元数据与口述会议时间分别记录其来源。基准日期确认后再换算相对期限；元数据的正确性根据证据判断，已有日期只按材料明确的含义使用。
+Record the source of file metadata and of spoken meeting dates separately. Convert relative deadlines only after the base date is confirmed; judge metadata by the evidence, and use an existing date only in the sense the materials state.
 
-多人名、缩写或 ASR 误识别先用上下文和附件核对；仍有歧义时保留原称呼，并集中列出待确认点。根据已有素材先完成初稿，关键矛盾放在交付时提醒用户。
+When several people, abbreviations or ASR misrecognitions are involved, check context and attachments first. If an ambiguity remains, keep the original wording and list the open points together. Produce a first draft from what is available and flag key contradictions to the user at delivery.
 
-## 2. 按原文确定事项状态
+## 2. Set each item's status from the source text
 
-每个事项先归入以下状态，再写入纪要：
+Assign each item one of the following statuses before writing it into the minutes:
 
-| 状态 | 依据 | 写法 |
+| Status | Basis | How to write it |
 | --- | --- | --- |
-| 已定 | 明确确认、共同接受或有决策权限的人员作出决定 | 写清决定内容、适用范围、生效条件 |
-| 建议 / 讨论 | 提议、个人观点、备选方案 | 保留提出者、理由及讨论结果 |
-| 待决 | 明确留待评估、审批或补充材料 | 写清待决问题、决策条件和下一步 |
-| 已调整 | 后续明确修改或撤回前一安排 | 采用最后明确安排，并保留调整原因 |
+| Decided | Explicitly confirmed, jointly accepted, or decided by someone with authority | State the decision, its scope and the conditions for it to take effect |
+| Suggestion / discussion | Proposals, personal opinions, alternatives | Keep who proposed it, the reasons and the outcome of the discussion |
+| Open | Explicitly left for evaluation, approval or more material | State the open question, the decision conditions and the next step |
+| Changed | A later statement explicitly modifies or withdraws an earlier arrangement | Use the last explicit arrangement and keep the reason for the change |
 
-“暂定”“建议”“可能”“客户确认后”“评估通过后”等条件随结论保留。“同意评估方案”对应评估任务；正式采用方案的状态由明确的采纳决定确定。
+Keep qualifiers such as "tentative", "suggested", "possibly", "after the client confirms" and "once the evaluation passes" together with the conclusion. "Agreed to evaluate the proposal" maps to an evaluation task; the status of formally adopting the proposal is set only by an explicit adoption decision.
 
-数值保留原单位、统计范围和时间口径。发生冲突时，列出冲突的两处依据及需要确认的字段。跨多场会议整理时，按会议日期与事项版本追踪最终决定。
+Keep original units, statistical scope and time basis for numbers. When figures conflict, list both sources and the fields that need confirmation. When consolidating several meetings, track the final decision by meeting date and item version.
 
-## 3. 提取行动项
+## 3. Extract action items
 
-原文出现明确工作或承诺时，提取任务、负责人、期限和交付标准。每项任务使用“动词 + 对象 + 完成条件”描述。相同任务合并为一项，关联对应议题。
+When the source states explicit work or a commitment, extract the task, owner, deadline and acceptance criteria. Describe each task as "verb + object + completion condition". Merge identical tasks into one item and link it to its topic.
 
-- 负责人来自明确指派或认领；材料只写“产品侧”时保留“产品侧”，缺失时写“待确认”。
-- 期限按原文记录。明确日期统一为 YYYY-MM-DD；“下周”“月底”等表述保留原话，必要时附材料已提供的基准日期和待确认的具体时间。
-- 优先级在原文明示时填写；交付标准来自会议要求，缺失时写“待确认”。
-- 行动项集中展示在一张表里。议题正文说明决定、背景和关键分歧。
-- 本次明确没有新增任务时，写明这一结果，并省略空表。
+- The owner comes from an explicit assignment or a volunteer; if the material says only "product side", keep "product side"; if missing, write "To be confirmed".
+- Record deadlines as stated. Write explicit dates as YYYY-MM-DD; keep phrases such as "next week" or "end of month" verbatim and, where useful, add the base date the material provides and the specific date to be confirmed.
+- Fill in priority only when the source states it; acceptance criteria come from what the meeting required, otherwise write "To be confirmed".
+- Show action items together in one table. Topic notes explain the decision, background and key disagreements.
+- If this meeting explicitly created no new tasks, say so and omit the empty table.
 
-工作组职责、愿景或一般原则放在议题记录中；已经完成的工作作为进展或决策依据展示。
+Working-group responsibilities, vision or general principles belong in the topic notes; work already completed appears as progress or as the basis of a decision.
 
-## 4. 组织可读的纪要
+## 4. Organize readable minutes
 
-默认采用以下结构，按实际内容长短调整页数：
+Use this structure by default and adjust the page count to the actual content:
 
-1. **会议名称与会议信息**：紧凑展示时间、方式、参会人和会议目标。
-2. **结论与待决事项**：先给出关键决定及生效条件，读者可以快速掌握结果。
-3. **议题记录**：按主题组织背景、关键讨论、决定或待决状态。详细程度随用户要求和材料复杂度调整，保留影响判断的理由与分歧。
-4. **行动项**：任务、负责人、期限、交付标准；需要追溯时增加“来源”列。
-5. **待确认事项**：集中列出缺失信息、矛盾和依赖；内容齐备时省略。
+1. **Meeting name and details**: time, format, attendees and meeting goal, shown compactly.
+2. **Conclusions and open items**: key decisions and their effective conditions first, so readers see the result quickly.
+3. **Topic notes**: organize by theme with background, key discussion, and decided or open status. The level of detail follows the user's request and the complexity of the material; keep the reasons and disagreements that affect judgment.
+4. **Action items**: task, owner, deadline, acceptance criteria; add a "Source" column when traceability is needed.
+5. **Items to confirm**: list missing information, contradictions and dependencies together; omit when everything is complete.
 
-同一事实在结论、议题和行动项之间保持一致。正文使用自然、明确的业务语言；标题、编号和表格承担信息层级。建议、风险推测和后续写作建议若有价值，单独标为“整理建议”，与会议决定分别呈现。
+Keep the same fact consistent across conclusions, topics and action items. Use natural, clear business language; headings, numbering and tables carry the information hierarchy. If suggestions, risk speculation or follow-up writing advice are valuable, label them separately as "Editor's notes" so they stay distinct from meeting decisions.
 
-## 5. 制作 Word
+## 5. Build the Word file
 
-用户选择会议纪要案例时，先调用 office_template(template_id="meeting-minutes")，使用返回的工作副本；以 office-docx 和 load_workspace_dependencies 提供的安装级 Python 制作文件。
+When the user selects the meeting minutes example, call office_template(template_id="meeting-minutes") first and work on the returned copy; build the file with office-docx and the installed-level Python provided by load_workspace_dependencies.
 
-沿用所选原件的 A4 纵向、约 2cm 页边距及原生标题样式。Title 约 23pt、Heading 1 约 14pt、Heading 2 约 12pt，黑色；正文 11pt、精确 16pt 行距。标题设置 keep_with_next，Title 样式与标题段落均清除默认边框；文档网格关闭或段落 snapToGrid 设为 false，保持实际行距。原件字体随副本保留，换字体时根据当前 Kit 字体诊断和逐页结果确认。
+Keep the selected original's A4 portrait page, roughly 2 cm margins and native heading styles. Title about 23 pt, Heading 1 about 14 pt, Heading 2 about 12 pt, black; body 11 pt with exactly 16 pt line spacing. Set keep_with_next on headings, clear the default borders on the Title style and on heading paragraphs, and turn the document grid off or set paragraph snapToGrid to false so the real line spacing holds. The original's fonts stay with the copy; when changing fonts, confirm with the current Kit font diagnostics and page-by-page results.
 
-会议案例的行动表为“任务与交付要求 / 责任分工 / 期限”三列，宽度 10.2 / 3.1 / 3.7cm。任务单元格按任务、交付标准与来源分层呈现，责任和期限居中。修改列宽时同时更新 table.columns 与 cell.width，使原生 tblGrid 和单元格一致。表格使用精确 14pt 行距、足够内边距、自动行高、完整表格行与重复表头；页脚沿用 PAGE / NUMPAGES 字段。行动项数量与页数由当前材料自然形成。
+The action table of the meeting example has three columns, "Task and deliverable / Owner / Deadline", with widths 10.2 / 3.1 / 3.7 cm. Task cells layer the task, acceptance criteria and source; owner and deadline are centered. When changing column widths, update both table.columns and cell.width so the native tblGrid and the cells agree. Tables use exactly 14 pt line spacing, enough cell padding, automatic row height, rows that do not split across pages and a repeating header row; the footer keeps its PAGE / NUMPAGES fields. The number of action items and pages follows from the current materials.
 
-用当前用户材料替换整份案例内容，保留真实标题样式、可编辑段落及表格。用官方 Kit 导出 PDF 并渲染逐页检查排版；原生 DOCX 作为最终交付文件。确认标题、表格、字体、分页和正文均可读后，用 present 交付。
+Replace the whole example's content with the user's materials, keeping real heading styles, editable paragraphs and tables. Export a PDF with the official Kit and render it page by page to check the layout; the native DOCX is the final deliverable. Once headings, tables, fonts, pagination and body text are confirmed readable, deliver with present.
 
-结构检查器使用加载的 office-docx 资源目录下 ../scripts/check_office.py 的真实路径；LibreOffice Kit 使用加载技能提供的 Installed LibreOffice Kit 路径。首轮复核集中核对建议状态、相对期限、来源发言人和完整行动覆盖；逐页复核核对标题与后文、字段列宽、尾页密度及字体诊断。
+For the structure checker, use the real path of ../scripts/check_office.py under the loaded office-docx resource directory; for LibreOffice Kit, use the Installed LibreOffice Kit path provided by the loaded skill. The first review pass checks suggestion status, relative deadlines, source speakers and complete action coverage; the page-by-page pass checks headings against the following text, field column widths, density of the last page and font diagnostics.
 
-## 6. 质量复核
+## 6. Quality review
 
-交付前逐项核对：
+Before delivery, check each point:
 
-- 每条决定有原文依据，状态与生效条件一致。
-- 发言、建议、已定和待决事项准确区分，后续调整已更新。
-- 人名、范围、数字、单位和日期均与当前材料对应。
-- 行动项覆盖原文明确工作，负责人和期限保留材料口径，缺失字段标为待确认。
-- 每项任务只在行动项表中登记一次，议题和汇总之间的信息一致。
-- 当前 DOCX 的示例内容已由本次会议事实完整替换。
-- 每页渲染已检查，表格与分页满足阅读和编辑需求。
+- Every decision has source evidence, and its status matches its effective conditions.
+- Statements, suggestions, decided items and open items are clearly separated, and later changes are reflected.
+- Names, scope, numbers, units and dates all match the current materials.
+- Action items cover the work the source states explicitly; owners and deadlines keep the material's wording, and missing fields are marked "To be confirmed".
+- Each task is registered once in the action table, and information is consistent between topics and summaries.
+- The example DOCX's sample content has been fully replaced by this meeting's facts.
+- Every page has been rendered and checked, and the tables and pagination meet reading and editing needs.
 
-可选运行 scripts/validate_minutes.py 检查 Markdown 草稿的章节、表格字段、日期及重复任务。该脚本验证结构；事实准确性由原文逐项核对。
+Optionally run scripts/validate_minutes.py to check a Markdown draft for sections, table fields, dates and duplicate tasks. The script validates structure; factual accuracy is checked against the source item by item.
 
-## 来源与维护
+## Sources and maintenance
 
-起点为用户提供的“开源skill-185个 (1).zip”中的 meeting-recap，原许可和归属文件随包保留。原 Office PR 收录后迁入 DSH Desktop。本版由 DSH Desktop 重写整理规则、Word 交付及校验方式。归档的名称与历史“Kimi 185”评审标签描述本地来源，作者归属以随附许可为准。
+The starting point is meeting-recap from the user-provided "open-source skill-185 (1).zip"; the original license and attribution files ship with the package. After the original Office PR merged it, it moved into DSH Desktop. This version was rewritten by DSH Desktop with new organizing rules, Word delivery and validation. The archived name and the historical "Kimi 185" review label describe the local source; authorship follows the bundled license.

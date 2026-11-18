@@ -78,8 +78,6 @@ window.__ModuleLoader__.load({ id: '@open-waifu/dsh-desktop-office', factory: re
     React.useEffect(() => { void store.load(sessionId) }, [store, sessionId])
     return state
   }
-  const titleOf = (item, t) => t('preview') === en.preview ? item.titleEn ?? item.title : item.title
-
   function Thumbnail({ item }) {
     const ratio = item.pageAspectRatios[0], excel = item.mode === 'excel'
     const frameRatio = excel ? 16 / 9 : ratio < 1 ? ratio * 2 : ratio
@@ -92,10 +90,10 @@ window.__ModuleLoader__.load({ id: '@open-waifu/dsh-desktop-office', factory: re
   function TemplateCard({ item, selected, busy, t, choose, preview }) {
     return h('article', { className: 'dso-card', 'data-office-template': item.id, 'data-selected': selected },
       h('button', { type: 'button', className: 'dso-card-select', disabled: busy, 'aria-pressed': selected,
-        'aria-label': `${t('select')} ${titleOf(item, t)}`, onClick: () => choose(item) },
+        'aria-label': `${t('select')} ${item.title}`, onClick: () => choose(item) },
         h('span', { className: 'dso-cover', 'data-mode': item.mode }, h(Thumbnail, { item })),
-        h('span', { className: 'dso-card-name' }, titleOf(item, t))),
-      h('button', { type: 'button', className: 'dso-card-preview', disabled: busy, 'aria-label': `${t('preview')} ${titleOf(item, t)}`, onClick: () => preview(item) },
+        h('span', { className: 'dso-card-name' }, item.title)),
+      h('button', { type: 'button', className: 'dso-card-preview', disabled: busy, 'aria-label': `${t('preview')} ${item.title}`, onClick: () => preview(item) },
         h('svg', { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, 'aria-hidden': true },
           h('path', { d: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z' }), h('circle', { cx: 12, cy: 12, r: 3 }))))
   }
@@ -159,7 +157,7 @@ window.__ModuleLoader__.load({ id: '@open-waifu/dsh-desktop-office', factory: re
     const availableWidth = Math.max(0, bounds.width - 32), availableHeight = Math.max(0, bounds.height - 60)
     const paperHeight = spread ? Math.max(0, Math.min(availableHeight, Math.max(0, availableWidth - 16) / spreadRatio)) : 0
     const caption = page => [item.sheets?.find(sheet => sheet.pages.includes(page))?.name, t('pageNumber').replace('{page}', page)].filter(Boolean).join(' · ')
-    return h('dialog', { ref: dialog, className: 'dso-modal', 'data-spread': spread, tabIndex: -1, 'aria-modal': true, 'aria-label': titleOf(item, t), onCancel: event => { event.preventDefault(); if (!busy) close() },
+    return h('dialog', { ref: dialog, className: 'dso-modal', 'data-spread': spread, tabIndex: -1, 'aria-modal': true, 'aria-label': item.title, onCancel: event => { event.preventDefault(); if (!busy) close() },
       onClick: event => {
         if (event.target !== dialog.current || busy) return
         const rect = dialog.current.getBoundingClientRect()
@@ -174,14 +172,14 @@ window.__ModuleLoader__.load({ id: '@open-waifu/dsh-desktop-office', factory: re
         if (event.target.tagName === 'SELECT' || busy) return
         if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) { event.preventDefault(); if (event.key === 'ArrowRight' && page + step > item.pages) return; move(event.key === 'Home' ? 1 : event.key === 'End' ? item.pages - (spread ? (item.pages - 1) % 2 : 0) : page + (event.key === 'ArrowRight' ? step : -step)) }
       } },
-      h('header', null, h('h2', null, titleOf(item, t)), h('span', { className: 'dso-preview-actions' },
+      h('header', null, h('h2', null, item.title), h('span', { className: 'dso-preview-actions' },
         h('button', { type: 'button', className: 'dso-close', onClick: close, disabled: busy, 'aria-label': t('close') }, '×'))),
       item.sheets?.length ? h('nav', { className: 'dso-sheets', 'aria-label': 'Excel' }, item.sheets.map(sheet => h('button', { key: sheet.name, type: 'button', 'aria-pressed': sheet.pages.includes(page), onClick: () => move(sheet.pages[0]) }, sheet.name))) : null,
       h('div', { ref: stage, className: 'dso-page', 'data-spread': spread, 'aria-busy': !preview && !error }, preview ? spread
         ? h('div', { className: 'dso-spread' }, preview.map((value, index) => h('figure', { key: value.page, style: { width: paperHeight * ratios[index], flex: 'none' } },
-          h('img', { src: value.image, alt: `${titleOf(item, t)} · ${t('page').replace('{page}', value.page).replace('{total}', item.pages)}`, style: { height: paperHeight }, draggable: false }),
+          h('img', { src: value.image, alt: `${item.title} · ${t('page').replace('{page}', value.page).replace('{total}', item.pages)}`, style: { height: paperHeight }, draggable: false }),
           h('figcaption', { title: caption(value.page) }, caption(value.page)))))
-        : h('img', { src: preview[0].image, alt: `${titleOf(item, t)} · ${pageLabel}`, draggable: false })
+        : h('img', { src: preview[0].image, alt: `${item.title} · ${pageLabel}`, draggable: false })
         : error ? h('div', { role: 'alert' }, error, h('button', { type: 'button', onClick: () => setRetry(value => value + 1) }, t('retry'))) : h('span', { role: 'status' }, t('loading'))),
       actionError ? h('p', { role: 'alert' }, actionError) : null,
       h('footer', null, h('div', { className: 'dso-pagination' }, h('button', { type: 'button', disabled: page === 1, onClick: () => move(page - step), 'aria-label': t(spread ? 'previousSpread' : 'previous') }, '‹'),
@@ -220,7 +218,7 @@ window.__ModuleLoader__.load({ id: '@open-waifu/dsh-desktop-office', factory: re
     const item = state.templates.find(item => item.id === state.selectedTemplateId && item.mode === state.mode)
     if (!item) return null
     return h('div', { className: 'dso-selected', 'data-office-selected': item.id },
-      h('span', { className: 'dso-selected-frame' }, h('button', { type: 'button', className: 'dso-selected-preview', 'aria-label': `${t('preview')} ${titleOf(item, t)}`, onClick: () => setOpened(true) }, h(Thumbnail, { item })),
+      h('span', { className: 'dso-selected-frame' }, h('button', { type: 'button', className: 'dso-selected-preview', 'aria-label': `${t('preview')} ${item.title}`, onClick: () => setOpened(true) }, h(Thumbnail, { item })),
       h('button', { type: 'button', className: 'dso-selected-remove', disabled: state.busy, 'aria-label': t('remove'), onClick: () => store.mutate(sessionId, 'deselect', {}) }, '×')),
       opened ? h(Preview, { item, store, sessionId, t, close: () => setOpened(false), busy: state.busy }) : null)
   }
@@ -234,7 +232,7 @@ window.__ModuleLoader__.load({ id: '@open-waifu/dsh-desktop-office', factory: re
         h('svg', { className: 'dso-opening-file', width: 22, height: 26, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.75, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
           h('path', { d: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6' }),
           h('path', { d: item.mode === 'word' ? 'M8 13h8M8 17h6' : 'M8 12h8v7H8zM8 15.5h8M12 12v7' })),
-        h('button', { type: 'button', className: 'dso-opening-title', 'aria-haspopup': 'dialog', 'aria-label': `${t('preview')} ${titleOf(item, t)}`, onClick: () => setOpened(true) }, titleOf(item, t))),
+        h('button', { type: 'button', className: 'dso-opening-title', 'aria-haspopup': 'dialog', 'aria-label': `${t('preview')} ${item.title}`, onClick: () => setOpened(true) }, item.title)),
       opened ? h(Preview, { item, store, sessionId, t, close: () => setOpened(false), busy: state.busy }) : null)
   }
   const css = `

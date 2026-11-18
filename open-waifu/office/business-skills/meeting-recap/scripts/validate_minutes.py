@@ -5,6 +5,8 @@ import sys
 from datetime import date
 from pathlib import Path
 
+PENDING = 'To be confirmed'
+
 
 class ValidationResult:
     def __init__(self):
@@ -15,15 +17,15 @@ class ValidationResult:
         return not self.errors
 
     def report(self):
-        lines = ['会议纪要结构校验：' + ('通过' if self.passed else '需修正')]
-        for kind, items in [('错误', self.errors), ('待确认', self.warnings), ('信息', self.info)]:
-            lines += [kind + '：' + item for item in items]
+        lines = ['Meeting minutes structure check: ' + ('passed' if self.passed else 'needs fixes')]
+        for kind, items in [('Error', self.errors), ('To confirm', self.warnings), ('Info', self.info)]:
+            lines += [kind + ': ' + item for item in items]
         return '\n'.join(lines)
 
 
 def section(content, names):
     for name in names:
-        match = re.search(r'^##\s+' + re.escape(name) + r'[^\n]*\n(.*?)(?=^##\s|\Z)', content, re.M | re.S)
+        match = re.search(r'^##\s+' + re.escape(name) + r'[^\n]*\n(.*?)(?=^##\s|\Z)', content, re.M | re.S | re.I)
         if match:
             return match.group(1)
     return None
@@ -40,24 +42,26 @@ def cells(line):
 
 def validate(content):
     result = ValidationResult()
-    if not re.search(r'^#\s+.*会议纪要', content, re.M):
-        result.errors.append('主标题应包含会议纪要')
-    topics = section(content, ['议题记录', '详细记录'])
+    if not re.search(r'^#\s+.*\bmeeting\s+(minutes|recap)\b', content, re.M | re.I):
+        result.errors.append('The main title should include "Meeting Minutes"')
+    topics = section(content, ['Topic Notes', 'Discussion Notes', 'Detailed Notes'])
     if topics is None or not topics.strip():
-        result.errors.append('请提供议题记录及明确的事项状态')
-    actions = section(content, ['行动项', '行动项汇总'])
+        result.errors.append('Provide topic notes with an explicit status for each item')
+    actions = section(content, ['Action Items', 'Action Item Summary'])
     if actions is None or not actions.strip():
-        result.errors.append('请列出行动项，或记录本次明确没有新增任务')
+        result.errors.append('List the action items, or record that this meeting produced no new tasks')
         return result
     table = [cells(line) for line in actions.splitlines() if line.strip().startswith('|')]
     if table:
-        header = table[0]
-        aliases = [('任务', '任务描述', '事项'), ('负责人',), ('期限', '截止日期'), ('交付标准', '完成标准', '交付物')]
+        header = [value.lower() for value in table[0]]
+        aliases = [('Task', 'Task Description', 'Item'), ('Owner',), ('Deadline', 'Due Date'),
+                   ('Deliverable', 'Completion Criteria', 'Deliverables')]
         positions = []
         for labels in aliases:
-            index = next((i for i, value in enumerate(header) if value in labels), None)
+            names = [label.lower() for label in labels]
+            index = next((i for i, value in enumerate(header) if value in names), None)
             if index is None:
-                result.errors.append('行动项表需包含' + labels[0])
+                result.errors.append('The action item table needs a column: ' + labels[0])
             positions.append(index)
         if all(index is not None for index in positions):
             seen = set()
@@ -66,32 +70,32 @@ def validate(content):
                 if all(re.fullmatch(r':?-+:?', value.replace(' ', '')) for value in row):
                     continue
                 if len(row) != len(header):
-                    result.errors.append('行动项列数与表头一致'); continue
+                    result.errors.append('Action item column count must match the header'); continue
                 count += 1
                 values = [row[i] for i in positions]
                 if any(not value for value in values):
-                    result.errors.append('行动项缺失字段请标为待确认')
+                    result.errors.append('Mark missing action item fields as "' + PENDING + '"')
                 task, owner, deadline, deliverable = values
-                identity = re.sub(r'\s+', '', task)
+                identity = re.sub(r'\s+', '', task).lower()
                 if identity in seen:
-                    result.errors.append('重复任务请合并：' + task)
+                    result.errors.append('Merge duplicate tasks: ' + task)
                 seen.add(identity)
-                if any('待确认' in value for value in values):
-                    result.warnings.append(task + '有待确认字段')
+                if any(PENDING.lower() in value.lower() for value in values):
+                    result.warnings.append(task + ' has fields to be confirmed')
                 for value in re.findall(r'\b\d{4}-\d{2}-\d{2}\b', deadline):
                     try:
                         date.fromisoformat(value)
                     except ValueError:
-                        result.errors.append('请核对期限中的日期：' + value)
+                        result.errors.append('Check the date in the deadline: ' + value)
             if count == 0:
-                result.errors.append('请填写行动项，或用正文记录本次明确没有新增任务')
-            result.info.append('行动项数量：' + str(count))
+                result.errors.append('Fill in the action items, or state in the body that this meeting produced no new tasks')
+            result.info.append('Action item count: ' + str(count))
     return result
 
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
-        sys.exit('用法：python3 validate_minutes.py 会议纪要.md')
+        sys.exit('Usage: python3 validate_minutes.py meeting-minutes.md')
     result = validate(Path(sys.argv[1]).read_text(encoding='utf-8'))
     print(result.report())
     sys.exit(0 if result.passed else 1)

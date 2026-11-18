@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-data_quality_checker.py — 数据质检工具
-12 个维度检测，输出质量评分 + 修复建议。
+data_quality_checker.py - Data quality checker
+Runs checks across 12 dimensions and outputs quality scores plus fix suggestions.
 """
 
 import argparse
@@ -73,7 +73,7 @@ def score_to_grade(score: float) -> str:
     return "F"
 
 
-# --- Dimension 1: 缺失值 ---
+# --- Dimension 1: Missing values ---
 
 def check_missing_values(df: pd.DataFrame) -> dict:
     issues = []
@@ -86,13 +86,13 @@ def check_missing_values(df: pd.DataFrame) -> dict:
             pct = round(missing / len(df) * 100, 2)
             total_missing += missing
             if pd.api.types.is_numeric_dtype(df[col]):
-                suggestion = f"建议用中位数({df[col].median():.4g})或均值填充"
+                suggestion = f"Consider filling with the median ({df[col].median():.4g}) or the mean"
             else:
                 mode_vals = df[col].mode()
                 if len(mode_vals) > 0:
-                    suggestion = f"建议用众数「{mode_vals.iloc[0]}」填充，或标记为专用缺失标识"
+                    suggestion = f"Consider filling with the mode '{mode_vals.iloc[0]}', or flag it with a dedicated missing-value marker"
                 else:
-                    suggestion = "建议删除该列或补充数据来源"
+                    suggestion = "Consider dropping this column or adding a data source"
             issues.append({
                 "column": col,
                 "missing_count": missing,
@@ -108,7 +108,7 @@ def check_missing_values(df: pd.DataFrame) -> dict:
     return {"score": max(score, 0), "issues": issues}
 
 
-# --- Dimension 2: 重复行 ---
+# --- Dimension 2: Duplicate rows ---
 
 def check_duplicates(df: pd.DataFrame) -> dict:
     dup_mask = df.duplicated(keep="first")
@@ -122,14 +122,14 @@ def check_duplicates(df: pd.DataFrame) -> dict:
             "duplicate_rows": dup_count,
             "duplicate_pct": pct,
             "sample_row_indices": sample_indices,
-            "suggestion": f"发现 {dup_count} 行完全重复（{pct}%），建议使用 drop_duplicates() 去重",
+            "suggestion": f"Found {dup_count} fully duplicated rows ({pct}%); consider removing them with drop_duplicates()",
         })
 
     score = round(100 * (1 - dup_count / max(len(df), 1)), 2)
     return {"score": max(score, 0), "issues": issues}
 
 
-# --- Dimension 3: 数据类型一致性 ---
+# --- Dimension 3: Data type consistency ---
 
 def _is_string_col(series: pd.Series) -> bool:
     return pd.api.types.is_string_dtype(series) or series.dtype == object
@@ -152,7 +152,7 @@ def check_type_consistency(df: pd.DataFrame) -> dict:
                 issues.append({
                     "column": col,
                     "types_found": dict(type_counts),
-                    "suggestion": f"列中混合了多种类型，主要是 {dominant[0]}（{dominant[1]}个），建议统一转换",
+                    "suggestion": f"Column mixes several types, mostly {dominant[0]} ({dominant[1]} values); consider converting to one type",
                 })
             elif "str" in type_counts:
                 numeric_count = 0
@@ -169,7 +169,7 @@ def check_type_consistency(df: pd.DataFrame) -> dict:
                         "column": col,
                         "numeric_values": numeric_count,
                         "non_numeric_values": non_numeric,
-                        "suggestion": f"有 {non_numeric} 个值无法转为数字，其余均为数字，建议清洗后转为数值类型",
+                        "suggestion": f"{non_numeric} values cannot be converted to numbers while the rest are numeric; clean them and convert the column to a numeric type",
                     })
 
     total = len(df.columns)
@@ -177,7 +177,7 @@ def check_type_consistency(df: pd.DataFrame) -> dict:
     return {"score": max(score, 0), "issues": issues}
 
 
-# --- Dimension 4: 数值范围/异常值 ---
+# --- Dimension 4: Value range / outliers ---
 
 def check_value_range(df: pd.DataFrame) -> dict:
     issues = []
@@ -204,7 +204,7 @@ def check_value_range(df: pd.DataFrame) -> dict:
                 "outlier_pct": pct,
                 "range": {"min": float(series.min()), "max": float(series.max())},
                 "iqr_bounds": {"lower": round(float(lower), 4), "upper": round(float(upper), 4)},
-                "suggestion": f"{len(outliers)} 个值超出 IQR 范围 [{lower:.4g}, {upper:.4g}]，建议检查是否为录入错误或截断处理",
+                "suggestion": f"{len(outliers)} values fall outside the IQR range [{lower:.4g}, {upper:.4g}]; check for entry errors or consider capping",
             })
 
     total = max(len(num_cols), 1)
@@ -212,7 +212,7 @@ def check_value_range(df: pd.DataFrame) -> dict:
     return {"score": max(score, 0), "issues": issues}
 
 
-# --- Dimension 5: 格式合规性 ---
+# --- Dimension 5: Format compliance ---
 
 def _detect_format(series: pd.Series) -> str | None:
     sample = series.dropna().astype(str).head(100)
@@ -284,7 +284,7 @@ def check_format_compliance(df: pd.DataFrame) -> dict:
                     "invalid_count": len(bad),
                     "invalid_pct": pct,
                     "samples": bad[:5],
-                    "suggestion": f"检测到 {detected} 格式，但有 {len(bad)} 个值不符合（{pct}%），建议统一格式",
+                    "suggestion": f"Detected {detected} format, but {len(bad)} values do not match ({pct}%); consider standardizing the format",
                 })
 
     if checked == 0:
@@ -294,7 +294,7 @@ def check_format_compliance(df: pd.DataFrame) -> dict:
     return {"score": max(score, 0), "issues": issues}
 
 
-# --- Dimension 6: 唯一性约束 ---
+# --- Dimension 6: Uniqueness constraints ---
 
 def check_uniqueness(df: pd.DataFrame, id_columns: list[str] = None) -> dict:
     issues = []
@@ -307,11 +307,11 @@ def check_uniqueness(df: pd.DataFrame, id_columns: list[str] = None) -> dict:
                 id_columns.append(col)
             elif col_lower.endswith("_id") or col_lower.startswith("id_"):
                 id_columns.append(col)
-            elif any(kw in col_lower for kw in ["uuid", "编号", "编码"]):
+            elif any(kw in col_lower for kw in ["uuid", "guid", "serial"]):
                 id_columns.append(col)
 
     if not id_columns:
-        return {"score": 100.0, "issues": [], "note": "未检测到 ID 类列，跳过唯一性检查"}
+        return {"score": 100.0, "issues": [], "note": "No ID-like columns detected; uniqueness check skipped"}
 
     problem_cols = 0
     for col in id_columns:
@@ -328,14 +328,14 @@ def check_uniqueness(df: pd.DataFrame, id_columns: list[str] = None) -> dict:
                 "duplicate_count": dup_count,
                 "duplicate_pct": pct,
                 "top_duplicates": {str(k): int(v) for k, v in dup_vals.items()},
-                "suggestion": f"ID 列「{col}」有 {dup_count} 个重复值（{pct}%），建议核查数据来源或加主键约束",
+                "suggestion": f"ID column '{col}' has {dup_count} duplicate values ({pct}%); check the data source or add a primary key constraint",
             })
 
     score = round(100 * (1 - problem_cols / max(len(id_columns), 1)), 2)
     return {"score": max(score, 0), "issues": issues}
 
 
-# --- Dimension 7: 空白字符串 ---
+# --- Dimension 7: Blank strings ---
 
 def check_whitespace(df: pd.DataFrame) -> dict:
     issues = []
@@ -357,18 +357,18 @@ def check_whitespace(df: pd.DataFrame) -> dict:
             problem_cols += 1
             detail = []
             if leading_trailing > 0:
-                detail.append(f"{leading_trailing} 个值有前后空格")
+                detail.append(f"{leading_trailing} values have leading or trailing spaces")
             if empty_strings > 0:
-                detail.append(f"{empty_strings} 个空字符串")
+                detail.append(f"{empty_strings} empty strings")
             if whitespace_only > 0:
-                detail.append(f"{whitespace_only} 个仅含空白字符")
+                detail.append(f"{whitespace_only} values contain only whitespace")
 
             issues.append({
                 "column": col,
                 "leading_trailing_spaces": leading_trailing,
                 "empty_strings": empty_strings,
                 "whitespace_only": whitespace_only,
-                "suggestion": f"列「{col}」{'，'.join(detail)}，建议 strip() 清洗并将空字符串转为 NaN",
+                "suggestion": f"Column '{col}': {'; '.join(detail)}; consider strip() cleaning and converting empty strings to NaN",
             })
 
     total = max(len(str_cols), 1)
@@ -376,7 +376,7 @@ def check_whitespace(df: pd.DataFrame) -> dict:
     return {"score": max(score, 0), "issues": issues}
 
 
-# --- Dimension 8: 常量列 ---
+# --- Dimension 8: Constant columns ---
 
 def check_constant_columns(df: pd.DataFrame) -> dict:
     issues = []
@@ -391,7 +391,7 @@ def check_constant_columns(df: pd.DataFrame) -> dict:
                 "column": col,
                 "unique_values": nunique,
                 "constant_value": str(val),
-                "suggestion": f"列「{col}」仅有 {nunique} 个唯一值（{val}），信息量为零，建议删除",
+                "suggestion": f"Column '{col}' has only {nunique} unique value(s) ({val}) and carries no information; consider dropping it",
             })
 
     total = max(len(df.columns), 1)
@@ -399,7 +399,7 @@ def check_constant_columns(df: pd.DataFrame) -> dict:
     return {"score": max(score, 0), "issues": issues}
 
 
-# --- Dimension 9: 数据分布偏斜 ---
+# --- Dimension 9: Distribution skew ---
 
 def check_distribution_skew(df: pd.DataFrame) -> dict:
     issues = []
@@ -413,19 +413,19 @@ def check_distribution_skew(df: pd.DataFrame) -> dict:
         skewness = float(series.skew())
         if abs(skewness) > 3:
             skewed_cols += 1
-            direction = "右偏（正偏）" if skewness > 0 else "左偏（负偏）"
+            direction = "right-skewed (positive)" if skewness > 0 else "left-skewed (negative)"
             issues.append({
                 "column": col,
                 "skewness": round(skewness, 4),
                 "direction": direction,
-                "suggestion": f"偏度 = {skewness:.2f}（{direction}），分布极度不对称，建议 log 变换或 Box-Cox 变换",
+                "suggestion": f"Skewness = {skewness:.2f} ({direction}); the distribution is extremely asymmetric, consider a log or Box-Cox transform",
             })
         elif abs(skewness) > 1:
             issues.append({
                 "column": col,
                 "skewness": round(skewness, 4),
-                "direction": "轻度右偏" if skewness > 0 else "轻度左偏",
-                "suggestion": f"偏度 = {skewness:.2f}，分布略有偏斜，如做回归分析可考虑变换",
+                "direction": "mildly right-skewed" if skewness > 0 else "mildly left-skewed",
+                "suggestion": f"Skewness = {skewness:.2f}; the distribution is slightly skewed, consider a transform if used for regression",
             })
 
     total = max(len(num_cols), 1)
@@ -433,23 +433,23 @@ def check_distribution_skew(df: pd.DataFrame) -> dict:
     return {"score": max(score, 0), "issues": issues}
 
 
-# --- Dimension 10: 列名规范性 ---
+# --- Dimension 10: Column naming conventions ---
 
 def check_column_naming(df: pd.DataFrame) -> dict:
     issues = []
     problem_cols = 0
-    CLEAN_RE = re.compile(r"^[a-zA-Z_\u4e00-\u9fff][a-zA-Z0-9_\u4e00-\u9fff]*$")
+    CLEAN_RE = re.compile(r"^[^\W\d]\w*$")
 
     for col in df.columns:
         problems = []
         col_str = str(col)
 
         if col_str != col_str.strip():
-            problems.append("含前后空格")
+            problems.append("has leading or trailing spaces")
         if " " in col_str.strip():
-            problems.append("含空格")
+            problems.append("contains spaces")
         if not CLEAN_RE.match(col_str.strip()):
-            problems.append("含特殊字符")
+            problems.append("contains special characters")
         if col_str != col_str.lower() and col_str != col_str.upper() and "_" not in col_str:
             pass
 
@@ -458,7 +458,7 @@ def check_column_naming(df: pd.DataFrame) -> dict:
             issues.append({
                 "column": col_str,
                 "problems": problems,
-                "suggestion": f"列名「{col_str}」{'、'.join(problems)}，建议重命名为 snake_case 格式",
+                "suggestion": f"Column name '{col_str}' {'; '.join(problems)}; consider renaming to snake_case",
             })
 
     has_mixed_case = False
@@ -474,10 +474,10 @@ def check_column_naming(df: pd.DataFrame) -> dict:
     if len(col_styles) > 1:
         has_mixed_case = True
         issues.append({
-            "column": "(全局)",
-            "problems": ["大小写风格不统一"],
+            "column": "(global)",
+            "problems": ["inconsistent letter case style"],
             "styles_found": list(col_styles),
-            "suggestion": "列名大小写不一致，建议统一为 snake_case",
+            "suggestion": "Column names use inconsistent letter case; consider standardizing on snake_case",
         })
 
     total = max(len(df.columns), 1)
@@ -486,7 +486,7 @@ def check_column_naming(df: pd.DataFrame) -> dict:
     return {"score": max(score, 0), "issues": issues}
 
 
-# --- Dimension 11: 基数异常 ---
+# --- Dimension 11: Cardinality anomalies ---
 
 def check_cardinality(df: pd.DataFrame) -> dict:
     issues = []
@@ -506,7 +506,7 @@ def check_cardinality(df: pd.DataFrame) -> dict:
                     "column": col,
                     "unique_values": nunique,
                     "total_values": len(non_null),
-                    "suggestion": f"数值列「{col}」仅有 {nunique} 个唯一值，可能应标记为分类变量",
+                    "suggestion": f"Numeric column '{col}' has only {nunique} unique values and may be a categorical variable",
                 })
         else:
             if ratio > 0.95 and len(non_null) > 50:
@@ -516,8 +516,8 @@ def check_cardinality(df: pd.DataFrame) -> dict:
                     "unique_values": nunique,
                     "total_values": len(non_null),
                     "cardinality_ratio": round(ratio, 4),
-                    "suggestion": f"文本列「{col}」基数极高（{nunique}/{len(non_null)}），"
-                                  f"可能是自由文本而非分类字段，建议核查",
+                    "suggestion": f"Text column '{col}' has very high cardinality ({nunique}/{len(non_null)}); "
+                                  f"it may be free text rather than a categorical field, please check",
                 })
 
     total = max(len(df.columns), 1)
@@ -525,7 +525,7 @@ def check_cardinality(df: pd.DataFrame) -> dict:
     return {"score": max(score, 0), "issues": issues}
 
 
-# --- Dimension 12: 跨列一致性 ---
+# --- Dimension 12: Cross-column consistency ---
 
 def check_cross_column(df: pd.DataFrame) -> dict:
     issues = []
@@ -575,7 +575,7 @@ def check_cross_column(df: pd.DataFrame) -> dict:
                     "columns": [c1, c2],
                     "violation_count": violations,
                     "violation_pct": pct,
-                    "suggestion": f"「{c1}」应 ≤「{c2}」，但有 {violations} 行（{pct}%）违反此约束，建议核查",
+                    "suggestion": f"'{c1}' should be <= '{c2}', but {violations} rows ({pct}%) violate this constraint; please check",
                 })
         except Exception:
             pass
@@ -595,17 +595,17 @@ def check_cross_column(df: pd.DataFrame) -> dict:
                     issues.append({
                         "columns": [c1, c2],
                         "violation_count": violations,
-                        "suggestion": f"「{c2}」不应大于「{c1}」，但有 {violations} 行违反",
+                        "suggestion": f"'{c2}' should not be greater than '{c1}', but {violations} rows violate this",
                     })
 
     if checks_done == 0:
-        return {"score": 100.0, "issues": [], "note": "未检测到可校验的列对组合，跳过跨列检查"}
+        return {"score": 100.0, "issues": [], "note": "No checkable column pairs detected; cross-column check skipped"}
 
     score = round(100 * (1 - problems / checks_done), 2)
     return {"score": max(score, 0), "issues": issues}
 
 
-# --- 汇总 ---
+# --- Summary ---
 
 def compute_overall_score(results: dict) -> float:
     total_weight = sum(DIMENSION_WEIGHTS.values())
@@ -628,36 +628,36 @@ def collect_top_suggestions(results: dict, top_n: int = 10) -> list[str]:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="数据质检工具：12 维度质量检测，输出评分与修复建议"
+        description="Data quality checker: 12-dimension quality checks with scores and fix suggestions"
     )
-    parser.add_argument("input", help="输入数据文件路径（CSV/TSV/Excel/JSON）")
-    parser.add_argument("--output", "-o", default=None, help="输出 JSON 报告路径")
-    parser.add_argument("--id-columns", "-id", default=None, help="应唯一的 ID 列名，逗号分隔")
-    parser.add_argument("--date-columns", "-dc", default=None, help="日期类型列名，逗号分隔")
-    parser.add_argument("--sample", "-s", type=int, default=None, help="采样行数（大文件使用）")
-    parser.add_argument("--encoding", "-e", default="utf-8", help="文件编码（默认 utf-8）")
+    parser.add_argument("input", help="Input data file path (CSV/TSV/Excel/JSON)")
+    parser.add_argument("--output", "-o", default=None, help="Output JSON report path")
+    parser.add_argument("--id-columns", "-id", default=None, help="ID column names that should be unique, comma-separated")
+    parser.add_argument("--date-columns", "-dc", default=None, help="Date column names, comma-separated")
+    parser.add_argument("--sample", "-s", type=int, default=None, help="Number of rows to sample (for large files)")
+    parser.add_argument("--encoding", "-e", default="utf-8", help="File encoding (default utf-8)")
 
     args = parser.parse_args()
 
     if not os.path.isfile(args.input):
-        print(f"错误：文件不存在 — {args.input}", file=sys.stderr)
+        print(f"Error: file not found - {args.input}", file=sys.stderr)
         sys.exit(1)
 
     try:
         df = load_data(args.input, encoding=args.encoding, sample=args.sample)
     except Exception as e:
-        print(f"错误：无法读取文件 — {e}", file=sys.stderr)
+        print(f"Error: cannot read file - {e}", file=sys.stderr)
         sys.exit(1)
 
     if df.empty:
-        print("错误：文件为空或无有效数据", file=sys.stderr)
+        print("Error: file is empty or has no valid data", file=sys.stderr)
         sys.exit(1)
 
     id_cols = None
     if args.id_columns:
         id_cols = [c.strip() for c in args.id_columns.split(",")]
 
-    print(f"开始质检：{len(df)} 行 × {len(df.columns)} 列", file=sys.stderr)
+    print(f"Starting quality check: {len(df)} rows x {len(df.columns)} columns", file=sys.stderr)
 
     dimensions = {}
     dimensions["missing_values"] = check_missing_values(df)
@@ -695,11 +695,11 @@ def main():
             os.makedirs(out_dir, exist_ok=True)
         with open(args.output, "w", encoding="utf-8") as f:
             f.write(output_json)
-        print(f"报告已保存到 {args.output}", file=sys.stderr)
+        print(f"Report saved to {args.output}", file=sys.stderr)
     else:
         print(output_json)
 
-    print(f"质检完成：总分 {overall}/100（{grade}）", file=sys.stderr)
+    print(f"Quality check complete: overall score {overall}/100 ({grade})", file=sys.stderr)
 
 
 if __name__ == "__main__":

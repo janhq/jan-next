@@ -1,35 +1,35 @@
 ---
 name: work-report-writer
-description: 从当前工作记录整理日报、周报、月报和阶段总结，明确本期交付、结果依据、风险、依赖与下期计划，配合 office-docx 交付可编辑 Word。
+description: Turn current work records into daily, weekly and monthly reports and period summaries, stating deliverables, evidence for results, risks, dependencies and next-period plans, and deliver an editable Word file with office-docx.
 license: MIT
 ---
 
-# 日报 周报与工作总结
+# Daily, Weekly and Period Work Reports
 
-## 明确周期与读者
+## Set the period and the reader
 
-以用户指定的日期、周期和汇报对象组织内容。已提供的记录直接用于制作初稿，必要的缺失信息标为待确认。日报以当天交付和下一工作日安排为主，周报按工作主题合并多日记录，月报与阶段总结对照目标说明结果、原因和下一阶段安排。
+Organize the content around the dates, period and audience the user specifies. Use the records already provided to produce a first draft, and mark necessary missing information as "To be confirmed". A daily report centers on the day's deliverables and the next working day's plan; a weekly report merges multi-day records by work theme; a monthly report or period summary compares results with targets and explains outcomes, causes and the plan for the next stage.
 
-## 从记录形成结果
+## Turn records into results
 
-每项工作写清完成了什么、产出在哪里、当前状态和对业务的影响。完成、进行中、待确认和计划中分别登记。数量、比例与进度依据用户材料，计算时明确分子、分母、单位和统计周期。材料缺少进度时，呈现已完成环节和剩余条件。
+For each item, state what was completed, where the output is, its current status and its business impact. Register completed, in-progress, to-be-confirmed and planned work separately. Quantities, ratios and progress come from the user's materials; when calculating, state the numerator, denominator, unit and period. If the material gives no progress figure, show the steps already finished and the conditions still outstanding.
 
-提交、评审、上线、验收和客户使用分别记录实际完成的阶段。用户提供代码记录时，可在当前工具与权限范围内读取指定仓库和周期，再按工作主题汇总。将发现的材料与用户提供记录交叉核对。
+Record the stage actually reached for submission, review, release, acceptance and customer use separately. When the user supplies code records, read the specified repository and period within the current tools and permissions, then summarize by work theme. Cross-check what you find against the records the user provided.
 
-## 按文种组织
+## Organize by report type
 
-- 日报：今日概览、今日交付、进行中与需协助事项、下一工作日计划。
-- 周报：本周结果、重点工作、问题与依赖、下周计划。
-- 月报和阶段总结：本期结论、目标与实际值、主要交付、问题与处理安排、下期计划、需要协调的支持。
+- Daily report: today's overview, today's deliverables, in-progress items and help needed, next working day's plan.
+- Weekly report: this week's results, key work, issues and dependencies, next week's plan.
+- Monthly report and period summary: conclusion for the period, targets vs. actuals, main deliverables, issues and how they are handled, next-period plan, support that needs coordination.
 
-风险写明影响、责任人、解决条件和当前状态。计划写明交付、负责人、时间和完成依据；未知日期保留待确认。目标、实际值、原因和计划使用一致口径，同一事项按主题汇总一次。
+For each risk, state the impact, the owner, the condition for resolving it and its current status. For each plan item, state the deliverable, owner, time and completion evidence; keep unknown dates as "To be confirmed". Use one consistent basis for targets, actuals, causes and plans, and summarize each item once under its theme.
 
-## 制作和复核
+## Build and review
 
-配合 office-docx 与 load_workspace_dependencies 返回的安装级 Python。用户选择案例时，用 office_template 获取工作副本，参考案例的标题层级、正文样式和表格列宽，按用户实际记录替换全文。日报通常一页，较长总结按内容自然分页，表头重复、行高自动、标题与正文相邻。
+Work with office-docx and the installed-level Python returned by load_workspace_dependencies. When the user selects an example, fetch a working copy with office_template, follow the example's heading levels, body styles and table column widths, and replace the entire text with the user's actual records. A daily report is usually one page; longer summaries paginate naturally by content, with repeating table headers, automatic row height and headings kept next to their body text.
 
-核对周期、状态、数字、日期、责任人与交付依据。用官方 Kit 导出 PDF 并逐页检查，最终用 present 交付可编辑 DOCX。案例中的项目、人物、时间和结果提供演示结构，实际报告依据当前材料生成。
+Check the period, status, numbers, dates, owners and the evidence for each deliverable. Export a PDF with the official Kit and inspect it page by page, then deliver the editable DOCX with present. The projects, people, times and results in the example only demonstrate structure; the actual report is generated from the current materials.
 
-## 来源与维护
+## Sources and maintenance
 
-起点为用户提供的“开源skill-185个 (1).zip”中的 work-report-writer，经原 Office PR 迁入。本版由 DSH Desktop 重写材料整理、日期与进度口径、Word 交付规则；保留原 MIT 许可。
+The starting point is work-report-writer from the user-provided "open-source skill-185 (1).zip", brought in through the original Office PR. This version was rewritten by DSH Desktop with new rules for organizing materials, date and progress basis, and Word delivery; the original MIT license is kept.

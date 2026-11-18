@@ -18,7 +18,7 @@ try {
   const { templateTool } = await import('../lib/template-tool.js')
   const { createDocxWorkflow, docxWriteTool } = await import('../lib/docx-workflow.js')
   const names = (await ctx.skills.list()).map(item => item.name)
-  console.log('Office skills:', names.filter(name => name.startsWith('office-') || ['meeting-recap', 'saas-metrics-coach', 'gov-doc-writing'].includes(name)))
+  console.log('Office skills:', names.filter(name => name.startsWith('office-') || ['meeting-recap', 'saas-metrics-coach', 'official-notice-writer'].includes(name)))
   console.log('Office tools:', ctx.tools.definitions().map(item => item.name).filter(name => /office|dependencies/.test(name)))
   const library = await createTemplateLibrary(join(resources, 'templates'))
   const sessionId = `office-proof-${crypto.randomUUID()}`

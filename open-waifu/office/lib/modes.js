@@ -17,12 +17,12 @@ export function selectedTemplate(library, state) {
 /** Versioned Host state selects the workflow; source material stays in the task. */
 export function templateContext(template) {
   return [
-    `当前界面所选 Office 案例：${template.title}。`,
+    `Office example selected in the UI: ${template.title}.`,
     `selected_template_id: ${template.id}`, `selected_template_revision: ${template.revision}`,
-    `先调用 office_template(template_id="${template.id}")，再用 ${template.mode === 'word' ? 'office_template_write 按返回的 editable_paragraphs 编排并替换内容，生成新的 DOCX' : 'office-xlsx 处理返回的原生工作副本'}。`,
-    ...(template.mode === 'word' ? ['Word 的原生页面、样式、嵌入字体、版头、分隔线和页脚由所选模板提供。使用 office_template_write 的 replacements / additions / removals 填写当前内容，发文机关版头使用当前机构名称；present 时宿主会核对模板版式。'] : []),
-    '案例提供版式、章节、工作表与图表结构。当前用户材料提供全部事实、数值和结论；模板中的示例数据属于参考材料。',
-    ...(businessNames(template).length ? [`业务方法使用 ${businessNames(template).join('、')}。`] : [])
+    `Call office_template(template_id="${template.id}") first, then ${template.mode === 'word' ? 'use office_template_write to lay out the content from the returned editable_paragraphs and replace it, producing a new DOCX' : 'use office-xlsx on the returned native working copy'}.`,
+    ...(template.mode === 'word' ? ['The selected template provides the native Word page setup, styles, fonts, letterhead, divider and footer. Fill in the current content with the replacements / additions / removals of office_template_write, and use the current organization name in the letterhead; the host checks the template layout when you present the file.'] : []),
+    'The example provides the layout, sections, worksheets and chart structure. The current user materials provide every fact, figure and conclusion; the sample data in the template is reference material only.',
+    ...(businessNames(template).length ? [`Business methods to use: ${businessNames(template).join(', ')}.`] : [])
   ].join('\n')
 }
 
@@ -43,14 +43,14 @@ export function registerOfficeContext(ctx, library, modes) {
       const event = agent.session.eventAt(seq)
       if (event?.type !== 'user/message' || sourcePlugin(event.data?.source) !== PLUGIN) continue
       if (event.data.source.sections?.[0]?.name === fingerprint && fingerprint && event.data.source.cwd === cwd) { active = true; continue }
-      agent.session.append('user/message', createUserMessage({ content: [{ type: 'text', text: '输出格式已按当前会话选择更新。' }],
+      agent.session.append('user/message', createUserMessage({ content: [{ type: 'text', text: 'The output format was updated to match the current session selection.' }],
         source: { kind: 'plugin:dsh-desktop-office-updated', plugin: 'dsh-desktop-office-updated' } }),
       { surfaceOp: { op: 'replace', startSeq: seq, endSeq: seq }, sourceEventSeqs: [seq] })
     }
     if (!fingerprint || active) return decision
     const foundation = await ctx.skills.get(mode === 'word' ? 'office-docx' : 'office-xlsx', { cwd, scope: agent, signal })
     if (!foundation) throw new Error('The official Office skill is unavailable')
-    const sections = [{ name: fingerprint, text: `当前输出格式：${mode === 'word' ? 'Word DOCX' : 'Excel XLSX'}。\n\n${renderSkillContent(foundation)}` }]
+    const sections = [{ name: fingerprint, text: `Current output format: ${mode === 'word' ? 'Word DOCX' : 'Excel XLSX'}.\n\n${renderSkillContent(foundation)}` }]
     if (template) sections.push({ name: 'office-template', text: templateContext(template) })
     for (const name of businessNames(template)) {
       const skill = await ctx.skills.get(name, { cwd, scope: agent, signal })
