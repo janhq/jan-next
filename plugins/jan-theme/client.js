@@ -9,8 +9,9 @@ window.__ModuleLoader__.load({
     const {
       IconPluginPinwheelOutlineRegular, IconCheckOutlineRegular, IconFolderCloseRegular, IconSettingsOutlineMedium,
       IconNewChatOutlineMedium, IconNewChatOutlineRegular, IconProjectAddOutlineRegular, IconSearchOutlineRegular,
-      MenuItemButton, ShortcutKeys, Button, Switch, IconPlusOutlineRegular, IconLayersOutlineRegular,
+      MenuItemButton, Button, Switch, IconLayersOutlineRegular,
       IconLightOutlineMedium, IconApiOutlineMedium, IconSkillOutlineMedium,
+      NavRow, SectionHeading, ColorSwatchGroup, ProjectCard, WindowControls,
     } = require('@janhq/jan-client-ui-primitives')
     // Optional: the matching host publishes the dock model seat. An older
     // host leaves the composer's own selector in place instead.
@@ -83,12 +84,10 @@ window.__ModuleLoader__.load({
         h('h2', { id: `${uid}-title` }, 'Interface'),
         h('div', { className: 'jt-interface-row' },
           h('div', null, h('h3', null, 'Accent color'), h('p', null, 'Customize the accent color of the application.')),
-          h('div', { className: 'jt-color-options', role: 'group', 'aria-label': 'Accent color' }, PALETTES.map(palette => h('button', {
-            key: palette[0], type: 'button', className: 'jt-color-swatch', disabled: busy,
-            title: palette[1], 'aria-label': palette[1], 'aria-pressed': value.accent === palette[0],
-            style: { backgroundColor: palette[0] === 'gray' ? 'var(--dsw-alias-bg-base)' : palette[2] },
-            onClick: () => save({ ...value, accent: palette[0] }),
-          })))),
+          h(ColorSwatchGroup, {
+            label: 'Accent color', value: value.accent, disabled: busy, onChange: accent => save({ ...value, accent }),
+            swatches: PALETTES.map(palette => ({ id: palette[0], label: palette[1], color: palette[0] === 'gray' ? 'var(--dsw-alias-bg-base)' : palette[2] })),
+          })),
         h('div', { className: 'jt-interface-row' },
           h('div', null, h('h3', null, 'Colored user bubbles'), h('p', null, 'Use the accent color for your messages.')),
           h(Switch, { label: 'Colored user bubbles', checked: value.coloredUserBubble, disabled: busy, onChange: checked => save({ ...value, coloredUserBubble: checked }) })),
@@ -293,20 +292,13 @@ window.__ModuleLoader__.load({
 .jt-appearance h2, .jt-appearance h3 { text-wrap: balance; font-size: 16px; font-weight: 500; margin: 0; }
 .jt-appearance p { text-wrap: pretty; color: var(--dsw-alias-label-secondary); margin-block: 6px; line-height: 1.5; }
 .jt-interface-row { display: flex; align-items: center; justify-content: space-between; gap: 32px; padding-block: 12px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
-.jt-color-options { display: flex; flex-wrap: wrap; gap: 6px; max-width: 180px; flex-shrink: 0; padding: 4px; }
-.jt-color-swatch { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--dsw-alias-bg-layer-2); cursor: pointer; }
-.jt-color-swatch[aria-pressed='true'] { outline: 2px solid var(--jt-accent); outline-offset: 2px; border-color: transparent; }
-.jt-color-swatch:focus-visible { outline: 2px solid var(--dsw-alias-label-primary); outline-offset: 3px; }
 @media (max-width: 640px) { .jt-interface-row { flex-wrap: wrap; gap: 12px; } }
 @font-face { font-family: 'Inter'; font-display: swap; font-weight: 100 900; src: url('/jan-theme/assets/InterVariable.woff2') format('woff2'); }
 @font-face { font-family: 'StudioFeixenSans'; font-display: swap; font-weight: 500; src: url('/jan-theme/assets/StudioFeixenSans-Medium.otf') format('opentype'); }
 .jt-name { font-family: 'StudioFeixenSans', 'Inter', sans-serif; font-size: 16px; font-weight: 500; color: var(--dsw-alias-label-primary); }
 .jt-titlebar { position: fixed; inset: 0 0 auto 0; height: var(--jan-windows-titlebar-height); z-index: 40; pointer-events: none; }
 .jt-titlebar > .jt-drag { position: absolute; inset: 0 140px 0 280px; pointer-events: auto; }
-.jt-controls { position: absolute; top: 0; right: 0; display: flex; height: 100%; pointer-events: auto; }
-.jt-controls button { width: 46px; height: 100%; border: 0; background: transparent; color: var(--dsw-alias-label-secondary); display: inline-flex; align-items: center; justify-content: center; cursor: default; }
-.jt-controls button:hover { background: color-mix(in oklch, var(--dsw-alias-label-primary) 10%, transparent); color: var(--dsw-alias-label-primary); }
-.jt-controls button.jt-close:hover { background: #c42b1c; color: #fff; }
+.jt-controls { position: absolute; top: 0; right: 0; pointer-events: auto; }
 /* The stock shell's public data-slot anchors and frame data attributes delimit these
    rules. Only the shipped shell's immediate structure is styled; no hashed
    classes, DOM moves, or blanket slot suppression. A replaced parent owns its
@@ -396,20 +388,6 @@ window.__ModuleLoader__.load({
      the last row (blue with the accent, grey with the base). Drop the overlay;
      the list keeps its own clip. */
   html[data-jan-theme] [data-slot='sidebar.workspaces'] > div > div > div:has([role='tree']) > span:last-child { display: none; }
-  /* Jan's plain navigation rows. The leaves supply the real callbacks; the
-     shell owns only how New chat / Search / Projects / Plugins read. */
-  .jt-nav-row { display: flex; align-items: center; gap: 8px; width: 100%; height: 36px; margin: 0 0 2px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 14px; font-weight: 400; line-height: 20px; text-align: left; cursor: pointer; }
-  .jt-nav-row > svg { flex: none; color: var(--dsw-alias-label-secondary); }
-  .jt-nav-row:hover { background: var(--dsw-alias-interactive-bg-hover); }
-  .jt-nav-row:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -2px; }
-  .jt-nav-row[data-current] { background: var(--dsw-alias-interactive-bg-hover); }
-  /* Row + hover quick-create: the "+" sits over the row's right edge and
-     shows while the row is hovered or anything in it has focus. */
-  .jt-nav-item { position: relative; }
-  .jt-nav-quick { position: absolute; top: 6px; right: 6px; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; opacity: 0; }
-  .jt-nav-item:hover > .jt-nav-quick, .jt-nav-item:focus-within > .jt-nav-quick { opacity: 1; }
-  .jt-nav-quick:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
-  .jt-nav-quick:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -2px; opacity: 1; }
   /* The stock More launcher keeps its own 32px / 12px-radius pill; Jan draws
      it as one more nav row so the column has a single row rhythm. */
   html[data-jan-theme] button[aria-label][aria-haspopup='menu'][class*='panelRow'] { height: 36px; padding: 0 8px; border-width: 0; border-radius: 6px; gap: 8px; }
@@ -423,23 +401,11 @@ window.__ModuleLoader__.load({
   .jt-projects-search:focus-within { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -1px; }
   .jt-projects-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 14px; }
   .jt-projects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
-  .jt-project-card { display: flex; flex-direction: column; align-items: stretch; gap: 6px; width: 100%; min-height: 104px; padding: 16px; border: 1px solid var(--dsw-alias-border-primary, var(--dsw-alias-separator)); border-radius: 12px; background: var(--dsw-alias-bg-primary, transparent); color: inherit; font: inherit; text-align: left; cursor: pointer; }
-  .jt-project-card:hover { background: var(--dsw-alias-interactive-bg-hover); }
-  .jt-project-card:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 2px; }
-  .jt-project-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 500; line-height: 22px; }
-  .jt-project-title > svg { flex: none; color: var(--dsw-alias-label-secondary); }
-  .jt-project-path { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--dsw-alias-label-secondary); font-size: 12px; direction: rtl; text-align: left; }
-  .jt-project-meta { margin-top: auto; color: var(--dsw-alias-label-tertiary); font-size: 12px; }
   .jt-projects-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 64px 0; color: var(--dsw-alias-label-secondary); font-size: 14px; }
   @media (max-width: 600px) { .jt-projects { padding: 24px 16px; } }
-  .jt-nav-row[data-rail] { justify-content: center; padding: 0; }
-  .jt-nav-row[data-rail] > svg { color: inherit; }
-  .jt-nav-label { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-  .jt-nav-row > .jt-nav-shortcut { margin-left: auto; color: var(--dsw-alias-label-secondary); font-size: 12px; }
   /* Jan's "Chats" heading. The browser-owned search and view-options nodes stay
      mounted inside it; only their presentation folds while search is open. */
   .jt-list-header { flex: none; display: flex; align-items: center; gap: 4px; height: 36px; margin: 2px -4px 4px 0; padding-left: var(--jan-sidebar-row-padding, 12px); color: var(--dsw-alias-label-tertiary); }
-  .jt-list-heading { flex: none; font-size: 13px; font-weight: 500; line-height: 20px; color: var(--dsw-alias-label-secondary); }
   .jt-list-tools { display: flex; align-items: center; gap: 4px; min-width: 0; margin-left: auto; }
   .jt-list-actions { display: flex; align-items: center; }
   .jt-list-header[data-search-expanded] .jt-list-heading, .jt-list-header[data-search-expanded] .jt-list-actions { display: none; }
@@ -501,39 +467,14 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       }, [])
       return h('div', { className: 'jt-titlebar' },
         h('div', { className: 'jt-drag', 'data-tauri-drag-region': '' }),
-        !mac && h('div', { className: 'jt-controls' },
-          h('button', { type: 'button', 'aria-label': 'Minimize', onClick: () => win('minimize') }, svg(h('path', { d: 'M0 5h10' }))),
-          h('button', { type: 'button', 'aria-label': maximized ? 'Restore' : 'Maximize', onClick: () => win('toggle_maximize').then(sync) },
-            svg(maximized ? h('path', { d: 'M2.5 2.5V.5h7v7h-2M.5 2.5h7v7h-7z' }) : h('rect', { x: 0.5, y: 0.5, width: 9, height: 9 }))),
-          h('button', { type: 'button', className: 'jt-close', 'aria-label': 'Close', onClick: () => win('close') }, svg(h('path', { d: 'M0 0l10 10M10 0L0 10' })))))
+        !mac && h(WindowControls, {
+          className: 'jt-controls', maximized,
+          labels: { minimize: 'Minimize', maximize: 'Maximize', restore: 'Restore', close: 'Close' },
+          onMinimize: () => win('minimize'), onToggleMaximize: () => win('toggle_maximize').then(sync), onClose: () => win('close'),
+        }))
     }
 
     const SidebarMark = () => h('span', { className: 'jt-sidebar-mark', 'aria-hidden': true })
-
-    // One row shape for the sidebar controls Jan keeps plain. The rail keeps
-    // the glyph and its accessible name; wide rows add the label and hint.
-    function NavRow({ icon, label, shortcutKeys, shortcutAria, rail, buttonRef, current, onClick, quick }) {
-      const row = h('button', {
-        type: 'button', className: 'jt-nav-row', 'data-rail': rail || undefined,
-        'data-current': current || undefined, 'aria-current': current ? 'page' : undefined,
-        'aria-label': label, title: rail ? label : undefined,
-        'aria-keyshortcuts': shortcutAria, ref: buttonRef, onClick,
-      }, icon,
-        !rail && h('span', { className: 'jt-nav-label' }, label),
-        !rail && shortcutKeys !== undefined && shortcutKeys.length > 0
-        && h(ShortcutKeys, { keys: shortcutKeys, className: 'jt-nav-shortcut' }))
-      if (rail || quick === undefined) return row
-      // The quick-create button is a sibling, not a child: a button cannot
-      // nest inside the row's button. It shows on row hover or focus.
-      return h('div', { className: 'jt-nav-item' }, row,
-        h('button', {
-          type: 'button', className: 'jt-nav-quick', 'aria-label': quick.label, title: quick.label,
-          onClick: (event) => {
-            event.stopPropagation()
-            quick.onClick()
-          },
-        }, h(IconPlusOutlineRegular, { size: 14, 'aria-hidden': true })))
-    }
 
     const NewSession = ({ wide, onStart, shortcutKeys, shortcutAria, t }) => h(NavRow, {
       icon: h(wide ? IconNewChatOutlineMedium : IconNewChatOutlineRegular, { size: wide ? 16 : 18 }),
@@ -582,7 +523,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
     // the view-options node keeps its menu state the same way.
     const WorkspaceHeader = ({ wide, searchExpanded, search, viewOptions, t }) => wide
       ? h('div', { className: 'jt-list-header', 'data-search-expanded': searchExpanded || undefined },
-        h('span', { className: 'jt-list-heading' }, t('chats')),
+        h(SectionHeading, { as: 'span', className: 'jt-list-heading' }, t('chats')),
         h('div', { className: 'jt-list-tools' }, search, h('div', { className: 'jt-list-actions' }, viewOptions)))
       : null
 
@@ -667,12 +608,10 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
             h(IconFolderCloseRegular, { size: 32, 'aria-hidden': true }),
             h('p', null, t('projects.empty')))
           : h('ul', { className: 'jt-projects-grid' }, rows.map(row => h('li', { key: row.workspaceId },
-            h('button', { type: 'button', className: 'jt-project-card', title: row.path, onClick: () => { startSession(row.workspaceId) } },
-              h('span', { className: 'jt-project-title' }, h(IconFolderCloseRegular, { size: 16, 'aria-hidden': true }), row.title),
-              h('span', { className: 'jt-project-path' }, row.path),
-              h('span', { className: 'jt-project-meta' },
-                t(row.sessionIds.length === 1 ? 'projects.chat' : 'projects.chats', { count: row.sessionIds.length }),
-                ' · ', t('projects.updated', { ago: relative(row.updatedAt) })))))))
+            h(ProjectCard, {
+              title: row.title, path: row.path, onClick: () => { startSession(row.workspaceId) },
+              meta: [t(row.sessionIds.length === 1 ? 'projects.chat' : 'projects.chats', { count: row.sessionIds.length }), ' · ', t('projects.updated', { ago: relative(row.updatedAt) })].join(''),
+            })))))
     }
 
     return {
