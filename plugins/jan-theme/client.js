@@ -399,9 +399,9 @@ window.__ModuleLoader__.load({
      shell owns only how New chat / Search / Projects / Plugins read. */
   .jt-nav-row { display: flex; align-items: center; gap: 8px; width: 100%; height: 36px; margin: 0 0 2px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 14px; font-weight: 400; line-height: 20px; text-align: left; cursor: pointer; }
   .jt-nav-row > svg { flex: none; color: var(--dsw-alias-label-secondary); }
-  .jt-nav-row:hover { background: var(--dsw-specific-sidebar-nav-item-hover); }
+  .jt-nav-row:hover { background: var(--dsw-alias-interactive-bg-hover); }
   .jt-nav-row:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -2px; }
-  .jt-nav-row[data-current] { background: var(--dsw-specific-sidebar-nav-item-active); }
+  .jt-nav-row[data-current] { background: var(--dsw-alias-interactive-bg-hover); }
   /* Row + hover quick-create: the "+" sits over the row's right edge and
      shows while the row is hovered or anything in it has focus. */
   .jt-nav-item { position: relative; }
