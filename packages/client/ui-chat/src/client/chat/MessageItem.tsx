@@ -184,7 +184,7 @@ function TurnErrorItem({ node, t, canOpenModelsSettings, openModelsSettings, rec
   t: ChatViewSlotProps['t']
   canOpenModelsSettings: boolean
   openModelsSettings: () => void
-  recovery?: ContextRecovery
+  recovery: ContextRecovery | undefined
   /** True while a retry would answer this very failure. */
   current: boolean
 }) {

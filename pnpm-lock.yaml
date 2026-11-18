@@ -3935,6 +3935,9 @@ importers:
       '@janhq/jan-agent':
         specifier: workspace:*
         version: link:../../core/agent
+      '@janhq/jan-api-llama-cpp-controller':
+        specifier: workspace:*
+        version: link:../../api/llama-cpp-controller
       '@janhq/jan-api-remotes':
         specifier: workspace:*
         version: link:../../api/remotes

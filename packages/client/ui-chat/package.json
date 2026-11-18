@@ -60,6 +60,7 @@
   "devDependencies": {
     "@janhq/cordis": "workspace:~",
     "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-api-llama-cpp-controller": "workspace:*",
     "@janhq/jan-api-remotes": "workspace:*",
     "@janhq/jan-api-session-controller": "workspace:*",
     "@janhq/jan-api-workspace-controller": "workspace:*",

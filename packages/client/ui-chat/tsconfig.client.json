@@ -25,6 +25,9 @@
       "path": "../../api/remotes/tsconfig.client.json"
     },
     {
+      "path": "../../api/llama-cpp-controller"
+    },
+    {
       "path": "../../api/session-controller/tsconfig.client.json"
     },
     {
