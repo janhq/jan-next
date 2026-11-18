@@ -1,5 +1,6 @@
 window.__ModuleLoader__.load({ id: '@janhq/jan-office-templates', factory: require => {
   const React = require('react'), h = React.createElement
+  const { Pager } = require('@janhq/jan-client-ui-primitives')
   const NS = 'office-templates', EVENT = 'office-templates-mode-change', staged = '@staged'
   const zh = { templates: '选择案例', preview: '查看案例', use: '做同款', close: '关闭预览', previous: '上一页', next: '下一页',
     select: '选用案例', loading: '正在加载…', retry: '重新加载', remove: '取消选择案例', selected: '已选案例',
@@ -182,8 +183,9 @@ window.__ModuleLoader__.load({ id: '@janhq/jan-office-templates', factory: requi
         : h('img', { src: preview[0].image, alt: `${item.title} · ${pageLabel}`, draggable: false })
         : error ? h('div', { role: 'alert' }, error, h('button', { type: 'button', onClick: () => setRetry(value => value + 1) }, t('retry'))) : h('span', { role: 'status' }, t('loading'))),
       actionError ? h('p', { role: 'alert' }, actionError) : null,
-      h('footer', null, h('div', { className: 'ot-pagination' }, h('button', { type: 'button', disabled: page === 1, onClick: () => move(page - step), 'aria-label': t(spread ? 'previousSpread' : 'previous') }, '‹'),
-        h('span', { role: 'status', 'aria-live': 'polite' }, pageLabel), h('button', { type: 'button', disabled: page + step > item.pages, onClick: () => move(page + step), 'aria-label': t(spread ? 'nextSpread' : 'next') }, '›')),
+      h('footer', null, h(Pager, { className: 'ot-pagination', label: pageLabel,
+        previousLabel: t(spread ? 'previousSpread' : 'previous'), nextLabel: t(spread ? 'nextSpread' : 'next'),
+        previousDisabled: page === 1, nextDisabled: page + step > item.pages, onPrevious: () => move(page - step), onNext: () => move(page + step) }),
         choose ? h('button', { type: 'button', className: 'ot-use', disabled: busy || !!error || !preview, onClick: async () => { if (await choose(item) && active.current) close() } }, busy ? t('loading') : t('use')) : null))
   }
 
@@ -258,8 +260,6 @@ window.__ModuleLoader__.load({ id: '@janhq/jan-office-templates', factory: requi
 .ot-page>[role]{display:grid;place-content:center;gap:12px;text-align:center;padding:16px;overflow-wrap:anywhere}
 .ot-page>[role] button{padding:0 14px;justify-self:center}
 .ot-modal footer{justify-content:center;flex-wrap:wrap;font-size:13px;font-variant-numeric:tabular-nums}
-.ot-pagination{display:flex;align-items:center;justify-content:center;gap:12px;color:var(--dsw-alias-label-primary);font-size:13px;font-variant-numeric:tabular-nums}
-.ot-pagination button{display:grid;place-items:center;width:32px;height:32px}
 .ot-modal .ot-use{width:auto;padding:0 14px;margin-left:8px;background:var(--dsw-alias-label-primary);color:var(--dsw-alias-bg-base);border-color:transparent;font-size:13px}
 .ot-modal .ot-use:hover:enabled{background:var(--dsw-alias-label-primary)}
 .ot-modal .ot-sheets button{min-width:0;min-height:28px;padding:5px 10px;border:0;border-radius:999px;background:transparent;font-size:11px;color:var(--dsw-alias-label-caption)}
