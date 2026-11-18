@@ -14,7 +14,7 @@ function view(ns: string, revision = 0) {
 async function bench(served: string[]) {
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
-  ctx.provide('locale', new LocaleRuntime(ctx, undefined, { languages: ['en'] }))
+  ctx.provide('locale', new LocaleRuntime(ctx, undefined, { languages: ['en'], preference: null }))
   const describe = vi.fn(async () => ({ ok: true as const, value: {
     writable: true, hasDocument: true, namespaces: served.map(ns => view(ns)),
   } }))
