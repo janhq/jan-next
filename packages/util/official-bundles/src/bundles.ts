@@ -35,6 +35,7 @@ export const PROFILE_TEMPLATES: Record<string, ProfileTemplate> = {
  */
 export const INSTALLATION_OWNED_PROFILE_TUPLES: Readonly<Record<string, readonly string[]>> = {
   headless: ['@janhq/jan-base', '@janhq/jan-web-app', '@janhq/jan-headless'],
+  // Former Desktop default, not the current template. App-boot checks this tuple only once per profile.
   desktop: ['@janhq/jan-base', '@janhq/jan-web-app'],
 }
 

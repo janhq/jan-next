@@ -1,7 +1,7 @@
 /** Shipped profile templates, and the offline catalog that does not depend on installed provider packages or registry requests. */
 
 import { describe, expect, it } from 'vitest'
-import { OFFICIAL_ON_DEMAND_CATALOG, ON_DEMAND_BUNDLES, PROFILE_TEMPLATES } from '../src/index.ts'
+import { INSTALLATION_OWNED_PROFILE_TUPLES, OFFICIAL_ON_DEMAND_CATALOG, ON_DEMAND_BUNDLES, PROFILE_TEMPLATES } from '../src/index.ts'
 
 describe('Official on-demand catalog', () => {
   it('offers exactly the two native subagent integrations with offline localized metadata', () => {
@@ -29,5 +29,9 @@ describe('Shipped profile templates', () => {
       sdk: { bundles: ['@janhq/jan-base', '@janhq/jan-sdk-app'] },
       'sdk-minimal': { bundles: ['@janhq/jan-sdk-minimal'] },
     })
+  })
+
+  it('keeps the former Desktop default separate from the current Desktop template', () => {
+    expect(INSTALLATION_OWNED_PROFILE_TUPLES.desktop).toEqual(['@janhq/jan-base', '@janhq/jan-web-app'])
   })
 })
