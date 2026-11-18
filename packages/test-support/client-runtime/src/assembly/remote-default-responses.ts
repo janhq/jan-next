@@ -42,6 +42,11 @@ export const remoteDefaultResponses: RemoteTable = {
     // ui-settings-account bonus notice read and acknowledgement at signing in.
     'account/getUnnotifiedBonuses': ok(null),
     'account/ackBonusNotified': ok(true),
+    // ui-plugin-i18n `PluginI18nClient.read()` at access and on `connection/reset`: nothing stored, nothing consented.
+    'pluginI18n/statuses': ok([]),
+    'pluginI18n/consent': ok({ global: false, packages: [] }),
+    'pluginI18n/route': ok({ provider: 'tokamak-official', model: 'tokamak-1-preview', source: 'default' }),
+    'pluginI18n/tables': ok({ locale: 'en', packages: {}, strings: {}, runtime: {} }),
   },
   // Stream endpoints the roster opens later than boot; declared so a spec that forgets the script gets a stream miss.
   streams: [
