@@ -1,16 +1,19 @@
 /**
  * Client half of plugin translation: loads generated tables into the locale runtime, offers and runs translation
- * of a package, and serves cached translations of runtime strings such as tool titles.
+ * of a package, serves cached translations of runtime strings such as tool titles, and translates the text a
+ * consented plugin renders itself on screen.
  */
 import type { Context as ClientContext } from '@janhq/cordis'
 import type { LocalizedText } from '@janhq/jan-package-manifest'
 import type {
   PluginI18nConsent, PluginI18nJob, PluginI18nRoute, PluginI18nStatus,
 } from '@janhq/jan-api-remotes/client'
+import type { PluginI18nRouteChoices, PluginI18nRouteRef } from '@janhq/jan-host-plugin-i18n/types'
 import { createSnapshotStore, type SnapshotStore } from '@janhq/jan-client-store'
 import type { HostObservable } from '@janhq/jan-client-ui-slots'
 import { NamespaceOwnership } from './ownership.ts'
 import { mismatchesLocale } from './script.ts'
+import { ScreenTranslator } from './screen.ts'
 import { collectSources, lacksDictionary, metaLacksLocale } from './sources.ts'
 
 /** Delay that gathers the titles of one render pass into one request. */
@@ -28,6 +31,18 @@ export interface PluginI18nState {
   readonly route: PluginI18nRoute | null
   /** Stored text and the latest job by package. */
   readonly statuses: Readonly<Record<string, PluginI18nStatus>>
+  /** Text each package rendered itself that has a stored translation in the active locale, by package. */
+  readonly screen: Readonly<Record<string, readonly ScreenString[]>>
+  /** Why the latest on-screen translation request of a package failed; absent while the last one worked. */
+  readonly failures: Readonly<Record<string, string>>
+}
+
+/** One string a plugin drew on screen and its stored translation. */
+export interface ScreenString {
+  /** The text as the plugin wrote it. */
+  readonly source: string
+  /** Its translation in the active locale. */
+  readonly text: string
 }
 
 /** Display of runtime strings; replaced on every change so consumers re-render. */
@@ -85,12 +100,23 @@ export interface PluginI18nService extends HostObservable<PluginI18nState> {
    * @param allowed - whether titles of every plugin may be translated.
    */
   setGlobal(allowed: boolean): Promise<void>
+  /**
+   * Read the model translations run on, the person's saved pick, the default model, and the models to pick from.
+   * @returns the choices.
+   */
+  routes(): Promise<PluginI18nRouteChoices>
+  /**
+   * Save the model translations run on, or follow the default model again.
+   * @param route - the model to use, or null for the default model.
+   * @returns the choices after the change.
+   */
+  setRoute(route: PluginI18nRouteRef | null): Promise<PluginI18nRouteChoices>
   /** Read the Host again and load the active locale's tables. */
   refresh(): Promise<void>
 }
 
 const EMPTY_STATE: PluginI18nState = {
-  ready: false, consent: { global: false, packages: [] }, route: null, statuses: {},
+  ready: false, consent: { global: false, packages: [] }, route: null, statuses: {}, screen: {}, failures: {},
 }
 
 /**
@@ -122,6 +148,16 @@ export class PluginI18nClient implements PluginI18nService {
   private readonly settledJobs = new Map<string, ((job: PluginI18nJob) => void)[]>()
   private queue = new Set<string>()
   private timer: ReturnType<typeof setTimeout> | undefined
+  /** Text a package displayed that was asked for in this locale, as `pkg\ntext`; each is asked for once. */
+  private readonly screenRequested = new Set<string>()
+  /** Every text asked for by package in this locale, so Run again can ask for them all again. */
+  private readonly screenSeen = new Map<string, Set<string>>()
+  private readonly screenQueue = new Map<string, Set<string>>()
+  /** Packages whose queued strings are translated again instead of served from the Host's cache. */
+  private readonly screenRerun = new Set<string>()
+  private screenTimer: ReturnType<typeof setTimeout> | undefined
+  private consentedPackages: ReadonlySet<string> = new Set()
+  private readonly screen: ScreenTranslator | undefined
   private refreshing: Promise<void> | undefined
   private again = false
   private disposed = false
@@ -138,9 +174,22 @@ export class PluginI18nClient implements PluginI18nService {
   /**
    * @param ctx - the plugin context with `remote.pluginI18n` and the locale service.
    * @param ownership - attribution of namespaces to packages.
+   * @param doc - the document whose consented plugin regions are translated on screen; none disables the pass.
    */
-  constructor(private readonly ctx: ClientContext, private readonly ownership: NamespaceOwnership) {
+  constructor(
+    private readonly ctx: ClientContext,
+    private readonly ownership: NamespaceOwnership,
+    doc?: Document,
+  ) {
     this.view = this.makeView()
+    this.screen = doc === undefined
+      ? undefined
+      : new ScreenTranslator({
+        consented: () => this.consentedPackages,
+        locale: () => this.locale(),
+        lookup: text => this.cache.get(text),
+        request: (pkg, text) => { this.requestScreen(pkg, text) },
+      }, doc)
   }
 
   getSnapshot(): PluginI18nState {
@@ -151,10 +200,12 @@ export class PluginI18nClient implements PluginI18nService {
     return this.store.subscribe(listener)
   }
 
-  /** Stop timers and drop generated tables. */
+  /** Stop timers, put on-screen text back, and drop generated tables. */
   dispose(): void {
     this.disposed = true
     clearTimeout(this.timer)
+    clearTimeout(this.screenTimer)
+    this.screen?.dispose()
     this.dropTables()
   }
 
@@ -163,9 +214,14 @@ export class PluginI18nClient implements PluginI18nService {
    * Called by the plugin on `locale/change`.
    */
   localeChanged(): void {
+    this.screen?.restore()
     this.cache.clear()
     this.requested.clear()
     this.queue.clear()
+    this.screenRequested.clear()
+    this.screenSeen.clear()
+    this.screenQueue.clear()
+    this.screenRerun.clear()
     this.publishTitles()
     void this.refresh().catch((error: unknown) => { this.ctx.logger.warn(error) })
   }
@@ -228,6 +284,7 @@ export class PluginI18nClient implements PluginI18nService {
   async translate(pkg: string, rerun = false): Promise<PluginI18nJob> {
     const locale = this.locale()
     const { sourceLocale, sources } = collectSources(this.ctx.locale, this.ownership.ownedBy(pkg), locale)
+    if (rerun) this.rerunScreen(pkg)
     this.waiting.add(pkg)
     try {
       const started = await this.ctx.remote.pluginI18n.translate({
@@ -245,6 +302,7 @@ export class PluginI18nClient implements PluginI18nService {
   async clear(pkg: string): Promise<void> {
     const result = await this.ctx.remote.pluginI18n.clear(pkg)
     if (!result.ok) throw result.error
+    this.forgetScreen(pkg)
     await this.refresh()
   }
 
@@ -252,6 +310,19 @@ export class PluginI18nClient implements PluginI18nService {
     const result = await this.ctx.remote.pluginI18n.setConsent({ allowed })
     if (!result.ok) throw result.error
     await this.refresh()
+  }
+
+  async routes(): Promise<PluginI18nRouteChoices> {
+    const result = await this.ctx.remote.pluginI18n.routes()
+    if (!result.ok) throw result.error
+    return result.value
+  }
+
+  async setRoute(route: PluginI18nRouteRef | null): Promise<PluginI18nRouteChoices> {
+    const result = await this.ctx.remote.pluginI18n.setRoute(route)
+    if (!result.ok) throw result.error
+    await this.refresh()
+    return result.value
   }
 
   private locale(): string {
@@ -273,29 +344,41 @@ export class PluginI18nClient implements PluginI18nService {
     if (this.disposed) return
     if (!statuses.ok) throw statuses.error
     if (!consent.ok) throw consent.error
+    this.consentedPackages = new Set(consent.value.packages)
+    const before = this.getSnapshot()
     this.store.set({
       ready: true,
       consent: consent.value,
       route: route.ok ? route.value : null,
       statuses: Object.fromEntries(statuses.value.map(status => [status.pkg, status])),
+      screen: before.screen,
+      failures: before.failures,
     })
-    await this.loadTables()
+    const screen = await this.loadTables()
+    if (screen !== undefined) this.store.set({ ...this.getSnapshot(), screen })
     this.releaseSettled(statuses.value)
     this.publishTitles()
   }
 
-  /** Register the stored text of the active locale; replaces what an earlier read registered. */
-  private async loadTables(): Promise<void> {
+  /**
+   * Register the stored text of the active locale; replaces what an earlier read registered.
+   * @returns the strings each package displayed with their translations, or undefined when the read was superseded.
+   */
+  private async loadTables(): Promise<Record<string, readonly ScreenString[]> | undefined> {
     const locale = this.locale()
     const result = await this.ctx.remote.pluginI18n.tables(locale)
-    if (!result.ok || this.disposed || locale !== this.locale()) return
+    if (!result.ok || this.disposed || locale !== this.locale()) return undefined
     this.dropTables()
     for (const pkg of Object.values(result.value.packages)) {
       for (const [ns, entries] of Object.entries(pkg.entries)) {
         this.disposers.push(this.ctx.locale.registerGenerated(ns, locale, { from: pkg.sourceLocale, entries }))
       }
     }
-    for (const [text, translation] of Object.entries(result.value.strings)) this.cache.set(text, translation)
+    const { strings } = result.value
+    for (const [text, translation] of Object.entries(strings)) this.cache.set(text, translation)
+    return Object.fromEntries(Object.entries(result.value.runtime).map(([pkg, sources]) => [
+      pkg, sources.flatMap(source => strings[source] === undefined ? [] : [{ source, text: strings[source] }]),
+    ]))
   }
 
   private dropTables(): void {
@@ -325,6 +408,86 @@ export class PluginI18nClient implements PluginI18nService {
   private publishTitles(): void {
     this.view = this.makeView()
     for (const listener of [...this.titleListeners]) listener()
+    this.screen?.refresh()
+  }
+
+  /** Queue text a consented package displays for translation, once per text and locale. */
+  private requestScreen(pkg: string, text: string): void {
+    const key = `${pkg}\n${text}`
+    if (this.disposed || this.screenRequested.has(key)) return
+    this.screenRequested.add(key)
+    const seen = this.screenSeen.get(pkg) ?? new Set<string>()
+    seen.add(text)
+    this.screenSeen.set(pkg, seen)
+    const queued = this.screenQueue.get(pkg) ?? new Set<string>()
+    queued.add(text)
+    this.screenQueue.set(pkg, queued)
+    clearTimeout(this.screenTimer)
+    this.screenTimer = setTimeout(() => { void this.flushScreen() }, TITLE_DEBOUNCE_MS)
+  }
+
+  /** Send one package's queued text in a batch and apply the answer; text without a translation is not asked for again. */
+  private async flushScreen(): Promise<void> {
+    const first = this.screenQueue.entries().next()
+    if (first.done) return
+    const [pkg, queued] = first.value
+    const locale = this.locale()
+    const batch = [...queued].slice(0, TITLE_BATCH)
+    for (const text of batch) queued.delete(text)
+    const rerun = this.screenRerun.has(pkg)
+    if (queued.size === 0) {
+      this.screenQueue.delete(pkg)
+      this.screenRerun.delete(pkg)
+    }
+    if (this.screenQueue.size > 0) this.screenTimer = setTimeout(() => { void this.flushScreen() }, TITLE_DEBOUNCE_MS)
+    if (batch.length === 0) return
+    const result = await this.ctx.remote.pluginI18n.translateStrings(batch, locale, pkg, rerun)
+    if (this.disposed || locale !== this.locale() || !this.consentedPackages.has(pkg)) return
+    if (!result.ok) {
+      this.ctx.logger.warn(result.error)
+      this.setFailure(pkg, result.error.message)
+      return
+    }
+    this.setFailure(pkg, undefined)
+    for (const [text, translation] of Object.entries(result.value)) this.cache.set(text, translation)
+    this.publishTitles()
+  }
+
+  private setFailure(pkg: string, reason: string | undefined): void {
+    const state = this.getSnapshot()
+    if (state.failures[pkg] === reason) return
+    const { [pkg]: _dropped, ...rest } = state.failures
+    this.store.set({ ...state, failures: reason === undefined ? rest : { ...rest, [pkg]: reason } })
+  }
+
+  /** Translate a package's on-screen text again: forget what it displayed and ask the Host to translate it afresh. */
+  private rerunScreen(pkg: string): void {
+    const sources = new Set([
+      ...this.screenSeen.get(pkg) ?? [], ...this.getSnapshot().screen[pkg]?.map(row => row.source) ?? [],
+    ])
+    if (sources.size === 0) return
+    for (const text of sources) {
+      this.cache.delete(text)
+      this.screenRequested.delete(`${pkg}\n${text}`)
+    }
+    this.screenRerun.add(pkg)
+    this.publishTitles()
+  }
+
+  /** Drop what a cleared package displayed: the on-screen text goes back and its translations leave the cache. */
+  private forgetScreen(pkg: string): void {
+    const state = this.getSnapshot()
+    const shared = new Set(Object.entries(state.screen).flatMap(([name, rows]) => name === pkg ? [] : rows.map(row => row.source)))
+    for (const text of new Set([...this.screenSeen.get(pkg) ?? [], ...state.screen[pkg]?.map(row => row.source) ?? []])) {
+      if (!shared.has(text)) this.cache.delete(text)
+      this.screenRequested.delete(`${pkg}\n${text}`)
+    }
+    this.screenSeen.delete(pkg)
+    this.screenQueue.delete(pkg)
+    this.screenRerun.delete(pkg)
+    this.consentedPackages = new Set([...this.consentedPackages].filter(name => name !== pkg))
+    this.setFailure(pkg, undefined)
+    this.screen?.refresh()
   }
 
   /** Queue a foreign-script string for translation, once per string and locale. */

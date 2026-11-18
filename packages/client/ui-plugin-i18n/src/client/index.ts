@@ -49,7 +49,7 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-plugin-i18n: dictionaries')
   const t = ctx.locale.bind(NS)
   const ownership = new NamespaceOwnership(() => new Set(ctx.locale.namespaces().map(row => row.ns)))
-  const client = new PluginI18nClient(ctx, ownership)
+  const client = new PluginI18nClient(ctx, ownership, document)
   ctx.effect(() => () => { client.dispose() }, 'ui-plugin-i18n: service')
   trackOwnership(ctx, ownership, (pkg) => { client.activated(pkg) })
   ctx.provide('pluginI18n', client)
@@ -64,12 +64,16 @@ export function apply(ctx: ClientContext): void {
         return { name: bundle.name, title: title === undefined ? bundle.name : ctx.locale.resolveText(title) }
       })
   }
+  // Stable identity: the tab reads the model choices again only when this or the route changes.
+  const routes: PluginTranslationsTabInjected['routes'] = () => client.routes()
   const injected = (): PluginTranslationsTabInjected => ({
     hooks: { translations: client, locale: ctx.locale },
     listPackages,
     translate: (pkg, rerun) => client.translate(pkg, rerun),
     clear: pkg => client.clear(pkg),
     setGlobal: allowed => client.setGlobal(allowed),
+    routes,
+    setRoute: route => client.setRoute(route),
     languageName,
   })
 

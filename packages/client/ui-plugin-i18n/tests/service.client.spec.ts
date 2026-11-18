@@ -15,7 +15,7 @@ function host() {
   const state = {
     statuses: [] as PluginI18nStatus[],
     consent: { global: false, packages: [] } as PluginI18nConsent,
-    tables: { locale: 'ja', packages: {}, strings: {} } as PluginI18nTables,
+    tables: { locale: 'ja', packages: {}, strings: {}, runtime: {} } as PluginI18nTables,
     strings: {} as Record<string, string>,
   }
   const face = {
@@ -80,6 +80,7 @@ describe('PluginI18nClient', () => {
         },
       },
       strings: {},
+      runtime: {},
     }
     await h.client.refresh()
     const t = h.locale.bind('cad')
@@ -92,9 +93,9 @@ describe('PluginI18nClient', () => {
   it('replaces generated tables on every read and drops them on dispose', async () => {
     const h = await harness()
     h.locale.register('cad', 'en', { open: 'Open' })
-    h.state.tables = { locale: 'ja', packages: { p: { sourceLocale: 'en', entries: { cad: { open: { src: 'Open', text: '一' } } } } }, strings: {} }
+    h.state.tables = { locale: 'ja', packages: { p: { sourceLocale: 'en', entries: { cad: { open: { src: 'Open', text: '一' } } } } }, strings: {}, runtime: {} }
     await h.client.refresh()
-    h.state.tables = { locale: 'ja', packages: { p: { sourceLocale: 'en', entries: { cad: { open: { src: 'Open', text: '二' } } } } }, strings: {} }
+    h.state.tables = { locale: 'ja', packages: { p: { sourceLocale: 'en', entries: { cad: { open: { src: 'Open', text: '二' } } } } }, strings: {}, runtime: {} }
     await h.client.refresh()
     expect(h.locale.bind('cad')('open')).toBe('二')
     h.client.dispose()
@@ -152,7 +153,7 @@ describe('PluginI18nClient', () => {
     it('offers nothing once a translation of the locale is stored', async () => {
       const h = await harness('ja')
       h.state.statuses = [{
-        pkg: 'p', consented: true, job: null,
+        pkg: 'p', consented: true, runtime: [], job: null,
         locales: [{ locale: 'ja', sourceLocale: 'en', model: 'p/m', generatedAt: 1, namespaces: [], entries: 0, kept: 0 }],
       }]
       await h.client.refresh()
@@ -176,7 +177,7 @@ describe('PluginI18nClient', () => {
       await vi.advanceTimersByTimeAsync(10)
       expect(settled).toBe(false)
       h.state.statuses = [{
-        pkg: 'dsh-cad', consented: true, locales: [],
+        pkg: 'dsh-cad', consented: true, runtime: [], locales: [],
         job: { pkg: 'dsh-cad', locale: 'ja', state: 'done', done: 1, total: 1 },
       }]
       h.client.hostChanged()
@@ -190,7 +191,7 @@ describe('PluginI18nClient', () => {
       await vi.advanceTimersByTimeAsync(0)
       expect(h.face.translate).toHaveBeenCalledWith(expect.objectContaining({ rerun: true }))
       h.state.statuses = [{
-        pkg: 'p', consented: true, locales: [],
+        pkg: 'p', consented: true, runtime: [], locales: [],
         job: { pkg: 'p', locale: 'ja', state: 'failed', done: 0, total: 1, message: 'offline' },
       }]
       h.client.hostChanged()
@@ -221,7 +222,7 @@ describe('PluginI18nClient', () => {
     const h = await harness('ja')
     h.state.consent = { global: false, packages: ['p'] }
     h.state.statuses = [{
-      pkg: 'p', consented: true, job: null,
+      pkg: 'p', consented: true, runtime: [], job: null,
       locales: [{ locale: 'ja', sourceLocale: 'en', model: 'p/m', generatedAt: 1, namespaces: ['n'], entries: 1, kept: 0 }],
     }]
     await h.client.refresh()
@@ -308,7 +309,7 @@ describe('PluginI18nClient', () => {
     it('shows cached strings the Host returned at start-up only while consent stands', async () => {
       const h = await harness('en')
       h.state.consent = { global: true, packages: [] }
-      h.state.tables = { locale: 'en', packages: {}, strings: { '装配': 'Assembly' } }
+      h.state.tables = { locale: 'en', packages: {}, strings: { '装配': 'Assembly' }, runtime: {} }
       await h.client.refresh()
       expect(h.client.titles.getSnapshot().display('装配')).toBe('Assembly')
       h.state.consent = { global: false, packages: [] }
@@ -324,7 +325,7 @@ describe('PluginI18nClient', () => {
       h.client.titles.getSnapshot().request('装配')
       await vi.advanceTimersByTimeAsync(200)
       expect(h.client.titles.getSnapshot().display('装配')).toBe('Assembly')
-      h.state.tables = { locale: 'ja', packages: {}, strings: {} }
+      h.state.tables = { locale: 'ja', packages: {}, strings: {}, runtime: {} }
       h.locale.setLocale('ja')
       h.client.localeChanged()
       await vi.advanceTimersByTimeAsync(0)

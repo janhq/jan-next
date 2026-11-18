@@ -1,5 +1,5 @@
 ---
-description: "Browser half of plugin translation: stored translations registered as a generated layer of the locale runtime, the ctx.pluginI18n service behind the install offer and translated tool titles, and the Translations tab of Plugins settings."
+description: "Browser half of plugin translation: stored translations registered as a generated layer of the locale runtime, the ctx.pluginI18n service behind the install offer, translated tool titles and descriptions, and on-screen translation of plugin text, and the Translations tab of Plugins settings with its model picker."
 kind: "package-reference"
 ---
 
@@ -7,7 +7,7 @@ kind: "package-reference"
 
 ## Summary
 
-The package reads the Host's [plugin translation](../../host/plugin-i18n/README.md) store, registers each stored table in the locale runtime's generated layer, and provides `ctx.pluginI18n`. The plugin manager's install dialog asks the service whether to offer translation after an install, and the tool card shows cached translations of titles written in another script. The Translations tab in Plugins settings lets the person translate, run again, or clear one plugin, and switch tool-title translation on for every plugin.
+The package reads the Host's [plugin translation](../../host/plugin-i18n/README.md) store, registers each stored table in the locale runtime's generated layer, and provides `ctx.pluginI18n`. The plugin manager's install dialog asks the service whether to offer translation after an install, the tool card shows cached translations of titles and provider descriptions written in another script, and a consented plugin's own panels and its card in the Plugins page are translated on screen. The Translations tab in Plugins settings lets the person pick the translation model, translate, run again, or clear one plugin, and switch tool-title translation on for every plugin.
 
 ## Table of Contents
 
@@ -37,9 +37,13 @@ A stored table registers through `ctx.locale.registerGenerated`, below every reg
 
 `ctx.pluginI18n.titles` is an observable of `{ display, request }`. `display` returns the cached translation of an exact title or the title itself; `request` queues titles written in a script the UI locale does not use, debounced and batched, once per title and locale. Nothing is requested before consent, per package or global. The tool card receives the view through its injected `titles` hook.
 
+### On-screen text
+
+Text a plugin draws itself, and the name, description, and settings the Plugins page shows about it, reach the person through a `MutationObserver` in `screen.ts`. It watches three kinds of region: the `data-plugin-owner` marker the slot renderer puts around every entry a third-party plugin registers, the Plugins page's `data-plugin-package` card and `data-plugin-detail` page, and a part's `data-plugin-row-detail` page. Inside a region whose package the person consented to, text nodes and the `title`, `placeholder`, and `aria-label` attributes written in a script the UI does not use are asked for through `translateStrings` under that package, batched, once per text and locale, and replaced in place when the answer arrives. The original comes back when the plugin is cleared, when it loses consent, and when the language changes. The observer never touches input or textarea values, `contenteditable` regions, `code`, `pre`, `canvas`, `script`, or `style`, and it sends nothing for a package without its own consent; the global switch does not cover it.
+
 ### Settings
 
-The Translations tab lists installed third-party plugins with their stored model and counts, Translate or Run again, Clear, and the global switch.
+The Translations tab opens with a model picker: `Default model (provider/model)` is preselected, the models of every provider follow with local ones first, and a pick is saved by the Host until the person chooses the default again. A note names the model in use when it is not the one the picker shows. Each installed third-party plugin lists its stored model and counts, the number of on-screen strings translated with the list itself, Translate or Run again, Clear, and the global switch.
 
 -----
 
@@ -65,6 +69,7 @@ The locale runtime does not record which plugin registered a namespace. `Namespa
 | [`src/client/ownership.ts`](src/client/ownership.ts) | Package names and namespace attribution |
 | [`src/client/sources.ts`](src/client/sources.ts) | Source selection and locale checks |
 | [`src/client/script.ts`](src/client/script.ts) | The script heuristic |
+| [`src/client/screen.ts`](src/client/screen.ts) | The on-screen translator and its package regions |
 | [`src/client/PluginTranslationsTab.tsx`](src/client/PluginTranslationsTab.tsx) | The settings tab |
 
 </details>

@@ -40,6 +40,9 @@ export function scriptsOf(text: string): ReadonlySet<Script> {
   return new Set(SCRIPT_PATTERNS.flatMap(([script, pattern]) => pattern.test(text) ? [script] : []))
 }
 
+/** A character outside Latin, its extensions, and the general punctuation and symbol blocks. */
+const BEYOND_LATIN = /[^\u0000-\u036f\u2000-\u2bff]/u
+
 /**
  * Read the non-Latin scripts a locale's own text uses.
  * @param locale - a locale tag.
@@ -57,6 +60,8 @@ export function localeScripts(locale: string): readonly Script[] {
  * @returns whether the text contains a script foreign to the locale.
  */
 export function mismatchesLocale(text: string, locale: string): boolean {
+  // Latin, punctuation, and symbol blocks hold none of the tracked scripts; most text ends here without a script scan.
+  if (!BEYOND_LATIN.test(text)) return false
   const allowed = localeScripts(locale)
   for (const script of scriptsOf(text)) if (!allowed.includes(script)) return true
   return false
