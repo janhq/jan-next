@@ -48,7 +48,8 @@ window.__ModuleLoader__.load({
       ['pink', 'Pink', '#D55EF3', '#FFDAE9', '#4D075F'],
       ['rose', 'Rose', '#F655B8', '#F3C4E1', '#61053E'],
     ]
-    let preferences = { accent: PALETTES.find(p => p[2].toLowerCase() === look.primary.toLowerCase())?.[0] || 'blue', coloredUserBubble: false, ...shell.appearance }
+    const DEFAULT_ACCENT = PALETTES.find(p => p[2].toLowerCase() === look.primary.toLowerCase())?.[0] || 'blue'
+    let preferences = { accent: DEFAULT_ACCENT, coloredUserBubble: false, ...shell.appearance }
     const appearanceListeners = new Set()
     let retheme = null
     const applyAppearance = (value) => {
@@ -91,7 +92,7 @@ window.__ModuleLoader__.load({
           h(Switch, { label: 'Colored user bubbles', checked: value.coloredUserBubble, disabled: busy, onChange: checked => save({ ...value, coloredUserBubble: checked }) })),
         h('div', { className: 'jt-interface-row' },
           h('div', null, h('h3', null, 'Reset to default'), h('p', null, 'Reset accent color and user bubble preferences.')),
-          h(Button, { variant: 'outline', disabled: busy, onClick: () => save({ accent: 'gray', coloredUserBubble: false }) }, 'Reset')),
+          h(Button, { variant: 'outline', disabled: busy, onClick: () => save({ accent: DEFAULT_ACCENT, coloredUserBubble: false }) }, 'Reset')),
         h('p', null, 'Theme and font size are in General. Automatic conversation titles are in Plugin manager > Conversation-following titles. Token statistics are in General > Performance usage.'),
         error && h('p', { role: 'alert' }, error), h('p', { role: 'status' }, busy ? 'Saving appearance…' : notice))
     }
@@ -448,6 +449,7 @@ window.__ModuleLoader__.load({
   .jt-projects-head h1 { margin: 0; font-size: 28px; font-weight: 500; line-height: 36px; }
   .jt-projects-head button { display: inline-flex; align-items: center; gap: 6px; }
   .jt-projects-lede { margin: 4px 0 24px; color: var(--dsw-alias-label-secondary); font-size: 14px; line-height: 20px; }
+  .jt-projects-error { margin: -12px 0 20px; color: var(--dsw-alias-state-error-primary); font-size: 14px; line-height: 20px; }
   .jt-projects-search { display: flex; align-items: center; gap: 8px; height: 40px; margin-bottom: 20px; padding: 0 12px; border: 1px solid var(--dsw-alias-border-primary, var(--dsw-alias-separator)); border-radius: 8px; color: var(--dsw-alias-label-secondary); }
   .jt-projects-search:focus-within { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -1px; }
   .jt-projects-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 14px; }
@@ -627,6 +629,16 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
     }
 
     const PROJECTS_PANEL = 'jt-projects'
+    // Last failed project creation, shown on the Projects page; the sidebar
+    // quick action has no surface of its own, so it opens that page.
+    let projectError = ''
+    const projectErrorListeners = new Set()
+    const setProjectError = (message) => { projectError = message; for (const listener of projectErrorListeners) listener(message) }
+    const useProjectError = () => {
+      const [message, update] = React.useState(projectError)
+      React.useEffect(() => { projectErrorListeners.add(update); return () => { projectErrorListeners.delete(update) } }, [])
+      return message
+    }
     // Registered by ui-deliverables; the row appears only while it is.
     const ARTIFACTS_PANEL = 'artifacts'
     // Registered by ui-schedule; the row appears only while it is.
@@ -649,6 +661,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       const rows = [...items]
         .filter(row => needle === '' || row.title.toLowerCase().includes(needle) || row.path.toLowerCase().includes(needle))
         .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+      const error = useProjectError()
       const add = async () => {
         setBusy(true)
         try { await addProject() } finally { setBusy(false) }
@@ -659,6 +672,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           h(Button, { variant: 'primary', size: 'sm', disabled: busy, onClick: () => { void add() } },
             h(IconProjectAddOutlineRegular, { size: 16, 'aria-hidden': true }), t('newProject'))),
         h('p', { className: 'jt-projects-lede' }, t('projects.lede')),
+        error && h('p', { className: 'jt-projects-error', role: 'alert' }, t('projects.addFailed', { reason: error })),
         items.length > 0 && h('label', { className: 'jt-projects-search' },
           h(IconSearchOutlineRegular, { size: 16, 'aria-hidden': true }),
           h('input', { type: 'search', value: query, placeholder: t('projects.search'), 'aria-label': t('projects.search'), onChange: (event) => { setQuery(event.target.value) } })),
@@ -708,9 +722,13 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         ctx.effect(() => () => html.removeAttribute('data-jan-theme'), 'jan-theme: root marker')
 
         ctx.inject(['uiWorkspace'], (scope) => {
-          // Jan's list is a flat Chats list; the public setter persists through
-          // the existing workspace view store, so call it once per mount.
-          scope.uiWorkspace.setSessionGrouping('flat')
+          // Jan's list is a flat Chats list. Apply it once as a default; the
+          // setter persists, so a grouping the user picks later is kept.
+          const key = 'jan-theme:session-grouping-default'
+          if (localStorage.getItem(key) === null) {
+            scope.uiWorkspace.setSessionGrouping('flat')
+            localStorage.setItem(key, 'flat')
+          }
         })
 
         ctx.inject(['locale'], (scope) => {
@@ -730,6 +748,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.empty': 'No projects yet. Create one from a folder on this computer.',
               'projects.chat': '{count} chat', 'projects.chats': '{count} chats',
               'projects.updated': 'updated {ago} ago',
+              'projects.addFailed': 'Could not add the project: {reason}',
               'section.appearance': 'Appearance', 'section.mcp': 'MCP Servers', 'section.skills': 'Skills',
             },
             zh: {
@@ -910,11 +929,17 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
             })
           }
           const addProject = async () => {
-            const path = await scope.uiWorkspace.pickDirectory()
-            if (path === null) return
-            const workspace = await scope.workspaces.create({ path })
-            scope.layout.selectPanel(null)
-            scope.uiWorkspace.startSession(workspace.workspaceId)
+            try {
+              const path = await scope.uiWorkspace.pickDirectory()
+              if (path === null) return
+              const workspace = await scope.workspaces.create({ path })
+              setProjectError('')
+              scope.layout.selectPanel(null)
+              scope.uiWorkspace.startSession(workspace.workspaceId)
+            } catch (failure) {
+              setProjectError(failure instanceof Error ? failure.message : String(failure))
+              scope.layout.selectPanel(PROJECTS_PANEL)
+            }
           }
           scope.slots.inject('sidebar.workspaces.actions', () => scope.slots.register({
             name: 'sidebar.workspaces.actions', priority: -1, locale: 'jan-theme',
