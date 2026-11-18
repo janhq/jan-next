@@ -40,7 +40,10 @@ export interface StartSessionOptions extends DraftInitializationOptions {
 
 /** Workspace archive and directory operations consumed by Client UI domains. */
 export interface UiWorkspace {
-  /** Change the browser's grouping through its existing persisted view store. */
+  /**
+   * Change the browser's grouping through its existing persisted view store.
+   * @param mode - grouping the session list switches to and keeps.
+   */
   setSessionGrouping(mode: SessionGroupBy): void
   /**
    * Select a Session and show its Conversation as one UI navigation action.

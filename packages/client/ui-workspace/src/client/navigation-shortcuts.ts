@@ -6,7 +6,7 @@ import type { NavigationDirection } from './history.ts'
 import type { UiWorkspace } from './navigation.ts'
 
 /** Code editors keep Alt+Arrow and Mod+[ for their own text editing. */
-const TEXT_EDITOR = '.cm-editor, .monaco-editor'
+const CODE_EDITOR_SELECTOR = '.cm-editor, .monaco-editor'
 
 /**
  * Defaults per device. Windows and Linux Desktop use Alt+Arrow, as apps there do. macOS Desktop
@@ -51,7 +51,7 @@ export function installNavigationShortcuts(
       regions: ['page', 'editable'], modals: ['sidebar'],
       resolve: context => !navigation.navigationHistory.getSnapshot()[direction === 'back' ? 'canGoBack' : 'canGoForward']
         || context.region === 'terminal'
-        || context.target?.closest(TEXT_EDITOR) != null
+        || context.target?.closest(CODE_EDITOR_SELECTOR) != null
         ? { status: 'pass' }
         : { status: 'handled', run: () => { go(direction) } },
     }), `ui-workspace: navigation.${direction}`)

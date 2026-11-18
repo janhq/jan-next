@@ -28,12 +28,20 @@ export type NavigationDirection = 'back' | 'forward'
 /**
  * Whether two locations show the same thing. A subagent address is identified by
  * its parent and child: the mode can be resolved later without changing the target.
+ * @param a - first location.
+ * @param b - second location.
+ * @returns true when panel and Session or subagent match.
  */
 export function sameLocation(a: NavigationLocation, b: NavigationLocation): boolean {
   return a.panelId === b.panelId && sameSession(a, b)
 }
 
-/** Whether two locations select the same Session or subagent. */
+/**
+ * Whether two locations select the same Session or subagent.
+ * @param a - first selection.
+ * @param b - second selection.
+ * @returns true when Session id and subagent parent and child match.
+ */
 export function sameSession(
   a: Pick<NavigationLocation, 'sessionId' | 'subagentAddress'>,
   b: Pick<NavigationLocation, 'sessionId' | 'subagentAddress'>,
@@ -63,6 +71,7 @@ export class NavigationHistory {
    * Make `next` the current location as a new navigation: the place left joins
    * Back and Forward is discarded. Re-entering the current location is a no-op,
    * and the first location has nothing to leave.
+   * @param next - location the user navigated to.
    */
   record(next: NavigationLocation): void {
     const current = this.current
@@ -79,7 +88,10 @@ export class NavigationHistory {
     this.publish()
   }
 
-  /** Replace the current location without leaving an entry (startup restoration, system-driven changes). */
+  /**
+   * Replace the current location without leaving an entry (startup restoration, system-driven changes).
+   * @param next - location to show as current.
+   */
   seed(next: NavigationLocation): void {
     this.current = next
   }
@@ -87,6 +99,9 @@ export class NavigationHistory {
   /**
    * The nearest entry in `direction` that `isValid` accepts. Entries it rejects,
    * and entries that show the current location, are dropped on the way.
+   * @param direction - stack to read.
+   * @param isValid - whether a location still exists.
+   * @returns the entry to replay, or undefined when none is left.
    */
   peek(direction: NavigationDirection, isValid: (location: NavigationLocation) => boolean): NavigationLocation | undefined {
     const stack = direction === 'back' ? this.back : this.forward
@@ -99,7 +114,10 @@ export class NavigationHistory {
     return undefined
   }
 
-  /** Move to the entry `peek` returned; the location left joins the opposite stack. */
+  /**
+   * Move to the entry `peek` returned; the location left joins the opposite stack.
+   * @param direction - stack `peek` read.
+   */
   commit(direction: NavigationDirection): void {
     const from = direction === 'back' ? this.back : this.forward
     const to = direction === 'back' ? this.forward : this.back
@@ -113,14 +131,20 @@ export class NavigationHistory {
     this.publish()
   }
 
-  /** Drop the entry `peek` returned, for a replay that failed. */
+  /**
+   * Drop the entry `peek` returned, for a replay that failed.
+   * @param direction - stack `peek` read.
+   */
   discard(direction: NavigationDirection): void {
     const stack = direction === 'back' ? this.back : this.forward
     stack.pop()
     this.publish()
   }
 
-  /** Drop every entry `isValid` rejects, so the buttons only enable for places that still exist. */
+  /**
+   * Drop every entry `isValid` rejects, so the buttons only enable for places that still exist.
+   * @param isValid - whether a location still exists.
+   */
   prune(isValid: (location: NavigationLocation) => boolean): void {
     if (this.back.every(isValid) && this.forward.every(isValid)) return
     this.back = this.back.filter(isValid)

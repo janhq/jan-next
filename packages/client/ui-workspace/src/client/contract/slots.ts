@@ -83,7 +83,16 @@ export interface WorkspaceHeaderOwnerProps {
 
 declare module '@janhq/jan-client-ui-slots' {
   interface SlotMap {
+    /**
+     * Replaces the sidebar's primary actions (search and add workspace). The component receives the
+     * handlers, labels, shortcuts, and the add button ref the folder picker anchors to; keep that ref on
+     * the rendered button. Absent, the built-in action row renders.
+     */
     'sidebar.workspaces.actions': { kind: 'single'; scope: 'root'; owner: WorkspaceActionsOwnerProps }
+    /**
+     * Replaces the session list header. The component receives the heading, the browser-owned `search`
+     * and `viewOptions` nodes, and whether search is expanded; render both nodes so their state survives.
+     */
     'sidebar.workspaces.header': { kind: 'single'; scope: 'root'; owner: WorkspaceHeaderOwnerProps }
   }
 }
