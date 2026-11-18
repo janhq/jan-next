@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto'
 import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve, sep } from 'node:path'
-import { pathToFileURL } from 'node:url'
 import yaml from 'js-yaml'
 import { strFromU8, unzipSync } from 'fflate'
 import { registerApi } from '@janhq/jan-plugin-api'
@@ -19,53 +18,39 @@ const MAX_FILES = 512
 const COMPOSITION = 'agent.cordis.yml'
 const PERSONA = '@janhq/jan-persona'
 
-// The Loader's YAML dialect: `!!js` stays an expression object until the
-// owning entry evaluates it, so platform conditions keep working.
-const JsExpr = new yaml.Type('tag:yaml.org,2002:js', {
+const unsupportedComposition = () => new Error('Preset Square only installs data-only persona presets. Executable plugin rows, JavaScript expressions, and unsupported persona options are not allowed.')
+const schema = yaml.JSON_SCHEMA.extend(new yaml.Type('tag:yaml.org,2002:js', {
   kind: 'scalar',
-  resolve: data => typeof data === 'string',
-  construct: data => ({ __jsExpr: data }),
-})
-const schema = yaml.JSON_SCHEMA.extend(JsExpr)
+  construct: () => { throw unsupportedComposition() },
+}))
 
-// Gallery packages are written for older harness releases: persona's `text`
-// became `prefix`, the worker-thread workflow provider became `workflow-ptc`,
-// and subagent-control absorbed `list-agents`.
-const RENAMED = { '@janhq/jan-workflow-worker-thread': '@janhq/jan-workflow-ptc' }
-const MERGED = new Set(['@janhq/jan-tool-subagent-control/list-agents'])
-function migrateRows(rows) {
-  for (let index = rows.length - 1; index >= 0; index--) {
-    const row = rows[index]
-    if (!row || typeof row !== 'object') continue
-    if (MERGED.has(row.name)) { rows.splice(index, 1); continue }
-    if (RENAMED[row.name]) row.name = RENAMED[row.name]
-    if (row.name === PERSONA && row.config && typeof row.config === 'object' && row.config.prefix === undefined && typeof row.config.text === 'string') {
-      row.config.prefix = row.config.text
-      delete row.config.text
-    }
-    if (Array.isArray(row.config?.plugins)) migrateRows(row.config.plugins)
-    if (Array.isArray(row.config)) migrateRows(row.config)
-  }
-  return rows
-}
-
-// A package's relative module names and `baseUrl` expressions mean its own
-// folder, where its skills and helper modules are unpacked.
-function rebase(value, folder) {
-  if (Array.isArray(value)) return value.map(item => rebase(item, folder))
-  if (!value || typeof value !== 'object') return value
-  if (typeof value.__jsExpr === 'string') return { __jsExpr: value.__jsExpr.replace(/\bbaseUrl\b/g, JSON.stringify(folder)) }
-  const out = {}
-  for (const [key, item] of Object.entries(value)) {
-    out[key] = key === 'name' && typeof item === 'string' && /^\.{1,2}\//.test(item) ? new URL(item, folder).href : rebase(item, folder)
-  }
-  return out
-}
+// Only the built-in persona consumes gallery data. A general plugin name or
+// arbitrary row options can load code even without a relative module or !!js.
+const personaFields = new Map([
+  ['prefix', 'string'], ['suffix', 'string'], ['text', 'string'],
+  ['complete', 'boolean'], ['includeRuntimeContext', 'boolean'], ['interpolate', 'boolean'],
+])
+const isMapping = value => value !== null && typeof value === 'object' && !Array.isArray(value)
 
 function parseComposition(text) {
   const rows = yaml.load(text.replace(/^\uFEFF/, ''), { schema })
   if (!Array.isArray(rows)) throw new Error('The preset composition is not a plugin list.')
-  return migrateRows(rows)
+  for (const row of rows) {
+    if (!isMapping(row) || row.name !== PERSONA || !isMapping(row.config)) throw unsupportedComposition()
+    for (const [key, value] of Object.entries(row)) {
+      if (key === 'name' || key === 'config') continue
+      if (key === 'id' && typeof value === 'string') continue
+      if (key === 'disabled' && (value === null || typeof value === 'boolean')) continue
+      throw unsupportedComposition()
+    }
+    for (const [key, value] of Object.entries(row.config)) {
+      if (typeof value !== personaFields.get(key)) throw unsupportedComposition()
+    }
+    // Older gallery presets call the persona prefix `text`.
+    if (row.config.prefix === undefined && row.config.text !== undefined) row.config.prefix = row.config.text
+    delete row.config.text
+  }
+  return rows
 }
 
 async function remote(url, { binary = false } = {}) {
@@ -128,14 +113,12 @@ export function apply(ctx) {
     const directory = join(root, id)
     const meta = JSON.parse(await readFile(join(directory, 'square.json'), 'utf8'))
     const plugins = parseComposition(await readFile(join(directory, COMPOSITION), 'utf8'))
-    return { directory, meta, plugins }
+    return { meta, plugins }
   }
 
   const mount = async (id) => {
-    const { directory, meta, plugins } = await readPreset(id)
-    // Plugin packages must keep resolving from the profile, so the registration
-    // keeps its base; only the preset's own files point at its folder.
-    const dispose = await ctx.agentPresets.register({ id, name: meta.name, description: meta.description, plugins: rebase(plugins, pathToFileURL(directory + sep).href) })
+    const { meta, plugins } = await readPreset(id)
+    const dispose = await ctx.agentPresets.register({ id, name: meta.name, description: meta.description, plugins })
     mounted.set(id, { dispose, meta })
   }
 
