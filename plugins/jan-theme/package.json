@@ -14,7 +14,8 @@
     "@janhq/jan-mcp-client": "workspace:*",
     "@janhq/jan-plugin-api": "workspace:*",
     "@janhq/jan-skill-filesystem": "workspace:*",
-    "@janhq/schemastery": "workspace:~"
+    "@janhq/schemastery": "workspace:~",
+    "js-yaml": "^4.3.2"
   },
   "jan": {
     "client": {

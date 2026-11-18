@@ -3,6 +3,7 @@ import { readFile, stat, realpath, writeFile, rename, unlink } from 'node:fs/pro
 import { isAbsolute } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { registerApi } from '@janhq/jan-plugin-api'
+import yaml from 'js-yaml'
 
 const plain = value => value && typeof value === 'object' && !Array.isArray(value)
 const strings = value => plain(value) && Object.values(value).every(item => typeof item === 'string')
@@ -179,7 +180,6 @@ export async function mountAgentSettings(ctx, config) {
       if (typeof text !== 'string' || Buffer.byteLength(text) > 1024 * 1024) throw new Error('Enter a skill instruction file up to 1 MiB.')
       const { path, info } = await skill(name)
       if (info.mtimeMs !== modified) throw new Error('This file changed elsewhere. Reopen it before saving.')
-      const yaml = runtime('js-yaml')
       const match = text.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/)
       const frontmatter = match && yaml.load(match[1])
       if (!plain(frontmatter) || frontmatter.name !== name || typeof frontmatter.description !== 'string' || !frontmatter.description.trim()) throw new Error('Keep YAML frontmatter with the same skill name and a nonempty description.')
