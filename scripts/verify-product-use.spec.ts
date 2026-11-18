@@ -270,6 +270,22 @@ describe('product package use', () => {
     expect(failures(root)).toBe('')
   })
 
+  it('follows a hand-written JS plugin through its manifest exports, including local and client imports', () => {
+    const root = fixture()
+    const plugin = '@janhq/jan-js-plugin'
+    write(root, 'plugins/js-plugin/package.json', {
+      name: plugin, jan: { client: {} }, exports: { '.': './index.mjs', './client': './client.js' },
+    })
+    write(root, 'plugins/js-plugin/index.mjs', "import './helper.mjs'\n")
+    write(root, 'plugins/js-plugin/helper.mjs', `import '${candidate}'\n`)
+    write(root, 'plugins/js-plugin/client.js', 'export {}\n')
+    pkg(root, candidateDir, candidate)
+    write(root, patch, [{ insert: [{ name: core }, { name: plugin }] }])
+    const result = verifyProductUse(root, {})
+    expect(result.failures).toEqual([])
+    expect(result.defaultPackages).toEqual(expect.arrayContaining(['plugins/js-plugin', candidateDir]))
+  })
+
   it('accepts declaration-only infrastructure and rejects missing or miscategorized policy entries', () => {
     const root = fixture()
     const directory = 'packages/util/package-manifest'
