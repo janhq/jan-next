@@ -70,14 +70,24 @@ window.__ModuleLoader__.load({
       const alive = React.useRef(true)
       React.useEffect(() => () => { alive.current = false }, [])
       const showResults = list => setResults(Object.fromEntries(list.map(result => [result.id, result])))
+      // A finished run's sessions stop being selectable, whichever view started it.
+      const settle = results => {
+        const done = new Set(results.filter(result => result.status !== 'failed').map(result => result.id))
+        setThreads(previous => previous.map(thread => done.has(thread.id) ? { ...thread, alreadyImported: true } : thread))
+        setSelected(previous => new Set([...previous].filter(id => !done.has(id))))
+      }
       // Polls the Host until its run ends, so the bar also resumes when the
-      // page is reopened mid-import.
+      // page is reopened mid-import. The Chats list refreshes every few
+      // imported sessions, so new rows appear while the run continues.
       const follow = async () => {
-        for (;;) {
+        let shown = 0
+        for (; ;) {
           const value = await api('progress')
           if (!alive.current) return null
           setJob(value)
           if (value) showResults(value.results)
+          const imported = value?.results.filter(result => result.status === 'imported').length ?? 0
+          if (value?.running && imported >= shown + 5) { shown = imported; refreshSessions().catch(() => { }) }
           if (!value?.running) return value
           await new Promise(resolve => setTimeout(resolve, 300))
         }
@@ -100,7 +110,7 @@ window.__ModuleLoader__.load({
       React.useEffect(() => {
         scan().then(async () => {
           const value = await api('progress')
-          if (value?.running) { setJob(value); await follow(); await refreshSessions() }
+          if (value?.running) { setJob(value); const last = await follow(); if (last) settle(last.results); await refreshSessions() }
         }).catch(error => setError(error.message))
       }, [])
       const importSelected = async () => {
@@ -118,16 +128,21 @@ window.__ModuleLoader__.load({
         const request = api('import', { source, folder: listedFolder, ids, providers: chosen.providers, assistants: chosen.assistants })
         // Start polling only after the Host has the request, so the first read is this run.
         await new Promise(resolve => setTimeout(resolve, 100))
-        const [outcome] = await Promise.allSettled([request, follow()])
-        if (outcome.status === 'rejected') setError(outcome.reason.message)
-        else {
+        const [outcome, followed] = await Promise.allSettled([request, follow()])
+        if (outcome.status === 'rejected') {
+          // A long run can outlive the request while the Host finishes it; its last progress still lists what landed.
+          const last = followed.status === 'fulfilled' ? followed.value : null
+          if (last?.results.length) {
+            settle(last.results)
+            if (last.results.some(result => result.status === 'imported')) await refreshSessions()
+          }
+          if (!last?.results.length || last.error) setError(last?.error ?? outcome.reason.message)
+        } else {
           showResults(outcome.value.results)
           setJob(previous => ({ ...(previous ?? {}), running: false, results: outcome.value.results }))
           setSettingsResults({ mcp, ...outcome.value.settings }); setExtras(NO_EXTRAS)
           setJanSettings(previous => previous && { ...previous, assistants: previous.assistants.map(item => ({ ...item, alreadyImported: item.alreadyImported || outcome.value.settings.assistants.some(row => row.id === item.id && row.status !== 'failed') })) })
-          const done = new Set(outcome.value.results.filter(result => result.status !== 'failed').map(result => result.id))
-          setThreads(previous => previous.map(thread => done.has(thread.id) ? { ...thread, alreadyImported: true } : thread))
-          setSelected(previous => new Set([...previous].filter(id => !done.has(id))))
+          settle(outcome.value.results)
           if (outcome.value.results.some(result => result.status === 'imported')) await refreshSessions()
         }
       }
@@ -204,12 +219,18 @@ window.__ModuleLoader__.load({
       const { providers, mcp, assistants } = janSettings
       const pending = assistants.filter(item => !item.alreadyImported)
       const groups = [
-        providers.length ? { key: 'providers', label: `Model providers and their API keys: ${providers.map(row => row.id).join(', ')}`,
-          hint: 'Your computer may ask permission to read each key Jan saved.' } : null,
-        mcp.names.length ? { key: 'mcp', label: `Tool servers (MCP): ${mcp.names.join(', ')}`,
-          hint: 'Added turned off. Turn on the ones you use in Settings -> MCP Servers.' } : null,
-        assistants.length ? { key: 'assistants', label: `Assistants: ${assistants.map(item => item.name).join(', ')}`,
-          hint: pending.length ? 'Each becomes an agent preset with its instructions; chats that used it keep it.' : 'Already here as agent presets.', done: !pending.length } : null,
+        providers.length ? {
+          key: 'providers', label: `Model providers and their API keys: ${providers.map(row => row.id).join(', ')}`,
+          hint: 'Your computer may ask permission to read each key Jan saved.'
+        } : null,
+        mcp.names.length ? {
+          key: 'mcp', label: `Tool servers (MCP): ${mcp.names.join(', ')}`,
+          hint: 'Added turned off. Turn on the ones you use in Settings -> MCP Servers.'
+        } : null,
+        assistants.length ? {
+          key: 'assistants', label: `Assistants: ${assistants.map(item => item.name).join(', ')}`,
+          hint: pending.length ? 'Each becomes an agent preset with its instructions; chats that used it keep it.' : 'Already here as agent presets.', done: !pending.length
+        } : null,
       ].filter(Boolean)
       if (!groups.length) return null
       const resultOf = key => {
@@ -242,7 +263,7 @@ window.__ModuleLoader__.load({
           mcp.skipped.length ? h('p', { className: 'jan-legacy-import-meta' }, `Left behind: ${mcp.skipped.map(row => `${row.sourceName} (${row.reason})`).join('; ')}`) : null))
     }
     const BRINGS = 'Message text, reasoning, tool calls and their results, token counts and local images. Audio, video, per-chat tool settings and streaming timing stay behind. After the import, each chat lists anything it could not bring.'
-    const AGENT_BRINGS = 'Your messages, the assistant’s replies and reasoning, tool calls with their results, and token counts. Images, sub-agent side conversations and encrypted reasoning stay behind. The imported session opens in the default workspace and keeps its text; its original folder is shown on the row. After the import, each session lists anything it could not bring.'
+    const AGENT_BRINGS = 'Your messages, the assistant’s replies and reasoning, tool calls with their results, and token counts. Images, sub-agent side conversations and encrypted reasoning stay behind. The imported session opens in the folder it ran in, as its own workspace, so you can continue it there; when that folder is gone it opens in the default workspace. After the import, each session lists anything it could not bring.'
     const emptyMessage = ({ source, missing, listedFolder }) => missing
       ? `${sourceName(source)} has no sessions folder at ${listedFolder}. Choose Change if it lives somewhere else.`
       : source === 'jan' ? 'No Jan chats found. Change the folder and scan again.' : `No ${sourceName(source)} sessions in this range.`
@@ -314,11 +335,11 @@ window.__ModuleLoader__.load({
           h(Button, { disabled: importing, onClick: onClose }, 'Cancel'),
           h(Button, { variant: 'primary', disabled: busy || !canImport || stale, onClick: importSelected }, actionLabel(state)))
       return h(Modal, {
-        open: true, title: 'Import from Jan', closeLabel: 'Close import', onClose: importing ? () => {} : onClose,
+        open: true, title: 'Import from Jan', closeLabel: 'Close import', onClose: importing ? () => { } : onClose,
         className: 'jan-legacy-import-dialog', footer,
         description: !threads.length ? 'Your Jan folder is only read, never changed.'
           : eligible.length ? `${plural(threads.length, 'chat', 'chats')} found in the earlier Jan app, ${eligible.length} ready to bring over. Your Jan folder is only read, never changed.`
-          : 'Every chat from the earlier Jan app is here. Your Jan folder was only read, never changed.',
+            : 'Every chat from the earlier Jan app is here. Your Jan folder was only read, never changed.',
       },
         h('div', { className: 'jan-legacy-import jan-legacy-import-in-dialog', 'aria-busy': busy },
           h(Source, { state }),

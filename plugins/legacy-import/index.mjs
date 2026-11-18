@@ -1,4 +1,4 @@
-import { readFile, readdir, realpath } from 'node:fs/promises'
+import { readFile, readdir, realpath, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { resolve, join, extname, isAbsolute, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -69,9 +69,20 @@ export function apply(ctx, config = {}) {
   }
   // Storage has no delete, so a chat whose import stopped after create is resumed,
   // not reported as imported. Images only change block content, never the event count.
+  // A source that kept growing after its import (a coding agent still running) also converts
+  // to more events, but its stored log already closed its last turn; only a stored log that is
+  // an exact prefix of the conversion is resumed, so appending never splits a turn.
   const partialImport = async (sessionId, thread, messages) => {
     const stored = await storedLength(sessionId)
-    return stored !== undefined && messages.length > 0 && stored < convertThread(thread, messages).events.length
+    if (stored === undefined || !messages.length) return false
+    const events = convertThread(thread, messages).events
+    if (stored >= events.length) return false
+    const handle = await ctx.sessionPersistence.open(sessionId, 'read')
+    let written
+    try { written = (await handle.read()).events } finally { await handle.close() }
+    // Saved images give blocks new ids, so the prefix check compares event kind and position only.
+    return written.every((event, index) => event.type === events[index].type
+      && event.data?.turn === events[index].data?.turn && event.data?.step === events[index].data?.step)
   }
   const imported = async (thread, messages) => {
     const sessionId = `jan-${thread.id}`
@@ -286,8 +297,19 @@ export function apply(ctx, config = {}) {
         run.done++
       }
       if (!unique.length) return { results: run.results, settings: run.settings }
-      const workspace = await ctx.workspaceRegistry.initializeDefault(async () => process.cwd())
-      if (!workspace) throw new Error('The default workspace is unavailable. Restore it before importing.')
+      // A coding-agent session opens in the folder it ran in, so it can be continued there;
+      // a Jan chat, or a session whose folder is gone, opens in the default workspace.
+      let fallback
+      const defaultWorkspace = async () => {
+        fallback ??= await ctx.workspaceRegistry.initializeDefault(async () => process.cwd())
+        if (!fallback) throw new Error('The default workspace is unavailable. Restore it before importing.')
+        return fallback
+      }
+      const workspaceFor = async cwd => {
+        if (typeof cwd !== 'string' || !isAbsolute(cwd)) return defaultWorkspace()
+        try { if ((await stat(cwd)).isDirectory()) return await ctx.workspaceRegistry.create(cwd) } catch (error) { if (!missing(error)) throw error }
+        return defaultWorkspace()
+      }
       for (const id of unique) {
         const sessionId = origin === 'jan' ? `jan-${id}` : agentId(origin, id)
         try {
@@ -299,12 +321,13 @@ export function apply(ctx, config = {}) {
           const partial = await exists(sessionId) && await partialImport(sessionId, thread, messages)
           if (!partial && (await exists(sessionId) || (typeof linkedId === 'string' && await exists(linkedId)))) {
             // Retry workspace membership when a prior import persisted successfully but attachment failed.
-            if (await exists(sessionId)) await workspace.attachSession(sessionId)
+            if (await exists(sessionId)) await (await workspaceFor(origin === 'jan' ? undefined : (await ctx.sessionPersistence.stat(sessionId))?.header.cwd)).attachSession(sessionId)
             run.results.push({ id, status: 'already imported', sessionId: await exists(sessionId) ? sessionId : linkedId })
           } else if (!messages.length) {
             run.results.push({ id, status: 'skipped', reason: 'empty chat' })
           } else {
             const converted = convertThread(thread, messages, await saveImages(source, messages))
+            const workspace = await workspaceFor(origin === 'jan' ? undefined : thread.cwd)
             let header, inheritedEventCount, handle
             if (partial) {
               // Finish a log an earlier run created but did not fill; its stored prefix stays as written.
@@ -327,7 +350,8 @@ export function apply(ctx, config = {}) {
             // The Chats list reads titles from the projection cache, which only
             // live sessions write; fold the imported log once so the row is titled.
             ctx.get('sessionProjectionCache')?.coldSnapshot(header, inheritedEventCount, converted.events)
-            await workspace.attachSession(sessionId)
+            // A resumed partial log keeps the folder its header was written with.
+            await (partial && origin !== 'jan' ? await workspaceFor(header.cwd) : workspace).attachSession(sessionId)
             run.results.push({ id, status: 'imported', sessionId, losses: [...losses, ...converted.losses] })
           }
         } catch (error) { run.results.push({ id, status: 'failed', reason: errorText(error) }) }
