@@ -87,7 +87,11 @@ export async function mountAgentSettings(ctx, config) {
   }
   const publicRows = async () => Promise.all(servers.map(async row => {
     const tools = ctx.tools.definitions().filter(tool => tool.name.startsWith(`mcp__${row.name}__`)).map(toolInfo)
-    return { ...row, secretConfigured: (await credentials.describeRecord(key(row.name))).configured, tools, status: !row.enabled ? 'Disabled' : tools.length ? `${tools.length} tools available` : status.get(row.name) ?? 'No tools available' }
+    const failed = row.enabled && !tools.length && status.get(row.name)?.startsWith('Connection failed')
+    const state = !row.enabled ? 'disabled' : tools.length ? 'ready' : failed ? 'failed' : 'empty'
+    const secret = (await credentials.readRecord(key(row.name)))?.payload
+    const secretConfigured = Object.keys(secret?.env ?? {}).length + Object.keys(secret?.headers ?? {}).length > 0
+    return { ...row, secretConfigured, tools, state, status: !row.enabled ? 'Disabled' : tools.length ? `${tools.length} tools available` : status.get(row.name) ?? 'No tools available' }
   }))
   const persist = change => editor.edit(entry, current => ({ ...current, ...change(current) }))
   const saveRows = async rows => {
