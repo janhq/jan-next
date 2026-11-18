@@ -12,11 +12,29 @@
 }
 
 .listPane {
+  position: relative;
   display: flex;
   flex: 1;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+}
+
+/* An 8px hit strip centered on the detail's left border, like the app frame's column handles. */
+.detailHandle {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  bottom: 0;
+  width: 8px;
+  z-index: 2;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.detailHandle:focus-visible {
+  outline: 2px solid var(--dsw-alias-state-business-primary);
+  outline-offset: -3px;
 }
 
 /* The mock's `.page-scroll` with `.automation-content` inside it: the content
@@ -493,7 +511,7 @@
   --detail-gutter: 24px;
   position: relative;
   display: flex;
-  flex: 0 0 47%;
+  flex: 0 0 var(--task-detail-width, 47%);
   flex-direction: column;
   min-width: 0;
   min-height: 0;

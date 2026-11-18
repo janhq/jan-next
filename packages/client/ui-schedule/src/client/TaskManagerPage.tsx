@@ -1,5 +1,5 @@
 /** Cross-session retained reminders with local search and selection. */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import clsx from 'clsx'
 import {
   Button, IconChevronDownOutlineRegular, IconClockOutlineRegular, IconCloseOutlineRegular, IconEditOutlineRegular,
@@ -7,7 +7,7 @@ import {
   Input, Menu, MenuItemButton, Modal, ReferenceIconRegular, Tooltip,
 } from '@janhq/jan-client-ui-primitives'
 import type { HostObservable, InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
-import type {} from '@janhq/jan-client-ui-layout/client'
+import type { } from '@janhq/jan-client-ui-layout/client'
 import type { ScheduleId, ScheduleCatalogEntry, ScheduleCreateRequest } from '@janhq/jan-schedule/client'
 import type { TaskCreateOutcome } from './TaskDetail.tsx'
 import type { TaskEditorStoreProps } from './editor-store.ts'
@@ -19,6 +19,23 @@ import { useRelativeClock } from './relative-clock.ts'
 import { formatScheduleFrequency, nextRunParts, taskName, zoneLabel } from './schedule-format.ts'
 import type { FrequencyZone } from './schedule-format.ts'
 import css from './TaskManagerPage.module.css'
+
+/** The detail's share of the page, in percent: bounds, default, and the key that keeps it between visits. */
+const DETAIL_MIN = 30
+const DETAIL_MAX = 70
+const DETAIL_DEFAULT = 47
+const DETAIL_WIDTH_KEY = 'jan.schedule.detailWidth'
+const clampDetailWidth = (width: number): number => Math.min(DETAIL_MAX, Math.max(DETAIL_MIN, width))
+function readDetailWidth(): number {
+  if (typeof localStorage === 'undefined') return DETAIL_DEFAULT
+  const stored = Number(localStorage.getItem(DETAIL_WIDTH_KEY))
+  return Number.isFinite(stored) && stored > 0 ? clampDetailWidth(stored) : DETAIL_DEFAULT
+}
+function saveDetailWidth(width: number): number {
+  const next = clampDetailWidth(width)
+  if (typeof localStorage !== 'undefined') localStorage.setItem(DETAIL_WIDTH_KEY, String(Math.round(next * 10) / 10))
+  return next
+}
 
 /** Injected catalog and task actions for the management page. */
 export interface TaskManagerInjected extends TaskDetailInjected {
@@ -163,6 +180,30 @@ export function TaskManagerPage(props: TaskManagerPageProps) {
     headingRef.current?.focus()
   }, [clearConfirm, endedCount])
 
+  const pageRef = useRef<HTMLElement>(null)
+  const [detailWidth, setDetailWidth] = useState(readDetailWidth)
+  // Dragging the detail's left border sets its share of the page; the last width is kept for the next visit.
+  const startResize = (event: ReactPointerEvent<HTMLDivElement>): void => {
+    const page = pageRef.current
+    if (page === null || event.button !== 0) return
+    event.preventDefault()
+    const bounds = page.getBoundingClientRect()
+    const widthAt = (x: number): number => clampDetailWidth((bounds.right - x) / bounds.width * 100)
+    // Window listeners keep the drag alive when the pointer leaves the 8px strip.
+    const move = (moved: PointerEvent): void => { setDetailWidth(widthAt(moved.clientX)) }
+    const end = (ended: PointerEvent): void => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', end)
+      window.removeEventListener('pointercancel', end)
+      document.body.style.removeProperty('cursor')
+      setDetailWidth(saveDetailWidth(widthAt(ended.clientX)))
+    }
+    document.body.style.cursor = 'col-resize'
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', end)
+    window.addEventListener('pointercancel', end)
+  }
+
   const confirmClearEnded = (): void => {
     // The confirmation button stays focusable while the removal runs, so a
     // second press has to be ignored here instead of by `disabled`.
@@ -175,9 +216,12 @@ export function TaskManagerPage(props: TaskManagerPageProps) {
     })
   }
 
+  const detailOpen = selected !== undefined || manualOpen
   return (
     <section
-      className={clsx(css.page, (selected !== undefined || manualOpen) && css.hasDetails)}
+      ref={pageRef}
+      className={clsx(css.page, detailOpen && css.hasDetails)}
+      style={{ '--task-detail-width': `${detailWidth}%` } as CSSProperties}
       aria-label={t('title')}
       data-testid="task-manager-page"
       onKeyDown={(event) => {
@@ -332,17 +376,26 @@ export function TaskManagerPage(props: TaskManagerPageProps) {
             </div>
           </div>
         </div>
+        {detailOpen && <div className={css.detailHandle} role="separator" aria-orientation="vertical" tabIndex={0}
+          aria-label={t('detail.resize')} aria-valuemin={DETAIL_MIN} aria-valuemax={DETAIL_MAX} aria-valuenow={Math.round(detailWidth)}
+          onPointerDown={startResize}
+          onKeyDown={(event) => {
+            const step = event.key === 'ArrowLeft' ? 2 : event.key === 'ArrowRight' ? -2 : 0
+            if (step === 0) return
+            event.preventDefault()
+            setDetailWidth(width => saveDetailWidth(width + step))
+          }} />}
       </div>
       {manualOpen ? <TaskDetail {...detail.props} onCreateTask={onCreateTask} onClose={closeDetails} onDeleted={closeDetails}
         onCreated={(task) => {
           setManualOpen(false); setSearch(''); setStatusFilter('all'); setSelectedId(task.id); setTab('rule')
         }} /> : selected !== undefined && <TaskDetail
-        {...detail.props}
-        task={selected}
-        authoritative={catalogRecord !== undefined}
-        onDeleted={closeDetails}
-        onClose={closeDetails}
-      />}
+          {...detail.props}
+          task={selected}
+          authoritative={catalogRecord !== undefined}
+          onDeleted={closeDetails}
+          onClose={closeDetails}
+        />}
       <Modal
         className={css.confirmDialog as string}
         contentClassName={css.confirmContent as string}
