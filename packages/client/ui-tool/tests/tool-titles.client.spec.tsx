@@ -25,6 +25,20 @@ describe('ToolDetails titles', () => {
     // Every title on screen, nested groups included, is asked for exactly once.
     expect(request.mock.calls.map(call => String(call[0])).toSorted()).toEqual(['工程图 body1', '装配'])
   })
+
+  it('translates the description of a provider record and leaves every other description as written', () => {
+    const request = vi.fn()
+    const titles: ToolTitles = { display: text => text === '导出零件' ? 'Export a part' : text, request }
+    const items = [
+      { title: 'cad_export', description: '导出零件', provider: true, fields: [] },
+      { title: 'Goal', description: '导出零件 prompt', fields: [] },
+    ]
+    const view = render(<ToolDetails model={{ items }} t={t} titles={titles} />)
+    expect(view.getByText('Export a part')).toBeTruthy()
+    expect(view.getByText('导出零件 prompt')).toBeTruthy()
+    // A description is never asked for unless a plugin or provider wrote it.
+    expect(request.mock.calls.map(call => String(call[0])).toSorted()).toEqual(['Goal', 'cad_export', '导出零件'])
+  })
 })
 
 describe('TitleBridge', () => {

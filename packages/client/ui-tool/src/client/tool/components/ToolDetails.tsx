@@ -14,6 +14,8 @@ export interface ToolDetailItem {
   title?: string
   subtitle?: string
   description?: string
+  /** The item describes something a plugin or provider named, so its description is plugin-written text like its title. */
+  provider?: boolean
   badge?: { label: string; tone: 'neutral' | 'info' | 'success' | 'warning' | 'error' }
   status?: { value: 'completed' | 'in_progress' | 'pending'; label: string }
   previousStatus?: string
@@ -51,11 +53,14 @@ function DetailItem({ item, compact, t, onOpenFile, titles }: { item: ToolDetail
   const status = item.status
   const [expanded, setExpanded] = useState(false)
   const source = item.title
-  // A title written for another language is asked for once; the source shows until its translation arrives.
+  const written = item.provider === true ? item.description : undefined
+  // A title or provider description written for another language is asked for once; the source shows until its translation arrives.
   useEffect(() => {
     if (source !== undefined) titles?.request(source)
-  }, [titles, source])
+    if (written !== undefined) titles?.request(written)
+  }, [titles, source, written])
   const title = source === undefined ? undefined : titles?.display(source) ?? source
+  const description = written === undefined ? item.description : titles?.display(written) ?? written
   return (
     <li className={css.item} data-change={item.change?.value}>
       {title !== undefined && (
@@ -100,7 +105,7 @@ function DetailItem({ item, compact, t, onOpenFile, titles }: { item: ToolDetail
           <span>{item.subtitle}</span><IconChevronRightOutlineRegular size={12} />
         </button>
       ) : <div className={css.subtitle}>{item.subtitle}</div>)}
-      {item.description !== undefined && <p className={css.description}>{item.description}</p>}
+      {description !== undefined && <p className={css.description}>{description}</p>}
       {item.fields.length > 0 && (
         <dl className={css.fields}>
           {item.fields.map(field => (
