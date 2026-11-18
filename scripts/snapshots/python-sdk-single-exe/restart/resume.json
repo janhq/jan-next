@@ -9,7 +9,6 @@
     "user/message",
     "request/header",
     "request/context",
-    "session-log-deepseek/delivery-accepted",
     "assistant/message",
     "step/end",
     "turn/end"
@@ -18,7 +17,7 @@
     {
       "type": "model/selection",
       "data": {
-        "provider": "tokamak-official",
+        "provider": "tokamak",
         "model": "resumed-smoke-model"
       }
     }

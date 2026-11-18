@@ -5,14 +5,17 @@
     "messages": [
       {
         "role": "user",
+        "content": "Complete the first isolated Python SDK process turn."
+      },
+      {
+        "role": "user",
         "content": [
           {
             "type": "text",
-            "text": "Complete the first isolated Python SDK process turn."
-          },
-          {
-            "type": "text",
-            "text": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent working directory: \"{{cwd}}\".\n\nCurrent Jan file policy: danger-full-access. The Jan file sandbox does not restrict file modifications by available operations.\n\nApproval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`)."
+            "text": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent working directory: \"{{cwd}}\".\n\nCurrent Jan file policy: danger-full-access. The Jan file sandbox does not restrict file modifications by available operations.\n\nApproval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`).",
+            "cache_control": {
+              "type": "ephemeral"
+            }
           }
         ]
       }
@@ -34,14 +37,17 @@
     "messages": [
       {
         "role": "user",
+        "content": "Complete the second isolated Python SDK process turn."
+      },
+      {
+        "role": "user",
         "content": [
           {
             "type": "text",
-            "text": "Complete the second isolated Python SDK process turn."
-          },
-          {
-            "type": "text",
-            "text": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent working directory: \"{{cwd}}\".\n\nCurrent Jan file policy: danger-full-access. The Jan file sandbox does not restrict file modifications by available operations.\n\nApproval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`)."
+            "text": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent working directory: \"{{cwd}}\".\n\nCurrent Jan file policy: danger-full-access. The Jan file sandbox does not restrict file modifications by available operations.\n\nApproval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`).",
+            "cache_control": {
+              "type": "ephemeral"
+            }
           }
         ]
       }

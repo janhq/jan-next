@@ -22,8 +22,8 @@
   ],
   "requestContexts": [
     {
-      "provider": "tokamak-official",
-      "model": "smoke-model",
+      "provider": "anthropic",
+      "model": "claude-opus-4-8",
       "contextWindow": 1000000,
       "systemPromptUpdate": "in-history"
     }

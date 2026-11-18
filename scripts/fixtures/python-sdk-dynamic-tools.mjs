@@ -14,7 +14,7 @@ export function apply(ctx) {
       render(_args, value) { return [{ type: 'text', text: value }] },
     },
     async execute() { return 'pong' },
-  }, { when: async ({ modelSelection }) => active && modelSelection.provider === 'tokamak-official' })
+  }, { when: async ({ modelSelection }) => active && modelSelection.provider === 'anthropic' })
   ctx.on('tools/post-execute', async (exec, result, next) => {
     const downstream = await next()
     if (result.isError) return downstream
