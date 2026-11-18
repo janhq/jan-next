@@ -248,8 +248,8 @@ function TurnErrorItem({ node, t, canOpenModelsSettings, openModelsSettings, rec
           : <button type="button" className={css.turnErrorAction} disabled={working} onClick={() => { void compact() }}>
             {t(working ? 'message.failure.compacting' : 'message.failure.compactRetry')}
           </button>)}
-        {notice !== undefined && <span className={css.turnErrorMessage}>{notice}</span>}
-        {error !== undefined && <span className={css.turnErrorMessage} role="alert">{error}</span>}
+        {notice !== undefined && <span className={css.turnErrorNote}>{notice}</span>}
+        {error !== undefined && <span className={css.turnErrorNote} role="alert">{error}</span>}
       </div>
       {node.code !== undefined && node.code !== 'INTERRUPTED' && <code className={css.turnErrorCode}>{node.code}</code>}
     </div>

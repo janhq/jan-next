@@ -294,6 +294,13 @@
   color: var(--dsw-alias-label-secondary);
 }
 
+/* Recovery outcome and errors read as their own line, not a run-on of the failure text. */
+.turnErrorNote {
+  display: block;
+  margin-top: 4px;
+  color: var(--dsw-alias-label-secondary);
+}
+
 .turnErrorAction {
   display: block;
   padding: 0;
