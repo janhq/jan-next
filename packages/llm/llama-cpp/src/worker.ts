@@ -267,12 +267,12 @@ export class WorkerClient {
    * @param presetPath - absolute preset path.
    * @param modelsMax - resident model bound.
    * @param signal - cancellation.
-   * @param removal - replacement preset and model that must not be resident when applied.
+   * @param unloadedModel - model that must not be resident while the replacement preset is applied.
    */
-  async reload(presetPath: string, modelsMax: number, signal: AbortSignal, removal?: { id: string; preset: string }): Promise<void> {
+  async reload(presetPath: string, modelsMax: number, signal: AbortSignal, unloadedModel?: string): Promise<void> {
     await this.post('/models/reload', { preset_path: presetPath, models_max: modelsMax,
-      ...removal === undefined ? {} : { remove_if_unloaded: removal.id, replacement_preset_path: removal.preset },
-    }, signal, removal?.id)
+      ...unloadedModel === undefined ? {} : { remove_if_unloaded: unloadedModel },
+    }, signal, unloadedModel)
   }
 
   /**

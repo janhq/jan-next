@@ -104,8 +104,8 @@ const server = createServer(async (req, res) => {
     return
   }
   if (req.method === 'POST' && url.pathname === '/models/reload') {
-    const { preset_path: path, models_max: max, remove_if_unloaded: guard, replacement_preset_path: replacement } = await body(req)
-    const next = readPreset(replacement ?? path)
+    const { preset_path: path, models_max: max, remove_if_unloaded: guard } = await body(req)
+    const next = readPreset(guard === undefined ? path : `${path}.remove`)
     if (guard !== undefined && loaded.has(guard)) {
       json(res, 409, { error: { message: 'This model is loaded or in use.', code: 409 } })
       return

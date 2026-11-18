@@ -1262,7 +1262,7 @@ export class LlamaCpp extends Service {
         if (status !== 'unloaded') throw new Error(MODEL_IN_USE)
         const preset = `${this.presetPath}.remove`
         await this.writePreset(next, preset)
-        try { await running.client.reload(this.presetPath, this.config.modelsMax, signal, { id, preset }) }
+        try { await running.client.reload(this.presetPath, this.config.modelsMax, signal, id) }
         finally { await rm(preset, { force: true }) }
       }
     }
