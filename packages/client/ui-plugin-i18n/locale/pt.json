@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Interface de tradução de plugins",
+    "description": "Carrega as traduções de plugins guardadas, oferece traduzir um plugin após a instalação e adiciona a aba Traduções às configurações de plugins."
+  }
+}

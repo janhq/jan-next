@@ -98,6 +98,7 @@
     "@janhq/jan-client-ui-open-in-app": "workspace:*",
     "@janhq/jan-client-ui-permission-presets": "workspace:*",
     "@janhq/jan-client-ui-plan": "workspace:*",
+    "@janhq/jan-client-ui-plugin-i18n": "workspace:*",
     "@janhq/jan-client-ui-plugin-manager": "workspace:*",
     "@janhq/jan-client-ui-reference": "workspace:*",
     "@janhq/jan-client-ui-renderer": "workspace:*",

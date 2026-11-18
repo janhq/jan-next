@@ -367,6 +367,12 @@
       config:
         registryProbeEnabled: false
 
+    # Stored plugin translations, the offer after installing a plugin, and the
+    # Translations tab of Plugins settings; translation runs in the Host
+    # (`plugin-i18n`) on the default model.
+    - id: ui-plugin-i18n
+      name: '@janhq/jan-client-ui-plugin-i18n'
+
     # Read-only Plugin list tab in the Settings Plugins section; the built-in
     # bundles the sidebar page leaves out are inspected here.
     - id: ui-settings-plugin-inventory

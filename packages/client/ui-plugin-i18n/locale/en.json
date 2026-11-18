@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Plugin translation UI",
+    "description": "Loads stored plugin translations, offers to translate a plugin after installing it, and adds the Translations tab to Plugins settings."
+  }
+}

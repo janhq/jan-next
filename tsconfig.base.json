@@ -360,6 +360,7 @@
       "@janhq/jan-client-ui-settings-general": ["./packages/client/ui-settings-general/src"],
       "@janhq/jan-client-ui-settings-general/types": ["./packages/client/ui-settings-general/src/types.ts"],
       "@janhq/jan-client-ui-settings-models": ["./packages/client/ui-settings-models/src"],
+      "@janhq/jan-client-ui-plugin-i18n": ["./packages/client/ui-plugin-i18n/src"],
       "@janhq/jan-client-ui-plugin-manager": ["./packages/client/ui-plugin-manager/src"],
       "@janhq/jan-client-ui-plugin-market": ["./packages/client/ui-plugin-market/src"],
       "@janhq/jan-client-ui-settings-plugin-inventory": ["./packages/client/ui-settings-plugin-inventory/src"],
