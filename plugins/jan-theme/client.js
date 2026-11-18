@@ -492,6 +492,10 @@ html[data-jan-theme][data-windows-titlebar] [data-slot='root'] > :has(> [data-sh
 html[data-jan-theme][data-windows-titlebar] [data-slot='root'] > :has(> [data-shell-overlay]) > [data-rightbar-col] { padding-top: var(--jan-windows-titlebar-height); }
 /* The inset sidebar card starts below the caption, where the history buttons and menubar sit. */
 html[data-jan-theme][data-windows-titlebar] [data-slot='root'] > :has(> [data-shell-overlay]):not([data-sidebar-collapsed]):not([data-sidebar-drawer]) > :has(> [data-slot='sidebar']) { margin-top: var(--jan-windows-titlebar-height); }
+/* The expanded card carries its own toggle, so the caption starts with Back at the toggle's seat. */
+html[data-jan-theme][data-windows-titlebar]:not(:has([data-sidebar-collapsed])) { --jan-windows-menu-start: 84px; }
+html[data-jan-theme][data-windows-titlebar]:not(:has([data-sidebar-collapsed])) [data-slot='sidebar'] [data-navigation='back'] { left: 12px; }
+html[data-jan-theme][data-windows-titlebar]:not(:has([data-sidebar-collapsed])) [data-slot='sidebar'] [data-navigation='forward'] { left: 48px; }
 /* Guide labels remain readable when shortcut hints consume a narrow card. */
 html[data-jan-theme] [data-sidebar-right-guide-entry='files'] > span:nth-child(2) > span,
 html[data-jan-theme] [data-sidebar-right-guide-entry='terminal'] > span:nth-of-type(2) > span:last-child { white-space: normal; overflow-wrap: anywhere; }
