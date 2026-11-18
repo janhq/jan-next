@@ -97,7 +97,7 @@ function renderLabel(
     useSessions: bindSnapshotSelector(sessions),
     useAgentPresets: bindSnapshotSelector(store),
     useDeveloperTools: bindSnapshotSelector(createSnapshotStore(true)),
-    t: (key: keyof typeof en) => en[key],
+    t: translate,
   } as never
   const view = render(<AgentPresetLabel {...props} />)
   return { load, select, view }
@@ -398,6 +398,15 @@ describe('the session-header label', () => {
     fireEvent.click(control)
     fireEvent.click(screen.getAllByRole('menuitem').find(item => item.textContent?.startsWith('mine'))!)
     await waitFor(() => { expect(select).toHaveBeenCalledExactlyOnceWith('s1', 'mine') })
+  })
+
+  it('shows a refusal toast when the injected selection rejects', async () => {
+    const { select } = renderLabel({ blank: false, projectionValues: { agentPreset: 'standard' } })
+    select.mockRejectedValueOnce(new Error('connection lost'))
+    fireEvent.click(screen.getByRole('button', { name: `${en.headerHint}: ${en.presetStandardName}` }))
+    fireEvent.click(screen.getAllByRole('menuitem').find(item => item.textContent?.startsWith('mine'))!)
+    await waitFor(() => { expect(screen.getByRole('alert').textContent).toContain('connection lost') })
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: `${en.headerHint}: ${en.presetStandardName}` }).disabled).toBe(false)
   })
 
   it('disables the switch while a reply is running', () => {

@@ -122,6 +122,9 @@ export function AgentPresetLabel({
             if (reason === undefined) return
             refusalSeq.current += 1
             setRefusal({ seq: refusalSeq.current, id, reason })
+          }).catch((error: unknown) => {
+            refusalSeq.current += 1
+            setRefusal({ seq: refusalSeq.current, id, reason: error instanceof Error ? error.message : String(error) })
           }).finally(() => { setBusy(false) })
         }}
         align="end"
