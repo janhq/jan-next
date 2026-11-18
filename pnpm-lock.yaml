@@ -4317,6 +4317,9 @@ importers:
 
   packages/client/ui-deliverables:
     dependencies:
+      '@janhq/jan-tool-present':
+        specifier: workspace:*
+        version: link:../../deliverables/tool-present
       '@janhq/jan-typert-protocol':
         specifier: workspace:*
         version: link:../../typert/protocol
@@ -4360,6 +4363,9 @@ importers:
       '@janhq/jan-client-ui-dockkit':
         specifier: workspace:*
         version: link:../ui-dockkit
+      '@janhq/jan-client-ui-layout':
+        specifier: workspace:*
+        version: link:../ui-layout
       '@janhq/jan-client-ui-primitives':
         specifier: workspace:*
         version: link:../ui-primitives
@@ -4369,6 +4375,9 @@ importers:
       '@janhq/jan-client-ui-settings':
         specifier: workspace:*
         version: link:../ui-settings
+      '@janhq/jan-client-ui-sidebar':
+        specifier: workspace:*
+        version: link:../ui-sidebar
       '@janhq/jan-client-ui-sidebar-right':
         specifier: workspace:*
         version: link:../ui-sidebar-right
@@ -4378,6 +4387,9 @@ importers:
       '@janhq/jan-client-ui-tool':
         specifier: workspace:*
         version: link:../ui-tool
+      '@janhq/jan-client-ui-workspace':
+        specifier: workspace:*
+        version: link:../ui-workspace
       '@janhq/jan-fs':
         specifier: workspace:*
         version: link:../../fs/fs
@@ -4393,15 +4405,15 @@ importers:
       '@janhq/jan-session':
         specifier: workspace:*
         version: link:../../core/session
+      '@janhq/jan-session-projection':
+        specifier: workspace:*
+        version: link:../../session/session-projection
       '@janhq/jan-session-query':
         specifier: workspace:*
         version: link:../../session-query/session-query
       '@janhq/jan-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
-      '@janhq/jan-tool-present':
-        specifier: workspace:*
-        version: link:../../deliverables/tool-present
       '@janhq/jan-util-values':
         specifier: workspace:*
         version: link:../../util/values
@@ -8243,6 +8255,9 @@ importers:
       '@janhq/schemastery':
         specifier: link:../../../vendor/schemastery
         version: link:../../../vendor/schemastery
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
     devDependencies:
       '@janhq/cordis':
         specifier: workspace:~

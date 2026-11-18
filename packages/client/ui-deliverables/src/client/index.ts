@@ -33,7 +33,10 @@ import {
   deliverablesDefinition, presentedForClosing, producedFileMentions, selectProducedFiles,
 } from './turn-deliverables.ts'
 
+import { ARTIFACTS_PANEL_ID, registerArtifacts } from './artifacts-plugin.ts'
+
 export type { PresentedOpenOutcome, PresentedOpenFailure } from './present-open.ts'
+export { ARTIFACTS_PANEL_ID }
 
 declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -61,6 +64,7 @@ export function apply(ctx: ClientContext): void {
   })
   ctx.uiConversation.events.register(deliverablesDefinition)
   ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-deliverables: dictionaries')
+  registerArtifacts(ctx, opener)
   ctx.slots.inject(
     'conversation.chat.turnTail',
     () => ctx.slots.register({
