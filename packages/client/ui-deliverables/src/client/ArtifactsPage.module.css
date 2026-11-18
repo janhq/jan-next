@@ -9,6 +9,8 @@
 .body { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; }
 .column { container-type: inline-size; display: flex; flex-direction: column; gap: 16px; box-sizing: border-box; width: 100%; max-width: calc(960px + 2 * var(--artifacts-inset)); margin: 0 auto; padding: 24px var(--artifacts-inset) 48px; }
 .search { width: 100%; }
+/* The primitive's dimmed placeholder is near-invisible on this page's white; match the sidebar search. */
+.search input::placeholder { color: var(--dsw-alias-label-tertiary); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 12px; border: 0; border-radius: 999px; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; font: inherit; font-size: 13px; line-height: 22px; }
 .chip[aria-pressed='true'] { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); font-weight: 500; }
