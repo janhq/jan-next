@@ -32,6 +32,36 @@ exports[`sidebar shell snapshots > renders Windows caption controls in expanded 
           style="display: contents;"
         />
       </button>
+      <button
+        aria-disabled="true"
+        aria-label="Back"
+        class="iconButton navButton navBack"
+        data-navigation="back"
+        type="button"
+      >
+        <svg
+          aria-hidden="true"
+          data-content="06ac9ef3"
+          data-icon="dsw-icon-chevron-left-outline-regular"
+          height="16"
+          width="16"
+        />
+      </button>
+      <button
+        aria-disabled="true"
+        aria-label="Forward"
+        class="iconButton navButton navForward"
+        data-navigation="forward"
+        type="button"
+      >
+        <svg
+          aria-hidden="true"
+          data-content="a4e8349c"
+          data-icon="dsw-icon-chevron-right-outline-regular"
+          height="16"
+          width="16"
+        />
+      </button>
     </div>
     <div
       data-slot="sidebar.session.new"
@@ -192,6 +222,36 @@ exports[`sidebar shell snapshots > renders Windows caption controls in expanded 
           width="16"
         />
       </button>
+      <button
+        aria-disabled="true"
+        aria-label="Back"
+        class="iconButton navButton navBack"
+        data-navigation="back"
+        type="button"
+      >
+        <svg
+          aria-hidden="true"
+          data-content="06ac9ef3"
+          data-icon="dsw-icon-chevron-left-outline-regular"
+          height="16"
+          width="16"
+        />
+      </button>
+      <button
+        aria-disabled="true"
+        aria-label="Forward"
+        class="iconButton navButton navForward"
+        data-navigation="forward"
+        type="button"
+      >
+        <svg
+          aria-hidden="true"
+          data-content="a4e8349c"
+          data-icon="dsw-icon-chevron-right-outline-regular"
+          height="16"
+          width="16"
+        />
+      </button>
     </div>
     <div
       data-slot="sidebar.session.new"
@@ -321,6 +381,40 @@ exports[`sidebar shell snapshots > renders the collapsed rail after the crossfad
         <div
           data-slot="sidebar.toggle.badge"
           style="display: contents;"
+        />
+      </button>
+    </div>
+    <div
+      class="railNavigation"
+    >
+      <button
+        aria-disabled="true"
+        aria-label="Back"
+        class="iconButton navButton navBack"
+        data-navigation="back"
+        type="button"
+      >
+        <svg
+          aria-hidden="true"
+          data-content="06ac9ef3"
+          data-icon="dsw-icon-chevron-left-outline-regular"
+          height="18"
+          width="18"
+        />
+      </button>
+      <button
+        aria-disabled="true"
+        aria-label="Forward"
+        class="iconButton navButton navForward"
+        data-navigation="forward"
+        type="button"
+      >
+        <svg
+          aria-hidden="true"
+          data-content="a4e8349c"
+          data-icon="dsw-icon-chevron-right-outline-regular"
+          height="18"
+          width="18"
         />
       </button>
     </div>
@@ -479,6 +573,36 @@ exports[`sidebar shell snapshots > renders the expanded column (wordmark, capsul
           class="panelIcon"
           data-content="d95b7908"
           data-icon="dsw-icon-panel-left-outline-regular"
+          height="16"
+          width="16"
+        />
+      </button>
+      <button
+        aria-disabled="true"
+        aria-label="Back"
+        class="iconButton navButton navBack"
+        data-navigation="back"
+        type="button"
+      >
+        <svg
+          aria-hidden="true"
+          data-content="06ac9ef3"
+          data-icon="dsw-icon-chevron-left-outline-regular"
+          height="16"
+          width="16"
+        />
+      </button>
+      <button
+        aria-disabled="true"
+        aria-label="Forward"
+        class="iconButton navButton navForward"
+        data-navigation="forward"
+        type="button"
+      >
+        <svg
+          aria-hidden="true"
+          data-content="a4e8349c"
+          data-icon="dsw-icon-chevron-right-outline-regular"
           height="16"
           width="16"
         />
@@ -645,6 +769,36 @@ exports[`sidebar shell snapshots > renders the expanded column in the default lo
           class="panelIcon"
           data-content="d95b7908"
           data-icon="dsw-icon-panel-left-outline-regular"
+          height="16"
+          width="16"
+        />
+      </button>
+      <button
+        aria-disabled="true"
+        aria-label="后退"
+        class="iconButton navButton navBack"
+        data-navigation="back"
+        type="button"
+      >
+        <svg
+          aria-hidden="true"
+          data-content="06ac9ef3"
+          data-icon="dsw-icon-chevron-left-outline-regular"
+          height="16"
+          width="16"
+        />
+      </button>
+      <button
+        aria-disabled="true"
+        aria-label="前进"
+        class="iconButton navButton navForward"
+        data-navigation="forward"
+        type="button"
+      >
+        <svg
+          aria-hidden="true"
+          data-content="a4e8349c"
+          data-icon="dsw-icon-chevron-right-outline-regular"
           height="16"
           width="16"
         />

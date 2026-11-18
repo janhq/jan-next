@@ -30,6 +30,7 @@ import type {
   SidebarPanelActionsOwnerProps, SidebarPanelMetadata, SidebarRootComponentProps, SidebarRootInjected, SidebarSectionHookContext,
   SidebarSectionOwnerProps,
 } from './contract/slots.ts'
+import { NavigationButton } from './NavigationButton.tsx'
 import { FIXED_PANEL_ID } from './panel-pins.ts'
 import { createScrollHandoff } from './scroll-handoff.ts'
 import css from './SidebarRoot.module.css'
@@ -154,6 +155,8 @@ export function SidebarRoot({
   drawer,
   startSession,
   toggleSidebar,
+  goBack,
+  goForward,
   selectPanel,
   setPinned,
   trackEntryClick,
@@ -162,6 +165,7 @@ export function SidebarRoot({
   useEntryPins,
   useEntryActions,
   useShortcuts,
+  useNavigationHistory,
   usePanelInfo,
   t,
   renderSlot,
@@ -173,6 +177,10 @@ export function SidebarRoot({
   const hasEntryActions = useEntryActions(registered => registered)
   const shortcut = useShortcuts(rows => rows.find(row => row.id === 'sidebar.left.toggle'))
   const newShortcut = useShortcuts(rows => rows.find(row => row.id === 'session.new'))
+  const backShortcut = useShortcuts(rows => rows.find(row => row.id === 'navigation.back'))
+  const forwardShortcut = useShortcuts(rows => rows.find(row => row.id === 'navigation.forward'))
+  const canGoBack = useNavigationHistory(state => state.canGoBack)
+  const canGoForward = useNavigationHistory(state => state.canGoForward)
   // A page whose access snapshot excludes starting a Session offers no New Session affordance.
   const canStartSession = useRemoteAccess('session/create')
   const toggleLabel = collapsed ? t('toggle.open') : t('toggle.collapse')
@@ -304,6 +312,22 @@ export function SidebarRoot({
     </Tooltip>
   )
 
+  // Back and Forward follow the toggle wherever it sits: the macOS strip, the logo row, or (rail only) below it.
+  const navigationButtons = (tooltipSide: 'right' | 'bottom') => (['back', 'forward'] as const).map(direction => (
+    <NavigationButton
+      key={direction}
+      direction={direction}
+      label={t(direction === 'back' ? 'navigation.back' : 'navigation.forward')}
+      shortcut={direction === 'back' ? backShortcut : forwardShortcut}
+      disabled={!(direction === 'back' ? canGoBack : canGoForward)}
+      onClick={direction === 'back' ? goBack : goForward}
+      className={clsx(css.iconButton, css.navButton, direction === 'back' ? css.navBack : css.navForward)}
+      size={wide || windowsTitlebar ? 16 : 18}
+      tooltipSide={tooltipSide}
+      portal={drawer}
+    />
+  ))
+
   return (
     <div
       ref={column}
@@ -326,7 +350,7 @@ export function SidebarRoot({
     >
       {/* macOS hiddenInset titlebar: the strip shares the row with the
           traffic lights and keeps the toggle at the sidebar's top-right. */}
-      {darwinDesktop && <div className={css.topStrip} data-window-drag>{toggle}</div>}
+      {darwinDesktop && <div className={css.topStrip} data-window-drag>{toggle}{navigationButtons('bottom')}</div>}
       <div className={css.logoRow} data-window-drag>
         {/* Expanded, the brand doubles as a New Session shortcut while the
             access snapshot allows `session/create` — except on
@@ -376,7 +400,12 @@ export function SidebarRoot({
             )
         })()}
         {!darwinDesktop && toggle}
+        {!darwinDesktop && (wide || windowsTitlebar) && navigationButtons('bottom')}
       </div>
+      {/* The 56px rail has no row beside the toggle, so Back and Forward stack below it. */}
+      {!darwinDesktop && !wide && !windowsTitlebar && (
+        <div className={css.railNavigation}>{navigationButtons(captionTooltipSide)}</div>
+      )}
 
       {/* The label fades before the hover/focus shortcut, including on translucent backgrounds. */}
       {canStartSession && renderSlot('sidebar.session.new', {
@@ -403,7 +432,7 @@ export function SidebarRoot({
               </span>}
             </button>
           </Tooltip>
-        )
+        ),
       })}
       {renderSlot('sidebar.workspaces.primary', {
         wide, expandSidebar: () => { if (collapsed) toggleSidebar() },

@@ -203,6 +203,12 @@ export interface SidebarFooterActionOwnerProps {
   wide: boolean
 }
 
+/** Whether the Back and Forward controls have somewhere to go; mirrors the Workspace navigation history. */
+export interface SidebarNavigationAvailability {
+  readonly canGoBack: boolean
+  readonly canGoForward: boolean
+}
+
 /**
  * Registrant-private injected share (arrives via the register inject
  * factory). The renderer binds the panel metadata source to usePanels.
@@ -216,6 +222,10 @@ export type SidebarRootInjected = {
   startSession: (workspaceId?: WorkspaceId) => void
   /** Toggle the sidebar column through the layout service. */
   toggleSidebar: () => void
+  /** Return to the previous main-view location (Back); a no-op while `navigationHistory.canGoBack` is false. */
+  goBack: () => void
+  /** Undo the latest Back (Forward); a no-op while `navigationHistory.canGoForward` is false. */
+  goForward: () => void
   /** Select the global panel addressed by a sidebar row. */
   selectPanel: (id: MainPanelId) => void
   /**
@@ -234,6 +244,8 @@ export type SidebarRootInjected = {
     entryPins: ObservableSnapshot<readonly string[]>
     /** Whether `sidebar.panellist.actions` has registrations. */
     entryActions: ObservableSnapshot<boolean>
+    /** Whether Back and Forward have an entry, from the Workspace navigation history. */
+    navigationHistory: ObservableSnapshot<SidebarNavigationAvailability>
   }
 }
 
