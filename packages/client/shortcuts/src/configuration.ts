@@ -101,7 +101,9 @@ export function bindingIssue(binding: NormalizedBinding, runtime: ShortcutRuntim
   if ((platform === 'windows' || platform === 'macos') && modifiers.length >= 3) return null
   if (runtime === 'web' && (platform === 'windows' || platform === 'macos') && isWebBindingAllowed(binding, platform)) return null
   const primary = modifiers.includes(platform === 'macos' ? 'meta' : 'control')
-  if (['Escape', 'Tab', 'Space', 'Backspace', 'Delete', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(code)
+  // Alt+Left/Right is the history convention on Linux; bare arrows stay reserved for caret movement.
+  const altHorizontalArrow = modifiers.length === 1 && modifiers[0] === 'alt' && (code === 'ArrowLeft' || code === 'ArrowRight')
+  if ((!altHorizontalArrow && ['Escape', 'Tab', 'Space', 'Backspace', 'Delete', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(code))
     || (code === 'Enter' && !modifiers.includes('alt'))
     || (primary && ['KeyC', 'KeyV', 'KeyX', 'KeyZ', 'KeyY', 'KeyQ', 'KeyH'].includes(code))
     || (primary && code === 'KeyA' && !modifiers.includes('shift'))
