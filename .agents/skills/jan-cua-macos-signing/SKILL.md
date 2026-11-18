@@ -39,7 +39,7 @@ If an existing record is damaged or its keychain/certificate is missing, setup s
 
 ## Configure the source build
 
-Resolve the Jan home used by the developer (`JAN_HOME`, otherwise `~/.jan`). Merge the two printed values into its `cordis.patch.yml`, targeting the entry that loads `@janhq/jan-experimental-cua-macos`. The shipped entry ID is `cua`:
+Resolve the Jan home used by the developer (`JAN_HOME`, otherwise `~/.config/jan-alpha`). Merge the two printed values into its `cordis.patch.yml`, targeting the entry that loads `@janhq/jan-experimental-cua-macos`. The shipped entry ID is `cua`:
 
 ```yaml
 - id: cua

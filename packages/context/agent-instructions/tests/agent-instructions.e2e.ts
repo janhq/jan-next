@@ -41,7 +41,7 @@ async function harness(): Promise<{ ctx: Context; agent: Agent }> {
   })
   await ctx.plugin(LocalFileSystem, { cwd: '/' })
   await ctx.plugin(ToolFs)
-  // Keep the developer's real ~/.jan and ~/.agents out of the model-visible baseline.
+  // Keep the developer's real ~/.config/jan-alpha and ~/.agents out of the model-visible baseline.
   vi.stubEnv('JAN_HOME', join(workdir, 'absent-jan'))
   vi.stubEnv('JAN_AGENTS_HOME', join(workdir, 'absent-agents'))
   await ctx.plugin(AgentInstructions, { maxBytes: 65536 })

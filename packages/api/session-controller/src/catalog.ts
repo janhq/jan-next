@@ -1,6 +1,7 @@
 /** Shared projection of the live LLM registry into the browser model catalog. */
 
 import { RemoteError } from '@janhq/jan-typert-protocol'
+import { LlmError } from '@janhq/jan-llm'
 import type { LlmModelInfo } from '@janhq/jan-llm'
 import type { Context } from '@janhq/cordis'
 import type {
@@ -58,6 +59,7 @@ export async function buildModelCatalog(
           id: provider.id,
           name: provider.name,
           message: error instanceof Error ? error.message : String(error),
+          ...error instanceof LlmError ? { code: error.code } : {},
         },
       }
     }

@@ -102,6 +102,22 @@ describe('installer preparation preserves application dependencies', () => {
     expect(config.artifactName).toBe('jan-${version}-${os}-${arch}-unsigned.${ext}')
   })
 
+  it('builds unsigned Linux AppImage and deb packages without update or policy configuration', async () => {
+    const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
+    const config = createElectronBuilderConfig({
+      JAN_DESKTOP_APP_ID: 'com.example.installer',
+      JAN_DESKTOP_TARGET_PLATFORM: 'linux',
+      JAN_DESKTOP_TARGET_ARCH: 'x64',
+      JAN_DESKTOP_UNSIGNED: '1',
+    }, 'linux', 'x64')
+    expect(config.linux).toMatchObject({ target: ['AppImage', 'deb'], executableName: 'jan-alpha', syncDesktopName: true })
+    expect(config.extraMetadata).toMatchObject({ desktopName: 'jan-alpha.desktop' })
+    expect(config.artifactName).toBe('jan-${version}-${os}-${arch}-unsigned.${ext}')
+    expect(config.extraMetadata).not.toHaveProperty('janMandatoryUpdatePolicy')
+    expect(config.publish).toBeNull()
+    expect(config.extraResources.some(resource => resource.to === 'tray.ico')).toBe(false)
+  })
+
   it('packages every preload entry point the shell loads', async () => {
     const { readdirSync, readFileSync } = await import('node:fs')
     const sourceDirectory = new URL('../src/', import.meta.url)

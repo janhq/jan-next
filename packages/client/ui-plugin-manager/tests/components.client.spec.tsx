@@ -1857,7 +1857,7 @@ describe('PluginManagerPage', () => {
 
   it('shows the subject while installing, folds the pnpm output behind the details, and stops through the Host', () => {
     const subject = { spec: 'jan-x', status: 'accepted', kind: 'registry', name: 'jan-x', version: '1.4.2', description: 'A sidebar.', bundle: true, registry: null } as const
-    const run = { jobId: 'j1', command: 'pnpm add jan-x', cwd: '/home/u/.jan/profiles/web', output: 'Progress: resolved \x1b[96m1\x1b[39m\n' }
+    const run = { jobId: 'j1', command: 'pnpm add jan-x', cwd: '/home/u/.config/jan-alpha/profiles/web', output: 'Progress: resolved \x1b[96m1\x1b[39m\n' }
     const { actions, set } = renderTab({ install: { ...IDLE_INSTALL, open: true, spec: 'jan-x', phase: 'running', subject, runs: [run] } })
     expect(screen.getByRole('status').textContent).toBe(en.installingTitle)
     expect(screen.getByRole('status').parentElement?.querySelector('[data-state="ongoing"]')).not.toBeNull()
@@ -1873,7 +1873,7 @@ describe('PluginManagerPage', () => {
     expect(actions.toggleInstallDetails).toHaveBeenCalledTimes(1)
     set({ install: { ...IDLE_INSTALL, open: true, spec: 'jan-x', phase: 'running', subject, runs: [run], detailsOpen: true } })
     expect(screen.getByRole('button', { name: en.installDetailsHide }).getAttribute('aria-expanded')).toBe('true')
-    expect(screen.getByText(en.installLocation.replace('{dir}', '/home/u/.jan/profiles/web'))).toBeTruthy()
+    expect(screen.getByText(en.installLocation.replace('{dir}', '/home/u/.config/jan-alpha/profiles/web'))).toBeTruthy()
     // The run streams as a terminal: its command line, its coloured output so far, the running label.
     expect(screen.getByText('pnpm add jan-x')).toBeTruthy()
     const terminal = document.querySelector('[data-terminal]') as HTMLElement
@@ -2116,7 +2116,7 @@ describe('PluginManagerPage', () => {
 
   it('names an enable-stage failure and points the details at the complete Host log', () => {
     const subject = { spec: 'jan-x', status: 'accepted', kind: 'registry', name: 'jan-x', bundle: true, registry: null } as const
-    const logPath = '/home/u/.jan/profiles/web/plugin-manager/runs/install.log'
+    const logPath = '/home/u/.config/jan-alpha/profiles/web/plugin-manager/runs/install.log'
     const enabling: InstallState = {
       ...IDLE_INSTALL, open: true, spec: 'jan-x', phase: 'failed', subject, detailsOpen: true, logPath,
       failure: { reason: 'activation refused', stage: 'enable', enabled: true },

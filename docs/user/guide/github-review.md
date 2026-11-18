@@ -25,10 +25,10 @@ Install both experimental packages into the Web profile first. Profiles do not i
 ```sh
 jan plugin --profile web add @janhq/jan-webhook @janhq/jan-webhook-github
 export JAN_GITHUB_REVIEW_WORKSPACE=/path/to/jan
-jan web --patch "${JAN_HOME:-$HOME/.jan}/profiles/web/node_modules/@janhq/jan-webhook-github/examples/github-review/cordis.yml"
+jan web --patch "${JAN_HOME:-$HOME/.config/jan-alpha}/profiles/web/node_modules/@janhq/jan-webhook-github/examples/github-review/cordis.yml"
 ```
 
-The adapter distributes the example, which loads from the profile's installation directory so its rule module can resolve profile-installed peers. Do not run the rule from an arbitrary directory outside the profile. To customize it, copy both example files to `$JAN_HOME/profiles/web/github-review/`, edit the configuration, and point `--patch` at that copy of `cordis.yml`; use `~/.jan` when `JAN_HOME` is unset.
+The adapter distributes the example, which loads from the profile's installation directory so its rule module can resolve profile-installed peers. Do not run the rule from an arbitrary directory outside the profile. To customize it, copy both example files to `$JAN_HOME/profiles/web/github-review/`, edit the configuration, and point `--patch` at that copy of `cordis.yml`; use `~/.config/jan-alpha` when `JAN_HOME` is unset.
 
 The repository example lives under `packages/experimental/webhook-github/examples/github-review/`. The CLI does not install webhook packages or list them as Official plugins; installing the packages and supplying the overlay are separate steps.
 

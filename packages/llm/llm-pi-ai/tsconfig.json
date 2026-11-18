@@ -49,6 +49,12 @@
     },
     {
       "path": "../../settings/settings"
+    },
+    {
+      "path": "../../core/agent-default-model"
+    },
+    {
+      "path": "../../storage/storage-domain"
     }
   ]
 }

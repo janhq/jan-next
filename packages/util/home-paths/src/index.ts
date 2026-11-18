@@ -8,11 +8,14 @@ import { opendir, realpath } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 
-/** Directory name for the default Jan home under the OS home. */
-export const JAN_HOME_DIR_NAME = '.jan'
+/**
+ * Path segments of the default Jan home relative to the OS home. The default is
+ * `~/.config/jan-alpha` on every platform; `$XDG_CONFIG_HOME` is not consulted.
+ */
+export const DEFAULT_JAN_HOME_SEGMENTS: readonly string[] = ['.config', 'jan-alpha']
 
 /** Stable user-facing display form for the default Jan home. */
-export const DEFAULT_JAN_HOME_DISPLAY = `~/${JAN_HOME_DIR_NAME}`
+export const DEFAULT_JAN_HOME_DISPLAY = `~/${DEFAULT_JAN_HOME_SEGMENTS.join('/')}`
 
 /** Environment variable that overrides the default Jan home. */
 export const JAN_HOME_ENV = 'JAN_HOME'
@@ -68,7 +71,7 @@ export async function canonicalizeWatchPath(path: string): Promise<string> {
  * @returns the absolute default harness home path.
  */
 export function defaultJanHome(): string {
-  return join(homedir(), JAN_HOME_DIR_NAME)
+  return join(homedir(), ...DEFAULT_JAN_HOME_SEGMENTS)
 }
 
 /**
@@ -125,7 +128,7 @@ function rootDisplay(resolvedRoot: string, defaultRoot: string, defaultLabel: st
  * Resolve the single-root Jan home.
  *
  * Precedence, highest first: an explicit configured path, `$JAN_HOME`, then
- * `~/.jan`. The harness keeps all user data under one root. An empty or
+ * `~/.config/jan-alpha`. The harness keeps all user data under one root. An empty or
  * whitespace-only `$JAN_HOME` is treated as unset, so a blank override never
  * resolves the home to the current working directory.
  * @param configured - explicit harness-home override, which has highest precedence.
@@ -176,9 +179,9 @@ export function janCachePath(optionsOrSegment: { janHome?: string } | string = {
  * Describe a resolved harness home symbolically for user-facing display.
  *
  * It never returns an absolute machine path: the default home is labelled
- * `~/.jan`, and any configured home is labelled `$JAN_HOME`.
+ * `~/.config/jan-alpha`, and any configured home is labelled `$JAN_HOME`.
  * @param resolvedHome - the absolute path returned by {@link resolveJanHome}.
- * @returns `~/.jan` for the default home, otherwise `$JAN_HOME`.
+ * @returns `~/.config/jan-alpha` for the default home, otherwise `$JAN_HOME`.
  */
 export function janHomeDisplay(resolvedHome: string): string {
   return rootDisplay(resolvedHome, defaultJanHome(), DEFAULT_JAN_HOME_DISPLAY, JAN_HOME_ENV)

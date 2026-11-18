@@ -15,6 +15,7 @@
         maxTokensAsSuccess: false
 
     # Tokamak router route; another deployment replaces baseURL through a profile patch.
+    # Its models come from the router's GET {baseURL}/models listing.
     - id: llm-pi-ai
       name: '@janhq/jan-llm-pi-ai'
       config:
@@ -26,22 +27,11 @@
             apiKeyEnv: TOKAMAK_API_KEY
             defaultContextWindow: !!js Number(process.env.JAN_CONTEXT_WINDOW ?? 200000)
             streamIdleTimeoutMs: 172800000
-            models:
-              - id: tokamak-1-preview
-              - id: tokamak/auto
-              # Routed vision models: without `input` the route's text-only
-              # defaultInput refuses image prompts before they reach the router.
-              - id: anthropic/claude-sonnet-5-5[1m]
-                contextWindow: 1000000
-                input: [text, image]
-              - id: anthropic/claude-opus-5-5[1m]
-                contextWindow: 1000000
-                input: [text, image]
-              - id: anthropic/claude-haiku-5-5[1m]
-                contextWindow: 1000000
-                input: [text, image]
-              - id: openai/gpt-6-sol
-                input: [text, image]
+            modelListing:
+              refreshIntervalMs: 600000
+              timeoutMs: 15000
+              preferredDefaults: [tokamak/auto]
+              exclude: [openai/gpt-image-*]
 
     - id: sandbox
       name: '@janhq/jan-sandbox-local'

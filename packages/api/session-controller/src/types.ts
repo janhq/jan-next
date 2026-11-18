@@ -133,6 +133,12 @@ export interface ModelCatalogFailure {
   readonly id: string
   readonly name: string
   readonly message: string
+  /**
+   * The provider's `LlmError` code when it reported one, such as
+   * `MISSING_CREDENTIAL` for a provider that needs a sign-in or key before it
+   * can list models; absent for other failures.
+   */
+  readonly code?: string
 }
 
 /** Host-generation model catalog and the default used by unconfigured Sessions. */

@@ -33,6 +33,8 @@ export interface MockTokamak {
   hangPolls: number
   /** Make `GET /v1/models` fail with this HTTP status. */
   failModels: number | false
+  /** Entries `GET /v1/models` lists, in the router's format. */
+  models: Record<string, unknown>[]
   /** Approve any poll arriving at or after this time (ms since epoch). */
   approveAfter: number | undefined
   /** Poll interval (seconds) advertised to clients. */
@@ -48,7 +50,16 @@ export async function startMockTokamak(port = 0): Promise<MockTokamak> {
   const keys = new Set<string>()
   let minted = 0
   const mock: MockTokamak = {
-    origin: '', sessions, revoked: [], chatAuth: [], pollFailures: [], unsupported: false, autoApprove: false, approveOnPoll: undefined, hangPolls: 0, failModels: false, approveAfter: undefined, interval: 1,
+    origin: '', sessions, revoked: [], chatAuth: [], pollFailures: [], unsupported: false, autoApprove: false, approveOnPoll: undefined, hangPolls: 0, failModels: false,
+    models: [
+      { id: 'tokamak/auto', display_name: 'Tokamak Auto', context_length: 1_000_000, max_completion_tokens: 128_000 },
+      { id: 'anthropic/claude-opus-5-5[1m]', display_name: 'claude-opus-5-5', context_length: 1_000_000, max_completion_tokens: 128_000 },
+      { id: 'openai/gpt-6-sol', display_name: 'gpt-6-sol', context_length: 1_050_000, max_completion_tokens: 128_000 },
+      // Non-chat entries the route leaves out: one by `exclude`, one by its declared output.
+      { id: 'openai/gpt-image-2', display_name: 'gpt-image-2', context_length: 1_000_000 },
+      { id: 'acme/painter', display_name: 'painter', architecture: { input_modalities: ['text'], output_modalities: ['image'] } },
+    ],
+    approveAfter: undefined, interval: 1,
     revokeKey(key) { keys.delete(key) },
     /** Most recently minted key; each approval mints a new one. */
     key: '',
@@ -125,7 +136,7 @@ export async function startMockTokamak(port = 0): Promise<MockTokamak> {
         if (mock.failModels !== false) return json(res, mock.failModels, { error: 'injected' })
         const token = bearer(req)
         if (token === undefined || !keys.has(token)) return json(res, 401, { error: 'invalid key' })
-        return json(res, 200, { object: 'list', data: [{ id: 'tokamak-1-preview', object: 'model' }, { id: 'anthropic/claude-opus-5', object: 'model' }] })
+        return json(res, 200, { object: 'list', data: mock.models.map(model => ({ object: 'model', ...model })) })
       }
       if (req.method === 'POST' && url.pathname === '/v1/chat/completions') {
         const token = bearer(req)
@@ -156,5 +167,8 @@ export async function startMockTokamak(port = 0): Promise<MockTokamak> {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const mock = await startMockTokamak(Number(process.argv[2] ?? 8787))
   mock.autoApprove = true
+  // MOCK_TOKAMAK_FAIL_MODELS=503 makes the model listing fail, for checking the picker's failure state.
+  const failModels = Number(process.env.MOCK_TOKAMAK_FAIL_MODELS ?? Number.NaN)
+  if (Number.isInteger(failModels)) mock.failModels = failModels
   console.log(`mock Tokamak on ${mock.origin} (auto-approves sign-ins)`)
 }

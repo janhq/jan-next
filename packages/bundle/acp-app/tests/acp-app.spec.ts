@@ -30,7 +30,7 @@ describe('jan-acp-app bundle', () => {
     expect(rows.find(row => row.id === 'acp-app-startup')?.name).toBe('@janhq/jan-acp-app')
     expect(rows.find(row => row.id === 'acp')).toMatchObject({
       inject: ['acpAppStartup'],
-      config: { provider: 'tokamak', model: 'anthropic/claude-sonnet-5-5[1m]' },
+      config: { provider: 'tokamak', model: 'tokamak/auto' },
     })
   })
 })

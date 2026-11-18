@@ -1,7 +1,7 @@
 /**
  * Shared boot glue for `jan` profiles, including the CLI packaged by the Python runtime wheel: load the gitignored
  * `.env`, install the fail-loud Loader guards, resolve the config path (snapshot-aware), load the
- * optional user patch layers from the Harness home (`~/.jan`), expose its path resolver to
+ * optional user patch layers from the Harness home (`~/.config/jan-alpha`), expose its path resolver to
  * config expressions, and drive the Cordis Loader against a leaf `cordis.yml` until the tree settles.
  * @module @janhq/jan-app-boot
  */

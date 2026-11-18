@@ -4,10 +4,10 @@ import { writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { homedir } from 'node:os'
 import type { Context } from '@janhq/cordis'
 import type { EntryOptions } from '@janhq/cordis-plugin-loader'
 import type { PatchOptions } from '@janhq/cordis-plugin-include'
+import { resolveJanHome } from '@janhq/jan-home-paths'
 import {
   boot,
   createRuntimeResolution,
@@ -103,7 +103,7 @@ export async function bootProductionProfile(options: ProductionProfileOptions): 
       // The launcher's own profile facts, so profile-backed services activate as in production.
       const profileContext: ProfileContext = {
         name: options.profile, dir: profile.dir, patchPath: profile.patchPath, installAnchor,
-        cwd: process.cwd(), home: process.env['JAN_HOME'] ?? join(homedir(), '.jan'),
+        cwd: process.cwd(), home: resolveJanHome(),
         startedBundles: profile.layers.map(layer => layer.packageName),
         overlays: overlays.flat(), telemetryDisabledEnv: process.env['JAN_TELEMETRY_DISABLED'],
       }

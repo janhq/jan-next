@@ -428,7 +428,7 @@ Source: [`packages/llm/llm/src/types.ts`](../../packages/llm/llm/src/types.ts)
 
 Provider and model discovery uses small provider-neutral descriptors. A model catalog is advisory: routing still keys on a registered provider.
 
-Registering an adapter returns a handle: the disposer, plus the atomic route replacement a plugin whose route set is user-configurable needs.
+Registering an adapter returns a handle: the disposer, the atomic route replacement a plugin whose route set is user-configurable needs, and a model-set announcement for an adapter whose models change at runtime.
 
 ```ts type-equiv
 /**
@@ -453,6 +453,13 @@ interface AdapterRegistrationHandle {
    * @param providers - the complete next route set for this registration.
    */
   replace(providers: string[]): void
+  /**
+   * Announce that the models this registration's routes advertise changed
+   * without a route change, by publishing `llm/adapters-updated`. Call it after
+   * the adapter commits the new model set, so observers that re-read
+   * `listModels()` see it. A no-op once the registration has been released.
+   */
+  modelsChanged(): void
 }
 ```
 
@@ -1438,12 +1445,13 @@ Source: [`packages/llm/llm/src/index.ts`](../../packages/llm/llm/src/index.ts)
 
 #### `llm/adapters-updated` — emit
 
-The provider topology changed: an adapter registered or unregistered routes, or the configurable-provider directory gained or lost entries. This payload-free registry notification fires at each commit point (including registration disposal); consumers re-read `listProviders()`, `listModels()`, or `listConfigurableProviders()` for the new state. Observer failures are contained and cannot veto the registry mutation.
+The provider topology changed: an adapter registered or unregistered routes, an adapter announced a changed model set for its routes, or the configurable-provider directory gained or lost entries. This payload-free registry notification fires at each commit point (including registration disposal); consumers re-read `listProviders()`, `listModels()`, or `listConfigurableProviders()` for the new state. Observer failures are contained and cannot veto the registry mutation.
 
 ```ts cordis-catalog
 /**
  * The provider topology changed: an adapter registered or unregistered
- * routes, or the configurable-provider directory gained or lost entries.
+ * routes, an adapter announced a changed model set for its routes, or the
+ * configurable-provider directory gained or lost entries.
  * This payload-free registry notification fires at each commit point
  * (including registration disposal); consumers re-read `listProviders()`,
  * `listModels()`, or `listConfigurableProviders()` for the new state.

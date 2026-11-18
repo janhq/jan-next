@@ -119,7 +119,7 @@ The reusable [llama.cpp worker workflow](../../.github/workflows/llama-worker.ym
 
 Each target uploads the artifact `jan-llama-worker-<target>` with two files: `jan-llama-worker-<target>.tar.gz`, the staged directory as a tar archive so executable bits survive, and `source-commit`, the commit it was built from. Linux builds on Ubuntu 22.04 so the worker needs glibc 2.35 at most, and macOS builds set `MACOSX_DEPLOYMENT_TARGET=13.3`. Caches hold the Cargo registry keyed by `Cargo.lock`, the llama.cpp checkout keyed by the pinned commit, and ccache keyed by target and `build.rs`.
 
-The macOS and Windows desktop packaging workflows run it for their own target and extract the archive into `dist/`, as described in [desktop packaging](../../apps/desktop/packaging/README.md#macos-actions). The [worker check workflow](../../.github/workflows/llama-worker-check.yml) runs `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, and `cargo test` for pull requests and `master` pushes that change this crate or either workflow, and then runs the worker workflow for `linux-x64`.
+The [worker check workflow](../../.github/workflows/llama-worker-check.yml) runs `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, and `cargo test` for pull requests and `master` pushes that change this crate or either workflow, and then runs the worker workflow for `linux-x64`.
 
 ## Dev Note
 

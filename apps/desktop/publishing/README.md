@@ -17,7 +17,7 @@ Publish completed Desktop installers and update feeds to the selected download s
 - [Upload credentials](#credentials)
 - [Upload audit and recovery](#audit-and-recovery)
 
-For retained self-hosted builds, use the [CI publication workflow](ci/README.md), which keeps installers on their original machine and supports resumable publication. The commands below remain the existing manually authorized local uploader: they retain checkout-local audit records and use the operator's Git identity. They do not share the CI publisher's locks, approval or tag-only recovery. Do not run both writers against one channel concurrently. Both use the same upload-plan validation; separate orchestration preserves existing manual commands while adding immutable-attempt recovery for CI. Consolidating or retiring the manual commands is separate work.
+The commands below are the manually authorized local uploader: they retain checkout-local audit records and use the operator's Git identity. They publish signed builds only; unsigned and Linux packages have no update feed. The [Desktop package workflow](../packaging/README.md#github-actions) publishes unsigned installers to draft GitHub releases instead, without update feeds.
 
 <a id="prerequisites"></a>
 

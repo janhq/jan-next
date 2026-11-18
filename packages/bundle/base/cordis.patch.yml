@@ -85,20 +85,17 @@
     - id: agent-default-model
       name: '@janhq/jan-agent-default-model'
       config:
-        # tokamak-harness: default to the Tokamak router (llm-pi-ai `tokamak` route below).
+        # tokamak-harness: default to the Tokamak router's automatic model (llm-pi-ai
+        # `tokamak` route below). When the router does not list the saved default, the
+        # route moves it to a listed model (`modelListing.preferredDefaults`).
         provider: tokamak
-        model: anthropic/claude-sonnet-5-5[1m]
+        model: tokamak/auto
 
     - id: jobs
       name: '@janhq/jan-jobs-local'
 
     - id: llm-retry
       name: '@janhq/jan-llm-retry'
-
-    # Jan: continue a rate-limited, out-of-quota or refused reply on the next
-    # model the user listed in Settings > Models; empty chain = off.
-    - id: model-fallback
-      name: '@janhq/jan-llm-fallback'
 
     # Live Config forms persist through the active profile patch.
 
@@ -147,29 +144,25 @@
         providers:
           # tokamak-harness: Tokamak router, OpenAI-compatible, keyed by the
           # TOKAMAK_API_KEY credential that Tokamak sign-in writes (or the env var).
+          # The router decides which models it serves: the route lists them from
+          # GET {baseURL}/models at startup, after sign-in, and every refreshIntervalMs,
+          # and offers none while signed out or before the first listing succeeds; the
+          # last listing is kept in storage and served after a restart until the launch
+          # refresh replaces it.
           tokamak:
             displayName: Tokamak
             api: openai-completions
             # Same normalization as the account row: a bare host gets /v1.
             baseURL: !!js (process.env.TOKAMAK_BASE_URL || 'https://api.tokamak.sh/v1').trim().replace(/\/+$/, '').replace(/^(https?:\/\/[^/]+)$/, '$1/v1')
             apiKeyEnv: TOKAMAK_API_KEY
+            # Used only for a listed model whose listing reports no context_length.
             defaultContextWindow: 200000
-            models:
-              - id: tokamak-1-preview
-              - id: tokamak/auto
-              # Routed vision models: without `input` the route's text-only
-              # defaultInput refuses image prompts before they reach the router.
-              - id: anthropic/claude-sonnet-5-5[1m]
-                contextWindow: 1000000
-                input: [text, image]
-              - id: anthropic/claude-opus-5-5[1m]
-                contextWindow: 1000000
-                input: [text, image]
-              - id: anthropic/claude-haiku-5-5[1m]
-                contextWindow: 1000000
-                input: [text, image]
-              - id: openai/gpt-6-sol
-                input: [text, image]
+            modelListing:
+              refreshIntervalMs: 600000
+              timeoutMs: 15000
+              preferredDefaults: [tokamak/auto]
+              # The router lists image generation models without marking them as non-chat.
+              exclude: [openai/gpt-image-*]
           # tokamak-harness: the managed local model (web-app row `llama-cpp`). Its key and
           # endpoint (the worker's OS-assigned port) exist only while that worker runs, so
           # otherwise the route offers no models.
@@ -181,8 +174,6 @@
             # A CPU-only machine can take minutes to read the harness's ~12k-token
             # prompt before the first token; wait instead of retrying from scratch.
             streamIdleTimeoutMs: 1800000
-            # Show how far that prompt reading got (llama.cpp `return_progress`).
-            promptProgress: true
             models:
               # The llama-cpp row serves whichever model is in use under this id and keeps
               # the name equal to it through the llm-pi-ai settings section.
@@ -572,7 +563,7 @@
     - id: system-prompt
       name: '@janhq/jan-system-prompt'
       config:
-        # tokamak-harness: Jan replaces the fixed Jan identity sentence.
+        # tokamak-harness: the persona opener replaces the default harness identity sentence.
         includeHarnessIdentity: false
         personaPrefix: You are Jan, an AI agent.
 

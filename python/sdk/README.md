@@ -28,7 +28,7 @@ The authoring environment is independently optional through `jan_runtime.downloa
 
 The Python SDK has no separate application entrypoint. It launches the bundled `jan` CLI with `--profile sdk`; the selected profile owns the JSON-RPC server, agent composition, credentials, persistence, tools, and shutdown behavior.
 
-Every launch requires an explicit Harness home. Pass `jan_home` or provide a non-empty `JAN_HOME` in the child environment. The SDK deliberately never discovers `~/.jan`.
+Every launch requires an explicit Harness home. Pass `jan_home` or provide a non-empty `JAN_HOME` in the child environment. The SDK deliberately never discovers `~/.config/jan-alpha`.
 
 ```py
 from jan import Jan
@@ -37,7 +37,7 @@ with Jan(
     jan_home="/absolute/path/to/isolated-jan-home",
     cwd="/absolute/path/to/workspace",
     provider="tokamak",
-    model="tokamak-1-preview",
+    model="tokamak/auto",
     max_tokens=49_152,
 ) as harness:
     result = harness.run("Say hi.", session_id="example-001")
@@ -88,7 +88,7 @@ from jan import ApprovalRequestParams, HarnessClient, HarnessConfig
 
 with HarnessClient(HarnessConfig(jan_home="/absolute/path/to/jan-home")) as client:
     client.initialize(cwd="/absolute/path/to/workspace", provider="tokamak",
-                      model="tokamak-1-preview", approval_requests=True)
+                      model="tokamak/auto", approval_requests=True)
     client.session_prompt("main", [{"type": "text", "text": "Run the operation requiring approval."}])
     request = client.next_request()
     if request.method == "approval/request":

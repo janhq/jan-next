@@ -11,7 +11,7 @@
           - id: persona
             name: '@janhq/jan-persona'
             config:
-              prefix: You are a coding agent powered by the {{model}} model.
+              prefix: You are Jan, an AI agent. You are a coding agent powered by the {{model}} model.
           - id: agent-instructions
             name: '@janhq/jan-agent-instructions'
             config:

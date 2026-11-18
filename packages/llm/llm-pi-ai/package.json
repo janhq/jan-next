@@ -31,23 +31,27 @@
   "peerDependencies": {
     "@janhq/cordis": "workspace:~",
     "@janhq/cordis-plugin-loader": "workspace:~",
+    "@janhq/jan-agent-default-model": "workspace:*",
     "@janhq/jan-attachment": "workspace:*",
     "@janhq/jan-authorization": "workspace:*",
     "@janhq/jan-credentials": "workspace:*",
     "@janhq/jan-fs": "workspace:*",
     "@janhq/jan-launch-environment": "workspace:*",
     "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-storage-domain": "workspace:*",
     "@janhq/jan-timeout": "workspace:*"
   },
   "dependencies": {
+    "@earendil-works/pi-ai": "^1.3.0",
     "@janhq/jan-brand": "workspace:*",
     "@janhq/jan-util-values": "workspace:*",
     "@janhq/schemastery": "workspace:~",
-    "@earendil-works/pi-ai": "^1.3.0"
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@janhq/cordis": "workspace:~",
     "@janhq/cordis-plugin-loader": "workspace:~",
+    "@janhq/jan-agent-default-model": "workspace:*",
     "@janhq/jan-agent-loop-testkit": "workspace:*",
     "@janhq/jan-attachment": "workspace:*",
     "@janhq/jan-authorization": "workspace:*",
@@ -58,12 +62,21 @@
     "@janhq/jan-llm": "workspace:*",
     "@janhq/jan-session": "workspace:*",
     "@janhq/jan-settings": "workspace:*",
+    "@janhq/jan-storage": "workspace:*",
+    "@janhq/jan-storage-domain": "workspace:*",
+    "@janhq/jan-storage-json": "workspace:*",
     "@janhq/jan-timeout": "workspace:*",
     "@janhq/jan-tool-testkit": "workspace:*",
     "@janhq/jan-tools": "workspace:*"
   },
   "peerDependenciesMeta": {
     "@janhq/cordis-plugin-loader": {
+      "optional": true
+    },
+    "@janhq/jan-agent-default-model": {
+      "optional": true
+    },
+    "@janhq/jan-storage-domain": {
       "optional": true
     }
   }

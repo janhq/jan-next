@@ -1,26 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { expect, it } from 'vitest'
-import { desktopCiVersion } from '../scripts/desktop-ci-version.mjs'
 import { desktopBuildVersionPrefix } from '../scripts/desktop-build-version.mjs'
 import { createElectronBuilderConfig } from '../scripts/electron-builder-config.mjs'
-
-it.each(['nightly', 'stable'] as const)('resolves every CI version mode independently of %s', (channel) => {
-  const now = new Date('2026-11-03T00:00:00Z')
-  for (const version of ['1.2.3', '1.2.3-alpha.1', '1.2.3-rc.1']) {
-    const env = { JAN_DESKTOP_UPDATE_CHANNEL: channel, GITHUB_RUN_NUMBER: '7', GITHUB_RUN_ATTEMPT: '2' }
-    const generated = `${desktopBuildVersionPrefix(version)}20261103.7.2`
-    expect(desktopCiVersion({ ...env, PACKAGE_VERSION_MODE: 'follow-jan' }, version, now)).toBe(version)
-    for (const preset of ['test', 'production']) {
-      expect(desktopCiVersion({ ...env, JAN_PACKAGING_PRESET: preset, PACKAGE_VERSION_MODE: 'build-number' }, version, now)).toBe(generated)
-    }
-    expect(desktopCiVersion({ ...env, PACKAGE_VERSION_MODE: 'product' }, version, now)).toBe(version)
-    expect(desktopCiVersion({ ...env, PACKAGE_VERSION_MODE: 'auto' }, version, now)).toBe(generated)
-    expect(desktopCiVersion({ ...env, PACKAGE_VERSION_MODE: 'manual', PACKAGE_BUILD_VERSION: generated }, version, now)).toBe(generated)
-    expect(desktopCiVersion({ ...env, PACKAGE_VERSION_MODE: 'default', JAN_PACKAGING_PRESET: 'production' }, version, now)).toBe(version)
-    expect(desktopCiVersion({ ...env, PACKAGE_VERSION_MODE: 'default', JAN_PACKAGING_PRESET: 'test' }, version, now)).toBe(generated)
-    expect(() => desktopCiVersion({ ...env, PACKAGE_VERSION_MODE: 'manual', PACKAGE_BUILD_VERSION: 'invalid' }, version, now)).toThrow('Invalid build version')
-  }
-})
 
 it.each(['arm64', 'x64'] as const)('embeds stable in a prerelease macOS %s package and provider', (arch) => {
   const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }

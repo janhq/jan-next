@@ -8,7 +8,7 @@ import { parseArgs } from 'node:util'
 import { downloadArtifact } from '@electron/get'
 import extractZip from 'extract-zip'
 import { readPrimaryRuntime } from '../../../packages/skill/tool-workspace-dependencies/src/index.ts'
-import { desktopTargetPlatform, resolveDesktopBuildTarget, resolveDesktopTargetBuildPaths, type DesktopReleasePlatform } from './desktop-build-paths.mjs'
+import { desktopElectronExecutable, desktopTargetPlatform, resolveDesktopBuildTarget, resolveDesktopTargetBuildPaths, type DesktopBuildPlatform } from './desktop-build-paths.mjs'
 import { packagingStep } from './packaging-step.mjs'
 import { preparePrimaryRuntime } from './prepare-primary-runtime.ts'
 import { prepareDesktopCli } from './prepare-cli.ts'
@@ -19,20 +19,19 @@ const RUNTIME_ROOT = BUILD_PATHS.runtime
 
 
 /** Extract the target Electron distribution and return its embedded Node version. */
-async function prepareElectron({ platform, arch }: DesktopReleasePlatform): Promise<string> {
+async function prepareElectron({ platform, arch }: DesktopBuildPlatform): Promise<string> {
   const require = createRequire(import.meta.url)
   const { version } = require('electron/package.json') as { version: string }
   const archive = await packagingStep(process.env.JAN_DESKTOP_PACKAGING_RUN_DIR, 'download:electron',
     () => downloadArtifact({ version, platform, arch, artifactName: 'electron', cacheRoot: BUILD_PATHS.downloads }))
   rmSync(BUILD_PATHS.electron, { recursive: true, force: true })
   await packagingStep(process.env.JAN_DESKTOP_PACKAGING_RUN_DIR, 'extract:electron', () => extractZip(archive, { dir: BUILD_PATHS.electron }))
-  const executable = join(BUILD_PATHS.electron, platform === 'win32' ? 'electron.exe' : 'Electron.app/Contents/MacOS/Electron')
-  return execFileSync(executable, ['-p', 'process.versions.node'], {
+  return execFileSync(desktopElectronExecutable(BUILD_PATHS.electron, platform), ['-p', 'process.versions.node'], {
     encoding: 'utf8', env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
   }).trim()
 }
 
-function prepareCli({ platform, arch }: DesktopReleasePlatform): void {
+function prepareCli({ platform, arch }: DesktopBuildPlatform): void {
   cpSync(join(import.meta.dirname, 'node-bin'), join(RUNTIME_ROOT, 'bin'), { recursive: true })
   chmodSync(join(RUNTIME_ROOT, 'bin', 'node'), 0o755)
   const cli = join(RUNTIME_ROOT, 'cli')

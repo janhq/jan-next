@@ -10683,6 +10683,9 @@ importers:
       '@janhq/jan-fs-sandbox':
         specifier: workspace:*
         version: link:../../fs/fs-sandbox
+      '@janhq/jan-home-paths':
+        specifier: workspace:*
+        version: link:../../util/home-paths
       '@janhq/jan-host-webserver':
         specifier: workspace:*
         version: link:../../host/webserver
@@ -13210,6 +13213,9 @@ importers:
       '@janhq/schemastery':
         specifier: link:../../../vendor/schemastery
         version: link:../../../vendor/schemastery
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
     devDependencies:
       '@janhq/cordis':
         specifier: workspace:~
@@ -13217,6 +13223,9 @@ importers:
       '@janhq/cordis-plugin-loader':
         specifier: workspace:~
         version: link:../../../vendor/loader
+      '@janhq/jan-agent-default-model':
+        specifier: workspace:*
+        version: link:../../core/agent-default-model
       '@janhq/jan-agent-loop-testkit':
         specifier: workspace:*
         version: link:../../test-support/agent-loop-testkit
@@ -13247,6 +13256,15 @@ importers:
       '@janhq/jan-settings':
         specifier: workspace:*
         version: link:../../settings/settings
+      '@janhq/jan-storage':
+        specifier: workspace:*
+        version: link:../../storage/storage
+      '@janhq/jan-storage-domain':
+        specifier: workspace:*
+        version: link:../../storage/storage-domain
+      '@janhq/jan-storage-json':
+        specifier: workspace:*
+        version: link:../../storage/storage-json
       '@janhq/jan-timeout':
         specifier: workspace:*
         version: link:../../util/timeout
@@ -17135,6 +17153,9 @@ importers:
       '@janhq/jan-app-boot':
         specifier: workspace:*
         version: link:../../boot/app-boot
+      '@janhq/jan-home-paths':
+        specifier: workspace:*
+        version: link:../../util/home-paths
       '@janhq/jan-http-proxy':
         specifier: workspace:*
         version: link:../../util/http-proxy

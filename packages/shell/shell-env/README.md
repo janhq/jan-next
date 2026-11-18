@@ -52,11 +52,11 @@ Contributors must declare every key they return; returning an undeclared or non-
 
 ### Choosing the Harness home
 
-The single config field picks the home directory exposed as `JAN_HOME`; the default resolution order is the `janHome` config, then ambient `$JAN_HOME`, then `~/.jan`.
+The single config field picks the home directory exposed as `JAN_HOME`; the default resolution order is the `janHome` config, then ambient `$JAN_HOME`, then `~/.config/jan-alpha`.
 
 | Field | Default | Meaning |
 |---|---|---|
-| `janHome` | `$JAN_HOME`, then `~/.jan` | Absolute Harness home exposed as `JAN_HOME` |
+| `janHome` | `$JAN_HOME`, then `~/.config/jan-alpha` | Absolute Harness home exposed as `JAN_HOME` |
 
 The generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-shell-env) is the exhaustive source for every accepted field and its JSDoc.
 

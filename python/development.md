@@ -53,7 +53,7 @@ with Jan(jan_home="/absolute/path/to/test-jan-home") as harness:
     print(harness.run("say hi").final_response)
 ```
 
-Alternatively export a non-empty `JAN_HOME`. The SDK rejects a launch that would silently use `~/.jan`.
+Alternatively export a non-empty `JAN_HOME`. The SDK rejects a launch that would silently use `~/.config/jan-alpha`.
 
 ## Run against Node source
 

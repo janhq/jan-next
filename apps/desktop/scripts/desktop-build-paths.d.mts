@@ -1,16 +1,16 @@
 import type { DesktopAutoUpdateTarget } from './desktop-auto-update-environment.mjs'
 
-/** Release target, or Linux x64, which has only unpackaged development launches. */
-export type DesktopDevelopmentTarget = DesktopAutoUpdateTarget | 'linux-x64'
+/** Packaging and development target; Linux x64 packages only unsigned and has no update feed. */
+export type DesktopBuildTarget = DesktopAutoUpdateTarget | 'linux-x64'
 
-/** Platform and architecture of a release payload. */
+/** Platform and architecture of an auto-updated release payload. */
 export interface DesktopReleasePlatform {
   readonly platform: 'darwin' | 'win32'
   readonly arch: 'arm64' | 'x64'
 }
 
-/** Platform and architecture of a release or development payload. */
-export interface DesktopDevelopmentPlatform {
+/** Platform and architecture of any packaged or development payload. */
+export interface DesktopBuildPlatform {
   readonly platform: DesktopReleasePlatform['platform'] | 'linux'
   readonly arch: DesktopReleasePlatform['arch']
 }
@@ -34,38 +34,25 @@ export interface DesktopTargetBuildPaths {
 }
 
 /**
- * Resolve the fixed release target selected by a packaging environment.
- * @param env - Packaging environment.
+ * Resolve the target a packaging run or unpackaged development launch prepares.
+ * @param env - Packaging or launch environment.
  * @param hostPlatform - Build-host platform used when no target override exists.
  * @param hostArch - Build-host architecture used when no target override exists.
- * @returns Supported Desktop release target name.
+ * @returns Supported Desktop target name.
  */
 export function resolveDesktopBuildTarget(
   env?: NodeJS.ProcessEnv,
   hostPlatform?: NodeJS.Platform,
   hostArch?: string,
-): DesktopAutoUpdateTarget
-
-/**
- * Resolve the target an unpackaged development launch prepares, which includes Linux.
- * @param env - Launch environment.
- * @param hostPlatform - Host platform used when no target override exists.
- * @param hostArch - Host architecture used when no target override exists.
- * @returns Supported Desktop development target name.
- */
-export function resolveDesktopDevelopmentTarget(
-  env?: NodeJS.ProcessEnv,
-  hostPlatform?: NodeJS.Platform,
-  hostArch?: string,
-): DesktopDevelopmentTarget
+): DesktopBuildTarget
 
 /**
  * Return the mutable preparation and artifact directories owned by one target.
- * @param target - Supported Desktop release or development target name.
+ * @param target - Supported Desktop target name.
  * @param environment - Packaging environment with an optional absolute cache directory.
  * @returns Target paths plus shared download and package caches.
  */
-export function desktopTargetBuildPaths(target: DesktopDevelopmentTarget, environment?: NodeJS.ProcessEnv): DesktopTargetBuildPaths
+export function desktopTargetBuildPaths(target: DesktopBuildTarget, environment?: NodeJS.ProcessEnv): DesktopTargetBuildPaths
 
 /**
  * Return the platform and architecture of the payload one release target prepares.
@@ -75,14 +62,22 @@ export function desktopTargetBuildPaths(target: DesktopDevelopmentTarget, enviro
  */
 export function desktopTargetPlatform(target: DesktopAutoUpdateTarget): DesktopReleasePlatform
 /**
- * Return the platform and architecture of the payload one development target prepares.
- * @param target - Supported Desktop development target name.
+ * Return the platform and architecture of the payload any packaging or development target prepares.
+ * @param target - Supported Desktop target name.
  * @returns Platform and architecture of the prepared payload.
  */
-export function desktopTargetPlatform(target: DesktopDevelopmentTarget): DesktopDevelopmentPlatform
+export function desktopTargetPlatform(target: DesktopBuildTarget): DesktopBuildPlatform
 
 /**
- * Resolve the paths owned by the release target selected in a packaging environment.
+ * Locate the executable inside an extracted Electron distribution.
+ * @param electronDirectory - Extracted Electron archive root.
+ * @param platform - Platform the distribution was built for.
+ * @returns Electron executable path.
+ */
+export function desktopElectronExecutable(electronDirectory: string, platform: NodeJS.Platform): string
+
+/**
+ * Resolve the paths owned by the target selected in a packaging environment.
  * @param env - Packaging environment.
  * @param hostPlatform - Build-host platform used when no target override exists.
  * @param hostArch - Build-host architecture used when no target override exists.

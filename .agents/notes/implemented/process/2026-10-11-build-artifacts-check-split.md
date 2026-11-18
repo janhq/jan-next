@@ -52,7 +52,6 @@ Each command does only its own job.
 | CI node-compat 24.9 | `build:artifacts` (through run-gates) | None |
 | CI python runtime | `build-exe-for-python-sdk.ts --build-artifacts` | None |
 | PR rehearsals in `e2e.yml` and `release.yml` | `pnpm run build:artifacts --profile official` | None |
-| `build-preview-cloudflare.yml` | `pnpm run build:artifacts` | None |
 | CI node 24 / benchmarks | `run-ci-bench.ts` (`tsc -b --noCheck`) | None |
 | PR rehearsal in `release-vendor.yml` | `compile-referenced-projects.ts host-libraries` | None |
 | Non-PR branch of `release-vendor.yml`, `release-vendor-publish.yml` | `build:lib:host` | Host aggregate root program only |
@@ -136,4 +135,4 @@ Removing or changing `build` in the two required lanes, consumers and windows-bu
 
 host-src depends on host-typert, so generated Remote declarations precede package compilation. [Typert Remote method calls](../architecture/2026-08-02-typert-remote-method-calls.md) describes the emitted contributions.
 
-Verification: `scripts/build.spec.ts` covers the type-stripping check, rejection of the removed flag and invalid scopes, the conflict between `--profile` and `--scope check`, scope selection, step dependencies, and the environment; `compile-referenced-projects.spec.ts` covers project mode checking only the aggregate program, the diagnostic for missing declarations, and `tsc -b --dry` accepting the tsbuildinfo that `tsc -p` writes; failure propagation, output buffering, and process-tree termination come from the run-gates scheduler and its tests; `run-gates.spec.ts`, `ci-workflow.spec.ts`, `preview-workflow.spec.ts`, `build-exe-for-python-sdk.spec.ts`, `dev-web.spec.ts`, and `tests/ci-release-selfhosted.spec.ts` pin each caller's command.
+Verification: `scripts/build.spec.ts` covers the type-stripping check, rejection of the removed flag and invalid scopes, the conflict between `--profile` and `--scope check`, scope selection, step dependencies, and the environment; `compile-referenced-projects.spec.ts` covers project mode checking only the aggregate program, the diagnostic for missing declarations, and `tsc -b --dry` accepting the tsbuildinfo that `tsc -p` writes; failure propagation, output buffering, and process-tree termination come from the run-gates scheduler and its tests; `run-gates.spec.ts`, `ci-workflow.spec.ts`, `build-exe-for-python-sdk.spec.ts`, `dev-web.spec.ts`, and `tests/ci-release-selfhosted.spec.ts` pin each caller's command.

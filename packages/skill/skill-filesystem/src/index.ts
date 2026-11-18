@@ -50,7 +50,7 @@ export interface Config {
   providerName?: string
   /** Whether project and user roots are included around custom roots. */
   includeDefaultRoots?: boolean
-  /** Jan config root. Defaults to `$JAN_HOME` or `~/.jan`. */
+  /** Jan config root. Defaults to `$JAN_HOME` or `~/.config/jan-alpha`. */
   janHome?: string
   /** Shared agent config root. Defaults to `$JAN_AGENTS_HOME` or `~/.agents`. */
   agentsHome?: string

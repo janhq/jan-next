@@ -77,6 +77,7 @@ async function bench(locale: 'zh' | 'en' = 'zh') {
   let routable = true
   let catalogFailure = false
   let groups = GROUPS
+  let failures: { id: string; name: string; message: string; code?: string }[] = []
   let selectionFailure: RemoteError<'session/writer-held'> | undefined
   const sessionRemote = {
     modelCatalog: () => {
@@ -88,7 +89,7 @@ async function bench(locale: 'zh' | 'en' = 'zh') {
           default: defaultSelection,
           routableProviders: routable ? ['example'] : [],
           groups: routable ? groups : [],
-          failures: [],
+          failures,
         },
       })
     },
@@ -197,6 +198,7 @@ async function bench(locale: 'zh' | 'en' = 'zh') {
     setProjected: (id: SessionId, value: ModelSelectionProjection) => { projections.get(id)?.set(value) },
     address: (id: SessionId) => { addressed.add(id) },
     setGroups: (next: typeof GROUPS) => { groups = next },
+    setFailures: (next: typeof failures) => { failures = next },
     setCatalogFailure: (next: boolean) => { catalogFailure = next },
     setRoutable: (next: boolean) => { routable = next },
     blockOf: (key: string) => blocks.get(sid(key)),
@@ -233,6 +235,21 @@ describe('ui-model-selection dual entry', () => {
     const face = b.seat().inject!(sid('s1'))
     expect(face.resolveText({ en: 'New', zh: '新' })).toBe(expected)
     expect(face.resolveText('1017')).toBe('1017')
+  })
+
+  it('lists provider failures as unselectable rows, asking for a sign-in when a credential is missing', async () => {
+    const b = await bench('en')
+    b.setFailures([
+      { id: 'tokamak', name: 'Tokamak', message: 'no credential', code: 'MISSING_CREDENTIAL' },
+      { id: 'gateway', name: 'Gateway', message: 'answered 503' },
+    ])
+    b.remote.emit('llm/adapters-updated', [])
+    b.mint('s1')
+    const options = await b.popup().options(projection('s1'), new AbortController().signal)
+    expect(options.slice(-2).map(option => [option.label, option.detail])).toEqual([
+      ['Tokamak', 'Sign in or add an API key to load models'],
+      ['Gateway', 'Catalog failed to load: answered 503'],
+    ])
   })
 
   it.each(['zh', 'en'] as const)('shows names and providers without catalog descriptions (%s)', async (locale) => {

@@ -70,6 +70,7 @@
   },
   "peerDependencies": {
     "@janhq/cordis": "workspace:~",
+    "@janhq/jan-home-paths": "workspace:*",
     "@janhq/jan-scope": "workspace:*"
   },
   "devDependencies": {
@@ -129,6 +130,7 @@
     "@janhq/jan-fs-local": "workspace:*",
     "@janhq/jan-fs-observation-policy": "workspace:*",
     "@janhq/jan-fs-sandbox": "workspace:*",
+    "@janhq/jan-home-paths": "workspace:*",
     "@janhq/jan-host-webserver": "workspace:*",
     "@janhq/jan-llm": "workspace:*",
     "@janhq/jan-sandbox": "workspace:*",

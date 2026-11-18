@@ -28,7 +28,7 @@ export const inject: string[] = []
 
 /** Plugin config (all optional — the built-in facts resolve without defaults). */
 export interface Config {
-  /** Jan home directory exposed as `JAN_HOME`; defaults to `$JAN_HOME` or `~/.jan`. */
+  /** Jan home directory exposed as `JAN_HOME`; defaults to `$JAN_HOME` or `~/.config/jan-alpha`. */
   janHome?: string
 }
 

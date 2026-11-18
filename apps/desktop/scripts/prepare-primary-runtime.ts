@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { preparePrimaryRuntime as preparePayload, smokePrimaryRuntime as smokePayload } from '../../../scripts/primary-runtime/prepare.ts'
 import { parsePrimaryRuntime, workspaceDependencyPaths } from '../../../packages/skill/tool-workspace-dependencies/src/index.ts'
-import { desktopTargetBuildPaths, resolveDesktopBuildTarget, type DesktopDevelopmentTarget } from './desktop-build-paths.mjs'
+import { desktopTargetBuildPaths, resolveDesktopBuildTarget, type DesktopBuildTarget } from './desktop-build-paths.mjs'
 import { scrubWindowsSigningEnvironment } from './windows-sign.mjs'
 
 /**
@@ -13,7 +13,7 @@ import { scrubWindowsSigningEnvironment } from './windows-sign.mjs'
  * @param options - Signed Windows packaging defers execution until its supervised signing stage.
  * @returns Resolves after preparation and, unless deferred, native-target execution checks.
  */
-export async function preparePrimaryRuntime(target: DesktopDevelopmentTarget, options: { deferSmoke?: boolean } = {}): Promise<void> {
+export async function preparePrimaryRuntime(target: DesktopBuildTarget, options: { deferSmoke?: boolean } = {}): Promise<void> {
   const paths = desktopTargetBuildPaths(target)
   const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }
   await preparePayload({ target, output: paths.runtime, cache: paths.downloads, version })

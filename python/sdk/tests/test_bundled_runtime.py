@@ -49,7 +49,7 @@ def test_bundled_runtime_boots_the_sdk_profile(
     tmp_path: Path, mode: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     with _client(tmp_path, mode, monkeypatch) as client:
-        init = client.initialize(provider="tokamak", cwd=str(tmp_path), model="tokamak-1-preview")
+        init = client.initialize(provider="tokamak", cwd=str(tmp_path), model="tokamak/auto")
 
     assert init.serverInfo is not None
     assert init.serverInfo.name == "jan-sdk-runtime"
@@ -97,7 +97,7 @@ def test_bundled_runtime_surfaces_unbundled_plugin_failure(
     client.start()
     try:
         with pytest.raises((JsonRpcError, TransportClosedError, TimeoutError)) as excinfo:
-            client.initialize(provider="tokamak", cwd=str(tmp_path), model="tokamak-1-preview")
+            client.initialize(provider="tokamak", cwd=str(tmp_path), model="tokamak/auto")
     finally:
         client.close()
 
