@@ -247,7 +247,7 @@ it('looks up a pasted Hugging Face repository and downloads one of its files', a
   expect(f.actions.downloadRepoFile).toHaveBeenCalledWith('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')
   expect(screen.queryByTestId('local-model-repo-download')).toBeNull()
   // The row follows the live state: installed, then offered again once the model is deleted.
-  const tiny: LocalModelEntry = { id: 'tiny-q4_k_m', name: 'tiny-Q4_K_M', bytes: 2_000_000, source: 'huggingface', active: false, status: 'unloaded', architecture: 'qwen3', vision: false }
+  const tiny: LocalModelEntry = { id: 'tiny-q4_k_m', name: 'tiny-Q4_K_M', bytes: 2_000_000, source: 'huggingface', active: false, status: 'unloaded', architecture: 'qwen3', vision: false, configuredContextSize: 8192, autoFit: false }
   await act(async () => { f.set({ phase: 'running', models: [jan, tiny] }) })
   expect(screen.getByTestId('local-model-repo-files').querySelectorAll('li')[1]?.textContent).toContain('Installed')
   await act(async () => { f.set({ phase: 'running', models: [jan] }) })
