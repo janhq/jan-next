@@ -208,7 +208,9 @@ export const VIEWER_ENDPOINT_CLASSES = {
   'pluginI18n/clear': 'owner-only', // owner plugin text translation
   'pluginI18n/consent': 'owner-only', // owner plugin text translation
   'pluginI18n/route': 'owner-only', // owner plugin text translation
+  'pluginI18n/routes': 'owner-only', // owner plugin text translation
   'pluginI18n/setConsent': 'owner-only', // owner plugin text translation
+  'pluginI18n/setRoute': 'owner-only', // owner plugin text translation
   'pluginI18n/status': 'owner-only', // owner plugin text translation
   'pluginI18n/statuses': 'owner-only', // owner plugin text translation
   'pluginI18n/tables': 'owner-only', // owner plugin text translation
