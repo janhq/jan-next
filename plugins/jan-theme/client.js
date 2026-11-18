@@ -10,7 +10,7 @@ window.__ModuleLoader__.load({
       IconPluginPinwheelOutlineRegular, IconCheckOutlineRegular, IconFolderCloseRegular, IconSettingsOutlineMedium,
       IconNewChatOutlineMedium, IconNewChatOutlineRegular, IconProjectAddOutlineRegular, IconSearchOutlineRegular,
       MenuItemButton, Button, Switch, IconLayersOutlineRegular, IconClockOutlineRegular,
-      IconLightOutlineMedium, IconApiOutlineMedium, IconSkillOutlineMedium,
+      IconLightOutlineMedium, IconToolOutlineMedium, IconSkillOutlineMedium,
       NavRow, SectionHeading, ColorSwatchGroup, ProjectCard, WindowControls,
     } = require('@janhq/jan-client-ui-primitives')
     // Optional: the matching host publishes the dock model seat. An older
@@ -120,7 +120,7 @@ window.__ModuleLoader__.load({
           ])) : h('small', null, 'Takes no arguments.'))))
     }
     function AgentSettings({ skills = false }) {
-      const { Input, Modal, RiskConfirmation } = require('@janhq/jan-client-ui-primitives')
+      const { Input, Modal, RiskConfirmation, Tag } = require('@janhq/jan-client-ui-primitives')
       const [data, setData] = React.useState(null)
       const [error, setError] = React.useState('')
       const [notice, setNotice] = React.useState('')
@@ -163,23 +163,54 @@ window.__ModuleLoader__.load({
       const actions = (...children) => h('div', { className: 'jt-agent-actions' }, ...children)
       const button = (text, action, props = {}) => h(Button, { variant: 'outline', disabled: busy, onClick: action, ...props }, text)
       const message = h(React.Fragment, null, error && h('p', { role: 'alert' }, error), h('p', { role: 'status' }, busy ? 'Applying settings…' : notice))
+      const empty = (Icon, text, ...buttons) => h('div', { className: 'jt-agent-empty' }, h(Icon, { size: 20 }), h('p', null, text), buttons.length > 0 && actions(...buttons))
+      const card = (key, head, ...body) => h('article', { className: 'jt-agent-card', key }, h('div', { className: 'jt-agent-card-head' }, ...head), ...body)
+      const SERVER_STATE = { ready: ['success', 'Connected'], failed: ['danger', 'Connection failed'], empty: ['warning', 'No tools'], disabled: ['neutral', 'Off'] }
+      const allSkills = data?.skills.skills ?? []
+      const shownSkills = allSkills.filter(row => `${row.name} ${row.description}`.toLowerCase().includes(skillQuery.toLowerCase()))
+      const savedFolders = data?.directories?.length ?? 0
       return h('section', { className: 'jt-appearance jt-agent-settings', 'aria-busy': busy },
-        h('h2', null, skills ? 'Skills' : 'MCP Servers'),
-        h('p', null, skills ? 'Skills are reusable instructions. Jan discovers compatible SKILL.md folders in .agents/skills and .jan/skills. Add another folder below to reuse an existing library without copying it.' : 'MCP servers connect the agent to external tools. A local command runs with your account permissions. Enable only servers you trust.'),
-        h('details', null, h('summary', null, skills ? 'Compatibility with Claude and Codex' : 'MCP, skills, plugins and agent presets'), h('p', null, skills ? 'Claude and Codex skill instructions may work when they use the same format. Their hooks, plugin manifests, permissions and unavailable tool names are not imported. Review instructions and scripts before use.' : 'MCP servers provide tools. Skills provide reusable instructions. Plugins add app features through Plugin manager. Agent presets hold saved instructions and working modes.')),
+        h('header', { className: 'jt-agent-head' },
+          h('div', null,
+            h('h2', null, skills ? 'Skills' : 'MCP Servers'),
+            h('p', null, skills ? 'Reusable instructions the agent loads when a task matches. Jan finds SKILL.md folders in .agents/skills and .jan/skills.' : 'Connect the agent to external tools. A local server runs with your account permissions, so enable only servers you trust.')),
+          !skills && actions(button('Import JSON', () => setImportOpen(true)), button('Add server', () => edit(null), { variant: 'primary' }))),
         !data && !error && h('p', { role: 'status' }, 'Loading settings…'),
         skills ? h(React.Fragment, null,
-          h('label', { className: 'jt-agent-field' }, 'Additional skill folders (one absolute path per line)', h('textarea', { value: directories ?? '', disabled: busy, onChange: event => setDirectories(event.target.value) })),
-          actions(data?.canPickDirectory && button('Choose skill folder', () => run(async () => { const path = await agentApi('pickDirectory'); if (path) setDirectories([directories, path].filter(Boolean).join('\n')) }, 'Folder selection completed. Save folders to apply.')), button('Save skill folders', () => run(() => agentApi('saveDirectories', { directories: (directories ?? '').split('\n').map(path => path.trim()).filter(Boolean) }), 'Skill folders saved.'))),
+          allSkills.length > 0 && h('div', { className: 'jt-agent-toolbar' },
+            h(Input, { type: 'search', placeholder: 'Search skills', 'aria-label': 'Search skills', value: skillQuery, onChange: event => setSkillQuery(event.target.value) }),
+            h('span', null, skillQuery ? `${shownSkills.length} of ${allSkills.length}` : `${allSkills.length} skills`)),
           data?.skills.complete === false && h('p', { role: 'alert' }, 'Skill discovery is incomplete. Some sources could not be read.'),
-          h('p', null, 'Editing a linked skill changes its original file, including use by other agents. Removing a folder here leaves its files untouched. Unsaved drafts stay during navigation but are lost on reload.'),
-          h('label', { className: 'jt-agent-field' }, 'Search skills', h(Input, { value: skillQuery, onChange: event => setSkillQuery(event.target.value) })),
-          ...(data?.skills.skills ?? []).filter(row => `${row.name} ${row.description}`.toLowerCase().includes(skillQuery.toLowerCase())).map(row => h('div', { className: 'jt-interface-row', key: row.name }, h('div', null, h('h3', null, row.name), h('p', null, row.description), h('small', null, row.path || row.source || row.provider)), row.path && button('Edit instructions', () => run(async () => setInstruction({ name: row.name, ...await agentApi('readSkill', { name: row.name }) }), 'Skill opened.')))),
-          instruction && h(Modal, { open: true, title: instruction.name, closeLabel: 'Close skill editor', onClose: () => setInstruction(null), className: 'jt-appearance jt-agent-settings jt-agent-modal', contentClassName: 'jt-agent-modal-content', footer: actions(button('Save instructions', () => ask('Save skill instructions?', 'This writes to the original skill file. Other agents using this folder will see the change.', () => run(async () => setInstruction({ name: instruction.name, ...await agentApi('saveSkill', instruction) }), 'Skill instructions saved.')), { variant: 'primary' }), button('Close editor', () => setInstruction(null))) }, h('p', null, instruction.path), h('label', { className: 'jt-agent-field' }, 'Skill instruction file', h('textarea', { rows: 16, value: instruction.text, onChange: event => setInstruction({ ...instruction, text: event.target.value }), disabled: busy })), error && h('p', { role: 'alert' }, error), h('p', { role: 'status' }, notice))
+          data && shownSkills.length === 0 && empty(IconSkillOutlineMedium, skillQuery ? 'No skills match your search.' : 'No skills found yet. Add a folder that contains SKILL.md files below.'),
+          shownSkills.length > 0 && h('div', { className: 'jt-agent-list' }, ...shownSkills.map(row => card(row.name,
+            [h('div', { className: 'jt-agent-card-title' }, h('h3', null, row.name), (row.source || row.provider) && h(Tag, { tone: 'neutral' }, row.source || row.provider)),
+              row.path && h(Button, { variant: 'ghost', size: 'sm', disabled: busy, 'aria-label': `Edit ${row.name}`, onClick: () => run(async () => setInstruction({ name: row.name, ...await agentApi('readSkill', { name: row.name }) }), 'Skill opened.') }, 'Edit')],
+            row.description && h('p', null, row.description),
+            row.path && h('code', { className: 'jt-agent-card-meta' }, row.path)))),
+          h('details', { className: 'jt-agent-folders' },
+            h('summary', null, savedFolders ? `Skill folders (${savedFolders})` : 'Add skill folders'),
+            h('p', null, 'Reuse an existing skill library without copying it. Removing a folder here leaves its files untouched.'),
+            h('label', { className: 'jt-agent-field' }, 'Folders (one absolute path per line)', h('textarea', { value: directories ?? '', disabled: busy, onChange: event => setDirectories(event.target.value) })),
+            actions(data?.canPickDirectory && button('Choose folder', () => run(async () => { const path = await agentApi('pickDirectory'); if (path) setDirectories([directories, path].filter(Boolean).join('\n')) }, 'Folder added. Save folders to apply.')), button('Save folders', () => run(() => agentApi('saveDirectories', { directories: (directories ?? '').split('\n').map(path => path.trim()).filter(Boolean) }), 'Skill folders saved.'), { variant: 'primary' }))),
+          h('details', { className: 'jt-agent-note' }, h('summary', null, 'Using Claude or Codex skills'), h('p', null, 'Claude and Codex skill instructions may work when they use the same format. Their hooks, plugin manifests, permissions and unavailable tool names are not imported. Review instructions and scripts before use.')),
+          instruction && h(Modal, { open: true, title: instruction.name, closeLabel: 'Close skill editor', onClose: () => setInstruction(null), className: 'jt-appearance jt-agent-settings jt-agent-modal', contentClassName: 'jt-agent-modal-content', footer: actions(button('Save instructions', () => ask('Save skill instructions?', 'This writes to the original skill file. Other agents using this folder will see the change.', () => run(async () => setInstruction({ name: instruction.name, ...await agentApi('saveSkill', instruction) }), 'Skill instructions saved.')), { variant: 'primary' }), button('Close editor', () => setInstruction(null))) }, h('code', { className: 'jt-agent-card-meta' }, instruction.path), h('p', null, 'This edits the original file, so other agents that use it see the change too. Unsaved edits are lost on reload.'), h('label', { className: 'jt-agent-field' }, 'Skill instruction file', h('textarea', { rows: 16, value: instruction.text, onChange: event => setInstruction({ ...instruction, text: event.target.value }), disabled: busy })), error && h('p', { role: 'alert' }, error), h('p', { role: 'status' }, notice))
         ) : h(React.Fragment, null,
-          actions(button('Add MCP server', () => edit(null))),
-          data && data.servers.length === 0 && h('p', null, 'No MCP servers configured. Add a server or import your existing Jan or Claude Desktop JSON.'),
-          ...(data?.servers ?? []).map(row => h('div', { className: 'jt-interface-row', key: row.name }, h('div', null, h('h3', null, row.name), h('p', null, row.status), row.secretConfigured && h('small', null, 'Credentials stored separately'), h('small', null, row.transport === 'stdio' ? row.command : row.url)), actions(h(Switch, { label: `Enable ${row.name}`, checked: row.enabled, disabled: busy, onChange: enabled => enabled ? ask('Enable MCP server?', 'The server can run commands or access external services. Enable it only if you trust its source.', () => run(() => agentApi('toggle', { name: row.name, enabled }), 'Server enabled. Check its connection status below.')) : run(() => agentApi('toggle', { name: row.name, enabled }), 'Server disabled.') }), row.enabled && button('Reconnect', () => run(() => agentApi('toggle', { name: row.name, enabled: true }), 'Connection refreshed. Check the tools and connection status.'), { 'aria-label': `Reconnect ${row.name}` }), button('Edit', () => edit(row), { 'aria-label': `Edit ${row.name}` }), button('Remove', () => ask('Remove MCP server?', 'This removes the connection and its saved credentials. It does not uninstall the server software.', () => run(() => agentApi('remove', { name: row.name, confirmed: true }), 'Server removed.')), { 'aria-label': `Remove ${row.name}` })), row.tools?.length > 0 && h('details', { className: 'jt-mcp-tools' }, h('summary', null, `Available tools (${row.tools.length})`), h('ul', null, row.tools.map(tool => h(McpTool, { key: tool.name, tool, server: row.name })))))),
+          data && data.servers.length === 0 && empty(IconToolOutlineMedium, 'No MCP servers yet. Add one, or import the mcpServers JSON you already use in Jan or Claude Desktop.'),
+          data?.servers.length > 0 && h('div', { className: 'jt-agent-list' }, ...data.servers.map(row => {
+            const [tone, label] = SERVER_STATE[row.state] ?? SERVER_STATE.empty
+            return card(row.name,
+              [h('div', { className: 'jt-agent-card-title' }, h('h3', null, row.name), h(Tag, { tone }, row.state === 'ready' ? `${row.tools.length} tools` : label), row.secretConfigured && h(Tag, { tone: 'quiet' }, 'Credentials saved')),
+                h(Switch, { label: `Enable ${row.name}`, checked: row.enabled, disabled: busy, onChange: enabled => enabled ? ask('Enable MCP server?', 'The server can run commands or access external services. Enable it only if you trust its source.', () => run(() => agentApi('toggle', { name: row.name, enabled }), 'Server enabled.')) : run(() => agentApi('toggle', { name: row.name, enabled }), 'Server disabled.') })],
+              h('code', { className: 'jt-agent-card-meta' }, row.transport === 'stdio' ? [row.command, ...(row.args ?? [])].join(' ') : row.url),
+              (row.state === 'failed' || row.state === 'empty') && h('p', null, row.status),
+              h('div', { className: 'jt-agent-card-foot' },
+                row.tools?.length > 0 ? h('details', { className: 'jt-mcp-tools' }, h('summary', null, `Show ${row.tools.length} tools`), h('ul', null, row.tools.map(tool => h(McpTool, { key: tool.name, tool, server: row.name })))) : h('span'),
+                h('div', { className: 'jt-agent-actions' },
+                  row.enabled && h(Button, { variant: 'ghost', size: 'sm', disabled: busy, 'aria-label': `Reconnect ${row.name}`, onClick: () => run(() => agentApi('toggle', { name: row.name, enabled: true }), 'Connection refreshed.') }, 'Reconnect'),
+                  h(Button, { variant: 'ghost', size: 'sm', disabled: busy, 'aria-label': `Edit ${row.name}`, onClick: () => edit(row) }, 'Edit'),
+                  h(Button, { variant: 'ghost', size: 'sm', disabled: busy, 'aria-label': `Remove ${row.name}`, onClick: () => ask('Remove MCP server?', 'This removes the connection and its saved credentials. It does not uninstall the server software.', () => run(() => agentApi('remove', { name: row.name, confirmed: true }), 'Server removed.')) }, 'Remove'))))
+          })),
+          h('details', { className: 'jt-agent-note' }, h('summary', null, 'MCP servers, skills, plugins and agent presets'), h('p', null, 'MCP servers provide tools. Skills provide reusable instructions. Plugins add app features through Plugin manager. Agent presets hold saved instructions and working modes.')),
           draft && h(Modal, {
             open: true, title: original ? `Edit ${original}` : 'Add MCP server', closeLabel: 'Close editor', onClose: () => setDraft(null), className: 'jt-appearance jt-agent-settings jt-agent-modal', contentClassName: 'jt-agent-modal-content', footer: actions(button('Save server', () => run(async () => {
               const value = { ...draft, args: draft.args === '' ? [] : draft.args.split('\n'), env: JSON.parse(draft.env), headers: JSON.parse(draft.headers) }
@@ -195,7 +226,6 @@ window.__ModuleLoader__.load({
               replaceSecrets && (draft.transport === 'stdio' ? field('Environment (JSON object, stored as credentials)', 'env', true, { autoComplete: 'off', spellCheck: false }) : field('Headers (JSON object, stored as credentials)', 'headers', true, { autoComplete: 'off', spellCheck: false }))),
             h('p', null, 'Saved connections persist. Unsaved drafts stay while switching sections, but are lost on reload. Credentials are never displayed after saving.'),
             error && h('p', { role: 'alert' }, error)),
-          button('Import MCP JSON', () => setImportOpen(true)),
           importOpen && h(Modal, { open: true, title: 'Import MCP JSON', closeLabel: 'Close import', onClose: () => setImportOpen(false), className: 'jt-appearance jt-agent-settings jt-agent-modal', contentClassName: 'jt-agent-modal-content', footer: actions(button('Review import', () => run(async () => setPreview(await agentApi('previewImport', { text: importText })), 'Import reviewed. Nothing has been saved.')), preview && button('Import disabled servers', () => run(async () => { await agentApi('importServers', { text: importText, confirmed: true }); setImportText(''); setPreview(null); setImportOpen(false) }, 'Servers imported disabled.'), { variant: 'primary' }), button('Cancel', () => setImportOpen(false))) },
             h('p', null, 'Paste an object containing mcpServers. Imports are all-or-nothing, never overwrite names, and stay disabled until you enable them. Codex TOML, Claude plugins and legacy SSE need separate conversion.'),
             h('label', { className: 'jt-agent-field' }, 'MCP configuration JSON', h('textarea', { rows: 6, value: importText, autoComplete: 'off', spellCheck: false, onChange: event => { setImportText(event.target.value); setPreview(null) } })),
@@ -274,14 +304,30 @@ window.__ModuleLoader__.load({
 .jt-agent-editor { margin-block: 16px; padding: 16px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 12px; }
 .jt-agent-settings small, .jt-agent-settings p { overflow-wrap: anywhere; }
 .jt-agent-settings small { display: block; color: var(--dsw-alias-label-secondary); margin-block: 4px; }
-.jt-agent-settings .jt-interface-row { align-items: flex-start; flex-wrap: wrap; gap: 12px; }
-.jt-agent-settings .jt-interface-row > div:first-child { flex: 1 1 220px; min-width: 0; }
-.jt-agent-settings .jt-interface-row > .jt-agent-actions { justify-content: flex-end; }
-.jt-agent-settings .jt-interface-row details { margin-block: 8px; }
+.jt-agent-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.jt-agent-head > div:first-child { flex: 1 1 auto; min-width: 0; }
+.jt-agent-head > .jt-agent-actions { flex: none; }
+.jt-agent-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.jt-agent-toolbar > :first-child { flex: 1; min-width: 0; }
+.jt-agent-toolbar > span { flex: none; font-size: 13px; color: var(--dsw-alias-label-secondary); font-variant-numeric: tabular-nums; }
+.jt-agent-list { display: grid; gap: 8px; }
+.jt-agent-card { display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 12px; background: var(--dsw-alias-bg-layer-1); min-width: 0; }
+.jt-agent-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
+.jt-agent-card-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.jt-agent-card-title h3 { font-size: 14px; overflow-wrap: anywhere; }
+.jt-agent-settings .jt-agent-card p { margin: 0; font-size: 13px; }
+.jt-agent-card-meta { display: block; font-size: 12px; color: var(--dsw-alias-label-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jt-agent-card-foot { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.jt-agent-card-foot > :first-child { flex: 1 1 240px; min-width: 0; }
+.jt-agent-card-foot > .jt-agent-actions { margin-inline-start: auto; }
+.jt-agent-settings .jt-agent-card-foot details { margin: 4px 0 0; font-size: 13px; }
+.jt-agent-empty { display: grid; justify-items: center; gap: 10px; padding: 32px 24px; border: 1px dashed var(--dsw-alias-border-l1); border-radius: 12px; text-align: center; color: var(--dsw-alias-label-secondary); }
+.jt-agent-settings .jt-agent-empty p { margin: 0; max-width: 42ch; }
+.jt-agent-settings details.jt-agent-folders { margin-block: 16px 0; padding: 12px 14px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 12px; }
+.jt-agent-settings details.jt-agent-note { margin-block: 16px 0; font-size: 13px; color: var(--dsw-alias-label-secondary); }
 .jt-agent-settings details { margin-block: 20px; }
 .jt-agent-settings summary { cursor: pointer; }
 .jt-agent-settings .jt-mcp-tools .jt-mcp-tool { margin: 0; }
-.jt-agent-settings .jt-interface-row > .jt-mcp-tools { flex: 1 0 100%; min-width: 0; margin: 0; }
 .jt-mcp-tools > ul { list-style: none; margin: 6px 0 0; padding: 0; border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; }
 .jt-mcp-tools > ul > li + li { border-top: 1px solid var(--dsw-alias-border-l1); }
 .jt-mcp-tool > summary { display: flex; align-items: baseline; gap: 10px; padding: 8px 12px; min-width: 0; list-style-position: inside; }
@@ -639,7 +685,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           scope.slots.inject('settings.section', () => scope.slots.register({ name: 'settings.section', id: 'jt-skills', order: 31, label: () => t('section.skills'), locale: 'jan-theme' }, () => h(AgentSettings, { skills: true, key: 'skills' })))
         })
         // Distinct nav glyphs: the settings dialog falls back to the gear for ids it does not know.
-        for (const [id, Icon] of [['jt-appearance', IconLightOutlineMedium], ['jt-mcp', IconApiOutlineMedium], ['jt-skills', IconSkillOutlineMedium]]) {
+        for (const [id, Icon] of [['jt-appearance', IconLightOutlineMedium], ['jt-mcp', IconToolOutlineMedium], ['jt-skills', IconSkillOutlineMedium]]) {
           ctx.slots.inject('settings.section.icon', () => ctx.slots.register({ name: 'settings.section.icon', id }, ({ size }) => h(Icon, { size })))
         }
         const style = document.createElement('style')
