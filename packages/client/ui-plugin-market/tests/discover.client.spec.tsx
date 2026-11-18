@@ -122,9 +122,10 @@ describe('DiscoverSection', () => {
     expect(actions.reload).toHaveBeenCalledOnce()
   })
 
-  it('offers adding a first source when none is configured', () => {
+  it('shows a decorative plugin index glyph and offers to add the first source', () => {
     const { actions } = renderTab({ indexes: [], selected: null, listing: null })
     expect(screen.getByText(en.emptyTitle)).toBeTruthy()
+    expect(document.querySelector('[data-icon="dsw-icon-plugin-index-outline-regular"][aria-hidden="true"]')).not.toBeNull()
     fireEvent.click(screen.getByRole('button', { name: en.addFirstSource }))
     expect(actions.toggleSources).toHaveBeenCalledOnce()
   })

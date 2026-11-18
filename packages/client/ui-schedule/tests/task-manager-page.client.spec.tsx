@@ -816,21 +816,11 @@ describe('Task manager catalog', () => {
     expect(within(statuses).getByRole('button', { name: en['statusFilter.all'] }).getAttribute('aria-pressed')).toBe('true')
   })
 
-  it('renders a decorative document-and-clock illustration in an empty catalog', () => {
+  it('renders a decorative scheduled-task glyph in an empty catalog', () => {
     mount({ records: [], status: 'ready' })
-    const illustration = screen.getByRole('status').querySelector('svg')
-    expect(illustration?.getAttribute('aria-hidden')).toBe('true')
-    expect(illustration?.getAttribute('focusable')).toBe('false')
-    expect(illustration?.getAttribute('viewBox')).toBe('0 0 170 170')
-    const paths = illustration?.querySelectorAll('path')
-    expect(paths).toHaveLength(20)
-    // Roles follow the approved artwork's paint order, including overlapping paper and clock layers.
-    expect(paths?.[0]?.getAttribute('fill')).toBe('var(--dsw-alias-illustration-background)')
-    expect(paths?.[2]?.getAttribute('fill')).toBe('var(--dsw-alias-illustration-backing)')
-    expect(paths?.[3]?.getAttribute('fill')).toBe('var(--dsw-alias-illustration-surface)')
-    expect(paths?.[10]?.getAttribute('fill')).toBe('var(--dsw-alias-illustration-shadow)')
-    expect(paths?.[17]?.getAttribute('fill')).toBe('var(--dsw-alias-illustration-detail)')
-    expect(paths?.[18]?.getAttribute('fill')).toBe('var(--dsw-alias-illustration-inset)')
+    const glyph = screen.getByRole('status').querySelector('svg')
+    expect(glyph?.getAttribute('aria-hidden')).toBe('true')
+    expect(glyph?.querySelector('use')?.getAttribute('href')).toBe('#dsw-icon-scheduled-task-outline-regular')
     expect(emptyNewTaskButton().textContent).toBe(en['empty.action'])
   })
 
@@ -1849,10 +1839,7 @@ describe('Mock detail metrics shared with the task list', () => {
     expect(heading).toMatch(/font-size:\s*14px;/)
     expect(heading).toMatch(/font-weight:\s*400;/)
     expect(rule('emptyGlyph')).toMatch(/margin-bottom:\s*12px;/)
-    expect(rule('emptyIllustration')).toMatch(/width:\s*110px;/)
-    expect(rule('emptyIllustration')).toMatch(/max-width:\s*100%;/)
-    expect(rule('emptyIllustration')).toMatch(/height:\s*auto;/)
-    expect(rule('emptyIllustration')).toMatch(/margin-bottom:\s*12px;/)
+    expect(rule('emptyGlyph')).toMatch(/color:\s*var\(--dsw-alias-label-caption\);/)
     // The mock's `.empty h3 + .btn`.
     expect(rule('emptyAction')).toMatch(/margin-top:\s*16px;/)
   })

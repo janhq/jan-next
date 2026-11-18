@@ -2,8 +2,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
-  Button, IconClockOutlineRegular, IconCloseOutlineRegular, IconEllipsisOutlineRegular, IconPlusOutlineRegular,
-  IconSearchOutlineRegular, IconTrashOutlineRegular, IconChevronDownOutlineRegular, IconEditOutlineRegular,
+  Button, IconChevronDownOutlineRegular, IconClockOutlineRegular, IconCloseOutlineRegular, IconEditOutlineRegular,
+  IconEllipsisOutlineRegular, IconPlusOutlineRegular, IconScheduledTaskOutlineRegular, IconSearchOutlineRegular, IconTrashOutlineRegular,
   Input, Menu, MenuItemButton, Modal, ReferenceIconRegular, Tooltip,
 } from '@janhq/jan-client-ui-primitives'
 import type { HostObservable, InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
@@ -18,7 +18,6 @@ import { TaskDetail, useTaskDetail, type TaskDetailInjected } from './TaskDetail
 import { useRelativeClock } from './relative-clock.ts'
 import { formatScheduleFrequency, nextRunParts, taskName, zoneLabel } from './schedule-format.ts'
 import type { FrequencyZone } from './schedule-format.ts'
-import { ScheduleEmptyIllustration } from './ScheduleEmptyIllustration.tsx'
 import css from './TaskManagerPage.module.css'
 
 /** Injected catalog and task actions for the management page. */
@@ -282,7 +281,7 @@ export function TaskManagerPage(props: TaskManagerPageProps) {
             <div className={css.list}>
               {selected === undefined && <CatalogFeedback status={status} populated={rows.length > 0} onRetry={onRetry} t={t} />}
               {status === 'ready' && rows.length === 0 && <div className={css.empty} role="status">
-                <ScheduleEmptyIllustration className={css.emptyIllustration} />
+                <IconScheduledTaskOutlineRegular size={48} className={css.emptyGlyph} />
                 <h2>{t(emptyTitle)}</h2>
                 <Button variant="outline" className={css.emptyAction} onClick={(event) => { createManually(event.currentTarget) }}>
                   {t('empty.action')}

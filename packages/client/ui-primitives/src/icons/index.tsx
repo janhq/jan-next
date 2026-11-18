@@ -474,6 +474,18 @@ export const IconPluginPinwheelOutlineRegular = productIcon('plugin-pinwheel-out
 /** Medium plugin pinwheel artwork with a 1.3px stroke. */
 export const IconPluginPinwheelOutlineMedium = productIcon('plugin-pinwheel-outline', 'medium')
 
+/** Regular one-pixel stacked plugin index artwork. */
+export const IconPluginIndexOutlineRegular = productIcon('plugin-index-outline', 'regular')
+
+/** Medium stacked plugin index artwork with a 1.3px stroke. */
+export const IconPluginIndexOutlineMedium = productIcon('plugin-index-outline', 'medium')
+
+/** Regular one-pixel document-and-clock artwork for scheduled tasks. */
+export const IconScheduledTaskOutlineRegular = productIcon('scheduled-task-outline', 'regular')
+
+/** Medium document-and-clock artwork for scheduled tasks with a 1.3px stroke. */
+export const IconScheduledTaskOutlineMedium = productIcon('scheduled-task-outline', 'medium')
+
 /** Regular one-pixel IconAlarmClockOutline artwork. */
 export const IconAlarmClockOutlineRegular = productIcon('alarm-clock-outline', 'regular')
 
