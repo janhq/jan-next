@@ -26,7 +26,7 @@ Needs: the seed and the lane's mock server. Port block 9430. The mock model has 
 | L03-16 | any | Set the threshold to the extremes (lowest, highest). | Values clamp or reject with a message. No NaN, no empty field accepted | P2 |
 | L03-17 | stub | Attach an image and pick a text-only model. | A warning names the model and offers a model that can read images. Sending is still possible only after an explicit choice | P1 |
 | L03-18 | stub | Server `quota_exceeded`. Send. | A plain message about quota with a next step; no loop of retries | P1 |
-| L03-19 | stub | Remove the API key variable and relaunch, then send. | A "missing credential" message with the exact next step (Settings > Models), not a stack trace | P1 |
+| L03-19 | stub | Remove the API key variable and relaunch, then send. Confirm first that no other provider key is exported in the shell (the README's `unset` loop), or the default model will answer with the leaked key and the case passes for the wrong reason. | A "missing credential" message with the exact next step (Settings > Models), not a stack trace and not a reply | P1 |
 | L03-20 | stub | Open the picker while a turn is streaming. | Switching is blocked or deferred to the next turn with a visible reason. The running turn is not corrupted | P1 |
 | L03-21 | any | Look at the row under the composer. | Only the model and the context ring show; a long model name ends with an ellipsis and does not run under the ring | P3 |
 | L03-22 | stub | Open an old chat from before a model was removed. | The chat opens, shows which model it used, and lets you pick another. No crash | P1 |
