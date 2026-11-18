@@ -7,6 +7,10 @@
 /** Simplified Chinese dictionary (the key-set source of truth). */
 export const zh = {
   'defaultWorkspace.failed': '无法创建默认工作区，请通过“选择工作区”选择文件夹',
+  'workspace.drop.hint': "拖到此处添加为工作区",
+  'toast.folderAdded': "已添加工作区：{name}",
+  'toast.folderDropNotFolder': "只能拖入文件夹来添加工作区",
+  'toast.folderDropFailed': "无法添加文件夹：{message}",
   'draft.workspaceRequired': '请先选择工作区',
   'draft.initializationFailed': '暂时无法填入草稿，请稍后重试',
   'group.ungrouped': '未分组',
@@ -135,6 +139,10 @@ export type WorkspaceKey = keyof typeof zh
 /** English dictionary, checked complete against the zh key set. */
 export const en = {
   'defaultWorkspace.failed': 'Unable to create default workspace. Use Choose workspace to select a folder.',
+  'workspace.drop.hint': "Drop to add as a workspace",
+  'toast.folderAdded': "Added workspace {name}",
+  'toast.folderDropNotFolder': "Drop a folder to add a workspace",
+  'toast.folderDropFailed': "Couldn't add the folder: {message}",
   'draft.workspaceRequired': 'Choose a workspace first.',
   'draft.initializationFailed': 'Could not fill the draft. Please try again shortly.',
   'group.ungrouped': 'Ungrouped',
@@ -260,6 +268,10 @@ export const en = {
 /** Japanese copy, checked against the English keys. */
 export const ja = {
   'defaultWorkspace.failed': 'デフォルトのワークスペースを作成できません。ワークスペースを選択してフォルダーを選んでください。',
+  'workspace.drop.hint': "ドロップしてワークスペースに追加",
+  'toast.folderAdded': "ワークスペース {name} を追加しました",
+  'toast.folderDropNotFolder': "ワークスペースを追加するにはフォルダーをドロップしてください",
+  'toast.folderDropFailed': "フォルダーを追加できませんでした: {message}",
   'draft.workspaceRequired': '先にワークスペースを選択してください。',
   'draft.initializationFailed': '下書きを埋め込めませんでした。しばらくしてからもう一度お試しください。',
   'group.ungrouped': 'グループなし',
@@ -385,6 +397,10 @@ export const ja = {
 /** Spanish dictionary, checked against the English keys. */
 export const es = {
   'defaultWorkspace.failed': 'No se puede crear el espacio de trabajo predeterminado. Utilice Elegir espacio de trabajo para seleccionar una carpeta.',
+  'workspace.drop.hint': "Suelta para añadir como espacio de trabajo",
+  'toast.folderAdded': "Espacio de trabajo {name} añadido",
+  'toast.folderDropNotFolder': "Suelta una carpeta para añadir un espacio de trabajo",
+  'toast.folderDropFailed': "No se pudo añadir la carpeta: {message}",
   'draft.workspaceRequired': 'Elija un espacio de trabajo primero.',
   'draft.initializationFailed': 'No se pudo completar el borrador. Inténtelo de nuevo en breve.',
   'group.ungrouped': 'Desagrupados',
@@ -510,6 +526,10 @@ export const es = {
 /** French dictionary, checked against the English keys. */
 export const fr = {
   'defaultWorkspace.failed': 'Impossible de créer un espace de travail par défaut. Utilisez Choisir un espace de travail pour sélectionner un dossier.',
+  'workspace.drop.hint': "Déposez pour ajouter comme espace de travail",
+  'toast.folderAdded': "Espace de travail {name} ajouté",
+  'toast.folderDropNotFolder': "Déposez un dossier pour ajouter un espace de travail",
+  'toast.folderDropFailed': "Impossible d'ajouter le dossier : {message}",
   'draft.workspaceRequired': "Choisissez d'abord un espace de travail.",
   'draft.initializationFailed': 'Impossible de remplir le projet. Veuillez réessayer sous peu.',
   'group.ungrouped': 'Non groupé',
@@ -635,6 +655,10 @@ export const fr = {
 /** German dictionary, checked against the English keys. */
 export const de = {
   'defaultWorkspace.failed': 'Der Standardarbeitsbereich kann nicht erstellt werden. Verwenden Sie „Arbeitsbereich auswählen“, um einen Ordner auszuwählen.',
+  'workspace.drop.hint': "Ablegen, um als Arbeitsbereich hinzuzufügen",
+  'toast.folderAdded': "Arbeitsbereich {name} hinzugefügt",
+  'toast.folderDropNotFolder': "Legen Sie einen Ordner ab, um einen Arbeitsbereich hinzuzufügen",
+  'toast.folderDropFailed': "Ordner konnte nicht hinzugefügt werden: {message}",
   'draft.workspaceRequired': 'Wählen Sie zunächst einen Arbeitsbereich.',
   'draft.initializationFailed': 'Der Entwurf konnte nicht ausgefüllt werden. Bitte versuchen Sie es in Kürze noch einmal.',
   'group.ungrouped': 'Nicht gruppiert',
@@ -760,6 +784,10 @@ export const de = {
 /** Russian dictionary, checked against the English keys. */
 export const ru = {
   'defaultWorkspace.failed': 'Невозможно создать рабочую область по умолчанию. Используйте «Выбрать рабочее пространство», чтобы выбрать папку.',
+  'workspace.drop.hint': "Отпустите, чтобы добавить рабочую область",
+  'toast.folderAdded': "Рабочая область {name} добавлена",
+  'toast.folderDropNotFolder': "Перетащите папку, чтобы добавить рабочую область",
+  'toast.folderDropFailed': "Не удалось добавить папку: {message}",
   'draft.workspaceRequired': 'Сначала выберите рабочее место.',
   'draft.initializationFailed': 'Не удалось заполнить черновик. Пожалуйста, повторите попытку в ближайшее время.',
   'group.ungrouped': 'Разгруппировано',
@@ -885,6 +913,10 @@ export const ru = {
 /** Portuguese dictionary, checked against the English keys. */
 export const pt = {
   'defaultWorkspace.failed': 'Não foi possível criar o espaço de trabalho padrão. Use Escolher espaço de trabalho para selecionar uma pasta.',
+  'workspace.drop.hint': "Solte para adicionar como espaço de trabalho",
+  'toast.folderAdded': "Espaço de trabalho {name} adicionado",
+  'toast.folderDropNotFolder': "Solte uma pasta para adicionar um espaço de trabalho",
+  'toast.folderDropFailed': "Não foi possível adicionar a pasta: {message}",
   'draft.workspaceRequired': 'Escolha um espaço de trabalho primeiro.',
   'draft.initializationFailed': 'Não foi possível preencher o rascunho. Por favor, tente novamente em breve.',
   'group.ungrouped': 'Desagrupado',

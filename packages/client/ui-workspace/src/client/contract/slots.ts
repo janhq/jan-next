@@ -347,6 +347,8 @@ export type WorkspaceBrowserInjected = {
   unarchiveSession: (sessionId: SessionId) => Promise<void>
   /** Adopt a picked host directory as a real Workspace before targeting a Session. */
   createWorkspace: (input: { path: string }) => Promise<WorkspaceView>
+  /** Raise the outcome notice of a folder dropped on the Sidebar. */
+  notifyFolderDrop: (notice: FolderDropNotice) => void
 }
 
 /** The browser's declared viewing store handle, shared with the row actions that write view state. */
@@ -374,6 +376,12 @@ export type RowToast =
   | { kind: 'unpinFailed' }
   | { kind: 'archivedNotOpenable' }
   | { kind: 'defaultWorkspaceFailed' }
+  /** A folder dropped on the sidebar was adopted (or was already) a Workspace. */
+  | { kind: 'folderAdded'; title: string }
+  /** A sidebar drop held no directory with a host path. */
+  | { kind: 'folderDropNotFolder' }
+  /** Adopting a dropped folder failed; `message` is untranslated. */
+  | { kind: 'folderDropFailed'; message: string }
   | { kind: 'forkRequiresOpen'; sessionId: SessionId }
   | { kind: 'shortcutForkFailed'; reason: 'unavailable' | 'failed' }
   /**
@@ -382,6 +390,9 @@ export type RowToast =
    * a report can be searched by it — and any other failure's own message.
    */
   | { kind: 'createFailed'; message: string }
+
+/** Notices a folder dropped on the Sidebar can raise. */
+export type FolderDropNotice = Extract<RowToast, { kind: 'folderAdded' | 'folderDropNotFolder' | 'folderDropFailed' }>
 
 /** The notice on display; `seq` keys remounts so a repeated notice restarts its hold. */
 export type RowToastState = RowToast & { seq: number }

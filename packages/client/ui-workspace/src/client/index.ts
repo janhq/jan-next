@@ -316,6 +316,7 @@ export function apply(ctx: Context): void {
     },
     unarchiveSession: async (sessionId) => { await uiWorkspace.unarchiveSession(sessionId) },
     createWorkspace: input => workspaces.create(input),
+    notifyFolderDrop: notify,
     addWorkspaceButtonRef,
     requestSearch: shortcutControls.search,
     requestAddWorkspace: shortcutControls.add,

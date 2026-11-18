@@ -40,6 +40,7 @@ import {
 import { ProjectRowItem, SearchResultItem, SessionNodeItem } from './Rows.tsx'
 import { FLAT_SESSION_ORDER_KEY, type SessionGroupBy } from '../stores.ts'
 import { WorkspacePickFlow } from '../WorkspacePicker.tsx'
+import { FolderDrop } from './FolderDrop.tsx'
 import css from './WorkspaceBrowser.module.css'
 
 /**
@@ -916,6 +917,7 @@ export function WorkspaceBrowser({
   insertWorkspaceBefore,
   unarchiveSession,
   createWorkspace,
+  notifyFolderDrop,
   searchSessions,
   searchResultLimit,
   useDirectoryFlow,
@@ -1104,6 +1106,7 @@ export function WorkspaceBrowser({
     hasMore: false,
   })
   const searchRoot = useRef<HTMLDivElement | null>(null)
+  const browserRoot = useRef<HTMLDivElement | null>(null)
   const searchInput = useRef<HTMLInputElement | null>(null)
   // The list area is this section's own vertical scroller; the sidebar hands wheel
   // scrolling over its viewport to it once the navigation has moved away.
@@ -1286,7 +1289,15 @@ export function WorkspaceBrowser({
     t={t}
   />)
   return (
-    <div className={clsx(css.root, !wide && css.rail)}>
+    <div ref={browserRoot} className={clsx(css.root, !wide && css.rail)}>
+      <FolderDrop
+        enabled={directoryFlowAvailable}
+        anchor={browserRoot}
+        hint={t('workspace.drop.hint')}
+        createWorkspace={createWorkspace}
+        onAdded={(workspaceId) => { startSession(workspaceId, { clearPreviousDraft: false }) }}
+        notify={notifyFolderDrop}
+      />
       {renderSlot('sidebar.workspaces.header', {
         wide, heading: groupBy === 'flat' ? t('section.sessions') : t('section.workspaces'),
         canAddWorkspace: directoryFlowAvailable, onSearch: requestSearch, onAddWorkspace: requestAddWorkspace,

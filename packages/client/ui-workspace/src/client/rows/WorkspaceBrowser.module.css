@@ -647,3 +647,26 @@
     transition: none;
   }
 }
+
+/* Folder drop target: covers the Sidebar column while a system file drag is over it. */
+.folderDrop {
+  position: absolute;
+  inset: 6px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  border: 1.5px dashed var(--dsw-alias-label-tertiary);
+  border-radius: var(--dsw-radius-lg);
+  background: color-mix(in srgb, var(--dsw-alias-bg-base) 88%, transparent);
+  pointer-events: none;
+}
+
+.folderDropLabel {
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+  line-height: 18px;
+  text-align: center;
+  text-wrap: balance;
+}

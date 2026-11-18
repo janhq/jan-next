@@ -59,6 +59,7 @@
 .sidebarCol {
   grid-column: 1;
   grid-row: 1;
+  position: relative; /* anchors Sidebar-wide overlays such as the folder drop target */
   min-width: 0;
   overflow: hidden;
   background: var(--dsw-specific-sidebar-fill);
