@@ -18,6 +18,10 @@
 .name { flex: 1; min-width: 0; font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .number { font-size: 13px; color: var(--dsw-alias-label-secondary); }
 .provider { display: block; font-size: 13px; font-weight: 400; color: var(--dsw-alias-label-secondary); }
-.actions { display: flex; gap: 4px; }
+.actions { display: flex; gap: 2px; }
+/* Square icon buttons; a disabled arrow fades so it never reads as a label. */
+.iconAction { width: 28px; padding: 0; justify-content: center; }
+.iconAction:disabled { opacity: 0.35; }
+.add { align-self: flex-start; }
 .select { width: 100%; min-height: 32px; padding: 4px 8px; border: 0.5px solid var(--dsw-alias-border-l3); border-radius: var(--dsw-radius-md); background: var(--dsw-alias-bg-primary); color: var(--dsw-alias-label-primary); font: inherit; font-size: 13px; }
 .error { margin: 0; font-size: 13px; color: var(--dsw-alias-label-danger, #d33); }

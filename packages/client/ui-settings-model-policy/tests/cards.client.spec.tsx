@@ -48,10 +48,11 @@ describe('Fallback models', () => {
     expect(screen.getByText('Model C')).toBeTruthy()
     expect(screen.getByText('Provider A')).toBeTruthy()
     expect(screen.getByText('Provider B')).toBeTruthy()
-    expect(screen.getByRole('option', { name: 'Model B (Provider A)' })).toBeTruthy()
-    expect(screen.queryByRole('option', { name: 'Model A (Provider A)' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: en.addFallback }))
+    await waitFor(() => { expect(screen.getByRole('menuitem', { name: 'Model B' })).toBeTruthy() })
+    expect(screen.queryByRole('menuitem', { name: 'Model A' })).toBeNull()
 
-    fireEvent.change(screen.getByLabelText(en.addFallback), { target: { value: JSON.stringify(['alpha', 'b']) } })
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Model B' }))
     expect(api.set).toHaveBeenLastCalledWith('chain', [...chain, { provider: 'alpha', model: 'b' }])
 
     act(() => { store.set({ ...store.getSnapshot(), value: { chain: [...chain, { provider: 'alpha', model: 'b' }], cooldownSeconds: 300, switchBackBelowPercent: 30 } }) })
@@ -65,15 +66,24 @@ describe('Fallback models', () => {
     expect(api.set).toHaveBeenLastCalledWith('chain', [chain[0], { provider: 'alpha', model: 'b' }])
   })
 
-  it('shows custom cooldown and disables every write when read-only', async () => {
-    const { api } = form<Fallback>({ chain: [], cooldownSeconds: 42, switchBackBelowPercent: 30 }, false)
+  it('shows custom cooldown and hides every write when read-only', async () => {
+    const { api } = form<Fallback>({ chain: [{ provider: 'alpha', model: 'a' }], cooldownSeconds: 42, switchBackBelowPercent: 30 }, false)
     render(<FallbackCard {...fallbackProps(api)} />)
-    expect(screen.getByText(en.fallbackEmpty)).toBeTruthy()
+    await waitFor(() => { expect(screen.getByText('Model A')).toBeTruthy() })
     expect(screen.getByRole('status').textContent).toBe(en.readOnly)
     expect(screen.getByRole('option', { name: '42 s' })).toBeTruthy()
-    expect(screen.getByLabelText(en.addFallback)).toHaveProperty('disabled', true)
+    expect(screen.queryByRole('button', { name: en.addFallback })).toBeNull()
+    expect(screen.queryByRole('button', { name: `${en.remove} 1` })).toBeNull()
     expect(screen.getByLabelText(en.cooldown)).toHaveProperty('disabled', true)
     expect(screen.getByLabelText(en.switchBack)).toHaveProperty('disabled', true)
+  })
+
+  it('says why nothing can be added once every model is in the chain', async () => {
+    const chain = [{ provider: 'alpha', model: 'a' }, { provider: 'alpha', model: 'b' }, { provider: 'beta', model: 'c' }]
+    const { api } = form<Fallback>({ chain, cooldownSeconds: 300, switchBackBelowPercent: 30 })
+    render(<FallbackCard {...fallbackProps(api)} />)
+    await waitFor(() => { expect(screen.getByText(en.allModelsAdded)).toBeTruthy() })
+    expect(screen.queryByRole('button', { name: en.addFallback })).toBeNull()
   })
 
   it('offers catalog retry after a failed load', async () => {
@@ -82,7 +92,7 @@ describe('Fallback models', () => {
     render(<FallbackCard {...fallbackProps(api)} />)
     await waitFor(() => { expect(screen.getByText(en.catalogError)).toBeTruthy() })
     fireEvent.click(screen.getByRole('button', { name: en.retry }))
-    await waitFor(() => { expect(screen.getByRole('option', { name: 'Model A (Provider A)' })).toBeTruthy() })
+    await waitFor(() => { expect(screen.getByRole('button', { name: en.addFallback })).toHaveProperty('disabled', false) })
     expect(loadCatalog).toHaveBeenCalledTimes(2)
   })
 })
