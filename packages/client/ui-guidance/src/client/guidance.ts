@@ -77,8 +77,8 @@ export function createGuidance(t: TranslateNS<'guidance'>): { service: GuidanceS
         showButtons: action ? ['previous', 'close'] : ['next', 'previous', 'close'],
         onPopoverRender(popover, { driver: current }) {
           // Driver expects HTML strings. Put every feature and locale string into text nodes instead.
-          popover.title.textContent = title
-          popover.description.textContent = body
+          popover.title.textContent = title()
+          popover.description.textContent = body()
           popover.progress.textContent = t('progress', { current: position + 1, total })
           popover.previousButton.textContent = t('previous')
           popover.nextButton.textContent = t(current.isLastStep() ? 'done' : 'next')

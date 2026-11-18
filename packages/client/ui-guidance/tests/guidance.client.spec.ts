@@ -5,9 +5,9 @@ import { apply, inject } from '../src/client/index.ts'
 import type { GuidanceStep, GuidanceTour } from '../src/client/index.ts'
 import { apply as applyHost } from '../src/index.ts'
 
-const first = { target: 'sidebar.first', title: 'First', body: 'First body' }
-const next = { target: 'sidebar.next', title: '<strong>Second</strong>', body: '<img src=x onerror=alert(1)>' }
-const missing = { target: 'sidebar.missing', title: 'Missing', body: 'Not mounted' }
+const first = { target: 'sidebar.first', title: () => 'First', body: () => 'First body' }
+const next = { target: 'sidebar.next', title: () => '<strong>Second</strong>', body: () => '<img src=x onerror=alert(1)>' }
+const missing = { target: 'sidebar.missing', title: () => 'Missing', body: () => 'Not mounted' }
 const tour = (steps: readonly GuidanceStep[]): GuidanceTour => ({ id: 'sidebar.introduction', steps })
 const add = (id: string) => {
   const target = document.createElement('button')
@@ -78,7 +78,7 @@ it('treats registration as a Cordis effect and does not mark unseen tours on unl
   expect(() => ctx.uiGuidance.register(spec)).toThrow(spec.id)
   expect(() => ctx.uiGuidance.register({ id: 'sidebar.invalid', steps: [{ ...first, target: 'not dotted' }] })).toThrow('not dotted')
   expect(ctx.uiGuidance.start(spec.id)).toBe(true)
-  expect(currentTitle()).toBe(first.title)
+  expect(currentTitle()).toBe(first.title())
   await plugin.dispose()
   expect(document.querySelector('.driver-popover')).toBeNull()
   expect(ctx.uiGuidance.start(spec.id)).toBe(false)
@@ -92,18 +92,18 @@ it('skips unavailable targets, uses plain localized text, and marks completion o
   const spec = tour([missing, first, missing, next, missing])
   const dispose = ctx.uiGuidance.register(spec)
   expect(ctx.uiGuidance.start(spec.id)).toBe(true)
-  expect(currentTitle()).toBe(first.title)
+  expect(currentTitle()).toBe(first.title())
   expect(find('.driver-popover-progress-text').textContent).toBe('2 / 5')
   expect(nextButton().textContent).toBe('Continue')
   const go = nextButton()
   go.click()
-  expect(currentTitle()).toBe(next.title)
-  expect(find('.driver-popover-description').textContent).toBe(next.body)
+  expect(currentTitle()).toBe(next.title())
+  expect(find('.driver-popover-description').textContent).toBe(next.body())
   expect(find('.driver-popover-description').querySelector('img')).toBeNull()
   expect(nextButton().textContent).toBe('Finish')
   expect(backButton().textContent).toBe('Back')
   backButton().click()
-  expect(currentTitle()).toBe(first.title)
+  expect(currentTitle()).toBe(first.title())
   nextButton().click()
   nextButton().click()
   expect(ctx.uiGuidance.hasSeen(spec.id)).toBe(true)
@@ -130,7 +130,7 @@ it('advances an action step only from the real target and notices the next targe
   target.addEventListener('click', action)
   target.click()
   expect(action).toHaveBeenCalledOnce()
-  await vi.waitFor(() => { expect(currentTitle()).toBe(next.title) })
+  await vi.waitFor(() => { expect(currentTitle()).toBe(next.title()) })
   find<HTMLButtonElement>('.driver-popover-close-btn').click()
   expect(ctx.uiGuidance.hasSeen(spec.id)).toBe(true)
 })
@@ -161,7 +161,7 @@ it('returns false without dismissing the active tour if no eligible target exist
   target.hidden = false
   expect(ctx.uiGuidance.start(spec.id)).toBe(true)
   expect(ctx.uiGuidance.start('sidebar.unknown')).toBe(false)
-  expect(currentTitle()).toBe(first.title)
+  expect(currentTitle()).toBe(first.title())
   ctx.uiGuidance.register({ id: 'sidebar.empty', steps: [] })
   expect(ctx.uiGuidance.start('sidebar.empty')).toBe(false)
   expect(ctx.uiGuidance.start(spec.id)).toBe(true)
@@ -184,13 +184,13 @@ it('transitions only between steps when supported and motion is allowed', async 
   nextButton().click()
   expect(updateOptions).toHaveLength(1)
   expect(updateOptions[0]!.types).toEqual(['jan-guidance-step'])
-  expect(currentTitle()).toBe(first.title)
+  expect(currentTitle()).toBe(first.title())
   updateOptions[0]!.update!()
-  expect(currentTitle()).toBe(next.title)
+  expect(currentTitle()).toBe(next.title())
   vi.mocked(window.matchMedia).mockReturnValue({ matches: true } as MediaQueryList)
   backButton().click()
   expect(updateOptions).toHaveLength(1)
-  expect(currentTitle()).toBe(first.title)
+  expect(currentTitle()).toBe(first.title())
   vi.mocked(window.matchMedia).mockReturnValue({ matches: false } as MediaQueryList)
   nextButton().click()
   pressEscape()

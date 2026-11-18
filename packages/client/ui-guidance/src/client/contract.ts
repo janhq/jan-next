@@ -2,10 +2,10 @@
 export interface GuidanceStep {
   /** The target's exact data-guide value, in lowercase dotted domain-first form. */
   readonly target: string
-  /** Plain-text localized heading. */
-  readonly title: string
-  /** Plain-text localized instruction. */
-  readonly body: string
+  /** Plain-text localized heading, read at render so a language switch applies to the next card. */
+  readonly title: () => string
+  /** Plain-text localized instruction, read at render. */
+  readonly body: () => string
   /** Wait for activation of the actual target instead of showing a Next button. */
   readonly advanceOn?: 'click'
 }
