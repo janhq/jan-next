@@ -27,6 +27,7 @@ function mount(language = 'zh-CN', takeNotice = vi.fn<() => Promise<WelcomeNotic
     skip: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
     startLocalModel: vi.fn<() => Promise<WelcomeLocalModel>>().mockResolvedValue({ phase: 'downloading', name: 'Jan v3.5 4B', totalBytes: 2_739_176_643 }),
     readLocalModel: vi.fn<() => Promise<WelcomeLocalModel | undefined>>().mockResolvedValue({ phase: 'downloading', name: 'Jan v3.5 4B', totalBytes: 2_739_176_643 }),
+    cancelLocalModel: vi.fn<() => Promise<WelcomeLocalModel | undefined>>().mockResolvedValue({ phase: 'missing', name: 'Jan v3.5 4B', totalBytes: 2_739_176_643 }),
   }
   const mounted = render(<Welcome api={api} />)
   const input = document.querySelector('input')!

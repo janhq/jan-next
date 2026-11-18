@@ -1453,6 +1453,11 @@ async function main(): Promise<void> {
           if (welcomeBackend === undefined) throw new Error('desktop welcome: backend unavailable')
           return welcomeBackend.localModel.read()
         },
+        cancelLocalModel: async () => {
+          if (welcomeBackend === undefined) throw new Error('desktop welcome: backend unavailable')
+          await welcomeBackend.localModel.cancel()
+          return welcomeBackend.localModel.read()
+        },
       })
       const window = welcomeWindow
       window.once('closed', () => {

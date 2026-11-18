@@ -37,6 +37,8 @@ export interface DesktopWelcomeBackend {
     read(): Promise<WelcomeLocalModel | undefined>
     /** @returns after the Host accepted the first-run download. */
     start(): Promise<void>
+    /** @returns after the first-run download stopped; starting again resumes it. */
+    cancel(): Promise<void>
   }
 }
 
@@ -180,6 +182,7 @@ export function connectDesktopWelcome(
         return value === undefined ? undefined : welcomeLocalModel(value)
       },
       async start() { await invoke({ namespace: 'llamaCpp', method: 'beginInstall', args: {} }) },
+      async cancel() { await invoke({ namespace: 'llamaCpp', method: 'cancelInstall', args: {} }) },
     },
     async analyticsEnabled() {
       const enabled = await invoke({ namespace: 'productAnalytics', method: 'enabled', args: {} }, AbortSignal.timeout(1000))
