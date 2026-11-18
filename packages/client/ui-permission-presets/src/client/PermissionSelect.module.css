@@ -3,7 +3,10 @@
   align-items: center;
   gap: 4px;
   min-width: 0;
-  max-width: 220px;
+  /* Room for the longest shipped label ("Escritura en el espacio de trabajo")
+     on a normal composer; the composer row is the query container, so a
+     narrower row still ellipsizes before the 460px rule hides the text. */
+  max-width: min(300px, 40cqi);
   height: 28px;
   padding: 0 4px 0 8px;
   border: none;
