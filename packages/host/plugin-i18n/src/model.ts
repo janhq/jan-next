@@ -1,10 +1,9 @@
-/** The no-tools model round trip behind plugin translation, on the user's default model route. */
+/** The no-tools model round trip behind plugin translation, on the route the Host chose. */
 import type { Context } from '@janhq/cordis'
 import { BlockAssembler, type GenerateOptions, type LlmResolvedModelInfo, type ReasoningEffortId } from '@janhq/jan-llm'
 import { deadline } from '@janhq/jan-timeout'
+import type { PluginI18nRouteRef } from './types.ts'
 import type { ModelCall } from './translate.ts'
-// Type-only: the `agentDefaultModel` service merge; the `llm` merge arrives with the value import above.
-import type {} from '@janhq/jan-agent-default-model'
 
 declare module '@janhq/jan-llm/types' {
   interface LlmRequestPurposeMap {
@@ -25,27 +24,17 @@ export interface ModelLimits {
 const leastEffort = (model: Readonly<LlmResolvedModelInfo>): ReasoningEffortId | undefined => model.reasoning?.efforts[0]?.id
 
 /**
- * Read the route translations run on.
- * @param ctx - context exposing `agentDefaultModel`.
- * @returns the default provider and model.
- */
-export function routeOf(ctx: Context): { provider: string; model: string } {
-  const { provider, model } = ctx.agentDefaultModel.currentSelection()
-  return { provider, model }
-}
-
-/**
- * Bind a model round trip to the current default route. The request carries no tools and no session; it never
- * enters a Session log.
- * @param ctx - context exposing `llm` and `agentDefaultModel`.
+ * Bind a model round trip to one route. The request carries no tools and no session; it never enters a Session log.
+ * @param ctx - context exposing `llm`.
  * @param limits - output-token cap and end-to-end deadline per request.
  * @param signal - cancellation of the whole job.
- * @returns a call that resolves the route at each invocation.
+ * @param route - the provider and model to call.
+ * @returns a call that sends one request on the route.
  */
-export function modelCall(ctx: Context, limits: ModelLimits, signal: AbortSignal): ModelCall {
+export function modelCall(ctx: Context, limits: ModelLimits, signal: AbortSignal, route: PluginI18nRouteRef): ModelCall {
   return async (system, input) => {
     using bounded = deadline(signal, limits.timeoutMs, PLUGIN_I18N_TIMEOUT_CODE)
-    const { provider, model } = routeOf(ctx)
+    const { provider, model } = route
     const controls = { provider, model, maxTokens: limits.maxOutputTokens, temperature: 0 }
     const call = await ctx.llm.prepareCall(controls, bounded.signal, (proposed, info) => {
       const effort = leastEffort(info)

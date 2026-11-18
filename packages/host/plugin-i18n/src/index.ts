@@ -1,6 +1,6 @@
 /**
- * Host service that translates plugin UI text with the user's default model, keeps the results in a file cache,
- * and serves them to clients over the `pluginI18n` Remote.
+ * Host service that translates plugin UI text with the user's chosen or default model, keeps the results in a file
+ * cache, and serves them to clients over the `pluginI18n` Remote.
  */
 import { isAbsolute } from 'node:path'
 import type { Context } from '@janhq/cordis'
@@ -9,12 +9,14 @@ import { MAX_TIMER_DELAY_MS } from '@janhq/jan-timeout'
 import { Remote, RemoteError, TypertRemoteService } from '@janhq/jan-typert-protocol'
 // Type-only: the root `janHomePath` resolver merge.
 import type {} from '@janhq/jan-app-boot'
-import { modelCall, routeOf } from './model.ts'
+import { modelCall } from './model.ts'
+import { chooseRoute, routeChoices } from './route.ts'
 import { hashSources, I18nStore, pairEntries } from './store.ts'
 import { splitEntries, translateEntries, type ModelCall } from './translate.ts'
 import type {
   PluginI18nChange, PluginI18nConsent, PluginI18nConsentChange, PluginI18nEntries, PluginI18nJob, PluginI18nPackageTables,
-  PluginI18nRoute, PluginI18nStatus, PluginI18nTables, PluginI18nTranslateRequest,
+  PluginI18nRoute, PluginI18nRouteChoices, PluginI18nRouteRef, PluginI18nRuntimeStatus, PluginI18nStatus, PluginI18nTables,
+  PluginI18nTranslateRequest,
 } from './types.ts'
 
 export type * from './types.ts'
@@ -104,12 +106,40 @@ export default class PluginI18n extends TypertRemoteService {
   }
 
   /**
-   * Read the model route translations run on.
-   * @returns the default provider and model.
+   * Read the model translations run on: the person's saved pick, else the default model, else a loaded local model,
+   * else any configured model, whichever resolves first.
+   * @returns the provider, model, and why it was chosen.
    */
   @Remote
-  route(): PluginI18nRoute {
-    return routeOf(this.ctx)
+  async route(): Promise<PluginI18nRoute> {
+    return chooseRoute(this.ctx, await this.store.readRoute())
+  }
+
+  /**
+   * Read what the model picker shows: the route in use, the saved pick, the default model, and the models to pick.
+   * @returns the route choices.
+   */
+  @Remote
+  async routes(): Promise<PluginI18nRouteChoices> {
+    return routeChoices(this.ctx, await this.store.readRoute())
+  }
+
+  /**
+   * Save the model translations run on until changed again, or follow the default model again.
+   * @param route - the provider and model to use, or null to follow the default model.
+   * @returns the route choices after the change.
+   * @throws {RemoteError} `plugin-i18n/invalid-route` when no adapter serves the provider or the model is empty.
+   */
+  @Remote
+  async setRoute(route: PluginI18nRouteRef | null): Promise<PluginI18nRouteChoices> {
+    if (route !== null && (route.model === '' || !this.ctx.llm.listProviders().some(provider => provider.id === route.provider))) {
+      throw new RemoteError('plugin-i18n/invalid-route', `"${route.provider}/${route.model}" is not a model of a registered provider`, {
+        provider: route.provider, model: route.model,
+      })
+    }
+    await this.serial(() => this.store.writeRoute(route))
+    this.changed({})
+    return this.routes()
   }
 
   /**
@@ -131,7 +161,10 @@ export default class PluginI18n extends TypertRemoteService {
   @Remote
   async statuses(): Promise<PluginI18nStatus[]> {
     const consent = await this.store.readConsent()
-    const names = new Set([...await this.store.listPackages(), ...[...this.latest.values()].map(job => job.pkg), ...consent.packages])
+    const names = new Set([
+      ...await this.store.listPackages(), ...await this.store.listRuntimePackages(),
+      ...[...this.latest.values()].map(job => job.pkg), ...consent.packages,
+    ])
     return Promise.all([...names].toSorted().map(pkg => this.statusOf(pkg, consent)))
   }
 
@@ -189,27 +222,37 @@ export default class PluginI18n extends TypertRemoteService {
     }
     for (const [key, job] of this.latest) if (job.pkg === pkg) this.latest.delete(key)
     await this.store.clearPackage(pkg)
+    await this.serial(() => this.dropRuntime(pkg))
     await this.setPackageConsent(pkg, false)
     this.changed({ pkg })
   }
 
   /**
-   * Translate runtime strings such as tool titles, caching each result by its exact source text. Strings leave the
-   * Host only when the person consented to a package or globally. A string the model could not translate acceptably
-   * is absent from the result.
+   * Translate runtime strings such as tool titles or text a plugin renders itself, caching each result by its exact
+   * source text. Strings leave the Host only when the person consented to a package or globally; strings attributed
+   * to a package need that package's own consent, which the global switch does not give. A string the model could
+   * not translate acceptably is absent from the result.
    * @param strings - exact source texts.
    * @param locale - target locale.
+   * @param pkg - the package whose screen text this is; its translated strings are listed under it.
+   * @param rerun - translate the strings again even when the cache has them; a string the model fails keeps its old translation.
    * @returns translations by exact source text.
-   * @throws {RemoteError} `plugin-i18n/invalid-locale`, `plugin-i18n/not-consented`, or `plugin-i18n/model-failed`.
+   * @throws {RemoteError} `plugin-i18n/invalid-locale`, `plugin-i18n/invalid-package`, `plugin-i18n/not-consented`, or
+   * `plugin-i18n/model-failed`.
    */
   @Remote
-  async translateStrings(strings: string[], locale: string): Promise<Record<string, string>> {
+  async translateStrings(strings: string[], locale: string, pkg?: string, rerun?: boolean): Promise<Record<string, string>> {
     assertLocale(locale)
+    if (pkg !== undefined) assertPackage(pkg)
     const consent = await this.store.readConsent()
-    if (!titlesAllowed(consent)) throw new RemoteError('plugin-i18n/not-consented', 'Translating plugin text needs consent', {})
+    const allowed = pkg === undefined ? titlesAllowed(consent) : consent.packages.includes(pkg)
+    if (!allowed) throw new RemoteError('plugin-i18n/not-consented', 'Translating plugin text needs consent', {})
     const wanted = [...new Set(strings.filter(text => text.trim() !== '' && text.length <= this.config.maxStringLength))]
       .slice(0, this.config.maxEntries)
-    await this.serial(() => this.translateMissing(wanted, locale))
+    await this.serial(async () => {
+      await this.translateMissing(wanted, locale, rerun === true)
+      if (pkg !== undefined) await this.listRuntime(pkg, locale, wanted)
+    })
     const cache = await this.stringsOf(locale)
     return Object.fromEntries(wanted.flatMap(text => cache[text] === undefined ? [] : [[text, cache[text]]]))
   }
@@ -228,8 +271,16 @@ export default class PluginI18n extends TypertRemoteService {
       const file = await this.store.readLocale(pkg, locale)
       if (file !== undefined) packages[pkg] = { sourceLocale: file.sourceLocale, entries: file.entries }
     }
-    const strings = titlesAllowed(await this.store.readConsent()) ? await this.stringsOf(locale) : {}
-    return { locale, packages, strings }
+    const allowed = titlesAllowed(await this.store.readConsent())
+    const strings = allowed ? await this.stringsOf(locale) : {}
+    const runtime: Record<string, string[]> = {}
+    if (allowed) {
+      for (const pkg of await this.store.listRuntimePackages()) {
+        const listed = await this.store.readRuntime(pkg, locale)
+        if (listed.length > 0) runtime[pkg] = listed
+      }
+    }
+    return { locale, packages, strings, runtime }
   }
 
   /**
@@ -289,6 +340,12 @@ export default class PluginI18n extends TypertRemoteService {
   private async statusOf(pkg: string, consent: PluginI18nConsent): Promise<PluginI18nStatus> {
     const files = await this.store.listLocales(pkg)
     const jobs = [...this.latest.values()].filter(job => job.pkg === pkg)
+    const runtime: PluginI18nRuntimeStatus[] = []
+    for (const locale of await this.store.listRuntimeLocales(pkg)) {
+      const cache = await this.stringsOf(locale)
+      const strings = (await this.store.readRuntime(pkg, locale)).filter(text => cache[text] !== undefined).length
+      if (strings > 0) runtime.push({ locale, strings })
+    }
     return {
       pkg,
       locales: files.map(file => ({
@@ -300,6 +357,7 @@ export default class PluginI18n extends TypertRemoteService {
         entries: Object.values(file.entries).reduce((sum, keys) => sum + Object.keys(keys).length, 0),
         kept: file.kept,
       })),
+      runtime,
       job: jobs.at(-1) ?? null,
       consented: consent.packages.includes(pkg),
     }
@@ -329,7 +387,9 @@ export default class PluginI18n extends TypertRemoteService {
       }
       let done = running.job.total - todo.length
       settle({ done })
-      const model = modelCall(this.ctx, this.config, signal)
+      const route = await chooseRoute(this.ctx, await this.store.readRoute())
+      signal.throwIfAborted()
+      const model = modelCall(this.ctx, this.config, signal, route)
       const fresh: Record<string, Record<string, string>> = {}
       const items = new Map<string, { ns: string; key: string }>()
       const texts: Record<string, string> = {}
@@ -351,10 +411,9 @@ export default class PluginI18n extends TypertRemoteService {
       const entries = mergeEntries(reused, pairEntries(request.sources, fresh))
       const total = Object.values(request.sources).reduce((sum, keys) => sum + Object.keys(keys).length, 0)
       const translated = Object.values(entries).reduce((sum, keys) => sum + Object.keys(keys).length, 0)
-      const { provider, model: modelId } = routeOf(this.ctx)
       await this.store.writeLocale({
         format: 1, pkg, locale, sourceLocale: request.sourceLocale, sourceHash: hashSources(request.sources),
-        model: `${provider}/${modelId}`, generatedAt: Date.now(), kept: total - translated, entries,
+        model: `${route.provider}/${route.model}`, generatedAt: Date.now(), kept: total - translated, entries,
       })
       settle({ state: 'done', done: running.job.total })
     } catch (error) {
@@ -372,12 +431,16 @@ export default class PluginI18n extends TypertRemoteService {
     return cache
   }
 
-  /** Translate the strings the cache lacks in model-sized batches and persist the cache. Serialized by the caller. */
-  private async translateMissing(wanted: readonly string[], locale: string): Promise<void> {
+  /**
+   * Translate the strings the cache lacks, or all of them when forced, in model-sized batches and persist the cache.
+   * Serialized by the caller.
+   */
+  private async translateMissing(wanted: readonly string[], locale: string, force = false): Promise<void> {
     const cache = await this.stringsOf(locale)
-    const missing = wanted.filter(text => cache[text] === undefined && !this.refused.has(`${locale}\n${text}`))
+    const missing = wanted.filter(text => force || (cache[text] === undefined && !this.refused.has(`${locale}\n${text}`)))
     if (missing.length === 0) return
-    const model: ModelCall = modelCall(this.ctx, this.config, this.lifetime.signal)
+    const route = await chooseRoute(this.ctx, await this.store.readRoute())
+    const model: ModelCall = modelCall(this.ctx, this.config, this.lifetime.signal, route)
     const identified = Object.fromEntries(missing.map((text, index) => [`s${String(index)}`, text]))
     try {
       for (const batch of splitEntries(identified, this.config.batchEntries, this.config.batchBytes)) {
@@ -396,6 +459,33 @@ export default class PluginI18n extends TypertRemoteService {
       return
     }
     await this.store.writeStrings(locale, cache)
+  }
+
+  /** Record the translated strings among `wanted` as text `pkg` displayed. Serialized by the caller. */
+  private async listRuntime(pkg: string, locale: string, wanted: readonly string[]): Promise<void> {
+    const cache = await this.stringsOf(locale)
+    const listed = await this.store.readRuntime(pkg, locale)
+    const known = new Set(listed)
+    const added = wanted.filter(text => cache[text] !== undefined && !known.has(text))
+    if (added.length === 0) return
+    await this.store.writeRuntime(pkg, locale, [...listed, ...added])
+    this.changed({ pkg, locale })
+  }
+
+  /** Forget what `pkg` displayed, and drop the translations no other package displayed. Serialized by the caller. */
+  private async dropRuntime(pkg: string): Promise<void> {
+    const others = (await this.store.listRuntimePackages()).filter(name => name !== pkg)
+    for (const locale of await this.store.listRuntimeLocales(pkg)) {
+      const keep = new Set<string>()
+      for (const other of others) for (const text of await this.store.readRuntime(other, locale)) keep.add(text)
+      const cache = await this.stringsOf(locale)
+      const mine = new Set((await this.store.readRuntime(pkg, locale)).filter(text => !keep.has(text) && cache[text] !== undefined))
+      if (mine.size === 0) continue
+      const kept = Object.fromEntries(Object.entries(cache).filter(([text]) => !mine.has(text)))
+      this.strings.set(locale, kept)
+      await this.store.writeStrings(locale, kept)
+    }
+    await this.store.clearRuntime(pkg)
   }
 }
 

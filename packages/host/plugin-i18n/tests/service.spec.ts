@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { Context } from '@janhq/cordis'
-import LlmRuntime, { LlmAdapter, type GenerateOptions, type StreamChunk } from '@janhq/jan-llm'
+import LlmRuntime, { LlmAdapter, type GenerateOptions, type LlmModelInfo, type StreamChunk } from '@janhq/jan-llm'
 import DefaultModel from '@janhq/jan-agent-default-model'
 import { z } from 'zod'
 import { remoteMethods } from '@janhq/jan-typert-protocol'
@@ -22,17 +22,32 @@ function configFor(dir: string, overrides: Partial<Config> = {}): Config {
   }
 }
 
+/** One translation request as the adapter received it. */
+interface RecordedRequest {
+  system: string | undefined
+  entries: Record<string, string>
+  purpose: string | undefined
+  tools: unknown
+  model: string
+}
+
 /** Reply to a translation request by mapping every entry through `rewrite`. */
 class TranslatingAdapter extends LlmAdapter {
-  readonly requests: { system: string | undefined; entries: Record<string, string>; purpose: string | undefined; tools: unknown }[] = []
+  readonly requests: RecordedRequest[] = []
+  /** Model ids this adapter's catalog lists. */
+  models: string[] = []
   rewrite: (key: string, text: string) => string = (_key, text) => `[ja] ${text}`
+
+  override listModels(provider: string): Promise<LlmModelInfo[]> {
+    return Promise.resolve(this.models.map(id => ({ provider, id, name: id.toUpperCase() })))
+  }
 
   async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     const message = options.messages[0]
     const content = message?.role === 'user' ? message.content[0] : undefined
     const request = translationRequest.parse(JSON.parse(content?.type === 'text' ? content.text : '{}'))
     const { entries } = request
-    this.requests.push({ system: options.system, entries, purpose: options.purpose, tools: options.tools })
+    this.requests.push({ system: options.system, entries, purpose: options.purpose, tools: options.tools, model: options.model })
     const reply = JSON.stringify(Object.fromEntries(Object.entries(entries).map(([key, text]) => [key, this.rewrite(key, text)])))
     yield { type: 'block-start', index: 0, blockType: 'text' }
     yield { type: 'text-delta', index: 0, text: reply }
@@ -49,7 +64,13 @@ afterEach(async () => {
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true })
 })
 
-interface Harness { service: PluginI18n; adapter: TranslatingAdapter; changes: PluginI18nChange[]; dir: string }
+interface Harness {
+  service: PluginI18n
+  adapter: TranslatingAdapter
+  changes: PluginI18nChange[]
+  dir: string
+  ctx: Context
+}
 
 async function harness(overrides: Partial<Config> = {}): Promise<Harness> {
   const dir = mkdtempSync(join(tmpdir(), 'jan-plugin-i18n-service-'))
@@ -64,7 +85,7 @@ async function harness(overrides: Partial<Config> = {}): Promise<Harness> {
   await ctx.plugin(PluginI18n, config)
   const changes: PluginI18nChange[] = []
   ctx.on('plugin-i18n/changed', (change) => { changes.push(change) })
-  return { service: ctx.get('pluginI18n')!, adapter, changes, dir }
+  return { service: ctx.get('pluginI18n')!, adapter, changes, dir, ctx }
 }
 
 /** Wait until the job of a package and locale leaves `running`. */
@@ -83,7 +104,7 @@ describe('PluginI18n', () => {
   it('declares its Remote methods', async () => {
     const { service } = await harness()
     expect(remoteMethods(service).map(marker => marker.method).toSorted()).toEqual([
-      'clear', 'consent', 'route', 'setConsent', 'status', 'statuses', 'tables', 'translate', 'translateStrings',
+      'clear', 'consent', 'route', 'routes', 'setConsent', 'setRoute', 'status', 'statuses', 'tables', 'translate', 'translateStrings',
     ])
   })
 
@@ -100,7 +121,7 @@ describe('PluginI18n', () => {
     expect(status.locales).toMatchObject([{ locale: 'ja', sourceLocale: 'en', model: 'test/m', namespaces: ['ns'], entries: 3, kept: 0 }])
     expect((await service.tables('ja')).packages['dsh-cad']?.entries['ns']?.['a']).toEqual({ src: 'Hello {name}', text: '[ja] Hello {name}' })
     expect(changes.at(-1)).toEqual({ pkg: 'dsh-cad', locale: 'ja' })
-    expect(service.route()).toEqual({ provider: 'test', model: 'm' })
+    expect(await service.route()).toEqual({ provider: 'test', model: 'm', source: 'default' })
   })
 
   it('re-translates only changed and new keys when the source changes', async () => {
@@ -196,6 +217,39 @@ describe('PluginI18n', () => {
       expect((await service.tables('en')).strings).toEqual({ '装配': 'EN 装配', '装配插入': 'EN 装配插入', '约束求解': 'EN 约束求解' })
     })
 
+    it('lists a consented package\u2019s translated strings under it, counts them, and drops them on clear', async () => {
+      const { service, adapter } = await harness()
+      await service.setConsent({ pkg: 'dsh-cad', allowed: true })
+      adapter.rewrite = (_key, text) => `EN ${text}`
+      expect(await service.translateStrings(['建模区为空', '导出'], 'en', 'dsh-cad')).toEqual({ '建模区为空': 'EN 建模区为空', '导出': 'EN 导出' })
+      await service.translateStrings(['导出', '装配'], 'en', 'dsh-cad')
+      expect((await service.status('dsh-cad')).runtime).toEqual([{ locale: 'en', strings: 3 }])
+      expect((await service.tables('en')).runtime).toEqual({ 'dsh-cad': ['建模区为空', '导出', '装配'] })
+      expect((await service.statuses()).map(status => status.pkg)).toEqual(['dsh-cad'])
+      await service.clear('dsh-cad')
+      expect(await service.statuses()).toEqual([])
+      expect((await service.tables('en')).runtime).toEqual({})
+    })
+
+    it('keeps a string another package displayed when one package is cleared', async () => {
+      const { service, adapter } = await harness()
+      await service.setConsent({ pkg: 'a', allowed: true })
+      await service.setConsent({ pkg: 'b', allowed: true })
+      adapter.rewrite = (_key, text) => `EN ${text}`
+      await service.translateStrings(['装配', '导出'], 'en', 'a')
+      await service.translateStrings(['装配'], 'en', 'b')
+      await service.clear('a')
+      expect((await service.tables('en')).strings).toEqual({ '装配': 'EN 装配' })
+    })
+
+    it('needs the package\u2019s own consent for strings attributed to it', async () => {
+      const { service, adapter } = await harness()
+      await service.setConsent({ allowed: true })
+      await service.setConsent({ pkg: 'a', allowed: true })
+      await expect(service.translateStrings(['装配'], 'en', 'b')).rejects.toMatchObject({ code: 'plugin-i18n/not-consented' })
+      expect(adapter.requests).toEqual([])
+    })
+
     it('does not send a refused string again', async () => {
       const { service, adapter } = await harness()
       await service.setConsent({ pkg: 'p', allowed: true })
@@ -216,6 +270,61 @@ describe('PluginI18n', () => {
       expect((await service.tables('en')).strings).toEqual({ '装配': 'EN 装配' })
       await service.setConsent({ allowed: false })
       expect((await service.tables('en')).strings).toEqual({})
+    })
+  })
+
+  describe('translation model', () => {
+    /** Register a second route whose catalog lists `big`. */
+    async function withAlt(): Promise<Harness & { alt: TranslatingAdapter }> {
+      const made = await harness()
+      const alt = new TranslatingAdapter()
+      alt.models = ['big']
+      made.ctx.llm.registerAdapter(['alt'], alt)
+      return { ...made, alt }
+    }
+
+    it('follows the default model until a pick is saved, then until it is changed back', async () => {
+      const { service, adapter, alt, dir } = await withAlt()
+      await service.setConsent({ pkg: 'p', allowed: true })
+      adapter.rewrite = (_key, text) => `EN ${text}`
+      alt.rewrite = (_key, text) => `ALT ${text}`
+      expect(await service.route()).toEqual({ provider: 'test', model: 'm', source: 'default' })
+      const picked = await service.setRoute({ provider: 'alt', model: 'big' })
+      expect(picked).toMatchObject({
+        route: { provider: 'alt', model: 'big', source: 'saved' }, saved: { provider: 'alt', model: 'big' },
+        default: { provider: 'test', model: 'm', usable: true }, models: [{ provider: 'alt', model: 'big', name: 'BIG', local: false, loaded: false }],
+      })
+      expect(await service.translateStrings(['装配'], 'en', 'p')).toEqual({ '装配': 'ALT 装配' })
+      expect(adapter.requests).toEqual([])
+      expect(alt.requests.map(request => request.model)).toEqual(['big'])
+      await service.translate({ pkg: 'p', locale: 'ja', sourceLocale: 'en', sources })
+      await settled(service, 'p')
+      expect((await service.status('p')).locales[0]?.model).toBe('alt/big')
+      const restarted = new Context()
+      contexts.push(restarted)
+      await restarted.plugin(LlmRuntime)
+      restarted.llm.registerAdapter(['test'], adapter)
+      restarted.llm.registerAdapter(['alt'], alt)
+      await liveConfig(restarted, DefaultModel, { provider: 'test', model: 'm' })
+      await restarted.plugin(PluginI18n, configFor(dir))
+      expect(await restarted.get('pluginI18n')!.route()).toMatchObject({ provider: 'alt', model: 'big', source: 'saved' })
+      const back = await service.setRoute(null)
+      expect(back).toMatchObject({ route: { provider: 'test', model: 'm', source: 'default' }, saved: null })
+      await service.translateStrings(['导出'], 'en', 'p')
+      expect(adapter.requests.map(request => request.model)).toEqual(['m'])
+    })
+
+    it('refuses a pick whose provider has no adapter or whose model is empty', async () => {
+      const { service } = await harness()
+      await expect(service.setRoute({ provider: 'nope', model: 'x' })).rejects.toMatchObject({ code: 'plugin-i18n/invalid-route' })
+      await expect(service.setRoute({ provider: 'test', model: '' })).rejects.toMatchObject({ code: 'plugin-i18n/invalid-route' })
+      expect((await service.routes()).saved).toBeNull()
+    })
+
+    it('announces a change of model so clients read again', async () => {
+      const { service, changes } = await withAlt()
+      await service.setRoute({ provider: 'alt', model: 'big' })
+      expect(changes.at(-1)).toEqual({})
     })
   })
 

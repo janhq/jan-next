@@ -1,5 +1,5 @@
 ---
-description: "Host service that translates plugin UI text and runtime tool titles with the user's default model, caches the results under the Jan home, and serves them over the pluginI18n Remote."
+description: "Host service that translates plugin UI text and runtime strings with the person's chosen or default model, caches the results under the Jan home, and serves them over the pluginI18n Remote."
 kind: "package-reference"
 ---
 
@@ -7,7 +7,7 @@ kind: "package-reference"
 
 ## Summary
 
-The package registers the `pluginI18n` service and its Remote namespace. A client sends the text a plugin supplies, the Host translates it into the person's language with the default model, stores the result by package, source hash, and locale, and returns it at start-up. Tool titles that plugins hard-code in one language are translated at render time and cached by their exact text. Nothing leaves the Host until the person consents, per package or globally.
+The package registers the `pluginI18n` service and its Remote namespace. A client sends the text a plugin supplies, the Host translates it into the person's language, stores the result by package, source hash, and locale, and returns it at start-up. Text that plugins hard-code in one language, such as tool titles and what a plugin draws on screen, is translated as it is displayed and cached by its exact text. The model is the person's saved pick, else the default model, else a loaded local model, else any configured one. Nothing leaves the Host until the person consents, per package or globally.
 
 ## Table of Contents
 
@@ -23,17 +23,19 @@ The package registers the `pluginI18n` service and its Remote namespace. A clien
 <a id="use-this-package"></a>
 ## Use this package
 
-Compose `@janhq/jan-host-plugin-i18n` beside `llm` and `agent-default-model`. The model route is the default selection; there is no separate translation model.
+Compose `@janhq/jan-host-plugin-i18n` beside `llm` and `agent-default-model`. The `llamaCpp` service is optional; when it is mounted, its loaded models are the fallback after the default model.
 
 ### Remote namespace
 
 | Method | Behavior |
 |---|---|
-| `pluginI18n/route` | The default provider and model translations run on. |
-| `pluginI18n/status` / `statuses` | Stored locales, the latest job, and consent of one package or of every known package. |
+| `pluginI18n/route` | The model translations run on and why: `saved` (the person's pick), `default`, `loaded-local`, or `configured`. Each is tried in that order and must resolve; when none does, the default model is returned and the request reports its own failure. |
+| `pluginI18n/routes` | What the Translations tab picker shows: the route in use, the saved pick, the default model with whether it can be used, and every model of every registered provider, local ones first. |
+| `pluginI18n/setRoute` | Saves the person's pick until changed again, or follows the default model again with `null`. Refused with `plugin-i18n/invalid-route` for a provider without an adapter or an empty model. |
+| `pluginI18n/status` / `statuses` | Stored locales, the runtime strings counted per locale, the latest job, and consent of one package or of every known package. |
 | `pluginI18n/translate` | Starts a job for a package and locale and returns it at once. Asking records consent for the package. Entries whose source text is unchanged since the last run are reused; `rerun` translates all. Progress and completion arrive as `plugin-i18n/changed`. |
 | `pluginI18n/clear` | Deletes a package's stored text and consent and stops its jobs. |
-| `pluginI18n/translateStrings` | Translates runtime strings such as tool titles, cached by exact source text. Refused with `plugin-i18n/not-consented` unless a package or the global switch is consented. |
+| `pluginI18n/translateStrings` | Translates runtime strings such as tool titles or on-screen plugin text, cached by exact source text. Given a package, the strings are listed under it and need that package's own consent, which the global switch does not give; clear drops them. `rerun` translates them again. Refused with `plugin-i18n/not-consented` otherwise. |
 | `pluginI18n/tables` | Everything a client registers at start-up for one locale. |
 | `pluginI18n/consent` / `setConsent` | Reads and changes the consent record. |
 
@@ -49,7 +51,7 @@ Compose `@janhq/jan-host-plugin-i18n` beside `llm` and `agent-default-model`. Th
 
 ### Stored files
 
-`<dir>/<package>/<sourceHash>/<locale>.json` holds one translated locale: model, time, and each entry as the source text it translated plus the translation. A newer file of the same locale removes the older one. `<dir>/_strings/<locale>.json` holds runtime strings; `<dir>/_consent.json` holds consent. A damaged file counts as absent.
+`<dir>/<package>/<sourceHash>/<locale>.json` holds one translated locale: model, time, and each entry as the source text it translated plus the translation. A newer file of the same locale removes the older one. `<dir>/_strings/<locale>.json` holds runtime strings; `<dir>/_runtime/<package>/<locale>.json` lists the strings a package displayed; `<dir>/_consent.json` holds consent; `<dir>/_route.json` holds the person's model pick. A damaged file counts as absent.
 
 -----
 
@@ -69,7 +71,7 @@ Each stored entry carries the exact source text it translated. A run translates 
 
 ### Source and model
 
-`model.ts` prepares the call with `ctx.llm.prepareCall`, no tools, temperature 0, the route's least reasoning effort, and purpose `plugin-i18n`. The request names no Session and never enters a Session log.
+`route.ts` chooses the model on every job and every string request, so a model that stops resolving is replaced without a restart: the person's saved pick, the default model, a loaded local model (the default local model first), then the first model any provider lists, each checked with `ctx.llm.resolveModelInfo`. `model.ts` prepares the call with `ctx.llm.prepareCall`, no tools, temperature 0, the route's least reasoning effort, and purpose `plugin-i18n`. The request names no Session and never enters a Session log. A job records the `provider/model` it ran on.
 
 ### Source map
 
@@ -79,6 +81,7 @@ Each stored entry carries the exact source text it translated. A run translates 
 | [`src/translate.ts`](src/translate.ts) | Prompt, reply parsing, retry and fallback, batching |
 | [`src/check.ts`](src/check.ts) | Acceptance rules for one translation |
 | [`src/store.ts`](src/store.ts) | File cache and source hashing |
+| [`src/route.ts`](src/route.ts) | Model choice: saved pick, default, loaded local, configured |
 | [`src/model.ts`](src/model.ts) | The no-tools model call |
 | [`src/types.ts`](src/types.ts) | Remote payloads, errors, and the `plugin-i18n/changed` event |
 

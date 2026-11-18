@@ -1,6 +1,7 @@
 /**
  * File cache of generated plugin text:
- * `<root>/<pkg>/<sourceHash>/<locale>.json`, `<root>/_strings/<locale>.json`, and `<root>/_consent.json`.
+ * `<root>/<pkg>/<sourceHash>/<locale>.json`, `<root>/_strings/<locale>.json`, `<root>/_runtime/<pkg>/<locale>.json`,
+ * `<root>/_consent.json`, and `<root>/_route.json`.
  * Every read validates the file, so a damaged file counts as absent.
  */
 import { createHash } from 'node:crypto'
@@ -8,13 +9,15 @@ import { readdir, readFile, rm, rmdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { z } from 'zod'
 import { writeFileAtomic } from '@janhq/jan-atomic-write'
-import type { PluginI18nConsent, PluginI18nEntries, PluginI18nSources } from './types.ts'
+import type { PluginI18nConsent, PluginI18nEntries, PluginI18nRouteRef, PluginI18nSources } from './types.ts'
 
 /** On-disk format number of every file this store writes. */
 const FORMAT = 1
 
 const STRINGS_DIR = '_strings'
 const CONSENT_FILE = '_consent.json'
+const RUNTIME_DIR = '_runtime'
+const ROUTE_FILE = '_route.json'
 
 const entries = z.record(z.string(), z.record(z.string(), z.object({ src: z.string(), text: z.string() })))
 
@@ -33,6 +36,10 @@ const localeFile = z.object({
 const stringsFile = z.object({ format: z.literal(FORMAT), entries: z.record(z.string(), z.string()) })
 
 const consentFile = z.object({ format: z.literal(FORMAT), global: z.boolean(), packages: z.array(z.string()) })
+
+const runtimeFile = z.object({ format: z.literal(FORMAT), strings: z.array(z.string()) })
+
+const routeFile = z.object({ format: z.literal(FORMAT), provider: z.string().min(1), model: z.string().min(1) })
 
 /** One stored locale of one package. */
 export type LocaleFile = z.infer<typeof localeFile>
@@ -198,6 +205,75 @@ export class I18nStore {
    */
   async writeConsent(consent: PluginI18nConsent): Promise<void> {
     await writeFileAtomic(join(this.root, CONSENT_FILE), JSON.stringify({ format: FORMAT, ...consent }), FILE_OPTIONS)
+  }
+
+  /**
+   * Read the source texts a package displayed in a locale.
+   * @param pkg - package name.
+   * @param locale - target locale.
+   * @returns the exact source texts, in first-seen order.
+   */
+  async readRuntime(pkg: string, locale: string): Promise<string[]> {
+    return (await readJson(join(this.root, RUNTIME_DIR, encodeURIComponent(pkg), `${locale}.json`), runtimeFile))?.strings ?? []
+  }
+
+  /**
+   * Replace the source texts a package displayed in a locale.
+   * @param pkg - package name.
+   * @param locale - target locale.
+   * @param strings - the exact source texts.
+   */
+  async writeRuntime(pkg: string, locale: string, strings: readonly string[]): Promise<void> {
+    await writeFileAtomic(
+      join(this.root, RUNTIME_DIR, encodeURIComponent(pkg), `${locale}.json`), JSON.stringify({ format: FORMAT, strings }), FILE_OPTIONS,
+    )
+  }
+
+  /**
+   * List the locales in which a package displayed runtime strings.
+   * @param pkg - package name.
+   * @returns locale tags.
+   */
+  async listRuntimeLocales(pkg: string): Promise<string[]> {
+    return (await names(join(this.root, RUNTIME_DIR, encodeURIComponent(pkg))))
+      .filter(file => file.endsWith('.json')).map(file => file.slice(0, -'.json'.length)).toSorted()
+  }
+
+  /**
+   * List packages that displayed runtime strings.
+   * @returns decoded package names.
+   */
+  async listRuntimePackages(): Promise<string[]> {
+    return (await names(join(this.root, RUNTIME_DIR))).map(decodeURIComponent).toSorted()
+  }
+
+  /**
+   * Delete the runtime string lists of a package.
+   * @param pkg - package name.
+   */
+  async clearRuntime(pkg: string): Promise<void> {
+    await rm(join(this.root, RUNTIME_DIR, encodeURIComponent(pkg)), { recursive: true, force: true })
+  }
+
+  /**
+   * Read the translation model the person picked.
+   * @returns the provider and model, or undefined when the default model is followed.
+   */
+  async readRoute(): Promise<PluginI18nRouteRef | undefined> {
+    const file = await readJson(join(this.root, ROUTE_FILE), routeFile)
+    return file === undefined ? undefined : { provider: file.provider, model: file.model }
+  }
+
+  /**
+   * Save the translation model the person picked, or follow the default model again.
+   * @param route - the pick, or null to follow the default model.
+   */
+  async writeRoute(route: PluginI18nRouteRef | null): Promise<void> {
+    if (route === null) {
+      await rm(join(this.root, ROUTE_FILE), { force: true })
+      return
+    }
+    await writeFileAtomic(join(this.root, ROUTE_FILE), JSON.stringify({ format: FORMAT, ...route }), FILE_OPTIONS)
   }
 }
 
