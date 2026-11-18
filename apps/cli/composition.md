@@ -42,6 +42,8 @@ flowchart LR
   cfg --> plugin_jan_base_jobs
   plugin_jan_base_llm_retry["llm-retry<br/>@janhq/jan-llm-retry"]
   cfg --> plugin_jan_base_llm_retry
+  plugin_jan_base_model_fallback["model-fallback<br/>@janhq/jan-llm-fallback"]
+  cfg --> plugin_jan_base_model_fallback
   plugin_jan_base_config_editor["config-editor<br/>@janhq/jan-config-editor"]
   cfg --> plugin_jan_base_config_editor
   plugin_jan_base_settings["settings<br/>@janhq/jan-settings"]
@@ -217,6 +219,7 @@ flowchart LR
 | `agent-default-model` | `@janhq/jan-agent-default-model` |
 | `jobs` | `@janhq/jan-jobs-local` |
 | `llm-retry` | `@janhq/jan-llm-retry` |
+| `model-fallback` | `@janhq/jan-llm-fallback` |
 | `config-editor` | `@janhq/jan-config-editor` |
 | `settings` | `@janhq/jan-settings` |
 | `authorization` | `@janhq/jan-authorization` |

@@ -92,6 +92,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@janhq/jan-client-ui-open-in-app` | no | Session application submenus and native opening controls for directories and previewed files |
 | `@janhq/jan-client-ui-permission-presets` | no | Permission surfaces: a new-session default in General settings and a current-session /permission popup over the permissions projection |
 | `@janhq/jan-client-ui-plan` | no | Plan mode controls, persistent transcript plan cards, and sidebar Markdown previews |
+| `@janhq/jan-client-ui-plugin-i18n` | no | Plugin translation in the jan web client: generated tables in the locale runtime, the install offer service, runtime tool-title display, and the Plugins settings Translations tab |
 | `@janhq/jan-client-ui-plugin-manager` | yes | Plugin management for the jan web client: the sidebar Plugins panel installs, enables, disables, retries, and composes installed plugin packages |
 | `@janhq/jan-client-ui-plugin-market` | no | Discover tab of the jan web Plugins page: browse configured plugin market indexes and install their bundles |
 | `@janhq/jan-client-ui-reference` | no | Unified Web @file and @session reference source |
@@ -104,6 +105,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@janhq/jan-client-ui-settings-agent-loop` | no | Settings page of the agent loop on the jan web client's Plugins page: the parallel tool-call cap of the agent-loop namespace |
 | `@janhq/jan-client-ui-settings-general` | no | Settings ownerless-copy and product onboarding plugin: the General section, shell trigger/header chrome content, settings dictionaries, and the versioned welcome notice |
 | `@janhq/jan-client-ui-settings-local-model` | no | Download, start and stop the managed local llama.cpp model from Settings and first-run setup |
+| `@janhq/jan-client-ui-settings-model-policy` | no | Settings Models page cards for the model fallback chain and context compaction |
 | `@janhq/jan-client-ui-settings-models` | yes | Models settings and shared product-onboarding dialogs over existing settings and credential joins |
 | `@janhq/jan-client-ui-settings-plugin-inventory` | no | Read-only Cordis Loader inventory tab in Web Plugins settings |
 | `@janhq/jan-client-ui-settings-plugins` | no | Built-in plugins settings section for the jan web client: the Settings navigation entry and the tab chrome feature-owned tabs register into |
@@ -288,6 +290,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@janhq/jan-host-directory-picker-native` | no | Native-OS-chooser backend of the directory-picker seam for the Jan web GUI host |
 | `@janhq/jan-host-frontend-static` | yes | SPA dist server for the Web shell: owns the webserver fallback seat, serving explicit index entries and static assets with traversal rejection and 404 misses |
 | `@janhq/jan-host-open-in-app` | yes | Host half of open-in-app: resolved application catalog, icons, and the launch endpoint as three webServer routes |
+| `@janhq/jan-host-plugin-i18n` | yes | Translates plugin UI text and tool titles with the default model, caches the results on disk, and serves them over the pluginI18n Remote |
 | `@janhq/jan-host-plugin-inventory` | no | Read-only Remote projection of current Cordis Loader plugin state |
 | `@janhq/jan-host-product-telemetry-otel` | yes | Explicit product usage events exported through OpenTelemetry HTTP logs |
 | `@janhq/jan-host-webserver` | yes | Web route-registration plugin: HTTP and upgrade routes, per-Peer index transform taps, and static dist fallback |
@@ -315,6 +318,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 |---|---|---|
 | `@janhq/jan-llama-cpp` | yes | Download and verify GGUF models and supervise the bundled jan-llama-worker that serves them |
 | `@janhq/jan-llm` | no | Provider-neutral LLM service interface for Jan |
+| `@janhq/jan-llm-fallback` | yes | Model fallback chain for Jan: continue a failed reply on the next configured model, return to the chosen model when it is cheap to switch |
 | `@janhq/jan-llm-pi-ai` | yes | pi-ai-backed multi-provider adapter for the Jan LLM seam |
 | `@janhq/jan-llm-retry` | yes | Provider-routed LLM request retry policy for Jan |
 | `@janhq/jan-token-meter` | yes | Replay-aware token measurement service (ctx.tokenMeter) for Jan |

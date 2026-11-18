@@ -1014,6 +1014,34 @@ subscribe(listener: () => void): () => void
 async *follow(caller: AbortSignal): AsyncIterable<LlamaCppState>
 
 /**
+ * Requested and trained context of an installed model; `local` names the default.
+ * @param id - installed model id or the route model id.
+ * @returns served context tokens, the trained maximum when the GGUF declares one, and whether auto-fit is on.
+ */
+getModelContext(id: string): { current: number; maximum?: number; fit: boolean }
+
+/**
+ * Save a model's context and reload its preset section in a running worker.
+ * @param id - installed model id or the route model id.
+ * @param contextSize - positive token count, at most the model's trained maximum.
+ */
+setModelContext(id: string, contextSize: number): Promise<void>
+
+/**
+ * Save the automatic memory-fit choice for one model.
+ * @param id - installed model id or the route model id.
+ * @param fit - whether llama.cpp fits the context and offload to free memory.
+ */
+setModelFit(id: string, fit: boolean): Promise<void>
+
+/**
+ * Grow to the next classic-Jan context step, bounded by GGUF metadata when available.
+ * @param id - installed model id or the route model id.
+ * @returns the new context length, or null when the model cannot grow further.
+ */
+increaseModelContext(id: string): Promise<number | null>
+
+/**
  * First-run install: download the first-run model, then start the worker. With a model already
  * installed it starts the active model instead. Returns once accepted; progress and outcome arrive
  * through {@link follow}. Nothing downloads while the worker is unavailable.
@@ -1222,6 +1250,34 @@ Install, start, stop and remove the local models and the worker serving them; pr
  * @returns after the worker serves it or has failed to start.
  */
 @Remote async setDefaultModel(id: string): Promise<void>
+
+/**
+ * Current served context, GGUF-trained maximum when known, and auto-fit for one installed model.
+ * @param id - installed model id; `local` names the default.
+ * @returns served context tokens, the trained maximum when the GGUF declares one, and whether auto-fit is on.
+ */
+@Remote getModelContext(id: string): { current: number; maximum?: number; fit: boolean }
+
+/**
+ * Persist a per-model context length and wait for the worker's new preset to load.
+ * @param id - installed model id; `local` names the default.
+ * @param contextSize - positive token count, at most the model's trained maximum.
+ */
+@Remote async setModelContext(id: string, contextSize: number): Promise<void>
+
+/**
+ * Persist and apply automatic GPU/memory fit for one installed model.
+ * @param id - installed model id; `local` names the default.
+ * @param fit - whether llama.cpp fits the context and offload to free memory.
+ */
+@Remote async setModelFit(id: string, fit: boolean): Promise<void>
+
+/**
+ * Grow the context to the next step, reload the model, or answer null at its maximum.
+ * @param id - installed model id; `local` names the default.
+ * @returns the new context length, or null when the model cannot grow further.
+ */
+@Remote async increaseModelContext(id: string): Promise<number | null>
 
 /**
  * Load an installed model now instead of on its first request, starting a stopped worker.

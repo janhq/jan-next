@@ -193,6 +193,105 @@ async reconcileProfile(requiredIds: readonly string[] = []): Promise<ProfileReco
 
 Source: [`packages/boot/hmr/src/index.ts`](../../packages/boot/hmr/src/index.ts)
 
+<a id="ctxplugini18n--plugini18n"></a>
+
+### `ctx.pluginI18n` — `PluginI18n`
+
+Translates plugin text and serves the cached results.
+
+```ts cordis-catalog
+/**
+ * Read the model translations run on: the person's saved pick, else the default model, else a loaded local model,
+ * else any configured model, whichever resolves first.
+ * @returns the provider, model, and why it was chosen.
+ */
+@Remote async route(): Promise<PluginI18nRoute>
+
+/**
+ * Read what the model picker shows: the route in use, the saved pick, the default model, and the models to pick.
+ * @returns the route choices.
+ */
+@Remote async routes(): Promise<PluginI18nRouteChoices>
+
+/**
+ * Save the model translations run on until changed again, or follow the default model again.
+ * @param route - the provider and model to use, or null to follow the default model.
+ * @returns the route choices after the change.
+ * @throws {RemoteError} `plugin-i18n/invalid-route` when no adapter serves the provider or the model is empty.
+ */
+@Remote async setRoute(route: PluginI18nRouteRef | null): Promise<PluginI18nRouteChoices>
+
+/**
+ * Read what is stored and running for one package.
+ * @param pkg - npm package name.
+ * @returns stored locales, the latest job, and whether the person consented to this package.
+ * @throws {RemoteError} `plugin-i18n/invalid-package`.
+ */
+@Remote async status(pkg: string): Promise<PluginI18nStatus>
+
+/**
+ * Read the status of every package that has stored text, a job, or consent.
+ * @returns one status per package, sorted by name.
+ */
+@Remote async statuses(): Promise<PluginI18nStatus[]>
+
+/**
+ * Start translating one package's text into one locale in the Host, so closing the page does not cancel it. Asking
+ * is the person's consent for the package. Entries unchanged since the last run are reused. A job already running
+ * for the package and locale is returned instead of starting another.
+ * @param request - package, locales, and the text to translate.
+ * @returns the running job; `plugin-i18n/changed` announces progress and completion.
+ * @throws {RemoteError} `plugin-i18n/invalid-package`, `plugin-i18n/invalid-locale`, or `plugin-i18n/too-large`.
+ */
+@Remote async translate(request: PluginI18nTranslateRequest): Promise<PluginI18nJob>
+
+/**
+ * Delete a package's generated text and consent and stop its running jobs.
+ * @param pkg - npm package name.
+ * @throws {RemoteError} `plugin-i18n/invalid-package`.
+ */
+@Remote async clear(pkg: string): Promise<void>
+
+/**
+ * Translate runtime strings such as tool titles or text a plugin renders itself, caching each result by its exact
+ * source text. Strings leave the Host only when the person consented to a package or globally; strings attributed
+ * to a package need that package's own consent, which the global switch does not give. A string the model could
+ * not translate acceptably is absent from the result.
+ * @param strings - exact source texts.
+ * @param locale - target locale.
+ * @param pkg - the package whose screen text this is; its translated strings are listed under it.
+ * @param rerun - translate the strings again even when the cache has them; a string the model fails keeps its old translation.
+ * @returns translations by exact source text.
+ * @throws {RemoteError} `plugin-i18n/invalid-locale`, `plugin-i18n/invalid-package`, `plugin-i18n/not-consented`, or
+ * `plugin-i18n/model-failed`.
+ */
+@Remote async translateStrings(strings: string[], locale: string, pkg?: string, rerun?: boolean): Promise<Record<string, string>>
+
+/**
+ * Read everything a client registers at start-up for one locale.
+ * @param locale - target locale.
+ * @returns each package's generated text and, when titles may be translated, the runtime strings.
+ * @throws {RemoteError} `plugin-i18n/invalid-locale`.
+ */
+@Remote async tables(locale: string): Promise<PluginI18nTables>
+
+/**
+ * Read the consent record.
+ * @returns the global switch and the consenting packages.
+ */
+@Remote async consent(): Promise<PluginI18nConsent>
+
+/**
+ * Change the consent record.
+ * @param change - one package, or the global switch when `pkg` is absent.
+ * @returns the record after the change.
+ * @throws {RemoteError} `plugin-i18n/invalid-package`.
+ */
+@Remote async setConsent(change: PluginI18nConsentChange): Promise<PluginI18nConsent>
+```
+
+Source: [`packages/host/plugin-i18n/src/index.ts`](../../packages/host/plugin-i18n/src/index.ts)
+
 <a id="ctxpluginmanager--pluginmanager"></a>
 
 ### `ctx.pluginManager` — `PluginManager`
@@ -503,6 +602,27 @@ Module replacements have finished loading.
 ```
 
 Source: [`packages/boot/hmr/src/index.ts`](../../packages/boot/hmr/src/index.ts)
+
+<a id="plugin-i18n-events"></a>
+
+### `plugin-i18n/*` events
+
+<a id="plugin-i18nchanged--emit"></a>
+
+#### `plugin-i18n/changed` — emit
+
+Generated text, a job, or the consent record changed.
+
+```ts cordis-catalog
+/**
+ * Generated text, a job, or the consent record changed.
+ * @mode emit
+ * @param change - the package and locale that changed, when one did.
+ */
+'plugin-i18n/changed'(change: PluginI18nChange): void
+```
+
+Source: [`packages/host/plugin-i18n/src/types.ts`](../../packages/host/plugin-i18n/src/types.ts)
 
 <a id="plugin-manager-events"></a>
 

@@ -1643,6 +1643,37 @@ export interface Config {
 }
 ```
 
+<a id="janhqjan-host-plugin-i18n"></a>
+
+## `@janhq/jan-host-plugin-i18n`
+
+- `inject`: `llm` · `agentDefaultModel`
+- `source`: [`packages/host/plugin-i18n/src/index.ts:35`](../packages/host/plugin-i18n/src/index.ts)
+
+```ts config-catalog
+/** Limits and location of the translation service. */
+export interface Config {
+  /** Cache directory; absent means `plugin-i18n` under the Jan home. */
+  dir?: string
+  /** Most entries one translate request may carry. */
+  maxEntries: number
+  /** Most UTF-8 bytes of source text one translate request may carry. */
+  maxSourceBytes: number
+  /** Most entries in one model call. */
+  batchEntries: number
+  /** Most source bytes in one model call. */
+  batchBytes: number
+  /** Output-token cap of one model call. */
+  maxOutputTokens: number
+  /** Deadline of one model call in milliseconds. */
+  timeoutMs: number
+  /** Runtime strings kept per locale; the oldest are dropped beyond it. */
+  maxStrings: number
+  /** Longest runtime string sent to the model, in characters; longer strings stay as written. */
+  maxStringLength: number
+}
+```
+
 <a id="janhqjan-host-product-telemetry-otel"></a>
 
 ## `@janhq/jan-host-product-telemetry-otel`
@@ -1936,7 +1967,7 @@ export interface FallbackRoute {
 
 - `inject`: `llm`
 - `refs`: `Api` (`@earendil-works/pi-ai`) · `CacheRetention` (`@earendil-works/pi-ai`) · `Model` (`@earendil-works/pi-ai`) · `ModelThinkingLevel` (`@earendil-works/pi-ai`) · `OpenAICompletionsCompat` (`@earendil-works/pi-ai`) · [`RetryPolicyConfig`](../packages/llm/llm/src/index.ts) · `ThinkingBudgets` (`@earendil-works/pi-ai`) · `Transport` (`@earendil-works/pi-ai`) · `Volatile` (`@janhq/cordis`)
-- `source`: [`packages/llm/llm-pi-ai/src/config.ts:322`](../packages/llm/llm-pi-ai/src/config.ts)
+- `source`: [`packages/llm/llm-pi-ai/src/config.ts:328`](../packages/llm/llm-pi-ai/src/config.ts)
 
 ```ts config-catalog
 /** Plugin configuration: the provider routes this instance owns. */
@@ -2042,6 +2073,12 @@ export interface PiAiProviderProfile {
   websocketConnectTimeoutMs?: number
   /** Maximum provider idle time while one stream read is outstanding. */
   streamIdleTimeoutMs?: number
+  /**
+   * Ask a llama.cpp server for prompt-processing progress (`return_progress`) and publish it as
+   * `llm-pi-ai/prompt-progress`, so a slow local prefill shows how far it got. Only for servers that
+   * accept the field; other OpenAI-compatible endpoints may reject unknown request fields.
+   */
+  promptProgress?: boolean
   /**
    * Maximum base64-encoded image payload per request. When a request's
    * accumulated images exceed it, the oldest images are replaced by text
@@ -4729,6 +4766,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | `@janhq/jan-client-ui-open-in-app` | — | [`packages/client/ui-open-in-app/src/index.ts`](../packages/client/ui-open-in-app/src/index.ts) |
 | `@janhq/jan-client-ui-permission-presets` | — | [`packages/client/ui-permission-presets/src/index.ts`](../packages/client/ui-permission-presets/src/index.ts) |
 | `@janhq/jan-client-ui-plan` | — | [`packages/client/ui-plan/src/index.ts`](../packages/client/ui-plan/src/index.ts) |
+| `@janhq/jan-client-ui-plugin-i18n` | — | [`packages/client/ui-plugin-i18n/src/index.ts`](../packages/client/ui-plugin-i18n/src/index.ts) |
 | `@janhq/jan-client-ui-plugin-market` | — | [`packages/client/ui-plugin-market/src/index.ts`](../packages/client/ui-plugin-market/src/index.ts) |
 | `@janhq/jan-client-ui-plugin-recommendations` | — | [`packages/experimental/client-ui-plugin-recommendations/src/index.ts`](../packages/experimental/client-ui-plugin-recommendations/src/index.ts) |
 | `@janhq/jan-client-ui-reference` | — | [`packages/client/ui-reference/src/index.ts`](../packages/client/ui-reference/src/index.ts) |
