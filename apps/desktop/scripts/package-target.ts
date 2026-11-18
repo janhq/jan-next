@@ -29,6 +29,21 @@ import { withMacOSNotarizationProxy } from './macos-notarization-proxy.ts'
 
 const APP_ROOT = resolve(import.meta.dirname, '..')
 const REPOSITORY_ROOT = resolve(APP_ROOT, '..', '..')
+// Desktop production dependencies that the public npm release family does not pack.
+const PRIVATE_RUNTIME_PACKAGES = [
+  'apps/desktop-host',
+  'packages/credentials/tokamak-account',
+  'packages/llm/llama-cpp',
+  'packages/api/llama-cpp-controller',
+  'packages/client/ui-settings-local-model',
+  'packages/web/web-search-exa',
+  'plugins/desktop-app',
+  'plugins/downloads',
+  'plugins/jan-theme',
+  'plugins/legacy-import',
+  'plugins/plugin-api',
+  'plugins/preset-square',
+] as const
 const WINDOWS_SIGNING_ENV_PREFIX = 'JAN_DESKTOP_WINDOWS_'
 const WINDOWS_SIGNING_ENV_NAMES = [
   'JAN_DESKTOP_WINDOWS_CER_FILE',
@@ -512,13 +527,9 @@ export async function packageTarget(
         : ['run', 'release:pack', '--family', 'jan']),
       '--out', buildPaths.packedJan, ...packArguments,
     ], buildEnv, REPOSITORY_ROOT)
-    await executePreparation([
-      '--dir',
-      'apps/desktop-host',
-      'pack',
-      '--pack-destination',
-      buildPaths.packedJan,
-    ], buildEnv, REPOSITORY_ROOT)
+    for (const directory of PRIVATE_RUNTIME_PACKAGES) {
+      await executePreparation(['--dir', directory, 'pack', '--pack-destination', buildPaths.packedJan], buildEnv, REPOSITORY_ROOT)
+    }
     await executePreparation(['run', 'release:pack', '--family', 'vendor', '--out', buildPaths.packedVendor, ...packArguments], buildEnv, REPOSITORY_ROOT)
     rmSync(buildPaths.packedLandlock, { recursive: true, force: true })
     mkdirSync(buildPaths.packedLandlock, { recursive: true })
