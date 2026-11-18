@@ -482,7 +482,11 @@ async fn serve_preset(ini_path: &str) -> String {
         .await
         .expect("loopback bind");
     let base = format!("http://127.0.0.1:{}", server.port);
-    tokio::spawn(server.with_managed_preset(ini_path.to_string()).serve(listener));
+    tokio::spawn(
+        server
+            .with_managed_preset(ini_path.to_string())
+            .serve(listener),
+    );
     base
 }
 
@@ -557,7 +561,8 @@ async fn guarded_removal_only_publishes_a_preset_without_the_target() {
     let request = serde_json::json!({
         "preset_path": preset,
         "remove_if_unloaded": "beta",
-    }).to_string();
+    })
+    .to_string();
     let (status, body) = post(&base, "/models/reload", &request, Some(KEY)).await;
     assert_eq!(status, 400, "{body}");
     assert_eq!(std::fs::read_to_string(&preset).unwrap(), PRESET_TWO);
@@ -566,7 +571,8 @@ async fn guarded_removal_only_publishes_a_preset_without_the_target() {
     let outside_request = serde_json::json!({
         "preset_path": outside,
         "remove_if_unloaded": "beta",
-    }).to_string();
+    })
+    .to_string();
     let (status, body) = post(&base, "/models/reload", &outside_request, Some(KEY)).await;
     assert_eq!(status, 400, "{body}");
     assert!(!outside.exists());

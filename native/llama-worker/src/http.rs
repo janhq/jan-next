@@ -521,7 +521,10 @@ impl EngineServer {
         let guarded = parsed.get("remove_if_unloaded").and_then(|v| v.as_str());
         let replacement = if guarded.is_some() {
             if self.managed_preset.as_deref() != Some(preset_path) {
-                return json_error(StatusCode::BAD_REQUEST, "Guarded removal requires the worker's launch preset.");
+                return json_error(
+                    StatusCode::BAD_REQUEST,
+                    "Guarded removal requires the worker's launch preset.",
+                );
             }
             Some(format!("{preset_path}.remove"))
         } else {
@@ -546,7 +549,10 @@ impl EngineServer {
         // A guarded response also lets the host detect workers without this safeguard.
         if let Some(id) = guarded {
             if preset.specs.contains_key(id) {
-                return json_error(StatusCode::BAD_REQUEST, "The guarded model is still in the preset.");
+                return json_error(
+                    StatusCode::BAD_REQUEST,
+                    "The guarded model is still in the preset.",
+                );
             }
             if reg.is_loaded(id) {
                 return json_error(StatusCode::CONFLICT, "This model is loaded or in use. Unload it in Settings > Models before deleting it.");
@@ -554,7 +560,10 @@ impl EngineServer {
         }
         if let Some(replacement) = replacement {
             if let Err(error) = std::fs::rename(replacement, preset_path) {
-                return json_error(StatusCode::INTERNAL_SERVER_ERROR, &format!("Could not apply the replacement preset: {error}"));
+                return json_error(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    &format!("Could not apply the replacement preset: {error}"),
+                );
             }
         }
         let models_max = parsed
