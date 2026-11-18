@@ -2,6 +2,9 @@
   "name": "@janhq/jan-client-ui-settings-model-policy",
   "description": "Settings Models page cards for the model fallback chain and context compaction",
   "version": "0.2.2-rc.1",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/janhq/jan-next.git",
@@ -62,6 +65,5 @@
     "lib/index.js",
     "lib/client.js",
     "lib/types/**/*.d.ts"
-  ],
-  "private": true
+  ]
 }

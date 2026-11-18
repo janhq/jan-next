@@ -188,6 +188,8 @@ export function readWorkspaceManifests(repositoryRoot: string): WorkspaceManifes
 const packageFileExtras: Readonly<Record<string, readonly string[]>> = {
   // Tools entry points share error classes and invocation stages through runtime chunks.
   '@janhq/jan-tools': ['lib/pipeline.js', 'lib/shared-*.js'],
+  // The Settings card entry is built beside the root entry so the browser can load it alone.
+  '@janhq/jan-compaction-basic': ['lib/settings.js'],
   // The embedded OAR implementation retains its upstream license.
   '@janhq/jan-experimental-subagent-oar': ['LICENSE-OAR'],
   // CUA publishes its client API and attributed native source for local macOS builds.
