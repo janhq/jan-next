@@ -9,7 +9,7 @@ window.__ModuleLoader__.load({
     const {
       IconPluginPinwheelOutlineRegular, IconCheckOutlineRegular, IconFolderCloseRegular, IconSettingsOutlineMedium,
       IconNewChatOutlineMedium, IconNewChatOutlineRegular, IconProjectAddOutlineRegular, IconSearchOutlineRegular,
-      MenuItemButton, Button, Switch, IconLayersOutlineRegular,
+      MenuItemButton, Button, Switch, IconLayersOutlineRegular, IconClockOutlineRegular,
       IconLightOutlineMedium, IconApiOutlineMedium, IconSkillOutlineMedium,
       NavRow, SectionHeading, ColorSwatchGroup, ProjectCard, WindowControls,
     } = require('@janhq/jan-client-ui-primitives')
@@ -489,12 +489,13 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
     // Search, Projects, Artifacts and Plugins follow New chat (Claude's order).
     // Each destination with something to create carries a hover "+" for it.
     function WorkspaceActions({
-      wide, onSearch, searchShortcut, usePanelInfo, usePluginsAvailable, useArtifactsAvailable,
+      wide, onSearch, searchShortcut, usePanelInfo, usePluginsAvailable, useArtifactsAvailable, useScheduledAvailable,
       openPanel, addProject, newChat, createPlugin, t,
     }) {
       const active = usePanelInfo((info) => info.activePanelId)
       const plugins = usePluginsAvailable((value) => value)
       const artifacts = useArtifactsAvailable((value) => value)
+      const scheduled = useScheduledAvailable((value) => value)
       const size = wide ? 16 : 18
       // The opening click must not reach the browser's outside-click dismissor.
       const requestSearch = (event) => {
@@ -516,6 +517,10 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           icon: h(IconLayersOutlineRegular, { size }), label: t('artifacts'), rail: !wide,
           current: active === ARTIFACTS_PANEL, onClick: () => { openPanel(ARTIFACTS_PANEL) },
           quick: { label: t('newArtifact'), onClick: newChat },
+        }),
+        scheduled && h(NavRow, {
+          icon: h(IconClockOutlineRegular, { size }), label: t('scheduled'), rail: !wide,
+          current: active === SCHEDULED_PANEL, onClick: () => { openPanel(SCHEDULED_PANEL) },
         }),
         plugins && h(NavRow, {
           icon: h(IconPluginPinwheelOutlineRegular, { size }), label: t('plugins'), rail: !wide,
@@ -552,9 +557,10 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
     }
 
     // Jan has no panel launcher rows, so the native More menu becomes the one
-    // list of the remaining management pages (Plugins and Artifacts have nav rows).
+    // list of the remaining management pages (Plugins, Artifacts and Scheduled
+    // have nav rows).
     function PanelDestinations({ entries, onOpen, onDismiss }) {
-      const rows = entries.filter(entry => entry.id !== 'plugins' && entry.id !== ARTIFACTS_PANEL)
+      const rows = entries.filter(entry => entry.id !== 'plugins' && entry.id !== ARTIFACTS_PANEL && entry.id !== SCHEDULED_PANEL)
       return h(React.Fragment, null, rows.map(entry => h(MenuItemButton, {
         key: entry.id, current: entry.active === true,
         onSelect: () => { onDismiss(); onOpen(entry.id) },
@@ -577,6 +583,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
     const PROJECTS_PANEL = 'jt-projects'
     // Registered by ui-deliverables; the row appears only while it is.
     const ARTIFACTS_PANEL = 'artifacts'
+    // Registered by ui-schedule; the row appears only while it is.
+    const SCHEDULED_PANEL = 'schedules'
     const relative = (iso) => {
       const minutes = Math.round((Date.now() - Date.parse(iso)) / 60000)
       if (!(minutes >= 0)) return ''
@@ -667,7 +675,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               newChat: 'New Chat',
               newProject: 'New project',
               search: 'Search',
-              projects: 'Projects', plugins: 'Plugins', settings: 'Settings', artifacts: 'Artifacts',
+              projects: 'Projects', plugins: 'Plugins', settings: 'Settings', artifacts: 'Artifacts', scheduled: 'Scheduled',
               newArtifact: 'New artifact', createPlugin: 'Create plugin',
               'newArtifact.prompt': 'Create a file for me: ',
               'createPlugin.prompt': 'Create a Jan plugin with a left sidebar entry.',
@@ -869,6 +877,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
                 panelInfo: scope.layout.panelInfo,
                 pluginsAvailable: mainKeyAvailable('plugins'),
                 artifactsAvailable: mainKeyAvailable(ARTIFACTS_PANEL),
+                scheduledAvailable: mainKeyAvailable(SCHEDULED_PANEL),
               },
               openPanel: (id) => scope.layout.selectPanel(id),
               addProject,
