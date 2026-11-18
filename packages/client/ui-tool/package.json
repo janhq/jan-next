@@ -75,6 +75,7 @@
     "@janhq/jan-api-workspace-controller": "workspace:*",
     "@janhq/jan-client-ui-chat": "workspace:*",
     "@janhq/jan-client-ui-renderer": "workspace:*",
+    "@janhq/jan-client-ui-plugin-i18n": "workspace:*",
     "@janhq/jan-client-ui-session": "workspace:*",
     "@janhq/jan-util-values": "workspace:*",
     "@janhq/jan-util-workspace-path": "workspace:*",

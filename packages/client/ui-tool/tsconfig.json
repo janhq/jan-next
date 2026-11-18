@@ -39,6 +39,9 @@
       "path": "../ui-conversation/tsconfig.client.json"
     },
     {
+      "path": "../ui-plugin-i18n"
+    },
+    {
       "path": "../ui-primitives"
     },
     {
