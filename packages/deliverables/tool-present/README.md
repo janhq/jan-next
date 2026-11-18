@@ -55,6 +55,8 @@ The tool resolves paths through the configured filesystem provider and checks re
 
 The pure `./types` entry declares `PresentedFile` and the Session event without importing Host runtime code. The Web consumer validates persisted declarations before displaying or opening them. New declarations store absolute paths. Legacy relative declarations retain the viewed Session's original workspace as their base.
 
+The `./projection` entry defines the `presentedFiles` Session projection: one entry per distinct path, `{ path, description?, turn, seq, index, time }`, addressed by the latest declaring event (`seq` and `index` are the coordinates the Host's file-open routes take). The tool is mounted per agent, so it does not register the projection; the always-mounted [ui-deliverables](../../client/ui-deliverables/README.md) Host half does, which lets a cold Session list read it without an agent. Events inside a fork's inherited prefix are skipped.
+
 </details>
 
 -----
