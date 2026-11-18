@@ -50,7 +50,7 @@ describe('navigation shortcut defaults', () => {
   it.each([
     ['desktop', 'windows', { alt: true }, 'ArrowLeft', 'ArrowRight'],
     ['desktop', 'macos', { meta: true }, 'BracketLeft', 'BracketRight'],
-    ['desktop', 'linux', { control: true }, 'BracketLeft', 'BracketRight'],
+    ['desktop', 'linux', { alt: true }, 'ArrowLeft', 'ArrowRight'],
     ['web', 'macos', { meta: true, alt: true }, 'BracketLeft', 'BracketRight'],
     ['web', 'windows', { control: true, alt: true }, 'BracketLeft', 'BracketRight'],
   ] as const)('runs Back and Forward from the %s/%s binding', async (runtime, platform, modifiers, back, forward) => {

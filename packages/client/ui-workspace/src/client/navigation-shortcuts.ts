@@ -9,21 +9,21 @@ import type { UiWorkspace } from './navigation.ts'
 const TEXT_EDITOR = '.cm-editor, .monaco-editor'
 
 /**
- * Defaults per device. Windows Desktop uses Alt+Arrow, as Windows apps do. macOS Desktop
- * and Linux Desktop use Mod+[ / Mod+] (Chrome and Claude on macOS; the shortcut
- * registry reserves bare arrow codes on Linux Desktop). Web avoids the browser's own
- * history keys (Alt+Arrow, Cmd+[) with Mod+Alt+[ / Mod+Alt+]; Web Linux stays unbound like
- * the other Web defaults, since the registry admits no Mod+Alt pair there.
+ * Defaults per device. Windows and Linux Desktop use Alt+Arrow, as apps there do. macOS Desktop
+ * uses Mod+[ / Mod+] (Chrome and Claude on macOS). Web avoids the browser's own history keys
+ * (Alt+Arrow, Cmd+[) with Mod+Alt+[ / Mod+Alt+]; Web Linux stays unbound like the other Web
+ * defaults, since the registry admits no Mod+Alt pair there.
  */
 function defaults(direction: NavigationDirection): ShortcutCommand['defaults'] {
   const bracket = direction === 'back' ? 'BracketLeft' : 'BracketRight'
   const arrow = direction === 'back' ? 'ArrowLeft' : 'ArrowRight'
   const mod: ShortcutBinding = { code: bracket, modifiers: ['primary'] }
+  const alt: ShortcutBinding = { code: arrow, modifiers: ['alt'] }
   const web: ShortcutBinding = { code: bracket, modifiers: ['primary', 'alt'] }
   return {
     'desktop:macos': mod,
-    'desktop:windows': { code: arrow, modifiers: ['alt'] },
-    'desktop:linux': mod,
+    'desktop:windows': alt,
+    'desktop:linux': alt,
     'web:macos': web,
     'web:windows': web,
   }
