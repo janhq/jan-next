@@ -31,6 +31,7 @@ export interface ArtifactsInjected {
     presentedHost: ObservableSnapshot<PresentedHost | 'error' | null>
     availability: ObservableSnapshot<ArtifactAvailabilityMap>
     scanning: ObservableSnapshot<number>
+    resetGeneration: ObservableSnapshot<number>
   }
   reloadPresentedHost: PresentedOpenController['loadHost']
   openPresented: PresentedOpenController['open']
@@ -56,7 +57,7 @@ function timeLabel(at: number, now: number, t: ArtifactsPageProps['t']): string 
  * @returns the header, search, kind filters, and file rows.
  */
 export function ArtifactsPage({
-  t, useSessions, usePresentedOpen, usePresentedHost, useAvailability, useScanning,
+  t, useSessions, usePresentedOpen, usePresentedHost, useAvailability, useScanning, useResetGeneration,
   reloadPresentedHost, openPresented, checkAvailability, hydrate, openChat,
 }: ArtifactsPageProps): ReactNode {
   const list = useSessions(state => state)
@@ -64,6 +65,7 @@ export function ArtifactsPage({
   const host = usePresentedHost(value => value)
   const availability = useAvailability(value => value)
   const scanning = useScanning(value => value)
+  const resetGeneration = useResetGeneration(value => value)
   const [query, setQuery] = useState('')
   const [group, setGroup] = useState<ArtifactGroup | null>(null)
   const [limit, setLimit] = useState(PAGE_SIZE)
@@ -78,10 +80,10 @@ export function ArtifactsPage({
   }, [rows])
   useEffect(() => { hydrate(unindexedChats(list)) }, [list, hydrate])
   useEffect(() => { if (host === null) void reloadPresentedHost() }, [host, reloadPresentedHost])
-  // The key stands for the visible rows; a list refresh that keeps them does not stat again.
+  // Visible rows are checked again after a connection reset clears their availability.
   useEffect(() => {
     for (const row of visible) void checkAvailability(row)
-  }, [visibleKeys, checkAvailability])
+  }, [visibleKeys, checkAvailability, resetGeneration])
   useEffect(() => { setLimit(PAGE_SIZE) }, [query, group])
   const desktop = host !== null && host !== 'error' && host.available
   const directoryOnly = host === null || host === 'error' || host.fileManager === null

@@ -38,7 +38,7 @@ export function registerArtifacts(ctx: ClientContext, opener: PresentedOpenContr
       inject: (): ArtifactsInjected => ({
         hooks: {
           presentedOpen: opener.state, presentedHost: opener.host,
-          availability: controller.availability, scanning: controller.scanning,
+          availability: controller.availability, scanning: controller.scanning, resetGeneration: controller.resetGeneration,
         },
         reloadPresentedHost: () => opener.loadHost(),
         openPresented: (sessionId, seq, index, action, application) => opener.open(sessionId, seq, index, action, application),

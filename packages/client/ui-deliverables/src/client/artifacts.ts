@@ -144,6 +144,8 @@ export class ArtifactsController {
   readonly availability = createSnapshotStore<ArtifactAvailabilityMap>({})
   /** Chats still being read for presented files. */
   readonly scanning = createSnapshotStore(0)
+  /** Changes on each Host connection reset so visible files are checked again. */
+  readonly resetGeneration = createSnapshotStore(0)
   private readonly requested = new Set<SessionId>()
   private readonly queue: SessionId[] = []
   private workers = 0
@@ -156,6 +158,7 @@ export class ArtifactsController {
    * @param sessionIds - candidate chats; each is read at most once per connection.
    */
   hydrate(sessionIds: readonly SessionId[]): void {
+    if (this.lifetime.signal.aborted) return
     for (const id of sessionIds) {
       if (this.requested.has(id)) continue
       this.requested.add(id)
@@ -170,7 +173,9 @@ export class ArtifactsController {
 
   private async drain(signal: AbortSignal): Promise<void> {
     try {
-      for (let id = this.queue.shift(); id !== undefined && !signal.aborted; id = this.queue.shift()) {
+      while (!signal.aborted) {
+        const id = this.queue.shift()
+        if (id === undefined) break
         try {
           await this.sources.refreshProjections(id)
         } catch {
@@ -215,6 +220,7 @@ export class ArtifactsController {
     this.workers = 0
     this.scanning.set(0)
     this.availability.set({})
+    this.resetGeneration.set(this.resetGeneration.getSnapshot() + 1)
   }
 
   /** Stop reading; outstanding results are dropped. */

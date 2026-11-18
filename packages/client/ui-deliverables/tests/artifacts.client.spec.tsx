@@ -13,7 +13,7 @@ import { LocaleRuntime } from '@janhq/jan-client-locale/client'
 import { SlotRegistry } from '@janhq/jan-client-ui-renderer/client'
 import { resolveSlotLabel } from '@janhq/jan-client-ui-slots'
 import { createSnapshotStore } from '@janhq/jan-client-store'
-import { makeTranslate, usePinnedBrowserLanguages } from '@janhq/jan-client-test-runtime'
+import { bindSnapshotSelector, makeTranslate, usePinnedBrowserLanguages } from '@janhq/jan-client-test-runtime'
 import type { SessionId } from '@janhq/jan-session/types'
 import type { PresentedFileEntry } from '@janhq/jan-tool-present/types'
 import {
@@ -165,6 +165,38 @@ describe('ArtifactsController', () => {
     controller.hydrate([sid('a')])
     await vi.waitFor(() => { expect(refreshProjections).toHaveBeenCalledTimes(3) })
   })
+
+  it('does not consume a new connection queued chat when an old worker settles', async () => {
+    const pending = new Map<string, PromiseWithResolvers<undefined>>()
+    const started: string[] = []
+    const refreshProjections = vi.fn((id: SessionId) => {
+      started.push(id)
+      const gate = Promise.withResolvers<undefined>()
+      pending.set(id, gate)
+      return gate.promise
+    })
+    const controller = new ArtifactsController({ stat: vi.fn(), refreshProjections })
+    controller.hydrate([sid('old')])
+    controller.reset()
+    controller.hydrate([sid('new-a'), sid('new-b'), sid('new-c')])
+    expect(started).toEqual(['old', 'new-a', 'new-b'])
+    pending.get('old')!.resolve()
+    await vi.waitFor(() => { expect(controller.scanning.getSnapshot()).toBe(3) })
+    pending.get('new-a')!.resolve()
+    await vi.waitFor(() => { expect(started).toEqual(['old', 'new-a', 'new-b', 'new-c']) })
+    pending.get('new-b')!.resolve()
+    pending.get('new-c')!.resolve()
+    await vi.waitFor(() => { expect(controller.scanning.getSnapshot()).toBe(0) })
+  })
+
+  it('advances the reset generation when clearing availability', () => {
+    const controller = new ArtifactsController({ stat: vi.fn(), refreshProjections: vi.fn() })
+    expect(controller.resetGeneration.getSnapshot()).toBe(0)
+    controller.availability.set({ file: 'missing' })
+    controller.reset()
+    expect(controller.availability.getSnapshot()).toEqual({})
+    expect(controller.resetGeneration.getSnapshot()).toBe(1)
+  })
 })
 
 describe('ArtifactsPage', () => {
@@ -177,6 +209,7 @@ describe('ArtifactsPage', () => {
     const hydrate = vi.fn<ArtifactsInjected['hydrate']>()
     const availabilityStore = createSnapshotStore(availability)
     const scanning = createSnapshotStore(0)
+    const resetGeneration = createSnapshotStore(0)
     const props: Parameters<typeof ArtifactsPage>[0] = {
       t: makeTranslate(en),
       useSessions: <T,>(select: (state: SessionListState) => T): T => select(list),
@@ -184,10 +217,11 @@ describe('ArtifactsPage', () => {
       usePresentedHost: <T,>(select: (state: ReturnType<typeof open.host.getSnapshot>) => T): T => select(open.host.getSnapshot()),
       useAvailability: <T,>(select: (state: ArtifactAvailabilityMap) => T): T => select(availabilityStore.getSnapshot()),
       useScanning: <T,>(select: (state: number) => T): T => select(scanning.getSnapshot()),
+      useResetGeneration: bindSnapshotSelector(resetGeneration),
       reloadPresentedHost: vi.fn(() => open.loadHost()), openPresented, checkAvailability, hydrate, openChat,
     } as never
     const view = render(<ArtifactsPage {...props} />)
-    return { view, openChat, openPresented, checkAvailability, hydrate }
+    return { view, props, openChat, openPresented, checkAvailability, hydrate, availabilityStore, resetGeneration }
   }
 
   const names = (view: ReturnType<typeof render>) =>
@@ -206,6 +240,16 @@ describe('ArtifactsPage', () => {
     expect(names(view)).toEqual(['deck.pptx'])
     fireEvent.click(view.getByRole('button', { name: 'All' }))
     expect(names(view)).toHaveLength(5)
+  })
+
+  it('checks visible files again after availability is cleared on connection reset', () => {
+    const b = setup(LIBRARY, { 'alpha:4:0': 'missing' })
+    expect(b.checkAvailability).toHaveBeenCalledTimes(5)
+    b.checkAvailability.mockClear()
+    b.availabilityStore.set({})
+    b.resetGeneration.set(1)
+    b.view.rerender(<ArtifactsPage {...b.props} />)
+    expect(b.checkAvailability).toHaveBeenCalledTimes(5)
   })
 
   it('filters rows by the search text and explains an empty result', () => {
