@@ -524,7 +524,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@janhq/jan-tool-web` | yes | Model-facing web tools (web_search, web_fetch) over the Jan web capability seam (ctx.web) |
 | `@janhq/jan-web` | yes | Abstract web access capability seam (ctx.web) for the Jan — search/fetch provider registry, registration-order-independent selection, request/result vocabulary, and the WebError taxonomy |
 | `@janhq/jan-web-fetch-http` | yes | Anonymous HTTP(S) fetch provider for the Jan web capability seam (ctx.web) |
-| `@janhq/jan-web-search-exa` | yes | Keyless web search and fetch for the ctx.web capability seam through Exa's hosted MCP endpoint |
+| `@janhq/jan-web-search` | yes | Exa, Tavily, SearXNG, and You.com web search and fetch providers for the ctx.web capability seam, ported from Jan's web search plugin |
 
 ## workflow
 

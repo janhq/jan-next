@@ -38,7 +38,7 @@ import UserQuestionService from '@janhq/jan-user-questions'
 import PlanModeController from '@janhq/jan-plan-mode'
 import WebRuntime from '@janhq/jan-web'
 import * as WebFetchLocal from '@janhq/jan-web-fetch-http'
-import * as WebSearchExa from '@janhq/jan-web-search-exa'
+import * as WebSearch from '@janhq/jan-web-search'
 import SubagentRuntime from '@janhq/jan-subagent'
 import type { SubagentProvider } from '@janhq/jan-subagent'
 import * as ToolSubagentControl from '@janhq/jan-tool-subagent-control'
@@ -721,7 +721,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       // Mount search and fetch providers so both tools register. Their schemas
       // do not depend on provider identity or availability.
       await ctx.plugin(WebRuntime)
-      await ctx.plugin(WebSearchExa)
+      await ctx.plugin(WebSearch)
       await ctx.plugin(WebFetchLocal)
       await ctx.plugin(ToolWeb)
     },

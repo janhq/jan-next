@@ -31,13 +31,14 @@ Choose the service when a plugin or tool must search or fetch without hard-codin
 
 ### Minimal configuration
 
-Load the service and let a single mounted backend auto-select, or pin a provider id with `searchProvider`/`fetchProvider`. The environment variables `$JAN_WEB_SEARCH_PROVIDER` and `$JAN_WEB_FETCH_PROVIDER` feed the same fields and are not a separate priority chain. Both backends below register a fetch provider, so the example pins `fetchProvider: http`.
+Load the service and let a single mounted backend auto-select, or pin a provider id with `searchProvider`/`fetchProvider`. The environment variables `$JAN_WEB_SEARCH_PROVIDER` and `$JAN_WEB_FETCH_PROVIDER` feed the same fields and are not a separate priority chain. The backends below register several search and fetch providers, so the example pins both.
 
 ```yaml
 - name: '@janhq/jan-web'
   config:
+    searchProvider: exa
     fetchProvider: http
-- name: '@janhq/jan-web-search-exa'
+- name: '@janhq/jan-web-search'
 - name: '@janhq/jan-web-fetch-http'
 ```
 

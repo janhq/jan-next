@@ -2687,9 +2687,9 @@ importers:
       '@janhq/jan-web-fetch-http':
         specifier: workspace:*
         version: link:../../web/web-fetch-http
-      '@janhq/jan-web-search-exa':
+      '@janhq/jan-web-search':
         specifier: workspace:*
-        version: link:../../web/web-search-exa
+        version: link:../../web/web-search
       '@janhq/jan-workflow-ptc':
         specifier: workspace:*
         version: link:../../workflow/workflow-ptc
@@ -17687,9 +17687,9 @@ importers:
       '@janhq/jan-web-fetch-http':
         specifier: workspace:*
         version: link:../web-fetch-http
-      '@janhq/jan-web-search-exa':
+      '@janhq/jan-web-search':
         specifier: workspace:*
-        version: link:../web-search-exa
+        version: link:../web-search
       '@types/turndown':
         specifier: ^5.0.6
         version: 5.0.6
@@ -17786,19 +17786,6 @@ importers:
       '@janhq/jan-tools':
         specifier: workspace:*
         version: link:../../core/tools
-      '@janhq/jan-web':
-        specifier: workspace:*
-        version: link:../web
-
-  packages/web/web-search-exa:
-    dependencies:
-      '@janhq/schemastery':
-        specifier: link:../../../vendor/schemastery
-        version: link:../../../vendor/schemastery
-    devDependencies:
-      '@janhq/cordis':
-        specifier: workspace:~
-        version: link:../../../vendor/cordis
       '@janhq/jan-web':
         specifier: workspace:*
         version: link:../web

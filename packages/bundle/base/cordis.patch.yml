@@ -542,17 +542,19 @@
     - id: web
       name: '@janhq/jan-web'
       config:
-        # tokamak-harness: keyless Exa search; pages are fetched directly over HTTP.
+        # tokamak-harness: Exa search, keyless until EXA_API_KEY is set; pages are
+        # fetched directly over HTTP.
         searchProvider: exa
         fetchProvider: http
 
     - id: web-fetch-http
       name: '@janhq/jan-web-fetch-http'
 
-    # tokamak-harness: keyless search (and an alternative fetch) through Exa's
-    # hosted MCP endpoint; queries are sent to Exa.
-    - id: web-search-exa
-      name: '@janhq/jan-web-search-exa'
+    # tokamak-harness: Exa, Tavily and You.com search and fetch (`exa`, `tavily`,
+    # `you`); Exa and You.com are keyless until EXA_API_KEY or YDC_API_KEY is set,
+    # Tavily needs TAVILY_API_KEY. Queries go to the selected backend.
+    - id: web-search
+      name: '@janhq/jan-web-search'
 
     - id: tool-web
       name: '@janhq/jan-tool-web'

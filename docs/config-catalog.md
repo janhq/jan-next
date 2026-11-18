@@ -4615,24 +4615,75 @@ export interface Config {
 }
 ```
 
-<a id="janhqjan-web-search-exa"></a>
+<a id="janhqjan-web-search"></a>
 
-## `@janhq/jan-web-search-exa`
+## `@janhq/jan-web-search`
 
 - `inject`: `web`
-- `source`: [`packages/web/web-search-exa/src/index.ts:25`](../packages/web/web-search-exa/src/index.ts)
+- `source`: [`packages/web/web-search/src/config.ts:74`](../packages/web/web-search/src/config.ts)
 
 ```ts config-catalog
-/** Plugin config; every field has a default. */
+/** Plugin config; every field except `searxng.url` has a default. */
 export interface Config {
-  /** Exa MCP endpoint. */
-  url?: string
-  /** Results requested when the caller sets no bound, at most {@link EXA_MAX_RESULTS}. */
+  /** Backends to register; `searxng` registers search only, the others search and fetch. */
+  providers?: BackendId[]
+  /** Exa settings. */
+  exa?: ExaConfig
+  /** Tavily settings. */
+  tavily?: TavilyConfig
+  /** SearXNG settings. */
+  searxng?: SearxngConfig
+  /** You.com settings. */
+  you?: YouConfig
+  /** Results requested when the caller sets no bound, at most {@link MAX_RESULTS}. */
   numResults?: number
-  /** Characters of page text one fetch requests. */
+  /** Characters of page text one fetch returns. */
   maxCharacters?: number
   /** Milliseconds one search or fetch may take. */
   timeoutMs?: number
+}
+
+/** One backend id from {@link BACKEND_IDS}. */
+export type BackendId = 'exa' | 'tavily' | 'searxng' | 'you'
+
+/** Exa endpoints and credential. */
+export interface ExaConfig {
+  /** Hosted MCP endpoint used while no API key resolves. */
+  mcpUrl?: string
+  /** REST API base URL used with an API key; `/search` and `/contents` are appended. */
+  apiUrl?: string
+  /** Credential reference holding the Exa API key. */
+  apiKeyEnv?: string
+  /** Characters of page text each keyed search result carries as its summary. */
+  searchTextCharacters?: number
+}
+
+/** Tavily endpoint and credential; Tavily answers only with an API key. */
+export interface TavilyConfig {
+  /** REST API base URL; `/search` and `/extract` are appended. */
+  apiUrl?: string
+  /** Credential reference holding the Tavily API key. */
+  apiKeyEnv?: string
+}
+
+/** SearXNG instance; required when `providers` lists `searxng`. */
+export interface SearxngConfig {
+  /** Base URL of a SearXNG instance with the JSON format enabled; `/search` is appended. */
+  url?: string
+}
+
+/** You.com endpoints and credential. */
+export interface YouConfig {
+  /** Hosted MCP endpoint used for search while no API key resolves. */
+  mcpUrl?: string
+  /** Keyless page-extraction endpoint used for fetch while no API key resolves. */
+  extractUrl?: string
+  /** REST API base URL used with an API key; `/v1/search` and `/v1/contents` are appended. */
+  apiUrl?: string
+  /** Credential reference holding the You.com API key. */
+  apiKeyEnv?: string
+  /** `User-Agent` header sent on every You.com request. */
+  userAgent?: string
 }
 ```
 

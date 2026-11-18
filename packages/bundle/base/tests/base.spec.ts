@@ -43,10 +43,10 @@ describe('jan-base bundle', () => {
     })
     expect(rows.filter(row => row.id === 'subagent-codex')).toHaveLength(0)
     expect(rows.filter(row => row.id === 'subagent-claude-code')).toHaveLength(0)
-    // tokamak-harness: search is keyless Exa; the account seam and default model are Tokamak.
+    // tokamak-harness: search defaults to Exa (keyless without EXA_API_KEY); the account seam and default model are Tokamak.
     expect(rows.find(row => row.id === 'web')?.config).toEqual({ searchProvider: 'exa', fetchProvider: 'http' })
-    expect(rows.find(row => row.id === 'web-search-exa')).toMatchObject({ name: '@janhq/jan-web-search-exa' })
-    expect(manifest.dependencies).toHaveProperty('@janhq/jan-web-search-exa')
+    expect(rows.find(row => row.id === 'web-search')).toMatchObject({ name: '@janhq/jan-web-search' })
+    expect(manifest.dependencies).toHaveProperty('@janhq/jan-web-search')
     expect(rows.find(row => row.id === 'web-fetch-http')).toBeDefined()
     expect(rows.find(row => row.id === 'tokamak-account')).toMatchObject({ name: '@janhq/jan-tokamak-account' })
     expect(rows.find(row => row.id === 'agent-default-model')?.config).toEqual({ provider: 'tokamak', model: 'tokamak/auto' })
