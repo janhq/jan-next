@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { Context } from '@janhq/cordis'
 import { chooseRoute, routeChoices } from '../src/route.ts'
 
@@ -82,6 +82,28 @@ describe('chooseRoute', () => {
     expect(await chooseRoute(ctx, undefined)).toEqual({ provider: 'openai', model: 'gpt', source: 'default' })
   })
 
+  it('returns the default route within ten seconds even when consecutive probes time out', async () => {
+    vi.useFakeTimers()
+    try {
+      const fallbackDefault = { provider: 'gone', model: 'x' }
+      const ctx = contextOf({
+        providers: { offline: ['a', 'b', 'c', 'd', 'e'], online: ['f'] },
+        fallbackDefault,
+      })
+      vi.spyOn(ctx.llm, 'resolveModelInfo').mockImplementation((provider, model) =>
+        provider === 'offline' ? new Promise(() => {}) : Promise.resolve({ provider, id: model, name: model }),
+      )
+      const result = vi.fn()
+      void chooseRoute(ctx, undefined).then(result)
+
+      await vi.advanceTimersByTimeAsync(10_000)
+
+      expect(result).toHaveBeenCalledExactlyOnceWith({ ...fallbackDefault, source: 'default' })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('works without a managed local models service', async () => {
     const { local: _local, ...withoutLocal } = base
     const ctx = contextOf({ ...withoutLocal, broken: ['openai/gpt'] })
@@ -90,6 +112,31 @@ describe('chooseRoute', () => {
 })
 
 describe('routeChoices', () => {
+  it('returns picker choices within the route deadline when a catalog stalls', async () => {
+    vi.useFakeTimers()
+    try {
+      const fallbackDefault = { provider: 'online', model: 'a' }
+      const ctx = contextOf({ providers: { online: ['a'], offline: ['b'] }, fallbackDefault })
+      const listModels = ctx.llm.listModels
+      vi.spyOn(ctx.llm, 'listModels').mockImplementation(provider =>
+        provider === 'offline' ? new Promise(() => {}) : listModels(provider),
+      )
+      const result = vi.fn()
+      void routeChoices(ctx, undefined).then(result)
+
+      await vi.advanceTimersByTimeAsync(10_000)
+
+      expect(result).toHaveBeenCalledExactlyOnceWith({
+        route: { ...fallbackDefault, source: 'default' },
+        saved: null,
+        default: { ...fallbackDefault, usable: true },
+        models: [{ ...fallbackDefault, name: 'A', local: false, loaded: false }],
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('lists local models first with their loaded state, and reports the default model and the saved pick', async () => {
     const ctx = contextOf({
       providers: { openai: ['gpt'], local: ['a', 'b'] },

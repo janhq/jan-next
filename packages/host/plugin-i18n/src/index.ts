@@ -245,7 +245,7 @@ export default class PluginI18n extends TypertRemoteService {
     assertLocale(locale)
     if (pkg !== undefined) assertPackage(pkg)
     const consent = await this.store.readConsent()
-    const allowed = pkg === undefined ? titlesAllowed(consent) : consent.packages.includes(pkg)
+    const allowed = pkg === undefined ? consent.global : consent.packages.includes(pkg)
     if (!allowed) throw new RemoteError('plugin-i18n/not-consented', 'Translating plugin text needs consent', {})
     const wanted = [...new Set(strings.filter(text => text.trim() !== '' && text.length <= this.config.maxStringLength))]
       .slice(0, this.config.maxEntries)
@@ -260,7 +260,7 @@ export default class PluginI18n extends TypertRemoteService {
   /**
    * Read everything a client registers at start-up for one locale.
    * @param locale - target locale.
-   * @returns each package's generated text and, when titles may be translated, the runtime strings.
+   * @returns each package's generated text and, when translation consent exists, cached runtime strings.
    * @throws {RemoteError} `plugin-i18n/invalid-locale`.
    */
   @Remote
@@ -271,7 +271,8 @@ export default class PluginI18n extends TypertRemoteService {
       const file = await this.store.readLocale(pkg, locale)
       if (file !== undefined) packages[pkg] = { sourceLocale: file.sourceLocale, entries: file.entries }
     }
-    const allowed = titlesAllowed(await this.store.readConsent())
+    const consent = await this.store.readConsent()
+    const allowed = consent.global || consent.packages.length > 0
     const strings = allowed ? await this.stringsOf(locale) : {}
     const runtime: Record<string, string[]> = {}
     if (allowed) {
@@ -493,11 +494,6 @@ export default class PluginI18n extends TypertRemoteService {
 function modelFailed(error: unknown): RemoteError<'plugin-i18n/model-failed'> {
   const reason = error instanceof Error ? error.message : String(error)
   return new RemoteError('plugin-i18n/model-failed', `Translation failed: ${reason}`, { reason })
-}
-
-/** Whether tool titles and other runtime strings may be sent to the model. */
-function titlesAllowed(consent: PluginI18nConsent): boolean {
-  return consent.global || consent.packages.length > 0
 }
 
 /** Merge two entry sets, the second overriding the first. */

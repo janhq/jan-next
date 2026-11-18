@@ -29,13 +29,13 @@ Compose `@janhq/jan-host-plugin-i18n` beside `llm` and `agent-default-model`. Th
 
 | Method | Behavior |
 |---|---|
-| `pluginI18n/route` | The model translations run on and why: `saved` (the person's pick), `default`, `loaded-local`, or `configured`. Each is tried in that order and must resolve; when none does, the default model is returned and the request reports its own failure. |
-| `pluginI18n/routes` | What the Translations tab picker shows: the route in use, the saved pick, the default model with whether it can be used, and every model of every registered provider, local ones first. |
+| `pluginI18n/route` | The model translations run on and why: `saved` (the person's pick), `default`, `loaded-local`, or `configured`. Each is tried in that order and must resolve. A lookup can wait up to 3 seconds, and the entire selection up to 10 seconds. If no route resolves, the default is returned and the request reports its own failure. |
+| `pluginI18n/routes` | What the Translations tab picker shows: the route in use, the saved pick, whether the default model can be used, and up to 100 models per provider, local ones first. Catalogs that fail or take longer than 3 seconds are omitted. |
 | `pluginI18n/setRoute` | Saves the person's pick until changed again, or follows the default model again with `null`. Refused with `plugin-i18n/invalid-route` for a provider without an adapter or an empty model. |
 | `pluginI18n/status` / `statuses` | Stored locales, the runtime strings counted per locale, the latest job, and consent of one package or of every known package. |
 | `pluginI18n/translate` | Starts a job for a package and locale and returns it at once. Asking records consent for the package. Entries whose source text is unchanged since the last run are reused; `rerun` translates all. Progress and completion arrive as `plugin-i18n/changed`. |
 | `pluginI18n/clear` | Deletes a package's stored text and consent and stops its jobs. |
-| `pluginI18n/translateStrings` | Translates runtime strings such as tool titles or on-screen plugin text, cached by exact source text. Given a package, the strings are listed under it and need that package's own consent, which the global switch does not give; clear drops them. `rerun` translates them again. Refused with `plugin-i18n/not-consented` otherwise. |
+| `pluginI18n/translateStrings` | Translates runtime strings such as tool titles or on-screen plugin text, cached by exact source text. Strings without a package require global consent. Given a package, the strings are listed under it and need that package's own consent; clear drops them. `rerun` translates them again. Refused with `plugin-i18n/not-consented` without the required consent. |
 | `pluginI18n/tables` | Everything a client registers at start-up for one locale. |
 | `pluginI18n/consent` / `setConsent` | Reads and changes the consent record. |
 
@@ -131,7 +131,7 @@ Independent of every conversation prefix; the request starts from the fixed syst
 
 <a id="known-limitations-and-deferred-work"></a>
 
-- **No tool ownership** — the tool registry does not record which plugin registered a tool, so consent for any package also allows translating runtime tool titles from every plugin.
+- **No tool ownership** — the tool registry does not record which plugin registered a tool, so translating runtime tool titles requires global consent.
 - **Titles interpolate** — a runtime string such as a title with a target name is cached by its exact text, so each distinct title is translated once and the cache is bounded by `maxStrings`.
 - **Quality is the model's** — translations are not reviewed; the client shows the source text one action away.
 

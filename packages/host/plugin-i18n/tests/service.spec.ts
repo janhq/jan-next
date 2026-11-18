@@ -205,6 +205,13 @@ describe('PluginI18n', () => {
       expect(adapter.requests).toEqual([])
     })
 
+    it('requires global consent for strings without a package even when a package has consent', async () => {
+      const { service, adapter } = await harness()
+      await service.setConsent({ pkg: 'p', allowed: true })
+      await expect(service.translateStrings(['装配'], 'en')).rejects.toMatchObject({ code: 'plugin-i18n/not-consented' })
+      expect(adapter.requests).toEqual([])
+    })
+
     it('translates once per exact string, caches it, and bounds the cache', async () => {
       const { service, adapter } = await harness()
       await service.setConsent({ allowed: true })
@@ -254,9 +261,9 @@ describe('PluginI18n', () => {
       const { service, adapter } = await harness()
       await service.setConsent({ pkg: 'p', allowed: true })
       adapter.rewrite = () => ''
-      expect(await service.translateStrings(['装配'], 'en')).toEqual({})
+      expect(await service.translateStrings(['装配'], 'en', 'p')).toEqual({})
       const sent = adapter.requests.length
-      expect(await service.translateStrings(['装配'], 'en')).toEqual({})
+      expect(await service.translateStrings(['装配'], 'en', 'p')).toEqual({})
       expect(adapter.requests).toHaveLength(sent)
     })
 

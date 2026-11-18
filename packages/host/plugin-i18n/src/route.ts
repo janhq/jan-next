@@ -2,14 +2,18 @@
  * Choosing the model translations run on: the person's saved pick, else the default model, else a loaded local
  * model, else any configured model.
  */
+import { deadline } from '@janhq/jan-timeout'
 import type { Context } from '@janhq/cordis'
 // Type-only: the `ctx.llm` and `ctx.agentDefaultModel` merges.
 import type {} from '@janhq/jan-llm'
 import type {} from '@janhq/jan-agent-default-model'
 import type { PluginI18nModelChoice, PluginI18nRoute, PluginI18nRouteChoices, PluginI18nRouteRef } from './types.ts'
 
-/** Deadline of one model lookup while choosing a route. */
+/** Deadline of one model lookup or catalog read. */
 const LOOKUP_TIMEOUT_MS = 3000
+
+/** Total time spent finding a usable route, including catalog discovery. */
+const ROUTE_TIMEOUT_MS = 10_000
 
 /** Most models listed per provider in the picker. */
 const MAX_MODELS_PER_PROVIDER = 100
@@ -48,21 +52,35 @@ function localState(ctx: Context): LocalState | undefined {
   return { provider, loaded: loaded.map(model => model.id) }
 }
 
+/** Bound the wait even when an adapter ignores its signal or has no cancellation API. */
+async function lookup<T>(read: (signal: AbortSignal) => Promise<T>, upstream?: AbortSignal): Promise<T | undefined> {
+  if (upstream?.aborted === true) return undefined
+  using bounded = deadline(upstream, LOOKUP_TIMEOUT_MS, 'PLUGIN_I18N_LOOKUP_TIMEOUT')
+  const { signal } = bounded
+  const expired = Promise.withResolvers<undefined>()
+  const onAbort = (): void => { expired.resolve(undefined) }
+  signal.addEventListener('abort', onAbort, { once: true })
+  try {
+    return await Promise.race([read(signal), expired.promise])
+  } catch {
+    return undefined
+  } finally {
+    signal.removeEventListener('abort', onAbort)
+  }
+}
+
 /**
  * Whether a route can serve a request: its provider has an adapter and the adapter resolves the model.
  * @param ctx - context exposing `llm`.
  * @param route - the route to check.
+ * @param signal - optional overall selection deadline.
  * @returns true when the route resolves.
  */
-async function usable(ctx: Context, route: PluginI18nRouteRef): Promise<boolean> {
+async function usable(ctx: Context, route: PluginI18nRouteRef, signal?: AbortSignal): Promise<boolean> {
   if (route.provider === '' || route.model === '') return false
   if (!ctx.llm.listProviders().some(provider => provider.id === route.provider)) return false
-  try {
-    await ctx.llm.resolveModelInfo(route.provider, route.model, AbortSignal.timeout(LOOKUP_TIMEOUT_MS))
-    return true
-  } catch {
-    return false
-  }
+  const info = await lookup(probe => ctx.llm.resolveModelInfo(route.provider, route.model, probe), signal)
+  return info !== undefined
 }
 
 /**
@@ -77,34 +95,35 @@ export function defaultRoute(ctx: Context): PluginI18nRouteRef {
 
 /**
  * Pick the model translations run on, trying in order: the person's saved pick, the default model, a loaded local
- * model, then the first model any configured provider lists. Each must resolve; the default model is returned
- * unchecked when nothing does, so the request reports its own failure.
+ * model, then the first model any configured provider lists. Each must resolve; if none does within the selection
+ * deadline, the default model is returned unchecked so the request reports its own failure.
  * @param ctx - context exposing `llm`, `agentDefaultModel`, and optionally `llamaCpp`.
  * @param saved - the person's saved pick, if any.
  * @returns the route and why it was chosen.
  */
 export async function chooseRoute(ctx: Context, saved: PluginI18nRouteRef | undefined): Promise<PluginI18nRoute> {
-  if (saved !== undefined && await usable(ctx, saved)) return { ...saved, source: 'saved' }
-  const fallbackDefault = defaultRoute(ctx)
-  if (await usable(ctx, fallbackDefault)) return { ...fallbackDefault, source: 'default' }
+  using budget = deadline(undefined, ROUTE_TIMEOUT_MS, 'PLUGIN_I18N_ROUTE_TIMEOUT')
+  const { signal } = budget
+  if (saved !== undefined && await usable(ctx, saved, signal)) return { ...saved, source: 'saved' }
+  const fallbackDefault = { ...defaultRoute(ctx), source: 'default' as const }
+  if (await usable(ctx, fallbackDefault, signal) || signal.aborted) return fallbackDefault
   const local = localState(ctx)
   for (const id of local?.loaded ?? []) {
     const route = { provider: local?.provider ?? '', model: id }
-    if (await usable(ctx, route)) return { ...route, source: 'loaded-local' }
+    if (await usable(ctx, route, signal)) return { ...route, source: 'loaded-local' }
+    if (signal.aborted) return fallbackDefault
   }
   for (const { id: provider } of ctx.llm.listProviders()) {
-    let models: readonly { readonly id: string }[]
-    try {
-      models = await ctx.llm.listModels(provider)
-    } catch {
-      continue
-    }
+    const models = await lookup(() => ctx.llm.listModels(provider), signal)
+    if (signal.aborted) return fallbackDefault
+    if (models === undefined) continue
     for (const { id } of models.slice(0, MAX_MODELS_PER_PROVIDER)) {
       const route = { provider, model: id }
-      if (await usable(ctx, route)) return { ...route, source: 'configured' }
+      if (await usable(ctx, route, signal)) return { ...route, source: 'configured' }
+      if (signal.aborted) return fallbackDefault
     }
   }
-  return { ...fallbackDefault, source: 'default' }
+  return fallbackDefault
 }
 
 /**
@@ -115,25 +134,27 @@ export async function chooseRoute(ctx: Context, saved: PluginI18nRouteRef | unde
  */
 export async function routeChoices(ctx: Context, saved: PluginI18nRouteRef | undefined): Promise<PluginI18nRouteChoices> {
   const local = localState(ctx)
+  const fallbackDefault = defaultRoute(ctx)
+  const [route, defaultUsable, catalogs] = await Promise.all([
+    chooseRoute(ctx, saved),
+    usable(ctx, fallbackDefault),
+    Promise.all(ctx.llm.listProviders().map(async ({ id: provider }) => ({
+      provider, listed: await lookup(() => ctx.llm.listModels(provider)),
+    }))),
+  ])
   const models: PluginI18nModelChoice[] = []
-  for (const { id: provider } of ctx.llm.listProviders()) {
-    let listed
-    try {
-      listed = await ctx.llm.listModels(provider)
-    } catch {
-      continue
-    }
+  for (const { provider, listed } of catalogs) {
+    if (listed === undefined) continue
     const isLocal = provider === local?.provider
     for (const { id, name } of listed.slice(0, MAX_MODELS_PER_PROVIDER)) {
       models.push({ provider, model: id, name, local: isLocal, loaded: isLocal && local.loaded.includes(id) })
     }
   }
   models.sort((a, b) => Number(b.local) - Number(a.local) || Number(b.loaded) - Number(a.loaded))
-  const fallbackDefault = defaultRoute(ctx)
   return {
-    route: await chooseRoute(ctx, saved),
+    route,
     saved: saved ?? null,
-    default: { ...fallbackDefault, usable: await usable(ctx, fallbackDefault) },
+    default: { ...fallbackDefault, usable: defaultUsable },
     models,
   }
 }
