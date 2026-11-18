@@ -64,9 +64,9 @@ Scrollbars in the column are a pointer affordance: the shell rebinds the scrollb
 On Desktop, the official navigation controls report `sidebar_menu_click` with `menu_name` and `position` before they act. Without the analytics service, the controls only navigate. Selecting a panel by other means reports nothing, and the sidebar reports no exposure events.
 
 - The expanded brand and the New Session button report `menu_name=new_session` with `position=sidebar`. While the Windows caption hosts the collapsed New Session button, that button reports `position=titlebar`; the macOS New Session control beside the traffic lights also reports `position=titlebar`.
-- The **Plugins** and **Automation tasks** rows report `menu_name=plugin` and `menu_name=cron` with `position=sidebar`. Other panel rows report nothing.
+- The **Plugins** and **Scheduled** rows report `menu_name=plugin` and `menu_name=cron` with `position=sidebar`. Other panel rows report nothing.
 - Each **More** button click reports `menu_name=more` with `position=sidebar`, whether it opens or closes the menu.
-- A More menu row that calls `onOpen(id)` for Plugins or Automation tasks reports `menu_name=plugin` or `menu_name=cron` with `position=sidebar_more`. The shipped More menu calls `onOpen` for unpinned panels, including Automation tasks; pin and unpin actions report no navigation click. The report precedes the registration check, so a request for a panel that has unregistered still counts although nothing is selected.
+- A More menu row that calls `onOpen(id)` for Plugins or Scheduled reports `menu_name=plugin` or `menu_name=cron` with `position=sidebar_more`. The shipped More menu calls `onOpen` for unpinned panels, including Scheduled; pin and unpin actions report no navigation click. The report precedes the registration check, so a request for a panel that has unregistered still counts although nothing is selected.
 
 -----
 
