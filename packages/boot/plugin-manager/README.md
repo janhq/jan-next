@@ -11,7 +11,7 @@ Application-owned profiles supply their bundled package-manager invocation throu
 
 Manage the current profile's plugins without editing configuration by hand. Enable or disable individual plugin entries, select installed bundles, and install or remove external bundles. With HMR enabled in YAML, configuration changes apply immediately; without HMR, the running composition remains until restart. Changes affect every session using the profile.
 
-Published DSH plugins declaring `dsh.bundle` are accepted without editing their package files. Jan reads the legacy bundle and browser declarations, and maps legacy DeepSeek package imports to the corresponding Jan packages at the Host and browser module boundaries. The original plugin name and package bytes remain unchanged. An unrecognized package with neither bundle declaration is refused with guidance to install a Jan or DSH plugin bundle instead.
+Published DSH plugins declaring `dsh.bundle` install unchanged: Jan reads their legacy declarations and maps DeepSeek package imports to Jan packages. A package with neither bundle declaration is refused.
 
 ## Table of Contents
 

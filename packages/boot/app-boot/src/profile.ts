@@ -593,6 +593,10 @@ function withBundles(manifest: ProfileManifest, bundles: readonly string[]): Pro
 /**
  * Normalize an exact installation-owned bundle tuple to its shipped template,
  * preserving all other manifest fields. Other bundle lists remain untouched.
+ * @param name - profile name, keyed into the shipped templates.
+ * @param dir - profile directory the manifest was read from.
+ * @param manifest - profile manifest as read from disk.
+ * @returns the manifest with the shipped bundle list, or the input unchanged.
  */
 export function normalizeShippedProfile(name: string, dir: string, manifest: ProfileManifest): ProfileManifest {
   const installationOwned = INSTALLATION_OWNED_PROFILE_TUPLES[name]
