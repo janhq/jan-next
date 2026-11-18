@@ -11,6 +11,7 @@ import type { MessageImageLoader, MessageImageSource } from '@janhq/jan-client-u
 import type { AskUserQuestionAnswerItem, AskUserQuestionItem } from '@janhq/jan-user-questions/types'
 import type {} from '@janhq/jan-client-locale/client'
 import type { ToolFileInjected } from '../tool/file-menu.ts'
+import type { ToolTitles } from '../tool/title-source.ts'
 
 declare module '@janhq/jan-client-ui-slots' {
   interface SlotMap {
@@ -66,6 +67,8 @@ export interface ToolCallCommonProps {
   home?: string | undefined
   /** Open an argument path at its optional requested line. */
   openFile: (path: string, options?: OpenFileOptions) => void
+  /** Display and request of titles a plugin wrote in another language; absent shows every title as written. */
+  titles?: ToolTitles | undefined
   /** Chat-supplied, Gateway-authorized loader for durable images; Tool views do not manage attachment URLs. */
   loadImage: MessageImageLoader
   /** Inspect this call in the trajectory view when available. */
@@ -144,6 +147,8 @@ export type ToolHostInfoInjected = {
      * saw. Select the field the view needs (`info => info.home`).
      */
     hostInfo: HostObservable<RemoteHostFacts>
+    /** Translated display of titles written in another language, from the optional translation service. */
+    titles: HostObservable<ToolTitles>
   }
 }
 

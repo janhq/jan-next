@@ -26,6 +26,7 @@ import {
 import type { WebCardModelProps } from '../models/web-card-model.ts'
 import { AskQuestionCard } from './AskQuestionCard.tsx'
 import { ToolDetails, type ToolDetailsModel } from './ToolDetails.tsx'
+import type { ToolTitles } from '../title-source.ts'
 import { ExitCodeBadge } from './ExitCodeBadge.tsx'
 import css from './ToolRow.module.css'
 
@@ -81,6 +82,8 @@ export interface ToolRowProps {
   web?: WebCardModelProps | null | undefined
   /** Read-only fields/list card derived from a successful recorded result. */
   details?: ToolDetailsModel | null | undefined
+  /** Display and request of titles a plugin wrote in another language, applied to the details body. */
+  titles?: ToolTitles | undefined
   state: ToolRowState
   /**
    * Recorded file target or a supported argument fallback. With onOpenFile,
@@ -184,6 +187,7 @@ export const ToolRow = memo(function ToolRow({
   search,
   web,
   details,
+  titles,
   state,
   filePath,
   filePathLine,
@@ -408,7 +412,7 @@ export const ToolRow = memo(function ToolRow({
                   : webBody !== null
                     ? <WebBlock {...webBody} labels={webLabels} className={css.webBody} />
                     : detailsBody !== null
-                      ? <ToolDetails model={detailsBody} hasInspect={inspect !== undefined} t={t} onOpenFile={onOpenFile} />
+                      ? <ToolDetails model={detailsBody} hasInspect={inspect !== undefined} t={t} onOpenFile={onOpenFile} titles={titles} />
                       : (
                         <>
                           {variant === 'code' && bodyText !== null && (
@@ -454,7 +458,7 @@ export const ToolRow = memo(function ToolRow({
   ) : undefined, [
     open, detailsBody, askQuestionBody, terminalBody, terminalLabels, diffBody, diffLabels, readBody, readLabels,
     imageBody, renderSlot, loadImage, searchBody, searchLabels, webBody, webLabels, inspect, t, onOpenFile,
-    variant, bodyText, cardBody, outputText, state,
+    variant, bodyText, cardBody, outputText, state, titles,
   ])
   return (
     <div className={css.root} data-variant={variant} data-tool={toolName} data-state={state}>

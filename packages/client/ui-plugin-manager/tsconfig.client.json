@@ -53,6 +53,9 @@
     },
     {
       "path": "../product-analytics/tsconfig.client.json"
+    },
+    {
+      "path": "../ui-plugin-i18n"
     }
   ],
   "include": [

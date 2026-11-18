@@ -74,7 +74,8 @@
     "@janhq/jan-util-crypto": "workspace:*",
     "@janhq/jan-client-ui-settings": "workspace:*",
     "@janhq/jan-plugin-manager": "workspace:*",
-    "@janhq/jan-client-product-analytics": "workspace:*"
+    "@janhq/jan-client-product-analytics": "workspace:*",
+    "@janhq/jan-client-ui-plugin-i18n": "workspace:*"
   },
   "files": [
     "locale/*.json",

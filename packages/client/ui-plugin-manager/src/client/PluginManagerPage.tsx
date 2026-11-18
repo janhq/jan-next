@@ -1030,6 +1030,7 @@ function useInstallComposition(active: boolean) {
  */
 function InstallDialog({
   install, t, onClose, onEditSpec, onRun, onCancel, onReconcile, onToggleDetails, onEnableNow, onApproveBuilds,
+  onTranslate, onDeclineTranslate,
   onToggleRegistry, onChooseRegistry, onChangeRegistry, onUseGithubMirror,
 }: {
   readonly install: InstallState
@@ -1041,6 +1042,10 @@ function InstallDialog({
   readonly onReconcile: () => void
   readonly onToggleDetails: () => void
   readonly onEnableNow: () => void
+  /** Translate the installed plugin into the UI language, or retry a failed translation. */
+  readonly onTranslate: () => void
+  /** Decline the translation offer. */
+  readonly onDeclineTranslate: () => void
   readonly onApproveBuilds: () => void
   readonly onToggleRegistry: () => void
   readonly onChooseRegistry: (choice: RegistryChoice) => void
@@ -1052,6 +1057,7 @@ function InstallDialog({
   const templateHintId = useId()
   const guideId = useId()
   const approvalId = useId()
+  const translateId = useId()
   const registryId = useId()
   const registryErrorId = useId()
   const [guideOpen, setGuideOpen] = useState(false)
@@ -1458,6 +1464,41 @@ function InstallDialog({
             : null}
           {phase === 'done' && install.approvedBuilds.length > 0
             ? <p className={css.result} role="status">{t('installDoneApproved', { names: install.approvedBuilds.join(', ') })}</p>
+            : null}
+          {phase === 'done' && install.translate !== null
+            ? (
+              <section className={css.approval} role="group" aria-labelledby={translateId} data-install-translate={install.translate.step}>
+                <h3 id={translateId} className={css.approvalTitle}>{t('installTranslateTitle', { language: install.translate.language })}</h3>
+                {install.translate.step === 'offer' || install.translate.step === 'failed'
+                  ? (
+                    <p className={css.approvalText}>
+                      {t('installTranslateBody', {
+                        language: install.translate.language, model: install.translate.model ?? t('installTranslateModelDefault'),
+                      })}
+                    </p>
+                  )
+                  : null}
+                {install.translate.step === 'running'
+                  ? <p className={css.approvalText} role="status">{t('installTranslateRunning', { language: install.translate.language })}</p>
+                  : null}
+                {install.translate.step === 'done'
+                  ? <p className={css.approvalText} role="status">{t('installTranslateDone', { language: install.translate.language })}</p>
+                  : null}
+                {install.translate.step === 'failed'
+                  ? <p className={css.approvalCaution} role="alert">{t('installTranslateFailed', { reason: install.translate.message ?? '' })}</p>
+                  : null}
+                {install.translate.step === 'offer' || install.translate.step === 'failed'
+                  ? (
+                    <span className={css.wizardActions}>
+                      <Button variant="outline" size="sm" onClick={onDeclineTranslate}>{t('installTranslateSkip')}</Button>
+                      <Button variant="primary" size="sm" onClick={onTranslate}>
+                        {t('installTranslateAction', { language: install.translate.language })}
+                      </Button>
+                    </span>
+                  )
+                  : null}
+              </section>
+            )
             : null}
           <div className={css.wizardFoot}>
             {subject?.bundled ? null : (
@@ -1899,6 +1940,8 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
         onReconcile={props.reconcileInstall}
         onToggleDetails={props.toggleInstallDetails}
         onEnableNow={() => { setActivation(state.install.installed); props.enableInstalled() }}
+        onTranslate={props.translateInstalled}
+        onDeclineTranslate={props.declineTranslation}
         onApproveBuilds={props.approveBuildsAndRetry}
         onToggleRegistry={props.toggleRegistryOptions}
         onChooseRegistry={props.chooseRegistry}

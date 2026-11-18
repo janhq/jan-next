@@ -7,6 +7,7 @@ import { sanitizeInstallInput } from './sanitize-install-input.ts'
  * change made on another surface shows here without a manual refresh.
  */
 import type {} from '@janhq/jan-client-product-analytics/client'
+import type {} from '@janhq/jan-client-ui-plugin-i18n/client'
 import { randomUUID } from '@janhq/jan-util-crypto'
 import type { Context as ClientContext } from '@janhq/cordis'
 import type {
@@ -58,6 +59,24 @@ export function bundleBusy(state: PluginManagerState, packageName: string): bool
 
 /** The action a failed notice names. */
 export type FailedAction = 'enable' | 'disable' | 'uninstall' | 'rowEnable' | 'rowDisable'
+
+/**
+ * The offer to translate a freshly installed plugin into the UI language, shown beneath the installed screen.
+ * `running` and `done` follow the Host job; closing the dialog leaves a running job to finish in the Host.
+ */
+export interface InstallTranslate {
+  readonly step: 'offer' | 'running' | 'done' | 'failed'
+  /** The installed package. */
+  readonly pkg: string
+  /** The UI locale the text would be translated into. */
+  readonly locale: string
+  /** The locale's own name for itself. */
+  readonly language: string
+  /** `provider/model` the text is sent to; null until the Host answered. */
+  readonly model: string | null
+  /** The failure diagnostic of a failed job. */
+  readonly message?: string
+}
 
 /** What the last action left to say, shown as a toast; `seq` tells one showing from the next. */
 export type ManagerNotice =
@@ -295,6 +314,8 @@ export interface InstallState {
   readonly approvedBuilds: readonly string[]
   /** Enabling the newly installed bundle from the installed screen is crossing the wire. */
   readonly enabling: boolean
+  /** The offer to translate the installed plugin into the UI language; null when none applies or it was declined. */
+  readonly translate: InstallTranslate | null
 }
 
 /**
@@ -465,6 +486,10 @@ export interface PluginManagerFace {
   toggleInstallDetails: () => void
   /** Enable the bundle the finished install added, then close the dialog and mark it in the list. */
   enableInstalled: () => void
+  /** Translate the installed plugin into the UI language in the Host; also retries a failed translation. */
+  translateInstalled: () => void
+  /** Decline the offer to translate the installed plugin. */
+  declineTranslation: () => void
   /** Drop the list mark once it has been shown. */
   clearHighlight: () => void
   /** Put a bundle into, or take it out of, the profile's layer list. */
@@ -607,7 +632,7 @@ export function sortPackages(packages: readonly PackageView[]): PackageView[] {
 const IDLE_INSTALL: InstallState = {
   open: false, spec: '', registries: null, registry: OFFICIAL_REGISTRY, registryOpen: false, registryError: false, attempts: null,
   phase: 'idle', inputError: null, subject: null, runs: [], detailsOpen: false, logPath: null,
-  installed: null, installedVersion: null, restartRequired: false, failure: null, approvedBuilds: [], enabling: false,
+  installed: null, installedVersion: null, restartRequired: false, failure: null, approvedBuilds: [], enabling: false, translate: null,
 }
 
 /** The dialog back at its spec: the run and its outcome forgotten, the spec and the registries kept. */
@@ -816,6 +841,8 @@ export class PluginManagerController {
       reconcileInstall: () => { void this.reconcileInstall() },
       toggleInstallDetails: () => { this.patchInstall({ detailsOpen: !this.getSnapshot().install.detailsOpen }) },
       enableInstalled: () => { void this.enableInstalled() },
+      translateInstalled: () => { void this.translateInstalled() },
+      declineTranslation: () => { this.patchInstall({ translate: null }) },
       clearHighlight: () => { if (this.getSnapshot().highlight !== null) this.patch({ highlight: null }) },
       setEnabled: (packageName, enabled) => {
         const pkg = this.getSnapshot().packages.find(pkg => pkg.name === packageName)
@@ -1363,7 +1390,7 @@ export class PluginManagerController {
     }
     const phase = this.getSnapshot().install.phase
     if (phase === 'done' || phase === 'failed') this.notifyHiddenInstall(phase)
-    void this.load()
+    void this.load().then(() => { this.offerTranslation() })
   }
 
   private installUncertain(uncertainty: NonNullable<InstallState['failure']>['uncertainty'] & string, reason: string): void {
@@ -1485,6 +1512,43 @@ export class PluginManagerController {
     }
     this.patch({ install: IDLE_INSTALL, highlight: name })
     await this.load()
+  }
+
+  /**
+   * Offer to translate the installed plugin when it lacks the UI locale. Waits for the reload that reads the
+   * package's display text, and offers nothing for a bundled plugin or without the translation service.
+   */
+  private offerTranslation(): void {
+    const service = this.ctx.get('pluginI18n')
+    const install = this.getSnapshot().install
+    const name = install.installed
+    if (service === undefined || this.disposed || install.phase !== 'done' || name === null || install.subject?.bundled === true) return
+    const pkg = this.getSnapshot().packages.find(item => item.name === name)
+    const meta = [pkg?.meta?.title, pkg?.meta?.description ?? pkg?.description].filter(text => text !== undefined)
+    const offer = service.assess({ pkg: name, meta })
+    if (offer === null) return
+    const model = offer.route === null ? null : `${offer.route.provider}/${offer.route.model}`
+    this.patchInstall({ translate: { step: 'offer', pkg: name, locale: offer.locale, language: offer.language, model } })
+  }
+
+  /** Run the offered translation and follow it to its end on the dialog. */
+  private async translateInstalled(): Promise<void> {
+    const service = this.ctx.get('pluginI18n')
+    const offer = this.getSnapshot().install.translate
+    if (service === undefined || offer === null || (offer.step !== 'offer' && offer.step !== 'failed')) return
+    const { pkg, locale, language, model } = offer
+    this.patchInstall({ translate: { step: 'running', pkg, locale, language, model } })
+    let settled: InstallTranslate
+    try {
+      const job = await service.translate(pkg)
+      settled = job.state === 'done'
+        ? { step: 'done', pkg, locale, language, model }
+        : { step: 'failed', pkg, locale, language, model, message: job.message ?? '' }
+    } catch (error) {
+      settled = { step: 'failed', pkg, locale, language, model, message: error instanceof Error ? error.message : String(error) }
+    }
+    if (this.disposed || this.getSnapshot().install.translate?.pkg !== pkg) return
+    this.patchInstall({ translate: settled })
   }
 
   /**

@@ -51,7 +51,7 @@ function subagentSummary(block: ToolCallViewProps['block']): string {
  * @param props - Tool call, row actions, and locale supplied by the keyed slot.
  * @returns A Tool row with structured details or generic input/output.
  */
-export function DetailsRow({ toolName, block, cwd, home, openFile, inspect, useDisclosure, t }: DetailsRowProps) {
+export function DetailsRow({ toolName, block, cwd, home, openFile, inspect, useDisclosure, titles, t }: DetailsRowProps) {
   const model = toolRowModel(toolName, block, cwd, home)
   const locale = document.documentElement.lang
   const taskSummary = toolName === 'subagent' || toolName === 'subagent_fork' ? subagentSummary(block) : undefined
@@ -82,6 +82,7 @@ export function DetailsRow({ toolName, block, cwd, home, openFile, inspect, useD
       state={model.state}
       inspect={inspect}
       onOpenFile={openFile}
+      titles={titles}
     />
   )
 }

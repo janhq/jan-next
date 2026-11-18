@@ -72,7 +72,7 @@ const MIRROR_OPTION = `${en.registryNpmmirror} registry.npmmirror.com`
 const IDLE_INSTALL: InstallState = {
   open: false, spec: '', registries: null, registry: { kind: 'offered', registry: null }, registryOpen: false, registryError: false, attempts: null,
   phase: 'idle', inputError: null, subject: null, runs: [], detailsOpen: false, logPath: null,
-  installed: null, installedVersion: null, restartRequired: false, failure: null, approvedBuilds: [], enabling: false,
+  installed: null, installedVersion: null, restartRequired: false, failure: null, approvedBuilds: [], enabling: false, translate: null,
 }
 
 const READY: PluginManagerState = {
@@ -133,6 +133,8 @@ function renderTab(
     useGithubMirror: vi.fn(),
     approveBuildsAndRetry: vi.fn(),
     enableInstalled: vi.fn(),
+    translateInstalled: vi.fn(),
+    declineTranslation: vi.fn(),
     clearHighlight: vi.fn(),
     setEnabled: vi.fn(),
     uninstall: vi.fn(),
@@ -1927,6 +1929,30 @@ describe('PluginManagerPage', () => {
     set({ install: { ...IDLE_INSTALL, open: true, spec: 'slow', phase: 'running', subject, failure: { reason: 'offline', uncertainty: 'cancellation' } } })
     expect(screen.getByRole('alert').textContent).toContain('offline')
     expect(screen.getByRole('button', { name: en.installCancel })).toHaveProperty('disabled', false)
+  })
+
+  it('shows the translation offer beneath the installed screen and follows it through its steps', () => {
+    const subject = { spec: 'jan-x', status: 'accepted', kind: 'registry', name: 'jan-x', bundle: true, registry: null } as const
+    const offer = { step: 'offer', pkg: 'jan-x', locale: 'ja', language: '日本語', model: 'p/m' } as const
+    const base = { ...IDLE_INSTALL, open: true, spec: 'jan-x', phase: 'done', subject, installed: 'jan-x' } as const
+    const { actions, set } = renderTab({ install: { ...base, translate: offer } })
+    expect(screen.getByText(en.installTranslateTitle.replace('{language}', '日本語'))).toBeTruthy()
+    expect(screen.getByText(en.installTranslateBody.replace('{language}', '日本語').replace('{model}', 'p/m'))).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: en.installTranslateAction.replace('{language}', '日本語') }))
+    expect(actions.translateInstalled).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: en.installTranslateSkip }))
+    expect(actions.declineTranslation).toHaveBeenCalledTimes(1)
+    set({ install: { ...base, translate: { ...offer, step: 'running' } } })
+    expect(screen.getByText(en.installTranslateRunning.replace('{language}', '日本語'))).toBeTruthy()
+    expect(screen.queryByRole('button', { name: en.installTranslateSkip })).toBeNull()
+    set({ install: { ...base, translate: { ...offer, step: 'done' } } })
+    expect(screen.getByText(en.installTranslateDone.replace('{language}', '日本語'))).toBeTruthy()
+    set({ install: { ...base, translate: { ...offer, step: 'failed', message: 'offline', model: null } } })
+    expect(screen.getByText(en.installTranslateFailed.replace('{reason}', 'offline'))).toBeTruthy()
+    expect(screen.getByText(en.installTranslateBody.replace('{language}', '日本語').replace('{model}', en.installTranslateModelDefault))).toBeTruthy()
+    expect(screen.getByRole('button', { name: en.installTranslateAction.replace('{language}', '日本語') })).toBeTruthy()
+    set({ install: { ...base, translate: null } })
+    expect(screen.queryByText(en.installTranslateSkip)).toBeNull()
   })
 
   it('offers to enable what a finished install added, and says when it waits for a restart', () => {

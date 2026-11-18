@@ -6,8 +6,11 @@ import type {} from '@janhq/jan-api-remotes/client'
 import type {} from '@janhq/jan-client-ui-conversation/client'
 import type {} from '@janhq/jan-client-ui-renderer/client'
 import type {} from '@janhq/jan-client-ui-session/client'
+// Type-only: the optional `ctx.pluginI18n` service whose titles replace foreign-language titles at render time.
+import type {} from '@janhq/jan-client-ui-plugin-i18n/client'
 import { toolFileInject } from './tool/file-menu.ts'
 import { ToolCallTree } from './tool/ToolCallTree.tsx'
+import { TitleBridge } from './tool/title-source.ts'
 import { CONVERSATION_NS as NS } from './locale.ts'
 import { askQuestionToolview } from './tool/toolviews/ask-question-row.tsx'
 import { bashToolviewSample } from './tool/toolviews/bash-sample.tsx'
@@ -32,7 +35,11 @@ export function apply(ctx: ClientContext): void {
     subscribe: listener => ctx.on('connection/reset', listener),
   }
   const fileInject = toolFileInject(ctx)
-  const toolInject = (sessionId: Parameters<typeof fileInject>[0]) => ({ ...fileInject(sessionId), hooks: { hostInfo } })
+  const titles = new TitleBridge()
+  ctx.inject(['pluginI18n'], (scope) => {
+    scope.effect(() => titles.attach(scope.pluginI18n.titles), 'ui-tool: translated titles')
+  })
+  const toolInject = (sessionId: Parameters<typeof fileInject>[0]) => ({ ...fileInject(sessionId), hooks: { hostInfo, titles } })
   ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({
     name: 'conversation.chat.node',
     key: 'tool-call',

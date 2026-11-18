@@ -80,7 +80,7 @@ const NO_CONFIG: HostObservable<ConfigLedger> = {
 
 const NO_TABS: HostObservable<readonly PluginTab[]> = { getSnapshot: () => [], subscribe: () => () => {} }
 
-function bench(overrides: Partial<Record<string, ReturnType<typeof vi.fn>>> = {}, enabled = true) {
+function bench(overrides: Partial<Record<string, ReturnType<typeof vi.fn>>> = {}, enabled = true, i18n?: object) {
   const inventory = { list: overrides.inventory ?? vi.fn(() => Promise.resolve(ok({ entries: [], managementAvailable: true }))) }
   const plugins = {
     listBundles: vi.fn<() => Promise<ReturnType<typeof ok<BundleInfo[]>> | ReturnType<typeof refused>>>(
@@ -100,7 +100,7 @@ function bench(overrides: Partial<Record<string, ReturnType<typeof vi.fn>>> = {}
   const probe = { fastest: overrides.fastest ?? vi.fn(() => Promise.resolve(ok(null))) }
   const track = vi.fn()
   const ctx = {
-    get: () => ({ enabled, track }),
+    get: (name: string) => name === 'pluginI18n' ? i18n : { enabled, track },
     configForms: { describe: () => ({ getSnapshot: () => ({ view: { namespaces: [] } }), subscribe: () => () => {} }), get: vi.fn((id: string) => `form:${id}`) },
     remote: { pluginManager: plugins, pluginInventory: inventory, pluginRegistryProbe: probe },
   } as never
@@ -702,6 +702,65 @@ describe('PluginManagerController', () => {
     expect(state().install).toMatchObject({ phase: 'idle', spec: 'another', runs: [], installed: null, subject: null })
     face.closeInstall()
     expect(state().install.open).toBe(false)
+  })
+
+  describe('translation offer', () => {
+    const OFFER = { pkg: 'jan-new', locale: 'ja', language: '日本語', route: { provider: 'p', model: 'm' } }
+    const JOB = { pkg: 'jan-new', locale: 'ja', state: 'done' as const, done: 1, total: 1 }
+
+    async function installed(i18n: object | undefined, bundle: Partial<BundleInfo> = {}) {
+      const listed: BundleInfo = { ...BUNDLE, name: 'jan-new', description: '生成工程图', ...bundle }
+      const listBundles = vi.fn().mockResolvedValueOnce(ok([BUNDLE])).mockResolvedValue(ok([listed]))
+      const f = bench({ listBundles }, true, i18n)
+      await f.controller.load()
+      f.face.openInstall()
+      f.face.editInstallSpec('jan-new')
+      f.face.runInstall()
+      await vi.waitFor(() => { expect(f.state().install.phase).toBe('done') })
+      return f
+    }
+
+    it('offers after a finished install when the plugin lacks the UI locale, passing its display text', async () => {
+      const assess = vi.fn(() => OFFER)
+      const { state } = await installed({ assess })
+      await vi.waitFor(() => { expect(state().install.translate).not.toBeNull() })
+      expect(assess).toHaveBeenCalledWith({ pkg: 'jan-new', meta: ['生成工程图'] })
+      expect(state().install.translate).toEqual({ step: 'offer', pkg: 'jan-new', locale: 'ja', language: '日本語', model: 'p/m' })
+    })
+
+    it('offers nothing when the plugin ships the locale or no translation service is composed', async () => {
+      const none = await installed({ assess: vi.fn(() => null) })
+      await vi.waitFor(() => { expect(none.plugins.listBundles).toHaveBeenCalledTimes(2) })
+      expect(none.state().install.translate).toBeNull()
+      const absent = await installed(undefined)
+      await vi.waitFor(() => { expect(absent.plugins.listBundles).toHaveBeenCalledTimes(2) })
+      expect(absent.state().install.translate).toBeNull()
+    })
+
+    it('runs the translation to done, or to failed with a retry, and drops the offer when declined', async () => {
+      const translate = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(JOB)
+      const { face, state } = await installed({ assess: vi.fn(() => ({ ...OFFER, route: null })), translate })
+      await vi.waitFor(() => { expect(state().install.translate?.step).toBe('offer') })
+      expect(state().install.translate?.model).toBeNull()
+      face.translateInstalled()
+      await vi.waitFor(() => { expect(state().install.translate).toMatchObject({ step: 'failed', message: 'offline' }) })
+      face.translateInstalled()
+      await vi.waitFor(() => { expect(state().install.translate?.step).toBe('done') })
+      expect(translate).toHaveBeenCalledTimes(2)
+      expect(translate).toHaveBeenCalledWith('jan-new')
+      face.translateInstalled()
+      expect(translate).toHaveBeenCalledTimes(2)
+      face.declineTranslation()
+      expect(state().install.translate).toBeNull()
+    })
+
+    it('reports a job that ended failed with the Host message', async () => {
+      const translate = vi.fn().mockResolvedValue({ ...JOB, state: 'failed', message: 'quota' })
+      const { face, state } = await installed({ assess: vi.fn(() => OFFER), translate })
+      await vi.waitFor(() => { expect(state().install.translate?.step).toBe('offer') })
+      face.translateInstalled()
+      await vi.waitFor(() => { expect(state().install.translate).toMatchObject({ step: 'failed', message: 'quota' }) })
+    })
   })
 
   it('refuses a spec the list already shows without asking the Host, and words what the Host refused', async () => {
