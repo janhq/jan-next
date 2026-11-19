@@ -17939,18 +17939,45 @@ importers:
 
   plugins/desktop-app:
     dependencies:
+      '@janhq/jan-agent-preset':
+        specifier: workspace:*
+        version: link:../../packages/preset/agent-preset
       '@janhq/jan-client-ui-jan-theme':
         specifier: workspace:*
         version: link:../jan-theme
+      '@janhq/jan-command-compact':
+        specifier: workspace:*
+        version: link:../../packages/compaction/command-compact
+      '@janhq/jan-compaction-basic':
+        specifier: workspace:*
+        version: link:../../packages/compaction/compaction-basic
+      '@janhq/jan-compaction-tool-result-pruner':
+        specifier: workspace:*
+        version: link:../../packages/compaction/compaction-tool-result-pruner
       '@janhq/jan-downloads':
         specifier: workspace:*
         version: link:../downloads
       '@janhq/jan-legacy-import':
         specifier: workspace:*
         version: link:../legacy-import
+      '@janhq/jan-persona':
+        specifier: workspace:*
+        version: link:../../packages/preset/persona
       '@janhq/jan-preset-square':
         specifier: workspace:*
         version: link:../preset-square
+      '@janhq/jan-time-context':
+        specifier: workspace:*
+        version: link:../../packages/context/time-context
+      '@janhq/jan-tool-fs':
+        specifier: workspace:*
+        version: link:../../packages/fs/tool-fs
+      '@janhq/jan-tool-present':
+        specifier: workspace:*
+        version: link:../../packages/deliverables/tool-present
+      '@janhq/jan-tool-web':
+        specifier: workspace:*
+        version: link:../../packages/web/tool-web
 
   plugins/downloads: {}
 

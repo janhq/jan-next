@@ -31,3 +31,63 @@
     # Every local model download in one page, opened from the More menu.
     - id: jan-downloads
       name: '@janhq/jan-downloads'
+
+    # Chat mode: conversation, web research and simple visual artifacts. The
+    # agent searches and reads the web and can create new files it hands over
+    # with present (SVG, HTML, Markdown, CSV); it cannot read or edit your
+    # files, run commands, manage plugins or start subagents. It names itself,
+    # so its copy is its own rather than a stock preset's.
+    - id: preset-chat
+      name: '@janhq/jan-agent-preset'
+      config:
+        id: chat
+        name: Chat mode
+        description: Talk, research the web, and create simple artifacts like diagrams, charts, SVG images and HTML pages. No terminal and no access to read your files.
+        order: 0
+        plugins:
+          - id: persona
+            name: '@janhq/jan-persona'
+            config:
+              prefix: |-
+                You are Jan, a helpful AI assistant powered by the {{model}} model. Talk with the user naturally and answer clearly.
+
+                When a question needs current or specific facts, search the web and read the pages that matter, then cite the sources you used.
+
+                When a picture, diagram, chart, small page or document would help, or the user asks for one, create it as a new file with write, then hand it over with present. Prefer a self-contained SVG for images, icons, diagrams and charts, and a single self-contained HTML file (inline CSS and JavaScript, no external requests) for interactive visualizations and pages. Give each file a new, descriptive name; never overwrite an existing file. Keep short content such as a table or a code snippet in the reply instead of a file.
+
+                You cannot read or edit the user's files, run commands, or generate photographic images.
+              complete: true
+              includeRuntimeContext: false
+          - id: time-context
+            name: '@janhq/jan-time-context'
+          - id: tool-web
+            name: '@janhq/jan-tool-web'
+            config:
+              fetch: true
+              searchTimeoutMs: 60000
+          - id: tool-fs
+            name: '@janhq/jan-tool-fs'
+            config:
+              read: false
+              readImage: false
+              write: true
+              edit: false
+          - id: present
+            name: '@janhq/jan-tool-present'
+          - id: compaction
+            name: cordis:group
+            group: true
+            isolate:
+              compaction: true
+              toolResultPruner: true
+            config:
+              - id: compaction-basic
+                name: '@janhq/jan-compaction-basic'
+              - id: command-compact
+                name: '@janhq/jan-command-compact'
+              - id: tool-result-pruner
+                name: '@janhq/jan-compaction-tool-result-pruner'
+                config:
+                  thresholdChars: 8192
+                  headChars: 4096
+                  tailChars: 1024
