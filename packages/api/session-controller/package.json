@@ -76,7 +76,7 @@
     "@janhq/jan-timeout": "workspace:*",
     "@janhq/schemastery": "workspace:~",
     "mime-types": "^3.0.2",
-    "zod": "4.4.3"
+    "zod": "4.6.6"
   },
   "peerDependencies": {
     "@janhq/cordis": "workspace:~",

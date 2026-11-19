@@ -92,7 +92,7 @@
     "@janhq/jan-atomic-write": "workspace:*",
     "@janhq/jan-client-product-analytics": "workspace:*",
     "@janhq/jan-plugin-manager": "workspace:*",
-    "zod": "4.4.3",
+    "zod": "4.6.6",
     "@janhq/jan-util-file-drag": "workspace:*",
     "@janhq/jan-client-ui-file-actions": "workspace:*",
     "tencentcloud-sdk-nodejs-teo": "4.1.330"
