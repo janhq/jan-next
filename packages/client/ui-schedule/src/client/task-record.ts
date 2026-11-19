@@ -17,6 +17,7 @@ export function taskNextRunAt(task: Pick<ScheduleCatalogEntry, 'scheduledAt' | '
  * @returns Destination identity, if a delivery or reservation names one.
  */
 export function taskSessionId(task: Pick<ScheduleCatalogEntry, 'target' | 'lastDelivery'>): SessionId | undefined {
+  if (task.target.kind === 'plugin') return undefined
   return task.target.kind === 'new' ? task.lastDelivery?.targetSessionId : task.target.sessionId
 }
 

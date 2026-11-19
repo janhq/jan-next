@@ -409,7 +409,7 @@ function TaskDetailView(props: TaskDetailProps): ReactNode {
           sessionTitles={Object.fromEntries(choices.map(choice => [choice.value, choice.label]))}
           availableSessionIds={sessions.ids.filter(value => sessionLinkState(value, sessions, workspaces) === 'available')} t={t} />}
       </div>
-      {task !== undefined && (task.target.kind !== 'new' || linkedId !== undefined) && <footer className={css.hostSessionFooter}>
+      {task !== undefined && task.target.kind !== 'plugin' && (task.target.kind !== 'new' || linkedId !== undefined) && <footer className={css.hostSessionFooter}>
         <span>{t(task.target.kind === 'new' ? 'host.latestConversation' : 'detail.session')}</span>
         {linkedId === undefined || (task.target.kind === 'new_once' && linkedState === 'unavailable')
           ? <span className={css.hostSessionEmpty}>{t('host.sessionAfterFirstRun')}</span>
