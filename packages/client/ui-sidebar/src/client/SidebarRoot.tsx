@@ -31,6 +31,7 @@ import type {
   SidebarSectionOwnerProps,
 } from './contract/slots.ts'
 import { NavigationButton } from './NavigationButton.tsx'
+import { useChromeControls } from './chrome-controls.ts'
 import { FIXED_PANEL_ID } from './panel-pins.ts'
 import { createScrollHandoff } from './scroll-handoff.ts'
 import css from './SidebarRoot.module.css'
@@ -175,12 +176,9 @@ export function SidebarRoot({
   const unpinned = useEntryPins(ids => ids)
   const activePanelId = usePanelInfo(info => info.activePanelId)
   const hasEntryActions = useEntryActions(registered => registered)
-  const shortcut = useShortcuts(rows => rows.find(row => row.id === 'sidebar.left.toggle'))
-  const newShortcut = useShortcuts(rows => rows.find(row => row.id === 'session.new'))
-  const backShortcut = useShortcuts(rows => rows.find(row => row.id === 'navigation.back'))
-  const forwardShortcut = useShortcuts(rows => rows.find(row => row.id === 'navigation.forward'))
-  const canGoBack = useNavigationHistory(state => state.canGoBack)
-  const canGoForward = useNavigationHistory(state => state.canGoForward)
+  const {
+    shortcut, newShortcut, backShortcut, forwardShortcut, canGoBack, canGoForward,
+  } = useChromeControls({ useShortcuts, useNavigationHistory })
   // A page whose access snapshot excludes starting a Session offers no New Session affordance.
   const canStartSession = useRemoteAccess('session/create')
   const toggleLabel = collapsed ? t('toggle.open') : t('toggle.collapse')

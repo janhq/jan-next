@@ -7,6 +7,7 @@ import type { InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui
 import type {} from '@janhq/jan-client-ui-layout/client'
 import type { SidebarRootInjected } from './contract/slots.ts'
 import { NavigationButton } from './NavigationButton.tsx'
+import { useChromeControls } from './chrome-controls.ts'
 import css from './HeaderLeadingControls.module.css'
 
 /** Full props of the shell.leading occupant. */
@@ -28,12 +29,9 @@ export function HeaderLeadingControls({
   // A page whose access snapshot excludes starting a Session keeps only the sidebar toggle here.
   const canStartSession = useRemoteAccess('session/create')
   const desktop = document.documentElement.hasAttribute('data-platform')
-  const shortcut = useShortcuts(rows => rows.find(row => row.id === 'sidebar.left.toggle'))
-  const newShortcut = useShortcuts(rows => rows.find(row => row.id === 'session.new'))
-  const backShortcut = useShortcuts(rows => rows.find(row => row.id === 'navigation.back'))
-  const forwardShortcut = useShortcuts(rows => rows.find(row => row.id === 'navigation.forward'))
-  const canGoBack = useNavigationHistory(state => state.canGoBack)
-  const canGoForward = useNavigationHistory(state => state.canGoForward)
+  const {
+    shortcut, newShortcut, backShortcut, forwardShortcut, canGoBack, canGoForward,
+  } = useChromeControls({ useShortcuts, useNavigationHistory })
   return (
     <div className={css.controls}>
       <Tooltip label={t('toggle.open')} shortcutKeys={shortcut?.keys} delayMs={500}>
