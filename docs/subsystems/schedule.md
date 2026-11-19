@@ -160,6 +160,21 @@ Shared management service; reads and management writes never activate a Session,
  */
 registerWakeSource(source: ScheduleWakeSource): ScheduleWakeRegistration
 
+/** Register a durable inbox for a plugin owner; disposing it suspends delivery without changing saved tasks.
+ * @param owner - Stable plugin owner saved as the task destination.
+ * @param receive - Acknowledges an occurrence after durable acceptance; must not call back into Schedule.
+ * @returns The disposer for this exact registration.
+ */
+registerDestination(owner: string, receive: SchedulePluginHandler): () => void
+
+/** Create a plugin-owned task, reusing its original task identity when the owner retries the same key.
+ * @param request - Task title, prompt and timing, as in ordinary Schedule creation.
+ * @param destination - Registered owner, stable owner-local task key, and optional opaque payload.
+ * @param signal - Cancellation before the durable write.
+ * @returns The stored task without its private payload.
+ */
+async createPluginTask(request: Omit<ScheduleCreateRequest, 'target'>, destination: { readonly owner: string; readonly key: string; readonly payload?: string }, signal?: AbortSignal): Promise<ScheduleCatalogEntry>
+
 /** Read effective delivery limits without loading or activating a task.
  * @returns The configured minimum spacing between deliveries that each create a Session, in seconds.
  */

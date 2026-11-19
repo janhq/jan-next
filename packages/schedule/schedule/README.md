@@ -74,6 +74,8 @@ The `session` target reuses an existing, unarchived, non-delegated Session; unlo
 
 `deleteInactive()` removes all ended tasks in one domain batch and preserves active and paused tasks. It returns the removed count; an empty ended set performs no write. A successful nonempty batch emits `schedule/changed` without Agent notices. A rejected batch also emits the event and rejects without a count; normal failure preserves all rows, while an `unknown-state` failure may have removed rows and quarantines the domain until reopening.
 
+`registerDestination(owner, handler)` gives a Host plugin an inbox for ordinary Scheduled tasks. `createPluginTask(request, { owner, key, payload? }, signal?)` creates a durable task under the registered owner; retrying the same key returns the existing task. The handler receives the prompt, opaque payload, and a stable timed-delivery ID. Resolve only after durably accepting the ID and ignore duplicate IDs. When a plugin unmounts, its tasks stay visible but are not delivered until the owner is registered again. Users can edit timing and prompt, pause, run, and delete these tasks through the same management API, but cannot change their destination. Records show the owner and acceptance, not a Session or execution result.
+
 Host plugins that already own durable deadlines can share the clock with `registerWakeSource(source)` without creating Schedule tasks or Sessions. `source.next()` reports the earliest deadline (epoch milliseconds); `source.deliver(now)` acknowledges due work and advances all deadlines at or before that instant. The registration exposes `wake()` to recompute after external changes and `dispose()` to stop new delivery. A source that fails is skipped until another drive; the caller remains responsible for durable acknowledgement and recovery.
 
 <a id="storage-format"></a>
@@ -115,6 +117,7 @@ One current JSON task has this envelope; the table key must equal `record.id`:
 | `createdAt`, `updatedAt` | Optional known timestamps. Unknown historical values stay absent. |
 | `lastDelivery`, `deliveryHistory` | Optional receipt and history. A missing history exposes the latest receipt and marks earlier records unavailable; no prompt or destination is invented. [Saved deliveries](../../../docs/subsystems/schedule.md#saved-delivery-records) defines receipt fields and retention. |
 | `pendingDelivery` | Optional `{ targetSessionId }` reservation before creating a per-delivery Session. |
+| `pluginPayload` | Optional Host-only string for a registered plugin destination; never projected into the task catalog. |
 
 Current writers store explicit target, status, involvement, and history, omit top-level `sessionId`, and keep timestamps absent when unknown. Both versions decode into one task type using optional fields and defaults, without row-level versions. Existing timing kinds and committed occurrences are preserved. Custom text starting with `DTSTART` selects RRULE; other text selects Cron with the chosen zone, and the Host validates it. Model authoring tools expose RRULE only; user labels say Custom/Customize.
 
