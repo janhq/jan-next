@@ -43,13 +43,13 @@ export async function apply(ctx, config = {}) {
   let writes = Promise.resolve()
   ctx.effect(() => registerApi(ctx, 'appearance', {
     get: () => appearance(),
-    save: ({ accent, coloredUserBubble }) => {
+    save: ({ accent, coloredUserBubble, navigationButtons = false }) => {
       const colors = ['gray', 'red', 'orange', 'green', 'emerald', 'teal', 'cyan', 'blue', 'purple', 'pink', 'rose']
-      if (!colors.includes(accent) || typeof coloredUserBubble !== 'boolean') throw new Error('Choose a valid accent color and message bubble preference.')
+      if (!colors.includes(accent) || typeof coloredUserBubble !== 'boolean' || typeof navigationButtons !== 'boolean') throw new Error('Choose a valid accent color, message bubble and Back and Forward preference.')
       const operation = writes.then(async () => {
         const settings = ctx.get('settings')
         if (!settings || !entry) throw new Error('Appearance settings are unavailable. Reopen Settings and try again.')
-        const next = { accent, coloredUserBubble }
+        const next = { accent, coloredUserBubble, navigationButtons }
         await settings.update(entry, { appearance: next })
         return appearance()
       })

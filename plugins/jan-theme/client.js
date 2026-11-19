@@ -51,13 +51,15 @@ window.__ModuleLoader__.load({
       ['rose', 'Rose', '#F655B8', '#FFDAE9', '#61053E'],
     ]
     const DEFAULT_ACCENT = PALETTES.find(p => p[2].toLowerCase() === look.primary.toLowerCase())?.[0] || 'blue'
-    let preferences = { accent: DEFAULT_ACCENT, coloredUserBubble: false, ...shell.appearance }
+    let preferences = { accent: DEFAULT_ACCENT, coloredUserBubble: false, navigationButtons: false, ...shell.appearance }
     const appearanceListeners = new Set()
     let retheme = null
     const applyAppearance = (value) => {
       preferences = value
       const palette = PALETTES.find(p => p[0] === value.accent) || PALETTES[7]
       const root = document.documentElement
+      // Back and Forward stay hidden until General turns them on; the shortcuts keep working.
+      root.toggleAttribute('data-jt-hide-navigation', value.navigationButtons !== true)
       root.style.setProperty('--jt-sidebar-light', palette[3])
       root.style.setProperty('--jt-sidebar-dark', palette[4])
       retheme?.()
@@ -104,10 +106,15 @@ window.__ModuleLoader__.load({
       return h(GeneralRow, { title: 'Colored user bubbles', description: 'Use the accent color for your messages.' },
         h(Switch, { label: 'Colored user bubbles', checked: value.coloredUserBubble, disabled: busy, onChange: checked => saveAppearance({ ...value, coloredUserBubble: checked }) }))
     }
+    function NavigationButtonsRow() {
+      const { value, busy } = useAppearance()
+      return h(GeneralRow, { title: 'Back and forward buttons', description: 'Show Back and Forward beside the sidebar button. The keyboard shortcuts work either way.' },
+        h(Switch, { label: 'Back and forward buttons', checked: value.navigationButtons === true, disabled: busy, onChange: checked => saveAppearance({ ...value, navigationButtons: checked }) }))
+    }
     function AppearanceResetRow() {
-      const { busy } = useAppearance()
+      const { value, busy } = useAppearance()
       return h(GeneralRow, { title: 'Reset colors', description: 'Reset accent color and user bubble preferences.' },
-        h(Button, { variant: 'outline', disabled: busy, onClick: () => saveAppearance({ accent: DEFAULT_ACCENT, coloredUserBubble: false }) }, 'Reset'))
+        h(Button, { variant: 'outline', disabled: busy, onClick: () => saveAppearance({ ...value, accent: DEFAULT_ACCENT, coloredUserBubble: false }) }, 'Reset'))
     }
     // A saved MCP or skill change reloads this plugin, and its route is absent until the reload ends.
     // Reads retry through that gap; a write is sent once, because the Host may already have applied it.
@@ -1381,12 +1388,14 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       inject: ['slots'],
       apply(ctx) {
         applyAppearance(preferences)
+        ctx.effect(() => () => { document.documentElement.removeAttribute('data-jt-hide-navigation') }, 'jan-theme: navigation buttons preference')
         ctx.inject(['locale'], (scope) => {
           const t = scope.locale.bind('jan-theme')
           // Directly under General's theme (10) and font size (11) rows, before the conversation rows at 12.
           scope.slots.inject('settings.general.item', () => scope.slots.register({ name: 'settings.general.item', id: 'jt-accent-color', order: 11.1, locale: 'jan-theme' }, AccentColorRow))
           scope.slots.inject('settings.general.item', () => scope.slots.register({ name: 'settings.general.item', id: 'jt-user-bubble', order: 11.2, locale: 'jan-theme' }, UserBubbleRow))
           scope.slots.inject('settings.general.item', () => scope.slots.register({ name: 'settings.general.item', id: 'jt-appearance-reset', order: 11.3, locale: 'jan-theme' }, AppearanceResetRow))
+          scope.slots.inject('settings.general.item', () => scope.slots.register({ name: 'settings.general.item', id: 'jt-navigation-buttons', order: 11.4, locale: 'jan-theme' }, NavigationButtonsRow))
           scope.slots.inject('settings.section', () => scope.slots.register({ name: 'settings.section', id: 'jt-mcp', order: 30, label: () => t('section.mcp'), locale: 'jan-theme' }, () => h(AgentSettings, { key: 'mcp' })))
           scope.slots.inject('settings.section', () => scope.slots.register({ name: 'settings.section', id: 'jt-skills', order: 31, label: () => t('section.skills'), locale: 'jan-theme' }, () => h(AgentSettings, { skills: true, key: 'skills' })))
         })
