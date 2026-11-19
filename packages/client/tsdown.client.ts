@@ -82,7 +82,7 @@ function styleInjectionModule(
  * Everything else under @janhq/* is either a module-table entry
  * (external) or a leak the purity gate rejects.
  */
-export const INLINE_SAFE = /^(?:@janhq\/jan-(?:file-reference|fs-patch|session|llm|tools|brand|official-bundles|deque|output-retention|package-manifest|typert-protocol|util-crypto|util-time|util-values|util-workspace-path)(?:\/|$)|@janhq\/jan-util-file-drag$|@janhq\/jan-token-meter\/client$|@janhq\/jan-commands\/builtin$|@janhq\/jan-native-command\/types$|@janhq\/jan-host-open-in-app\/shared$|@janhq\/jan-plugin-manager\/registry$|@janhq\/jan-agent-preset-registry\/display$|@janhq\/jan-api-workspace-controller\/default-workspace$|@janhq\/jan-spill-policy\/notice$)/
+export const INLINE_SAFE = /^(?:@janhq\/jan-(?:file-reference|fs-patch|session|llm|tools|brand|official-bundles|deque|output-retention|package-manifest|typert-protocol|util-crypto|util-time|util-values|util-workspace-path)(?:\/|$)|@janhq\/jan-util-file-drag$|@janhq\/jan-token-meter\/client$|@janhq\/jan-commands\/builtin$|@janhq\/jan-native-command\/types$|@janhq\/jan-host-open-in-app\/shared$|@janhq\/jan-plugin-manager\/registry$|@janhq\/jan-agent-preset-registry\/display$|@janhq\/jan-api-workspace-controller\/default-workspace$|@janhq\/jan-spill-policy\/notice$|@janhq\/jan-tool-present\/types$)/
 
 /**
  * Vendored framework libraries: rescoped into @janhq, so the gate below
