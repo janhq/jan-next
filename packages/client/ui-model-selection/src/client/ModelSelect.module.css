@@ -92,7 +92,6 @@
 /* The body portal escapes overflow ancestors. CSS anchors keep the card above
    its trigger; layout viewport bounds do not shrink during pinch zoom. */
 .menu {
-  anchor-name: var(--jan-model-menu-anchor);
   box-sizing: border-box;
   position: fixed;
   position-anchor: var(--jan-model-anchor);
@@ -192,7 +191,7 @@
   flex-shrink: 0;
   margin: 2px 0 4px;
   padding-bottom: 4px;
-  border-bottom: 1px solid var(--dsw-alias-border-l1);
+  border-bottom: 0.5px solid var(--dsw-alias-border-l1);
 }
 
 .searchRow .search {
@@ -418,7 +417,7 @@
   flex-direction: column;
   margin-top: 4px;
   padding-top: 4px;
-  border-top: 1px solid var(--dsw-alias-border-l1);
+  border-top: 0.5px solid var(--dsw-alias-border-l1);
 }
 
 .footer:empty {
