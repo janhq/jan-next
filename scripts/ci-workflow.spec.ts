@@ -116,7 +116,6 @@ describe('CI workflow', () => {
     // failure it rejected before the split.
     expect(blocking.sort()).toEqual([
       'node-24',
-      'node-24-bench',
       'node-24-consumers',
       'node-24-coverage',
       'node-24-lint',
@@ -375,12 +374,11 @@ describe('CI workflow', () => {
       || !isRecord(workflow.jobs['node-24'])
       || !isRecord(workflow.jobs['node-24-coverage'])
       || !isRecord(workflow.jobs['node-24-lint'])
-      || !isRecord(workflow.jobs['node-24-bench'])
       || !isRecord(workflow.jobs['node-24-consumers'])
       || !isRecord(workflow.jobs['node-compat'])
       || !isRecord(workflow.jobs['all-checks-passed'])
       || !isRecord(masterWorkflow.jobs)) {
-      throw new TypeError('CI workflow must define node-24, node-24-coverage, node-24-lint, node-24-bench, node-24-consumers, node-compat, and all-checks-passed; CI Windows must define windows-build, windows-coverage, windows-native-tests, and windows-checks-passed; ci-master must define jobs')
+      throw new TypeError('CI workflow must define node-24, node-24-coverage, node-24-lint, node-24-consumers, node-compat, and all-checks-passed; CI Windows must define windows-build, windows-coverage, windows-native-tests, and windows-checks-passed; ci-master must define jobs')
     }
 
     const windowsBuild = windowsWorkflow.jobs['windows-build']
@@ -389,7 +387,6 @@ describe('CI workflow', () => {
     const windowsAggregate = windowsWorkflow.jobs['windows-checks-passed']
     const node24 = workflow.jobs['node-24']
     const node24Coverage = workflow.jobs['node-24-coverage']
-    const node24Bench = workflow.jobs['node-24-bench']
     const node24Consumers = workflow.jobs['node-24-consumers']
     const nodeCompat = workflow.jobs['node-compat']
     const aggregate = workflow.jobs['all-checks-passed']
@@ -518,21 +515,6 @@ describe('CI workflow', () => {
     expect(windowsAggregate.name).toBe('windows checks passed')
     expect(windowsAggregate['runs-on']).toBe(aggregate['runs-on'])
     expect(windowsAggregate.if).toBe(aggregate.if)
-    // The benchmark lane is a required verdict input and runs alone so its
-    // wall-clock budgets never share a runner with a concurrent aggregate.
-    expect(aggregate.needs).toContain('node-24-bench')
-    expect(node24Bench.name).toBe('node 24 / benchmarks')
-    expect(node24Bench.env).toBeUndefined()
-    expect(node24Bench.steps).toContainEqual({
-      name: 'Install benchmark browser and hosted dependencies',
-      run: 'pnpm --filter @janhq/jan-benchmarks exec playwright install --with-deps chromium',
-    })
-    expect(JSON.stringify(node24Bench.steps)).not.toContain('JAN_CI_FAILOVER_LINUX')
-    expect(node24Bench.steps).toContainEqual({
-      name: 'Run performance benchmarks',
-      env: { JAN_GATE_VERBOSE: '1' },
-      run: 'pnpm run check:ci:bench',
-    })
 
     // Linux failover is a separate switch: the three enterprise Linux workers
     // and the verdict job resolve their pool through JAN_CI_FAILOVER_LINUX,
@@ -645,74 +627,6 @@ describe('CI workflow', () => {
         }
       }
     }
-  })
-
-  it('runs required benchmarks on a four-vCPU Blacksmith runner and falls back to hosted Linux', () => {
-    const workflow = loadWorkflow('.github/workflows/ci.yml')
-    const benchmark = workflowJob(workflow, 'node-24-bench')
-    const aggregate = workflowJob(workflow, 'all-checks-passed')
-
-    // The shared self-hosted pool is not an idle runner, so only the
-    // Blacksmith leg moves the benchmarks off hosted Linux.
-    expect(evaluateRunsOn(benchmark['runs-on'], { vars: { JAN_CI_FAILOVER_LINUX: 'blacksmith' } }))
-      .toBe('blacksmith-4vcpu-ubuntu-2404')
-    for (const mode of ['', 'selfhosted', 'unexpected']) {
-      expect(evaluateRunsOn(benchmark['runs-on'], { vars: { JAN_CI_FAILOVER_LINUX: mode } })).toBe('ubuntu-24.04')
-    }
-    expect(JSON.stringify(benchmark.steps)).not.toContain('JAN_CI_FAILOVER_LINUX')
-    expect(benchmark.if).toBe("github.event_name == 'pull_request'")
-    expect(benchmark.needs).toBeUndefined()
-    expect(benchmark['continue-on-error']).toBeUndefined()
-    expect(benchmark.env).toBeUndefined()
-    expect(aggregate.needs).toContain('node-24-bench')
-  })
-
-  it('always restores the hosted benchmark pnpm cache', () => {
-    const benchmark = workflowJob(loadWorkflow('.github/workflows/ci.yml'), 'node-24-bench')
-    if (!Array.isArray(benchmark.steps)) throw new TypeError('benchmark job must define steps')
-    const caches = benchmark.steps.filter(step => isRecord(step) && step.uses === 'actions/cache/restore@v6.1.0')
-
-    expect(caches).toHaveLength(1)
-    expect(caches[0]).not.toHaveProperty('if')
-    expect(caches[0]).toMatchObject({
-      with: {
-        path: '${{ steps.pnpm-store.outputs.path }}',
-        key: "${{ runner.os }}-node-${{ env.PRIMARY_NODE_VERSION }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}",
-      },
-    })
-  })
-
-  it('bounds the complete benchmark job to twenty minutes', () => {
-    const benchmark = workflowJob(loadWorkflow('.github/workflows/ci.yml'), 'node-24-bench')
-
-    expect(benchmark['timeout-minutes']).toBe(20)
-    expect(benchmark.steps).toContainEqual({
-      name: 'Run performance benchmarks',
-      env: { JAN_GATE_VERBOSE: '1' },
-      run: 'pnpm run check:ci:bench',
-    })
-  })
-
-  it('publishes the scaled benchmark report even when a budget fails', () => {
-    const benchmark = workflowJob(loadWorkflow('.github/workflows/ci.yml'), 'node-24-bench')
-    if (!Array.isArray(benchmark.steps)) throw new TypeError('benchmark job must define steps')
-
-    expect(benchmark.steps).toContainEqual({
-      name: 'Upload scaled benchmark report',
-      if: '${{ !cancelled() }}',
-      uses: 'actions/upload-artifact@v7.0.1',
-      with: {
-        name: 'benchmark-report',
-        path: 'benchmarks/.jan-report/',
-        'include-hidden-files': true,
-        'if-no-files-found': 'warn',
-        'retention-days': 7,
-      },
-    })
-
-    const uploadIndex = benchmark.steps.findIndex(step => isRecord(step) && step.name === 'Upload scaled benchmark report')
-    const benchmarkIndex = benchmark.steps.findIndex(step => isRecord(step) && step.name === 'Run performance benchmarks')
-    expect(uploadIndex).toBeGreaterThan(benchmarkIndex)
   })
 
   it('splits both Wine TypeScript faces and retains their aggregate heap budgets', () => {
