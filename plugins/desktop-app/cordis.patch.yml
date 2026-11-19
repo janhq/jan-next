@@ -2,6 +2,14 @@
 # desktop profile template. Only the desktop app mounts these rows; the plain
 # web profile keeps the stock shell.
 
+# Desktop Search includes chat messages. Keep the index in the local Host's
+# memory and build it on the first search, not at startup. The plain Web
+# profile avoids the indexing cost and keeps content search opt-in.
+- id: session-query-sqlite
+  config:
+    path: ':memory:'
+    openAt: first-search
+
 # The stock empty composer asks what to build; this is a chat app.
 - id: ui-conversation
   config:
