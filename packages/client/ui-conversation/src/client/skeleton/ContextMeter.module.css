@@ -176,6 +176,89 @@
   color: var(--dsw-alias-label-primary);
 }
 
+/* What the Session runs with: one expandable row per kind, its names listed below. */
+.inventory {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--dsw-alias-border-l2);
+}
+
+.inventoryTitle {
+  margin-bottom: 2px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.inventoryRow summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  margin: 0 -4px;
+  border-radius: var(--dsw-radius-sm);
+  list-style: none;
+  cursor: pointer;
+}
+
+.inventoryRow summary::-webkit-details-marker {
+  display: none;
+}
+
+@media (hover: hover) {
+  .inventoryRow summary:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
+}
+
+.chevron {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  color: var(--dsw-alias-label-tertiary);
+  transition: transform 120ms ease;
+}
+
+.inventoryRow[open] .chevron {
+  transform: rotate(90deg);
+}
+
+.inventoryLabel {
+  flex: 1;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.inventoryCount {
+  font-variant-numeric: tabular-nums;
+  color: var(--dsw-alias-label-primary);
+}
+
+.inventoryList {
+  margin: 0 0 4px;
+  padding: 0 0 0 18px;
+  list-style: none;
+  max-height: 160px;
+  overflow-y: auto;
+  color: var(--dsw-alias-label-tertiary);
+  overflow-wrap: anywhere;
+}
+
+.inventoryEmpty {
+  margin: 0 0 4px;
+  padding-left: 18px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* Where a skill or MCP tool comes from, read before its name. */
+.origin {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 4px;
+  border-radius: var(--dsw-radius-xs, 3px);
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-secondary);
+  font-size: 11px;
+  line-height: 16px;
+}
+
 @position-try --jan-context-window {
   position-area: none;
   top: max(12px, var(--jan-frame-overlay-top, 12px));
