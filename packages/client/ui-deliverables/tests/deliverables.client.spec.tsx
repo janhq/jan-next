@@ -63,6 +63,7 @@ function openProps(controller = new PresentedOpenController(), summaries = new C
     openPresented: vi.fn((...args: Parameters<PresentedOpenController['open']>) => controller.open(...args)),
     openChanged: vi.fn((...args: Parameters<PresentedOpenController['openChanged']>) => controller.openChanged(...args)),
     openChangesReview: vi.fn<DeliverablesInjected['openChangesReview']>(),
+    readPresented: vi.fn<DeliverablesInjected['readPresented']>(() => new Promise(() => {})),
     usePresentedOpen: <T,>(select: (state: ReturnType<typeof controller.state.getSnapshot>) => T): T =>
       select(controller.state.getSnapshot()),
   }
@@ -1142,6 +1143,35 @@ it('loads desktop information once the tail renders and not again while it is kn
   controller.host.set({ name: 'desktop', available: true, fileManager: 'finder' })
   view.rerender(<Deliverables {...shared} matched={{ changes: null, presented: [{ path: 'report.txt', seq: 2, index: 0 }] }} />)
   expect(props.reloadPresentedHost).toHaveBeenCalledOnce()
+})
+
+it('shows a lone delivered image or page inline, and nothing for two files, other types or a refused read', async () => {
+  vi.stubGlobal('URL', Object.assign(Object.create(URL) as typeof URL, { createObjectURL: () => 'blob:preview', revokeObjectURL: vi.fn() }))
+  const props = openProps()
+  const opened: string[] = []
+  const readPresented = vi.fn<DeliverablesInjected['readPresented']>(async () => ({ ok: true, value: { data: new Uint8Array([60]) } }) as never)
+  const shared = { ...props, readPresented, openFile: (path: string) => { opened.push(path) }, sessionId: SessionId('session'), t: makeTranslate(en) }
+  const view = render(<Deliverables {...shared} matched={{ changes: null, presented: [{ path: 'chart.svg', seq: 2, index: 0 }] }} />)
+  fireEvent.click(await view.findByRole('button', { name: 'Preview chart.svg in sidebar' }))
+  expect(view.getByRole('img', { name: 'Preview of chart.svg' })).toBeTruthy()
+  expect(opened).toEqual(['chart.svg'])
+
+  view.rerender(<Deliverables {...shared} matched={{ changes: null, presented: [{ path: 'page.html', seq: 3, index: 0 }] }} />)
+  const frame = await view.findByTitle('Preview of page.html')
+  // Scripts run, but in an opaque origin with no access to the app.
+  expect(frame.getAttribute('sandbox')).toBe('allow-scripts')
+
+  readPresented.mockClear()
+  view.rerender(<Deliverables {...shared} matched={{ changes: null, presented: [{ path: 'a.svg', seq: 4, index: 0 }, { path: 'b.svg', seq: 4, index: 1 }] }} />)
+  view.rerender(<Deliverables {...shared} matched={{ changes: null, presented: [{ path: 'notes.md', seq: 5, index: 0 }] }} />)
+  expect(readPresented).not.toHaveBeenCalled()
+  expect(view.container.querySelector('[data-presented-inline]')).toBeNull()
+
+  readPresented.mockResolvedValue({ ok: false, error: { code: 'workspace-file/not-found' } } as never)
+  view.rerender(<Deliverables {...shared} matched={{ changes: null, presented: [{ path: 'gone.png', seq: 6, index: 0 }] }} />)
+  await vi.waitFor(() => { expect(readPresented).toHaveBeenCalledOnce() })
+  expect(view.container.querySelector('[data-presented-inline]')).toBeNull()
+  expect(view.getByText('gone.png')).toBeTruthy()
 })
 
 it('contributes file artifacts to the tail list only for turns with deliveries', () => {
