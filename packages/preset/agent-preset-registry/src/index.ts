@@ -34,6 +34,7 @@ interface Generation {
   scope: Scope
   key: ScopeKey
   mount: PresetMount
+  readonly readOnlyDelegation: boolean
   users: number
   retired: boolean
 }
@@ -123,6 +124,22 @@ export class AgentPresetRegistry extends TypertRemoteService {
     return { ...record.config, plugins: [...record.config.plugins] }
   }
 
+  /** Read one preset's description without copying its plugin tree.
+   * @param id Preset identity.
+   * @returns The description, or undefined if the preset has none or is unknown.
+   */
+  descriptionFor(id: string): string | undefined {
+    return this.definitions.get(id)?.config.description
+  }
+
+  /** Check the preset revision retained by an agent's scope.
+   * @param ctx The agent's scoped context.
+   * @returns Whether that revision requires read-only delegation.
+   */
+  requiresReadOnlyDelegation(ctx: Context): boolean {
+    return this.generationFor(ctx)?.readOnlyDelegation === true
+  }
+
   /** Register and eagerly load a definition; activation failure remains visible in the roster.
    * @param definition Parsed configuration supplied by the declaring plugin.
    * @returns Definition disposer after activation or its diagnostic settles; the declaring plugin owns it.
@@ -156,8 +173,15 @@ export class AgentPresetRegistry extends TypertRemoteService {
       const problem = entryListProblem(record.config.plugins)
       if (problem !== undefined) throw new Error(problem)
       const context = scope.ctx.extend({ baseUrl: record.context.baseUrl })
+      if (record.config.toolAllowlist !== undefined) {
+        const tools = context.get('tools')
+        if (tools === undefined) throw new Error('a preset tool allowlist requires the tools service')
+        tools.restrict({ allow: record.config.toolAllowlist }, { allowUnregistered: true })
+      }
       const mount = await mountPreset(context, record.config.id, record.config.plugins)
-      const generation: Generation = { scope, key, mount, users: 0, retired: false }
+      const generation: Generation = {
+        scope, key, mount, readOnlyDelegation: record.config.readOnlyDelegation === true, users: 0, retired: false,
+      }
       context.effect(() => {
         this.generations.set(key, generation)
         return () => { this.generations.delete(key) }
