@@ -11,6 +11,7 @@ const SPEECH_FILES = [
   ['silero/silero_vad.onnx', 'Silero voice detection model'],
 ] as const
 
+/** One deletable cache entry of the Downloads inventory. */
 export interface StoredCache {
   readonly item: StoredDownload
   delete(): Promise<void>
@@ -31,7 +32,12 @@ async function owned(path: string) {
   return await ifPresent(lstat(path))
 }
 
-/** List cached files that remain on disk even when the optional voice bundle is disabled. */
+/**
+ * List cached files that remain on disk even when the optional voice bundle is disabled.
+ * @param home - Jan data folder.
+ * @param inUse - reason deletion is refused while speech input runs.
+ * @returns the cached speech model files.
+ */
 export async function speechCaches(home: string, inUse?: string): Promise<StoredCache[]> {
   const root = await ifPresent(realpath(home))
   if (root === undefined) return []
@@ -61,6 +67,12 @@ export interface RepositoryCacheOwner {
   deleteDownloadCache(repository: string, remove: () => Promise<void>): Promise<void>
 }
 
+/**
+ * List the plugin market's fetched Git repositories inside the Jan data folder.
+ * @param home - Jan data folder.
+ * @param owner - the market service that owns the repositories.
+ * @returns one entry per cached repository.
+ */
 export async function repositoryCaches(home: string, owner: RepositoryCacheOwner): Promise<StoredCache[]> {
   const rel = relative(home, owner.downloadCacheDirectory)
   if (rel === '' || rel === '..' || rel.startsWith(`..${sep}`) || join(home, rel) !== owner.downloadCacheDirectory) return []
