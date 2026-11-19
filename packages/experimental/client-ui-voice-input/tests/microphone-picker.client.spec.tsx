@@ -19,7 +19,8 @@ beforeEach(() => {
 })
 afterEach(() => { cleanup(); localStorage.clear(); vi.unstubAllGlobals() })
 
-function fixture() {
+/** Most cases exercise an active preview, so the fixture starts the microphone test unless `testing` is false. */
+function fixture({ testing = true }: { testing?: boolean } = {}) {
   const audio = captureFixture(), selection = createMicrophoneDeviceStore()
   const enumerateDevices = vi.fn(async () => [
     { kind: 'audioinput', deviceId: 'default', label: 'Default' },
@@ -38,7 +39,11 @@ function fixture() {
       return capture
     } }
   const view = render(<MicrophonePicker {...props} />)
+  if (testing) startTest()
   return { ...audio, ...view, media, enumerateDevices, recordings, props, selection }
+}
+function startTest(): void {
+  fireEvent.click(screen.getByRole('button', { name: zh.startPreview }))
 }
 function selector(): HTMLSelectElement {
   return screen.getByRole<HTMLSelectElement>('combobox', { name: zh.inputDevice })
@@ -75,6 +80,20 @@ it('captures while the page is active, keeps the meter through field blur, and r
   } finally { b.unmount(); await Promise.all(b.recordings.map(recording => recording.dispose())) }
 })
 
+it('asks for the microphone only after the test starts and releases it when the test stops', async () => {
+  const b = fixture({ testing: false })
+  try {
+    await screen.findByRole('option', { name: 'USB microphone' })
+    expect(b.getUserMedia).not.toHaveBeenCalled()
+    startTest()
+    await waitForPreview()
+    expect(b.getUserMedia).toHaveBeenCalledOnce()
+    fireEvent.click(screen.getByRole('button', { name: zh.stopPreview }))
+    await waitFor(() => { expect(screen.queryByRole('img', { name: zh.inputLevel })).toBeNull() })
+    expect(b.trackStop).toHaveBeenCalledOnce()
+  } finally { b.unmount(); await Promise.all(b.recordings.map(recording => recording.dispose())) }
+})
+
 it('releases a permission grant arriving after the page closes', async () => {
   const b = fixture(), granted = Promise.withResolvers<typeof b.stream>()
   b.getUserMedia.mockReturnValueOnce(granted.promise)
@@ -93,16 +112,17 @@ it('keeps device choices available after permission denial', async () => {
   try {
     await screen.findByText(zh.permission)
     fireEvent.change(selector(), { target: { value: 'usb' } })
+    await waitFor(() => { expect(screen.queryByText(zh.permission)).toBeNull() })
+    startTest()
     await screen.findByRole('img', { name: zh.inputLevel })
-    expect(screen.queryByText(zh.permission)).toBeNull()
   } finally { b.unmount(); await Promise.all(b.recordings.map(recording => recording.dispose())) }
 })
 
 it('clears a failed preview error when choosing another device with preview off', async () => {
-  const b = fixture()
+  const b = fixture({ testing: false })
   b.getUserMedia.mockRejectedValueOnce(new DOMException('denied', 'NotAllowedError'))
   try {
-    fireEvent.click(screen.getByRole('button', { name: zh.startPreview }))
+    startTest()
     await screen.findByText(zh.permission)
     expect(screen.queryByRole('img', { name: zh.inputLevel })).toBeNull()
     fireEvent.change(selector(), { target: { value: 'usb' } })
@@ -395,6 +415,7 @@ it('persists raw unnamed labels and translates a retained permission failure', a
     await act(async () => { b.media.dispatchEvent(new Event('devicechange')) })
     await screen.findByRole('option', { name: '麦克风 1' })
     fireEvent.change(selector(), { target: { value: 'unnamed' } })
+    startTest()
     await screen.findByText(zh.permission)
     expect(b.selection.getSnapshot()).toEqual({ id: 'unnamed', label: '' })
     const acquisitions = b.getUserMedia.mock.calls.length

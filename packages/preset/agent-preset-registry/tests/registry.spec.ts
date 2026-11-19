@@ -330,6 +330,29 @@ it('reports busy only when other work owns the Agent and keeps a failed swap cau
   await expect(ctx.agentPresets.select(agent, 'minimal')).rejects.toThrow('log append failed')
 })
 
+it('reads a registered definition as a copy and rejects an unknown identity', async () => {
+  const ctx = await setup()
+  await declare(ctx, contribution('standard'))
+  const definition = ctx.agentPresets.definitionFor('standard')
+  expect(definition).toMatchObject(contribution('standard'))
+  expect(ctx.agentPresets.definitionFor('standard').plugins).not.toBe(definition.plugins)
+  expect(() => ctx.agentPresets.definitionFor('absent')).toThrow(expect.objectContaining({
+    code: 'agent-preset/not-found', message: 'Unknown agent preset: absent',
+  }))
+})
+
+it('switches inside the creation maintenance that awaits an agent/created listener', async () => {
+  const ctx = await setup()
+  await declare(ctx, contribution('standard'))
+  await declare(ctx, contribution('minimal'))
+  const selected: string[] = []
+  ctx.on('agent/created', async ({ agent }) => { selected.push(await ctx.agentPresets.select(agent, 'minimal')) })
+  const agent = await agentOn(ctx, 'created-switch')
+  expect(selected).toEqual(['minimal'])
+  expect(ctx.sessionProjections.checkpoint(agent.session).agentPreset?.val).toBe('minimal')
+  expect(ctx.tools.schemas(agent).map(row => row.name)).toEqual(['minimal'])
+})
+
 it('retains a newly acquired generation when a previous activation is replaced', async () => {
   const ctx = await setup()
   let release!: () => void

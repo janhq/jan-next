@@ -157,8 +157,7 @@
           tokamak:
             displayName: Tokamak
             api: openai-completions
-            # Same normalization as the account row: a bare host gets /v1.
-            baseURL: !!js (process.env.TOKAMAK_BASE_URL || 'https://api.tokamak.sh/v1').trim().replace(/\/+$/, '').replace(/^(https?:\/\/[^/]+)$/, '$1/v1')
+            baseURL: https://api.tokamak.sh/v1
             apiKeyEnv: TOKAMAK_API_KEY
             # Used only for a listed model whose listing reports no context_length.
             defaultContextWindow: 200000

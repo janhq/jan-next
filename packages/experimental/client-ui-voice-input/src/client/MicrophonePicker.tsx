@@ -39,6 +39,7 @@ export function MicrophonePicker({ useMicrophoneDevice, selectMicrophone, create
   ])
   const [preview, setPreview] = useState<Recording>(), [error, setError] = useState<{ failure: unknown }>()
   const [previewEnabled, setPreviewEnabled] = useState(false)
+  useEffect(() => { setError(undefined) }, [selected.id])
   useEffect(() => {
     const media = (navigator as Partial<Navigator>).mediaDevices
     const lifetime = new AbortController()
@@ -48,7 +49,8 @@ export function MicrophonePicker({ useMicrophoneDevice, selectMicrophone, create
       capture = undefined
     }
     setPreview(undefined)
-    setError(undefined)
+    // A failed test turns the preview off; that rerun keeps its failure visible.
+    if (previewEnabled) setError(undefined)
     const fail = (failure: unknown): void => {
       if (lifetime.signal.aborted) return
       setError({ failure })
