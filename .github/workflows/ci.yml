@@ -214,6 +214,8 @@ jobs:
       # Shared hosts expose host CPUs, not an isolated allocation.
       JAN_GATE_CONCURRENCY: ${{ vars.JAN_CI_FAILOVER_LINUX == 'selfhosted' && github.event.pull_request.user.login != 'dependabot[bot]' && '8' || '' }}
       JAN_OXLINT_THREADS: ${{ vars.JAN_CI_FAILOVER_LINUX == 'selfhosted' && github.event.pull_request.user.login != 'dependabot[bot]' && '8' || '' }}
+      # Type-aware oxlint (Go tsgolint) peaks near 9 GB RSS uncapped, past a 7 GB hosted runner; 4 GiB keeps it near 5.6 GB.
+      GOMEMLIMIT: 4GiB
     steps:
       # Runner cleanup owns tool caches and fixtures, including cancelled runs.
       - name: Use runner-owned temporary storage
