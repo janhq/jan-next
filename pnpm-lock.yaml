@@ -18546,6 +18546,124 @@ importers:
 
   vendor/cosmokit: {}
 
+  vendor/dsh-superagent:
+    dependencies:
+      proper-lockfile:
+        specifier: 4.1.2
+        version: 4.1.2
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:@janhq/cordis@*
+        version: link:../cordis
+      '@deepseek-ai/dsh-agent':
+        specifier: workspace:@janhq/jan-agent@*
+        version: link:../../packages/core/agent
+      '@deepseek-ai/dsh-api-session-controller':
+        specifier: workspace:@janhq/jan-api-session-controller@*
+        version: link:../../packages/api/session-controller
+      '@deepseek-ai/dsh-attachment':
+        specifier: workspace:@janhq/jan-attachment@*
+        version: link:../../packages/attachment/attachment
+      '@deepseek-ai/dsh-client-locale':
+        specifier: workspace:@janhq/jan-client-locale@*
+        version: link:../../packages/client/locale
+      '@deepseek-ai/dsh-client-ui-layout':
+        specifier: workspace:@janhq/jan-client-ui-layout@*
+        version: link:../../packages/client/ui-layout
+      '@deepseek-ai/dsh-client-ui-plugin-manager':
+        specifier: workspace:@janhq/jan-client-ui-plugin-manager@*
+        version: link:../../packages/client/ui-plugin-manager
+      '@deepseek-ai/dsh-client-ui-renderer':
+        specifier: workspace:@janhq/jan-client-ui-renderer@*
+        version: link:../../packages/client/ui-renderer
+      '@deepseek-ai/dsh-client-ui-settings':
+        specifier: workspace:@janhq/jan-client-ui-settings@*
+        version: link:../../packages/client/ui-settings
+      '@deepseek-ai/dsh-client-ui-sidebar':
+        specifier: workspace:@janhq/jan-client-ui-sidebar@*
+        version: link:../../packages/client/ui-sidebar
+      '@deepseek-ai/dsh-client-ui-slots':
+        specifier: workspace:@janhq/jan-client-ui-slots@*
+        version: link:../../packages/client/ui-slots
+      '@deepseek-ai/dsh-client-ui-workspace':
+        specifier: workspace:@janhq/jan-client-ui-workspace@*
+        version: link:../../packages/client/ui-workspace
+      '@deepseek-ai/dsh-host-webserver':
+        specifier: workspace:@janhq/jan-host-webserver@*
+        version: link:../../packages/host/webserver
+      '@deepseek-ai/dsh-llm':
+        specifier: workspace:@janhq/jan-llm@*
+        version: link:../../packages/llm/llm
+      '@deepseek-ai/dsh-permission-presets':
+        specifier: workspace:@janhq/jan-permission-presets@*
+        version: link:../../packages/interaction/permission-presets
+      '@deepseek-ai/dsh-scope':
+        specifier: workspace:@janhq/jan-scope@*
+        version: link:../../packages/core/scope
+      '@deepseek-ai/dsh-session':
+        specifier: workspace:@janhq/jan-session@*
+        version: link:../../packages/core/session
+      '@deepseek-ai/dsh-session-persistence':
+        specifier: workspace:@janhq/jan-session-persistence@*
+        version: link:../../packages/session/session-persistence
+      '@deepseek-ai/dsh-settings':
+        specifier: workspace:@janhq/jan-settings@*
+        version: link:../../packages/settings/settings
+      '@deepseek-ai/dsh-skill':
+        specifier: workspace:@janhq/jan-skill@*
+        version: link:../../packages/skill/skill
+      '@deepseek-ai/dsh-subprocess':
+        specifier: workspace:@janhq/jan-subprocess@*
+        version: link:../../packages/subprocess/subprocess
+      '@deepseek-ai/dsh-system-prompt':
+        specifier: workspace:@janhq/jan-system-prompt@*
+        version: link:../../packages/core/system-prompt
+      '@deepseek-ai/dsh-tools':
+        specifier: workspace:@janhq/jan-tools@*
+        version: link:../../packages/core/tools
+      '@deepseek-ai/dsh-workspace':
+        specifier: workspace:@janhq/jan-workspace@*
+        version: link:../../packages/workspace/workspace
+      '@deepseek-ai/schemastery':
+        specifier: workspace:@janhq/schemastery@*
+        version: link:../schemastery
+      '@types/jsdom':
+        specifier: ^28.0.3
+        version: 28.0.3
+      '@types/node':
+        specifier: ^22.20.1
+        version: 22.20.1
+      '@types/proper-lockfile':
+        specifier: 4.1.4
+        version: 4.1.4
+      '@types/react':
+        specifier: ~18.3.1
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: ~18.3.0
+        version: 18.3.7(@types/react@18.3.31)
+      jsdom:
+        specifier: 29.1.1
+        version: 29.1.1(@noble/hashes@2.4.0)
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.2.0
+        version: 18.3.1(react@18.3.1)
+      tsdown:
+        specifier: 0.22.2
+        version: 0.22.2(oxc-resolver@11.20.0)(publint@0.3.24)(tsx@4.23.13)(typescript@6.0.3)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(@vitest/coverage-v8@4.1.11)(happy-dom@20.11.6)(jsdom@29.1.1(@noble/hashes@2.4.0))(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
+
   vendor/group:
     dependencies:
       '@janhq/cordis':
@@ -21728,6 +21846,9 @@ packages:
 
   '@types/prop-types@15.7.15':
     resolution: {integrity: sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw==}
+
+  '@types/proper-lockfile@4.1.4':
+    resolution: {integrity: sha512-uo2ABllncSqg9F1D4nugVl9v93RmjxF6LJzQLMLDdPaXCUIDPeOJ21Gbqi43xNKzBi/WQ0Q0dICqufzQbMjipQ==}
 
   '@types/qs@6.15.1':
     resolution: {integrity: sha512-GZHUBZR9hckSUhrxmp1nG6NwdpM9fCunJwyThLW1X3AyHgd9IlHb6VANpQQqDr2o/qQp6McZ3y/IA2rVzKzSbw==}
@@ -29175,7 +29296,7 @@ snapshots:
 
   '@types/node-fetch@2.6.13':
     dependencies:
-      '@types/node': 22.20.1
+      '@types/node': 26.4.1
       form-data: 4.0.6
 
   '@types/node@14.18.63': {}
@@ -29209,6 +29330,10 @@ snapshots:
   '@types/picomatch@4.0.3': {}
 
   '@types/prop-types@15.7.15': {}
+
+  '@types/proper-lockfile@4.1.4':
+    dependencies:
+      '@types/retry': 0.12.0
 
   '@types/qs@6.15.1': {}
 
@@ -33016,7 +33141,7 @@ snapshots:
       '@protobufjs/path': 1.1.2
       '@protobufjs/pool': 1.1.0
       '@protobufjs/utf8': 1.1.1
-      '@types/node': 22.20.1
+      '@types/node': 26.4.1
       long: 5.3.2
 
   proxy-addr@2.0.8:
