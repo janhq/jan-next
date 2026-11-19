@@ -58,7 +58,18 @@ type Phase =
     lastTurn: number
     wakeRequested: boolean
   }
-  | { kind: 'running'; abort: AbortController; turn: number; step: number; wakeRequested: boolean }
+  | {
+    kind: 'running'
+    abort: AbortController
+    /**
+     * Raised by steering while a step is in flight; armed when the step
+     * starts, so steering that arrives before then simply waits for that step.
+     */
+    yielding?: AbortController
+    turn: number
+    step: number
+    wakeRequested: boolean
+  }
 
 type StepEndReason = Extract<TurnEndReason, { kind: 'completed' | 'max-tokens' }>
 
@@ -182,6 +193,9 @@ export class ReactLoopAgent implements Agent {
 
   steer(input: UserMessage): void {
     this.send(input, 'next-step', true)
+    // The step in flight claimed its input before this message: ask it to
+    // yield so the message lands now instead of after its stream and tools.
+    if (this.phase.kind === 'running' && !this.phase.abort.signal.aborted) this.phase.yielding?.abort()
   }
 
   inject(input: UserMessage): void {
@@ -438,7 +452,25 @@ export class ReactLoopAgent implements Agent {
   private async step(decision: Extract<PreparedStep, { kind: 'enter' }>): Promise<StepEndReason | null> {
     /* v8 ignore next -- private callers establish the running phase before executing a step */
     if (this.phase.kind !== 'running') throw new Error(`agent "${this.id}": step outside running phase`)
+    const yielding = new AbortController()
+    this.phase.yielding = yielding
     const { turn, step, abort: { signal } } = this.phase
+    const yielded = yielding.signal
+    try {
+      return await this.stepUnderYield(decision, turn, step, signal, yielded)
+    } finally {
+      // oxlint-disable-next-line typescript/no-unnecessary-condition -- the phase can change while the step is awaited.
+      if (this.phase.kind === 'running' && this.phase.yielding === yielding) delete this.phase.yielding
+    }
+  }
+
+  private async stepUnderYield(
+    decision: Extract<PreparedStep, { kind: 'enter' }>,
+    turn: number,
+    step: number,
+    signal: AbortSignal,
+    yielded: AbortSignal,
+  ): Promise<StepEndReason | null> {
     signal.throwIfAborted()
 
     const { assembly } = decision
@@ -504,17 +536,40 @@ export class ReactLoopAgent implements Agent {
       try {
         const stream = preparedCall?.stream(request) ?? this.loopCtx.llm.stream(request)
         signal.throwIfAborted()
+        yielded.throwIfAborted()
         live.start()
         started = true
-        for await (const chunk of stream) {
-          signal.throwIfAborted()
-          live.push(chunk)
+        // A steer ends this request early, even mid-thought with no chunk in
+        // flight; leaving the loop returns the iterator, which closes the
+        // request. The turn's own signal stays live, so the step closes and
+        // the next one carries the steered input.
+        const iterator = stream[Symbol.asyncIterator]()
+        const yieldGate = new Promise<'yielded'>((resolve) => {
+          if (yielded.aborted) resolve('yielded')
+          else yielded.addEventListener('abort', () => { resolve('yielded') }, { once: true })
+        })
+        try {
+          while (true) {
+            const next = await Promise.race([iterator.next(), yieldGate])
+            if (next === 'yielded') yielded.throwIfAborted()
+            else if (next.done === true) break
+            else {
+              signal.throwIfAborted()
+              live.push(next.value)
+            }
+          }
+        } finally {
+          if (yielded.aborted) void iterator.return?.().catch(() => {})
         }
         signal.throwIfAborted()
       } catch (error: unknown) {
-        if (!started) throw error
+        const yieldedOnly = yielded.aborted && !signal.aborted
+        if (!started) {
+          if (yieldedOnly) return null
+          throw error
+        }
         try {
-          if (signal.aborted) {
+          if (signal.aborted || yieldedOnly) {
             const content = live.interruptedBlocks()
             if (content.length > 0) {
               live.settle('assistant/message', () => this.session.append('assistant/message', {
@@ -529,6 +584,7 @@ export class ReactLoopAgent implements Agent {
                   },
                 }),
                 interrupted: true,
+                ...yieldedOnly ? { steered: true as const } : {},
                 ...live.usage === undefined ? {} : { usage: live.usage },
                 stream: live.stream,
               }, { surfaceOp: 'append' }).seq)
@@ -551,6 +607,7 @@ export class ReactLoopAgent implements Agent {
             { cause: error },
           )
         }
+        if (yieldedOnly) return null
         throw error
       }
       try {
@@ -608,7 +665,7 @@ export class ReactLoopAgent implements Agent {
         const maxParallelToolCalls = this.loopCtx.agentLoop.config.maxParallelToolCalls.get()
         try {
           const result = await this.loopCtx.tools.execute({
-            calls: toolCalls, signal, agent: this, log: { turn, step },
+            calls: toolCalls, signal, yieldSignal: yielded, agent: this, log: { turn, step },
             maxParallelToolCalls, toolSet: decision.toolSet,
           })
           for (const context of result.additionalContexts) {
