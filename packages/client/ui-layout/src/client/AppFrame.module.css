@@ -92,6 +92,16 @@
   background: transparent;
 }
 
+/* The window's chrome row on macOS (Jan Desktop v04, "Chat + Cowork"): the
+   traffic lights, the sidebar toggle, the shell.leading controls and the
+   conversation title row share one centre line at y 38 (23px inset + the
+   30px title row / 2). Fullscreen hides the lights and the row returns to the
+   10px inset every other platform uses. Consumers read it with a 10px
+   fallback (ui-conversation header, ui-sidebar strip, jan-theme). */
+:global(html[data-platform='darwin']:not([data-fullscreen])) {
+  --jan-frame-title-inset: 23px;
+}
+
 /* The constant step below the window's top strip (traffic lights, sidebar
    toggle, shell.leading controls), the same in both sidebar states. Entry
    pages in the main panel (plugin manager, settings-like pages — not the
@@ -100,7 +110,7 @@
    Declared on the root element rather than the frame so
    overlays portalled to document.body inherit it too. */
 :global(html[data-platform='darwin']) {
-  --jan-frame-top-clearance: 48px;
+  --jan-frame-top-clearance: calc(var(--jan-frame-title-inset, 10px) + 38px);
 }
 
 /* In-frame Windows content already clears the caption through .frame padding. */
@@ -186,11 +196,11 @@
 /* Published while the shell.leading seat is mounted (same condition as the
    TSX mount: darwin with the sidebar collapsed — the collapse that hides the
    column entirely): the inline band the window chrome occupies, measured from
-   the frame's left edge — traffic lights to x 77, then the seat at x 88 with
+   the frame's left edge: traffic lights to x 82, then the seat at x 96 with
    up to four controls (sidebar, back, forward, new chat: 4 × 28 + 3 × 8), then
    8px of air. Main panels whose content reaches the top-left corner pad by this. */
 :global([data-platform='darwin']) .frame[data-sidebar-collapsed] {
-  --jan-frame-leading-clearance: 232px;
+  --jan-frame-leading-clearance: 240px;
 }
 
 /* Fullscreen hides the traffic lights (preload mirrors the window state onto
@@ -213,15 +223,15 @@
    beside #root, which puts it after every drag row in document order. The Windows
    caption row above is the other platform's chrome and stays. */
 
-/* The seat itself: the two 28px controls centered on the conversation title
-   row (10px header inset + 30px row → centre y 25) and level with the traffic
-   lights (centre y ≈ 24). Sits above column content, below frame overlays
-   (20) and the fullscreen right panel (40). The box subtracts itself from any
-   window drag row beneath (Electron app-regions are geometry, not stacking). */
+/* The seat itself: the 28px controls centered on the conversation title row
+   (title inset + 30px row / 2) and so level with the traffic lights. Sits
+   above column content, below frame overlays (20) and the fullscreen right
+   panel (40). The box subtracts itself from any window drag row beneath
+   (Electron app-regions are geometry, not stacking). */
 .leadingSeat {
   position: absolute;
-  top: 11px;
-  left: 88px;
+  top: calc(var(--jan-frame-title-inset, 10px) + 1px);
+  left: 96px;
   z-index: 15;
   display: flex;
   align-items: center;
@@ -341,16 +351,16 @@
 }
 
 .frame[data-sidebar-drawer] .leadingSeat {
-  top: 11px;
+  top: calc(var(--jan-frame-title-inset, 10px) + 1px);
   left: 12px;
 }
 
 :global([data-platform='darwin']) .frame[data-sidebar-drawer] {
-  --jan-frame-leading-clearance: 232px;
+  --jan-frame-leading-clearance: 240px;
 }
 
 :global([data-platform='darwin']) .frame[data-sidebar-drawer] .leadingSeat {
-  left: 88px;
+  left: 96px;
 }
 
 :global([data-platform='darwin'][data-fullscreen]) .frame[data-sidebar-drawer] {
