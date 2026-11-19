@@ -19,6 +19,7 @@ packages:
 
 overrides:
   'extract-zip>yauzl': '3.4.0'
+  'selfsigned>node-forge': '1.4.1'
   '@janhq/cosmokit': 'link:vendor/cosmokit'
   '@janhq/schemastery': 'link:vendor/schemastery'
 
