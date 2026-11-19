@@ -4,17 +4,17 @@
  *
  * A selection equal to the deployment's composed value clears the override
  * instead of storing a copy of it, and while the deployment composes no
- * provider for a capability its menu also offers automatic selection, which
- * clears the override. The menus offer the providers the Host reports through
- * `web/listProviders`, the local fetch provider first and the rest in
- * registration order, plus a selected id the Host no longer registers. A
- * failed read is reported on the page with a retry.
+ * single provider for a capability, either none or a preference list, its menu
+ * also offers automatic selection, which clears the override. The menus offer
+ * the providers the Host reports through `web/listProviders`, the local fetch
+ * provider first and the rest in registration order, plus a selected id the
+ * Host no longer registers. A failed read is reported on the page with a retry.
  */
 
 import type { Context as ClientContext } from '@janhq/cordis'
 // Type-only: pulls the ctx.remote merge into this program.
 import type {} from '@janhq/jan-api-remotes/client'
-import type { WebProviderInfo, WebProviderList as ProviderList } from '@janhq/jan-web/types'
+import type { WebProviderInfo, WebProviderList as ProviderList, WebProviderPreference } from '@janhq/jan-web/types'
 import { createSnapshotStore, type SnapshotStore } from '@janhq/jan-client-store'
 import {
   SettingsFormModel, settingsTextField, type SettingsFormActions, type SettingsFormShell, type SettingsFormScope,
@@ -40,12 +40,12 @@ const MENU_ORDER = {
   fetch: [PROVIDER_IDS.localFetch],
 } as const satisfies Record<keyof ProviderList, readonly string[]>
 
-/** The web service's provider selection. */
+/** The web service's provider selection; the menus write single ids, and the deployment may compose a preference list. */
 export interface WebProviderSelection {
-  /** Search provider id. */
-  searchProvider?: string
-  /** Fetch provider id. */
-  fetchProvider?: string
+  /** Search provider id or preference list. */
+  searchProvider?: WebProviderPreference
+  /** Fetch provider id or preference list. */
+  fetchProvider?: WebProviderPreference
 }
 
 /** One entry of a provider menu. */
@@ -67,13 +67,13 @@ export type WebFetchKind = 'local' | 'plugin' | 'none'
 
 /** One provider section: its menu and the controls its selection shows. */
 export interface WebProviderSectionState<K extends string> {
-  /** Id of the selected provider, or the empty string when the selection names none. */
+  /** Id of the selected provider, or the empty string when the selection names no single provider. */
   selected: string
   /** Menu entries: the registered providers, plus a selected id that is not registered. */
   options: readonly WebProviderOption[]
   /** Which provider-specific controls the section shows. */
   kind: K
-  /** Whether the menu offers automatic selection, because the deployment composes no provider for this capability. */
+  /** Whether the menu offers automatic selection, because the deployment composes no single provider for this capability. */
   auto: boolean
 }
 
@@ -214,13 +214,13 @@ export class WebSearchCardController {
         selected: searchSelected,
         options: this.options('search', searchSelected),
         kind: this.searchKind(),
-        auto: base?.searchProvider === undefined,
+        auto: typeof base?.searchProvider !== 'string',
       },
       fetch: {
         selected: fetchSelected,
         options: this.options('fetch', fetchSelected),
         kind: this.fetchKind(),
-        auto: base?.fetchProvider === undefined,
+        auto: typeof base?.fetchProvider !== 'string',
       },
     }
   }
