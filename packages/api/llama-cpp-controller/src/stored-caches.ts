@@ -104,18 +104,7 @@ export async function repositoryCaches(home: string, owner: RepositoryCacheOwner
 
 async function repositoryBytes(path: string): Promise<number | undefined> {
   if (!(await owned(join(path, 'HEAD')))?.isFile() || !(await owned(join(path, 'objects')))?.isDirectory()) return undefined
-  let bytes = 0
-  for (const entry of await ifPresent(readdir(path, { withFileTypes: true })) ?? []) {
-    const child = join(path, entry.name)
-    const info = await owned(child)
-    if (info?.isFile() && info.nlink === 1) bytes += info.size
-    else if (info?.isDirectory()) {
-      const subtree = await repositoryTreeBytes(child)
-      if (subtree === undefined) return undefined
-      bytes += subtree
-    } else return undefined
-  }
-  return bytes
+  return repositoryTreeBytes(path)
 }
 
 async function repositoryTreeBytes(path: string): Promise<number | undefined> {
