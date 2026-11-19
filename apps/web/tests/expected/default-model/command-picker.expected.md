@@ -1,6 +1,6 @@
-- textbox "筛选选项":
-  - /placeholder: 搜索模型…
-- listbox "/model 匹配项":
+- textbox "Filter options":
+  - /placeholder: Search models…
+- listbox "/model matches":
   - group "Tokamak":
     - text: Tokamak
     - option "Tokamak 1 Preview"
@@ -12,3 +12,4 @@
     - text: Acme Gateway
     - option "Acme Large" [selected]
     - option "Acme Small"
+  - option "Tokamak Sign in or add an API key to load models"
