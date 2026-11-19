@@ -897,7 +897,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SessionContextPreviewValue',
-    declaration: 'export interface SessionContextPreviewValue {\n    readonly systemTokens: number;\n    readonly toolsTokens: number;\n    readonly messageTokens: number;\n}',
+    declaration: 'export interface SessionContextPreviewValue {\n    readonly systemTokens: number;\n    readonly toolsTokens: number;\n    readonly messageTokens: number;\n    readonly inventory: SessionInventory;\n}',
   },
   {
     name: 'SessionEventChange',
@@ -922,6 +922,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'SessionIdOf',
     declaration: 'export type SessionIdOf = SessionStandardProps extends {\n    sessionId: infer S;\n} ? S : string;',
+  },
+  {
+    name: 'SessionInventory',
+    declaration: 'export interface SessionInventory {\n    readonly tools: readonly string[];\n    readonly mcpTools: readonly {\n        readonly server: string;\n        readonly name: string;\n        readonly origin: SessionItemOrigin;\n    }[];\n    readonly skills: readonly {\n        readonly name: string;\n        readonly description: string;\n        readonly origin: SessionItemOrigin;\n    }[];\n    readonly plugins?: readonly string[];\n}',
+  },
+  {
+    name: 'SessionItemOrigin',
+    declaration: 'export type SessionItemOrigin = {\n    readonly kind: \'project\';\n} | {\n    readonly kind: \'global\';\n} | {\n    readonly kind: \'plugin\';\n    readonly plugin: string;\n} | {\n    readonly kind: \'bundled\';\n} | {\n    readonly kind: \'custom\';\n} | {\n    readonly kind: \'session\';\n};',
   },
   {
     name: 'SessionListPhase',
