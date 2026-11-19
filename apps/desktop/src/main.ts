@@ -1483,7 +1483,9 @@ async function main(): Promise<void> {
     enteredWorkspace = true
     if (welcomeWindow !== undefined) {
       welcomeWindow.close()
-      window.webContents.send(DESKTOP_IPC.enterWorkspace, open)
+      // Only a chosen destination travels with the message; a plain entry keeps the bare event.
+      if (open === undefined) window.webContents.send(DESKTOP_IPC.enterWorkspace)
+      else window.webContents.send(DESKTOP_IPC.enterWorkspace, open)
     }
     welcomeWindow = undefined
     if (raiseAfterUpdate) {
