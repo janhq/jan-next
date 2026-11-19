@@ -31,6 +31,7 @@ import { AccountQuotaNotice, type AccountQuotaNoticeInjected } from './AccountQu
 import { DESKTOP_ONBOARDING_NAMESPACE, type OnboardingSettings } from '../onboarding-settings.ts'
 import { DesktopOnboardingController } from './onboarding-state.ts'
 import { DesktopOnboardingEntry, type DesktopOnboardingInjected } from './DesktopOnboardingEntry.tsx'
+import { createSnapshotStore } from '@janhq/jan-client-store'
 import { readOnboardingApiKeyPresence } from './onboarding-credentials.ts'
 import { refreshAfterReturn } from './account-refresh.ts'
 import { AccountAvatarLoader } from './account-avatar.ts'
@@ -308,6 +309,12 @@ export function apply(ctx: Context): void {
       ctx.configForms.describe(),
     )
     ctx.effect(() => () => { controller.dispose() }, 'account: desktop onboarding lifetime')
+    const customFlow = createSnapshotStore(false)
+    ctx.effect(() => ctx.slots.subscribe('settings.onboarding.flow', () => {
+      const active = ctx.slots.entriesOfSlot('settings.onboarding.flow').length !== 0
+      controller.setCustomFlow(active)
+      customFlow.set(active)
+    }), 'account: replacement onboarding lifetime')
     ctx.effect(() => {
       const refreshCredentials = () => { controller.invalidateCredentials() }
       const disposers = [
@@ -319,8 +326,9 @@ export function apply(ctx: Context): void {
     }, 'account: desktop credential readiness')
     ctx.slots.inject('shell.overlay', () => ctx.slots.register({
       name: 'shell.overlay', id: 'desktop-onboarding', locale: 'settings.account',
+      children: { 'settings.onboarding.flow': { kind: 'single', scope: 'root' } },
       inject: (): DesktopOnboardingInjected => ({
-        hooks: { account: operations.hooks.account, onboarding: controller.state },
+        hooks: { account: operations.hooks.account, onboarding: controller.state, customFlow },
         setVisible: (visible: boolean) => {
           if (snapshot.desktopOnboardingVisible !== visible) publish({ ...snapshot, desktopOnboardingVisible: visible })
         },
@@ -328,6 +336,7 @@ export function apply(ctx: Context): void {
         ...nativePlatform === undefined ? {} : { openPlatformPage: platformPageOpener(refresh) },
         update: (change: OnboardingChange) => controller.update(change),
         complete: (reason: 'completed' | 'skipped') => controller.complete(reason),
+        finishCustomFlow: detail => controller.finishCustomFlow(detail),
         retry: () => controller.retry(),
         track: (name, attributes) => ctx.get('productAnalytics')?.track(name, attributes),
       }),

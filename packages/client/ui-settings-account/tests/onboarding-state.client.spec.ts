@@ -29,6 +29,7 @@ async function harness(options: {
   writable?: boolean
   failRead?: () => boolean
   waitSettings?: Promise<void>
+  customFlow?: boolean
 } = {}) {
   const data: Record<string, unknown> = {
     [DESKTOP_ONBOARDING_NAMESPACE]: OnboardingSettingsSchema({ purpose: null, process: null, completion: null, ...options.progress }),
@@ -77,6 +78,7 @@ async function harness(options: {
   const account = createSnapshotStore(accountState(options.status))
   const readKeys = vi.fn(options.keys ?? (async () => false))
   const controller = new DesktopOnboardingController(progress, chat, setDeveloperTools, account, readKeys, mirror)
+  if (options.customFlow) controller.setCustomFlow(true)
   cleanup.push(() => progress.dispose(), () => chat.dispose(), () => { controller.dispose() })
   const loaded = mirror.load()
   if (options.waitSettings === undefined) await loaded
@@ -88,6 +90,24 @@ async function harness(options: {
 }
 
 describe('desktop onboarding lifecycle', () => {
+  it.each(['completed', 'skipped'] as const)('offers a custom flow once to a signed-out installation: %s', async (reason) => {
+    const h = await harness({ status: 'signed-out', customFlow: true })
+    expect(h.controller.state.getSnapshot().visible).toBe(true)
+    expect(await h.controller.finishCustomFlow(reason === 'completed' ? 'detailed' : null)).toBe(true)
+    const progress = h.controller.state.getSnapshot().progress
+    expect(progress).toMatchObject({ step: 'done', completion: reason })
+    expect(h.chat.getSnapshot().value).toEqual({ transcriptView: reason === 'completed' ? 'detailed' : 'compact', performanceUsage: 'detailed' })
+    expect(h.data['ui-settings']).toEqual({ enabled: false })
+    const reopened = await harness({ status: 'signed-out', progress, customFlow: true })
+    expect(reopened.controller.state.getSnapshot().visible).toBe(false)
+  })
+
+  it('does not substitute the stock API-key shortcut for the custom flow', async () => {
+    const h = await harness({ status: 'signed-out', keys: async () => true, customFlow: true })
+    expect(h.readKeys).not.toHaveBeenCalled()
+    expect(h.controller.state.getSnapshot()).toMatchObject({ visible: true, progress: { step: 'welcome' } })
+  })
+
   it('counts bonus-only credit before entry', async () => {
     const h = await harness({ status: 'credential-stored' })
     h.account.set({ ...h.account.getSnapshot(), details: { balance: { status: 'ready', value: [{ currency: 'CNY', balance: '0' }], bonusWallets: [{ currency: 'CNY', balance: '1' }] } } })
