@@ -632,7 +632,9 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
 `
 
     const svg = (d, size = 10) => h('svg', { width: size, height: size, viewBox: '0 0 10 10', fill: 'none', stroke: 'currentColor', strokeWidth: 1 }, d)
-    const Name = () => h('span', { className: 'jt-name' }, 'Jan')
+    // The macOS desktop keeps its traffic lights where the label would sit, and
+    // the earlier Jan app shows no title there, so the seat stays empty.
+    const Name = () => mac ? null : h('span', { className: 'jt-name' }, 'Jan')
 
     function TitleBar() {
       const [maximized, setMaximized] = React.useState(false)
