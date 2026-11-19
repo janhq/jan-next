@@ -419,10 +419,12 @@ window.__ModuleLoader__.load({
   html[data-jan-theme][data-jan-theme-mac] [data-slot='sidebar'] > div > :has([data-slot='sidebar.brand.name']) { padding-left: 64px; }
   html[data-jan-theme][data-jan-theme-mac]:has([data-sidebar-collapsed]) [data-slot='sidebar'] [data-sidebar-toggle] { left: 84px; }
   /* Electron on macOS gives the toggle its own strip above the logo row; fold
-     that strip into the logo row so the wordmark shares the traffic-light row. */
+     that strip into the logo row so the wordmark shares the traffic-light row.
+     The strip's 40px box sits exactly over the 40px logo row, so the toggle,
+     the arrows, the wordmark and the traffic lights share one center line. */
   html[data-jan-theme][data-jan-theme-mac] [data-slot='sidebar'] > div:has(> [data-window-drag] > [data-sidebar-toggle]) { position: relative; }
   html[data-jan-theme][data-jan-theme-mac] [data-slot='sidebar'] > div > [data-window-drag]:has(> [data-sidebar-toggle]) {
-    position: absolute; top: 6px; right: 10px; height: 40px; display: flex; align-items: center; z-index: 1;
+    position: absolute; top: 13px; right: 10px; height: 40px; display: flex; align-items: center; z-index: 1;
   }
   html[data-jan-theme] [data-slot='sidebar.brand.name'] .jt-name { font-size: 14px; }
   html[data-jan-theme] [data-slot='sidebar'] [data-sidebar-toggle] {
