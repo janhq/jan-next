@@ -1701,6 +1701,9 @@ importers:
       '@janhq/jan-llm':
         specifier: workspace:*
         version: link:../../llm/llm
+      '@janhq/jan-mcp-manager':
+        specifier: workspace:*
+        version: link:../../mcp/mcp-manager
       '@janhq/jan-native-command':
         specifier: workspace:*
         version: link:../../util/native-command

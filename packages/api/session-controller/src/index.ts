@@ -325,7 +325,9 @@ export class SessionController extends TypertRemoteService {
    * Price the system prompt, tool schemas, and runtime context the Session's next request would inject.
    * @param request - Session identity.
    * @param signal - cancels tool resolution and prompt assembly.
-   * @returns heuristic token prices, or null while the Session has no model selection.
+   * @returns heuristic token prices and the Session inventory (offered tools, MCP tools
+   * with their server and origin, skills with their origin, and the preset's plugins),
+   * or null while the Session has no model selection.
    */
   @Remote('contextPreview')
   async contextPreview(request: SessionContextPreviewRequest, signal: AbortSignal): Promise<SessionContextPreviewValue | null> {

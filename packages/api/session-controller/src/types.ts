@@ -316,6 +316,33 @@ export interface SessionContextPreviewValue {
   readonly toolsTokens: number
   /** The runtime-context user message the first step admits. */
   readonly messageTokens: number
+  /** What the next request equips the Agent with. */
+  readonly inventory: SessionInventory
+}
+
+/**
+ * Where a skill or MCP server comes from: the project's own folders, the user's
+ * global config, a plugin, Jan itself, a configured extra skill directory, or
+ * this Session alone (an ACP client's servers, a runtime skill).
+ */
+export type SessionItemOrigin =
+  | { readonly kind: 'project' }
+  | { readonly kind: 'global' }
+  | { readonly kind: 'plugin'; readonly plugin: string }
+  | { readonly kind: 'bundled' }
+  | { readonly kind: 'custom' }
+  | { readonly kind: 'session' }
+
+/** The tools, MCP tools, skills and plugins one Session's next request runs with. */
+export interface SessionInventory {
+  /** Tool names the model is offered, excluding MCP tools. */
+  readonly tools: readonly string[]
+  /** MCP tools the model is offered, with their server and where it is configured. */
+  readonly mcpTools: readonly { readonly server: string; readonly name: string; readonly origin: SessionItemOrigin }[]
+  /** Skills the model or the user can invoke, with where each was found. */
+  readonly skills: readonly { readonly name: string; readonly description: string; readonly origin: SessionItemOrigin }[]
+  /** Plugin modules active in the Session's agent preset; absent when no preset registry is composed. */
+  readonly plugins?: readonly string[]
 }
 
 /** Session rename request. */
