@@ -2682,7 +2682,7 @@ describe('continuable review regressions', () => {
     const child = ctx.agents.get(started.childId)!
     // Interrupt at admission, before the yielded step can claim the steering.
     const stopOnAdmission = ctx.on('agent/inbox/inserted', ({ agent, message: queued }) => {
-      if (agent === child && queued.source.kind === 'user' && queued.source.rpcId === 'request-steered') {
+      if (agent === child && queued.source.kind === 'user' && 'rpcId' in queued.source && queued.source.rpcId === 'request-steered') {
         ctx.subagents.interrupt(started.childId, { kind: 'user' })
       }
     })
@@ -2815,7 +2815,9 @@ function settlementNotices(agent: Agent) {
       sender: message.source.senderSessionId,
       summary: message.source.summary,
       stopReason: message.source.stopReason,
-      text: message.content.flatMap(block => block.type === 'text' ? [block.text] : []).join('\n'),
+      // Envelope fields are tested at the formatter and provider request boundary.
+      text: message.content.flatMap((block, index) => block.type === 'text'
+        && !(index === 1 && block.text.startsWith('Status: ')) ? [block.text] : []).join('\n'),
     }]
   })
 }
