@@ -42,14 +42,12 @@
     "watch": "tsdown --watch"
   },
   "license": "MIT",
-  "dependencies": {
-    "eld": "^2.1.1"
-  },
   "peerDependencies": {
     "@janhq/cordis": "workspace:~"
   },
   "devDependencies": {
     "@janhq/cordis": "workspace:~",
+    "eld": "^2.1.1",
     "@janhq/cordis-plugin-loader": "workspace:~",
     "@janhq/jan-api-remote-access": "workspace:*",
     "@janhq/jan-api-remotes": "workspace:*",

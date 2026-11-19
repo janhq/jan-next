@@ -5224,10 +5224,6 @@ importers:
         version: 18.3.1
 
   packages/client/ui-plugin-i18n:
-    dependencies:
-      eld:
-        specifier: ^2.1.1
-        version: 2.1.1
     devDependencies:
       '@janhq/cordis':
         specifier: workspace:~
@@ -5274,6 +5270,9 @@ importers:
       '@testing-library/react':
         specifier: ^16.3.3
         version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      eld:
+        specifier: ^2.1.1
+        version: 2.1.1
       react:
         specifier: ^18.2.0
         version: 18.3.1
