@@ -663,9 +663,10 @@ register(definition: ToolDefinition, options: ToolRegistrationOptions = {}): () 
  * names, scope-local names, and reserved transport names fail. Restrictions
  * intersect; scoped registrations remain visible.
  * @param filter - global-tool mask: `allow` (keep only) and/or `deny` (remove).
+ * @param options - permit names whose optional providers have not registered yet.
  * @returns the exact disposer that lifts this restriction.
  */
-restrict(filter: ToolRestriction): () => void
+restrict(filter: ToolRestriction, options: { allowUnregistered?: boolean } = {}): () => void
 
 /**
  * Look up a tool as one scope sees it (scoped

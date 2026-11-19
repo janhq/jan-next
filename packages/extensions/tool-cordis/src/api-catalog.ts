@@ -168,6 +168,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     description: 'Registry of YAML-declared presets and the revisions live Agents retain.',
     methods: [
       {
+        signature: 'defaultFor(provider: string | undefined): string',
+        description: 'Default preset for a new Session on one provider route. A default picked in Settings applies to every route; otherwise a route listed in `routeDefaults` (a small local model, say) gets its lighter preset.',
+        parameters: [{ name: 'provider', description: 'provider route of the Session\'s model.' }],
+        returns: 'the preset identity a Session on that route starts with.',
+      },
+      {
         signature: 'presetForSession(session: Session): string | null',
         description: 'Read the preset recorded for a Session, including selections no longer in the roster.',
         parameters: [{ name: 'session', description: 'Session whose committed preset selection is read.' }],
@@ -178,6 +184,18 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Read one declaration\'s composed definition without mounting it. Registrants that derive a preset (a custom composition based on a shipped one) need the child plugin rows the declaration was registered with, including profile overrides; the read-only `readDocument` view is YAML.',
         parameters: [{ name: 'id', description: 'preset identity.' }],
         returns: 'The registered definition; plugin rows are copied so a caller cannot mutate the registry\'s declaration.',
+      },
+      {
+        signature: 'descriptionFor(id: string): string | undefined',
+        description: 'Read one preset\'s description without copying its plugin tree.',
+        parameters: [{ name: 'id', description: 'Preset identity.' }],
+        returns: 'The description, or undefined if the preset has none or is unknown.',
+      },
+      {
+        signature: 'requiresReadOnlyDelegation(ctx: Context): boolean',
+        description: 'Check the preset revision retained by an agent\'s scope.',
+        parameters: [{ name: 'ctx', description: 'The agent\'s scoped context.' }],
+        returns: 'Whether that revision requires read-only delegation.',
       },
       {
         signature: 'async register(definition: PresetDefinition): Promise<() => Promise<void>>',
@@ -3034,7 +3052,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         signature: '@Remote(\'contextPreview\') async contextPreview(request: SessionContextPreviewRequest, signal: AbortSignal): Promise<SessionContextPreviewValue | null>',
         description: 'Price the system prompt, tool schemas, and runtime context the Session\'s next request would inject.',
         parameters: [{ name: 'request', description: 'Session identity.' }, { name: 'signal', description: 'cancels tool resolution and prompt assembly.' }],
-        returns: 'heuristic token prices, or null while the Session has no model selection.',
+        returns: 'heuristic token prices and the Session inventory (offered tools, MCP tools with their server and origin, skills with their origin, and the preset\'s plugins), or null while the Session has no model selection.',
       },
       {
         signature: '@Remote(\'modelCatalog\') modelCatalog(): Promise<ModelCatalog>',
@@ -4479,9 +4497,9 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the exact disposer that unregisters the tool.',
       },
       {
-        signature: 'restrict(filter: ToolRestriction): () => void',
+        signature: 'restrict(filter: ToolRestriction, options: { allowUnregistered?: boolean } = {}): () => void',
         description: 'Restrict global tools for the calling agent scope. Empty filters, unknown names, scope-local names, and reserved transport names fail. Restrictions intersect; scoped registrations remain visible.',
-        parameters: [{ name: 'filter', description: 'global-tool mask: `allow` (keep only) and/or `deny` (remove).' }],
+        parameters: [{ name: 'filter', description: 'global-tool mask: `allow` (keep only) and/or `deny` (remove).' }, { name: 'options', description: 'permit names whose optional providers have not registered yet.' }],
         returns: 'the exact disposer that lifts this restriction.',
       },
       {
@@ -7641,7 +7659,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'McpManagedServerView',
-    declaration: 'export interface McpManagedServerView {\n    name: string;\n    configured: boolean;\n    status: McpManagedServerStatus;\n}',
+    declaration: 'export interface McpManagedServerView {\n    name: string;\n    configured: boolean;\n    origin: {\n        kind: \'config\';\n    } | {\n        kind: \'plugin\';\n        plugin: string;\n    };\n    status: McpManagedServerStatus;\n}',
   },
   {
     name: 'McpProbeFailure',
@@ -8181,7 +8199,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'PresetDefinition',
-    declaration: 'export interface PresetDefinition {\n    readonly id: string;\n    readonly name?: string;\n    readonly description?: string;\n    readonly order?: number;\n    readonly plugins: readonly (Omit<EntryOptions, \'id\' | \'disabled\'> & {\n        id?: string;\n        disabled?: EntryOptions[\'disabled\'] | JsExpr;\n    })[];\n}',
+    declaration: 'export interface PresetDefinition {\n    readonly id: string;\n    readonly name?: string;\n    readonly description?: string;\n    readonly order?: number;\n    readonly toolAllowlist?: readonly string[] | undefined;\n    readonly readOnlyDelegation?: boolean | undefined;\n    readonly plugins: readonly (Omit<EntryOptions, \'id\' | \'disabled\'> & {\n        id?: string;\n        disabled?: EntryOptions[\'disabled\'] | JsExpr;\n    })[];\n}',
   },
   {
     name: 'PresetOption',
@@ -8877,7 +8895,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SessionContextPreviewValue',
-    declaration: 'export interface SessionContextPreviewValue {\n    readonly systemTokens: number;\n    readonly toolsTokens: number;\n    readonly messageTokens: number;\n}',
+    declaration: 'export interface SessionContextPreviewValue {\n    readonly systemTokens: number;\n    readonly toolsTokens: number;\n    readonly messageTokens: number;\n    readonly inventory: SessionInventory;\n}',
   },
   {
     name: 'SessionControlBaseline',
@@ -8917,7 +8935,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SessionEventMap',
-    declaration: 'export interface SessionEventMap {\n    \'turn/start\': {\n        turn: number;\n    };\n    \'turn/end\': {\n        turn: number;\n        reason: TurnEndReason;\n    };\n    \'step/start\': {\n        turn: number;\n        step: number;\n    };\n    \'step/end\': {\n        turn: number;\n        step: number;\n    };\n    \'user/message\': UserMessage;\n    \'developer/message\': {\n        turn: number;\n        step: number;\n        message: DeveloperMessage;\n        headerSeq?: SessionSeq;\n    };\n    \'system/message\': {\n        turn: number;\n        step: number;\n        message: SystemMessage;\n    };\n    \'assistant/message\': {\n        turn: number;\n        step: number;\n        message: AssistantMessage;\n        stream: AssistantStreamRecord[];\n        usage?: TokenUsage;\n        interrupted?: true;\n    };\n    \'assistant/attempt\': {\n        turn: number;\n        step: number;\n        stream: AssistantStreamRecord[];\n    };\n    \'tool/call\': {\n        turn: number;\n        step: number;\n        callId: ToolCallId;\n        name: string;\n        arguments: string;\n    };\n    \'tool/result\': {\n        turn: number;\n        step: number;\n        message: ToolResultMessage;\n        error?: {\n            name: string;\n            code: string;\n            reason?: string;\n        };\n        meta?: JsonValue;\n    };\n    \'request/header\': {\n        header: EpochHeader;\n        reason: RequestHeaderReason;\n        startsSeries?: true;\n    };\n    \'request/context\': RequestContext;\n    \'session/end-seed\': {\n   /* …truncated — full shape in source */',
+    declaration: 'export interface SessionEventMap {\n    \'turn/start\': {\n        turn: number;\n    };\n    \'turn/end\': {\n        turn: number;\n        reason: TurnEndReason;\n    };\n    \'step/start\': {\n        turn: number;\n        step: number;\n    };\n    \'step/end\': {\n        turn: number;\n        step: number;\n    };\n    \'user/message\': UserMessage;\n    \'developer/message\': {\n        turn: number;\n        step: number;\n        message: DeveloperMessage;\n        headerSeq?: SessionSeq;\n    };\n    \'system/message\': {\n        turn: number;\n        step: number;\n        message: SystemMessage;\n    };\n    \'assistant/message\': {\n        turn: number;\n        step: number;\n        message: AssistantMessage;\n        stream: AssistantStreamRecord[];\n        usage?: TokenUsage;\n        interrupted?: true;\n        steered?: true;\n    };\n    \'assistant/attempt\': {\n        turn: number;\n        step: number;\n        stream: AssistantStreamRecord[];\n    };\n    \'tool/call\': {\n        turn: number;\n        step: number;\n        callId: ToolCallId;\n        name: string;\n        arguments: string;\n    };\n    \'tool/result\': {\n        turn: number;\n        step: number;\n        message: ToolResultMessage;\n        error?: {\n            name: string;\n            code: string;\n            reason?: string;\n        };\n        meta?: JsonValue;\n    };\n    \'request/header\': {\n        header: EpochHeader;\n        reason: RequestHeaderReason;\n        startsSeries?: true;\n    };\n    \'request/context\': RequestContext;\n     /* …truncated — full shape in source */',
   },
   {
     name: 'SessionEventMetadataFilter',
@@ -9050,6 +9068,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'SessionInspection',
     declaration: 'export interface SessionInspection extends SessionStorageMetadata {\n    readonly events: readonly SessionEvent[];\n}',
+  },
+  {
+    name: 'SessionInventory',
+    declaration: 'export interface SessionInventory {\n    readonly tools: readonly string[];\n    readonly mcpTools: readonly {\n        readonly server: string;\n        readonly name: string;\n        readonly origin: SessionItemOrigin;\n    }[];\n    readonly skills: readonly {\n        readonly name: string;\n        readonly description: string;\n        readonly origin: SessionItemOrigin;\n    }[];\n    readonly plugins?: readonly string[];\n}',
+  },
+  {
+    name: 'SessionItemOrigin',
+    declaration: 'export type SessionItemOrigin = {\n    readonly kind: \'project\';\n} | {\n    readonly kind: \'global\';\n} | {\n    readonly kind: \'plugin\';\n    readonly plugin: string;\n} | {\n    readonly kind: \'bundled\';\n} | {\n    readonly kind: \'custom\';\n} | {\n    readonly kind: \'session\';\n};',
   },
   {
     name: 'SessionLineageNode',
@@ -10129,7 +10155,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ToolBatchInput',
-    declaration: 'export interface ToolBatchInput {\n    readonly calls: readonly ToolCallBlock[];\n    readonly signal: AbortSignal;\n    readonly maxParallelToolCalls?: number;\n    readonly agent?: Agent;\n    readonly toolSet?: ResolvedToolSet;\n    readonly log?: {\n        readonly turn: number;\n        readonly step: number;\n    };\n}',
+    declaration: 'export interface ToolBatchInput {\n    readonly calls: readonly ToolCallBlock[];\n    readonly signal: AbortSignal;\n    readonly yieldSignal?: AbortSignal;\n    readonly maxParallelToolCalls?: number;\n    readonly agent?: Agent;\n    readonly toolSet?: ResolvedToolSet;\n    readonly log?: {\n        readonly turn: number;\n        readonly step: number;\n    };\n}',
   },
   {
     name: 'ToolBatchResult',
@@ -10177,7 +10203,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ToolExecutionInput',
-    declaration: 'export interface ToolExecutionInput {\n    readonly callId: ToolCallId;\n    readonly rootCallId?: ToolCallId;\n    readonly name: string;\n    readonly schema?: ToolSchema;\n    readonly arguments: unknown;\n    readonly agent?: Agent;\n    readonly toolSet?: ResolvedToolSet;\n    readonly parent?: ToolExecutionToken;\n    readonly signal: AbortSignal;\n}',
+    declaration: 'export interface ToolExecutionInput {\n    readonly callId: ToolCallId;\n    readonly rootCallId?: ToolCallId;\n    readonly name: string;\n    readonly schema?: ToolSchema;\n    readonly arguments: unknown;\n    readonly agent?: Agent;\n    readonly toolSet?: ResolvedToolSet;\n    readonly parent?: ToolExecutionToken;\n    readonly signal: AbortSignal;\n    readonly yieldSignal?: AbortSignal;\n}',
   },
   {
     name: 'ToolExecutionResult',
@@ -10269,7 +10295,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ToolsService',
-    declaration: 'export class ToolsService extends Service {\n    static inject;\n    static Config;\n    constructor(ctx: Context);\n    register(definition: ToolDefinition, options: ToolRegistrationOptions = {}): () => void;\n    restrict(filter: ToolRestriction): () => void;\n    get(name: string, scope?: ScopeKey, toolSet?: ResolvedToolSet): ToolDefinition | undefined;\n    executable(name: string, scope?: ScopeKey, toolSet?: ResolvedToolSet): ToolDefinition | undefined;\n    async resolve(context: ToolActivationContext): Promise<ResolvedToolSet>;\n    definitions(scope?: ScopeKey, toolSet?: ResolvedToolSet): readonly ToolDefinition[];\n    schemas(scope?: ScopeKey, toolSet?: ResolvedToolSet): ToolSchema[];\n    setExecutor(executor: ToolExecutor): () => void;\n    async execute(input: ToolBatchInput): Promise<ToolBatchResult>;\n    guard(guard: ToolGuard): () => void;\n    checkGuards(exec: ToolExecution): string | undefined;\n}',
+    declaration: 'export class ToolsService extends Service {\n    static inject;\n    static Config;\n    constructor(ctx: Context);\n    register(definition: ToolDefinition, options: ToolRegistrationOptions = {}): () => void;\n    restrict(filter: ToolRestriction, options: {\n        allowUnregistered?: boolean;\n    } = {}): () => void;\n    get(name: string, scope?: ScopeKey, toolSet?: ResolvedToolSet): ToolDefinition | undefined;\n    executable(name: string, scope?: ScopeKey, toolSet?: ResolvedToolSet): ToolDefinition | undefined;\n    async resolve(context: ToolActivationContext): Promise<ResolvedToolSet>;\n    definitions(scope?: ScopeKey, toolSet?: ResolvedToolSet): readonly ToolDefinition[];\n    schemas(scope?: ScopeKey, toolSet?: ResolvedToolSet): ToolSchema[];\n    setExecutor(executor: ToolExecutor): () => void;\n    async execute(input: ToolBatchInput): Promise<ToolBatchResult>;\n    guard(guard: ToolGuard): () => void;\n    checkGuards(exec: ToolExecution): string | undefined;\n}',
   },
   {
     name: 'ToolUpdate',

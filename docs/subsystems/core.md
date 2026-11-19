@@ -580,6 +580,15 @@ Registry of YAML-declared presets and the revisions live Agents retain.
 
 ```ts cordis-catalog
 /**
+ * Default preset for a new Session on one provider route. A default picked
+ * in Settings applies to every route; otherwise a route listed in
+ * `routeDefaults` (a small local model, say) gets its lighter preset.
+ * @param provider - provider route of the Session's model.
+ * @returns the preset identity a Session on that route starts with.
+ */
+defaultFor(provider: string | undefined): string
+
+/**
  * Read the preset recorded for a Session, including selections no longer in the roster.
  * @param session - Session whose committed preset selection is read.
  * @returns the recorded preset, or null when none was selected.
@@ -596,6 +605,18 @@ presetForSession(session: Session): string | null
  * cannot mutate the registry's declaration.
  */
 definitionFor(id: string): PresetDefinition
+
+/** Read one preset's description without copying its plugin tree.
+ * @param id Preset identity.
+ * @returns The description, or undefined if the preset has none or is unknown.
+ */
+descriptionFor(id: string): string | undefined
+
+/** Check the preset revision retained by an agent's scope.
+ * @param ctx The agent's scoped context.
+ * @returns Whether that revision requires read-only delegation.
+ */
+requiresReadOnlyDelegation(ctx: Context): boolean
 
 /** Register and eagerly load a definition; activation failure remains visible in the roster.
  * @param definition Parsed configuration supplied by the declaring plugin.
