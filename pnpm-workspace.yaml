@@ -28,6 +28,7 @@ overrides:
   'jsdom>undici': '7.30.1'
   '@botiverse/oar>undici': '8.12.2'
   '@earendil-works/pi-coding-agent>undici': '8.12.2'
+  'http-proxy>follow-redirects': '1.16.2'
   '@janhq/cosmokit': 'link:vendor/cosmokit'
   '@janhq/schemastery': 'link:vendor/schemastery'
 
