@@ -11,6 +11,7 @@ import type {} from '@janhq/jan-client-ui-context-menu/client'
  */
 import './file-actions.ts'
 import type { Context as ClientContext } from '@janhq/cordis'
+import type {} from '@janhq/jan-api-workspace-files/remote'
 import type {} from '@janhq/jan-api-remotes/client'
 import type {} from '@janhq/jan-client-connection/client'
 import type { ChatFileMentions } from '@janhq/jan-client-ui-chat/client'
@@ -25,6 +26,7 @@ import { ChangesSummaryStore } from './changes-summary.ts'
 import { PresentedOpenController } from './present-open.ts'
 import { PresentRow } from './PresentRow.tsx'
 import { DeliverablesTail, type DeliverablesInjected } from './Deliverables.tsx'
+import type { ReadPresented } from './PresentedInlinePreview.tsx'
 import { ReviewTab, type ReviewInjected } from './ReviewTab.tsx'
 import { CHANGES_REVIEW_ID, changesReviewDefinition } from './review-definition.ts'
 import { createReviewStore } from './review-store.ts'
@@ -65,6 +67,12 @@ export function apply(ctx: ClientContext): void {
   ctx.uiConversation.events.register(deliverablesDefinition)
   ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-deliverables: dictionaries')
   registerArtifacts(ctx, opener)
+  // Inline previews read bytes only while the workspace Remote is composed in.
+  let readBytes: ReadPresented | undefined
+  ctx.inject(['remote', 'remote.workspaceFiles'], (child) => {
+    readBytes = (sessionId, path, signal) => child.remote.workspaceFiles.readBytes(sessionId, path, {}, signal)
+    child.effect(() => () => { readBytes = undefined }, 'ui-deliverables: inline preview reader')
+  })
   ctx.slots.inject(
     'conversation.chat.turnTail',
     () => ctx.slots.register({
@@ -82,6 +90,11 @@ export function apply(ctx: ClientContext): void {
         openChanged: (sessionId, seq, index, action, application) => opener.openChanged(sessionId, seq, index, action, application),
         openChangesReview: (coordinates, index) => {
           ctx.sidebarRight.openResource(changesReviewAddress(coordinates), { params: { index } })
+        },
+        // Without the workspace Remote the read rejects, which only drops the preview.
+        readPresented: async (sessionId, path, signal) => {
+          if (readBytes === undefined) throw new Error('ui-deliverables: workspace files unavailable')
+          return readBytes(sessionId, path, signal)
         },
       }),
     }, DeliverablesTail),

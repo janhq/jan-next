@@ -13,6 +13,7 @@ import type { NS } from './locales.ts'
 import { changesSummaryUrl, type ChangesReviewCoordinates } from '../changes.ts'
 import { presentedFileUrl } from '../presented.ts'
 import { PresentedFileCard } from './PresentedFileCard.tsx'
+import { PresentedInlinePreview, type ReadPresented } from './PresentedInlinePreview.tsx'
 import css from './Deliverables.module.css'
 
 interface DeliverablesMatch { changes: ChangesTurnData | null; presented: readonly PresentedPath[] }
@@ -35,6 +36,8 @@ export interface DeliverablesInjected {
   openChanged: PresentedOpenController['openChanged']
   /** Open one turn's review in the right Sidebar on the file at an index. */
   openChangesReview: (coordinates: ChangesReviewCoordinates, index: number) => void
+  /** Read a lone delivery's bytes for its inline preview. */
+  readPresented: ReadPresented
 }
 
 /**
@@ -67,7 +70,7 @@ export function DeliverablesTail(props: PropsRuntime<'conversation.chat.turnTail
  */
 export function Deliverables({
   matched, openFile, useContextMenu, t, sessionId, useSessions, openPresented, openChangesReview, usePresentedOpen, usePresentedHost,
-  useChangesDiff, loadChangesDiff, useChangesSummary, reloadPresentedHost, loadChangesSummary, useShowCodeDiff, renderSlot,
+  useChangesDiff, loadChangesDiff, useChangesSummary, reloadPresentedHost, loadChangesSummary, useShowCodeDiff, readPresented, renderSlot,
 }: Pick<TurnTailOwnerProps, 'openFile'> & {
   matched: DeliverablesMatch
 } & PropsLocale<typeof NS> & Pick<SessionStandardProps, 'sessionId'> & Pick<GlobalStandardProps, 'useSessions' | 'useContextMenu'> & InjectFace<DeliverablesInjected> & PropsRenderSlots<'deliverables.file.actions'>) {
@@ -105,6 +108,8 @@ export function Deliverables({
         <Button size="sm" onClick={() => { void reloadPresentedHost() }}>{t('presented.retry')}</Button>
       </div>}
       {host !== null && host !== 'error' && !host.available && <span className={css.hostStatus}>{t('presented.unavailable')}</span>}
+      {matched.presented.length === 1 && matched.presented.map(file => <PresentedInlinePreview key={`${file.seq}:${file.index}`}
+        file={file} sessionId={sessionId} readPresented={readPresented} onPreview={() => { openFile(file.path) }} t={t} />)}
       <div className={css.presented} data-presented-files-row data-single={matched.presented.length === 1 ? true : undefined}>
         {presented.map(file => <PresentedFileCard key={`${file.seq}:${file.index}`} file={file} cwd={cwd}
           phase={states[presentedFileUrl(sessionId, file.seq, file.index)]}
