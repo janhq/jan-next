@@ -26,7 +26,7 @@ import SubagentRuntime, {
   SUBAGENT_DESCRIPTOR_VERSION,
 } from '../src/index.ts'
 import type { SubagentRunEndInfo, SubagentRunInfo } from '../src/index.ts'
-import type { SubagentPromptRequestId } from '../src/control-types.ts'
+import type { SubagentPromptReceipt, SubagentPromptRequestId } from '../src/control-types.ts'
 import * as activationResults from '../src/activation.ts'
 import { requireLocalActivation } from '../src/activation.ts'
 import { TestSessionQuery } from './test-session-query.ts'
@@ -1230,7 +1230,7 @@ describe('target-only Queue residency routing', () => {
 })
 
 describe('continuable human steering delivery', () => {
-  it('places resident steering in nextStep with its durable identity and source', async () => {
+  it('yields resident work and enters steering in the same turn with its durable identity and source', async () => {
     const release = Promise.withResolvers<undefined>()
     const adapter = new GatedAdapter([
       { chunks: textResponse('first'), gate: release.promise },
@@ -1240,17 +1240,22 @@ describe('continuable human steering delivery', () => {
     parkParent(ctx, parent)
     const started = await ctx.subagents.startActivation({ ...startSpec(parent), delivery: 'parent' })
     await vi.waitFor(() => { expect(adapter.requests).toHaveLength(1) })
-    const child = ctx.agents.get(started.childId)!
-
-    const receipt = await humanPrompt(ctx, started.childId, 'resident steer', 'steer')
-    expect(child.inbox.nextStep).toContainEqual(expect.objectContaining({
-      id: receipt.messageId,
-      content: message('resident steer'),
-      source: { kind: 'user', rpcId: 'request-resident steer' },
-    }))
-
-    release.resolve(undefined)
-    await waitNoActivation(ctx, started.childId)
+    try {
+      const receipt = await humanPrompt(ctx, started.childId, 'resident steer', 'steer')
+      await started.result
+      const child = await loadStoredSession(ctx.sessionPersistence, started.childId)
+      const steering = { id: receipt.messageId, content: message('resident steer'), source: { kind: 'user', rpcId: 'request-resident steer' } }
+      expect(child.events).toContainEqual(expect.objectContaining({
+        type: 'agent/inbox/spliced', data: expect.objectContaining({ target: 'next-step', inserted: [expect.objectContaining(steering)] }),
+      }))
+      expect(child.events).toContainEqual(expect.objectContaining({ type: 'user/message', data: expect.objectContaining(steering) }))
+      expect(child.events.filter(event => event.type === 'turn/start')).toHaveLength(1)
+      expect(child.events.flatMap(event => event.type === 'step/start' ? [event.data.step] : [])).toEqual([1, 2])
+      expect(adapter.requests).toHaveLength(2)
+      expect(JSON.stringify(adapter.requests[1]?.messages)).toContain('resident steer')
+    } finally {
+      release.resolve(undefined)
+    }
   })
 
   it('cold-resumes steering into nextStep instead of inventing another queue', async () => {
@@ -2675,14 +2680,25 @@ describe('continuable review regressions', () => {
     const started = await ctx.subagents.startActivation({ ...startSpec(parent), delivery: 'parent' })
     await vi.waitFor(() => { expect(adapter.requests).toHaveLength(1) })
     const child = ctx.agents.get(started.childId)!
-    await humanPrompt(ctx, started.childId, 'steered', 'steer')
-    ctx.subagents.interrupt(started.childId, { kind: 'user' })
-    release.resolve(undefined)
+    // Interrupt at admission, before the yielded step can claim the steering.
+    const stopOnAdmission = ctx.on('agent/inbox/inserted', ({ agent, message: queued }) => {
+      if (agent === child && queued.source.kind === 'user' && queued.source.rpcId === 'request-steered') {
+        ctx.subagents.interrupt(started.childId, { kind: 'user' })
+      }
+    })
+    let receipt: SubagentPromptReceipt
+    try {
+      receipt = await humanPrompt(ctx, started.childId, 'steered', 'steer')
+    } finally {
+      stopOnAdmission()
+      release.resolve(undefined)
+    }
     await child.whenIdle()
-    const parked = child.inbox.nextStep[0]!
+    expect(child.inbox.nextStep.map(entry => entry.id)).toEqual([receipt.messageId])
+    expect(adapter.requests).toHaveLength(1)
     await passSettlementCheck(ctx, started.childId)
     expect(ctx.agents.get(started.childId) !== undefined).toBe(true)
-    expect(child.inbox.remove(parked.id)).toBe(true)
+    expect(child.inbox.remove(receipt.messageId)).toBe(true)
     await waitNoActivation(ctx, started.childId)
   })
 
@@ -3312,39 +3328,31 @@ describe('continuable settlement delivery', () => {
     expect(turnStarts).toEqual([1])
   })
 
-  it('batches simultaneous notices into one step of a busy parent', async () => {
-    const releaseChildren = Promise.withResolvers<undefined>()
+  it('yields the busy parent step when a completion notice arrives', async () => {
     const releaseParent = Promise.withResolvers<undefined>()
     const adapter = new GatedAdapter([
       { chunks: textResponse('parent works'), gate: releaseParent.promise },
-      { chunks: textResponse('first child'), gate: releaseChildren.promise },
-      { chunks: textResponse('second child'), gate: releaseChildren.promise },
+      { chunks: textResponse('child answer') },
       { chunks: textResponse('parent reacts') },
     ])
     const { ctx, parent } = await setupWith(adapter)
-    // Open a parent turn first, so both notices arrive while it is running.
-    parent.followup(createUserMessage({ content: message('start working'), source: { kind: 'user' } }))
-    await vi.waitFor(() => { expect(parent.status).toBe('running') })
+    try {
+      parent.followup(createUserMessage({ content: message('start working'), source: { kind: 'user' } }))
+      await vi.waitFor(() => { expect(adapter.requests.map(request => request.sessionId)).toEqual([parent.id]) })
+      const child = await ctx.subagents.startActivation({ ...startSpec(parent), delivery: 'parent' })
+      await child.result
+      await parent.whenIdle()
 
-    const first = await ctx.subagents.startActivation({ ...startSpec(parent), delivery: 'parent' })
-    const second = await ctx.subagents.startActivation({ ...startSpec(parent), delivery: 'parent' })
-    releaseChildren.resolve(undefined)
-    await waitNoActivation(ctx, first.childId)
-    await waitNoActivation(ctx, second.childId)
-
-    // Both notices are waiting for the same step boundary, not two turns.
-    expect(parent.inbox.nextStep).toHaveLength(2)
-    expect(parent.inbox.nextTurn).toHaveLength(0)
-    const turnStarts: number[] = []
-    ctx.on('session/event', (session, event) => {
-      if (session.id === parent.id && event.type === 'turn/start') turnStarts.push(event.data.turn)
-    })
-    releaseParent.resolve(undefined)
-    await vi.waitFor(() => { expect(settlementNotices(parent)).toHaveLength(2) })
-    expect(turnStarts).toEqual([])
-    // Both children released together, so which settles first is not ordered.
-    expect(new Set(settlementNotices(parent).map(entry => entry.sender)))
-      .toEqual(new Set([first.childId, second.childId]))
+      const parentRequests = adapter.requests.filter(request => request.sessionId === parent.id)
+      expect(parentRequests).toHaveLength(2)
+      expect(JSON.stringify(parentRequests[1]?.messages)).toContain('child answer')
+      const events = parent.session.snapshotEvents()
+      expect(events.filter(event => event.type === 'turn/start')).toHaveLength(1)
+      expect(events.flatMap(event => event.type === 'step/start' ? [event.data.step] : [])).toEqual([1, 2])
+      expect(settlementNotices(parent)).toMatchObject([{ sender: child.childId, stopReason: 'completed' }])
+    } finally {
+      releaseParent.resolve(undefined)
+    }
   })
 
 
