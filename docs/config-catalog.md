@@ -4758,6 +4758,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | `@janhq/jan-client-ui-file-actions` | — | [`packages/client/ui-file-actions/src/index.ts`](../packages/client/ui-file-actions/src/index.ts) |
 | `@janhq/jan-client-ui-file-drag` | — | [`packages/client/ui-file-drag/src/index.ts`](../packages/client/ui-file-drag/src/index.ts) |
 | `@janhq/jan-client-ui-goal` | — | [`packages/client/ui-goal/src/index.ts`](../packages/client/ui-goal/src/index.ts) |
+| `@janhq/jan-client-ui-guidance` | — | [`packages/client/ui-guidance/src/index.ts`](../packages/client/ui-guidance/src/index.ts) |
 | `@janhq/jan-client-ui-input-trigger` | — | [`packages/client/ui-input-trigger/src/index.ts`](../packages/client/ui-input-trigger/src/index.ts) |
 | `@janhq/jan-client-ui-jobs` | — | [`packages/client/ui-jobs/src/index.ts`](../packages/client/ui-jobs/src/index.ts) |
 | `@janhq/jan-client-ui-layout` | — | [`packages/client/ui-layout/src/index.ts`](../packages/client/ui-layout/src/index.ts) |

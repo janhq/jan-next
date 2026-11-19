@@ -93,7 +93,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@janhq/jan-client-ui-open-in-app` | no | Session application submenus and native opening controls for directories and previewed files |
 | `@janhq/jan-client-ui-permission-presets` | no | Permission surfaces: a new-session default in General settings and a current-session /permission popup over the permissions projection |
 | `@janhq/jan-client-ui-plan` | no | Plan mode controls, persistent transcript plan cards, and sidebar Markdown previews |
-| `@janhq/jan-client-ui-plugin-i18n` | no | Plugin translation in the jan web client: generated tables in the locale runtime, the install offer service, runtime tool-title display, and the Plugins settings Translations tab |
+| `@janhq/jan-client-ui-plugin-i18n` | no | Plugin translation in the jan web client: generated tables, on-screen language detection and offers, runtime tool-title translations, and Plugins settings |
 | `@janhq/jan-client-ui-plugin-manager` | yes | Plugin management for the jan web client: the sidebar Plugins panel installs, enables, disables, retries, and composes installed plugin packages |
 | `@janhq/jan-client-ui-plugin-market` | no | Discover tab of the jan web Plugins page: browse configured plugin market indexes and install their bundles |
 | `@janhq/jan-client-ui-reference` | no | Unified Web @file and @session reference source |
