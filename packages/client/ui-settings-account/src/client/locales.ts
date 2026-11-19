@@ -3,7 +3,7 @@ import { onboardingZh, onboardingEn, onboardingJa, onboardingEs, onboardingFr, o
 
 /** English account dictionary. */
 export const en = {
-  localAccount: 'Jan', local: 'Local', tokamak: 'Tokamak', language: 'Language', inference: 'Inference configuration', changelog: 'View changelog', learnMore: 'Learn more', version: 'Version',
+  tokamak: 'Tokamak', language: 'Language', inference: 'Inference configuration', changelog: 'View changelog', learnMore: 'Learn more', version: 'Version',
   modelSignInRequired: 'Model unavailable. Please sign in and try again.',
   sessionExpired: 'You have signed out of your account, please log in again.',
   ...onboardingEn,
@@ -18,7 +18,7 @@ export const en = {
   loading: 'Loading…', backToHarness: 'Back to Jan',
   settings: 'Settings', contactUs: 'Feedback', menu: 'Account menu',
   nav: 'Account', signedIn: 'Signed in to Tokamak', signedOut: 'Not signed in',
-  signIn: 'Sign in with Tokamak', signOut: 'Sign out',
+  signIn: 'Sign in with Tokamak', signOut: 'Sign out', logIn: 'Log in',
   signOutUnknownDescription: 'Could not check running tasks. Signing out may interrupt tasks using this account. Sign out now?',
   signOutDescription: 'Signing out will not delete any data. You can sign in to this account again.',
   signOutRunningDescription: 'Tasks are currently running. Signing out will interrupt them. Sign out now?', cancel: 'Cancel', open: 'Open browser',
@@ -41,7 +41,7 @@ export const en = {
 export type AccountKey = keyof typeof en
 /** Chinese account settings copy. */
 export const zh: Record<AccountKey, string> = {
-  localAccount: 'Jan', local: '本地', tokamak: 'Tokamak', language: '语言', inference: '推理配置', changelog: '查看更新日志', learnMore: '了解更多', version: '版本',
+  tokamak: 'Tokamak', language: '语言', inference: '推理配置', changelog: '查看更新日志', learnMore: '了解更多', version: '版本',
   modelSignInRequired: '当前模型暂不可用，请登录后再试',
   sessionExpired: '登录信息已失效，请重新登录',
   ...onboardingZh,
@@ -56,7 +56,7 @@ export const zh: Record<AccountKey, string> = {
   loading: '加载中…', backToHarness: '返回 Tokamak Harness',
   settings: '设置', contactUs: '意见反馈', menu: '账号菜单',
   nav: '账号与余额', signedIn: '已登录 Tokamak', signedOut: '尚未登录',
-  signIn: '登录', signOut: '退出登录',
+  signIn: '登录', signOut: '退出登录', logIn: '登录',
   signOutUnknownDescription: '暂时无法确认任务状态。退出登录可能会中断使用此账号的任务，是否继续？',
   signOutDescription: '退出登录不会丢失任何数据，你仍可以登录此账号。',
   signOutRunningDescription: '当前有进程正在执行中，点击“退出登录”，将会打断进程，是否即刻退出登录？', cancel: '取消', open: '打开浏览器',
@@ -78,7 +78,7 @@ export const zh: Record<AccountKey, string> = {
 
 /** Japanese copy, checked against the English keys. */
 export const ja = {
-  'localAccount': 'Jan', 'local': 'ローカル', 'tokamak': 'Tokamak', 'language': '言語', 'inference': '推論の設定', 'changelog': '変更履歴を見る', 'learnMore': '詳しく見る', 'version': 'バージョン',
+  'tokamak': 'Tokamak', 'language': '言語', 'inference': '推論の設定', 'changelog': '変更履歴を見る', 'learnMore': '詳しく見る', 'version': 'バージョン',
   ...onboardingJa,
   'modelSignInRequired': 'モデルを利用できません。ログインしてから再試行してください。',
   'sessionExpired': 'アカウントからログアウトしました。もう一度ログインしてください。',
@@ -107,7 +107,7 @@ export const ja = {
   'nav': 'アカウント',
   'signedIn': 'Tokamak にログイン済み',
   'signedOut': '未ログイン',
-  'signIn': 'ログイン',
+  'signIn': 'ログイン', 'logIn': 'ログイン',
   'signOut': 'ログアウト',
   'signOutUnknownDescription': '実行中のタスクを確認できませんでした。ログアウトすると、このアカウントを使用しているタスクが中断される可能性があります。今すぐログアウトしますか？',
   'signOutDescription': 'ログアウトしてもデータは削除されません。このアカウントに再度ログインできます。',
@@ -140,7 +140,7 @@ export const ja = {
 
 /** Spanish dictionary, checked against the English keys. */
 export const es = {
-  localAccount: 'Jan', local: 'Local', tokamak: 'Tokamak', language: 'Idioma', inference: 'Configuración de inferencia', changelog: 'Ver registro de cambios', learnMore: 'Más información', version: 'Versión',
+  tokamak: 'Tokamak', language: 'Idioma', inference: 'Configuración de inferencia', changelog: 'Ver registro de cambios', learnMore: 'Más información', version: 'Versión',
   modelSignInRequired: 'Modelo no disponible. Por favor inicia sesión y vuelve a intentarlo.',
   sessionExpired: 'Has cerrado sesión en tu cuenta, inicia sesión nuevamente.',
   ...onboardingEs,
@@ -155,7 +155,7 @@ export const es = {
   loading: 'Cargando…', backToHarness: 'Volver a Tokamak Harness',
   settings: 'Configuración', contactUs: 'Comentarios', menu: 'Menú de cuenta',
   nav: 'Cuenta', signedIn: 'Iniciado sesión en Tokamak', signedOut: 'No iniciado sesión',
-  signIn: 'Iniciar sesión', signOut: 'Cerrar sesión',
+  signIn: 'Iniciar sesión', signOut: 'Cerrar sesión', logIn: 'Iniciar sesión',
   signOutUnknownDescription: 'No se pudieron verificar las tareas en ejecución. Cerrar sesión puede interrumpir las tareas que utilizan esta cuenta. ¿Cerrar sesión ahora?',
   signOutDescription: 'Cerrar sesión no eliminará ningún dato. Puede iniciar sesión en esta cuenta nuevamente.',
   signOutRunningDescription: 'Las tareas se están ejecutando actualmente. Cerrar sesión los interrumpirá. ¿Cerrar sesión ahora?', cancel: 'Cancelar', open: 'Abrir navegador',
@@ -177,7 +177,7 @@ export const es = {
 
 /** French dictionary, checked against the English keys. */
 export const fr = {
-  localAccount: 'Jan', local: 'Local', tokamak: 'Tokamak', language: 'Langue', inference: 'Configuration de l\'inférence', changelog: 'Voir le journal des modifications', learnMore: 'En savoir plus', version: 'Version',
+  tokamak: 'Tokamak', language: 'Langue', inference: 'Configuration de l\'inférence', changelog: 'Voir le journal des modifications', learnMore: 'En savoir plus', version: 'Version',
   modelSignInRequired: 'Modèle indisponible. Veuillez vous connecter et réessayer.',
   sessionExpired: 'Vous vous êtes déconnecté de votre compte, veuillez vous reconnecter.',
   ...onboardingFr,
@@ -192,7 +192,7 @@ export const fr = {
   loading: 'Chargement…', backToHarness: 'Retour à Tokamak Harness',
   settings: 'Paramètres', contactUs: 'Commentaires', menu: 'Menu du compte',
   nav: 'Compte', signedIn: 'Connecté à Tokamak', signedOut: 'Non connecté',
-  signIn: 'Connectez-vous', signOut: 'Se déconnecter',
+  signIn: 'Connectez-vous', signOut: 'Se déconnecter', logIn: 'Se connecter',
   signOutUnknownDescription: "Impossible de vérifier les tâches en cours d'exécution. La déconnexion peut interrompre les tâches utilisant ce compte. Se déconnecter maintenant ?",
   signOutDescription: 'La déconnexion ne supprimera aucune donnée. Vous pouvez vous reconnecter à ce compte.',
   signOutRunningDescription: "Les tâches sont actuellement en cours d'exécution. La déconnexion les interrompra. Se déconnecter maintenant ?", cancel: 'Annuler', open: 'Ouvrir le navigateur',
@@ -214,7 +214,7 @@ export const fr = {
 
 /** German dictionary, checked against the English keys. */
 export const de = {
-  localAccount: 'Jan', local: 'Lokal', tokamak: 'Tokamak', language: 'Sprache', inference: 'Inferenz-Konfiguration', changelog: 'Änderungsprotokoll ansehen', learnMore: 'Mehr erfahren', version: 'Version',
+  tokamak: 'Tokamak', language: 'Sprache', inference: 'Inferenz-Konfiguration', changelog: 'Änderungsprotokoll ansehen', learnMore: 'Mehr erfahren', version: 'Version',
   modelSignInRequired: 'Modell nicht verfügbar. Bitte melden Sie sich an und versuchen Sie es erneut.',
   sessionExpired: 'Sie haben sich von Ihrem Konto abgemeldet. Bitte melden Sie sich erneut an.',
   ...onboardingDe,
@@ -229,7 +229,7 @@ export const de = {
   loading: 'Laden…', backToHarness: 'Zurück zu Tokamak Harness',
   settings: 'Einstellungen', contactUs: 'Rückmeldung', menu: 'Kontomenü',
   nav: 'Konto', signedIn: 'Angemeldet bei Tokamak', signedOut: 'Nicht angemeldet',
-  signIn: 'Melden Sie sich an', signOut: 'Abmelden',
+  signIn: 'Melden Sie sich an', signOut: 'Abmelden', logIn: 'Anmelden',
   signOutUnknownDescription: 'Laufende Aufgaben konnten nicht überprüft werden. Durch das Abmelden werden möglicherweise Aufgaben mit diesem Konto unterbrochen. Jetzt abmelden?',
   signOutDescription: 'Durch das Abmelden werden keine Daten gelöscht. Sie können sich erneut bei diesem Konto anmelden.',
   signOutRunningDescription: 'Derzeit werden Aufgaben ausgeführt. Durch das Abmelden werden sie unterbrochen. Jetzt abmelden?', cancel: 'Abbrechen', open: 'Browser öffnen',
@@ -251,7 +251,7 @@ export const de = {
 
 /** Russian dictionary, checked against the English keys. */
 export const ru = {
-  localAccount: 'Jan', local: 'Локально', tokamak: 'Tokamak', language: 'Язык', inference: 'Настройки инференса', changelog: 'Список изменений', learnMore: 'Подробнее', version: 'Версия',
+  tokamak: 'Tokamak', language: 'Язык', inference: 'Настройки инференса', changelog: 'Список изменений', learnMore: 'Подробнее', version: 'Версия',
   modelSignInRequired: 'Модель недоступна. Пожалуйста, войдите в систему и повторите попытку.',
   sessionExpired: 'Вы вышли из своей учетной записи, пожалуйста, войдите снова.',
   ...onboardingRu,
@@ -266,7 +266,7 @@ export const ru = {
   loading: 'Загрузка…', backToHarness: 'Вернуться к Tokamak Harness',
   settings: 'Настройки', contactUs: 'Обратная связь', menu: 'Меню аккаунта',
   nav: 'Аккаунт', signedIn: 'Вошёл в Tokamak', signedOut: 'Не авторизован',
-  signIn: 'Войти', signOut: 'Выйти',
+  signIn: 'Войти', signOut: 'Выйти', logIn: 'Войти',
   signOutUnknownDescription: 'Не удалось проверить запущенные задачи. Выход из системы может прервать выполнение задач с использованием этой учетной записи. Выйти сейчас?',
   signOutDescription: 'Выход из системы не приведет к удалению данных. Вы можете снова войти в эту учетную запись.',
   signOutRunningDescription: 'Задачи в настоящее время выполняются. Выход из системы прервет их. Выйти сейчас?', cancel: 'Отмена', open: 'Открыть браузер',
@@ -288,7 +288,7 @@ export const ru = {
 
 /** Portuguese dictionary, checked against the English keys. */
 export const pt = {
-  localAccount: 'Jan', local: 'Local', tokamak: 'Tokamak', language: 'Idioma', inference: 'Configuração de inferência', changelog: 'Ver registro de alterações', learnMore: 'Saiba mais', version: 'Versão',
+  tokamak: 'Tokamak', language: 'Idioma', inference: 'Configuração de inferência', changelog: 'Ver registro de alterações', learnMore: 'Saiba mais', version: 'Versão',
   modelSignInRequired: 'Modelo indisponível. Faça login e tente novamente.',
   sessionExpired: 'Você saiu da sua conta, faça login novamente.',
   ...onboardingPt,
@@ -303,7 +303,7 @@ export const pt = {
   loading: 'Carregando…', backToHarness: 'Voltar para Tokamak Harness',
   settings: 'Configurações', contactUs: 'Comentários', menu: 'Menu da conta',
   nav: 'Conta', signedIn: 'Conectado em Tokamak', signedOut: 'Não conectado',
-  signIn: 'Faça login', signOut: 'Sair',
+  signIn: 'Faça login', signOut: 'Sair', logIn: 'Entrar',
   signOutUnknownDescription: 'Não foi possível verificar as tarefas em execução. Sair pode interromper tarefas usando esta conta. Sair agora?',
   signOutDescription: 'Sair não excluirá nenhum dado. Você pode fazer login nesta conta novamente.',
   signOutRunningDescription: 'As tarefas estão em execução no momento. Sair irá interrompê-los. Sair agora?', cancel: 'Cancelar', open: 'Abra o navegador',

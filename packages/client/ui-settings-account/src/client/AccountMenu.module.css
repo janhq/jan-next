@@ -1,4 +1,11 @@
 .root { flex: 1; min-width: 0; }
+.root[data-login-row='true'] { display: flex; align-items: center; gap: 4px; }
+.gearAnchor { flex: none; }
+/* Signed-out wide footer: "Log in" as the row, with the settings gear beside it. */
+.login { user-select: none; display: flex; flex: 1; min-width: 0; align-items: center; gap: 8px; height: 32px; padding: 6px calc(var(--jan-sidebar-row-padding) - var(--jan-sidebar-paint-inset)); border: 0; border-inline: var(--jan-sidebar-paint-inset) solid transparent; box-sizing: border-box; border-radius: var(--dsw-radius-md); background: transparent; background-clip: padding-box; color: var(--dsw-alias-label-primary); font: inherit; font-size: 14px; line-height: 20px; cursor: pointer; }
+@media (hover: hover) {
+  .login:hover { background-color: var(--dsw-alias-interactive-bg-hover); }
+}
 .root[data-inset='true'] { margin-inline: 2px; }
 .anchor { width: 100%; }
 .trigger { user-select: none; display: flex; align-items: center; width: 100%; height: 44px; gap: 8px; padding: 6px calc(var(--jan-sidebar-row-padding) - var(--jan-sidebar-paint-inset)); border: 0; border-inline: var(--jan-sidebar-paint-inset) solid transparent; box-sizing: border-box; border-radius: var(--dsw-radius-md); background: transparent; background-clip: padding-box; color: var(--dsw-alias-label-primary); font: inherit; font-size: 14px; cursor: pointer; }
@@ -10,7 +17,7 @@
 .avatar { display: flex; align-items: center; justify-content: center; flex: none; width: 24px; height: 24px; border-radius: 50%;
   corner-shape: round; background: var(--dsw-alias-bg-skeleton); color: var(--dsw-alias-label-tertiary); }
 .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* "· Local" / "· Tokamak" after the name says where answers come from. */
+/* "· Tokamak" after the signed-in name says where answers come from. */
 .provider { flex: none; color: var(--dsw-alias-label-tertiary); font-size: 12px; white-space: nowrap; }
 .provider::before { content: '\00B7'; margin-right: 6px; }
 /* Signed-out launcher: a 32px More row carrying the 14px ellipsis. */
