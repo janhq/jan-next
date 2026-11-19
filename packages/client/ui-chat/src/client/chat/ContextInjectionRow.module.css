@@ -47,6 +47,18 @@
   white-space: nowrap;
 }
 
+/* Estimated token cost: trailing caption, kept whole while the summary ellipsizes. */
+.tokens {
+  flex: none;
+  margin-left: auto;
+  padding-left: 12px;
+  color: var(--dsw-alias-label-caption);
+  font-size: var(--jan-content-font-size-secondary, 13px);
+  font-variant-numeric: tabular-nums;
+  line-height: calc(24px + var(--jan-content-font-delta, 0px));
+  white-space: nowrap;
+}
+
 .body {
   box-sizing: border-box;
   /* Indent under the title, which starts at leading (16 + delta) + gap 6. */
