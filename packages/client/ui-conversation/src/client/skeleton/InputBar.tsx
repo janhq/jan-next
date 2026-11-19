@@ -56,7 +56,10 @@ export const InputBar = memo(function InputBar({
   const input = useInput(s => s)
   const notice = useNotices(s => s)
   const busyEnter = useBusyEnter(s => s)
-  const stopKeys = useStopShortcut(keys => keys)
+  const sequenceKeys = useStopShortcut(keys => keys)
+  // Stop is a press-twice sequence; two identical keycaps read as a duplicate, so show one with a count.
+  const stopKeys = useMemo(() => sequenceKeys.length > 1 && sequenceKeys.every(key => key === sequenceKeys[0])
+    ? [`${sequenceKeys[0]} ×${sequenceKeys.length}`] : sequenceKeys, [sequenceKeys])
   const selectedWindow = useContextWindow(value => value)
   // A page whose access snapshot excludes prompting, stopping, or uploading to this Session is offered
   // no Send, no Stop, or no file intake rather than a disabled control. `useAccess` is undefined only
