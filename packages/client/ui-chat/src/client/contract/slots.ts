@@ -393,7 +393,7 @@ export type ChatFlowSlotProps =
 /** Full Chat view props. */
 export type ChatViewSlotProps =
   PropsRuntime<'conversation.view'>
-  & PropsRenderSlots<'conversation.chat.flow' | 'conversation.chat.text-interaction'>
+  & PropsRenderSlots<'conversation.chat.flow' | 'conversation.chat.text-interaction' | 'conversation.chat.image.actions'>
   & PropsStore<ChatStore>
   & InjectFace<ChatViewInjected>
   & PropsLocale<'chat'>
@@ -432,6 +432,13 @@ declare module '@janhq/jan-client-ui-slots' {
   interface SlotMap {
     /** Area-local text gestures and surfaces; each consumer registers its own synchronous admission. */
     'conversation.chat.text-interaction': { kind: 'keyed'; scope: 'session'; owner: TextInteractionSurface }
+
+    /** Controls next to a standalone image displayed by conversation Markdown. */
+    'conversation.chat.image.actions': {
+      kind: 'list'
+      scope: 'session'
+      owner: { readonly getSurface: () => HTMLImageElement | null }
+    }
 
     /** Ordered Chat rows and local echoes with viewport-bound visibility hooks. */
     'conversation.chat.flow': {

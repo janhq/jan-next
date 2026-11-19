@@ -17,7 +17,7 @@
  */
 
 import type { HTMLAttributes } from 'react'
-import { Fragment, createElement, useCallback, useState } from 'react'
+import { Fragment, createElement, useCallback, useRef, useState } from 'react'
 import type { Key, ReactNode } from 'react'
 import clsx from 'clsx'
 import type * as Md from 'mdast'
@@ -688,16 +688,20 @@ function MarkdownImage({ destination, alt, pathImages, streaming, inLink }: {
   const resolved = file === undefined ? undefined : fileImages?.resolve(file.path)
   const src = resolved === undefined ? imageSource(destination, pathImages, load) : freshImageUrl(resolved, load)
   if (src === undefined) return <span className={css.imageAlt}>{alt}</span>
-  return <LoadedMarkdownImage key={src} src={src} alt={alt} destination={destination} preview={inLink ? undefined : fileImages} />
+  return <LoadedMarkdownImage key={src} src={src} alt={alt} destination={destination}
+    preview={inLink ? undefined : fileImages} showActions={!streaming && !inLink} />
 }
 
-function LoadedMarkdownImage({ src, alt, destination, preview }: {
+function LoadedMarkdownImage({ src, alt, destination, preview, showActions }: {
   src: string
   alt: string
   destination: string
   preview: ReturnType<typeof useMarkdownDelegate>['fileImages']
+  showActions: boolean
 }): ReactNode {
-  const { getTriggerProps } = useMarkdownDelegate()
+  const { getTriggerProps, imageActions } = useMarkdownDelegate()
+  const surface = useRef<HTMLImageElement>(null)
+  const getSurface = useCallback(() => surface.current, [])
   const [failed, setFailed] = useState(false)
   const [open, setOpen] = useState(false)
   const close = useCallback(() => { setOpen(false) }, [])
@@ -706,11 +710,13 @@ function LoadedMarkdownImage({ src, alt, destination, preview }: {
   const contextMenuProps = getTriggerProps?.({ kind: 'image', url: src, ...(file === undefined ? {} : { path: file.path }) })
   const imageProps = { className: css.image, src, alt, onError: () => { setFailed(true) },
     loading: 'lazy' as const, decoding: 'async' as const, referrerPolicy: 'no-referrer' as const }
-  if (preview === undefined) return <img {...imageProps} {...contextMenuProps} />
+  const actions = showActions ? imageActions?.(getSurface) : undefined
+  if (preview === undefined) return <><img ref={surface} {...imageProps} {...contextMenuProps} />{actions}</>
   const localFileName = file?.path.split(/[\\/]/u).at(-1)
   const urlFileName = destination.split('/').at(-1)?.split(/[?#]/u)[0]
   const exportName = localFileName || urlFileName || 'image'
   const img = <DraggableImage
+    ref={surface}
     fileDrag={preview.fileDrag}
     {...imageProps}
     resourceAddress={file === undefined ? undefined : preview.resourceAddress?.(file.path)}
@@ -721,6 +727,7 @@ function LoadedMarkdownImage({ src, alt, destination, preview }: {
       {...contextMenuProps}
       aria-label={alt ? `${preview.labels.open}: ${alt}` : preview.labels.open}
       onClick={() => { setOpen(true) }}>{img}</button>
+    {actions}
     {open && <ImageLightbox src={src} alt={alt} labels={preview.labels} onClose={close} contextMenuProps={contextMenuProps} />}
   </>
 }

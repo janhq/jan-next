@@ -106,6 +106,8 @@ export function ChatView({
       dialog: t('image.dialog'), close: t('image.close'),
     },
   }), [cwd, t, fileDrag, sessionId])
+  const imageActions = useCallback((getSurface: () => HTMLImageElement | null) =>
+    renderSlot('conversation.chat.image.actions', { getSurface }), [renderSlot])
   const running = useSession(s => s.running)
   // Fold transitions run while a Turn is live, while an input is pending, and briefly after settling.
   const [motionTail, setMotionTail] = useState(false)
@@ -248,6 +250,7 @@ export function ChatView({
               openFile={requestOpenFile}
               openExternalLink={openExternalLink}
               fileImages={fileImages}
+              imageActions={imageActions}
             >
               {renderSlot('conversation.chat.flow', {
                 entries, pendingInputs, lastInputTurn, deferCollapse,
