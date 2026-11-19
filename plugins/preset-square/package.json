@@ -11,8 +11,11 @@
   },
   "dependencies": {
     "@janhq/jan-plugin-api": "workspace:*",
-    "fflate": "^0.8.3",
-    "js-yaml": "^4.3.2"
+    "js-yaml": "^4.3.2",
+    "yauzl": "3.4.0"
+  },
+  "devDependencies": {
+    "fflate": "^0.8.3"
   },
   "jan": {
     "client": {

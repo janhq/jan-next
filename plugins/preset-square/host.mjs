@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve, sep } from 'node:path'
 import yaml from 'js-yaml'
-import { strFromU8, unzipSync } from 'fflate'
+import { fromBufferPromise } from 'yauzl'
 import { registerApi } from '@janhq/jan-plugin-api'
 
 export const inject = ['webServer', 'connection', 'agentPresets']
@@ -15,6 +15,7 @@ const LANGS = new Set(['zh', 'en', 'ja', 'ru', 'es', 'pt'])
 const MAX_ARCHIVE = 16 * 1024 * 1024
 const MAX_UNPACKED = 32 * 1024 * 1024
 const MAX_FILES = 512
+const decoder = new TextDecoder()
 const COMPOSITION = 'agent.cordis.yml'
 const PERSONA = '@janhq/jan-persona'
 
@@ -65,7 +66,7 @@ async function remote(url, { binary = false } = {}) {
   if (!binary) return response.json()
   const length = Number(response.headers.get('content-length'))
   if (Number.isFinite(length) && length > MAX_ARCHIVE) throw new Error('The preset package is larger than 16 MB.')
-  const bytes = new Uint8Array(await response.arrayBuffer())
+  const bytes = Buffer.from(await response.arrayBuffer())
   if (bytes.length > MAX_ARCHIVE) throw new Error('The preset package is larger than 16 MB.')
   return bytes
 }
@@ -76,29 +77,56 @@ function official(url) {
   return parsed.href
 }
 
-function unpack(bytes) {
-  let entries
-  try { entries = unzipSync(bytes) } catch { throw new Error('The package is not a valid ZIP archive.') }
-  const manifest = entries['manifest.json'] ? JSON.parse(strFromU8(entries['manifest.json'])) : undefined
+class ArchiveLimitError extends Error {}
+
+async function readZip(bytes) {
+  let zip
+  try {
+    zip = await fromBufferPromise(bytes, { validateEntrySizes: true })
+    if (zip.entryCount > MAX_FILES) throw new ArchiveLimitError(`The package has more than ${MAX_FILES} files.`)
+    const entries = []
+    let total = 0
+    for await (const entry of zip.eachEntry()) {
+      total += entry.uncompressedSize
+      if (total > MAX_UNPACKED) throw new ArchiveLimitError('The unpacked package exceeds 32 MB.')
+      if (!entry.fileName.endsWith('/') && !entry.fileName.startsWith('__MACOSX/')) entries.push(entry)
+    }
+
+    const files = new Map()
+    for (const entry of entries) {
+      // yauzl stops the stream if actual output exceeds the checked entry size.
+      const data = Buffer.alloc(entry.uncompressedSize)
+      let offset = 0
+      for await (const chunk of await zip.openReadStreamPromise(entry)) offset += chunk.copy(data, offset)
+      files.set(entry.fileName, data)
+    }
+    return files
+  } catch (error) {
+    if (error instanceof ArchiveLimitError) throw error
+    throw new Error('The package is not a valid ZIP archive.', { cause: error })
+  } finally {
+    zip?.close()
+  }
+}
+
+async function unpack(bytes) {
+  const entries = await readZip(bytes)
+  const manifestData = entries.get('manifest.json')
+  const manifest = manifestData ? JSON.parse(decoder.decode(manifestData)) : undefined
   if (manifest?.format !== 'dsh-preset' || manifest.version !== 1) throw new Error('The package is not a version 1 DSH preset.')
   const id = String(manifest.id ?? '').trim().toLowerCase()
   if (!ID.test(id)) throw new Error(`The package has an invalid preset id "${manifest.id}".`)
   const files = new Map()
-  let total = 0
-  for (const [raw, data] of Object.entries(entries)) {
-    const path = raw.replaceAll('\\', '/')
-    if (path === 'manifest.json' || path.endsWith('/') || path.startsWith('__MACOSX/')) continue
+  for (const [path, data] of entries) {
+    if (path === 'manifest.json') continue
     const segments = path.split('/').filter(segment => segment && segment !== '.')
-    if (!segments.length || segments.includes('..') || /^[a-zA-Z]:/.test(path) || path.startsWith('/')) throw new Error(`The package contains an unsafe path "${raw}".`)
+    if (!segments.length || segments.includes('..') || /^[a-zA-Z]:/.test(path) || path.startsWith('/')) throw new Error(`The package contains an unsafe path "${path}".`)
     const relative = (segments[0] === 'preset' ? segments.slice(1) : segments).join('/')
     if (!relative) continue
-    if (files.size >= MAX_FILES) throw new Error(`The package has more than ${MAX_FILES} files.`)
-    total += data.length
-    if (total > MAX_UNPACKED) throw new Error('The unpacked package exceeds 32 MB.')
     files.set(relative, data)
   }
   if (!files.has(COMPOSITION)) throw new Error(`The package has no ${COMPOSITION}.`)
-  parseComposition(strFromU8(files.get(COMPOSITION)))
+  parseComposition(decoder.decode(files.get(COMPOSITION)))
   return { id, manifest, files }
 }
 
@@ -167,7 +195,7 @@ export function apply(ctx) {
       if (bytes.length !== sizeBytes) throw new Error(`The download is ${bytes.length} bytes; the gallery lists ${sizeBytes}.`)
       const digest = createHash('sha256').update(bytes).digest('hex')
       if (digest !== sha256) throw new Error('The download does not match the gallery checksum.')
-      const { id, manifest, files } = unpack(bytes)
+      const { id, manifest, files } = await unpack(bytes)
       if (id !== detail.presetId) throw new Error(`The package id "${id}" does not match the gallery entry "${detail.presetId}".`)
       if (mounted.has(id) || (await ctx.agentPresets.list()).some(preset => preset.id === id)) throw new Error(`A preset named "${id}" is already installed.`)
       await mkdir(root, { recursive: true })
