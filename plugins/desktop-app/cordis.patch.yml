@@ -45,6 +45,12 @@
     - id: jan-model-hub
       name: '@janhq/jan-model-hub'
 
+    # Let Sessions use the published Chrome extension without an MCP subprocess.
+    - id: browser-use
+      name: '@janhq/jan-browser-use'
+    - id: jan-browser
+      name: '@janhq/jan-browser'
+
     # Chat mode: conversation, web research and simple visual artifacts. The
     # agent searches and reads the web and can create new files it hands over
     # with present (SVG, HTML, Markdown, CSV); it cannot read or edit your
