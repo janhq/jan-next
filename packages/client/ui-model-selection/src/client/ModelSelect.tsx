@@ -99,9 +99,13 @@ export function ModelSelect(
   const groupsRef = useRef<HTMLDivElement | null>(null)
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([])
   const id = useId()
-  const anchorStyle: CSSProperties & Record<'--jan-model-anchor' | '--jan-model-menu-anchor', string> = {
-    '--jan-model-anchor': `--jan-model-${id.replaceAll(':', '')}`,
-    '--jan-model-menu-anchor': `--jan-model-menu-${id.replaceAll(':', '')}`,
+  const anchorId = id.replaceAll(':', '')
+  const menuAnchor = `--jan-model-menu-${anchorId}` as const
+  const anchorStyle: CSSProperties & Record<'--jan-model-anchor', string> = {
+    '--jan-model-anchor': `--jan-model-${anchorId}`,
+  }
+  const flyoutStyle: CSSProperties & Record<'--jan-model-menu-anchor', string> = {
+    '--jan-model-menu-anchor': menuAnchor,
   }
 
   const groups = useMemo(() => state.groups.map(group => ({
@@ -528,6 +532,7 @@ export function ModelSelect(
           id={`${id}-menu`}
           className={css.menu}
           style={anchorStyle}
+          anchorName={menuAnchor}
           role="group"
           aria-label={t('menu.aria')}
           aria-busy={state.status === 'loading' || busy}
@@ -693,7 +698,7 @@ export function ModelSelect(
           ref={flyoutRef}
           id={`${id}-effort`}
           className={css.flyout}
-          style={anchorStyle}
+          style={flyoutStyle}
           role="menu"
           aria-label={t('menu.effort')}
           aria-busy={busy}
