@@ -242,7 +242,7 @@ it.each([false, true])('starts welcome onboarding without carrying update focus 
   expect(state.moveTopWorkspace).not.toHaveBeenCalled()
   expect(state.focusWorkspace).not.toHaveBeenCalled()
   expect(state.windowOptions).toMatchObject({
-    ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 16, y: 18 }, vibrancy: 'sidebar' } : {}),
+    ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 30, y: 31 }, vibrancy: 'sidebar' } : {}),
     webPreferences: { contextIsolation: true, sandbox: true },
   })
   expect(state.closeWelcome).toHaveBeenCalledOnce()
