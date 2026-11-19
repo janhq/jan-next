@@ -10,6 +10,17 @@ afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks() })
 const fileDrag = { prepare: vi.fn(async () => ({ start: () => true, release: () => {} })), reportFailure: vi.fn() }
 const labels = { dragFailed: 'Image drag failed', open: 'View full image', dialog: 'Image preview', close: 'Close preview', loading: 'Loading image', failed: 'Image unavailable' }
 const fileImages = { fileDrag, resolve: (path: string) => `https://example.com/api/file?path=${encodeURIComponent('/workspace/' + path)}`, labels }
+
+it('gives a settled Markdown image its own action without nesting controls inside links', () => {
+  const imageActions = (getSurface: () => HTMLImageElement | null) => <button type="button"
+    onClick={() => expect(getSurface()?.alt).toBe('Outside')}>Image action</button>
+  render(<MarkdownDelegateProvider imageActions={imageActions}>
+    <MarkdownText text={'![Outside](https://example.com/a.png) [![Inside](https://example.com/b.png)](https://example.com)'} />
+  </MarkdownDelegateProvider>)
+  const action = screen.getByRole('button', { name: 'Image action' })
+  expect(action.closest('a')).toBeNull()
+  fireEvent.click(action)
+})
 function mount(text: string, streaming = false) {
   const openFile = vi.fn()
   const view = render(<MarkdownDelegateProvider openFile={openFile} fileImages={fileImages}>
