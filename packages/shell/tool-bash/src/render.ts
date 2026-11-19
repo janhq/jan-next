@@ -71,14 +71,16 @@ export function renderResult(
  * point, so `job_output` continues exactly after it), then the still-running
  * marker. The `tool:jobs` system-prompt section explains how to follow up.
  * @param promoted - the promoted result value: the job id, the wait that
- *   expired, and the output so far.
+ *   expired, whether a user steer released it instead, and the output so far.
  * @returns the model-facing text for a promoted call.
  */
-export function renderPromoted(promoted: { jobId: string; timeoutMs: number; output: string }): string {
+export function renderPromoted(promoted: { jobId: string; timeoutMs: number; steered?: boolean; output: string }): string {
   const body = promoted.output.length > 0
     ? promoted.output.endsWith('\n') ? promoted.output : `${promoted.output}\n`
     : ''
-  return `${body}[still running after ${promoted.timeoutMs}ms; moved to background job ${promoted.jobId}]`
+  return promoted.steered === true
+    ? `${body}[the user steered while this ran; still running as background job ${promoted.jobId}]`
+    : `${body}[still running after ${promoted.timeoutMs}ms; moved to background job ${promoted.jobId}]`
 }
 
 /**
