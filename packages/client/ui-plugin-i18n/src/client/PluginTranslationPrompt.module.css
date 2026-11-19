@@ -7,7 +7,6 @@
   pointer-events: auto;
   -webkit-app-region: no-drag;
   padding: 12px;
-  border: 1px solid var(--dsw-alias-border-l3);
   border-radius: var(--dsw-radius-lg);
   color: var(--dsw-alias-label-primary);
   background: var(--dsw-alias-bg-base);
