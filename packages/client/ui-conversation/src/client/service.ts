@@ -52,6 +52,14 @@ export interface IConversation {
    */
   resolveDraftAttachments(ids: readonly DraftAttachmentId[]): readonly ComposerAttachment[]
   /**
+   * Append browser-owned context to a retained Session's draft without sending it.
+   * @param sessionId - target Session, independent of the focused panel.
+   * @param text - plain text appended after existing paragraphs.
+   * @param files - ordered browser files to attach.
+   * @returns whether the draft accepted the context, is blocked, or no longer exists.
+   */
+  appendDraft(sessionId: SessionId, text: string, files?: readonly File[]): 'added' | 'blocked' | 'unavailable'
+  /**
    * Send a prompt into the caller scope's session (queued turn).
    * @param text - prompt text, sent verbatim as one text block.
    * @returns completion; business failures reject (and land in promptError).
@@ -318,6 +326,22 @@ export class ConversationController extends Service implements IConversation {
     // An accepted prompt whose echo already retired unobserved, as when its queue entry was removed.
     if (ownership.retiredUnobserved) this.releaseDraftAttachments(attachments)
     return { kind: 'success' }
+  }
+
+  appendDraft(sessionId: SessionId, text: string, files: readonly File[] = []): 'added' | 'blocked' | 'unavailable' {
+    const binding = this.requireSessions().binding(sessionId)
+    const state = binding?.session.getSnapshot()
+    if (binding === undefined || state === undefined || state.removed) return 'unavailable'
+    const { subagent } = state
+    if ((subagent !== null && subagent.address.mode !== 'continuable')
+      || this.blocks.storeFor(sessionId).getSnapshot() !== undefined) return 'blocked'
+    const input = this.input.for(binding.ctx)
+    const { phase } = input.state.getSnapshot()
+    if (phase === 'adjudicating' || phase === 'submitting' || phase === 'sending') return 'blocked'
+    const drafts = this.createDrafts(sessionId, files, subagent === null)
+    if (input.appendDraft(text, drafts.map(draft => draft.id))) return 'added'
+    this.releaseDraftAttachments(drafts)
+    return 'blocked'
   }
 
   /**

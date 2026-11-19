@@ -188,6 +188,13 @@ export interface SessionInput extends InputTarget {
 
   /** Replace the whole draft with plain text, removing inline reference chips. */
   setDraft(text: string): void
+  /**
+   * Append text and ordered attachment ids while editable.
+   * @param text - plain draft text.
+   * @param ids - new file ids.
+   * @returns whether the draft accepted the addition.
+   */
+  appendDraft(text: string, ids: readonly DraftAttachmentId[]): boolean
   /** Append ordered browser-owned attachment ids; busy admission phases refuse. */
   addAttachments(ids: readonly DraftAttachmentId[]): boolean
   /** Remove one browser-owned attachment id; busy admission phases refuse. @returns whether the id was removed. */

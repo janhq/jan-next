@@ -23,6 +23,7 @@ export const inject = ['slots', 'fileDrag']
 export function apply(ctx: ClientContext): void {
   ctx.slots.registerFactory({
     name: 'conversation.images.content', scope: 'root', locale: 'conversation',
+    children: { 'conversation.image.preview.actions': { kind: 'list', scope: 'session-maybe' } },
     inject: (): MessageImagesInjected => ({
       fileDrag: ctx.fileDrag.actions,
     }),
