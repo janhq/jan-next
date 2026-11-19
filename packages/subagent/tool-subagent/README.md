@@ -49,6 +49,7 @@ Load the subagent service, an in-process or remote backend, and this tool; then 
 | `agentOptions` | — | Configured child `provider`, `model`, adapter-owned `reasoningEffort`, and positive `maxTokens` defaults; requires provider `agentOptions` support and overlays any provider-owned route defaults |
 | `agentPreset` | — | Default independent child preset id; requires in-process spawn |
 | `allowedAgentPresets` | — | Non-empty preset-id allowlist exposed as the model's optional `agent_preset` enum; must include `agentPreset` when both are set |
+| `presetAgentOptions` | unset | Provider and model defaults by configured child preset; explicit permitted route selection wins |
 | `maxDepth` | Host setting (`1`) | Absolute delegation-depth cap (`0` forbids delegation); `'provider-managed'` sends no cap to an out-of-process provider |
 
 The generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-tool-subagent) is the exhaustive source for every accepted field and its JSDoc.

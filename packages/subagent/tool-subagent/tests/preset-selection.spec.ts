@@ -90,6 +90,19 @@ describe('spawn preset selection', () => {
     expect(onStart).toHaveBeenCalledTimes(1)
   })
 
+  it('advertises available preset descriptions and applies deployment-owned per-preset routes', async () => {
+    const { ctx, onStart } = await setup({
+      allowedAgentPresets: ['writer', 'reviewer'],
+      presetAgentOptions: { reviewer: { provider: 'mock', model: 'mock' } },
+    }, { capabilities: { agentPreset: true, agentOptions: true } })
+    ctx.llm.registerAdapter(['mock'], new MockAdapter([]))
+    expect(ctx.tools.schemas().find(schema => schema.name === 'subagent')?.description).toContain('reviewer: reviewer persona')
+    expect((await callSubagent(ctx, { ...args, agent_preset: 'reviewer' })).isError).not.toBe(true)
+    expect(onStart).toHaveBeenCalledWith(expect.objectContaining({
+      agentPreset: 'reviewer', agentOptions: expect.objectContaining({ provider: 'mock', model: 'mock' }),
+    }))
+  })
+
   it('uses a default without exposing a model selector', async () => {
     const { ctx, onStart } = await setup({ agentPreset: 'reviewer' })
     expect(JSON.stringify(ctx.tools.schemas())).not.toContain('agent_preset')
