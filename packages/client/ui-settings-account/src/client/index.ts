@@ -31,6 +31,7 @@ import { AccountQuotaNotice, type AccountQuotaNoticeInjected } from './AccountQu
 import { DESKTOP_ONBOARDING_NAMESPACE, type OnboardingSettings } from '../onboarding-settings.ts'
 import { DesktopOnboardingController } from './onboarding-state.ts'
 import { DesktopOnboardingEntry, type DesktopOnboardingInjected } from './DesktopOnboardingEntry.tsx'
+import { OnboardingDetailFactory } from './OnboardingProcessStep.tsx'
 import { createSnapshotStore } from '@janhq/jan-client-store'
 import { readOnboardingApiKeyPresence } from './onboarding-credentials.ts'
 import { refreshAfterReturn } from './account-refresh.ts'
@@ -300,6 +301,7 @@ export function apply(ctx: Context): void {
     },
   }
   if (desktop) {
+    ctx.slots.registerFactory({ name: 'settings.onboarding.detail', scope: 'root', locale: 'settings.account' }, OnboardingDetailFactory)
     const controller = new DesktopOnboardingController(
       ctx.configForms.get<OnboardingSettings>(DESKTOP_ONBOARDING_NAMESPACE),
       ctx.configForms.get<{ transcriptView?: TranscriptViewMode | null; performanceUsage: 'compact' | 'detailed' }>('ui-chat'),
@@ -307,6 +309,7 @@ export function apply(ctx: Context): void {
       operations.hooks.account,
       readOnboardingApiKeyPresence,
       ctx.configForms.describe(),
+      config.disableStockApiKeyShortcut,
     )
     ctx.effect(() => () => { controller.dispose() }, 'account: desktop onboarding lifetime')
     const customFlow = createSnapshotStore(false)

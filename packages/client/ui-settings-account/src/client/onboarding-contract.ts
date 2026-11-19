@@ -10,6 +10,19 @@ declare module '@janhq/jan-client-ui-slots' {
     /** Replaces the stock desktop introduction and uses the same completion marker. */
     'settings.onboarding.flow': { kind: 'single'; scope: 'root'; owner: OnboardingFlowOwner }
   }
+  interface SlotFactoryMap {
+    /** The stock transcript detail selector rendered in a caller-owned flow. */
+    'settings.onboarding.detail': { scope: 'root'; props: OnboardingDetailProps; locale: 'settings.account' }
+  }
+}
+
+/** Inputs for reusing the stock detail selector. */
+export interface OnboardingDetailProps {
+  busy: boolean
+  process: OnboardingProcess | null
+  continueLabel: string
+  onSelect: (value: OnboardingProcess) => void
+  onContinue: () => void
 }
 
 /** Operations and write state for a replacement desktop introduction. */
