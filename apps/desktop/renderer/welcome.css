@@ -31,7 +31,10 @@ body {
   --dsw-alias-button-floating-hover: color-mix(in srgb, #FFFFFF, black 4%);
   --dsw-alias-border-l2: rgb(34 34 34 / 10%);
   --dsw-alias-border-l4: rgb(34 34 34 / 16%);
-  --welcome-tint: var(--dsw-desktop-window-tint);
+  --dsw-alias-bg-overlay: #FFFFFF;
+  /* Jan's dialog surface, nearly opaque so the welcome matches the workspace's
+   * overlays instead of the grey macOS menu material. */
+  --welcome-tint: color-mix(in srgb, var(--dsw-alias-bg-overlay) 94%, transparent);
   --ds-transition-duration: 0.2s;
   --ds-transition-duration-slow: 0.3s;
   --ds-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
@@ -51,6 +54,7 @@ html body[data-ds-dark-theme] {
   --dsw-alias-button-floating-hover: color-mix(in srgb, #1B1B1B, white 8%);
   --dsw-alias-border-l2: oklch(1 0 0 / 15%);
   --dsw-alias-border-l4: oklch(1 0 0 / 22%);
+  --dsw-alias-bg-overlay: #1B1B1B;
 }
 
 * {
