@@ -342,6 +342,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         throws: ['if `agent` is not the exact live registry entry for its id, or its creation announcement already began (including a reentrant call from a creation listener).'],
       },
       {
+        signature: 'isAnnouncing(agent: Agent): boolean',
+        description: 'Read whether this exact live Agent\'s creation listeners are still running. A factory-created Agent stays in its creation maintenance until they settle, so an awaited listener\'s work completes before the first turn can start.',
+        parameters: [{ name: 'agent', description: 'the Agent to check.' }],
+        returns: 'true from {@link announce} dispatch start until its listeners settle.',
+      },
+      {
         signature: 'get(id: SessionId): Agent | undefined',
         description: 'Look up a live agent.',
         parameters: [{ name: 'id', description: 'the shared agent/session id to look up.' }],

@@ -573,6 +573,18 @@ export class AgentRegistry extends Service {
   }
 
   /**
+   * Read whether this exact live Agent's creation listeners are still running.
+   * A factory-created Agent stays in its creation maintenance until they settle,
+   * so an awaited listener's work completes before the first turn can start.
+   * @param agent - the Agent to check.
+   * @returns true from {@link announce} dispatch start until its listeners settle.
+   */
+  isAnnouncing(agent: Agent): boolean {
+    const entry = this.store.get(agent.id)
+    return entry?.agent === agent && entry.announcing
+  }
+
+  /**
    * Look up a live agent.
    * @param id - the shared agent/session id to look up.
    * @returns the agent, or undefined when no live agent has that id.

@@ -389,19 +389,19 @@ export class AgentPresetRegistry extends TypertRemoteService {
       const current = this.definitions.get(agentPreset)?.generation
       if (current !== undefined && this.generationFor(agent.ctx) === current
         && this.agentPresetProjectionHandle.stateOf(agent.session) === agentPreset) return agentPreset
-      // Maintenance owns the Agent for the swap, so a turn cannot start under
-      // a half-replaced composition. runMaintenance refuses synchronously when
-      // other work already owns the Agent; only that refusal means busy, and
-      // a failure inside the swap keeps its own cause.
+      const swapPreset = async (): Promise<string> => {
+        const preset = await this.recompose(agent.ctx, agentPreset)
+        agent.session.append('agent-preset/selected', { agentPreset: preset.id })
+        return preset.id
+      }
+      // Maintenance keeps turns off a half-replaced composition; its synchronous refusal means busy
+      // unless creation, which awaits its listeners, owns the Agent. A swap failure keeps its cause.
       let swap: Promise<string>
       try {
-        swap = agent.runMaintenance(async () => {
-          const preset = await this.recompose(agent.ctx, agentPreset)
-          agent.session.append('agent-preset/selected', { agentPreset: preset.id })
-          return preset.id
-        })
+        swap = agent.runMaintenance(swapPreset)
       } catch {
-        throw busy()
+        if (!this.owner.agents.isAnnouncing(agent)) throw busy()
+        swap = swapPreset()
       }
       return await swap
     })
