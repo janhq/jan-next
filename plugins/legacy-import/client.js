@@ -374,14 +374,18 @@ window.__ModuleLoader__.load({
       }
       if (!offer?.show) return null
       if (open) return h(ImportDialog, { refreshSessions, onClose: () => setOpen(false), onDone: dismiss })
+      // Compact by design: a first-launch user reads one line. The question and
+      // the two choices stay visible; what else was found, the read-only
+      // promise and where to import later sit behind Details.
       return h('section', { className: 'jan-legacy-import-offer', role: 'dialog', 'aria-labelledby': 'jan-legacy-import-offer-title' },
-        h('h2', { id: 'jan-legacy-import-offer-title' }, offer.extras?.length ? 'Bring over your Jan chats and settings' : 'Bring over your Jan chats'),
-        h('p', null, `Found ${plural(offer.count, 'chat', 'chats')}${offer.extras?.length ? ` plus your ${listOf(offer.extras)}` : ''} from the earlier Jan app. Import them here? Your Jan folder stays unchanged.`),
+        h('h2', { id: 'jan-legacy-import-offer-title' }, `Import ${plural(offer.count, 'chat', 'chats')}${offer.extras?.length ? ' and settings' : ''} from Jan?`),
         error ? h('p', { role: 'alert' }, error) : null,
         h('div', { className: 'jan-legacy-import-actions' },
           h(Button, { variant: 'primary', onClick: () => setOpen(true) }, 'Review and import'),
           h(Button, { onClick: dismiss }, 'Not now')),
-        h('p', { className: 'jan-legacy-import-detail' }, 'You can import later from Settings -> Built-in plugins -> Import from Jan.'))
+        h('details', { className: 'jan-legacy-import-offer-details' },
+          h('summary', null, 'Details'),
+          h('p', null, `Found in the earlier Jan app${offer.extras?.length ? `, along with your ${listOf(offer.extras)}` : ''}. Your Jan folder stays unchanged. You can import later from Settings -> Built-in plugins -> Import from Jan.`)))
     }
     return {
       name: '@janhq/jan-legacy-import',
@@ -450,6 +454,10 @@ window.__ModuleLoader__.load({
 .jan-legacy-import-offer{position:absolute;top:56px;right:16px;width:min(360px,calc(100% - 32px));display:flex;flex-direction:column;gap:10px;padding:16px;border:1px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-lg);background:var(--dsw-alias-bg-base);box-shadow:0 8px 24px rgb(0 0 0 / 0.12);color:var(--dsw-alias-label-primary)}
 .jan-legacy-import-offer h2{margin:0;font-size:15px;text-wrap:balance}
 .jan-legacy-import-offer p{margin:0;text-wrap:pretty;color:var(--dsw-alias-label-secondary)}
+.jan-legacy-import-offer-details{font-size:13px;color:var(--dsw-alias-label-secondary)}
+.jan-legacy-import-offer-details summary{cursor:pointer;width:fit-content}
+.jan-legacy-import-offer-details summary:hover{color:var(--dsw-alias-label-primary)}
+.jan-legacy-import-offer-details p{margin-top:6px;font-size:13px}
 @media (max-width:560px){.jan-legacy-import-row{grid-template-columns:minmax(0,1fr)}.jan-legacy-import-meta{padding-inline-start:26px}}
 `
           document.head.appendChild(style)
