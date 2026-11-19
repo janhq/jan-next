@@ -47,6 +47,8 @@ export const remoteDefaultResponses: RemoteTable = {
     'pluginI18n/consent': ok({ global: false, packages: [] }),
     'pluginI18n/route': ok({ provider: 'tokamak-official', model: 'tokamak-1-preview', source: 'default' }),
     'pluginI18n/tables': ok({ locale: 'en', packages: {}, strings: {}, runtime: {} }),
+    // ui-plugin-i18n lists installed bundles at access and on `plugin-manager/changed`: none installed.
+    'pluginManager/listBundles': ok([]),
   },
   // Stream endpoints the roster opens later than boot; declared so a spec that forgets the script gets a stream miss.
   streams: [
