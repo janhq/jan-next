@@ -9,7 +9,8 @@ import type {} from '@janhq/jan-client-connection'
 import type {} from '@janhq/jan-session-query'
 import type { SessionId, SessionSeq } from '@janhq/jan-session'
 import { CHANGES_DIFF_PATH, CHANGES_OPEN_PATH, CHANGED_FILES_PATH, type ChangesSummary } from './changes.ts'
-import { isPresentedData, isPresentedFile, PRESENT_OPEN_PATH, PRESENT_HOST_PATH, type PresentedHost } from './presented.ts'
+import { isPresentedFile } from '@janhq/jan-tool-present/types'
+import { isPresentedData, PRESENT_OPEN_PATH, PRESENT_HOST_PATH, type PresentedHost } from './presented.ts'
 
 /**
  * Register the deliverables routes inside Connection's authentication fence:

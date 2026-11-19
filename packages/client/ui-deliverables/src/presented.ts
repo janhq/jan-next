@@ -1,5 +1,4 @@
 /** Validate declared workspace paths and address their native-open actions. */
-import type { PresentedFile } from '@janhq/jan-tool-present/types'
 import type { SessionId } from '@janhq/jan-session/types'
 import type { ToolCallId } from '@janhq/jan-llm/brand'
 
@@ -39,18 +38,6 @@ export function isPresentedHost(value: unknown): value is PresentedHost {
   return typeof host.name === 'string' && typeof host.available === 'boolean'
     && (host.fileManager === null || host.fileManager === 'finder'
       || host.fileManager === 'explorer' || host.fileManager === 'directory')
-}
-
-/**
- * Validate a file declaration read from a Session log.
- * @param value - decoded durable data.
- * @returns whether the declaration contains a path and optional description.
- */
-export function isPresentedFile(value: unknown): value is PresentedFile {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
-  const { path, description } = value as Record<string, unknown>
-  return typeof path === 'string' && path.trim().length > 0
-    && (description === undefined || typeof description === 'string')
 }
 
 /**
