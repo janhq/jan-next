@@ -152,7 +152,10 @@ function mount(overrides: Partial<WorkspaceBrowserProps> = {}) {
     deleteWorkspace: vi.fn(async () => { }),
     unarchiveSession: vi.fn(async () => { }),
     insertWorkspaceBefore: vi.fn(async () => { }),
+    openProject: vi.fn(),
+    useProjectSurface: selector => selector(false),
     createWorkspace: vi.fn(async () => workspace('created', [])),
+    notifyFolderDrop: vi.fn(),
     useDirectoryFlow: bindSnapshotSelector({ getSnapshot: () => true, subscribe: () => () => { } }),
     useHostInfo: selector => selector({ home: undefined, isLoopback: true }),
     renderSlot: renderDirectoryFlowOnly,
@@ -165,7 +168,7 @@ function mount(overrides: Partial<WorkspaceBrowserProps> = {}) {
     view, props, store, controls, openDialog: (workspaceId: WorkspaceId, displayTitle: string, action: 'rename' | 'delete') => {
       const storedTitle = props.useWorkspaces(state => state.items.find(row => row.workspaceId === workspaceId)?.title ?? displayTitle)
       act(() => { request.set({ action, workspaceId, displayTitle, storedTitle }) })
-    }
+    },
   }
 }
 
@@ -308,7 +311,7 @@ describe('WorkspaceBrowser', () => {
     rerender(b, {
       useSessions: hook(sessionState([
         summary('tie-b', 100), summary('blank', 1), summary('tie-a', 100),
-      ], { main: sid('blank') }))
+      ], { main: sid('blank') })),
     })
     expect(rows().map(row => row.textContent)).toEqual([
       expect.stringContaining('tie-a'), expect.stringContaining('tie-b'), expect.stringContaining('blank'),
@@ -888,7 +891,7 @@ describe('WorkspaceBrowser', () => {
     rerender(b, {
       useSessionStatus: status('session-7', {
         pendingInteraction: { key: 'question:1', kind: 'plan-review', sessionId: sid('session-7') } as SessionPendingInteraction,
-      })
+      }),
     })
     expectVisible(7)
     rerender(b, { useSessionStatus: status('session-8', { completionUnread: true }) })
@@ -1484,7 +1487,7 @@ describe('WorkspaceBrowser', () => {
     rerender(restored, {
       useSessions: hook(sessionState([
         summary('old', 100), summary('mid', 200), summary('blank', 300),
-      ], { main: sid('blank') }))
+      ], { main: sid('blank') })),
     })
     expect(names()).toEqual(['blank', 'mid', 'old'])
     const ordinaryBlank = screen.getByText('blank').closest('[role="treeitem"]') as HTMLElement
@@ -2831,7 +2834,7 @@ describe('Workspace tree grouping', () => {
       useWorkspaces: hook(workspaceState([
         workspace('alpha', []), { ...workspace('outside', []), path: '/elsewhere/outside' },
         workspace('beta', []), workspace('gamma', []), root,
-      ]))
+      ])),
     })
     const alpha = screen.getByText('alpha').closest('[role="treeitem"]') as HTMLElement
     const beta = screen.getByText('beta').closest('[role="treeitem"]') as HTMLElement
