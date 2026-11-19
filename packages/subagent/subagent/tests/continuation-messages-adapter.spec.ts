@@ -95,12 +95,12 @@ it('continues the parent through Anthropic Messages after a reasoning-bearing co
       stopReason: 'completed', senderSessionId: started.childId,
     })
     const noticeWithContext = [
-      { role: 'user', content: closingContent.map(block => block.text).join('') },
       {
         role: 'user',
         content: 'Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\n'
           + `Current working directory: ${JSON.stringify(process.cwd())}.`,
       },
+      { role: 'user', content: closingContent.map(block => block.text).join('') },
     ]
     expect(requests[1]).toEqual(expect.objectContaining({ messages: noticeWithContext }))
 
