@@ -1,9 +1,28 @@
 /** Pure view inputs for the desktop onboarding flow. */
 import type { TrackProductEvent } from '@janhq/jan-client-product-analytics/client'
-import type { OnboardingProgress } from '../onboarding-settings.ts'
+import type { OnboardingProcess, OnboardingProgress } from '../onboarding-settings.ts'
 import type { AccountSnapshot } from './AccountSection.tsx'
 import type { PlatformPages } from './platform-pages.ts'
 import type { AccountKey } from './locales.ts'
+
+declare module '@janhq/jan-client-ui-slots' {
+  interface SlotMap {
+    /** Replaces the stock desktop introduction and uses the same completion marker. */
+    'settings.onboarding.flow': { kind: 'single'; scope: 'root'; owner: OnboardingFlowOwner }
+  }
+}
+
+/** Operations and write state for a replacement desktop introduction. */
+export interface OnboardingFlowOwner {
+  /** True while settings are being written or the overlay is exiting. */
+  busy: boolean
+  /** The account-owned settings read or write failed. */
+  settingsError: boolean
+  /** @param detail - selected transcript detail, or null to skip. @returns whether completion was saved. */
+  finish(this: void, detail: OnboardingProcess | null): Promise<boolean>
+  /** @returns whether the settings read or write succeeded on retry. */
+  retry(this: void): Promise<boolean>
+}
 
 /** Render state with pending choices previewed over durable Host progress. */
 export interface DesktopOnboardingState {
