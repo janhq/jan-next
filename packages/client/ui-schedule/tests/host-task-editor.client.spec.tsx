@@ -432,6 +432,20 @@ describe('Host task editor on the existing manager', () => {
     expect(createRRuleScheduleRecord(createScheduleId('saved-interval'), request.title, request.prompt, rruleOf(request.timing), Date.now()).scheduledAt).toBe(next)
   })
 
+  it('creates a task from a template without edits', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime('2026-10-14T08:00:30.000Z')
+    const h = mount([])
+    fireEvent.click(screen.getByRole('tab', { name: en['view.templates'] }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp('^' + en['template.weeklyReview.title']) }))
+    const modal = screen.getByRole('complementary')
+    await act(async () => { fireEvent.click(within(modal).getByRole('button', { name: en['host.create'] })) })
+    const request = vi.mocked(h.props.onCreateTask).mock.calls[0]![0]
+    expect(request.title).toBe(en['template.weeklyReview.title'])
+    expect(request.prompt).toBe(en['template.weeklyReview.prompt'])
+    expect(rruleOf(request.timing)).toContain('BYDAY=FR')
+  })
+
   it('preserves the linked conversation and recurrence when editing an existing task', async () => {
     const current = { ...task, target: { kind: 'session' as const, sessionId: targetSession },
       rrule: 'DTSTART;TZID=UTC:20990101T090000\nRRULE:FREQ=MINUTELY;INTERVAL=5' }

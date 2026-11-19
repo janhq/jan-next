@@ -214,8 +214,10 @@ function TaskDetailView(props: TaskDetailProps): ReactNode {
   const projects = projectChoices(workspaces.items, t('host.defaultProject'))
   // Until a directory is chosen, a new form follows the Workspace list as it arrives.
   const draft = task === undefined && input.cwd === '' ? { ...input, cwd: projects.defaultCwd } : input
+  // A template is a complete draft of its own, so a form it seeds can be created unedited.
   const dirty = base === undefined
-    ? JSON.stringify(draft) !== JSON.stringify({ ...initial, cwd: initial.cwd || projects.defaultCwd }) : storedDirty
+    ? props.template !== undefined || JSON.stringify(draft) !== JSON.stringify({ ...initial, cwd: initial.cwd || projects.defaultCwd })
+    : storedDirty
   const issue = dirty ? taskDraftIssue(draft, changes) : undefined
   const valid = issue === undefined
   const [actionPending, setPending] = useState(false)
@@ -265,7 +267,7 @@ function TaskDetailView(props: TaskDetailProps): ReactNode {
   const setDraft = (value: TaskEditorDraft): void => {
     props.actions.setDraft(key, {
       base, draft: value, ...(task === undefined ? { initial } : {}),
-      ...(cached?.failure === 'host.conflict' ? { failure: cached.failure } : {})
+      ...(cached?.failure === 'host.conflict' ? { failure: cached.failure } : {}),
     })
     setFailure(null)
   }
@@ -277,11 +279,11 @@ function TaskDetailView(props: TaskDetailProps): ReactNode {
     const outcome = task === undefined
       ? await props.onCreateTask({
         title: draft.title.trim(), prompt: draft.prompt.trim(),
-        timing: timingFromDraft(draft, true), target: draftTarget(draft)
+        timing: timingFromDraft(draft, true), target: draftTarget(draft),
       })
       : await hostActions.edit({
         id: task.id, action: 'update', patch: taskDraftPatch(draft, existingBase, true),
-        expectedUpdatedAt: existingBase.updatedAt ?? null
+        expectedUpdatedAt: existingBase.updatedAt ?? null,
       })
     if (outcome === 'saved' || 'created' in outcome) {
       props.actions.clearDraft(key)
@@ -331,35 +333,35 @@ function TaskDetailView(props: TaskDetailProps): ReactNode {
         <div className={css.detailActions}>
           {task !== undefined && <><Tooltip label={deliveryFloor && !runHeld
             ? t('host.runAfterInterval', { time: formatAvailableAt(floorEndsAt, t('time.locale'), now) }) : t('host.run')}
-            side="bottom" delayMs={500} portal>
+          side="bottom" delayMs={500} portal>
             <span><Button size="sm" variant="ghost" disabled={runHeld || deliveryFloor}
               onClick={() => { void run(task.id) }}>{t('host.run')}</Button></span>
           </Tooltip>
-            <Tooltip label={t(task.status === 'active' ? 'host.pause' : 'host.resume')} side="bottom" delayMs={500} portal>
-              <span><Button size="sm" className={css.detailIconButton} disabled={busy || dirty || executionActive || task.status === 'ended' || !props.authoritative}
-                aria-label={t(task.status === 'active' ? 'host.pause' : 'host.resume')} onClick={() => { void setActive(task) }}>
-                {task.status === 'active' ? <IconPauseOutlineRegular /> : <IconPlayOutlineRegular />}
-              </Button></span>
-            </Tooltip>
-            <Menu open={menuOpen} onClose={() => { setMenuOpen(false) }} align="end" portal autoFocus
-              anchor={<Button ref={moreRef} size="sm" className={css.detailIconButton} aria-label={t('detail.more')}
-                aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => { setMenuOpen(value => !value) }}>
-                <IconEllipsisOutlineRegular />
-              </Button>}>
-              <MenuItemButton disabled={runHeld || deliveryFloor}
-                disabledReason={deliveryFloor && !runHeld
-                  ? t('host.runAfterInterval', { time: formatAvailableAt(floorEndsAt, t('time.locale'), now) }) : undefined}
-                onSelect={() => { void run(task.id) }}>{t('host.run')}</MenuItemButton>
-              <MenuItemButton disabled={busy || dirty || executionActive || !props.authoritative}
-                onSelect={() => {
-                  // The dialog returns focus to the control that held it on open, not to the removed menu row.
-                  moreRef.current?.focus()
-                  setMenuOpen(false)
-                  onConfirm(task.id)
-                }}>
-                {t('delete.action')}
-              </MenuItemButton>
-            </Menu></>}
+          <Tooltip label={t(task.status === 'active' ? 'host.pause' : 'host.resume')} side="bottom" delayMs={500} portal>
+            <span><Button size="sm" className={css.detailIconButton} disabled={busy || dirty || executionActive || task.status === 'ended' || !props.authoritative}
+              aria-label={t(task.status === 'active' ? 'host.pause' : 'host.resume')} onClick={() => { void setActive(task) }}>
+              {task.status === 'active' ? <IconPauseOutlineRegular /> : <IconPlayOutlineRegular />}
+            </Button></span>
+          </Tooltip>
+          <Menu open={menuOpen} onClose={() => { setMenuOpen(false) }} align="end" portal autoFocus
+            anchor={<Button ref={moreRef} size="sm" className={css.detailIconButton} aria-label={t('detail.more')}
+              aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => { setMenuOpen(value => !value) }}>
+              <IconEllipsisOutlineRegular />
+            </Button>}>
+            <MenuItemButton disabled={runHeld || deliveryFloor}
+              disabledReason={deliveryFloor && !runHeld
+                ? t('host.runAfterInterval', { time: formatAvailableAt(floorEndsAt, t('time.locale'), now) }) : undefined}
+              onSelect={() => { void run(task.id) }}>{t('host.run')}</MenuItemButton>
+            <MenuItemButton disabled={busy || dirty || executionActive || !props.authoritative}
+              onSelect={() => {
+                // The dialog returns focus to the control that held it on open, not to the removed menu row.
+                moreRef.current?.focus()
+                setMenuOpen(false)
+                onConfirm(task.id)
+              }}>
+              {t('delete.action')}
+            </MenuItemButton>
+          </Menu></>}
           {onClose !== undefined && <Button size="sm" className={css.detailIconButton} aria-label={t(task === undefined ? 'host.closeCreate' : 'detail.close')}
             disabled={pending} onClick={onClose}><IconCloseOutlineRegular /></Button>}
         </div>
@@ -423,7 +425,7 @@ function TaskDetailView(props: TaskDetailProps): ReactNode {
           onClick={() => { reset(); if (task === undefined) onClose?.() }}>{t('rule.cancel')}</Button>
         <Button variant="primary" disabled={busy || !dirty || !valid || failure === 'host.conflict'
           || task !== undefined && (!props.authoritative || executionActive)}
-          onClick={() => { void save() }}>{t(saving ? task === undefined ? 'host.creating' : 'rule.saving' : task === undefined ? 'host.create' : 'rule.save')}</Button>
+        onClick={() => { void save() }}>{t(saving ? task === undefined ? 'host.creating' : 'rule.saving' : task === undefined ? 'host.create' : 'rule.save')}</Button>
       </footer>}
     </aside>
     {task !== undefined && <Modal open={confirmId === task.id}
