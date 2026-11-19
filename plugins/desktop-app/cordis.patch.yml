@@ -15,6 +15,15 @@
   config:
     heroPlaceholder: Ask anything, / for commands, @ for files or chats
 
+# Jan desktop is a chat app first: a new chat starts in Chat mode on every
+# route, including the local model, whose stock `minimal` preset is a coding
+# assistant. A default picked in Settings still wins.
+- id: agent-preset-registry
+  config:
+    default: chat
+    routeDefaults:
+      local: chat
+
 - insert:
     # Jan's palette, sidebar, appearance settings and window controls.
     - id: jan-theme
