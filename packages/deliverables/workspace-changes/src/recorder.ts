@@ -203,7 +203,11 @@ export class TurnRecorder {
     void this.enqueue(signal => this.record(state, signal))
   }
 
-  /** Wait for a safe tool start, or cancel the baseline and leave before Git drains. */
+  /**
+   * Wait for a safe tool start, or cancel the baseline and leave before Git drains.
+   * @param signal - the tool call's cancellation.
+   * @returns true once queued work settled, false when the signal aborted first.
+   */
   async waitForTool(signal: AbortSignal): Promise<boolean> {
     const { baselineAbort } = this.state
     if (signal.aborted) {
