@@ -547,6 +547,16 @@ export async function packageTarget(
       '--pack-destination',
       buildPaths.packedLandlock,
     ], buildEnv, REPOSITORY_ROOT)
+    // The entry's platform package carries the prebuilt addon and is not on npm; Windows has none.
+    if (target.platform === 'darwin' || target.platform === 'linux') {
+      await executePreparation([
+        '--dir',
+        `native/system/packages/${target.platform}-${target.arch}`,
+        'pack',
+        '--pack-destination',
+        buildPaths.packedLandlock,
+      ], buildEnv, REPOSITORY_ROOT)
+    }
   }
   const prepareRuntime = () => executePreparation(
     ['run', 'prepare:runtime', ...(signPrimaryRuntime ? ['--defer-primary-runtime-smoke'] : [])], downloadEnv)
