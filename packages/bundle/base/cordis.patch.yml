@@ -131,7 +131,7 @@
         apiBaseURL: !!js (process.env.TOKAMAK_BASE_URL || 'https://api.tokamak.sh/v1').trim().replace(/\/+$/, '').replace(/^(https?:\/\/[^/]+)$/, '$1/v1')
         webOrigin: !!js process.env.TOKAMAK_WEB_URL || ''
         allowLoopbackHttp: !!js "['1', 'true', 'yes'].includes((process.env.TOKAMAK_ALLOW_LOOPBACK_HTTP ?? '').toLowerCase())"
-        clientName: Jan Alpha
+        clientName: Jan Next
 
     - id: credentials
       name: '@janhq/jan-credentials-local'
