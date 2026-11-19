@@ -235,7 +235,7 @@
 .inlineProcess { position: static; width: min(100%, 648px); transform: none; }
 .inlineProcess .copy h1 { font: 500 24px/32px var(--dsw-font-family-brand); letter-spacing: -0.72px; }
 .inlineProcess .subtitle { font: 400 14px/20px var(--dsw-font-family); letter-spacing: -0.28px; }
-.inlineProcess .card { min-height: 148px; border-radius: 16px; padding: 16px; }
+.inlineProcess .card { min-height: 148px; border-radius: var(--dsw-radius-lg); padding: 16px; }
 .inlineProcess .cardTitle { font-size: 16px; line-height: 24px; letter-spacing: -0.32px; }
 .inlineProcess .cardDescription { font-size: 13px; line-height: 18px; letter-spacing: -0.13px; }
 .inlineProcess .selected::before { border-color: var(--dsw-alias-state-business-primary); opacity: 1; }
