@@ -12,7 +12,7 @@ env:
   JAN_TELEMETRY_DISABLED: '1'
 
 # Cancel a superseded pull-request run on a new push so a fresh head does not
-# queue a second full run behind a stale one (paid enterprise runners
+# queue a second full run behind a stale one (runner minutes
 # would otherwise stack with no auto-cancellation).
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -20,24 +20,22 @@ concurrency:
 
 jobs:
 
-  # Three enterprise jobs isolate coverage, static analysis, and the
-  # build-backed consumer tail. The consumer job owns the only Linux build so
-  # all three jobs enter runner allocation independently.
+  # Three jobs isolate coverage, static analysis, and the build-backed
+  # consumer tail. The consumer job owns the only Linux build so all three
+  # jobs enter runner allocation independently.
   #
-  # FAILOVER (Linux): each Linux enterprise job resolves its pool through the
+  # FAILOVER (Linux): each Linux job resolves its pool through the
   # JAN_CI_FAILOVER_LINUX repository variable. Unset (normal), the expressions
-  # pick the hosted enterprise pools below. Setting the variable to
-  # 'selfhosted' (repo Settings → Actions → Variables; writer-manageable
-  # repository state — not PR-editable, no merge required) retargets all
-  # three onto the in-house
-  # vm-backup pool and re-running the failed jobs is the entire switch —
-  # see .agents/notes/implemented/process/2026-07-26-ci-failover-runbook.md.
+  # pick GitHub-hosted ubuntu-24.04. Setting the variable to 'selfhosted'
+  # (repo Settings → Actions → Variables; writer-manageable repository state —
+  # not PR-editable, no merge required) retargets all three onto a self-hosted
+  # pool labelled vm-backup, which must be registered first — see
+  # .agents/notes/implemented/process/2026-07-26-ci-failover-runbook.md.
   # Setting the variable to 'blacksmith' instead routes the same jobs onto
   # Blacksmith's hosted runners sized per workload (see
-  # .agents/notes/implemented/process/2026-09-09-blacksmith-failover-leg.md). The
-  # in-house pool's readiness is re-proven on every master push by the
-  # serial-linux-selfhosted standby lane in ci-master.yml. Native Windows jobs
-  # and their separate JAN_CI_FAILOVER_WINDOWS switch live in ci-windows.yml.
+  # .agents/notes/implemented/process/2026-09-09-blacksmith-failover-leg.md).
+  # Native Windows jobs and their separate JAN_CI_FAILOVER_WINDOWS switch live
+  # in ci-windows.yml.
   node-24:
     if: github.event_name == 'pull_request'
     runs-on: >-
@@ -45,13 +43,13 @@ jobs:
           || vars.JAN_CI_FAILOVER_LINUX == 'selfhosted'
           && github.event.pull_request.user.login != 'dependabot[bot]'
           && fromJSON('["self-hosted", "linux", "x64", "vm-backup"]')
-          || 'jan-ubuntu-24-04-16core' }}
+          || 'ubuntu-24.04' }}
     name: node 24 / static
     env:
       # Shared hosts expose host CPUs, not an isolated allocation.
       JAN_GATE_CONCURRENCY: ${{ vars.JAN_CI_FAILOVER_LINUX == 'selfhosted' && github.event.pull_request.user.login != 'dependabot[bot]' && '8' || '' }}
       # Stop the aggregate at the first blocking gate failure so a red run
-      # does not keep burning enterprise runner time on the remaining gates.
+      # does not keep burning runner time on the remaining gates.
       JAN_GATE_FAIL_FAST: '1'
     steps:
       # Runner cleanup owns tool caches and fixtures, including cancelled runs.
@@ -109,7 +107,7 @@ jobs:
           || vars.JAN_CI_FAILOVER_LINUX == 'selfhosted'
           && github.event.pull_request.user.login != 'dependabot[bot]'
           && fromJSON('["self-hosted", "linux", "x64", "vm-backup"]')
-          || 'jan-ubuntu-24-04-16core' }}
+          || 'ubuntu-24.04' }}
     name: node 24 / coverage
     env:
       # Shared hosts expose host CPUs, not an isolated allocation.
@@ -210,7 +208,7 @@ jobs:
           || vars.JAN_CI_FAILOVER_LINUX == 'selfhosted'
           && github.event.pull_request.user.login != 'dependabot[bot]'
           && fromJSON('["self-hosted", "linux", "x64", "vm-backup"]')
-          || 'jan-ubuntu-24-04-16core' }}
+          || 'ubuntu-24.04' }}
     name: node 24 / lint
     env:
       # Shared hosts expose host CPUs, not an isolated allocation.
@@ -335,7 +333,7 @@ jobs:
           || vars.JAN_CI_FAILOVER_LINUX == 'selfhosted'
           && github.event.pull_request.user.login != 'dependabot[bot]'
           && fromJSON('["self-hosted", "linux", "x64", "vm-backup"]')
-          || 'jan-ubuntu-24-04-16core' }}
+          || 'ubuntu-24.04' }}
     name: node 24 / snapshots and artifacts
     env:
       # Shared hosts expose host CPUs, not an isolated allocation.
@@ -382,7 +380,7 @@ jobs:
           echo "path=$store_path" >> "$GITHUB_OUTPUT"
 
       # Pull requests restore the pnpm store and Playwright caches without paying
-      # compression and upload on the required path. No master job saves these
+      # compression and upload on the required path. No main-push job saves these
       # hosted cache keys, so each restore-keys fallback hits the matching archived
       # entry until it evicts, after which the store is cold. Self-hosted runners
       # reuse the shared persistent store instead of restoring the remote archive.

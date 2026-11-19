@@ -2,9 +2,12 @@
   "name": "@janhq/jan-llama-cpp",
   "description": "Download and verify GGUF models and supervise the bundled jan-llama-worker that serves them",
   "version": "0.2.2-rc.1",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jamesdam/tokamak-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/llm/llama-cpp"
   },
   "type": "module",
@@ -53,7 +56,6 @@
     "@janhq/jan-subprocess": "workspace:*",
     "@janhq/jan-subprocess-local": "workspace:*"
   },
-  "private": true,
   "peerDependenciesMeta": {
     "@janhq/jan-agent-default-model": {
       "optional": true

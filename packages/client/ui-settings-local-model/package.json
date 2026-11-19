@@ -2,9 +2,12 @@
   "name": "@janhq/jan-client-ui-settings-local-model",
   "description": "Download, start and stop the managed local llama.cpp model from Settings and first-run setup",
   "version": "0.2.2-rc.1",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jamesdam/tokamak-harness.git",
+    "url": "git+https://github.com/janhq/jan-next.git",
     "directory": "packages/client/ui-settings-local-model"
   },
   "type": "module",
@@ -67,6 +70,5 @@
     "lib/index.js",
     "lib/client.js",
     "lib/types/**/*.d.ts"
-  ],
-  "private": true
+  ]
 }

@@ -9,7 +9,7 @@ description: "The fs-observation-policy row ships disabled, so write, edit, and 
 
 In 0.2.2-alpha.2, `jan-base` mounted `@janhq/jan-fs-observation-policy`, so in every base-backed profile `write` refused to overwrite a file the model had not read, `edit` refused an unread or externally changed file, and the model's guidance named the policy. The `fs-observation-policy` row now ships `disabled: true`: `write` overwrites, `edit` replaces literal text, and the new `apply_patch` applies hunks on context match alone, each unconditionally. The `write` and `edit` guidance still asks for a prior read but no longer cites the policy. Review capture, sandbox confinement, and `fs/observed` events are unchanged.
 
-The `jan-base` `tool-fs` row (headless, SDK, and ACP) and the Web `standard` preset now list `apply_patch` (`applyPatch: true`); the Web `ptc` and `cordis` presets keep `applyPatch: false`.
+The `jan-base` `tool-fs` row (headless, SDK, and ACP) and the Web `standard` preset now list `apply_patch` (`applyPatch: true`); the Web `ptc` and Cordis presets keep `applyPatch: false`.
 
 Affected: the base-backed profiles (`headless`, `web`, `sdk`, `acp`; `sdk-minimal` stacks no `jan-base`, never mounted the policy, and keeps its text tools off), profile patches that override the `fs-observation-policy` or `tool-fs` rows by id, and recorded expectations that include an `FS_NOT_OBSERVED` or `FS_STALE_VERSION` refusal.
 

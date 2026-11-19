@@ -1,18 +1,16 @@
 {
   "finalResponse": "DYNAMIC_TOOLS_OK",
   "declarations": [
-    null,
     {
       "name": "snapshot_ping",
       "description": "Return pong once.",
+      "eager_input_streaming": true,
       "input_schema": {
         "type": "object",
         "properties": {},
-        "additionalProperties": false
-      },
-      "defer_loading": true
-    },
-    null
+        "required": []
+      }
+    }
   ],
   "requestToolChanges": [
     [],
@@ -20,12 +18,45 @@
       {
         "type": "tool_addition",
         "tool": {
+          "type": "tool_definition",
+          "definition": {
+            "name": "snapshot_ping",
+            "description": "Return pong once.",
+            "eager_input_streaming": true,
+            "input_schema": {
+              "type": "object",
+              "properties": {},
+              "required": []
+            }
+          }
+        }
+      }
+    ],
+    [
+      {
+        "type": "tool_addition",
+        "tool": {
+          "type": "tool_definition",
+          "definition": {
+            "name": "snapshot_ping",
+            "description": "Return pong once.",
+            "eager_input_streaming": true,
+            "input_schema": {
+              "type": "object",
+              "properties": {},
+              "required": []
+            }
+          }
+        }
+      },
+      {
+        "type": "tool_removal",
+        "tool": {
           "type": "tool_reference",
           "name": "snapshot_ping"
         }
       }
-    ],
-    []
+    ]
   ],
   "events": [
     {
@@ -35,14 +66,8 @@
       "data": {
         "header": {
           "config": {
-            "provider": "tokamak-official",
-            "model": "smoke-model",
-            "maxTokens": 256000,
-            "reasoningEffort": "high"
-          },
-          "adapterDefaults": {
-            "reasoningEffort": true,
-            "maxTokens": true
+            "provider": "anthropic",
+            "model": "claude-opus-4-8"
           },
           "tools": [
             "apply_patch",
@@ -87,9 +112,10 @@
       "seq": 13,
       "time": 0,
       "data": {
-        "provider": "tokamak-official",
-        "model": "smoke-model",
-        "contextWindow": 1000000
+        "provider": "anthropic",
+        "model": "claude-opus-4-8",
+        "contextWindow": 1000000,
+        "systemPromptUpdate": "in-history"
       }
     },
     {
@@ -99,14 +125,8 @@
       "data": {
         "header": {
           "config": {
-            "provider": "tokamak-official",
-            "model": "smoke-model",
-            "maxTokens": 256000,
-            "reasoningEffort": "high"
-          },
-          "adapterDefaults": {
-            "reasoningEffort": true,
-            "maxTokens": true
+            "provider": "anthropic",
+            "model": "claude-opus-4-8"
           },
           "tools": [
             "apply_patch",
@@ -178,14 +198,8 @@
       "data": {
         "header": {
           "config": {
-            "provider": "tokamak-official",
-            "model": "smoke-model",
-            "maxTokens": 256000,
-            "reasoningEffort": "high"
-          },
-          "adapterDefaults": {
-            "reasoningEffort": true,
-            "maxTokens": true
+            "provider": "anthropic",
+            "model": "claude-opus-4-8"
           },
           "tools": [
             "apply_patch",

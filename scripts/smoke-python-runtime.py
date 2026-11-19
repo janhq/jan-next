@@ -25,12 +25,18 @@ from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Literal
+from urllib.parse import urlsplit
 
 if TYPE_CHECKING:
     from jan import Notification, RunResult
 
 
 EXPECTED_TEXT = "runtime smoke ok"
+# The shipped `tokamak` route lists router models over the OpenAI API, which the Messages mock does not serve.
+SMOKE_MODELS = ("smoke-model", "resumed-smoke-model")
+# A pi-ai catalog model with in-history system-prompt and tool updates.
+UPDATE_PROVIDER = "anthropic"
+UPDATE_MODEL = "claude-opus-4-8"
 LIVE_API_SENTINEL = "PYTHON_SDK_LIVE_OK"
 CODE_PROMPT = "Use run_code to compute the packaged worker smoke value."
 CODE_WORKER_TEXT = "code worker smoke ok"
@@ -311,6 +317,28 @@ def smoke_route(models: list[dict[str, object]]) -> dict[str, object]:
     return {"api": "anthropic-messages", "baseURLEnv": "TOKAMAK_BASE_URL", "apiKeyEnv": "TOKAMAK_API_KEY", "models": models}
 
 
+def update_route_row() -> dict[str, object]:
+    """Serve the catalog model whose mid-conversation updates a configured `tokamak` model cannot declare."""
+    return {"id": "llm-pi-ai", "config": {"providers": {UPDATE_PROVIDER: {
+        "api": "anthropic-messages", "baseURLEnv": "TOKAMAK_BASE_URL", "apiKeyEnv": "TOKAMAK_API_KEY",
+    }}}}
+
+
+def write_smoke_route(jan_home: Path) -> Path:
+    """Serve the mock's models through the `tokamak` route in every profile this home boots.
+
+    The home-level patch outranks profile layers; scenario `--patch` overlays outrank it.
+    """
+    jan_home.mkdir(parents=True, exist_ok=True)
+    path = jan_home / "cordis.patch.yml"
+    path.write_text(json.dumps([
+        {"id": "llm-pi-ai", "config": {"providers": {"tokamak": smoke_route(
+            [{"id": model, "input": ["text", "image"]} for model in SMOKE_MODELS],
+        )}}},
+    ], indent=2))
+    return path
+
+
 class MockModelHandler(BaseHTTPRequestHandler):
     """Return deterministic text, worker, and orchestration completions."""
 
@@ -318,7 +346,8 @@ class MockModelHandler(BaseHTTPRequestHandler):
     direct_child_finished = threading.Event()
 
     def do_POST(self) -> None:
-        if self.path != "/v1/messages":
+        # The Anthropic SDK adds `?beta=true` to Messages requests.
+        if urlsplit(self.path).path != "/v1/messages":
             self.send_error(404)
             return
         content_length = int(self.headers.get("content-length", "0"))
@@ -351,12 +380,13 @@ def completion_chunks(body: dict[str, object]) -> list[dict[str, object]]:
     if not isinstance(latest, dict):
         raise AssertionError(f"model request has an invalid latest message: {body}")
 
-    recovery_prompt = next((
-        block.get("text")
-        for block in latest.get("content", [])
-        if isinstance(block, dict) and block.get("type") == "text"
-        and block.get("text") in {RECOVERY_PROMPT, RECOVERY_CONTINUE_PROMPT}
-    ), None)
+    # pi-ai sends the prompt and runtime context as separate user messages after the last assistant turn.
+    last_assistant = max((index for index, message in enumerate(messages) if message.get("role") == "assistant"), default=-1)
+    turn_texts = [
+        text for message in messages[last_assistant + 1:] if message.get("role") == "user"
+        for text in message_texts(message.get("content"))
+    ]
+    recovery_prompt = next((text for text in turn_texts if text in {RECOVERY_PROMPT, RECOVERY_CONTINUE_PROMPT}), None)
     if recovery_prompt == RECOVERY_PROMPT:
         assert_advertised_tool(body, "todo_write")
         chunks = [message_start()]
@@ -436,7 +466,7 @@ def completion_chunks(body: dict[str, object]) -> list[dict[str, object]]:
             if tool_text != "pong" or result.get("is_error"):
                 raise AssertionError(f"dynamically added tool did not execute: {tool_text}")
             if "snapshot_ping" in advertised_tool_names(body):
-                raise AssertionError("addition-only request retained the removed tool")
+                raise AssertionError("request retained the removed tool")
             return text_chunks(DYNAMIC_TOOLS_TEXT)
         advanced = advanced_tool_followup(body, call_id, tool_name, tool_text)
         if advanced is not None:
@@ -450,11 +480,10 @@ def completion_chunks(body: dict[str, object]) -> list[dict[str, object]]:
         raise AssertionError(f"unexpected tool follow-up: {tool_name}")
 
     user_prompts = [
-        block["text"]
+        text
         for message in reversed(messages)
         if isinstance(message, dict) and message.get("role") == "user"
-        for block in message.get("content", [])
-        if isinstance(block, dict) and block.get("type") == "text"
+        for text in message_texts(message.get("content"))
     ]
     minimal_prompt = next((prompt for prompt in user_prompts if prompt == MINIMAL_PROMPT), None)
     # The minimal composition's assembled system prompt, advertised tool schemas, and
@@ -484,7 +513,7 @@ def completion_chunks(body: dict[str, object]) -> list[dict[str, object]]:
     }
     prompt = next(
         (candidate for candidate in user_prompts if candidate in scenario_prompts),
-        message_text(latest.get("content")),
+        turn_texts[0] if turn_texts else message_text(latest.get("content")),
     )
     if prompt.startswith(PLUGIN_INSTALL_PROMPT):
         assert_advertised_tool(body, "plugin_manager")
@@ -815,6 +844,18 @@ def message_text(content: object) -> str:
     return ""
 
 
+def message_texts(content: object) -> list[str]:
+    """Return each text block of Messages content; a string is one block."""
+    if isinstance(content, str):
+        return [content]
+    if not isinstance(content, list):
+        return []
+    return [
+        block["text"] for block in content
+        if isinstance(block, dict) and block.get("type") == "text" and isinstance(block.get("text"), str)
+    ]
+
+
 def advertised_tool_names(body: dict[str, object]) -> set[str]:
     """Return the model-facing tool names advertised on one request."""
     tools = body.get("tools")
@@ -826,7 +867,23 @@ def advertised_tool_names(body: dict[str, object]) -> set[str]:
             continue
         if isinstance(tool.get("name"), str):
             names.add(tool["name"])
+    for block in request_tool_changes(body):
+        tool = block.get("tool")
+        if block.get("type") == "tool_addition" and isinstance(tool, dict):
+            names.add(tool.get("definition", {}).get("name"))
+        elif block.get("type") == "tool_removal" and isinstance(tool, dict):
+            names.discard(tool.get("name"))
     return names
+
+
+def request_tool_changes(body: dict[str, object]) -> list[dict[str, object]]:
+    """Return the in-history `tool_addition` and `tool_removal` blocks of one Messages request."""
+    return [
+        block for message in body.get("messages", [])
+        if isinstance(message, dict) and isinstance(message.get("content"), list)
+        for block in message["content"]
+        if isinstance(block, dict) and block.get("type") in ("tool_addition", "tool_removal")
+    ]
 
 
 def assert_advertised_tool(body: dict[str, object], expected: str) -> None:
@@ -970,6 +1027,7 @@ def _smoke_sdk_authoring_cached(base_url: str, executable: Path, update_snapshot
         with tempfile.TemporaryDirectory(prefix="jan-sdk-authoring-") as temporary:
             root = Path(temporary).resolve()
             home = root / "home"
+            write_smoke_route(home)
             if mode == "replacement":
                 skill = home / "skills/office-docx/SKILL.md"
                 skill.parent.mkdir(parents=True)
@@ -990,7 +1048,10 @@ def _smoke_sdk_authoring_cached(base_url: str, executable: Path, update_snapshot
                 provider="tokamak", model="smoke-model", cwd=str(root),
                 jan_bin=str(executable), jan_home=str(home), patches=(str(patch),),
                 api_key="sk-keyless-smoke", base_url=base_url,
-                env={"JAN_PERMISSION_MODE": "danger-full-access", "JAN_TELEMETRY_DISABLED": "1", "JAN_RESOURCE_CACHE": str(cache)},
+                env={"JAN_PERMISSION_MODE": "danger-full-access", "JAN_TELEMETRY_DISABLED": "1", "JAN_RESOURCE_CACHE": str(cache),
+                     # Keep host-installed skills out of the pinned skill catalog.
+                     "HOME": str(root / "user-home"), "USERPROFILE": str(root / "user-home"),
+                     "JAN_AGENTS_HOME": str(root / "user-home/.agents")},
                 request_timeout_seconds=60,
             ) as harness:
                 result = harness.run(AUTHORING_PROMPT, session_id="authoring")
@@ -1060,6 +1121,7 @@ def smoke_sdk_plugin_manager(base_url: str, executable: Path, cache: Path) -> No
             "insert": [{"id": "sdk-managed-fixture", "name": "jan-sdk-managed-fixture"}],
         }]))
         home = root / "home"
+        write_smoke_route(home)
         environment = {"PATH": "", "JAN_RESOURCE_CACHE": str(cache),
                        "JAN_PERMISSION_MODE": "workspace-write", "JAN_TELEMETRY_DISABLED": "1"}
         config = dict(provider="tokamak", model="smoke-model", cwd=str(root),
@@ -1095,6 +1157,7 @@ def smoke_sdk_plugin_manager(base_url: str, executable: Path, cache: Path) -> No
             assert result.final_response == PROFILE_PLUGIN_TEXT, result.final_response
         example = Path(__file__).resolve().parent.parent / "python/sdk/examples/manage_plugins.py"
         example_home = root / "example-home"
+        write_smoke_route(example_home)
         example_environment = {**os.environ, **environment, "TOKAMAK_BASE_URL": base_url,
                                "TOKAMAK_API_KEY": "sk-keyless-smoke"}
         example_args = [sys.executable, str(example), "--jan-home", str(example_home),
@@ -1384,6 +1447,7 @@ def smoke_sdk_default(base_url: str) -> None:
     with tempfile.TemporaryDirectory(prefix="jan-sdk-default-") as temporary:
         root = Path(temporary).resolve()
         jan_home = root / "home"
+        write_smoke_route(jan_home)
         sessions = jan_home / "sessions"
         with Jan(
             provider="tokamak",
@@ -1429,6 +1493,7 @@ def smoke_sdk_custom(base_url: str, executable: Path) -> None:
         with tempfile.TemporaryDirectory(prefix=f"jan-sdk-custom-{mode}-") as temporary:
             root = Path(temporary).resolve()
             jan_home = root / "home"
+            write_smoke_route(jan_home)
             sessions = jan_home / "sessions"
             patch = write_advanced_profile_patch(root, "custom.patch.yml", sessions, mode)
             with Jan(
@@ -1463,14 +1528,13 @@ def smoke_sdk_minimal(
     with tempfile.TemporaryDirectory(prefix="jan-sdk-minimal-") as temporary:
         root = Path(temporary).resolve()
         jan_home = root / "home"
+        write_smoke_route(jan_home)
         sessions = jan_home / "sessions"
         patches = ()
         if in_history:
             patch = root / "in-history.patch.yml"
             patch.write_text(json.dumps([
-                {"id": "llm-pi-ai", "config": {"providers": {"tokamak": smoke_route([
-                    {"id": "smoke-model", "systemPromptUpdate": "in-history"},
-                ])}}},
+                update_route_row(),
                 {"insert": [{
                     "id": "in-history-prompt",
                     "name": (Path(__file__).resolve().parent / "fixtures/python-sdk-in-history-prompt.mjs").as_uri(),
@@ -1478,8 +1542,8 @@ def smoke_sdk_minimal(
             ]))
             patches = (str(patch),)
         with Jan(
-            provider="tokamak",
-            model="smoke-model",
+            provider=UPDATE_PROVIDER if in_history else "tokamak",
+            model=UPDATE_MODEL if in_history else "smoke-model",
             cwd=str(root),
             jan_bin=str(executable),
             jan_home=str(jan_home),
@@ -1518,6 +1582,7 @@ def smoke_sdk_dynamic_tools(base_url: str, executable: Path, update_snapshots: b
     with tempfile.TemporaryDirectory(prefix="jan-sdk-dynamic-tools-") as temporary:
         root = Path(temporary).resolve()
         jan_home = root / "home"
+        write_smoke_route(jan_home)
         user_home = root / "user-home"
         user_home.mkdir()
         sessions = jan_home / "sessions"
@@ -1527,9 +1592,7 @@ def smoke_sdk_dynamic_tools(base_url: str, executable: Path, update_snapshots: b
         task.write_text("Call snapshot_ping once.\n", encoding="utf-8")
         patch = write_profile_patch(root, "dynamic-tools.patch.yml", sessions, [
             {"id": "tool-fs", "config": {"applyPatch": True}},
-            {"id": "llm-pi-ai", "config": {"providers": {"tokamak": smoke_route([
-                {"id": "smoke-model", "toolUpdate": "addition-only"},
-            ])}}},
+            update_route_row(),
             {"id": "tool-bash", "disabled": True},
             {"id": "tool-pwsh", "disabled": True},
             {"id": "session-title-llm", "disabled": True},
@@ -1539,7 +1602,7 @@ def smoke_sdk_dynamic_tools(base_url: str, executable: Path, update_snapshots: b
             }]},
         ])
         with Jan(
-            provider="tokamak", model="smoke-model", cwd=str(root),
+            provider=UPDATE_PROVIDER, model=UPDATE_MODEL, cwd=str(root),
             jan_bin=str(executable), jan_home=str(jan_home), patches=(str(patch),),
             env={
                 "JAN_PERMISSION_MODE": "danger-full-access", "JAN_TELEMETRY_DISABLED": "1",
@@ -1571,6 +1634,7 @@ def smoke_sdk_fs_search(base_url: str, executable: Path) -> None:
         root = Path(temporary).resolve()
         (root / "needle.txt").write_text(f"{FS_SEARCH_MARKER}\n")
         jan_home = root / "home"
+        write_smoke_route(jan_home)
         sessions = jan_home / "sessions"
         patch = write_profile_patch(root, "fs-search.patch.yml", sessions, [
             {"id": "skill-filesystem", "disabled": True},
@@ -1604,6 +1668,7 @@ def smoke_sdk_spawn_node(base_url: str, executable: Path) -> None:
     with tempfile.TemporaryDirectory(prefix="jan-sdk-spawn-node-") as temporary:
         root = Path(temporary).resolve()
         jan_home = root / "home"
+        write_smoke_route(jan_home)
         sessions = jan_home / "sessions"
         patch = write_profile_patch(root, "spawn-node.patch.yml", sessions, [])
         with Jan(
@@ -1634,6 +1699,7 @@ def smoke_sdk_mcp(base_url: str, executable: Path | None) -> None:
     with tempfile.TemporaryDirectory(prefix="jan-sdk-mcp-") as temporary:
         root = Path(temporary).resolve()
         jan_home = root / "home"
+        write_smoke_route(jan_home)
         sessions = jan_home / "sessions"
         server_script = root / "mcp_server.py"
         server_script.write_text(MCP_SERVER_SCRIPT)
@@ -1674,6 +1740,7 @@ def smoke_sdk_profile_plugin(base_url: str) -> None:
     with tempfile.TemporaryDirectory(prefix="jan-sdk-profile-plugin-") as temporary:
         root = Path(temporary).resolve()
         jan_home = root / "home"
+        write_smoke_route(jan_home)
         plugin = root / "plugin"
         plugin.mkdir()
         (plugin / "package.json").write_text(json.dumps({
@@ -1764,6 +1831,7 @@ def smoke_sdk_snapshot_mode(
     with tempfile.TemporaryDirectory(prefix="jan-sdk-snapshot-") as temporary:
         root = Path(temporary).resolve()
         jan_home = root / "home"
+        write_smoke_route(jan_home)
         sessions = jan_home / "sessions"
         patch = write_advanced_profile_patch(root, "snapshot.patch.yml", sessions, mode)
         feedback_patch = write_profile_patch(root, "feedback.patch.yml", sessions, [{"insert": [
@@ -1897,6 +1965,7 @@ def smoke_sdk_restart_snapshot(base_url: str, executable: Path, update_snapshots
     with tempfile.TemporaryDirectory(prefix="jan-sdk-restart-") as temporary:
         root = Path(temporary).resolve()
         jan_home = root / "home"
+        write_smoke_route(jan_home)
         sessions = jan_home / "sessions"
         patch = write_advanced_profile_patch(root, "restart.patch.yml", sessions)
         first_request = len(MockModelHandler.requests)
@@ -2022,6 +2091,7 @@ def smoke_sdk_scheduler_recovery(base_url: str, executable: Path, update_snapsho
     with tempfile.TemporaryDirectory(prefix="jan-sdk-scheduler-recovery-") as temporary:
         root = Path(temporary).resolve()
         jan_home = root / "home"
+        write_smoke_route(jan_home)
         sessions = jan_home / "sessions"
         base_patch = write_advanced_profile_patch(root, "base.patch.yml", sessions)
         patch = write_profile_patch(root, "recovery.patch.yml", sessions, [
@@ -2108,6 +2178,7 @@ def smoke_direct(base_url: str, executable: Path) -> None:
     with tempfile.TemporaryDirectory(prefix="jan-direct-") as temporary:
         root = Path(temporary).resolve()
         jan_home = root / "home"
+        write_smoke_route(jan_home)
         sessions = jan_home / "sessions"
         patch = write_profile_patch(root, "direct.patch.yml", sessions, [])
         environment = {
@@ -2585,14 +2656,15 @@ def build_dynamic_tools_snapshot_files(
     assert ping["isError"] is False and ping["content"] == [{"type": "text", "text": "pong"}], ping
     assert len(requests) == 3, requests
     assert all(request["system"] == requests[0]["system"] for request in requests), "tool changes altered the prompt"
-    declarations = [next((tool for tool in request["tools"] if tool["name"] == "snapshot_ping"), None)
-                    for request in requests]
-    assert declarations[0] is None and declarations[2] is None, declarations
-    assert declarations[1]["defer_loading"] is True, declarations[1]
-    changes = [[block for message in request["messages"] for block in message["content"]
-                if block.get("type") in ("tool_addition", "tool_removal")] for request in requests]
-    assert changes == [[], [{"type": "tool_addition", "tool": {"type": "tool_reference", "name": "snapshot_ping"}}], []], changes
-    assert requests[1]["messages"][:len(requests[0]["messages"])] == requests[0]["messages"], "tool addition changed earlier messages"
+    assert all(request["tools"] == requests[0]["tools"] for request in requests), "tool changes altered the tool list"
+    assert all(tool.get("name") != "snapshot_ping" for tool in requests[0]["tools"]), requests[0]["tools"]
+    # The moving prompt-cache breakpoint is not part of a tool change.
+    changes = [[{key: value for key, value in block.items() if key != "cache_control"}
+                for block in request_tool_changes(request)] for request in requests]
+    removal = {"type": "tool_removal", "tool": {"type": "tool_reference", "name": "snapshot_ping"}}
+    assert changes[0] == [] and len(changes[1]) == 1 and changes[2] == [*changes[1], removal], changes
+    declarations = [block["tool"]["definition"] for block in changes[1]]
+    assert changes[1][0]["tool"]["type"] == "tool_definition" and declarations[0]["name"] == "snapshot_ping", changes[1]
     replacements = [(str(cwd), "{{cwd}}"), (result.session_id, "{{session}}")]
     header_references = {header["seq"]: f"{{{{header:{index + 1}}}}}" for index, header in enumerate(headers)}
     snapshot_events = [
@@ -2649,7 +2721,9 @@ def minimal_snapshot_message(message: object, cwd: Path) -> dict[str, object]:
         return {"role": role, "text": minimal_snapshot_text(message_text(message.get("content")), cwd)}
     if role == "user":
         content = []
-        for block in message.get("content", []):
+        raw = message.get("content", [])
+        # pi-ai sends a lone text block as a string; the snapshot keeps the block form.
+        for block in [{"type": "text", "text": raw}] if isinstance(raw, str) else raw:
             if block.get("type") == "tool_result":
                 content.append({"type": "tool_result", "tool_use_id": block.get("tool_use_id"), "content": "{{tool-result}}"})
             elif block.get("type") == "text":

@@ -397,6 +397,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Installed-wheel native command tests failed with exit code $LASTEXITCODE" }
 
       - name: Preflight installed-wheel real API test (POSIX)
+        id: live-preflight-posix
         if: >-
           inputs.ci
           && runner.os != 'Windows'
@@ -408,11 +409,14 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${TOKAMAK_API_KEY:-}" ]; then
-            echo "::error::TOKAMAK_API_KEY is empty; the installed-wheel real API test cannot self-skip."
-            exit 1
+            echo "::notice title=Python real-API test disabled::The TOKAMAK_API_KEY repository secret is not configured, so the installed-wheel real API test is disabled. An admin can add the secret to enable it."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Preflight installed-wheel real API test (Windows)
+        id: live-preflight-windows
         if: >-
           inputs.ci
           && runner.os == 'Windows'
@@ -424,16 +428,17 @@ jobs:
           TOKAMAK_API_KEY: ${{ secrets.TOKAMAK_API_KEY }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:TOKAMAK_API_KEY)) {
-            throw 'TOKAMAK_API_KEY is empty; the installed-wheel real API test cannot self-skip.'
+            Write-Output '::notice title=Python real-API test disabled::The TOKAMAK_API_KEY repository secret is not configured, so the installed-wheel real API test is disabled. An admin can add the secret to enable it.'
+            'configured=false' >> $env:GITHUB_OUTPUT
+          } else {
+            'configured=true' >> $env:GITHUB_OUTPUT
           }
 
       - name: Run installed-wheel real API black-box test (POSIX)
         if: >-
           inputs.ci
           && runner.os != 'Windows'
-          && (github.event_name != 'pull_request'
-              || !(github.event.pull_request.head.repo.fork
-                   || github.event.pull_request.user.login == 'dependabot[bot]'))
+          && steps.live-preflight-posix.outputs.configured == 'true'
         env:
           TOKAMAK_API_KEY: ${{ secrets.TOKAMAK_API_KEY }}
           TOKAMAK_BASE_URL: https://api.tokamak.sh/v1
@@ -451,9 +456,7 @@ jobs:
         if: >-
           inputs.ci
           && runner.os == 'Windows'
-          && (github.event_name != 'pull_request'
-              || !(github.event.pull_request.head.repo.fork
-                   || github.event.pull_request.user.login == 'dependabot[bot]'))
+          && steps.live-preflight-windows.outputs.configured == 'true'
         shell: pwsh
         env:
           TOKAMAK_API_KEY: ${{ secrets.TOKAMAK_API_KEY }}
