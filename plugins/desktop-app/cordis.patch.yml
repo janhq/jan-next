@@ -24,6 +24,10 @@
     routeDefaults:
       local: chat
 
+- id: ui-settings-account
+  config:
+    disableStockApiKeyShortcut: true
+
 - insert:
     # Jan's palette, sidebar, appearance settings and window controls.
     - id: jan-theme
@@ -58,6 +62,10 @@
     # Attach element context and marked-up screenshots to the current draft.
     - id: jan-annotate
       name: '@janhq/jan-annotate'
+
+    # Personalize first-run settings for every desktop user.
+    - id: jan-onboarding
+      name: '@janhq/jan-onboarding'
 
     # Chat mode: conversation, web research and simple visual artifacts. The
     # agent searches and reads the web and can create new files it hands over

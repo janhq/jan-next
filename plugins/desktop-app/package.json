@@ -30,6 +30,7 @@
     "@janhq/jan-browser": "workspace:*",
     "@janhq/jan-legacy-import": "workspace:*",
     "@janhq/jan-model-hub": "workspace:*",
+    "@janhq/jan-onboarding": "workspace:*",
     "@janhq/jan-persona": "workspace:*",
     "@janhq/jan-preset-square": "workspace:*",
     "@janhq/jan-time-context": "workspace:*",

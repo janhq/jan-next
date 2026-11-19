@@ -18065,6 +18065,9 @@ importers:
       '@janhq/jan-model-hub':
         specifier: workspace:*
         version: link:../model-hub
+      '@janhq/jan-onboarding':
+        specifier: workspace:*
+        version: link:../jan-onboarding
       '@janhq/jan-persona':
         specifier: workspace:*
         version: link:../../packages/preset/persona

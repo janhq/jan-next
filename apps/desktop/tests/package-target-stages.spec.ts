@@ -232,7 +232,7 @@ it.each(['mac-arm64', 'mac-x64', 'win-x64'] as const)('selects branding from the
       'plugins/agent-desktop',
       'plugins/annotate',
       'plugins/desktop-app', 'plugins/downloads', 'plugins/jan-theme', 'plugins/legacy-import', 'plugins/plugin-api',
-      'plugins/jan-browser',
+      'plugins/jan-browser', 'plugins/jan-onboarding',
       'plugins/preset-square', 'packages/credentials/tokamak-account', 'packages/llm/llama-cpp',
       'packages/api/llama-cpp-controller', 'packages/client/ui-settings-local-model', 'packages/web/web-search',
     ]) {
