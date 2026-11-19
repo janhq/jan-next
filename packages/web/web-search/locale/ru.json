@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Веб-поиск",
+    "description": "Веб-поиск и чтение страниц через Tokamak, Exa, Tavily, SearXNG или You.com. Tokamak использует аккаунт Tokamak, в который выполнен вход; Exa и You.com работают без учётной записи; Tavily нужен ключ API, а SearXNG — собственный экземпляр."
+  }
+}

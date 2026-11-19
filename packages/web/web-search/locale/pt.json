@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Pesquisa web",
+    "description": "Pesquisa na web e leitura de páginas através da Tokamak, Exa, Tavily, SearXNG ou You.com. A Tokamak usa a sua conta Tokamak com sessão iniciada; Exa e You.com funcionam sem conta; a Tavily requer uma chave de API e o SearXNG a sua própria instância."
+  }
+}

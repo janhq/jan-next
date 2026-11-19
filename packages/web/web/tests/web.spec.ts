@@ -34,7 +34,9 @@ function fetchResult(marker: string): WebFetchResult {
 }
 
 /** Mount a WebRuntime on a fresh root context with the given config. */
-async function mountWeb(config: { searchProvider?: string; fetchProvider?: string } = {}): Promise<{ ctx: Context; web: WebRuntime }> {
+async function mountWeb(
+  config: { searchProvider?: string | string[]; fetchProvider?: string | string[] } = {},
+): Promise<{ ctx: Context; web: WebRuntime }> {
   const ctx = new Context()
   await ctx.plugin(WebRuntime, config)
   return { ctx, web: ctx.web }
@@ -219,6 +221,54 @@ describe('WebRuntime execution resolution', () => {
     const controller = new AbortController()
     await web.search({ query: 'q' }, controller.signal)
     expect(seen[0]).toBe(controller.signal)
+  })
+})
+
+describe('WebRuntime preference lists', () => {
+  it('selects the first registered and usable id, skipping unregistered and unavailable ones', async () => {
+    let tokamakUsable = false
+    const { web } = await mountWeb({ searchProvider: ['missing', 'tokamak', 'exa'] })
+    web.registerSearchProvider({ id: 'tokamak', available: () => tokamakUsable, search: () => Promise.resolve(searchResult('tokamak')) })
+    web.registerSearchProvider(makeSearchProvider('exa', available, () => Promise.resolve(searchResult('exa'))))
+    await expect(web.search({ query: 'q' })).resolves.toMatchObject({ content: 'exa' })
+    tokamakUsable = true
+    await expect(web.search({ query: 'q' })).resolves.toMatchObject({ content: 'tokamak' })
+  })
+
+  it('throws WEB_PROVIDER_CONFIGURED_MISSING when no listed id is registered', async () => {
+    const { web } = await mountWeb({ searchProvider: ['tokamak', 'perplexity'] })
+    web.registerSearchProvider(makeSearchProvider('exa', available, () => Promise.resolve(searchResult('exa'))))
+    await expect(web.search({ query: 'q' })).rejects.toMatchObject({
+      code: 'WEB_PROVIDER_CONFIGURED_MISSING', message: 'no configured web provider ("tokamak", "perplexity") is registered',
+    })
+  })
+
+  it('throws WEB_PROVIDER_CONFIGURED_UNAVAILABLE when every registered listed id is unavailable', async () => {
+    const { web } = await mountWeb({ fetchProvider: ['tokamak', 'http'] })
+    web.registerFetchProvider(makeFetchProvider('tokamak', unavailable, fetchResult('tokamak')))
+    web.registerFetchProvider(makeFetchProvider('other', available, fetchResult('other')))
+    await expect(web.fetch({ url: 'https://example.com' })).rejects.toMatchObject({ code: 'WEB_PROVIDER_CONFIGURED_UNAVAILABLE' })
+  })
+
+  it('auto-selects for an empty list', async () => {
+    const { web } = await mountWeb({ searchProvider: [] })
+    web.registerSearchProvider(makeSearchProvider('exa', available, () => Promise.resolve(searchResult('exa'))))
+    await expect(web.search({ query: 'q' })).resolves.toMatchObject({ content: 'exa' })
+  })
+
+  it('reads comma-separated ids from the environment while the field is unset', async () => {
+    const saved = process.env.JAN_WEB_SEARCH_PROVIDER
+    process.env.JAN_WEB_SEARCH_PROVIDER = ' tokamak , ,exa'
+    try {
+      const { web } = await mountWeb()
+      web.registerSearchProvider(makeSearchProvider('tokamak', unavailable, () => Promise.resolve(searchResult('tokamak'))))
+      web.registerSearchProvider(makeSearchProvider('exa', available, () => Promise.resolve(searchResult('exa'))))
+      web.registerSearchProvider(makeSearchProvider('you', available, () => Promise.resolve(searchResult('you'))))
+      await expect(web.search({ query: 'q' })).resolves.toMatchObject({ content: 'exa' })
+    } finally {
+      if (saved === undefined) delete process.env.JAN_WEB_SEARCH_PROVIDER
+      else process.env.JAN_WEB_SEARCH_PROVIDER = saved
+    }
   })
 })
 

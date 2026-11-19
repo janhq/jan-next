@@ -8,7 +8,7 @@ The web service selects search and fetch providers through two independent field
 
 ## Decision
 
-Users choose search and fetch providers independently from the Host's registered provider lists. The shipped composition selects Exa for search and local HTTP fetch for fetch.
+Users choose search and fetch providers independently from the Host's registered provider lists. The shipped composition selects Tokamak for both while the Tokamak account is signed in, and otherwise Exa for search and local HTTP fetch for fetch.
 
 ### Registered providers are observable; availability is not
 
@@ -24,9 +24,9 @@ Every registered provider is listed; a provider has no flag that keeps it out of
 
 ### Defaults and stored selections
 
-The [base composition](../../../../packages/bundle/base/cordis.patch.yml) sets `searchProvider: exa` and `fetchProvider: http`. Search defaults to keyless Exa search. Fetch defaults to local HTTP fetch because it has no per-request API charge, applies Harness's own URL validation and resource limits, and reaches intranet and local addresses.
+The [base composition](../../../../packages/bundle/base/cordis.patch.yml) sets `searchProvider: [tokamak, exa]` and `fetchProvider: [tokamak, http]`. A field may hold one id or a preference list, and the web service runs the first listed provider that is registered and available. The Tokamak providers are available only while the Tokamak account is signed in, so a signed-in user's searches and fetches are billed to the account they signed in with, and a signed-out user searches through keyless Exa and fetches through local HTTP fetch. Local HTTP fetch is the signed-out default because it has no per-request API charge, applies Harness's own URL validation and resource limits, and reaches intranet and local addresses. The menus write single ids and show a composed list as **Automatic**.
 
-A stored selection, whether in the settings document or in a deployment's own composition, wins over the shipped default, and an upgrade does not rewrite it. A selection is never replaced at execution: when the selected provider is missing, unavailable, or fails, the operation fails with its structured error and does not fall back to another search or fetch provider. A fallback would send the query and credential to an endpoint the user did not choose and change billing without notice.
+A stored selection, whether in the settings document or in a deployment's own composition, wins over the shipped default, and an upgrade does not rewrite it. A preference list is read only through availability, a local check of configuration and sign-in state: a listed provider that is registered and available runs, and its failure is the operation's failure. A selection is never replaced after a failure: when the selected provider fails, the operation fails with its structured error and does not retry another search or fetch provider. A failure fallback would send the query and credential to an endpoint the user did not choose and change billing without notice; a preference list names every endpoint it may use.
 
 ## Alternatives considered
 
@@ -42,9 +42,11 @@ A stored selection, whether in the settings document or in a deployment's own co
 
 **Fall back to another provider when the selected one fails.** A fallback hides gateway and credential misconfiguration, sends the query to a second service, and changes what the request costs without the user choosing it.
 
+**Pin Exa and have the Tokamak provider replace it while signed in.** One id would then name two services, and the menus could not distinguish them. A preference list keeps each provider under its own id and states the order in configuration.
+
 ## Consequences
 
-Users without a stored search selection search through Exa, and users without a stored fetch selection fetch through local HTTP fetch.
+Users without a stored selection search and fetch through Tokamak while signed in; otherwise they search through Exa and fetch through local HTTP fetch.
 
 A plugin provider, including one written in creator mode, appears in the matching menu as soon as it registers, under its `title`. The menus can offer a provider that cannot run for the current request; the failure appears when a search or fetch runs. Each registry change costs one forwarded event and one list read in each Client that observes it.
 

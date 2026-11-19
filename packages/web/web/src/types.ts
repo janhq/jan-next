@@ -168,6 +168,12 @@ export interface WebFetchProvider {
   fetch(request: WebFetchRequest, signal?: AbortSignal): Promise<WebFetchResult>
 }
 
+/**
+ * A configured provider selection: one provider id, or provider ids in preference order. The
+ * first id that is registered and `available()` is selected by `ctx.web`.
+ */
+export type WebProviderPreference = string | readonly string[]
+
 /** One registered provider as listed by {@link WebProviderList}. */
 export interface WebProviderInfo {
   /** The provider's registry id, the value `searchProvider` / `fetchProvider` select. */

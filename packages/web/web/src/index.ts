@@ -1,8 +1,8 @@
 /**
  * Service Definition for the web access capability seam (`ctx.web`): registries and provider-selecting execution for search and
- * fetch. Duplicate ids are rejected. At execution time, a configured provider must exist and
- * be usable; without one, exactly one usable provider is required, so selection never depends
- * on registration order.
+ * fetch. Duplicate ids are rejected. At execution time, the first registered and usable provider
+ * of the configured preference list runs; without one, exactly one usable provider is required, so
+ * selection never depends on registration order.
  * @module @janhq/jan-web
  */
 
@@ -15,6 +15,7 @@ import type {
   WebFetchResult,
   WebProviderInfo,
   WebProviderList,
+  WebProviderPreference,
   WebSearchProvider,
   WebSearchRequest,
   WebSearchResult,
@@ -31,6 +32,7 @@ export type {
   WebFetchResult,
   WebProviderInfo,
   WebProviderList,
+  WebProviderPreference,
   WebSearchProvider,
   WebSearchRequest,
   WebSearchResult,
@@ -43,37 +45,30 @@ declare module '@janhq/cordis' {
   }
 }
 
-/** Selection inputs for execution-time provider resolution. */
-interface Selection<P> {
-  /** The configured provider id for this capability, if any. */
-  readonly configuredId?: string
-  /** Providers registered for this capability kind. */
-  readonly providers: ReadonlyMap<string, P>
-}
-
 /**
- * Config for the web seam. `searchProvider` / `fetchProvider` pin which provider
- * wins for each capability; both are optional (a single registered usable
- * provider auto-selects). Each operation reads the current value, so a settings
- * change applies to the next search or fetch without remounting the service.
+ * Config for the web seam. `searchProvider` / `fetchProvider` select the provider
+ * for each capability; both are optional (a single registered usable provider
+ * auto-selects). Each operation reads the current value, so a settings change
+ * applies to the next search or fetch without remounting the service.
  * Operational overrides such as environment variables must feed these same
  * fields rather than introduce a hidden priority chain.
  */
 export interface WebRuntimeConfig {
-  /** Explicit search provider id. Omitted = auto-select when exactly one usable. */
-  readonly searchProvider: Volatile<string | undefined>
-  /** Explicit fetch provider id. Omitted = auto-select when exactly one usable. */
-  readonly fetchProvider: Volatile<string | undefined>
+  /** Search provider id or preference list. Omitted or empty = auto-select when exactly one usable. */
+  readonly searchProvider: Volatile<WebProviderPreference | undefined>
+  /** Fetch provider id or preference list. Omitted or empty = auto-select when exactly one usable. */
+  readonly fetchProvider: Volatile<WebProviderPreference | undefined>
 }
 
 /**
  * The web access service. Registered as `ctx.web` (one instance per context)
  * and exposed to Clients as the `web` Remote namespace (`listProviders`).
  *
- * Selection semantics (resolved at execution time, never order-dependent):
- * - A configured id that is registered and `available()` → that provider.
- * - A configured id not registered → `WEB_PROVIDER_CONFIGURED_MISSING`.
- * - A configured id registered but unavailable →
+ * Selection semantics (resolved at execution time, never registration-order-dependent):
+ * - The first configured id that is registered and `available()` → that provider.
+ *   Configured ids that are unregistered or unavailable are skipped.
+ * - No configured id registered → `WEB_PROVIDER_CONFIGURED_MISSING`.
+ * - Some configured id registered, none available →
  *   `WEB_PROVIDER_CONFIGURED_UNAVAILABLE`.
  * - No id configured, exactly one registered usable provider → that provider.
  * - No id configured, multiple usable providers → `WEB_PROVIDER_AMBIGUOUS`.
@@ -82,23 +77,24 @@ export interface WebRuntimeConfig {
 export class WebRuntime extends TypertRemoteService {
   /**
    * Provider selection config. Operational env overrides feed the SAME fields:
-   * `$JAN_WEB_SEARCH_PROVIDER` / `$JAN_WEB_FETCH_PROVIDER` are equivalent to
-   * `searchProvider` / `fetchProvider` and are NOT a hidden priority chain.
+   * `$JAN_WEB_SEARCH_PROVIDER` / `$JAN_WEB_FETCH_PROVIDER`, holding one id or
+   * comma-separated ids, are used only while `searchProvider` / `fetchProvider`
+   * is unset and are NOT a hidden priority chain.
    */
   static Config = z.object({
-    searchProvider: z.string().volatile(),
-    fetchProvider: z.string().volatile(),
+    searchProvider: z.union([z.string(), z.array(z.string())]).volatile(),
+    fetchProvider: z.union([z.string(), z.array(z.string())]).volatile(),
   })
 
   private searchProviders = new Map<string, WebSearchProvider>()
   private fetchProviders = new Map<string, WebFetchProvider>()
-  private readonly searchProviderEnv: string | undefined
-  private readonly fetchProviderEnv: string | undefined
+  private readonly searchProviderEnv: readonly string[] | undefined
+  private readonly fetchProviderEnv: readonly string[] | undefined
 
   constructor(ctx: Context, private readonly config: WebRuntimeConfig) {
     super(ctx, 'web')
-    this.searchProviderEnv = process.env.JAN_WEB_SEARCH_PROVIDER
-    this.fetchProviderEnv = process.env.JAN_WEB_FETCH_PROVIDER
+    this.searchProviderEnv = envPreference(process.env.JAN_WEB_SEARCH_PROVIDER)
+    this.fetchProviderEnv = envPreference(process.env.JAN_WEB_FETCH_PROVIDER)
   }
 
   /**
@@ -201,11 +197,7 @@ export class WebRuntime extends TypertRemoteService {
 
   /** Select the search provider with the rules above, throwing the matching {@link WebError}. */
   private selectSearchProvider(): WebSearchProvider {
-    const configuredId = this.config.searchProvider.get() ?? this.searchProviderEnv
-    return resolveProvider({
-      providers: this.searchProviders,
-      ...configuredId !== undefined ? { configuredId } : {},
-    })
+    return resolveProvider(this.searchProviders, preferenceIds(this.config.searchProvider.get()) ?? this.searchProviderEnv)
   }
 
   /**
@@ -234,11 +226,7 @@ export class WebRuntime extends TypertRemoteService {
 
   /** Select the fetch provider with the rules above, throwing the matching {@link WebError}. */
   private selectFetchProvider(): WebFetchProvider {
-    const configuredId = this.config.fetchProvider.get() ?? this.fetchProviderEnv
-    return resolveProvider({
-      providers: this.fetchProviders,
-      ...configuredId !== undefined ? { configuredId } : {},
-    })
+    return resolveProvider(this.fetchProviders, preferenceIds(this.config.fetchProvider.get()) ?? this.fetchProviderEnv)
   }
 }
 
@@ -271,18 +259,43 @@ async function selectedProviderReady(select: () => ResolvableProvider, llmProvid
   return await provider.ready?.(llmProvider) ?? true
 }
 
-/** Resolve the selected provider or throw the matching {@link WebError}. */
-function resolveProvider<P extends ResolvableProvider>(selection: Selection<P>): P {
-  const { configuredId, providers } = selection
-  if (configuredId !== undefined) {
-    const provider = providers.get(configuredId)
-    if (!provider) {
-      throw new WebError(`configured web provider "${configuredId}" is not registered`, 'WEB_PROVIDER_CONFIGURED_MISSING')
+/**
+ * Normalize a configured preference to its ids.
+ * @param preference - the configured id or preference list.
+ * @returns the ids in preference order, or undefined when none is configured.
+ */
+function preferenceIds(preference: WebProviderPreference | undefined): readonly string[] | undefined {
+  if (preference === undefined) return undefined
+  const ids = typeof preference === 'string' ? [preference] : preference
+  return ids.length === 0 ? undefined : ids
+}
+
+/**
+ * Parse an environment override holding one id or comma-separated ids.
+ * @param value - the variable's value.
+ * @returns the non-empty ids in order, or undefined when it names none.
+ */
+function envPreference(value: string | undefined): readonly string[] | undefined {
+  const ids = (value ?? '').split(',').map(id => id.trim()).filter(id => id.length > 0)
+  return ids.length === 0 ? undefined : ids
+}
+
+/**
+ * Resolve the selected provider or throw the matching {@link WebError}.
+ * @param providers - providers registered for the capability.
+ * @param configuredIds - configured ids in preference order, or undefined for auto-selection.
+ * @returns the first registered and usable configured provider, or the single usable provider.
+ */
+function resolveProvider<P extends ResolvableProvider>(providers: ReadonlyMap<string, P>, configuredIds: readonly string[] | undefined): P {
+  if (configuredIds !== undefined) {
+    const registered = configuredIds.flatMap(id => providers.get(id) ?? [])
+    const selected = registered.find(provider => provider.available())
+    if (selected !== undefined) return selected
+    const named = configuredIds.map(id => `"${id}"`).join(', ')
+    if (registered.length === 0) {
+      throw new WebError(`no configured web provider (${named}) is registered`, 'WEB_PROVIDER_CONFIGURED_MISSING')
     }
-    if (!provider.available()) {
-      throw new WebError(`configured web provider "${configuredId}" is registered but unavailable`, 'WEB_PROVIDER_CONFIGURED_UNAVAILABLE')
-    }
-    return provider
+    throw new WebError(`no configured web provider (${named}) is both registered and available`, 'WEB_PROVIDER_CONFIGURED_UNAVAILABLE')
   }
   const usable = [...providers.values()].filter(provider => provider.available())
   const [single] = usable

@@ -2687,9 +2687,9 @@ importers:
       '@janhq/jan-web-fetch-http':
         specifier: workspace:*
         version: link:../../web/web-fetch-http
-      '@janhq/jan-web-search-exa':
+      '@janhq/jan-web-search':
         specifier: workspace:*
-        version: link:../../web/web-search-exa
+        version: link:../../web/web-search
       '@janhq/jan-workflow-ptc':
         specifier: workspace:*
         version: link:../../workflow/workflow-ptc
@@ -17687,9 +17687,9 @@ importers:
       '@janhq/jan-web-fetch-http':
         specifier: workspace:*
         version: link:../web-fetch-http
-      '@janhq/jan-web-search-exa':
+      '@janhq/jan-web-search':
         specifier: workspace:*
-        version: link:../web-search-exa
+        version: link:../web-search
       '@types/turndown':
         specifier: ^5.0.6
         version: 5.0.6
@@ -17735,8 +17735,11 @@ importers:
         specifier: workspace:*
         version: link:../web
 
-  packages/web/web-search-exa:
+  packages/web/web-search:
     dependencies:
+      '@janhq/jan-util-values':
+        specifier: workspace:*
+        version: link:../../util/values
       '@janhq/schemastery':
         specifier: link:../../../vendor/schemastery
         version: link:../../../vendor/schemastery
@@ -17744,6 +17747,48 @@ importers:
       '@janhq/cordis':
         specifier: workspace:~
         version: link:../../../vendor/cordis
+      '@janhq/cordis-plugin-include':
+        specifier: workspace:~
+        version: link:../../../vendor/include
+      '@janhq/cordis-plugin-loader':
+        specifier: workspace:~
+        version: link:../../../vendor/loader
+      '@janhq/jan-agent':
+        specifier: workspace:*
+        version: link:../../core/agent
+      '@janhq/jan-credentials':
+        specifier: workspace:*
+        version: link:../../credentials/credentials
+      '@janhq/jan-launch-environment':
+        specifier: workspace:*
+        version: link:../../util/launch-environment
+      '@janhq/jan-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@janhq/jan-scope':
+        specifier: workspace:*
+        version: link:../../core/scope
+      '@janhq/jan-session':
+        specifier: workspace:*
+        version: link:../../core/session
+      '@janhq/jan-system-prompt':
+        specifier: workspace:*
+        version: link:../../core/system-prompt
+      '@janhq/jan-tokamak-account':
+        specifier: workspace:*
+        version: link:../../credentials/tokamak-account
+      '@janhq/jan-tool-executor-native':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-native
+      '@janhq/jan-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
+      '@janhq/jan-tool-web':
+        specifier: workspace:*
+        version: link:../tool-web
+      '@janhq/jan-tools':
+        specifier: workspace:*
+        version: link:../../core/tools
       '@janhq/jan-web':
         specifier: workspace:*
         version: link:../web

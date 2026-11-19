@@ -7,7 +7,7 @@ kind: "package-group"
 
 ## Summary
 
-The `web/` packages let models search the public web and fetch HTTP(S) pages through the `web_search` and `web_fetch` tools. Deployments can choose Exa for search and anonymous HTTP(S) or Exa for fetch, or mount another provider plugin; availability and resource limits depend on the configured provider. Use this family for search and page retrieval, not interactive browsing, content extraction, or per-URL policy enforcement. Models receive consistent tool behavior, cancellation, and error reporting when providers change.
+The `web/` packages let models search the public web and fetch HTTP(S) pages through the `web_search` and `web_fetch` tools. Deployments can choose Exa, Tavily, SearXNG, or You.com for search and anonymous HTTP(S), Exa, Tavily, or You.com for fetch, or mount another provider plugin; availability and resource limits depend on the configured provider. Use this family for search and page retrieval, not interactive browsing, content extraction, or per-URL policy enforcement. Models receive consistent tool behavior, cancellation, and error reporting when providers change.
 
 ## Table of Contents
 
@@ -25,7 +25,7 @@ Four packages play the web roles; the subsystem reference owns the exhaustive vo
 | Package | Role | ctx key |
 |---|---|---|
 | [`web/`](web/README.md) | Search/fetch service: search and fetch URLs through interchangeable backends, one selection and error policy | `ctx.web` |
-| [`web-search-exa/`](web-search-exa) | Searches and fetches pages through Exa's keyless hosted endpoint | registers on `ctx.web` |
+| [`web-search/`](web-search/README.md) | Searches and fetches pages through Exa, Tavily, SearXNG, or You.com | registers on `ctx.web` |
 | [`web-fetch-http/`](web-fetch-http/README.md) | Fetches HTTP(S) pages anonymously | registers on `ctx.web` |
 | [`tool-web/`](tool-web/README.md) | Exposes `web_search` and `web_fetch` to the model | registers on `ctx.tools` |
 

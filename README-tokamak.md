@@ -128,7 +128,7 @@ TOKAMAK_BASE_URL=http://127.0.0.1:8787/v1 TOKAMAK_ALLOW_LOOPBACK_HTTP=1 pnpm jan
   - The account row uses the Tokamak package.
   - `llm-pi-ai` gets a `tokamak` route whose models come from the router's `GET /v1/models` (`modelListing`), refreshed at launch, after sign-in and every 10 minutes, and kept in storage for the next launch; image generation models are left out; signed out, the picker asks for a sign-in. The default model is `tokamak/tokamak/auto`.
   - The upstream DeepSeek model routes, account, web search and session-log packages are removed.
-  - Web search uses the new `packages/web/web-search-exa`; see [Web search](#web-search).
+  - Web search uses the new `packages/web/web-search`; see [Web search](#web-search).
 - `SignInAttemptView.userCode`, an optional field. The sign-in dialog and the account page show it.
 - Account UI strings say Tokamak. The balance card is hidden for accounts without wallets.
 - Local model: new `packages/llm/llama-cpp` (download models and supervise the bundled `jan-llama-worker`), `packages/api/llama-cpp-controller` (browser Remote), and `packages/client/ui-settings-local-model` (Models card with the model manager, and the first-run option).
@@ -145,7 +145,7 @@ Some repository checks are expected to fail in this fork, because it doesn't fol
 
 ## Web search
 
-`web_search` works without any key or account, through Exa's hosted MCP endpoint `https://mcp.exa.ai/mcp`, which is the same default as the Jan app. The `web-search-exa` row registers an `exa` search provider and an `exa` fetch provider. The base bundle selects `exa` for search and keeps the direct `http` provider for `web_fetch`. Both can be switched in **Plugins → Web search and fetch**. Each search query, and each URL read through the `exa` fetch provider, is sent to Exa. The hosted endpoint is rate-limited; a throttled call fails with "Exa rate-limited this request" instead of returning no results. Row config: `url`, `numResults` (default 5, at most 20), `maxCharacters` (default 40000) and `timeoutMs` (default 30000).
+`web_search` works without any key or account, through Exa's hosted MCP endpoint `https://mcp.exa.ai/mcp`, which is the same default as the Jan app. The `web-search` row (`@janhq/jan-web-search`, ported from the Jan app's web search plugin) registers search and fetch providers `exa`, `tavily` and `you` (You.com); `searxng` joins them, for search only, when the row lists it in `providers` and sets `searxng.url`. Exa and You.com work without a key and switch to their REST APIs on the next call once `EXA_API_KEY` or `YDC_API_KEY` resolves through the credential store or the environment; Tavily needs `TAVILY_API_KEY`. The base bundle selects `exa` for search and keeps the direct `http` provider for `web_fetch`. All can be switched in **Plugins → Web search and fetch**; the page has no key or instance fields yet. Each search query, and each URL read through a backend's fetch provider, is sent to that service. The keyless endpoints are rate-limited; a throttled call fails with "Exa rate-limited this request" instead of returning no results. The [package README](packages/web/web-search/README.md) lists the row config.
 
 ## Branding
 

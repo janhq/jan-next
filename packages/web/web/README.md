@@ -31,20 +31,21 @@ Choose the service when a plugin or tool must search or fetch without hard-codin
 
 ### Minimal configuration
 
-Load the service and let a single mounted backend auto-select, or pin a provider id with `searchProvider`/`fetchProvider`. The environment variables `$JAN_WEB_SEARCH_PROVIDER` and `$JAN_WEB_FETCH_PROVIDER` feed the same fields and are not a separate priority chain. Both backends below register a fetch provider, so the example pins `fetchProvider: http`.
+Load the service and let a single mounted backend auto-select, or set `searchProvider`/`fetchProvider` to one provider id or a preference list of ids. The environment variables `$JAN_WEB_SEARCH_PROVIDER` and `$JAN_WEB_FETCH_PROVIDER`, holding one id or comma-separated ids, apply while the matching field is unset and are not a separate priority chain. The backends below register several search and fetch providers, so the example selects both: Tokamak while its account is signed in, otherwise Exa search and local HTTP fetch.
 
 ```yaml
 - name: '@janhq/jan-web'
   config:
-    fetchProvider: http
-- name: '@janhq/jan-web-search-exa'
+    searchProvider: [tokamak, exa]
+    fetchProvider: [tokamak, http]
+- name: '@janhq/jan-web-search'
 - name: '@janhq/jan-web-fetch-http'
 ```
 
 | Field | Default | Meaning |
 |---|---|---|
-| `searchProvider` | (unset) | Pinned search provider id; unset auto-selects when exactly one is usable |
-| `fetchProvider` | (unset) | Pinned fetch provider id; unset auto-selects when exactly one is usable |
+| `searchProvider` | (unset) | Search provider id or preference list; unset or empty auto-selects when exactly one is usable |
+| `fetchProvider` | (unset) | Fetch provider id or preference list; unset or empty auto-selects when exactly one is usable |
 
 The generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-web) is the exhaustive source for every accepted field and its JSDoc.
 
@@ -64,13 +65,13 @@ Both calls accept an optional `AbortSignal` that is forwarded to the provider fo
 
 ### Provider selection
 
-Each call resolves its provider at execution time, and registration or load order never matters. A configured provider id wins when it is registered and usable; without a configured id, the service runs the single usable provider or fails clearly:
+Each call resolves its provider at execution time, and registration or load order never matters. A single configured id is a preference list of one. The first configured id that is registered and usable wins, and configured ids that are unregistered or unavailable are skipped; without a configured id, the service runs the single usable provider or fails clearly:
 
 | Situation | Outcome |
 |---|---|
-| configured id registered and usable | runs that provider |
-| configured id not registered | `WEB_PROVIDER_CONFIGURED_MISSING` |
-| configured id registered but unavailable | `WEB_PROVIDER_CONFIGURED_UNAVAILABLE` |
+| a configured id registered and usable | runs the first such provider in list order |
+| no configured id registered | `WEB_PROVIDER_CONFIGURED_MISSING` |
+| some configured id registered, none usable | `WEB_PROVIDER_CONFIGURED_UNAVAILABLE` |
 | no id, exactly one registered usable provider | runs it |
 | no id, no usable provider | `WEB_PROVIDER_UNAVAILABLE` |
 | no id, multiple usable providers | `WEB_PROVIDER_AMBIGUOUS` |

@@ -31,11 +31,14 @@ Choose this package when the model should discover current information or read a
 
 ### Minimal configuration
 
-Load the web service, at least one backend, and this package; both tools register by default.
+Load the web service, at least one backend, and this package; both tools register by default. `jan-web-search` registers several providers for each capability, so the example pins them.
 
 ```yaml
 - name: '@janhq/jan-web'
-- name: '@janhq/jan-web-search-exa'
+  config:
+    searchProvider: exa
+    fetchProvider: exa
+- name: '@janhq/jan-web-search'
 - name: '@janhq/jan-tool-web'
 ```
 

@@ -125,7 +125,7 @@
     "@janhq/jan-user-questions": "workspace:*",
     "@janhq/jan-web": "workspace:*",
     "@janhq/jan-web-fetch-http": "workspace:*",
-    "@janhq/jan-web-search-exa": "workspace:*",
+    "@janhq/jan-web-search": "workspace:*",
     "@janhq/jan-workflow-ptc": "workspace:*",
     "@janhq/jan-working-directory": "workspace:*"
   },
