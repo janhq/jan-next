@@ -102,6 +102,18 @@ async function boot() {
 }
 
 describe('document extension seat', () => {
+  it('lets a toolbar contribution act on the rendered preview body', async () => {
+    const h = await boot()
+    await h.rt.mount({ inject: ['slots'], apply(ctx) {
+      ctx.slots.inject('sidebar.right.tab.document.view-actions', () => ctx.slots.register({
+        name: 'sidebar.right.tab.document.view-actions', id: 'inspect',
+      }, ({ getSurface }) => <button type="button" onClick={() => { getSurface()?.setAttribute('data-inspected', '') }}>Inspect preview</button>))
+    } })
+    h.open('notes.txt')
+    fireEvent.click(await screen.findByRole('button', { name: 'Inspect preview' }))
+    expect(h.view.container.querySelector('[data-inspected]')?.textContent).toContain('first')
+  })
+
   it.each(['notes.unknown', '/other/notes.unknown', 'C:/other/notes.unknown', '//host/share/notes.unknown'])(
     'reads %s through its addressed Session rather than the mounted Tab Session',
     async (path) => {
