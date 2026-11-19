@@ -117,7 +117,6 @@ describe('CI workflow', () => {
     expect(blocking.sort()).toEqual([
       'node-24',
       'node-24-consumers',
-      'node-24-coverage',
       'node-24-lint',
       'node-compat',
       'python-runtime',
@@ -236,6 +235,15 @@ describe('CI workflow', () => {
     for (const name of ['python-release.yml', 'node-addon-system-release.yml', 'docs-pages.yml']) {
       expect(loadWorkflow('.github/workflows/' + name).concurrency).toMatchObject({ 'cancel-in-progress': false })
     }
+  })
+
+  it('keeps both coverage lanes defined but disabled and outside the verdicts while CI uses hosted runners', () => {
+    const linux = loadWorkflow('.github/workflows/ci.yml')
+    const windows = loadWorkflow('.github/workflows/ci-windows.yml')
+    expect(workflowJob(linux, 'node-24-coverage').if).toBe("false && github.event_name == 'pull_request'")
+    expect(workflowJob(windows, 'windows-coverage').if).toBe("false && github.event_name == 'pull_request'")
+    expect(workflowJob(linux, 'all-checks-passed').needs).not.toContain('node-24-coverage')
+    expect(workflowJob(windows, 'windows-checks-passed').needs).not.toContain('windows-coverage')
   })
 
   it('skips coverage-history uploads on cancellation but retains Wine cleanup', () => {
@@ -405,7 +413,9 @@ describe('CI workflow', () => {
       const cores = jobName === 'windows-native-tests' ? 2 : 16
       expect(evaluateRunsOn(job['runs-on'], { vars: { JAN_CI_FAILOVER_WINDOWS: 'blacksmith' } }))
         .toBe(`blacksmith-${cores}vcpu-windows-2025`)
-      expect(job.if).toBe("github.event_name == 'pull_request'")
+      expect(job.if).toBe(jobName === 'windows-coverage'
+        ? "false && github.event_name == 'pull_request'"
+        : "github.event_name == 'pull_request'")
     }
 
     // windows-build runs the blocking build/site pair.
