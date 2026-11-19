@@ -41,6 +41,7 @@ const PRIVATE_RUNTIME_PACKAGES = [
   'plugins/downloads',
   'plugins/jan-theme',
   'plugins/legacy-import',
+  'plugins/model-hub',
   'plugins/plugin-api',
   'plugins/preset-square',
 ] as const

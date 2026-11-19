@@ -21,6 +21,7 @@
     "@janhq/jan-client-ui-jan-theme": "workspace:*",
     "@janhq/jan-downloads": "workspace:*",
     "@janhq/jan-legacy-import": "workspace:*",
+    "@janhq/jan-model-hub": "workspace:*",
     "@janhq/jan-preset-square": "workspace:*"
   }
 }

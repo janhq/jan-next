@@ -17993,6 +17993,9 @@ importers:
       '@janhq/jan-legacy-import':
         specifier: workspace:*
         version: link:../legacy-import
+      '@janhq/jan-model-hub':
+        specifier: workspace:*
+        version: link:../model-hub
       '@janhq/jan-preset-square':
         specifier: workspace:*
         version: link:../preset-square
@@ -18035,6 +18038,8 @@ importers:
       '@janhq/jan-session-format-v3-to-v4':
         specifier: workspace:*
         version: link:../../packages/session/session-format-v3-to-v4
+
+  plugins/model-hub: {}
 
   plugins/office-templates:
     dependencies:

@@ -31,3 +31,7 @@
     # Every local model download in one page, opened from the More menu.
     - id: jan-downloads
       name: '@janhq/jan-downloads'
+
+    # Find, download and start local models from Jan's model catalog; a sidebar row opens it.
+    - id: jan-model-hub
+      name: '@janhq/jan-model-hub'
