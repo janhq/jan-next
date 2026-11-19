@@ -50,8 +50,11 @@ function mountAppearance(theme: ThemeRuntime) {
   }
   runInNewContext(client, {
     document,
-    fetch: vi.fn((_url: string, init: RequestInit) => Promise.resolve(Response.json({ result: JSON.parse(String(init.body)).params }))),
-    window: { __JAN_THEME__: Reflect.get(globalThis, '__JAN_THEME__'), __ModuleLoader__: { load({ factory }: { factory: (load: (id: string) => object) => { apply(scope: ClientScope): void } }) {
+    fetch: vi.fn((_url: string, init: RequestInit) => {
+      const { params } = JSON.parse(init.body as string) as { params: object }
+      return Promise.resolve(Response.json({ result: params }))
+    }),
+    window: { __JAN_THEME__: Reflect.get(globalThis, '__JAN_THEME__') as object | undefined, __ModuleLoader__: { load({ factory }: { factory: (load: (id: string) => object) => { apply(scope: ClientScope): void } }) {
       factory(id => id === 'react' ? React : id === '@janhq/jan-client-ui-primitives' ? primitives : {}).apply(scope)
     } } },
   })

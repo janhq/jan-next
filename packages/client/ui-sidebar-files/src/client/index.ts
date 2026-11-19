@@ -138,7 +138,8 @@ export function apply(ctx: ClientContext): void {
         /* jscpd:ignore-end */
         return {
           status: 'handled', run: () => {
-            // A docked tab with a navigator beside its content that can draw a tree keeps it: the navigator is shown and takes the keyboard.
+            // A docked tab with a navigator beside its content that can draw a tree keeps it:
+            // the navigator is shown and takes the keyboard.
             const placed = target.tabId === undefined ? undefined : beside.get(target.sessionId)?.get(target.tabId)
             if (target.host === 'dock' && placed !== undefined) {
               if (!ctx.sidebarRight.isExpanded()) ctx.sidebarRight.toggleExpanded()
@@ -147,7 +148,7 @@ export function apply(ctx: ClientContext): void {
             }
             // Elsewhere the files page opens or is revealed and focused; its tree always shows.
             ctx.sidebarRight.openTabFromTarget(FILES_KIND, target)
-          }
+          },
         }
       },
     }), 'ui-sidebar-files: shortcut')

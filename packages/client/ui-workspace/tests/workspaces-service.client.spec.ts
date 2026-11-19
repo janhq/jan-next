@@ -1586,7 +1586,7 @@ describe('UiWorkspaceService navigation history', () => {
     })
     // Test-owned persistence: the store writes exactly `{ sessionId }`, so the parse is a known shape.
     const shown = (): string => {
-      const saved: { sessionId: string } = JSON.parse(backing.get('jan.sessions.current')!)
+      const saved = JSON.parse(backing.get('jan.sessions.current')!) as { sessionId: string }
       return saved.sessionId
     }
     const availability = () => b.uiWorkspace.navigationHistory.getSnapshot()

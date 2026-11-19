@@ -297,7 +297,8 @@ it('persists a model context and auto-fit choice, reloads the worker, and restor
   expect(f.llama.getModelContext(id)).toMatchObject({ current: 40960, maximum: 40960, fit: false })
   expect(f.llama.snapshot().models[0]).toMatchObject({ contextSize: 40960, configuredContextSize: 40960, autoFit: false })
   expect((await f.events()).filter(event => event.type === 'reload').at(-1)?.preset?.models[id]).toMatchObject({ 'ctx-size': '40960', fit: 'off' })
-  expect(JSON.parse(await readFile(join(f.home, 'data', 'install.json'), 'utf8')).models[0]).toMatchObject({ ctxSize: 40960, autoFit: false })
+  const install = JSON.parse(await readFile(join(f.home, 'data', 'install.json'), 'utf8')) as { models: object[] }
+  expect(install.models[0]).toMatchObject({ ctxSize: 40960, autoFit: false })
   await f.dispose()
   const restored = await fixture({ home: f.home })
   await restored.until(s => s.phase === 'running')

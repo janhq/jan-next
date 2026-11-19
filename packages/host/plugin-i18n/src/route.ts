@@ -69,6 +69,11 @@ async function lookup<T>(read: (signal: AbortSignal) => Promise<T>, upstream?: A
   }
 }
 
+// A call, not a property read: TypeScript keeps `signal.aborted` narrowed to false across awaits.
+function isAborted(signal: AbortSignal): boolean {
+  return signal.aborted
+}
+
 /**
  * Whether a route can serve a request: its provider has an adapter and the adapter resolves the model.
  * @param ctx - context exposing `llm`.
@@ -111,16 +116,16 @@ export async function chooseRoute(ctx: Context, saved: PluginI18nRouteRef | unde
   for (const id of local?.loaded ?? []) {
     const route = { provider: local?.provider ?? '', model: id }
     if (await usable(ctx, route, signal)) return { ...route, source: 'loaded-local' }
-    if (signal.aborted) return fallbackDefault
+    if (isAborted(signal)) return fallbackDefault
   }
   for (const { id: provider } of ctx.llm.listProviders()) {
     const models = await lookup(() => ctx.llm.listModels(provider), signal)
-    if (signal.aborted) return fallbackDefault
+    if (isAborted(signal)) return fallbackDefault
     if (models === undefined) continue
     for (const { id } of models.slice(0, MAX_MODELS_PER_PROVIDER)) {
       const route = { provider, model: id }
       if (await usable(ctx, route, signal)) return { ...route, source: 'configured' }
-      if (signal.aborted) return fallbackDefault
+      if (isAborted(signal)) return fallbackDefault
     }
   }
   return fallbackDefault

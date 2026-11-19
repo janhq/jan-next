@@ -81,7 +81,7 @@ export function AccountMenu({
       items={[
         {
           id: 'settings', label: t('settings'), icon: <IconSettingsOutlineMedium size={16} />,
-          ...(settingsShortcut === undefined ? {} : { shortcut: settingsShortcut })
+          ...(settingsShortcut === undefined ? {} : { shortcut: settingsShortcut }),
         },
         ...(openSettingsSection === undefined ? [] : [
           { id: 'language', label: t('language'), icon: <IconGlobeOutlineMedium size={16} /> },
