@@ -17996,6 +17996,12 @@ importers:
       '@janhq/jan-agent-preset':
         specifier: workspace:*
         version: link:../../packages/preset/agent-preset
+      '@janhq/jan-browser':
+        specifier: workspace:*
+        version: link:../jan-browser
+      '@janhq/jan-browser-use':
+        specifier: workspace:*
+        version: link:../../packages/browser-use/browser-use
       '@janhq/jan-client-ui-jan-theme':
         specifier: workspace:*
         version: link:../jan-theme
@@ -18037,6 +18043,40 @@ importers:
         version: link:../../packages/web/tool-web
 
   plugins/downloads: {}
+
+  plugins/jan-browser:
+    dependencies:
+      '@janhq/jan-browser-use':
+        specifier: workspace:*
+        version: link:../../packages/browser-use/browser-use
+      '@janhq/jan-llm':
+        specifier: workspace:*
+        version: link:../../packages/llm/llm
+      '@janhq/jan-mcp-client':
+        specifier: workspace:*
+        version: link:../../packages/mcp/mcp-client
+      '@janhq/jan-tools':
+        specifier: workspace:*
+        version: link:../../packages/core/tools
+      '@janhq/schemastery':
+        specifier: link:../../vendor/schemastery
+        version: link:../../vendor/schemastery
+      ws:
+        specifier: ^8.21.3
+        version: 8.21.3
+    devDependencies:
+      '@janhq/cordis':
+        specifier: workspace:~
+        version: link:../../vendor/cordis
+      '@janhq/jan-agent':
+        specifier: workspace:*
+        version: link:../../packages/core/agent
+      '@janhq/jan-tool-testkit':
+        specifier: workspace:*
+        version: link:../../packages/test-support/tool-testkit
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
 
   plugins/jan-theme:
     dependencies:

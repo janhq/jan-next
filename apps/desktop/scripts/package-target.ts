@@ -39,6 +39,7 @@ const PRIVATE_RUNTIME_PACKAGES = [
   'packages/web/web-search',
   'plugins/desktop-app',
   'plugins/downloads',
+  'plugins/jan-browser',
   'plugins/jan-theme',
   'plugins/legacy-import',
   'plugins/model-hub',

@@ -135,6 +135,7 @@ TOKAMAK_BASE_URL=http://127.0.0.1:8787/v1 TOKAMAK_ALLOW_LOOPBACK_HTTP=1 pnpm jan
 - `ui-settings-models`: the first-run step targets a configurable `onboardingRoute` (Tokamak here; upstream's DeepSeek route by default) and has become the **Get started** chooser, with a new `settings.models.local-setup` slot that it shows first.
 - `llm-pi-ai`: its config check before a live update sees a route that stores a `!!js` value (the `tokamak` route's `baseURL`) as that route's current value. It used to reject every settings write to the section, which kept the picker on the bundle's model list.
 - Desktop welcome: a **Download a local model** page (`apps/desktop/src/client/WelcomePage.tsx`, `welcome-backend.ts`), and `needsWelcome` counts an installed local model.
+- Desktop Jan Browser: native Session tools for navigation, search, screenshots, and page extraction through the published Chrome extension. See [Jan Browser](plugins/jan-browser/README.md) for setup and capture behavior.
 
 Some repository checks are expected to fail in this fork, because it doesn't follow upstream's release rules:
 - Fork packages are `private`.
