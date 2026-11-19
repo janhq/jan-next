@@ -1969,7 +1969,7 @@ export interface FallbackRoute {
 
 - `inject`: `llm`
 - `refs`: `Api` (`@earendil-works/pi-ai`) · `CacheRetention` (`@earendil-works/pi-ai`) · `Model` (`@earendil-works/pi-ai`) · `ModelThinkingLevel` (`@earendil-works/pi-ai`) · `OpenAICompletionsCompat` (`@earendil-works/pi-ai`) · [`RetryPolicyConfig`](../packages/llm/llm/src/index.ts) · `ThinkingBudgets` (`@earendil-works/pi-ai`) · `Transport` (`@earendil-works/pi-ai`) · `Volatile` (`@janhq/cordis`)
-- `source`: [`packages/llm/llm-pi-ai/src/config.ts:328`](../packages/llm/llm-pi-ai/src/config.ts)
+- `source`: [`packages/llm/llm-pi-ai/src/config.ts:335`](../packages/llm/llm-pi-ai/src/config.ts)
 
 ```ts config-catalog
 /** Plugin configuration: the provider routes this instance owns. */
@@ -2081,6 +2081,13 @@ export interface PiAiProviderProfile {
    * accept the field; other OpenAI-compatible endpoints may reject unknown request fields.
    */
   promptProgress?: boolean
+  /**
+   * Name the Session on each conversation request as llama.cpp's `thread_id`, so a server that keys
+   * saved KV state by thread (Jan's `jan-llama-worker`) restores it instead of reading the whole
+   * conversation again after another Session or a restart used the slot. Auxiliary requests, such
+   * as titles and compaction, send no thread. Only for servers that accept the field.
+   */
+  threadCache?: boolean
   /**
    * Maximum base64-encoded image payload per request. When a request's
    * accumulated images exceed it, the oldest images are replaced by text
