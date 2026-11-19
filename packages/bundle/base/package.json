@@ -39,6 +39,8 @@
     "@janhq/jan-agent-default-model": "workspace:*",
     "@janhq/jan-agent-instructions": "workspace:*",
     "@janhq/jan-agent-loop": "workspace:*",
+    "@janhq/jan-agent-preset": "workspace:*",
+    "@janhq/jan-agent-preset-registry": "workspace:*",
     "@janhq/jan-agent-team": "workspace:*",
     "@janhq/jan-api-gateway": "workspace:*",
     "@janhq/jan-api-remote-access": "workspace:*",

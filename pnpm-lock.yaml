@@ -2450,6 +2450,12 @@ importers:
       '@janhq/jan-agent-loop':
         specifier: workspace:*
         version: link:../../core/agent-loop
+      '@janhq/jan-agent-preset':
+        specifier: workspace:*
+        version: link:../../preset/agent-preset
+      '@janhq/jan-agent-preset-registry':
+        specifier: workspace:*
+        version: link:../../preset/agent-preset-registry
       '@janhq/jan-agent-team':
         specifier: workspace:*
         version: link:../../team/agent-team
