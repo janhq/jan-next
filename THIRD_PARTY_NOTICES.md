@@ -92,6 +92,7 @@ External packages installed for runtime use or embedded in distributed Host or b
 | [`diff`](https://github.com/kpdecker/jsdiff) | BSD-3-Clause |
 | [`dompurify`](https://github.com/cure53/DOMPurify) | (MPL-2.0 OR Apache-2.0) |
 | [`driver.js`](https://github.com/nilbuild/driver.js) | MIT |
+| [`eld`](https://github.com/nitotm/efficient-language-detector-js) | Apache-2.0 |
 | [`electron-updater`](https://github.com/electron-userland/electron-builder) | MIT |
 | [`eslint-scope`](https://github.com/eslint/js) | BSD-2-Clause |
 | [`eslint-visitor-keys`](https://github.com/eslint/js) | Apache-2.0 |

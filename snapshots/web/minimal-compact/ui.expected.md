@@ -1,12 +1,8 @@
 - banner:
   - navigation "Session hierarchy": "Remember the project requirements: imple"
-  - text: Minimal mode
+  - 'button "Switch the agent preset for this task: Minimal mode"': Minimal mode
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
 - navigation "Turn navigation":
   - button "Jump to turn 1"
   - button "Jump to turn 2"

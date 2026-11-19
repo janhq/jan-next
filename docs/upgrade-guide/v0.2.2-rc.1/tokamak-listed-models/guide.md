@@ -17,5 +17,4 @@ Affected: profile patches that override the `tokamak` route's `models` list, and
 
 1. Replace `tokamak-1-preview` with `tokamak/auto` or another listed id wherever you pass it: SDK `model` options, the `acp` row's `model`, and agent rows in your `cordis.patch.yml`.
 2. If your profile patch restates the `tokamak` route with a `models` list, either delete that override so the bundle's listing applies, or add `modelListing: {}` to it; its `models` entries then describe only listed models.
-3. A deployment pointing `TOKAMAK_BASE_URL` at another router needs that router to answer `GET /v1/models` with an OpenAI-compatible `data` array.
-4. Confirm: sign in, open the model picker, and check that the Tokamak group lists the router's models; `curl -H "Authorization: Bearer $TOKAMAK_API_KEY" "$TOKAMAK_BASE_URL/models"` shows the same ids.
+3. Confirm: sign in, open the model picker, and check that the Tokamak group lists the router's models; `curl -H "Authorization: Bearer $TOKAMAK_API_KEY" https://api.tokamak.sh/v1/models` shows the same ids.

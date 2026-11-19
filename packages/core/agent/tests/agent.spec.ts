@@ -187,10 +187,14 @@ describe('AgentRegistry', () => {
     try {
       await entered.promise
       expect(order).toEqual(['first:start'])
+      expect(ctx.agents.isAnnouncing(agent)).toBe(true)
+      expect(ctx.agents.isAnnouncing(stubAgent('serial'))).toBe(false)
+      expect(ctx.agents.isAnnouncing(stubAgent('absent'))).toBe(false)
       await expect(ctx.agents.announce(agent, 'startup')).rejects.toThrow('already announced')
       release.resolve(undefined)
       await ready
       expect(order).toEqual(['first:start', 'first:end', 'second', 'ready'])
+      expect(ctx.agents.isAnnouncing(agent)).toBe(false)
     } finally {
       release.resolve(undefined)
       await registration()

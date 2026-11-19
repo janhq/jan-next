@@ -17,10 +17,11 @@ import { describe, expect, it, onTestFinished } from 'vitest'
 import type {} from '../src/index.ts'
 import { apply } from '../src/host/share-host.ts'
 
-// The Host compares horizons with the wall clock, so both sit relative to the run, not a calendar date.
+// The host compares horizons with the wall clock, so both sit a fixed distance from the run's start.
 const DAY = 24 * 60 * 60_000
-const PAST = new Date(Date.now() - DAY).toISOString()
-const LIVE = new Date(Date.now() + 30 * DAY).toISOString()
+const START = Date.now()
+const PAST = new Date(START - DAY).toISOString()
+const LIVE = new Date(START + 30 * DAY).toISOString()
 const STORED_TOKEN = 'stored-payload.stored-signature'
 
 /**

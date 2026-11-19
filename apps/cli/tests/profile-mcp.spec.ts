@@ -47,7 +47,7 @@ describe('shipped MCP resource composition', () => {
     try {
       const profile = loadProfile('jan', name, installAnchor, home)
       const rows = composeEntries([...profile.layers.map(layer => layer.patches), profile.patches])
-      expect(rows.filter(row => row.name === '@janhq/jan-mcp-manager')).toEqual(name === 'web'
+      expect(rows.filter(row => row.name === '@janhq/jan-mcp-manager')).toEqual(PROFILE_TEMPLATES[name]!.bundles.includes('@janhq/jan-web-app')
         ? [{ id: 'mcp-manager', name: '@janhq/jan-mcp-manager', inject: ['credentials'] }]
         : [])
     } finally {

@@ -20,7 +20,7 @@ interface Manifest {
   jan?: { bundle?: JanBundleManifest }
 }
 
-const bundles = new Map(globSync('packages/*/*/package.json', { cwd: root }).map((path) => {
+const bundles = new Map(globSync(['packages/*/*/package.json', 'plugins/*/package.json'], { cwd: root }).map((path) => {
   const manifest = JSON.parse(readFileSync(resolve(root, path), 'utf8')) as Manifest
   return [manifest.name, { dir: dirname(resolve(root, path)), manifest }]
 }))
