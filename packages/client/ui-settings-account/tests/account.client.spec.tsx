@@ -246,10 +246,10 @@ it('reports a failed start in the login dialog, not as a sidebar alert', async (
     useAccount={selector => selector(snapshot)} useTheme={selector => selector(operations.hooks.theme.getSnapshot())}
     wide openOnboarding={() => {}} openSettings={() => {}}
     t={key => key in en ? en[key as AccountKey] : key} />)
-  expect(screen.getByRole('dialog').textContent).toContain(en.failed)
+  expect(screen.getByRole('dialog').textContent).toContain(en.failureGeneric)
   expect(screen.queryByRole('alert')).toBeNull()
   // The dialog is the only place that reports the failure, so its copy appears once.
-  expect(document.body.textContent.split(en.failed)).toHaveLength(2)
+  expect(document.body.textContent.split(en.failureGeneric)).toHaveLength(2)
   await expect(`${document.body.textContent}\n`).toMatchFileSnapshot('./expected/login-failed-en.txt')
 })
 
