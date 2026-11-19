@@ -72,10 +72,12 @@ vi.mock('electron', () => ({
     constructor(options: BrowserWindowConstructorOptions) { state.windowOptions = options }
     private ready: (() => void) | undefined
     webContents = { mainFrame: { url: 'jan-app://app/' }, setWindowOpenHandler: vi.fn(),
-      on: vi.fn(), once: vi.fn(), send: vi.fn(), openDevTools: state.openDevTools }
+      on: vi.fn(), once: vi.fn(), send: vi.fn(), openDevTools: state.openDevTools,
+      insertCSS: vi.fn(async () => 'cover'), removeInsertedCSS: vi.fn(async () => {}) }
     static getAllWindows() { return [] }
     once(name: string, callback: () => void) { if (name === 'ready-to-show') this.ready = callback; return this }
     on() { return this }
+    off() { return this }
     isDestroyed() { return false }
     isMinimized() { return false }
     restore = vi.fn()
@@ -162,7 +164,7 @@ vi.mock('../src/welcome-window.ts', () => ({
     state.operations = operations
     await state.beforeWelcome()
     return { once: vi.fn(), close: state.closeWelcome, isDestroyed: () => false,
-      show: vi.fn(), focus: vi.fn(), webContents: { send: vi.fn() } }
+      show: vi.fn(), focus: vi.fn(), setParentWindow: vi.fn(), moveTop: vi.fn(), webContents: { send: vi.fn() } }
   },
 }))
 
