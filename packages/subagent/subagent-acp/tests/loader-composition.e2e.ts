@@ -71,7 +71,10 @@ describe('ACP subagent cwd inheritance through the production profile', () => {
     })
     expect(stderr).not.toContain('UNHANDLED')
 
-    expect(settlementText(events)).toEqual(['Its closing message:', `${workspace}\n${workspace}`])
+    expect(settlementText(events)).toEqual([
+      'Status: completed\nSummary: See closing message below.\nEvidence: Not reported.\nBlockers: Not reported.\nChanged files: Not reported.',
+      'Its closing message:', `${workspace}\n${workspace}`,
+    ])
   }, LOADER_SMOKE_TEST_TIMEOUT_MS)
 
   it('presents the ACP remote-limit diagnostic separately from partial output', async () => {
@@ -96,9 +99,11 @@ describe('ACP subagent cwd inheritance through the production profile', () => {
     })
     expect(stderr).not.toContain('UNHANDLED')
     expect(settlementText(events)).toEqual([
+      'Status: failed\nSummary: See closing message below.\nEvidence: Not reported.\n'
+      + 'Blockers: Subagent failure (provider: ACP; stage: prompt; category: remote-limit; stop reason: max_turn_requests)\n'
+      + 'Changed files: Not reported.',
       'Its closing message:',
       'partial loader answer',
-      'Subagent failure (provider: ACP; stage: prompt; category: remote-limit; stop reason: max_turn_requests)',
     ])
   }, LOADER_SMOKE_TEST_TIMEOUT_MS)
 })
