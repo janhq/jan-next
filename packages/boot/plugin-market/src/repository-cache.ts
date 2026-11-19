@@ -209,7 +209,12 @@ export class RepositoryCache {
     await Promise.allSettled([...this.running])
   }
 
-  /** Share the fetch lock for one repository selected by the Downloads inventory. */
+  /**
+   * Share the fetch lock for one repository selected by the Downloads inventory.
+   * @param repository - the repository's 24-hex directory name.
+   * @param remove - deletes the repository once no fetch holds it.
+   * @returns after the removal settles.
+   */
   deleteCached(repository: string, remove: () => Promise<void>): Promise<void> {
     if (!/^[0-9a-f]{24}$/.test(repository)) throw new Error('This item is not a Jan repository cache.')
     return this.serialized(join(this.options.dir, repository), remove)
