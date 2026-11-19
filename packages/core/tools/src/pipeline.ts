@@ -133,6 +133,7 @@ export class ToolExecutionPipeline {
       rootCallId,
       name,
       signal,
+      ...exec.yieldSignal !== undefined ? { yieldSignal: exec.yieldSignal } : {},
       ...agent !== undefined ? { agent } : {},
       ...exec.toolSet !== undefined ? { toolSet: exec.toolSet } : {},
       ...parent !== undefined ? { parent } : {},

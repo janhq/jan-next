@@ -52,7 +52,7 @@ export async function executeToolBatch(
   pipeline: ToolExecutionPipeline,
   maxParallel: () => number,
 ): Promise<ToolBatchResult> {
-  const { calls: toolCalls, signal, agent, toolSet, maxParallelToolCalls } = input
+  const { calls: toolCalls, signal, yieldSignal, agent, toolSet, maxParallelToolCalls } = input
   if (maxParallelToolCalls !== undefined && (!Number.isInteger(maxParallelToolCalls) || maxParallelToolCalls < 1)) {
     throw new RangeError('maxParallelToolCalls must be a positive integer')
   }
@@ -68,6 +68,7 @@ export async function executeToolBatch(
         ...agent === undefined ? {} : { agent },
         ...toolSet === undefined ? {} : { toolSet },
         signal,
+        ...yieldSignal === undefined ? {} : { yieldSignal },
       },
     }))
 
