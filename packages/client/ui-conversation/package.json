@@ -99,7 +99,7 @@
     "@janhq/jan-message-quotes": "workspace:*",
     "@janhq/jan-session-projection": "workspace:*",
     "@janhq/jan-brand": "workspace:*",
-    "zod": "4.4.3",
+    "zod": "4.6.6",
     "@janhq/jan-client-ui-context-menu": "workspace:*"
   },
   "files": [

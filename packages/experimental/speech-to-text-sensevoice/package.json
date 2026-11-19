@@ -37,7 +37,7 @@
   "dependencies": {
     "@janhq/schemastery": "workspace:~",
     "@janhq/jan-timeout": "workspace:*",
-    "zod": "4.4.3",
+    "zod": "4.6.6",
     "sherpa-onnx-node": "1.13.8"
   },
   "peerDependencies": {

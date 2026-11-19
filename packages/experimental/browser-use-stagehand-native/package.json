@@ -46,7 +46,7 @@
     "@janhq/jan-mcp-client": "workspace:*",
     "@janhq/jan-util-values": "workspace:*",
     "@janhq/schemastery": "workspace:~",
-    "zod": "4.4.3",
+    "zod": "4.6.6",
     "@janhq/jan-subprocess": "workspace:*",
     "@puppeteer/browsers": "3.2.2"
   },

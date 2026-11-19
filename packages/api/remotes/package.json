@@ -90,7 +90,7 @@
     "@janhq/jan-user-approval": "workspace:*",
     "@janhq/jan-user-questions": "workspace:*",
     "@janhq/cordis": "workspace:~",
-    "zod": "4.4.3",
+    "zod": "4.6.6",
     "@janhq/jan-command-feedback": "workspace:*",
     "@janhq/jan-api-terminal-controller": "workspace:*",
     "@janhq/jan-plugin-manager": "workspace:*",

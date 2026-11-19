@@ -137,6 +137,7 @@ TOKAMAK_BASE_URL=http://127.0.0.1:8787/v1 TOKAMAK_ALLOW_LOOPBACK_HTTP=1 pnpm jan
 - Desktop welcome: a **Download a local model** page (`apps/desktop/src/client/WelcomePage.tsx`, `welcome-backend.ts`), and `needsWelcome` counts an installed local model.
 - Desktop Jan Browser: native Session tools for navigation, search, screenshots, and page extraction through the published Chrome extension. See [Jan Browser](plugins/jan-browser/README.md) for setup and capture behavior.
 - Desktop computer use: inspect native windows, verify accessibility state, and approve individual semantic actions or screenshots. See [Desktop computer use](plugins/agent-desktop/README.md) for installation and permissions.
+- Dependency security updates cover the MCP adapters and SDK, Undici, Zod, the TLS certificate generator, and Web build and test tooling.
 
 Some repository checks are expected to fail in this fork, because it doesn't follow upstream's release rules:
 - Fork packages are `private`.

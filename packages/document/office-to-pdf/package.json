@@ -61,6 +61,6 @@
     "@janhq/schemastery": "workspace:~",
     "@janhq/jan-brand": "workspace:*",
     "@janhq/jan-typert-protocol": "workspace:*",
-    "zod": "4.4.3"
+    "zod": "4.6.6"
   }
 }

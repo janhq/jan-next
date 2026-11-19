@@ -52,7 +52,7 @@
   "dependencies": {
     "@janhq/jan-brand": "workspace:*",
     "@janhq/schemastery": "workspace:~",
-    "zod": "4.4.3"
+    "zod": "4.6.6"
   },
   "peerDependencies": {
     "@janhq/cordis": "workspace:~",

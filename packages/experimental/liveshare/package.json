@@ -66,7 +66,7 @@
     "@janhq/jan-util-values": "workspace:*",
     "undici": "8.12.2",
     "ws": "^8.18.3",
-    "zod": "4.4.3"
+    "zod": "4.6.6"
   },
   "peerDependencies": {
     "@janhq/cordis": "workspace:~",

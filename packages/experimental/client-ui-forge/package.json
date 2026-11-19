@@ -67,7 +67,7 @@
     "@janhq/schemastery": "workspace:~",
     "@janhq/jan-util-values": "workspace:*",
     "diff": "^9.0.0",
-    "zod": "^4.4.3",
+    "zod": "^4.6.6",
     "@janhq/jan-typert-protocol": "workspace:*",
     "@janhq/jan-storage-domain": "workspace:*"
   },

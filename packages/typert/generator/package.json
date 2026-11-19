@@ -43,6 +43,6 @@
     "@janhq/jan-tool-cordis": "workspace:*",
     "@janhq/jan-typert-registry": "workspace:*",
     "@janhq/cordis": "workspace:~",
-    "zod": "4.4.3"
+    "zod": "4.6.6"
   }
 }

@@ -360,7 +360,7 @@ describe('task admission and package contracts', () => {
       '@modelcontextprotocol/sdk',
       '^1.32.0',
     )
-    expect(manifest.dependencies).toHaveProperty('zod', '4.4.3')
+    expect(manifest.dependencies).toHaveProperty('zod', '4.6.6')
     expect(manifest.dependencies).not.toHaveProperty('@janhq/jan-subagent-codex')
 
     const sdkRoot = dirname(fileURLToPath(

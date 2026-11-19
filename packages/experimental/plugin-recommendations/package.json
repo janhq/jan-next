@@ -54,7 +54,7 @@
     "@janhq/jan-skill": "workspace:*"
   },
   "dependencies": {
-    "zod": "4.4.3",
+    "zod": "4.6.6",
     "@janhq/jan-client-ui-plugin-recommendations": "workspace:*",
     "@janhq/jan-action-cards": "workspace:*",
     "@janhq/jan-client-ui-action-cards": "workspace:*"

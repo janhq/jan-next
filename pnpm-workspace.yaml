@@ -30,6 +30,7 @@ overrides:
   '@earendil-works/pi-coding-agent>undici': '8.12.2'
   'http-proxy>follow-redirects': '1.16.2'
   happy-dom: '21.0.4'
+  'zod@>=4 <4.6.6': '4.6.6'
   '@janhq/cosmokit': 'link:vendor/cosmokit'
   '@janhq/schemastery': 'link:vendor/schemastery'
 

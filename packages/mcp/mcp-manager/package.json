@@ -56,7 +56,7 @@
   "dependencies": {
     "@janhq/jan-timeout": "workspace:*",
     "@janhq/schemastery": "workspace:~",
-    "zod": "^4.4.3"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@modelcontextprotocol/client": "2.2.0",

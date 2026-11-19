@@ -38,7 +38,7 @@
     "@janhq/jan-mcp-client": "workspace:*",
     "@janhq/schemastery": "workspace:~",
     "@trycua/cua-driver": "0.28.0",
-    "zod": "4.4.3"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "@janhq/cordis": "workspace:~",

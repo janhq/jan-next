@@ -79,7 +79,7 @@
   },
   "dependencies": {
     "@janhq/schemastery": "workspace:~",
-    "zod": "^4.4.3",
+    "zod": "^4.6.6",
     "@janhq/jan-atomic-write": "workspace:*",
     "@janhq/jan-typert-protocol": "workspace:*",
     "@janhq/jan-computer-use": "workspace:*",
