@@ -50,7 +50,7 @@ Image offload reprices existing node identities while preserving prior usage anc
 
 `contextBreakdown` classifies the last nonempty surviving `system/message` in surface order as `systemTokens`; empty dormant nodes contribute nothing, and no nonempty system means zero. `messageTokens` includes every other visible node, including superseded prompts. Their sum equals `measure().nodes[].heuristicTokens` after appends, metered compaction and pruning, and system-prompt rewrites or clearing; an unmetered replacement of a non-system range folds at zero delta, like `contextPressure`. `toolsTokens` follows the latest `request/header`. All three use the fixed heuristic, not route image pricing or file-handle projection; they are approximate composition, not billing or `projectedTokens`.
 
-`deriveTurnTokenUsage(events)` folds one complete turn into exact per-attempt and whole-turn usage for browser consumers. It returns no result when lifecycle evidence is missing, counts are unsafe, or exact totals conflict; each corresponding aggregate appears only when every participating attempt reports its optional cache, reasoning, or route value.
+`deriveTurnTokenUsage(events)` folds one complete turn into per-attempt and whole-turn usage for browser consumers. Prompt counts are exact provider reports. A reply cut by Stop or a steer before the provider reported its output keeps its exact prompt counts and estimates its output from the streamed content; that attempt and the turn carry `outputEstimated: true`, and the attempt drops its reasoning count. It returns no result when lifecycle evidence is missing, counts are unsafe, or exact totals conflict; each corresponding aggregate appears only when every participating attempt reports its optional cache, reasoning, or route value.
 
 ### Composition
 
@@ -93,7 +93,7 @@ Provider usage anchors a measurement only when its canonical envelope matches an
 | [`src/usage-projection.ts`](src/usage-projection.ts) | `tokenUsage` and `contextPressure` projection definitions |
 | [`src/breakdown-projection.ts`](src/breakdown-projection.ts) | `contextBreakdown` projection definition |
 | [`src/client.ts`](src/client.ts) | Browser-safe client surface for projection consumers |
-| [`src/turn-usage.ts`](src/turn-usage.ts) | Pure fold for exact per-attempt and per-Turn usage |
+| [`src/turn-usage.ts`](src/turn-usage.ts) | Pure fold for per-attempt and per-Turn usage |
 
 ### Fold flow
 
