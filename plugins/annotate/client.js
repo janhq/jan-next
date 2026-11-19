@@ -105,7 +105,7 @@ window.__ModuleLoader__.load({
           h(IconEditOutlineRegular, { size: 14, 'aria-hidden': true }), compact ? null : t('title'),
           h(IconChevronDownOutlineRegular, { size: 12, 'aria-hidden': true })),
           items: entries, onClose: () => setOpen(false), onSelect: start }),
-        error && h('span', { role: 'alert' }, t('openError')),
+        error && h('span', { role: 'alert', style: { color: 'var(--dsw-alias-state-error-primary)' } }, t('openError')),
         Overlay !== undefined && h(Overlay, view.props))
     }
 

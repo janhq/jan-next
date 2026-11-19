@@ -4,7 +4,7 @@ import { beforeAll, expect, it, vi } from 'vitest'
 type Bounds = { x: number; y: number; width: number; height: number }
 type OverlayMath = {
   elementDetails(element: Element, bounds: Bounds): { selector: string; html: string; bounds: Bounds }
-  paintMark(context: object, stroke: { tool: string; points: readonly { x: number; y: number }[] }, scale: number, ink: string): void
+  paintMark(context: object, stroke: { tool: string; points: readonly { x: number; y: number }[]; text?: string }, scale: number, ink: string, font?: string): void
 }
 let capture: OverlayMath
 beforeAll(async () => {
@@ -46,4 +46,11 @@ it('keeps erase operations on the annotation layer and restores compositing afte
   expect(ctx.moveTo).toHaveBeenCalledWith(10, 10)
   expect(ctx.lineTo).toHaveBeenCalledWith(20, 20)
   expect(ctx.restore).toHaveBeenCalledOnce()
+})
+
+it('renders drawing text in the current interface font and accent', () => {
+  const ctx = { save: vi.fn(), restore: vi.fn(), fillText: vi.fn() }
+  capture.paintMark(ctx, { tool: 'text', points: [{ x: 10, y: 20 }], text: 'Review' }, 2, 'purple', 'Inter, sans-serif')
+  expect(ctx).toMatchObject({ font: '500 32px Inter, sans-serif', fillStyle: 'purple' })
+  expect(ctx.fillText).toHaveBeenCalledWith('Review', 10, 20)
 })

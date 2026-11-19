@@ -4,19 +4,26 @@ window.__ModuleLoader__.load({
   factory(require) {
     const { createElement: h, useCallback, useEffect, useRef, useState } = require('react')
     const { createPortal } = require('react-dom')
-    const { Button, Input, Modal } = require('@janhq/jan-client-ui-primitives')
+    const { Button, InlineEditor, Input, Modal } = require('@janhq/jan-client-ui-primitives')
     const shell = { display: 'grid', gap: '12px', padding: '16px', boxSizing: 'border-box', minHeight: 0, overflow: 'auto' }
     const tools = { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }
-    const muted = { color: 'var(--dsw-alias-label-secondary)', fontSize: '13px', margin: 0 }
-    const ink = { color: 'var(--dsw-alias-label-primary)', fontSize: '13px', margin: 0, overflowWrap: 'anywhere' }
-    const frameStyle = { position: 'relative', maxHeight: 'min(53dvh, 620px)', maxWidth: '100%', overflow: 'hidden', margin: 'auto', borderRadius: 'var(--dsw-radius-md)' }
+    const textStyle = { fontSize: '13px', lineHeight: '18px', letterSpacing: '-0.13px', margin: 0 }
+    const muted = { ...textStyle, color: 'var(--dsw-alias-label-secondary)' }
+    const ink = { ...textStyle, color: 'var(--dsw-alias-label-primary)', overflowWrap: 'anywhere' }
+    const titleStyle = { fontSize: '16px', lineHeight: '24px', letterSpacing: '-0.32px', fontWeight: 500,
+      color: 'var(--dsw-alias-label-primary)', margin: 0 }
+    const frameStyle = { position: 'relative', maxHeight: 'min(53dvh, 620px)', maxWidth: '100%', overflow: 'hidden', margin: 'auto', borderRadius: '12px' }
     const HIGHLIGHT = 'var(--dsw-alias-state-business-primary)'
-    const MARK_INK = '#e43b39'
+    const elevation = '0 1px 2px color-mix(in srgb, var(--dsw-alias-bg-mask-3) 8%, transparent), '
+      + '0 6px 16px -4px color-mix(in srgb, var(--dsw-alias-bg-mask-3) 12%, transparent)'
     const overlayStyle = { position: 'fixed', inset: 0, zIndex: 90 }
-    const textareaStyle = { boxSizing: 'border-box', width: '100%', resize: 'vertical', minHeight: '52px', border: '1px solid var(--dsw-alias-border-l1)', borderRadius: 'var(--dsw-radius-md)', padding: '8px', font: 'inherit', color: 'inherit', background: 'var(--dsw-alias-interactive-bg-hover)' }
     const toolsWithDrag = ['pen', 'rectangle', 'ellipse', 'arrow', 'eraser']
     const dialogStyle = document.createElement('style')
-    dialogStyle.textContent = '.jan-annotation-dialog[role="dialog"]{width:min(880px,100%);max-height:100%;padding:0}'
+    dialogStyle.textContent = '.jan-annotation-dialog[role="dialog"]{width:min(880px,100%);max-height:100%;padding:0;border-radius:24px;'
+      + 'background:var(--dsw-alias-bg-overlay);box-shadow:' + elevation + '}'
+      + '.jan-annotation-dialog .jan-annotation-note{min-height:52px;padding:8px;border-radius:12px;border-color:var(--dsw-alias-border-l2);'
+      + 'font:inherit;letter-spacing:inherit;background:var(--dsw-alias-bg-base)}'
+      + '.jan-annotation-dialog .jan-annotation-note:focus{border-color:var(--dsw-alias-state-business-primary)}'
     document.head.append(dialogStyle)
 
     function boundsOf(node, x = 0, y = 0) {
@@ -169,9 +176,9 @@ window.__ModuleLoader__.load({
       return await captureDisplay(request, bounds, signal)
     }
 
-    function Notes({ t, value, change }) {
+    function Notes({ t, value, change, close, submit }) {
       return h('label', { style: { ...ink, display: 'grid', gap: '4px' } }, t('note'),
-        h('textarea', { style: textareaStyle, rows: 2, value, 'data-modal-autofocus': true, onChange: event => change(event.target.value) }))
+        h(InlineEditor, { className: 'jan-annotation-note', label: t('note'), value, onChange: change, onSave: submit, onCancel: close }))
     }
 
     function ActionDialog({ t, title, close, children }) {
@@ -182,14 +189,14 @@ window.__ModuleLoader__.load({
 
     function Status({ t, message, error, retry, fallback }) {
       return h('div', { style: { display: 'grid', gap: '8px' } },
-        h('p', { role: error ? 'alert' : 'status', style: muted }, t(message)),
+        h('p', { role: error ? 'alert' : 'status', style: error ? { ...muted, color: 'var(--dsw-alias-state-error-primary)' } : muted }, t(message)),
         (retry || fallback) && h('div', { style: tools },
           retry && h(Button, { type: 'button', size: 'sm', variant: 'primary', onClick: retry, 'data-modal-autofocus': true }, t('retry')),
           fallback && h(Button, { type: 'button', size: 'sm', onClick: fallback }, t('draw'))))
     }
 
     /** Paint one history operation onto the transparent ink layer, never onto the source image. */
-    function paintMark(ctx, { tool, points, text }, scale, inkColor) {
+    function paintMark(ctx, { tool, points, text }, scale, inkColor, fontFamily) {
       const first = points[0]
       const end = points.at(-1)
       ctx.save()
@@ -198,7 +205,7 @@ window.__ModuleLoader__.load({
       ctx.lineWidth = (tool === 'eraser' ? 18 : 3) * scale
       ctx.lineCap = ctx.lineJoin = 'round'
       if (tool === 'text') {
-        ctx.font = `500 ${18 * scale}px system-ui`
+        ctx.font = `500 ${16 * scale}px ${fontFamily}`
         ctx.textBaseline = 'top'
         ctx.fillText(text, first.x, first.y)
       } else if (tool === 'rectangle') {
@@ -237,7 +244,14 @@ window.__ModuleLoader__.load({
       const inkLayer = useRef(null)
       const history = useRef([])
       const stroke = useRef(null)
-      const showBase = useCallback((canvas) => { base.current = canvas; canvas?.getContext('2d').drawImage(bitmap, 0, 0) }, [bitmap])
+      const brush = useRef()
+      const showBase = useCallback((canvas) => {
+        base.current = canvas
+        if (!canvas) return
+        const theme = getComputedStyle(canvas)
+        brush.current = { color: theme.getPropertyValue('--dsw-alias-brand-primary').trim(), font: theme.fontFamily }
+        canvas.getContext('2d').drawImage(bitmap, 0, 0)
+      }, [bitmap])
       const point = (event) => {
         const canvas = event.currentTarget
         const box = canvas.getBoundingClientRect()
@@ -248,8 +262,9 @@ window.__ModuleLoader__.load({
         const canvas = inkLayer.current
         const ctx = canvas.getContext('2d')
         ctx.clearRect(0, 0, canvas.width, canvas.height)
-        for (const mark of history.current) paintMark(ctx, mark, mark.scale, MARK_INK)
-        if (active) paintMark(ctx, active, active.scale, MARK_INK)
+        const { color, font } = brush.current
+        for (const mark of history.current) paintMark(ctx, mark, mark.scale, color, font)
+        if (active) paintMark(ctx, active, active.scale, color, font)
       }
       const retain = (mark) => {
         history.current.push(mark)
@@ -291,6 +306,7 @@ window.__ModuleLoader__.load({
       }
       const undo = () => { history.current.pop(); setCount(history.current.length); paint() }
       const save = async () => {
+        if (count === 0 || pending) return
         setPending(true)
         setEncodeError(false)
         try {
@@ -305,7 +321,7 @@ window.__ModuleLoader__.load({
         } finally { setPending(false) }
       }
       return h(ActionDialog, { title: t('draw'), t, close },
-        h('div', { style: { ...tools, justifyContent: 'space-between' } }, h('strong', { style: { fontWeight: 500 } }, t('draw')),
+        h('div', { style: { ...tools, justifyContent: 'space-between' } }, h('h2', { style: titleStyle }, t('draw')),
           h(Button, { type: 'button', size: 'sm', onClick: close }, t('cancel'))),
         h('div', { role: 'group', 'aria-label': t('tools'), style: tools },
           [...toolsWithDrag, 'text'].map(name => h(Button, { key: name, type: 'button', size: 'sm',
@@ -321,7 +337,7 @@ window.__ModuleLoader__.load({
           style: { position: 'absolute', inset: 0, width: '100%', height: '100%', cursor: tool === 'text' ? 'text' : 'crosshair', touchAction: 'none' },
           onPointerDown: down, onPointerMove: move, onPointerUp: event => end(event, true), onPointerCancel: event => end(event, false),
           onLostPointerCapture: event => end(event, false) })),
-        h(Notes, { t, value: note, change: setNote }),
+        h(Notes, { t, value: note, change: setNote, close, submit: save }),
         (error || encodeError) && h(Status, { t, message: error || 'encodeError', error: true }),
         h('div', { style: { ...tools, justifyContent: 'end' } },
           h(Button, { type: 'button', size: 'sm', variant: 'primary', disabled: count === 0 || pending, onClick: save }, t('add'))))
@@ -432,29 +448,36 @@ window.__ModuleLoader__.load({
         border && h('div', { 'aria-hidden': true, style: { position: 'fixed', pointerEvents: 'none', outline: `2px solid ${HIGHLIGHT}`,
           background: `color-mix(in srgb, ${HIGHLIGHT} 13%, transparent)`, left: border.x, top: border.y, width: border.width, height: border.height } }),
         h('div', { style: { ...tools, position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
-          maxWidth: 'calc(100vw - 32px)', padding: '8px 10px', borderRadius: 'var(--dsw-radius-md)',
-          background: 'var(--dsw-alias-bg-card, var(--dsw-alias-bg-base))', boxShadow: '0 6px 24px #0004', cursor: 'default' },
+          maxWidth: 'calc(100vw - 32px)', padding: '8px 10px', borderRadius: '12px',
+          background: 'var(--dsw-alias-bg-overlay)', boxShadow: elevation, cursor: 'default' },
           onPointerMove: event => event.stopPropagation(), onClick: event => event.stopPropagation() },
         h('p', { style: ink }, t(mode === 'grab' ? 'grabHint' : 'pickHint', { keys: grabKeys.join(' ') })),
         h(Button, { type: 'button', size: 'sm', onClick: close }, t('cancel')))), document.body)
       }
       const title = view === 'note' || (view === 'opaque' && mode === 'pick') ? 'pick'
         : view === 'grabbed' || view === 'grab-error' || (view === 'opaque' && mode === 'grab') ? 'grab' : 'draw'
+      const commitSelection = () => {
+        if (view === 'note') {
+          if (note.trim()) commit(captureContext(selection.current, note.trim(), t))
+        } else {
+          commit(note.trim() ? `${note.trim()}\n\n${selected.text}` : selected.text, selected.png, 'selected-element.png')
+        }
+      }
       return h(ActionDialog, { title: t(title), t, close },
-        h('div', { style: { ...tools, justifyContent: 'space-between' } }, h('strong', { style: { fontWeight: 500 } }, t(title)),
+        h('div', { style: { ...tools, justifyContent: 'space-between' } }, h('h2', { style: titleStyle }, t(title)),
           h(Button, { type: 'button', size: 'sm', onClick: close }, t('cancel'))),
         view === 'opaque' && h(Status, { t, message: 'opaque', fallback: requestDraw }),
         (view === 'grab-error' || view === 'draw-error') && h(Status, { t, message: 'captureError', error: true,
           retry: view === 'grab-error' ? () => grab() : requestDraw }),
         (view === 'note' || view === 'grabbed') && h('div', { style: { display: 'grid', gap: '10px' } },
-          h('code', { style: { ...ink, whiteSpace: 'pre-wrap', maxHeight: '28dvh', overflow: 'auto' } }, view === 'note' ? selected.selector : selected.text),
-          h(Notes, { t, value: note, change: setNote }),
+          h('code', { style: { ...ink, fontFamily: 'inherit', whiteSpace: 'pre-wrap', maxHeight: '28dvh', overflow: 'auto' } },
+            view === 'note' ? selected.selector : selected.text),
+          h(Notes, { t, value: note, change: setNote, close, submit: commitSelection }),
           error && h(Status, { t, message: error, error: true }),
           h('div', { style: { ...tools, justifyContent: 'end' } },
             view === 'note' && h(Button, { type: 'button', size: 'sm', onClick: () => grab() }, t('grab')),
             h(Button, { type: 'button', size: 'sm', variant: 'primary', disabled: view === 'note' && !note.trim(),
-              onClick: () => view === 'note' ? commit(captureContext(selection.current, note.trim(), t))
-                : commit(note.trim() ? `${note.trim()}\n\n${selected.text}` : selected.text, selected.png, 'selected-element.png') }, t('add')))))
+              onClick: commitSelection }, t('add')))))
     }
 
     return { Overlay, elementDetails, paintMark }
