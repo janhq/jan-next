@@ -657,3 +657,7 @@
       name: '@janhq/jan-agent-preset-registry'
       config:
         default: standard
+        # The managed local model reads the whole prompt on this computer before
+        # its first token, so a new chat on it starts on the light preset.
+        routeDefaults:
+          local: minimal
