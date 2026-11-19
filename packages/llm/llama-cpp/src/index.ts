@@ -489,17 +489,7 @@ export class LlamaCpp extends Service {
         throw new Error(`context length exceeds the model maximum of ${String(model.facts.contextLength)}`)
       }
       if (model.ctxSize === contextSize) return
-      const previous = model.ctxSize
-      model.ctxSize = contextSize
-      try { await this.writeRecord() } catch (error) {
-        if (previous === undefined) delete model.ctxSize
-        else model.ctxSize = previous
-        throw error
-      }
-      this.contexts.delete(model.id)
-      this.emit()
-      await this.modelsChanged()
-      await this.reloadChangedModel(model.id)
+      await this.saveModelSetting(model, 'ctxSize', contextSize)
     })
   }
 
@@ -513,17 +503,7 @@ export class LlamaCpp extends Service {
       const model = this.resolveModel(id)
       if (typeof fit !== 'boolean') throw new Error('auto-fit must be on or off')
       if (model.autoFit === fit) return
-      const previous = model.autoFit
-      model.autoFit = fit
-      try { await this.writeRecord() } catch (error) {
-        if (previous === undefined) delete model.autoFit
-        else model.autoFit = previous
-        throw error
-      }
-      this.contexts.delete(model.id)
-      this.emit()
-      await this.modelsChanged()
-      await this.reloadChangedModel(model.id)
+      await this.saveModelSetting(model, 'autoFit', fit)
     })
   }
 
@@ -537,20 +517,29 @@ export class LlamaCpp extends Service {
       const { current, maximum } = this.getModelContext(id)
       const next = nextContextSize(current, maximum)
       if (next === null) return null
-      const model = this.resolveModel(id)
-      const previous = model.ctxSize
-      model.ctxSize = next
-      try { await this.writeRecord() } catch (error) {
-        if (previous === undefined) delete model.ctxSize
-        else model.ctxSize = previous
-        throw error
-      }
-      this.contexts.delete(model.id)
-      this.emit()
-      await this.modelsChanged()
-      await this.reloadChangedModel(model.id)
+      await this.saveModelSetting(this.resolveModel(id), 'ctxSize', next)
       return next
     })
+  }
+
+  /**
+   * Persist one per-model load setting, restoring it when the record write fails, then reload a running worker.
+   * @param model - the installed model record to change.
+   * @param key - the load setting.
+   * @param value - its new value.
+   */
+  private async saveModelSetting<K extends 'ctxSize' | 'autoFit'>(model: ModelRecord, key: K, value: NonNullable<ModelRecord[K]>): Promise<void> {
+    const previous = model[key]
+    model[key] = value
+    try { await this.writeRecord() } catch (error) {
+      if (previous === undefined) Reflect.deleteProperty(model, key)
+      else model[key] = previous
+      throw error
+    }
+    this.contexts.delete(model.id)
+    this.emit()
+    await this.modelsChanged()
+    await this.reloadChangedModel(model.id)
   }
 
   private view(): LlamaCppState {
