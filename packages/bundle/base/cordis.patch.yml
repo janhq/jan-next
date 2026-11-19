@@ -168,11 +168,19 @@
               preferredDefaults: [tokamak/auto]
               # The router lists image generation models without marking them as non-chat.
               exclude: [openai/gpt-image-*]
-            # The listing reports no input modalities, so a listed model defaults to text
-            # only. The automatic route forwards images to a model that reads them.
+            # The router's listing reports input modalities only for some models, and
+            # an undeclared model would default to text only, so its Claude, GPT and
+            # Gemini chat models could not read images. Models the router serves read
+            # images unless named below as text only; an entry that declares
+            # `architecture.input_modalities` still answers for itself.
+            defaultInput: [text, image]
             models:
-              - id: tokamak/auto
-                input: [text, image]
+              - id: deepseek-flash
+                input: [text]
+              - id: deepseek-v4-pro
+                input: [text]
+              - id: openai/gpt-oss-120b-medium
+                input: [text]
           # tokamak-harness: the managed local model (web-app row `llama-cpp`). Its key and
           # endpoint (the worker's OS-assigned port) exist only while that worker runs, so
           # otherwise the route offers no models.
