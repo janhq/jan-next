@@ -842,7 +842,11 @@ export class PluginManagerController {
       toggleInstallDetails: () => { this.patchInstall({ detailsOpen: !this.getSnapshot().install.detailsOpen }) },
       enableInstalled: () => { void this.enableInstalled() },
       translateInstalled: () => { void this.translateInstalled() },
-      declineTranslation: () => { this.patchInstall({ translate: null }) },
+      declineTranslation: () => {
+        const offer = this.getSnapshot().install.translate
+        if (offer?.step === 'offer' || offer?.step === 'failed') this.ctx.get('pluginI18n')?.dismiss(offer.pkg, 'later')
+        this.patchInstall({ translate: null })
+      },
       clearHighlight: () => { if (this.getSnapshot().highlight !== null) this.patch({ highlight: null }) },
       setEnabled: (packageName, enabled) => {
         const pkg = this.getSnapshot().packages.find(pkg => pkg.name === packageName)

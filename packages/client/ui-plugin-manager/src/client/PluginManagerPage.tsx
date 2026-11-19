@@ -14,7 +14,8 @@ import type { PluginInstallFailureKind, Registry } from '@janhq/jan-api-remotes/
 import {
   Button, IconCheckCircleFillRegular, IconChevronDownOutlineRegular, IconChevronLeftOutlineMedium,
   IconChevronRightOutlineRegular, IconCloseOutlineMedium,
-  IconDownloadOutlineRegular, IconInfoOutlineRegular, IconPlusOutlineRegular, IconRefreshOutlineRegular, IconTrashOutlineRegular,
+  IconDownloadOutlineRegular, IconGlobeOutlineRegular, IconInfoOutlineRegular, IconPlusOutlineRegular, IconRefreshOutlineRegular,
+  IconTrashOutlineRegular,
   IconWarningOutlineRegular, Input, Menu, MenuItemButton, Modal, pointerModality,
   PluginArtworkDefault, PluginArtworkLoop, PluginArtworkSearch, PluginArtworkSubagent, PluginArtworkTerminal,
   SegmentedTabs, StateDot, Switch, Tag, TerminalBlock, Toast, Tooltip, useDismissOnOutsidePointer,
@@ -36,6 +37,7 @@ import type { PluginPackageRef, PluginRowRef, PluginsSubject } from './slot-cont
 import type { ConfigPageForm } from './slot-contract.ts'
 import { UpdateDialog, VersionSection } from './versions.tsx'
 import { BundleDetailSection } from './BundleDetailSection.tsx'
+import { usePackageTranslations, type PluginTranslationFace, type TranslationControl } from './PackageTranslation.tsx'
 import css from './PluginManagerPage.module.css'
 
 /** Full component props assembled by the main slot renderer. */
@@ -47,7 +49,7 @@ export type PluginManagerPageProps =
     | 'plugins.add.actions' | 'plugins.tab' | 'plugins.artwork'
     | 'plugins.detail.actions' | 'plugins.detail.badge' | 'plugins.detail.section'
   >
-  & InjectFace<PluginManagerFace & PluginHeaderLayoutFace>
+  & InjectFace<PluginManagerFace & PluginHeaderLayoutFace & PluginTranslationFace>
   & PropsStore<ReturnType<typeof createNavigationStore>>
 
 /** The page's slot renderer, narrowed to the configuration slots. */
@@ -56,11 +58,12 @@ type ResolveText = PluginManagerFace['resolveText']
 
 type RowPhase = NonNullable<PackageRow['phase']>
 
-/** The primary action installs; the adjacent menu offers every add-plugin path. */
-function AddPluginMenu({ t, disabled, openInstall, renderSlot }: {
+/** The primary action installs; the adjacent menu also links to plugin translation settings. */
+function AddPluginMenu({ t, disabled, openInstall, openTranslationSettings, renderSlot }: {
   readonly t: Translate
   readonly disabled: boolean
   readonly openInstall: () => void
+  readonly openTranslationSettings: (() => void) | undefined
   readonly renderSlot: RenderConfig
 }): ReactNode {
   const [open, setOpen] = useState(false)
@@ -76,7 +79,7 @@ function AddPluginMenu({ t, disabled, openInstall, renderSlot }: {
       <Menu open={open} onClose={onDismiss} align="end" portal autoFocus listClassName={css.addMenu}
         anchor={(
           <Button variant="primary" size="sm" className={css.addMore}
-            disabled={disabled} aria-label={t('chooseAddMethod')} aria-haspopup="menu" aria-expanded={open}
+            disabled={disabled} aria-label={t(openTranslationSettings === undefined ? 'chooseAddMethod' : 'pluginActions')} aria-haspopup="menu" aria-expanded={open}
             onClick={() => { setOpen(value => !value) }}
             onKeyDown={(event) => {
               if (!open && event.key === 'ArrowDown') { event.preventDefault(); setOpen(true) }
@@ -91,6 +94,11 @@ function AddPluginMenu({ t, disabled, openInstall, renderSlot }: {
           </span>
         </MenuItemButton>
         {renderSlot('plugins.add.actions', { onDismiss })}
+        {openTranslationSettings === undefined ? null : (
+          <MenuItemButton icon={<IconGlobeOutlineRegular size={14} />} onSelect={() => { onDismiss(); openTranslationSettings() }}>
+            {t('pluginTranslations')}
+          </MenuItemButton>
+        )}
       </Menu>
     </span>
   )
@@ -547,11 +555,12 @@ function updateAvailable(pkg: PackageView): boolean {
 }
 
 /** One package as a card that opens its page: its name, its one-liner, its tags, and its bundle switch. */
-function PackageCard({ pkg, t, resolveText, busy, highlighted, newer, onOpen, onSetEnabled, renderSlot }: {
+function PackageCard({ pkg, t, resolveText, busy, highlighted, newer, translation, onOpen, onSetEnabled, renderSlot }: {
   readonly pkg: PackageView
   readonly renderSlot: RenderConfig
   /** The newer registry version a version check offers. */
   readonly newer: string | undefined
+  readonly translation: TranslationControl | undefined
   readonly t: Translate
   readonly resolveText: ResolveText
   readonly busy: boolean
@@ -583,8 +592,14 @@ function PackageCard({ pkg, t, resolveText, busy, highlighted, newer, onOpen, on
           </>
         )}
         description={description}
-        end={<EnableSwitch pkg={pkg} title={title} t={t} busy={busy} onSetEnabled={onSetEnabled} />}
+        end={(
+          <>
+            {translation?.action}
+            <EnableSwitch pkg={pkg} title={title} t={t} busy={busy} onSetEnabled={onSetEnabled} />
+          </>
+        )}
       />
+      {translation?.error}
       <MetadataError error={pkg.meta?.error} t={t} />
       {pkg.error?.code === 'unsupported-platform' && <p className={css.reason} role="status">{managementText(pkg.error, t)}</p>}
       <ApplicationStatus pkg={pkg} t={t} />
@@ -720,7 +735,7 @@ function RowDetail({ pkg, row, t, resolveText, onBack, renderSlot, form }: {
  * and configure controls; and where it comes from.
  */
 function PackageDetail({
-  pkg, t, resolveText, busy, rowBusy, configured, configure, renderSlot, inMore, versions, detail,
+  pkg, t, resolveText, busy, rowBusy, configured, configure, renderSlot, inMore, versions, detail, translation,
   onBack, onSetEnabled, onUninstall, onUpdate, onSetRowEnabled, onEnsureVersions, onCheckVersions, onUpdateVersion,
 }: {
   readonly pkg: PackageView
@@ -728,6 +743,7 @@ function PackageDetail({
   readonly versions: VersionCheck | undefined
   /** The bundle's detail document section, shown first among the page's sections. */
   readonly detail: ReactNode
+  readonly translation: TranslationControl | undefined
   readonly t: Translate
   readonly resolveText: ResolveText
   readonly busy: boolean
@@ -805,9 +821,13 @@ function PackageDetail({
           {updateAvailable(pkg) || newer !== undefined ? <Tag className={css.statusTag} tone="info">{t('statusUpdateAvailable')}</Tag> : null}
           {renderSlot('plugins.detail.badge', { subject })}
         </div>
-        <p className={css.detailName}><code data-plugin-name>{pkg.name}</code></p>
+        <div className={pkg.installed && !pkg.official && pkg.availability !== 'missing' ? css.detailIdentity : undefined}>
+          <p className={css.detailName}><code data-plugin-name>{pkg.name}</code></p>
+          {translation?.action}
+        </div>
         {description === undefined ? null : <p className={css.detailDesc}>{description}</p>}
       </div>
+      {translation?.error}
       <MetadataError error={pkg.meta?.error} t={t} />
       {pkg.error === undefined ? null : <p className={css.reason} role="status">{t('reasonLabel')}: {managementText(pkg.error, t)}</p>}
       <ApplicationStatus pkg={pkg} t={t} />
@@ -1612,6 +1632,10 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
   const tabs = props.usePluginTabs(snapshot => snapshot)
   const bundleDetails = props.useBundleDetails(snapshot => snapshot)
   const language = props.useLocale(snapshot => snapshot.active)
+  const translations = props.usePackageTranslation(value => value)
+  const translationSettings = props.useTranslationSettings(value => value)
+  const translationAllowed = props.useRemoteAccess('pluginI18n/tables')
+  const packageTranslation = usePackageTranslations(translationAllowed ? translations : undefined, language, t)
   const selectedTab = props.useStore(state => state.tab)
   // A contributed tab that left the ledger falls back to Installed, and stays there when it returns.
   const tab = tabs.some(item => item.id === selectedTab) ? selectedTab : INSTALLED_TAB
@@ -1693,6 +1717,7 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
       busy={packageBusy(pkg)}
       highlighted={state.highlight === pkg.name}
       newer={versionUpdate(state.versions[pkg.name])}
+      translation={packageTranslation(pkg)}
       onOpen={() => { setActivation(null); setView({ kind: 'package', name: pkg.name, ...showsMoreList ? { from: 'more' } : {} }) }}
       onSetEnabled={(enabled) => { setBundleEnabled(pkg.name, enabled) }}
     />
@@ -1758,7 +1783,9 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
                     </Button>
                   </Tooltip>
                   {state.install.requestId === undefined
-                    ? <AddPluginMenu t={t} disabled={!loaded} openInstall={props.openInstall} renderSlot={renderSlot} />
+                    ? <AddPluginMenu t={t} disabled={!loaded} openInstall={props.openInstall} renderSlot={renderSlot}
+                      openTranslationSettings={translations !== undefined && translationAllowed && translationSettings
+                        ? props.openTranslationSettings : undefined} />
                     : (
                       <Tooltip label={t('installViewTask')} side="bottom" delayMs={500} focusDelayMs={500} portal disabled={!loaded}>
                         <Button variant="primary" size="sm" className={css.addButton} icon={<IconPlusOutlineRegular size={13} />}
@@ -1856,6 +1883,7 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
               configure={configure(openPkg)}
               renderSlot={renderSlot}
               inMore={backToMore}
+              translation={packageTranslation(openPkg)}
               detail={(
                 <BundleDetailSection name={openPkg.name} version={openPkg.version} fromNpm={openPkg.availability === 'missing'}
                   language={language} details={bundleDetails} t={t}

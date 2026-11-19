@@ -728,6 +728,15 @@ describe('PluginManagerController', () => {
       expect(state().install.translate).toEqual({ step: 'offer', pkg: 'jan-new', locale: 'ja', language: '日本語', model: 'p/m' })
     })
 
+    it('dismisses later suggestions when the install offer is declined', async () => {
+      const dismiss = vi.fn()
+      const { face, state } = await installed({ assess: vi.fn(() => OFFER), dismiss })
+      await vi.waitFor(() => { expect(state().install.translate?.step).toBe('offer') })
+      face.declineTranslation()
+      expect(dismiss).toHaveBeenCalledExactlyOnceWith('jan-new', 'later')
+      expect(state().install.translate).toBeNull()
+    })
+
     it('offers nothing when the plugin ships the locale or no translation service is composed', async () => {
       const none = await installed({ assess: vi.fn(() => null) })
       await vi.waitFor(() => { expect(none.plugins.listBundles).toHaveBeenCalledTimes(2) })

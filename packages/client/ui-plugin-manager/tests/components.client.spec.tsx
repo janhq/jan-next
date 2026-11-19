@@ -5,7 +5,8 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { Context } from '@janhq/cordis'
 import { LocaleRuntime } from '@janhq/jan-client-locale/client'
-import type { ChangeResult, PluginEntryId, PluginInstallRequestId, PluginUpdateResult, PluginVersion, RegistryAttempt } from '@janhq/jan-api-remotes/client'
+import type { ChangeResult, PluginEntryId, PluginI18nJob, PluginInstallRequestId, PluginUpdateResult, PluginVersion, RegistryAttempt } from '@janhq/jan-api-remotes/client'
+import type { PluginI18nState, TranslationOffer } from '@janhq/jan-client-ui-plugin-i18n/client'
 import { allowAllAccess, bindSnapshotSelector, stubConfigForm } from '@janhq/jan-client-test-runtime'
 import type { ConfigForm, ConfigFormSnapshot, SettingsMirrorSnapshot } from '@janhq/jan-client-ui-settings/client'
 import { createSnapshotStore } from '@janhq/jan-client-store'
@@ -105,6 +106,7 @@ const NO_CONFIG: ConfigLedger = { items: [], bundles: new Set(), rows: new Set()
 function renderTab(
   state: Partial<PluginManagerState> = {}, config: Partial<ConfigLedger> = {},
   bodies: SlotBodies = {}, forms: Record<string, ConfigPageForm> = {}, tabs: readonly PluginTab[] = [],
+  translation: Partial<Pick<PluginManagerPageProps, 'usePackageTranslation' | 'useTranslationSettings' | 'openTranslationSettings'>> = {},
 ) {
   const ctx = new Context()
   onTestFinished(async () => { await ctx.fiber.dispose() })
@@ -200,6 +202,10 @@ function renderTab(
       }
       return body(owner.view, owner, 'form' in owner ? owner.form as ConfigPageForm | undefined : undefined)
     },
+    usePackageTranslation: () => undefined,
+    useTranslationSettings: () => false,
+    openTranslationSettings: vi.fn(),
+    ...translation,
   }
   let showPage = true
   let currentT = t
@@ -230,6 +236,101 @@ function renderTab(
 }
 
 describe('PluginManagerPage', () => {
+  const suggestion = { pkg: 'jan-better-sidebar', title: 'Better Sidebar', language: 'zh', languageName: 'Chinese', target: 'en' }
+
+  function translationFixture(initial = [suggestion]) {
+    const state = createSnapshotStore<PluginI18nState>({
+      ready: true, consent: { global: false, packages: [] }, route: null, statuses: {}, screen: {}, failures: {},
+    })
+    const suggestions = createSnapshotStore<readonly (typeof suggestion)[]>(initial)
+    const service = {
+      getSnapshot: () => state.getSnapshot(), subscribe: (listener: () => void) => state.subscribe(listener), suggestions,
+      assess: vi.fn((): TranslationOffer | null => null),
+      translate: vi.fn(async (name: string): Promise<PluginI18nJob> => {
+        state.set({ ...state.getSnapshot(), consent: { global: false, packages: [name] } })
+        suggestions.set([])
+        return { pkg: name, locale: 'en', state: 'done' as const, done: 0, total: 0 }
+      }),
+      clear: vi.fn(async () => {
+        state.set({ ...state.getSnapshot(), consent: { global: false, packages: [] } })
+        suggestions.set(initial)
+      }),
+    }
+    const openTranslationSettings = vi.fn()
+    const props = {
+      usePackageTranslation: bindSnapshotSelector(createSnapshotStore(service)),
+      useTranslationSettings: bindSnapshotSelector(createSnapshotStore(true)),
+      openTranslationSettings,
+    }
+    return { state, suggestions, service, props, openTranslationSettings }
+  }
+
+  it('offers translation only on the suggested third-party card and on its details, and starts translation from the card', async () => {
+    const { suggestions, service, props } = translationFixture([])
+    const page = renderTab({ packages: [pkg(), pkg({ name: 'jan-other' })] }, {}, {}, {}, [], props)
+    expect(screen.queryByRole('button', { name: /translate/i })).toBeNull()
+    act(() => { suggestions.set([suggestion]) })
+    const action = /translate.*chinese.*english/i
+    expect(screen.getAllByRole('button', { name: action })).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: t('openDetail', { name: suggestion.pkg }) }))
+    expect(screen.getByRole('button', { name: action }).closest('[data-plugin-detail]')).not.toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: en.backToList }))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: action })) })
+    expect(service.translate).toHaveBeenCalledExactlyOnceWith(suggestion.pkg)
+    expect(page.navigation.getSnapshot().view).toEqual({ kind: 'list' })
+  })
+
+  it('offers the target language when metadata assessment has no named source language', () => {
+    const { service, props } = translationFixture([])
+    service.assess.mockReturnValue({ pkg: suggestion.pkg, locale: 'en', language: 'English', route: null })
+    renderTab({ packages: [pkg({ description: '还没有特征' })] }, {}, {}, {}, [], props)
+    expect(screen.getByRole('button', { name: 'Translate to English' })).toBeTruthy()
+  })
+
+  it('shows an original-language action on a consented package and clears translation when selected', async () => {
+    const { state, service, props } = translationFixture()
+    state.set({ ...state.getSnapshot(), consent: { global: false, packages: [suggestion.pkg] } })
+    renderTab({ packages: [pkg()] }, {}, {}, {}, [], props)
+    expect(screen.getByText('Translated')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: t('openDetail', { name: suggestion.pkg }) }))
+    expect(screen.getByText('Translated')).toBeTruthy()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Show original' })) })
+    expect(service.clear).toHaveBeenCalledExactlyOnceWith(suggestion.pkg)
+    expect(screen.queryByText('Translated')).toBeNull()
+  })
+
+  it('keeps translation progress visible when opening details and shows a failed translation inline', async () => {
+    const { state, service, props } = translationFixture()
+    const job: PluginI18nJob = { pkg: suggestion.pkg, locale: 'en', state: 'running', done: 2, total: 5 }
+    const result = Promise.withResolvers<PluginI18nJob>()
+    service.translate.mockReturnValueOnce(result.promise)
+    renderTab({ packages: [pkg()] }, {}, {}, {}, [], props)
+    fireEvent.click(screen.getByRole('button', { name: /translate.*chinese.*english/i }))
+    expect(screen.getByText(/translating/i)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: t('openDetail', { name: suggestion.pkg }) }))
+    act(() => {
+      const status = { pkg: suggestion.pkg, locales: [], runtime: [], consented: true, job }
+      state.set({ ...state.getSnapshot(), statuses: { [suggestion.pkg]: status } })
+    })
+    expect(screen.getByText(/2\s*\/\s*5/)).toBeTruthy()
+    await act(async () => { result.resolve({ ...job, state: 'failed', message: 'Model unavailable' }) })
+    expect(screen.getByRole('alert').textContent).toContain('Model unavailable')
+  })
+
+  it('opens translation settings from the header menu and hides the entry when unavailable', () => {
+    const { props, openTranslationSettings } = translationFixture()
+    const page = renderTab({ packages: [pkg()] }, {}, {}, {}, [], props)
+    fireEvent.click(screen.getByRole('button', { name: /plugin actions/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Plugin translations...' }))
+    expect(openTranslationSettings).toHaveBeenCalledOnce()
+    page.unmount()
+
+    renderTab({ packages: [pkg()] })
+    expect(screen.queryByRole('button', { name: /translate|show original/i })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: en.chooseAddMethod }))
+    expect(screen.queryByRole('menuitem', { name: 'Plugin translations...' })).toBeNull()
+  })
+
   it('shows no tabs without contributions, and switches between Installed and a contributed tab', () => {
     const { actions, navigation, setTabs } = renderTab({ packages: [pkg()] }, {}, {
       'plugins.tab:discover': (_view, owner) => {

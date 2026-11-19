@@ -15,6 +15,7 @@ import { apply, inject, NS, PANEL_ID } from '../src/client/index.ts'
 import { PluginManagerPage } from '../src/client/PluginManagerPage.tsx'
 import { PluginRefreshToast, type PluginRefreshToastFace } from '../src/client/PluginRefreshToast.tsx'
 import { PluginsPanelIcon } from '../src/client/PluginsPanelIcon.tsx'
+import type { PluginTranslationFace } from '../src/client/PackageTranslation.tsx'
 import type { PluginManagerFace } from '../src/client/manager-store.ts'
 import type { createNavigationStore } from '../src/client/navigation-store.ts'
 
@@ -104,11 +105,37 @@ function declare(slots: SlotRegistry): () => void {
       'main': { kind: 'keyed', scope: 'root' },
       'shell.overlay': { kind: 'list', scope: 'root' },
       'sidebar.panellist': { kind: 'list', scope: 'root' },
+      'settings.plugins.tab': { kind: 'list', scope: 'root' },
     },
   } as never, () => null)
 }
 
 describe('ui-plugin-manager browser plugin', () => {
+  it('offers a Settings link when the Translations tab becomes available and opens Built-in plugins', async () => {
+    const b = await bench()
+    declare(b.slots)
+    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    const face = b.slots.entries('main')[0]!.inject!() as PluginTranslationFace
+    const settings = face.hooks.translationSettings
+    const listener = vi.fn(() => settings.getSnapshot())
+    const off = settings.subscribe(listener)
+    onTestFinished(off)
+    expect(settings.getSnapshot()).toBe(false)
+
+    const available = createSnapshotStore(false)
+    const open = vi.fn(() => true)
+    await b.ctx.plugin((ctx) => { ctx.provide('settingsNavigation', { availability: available, open }) }).await()
+    const removeTab = b.slots.register({ name: 'settings.plugins.tab', id: 'translations' }, () => null)
+    expect(settings.getSnapshot()).toBe(false)
+    available.set(true)
+    expect(listener).toHaveLastReturnedWith(true)
+    face.openTranslationSettings()
+    expect(open).toHaveBeenCalledExactlyOnceWith('plugins')
+
+    removeTab()
+    await vi.waitFor(() => { expect(listener).toHaveLastReturnedWith(false) })
+  })
+
   it('resets bundle selection when leaving Plugins and releases its panel observer with the registration', async () => {
     const b = await bench()
     const removeRoot = declare(b.slots)

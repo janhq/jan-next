@@ -73,6 +73,7 @@
     "react-dom": "^18.2.0",
     "@janhq/jan-util-crypto": "workspace:*",
     "@janhq/jan-client-ui-settings": "workspace:*",
+    "@janhq/jan-client-ui-settings-general": "workspace:*",
     "@janhq/jan-plugin-manager": "workspace:*",
     "@janhq/jan-client-product-analytics": "workspace:*",
     "@janhq/jan-client-ui-plugin-i18n": "workspace:*"
