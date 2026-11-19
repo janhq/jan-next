@@ -7,6 +7,7 @@ import * as plugin from '../src/index.ts'
 import { Config, resolve } from '../src/config.ts'
 import type { BackendId } from '../src/config.ts'
 import { keyLookupFrom } from '../src/credentials.ts'
+import { FakeTokamakAccount } from './fake-account.ts'
 import { json, sse, startLoopback, toolText } from './loopback.ts'
 import type { Loopback } from './loopback.ts'
 
@@ -21,7 +22,7 @@ afterEach(async () => {
 describe('config resolution', () => {
   it('defaults to Exa, Tavily, and You.com with their public endpoints, and no SearXNG instance', () => {
     const spec = resolve(Config({}))
-    expect(spec.providers).toEqual(['exa', 'tavily', 'you'])
+    expect(spec.providers).toEqual(['tokamak', 'exa', 'tavily', 'you'])
     expect(spec.searxng).toBeUndefined()
     expect(spec.tavily).toMatchObject({
       searchUrl: 'https://api.tavily.com/search', extractUrl: 'https://api.tavily.com/extract', apiKeyEnv: 'TAVILY_API_KEY',
@@ -55,7 +56,11 @@ describe('config resolution', () => {
     expect(resolve(Config({ providers: ['searxng'], searxng: { url: 'https://searx.example/' } })).searxng?.searchUrl).toBe('https://searx.example/search')
     expect(() => Config({ numResults: 21 })).toThrow()
     expect(() => resolve({ providers: ['exa'] })).toThrow('web-search: exa is required')
-    expect(() => resolve({ providers: ['you'], exa: {}, tavily: {}, you: {}, numResults: 1, maxCharacters: 1, timeoutMs: 1 })).toThrow('web-search: exa.apiUrl is required')
+    expect(() => resolve({ providers: ['you'], exa: {}, tavily: {}, you: {}, tokamak: {}, numResults: 1, maxCharacters: 1, timeoutMs: 1 })).toThrow('web-search: exa.apiUrl is required')
+    const { tokamak: _omitted, ...withoutTokamak } = Config({})
+    expect(() => resolve(withoutTokamak)).toThrow('web-search: tokamak is required')
+    expect(() => resolve(Object.assign(Config({}), { tokamak: { apiUrl: 'https://api.tokamak.sh/v1' } })))
+      .toThrow('web-search: tokamak.maxResults is required')
   })
 })
 
@@ -78,10 +83,11 @@ describe('credential lookup', () => {
 })
 
 describe('web-search plugin', () => {
-  async function mount(providers: BackendId[], web: { searchProvider?: string; fetchProvider?: string }): Promise<{ ctx: Context; fiber: Awaited<ReturnType<Context['plugin']>> }> {
+  async function mount(providers: BackendId[], web: { searchProvider?: string | string[]; fetchProvider?: string | string[] }): Promise<{ ctx: Context; fiber: Awaited<ReturnType<Context['plugin']>> }> {
     const ctx = new Context()
     await ctx.plugin(WebRuntime, web)
     const fiber = await ctx.plugin(plugin, {
+      tokamak: { apiUrl: `${loopback.base}/tokamak/v1` },
       exa: { mcpUrl: `${loopback.base}/exa/mcp`, apiUrl: `${loopback.base}/exa`, apiKeyEnv: 'JAN_WEB_SEARCH_TEST_EXA' },
       tavily: { apiUrl: `${loopback.base}/tavily`, apiKeyEnv: 'JAN_WEB_SEARCH_TEST_TAVILY' },
       searxng: { url: `${loopback.base}/searx` },
@@ -133,6 +139,54 @@ describe('web-search plugin', () => {
     await expect(ctx.web.search({ query: 'q' })).resolves.toMatchObject({ sources: [{ url: 'https://keyed.example' }] })
     expect(loopback.calls.map(call => call.path)).toEqual(['/exa/mcp', '/exa/search'])
     expect(loopback.calls[1]?.headers['x-api-key']).toBe('exa-key')
+  })
+
+  it('registers Tokamak only with the account service and selects it only while signed in', async () => {
+    const { ctx } = await mount(['tokamak', 'exa'], { searchProvider: ['tokamak', 'exa'], fetchProvider: ['tokamak', 'exa'] })
+    loopback.handler = (request, res) => {
+      if (request.path === '/tokamak/v1/web_search') json(res, { results: [{ url: 'https://tokamak.example' }] })
+      else if (request.path === '/tokamak/v1/web_fetch') json(res, { url: request.body['url'], content: 'tokamak page' })
+      else if (request.body['params'] !== undefined && JSON.stringify(request.body).includes('web_fetch_exa')) sse(res, toolText('exa page'))
+      else sse(res, toolText('Title: T\nURL: https://exa.example'))
+    }
+    const searched = async (): Promise<string | undefined> => (await ctx.web.search({ query: 'q' })).sources[0]?.url
+    expect(ctx.web.listProviders().search.map(info => info.id)).toEqual(['exa'])
+    await expect(searched()).resolves.toBe('https://exa.example')
+
+    const accountFiber = await ctx.plugin(FakeTokamakAccount)
+    const account = ctx.get('tokamakAccount') as FakeTokamakAccount
+    account.issuer = loopback.base
+    await vi.waitFor(() => { expect(ctx.web.listProviders().search.map(info => info.id)).toEqual(['exa', 'tokamak']) })
+    await expect(searched()).resolves.toBe('https://exa.example')
+
+    account.setToken('tk-1')
+    await vi.waitFor(async () => { await expect(searched()).resolves.toBe('https://tokamak.example') })
+    await expect(ctx.web.fetch({ url: 'https://example.com' })).resolves.toMatchObject({ body: { content: 'tokamak page' } })
+    expect(await ctx.web.searchReady('local')).toBe(true)
+
+    loopback.handler = (_request, res) => { json(res, { error: 'unauthorized' }, 401) }
+    await expect(searched()).rejects.toThrow(/HTTP 401/)
+    expect(account.rejected).toEqual(['tk-1'])
+    loopback.handler = (request, res) => {
+      if (request.path.startsWith('/tokamak')) res.writeHead(500).end()
+      else sse(res, toolText('Title: T\nURL: https://exa.example'))
+    }
+    await vi.waitFor(async () => { await expect(searched()).resolves.toBe('https://exa.example') })
+
+    await accountFiber.dispose()
+    expect(ctx.web.listProviders()).toMatchObject({ search: [{ id: 'exa' }], fetch: [{ id: 'exa' }] })
+    expect(ctx.web.listProviders().search).toHaveLength(1)
+  })
+
+  it('keeps Tokamak unavailable and warns when the account state cannot be read', async () => {
+    const { ctx } = await mount(['tokamak'], { searchProvider: 'tokamak' })
+    const warn = vi.spyOn(ctx.logger, 'warn')
+    await ctx.plugin(FakeTokamakAccount)
+    const account = ctx.get('tokamakAccount') as FakeTokamakAccount
+    account.failState = true
+    account.setToken('tk-1')
+    await vi.waitFor(() => { expect(warn).toHaveBeenCalledWith('web-search: cannot read the Tokamak account state, so Tokamak search and fetch stay unavailable') })
+    await expect(ctx.web.search({ query: 'q' })).rejects.toMatchObject({ code: 'WEB_PROVIDER_CONFIGURED_UNAVAILABLE' })
   })
 
   it('fails to load with an invalid endpoint', async () => {

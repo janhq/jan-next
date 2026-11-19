@@ -4543,23 +4543,29 @@ export type ApprovalPolicy = 'ask' | 'never'
 ## `@janhq/jan-web`
 
 - `refs`: `Volatile` (`@janhq/cordis`)
-- `source`: [`packages/web/web/src/index.ts:62`](../packages/web/web/src/index.ts)
+- `source`: [`packages/web/web/src/index.ts:56`](../packages/web/web/src/index.ts)
 
 ```ts config-catalog
 /**
- * Config for the web seam. `searchProvider` / `fetchProvider` pin which provider
- * wins for each capability; both are optional (a single registered usable
- * provider auto-selects). Each operation reads the current value, so a settings
- * change applies to the next search or fetch without remounting the service.
+ * Config for the web seam. `searchProvider` / `fetchProvider` select the provider
+ * for each capability; both are optional (a single registered usable provider
+ * auto-selects). Each operation reads the current value, so a settings change
+ * applies to the next search or fetch without remounting the service.
  * Operational overrides such as environment variables must feed these same
  * fields rather than introduce a hidden priority chain.
  */
 export interface WebRuntimeConfig {
-  /** Explicit search provider id. Omitted = auto-select when exactly one usable. */
-  readonly searchProvider: Volatile<string | undefined>
-  /** Explicit fetch provider id. Omitted = auto-select when exactly one usable. */
-  readonly fetchProvider: Volatile<string | undefined>
+  /** Search provider id or preference list. Omitted or empty = auto-select when exactly one usable. */
+  readonly searchProvider: Volatile<WebProviderPreference | undefined>
+  /** Fetch provider id or preference list. Omitted or empty = auto-select when exactly one usable. */
+  readonly fetchProvider: Volatile<WebProviderPreference | undefined>
 }
+
+/**
+ * A configured provider selection: one provider id, or provider ids in preference order. The
+ * first id that is registered and `available()` is selected by `ctx.web`.
+ */
+export type WebProviderPreference = string | readonly string[]
 ```
 
 <a id="janhqjan-web-app"></a>
@@ -4620,13 +4626,15 @@ export interface Config {
 ## `@janhq/jan-web-search`
 
 - `inject`: `web`
-- `source`: [`packages/web/web-search/src/config.ts:74`](../packages/web/web-search/src/config.ts)
+- `source`: [`packages/web/web-search/src/config.ts:85`](../packages/web/web-search/src/config.ts)
 
 ```ts config-catalog
 /** Plugin config; every field except `searxng.url` has a default. */
 export interface Config {
   /** Backends to register; `searxng` registers search only, the others search and fetch. */
   providers?: BackendId[]
+  /** Tokamak settings. */
+  tokamak?: TokamakConfig
   /** Exa settings. */
   exa?: ExaConfig
   /** Tavily settings. */
@@ -4644,7 +4652,15 @@ export interface Config {
 }
 
 /** One backend id from {@link BACKEND_IDS}. */
-export type BackendId = 'exa' | 'tavily' | 'searxng' | 'you'
+export type BackendId = 'tokamak' | 'exa' | 'tavily' | 'searxng' | 'you'
+
+/** Tokamak endpoint and result cap; requests authenticate with the signed-in Tokamak account. */
+export interface TokamakConfig {
+  /** API base URL on the account's deployment; `/web_search` and `/web_fetch` are appended. */
+  apiUrl?: string
+  /** Largest result count one search asks for, at most {@link MAX_RESULTS}; the deployment rejects counts above its provider's cap. */
+  maxResults?: number
+}
 
 /** Exa endpoints and credential. */
 export interface ExaConfig {

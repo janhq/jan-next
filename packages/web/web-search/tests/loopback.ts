@@ -96,6 +96,7 @@ export function toolText(text: string, meta?: Record<string, unknown>): unknown 
  */
 export function specsFor(base: string, overrides: Partial<Config> = {}): Spec & { searxng: SearxngSpec } {
   const spec = resolve(ConfigSchema({
+    tokamak: { apiUrl: `${base}/tokamak/v1` },
     exa: { mcpUrl: `${base}/exa/mcp`, apiUrl: `${base}/exa` },
     tavily: { apiUrl: `${base}/tavily` },
     searxng: { url: `${base}/searx/` },

@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Búsqueda web",
-    "description": "Búsqueda web y lectura de páginas a través de Exa, Tavily, SearXNG o You.com. Exa y You.com funcionan sin cuenta; Tavily requiere una clave de API y SearXNG tu propia instancia."
+    "description": "Búsqueda web y lectura de páginas a través de Tokamak, Exa, Tavily, SearXNG o You.com. Tokamak usa tu cuenta de Tokamak con la sesión iniciada; Exa y You.com funcionan sin cuenta; Tavily requiere una clave de API y SearXNG tu propia instancia."
   }
 }

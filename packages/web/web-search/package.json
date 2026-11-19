@@ -1,6 +1,6 @@
 {
   "name": "@janhq/jan-web-search",
-  "description": "Exa, Tavily, SearXNG, and You.com web search and fetch providers for the ctx.web capability seam, ported from Jan's web search plugin",
+  "description": "Tokamak, Exa, Tavily, SearXNG, and You.com web search and fetch providers for the ctx.web capability seam, ported from Jan's web search plugin",
   "version": "0.2.2-rc.1",
   "publishConfig": {
     "access": "public"
@@ -32,7 +32,13 @@
     "@janhq/cordis": "workspace:~",
     "@janhq/jan-credentials": "workspace:*",
     "@janhq/jan-launch-environment": "workspace:*",
+    "@janhq/jan-tokamak-account": "workspace:*",
     "@janhq/jan-web": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@janhq/jan-tokamak-account": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@janhq/cordis": "workspace:~",
@@ -45,6 +51,7 @@
     "@janhq/jan-scope": "workspace:*",
     "@janhq/jan-session": "workspace:*",
     "@janhq/jan-system-prompt": "workspace:*",
+    "@janhq/jan-tokamak-account": "workspace:*",
     "@janhq/jan-tool-executor-native": "workspace:*",
     "@janhq/jan-tool-testkit": "workspace:*",
     "@janhq/jan-tool-web": "workspace:*",

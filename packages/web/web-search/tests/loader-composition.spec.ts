@@ -1,6 +1,7 @@
 /**
  * Real Loader composition: `jan-web-search` mounted from a cordis.yml row beside the web service
- * and the model-facing web tools, with only the provider endpoints replaced by a loopback stand-in.
+ * and the model-facing web tools, with only the provider endpoints replaced by a loopback stand-in
+ * and the Tokamak account by an in-memory service.
  */
 
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
@@ -16,6 +17,7 @@ import { ToolCallId } from '@janhq/jan-llm'
 import { createScope } from '@janhq/jan-scope'
 import { SessionId } from '@janhq/jan-session'
 import { executeToolFixture } from '@janhq/jan-tool-testkit'
+import { FakeTokamakAccount } from './fake-account.ts'
 import { json, sse, startLoopback, toolText } from './loopback.ts'
 import type { Loopback } from './loopback.ts'
 
@@ -38,7 +40,9 @@ afterEach(async () => {
   root = undefined
 })
 
-async function boot(): Promise<Context> {
+const SELECT_YOU_AND_EXA = ['    searchProvider: you', '    fetchProvider: exa']
+
+async function boot(selection = SELECT_YOU_AND_EXA, providers = '[exa, tavily, searxng, you]'): Promise<Context> {
   root = await mkdtemp(join(tmpdir(), 'jan-web-search-composition-'))
   await writeFile(join(root, 'package.json'), JSON.stringify({ type: 'module' }))
   const configPath = join(root, 'cordis.yml')
@@ -48,11 +52,12 @@ async function boot(): Promise<Context> {
     "- name: '@janhq/jan-tool-executor-native'",
     "- name: '@janhq/jan-web'",
     '  config:',
-    '    searchProvider: you',
-    '    fetchProvider: exa',
+    ...selection,
     "- name: '@janhq/jan-web-search'",
     '  config:',
-    '    providers: [exa, tavily, searxng, you]',
+    `    providers: ${providers}`,
+    '    tokamak:',
+    `      apiUrl: ${loopback.base}/tokamak/v1`,
     '    searxng:',
     `      url: ${loopback.base}/searx`,
     '    exa:',
@@ -113,4 +118,27 @@ it('serves web_search through keyed You.com and web_fetch through keyless Exa fr
   expect(loopback.calls.map(call => call.path)).toEqual(['/you/v1/search', '/exa/mcp'])
   expect(loopback.calls[0]?.headers['x-api-key']).toBe('ydc-key')
   expect(loopback.calls[1]?.headers['x-api-key']).toBeUndefined()
+})
+
+it('serves web_search and web_fetch through Tokamak while the account is signed in, else through Exa', async () => {
+  loopback.handler = (request, res) => {
+    if (request.path === '/tokamak/v1/web_search') json(res, { results: [{ url: 'https://tokamak.example/a', title: 'Tokamak result', snippet: 'From Tokamak.' }] })
+    else if (request.path === '/tokamak/v1/web_fetch') json(res, { url: 'https://jan.example/notes', content: 'Tokamak page body.', truncated: false })
+    else if (JSON.stringify(request.body).includes('web_fetch_exa')) sse(res, toolText('# Notes\nURL: https://jan.example/notes\n\nExa page body.'))
+    else sse(res, toolText('Title: Exa result\nURL: https://exa.example/a\nHighlights:\nFrom Exa.'))
+  }
+  const context = await boot(['    searchProvider: [tokamak, exa]', '    fetchProvider: [tokamak, exa]'], '[tokamak, exa]')
+  expect(await callTool(context, 'web_search', { queries: ['q'] })).toContain('[Exa result](https://exa.example/a)')
+
+  await context.plugin(FakeTokamakAccount)
+  const account = context.get('tokamakAccount') as FakeTokamakAccount
+  account.issuer = loopback.base
+  account.setToken('tk-1')
+  await vi.waitFor(() => { expect(context.web.listProviders().search.map(provider => provider.id)).toEqual(['exa', 'tokamak']) })
+  await vi.waitFor(async () => { expect(await callTool(context, 'web_search', { queries: ['q'] })).toContain('[Tokamak result](https://tokamak.example/a)') })
+  expect(await callTool(context, 'web_fetch', { url: 'https://jan.example/notes' })).toContain('Tokamak page body.')
+  expect(loopback.calls.filter(call => call.path.startsWith('/tokamak')).every(call => call.headers.authorization === 'Bearer tk-1')).toBe(true)
+
+  account.setToken(undefined)
+  await vi.waitFor(async () => { expect(await callTool(context, 'web_fetch', { url: 'https://jan.example/notes' })).toContain('Exa page body.') })
 })

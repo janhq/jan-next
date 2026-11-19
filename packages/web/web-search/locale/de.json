@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Websuche",
-    "description": "Websuche und Seitenabruf über Exa, Tavily, SearXNG oder You.com. Exa und You.com funktionieren ohne Konto; Tavily benötigt einen API-Schlüssel und SearXNG eine eigene Instanz."
+    "description": "Websuche und Seitenabruf über Tokamak, Exa, Tavily, SearXNG oder You.com. Tokamak nutzt dein angemeldetes Tokamak-Konto; Exa und You.com funktionieren ohne Konto; Tavily benötigt einen API-Schlüssel und SearXNG eine eigene Instanz."
   }
 }

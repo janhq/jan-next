@@ -9,6 +9,9 @@ import { credentialRef, isCredentialRefName } from '@janhq/jan-credentials'
 import type { CredentialRef } from '@janhq/jan-credentials'
 import z from '@janhq/schemastery'
 
+/** Registry id of the Tokamak search and fetch providers. */
+export const TOKAMAK_PROVIDER_ID = 'tokamak'
+
 /** Registry id of the Exa search and fetch providers. */
 export const EXA_PROVIDER_ID = 'exa'
 
@@ -21,14 +24,22 @@ export const SEARXNG_PROVIDER_ID = 'searxng'
 /** Registry id of the You.com search and fetch providers. */
 export const YOU_PROVIDER_ID = 'you'
 
-/** The backends this package can register, in the order Jan's web search plugin lists them. */
-export const BACKEND_IDS = [EXA_PROVIDER_ID, TAVILY_PROVIDER_ID, SEARXNG_PROVIDER_ID, YOU_PROVIDER_ID] as const
+/** The backends this package can register: Tokamak, then the order Jan's web search plugin lists them. */
+export const BACKEND_IDS = [TOKAMAK_PROVIDER_ID, EXA_PROVIDER_ID, TAVILY_PROVIDER_ID, SEARXNG_PROVIDER_ID, YOU_PROVIDER_ID] as const
 
 /** One backend id from {@link BACKEND_IDS}. */
-export type BackendId = 'exa' | 'tavily' | 'searxng' | 'you'
+export type BackendId = 'tokamak' | 'exa' | 'tavily' | 'searxng' | 'you'
 
 /** Upper bound on the result count every backend is asked for; a caller's `maxResults` is clamped to it. */
 export const MAX_RESULTS = 20
+
+/** Tokamak endpoint and result cap; requests authenticate with the signed-in Tokamak account. */
+export interface TokamakConfig {
+  /** API base URL on the account's deployment; `/web_search` and `/web_fetch` are appended. */
+  apiUrl?: string
+  /** Largest result count one search asks for, at most {@link MAX_RESULTS}; the deployment rejects counts above its provider's cap. */
+  maxResults?: number
+}
 
 /** Exa endpoints and credential. */
 export interface ExaConfig {
@@ -74,6 +85,8 @@ export interface YouConfig {
 export interface Config {
   /** Backends to register; `searxng` registers search only, the others search and fetch. */
   providers?: BackendId[]
+  /** Tokamak settings. */
+  tokamak?: TokamakConfig
   /** Exa settings. */
   exa?: ExaConfig
   /** Tavily settings. */
@@ -94,7 +107,11 @@ const MAX_TIMER_DELAY_MS = 2_147_483_647
 
 /** Validates {@link Config} and applies its defaults. */
 export const Config: z<Config> = z.object({
-  providers: z.array(z.union([...BACKEND_IDS])).default([EXA_PROVIDER_ID, TAVILY_PROVIDER_ID, YOU_PROVIDER_ID]),
+  providers: z.array(z.union([...BACKEND_IDS])).default([TOKAMAK_PROVIDER_ID, EXA_PROVIDER_ID, TAVILY_PROVIDER_ID, YOU_PROVIDER_ID]),
+  tokamak: z.object({
+    apiUrl: z.string().default('https://api.tokamak.sh/v1'),
+    maxResults: z.natural().min(1).max(MAX_RESULTS).default(10),
+  }),
   exa: z.object({
     mcpUrl: z.string().default('https://mcp.exa.ai/mcp'),
     apiUrl: z.string().default('https://api.exa.ai'),
@@ -128,6 +145,13 @@ export interface SharedSpec {
   readonly maxCharacters: number
   /** Milliseconds one operation may take. */
   readonly timeoutMs: number
+}
+
+/** Resolved Tokamak settings. */
+export interface TokamakSpec extends SharedSpec {
+  readonly searchUrl: string
+  readonly fetchUrl: string
+  readonly maxResults: number
 }
 
 /** Resolved Exa settings. */
@@ -165,6 +189,7 @@ export interface YouSpec extends SharedSpec {
 export interface Spec {
   /** Backends to register, without duplicates, in configured order. */
   readonly providers: readonly BackendId[]
+  readonly tokamak: TokamakSpec
   readonly exa: ExaSpec
   readonly tavily: TavilySpec
   /** Absent unless `providers` lists `searxng`. */
@@ -188,6 +213,7 @@ export function resolve(config: Config): Spec {
   const exa = required('exa', config.exa)
   const tavily = required('tavily', config.tavily)
   const you = required('you', config.you)
+  const tokamak = required('tokamak', config.tokamak)
   const shared: SharedSpec = {
     numResults: required('numResults', config.numResults),
     maxCharacters: required('maxCharacters', config.maxCharacters),
@@ -196,6 +222,7 @@ export function resolve(config: Config): Spec {
   const exaApi = httpUrl('exa.apiUrl', exa.apiUrl)
   const tavilyApi = httpUrl('tavily.apiUrl', tavily.apiUrl)
   const youApi = httpUrl('you.apiUrl', you.apiUrl)
+  const tokamakApi = httpUrl('tokamak.apiUrl', tokamak.apiUrl)
   const userAgent = required('you.userAgent', you.userAgent)
   if (userAgent.trim().length === 0) throw new Error('web-search: you.userAgent must not be empty')
   const searxngUrl = config.searxng?.url
@@ -204,6 +231,12 @@ export function resolve(config: Config): Spec {
   }
   return {
     providers,
+    tokamak: {
+      ...shared,
+      searchUrl: joinPath(tokamakApi, 'web_search'),
+      fetchUrl: joinPath(tokamakApi, 'web_fetch'),
+      maxResults: required('tokamak.maxResults', tokamak.maxResults),
+    },
     exa: {
       ...shared,
       mcpUrl: httpUrl('exa.mcpUrl', exa.mcpUrl).href,

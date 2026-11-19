@@ -17774,6 +17774,9 @@ importers:
       '@janhq/jan-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@janhq/jan-tokamak-account':
+        specifier: workspace:*
+        version: link:../../credentials/tokamak-account
       '@janhq/jan-tool-executor-native':
         specifier: workspace:*
         version: link:../../core/tool-executor-native
