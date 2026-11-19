@@ -76,7 +76,6 @@
     "@janhq/jan-session-query": "workspace:*",
     "@janhq/jan-llm": "workspace:*",
     "@janhq/jan-client-ui-tool": "workspace:*",
-    "@janhq/jan-tool-present": "workspace:*",
     "@janhq/jan-workspace-changes": "workspace:*",
     "@janhq/jan-api-session-controller": "workspace:*",
     "@janhq/jan-util-values": "workspace:*",
@@ -99,6 +98,7 @@
     "lib/types/**/*.d.ts"
   ],
   "dependencies": {
+    "@janhq/jan-tool-present": "workspace:*",
     "@janhq/jan-typert-protocol": "workspace:*"
   }
 }

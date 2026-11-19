@@ -71,6 +71,8 @@ const SAFE_HOST_DEPENDENCY_EXPORTS = {
   '@janhq/jan-session-format': ['sessionFormatLogFilename'],
   '@janhq/jan-storage-domain': ['defineDomain'],
   '@janhq/jan-timeout': ['MAX_TIMER_DELAY_MS'],
+  // A pure validator over caller-owned durable data.
+  '@janhq/jan-tool-present/types': ['isPresentedFile'],
   '@janhq/schemastery': ['default'],
 } as const satisfies HostDependencyExports
 
