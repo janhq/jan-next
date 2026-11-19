@@ -42,6 +42,8 @@ Define an Agent’s child plugins in ordinary Cordis YAML. Declare several prese
 | `name` | unset | Display name |
 | `description` | unset | Display description |
 | `order` | unset | Roster order |
+| `toolAllowlist` | unset | Restrict model-facing tools to these names, including inherited tools |
+| `readOnlyDelegation` | `false` | Pin new local delegated sessions using this preset to a read-only sandbox with no approval escalation |
 
 The declaration row’s `id` addresses Loader edits; `config.id` is the preset identity saved by sessions. Child entry IDs may be omitted and assigned by Loader.
 
