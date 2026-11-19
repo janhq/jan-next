@@ -18,8 +18,13 @@ const uncoveredLocationsReporter = fileURLToPath(new URL('./scripts/coverage-unc
 // Resolution facade shared by every plugin instance below: tsconfig.base.json
 // has no include, which vite-tsconfig-paths treats as match-all, so its paths
 // map applies to every test file. paths must win over package exports so built
-// lib/ never loads a second module-singleton copy.
-const pathsPlugin = (): ReturnType<typeof tsconfigPaths> => tsconfigPaths({ projects: ['./tsconfig.base.json'] })
+// lib/ never loads a second module-singleton copy. The hand-written JavaScript
+// plugins under plugins/ are workspace source too, so their imports resolve the same way.
+const handWrittenPluginsDir = fileURLToPath(new URL('./plugins/', import.meta.url)).replaceAll('\\', '/')
+const pathsPlugin = (): ReturnType<typeof tsconfigPaths> => tsconfigPaths({
+  projects: ['./tsconfig.base.json'],
+  importerFilter: importer => /\.[mc]?tsx?$/.test(importer) || (importer.startsWith(handWrittenPluginsDir) && /\.m?js$/.test(importer)),
+})
 
 const windowsUnsupportedPackages = process.platform === 'win32'
   ? [
@@ -187,13 +192,16 @@ const claudeCodeTestingAliases = {
   'claude-code': fileURLToPath(new URL('./packages/experimental/claude-code-mods/tests/support/claude-code.ts', import.meta.url)),
 }
 
-// The LiveShare client entry statically imports its generated `./remote` contribution, which exists
-// only in built `lib/` output. On a clean checkout Vite resolves that import while transforming the
-// entry, before `vi.mock` can answer it, so the jsdom assembly suites need a resolvable stand-in.
-const liveshareRemoteBuild = fileURLToPath(new URL('./packages/experimental/liveshare/lib/typert.remote-client.js', import.meta.url))
-const generatedRemoteAliases = existsSync(liveshareRemoteBuild) ? {} : {
-  '@janhq/jan-experimental-liveshare/remote': fileURLToPath(new URL('./packages/experimental/liveshare/tests/generated-remote-stub.ts', import.meta.url)),
-}
+// These Client entries statically import a generated `./remote` contribution, which exists only in
+// built `lib/` output. On a clean checkout Vite resolves that import while transforming the entry,
+// before `vi.mock` can answer it, so the jsdom assembly suites need a resolvable stand-in.
+const generatedRemoteStubs = [
+  ['@janhq/jan-experimental-liveshare/remote', './packages/experimental/liveshare'],
+  ['@janhq/jan-api-llama-cpp-controller/remote', './packages/api/llama-cpp-controller'],
+] as const
+const generatedRemoteAliases = Object.fromEntries(generatedRemoteStubs
+  .filter(([, dir]) => !existsSync(fileURLToPath(new URL(`${dir}/lib/typert.remote-client.js`, import.meta.url))))
+  .map(([specifier, dir]) => [specifier, fileURLToPath(new URL(`${dir}/tests/generated-remote-stub.ts`, import.meta.url))]))
 const testingAliases = { ...claudeCodeTestingAliases, ...generatedRemoteAliases }
 
 export default defineConfig({
