@@ -6,9 +6,9 @@ import { launchWebScaffold, watchConsole } from './scaffold.ts'
 import { writeComposerDraft } from './support.ts'
 
 it.each([
-  { locale: 'en', panel: 'Automation tasks', create: 'New', menu: 'Choose a creation method', chat: 'Create in a session',
+  { locale: 'en', panel: 'Scheduled', create: 'New', menu: 'Choose a creation method', chat: 'Create in a session',
     prompt: 'Please create an automation task based on the requirements.' },
-  { locale: 'zh', panel: '自动化任务', create: '新建', menu: '选择创建方式', chat: '在会话中创建',
+  { locale: 'zh', panel: '定时任务', create: '新建', menu: '选择创建方式', chat: '在会话中创建',
     prompt: '请根据需求创建一个自动化任务。' },
 ])('prefills an unsent Schedule creation draft in $locale through both conversation entries', async (copy) => {
   const scaffold = await launchWebScaffold({ firstUse: true })
@@ -72,7 +72,7 @@ it('opens stored timing fields immediately without selecting another repeat opti
     await page.addInitScript(() => { localStorage.setItem('jan.locale', 'zh') })
     const tripwire = watchConsole(page)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
-    await page.getByRole('button', { name: '自动化任务', exact: true }).click()
+    await page.getByRole('button', { name: '定时任务', exact: true }).click()
     const manager = page.getByTestId('task-manager-page')
     await manager.getByRole('button', { name: '全部', exact: true }).click()
     for (const { task, repeat, field } of tasks) {
@@ -111,7 +111,7 @@ it.each(['2026-03-07T16:00:00.000Z', '2026-03-08T16:00:00.000Z'])(
       }, now)
       const tripwire = watchConsole(page)
       await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
-      await page.getByRole('button', { name: '自动化任务', exact: true }).click()
+      await page.getByRole('button', { name: '定时任务', exact: true }).click()
       const manager = page.getByTestId('task-manager-page')
       await manager.getByRole('button', { name: '全部', exact: true }).click()
       await manager.getByRole('button', { name: task.title, exact: true }).click()
@@ -131,7 +131,7 @@ it.each(['2026-03-07T16:00:00.000Z', '2026-03-08T16:00:00.000Z'])(
       expect(updated.rrule).toContain('BYDAY=MO,FR')
 
       await page.reload({ waitUntil: 'load' })
-      await page.getByRole('button', { name: '自动化任务', exact: true }).click()
+      await page.getByRole('button', { name: '定时任务', exact: true }).click()
       await manager.getByRole('button', { name: '全部', exact: true }).click()
       await manager.getByRole('button', { name: task.title, exact: true }).click()
       await detail.getByRole('button', { name: '重复 每周', exact: true }).waitFor()
@@ -157,7 +157,7 @@ it('creates from a paused empty state, selects the task, and saves an inline edi
     await page.addInitScript(() => { localStorage.setItem('jan.locale', 'zh') })
     const tripwire = watchConsole(page)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
-    await page.getByRole('button', { name: '自动化任务', exact: true }).click()
+    await page.getByRole('button', { name: '定时任务', exact: true }).click()
     const manager = page.getByTestId('task-manager-page')
     const createStyles = await manager.getByRole('group', { name: '创建', exact: true }).getByRole('button').evaluateAll(buttons => buttons.map((button) => {
       const style = getComputedStyle(button)
@@ -301,7 +301,7 @@ it('creates and edits Custom Cron through the built UI while retaining its expli
     await page.addInitScript(() => { localStorage.setItem('jan.locale', 'zh') })
     const tripwire = watchConsole(page)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
-    await page.getByRole('button', { name: '自动化任务', exact: true }).click()
+    await page.getByRole('button', { name: '定时任务', exact: true }).click()
     const manager = page.getByTestId('task-manager-page')
     await manager.getByRole('button', { name: '选择创建方式', exact: true }).click()
     await page.getByRole('menuitem', { name: '手动创建', exact: true }).click()

@@ -30,17 +30,17 @@
 import { MenuGroup, MenuSurface, observeStickyMenuGroups } from '@janhq/jan-client-ui-primitives'
 import {
   useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore,
-  type CSSProperties, type KeyboardEvent, type FocusEvent,
+  type CSSProperties, type KeyboardEvent, type FocusEvent, type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
 import clsx from 'clsx'
 import type { ModelReasoningEffort, ModelSelection } from '@janhq/jan-api-remotes/client'
 import {
   IconCheckOutlineRegular, IconChevronDownOutlineRegular, IconChevronRightOutlineRegular, IconCloseFillRegular,
-  IconDataOutlineRegular, IconWarningOutlineRegular, Input, isMobileDevice, rankByName, StateDot, Tag, Toast,
+  IconDataOutlineRegular, IconWarningOutlineRegular, Input, isMobileDevice, StateDot, Tag, Toast,
 } from '@janhq/jan-client-ui-primitives'
-import type { PropsLocale, PropsRenderSlots, PropsRuntime } from '@janhq/jan-client-ui-slots'
-import type { ModelLabelOwner, ModelSelectInjected } from './slots.ts'
+import type { PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
+import type { ModelLabelOwner, ModelOptionsOwner, ModelSelectInjected } from './slots.ts'
 import css from './ModelSelect.module.css'
 
 /** Which pane the dropdown shows: the two-row root or one drilled-in list. */
@@ -60,14 +60,20 @@ interface EffortChoice {
  * @returns the trigger and, while open, the two-level menu.
  */
 export function ModelSelect(
-  { locked, available, directory, load, select, resolveText, t, renderSlot }:
-  ModelSelectInjected & Pick<PropsRuntime<'conversation.input.model'>, 'locked'> & PropsLocale<'model'>
-    & Omit<PropsRenderSlots<'conversation.input.model.label' | 'conversation.input.model.options'>, 'SessionProvider'>,
+  { locked, available, directory, load, settingsAvailability, openModelsSettings, select, resolveText, t, renderLabel, renderOptions, placement = 'composer' }:
+    ModelSelectInjected & Pick<PropsRuntime<'conversation.input.model'>, 'locked'> & PropsLocale<'model'> & {
+      /** The composer seat toasts over the composer card; the dock seat (the row under the card) over its trigger. */
+      placement?: 'composer' | 'dock'
+      renderLabel: (owner: ModelLabelOwner, fallback: ReactNode) => ReactNode
+      /** Session options appended to the root menu; absent where the seat has none. */
+      renderOptions?: (owner: ModelOptionsOwner) => ReactNode
+    },
 ) {
   const state = useSyncExternalStore(
     fn => directory.subscribe(fn),
     () => directory.getSnapshot(),
   )
+  const canOpenModelsSettings = useSyncExternalStore(settingsAvailability.subscribe, settingsAvailability.getSnapshot)
   const [open, setOpen] = useState(false)
   const [pane, setPane] = useState<Pane>('root')
   const [query, setQuery] = useState('')
@@ -108,9 +114,14 @@ export function ModelSelect(
       } satisfies ModelSelection,
     }))), [groups])
   const showSearch = choices.length > 4
-  const filteredGroups = useMemo(() => groups.map(group => ({
-    ...group, models: rankByName(group.models, showSearch ? query.trim() : ''),
-  })).filter(group => group.models.length > 0), [groups, query, showSearch])
+  // A model name matches when it contains the typed text: "lam" finds Llama, not
+  // cLAude-opus[1M]. Scattered-letter matching suits short command names, not model names.
+  const filteredGroups = useMemo(() => {
+    const needle = showSearch ? query.trim().toLowerCase() : ''
+    return groups.map(group => ({
+      ...group, models: needle === '' ? group.models : group.models.filter(model => model.name.toLowerCase().includes(needle)),
+    })).filter(group => group.models.length > 0)
+  }, [groups, query, showSearch])
   const visibleModels = useMemo(() => filteredGroups.flatMap(group => group.models.map(model => ({
     provider: group.id, model: model.id,
   }))), [filteredGroups])
@@ -405,17 +416,15 @@ export function ModelSelect(
     placement: ModelLabelOwner['placement'], selected: boolean,
   ) => (
     <span data-provider-id={provider.id} data-model-id={model.id}>
-      {renderSlot('conversation.input.model.label', {
+      {renderLabel({
         provider, model, placement, selected,
-      }, {
-        fallback: model.badge === undefined ? model.name : (
-          <span className={css.badgedName}>
-            {placement === 'trigger' ? <><Tag className={css.badge} tone={model.badge.tone}>{resolveText(model.badge.text)}</Tag>{' '}</> : null}
-            <span className={css.badgedNameText}>{model.name}</span>
-            {placement === 'trigger' ? null : <>{' '}<Tag className={css.badge} tone={model.badge.tone}>{resolveText(model.badge.text)}</Tag></>}
-          </span>
-        ),
-      })}
+      }, model.badge === undefined ? model.name : (
+        <span className={css.badgedName}>
+          {placement === 'trigger' ? <><Tag className={css.badge} tone={model.badge.tone}>{resolveText(model.badge.text)}</Tag>{' '}</> : null}
+          <span className={css.badgedNameText}>{model.name}</span>
+          {placement === 'trigger' ? null : <>{' '}<Tag className={css.badge} tone={model.badge.tone}>{resolveText(model.badge.text)}</Tag></>}
+        </span>
+      ))}
     </span>
   )
   let itemIndex = 0
@@ -497,7 +506,7 @@ export function ModelSelect(
                   <IconChevronRightOutlineRegular className={css.cellChevron} />
                 </button>
               )}
-              {renderSlot('conversation.input.model.options', {
+              {renderOptions?.({
                 locked: locked || busy,
                 dismiss: () => {
                   close()
@@ -609,8 +618,14 @@ export function ModelSelect(
                   )
                 })}
               </div>
-              {state.status === 'ready' && filteredGroups.length === 0 && (
-                <div className={css.empty} role="status">{t(choices.length === 0 ? 'empty.models' : 'search.empty')}</div>
+              {state.status === 'ready' && filteredGroups.length === 0 && (choices.length === 0
+                ? <div className={css.empty}>
+                  <span role="status">{t('empty.models')}</span>
+                  {canOpenModelsSettings && <button type="button" className={css.emptyAction} onClick={() => { close(); openModelsSettings() }}>
+                    {t('empty.openModels')}
+                  </button>}
+                </div>
+                : <div className={css.empty} role="status">{t('search.empty')}</div>
               )}
             </>
           )}
@@ -659,7 +674,7 @@ export function ModelSelect(
           key={toast.seq}
           text={toast.text}
           icon={<IconWarningOutlineRegular />}
-          anchor={rootRef.current?.closest<HTMLElement>('[data-composer-card]') ?? null}
+          anchor={placement === 'composer' ? rootRef.current?.closest<HTMLElement>('[data-composer-card]') ?? null : triggerRef.current}
           onDone={() => { setToast(null) }}
         />
       )}

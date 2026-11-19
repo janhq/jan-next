@@ -24,6 +24,7 @@ export const PROTECTED_PLUGINS: ReadonlySet<string> = new Set([
 export const HIDDEN_BUNDLES: ReadonlySet<string> = new Set([
   '@janhq/jan-base',
   '@janhq/jan-web-app',
+  '@janhq/jan-desktop-app',
   '@janhq/jan-headless',
   '@janhq/jan-sdk-app',
   '@janhq/jan-acp-app',

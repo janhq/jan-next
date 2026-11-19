@@ -45,6 +45,8 @@ A composition can register a third-party theme id with alias-token overrides thr
 
 When the host composition includes an HTTP server, the host half embeds the registered `ui-theme` settings, or schema defaults, into each index response. Head CSS selects the document canvas color scheme before any script runs, including a `prefers-color-scheme` query for the `system` preference. A body script then sets `body[data-ds-dark-theme]`, `--jan-content-font-size`, `--jan-code-font-size`, `--jan-terminal-font-size`, and each non-empty `--jan-font-family-<role>` list before the loading page and application scripts, so the first paint uses the selected palette and text and code sizes, and `ThemeRuntime` starts from the saved sizes and fonts instead of rendering the defaults first.
 
+The Jan theme plugin sends the saved accent and user bubble preference in the same boot injection table. This lets both the served Web page and the local Desktop page apply the saved accent before the app shell renders.
+
 -----
 
 <a id="understand-the-implementation"></a>
@@ -71,7 +73,7 @@ In pointer modality, `html[data-input-modality='pointer'] body :focus-visible:no
 
 Menu icons use `--dsw-alias-menu-icon`: neutral-bluish 800 in light mode and `label-primary-dimmed` in dark mode.
 
-The `--dsw-alias-illustration-*` tokens separate layered decorative artwork backgrounds, foreground surfaces, backing layers, shadows, inset fills, and details. Clock faces use the inset fill. The dark palette keeps foreground surfaces brighter than backing layers and backgrounds; inset fills and shadows share the backing tone.
+Primary buttons use `--dsw-alias-button-primary-fill`, `-hover`, and `-active`; the composer uses the parallel `button-info` tokens. The Jan Appearance plugin publishes these colors and `--dsw-alias-brand-primary` for checked controls together when the chosen accent changes.
 
 `base.css` suppresses only the outline of focused elements marked `data-jan-automatic-focus` by the [primitive focus helper](../ui-primitives/README.md); ordinary keyboard focus styling, borders, shadows, and error states remain intact.
 

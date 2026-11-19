@@ -462,7 +462,7 @@ describe('prepared-route prompt admission', () => {
     { selected: undefined, proposed: ReasoningEffortId('high') },
     { selected: ReasoningEffortId('high'), proposed: ReasoningEffortId('low') },
     { selected: ReasoningEffortId('high'), proposed: undefined },
-  ])('rejects an agent/request effort change from $selected to $proposed before input admission', async ({ selected, proposed }) => {
+  ])('rejects an agent/request effort change from $selected to $proposed and keeps the input', async ({ selected, proposed }) => {
     const adapter = new MockAdapter([textResponse('never')], {
       efforts: [{ id: ReasoningEffortId('low'), name: 'Low' }, { id: ReasoningEffortId('high'), name: 'High' }],
       defaultEffort: ReasoningEffortId('low'),
@@ -479,7 +479,9 @@ describe('prepared-route prompt admission', () => {
     await send(h.agent, 'reject the changed effort')
     expect(adapter.requests).toEqual([])
     const events = h.agent.session.snapshotEvents()
-    expect(events.filter(event => ['request/header', 'user/message', 'system/message'].includes(event.type))).toEqual([])
+    expect(events.filter(event => event.type === 'request/header')).toEqual([])
+    expect(events.flatMap(event => event.type === 'user/message' ? event.data.content : []))
+      .toEqual([{ type: 'text', text: 'reject the changed effort' }])
     expect(events.at(-1)).toMatchObject({
       type: 'turn/end', data: { reason: { kind: 'error', error: {
         message: `agent "admission": agent/request proposed reasoning effort "${proposed ?? 'adapter default'}" after step preparation fixed "${selected ?? 'adapter default'}"; use agent.model.select() before step preparation`,
@@ -487,10 +489,9 @@ describe('prepared-route prompt admission', () => {
     })
   })
 
-  it('retains the captured selection for a retry and uses a pending choice on the next step', async () => {
+  it('prepares a fresh step for a selection recorded during recovery and keeps it for the next turn', async () => {
     const adapter = new MockAdapter([
       () => { throw new LlmError('retry this request', 'SERVER') },
-      textResponse('recovered'),
     ], { efforts: [{ id: ReasoningEffortId('high'), name: 'High' }] })
     const h = await harness(adapter)
     const selection = { provider: 'capable', model: 'model', reasoningEffort: ReasoningEffortId('high') }
@@ -510,15 +511,16 @@ describe('prepared-route prompt admission', () => {
     })
 
     await send(h.agent, 'retry once')
-    expect(prepared).toEqual([selection, selection])
+    const next = { provider: 'plain', model: 'next-model' }
+    expect(prepared).toEqual([selection, selection, next, next])
     expect(adapter.requests.map(({ provider, model, reasoningEffort }) => ({ provider, model, reasoningEffort })))
-      .toEqual([selection, selection])
-    expect(h.plain.requests).toHaveLength(0)
-    expect(h.agent.model.current())
-      .toEqual({ provider: 'plain', model: 'next-model' })
+      .toEqual([selection])
+    expect(h.plain.requests).toHaveLength(1)
+    expect(h.plain.requests[0]).toMatchObject(next)
+    expect(h.agent.session.snapshotEvents().filter(event => event.type === 'user/message' && event.data.source.kind === 'user')).toHaveLength(1)
 
     await send(h.agent, 'use the pending choice')
-    expect(h.plain.requests[0]).toMatchObject({ provider: 'plain', model: 'next-model' })
+    expect(h.plain.requests[1]).toMatchObject(next)
     expect(h.ctx.sessionProjections.snapshot(h.agent.session).values.modelSelection)
       .toEqual({ lastUsed: { provider: 'plain', model: 'next-model' }, next: { provider: 'plain', model: 'next-model' } })
   })

@@ -127,6 +127,8 @@ Final adapter selection, dispatch, and iteration failures arrive as terminal fin
 
 Before closing a failed step, the driver records an error result for each unanswered assistant tool call. A recorded `tool/call` without a committed result receives `TOOL_OUTCOME_UNKNOWN`; a request without a call record receives `TOOL_NOT_STARTED`. Committed results remain intact, started dispatches settle before recovery, and the turn retains the original failure. These results let later requests use paired tool history without automatically retrying uncertain operations.
 
+A failure other than cancellation during the first attempt's `agent/request` waterfall or `prepareCall()` still commits the accepted batch before the turn ends with that error. The prompt is reconciled as for an incapable route, no request header is logged, and no model call is made, but claimed input stays in history for the next turn instead of vanishing with the failed step.
+
 </details>
 
 -----

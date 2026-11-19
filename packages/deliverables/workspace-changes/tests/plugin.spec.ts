@@ -211,6 +211,7 @@ describe('workspace-changes in a repository', () => {
     startTurn(session, 1)
     await ctx.serial('agent/turn-stopping', { agent, turn: 1, signal })
     expect(changes(ctx, session)).toEqual([])
+    await settle(ctx, session)
     await writeFile(join(cwd, 'one.txt'), '1\n')
     toolCall(session, 1, 'bash', { command: 'x' })
     await ctx.serial('agent/turn-stopping', { agent, turn: 7, signal })
@@ -241,6 +242,28 @@ describe('workspace-changes in a repository', () => {
     endTurn(session, 3)
     await settle(ctx, session)
     expect(changes(ctx, session).filter(data => data.turn === 3)).toEqual([])
+  })
+
+  it('lets a turn without tool results stop while its baseline snapshot is still running', async () => {
+    const cwd = await repository()
+    const { ctx } = await boot()
+    const real = ctx.subprocess.spawn.bind(ctx.subprocess)
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    // Hold the baseline's last git command, as a large work tree does for up to `timeoutMs`.
+    vi.spyOn(ctx.subprocess, 'spawn').mockImplementation((spec) => {
+      const handle = real(spec)
+      return spec.argv.includes('write-tree') ? { ...handle, done: gate.then(() => handle.done) } : handle
+    })
+    const session = ctx.sessions.create(SessionId('text-only'), { meta: { cwd } })
+    startTurn(session, 1)
+    const stopping = ctx.serial('agent/turn-stopping', { agent: { session } as never, turn: 1, signal }).then(() => 'stopped')
+    const held = new Promise(resolve => setTimeout(resolve, 2_000, 'waiting on the snapshot'))
+    expect(await Promise.race([stopping, held])).toBe('stopped')
+    release()
+    endTurn(session, 1)
+    await settle(ctx, session)
+    expect(changes(ctx, session)).toEqual([])
   })
 
   it('keeps an interrupted turn’s record when the next turn starts before it settles', async () => {

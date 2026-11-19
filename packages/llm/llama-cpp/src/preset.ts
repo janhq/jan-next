@@ -27,6 +27,9 @@ export interface PresetModel {
   /** Absolute path of the model's vision projector, when it has one. */
   mmproj?: string
   facts: ModelFacts
+  /** Persisted context length and automatic memory fit overrides. */
+  ctxSize?: number
+  fit?: boolean
 }
 
 /** Every layer, for `n-gpu-layers` with fit off; llama.cpp clamps it to the model. */
@@ -64,6 +67,18 @@ export function resolvePresetSettings(config: Config, platform: NodeJS.Platform,
 export function plannedContext(settings: Pick<PresetSettings, 'ctxSize' | 'fitCtx'>, facts: ModelFacts): number {
   const wanted = settings.ctxSize > 0 ? settings.ctxSize : settings.fitCtx
   return Math.min(wanted, facts.contextLength ?? wanted)
+}
+
+/**
+ * Next recoverable context length, or null when the model cannot grow further.
+ * @param current - context length served now.
+ * @param maximum - trained maximum from GGUF metadata; unknown caps at 131072.
+ * @returns 8192, then 32768, then 1.5x steps, capped at the maximum; null when already there.
+ */
+export function nextContextSize(current: number, maximum: number | undefined): number | null {
+  const next = current < 8192 ? 8192 : current < 32768 ? 32768 : Math.round(current * 1.5)
+  const capped = Math.min(next, maximum ?? 131072)
+  return capped > current ? capped : null
 }
 
 function value(text: string): string {
@@ -114,12 +129,20 @@ export function renderPreset(settings: PresetSettings, models: readonly PresetMo
   const moeCacheAllowed = settings.splitMode !== 'tensor' && settings.device?.trim().toLowerCase() !== 'none'
   const sections = models.map((model) => {
     const trained = model.facts.contextLength
+    const modelFit = model.fit ?? fit
+    const modelCtx = model.ctxSize ?? ctxSize
+    const requested = modelCtx > 0 ? modelCtx : fitCtx
+    const context = Math.min(requested, trained ?? requested)
     const lines = [
       `model = ${value(model.path)}`,
       ...optional('mmproj', model.mmproj),
       ...model.mmproj !== undefined && !settings.mmprojOffload ? ['mmproj-offload = false'] : [],
-      // llama.cpp would run past the trained context and degrade; fit already starts from it.
-      ...sharedContext > 0 && trained !== undefined && trained < sharedContext ? [`ctx-size = ${String(trained)}`] : [],
+      // llama.cpp would run past the trained context and degrade; fit starts from it.
+      ...model.ctxSize !== undefined || (sharedContext > 0 && trained !== undefined && trained < sharedContext)
+        ? [`ctx-size = ${String(context)}`] : [],
+      ...model.fit !== undefined ? [`fit = ${modelFit ? 'on' : 'off'}`] : [],
+      ...modelFit && !fit ? [`n-gpu-layers = ${String(gpuLayers ?? -1)}`] : [],
+      ...!modelFit && fit ? [`n-gpu-layers = ${String(gpuLayers ?? ALL_LAYERS)}`] : [],
       ...moeCacheAllowed && model.facts.expertCount > 0 ? optional('moe-cache-mib', settings.moeCacheMiB) : [],
     ]
     return `[${model.id}]\n${lines.join('\n')}\n`

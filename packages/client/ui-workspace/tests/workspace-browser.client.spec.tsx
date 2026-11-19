@@ -2,7 +2,7 @@
 import { contextMenuHook } from '@janhq/jan-client-test-runtime'
 import { createSnapshotStore } from '@janhq/jan-client-store'
 import type { GlobalStandardProps } from '@janhq/jan-client-ui-slots'
-import { Profiler } from 'react'
+import { createRef, Profiler, type ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, createEvent, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { allowAllAccess, bindSnapshotSelector, makeTranslate } from '@janhq/jan-client-test-runtime'
@@ -26,7 +26,7 @@ import rowCss from '../src/client/rows/Rows.module.css'
 import { zh } from '../src/client/locales.ts'
 
 // Every fixture carries the resource hook the resources plugin merges into GlobalStandardProps.
-const useResource = (() => ({ status: 'none' as const, value: undefined, failure: undefined, reload: () => {} })) as GlobalStandardProps['useResource']
+const useResource = (() => ({ status: 'none' as const, value: undefined, failure: undefined, reload: () => { } })) as GlobalStandardProps['useResource']
 const usePanelInfo: GlobalStandardProps['usePanelInfo'] = selector => selector({ activePanelId: null })
 
 afterEach(cleanup)
@@ -102,12 +102,13 @@ function dragData(): Pick<DataTransfer, 'effectAllowed' | 'dropEffect' | 'setDat
 }
 
 // The default child stub: an open directory flow shows its marker; the two
-// Session row lists stay empty (their entries have their own spec). A stub
+// Session row lists stay empty (their entries have their own spec), and an
+// unfilled single slot renders its fallback as the real slot host does. A stub
 // satisfies the generic render signature only with an erased owner type.
-const renderDirectoryFlowOnly: WorkspaceBrowserProps['renderSlot'] = (name: string, owner: object) =>
-  name === 'sidebar.workspaces.directoryFlow' && (owner as DirectoryFlowOwnerProps).open
-    ? <div data-testid="directory-flow" />
-    : null
+const renderDirectoryFlowOnly = ((name: string, owner: object, options?: { fallback?: ReactNode }) =>
+  name === 'sidebar.workspaces.directoryFlow'
+    ? (owner as DirectoryFlowOwnerProps).open ? <div data-testid="directory-flow" /> : null
+    : options?.fallback ?? null) as WorkspaceBrowserProps['renderSlot']
 
 // Mounted outside a sidebar, the browser binds its list area to nothing.
 const SECTION_SCROLLER = { bindScrollerRef: () => {} }
@@ -120,12 +121,14 @@ function mount(overrides: Partial<WorkspaceBrowserProps> = {}) {
     useWorkspaceActionRequest: bindSnapshotSelector(request),
     settleWorkspaceAction: () => { request.set(null) },
     useContextMenuTarget: selector => selector(null),
+    usePrimaryActions: selector => selector(false),
     useShortcuts: select => select([]),
     useWorkspaceShortcuts: bindSnapshotSelector(controls.state),
     requestSearch: controls.search,
     requestAddWorkspace: controls.add,
     closeAddWorkspace: controls.closeAdd,
     setDirectoryBusy: controls.directoryBusy,
+    addWorkspaceButtonRef: createRef<HTMLButtonElement>(),
     requestSessionRename: controls.rename,
     wide: true,
     expandSidebar: vi.fn(),
@@ -145,12 +148,15 @@ function mount(overrides: Partial<WorkspaceBrowserProps> = {}) {
     searchResultLimit: 20,
     useSectionScroller: () => SECTION_SCROLLER,
     notifyArchivedNotOpenable: vi.fn(),
-    renameWorkspace: vi.fn(async () => {}),
-    deleteWorkspace: vi.fn(async () => {}),
-    unarchiveSession: vi.fn(async () => {}),
-    insertWorkspaceBefore: vi.fn(async () => {}),
+    renameWorkspace: vi.fn(async () => { }),
+    deleteWorkspace: vi.fn(async () => { }),
+    unarchiveSession: vi.fn(async () => { }),
+    insertWorkspaceBefore: vi.fn(async () => { }),
+    openProject: vi.fn(),
+    useProjectSurface: selector => selector(false),
     createWorkspace: vi.fn(async () => workspace('created', [])),
-    useDirectoryFlow: bindSnapshotSelector({ getSnapshot: () => true, subscribe: () => () => {} }),
+    notifyFolderDrop: vi.fn(),
+    useDirectoryFlow: bindSnapshotSelector({ getSnapshot: () => true, subscribe: () => () => { } }),
     useHostInfo: selector => selector({ home: undefined, isLoopback: true }),
     renderSlot: renderDirectoryFlowOnly,
     renderFactorySlot: renderMenuButton,
@@ -158,10 +164,12 @@ function mount(overrides: Partial<WorkspaceBrowserProps> = {}) {
     ...overrides,
   }
   const view = render(<WorkspaceBrowser {...props} />)
-  return { view, props, store, controls, openDialog: (workspaceId: WorkspaceId, displayTitle: string, action: 'rename' | 'delete') => {
-    const storedTitle = props.useWorkspaces(state => state.items.find(row => row.workspaceId === workspaceId)?.title ?? displayTitle)
-    act(() => { request.set({ action, workspaceId, displayTitle, storedTitle }) })
-  } }
+  return {
+    view, props, store, controls, openDialog: (workspaceId: WorkspaceId, displayTitle: string, action: 'rename' | 'delete') => {
+      const storedTitle = props.useWorkspaces(state => state.items.find(row => row.workspaceId === workspaceId)?.title ?? displayTitle)
+      act(() => { request.set({ action, workspaceId, displayTitle, storedTitle }) })
+    },
+  }
 }
 
 /** Re-render with (possibly) changed props — WorkspaceBrowser has no side channel. */
@@ -300,9 +308,11 @@ describe('WorkspaceBrowser', () => {
       expect.stringContaining('新会话'), expect.stringContaining('tie-a'), expect.stringContaining('tie-b'),
     ])
     expect(b.store.getSnapshot().sessionOrderByAccount).toEqual({})
-    rerender(b, { useSessions: hook(sessionState([
-      summary('tie-b', 100), summary('blank', 1), summary('tie-a', 100),
-    ], { main: sid('blank') })) })
+    rerender(b, {
+      useSessions: hook(sessionState([
+        summary('tie-b', 100), summary('blank', 1), summary('tie-a', 100),
+      ], { main: sid('blank') })),
+    })
     expect(rows().map(row => row.textContent)).toEqual([
       expect.stringContaining('tie-a'), expect.stringContaining('tie-b'), expect.stringContaining('blank'),
     ])
@@ -809,10 +819,10 @@ describe('WorkspaceBrowser', () => {
 
   it('renders row actions inline while Session menus belong to the global overlay', () => {
     const rendered = vi.fn()
-    const renderSlot: WorkspaceBrowserProps['renderSlot'] = (name: string, owner: object) => {
+    const renderSlot = ((name: string, owner: object, options?: { fallback?: ReactNode }) => {
       rendered(name, owner)
-      return null
-    }
+      return options?.fallback ?? null
+    }) as WorkspaceBrowserProps['renderSlot']
     const b = mount({
       useSessions: hook(sessionState([summary('alpha-s', 1)])),
       useWorkspaces: hook(workspaceState([workspace('alpha', ['alpha-s'])])),
@@ -878,9 +888,11 @@ describe('WorkspaceBrowser', () => {
     fireEvent.click(screen.getByText('alpha'))
     fireEvent.click(screen.getByText('alpha'))
     expectVisible(5)
-    rerender(b, { useSessionStatus: status('session-7', {
-      pendingInteraction: { key: 'question:1', kind: 'plan-review', sessionId: sid('session-7') } as SessionPendingInteraction,
-    }) })
+    rerender(b, {
+      useSessionStatus: status('session-7', {
+        pendingInteraction: { key: 'question:1', kind: 'plan-review', sessionId: sid('session-7') } as SessionPendingInteraction,
+      }),
+    })
     expectVisible(7)
     rerender(b, { useSessionStatus: status('session-8', { completionUnread: true }) })
     expectVisible(8)
@@ -1321,7 +1333,7 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('offers unarchive on archived search results only', async () => {
-    const unarchiveSession = vi.fn(async () => {})
+    const unarchiveSession = vi.fn(async () => { })
     mount({
       useSessions: hook(sessionState([summary('alive', 2), summary('gone', 1)])),
       useWorkspaces: hook(workspaceState([workspace('alpha', ['alive', 'gone'])], [sid('gone')])),
@@ -1472,9 +1484,11 @@ describe('WorkspaceBrowser', () => {
     b.view.unmount()
     const restored = mount({ useSessions: b.props.useSessions, useWorkspaces: b.props.useWorkspaces })
     expect(names()).toEqual(['新会话', 'mid', 'old'])
-    rerender(restored, { useSessions: hook(sessionState([
-      summary('old', 100), summary('mid', 200), summary('blank', 300),
-    ], { main: sid('blank') })) })
+    rerender(restored, {
+      useSessions: hook(sessionState([
+        summary('old', 100), summary('mid', 200), summary('blank', 300),
+      ], { main: sid('blank') })),
+    })
     expect(names()).toEqual(['blank', 'mid', 'old'])
     const ordinaryBlank = screen.getByText('blank').closest('[role="treeitem"]') as HTMLElement
     expect(ordinaryBlank.draggable).toBe(true)
@@ -2080,7 +2094,7 @@ describe('WorkspaceBrowser', () => {
   it('hides the add button when no directory-flow occupant is composed', () => {
     mount({
       useWorkspaces: hook(workspaceState([workspace('alpha', [])])),
-      useDirectoryFlow: bindSnapshotSelector({ getSnapshot: () => false, subscribe: () => () => {} }),
+      useDirectoryFlow: bindSnapshotSelector({ getSnapshot: () => false, subscribe: () => () => { } }),
     })
     // Nothing to add with, so the header offers no dead button.
     expect(screen.queryByRole('button', { name: '添加工作区' })).toBeNull()
@@ -2088,7 +2102,7 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('uses the full expanded Workspace section when resolving a Workspace drop half', () => {
-    const insertWorkspaceBefore = vi.fn(async () => {})
+    const insertWorkspaceBefore = vi.fn(async () => { })
     const sessions = sessionState(Array.from({ length: 5 }, (_, index) => summary(`beta-${index}`, index)))
     mount({
       useSessions: hook(sessions),
@@ -2138,7 +2152,7 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('accepts a document-level drop and commits the last Workspace marker on drag end', () => {
-    const insertWorkspaceBefore = vi.fn(async () => {})
+    const insertWorkspaceBefore = vi.fn(async () => { })
     mount({
       useWorkspaces: hook(workspaceState([
         workspace('alpha', []),
@@ -2462,7 +2476,7 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('labels an unrenamed default Workspace in the reader’s language and every other title verbatim', () => {
-    const renameWorkspace = vi.fn(async () => {})
+    const renameWorkspace = vi.fn(async () => { })
     const browser = mount({
       useWorkspaces: hook(workspaceState([
         workspace('alpha', [], 'default-workspace'),
@@ -2604,7 +2618,7 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('Cancel, Escape, and Close dismiss deletion without calling the action', () => {
-    const deleteWorkspace = vi.fn(async () => {})
+    const deleteWorkspace = vi.fn(async () => { })
     const browser = mount({
       useWorkspaces: hook(workspaceState([workspace('alpha', [], 'Alpha')])),
       deleteWorkspace,
@@ -2648,8 +2662,9 @@ describe('Workspace tree grouping', () => {
     const b = mount({
       useWorkspaces: hook(workspaceState([child])),
       createWorkspace: vi.fn(async () => root),
-      renderSlot: ((_name: string, owner: DirectoryFlowOwnerProps) => owner.open
-        ? <button onClick={() => { owner.onPicked('/projects') }}>Pick directory</button> : null) as WorkspaceBrowserProps['renderSlot'],
+      renderSlot: ((name: string, owner: DirectoryFlowOwnerProps, options?: { fallback?: ReactNode }) => name !== 'sidebar.workspaces.directoryFlow'
+        ? options?.fallback ?? null
+        : owner.open ? <button onClick={() => { owner.onPicked('/projects') }}>Pick directory</button> : null) as WorkspaceBrowserProps['renderSlot'],
     })
     fireEvent.click(screen.getByRole('button', { name: '添加工作区' }))
     fireEvent.click(screen.getByRole('button', { name: 'Pick directory' }))
@@ -2815,10 +2830,12 @@ describe('Workspace tree grouping', () => {
   })
 
   it('keeps Workspace drag within its parent and uses the next displayed sibling as anchor', () => {
-    const b = mount({ useWorkspaces: hook(workspaceState([
-      workspace('alpha', []), { ...workspace('outside', []), path: '/elsewhere/outside' },
-      workspace('beta', []), workspace('gamma', []), root,
-    ])) })
+    const b = mount({
+      useWorkspaces: hook(workspaceState([
+        workspace('alpha', []), { ...workspace('outside', []), path: '/elsewhere/outside' },
+        workspace('beta', []), workspace('gamma', []), root,
+      ])),
+    })
     const alpha = screen.getByText('alpha').closest('[role="treeitem"]') as HTMLElement
     const beta = screen.getByText('beta').closest('[role="treeitem"]') as HTMLElement
     const outside = screen.getByText('outside').closest('[role="treeitem"]') as HTMLElement

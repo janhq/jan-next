@@ -22,7 +22,7 @@ import {
   sessionSnapshot as sessionFixture,
 } from '@janhq/jan-client-test-runtime'
 import { createSnapshotStore } from '@janhq/jan-client-store'
-import type { SessionListState, SessionSnapshot } from '@janhq/jan-api-session-controller/client'
+import type { SessionListState, SessionProjectionMap, SessionSnapshot } from '@janhq/jan-api-session-controller/client'
 import type { ContextPressureProjection } from '@janhq/jan-token-meter/client'
 import { zh as commonZh } from '@janhq/jan-client-locale/src/locales/zh.ts'
 import type { Context } from '@janhq/cordis'
@@ -81,7 +81,7 @@ interface BenchOptions {
   }
   draft?: string
   running?: boolean
-  retryableFailure?: SessionSeq
+  retryableFailure?: SessionProjectionMap['conversationContinuation']
   subagent?: Exclude<SessionSnapshot['subagent'], null>
   disabled?: boolean
   inert?: boolean
@@ -111,6 +111,8 @@ interface BenchOptions {
   deniedEndpoints?: readonly string[]
   addFiles?: (files: readonly File[], directories?: ReadonlySet<File>) => string | null
   commandMenuOpen?: boolean
+  /** The selected model's window the context meter falls back to. */
+  selectedWindow?: number
   busyEnter?: 'queue' | 'steer'
   toggleCommandMenu?: (selection: { start: number; end: number }) => void
 }
@@ -221,10 +223,12 @@ function bench(over?: BenchOptions) {
     toggleCommandMenu: over?.toggleCommandMenu ?? vi.fn(),
     useBusyEnter: bindSnapshotSelector(busyEnter),
     retry,
+    previewContext: undefined,
     useStopShortcut: bindSnapshotSelector(stopShortcut),
     useNotices: bindSnapshotSelector(shell.notices),
     useLexicon: bindSnapshotSelector(shell.lexicon),
     useMenuLauncher: bindSnapshotSelector(menuLauncher),
+    useContextWindow: bindSnapshotSelector(createSnapshotStore<number | undefined>(over?.selectedWindow)),
     stop,
     // Mirrors the real lookup chain (conversation namespace, then common).
     t: over?.t ?? makeTranslate(zh, commonZh),
@@ -257,7 +261,8 @@ function bench(over?: BenchOptions) {
   const plainMessageDraft = sendableDraft && !uploadsPending && !(over?.draft?.trimStart().startsWith('/') ?? false)
   const primaryLabel = primaryStops
     ? '停止生成'
-    : over?.retryableFailure !== undefined && !sendableDraft && over.running !== true && over.subagent === undefined && !composerLocked
+    : typeof over?.retryableFailure === 'number' && !sendableDraft && over.running !== true
+      && over.subagent === undefined && !composerLocked
       && !(over.nextStep ?? []).some(message => message.source.kind === 'user')
       ? '继续生成'
       : over?.running === true && steeringAvailable && !composerLocked && plainMessageDraft
@@ -287,6 +292,12 @@ it('offers the play action only for an empty, idle composer with an eligible fai
   await vi.waitFor(() => { expect(b.sink).toHaveBeenCalledOnce() })
   expect(b.sink.mock.calls[0]?.[0]).toBe('A new instruction')
   expect(b.retry).toHaveBeenCalledOnce()
+})
+
+it('does not offer a bare retry when context overflow needs recovery', () => {
+  const b = bench({ retryableFailure: { overflow: 2 as SessionSeq } })
+  expect(b.view.queryByRole('button', { name: '继续生成' })).toBeNull()
+  expect((b.view.getByRole('button', { name: '发送消息' }) as HTMLButtonElement).disabled).toBe(true)
 })
 
 it.each([
@@ -1091,7 +1102,7 @@ describe('running and lock semantics', () => {
       if (trigger === 'hover') fireEvent.pointerEnter(stop)
       else fireEvent.focus(stop)
       act(() => { vi.advanceTimersByTime(500) })
-      expect(view.getByRole('tooltip').getAttribute('aria-label')).toBe(`${label} Esc Esc`)
+      expect(view.getByRole('tooltip').getAttribute('aria-label')).toBe(`${label} Esc ×2`)
       act(() => { stopShortcut.set([]) })
       expect(view.getByRole('tooltip').textContent).toBe(label)
     } finally {
@@ -1130,7 +1141,7 @@ describe('running and lock semantics', () => {
       const { button, view, session } = bench({ running: true })
       fireEvent.pointerEnter(button)
       act(() => { vi.advanceTimersByTime(500) })
-      expect(view.getByRole('tooltip').getAttribute('aria-label')).toBe('停止生成 Esc Esc')
+      expect(view.getByRole('tooltip').getAttribute('aria-label')).toBe('停止生成 Esc ×2')
 
       // Disabling a hovered native button need not deliver mouseleave.
       act(() => { session.set(snapshotOf({ running: false })) })
@@ -2105,7 +2116,7 @@ describe('command launcher chrome and control seats', () => {
     // Every seat dispatched, nothing rendered (render passes may repeat; the
     // seat set is the contract).
     expect([...new Set(slotCalls.map(c => c.key))]).toEqual([
-      'conversation.input.overlay', 'conversation.input.attachments',
+      'conversation.input.overlay', 'conversation.input.attachments', 'conversation.input.placeholder',
       'conversation.input.permission', 'conversation.input.plan', 'conversation.input.left',
       'conversation.input.right', 'conversation.input.model', 'conversation.input.activity',
       'conversation.composer.dock',

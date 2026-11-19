@@ -12,7 +12,7 @@ import type { MessageId } from '@janhq/jan-llm/brand'
 import type { SessionId, SessionSeq } from '@janhq/jan-session/types'
 import type { RemoteResult } from '@janhq/jan-typert-protocol'
 import type { ObservableSnapshot } from '@janhq/jan-client-store'
-import type { PromptContentPart, QueueAction, SessionRequestId } from '../../types.ts'
+import type { PromptContentPart, QueueAction, SessionContextPreviewValue, SessionRequestId } from '../../types.ts'
 import type { PendingSubmissionAttachment, SessionSnapshot } from './snapshot.ts'
 
 /**
@@ -129,6 +129,11 @@ export interface ISession {
    * @returns the normalized accepted title and its event seq, or the business error.
    */
   rename(title: string): Promise<RemoteResult<{ title: string; seq: SessionSeq }>>
+  /**
+   * Price what this Session's next request would inject before any message: system prompt, tools, runtime context.
+   * @returns heuristic token prices, null while no model is selected, or the business error.
+   */
+  contextPreview(): Promise<RemoteResult<SessionContextPreviewValue | null>>
   /**
    * Extend history by at least 50 messages and two Turn starts, including a
    * partial Turn at the window's beginning. Stop at 500 messages or history

@@ -59,7 +59,7 @@ export function DownloadProgress({ progress, name, t }: { progress: LlamaCppProg
 export function Progress({ state, t }: { state: LlamaCppState; t: T }): ReactNode {
   const progress = state.progress
   if (state.phase !== 'downloading' || progress === undefined) return null
-  const running = state.downloads.find(item => item.error === undefined && item.progress !== undefined)
+  const running = state.downloads.find(item => item.error === undefined && item.paused === undefined && item.progress !== undefined)
   return <DownloadProgress progress={progress} name={running?.name ?? state.model.name} t={t} />
 }
 

@@ -1,10 +1,12 @@
 import { describe, expect, expectTypeOf, it, onTestFinished, vi } from 'vitest'
 import { Context } from '@janhq/cordis'
+import { createVolatile, isVolatile, updateVolatile } from '@janhq/cosmokit'
 import { AttachmentId } from '@janhq/jan-attachment'
 import BasicCompactionEngine from '@janhq/jan-compaction-basic'
-import type { BasicCompactionConfig } from '@janhq/jan-compaction-basic'
+import type { BasicCompactionConfig, BasicCompactionRuntimeConfig } from '@janhq/jan-compaction-basic'
 import { selectCompactableRange } from '@janhq/jan-compaction-basic/src/region.ts'
 import { frameSummary } from '@janhq/jan-compaction-basic/src/summarizer.ts'
+import CompactionSettings from '@janhq/jan-compaction-basic/settings'
 import type { SummarizationInput, SummaryResult } from '@janhq/jan-compaction-basic/src/summarizer.ts'
 import { CompactionId, toolPairingBalancedAfter, toolPairingBalancedBefore } from '@janhq/jan-compaction'
 import {
@@ -313,17 +315,35 @@ describe('compact configuration and defaults', () => {
 
     expect(resolved).toEqual({
       thresholdRatio: 0.8,
-      headroomTokens: 65_536,
       retainRatio: 0.16,
       summarizationProvider: '',
       summarizationModel: '',
-      maxTokens: 65_536,
       compactionRetries: 1,
       maxOverflowRetries: 1,
       modelPolicies: [],
       auto: true,
     })
+    expect(resolved).not.toHaveProperty('headroomTokens')
+    expect(resolved).not.toHaveProperty('maxTokens')
     expect(Object.isFrozen(resolved)).toBe(true)
+  })
+
+  it('parses the four live settings into references without changing static policies', () => {
+    const live = (value: unknown): unknown => {
+      if (!isVolatile(value)) throw new Error('expected a live reference')
+      return value.get()
+    }
+    const parsed = BasicCompactionEngine.Config({
+      auto: false, thresholdRatio: 0.6,
+      summarizationProvider: '', summarizationModel: '',
+      modelPolicies: [{ provider: MODEL, model: MODEL, thresholdRatio: 1 }],
+    })
+    expect(live(parsed.auto)).toBe(false)
+    expect(live(parsed.thresholdRatio)).toBe(0.6)
+    expect(live(parsed.summarizationProvider)).toBe('')
+    expect(live(parsed.summarizationModel)).toBe('')
+    expect(parsed.modelPolicies).toEqual([{ provider: MODEL, model: MODEL, thresholdRatio: 1 }])
+    expect(live(BasicCompactionEngine.Config({}).auto)).toBeUndefined()
   })
 
   it('defaults summary generation to headroom and preserves explicit caps', () => {
@@ -442,6 +462,25 @@ describe('compact configuration and defaults', () => {
       thresholdTokens: threshold,
       retainTokens: retained,
     })
+  })
+
+  it.each([
+    [8_192, 0, 1, 7_373, 819],
+    [16_000, 0, 0.75, 12_000, 4_000],
+    [131_072, 32_768, 0.75, 65_536, 32_768],
+    [1_000_000, 0, 0.75, 750_000, 65_536],
+  ])('scales the default headroom to window %i with output cap %i at ratio %f', (window, output, thresholdRatio, threshold, summaryCap) => {
+    const policy = resolveTargetPolicy(resolveConfig({ thresholdRatio }), { provider: MODEL, model: MODEL })
+
+    expect(resolveCompactSpec(policy, window, output)).toMatchObject({
+      thresholdTokens: threshold,
+      maxTokens: summaryCap,
+    })
+  })
+
+  it('honors the default ratio on a 200K window instead of the 64K headroom', () => {
+    const policy = resolveTargetPolicy(resolveConfig({}), { provider: MODEL, model: MODEL })
+    expect(resolveCompactSpec(policy, 200_000, 0).thresholdTokens).toBe(160_000)
   })
 
   it.each([500, 501])('rejects headroom %i that exhausts the remaining capacity', (headroomTokens) => {
@@ -1372,7 +1411,7 @@ async function summarizerHarness(
   blocks: readonly ContentBlock[],
   finish?: (StreamChunk & { type: 'finish' })['reason'],
   model = MODEL,
-  config: BasicCompactionConfig = { auto: false },
+  config: BasicCompactionRuntimeConfig = { auto: false },
 ): Promise<{ ctx: Context; adapter: ScriptedAdapter; compact: ExposedCompactionEngine }> {
   const ctx = new Context()
   await ctx.plugin(LlmRuntime)
@@ -1459,6 +1498,23 @@ describe('default one-shot summarizer', () => {
     })
     const instruction = adapter.lastOptions?.messages.at(-1)?.content[0]
     expect(instruction?.type === 'text' ? instruction.text : '').toContain('## Primary Request and Intent')
+  })
+
+  it('uses a live summarization target for manual compaction', async () => {
+    const provider = createVolatile('')
+    const model = createVolatile('')
+    const { ctx, adapter, compact } = await summarizerHarness([{ type: 'text', text: 'summary' }],
+      undefined, MODEL, { auto: false, summarizationProvider: provider, summarizationModel: model })
+    ctx.llm.registerAdapter(['other-provider'], adapter)
+    const owner = agent(conversation(1), MODEL)
+
+    await compact.runSummarize(promptInput('first'), owner)
+    expect(adapter.lastOptions).toMatchObject({ provider: MODEL, model: MODEL })
+    updateVolatile(provider, createVolatile('other-provider'))
+    updateVolatile(model, createVolatile('other-model'))
+    await compact.runSummarize(promptInput('second'), owner)
+    expect(adapter.lastOptions).toMatchObject({ provider: 'other-provider', model: 'other-model' })
+    expect(compact.config).toMatchObject({ summarizationProvider: 'other-provider', summarizationModel: 'other-model' })
   })
 
   it('replays the conversation prefix and appends the instruction as the final message', async () => {
@@ -1680,8 +1736,9 @@ describe('model-switch pressure', () => {
     )
   }
 
+  /** An `undefined` key drops the harness default, so the engine's own default applies. */
   function harness(
-    config: BasicCompactionConfig = {},
+    config: { [K in keyof BasicCompactionConfig]?: BasicCompactionConfig[K] | undefined } = {},
     finish?: Extract<StreamChunk, { type: 'finish' }>['reason'],
   ) {
     const ctx = new Context()
@@ -1692,9 +1749,10 @@ describe('model-switch pressure', () => {
     const adapter = new ScriptedAdapter([{ type: 'text', text: 'checkpoint' }], finish)
     ctx.llm.registerAdapter(['small'], new ContextAdapter(1_000))
     ctx.llm.registerAdapter([MODEL], adapter)
-    const compact = new BasicCompactionEngine(ctx, {
-      headroomTokens: 0, maxTokens: 32, thresholdRatio: 0.5, retainTokens: 100, ...config,
-    })
+    const merged = { headroomTokens: 0, maxTokens: 32, thresholdRatio: 0.5, retainTokens: 100, ...config }
+    const compact = new BasicCompactionEngine(ctx, Object.fromEntries(
+      Object.entries(merged).filter(([, value]) => value !== undefined),
+    ) as BasicCompactionConfig)
     return { ctx, adapter, compact }
   }
 
@@ -1741,6 +1799,26 @@ describe('model-switch pressure', () => {
     else await expect(switching).rejects.toMatchObject({ code: 'MODEL_SWITCH_COMPACTION_FAILED' })
     expect(session.requestHeader()).toEqual(previous)
     expect(adapter.lastOptions).toBeUndefined()
+  })
+
+  it('switches to a small-window model under the default headroom', async () => {
+    const { ctx, adapter } = harness({ headroomTokens: undefined, maxTokens: undefined })
+    ctx.llm.registerAdapter(['16k'], new ContextAdapter(16_000))
+    const session = conversation(1, 'short')
+    const selected = { provider: '16k', model: '16k' }
+    await expect(request(ctx, session, selected)).resolves.toEqual(selected)
+    expect(adapter.lastOptions).toBeUndefined()
+  })
+
+  it('caps a default summary to the headroom of the summarizing model window', async () => {
+    const { ctx, adapter } = harness({ headroomTokens: undefined, maxTokens: undefined })
+    vi.spyOn(adapter, 'resolveModel').mockImplementation(async (provider, model) => ({
+      provider, id: model, name: model, context: { contextWindow: 32_768 },
+    }))
+    const session = conversation(4, 'fixture '.repeat(80))
+    const selected = { provider: 'small', model: 'small' }
+    await expect(request(ctx, session, selected)).resolves.toEqual(selected)
+    expect(adapter.lastOptions).toMatchObject({ provider: MODEL, model: MODEL, maxTokens: 16_384 })
   })
 
   it('repeatedly summarizes on the previous route until destination pressure is below threshold', async () => {
@@ -1951,6 +2029,93 @@ describe('automatic listener and loader composition', () => {
     const small = conversation(1)
     await preStep(ctx, agent(small, MODEL))
     expect(small.snapshotEvents().some(event => event.type === 'compaction/start')).toBe(false)
+    expect(compact.calls).toHaveLength(1)
+  })
+
+  it('toggles automatic pre-step pressure live in both directions', async () => {
+    const ctx = createContext()
+    const auto = createVolatile(false)
+    const compact = new TestCompactionEngine(ctx, {
+      auto, headroomTokens: 0, maxTokens: 8192, thresholdRatio: 0.5, retainTokens: 180,
+    })
+    const session = conversation(4)
+    const owner = agent(session, MODEL)
+
+    await preStep(ctx, owner)
+    expect(compact.calls).toHaveLength(0)
+    updateVolatile(auto, createVolatile(true))
+    await preStep(ctx, owner)
+    expect(compact.calls).toHaveLength(1)
+    updateVolatile(auto, createVolatile(false))
+    await preStep(ctx, owner)
+    expect(compact.calls).toHaveLength(1)
+    expect(compact.config.auto).toBe(false)
+  })
+
+  it('applies a live threshold change at the next pre-step', async () => {
+    const ctx = createContext()
+    const thresholdRatio = createVolatile(0.99)
+    const compact = new TestCompactionEngine(ctx, {
+      thresholdRatio, headroomTokens: 0, maxTokens: 8192, retainTokens: 180,
+    })
+    const session = conversation(4)
+    const owner = agent(session, MODEL)
+
+    await preStep(ctx, owner)
+    expect(compact.calls).toHaveLength(0)
+    updateVolatile(thresholdRatio, createVolatile(0.5))
+    await preStep(ctx, owner)
+    expect(compact.calls).toHaveLength(1)
+    expect(compact.config.thresholdRatio).toBe(0.5)
+  })
+
+  it('lets host compaction preferences override a preset backend live, and falls back to its own config when unset', async () => {
+    const ctx = createContext()
+    const preferred = {
+      auto: createVolatile<boolean | undefined>(undefined),
+      thresholdRatio: createVolatile<number | undefined>(undefined),
+    }
+    void new CompactionSettings(ctx, {
+      ...preferred,
+      summarizationProvider: createVolatile<string | undefined>(undefined),
+      summarizationModel: createVolatile<string | undefined>(undefined),
+    })
+    const compact = new TestCompactionEngine(ctx, {
+      thresholdRatio: 0.99, headroomTokens: 0, maxTokens: 8192, retainTokens: 180,
+    })
+    const owner = agent(conversation(4), MODEL)
+
+    await preStep(ctx, owner)
+    expect(compact.calls).toHaveLength(0)
+    updateVolatile(preferred.thresholdRatio, createVolatile<number | undefined>(0.5))
+    await preStep(ctx, owner)
+    expect(compact.calls).toHaveLength(1)
+    updateVolatile(preferred.auto, createVolatile<boolean | undefined>(false))
+    updateVolatile(preferred.thresholdRatio, createVolatile<number | undefined>(undefined))
+    expect(compact.config).toMatchObject({ auto: false, thresholdRatio: 0.99 })
+  })
+
+  it('keeps the last valid config when live values conflict and warns only once', async () => {
+    const ctx = createContext()
+    const thresholdRatio = createVolatile(0.99)
+    const compact = new TestCompactionEngine(ctx, {
+      thresholdRatio, headroomTokens: 0, maxTokens: 8192, retainRatio: 0.3,
+    })
+    const warning = vi.spyOn(ctx.logger, 'warn')
+    const session = conversation(4)
+    const owner = agent(session, MODEL)
+
+    updateVolatile(thresholdRatio, createVolatile(0.2))
+    await expect(preStep(ctx, owner)).resolves.toMatchObject({ kind: 'enter' })
+    await expect(preStep(ctx, owner)).resolves.toMatchObject({ kind: 'enter' })
+    expect(compact.config.thresholdRatio).toBe(0.99)
+    expect(compact.calls).toHaveLength(0)
+    expect(warning).toHaveBeenCalledTimes(1)
+    expect(warning).toHaveBeenCalledWith(expect.stringMatching(/retainRatio.*thresholdRatio/))
+
+    updateVolatile(thresholdRatio, createVolatile(0.5))
+    await preStep(ctx, owner)
+    expect(compact.config.thresholdRatio).toBe(0.5)
     expect(compact.calls).toHaveLength(1)
   })
 
@@ -2361,7 +2526,7 @@ describe('automatic listener and loader composition', () => {
     expect(session.snapshotEvents().filter(event => event.type === 'compaction/summary')).toHaveLength(summaries)
   })
 
-  it('auto:false installs neither automatic listener', async () => {
+  it('auto:false skips automatic pressure and overflow recovery', async () => {
     const ctx = createContext()
     void new TestCompactionEngine(ctx, {
       headroomTokens: 0,

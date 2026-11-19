@@ -75,6 +75,7 @@
     "@janhq/jan-credentials": "workspace:*",
     "@janhq/jan-file-reference": "workspace:*",
     "@janhq/jan-goal": "workspace:*",
+    "@janhq/jan-host-plugin-i18n": "workspace:*",
     "@janhq/jan-host-plugin-inventory": "workspace:*",
     "@janhq/jan-llm": "workspace:*",
     "@janhq/jan-message-feedback": "workspace:*",

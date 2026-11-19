@@ -50,6 +50,9 @@
       "path": "../../feedback/message-feedback"
     },
     {
+      "path": "../../host/plugin-i18n"
+    },
+    {
       "path": "../../host/plugin-inventory"
     },
     {

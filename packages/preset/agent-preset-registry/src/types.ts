@@ -42,7 +42,7 @@ declare module '@janhq/jan-typert-protocol' {
     'agent-preset/not-found': { readonly agentPreset: string; readonly available: readonly string[] }
     /** The id is unusable, already taken, or its composition cannot be installed. */
     'agent-preset/invalid': { readonly agentPreset: string; readonly reason: string }
-    /** The session's conversation has started, so its composition is fixed. */
+    /** A turn is open, so the composition cannot be swapped yet. */
     'agent-preset/locked': { readonly sessionId: SessionId; readonly agentPreset: string }
   }
 }

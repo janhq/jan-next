@@ -7,6 +7,7 @@ import { sanitizeInstallInput } from './sanitize-install-input.ts'
  * change made on another surface shows here without a manual refresh.
  */
 import type {} from '@janhq/jan-client-product-analytics/client'
+import type {} from '@janhq/jan-client-ui-plugin-i18n/client'
 import { randomUUID } from '@janhq/jan-util-crypto'
 import type { Context as ClientContext } from '@janhq/cordis'
 import type {
@@ -58,6 +59,24 @@ export function bundleBusy(state: PluginManagerState, packageName: string): bool
 
 /** The action a failed notice names. */
 export type FailedAction = 'enable' | 'disable' | 'uninstall' | 'rowEnable' | 'rowDisable'
+
+/**
+ * The offer to translate a freshly installed plugin into the UI language, shown beneath the installed screen.
+ * `running` and `done` follow the Host job; closing the dialog leaves a running job to finish in the Host.
+ */
+export interface InstallTranslate {
+  readonly step: 'offer' | 'running' | 'done' | 'failed'
+  /** The installed package. */
+  readonly pkg: string
+  /** The UI locale the text would be translated into. */
+  readonly locale: string
+  /** The locale's own name for itself. */
+  readonly language: string
+  /** `provider/model` the text is sent to; null until the Host answered. */
+  readonly model: string | null
+  /** The failure diagnostic of a failed job. */
+  readonly message?: string
+}
 
 /** What the last action left to say, shown as a toast; `seq` tells one showing from the next. */
 export type ManagerNotice =
@@ -131,6 +150,8 @@ export interface PackageView {
   readonly readOnlyReason?: ReadOnlyReason
   /** Why the Host cannot read or enable the bundle. */
   readonly error?: ManagementError
+  /** Latest enablement outcome, retained while the saved selection differs from active code. */
+  readonly application?: { readonly kind: 'restart'; readonly reason?: RestartReason } | { readonly kind: 'failed'; readonly message: string } | undefined
   readonly rows: readonly PackageRow[]
 }
 
@@ -293,6 +314,8 @@ export interface InstallState {
   readonly approvedBuilds: readonly string[]
   /** Enabling the newly installed bundle from the installed screen is crossing the wire. */
   readonly enabling: boolean
+  /** The offer to translate the installed plugin into the UI language; null when none applies or it was declined. */
+  readonly translate: InstallTranslate | null
 }
 
 /**
@@ -463,6 +486,10 @@ export interface PluginManagerFace {
   toggleInstallDetails: () => void
   /** Enable the bundle the finished install added, then close the dialog and mark it in the list. */
   enableInstalled: () => void
+  /** Translate the installed plugin into the UI language in the Host; also retries a failed translation. */
+  translateInstalled: () => void
+  /** Decline the offer to translate the installed plugin. */
+  declineTranslation: () => void
   /** Drop the list mark once it has been shown. */
   clearHighlight: () => void
   /** Put a bundle into, or take it out of, the profile's layer list. */
@@ -520,6 +547,11 @@ function failureOf(
     ...failedAt === undefined ? {} : { failedAt },
     ...pendingBuilds === undefined || pendingBuilds.length === 0 ? {} : { pendingBuilds },
   }
+}
+
+/** The persistent card state for an enable request the Host refused or could not apply. */
+function failedApplication(error: unknown): PackageView['application'] {
+  return { kind: 'failed', message: error instanceof Error ? error.message : String(error) }
 }
 
 /** The notice a thrown failure becomes: a refusal keeps its code, anything else its words. */
@@ -600,7 +632,7 @@ export function sortPackages(packages: readonly PackageView[]): PackageView[] {
 const IDLE_INSTALL: InstallState = {
   open: false, spec: '', registries: null, registry: OFFICIAL_REGISTRY, registryOpen: false, registryError: false, attempts: null,
   phase: 'idle', inputError: null, subject: null, runs: [], detailsOpen: false, logPath: null,
-  installed: null, installedVersion: null, restartRequired: false, failure: null, approvedBuilds: [], enabling: false,
+  installed: null, installedVersion: null, restartRequired: false, failure: null, approvedBuilds: [], enabling: false, translate: null,
 }
 
 /** The dialog back at its spec: the run and its outcome forgotten, the spec and the registries kept. */
@@ -809,6 +841,12 @@ export class PluginManagerController {
       reconcileInstall: () => { void this.reconcileInstall() },
       toggleInstallDetails: () => { this.patchInstall({ detailsOpen: !this.getSnapshot().install.detailsOpen }) },
       enableInstalled: () => { void this.enableInstalled() },
+      translateInstalled: () => { void this.translateInstalled() },
+      declineTranslation: () => {
+        const offer = this.getSnapshot().install.translate
+        if (offer?.step === 'offer' || offer?.step === 'failed') this.ctx.get('pluginI18n')?.dismiss(offer.pkg, 'later')
+        this.patchInstall({ translate: null })
+      },
       clearHighlight: () => { if (this.getSnapshot().highlight !== null) this.patch({ highlight: null }) },
       setEnabled: (packageName, enabled) => {
         const pkg = this.getSnapshot().packages.find(pkg => pkg.name === packageName)
@@ -819,6 +857,7 @@ export class PluginManagerController {
         void this.run(packageName, { packageName, action: enabled ? 'enable' : 'disable' }, async () => {
           const result = await this.ctx.remote.pluginManager.setBundleEnabled(packageName, enabled)
           this.applied(result, packageName)
+          if (result.ok && result.value.application === 'applied') this.showEnabled(packageName, enabled)
           if (result.ok && (result.value.application === 'applied' || result.value.application === 'restart-required')) this.trackToggle(packageName, enabled)
         })
       },
@@ -1113,10 +1152,15 @@ export class PluginManagerController {
           continue
         }
         this.hasCachedInventory = true
+        const current = new Map(this.getSnapshot().packages.map(pkg => [pkg.name, pkg]))
         this.patch({
           status: 'ready',
           refreshStatus: this.getSnapshot().refreshStatus === 'refreshing' ? 'refreshing' : 'idle',
-          packages: sortPackages(bundles.value.map(bundle => packageView(bundle, plugins.value))),
+          packages: sortPackages(bundles.value.map((bundle) => {
+            const next = packageView(bundle, plugins.value)
+            const previous = current.get(next.name)
+            return previous?.application === undefined ? next : { ...next, application: previous.application }
+          })),
         })
         this.dropStaleVersions()
       } while (this.shouldRerun())
@@ -1350,7 +1394,7 @@ export class PluginManagerController {
     }
     const phase = this.getSnapshot().install.phase
     if (phase === 'done' || phase === 'failed') this.notifyHiddenInstall(phase)
-    void this.load()
+    void this.load().then(() => { this.offerTranslation() })
   }
 
   private installUncertain(uncertainty: NonNullable<InstallState['failure']>['uncertainty'] & string, reason: string): void {
@@ -1463,13 +1507,52 @@ export class PluginManagerController {
         result.ok ? result.value.error?.code : result.error.code, name)
       try {
         this.applied(result, name)
+        if (result.ok && result.value.application === 'applied') this.showEnabled(name, true)
         if (result.ok && (result.value.application === 'applied' || result.value.application === 'restart-required')) this.trackToggle(name, true)
       } catch (error) {
         this.patch({ notice: failedNotice(error, { packageName: name, action: 'enable' }, ++this.noticeSeq) })
+        this.setApplication(name, failedApplication(error))
       }
     }
     this.patch({ install: IDLE_INSTALL, highlight: name })
     await this.load()
+  }
+
+  /**
+   * Offer to translate the installed plugin when it lacks the UI locale. Waits for the reload that reads the
+   * package's display text, and offers nothing for a bundled plugin or without the translation service.
+   */
+  private offerTranslation(): void {
+    const service = this.ctx.get('pluginI18n')
+    const install = this.getSnapshot().install
+    const name = install.installed
+    if (service === undefined || this.disposed || install.phase !== 'done' || name === null || install.subject?.bundled === true) return
+    const pkg = this.getSnapshot().packages.find(item => item.name === name)
+    const meta = [pkg?.meta?.title, pkg?.meta?.description ?? pkg?.description].filter(text => text !== undefined)
+    const offer = service.assess({ pkg: name, meta })
+    if (offer === null) return
+    const model = offer.route === null ? null : `${offer.route.provider}/${offer.route.model}`
+    this.patchInstall({ translate: { step: 'offer', pkg: name, locale: offer.locale, language: offer.language, model } })
+  }
+
+  /** Run the offered translation and follow it to its end on the dialog. */
+  private async translateInstalled(): Promise<void> {
+    const service = this.ctx.get('pluginI18n')
+    const offer = this.getSnapshot().install.translate
+    if (service === undefined || offer === null || (offer.step !== 'offer' && offer.step !== 'failed')) return
+    const { pkg, locale, language, model } = offer
+    this.patchInstall({ translate: { step: 'running', pkg, locale, language, model } })
+    let settled: InstallTranslate
+    try {
+      const job = await service.translate(pkg)
+      settled = job.state === 'done'
+        ? { step: 'done', pkg, locale, language, model }
+        : { step: 'failed', pkg, locale, language, model, message: job.message ?? '' }
+    } catch (error) {
+      settled = { step: 'failed', pkg, locale, language, model, message: error instanceof Error ? error.message : String(error) }
+    }
+    if (this.disposed || this.getSnapshot().install.translate?.pkg !== pkg) return
+    this.patchInstall({ translate: settled })
   }
 
   /**
@@ -1488,18 +1571,20 @@ export class PluginManagerController {
     } catch (error) {
       // `patch` drops the notice after disposal.
       this.patch({ notice: failedNotice(error, subject, ++this.noticeSeq) })
+      if (subject.action === 'enable') this.setApplication(subject.packageName, failedApplication(error))
     } finally {
       this.patch({ busy: this.getSnapshot().busy.filter(entry => entry !== key) })
     }
     await this.load()
   }
 
-  /**
-   * Publish a change's outcome: a refused answer or a change the Host could
-   * not apply throws for {@link run} to report; a change that waits for the
-   * next start, that a higher layer overrides, or that the Host stopped is
-   * said in passing.
-   */
+  /** Keep the last enablement application outcome on the package after inventory refreshes. */
+  private setApplication(name: string | undefined, application: PackageView['application']): void {
+    if (name === undefined) return
+    this.patch({ packages: this.getSnapshot().packages.map(pkg => pkg.name === name ? { ...pkg, application } : pkg) })
+  }
+
+  /** Publish a Host change's application outcome and a short-lived toast. */
   private applied(answer: Answer<ChangeResult>, packageName: string): void {
     if (!answer.ok) throw new RemoteAnswerError(answer.error.message)
     const result = answer.value
@@ -1511,13 +1596,26 @@ export class PluginManagerController {
         return
       case 'restart-required':
         this.patch({ notice: { kind: 'restart', packageName, reason: result.restartReason, seq: ++this.noticeSeq } })
+        this.setApplication(packageName, { kind: 'restart', ...result.restartReason === undefined ? {} : { reason: result.restartReason } })
         return
       case 'overridden':
         this.patch({ notice: { kind: 'overridden', packageName, seq: ++this.noticeSeq } })
         return
       case 'applied':
+        this.setApplication(packageName, undefined)
         return
     }
+  }
+
+  /**
+   * Show a change the Host has applied before the full re-read returns: the
+   * bundle is already live, and a switch still reading the old state for the
+   * seconds the inventory takes contradicts what the page shows.
+   */
+  private showEnabled(name: string, enabled: boolean): void {
+    const packages = this.getSnapshot().packages
+    if (!packages.some(pkg => pkg.name === name && pkg.enabled !== enabled)) return
+    this.patch({ packages: packages.map(pkg => pkg.name === name ? { ...pkg, enabled } : pkg) })
   }
 
   private trackToggle(name: string, enabled: boolean, row = false): void {

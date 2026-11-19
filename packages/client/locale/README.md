@@ -41,6 +41,10 @@ Call `ctx.locale.register(ns, { zh, en, ja })` with a namespace merged into `Loc
 
 Use `ctx.locale.resolveText(text)` for [`LocalizedText`](../../util/package-manifest/README.md), such as installed plugin titles and descriptions. Literal strings are returned unchanged. Translation maps use lowercase language ids, require an `en` fallback, and follow the active language's declared fallback chain. They do not consult or register namespace dictionaries.
 
+### Generated translations
+
+`ctx.locale.registerGenerated(ns, locale, { from, entries })` registers machine-generated text in a layer below every registered dictionary. For each locale in the fallback chain, lookup reads the registered dictionary first and consults a generated entry only when that dictionary lacks the key and the registered `from` dictionary still holds the entry's `src` text, so a plugin's own string always wins and a plugin update that changes a source string retires its stale translation. Generated tables never collide with `register`, in either order, and a second table for the same namespace and locale replaces the first. `ctx.locale.namespaces()` and `ctx.locale.dictionary(ns, locale)` read the registered dictionaries a translator needs as source text. The [plugin translation client](../ui-plugin-i18n/README.md) is the producer.
+
 ### Registering a language pack
 
 An external client plugin registers the language definition and each translated namespace as owned effects; definitions and dictionaries may register in either order:

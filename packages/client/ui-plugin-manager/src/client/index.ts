@@ -15,6 +15,7 @@ import type { Context as ClientContext } from '@janhq/cordis'
 import type { HostObservable } from '@janhq/jan-client-ui-slots'
 import type { MainPanelId } from '@janhq/jan-client-ui-layout/client'
 import type {} from '@janhq/jan-client-ui-sidebar/client'
+import type {} from '@janhq/jan-client-ui-settings-general/client'
 import type {} from '@janhq/jan-client-ui-renderer/client'
 // Type-only: the ctx.remoteAccess Context merge.
 import type {} from '@janhq/jan-api-remote-access/client'
@@ -26,6 +27,7 @@ import type {} from '@janhq/jan-plugin-manager/types'
 import { PluginManagerPage } from './PluginManagerPage.tsx'
 import { createPluginHeaderRef } from './header-scroll.ts'
 import { PluginRefreshToast, type PluginRefreshToastFace } from './PluginRefreshToast.tsx'
+import type { PluginTranslationFace } from './PackageTranslation.tsx'
 import { PluginsPanelIcon } from './PluginsPanelIcon.tsx'
 import { configLedgerSource } from './config-ledger.ts'
 import { tabLedgerSource } from './tab-ledger.ts'
@@ -103,6 +105,30 @@ export function apply(ctx: ClientContext): void {
   // page declares here, so the page never names a configurable plugin.
   const configLedger = configLedgerSource(ctx)
   const face = controller.inject(configLedger, tabLedgerSource(ctx), text => ctx.locale.resolveText(text))
+  const translation: PluginTranslationFace = {
+    hooks: {
+      packageTranslation: {
+        getSnapshot: () => ctx.get('pluginI18n'),
+        subscribe: listener => ctx.on('internal/service', (name) => { if (name === 'pluginI18n') listener() }),
+      },
+      translationSettings: {
+        getSnapshot: () => ctx.get('settingsNavigation')?.availability.getSnapshot() === true
+          && ctx.slots.entries('settings.plugins.tab').some(entry => entry.options.id === 'translations'),
+        subscribe: (listener) => {
+          let offAvailability = ctx.get('settingsNavigation')?.availability.subscribe(listener)
+          const offService = ctx.on('internal/service', (name) => {
+            if (name !== 'settingsNavigation') return
+            offAvailability?.()
+            offAvailability = ctx.get('settingsNavigation')?.availability.subscribe(listener)
+            listener()
+          })
+          const offTabs = ctx.slots.subscribe('settings.plugins.tab', listener)
+          return () => { offAvailability?.(); offService(); offTabs() }
+        },
+      },
+    },
+    openTranslationSettings: () => { ctx.get('settingsNavigation')?.open('plugins') },
+  }
   ctx.remoteAccess.whenAccess('pluginManager/listBundles', function* () {
     // The Host says when what is installed, enabled, or composed changed — from
     // this page, the CLI, or another browser — and streams install output.
@@ -134,9 +160,10 @@ export function apply(ctx: ClientContext): void {
         key: PANEL_ID,
         locale: NS,
         store,
-        inject: () => ({ ...face, createHeaderRef: createPluginHeaderRef }),
+        inject: () => ({ ...face, ...translation, hooks: { ...face.hooks, ...translation.hooks }, createHeaderRef: createPluginHeaderRef }),
         children: {
           'plugins.add.actions': { kind: 'list', scope: 'root' },
+          'plugins.artwork': { kind: 'keyed', scope: 'root' },
           'plugins.tab': { kind: 'list', scope: 'root' },
           'plugins.item': { kind: 'list', scope: 'root' },
           'plugins.bundle.activation': { kind: 'keyed', scope: 'root' },

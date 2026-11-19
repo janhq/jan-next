@@ -159,6 +159,34 @@ export interface PiAiAdapterOptions {
    * conversion because its stored replay state is unusable by this build.
    */
   onReplayDegrade?: (detail: { provider: string; model: string; reason: string }) => void
+  /** Observe llama.cpp prompt-processing progress on a route whose profile sets `promptProgress`. */
+  onPromptProgress?: (progress: PiAiPromptProgress) => void
+}
+
+/** How far a server got reading one request's prompt, from llama.cpp's `prompt_progress`. */
+export interface PiAiPromptProgress {
+  readonly provider: string
+  readonly model: string
+  readonly sessionId?: string
+  /** Prompt tokens read so far, including {@link cache}. */
+  readonly processed: number
+  readonly total: number
+  /** Prompt tokens reused from the server's cache, which need no reading. */
+  readonly cache: number
+}
+
+/**
+ * Read llama.cpp's `prompt_progress` from one raw completions chunk.
+ * @param chunk - parsed provider stream event.
+ * @returns the counters, or undefined for any other chunk.
+ */
+function promptProgressOf(chunk: unknown): { processed: number; total: number; cache: number } | undefined {
+  if (typeof chunk !== 'object' || chunk === null || !('prompt_progress' in chunk)) return undefined
+  const value: unknown = chunk.prompt_progress
+  if (typeof value !== 'object' || value === null) return undefined
+  const { processed, total, cache } = value as Record<string, unknown>
+  if (typeof processed !== 'number' || typeof total !== 'number' || total <= 0) return undefined
+  return { processed, total, cache: typeof cache === 'number' ? cache : 0 }
 }
 
 /** The two auth injectables a pi-ai collection is built with. */
@@ -541,6 +569,13 @@ export class PiAiAdapter extends LlmAdapter {
             maxBytes: profile.requestImageMaxBytes,
           },
         }, onReplayDegrade, updates.systemPromptUpdate === 'in-history')
+      const onPromptProgress = profile.promptProgress === true ? this.config.onPromptProgress : undefined
+      const progressRoute = {
+        provider: options.provider, model: options.model,
+        ...options.sessionId === undefined ? {} : { sessionId: String(options.sessionId) },
+      }
+      /** The last report whose prompt was not yet read; a call ending first reports it read. */
+      let unread: { processed: number; total: number; cache: number } | undefined
       const events = snapshot.models.streamSimple(model, context, {
         ...profileOptions(profile, reasoning, apiKey),
         ...options.temperature === undefined ? {} : { temperature: options.temperature },
@@ -548,6 +583,15 @@ export class PiAiAdapter extends LlmAdapter {
         ...options.sessionId === undefined ? {} : { sessionId: String(options.sessionId) },
         signal: watchdog.signal,
         headers: requestHeaders(profile.headers, options, model.baseUrl, this.config.prepareHeaders),
+        ...onPromptProgress === undefined ? {} : {
+          samplingParams: { return_progress: true },
+          onProviderStreamEvent: (chunk: unknown) => {
+            const progress = promptProgressOf(chunk)
+            if (progress === undefined) return
+            unread = progress.processed < progress.total ? progress : undefined
+            onPromptProgress({ ...progressRoute, ...progress })
+          },
+        },
       })
       const iterator = toStreamChunks(events, model.contextWindow, options.signal, model.id)[Symbol.asyncIterator]()
       let exhausted = false
@@ -561,6 +605,7 @@ export class PiAiAdapter extends LlmAdapter {
           yield result.value
         }
       } finally {
+        if (unread !== undefined) onPromptProgress?.({ ...progressRoute, ...unread, processed: unread.total })
         if (!exhausted) {
           consumer.abort('pi-ai stream consumer stopped')
           // A demand the deadline abandoned can stay pending forever, and this

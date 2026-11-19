@@ -14,6 +14,7 @@ import { TypertRemoteService, Remote, RemoteError, remoteErrorOf } from '@janhq/
 import { detailImageResponse, NPM_FILE_SOURCES } from '@janhq/jan-plugin-detail'
 import type { NpmFileSource } from '@janhq/jan-plugin-detail/types'
 import { MAX_TIMER_DELAY_MS } from '@janhq/jan-timeout'
+import { janDeclaration } from '@janhq/jan-package-manifest'
 import type {} from '@janhq/jan-client-connection'
 import { readBundleDocument, readBundleImage, type BundleDetailOptions } from './bundle-detail.ts'
 import { pluginEntryId, readPluginInventory } from '@janhq/jan-host-plugin-inventory'
@@ -98,7 +99,7 @@ const REGISTRY_URL = /^https?:\/\/\S+$/
 const RESTORED_FILES = ['package.json', 'pnpm-lock.yaml'] as const
 
 /** The manifest fields an inspection reads for a registry spec. */
-const INSPECT_FIELDS = ['name', 'version', 'description', 'jan'] as const
+const INSPECT_FIELDS = ['name', 'version', 'description', 'jan', 'dsh'] as const
 
 /** pnpm's colour escapes, which a JSON answer may be wrapped in. */
 const ANSI_SEQUENCE = /\x1b\[[0-9;]*m/g
@@ -143,8 +144,7 @@ interface InstallationManifest {
 
 /** What a package manifest says about the package: identity, one-liner, and whether it is a bundle. */
 function inspectionOf(kind: 'registry' | 'path', manifest: object, registry: Registry): Extract<PluginSpecInspection, { status: 'accepted' }> {
-  const jan = (manifest as { jan?: unknown }).jan
-  const declared = typeof jan === 'object' && jan !== null ? jan as { bundle?: unknown } : undefined
+  const declared = janDeclaration(manifest as { jan?: { bundle?: unknown }; dsh?: { bundle?: unknown } })
   const bundle = declared !== undefined && typeof declared.bundle === 'object' && declared.bundle !== null
   const name = stringField(manifest, 'name')
   const version = stringField(manifest, 'version')
@@ -502,6 +502,7 @@ export class PluginManager extends TypertRemoteService {
     const names = [...new Set([...selected, ...dependencies, ...Object.keys(installation.dependencies ?? {}), ...catalog.keys()])]
     const bundles: Omit<BundleInfo, 'updatable'>[] = []
     const runtimeVersion = getJanRuntimeVersion()
+    const packages = this.ctx.get('pluginPackages')
     for (const name of names) {
       const installed = dependencies.includes(name)
       const optional = OPTIONAL_BUNDLES.includes(name)
@@ -554,7 +555,8 @@ export class PluginManager extends TypertRemoteService {
         const compatibility = evaluatePluginCompatibility(info, exemptions)
         if (compatibility !== undefined && !compatibility.exempted) throw new ManagementFailure('incompatible-version', [incompatiblePlugin(compatibility)])
         const dir = resolveBundleDir('jan', name, this.profile.installAnchor, this.profile.dir)
-        const meta = offered?.meta ?? readPluginMeta(info.name ?? name, pathToFileURL(join(dir, 'package.json')).href)
+        const metaBase = pathToFileURL(join(dir, 'package.json')).href
+        const meta = offered?.meta ?? (packages === undefined ? readPluginMeta(info.name ?? name, metaBase) : packages.metaOf(info.name ?? name, metaBase))
         let platformError: ManagementError | undefined
         try { assertBundlePlatform(info.jan?.bundle?.platforms, process.platform) }
         catch (error) { platformError = managementError(error) }
@@ -631,7 +633,7 @@ export class PluginManager extends TypertRemoteService {
         const inspection = inspectionOf('path', read, registry)
         if (inspection.name === undefined) return refused('not-a-package', 'the package.json names no package')
         if (known.has(inspection.name)) return refused('already-installed', `${inspection.name} is already installed`)
-        if (!inspection.bundle) return refused('not-a-bundle', `${inspection.name} declares no jan.bundle`)
+        if (!inspection.bundle) return refused('not-a-bundle', `${inspection.name} is not a plugin bundle. Install a package that declares a Jan or DSH plugin bundle.`)
         return inspection
       }
       case 'registry': {
@@ -644,7 +646,7 @@ export class PluginManager extends TypertRemoteService {
         if (typeof latest !== 'object' || latest === null) return { status: 'refused', problem: 'unknown', reason: 'pnpm view answered no package', registries }
         const inspection = inspectionOf('registry', latest, asked.registry)
         const named = inspection.name === undefined ? { ...inspection, name: parsed.name } : inspection
-        if (!named.bundle) return { status: 'refused', problem: 'not-a-bundle', reason: `${named.name} declares no jan.bundle`, registries }
+        if (!named.bundle) return { status: 'refused', problem: 'not-a-bundle', reason: `${named.name} is not a plugin bundle. Install a package that declares a Jan or DSH plugin bundle.`, registries }
         return named
       }
     }

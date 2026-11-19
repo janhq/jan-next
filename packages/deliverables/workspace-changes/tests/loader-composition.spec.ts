@@ -69,11 +69,11 @@ describe('real Loader composition', () => {
     git(cwd, 'add', '-A'); git(cwd, 'commit', '-q', '-m', 'init')
     const session = context.sessions.create(SessionId('composed'), { meta: { cwd } })
     startTurn(session, 1)
-    await context.waterfall('tools/pre-execute', { agent: { session } } as never, () => Promise.resolve(undefined as never))
+    await context.waterfall('tools/pre-execute', { agent: { session }, signal: new AbortController().signal } as never, () => Promise.resolve(undefined as never))
     await writeFile(join(cwd, 'tracked.txt'), 'one\ntwo\n')
     toolCall(session, 1, 'bash', { command: 'x' })
     endTurn(session, 1)
-    await context.waterfall('tools/pre-execute', { agent: { session } } as never, () => Promise.resolve(undefined as never))
+    await context.waterfall('tools/pre-execute', { agent: { session }, signal: new AbortController().signal } as never, () => Promise.resolve(undefined as never))
     const [recorded, ...rest] = changes(context, session)
     expect(rest).toEqual([])
     expect(recorded).toEqual({

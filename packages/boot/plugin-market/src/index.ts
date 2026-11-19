@@ -131,6 +131,19 @@ export default class PluginMarket extends TypertRemoteService {
   private readonly repositories: RepositoryCache
   private readonly details: DetailReader
 
+  /** Directory used exclusively for the market's fetched Git repositories. */
+  readonly downloadCacheDirectory: string
+
+  /**
+   * Serialize a Downloads-page removal with the repository's fetches.
+   * @param repository - repository whose cached checkout is removed.
+   * @param remove - deletes the checkout once no fetch holds it.
+   * @returns after the removal settles.
+   */
+  deleteDownloadCache(repository: string, remove: () => Promise<void>): Promise<void> {
+    return this.repositories.deleteCached(repository, remove)
+  }
+
   constructor(ctx: Context, private readonly config: Config) {
     super(ctx, 'pluginMarket')
     this.entryId = ctx.fiber.entry?.options.id
@@ -139,6 +152,7 @@ export default class PluginMarket extends TypertRemoteService {
       ? config.detailCacheDir
       : resolve(profile.dir, config.detailCacheDir ?? join('.plugin-market', 'repositories'))
     if (cacheDir === undefined || !isAbsolute(cacheDir)) throw new Error('plugin-market: detailCacheDir must be an absolute path when the service runs without a jan profile')
+    this.downloadCacheDirectory = cacheDir
     const lifetime = this.lifetime.signal
     this.repositories = new RepositoryCache({
       dir: cacheDir, maxRepositoryBytes: config.detailRepositoryMaxBytes, maxCacheBytes: config.detailCacheMaxBytes,

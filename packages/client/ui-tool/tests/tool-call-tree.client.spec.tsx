@@ -23,6 +23,9 @@ const root = (callId: string, call: ToolResultNode['call']): ToolResultNode => (
   content: [], isError: false, subCalls: [],
 })
 
+/** One stable title view, as the bound hook returns between changes. */
+const TITLES = { display: (text: string) => text, request: () => {} }
+
 function props(
   block: ToolCallBlock,
   home?: string,
@@ -57,6 +60,7 @@ function props(
     sessionId: 'original' as ToolTreeProps['sessionId'],
     resolveFilePath: path => path,
     useHostInfo: ((selector: (info: { home: string | undefined }) => unknown) => selector({ home })) as ToolTreeProps['useHostInfo'],
+    useTitles: ((selector: (view: typeof TITLES) => unknown) => selector(TITLES)) as ToolTreeProps['useTitles'],
     t,
   }
   return fixture as ToolTreeProps

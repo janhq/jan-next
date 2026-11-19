@@ -19,6 +19,7 @@ import {
   initProfile,
   loadProfile,
   loadProfileDirectory,
+  normalizeShippedProfile,
   PROFILE_COMPATIBILITY_FILENAME,
   PROFILE_PATCH_FILENAME,
   readProfileManifest,
@@ -75,6 +76,21 @@ function stageInstallation(
   writeFileSync(join(appDir, 'index.js'), `export const packageName = ${JSON.stringify(appName)}\n`)
   return join(appDir, 'package.json')
 }
+
+it('loads a DSH bundle declaration without rewriting its installed manifest', () => {
+  const anchor = stageInstallation({ 'dsh-ppt': { patch: '- insert:\n  - id: slides\n    name: dsh-ppt\n' } })
+  const bundleDir = join(dirname(anchor), 'node_modules', 'dsh-ppt')
+  const manifestPath = join(bundleDir, 'package.json')
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>
+  manifest.dsh = manifest.jan
+  delete manifest.jan
+  writeFileSync(manifestPath, JSON.stringify(manifest))
+  const profileDir = join(tmp(), 'profile')
+  initProfile(profileDir, ['dsh-ppt'])
+  expect(loadProfileDirectory('jan', profileDir, anchor).layers.map(layer => layer.packageName)).toEqual(['dsh-ppt'])
+  expect(readProfileManifest('jan', bundleDir).jan?.bundle?.patch).toBe('./cordis.patch.yml')
+  expect(JSON.parse(readFileSync(manifestPath, 'utf8'))).not.toHaveProperty('jan')
+})
 
 it('skips an unsupported saved bundle before composing any runtime overrides and retains the selection', () => {
   const unsupported = process.platform === 'darwin' ? 'win32' : 'darwin'
@@ -392,6 +408,36 @@ describe('loadProfile', () => {
     expect(readProfileManifest('t', custom).jan?.profile?.bundles).toEqual([
       '@janhq/jan-base', '@janhq/jan-web-app', '@janhq/jan-headless', 'custom-bundle',
     ])
+  })
+
+  const webBundles = ['@janhq/jan-base', '@janhq/jan-web-app']
+  const desktopBundles = [...webBundles, '@janhq/jan-desktop-app']
+  const customBundles = [...webBundles, 'custom-bundle']
+  it.each([
+    { profile: 'legacy', initial: webBundles, expected: desktopBundles },
+    { profile: 'current', initial: desktopBundles, expected: desktopBundles },
+    { profile: 'custom', initial: customBundles, expected: customBundles },
+  ])('preserves a desktop bundle opt-out after first opening a $profile profile', ({ initial, expected }) => {
+    const anchor = stageInstallation({
+      '@janhq/jan-base': { patch: '[]\n' },
+      '@janhq/jan-web-app': { patch: '[]\n' },
+      '@janhq/jan-desktop-app': { patch: '[]\n' },
+    })
+    const home = tmp()
+    const dir = resolveProfileDir('desktop', home)
+    initProfile(dir, initial)
+
+    // Desktop runs this normalizer before starting its Host.
+    normalizeShippedProfile('desktop', dir, readProfileManifest('t', dir))
+    const manifest = readProfileManifest('t', dir)
+    expect(manifest.jan?.profile?.bundles).toEqual(expected)
+
+    writeProfileManifest(dir, {
+      ...manifest, jan: { ...manifest.jan, profile: { ...manifest.jan?.profile, bundles: webBundles } },
+    })
+    normalizeShippedProfile('desktop', dir, readProfileManifest('t', dir))
+    expect(readProfileManifest('t', dir).jan?.profile?.bundles).toEqual(webBundles)
+    expect(loadProfile('t', 'desktop', anchor, home).layers.map(layer => layer.packageName)).toEqual(webBundles)
   })
 
   it.each(['@janhq/jan-experimental-schedule-bundle', '@janhq/jan-experimental-agent-team-profile'])('removes retired %s and keeps the rest of an application-owned manifest', (retired) => {

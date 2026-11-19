@@ -110,7 +110,7 @@ describe('Chat apply wiring', () => {
     expect(entry).not.toHaveProperty('UserContent')
   })
 
-  it('registers the frame-wide quota notice host and keeps the failure row injection-free', async () => {
+  it('registers the frame-wide quota notice host and gives the failure row only its recovery face', async () => {
     const b = await bench()
     try {
       const host = b.runtime.slots.entries('shell.overlay').find(entry => entry.options.id === 'chat.quota-notice')
@@ -124,10 +124,12 @@ describe('Chat apply wiring', () => {
       expect(notice.getSnapshot()).toBeNull()
       ;(face.dismissNotice as QuotaNoticeInjected['dismissNotice'])()
       expect(notice.getSnapshot()).toBeNull()
-      // The turn-error row carries neither a transient notice nor a chain child.
+      // The turn-error row carries no transient notice and no chain child, only the failed-turn recovery face.
       const row = b.runtime.slots.entries('conversation.chat.node').find(entry => entry.options.key === 'turn-error')!
-      expect(row.inject).toBeUndefined()
       expect(row.children).toBeUndefined()
+      const rowFace = (row.inject as (sessionId: never) => { hooks: Record<string, unknown>; recovery: Record<string, unknown> })('session-1' as never)
+      expect(Object.keys(rowFace.hooks).sort()).toEqual(['continuation', 'settingsAvailability'])
+      expect(Object.keys(rowFace.recovery).sort()).toEqual(['compact', 'contextFor', 'increase', 'modelFor', 'retry'])
     } finally {
       await b.runtime.dispose()
     }
@@ -143,7 +145,7 @@ describe('Chat apply wiring', () => {
     expect(b.runtime.slots.entries('conversation.composer.dock').map(row => row.options.id))
       .toEqual(['activity', 'usage'])
     expect(b.runtime.slots.entries('settings.general.item').map(row => row.options.id))
-      .toEqual(['transcript-view', 'link-opening', 'composer-enter', 'performance-usage'])
+      .toEqual(['transcript-view', 'link-opening', 'performance-usage'])
     await b.runtime.dispose()
   })
 
@@ -245,7 +247,7 @@ describe('Chat apply wiring', () => {
       expect(hooks.transcriptView.getSnapshot()).toBe('standard')
       expect(hooks.collapseTiming.getSnapshot()).toBe('next-input')
       expect(b.runtime.slots.entries('settings.general.item').map(entry => entry.options.id))
-        .toEqual(['transcript-view', 'link-opening', 'composer-enter', 'performance-usage'])
+        .toEqual(['transcript-view', 'link-opening', 'performance-usage'])
 
       await b.chat.dispose()
       expect(b.runtime.slots.entries('settings.general.item').some(entry => entry.options.id === 'transcript-view')).toBe(false)
@@ -259,7 +261,7 @@ describe('Chat apply wiring', () => {
       expect(remountedHooks.transcriptView.getSnapshot()).toBe('standard')
       expect(b.chatSettings.set).toHaveBeenCalledExactlyOnceWith('collapseTiming', 'next-input')
       expect(b.runtime.slots.entries('settings.general.item').map(entry => entry.options.id))
-        .toEqual(['transcript-view', 'link-opening', 'composer-enter', 'performance-usage'])
+        .toEqual(['transcript-view', 'link-opening', 'performance-usage'])
     } finally {
       await b.runtime.dispose()
     }

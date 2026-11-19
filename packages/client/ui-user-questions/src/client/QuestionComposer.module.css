@@ -332,15 +332,14 @@
   grid-area: 1 / 1;
 }
 
-/* Checked: label-primary fill with a primary-foreground check — the pair
-   inverts with the theme (dark fill in light mode, light fill in dark mode). */
+/* The checked indicator uses the same theme accent as the native checkbox. */
 .checkboxChecked {
   color: var(--dsw-alias-label-primary-foreground);
 }
 
 .checkboxChecked::before {
-  border-color: var(--dsw-alias-label-primary);
-  background: var(--dsw-alias-label-primary);
+  border-color: var(--dsw-alias-brand-primary);
+  background: var(--dsw-alias-brand-primary);
 }
 
 .optionCopy {

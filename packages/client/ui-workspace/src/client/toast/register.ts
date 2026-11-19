@@ -20,7 +20,7 @@ export function registerToasts(
     onClick: () => { dismiss(); actions.showArchived() },
   })
   ctx.slots.registerFactory({ name: 'workspace.toast.content', scope: 'root' }, WorkspaceToast)
-  ctx.slots.inject('workspace.toast', function* () {
+  ctx.slots.inject('workspace.toast', function*() {
     yield ctx.slots.register({
       name: 'workspace.toast', key: 'sessionIdCopied', locale: 'workspace',
       inject: (): ToastDisplayInjected<'sessionIdCopied'> => ({
@@ -57,6 +57,24 @@ export function registerToasts(
         display: (_notice, t) => ({ text: t('defaultWorkspace.failed'), tone: 'warning' }),
       }),
     }, ToastEntry<PropsRuntime<'workspace.toast', 'defaultWorkspaceFailed'>>)
+    yield ctx.slots.register({
+      name: 'workspace.toast', key: 'folderAdded', locale: 'workspace',
+      inject: (): ToastDisplayInjected<'folderAdded'> => ({
+        display: (notice, t) => ({ text: t('toast.folderAdded', { name: notice.title }), tone: 'success' }),
+      }),
+    }, ToastEntry<PropsRuntime<'workspace.toast', 'folderAdded'>>)
+    yield ctx.slots.register({
+      name: 'workspace.toast', key: 'folderDropNotFolder', locale: 'workspace',
+      inject: (): ToastDisplayInjected<'folderDropNotFolder'> => ({
+        display: (_notice, t) => ({ text: t('toast.folderDropNotFolder'), tone: 'warning' }),
+      }),
+    }, ToastEntry<PropsRuntime<'workspace.toast', 'folderDropNotFolder'>>)
+    yield ctx.slots.register({
+      name: 'workspace.toast', key: 'folderDropFailed', locale: 'workspace',
+      inject: (): ToastDisplayInjected<'folderDropFailed'> => ({
+        display: (notice, t) => ({ text: t('toast.folderDropFailed', { message: notice.message }), tone: 'warning', holdMs: 6000 }),
+      }),
+    }, ToastEntry<PropsRuntime<'workspace.toast', 'folderDropFailed'>>)
     yield ctx.slots.register({
       name: 'workspace.toast', key: 'shortcutForkFailed', locale: 'workspace',
       inject: (): ToastDisplayInjected<'shortcutForkFailed'> => ({

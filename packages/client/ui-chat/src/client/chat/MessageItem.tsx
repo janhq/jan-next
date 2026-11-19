@@ -1,12 +1,14 @@
 import { memo, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { PendingSubmission } from '@janhq/jan-api-session-controller/client'
-import type { PropsRenderFactories, PropsRenderSlots } from '@janhq/jan-client-ui-slots'
+import type { PendingSubmission, SessionProjectionMap } from '@janhq/jan-api-session-controller/client'
+import type { InjectFace, PropsRenderFactories, PropsRenderSlots } from '@janhq/jan-client-ui-slots'
+import type { ObservableSnapshot } from '@janhq/jan-client-store'
 import type { UserTextFacts } from '@janhq/jan-client-ui-conversation/client'
 import { JsonBlock, StateDot, TextShimmer } from '@janhq/jan-client-ui-primitives'
 import type {
   ChatNodeOwnerProps, ChatNodeViewProps, ChatViewSlotProps, UserContentAttachment, UserContentData, UserContentInput,
 } from '../contract/slots.ts'
+import type { ModelSwitchChatData } from '../contract/chat-nodes.ts'
 import type { ModelRetryNode, TurnErrorNode, UserMessageNode } from '../contract/snapshot.ts'
 import { CompactionItem } from './CompactionItem.tsx'
 import { ContextInjectionRow } from './ContextInjectionRow.tsx'
@@ -48,6 +50,30 @@ interface RetryCountdown {
   seconds: number
 }
 
+/** Recovery from a context-window failure: local growth, and compaction on every route. */
+export interface ContextRecovery {
+  /** Local llama.cpp model of the failed request; undefined on cloud routes, whose window cannot grow. */
+  modelFor: () => string | undefined
+  contextFor: (id: string) => Promise<{ current: number; maximum?: number } | undefined>
+  increase: (id: string) => Promise<{ ok: true; value: number | null } | { ok: false; error: string }>
+  /** Summarize older history in this chat; `empty` means nothing was old enough to summarize. */
+  compact: () => Promise<{ ok: true } | { ok: false; reason: 'empty' } | { ok: false; reason: 'failed'; error: string }>
+  retry: (failureSeq: number) => void
+}
+
+interface TurnErrorInjected {
+  hooks: {
+    settingsAvailability: ObservableSnapshot<boolean>
+    /** Latest failed turn; the recovery offer retires when another turn starts. */
+    continuation: ObservableSnapshot<SessionProjectionMap['conversationContinuation']>
+  }
+  openModelsSettings: () => void
+  recovery?: ContextRecovery
+}
+
+/** Failures a plain retry can answer: the model service or the connection failed, not the request or the account. */
+const TRANSIENT_CODES: ReadonlySet<unknown> = new Set(['RATE_LIMIT', 'SERVER', 'TIMEOUT', 'TRANSPORT', 'EMPTY_RESPONSE', 'STREAM_CLOSED'])
+
 function failureMessage(
   message: string,
   code: unknown,
@@ -57,6 +83,9 @@ function failureMessage(
   if (code === 'INTERRUPTED') return t('message.failure.interrupted')
   if (code === 'ACCOUNT_SIGN_IN_REQUIRED') return t('message.failure.accountSignInRequired')
   if (code === 'QUOTA' || code === 'ACCOUNT_QUOTA') return t('message.failure.quota')
+  if (code === 'CONTEXT_WINDOW_EXCEEDED') return t('message.failure.contextWindow')
+  if (code === 'MISSING_CREDENTIAL' || code === 'NO_ADAPTER') return t('message.failure.missingCredential')
+  if (code === 'MODEL_SWITCH_COMPACTION_FAILED') return t('message.failure.switchCompaction')
   return code === 'AUTH' ? t('message.failure.auth') : message
 }
 
@@ -119,26 +148,119 @@ function ModelRetryItem({ node, active, t }: {
           <span className={css.retryDetailLabel}>{t('message.retry.delay')}</span>
           {t('duration.milliseconds', { milliseconds: Math.round(node.delayMs) })}
         </div>
-        <div>
-          <span className={css.retryDetailLabel}>{t('message.retry.failure')}</span>
-          {failureMessage(node.failure.message, node.failure.code, t)}
-        </div>
+        <FailureDetail failure={failureMessage(node.failure.message, node.failure.code, t)} t={t} />
       </div>
     </details>
   )
 }
 
-/** Persistent, turn-positioned feedback for a terminal failure. */
-function TurnErrorItem({ node, t }: {
-  node: TurnErrorNode
+/** A visible record that another model took over after the model in use failed. */
+function ModelSwitchItem({ node, t }: {
+  node: ModelSwitchChatData
   t: ChatViewSlotProps['t']
 }) {
+  return (
+    <details className={css.retryRow}>
+      <summary className={css.retrySummary}>
+        <span className={css.retryText} role="status">
+          {node.from === undefined
+            ? t('message.modelSwitch.statusUnknown', { to: node.to })
+            : t('message.modelSwitch.status', { from: node.from, to: node.to })}
+        </span>
+      </summary>
+      <div className={css.retryDetails}>
+        <FailureDetail failure={failureMessage(node.failure.message, node.failure.code, t)} t={t} />
+      </div>
+    </details>
+  )
+}
+
+/** The labeled failure line inside a retry or model-switch row's details. */
+function FailureDetail({ failure, t }: { failure: string; t: ChatViewSlotProps['t'] }) {
+  return (
+    <div>
+      <span className={css.retryDetailLabel}>{t('message.retry.failure')}</span>
+      {failure}
+    </div>
+  )
+}
+
+/** Persistent, turn-positioned feedback for a terminal failure. */
+function TurnErrorItem({ node, t, canOpenModelsSettings, openModelsSettings, recovery, current }: {
+  node: TurnErrorNode
+  t: ChatViewSlotProps['t']
+  canOpenModelsSettings: boolean
+  openModelsSettings: () => void
+  recovery: ContextRecovery | undefined
+  /** True while a retry would answer this very failure. */
+  current: boolean
+}) {
+  const [working, setWorking] = useState(false)
+  const [error, setError] = useState<string>()
+  const [notice, setNotice] = useState<string>()
+  const [context, setContext] = useState<{ current: number; maximum?: number }>()
+  const [exhausted, setExhausted] = useState(false)
+  const recoverable = node.code === 'CONTEXT_WINDOW_EXCEEDED' && current && recovery !== undefined
+  const modelId = recoverable ? recovery.modelFor() : undefined
+  useEffect(() => {
+    if (modelId === undefined) return
+    let live = true
+    void recovery?.contextFor(modelId).then((value) => { if (live) setContext(value) }, () => {})
+    return () => { live = false }
+  }, [modelId, recovery])
+  const atMaximum = exhausted || (context?.maximum !== undefined && context.current >= context.maximum)
+  // A local window grows first; compaction is the way out once it cannot, and the only one on cloud routes.
+  const growable = modelId !== undefined && !atMaximum
+  const attempt = async (act: (target: ContextRecovery) => Promise<void>): Promise<void> => {
+    if (recovery === undefined || working) return
+    setWorking(true)
+    setError(undefined)
+    setNotice(undefined)
+    try { await act(recovery) } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason))
+    } finally { setWorking(false) }
+  }
+  const grow = (): Promise<void> => attempt(async (target) => {
+    if (modelId === undefined) return
+    const result = await target.increase(modelId)
+    if (!result.ok) setError(result.error)
+    else if (result.value === null) setExhausted(true)
+    else {
+      setNotice(t('message.failure.contextIncreased', { tokens: result.value.toLocaleString() }))
+      target.retry(node.seq)
+    }
+  })
+  const compact = (): Promise<void> => attempt(async (target) => {
+    const result = await target.compact()
+    if (result.ok) {
+      setNotice(t('message.failure.compacted'))
+      target.retry(node.seq)
+    } else setError(result.reason === 'empty' ? t('message.failure.nothingToCompact') : result.error)
+  })
+  const message = !recoverable
+    ? (TRANSIENT_CODES.has(node.code) ? t('message.failure.transient') : failureMessage(node.message, node.code, t))
+    : modelId === undefined ? t('message.failure.cloudContextWindow')
+      : t(atMaximum ? 'message.failure.contextMaximum' : 'message.failure.localContextWindow')
+  const retryable = TRANSIENT_CODES.has(node.code) && current && recovery !== undefined
   return (
     <div className={css.turnErrorRow} role="status">
       <StateDot state="error" className={css.turnErrorDot} />
       <div className={css.turnErrorCopy}>
         <span className={css.turnErrorTitle}>{node.code === 'ACCOUNT_SIGNED_OUT' || node.code === 'INTERRUPTED' ? t('message.taskStopped') : t('message.turnError')}</span>
-        <span className={css.turnErrorMessage}>{failureMessage(node.message, node.code, t)}</span>
+        <span className={css.turnErrorMessage} title={TRANSIENT_CODES.has(node.code) ? node.message : undefined}>{message}</span>
+        {(node.code === 'MISSING_CREDENTIAL' || node.code === 'NO_ADAPTER') && canOpenModelsSettings && <button type="button" className={css.turnErrorAction}
+          onClick={openModelsSettings}>{t('message.failure.openModels')}</button>}
+        {retryable && <button type="button" className={css.turnErrorAction}
+          onClick={() => { recovery.retry(node.seq) }}>{t('message.failure.retry')}</button>}
+        {recoverable && (growable
+          ? <button type="button" className={css.turnErrorAction} disabled={working} onClick={() => { void grow() }}>
+            {t(working ? 'message.failure.increasingContext' : 'message.failure.increaseContext')}
+          </button>
+          : <button type="button" className={css.turnErrorAction} disabled={working} onClick={() => { void compact() }}>
+            {t(working ? 'message.failure.compacting' : 'message.failure.compactRetry')}
+          </button>)}
+        {notice !== undefined && <span className={css.turnErrorNote}>{notice}</span>}
+        {error !== undefined && <span className={css.turnErrorNote} role="alert">{error}</span>}
       </div>
       {node.code !== undefined && node.code !== 'INTERRUPTED' && <code className={css.turnErrorCode}>{node.code}</code>}
     </div>
@@ -385,9 +507,19 @@ export const RetryNodeView = memo(function RetryNodeView({ node, t }: ChatNodeVi
   return <ModelRetryItem node={data.current} active={data.current.retryState === 'scheduled'} t={t} />
 })
 
+/** Mid-Turn model-switch keyed Chat renderer. */
+export const ModelSwitchNodeView = memo(function ModelSwitchNodeView({ node, t }: ChatNodeViewProps<'model-switch'>) {
+  return <ModelSwitchItem node={node.data} t={t} />
+})
+
 /** Terminal turn-error keyed Chat renderer. */
-export const TurnErrorNodeView = memo(function TurnErrorNodeView({ node, t }: ChatNodeViewProps<'turn-error'>) {
-  return <TurnErrorItem node={node.data} t={t} />
+export const TurnErrorNodeView = memo(function TurnErrorNodeView({
+  node, t, useSettingsAvailability, useContinuation, openModelsSettings, recovery,
+}: ChatNodeViewProps<'turn-error'> & InjectFace<TurnErrorInjected>) {
+  const canOpenModelsSettings = useSettingsAvailability(available => available)
+  const current = useContinuation(ending => (typeof ending === 'number' ? ending : ending?.overflow) === node.data.seq)
+  return <TurnErrorItem node={node.data} t={t} canOpenModelsSettings={canOpenModelsSettings}
+    openModelsSettings={openModelsSettings} recovery={recovery} current={current} />
 })
 
 /** Max-tokens turn-end notice keyed Chat renderer. */

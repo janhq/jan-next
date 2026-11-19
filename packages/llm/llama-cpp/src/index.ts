@@ -13,9 +13,9 @@
  * ({@link Config.routeNamespace}).
  */
 import { randomBytes } from 'node:crypto'
-import { constants, access, mkdir, readFile, rename, rm, rmdir, stat, writeFile } from 'node:fs/promises'
+import { constants, access, mkdir, readFile, realpath, rename, rm, rmdir, stat, unlink, writeFile } from 'node:fs/promises'
 import { arch, platform, totalmem } from 'node:os'
-import { basename, dirname, isAbsolute, join, relative } from 'node:path'
+import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { Context, Service } from '@janhq/cordis'
 import type {} from '@janhq/jan-credentials'
@@ -25,6 +25,7 @@ import type { SubprocessHandle, SubprocessOutcome } from '@janhq/jan-subprocess'
 import type {} from '@janhq/jan-agent-default-model'
 import type {} from '@janhq/jan-llm'
 import type {} from '@janhq/jan-settings'
+import type {} from '@janhq/jan-llm-pi-ai'
 import type { Artifact } from './artifacts.ts'
 import { CATALOG, catalogModel, DEFAULT_MODEL_ID, SMALL_MODEL_ID, type CatalogModel } from './catalog.ts'
 import { Config } from './config.ts'
@@ -34,11 +35,12 @@ import {
   estimateKvBytes, NotAProjectorError, readModelFacts, readProjectorFacts, UnsupportedModelError, type ModelFacts, type ProjectorFacts,
 } from './gguf.ts'
 import { accelerators, assessFit, backendOf, type MachineMemory } from './memory.ts'
-import { plannedContext, renderPreset, resolvePresetSettings, type PresetModel, type PresetSettings } from './preset.ts'
+import { nextContextSize, plannedContext, renderPreset, resolvePresetSettings, type PresetModel, type PresetSettings } from './preset.ts'
 import { RateMeter } from './rate.ts'
+import { ifPresent, managedFile, managedRoot, modelFiles } from './stored-files.ts'
 import type {
-  HuggingFaceRepoInfo, ImportModelOptions, LlamaCppDownload, LlamaCppHostPlatform, LlamaCppPhase, LlamaCppProgress, LlamaCppState,
-  LocalModelEntry, LocalModelSource, LocalModelStatus, ModelFit,
+  HuggingFaceRepoInfo, ImportModelOptions, LlamaCppDownload, LlamaCppHostPlatform, LlamaCppPhase, LlamaCppPrefill, LlamaCppProgress,
+  LlamaCppState, LocalModelEntry, LocalModelSource, LocalModelStatus, ModelFit, StoredDownload,
 } from './types.ts'
 import {
   describeExit, parseDeviceList, parseHandshake, readFirstLine, WorkerClient, WorkerProtocolError, type WorkerModelEvent,
@@ -57,7 +59,7 @@ export {
 export type { KvCacheType, ModelFacts, ProjectorFacts } from './gguf.ts'
 export { accelerators, assessFit, backendOf } from './memory.ts'
 export type { MachineMemory } from './memory.ts'
-export { plannedContext, renderPreset, resolvePresetSettings } from './preset.ts'
+export { nextContextSize, plannedContext, renderPreset, resolvePresetSettings } from './preset.ts'
 export type { PresetModel, PresetSettings } from './preset.ts'
 export { RateMeter } from './rate.ts'
 export { describeExit, parseDeviceList, parseHandshake, parseModelEvent, parseModelList, WorkerProtocolError } from './worker.ts'
@@ -83,6 +85,9 @@ interface ModelRecord {
   repo?: string
   /** Read from the GGUF header when the model was installed. */
   facts: ModelFacts
+  /** Optional context and memory-fit overrides saved with this installed model. */
+  ctxSize?: number
+  autoFit?: boolean
   /** Vision projector the worker loads with the model. */
   mmproj?: ProjectorRecord
 }
@@ -132,7 +137,20 @@ interface Job {
   abort: AbortController
   progress?: LlamaCppProgress
   error?: string
+  /** Stopped by {@link LlamaCpp.pause}; its files are kept for {@link LlamaCpp.retry}. */
+  paused?: true
 }
+
+interface StoredModelFile {
+  item: StoredDownload
+  root: string
+  id: string
+  files: [string, ...string[]]
+  model?: ModelRecord
+}
+
+const MODEL_IN_USE = 'This model is loaded or in use. Unload it in Settings > Models before deleting it.'
+const DOWNLOAD_IN_USE = 'This download is in progress. Pause or cancel it before deleting it.'
 
 const LOG_LINES = 20
 /** Longest handshake line accepted. */
@@ -255,6 +273,9 @@ export class LlamaCpp extends Service {
   private downloadQueue: Promise<unknown> = Promise.resolve()
   private readonly jobs = new Map<string, Job>()
   private lastProgressAt = 0
+  private deletingDownload: string | undefined
+  /** Prompt reading of the request in flight on this plugin's route; shown only while the worker runs. */
+  private prefill: LlamaCppPrefill | undefined
   private record: InstallRecord = { version: 3, models: [] }
   /** Record writes in order. */
   private recordWrite: Promise<unknown> = Promise.resolve()
@@ -284,6 +305,13 @@ export class LlamaCpp extends Service {
     if (pinned === undefined) throw new Error('llama-cpp: the catalog has no first-run model')
     this.firstModel = config.firstModelOverride === undefined ? pinned : { ...pinned, ...config.firstModelOverride }
     this.state = this.view()
+    // The route's prompt progress: a read prompt (or an ended call, reported as read) drops it. Reports
+    // come once per batch, seconds apart on a slow machine, so none is throttled.
+    ctx.on('llm-pi-ai/prompt-progress', ({ provider, sessionId, processed, total, cache }) => {
+      if (provider !== config.provider) return
+      this.prefill = processed >= total ? undefined : { ...sessionId === undefined ? {} : { sessionId }, processed, total, cache }
+      this.emit()
+    })
     ctx.effect(() => {
       void this.task(async () => {
         // A key left by a crash or kill belongs to no worker.
@@ -349,7 +377,7 @@ export class LlamaCpp extends Service {
       await access(path, constants.X_OK)
     } catch (error) {
       this.ctx.logger.warn(`llama-cpp: the worker at ${path} is unusable: ${messageOf(error)}`)
-      throw new Error('The bundled local model worker is missing or not executable; reinstall the app, or from source run `pnpm run stage:llama-worker`', { cause: error })
+      throw new Error('The bundled local model worker is missing or not executable; reinstall the app, or from source run `make llama-worker` (builds and stages it)', { cause: error })
     }
     return path
   }
@@ -427,6 +455,93 @@ export class LlamaCpp extends Service {
     return this.record.models.find(model => model.id === this.record.active)
   }
 
+  private resolveModel(id: string): ModelRecord {
+    const model = id === this.config.routeModelId ? this.activeModel() : this.record.models.find(candidate => candidate.id === id)
+    if (model === undefined) throw new Error(`no installed model "${id}"`)
+    return model
+  }
+
+  /**
+   * Requested and trained context of an installed model; `local` names the default.
+   * @param id - installed model id or the route model id.
+   * @returns served context tokens, the trained maximum when the GGUF declares one, and whether auto-fit is on.
+   */
+  getModelContext(id: string): { current: number; maximum?: number; fit: boolean } {
+    const model = this.resolveModel(id)
+    const requested = model.ctxSize ?? this.preset.ctxSize
+    const current = this.contexts.get(model.id) ?? plannedContext({ ctxSize: requested, fitCtx: this.preset.fitCtx }, model.facts)
+    return {
+      current, ...model.facts.contextLength === undefined ? {} : { maximum: model.facts.contextLength },
+      fit: model.autoFit ?? this.preset.fit,
+    }
+  }
+
+  /**
+   * Save a model's context and reload its preset section in a running worker.
+   * @param id - installed model id or the route model id.
+   * @param contextSize - positive token count, at most the model's trained maximum.
+   */
+  setModelContext(id: string, contextSize: number): Promise<void> {
+    return this.task(async () => {
+      const model = this.resolveModel(id)
+      if (!Number.isSafeInteger(contextSize) || contextSize <= 0) throw new Error('context length must be a positive integer')
+      if (model.facts.contextLength !== undefined && contextSize > model.facts.contextLength) {
+        throw new Error(`context length exceeds the model maximum of ${String(model.facts.contextLength)}`)
+      }
+      if (model.ctxSize === contextSize) return
+      await this.saveModelSetting(model, 'ctxSize', contextSize)
+    })
+  }
+
+  /**
+   * Save the automatic memory-fit choice for one model.
+   * @param id - installed model id or the route model id.
+   * @param fit - whether llama.cpp fits the context and offload to free memory.
+   */
+  setModelFit(id: string, fit: boolean): Promise<void> {
+    return this.task(async () => {
+      const model = this.resolveModel(id)
+      if (typeof fit !== 'boolean') throw new Error('auto-fit must be on or off')
+      if (model.autoFit === fit) return
+      await this.saveModelSetting(model, 'autoFit', fit)
+    })
+  }
+
+  /**
+   * Grow to the next classic-Jan context step, bounded by GGUF metadata when available.
+   * @param id - installed model id or the route model id.
+   * @returns the new context length, or null when the model cannot grow further.
+   */
+  increaseModelContext(id: string): Promise<number | null> {
+    return this.task(async () => {
+      const { current, maximum } = this.getModelContext(id)
+      const next = nextContextSize(current, maximum)
+      if (next === null) return null
+      await this.saveModelSetting(this.resolveModel(id), 'ctxSize', next)
+      return next
+    })
+  }
+
+  /**
+   * Persist one per-model load setting, restoring it when the record write fails, then reload a running worker.
+   * @param model - the installed model record to change.
+   * @param key - the load setting.
+   * @param value - its new value.
+   */
+  private async saveModelSetting<K extends 'ctxSize' | 'autoFit'>(model: ModelRecord, key: K, value: NonNullable<ModelRecord[K]>): Promise<void> {
+    const previous = model[key]
+    model[key] = value
+    try { await this.writeRecord() } catch (error) {
+      if (previous === undefined) Reflect.deleteProperty(model, key)
+      else model[key] = previous
+      throw error
+    }
+    this.contexts.delete(model.id)
+    this.emit()
+    await this.modelsChanged()
+    await this.reloadChangedModel(model.id)
+  }
+
   private view(): LlamaCppState {
     const active = this.activeModel()
     const offered = active ?? { id: this.firstModel.id, name: this.firstModel.name, bytes: this.firstModel.bytes }
@@ -434,9 +549,10 @@ export class LlamaCpp extends Service {
       id: job.spec.id, name: job.spec.name,
       ...job.progress === undefined ? {} : { progress: job.progress },
       ...job.error === undefined ? {} : { error: job.error },
+      ...job.paused === undefined ? {} : { paused: job.paused },
     }))
     const installed = new Set(this.record.models.map(model => model.id))
-    const progress = downloads.find(item => item.error === undefined && item.progress !== undefined)?.progress
+    const progress = downloads.find(item => item.error === undefined && item.paused === undefined && item.progress !== undefined)?.progress
     const contextSize = this.server.phase === 'running' && active !== undefined ? this.contexts.get(active.id) : undefined
     return {
       phase: this.server.phase, hostPlatform: this.hostPlatform, provider: this.config.provider,
@@ -445,14 +561,17 @@ export class LlamaCpp extends Service {
       ...this.server.error === undefined ? {} : { error: this.server.error },
       ...this.server.logTail === undefined ? {} : { logTail: this.server.logTail },
       ...contextSize === undefined ? {} : { contextSize },
+      ...this.prefill === undefined || this.server.phase !== 'running' ? {} : { prefill: this.prefill },
       models: this.record.models.map((model): LocalModelEntry => {
-        const kvBytes = estimateKvBytes(model.facts, plannedContext(this.preset, model.facts), this.preset.cacheType) ?? 0
+        const context = plannedContext({ ctxSize: model.ctxSize ?? this.preset.ctxSize, fitCtx: this.preset.fitCtx }, model.facts)
+        const kvBytes = estimateKvBytes(model.facts, context, this.preset.cacheType) ?? 0
         const settled = this.contexts.get(model.id)
         return {
           id: model.id, name: model.name, bytes: installedBytes(model), source: model.source, vision: model.mmproj?.vision === true,
           active: model.id === this.record.active,
           status: this.running?.resident.get(model.id) ?? 'unloaded',
           ...settled === undefined ? {} : { contextSize: settled },
+          configuredContextSize: model.ctxSize ?? this.preset.ctxSize, autoFit: model.autoFit ?? this.preset.fit,
           architecture: model.facts.architecture,
           ...model.facts.contextLength === undefined ? {} : { contextLength: model.facts.contextLength },
           ...this.fitOf(installedBytes(model) + kvBytes),
@@ -606,6 +725,90 @@ export class LlamaCpp extends Service {
   // ── downloads ──────────────────────────────────────────────────────────
 
   /**
+   * List registry-owned models and files left by Jan's GGUF downloader.
+   * @param home - Jan data folder the paths are relative to.
+   * @returns the listed models and download files.
+   */
+  listStoredDownloads(home: string): Promise<StoredDownload[]> {
+    return this.task(async () => (await this.storedModelFiles(home)).map(({ item }) => item))
+  }
+
+  /**
+   * Delete one listed artifact without unloading a resident model or touching an imported file.
+   * @param home - Jan data folder the path is relative to.
+   * @param path - exact Jan-home-relative path from {@link listStoredDownloads}.
+   * @returns after the artifact is removed.
+   */
+  deleteStoredDownload(home: string, path: string): Promise<void> {
+    return this.task(async () => {
+      const entry = (await this.storedModelFiles(home)).find(({ item }) => item.path === path)
+      if (entry === undefined) throw new Error('This item is not a Jan download or is no longer on this computer.')
+      if (entry.item.inUse !== undefined) throw new Error(entry.item.inUse)
+      if (entry.model !== undefined) {
+        await this.removeInstalledModel(entry.model, entry)
+        return
+      }
+      const job = this.jobs.get(entry.id)
+      if (job !== undefined && job.error === undefined && job.paused === undefined) throw new Error(DOWNLOAD_IN_USE)
+      this.deletingDownload = entry.id
+      try { await this.unlinkDownloads(entry) }
+      finally { this.deletingDownload = undefined }
+      this.emit()
+    })
+  }
+
+  private async unlinkDownloads(entry: StoredModelFile): Promise<void> {
+    for (const file of entry.files) {
+      if (await managedFile(entry.root, file) === undefined) throw new Error('This Jan download changed on disk. Refresh the list and try again.')
+    }
+    for (const file of entry.files) await unlink(file)
+  }
+
+  private async storedModelFiles(home: string): Promise<StoredModelFile[]> {
+    const directory = join(this.config.dataRoot, 'models')
+    const root = await managedRoot(home, directory)
+    if (root === undefined) return []
+    const listed: StoredModelFile[] = []
+    const references = new Map<string, number>()
+    const filePath = (file: string): string => join(root, relative(directory, file))
+    const pathOf = (file: string): string => relative(home, join(directory, relative(root, file))).split(sep).join('/')
+    for (const model of this.record.models) {
+      for (const stored of model.mmproj === undefined ? [model] : [model, model.mmproj]) {
+        const file = await ifPresent(realpath(this.storedPath(stored)))
+        if (file !== undefined) references.set(file, (references.get(file) ?? 0) + 1)
+      }
+    }
+    for (const model of this.record.models) {
+      if (model.source === 'import' || isAbsolute(model.file)) continue
+      const files: [string, ...string[]] = [filePath(this.storedPath(model))]
+      if (model.mmproj !== undefined && !isAbsolute(model.mmproj.file)) files.push(filePath(this.storedPath(model.mmproj)))
+      let bytes = 0
+      let safe = true
+      for (const file of files) {
+        const info = await managedFile(root, file)
+        if (info === undefined || references.get(file) !== 1) { safe = false; break }
+        bytes += info.size
+      }
+      if (!safe) continue
+      listed.push({ root, id: model.id, model, files, item: { name: model.name, kind: 'model', bytes, path: pathOf(files[0]),
+        ...this.running?.resident.has(model.id) ? { inUse: MODEL_IN_USE } : {} } })
+    }
+    for await (const { id, file, partial } of modelFiles(root)) {
+      if (references.has(file) || references.has(file.replace(/\.partial$/, ''))) continue
+      const info = await managedFile(root, file)
+      if (info === undefined) continue
+      const job = this.jobs.get(id)
+      const inUse = job !== undefined && job.error === undefined && job.paused === undefined
+      const name = job?.spec.name ?? catalogModel(id)?.name ?? id
+      const projector = basename(file).startsWith('mmproj-')
+      listed.push({ root, id, files: [file], item: { name: projector ? `${name} vision projector` : name,
+        kind: partial || job !== undefined ? 'partial' : 'cache', bytes: info.size, path: pathOf(file),
+        ...inUse ? { inUse: DOWNLOAD_IN_USE } : {} } })
+    }
+    return listed
+  }
+
+  /**
    * First-run install: download the first-run model, then start the worker. With a model already
    * installed it starts the active model instead. Returns once accepted; progress and outcome arrive
    * through {@link follow}. Nothing downloads while the worker is unavailable.
@@ -670,10 +873,10 @@ export class LlamaCpp extends Service {
     if (found === undefined) throw new HuggingFaceLookupError('not-found', `${repo.repo} has no downloadable file ${file}`)
     const existing = this.record.models.find(model => model.sha256 === found.sha256)
     if (existing !== undefined) return existing.id
-    // The same file already downloading (or failed) keeps its id; a failed one starts again.
+    // The same file already downloading (failed or paused) keeps its id; a stopped one starts again.
     const pending = [...this.jobs.values()].find(job => job.spec.sha256 === found.sha256)
     if (pending !== undefined) {
-      if (pending.error !== undefined) this.enqueue(pending.spec)
+      if (pending.error !== undefined || pending.paused !== undefined) this.enqueue(pending.spec)
       return pending.spec.id
     }
     const name = basename(found.file).replace(/\.gguf$/i, '')
@@ -687,29 +890,60 @@ export class LlamaCpp extends Service {
   }
 
   /**
-   * Start a failed download again, from its partial file.
-   * @param id - model id of the failed download.
-   * @throws Error when no failed download has that id.
+   * Start a failed or paused download again, from its partial file.
+   * @param id - model id of the failed or paused download.
+   * @throws Error when no failed or paused download has that id.
    */
   retry(id: string): void {
     const job = this.jobs.get(id)
-    if (job?.error === undefined) throw new Error(`no failed download "${id}"`)
+    if (job === undefined || (job.error === undefined && job.paused === undefined)) throw new Error(`no failed or paused download "${id}"`)
     this.enqueue(job.spec)
   }
 
   /**
-   * Stop downloads: one by id, or all, discarding their partial files (a download interrupted by
-   * shutting down is kept and resumes instead); a failed entry is dismissed.
+   * Pause a running or queued download, keeping its partial file so {@link retry} resumes it.
+   * @param id - model id of the download.
+   * @throws Error when no running or queued download has that id.
+   */
+  pause(id: string): void {
+    const job = this.jobs.get(id)
+    if (job === undefined || job.error !== undefined || job.paused !== undefined || job.abort.signal.aborted) {
+      throw new Error(`no running download "${id}"`)
+    }
+    job.paused = true
+    job.abort.abort(new Error('paused'))
+    this.emit()
+  }
+
+  /**
+   * Stop downloads: one by id, or all, discarding their files (a download interrupted by shutting
+   * down is kept and resumes instead); a failed entry is dismissed, a paused one discarded.
    * @param id - model id, or undefined for every download.
    */
   async cancel(id?: string): Promise<void> {
+    const discarded: Array<Promise<void>> = []
     for (const [key, job] of this.jobs) {
       if (id !== undefined && key !== id) continue
-      if (job.error !== undefined) this.jobs.delete(key)
+      if (job.paused !== undefined) {
+        this.jobs.delete(key)
+        discarded.push(this.discardFiles(job.spec))
+      } else if (job.error !== undefined) this.jobs.delete(key)
       else job.abort.abort(new Error('cancelled'))
     }
+    // A paused first download was the only job; the first-run offer comes back.
+    if (this.activeModel() === undefined && this.server.phase === 'downloading' && this.jobs.size === 0) this.setServer({ phase: 'missing' })
     this.emit()
+    await Promise.all(discarded)
     await this.downloadQueue
+  }
+
+  /** Remove a download's files, verified or partial; no record references them yet. */
+  private async discardFiles(spec: ModelSpec): Promise<void> {
+    const projector = spec.mmproj === undefined ? undefined : this.projectorFile(spec.id, spec.mmproj)
+    for (const file of [this.modelFile(spec), projector]) {
+      if (file === undefined) continue
+      for (const target of [file, `${file}.partial`]) await rm(target, { force: true }).catch(() => undefined)
+    }
   }
 
   /** @returns an id no installed model, download or curated model uses, derived from `base`. */
@@ -724,6 +958,7 @@ export class LlamaCpp extends Service {
 
   private enqueue(spec: ModelSpec): void {
     if (this.lifetime.signal.aborted || this.record.models.some(model => model.id === spec.id)) return
+    if (this.deletingDownload === spec.id) throw new Error('This download is being deleted. Try again once it finishes.')
     const current = this.jobs.get(spec.id)
     // A cancelled job still unwinding is replaced, so asking again right after Cancel starts it again.
     if (current !== undefined && current.error === undefined && !current.abort.signal.aborted) return
@@ -809,20 +1044,18 @@ export class LlamaCpp extends Service {
       })
     } catch (error) {
       if (this.jobs.get(job.spec.id) !== job) return
-      const cancelled = job.abort.signal.aborted || this.lifetime.signal.aborted
+      // Pause keeps the job listed and its files on disk, so retry resumes from the partial file.
+      const paused = job.paused !== undefined && !this.lifetime.signal.aborted
+      const cancelled = !paused && (job.abort.signal.aborted || this.lifetime.signal.aborted)
       // A user's Cancel discards the job's files, including a model verified before its projector
       // finished, which no record references; shutting down keeps them so the next launch resumes.
-      if (job.abort.signal.aborted && !this.lifetime.signal.aborted) {
-        for (const file of [this.modelFile(job.spec), projectorPath]) {
-          if (file === undefined) continue
-          for (const target of [file, `${file}.partial`]) await rm(target, { force: true }).catch(() => undefined)
-        }
-      }
+      if (cancelled && !this.lifetime.signal.aborted) await this.discardFiles(job.spec)
       if (cancelled) this.jobs.delete(job.spec.id)
-      else job.error = messageOf(error)
+      else if (!paused) job.error = messageOf(error)
       if (this.lifetime.signal.aborted) return
-      if (this.activeModel() === undefined && this.server.phase === 'downloading' && ![...this.jobs.values()].some(other => other.error === undefined)) {
-        if (cancelled) this.setServer({ phase: 'missing' })
+      const running = [...this.jobs.values()].some(other => other.error === undefined && other.paused === undefined)
+      if (this.activeModel() === undefined && this.server.phase === 'downloading' && !running) {
+        if (cancelled || paused) this.setServer({ phase: 'missing' })
         else this.fail(error)
         return
       }
@@ -1005,47 +1238,71 @@ export class LlamaCpp extends Service {
     return this.task(async () => {
       const model = this.record.models.find(candidate => candidate.id === id)
       if (model === undefined) return
-      const running = this.running
-      // Asked even when the feed has not reported it resident yet; the worker answers that case at once.
-      if (running?.client !== undefined && !running.stopping) {
-        await running.client.unload(id, AbortSignal.any([this.lifetime.signal, AbortSignal.timeout(this.config.stopTimeoutMs)]))
-      }
-      const wasActive = this.record.active === id
-      this.record.models = this.record.models.filter(candidate => candidate.id !== id)
-      this.contexts.delete(id)
-      if (wasActive) {
-        const next = this.record.models[0]?.id
-        if (next === undefined) delete this.record.active
-        else this.record.active = next
-      }
-      await this.writeRecord()
-      if (this.activeModel() === undefined) {
-        await this.terminate()
-        this.setServer({ phase: 'missing' })
-      } else {
-        this.emit()
-        await this.modelsChanged()
-        await this.adoptDefault(false)
-      }
-      const downloaded: Array<{ file: string }> = [
-        ...model.source === 'import' ? [] : [model],
-        ...model.mmproj === undefined || isAbsolute(model.mmproj.file) ? [] : [model.mmproj],
-      ]
-      for (const stored of downloaded) {
-        const file = this.storedPath(stored)
-        await rm(file, { force: true })
-        await rm(`${file}.partial`, { force: true })
-      }
-      const [first] = downloaded
-      if (first !== undefined) {
-        try { await rmdir(dirname(this.storedPath(first))) }
-        catch (_notEmpty) { /* The directory still holds another file of this model id; it stays. */ }
-      }
-      const current = this.running
-      const successor = this.record.active
-      if (!wasActive || successor === undefined || current?.client === undefined || current.stopping) return
-      await this.loadInto(current, current.client, successor)
+      await this.removeInstalledModel(model)
     })
+  }
+
+  private async removeInstalledModel(model: ModelRecord, confined?: StoredModelFile): Promise<void> {
+    const id = model.id
+    const running = this.running
+    const previous = this.record
+    const wasActive = previous.active === id
+    const models = previous.models.filter(candidate => candidate.id !== id)
+    const active = wasActive ? models[0]?.id : previous.active
+    const next: InstallRecord = { version: 3, models, ...active === undefined ? {} : { active } }
+    if (running?.client !== undefined && !running.stopping) {
+      const signal = AbortSignal.any([this.lifetime.signal, AbortSignal.timeout(this.config.stopTimeoutMs)])
+      if (confined === undefined) {
+        // Settings explicitly asks to unload; storage management instead refuses a resident model.
+        await running.client.unload(id, signal)
+      } else {
+        const status = (await running.client.models(signal)).get(id)
+        if (status !== 'unloaded') throw new Error(MODEL_IN_USE)
+        const preset = `${this.presetPath}.remove`
+        await this.writePreset(next, preset)
+        try { await running.client.reload(this.presetPath, this.config.modelsMax, signal, id) }
+        finally { await rm(preset, { force: true }) }
+      }
+    }
+    this.record = next
+    try { await this.writeRecord() }
+    catch (error) {
+      this.record = previous
+      if (confined !== undefined) await this.modelsChanged()
+      throw error
+    }
+    this.contexts.delete(id)
+    if (this.activeModel() === undefined) {
+      await this.terminate()
+      this.setServer({ phase: 'missing' })
+    } else {
+      this.emit()
+      if (confined === undefined) await this.modelsChanged()
+      else await this.syncRoute()
+      await this.adoptDefault(false)
+    }
+    if (confined !== undefined) {
+      await this.unlinkDownloads(confined)
+      return
+    }
+    const downloaded = [
+      ...model.source === 'import' ? [] : [model],
+      ...model.mmproj === undefined || isAbsolute(model.mmproj.file) ? [] : [model.mmproj],
+    ]
+    for (const stored of downloaded) {
+      const file = this.storedPath(stored)
+      await rm(file, { force: true })
+      await rm(`${file}.partial`, { force: true })
+    }
+    const [first] = downloaded
+    if (first !== undefined) {
+      try { await rmdir(dirname(this.storedPath(first))) }
+      catch { /* The directory still holds another file of this model id; it stays. */ }
+    }
+    const current = this.running
+    const successor = this.record.active
+    if (!wasActive || successor === undefined || current?.client === undefined || current.stopping) return
+    await this.loadInto(current, current.client, successor)
   }
 
   /**
@@ -1097,11 +1354,18 @@ export class LlamaCpp extends Service {
       ...this.record.models.map(model => entry(model.id, `${model.name} (local)`, model)),
     ]
     try {
-      type Section = { providers?: Record<string, { models?: unknown }> } | undefined
+      type Section = { providers?: Record<string, { models?: unknown; promptProgress?: unknown }> } | undefined
       const value = settings.describe().find(row => row.ns === ns)?.value as Section
-      if (value?.providers?.[this.config.provider] === undefined) return
-      if (JSON.stringify(value.providers[this.config.provider]?.models) === JSON.stringify(models)) return
-      await settings.mutate(ns, [{ op: 'set', path: ['providers', this.config.provider, 'models'], value: models }])
+      const route = value?.providers?.[this.config.provider]
+      if (route === undefined) return
+      const path = (key: string): string[] => ['providers', this.config.provider, key]
+      const ops = [
+        ...JSON.stringify(route.models) === JSON.stringify(models) ? [] : [{ op: 'set' as const, path: path('models'), value: models }],
+        // The worker is llama.cpp's server, which reports prompt reading when asked; a route saved
+        // before the flag existed gains it, an explicit choice stays.
+        ...route.promptProgress === undefined ? [{ op: 'set' as const, path: path('promptProgress'), value: true }] : [],
+      ]
+      if (ops.length > 0) await settings.mutate(ns, ops)
     } catch (error) {
       this.ctx.logger.warn(`llama-cpp: could not list the local models on the ${this.config.provider} route`)
       this.ctx.logger.warn(error)
@@ -1109,8 +1373,16 @@ export class LlamaCpp extends Service {
   }
 
   private routeContext(model: ModelRecord): number {
-    const settled = this.contexts.get(model.id) ?? plannedContext(this.preset, model.facts)
+    const settings = { ctxSize: model.ctxSize ?? this.preset.ctxSize, fitCtx: this.preset.fitCtx }
+    const settled = this.contexts.get(model.id) ?? plannedContext(settings, model.facts)
     return Math.min(settled, model.facts.contextLength ?? Number.POSITIVE_INFINITY)
+  }
+
+  /** Load the changed model after the worker applied its new preset section. */
+  private async reloadChangedModel(id: string): Promise<void> {
+    const running = this.running
+    if (running?.client === undefined || running.stopping) return
+    await this.loadInto(running, running.client, id)
   }
 
   /**
@@ -1386,17 +1658,19 @@ export class LlamaCpp extends Service {
    * Write the preset through a temporary file, so the worker never reads half of it: one section per
    * installed model and the route's alias section for the default.
    */
-  private async writePreset(): Promise<void> {
-    const active = this.activeModel()
-    if (active === undefined) throw new Error('no model is installed')
-    await mkdir(dirname(this.presetPath), { recursive: true })
-    const temp = `${this.presetPath}.tmp`
-    const sections = this.record.models.map((model): PresetModel => ({
+  private async writePreset(record = this.record, path = this.presetPath): Promise<void> {
+    const active = record.active
+    await mkdir(dirname(path), { recursive: true })
+    const temp = `${path}.tmp`
+    const sections = record.models.map((model): PresetModel => ({
       id: model.id, path: this.storedPath(model), facts: model.facts,
+      ...model.ctxSize === undefined ? {} : { ctxSize: model.ctxSize },
+      ...model.autoFit === undefined ? {} : { fit: model.autoFit },
       ...model.mmproj === undefined ? {} : { mmproj: this.storedPath(model.mmproj) },
     }))
-    await writeFile(temp, renderPreset(this.preset, sections, { [this.config.routeModelId]: active.id }), { mode: 0o600 })
-    await rename(temp, this.presetPath)
+    const aliases = active === undefined ? {} : { [this.config.routeModelId]: active }
+    await writeFile(temp, renderPreset(this.preset, sections, aliases), { mode: 0o600 })
+    await rename(temp, path)
   }
 
   /**

@@ -189,7 +189,8 @@ export async function collectCliHelp(
 async function collectHelp(): Promise<HelpPage[]> {
   const concurrency = cliHelpConcurrency(process.env.JAN_CLI_HELP_CONCURRENCY, defaultParallelism())
   const directory = mkdtempSync(join(tmpdir(), 'jan-cli-help-'))
-  const profiles = Object.keys(PROFILE_TEMPLATES)
+  // The Electron app owns the desktop profile; the CLI refuses `jan desktop --help`, so it has no CLI page.
+  const profiles = Object.keys(PROFILE_TEMPLATES).filter(name => name !== 'desktop')
   // Aggregate callers allocate this leaf's children separately from the other running gates.
   const reader = prefetchHelp(async (args, signal) => {
     // Each invocation boots against its own empty Harness and agents homes.

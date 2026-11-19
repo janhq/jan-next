@@ -86,6 +86,21 @@ describe('preference document validation and conflict resolution', () => {
     expect(check('KeyL', ['meta', 'control'], 'desktop')).toBe('reserved')
   })
 
+  it('accepts Alt+Left and Alt+Right on Linux desktop while bare and other arrow combinations stay reserved', () => {
+    const check = (code: string, modifiers: readonly ('primary' | 'control' | 'alt' | 'shift' | 'meta')[], runtime: 'web' | 'desktop' = 'desktop') =>
+      bindingIssue(normalizeBinding({ code, modifiers }, 'linux'), runtime, 'linux')
+    for (const code of ['ArrowLeft', 'ArrowRight']) {
+      expect(check(code, ['alt'])).toBeNull()
+      expect(check(code, [])).toBe('modifier-required')
+      expect(check(code, ['shift'])).toBe('modifier-required')
+      expect(check(code, ['primary'])).toBe('reserved')
+      expect(check(code, ['alt', 'shift'])).toBe('reserved')
+      // The browser keeps Alt+Arrow for its own history on Web.
+      expect(check(code, ['alt'], 'web')).toBe('unsupported-browser')
+    }
+    for (const code of ['ArrowUp', 'ArrowDown']) expect(check(code, ['alt'])).toBe('reserved')
+  })
+
   it.each(['macos', 'windows'] as const)('accepts %s desktop editing and system combinations, and single keys', (platform) => {
     for (const [code, modifiers] of [
       ...['KeyC', 'KeyV', 'KeyX', 'KeyZ', 'KeyY', 'KeyA', 'KeyQ', 'KeyH', 'Tab', 'Space'].map(code => [code, ['primary']] as const),

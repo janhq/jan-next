@@ -27,15 +27,19 @@ interface WorkspaceShortcutControls {
 
 /**
  * Create the private browser request source shared by commands and controls.
+ * @param openSearchSurface - offers Search to a registered replacement surface; false keeps the sidebar field.
  * @returns observable state and its complete mutation callbacks.
  */
-export function createWorkspaceShortcutControls(): WorkspaceShortcutControls {
+export function createWorkspaceShortcutControls(openSearchSurface: () => boolean = () => false): WorkspaceShortcutControls {
   const state = createSnapshotStore<WorkspaceShortcutState>({
     searchRequest: 0, addRequested: false, directoryBusy: false, renameTarget: null,
   })
   return {
     state,
-    search: () => { state.set({ ...state.getSnapshot(), searchRequest: state.getSnapshot().searchRequest + 1 }) },
+    search: () => {
+      if (openSearchSurface()) return
+      state.set({ ...state.getSnapshot(), searchRequest: state.getSnapshot().searchRequest + 1 })
+    },
     add: () => { state.set(state.getSnapshot().directoryBusy ? state.getSnapshot() : { ...state.getSnapshot(), addRequested: true }) },
     closeAdd: () => { state.set({ ...state.getSnapshot(), addRequested: false }) },
     directoryBusy: (busy: boolean) => { state.set({ ...state.getSnapshot(), directoryBusy: busy }) },
@@ -97,22 +101,26 @@ export function installWorkspaceShortcuts(
     const target = current()
     if (target === undefined) return { status: 'blocked', reason: t('shortcut.noSession') }
     if (target.blank) return { status: 'blocked', reason: t('shortcut.noCompletedTurn') }
-    return { status: 'handled', run: () => {
-      // The main view owns history opening for this target.
-      void navigation.forkSession(target.id).catch((error: unknown) => {
-        // Client plugin bundles do not share error-class identity.
-        const unavailable = error instanceof Error && error.name === 'SessionForkError'
-          && (error as SessionForkError).rpcError.code === 'session/fork-unavailable'
-        reportForkFailure(unavailable ? 'unavailable' : 'failed')
-        if (!unavailable) console.warn('session fork rejected:', error)
-      })
-    } }
+    return {
+      status: 'handled', run: () => {
+        // The main view owns history opening for this target.
+        void navigation.forkSession(target.id).catch((error: unknown) => {
+          // Client plugin bundles do not share error-class identity.
+          const unavailable = error instanceof Error && error.name === 'SessionForkError'
+            && (error as SessionForkError).rpcError.code === 'session/fork-unavailable'
+          reportForkFailure(unavailable ? 'unavailable' : 'failed')
+          if (!unavailable) console.warn('session fork rejected:', error)
+        })
+      }
+    }
   })
   register('session.archive', () => t('menu.archiveSession'), ['archive session'], 'KeyA', ['primary', 'shift'], ['primary', 'alt'], () => {
     const target = current()
     return target === undefined ? { status: 'blocked', reason: t('shortcut.noSession') }
-      : { status: 'handled', run: () => {
-        archiveSession(target.id)
-      } }
+      : {
+        status: 'handled', run: () => {
+          archiveSession(target.id)
+        }
+      }
   })
 }

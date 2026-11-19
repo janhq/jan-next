@@ -1,0 +1,59 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 104px;
+  padding: 16px;
+  border: 0.5px solid var(--dsw-alias-border-primary, var(--dsw-alias-separator));
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-primary, transparent);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .card:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
+}
+
+.card:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 22px;
+}
+
+.title > svg {
+  flex: none;
+  color: var(--dsw-alias-label-secondary);
+}
+
+/* rtl clips from the left so the folder name at the end stays visible. */
+.path {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+}
+
+.meta {
+  margin-top: auto;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+}

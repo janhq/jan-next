@@ -76,6 +76,7 @@
     { "path": "./packages/core/tool-executor-ptc" },
     { "path": "./packages/client/ui-settings-account" },
     { "path": "./packages/client/ui-settings-local-model" },
+    { "path": "./packages/client/ui-settings-model-policy" },
     // Shared leaf: web e2e boots the real host webserver (fixture + real-host
     // smoke policy). webserver has zero workspace deps and no cordis merge,
     // so it cannot drag host-side Context augmentation into this program.
@@ -110,6 +111,7 @@
     { "path": "./packages/test-support/tool-testkit" },
     { "path": "./packages/client/shortcuts/tsconfig.client.json" },
     { "path": "./packages/client/ui-shortcuts" },
+    { "path": "./packages/client/ui-guidance" },
     { "path": "./packages/client/ui-context-menu" },
     { "path": "./packages/client/ui-file-actions" },
     { "path": "./packages/client/ui-layout" },
@@ -161,6 +163,7 @@
     { "path": "./packages/client/ui-settings-general/tsconfig.client.json" },
     { "path": "./packages/client/ui-settings-models" },
     { "path": "./packages/client/ui-plugin-manager/tsconfig.client.json" },
+    { "path": "./packages/client/ui-plugin-i18n" },
     { "path": "./packages/client/ui-plugin-market" },
     { "path": "./packages/client/ui-settings-plugin-inventory" },
     { "path": "./packages/client/locale/tsconfig.client.json" },

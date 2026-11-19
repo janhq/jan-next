@@ -9,7 +9,7 @@
  */
 
 import { brandString } from '@janhq/jan-brand'
-import { CONTEXT_WINDOW_EXCEEDED_CODE, EMPTY_RESPONSE_CODE, isContextWindowExceededError, isQuotaExceededError, LlmError, QUOTA_EXCEEDED_CODE } from '@janhq/jan-llm'
+import { CONTENT_REFUSED_CODE, CONTEXT_WINDOW_EXCEEDED_CODE, EMPTY_RESPONSE_CODE, isContextWindowExceededError, isQuotaExceededError, LlmError, QUOTA_EXCEEDED_CODE } from '@janhq/jan-llm'
 import type { FinishReason, StreamChunk, TokenUsage, ToolCallId } from '@janhq/jan-llm'
 import { isContextOverflow } from '@earendil-works/pi-ai/utils/overflow'
 import type { AssistantMessage, AssistantMessageEvent, Usage as PiUsage } from '@earendil-works/pi-ai'
@@ -40,6 +40,10 @@ export function mapUsage(usage: PiUsage): TokenUsage {
 // If pi-ai ever forwards the original Error (or a fetch/dispatcher hook that lets
 // us capture the cause ourselves), classify on `code`/`cause` instead of text.
 function classifyPiAiError(message: string): string {
+  // pi-ai turns a refusal stop, an OpenAI content filter and a "sensitive"
+  // stop into error stops with these wordings; gateways prefix their own.
+  // "refused to" keeps a transport "connection refused" out.
+  if (/\brefusal\b|\brefused to\b|content_filter|stopped with: sensitive/i.test(message)) return CONTENT_REFUSED_CODE
   if (/\b(?:401|403)\b/.test(message)) return 'AUTH'
   if (isQuotaExceededError(message)) return QUOTA_EXCEEDED_CODE
   if (/\b429\b|rate.?limit/i.test(message)) return 'RATE_LIMIT'

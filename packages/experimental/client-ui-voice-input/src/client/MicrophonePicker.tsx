@@ -1,5 +1,6 @@
 /** Device selection owns microphone previews while its page is active. */
 import { useEffect, useRef, useState } from 'react'
+import { Button } from '@janhq/jan-client-ui-primitives'
 import type { InjectFace, PropsLocale } from '@janhq/jan-client-ui-slots'
 import type { VoiceInputInjected } from './VoiceInput.tsx'
 import { RecordingError, type Recording } from './audio.ts'
@@ -37,6 +38,7 @@ export function MicrophonePicker({ useMicrophoneDevice, selectMicrophone, create
     { id: selected.id, label: selected.id === '' ? '' : selected.label },
   ])
   const [preview, setPreview] = useState<Recording>(), [error, setError] = useState<{ failure: unknown }>()
+  const [previewEnabled, setPreviewEnabled] = useState(false)
   useEffect(() => {
     const media = (navigator as Partial<Navigator>).mediaDevices
     const lifetime = new AbortController()
@@ -45,7 +47,8 @@ export function MicrophonePicker({ useMicrophoneDevice, selectMicrophone, create
       if (capture) void capture.dispose().catch(() => undefined)
       capture = undefined
     }
-    setPreview(undefined); setError(undefined)
+    setPreview(undefined)
+    setError(undefined)
     const fail = (failure: unknown): void => {
       if (lifetime.signal.aborted) return
       setError({ failure })
@@ -65,7 +68,7 @@ export function MicrophonePicker({ useMicrophoneDevice, selectMicrophone, create
         void refresh()
       } catch (failure) {
         if (capture !== recording || lifetime.signal.aborted) return
-        release(); setPreview(undefined); fail(failure)
+        release(); setPreview(undefined); setPreviewEnabled(false); fail(failure)
       }
     }
     const refresh = async (): Promise<void> => {
@@ -98,7 +101,7 @@ export function MicrophonePicker({ useMicrophoneDevice, selectMicrophone, create
           return next
         })
         if (missing) { release(); setPreview(undefined); setError(undefined) }
-        else if (!document.hidden && !capture) void acquire()
+        else if (previewEnabled && !document.hidden && !capture) void acquire()
       } catch (failure) { if (request === enumeration) fail(failure) }
     }
     const changed = (): void => { void refresh() }
@@ -113,7 +116,7 @@ export function MicrophonePicker({ useMicrophoneDevice, selectMicrophone, create
       lifetime.abort()
       release()
     }
-  }, [selected.id, createRecording])
+  }, [selected.id, createRecording, previewEnabled])
   const choices = devices.filter(device => !device.unavailable || device.id === selected.id || device.id === '')
   const missing = choices.find(device => device.id === selected.id)?.unavailable
   const deviceName = (device: MicrophoneDevice, index: number): string => {
@@ -135,6 +138,13 @@ export function MicrophonePicker({ useMicrophoneDevice, selectMicrophone, create
       </select>
       {preview && !missing && <span className={css.deviceMeter}><InputLevel recording={preview} label={t('inputLevel')} /></span>}
     </span>
+    <div className={css.deviceConsent}>
+      <p>{t('previewPrivacy')}</p>
+      <Button type="button" variant="outline" size="sm" aria-pressed={previewEnabled}
+        onClick={() => { setPreviewEnabled(value => !value) }}>
+        {t(previewEnabled ? 'stopPreview' : 'startPreview')}
+      </Button>
+    </div>
     {error && <span className={css.deviceError} role="alert">{failureText(error.failure, t)}</span>}
   </div>
 }

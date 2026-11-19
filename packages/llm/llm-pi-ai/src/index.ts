@@ -67,7 +67,7 @@ import type {} from '@janhq/jan-fs'
 import type {} from '@janhq/jan-agent-default-model'
 import type { LlmDiscoveredModel } from '@janhq/jan-llm'
 import { deepEqualJson } from '@janhq/jan-util-values'
-import { PiAiAdapter } from './adapter.ts'
+import { PiAiAdapter, type PiAiPromptProgress } from './adapter.ts'
 import { authContextFrom, credentialStoreFrom } from './auth.ts'
 import { catalogProvider, catalogProviderIds } from './catalog.ts'
 import { assertServiceable, Config, resolveProfiles, servedListing } from './config.ts'
@@ -82,7 +82,7 @@ import { providerDefaultsOf } from './provider-data.ts'
 import type { PiAiRequestHeaderContext } from './types.ts'
 
 export { PiAiAdapter } from './adapter.ts'
-export type { PiAiAdapterOptions } from './adapter.ts'
+export type { PiAiAdapterOptions, PiAiPromptProgress } from './adapter.ts'
 export type { PiAiRequestHeaderContext } from './types.ts'
 export { Config } from './config.ts'
 export type {
@@ -120,6 +120,14 @@ declare module '@janhq/cordis' {
      * @returns headers passed to pi-ai after Harness attribution is applied.
      */
     'llm-pi-ai/request-headers'(request: PiAiRequestHeaderContext, headers: Headers, next: () => Headers): Headers
+    /**
+     * Prompt-processing progress of one call on a route whose profile sets `promptProgress`,
+     * emitted as the server reports it (llama.cpp sends one per batch). A call that ends before
+     * its prompt is read reports it read, so observers can drop the progress. Transient: not logged.
+     * @mode emit
+     * @param progress - the call's route, prompt tokens read so far, and prompt total.
+     */
+    'llm-pi-ai/prompt-progress'(progress: PiAiPromptProgress): void
   }
 }
 
@@ -434,6 +442,7 @@ export function apply(ctx: Context, config: Config): void {
         + ` sending that message as provider-neutral content (${reason})`,
       )
     },
+    onPromptProgress: (progress) => { ctx.emit('llm-pi-ai/prompt-progress', progress) },
   })
   // Independent of the route set: signing in is what makes a route worth
   // adding, so the flows are offered before any profile names their provider.

@@ -45,6 +45,9 @@
       "path": "../ui-input-trigger"
     },
     {
+      "path": "../ui-settings-general/tsconfig.client.json"
+    },
+    {
       "path": "../ui-slots"
     },
     {
@@ -58,6 +61,9 @@
     },
     {
       "path": "../product-analytics/tsconfig.client.json"
+    },
+    {
+      "path": "../../llm/token-meter"
     }
   ]
 }

@@ -891,6 +891,8 @@ export interface StoredEntry {
   locale?: string | undefined
   /** Diagnostics label of who registered. */
   registrant?: string | undefined
+  /** npm package of the plugin that registered the entry, when its Loader entry names one. */
+  owner?: string | undefined
 }
 
 /**
@@ -927,6 +929,7 @@ interface ErasedOptions {
    * against the per-declaration InjectParams tuples. */
   inject?: ((...args: any) => Record<string, unknown>) | undefined
   registrant?: string | undefined
+  owner?: string | undefined
 }
 
 /**
@@ -1312,6 +1315,7 @@ export class SlotCore {
       ...(options.store !== undefined ? { store: options.store } : {}),
       ...(options.locale !== undefined ? { locale: options.locale } : {}),
       ...(options.registrant !== undefined ? { registrant: options.registrant } : {}),
+      ...(options.owner !== undefined ? { owner: options.owner } : {}),
     }
     const next = [...rec.entries, entry]
     // Stable sorts: priority ascending for every kind, ties keep registration

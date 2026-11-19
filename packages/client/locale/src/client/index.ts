@@ -61,6 +61,28 @@ export interface LanguageRegistration {
   fallback: LocaleId
 }
 
+/** One machine-generated translation with the exact source text it translated. */
+export interface GeneratedEntry {
+  /** The plugin's own text at generation time; the translation applies only while the plugin still supplies it. */
+  readonly src: string
+  /** The translation, in the template syntax of the source. */
+  readonly text: string
+}
+
+/** Generated translations of one namespace and locale. */
+export interface GeneratedTable {
+  /** Locale of the plugin's own table whose text `src` repeats. */
+  readonly from: string
+  /** Entries by dictionary key. */
+  readonly entries: Readonly<Record<string, GeneratedEntry>>
+}
+
+/** One namespace the plugins registered and the locales their own tables cover. */
+export interface RegisteredNamespace {
+  readonly ns: string
+  readonly locales: readonly string[]
+}
+
 /** One normalized selectable locale published in snapshots. */
 export interface LocaleDefinition {
   /** Stable id persisted by {@link LocaleRuntime.setLocale}. */
@@ -165,6 +187,8 @@ function syncDocumentLanguage(snapshot: LocaleSnapshot): void {
  */
 export class LocaleRuntime {
   private dicts = new Map<string, Map<string, LocaleDict>>()
+  /** Lowest-priority layer: generated tables never collide with {@link register} and never shadow a registered string. */
+  private generated = new Map<string, Map<string, GeneratedTable>>()
   private bound = new Map<string, Translate>()
   private catalog = new Map<string, LocaleDefinition>()
   private fallbackChains = new Map<string, readonly LocaleId[]>()
@@ -467,6 +491,54 @@ export class LocaleRuntime {
     return t
   }
 
+  /**
+   * List the namespaces registered through {@link register} and the locales each covers. Generated tables are not listed.
+   * @returns one row per namespace with at least one registered locale.
+   */
+  namespaces(): readonly RegisteredNamespace[] {
+    return [...this.dicts].flatMap(([ns, locales]) => locales.size === 0 ? [] : [{ ns, locales: [...locales.keys()] }])
+  }
+
+  /**
+   * Read one registered dictionary.
+   * @param ns - namespace.
+   * @param locale - locale tag, compared case-insensitively.
+   * @returns the registered dictionary, or undefined when the namespace has none for that locale.
+   */
+  dictionary(ns: string, locale: string): Readonly<LocaleDict> | undefined {
+    return this.dicts.get(ns)?.get(localeKey(locale))
+  }
+
+  /**
+   * Register generated translations for a namespace and locale in the lowest-priority layer. Lookup consults a
+   * generated entry only where the registered dictionaries of that locale lack the key, and only while the
+   * registered `from` dictionary still holds the entry's source text. A table registered for the same namespace and
+   * locale replaces the earlier generated one. Registration order against {@link register} does not matter, and the
+   * two never collide.
+   * @param ns - namespace the plugin registered.
+   * @param locale - locale the translations are in.
+   * @param table - source locale and entries.
+   * @returns idempotent disposer removing exactly this table.
+   * @throws when `locale` is not a BCP 47-style tag.
+   */
+  registerGenerated(ns: string, locale: string, table: GeneratedTable): () => void {
+    if (!LOCALE_ID_PATTERN.test(locale)) throw new Error(`locale id "${locale}" is not a BCP 47-style tag`)
+    let locales = this.generated.get(ns)
+    if (locales === undefined) {
+      locales = new Map()
+      this.generated.set(ns, locales)
+    }
+    const key = localeKey(locale)
+    locales.set(key, table)
+    this.publish(this.snapshot.active, false)
+    return () => {
+      const owner = this.generated.get(ns)
+      if (owner?.get(key) !== table) return
+      owner.delete(key)
+      this.publish(this.snapshot.active, false)
+    }
+  }
+
   private translate(ns: string, key: string, params?: Record<string, unknown>): string {
     const chain = this.fallbackChain(this.snapshot.active)
     const template = this.lookup(ns, key, chain)
@@ -480,8 +552,14 @@ export class LocaleRuntime {
   private lookup(ns: string, key: string, chain: readonly LocaleId[]): string | undefined {
     const locales = this.dicts.get(ns)
     for (const locale of chain) {
-      const value = locales?.get(localeKey(locale))?.[key]
+      const id = localeKey(locale)
+      const value = locales?.get(id)?.[key]
       if (value !== undefined) return value
+      const generated = this.generated.get(ns)?.get(id)
+      const entry = generated?.entries[key]
+      if (generated !== undefined && entry !== undefined && locales?.get(localeKey(generated.from))?.[key] === entry.src) {
+        return entry.text
+      }
     }
     return undefined
   }

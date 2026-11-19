@@ -28,6 +28,7 @@ import type { EntryOptions } from '@janhq/cordis-plugin-loader'
 import { applyEntryPatches, type PatchOptions } from '@janhq/cordis-plugin-include'
 import { resolveJanHome } from '@janhq/jan-home-paths'
 import type { JanBundleManifest, JanPackageManifest } from '@janhq/jan-package-manifest'
+import { janDeclaration } from '@janhq/jan-package-manifest'
 import { INSTALLATION_OWNED_PROFILE_TUPLES, PROFILE_TEMPLATES, RETIRED_BUNDLES } from '@janhq/jan-official-bundles'
 import { assertBundlePlatform } from './bundle-platform.ts'
 import { evaluatePluginCompatibility, pluginCompatibilityWarning } from './plugin-compatibility.ts'
@@ -41,8 +42,11 @@ export const PROFILES_DIR = 'profiles'
 /** The user patch layer inside a profile directory (hot-reloaded on long-lived surfaces). */
 export const PROFILE_PATCH_FILENAME = 'cordis.patch.yml'
 
+/** Records that the desktop profile has been checked for its former Web-only default. */
+const DESKTOP_BUNDLE_MIGRATION_FILENAME = '.desktop-bundle-migration'
+
 /** Package metadata accepted by the profile reader; local profiles need no published identity. */
-export type ProfileManifest = Partial<JanPackageManifest>
+export type ProfileManifest = Partial<JanPackageManifest> & { dsh?: JanPackageManifest['jan'] }
 
 /**
  * The patch files a bundle declares, as written: one file for a string
@@ -558,7 +562,7 @@ export function readProfileManifest(binName: string, dir: string): ProfileManife
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
     throw new Error(`${binName}: profile manifest ${path} must hold a JSON object`)
   }
-  return parsed
+  return parsed.jan !== undefined || parsed.dsh?.bundle === undefined ? parsed : { ...parsed, jan: parsed.dsh }
 }
 
 /**
@@ -592,17 +596,26 @@ function withBundles(manifest: ProfileManifest, bundles: readonly string[]): Pro
 /**
  * Normalize an exact installation-owned bundle tuple to its shipped template,
  * preserving all other manifest fields. Other bundle lists remain untouched.
+ * Desktop checks once per profile so subsequent bundle selections are left alone.
+ * @param name - profile name, keyed into the shipped templates.
+ * @param dir - profile directory the manifest was read from.
+ * @param manifest - profile manifest as read from disk.
+ * @returns the manifest with the shipped bundle list, or the input unchanged.
  */
-function normalizeShippedProfile(name: string, dir: string, manifest: ProfileManifest): ProfileManifest {
+export function normalizeShippedProfile(name: string, dir: string, manifest: ProfileManifest): ProfileManifest {
   const installationOwned = INSTALLATION_OWNED_PROFILE_TUPLES[name]
   const template = PROFILE_TEMPLATES[name]
   const bundles = manifest.jan?.profile?.bundles
-  if (template === undefined || bundles === undefined) return manifest
-  const isRetiredTuple = installationOwned !== undefined && sameBundles(bundles, installationOwned)
-  if (!isRetiredTuple) return manifest
-  const normalized = withBundles(manifest, template.bundles)
-  writeProfileManifest(dir, normalized)
-  return normalized
+  if (template === undefined || installationOwned === undefined) return manifest
+  const marker = name === 'desktop' ? join(dir, DESKTOP_BUNDLE_MIGRATION_FILENAME) : undefined
+  if (marker !== undefined && existsSync(marker)) return manifest
+  if (bundles !== undefined && sameBundles(bundles, installationOwned)) {
+    manifest = withBundles(manifest, template.bundles)
+    writeProfileManifest(dir, manifest)
+  }
+  // Record completion even for fresh or customized profiles, after any manifest write succeeds.
+  if (marker !== undefined) writeFileSync(marker, '', { flag: 'a', mode: 0o600 })
+  return manifest
 }
 
 /**
@@ -690,7 +703,7 @@ export function loadProfileDirectory(
     try {
       const packageDir = resolveBundleDir(binName, packageName, installAnchor, dir)
       const bundleManifest = readProfileManifest(binName, packageDir)
-      const bundle = bundleManifest.jan?.bundle
+      const bundle = janDeclaration(bundleManifest)?.bundle
       if (bundle === undefined) {
         throw new Error(`${binName}: profile bundle ${JSON.stringify(packageName)} declares no jan.bundle in its package.json`)
       }

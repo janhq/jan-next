@@ -10,9 +10,9 @@ import { isAppendSurfaceEvent } from '@janhq/jan-session/surface'
 import type { TurnTailOwnerProps } from '@janhq/jan-client-ui-chat/client'
 import type { ConversationNodeDefinition } from '@janhq/jan-client-ui-conversation/client'
 import type { MarkdownFileMentions } from '@janhq/jan-client-ui-primitives'
-import type { PresentedFile } from '@janhq/jan-tool-present/types'
+import { isPresentedFile, type PresentedFile } from '@janhq/jan-tool-present/types'
 import { isChangesEvent } from '../changes.ts'
-import { basename, isPresentedData, isPresentedFile } from '../presented.ts'
+import { basename, isPresentedData } from '../presented.ts'
 
 /** A declared file with its authorized open coordinates. */
 export interface PresentedPath extends PresentedFile {

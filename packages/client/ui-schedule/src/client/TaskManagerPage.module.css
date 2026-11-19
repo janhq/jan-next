@@ -12,11 +12,29 @@
 }
 
 .listPane {
+  position: relative;
   display: flex;
   flex: 1;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+}
+
+/* An 8px hit strip centered on the detail's left border, like the app frame's column handles. */
+.detailHandle {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  bottom: 0;
+  width: 8px;
+  z-index: 2;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.detailHandle:focus-visible {
+  outline: 2px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: -3px;
 }
 
 /* The mock's `.page-scroll` with `.automation-content` inside it: the content
@@ -186,6 +204,88 @@
 .filterTabActive {
   background: var(--dsw-alias-interactive-bg-hover);
   color: var(--dsw-alias-label-primary);
+}
+
+.viewTabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+/* Two columns of starter tasks; one column once the list pane is narrow. */
+.templateGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 4px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.templateCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 8px;
+  border: 0;
+  border-radius: var(--dsw-radius-md);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .templateCard:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
+}
+
+.templateCard:focus-visible {
+  outline: 2px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: -2px;
+}
+
+.templateGlyph {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--dsw-radius-sm);
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-secondary);
+}
+
+.templateDescription {
+  display: block;
+  margin-top: 2px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.templateSchedule {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 4px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+/* Keep the clock full size and on the first line when the schedule wraps. */
+.templateSchedule > svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.lastRunFailed {
+  color: var(--dsw-alias-state-error-primary);
 }
 
 /* The mock's `.searchbox`: the 40px field on the mock's 4px/12px inset, the
@@ -476,19 +576,9 @@
   font-weight: 400;
 }
 
-/* The mock's `.empty .icon`: the leading glyph keeps its 24px box from the
-   render and takes the mock's 12px below, one ink step lighter than the box. */
 .emptyGlyph {
   margin-bottom: 12px;
   color: var(--dsw-alias-label-caption);
-}
-
-.emptyIllustration {
-  flex: none;
-  width: 110px;
-  max-width: 100%;
-  height: auto;
-  margin-bottom: 12px;
 }
 
 /* The mock's `.empty h3 + .btn`: the empty state's action keeps the mock's 16px
@@ -503,7 +593,7 @@
   --detail-gutter: 24px;
   position: relative;
   display: flex;
-  flex: 0 0 47%;
+  flex: 0 0 var(--task-detail-width, 47%);
   flex-direction: column;
   min-width: 0;
   min-height: 0;

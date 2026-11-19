@@ -97,6 +97,36 @@ interface ErasedRegisterOptions {
   /** Declared dictionary namespace (the renderer synthesizes the `t` seat from it). */
   locale?: string
   registrant?: string
+  /** npm package of the registering plugin; stamped from the caller's Loader entry. */
+  owner?: string
+}
+
+/** The part of a Cordis fiber that names the Loader entry it runs; the Loader merges `entry` onto `Fiber`. */
+interface EntryFiber {
+  readonly entry?: { readonly options: { readonly name: string } } | undefined
+  readonly parent?: { readonly fiber?: EntryFiber | undefined } | undefined
+}
+
+/**
+ * Name the npm package of the plugin a fiber belongs to: the module specifier of its Loader entry, which the
+ * entry's root fiber and its children share.
+ * @param fiber - the registering caller's fiber.
+ * @returns the package name, or undefined for a fiber outside any Loader entry or a relative or builtin specifier.
+ */
+function owningPackage(fiber: unknown): string | undefined {
+  let current = fiber as EntryFiber | undefined
+  while (current !== undefined) {
+    const name = current.entry?.options.name
+    if (name !== undefined) {
+      if (/^(?:\.|\/|[a-z]+:)/i.test(name)) return undefined
+      const parts = name.split('/')
+      return name.startsWith('@') ? parts.slice(0, 2).join('/') : parts[0]
+    }
+    // The root fiber is its own parent.
+    const parent = current.parent?.fiber
+    current = parent === current ? undefined : parent
+  }
+  return undefined
 }
 
 interface ErasedFactoryOptions {
@@ -479,10 +509,12 @@ export class SlotRegistry extends Service {
     // core's shared-handle scope pinning applies to it harmlessly).
     const store = typeof options.store === 'function' ? options.store() : options.store
     const registrant = options.registrant ?? (this.ctx.fiber as { name?: string } | undefined)?.name
+    const owner = owningPackage(this.ctx.fiber)
     const erased: ErasedRegisterOptions = {
       ...options,
       ...(store !== undefined ? { store } : {}),
       ...(registrant !== undefined ? { registrant } : {}),
+      ...(owner !== undefined ? { owner } : {}),
     }
     // Core write first: all load-time validation (undeclared target,
     // duplicate declaration, kind conflicts, cross-scope handle) throws

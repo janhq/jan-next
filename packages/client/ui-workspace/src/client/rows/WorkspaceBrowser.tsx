@@ -40,6 +40,7 @@ import {
 import { ProjectRowItem, SearchResultItem, SessionNodeItem } from './Rows.tsx'
 import { FLAT_SESSION_ORDER_KEY, type SessionGroupBy } from '../stores.ts'
 import { WorkspacePickFlow } from '../WorkspacePicker.tsx'
+import { FolderDrop } from './FolderDrop.tsx'
 import css from './WorkspaceBrowser.module.css'
 
 /**
@@ -253,7 +254,7 @@ function workspaceGroupHalf(e: { clientY: number; currentTarget: HTMLElement }):
 type SessionTreeProps = Pick<
   WorkspaceBrowserProps,
   'useSessionStatus' | 'startSession' | 'open' | 'renderFactorySlot' | 'useContextMenuTarget' | 'useContextMenu'
-  | 'insertWorkspaceBefore' | 't' | 'usePanelInfo'
+  | 'insertWorkspaceBefore' | 't' | 'usePanelInfo' | 'openProject'
   | 'useRemoteAccess' | 'useSessionAccess' | 'useWorkspaceAccess'
 > & PropsRenderSlots<
   | 'sidebar.workspaces.session.row.action'
@@ -292,6 +293,8 @@ type SessionTreeProps = Pick<
   revealSessionId?: SessionId | undefined
   /** Acknowledge that the chosen Session row has been revealed. */
   onSessionRevealed: (sessionId: SessionId) => void
+  /** A project surface takes Workspace row clicks; the chevron then expands and collapses. */
+  projectSurface: boolean
 }
 
 /** The list-empty placeholder — a glyph over the text; the archived-only view names its filter and offers the way back. */
@@ -320,7 +323,7 @@ function SessionTree({
   insertWorkspaceBefore,
   nestWorkspaces, groupExpansion, setGroupExpanded,
   setSessionOrder, home, t,
-  revealSessionId, onSessionRevealed, shortcuts,
+  revealSessionId, onSessionRevealed, shortcuts, openProject, projectSurface,
 }: SessionTreeProps) {
   const panelActive = usePanelInfo(info => info.activePanelId !== null)
   const statuses = useSessionStatus(s => s)
@@ -512,9 +515,9 @@ function SessionTree({
         commitWorkspaceDrag(workspaceDrag, { id: workspaceId, half })
       }
     return (
-    // Group section: header, descendant Workspaces, and own Session rows. The
-    // inter-group breathing room is the section's own margin
-    // (WorkspaceBrowser.module.css).
+      // Group section: header, descendant Workspaces, and own Session rows. The
+      // inter-group breathing room is the section's own margin
+      // (WorkspaceBrowser.module.css).
       <div
         key={group.key}
         style={{ '--jan-workspace-indent': `${depth * 12}px` } as CSSProperties}
@@ -564,6 +567,9 @@ function SessionTree({
             if (group.expanded) dropWatermarks(key => withinGroup(key, group.key))
             setGroupExpanded(group.key, !group.expanded)
           }}
+          onOpenProject={projectSurface && group.workspaceId !== undefined
+            ? (() => { const id = group.workspaceId; return () => { openProject(id) } })()
+            : undefined}
           onCreate={() => {
             if (group.workspaceId !== undefined) {
               setGroupExpanded(group.key, true)
@@ -578,8 +584,8 @@ function SessionTree({
           </div>
         )}
         {sessions.map((node) => {
-        // Session drag never leaves its browser-local account, and pinned
-        // rows reorder only within their leading pinned block.
+          // Session drag never leaves its browser-local account, and pinned
+          // rows reorder only within their leading pinned block.
           const sameGroupDrag = drag !== null && drag.accountKey === group.key
           const compatibleTarget = sameGroupDrag && drag.pinned === node.pinned
           const normalizeHalf = (half: 'before' | 'after'): 'before' | 'after' =>
@@ -592,13 +598,13 @@ function SessionTree({
             active: compatibleTarget,
             marker: sameGroupDrag && drag.over?.id === node.id ? drag.over.half : null,
             hover: (half: 'before' | 'after') => {
-            /* v8 ignore next -- narrowing guard: Rows gates hover on `active`, which is false while the drag state is null. */
+              /* v8 ignore next -- narrowing guard: Rows gates hover on `active`, which is false while the drag state is null. */
               setDrag(d => (d === null ? d : {
                 ...d, over: { id: node.id, half: normalizeHalf(half) },
               }))
             },
             drop: (half: 'before' | 'after') => {
-            /* v8 ignore next -- narrowing guard: Rows gates drop on `active`, which is false while the drag state is null. */
+              /* v8 ignore next -- narrowing guard: Rows gates drop on `active`, which is false while the drag state is null. */
               if (drag === null) return
               commitSessionDrag(drag, { id: node.id, half: normalizeHalf(half) })
             },
@@ -896,6 +902,7 @@ function SearchResults({
 export function WorkspaceBrowser({
   wide,
   usePanelInfo,
+  usePrimaryActions, addWorkspaceButtonRef,
   expandSidebar,
   useSectionScroller,
   useSessions,
@@ -915,6 +922,7 @@ export function WorkspaceBrowser({
   insertWorkspaceBefore,
   unarchiveSession,
   createWorkspace,
+  notifyFolderDrop,
   searchSessions,
   searchResultLimit,
   useDirectoryFlow,
@@ -925,10 +933,13 @@ export function WorkspaceBrowser({
   requestAddWorkspace,
   closeAddWorkspace,
   setDirectoryBusy,
+  openProject,
+  useProjectSurface,
   renderSlot, renderFactorySlot, useContextMenuTarget, useContextMenu,
   t,
 }: WorkspaceBrowserProps) {
   const home = useHostInfo(info => info.home)
+  const projectSurface = useProjectSurface(present => present)
   const shortcuts = useShortcuts(rows => rows)
   const searchShortcut = shortcuts.find(row => row.id === 'session.search')
   const addShortcut = shortcuts.find(row => row.id === 'workspace.add')
@@ -1103,6 +1114,7 @@ export function WorkspaceBrowser({
     hasMore: false,
   })
   const searchRoot = useRef<HTMLDivElement | null>(null)
+  const browserRoot = useRef<HTMLDivElement | null>(null)
   const searchInput = useRef<HTMLInputElement | null>(null)
   // The list area is this section's own vertical scroller; the sidebar hands wheel
   // scrolling over its viewport to it once the navigation has moved away.
@@ -1113,7 +1125,8 @@ export function WorkspaceBrowser({
   // Section-header ＋ opens the picker menu (same popover in wide and rail
   // states; the menu anchors on this button).
   const wsPickerOpen = shortcutState.addRequested
-  const wsPlusRef = useRef<HTMLButtonElement>(null)
+  const wsPlusRef = addWorkspaceButtonRef
+  const primaryActions = usePrimaryActions(value => value)
   const workspaceActionRequest = useWorkspaceActionRequest(value => value)
 
   const openSearchResult = (sessionId: SessionId): void => {
@@ -1219,125 +1232,137 @@ export function WorkspaceBrowser({
       console.warn('session unarchive rejected:', reason)
     })
   }
+  const search = (<div className={clsx(css.searchSlot, searchExpanded && css.searchSlotExpanded)}>
+    <div
+      ref={searchRoot}
+      className={clsx(css.search, searchExpanded && css.searchExpanded)}
+      onClick={() => {
+        closeAddWorkspace()
+        changeSearchExpanded(true)
+        focusSearch()
+      }}
+    >
+      <Tooltip label={t('search')} shortcutKeys={searchShortcut?.keys} side="bottom" delayMs={500} disabled={searchExpanded} portal>
+        <button
+          type="button"
+          className={css.searchButton}
+          aria-label={t('search.sessions.aria')}
+          aria-keyshortcuts={searchShortcut?.aria}
+          aria-expanded={searchExpanded}
+        >
+          <IconSearchOutlineRegular size={searchExpanded ? 11 : 14} />
+        </button>
+      </Tooltip>
+      <input
+        ref={searchInput}
+        className={css.searchInput}
+        type="text"
+        placeholder={t('search.placeholder')}
+        maxLength={SEARCH_QUERY_MAX_CODE_UNITS}
+        value={query}
+        tabIndex={searchExpanded ? 0 : -1}
+        onChange={(e) => { setQuery(sanitizeSearchQuery(e.target.value)) }}
+        onKeyDown={(e) => {
+          if (e.key !== 'Escape') return
+          setQuery('')
+          changeSearchExpanded(false)
+        }}
+      />
+      {searchExpanded && (
+        <button
+          type="button"
+          className={css.clearButton}
+          aria-label={t('search.clear')}
+          onClick={(e) => {
+            e.stopPropagation()
+            setQuery('')
+            changeSearchExpanded(false)
+          }}
+        >
+          <IconCloseFillRegular />
+        </button>
+      )}
+    </div>
+  </div>)
+  const viewOptions = (<ViewOptionsMenu
+    groupBy={groupBy}
+    orderBy={orderBy}
+    archivedFilter={archivedFilter}
+    onGroupPick={actions.setGroupBy}
+    onOrderPick={(mode) => { actions.setOrderBy(mode, activeSessionOrders) }}
+    onArchivedFilterPick={actions.setArchivedFilter}
+    t={t}
+  />)
   return (
-    <div className={clsx(css.root, !wide && css.rail)}>
-      <div className={clsx(css.sectionHeader, wide && searchSpacingMotionEnabled && css.searchSpacingMotion)} data-sidebar-workspace-header="">
-        {wide && (
-          <span className={clsx(css.sectionLabel, css.wide, searchExpanded && css.sectionLabelHidden)}>
-            {groupBy === 'flat' ? t('section.sessions') : t('section.workspaces')}
-          </span>
-        )}
-        {wide && (
-          <div className={clsx(css.searchSlot, searchExpanded && css.searchSlotExpanded)}>
-            <div
-              ref={searchRoot}
-              className={clsx(css.search, searchExpanded && css.searchExpanded)}
-              onClick={() => {
-                closeAddWorkspace()
-                changeSearchExpanded(true)
-                focusSearch()
-              }}
-            >
-              <Tooltip label={t('search')} shortcutKeys={searchShortcut?.keys} side="bottom" delayMs={500} disabled={searchExpanded} portal>
-                <button
-                  type="button"
-                  className={css.searchButton}
-                  aria-label={t('search.sessions.aria')}
-                  aria-keyshortcuts={searchShortcut?.aria}
-                  aria-expanded={searchExpanded}
-                  onClick={() => {
-                    requestSearch()
-                  }}
-                >
-                  <IconSearchOutlineRegular size={searchExpanded ? 11 : 14} />
-                </button>
-              </Tooltip>
-              <input
-                ref={searchInput}
-                className={css.searchInput}
-                type="text"
-                placeholder={t('search.placeholder')}
-                maxLength={SEARCH_QUERY_MAX_CODE_UNITS}
-                value={query}
-                tabIndex={searchExpanded ? 0 : -1}
-                onChange={(e) => { setQuery(sanitizeSearchQuery(e.target.value)) }}
-                onKeyDown={(e) => {
-                  if (e.key !== 'Escape') return
-                  setQuery('')
-                  changeSearchExpanded(false)
-                }}
-              />
-              {searchExpanded && (
-                <button
-                  type="button"
-                  className={css.clearButton}
-                  aria-label={t('search.clear')}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setQuery('')
-                    changeSearchExpanded(false)
-                  }}
-                >
-                  <IconCloseFillRegular />
-                </button>
+    <div ref={browserRoot} className={clsx(css.root, !wide && css.rail)}>
+      <FolderDrop
+        enabled={directoryFlowAvailable}
+        anchor={browserRoot}
+        hint={t('workspace.drop.hint')}
+        createWorkspace={createWorkspace}
+        onAdded={(workspaceId) => { startSession(workspaceId, { clearPreviousDraft: false }) }}
+        notify={notifyFolderDrop}
+      />
+      {renderSlot('sidebar.workspaces.header', {
+        wide, heading: groupBy === 'flat' ? t('section.sessions') : t('section.workspaces'),
+        canAddWorkspace: directoryFlowAvailable, onSearch: requestSearch, onAddWorkspace: requestAddWorkspace,
+        addWorkspaceButtonRef: wsPlusRef, searchExpanded, search, viewOptions, primaryActions,
+      }, {
+        fallback: (
+          <div className={clsx(css.sectionHeader, wide && searchSpacingMotionEnabled && css.searchSpacingMotion)} data-sidebar-workspace-header="">
+            {wide && (
+              <span className={clsx(css.sectionLabel, css.wide, searchExpanded && css.sectionLabelHidden)}>
+                {groupBy === 'flat' ? t('section.sessions') : t('section.workspaces')}
+              </span>
+            )}
+            {wide && search}
+            <div className={clsx(css.headerActions, wide && searchExpanded && css.headerActionsHidden)}>
+              {wide && viewOptions}
+              {/* Adding is the button's one action, so a composition with no
+              picking affordance has nothing to offer here: the region hides the
+              button rather than leaving a dead one in the header. */}
+              {!primaryActions && directoryFlowAvailable && (
+                <Tooltip label={t('workspace.add')} shortcutKeys={addShortcut?.keys} side="bottom" delayMs={500} portal>
+                  <button
+                    ref={wsPlusRef}
+                    type="button"
+                    className={css.iconButton}
+                    aria-label={t('workspace.add')}
+                    aria-keyshortcuts={addShortcut?.aria}
+                    onClick={() => {
+                      requestAddWorkspace()
+                    }}
+                  >
+                    <IconProjectAddOutlineRegular size={wide ? 16 : 18} />
+                  </button>
+                </Tooltip>
               )}
             </div>
           </div>
-        )}
-        <div className={clsx(css.headerActions, wide && searchExpanded && css.headerActionsHidden)}>
-          {wide && (
-            <ViewOptionsMenu
-              groupBy={groupBy}
-              orderBy={orderBy}
-              archivedFilter={archivedFilter}
-              onGroupPick={actions.setGroupBy}
-              onOrderPick={(mode) => { actions.setOrderBy(mode, activeSessionOrders) }}
-              onArchivedFilterPick={actions.setArchivedFilter}
-              t={t}
-            />
-          )}
-          {/* Adding is the button's one action, so a composition with no
-              picking affordance has nothing to offer here: the region hides the
-              button rather than leaving a dead one in the header. */}
-          {directoryFlowAvailable && (
-            <Tooltip label={t('workspace.add')} shortcutKeys={addShortcut?.keys} side="bottom" delayMs={500} portal>
-              <button
-                ref={wsPlusRef}
-                type="button"
-                className={css.iconButton}
-                aria-label={t('workspace.add')}
-                aria-keyshortcuts={addShortcut?.aria}
-                onClick={() => {
-                  requestAddWorkspace()
-                }}
-              >
-                <IconProjectAddOutlineRegular size={wide ? 16 : 18} />
-              </button>
-            </Tooltip>
-          )}
-        </div>
-        {/* Add flow + its error dialog (same package — direct composition). */}
-        <WorkspacePickFlow
-          t={t}
-          open={wsPickerOpen}
-          anchorRef={wsPlusRef}
-          useWorkspaces={useWorkspaces}
-          createWorkspace={createWorkspace}
-          useDirectoryFlow={useDirectoryFlow}
-          renderDirectoryFlow={owner => renderSlot('sidebar.workspaces.directoryFlow', owner)}
-          addOnly
-          onBusyChange={setDirectoryBusy}
-          side="right"
-          onPick={(workspaceId) => {
-            closeAddWorkspace()
-            startSession(workspaceId, { clearPreviousDraft: false })
-          }}
-          onClose={() => { closeAddWorkspace() }}
-        />
-      </div>
+        )
+      })}
+      {/* Add flow + its error dialog (same package — direct composition). */}
+      <WorkspacePickFlow
+        t={t}
+        open={wsPickerOpen}
+        anchorRef={wsPlusRef}
+        useWorkspaces={useWorkspaces}
+        createWorkspace={createWorkspace}
+        useDirectoryFlow={useDirectoryFlow}
+        renderDirectoryFlow={owner => renderSlot('sidebar.workspaces.directoryFlow', owner)}
+        addOnly
+        onBusyChange={setDirectoryBusy}
+        side="right"
+        onPick={(workspaceId) => {
+          closeAddWorkspace()
+          startSession(workspaceId, { clearPreviousDraft: false })
+        }}
+        onClose={() => { closeAddWorkspace() }}
+      />
+
 
       {/* The collapsed rail keeps search as its own 36px control. */}
-      {!wide && <div className={css.search}>
+      {!wide && !primaryActions && <div className={css.search}>
         <Tooltip label={t('search')} shortcutKeys={searchShortcut?.keys} portal>
           <button
             type="button"
@@ -1426,6 +1451,8 @@ export function WorkspaceBrowser({
                 insertWorkspaceBefore={insertWorkspaceBefore}
                 revealSessionId={revealSessionId}
                 onSessionRevealed={acknowledgeSessionReveal}
+                openProject={openProject}
+                projectSurface={projectSurface}
                 home={home}
                 t={t}
               />

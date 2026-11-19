@@ -20,11 +20,12 @@ import { z } from 'zod'
 declare module '@janhq/jan-session/types' {
   interface SessionEventMap {
     /**
-     * The session's agent preset was chosen after creation, while the session
-     * was still blank. Log-only: it records the composition later turns ran
-     * under, so a resumed or forked session rebuilds the same one instead of
-     * the header's creation-time value. Subagent restoration reads this saved
-     * selection independently of its creator (`jan-subagent` README,
+     * The session's agent preset was chosen after creation. Log-only: it
+     * records the composition later turns ran under, so a resumed or forked
+     * session rebuilds the same one instead of the header's creation-time
+     * value. A started session may record one at a turn boundary; nothing in
+     * the conversation above it is rewritten. Subagent restoration reads this
+     * saved selection independently of its creator (`jan-subagent` README,
      * "Restoring child composition").
      */
     'agent-preset/selected': { agentPreset: string }

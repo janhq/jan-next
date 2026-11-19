@@ -80,7 +80,7 @@ function rowLabels(): string[] {
 }
 
 describe('PopupSelectView', () => {
-  it('renders provider groups and selects the same fuzzy-ranked row the user sees', async () => {
+  it('renders provider groups and selects the same filtered row the user sees', async () => {
     const alpha = { name: 'alpha', label: 'Alpha provider' }
     const beta = { name: 'beta', label: 'Beta provider' }
     const options: SelectOption[] = [
@@ -90,12 +90,12 @@ describe('PopupSelectView', () => {
       { id: 'other', label: 'Unmatched', group: { name: 'other', label: 'Other provider' } },
     ]
     const onSelect = vi.fn()
-    const { search } = await mountOpen({ searchMode: 'fuzzy-label', options: () => Promise.resolve(options), onSelect })
+    const { search } = await mountOpen({ options: () => Promise.resolve(options), onSelect })
     expect(screen.getAllByRole('group').map(group => group.querySelector('[data-menu-group-heading]')?.textContent))
       .toEqual(['Alpha provider', 'Beta provider', 'Other provider'])
     expect(rowLabels()).toEqual(['Tokamak Flash', 'Flash Lite', 'Flash Beta', 'Unmatched'])
     fireEvent.change(search, { target: { value: 'flash' } })
-    expect(rowLabels()).toEqual(['Flash Lite', 'Tokamak Flash', 'Flash Beta'])
+    expect(rowLabels()).toEqual(['Tokamak Flash', 'Flash Lite', 'Flash Beta'])
     expect(screen.queryByRole('group', { name: 'Other provider' })).toBeNull()
     expect(document.activeElement).toBe(search)
     fireEvent.keyDown(search, { key: 'ArrowUp' })

@@ -38,7 +38,12 @@
         "@janhq/jan-client-ui-sidebar-right",
         "@janhq/jan-client-ui-tool",
         "@janhq/jan-client-ui-settings",
-        "@janhq/jan-client-ui-context-menu"
+        "@janhq/jan-client-ui-context-menu",
+        "@janhq/jan-client-ui-layout",
+        "@janhq/jan-client-ui-sidebar",
+        "@janhq/jan-client-ui-workspace",
+        "@janhq/jan-api-session-controller",
+        "@janhq/jan-api-workspace-files"
       ],
       "platform": "web"
     }
@@ -82,7 +87,10 @@
     "@janhq/jan-agent": "workspace:*",
     "@janhq/jan-sandbox-policy": "workspace:*",
     "@janhq/jan-client-ui-settings": "workspace:*",
-    "@janhq/jan-client-ui-context-menu": "workspace:*"
+    "@janhq/jan-client-ui-context-menu": "workspace:*",
+    "@janhq/jan-client-ui-layout": "workspace:*",
+    "@janhq/jan-client-ui-sidebar": "workspace:*",
+    "@janhq/jan-client-ui-workspace": "workspace:*"
   },
   "files": [
     "locale/*.json",

@@ -34,6 +34,7 @@ pub struct EngineServer {
     pub port: u16,
     pub api_key: String,
     registry: Arc<Mutex<Registry>>,
+    managed_preset: Option<String>,
     /// Cross-session KV persistence, `None` only when the preset named no
     /// `slot-save-path` -- in which case llama.cpp answers the slot routes with
     /// 501 anyway. A store with a zero budget is still `Some`: the feature is
@@ -158,6 +159,7 @@ impl EngineServer {
                 port,
                 api_key,
                 registry,
+                managed_preset: None,
                 slots: None,
             },
             listener,
@@ -269,6 +271,12 @@ impl EngineServer {
             store,
             occupancy: Mutex::new(SlotOccupancy::default()),
         });
+        self
+    }
+
+    /// Allow guarded replacement of only the preset selected by the worker's launcher.
+    pub fn with_managed_preset(mut self, path: String) -> Self {
+        self.managed_preset = Some(path);
         self
     }
 
@@ -510,7 +518,19 @@ impl EngineServer {
         let Some(preset_path) = parsed.get("preset_path").and_then(|v| v.as_str()) else {
             return json_error(StatusCode::BAD_REQUEST, "preset_path is required");
         };
-        let ini = match std::fs::read_to_string(preset_path) {
+        let guarded = parsed.get("remove_if_unloaded").and_then(|v| v.as_str());
+        let replacement = if guarded.is_some() {
+            if self.managed_preset.as_deref() != Some(preset_path) {
+                return json_error(
+                    StatusCode::BAD_REQUEST,
+                    "Guarded removal requires the worker's launch preset.",
+                );
+            }
+            Some(format!("{preset_path}.remove"))
+        } else {
+            None
+        };
+        let ini = match std::fs::read_to_string(replacement.as_deref().unwrap_or(preset_path)) {
             Ok(s) => s,
             Err(e) => {
                 return json_error(
@@ -525,6 +545,27 @@ impl EngineServer {
             Err(e) => return json_error(StatusCode::BAD_REQUEST, &format!("{preset_path}: {e}")),
         };
         let mut reg = self.registry.lock().await;
+        // Keep the check and removal under the same lock as acquisition by a model request.
+        // A guarded response also lets the host detect workers without this safeguard.
+        if let Some(id) = guarded {
+            if preset.specs.contains_key(id) {
+                return json_error(
+                    StatusCode::BAD_REQUEST,
+                    "The guarded model is still in the preset.",
+                );
+            }
+            if reg.is_loaded(id) {
+                return json_error(StatusCode::CONFLICT, "This model is loaded or in use. Unload it in Settings > Models before deleting it.");
+            }
+        }
+        if let Some(replacement) = replacement {
+            if let Err(error) = std::fs::rename(replacement, preset_path) {
+                return json_error(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    &format!("Could not apply the replacement preset: {error}"),
+                );
+            }
+        }
         let models_max = parsed
             .get("models_max")
             .and_then(|v| v.as_u64())
@@ -550,6 +591,7 @@ impl EngineServer {
             "removed": outcome.removed,
             "kept": outcome.kept,
             "models_max": models_max,
+            "guarded_removal": guarded,
             "cache_pruned": pruned.len(),
         }))
     }

@@ -49,6 +49,7 @@ const operations = {
   skip: () => Promise.resolve(),
   startLocalModel: () => Promise.resolve({ phase: 'downloading', name: 'Jan v3.5 4B', totalBytes: 1 }),
   readLocalModel: () => Promise.resolve(undefined),
+  cancelLocalModel: () => Promise.resolve(undefined),
 }
 
 describe('desktop welcome window', () => {

@@ -40,6 +40,7 @@
         "@janhq/jan-client-ui-renderer",
         "@janhq/jan-client-ui-session",
         "@janhq/jan-client-ui-settings",
+        "@janhq/jan-client-ui-settings-general",
         "@janhq/jan-client-ui-sidebar-right",
         "@janhq/jan-client-ui-workspace",
         "@janhq/jan-client-ui-file-drag",
@@ -59,6 +60,7 @@
   "devDependencies": {
     "@janhq/cordis": "workspace:~",
     "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-api-llama-cpp-controller": "workspace:*",
     "@janhq/jan-api-remotes": "workspace:*",
     "@janhq/jan-api-session-controller": "workspace:*",
     "@janhq/jan-api-workspace-controller": "workspace:*",
@@ -76,6 +78,7 @@
     "@janhq/jan-client-ui-renderer": "workspace:*",
     "@janhq/jan-client-ui-session": "workspace:*",
     "@janhq/jan-client-ui-settings": "workspace:*",
+    "@janhq/jan-client-ui-settings-general": "workspace:*",
     "@janhq/jan-client-ui-sidebar-browser": "workspace:*",
     "@janhq/jan-client-ui-sidebar-documentpreview": "workspace:*",
     "@janhq/jan-client-ui-sidebar-right": "workspace:*",

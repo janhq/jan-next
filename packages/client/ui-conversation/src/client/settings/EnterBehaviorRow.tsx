@@ -1,4 +1,4 @@
-/** General Settings row for the Composer's busy-state Enter preference. */
+/** Agent loop Settings row for the Composer's busy-state Enter preference. */
 import { useState } from 'react'
 import type { SnapshotStore } from '@janhq/jan-client-store'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
@@ -19,7 +19,7 @@ export interface EnterBehaviorRowInjected {
 
 /** Full Settings-row props. */
 export type EnterBehaviorRowProps =
-  PropsRuntime<'settings.general.item'>
+  PropsRuntime<'settings.agentLoop.item'>
   & PropsLocale<'conversation'>
   & InjectFace<EnterBehaviorRowInjected>
 

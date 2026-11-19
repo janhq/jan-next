@@ -47,14 +47,15 @@ The **Refresh** button shows its tooltip after 500 ms of hovering or keyboard fo
 
 ### Installing a bundle
 
-The **Add plugin** control has a main button and a separate arrow for choosing how to add a plugin.
+The **Add plugin** control has a main button and a separate arrow for more plugin actions.
 
 | Button or menu item | Result |
 | --- | --- |
 | **Add plugin** | Opens the installation dialog with focus in its package field. |
-| Arrow: **Choose how to add a plugin** | Opens the menu of installation and plugin-contributed actions. |
+| Arrow | Opens the menu of installation, translation settings, and plugin-contributed actions. |
 | **Install a third-party plugin** | Closes the menu and opens the same dialog for a package name, Git repository, or local directory. |
 | **Let the agent create a plugin** | When [ui-agent-preset](../ui-agent-preset/README.md#use-this-package) contributes this item, closes the menu and opens Creator to author a Jan plugin. |
+| **Plugin translations...** | Opens **Settings > Built-in plugins**. Select **Translations** to choose a model, translate manually, or clear stored translations. |
 
 On first use, when pnpm uses the unconfigured official npm registry and npmmirror is offered, the Host probes both registries in parallel. The first successful HTTPS ping response selects the initial source. The dialog preserves remembered choices, manual selections, explicit manager configuration, and custom or unknown pnpm registries. An install clicked during initial probing waits for that bounded operation; a late result cannot overwrite a manual choice or reopen a closed dialog.
 
@@ -65,6 +66,10 @@ The Host sends GET requests to `https://registry.npmjs.org/-/ping` and `https://
 During preparation and download, **Cancel install** asks the Host to stop the run and waits for confirmation. Loading the bundle cannot be cancelled. Closing with ×, Escape, or the backdrop hides the dialog immediately and requests cancellation when possible. **View installation** reopens the same task with its output; another installation cannot start while its outcome is pending or unconfirmed. Confirmed cancellation returns to the spec and shows a toast; the manifest and lockfile are restored, while downloaded files can remain. A lost installation response triggers a request to recover the result; **Check installation status** and reconnect retry that request. If the Host has no active request, **Installation result unavailable** allows returning to editing after checking the plugin list. A cancellation sent before acceptance waits and retries automatically; a failed cancellation can be retried manually. Hidden tasks report their outcome through toasts without reopening the dialog.
 
 When the Host attributes a network failure or timeout to a GitHub address and offers npmmirror, the dialog says **Cannot access GitHub**, or **GitHub connection timed out** for a timeout, and offers **Use mainland China mirror** or **Cancel**. Choosing the mirror returns to an empty package-name field and remembers the selected registry without starting another installation. When the install already asks npmmirror, whether picked, typed, or named by pnpm's own configuration, the button reads **Try another way** instead and returns to the same empty field with **Install guide and examples** unfolded and the registry unchanged. Other failures retain their existing diagnostics and actions. The mirror supplies registry packages and dependencies, not the GitHub repository itself.
+
+### Translating a plugin
+
+When Jan detects an installed third-party plugin uses another language, its card and details offer translation into the current UI language. The chip names both languages when known; it shows progress while Jan translates. Choose **Show original** to clear the translation and return to the plugin's own text. Choosing **Not now** in the install dialog also hides suggestions for that plugin until Jan restarts.
 
 ### Updating a registry bundle
 
@@ -77,6 +82,8 @@ After the checks, the list toolbar says how many plugins can be updated, that al
 ### Switching a bundle
 
 A bundle's page shows its full package name under the title. Its **Source** section, after the rows, names the spec that installs it elsewhere, as `pnpm add` accepts it, or **Built in** for an official bundle the installation ships, then its current version. A bundle's switch changes its layer selection. A displayed detail document stays visible while a profile change triggers a fresh read; the result replaces it when ready. While the Host applies the change, the switch stays disabled and a spinner appears beside it; the action area permanently reserves 22px to the left of the switch. A persistent status region announces the pending change to screen readers. A profile with HMR recomposes before the operation completes; one without HMR, and a bundle a higher layer overrides, say so in a toast. A bundle the Host cannot read carries a problem tag and its reason on its page and cannot be switched on; one that provides the management components stays locked. The Host answers with error codes, which the page's dictionary words; pnpm's and the Loader's own diagnostics are shown as they are. The page excludes built-in profile bundles and the persistent-terminal bundle from cards and detail pages, regardless of activation, dependency declarations, or Host errors. Hiding a bundle preserves its Host availability and activation. The Host inventory remains complete; the Settings Plugins section's Plugin list tab inspects their plugins.
+
+A change that saves the selection but cannot apply it yet displays **Restart to apply** on its list card and detail page, with the Host restart reason, until a later change to that bundle applies or the page reloads. A failed enable request displays **Not active** with its diagnostic even if the saved switch remains On, so selection cannot be mistaken for a running plugin; a failed disable leaves the bundle running and shows only its notice. Desktop exposes restart through its application menu, not the renderer preload API; this page does not present a restart button that cannot perform a Host restart.
 
 ### Switching one row of a bundle
 

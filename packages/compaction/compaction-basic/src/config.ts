@@ -22,6 +22,38 @@ const DEFAULT_THRESHOLD_RATIO = 0.8
 /** Default verbatim-tail fraction for every routed model. */
 const DEFAULT_RETAIN_RATIO = 0.16
 
+/** Upper bound of the default headroom and summary cap. */
+const MAX_DEFAULT_HEADROOM_TOKENS = 65_536
+
+/** Smallest window share the default headroom keeps for the summary, whatever the threshold. */
+const MIN_DEFAULT_HEADROOM_RATIO = 0.1
+
+/**
+ * Default headroom, and default summary cap, for one model window when none is configured: the
+ * window's share above the threshold (at least a tenth), capped at 65,536 tokens. Scaling with the
+ * window keeps a pressure budget for every window size and leaves the threshold where the ratio puts it.
+ * @param contextWindow - adapter-declared window of the model.
+ * @param thresholdRatio - resolved pressure fraction for that model.
+ * @returns headroom in tokens.
+ */
+export function defaultHeadroomTokens(contextWindow: number, thresholdRatio: number): number {
+  return Math.min(
+    MAX_DEFAULT_HEADROOM_TOKENS,
+    Math.floor(contextWindow * Math.max(1 - thresholdRatio, MIN_DEFAULT_HEADROOM_RATIO)),
+  )
+}
+
+/**
+ * Summary cap when neither `maxTokens` nor `headroomTokens` is configured.
+ * @param contextWindow - window of the summarizing model; `undefined` when its adapter declares none.
+ * @param thresholdRatio - resolved pressure fraction of the conversation policy.
+ * @returns a positive token cap; the 65,536-token bound when the window is unknown.
+ */
+export function defaultSummaryMaxTokens(contextWindow: number | undefined, thresholdRatio: number): number {
+  if (contextWindow === undefined) return MAX_DEFAULT_HEADROOM_TOKENS
+  return Math.max(1, defaultHeadroomTokens(contextWindow, thresholdRatio))
+}
+
 /** Fields shared by top-level defaults and exact-target overrides. */
 const POLICY_CONFIG_KEYS = [
   'thresholdRatio',
@@ -72,9 +104,11 @@ export function resolveConfig(config: BasicCompactionConfig = {}): ResolvedConfi
     throw new Error('BasicCompactionConfig: auto must be a boolean')
   }
 
-  const headroomTokens = config.headroomTokens ?? 65_536
+  const headroomTokens = config.headroomTokens
   const maxTokens = config.maxTokens ?? headroomTokens
-  assertPositiveInteger('BasicCompactionConfig.maxTokens (explicit or from headroomTokens)', maxTokens)
+  if (maxTokens !== undefined) {
+    assertPositiveInteger('BasicCompactionConfig.maxTokens (explicit or from headroomTokens)', maxTokens)
+  }
   const thresholdRatio = config.thresholdRatio ?? DEFAULT_THRESHOLD_RATIO
   const retention = resolveRetention(config, { retainRatio: DEFAULT_RETAIN_RATIO })
   validateRatioRetention(thresholdRatio, retention, 'BasicCompactionConfig')
@@ -84,10 +118,13 @@ export function resolveConfig(config: BasicCompactionConfig = {}): ResolvedConfi
       && policy.headroomTokens !== undefined) {
       policy.maxTokens = policy.headroomTokens
     }
-    assertPositiveInteger(
-      `BasicCompactionConfig: modelPolicies[${index}].maxTokens (explicit or from headroomTokens)`,
-      policy.maxTokens ?? maxTokens,
-    )
+    const policyMaxTokens = policy.maxTokens ?? maxTokens
+    if (policyMaxTokens !== undefined) {
+      assertPositiveInteger(
+        `BasicCompactionConfig: modelPolicies[${index}].maxTokens (explicit or from headroomTokens)`,
+        policyMaxTokens,
+      )
+    }
     validateRatioRetention(
       policy.thresholdRatio ?? thresholdRatio,
       resolveRetention(policy, retention),
@@ -97,11 +134,11 @@ export function resolveConfig(config: BasicCompactionConfig = {}): ResolvedConfi
 
   return deepFreeze({
     thresholdRatio,
-    headroomTokens,
+    ...headroomTokens === undefined ? {} : { headroomTokens },
     ...retention,
     summarizationProvider: config.summarizationProvider ?? '',
     summarizationModel: config.summarizationModel ?? '',
-    maxTokens,
+    ...maxTokens === undefined ? {} : { maxTokens },
     compactionRetries: config.compactionRetries ?? 1,
     maxOverflowRetries: config.maxOverflowRetries ?? 1,
     modelPolicies,
@@ -125,14 +162,16 @@ export function resolveTargetPolicy(
   const inheritedRetention: ResolvedRetention = config.retainTokens === undefined
     ? { retainRatio: config.retainRatio }
     : { retainTokens: config.retainTokens }
+  const headroomTokens = override?.headroomTokens ?? config.headroomTokens
+  const maxTokens = override?.maxTokens ?? config.maxTokens
   return deepFreeze({
     target: { provider: target.provider, model: target.model },
     thresholdRatio: override?.thresholdRatio ?? config.thresholdRatio,
-    headroomTokens: override?.headroomTokens ?? config.headroomTokens,
+    ...headroomTokens === undefined ? {} : { headroomTokens },
     ...resolveRetention(override ?? {}, inheritedRetention),
     summarizationProvider: override?.summarizationProvider ?? config.summarizationProvider,
     summarizationModel: override?.summarizationModel ?? config.summarizationModel,
-    maxTokens: override?.maxTokens ?? config.maxTokens,
+    ...maxTokens === undefined ? {} : { maxTokens },
     compactionRetries: override?.compactionRetries ?? config.compactionRetries,
     maxOverflowRetries: override?.maxOverflowRetries ?? config.maxOverflowRetries,
   })
@@ -142,8 +181,9 @@ export function resolveTargetPolicy(
  * Scale one routed policy into concrete token budgets for its model capacity.
  *
  * Pressure is capped by both the window fraction and the capacity remaining
- * after the routed output reservation plus compaction headroom. Retention scales
- * the message budget before headroom is deducted.
+ * after the routed output reservation plus compaction headroom; unset headroom
+ * scales with the window. Retention scales the message budget before headroom
+ * is deducted.
  *
  * @param policy - merged policy for the exact routed target.
  * @param contextWindow - positive adapter-owned capacity for that target.
@@ -178,12 +218,13 @@ export function resolveCompactSpec(
       + "the adapter model's contextWindow above the effective request maxTokens",
     )
   }
-  const pressureBudgetTokens = messageBudgetTokens - policy.headroomTokens
+  const headroomTokens = policy.headroomTokens ?? defaultHeadroomTokens(contextWindow, policy.thresholdRatio)
+  const pressureBudgetTokens = messageBudgetTokens - headroomTokens
   if (pressureBudgetTokens <= 0) {
     throw new TargetPressureConfigError(
       targetKey,
       `compaction-basic: ${targetKey} reserves ${reservedCompletionTokens} completion tokens `
-      + `and ${policy.headroomTokens} headroom tokens of its ${contextWindow}-token context `
+      + `and ${headroomTokens} headroom tokens of its ${contextWindow}-token context `
       + 'window, leaving no pressure budget; reduce the effective request maxTokens or '
       + 'compaction headroomTokens, or configure a larger adapter model contextWindow',
     )
@@ -210,7 +251,7 @@ export function resolveCompactSpec(
     retainTokens,
     summarizationProvider: policy.summarizationProvider,
     summarizationModel: policy.summarizationModel,
-    maxTokens: policy.maxTokens,
+    maxTokens: policy.maxTokens ?? Math.max(1, headroomTokens),
     compactionRetries: policy.compactionRetries,
     maxOverflowRetries: policy.maxOverflowRetries,
   })

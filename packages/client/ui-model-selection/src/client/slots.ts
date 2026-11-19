@@ -2,7 +2,7 @@
 import type { RemoteResult } from '@janhq/jan-typert-protocol'
 import type { ModelSelection } from '@janhq/jan-api-remotes/client'
 import type { ModelCatalogModel, ModelProviderGroup } from '@janhq/jan-api-session-controller/types'
-import type { SnapshotStore } from '@janhq/jan-client-store'
+import type { SnapshotStore, ObservableSnapshot } from '@janhq/jan-client-store'
 import type { ModelDirectoryState } from './directory.ts'
 
 /** Catalog data for a model name inside the composer's existing controls. */
@@ -17,20 +17,23 @@ export interface ModelLabelOwner {
   selected: boolean
 }
 
+/** Owner share of one session option row in the model menu. */
+export interface ModelOptionsOwner {
+  /** Whether the composer currently refuses selection changes. */
+  locked: boolean
+  /** Close the menu and focus its trigger synchronously before opening another overlay. */
+  dismiss: () => void
+  /** Report a failed selection through the menu owner's persistent toast. */
+  reportFailure: (message: string) => void
+}
+
 declare module '@janhq/jan-client-ui-slots' {
   interface SlotMap {
     /** Session options appended after model and reasoning controls in the root menu. */
     'conversation.input.model.options': {
       kind: 'list'
       scope: 'session'
-      owner: {
-        /** Whether the composer currently refuses selection changes. */
-        locked: boolean
-        /** Close the menu and focus its trigger synchronously before opening another overlay. */
-        dismiss: () => void
-        /** Report a failed selection through the menu owner's persistent toast. */
-        reportFailure: (message: string) => void
-      }
+      owner: ModelOptionsOwner
     }
     /**
      * Non-interactive inline model label; selection controls remain owner-managed.
@@ -64,6 +67,10 @@ export interface ModelSelectInjected {
   directory: SnapshotStore<ModelDirectoryState>
   /** Ensure the shared advisory catalog is loaded (errors land on the store). */
   load: () => void
+  /** Whether Settings can currently open at the Models section. */
+  settingsAvailability: ObservableSnapshot<boolean>
+  /** Open Settings at the Models section to install a local model or configure a provider. */
+  openModelsSettings: () => void
   /**
    * Choose a catalog badge's provider-authored text for the active locale.
    * @param text - the badge's literal text or translations.

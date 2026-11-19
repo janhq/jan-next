@@ -2,6 +2,7 @@
 import type { ReactNode, RefObject } from 'react'
 import type { FileAttachmentRef, ImageAttachmentRef } from '@janhq/jan-attachment'
 import type { SessionSnapshot } from '@janhq/jan-api-session-controller/client'
+import type { SessionContextPreviewValue } from '@janhq/jan-api-session-controller/types'
 import type { FileUploadReceiptId } from '@janhq/jan-client-file-upload/client'
 import type { ImageLightboxLabels } from '@janhq/jan-client-ui-primitives'
 import type { WorkspaceSnapshot } from '@janhq/jan-api-workspace-controller/client'
@@ -233,6 +234,21 @@ declare module '@janhq/jan-client-ui-slots' {
       scope: 'session'
       owner: { view?: string }
     }
+    /**
+     * Replaces the new-chat hero headline. Register one component; it receives the localized `headline`
+     * and the `preview` copy and replaces the default heading. Absent, the built-in heading renders.
+     */
+    'conversation.hero.headline': { kind: 'single'; scope: 'root'; owner: HeroHeadlineOwnerProps }
+    /**
+     * Replaces the starter suggestions under the hero. The component receives `disabled` and `onPick`;
+     * `onPick(text)` stages a draft without sending it. Absent, the built-in suggestions render.
+     */
+    'conversation.hero.suggestions': { kind: 'single'; scope: 'session-maybe'; owner: HeroSuggestionsOwnerProps }
+    /**
+     * Replaces the composer's visual placeholder. The component receives the default `text` and whether
+     * it shows in the `hero` or the `composer`; the input keeps its own accessible name.
+     */
+    'conversation.input.placeholder': { kind: 'single'; scope: 'session-maybe'; owner: InputPlaceholderOwnerProps }
     /** Resident navigation container, including when no Session is selected. */
     'conversation.header': { kind: 'single'; scope: 'session-maybe' }
     /** Strict per-Session title, actions, and View navigation. */
@@ -312,7 +328,7 @@ declare module '@janhq/jan-client-ui-slots' {
      * Ambient entries below the composer card; fixed overlays must portal to the document body
      * because the docked composer contains them.
      */
-    'conversation.composer.dock': { kind: 'list'; scope: 'session' }
+    'conversation.composer.dock': { kind: 'list'; scope: 'session'; owner: InputControlOwnerProps }
     /**
      * Compact controls at the left of the composer tool row; fixed overlays must portal to the
      * document body because the docked composer contains them.
@@ -373,6 +389,8 @@ declare module '@janhq/jan-client-ui-slots' {
         'conversation.composer.bar': { kind: 'single'; scope: 'session-maybe' }
         'conversation.input.dock': { kind: 'list'; scope: 'session' }
         'conversation.hero.frame': { kind: 'hoc'; scope: 'root' }
+        'conversation.hero.headline': { kind: 'single'; scope: 'root' }
+        'conversation.hero.suggestions': { kind: 'single'; scope: 'session-maybe' }
         'conversation.hero.brand.mark': { kind: 'single'; scope: 'root' }
         'conversation.hero.workspace': { kind: 'single'; scope: 'root' }
         'conversation.hero.agentPreset': { kind: 'single'; scope: 'session-maybe' }
@@ -468,10 +486,15 @@ export type ConvViewProps = PropsRuntime<'conversation.view'>
 
 /** Business callbacks injected into the resident Conversation shell. */
 export interface ConversationInjected {
+  pickSuggestion: (text: string) => void
   /** Connect and open a blank Session in the selected Workspace. */
   selectWorkspace: (workspaceId: WorkspaceId) => Promise<void>
   /** Session-addressed composer block source, or the stable absent source. */
-  hooks: { composerBlock: ObservableSnapshot<ComposerBlock | undefined> }
+  hooks: {
+    composerBlock: ObservableSnapshot<ComposerBlock | undefined>
+    /** Product copy replacing the empty-conversation composer placeholder. */
+    heroPlaceholder: ObservableSnapshot<string | undefined>
+  }
 }
 
 /** Business callbacks injected into the strict Session body. */
@@ -541,6 +564,15 @@ export interface ConversationSessionHeaderInjected {
   selectView: (view: string) => void
 }
 
+/** Copy supplied to the replaceable hero headline. */
+export interface HeroHeadlineOwnerProps { headline: string; preview: string }
+
+/** Suggestion selection stages a draft without submitting it. */
+export interface HeroSuggestionsOwnerProps { disabled: boolean; onPick: (text: string) => void }
+
+/** Ordinary visual placeholder; native accessible naming remains owner-managed. */
+export interface InputPlaceholderOwnerProps { text: string; variant: 'hero' | 'composer' }
+
 /** Owner share of the resident composer bar. */
 export interface ComposerBarOwnerProps {
   /** Hero uses centered placement; composer uses the active bottom placement. */
@@ -580,6 +612,8 @@ export interface ComposerBarInjected {
    * @param failureSeq - sequence of the displayed failed turn/end.
    */
   retry: ((failureSeq: SessionSeq) => void) | undefined
+  /** Price what this Session's next request would inject before any message; null when unavailable. */
+  previewContext: (() => Promise<SessionContextPreviewValue | null>) | undefined
   hooks: {
     /** Readable sequence while the fixed Stop command is registered. */
     stopShortcut: ObservableSnapshot<readonly string[]>
@@ -593,6 +627,8 @@ export interface ComposerBarInjected {
     notices: ObservableSnapshot<InputNotice | null>
     lexicon: ObservableSnapshot<ReadonlyMap<'/' | '@', readonly string[]>>
     menuLauncher: ObservableSnapshot<string | null>
+    /** The selected model's context window, shown by the meter before a request reports one. */
+    contextWindow: ObservableSnapshot<number | undefined>
   }
 }
 
@@ -615,6 +651,7 @@ export type ComposerBarProps =
     | 'conversation.input.attachments' | 'conversation.input.overlay'
     | 'conversation.input.permission'
     | 'conversation.input.left' | 'conversation.input.plan'
+    | 'conversation.input.placeholder'
     | 'conversation.input.right' | 'conversation.input.model' | 'conversation.input.activity'
     | 'conversation.composer.dock'
   >

@@ -16,8 +16,8 @@ import type { WorkspaceId } from '@janhq/jan-workspace/types'
 
 declare module '@janhq/jan-session-projection/types' {
   interface SessionProjectionMap {
-    /** Eligible latest failed turn/end for an empty prompt, or null. */
-    conversationContinuation: SessionSeq | null
+    /** Latest eligible failed turn/end; an overflow still needing recovery carries its sequence separately. */
+    conversationContinuation: SessionSeq | { readonly overflow: SessionSeq } | null
     /** Persisted facts used to summarize a Session without activating it. */
     sessionListMetadata: SessionListMetadata
     /**
@@ -115,6 +115,10 @@ export interface ModelCatalogModel {
   readonly reasoning?: ModelReasoning
   /** Provider-authored label shown beside the name; display data only. */
   readonly badge?: LlmModelBadge
+  /** Maximum combined request and response context in tokens, when the route advertises one. */
+  readonly contextWindow?: number
+  /** Whether the route reads image input; absent when the route does not declare its input modalities. */
+  readonly imageInput?: boolean
 }
 
 /** One provider and its successfully loaded model catalog. */
@@ -296,6 +300,22 @@ export interface SessionSelectModelRequest extends ModelSelection {
 /** Accepted model selection after Host resolution. */
 export interface SessionSelectModelValue {
   readonly selected: ModelSelection
+}
+
+/** Context-preview request for a Session's next model request. */
+export interface SessionContextPreviewRequest {
+  readonly sessionId: SessionId
+}
+
+/**
+ * Heuristic token prices of what the next request would inject before any message, priced like the
+ * `contextBreakdown` projection: the rendered system prompt, the tool schemas, and the runtime-context snapshot.
+ */
+export interface SessionContextPreviewValue {
+  readonly systemTokens: number
+  readonly toolsTokens: number
+  /** The runtime-context user message the first step admits. */
+  readonly messageTokens: number
 }
 
 /** Session rename request. */

@@ -7,7 +7,7 @@ kind: "package-reference"
 
 ## Summary
 
-Browser screens manage local models through authenticated Remote operations and one state stream. They can download, import, load, unload, delete, and choose the default model, and start, stop, or remove the local worker. The controller forwards each operation to [jan-llama-cpp](../../llm/llama-cpp/README.md) and never returns file paths or keys.
+Browser screens manage local models through authenticated Remote operations and one state stream. They can download, import, load, unload, delete, and choose the default model, and start, stop, or remove the local worker. The Downloads page also shows Jan-managed disk usage and can remove one item after confirmation. Only the storage inventory returns paths, relative to the Jan home; no operation returns keys or absolute paths.
 
 ## Table of Contents
 
@@ -33,9 +33,11 @@ Mount the row beside `llama-cpp`; it requires the `llamaCpp` and `typert` servic
 | `readState`, `follow` | Read the current state; `follow` streams the current snapshot, then one per change, until the caller disconnects |
 | `beginInstall`, `cancelInstall` | First run: download the first-run model and start the worker, or start the installed default; stop every download |
 | `downloadModel`, `lookupRepo`, `downloadRepoFile` | Download a curated model; list a Hugging Face repository's GGUF files and its vision projector; download one of them, with the repository's projector, and return its model id |
-| `retryDownload`, `cancelDownload` | Restart a failed download from its partial file; stop one download or dismiss a failed one |
+| `pauseDownload`, `retryDownload`, `cancelDownload` | Pause a running or queued download, keeping its partial file; restart a failed or paused download from that file; stop one download and discard its files, or dismiss a failed one |
+| `listStoredDownloads`, `deleteStoredDownload` | List managed files and sizes relative to Jan home; remove one listed item. Loaded models and active downloads are protected |
 | `importModel` | Add a `.gguf` file by its absolute Host path, with an optional absolute path of its vision projector, both left in place, and return its model id; a projector given for an already imported file replaces that model's projector |
 | `setDefaultModel`, `loadModel`, `unloadModel`, `deleteModel` | Make a model the default and load it; load or unload a model now; remove a model |
+| `getModelContext`, `setModelContext`, `setModelFit`, `increaseModelContext` | Read the current and GGUF-trained maximum context; save a per-model context length or auto-fit choice and reload the running worker; grow in 8k -> 32k -> 1.5x steps up to the maximum, returning `null` at the limit |
 | `startServer`, `stopServer`, `removeInstall` | Start or stop the worker; stop it and delete every downloaded model and the route credentials |
 
 A failed operation throws a `RemoteError` with code `llama-cpp/failed` and details `{ reason }`, where `reason` is the service's message. A worker start failure from `startServer` or `setDefaultModel` arrives as the `failed` phase on `follow` instead. State snapshots carry no paths or keys; `importModel` accepts paths but returns only an id.
@@ -44,6 +46,8 @@ A failed operation throws a `RemoteError` with code `llama-cpp/failed` and detai
 ## Understand the implementation
 
 The controller is a `TypertRemoteService` that forwards each operation to `ctx.llamaCpp` and converts thrown errors to `llama-cpp/failed`. It keeps no state of its own. It re-exports the client-visible state types so browser code depends on this package instead of the Host service.
+
+The storage inventory uses the local model registry and the downloader's reserved filenames. It also lists cached SenseVoice assets and fetched Plugin Market repositories. Imported models, user files, session data, installed plugins, shared package stores, bundled runtimes, and the operating system's update cache are not part of the inventory. Disable Voice Input before deleting its cached files. A running local model can be deleted after it is unloaded in Settings > Models.
 
 <a id="further-exploration"></a>
 ## Further Exploration

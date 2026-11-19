@@ -34,15 +34,16 @@
  * the row's Session identity; a Session binding would activate and retain
  * every listed Session.
  */
+import type { ReactNode, RefObject } from 'react'
 import type { ContextMenuTarget } from '@janhq/jan-client-ui-context-menu/client'
 import type {
   HostObservable, InjectFace, PropsHooks, PropsLocale, PropsRenderFactories, PropsRenderSlots, PropsRuntime, PropsStore, SlotHookFactory,
 } from '@janhq/jan-client-ui-slots'
 // Type-only: pull the owner SlotMap merges into programs that resolve the
 // runtime shares below.
-import type {} from '@janhq/jan-client-ui-sidebar/client'
-import type {} from '@janhq/jan-client-ui-conversation/client'
-import type {} from '@janhq/jan-client-ui-layout/client'
+import type { } from '@janhq/jan-client-ui-sidebar/client'
+import type { } from '@janhq/jan-client-ui-conversation/client'
+import type { } from '@janhq/jan-client-ui-layout/client'
 import type { SessionSearchResultItem } from '@janhq/jan-api-session-controller/client'
 import type { RemoteHostFacts } from '@janhq/jan-api-remotes/client'
 import type { SessionActivity, WorkspaceId, WorkspaceView } from '@janhq/jan-api-workspace-controller/client'
@@ -50,8 +51,51 @@ import type { SessionId } from '@janhq/jan-session/types'
 import type { ShortcutCatalogEntry } from '@janhq/jan-client-shortcuts/client'
 import type { WorkspaceShortcutState } from '../shortcuts.ts'
 import type { StartSessionOptions } from '../navigation.ts'
-import type {} from './toast.ts'
+import type { } from './toast.ts'
 import type { createWorkspaceViewStore } from '../stores.ts'
+
+/** Primary actions retain the browser's shared picker anchor and shortcuts. */
+export interface WorkspaceActionsOwnerProps {
+  wide: boolean
+  canAddWorkspace: boolean
+  onSearch: () => void
+  onAddWorkspace: () => void
+  addWorkspaceButtonRef: RefObject<HTMLButtonElement>
+  searchLabel: string
+  addWorkspaceLabel: string
+  searchShortcut: ShortcutCatalogEntry | undefined
+  addWorkspaceShortcut: ShortcutCatalogEntry | undefined
+}
+
+/** Keep search mounted while wide; it contains the browser-owned input and refs. */
+export interface WorkspaceHeaderOwnerProps {
+  wide: boolean
+  heading: string
+  canAddWorkspace: boolean
+  onSearch: () => void
+  onAddWorkspace: () => void
+  addWorkspaceButtonRef: RefObject<HTMLButtonElement>
+  searchExpanded: boolean
+  search: ReactNode
+  viewOptions: ReactNode
+  primaryActions: boolean
+}
+
+declare module '@janhq/jan-client-ui-slots' {
+  interface SlotMap {
+    /**
+     * Replaces the sidebar's primary actions (search and add workspace). The component receives the
+     * handlers, labels, shortcuts, and the add button ref the folder picker anchors to; keep that ref on
+     * the rendered button. Absent, the built-in action row renders.
+     */
+    'sidebar.workspaces.actions': { kind: 'single'; scope: 'root'; owner: WorkspaceActionsOwnerProps }
+    /**
+     * Replaces the session list header. The component receives the heading, the browser-owned `search`
+     * and `viewOptions` nodes, and whether search is expanded; render both nodes so their state survives.
+     */
+    'sidebar.workspaces.header': { kind: 'single'; scope: 'root'; owner: WorkspaceHeaderOwnerProps }
+  }
+}
 
 declare module '@janhq/jan-client-ui-context-menu/client' {
   interface ContextMenuTargetMap {
@@ -195,10 +239,12 @@ declare module '@janhq/jan-client-ui-slots' {
       scope: 'root'
       owner: SessionRowOwnerProps
       hookContext: MenuOpenState
-      inject: { hooks: {
-        menuOpenState: SlotHookFactory<'sidebar.workspaces.session.menu.item', UseMenuOpenState>
-        shortcuts: HostObservable<readonly ShortcutCatalogEntry[]>
-      } }
+      inject: {
+        hooks: {
+          menuOpenState: SlotHookFactory<'sidebar.workspaces.session.menu.item', UseMenuOpenState>
+          shortcuts: HostObservable<readonly ShortcutCatalogEntry[]>
+        }
+      }
     }
     /**
      * The hover buttons at the end of one Session row, in ascending `order`,
@@ -241,9 +287,11 @@ export type DirectoryPickingHooks = PropsHooks<DirectoryPickingInjected['hooks']
  * browsing region drives.
  */
 export type WorkspaceBrowserInjected = {
+  addWorkspaceButtonRef: RefObject<HTMLButtonElement>
   /** Dismiss the settled Workspace dialog. */
   settleWorkspaceAction: () => void
   hooks: DirectoryPickingInjected['hooks'] & {
+    primaryActions: HostObservable<boolean>
     workspaceActionRequest: HostObservable<WorkspaceActionRequest | null>
     contextMenuTarget: HostObservable<ContextMenuTarget | null>
     /**
@@ -255,7 +303,14 @@ export type WorkspaceBrowserInjected = {
     hostInfo: HostObservable<RemoteHostFacts>
     workspaceShortcuts: HostObservable<WorkspaceShortcutState>
     shortcuts: HostObservable<readonly ShortcutCatalogEntry[]>
+    /** Whether a project surface takes Workspace row clicks; the chevron then owns expand and collapse. */
+    projectSurface: HostObservable<boolean>
   }
+  /**
+   * Open the registered project surface for a Workspace row.
+   * @param workspaceId - the clicked Workspace.
+   */
+  openProject: (workspaceId: WorkspaceId) => void
   /** Open the browser search and focus its input. */
   requestSearch: () => void
   /** Request the existing directory picker. */
@@ -299,6 +354,8 @@ export type WorkspaceBrowserInjected = {
   unarchiveSession: (sessionId: SessionId) => Promise<void>
   /** Adopt a picked host directory as a real Workspace before targeting a Session. */
   createWorkspace: (input: { path: string }) => Promise<WorkspaceView>
+  /** Raise the outcome notice of a folder dropped on the Sidebar. */
+  notifyFolderDrop: (notice: FolderDropNotice) => void
 }
 
 /** The browser's declared viewing store handle, shared with the row actions that write view state. */
@@ -326,6 +383,12 @@ export type RowToast =
   | { kind: 'unpinFailed' }
   | { kind: 'archivedNotOpenable' }
   | { kind: 'defaultWorkspaceFailed' }
+  /** A folder dropped on the sidebar was adopted (or was already) a Workspace. */
+  | { kind: 'folderAdded'; title: string }
+  /** A sidebar drop held no directory with a host path. */
+  | { kind: 'folderDropNotFolder' }
+  /** Adopting a dropped folder failed; `message` is untranslated. */
+  | { kind: 'folderDropFailed'; message: string }
   | { kind: 'forkRequiresOpen'; sessionId: SessionId }
   | { kind: 'shortcutForkFailed'; reason: 'unavailable' | 'failed' }
   /**
@@ -334,6 +397,9 @@ export type RowToast =
    * a report can be searched by it — and any other failure's own message.
    */
   | { kind: 'createFailed'; message: string }
+
+/** Notices a folder dropped on the Sidebar can raise. */
+export type FolderDropNotice = Extract<RowToast, { kind: 'folderAdded' | 'folderDropNotFolder' | 'folderDropFailed' }>
 
 /** The notice on display; `seq` keys remounts so a repeated notice restarts its hold. */
 export type RowToastState = RowToast & { seq: number }
@@ -496,6 +562,7 @@ export type WorkspaceBrowserProps =
   PropsRuntime<'sidebar.workspaces'>
   & PropsRenderFactories
   & PropsRenderSlots<
+    | 'sidebar.workspaces.header'
     | 'sidebar.workspaces.directoryFlow'
     | 'sidebar.workspaces.session.row.action'
     | 'sidebar.session.row.trailing'

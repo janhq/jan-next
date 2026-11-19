@@ -27,5 +27,6 @@ const api: WelcomeApi = {
   skip: () => ipcRenderer.invoke(WELCOME_IPC.skip) as Promise<void>,
   startLocalModel: () => ipcRenderer.invoke(WELCOME_IPC.localStart) as Promise<WelcomeLocalModel>,
   readLocalModel: () => ipcRenderer.invoke(WELCOME_IPC.localState) as Promise<WelcomeLocalModel | undefined>,
+  cancelLocalModel: () => ipcRenderer.invoke(WELCOME_IPC.localCancel) as Promise<WelcomeLocalModel | undefined>,
 }
 contextBridge.exposeInMainWorld('janWelcome', api)

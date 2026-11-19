@@ -21,6 +21,13 @@ import { en as commonEn } from '@janhq/jan-client-locale/src/locales/en.ts'
 const useResource = (() => ({ status: 'none' as const, value: undefined, failure: undefined, reload: () => {} })) as GlobalStandardProps['useResource']
 const usePanelInfo: GlobalStandardProps['usePanelInfo'] = selector => selector({ activePanelId: null })
 
+/** The Back / Forward share the shell receives: both actions and the history hook. */
+const navigationProps = (state: { canGoBack: boolean; canGoForward: boolean } = { canGoBack: false, canGoForward: false }) => ({
+  goBack: vi.fn(),
+  goForward: vi.fn(),
+  useNavigationHistory: ((selector: (value: typeof state) => unknown) => selector(state)) as SidebarRootComponentProps['useNavigationHistory'],
+})
+
 const t: SidebarRootComponentProps['t'] = makeTranslate({ ...commonEn, ...en })
 
 afterEach(() => {
@@ -46,18 +53,20 @@ function makeHeaderProps(): HeaderLeadingControlsProps {
     usePanels: selector => selector([]), useShortcuts: selector => selector([]),
     useEntryPins: selector => selector([]), useEntryActions: selector => selector(false),
     selectPanel: vi.fn(), setPinned: vi.fn(), toggleSidebar: vi.fn(),
-    startSession: vi.fn(), trackEntryClick: vi.fn(), t,
+    startSession: vi.fn(), trackEntryClick: vi.fn(), t, ...navigationProps(),
   }
 }
 
-function mountShell({ collapsed = false, width = 300, drawer = false, shortcuts = [], panels = [], content }: {
+function mountShell({ collapsed = false, width = 300, drawer = false, shortcuts = [], panels = [], content, history }: {
   collapsed?: boolean
   width?: number
   drawer?: boolean
   shortcuts?: readonly ShortcutCatalogEntry[]
   panels?: readonly SidebarPanelMetadata[]
   content?: ReactNode
+  history?: { canGoBack: boolean; canGoForward: boolean }
 } = {}) {
+  const navigation = navigationProps(history)
   const startSession = vi.fn()
   const toggleSidebar = vi.fn()
   const trackEntryClick = vi.fn<SidebarRootComponentProps['trackEntryClick']>()
@@ -74,7 +83,7 @@ function mountShell({ collapsed = false, width = 300, drawer = false, shortcuts 
       collapsed={current.collapsed} width={current.width}
       useSessions={neverHook} useSessionStatus={useSessionStatus} useSessionRetainInfo={neverHook}
       usePanelInfo={usePanelInfo} selectPanel={() => {}} usePanels={selector => selector(panels)} useEntryPins={selector => selector([])}
-      useEntryActions={selector => selector(false)} setPinned={vi.fn()}
+      useEntryActions={selector => selector(false)} setPinned={vi.fn()} {...navigation}
       useShortcuts={selector => selector(shortcuts)}
       useContextMenu={contextMenuHook()} useResource={useResource} useWorkspaces={neverHook}
       {...allowAllAccess}
@@ -83,11 +92,14 @@ function mountShell({ collapsed = false, width = 300, drawer = false, shortcuts 
       renderSlot={((
         key: string,
         owner: SidebarFooterActionOwnerProps | SidebarSectionOwnerProps | SidebarSettingsOwnerProps,
-        opts?: { hookContext?: SidebarSectionHookContext },
+        opts?: { hookContext?: SidebarSectionHookContext; fallback?: ReactNode },
       ) => {
         if (key === 'sidebar.brand.mark') return brandMark
         if (key === 'sidebar.brand.name') return brandName
         if (key === 'sidebar.toggle.badge') return null
+        // Unoccupied theme seats: the built-in New Session, no extra row.
+        if (key === 'sidebar.session.new') return opts?.fallback ?? null
+        if (key === 'sidebar.workspaces.primary') return null
         if (key === 'sidebar.panellist') return <span aria-hidden="true">P</span>
         if (key === 'sidebar.settings') {
           settingsOwner = owner
@@ -105,6 +117,7 @@ function mountShell({ collapsed = false, width = 300, drawer = false, shortcuts 
   )
   const view = render(root())
   return {
+    navigation,
     startSession,
     toggleSidebar,
     trackEntryClick,
@@ -178,7 +191,7 @@ describe('SidebarRoot shell', () => {
       useSessionRetainInfo={neverHook} useContextMenu={contextMenuHook()} useResource={useResource} useWorkspaces={neverHook}
       {...allowAllAccess}
       usePanels={select => select([])} useEntryPins={select => select([])}
-      useEntryActions={select => select(false)} setPinned={vi.fn()} useShortcuts={select => select([shortcut])} />)
+      useEntryActions={select => select(false)} setPinned={vi.fn()} useShortcuts={select => select([shortcut])} {...navigationProps()} />)
     const button = screen.getByRole('button', { name: 'New session' })
     expect(screen.getByRole('button', { name: 'Open sidebar' }).hasAttribute('data-sidebar-opener')).toBe(true)
     expect(button.getAttribute('aria-keyshortcuts')).toBe('Control+N')
@@ -221,16 +234,17 @@ describe('SidebarRoot shell', () => {
       collapsed={false} width={300} drawer={false}
       useSessions={neverHook} useSessionStatus={useSessionStatus} useSessionRetainInfo={neverHook}
       usePanelInfo={usePanelInfo} selectPanel={() => {}} usePanels={selector => selector([])} useEntryPins={selector => selector([])}
-      useEntryActions={selector => selector(false)} setPinned={vi.fn()}
+      useEntryActions={selector => selector(false)} setPinned={vi.fn()} {...navigationProps()}
       useShortcuts={selector => selector([])}
       useContextMenu={contextMenuHook()} useResource={useResource} useWorkspaces={neverHook}
       {...allowAllAccess}
       useRemoteAccess={useRemoteAccess}
       startSession={startSession} toggleSidebar={toggleSidebar} trackEntryClick={vi.fn()} t={t}
       renderFactorySlot={() => null}
-      renderSlot={((key: string) => {
+      renderSlot={((key: string, _owner: unknown, options?: { fallback?: ReactNode }) => {
         if (key === 'sidebar.brand.mark') return <span data-testid="brand-mark">M</span>
         if (key === 'sidebar.brand.name') return <span data-testid="brand-name">Brand</span>
+        if (key === 'sidebar.session.new') return options?.fallback ?? null
         return null
       }) as SidebarRootComponentProps['renderSlot']}
     />)
@@ -254,7 +268,7 @@ describe('SidebarRoot shell', () => {
       collapsed={false} width={300}
       useSessions={neverHook} useSessionStatus={useSessionStatus} useSessionRetainInfo={neverHook}
       usePanelInfo={usePanelInfo} selectPanel={() => {}} usePanels={selector => selector([])} useEntryPins={selector => selector([])}
-      useEntryActions={selector => selector(false)} setPinned={vi.fn()}
+      useEntryActions={selector => selector(false)} setPinned={vi.fn()} {...navigationProps()}
       useShortcuts={selector => selector([])}
       useContextMenu={contextMenuHook()} useResource={useResource} useWorkspaces={neverHook}
       {...allowAllAccess}
@@ -279,7 +293,7 @@ describe('SidebarRoot shell', () => {
       collapsed={false} width={300}
       useSessions={neverHook} useSessionStatus={useSessionStatus} useSessionRetainInfo={neverHook}
       usePanelInfo={usePanelInfo} selectPanel={() => {}} usePanels={selector => selector([])} useEntryPins={selector => selector([])}
-      useEntryActions={selector => selector(false)} setPinned={vi.fn()}
+      useEntryActions={selector => selector(false)} setPinned={vi.fn()} {...navigationProps()}
       useShortcuts={selector => selector([])}
       useContextMenu={contextMenuHook()} useResource={useResource} useWorkspaces={neverHook}
       {...allowAllAccess}
@@ -308,7 +322,7 @@ describe('SidebarRoot shell', () => {
       collapsed={false} width={300} drawer={false}
       useSessions={neverHook} useSessionStatus={useSessionStatus} useSessionRetainInfo={neverHook}
       usePanelInfo={usePanelInfo} selectPanel={() => {}} usePanels={selector => selector([])} useEntryPins={selector => selector([])}
-      useEntryActions={selector => selector(false)} setPinned={vi.fn()}
+      useEntryActions={selector => selector(false)} setPinned={vi.fn()} {...navigationProps()}
       useShortcuts={selector => selector([])}
       useContextMenu={contextMenuHook()} useResource={useResource} useWorkspaces={neverHook}
       {...allowAllAccess}
@@ -360,7 +374,7 @@ describe('SidebarRoot shell', () => {
       collapsed={false} width={300}
       useSessions={neverHook} useSessionStatus={useSessionStatus} useSessionRetainInfo={neverHook}
       usePanelInfo={usePanelInfo} selectPanel={() => {}} usePanels={selector => selector([])} useEntryPins={selector => selector([])}
-      useEntryActions={selector => selector(false)} setPinned={vi.fn()}
+      useEntryActions={selector => selector(false)} setPinned={vi.fn()} {...navigationProps()}
       useShortcuts={selector => selector([])}
       useContextMenu={contextMenuHook()} useResource={useResource} useWorkspaces={neverHook}
       {...allowAllAccess}
@@ -425,7 +439,7 @@ describe('SidebarRoot shell', () => {
       collapsed width={56}
       useSessions={neverHook} useSessionStatus={useSessionStatus} useSessionRetainInfo={neverHook}
       usePanelInfo={usePanelInfo} selectPanel={() => {}} usePanels={selector => selector([])} useEntryPins={selector => selector([])}
-      useEntryActions={selector => selector(false)} setPinned={vi.fn()}
+      useEntryActions={selector => selector(false)} setPinned={vi.fn()} {...navigationProps()}
       useShortcuts={selector => selector([])}
       useContextMenu={contextMenuHook()} useResource={useResource} useWorkspaces={neverHook}
       {...allowAllAccess}
@@ -741,4 +755,101 @@ it.each([false, true])('moves hidden sidebar focus only to an available opener (
   const expected = hasOpener ? screen.getByRole('button', { name: 'Open navigation' }) : previous
   expect(document.activeElement).toBe(expected)
   if (hasOpener) expect(expected.hasAttribute('data-jan-automatic-focus')).toBe(true)
+})
+
+describe('Back / Forward controls', () => {
+  afterEach(() => { document.documentElement.removeAttribute('data-windows-titlebar') })
+
+  const row = (id: string, keys: string[], aria: string): ShortcutCatalogEntry => ({
+    id: id as ShortcutCommandId, label: id, aliases: [], binding: null, modified: false, conflicts: [], issue: null, keys, aria,
+  })
+  const follows = (first: HTMLElement, second: HTMLElement): boolean =>
+    (first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+
+  it('follows the toggle in the expanded logo row and dims while the history is empty', () => {
+    const shell = mountShell()
+    const toggle = screen.getByRole('button', { name: en['toggle.collapse'] })
+    const back = screen.getByRole('button', { name: en['navigation.back'] })
+    const forward = screen.getByRole('button', { name: en['navigation.forward'] })
+    expect(follows(toggle, back) && follows(back, forward)).toBe(true)
+    expect(back.getAttribute('aria-disabled')).toBe('true')
+    expect(forward.getAttribute('aria-disabled')).toBe('true')
+    fireEvent.click(back)
+    fireEvent.click(forward)
+    expect(shell.navigation.goBack).not.toHaveBeenCalled()
+    expect(shell.navigation.goForward).not.toHaveBeenCalled()
+  })
+
+  it('enables each direction on its own and advertises the command binding', () => {
+    const shell = mountShell({
+      history: { canGoBack: true, canGoForward: false },
+      shortcuts: [row('navigation.back', ['Alt', '+', '←'], 'Alt+ArrowLeft')],
+    })
+    const back = screen.getByRole('button', { name: en['navigation.back'] })
+    const forward = screen.getByRole('button', { name: en['navigation.forward'] })
+    expect(back.hasAttribute('aria-disabled')).toBe(false)
+    expect(back.getAttribute('aria-keyshortcuts')).toBe('Alt+ArrowLeft')
+    expect(forward.getAttribute('aria-disabled')).toBe('true')
+    fireEvent.click(back)
+    fireEvent.click(forward)
+    expect(shell.navigation.goBack).toHaveBeenCalledOnce()
+    expect(shell.navigation.goForward).not.toHaveBeenCalled()
+  })
+
+  it('runs Forward when its history has an entry', () => {
+    const shell = mountShell({ history: { canGoBack: false, canGoForward: true } })
+    fireEvent.click(screen.getByRole('button', { name: en['navigation.forward'] }))
+    expect(shell.navigation.goForward).toHaveBeenCalledOnce()
+  })
+
+  it('stacks both controls under the toggle in the collapsed rail', () => {
+    const shell = mountShell({ collapsed: true, width: 56, history: { canGoBack: true, canGoForward: true } })
+    const toggle = screen.getByRole('button', { name: en['toggle.open'] })
+    const back = screen.getByRole('button', { name: en['navigation.back'] })
+    const forward = screen.getByRole('button', { name: en['navigation.forward'] })
+    expect(follows(toggle, back) && follows(back, forward)).toBe(true)
+    expect(toggle.parentElement?.contains(back)).toBe(false)
+    fireEvent.click(back)
+    expect(shell.navigation.goBack).toHaveBeenCalledOnce()
+  })
+
+  it('sits beside the toggle in the macOS title strip', () => {
+    document.documentElement.dataset.platform = 'darwin'
+    mountShell({ history: { canGoBack: true, canGoForward: true } })
+    const toggle = screen.getByRole('button', { name: en['toggle.collapse'] })
+    const strip = toggle.closest('[data-window-drag]')!
+    expect(strip.contains(screen.getByRole('button', { name: en['navigation.back'] }))).toBe(true)
+    expect(strip.contains(screen.getByRole('button', { name: en['navigation.forward'] }))).toBe(true)
+  })
+
+  it('keeps both controls in the Windows caption while the sidebar is collapsed', () => {
+    document.documentElement.setAttribute('data-windows-titlebar', '')
+    const shell = mountShell({ collapsed: true, width: 0, history: { canGoBack: true, canGoForward: true } })
+    fireEvent.click(screen.getByRole('button', { name: en['navigation.back'] }))
+    fireEvent.click(screen.getByRole('button', { name: en['navigation.forward'] }))
+    expect(shell.navigation.goBack).toHaveBeenCalledOnce()
+    expect(shell.navigation.goForward).toHaveBeenCalledOnce()
+  })
+
+  it('offers the same controls in the hidden-sidebar seat, after the opener', () => {
+    const goBack = vi.fn()
+    const goForward = vi.fn()
+    const props: HeaderLeadingControlsProps = {
+      ...makeHeaderProps(), goBack, goForward,
+      useNavigationHistory: select => select({ canGoBack: true, canGoForward: false }),
+      useShortcuts: select => select([row('navigation.forward', ['⌘', ']'], 'Meta+BracketRight')]),
+    }
+    render(<HeaderLeadingControls {...props} />)
+    const opener = screen.getByRole('button', { name: en['toggle.open'] })
+    const back = screen.getByRole('button', { name: en['navigation.back'] })
+    const forward = screen.getByRole('button', { name: en['navigation.forward'] })
+    expect(follows(opener, back) && follows(back, forward)).toBe(true)
+    fireEvent.click(back)
+    fireEvent.click(forward)
+    expect(goBack).toHaveBeenCalledOnce()
+    expect(goForward).not.toHaveBeenCalled()
+    expect(forward.getAttribute('aria-disabled')).toBe('true')
+    // A disabled control drops its key hint with its action.
+    expect(forward.hasAttribute('aria-keyshortcuts')).toBe(false)
+  })
 })

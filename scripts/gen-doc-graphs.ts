@@ -171,6 +171,22 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Fetches and validates the index sources the user configures; installation goes through the plugin manager.',
   },
   {
+    key: 'pluginI18n',
+    pkg: 'host-plugin-i18n',
+    title: 'Plugin UI translation',
+    mode: 'core',
+    consumers: ['client-ui-plugin-i18n', 'client-ui-plugin-manager'],
+    note: 'Translates installed plugins\' display strings with the chosen model after consent and serves the generated locale tables.',
+  },
+  {
+    key: 'compactionSettings',
+    pkg: 'compaction-basic',
+    title: 'Host compaction preferences',
+    mode: 'core',
+    consumers: ['compaction-basic'],
+    note: 'Settings-edited preferences on the host plane; every agent preset\'s compaction backend reads them at each compaction decision.',
+  },
+  {
     key: 'profileContext',
     pkg: 'app-boot',
     title: 'Launcher-owned profile data',

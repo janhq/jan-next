@@ -2,12 +2,14 @@
 import { memo, type ReactElement } from 'react'
 import type { PendingSubmission } from '@janhq/jan-api-session-controller/client'
 import { assertNever } from '@janhq/jan-util-values'
-import type { ChatFlowSlotProps } from '../contract/slots.ts'
+import type { ChatFlowSlotProps, RunningDetailOwnerProps } from '../contract/slots.ts'
 import { ChatNodeSeat } from './ChatNodeSeat.tsx'
 import { ChatGroupSeat } from './ChatGroupSeat.tsx'
 import { PendingSteeringBubble, PendingSubmissionBubble } from './MessageItem.tsx'
 import { chatRenderKey } from './render-entry.ts'
 import { RunningStatus } from './RunningStatus.tsx'
+
+const RUNNING_DETAIL_OWNER: RunningDetailOwnerProps = {}
 
 /** A local submission echo, or a Host-pending steering item without a local submission. */
 type PendingInput = ChatFlowSlotProps['pendingInputs'][number]
@@ -94,7 +96,8 @@ export const ChatFlow = memo(function ChatFlow({
   return [
     ...rows, ...leadingRows, ...openingRows,
     ...running || holding ? [<RunningStatus key="running" startTime={runningStartTime} paused={disconnected}
-      holding={holding} t={t} />] : [],
+      holding={holding} t={t}
+      detail={holding ? null : renderSlot('conversation.chat.running-detail', RUNNING_DETAIL_OWNER)} />] : [],
     ...pendingRows,
   ]
 })

@@ -7,6 +7,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { UseProjection } from '@janhq/jan-api-session-controller/client'
+import type { SessionContextPreviewValue } from '@janhq/jan-api-session-controller/types'
 // Type-only: the `contextPressure` / `contextBreakdown` projection key merges.
 import type {} from '@janhq/jan-token-meter/client'
 import { Tooltip, useDismissOnOutsidePointer } from '@janhq/jan-client-ui-primitives'
@@ -49,17 +50,42 @@ function formatTokens(value: number, t: ComposerBarProps['t']): string {
 
 export interface ContextMeterProps {
   useProjection: UseProjection
+  /** The selected model's window; shown before a request reports pressure. */
+  selectedWindow?: number | undefined
+  /** Host pricing of what the next request would inject; consulted until a request is logged. */
+  previewContext?: (() => Promise<SessionContextPreviewValue | null>) | undefined
   /** The owning bar's locale seat, passed down as a plain prop. */
   t: ComposerBarProps['t']
 }
 
-export function ContextMeter({ useProjection, t }: ContextMeterProps) {
+export function ContextMeter({ useProjection, selectedWindow, previewContext, t }: ContextMeterProps) {
   const pressure = useProjection('contextPressure')
-  const breakdown = useProjection('contextBreakdown')
+  const logged = useProjection('contextBreakdown')
   const [open, setOpen] = useState(false)
+  const [preview, setPreview] = useState<SessionContextPreviewValue | null>(null)
   const rootRef = useRef<HTMLSpanElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
-  const context = contextOccupancy(pressure)
+  // Before the first request nothing is logged, so the Host's priced preview of the
+  // system prompt, tools, and runtime context stands in for both reading and breakdown.
+  const loggedTotal = logged === undefined ? 0 : logged.systemTokens + logged.toolsTokens + logged.messageTokens
+  const unlogged = loggedTotal === 0
+  // Re-priced on a model switch and on each panel open, so preset and tool changes show.
+  useEffect(() => {
+    if (!unlogged || previewContext === undefined) return
+    let current = true
+    previewContext().then(
+      (value) => { if (current) setPreview(value) },
+      () => { if (current) setPreview(null) },
+    )
+    return () => { current = false }
+  }, [unlogged, previewContext, selectedWindow, open])
+  const unsent = unlogged && preview !== null ? preview : undefined
+  const breakdown = unsent ?? logged
+  const context = contextOccupancy(
+    pressure,
+    selectedWindow,
+    unsent === undefined ? 0 : unsent.systemTokens + unsent.toolsTokens + unsent.messageTokens,
+  )
   const available = context !== null
   const anchorName = `--jan-context-${useId().replaceAll(':', '')}`
   useDismissOnOutsidePointer(rootRef, open && available, setOpen, panelRef)

@@ -6,6 +6,8 @@ import type { InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui
 // Type-only: pulls the frame's shell.leading slot declaration.
 import type {} from '@janhq/jan-client-ui-layout/client'
 import type { SidebarRootInjected } from './contract/slots.ts'
+import { NavigationButton } from './NavigationButton.tsx'
+import { useChromeControls } from './chrome-controls.ts'
 import css from './HeaderLeadingControls.module.css'
 
 /** Full props of the shell.leading occupant. */
@@ -15,20 +17,21 @@ export type HeaderLeadingControlsProps =
   & PropsLocale<'sidebar'>
 
 /**
- * Sidebar-open and New Session controls in the frame's window-chrome seat.
+ * Sidebar-open, Back / Forward and New Session controls in the frame's window-chrome seat.
  * The frame mounts this seat for hidden sidebars and owns its placement.
- * Web shows only the sidebar opener; Desktop also retains New Session.
+ * Web shows the sidebar opener and Back / Forward; Desktop also retains New Session.
  * @param props - Injected sidebar actions, the global access Hook, and the sidebar locale seat.
- * @returns the sidebar toggle, plus New Session on Desktop while access allows `session/create`.
+ * @returns the sidebar toggle and Back / Forward, plus New Session on Desktop while access allows `session/create`.
  */
 export function HeaderLeadingControls({
-  toggleSidebar, startSession, trackEntryClick, useRemoteAccess, useShortcuts, t,
+  toggleSidebar, goBack, goForward, startSession, trackEntryClick, useRemoteAccess, useShortcuts, useNavigationHistory, t,
 }: HeaderLeadingControlsProps) {
   // A page whose access snapshot excludes starting a Session keeps only the sidebar toggle here.
   const canStartSession = useRemoteAccess('session/create')
   const desktop = document.documentElement.hasAttribute('data-platform')
-  const shortcut = useShortcuts(rows => rows.find(row => row.id === 'sidebar.left.toggle'))
-  const newShortcut = useShortcuts(rows => rows.find(row => row.id === 'session.new'))
+  const {
+    shortcut, newShortcut, backShortcut, forwardShortcut, canGoBack, canGoForward,
+  } = useChromeControls({ useShortcuts, useNavigationHistory })
   return (
     <div className={css.controls}>
       <Tooltip label={t('toggle.open')} shortcutKeys={shortcut?.keys} delayMs={500}>
@@ -43,6 +46,14 @@ export function HeaderLeadingControls({
           <IconPanelLeftOutlineRegular size={16} />
         </button>
       </Tooltip>
+      <NavigationButton
+        direction="back" label={t('navigation.back')} shortcut={backShortcut} disabled={!canGoBack}
+        onClick={goBack} className={css.iconButton} size={16}
+      />
+      <NavigationButton
+        direction="forward" label={t('navigation.forward')} shortcut={forwardShortcut} disabled={!canGoForward}
+        onClick={goForward} className={css.iconButton} size={16}
+      />
       {desktop && canStartSession && (
         <Tooltip label={t('session.new.label')} shortcutKeys={newShortcut?.keys} delayMs={500}>
           <button

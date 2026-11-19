@@ -177,6 +177,14 @@ export class FixtureSession implements SessionFace {
   rename(): never {
     throw new Error(`test session "${this.sessionId}": rename is not stubbed — supply it on the fixture's session face`)
   }
+
+  /**
+   * Fail-loud stub; supply `contextPreview` on the fixture's session face to exercise it.
+   * @returns never - always throws.
+   */
+  contextPreview(): never {
+    throw new Error(`test session "${this.sessionId}": contextPreview is not stubbed - supply it on the fixture's session face`)
+  }
 }
 
 /** Catalog fixture data remains available across live Client generations. */

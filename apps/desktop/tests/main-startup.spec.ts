@@ -83,12 +83,15 @@ const harness = await vi.hoisted(async () => {
     destroyed = false
     readonly contentView = { addChildView: vi.fn(), removeChildView: vi.fn() }
     readonly urls: string[] = []
+    private devToolsOpened = false
     readonly webContents = Object.assign(new EventEmitter(), {
       id: 42,
       setWindowOpenHandler: vi.fn(),
       insertCSS: vi.fn(async () => 'blur'),
       removeInsertedCSS: vi.fn(async () => {}),
-      openDevTools: vi.fn(),
+      openDevTools: vi.fn(() => { this.devToolsOpened = true }),
+      isDevToolsOpened: () => this.devToolsOpened,
+      closeDevTools: () => { this.devToolsOpened = false },
       getURL: () => this.urls.at(-1) ?? '',
       mainFrame: { url: '' },
       getZoomFactor: () => 1,
@@ -1554,6 +1557,19 @@ describe('desktop main startup', () => {
     await harness.navigated.promise
     return harness.hosts[0]!
   }
+
+  it('opens automatic macOS DevTools without taking focus from the workspace', async () => {
+    vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin')
+    vi.stubEnv('JAN_DESKTOP_OPEN_DEVTOOLS', '1')
+    harness.app.isPackaged = false
+    await readyForUpdate()
+    const window = harness.windows[0]!
+    await window.shown.promise
+    const openDevTools = window.webContents.openDevTools
+    await vi.waitFor(() => { expect(openDevTools).toHaveBeenCalledTimes(2) })
+    expect(openDevTools).toHaveBeenNthCalledWith(1, { mode: 'detach', activate: false })
+    expect(openDevTools).toHaveBeenNthCalledWith(2, { mode: 'detach', activate: false })
+  })
 
   it.each([
     ['win32', ['--updated'], true],

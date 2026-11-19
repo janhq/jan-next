@@ -27,6 +27,8 @@ interface Package {
   bundle?: JanBundleManifest
   client: boolean
   generatedRemote: boolean
+  /** Export subpaths whose target is an authored source file, as in the hand-written JS plugins under plugins/. */
+  sourceExports: ReadonlyMap<string, string>
 }
 
 interface Reachability {
@@ -74,7 +76,8 @@ export function verifyProductUse(
   if (converted.errors.length > 0) throw new Error(converted.errors.map(error => ts.flattenDiagnosticMessageText(error.messageText, '\n')).join('\n'))
   const host: ts.ModuleResolutionHost = { ...ts.sys, getCurrentDirectory: () => root }
   const resolutionCache = ts.createModuleResolutionCache(root, path => path, converted.options)
-  for (const path of globSync(['apps/*/package.json', 'packages/*/*/package.json', 'vendor/*/package.json'], { cwd: root }).map(path => path.replaceAll('\\', '/')).sort()) {
+  // plugins/* holds the hand-written desktop plugins and bundle that pnpm-workspace.yaml lists beside packages/*/*.
+  for (const path of globSync(['apps/*/package.json', 'packages/*/*/package.json', 'plugins/*/package.json', 'vendor/*/package.json'], { cwd: root }).map(path => path.replaceAll('\\', '/')).sort()) {
     const manifest = JSON.parse(readFileSync(resolve(root, path), 'utf8')) as {
       name: string
       exports?: Record<string, unknown>
@@ -83,7 +86,13 @@ export function verifyProductUse(
     if (typeof manifest.name !== 'string' || manifest.name === '') throw new Error(`${path}: missing package name`)
     if (packages.has(manifest.name)) throw new Error(`${path}: duplicate package name ${manifest.name}`)
     const remote = manifest.exports?.['./remote']
-    const pkg: Package = { directory: dirname(path), name: manifest.name, client: manifest.jan?.client !== undefined,
+    const directory = dirname(path)
+    const sourceExports = new Map<string, string>()
+    for (const [subpath, target] of Object.entries(manifest.exports ?? {})) {
+      const file = typeof target === 'string' && !target.startsWith('./lib/') ? sourceFile(resolve(root, directory, target)) : undefined
+      if (file !== undefined) sourceExports.set(subpath, file)
+    }
+    const pkg: Package = { directory, name: manifest.name, client: manifest.jan?.client !== undefined, sourceExports,
       generatedRemote: isRecord(remote) && remote.default === './lib/typert.remote-client.js'
         && remote.types === './lib/typert.remote-client.d.ts',
       ...(manifest.jan?.bundle === undefined ? {} : { bundle: manifest.jan.bundle }) }
@@ -115,7 +124,8 @@ export function verifyProductUse(
     for (const specifier of collectRuntimeSourceSpecifiers(path, source)) reference(specifier, path, reach)
     for (const specifier of collectRuntimeLocalSourceSpecifiers(path, source, true)) {
       const resolved = specifier.startsWith('/')
-        ? sourceFile(resolve(root, 'apps/web', `.${specifier}`)) : resolveModule(specifier, path)
+        ? sourceFile(resolve(root, 'apps/web', `.${specifier}`))
+        : resolveModule(specifier, path) ?? (specifier.startsWith('.') ? sourceFile(resolve(dirname(path), specifier)) : undefined)
       if (resolved !== undefined) scanSource(resolved, reach)
       else if (/\.[cm]?[jt]sx?$/.test(specifier)) failures.push(`${display(path)}: source import ${specifier} does not resolve to source`)
     }
@@ -151,6 +161,7 @@ export function verifyProductUse(
     // Typert Remote contributions contain generated descriptors and external codecs, with no workspace runtime imports.
     if (pkg?.generatedRemote && specifier === `${pkg.name}/remote`) return
     const target = resolveModule(normalized, from)
+      ?? (pkg === undefined ? undefined : pkg.sourceExports.get(specifier === pkg.name ? '.' : `.${specifier.slice(pkg.name.length)}`))
     if (target !== undefined) scanSource(target, reach)
     else if (pkg !== undefined && !/\.(?:json|css|svg|ya?ml)$/.test(specifier)) {
       failures.push(`${display(from)}: ${specifier} does not resolve to workspace source; add a tsconfig.base.json paths mapping`)

@@ -3,8 +3,8 @@
 - button "New session": New Session
 - navigation "Global panels":
   - button "Plugins"
-  - button "Automation tasks"
-  - button "Unpin Automation tasks from sidebar"
+  - button "Scheduled"
+  - button "Unpin Scheduled from sidebar"
   - button "More"
 - text: Workspaces
 - button "Search sessions"

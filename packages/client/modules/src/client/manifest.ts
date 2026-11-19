@@ -33,6 +33,8 @@ import type {} from '@janhq/cordis'
 import type { JanClientManifest } from '@janhq/jan-package-manifest'
 import type { ClientEntries } from './entries.ts'
 import type { ClientModuleSystem } from './system.ts'
+import { janSpecifier } from '@janhq/jan-package-manifest'
+import { optionalStringArray } from './string-array.ts'
 
 declare module '@janhq/cordis' {
   interface Context {
@@ -145,23 +147,6 @@ export interface BootManifest {
 }
 
 /**
- * Validate an optional string-array field read from a `jan.client` declaration
- * or from the boot wire.
- * @param subject - diagnostic prefix naming the package or the wire row.
- * @param field - field name as it appears in the diagnostic.
- * @param value - the raw field value.
- * @returns the validated array, or undefined when the field is absent.
- * @throws {Error} when the value is present but is not an array of strings.
- */
-export function optionalStringArray(subject: string, field: string, value: unknown): string[] | undefined {
-  if (value === undefined) return undefined
-  if (!Array.isArray(value) || value.some(item => typeof item !== 'string')) {
-    throw new Error(`client-modules: ${subject} ${field} must be a string array`)
-  }
-  return value as string[]
-}
-
-/**
  * Narrow an unknown parsed JSON value to the `jan.client` declaration. Shared
  * by the node half's Loader scan and the roster generator, so both read a
  * package's browser declaration through one validator.
@@ -187,7 +172,7 @@ export function parseJanClient(pkgName: string, value: unknown): JanClientManife
   return {
     platform: decl.platform,
     ...(inject !== undefined ? { inject } : {}),
-    ...(external !== undefined ? { external } : {}),
+    ...(external !== undefined ? { external: external.map(janSpecifier) } : {}),
     ...(decl.immediately !== undefined ? { immediately: decl.immediately } : {}),
   }
 }
@@ -216,7 +201,8 @@ export function exactPackageSpecifier(specifier: string): string | undefined {
  * @returns the specifier with a trailing `/client` removed.
  */
 export function stripClientSuffix(spec: string): string {
-  return spec.endsWith('/client') ? spec.slice(0, -'/client'.length) : spec
+  const normalized = janSpecifier(spec)
+  return normalized.endsWith('/client') ? normalized.slice(0, -'/client'.length) : normalized
 }
 
 /**

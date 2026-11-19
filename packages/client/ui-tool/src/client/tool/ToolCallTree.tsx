@@ -2,6 +2,7 @@
 import { memo, useCallback, useMemo, type ReactNode } from 'react'
 import type { ToolCallBlock } from '@janhq/jan-client-ui-chat/client'
 import type { ToolCallOwnerProps, ToolCallPhaseProps, ToolTreeProps } from '../contract/slots.ts'
+import type { ToolTitles } from './title-source.ts'
 import { toolRowModel } from './models/tool-call-model.ts'
 import { GenericToolCard } from './toolviews/GenericToolCard.tsx'
 import css from './ToolCallTree.module.css'
@@ -18,13 +19,14 @@ function callName(call: ToolCallPhaseProps): string {
 
 /** One atomic call dispatched through the Tool-owned keyed slot. */
 const ToolCall = memo(function ToolCall({
-  renderSlot, callId, toolName, call, openFile, renderFallback, cwd, home, inspectCall, loadImage, useDisclosure, children,
+  renderSlot, callId, toolName, call, openFile, renderFallback, cwd, home, inspectCall, loadImage, useDisclosure, titles, children,
 }: Pick<ToolTreeProps, 'renderSlot' | 'openFile' | 'cwd' | 'inspectCall' | 'loadImage' | 'useDisclosure'> & {
   renderFallback: (owner: ToolCallOwnerProps) => ReactNode
   callId: string
   toolName: string
   call: ToolCallPhaseProps
   home?: string | undefined
+  titles: ToolTitles
   children?: ReactNode
 }) {
   const owner: ToolCallOwnerProps = useMemo(() => ({
@@ -35,9 +37,10 @@ const ToolCall = memo(function ToolCall({
     cwd,
     home,
     loadImage,
+    titles,
     useDisclosure,
     inspect: inspectCall === undefined ? undefined : () => { inspectCall(callId) },
-  }), [callId, toolName, call, openFile, cwd, home, loadImage, inspectCall, useDisclosure])
+  }), [callId, toolName, call, openFile, cwd, home, loadImage, inspectCall, useDisclosure, titles])
   const autoReviewDenied = useMemo(
     () => call.phase === 'result' && toolRowModel(toolName, call.block).autoReviewDenial !== null,
     [toolName, call],
@@ -60,8 +63,9 @@ const ToolCall = memo(function ToolCall({
 })
 
 const ToolCallBranch = memo(function ToolCallBranch({
-  renderSlot, block, cwd, home, openFile, renderFallback, inspectCall, loadImage, useDisclosure,
+  renderSlot, block, cwd, home, openFile, renderFallback, inspectCall, loadImage, useDisclosure, titles,
 }: Pick<ToolTreeProps, 'renderSlot' | 'cwd' | 'openFile' | 'inspectCall' | 'loadImage' | 'useDisclosure'> & {
+  titles: ToolTitles
   renderFallback: (owner: ToolCallOwnerProps) => ReactNode
   block: ToolCallBlock
   home?: string | undefined
@@ -80,6 +84,7 @@ const ToolCallBranch = memo(function ToolCallBranch({
       inspectCall={inspectCall}
       useDisclosure={useDisclosure}
       loadImage={loadImage}
+      titles={titles}
     >
       {call.phase !== 'preparing' && call.block.subCalls.length > 0 ? (
         <div className={css.subCalls} data-subcalls>
@@ -95,6 +100,7 @@ const ToolCallBranch = memo(function ToolCallBranch({
               inspectCall={inspectCall}
               useDisclosure={useDisclosure}
               loadImage={loadImage}
+              titles={titles}
             />
           ))}
         </div>
@@ -110,7 +116,8 @@ const ToolCallBranch = memo(function ToolCallBranch({
  * @returns the Tool call tree.
  */
 export function ToolCallTree({
-  renderSlot, node, cwd, openFile, inspectCall, loadImage, useDisclosure, useHostInfo, t, useContextMenu, sessionId, resolveFilePath,
+  renderSlot, node, cwd, openFile, inspectCall, loadImage, useDisclosure, useHostInfo, useTitles, t,
+  useContextMenu, sessionId, resolveFilePath,
 }: ToolTreeProps) {
   const { getTriggerProps } = useContextMenu()
   const getFileTriggerProps = useCallback((path: string) => getTriggerProps(() => ({
@@ -119,6 +126,7 @@ export function ToolCallTree({
   const renderFallback = useCallback((owner: ToolCallOwnerProps) =>
     <GenericToolCard {...owner} t={t} getFileTriggerProps={getFileTriggerProps} />, [t, getFileTriggerProps])
   const home = useHostInfo(info => info.home)
+  const titles = useTitles(view => view)
   return (
     <ToolCallBranch
       renderSlot={renderSlot}
@@ -130,6 +138,7 @@ export function ToolCallTree({
       inspectCall={inspectCall}
       useDisclosure={useDisclosure}
       loadImage={loadImage}
+      titles={titles}
     />
   )
 }

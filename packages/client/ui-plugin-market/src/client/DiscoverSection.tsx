@@ -1,8 +1,8 @@
 /** Discover: search one plugin market index, read an entry's page, and install a version. */
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
-  Button, IconChevronDownOutlineRegular, IconPlusOutlineRegular, IconRefreshOutlineRegular, IconSearchOutlineRegular,
-  IconSlidersTwoOutlineRegular, IconTrashOutlineRegular, IconWarningOutlineRegular, Input, Menu, Modal, Pill,
+  Button, IconChevronDownOutlineRegular, IconPluginIndexOutlineRegular, IconPlusOutlineRegular, IconRefreshOutlineRegular,
+  IconSearchOutlineRegular, IconSlidersTwoOutlineRegular, IconTrashOutlineRegular, IconWarningOutlineRegular, Input, Menu, Modal, Pill,
   PluginArtworkDefault, StateDot, Tag, Tooltip,
 } from '@janhq/jan-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
@@ -579,7 +579,7 @@ export function DiscoverSection(props: DiscoverSectionProps): ReactNode {
   } else if (state.listing === null) {
     body = (
       <div className={css.empty}>
-        <PluginArtworkDefault size={48} />
+        <IconPluginIndexOutlineRegular size={48} className={css.emptyGlyph} />
         <p className={css.emptyTitle}>{t('emptyTitle')}</p>
         <p className={css.muted}>{t('emptyDescription')}</p>
         <Button variant="primary" size="sm" icon={<IconPlusOutlineRegular size={13} />} onClick={props.toggleSources}>

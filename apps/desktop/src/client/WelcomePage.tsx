@@ -73,6 +73,8 @@ export function Welcome({ api }: { api: WelcomeApi }) {
   const focusEntry = useRef(false)
   const [local, setLocal] = useState<WelcomeLocalModel | undefined>()
   const [localFailed, setLocalFailed] = useState(false)
+  const [offer, setOffer] = useState<WelcomeLocalModel | undefined>()
+  const [cancellingLocal, setCancellingLocal] = useState(false)
 
   function navigate(next: Page) {
     pageRef.current = next
@@ -132,6 +134,15 @@ export function Welcome({ api }: { api: WelcomeApi }) {
     return () => { stopped = true; clearInterval(timer) }
   }, [page, api])
 
+  // The entry names the first-run model and its size before the download is committed.
+  useEffect(() => {
+    void api.readLocalModel().then((state) => {
+      if (mounted.current) setOffer(state)
+    }).catch((_closedChannel: unknown) => {
+      // Without the size the entry still offers the download.
+    })
+  }, [api])
+
   useEffect(() => {
     if (copyState !== 'copied' && copyState !== 'failed') return
     const timer = setTimeout(() => { setCopyFeedback({ status: 'idle' }) }, 2000)
@@ -168,6 +179,7 @@ export function Welcome({ api }: { api: WelcomeApi }) {
     if (busyRef.current) return
     busyRef.current = true
     setBusy(true)
+    setError('')
     try {
       await api.skip()
       if (mounted.current) setDraft('')
@@ -186,6 +198,21 @@ export function Welcome({ api }: { api: WelcomeApi }) {
       if (mounted.current) setLocal(state)
     } catch {
       if (mounted.current) setLocalFailed(true)
+    }
+  }
+  async function cancelLocal() {
+    setCancellingLocal(true)
+    try {
+      const state = await api.cancelLocalModel()
+      if (!mounted.current) return
+      setOffer(previous => state ?? previous)
+      setLocal(undefined)
+      focusEntry.current = true
+      navigate('entry')
+    } catch {
+      // The download keeps running and its progress stays on screen, so cancelling can be retried.
+    } finally {
+      if (mounted.current) setCancellingLocal(false)
     }
   }
   async function start() {
@@ -293,6 +320,7 @@ export function Welcome({ api }: { api: WelcomeApi }) {
         {localPhase === 'running' && <button id="local-start" className="primary" type="button" onClick={() => { void skip() }}>{m.welcomeLocalStart}</button>}
         {localPhase === 'failed' && <button id="local-retry" className="primary" type="button" onClick={() => { void startLocal() }}>{m.welcomeLocalRetry}</button>}
         {localBusy && <button id="local-background" className="secondary" type="button" disabled={busy} onClick={() => { void skip() }}>{m.welcomeLocalBackground}</button>}
+        {localPhase === 'downloading' && <button id="local-cancel" className="back" type="button" disabled={busy || cancellingLocal} onClick={() => { void cancelLocal() }}>{m.welcomeLocalCancel}</button>}
         {!localBusy && localPhase !== 'running' && <button id="local-back" className="back" type="button" onClick={() => { navigate('entry') }}>{m.welcomeLocalBack}</button>}
       </div>
       <div id="auth-actions" className="actions" hidden={page !== 'account'}>
@@ -306,9 +334,16 @@ export function Welcome({ api }: { api: WelcomeApi }) {
           onClick={() => { void cancel() }}>{m.welcomeAuthCancel}</button>
       </div>
       <div id="entry-actions" className="actions" hidden={page !== 'entry'}>
-        <button id="local-model" className="primary" type="button" title={m.welcomeLocalHint} onClick={() => { void startLocal() }}>{m.welcomeLocalModel}</button>
+        <button id="local-model" className="primary" type="button" title={m.welcomeLocalHint}
+          aria-describedby={offer === undefined ? undefined : 'local-size'} onClick={() => { void startLocal() }}>{m.welcomeLocalModel}</button>
+        {offer !== undefined && <p id="local-size" className="hint">{fill(m.welcomeLocalSize, { name: offer.name, size: formatBytes(offer.totalBytes) })}</p>}
         <button id="sign-in" className="secondary" type="button" onClick={() => { void api.analytics?.('auth_page_click', { button_name: 'sign_in' }); void start() }}>{m.welcomeSignIn}</button>
-        <button ref={keyButton} id="api-key" className="back" type="button" onClick={() => { void api.analytics?.('auth_page_click', { button_name: 'api-key' }); navigate('key') }}>{m.welcomeApiKey}</button>
+        <div className="links">
+          <button ref={keyButton} id="api-key" className="back" type="button" onClick={() => { void api.analytics?.('auth_page_click', { button_name: 'api-key' }); setError(''); navigate('key') }}>{m.welcomeApiKey}</button>
+          <span className="links-separator" aria-hidden="true">·</span>
+          <button id="skip-entry" className="back" type="button" disabled={busy} onClick={() => { void skip() }}>{m.welcomeKeyLater}</button>
+        </div>
+        <p id="entry-error" className="hint" role="alert" hidden={error === ''}>{error}</p>
       </div>
       <div id="key-actions" className="actions" hidden={page !== 'key'}>
         <button id="save-key" className="primary" type="submit" form="key-form" disabled={busy || draft.trim() === ''}>{m.welcomeKeySave}</button>

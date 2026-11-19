@@ -43,6 +43,7 @@ For layout changes, read the alignment and spacing references. Read the icon ref
 
 | Decision needed before implementation | Section or reference |
 |---|---|
+| End-to-end implementation or review of user-visible features | [Jan feature flow](../jan-feature-flow/SKILL.md) |
 | Shared axes, text starts, centering, tree indentation, complete icon boxes | [Alignment](references/alignment.md) |
 | Semantic groups, inner/outer gaps, repeated rhythm, section separation | [Spacing and grouping](references/spacing.md) |
 | Interface icon selection and artwork; icon buttons and icon-only actions, tooltips, informational hover content, accessible labels and focus | [Icons](references/icons.md) |

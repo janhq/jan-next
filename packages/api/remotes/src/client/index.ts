@@ -21,6 +21,7 @@ import toolResultsRemote from '@janhq/jan-client-ui-trajectory/remote'
 import pluginRegistryProbeRemote from '@janhq/jan-client-ui-plugin-manager/remote'
 import pluginMarketRemote from '@janhq/jan-plugin-market/remote'
 import pluginInventoryRemote from '@janhq/jan-host-plugin-inventory/remote'
+import pluginI18nRemote from '@janhq/jan-host-plugin-i18n/remote'
 import messageFeedbackRemote from '@janhq/jan-message-feedback/remote'
 import permissionPresetsRemote from '@janhq/jan-permission-presets/remote'
 import sessionFeedbackRemote from '@janhq/jan-command-feedback/remote'
@@ -55,6 +56,10 @@ export type {
   MarketQuery, MarketSearchResult, MarketSort, PluginDetail, PluginDetailDocumentId, PluginDetailOrigin,
 } from '@janhq/jan-plugin-market/types'
 export type { PluginInventorySnapshot } from '@janhq/jan-host-plugin-inventory/types'
+export type {
+  PluginI18nChange, PluginI18nConsent, PluginI18nEntries, PluginI18nEntry, PluginI18nJob, PluginI18nLocaleStatus,
+  PluginI18nRoute, PluginI18nSources, PluginI18nStatus, PluginI18nTables,
+} from '@janhq/jan-host-plugin-i18n/types'
 export type {} from '@janhq/jan-agent-preset-registry/remote'
 export type {} from '@janhq/jan-user-questions/remote'
 export type {} from '@janhq/jan-commands/remote'
@@ -66,6 +71,7 @@ export type {} from '@janhq/jan-schedule/remote'
 export type {} from '@janhq/jan-office-to-pdf/remote'
 export type {} from '@janhq/jan-llm/remote'
 export type {} from '@janhq/jan-host-plugin-inventory/remote'
+export type {} from '@janhq/jan-host-plugin-i18n/remote'
 export type {} from '@janhq/jan-message-feedback/remote'
 export type {} from '@janhq/jan-permission-presets/remote'
 export type {} from '@janhq/jan-command-feedback/remote'
@@ -199,7 +205,7 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
     for (const contribution of [
       productAnalyticsRemote, agentPresetsRemote, commandsRemote, agentTeamsRemote, settingsControllerRemote, accountRemote,
       goalsRemote, llmRemote, dynamicRemote, scheduleRemote,
-      pluginInventoryRemote, pluginManagerRemote, mcpManagerRemote, pluginMarketRemote, pluginRegistryProbeRemote,
+      pluginInventoryRemote, pluginI18nRemote, pluginManagerRemote, mcpManagerRemote, pluginMarketRemote, pluginRegistryProbeRemote,
       toolResultsRemote,
       messageFeedbackRemote, sessionFeedbackRemote,
       fileUploadsRemote, sessionReferencesRemote,

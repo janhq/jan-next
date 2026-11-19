@@ -28,6 +28,11 @@ const MANAGER_EN = {
   statusUnloaded: 'Not loaded',
   modelContext: '{tokens}-token context',
   trainedContext: 'trained on {tokens} tokens',
+  contextLengthLabel: 'Context length',
+  contextMax: 'Maximum: {tokens} tokens',
+  autoFitLabel: 'Auto-fit',
+  autoFitHint: 'Automatically choose GPU offload to fit this computer\'s memory.',
+  invalidContext: 'Enter a context length between 1 and the model maximum.',
   fitFits: 'Fits',
   fitTight: 'Tight fit',
   fitTooLarge: 'Too large',
@@ -76,6 +81,9 @@ const MANAGER_EN = {
   imported: 'Added {name}.',
   dismiss: 'Dismiss',
   retryDownload: 'Retry',
+  pauseDownload: 'Pause',
+  resumeDownload: 'Resume',
+  pausedAt: 'Paused at {percent}%',
   downloadsTitle: 'Downloads',
 } as const
 
@@ -109,6 +117,8 @@ export const en = {
   readyDetail: '{name} is ready. Pick it in the model menu at any time.',
   details: 'Details',
   connectionLost: 'Lost connection to the harness. Reconnecting…',
+  runningLoading: 'Loading {name}…',
+  runningReading: 'Reading your message · {percent}%',
 } as const
 
 /** Dictionary keys. */
@@ -126,6 +136,11 @@ type Dictionary = Record<LocalModelKey, string>
 /** Simplified Chinese. */
 export const zh: Dictionary = {
   ...MANAGER_EN,
+  contextLengthLabel: '上下文长度',
+  contextMax: '最大：{tokens} 个 token',
+  autoFitLabel: '自动适配',
+  autoFitHint: '自动选择 GPU 卸载层数，以适应本机内存。',
+  invalidContext: '请输入 1 到模型最大值之间的上下文长度。',
   contextInfo: '上下文窗口：{tokens} 个 token',
   title: '本地模型',
   subtitle: '使用 llama.cpp 在本机运行。可离线使用，数据不会离开你的电脑。',
@@ -153,11 +168,18 @@ export const zh: Dictionary = {
   readyDetail: '{name} 已就绪，可随时在模型菜单中选择。',
   details: '详情',
   connectionLost: '与服务的连接已断开，正在重连…',
+  runningLoading: '正在加载 {name}…',
+  runningReading: '正在读取你的消息 · {percent}%',
 }
 
 /** Japanese. */
 export const ja: Dictionary = {
   ...MANAGER_EN,
+  contextLengthLabel: 'コンテキスト長',
+  contextMax: '最大：{tokens} トークン',
+  autoFitLabel: '自動フィット',
+  autoFitHint: 'このコンピューターのメモリに合わせて GPU オフロードを自動で選びます。',
+  invalidContext: '1 からモデルの最大値までのコンテキスト長を入力してください。',
   contextInfo: 'コンテキスト長: {tokens} トークン',
   title: 'ローカルモデル',
   subtitle: 'llama.cpp でこのコンピューター上で実行します。オフラインで動作し、データは外部に送信されません。',
@@ -185,11 +207,18 @@ export const ja: Dictionary = {
   readyDetail: '{name} の準備ができました。モデルメニューからいつでも選べます。',
   details: '詳細',
   connectionLost: 'ハーネスとの接続が切れました。再接続しています…',
+  runningLoading: '{name} を読み込んでいます…',
+  runningReading: 'メッセージを読み込み中 · {percent}%',
 }
 
 /** Spanish. */
 export const es: Dictionary = {
   ...MANAGER_EN,
+  contextLengthLabel: 'Longitud de contexto',
+  contextMax: 'Máximo: {tokens} tokens',
+  autoFitLabel: 'Ajuste automático',
+  autoFitHint: 'Elige automáticamente la descarga a la GPU para que quepa en la memoria de este equipo.',
+  invalidContext: 'Introduzca una longitud de contexto entre 1 y el máximo del modelo.',
   contextInfo: 'Ventana de contexto: {tokens} tokens',
   title: 'Modelo local',
   subtitle: 'Se ejecuta en este equipo con llama.cpp. Funciona sin conexión; nada sale de su equipo.',
@@ -217,11 +246,18 @@ export const es: Dictionary = {
   readyDetail: '{name} está listo. Elíjalo en el menú de modelos cuando quiera.',
   details: 'Detalles',
   connectionLost: 'Se perdió la conexión. Reconectando…',
+  runningLoading: 'Cargando {name}…',
+  runningReading: 'Leyendo tu mensaje · {percent}%',
 }
 
 /** French. */
 export const fr: Dictionary = {
   ...MANAGER_EN,
+  contextLengthLabel: 'Longueur de contexte',
+  contextMax: 'Maximum : {tokens} tokens',
+  autoFitLabel: 'Ajustement auto',
+  autoFitHint: 'Choisit automatiquement le déchargement GPU pour tenir dans la mémoire de cet ordinateur.',
+  invalidContext: 'Saisissez une longueur de contexte entre 1 et le maximum du modèle.',
   contextInfo: 'Fenêtre de contexte : {tokens} jetons',
   title: 'Modèle local',
   subtitle: 'S’exécute sur cet ordinateur avec llama.cpp. Fonctionne hors ligne ; rien ne quitte votre machine.',
@@ -249,11 +285,18 @@ export const fr: Dictionary = {
   readyDetail: '{name} est prêt. Choisissez-le à tout moment dans le menu des modèles.',
   details: 'Détails',
   connectionLost: 'Connexion perdue. Reconnexion…',
+  runningLoading: 'Chargement de {name}…',
+  runningReading: 'Lecture de votre message · {percent} %',
 }
 
 /** German. */
 export const de: Dictionary = {
   ...MANAGER_EN,
+  contextLengthLabel: 'Kontextlänge',
+  contextMax: 'Maximum: {tokens} Tokens',
+  autoFitLabel: 'Automatisch anpassen',
+  autoFitHint: 'Wählt die GPU-Auslagerung automatisch passend zum Speicher dieses Computers.',
+  invalidContext: 'Geben Sie eine Kontextlänge zwischen 1 und dem Maximum des Modells ein.',
   contextInfo: 'Kontextfenster: {tokens} Token',
   title: 'Lokales Modell',
   subtitle: 'Läuft mit llama.cpp auf diesem Computer. Funktioniert offline; nichts verlässt Ihren Rechner.',
@@ -281,11 +324,18 @@ export const de: Dictionary = {
   readyDetail: '{name} ist bereit. Wählen Sie es jederzeit im Modellmenü.',
   details: 'Details',
   connectionLost: 'Verbindung verloren. Neuer Verbindungsversuch…',
+  runningLoading: '{name} wird geladen…',
+  runningReading: 'Nachricht wird gelesen · {percent} %',
 }
 
 /** Russian. */
 export const ru: Dictionary = {
   ...MANAGER_EN,
+  contextLengthLabel: 'Длина контекста',
+  contextMax: 'Максимум: {tokens} токенов',
+  autoFitLabel: 'Автоподбор',
+  autoFitHint: 'Автоматически выбирает выгрузку на GPU под память этого компьютера.',
+  invalidContext: 'Введите длину контекста от 1 до максимума модели.',
   contextInfo: 'Окно контекста: {tokens} токенов',
   title: 'Локальная модель',
   subtitle: 'Работает на этом компьютере через llama.cpp. Работает без интернета; данные не покидают компьютер.',
@@ -313,11 +363,18 @@ export const ru: Dictionary = {
   readyDetail: '{name} готова. Её можно выбрать в меню моделей.',
   details: 'Подробности',
   connectionLost: 'Соединение потеряно. Переподключение…',
+  runningLoading: 'Загрузка {name}…',
+  runningReading: 'Чтение сообщения · {percent}%',
 }
 
 /** Portuguese. */
 export const pt: Dictionary = {
   ...MANAGER_EN,
+  contextLengthLabel: 'Comprimento do contexto',
+  contextMax: 'Máximo: {tokens} tokens',
+  autoFitLabel: 'Ajuste automático',
+  autoFitHint: 'Escolhe automaticamente a descarga para a GPU para caber na memória deste computador.',
+  invalidContext: 'Informe um comprimento de contexto entre 1 e o máximo do modelo.',
   contextInfo: 'Janela de contexto: {tokens} tokens',
   title: 'Modelo local',
   subtitle: 'Roda neste computador com llama.cpp. Funciona offline; nada sai da sua máquina.',
@@ -345,4 +402,6 @@ export const pt: Dictionary = {
   readyDetail: '{name} está pronto. Escolha-o no menu de modelos quando quiser.',
   details: 'Detalhes',
   connectionLost: 'Conexão perdida. Reconectando…',
+  runningLoading: 'Carregando {name}…',
+  runningReading: 'Lendo sua mensagem · {percent}%',
 }

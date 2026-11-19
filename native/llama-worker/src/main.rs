@@ -382,6 +382,10 @@ async fn run(api_key: String) {
             std::process::exit(5);
         }
     };
+    let server = match args.preset {
+        Some(path) => server.with_managed_preset(path),
+        None => server,
+    };
     let server = match slot_store {
         Some(store) => {
             if store.saves_enabled() {

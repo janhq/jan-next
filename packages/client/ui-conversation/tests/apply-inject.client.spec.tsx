@@ -229,6 +229,63 @@ describe('Conversation inject API', () => {
     expect(b.sessionFake.prompt.mock.calls[0]?.[0]).toEqual([])
   })
 
+  it('retries the failed turn from a recovery action while the composer holds a draft and an attachment, leaving both untouched', async () => {
+    const b = await bench()
+    onTestFinished(() => b.runtime.dispose())
+    await b.runtime.sessions.replaceEvents(ROOT, continuationTurn({ kind: 'error', error: { code: 'CONTEXT_WINDOW_EXCEEDED', message: 'too long' } }))
+    await b.runtime.sessions.setProjection(ROOT, 'conversationContinuation', { overflow: SessionSeq(5) })
+    const composer = b.composerApi(ROOT)
+    const input = b.inputApi(ROOT)
+    input.actions.setDraft('Keep my new instruction')
+    expect(composer.addFiles?.([new File([Uint8Array.of(1)], 'draft.pdf', { type: 'application/pdf' })])).toBeNull()
+    const attachments = input.state.getSnapshot().attachmentIds
+    expect(attachments).toHaveLength(1)
+    // The composer's own retry refuses with a draft; the recovery entry does not consult it.
+    composer.retry!(SessionSeq(5))
+    expect(b.sessionFake.prompt).not.toHaveBeenCalled()
+    const pending = Promise.withResolvers<Awaited<ReturnType<ISession['prompt']>>>()
+    onTestFinished(() => { pending.resolve({ ok: true, value: { accepted: true } }) })
+    b.sessionFake.prompt.mockImplementationOnce(() => pending.promise)
+    const hub = b.runtime.ctx.conversation.input
+    hub.retryKeepingDraft(ROOT, SessionSeq(5))
+    hub.retryKeepingDraft(ROOT, SessionSeq(5))
+    await vi.waitFor(() => { expect(b.sessionFake.prompt).toHaveBeenCalledOnce() })
+    expect(b.sessionFake.prompt.mock.calls[0]?.[0]).toEqual([])
+    expect(b.sessionFake.prompt.mock.calls[0]?.[1]).toBe('queue')
+    pending.resolve({ ok: true, value: { accepted: true } })
+    expect(composer.keyboard!.snapshot.phase).toBe('plain')
+    expect(composer.keyboard!.snapshot.draft).toBe('Keep my new instruction')
+    expect(input.state.getSnapshot().attachmentIds).toEqual(attachments)
+  })
+
+  it('releases the recovery retry lock when the Session prompt rejects', async () => {
+    const b = await bench()
+    onTestFinished(() => b.runtime.dispose())
+    await b.runtime.sessions.setProjection(ROOT, 'conversationContinuation', SessionSeq(5))
+    b.sessionFake.prompt.mockRejectedValueOnce(new Error('connection lost'))
+    const hub = b.runtime.ctx.conversation.input
+    hub.retryKeepingDraft(ROOT, SessionSeq(5))
+    await vi.waitFor(() => { expect(b.sessionFake.prompt).toHaveBeenCalledOnce() })
+    await Promise.resolve()
+    await Promise.resolve()
+    hub.retryKeepingDraft(ROOT, SessionSeq(5))
+    await vi.waitFor(() => { expect(b.sessionFake.prompt).toHaveBeenCalledTimes(2) })
+  })
+
+  it('ignores a recovery retry for a stale failure or while the Session is busy', async () => {
+    const b = await bench()
+    onTestFinished(() => b.runtime.dispose())
+    await b.runtime.sessions.setProjection(ROOT, 'conversationContinuation', SessionSeq(5))
+    const hub = b.runtime.ctx.conversation.input
+    hub.retryKeepingDraft(ROOT, SessionSeq(1))
+    await b.runtime.sessions.updateSessionSnapshot(ROOT, (state) => { state.running = true })
+    hub.retryKeepingDraft(ROOT, SessionSeq(5))
+    await b.runtime.sessions.updateSessionSnapshot(ROOT, (state) => { state.running = false })
+    await b.runtime.sessions.setProjection(ROOT, 'conversationContinuation', null)
+    hub.retryKeepingDraft(ROOT, SessionSeq(5))
+    expect(b.sessionFake.prompt).not.toHaveBeenCalled()
+  })
+
   it.each(['next-turn', 'pending', 'block', 'attachment', 'subagent', 'removed', 'closed'] as const)(
     'rejects a stale continuation click after %s changes', async (condition) => {
       const b = await bench()

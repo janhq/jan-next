@@ -64,6 +64,7 @@
     "@janhq/jan-jobs-local": "workspace:*",
     "@janhq/jan-llm": "workspace:*",
     "@janhq/jan-llm-pi-ai": "workspace:*",
+    "@janhq/jan-llm-fallback": "workspace:*",
     "@janhq/jan-llm-retry": "workspace:*",
     "@janhq/jan-mcp-resources": "workspace:*",
     "@janhq/jan-otel": "workspace:*",

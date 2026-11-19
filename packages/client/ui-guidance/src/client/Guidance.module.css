@@ -1,0 +1,98 @@
+.popover:global(.driver-popover) {
+  min-inline-size: 0;
+  inline-size: min(304px, calc(100vw - 24px));
+  max-inline-size: none;
+  max-block-size: calc(100dvh - 24px);
+  overflow: auto;
+  padding: 16px;
+  border: 0;
+  border-radius: var(--dsw-radius-xl);
+  font: inherit;
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-bg-layer-3);
+  box-shadow: var(--dsw-elevation-prominent);
+  --jan-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --jan-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+  overflow-wrap: anywhere;
+  view-transition-name: jan-guidance-popover;
+}
+
+.popover :global(.driver-popover-arrow) { display: none; }
+
+.popover :global(.driver-popover-title) {
+  padding-inline-end: 32px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+}
+
+.popover :global(.driver-popover-description),
+.popover :global(.driver-popover-progress-text) {
+  color: var(--dsw-alias-label-secondary);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.popover :global(.driver-popover-footer) {
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-block-start: 12px;
+}
+
+.popover :global(.driver-popover-close-btn),
+.popover :global(.driver-popover-footer-btn) {
+  box-sizing: border-box;
+  min-block-size: 28px;
+  border: 0;
+  border-radius: var(--dsw-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.popover :global(.driver-popover-close-btn) {
+  inset: 8px 8px auto auto;
+  width: 28px;
+  font-size: 20px;
+}
+
+.popover :global(.driver-popover-footer-btn) {
+  padding-inline: 10px;
+  text-align: center;
+}
+
+.popover :global(.driver-popover-close-btn):focus-visible,
+.popover :global(.driver-popover-footer-btn):focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
+}
+
+.popover :global(.driver-popover-next-btn) {
+  background: var(--dsw-alias-button-primary-fill);
+  color: var(--dsw-alias-label-primary-foreground);
+}
+
+@media (hover: hover) {
+  .popover :global(.driver-popover-close-btn):hover,
+  .popover :global(.driver-popover-prev-btn):hover:not(:disabled) {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
+  .popover :global(.driver-popover-next-btn):hover:not(:disabled) {
+    background: var(--dsw-alias-button-primary-hover);
+  }
+}
+
+/* Restrict the short crossfade to the card, not the full application. */
+:global(html:active-view-transition-type(jan-guidance-step)::view-transition-old(root)) {
+  display: none;
+}
+
+:global(html:active-view-transition-type(jan-guidance-step)::view-transition-new(root)) {
+  animation-duration: 0ms;
+}
+
+:global(html:active-view-transition-type(jan-guidance-step)::view-transition-group(jan-guidance-popover)) {
+  animation-duration: 150ms;
+}

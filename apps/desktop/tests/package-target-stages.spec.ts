@@ -227,6 +227,14 @@ it.each(['mac-arm64', 'mac-x64', 'win-x64'] as const)('selects branding from the
     expect(build).toBe(unsigned ? 'run build --profile local' : 'run build:official')
     expect(stages.some(stage => stage.startsWith('exec tsx apps/desktop/scripts/pack-local-packages.ts'))).toBe(unsigned)
     expect(stages.some(stage => stage.startsWith('run release:pack --family jan'))).toBe(!unsigned)
+    const preparePackages = stages.indexOf('run prepare:packages')
+    for (const directory of [
+      'plugins/desktop-app', 'plugins/downloads', 'plugins/jan-theme', 'plugins/legacy-import', 'plugins/plugin-api',
+      'plugins/preset-square', 'packages/credentials/tokamak-account', 'packages/llm/llama-cpp',
+      'packages/api/llama-cpp-controller', 'packages/client/ui-settings-local-model', 'packages/web/web-search-exa',
+    ]) {
+      expect(stages.slice(0, preparePackages).filter(stage => stage.startsWith(`--dir ${directory} pack `))).toHaveLength(1)
+    }
   }
 })
 

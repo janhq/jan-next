@@ -57,7 +57,7 @@ Range.prototype.getBoundingClientRect = () => ({
 
 function fakeWiring() {
   const sink = vi.fn(() => Promise.resolve({ kind: 'success' as const }))
-  const shell = new SessionInputShell({ actx: {} as Context, defaultSink: sink, commandAttachments: { serialize: () => Promise.resolve([]), release: () => {}, unsupportedNotice: (token: string) => `${token.trim()} attachments-unsupported` } })
+  const shell = new SessionInputShell({ actx: {} as Context, defaultSink: sink, commandAttachments: { serialize: () => Promise.resolve([]), release: () => { }, unsupportedNotice: (token: string) => `${token.trim()} attachments-unsupported` } })
   return { wiring: shell, sink, shell }
 }
 
@@ -72,7 +72,7 @@ class ResizeObserverStub {
   }
 
   observe(target: Element): void { this.targets.push(target) }
-  unobserve(): void {}
+  unobserve(): void { }
   disconnect(): void { this.targets.length = 0 }
 }
 
@@ -123,7 +123,7 @@ function sessionSnapshotOf(overrides: Partial<SessionSnapshot> = {}): SessionSna
 function mount(
   snapshot: SessionSnapshot,
   workspaceRows: WorkspaceView[] = [{ ...workspace('one'), sessionIds: [SID] }],
-  retargetWorkspace = vi.fn(async (_workspaceId: WorkspaceId) => {}),
+  retargetWorkspace = vi.fn(async (_workspaceId: WorkspaceId) => { }),
   options: {
     /** Explicit undefined exercises the shell before a Session is selected. */
     sessionId?: SessionId | undefined
@@ -210,6 +210,8 @@ function mount(
       seatOwners.push({ key, owner })
     }
     if (key === 'conversation.hero.workspace') { pickerOwner = owner; return null }
+    // An unoccupied headline seat renders the built-in headline.
+    if (key === 'conversation.hero.headline' || key === 'conversation.hero.brand.mark') return opts?.fallback ?? null
     if (key === 'conversation.hero.frame') {
       // A hoc slot with no layers renders its content unchanged.
       frameOwners.push(owner as HeroFrameOwnerProps)
@@ -313,15 +315,17 @@ function mount(
           addFiles={() => null}
           useFileUploads={bindSnapshotSelector(createSnapshotStore({}))}
           retryFileUpload={undefined}
-          removeAttachment={() => {}}
+          removeAttachment={() => { }}
           resolveDraftAttachments={() => []}
           toggleCommandMenu={vi.fn()}
           useBusyEnter={bindSnapshotSelector(createSnapshotStore<'queue' | 'steer'>('queue'))}
           retry={undefined}
+          previewContext={undefined}
           useStopShortcut={bindSnapshotSelector(createSnapshotStore<readonly string[]>([]))}
           useNotices={bindSnapshotSelector(wiring.notices)}
           useLexicon={bindSnapshotSelector(wiring.lexicon)}
           useMenuLauncher={bindSnapshotSelector(createSnapshotStore<string | null>(null))}
+          useContextWindow={bindSnapshotSelector(createSnapshotStore<number | undefined>(undefined))}
           stop={stop}
           t={t}
           renderSlot={((key: string, seatOwner: object) => {
@@ -370,12 +374,14 @@ function mount(
       ...allowAllAccess,
       useProjection: (() => undefined),
       useComposerBlock: select => select(options.composerBlock),
+      useHeroPlaceholder: select => select(undefined),
       useInput,
       inputActions,
       renderSlot,
       renderSlotChain,
       renderFactorySlot,
       selectWorkspace: retargetWorkspace,
+      pickSuggestion: vi.fn(),
       t,
     }
     const useFactorySlot = ((name: string, fallback: (props: never) => ReactNode) => (
@@ -421,19 +427,19 @@ function mount(
 
 describe('Hero chrome', () => {
   it('renders the English preview badge through the hero locale seat', () => {
-    const renderSlot = vi.fn<(key: string, owner: object, opts?: { fallback?: ReactNode }) => ReactNode>(() => null)
+    const renderSlot = vi.fn((_name: string, _owner: object, options?: { fallback?: ReactNode }) => options?.fallback ?? null)
     const view = render(<HeroShell t={makeTranslate(en, commonEn)} renderSlot={renderSlot as never} />)
     expect(view.getByText('Into the Unknown')).toBeTruthy()
     expect(view.getByText('Preview')).toBeTruthy()
-    expect(renderSlot).toHaveBeenCalledOnce()
-    expect(renderSlot.mock.calls[0]?.[0]).toBe('conversation.hero.brand.mark')
-    const brandMarkOwner = renderSlot.mock.calls[0]?.[1]
+    const brandMarkCall = renderSlot.mock.calls.find(([name]) => name === 'conversation.hero.brand.mark')
+    expect(brandMarkCall).toBeDefined()
+    const brandMarkOwner = brandMarkCall?.[1]
     if (brandMarkOwner === undefined || !('size' in brandMarkOwner) || !('className' in brandMarkOwner)) {
       throw new Error('hero brand-mark owner must provide size and className')
     }
     expect(brandMarkOwner.size).toBe(34)
     expect(brandMarkOwner.className).toBeTypeOf('string')
-    expect(renderSlot.mock.calls[0]?.[2]?.fallback).toBeTruthy()
+    expect(brandMarkCall?.[2]?.fallback).toBeTruthy()
   })
 })
 
@@ -966,9 +972,9 @@ describe('ConversationRoot resident composer', () => {
     const originals = names.map(name =>
       [name, Object.getOwnPropertyDescriptor(Element.prototype, name)] as const)
     const captured = new Set<Element>()
-    Element.prototype.setPointerCapture = function () { captured.add(this) }
-    Element.prototype.releasePointerCapture = function () { captured.delete(this) }
-    Element.prototype.hasPointerCapture = function () { return captured.has(this) }
+    Element.prototype.setPointerCapture = function() { captured.add(this) }
+    Element.prototype.releasePointerCapture = function() { captured.delete(this) }
+    Element.prototype.hasPointerCapture = function() { return captured.has(this) }
     try {
       // Base resolves from the adaptive clamp: min(1600*0.64, 920) = 920.
       // Dragging the right handle outward by 25px widens by 2×25 = 50 → 970,

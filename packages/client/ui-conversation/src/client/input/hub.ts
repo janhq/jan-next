@@ -4,12 +4,12 @@
  * catalog subscription. Saved drafts enter the model before the first lookup
  * returns; Session-scope disposal releases the shell and its resources.
  */
-import type {} from '@janhq/jan-client-product-analytics/client'
+import type { } from '@janhq/jan-client-product-analytics/client'
 import type { PlanProjection } from '@janhq/jan-plan-mode/types'
 import type { GoalProjection } from '@janhq/jan-goal/types'
 import type { Context } from '@janhq/cordis'
 import type {
-  ISessions, SessionBinding, SessionFace,
+  ISessions, SessionBinding, SessionFace, SessionProjectionMap,
 } from '@janhq/jan-api-session-controller/client'
 import type { SessionId, SessionSeq } from '@janhq/jan-session/types'
 import type { TranslateNS } from '@janhq/jan-client-locale/client'
@@ -18,7 +18,7 @@ import type { ModelSelectionProjection } from '@janhq/jan-agent/types'
 import type { ObservableSnapshot } from '@janhq/jan-client-store'
 import type {
   DraftAttachmentId, DraftAttachmentSerializationResult, DraftInitializationOptions, DraftInitializationResult, InputTriggerController,
-  SessionInputResolver, SessionInput, SubmitOutcome,
+  ContextWindowSource, SendCheck, SessionInputResolver, SessionInput, SubmitOutcome,
 } from '../contract/input.ts'
 import type { ComposerKeyboard } from '../contract/draft-editor.ts'
 import type { ComposerBlocks } from '../contract/composer-blocks.ts'
@@ -57,6 +57,11 @@ interface ConversationAttachmentFace {
 /** Session-addressed input facade registry (SessionInputResolver face + composer-layer extras). */
 export class InputHub implements SessionInputResolver {
   private readonly shells = new WeakMap<SessionBinding, SessionInputShell>()
+  private readonly sendChecks = new Set<SendCheck>()
+  private windowSource: ContextWindowSource | undefined
+  private readonly windows = new Map<SessionId, ObservableSnapshot<number | undefined> & { refresh(): void }>()
+  /** Sessions with a draft-preserving retry prompt still in flight. */
+  private readonly retrying = new WeakSet<SessionBinding>()
 
   /**
    * @param ctx - client root context (services resolved lazily per call — boot order stays free).
@@ -65,7 +70,7 @@ export class InputHub implements SessionInputResolver {
   constructor(
     private readonly rootCtx: Context,
     private readonly t: TranslateNS<'conversation'>,
-  ) {}
+  ) { }
 
   /**
    * Resolve the facade for one session-scope ctx (SessionInputResolver face).
@@ -87,6 +92,57 @@ export class InputHub implements SessionInputResolver {
       throw new Error('conversation.input.requestDraftInitialization requires a retained Session binding')
     }
     return this.shellFor(binding).requestDraftInitialization(options)
+  }
+
+  addSendCheck(check: SendCheck): () => void {
+    this.sendChecks.add(check)
+    return () => { this.sendChecks.delete(check) }
+  }
+
+  setContextWindowSource(source: ContextWindowSource): () => void {
+    const previous = this.windowSource
+    this.windowSource = source
+    this.windowSourceChanged()
+    return () => {
+      if (this.windowSource !== source) return
+      this.windowSource = previous
+      this.windowSourceChanged()
+    }
+  }
+
+  contextWindowOf(sessionId: SessionId): ObservableSnapshot<number | undefined> {
+    const existing = this.windows.get(sessionId)
+    if (existing !== undefined) return existing
+    // The source can arrive or change after the meter subscribed, so this store follows it.
+    const listeners = new Set<() => void>()
+    let inner: ObservableSnapshot<number | undefined> | undefined
+    let unsubscribeInner: (() => void) | undefined
+    const resolve = (): void => {
+      unsubscribeInner?.()
+      inner = this.windowSource?.(sessionId)
+      unsubscribeInner = listeners.size === 0 ? undefined : inner?.subscribe(() => { for (const fn of listeners) fn() })
+    }
+    const store: ObservableSnapshot<number | undefined> & { refresh(): void } = {
+      getSnapshot: () => inner?.getSnapshot(),
+      subscribe: (fn) => {
+        if (listeners.size === 0) { listeners.add(fn); resolve() } else listeners.add(fn)
+        return () => {
+          listeners.delete(fn)
+          if (listeners.size > 0) return
+          unsubscribeInner?.(); unsubscribeInner = undefined
+          // An unwatched Session's store is rebuilt on the next read, so closed Sessions are not retained.
+          this.windows.delete(sessionId)
+        }
+      },
+      refresh: () => { resolve(); for (const fn of listeners) fn() },
+    }
+    resolve()
+    this.windows.set(sessionId, store)
+    return store
+  }
+
+  private windowSourceChanged(): void {
+    for (const store of this.windows.values()) store.refresh()
   }
 
   /**
@@ -111,10 +167,12 @@ export class InputHub implements SessionInputResolver {
         const selection = model?.next ?? model?.lastUsed
         return Object.freeze({
           ...state.blank ? {} : { sessionId: state.sessionId },
-          ...selection == null ? {} : { model: Object.freeze({
-            provider: selection.provider, name: selection.model,
-            ...selection.reasoningEffort === undefined ? {} : { effort: selection.reasoningEffort },
-          }) },
+          ...selection == null ? {} : {
+            model: Object.freeze({
+              provider: selection.provider, name: selection.model,
+              ...selection.reasoningEffort === undefined ? {} : { effort: selection.reasoningEffort },
+            })
+          },
           runMode: plan?.active ? 'plan' : goal?.goal.phase === 'active' ? 'goal' : 'default',
           running: state.running,
           newSession: state.blank,
@@ -122,6 +180,15 @@ export class InputHub implements SessionInputResolver {
         })
       },
       messageSubmitted: (submission) => { reportMessageSubmission(this.rootCtx, submission) },
+      sendCheck: (text) => {
+        for (const check of this.sendChecks) {
+          try {
+            const notice = check(session.sessionId, text)
+            if (notice !== undefined) return notice
+          } catch (_error) { /* A failing check is skipped; it never blocks sending. */ }
+        }
+        return undefined
+      },
       inputTriggers: () => this.controller(actx),
       popup: () => this.popup(actx),
       inbox: session.projections.faceOf('inbox') as ObservableSnapshot<InboxState | undefined>,
@@ -208,6 +275,23 @@ export class InputHub implements SessionInputResolver {
   }
 
   /**
+   * The addressed failure is current and the Session has no conflicting work. Recovery controls
+   * may also address an overflow; the Host verifies the recovery before admitting the retry.
+   */
+  private canRetry(id: SessionId, binding: SessionBinding, failureSeq: SessionSeq, afterRecovery = false): boolean {
+    const projection = binding.session.projections.faceOf('conversationContinuation')
+    const ending = projection.getSnapshot() as SessionProjectionMap['conversationContinuation'] | undefined
+    if (ending !== failureSeq && !(afterRecovery && typeof ending === 'object' && ending?.overflow === failureSeq)) return false
+    const session = binding.session.getSnapshot()
+    const inbox = binding.session.projections.faceOf('inbox').getSnapshot() as InboxState | undefined
+    return !(session.running || session.removed || session.openState !== 'open' || session.subagent !== null
+      || session.pendingSubmissions.length > 0
+      || (inbox?.['next-turn'].length ?? 0) > 0
+      || inbox?.['next-step'].some(message => message.source.kind === 'user')
+      || this.conversation().blocks.storeFor(id).getSnapshot() !== undefined)
+  }
+
+  /**
    * Submit empty input to retry a failed generation through the ordinary composer. Stale
    * failures, active work, and drafts keep their current input unchanged.
    * @param id - retained ordinary Session identity.
@@ -215,19 +299,28 @@ export class InputHub implements SessionInputResolver {
    */
   retry(id: SessionId, failureSeq: SessionSeq): void {
     const binding = this.sessions().binding(id)
-    if (binding === undefined
-      || binding.session.projections.faceOf('conversationContinuation').getSnapshot() !== failureSeq) return
-    const session = binding.session.getSnapshot()
+    if (binding === undefined || !this.canRetry(id, binding, failureSeq)) return
     const shell = this.shellFor(binding)
     const input = shell.snapshot
-    const inbox = binding.session.projections.faceOf('inbox').getSnapshot() as InboxState | undefined
-    if (session.running || session.removed || session.openState !== 'open' || session.subagent !== null
-      || session.pendingSubmissions.length > 0 || input.phase !== 'plain'
-      || input.draft.trim() !== '' || input.attachmentIds.length > 0
-      || (inbox?.['next-turn'].length ?? 0) > 0
-      || inbox?.['next-step'].some(message => message.source.kind === 'user')
-      || this.conversation().blocks.storeFor(id).getSnapshot() !== undefined) return
+    if (input.phase !== 'plain' || input.draft.trim() !== '' || input.attachmentIds.length > 0) return
     shell.submit('queue', 'click', true)
+  }
+
+  /**
+   * Retry a failed generation for a recovery action that ran while the composer holds a draft:
+   * the empty retry prompt goes straight to the Session, so the draft, its attachments, and the
+   * composer phase stay exactly as they are. Stale failures and active work are ignored like
+   * {@link retry}; a refused prompt lands in the Session's prompt error.
+   * @param id - retained ordinary Session identity.
+   * @param failureSeq - failed turn/end sequence the recovery card addresses.
+   */
+  retryKeepingDraft(id: SessionId, failureSeq: SessionSeq): void {
+    const binding = this.sessions().binding(id)
+    if (binding === undefined || this.retrying.has(binding) || !this.canRetry(id, binding, failureSeq, true)) return
+    this.retrying.add(binding)
+    void binding.session.prompt([], 'queue').catch(() => {
+      // The Session already records the prompt error for the conversation UI.
+    }).finally(() => { this.retrying.delete(binding) })
   }
 
   /**

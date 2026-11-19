@@ -427,6 +427,10 @@
   }
 }
 
+.primary:active:not(:disabled) {
+  background: var(--dsw-alias-button-info-active);
+}
+
 .primary:disabled {
   opacity: 0.4;
   cursor: default;

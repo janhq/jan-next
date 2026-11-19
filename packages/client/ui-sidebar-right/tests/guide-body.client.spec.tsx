@@ -83,6 +83,7 @@ function mountGuide(entries: readonly SidebarRightGuideBox[], custom?: (key: str
     useEntryPins: bindSnapshotSelector(entryPins),
     useEntryActions: bindSnapshotSelector(entryActions),
     setPinned,
+    ownerOf: providerId => providerId === 'provider/cad' ? 'dsh-cad' : undefined,
     t: makeTranslate(en),
     renderSlotChain: renderSlot,
     renderSlot: vi.fn((slot: string, owner: unknown, options?: RenderOpts) => {
@@ -113,6 +114,13 @@ describe('GuideBody', () => {
     expect(b.view.queryByRole('button', { name: 'More tools' })).toBeNull()
     act(() => { b.entryPins.set(['notes:notes-30']) })
     expect(b.boxes()).toEqual(['files', 'terminal'])
+  })
+
+  it('marks a third-party card with its package so plugin translation reaches its title and description', () => {
+    const b = mountGuide([box('files', 10), box('cad', 20, undefined, '三维模型')])
+    const card = b.view.container.querySelector('[data-sidebar-right-guide-entry="cad"]')
+    expect(card?.closest('[data-plugin-owner]')?.getAttribute('data-plugin-owner')).toBe('dsh-cad')
+    expect(b.view.container.querySelector('[data-sidebar-right-guide-entry="files"]')?.closest('[data-plugin-owner]')).toBeNull()
   })
 
   it('draws the More card after the cards and hands its menu the customizable cards', () => {

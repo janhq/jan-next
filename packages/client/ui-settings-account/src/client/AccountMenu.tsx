@@ -1,7 +1,8 @@
 /** Sidebar account launcher and locally authoritative sign-out action. */
 import { useEffect, useRef, useState } from 'react'
 import {
-  Toast, Menu, IconEllipsisOutlineMedium, IconSettingsOutlineMedium, IconUserOutlineMedium,
+  Toast, Menu, IconSettingsOutlineMedium, IconUserOutlineMedium, IconGlobeOutlineMedium,
+  IconSlidersTwoOutlineMedium, IconDeliverDocMedium, IconInfoOutlineMedium,
 } from '@janhq/jan-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import type { AccountSectionInjected } from './AccountSection.tsx'
@@ -11,6 +12,10 @@ import { LogoutIcon } from './LogoutIcon.tsx'
 import { AccountAvatar } from './AccountAvatar.tsx'
 import { AccountNoticeStack } from './AccountNotice.tsx'
 import css from './AccountMenu.module.css'
+
+// Jan's public release notes and docs, the same pages the original app links.
+const JAN_CHANGELOG_URL = 'https://jan.ai/changelog'
+const JAN_DOCS_URL = 'https://jan.ai/docs'
 
 /** Account launcher composed by the settings shell. */
 export type AccountMenuProps = PropsRuntime<'settings.launcher'> & PropsLocale<'settings.account'> & InjectFace<AccountSectionInjected>
@@ -23,7 +28,7 @@ export function AccountMenu({
   subscribeSessionExpired, subscribeModelSignInRequired, wide, settingsShortcut, openSettings,
   openOnboarding: _openOnboarding, settingsOpen,
   useAccount, useTheme, signOut, hasRunningAccountTasks, refreshAccount, bonusNoticeShown, bonusNoticeDismissed,
-  contactUs, showLogin, start, cancel, avatarFailed, t,
+  contactUs, showLogin, start, cancel, avatarFailed, openSettingsSection, openLink, t,
 }: AccountMenuProps) {
   const anchor = useRef<HTMLDivElement>(null)
   // The launcher outlives the panel, so a false-to-true edge is one Settings entry:
@@ -69,19 +74,42 @@ export function AccountMenu({
           ? <span className={css.avatar} data-avatar-status={account.avatar?.status}>
             <AccountAvatar avatar={account.avatar} avatarFailed={avatarFailed} />
           </span>
-          : <IconEllipsisOutlineMedium size={14} />}
-        {wide && <span className={css.label}>{signedIn ? label : t('more')}</span>}
+          : <IconSettingsOutlineMedium size={16} />}
+        {wide && <span className={css.label}>{signedIn ? label : t('localAccount')}</span>}
+        {wide && <span className={css.provider}>{signedIn ? t('tokamak') : t('local')}</span>}
       </button>}
       items={[
-        { id: 'settings', label: t('settings'), icon: <IconSettingsOutlineMedium size={16} />,
-          ...(settingsShortcut === undefined ? {} : { shortcut: settingsShortcut }) },
+        {
+          id: 'settings', label: t('settings'), icon: <IconSettingsOutlineMedium size={16} />,
+          ...(settingsShortcut === undefined ? {} : { shortcut: settingsShortcut })
+        },
+        ...(openSettingsSection === undefined ? [] : [
+          { id: 'language', label: t('language'), icon: <IconGlobeOutlineMedium size={16} /> },
+          { id: 'inference', label: t('inference'), icon: <IconSlidersTwoOutlineMedium size={16} /> },
+        ]),
+        ...(openLink === undefined ? [] : [
+          { type: 'separator' as const, id: 'links-separator' },
+          { id: 'changelog', label: t('changelog'), icon: <IconDeliverDocMedium size={16} /> },
+          { id: 'learn', label: t('learnMore'), icon: <IconInfoOutlineMedium size={16} /> },
+        ]),
+        { type: 'separator' as const, id: 'account-separator' },
         ...(signedIn ? [{ id: 'signout', label: t('signOut'), icon: <LogoutIcon />, disabled: busy }]
           : [{ id: 'signin', label: t('signIn'), icon: <IconUserOutlineMedium size={16} /> }]),
+        ...(process.env.JAN_CLIENT_VERSION ? [
+          { type: 'separator' as const, id: 'version-separator' },
+          { type: 'label' as const, id: 'version', text: `${t('version')} ${process.env.JAN_CLIENT_VERSION}` },
+        ] : []),
       ]}
       onClose={() => { setOpen(false) }}
       onSelect={(id) => {
         if (id === 'settings') { setOpen(false); trigger.current?.focus(); openSettings() }
-        else if (id === 'contact') { setOpen(false); contactUs() }
+        else if (id === 'language' || id === 'inference') {
+          setOpen(false)
+          openSettingsSection?.(id === 'language' ? 'general' : 'models')
+        } else if (id === 'changelog' || id === 'learn') {
+          setOpen(false)
+          openLink?.(id === 'changelog' ? JAN_CHANGELOG_URL : JAN_DOCS_URL)
+        } else if (id === 'contact') { setOpen(false); contactUs() }
         else if (id === 'signin') beginSignIn()
         else void requestSignOut()
       }} />

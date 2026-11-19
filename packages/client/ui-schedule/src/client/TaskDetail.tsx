@@ -119,11 +119,14 @@ export type TaskDetailProps = TaskDetailCommonProps & ({
   readonly authoritative: boolean
   readonly onCreateTask?: never
   readonly onCreated?: never
+  readonly template?: never
 } | {
   readonly task?: undefined
   readonly authoritative?: never
   readonly onCreateTask: (request: ScheduleCreateRequest) => Promise<TaskCreateOutcome>
   readonly onCreated: (task: ScheduleCatalogEntry) => void
+  /** Values the form starts with, such as a chosen template; omission starts blank. */
+  readonly template?: TaskEditorDraft | undefined
 })
 
 /** One task detail's selected tab, confirmation, and retained catalog row. */
@@ -199,7 +202,7 @@ function TaskDetailView(props: TaskDetailProps): ReactNode {
   const workspaces = useWorkspaces(snapshot => snapshot)
   const key = task === undefined ? 'new' : `task:${task.id}`
   const stored = props.useStore(state => state.drafts[key])
-  const [seed] = useState(newTaskDraft)
+  const [seed] = useState(() => props.template ?? newTaskDraft())
   const initial = stored?.initial ?? seed
   const changes = useMemo(() => stored?.base === undefined ? undefined : taskDraftPatch(stored.draft, stored.base),
     [stored?.draft, stored?.base])
@@ -211,8 +214,10 @@ function TaskDetailView(props: TaskDetailProps): ReactNode {
   const projects = projectChoices(workspaces.items, t('host.defaultProject'))
   // Until a directory is chosen, a new form follows the Workspace list as it arrives.
   const draft = task === undefined && input.cwd === '' ? { ...input, cwd: projects.defaultCwd } : input
+  // A template is a complete draft of its own, so a form it seeds can be created unedited.
   const dirty = base === undefined
-    ? JSON.stringify(draft) !== JSON.stringify({ ...initial, cwd: initial.cwd || projects.defaultCwd }) : storedDirty
+    ? props.template !== undefined || JSON.stringify(draft) !== JSON.stringify({ ...initial, cwd: initial.cwd || projects.defaultCwd })
+    : storedDirty
   const issue = dirty ? taskDraftIssue(draft, changes) : undefined
   const valid = issue === undefined
   const [actionPending, setPending] = useState(false)
@@ -260,8 +265,10 @@ function TaskDetailView(props: TaskDetailProps): ReactNode {
   // SessionListState gives every listed id a byId row.
   const choices = sessions.ids.map(value => ({ value, label: (sessions.byId[value] as SessionSummary).displayTitle }))
   const setDraft = (value: TaskEditorDraft): void => {
-    props.actions.setDraft(key, { base, draft: value, ...(task === undefined ? { initial } : {}),
-      ...(cached?.failure === 'host.conflict' ? { failure: cached.failure } : {}) })
+    props.actions.setDraft(key, {
+      base, draft: value, ...(task === undefined ? { initial } : {}),
+      ...(cached?.failure === 'host.conflict' ? { failure: cached.failure } : {}),
+    })
     setFailure(null)
   }
   const reset = (): void => { props.actions.clearDraft(key); setFailure(null) }
@@ -270,10 +277,14 @@ function TaskDetailView(props: TaskDetailProps): ReactNode {
     setFailure(null)
     const existingBase = base as ScheduleCatalogEntry
     const outcome = task === undefined
-      ? await props.onCreateTask({ title: draft.title.trim(), prompt: draft.prompt.trim(),
-        timing: timingFromDraft(draft, true), target: draftTarget(draft) })
-      : await hostActions.edit({ id: task.id, action: 'update', patch: taskDraftPatch(draft, existingBase, true),
-        expectedUpdatedAt: existingBase.updatedAt ?? null })
+      ? await props.onCreateTask({
+        title: draft.title.trim(), prompt: draft.prompt.trim(),
+        timing: timingFromDraft(draft, true), target: draftTarget(draft),
+      })
+      : await hostActions.edit({
+        id: task.id, action: 'update', patch: taskDraftPatch(draft, existingBase, true),
+        expectedUpdatedAt: existingBase.updatedAt ?? null,
+      })
     if (outcome === 'saved' || 'created' in outcome) {
       props.actions.clearDraft(key)
       if (mounted.current && outcome !== 'saved') props.onCreated?.(outcome.created)
@@ -320,7 +331,13 @@ function TaskDetailView(props: TaskDetailProps): ReactNode {
               onClick={() => { onTabChange(value) }}>{t(value === 'rule' ? 'detail.rule' : 'detail.records')}</button>)}
           </div>}
         <div className={css.detailActions}>
-          {task !== undefined && <><Tooltip label={t(task.status === 'active' ? 'host.pause' : 'host.resume')} side="bottom" delayMs={500} portal>
+          {task !== undefined && <><Tooltip label={deliveryFloor && !runHeld
+            ? t('host.runAfterInterval', { time: formatAvailableAt(floorEndsAt, t('time.locale'), now) }) : t('host.run')}
+          side="bottom" delayMs={500} portal>
+            <span><Button size="sm" variant="ghost" disabled={runHeld || deliveryFloor}
+              onClick={() => { void run(task.id) }}>{t('host.run')}</Button></span>
+          </Tooltip>
+          <Tooltip label={t(task.status === 'active' ? 'host.pause' : 'host.resume')} side="bottom" delayMs={500} portal>
             <span><Button size="sm" className={css.detailIconButton} disabled={busy || dirty || executionActive || task.status === 'ended' || !props.authoritative}
               aria-label={t(task.status === 'active' ? 'host.pause' : 'host.resume')} onClick={() => { void setActive(task) }}>
               {task.status === 'active' ? <IconPauseOutlineRegular /> : <IconPlayOutlineRegular />}

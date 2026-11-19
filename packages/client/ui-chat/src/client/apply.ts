@@ -22,6 +22,7 @@ import type {} from '@janhq/jan-client-ui-layout/client'
 import type {} from '@janhq/jan-client-ui-renderer/client'
 import type {} from '@janhq/jan-client-ui-session/client'
 import type {} from '@janhq/jan-client-ui-settings/client'
+import type {} from '@janhq/jan-client-ui-settings-general/client'
 import type {} from '@janhq/jan-client-ui-workspace/client'
 import type { ConnectionHandle } from '@janhq/jan-client-connection/client'
 import type {
@@ -225,6 +226,7 @@ export function apply(ctx: Context): void {
     name: 'conversation.chat.flow', locale: NS, store: chatStore,
     children: {
       'conversation.chat.node': { kind: 'keyed', scope: 'session', inject: CHAT_NODE_INJECT },
+      'conversation.chat.running-detail': { kind: 'list', scope: 'session' },
     },
     inject: (sessionId: SessionId): ChatFlowDataInjected => {
       const binding = ctx.sessions.binding(sessionId)

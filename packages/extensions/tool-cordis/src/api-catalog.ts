@@ -174,6 +174,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the recorded preset, or null when none was selected.',
       },
       {
+        signature: 'definitionFor(id: string): PresetDefinition',
+        description: 'Read one declaration\'s composed definition without mounting it. Registrants that derive a preset (a custom composition based on a shipped one) need the child plugin rows the declaration was registered with, including profile overrides; the read-only `readDocument` view is YAML.',
+        parameters: [{ name: 'id', description: 'preset identity.' }],
+        returns: 'The registered definition; plugin rows are copied so a caller cannot mutate the registry\'s declaration.',
+      },
+      {
         signature: 'async register(definition: PresetDefinition): Promise<() => Promise<void>>',
         description: 'Register and eagerly load a definition; activation failure remains visible in the roster.',
         parameters: [{ name: 'definition', description: 'Parsed configuration supplied by the declaring plugin.' }],
@@ -241,7 +247,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: '@Remote(\'select\') async select(agent: Agent, agentPreset: string): Promise<string>',
-        description: 'Select a preset before a session starts its first turn. A Session whose log records the preset and whose Agent runs its current revision keeps its composition; nothing is logged or announced.',
+        description: 'Select a preset for a Session at a turn boundary. A Session with no recorded preset that already runs the current revision keeps its composition; nothing is logged or announced. A started Session may switch once no turn is open: messages are never rewritten, the selection is appended to the log, and every later turn runs under the new composition.',
         parameters: [{ name: 'agent', description: 'Target Agent.' }, { name: 'agentPreset', description: 'Requested identity.' }],
         returns: 'Committed preset identity.',
       },
@@ -702,6 +708,19 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [{ name: 'start', description: 'first surface seq, inclusive.' }, { name: 'end', description: 'last surface seq, inclusive.' }, { name: 'agent', description: 'context whose session is mutated and whose routing options guide summarization.' }, { name: 'signal', description: 'optional cancellation; model-backed implementations must forward it.' }],
         returns: 'the appended event seqs, summary, replaced range, and token accounting.',
         throws: ['when compaction is active or the range is missing, reversed, or unbalanced.'],
+      },
+    ],
+  },
+  {
+    key: 'compactionSettings',
+    summary: 'Host settings owner that every compaction backend consults.',
+    description: 'Host settings owner that every compaction backend consults.',
+    methods: [
+      {
+        signature: 'current(): CompactionPreferences',
+        description: 'Read the preferences the user has set.',
+        parameters: [],
+        returns: 'only the fields with a value; the backend validates them.',
       },
     ],
   },
@@ -1836,6 +1855,40 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'an async stream of states that ends when the caller or the service stops.',
       },
       {
+        signature: 'getModelContext(id: string): { current: number; maximum?: number; fit: boolean }',
+        description: 'Requested and trained context of an installed model; `local` names the default.',
+        parameters: [{ name: 'id', description: 'installed model id or the route model id.' }],
+        returns: 'served context tokens, the trained maximum when the GGUF declares one, and whether auto-fit is on.',
+      },
+      {
+        signature: 'setModelContext(id: string, contextSize: number): Promise<void>',
+        description: 'Save a model\'s context and reload its preset section in a running worker.',
+        parameters: [{ name: 'id', description: 'installed model id or the route model id.' }, { name: 'contextSize', description: 'positive token count, at most the model\'s trained maximum.' }],
+      },
+      {
+        signature: 'setModelFit(id: string, fit: boolean): Promise<void>',
+        description: 'Save the automatic memory-fit choice for one model.',
+        parameters: [{ name: 'id', description: 'installed model id or the route model id.' }, { name: 'fit', description: 'whether llama.cpp fits the context and offload to free memory.' }],
+      },
+      {
+        signature: 'increaseModelContext(id: string): Promise<number | null>',
+        description: 'Grow to the next classic-Jan context step, bounded by GGUF metadata when available.',
+        parameters: [{ name: 'id', description: 'installed model id or the route model id.' }],
+        returns: 'the new context length, or null when the model cannot grow further.',
+      },
+      {
+        signature: 'listStoredDownloads(home: string): Promise<StoredDownload[]>',
+        description: 'List registry-owned models and files left by Jan\'s GGUF downloader.',
+        parameters: [{ name: 'home', description: 'Jan data folder the paths are relative to.' }],
+        returns: 'the listed models and download files.',
+      },
+      {
+        signature: 'deleteStoredDownload(home: string, path: string): Promise<void>',
+        description: 'Delete one listed artifact without unloading a resident model or touching an imported file.',
+        parameters: [{ name: 'home', description: 'Jan data folder the path is relative to.' }, { name: 'path', description: 'exact Jan-home-relative path from {@link listStoredDownloads}.' }],
+        returns: 'after the artifact is removed.',
+      },
+      {
         signature: 'install(): void',
         description: 'First-run install: download the first-run model, then start the worker. With a model already installed it starts the active model instead. Returns once accepted; progress and outcome arrive through follow. Nothing downloads while the worker is unavailable.',
         parameters: [],
@@ -1862,13 +1915,19 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'retry(id: string): void',
-        description: 'Start a failed download again, from its partial file.',
-        parameters: [{ name: 'id', description: 'model id of the failed download.' }],
-        throws: ['Error when no failed download has that id.'],
+        description: 'Start a failed or paused download again, from its partial file.',
+        parameters: [{ name: 'id', description: 'model id of the failed or paused download.' }],
+        throws: ['Error when no failed or paused download has that id.'],
+      },
+      {
+        signature: 'pause(id: string): void',
+        description: 'Pause a running or queued download, keeping its partial file so retry resumes it.',
+        parameters: [{ name: 'id', description: 'model id of the download.' }],
+        throws: ['Error when no running or queued download has that id.'],
       },
       {
         signature: 'async cancel(id?: string): Promise<void>',
-        description: 'Stop downloads: one by id, or all, discarding their partial files (a download interrupted by shutting down is kept and resumes instead); a failed entry is dismissed.',
+        description: 'Stop downloads: one by id, or all, discarding their files (a download interrupted by shutting down is kept and resumes instead); a failed entry is dismissed, a paused one discarded.',
         parameters: [{ name: 'id', description: 'model id, or undefined for every download.' }],
       },
       {
@@ -1970,14 +2029,31 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: '@Remote retryDownload(id: string): void',
-        description: 'Start a failed download again.',
-        parameters: [{ name: 'id', description: 'model id of the failed download.' }],
+        description: 'Start a failed or paused download again, from its partial file.',
+        parameters: [{ name: 'id', description: 'model id of the failed or paused download.' }],
+      },
+      {
+        signature: '@Remote pauseDownload(id: string): void',
+        description: 'Pause a running or queued download, keeping its partial file for retryDownload.',
+        parameters: [{ name: 'id', description: 'model id of the download.' }],
       },
       {
         signature: '@Remote async cancelDownload(id: string): Promise<void>',
-        description: 'Stop one download, or dismiss it when it failed.',
+        description: 'Stop one download and discard its files, or dismiss it when it failed.',
         parameters: [{ name: 'id', description: 'model id of the download.' }],
         returns: 'after it settles.',
+      },
+      {
+        signature: '@Remote async listStoredDownloads(): Promise<StoredDownload[]>',
+        description: 'Jan\'s on-disk downloads and caches, with paths relative to the Jan data folder.',
+        parameters: [],
+        returns: 'every listed item, sorted by name and then path.',
+      },
+      {
+        signature: '@Remote async deleteStoredDownload(path: string): Promise<void>',
+        description: 'Remove one currently listed download.',
+        parameters: [{ name: 'path', description: 'exact Jan-home-relative path from the list.' }],
+        returns: 'after the files are gone.',
       },
       {
         signature: '@Remote async importModel(path: string, projector?: string): Promise<string>',
@@ -1990,6 +2066,28 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Make an installed model the default, which the route\'s alias id serves, and load it; a stopped worker starts. A start failure arrives through follow.',
         parameters: [{ name: 'id', description: 'installed model id.' }],
         returns: 'after the worker serves it or has failed to start.',
+      },
+      {
+        signature: '@Remote getModelContext(id: string): { current: number; maximum?: number; fit: boolean }',
+        description: 'Current served context, GGUF-trained maximum when known, and auto-fit for one installed model.',
+        parameters: [{ name: 'id', description: 'installed model id; `local` names the default.' }],
+        returns: 'served context tokens, the trained maximum when the GGUF declares one, and whether auto-fit is on.',
+      },
+      {
+        signature: '@Remote async setModelContext(id: string, contextSize: number): Promise<void>',
+        description: 'Persist a per-model context length and wait for the worker\'s new preset to load.',
+        parameters: [{ name: 'id', description: 'installed model id; `local` names the default.' }, { name: 'contextSize', description: 'positive token count, at most the model\'s trained maximum.' }],
+      },
+      {
+        signature: '@Remote async setModelFit(id: string, fit: boolean): Promise<void>',
+        description: 'Persist and apply automatic GPU/memory fit for one installed model.',
+        parameters: [{ name: 'id', description: 'installed model id; `local` names the default.' }, { name: 'fit', description: 'whether llama.cpp fits the context and offload to free memory.' }],
+      },
+      {
+        signature: '@Remote async increaseModelContext(id: string): Promise<number | null>',
+        description: 'Grow the context to the next step, reload the model, or answer null at its maximum.',
+        parameters: [{ name: 'id', description: 'installed model id; `local` names the default.' }],
+        returns: 'the new context length, or null when the model cannot grow further.',
       },
       {
         signature: '@Remote async loadModel(id: string): Promise<void>',
@@ -2349,6 +2447,85 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'pluginI18n',
+    summary: 'Translates plugin text and serves the cached results.',
+    description: 'Translates plugin text and serves the cached results.',
+    methods: [
+      {
+        signature: '@Remote async route(): Promise<PluginI18nRoute>',
+        description: 'Read the model translations run on: the person\'s saved pick, else the default model, else a loaded local model, else any configured model, whichever resolves first.',
+        parameters: [],
+        returns: 'the provider, model, and why it was chosen.',
+      },
+      {
+        signature: '@Remote async routes(): Promise<PluginI18nRouteChoices>',
+        description: 'Read what the model picker shows: the route in use, the saved pick, the default model, and the models to pick.',
+        parameters: [],
+        returns: 'the route choices.',
+      },
+      {
+        signature: '@Remote async setRoute(route: PluginI18nRouteRef | null): Promise<PluginI18nRouteChoices>',
+        description: 'Save the model translations run on until changed again, or follow the default model again.',
+        parameters: [{ name: 'route', description: 'the provider and model to use, or null to follow the default model.' }],
+        returns: 'the route choices after the change.',
+        throws: ['{RemoteError} `plugin-i18n/invalid-route` when no adapter serves the provider or the model is empty.'],
+      },
+      {
+        signature: '@Remote async status(pkg: string): Promise<PluginI18nStatus>',
+        description: 'Read what is stored and running for one package.',
+        parameters: [{ name: 'pkg', description: 'npm package name.' }],
+        returns: 'stored locales, the latest job, and whether the person consented to this package.',
+        throws: ['{RemoteError} `plugin-i18n/invalid-package`.'],
+      },
+      {
+        signature: '@Remote async statuses(): Promise<PluginI18nStatus[]>',
+        description: 'Read the status of every package that has stored text, a job, or consent.',
+        parameters: [],
+        returns: 'one status per package, sorted by name.',
+      },
+      {
+        signature: '@Remote async translate(request: PluginI18nTranslateRequest): Promise<PluginI18nJob>',
+        description: 'Start translating one package\'s text into one locale in the Host, so closing the page does not cancel it. Asking is the person\'s consent for the package. Entries unchanged since the last run are reused. A job already running for the package and locale is returned instead of starting another.',
+        parameters: [{ name: 'request', description: 'package, locales, and the text to translate.' }],
+        returns: 'the running job; `plugin-i18n/changed` announces progress and completion.',
+        throws: ['{RemoteError} `plugin-i18n/invalid-package`, `plugin-i18n/invalid-locale`, or `plugin-i18n/too-large`.'],
+      },
+      {
+        signature: '@Remote async clear(pkg: string): Promise<void>',
+        description: 'Delete a package\'s generated text and consent and stop its running jobs.',
+        parameters: [{ name: 'pkg', description: 'npm package name.' }],
+        throws: ['{RemoteError} `plugin-i18n/invalid-package`.'],
+      },
+      {
+        signature: '@Remote async translateStrings(strings: string[], locale: string, pkg?: string, rerun?: boolean): Promise<Record<string, string>>',
+        description: 'Translate runtime strings such as tool titles or text a plugin renders itself, caching each result by its exact source text. Strings leave the Host only when the person consented to a package or globally; strings attributed to a package need that package\'s own consent, which the global switch does not give. A string the model could not translate acceptably is absent from the result.',
+        parameters: [{ name: 'strings', description: 'exact source texts.' }, { name: 'locale', description: 'target locale.' }, { name: 'pkg', description: 'the package whose screen text this is; its translated strings are listed under it.' }, { name: 'rerun', description: 'translate the strings again even when the cache has them; a string the model fails keeps its old translation.' }],
+        returns: 'translations by exact source text.',
+        throws: ['{RemoteError} `plugin-i18n/invalid-locale`, `plugin-i18n/invalid-package`, `plugin-i18n/not-consented`, or `plugin-i18n/model-failed`.'],
+      },
+      {
+        signature: '@Remote async tables(locale: string): Promise<PluginI18nTables>',
+        description: 'Read everything a client registers at start-up for one locale.',
+        parameters: [{ name: 'locale', description: 'target locale.' }],
+        returns: 'each package\'s generated text and, when translation consent exists, cached runtime strings.',
+        throws: ['{RemoteError} `plugin-i18n/invalid-locale`.'],
+      },
+      {
+        signature: '@Remote async consent(): Promise<PluginI18nConsent>',
+        description: 'Read the consent record.',
+        parameters: [],
+        returns: 'the global switch and the consenting packages.',
+      },
+      {
+        signature: '@Remote async setConsent(change: PluginI18nConsentChange): Promise<PluginI18nConsent>',
+        description: 'Change the consent record.',
+        parameters: [{ name: 'change', description: 'one package, or the global switch when `pkg` is absent.' }],
+        returns: 'the record after the change.',
+        throws: ['{RemoteError} `plugin-i18n/invalid-package`.'],
+      },
+    ],
+  },
+  {
     key: 'pluginManager',
     summary: 'Manage profile files and apply their declared reload lifecycle.',
     description: 'Manage profile files and apply their declared reload lifecycle.',
@@ -2451,6 +2628,17 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     summary: 'Fetches, validates, and caches configured market indexes; annotates entries with the profile\'s installation facts.',
     description: 'Fetches, validates, and caches configured market indexes; annotates entries with the profile\'s installation facts.',
     methods: [
+      {
+        signature: 'readonly downloadCacheDirectory: string',
+        description: 'Directory used exclusively for the market\'s fetched Git repositories.',
+        parameters: [],
+      },
+      {
+        signature: 'deleteDownloadCache(repository: string, remove: () => Promise<void>): Promise<void>',
+        description: 'Serialize a Downloads-page removal with the repository\'s fetches.',
+        parameters: [{ name: 'repository', description: 'repository whose cached checkout is removed.' }, { name: 'remove', description: 'deletes the checkout once no fetch holds it.' }],
+        returns: 'after the removal settles.',
+      },
       {
         signature: '@Remote listIndexes(): MarketIndexSummary[]',
         description: 'List the configured index sources without fetching them.',
@@ -4980,7 +5168,7 @@ export const EVENT_API: readonly EventApiEntry[] = [
     mode: 'waterfall',
     signature: '\'agent/request-error\'(this: Scoped<Agent>, payload: { agent: Agent; turn: number; step: number; provider: string; failure: LlmFailure; retryPolicy: ResolvedRetryPolicy | undefined; signal: AbortSignal }, next: () => Promise<RequestErrorAction>): Promise<RequestErrorAction>',
     summary: 'Handle one failed model-request attempt before the loop retries or closes its step.',
-    description: 'Handle one failed model-request attempt before the loop retries or closes its step. A listener returns `{ kind: \'retry\' }` without calling `next()` when it owns recovery, or calls `next()` to delegate. The default `undefined` leaves the failure terminal.',
+    description: 'Handle one failed model-request attempt before the loop retries or closes its step. A listener returns `{ kind: \'retry\' }` without calling `next()` when it owns recovery, or calls `next()` to delegate. The default `undefined` leaves the failure terminal. A retry re-runs the failed step on its route, unless the listener recorded a different provider/model with `agent.model.select()`: the loop then closes the failed step and retries in a fresh step prepared for that selection (model fallback).',
     parameters: [{ name: 'payload', description: '.signal - the turn abort signal. Scope-filtered dispatch (`@janhq/jan-scope`): agent-scoped listeners receive only that agent.' }],
   },
   {
@@ -5240,6 +5428,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [{ name: 'reloads', description: 'Replaced plugins and their module locations.' }],
   },
   {
+    name: 'llm-pi-ai/prompt-progress',
+    mode: 'emit',
+    signature: '\'llm-pi-ai/prompt-progress\'(progress: PiAiPromptProgress): void',
+    summary: 'Prompt-processing progress of one call on a route whose profile sets `promptProgress`, emitted as the server reports it (llama.cpp sends one per batch).',
+    description: 'Prompt-processing progress of one call on a route whose profile sets `promptProgress`, emitted as the server reports it (llama.cpp sends one per batch). A call that ends before its prompt is read reports it read, so observers can drop the progress. Transient: not logged.',
+    parameters: [{ name: 'progress', description: 'the call\'s route, prompt tokens read so far, and prompt total.' }],
+  },
+  {
     name: 'llm-pi-ai/request-headers',
     mode: 'waterfall',
     signature: '\'llm-pi-ai/request-headers\'(request: PiAiRequestHeaderContext, headers: Headers, next: () => Headers): Headers',
@@ -5278,6 +5474,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     summary: 'The selectable process catalog changed.',
     description: 'The selectable process catalog changed. Payload-free by design: consumers subscribe first, then re-read the complete catalog.',
     parameters: [],
+  },
+  {
+    name: 'plugin-i18n/changed',
+    mode: 'emit',
+    signature: '\'plugin-i18n/changed\'(change: PluginI18nChange): void',
+    summary: 'Generated text, a job, or the consent record changed.',
+    description: 'Generated text, a job, or the consent record changed.',
+    parameters: [{ name: 'change', description: 'the package and locale that changed, when one did.' }],
   },
   {
     name: 'plugin-manager/changed',
@@ -6098,6 +6302,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'CompactionId',
     declaration: 'export type CompactionId = Branded<\'CompactionId\'>;',
+  },
+  {
+    name: 'CompactionPreferences',
+    declaration: 'export interface CompactionPreferences {\n    auto?: boolean;\n    thresholdRatio?: number;\n    summarizationProvider?: string;\n    summarizationModel?: string;\n}',
   },
   {
     name: 'CompactionResult',
@@ -7121,7 +7329,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'LlamaCppDownload',
-    declaration: 'export interface LlamaCppDownload {\n    id: string;\n    name: string;\n    progress?: LlamaCppProgress;\n    error?: string;\n}',
+    declaration: 'export interface LlamaCppDownload {\n    id: string;\n    name: string;\n    progress?: LlamaCppProgress;\n    error?: string;\n    paused?: true;\n}',
   },
   {
     name: 'LlamaCppHardware',
@@ -7140,12 +7348,16 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type LlamaCppPhase = \'checking\' | \'missing\' | \'downloading\' | \'installed\' | \'starting\' | \'running\' | \'stopped\' | \'failed\';',
   },
   {
+    name: 'LlamaCppPrefill',
+    declaration: 'export interface LlamaCppPrefill {\n    sessionId?: string;\n    processed: number;\n    total: number;\n    cache: number;\n}',
+  },
+  {
     name: 'LlamaCppProgress',
     declaration: 'export interface LlamaCppProgress {\n    receivedBytes: number;\n    totalBytes: number;\n    bytesPerSecond: number;\n}',
   },
   {
     name: 'LlamaCppState',
-    declaration: 'export interface LlamaCppState {\n    phase: LlamaCppPhase;\n    hostPlatform: LlamaCppHostPlatform;\n    model: LlamaCppModelInfo;\n    provider: string;\n    progress?: LlamaCppProgress;\n    error?: string;\n    contextSize?: number;\n    logTail?: string;\n    models: LocalModelEntry[];\n    downloads: LlamaCppDownload[];\n    catalog: CatalogModelInfo[];\n    hardware?: LlamaCppHardware;\n}',
+    declaration: 'export interface LlamaCppState {\n    phase: LlamaCppPhase;\n    hostPlatform: LlamaCppHostPlatform;\n    model: LlamaCppModelInfo;\n    provider: string;\n    progress?: LlamaCppProgress;\n    error?: string;\n    contextSize?: number;\n    prefill?: LlamaCppPrefill;\n    logTail?: string;\n    models: LocalModelEntry[];\n    downloads: LlamaCppDownload[];\n    catalog: CatalogModelInfo[];\n    hardware?: LlamaCppHardware;\n}',
   },
   {
     name: 'LlmAdapter',
@@ -7249,7 +7461,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'LocalModelEntry',
-    declaration: 'export interface LocalModelEntry {\n    id: string;\n    name: string;\n    bytes: number;\n    source: LocalModelSource;\n    vision: boolean;\n    active: boolean;\n    status: LocalModelStatus;\n    contextSize?: number;\n    architecture: string;\n    contextLength?: number;\n    fit?: ModelFit;\n}',
+    declaration: 'export interface LocalModelEntry {\n    id: string;\n    name: string;\n    bytes: number;\n    source: LocalModelSource;\n    vision: boolean;\n    active: boolean;\n    status: LocalModelStatus;\n    contextSize?: number;\n    configuredContextSize: number;\n    autoFit: boolean;\n    architecture: string;\n    contextLength?: number;\n    fit?: ModelFit;\n}',
   },
   {
     name: 'LocalModelSource',
@@ -7557,7 +7769,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ModelCatalogModel',
-    declaration: 'export interface ModelCatalogModel {\n    readonly id: string;\n    readonly name: string;\n    readonly description?: string;\n    readonly reasoning?: ModelReasoning;\n    readonly badge?: LlmModelBadge;\n}',
+    declaration: 'export interface ModelCatalogModel {\n    readonly id: string;\n    readonly name: string;\n    readonly description?: string;\n    readonly reasoning?: ModelReasoning;\n    readonly badge?: LlmModelBadge;\n    readonly contextWindow?: number;\n    readonly imageInput?: boolean;\n}',
   },
   {
     name: 'ModelFit',
@@ -7736,6 +7948,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface PermissionCatalog {\n    options: PresetOption[];\n    defaultOptions: PresetOption[];\n    defaultPreset: string;\n}',
   },
   {
+    name: 'PiAiPromptProgress',
+    declaration: 'export interface PiAiPromptProgress {\n    readonly provider: string;\n    readonly model: string;\n    readonly sessionId?: string;\n    readonly processed: number;\n    readonly total: number;\n    readonly cache: number;\n}',
+  },
+  {
     name: 'PiAiRequestHeaderContext',
     declaration: 'export interface PiAiRequestHeaderContext extends Readonly<Pick<GenerateOptions<string>, \'provider\' | \'model\' | \'sessionId\' | \'purpose\'>> {\n    readonly baseURL: string;\n}',
   },
@@ -7762,6 +7978,82 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'PluginFiberPhase',
     declaration: 'export type PluginFiberPhase = \'pending\' | \'loading\' | \'active\' | \'failed\' | \'unloading\' | null;',
+  },
+  {
+    name: 'PluginI18nChange',
+    declaration: 'export interface PluginI18nChange {\n    readonly pkg?: string;\n    readonly locale?: string;\n}',
+  },
+  {
+    name: 'PluginI18nConsent',
+    declaration: 'export interface PluginI18nConsent {\n    readonly global: boolean;\n    readonly packages: string[];\n}',
+  },
+  {
+    name: 'PluginI18nConsentChange',
+    declaration: 'export interface PluginI18nConsentChange {\n    readonly pkg?: string;\n    readonly allowed: boolean;\n}',
+  },
+  {
+    name: 'PluginI18nEntries',
+    declaration: 'export type PluginI18nEntries = Record<string, Record<string, PluginI18nEntry>>;',
+  },
+  {
+    name: 'PluginI18nEntry',
+    declaration: 'export interface PluginI18nEntry {\n    readonly src: string;\n    readonly text: string;\n}',
+  },
+  {
+    name: 'PluginI18nJob',
+    declaration: 'export interface PluginI18nJob {\n    readonly pkg: string;\n    readonly locale: string;\n    readonly state: PluginI18nJobState;\n    readonly done: number;\n    readonly total: number;\n    readonly message?: string;\n}',
+  },
+  {
+    name: 'PluginI18nJobState',
+    declaration: 'export type PluginI18nJobState = \'running\' | \'done\' | \'failed\';',
+  },
+  {
+    name: 'PluginI18nLocaleStatus',
+    declaration: 'export interface PluginI18nLocaleStatus {\n    readonly locale: string;\n    readonly sourceLocale: string;\n    readonly model: string;\n    readonly generatedAt: number;\n    readonly namespaces: string[];\n    readonly entries: number;\n    readonly kept: number;\n}',
+  },
+  {
+    name: 'PluginI18nModelChoice',
+    declaration: 'export interface PluginI18nModelChoice extends PluginI18nRouteRef {\n    readonly name: string;\n    readonly local: boolean;\n    readonly loaded: boolean;\n}',
+  },
+  {
+    name: 'PluginI18nPackageTables',
+    declaration: 'export interface PluginI18nPackageTables {\n    readonly sourceLocale: string;\n    readonly entries: PluginI18nEntries;\n}',
+  },
+  {
+    name: 'PluginI18nRoute',
+    declaration: 'export interface PluginI18nRoute extends PluginI18nRouteRef {\n    readonly source: PluginI18nRouteSource;\n}',
+  },
+  {
+    name: 'PluginI18nRouteChoices',
+    declaration: 'export interface PluginI18nRouteChoices {\n    readonly route: PluginI18nRoute;\n    readonly saved: PluginI18nRouteRef | null;\n    readonly default: PluginI18nRouteRef & {\n        readonly usable: boolean;\n    };\n    readonly models: PluginI18nModelChoice[];\n}',
+  },
+  {
+    name: 'PluginI18nRouteRef',
+    declaration: 'export interface PluginI18nRouteRef {\n    readonly provider: string;\n    readonly model: string;\n}',
+  },
+  {
+    name: 'PluginI18nRouteSource',
+    declaration: 'export type PluginI18nRouteSource = \'saved\' | \'default\' | \'loaded-local\' | \'configured\';',
+  },
+  {
+    name: 'PluginI18nRuntimeStatus',
+    declaration: 'export interface PluginI18nRuntimeStatus {\n    readonly locale: string;\n    readonly strings: number;\n}',
+  },
+  {
+    name: 'PluginI18nSources',
+    declaration: 'export type PluginI18nSources = Record<string, Record<string, string>>;',
+  },
+  {
+    name: 'PluginI18nStatus',
+    declaration: 'export interface PluginI18nStatus {\n    readonly pkg: string;\n    readonly locales: PluginI18nLocaleStatus[];\n    readonly runtime: PluginI18nRuntimeStatus[];\n    readonly job: PluginI18nJob | null;\n    readonly consented: boolean;\n}',
+  },
+  {
+    name: 'PluginI18nTables',
+    declaration: 'export interface PluginI18nTables {\n    readonly locale: string;\n    readonly packages: Record<string, PluginI18nPackageTables>;\n    readonly strings: Record<string, string>;\n    readonly runtime: Record<string, string[]>;\n}',
+  },
+  {
+    name: 'PluginI18nTranslateRequest',
+    declaration: 'export interface PluginI18nTranslateRequest {\n    readonly pkg: string;\n    readonly locale: string;\n    readonly sourceLocale: string;\n    readonly sources: PluginI18nSources;\n    readonly rerun?: boolean;\n}',
   },
   {
     name: 'PluginInfo',
@@ -9402,6 +9694,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'StorageForms',
     declaration: 'export interface StorageForms {\n}',
+  },
+  {
+    name: 'StoredDownload',
+    declaration: 'export interface StoredDownload {\n    readonly name: string;\n    readonly kind: \'model\' | \'partial\' | \'cache\';\n    readonly bytes: number;\n    readonly path: string;\n    readonly lastUsed?: number;\n    readonly inUse?: string;\n}',
   },
   {
     name: 'StoredImageAttachment',

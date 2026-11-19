@@ -1,0 +1,11 @@
+{
+  "name": "@janhq/jan-plugin-api",
+  "version": "0.2.2-rc.1",
+  "private": true,
+  "type": "module",
+  "description": "The JSON operation route shared by Jan's plain-JS plugins.",
+  "exports": {
+    ".": "./index.mjs",
+    "./package.json": "./package.json"
+  }
+}

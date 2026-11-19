@@ -21,6 +21,7 @@ import {
   type ApiSessionAgentResult,
 } from './agent.ts'
 import { SessionCommandController, hasPromptContent } from './commands.ts'
+import { previewContext } from './context-preview.ts'
 import { SessionControlController } from './control.ts'
 import { HistoryController } from './history/controller.ts'
 import { StateController } from './state/controller.ts'
@@ -60,6 +61,8 @@ import type {
   SessionSearchValue,
   SessionSelectModelRequest,
   SessionSelectModelValue,
+  SessionContextPreviewRequest,
+  SessionContextPreviewValue,
   SessionProjectionsRequest,
   SessionProjectionsValue,
   SessionUpdateQueueRequest,
@@ -316,6 +319,19 @@ export class SessionController extends TypertRemoteService {
   @Remote('selectModel')
   selectModel(request: SessionSelectModelRequest): Promise<SessionSelectModelValue> {
     return this.commands.selectModel(request)
+  }
+
+  /**
+   * Price the system prompt, tool schemas, and runtime context the Session's next request would inject.
+   * @param request - Session identity.
+   * @param signal - cancels tool resolution and prompt assembly.
+   * @returns heuristic token prices, or null while the Session has no model selection.
+   */
+  @Remote('contextPreview')
+  async contextPreview(request: SessionContextPreviewRequest, signal: AbortSignal): Promise<SessionContextPreviewValue | null> {
+    const found = await this.agents.resolveAgent(request.sessionId)
+    if ('error' in found) throw found.error
+    return previewContext(found.agent, signal)
   }
 
   /**

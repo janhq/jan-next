@@ -25,6 +25,7 @@ import { nextStepInboxDefinition, nextTurnInboxDefinition } from '../src/client/
 import { developerMessageDefinition, messageDefinition } from '../src/client/conversation-nodes/message.ts'
 import { inspectRequestPrompt } from '@janhq/jan-client-ui-conversation/client'
 import { requestPromptDefinition, systemMessageDefinition } from '../src/client/conversation-nodes/request-prompt.ts'
+import { modelSwitchDefinition } from '../src/client/conversation-nodes/model-switch.ts'
 import { retryDefinition } from '../src/client/conversation-nodes/retry.ts'
 import { toolDefinition } from '../src/client/conversation-nodes/tool.ts'
 import { turnErrorDefinition } from '../src/client/conversation-nodes/turn-error.ts'
@@ -49,6 +50,7 @@ const DEFINITIONS: readonly ConversationNodeDefinition[] = [
   commandDefinition,
   compactionDefinition,
   retryDefinition,
+  modelSwitchDefinition,
   turnErrorDefinition,
   turnMaxTokensDefinition,
   turnTailDefinition,
@@ -3002,6 +3004,49 @@ describe('built-in conversation node Definitions', () => {
       message: 'failed',
       code: 'TRANSPORT',
     })
+  })
+
+  it('shows a Turn-level switch row only for a selection right after the failed attempt of the same Step', () => {
+    const header = (seq: number, model: string) => at(seq, 'request/header', {
+      reason: 'change', header: { config: { provider: 'tokamak', model }, tools: [] },
+    })
+    const failed = (seq: number, turn: number, step: number) => at(seq, 'assistant/attempt', {
+      turn,
+      step,
+      stream: [{
+        type: 'chunk',
+        time: 1_700_000_000_000 + seq,
+        chunk: { type: 'finish', reason: { kind: 'error', failure: { code: 'REFUSAL', message: 'claude refusal' } } },
+      }],
+    })
+    const value = assembler([
+      at(1, 'model/selection', { provider: 'tokamak', model: 'opus' }),
+      at(2, 'turn/start', { turn: 1 }),
+      at(3, 'step/start', { turn: 1, step: 1 }),
+      header(4, 'opus'),
+      failed(5, 1, 1),
+      at(6, 'model/selection', { provider: 'tokamak', model: 'gpt' }),
+      at(7, 'step/end', { turn: 1, step: 1 }),
+      at(8, 'step/start', { turn: 1, step: 2 }),
+      header(9, 'gpt'),
+      at(10, 'assistant/message', { turn: 1, step: 2, message: assistantMessage('a1', 'Oak') }, { surfaceOp: 'append' }),
+      at(11, 'step/end', { turn: 1, step: 2 }),
+      at(12, 'turn/end', { turn: 1, reason: { kind: 'completed' } }),
+      // A same-route retry that recovers selects nothing; a pick between Turns is the user's.
+      at(13, 'turn/start', { turn: 2 }),
+      at(14, 'step/start', { turn: 2, step: 1 }),
+      failed(15, 2, 1),
+      at(16, 'assistant/message', { turn: 2, step: 1, message: assistantMessage('a2', 'Elm') }, { surfaceOp: 'append' }),
+      at(17, 'step/end', { turn: 2, step: 1 }),
+      at(18, 'turn/end', { turn: 2, reason: { kind: 'completed' } }),
+      at(19, 'model/selection', { provider: 'tokamak', model: 'haiku' }),
+    ])
+
+    const switches = [...snapshot(value).nodes.values()].filter(candidate => candidate.kind === 'model-switch')
+    expect(switches.map(row => [row.data, row.groupTree])).toEqual([[
+      { seq: 6, from: 'opus', to: 'gpt', failure: { code: 'REFUSAL', message: 'claude refusal' } },
+      'turn',
+    ]])
   })
 
   it('materializes a max-tokens notice and keeps completed and error turns clean', () => {

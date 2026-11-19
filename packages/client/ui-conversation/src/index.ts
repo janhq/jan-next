@@ -17,10 +17,13 @@ export {
 export interface Config {
   /** Enter key behavior while a turn is running. */
   busyEnter: Volatile<BusyEnterBehavior>
+  /** Product copy for the empty-conversation composer; the dictionary text when unset. */
+  heroPlaceholder?: Volatile<string>
 }
 
 /** Live preferences projected to the browser. */
 export const Config = z.object({
+  heroPlaceholder: z.string().volatile(),
   [BUSY_ENTER_FIELD]: ConversationSettingsFields[BUSY_ENTER_FIELD].volatile(),
 })
 

@@ -1299,7 +1299,7 @@ describe('agent loop', () => {
     expect(texts).toContain('late steering')
   })
 
-  it.each(['provider', 'model'] as const)('rejects an agent/request replacement that changes %s after step preparation', async (field) => {
+  it.each(['provider', 'model'] as const)('rejects an agent/request replacement that changes %s after step preparation and keeps the input', async (field) => {
     const adapter = new MockAdapter([textResponse('never')])
     const ctx = await harness(adapter)
     const agent = await ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
@@ -1313,8 +1313,10 @@ describe('agent loop', () => {
     send(agent, 'hi')
     await waitForIdle(ctx, agent)
     expect(adapter.requests).toEqual([])
-    expect(agent.session.snapshotEvents().filter(event => ['request/header', 'user/message', 'system/message'].includes(event.type)))
-      .toEqual([])
+    const events = agent.session.snapshotEvents()
+    expect(events.filter(event => event.type === 'request/header')).toEqual([])
+    expect(events.flatMap(event => event.type === 'user/message' ? event.data.content : []))
+      .toEqual([{ type: 'text', text: 'hi' }])
     expect(agent.session.snapshotEvents().at(-1)).toMatchObject({
       type: 'turn/end', data: { reason: { kind: 'error', error: {
         message: `agent "a1": agent/request proposed "${field === 'provider' ? 'other/mock' : 'mock/other'}" after step preparation fixed "mock/mock"; use agent.model.select() before step preparation`,

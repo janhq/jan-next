@@ -1,0 +1,36 @@
+{
+  "name": "@janhq/jan-office-templates",
+  "version": "0.2.2-rc.1",
+  "private": true,
+  "description": "Word and Excel template gallery, template-driven Office tools and business writing skills.",
+  "type": "module",
+  "files": ["index.js", "office-modes.js", "prepare-resources.mjs", "client.js", "lib", "business-skills", "sources", "cordis.patch.yml", "LICENSE"],
+  "peerDependencies": {
+    "@janhq/jan-skill": "workspace:*",
+    "@janhq/jan-tools": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-client-connection": "workspace:*",
+    "@janhq/jan-skill-office": "workspace:*",
+    "@janhq/jan-tool-workspace-dependencies": "workspace:*"
+  },
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./modes": "./office-modes.js",
+    "./package.json": "./package.json",
+    "./cordis.patch.yml": "./cordis.patch.yml"
+  },
+  "jan": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@janhq/jan-client-connection",
+        "@janhq/jan-client-locale",
+        "@janhq/jan-client-ui-conversation"
+      ]
+    }
+  },
+  "license": "MIT"
+}

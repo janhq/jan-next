@@ -14,7 +14,8 @@ import type { PluginInstallFailureKind, Registry } from '@janhq/jan-api-remotes/
 import {
   Button, IconCheckCircleFillRegular, IconChevronDownOutlineRegular, IconChevronLeftOutlineMedium,
   IconChevronRightOutlineRegular, IconCloseOutlineMedium,
-  IconDownloadOutlineRegular, IconInfoOutlineRegular, IconPlusOutlineRegular, IconRefreshOutlineRegular, IconTrashOutlineRegular,
+  IconDownloadOutlineRegular, IconGlobeOutlineRegular, IconInfoOutlineRegular, IconPlusOutlineRegular, IconRefreshOutlineRegular,
+  IconTrashOutlineRegular,
   IconWarningOutlineRegular, Input, Menu, MenuItemButton, Modal, pointerModality,
   PluginArtworkDefault, PluginArtworkLoop, PluginArtworkSearch, PluginArtworkSubagent, PluginArtworkTerminal,
   SegmentedTabs, StateDot, Switch, Tag, TerminalBlock, Toast, Tooltip, useDismissOnOutsidePointer,
@@ -36,6 +37,7 @@ import type { PluginPackageRef, PluginRowRef, PluginsSubject } from './slot-cont
 import type { ConfigPageForm } from './slot-contract.ts'
 import { UpdateDialog, VersionSection } from './versions.tsx'
 import { BundleDetailSection } from './BundleDetailSection.tsx'
+import { usePackageTranslations, type PluginTranslationFace, type TranslationControl } from './PackageTranslation.tsx'
 import css from './PluginManagerPage.module.css'
 
 /** Full component props assembled by the main slot renderer. */
@@ -44,10 +46,10 @@ export type PluginManagerPageProps =
   & PropsLocale<'pluginManager'>
   & PropsRenderSlots<
     | 'plugins.item' | 'plugins.bundle.config' | 'plugins.row.config' | 'plugins.bundle.activation'
-    | 'plugins.add.actions' | 'plugins.tab'
+    | 'plugins.add.actions' | 'plugins.tab' | 'plugins.artwork'
     | 'plugins.detail.actions' | 'plugins.detail.badge' | 'plugins.detail.section'
   >
-  & InjectFace<PluginManagerFace & PluginHeaderLayoutFace>
+  & InjectFace<PluginManagerFace & PluginHeaderLayoutFace & PluginTranslationFace>
   & PropsStore<ReturnType<typeof createNavigationStore>>
 
 /** The page's slot renderer, narrowed to the configuration slots. */
@@ -56,11 +58,12 @@ type ResolveText = PluginManagerFace['resolveText']
 
 type RowPhase = NonNullable<PackageRow['phase']>
 
-/** The primary action installs; the adjacent menu offers every add-plugin path. */
-function AddPluginMenu({ t, disabled, openInstall, renderSlot }: {
+/** The primary action installs; the adjacent menu also links to plugin translation settings. */
+function AddPluginMenu({ t, disabled, openInstall, openTranslationSettings, renderSlot }: {
   readonly t: Translate
   readonly disabled: boolean
   readonly openInstall: () => void
+  readonly openTranslationSettings: (() => void) | undefined
   readonly renderSlot: RenderConfig
 }): ReactNode {
   const [open, setOpen] = useState(false)
@@ -76,7 +79,7 @@ function AddPluginMenu({ t, disabled, openInstall, renderSlot }: {
       <Menu open={open} onClose={onDismiss} align="end" portal autoFocus listClassName={css.addMenu}
         anchor={(
           <Button variant="primary" size="sm" className={css.addMore}
-            disabled={disabled} aria-label={t('chooseAddMethod')} aria-haspopup="menu" aria-expanded={open}
+            disabled={disabled} aria-label={t(openTranslationSettings === undefined ? 'chooseAddMethod' : 'pluginActions')} aria-haspopup="menu" aria-expanded={open}
             onClick={() => { setOpen(value => !value) }}
             onKeyDown={(event) => {
               if (!open && event.key === 'ArrowDown') { event.preventDefault(); setOpen(true) }
@@ -91,6 +94,11 @@ function AddPluginMenu({ t, disabled, openInstall, renderSlot }: {
           </span>
         </MenuItemButton>
         {renderSlot('plugins.add.actions', { onDismiss })}
+        {openTranslationSettings === undefined ? null : (
+          <MenuItemButton icon={<IconGlobeOutlineRegular size={14} />} onSelect={() => { onDismiss(); openTranslationSettings() }}>
+            {t('pluginTranslations')}
+          </MenuItemButton>
+        )}
       </Menu>
     </span>
   )
@@ -208,9 +216,15 @@ const ITEM_ARTWORK = new Map<string, (props: IconProps) => ReactNode>([
 ])
 
 /** An official plugin's card and page artwork; plugins without their own get the default. */
-function itemArtwork(id: string): ReactNode {
+function itemArtwork(id: string, renderSlot: RenderConfig): ReactNode {
   const Artwork = ITEM_ARTWORK.get(id) ?? PluginArtworkDefault
-  return <Artwork size={CARD_ARTWORK_SIZE} />
+  return renderSlot('plugins.artwork', { size: CARD_ARTWORK_SIZE }, { entryKey: id, fallback: <Artwork size={CARD_ARTWORK_SIZE} /> })
+}
+
+/** A bundle or row artwork: a themed `plugins.artwork` entry for the package wins over the manifest image. */
+function packageArtwork(name: string, src: string | undefined, renderSlot: RenderConfig, row = false, size?: number): ReactNode {
+  const fallback = <PackageArtwork key={src} src={src} row={row} {...size === undefined ? {} : { size }} />
+  return renderSlot('plugins.artwork', { size: size ?? (row ? ROW_ARTWORK_SIZE : CARD_ARTWORK_SIZE) }, { entryKey: name, fallback })
 }
 
 /** Manifest images remain isolated from the page DOM; a failed decode keeps the position's default artwork. */
@@ -421,8 +435,19 @@ function EnableSwitch({ pkg, title, t, busy, onSetEnabled }: {
 
 /** The status one card carries: running, off, or a problem the Host reported. */
 function packageStatus(pkg: PackageView): 'running' | 'disabled' | 'problem' {
-  if (pkg.error !== undefined || (pkg.enabled && pkg.rows.some(row => row.phase === 'failed'))) return 'problem'
+  if (pkg.application?.kind === 'failed' || pkg.error !== undefined || (pkg.enabled && pkg.rows.some(row => row.phase === 'failed'))) return 'problem'
   return pkg.enabled ? 'running' : 'disabled'
+}
+
+/** A saved enablement that is not running remains explicit after its toast disappears. */
+function ApplicationStatus({ pkg, t }: { readonly pkg: PackageView; readonly t: Translate }): ReactNode {
+  if (pkg.application?.kind === 'restart') {
+    return <p className={`${css.reason} ${css.reasonPending}`} role="status">{restartText('restartNotice', pkg.application.reason, t)}</p>
+  }
+  if (pkg.application?.kind === 'failed') {
+    return <p className={css.reason} role="alert">{t('applicationNotActive', { message: pkg.application.message || t('statusProblem') })}</p>
+  }
+  return null
 }
 
 /** The head every card shares: the artwork, the name that opens the page beside its tags, its one-liner, and what sits at the end. */
@@ -530,10 +555,12 @@ function updateAvailable(pkg: PackageView): boolean {
 }
 
 /** One package as a card that opens its page: its name, its one-liner, its tags, and its bundle switch. */
-function PackageCard({ pkg, t, resolveText, busy, highlighted, newer, onOpen, onSetEnabled }: {
+function PackageCard({ pkg, t, resolveText, busy, highlighted, newer, translation, onOpen, onSetEnabled, renderSlot }: {
   readonly pkg: PackageView
+  readonly renderSlot: RenderConfig
   /** The newer registry version a version check offers. */
   readonly newer: string | undefined
+  readonly translation: TranslationControl | undefined
   readonly t: Translate
   readonly resolveText: ResolveText
   readonly busy: boolean
@@ -554,20 +581,28 @@ function PackageCard({ pkg, t, resolveText, busy, highlighted, newer, onOpen, on
         title={title}
         t={t}
         onOpen={onOpen}
-        icon={<PackageArtwork key={pkg.meta?.icon} src={pkg.meta?.icon} />}
+        icon={packageArtwork(pkg.name, pkg.meta?.icon, renderSlot)}
         tags={(
           <>
             {beta ? <Tag className={css.statusTag} tone="info">{t('statusBeta')}</Tag> : null}
             {status === 'problem' ? <Tag className={css.statusTag} tone="danger">{t('statusProblem')}</Tag> : null}
+            {pkg.application?.kind === 'restart' ? <Tag className={css.statusTag} tone="info">{t('statusRestartToApply')}</Tag> : null}
             {pkg.availability === 'missing' ? <Tag className={css.statusTag}>{t(pkg.installed ? 'statusMissingFiles' : 'statusNotInstalled')}</Tag> : null}
             {updateAvailable(pkg) || newer !== undefined ? <Tag className={css.statusTag} tone="info">{t('statusUpdateAvailable')}</Tag> : null}
           </>
         )}
         description={description}
-        end={<EnableSwitch pkg={pkg} title={title} t={t} busy={busy} onSetEnabled={onSetEnabled} />}
+        end={(
+          <>
+            {translation?.action}
+            <EnableSwitch pkg={pkg} title={title} t={t} busy={busy} onSetEnabled={onSetEnabled} />
+          </>
+        )}
       />
+      {translation?.error}
       <MetadataError error={pkg.meta?.error} t={t} />
       {pkg.error?.code === 'unsupported-platform' && <p className={css.reason} role="status">{managementText(pkg.error, t)}</p>}
+      <ApplicationStatus pkg={pkg} t={t} />
     </li>
   )
 }
@@ -584,7 +619,7 @@ function ItemCard({ item, t, onOpen, renderSlot }: {
 }): ReactNode {
   return (
     <li className={`${css.card} ${css.cardLink}`} data-plugin-item={item.id}>
-      <CardHead title={item.label} t={t} onOpen={onOpen} icon={itemArtwork(item.id)} description={renderSlot('plugins.item', { view: 'summary' }, { only: item.id })} />
+      <CardHead title={item.label} t={t} onOpen={onOpen} icon={itemArtwork(item.id, renderSlot)} description={renderSlot('plugins.item', { view: 'summary' }, { only: item.id })} />
     </li>
   )
 }
@@ -626,7 +661,7 @@ function ItemDetail({ item, t, onBack, renderSlot, form }: {
         crumbLabel={t('backToList')}
         crumbText={t('crumbRoot')}
         onBack={onBack}
-        icon={itemArtwork(item.id)}
+        icon={itemArtwork(item.id, renderSlot)}
         actions={<div className={css.detailActions}>{renderSlot('plugins.detail.actions', { subject })}</div>}
       />
       <div className={css.detailMain}>
@@ -669,7 +704,7 @@ function RowDetail({ pkg, row, t, resolveText, onBack, renderSlot, form }: {
         crumbLabel={t('backToPackage', { name: title })}
         crumbText={title}
         onBack={onBack}
-        icon={<PackageArtwork key={row.meta?.icon} src={row.meta?.icon} row size={CARD_ARTWORK_SIZE} />}
+        icon={packageArtwork(row.moduleName, row.meta?.icon, renderSlot, true, CARD_ARTWORK_SIZE)}
         actions={<div className={css.detailActions}>{renderSlot('plugins.detail.actions', { subject })}</div>}
       />
       <div className={css.detailMain}>
@@ -700,7 +735,7 @@ function RowDetail({ pkg, row, t, resolveText, onBack, renderSlot, form }: {
  * and configure controls; and where it comes from.
  */
 function PackageDetail({
-  pkg, t, resolveText, busy, rowBusy, configured, configure, renderSlot, inMore, versions, detail,
+  pkg, t, resolveText, busy, rowBusy, configured, configure, renderSlot, inMore, versions, detail, translation,
   onBack, onSetEnabled, onUninstall, onUpdate, onSetRowEnabled, onEnsureVersions, onCheckVersions, onUpdateVersion,
 }: {
   readonly pkg: PackageView
@@ -708,6 +743,7 @@ function PackageDetail({
   readonly versions: VersionCheck | undefined
   /** The bundle's detail document section, shown first among the page's sections. */
   readonly detail: ReactNode
+  readonly translation: TranslationControl | undefined
   readonly t: Translate
   readonly resolveText: ResolveText
   readonly busy: boolean
@@ -739,7 +775,7 @@ function PackageDetail({
         crumbLabel={inMore ? t('backToPackage', { name: t('moreTitle') }) : t('backToList')}
         crumbText={t(inMore ? 'moreTitle' : 'crumbRoot')}
         onBack={onBack}
-        icon={<PackageArtwork key={pkg.meta?.icon} src={pkg.meta?.icon} />}
+        icon={packageArtwork(pkg.name, pkg.meta?.icon, renderSlot)}
         actions={(
           <div className={css.detailActions}>
             {renderSlot('plugins.detail.actions', { subject })}
@@ -780,15 +816,21 @@ function PackageDetail({
           {pkg.version === undefined ? null : <Tag className={css.versionTag} tone="neutral">{t('versionTag', { version: pkg.version })}</Tag>}
           {beta ? <Tag className={css.statusTag} tone="info">{t('statusBeta')}</Tag> : null}
           {status === 'problem' ? <Tag className={css.statusTag} tone="danger">{t('statusProblem')}</Tag> : null}
+          {pkg.application?.kind === 'restart' ? <Tag className={css.statusTag} tone="info">{t('statusRestartToApply')}</Tag> : null}
           {pkg.availability === 'missing' ? <Tag className={css.statusTag}>{t(pkg.installed ? 'statusMissingFiles' : 'statusNotInstalled')}</Tag> : null}
           {updateAvailable(pkg) || newer !== undefined ? <Tag className={css.statusTag} tone="info">{t('statusUpdateAvailable')}</Tag> : null}
           {renderSlot('plugins.detail.badge', { subject })}
         </div>
-        <p className={css.detailName}><code data-plugin-name>{pkg.name}</code></p>
+        <div className={pkg.installed && !pkg.official && pkg.availability !== 'missing' ? css.detailIdentity : undefined}>
+          <p className={css.detailName}><code data-plugin-name>{pkg.name}</code></p>
+          {translation?.action}
+        </div>
         {description === undefined ? null : <p className={css.detailDesc}>{description}</p>}
       </div>
+      {translation?.error}
       <MetadataError error={pkg.meta?.error} t={t} />
       {pkg.error === undefined ? null : <p className={css.reason} role="status">{t('reasonLabel')}: {managementText(pkg.error, t)}</p>}
+      <ApplicationStatus pkg={pkg} t={t} />
       {pkg.readOnlyReason === undefined ? null : <p className={css.reason} role="status">{managementText({ code: pkg.readOnlyReason }, t)}</p>}
       <div className={css.detailSections}>
         {detail}
@@ -1008,6 +1050,7 @@ function useInstallComposition(active: boolean) {
  */
 function InstallDialog({
   install, t, onClose, onEditSpec, onRun, onCancel, onReconcile, onToggleDetails, onEnableNow, onApproveBuilds,
+  onTranslate, onDeclineTranslate,
   onToggleRegistry, onChooseRegistry, onChangeRegistry, onUseGithubMirror,
 }: {
   readonly install: InstallState
@@ -1019,6 +1062,10 @@ function InstallDialog({
   readonly onReconcile: () => void
   readonly onToggleDetails: () => void
   readonly onEnableNow: () => void
+  /** Translate the installed plugin into the UI language, or retry a failed translation. */
+  readonly onTranslate: () => void
+  /** Decline the translation offer. */
+  readonly onDeclineTranslate: () => void
   readonly onApproveBuilds: () => void
   readonly onToggleRegistry: () => void
   readonly onChooseRegistry: (choice: RegistryChoice) => void
@@ -1030,6 +1077,7 @@ function InstallDialog({
   const templateHintId = useId()
   const guideId = useId()
   const approvalId = useId()
+  const translateId = useId()
   const registryId = useId()
   const registryErrorId = useId()
   const [guideOpen, setGuideOpen] = useState(false)
@@ -1437,6 +1485,41 @@ function InstallDialog({
           {phase === 'done' && install.approvedBuilds.length > 0
             ? <p className={css.result} role="status">{t('installDoneApproved', { names: install.approvedBuilds.join(', ') })}</p>
             : null}
+          {phase === 'done' && install.translate !== null
+            ? (
+              <section className={css.approval} role="group" aria-labelledby={translateId} data-install-translate={install.translate.step}>
+                <h3 id={translateId} className={css.approvalTitle}>{t('installTranslateTitle', { language: install.translate.language })}</h3>
+                {install.translate.step === 'offer' || install.translate.step === 'failed'
+                  ? (
+                    <p className={css.approvalText}>
+                      {t('installTranslateBody', {
+                        language: install.translate.language, model: install.translate.model ?? t('installTranslateModelDefault'),
+                      })}
+                    </p>
+                  )
+                  : null}
+                {install.translate.step === 'running'
+                  ? <p className={css.approvalText} role="status">{t('installTranslateRunning', { language: install.translate.language })}</p>
+                  : null}
+                {install.translate.step === 'done'
+                  ? <p className={css.approvalText} role="status">{t('installTranslateDone', { language: install.translate.language })}</p>
+                  : null}
+                {install.translate.step === 'failed'
+                  ? <p className={css.approvalCaution} role="alert">{t('installTranslateFailed', { reason: install.translate.message ?? '' })}</p>
+                  : null}
+                {install.translate.step === 'offer' || install.translate.step === 'failed'
+                  ? (
+                    <span className={css.wizardActions}>
+                      <Button variant="outline" size="sm" onClick={onDeclineTranslate}>{t('installTranslateSkip')}</Button>
+                      <Button variant="primary" size="sm" onClick={onTranslate}>
+                        {t('installTranslateAction', { language: install.translate.language })}
+                      </Button>
+                    </span>
+                  )
+                  : null}
+              </section>
+            )
+            : null}
           <div className={css.wizardFoot}>
             {subject?.bundled ? null : (
               <button type="button" className={css.detailsToggle} aria-expanded={install.detailsOpen} onClick={onToggleDetails}>
@@ -1549,6 +1632,10 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
   const tabs = props.usePluginTabs(snapshot => snapshot)
   const bundleDetails = props.useBundleDetails(snapshot => snapshot)
   const language = props.useLocale(snapshot => snapshot.active)
+  const translations = props.usePackageTranslation(value => value)
+  const translationSettings = props.useTranslationSettings(value => value)
+  const translationAllowed = props.useRemoteAccess('pluginI18n/tables')
+  const packageTranslation = usePackageTranslations(translationAllowed ? translations : undefined, language, t)
   const selectedTab = props.useStore(state => state.tab)
   // A contributed tab that left the ledger falls back to Installed, and stays there when it returns.
   const tab = tabs.some(item => item.id === selectedTab) ? selectedTab : INSTALLED_TAB
@@ -1624,11 +1711,13 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
     <PackageCard
       key={pkg.name}
       pkg={pkg}
+      renderSlot={renderSlot}
       t={t}
       resolveText={resolveText}
       busy={packageBusy(pkg)}
       highlighted={state.highlight === pkg.name}
       newer={versionUpdate(state.versions[pkg.name])}
+      translation={packageTranslation(pkg)}
       onOpen={() => { setActivation(null); setView({ kind: 'package', name: pkg.name, ...showsMoreList ? { from: 'more' } : {} }) }}
       onSetEnabled={(enabled) => { setBundleEnabled(pkg.name, enabled) }}
     />
@@ -1694,7 +1783,9 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
                     </Button>
                   </Tooltip>
                   {state.install.requestId === undefined
-                    ? <AddPluginMenu t={t} disabled={!loaded} openInstall={props.openInstall} renderSlot={renderSlot} />
+                    ? <AddPluginMenu t={t} disabled={!loaded} openInstall={props.openInstall} renderSlot={renderSlot}
+                      openTranslationSettings={translations !== undefined && translationAllowed && translationSettings
+                        ? props.openTranslationSettings : undefined} />
                     : (
                       <Tooltip label={t('installViewTask')} side="bottom" delayMs={500} focusDelayMs={500} portal disabled={!loaded}>
                         <Button variant="primary" size="sm" className={css.addButton} icon={<IconPlusOutlineRegular size={13} />}
@@ -1792,6 +1883,7 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
               configure={configure(openPkg)}
               renderSlot={renderSlot}
               inMore={backToMore}
+              translation={packageTranslation(openPkg)}
               detail={(
                 <BundleDetailSection name={openPkg.name} version={openPkg.version} fromNpm={openPkg.availability === 'missing'}
                   language={language} details={bundleDetails} t={t}
@@ -1876,6 +1968,8 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
         onReconcile={props.reconcileInstall}
         onToggleDetails={props.toggleInstallDetails}
         onEnableNow={() => { setActivation(state.install.installed); props.enableInstalled() }}
+        onTranslate={props.translateInstalled}
+        onDeclineTranslate={props.declineTranslation}
         onApproveBuilds={props.approveBuildsAndRetry}
         onToggleRegistry={props.toggleRegistryOptions}
         onChooseRegistry={props.chooseRegistry}

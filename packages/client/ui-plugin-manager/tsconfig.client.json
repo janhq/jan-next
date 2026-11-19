@@ -52,7 +52,13 @@
       "path": "../ui-settings/tsconfig.client.json"
     },
     {
+      "path": "../ui-settings-general/tsconfig.client.json"
+    },
+    {
       "path": "../product-analytics/tsconfig.client.json"
+    },
+    {
+      "path": "../ui-plugin-i18n"
     }
   ],
   "include": [

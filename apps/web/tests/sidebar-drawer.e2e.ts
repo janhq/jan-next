@@ -348,7 +348,7 @@ it('overlays the conversation and closes after navigation without losing its sid
       await page.setViewportSize({ width: 390, height: 844 })
       await frame.waitFor()
       await opener.click()
-      await drawer.getByRole('button', { name: 'Automation tasks', exact: true }).tap()
+      await drawer.getByRole('button', { name: 'Scheduled', exact: true }).tap()
       await drawer.waitFor({ state: 'hidden' })
       const tasksContent = page.getByTestId('task-manager-page').locator('[class*="pageContent"]')
       await tasksContent.waitFor()

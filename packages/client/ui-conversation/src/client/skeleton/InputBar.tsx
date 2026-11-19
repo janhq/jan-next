@@ -21,9 +21,9 @@ import {
 } from '@janhq/jan-client-ui-primitives'
 // Type-only: the `plan` projection key merge (the TodoDock posture — the
 // composer reads a host-computed value; the domain owns the key).
-import type {} from '@janhq/jan-plan-mode/client'
+import type { } from '@janhq/jan-plan-mode/client'
 // Type-only: the `goal` projection key merge (hint disambiguation).
-import type {} from '@janhq/jan-goal/client'
+import type { } from '@janhq/jan-goal/client'
 // The `imageLimits` projection key merge (intake pre-check) arrives with the
 // wire types: apiproxy's sessions contract declares it, and client-runtime's
 // api-remotes import already places it in every client program.
@@ -46,8 +46,8 @@ export type InputBarProps = ComposerBarProps
 export const InputBar = memo(function InputBar({
   useSession, useInput, inputActions, keyboard, addFiles, removeAttachment, resolveDraftAttachments,
   retryFileUpload,
-  toggleCommandMenu, stop, retry, t,
-  renderSlot, useBusyEnter, useFileUploads, useNotices, useLexicon, useMenuLauncher, useStopShortcut,
+  toggleCommandMenu, stop, retry, previewContext, t,
+  renderSlot, useBusyEnter, useFileUploads, useNotices, useLexicon, useMenuLauncher, useStopShortcut, useContextWindow,
   useAccess,
   useProjection, sessionId, variant, disabled: inert = false, blocked,
   workspacePickerOpen = false, onRequestWorkspace,
@@ -56,7 +56,11 @@ export const InputBar = memo(function InputBar({
   const input = useInput(s => s)
   const notice = useNotices(s => s)
   const busyEnter = useBusyEnter(s => s)
-  const stopKeys = useStopShortcut(keys => keys)
+  const sequenceKeys = useStopShortcut(keys => keys)
+  // Stop is a press-twice sequence; two identical keycaps read as a duplicate, so show one with a count.
+  const stopKeys = useMemo(() => sequenceKeys.length > 1 && sequenceKeys.every(key => key === sequenceKeys[0])
+    ? [`${sequenceKeys[0]} ×${sequenceKeys.length}`] : sequenceKeys, [sequenceKeys])
+  const selectedWindow = useContextWindow(value => value)
   // A page whose access snapshot excludes prompting, stopping, or uploading to this Session is offered
   // no Send, no Stop, or no file intake rather than a disabled control. `useAccess` is undefined only
   // without a Session, where the bar is an inert placeholder with no keyboard, stop, or file intake.
@@ -70,7 +74,7 @@ export const InputBar = memo(function InputBar({
   useEffect(() => { setActivity(false) }, [sessionId])
   const promptError = useSession(s => s.promptError) ?? null
   const running = useSession(s => s.running) ?? false
-  const retryableFailure = useProjection('conversationContinuation') ?? undefined
+  const retryableFailure = useProjection('conversationContinuation', ending => typeof ending === 'number' ? ending : undefined)
   const pendingHumanInput = useProjection('inbox', inbox =>
     inbox?.['next-step'].some(message =>
       typeof message === 'object' && message !== null && 'source' in message
@@ -416,9 +420,9 @@ export const InputBar = memo(function InputBar({
 
   const placeholderText = placeholder ?? (disabled
     ? t('placeholder.unavailable')
-  // The steer hint deliberately outranks the plan placeholder:
-  // while it shows, the whole-queue gesture is genuinely available
-  // (the gate never consults plan mode), so the actionable hint wins.
+    // The steer hint deliberately outranks the plan placeholder:
+    // while it shows, the whole-queue gesture is genuinely available
+    // (the gate never consults plan mode), so the actionable hint wins.
     : canSteerQueue
       ? t('placeholder.steerQueue')
       : planActive ? t('placeholder.plan') : t('placeholder.default'))
@@ -483,6 +487,9 @@ export const InputBar = memo(function InputBar({
           editorDisabled={editorDisabled}
           phase={input?.phase ?? 'inert'}
           placeholderText={placeholderText}
+          placeholderContent={!disabled && !blocked && !planActive && !canSteerQueue
+            ? renderSlot('conversation.input.placeholder', { text: placeholderText, variant }, { fallback: placeholderText })
+            : undefined}
           ariaLabel={workspaceTrigger ? t('hero.chooseWorkspace') : placeholderText}
           workspaceTrigger={workspaceTrigger}
           workspacePickerOpen={workspacePickerOpen}
@@ -583,10 +590,12 @@ export const InputBar = memo(function InputBar({
         </div>
       </div>
       <div className={css.dock} data-composer-dock>
-        {variant === 'composer' && input !== undefined && sessionId !== undefined
-          ? renderSlot('conversation.composer.dock', {})
+        {input !== undefined && sessionId !== undefined
+          ? renderSlot('conversation.composer.dock', { locked: modelSeatLocked })
           : null}
-        {activity ? null : <ContextMeter useProjection={useProjection} t={t} />}
+        {activity ? null : (
+          <ContextMeter useProjection={useProjection} selectedWindow={selectedWindow} previewContext={previewContext} t={t} />
+        )}
       </div>
     </div>
   )

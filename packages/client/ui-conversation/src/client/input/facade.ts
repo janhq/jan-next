@@ -46,6 +46,8 @@ export interface SessionInputDeps {
   submissionState?: () => MessageSubmissionState
   /** Notify one ordinary message attempt before reference serialization. */
   messageSubmitted?: (submission: MessageSubmission) => void
+  /** Pre-send checks for a plain message; answers the first pausing notice, or undefined. */
+  sendCheck?: (text: string) => string | undefined
   /** Enter adjudication face resolver; absent/undefined answer = every '/' line falls to the default sink. */
   inputTriggers?: (() => InputTriggerController | undefined) | undefined
   /** PopupSelect shell face resolver (dismissal on submit lock / escape). */
@@ -134,6 +136,8 @@ export class SessionInputShell implements SessionInput {
   readonly state: SnapshotStore<InputState>
   /** Latest surfaced notice (null after clear); the bar renders errors as banners and information inline. */
   readonly notices: SnapshotStore<InputNotice | null> = createSnapshotStore<InputNotice | null>(null)
+  /** Draft a send check already paused once; sending it unchanged goes through. */
+  private acknowledgedDraft: string | undefined
   /** The shell-owned editor (text + chip truth); the composer binds its contenteditable to it. */
   get editor(): LexicalEditor {
     return this.draftEditor.editor
@@ -408,6 +412,7 @@ export class SessionInputShell implements SessionInput {
       this.notify('error', this.deps.commandAttachments.unsupportedNotice(before.claim?.token ?? before.draft))
       return
     }
+    if (before.phase === 'plain' && before.draft.trim() !== '' && this.pausedBySendCheck(this.projection.clipboardText)) return
     this.dispatchRun({
       type: 'enter',
       ...allowEmpty ? { allowEmpty: true } : {},
@@ -575,6 +580,24 @@ export class SessionInputShell implements SessionInput {
   notify(level: 'info' | 'error', text: string): void {
     this.noticeSeq += 1
     this.notices.set({ level, text, seq: this.noticeSeq })
+  }
+
+  /**
+   * Run the pre-send checks once per draft: the first send of a flagged draft
+   * shows the notice and keeps the draft; sending the same draft again goes through.
+   * @param text - the plain message about to be sent.
+   * @returns whether the send pauses.
+   */
+  private pausedBySendCheck(text: string): boolean {
+    if (this.acknowledgedDraft === text) {
+      this.acknowledgedDraft = undefined
+      return false
+    }
+    const notice = this.deps.sendCheck?.(text)
+    if (notice === undefined) return false
+    this.acknowledgedDraft = text
+    this.notify('error', notice)
+    return true
   }
 
   /**

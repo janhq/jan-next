@@ -17,6 +17,7 @@ export const WELCOME_IPC = {
   takeNotice: 'jan-welcome:take-notice',
   localStart: 'jan-welcome:local-start',
   localState: 'jan-welcome:local-state',
+  localCancel: 'jan-welcome:local-cancel',
 } as const
 
 /**
@@ -73,6 +74,8 @@ export interface WelcomeOperations {
   startLocalModel(): Promise<WelcomeLocalModel>
   /** @returns the local model state, or undefined when this build has no local model. */
   readLocalModel(): Promise<WelcomeLocalModel | undefined>
+  /** @returns the local model state after the first-run download stopped. */
+  cancelLocalModel(): Promise<WelcomeLocalModel | undefined>
   /**
    * Enter the workspace without writing an onboarding-completion setting.
    * @returns completion after the workspace opens.

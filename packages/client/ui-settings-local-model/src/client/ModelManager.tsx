@@ -44,6 +44,42 @@ export function ModelManager(props: SectionProps): ReactNode {
   </>
 }
 
+function ModelContextControls({ model, disabled, actions, t, perform, setError }: {
+  model: LocalModelEntry
+  disabled: boolean
+  actions: LocalModelActions
+  t: T
+  perform: (id: string, call: (id: string) => Promise<Outcome<void>>) => void
+  setError: (id: string, message: string) => void
+}): ReactNode {
+  const [draft, setDraft] = useState(String(model.configuredContextSize))
+  useEffect(() => { setDraft(String(model.configuredContextSize)) }, [model.configuredContextSize])
+  const commit = (): void => {
+    const value = Number(draft)
+    if (!Number.isSafeInteger(value) || value <= 0 || (model.contextLength !== undefined && value > model.contextLength)) {
+      setError(model.id, t('invalidContext'))
+      setDraft(String(model.configuredContextSize))
+    } else if (value !== model.configuredContextSize) perform(model.id, id => actions.setModelContext(id, value))
+  }
+  return <span className={`${css.rowWide} ${css.modelSettings}`}>
+    <label className={css.modelSetting}>
+      {t('contextLengthLabel')}
+      <input type="number" min={1} max={model.contextLength} step={1} aria-label={t('contextLengthLabel')}
+        value={draft} disabled={disabled} onChange={(event) => { setDraft(event.currentTarget.value) }}
+        onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur() }}
+        onBlur={commit} />
+      {model.contextLength !== undefined && <span className={css.muted}>
+        {t('contextMax', { tokens: model.contextLength.toLocaleString() })}
+      </span>}
+    </label>
+    <label className={css.modelSetting} title={t('autoFitHint')}>
+      <input type="checkbox" checked={model.autoFit} disabled={disabled}
+        onChange={(event) => { perform(model.id, id => actions.setModelFit(id, event.target.checked)) }} />
+      {t('autoFitLabel')}
+    </label>
+  </span>
+}
+
 function InstalledModels({ state, actions, t }: SectionProps): ReactNode {
   const [confirming, setConfirming] = useState<string | undefined>()
   // One model operation at a time per row; its failure stays on the row until the next attempt.
@@ -82,6 +118,8 @@ function InstalledModels({ state, actions, t }: SectionProps): ReactNode {
             </span>
             <span className={css.muted}>{detail}</span>
           </span>
+          <ModelContextControls model={model} disabled={disabled} actions={actions} t={t} perform={perform}
+            setError={(id, message) => { setErrors(current => new Map(current).set(id, message)) }} />
           {confirming === model.id ? <span className={css.actions}>
             <span className={css.muted}>
               {t(model.source === 'import' ? 'forgetConfirm' : 'deleteConfirm', { name: model.name, size: formatBytes(model.bytes) })}
@@ -110,29 +148,46 @@ function InstalledModels({ state, actions, t }: SectionProps): ReactNode {
   </section>
 }
 
+/** Percent of a paused download's bytes already on disk. */
+function pausedPercent(item: LlamaCppState['downloads'][number]): string {
+  const progress = item.progress
+  if (progress === undefined || progress.totalBytes <= 0) return '0'
+  return String(Math.min(100, Math.floor((progress.receivedBytes / progress.totalBytes) * 100)))
+}
+
 function Downloads({ state, actions, t }: SectionProps): ReactNode {
-  // While nothing is installed the card's own progress line shows the first download.
-  const items = state.models.length === 0 ? state.downloads.filter(item => item.error !== undefined) : state.downloads
+  // While nothing is installed the card's own progress line shows the running first download.
+  const items = state.models.length === 0
+    ? state.downloads.filter(item => item.error !== undefined || item.paused !== undefined)
+    : state.downloads
   if (items.length === 0) return null
   return <section className={css.section} aria-label={t('downloadsTitle')}>
     <h4 className={css.sectionTitle}>{t('downloadsTitle')}</h4>
     <ul className={css.list} data-testid="local-model-downloads">
-      {items.map(item => <li key={item.id} className={css.row} data-model-id={item.id}>
-        <span className={css.rowMain}>
-          <span className={css.rowName} title={item.name}>{item.name}</span>
-          {item.error !== undefined && <span className={css.error} role="alert">{item.error}</span>}
-          {item.error === undefined && item.progress === undefined && <span className={css.muted}>{t('queued')}</span>}
-        </span>
-        <span className={css.actions}>
-          {item.error !== undefined && <Button variant="outline" size="sm" data-testid="local-model-retry-download"
-            onClick={() => { actions.retryDownload(item.id) }}>{t('retryDownload')}</Button>}
-          <Button variant="ghost" size="sm" onClick={() => { actions.cancelDownload(item.id) }}>
-            {t(item.error === undefined ? 'cancel' : 'dismiss')}
-          </Button>
-        </span>
-        {item.progress !== undefined && item.error === undefined
-          && <span className={css.rowWide}><DownloadProgress progress={item.progress} name={item.name} t={t} /></span>}
-      </li>)}
+      {items.map((item) => {
+        const running = item.error === undefined && item.paused === undefined
+        return <li key={item.id} className={css.row} data-model-id={item.id}>
+          <span className={css.rowMain}>
+            <span className={css.rowName} title={item.name}>{item.name}</span>
+            {item.error !== undefined && <span className={css.error} role="alert">{item.error}</span>}
+            {item.paused !== undefined && <span className={css.muted}>{t('pausedAt', { percent: pausedPercent(item) })}</span>}
+            {running && item.progress === undefined && <span className={css.muted}>{t('queued')}</span>}
+          </span>
+          <span className={css.actions}>
+            {item.error !== undefined && <Button variant="outline" size="sm" data-testid="local-model-retry-download"
+              onClick={() => { actions.retryDownload(item.id) }}>{t('retryDownload')}</Button>}
+            {item.paused !== undefined && <Button variant="outline" size="sm" data-testid="local-model-resume-download"
+              onClick={() => { actions.retryDownload(item.id) }}>{t('resumeDownload')}</Button>}
+            {running && <Button variant="outline" size="sm" data-testid="local-model-pause-download"
+              onClick={() => { actions.pauseDownload(item.id) }}>{t('pauseDownload')}</Button>}
+            <Button variant="ghost" size="sm" onClick={() => { actions.cancelDownload(item.id) }}>
+              {t(item.error === undefined ? 'cancel' : 'dismiss')}
+            </Button>
+          </span>
+          {running && item.progress !== undefined
+            && <span className={css.rowWide}><DownloadProgress progress={item.progress} name={item.name} t={t} /></span>}
+        </li>
+      })}
     </ul>
   </section>
 }
@@ -156,7 +211,8 @@ function AddModel({ state, actions, t }: SectionProps): ReactNode {
   const needle = text.toLowerCase()
   const matches = looksLikeRepo ? [] : state.catalog.filter(entry =>
     needle === '' || entry.name.toLowerCase().includes(needle) || entry.repo.toLowerCase().includes(needle))
-  const downloading = new Set(state.downloads.filter(item => item.error === undefined).map(item => item.id))
+  // A paused download offers Download again, which resumes it from its partial file.
+  const downloading = new Set(state.downloads.filter(item => item.error === undefined && item.paused === undefined).map(item => item.id))
 
   const runLookup = (): void => {
     pending.current?.abort()
@@ -241,7 +297,7 @@ function RepoFiles({ result, state, actions, t, started, onStarted }: RepoFilesP
     const id = started.get(key)
     if (id === undefined) return 'queued'
     if (state.models.some(model => model.id === id)) return 'installed'
-    const download = state.downloads.find(item => item.id === id && item.error === undefined)
+    const download = state.downloads.find(item => item.id === id && item.error === undefined && item.paused === undefined)
     if (download === undefined) return 'available'
     return download.progress === undefined ? 'queued' : 'downloading'
   }

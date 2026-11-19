@@ -583,6 +583,17 @@ Registry of YAML-declared presets and the revisions live Agents retain.
  */
 presetForSession(session: Session): string | null
 
+/**
+ * Read one declaration's composed definition without mounting it.
+ * Registrants that derive a preset (a custom composition based on a shipped
+ * one) need the child plugin rows the declaration was registered with,
+ * including profile overrides; the read-only `readDocument` view is YAML.
+ * @param id - preset identity.
+ * @returns The registered definition; plugin rows are copied so a caller
+ * cannot mutate the registry's declaration.
+ */
+definitionFor(id: string): PresetDefinition
+
 /** Register and eagerly load a definition; activation failure remains visible in the roster.
  * @param definition Parsed configuration supplied by the declaring plugin.
  * @returns Definition disposer after activation or its diagnostic settles; the declaring plugin owns it.
@@ -651,9 +662,11 @@ serviceFor<K extends string & keyof Context>(agent: { ctx: Context }, name: K): 
  */
 async recompose(ctx: Context, id: string): Promise<AgentPreset>
 
-/** Select a preset before a session starts its first turn. A Session whose
- * log records the preset and whose Agent runs its current revision keeps its
- * composition; nothing is logged or announced.
+/** Select a preset for a Session at a turn boundary. A Session with no
+ * recorded preset that already runs the current revision keeps its
+ * composition; nothing is logged or announced. A started Session may switch
+ * once no turn is open: messages are never rewritten, the selection is
+ * appended to the log, and every later turn runs under the new composition.
  * @param agent Target Agent.
  * @param agentPreset Requested identity.
  * @returns Committed preset identity.
@@ -1036,14 +1049,17 @@ Source: [`packages/core/agent/src/runtime-types.ts`](../../packages/core/agent/s
 
 #### `agent/request-error` — waterfall
 
-Handle one failed model-request attempt before the loop retries or closes its step. A listener returns `{ kind: 'retry' }` without calling `next()` when it owns recovery, or calls `next()` to delegate. The default `undefined` leaves the failure terminal.
+Handle one failed model-request attempt before the loop retries or closes its step. A listener returns `{ kind: 'retry' }` without calling `next()` when it owns recovery, or calls `next()` to delegate. The default `undefined` leaves the failure terminal. A retry re-runs the failed step on its route, unless the listener recorded a different provider/model with `agent.model.select()`: the loop then closes the failed step and retries in a fresh step prepared for that selection (model fallback).
 
 ```ts cordis-catalog
 /**
  * Handle one failed model-request attempt before the loop retries or closes
  * its step. A listener returns `{ kind: 'retry' }` without calling `next()`
  * when it owns recovery, or calls `next()` to delegate. The default
- * `undefined` leaves the failure terminal.
+ * `undefined` leaves the failure terminal. A retry re-runs the failed step
+ * on its route, unless the listener recorded a different provider/model
+ * with `agent.model.select()`: the loop then closes the failed step and
+ * retries in a fresh step prepared for that selection (model fallback).
  * @param payload.agent - the agent whose request failed.
  * @param payload.turn - the turn containing the failed request.
  * @param payload.step - the step containing the failed request attempt.

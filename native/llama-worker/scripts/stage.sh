@@ -38,7 +38,8 @@ WORKER="$TARGET_DIR/jan-llama-worker$EXE"
 [ -f "$WORKER" ] || fail "$WORKER not found; run \`pnpm run build:llama-worker\` first"
 
 matches=()
-for record in "$TARGET_DIR"/build/jan-llama-worker-*/output; do
+# Build-script stdout: build/<pkg>-<hash>/output before Rust 1.100, build/<pkg>/<hash>/run/stdout since.
+for record in "$TARGET_DIR"/build/jan-llama-worker-*/output "$TARGET_DIR"/build/jan-llama-worker/*/run/stdout; do
   [ -f "$record" ] || continue
   dir="$(sed -n 's/^cargo:rustc-env=JAN_GGML_BACKEND_DIR=//p' "$record" | tr -d '\r')"
   [ -n "$dir" ] || continue

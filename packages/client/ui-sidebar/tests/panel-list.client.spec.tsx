@@ -44,6 +44,7 @@ async function bench(collapsed = false, track?: TrackProductEvent) {
   const layout = {
     panelInfo: runtime.panelInfo,
     beginNavigation: vi.fn(() => new AbortController().signal),
+    configureSidebar: vi.fn(),
     toggleSidebar: vi.fn(),
     selectPanel: vi.fn((activePanelId: MainPanelId | null) => { runtime.panelInfo.set({ activePanelId }) }),
     openRightbar: vi.fn(),
@@ -54,7 +55,10 @@ async function bench(collapsed = false, track?: TrackProductEvent) {
     apply(ctx: Context) {
       ctx.provide('shortcuts', { catalog: createSnapshotStore([]) } as never)
       ctx.provide('layout', layout)
-      ctx.provide('uiWorkspace', { startSession: vi.fn() } as never)
+      ctx.provide('uiWorkspace', {
+        startSession: vi.fn(), goBack: vi.fn(), goForward: vi.fn(),
+        navigationHistory: createSnapshotStore({ canGoBack: false, canGoForward: false }),
+      } as never)
       ctx.provide('locale', locale)
       if (track !== undefined) ctx.provide('productAnalytics', { track } as never)
       ctx.effect(() => locale.register('common', { zh: commonZh, en: commonEn }), 'panel test: common locale')

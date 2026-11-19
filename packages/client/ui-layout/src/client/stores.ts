@@ -6,8 +6,9 @@ import { defineStore, type EngineStoreHandle } from '@janhq/jan-client-store'
 import type { MainPanelId } from './service.ts'
 import {
   clampWidth, RIGHTBAR_DEFAULT_RATIO, RIGHTBAR_MAX_RATIO, RIGHTBAR_MIN,
-  SIDEBAR_AUTO_COLLAPSE, SIDEBAR_DEFAULT, SIDEBAR_DRAWER_BREAKPOINT, SIDEBAR_MAX, SIDEBAR_MIN,
+  SIDEBAR_AUTO_COLLAPSE, SIDEBAR_BOUNDS, SIDEBAR_DRAWER_BREAKPOINT,
 } from './columns.ts'
+import type { SidebarBounds } from './columns.ts'
 
 /**
  * Transient layout preferences. Responsive concessions never rewrite widths;
@@ -23,6 +24,8 @@ type LayoutState = {
 
 type LayoutInfo = {
   sidebar: number
+  /** Sidebar width contract: drag range and reopen width. */
+  sidebarBounds: SidebarBounds
   /** Last positive frame measurement; window width bootstraps the first render. */
   viewportWidth: number
   narrowExpanded: boolean
@@ -59,6 +62,7 @@ type LayoutActions = {
   selectPanel: (draft: LayoutState, panelId: MainPanelId | null) => void
   retainMainPanels: (draft: LayoutState, panelIds: readonly string[]) => void
   setSidebar: (draft: LayoutState, px: number) => void
+  configureSidebar: (draft: LayoutState, bounds: SidebarBounds) => void
   toggleSidebar: (draft: LayoutState) => void
   setViewportWidth: (draft: LayoutState, width: number) => void
   setRightbar: (draft: LayoutState, px: number) => void
@@ -68,19 +72,20 @@ type LayoutActions = {
 
 /**
  * Create the layout panel store handle. For the sidebar the preference IS the
- * width, so closing it forgets its drag width — reopening restores the contract
- * default. The right panel initializes at 45% of the frame on first opening
+ * width, so closing it forgets its drag width — reopening restores the
+ * configured default. The right panel initializes at 45% of the frame on first opening
  * and keeps that px preference across resizes and close. Drag writes clamp to
  * the current frame's range. Narrow sidebar toggles change only the expansion
  * override; opening the right panel clears that override.
  * @returns the store handle (spec + type + identity + factory in one).
  */
-export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutActions>  {
+export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutActions> {
   const handle = defineStore({
     init: (): LayoutState => ({
       panelInfo: { activePanelId: null },
       layoutInfo: {
-        sidebar: SIDEBAR_DEFAULT,
+        sidebar: SIDEBAR_BOUNDS.defaultWidth,
+        sidebarBounds: { ...SIDEBAR_BOUNDS },
         viewportWidth: window.innerWidth,
         narrowExpanded: false,
         rightbar: null,
@@ -102,14 +107,30 @@ export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutAction
       },
       setSidebar: (d, px: number) => {
         d.layoutInfo.rightbarInstant = false
-        d.layoutInfo.sidebar = clampWidth(px, SIDEBAR_MIN, SIDEBAR_MAX)
+        d.layoutInfo.sidebar = clampWidth(px, d.layoutInfo.sidebarBounds.minWidth, d.layoutInfo.sidebarBounds.maxWidth)
+      },
+      // Adopt a caller-owned width contract. An untouched preference (still the
+      // previous default width) moves to the new default; a user-dragged width
+      // survives, clamped into the new range. A closed sidebar stays closed.
+      configureSidebar: (d, bounds: SidebarBounds) => {
+        if (![bounds.defaultWidth, bounds.minWidth, bounds.maxWidth]
+          .every(value => Number.isFinite(value) && value > 0)
+          || bounds.minWidth > bounds.defaultWidth || bounds.defaultWidth > bounds.maxWidth) {
+          throw new Error('layout.configureSidebar: expected finite positive defaultWidth, minWidth and maxWidth with minWidth <= defaultWidth <= maxWidth')
+        }
+        const previousDefault = d.layoutInfo.sidebarBounds.defaultWidth
+        d.layoutInfo.sidebarBounds = { ...bounds }
+        if (d.layoutInfo.sidebar === 0) return
+        d.layoutInfo.sidebar = d.layoutInfo.sidebar === previousDefault
+          ? bounds.defaultWidth
+          : clampWidth(d.layoutInfo.sidebar, bounds.minWidth, bounds.maxWidth)
       },
       // Narrow toggles flip only the override: the width preference survives
       // untouched, so re-widening restores the pre-squeeze layout.
       toggleSidebar: (d) => {
         d.layoutInfo.rightbarInstant = false
         if (d.layoutInfo.viewportWidth < SIDEBAR_AUTO_COLLAPSE) d.layoutInfo.narrowExpanded = !d.layoutInfo.narrowExpanded
-        else d.layoutInfo.sidebar = d.layoutInfo.sidebar === 0 ? SIDEBAR_DEFAULT : 0
+        else d.layoutInfo.sidebar = d.layoutInfo.sidebar === 0 ? d.layoutInfo.sidebarBounds.defaultWidth : 0
       },
       // Crossing the breakpoint in either direction drops the override: the
       // narrow default is auto-collapsed, the wide state is the preference.

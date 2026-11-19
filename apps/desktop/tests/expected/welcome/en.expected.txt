@@ -5,3 +5,4 @@ Build potential. Explore intelligence.
 Download a local model
 Sign in with Tokamak
 Add API Key
+Set up later

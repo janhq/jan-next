@@ -223,6 +223,8 @@ type ProjectRowItemProps = {
   newShortcut?: ShortcutCatalogEntry | undefined
   containsCurrentDescendant?: boolean
   onToggle: () => void
+  /** Present when a project surface takes the row click; the chevron then toggles instead. */
+  onOpenProject?: (() => void) | undefined
   onCreate: () => void
   /** Present only for real Workspace rows in the grouped view. */
   drag?: WorkspaceRowDragProps | undefined
@@ -277,7 +279,7 @@ function WorkspaceProjectRow({ workspaceId, ...props }: ProjectRowItemProps & { 
 }
 
 function ProjectRow({
-  group, containsCurrentDescendant = false, onToggle, onCreate, drag: offeredDrag, home, newShortcut, t, access,
+  group, containsCurrentDescendant = false, onToggle, onOpenProject, onCreate, drag: offeredDrag, home, newShortcut, t, access,
   renderFactorySlot, useContextMenuTarget, useContextMenu,
 }: ProjectRowItemProps & { access: ProjectRowAccess }) {
   const { getTriggerProps } = useContextMenu()
@@ -296,7 +298,7 @@ function ProjectRow({
       data-row-key={`workspace:${group.key}`}
       role="treeitem"
       aria-expanded={row.expanded}
-      onClick={onToggle}
+      onClick={onOpenProject ?? onToggle}
       {...getTriggerProps(workspaceMenuTarget === undefined ? undefined : { kind: 'workspace', value: { ...workspaceMenuTarget, displayTitle: label } })}
       draggable={drag !== undefined}
       onDragStart={drag === undefined
@@ -312,9 +314,22 @@ function ProjectRow({
       <span className={clsx(css.slot, css.folder, active && css.folderActive)}>
         {row.expanded ? <IconFolderOpenRegular /> : <IconFolderCloseRegular />}
       </span>
-      <span className={clsx(css.slot, css.chevron)}>
-        <IconTriangleRightFillRegular className={clsx(css.arrow, row.expanded && css.arrowOpen)} />
-      </span>
+      {onOpenProject === undefined
+        ? (
+          <span className={clsx(css.slot, css.chevron)}>
+            <IconTriangleRightFillRegular className={clsx(css.arrow, row.expanded && css.arrowOpen)} />
+          </span>
+        )
+        : (
+          <button
+            type="button"
+            className={clsx(css.slot, css.chevron, css.chevronButton)}
+            aria-label={t(row.expanded ? 'actions.collapse.aria' : 'actions.expand.aria', { name: label })}
+            onClick={(e) => { e.stopPropagation(); onToggle() }}
+          >
+            <IconTriangleRightFillRegular className={clsx(css.arrow, row.expanded && css.arrowOpen)} />
+          </button>
+        )}
       <span className={css.projectText}>
         <span className={css.title}>{label}</span>
       </span>
@@ -653,6 +668,7 @@ export function SessionNodeItem({
     <div
       ref={rowRef}
       data-row-key={`session:${node.id}`}
+      data-blank={row.blank ? '' : undefined}
       className={clsx(
         css.sessionRow, selected && css.selected, menuOpen && css.menuOpen,
         row.archived && css.archived,
@@ -664,12 +680,14 @@ export function SessionNodeItem({
       tabIndex={0}
 
       onClick={() => { onOpen(node.id) }}
-      {...getTriggerProps(row.blank ? undefined : { kind: 'session', value: { sessionId: node.id, displayTitle: row.title } }, { onKeyDown: (event) => {
-        if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) return
-        if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
-        event.preventDefault()
-        onOpen(node.id)
-      } })}
+      {...getTriggerProps(row.blank ? undefined : { kind: 'session', value: { sessionId: node.id, displayTitle: row.title } }, {
+        onKeyDown: (event) => {
+          if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) return
+          if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+          event.preventDefault()
+          onOpen(node.id)
+        }
+      })}
       onPointerEnter={marquee.enter}
       onPointerLeave={() => { if (!menuOpen) marquee.leave() }}
       draggable={draggable}

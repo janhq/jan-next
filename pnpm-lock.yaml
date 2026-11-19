@@ -842,6 +842,9 @@ importers:
       '@janhq/jan-client-connection':
         specifier: workspace:*
         version: link:../../packages/client/connection
+      '@janhq/jan-desktop-app':
+        specifier: workspace:*
+        version: link:../../plugins/desktop-app
       '@janhq/jan-home-paths':
         specifier: workspace:*
         version: link:../../packages/util/home-paths
@@ -1423,6 +1426,10 @@ importers:
         version: link:../../typert/registry
 
   packages/api/llama-cpp-controller:
+    dependencies:
+      '@janhq/jan-home-paths':
+        specifier: workspace:*
+        version: link:../../util/home-paths
     devDependencies:
       '@janhq/cordis':
         specifier: workspace:~
@@ -1543,6 +1550,9 @@ importers:
       '@janhq/jan-goal':
         specifier: workspace:*
         version: link:../../goal/goal
+      '@janhq/jan-host-plugin-i18n':
+        specifier: workspace:*
+        version: link:../../host/plugin-i18n
       '@janhq/jan-host-plugin-inventory':
         specifier: workspace:*
         version: link:../../host/plugin-inventory
@@ -1670,6 +1680,9 @@ importers:
       '@janhq/jan-commands':
         specifier: workspace:*
         version: link:../../interaction/commands
+      '@janhq/jan-compaction':
+        specifier: workspace:*
+        version: link:../../compaction/compaction
       '@janhq/jan-file-reference':
         specifier: workspace:*
         version: link:../../context/file-reference
@@ -1730,6 +1743,15 @@ importers:
       '@janhq/jan-subagent':
         specifier: workspace:*
         version: link:../../subagent/subagent
+      '@janhq/jan-system-prompt':
+        specifier: workspace:*
+        version: link:../../core/system-prompt
+      '@janhq/jan-token-meter':
+        specifier: workspace:*
+        version: link:../../llm/token-meter
+      '@janhq/jan-tools':
+        specifier: workspace:*
+        version: link:../../core/tools
       '@janhq/jan-typert-protocol':
         specifier: workspace:*
         version: link:../../typert/protocol
@@ -2476,6 +2498,9 @@ importers:
       '@janhq/jan-llm':
         specifier: workspace:*
         version: link:../../llm/llm
+      '@janhq/jan-llm-fallback':
+        specifier: workspace:*
+        version: link:../../llm/llm-fallback
       '@janhq/jan-llm-pi-ai':
         specifier: workspace:*
         version: link:../../llm/llm-pi-ai
@@ -3020,6 +3045,9 @@ importers:
       '@janhq/jan-client-ui-goal':
         specifier: workspace:*
         version: link:../../client/ui-goal
+      '@janhq/jan-client-ui-guidance':
+        specifier: workspace:*
+        version: link:../../client/ui-guidance
       '@janhq/jan-client-ui-input-trigger':
         specifier: workspace:*
         version: link:../../client/ui-input-trigger
@@ -3044,6 +3072,9 @@ importers:
       '@janhq/jan-client-ui-plan':
         specifier: workspace:*
         version: link:../../client/ui-plan
+      '@janhq/jan-client-ui-plugin-i18n':
+        specifier: workspace:*
+        version: link:../../client/ui-plugin-i18n
       '@janhq/jan-client-ui-plugin-manager':
         specifier: workspace:*
         version: link:../../client/ui-plugin-manager
@@ -3077,6 +3108,9 @@ importers:
       '@janhq/jan-client-ui-settings-local-model':
         specifier: workspace:*
         version: link:../../client/ui-settings-local-model
+      '@janhq/jan-client-ui-settings-model-policy':
+        specifier: workspace:*
+        version: link:../../client/ui-settings-model-policy
       '@janhq/jan-client-ui-settings-models':
         specifier: workspace:*
         version: link:../../client/ui-settings-models
@@ -3188,6 +3222,9 @@ importers:
       '@janhq/jan-host-open-in-app':
         specifier: workspace:*
         version: link:../../host/open-in-app
+      '@janhq/jan-host-plugin-i18n':
+        specifier: workspace:*
+        version: link:../../host/plugin-i18n
       '@janhq/jan-host-plugin-inventory':
         specifier: workspace:*
         version: link:../../host/plugin-inventory
@@ -3513,6 +3550,10 @@ importers:
         version: 18.3.1
 
   packages/client/modules:
+    dependencies:
+      '@janhq/jan-package-manifest':
+        specifier: workspace:*
+        version: link:../../util/package-manifest
     devDependencies:
       '@janhq/cordis':
         specifier: workspace:~
@@ -3526,9 +3567,6 @@ importers:
       '@janhq/jan-host-webserver':
         specifier: workspace:*
         version: link:../../host/webserver
-      '@janhq/jan-package-manifest':
-        specifier: workspace:*
-        version: link:../../util/package-manifest
 
   packages/client/product-analytics:
     dependencies:
@@ -3925,6 +3963,9 @@ importers:
       '@janhq/jan-agent':
         specifier: workspace:*
         version: link:../../core/agent
+      '@janhq/jan-api-llama-cpp-controller':
+        specifier: workspace:*
+        version: link:../../api/llama-cpp-controller
       '@janhq/jan-api-remotes':
         specifier: workspace:*
         version: link:../../api/remotes
@@ -3985,6 +4026,9 @@ importers:
       '@janhq/jan-client-ui-settings':
         specifier: workspace:*
         version: link:../ui-settings
+      '@janhq/jan-client-ui-settings-general':
+        specifier: workspace:*
+        version: link:../ui-settings-general
       '@janhq/jan-client-ui-sidebar-browser':
         specifier: workspace:*
         version: link:../ui-sidebar-browser
@@ -4347,6 +4391,9 @@ importers:
       '@janhq/jan-client-ui-dockkit':
         specifier: workspace:*
         version: link:../ui-dockkit
+      '@janhq/jan-client-ui-layout':
+        specifier: workspace:*
+        version: link:../ui-layout
       '@janhq/jan-client-ui-primitives':
         specifier: workspace:*
         version: link:../ui-primitives
@@ -4356,6 +4403,9 @@ importers:
       '@janhq/jan-client-ui-settings':
         specifier: workspace:*
         version: link:../ui-settings
+      '@janhq/jan-client-ui-sidebar':
+        specifier: workspace:*
+        version: link:../ui-sidebar
       '@janhq/jan-client-ui-sidebar-right':
         specifier: workspace:*
         version: link:../ui-sidebar-right
@@ -4365,6 +4415,9 @@ importers:
       '@janhq/jan-client-ui-tool':
         specifier: workspace:*
         version: link:../ui-tool
+      '@janhq/jan-client-ui-workspace':
+        specifier: workspace:*
+        version: link:../ui-workspace
       '@janhq/jan-fs':
         specifier: workspace:*
         version: link:../../fs/fs
@@ -4684,6 +4737,24 @@ importers:
         specifier: ^18.2.0
         version: 18.3.1(react@18.3.1)
 
+  packages/client/ui-guidance:
+    devDependencies:
+      '@janhq/cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@janhq/jan-client-locale':
+        specifier: workspace:*
+        version: link:../locale
+      '@janhq/jan-client-store':
+        specifier: workspace:*
+        version: link:../store
+      '@janhq/jan-client-ui-slots':
+        specifier: workspace:*
+        version: link:../ui-slots
+      driver.js:
+        specifier: ^1.9.0
+        version: 1.9.0
+
   packages/client/ui-input-trigger:
     devDependencies:
       '@janhq/cordis':
@@ -4917,12 +4988,18 @@ importers:
       '@janhq/jan-client-ui-session':
         specifier: workspace:*
         version: link:../ui-session
+      '@janhq/jan-client-ui-settings-general':
+        specifier: workspace:*
+        version: link:../ui-settings-general
       '@janhq/jan-client-ui-slots':
         specifier: workspace:*
         version: link:../ui-slots
       '@janhq/jan-session':
         specifier: workspace:*
         version: link:../../core/session
+      '@janhq/jan-token-meter':
+        specifier: workspace:*
+        version: link:../../llm/token-meter
       '@janhq/jan-typert-protocol':
         specifier: workspace:*
         version: link:../../typert/protocol
@@ -5155,6 +5232,63 @@ importers:
         specifier: ^18.2.0
         version: 18.3.1
 
+  packages/client/ui-plugin-i18n:
+    devDependencies:
+      '@janhq/cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@janhq/cordis-plugin-loader':
+        specifier: workspace:~
+        version: link:../../../vendor/loader
+      '@janhq/jan-api-remote-access':
+        specifier: workspace:*
+        version: link:../../api/remote-access
+      '@janhq/jan-api-remotes':
+        specifier: workspace:*
+        version: link:../../api/remotes
+      '@janhq/jan-client-locale':
+        specifier: workspace:*
+        version: link:../locale
+      '@janhq/jan-client-store':
+        specifier: workspace:*
+        version: link:../store
+      '@janhq/jan-client-test-runtime':
+        specifier: workspace:*
+        version: link:../../test-support/client-runtime
+      '@janhq/jan-client-ui-layout':
+        specifier: workspace:*
+        version: link:../ui-layout
+      '@janhq/jan-client-ui-primitives':
+        specifier: workspace:*
+        version: link:../ui-primitives
+      '@janhq/jan-client-ui-renderer':
+        specifier: workspace:*
+        version: link:../ui-renderer
+      '@janhq/jan-client-ui-settings':
+        specifier: workspace:*
+        version: link:../ui-settings
+      '@janhq/jan-client-ui-slots':
+        specifier: workspace:*
+        version: link:../ui-slots
+      '@janhq/jan-host-plugin-i18n':
+        specifier: workspace:*
+        version: link:../../host/plugin-i18n
+      '@janhq/jan-package-manifest':
+        specifier: workspace:*
+        version: link:../../util/package-manifest
+      '@testing-library/react':
+        specifier: ^16.3.3
+        version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      eld:
+        specifier: ^2.1.1
+        version: 2.1.1
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.2.0
+        version: 18.3.1(react@18.3.1)
+
   packages/client/ui-plugin-manager:
     dependencies:
       '@janhq/jan-timeout':
@@ -5194,6 +5328,9 @@ importers:
       '@janhq/jan-client-ui-layout':
         specifier: workspace:*
         version: link:../ui-layout
+      '@janhq/jan-client-ui-plugin-i18n':
+        specifier: workspace:*
+        version: link:../ui-plugin-i18n
       '@janhq/jan-client-ui-primitives':
         specifier: workspace:*
         version: link:../ui-primitives
@@ -5203,6 +5340,9 @@ importers:
       '@janhq/jan-client-ui-settings':
         specifier: workspace:*
         version: link:../ui-settings
+      '@janhq/jan-client-ui-settings-general':
+        specifier: workspace:*
+        version: link:../ui-settings-general
       '@janhq/jan-client-ui-sidebar':
         specifier: workspace:*
         version: link:../ui-sidebar
@@ -5679,6 +5819,12 @@ importers:
       '@janhq/jan-client-ui-settings-models':
         specifier: workspace:*
         version: link:../ui-settings-models
+      '@janhq/jan-client-ui-sidebar-browser':
+        specifier: workspace:*
+        version: link:../ui-sidebar-browser
+      '@janhq/jan-client-ui-sidebar-right':
+        specifier: workspace:*
+        version: link:../ui-sidebar-right
       '@janhq/jan-client-ui-slots':
         specifier: workspace:*
         version: link:../ui-slots
@@ -5824,6 +5970,9 @@ importers:
       '@janhq/cordis':
         specifier: workspace:~
         version: link:../../../vendor/cordis
+      '@janhq/jan-agent':
+        specifier: workspace:*
+        version: link:../../core/agent
       '@janhq/jan-api-llama-cpp-controller':
         specifier: workspace:*
         version: link:../../api/llama-cpp-controller
@@ -5839,6 +5988,9 @@ importers:
       '@janhq/jan-client-test-runtime':
         specifier: workspace:*
         version: link:../../test-support/client-runtime
+      '@janhq/jan-client-ui-chat':
+        specifier: workspace:*
+        version: link:../ui-chat
       '@janhq/jan-client-ui-primitives':
         specifier: workspace:*
         version: link:../ui-primitives
@@ -5860,6 +6012,45 @@ importers:
       '@janhq/jan-typert-protocol':
         specifier: workspace:*
         version: link:../../typert/protocol
+      '@testing-library/react':
+        specifier: ^16.3.3
+        version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.2.0
+        version: 18.3.1(react@18.3.1)
+
+  packages/client/ui-settings-model-policy:
+    devDependencies:
+      '@janhq/cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@janhq/jan-api-remotes':
+        specifier: workspace:*
+        version: link:../../api/remotes
+      '@janhq/jan-client-locale':
+        specifier: workspace:*
+        version: link:../locale
+      '@janhq/jan-client-store':
+        specifier: workspace:*
+        version: link:../store
+      '@janhq/jan-client-test-runtime':
+        specifier: workspace:*
+        version: link:../../test-support/client-runtime
+      '@janhq/jan-client-ui-primitives':
+        specifier: workspace:*
+        version: link:../ui-primitives
+      '@janhq/jan-client-ui-renderer':
+        specifier: workspace:*
+        version: link:../ui-renderer
+      '@janhq/jan-client-ui-settings':
+        specifier: workspace:*
+        version: link:../ui-settings
+      '@janhq/jan-client-ui-slots':
+        specifier: workspace:*
+        version: link:../ui-slots
       '@testing-library/react':
         specifier: ^16.3.3
         version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -6733,6 +6924,9 @@ importers:
       '@janhq/cordis':
         specifier: workspace:~
         version: link:../../../vendor/cordis
+      '@janhq/cordis-plugin-loader':
+        specifier: workspace:~
+        version: link:../../../vendor/loader
       '@janhq/jan-api-remotes':
         specifier: workspace:*
         version: link:../../api/remotes
@@ -6814,6 +7008,9 @@ importers:
       '@janhq/jan-client-ui-conversation':
         specifier: workspace:*
         version: link:../ui-conversation
+      '@janhq/jan-client-ui-plugin-i18n':
+        specifier: workspace:*
+        version: link:../ui-plugin-i18n
       '@janhq/jan-client-ui-primitives':
         specifier: workspace:*
         version: link:../ui-primitives
@@ -7199,6 +7396,9 @@ importers:
       react:
         specifier: ^18.2.0
         version: 18.3.1
+      react-dom:
+        specifier: ^18.2.0
+        version: 18.3.1(react@18.3.1)
 
   packages/client/web:
     devDependencies:
@@ -7292,6 +7492,9 @@ importers:
 
   packages/compaction/compaction-basic:
     dependencies:
+      '@janhq/cosmokit':
+        specifier: link:../../../vendor/cosmokit
+        version: link:../../../vendor/cosmokit
       '@janhq/jan-util-values':
         specifier: workspace:*
         version: link:../../util/values
@@ -8173,6 +8376,9 @@ importers:
       '@janhq/schemastery':
         specifier: link:../../../vendor/schemastery
         version: link:../../../vendor/schemastery
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
     devDependencies:
       '@janhq/cordis':
         specifier: workspace:~
@@ -12530,6 +12736,37 @@ importers:
         specifier: workspace:*
         version: link:../webserver
 
+  packages/host/plugin-i18n:
+    dependencies:
+      '@janhq/jan-atomic-write':
+        specifier: workspace:*
+        version: link:../../util/atomic-write
+      '@janhq/jan-timeout':
+        specifier: workspace:*
+        version: link:../../util/timeout
+      '@janhq/schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@janhq/cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@janhq/jan-agent-default-model':
+        specifier: workspace:*
+        version: link:../../core/agent-default-model
+      '@janhq/jan-app-boot':
+        specifier: workspace:*
+        version: link:../../boot/app-boot
+      '@janhq/jan-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@janhq/jan-typert-protocol':
+        specifier: workspace:*
+        version: link:../../typert/protocol
+
   packages/host/plugin-inventory:
     dependencies:
       zod:
@@ -12930,6 +13167,9 @@ importers:
       '@janhq/jan-llm':
         specifier: workspace:*
         version: link:../llm
+      '@janhq/jan-llm-pi-ai':
+        specifier: workspace:*
+        version: link:../llm-pi-ai
       '@janhq/jan-settings':
         specifier: workspace:*
         version: link:../../settings/settings
@@ -12973,6 +13213,43 @@ importers:
       '@janhq/jan-package-manifest':
         specifier: workspace:*
         version: link:../../util/package-manifest
+
+  packages/llm/llm-fallback:
+    dependencies:
+      '@janhq/schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+    devDependencies:
+      '@janhq/cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@janhq/cosmokit':
+        specifier: link:../../../vendor/cosmokit
+        version: link:../../../vendor/cosmokit
+      '@janhq/jan-agent':
+        specifier: workspace:*
+        version: link:../../core/agent
+      '@janhq/jan-agent-loop':
+        specifier: workspace:*
+        version: link:../../core/agent-loop
+      '@janhq/jan-agent-loop-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/agent-loop-testkit
+      '@janhq/jan-llm':
+        specifier: workspace:*
+        version: link:../llm
+      '@janhq/jan-llm-retry':
+        specifier: workspace:*
+        version: link:../llm-retry
+      '@janhq/jan-session':
+        specifier: workspace:*
+        version: link:../../core/session
+      '@janhq/jan-session-projection':
+        specifier: workspace:*
+        version: link:../../session/session-projection
+      '@janhq/jan-token-meter':
+        specifier: workspace:*
+        version: link:../token-meter
 
   packages/llm/llm-pi-ai:
     dependencies:
@@ -17660,6 +17937,95 @@ importers:
         specifier: workspace:*
         version: link:../../typert/protocol
 
+  plugins/desktop-app:
+    dependencies:
+      '@janhq/jan-client-ui-jan-theme':
+        specifier: workspace:*
+        version: link:../jan-theme
+      '@janhq/jan-downloads':
+        specifier: workspace:*
+        version: link:../downloads
+      '@janhq/jan-legacy-import':
+        specifier: workspace:*
+        version: link:../legacy-import
+      '@janhq/jan-preset-square':
+        specifier: workspace:*
+        version: link:../preset-square
+
+  plugins/downloads: {}
+
+  plugins/jan-theme:
+    dependencies:
+      '@janhq/jan-credentials':
+        specifier: workspace:*
+        version: link:../../packages/credentials/credentials
+      '@janhq/jan-mcp-client':
+        specifier: workspace:*
+        version: link:../../packages/mcp/mcp-client
+      '@janhq/jan-plugin-api':
+        specifier: workspace:*
+        version: link:../plugin-api
+      '@janhq/jan-skill-filesystem':
+        specifier: workspace:*
+        version: link:../../packages/skill/skill-filesystem
+      '@janhq/schemastery':
+        specifier: link:../../vendor/schemastery
+        version: link:../../vendor/schemastery
+      js-yaml:
+        specifier: ^4.3.2
+        version: 4.3.2
+
+  plugins/legacy-import:
+    dependencies:
+      '@janhq/jan-credentials':
+        specifier: workspace:*
+        version: link:../../packages/credentials/credentials
+      '@janhq/jan-plugin-api':
+        specifier: workspace:*
+        version: link:../plugin-api
+      '@janhq/schemastery':
+        specifier: link:../../vendor/schemastery
+        version: link:../../vendor/schemastery
+    devDependencies:
+      '@janhq/jan-session-format-v3-to-v4':
+        specifier: workspace:*
+        version: link:../../packages/session/session-format-v3-to-v4
+
+  plugins/office-templates:
+    dependencies:
+      '@janhq/jan-client-connection':
+        specifier: workspace:*
+        version: link:../../packages/client/connection
+      '@janhq/jan-llm':
+        specifier: workspace:*
+        version: link:../../packages/llm/llm
+      '@janhq/jan-skill':
+        specifier: workspace:*
+        version: link:../../packages/skill/skill
+      '@janhq/jan-skill-office':
+        specifier: workspace:*
+        version: link:../../packages/skill/skill-office
+      '@janhq/jan-tool-workspace-dependencies':
+        specifier: workspace:*
+        version: link:../../packages/skill/tool-workspace-dependencies
+      '@janhq/jan-tools':
+        specifier: workspace:*
+        version: link:../../packages/core/tools
+
+  plugins/plugin-api: {}
+
+  plugins/preset-square:
+    dependencies:
+      '@janhq/jan-plugin-api':
+        specifier: workspace:*
+        version: link:../plugin-api
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
+      js-yaml:
+        specifier: ^4.3.2
+        version: 4.3.2
+
   python/sdk-runtime:
     dependencies:
       '@janhq/cordis':
@@ -17803,6 +18169,9 @@ importers:
       '@janhq/jan-home-paths':
         specifier: workspace:*
         version: link:../../packages/util/home-paths
+      '@janhq/jan-host-plugin-i18n':
+        specifier: workspace:*
+        version: link:../../packages/host/plugin-i18n
       '@janhq/jan-host-plugin-inventory':
         specifier: workspace:*
         version: link:../../packages/host/plugin-inventory
@@ -22582,6 +22951,9 @@ packages:
     resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
     engines: {node: '>=12'}
 
+  driver.js@1.9.0:
+    resolution: {integrity: sha512-+YWVdNVUrY1/2spszQshohWYY4soIjNBnMFS6lfmousT8igos2lmswhlqyuuNMhr+qbV0EjJ+L6i2FECPr6Ygg==}
+
   dts-resolver@3.0.0:
     resolution: {integrity: sha512-1T1f+z+4tl9XD+m+0HBgWoL/nm0bOIffyWaUuUSBlFg/86IWvfx+wjNaO/ybU0AJzG9/Mi5hBUgGV6zCmWEN7Q==}
     engines: {node: ^22.18.0 || >=24.0.0}
@@ -22611,6 +22983,10 @@ packages:
     resolution: {integrity: sha512-UeJmFfOrAQS8OJWPZ4qtgHyWExa088/MtK5UEyoJGFH67cDEXkZSviOiKRCZ4Xij0zxI3JECgYs3oKx+AizQBA==}
     engines: {node: '>=0.10.0'}
     hasBin: true
+
+  eld@2.1.1:
+    resolution: {integrity: sha512-+WPgDcsV5rAuZR3BTW3rnnv03YvlP2JoHnFGDMLAp13XrDt7n58TBIL9hTmFs4VBVcozGxG/GC5WQILqRqd1pw==}
+    engines: {node: '>=14.17.0'}
 
   electron-builder-squirrel-windows@26.17.0:
     resolution: {integrity: sha512-uyh+D+B0m12qCRp9c/7dwBirHTh7JcvAzj5eTEbb4dXPPGAhYPx1nozzbu1fC6AdULfat6ZNqgWhipTFpb82lQ==}
@@ -30157,6 +30533,8 @@ snapshots:
 
   dotenv@16.6.1: {}
 
+  driver.js@1.9.0: {}
+
   dts-resolver@3.0.0(oxc-resolver@11.20.0):
     optionalDependencies:
       oxc-resolver: 11.20.0
@@ -30185,6 +30563,8 @@ snapshots:
   ejs@3.1.10:
     dependencies:
       jake: 10.9.4
+
+  eld@2.1.1: {}
 
   electron-builder-squirrel-windows@26.17.0(dmg-builder@26.17.0)(supports-color@9.4.0):
     dependencies:

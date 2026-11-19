@@ -12,18 +12,20 @@ import type {
   SessionListState,
 } from '@janhq/jan-api-session-controller/client'
 // Type-only: pulls the `agentPreset` Session projection value into this program.
-import type {} from '@janhq/jan-agent-preset-registry/types'
-import { createSnapshotStore } from '@janhq/jan-client-store'
+import type { } from '@janhq/jan-agent-preset-registry/types'
+import { createSnapshotStore, type ObservableSnapshot } from '@janhq/jan-client-store'
 import type { SubagentAddress } from '@janhq/jan-subagent/client'
 import type {
   IWorkspaces, WorkspaceId, WorkspaceSnapshot, WorkspaceView,
 } from '@janhq/jan-api-workspace-controller/client'
 import type { SessionId } from '@janhq/jan-session/types'
-import type {} from '@janhq/jan-client-ui-layout/client'
+import type { } from '@janhq/jan-client-ui-layout/client'
 import type { DraftInitializationOptions } from '@janhq/jan-client-ui-conversation/client'
 import type { RowToast } from './contract/slots.ts'
+import { NavigationHistory, sameSession } from './history.ts'
+import type { NavigationAvailability, NavigationDirection, NavigationLocation } from './history.ts'
 import { pinOrderAccounts, pinOrderSource } from './pin-order.ts'
-import type { WorkspaceViewStoreActions } from './stores.ts'
+import type { SessionGroupBy, WorkspaceViewStoreActions } from './stores.ts'
 
 interface MainSelection {
   readonly sessionId?: SessionId
@@ -39,10 +41,28 @@ export interface StartSessionOptions extends DraftInitializationOptions {
 /** Workspace archive and directory operations consumed by Client UI domains. */
 export interface UiWorkspace {
   /**
+   * Change the browser's grouping through its existing persisted view store.
+   * @param mode - grouping the session list switches to and keeps.
+   */
+  setSessionGrouping(mode: SessionGroupBy): void
+  /**
    * Select a Session and show its Conversation as one UI navigation action.
    * @param target - known Session identity or durable direct-parent subagent address to display.
    */
   openSession(target: SessionTarget): void
+  /**
+   * Return to the previous main-view location: the Session and global panel the user
+   * left last. Entries whose Session was archived or deleted are skipped; does nothing
+   * when no entry remains.
+   */
+  goBack(): void
+  /**
+   * Undo the latest {@link UiWorkspace.goBack}. A new navigation clears the Forward entries.
+   * Entries whose Session was archived or deleted are skipped; does nothing when none remain.
+   */
+  goForward(): void
+  /** Whether Back and Forward have an entry; republished only when a flag changes. */
+  readonly navigationHistory: ObservableSnapshot<NavigationAvailability>
   /**
    * Connect a Workspace and open its Session unless a later navigation supersedes it.
    * @param workspaceId - target Workspace.
@@ -143,6 +163,22 @@ export interface UiWorkspace {
    * @returns idempotent disposer owned by the caller's Cordis fiber.
    */
   whenAccess(workspaceId: WorkspaceId, action: RemoteEndpoint, callback: () => AccessEffect): () => void
+  /**
+   * Route every Search request (the `session.search` command and the sidebar Search controls) to a
+   * replacement surface, such as an application-wide palette. Without a handler, Search expands and
+   * focuses the sidebar's Session search field. The latest registration wins.
+   * @param open - opens the replacement surface.
+   * @returns idempotent disposer; removing the latest handler restores the previous one.
+   */
+  registerSearchHandler(open: () => void): () => void
+  /**
+   * Route a click on a sidebar Workspace row to a project surface, such as a project home page.
+   * Without a handler the row click expands or collapses the Workspace's Sessions; with one, the row
+   * click opens the surface and its chevron keeps expanding and collapsing. The latest registration wins.
+   * @param open - opens the surface for the clicked Workspace.
+   * @returns idempotent disposer; removing the latest handler restores the previous one.
+   */
+  registerProjectHandler(open: (workspaceId: WorkspaceId) => void): () => void
 }
 
 declare module '@janhq/cordis' {
@@ -170,11 +206,23 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     readonly attempt: Promise<SessionId>
   }>()
   private readonly lifetime = new AbortController()
+  private readonly history = new NavigationHistory()
+  readonly navigationHistory = this.history.availability
+  /** True while Back/Forward replays a location: the replay must not record itself. */
+  private replaying = false
+  /** True while a navigation writes the Session and the panel as one location. */
+  private batching = false
   private readonly selection = createSnapshotStore<MainSelection>(
     {}, { persist: { name: 'jan.sessions.current' } },
   )
   private mainReference: SessionReference | undefined
   private restorationNavigation: AbortSignal | undefined
+  /** Replacement search surfaces in registration order; the last one receives Search. */
+  private readonly searchHandlers: { readonly open: () => void }[] = []
+  /** Project surfaces in registration order; the last one receives Workspace row clicks. */
+  private readonly projectHandlers: { readonly open: (workspaceId: WorkspaceId) => void }[] = []
+  /** Whether a project surface is registered, for row components choosing click behavior. */
+  readonly projectSurface = createSnapshotStore(false)
 
   /**
    * @param ctx - Client root Context.
@@ -189,7 +237,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     private readonly directoryPicker: ClientRemote['directoryPicker'],
     private readonly workspaces: IWorkspaces,
     private readonly sessions: ISessions,
-    private readonly view: Pick<WorkspaceViewStoreActions, 'pinSessionOrder'>,
+    private readonly view: Pick<WorkspaceViewStoreActions, 'pinSessionOrder' | 'setGroupBy'>,
     private readonly notify: (toast: RowToast) => void,
   ) {
     super(ctx, 'uiWorkspace')
@@ -203,6 +251,10 @@ class UiWorkspaceService extends Service implements UiWorkspace {
         reference?.release()
       }
     }, 'ui-workspace: Workspace navigation policy')
+  }
+
+  setSessionGrouping(mode: SessionGroupBy): void {
+    this.view.setGroupBy(mode)
   }
 
   connectWorkspace(workspaceId: WorkspaceId, options: Pick<StartSessionOptions, 'agentPreset'> = {}): Promise<SessionId> {
@@ -294,6 +346,14 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     this.replaceMain(target, this.lifetime.signal, 'reveal')
   }
 
+  goBack(): void {
+    this.step('back')
+  }
+
+  goForward(): void {
+    this.step('forward')
+  }
+
   openWorkspace(
     workspaceId: WorkspaceId,
     beforeOpen?: (sessionId: SessionId) => void,
@@ -381,7 +441,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
 
   async archiveSession(sessionId: SessionId, options: { readonly stopActivity?: boolean } = {}): Promise<void> {
     await this.workspaces.archiveSession(sessionId, options)
-    if (this.mainReference?.sessionId === sessionId) this.clearMain()
+    if (this.mainReference?.sessionId === sessionId) this.clearMain('replace')
   }
 
   async unarchiveSession(sessionId: SessionId): Promise<void> {
@@ -428,10 +488,55 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     return access.whenResourceAccess('workspace', workspaceId, action, callback)
   }
 
+  registerSearchHandler(open: () => void): () => void {
+    // A fresh wrapper keeps two registrations of one function independently removable.
+    const entry = { open }
+    this.searchHandlers.push(entry)
+    return () => {
+      const at = this.searchHandlers.indexOf(entry)
+      if (at !== -1) this.searchHandlers.splice(at, 1)
+    }
+  }
+
+  registerProjectHandler(open: (workspaceId: WorkspaceId) => void): () => void {
+    const entry = { open }
+    this.projectHandlers.push(entry)
+    this.projectSurface.set(true)
+    return () => {
+      const at = this.projectHandlers.indexOf(entry)
+      if (at !== -1) this.projectHandlers.splice(at, 1)
+      this.projectSurface.set(this.projectHandlers.length > 0)
+    }
+  }
+
+  /**
+   * Open the latest registered project surface for one Workspace.
+   * @param workspaceId - the clicked Workspace.
+   * @returns whether a handler took the request; false leaves the row to expand or collapse.
+   */
+  openProjectSurface(workspaceId: WorkspaceId): boolean {
+    const handler = this.projectHandlers.at(-1)
+    if (handler === undefined) return false
+    handler.open(workspaceId)
+    return true
+  }
+
+  /**
+   * Open the latest registered search surface.
+   * @returns whether a handler took the request; false leaves it to the sidebar field.
+   */
+  openSearchSurface(): boolean {
+    const handler = this.searchHandlers.at(-1)
+    if (handler === undefined) return false
+    handler.open()
+    return true
+  }
+
   private watchNavigation(): () => void {
     let initial: 'waiting' | 'connecting' | 'done' = 'waiting'
     const reconcile = (): void => {
       if (this.lifetime.signal.aborted) return
+      this.history.prune(this.reachable)
       if (this.clearArchivedCurrent()) return
       if (initial !== 'waiting' || this.restorationNavigation?.aborted === true) return
       const workspace = this.workspaces.list.getSnapshot()
@@ -454,9 +559,14 @@ class UiWorkspaceService extends Service implements UiWorkspace {
 
     const disposeWorkspaces = this.workspaces.list.subscribe(reconcile)
     const disposeSessions = this.sessions.list.subscribe(reconcile)
+    // Global panels are opened by their own owners through ctx.layout; the panel is part of the location.
+    const disposePanels = this.ctx.layout.panelInfo.subscribe(() => {
+      if (!this.batching) this.settle('push')
+    })
     reconcile()
     return () => {
       this.lifetime.abort()
+      disposePanels()
       disposeSessions()
       disposeWorkspaces()
     }
@@ -508,16 +618,21 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     const current = this.mainReference?.sessionId
     if (current === undefined
       || !this.workspaces.list.getSnapshot().archivedSessionIds.includes(current)) return false
-    this.clearMain()
+    this.clearMain('replace')
     return true
   }
 
-  private clearMain(): void {
+  /**
+   * @param record - `push` for a navigation the user made; `replace` when the current
+   * location itself disappears (its Session was archived), which leaves no entry.
+   */
+  private clearMain(record: 'push' | 'replace' = 'push'): void {
     const previous = this.mainReference
     this.mainReference = undefined
     this.selection.set({})
     previous?.release()
-    this.ctx.layout.selectPanel(null)
+    this.showConversation()
+    this.settle(record)
   }
 
   private replaceMain(
@@ -549,7 +664,80 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     const previous = this.mainReference
     this.mainReference = reference
     previous?.release()
-    if (panel === 'reveal') this.ctx.layout.selectPanel(null)
+    if (panel === 'reveal') this.showConversation()
+    // Only a user opening a Session is a navigation; restoration and replays keep the history as it is.
+    this.settle(panel === 'reveal' ? 'push' : 'replace')
+  }
+
+  /** Select the Conversation panel without letting the panel observer record the half-written location. */
+  private showConversation(): void {
+    this.batching = true
+    try {
+      this.ctx.layout.selectPanel(null)
+    } finally {
+      this.batching = false
+    }
+  }
+
+  /** The main view as it is now: selected Session and global panel. */
+  private location(): NavigationLocation {
+    const { sessionId, subagentAddress } = this.selection.getSnapshot()
+    return {
+      ...(sessionId === undefined ? {} : { sessionId }),
+      ...(subagentAddress === undefined ? {} : { subagentAddress }),
+      panelId: this.ctx.layout.panelInfo.getSnapshot().activePanelId,
+    }
+  }
+
+  /** Fold the current main view into the history; replays record nothing. */
+  private settle(record: 'push' | 'replace'): void {
+    if (this.replaying) return
+    if (record === 'push') this.history.record(this.location())
+    else this.history.seed(this.location())
+  }
+
+  /** Whether the Session (or the subagent's parent) is still listed and not archived; unknown while the catalogs load. */
+  private readonly reachable = (location: NavigationLocation): boolean => {
+    const id = location.subagentAddress?.parentSessionId ?? location.sessionId
+    if (id === undefined) return true
+    const workspaces = this.workspaces.list.getSnapshot()
+    const sessions = this.sessions.list.getSnapshot()
+    if (workspaces.phase !== 'ready' || sessions.phase !== 'ready') return true
+    return sessions.byId[id] !== undefined && !workspaces.archivedSessionIds.includes(id)
+  }
+
+  /** Replay the nearest reachable entry in `direction`; a failed replay drops its entry and tries the next. */
+  private step(direction: NavigationDirection): void {
+    if (this.lifetime.signal.aborted) return
+    let failed = false
+    for (let target = this.history.peek(direction, this.reachable); target !== undefined;
+      target = this.history.peek(direction, this.reachable)) {
+      this.replaying = true
+      try {
+        this.apply(target)
+      } catch (error: unknown) {
+        failed = true
+        console.warn('navigation replay failed:', error)
+        this.history.discard(direction)
+        continue
+      } finally {
+        this.replaying = false
+      }
+      this.history.commit(direction)
+      return
+    }
+    // A failed replay may have moved the view before it threw.
+    if (failed) this.history.seed(this.location())
+  }
+
+  /** Show `location`. A global panel that is no longer registered makes `selectPanel` throw. */
+  private apply(location: NavigationLocation): void {
+    const target = location.subagentAddress ?? location.sessionId
+    if (this.mainReference === undefined || !sameSession(this.selection.getSnapshot(), location)) {
+      if (target === undefined) this.clearMain()
+      else this.replaceMain(target, this.lifetime.signal, 'preserve')
+    }
+    this.ctx.layout.selectPanel(location.panelId)
   }
 
 }

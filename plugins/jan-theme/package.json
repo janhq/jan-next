@@ -1,0 +1,26 @@
+{
+  "name": "@janhq/jan-client-ui-jan-theme",
+  "version": "0.2.2-rc.1",
+  "private": true,
+  "type": "module",
+  "description": "Jan's look for the desktop app: palette, sidebar, appearance and agent settings, and window controls.",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@janhq/jan-credentials": "workspace:*",
+    "@janhq/jan-mcp-client": "workspace:*",
+    "@janhq/jan-plugin-api": "workspace:*",
+    "@janhq/jan-skill-filesystem": "workspace:*",
+    "@janhq/schemastery": "workspace:~",
+    "js-yaml": "^4.3.2"
+  },
+  "jan": {
+    "client": {
+      "platform": "web",
+      "inject": []
+    }
+  }
+}

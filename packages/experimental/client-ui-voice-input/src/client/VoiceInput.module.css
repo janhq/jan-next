@@ -44,6 +44,8 @@
 .deviceField select { width: 100%; }
 .deviceField select.deviceSelectMeter { padding-right: 72px; }
 .deviceMeter { position: absolute; top: 50%; right: 24px; display: inline-flex; transform: translateY(-50%); pointer-events: none; }
+.deviceConsent { grid-column: 2; display: grid; justify-items: start; gap: 8px; font-size: 12px; line-height: 1.5; color: var(--dsw-alias-label-secondary); }
+.deviceConsent p { margin: 0; text-wrap: pretty; }
 .deviceError { grid-column: 2; min-width: 0; color: var(--dsw-alias-state-error-primary); overflow-wrap: anywhere; font-size: 12px; }
 .inputLevel { display: inline-flex; align-items: center; gap: 3px; flex: none; }
 .inputLevel > span { width: 3px; height: 12px; border-radius: 1px; background: var(--dsw-alias-border-l1); }
@@ -51,5 +53,5 @@
 @media (max-width: 480px) {
   .deviceRow, .preferences label, .sourceChoice label { grid-template-columns: minmax(0, 1fr); gap: 6px; }
 
-  .deviceError { grid-column: 1; }
+  .deviceError, .deviceConsent { grid-column: 1; }
 }

@@ -54,6 +54,13 @@ Without wrapping, the two columns synchronize vertical scrolling and horizontal 
 
 The closing prose links paths the turn produced or delivered, including those recorded after the closing reply: an inline-code token resolves by exact target, by an exact argument recorded for that target, or by a unique basename. Every matching fact must identify the same file; ambiguous arguments and basenames stay inert. No suffix or current-directory guess is used. A resolved mention keeps its code chip and takes the markdown sheet's link language, with the full path as its title.
 
+<a id="artifacts-library"></a>
+### The Artifacts library
+
+The `artifacts` main panel lists every file the assistant presented in any chat, newest first, with a search box (file name, path, description, chat title) and kind filters: documents, spreadsheets, presentations, images, code, and other, by extension. Each row shows the file name, its chat title, and a relative time, and offers Open, Show in folder, and Go to chat. Open and Show in folder use the same authenticated native-open routes as delivery cards and need a Host desktop; a file that no longer exists on disk stays listed as unavailable, with only Go to chat enabled. The sidebar entry shares the panel id `artifacts`; the panel renders 24 rows at a time.
+
+The panel reads no chat history. It reads the `presentedFiles` Session projection that the Host-mounted [`jan-tool-present/projection`](../../deliverables/tool-present/README.md) entry registers, a summary key, so the Session list carries each chat's distinct presented files, cold chats from the persisted projection cache. Chats checkpointed before the projection existed carry no value; while the panel is open it reads each such chat's projections once, two at a time, newest first. Subagent chats are not listed, and a fork lists only its own deliveries.
+
 -----
 
 <a id="understand-the-implementation"></a>

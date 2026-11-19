@@ -104,6 +104,8 @@ The bundle is one patch layer of five files plus one runtime glue plugin: `cordi
 
 A patch replaces the targeted row's whole `config`, so each web row restates every key it owns: the persona prefix template and the `session-query-sqlite` values on the base rows, then `insert` adds the web host rows, transport, and browser roster. The `webserver`, `web-runtime`, and `connection` rows inject the `webStartup` provider and read their invocation values directly; Connection composes its accepted authorities from `ctx.webStartup.trustedHosts`, and the Host/Origin fence accepts the listener's bind IP independently of that list. The bundle inherits native tool execution; a [PTC overlay](../../../apps/cli/config/examples/ptc.yml) changes the deployment executor. The per-agent tool rows the base mounts process-wide are disabled here and the preset roster takes over; the reasoning for each host-plane versus preset-plane decision is inline in the patch.
 
+The plain Web profile leaves full-text session search off to avoid opening SQLite or indexing chat history by default. The [Desktop bundle](../../../plugins/desktop-app/cordis.patch.yml) includes message content in sidebar Search. The local Desktop Host builds its in-memory index on the first content search, keeping indexing out of startup and leaving no index file on disk.
+
 ### Advertised application URL
 
 Startup display and browser handoff receive the advertised root with its launch token; the agent's runtime context and `JAN_WEB_URL` receive it clean. The root itself is defined under [Listening, trust, and public deployments](#public-deployments).

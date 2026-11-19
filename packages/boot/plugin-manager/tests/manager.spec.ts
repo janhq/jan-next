@@ -1298,11 +1298,13 @@ it('reads what a spec names before installing it', async () => {
   expect(await manager.inspect('jan-x')).toEqual({
     status: 'accepted', kind: 'registry', name: 'jan-x', version: '1.4.2', description: 'A sidebar.', bundle: true, registry: null,
   })
-  expect(view).toHaveBeenCalledWith(dir, 'jan-x', { command: 'pnpm-test', fields: ['name', 'version', 'description', 'jan'], timeoutMs: 1000, registry: null })
+  expect(view).toHaveBeenCalledWith(dir, 'jan-x', { command: 'pnpm-test', fields: ['name', 'version', 'description', 'jan', 'dsh'], timeoutMs: 1000, registry: null })
+  answers(JSON.stringify({ name: 'dsh-ppt', version: '0.20.8', dsh: { bundle: { patch: './cordis.patch.yml' } } }))
+  expect(await manager.inspect('dsh-ppt')).toMatchObject({ status: 'accepted', bundle: true, name: 'dsh-ppt' })
   const signal = AbortSignal.abort()
   answers(JSON.stringify([{ name: 'jan-lib', version: '1.0.0', jan: { bundle: {} } }, { name: 'jan-lib', version: '1.1.0', jan: null }]))
-  expect(await manager.inspect('jan-lib@^1', undefined, signal)).toEqual({ status: 'refused', problem: 'not-a-bundle', reason: 'jan-lib declares no jan.bundle', registries: [null] })
-  expect(view).toHaveBeenLastCalledWith(dir, 'jan-lib@^1', { command: 'pnpm-test', fields: ['name', 'version', 'description', 'jan'], timeoutMs: 1000, signal, registry: null })
+  expect(await manager.inspect('jan-lib@^1', undefined, signal)).toEqual({ status: 'refused', problem: 'not-a-bundle', reason: 'jan-lib is not a plugin bundle. Install a package that declares a Jan or DSH plugin bundle.', registries: [null] })
+  expect(view).toHaveBeenLastCalledWith(dir, 'jan-lib@^1', { command: 'pnpm-test', fields: ['name', 'version', 'description', 'jan', 'dsh'], timeoutMs: 1000, signal, registry: null })
   // An answer that names no package keeps the name the spec gave; colour escapes around the JSON are dropped.
   answers('\x1b[36m' + JSON.stringify({ version: '0.0.1', description: '', jan: { bundle: { patch: './p.yml' } } }) + '\x1b[39m\n')
   expect(await manager.inspect('jan-bare')).toEqual({ status: 'accepted', kind: 'registry', name: 'jan-bare', version: '0.0.1', bundle: true, registry: null })
@@ -1346,7 +1348,9 @@ it('reads what a spec names before installing it', async () => {
   writeFileSync(join(local, 'package.json'), '{"version":"1.0.0"}')
   expect(await manager.inspect(local)).toEqual({ status: 'refused', problem: 'not-a-package', reason: 'the package.json names no package' })
   writeFileSync(join(local, 'package.json'), JSON.stringify({ name: 'jan-local', version: '0.1.0', description: 'Local.' }))
-  expect(await manager.inspect(local)).toEqual({ status: 'refused', problem: 'not-a-bundle', reason: 'jan-local declares no jan.bundle' })
+  expect(await manager.inspect(local)).toEqual({ status: 'refused', problem: 'not-a-bundle', reason: 'jan-local is not a plugin bundle. Install a package that declares a Jan or DSH plugin bundle.' })
+  writeFileSync(join(local, 'package.json'), JSON.stringify({ name: 'dsh-local', dsh: { bundle: { patch: './p.yml' } } }))
+  expect(await manager.inspect(local)).toMatchObject({ status: 'accepted', kind: 'path', name: 'dsh-local', bundle: true })
   writeFileSync(join(local, 'package.json'), JSON.stringify({ name: 'jan-local', version: '0.1.0', description: 'Local.', jan: { bundle: { patch: './p.yml' } } }))
   expect(await manager.inspect(`file:${local}`)).toEqual({ status: 'accepted', kind: 'path', name: 'jan-local', version: '0.1.0', description: 'Local.', bundle: true, registry: null })
   writeFileSync(join(local, 'package.json'), JSON.stringify({ name: 'core', jan: { bundle: { patch: './p.yml' } } }))
@@ -1355,7 +1359,7 @@ it('reads what a spec names before installing it', async () => {
   writeFileSync(join(dir, 'package.json'), '{}')
   writeFileSync(profile.installAnchor, '{}')
   expect(await manager.inspect(local)).toEqual({ status: 'accepted', kind: 'path', name: 'core', bundle: true, registry: null })
-  expect(view).toHaveBeenCalledTimes(13)
+  expect(view).toHaveBeenCalledTimes(14)
 })
 
 it('announces each manager operation as a change, and a patch generation applied outside it not at all', async () => {
@@ -1538,7 +1542,7 @@ it('asks the registries in turn while one is unreachable or stale, and names the
   expect(await manager.inspect('jan-x')).toEqual({ status: 'accepted', kind: 'registry', name: 'jan-x', version: '1.0.0', bundle: true, registry: MIRROR })
   expect(asked(0)).toEqual([null, MIRROR])
   expect(read).toHaveBeenCalledWith(dir, { command: 'pnpm', timeoutMs: 1000 })
-  expect(view).toHaveBeenLastCalledWith(expect.any(String), 'jan-x', { command: 'pnpm', fields: ['name', 'version', 'description', 'jan'], timeoutMs: 1000, registry: MIRROR })
+  expect(view).toHaveBeenLastCalledWith(expect.any(String), 'jan-x', { command: 'pnpm', fields: ['name', 'version', 'description', 'jan', 'dsh'], timeoutMs: 1000, registry: MIRROR })
   // pnpm prints a refusal as JSON on stdout with nothing on stderr: it is read the same way, and the reason is its message.
   view.mockResolvedValueOnce({ exitCode: 1, stdout: '{\n  "error": {\n    "code": "ERR_PNPM_META_FETCH_FAIL",\n    "message": "GET https://registry.npmjs.org/jan-x: fetch failed"\n  }\n}\n', stderr: '', timedOut: false })
   answers(manifest)
@@ -2052,7 +2056,7 @@ it('lists newer registry versions with tags, times, deprecation, bundle declarat
   expect(view.mock.calls.map(call => call[1])).toEqual(expect.arrayContaining(['extra', 'extra@2.0.0', 'extra@1.2.0', 'extra@1.2.0-beta.1']))
   expect(view).toHaveBeenCalledTimes(4)
   expect(view).toHaveBeenCalledWith(dir, 'extra', expect.objectContaining({ fields: ['versions', 'time', 'dist-tags'], timeoutMs: 1000 }))
-  expect(view).toHaveBeenCalledWith(dir, 'extra@1.2.0', expect.objectContaining({ fields: ['name', 'version', 'engines', 'peerDependencies', 'deprecated', 'jan'], registry: null }))
+  expect(view).toHaveBeenCalledWith(dir, 'extra@1.2.0', expect.objectContaining({ fields: ['name', 'version', 'engines', 'peerDependencies', 'deprecated', 'jan', 'dsh'], registry: null }))
 })
 
 it('lists versions from the next registry while one is unreachable, and refuses what no registry answered', async () => {

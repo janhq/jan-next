@@ -88,9 +88,21 @@ describe('ui-settings-general shell', () => {
     for (const name of CHILD_NAMES) expect(c.ctx.slots.spec(name)).toEqual(CHILD_SPECS[name])
   }, COLD_BOOT_TIMEOUT_MS)
 
+  it('opens the registered Models section through the client navigation service', async ({ start }) => {
+    const c = await start()
+    const decl = c.ctx.slots.entries('sidebar.settings')[0]!.store!
+    const instance = (typeof decl === 'function' ? decl() : decl).create()
+    expect(c.ctx.settingsNavigation.availability.getSnapshot()).toBe(true)
+    expect(instance.getSnapshot().open).toBe(false)
+    expect(c.ctx.settingsNavigation.open('models')).toBe(true)
+    expect(instance.getSnapshot()).toMatchObject({ open: true, activeId: 'models' })
+  }, COLD_BOOT_TIMEOUT_MS)
+
   withoutSettingsAccess('leaves sidebar.settings unoccupied while the current Peer may not read the settings description', async ({ start }) => {
     const c = await start()
     expect(c.ctx.slots.entries('sidebar.settings')).toEqual([])
+    expect(c.ctx.settingsNavigation.availability.getSnapshot()).toBe(false)
+    expect(c.ctx.settingsNavigation.open('models')).toBe(false)
   }, COLD_BOOT_TIMEOUT_MS)
 
   it('projects the section ledger: product sections in order, defaults for bare rows, stable snapshots', async ({ start }) => {

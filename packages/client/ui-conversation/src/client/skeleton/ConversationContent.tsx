@@ -22,8 +22,8 @@ function NoConversationWidthControls() {
 export function ConversationContent(props: ConversationContentProps) {
   const {
     sessionId, phase, hero, useSession, useSessions, useSessionStatus,
-    useWorkspaces, useInput, useComposerBlock, renderSlot, renderSlotChain,
-    selectWorkspace, t, useFactorySlot,
+    useWorkspaces, useInput, useAccess, useComposerBlock, renderSlot, renderSlotChain,
+    selectWorkspace, pickSuggestion, t, useFactorySlot, useHeroPlaceholder,
   } = props
   const session = useSession(snapshot => snapshot)
   const Views = useFactorySlot('views', ConversationSessionView)
@@ -37,6 +37,7 @@ export function ConversationContent(props: ConversationContentProps) {
   // A plugin this package cannot import (ui-model-selection) says this session cannot
   // send; its reason is already localized by whoever raised it.
   const composerBlock = useComposerBlock(block => block)
+  const heroPlaceholder = useHeroPlaceholder(text => text)
 
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pendingWorkspaceId, setPendingWorkspaceId] = useState<WorkspaceId | undefined>()
@@ -100,9 +101,9 @@ export function ConversationContent(props: ConversationContentProps) {
     ?? (sessionId === undefined
       ? undefined
       : sessionWorkspace?.title
-        ?? (workspaces.phase === 'ready' || cwd === undefined || cwd === ''
-          ? undefined
-          : workspaceLabel(cwd)))
+      ?? (workspaces.phase === 'ready' || cwd === undefined || cwd === ''
+        ? undefined
+        : workspaceLabel(cwd)))
   const chipTitle = storedChipTitle === undefined
     ? undefined
     : workspaceDisplayTitle(storedChipTitle, t('workspace.defaultName'))
@@ -144,6 +145,10 @@ export function ConversationContent(props: ConversationContentProps) {
   // one disabled textarea, never a second tree. The no-workspace state wins
   // when both hold — picking a workspace is the earlier prerequisite.
   const blocked = !inert && composerBlock !== undefined
+  const promptDenied = useAccess('session/prompt') === false
+  const suggestionsDisabled = inert || blocked || promptDenied || session === undefined || session.removed
+    || session.subagent !== null || inputState === undefined
+    || (inputState.phase !== 'plain' && inputState.phase !== 'claimed')
   const inputBar = renderSlot('conversation.composer.bar', {
     variant: hero ? 'hero' : 'composer',
     ...(inert
@@ -158,7 +163,7 @@ export function ConversationContent(props: ConversationContentProps) {
         // block keeps the model seat live because choosing a model is how the
         // user clears it.
         ? { blocked: composerBlock, placeholder: composerBlock.reason }
-        : hero ? { placeholder: t('placeholder.hero') } : {}),
+        : hero ? { placeholder: heroPlaceholder ?? t('placeholder.hero') } : {}),
   })
 
   const composerBar = (
@@ -167,6 +172,10 @@ export function ConversationContent(props: ConversationContentProps) {
       {hero && heroWorkspaceRow}
       {zone !== undefined && renderSlot('conversation.input.dock', zone)}
       {inputBar}
+      {hero && renderSlot('conversation.hero.suggestions', {
+        disabled: suggestionsDisabled,
+        onPick: (text) => { if (!suggestionsDisabled) pickSuggestion(text) },
+      })}
     </div>
   )
 

@@ -175,6 +175,19 @@ async function resolutionOf(f: ReturnType<typeof fixture>): Promise<RuntimeResol
     home: f.root,
   })
 }
+it('routes DSH host package imports and subpaths to the installed Jan packages', async () => {
+  const f = fixture('@janhq/jan-tools')
+  const resolution = await resolutionOf(f)
+  const interceptor = installRuntimeInterception(resolution)
+  registrations.push(interceptor)
+  const importer = join(f.profile.dir, 'node_modules', 'dsh-addon', 'index.cjs')
+  file(importer, 'module.exports = true')
+  const require = createRequire(importer)
+  expect(require('@deepseek-ai/dsh-tools')).toEqual({ marker: 1 })
+  expect(resolveFrom('@deepseek-ai/dsh-tools', pathToFileURL(importer).href)).toBe(pathToFileURL(join(f.installed, 'index.js')).href)
+  expect(await importFrom('@deepseek-ai/dsh-tools', pathToFileURL(importer).href)).toMatchObject({ marker: 1 })
+})
+
 
 /**
  * Ancestor node_modules layers of a profile importer, innermost first:

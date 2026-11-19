@@ -701,9 +701,23 @@ export interface Config {
 ## `@janhq/jan-compaction-basic`
 
 - `inject`: `llm` · `tokenMeter` · `sessions`
-- `source`: [`packages/compaction/compaction-basic/src/types.ts:46`](../packages/compaction/compaction-basic/src/types.ts)
+- `refs`: `Volatile` (`@janhq/cordis`)
+- `source`: [`packages/compaction/compaction-basic/src/types.ts:61`](../packages/compaction/compaction-basic/src/types.ts)
 
 ```ts config-catalog
+/** Four top-level settings accept plain values or Loader-managed live references. */
+export interface BasicCompactionRuntimeConfig extends Omit<BasicCompactionConfig,
+  'auto' | 'thresholdRatio' | 'summarizationProvider' | 'summarizationModel'> {
+  /** Live toggle for automatic compaction; manual compaction remains available. */
+  auto?: boolean | Volatile<boolean | undefined>
+  /** Live context-window pressure fraction. */
+  thresholdRatio?: number | Volatile<number | undefined>
+  /** Live summary provider, paired with summarizationModel. */
+  summarizationProvider?: string | Volatile<string | undefined>
+  /** Live summary model, paired with summarizationProvider. */
+  summarizationModel?: string | Volatile<string | undefined>
+}
+
 /** Basic compaction configuration with an optional exact-target policy table. */
 export interface BasicCompactionConfig extends CompactionPolicyConfig {
   /** Exact provider/model overrides; duplicate targets fail plugin load. */
@@ -716,7 +730,10 @@ export interface BasicCompactionConfig extends CompactionPolicyConfig {
 export interface CompactionPolicyConfig {
   /** Window fraction for pressure; capped at context window minus reserved output and `headroomTokens`. Defaults to `0.8`. */
   thresholdRatio?: number
-  /** Additional pressure headroom beyond the routed output reservation. Non-negative integer; defaults to `65536`. */
+  /**
+   * Additional pressure headroom beyond the routed output reservation. Non-negative integer.
+   * Unset, each window keeps its share above `thresholdRatio` (at least a tenth), capped at `65536`.
+   */
   headroomTokens?: number
   /** Recent context retained as a fraction of context window minus reserved output tokens. Defaults to `0.16`. */
   retainRatio?: number
@@ -726,7 +743,10 @@ export interface CompactionPolicyConfig {
   summarizationProvider?: string
   /** Summary model; set together with `summarizationProvider`, or inherit the conversation target. */
   summarizationModel?: string
-  /** Provider generation cap for summarization. Defaults to the resolved `headroomTokens`; an explicit cap must be positive. */
+  /**
+   * Provider generation cap for summarization; an explicit cap must be positive. Defaults to an
+   * explicit `headroomTokens`, else to the default headroom of the summarizing model's window.
+   */
   maxTokens?: number
   /** Extra attempts after the first compaction when pressure remains above threshold. Defaults to `1`. */
   compactionRetries?: number
@@ -1623,6 +1643,37 @@ export interface Config {
 }
 ```
 
+<a id="janhqjan-host-plugin-i18n"></a>
+
+## `@janhq/jan-host-plugin-i18n`
+
+- `inject`: `llm` · `agentDefaultModel`
+- `source`: [`packages/host/plugin-i18n/src/index.ts:35`](../packages/host/plugin-i18n/src/index.ts)
+
+```ts config-catalog
+/** Limits and location of the translation service. */
+export interface Config {
+  /** Cache directory; absent means `plugin-i18n` under the Jan home. */
+  dir?: string
+  /** Most entries one translate request may carry. */
+  maxEntries: number
+  /** Most UTF-8 bytes of source text one translate request may carry. */
+  maxSourceBytes: number
+  /** Most entries in one model call. */
+  batchEntries: number
+  /** Most source bytes in one model call. */
+  batchBytes: number
+  /** Output-token cap of one model call. */
+  maxOutputTokens: number
+  /** Deadline of one model call in milliseconds. */
+  timeoutMs: number
+  /** Runtime strings kept per locale; the oldest are dropped beyond it. */
+  maxStrings: number
+  /** Longest runtime string sent to the model, in characters; longer strings stay as written. */
+  maxStringLength: number
+}
+```
+
 <a id="janhqjan-host-product-telemetry-otel"></a>
 
 ## `@janhq/jan-host-product-telemetry-otel`
@@ -1878,13 +1929,45 @@ export interface ArtifactOverride {
 }
 ```
 
+<a id="janhqjan-llm-fallback"></a>
+
+## `@janhq/jan-llm-fallback`
+
+- `inject`: `llm` · `tokenMeter`
+- `refs`: `Volatile` (`@janhq/cordis`)
+- `source`: [`packages/llm/llm-fallback/src/index.ts:37`](../packages/llm/llm-fallback/src/index.ts)
+
+```ts config-catalog
+/** Live-editable fallback policy; every field is a volatile reference. */
+export interface Config {
+  /** Ordered models tried after the selected one fails; empty turns fallback off (default `[]`). */
+  chain: Volatile<FallbackRoute[]>
+  /** Seconds a failed model rests before Jan tries it again or switches back to it (default 300). */
+  cooldownSeconds: Volatile<number>
+  /**
+   * Return to the user's model at a turn start only while the conversation
+   * uses less than this percent of that model's context window (default 30).
+   * Switching models drops the provider prompt cache.
+   */
+  switchBackBelowPercent: Volatile<number>
+}
+
+/** One provider route in the fallback chain. */
+export interface FallbackRoute {
+  /** Registered provider route id. */
+  provider: string
+  /** Provider-owned model id. */
+  model: string
+}
+```
+
 <a id="janhqjan-llm-pi-ai"></a>
 
 ## `@janhq/jan-llm-pi-ai`
 
 - `inject`: `llm`
 - `refs`: `Api` (`@earendil-works/pi-ai`) · `CacheRetention` (`@earendil-works/pi-ai`) · `Model` (`@earendil-works/pi-ai`) · `ModelThinkingLevel` (`@earendil-works/pi-ai`) · `OpenAICompletionsCompat` (`@earendil-works/pi-ai`) · [`RetryPolicyConfig`](../packages/llm/llm/src/index.ts) · `ThinkingBudgets` (`@earendil-works/pi-ai`) · `Transport` (`@earendil-works/pi-ai`) · `Volatile` (`@janhq/cordis`)
-- `source`: [`packages/llm/llm-pi-ai/src/config.ts:322`](../packages/llm/llm-pi-ai/src/config.ts)
+- `source`: [`packages/llm/llm-pi-ai/src/config.ts:328`](../packages/llm/llm-pi-ai/src/config.ts)
 
 ```ts config-catalog
 /** Plugin configuration: the provider routes this instance owns. */
@@ -1990,6 +2073,12 @@ export interface PiAiProviderProfile {
   websocketConnectTimeoutMs?: number
   /** Maximum provider idle time while one stream read is outstanding. */
   streamIdleTimeoutMs?: number
+  /**
+   * Ask a llama.cpp server for prompt-processing progress (`return_progress`) and publish it as
+   * `llm-pi-ai/prompt-progress`, so a slow local prefill shows how far it got. Only for servers that
+   * accept the field; other OpenAI-compatible endpoints may reject unknown request fields.
+   */
+  promptProgress?: boolean
   /**
    * Maximum base64-encoded image payload per request. When a request's
    * accumulated images exceed it, the oldest images are replaced by text
@@ -2608,6 +2697,12 @@ export interface Config {
   complete?: boolean
   /** Suppress dynamic runtime-context snapshots for this persona's agent scope. */
   includeRuntimeContext?: boolean
+  /**
+   * Resolve `{{variable}}` groups in the prefix and suffix; defaults to true.
+   * False keeps imported persona prose literal, so braces a user wrote are not
+   * re-read as prompt variables.
+   */
+  interpolate?: boolean
 }
 ```
 
@@ -2632,7 +2727,7 @@ export interface PlanModeConfig {
 
 - `inject`: `loader` · `profileContext`
 - `refs`: [`NpmFileSource`](subsystems/boot.md)
-- `source`: [`packages/boot/plugin-manager/src/index.ts:54`](../packages/boot/plugin-manager/src/index.ts)
+- `source`: [`packages/boot/plugin-manager/src/index.ts:55`](../packages/boot/plugin-manager/src/index.ts)
 
 ```ts config-catalog
 /** The pnpm executable, registries, and limits for diagnostics, lookups and connection checks. */
@@ -4663,6 +4758,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | `@janhq/jan-client-ui-file-actions` | — | [`packages/client/ui-file-actions/src/index.ts`](../packages/client/ui-file-actions/src/index.ts) |
 | `@janhq/jan-client-ui-file-drag` | — | [`packages/client/ui-file-drag/src/index.ts`](../packages/client/ui-file-drag/src/index.ts) |
 | `@janhq/jan-client-ui-goal` | — | [`packages/client/ui-goal/src/index.ts`](../packages/client/ui-goal/src/index.ts) |
+| `@janhq/jan-client-ui-guidance` | — | [`packages/client/ui-guidance/src/index.ts`](../packages/client/ui-guidance/src/index.ts) |
 | `@janhq/jan-client-ui-input-trigger` | — | [`packages/client/ui-input-trigger/src/index.ts`](../packages/client/ui-input-trigger/src/index.ts) |
 | `@janhq/jan-client-ui-jobs` | — | [`packages/client/ui-jobs/src/index.ts`](../packages/client/ui-jobs/src/index.ts) |
 | `@janhq/jan-client-ui-layout` | — | [`packages/client/ui-layout/src/index.ts`](../packages/client/ui-layout/src/index.ts) |
@@ -4671,6 +4767,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | `@janhq/jan-client-ui-open-in-app` | — | [`packages/client/ui-open-in-app/src/index.ts`](../packages/client/ui-open-in-app/src/index.ts) |
 | `@janhq/jan-client-ui-permission-presets` | — | [`packages/client/ui-permission-presets/src/index.ts`](../packages/client/ui-permission-presets/src/index.ts) |
 | `@janhq/jan-client-ui-plan` | — | [`packages/client/ui-plan/src/index.ts`](../packages/client/ui-plan/src/index.ts) |
+| `@janhq/jan-client-ui-plugin-i18n` | — | [`packages/client/ui-plugin-i18n/src/index.ts`](../packages/client/ui-plugin-i18n/src/index.ts) |
 | `@janhq/jan-client-ui-plugin-market` | — | [`packages/client/ui-plugin-market/src/index.ts`](../packages/client/ui-plugin-market/src/index.ts) |
 | `@janhq/jan-client-ui-plugin-recommendations` | — | [`packages/experimental/client-ui-plugin-recommendations/src/index.ts`](../packages/experimental/client-ui-plugin-recommendations/src/index.ts) |
 | `@janhq/jan-client-ui-reference` | — | [`packages/client/ui-reference/src/index.ts`](../packages/client/ui-reference/src/index.ts) |
@@ -4682,6 +4779,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | `@janhq/jan-client-ui-settings-agent-loop` | — | [`packages/client/ui-settings-agent-loop/src/index.ts`](../packages/client/ui-settings-agent-loop/src/index.ts) |
 | `@janhq/jan-client-ui-settings-general` | — | [`packages/client/ui-settings-general/src/index.ts`](../packages/client/ui-settings-general/src/index.ts) |
 | `@janhq/jan-client-ui-settings-local-model` | — | [`packages/client/ui-settings-local-model/src/index.ts`](../packages/client/ui-settings-local-model/src/index.ts) |
+| `@janhq/jan-client-ui-settings-model-policy` | — | [`packages/client/ui-settings-model-policy/src/index.ts`](../packages/client/ui-settings-model-policy/src/index.ts) |
 | `@janhq/jan-client-ui-settings-plugin-inventory` | — | [`packages/client/ui-settings-plugin-inventory/src/index.ts`](../packages/client/ui-settings-plugin-inventory/src/index.ts) |
 | `@janhq/jan-client-ui-settings-plugins` | — | [`packages/client/ui-settings-plugins/src/index.ts`](../packages/client/ui-settings-plugins/src/index.ts) |
 | `@janhq/jan-client-ui-settings-shell` | — | [`packages/client/ui-settings-shell/src/index.ts`](../packages/client/ui-settings-shell/src/index.ts) |

@@ -18,7 +18,7 @@ import type {
   TranscriptViewMode, UserContentInput, UserMessageNode,
 } from '@janhq/jan-client-ui-chat/client'
 import type {
-  SessionListState, SessionSnapshot,
+  SessionListState, SessionProjectionMap, SessionSnapshot,
 } from '@janhq/jan-api-session-controller/client'
 import type {
   ConversationGroupedView,
@@ -269,7 +269,12 @@ type ImageRenderer = (owner: MessageImagesOwnerProps) => React.ReactNode
 declare const userChainDispatch: PropsRenderSlots<'conversation.chat.user.before'>['renderSlotChain']
 type UserChainRenderer = typeof userChainDispatch<'conversation.chat.user.before'>
 type UserChainState = { readonly renderer: UserChainRenderer | undefined }
-type HarnessStandardProps = ChatViewSlotProps & PropsRenderFactories & Pick<React.ComponentProps<typeof AssistantNodeView>, 'fileMentions'>
+type HarnessStandardProps = ChatViewSlotProps & PropsRenderFactories & Pick<React.ComponentProps<typeof AssistantNodeView>, 'fileMentions'> & {
+  openModelsSettings: () => void
+  recovery?: NonNullable<React.ComponentProps<typeof TurnErrorNodeView>['recovery']>
+  /** Failed turn/end a retry would answer; null when none. */
+  continuation?: SessionProjectionMap['conversationContinuation']
+}
 
 function isImageOwner(owner: object): owner is MessageImagesOwnerProps {
   return 'images' in owner && Array.isArray(owner.images)
@@ -348,7 +353,9 @@ function HarnessChatNode({
     case 'model-retry':
       return <RetryNodeView {...nodeProps} node={owner.node} />
     case 'turn-error':
-      return <TurnErrorNodeView {...nodeProps} node={owner.node} />
+      return <TurnErrorNodeView {...nodeProps} node={owner.node} useSettingsAvailability={selector => selector(true)}
+        useContinuation={selector => selector(standard.continuation ?? null)}
+        openModelsSettings={standard.openModelsSettings} />
     case 'turn-max-tokens':
       return <TurnMaxTokensNodeView {...nodeProps} node={owner.node} />
     case 'turn-process':
@@ -427,6 +434,7 @@ function makeHarness(
   let outlineValue: unknown
   const openView = vi.fn<(view: string, focus: string) => void>()
   // In-memory scroll memory matching the apply.ts per-session map contract.
+  const openModelsSettings = vi.fn()
   let savedScroll: ReturnType<ChatViewSlotProps['chatScroll']['read']> = null
   const chatScroll: ChatViewSlotProps['chatScroll'] = {
     save: (position) => { savedScroll = position },
@@ -468,6 +476,8 @@ function makeHarness(
     if (key === 'conversation.chat.node') {
       return renderNodeSlot(key, owner as RoutedChatNodeOwner, opts as Parameters<NodeRenderer>[2])
     }
+    // No feature fills the running status in this harness: an empty list slot.
+    if (key === 'conversation.chat.running-detail') return null
     throw new Error(`Undeclared flow child: ${key}`)
   }
   const renderUserChain: PropsRenderSlots<'conversation.chat.user.before'>['renderSlotChain'] = (key, owner, opts) => {
@@ -495,6 +505,7 @@ function makeHarness(
   const props: HarnessStandardProps = {
     fileDrag,
     resolveFilePath: vi.fn((path: string) => path),
+    openModelsSettings,
     renderFactorySlot,
     usePanelInfo: selector => selector({ activePanelId: null }),
     sessionId: SID,
@@ -576,6 +587,7 @@ function makeHarness(
     set, setSession: session.set, setChat: chatSource.set, ChatView, props,
     setConnection: (state: ConnectionState) => { connection.set(state) },
     openFile, openUserFile, loadOlder, loadThrough, openView,
+    openModelsSettings,
     setOutline: (value: unknown) => { outlineValue = value },
     chatScroll, forkAt, toolOwners,
     setPerformanceUsage: (mode: 'compact' | 'detailed') => { performanceUsage.set(mode) },
@@ -2610,7 +2622,8 @@ describe('ChatView', () => {
   it('renders every terminal failure inline with neutral quota copy and no transient notice', () => {
     const h = makeHarness({ nodes: [
       user(1, 'try'), turnError(2, 'AUTH'), turnError(3), turnError(4, 'QUOTA'), turnError(5, 'ACCOUNT_QUOTA'),
-      turnError(6, 'INTERRUPTED'),
+      turnError(6, 'INTERRUPTED'), turnError(7, 'CONTEXT_WINDOW_EXCEEDED'), turnError(8, 'MISSING_CREDENTIAL'),
+      turnError(9, 'MODEL_SWITCH_COMPACTION_FAILED'), turnError(10, 'NO_ADAPTER'),
     ] })
     const view = render(<h.ChatView {...h.props} />)
     const statuses = view.getAllByRole('status')
@@ -2620,12 +2633,136 @@ describe('ChatView', () => {
       '本轮运行失败当前请求的额度已用尽QUOTA',
       '本轮运行失败当前请求的额度已用尽ACCOUNT_QUOTA',
       '任务已停止Jan 进程在本轮完成前退出（例如被强制结束、崩溃或关闭超时），重新启动后本轮已中止。未完成的工具调用结果未知。',
+      '本轮运行失败这个对话已超出当前模型的上下文窗口，之后的消息也会失败。请用更短的内容开始新对话，或切换到上下文窗口更大的模型。CONTEXT_WINDOW_EXCEEDED',
+      '本轮运行失败当前模型需要登录或 API 密钥。前往设置 -> 模型下载免费的本地模型（在此电脑上运行，无需账号），或登录 Tokamak 或添加 API 密钥。前往设置 -> 模型MISSING_CREDENTIAL',
+      '本轮运行失败这个对话无法压缩到所选模型的上下文窗口内。请切回之前的模型、开始新对话，或选择上下文窗口更大的模型。MODEL_SWITCH_COMPACTION_FAILED',
+      '本轮运行失败当前模型需要登录或 API 密钥。前往设置 -> 模型下载免费的本地模型（在此电脑上运行，无需账号），或登录 Tokamak 或添加 API 密钥。前往设置 -> 模型NO_ADAPTER',
     ])
     // The transient notice is the frame-wide host's job; the failure row keeps
     // neither a recharge affordance nor a toast of its own.
     expect(view.queryByRole('alert')).toBeNull()
     expect(view.queryByRole('dialog')).toBeNull()
     expect(view.queryByRole('button', { name: '去充值' })).toBeNull()
+    const openModels = view.getAllByRole('button', { name: '前往设置 -> 模型' })
+    expect(openModels).toHaveLength(2)
+    fireEvent.click(openModels[1] as HTMLElement)
+    expect(h.openModelsSettings).toHaveBeenCalledOnce()
+  })
+
+  const overflowRecovery = (overrides: Partial<NonNullable<HarnessStandardProps['recovery']>> = {}): NonNullable<HarnessStandardProps['recovery']> => ({
+    modelFor: () => undefined,
+    contextFor: async () => undefined,
+    increase: vi.fn(),
+    compact: vi.fn(async () => ({ ok: true as const })),
+    retry: vi.fn(),
+    ...overrides,
+  })
+
+  it('offers a local context increase and retries the same failed turn only after reload', async () => {
+    const h = makeHarness({ nodes: [user(1, 'original prompt'), turnError(2, 'CONTEXT_WINDOW_EXCEEDED')] })
+    const reload = Promise.withResolvers<{ ok: true; value: number | null }>()
+    const increase = vi.fn(() => reload.promise)
+    const retry = vi.fn()
+    h.props.continuation = { overflow: SessionSeq(2) }
+    h.props.recovery = overflowRecovery({ modelFor: () => 'jan-v3.5-4b', contextFor: async () => ({ current: 32768, maximum: 131072 }), increase, retry })
+    const view = render(<h.ChatView {...h.props} />)
+    fireEvent.click(view.getByRole('button', { name: zh['message.failure.increaseContext'] }))
+    expect(increase).toHaveBeenCalledWith('jan-v3.5-4b')
+    expect(retry).not.toHaveBeenCalled()
+    reload.resolve({ ok: true, value: 49152 })
+    await waitFor(() => { expect(retry).toHaveBeenCalledExactlyOnceWith(2) })
+    expect(view.getByText('original prompt')).toBeTruthy()
+  })
+
+  it('offers compaction instead of another increase at the trained maximum, and retries after it', async () => {
+    const h = makeHarness({ nodes: [user(1, 'prompt'), turnError(2, 'CONTEXT_WINDOW_EXCEEDED')] })
+    const compact = vi.fn(async () => ({ ok: true as const }))
+    const retry = vi.fn()
+    h.props.continuation = { overflow: SessionSeq(2) }
+    h.props.recovery = overflowRecovery({ modelFor: () => 'local', contextFor: async () => ({ current: 32768, maximum: 32768 }), compact, retry })
+    const view = render(<h.ChatView {...h.props} />)
+    expect(await view.findByText(zh['message.failure.contextMaximum'])).toBeTruthy()
+    expect(view.queryByRole('button', { name: zh['message.failure.increaseContext'] })).toBeNull()
+    fireEvent.click(view.getByRole('button', { name: zh['message.failure.compactRetry'] }))
+    await waitFor(() => { expect(retry).toHaveBeenCalledExactlyOnceWith(2) })
+    expect(compact).toHaveBeenCalledOnce()
+  })
+
+  it('explains that a cloud window cannot grow and compacts then retries the same turn', async () => {
+    const h = makeHarness({ nodes: [user(1, 'cloud prompt'), turnError(2, 'CONTEXT_WINDOW_EXCEEDED')] })
+    const order: string[] = []
+    const recovery = overflowRecovery({
+      compact: vi.fn(async () => { order.push('compact'); return { ok: true as const } }),
+      retry: vi.fn(() => { order.push('retry') }),
+    })
+    h.props.continuation = { overflow: SessionSeq(2) }
+    h.props.recovery = recovery
+    const view = render(<h.ChatView {...h.props} />)
+    expect(view.getByRole('status').textContent).toContain(zh['message.failure.cloudContextWindow'])
+    expect(view.queryByRole('button', { name: zh['message.failure.increaseContext'] })).toBeNull()
+    fireEvent.click(view.getByRole('button', { name: zh['message.failure.compactRetry'] }))
+    await waitFor(() => { expect(recovery.retry).toHaveBeenCalledExactlyOnceWith(2) })
+    expect(order).toEqual(['compact', 'retry'])
+    expect(view.getByText('cloud prompt')).toBeTruthy()
+  })
+
+  it('does not retry when there is nothing to compact or compaction fails, and says why', async () => {
+    const h = makeHarness({ nodes: [user(1, 'big prompt'), turnError(2, 'CONTEXT_WINDOW_EXCEEDED')] })
+    const compact = vi.fn<NonNullable<HarnessStandardProps['recovery']>['compact']>(async () => ({ ok: false, reason: 'empty' }))
+    const retry = vi.fn()
+    h.props.continuation = { overflow: SessionSeq(2) }
+    h.props.recovery = overflowRecovery({ compact, retry })
+    const view = render(<h.ChatView {...h.props} />)
+    fireEvent.click(view.getByRole('button', { name: zh['message.failure.compactRetry'] }))
+    expect((await view.findByRole('alert')).textContent).toBe(zh['message.failure.nothingToCompact'])
+    compact.mockResolvedValueOnce({ ok: false, reason: 'failed', error: 'Compaction could not produce a useful summary.' })
+    fireEvent.click(view.getByRole('button', { name: zh['message.failure.compactRetry'] }))
+    await waitFor(() => { expect(view.getByRole('alert').textContent).toBe('Compaction could not produce a useful summary.') })
+    expect(retry).not.toHaveBeenCalled()
+    expect(view.getByText('big prompt')).toBeTruthy()
+  })
+
+  it('offers no recovery on a failure a retry no longer answers', () => {
+    const h = makeHarness({ nodes: [user(1, 'old prompt'), turnError(2, 'CONTEXT_WINDOW_EXCEEDED')] })
+    h.props.continuation = null
+    h.props.recovery = overflowRecovery({ modelFor: () => 'local' })
+    const view = render(<h.ChatView {...h.props} />)
+    expect(view.getByRole('status').textContent).toContain(zh['message.failure.contextWindow'])
+    expect(view.queryByRole('button', { name: zh['message.failure.increaseContext'] })).toBeNull()
+    expect(view.queryByRole('button', { name: zh['message.failure.compactRetry'] })).toBeNull()
+  })
+
+  it('does not retry a failed context increase and leaves the user prompt in place', async () => {
+    const h = makeHarness({ nodes: [user(1, 'keep this'), turnError(2, 'CONTEXT_WINDOW_EXCEEDED')] })
+    const retry = vi.fn()
+    h.props.continuation = { overflow: SessionSeq(2) }
+    h.props.recovery = overflowRecovery({ modelFor: () => 'local', increase: async () => ({ ok: false, error: 'Not enough memory' }), retry })
+    const view = render(<h.ChatView {...h.props} />)
+    fireEvent.click(view.getByRole('button', { name: zh['message.failure.increaseContext'] }))
+    expect(await view.findByRole('alert')).toHaveProperty('textContent', 'Not enough memory')
+    expect(retry).not.toHaveBeenCalled()
+    expect(view.getByText('keep this')).toBeTruthy()
+  })
+
+  it('explains a model service failure in plain words and retries the same turn from the failure row', () => {
+    const h = makeHarness({ nodes: [user(1, 'ask'), turnError(2, 'SERVER')] })
+    const retry = vi.fn()
+    h.props.continuation = SessionSeq(2)
+    h.props.recovery = overflowRecovery({ retry })
+    const view = render(<h.ChatView {...h.props} />)
+    const row = view.getByRole('status')
+    expect(row.textContent).toContain(zh['message.failure.transient'])
+    expect(row.textContent).not.toContain('API key is invalid')
+    fireEvent.click(view.getByRole('button', { name: zh['message.failure.retry'] }))
+    expect(retry).toHaveBeenCalledExactlyOnceWith(2)
+  })
+
+  it('offers no retry on a transient failure a newer turn has already replaced', () => {
+    const h = makeHarness({ nodes: [user(1, 'old'), turnError(2, 'SERVER')] })
+    h.props.continuation = null
+    h.props.recovery = overflowRecovery()
+    const view = render(<h.ChatView {...h.props} />)
+    expect(view.queryByRole('button', { name: zh['message.failure.retry'] })).toBeNull()
   })
 
   it('renders the max-tokens notice with localized guidance, distinct from turn errors', () => {

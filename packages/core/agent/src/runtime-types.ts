@@ -356,7 +356,8 @@ declare module '@janhq/cordis' {
      * reasoning effort selection. On step admission,
      * this runs after assembly and `step/start`, before the system prompt and
      * accepted user batch are committed. Cancellation here or during subsequent
-     * `prepareCall()` resolution commits neither. The prepared call capability
+     * `prepareCall()` resolution commits neither; a thrown failure still commits
+     * the batch before the turn ends with it. The prepared call capability
      * governs prompt admission. Model-visible content must use logged channels;
      * this waterfall cannot mutate messages.
      * @deprecated Retained for existing listeners; do not add new listeners.
@@ -375,7 +376,10 @@ declare module '@janhq/cordis' {
      * Handle one failed model-request attempt before the loop retries or closes
      * its step. A listener returns `{ kind: 'retry' }` without calling `next()`
      * when it owns recovery, or calls `next()` to delegate. The default
-     * `undefined` leaves the failure terminal.
+     * `undefined` leaves the failure terminal. A retry re-runs the failed step
+     * on its route, unless the listener recorded a different provider/model
+     * with `agent.model.select()`: the loop then closes the failed step and
+     * retries in a fresh step prepared for that selection (model fallback).
      * @param payload.agent - the agent whose request failed.
      * @param payload.turn - the turn containing the failed request.
      * @param payload.step - the step containing the failed request attempt.

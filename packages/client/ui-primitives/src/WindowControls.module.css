@@ -1,0 +1,35 @@
+.controls {
+  display: flex;
+  height: 100%;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: default;
+}
+
+@media (hover: hover) {
+  .button:hover {
+    background: color-mix(in oklch, var(--dsw-alias-label-primary) 10%, transparent);
+    color: var(--dsw-alias-label-primary);
+  }
+
+  /* Platform close red, the same in light and dark. */
+  .close:hover {
+    background: #c42b1c;
+    color: #fff;
+  }
+}
+
+.button:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: -2px;
+}

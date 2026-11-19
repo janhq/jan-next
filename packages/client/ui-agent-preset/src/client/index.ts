@@ -45,6 +45,8 @@ import { AgentPresetSectionController } from './section-store.ts'
 import { en, ja, es, fr, de, ru, pt, zh, type AgentPresetSettingsKey } from './locales.ts'
 import { AGENT_PRESET_SETTINGS_NS, AgentPresetSettingsController } from './settings-store.ts'
 import { analyticsMode } from './analytics.ts'
+// Type-only: pulls the custom-editor seat declaration into this registration.
+import type {} from './slot-contract.ts'
 
 declare module '@janhq/jan-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -209,8 +211,24 @@ export function apply(ctx: ClientContext): void {
     }
 
     const labelInjected = (): AgentPresetLabelInjected => ({
-      hooks: { agentPresets: controller.store },
+      hooks: {
+        agentPresets: controller.store,
+        developerTools: ctx.configForms.developerTools.enabled,
+      },
       load: () => controller.load(),
+      select: async (sessionId, id) => {
+        try {
+          const result = await ctx.remote.agentPresets.select(sessionId, id)
+          if (result.ok) return undefined
+          const { error } = result
+          // Prefer the bare cause; the banner already names the rejected preset.
+          return 'reason' in error.details && typeof error.details.reason === 'string'
+            ? error.details.reason
+            : error.message
+        } catch (error) {
+          return error instanceof Error ? error.message : String(error)
+        }
+      },
     })
 
     const startCreatorDraft = () => {
@@ -286,6 +304,7 @@ export function apply(ctx: ClientContext): void {
     order: 20,
     label: () => ctx.locale.bind('settings.agentPreset')('nav'),
     locale: 'settings.agentPreset',
+    children: { 'settings.agentPresets.custom': { kind: 'single', scope: 'root' } },
     inject: sectionInjected,
   }, AgentPresetSection))
 }

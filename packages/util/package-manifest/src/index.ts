@@ -1,7 +1,9 @@
 /**
- * Public package manifest and plugin display types, with no runtime exports.
+ * Public package manifest, plugin display types, and DSH package-name compatibility.
  * @module @janhq/jan-package-manifest
  */
+
+export { janDeclaration, janPackageName, janSpecifier } from './dsh-compat.ts'
 
 export type {
   JanBundleManifest,

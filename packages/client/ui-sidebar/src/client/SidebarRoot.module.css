@@ -91,19 +91,40 @@
   display: none;
 }
 
+/* Caption menus start after the fixed controls: toggle, Back, Forward (and New Session while collapsed). */
+:global(html[data-windows-titlebar]) {
+  --jan-windows-menu-start: 120px;
+}
+
 :global(html[data-windows-titlebar]:has([data-sidebar-collapsed='true'])) {
-  --jan-windows-menu-start: 84px;
+  --jan-windows-menu-start: 156px;
 }
 
 :global([data-windows-titlebar]) .collapsed .newSession {
   position: fixed;
   top: calc((var(--jan-windows-titlebar-height) - 28px) / 2);
-  left: 48px;
+  left: 120px;
   margin: 0;
   padding: 0;
   border: none;
   z-index: 30;
   -webkit-app-region: no-drag;
+}
+
+/* Back and Forward sit in the caption strip after the toggle (left 12px, 28px wide, 8px apart). */
+:global([data-windows-titlebar]) .navButton {
+  position: fixed;
+  top: calc((var(--jan-windows-titlebar-height) - 28px) / 2);
+  z-index: 30;
+  -webkit-app-region: no-drag;
+}
+
+:global([data-windows-titlebar]) .navBack {
+  left: 48px;
+}
+
+:global([data-windows-titlebar]) .navForward {
+  left: 84px;
 }
 
 :global([data-windows-titlebar]) .railIn .iconButton,
@@ -112,6 +133,7 @@
 }
 
 :global([data-windows-titlebar]) .collapsed .toggle,
+:global([data-windows-titlebar]) .collapsed .navButton,
 :global([data-windows-titlebar]) .collapsed .newSession {
   width: 28px;
   height: 28px;
@@ -196,9 +218,11 @@
      seat (ui-layout .leadingSeat, top 11) and the conversation title row, so
      collapse/expand never shifts it vertically. */
   padding: 0 12px 2px;
+  gap: 4px;
 }
 
-:global(html[data-platform='darwin']:not([data-fullscreen])) .root:not(.collapsed) > .topStrip > .toggle {
+:global(html[data-platform='darwin']:not([data-fullscreen])) .root:not(.collapsed) > .topStrip > .toggle,
+:global(html[data-platform='darwin']:not([data-fullscreen])) .root:not(.collapsed) > .topStrip > .navButton {
   transform: translateX(4px);
 }
 
@@ -233,7 +257,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 4px;
   height: 60px;
   padding: 8px 0 8px 8px;
   margin-bottom: 0;
@@ -361,6 +385,34 @@
 .iconButton.toggle:focus-visible {
   outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: -2px;
+}
+
+/* Back and Forward end the logo row, which clips its overflow, so their rings draw inside too. */
+.iconButton.navButton:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: -2px;
+}
+
+/* An empty history dims the control but keeps it focusable and its tooltip. */
+.navButton[aria-disabled='true'] {
+  opacity: 0.4;
+  cursor: default;
+}
+
+@media (hover: hover) {
+  .navButton[aria-disabled='true']:hover {
+    background-color: transparent;
+  }
+}
+
+/* The collapsed rail has no row beside the toggle, so Back and Forward stack under it. */
+.railNavigation {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 12px;
 }
 
 .collapsed .iconButton {

@@ -27,6 +27,10 @@ declare module '@janhq/jan-client-ui-slots' {
     }
   }
   interface SlotMap {
+    /** New-session control, with access and analytics retained by the shell. */
+    'sidebar.session.new': { kind: 'single'; scope: 'root'; owner: SidebarNewSessionOwnerProps }
+    /** Workspace primary navigation before global panel extras. */
+    'sidebar.workspaces.primary': { kind: 'single'; scope: 'root'; owner: SidebarSectionOwnerProps }
     /** Non-interactive notification inside the collapsed sidebar expand button. */
     'sidebar.toggle.badge': { kind: 'single'; scope: 'root'; owner: Record<never, never> }
     /**
@@ -74,6 +78,16 @@ declare module '@janhq/jan-client-ui-slots' {
      */
     'sidebar.footer.action': { kind: 'list'; scope: 'root'; owner: SidebarFooterActionOwnerProps }
   }
+}
+
+/** Presentation and invocation of the access-gated New Session action. */
+export interface SidebarNewSessionOwnerProps {
+  wide: boolean
+  label: string
+  ariaLabel: string
+  shortcutKeys: ShortcutCatalogEntry['keys'] | undefined
+  shortcutAria: string | undefined
+  onStart: () => void
 }
 
 /** Geometry supplied to the sidebar brand-mark occupant. */
@@ -189,6 +203,12 @@ export interface SidebarFooterActionOwnerProps {
   wide: boolean
 }
 
+/** Whether the Back and Forward controls have somewhere to go; mirrors the Workspace navigation history. */
+export interface SidebarNavigationAvailability {
+  readonly canGoBack: boolean
+  readonly canGoForward: boolean
+}
+
 /**
  * Registrant-private injected share (arrives via the register inject
  * factory). The renderer binds the panel metadata source to usePanels.
@@ -202,6 +222,10 @@ export type SidebarRootInjected = {
   startSession: (workspaceId?: WorkspaceId) => void
   /** Toggle the sidebar column through the layout service. */
   toggleSidebar: () => void
+  /** Return to the previous main-view location (Back); a no-op while `navigationHistory.canGoBack` is false. */
+  goBack: () => void
+  /** Undo the latest Back (Forward); a no-op while `navigationHistory.canGoForward` is false. */
+  goForward: () => void
   /** Select the global panel addressed by a sidebar row. */
   selectPanel: (id: MainPanelId) => void
   /**
@@ -220,6 +244,8 @@ export type SidebarRootInjected = {
     entryPins: ObservableSnapshot<readonly string[]>
     /** Whether `sidebar.panellist.actions` has registrations. */
     entryActions: ObservableSnapshot<boolean>
+    /** Whether Back and Forward have an entry, from the Workspace navigation history. */
+    navigationHistory: ObservableSnapshot<SidebarNavigationAvailability>
   }
 }
 
@@ -231,6 +257,8 @@ export type SidebarRootInjected = {
 export type SidebarRootComponentProps =
   PropsRuntime<'sidebar'>
   & PropsRenderSlots<
+    | 'sidebar.session.new'
+    | 'sidebar.workspaces.primary'
     | 'sidebar.brand.mark'
     | 'sidebar.brand.name'
     | 'sidebar.toggle.badge'

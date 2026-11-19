@@ -261,12 +261,15 @@ describe('ui-model-selection dual entry', () => {
     ])
     expect(options.map(option => option.group?.label)).toEqual(['Tokamak', 'Tokamak', 'External Provider'])
     expect(options.every(option => option.detail === undefined)).toBe(true)
-    expect(b.popup().searchMode).toBe('fuzzy-label')
     expect(options[0]?.active).toBe(true)
     expect(options[1]?.active).toBeUndefined()
     expect(b.popup().searchLabels?.()).toEqual(locale === 'zh'
-      ? { placeholder: '搜索模型…', empty: '暂无可用模型', noResults: '没有匹配的模型。' }
-      : { placeholder: 'Search models…', empty: 'No models available.', noResults: 'No matching models.' })
+      ? { placeholder: '搜索模型…', empty: '还没有可用的模型。前往设置 -> 模型免费下载本地模型，在这台电脑上运行，无需账号。', noResults: '没有匹配的模型。' }
+      : {
+        placeholder: 'Search models…',
+        empty: 'No models yet. Go to Settings -> Models to download a free local model that runs on this computer, no account needed.',
+        noResults: 'No matching models.',
+      })
   })
 
   it('lists popup provider groups in catalog order', async () => {

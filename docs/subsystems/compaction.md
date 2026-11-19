@@ -207,6 +207,22 @@ Types: [CommandId](commands.md) · [SessionSeq](session.md)
 
 Source: [`packages/compaction/compaction/src/index.ts`](../../packages/compaction/compaction/src/index.ts)
 
+<a id="ctxcompactionsettings--compactionsettings"></a>
+
+### `ctx.compactionSettings` — `CompactionSettings`
+
+Host settings owner that every compaction backend consults.
+
+```ts cordis-catalog
+/**
+ * Read the preferences the user has set.
+ * @returns only the fields with a value; the backend validates them.
+ */
+current(): CompactionPreferences
+```
+
+Source: [`packages/compaction/compaction-basic/src/settings.ts`](../../packages/compaction/compaction-basic/src/settings.ts)
+
 <a id="ctxtoolresultpruner--toolresultpruner"></a>
 
 ### `ctx.toolResultPruner` — `ToolResultPruner`

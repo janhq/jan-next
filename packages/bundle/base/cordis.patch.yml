@@ -97,6 +97,11 @@
     - id: llm-retry
       name: '@janhq/jan-llm-retry'
 
+    # Jan: continue a rate-limited, out-of-quota or refused reply on the next
+    # model the user listed in Settings > Models; empty chain = off.
+    - id: model-fallback
+      name: '@janhq/jan-llm-fallback'
+
     # Live Config forms persist through the active profile patch.
 
     # Live configuration forms persist through the launcher's profile.
@@ -163,6 +168,19 @@
               preferredDefaults: [tokamak/auto]
               # The router lists image generation models without marking them as non-chat.
               exclude: [openai/gpt-image-*]
+            # The router's listing reports input modalities only for some models, and
+            # an undeclared model would default to text only, so its Claude, GPT and
+            # Gemini chat models could not read images. Models the router serves read
+            # images unless named below as text only; an entry that declares
+            # `architecture.input_modalities` still answers for itself.
+            defaultInput: [text, image]
+            models:
+              - id: deepseek-flash
+                input: [text]
+              - id: deepseek-v4-pro
+                input: [text]
+              - id: openai/gpt-oss-120b-medium
+                input: [text]
           # tokamak-harness: the managed local model (web-app row `llama-cpp`). Its key and
           # endpoint (the worker's OS-assigned port) exist only while that worker runs, so
           # otherwise the route offers no models.

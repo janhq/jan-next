@@ -135,4 +135,11 @@ export interface Shortcuts {
    * @returns disposer removing the binding and catalog entry.
    */
   register(command: ShortcutCommand): () => void
+  /**
+   * Run a registered command from a non-keyboard surface, such as a command palette, through its own resolver.
+   * Unknown ids, commands blocked by `context.modal`, and unhandled resolutions do nothing.
+   * @param id - registered product command.
+   * @param context - live input owner and modal state the command resolves against.
+   */
+  invoke(id: ShortcutCommandId, context: ShortcutContext): void
 }

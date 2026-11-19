@@ -59,6 +59,9 @@ function readPackage(dir: string, fallbackName: string): PluginPackage | undefin
 /** Package lookup shared by metadata consumers in one profile process. */
 export class PluginPackages extends Service {
   private packages = new Map<string, PluginPackage | undefined>()
+  // Display metadata reads locale files and base64-encodes icons; the plugin list
+  // asks for every entry on each refresh, so it is kept for one generation.
+  private metas = new Map<string, PluginLocalizedMeta | undefined>()
   private readonly interception: RuntimeInterception | undefined
   private disposeWorkerResolution: (() => void) | undefined
   private current: RuntimeResolution | undefined
@@ -93,6 +96,7 @@ export class PluginPackages extends Service {
     this.interception.replace(successor)
     this.current = successor
     this.packages = new Map()
+    this.metas = new Map()
     this.disposeWorkerResolution?.()
     this.disposeWorkerResolution = registerWorkerResolution(successor)
   }
@@ -135,7 +139,9 @@ export class PluginPackages extends Service {
    * @returns local display metadata or its diagnostic; undefined for non-package requests or absent metadata.
    */
   metaOf(specifier: string, parentURL: string): PluginLocalizedMeta | undefined {
-    return readPluginMeta(specifier, parentURL)
+    const key = `${parentURL}\n${specifier}`
+    if (!this.metas.has(key)) this.metas.set(key, readPluginMeta(specifier, parentURL))
+    return this.metas.get(key)
   }
 }
 

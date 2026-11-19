@@ -14,6 +14,7 @@ describe('createLayoutStore', () => {
       panelInfo: { activePanelId: null },
       layoutInfo: {
         sidebar: 280,
+        sidebarBounds: { defaultWidth: 280, minWidth: 264, maxWidth: 420 },
         viewportWidth: 1920,
         narrowExpanded: false,
         rightbar: null,

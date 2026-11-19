@@ -210,6 +210,17 @@ export class RepositoryCache {
   }
 
   /**
+   * Share the fetch lock for one repository selected by the Downloads inventory.
+   * @param repository - the repository's 24-hex directory name.
+   * @param remove - deletes the repository once no fetch holds it.
+   * @returns after the removal settles.
+   */
+  deleteCached(repository: string, remove: () => Promise<void>): Promise<void> {
+    if (!/^[0-9a-f]{24}$/.test(repository)) throw new Error('This item is not a Jan repository cache.')
+    return this.serialized(join(this.options.dir, repository), remove)
+  }
+
+  /**
    * Serialize operations on one repository, so a fetch and the reads after it never interleave, and delete the
    * repository when an operation fails or is cancelled for any reason but a file over its read's size.
    */

@@ -80,7 +80,7 @@ function renderSeat(
 }
 
 function renderLabel(
-  summary: { blank: boolean; projectionValues?: { agentPreset?: string | null } } | undefined,
+  summary: { blank: boolean; running?: boolean; projectionValues?: { agentPreset?: string | null } } | undefined,
   roster: Partial<AgentPresetSettingsState> = {},
 ) {
   // The chip and the label read the same roster, metadata included.
@@ -89,14 +89,18 @@ function renderLabel(
   })
   const sessions = createSnapshotStore({ byId: summary === undefined ? {} : { s1: summary } })
   const load = vi.fn(() => Promise.resolve())
-  const view = render(<AgentPresetLabel {...({
+  const select = vi.fn((_sessionId: string, _id: string) => Promise.resolve<string | undefined>(undefined))
+  const props: AgentPresetLabelProps = {
     load,
+    select,
     sessionId: 's1',
     useSessions: bindSnapshotSelector(sessions),
     useAgentPresets: bindSnapshotSelector(store),
-    t: (key: keyof typeof en) => en[key],
-  } as unknown as AgentPresetLabelProps)} />)
-  return { load, view }
+    useDeveloperTools: bindSnapshotSelector(createSnapshotStore(true)),
+    t: translate,
+  } as never
+  const view = render(<AgentPresetLabel {...props} />)
+  return { load, select, view }
 }
 
 describe('the new-session chip', () => {
@@ -382,22 +386,40 @@ describe('the chip introduce cue', () => {
 })
 
 describe('the session-header label', () => {
-  it('names the preset the session runs, and never offers a switch', async () => {
-    const { load } = renderLabel({
+  it('names the preset the session runs and switches its next turn from the menu', async () => {
+    const { load, select } = renderLabel({
       blank: false,
       projectionValues: { agentPreset: 'standard' },
     })
 
     await waitFor(() => { expect(load).toHaveBeenCalledTimes(1) })
-    // A control here would promise a switch the host refuses outright.
-    expect(screen.queryByRole('button')).toBeNull()
-    expect(screen.getByTitle(en.presetStandardDescription).textContent).toBe(en.presetStandardName)
+    const control = screen.getByRole('button', { name: `${en.headerHint}: ${en.presetStandardName}` })
+    expect(control.textContent).toBe(en.presetStandardName)
+    fireEvent.click(control)
+    fireEvent.click(screen.getAllByRole('menuitem').find(item => item.textContent?.startsWith('mine'))!)
+    await waitFor(() => { expect(select).toHaveBeenCalledExactlyOnceWith('s1', 'mine') })
   })
 
-  it('falls back to the id, and to the generic hint, when metadata is absent', () => {
+  it('shows a refusal toast when the injected selection rejects', async () => {
+    const { select } = renderLabel({ blank: false, projectionValues: { agentPreset: 'standard' } })
+    select.mockRejectedValueOnce(new Error('connection lost'))
+    fireEvent.click(screen.getByRole('button', { name: `${en.headerHint}: ${en.presetStandardName}` }))
+    fireEvent.click(screen.getAllByRole('menuitem').find(item => item.textContent?.startsWith('mine'))!)
+    await waitFor(() => { expect(screen.getByRole('alert').textContent).toContain('connection lost') })
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: `${en.headerHint}: ${en.presetStandardName}` }).disabled).toBe(false)
+  })
+
+  it('disables the switch while a reply is running', () => {
+    renderLabel({ blank: false, running: true, projectionValues: { agentPreset: 'standard' } })
+
+    const control = screen.getByRole<HTMLButtonElement>('button', { name: `${en.switchBusy}: ${en.presetStandardName}` })
+    expect(control.disabled).toBe(true)
+  })
+
+  it('falls back to the id when metadata is absent', () => {
     renderLabel({ blank: true, projectionValues: { agentPreset: 'mine' } })
 
-    expect(screen.getByTitle(en.headerHint).textContent).toBe('mine')
+    expect(screen.getByRole('button', { name: `${en.headerHint}: mine` }).textContent).toBe('mine')
   })
 
   it('shows the id until the roster resolves it', () => {
@@ -408,7 +430,7 @@ describe('the session-header label', () => {
 
     // The session's own summary is the authority on which preset it runs; the
     // roster only supplies the display name, and its arrival is a later frame.
-    expect(screen.getByTitle(en.headerHint).textContent).toBe('standard')
+    expect(screen.getByRole('button', { name: `${en.headerHint}: standard` }).textContent).toBe('standard')
   })
 
   it('renders nothing, and reads no roster, when the session records no preset', async () => {

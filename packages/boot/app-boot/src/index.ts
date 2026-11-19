@@ -67,6 +67,7 @@ export {
   removeLinkProjections,
   loadProfile,
   loadProfileDirectory,
+  normalizeShippedProfile,
   PROFILE_PATCH_FILENAME,
   PROFILES_DIR,
   readProfileManifest,

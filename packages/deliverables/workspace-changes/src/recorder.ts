@@ -69,6 +69,7 @@ interface TurnRecord {
 /** Everything one turn accumulates; a new turn gets a new object so queued work for an older turn keeps its own. */
 interface TurnState {
   readonly turn: number
+  readonly baselineAbort: AbortController
   /**
    * The turn-start snapshot once it exists. `null` means no repository or no git, so the turn summarizes file-tool
    * captures only; `'failed'` means the repository exists but its snapshot failed, so the turn records nothing.
@@ -84,7 +85,10 @@ interface TurnState {
 }
 
 function freshState(turn: number): TurnState {
-  return { turn, baseline: null, captures: new Map(), lastToolResultSeq: -1, attemptedAfterSeq: -1, recordedAfterSeq: -1 }
+  return {
+    turn, baselineAbort: new AbortController(), baseline: null, captures: new Map(),
+    lastToolResultSeq: -1, attemptedAfterSeq: -1, recordedAfterSeq: -1,
+  }
 }
 
 /** A listed file with the sources of its two sides. */
@@ -131,17 +135,20 @@ export class TurnRecorder {
   start(turn: number): void {
     const state = freshState(turn)
     this.state = state
-    void this.enqueue(async (signal) => {
+    void this.enqueue(async (lifetime) => {
+      const signal = AbortSignal.any([lifetime, state.baselineAbort.signal])
       try {
+        signal.throwIfAborted()
         this.paths ??= { cwd: await realpath(this.cwd), home: await canonicalPath(homedir()), temporaryRoots: await temporaryRoots() }
         const repository = await this.locate(this.paths.cwd, signal)
         if (repository === null) return
         const tree = await snapshotTree(repository.git, repository.workspace, signal)
+        signal.throwIfAborted()
         state.baseline = { ...repository, tree }
       } catch (error: unknown) {
         // A repository whose snapshot failed must not be summarized as if it had none.
         state.baseline = 'failed'
-        throw error
+        if (!state.baselineAbort.signal.aborted) throw error
       }
     })
   }
@@ -174,13 +181,15 @@ export class TurnRecorder {
   }
 
   /**
-   * Record the turn's changes inside the turn, before `turn/end` commits.
+   * Record the turn's changes inside the turn, before `turn/end` commits. A
+   * turn without tool results has nothing to record, so it stops at once
+   * instead of waiting for its baseline snapshot.
    * @param turn - the stopping turn.
    * @returns after the event is appended or the attempt failed.
    */
   stopping(turn: number): Promise<void> {
     const state = this.state
-    if (turn !== state.turn) return Promise.resolve()
+    if (turn !== state.turn || state.lastToolResultSeq < 0) return Promise.resolve()
     return this.enqueue(signal => this.record(state, signal))
   }
 
@@ -192,6 +201,31 @@ export class TurnRecorder {
     const state = this.state
     if (turn !== state.turn || state.attemptedAfterSeq >= state.lastToolResultSeq) return
     void this.enqueue(signal => this.record(state, signal))
+  }
+
+  /**
+   * Wait for a safe tool start, or cancel the baseline and leave before Git drains.
+   * @param signal - the tool call's cancellation.
+   * @returns true once queued work settled, false when the signal aborted first.
+   */
+  async waitForTool(signal: AbortSignal): Promise<boolean> {
+    const { baselineAbort } = this.state
+    if (signal.aborted) {
+      baselineAbort.abort(signal.reason)
+      return false
+    }
+    const stopped = Promise.withResolvers<void>()
+    const onAbort = (): void => {
+      baselineAbort.abort(signal.reason)
+      stopped.resolve()
+    }
+    signal.addEventListener('abort', onAbort, { once: true })
+    try {
+      await Promise.race([this.chain, stopped.promise])
+      return !signal.aborted
+    } finally {
+      signal.removeEventListener('abort', onAbort)
+    }
   }
 
   /** Resolves once every queued snapshot, capture, and record has settled. */

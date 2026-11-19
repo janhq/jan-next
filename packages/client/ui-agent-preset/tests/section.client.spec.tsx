@@ -26,6 +26,7 @@ function view(partial: Partial<AgentPresetSectionState> = {}, startCreatorDraft?
     useWorkspaces: unusedHook, useResource: unusedHook,
     ...allowAllAccess,
     useContextMenu: contextMenuHook(),
+    renderSlot: () => null,
     useAgentPresetSection: bindSnapshotSelector(store),
     useDeveloperTools: bindSnapshotSelector(developerTools),
     t: key => translations.get(key) ?? key }

@@ -1,6 +1,6 @@
-import type {} from '@janhq/jan-client-ui-context-menu/client'
+import type { } from '@janhq/jan-client-ui-context-menu/client'
 /** Browser Conversation assemble core, React adapter, shell, input, and text projection plugin. */
-export type {} from './user-text/session-reference-rule.ts'
+export type { } from './user-text/session-reference-rule.ts'
 
 /** Declaration-merged node payloads; IDs also identify the corresponding keyed renderer. */
 export interface UserTextDataMap {
@@ -86,6 +86,7 @@ export type {
   ComposerFileAttachment, ComposerImageAttachment, DraftFileUpload, DraftFileUploads,
   ComposerBarInjected, ComposerBarOwnerProps, ComposerBarProps, ComposerChainProps,
   ConversationHeaderActionOwnerProps, ConversationHeaderCornerOwnerProps, ConversationHeaderLineageOwnerProps,
+  HeroHeadlineOwnerProps, HeroSuggestionsOwnerProps, InputPlaceholderOwnerProps,
   ConversationContentInputProps, ConversationContentProps,
   ConversationInjected, ConversationSessionHeaderInjected, ConversationSessionHeaderSlotProps,
   ConversationSessionInjected, ConversationSessionSlotProps, ConversationSlotProps,
@@ -101,7 +102,7 @@ export type {
   BeginCommandRequest, CommandClaim, ConsumeTokenRequest, DraftAttachmentId, DraftInitializationOptions,
   DraftInitializationResult, InputActions,
   InputState, InsertReferenceRequest, InsertTextRequest, PickOutcome, SessionInput,
-  SessionInputResolver, SubmitAttachment, SubmitOutcome,
+  SendCheck, SessionInputResolver, SubmitAttachment, SubmitOutcome,
 } from './contract/input.ts'
 export type { ArbitrateKey, ArbitrateOutcome, DraftInput, DraftQuote, DraftReference, DraftSnapshot, ReferenceInsert, TokenSpan } from './contract/draft-editor.ts'
 export type { ComposerBlock, ComposerBlocks } from './contract/composer-blocks.ts'

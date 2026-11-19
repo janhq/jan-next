@@ -48,6 +48,10 @@
   }
 }
 
+.primary:active:not(:disabled) {
+  background: var(--dsw-alias-button-primary-active);
+}
+
 .ghost:active:not(:disabled) {
   background: var(--dsw-alias-interactive-bg-active);
 }

@@ -1014,6 +1014,49 @@ subscribe(listener: () => void): () => void
 async *follow(caller: AbortSignal): AsyncIterable<LlamaCppState>
 
 /**
+ * Requested and trained context of an installed model; `local` names the default.
+ * @param id - installed model id or the route model id.
+ * @returns served context tokens, the trained maximum when the GGUF declares one, and whether auto-fit is on.
+ */
+getModelContext(id: string): { current: number; maximum?: number; fit: boolean }
+
+/**
+ * Save a model's context and reload its preset section in a running worker.
+ * @param id - installed model id or the route model id.
+ * @param contextSize - positive token count, at most the model's trained maximum.
+ */
+setModelContext(id: string, contextSize: number): Promise<void>
+
+/**
+ * Save the automatic memory-fit choice for one model.
+ * @param id - installed model id or the route model id.
+ * @param fit - whether llama.cpp fits the context and offload to free memory.
+ */
+setModelFit(id: string, fit: boolean): Promise<void>
+
+/**
+ * Grow to the next classic-Jan context step, bounded by GGUF metadata when available.
+ * @param id - installed model id or the route model id.
+ * @returns the new context length, or null when the model cannot grow further.
+ */
+increaseModelContext(id: string): Promise<number | null>
+
+/**
+ * List registry-owned models and files left by Jan's GGUF downloader.
+ * @param home - Jan data folder the paths are relative to.
+ * @returns the listed models and download files.
+ */
+listStoredDownloads(home: string): Promise<StoredDownload[]>
+
+/**
+ * Delete one listed artifact without unloading a resident model or touching an imported file.
+ * @param home - Jan data folder the path is relative to.
+ * @param path - exact Jan-home-relative path from {@link listStoredDownloads}.
+ * @returns after the artifact is removed.
+ */
+deleteStoredDownload(home: string, path: string): Promise<void>
+
+/**
  * First-run install: download the first-run model, then start the worker. With a model already
  * installed it starts the active model instead. Returns once accepted; progress and outcome arrive
  * through {@link follow}. Nothing downloads while the worker is unavailable.
@@ -1049,15 +1092,22 @@ async lookupHuggingFace(input: string, signal?: AbortSignal): Promise<HuggingFac
 async downloadHuggingFace(input: string, file: string, signal?: AbortSignal): Promise<string>
 
 /**
- * Start a failed download again, from its partial file.
- * @param id - model id of the failed download.
- * @throws Error when no failed download has that id.
+ * Start a failed or paused download again, from its partial file.
+ * @param id - model id of the failed or paused download.
+ * @throws Error when no failed or paused download has that id.
  */
 retry(id: string): void
 
 /**
- * Stop downloads: one by id, or all, discarding their partial files (a download interrupted by
- * shutting down is kept and resumes instead); a failed entry is dismissed.
+ * Pause a running or queued download, keeping its partial file so {@link retry} resumes it.
+ * @param id - model id of the download.
+ * @throws Error when no running or queued download has that id.
+ */
+pause(id: string): void
+
+/**
+ * Stop downloads: one by id, or all, discarding their files (a download interrupted by shutting
+ * down is kept and resumes instead); a failed entry is dismissed, a paused one discarded.
  * @param id - model id, or undefined for every download.
  */
 async cancel(id?: string): Promise<void>
@@ -1182,17 +1232,36 @@ Install, start, stop and remove the local models and the worker serving them; pr
 @Remote async downloadRepoFile(repo: string, file: string, signal: AbortSignal): Promise<string>
 
 /**
- * Start a failed download again.
- * @param id - model id of the failed download.
+ * Start a failed or paused download again, from its partial file.
+ * @param id - model id of the failed or paused download.
  */
 @Remote retryDownload(id: string): void
 
 /**
- * Stop one download, or dismiss it when it failed.
+ * Pause a running or queued download, keeping its partial file for {@link retryDownload}.
+ * @param id - model id of the download.
+ */
+@Remote pauseDownload(id: string): void
+
+/**
+ * Stop one download and discard its files, or dismiss it when it failed.
  * @param id - model id of the download.
  * @returns after it settles.
  */
 @Remote async cancelDownload(id: string): Promise<void>
+
+/**
+ * Jan's on-disk downloads and caches, with paths relative to the Jan data folder.
+ * @returns every listed item, sorted by name and then path.
+ */
+@Remote async listStoredDownloads(): Promise<StoredDownload[]>
+
+/**
+ * Remove one currently listed download.
+ * @param path - exact Jan-home-relative path from the list.
+ * @returns after the files are gone.
+ */
+@Remote async deleteStoredDownload(path: string): Promise<void>
 
 /**
  * Add a GGUF file from this computer, left where it is.
@@ -1209,6 +1278,34 @@ Install, start, stop and remove the local models and the worker serving them; pr
  * @returns after the worker serves it or has failed to start.
  */
 @Remote async setDefaultModel(id: string): Promise<void>
+
+/**
+ * Current served context, GGUF-trained maximum when known, and auto-fit for one installed model.
+ * @param id - installed model id; `local` names the default.
+ * @returns served context tokens, the trained maximum when the GGUF declares one, and whether auto-fit is on.
+ */
+@Remote getModelContext(id: string): { current: number; maximum?: number; fit: boolean }
+
+/**
+ * Persist a per-model context length and wait for the worker's new preset to load.
+ * @param id - installed model id; `local` names the default.
+ * @param contextSize - positive token count, at most the model's trained maximum.
+ */
+@Remote async setModelContext(id: string, contextSize: number): Promise<void>
+
+/**
+ * Persist and apply automatic GPU/memory fit for one installed model.
+ * @param id - installed model id; `local` names the default.
+ * @param fit - whether llama.cpp fits the context and offload to free memory.
+ */
+@Remote async setModelFit(id: string, fit: boolean): Promise<void>
+
+/**
+ * Grow the context to the next step, reload the model, or answer null at its maximum.
+ * @param id - installed model id; `local` names the default.
+ * @returns the new context length, or null when the model cannot grow further.
+ */
+@Remote async increaseModelContext(id: string): Promise<number | null>
 
 /**
  * Load an installed model now instead of on its first request, starting a stopped worker.
@@ -1477,6 +1574,25 @@ Source: [`packages/llm/llm/src/index.ts`](../../packages/llm/llm/src/index.ts)
 <a id="llm-pi-ai-events"></a>
 
 ### `llm-pi-ai/*` events
+
+<a id="llm-pi-aiprompt-progress--emit"></a>
+
+#### `llm-pi-ai/prompt-progress` — emit
+
+Prompt-processing progress of one call on a route whose profile sets `promptProgress`, emitted as the server reports it (llama.cpp sends one per batch). A call that ends before its prompt is read reports it read, so observers can drop the progress. Transient: not logged.
+
+```ts cordis-catalog
+/**
+ * Prompt-processing progress of one call on a route whose profile sets `promptProgress`,
+ * emitted as the server reports it (llama.cpp sends one per batch). A call that ends before
+ * its prompt is read reports it read, so observers can drop the progress. Transient: not logged.
+ * @mode emit
+ * @param progress - the call's route, prompt tokens read so far, and prompt total.
+ */
+'llm-pi-ai/prompt-progress'(progress: PiAiPromptProgress): void
+```
+
+Source: [`packages/llm/llm-pi-ai/src/index.ts`](../../packages/llm/llm-pi-ai/src/index.ts)
 
 <a id="llm-pi-airequest-headers--waterfall"></a>
 
