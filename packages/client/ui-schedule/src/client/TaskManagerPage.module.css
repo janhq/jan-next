@@ -270,12 +270,18 @@
 
 .templateSchedule {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
   margin-top: 4px;
   color: var(--dsw-alias-label-tertiary);
   font-size: 13px;
   line-height: 20px;
+}
+
+/* Keep the clock full size and on the first line when the schedule wraps. */
+.templateSchedule > svg {
+  flex-shrink: 0;
+  margin-top: 3px;
 }
 
 .lastRunFailed {
