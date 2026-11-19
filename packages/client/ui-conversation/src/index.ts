@@ -23,8 +23,8 @@ export interface Config {
 
 /** Live preferences projected to the browser. */
 export const Config = z.object({
-  [BUSY_ENTER_FIELD]: ConversationSettingsFields[BUSY_ENTER_FIELD].volatile(),
   heroPlaceholder: z.string().volatile(),
+  [BUSY_ENTER_FIELD]: ConversationSettingsFields[BUSY_ENTER_FIELD].volatile(),
 })
 
 /** Register browser conversation preferences.
