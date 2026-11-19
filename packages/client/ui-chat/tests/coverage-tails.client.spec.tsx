@@ -59,7 +59,7 @@ describe('tails', () => {
         t={t}
         blocks={[{ kind: 'text', text: 'partial words' }]}
         streaming={false}
-        interrupted
+        interrupted="stopped"
         loadImage={unusedImageLoader}
       />,
     )

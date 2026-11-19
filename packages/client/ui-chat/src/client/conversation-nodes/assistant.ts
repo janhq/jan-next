@@ -220,6 +220,7 @@ function finalNode(
         completedTime: event.time,
       },
       ...event.data.interrupted === true ? { interrupted: true } : {},
+      ...event.data.interrupted === true && event.data.steered === true ? { steered: true } : {},
     }
   }
   const location = context.start?.location ?? context.matches.at(-1)?.location

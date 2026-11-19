@@ -89,7 +89,8 @@ function turnTiming(events: readonly SessionEvent[]): TurnTiming | undefined {
       const first = open.first ?? assistantStreamFirstTokenTime(event.data.stream) ?? null
       if (first !== null) {
         ttftMs ??= Math.max(0, first - open.start)
-        const tokens = outputTokens(event.data.usage)
+        // A cut reply never received its final output count; leave it out of the speed.
+        const tokens = event.data.interrupted === true ? null : outputTokens(event.data.usage)
         if (tokens !== null) {
           decodeMs += Math.max(0, event.time - first)
           decodeTokens += tokens

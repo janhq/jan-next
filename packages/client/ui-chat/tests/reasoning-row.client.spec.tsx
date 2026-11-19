@@ -98,10 +98,16 @@ describe('AssistantMarkdown reasoning blocks', () => {
 
   it.each(['Partial thought', '', ' \t\r\n'])('retains the stopped marker with blank reasoning around %j', (text) => {
     const blocks = ['', text, ' \t\r\n'].map(text => ({ kind: 'reasoning' as const, text }))
-    const view = render(<AssistantMarkdown {...props} blocks={blocks} groupPart="reasoning" streaming={false} interrupted />)
+    const view = render(<AssistantMarkdown {...props} blocks={blocks} groupPart="reasoning" streaming={false} interrupted="stopped" />)
     expect(view.queryAllByRole('button')).toHaveLength(text.trim() === '' ? 0 : 1)
     expect(view.getByText(t('message.stopped'))).toBeTruthy()
     expect(view.queryByText('运行中')).toBeNull()
+  })
+
+  it('marks a reply cut by a steer as interrupted, not stopped', () => {
+    const view = render(<AssistantMarkdown {...props} blocks={[{ kind: 'text', text: 'Half an answer' }]} streaming={false} interrupted="steered" />)
+    expect(view.getByText(t('message.interrupted'))).toBeTruthy()
+    expect(view.queryByText(t('message.stopped'))).toBeNull()
   })
 
   it('keeps non-blank rows and their expanded bodies across modes, excluding them from the response part', () => {
