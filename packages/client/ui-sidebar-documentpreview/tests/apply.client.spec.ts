@@ -105,10 +105,13 @@ describe('ui-sidebar-documentpreview apply', () => {
       ['sidebar.right.tab.document', '@janhq/jan-client-ui-sidebar-documentpreview/excel', 'sidebarExcel', LazyExcelBody],
       ['sidebar.right.tab.document', '@janhq/jan-client-ui-sidebar-documentpreview/code', 'sidebarCodePreview', CodeBody],
     ])
-    expect(Object.keys(registered[0]!.children!)).toEqual([
-      'sidebar.right.tab.document', 'sidebar.right.tab.document.actions',
-      'sidebar.right.tab.document.unpreviewable', 'sidebar.right.tab.document.action',
-    ])
+    expect(registered[0]!.children).toEqual({
+      'sidebar.right.tab.document': { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: expect.any(Function) } } },
+      'sidebar.right.tab.document.view-actions': { kind: 'list', scope: 'session' },
+      'sidebar.right.tab.document.actions': { kind: 'list', scope: 'session' },
+      'sidebar.right.tab.document.unpreviewable': { kind: 'list', scope: 'session' },
+      'sidebar.right.tab.document.action': { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: expect.any(Function) } } },
+    })
     expect(registered[0]?.store).toBeDefined()
     expect(typeof registered[0]?.inject).toBe('function')
   })
