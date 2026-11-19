@@ -114,6 +114,16 @@
   white-space: nowrap;
 }
 
+/* A context-only group's estimated total, styled like each injection row's figure. */
+.tokens {
+  flex: none;
+  padding-left: 6px;
+  color: var(--dsw-alias-label-caption);
+  font-size: var(--jan-content-font-size-secondary, 13px);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .fadeTop {
   mask-image: linear-gradient(to bottom, transparent 0, #000 24px, #000 100%);
 }

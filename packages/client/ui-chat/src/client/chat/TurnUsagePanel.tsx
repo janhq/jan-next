@@ -56,6 +56,9 @@ export function TurnUsagePanel({ usage, timing, t }: TurnUsagePanelProps) {
     : t('message.tokensPerSecond', { tps: formatTokensPerSecond(timing.tokensPerSecond) })
   const hint = (name: string, value: string) => `${name} · ${value}`
 
+  const output = usage.outputEstimated === true
+    ? t('message.turnUsage.estimated', { tokens: formatExactCount(usage.outputTokens, t) })
+    : formatExactCount(usage.outputTokens, t)
   return (
     <span ref={rootRef} style={{ anchorName }} className={css.root}>
       <button
@@ -74,8 +77,9 @@ export function TurnUsagePanel({ usage, timing, t }: TurnUsagePanelProps) {
             <span className={css.glyph}>↓</span>
             {formatTokens(usage.uncachedInputTokens, t)}
           </Stat>
-          <Stat hint={hint(t('message.turnUsage.output'), formatExactCount(usage.outputTokens, t))} disabled={open}>
+          <Stat hint={hint(t('message.turnUsage.output'), output)} disabled={open}>
             <span className={css.glyph}>↑</span>
+            {usage.outputEstimated === true && '~'}
             {formatTokens(usage.outputTokens, t)}
           </Stat>
           {usage.cacheReadTokens !== undefined && (
@@ -143,7 +147,7 @@ export function TurnUsagePanel({ usage, timing, t }: TurnUsagePanelProps) {
             )}
             <dt>{t('message.turnUsage.output')}</dt>
             <dd>
-              {formatExactCount(usage.outputTokens, t)}
+              {output}
               {usage.reasoningTokens !== undefined && (
                 <span className={dialogCss.reasoning}>
                   {t('message.turnUsage.reasoning', { tokens: formatExactCount(usage.reasoningTokens, t) })}

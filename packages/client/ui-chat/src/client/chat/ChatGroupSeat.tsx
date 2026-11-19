@@ -15,6 +15,7 @@ import { ChatNodeSeat } from './ChatNodeSeat.tsx'
 import { hiddenOrCollapsing } from './flow-motion.ts'
 import { chatRenderKey } from './render-entry.ts'
 import { processTitle } from './step-process.ts'
+import { formatExactTokens, formatTokens } from './token-format.ts'
 import { useDisclosure } from './use-disclosure.ts'
 import { useProcessScroll } from './use-process-scroll.ts'
 import css from './ChatGroupSeat.module.css'
@@ -125,6 +126,13 @@ const ProcessGroupHeader = memo(function ProcessGroupHeader({ groupKey, useChatG
       <TextShimmer active={!data.closed}>
         <TextShimmer className={css.label}>{title}</TextShimmer>
       </TextShimmer>
+      {data.closed && data.summary.contextTokens !== undefined && (
+        // Supplementary and approximate, like each row's figure: kept out of the button's name.
+        <span className={css.tokens} aria-hidden data-context-tokens-total
+          title={t('message.contextTokensTitle', { count: formatExactTokens(data.summary.contextTokens, t) })}>
+          {t('message.contextTokens', { count: formatTokens(data.summary.contextTokens, t) })}
+        </span>
+      )}
     </button>
   )
 })

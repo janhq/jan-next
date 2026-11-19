@@ -53,7 +53,7 @@ export const AssistantNodeView = memo(function AssistantNodeView({
       useDisclosure={useDisclosure}
       streaming={data.status === 'running'}
       textInteractionSource={data.status === 'settled' && data.finalNode?.messageId !== undefined}
-      interrupted={data.status === 'interrupted'}
+      interrupted={data.status === 'interrupted' ? data.finalNode?.steered === true ? 'steered' : 'stopped' : undefined}
       loadImage={loadImage}
       reasoningHidden={reasoningHidden}
       useGroupAction={useGroupAction}

@@ -82,7 +82,7 @@ export interface TurnTokenUsageRoute {
   readonly model: string
 }
 
-/** Exact provider-reported token accounting for every attempt in one completed Turn. */
+/** Provider-reported token accounting for every attempt in one completed Turn. */
 export interface TurnTokenUsage {
   /** Sum of uncached prompt input across all attempts. */
   readonly uncachedInputTokens: number
@@ -97,6 +97,8 @@ export interface TurnTokenUsage {
   readonly reasoningTokens?: number
   /** Present only when every billed attempt has provider/model attribution. */
   readonly routes?: readonly TurnTokenUsageRoute[]
+  /** A reply was cut before the provider reported its output; that output is estimated. */
+  readonly outputEstimated?: true
 }
 
 /** Wall-clock speed of one completed Turn's model steps; each field is absent when unrecorded. */
