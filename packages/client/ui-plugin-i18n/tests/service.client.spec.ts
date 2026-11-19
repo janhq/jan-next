@@ -150,6 +150,17 @@ describe('PluginI18nClient', () => {
       expect(h.client.assess({ pkg: 'other', meta: [{ en: 'Parts', ja: '部品' }] })).toBeNull()
     })
 
+    it('suggests a named plugin when an attributed namespace is written in another language', async () => {
+      const h = await harness('ja')
+      h.client.setPackages([{ pkg: 'cad', title: 'CAD', meta: [] }])
+      await h.client.refresh()
+      register(h, 'cad', 'cad.settings', { close: 'Close' })
+      h.client.activated('cad')
+      expect(h.client.suggestions.getSnapshot()).toEqual([
+        { pkg: 'cad', title: 'CAD', language: 'en', languageName: '英語', target: 'ja' },
+      ])
+    })
+
     it('offers nothing once a translation of the locale is stored', async () => {
       const h = await harness('ja')
       h.state.statuses = [{

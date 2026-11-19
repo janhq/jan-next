@@ -9,10 +9,10 @@ import type {
   PluginI18nConsent, PluginI18nJob, PluginI18nRoute, PluginI18nStatus,
 } from '@janhq/jan-api-remotes/client'
 import type { PluginI18nRouteChoices, PluginI18nRouteRef } from '@janhq/jan-host-plugin-i18n/types'
-import { createSnapshotStore, type SnapshotStore } from '@janhq/jan-client-store'
+import { createSnapshotStore, type ObservableSnapshot, type SnapshotStore } from '@janhq/jan-client-store'
 import type { HostObservable } from '@janhq/jan-client-ui-slots'
 import { NamespaceOwnership } from './ownership.ts'
-import { mismatchesLocale } from './script.ts'
+import { foreignLanguage, mismatchesLocale, primaryLanguage, type LanguageDetection } from './script.ts'
 import { ScreenTranslator } from './screen.ts'
 import { collectSources, lacksDictionary, metaLacksLocale } from './sources.ts'
 
@@ -21,6 +21,18 @@ const TITLE_DEBOUNCE_MS = 120
 
 /** Most strings in one `translateStrings` request. */
 const TITLE_BATCH = 40
+
+const MAX_SCREEN_SAMPLES = 64
+const DISMISSED_KEY = 'jan.plugin-translation.never.v1:'
+
+/** A local offer to translate a third-party plugin's text into the active UI language. */
+export interface PluginTranslationSuggestion {
+  readonly pkg: string
+  readonly title: string
+  readonly language: string
+  readonly languageName: string
+  readonly target: string
+}
 
 /** What the Settings surface and the install dialog read. */
 export interface PluginI18nState {
@@ -74,6 +86,9 @@ export interface TranslationSubject {
 export interface PluginI18nService extends HostObservable<PluginI18nState> {
   /** Runtime string display for tool titles. */
   readonly titles: HostObservable<TitleView>
+  readonly suggestions: ObservableSnapshot<readonly PluginTranslationSuggestion[]>
+  /** Hide automated offers for this app start or persist the decision for this package. */
+  dismiss(pkg: string, mode: 'later' | 'never'): void
   /**
    * Decide whether to offer translating a package into the active locale. Nothing is offered when a translation of
    * the locale is stored, or when the package ships the locale: its registered dictionaries have it and its display
@@ -119,14 +134,21 @@ const EMPTY_STATE: PluginI18nState = {
   ready: false, consent: { global: false, packages: [] }, route: null, statuses: {}, screen: {}, failures: {},
 }
 
+interface ScreenWork {
+  inFlight: number
+  readonly done: Promise<void>
+  finish(): void
+}
+
 /**
- * Name a locale in itself.
- * @param locale - locale tag.
- * @returns the language's own name, or the tag when the runtime does not know it.
+ * Name a language in the requested display locale.
+ * @param locale - language tag to name.
+ * @param displayLocale - language in which to display the name; defaults to the language itself.
+ * @returns the localized name, or the tag when the runtime does not know it.
  */
-export function languageName(locale: string): string {
+export function languageName(locale: string, displayLocale = locale): string {
   try {
-    return new Intl.DisplayNames([locale], { type: 'language' }).of(locale) ?? locale
+    return new Intl.DisplayNames([displayLocale], { type: 'language' }).of(locale) ?? locale
   } catch {
     return locale
   }
@@ -140,6 +162,10 @@ function showCachedTitles(consent: PluginI18nConsent): boolean {
 /** Client state and behavior behind `ctx.pluginI18n`. */
 export class PluginI18nClient implements PluginI18nService {
   private readonly store: SnapshotStore<PluginI18nState> = createSnapshotStore(EMPTY_STATE)
+  private readonly suggestionStore = createSnapshotStore<readonly PluginTranslationSuggestion[]>([])
+  private readonly dismissed = new Map<string, boolean>()
+  private readonly evidence = new Map<string, Map<string, string>>()
+  private readonly packages = new Map<string, { title: LocalizedText; meta: readonly LocalizedText[] }>()
   private readonly titleListeners = new Set<() => void>()
   private readonly disposers: (() => void)[] = []
   private readonly cache = new Map<string, string>()
@@ -153,12 +179,14 @@ export class PluginI18nClient implements PluginI18nService {
   /** Every text asked for by package in this locale, so Run again can ask for them all again. */
   private readonly screenSeen = new Map<string, Set<string>>()
   private readonly screenQueue = new Map<string, Set<string>>()
+  private readonly screenWork = new Map<string, ScreenWork>()
   /** Packages whose queued strings are translated again instead of served from the Host's cache. */
   private readonly screenRerun = new Set<string>()
   private screenTimer: ReturnType<typeof setTimeout> | undefined
   private consentedPackages: ReadonlySet<string> = new Set()
   private readonly screen: ScreenTranslator | undefined
   private refreshing: Promise<void> | undefined
+  private detectorPending: Promise<void> | undefined
   private again = false
   private disposed = false
   private view: TitleView
@@ -170,6 +198,8 @@ export class PluginI18nClient implements PluginI18nService {
       return () => { this.titleListeners.delete(listener) }
     },
   }
+
+  readonly suggestions: ObservableSnapshot<readonly PluginTranslationSuggestion[]> = this.suggestionStore
 
   /**
    * @param ctx - the plugin context with `remote.pluginI18n` and the locale service.
@@ -187,8 +217,11 @@ export class PluginI18nClient implements PluginI18nService {
       : new ScreenTranslator({
         consented: () => this.consentedPackages,
         locale: () => this.locale(),
+        detect: (text, locale) => this.detectLanguage(text, locale),
         lookup: text => this.cache.get(text),
         request: (pkg, text) => { this.requestScreen(pkg, text) },
+        detecting: pkg => this.canSuggest(pkg),
+        report: (evidence) => { this.reportEvidence(evidence) },
       }, doc)
   }
 
@@ -210,6 +243,8 @@ export class PluginI18nClient implements PluginI18nService {
     this.disposed = true
     clearTimeout(this.timer)
     clearTimeout(this.screenTimer)
+    for (const work of this.screenWork.values()) work.finish()
+    this.screenWork.clear()
     this.screen?.dispose()
     this.dropTables()
   }
@@ -220,6 +255,8 @@ export class PluginI18nClient implements PluginI18nService {
    */
   localeChanged(): void {
     this.screen?.restore()
+    this.screen?.resetDetection()
+    this.evidence.clear()
     this.cache.clear()
     this.requested.clear()
     this.queue.clear()
@@ -227,6 +264,9 @@ export class PluginI18nClient implements PluginI18nService {
     this.screenSeen.clear()
     this.screenQueue.clear()
     this.screenRerun.clear()
+    for (const work of this.screenWork.values()) work.finish()
+    this.screenWork.clear()
+    this.publishSuggestions()
     this.publishTitles()
     void this.refresh().catch((error: unknown) => { this.ctx.logger.warn(error) })
   }
@@ -237,6 +277,7 @@ export class PluginI18nClient implements PluginI18nService {
    * @param pkg - the package whose client fiber became active.
    */
   activated(pkg: string): void {
+    this.publishSuggestions()
     const state = this.getSnapshot()
     if (!state.consent.packages.includes(pkg) || this.waiting.has(pkg)) return
     const locale = this.locale()
@@ -280,10 +321,118 @@ export class PluginI18nClient implements PluginI18nService {
   assess(subject: TranslationSubject): TranslationOffer | null {
     const state = this.getSnapshot()
     const locale = this.locale()
-    if (state.statuses[subject.pkg]?.locales.some(item => item.locale === locale) === true) return null
+    if (!this.canSuggest(subject.pkg)) return null
     const lacks = lacksDictionary(this.ctx.locale, this.ownership.ownedBy(subject.pkg), locale)
-      || subject.meta.some(text => metaLacksLocale(text, locale))
+      || subject.meta.some(text => (typeof text === 'string' && typeof this.detectLanguage(text, locale) === 'string') || metaLacksLocale(text, locale))
     return lacks ? { pkg: subject.pkg, locale, language: languageName(locale), route: state.route } : null
+  }
+
+  /** Replace the installed plugin descriptions used for display names and for offers before a panel opens. */
+  setPackages(packages: readonly (TranslationSubject & { title: LocalizedText })[]): void {
+    if (this.disposed) return
+    this.packages.clear()
+    for (const { pkg, title, meta } of packages) this.packages.set(pkg, { title, meta })
+    this.publishSuggestions()
+  }
+
+  dismiss(pkg: string, mode: 'later' | 'never'): void {
+    this.dismissed.set(pkg, true)
+    if (mode === 'never') {
+      try { if (typeof window !== 'undefined') window.localStorage.setItem(DISMISSED_KEY + pkg, '1') }
+      catch (error) { this.ctx.logger.warn(error) }
+    }
+    this.publishSuggestions()
+  }
+
+  private isDismissed(pkg: string): boolean {
+    const known = this.dismissed.get(pkg)
+    if (known !== undefined) return known
+    let dismissed = false
+    try { dismissed = typeof window !== 'undefined' && window.localStorage.getItem(DISMISSED_KEY + pkg) === '1' }
+    catch (error) { this.ctx.logger.warn(error) }
+    this.dismissed.set(pkg, dismissed)
+    return dismissed
+  }
+
+  private canSuggest(pkg: string): boolean {
+    return !this.consentedPackages.has(pkg) && !this.waiting.has(pkg) && !this.isDismissed(pkg)
+      && this.getSnapshot().statuses[pkg]?.locales.some(item => item.locale === this.locale()) !== true
+  }
+
+  private reportEvidence(evidence: ReadonlyMap<string, ReadonlyMap<string, string>>): void {
+    let changed = false
+    for (const [pkg, incoming] of evidence) {
+      if (incoming.size === 0 || !this.canSuggest(pkg)) continue
+      const samples = this.evidence.get(pkg) ?? new Map<string, string>()
+      for (const [text, language] of incoming) {
+        if (samples.size >= MAX_SCREEN_SAMPLES) break
+        if (samples.has(text)) continue
+        samples.set(text, language)
+        changed = true
+      }
+      this.evidence.set(pkg, samples)
+    }
+    if (changed) this.publishSuggestions()
+  }
+
+  private detectLanguage(text: string, locale: string): LanguageDetection {
+    const result = foreignLanguage(text, locale)
+    if (result instanceof Promise && this.detectorPending !== result) {
+      this.detectorPending = result
+      void result.then(() => {
+        this.detectorPending = undefined
+        if (this.disposed) return
+        this.publishSuggestions()
+        this.screen?.refresh()
+      })
+    }
+    return result
+  }
+
+  private publishSuggestions(): void {
+    if (!this.getSnapshot().ready || this.disposed) return
+    const target = this.locale()
+    const primary = primaryLanguage(target)
+    const before = this.suggestions.getSnapshot()
+    const suggestions: PluginTranslationSuggestion[] = []
+    const namespaces = new Map(this.ctx.locale.namespaces().map(row => [row.ns, row.locales]))
+    for (const pkg of new Set([...this.evidence.keys(), ...this.packages.keys()])) {
+      if (!this.canSuggest(pkg)) continue
+      const counts = new Map<string, number>()
+      const count = (language: string | undefined): void => {
+        if (language && language !== primary) counts.set(language, (counts.get(language) ?? 0) + 1)
+      }
+      const info = this.packages.get(pkg)
+      for (const language of this.evidence.get(pkg)?.values() ?? []) count(language)
+      // A real panel is better evidence than the language of its marketing copy or optional dictionaries.
+      if (counts.size === 0) {
+        for (const text of info?.meta ?? []) {
+          if (typeof text === 'string') {
+            const language = this.detectLanguage(text, target)
+            if (typeof language === 'string') count(language)
+          } else if (metaLacksLocale(text, target)) count(primaryLanguage('en' in text ? 'en' : Object.keys(text)[0] ?? ''))
+        }
+        for (const namespace of this.ownership.ownedBy(pkg)) {
+          const locales = namespaces.get(namespace)
+          if (locales !== undefined && !locales.some(id => primaryLanguage(id) === primary)) {
+            count(primaryLanguage(locales.includes('en') ? 'en' : locales[0] ?? ''))
+          }
+        }
+      }
+      let language: string | undefined
+      let best = 0
+      for (const [id, score] of counts) {
+        if (score > best) { language = id; best = score }
+      }
+      if (language !== undefined) suggestions.push({
+        pkg, title: info === undefined ? pkg : this.ctx.locale.resolveText(info.title),
+        language, languageName: languageName(language, target), target,
+      })
+    }
+    if (suggestions.length !== before.length || suggestions.some((item, i) => {
+      const old = before[i]
+      return old?.pkg !== item.pkg || old.language !== item.language || old.title !== item.title || old.target !== item.target
+    })) this.suggestionStore.set(suggestions)
   }
 
   async translate(pkg: string, rerun = false): Promise<PluginI18nJob> {
@@ -291,6 +440,7 @@ export class PluginI18nClient implements PluginI18nService {
     const { sourceLocale, sources } = collectSources(this.ctx.locale, this.ownership.ownedBy(pkg), locale)
     if (rerun) this.rerunScreen(pkg)
     this.waiting.add(pkg)
+    this.publishSuggestions()
     try {
       const started = await this.ctx.remote.pluginI18n.translate({
         pkg, locale, sourceLocale, sources, ...rerun ? { rerun } : {},
@@ -298,15 +448,34 @@ export class PluginI18nClient implements PluginI18nService {
       if (!started.ok) throw started.error
       const settled = started.value.state === 'running' ? this.settled(pkg, locale) : Promise.resolve(started.value)
       void this.refresh().catch((error: unknown) => { this.ctx.logger.warn(error) })
-      return await settled
+      const job = await settled
+      if (job.state !== 'done' || locale !== this.locale() || this.disposed) return job
+      await this.refresh()
+      if (locale !== this.locale() || !this.consentedPackages.has(pkg)) return job
+      for (const text of this.packages.get(pkg)?.meta ?? []) {
+        if (typeof text === 'string') {
+          const language = this.detectLanguage(text, locale)
+          if (language instanceof Promise) await language
+          if (locale !== this.locale() || !this.consentedPackages.has(pkg)
+            || typeof this.detectLanguage(text, locale) !== 'string') continue
+        } else if (!metaLacksLocale(text, locale)) continue
+        const source = this.ctx.locale.resolveText(text).trim()
+        if (source !== '' && (rerun || !this.cache.has(source))) this.requestScreen(pkg, source)
+      }
+      await this.detectorPending
+      await this.screenWork.get(pkg)?.done
+      const message = this.getSnapshot().failures[pkg]
+      return message === undefined || locale !== this.locale() ? job : { ...job, state: 'failed', message }
     } finally {
       this.waiting.delete(pkg)
+      this.publishSuggestions()
     }
   }
 
   async clear(pkg: string): Promise<void> {
     const result = await this.ctx.remote.pluginI18n.clear(pkg)
     if (!result.ok) throw result.error
+    this.dismiss(pkg, 'later')
     this.forgetScreen(pkg)
     await this.refresh()
   }
@@ -359,6 +528,7 @@ export class PluginI18nClient implements PluginI18nService {
       screen: before.screen,
       failures: before.failures,
     })
+    this.publishSuggestions()
     const screen = await this.loadTables()
     if (screen !== undefined) this.store.set({ ...this.getSnapshot(), screen })
     this.releaseSettled(statuses.value)
@@ -427,12 +597,17 @@ export class PluginI18nClient implements PluginI18nService {
     const queued = this.screenQueue.get(pkg) ?? new Set<string>()
     queued.add(text)
     this.screenQueue.set(pkg, queued)
-    clearTimeout(this.screenTimer)
-    this.screenTimer = setTimeout(() => { void this.flushScreen() }, TITLE_DEBOUNCE_MS)
+    if (!this.screenWork.has(pkg)) {
+      const { promise, resolve } = Promise.withResolvers<void>()
+      this.screenWork.set(pkg, { inFlight: 0, done: promise, finish: resolve })
+      this.setFailure(pkg, undefined)
+    }
+    this.screenTimer ??= setTimeout(() => { void this.flushScreen() }, TITLE_DEBOUNCE_MS)
   }
 
   /** Send one package's queued text in a batch and apply the answer; text without a translation is not asked for again. */
   private async flushScreen(): Promise<void> {
+    this.screenTimer = undefined
     const first = this.screenQueue.entries().next()
     if (first.done) return
     const [pkg, queued] = first.value
@@ -445,17 +620,30 @@ export class PluginI18nClient implements PluginI18nService {
       this.screenRerun.delete(pkg)
     }
     if (this.screenQueue.size > 0) this.screenTimer = setTimeout(() => { void this.flushScreen() }, TITLE_DEBOUNCE_MS)
-    if (batch.length === 0) return
-    const result = await this.ctx.remote.pluginI18n.translateStrings(batch, locale, pkg, rerun)
-    if (this.disposed || locale !== this.locale() || !this.consentedPackages.has(pkg)) return
-    if (!result.ok) {
-      this.ctx.logger.warn(result.error)
-      this.setFailure(pkg, result.error.message)
-      return
+    const work = this.screenWork.get(pkg)
+    if (work === undefined) return
+    work.inFlight += 1
+    try {
+      const result = await this.ctx.remote.pluginI18n.translateStrings(batch, locale, pkg, rerun)
+      if (!result.ok) throw result.error
+      if (!this.isCurrentScreenWork(pkg, work, locale)) return
+      for (const [text, translation] of Object.entries(result.value)) this.cache.set(text, translation)
+      this.publishTitles()
+    } catch (error) {
+      if (!this.isCurrentScreenWork(pkg, work, locale)) return
+      this.ctx.logger.warn(error)
+      this.setFailure(pkg, error instanceof Error ? error.message : String(error))
+    } finally {
+      work.inFlight -= 1
+      if (this.screenWork.get(pkg) === work && work.inFlight === 0 && !this.screenQueue.has(pkg)) {
+        this.screenWork.delete(pkg)
+        work.finish()
+      }
     }
-    this.setFailure(pkg, undefined)
-    for (const [text, translation] of Object.entries(result.value)) this.cache.set(text, translation)
-    this.publishTitles()
+  }
+
+  private isCurrentScreenWork(pkg: string, work: ScreenWork, locale: string): boolean {
+    return !this.disposed && locale === this.locale() && this.screenWork.get(pkg) === work && this.consentedPackages.has(pkg)
   }
 
   private setFailure(pkg: string, reason: string | undefined): void {
@@ -490,6 +678,8 @@ export class PluginI18nClient implements PluginI18nService {
     this.screenSeen.delete(pkg)
     this.screenQueue.delete(pkg)
     this.screenRerun.delete(pkg)
+    this.screenWork.get(pkg)?.finish()
+    this.screenWork.delete(pkg)
     this.consentedPackages = new Set([...this.consentedPackages].filter(name => name !== pkg))
     this.setFailure(pkg, undefined)
     this.screen?.refresh()

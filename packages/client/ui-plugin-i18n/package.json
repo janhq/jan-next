@@ -1,6 +1,6 @@
 {
   "name": "@janhq/jan-client-ui-plugin-i18n",
-  "description": "Plugin translation in the jan web client: generated tables in the locale runtime, the install offer service, runtime tool-title display, and the Plugins settings Translations tab",
+  "description": "Plugin translation in the jan web client: generated tables, on-screen language detection and offers, runtime tool-title translations, and Plugins settings",
   "version": "0.2.2-rc.1",
   "publishConfig": {
     "access": "public"
@@ -42,6 +42,9 @@
     "watch": "tsdown --watch"
   },
   "license": "MIT",
+  "dependencies": {
+    "eld": "^2.1.1"
+  },
   "peerDependencies": {
     "@janhq/cordis": "workspace:~"
   },
@@ -53,6 +56,7 @@
     "@janhq/jan-client-locale": "workspace:*",
     "@janhq/jan-client-store": "workspace:*",
     "@janhq/jan-client-test-runtime": "workspace:*",
+    "@janhq/jan-client-ui-layout": "workspace:*",
     "@janhq/jan-client-ui-primitives": "workspace:*",
     "@janhq/jan-client-ui-renderer": "workspace:*",
     "@janhq/jan-client-ui-settings": "workspace:*",
@@ -67,6 +71,7 @@
     "locale/*.json",
     "lib/index.js",
     "lib/client.js",
+    "lib/client.static.extrasmall.js",
     "lib/types/**/*.d.ts"
   ]
 }

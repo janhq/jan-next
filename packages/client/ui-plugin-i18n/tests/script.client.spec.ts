@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { localeScripts, mismatchesLocale, scriptsOf } from '../src/client/script.ts'
+import { foreignLanguage, localeScripts, mismatchesLocale, scriptsOf } from '../src/client/script.ts'
 import { collectSources, lacksDictionary, metaLacksLocale, type DictionarySource } from '../src/client/sources.ts'
 
 describe('script heuristic', () => {
@@ -24,6 +24,37 @@ describe('script heuristic', () => {
     expect(mismatchesLocale('Привет', 'ja')).toBe(true)
     expect(mismatchesLocale('ひらがな', 'zh')).toBe(true)
     expect(localeScripts('pt')).toEqual([])
+  })
+})
+
+describe('foreign plugin language', () => {
+  it('answers Unicode and rejects non-prose synchronously before requesting the model', () => {
+    expect(foreignLanguage('特征树', 'en')).toBe('zh')
+    expect(foreignLanguage('cad_sketch_new', 'en')).toBeUndefined()
+    const pending = foreignLanguage('Neues Projekt erstellen', 'en')
+    expect(pending).toBeInstanceOf(Promise)
+    expect(foreignLanguage('Créer un projet', 'en')).toBe(pending)
+  })
+
+  async function detect(text: string, locale: string) {
+    const result = foreignLanguage(text, locale)
+    if (!(result instanceof Promise)) return result
+    await result
+    return foreignLanguage(text, locale)
+  }
+
+  it.each([
+    ['特征树', 'zh'], ['还没有特征 - 用 cad_sketch_new 开始绘制', 'zh'],
+    ['Neues Projekt erstellen', 'de'], ['Keine Elemente vorhanden', 'de'],
+    ['Aucun élément trouvé', 'fr'], ['Tạo bản vẽ mới', 'vi'],
+  ])('identifies "%s" as %s in an English UI', async (text, language) => {
+    expect(await detect(text, 'en')).toBe(language)
+    expect(await detect(text, language)).toBeUndefined()
+  })
+
+  it.each(['Save', 'Save changes', 'Create a new drawing', 'Feature Tree', 'cad_sketch_new',
+    'featureTreeComponent', '123.50 mm', '90°', 'µm', 'Feature tree.step', '工程图.step'])('ignores "%s" in an English UI', async (text) => {
+    expect(await detect(text, 'en')).toBeUndefined()
   })
 })
 

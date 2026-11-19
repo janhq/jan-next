@@ -1,5 +1,5 @@
 ---
-description: "Browser half of plugin translation: stored translations registered as a generated layer of the locale runtime, the ctx.pluginI18n service behind the install offer, translated tool titles and descriptions, and on-screen translation of plugin text, and the Translations tab of Plugins settings with its model picker."
+description: "Browser-side plugin translation: generated locale tables, proactive detection and translation offers, tool titles, and Plugins settings."
 kind: "package-reference"
 ---
 
@@ -7,7 +7,7 @@ kind: "package-reference"
 
 ## Summary
 
-The package reads the Host's [plugin translation](../../host/plugin-i18n/README.md) store, registers each stored table in the locale runtime's generated layer, and provides `ctx.pluginI18n`. The plugin manager's install dialog asks the service whether to offer translation after an install, the tool card shows cached translations of titles and provider descriptions written in another script, and a consented plugin's own panels and its card in the Plugins page are translated on screen. The Translations tab in Plugins settings lets the person pick the translation model, translate, run again, or clear one plugin, and switch tool-title translation on for every plugin.
+This package loads stored [Host plugin translations](../../host/plugin-i18n/README.md) into the locale runtime and provides `ctx.pluginI18n`. Jan detects foreign-language plugin text locally and offers to translate it in place. Plugins settings lets the person pick the translation model, translate or restore a plugin manually, and enable translation of tool titles.
 
 ## Table of Contents
 
@@ -27,7 +27,7 @@ The service is composed beside the `pluginI18n` Remote and active only while the
 
 ### The install offer
 
-`ctx.pluginI18n.assess({ pkg, meta })` returns an offer to translate the package into the active locale, or null. It returns null when the Host already stores that locale for the package. Otherwise it offers when a namespace the package registered lacks the locale, or when its title or description lacks it: a translation map without the locale's language, a plain string in a script the UI does not use, or a plain string in a UI that is not English and not in the locale's own script. The install dialog shows the offer with the language and model named; accepting runs `translate`, which also records consent for the package.
+`ctx.pluginI18n.assess({ pkg, meta })` returns an install offer when a package lacks the active locale in its registered dictionaries, title, or description. It returns null for a dismissed or consented package, or if the Host has stored a translation for that locale. The install dialog names the target language and model; accepting runs `translate`, which records consent for the package.
 
 ### Generated tables
 
@@ -39,7 +39,9 @@ A stored table registers through `ctx.locale.registerGenerated`, below every reg
 
 ### On-screen text
 
-Text a plugin draws itself, and the name, description, and settings the Plugins page shows about it, reach the person through a `MutationObserver` in `screen.ts`. It watches three kinds of region: the `data-plugin-owner` marker the slot renderer puts around every entry a third-party plugin registers, the Plugins page's `data-plugin-package` card and `data-plugin-detail` page, and a part's `data-plugin-row-detail` page. Inside a region whose package the person consented to, text nodes and the `title`, `placeholder`, and `aria-label` attributes written in a script the UI does not use are asked for through `translateStrings` under that package, batched, once per text and locale, and replaced in place when the answer arrives. The original comes back when the plugin is cleared, when it loses consent, and when the language changes. The observer never touches input or textarea values, `contenteditable` regions, `code`, `pre`, `canvas`, `script`, or `style`, and it sends nothing for a package without its own consent; the global switch does not cover it.
+The `MutationObserver` in `screen.ts` watches the slot renderer's `data-plugin-owner` marker and the Plugins page's `data-plugin-package`, `data-plugin-detail`, and `data-plugin-row-detail` markers. It samples visible text nodes and `title`, `placeholder`, and `aria-label` attributes locally, skipping input values, editable or code regions, and anything marked `translate="no"`. `ctx.pluginI18n.suggestions` publishes one suggested source language per package. Installed package metadata and attributed dictionary locales can also supply evidence.
+
+The shell offers one plugin at a time. **Not now** hides the offer for this app start; **Never for this plugin** saves the choice in this browser. Neither choice prevents manual translation. The Host receives screen text only with that package's own consent; the global tool-title switch does not cover it. Translations replace text in place, and **Show original** clears the translation and restores the plugin's own text. Clearing consent or changing the UI language also restores the originals.
 
 ### Settings
 
@@ -57,9 +59,9 @@ The Translations tab opens with a model picker: `Default model (provider/model)`
 
 The locale runtime does not record which plugin registered a namespace. `NamespaceOwnership` follows the root fibers of Loader entries: namespaces that appear between a package fiber's start and activation belong to it. Concurrent loads can lend a package a neighbor's namespaces, which only widens a request, because requests carry only namespaces lacking the locale. Fibers that activated before this plugin started are not attributed.
 
-### Script heuristic
+### Language detection
 
-`script.ts` finds Han, Kana, Hangul, Cyrillic, Arabic, Hebrew, Thai, Devanagari, and Greek letters. Latin suits every locale; a title mismatches when it holds a non-Latin script the locale does not write in.
+`script.ts` uses Unicode script cues for short labels such as `特征树` without loading a model. The first Latin phrase that passes the prose gate loads the ELD ExtraSmall browser chunk. It scores phrases locally, and length, reliability, and confidence-margin checks filter out ambiguous copy. Code identifiers, file names, and short measurements are not useful language evidence. Tool title translation continues to use the existing script-only heuristic.
 
 ### Source map
 
@@ -68,8 +70,9 @@ The locale runtime does not record which plugin registered a namespace. `Namespa
 | [`src/client/service.ts`](src/client/service.ts) | `PluginI18nClient`: state, tables, offers, jobs, title cache |
 | [`src/client/ownership.ts`](src/client/ownership.ts) | Package names and namespace attribution |
 | [`src/client/sources.ts`](src/client/sources.ts) | Source selection and locale checks |
-| [`src/client/script.ts`](src/client/script.ts) | The script heuristic |
-| [`src/client/screen.ts`](src/client/screen.ts) | The on-screen translator and its package regions |
+| [`src/client/script.ts`](src/client/script.ts) | Unicode script checks and statistical language detection |
+| [`src/client/screen.ts`](src/client/screen.ts) | Batched screen detection and consent-gated translation |
+| [`src/client/PluginTranslationPrompt.tsx`](src/client/PluginTranslationPrompt.tsx) | Shell offer, progress, retry, and restore |
 | [`src/client/PluginTranslationsTab.tsx`](src/client/PluginTranslationsTab.tsx) | The settings tab |
 
 </details>
@@ -100,6 +103,7 @@ None; this package neither assembles nor sends a provider request.
 - **No tool owner** — a tool card does not know which plugin registered the tool, so new title translations require global consent.
 - **Boot-time attribution** — namespaces of plugins that activated before this plugin started are not attributed, so only their titles and later activations are covered.
 - **One source locale per request** — namespaces whose source locale differs from the request's are left out.
+- **Right sidebar fallback title**: registered tab bodies and custom titles carry the slot renderer's owner marker. The captured tab title shown when a plugin does not register a custom title slot has no owner marker.
 
 <a id="dev-note"></a>
 ### Dev Note

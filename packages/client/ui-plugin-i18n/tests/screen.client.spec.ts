@@ -32,9 +32,10 @@ function host() {
       strings: Object.fromEntries(Object.values(state.stored).flat().map(text => [text, state.translations[text] ?? text])),
       runtime: state.stored,
     } satisfies PluginI18nTables)),
-    translate: vi.fn((request: { pkg: string; locale: string }) => ok({
-      pkg: request.pkg, locale: request.locale, state: 'done' as const, done: 0, total: 0,
-    })),
+    translate: vi.fn((request: { pkg: string; locale: string }) => {
+      state.consent = { ...state.consent, packages: [...new Set([...state.consent.packages, request.pkg])] }
+      return ok({ pkg: request.pkg, locale: request.locale, state: 'done' as const, done: 0, total: 0 })
+    }),
     translateStrings: vi.fn((strings: string[], _locale: string, pkg?: string) => {
       if (pkg !== undefined && !state.consent.packages.includes(pkg)) {
         return Promise.resolve({ ok: false as const, error: new Error('not consented') })
@@ -89,6 +90,117 @@ afterEach(() => {
   vi.useRealTimers()
   vi.unstubAllGlobals()
   document.body.replaceChildren()
+  localStorage.clear()
+})
+
+describe('on-screen translation suggestions', () => {
+  it('suggests a single dominant language for a plugin that mounts after startup without sending its text', async () => {
+    const h = await harness()
+    await h.client.refresh()
+    mountPanel('dsh-cad', `<p>Neues Projekt erstellen</p><h2>特征树</h2><p>${HINT}</p><p>${HINT}</p>`)
+    await settle()
+    expect(h.client.suggestions.getSnapshot()).toEqual([
+      { pkg: 'dsh-cad', title: 'dsh-cad', language: 'zh', languageName: 'Chinese', target: 'en' },
+    ])
+    expect(h.face.translateStrings).not.toHaveBeenCalled()
+  })
+
+  it('rechecks a Latin panel once the detector loads without requiring another DOM update', async () => {
+    const h = await harness()
+    await h.client.refresh()
+    mountPanel('dsh-cad', '<p>Neues Projekt erstellen</p>')
+    await vi.waitFor(() => {
+      expect(h.client.suggestions.getSnapshot()[0]).toMatchObject({ pkg: 'dsh-cad', language: 'de' })
+    })
+    expect(h.face.translateStrings).not.toHaveBeenCalled()
+  })
+
+  it('ignores hidden and opted-out text until a retained panel becomes visible', async () => {
+    const h = await harness()
+    const panel = mountPanel('dsh-cad', '<p translate="no">特征树</p><p hidden>还没有特征</p>')
+    await h.client.refresh()
+    await settle()
+    expect(h.client.suggestions.getSnapshot()).toEqual([])
+    panel.querySelector('[hidden]')?.removeAttribute('hidden')
+    await settle()
+    expect(h.client.suggestions.getSnapshot()[0]?.language).toBe('zh')
+  })
+
+  it('translates a foreign manifest description accepted before its plugin panel opens', async () => {
+    const h = await harness()
+    h.client.setPackages([{ pkg: 'dsh-cad', title: 'CAD', meta: [HINT] }])
+    await h.client.refresh()
+    expect(h.client.suggestions.getSnapshot()[0]).toMatchObject({ title: 'CAD', language: 'zh' })
+    expect(h.face.translateStrings).not.toHaveBeenCalled()
+
+    const pending = h.client.translate('dsh-cad')
+    await settle()
+    await expect(pending).resolves.toMatchObject({ state: 'done' })
+    expect(h.face.translateStrings).toHaveBeenCalledWith([HINT], 'en', 'dsh-cad', false)
+  })
+
+  it('hides a later dismissal for the current app start only', async () => {
+    const first = await harness()
+    const panel = mountPanel('dsh-cad', `<p>${HINT}</p>`)
+    await first.client.refresh()
+    await settle()
+    first.client.dismiss('dsh-cad', 'later')
+    panel.insertAdjacentHTML('beforeend', '<h2>特征树</h2>')
+    await settle()
+    expect(first.client.suggestions.getSnapshot()).toEqual([])
+    first.client.dispose()
+
+    const restarted = await harness()
+    await restarted.client.refresh()
+    await settle()
+    expect(restarted.client.suggestions.getSnapshot()[0]?.pkg).toBe('dsh-cad')
+  })
+
+  it('does not suggest a never-dismissed package after the client restarts', async () => {
+    const first = await harness()
+    mountPanel('dsh-cad', `<p>${HINT}</p>`)
+    await first.client.refresh()
+    await settle()
+    first.client.dismiss('dsh-cad', 'never')
+    expect(first.client.suggestions.getSnapshot()).toEqual([])
+    first.client.dispose()
+
+    const restarted = await harness()
+    await restarted.client.refresh()
+    await settle()
+    expect(restarted.client.suggestions.getSnapshot()).toEqual([])
+  })
+
+  it('records consent and waits for the on-screen translation when accepting a suggestion', async () => {
+    const h = await harness()
+    const panel = mountPanel('dsh-cad', `<p>${EXPORT}</p>`)
+    await h.client.refresh()
+    await settle()
+    const pkg = h.client.suggestions.getSnapshot()[0]!.pkg
+    const pending = h.client.translate(pkg)
+    expect(h.client.suggestions.getSnapshot()).toEqual([])
+    await settle()
+    await expect(pending).resolves.toMatchObject({ state: 'done' })
+    expect(h.client.getSnapshot().consent.packages).toEqual([pkg])
+    expect(panel.textContent).toBe('Export')
+  })
+
+  it('keeps failures retryable when a plugin has only on-screen text', async () => {
+    const h = await harness()
+    const panel = mountPanel('dsh-cad', `<p>${EXPORT}</p>`)
+    h.face.translateStrings.mockResolvedValueOnce({ ok: false, error: new Error('model offline') })
+    await h.client.refresh()
+    await settle()
+    const first = h.client.translate('dsh-cad')
+    await settle()
+    await expect(first).resolves.toMatchObject({ state: 'failed', message: 'model offline' })
+    expect(panel.textContent).toBe(EXPORT)
+
+    const retry = h.client.translate('dsh-cad', true)
+    await settle()
+    await expect(retry).resolves.toMatchObject({ state: 'done' })
+    expect(panel.textContent).toBe('Export')
+  })
 })
 
 describe('on-screen translation of plugin-rendered text', () => {

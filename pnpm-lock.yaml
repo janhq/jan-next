@@ -5224,6 +5224,10 @@ importers:
         version: 18.3.1
 
   packages/client/ui-plugin-i18n:
+    dependencies:
+      eld:
+        specifier: ^2.1.1
+        version: 2.1.1
     devDependencies:
       '@janhq/cordis':
         specifier: workspace:~
@@ -5246,6 +5250,9 @@ importers:
       '@janhq/jan-client-test-runtime':
         specifier: workspace:*
         version: link:../../test-support/client-runtime
+      '@janhq/jan-client-ui-layout':
+        specifier: workspace:*
+        version: link:../ui-layout
       '@janhq/jan-client-ui-primitives':
         specifier: workspace:*
         version: link:../ui-primitives
@@ -22960,6 +22967,10 @@ packages:
     engines: {node: '>=0.10.0'}
     hasBin: true
 
+  eld@2.1.1:
+    resolution: {integrity: sha512-+WPgDcsV5rAuZR3BTW3rnnv03YvlP2JoHnFGDMLAp13XrDt7n58TBIL9hTmFs4VBVcozGxG/GC5WQILqRqd1pw==}
+    engines: {node: '>=14.17.0'}
+
   electron-builder-squirrel-windows@26.17.0:
     resolution: {integrity: sha512-uyh+D+B0m12qCRp9c/7dwBirHTh7JcvAzj5eTEbb4dXPPGAhYPx1nozzbu1fC6AdULfat6ZNqgWhipTFpb82lQ==}
 
@@ -30535,6 +30546,8 @@ snapshots:
   ejs@3.1.10:
     dependencies:
       jake: 10.9.4
+
+  eld@2.1.1: {}
 
   electron-builder-squirrel-windows@26.17.0(dmg-builder@26.17.0)(supports-color@9.4.0):
     dependencies:

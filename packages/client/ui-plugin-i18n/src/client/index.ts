@@ -1,6 +1,6 @@
 /**
  * Plugin translation, browser half: loads the Host's stored translations into the locale runtime, provides
- * `ctx.pluginI18n` for the install dialog and tool cards, and adds the Translations tab to Plugins settings.
+ * `ctx.pluginI18n` for install offers, proactive screen suggestions, tool cards, and Plugins settings.
  */
 import type {} from '@janhq/jan-client-locale/client'
 import type { Context as ClientContext } from '@janhq/cordis'
@@ -13,10 +13,11 @@ import type {} from '@janhq/jan-client-ui-settings/client'
 import type {} from '@janhq/jan-client-ui-renderer/client'
 import { NamespaceOwnership, trackOwnership } from './ownership.ts'
 import { PluginTranslationsTab, type PluginTranslationsTabInjected } from './PluginTranslationsTab.tsx'
+import { PluginTranslationPrompt, type PluginTranslationPromptInjected } from './PluginTranslationPrompt.tsx'
 import { languageName, PluginI18nClient, type PluginI18nService } from './service.ts'
 import { en, ja, es, fr, de, ru, pt, zh, type PluginI18nLocaleKey } from './locales.ts'
 
-export type { PluginI18nService, PluginI18nState, TitleView, TranslationOffer, TranslationSubject } from './service.ts'
+export type { PluginI18nService, PluginI18nState, PluginTranslationSuggestion, TitleView, TranslationOffer, TranslationSubject } from './service.ts'
 export type { PluginI18nLocaleKey } from './locales.ts'
 export type { PluginTranslationsTabInjected, PluginTranslationsTabProps, TranslationPackage } from './PluginTranslationsTab.tsx'
 
@@ -77,11 +78,42 @@ export function apply(ctx: ClientContext): void {
     languageName,
   })
 
+  ctx.remoteAccess.whenAccess('pluginManager/listBundles', function* () {
+    let revision = 0
+    const reload = (): void => {
+      const request = ++revision
+      void ctx.remote.pluginManager.listBundles().then((result) => {
+        if (request !== revision) return
+        if (!result.ok) throw result.error
+        client.setPackages(result.value
+          .filter(bundle => bundle.installed && !bundle.official && bundle.availability !== 'missing')
+          .map(bundle => ({
+            pkg: bundle.name,
+            title: bundle.meta?.title ?? bundle.name,
+            meta: [bundle.meta?.title, bundle.meta?.description ?? bundle.description].filter(text => text !== undefined),
+          })))
+      }).catch((error: unknown) => { if (request === revision) ctx.logger.warn(error) })
+    }
+    reload()
+    yield ctx.remote.$on('plugin-manager/changed', reload)
+    yield ctx.on('connection/reset', reload)
+    yield () => { revision += 1; client.setPackages([]) }
+  })
+
   ctx.remoteAccess.whenAccess('pluginI18n/tables', function* () {
     client.hostChanged()
     yield ctx.remote.$on('plugin-i18n/changed', () => { client.hostChanged() })
     yield ctx.on('connection/reset', () => { client.hostChanged() })
     yield ctx.on('locale/change', () => { client.localeChanged() })
+    const prompt: PluginTranslationPromptInjected = {
+      hooks: { suggestions: client.suggestions, locale: ctx.locale },
+      translate: (pkg, rerun) => client.translate(pkg, rerun),
+      clear: pkg => client.clear(pkg),
+      dismiss: (pkg, mode) => { client.dismiss(pkg, mode) },
+    }
+    yield ctx.slots.inject('shell.overlay', () => ctx.slots.register({
+      name: 'shell.overlay', id: 'plugin-i18n.suggestion', locale: NS, inject: () => prompt,
+    }, PluginTranslationPrompt))
     yield ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({
       name: 'settings.plugins.tab',
       id: 'translations',

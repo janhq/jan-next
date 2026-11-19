@@ -1,11 +1,8 @@
 /**
- * On-screen translation of text a plugin renders itself or the Plugins page shows about it. A MutationObserver watches
- * the regions that name a package: the owner markers the slot renderer puts around a third-party plugin's entries,
- * and the plugin's card and detail pages in the Plugins page, which show its name, description, and settings. Text
- * nodes and the `title`, `placeholder`, and `aria-label` attributes inside a consented plugin's region are replaced
- * in place once their translation is cached, and put back when the plugin loses consent or the locale changes.
+ * Detect and translate text a plugin renders itself or the Plugins page shows about it. Only marked regions
+ * are read; only consented regions send text to the Host or receive in-place replacements.
  */
-import { mismatchesLocale } from './script.ts'
+import type { LanguageDetection } from './script.ts'
 
 /** Attribute the slot renderer sets on the container of a third-party plugin's entry; its value is the package name. */
 export const OWNER_ATTRIBUTE = 'data-plugin-owner'
@@ -40,10 +37,18 @@ function packageOfRegion(element: Element): string | undefined {
 const READABLE_ATTRIBUTES = ['title', 'placeholder', 'aria-label'] as const
 
 /** Regions whose text is not interface copy: code, drawing surfaces, and anything the person edits. */
-const SKIPPED = 'code, pre, canvas, script, style, [contenteditable]:not([contenteditable="false"])'
+const SKIPPED = 'code, pre, canvas, script, style, [translate="no"], [contenteditable]:not([contenteditable="false"])'
 
 /** A textarea's text child is its value, so its text is never touched, though its `placeholder` is. */
 const SKIPPED_NODE_PARENTS = `${SKIPPED}, textarea`
+
+const HIDDEN = '[hidden], [aria-hidden="true"]'
+const DETECTION_DELAY_MS = 150
+const DETECTION_SAMPLE_LIMIT = 64
+const DETECTION_NODE_LIMIT = 2000
+const DETECTION_CACHE_LIMIT = 512
+const DETECTION_SKIPPED = `${SKIPPED}, ${HIDDEN}`
+const DETECTION_BOUNDARY = `${DETECTION_SKIPPED}, ${OWNER_SELECTOR}`
 
 const SHOW_ELEMENT = 1
 const SHOW_TEXT = 4
@@ -56,10 +61,16 @@ export interface ScreenHost {
   consented(): ReadonlySet<string>
   /** The UI locale. */
   locale(): string
+  /** A language or a pending detector load; the host refreshes when the load finishes. */
+  detect(text: string, locale: string): LanguageDetection
   /** The cached translation of an exact source text, if one arrived. */
   lookup(text: string): string | undefined
   /** Ask for the translation of text a package displays; the host calls `refresh` when it arrives. */
   request(pkg: string, text: string): void
+  /** Whether we still need local detection evidence for a package. */
+  detecting(pkg: string): boolean
+  /** A pass collected unique foreign source strings and their languages, all locally. */
+  report(evidence: ReadonlyMap<string, ReadonlyMap<string, string>>): void
 }
 
 /** The replacement the translator made, kept so the original comes back and a re-render is told from our own write. */
@@ -72,13 +83,17 @@ interface Applied {
   readonly owner: string
 }
 
-/** Translates the on-screen text of consented plugins and restores it on demand. */
+/** Detects foreign screen text and translates it once the package has consent. */
 export class ScreenTranslator {
   private readonly texts = new WeakMap<Text, Applied>()
   private readonly attributes = new WeakMap<Element, Map<string, Applied>>()
   /** Packages with at least one replacement standing; only these need a restore walk. */
   private readonly touched = new Set<string>()
   private observer: MutationObserver | undefined
+  private readonly dirty = new Set<Element>()
+  private readonly detected = new Map<string, string | undefined>()
+  private detectionLocale = ''
+  private detectionTimer: ReturnType<typeof setTimeout> | undefined
 
   /**
    * @param host - consent, locale, and cached translations.
@@ -87,20 +102,19 @@ export class ScreenTranslator {
   constructor(private readonly host: ScreenHost, private readonly doc: Document) {}
 
   /**
-   * Bring the screen in line with consent and the cache: restore packages that lost consent, watch the document
-   * while any package consents, and translate what the consented packages show now, including text whose
-   * translation just arrived or changed.
+   * Restore packages that lost consent, apply translations already cached, and schedule detection of
+   * the visible non-consented regions.
    */
   refresh(): void {
     const consented = this.host.consented()
     for (const pkg of [...this.touched]) if (!consented.has(pkg)) this.restore(pkg)
-    if (consented.size === 0) {
-      this.disconnect()
-      return
-    }
+    this.handle(this.observer?.takeRecords() ?? [])
     this.connect()
     for (const container of this.doc.querySelectorAll(OWNER_SELECTOR)) {
-      if (consented.has(packageOfRegion(container) ?? '')) this.scan(container, true)
+      const pkg = packageOfRegion(container)
+      if (pkg === undefined) continue
+      if (consented.has(pkg)) this.scan(container, true)
+      else this.queueDetection(container, pkg)
     }
     this.observer?.takeRecords()
   }
@@ -130,29 +144,41 @@ export class ScreenTranslator {
     this.disconnect()
   }
 
+  /** Detect against the new locale rather than any evidence scheduled before the switch. */
+  resetDetection(): void {
+    clearTimeout(this.detectionTimer)
+    this.detectionTimer = undefined
+    this.dirty.clear()
+    this.detected.clear()
+  }
+
   private connect(): void {
     if (this.observer !== undefined) return
     this.observer = new MutationObserver((records) => { this.handle(records) })
     this.observer.observe(this.doc.documentElement, {
-      childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: [...READABLE_ATTRIBUTES],
+      childList: true, subtree: true, characterData: true, attributes: true,
+      attributeFilter: [...READABLE_ATTRIBUTES, ...REGIONS.map(region => region.attribute), 'hidden', 'aria-hidden', 'translate'],
     })
   }
 
   private disconnect(): void {
     this.observer?.disconnect()
     this.observer = undefined
+    this.resetDetection()
   }
 
   private handle(records: readonly MutationRecord[]): void {
-    const consented = this.host.consented()
-    if (consented.size > 0) {
-      for (const record of records) {
-        if (record.type === 'childList') {
-          for (const added of record.addedNodes) this.scanAdded(added)
-        } else if (record.type === 'characterData') {
-          if (record.target instanceof Text) this.processText(record.target, false)
-        } else if (record.target instanceof Element && record.attributeName !== null) {
-          this.processAttribute(record.target, record.attributeName, false)
+    for (const record of records) {
+      if (record.type === 'childList') {
+        for (const added of record.addedNodes) this.scanAdded(added)
+      } else if (record.type === 'characterData' && record.target instanceof Text) {
+        if (this.queueContainingRegion(record.target) === 'consented') this.processText(record.target, false)
+      } else if (record.target instanceof Element && record.attributeName !== null) {
+        if (READABLE_ATTRIBUTES.some(name => name === record.attributeName)) {
+          if (this.queueContainingRegion(record.target) === 'consented') this.processAttribute(record.target, record.attributeName, false)
+        } else {
+          // A retained pane can become visible, or gain its owner, without a child insertion.
+          this.scanAdded(record.target)
         }
       }
     }
@@ -160,14 +186,84 @@ export class ScreenTranslator {
     this.observer?.takeRecords()
   }
 
-  /** Scan a node a mutation added: its own subtree when it sits inside a marker, else the markers it contains. */
+  /** Translate a newly added subtree or schedule its unconsented regions for the next detection pass. */
   private scanAdded(node: Node): void {
-    const element = node instanceof Element ? node : node.parentElement
-    if ((element?.closest(OWNER_SELECTOR) ?? null) !== null) {
-      this.scan(node, false)
-      return
+    if (!node.isConnected) return
+    const containing = this.queueContainingRegion(node)
+    if (containing === 'consented') this.scan(node, false)
+    if (node instanceof Element) {
+      for (const region of node.querySelectorAll(OWNER_SELECTOR)) {
+        const pkg = packageOfRegion(region)
+        if (pkg === undefined) continue
+        if (this.host.consented().has(pkg)) {
+          if (containing !== 'consented') this.scan(region, false)
+        } else this.queueDetection(region, pkg)
+      }
     }
-    if (node instanceof Element) for (const container of node.querySelectorAll(OWNER_SELECTOR)) this.scan(container, false)
+  }
+
+  private queueContainingRegion(node: Node): 'consented' | undefined {
+    const region = this.regionOf(node)
+    if (region == null) return undefined
+    const pkg = packageOfRegion(region)
+    if (pkg === undefined) return undefined
+    if (this.host.consented().has(pkg)) return 'consented'
+    this.queueDetection(region, pkg)
+    return undefined
+  }
+
+  private queueDetection(region: Element, pkg: string): void {
+    if (!this.host.detecting(pkg) || region.closest(HIDDEN) !== null) return
+    this.dirty.add(region)
+    this.detectionTimer ??= setTimeout(() => { this.detectDirty() }, DETECTION_DELAY_MS)
+  }
+
+  private detectDirty(): void {
+    this.detectionTimer = undefined
+    const evidence = new Map<string, Map<string, string>>()
+    for (const region of this.dirty) {
+      const pkg = packageOfRegion(region)
+      if (pkg === undefined || !region.isConnected || !this.host.detecting(pkg) || region.closest(DETECTION_SKIPPED) !== null) continue
+      const samples = evidence.get(pkg) ?? new Map<string, string>()
+      evidence.set(pkg, samples)
+      const record = (value: string): void => {
+        const text = value.trim()
+        const language = this.detectLanguage(text)
+        if (language !== undefined) samples.set(text, language)
+      }
+      const walker = this.doc.createTreeWalker(region, SHOW_ELEMENT | SHOW_TEXT, {
+        acceptNode: node => node instanceof Element && node.matches(DETECTION_BOUNDARY) ? FILTER_REJECT : FILTER_ACCEPT,
+      })
+      let count = 0
+      for (let node = walker.currentNode as Node | null; node !== null && count < DETECTION_NODE_LIMIT
+        && samples.size < DETECTION_SAMPLE_LIMIT; node = walker.nextNode(), count += 1) {
+        if (node instanceof Text) {
+          if (node.parentElement?.closest('textarea') === null) record(node.data)
+        } else if (node instanceof Element) {
+          for (const name of READABLE_ATTRIBUTES) {
+            const text = node.getAttribute(name)
+            if (text !== null) record(text)
+          }
+        }
+      }
+    }
+    this.dirty.clear()
+    if (evidence.size > 0) this.host.report(evidence)
+  }
+
+  private detectLanguage(text: string): string | undefined {
+    if (text.length < 2 || text.length > 1200) return undefined
+    const locale = this.host.locale()
+    if (locale !== this.detectionLocale) {
+      this.detected.clear()
+      this.detectionLocale = locale
+    }
+    if (this.detected.has(text)) return this.detected.get(text)
+    if (this.detected.size >= DETECTION_CACHE_LIMIT) this.detected.clear()
+    const language = this.host.detect(text, locale)
+    if (language instanceof Promise) return undefined
+    this.detected.set(text, language)
+    return language
   }
 
   private scan(root: Node, revalidate: boolean): void {
@@ -188,10 +284,14 @@ export class ScreenTranslator {
     }
   }
 
-  private ownerOf(node: Node): string | undefined {
+  private regionOf(node: Node): Element | null | undefined {
     const element = node instanceof Element ? node : node.parentElement
-    const region = element?.closest(OWNER_SELECTOR)
-    return region === null || region === undefined ? undefined : packageOfRegion(region)
+    return element?.closest(OWNER_SELECTOR)
+  }
+
+  private ownerOf(node: Node): string | undefined {
+    const region = this.regionOf(node)
+    return region == null ? undefined : packageOfRegion(region)
   }
 
   private processText(node: Text, revalidate: boolean): void {
@@ -251,11 +351,9 @@ export class ScreenTranslator {
     }
     // A write of our own is never here, so the plugin wrote this value: whatever stood on it is stale.
     const stale = applied === undefined ? undefined : null
-    const locale = this.host.locale()
-    const core = value.trim()
-    if (core === '' || !mismatchesLocale(core, locale)) return stale
     const owner = ownerOf()
     if (owner === undefined || !this.host.consented().has(owner)) return stale
+    if (this.detectLanguage(value.trim()) === undefined) return stale
     return this.apply(value, owner, undefined) ?? stale
   }
 

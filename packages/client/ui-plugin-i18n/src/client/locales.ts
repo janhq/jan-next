@@ -33,6 +33,15 @@ export const zh = {
   screenLine: '插件在界面上显示的文字已翻译 {count} 条',
   screenShow: '查看界面文字（{count} 条）',
   screenFailed: '界面文字翻译失败：{reason}',
+  offerQuestion: '{plugin}使用{source}。要翻译成{target}吗？',
+  offerLater: '暂不',
+  offerNever: '永不翻译此插件',
+  offerWorking: '正在将{plugin}翻译成{target}…',
+  offerSuccess: '已将{plugin}翻译成{target}。',
+  offerOriginal: '显示原文',
+  offerRestoring: '正在恢复{plugin}的原文…',
+  offerRestoreFailed: '无法恢复原文：{reason}',
+  offerUnknownError: '请重试，或在设置中检查翻译模型。',
 } as const
 
 /** Plugin translation locale key union. */
@@ -71,6 +80,15 @@ export const en = {
   screenLine: '{count} on-screen strings translated',
   screenShow: 'Show on-screen strings ({count})',
   screenFailed: 'On-screen translation failed: {reason}',
+  offerQuestion: '{plugin} is in {source}. Translate to {target}?',
+  offerLater: 'Not now',
+  offerNever: 'Never for this plugin',
+  offerWorking: 'Translating {plugin} into {target}...',
+  offerSuccess: '{plugin} translated into {target}.',
+  offerOriginal: 'Show original',
+  offerRestoring: 'Restoring the original text in {plugin}...',
+  offerRestoreFailed: 'Could not restore the original text: {reason}',
+  offerUnknownError: 'Try again or check your translation model in Settings.',
 } satisfies Record<PluginI18nLocaleKey, string>
 
 /** Japanese copy, checked against the English keys. */
@@ -106,6 +124,15 @@ export const ja = {
   screenLine: '画面上の文言を {count} 件翻訳済み',
   screenShow: '画面上の文言を表示（{count} 件）',
   screenFailed: '画面上の文言の翻訳に失敗しました: {reason}',
+  offerQuestion: '{plugin}は{source}で表示されています。{target}に翻訳しますか？',
+  offerLater: '今はしない',
+  offerNever: 'このプラグインは翻訳しない',
+  offerWorking: '{plugin}を{target}に翻訳しています...',
+  offerSuccess: '{plugin}を{target}に翻訳しました。',
+  offerOriginal: '原文を表示',
+  offerRestoring: '{plugin}の原文を復元しています...',
+  offerRestoreFailed: '原文を復元できませんでした: {reason}',
+  offerUnknownError: 'もう一度試すか、設定で翻訳モデルを確認してください。',
 } satisfies Record<PluginI18nLocaleKey, string>
 
 /** Spanish dictionary, checked against the English keys. */
@@ -141,6 +168,15 @@ export const es = {
   screenLine: '{count} textos en pantalla traducidos',
   screenShow: 'Mostrar textos en pantalla ({count})',
   screenFailed: 'La traducción del texto en pantalla falló: {reason}',
+  offerQuestion: '{plugin} está en {source}. ¿Traducir a {target}?',
+  offerLater: 'Ahora no',
+  offerNever: 'Nunca para este plugin',
+  offerWorking: 'Traduciendo {plugin} a {target}...',
+  offerSuccess: '{plugin} se ha traducido a {target}.',
+  offerOriginal: 'Mostrar original',
+  offerRestoring: 'Restaurando el texto original de {plugin}...',
+  offerRestoreFailed: 'No se pudo restaurar el texto original: {reason}',
+  offerUnknownError: 'Vuelve a intentarlo o revisa el modelo de traducción en Ajustes.',
 } satisfies Record<PluginI18nLocaleKey, string>
 
 /** French dictionary, checked against the English keys. */
@@ -176,6 +212,15 @@ export const fr = {
   screenLine: '{count} textes à l\'écran traduits',
   screenShow: 'Afficher les textes à l\'écran ({count})',
   screenFailed: 'La traduction du texte à l\'écran a échoué : {reason}',
+  offerQuestion: '{plugin} est en {source}. Traduire en {target} ?',
+  offerLater: 'Pas maintenant',
+  offerNever: 'Jamais pour ce plugin',
+  offerWorking: 'Traduction de {plugin} en {target}...',
+  offerSuccess: '{plugin} a été traduit en {target}.',
+  offerOriginal: 'Afficher le texte original',
+  offerRestoring: 'Rétablissement du texte original de {plugin}...',
+  offerRestoreFailed: 'Impossible de rétablir le texte original : {reason}',
+  offerUnknownError: 'Réessayez ou vérifiez le modèle de traduction dans les paramètres.',
 } satisfies Record<PluginI18nLocaleKey, string>
 
 /** German dictionary, checked against the English keys. */
@@ -211,6 +256,15 @@ export const de = {
   screenLine: '{count} Bildschirmtexte übersetzt',
   screenShow: 'Bildschirmtexte anzeigen ({count})',
   screenFailed: 'Die Übersetzung der Bildschirmtexte ist fehlgeschlagen: {reason}',
+  offerQuestion: '{plugin} ist auf {source}. In {target} übersetzen?',
+  offerLater: 'Nicht jetzt',
+  offerNever: 'Nie für dieses Plugin',
+  offerWorking: '{plugin} wird in {target} übersetzt...',
+  offerSuccess: '{plugin} wurde in {target} übersetzt.',
+  offerOriginal: 'Original anzeigen',
+  offerRestoring: 'Der Originaltext von {plugin} wird wiederhergestellt...',
+  offerRestoreFailed: 'Originaltext konnte nicht wiederhergestellt werden: {reason}',
+  offerUnknownError: 'Versuche es erneut oder prüfe das Übersetzungsmodell in den Einstellungen.',
 } satisfies Record<PluginI18nLocaleKey, string>
 
 /** Russian dictionary, checked against the English keys. */
@@ -246,6 +300,15 @@ export const ru = {
   screenLine: 'Переведено текстов на экране: {count}',
   screenShow: 'Показать тексты на экране ({count})',
   screenFailed: 'Не удалось перевести текст на экране: {reason}',
+  offerQuestion: 'Язык плагина {plugin}: {source}. Перевести на язык «{target}»?',
+  offerLater: 'Не сейчас',
+  offerNever: 'Никогда для этого плагина',
+  offerWorking: 'Перевод плагина {plugin} на язык «{target}»...',
+  offerSuccess: 'Плагин {plugin} переведён на язык «{target}».',
+  offerOriginal: 'Показать оригинал',
+  offerRestoring: 'Восстановление исходного текста плагина {plugin}...',
+  offerRestoreFailed: 'Не удалось восстановить исходный текст: {reason}',
+  offerUnknownError: 'Повторите попытку или проверьте модель перевода в настройках.',
 } satisfies Record<PluginI18nLocaleKey, string>
 
 /** Portuguese dictionary, checked against the English keys. */
@@ -281,4 +344,13 @@ export const pt = {
   screenLine: '{count} textos na tela traduzidos',
   screenShow: 'Mostrar textos na tela ({count})',
   screenFailed: 'A tradução do texto na tela falhou: {reason}',
+  offerQuestion: '{plugin} está em {source}. Traduzir para {target}?',
+  offerLater: 'Agora não',
+  offerNever: 'Nunca para este plugin',
+  offerWorking: 'Traduzindo {plugin} para {target}...',
+  offerSuccess: '{plugin} foi traduzido para {target}.',
+  offerOriginal: 'Mostrar original',
+  offerRestoring: 'Restaurando o texto original de {plugin}...',
+  offerRestoreFailed: 'Não foi possível restaurar o texto original: {reason}',
+  offerUnknownError: 'Tente novamente ou verifique o modelo de tradução nas configurações.',
 } satisfies Record<PluginI18nLocaleKey, string>

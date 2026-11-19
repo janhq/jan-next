@@ -1,4 +1,5 @@
-/** Unicode-script heuristic that tells text written for another language from text that suits the UI locale. */
+/** Local language detection for plugin interface text. */
+import type { eld as Eld } from 'eld/extrasmall'
 
 /** A non-Latin script the heuristic tracks. */
 export type Script = 'han' | 'kana' | 'hangul' | 'cyrillic' | 'arabic' | 'hebrew' | 'thai' | 'devanagari' | 'greek'
@@ -65,4 +66,61 @@ export function mismatchesLocale(text: string, locale: string): boolean {
   const allowed = localeScripts(locale)
   for (const script of scriptsOf(text)) if (!allowed.includes(script)) return true
   return false
+}
+
+/** Language part shared by regional variants of a BCP-47 tag. */
+export function primaryLanguage(locale: string): string {
+  return locale.toLowerCase().split('-', 1)[0] ?? ''
+}
+
+// Kana and Hangul decide before Han: Japanese and Korean text can contain all three sorts of CJK glyphs.
+const SCRIPT_LANGUAGES: readonly (readonly [Script, string])[] = [
+  ['kana', 'ja'], ['hangul', 'ko'], ['han', 'zh'], ['cyrillic', 'ru'], ['arabic', 'ar'],
+  ['hebrew', 'he'], ['thai', 'th'], ['devanagari', 'hi'], ['greek', 'el'],
+]
+const FILE_OR_ADDRESS = /(?:^\w+:\/\/|^\S*[\/\\]\S*$|\.[\p{L}\p{N}]{1,10}$)/u
+const LATIN_WORD = /\p{Script=Latin}{2,}/gu
+const IDENTIFIER = /\S*(?:_|[a-z][A-Z])\S*/g
+
+/** Pending ELD load, a plausible language, or no strong evidence of a mismatch. */
+export type LanguageDetection = string | undefined | Promise<void>
+
+let detector: typeof Eld | undefined
+let loading: Promise<void> | undefined
+let unavailable = false
+
+export function foreignLanguage(text: string, locale: string): LanguageDetection {
+  const copy = text.trim()
+  if (copy.length < 2 || FILE_OR_ADDRESS.test(copy)) return undefined
+  const target = primaryLanguage(locale)
+  if (BEYOND_LATIN.test(copy)) {
+    const scripts = scriptsOf(copy)
+    const script = SCRIPT_LANGUAGES.find(([candidate]) => scripts.has(candidate))
+    if (script !== undefined) {
+      const [family, fallback] = script
+      if (detector !== undefined && (family === 'cyrillic' || family === 'arabic' || family === 'devanagari')) {
+        const detected = detector.detect(copy.slice(0, 400))
+        if (detected.language && detected.isReliable()) return detected.language === target ? undefined : detected.language
+      }
+      return localeScripts(locale).includes(family) ? undefined : fallback
+    }
+  }
+
+  // Do not feed codes, single words, or measurements to a model trained on prose. Cap work on large nodes.
+  const prose = copy.slice(0, 400).normalize('NFC').replace(IDENTIFIER, ' ')
+  const words = prose.match(LATIN_WORD)
+  if (words === null || words.length < 2 || words.reduce((sum, word) => sum + word.length, 0) < 9) return undefined
+  if (detector === undefined) {
+    if (unavailable) return undefined
+    loading ??= import('eld/extrasmall').then(({ eld }) => { detector = eld }, () => { unavailable = true })
+    return loading
+  }
+  const detection = detector.detect(prose)
+  const language = detection.language
+  if (language === '' || language === target || !detection.isReliable()) return undefined
+  const scores = detection.getScores()
+  const winner = scores[language] ?? 0
+  let runnerUp = 0
+  for (const id in scores) if (id !== language) runnerUp = Math.max(runnerUp, scores[id] ?? 0)
+  return winner >= 0.68 && winner - runnerUp >= 0.10 ? language : undefined
 }
