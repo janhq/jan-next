@@ -9,7 +9,7 @@ window.__ModuleLoader__.load({
     const {
       IconPluginPinwheelOutlineRegular, IconCheckOutlineRegular, IconFolderCloseRegular, IconSettingsOutlineMedium, IconSettingsOutlineRegular,
       IconNewChatOutlineMedium, IconNewChatOutlineRegular, IconProjectAddOutlineRegular, IconSearchOutlineRegular,
-      MenuItemButton, Button, Switch, IconLayersOutlineRegular, IconClockOutlineRegular,
+      MenuItemButton, Button, Switch, IconLayersOutlineRegular, IconClockOutlineRegular, IconAppsAddOutlineRegular,
       IconToolOutlineMedium, IconSkillOutlineMedium,
       NavRow, SectionHeading, ColorSwatchGroup, ProjectCard, WindowControls,
       Modal, ShortcutKeys, FileTypeIcon, rankByName, IconSparkleRegular, IconRightUpOutlineRegular,
@@ -664,12 +664,13 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
     // Each destination with something to create carries a hover "+" for it.
     function WorkspaceActions({
       wide, onSearch, searchShortcut, usePanelInfo, usePluginsAvailable, useArtifactsAvailable, useScheduledAvailable,
-      openPanel, addProject, newChat, createPlugin, t,
+      useHubAvailable, openPanel, addProject, newChat, createPlugin, t,
     }) {
       const active = usePanelInfo((info) => info.activePanelId)
       const plugins = usePluginsAvailable((value) => value)
       const artifacts = useArtifactsAvailable((value) => value)
       const scheduled = useScheduledAvailable((value) => value)
+      const hub = useHubAvailable((value) => value)
       const size = wide ? 16 : 18
       // The opening click must not reach the browser's outside-click dismissor.
       const requestSearch = (event) => {
@@ -686,6 +687,10 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           icon: h(IconFolderCloseRegular, { size }), label: t('projects'), rail: !wide,
           current: active === PROJECTS_PANEL, onClick: () => { openPanel(PROJECTS_PANEL) },
           quick: { label: t('newProject'), onClick: () => { void addProject() } },
+        }),
+        hub && h(NavRow, {
+          icon: h(IconAppsAddOutlineRegular, { size }), label: t('hub'), rail: !wide,
+          current: active === HUB_PANEL, onClick: () => { openPanel(HUB_PANEL) },
         }),
         artifacts && h(NavRow, {
           icon: h(IconLayersOutlineRegular, { size }), label: t('artifacts'), rail: !wide,
@@ -731,10 +736,10 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
     }
 
     // Jan has no panel launcher rows, so the native More menu becomes the one
-    // list of the remaining management pages (Plugins, Artifacts and Scheduled
-    // have nav rows).
+    // list of the remaining management pages (Plugins, Hub, Artifacts and
+    // Scheduled have nav rows).
     function PanelDestinations({ entries, onOpen, onDismiss }) {
-      const rows = entries.filter(entry => entry.id !== 'plugins' && entry.id !== ARTIFACTS_PANEL && entry.id !== SCHEDULED_PANEL)
+      const rows = entries.filter(entry => entry.id !== 'plugins' && entry.id !== ARTIFACTS_PANEL && entry.id !== SCHEDULED_PANEL && entry.id !== HUB_PANEL)
       return h(React.Fragment, null, rows.map(entry => h(MenuItemButton, {
         key: entry.id, current: entry.active === true,
         onSelect: () => { onDismiss(); onOpen(entry.id) },
@@ -769,6 +774,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
     const ARTIFACTS_PANEL = 'artifacts'
     // Registered by ui-schedule; the row appears only while it is.
     const SCHEDULED_PANEL = 'schedules'
+    // Registered by the model-hub plugin; the row appears only while it is.
+    const HUB_PANEL = 'jan-model-hub'
     const relative = (iso) => {
       const minutes = Math.round((Date.now() - Date.parse(iso)) / 60000)
       if (!(minutes >= 0)) return ''
@@ -1154,7 +1161,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           h('button', { type: 'button', className: 'jt-startup-close', 'aria-label': `Dismiss ${item.name} notice`, onClick: () => dismiss(item) }, h(IconCloseOutlineRegular, { size: 16 })))))
     }
     function SearchPalette({
-      usePalette, useSessions, useWorkspaces, useCatalog, useArtifactsAvailable, useScheduledAvailable, usePluginsAvailable,
+      usePalette, useSessions, useWorkspaces, useCatalog, useArtifactsAvailable, useScheduledAvailable, usePluginsAvailable, useHubAvailable,
       useSettingsTargets, closePalette, loadSchedules, openChat, openProject, openArtifact, openPanel, openSettings, runCommand, t,
     }) {
       const { open, seq, kind: initialKind } = usePalette(value => value)
@@ -1165,6 +1172,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       const artifactsAvailable = useArtifactsAvailable(value => value)
       const scheduledAvailable = useScheduledAvailable(value => value)
       const pluginsAvailable = usePluginsAvailable(value => value)
+      const hubAvailable = useHubAvailable(value => value)
       const [query, setQuery] = React.useState('')
       const [kind, setKind] = React.useState('all')
       const [active, setActive] = React.useState(0)
@@ -1226,6 +1234,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           ['projects', PROJECTS_PANEL, true],
           ['artifacts', ARTIFACTS_PANEL, artifactsAvailable],
           ['scheduled', SCHEDULED_PANEL, scheduledAvailable],
+          ['hub', HUB_PANEL, hubAvailable],
           ['plugins', 'plugins', pluginsAvailable],
         ]
         const actions = [
@@ -1396,6 +1405,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               newProject: 'New project',
               search: 'Search',
               projects: 'Projects', plugins: 'Plugins', settings: 'Settings', artifacts: 'Artifacts', scheduled: 'Scheduled',
+              hub: 'Hub',
               newArtifact: 'New artifact', createPlugin: 'Create plugin',
               'newArtifact.prompt': 'Create a file for me: ',
               'createPlugin.prompt': 'Create a Jan plugin with a left sidebar entry.',
@@ -1517,6 +1527,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.updated': '{ago}前更新',
               'section.mcp': 'MCP 服务器', 'section.skills': '技能',
               scheduled: '定时任务', 'palette.title': '搜索', 'palette.placeholder': '搜索对话、成果、项目和操作',
+              hub: '模型中心',
               'palette.filter': '筛选结果', 'palette.all': '全部', 'palette.recents': '最近', 'palette.actions': '操作',
               'palette.goTo': '前往{page}', 'palette.nothing': '暂无内容', 'palette.noResults': '没有与“{query}”匹配的结果',
               'palette.navigate': '选择', 'palette.open': '打开', 'palette.close': '关闭',
@@ -1583,6 +1594,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.updated': '{ago}前に更新',
               'section.mcp': 'MCP サーバー', 'section.skills': 'スキル',
               scheduled: 'スケジュール', 'palette.title': '検索', 'palette.placeholder': 'チャット、成果物、プロジェクト、操作を検索',
+              hub: 'ハブ',
               'palette.filter': '結果を絞り込む', 'palette.all': 'すべて', 'palette.recents': '最近', 'palette.actions': '操作',
               'palette.goTo': '{page}へ移動', 'palette.nothing': 'まだ何もありません', 'palette.noResults': '「{query}」に一致する結果はありません',
               'palette.navigate': '移動', 'palette.open': '開く', 'palette.close': '閉じる',
@@ -1649,6 +1661,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.updated': 'actualizado hace {ago}',
               'section.mcp': 'Servidores MCP', 'section.skills': 'Habilidades',
               scheduled: 'Programadas', 'palette.title': 'Buscar', 'palette.placeholder': 'Buscar chats, artefactos, proyectos y acciones',
+              hub: 'Hub',
               'palette.filter': 'Filtrar resultados', 'palette.all': 'Todo', 'palette.recents': 'Recientes', 'palette.actions': 'Acciones',
               'palette.goTo': 'Ir a {page}', 'palette.nothing': 'Todavía no hay nada', 'palette.noResults': 'No hay resultados para “{query}”',
               'palette.navigate': 'Navegar', 'palette.open': 'Abrir', 'palette.close': 'Cerrar',
@@ -1715,6 +1728,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.updated': 'mis à jour il y a {ago}',
               'section.mcp': 'Serveurs MCP', 'section.skills': 'Compétences',
               scheduled: 'Planifiées', 'palette.title': 'Rechercher', 'palette.placeholder': 'Rechercher des discussions, artefacts, projets et actions',
+              hub: 'Hub',
               'palette.filter': 'Filtrer les résultats', 'palette.all': 'Tout', 'palette.recents': 'Récents', 'palette.actions': 'Actions',
               'palette.goTo': 'Aller à {page}', 'palette.nothing': 'Rien pour le moment', 'palette.noResults': 'Aucun résultat pour « {query} »',
               'palette.navigate': 'Naviguer', 'palette.open': 'Ouvrir', 'palette.close': 'Fermer',
@@ -1781,6 +1795,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.updated': 'vor {ago} aktualisiert',
               'section.mcp': 'MCP-Server', 'section.skills': 'Skills',
               scheduled: 'Geplant', 'palette.title': 'Suchen', 'palette.placeholder': 'Chats, Artefakte, Projekte und Aktionen suchen',
+              hub: 'Hub',
               'palette.filter': 'Ergebnisse filtern', 'palette.all': 'Alle', 'palette.recents': 'Zuletzt', 'palette.actions': 'Aktionen',
               'palette.goTo': 'Zu {page}', 'palette.nothing': 'Noch nichts vorhanden', 'palette.noResults': 'Keine Ergebnisse für „{query}“',
               'palette.navigate': 'Auswählen', 'palette.open': 'Öffnen', 'palette.close': 'Schließen',
@@ -1847,6 +1862,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.updated': 'обновлено {ago} назад',
               'section.mcp': 'MCP-серверы', 'section.skills': 'Навыки',
               scheduled: 'Запланированные', 'palette.title': 'Поиск', 'palette.placeholder': 'Поиск чатов, артефактов, проектов и действий',
+              hub: 'Хаб',
               'palette.filter': 'Фильтр результатов', 'palette.all': 'Все', 'palette.recents': 'Недавние', 'palette.actions': 'Действия',
               'palette.goTo': 'Перейти: {page}', 'palette.nothing': 'Здесь пока пусто', 'palette.noResults': 'Нет результатов для «{query}»',
               'palette.navigate': 'Выбор', 'palette.open': 'Открыть', 'palette.close': 'Закрыть',
@@ -1913,6 +1929,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.updated': 'atualizado há {ago}',
               'section.mcp': 'Servidores MCP', 'section.skills': 'Habilidades',
               scheduled: 'Agendadas', 'palette.title': 'Pesquisar', 'palette.placeholder': 'Pesquisar conversas, artefatos, projetos e ações',
+              hub: 'Hub',
               'palette.filter': 'Filtrar resultados', 'palette.all': 'Tudo', 'palette.recents': 'Recentes', 'palette.actions': 'Ações',
               'palette.goTo': 'Ir para {page}', 'palette.nothing': 'Nada aqui ainda', 'palette.noResults': 'Nenhum resultado para “{query}”',
               'palette.navigate': 'Navegar', 'palette.open': 'Abrir', 'palette.close': 'Fechar',
@@ -1999,6 +2016,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
                 pluginsAvailable: mainKeyAvailable('plugins'),
                 artifactsAvailable: mainKeyAvailable(ARTIFACTS_PANEL),
                 scheduledAvailable: mainKeyAvailable(SCHEDULED_PANEL),
+                hubAvailable: mainKeyAvailable(HUB_PANEL),
               },
               openPanel: (id) => scope.layout.selectPanel(id),
               addProject,
@@ -2138,6 +2156,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
                 catalog: scope.shortcuts.catalog,
                 artifactsAvailable: mainKeyAvailable(ARTIFACTS_PANEL),
                 scheduledAvailable: mainKeyAvailable(SCHEDULED_PANEL),
+                hubAvailable: mainKeyAvailable(HUB_PANEL),
                 pluginsAvailable: mainKeyAvailable('plugins'),
                 settingsTargets,
               },
