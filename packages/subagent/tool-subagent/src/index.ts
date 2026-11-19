@@ -218,6 +218,10 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
     const selectionDescription = providerRouteDefaults !== undefined
       ? ' Omit `provider`, `model`, and `reasoning_effort` to use child defaults, falling back to this backend\'s route defaults.'
       : ' Omit `provider`, `model`, and `reasoning_effort` to use child defaults, falling back to compatible parent values.'
+    const roleChoices = presets.choices?.map((id) => {
+      const description = ctx.get('agentPresets')?.descriptionFor(id)
+      return description === undefined ? id : `${id}: ${description}`
+    })
     const definition = defineTool({
       name: toolName,
       description: wording.description
