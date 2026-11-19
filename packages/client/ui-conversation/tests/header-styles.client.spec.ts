@@ -11,8 +11,8 @@ describe('conversation header geometry', () => {
     expect(narrow).toContain('padding-left: 0')
   })
 
-  it('keeps the single-line header at the shared 76px height', () => {
-    expect(css.match(/\.header\s*\{([^}]*)\}/)?.[1]).toContain('min-height: 76px')
+  it('keeps the single-line header 66px below the shared title inset (76px at the 10px default)', () => {
+    expect(css.match(/\.header\s*\{([^}]*)\}/)?.[1]).toContain('min-height: calc(66px + var(--jan-frame-title-inset, 10px))')
     expect(css.match(/\.viewTabs\s*\{([^}]*)\}/)?.[1]).toContain('min-height: 25px')
     // The tab's 35px press target sits 10px above its 25px row through a negative top margin.
     expect(css.match(/\.tab\s*\{([^}]*)\}/)?.[1]).toContain('min-height: 35px')
