@@ -39,6 +39,7 @@ export class DesktopOnboardingController {
    * @param account - safe account state, initially unresolved.
    * @param settings - shared settings reader exposing initial failures and retry.
    * @param readApiKeyPresence - reads configured model-credential metadata without secrets.
+   * @param disableStockApiKeyShortcut - keep API-key discovery from completing onboarding while a replacement is unregistered.
    */
   constructor(
     private readonly progress: ConfigForm<OnboardingSettings>,
@@ -47,6 +48,7 @@ export class DesktopOnboardingController {
     private readonly account: HostObservable<AccountSnapshot>,
     private readonly readApiKeyPresence: () => Promise<boolean>,
     private readonly settings: SettingsDescribeFace,
+    private readonly disableStockApiKeyShortcut = false,
   ) {
     this.disposers = [
       settings.subscribe(() => { this.derive() }),
@@ -246,7 +248,7 @@ export class DesktopOnboardingController {
       error: unavailable || readFailed ? 'settings' : this.error,
     }
     if (!shallowEqual(previous, next)) this.state.set(next)
-    if (this.customFlow || done || this.saving || this.completing || this.draft !== undefined || unavailable || host.status !== 'ready' || this.chat.getSnapshot().status !== 'ready'
+    if (this.disableStockApiKeyShortcut || this.customFlow || done || this.saving || this.completing || this.draft !== undefined || unavailable || host.status !== 'ready' || this.chat.getSnapshot().status !== 'ready'
       || account?.status !== 'signed-out') return
     if (this.hasApiKey === true && this.error === null) {
       // Jan: an API key (every Jan import carries one) is not a choice of Coding Tools.

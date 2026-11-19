@@ -30,6 +30,7 @@ async function harness(options: {
   failRead?: () => boolean
   waitSettings?: Promise<void>
   customFlow?: boolean
+  disableStockApiKeyShortcut?: boolean
 } = {}) {
   const data: Record<string, unknown> = {
     [DESKTOP_ONBOARDING_NAMESPACE]: OnboardingSettingsSchema({ purpose: null, process: null, completion: null, ...options.progress }),
@@ -77,7 +78,9 @@ async function harness(options: {
   cleanup.push(() => developerScope.dispose())
   const account = createSnapshotStore(accountState(options.status))
   const readKeys = vi.fn(options.keys ?? (async () => false))
-  const controller = new DesktopOnboardingController(progress, chat, setDeveloperTools, account, readKeys, mirror)
+  const controller = new DesktopOnboardingController(
+    progress, chat, setDeveloperTools, account, readKeys, mirror, options.disableStockApiKeyShortcut,
+  )
   if (options.customFlow) controller.setCustomFlow(true)
   cleanup.push(() => progress.dispose(), () => chat.dispose(), () => { controller.dispose() })
   const loaded = mirror.load()
@@ -106,6 +109,18 @@ describe('desktop onboarding lifecycle', () => {
     const h = await harness({ status: 'signed-out', keys: async () => true, customFlow: true })
     expect(h.readKeys).not.toHaveBeenCalled()
     expect(h.controller.state.getSnapshot()).toMatchObject({ visible: true, progress: { step: 'welcome' } })
+  })
+
+  it('does not persist the stock API-key shortcut while a configured replacement reloads', async () => {
+    const h = await harness({ status: 'signed-out', keys: async () => true, disableStockApiKeyShortcut: true, customFlow: true })
+    h.controller.setCustomFlow(false)
+    await Promise.resolve()
+    expect(h.readKeys).not.toHaveBeenCalled()
+    expect(h.mutate).not.toHaveBeenCalled()
+    h.controller.setCustomFlow(true)
+    expect(h.controller.state.getSnapshot()).toMatchObject({ visible: true, progress: { step: 'welcome' } })
+    expect(await h.controller.finishCustomFlow(null)).toBe(true)
+    expect(h.controller.state.getSnapshot()).toMatchObject({ visible: false, progress: { completion: 'skipped' } })
   })
 
   it('counts bonus-only credit before entry', async () => {
