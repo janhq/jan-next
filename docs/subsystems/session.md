@@ -870,6 +870,14 @@ resolveAgent(sessionId: SessionId): Promise<ApiSessionAgentResult>
 @Remote('selectModel') selectModel(request: SessionSelectModelRequest): Promise<SessionSelectModelValue>
 
 /**
+ * Price the system prompt, tool schemas, and runtime context the Session's next request would inject.
+ * @param request - Session identity.
+ * @param signal - cancels tool resolution and prompt assembly.
+ * @returns heuristic token prices, or null while the Session has no model selection.
+ */
+@Remote('contextPreview') async contextPreview(request: SessionContextPreviewRequest, signal: AbortSignal): Promise<SessionContextPreviewValue | null>
+
+/**
  * Describe every currently routable model for Host-generation selectors.
  * @returns provider-grouped models, the deployment default, and isolated provider failures.
  */
