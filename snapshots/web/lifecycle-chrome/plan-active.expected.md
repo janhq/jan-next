@@ -1,10 +1,14 @@
 - button "New session"
 - button "Collapse sidebar"
+- button "Back" [disabled]
+- button "Forward" [disabled]
 - button "New session": New Session
 - navigation "Global panels":
   - button "Plugins"
   - button "Scheduled"
   - button "Unpin Scheduled from sidebar"
+  - button "Artifacts"
+  - button "Unpin Artifacts from sidebar"
   - button "More"
 - text: Workspaces
 - button "Search sessions"
@@ -14,7 +18,7 @@
 - tree "Sessions":
   - treeitem "workspace" [expanded]
   - treeitem "New Session" [selected]
-- button "Account menu": More
+- button "Account menu": Jan ·Local
 - banner:
   - button "Open right sidebar"
 - text: Into the Unknown Preview
