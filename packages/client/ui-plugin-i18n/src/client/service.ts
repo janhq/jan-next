@@ -331,7 +331,10 @@ export class PluginI18nClient implements PluginI18nService {
     return lacks ? { pkg: subject.pkg, locale, language: languageName(locale), route: state.route } : null
   }
 
-  /** Replace the installed plugin descriptions used for display names and for offers before a panel opens. */
+  /**
+   * Replace the installed plugin descriptions used for display names and for offers before a panel opens.
+   * @param packages - each installed package's name, title, and display text.
+   */
   setPackages(packages: readonly (TranslationSubject & { title: LocalizedText })[]): void {
     if (this.disposed) return
     this.packages.clear()

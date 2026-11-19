@@ -68,7 +68,11 @@ export function mismatchesLocale(text: string, locale: string): boolean {
   return false
 }
 
-/** Language part shared by regional variants of a BCP-47 tag. */
+/**
+ * Language part shared by regional variants of a BCP-47 tag.
+ * @param locale - BCP-47 locale tag.
+ * @returns the lowercase primary language subtag.
+ */
 export function primaryLanguage(locale: string): string {
   return locale.toLowerCase().split('-', 1)[0] ?? ''
 }
@@ -89,6 +93,12 @@ let detector: typeof Eld | undefined
 let loading: Promise<void> | undefined
 let unavailable = false
 
+/**
+ * Guess the language of display text that does not match the active locale.
+ * @param text - text a plugin displays.
+ * @param locale - active locale.
+ * @returns the foreign language, undefined without strong evidence, or a pending detector load to retry after.
+ */
 export function foreignLanguage(text: string, locale: string): LanguageDetection {
   const copy = text.trim()
   if (copy.length < 2 || FILE_OR_ADDRESS.test(copy)) return undefined
