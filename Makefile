@@ -1,7 +1,7 @@
 # Short names for the Web and Desktop application commands. The package.json
 # scripts they call stay the source of truth; docs/development.md documents both.
 .DEFAULT_GOAL := help
-.PHONY: help build clean web desktop dev-web dev-desktop llama-worker
+.PHONY: help build clean web desktop dev-web dev-desktop llama-worker package package-dir package-check
 
 PNPM ?= pnpm
 ARGS ?=
@@ -22,6 +22,10 @@ help:
 	@echo "make dev-web       pnpm run dev:web         build the local model worker and Web, serve, and rebuild Web on source edits"
 	@echo "make dev-desktop   pnpm run dev:desktop     build the local model worker and Desktop, then launch Desktop"
 	@echo "make llama-worker  build:llama-worker, stage:llama-worker   build and stage the local model worker"
+	@echo "make package       pnpm run package:desktop:unsigned   build the worker, then an unsigned installer for this machine"
+	@echo "                   (macOS DMG, Windows .exe, Linux AppImage and .deb) in apps/desktop/.desktop-build/targets/<target>/unsigned-artifacts"
+	@echo "make package-dir   pnpm run package:desktop:unsigned:dir   same, stopping at the unpacked application"
+	@echo "make package-check pnpm run package:desktop:unsigned --check   check tools and configuration without building"
 	@echo "ARGS='--no-open --port 3081' forwards options to the launched application;"
 	@echo "the Web commands accept jan web flags, the Desktop launcher accepts none."
 	@echo "LLAMA_WORKER_FEATURES=$(LLAMA_WORKER_FEATURES) selects the worker's cargo features."
@@ -47,3 +51,12 @@ dev-desktop: llama-worker
 llama-worker:
 	$(PNPM) run build:llama-worker --features $(LLAMA_WORKER_FEATURES)
 	$(PNPM) run stage:llama-worker
+
+package: llama-worker
+	$(PNPM) run package:desktop:unsigned $(ARGS)
+
+package-dir: llama-worker
+	$(PNPM) run package:desktop:unsigned:dir $(ARGS)
+
+package-check:
+	$(PNPM) run package:desktop:unsigned --check $(ARGS)
