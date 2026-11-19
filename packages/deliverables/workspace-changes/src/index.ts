@@ -180,7 +180,7 @@ export function apply(ctx: Context, config: Config): void {
     const session = exec.agent?.session
     const recorder = session === undefined ? undefined : recorders.get(session)
     if (recorder !== undefined) {
-      if (!await recorder.waitForTool(exec.signal)) return { kind: 'cancel' }
+      if (!await recorder.waitForTool(exec.signal, exec.yieldSignal)) return { kind: 'cancel' }
       mutations.set(exec, recorder)
     }
     return next()
