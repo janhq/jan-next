@@ -3,7 +3,8 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useSyncExternalStore } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createSnapshotStore } from '@janhq/jan-client-store'
-import { makeTranslate } from '@janhq/jan-client-test-runtime'
+import { allowAllAccess, contextMenuHook, makeTranslate } from '@janhq/jan-client-test-runtime'
+import type { LocaleSnapshot } from '@janhq/jan-client-locale/client'
 import type { PluginI18nJob } from '@janhq/jan-api-remotes/client'
 import { PluginTranslationPrompt, type PluginTranslationPromptProps } from '../src/client/PluginTranslationPrompt.tsx'
 import type { PluginTranslationSuggestion } from '../src/client/service.ts'
@@ -14,6 +15,8 @@ afterEach(cleanup)
 const cad: PluginTranslationSuggestion = { pkg: 'dsh-cad', title: 'CAD', language: 'zh', languageName: 'Chinese', target: 'en' }
 const ppt: PluginTranslationSuggestion = { ...cad, pkg: 'dsh-ppt', title: 'Presentations' }
 const done: PluginI18nJob = { pkg: cad.pkg, locale: 'en', state: 'done', done: 0, total: 0 }
+const locale: LocaleSnapshot = { active: 'en', locales: [], revision: 0 }
+const unread = (): never => { throw new Error('The translation prompt must not read application state') }
 
 function mount() {
   const suggestions = createSnapshotStore<readonly PluginTranslationSuggestion[]>([cad, ppt])
@@ -21,8 +24,10 @@ function mount() {
   const clear = vi.fn(async (_pkg: string) => {})
   const dismiss = vi.fn((pkg: string) => { suggestions.set(suggestions.getSnapshot().filter(item => item.pkg !== pkg)) })
   render(<PluginTranslationPrompt
+    usePanelInfo={unread} useSessions={unread} useSessionStatus={unread} useSessionRetainInfo={unread}
+    useWorkspaces={unread} useResource={unread} useContextMenu={contextMenuHook()} {...allowAllAccess}
     t={makeTranslate(en, {})}
-    useLocale={select => select({ active: 'en' })}
+    useLocale={select => select(locale)}
     useSuggestions={select => select(useSyncExternalStore(listener => suggestions.subscribe(listener), () => suggestions.getSnapshot()))}
     translate={translate}
     clear={clear}
