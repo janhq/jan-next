@@ -76,7 +76,7 @@ const CHROME_ROWS: readonly ChromeRow[] = [
     file: SIDEBAR,
     selector: '.topStrip',
     markup: 'client/ui-sidebar/src/client/SidebarRoot.tsx',
-    height: ['height', '52px'],
+    height: ['height', 'calc(2 * var(--jan-frame-title-inset, 10px) + 32px)'],
   },
   {
     file: SIDEBAR,
