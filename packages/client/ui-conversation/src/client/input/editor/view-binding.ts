@@ -40,6 +40,8 @@ interface DraftViewGate {
   uploadsHeldText: string
   showToast: (text: string) => void
   canAcceptDrop: boolean
+  /** Called after pasted text landed in the draft; the bar may offer to attach it instead. */
+  pastedText: (text: string) => void
 }
 
 /**
@@ -161,6 +163,7 @@ export function installDraftKeymap(
     pasteText: (text) => {
       if (gate.current.machineBusy || gate.current.locked) return
       keyboard.paste(text)
+      gate.current.pastedText(text)
     },
   })
 }

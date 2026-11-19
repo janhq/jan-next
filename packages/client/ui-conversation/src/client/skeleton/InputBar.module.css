@@ -51,6 +51,48 @@
   line-height: 18px;
 }
 
+/* Large-paste offer: the notice strip with an inline action and a dismiss. */
+.pasteOffer {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pasteOfferText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pasteOfferAction,
+.pasteOfferDismiss {
+  flex: none;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.pasteOfferAction {
+  color: var(--dsw-alias-label-primary);
+  font-weight: 500;
+}
+
+.pasteOfferDismiss {
+  display: inline-flex;
+  align-items: center;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+@media (hover: hover) {
+  .pasteOfferAction:hover { text-decoration: underline; }
+  .pasteOfferDismiss:hover { color: var(--dsw-alias-label-secondary); }
+}
+
 .card {
   box-sizing: border-box;
   position: relative; /* overlay anchor positioning context */
