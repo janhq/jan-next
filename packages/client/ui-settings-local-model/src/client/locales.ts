@@ -28,11 +28,6 @@ const MANAGER_EN = {
   statusUnloaded: 'Not loaded',
   modelContext: '{tokens}-token context',
   trainedContext: 'trained on {tokens} tokens',
-  contextLengthLabel: 'Context length',
-  contextMax: 'Maximum: {tokens} tokens',
-  autoFitLabel: 'Auto-fit',
-  autoFitHint: 'Automatically choose GPU offload to fit this computer\'s memory.',
-  invalidContext: 'Enter a context length between 1 and the model maximum.',
   fitFits: 'Fits',
   fitTight: 'Tight fit',
   fitTooLarge: 'Too large',
@@ -90,6 +85,11 @@ const MANAGER_EN = {
 /** English dictionary. */
 export const en = {
   ...MANAGER_EN,
+  contextLengthLabel: 'Context length',
+  contextMax: 'Maximum: {tokens} tokens',
+  autoFitLabel: 'Auto-fit',
+  autoFitHint: 'Automatically choose GPU offload to fit this computer\'s memory.',
+  invalidContext: 'Enter a context length between 1 and the model maximum.',
   contextInfo: 'Context window: {tokens} tokens',
   title: 'Local model',
   subtitle: 'Runs on this computer with llama.cpp. Works offline; nothing leaves your machine.',
