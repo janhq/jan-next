@@ -270,7 +270,7 @@ Translates plugin text and serves the cached results.
 /**
  * Read everything a client registers at start-up for one locale.
  * @param locale - target locale.
- * @returns each package's generated text and, when titles may be translated, the runtime strings.
+ * @returns each package's generated text and, when translation consent exists, cached runtime strings.
  * @throws {RemoteError} `plugin-i18n/invalid-locale`.
  */
 @Remote async tables(locale: string): Promise<PluginI18nTables>
@@ -438,6 +438,14 @@ Source: [`packages/boot/plugin-manager/src/index.ts`](../../packages/boot/plugin
 Fetches, validates, and caches configured market indexes; annotates entries with the profile's installation facts.
 
 ```ts cordis-catalog
+/**
+ * Serialize a Downloads-page removal with the repository's fetches.
+ * @param repository - repository whose cached checkout is removed.
+ * @param remove - deletes the checkout once no fetch holds it.
+ * @returns after the removal settles.
+ */
+deleteDownloadCache(repository: string, remove: () => Promise<void>): Promise<void>
+
 /**
  * List the configured index sources without fetching them.
  * @returns every source in order, with the title of its last successful read and, when the last read failed, its error.

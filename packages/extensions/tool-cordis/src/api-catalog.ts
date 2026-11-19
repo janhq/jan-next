@@ -1877,6 +1877,18 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the new context length, or null when the model cannot grow further.',
       },
       {
+        signature: 'listStoredDownloads(home: string): Promise<StoredDownload[]>',
+        description: 'List registry-owned models and files left by Jan\'s GGUF downloader.',
+        parameters: [{ name: 'home', description: 'Jan data folder the paths are relative to.' }],
+        returns: 'the listed models and download files.',
+      },
+      {
+        signature: 'deleteStoredDownload(home: string, path: string): Promise<void>',
+        description: 'Delete one listed artifact without unloading a resident model or touching an imported file.',
+        parameters: [{ name: 'home', description: 'Jan data folder the path is relative to.' }, { name: 'path', description: 'exact Jan-home-relative path from {@link listStoredDownloads}.' }],
+        returns: 'after the artifact is removed.',
+      },
+      {
         signature: 'install(): void',
         description: 'First-run install: download the first-run model, then start the worker. With a model already installed it starts the active model instead. Returns once accepted; progress and outcome arrive through follow. Nothing downloads while the worker is unavailable.',
         parameters: [],
@@ -2030,6 +2042,18 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Stop one download and discard its files, or dismiss it when it failed.',
         parameters: [{ name: 'id', description: 'model id of the download.' }],
         returns: 'after it settles.',
+      },
+      {
+        signature: '@Remote async listStoredDownloads(): Promise<StoredDownload[]>',
+        description: 'Jan\'s on-disk downloads and caches, with paths relative to the Jan data folder.',
+        parameters: [],
+        returns: 'every listed item, sorted by name and then path.',
+      },
+      {
+        signature: '@Remote async deleteStoredDownload(path: string): Promise<void>',
+        description: 'Remove one currently listed download.',
+        parameters: [{ name: 'path', description: 'exact Jan-home-relative path from the list.' }],
+        returns: 'after the files are gone.',
       },
       {
         signature: '@Remote async importModel(path: string, projector?: string): Promise<string>',
@@ -2483,7 +2507,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         signature: '@Remote async tables(locale: string): Promise<PluginI18nTables>',
         description: 'Read everything a client registers at start-up for one locale.',
         parameters: [{ name: 'locale', description: 'target locale.' }],
-        returns: 'each package\'s generated text and, when titles may be translated, the runtime strings.',
+        returns: 'each package\'s generated text and, when translation consent exists, cached runtime strings.',
         throws: ['{RemoteError} `plugin-i18n/invalid-locale`.'],
       },
       {
@@ -2604,6 +2628,17 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     summary: 'Fetches, validates, and caches configured market indexes; annotates entries with the profile\'s installation facts.',
     description: 'Fetches, validates, and caches configured market indexes; annotates entries with the profile\'s installation facts.',
     methods: [
+      {
+        signature: 'readonly downloadCacheDirectory: string',
+        description: 'Directory used exclusively for the market\'s fetched Git repositories.',
+        parameters: [],
+      },
+      {
+        signature: 'deleteDownloadCache(repository: string, remove: () => Promise<void>): Promise<void>',
+        description: 'Serialize a Downloads-page removal with the repository\'s fetches.',
+        parameters: [{ name: 'repository', description: 'repository whose cached checkout is removed.' }, { name: 'remove', description: 'deletes the checkout once no fetch holds it.' }],
+        returns: 'after the removal settles.',
+      },
       {
         signature: '@Remote listIndexes(): MarketIndexSummary[]',
         description: 'List the configured index sources without fetching them.',
@@ -9659,6 +9694,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'StorageForms',
     declaration: 'export interface StorageForms {\n}',
+  },
+  {
+    name: 'StoredDownload',
+    declaration: 'export interface StoredDownload {\n    readonly name: string;\n    readonly kind: \'model\' | \'partial\' | \'cache\';\n    readonly bytes: number;\n    readonly path: string;\n    readonly lastUsed?: number;\n    readonly inUse?: string;\n}',
   },
   {
     name: 'StoredImageAttachment',

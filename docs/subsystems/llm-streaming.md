@@ -1042,6 +1042,21 @@ setModelFit(id: string, fit: boolean): Promise<void>
 increaseModelContext(id: string): Promise<number | null>
 
 /**
+ * List registry-owned models and files left by Jan's GGUF downloader.
+ * @param home - Jan data folder the paths are relative to.
+ * @returns the listed models and download files.
+ */
+listStoredDownloads(home: string): Promise<StoredDownload[]>
+
+/**
+ * Delete one listed artifact without unloading a resident model or touching an imported file.
+ * @param home - Jan data folder the path is relative to.
+ * @param path - exact Jan-home-relative path from {@link listStoredDownloads}.
+ * @returns after the artifact is removed.
+ */
+deleteStoredDownload(home: string, path: string): Promise<void>
+
+/**
  * First-run install: download the first-run model, then start the worker. With a model already
  * installed it starts the active model instead. Returns once accepted; progress and outcome arrive
  * through {@link follow}. Nothing downloads while the worker is unavailable.
@@ -1234,6 +1249,19 @@ Install, start, stop and remove the local models and the worker serving them; pr
  * @returns after it settles.
  */
 @Remote async cancelDownload(id: string): Promise<void>
+
+/**
+ * Jan's on-disk downloads and caches, with paths relative to the Jan data folder.
+ * @returns every listed item, sorted by name and then path.
+ */
+@Remote async listStoredDownloads(): Promise<StoredDownload[]>
+
+/**
+ * Remove one currently listed download.
+ * @param path - exact Jan-home-relative path from the list.
+ * @returns after the files are gone.
+ */
+@Remote async deleteStoredDownload(path: string): Promise<void>
 
 /**
  * Add a GGUF file from this computer, left where it is.
