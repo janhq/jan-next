@@ -286,6 +286,10 @@ export function apply(ctx: ClientContext): void {
         },
       },
       setPinned: guidePins.setPinned,
+      ownerOf: (providerId) => {
+        const owner = ctx.slots.entries('sidebar.right.pane.tab').find(entry => entry.options.key === providerId)?.owner
+        return owner === undefined || owner.startsWith('@janhq/') ? undefined : owner
+      },
     }
     const disposeGuide = ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register({
       name: 'sidebar.right.pane.tab',

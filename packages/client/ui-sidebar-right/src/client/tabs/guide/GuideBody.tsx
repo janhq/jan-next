@@ -50,6 +50,12 @@ export interface GuideInjected {
    * @param pinned - Whether the card shows on the guide.
    */
   readonly setPinned: (id: string, pinned: boolean) => void
+  /**
+   * Name the third-party package that registered a tab type's body, so plugin translation can find the card's text.
+   * @param providerId - the tab type's id, the key its body registers under.
+   * @returns the npm package, or undefined for a first-party or unattributed type.
+   */
+  readonly ownerOf: (providerId: string) => string | undefined
 }
 
 /** The guide body's composed props: the tab it draws, its chain child, and the entries. */
@@ -127,7 +133,7 @@ function ShippedGuide({ children }: { children: ReactNode }): ReactNode {
 
 /** The guide tab's body, replaceable through its chain child. */
 export function GuideBody({
-  useTabInfo, useGuideEntries, renderSlot, renderSlotChain, useShortcuts, useEntryPins, useEntryActions, setPinned, t,
+  useTabInfo, useGuideEntries, renderSlot, renderSlotChain, useShortcuts, useEntryPins, useEntryActions, setPinned, ownerOf, t,
 }: GuideBodyProps): ReactNode {
   const shortcuts = useShortcuts(entries => entries)
   const { tab } = useTabInfo()
@@ -146,7 +152,9 @@ export function GuideBody({
       <ShippedGuide>{visibleEntries.map((entry) => {
         const described = visibleEntries.length <= MAX_DESCRIBED_ENTRIES
         const description = described ? entry.description?.() : undefined
-        return <div key={JSON.stringify([entry.providerId, entry.id])} className={css.entryCell}>
+        // A third-party type's card carries its package, like its own slot entries, so plugin translation covers it.
+        const cellKey = JSON.stringify([entry.providerId, entry.id])
+        return <div key={cellKey} className={css.entryCell} data-plugin-owner={ownerOf(entry.providerId)}>
           {renderSlot('sidebar.right.tab.guide.entry', {
             entryId: entry.id, kind: entry.kind, title: entry.title(),
             ...description === undefined ? {} : { description },
