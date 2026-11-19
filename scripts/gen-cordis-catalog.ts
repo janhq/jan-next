@@ -633,6 +633,8 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   ScheduleSessionCreateSpec: 'schedule.md',
   ScheduleTarget: 'schedule.md',
   ScheduleTargetRequest: 'schedule.md',
+  ScheduleWakeSource: 'schedule.md',
+  ScheduleWakeRegistration: 'schedule.md',
   DailyInput: 'schedule.md',
   DailyScheduleRecord: 'schedule.md',
   RecurringScheduleRecord: 'schedule.md',

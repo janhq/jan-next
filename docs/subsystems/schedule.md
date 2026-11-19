@@ -152,6 +152,14 @@ Shared management service; reads and management writes never activate a Session,
 `sessionPersistence` supplies header-only target validation and the `session/flush` listener that acknowledges durable inbox delivery through `ctx.sessions.flush()`.
 
 ```ts cordis-catalog
+/**
+ * Use this Host's timer for independently persisted deadlines. The source
+ * owns its records; delivery never creates or wakes a Session on its behalf.
+ * @param source - A distinct deadline source with non-blocking reads.
+ * @returns Wake and disposal callbacks owned by the source's plugin effect.
+ */
+registerWakeSource(source: ScheduleWakeSource): ScheduleWakeRegistration
+
 /** Read effective delivery limits without loading or activating a task.
  * @returns The configured minimum spacing between deliveries that each create a Session, in seconds.
  */

@@ -12,6 +12,7 @@ import { SessionId as toSessionId, type SessionId } from '@janhq/jan-session'
 import type { SessionActivity } from '@janhq/jan-workspace'
 import type {} from '@janhq/jan-api-session-controller'
 import { ScheduleRuntime, type ScheduleRuntimeLimits } from './runtime.ts'
+import type { ScheduleWakeRegistration, ScheduleWakeSource } from './runtime.ts'
 import { scheduleDomain, scheduleTaskSchema, type ScheduleTask } from './storage.ts'
 import { deliveryHistoryPage } from './delivery-history.ts'
 import { createScheduleRecord, updateScheduleRecord } from './update.ts'
@@ -25,6 +26,7 @@ import type {
   ScheduleTarget, ScheduleTargetRequest, ScheduleViewRequest, ScheduleViewResult,
 } from './types.ts'
 export type * from './client.ts'
+export type { ScheduleWakeRegistration, ScheduleWakeSource } from './runtime.ts'
 export { scheduleDomain } from './storage.ts'
 export type { ScheduleTask } from './storage.ts'
 export type { RecurringOccurrence } from './domain.ts'
@@ -237,6 +239,7 @@ export class ScheduleService extends TypertRemoteService {
   private chain: Promise<unknown> = Promise.resolve()
   private notifications: Promise<void> = Promise.resolve()
   private runtime: ScheduleRuntime | undefined
+  private readonly wakeSources = new Set<ScheduleWakeSource>()
   private resolveWebAgent: ((sessionId: SessionId) => Promise<Agent>) | undefined
   private stopping = false
 
@@ -312,7 +315,7 @@ export class ScheduleService extends TypertRemoteService {
         (sessionId) => {
           if (this.resolveWebAgent === undefined) throw new Error('schedule: no Session activation provider')
           return this.resolveWebAgent(sessionId)
-        })
+        }, () => this.wakeSources)
       this.runtime.requestDrive()
       return cleanup
     })
@@ -343,6 +346,22 @@ export class ScheduleService extends TypertRemoteService {
 
   async [Service.init](): Promise<void> {
     await this.initialized
+  }
+
+  /**
+   * Use this Host's timer for independently persisted deadlines. The source
+   * owns its records; delivery never creates or wakes a Session on its behalf.
+   * @param source - A distinct deadline source with non-blocking reads.
+   * @returns Wake and disposal callbacks owned by the source's plugin effect.
+   */
+  registerWakeSource(source: ScheduleWakeSource): ScheduleWakeRegistration {
+    if (this.stopping || this.wakeSources.has(source)) throw new Error('schedule: cannot register wake source')
+    this.wakeSources.add(source)
+    this.runtime?.requestDrive()
+    return {
+      wake: () => { if (this.wakeSources.has(source)) this.runtime?.requestDrive() },
+      dispose: () => { if (this.wakeSources.delete(source)) this.runtime?.requestDrive() },
+    }
   }
 
   /** Read effective delivery limits without loading or activating a task.

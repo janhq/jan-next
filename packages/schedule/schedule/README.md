@@ -74,6 +74,8 @@ The `session` target reuses an existing, unarchived, non-delegated Session; unlo
 
 `deleteInactive()` removes all ended tasks in one domain batch and preserves active and paused tasks. It returns the removed count; an empty ended set performs no write. A successful nonempty batch emits `schedule/changed` without Agent notices. A rejected batch also emits the event and rejects without a count; normal failure preserves all rows, while an `unknown-state` failure may have removed rows and quarantines the domain until reopening.
 
+Host plugins that already own durable deadlines can share the clock with `registerWakeSource(source)` without creating Schedule tasks or Sessions. `source.next()` reports the earliest deadline (epoch milliseconds); `source.deliver(now)` acknowledges due work and advances all deadlines at or before that instant. The registration exposes `wake()` to recompute after external changes and `dispose()` to stop new delivery. A source that fails is skipped until another drive; the caller remains responsible for durable acknowledgement and recovery.
+
 <a id="storage-format"></a>
 ### Storage format and upgrades
 

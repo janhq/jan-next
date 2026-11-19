@@ -63,6 +63,26 @@ function batchSessionOf(task: ScheduleTask): SessionIdType | undefined {
     : undefined
 }
 
+/** A timer owner that uses the Host clock without creating Sessions. */
+export interface ScheduleWakeSource {
+  /** @returns Next pending epoch millisecond, or undefined when idle. */
+  next(): number | undefined
+  /**
+   * Admit due work and advance its durable timers before resolving. A successful
+   * call must leave no deadlines at or before the supplied time.
+   * @param now - Wall-clock epoch milliseconds used to select due work.
+   */
+  deliver(now: number): void | Promise<void>
+}
+
+/** Lifecycle handle of a registered durable timer owner. */
+export interface ScheduleWakeRegistration {
+  /** Recompute when a deadline changes outside delivery. */
+  wake(): void
+  /** Stop accepting wakes from this registration. An admitted callback drains normally. */
+  dispose(): void
+}
+
 /** Owns at most one timer across recomputations; delivery and management share the serialized operation. */
 export class ScheduleRuntime {
   private timer: ReturnType<typeof setTimeout> | undefined
@@ -79,6 +99,7 @@ export class ScheduleRuntime {
    * @param changed - Publish a change that has no task write, such as an execution reaching whole-agent idle.
    * @param limits - Resolved retention and new-Session admission limits.
    * @param resolveAgent - Host fallback after embedding activation handlers delegate.
+   * @param wakeSources - Current independently owned deadlines that share the timer.
    */
   constructor(
     private readonly ctx: Context,
@@ -88,6 +109,7 @@ export class ScheduleRuntime {
     private readonly changed: () => void,
     private readonly limits: ScheduleRuntimeLimits,
     private readonly resolveAgent: (sessionId: SessionIdType) => Promise<Agent>,
+    private readonly wakeSources: () => Iterable<ScheduleWakeSource> = () => [],
   ) {}
 
   /**
@@ -210,13 +232,38 @@ export class ScheduleRuntime {
       for (const id of await this.deliverDue(group, session !== undefined)) failed.add(id)
     }
     if (this.stopping) return
-    const next = this.tasks().filter(task => task.status === 'active'
+    const failedSources = new Set<ScheduleWakeSource>()
+    for (const source of this.wakeSources()) {
+      if (this.stopping) return
+      const now = Date.now()
+      try {
+        const due = source.next()
+        if (due === undefined || due > now) continue
+        await source.deliver(now)
+        const next = source.next()
+        if (next !== undefined && next <= now) throw new Error('wake source did not advance its deadline')
+      } catch (error: unknown) {
+        failedSources.add(source)
+        this.ctx.logger.warn(`schedule: wake source failed: ${String(error)}`)
+      }
+    }
+    if (this.stopping) return
+    let next = this.tasks().filter(task => task.status === 'active'
       && !failed.has(task.record.id)
       && !this.executing.has(task.record.id))
       .reduce<number | undefined>((at, task) => {
         const target = Math.max(Date.parse(task.record.scheduledAt), this.nextAdmissionAt(task))
         return at === undefined ? target : Math.min(at, target)
       }, undefined)
+    for (const source of this.wakeSources()) {
+      if (failedSources.has(source)) continue
+      try {
+        const due = source.next()
+        if (due !== undefined && (next === undefined || due < next)) next = due
+      } catch (error: unknown) {
+        this.ctx.logger.warn(`schedule: could not read wake source: ${String(error)}`)
+      }
+    }
     if (next !== undefined) {
       this.timer = setTimeout(() => { this.timer = undefined; this.requestDrive() },
         Math.max(0, Math.min(next - Date.now(), MAX_TIMER_DELAY_MS)))

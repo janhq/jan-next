@@ -2898,6 +2898,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     description: 'Shared management service; reads and management writes never activate a Session, and only delivery creates or resumes one.\n\n`sessionPersistence` supplies header-only target validation and the `session/flush` listener that acknowledges durable inbox delivery through `ctx.sessions.flush()`.',
     methods: [
       {
+        signature: 'registerWakeSource(source: ScheduleWakeSource): ScheduleWakeRegistration',
+        description: 'Use this Host\'s timer for independently persisted deadlines. The source owns its records; delivery never creates or wakes a Session on its behalf.',
+        parameters: [{ name: 'source', description: 'A distinct deadline source with non-blocking reads.' }],
+        returns: 'Wake and disposal callbacks owned by the source\'s plugin effect.',
+      },
+      {
         signature: '@Remote(\'deliveryLimits\') deliveryLimits(): { readonly newSessionIntervalSeconds: number }',
         description: 'Read effective delivery limits without loading or activating a task.',
         parameters: [],
