@@ -1,0 +1,24 @@
+{
+  "name": "@janhq/jan-onboarding",
+  "version": "0.2.2-rc.1",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Personalize the first-run setup in Jan desktop.",
+  "icon": "./icon.svg",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.js",
+    "./package.json": "./package.json",
+    "./icon": "./icon.svg",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": ["index.mjs", "client.js", "client.setup.js", "client.view.js", "client.locale.js", "icon.svg", "locale/*.json"],
+  "dependencies": { "@janhq/schemastery": "workspace:~" },
+  "jan": {
+    "client": {
+      "platform": "web",
+      "inject": ["@janhq/jan-client-ui-settings-account", "@janhq/jan-api-remotes", "@janhq/jan-client-locale"]
+    }
+  }
+}
