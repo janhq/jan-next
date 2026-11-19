@@ -3,7 +3,7 @@ window.__ModuleLoader__.load({
   factory(require) {
     const React = require('react')
     const h = React.createElement
-    const { Button, Input, Checkbox, Modal } = require('@janhq/jan-client-ui-primitives')
+    const { Button, Input, Checkbox, Modal, IconCloseOutlineRegular } = require('@janhq/jan-client-ui-primitives')
     async function call(feature, method, params = {}) {
       const response = await fetch(`/jan-api/${feature}`, { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
       const body = await response.json()
@@ -355,6 +355,7 @@ window.__ModuleLoader__.load({
       const [offer, setOffer] = React.useState(null)
       const [open, setOpen] = React.useState(false)
       const [error, setError] = React.useState('')
+      const [details, setDetails] = React.useState(false)
       // On first launch the client can mount before the Host route is up; ask
       // again a few times before giving up for this launch.
       React.useEffect(() => {
@@ -374,18 +375,19 @@ window.__ModuleLoader__.load({
       }
       if (!offer?.show) return null
       if (open) return h(ImportDialog, { refreshSessions, onClose: () => setOpen(false), onDone: dismiss })
-      // Compact by design: a first-launch user reads one line. The question and
-      // the two choices stay visible; what else was found, the read-only
-      // promise and where to import later sit behind Details.
+      // Compact by design, in the shared Coachmark shape: a title with a close
+      // button (Not now), one short line, and Details / Import. What else was
+      // found, the read-only promise and where to import later sit behind Details.
       return h('section', { className: 'jan-legacy-import-offer', role: 'dialog', 'aria-labelledby': 'jan-legacy-import-offer-title' },
-        h('h2', { id: 'jan-legacy-import-offer-title' }, `Import ${plural(offer.count, 'chat', 'chats')}${offer.extras?.length ? ' and settings' : ''} from Jan?`),
+        h('div', { className: 'jan-legacy-import-offer-head' },
+          h('h2', { id: 'jan-legacy-import-offer-title' }, 'Import your chats from Jan'),
+          h(Button, { size: 'sm', className: 'jan-legacy-import-offer-close', 'aria-label': 'Not now', title: 'Not now', icon: h(IconCloseOutlineRegular), onClick: dismiss })),
+        h('p', null, `${plural(offer.count, 'chat', 'chats')}${offer.extras?.length ? ' and settings' : ''} found.`),
+        details ? h('p', { id: 'jan-legacy-import-offer-details' }, `${offer.extras?.length ? `Settings means your ${listOf(offer.extras)}. ` : ''}Your Jan folder stays unchanged. You can import later from Settings -> Built-in plugins -> Import from Jan.`) : null,
         error ? h('p', { role: 'alert' }, error) : null,
-        h('div', { className: 'jan-legacy-import-actions' },
-          h(Button, { variant: 'primary', onClick: () => setOpen(true) }, 'Review and import'),
-          h(Button, { onClick: dismiss }, 'Not now')),
-        h('details', { className: 'jan-legacy-import-offer-details' },
-          h('summary', null, 'Details'),
-          h('p', null, `Found in the earlier Jan app${offer.extras?.length ? `, along with your ${listOf(offer.extras)}` : ''}. Your Jan folder stays unchanged. You can import later from Settings -> Built-in plugins -> Import from Jan.`)))
+        h('div', { className: 'jan-legacy-import-offer-foot' },
+          h(Button, { size: 'sm', 'aria-expanded': details, 'aria-controls': 'jan-legacy-import-offer-details', onClick: () => setDetails(value => !value) }, details ? 'Hide details' : 'Details'),
+          h(Button, { size: 'sm', variant: 'primary', onClick: () => setOpen(true) }, 'Import')))
     }
     return {
       name: '@janhq/jan-legacy-import',
@@ -451,13 +453,13 @@ window.__ModuleLoader__.load({
 .jan-legacy-import-setting > label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .jan-legacy-import-setting .jan-legacy-import-meta{padding-inline-start:26px;white-space:normal}
 .jan-legacy-import .jan-legacy-import-setting .jan-legacy-import-row-state{padding-inline-start:26px;margin:2px 0 0;list-style:disc;padding-left:40px}
-.jan-legacy-import-offer{position:absolute;top:56px;right:16px;width:min(360px,calc(100% - 32px));display:flex;flex-direction:column;gap:10px;padding:16px;border:1px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-lg);background:var(--dsw-alias-bg-base);box-shadow:0 8px 24px rgb(0 0 0 / 0.12);color:var(--dsw-alias-label-primary)}
-.jan-legacy-import-offer h2{margin:0;font-size:15px;text-wrap:balance}
-.jan-legacy-import-offer p{margin:0;text-wrap:pretty;color:var(--dsw-alias-label-secondary)}
-.jan-legacy-import-offer-details{font-size:13px;color:var(--dsw-alias-label-secondary)}
-.jan-legacy-import-offer-details summary{cursor:pointer;width:fit-content}
-.jan-legacy-import-offer-details summary:hover{color:var(--dsw-alias-label-primary)}
-.jan-legacy-import-offer-details p{margin-top:6px;font-size:13px}
+.jan-legacy-import-offer{position:absolute;top:56px;right:16px;box-sizing:border-box;width:min(300px,calc(100% - 32px));display:flex;flex-direction:column;gap:4px;padding:12px 16px 16px;border-radius:var(--dsw-radius-xl);background:var(--dsw-alias-bg-layer-3);box-shadow:var(--dsw-elevation-prominent);color:var(--dsw-alias-label-primary)}
+.jan-legacy-import-offer-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.jan-legacy-import-offer h2{margin:0;font-size:14px;line-height:20px;font-weight:500}
+.jan-legacy-import-offer-close{flex:none;width:28px;padding:0;margin-inline-end:-4px}
+.jan-legacy-import-offer p{margin:0;font-size:13px;line-height:18px;text-wrap:pretty;color:var(--dsw-alias-label-secondary)}
+.jan-legacy-import-offer-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
+.jan-legacy-import-offer-foot > :first-child{margin-inline-start:-8px;color:var(--dsw-alias-label-secondary)}
 @media (max-width:560px){.jan-legacy-import-row{grid-template-columns:minmax(0,1fr)}.jan-legacy-import-meta{padding-inline-start:26px}}
 `
           document.head.appendChild(style)
