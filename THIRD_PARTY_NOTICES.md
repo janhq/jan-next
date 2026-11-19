@@ -11,7 +11,7 @@ The complete npm transitive closure, including the Landlock launcher workspace, 
 
 ## Vendored source (`vendor/`)
 
-The Cordis framework and its foundation libraries are source-vendored into this repository rather than consumed from npm, and republished under the `@janhq` scope. All are MIT-licensed; each directory preserves its upstream `LICENSE` file. Exact upstream commits and local modifications are recorded in [`vendor/README.md`](vendor/README.md).
+The Cordis framework, its foundation libraries, and the DeepSeek Harness bundles listed below are source-vendored into this repository rather than consumed from npm, and republished under the `@janhq` scope. All are MIT-licensed; each directory preserves its upstream `LICENSE` file. Exact upstream commits and local modifications are recorded in [`vendor/README.md`](vendor/README.md).
 
 | Package | Upstream name | Source | License |
 | --- | --- | --- | --- |
@@ -24,6 +24,7 @@ The Cordis framework and its foundation libraries are source-vendored into this 
 | `@janhq/cordis-plugin-timer` | `@cordisjs/plugin-timer` | [vendor/timer](vendor/timer/) | MIT |
 | `@janhq/cordis-plugin-hmr` | `@cordisjs/plugin-hmr` | [vendor/hmr](vendor/hmr/) | MIT |
 | `@janhq/cordis-plugin-logger-console` | `@cordisjs/plugin-logger-console` | [vendor/logger-console](vendor/logger-console/) | MIT |
+| `@janhq/dsh-superagent` | `dsh-superagent` | [vendor/dsh-superagent](vendor/dsh-superagent/) | MIT |
 
 ## Runtime npm dependencies
 
@@ -132,6 +133,7 @@ External packages installed for runtime use or embedded in distributed Host or b
 | [`papaparse`](https://github.com/mholt/PapaParse) | MIT |
 | [`pdfjs-dist`](https://github.com/mozilla/pdf.js) | Apache-2.0 |
 | [`picomatch`](https://github.com/micromatch/picomatch) | MIT |
+| [`proper-lockfile`](https://github.com/moxystudio/node-proper-lockfile) | MIT |
 | [`react`](https://github.com/facebook/react) | MIT |
 | [`react-dom`](https://github.com/facebook/react) | MIT |
 | [`readable-stream`](https://github.com/nodejs/readable-stream) | MIT |
@@ -156,6 +158,7 @@ External packages installed for runtime use or embedded in distributed Host or b
 | [`ws`](https://github.com/websockets/ws) | MIT |
 | [`xlsx`](https://git.sheetjs.com/SheetJS/sheetjs) | Apache-2.0 |
 | [`yaml`](https://github.com/eemeli/yaml) | ISC |
+| [`yauzl`](https://github.com/thejoshwolfe/yauzl) | MIT |
 | [`zod`](https://github.com/colinhacks/zod) | MIT |
 | [`zustand`](https://github.com/pmndrs/zustand) | MIT |
 
@@ -211,11 +214,34 @@ External packages **directly declared** for development, tests, types, or toolin
 | Package | License |
 | --- | --- |
 | [`@braintree/sanitize-url`](https://github.com/braintree/sanitize-url) | MIT |
+| [`@deepseek-ai/cordis`](https://github.com/janhq/jan-next) | MIT |
+| [`@deepseek-ai/dsh-agent`](https://github.com/janhq/jan-next) | MIT |
+| [`@deepseek-ai/dsh-api-session-controller`](https://github.com/janhq/jan-next) | MIT |
+| [`@deepseek-ai/dsh-attachment`](https://github.com/janhq/jan-next) | MIT |
+| [`@deepseek-ai/dsh-client-locale`](https://github.com/janhq/jan-next) | MIT |
+| [`@deepseek-ai/dsh-client-ui-layout`](https://github.com/janhq/jan-next) | MIT |
+| [`@deepseek-ai/dsh-client-ui-renderer`](https://github.com/janhq/jan-next) | MIT |
+| [`@deepseek-ai/dsh-client-ui-settings`](https://github.com/janhq/jan-next) | MIT |
+| [`@deepseek-ai/dsh-client-ui-sidebar`](https://github.com/janhq/jan-next) | MIT |
+| [`@deepseek-ai/dsh-client-ui-slots`](https://github.com/janhq/jan-next) | MIT |
+| [`@deepseek-ai/dsh-client-ui-workspace`](https://github.com/janhq/jan-next) | MIT |
+| [`@deepseek-ai/dsh-host-webserver`](https://github.com/janhq/jan-next) | MIT |
+| [`@deepseek-ai/dsh-llm`](https://github.com/janhq/jan-next) | MIT |
+| [`@deepseek-ai/dsh-permission-presets`](https://github.com/janhq/jan-next) | MIT |
+| [`@deepseek-ai/dsh-scope`](https://github.com/janhq/jan-next) | MIT |
+| [`@deepseek-ai/dsh-session`](https://github.com/janhq/jan-next) | MIT |
+| [`@deepseek-ai/dsh-session-persistence`](https://github.com/janhq/jan-next) | MIT |
+| [`@deepseek-ai/dsh-skill`](https://github.com/janhq/jan-next) | MIT |
+| [`@deepseek-ai/dsh-subprocess`](https://github.com/janhq/jan-next) | MIT |
+| [`@deepseek-ai/dsh-system-prompt`](https://github.com/janhq/jan-next) | MIT |
+| [`@deepseek-ai/dsh-tools`](https://github.com/janhq/jan-next) | MIT |
+| [`@deepseek-ai/dsh-workspace`](https://github.com/janhq/jan-next) | MIT |
+| [`@deepseek-ai/schemastery`](https://github.com/janhq/jan-next) | MIT |
 | [`@electron/get`](https://github.com/electron/get) | MIT |
 | [`@electron/notarize`](https://github.com/electron/notarize) | MIT |
 | [`@lexical/headless`](https://github.com/facebook/lexical) | MIT |
 | [`@modelcontextprotocol/node`](https://github.com/modelcontextprotocol/typescript-sdk) | MIT |
-| [`@modelcontextprotocol/server`](https://github.com/modelcontextprotocol/typescript-sdk) | MIT |
+| [`@modelcontextprotocol/server`](https://github.com/modelcontextprotocol/typescript-sdk) | Apache-2.0 |
 | [`@modelcontextprotocol/server-everything`](https://github.com/modelcontextprotocol/servers) | MIT / Apache-2.0 |
 | [`@modelcontextprotocol/server-filesystem`](https://github.com/modelcontextprotocol/servers) | MIT / Apache-2.0 |
 | [`@panzoom/panzoom`](https://github.com/timmywil/panzoom) | MIT |
@@ -235,6 +261,7 @@ External packages **directly declared** for development, tests, types, or toolin
 | [`@types/node`](https://github.com/DefinitelyTyped/DefinitelyTyped) | MIT |
 | [`@types/papaparse`](https://github.com/DefinitelyTyped/DefinitelyTyped) | MIT |
 | [`@types/picomatch`](https://github.com/DefinitelyTyped/DefinitelyTyped) | MIT |
+| [`@types/proper-lockfile`](https://github.com/DefinitelyTyped/DefinitelyTyped) | MIT |
 | [`@types/react`](https://github.com/DefinitelyTyped/DefinitelyTyped) | MIT |
 | [`@types/react-dom`](https://github.com/DefinitelyTyped/DefinitelyTyped) | MIT |
 | [`@types/readable-stream`](https://github.com/DefinitelyTyped/DefinitelyTyped) | MIT |
