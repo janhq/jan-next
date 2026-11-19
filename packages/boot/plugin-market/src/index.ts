@@ -134,7 +134,12 @@ export default class PluginMarket extends TypertRemoteService {
   /** Directory used exclusively for the market's fetched Git repositories. */
   readonly downloadCacheDirectory: string
 
-  /** Serialize a Downloads-page removal with the repository's fetches. */
+  /**
+   * Serialize a Downloads-page removal with the repository's fetches.
+   * @param repository - repository whose cached checkout is removed.
+   * @param remove - deletes the checkout once no fetch holds it.
+   * @returns after the removal settles.
+   */
   deleteDownloadCache(repository: string, remove: () => Promise<void>): Promise<void> {
     return this.repositories.deleteCached(repository, remove)
   }
