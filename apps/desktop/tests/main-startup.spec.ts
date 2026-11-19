@@ -83,12 +83,15 @@ const harness = await vi.hoisted(async () => {
     destroyed = false
     readonly contentView = { addChildView: vi.fn(), removeChildView: vi.fn() }
     readonly urls: string[] = []
+    private devToolsOpened = false
     readonly webContents = Object.assign(new EventEmitter(), {
       id: 42,
       setWindowOpenHandler: vi.fn(),
       insertCSS: vi.fn(async () => 'blur'),
       removeInsertedCSS: vi.fn(async () => {}),
-      openDevTools: vi.fn(),
+      openDevTools: vi.fn(() => { this.devToolsOpened = true }),
+      isDevToolsOpened: () => this.devToolsOpened,
+      closeDevTools: () => { this.devToolsOpened = false },
       getURL: () => this.urls.at(-1) ?? '',
       mainFrame: { url: '' },
       getZoomFactor: () => 1,
