@@ -1,8 +1,8 @@
 /** A lone delivered image or HTML page, shown in the chat above its card. */
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RemoteResult } from '@janhq/jan-api-remotes/client'
 import { fileExtension } from '@janhq/jan-client-ui-primitives'
-import type { PropsLocale } from '@janhq/jan-client-ui-slots'
+import type { PropsLocale, PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import type { SessionId } from '@janhq/jan-session/types'
 import { basename, type PresentedPath } from './turn-deliverables.ts'
 import type { NS } from './locales.ts'
@@ -35,14 +35,17 @@ export function inlinePreviewType(path: string): string | undefined {
  * @param props - the delivered file, its Session, the byte reader, the sidebar opener, and copy.
  * @returns the preview, or null while loading, on failure, and for other types.
  */
-export function PresentedInlinePreview({ file, sessionId, readPresented, onPreview, t }: {
+export function PresentedInlinePreview({ file, sessionId, readPresented, onPreview, renderSlot, t }: {
   file: PresentedPath
   sessionId: SessionId
   readPresented: ReadPresented
   onPreview: () => void
-} & PropsLocale<typeof NS>) {
+} & PropsLocale<typeof NS> & Pick<PropsRenderSlots<'deliverables.preview.actions'>, 'renderSlot'>) {
   const type = inlinePreviewType(file.path)
   const [url, setUrl] = useState<string>()
+  const image = useRef<HTMLImageElement>(null)
+  const frame = useRef<HTMLIFrameElement>(null)
+  const getSurface = useCallback(() => image.current ?? frame.current, [])
   useEffect(() => {
     if (type === undefined) return
     const controller = new AbortController()
@@ -60,11 +63,14 @@ export function PresentedInlinePreview({ file, sessionId, readPresented, onPrevi
   }, [type, readPresented, sessionId, file.path])
   if (type === undefined || url === undefined) return null
   const name = basename(file.path)
-  return type !== 'text/html'
-    ? <button type="button" className={css.inlinePreview} data-presented-inline="image"
-      aria-label={t('presented.previewCard', { name: file.path })} onClick={onPreview}>
-      <img className={css.inlineImage} src={url} alt={t('presented.inline', { name })} />
-    </button>
-    : <iframe className={`${css.inlinePreview} ${css.inlineFrame}`} data-presented-inline="html"
-      src={url} sandbox="allow-scripts" title={t('presented.inline', { name })} />
+  return <>
+    {type !== 'text/html'
+      ? <button type="button" className={css.inlinePreview} data-presented-inline="image"
+        aria-label={t('presented.previewCard', { name: file.path })} onClick={onPreview}>
+        <img ref={image} className={css.inlineImage} src={url} alt={t('presented.inline', { name })} />
+      </button>
+      : <iframe ref={frame} className={`${css.inlinePreview} ${css.inlineFrame}`} data-presented-inline="html"
+        src={url} sandbox="allow-scripts" title={t('presented.inline', { name })} />}
+    {renderSlot('deliverables.preview.actions', { getSurface })}
+  </>
 }

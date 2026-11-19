@@ -56,7 +56,7 @@ export function selectDeliverables(owner: TurnTailOwnerProps): DeliverablesMatch
  * @param props - closing Turn, file actions, and localized copy.
  * @returns file rows, or null when the Turn declares none.
  */
-export function DeliverablesTail(props: PropsRuntime<'conversation.chat.turnTail'> & PropsLocale<typeof NS> & InjectFace<DeliverablesInjected> & PropsRenderSlots<'deliverables.file.actions'>) {
+export function DeliverablesTail(props: PropsRuntime<'conversation.chat.turnTail'> & PropsLocale<typeof NS> & InjectFace<DeliverablesInjected> & PropsRenderSlots<'deliverables.file.actions' | 'deliverables.preview.actions'>) {
   const matched = selectDeliverables(props)
   return matched === null ? null : <Deliverables {...props} matched={matched} />
 }
@@ -73,7 +73,7 @@ export function Deliverables({
   useChangesDiff, loadChangesDiff, useChangesSummary, reloadPresentedHost, loadChangesSummary, useShowCodeDiff, readPresented, renderSlot,
 }: Pick<TurnTailOwnerProps, 'openFile'> & {
   matched: DeliverablesMatch
-} & PropsLocale<typeof NS> & Pick<SessionStandardProps, 'sessionId'> & Pick<GlobalStandardProps, 'useSessions' | 'useContextMenu'> & InjectFace<DeliverablesInjected> & PropsRenderSlots<'deliverables.file.actions'>) {
+} & PropsLocale<typeof NS> & Pick<SessionStandardProps, 'sessionId'> & Pick<GlobalStandardProps, 'useSessions' | 'useContextMenu'> & InjectFace<DeliverablesInjected> & PropsRenderSlots<'deliverables.file.actions' | 'deliverables.preview.actions'>) {
   const { getTriggerProps } = useContextMenu()
   const [expanded, setExpanded] = useState(false)
   const showCodeDiff = useShowCodeDiff(value => value)
@@ -109,7 +109,8 @@ export function Deliverables({
       </div>}
       {host !== null && host !== 'error' && !host.available && <span className={css.hostStatus}>{t('presented.unavailable')}</span>}
       {matched.presented.length === 1 && matched.presented.map(file => <PresentedInlinePreview key={`${file.seq}:${file.index}`}
-        file={file} sessionId={sessionId} readPresented={readPresented} onPreview={() => { openFile(file.path) }} t={t} />)}
+        file={file} sessionId={sessionId} readPresented={readPresented} onPreview={() => { openFile(file.path) }}
+        renderSlot={renderSlot} t={t} />)}
       <div className={css.presented} data-presented-files-row data-single={matched.presented.length === 1 ? true : undefined}>
         {presented.map(file => <PresentedFileCard key={`${file.seq}:${file.index}`} file={file} cwd={cwd}
           phase={states[presentedFileUrl(sessionId, file.seq, file.index)]}

@@ -1155,11 +1155,15 @@ it('shows a lone delivered image or page inline, and nothing for two files, othe
   fireEvent.click(await view.findByRole('button', { name: 'Preview chart.svg in sidebar' }))
   expect(view.getByRole('img', { name: 'Preview of chart.svg' })).toBeTruthy()
   expect(opened).toEqual(['chart.svg'])
+  fireEvent.click(view.getByRole('button', { name: 'Inspect preview surface' }))
+  expect(view.getByRole('img', { name: 'Preview of chart.svg' }).hasAttribute('data-inspected')).toBe(true)
 
   view.rerender(<Deliverables {...shared} matched={{ changes: null, presented: [{ path: 'page.html', seq: 3, index: 0 }] }} />)
   const frame = await view.findByTitle('Preview of page.html')
   // Scripts run, but in an opaque origin with no access to the app.
   expect(frame.getAttribute('sandbox')).toBe('allow-scripts')
+  fireEvent.click(view.getByRole('button', { name: 'Inspect preview surface' }))
+  expect(frame.hasAttribute('data-inspected')).toBe(true)
 
   readPresented.mockClear()
   view.rerender(<Deliverables {...shared} matched={{ changes: null, presented: [{ path: 'a.svg', seq: 4, index: 0 }, { path: 'b.svg', seq: 4, index: 1 }] }} />)
