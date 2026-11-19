@@ -127,7 +127,9 @@ export class DesktopOnboardingController {
     }, 'stock')
   }
 
-  /** Use the replacement flow while its slot has an active entry. @param active - whether a replacement is registered. */
+  /** Use the replacement flow while its slot has an active entry.
+   * @param active - whether a replacement is registered.
+   */
   setCustomFlow(active: boolean): void {
     if (this.customFlow === active) return
     this.customFlow = active
