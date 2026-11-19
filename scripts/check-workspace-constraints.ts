@@ -206,6 +206,8 @@ const packageFileExtras: Readonly<Record<string, readonly string[]>> = {
   ],
   // Owned Worker bundles import this public bootstrap before their business entry.
   '@janhq/jan-app-boot': ['lib/worker/profile-resolution-bootstrap.js'],
+  // Plugin translation lazy-loads its language detector as a separate client chunk.
+  '@janhq/jan-client-ui-plugin-i18n': ['lib/client.static.extrasmall.js'],
   // Statically linked client libraries keep their stylesheets next to the emitted
   // JavaScript, which imports them by relative path: the compile shell runs
   // them through its own CSS pipeline, so the sheets are published artifacts.
