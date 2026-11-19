@@ -1752,7 +1752,7 @@ describe('model-switch pressure', () => {
     const merged = { headroomTokens: 0, maxTokens: 32, thresholdRatio: 0.5, retainTokens: 100, ...config }
     const compact = new BasicCompactionEngine(ctx, Object.fromEntries(
       Object.entries(merged).filter(([, value]) => value !== undefined),
-    ) as BasicCompactionConfig)
+    ))
     return { ctx, adapter, compact }
   }
 

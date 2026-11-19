@@ -95,7 +95,7 @@ it('focuses only on request and leaves Escape to a consumer that has already han
   mockPopover()
   const anchor = createRef<HTMLButtonElement>()
   const onDismiss = vi.fn()
-  render(<><button ref={anchor} onKeyDown={event => event.preventDefault()}>Anchor</button>
+  render(<><button ref={anchor} onKeyDown={(event) => { event.preventDefault() }}>Anchor</button>
     <Coachmark anchor={anchor} open focusOnOpen title="More context" body="Optional detail" dismissLabel="Dismiss" onDismiss={onDismiss} /></>)
   const button = screen.getByRole('button', { name: 'Dismiss' })
   expect(document.activeElement).toBe(button)

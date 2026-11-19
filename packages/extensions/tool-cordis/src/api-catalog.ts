@@ -3013,6 +3013,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the normalized selection installed for the Session, without waiting for default persistence.',
       },
       {
+        signature: '@Remote(\'contextPreview\') async contextPreview(request: SessionContextPreviewRequest, signal: AbortSignal): Promise<SessionContextPreviewValue | null>',
+        description: 'Price the system prompt, tool schemas, and runtime context the Session\'s next request would inject.',
+        parameters: [{ name: 'request', description: 'Session identity.' }, { name: 'signal', description: 'cancels tool resolution and prompt assembly.' }],
+        returns: 'heuristic token prices, or null while the Session has no model selection.',
+      },
+      {
         signature: '@Remote(\'modelCatalog\') modelCatalog(): Promise<ModelCatalog>',
         description: 'Describe every currently routable model for Host-generation selectors.',
         parameters: [],
@@ -8830,6 +8836,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'SessionChangeRequestsListener',
     declaration: 'export type SessionChangeRequestsListener = (changeRequests: readonly SessionChangeRequest[]) => void;',
+  },
+  {
+    name: 'SessionContextPreviewRequest',
+    declaration: 'export interface SessionContextPreviewRequest {\n    readonly sessionId: SessionId;\n}',
+  },
+  {
+    name: 'SessionContextPreviewValue',
+    declaration: 'export interface SessionContextPreviewValue {\n    readonly systemTokens: number;\n    readonly toolsTokens: number;\n    readonly messageTokens: number;\n}',
   },
   {
     name: 'SessionControlBaseline',

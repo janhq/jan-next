@@ -14,7 +14,7 @@ import z from '@janhq/schemastery'
 import { TAVILY_PROVIDER_ID } from './config.ts'
 import type { TavilySpec } from './config.ts'
 import type { KeyLookup } from './credentials.ts'
-import { assertHttpUrl, boundPage, requestCount, snippetOf } from './shape.ts'
+import { assertHttpUrl, boundPage, excerptSource, requestCount } from './shape.ts'
 import { assertOk, parseJson, postJson } from './transport.ts'
 
 const PROVIDER = 'Tavily'
@@ -55,14 +55,7 @@ export function normalizeTavilySearch(reply: TavilySearchReply): WebSearchSource
   for (const result of reply.results) {
     if (result.url === undefined || !URL.canParse(result.url)) continue
     const excerpt = result.content?.trim() ?? ''
-    const title = result.title?.trim()
-    const publishedAt = result.published_date?.trim()
-    sources.push({
-      url: result.url,
-      ...title === undefined || title.length === 0 ? {} : { title },
-      ...excerpt.length === 0 ? {} : { snippet: snippetOf(excerpt), summary: excerpt },
-      ...publishedAt === undefined || publishedAt.length === 0 ? {} : { publishedAt },
-    })
+    sources.push(excerptSource(result.url, result.title, excerpt, result.published_date))
   }
   return sources
 }

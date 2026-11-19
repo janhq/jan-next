@@ -117,7 +117,7 @@ describe('routeChoices', () => {
     try {
       const fallbackDefault = { provider: 'online', model: 'a' }
       const ctx = contextOf({ providers: { online: ['a'], offline: ['b'] }, fallbackDefault })
-      const listModels = ctx.llm.listModels
+      const listModels = ctx.llm.listModels.bind(ctx.llm)
       vi.spyOn(ctx.llm, 'listModels').mockImplementation(provider =>
         provider === 'offline' ? new Promise(() => {}) : listModels(provider),
       )

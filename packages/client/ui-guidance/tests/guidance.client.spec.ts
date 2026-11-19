@@ -16,10 +16,11 @@ const add = (id: string) => {
   document.body.appendChild(target)
   return target
 }
-const find = <T extends HTMLElement = HTMLElement>(selector: string) => document.querySelector<T>(selector)!
+const find = (selector: string) => document.querySelector<HTMLElement>(selector)!
+const button = (selector: string) => document.querySelector<HTMLButtonElement>(selector)!
 const pressEscape = () => window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Escape' }))
-const nextButton = () => find<HTMLButtonElement>('.driver-popover-next-btn')
-const backButton = () => find<HTMLButtonElement>('.driver-popover-prev-btn')
+const nextButton = () => button('.driver-popover-next-btn')
+const backButton = () => button('.driver-popover-prev-btn')
 const currentTitle = () => find('.driver-popover-title').textContent
 const lifetimes: (() => Promise<void>)[] = []
 
@@ -50,7 +51,7 @@ afterEach(async () => {
 })
 
 it('persists seen ids across client launches and resets only guidance', async () => {
-  expect(applyHost()).toBeUndefined()
+  applyHost()
   const ctx = await load()
   const id = 'composer.model-tip'
   expect(ctx.uiGuidance.hasSeen(id)).toBe(false)
@@ -131,7 +132,7 @@ it('advances an action step only from the real target and notices the next targe
   target.click()
   expect(action).toHaveBeenCalledOnce()
   await vi.waitFor(() => { expect(currentTitle()).toBe(next.title()) })
-  find<HTMLButtonElement>('.driver-popover-close-btn').click()
+  find('.driver-popover-close-btn').click()
   expect(ctx.uiGuidance.hasSeen(spec.id)).toBe(true)
 })
 

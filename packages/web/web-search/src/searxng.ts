@@ -9,7 +9,7 @@ import type { WebSearchProvider, WebSearchRequest, WebSearchResult, WebSearchSou
 import z from '@janhq/schemastery'
 import { SEARXNG_PROVIDER_ID } from './config.ts'
 import type { SearxngSpec } from './config.ts'
-import { requestCount, snippetOf } from './shape.ts'
+import { excerptSource, requestCount } from './shape.ts'
 import { assertOk, getJson, parseJson } from './transport.ts'
 
 const PROVIDER = 'SearXNG'
@@ -41,14 +41,7 @@ export function normalizeSearxngSearch(reply: SearxngReply, count: number): WebS
     if (sources.length === count) break
     if (result.url === undefined || !URL.canParse(result.url)) continue
     const excerpt = result.content?.trim() ?? ''
-    const title = result.title?.trim()
-    const publishedAt = result.publishedDate?.trim()
-    sources.push({
-      url: result.url,
-      ...title === undefined || title.length === 0 ? {} : { title },
-      ...excerpt.length === 0 ? {} : { snippet: snippetOf(excerpt), summary: excerpt },
-      ...publishedAt === undefined || publishedAt.length === 0 ? {} : { publishedAt },
-    })
+    sources.push(excerptSource(result.url, result.title, excerpt, result.publishedDate))
   }
   return sources
 }

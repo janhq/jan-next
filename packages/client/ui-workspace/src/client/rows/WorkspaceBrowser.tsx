@@ -1339,7 +1339,7 @@ export function WorkspaceBrowser({
               )}
             </div>
           </div>
-        )
+        ),
       })}
       {/* Add flow + its error dialog (same package — direct composition). */}
       <WorkspacePickFlow

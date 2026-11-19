@@ -138,6 +138,11 @@ export interface ArtifactsSources {
 /** Sessions read at a time while filling legacy rows; each read folds one log on the Host. */
 const HYDRATE_CONCURRENCY = 2
 
+// A call, not a property read: TypeScript keeps `signal.aborted` narrowed to false across awaits.
+function isAborted(signal: AbortSignal): boolean {
+  return signal.aborted
+}
+
 /** Reads what the Session list does not carry: unindexed chats, and whether each file still exists. */
 export class ArtifactsController {
   /** Availability by {@link artifactKey}. */
@@ -181,7 +186,7 @@ export class ArtifactsController {
         } catch {
           // An unreadable chat contributes no files; the list stays usable.
         }
-        if (!signal.aborted) this.scanning.set(this.queue.length + this.workers)
+        if (!isAborted(signal)) this.scanning.set(this.queue.length + this.workers)
       }
     } finally {
       if (!signal.aborted) {

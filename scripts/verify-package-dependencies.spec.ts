@@ -232,6 +232,7 @@ describe('package dependency scope', () => {
     expect(PACKAGE_DEPENDENCY_POLICY.duplicateSafePackages).toEqual([
       '@janhq/jan-brand',
       '@janhq/jan-lazy-require',
+      '@janhq/jan-package-manifest',
       '@janhq/jan-typert-protocol',
       '@janhq/jan-util-code-language',
       '@janhq/jan-util-crypto',

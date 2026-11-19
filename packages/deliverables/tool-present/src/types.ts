@@ -10,18 +10,6 @@ export interface PresentedFile {
 }
 
 /**
- * Validate a file declaration read from a Session log.
- * @param value - decoded durable data.
- * @returns whether the declaration has a non-blank path and an optional string description.
- */
-export function isPresentedFile(value: unknown): value is PresentedFile {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
-  const { path, description } = value as Record<string, unknown>
-  return typeof path === 'string' && path.trim().length > 0
-    && (description === undefined || typeof description === 'string')
-}
-
-/**
  * One distinct file a Session has presented, addressed by the latest
  * `deliverables/presented` event that declared it. `seq` and `index` are the
  * coordinates the Host's file-open routes accept.

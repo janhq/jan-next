@@ -2,7 +2,7 @@ import { getEventListeners } from 'node:events'
 import { Context } from '@janhq/cordis'
 import { agentEvents, type Agent, type PreStepDecision } from '@janhq/jan-agent'
 import { createToolResultMessage, createUserMessage, ToolCallId } from '@janhq/jan-llm'
-import SessionStore, { SessionId } from '@janhq/jan-session'
+import SessionStore, { SessionId, type Session } from '@janhq/jan-session'
 import { WorkflowRunId } from '@janhq/jan-workflow'
 import AgentLoop from '@janhq/jan-agent-loop'
 import { mountAgentLoopTestDependencies } from '@janhq/jan-agent-loop-testkit'
@@ -109,11 +109,15 @@ describe('advanced Python snapshot workflow ordering', () => {
     expect(getEventListeners(h.controller.signal, 'abort')).toHaveLength(0)
   })
 
-  it('waits for the parent to consume the direct start and log its next request', async () => {
+  it('waits for the parent to consume the direct start and prepare its next request', async () => {
     const h = await harness(true)
+    const route = { provider: 'mock', model: 'mock' }
+    const request = (session: Session, step: number) => agentEvents(h.ctx, { id: session.id, session } as Agent)
+      .waterfall('agent/request', { turn: 1, step, signal: h.controller.signal }, async () => route)
     const pending = h.step()
     h.parent.append('turn/start', { turn: 1 })
     h.parent.append('step/start', { turn: 1, step: 1 })
+    expect(await request(h.parent, 1)).toBe(route)
     const callId = ToolCallId('direct-child')
     h.parent.append('tool/call', { turn: 1, step: 1, callId, name: 'subagent', arguments: '{}' })
     h.parent.append('tool/result', {
@@ -121,9 +125,10 @@ describe('advanced Python snapshot workflow ordering', () => {
       message: createToolResultMessage({ callId, content: [{ type: 'text', text: 'started subagent child' }], isError: false }),
     }, { surfaceOp: 'append' })
     h.parent.append('step/start', { turn: 1, step: 2 })
+    expect(await request(h.other, 1)).toBe(route)
     await Promise.resolve()
     expect(h.next).not.toHaveBeenCalled()
-    h.parent.append('request/context', { provider: 'mock', model: 'mock' })
+    expect(await request(h.parent, 2)).toBe(route)
     expect(await pending).toBe(h.decision)
     expect(h.next).toHaveBeenCalledOnce()
   })

@@ -1,8 +1,8 @@
 Usage: jan [--profile] <name> [options] [app-args...]
        jan plugin --profile <name> <pnpm-args...>
 
-jan: boot a Jan profile — an ordered stack of plugin-bundle patch
-layers under your own overrides.
+jan: boot a Jan profile — an ordered stack of plugin-bundle patch layers under
+your own overrides.
 
 Arguments:
   args                           arguments for the booted profile's app (see:

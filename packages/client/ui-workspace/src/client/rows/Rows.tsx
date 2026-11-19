@@ -686,7 +686,7 @@ export function SessionNodeItem({
           if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
           event.preventDefault()
           onOpen(node.id)
-        }
+        },
       })}
       onPointerEnter={marquee.enter}
       onPointerLeave={() => { if (!menuOpen) marquee.leave() }}

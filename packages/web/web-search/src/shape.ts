@@ -1,11 +1,11 @@
 /**
- * Normalization shared by every backend: request-count clamping, display snippets, page-text
- * bounds, and fetch-URL validation.
+ * Normalization shared by every backend: request-count clamping, display snippets, excerpt
+ * sources, page-text bounds, and fetch-URL validation.
  * @module @janhq/jan-web-search/shape
  */
 
 import { WebError } from '@janhq/jan-web'
-import type { WebFetchResult } from '@janhq/jan-web'
+import type { WebFetchResult, WebSearchSource } from '@janhq/jan-web'
 import { MAX_RESULTS } from './config.ts'
 import { clipChars } from './transport.ts'
 
@@ -29,6 +29,30 @@ export function requestCount(maxResults: number | undefined, configured: number)
  */
 export function snippetOf(excerpt: string): string {
   return excerpt.length > SNIPPET_CHARS ? `${clipChars(excerpt, SNIPPET_CHARS).trimEnd()}…` : excerpt
+}
+
+/**
+ * A search source from a backend result whose excerpt serves as both snippet and summary.
+ * @param url - the result URL.
+ * @param title - the result title, when reported.
+ * @param excerpt - the trimmed excerpt; empty when the backend reported none.
+ * @param publishedAt - the reported publication date, when any.
+ * @returns the source, omitting empty or blank fields.
+ */
+export function excerptSource(
+  url: string,
+  title: string | null | undefined,
+  excerpt: string,
+  publishedAt: string | null | undefined,
+): WebSearchSource {
+  const trimmedTitle = title?.trim()
+  const trimmedDate = publishedAt?.trim()
+  return {
+    url,
+    ...trimmedTitle === undefined || trimmedTitle.length === 0 ? {} : { title: trimmedTitle },
+    ...excerpt.length === 0 ? {} : { snippet: snippetOf(excerpt), summary: excerpt },
+    ...trimmedDate === undefined || trimmedDate.length === 0 ? {} : { publishedAt: trimmedDate },
+  }
 }
 
 /**
