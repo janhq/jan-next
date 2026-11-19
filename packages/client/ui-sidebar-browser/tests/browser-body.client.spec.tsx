@@ -47,7 +47,7 @@ function mountBrowser(navigation?: { readonly url?: string },
   controllers.push(injected)
   const { keyedHooks, ...commands } = injected
   const tabActions = { bindCommands: vi.fn<ReturnType<BrowserBodyProps['useTabInfo']>['tab']['actions']['bindCommands']>(() => vi.fn()), openResource: vi.fn(), openTab: vi.fn(), close: vi.fn() }
-  const props: Pick<BrowserBodyProps, 'sessionId' | 'useTabInfo' | 'useStore' | 'actions' | 't' | 'useBrowserState'>
+  const props: Pick<BrowserBodyProps, 'sessionId' | 'useTabInfo' | 'useStore' | 'actions' | 't' | 'useBrowserState' | 'renderSlot' | 'SessionProvider'>
     & Omit<BrowserInjected, 'keyedHooks'> = {
       sessionId: SESSION,
       useTabInfo: () => ({
@@ -70,6 +70,13 @@ function mountBrowser(navigation?: { readonly url?: string },
         const state = keyedHooks.browserState(key) ?? absentState
         return useSyncExternalStore(state.subscribe, state.getSnapshot)
       },
+      renderSlot: (name, owner) => {
+        if (name !== 'sidebar.right.tab.browser.actions' || !('getSurface' in owner)) return null
+        const getSurface = owner.getSurface
+        return typeof getSurface === 'function'
+          ? <button type="button" onClick={() => { getSurface()?.setAttribute('data-inspected', '') }}>Inspect page</button> : null
+      },
+      SessionProvider: ({ children }) => <>{children}</>,
     }
   const renderBody = () => render(<BrowserBody {...props as BrowserBodyProps} />)
   return {
@@ -87,6 +94,17 @@ afterEach(async () => {
 })
 
 describe('BrowserBody', () => {
+  it('gives a toolbar contribution the mounted page rather than browser chrome', async () => {
+    const mounted = mountBrowser({ url: 'https://example.test/page' })
+    const frame = await waitFor(() => {
+      const iframe = mounted.view.container.querySelector('iframe')
+      expect(iframe).not.toBeNull()
+      return iframe!
+    })
+    fireEvent.load(frame)
+    fireEvent.click(mounted.view.getByRole('button', { name: 'Inspect page' }))
+    expect(frame.hasAttribute('data-inspected')).toBe(true)
+  })
   it('displays the effective browser refresh accelerator', () => {
     const mounted = mountBrowser(undefined, { refreshShortcut: { id: 'page.refresh' as never,
       label: 'Refresh', aliases: [], binding: null, keys: ['Ctrl', 'R'], aria: 'Control+R',
