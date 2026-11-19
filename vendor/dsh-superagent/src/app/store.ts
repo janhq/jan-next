@@ -179,6 +179,11 @@ export class Store implements Repositories {
     const pattern = `${prefix.replace(/[\\%_]/g, match => `\\${match}`)}%`
     return this.db.prepare("SELECT key FROM kv WHERE key LIKE ? ESCAPE '\\'").all(pattern).map(row => String(row.key))
   }
+  /** Most recently inserted values of a key family, returned in insertion order. */
+  recent<V>(family: Family<V, never>, limit: number): V[] {
+    const pattern = `${family.prefix.replace(/[\\%_]/g, match => `\\${match}`)}%`
+    return this.values('SELECT value FROM (SELECT rowid, value FROM kv WHERE key LIKE ? ESCAPE \'\\\' ORDER BY rowid DESC LIMIT ?) ORDER BY rowid', pattern, limit)
+  }
 
   /** Versioned settings snapshots; the current settings are the snapshot of the latest revision. */
   private readonly settingsVersions = new Versions<SettingsVersion>(this, KV.settings.revision, KV.settings.version)
@@ -253,6 +258,7 @@ export class Store implements Repositories {
   /** Outbox message receipts for channel delivery; only `Outbox` writes to `receipts`. */
   readonly receipts = {
     get: (id: string): Receipt | undefined => this.values<Receipt>('SELECT value FROM outbox WHERE id = ?', id)[0],
+    list: (limit: number): Receipt[] => this.values('SELECT value FROM (SELECT rowid, value FROM outbox ORDER BY rowid DESC LIMIT ?) ORDER BY rowid', limit),
     /** Pending message receipts, oldest first. */
     waiting: (): Receipt[] => this.values("SELECT value FROM outbox WHERE value ->> '$.status' = 'pending' ORDER BY rowid"),
     /** True if an earlier message for the same ticket and conversation is still pending with fewer than `failures` consecutive failed `reply` effect attempts. */

@@ -69,6 +69,7 @@ Keep this log exhaustive — every divergence from upstream must be listed. Each
   - `src/client/deployment.tsx`: shows the read-only hint from `writable === false`; Jan's `ConfigFormSnapshot` has no `mode`.
   - `src/app/http.ts`: `sameOrigin` refuses requests while the web server has no port, which Jan types as optional.
   - Tests: `role-models.spec.ts` covers the append-only seeding; transcript and controller fixtures drop `inspect` and serve history from the persistence reader; `runtime.spec.ts` brands its Session id; `bundle-patch.spec.ts` resolves `@janhq/cordis-plugin-include`; the panel fixtures drop `mode`.
+- **V29 · Super Agent repository-independent queue**: `dsh-superagent/src/queue.ts` exposes the vendored SQLite store, passes, effects, idempotent agent delivery and outbox for trusted local event sources without starting GitHub deployment or a router session. The shared outbox uses an injected transport; the existing repository Runtime supplies the same Source Registry checks and delivery as before. `tests/queue.spec.ts` covers dedupe, single-slot batching, pause and restart recovery.
 
 ### Resolver adaptations
 

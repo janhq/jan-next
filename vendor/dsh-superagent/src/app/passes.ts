@@ -1,10 +1,10 @@
 /** Coordinates periodic and on-demand orchestration passes that drive due effects and Engine evaluations. */
-import type { Engine, ReceiveResult, Trigger } from '../core/index.ts'
+import type { ReceiveResult, Trigger } from '../core/index.ts'
 import type { HealthEntry } from '../infra/health.ts'
 import type { Effects } from './effects.ts'
 
-export interface PassesHost {
-  readonly engine: Pick<Engine, 'receive' | 'evaluateDue'>
+export interface PassesHost<Input = Trigger> {
+  readonly engine: { receive(input: Input): ReceiveResult; evaluateDue(): void }
   readonly effects: Pick<Effects, 'kick' | 'idle'>
   readonly health: HealthEntry
   readonly lifetime: AbortSignal
@@ -19,19 +19,19 @@ const now = (): string => new Date().toISOString()
  * `Runtime` manages its lifecycle, while sources, tools, `Settings`, and HTTP routes trigger immediate passes when new work arrives or state changes.
  * Updates the runtime `HealthEntry` when a pass fails and clears the error once a subsequent pass succeeds.
  */
-export class Passes {
+export class Passes<Input = Trigger> {
   private timer?: ReturnType<typeof setInterval>
   private stopped = false
   private pumping?: Promise<void>
   private pumpAgain?: Promise<void>
-  constructor(private readonly host: PassesHost) {}
+  constructor(private readonly host: PassesHost<Input>) {}
   start(): void { if (!this.stopped) this.timer = setInterval(() => { this.request() }, 2000) }
   stop(): Promise<unknown> {
     this.stopped = true
     clearInterval(this.timer)
     return Promise.allSettled([this.pumping, this.pumpAgain])
   }
-  receive(trigger: Trigger): ReceiveResult {
+  receive(trigger: Input): ReceiveResult {
     if (this.host.closing()) throw new Error('Orchestrator is stopping')
     const result = this.host.engine.receive(trigger)
     if (result === 'stored') this.request()
