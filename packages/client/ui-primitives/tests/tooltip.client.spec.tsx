@@ -365,6 +365,38 @@ describe('Tooltip', () => {
     expect(screen.queryByRole('tooltip')).toBeNull()
   })
 
+  it('hides while a container scrolls, then withdraws or follows the anchor once scrolling settles', () => {
+    vi.useFakeTimers()
+    try {
+      render(<Tooltip label="Output speed"><button type="button">anchor</button></Tooltip>)
+      const anchor = screen.getByText('anchor')
+      let rect = new DOMRect(10, 100, 40, 20)
+      vi.spyOn(anchor, 'getBoundingClientRect').mockImplementation(() => rect)
+      let hovered = true
+      const matches = anchor.matches.bind(anchor)
+      vi.spyOn(anchor, 'matches').mockImplementation(selector => selector === ':hover' ? hovered : matches(selector))
+
+      // The pointer still rests on the anchor after scrolling: the bubble returns at its new place.
+      fireEvent.pointerEnter(anchor)
+      const bubble = screen.getByRole('tooltip')
+      rect = new DOMRect(10, 40, 40, 20)
+      fireEvent.scroll(document.body)
+      expect(bubble.style.visibility).toBe('hidden')
+      act(() => { vi.advanceTimersByTime(200) })
+      expect(bubble.style.visibility).toBe('visible')
+      // Right-side placement centers on the anchor, which now spans 40..60.
+      expect(bubble.style.top).toBe('50px')
+
+      // Content moved out from under the pointer: the bubble goes away.
+      hovered = false
+      fireEvent.scroll(document.body)
+      act(() => { vi.advanceTimersByTime(200) })
+      expect(screen.queryByRole('tooltip')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('supports bottom placement and the focus/blur channel', () => {
     render(
       <Tooltip label="Below" side="bottom">
