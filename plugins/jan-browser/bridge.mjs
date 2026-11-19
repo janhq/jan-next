@@ -13,7 +13,12 @@ const MAX_RESULT_BYTES = 24 * 1024 * 1024
 /** Chrome Web Store listing for the published extension accepted by the bridge. */
 export const INSTALL_URL = `https://chromewebstore.google.com/detail/jan-browser-mcp/${EXTENSION_ID}`
 
-/** Owns the loopback listener, Chrome profile selection, and one in-flight call per connection. */
+/**
+ * Owns the loopback listener, Chrome profile selection, and one in-flight call per connection.
+ * Loopback restricts reachability; the Origin check filters browser origins, not local processes.
+ * A local peer can supply the allowed Origin and any profile ID. The ready frame is not authentication.
+ * The published extension has no Jan-controlled channel for receiving a pairing secret.
+ */
 export class JanBrowserBridge {
   /** @type {Map<string, Profile>} */
   #profiles = new Map()
