@@ -12,7 +12,7 @@ import type { Context } from '@janhq/cordis'
 import { SessionLogOffset } from '@janhq/jan-session'
 import type { SessionEvent, SessionHeader } from '@janhq/jan-session'
 import type { ProjectionDefinition } from '@janhq/jan-session-projection'
-import type { PresentedFile, PresentedFileEntry } from './types.ts'
+import { isPresentedFile, type PresentedFileEntry } from './types.ts'
 
 /** Host fold state: the fork-inherited prefix and the distinct files declared after it. */
 export interface PresentedFilesState {
@@ -33,13 +33,6 @@ const stateSchema = z.object({
   inheritedEventCount: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).transform(SessionLogOffset),
   files: viewSchema,
 }).strict()
-
-/** A persisted declaration is displayed only with a non-blank path and a string description. */
-function isPresentedFile(value: unknown): value is PresentedFile {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
-  const { path, description } = value as Record<string, unknown>
-  return typeof path === 'string' && path.trim().length > 0 && (description === undefined || typeof description === 'string')
-}
 
 /**
  * Fold a `deliverables/presented` event into the distinct-path list. Events from
