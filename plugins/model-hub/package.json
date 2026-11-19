@@ -1,0 +1,18 @@
+{
+  "name": "@janhq/jan-model-hub",
+  "version": "0.2.2-rc.1",
+  "private": true,
+  "type": "module",
+  "description": "Find, download and start local models from Jan's model catalog.",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "jan": {
+    "client": {
+      "platform": "web",
+      "inject": ["@janhq/jan-client-ui-primitives"]
+    }
+  }
+}

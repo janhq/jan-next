@@ -1,7 +1,7 @@
 import type { Context } from '@janhq/cordis'
 import type {} from '@janhq/jan-api-llama-cpp-controller/remote'
 import type { SessionProjectionMap } from '@janhq/jan-api-session-controller/client'
-import type {} from '@janhq/jan-api-remotes/client'
+import type { ClientRemote } from '@janhq/jan-api-remotes/client'
 import type {} from '@janhq/jan-client-ui-conversation/client'
 import type { ModelSelectionProjection } from '@janhq/jan-agent/types'
 import type { SessionId, SessionSeq } from '@janhq/jan-session/types'
@@ -99,19 +99,19 @@ export function registerChatNodeRenderers(
             return selection?.provider === 'local' ? selection.model : undefined
           },
           contextFor: async (id) => {
-            const remote = ctx.get('remote.llamaCpp')
+            const remote = ctx.get('remote.llamaCpp') as ClientRemote['llamaCpp'] | undefined
             if (remote === undefined) return undefined
             const result = await remote.getModelContext(id)
             return result.ok ? result.value : undefined
           },
           increase: async (id) => {
-            const remote = ctx.get('remote.llamaCpp')
+            const remote = ctx.get('remote.llamaCpp') as ClientRemote['llamaCpp'] | undefined
             if (remote === undefined) return { ok: false, error: 'Local model controls are unavailable.' }
             const result = await remote.increaseModelContext(id)
             return result.ok ? { ok: true, value: result.value } : { ok: false, error: result.error.message }
           },
           compact: async () => {
-            const remote = ctx.get('remote.commands')
+            const remote = ctx.get('remote.commands') as ClientRemote['commands'] | undefined
             if (remote === undefined) return { ok: false, reason: 'failed', error: 'Compaction is unavailable.' }
             const result = await remote.execute(sessionId, '/compact', [])
             if (!result.ok) return { ok: false, reason: 'failed', error: result.error.message }

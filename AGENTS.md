@@ -68,6 +68,7 @@ packages/    @janhq/jan-<pkg> workspaces at packages/<group>/<pkg>/
   experimental/         evaluated capabilities without a product-support commitment
   test-support/         test infrastructure
   util/                 zero-dependency utilities
+plugins/     Jan plugins; every one stays in this monorepo (plugins/AGENTS.md)
 python/      Python SDK/runtime (python/README.md)
 native/      @janhq/node-addon-system source (native/README.md)
 benchmarks/  performance gates
@@ -183,7 +184,7 @@ Docs accompany every code change: update affected README and JSDoc contracts tog
 
 ## Editing these instructions
 
-`CLAUDE.md` symlinks `AGENTS.md` at root and `packages/`; edit the real file. Keep each rule self-contained while linking high-level docs. Condense when clarity survives; raise a `verify-doc-budgets` ceiling when the required content genuinely needs more space.
+`CLAUDE.md` symlinks `AGENTS.md` at root, `packages/` and `plugins/`; edit the real file. Keep each rule self-contained while linking high-level docs. Condense when clarity survives; raise a `verify-doc-budgets` ceiling when the required content genuinely needs more space.
 
 ## Vendoring policy
 

@@ -543,7 +543,7 @@ export const InputBar = memo(function InputBar({
           editorDisabled={editorDisabled}
           phase={input?.phase ?? 'inert'}
           placeholderText={placeholderText}
-          placeholderContent={!disabled && !blocked && !planActive && !canSteerQueue
+          placeholderContent={!disabled && !planActive && !canSteerQueue
             ? renderSlot('conversation.input.placeholder', { text: placeholderText, variant }, { fallback: placeholderText })
             : undefined}
           ariaLabel={workspaceTrigger ? t('hero.chooseWorkspace') : placeholderText}

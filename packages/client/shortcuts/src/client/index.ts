@@ -103,7 +103,7 @@ export default class ShortcutsService extends Service implements Shortcuts {
         listener(input.type === 'reset' ? input : {
           ...input,
           gesture: { ...input.gesture, defaultPrevented: input.gesture.defaultPrevented || consumed },
-          consume: () => { consumed = true; input.consume() }
+          consume: () => { consumed = true; input.consume() },
         })
       } catch (error) {
         console.error('Fixed shortcut handler failed', error)
@@ -120,7 +120,7 @@ export default class ShortcutsService extends Service implements Shortcuts {
       conflicts: normalized === null ? [] : [...this.catalog.getSnapshot().filter(row => row.binding !== null
         && overlappingBindings(row.binding, normalized)).map(row => row.id),
       ...this.fixedCatalog.getSnapshot().filter(row => row.bindings.some(binding => overlappingBindings(binding, normalized)))
-        .map(row => row.id)]
+        .map(row => row.id)],
     }
   }
 

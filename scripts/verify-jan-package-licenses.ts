@@ -1,5 +1,6 @@
 /**
- * Enforce the MIT license declaration for repository-owned Jan npm packages.
+ * Enforce the MIT license declaration for repository-owned Jan npm packages, except the listed
+ * packages that keep the license of the source they port.
  * @module scripts/verify-jan-package-licenses
  */
 
@@ -9,11 +10,17 @@ import { resolve, sep } from 'node:path'
 const ROOT = resolve(import.meta.dirname, '..')
 const JAN_PACKAGE_NAME = /^@janhq\/jan(?:-|$)/
 
+/** The exact license each listed package declares instead of MIT, with its LICENSE file. */
+export const LICENSE_EXCEPTIONS: Readonly<Record<string, string>> = {
+  // Ports the Jan app's Apache-2.0 tauri-plugin-websearch; packages/web/web-search/LICENSE.
+  '@janhq/jan-web-search': 'Apache-2.0',
+}
+
 /** Result of checking every Jan package reachable through the root workspace list. */
 export interface JanPackageLicenseReport {
   /** Number of Jan package manifests checked. */
   packageCount: number
-  /** Repository-relative diagnostics for non-MIT declarations. */
+  /** Repository-relative diagnostics for declarations other than the expected license. */
   failures: string[]
 }
 
@@ -52,9 +59,13 @@ function printable(value: unknown): string {
 /**
  * Check every Jan npm package declared by the repository workspace.
  * @param root - absolute repository root containing the workspace package.json.
- * @returns the checked package count and every non-MIT declaration.
+ * @param exceptions - package names mapped to the license they declare instead of MIT.
+ * @returns the checked package count and every declaration other than the expected license.
  */
-export function inspectJanPackageLicenses(root: string): JanPackageLicenseReport {
+export function inspectJanPackageLicenses(
+  root: string,
+  exceptions: Readonly<Record<string, string>> = LICENSE_EXCEPTIONS,
+): JanPackageLicenseReport {
   let packageCount = 0
   const failures: string[] = []
 
@@ -64,10 +75,11 @@ export function inspectJanPackageLicenses(root: string): JanPackageLicenseReport
     if (typeof name !== 'string' || !JAN_PACKAGE_NAME.test(name)) continue
 
     packageCount++
-    if (manifest.license !== 'MIT') {
+    const expected = exceptions[name] ?? 'MIT'
+    if (manifest.license !== expected) {
       const normalizedFile = file.split(sep).join('/')
       failures.push(
-        `${normalizedFile}: ${name} must declare "license": "MIT"; found ${printable(manifest.license)}.`,
+        `${normalizedFile}: ${name} must declare "license": "${expected}"; found ${printable(manifest.license)}.`,
       )
     }
   }
@@ -78,12 +90,12 @@ export function inspectJanPackageLicenses(root: string): JanPackageLicenseReport
 if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
   const report = inspectJanPackageLicenses(ROOT)
   if (report.failures.length > 0) {
-    process.stderr.write('verify-jan-package-licenses: non-MIT Jan package declarations found:\n')
+    process.stderr.write('verify-jan-package-licenses: unexpected Jan package license declarations found:\n')
     for (const failure of report.failures) process.stderr.write(`  ${failure}\n`)
     process.exitCode = 1
   } else {
     process.stdout.write(
-      `verify-jan-package-licenses: ${String(report.packageCount)} Jan package(s) checked; all declare MIT.\n`,
+      `verify-jan-package-licenses: ${String(report.packageCount)} Jan package(s) checked; all declare MIT or their listed exception.\n`,
     )
   }
 }

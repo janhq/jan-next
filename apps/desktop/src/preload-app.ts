@@ -91,7 +91,13 @@ if (location.protocol === `${SCHEME}:` && location.hostname === 'app') {
     hasApiKey: () => ipcRenderer.invoke(DESKTOP_IPC.onboardingApiKey) as Promise<boolean>,
     setActive: (active: boolean) => { ipcRenderer.send(DESKTOP_IPC.onboardingActive, active) },
   })
-  ipcRenderer.on(DESKTOP_IPC.enterWorkspace, () => {
+  ipcRenderer.on(DESKTOP_IPC.enterWorkspace, (_event, open: unknown) => {
+    // Welcome asked for the Hub: the model-hub plugin takes this one-shot request
+    // when it mounts, or from the event when it is already mounted.
+    if (open === 'hub') {
+      sessionStorage.setItem('jan:open-panel', 'jan-model-hub')
+      window.dispatchEvent(new Event('jan:open-panel'))
+    }
     const body = document.body
     const previous = body.getAttribute('tabindex')
     body.tabIndex = -1

@@ -24,7 +24,9 @@ afterEach(async () => {
 })
 
 function stubAgent(session: Session): Agent {
-  return { id: session.id, session, status: 'idle' } as unknown as Agent
+  let selected: { provider: string; model: string } | undefined
+  const model = { current: () => selected, select: (selection: typeof selected) => { selected = selection } }
+  return { id: session.id, session, status: 'idle', model } as unknown as Agent
 }
 
 /** A stored Session the persistence double serves until an Agent resumes it. */
@@ -54,6 +56,8 @@ interface HarnessOptions {
   readonly resolving?: ReadonlyMap<string, Promise<void>>
   /** Workspace placement served to `workspaceId` requests. */
   readonly workspace?: { readonly members: readonly SessionId[]; readonly archived: readonly SessionId[] }
+  /** Roster default per provider route, below the first preset. */
+  readonly routeDefaults?: Readonly<Record<string, string>>
 }
 
 const WORKSPACE = 'workspace-1' as WorkspaceId
@@ -89,6 +93,7 @@ async function harness(options: HarnessOptions = {}) {
     }
     ctx.provide('agentPresets', {
       defaultId: presets[0],
+      defaultFor: (provider: string | undefined) => options.routeDefaults?.[provider ?? ''] ?? presets[0],
       presetForSession: (session: Session) => preset.stateOf(session),
       resolve: (id?: string) => Promise.resolve(id === undefined ? undefined : options.resolving?.get(id))
         .then(() => ({ id: known(id) })),
@@ -106,6 +111,8 @@ async function harness(options: HarnessOptions = {}) {
       },
     } as never)
   }
+  // The default model route new Sessions start on; tests move it between routes.
+  const route = { provider: 'test' }
   const stored = options.stored ?? new Map<SessionId, StoredSession>()
   ctx.provide('sessionPersistence', testSessionPersistence(ctx, {
     list: () => Promise.resolve([...stored.values()].map(record => record.header)),
@@ -168,8 +175,13 @@ async function harness(options: HarnessOptions = {}) {
     },
   }
   ctx.agents.setFactory(factory)
+  ctx.provide('llm', {
+    listProviders: () => [{ id: 'test', name: 'test' }, { id: 'local', name: 'local' }],
+    listModels: () => Promise.resolve([{ id: 'test-model', name: 'test-model' }]),
+    resolveCallConfig: () => Promise.resolve({}),
+  } as never)
   const remote = await createSessionTestRemote(ctx, {
-    defaultModelSelection: () => ({ provider: 'test', model: 'test-model' }),
+    defaultModelSelection: () => ({ provider: route.provider, model: 'test-model' }),
     cwd,
   })
   const presetOf = (id: SessionId): string | null | undefined => {
@@ -182,7 +194,7 @@ async function harness(options: HarnessOptions = {}) {
       .filter(event => event.type === 'agent-preset/selected')
       .map(event => event.data)
   }
-  return { ctx, remote, cwd, selections, resumed, presetOf, selectedEvents }
+  return { ctx, remote, cwd, route, selections, resumed, presetOf, selectedEvents }
 }
 
 function storedHeader(id: SessionId, cwd: string, extra: Partial<SessionHeader> = {}): SessionHeader {
@@ -220,6 +232,30 @@ describe('session.create Agent preset identity', () => {
     await remote.create({ sessionId: SessionId('s2') })
 
     expect(ctx.sessions.get(SessionId('s2'))?.header.agentPreset).toBe('standard')
+  })
+
+  it('starts a Session on the default model route with that route\'s preset', async () => {
+    const { ctx, remote, route } = await harness({ presets: ['standard', 'minimal'], routeDefaults: { local: 'minimal' } })
+    route.provider = 'local'
+
+    await remote.create({ sessionId: SessionId('on-local') })
+
+    expect(ctx.sessions.get(SessionId('on-local'))?.header.agentPreset).toBe('minimal')
+  })
+
+  it('moves a blank Session between route defaults as its model changes route, but keeps a pick', async () => {
+    const { remote, presetOf } = await harness({ presets: ['standard', 'minimal', 'cordis'], routeDefaults: { local: 'minimal' } })
+    await remote.create({ sessionId: SessionId('blank') })
+    await remote.create({ sessionId: SessionId('picked'), agentPreset: 'cordis' })
+    const toRoute = (sessionId: string, provider: string) =>
+      remote.selectModel({ sessionId: SessionId(sessionId), provider, model: 'test-model' })
+
+    expect((await toRoute('blank', 'local')).ok).toBe(true)
+    expect(presetOf(SessionId('blank'))).toBe('minimal')
+    await toRoute('blank', 'test')
+    expect(presetOf(SessionId('blank'))).toBe('standard')
+    await toRoute('picked', 'local')
+    expect(presetOf(SessionId('picked'))).toBe('cordis')
   })
 
   it('rejects an unknown preset', async () => {

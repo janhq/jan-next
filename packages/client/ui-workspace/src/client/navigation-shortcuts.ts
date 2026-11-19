@@ -65,9 +65,8 @@ export function installNavigationShortcuts(
   if (typeof window !== 'undefined') ctx.effect(() => {
     const onButton = (event: MouseEvent): void => {
       if (event.defaultPrevented || (event.button !== 3 && event.button !== 4)) return
-      const dialogs = document.querySelectorAll<HTMLElement>(modalSelector)
-      const top = dialogs.item(dialogs.length - 1)
-      if (top !== null && top.dataset.shortcutModal !== 'sidebar') return
+      const top = Array.from(document.querySelectorAll<HTMLElement>(modalSelector)).at(-1)
+      if (top !== undefined && top.dataset.shortcutModal !== 'sidebar') return
       event.preventDefault()
       if (event.type === 'mouseup') go(event.button === 3 ? 'back' : 'forward')
     }

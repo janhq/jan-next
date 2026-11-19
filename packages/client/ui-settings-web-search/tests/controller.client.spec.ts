@@ -370,4 +370,23 @@ describe('WebSearchCardController automatic selection', () => {
       expect(b.state().search).toMatchObject({ selected: '', auto: true })
     } finally { b.controller.dispose() }
   })
+
+  it('shows a composed preference list as automatic selection, which an id overrides and a reset restores', async () => {
+    const b = bench({ accept: true })
+    try {
+      const composed = { searchProvider: ['tokamak', 'exa'], fetchProvider: ['tokamak', 'http'] }
+      serve(b, { value: composed, base: composed })
+      expect(b.state()).toMatchObject({ search: { selected: '', auto: true, kind: 'none' }, fetch: { selected: '', auto: true, kind: 'none' } })
+      b.face.selectProvider('fetchProvider', 'http')
+      b.face.save()
+      await vi.waitFor(() => { expect(b.state().dirty).toBe(false) })
+      expect(b.web.mutate).toHaveBeenLastCalledWith([{ op: 'set', path: ['fetchProvider'], value: 'http' }], undefined)
+      expect(b.state().fetch).toMatchObject({ selected: 'http', auto: true, kind: 'local' })
+      b.face.selectProvider('fetchProvider', '')
+      b.face.save()
+      await vi.waitFor(() => { expect(b.state().dirty).toBe(false) })
+      expect(b.web.mutate).toHaveBeenLastCalledWith([{ op: 'unset', path: ['fetchProvider'] }], undefined)
+      expect(b.state().fetch).toMatchObject({ selected: '', auto: true })
+    } finally { b.controller.dispose() }
+  })
 })

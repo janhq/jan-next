@@ -1354,16 +1354,18 @@ export class LlamaCpp extends Service {
       ...this.record.models.map(model => entry(model.id, `${model.name} (local)`, model)),
     ]
     try {
-      type Section = { providers?: Record<string, { models?: unknown; promptProgress?: unknown }> } | undefined
+      type Section = { providers?: Record<string, { models?: unknown; promptProgress?: unknown; threadCache?: unknown }> } | undefined
       const value = settings.describe().find(row => row.ns === ns)?.value as Section
       const route = value?.providers?.[this.config.provider]
       if (route === undefined) return
       const path = (key: string): string[] => ['providers', this.config.provider, key]
       const ops = [
         ...JSON.stringify(route.models) === JSON.stringify(models) ? [] : [{ op: 'set' as const, path: path('models'), value: models }],
-        // The worker is llama.cpp's server, which reports prompt reading when asked; a route saved
-        // before the flag existed gains it, an explicit choice stays.
+        // The worker is llama.cpp's server, which reports prompt reading when asked and parks each
+        // Session's KV state by thread; a route saved before a flag existed gains it, an explicit
+        // choice stays.
         ...route.promptProgress === undefined ? [{ op: 'set' as const, path: path('promptProgress'), value: true }] : [],
+        ...route.threadCache === undefined ? [{ op: 'set' as const, path: path('threadCache'), value: true }] : [],
       ]
       if (ops.length > 0) await settings.mutate(ns, ops)
     } catch (error) {

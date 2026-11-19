@@ -68,7 +68,7 @@ describe('ui-settings-web-search apply', () => {
   })
 
   it('registers nothing while the web namespace is not served', async () => {
-    const { ctx, slots, describeSettings } = await bench(['shell', 'web-search-exa'])
+    const { ctx, slots, describeSettings } = await bench(['shell', 'web-search'])
     declareRoot(slots)
     await ctx.plugin({ inject: [...inject], apply }).await()
     await vi.waitFor(() => { expect(describeSettings).toHaveBeenCalled() })

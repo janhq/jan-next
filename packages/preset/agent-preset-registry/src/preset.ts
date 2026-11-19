@@ -13,6 +13,8 @@ export interface AgentPreset {
 export interface Config {
   /** Deployment default when the caller omits a preset. */
   default: string
+  /** Preset for a new Session by provider route, below a Settings pick. */
+  routeDefaults: Record<string, string>
   /** User-selected default; edited through Settings. */
   selectedDefault: Volatile<string | undefined>
 }

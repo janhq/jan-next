@@ -556,7 +556,8 @@ export class PluginManager extends TypertRemoteService {
         if (compatibility !== undefined && !compatibility.exempted) throw new ManagementFailure('incompatible-version', [incompatiblePlugin(compatibility)])
         const dir = resolveBundleDir('jan', name, this.profile.installAnchor, this.profile.dir)
         const metaBase = pathToFileURL(join(dir, 'package.json')).href
-        const meta = offered?.meta ?? (packages === undefined ? readPluginMeta(info.name ?? name, metaBase) : packages.metaOf(info.name ?? name, metaBase))
+        const meta = offered?.meta
+          ?? (packages === undefined ? readPluginMeta(info.name ?? name, metaBase) : packages.metaOf(info.name ?? name, metaBase))
         let platformError: ManagementError | undefined
         try { assertBundlePlatform(info.jan?.bundle?.platforms, process.platform) }
         catch (error) { platformError = managementError(error) }

@@ -202,20 +202,23 @@
 }
 
 /* macOS hiddenInset titlebar: the strip spans the column's top edge (negative
-   margins cancel the root padding) so it clears the traffic lights at
-   (16, 18). The strip marks itself `data-window-drag` in markup (SidebarRoot), so
-   its own run is the column's draggable geometry and no frame band has to match
-   the strip's height; the toggle inside subtracts via the base.css rule. */
+   margins cancel the root padding) so it clears the traffic lights. The strip
+   marks itself `data-window-drag` in markup (SidebarRoot), so its own run is
+   the column's draggable geometry and no frame band has to match the strip's
+   height; the toggle inside subtracts via the base.css rule. */
 .topStrip {
   flex: none;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  height: 52px;
+  /* 52px at the 10px title inset; grows by twice the inset's excess so the
+     toggle stays centred on the title row. */
+  height: calc(2 * var(--jan-frame-title-inset, 10px) + 32px);
   box-sizing: border-box;
   margin: -6px calc(-1 * var(--jan-sidebar-inline-padding)) 0;
-  /* The 2px foot centres the 28px toggle at y 25, level with the collapsed
-     seat (ui-layout .leadingSeat, top 11) and the conversation title row, so
+  /* The 2px foot centres the 28px toggle on the title row (ui-layout
+     `--jan-frame-title-inset` + 15), level with the collapsed seat
+     (ui-layout .leadingSeat) and the conversation title row, so
      collapse/expand never shifts it vertically. */
   padding: 0 12px 2px;
   gap: 4px;

@@ -96,7 +96,7 @@ function mountShell({ collapsed = false, width = 300, drawer = false, shortcuts 
       ) => {
         if (key === 'sidebar.brand.mark') return brandMark
         if (key === 'sidebar.brand.name') return brandName
-        if (key === 'sidebar.toggle.badge') return null
+        if (key === 'sidebar.toggle.badge' || key === 'sidebar.toggle.actions') return null
         // Unoccupied theme seats: the built-in New Session, no extra row.
         if (key === 'sidebar.session.new') return opts?.fallback ?? null
         if (key === 'sidebar.workspaces.primary') return null

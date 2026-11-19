@@ -96,6 +96,26 @@ interface ListingEntry {
 }
 
 /**
+ * The disclosed scalar fields of a listed model, omitting absent ones rather than setting them
+ * to `undefined`.
+ * @param model - the listed model.
+ * @returns its id plus whichever of name, context window and output limit it disclosed.
+ */
+export function disclosedModelFields(model: {
+  readonly id: string
+  readonly name?: string | undefined
+  readonly contextWindow?: number | undefined
+  readonly maxTokens?: number | undefined
+}): Pick<LlmDiscoveredModel, 'id' | 'name' | 'contextWindow' | 'maxTokens'> {
+  return {
+    id: model.id,
+    ...model.name === undefined ? {} : { name: model.name },
+    ...model.contextWindow === undefined ? {} : { contextWindow: model.contextWindow },
+    ...model.maxTokens === undefined ? {} : { maxTokens: model.maxTokens },
+  }
+}
+
+/**
  * The modalities a listing entry declares, or `undefined` when it declares
  * none. Unknown modality names are dropped.
  */

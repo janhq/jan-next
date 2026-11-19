@@ -73,7 +73,10 @@ export function ModelSelect(
     fn => directory.subscribe(fn),
     () => directory.getSnapshot(),
   )
-  const canOpenModelsSettings = useSyncExternalStore(settingsAvailability.subscribe, settingsAvailability.getSnapshot)
+  const canOpenModelsSettings = useSyncExternalStore(
+    fn => settingsAvailability.subscribe(fn),
+    () => settingsAvailability.getSnapshot(),
+  )
   const [open, setOpen] = useState(false)
   const [pane, setPane] = useState<Pane>('root')
   const [query, setQuery] = useState('')

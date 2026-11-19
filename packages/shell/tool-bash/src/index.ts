@@ -29,6 +29,7 @@ import { JAN_ENV_PREFIX } from '@janhq/jan-shell'
 import type { ShellExecRequest, ShellExecSpec, ShellExecution, ShellRunResult } from '@janhq/jan-shell'
 import { processJob, processOutcome, processSources, ringDelta } from './background.ts'
 import { parseExitStatus, renderJobRead, renderPromoted, renderResult } from './render.ts'
+import { isReadOnlyCommand } from './read-only-command.ts'
 
 export const name = 'tool-bash'
 export const inject = ['tools', 'shell', 'systemPrompt', 'shellEnv', 'workingDirectory']
@@ -475,6 +476,10 @@ export function apply(ctx: Context, config: Config = {}): void {
         }],
         presentationMeta: (_args, value) => ({ cwd: value.cwd }),
       },
+      // A foreground command that only reads may overlap sibling read-only calls. Background
+      // jobs, sandbox escalation (an approval prompt) and every write stay ordered barriers.
+      isConcurrencySafe: (args: BashToolArgs) => args.run_in_background !== true
+        && args.sandbox_permissions === undefined && isReadOnlyCommand(args.command),
       async execute(args: BashToolArgs, exec) {
         // Description is display metadata; workdir defaults to the caller's session.
         const standingPolicy = resolveSandboxPolicy(exec)

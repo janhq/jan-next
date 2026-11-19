@@ -326,6 +326,11 @@ export function SidebarRoot({
     />
   ))
 
+  // Occupant buttons (Downloads, for one) sit before the toggle while the column is wide.
+  const toggleActions = renderSlot('sidebar.toggle.actions', {
+    className: css.iconButton, iconSize: 16, tooltipSide: 'bottom', portal: drawer, activePanelId, openPanel: selectPanel,
+  })
+
   return (
     <div
       ref={column}
@@ -348,7 +353,7 @@ export function SidebarRoot({
     >
       {/* macOS hiddenInset titlebar: the strip shares the row with the
           traffic lights and keeps the toggle at the sidebar's top-right. */}
-      {darwinDesktop && <div className={css.topStrip} data-window-drag>{toggle}{navigationButtons('bottom')}</div>}
+      {darwinDesktop && <div className={css.topStrip} data-window-drag>{wide && toggleActions}{toggle}{navigationButtons('bottom')}</div>}
       <div className={css.logoRow} data-window-drag>
         {/* Expanded, the brand doubles as a New Session shortcut while the
             access snapshot allows `session/create` — except on
@@ -397,6 +402,7 @@ export function SidebarRoot({
               </button>
             )
         })()}
+        {!darwinDesktop && wide && toggleActions}
         {!darwinDesktop && toggle}
         {!darwinDesktop && (wide || windowsTitlebar) && navigationButtons('bottom')}
       </div>

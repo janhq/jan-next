@@ -171,7 +171,7 @@ export class InputHub implements SessionInputResolver {
             model: Object.freeze({
               provider: selection.provider, name: selection.model,
               ...selection.reasoningEffort === undefined ? {} : { effort: selection.reasoningEffort },
-            })
+            }),
           },
           runMode: plan?.active ? 'plan' : goal?.goal.phase === 'active' ? 'goal' : 'default',
           running: state.running,

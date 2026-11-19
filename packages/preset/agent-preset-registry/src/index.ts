@@ -55,6 +55,8 @@ export class AgentPresetRegistry extends TypertRemoteService {
   static inject = ['loader', 'sessionProjections', 'agents']
   static Config = z.object({
     default: z.string().required(),
+    /** Preset for a new Session whose model runs on the named provider route, unless a default was picked in Settings. */
+    routeDefaults: z.dict(z.string()).default({}),
     selectedDefault: z.string().volatile(),
   })
   private agentPresetProjectionHandle!: ProjectionHandle<string | null>
@@ -79,6 +81,20 @@ export class AgentPresetRegistry extends TypertRemoteService {
 
   /** Default preset for a subsequently created session. */
   get defaultId(): string { return this.config.selectedDefault.get() ?? this.config.default }
+
+  /**
+   * Default preset for a new Session on one provider route. A default picked
+   * in Settings applies to every route; otherwise a route listed in
+   * `routeDefaults` (a small local model, say) gets its lighter preset.
+   * @param provider - provider route of the Session's model.
+   * @returns the preset identity a Session on that route starts with.
+   */
+  defaultFor(provider: string | undefined): string {
+    const picked = this.config.selectedDefault.get()
+    if (picked !== undefined) return picked
+    const routed = provider === undefined ? undefined : this.config.routeDefaults[provider]
+    return routed !== undefined && this.definitions.has(routed) ? routed : this.config.default
+  }
 
   /**
    * Read the preset recorded for a Session, including selections no longer in the roster.

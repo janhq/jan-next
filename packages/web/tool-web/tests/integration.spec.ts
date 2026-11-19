@@ -1,6 +1,6 @@
 /**
  * Integration: the real fetch backend (`jan-web-fetch-http`) + a real search provider
- * (`jan-web-search-exa`) + the real seam (`jan-web`) + the model tool (`jan-tool-web`) + the
+ * (`jan-web-search`) + the real seam (`jan-web`) + the model tool (`jan-tool-web`) + the
  * tool-call timeout policy (`jan-tool-call-timeout-policy`), exercised through `executeToolFixture()` —
  * nothing bypasses the tool registry. Fetch verifies world effects against loopback HTTP; search uses the real
  * Exa provider with only its network boundary stubbed.
@@ -20,7 +20,7 @@ import SystemPrompt from '@janhq/jan-system-prompt'
 import ToolRuntime, { type ToolExecutionResult } from '@janhq/jan-tools'
 import WebRuntime from '@janhq/jan-web'
 import * as WebFetchLocal from '@janhq/jan-web-fetch-http'
-import * as WebSearchExa from '@janhq/jan-web-search-exa'
+import * as WebSearch from '@janhq/jan-web-search'
 import * as ToolWeb from '@janhq/jan-tool-web'
 import * as TimeoutPolicy from '@janhq/jan-tool-call-timeout-policy'
 
@@ -48,11 +48,11 @@ beforeEach(async () => {
   await ctx.plugin(ToolRuntime)
   await ctx.plugin(NativeToolExecutor)
   await ctx.plugin(WebRuntime, {
-    searchProvider: WebSearchExa.EXA_PROVIDER_ID,
+    searchProvider: WebSearch.EXA_PROVIDER_ID,
     fetchProvider: WebFetchLocal.LOCAL_FETCH_PROVIDER_ID,
   })
   await ctx.plugin(WebFetchLocal, {})
-  await ctx.plugin(WebSearchExa, { url: EXA_URL })
+  await ctx.plugin(WebSearch, { providers: [WebSearch.EXA_PROVIDER_ID], exa: { mcpUrl: EXA_URL, apiKeyEnv: 'JAN_TOOL_WEB_TEST_UNSET_EXA_KEY' } })
   // The shipped deployment shape: the tool-call budget is declared by tool-web
   // config (default 30s, attached as ToolDefinition.timeoutMs) and enforced by
   // the zero-config timeout-policy plugin, set above the provider backstop so the

@@ -27,8 +27,8 @@ export type ImageNoticeProps = ImageNoticeInjected & PropsRuntime<'conversation.
 
 /** Renders the refusal while it applies, nothing otherwise. */
 export function ImageNotice({ directory, draftHasImage, select, t }: ImageNoticeProps) {
-  const state = useSyncExternalStore(directory.subscribe, directory.getSnapshot)
-  const hasImage = useSyncExternalStore(draftHasImage.subscribe, draftHasImage.getSnapshot)
+  const state = useSyncExternalStore(fn => directory.subscribe(fn), () => directory.getSnapshot())
+  const hasImage = useSyncExternalStore(fn => draftHasImage.subscribe(fn), () => draftHasImage.getSnapshot())
   const [switching, setSwitching] = useState(false)
   const refusal = imageRefusalOf(state, hasImage)
   if (refusal === undefined) return null

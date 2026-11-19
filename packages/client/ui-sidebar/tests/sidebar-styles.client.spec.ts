@@ -94,7 +94,7 @@ describe('SidebarRoot.module.css', () => {
     expect(declarations(":global(html[data-platform='darwin']:not([data-fullscreen])) .root:not(.collapsed) > .topStrip > .navButton")?.get('transform')).toBe('translateX(4px)')
     expect(css).not.toContain(':not(.fading)')
     expect(declarations(':global([data-windows-titlebar]) .root:not(.collapsed) .newSession')?.has('margin-left')).toBe(false)
-    expect(declarations('.topStrip')?.get('height')).toBe('52px')
+    expect(declarations('.topStrip')?.get('height')).toBe('calc(2 * var(--jan-frame-title-inset, 10px) + 32px)')
     expect(declarations('.root.collapsed')?.get('padding')).toBe('18px 10px 6px')
   })
 

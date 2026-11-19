@@ -82,10 +82,10 @@ export const DockModelSelection = {
       inject: modelInjection(ctx, settingsUnavailable),
     }, ({ renderSlot, ...props }: ModelSelectInjected & PropsRuntime<'conversation.composer.dock'> & PropsLocale<'model'>
       & PropsRenderSlots<'conversation.input.model.label' | 'conversation.input.model.options'>) => createElement(ModelSelect, {
-        ...props, placement: 'dock',
-        renderLabel: (owner, fallback) => renderSlot('conversation.input.model.label', owner, { fallback }),
-        renderOptions: owner => renderSlot('conversation.input.model.options', owner),
-      })))
+      ...props, placement: 'dock',
+      renderLabel: (owner, fallback) => renderSlot('conversation.input.model.label', owner, { fallback }),
+      renderOptions: owner => renderSlot('conversation.input.model.options', owner),
+    })))
   },
 }
 /**
@@ -306,10 +306,10 @@ export function apply(ctx: ClientContext): void {
         inject: modelInjection(scope, settingsUnavailable),
       }, ({ renderSlot, ...props }: ModelSelectInjected & PropsRuntime<'conversation.input.model'> & PropsLocale<'model'>
         & PropsRenderSlots<'conversation.input.model.label' | 'conversation.input.model.options'>) => createElement(ModelSelect, {
-          ...props, placement: 'composer',
-          renderLabel: (owner, fallback) => renderSlot('conversation.input.model.label', owner, { fallback }),
-          renderOptions: owner => renderSlot('conversation.input.model.options', owner),
-        })))
+        ...props, placement: 'composer',
+        renderLabel: (owner, fallback) => renderSlot('conversation.input.model.label', owner, { fallback }),
+        renderOptions: owner => renderSlot('conversation.input.model.options', owner),
+      })))
     }
     scope.effect(() => {
       dockSeatListeners.add(sync)

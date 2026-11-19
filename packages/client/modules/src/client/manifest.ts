@@ -171,7 +171,7 @@ export function parseJanClient(pkgName: string, value: unknown): JanClientManife
   }
   return {
     platform: decl.platform,
-    ...(inject !== undefined ? { inject } : {}),
+    ...(inject !== undefined ? { inject: inject.map(janSpecifier) } : {}),
     ...(external !== undefined ? { external: external.map(janSpecifier) } : {}),
     ...(decl.immediately !== undefined ? { immediately: decl.immediately } : {}),
   }

@@ -510,6 +510,7 @@ describe.skipIf(!existsSync(janBin))('jan BUILT bin (node lib/bin.js, no tsx)', 
         JAN_TELEMETRY_DISABLED: '1',
         TOKAMAK_API_KEY: 'built-sdk-profile-no-call',
         TOKAMAK_BASE_URL: server.baseURL,
+        TOKAMAK_ALLOW_LOOPBACK_HTTP: '1',
       },
       extendEnv: false,
     })

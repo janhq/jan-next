@@ -156,10 +156,10 @@ export default class LlamaCppController extends TypertRemoteService {
   }
 
   private async storedCaches(home: string) {
-    const market: RepositoryCacheOwner | undefined = this.ctx.get('pluginMarket')
-    const speech = this.ctx.get('senseVoiceWorker', false)
+    const market = this.ctx.get('pluginMarket') as RepositoryCacheOwner | undefined
+    const speechMounted = this.ctx.get('senseVoiceWorker', false) !== undefined
     const [voice, repositories] = await Promise.all([
-      speechCaches(home, speech === undefined ? undefined : 'Disable the Voice Input plugin before deleting its speech files.'),
+      speechCaches(home, speechMounted ? 'Disable the Voice Input plugin before deleting its speech files.' : undefined),
       market === undefined ? [] : repositoryCaches(home, market),
     ])
     return [...voice, ...repositories]

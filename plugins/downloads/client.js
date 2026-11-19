@@ -3,7 +3,7 @@ window.__ModuleLoader__.load({
   factory(require) {
     const React = require('react')
     const h = React.createElement
-    const { Button, RiskConfirmation, IconDownloadOutlineRegular, IconTrashOutlineRegular } = require('@janhq/jan-client-ui-primitives')
+    const { Button, RiskConfirmation, Tooltip, IconDownloadOutlineRegular, IconTrashOutlineRegular } = require('@janhq/jan-client-ui-primitives')
     const PANEL = 'jan-downloads'
 
     const COPY = {
@@ -407,6 +407,14 @@ window.__ModuleLoader__.load({
           scope.slots.inject('sidebar.panellist', () => scope.slots.register({
             name: 'sidebar.panellist', id: PANEL, order: 20, label: () => t('title'),
           }, ({ size }) => h(IconDownloadOutlineRegular, { size, 'aria-hidden': true })))
+          // Jan Desktop v04 keeps Downloads one click away, beside the sidebar toggle.
+          scope.slots.inject('sidebar.toggle.actions', () => scope.slots.register({
+            name: 'sidebar.toggle.actions', id: PANEL, locale: PANEL,
+          }, ({ className, iconSize, tooltipSide, portal, activePanelId, openPanel }) => h(Tooltip, { label: t('title'), delayMs: 500, side: tooltipSide, portal },
+            h('button', {
+              type: 'button', className, 'aria-label': t('title'), 'aria-current': activePanelId === PANEL ? 'page' : undefined,
+              onClick: () => { openPanel(PANEL) },
+            }, h(IconDownloadOutlineRegular, { size: iconSize, 'aria-hidden': true })))))
         })
       },
     }

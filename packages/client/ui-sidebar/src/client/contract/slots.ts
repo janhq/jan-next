@@ -34,6 +34,12 @@ declare module '@janhq/jan-client-ui-slots' {
     /** Non-interactive notification inside the collapsed sidebar expand button. */
     'sidebar.toggle.badge': { kind: 'single'; scope: 'root'; owner: Record<never, never> }
     /**
+     * Icon buttons before the sidebar toggle in the expanded column's top row
+     * (the macOS strip beside the traffic lights, or the logo row elsewhere).
+     * Each occupant renders one button with the supplied class and icon size.
+     */
+    'sidebar.toggle.actions': { kind: 'list'; scope: 'root'; owner: SidebarToggleActionOwnerProps }
+    /**
      * Brand mark rendered in the expanded brand row and collapsed rail.
      * Declared by this package's `sidebar` entry; deployments may replace
      * the shell's fish fallback without replacing the surrounding controls.
@@ -203,6 +209,20 @@ export interface SidebarFooterActionOwnerProps {
   wide: boolean
 }
 
+/** Styling and panel routing handed to a button beside the sidebar toggle. */
+export interface SidebarToggleActionOwnerProps {
+  /** The toggle's icon-button class, so the action matches its size and hover. */
+  className: string | undefined
+  iconSize: number
+  tooltipSide: 'right' | 'bottom'
+  /** Render tooltips under document.body, past a clipping drawer. */
+  portal: boolean
+  /** Id of the main panel on screen, or null. */
+  activePanelId: MainPanelId | null
+  /** Open a registered main panel by id. */
+  openPanel: (id: MainPanelId) => void
+}
+
 /** Whether the Back and Forward controls have somewhere to go; mirrors the Workspace navigation history. */
 export interface SidebarNavigationAvailability {
   readonly canGoBack: boolean
@@ -262,6 +282,7 @@ export type SidebarRootComponentProps =
     | 'sidebar.brand.mark'
     | 'sidebar.brand.name'
     | 'sidebar.toggle.badge'
+    | 'sidebar.toggle.actions'
     | 'sidebar.panellist.actions'
     | 'sidebar.workspaces'
     | 'sidebar.settings'

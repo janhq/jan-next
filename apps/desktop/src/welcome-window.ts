@@ -102,9 +102,10 @@ export async function openWelcomeWindow(locale: DesktopLocale, operations: Welco
     if (typeof value !== 'string' || !/^[\x21-\x7e]+$/.test(value)) return { ok: false }
     return operations.saveApiKey(value)
   })
-  ipcMain.handle(WELCOME_IPC.skip, async (event) => {
+  ipcMain.handle(WELCOME_IPC.skip, async (event, open: unknown) => {
     assertSender(event)
-    await operations.skip()
+    if (open !== undefined && open !== 'hub') throw new Error('desktop welcome: invalid destination')
+    await operations.skip(open)
   })
   ipcMain.handle(WELCOME_IPC.start, async (event) => { assertSender(event); return operations.startSignIn() })
   ipcMain.handle(WELCOME_IPC.localStart, async (event) => { assertSender(event); return operations.startLocalModel() })

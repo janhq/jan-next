@@ -298,9 +298,12 @@ export class ReactLoopAgent implements Agent {
         (): Promise<PreStepDecision> => {
           const sections = renderContextSections(assembly)
           const context = this.runtimeContext.project(joinContextSections(sections), sections)
+          // The snapshot goes ahead of the claimed input so the person's message
+          // stays last: models answer the final user message, and small local
+          // ones otherwise reply to the snapshot instead of the question.
           return Promise.resolve<PreStepDecision>({
             kind: 'enter',
-            messages: context === undefined ? claimed : [...claimed, context],
+            messages: context === undefined ? claimed : [context, ...claimed],
           })
         },
       )

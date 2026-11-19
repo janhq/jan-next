@@ -892,7 +892,7 @@ const SERVICE_ROLES: ServiceRole[] = [
     pkg: 'web',
     title: 'Web access provider registry',
     mode: 'seam',
-    implementations: ['web-search-exa', 'web-fetch-http'],
+    implementations: ['web-search', 'web-fetch-http'],
     consumers: ['tool-web'],
     note: 'Search and fetch providers register into one ctx.web seam; tool-web owns the stable model-facing names.',
   },

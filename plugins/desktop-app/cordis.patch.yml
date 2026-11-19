@@ -32,6 +32,10 @@
     - id: jan-downloads
       name: '@janhq/jan-downloads'
 
+    # Find, download and start local models from Jan's model catalog; a sidebar row opens it.
+    - id: jan-model-hub
+      name: '@janhq/jan-model-hub'
+
     # Chat mode: conversation, web research and simple visual artifacts. The
     # agent searches and reads the web and can create new files it hands over
     # with present (SVG, HTML, Markdown, CSV); it cannot read or edit your

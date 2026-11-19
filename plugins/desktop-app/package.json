@@ -25,6 +25,7 @@
     "@janhq/jan-compaction-tool-result-pruner": "workspace:*",
     "@janhq/jan-downloads": "workspace:*",
     "@janhq/jan-legacy-import": "workspace:*",
+    "@janhq/jan-model-hub": "workspace:*",
     "@janhq/jan-persona": "workspace:*",
     "@janhq/jan-preset-square": "workspace:*",
     "@janhq/jan-time-context": "workspace:*",

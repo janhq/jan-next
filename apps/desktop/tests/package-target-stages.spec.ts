@@ -231,7 +231,7 @@ it.each(['mac-arm64', 'mac-x64', 'win-x64'] as const)('selects branding from the
     for (const directory of [
       'plugins/desktop-app', 'plugins/downloads', 'plugins/jan-theme', 'plugins/legacy-import', 'plugins/plugin-api',
       'plugins/preset-square', 'packages/credentials/tokamak-account', 'packages/llm/llama-cpp',
-      'packages/api/llama-cpp-controller', 'packages/client/ui-settings-local-model', 'packages/web/web-search-exa',
+      'packages/api/llama-cpp-controller', 'packages/client/ui-settings-local-model', 'packages/web/web-search',
     ]) {
       expect(stages.slice(0, preparePackages).filter(stage => stage.startsWith(`--dir ${directory} pack `))).toHaveLength(1)
     }

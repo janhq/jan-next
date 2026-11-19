@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Web 検索",
+    "description": "Tokamak、Exa、Tavily、SearXNG、You.com を通じて Web を検索し、ページを読み取ります。Tokamak はサインイン中の Tokamak アカウントを使います。Exa と You.com はアカウント不要です。Tavily には API キー、SearXNG には自分のインスタンスが必要です。"
+  }
+}

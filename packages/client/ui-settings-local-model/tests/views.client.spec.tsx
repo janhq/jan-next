@@ -157,9 +157,9 @@ it('changes per-model context length and automatic fit while preserving the inst
   expect(screen.getByRole<HTMLInputElement>('spinbutton', { name: 'Context length' }).value).toBe('32768')
   fireEvent.change(screen.getByRole('spinbutton', { name: 'Context length' }), { target: { value: '49152' } })
   fireEvent.blur(screen.getByRole('spinbutton', { name: 'Context length' }))
-  await waitFor(() => expect(f.actions.setModelContext).toHaveBeenCalledWith(jan.id, 49152))
+  await waitFor(() => { expect(f.actions.setModelContext).toHaveBeenCalledWith(jan.id, 49152) })
   fireEvent.click(screen.getByRole('checkbox', { name: 'Auto-fit' }))
-  await waitFor(() => expect(f.actions.setModelFit).toHaveBeenCalledWith(jan.id, true))
+  await waitFor(() => { expect(f.actions.setModelFit).toHaveBeenCalledWith(jan.id, true) })
 })
 
 it('rejects an invalid context without changing the saved setting', () => {

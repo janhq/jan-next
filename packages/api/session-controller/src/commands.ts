@@ -176,7 +176,9 @@ export class SessionCommandController {
             : { reasoningEffort: ReasoningEffortId(request.reasoningEffort) }),
         }
         await this.ctx.llm.resolveCallConfig(selected)
+        const from = agent.model.current()?.provider
         agent.model.select(selected)
+        await this.agents.followRouteDefault(agent, from, selected.provider)
         void this.ctx.agentDefaultModel.saveSelection(selected).catch((error: unknown) => {
           this.ctx.logger.warn(
             `session-controller: model selection changed for the Session but the default was not saved: ${String(error)}`,
