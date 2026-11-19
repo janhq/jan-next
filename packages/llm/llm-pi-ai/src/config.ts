@@ -41,7 +41,7 @@ import type {
   PiAiReasoningEfforts,
   RouteCatalog,
 } from './catalog.ts'
-import { LISTABLE_PROTOCOLS } from './discovery.ts'
+import { disclosedModelFields, LISTABLE_PROTOCOLS } from './discovery.ts'
 import { buildProvider, supportedProtocols } from './provider.ts'
 
 /** Default maximum idle interval while an adapter stream read is outstanding. */
@@ -585,10 +585,7 @@ function listedModels(
   const byId = new Map((configured ?? []).map(entry => [entry.id, entry]))
   return listed.map((model) => {
     const disclosed: PiAiModelProfile = {
-      id: model.id,
-      ...model.name === undefined ? {} : { name: model.name },
-      ...model.contextWindow === undefined ? {} : { contextWindow: model.contextWindow },
-      ...model.maxTokens === undefined ? {} : { maxTokens: model.maxTokens },
+      ...disclosedModelFields(model),
       ...model.inputModalities === undefined
         ? {}
         : { input: MODALITIES.filter(modality => model.inputModalities?.includes(modality)) },

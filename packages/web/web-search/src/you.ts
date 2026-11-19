@@ -16,7 +16,7 @@ import z from '@janhq/schemastery'
 import { YOU_PROVIDER_ID } from './config.ts'
 import type { YouSpec } from './config.ts'
 import type { KeyLookup } from './credentials.ts'
-import { assertHttpUrl, boundPage, requestCount, snippetOf } from './shape.ts'
+import { assertHttpUrl, boundPage, excerptSource, requestCount } from './shape.ts'
 import { assertOk, callMcpTool, clipChars, parseJson, postJson } from './transport.ts'
 import type { HttpReply } from './transport.ts'
 
@@ -98,14 +98,7 @@ export function normalizeSearch(reply: YouSearchReply): WebSearchSource[] {
     if (hit.url === undefined || !URL.canParse(hit.url)) continue
     const description = hit.description?.trim() ?? ''
     const excerpt = description.length > 0 ? description : hit.snippets.map(snippet => snippet.trim()).filter(Boolean).join(' ')
-    const title = hit.title?.trim()
-    const publishedAt = hit.page_age?.trim()
-    sources.push({
-      url: hit.url,
-      ...title === undefined || title.length === 0 ? {} : { title },
-      ...excerpt.length === 0 ? {} : { snippet: snippetOf(excerpt), summary: excerpt },
-      ...publishedAt === undefined || publishedAt.length === 0 ? {} : { publishedAt },
-    })
+    sources.push(excerptSource(hit.url, hit.title, excerpt, hit.page_age))
   }
   return sources
 }
