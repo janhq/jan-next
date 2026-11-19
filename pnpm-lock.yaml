@@ -17991,11 +17991,16 @@ importers:
         specifier: workspace:*
         version: link:../../typert/protocol
 
+  plugins/annotate: {}
+
   plugins/desktop-app:
     dependencies:
       '@janhq/jan-agent-preset':
         specifier: workspace:*
         version: link:../../packages/preset/agent-preset
+      '@janhq/jan-annotate':
+        specifier: workspace:*
+        version: link:../annotate
       '@janhq/jan-browser':
         specifier: workspace:*
         version: link:../jan-browser
