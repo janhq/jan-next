@@ -52,11 +52,20 @@ function startHost(warn = vi.fn()) {
   }
 }
 
-function servePackage(composition) {
+function servePackage(composition, extraEntries) {
+  serveArchive(makePackage(composition, extraEntries))
+}
+
+function makePackage(composition, extraEntries) {
   const bytes = zipSync({
     'manifest.json': strToU8(JSON.stringify({ format: 'dsh-preset', version: 1, id })),
     'preset/agent.cordis.yml': strToU8(composition),
+    ...extraEntries,
   })
+  return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+}
+
+function serveArchive(bytes) {
   const downloadUrl = 'https://dshdesktop.com/preset/example.zip'
   const detail = {
     presetId: id, title: 'Example preset', description: 'An example.',
@@ -74,6 +83,41 @@ it('installs and registers a data-only persona with its instructions and config'
     plugins: [{ id: 'persona', name: '@janhq/jan-persona', config: { prefix: 'Be concise.', interpolate: false } }],
   })
   expect(await readFile(join(directory(), 'agent.cordis.yml'), 'utf8')).toBe(persona)
+})
+
+it('rejects an oversized expanded archive before inflating any entry', async () => {
+  const zeros = new Uint8Array(17 * 1024 * 1024)
+  const bytes = makePackage(persona, { 'preset/one.bin': zeros, 'preset/two.bin': zeros })
+  expect(bytes.length).toBeLessThan(1024 * 1024)
+  // Corrupt the first entry's DEFLATE stream so decoding it would fail before the size rejection.
+  const manifestDataOffset = 30 + bytes.readUInt16LE(26) + bytes.readUInt16LE(28)
+  bytes[manifestDataOffset] = 0x07 // Reserved DEFLATE block type.
+  serveArchive(bytes)
+  const { install, register } = startHost()
+  expect(await install()).toEqual({ status: 400, body: { error: 'The unpacked package exceeds 32 MB.' } })
+  expect(register).not.toHaveBeenCalled()
+})
+
+it('rejects an archive containing 513 entries, including its manifest', async () => {
+  const empty = new Uint8Array()
+  const extraEntries = Object.fromEntries(Array.from({ length: 511 }, (_, i) => [`preset/file-${i}`, empty]))
+  servePackage(persona, extraEntries)
+  const { install, register } = startHost()
+  expect(await install()).toEqual({ status: 400, body: { error: 'The package has more than 512 files.' } })
+  expect(register).not.toHaveBeenCalled()
+})
+
+it('rejects an entry whose expanded size does not match its ZIP metadata', async () => {
+  const bytes = makePackage(persona, { 'preset/data.bin': new Uint8Array(64) })
+  const directoryOffset = bytes.readUInt32LE(bytes.length - 6)
+  // The last central directory entry is data.bin. Give it an incorrect size.
+  const entryOffset = bytes.lastIndexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]), bytes.length - 22)
+  expect(entryOffset).toBeGreaterThan(directoryOffset)
+  bytes.writeUInt32LE(63, entryOffset + 24)
+  serveArchive(bytes)
+  const { install, register } = startHost()
+  expect(await install()).toEqual({ status: 400, body: { error: 'The package is not a valid ZIP archive.' } })
+  expect(register).not.toHaveBeenCalled()
 })
 
 it.each([

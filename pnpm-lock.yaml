@@ -18178,12 +18178,16 @@ importers:
       '@janhq/jan-plugin-api':
         specifier: workspace:*
         version: link:../plugin-api
-      fflate:
-        specifier: ^0.8.3
-        version: 0.8.3
       js-yaml:
         specifier: ^4.3.2
         version: 4.3.2
+      yauzl:
+        specifier: 3.4.0
+        version: 3.4.0
+    devDependencies:
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
 
   python/sdk-runtime:
     dependencies:
