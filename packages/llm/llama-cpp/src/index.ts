@@ -735,12 +735,21 @@ export class LlamaCpp extends Service {
 
   // ── downloads ──────────────────────────────────────────────────────────
 
-  /** List registry-owned models and files left by Jan's GGUF downloader. */
+  /**
+   * List registry-owned models and files left by Jan's GGUF downloader.
+   * @param home - Jan data folder the paths are relative to.
+   * @returns the listed models and download files.
+   */
   listStoredDownloads(home: string): Promise<StoredDownload[]> {
     return this.task(async () => (await this.storedModelFiles(home)).map(({ item }) => item))
   }
 
-  /** Delete one listed artifact without unloading a resident model or touching an imported file. */
+  /**
+   * Delete one listed artifact without unloading a resident model or touching an imported file.
+   * @param home - Jan data folder the path is relative to.
+   * @param path - exact Jan-home-relative path from {@link listStoredDownloads}.
+   * @returns after the artifact is removed.
+   */
   deleteStoredDownload(home: string, path: string): Promise<void> {
     return this.task(async () => {
       const entry = (await this.storedModelFiles(home)).find(({ item }) => item.path === path)
