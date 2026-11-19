@@ -4351,6 +4351,13 @@ export interface Config extends PresetSelectionConfig {
    * Agent options applied to every child; omitted fields use child-loop defaults.
    */
   agentOptions?: AgentOptions
+  /** Provider/model defaults keyed by an allowed child preset id. */
+  presetAgentOptions?: Record<string, {
+    /** Provider route used for this preset outside an explicit route selection. */
+    provider: string
+    /** Model id on the preset provider route. */
+    model: string
+  }>
   /**
    * Maximum child depth: a non-negative safe integer (`0` forbids delegation),
    * or `'provider-managed'` to send no cap. A numeric cap
