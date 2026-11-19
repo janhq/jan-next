@@ -170,7 +170,7 @@ Read these pages when the package-level contract is not enough. They move from t
 
 #### What the model sees
 
-Parent delivery sends a user-role status notice to the resident direct parent in the same tree, including an idle parent. It does not restore an offline parent. Its opening line names the child by its full name, such as `Background subagent reviewer finished and will do no further work unless you send it more.` The notice includes the child’s nonempty final text, even if it already sent an interim message. External notices state that further messages are unsupported. Reasoning and other nontext blocks are excluded. Every parent notice includes available structured output as `Structured result: <JSON>` and the provider’s safe diagnostic as a separate text block. Empty closing text is reported as `It left no closing message.` Caller delivery emits no notice; SDK lifecycle notifications retain complete child output when cleanup succeeds.
+Parent delivery sends a user-role status notice to the resident direct parent in the same tree, including an idle parent. It does not restore an offline parent. Its opening line names the child by its full name, such as `Background subagent reviewer finished and will do no further work unless you send it more.` The notice then lists the runtime terminal status, Summary, Evidence, Blockers, and Changed files, filled from an available structured result or the child's labeled report, with unreported fields explicitly marked; provider failure diagnostics appear under Blockers. The notice includes the child’s nonempty final text, even if it already sent an interim message. External notices state that further messages are unsupported. Reasoning and other nontext blocks are excluded. Every parent notice includes available structured output as `Structured result: <JSON>` and the provider’s safe diagnostic as a separate text block. Empty closing text is reported as `It left no closing message.` Caller delivery emits no notice; SDK lifecycle notifications retain complete child output when cleanup succeeds.
 
 #### Token effect
 
@@ -191,8 +191,6 @@ Local children using `delivery: 'parent'` receive the result-delivery guidance b
 ```markdown
 Your final answer is delivered automatically if your parent is still online. Follow the requested format. Otherwise use Summary:, Evidence:, Blockers:, and Changed files: in your final answer. Report only checks you ran and files you changed; omit unknown details. Your parent does not receive your transcript. Use messages for interim updates, not as a substitute for your final answer.
 ```
-
-The parent notice includes the runtime terminal status, then Summary, Evidence, Blockers, and Changed files. The notice uses an available structured result or the child's labeled report and explicitly marks fields that were not reported. Provider failure diagnostics appear under Blockers; the child's original closing text and any complete structured result remain separate.
 
 #### Token effect
 
