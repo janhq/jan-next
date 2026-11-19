@@ -292,8 +292,9 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
     // needs a transparent window background to show through the page.
     ...(process.platform === 'darwin' ? {
       titleBarStyle: 'hiddenInset' as const,
-      // Centred on the sidebar's Jan title row.
-      trafficLightPosition: { x: 16, y: 33 },
+      // Centred on the shared title row (y 25): the conversation header, the
+      // collapsed sidebar's leading controls and the expanded sidebar's toggle.
+      trafficLightPosition: { x: 18, y: 18 },
       vibrancy: 'sidebar' as const,
       // 'active' keeps the vibrancy material stable when the window blurs;
       // 'followWindow' washes the sidebar out behind an unfocused window.
