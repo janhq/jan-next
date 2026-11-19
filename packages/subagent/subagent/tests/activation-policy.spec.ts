@@ -9,6 +9,8 @@ import { mkdtemp, readFile, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@janhq/cordis'
+import Loader from '@janhq/cordis-plugin-loader'
+import AgentPresets from '@janhq/jan-agent-preset-registry'
 import type { Agent } from '@janhq/jan-agent'
 import AgentLoop from '@janhq/jan-agent-loop'
 import { mountAgentLoopTestDependencies } from '@janhq/jan-agent-loop-testkit'
@@ -77,6 +79,27 @@ function toolResultTexts(agent: Agent): string[] {
 }
 
 describe('in-process policy inheritance', () => {
+  it('pins a read-only preset before dispatch even when its parent has full access', async () => {
+    const filePath = join(workspace, 'reviewer-must-not-write.txt')
+    const { ctx, parent } = await setupWalled([
+      toolCallResponse('forced-write', 'write', { file_path: filePath, content: 'must not land' }),
+      textResponse('review completed'),
+    ])
+    await ctx.plugin(Loader)
+    await ctx.plugin(AgentPresets, { default: 'reviewer' })
+    await ctx.agentPresets.register({ id: 'reviewer', readOnlyDelegation: true, plugins: [] })
+    setSandboxMode(parent.session, 'danger-full-access')
+    const run = await startPreparedActivation({ ...spawnRequest(parent), agentPreset: 'reviewer' }, {})
+    try {
+      await run.result
+      expect(toolResultTexts(run.localAgent)).toEqual([expect.stringContaining(READ_ONLY_DENIAL)])
+      await expect(readFile(filePath, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
+      expect(ctx.sandboxPolicy.overrideOf(run.localAgent.session)).toBe('read-only')
+    } finally {
+      await run.dispose()
+    }
+  })
+
   it.each(['auto', 'danger-full-access'] as const)(
     'records the parent %s identity before publishing a Jan in-process child',
     async (preset) => {

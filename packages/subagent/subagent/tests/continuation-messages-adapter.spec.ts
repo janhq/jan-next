@@ -87,6 +87,8 @@ it('continues the parent through Anthropic Messages after a reasoning-bearing co
     const notice = parent.session.deriveMessages().find(message => message.source.kind === 'subagent-settled')
     const closingContent = [
       { type: 'text', text: 'Background subagent agent-1 finished and will do no further work unless you send it more.' },
+      { type: 'text', text: 'Status: completed\nSummary: See closing message below.\nEvidence: Not reported.\n'
+        + 'Blockers: Not reported.\nChanged files: Not reported.' },
       { type: 'text', text: 'Its closing message:' },
       { type: 'text', text: 'child answer' },
     ]

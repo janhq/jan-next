@@ -189,8 +189,10 @@ Local children using `delivery: 'parent'` receive the result-delivery guidance b
 ##### Return guidance
 
 ```markdown
-Your final answer is delivered automatically if your parent is still online. Follow the requested format. Otherwise report the outcome, the key evidence or checks you actually ran, and any blocker. Your parent does not receive your transcript. Use messages for interim updates, not as a substitute for your final answer.
+Your final answer is delivered automatically if your parent is still online. Follow the requested format. Otherwise use Summary:, Evidence:, Blockers:, and Changed files: in your final answer. Report only checks you ran and files you changed; omit unknown details. Your parent does not receive your transcript. Use messages for interim updates, not as a substitute for your final answer.
 ```
+
+The parent notice includes the runtime terminal status, then Summary, Evidence, Blockers, and Changed files. The notice uses an available structured result or the child's labeled report and explicitly marks fields that were not reported. Provider failure diagnostics appear under Blockers; the child's original closing text and any complete structured result remain separate.
 
 #### Token effect
 

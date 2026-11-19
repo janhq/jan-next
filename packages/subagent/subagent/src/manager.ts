@@ -815,12 +815,33 @@ export class SubagentManager {
         if (inputs.composition.agentPreset !== undefined) {
           await applyChildComposition(childCtx, create?.parent, inputs.composition)
         }
+        const inheritedReadOnly = inputs.composition.agentPreset === undefined && create !== undefined
+          && create.parent.ctx.get('agentPresets')?.requiresReadOnlyDelegation(create.parent.ctx) === true
+        const readOnly = inheritedReadOnly || childCtx.get('agentPresets')?.requiresReadOnlyDelegation(childCtx) === true
+        const sandboxPolicy = readOnly ? childCtx.get('sandboxPolicy') : undefined
+        if (readOnly) {
+          if (sandboxPolicy === undefined || childCtx.get('approval') === undefined) {
+            throw new SubagentError('this preset requires sandbox policy and approval services', 'PRESET_UNAVAILABLE')
+          }
+          // Fail closed if a host surface changes the standing policy.
+          childCtx.tools.guard((exec) => {
+            const args = exec.arguments
+            if (sandboxPolicy.resolve({ session: child.session }).mode !== 'read-only'
+              || (typeof args === 'object' && args !== null && 'sandbox_permissions' in args
+                && args.sandbox_permissions !== undefined && args.sandbox_permissions !== 'read-only')) {
+              return 'This subagent preset requires a read-only sandbox.'
+            }
+            return undefined
+          })
+        }
         if (create !== undefined) {
           if (inputs.composition.agentPreset !== undefined) {
             child.session.append('agent-preset/selected', { agentPreset: inputs.composition.agentPreset })
           }
           child.session.append('subagent/descriptor', create.descriptor)
-          appendDelegatedPolicyOverrides(child.session, create.delegatedPolicies)
+          appendDelegatedPolicyOverrides(child.session, readOnly
+            ? { sandboxMode: 'read-only', approvalPolicy: 'never', permissionPreset: undefined }
+            : create.delegatedPolicies)
           const workingDirectory = childCtx.get('workingDirectory')
           if (workingDirectory === undefined) throw new Error('local subagents require the working-directory service')
           await workingDirectory.set(child, create.cwd, inputs.signal)

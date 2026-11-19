@@ -300,7 +300,8 @@ describe('external subagent activations', () => {
       const text = notice.content.flatMap(block => block.type === 'text' ? [block.text] : []).join('\n')
       expect(text).toContain('Reviewed three files.')
       expect(text).toContain('Structured result: {"files":3}')
-      expect(text).toContain('External transport failed.')
+      expect(text).toContain('Status: failed')
+      expect(text).toContain('Blockers: External transport failed.')
       expect(text).not.toContain('follow-up')
     }
   })
