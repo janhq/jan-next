@@ -91,7 +91,7 @@ export function apply(ctx: ClientContext): void {
     () => 0,
   )
   ctx.slots.registerFactory({
-    name: 'conversation.approval.card', scope: 'session', locale: NS,
+    name: 'conversation.approval.card', scope: 'session-maybe', locale: NS,
     children: { 'conversation.approval.detail': { kind: 'single', scope: 'session' } },
   }, ApprovalCard)
   ctx.slots.inject('conversation.composer', () => ctx.slots.register({

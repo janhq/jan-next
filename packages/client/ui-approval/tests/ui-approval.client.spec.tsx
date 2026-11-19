@@ -4,7 +4,7 @@ import { createScope, scopeOf } from '@janhq/jan-api-session-controller/client'
 import type { ToolCallId } from '@janhq/jan-llm'
 import type { SessionId } from '@janhq/jan-session/types'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { ApprovalCard } from '../src/client/ApprovalCard.tsx'
 import { ApprovalWarning } from '../src/client/ApprovalWarning.tsx'
 import { Modal } from '@janhq/jan-client-ui-primitives'
@@ -36,6 +36,7 @@ interface PluginBench {
   readonly disposeLocale: ReturnType<typeof vi.fn>
   readonly register: ReturnType<typeof vi.fn>
   readonly injectSlot: ReturnType<typeof vi.fn>
+  readonly registerFactory: Mock
   readonly shortcuts: ReturnType<typeof vi.fn<(entry: { label: () => string }) => () => void>>
   releasePending(): Promise<void>
   registration(): {
@@ -87,7 +88,8 @@ async function setupPlugin(): Promise<PluginBench> {
   } as never)
   ctx.provide('sessions', { scopeOf } as never)
   ctx.provide('uiSession', { registerPendingInteraction } as never)
-  ctx.provide('slots', { inject: injectSlot, register, registerFactory: vi.fn() } as never)
+  const registerFactory = vi.fn()
+  ctx.provide('slots', { inject: injectSlot, register, registerFactory } as never)
   const shortcuts = vi.fn((entry: { label: () => string }) => { entry.label(); return () => {} })
   ctx.provide('shortcuts', { registerFixed: shortcuts } as never)
   ctx.provide('locale', {
@@ -108,6 +110,7 @@ async function setupPlugin(): Promise<PluginBench> {
     disposeLocale,
     register,
     injectSlot,
+    registerFactory,
     shortcuts,
     async releasePending() {
       const delegates = [...pending.values()]
@@ -122,6 +125,18 @@ async function setupPlugin(): Promise<PluginBench> {
 }
 
 const id = (value: string): SessionId => value as SessionId
+
+it('registers the shared card for callers without a Session while preserving scoped tool detail', async () => {
+  const bench = await setupPlugin()
+  try {
+    expect(bench.registerFactory).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'conversation.approval.card', scope: 'session-maybe',
+      children: { 'conversation.approval.detail': { kind: 'single', scope: 'session' } },
+    }), ApprovalCard)
+  } finally {
+    await bench.ctx.fiber.dispose()
+  }
+})
 
 afterEach(() => {
   cleanup()

@@ -35,7 +35,7 @@ declare module '@janhq/jan-client-ui-slots' {
   interface SlotFactoryMap {
     /** Shared decision card; the caller owns authorization and persistence. */
     'conversation.approval.card': {
-      scope: 'session'
+      scope: 'session-maybe'
       props: ApprovalCardInput
       locale: 'approval'
       children: { 'conversation.approval.detail': { kind: 'single'; scope: 'session' } }
