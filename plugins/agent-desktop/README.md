@@ -1,6 +1,6 @@
 # Desktop computer use
 
-Jan Desktop can inspect and act on native app windows with the [agent-desktop CLI](https://github.com/vercel-labs/agent-desktop). Open the app you want Jan to use, then name it in a Jan Desktop chat. The plugin is mounted only in the desktop bundle. You can disable **Desktop computer use** in Plugins.
+Jan Desktop can inspect and act on native app windows with the [agent-desktop CLI](https://github.com/vercel-labs/agent-desktop). Open the app you want Jan to use, then name it in a Jan Desktop chat. The plugin is mounted only in the desktop bundle. To turn off its tools, set `disabled: true` on the `jan-agent-desktop` row in your profile's `cordis.patch.yml` and restart Jan. Remove the override and restart again to re-enable it.
 
 ## Setup and permissions
 
