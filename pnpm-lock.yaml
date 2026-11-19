@@ -18041,6 +18041,9 @@ importers:
       '@janhq/jan-agent-preset':
         specifier: workspace:*
         version: link:../../packages/preset/agent-preset
+      '@janhq/jan-always-on':
+        specifier: workspace:*
+        version: link:../jan-always-on
       '@janhq/jan-annotate':
         specifier: workspace:*
         version: link:../annotate
@@ -18094,6 +18097,30 @@ importers:
         version: link:../../packages/web/tool-web
 
   plugins/downloads: {}
+
+  plugins/jan-always-on:
+    dependencies:
+      '@janhq/dsh-superagent':
+        specifier: workspace:~
+        version: link:../../vendor/dsh-superagent
+      '@janhq/jan-atomic-write':
+        specifier: workspace:*
+        version: link:../../packages/util/atomic-write
+      '@janhq/jan-llm':
+        specifier: workspace:*
+        version: link:../../packages/llm/llm
+      '@janhq/jan-plugin-api':
+        specifier: workspace:*
+        version: link:../plugin-api
+      '@janhq/jan-schedule':
+        specifier: workspace:*
+        version: link:../../packages/schedule/schedule
+      '@janhq/jan-tools':
+        specifier: workspace:*
+        version: link:../../packages/core/tools
+      '@janhq/schemastery':
+        specifier: link:../../vendor/schemastery
+        version: link:../../vendor/schemastery
 
   plugins/jan-browser:
     dependencies:

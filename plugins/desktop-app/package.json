@@ -20,6 +20,7 @@
   "dependencies": {
     "@janhq/jan-agent-desktop": "workspace:*",
     "@janhq/jan-agent-preset": "workspace:*",
+    "@janhq/jan-always-on": "workspace:*",
     "@janhq/jan-annotate": "workspace:*",
     "@janhq/jan-browser-use": "workspace:*",
     "@janhq/jan-client-ui-jan-theme": "workspace:*",

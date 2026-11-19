@@ -49,6 +49,10 @@
     - id: jan-model-hub
       name: '@janhq/jan-model-hub'
 
+    # Off by default; one local queue for background tasks and their notifications.
+    - id: jan-always-on
+      name: '@janhq/jan-always-on'
+
     # Let Sessions use the published Chrome extension without an MCP subprocess.
     - id: browser-use
       name: '@janhq/jan-browser-use'
