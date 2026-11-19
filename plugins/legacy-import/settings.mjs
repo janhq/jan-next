@@ -85,20 +85,19 @@ export function providerProfile(row, ref) {
 const MCP_FIELDS = ['command', 'args', 'env', 'cwd', 'url', 'headers', 'type', 'transport']
 
 /**
- * Jan's MCP servers as an `mcpServers` document the MCP settings import takes:
- * names made valid (letters, digits, `_`, `-`, at most 32) and unique, and
- * each server reduced to the fields jan-next keeps.
+ * Normalize Jan's MCP server names and settings for Host import. The returned
+ * server definitions can contain credentials and must not be returned over RPC.
  * @param {object} config - Jan's parsed mcp_config.json.
  * @returns {{ servers: Record<string, object>, renamed: Record<string, string>, skipped: { sourceName: string, reason: string }[] }}
  */
 export function janMcpServers(config) {
-  const servers = {}
-  const renamed = {}
+  const servers = Object.create(null)
+  const renamed = Object.create(null)
   const skipped = []
   for (const [sourceName, value] of Object.entries(plain(config?.mcpServers) ? config.mcpServers : {})) {
     if (!plain(value)) { skipped.push({ sourceName, reason: 'not a server entry' }); continue }
     const type = value.transport ?? value.type
-    if (type && !['stdio', 'http', 'streamable-http'].includes(type)) { skipped.push({ sourceName, reason: `${type} transport is not supported` }); continue }
+    if (type && !['stdio', 'http', 'streamable-http'].includes(type)) { skipped.push({ sourceName, reason: 'unsupported transport' }); continue }
     if (JSON.stringify(value).includes('${')) { skipped.push({ sourceName, reason: 'uses ${...} placeholders; add it by hand with real values' }); continue }
     const base = sourceName.replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 32) || 'server'
     let name = base
@@ -182,14 +181,25 @@ const readJson = async path => {
 }
 
 /**
- * What the Jan folder holds besides chats, without any secret value.
+ * Read Jan's MCP server settings, including credentials, for use on the Host.
+ * @param {string} folder - Jan's data folder.
+ * @returns {Promise<ReturnType<typeof janMcpServers>>}
+ */
+export async function readJanMcpServers(folder) {
+  let config
+  try { config = await readJson(join(folder, 'mcp_config.json')) }
+  catch { throw new Error('Could not read Jan’s MCP configuration. Check mcp_config.json and try again.') }
+  return janMcpServers(config)
+}
+
+/**
+ * The providers and assistants in Jan's data folder, without credential values.
  * @param {string} folder - Jan's data folder.
  * @param {string[]} keyNames - provider ids Jan holds a key for.
- * @returns {Promise<{ providers: object[], mcp: ReturnType<typeof janMcpServers>, assistants: object[] }>}
+ * @returns {Promise<{ providers: object[], assistants: object[] }>}
  */
 export async function readJanSettings(folder, keyNames) {
   const providers = janProviders(await readJson(join(folder, 'settings.json')) ?? {}, keyNames)
-  const mcp = janMcpServers(await readJson(join(folder, 'mcp_config.json')) ?? {})
   const assistants = []
   let entries = []
   try { entries = await readdir(join(folder, 'assistants'), { withFileTypes: true }) } catch (error) { if (!missing(error)) throw error }
@@ -200,5 +210,5 @@ export async function readJanSettings(folder, keyNames) {
       if (item) assistants.push(item)
     } catch { /* an unreadable assistant is left behind */ }
   }
-  return { providers, mcp, assistants: janAssistants(assistants) }
+  return { providers, assistants: janAssistants(assistants) }
 }
