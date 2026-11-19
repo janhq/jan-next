@@ -3,15 +3,16 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { runInNewContext } from 'node:vm'
 import { fireEvent, render, screen, within } from '@testing-library/react'
-import { Context } from '@janhq/cordis'
+import { Context, type Plugin } from '@janhq/cordis'
 import { stubConfigForm } from '@janhq/jan-client-test-runtime'
 import WebServer from '@janhq/jan-host-webserver'
 import * as primitives from '@janhq/jan-client-ui-primitives'
+import Loader from '@janhq/cordis-plugin-loader'
 import * as React from 'react'
 import { expect, it, onTestFinished, vi } from 'vitest'
 import { ThemeRuntime, type ThemeSettings } from '../src/client/index.ts'
 import { applyIndexInjections } from '../../web/src/apply-injections.ts'
-import { liveConfig } from '../../../settings/settings/tests/live-config.ts'
+// @ts-expect-error The Jan theme Host half is an untyped `.mjs` plugin; the test only mounts it.
 import * as JanThemeHost from '../../../../plugins/jan-theme/index.mjs'
 
 type Component = React.ComponentType
@@ -70,11 +71,16 @@ it('restores the saved accent on a fresh desktop boot', async () => {
   for (const name of ['configEditor', 'connection', 'credentials', 'settings', 'skills', 'tools']) {
     ctx.provide(name, {})
   }
-  await liveConfig(ctx, JanThemeHost, { appearance: { accent: 'orange', coloredUserBubble: false } })
+  // Mount through the Loader, as a profile does: the plugin reads its entry id and live `appearance` config.
+  await ctx.plugin(Loader)
+  ctx.loader.builtins['jan-theme-host'] = JanThemeHost as Plugin
+  const config = { appearance: { accent: 'orange', coloredUserBubble: false } }
+  const id = await ctx.loader.create({ name: 'cordis:jan-theme-host', config })
+  await ctx.loader.resolve(id).fiber!.await()
 
   const peer = { principal: { kind: 'owner' } } as Parameters<WebServer['collectIndexInjections']>[0]
   vi.stubGlobal('__JAN_THEME__', undefined)
-  onTestFinished(() => vi.unstubAllGlobals())
+  onTestFinished(() => { vi.unstubAllGlobals() })
   await applyIndexInjections(server.collectIndexInjections(peer), async (src) => { throw new Error(`Unexpected boot script: ${src}`) })
 
   const theme = new ThemeRuntime(new Context(), stubConfigForm<ThemeSettings>().scope)

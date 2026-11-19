@@ -47,6 +47,7 @@
   },
   "devDependencies": {
     "@janhq/cordis": "workspace:~",
+    "@janhq/cordis-plugin-loader": "workspace:~",
     "@janhq/jan-api-remotes": "workspace:*",
     "@janhq/jan-client-connection": "workspace:*",
     "@janhq/jan-client-locale": "workspace:*",

@@ -6916,6 +6916,9 @@ importers:
       '@janhq/cordis':
         specifier: workspace:~
         version: link:../../../vendor/cordis
+      '@janhq/cordis-plugin-loader':
+        specifier: workspace:~
+        version: link:../../../vendor/loader
       '@janhq/jan-api-remotes':
         specifier: workspace:*
         version: link:../../api/remotes
