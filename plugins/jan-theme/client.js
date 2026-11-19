@@ -47,8 +47,8 @@ window.__ModuleLoader__.load({
       ['cyan', 'Cyan', '#45BBDE', '#C4E8F3', '#0F4657'],
       ['blue', 'Blue', '#456BDE', '#C4D0F3', '#0F2157'],
       ['purple', 'Purple', '#865EEA', '#D2C4F3', '#220C5A'],
-      ['pink', 'Pink', '#D55EF3', '#FFDAE9', '#4D075F'],
-      ['rose', 'Rose', '#F655B8', '#F3C4E1', '#61053E'],
+      ['pink', 'Pink', '#D55EF3', '#E9C4F3', '#4D075F'],
+      ['rose', 'Rose', '#F655B8', '#FFDAE9', '#61053E'],
     ]
     const DEFAULT_ACCENT = PALETTES.find(p => p[2].toLowerCase() === look.primary.toLowerCase())?.[0] || 'blue'
     let preferences = { accent: DEFAULT_ACCENT, coloredUserBubble: false, ...shell.appearance }
@@ -290,31 +290,36 @@ window.__ModuleLoader__.load({
           : both('var(--dsw-alias-bg-layer-2)'),
       }
     }
+    // Mimi's Jan - Desktop v04 palette (design/mimi-tokens.json, enforced by
+    // ui-theme's jan-design-contract spec). Dark values Mimi has not drawn
+    // (border-l2, selected sidebar row) keep Jan's earlier dark steps.
     const TOKENS = {
       '--jan-font-family-text': both("'Inter', 'Segoe UI', sans-serif"),
-      '--dsw-alias-bg-base': { light: 'oklch(1 0 0)', dark: 'oklch(0.18 0 0)' },
-      '--dsw-alias-bg-layer-1': { light: 'oklch(1 0 0)', dark: 'oklch(0.205 0 0)' },
-      '--dsw-alias-bg-layer-2': { light: 'oklch(0.97 0 0)', dark: 'oklch(0.235 0 0)' },
-      '--dsw-alias-bg-overlay': { light: 'oklch(1 0 0)', dark: 'oklch(0.205 0 0)' },
-      '--dsw-alias-border-l1': { light: 'oklch(0.922 0 0)', dark: 'oklch(1 0 0 / 10%)' },
-      '--dsw-alias-border-l2': { light: 'oklch(0.88 0 0)', dark: 'oklch(1 0 0 / 15%)' },
-      '--dsw-alias-label-primary': { light: 'oklch(0.145 0 0)', dark: 'oklch(0.985 0 0)' },
-      '--dsw-alias-label-secondary': { light: 'oklch(0.556 0 0)', dark: 'oklch(0.708 0 0)' },
-      '--dsw-specific-input-major': { light: 'oklch(0.97 0 0)', dark: 'oklch(0.235 0 0)' },
+      '--dsw-alias-bg-base': { light: '#FFFFFF', dark: '#111111' },
+      '--dsw-alias-bg-layer-1': { light: '#FFFFFF', dark: '#1B1B1B' },
+      '--dsw-alias-bg-layer-2': { light: '#F7F7F7', dark: '#151515' },
+      '--dsw-alias-bg-overlay': { light: '#FFFFFF', dark: '#1B1B1B' },
+      '--dsw-alias-border-l1': { light: 'rgb(34 34 34 / 5%)', dark: 'rgb(255 255 255 / 8%)' },
+      '--dsw-alias-border-l2': { light: 'rgb(34 34 34 / 10%)', dark: 'oklch(1 0 0 / 15%)' },
+      '--dsw-alias-label-primary': { light: '#3D3D3D', dark: 'rgb(255 255 255 / 80%)' },
+      '--dsw-alias-label-secondary': { light: '#808080', dark: 'rgb(255 255 255 / 40%)' },
+      '--dsw-alias-label-tertiary': both('#999999'),
+      '--dsw-alias-interactive-bg-hover': { light: 'rgb(0 0 0 / 4%)', dark: 'rgb(255 255 255 / 8%)' },
+      '--dsw-specific-input-major': { light: '#FFFFFF', dark: '#1B1B1B' },
       '--dsw-specific-selector': { light: 'oklch(0.94 0 0)', dark: 'oklch(0.269 0 0)' },
       '--dsw-specific-sidebar-fill': { light: 'var(--jt-sidebar-light)', dark: 'var(--jt-sidebar-dark)' },
-      '--dsw-specific-sidebar-nav-item-hover': {
-        light: `color-mix(in oklch, var(--jt-sidebar-light) 85%, black)`,
-        dark: `color-mix(in oklch, var(--jt-sidebar-dark) 85%, white)`,
-      },
+      '--dsw-specific-sidebar-nav-item-hover': { light: 'rgb(0 0 0 / 4%)', dark: 'rgb(255 255 255 / 8%)' },
       '--dsw-specific-sidebar-nav-item-active': {
-        light: `color-mix(in oklch, var(--jt-sidebar-light) 75%, black)`,
+        light: 'rgb(0 0 0 / 6%)',
         dark: `color-mix(in oklch, var(--jt-sidebar-dark) 75%, white)`,
       },
       '--dsw-specific-sidebar-nav-item-active-accent': {
-        light: `color-mix(in oklch, var(--jt-sidebar-light) 75%, black)`,
+        light: 'rgb(0 0 0 / 6%)',
         dark: `color-mix(in oklch, var(--jt-sidebar-dark) 75%, white)`,
       },
+      // Sidebar card, composer and other enclosing panels.
+      '--jt-sidebar-radius': both('20px'),
+      '--dsw-radius-panel': both('24px'),
     }
 
     const CSS = `
@@ -383,11 +388,7 @@ window.__ModuleLoader__.load({
    override these marker-scoped rules. */
   html[data-jan-theme] {
     --jt-sidebar-gap: 12px;
-    --jt-sidebar-radius: 14px;
   }
-  /* macOS: an 8px gap puts the card's corner 10pt outside the native traffic
-     lights (desktop main.ts trafficLightPosition 18,18) on both axes. */
-  html[data-jan-theme][data-jan-theme-mac] { --jt-sidebar-gap: 8px; }
   html[data-jan-theme] [data-slot='root'] > [data-sidebar-collapsed], html[data-jan-theme] [data-slot='root'] > :has(> [data-shell-overlay]) {
     background: var(--dsw-alias-bg-base);
   }
@@ -423,11 +424,31 @@ window.__ModuleLoader__.load({
   html[data-jan-theme][data-jan-theme-mac]:has([data-sidebar-collapsed]) [data-slot='sidebar'] [data-sidebar-toggle] { left: 84px; }
   /* Electron on macOS gives the toggle its own strip above the logo row; fold
      that strip into the logo row and centre it on the traffic lights and the
-     conversation title row (window y 25). */
+     conversation title row (ui-layout --jan-frame-title-inset + 15 from the
+     window top; the strip's box starts 5px above the card's top edge). */
   html[data-jan-theme][data-jan-theme-mac] [data-slot='sidebar'] > div:has(> [data-window-drag] > [data-sidebar-toggle]) { position: relative; }
   html[data-jan-theme][data-jan-theme-mac] [data-slot='sidebar'] > div > [data-window-drag]:has(> [data-sidebar-toggle]) {
-    position: absolute; top: 3px; right: 10px; height: 40px; display: flex; align-items: center; z-index: 1;
+    position: absolute; top: calc(var(--jan-frame-title-inset, 10px) + 1px - var(--jt-sidebar-gap)); right: 12px; height: 40px; display: flex; align-items: center; z-index: 1;
   }
+  /* Back and Forward are off by default (General -> Back and forward buttons).
+     The collapsed macOS seat then holds two controls, sidebar and new chat, so
+     the title clears 96 + 28 + 8 + 28 + 8 (ui-layout AppFrame leading seat). */
+  html[data-jan-theme][data-jt-hide-navigation] [data-navigation] { display: none; }
+  html[data-jan-theme][data-jt-hide-navigation][data-jan-theme-mac] [data-slot='root'] > [data-sidebar-collapsed] { --jan-frame-leading-clearance: 168px; }
+  html[data-jan-theme][data-jt-hide-navigation][data-jan-theme-mac][data-fullscreen] [data-slot='root'] > [data-sidebar-collapsed] { --jan-frame-leading-clearance: 84px; }
+  /* Sidebar rhythm from Jan Desktop v04 ("Chat + Cowork merged"), in card
+     coordinates: icons at x 19, labels at x 46, shortcuts end 19 from the
+     right edge, 38px rows on a 40px pitch, and the first row centred 57px
+     under the traffic lights. Chat titles carry no icon, so they start on the
+     icon column; a running Session's status dots still take their slot. */
+  html[data-jan-theme][data-jan-theme-mac] { --jt-sidebar-gap: 11px; }
+  html[data-jan-theme][data-jan-theme-mac] [data-slot='sidebar'] > div > :has([data-slot='sidebar.brand.name']) { margin-bottom: 18px; }
+  html[data-jan-theme] .jt-nav-row:not([class*='rail']) { height: 38px; padding: 0 10px; gap: 11px; }
+  /* The More launcher matches these rows (see the panelRow rule below). */
+  html[data-jan-theme] [data-slot='sidebar'] nav { gap: 2px; }
+  html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='session:'] { height: 38px; padding-inline-start: calc(7px + var(--jan-workspace-indent, 0px)); }
+  html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='session:'] > span:first-child:has(> [data-slot='sidebar.session.row.leading']:only-child:empty) { display: none; }
+  html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='session:'] > span:first-child:has(> [data-slot='sidebar.session.row.leading']:only-child:empty) + span { margin-inline-start: 0; }
   html[data-jan-theme] [data-slot='sidebar.brand.name'] .jt-name { font-size: 14px; }
   html[data-jan-theme] [data-slot='sidebar'] [data-sidebar-toggle] {
     position: relative;
@@ -445,15 +466,15 @@ window.__ModuleLoader__.load({
     margin: 0 3px 2px;
     padding: 7px 9px;
     border: 0;
-    border-radius: 6px;
+    border-radius: 12px;
     background: transparent;
     box-shadow: none;
     font-weight: 400;
   }
   html[data-jan-theme] [data-slot='sidebar'] > div > button > span:first-child > span { width: auto; justify-content: flex-start; gap: 8px; }
-  html[data-jan-theme] [data-slot='sidebar'] > div > button > span:last-child:not(:first-child) { opacity: 1; color: var(--dsw-alias-label-secondary); font-size: 11px; }
+  html[data-jan-theme] [data-slot='sidebar'] > div > button > span:last-child:not(:first-child) { opacity: 1; color: var(--dsw-alias-label-secondary); font-size: 10px; font-weight: 500; }
   html[data-jan-theme] [data-slot='sidebar'] nav { margin: 0 0 12px; }
-  html[data-jan-theme] [data-slot='sidebar'] nav > button, html[data-jan-theme] [data-slot='sidebar'] nav > div > button { min-height: 36px; border-radius: 6px; }
+  html[data-jan-theme] [data-slot='sidebar'] nav > button, html[data-jan-theme] [data-slot='sidebar'] nav > div > button { min-height: 36px; border-radius: 12px; }
   /* Jan has no panel launchers above the chat list. Plugins and Model Hub move
      to the footer; every remaining management page stays reachable through the
      native More menu, whose trigger keeps aria-haspopup. Without that trigger
@@ -473,11 +494,11 @@ window.__ModuleLoader__.load({
   html[data-jan-theme] [data-slot='sidebar'] > div > div:has([data-slot='sidebar.workspaces']) > span[aria-hidden='true']:last-child { display: none; }
   /* The stock More launcher keeps its own 32px / 12px-radius pill; Jan draws
      it as one more nav row so the column has a single row rhythm. */
-  html[data-jan-theme] button[aria-label][aria-haspopup='menu'][class*='panelRow'] { height: 36px; padding: 0 8px; border-width: 0; border-radius: 6px; gap: 8px; }
+  html[data-jan-theme] button[aria-label][aria-haspopup='menu'][class*='panelRow'] { height: 38px; padding: 0 10px; border-width: 0; border-radius: 12px; gap: 11px; }
   /* Projects page. */
   .jt-projects { box-sizing: border-box; width: 100%; max-width: 880px; margin: 0 auto; padding: 48px 32px; color: var(--dsw-alias-label-primary); }
   .jt-projects-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-  .jt-projects-head h1 { margin: 0; font-size: 28px; font-weight: 500; line-height: 36px; }
+  .jt-projects-head h1 { margin: 0; font-size: 24px; font-weight: 500; line-height: 32px; }
   .jt-projects-head button { display: inline-flex; align-items: center; gap: 6px; }
   .jt-projects-lede { margin: 4px 0 24px; color: var(--dsw-alias-label-secondary); font-size: 14px; line-height: 20px; }
   .jt-projects-error { margin: -12px 0 20px; color: var(--dsw-alias-state-error-primary); font-size: 14px; line-height: 20px; }
@@ -489,14 +510,14 @@ window.__ModuleLoader__.load({
   @media (max-width: 600px) { .jt-projects { padding: 24px 16px; } }
   /* Project home: the main column (title, composer, recents) and a details rail. */
   .jt-project { box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 40px; width: 100%; max-width: 1120px; margin: 0 auto; padding: 40px 32px 48px; color: var(--dsw-alias-label-primary); }
-  .jt-project-back { display: inline-flex; align-items: center; gap: 4px; margin: 0 0 12px -6px; padding: 2px 6px; border: 0; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 13px; line-height: 20px; cursor: pointer; }
+  .jt-project-back { display: inline-flex; align-items: center; gap: 4px; margin: 0 0 12px -6px; padding: 2px 6px; border: 0; border-radius: 8px; background: transparent; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 13px; line-height: 20px; cursor: pointer; }
   .jt-project-back:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }
   @media (hover: hover) { .jt-project-back:hover { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-interactive-bg-hover); } }
-  .jt-project-title { margin: 0; font-size: 28px; font-weight: 500; line-height: 36px; overflow-wrap: anywhere; }
+  .jt-project-title { margin: 0; font-size: 24px; font-weight: 500; line-height: 32px; overflow-wrap: anywhere; }
   .jt-project-path { margin: 4px 0 24px; color: var(--dsw-alias-label-tertiary); font-size: 13px; line-height: 18px; overflow-wrap: anywhere; }
   .jt-project-composer { display: flex; flex-direction: column; gap: 8px; padding: 12px 12px 10px 16px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 16px; background: var(--dsw-alias-bg-base); box-shadow: 0 1px 2px rgb(0 0 0 / 0.04); }
   .jt-project-composer:focus-within { border-color: var(--dsw-alias-state-business-primary); }
-  .jt-project-composer textarea { box-sizing: border-box; width: 100%; min-height: 56px; max-height: 240px; padding: 4px 0; border: 0; outline: 0; resize: none; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 15px; line-height: 22px; field-sizing: content; }
+  .jt-project-composer textarea { box-sizing: border-box; width: 100%; min-height: 56px; max-height: 240px; padding: 4px 0; border: 0; outline: 0; resize: none; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 14px; line-height: 20px; field-sizing: content; }
   .jt-project-composer textarea::placeholder { color: var(--dsw-alias-label-tertiary); }
   .jt-project-composer-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .jt-project-hint { color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 16px; }
@@ -507,7 +528,7 @@ window.__ModuleLoader__.load({
   .jt-project-heading { margin: 0 0 8px; color: var(--dsw-alias-label-secondary); font-size: 13px; font-weight: 500; line-height: 20px; }
   .jt-project-sessions { margin: 0; padding: 0; list-style: none; border-top: 0.5px solid var(--dsw-alias-border-l2); }
   .jt-project-session { display: flex; align-items: baseline; gap: 12px; width: 100%; padding: 12px 4px; border: 0; border-bottom: 0.5px solid var(--dsw-alias-border-l2); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-  .jt-project-session:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -2px; border-radius: 6px; }
+  .jt-project-session:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -2px; border-radius: 12px; }
   @media (hover: hover) { .jt-project-session:hover { background: var(--dsw-alias-interactive-bg-hover); } }
   .jt-project-session-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; line-height: 20px; }
   .jt-project-session-date { flex: none; color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 16px; font-variant-numeric: tabular-nums; }
@@ -540,12 +561,12 @@ window.__ModuleLoader__.load({
   @media (max-width: 600px) { .jt-project { padding: 24px 16px; } }
   /* Startup failure notices: a bottom-right stack, newest last. */
   .jt-startup { position: absolute; right: 16px; bottom: 16px; z-index: 40; display: flex; flex-direction: column; gap: 8px; width: min(380px, calc(100% - 32px)); pointer-events: none; }
-  .jt-startup-card { display: grid; grid-template-columns: 20px minmax(0, 1fr) 24px; column-gap: 12px; padding: 14px 12px 14px 16px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 14px; background: var(--dsw-alias-bg-base); box-shadow: 0 8px 24px rgb(0 0 0 / 0.14); color: var(--dsw-alias-label-primary); pointer-events: auto; animation: jt-startup-in 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+  .jt-startup-card { display: grid; grid-template-columns: 20px minmax(0, 1fr) 24px; column-gap: 12px; padding: 14px 12px 14px 16px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 16px; background: var(--dsw-alias-bg-base); box-shadow: 0 8px 24px rgb(0 0 0 / 0.14); color: var(--dsw-alias-label-primary); pointer-events: auto; animation: jt-startup-in 200ms cubic-bezier(0.23, 1, 0.32, 1); }
   .jt-startup-glyph { padding-top: 1px; color: var(--dsw-alias-state-warning-primary, #d99a00); }
   .jt-startup-title { margin: 0; font-size: 14px; font-weight: 600; line-height: 20px; overflow-wrap: anywhere; }
   .jt-startup-text { margin: 2px 0 0; font-size: 13px; line-height: 18px; color: var(--dsw-alias-label-secondary); text-wrap: pretty; }
   .jt-startup-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-  .jt-startup-close { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; }
+  .jt-startup-close { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 999px; corner-shape: round; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; }
   .jt-startup-close:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }
   @media (hover: hover) { .jt-startup-close:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); } }
   @keyframes jt-startup-in { from { opacity: 0; transform: translateY(8px); } }
@@ -557,7 +578,7 @@ window.__ModuleLoader__.load({
   /* Two shared axes: icons start 20px in (row glyph boxes sit 18px in with 2px of slack), text starts 48px in. */
   .jt-palette-field, .jt-palette-tabs, .jt-palette-footer { flex: none; }
   .jt-palette-field { display: flex; align-items: center; gap: 12px; height: 52px; padding: 0 20px; border-bottom: 0.5px solid var(--dsw-alias-border-l2); color: var(--dsw-alias-label-tertiary); }
-  .jt-palette-field input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 15px; line-height: 22px; }
+  .jt-palette-field input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 14px; line-height: 20px; }
   .jt-palette-field input::placeholder { color: var(--dsw-alias-label-tertiary); }
   .jt-palette-tabs { display: flex; gap: 4px; padding: 10px 8px 2px; overflow-x: auto; scrollbar-width: none; }
   .jt-palette-tab { flex: none; height: 28px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 13px; cursor: pointer; }
@@ -577,10 +598,12 @@ window.__ModuleLoader__.load({
   .jt-palette-empty { margin: 0; padding: 32px 12px; color: var(--dsw-alias-label-secondary); font-size: 14px; text-align: center; }
   .jt-palette-footer { display: flex; gap: 16px; padding: 10px 18px; border-top: 0.5px solid var(--dsw-alias-border-l2); color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 16px; }
   .jt-palette-footer span { display: inline-flex; align-items: center; gap: 4px; }
-  .jt-palette-footer kbd { min-width: 18px; height: 18px; padding: 0 4px; box-sizing: border-box; border-radius: 4px; background: var(--dsw-alias-bg-module-platform); font: inherit; font-size: 11px; line-height: 18px; text-align: center; }
+  .jt-palette-footer kbd { min-width: 18px; height: 18px; padding: 0 4px; box-sizing: border-box; border-radius: 4px; background: var(--dsw-alias-bg-module-platform); font: inherit; font-size: 10px; line-height: 18px; text-align: center; }
   /* Jan's "Chats" heading. The browser-owned search and view-options nodes stay
      mounted inside it; only their presentation folds while search is open. */
-  .jt-list-header { flex: none; display: flex; align-items: center; gap: 4px; height: 36px; margin: 2px -4px 4px 0; padding-left: var(--jan-sidebar-row-padding, 12px); color: var(--dsw-alias-label-tertiary); }
+  /* Jan Desktop v04: the heading sits 56px (centre to centre) under the last
+     nav row and 35px over the first chat. */
+  .jt-list-header { flex: none; display: flex; align-items: center; gap: 4px; height: 36px; margin: 5px -4px -2px 0; padding-left: 10px; color: var(--dsw-alias-label-tertiary); }
   .jt-list-tools { display: flex; align-items: center; gap: 4px; min-width: 0; margin-left: auto; }
   .jt-list-actions { display: flex; align-items: center; }
   .jt-list-header[data-search-expanded] .jt-list-heading, .jt-list-header[data-search-expanded] .jt-list-actions { display: none; }
@@ -597,7 +620,7 @@ window.__ModuleLoader__.load({
   html[data-jan-theme] [data-chat-running-mark] { background: currentColor; -webkit-mask: url('/jan-theme/assets/hand-wave.svg') center / contain no-repeat; mask: url('/jan-theme/assets/hand-wave.svg') center / contain no-repeat; }
   html[data-jan-theme] [data-chat-running-mark] > * { display: none; }
   .jt-hero-title { width: 100%; margin: 0 0 16px; font-family: 'StudioFeixenSans', 'Inter', sans-serif; font-size: 24px; font-weight: 500; line-height: 32px; color: var(--dsw-alias-label-primary); text-align: center; text-wrap: balance; }
-.jt-footer-action { width: 100%; min-height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 14px; line-height: 20px; text-align: left; cursor: pointer; }
+.jt-footer-action { width: 100%; min-height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 8px; border: 0; border-radius: 12px; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 14px; line-height: 20px; text-align: left; cursor: pointer; }
 .jt-footer-action > svg { flex: none; color: var(--dsw-alias-label-secondary); }
 .jt-footer-action:hover { background: var(--dsw-specific-sidebar-nav-item-hover); }
 .jt-footer-action:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -2px; }
@@ -661,7 +684,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
 
     const NewSession = ({ wide, onStart, shortcutKeys, shortcutAria, t }) => h(NavRow, {
       icon: h(wide ? IconNewChatOutlineMedium : IconNewChatOutlineRegular, { size: wide ? 16 : 18 }),
-      label: t('newChat'), shortcutKeys, shortcutAria, rail: !wide, onClick: onStart,
+      label: t('newChat'), shortcutKeys, shortcutAria, rail: !wide, onClick: onStart, className: 'jt-nav-row',
     })
 
     // Search, Projects, Artifacts and Plugins follow New chat (Claude's order).
@@ -685,28 +708,28 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         h(NavRow, {
           icon: h(IconSearchOutlineRegular, { size }),
           label: t('search'), shortcutKeys: searchShortcut?.keys, shortcutAria: searchShortcut?.aria,
-          rail: !wide, onClick: requestSearch,
+          rail: !wide, onClick: requestSearch, className: 'jt-nav-row',
         }),
         h(NavRow, {
-          icon: h(IconFolderCloseRegular, { size }), label: t('projects'), rail: !wide,
+          icon: h(IconFolderCloseRegular, { size }), label: t('projects'), rail: !wide, className: 'jt-nav-row',
           current: active === PROJECTS_PANEL, onClick: () => { openPanel(PROJECTS_PANEL) },
           quick: { label: t('newProject'), onClick: () => { void addProject() } },
         }),
         hub && h(NavRow, {
-          icon: h(IconAppsAddOutlineRegular, { size }), label: t('hub'), rail: !wide,
+          icon: h(IconAppsAddOutlineRegular, { size }), label: t('hub'), rail: !wide, className: 'jt-nav-row',
           current: active === HUB_PANEL, onClick: () => { openPanel(HUB_PANEL) },
         }),
         artifacts && h(NavRow, {
-          icon: h(IconLayersOutlineRegular, { size }), label: t('artifacts'), rail: !wide,
+          icon: h(IconLayersOutlineRegular, { size }), label: t('artifacts'), rail: !wide, className: 'jt-nav-row',
           current: active === ARTIFACTS_PANEL, onClick: () => { openPanel(ARTIFACTS_PANEL) },
           quick: { label: t('newArtifact'), onClick: newChat },
         }),
         scheduled && h(NavRow, {
-          icon: h(IconClockOutlineRegular, { size }), label: t('scheduled'), rail: !wide,
+          icon: h(IconClockOutlineRegular, { size }), label: t('scheduled'), rail: !wide, className: 'jt-nav-row',
           current: active === SCHEDULED_PANEL, onClick: () => { openPanel(SCHEDULED_PANEL) },
         }),
         plugins && h(NavRow, {
-          icon: h(IconPluginPinwheelOutlineRegular, { size }), label: t('plugins'), rail: !wide,
+          icon: h(IconPluginPinwheelOutlineRegular, { size }), label: t('plugins'), rail: !wide, className: 'jt-nav-row',
           current: active === 'plugins', onClick: () => { openPanel('plugins') },
           quick: { label: t('createPlugin'), onClick: createPlugin },
         }))
