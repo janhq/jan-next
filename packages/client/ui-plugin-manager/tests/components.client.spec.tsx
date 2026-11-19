@@ -202,8 +202,8 @@ function renderTab(
       }
       return body(owner.view, owner, 'form' in owner ? owner.form as ConfigPageForm | undefined : undefined)
     },
-    usePackageTranslation: () => undefined,
-    useTranslationSettings: () => false,
+    usePackageTranslation: selector => selector(undefined),
+    useTranslationSettings: selector => selector(false),
     openTranslationSettings: vi.fn(),
     ...translation,
   }

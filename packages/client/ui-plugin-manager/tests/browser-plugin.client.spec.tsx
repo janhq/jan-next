@@ -115,7 +115,8 @@ describe('ui-plugin-manager browser plugin', () => {
     const b = await bench()
     declare(b.slots)
     await b.ctx.plugin({ inject: [...inject], apply }).await()
-    const face = b.slots.entries('main')[0]!.inject!() as PluginTranslationFace
+    const injected: object = b.slots.entries('main')[0]!.inject!()
+    const face = injected as PluginTranslationFace
     const settings = face.hooks.translationSettings
     const listener = vi.fn(() => settings.getSnapshot())
     const off = settings.subscribe(listener)
