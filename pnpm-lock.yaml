@@ -17991,10 +17991,35 @@ importers:
         specifier: workspace:*
         version: link:../../typert/protocol
 
+  plugins/agent-desktop:
+    dependencies:
+      '@janhq/jan-llm':
+        specifier: workspace:*
+        version: link:../../packages/llm/llm
+      '@janhq/jan-tools':
+        specifier: workspace:*
+        version: link:../../packages/core/tools
+    devDependencies:
+      '@janhq/cordis':
+        specifier: workspace:~
+        version: link:../../vendor/cordis
+      '@janhq/jan-agent':
+        specifier: workspace:*
+        version: link:../../packages/core/agent
+      '@janhq/jan-attachment':
+        specifier: workspace:*
+        version: link:../../packages/attachment/attachment
+      '@janhq/jan-util-values':
+        specifier: workspace:*
+        version: link:../../packages/util/values
+
   plugins/annotate: {}
 
   plugins/desktop-app:
     dependencies:
+      '@janhq/jan-agent-desktop':
+        specifier: workspace:*
+        version: link:../agent-desktop
       '@janhq/jan-agent-preset':
         specifier: workspace:*
         version: link:../../packages/preset/agent-preset

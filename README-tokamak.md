@@ -136,6 +136,7 @@ TOKAMAK_BASE_URL=http://127.0.0.1:8787/v1 TOKAMAK_ALLOW_LOOPBACK_HTTP=1 pnpm jan
 - `llm-pi-ai`: its config check before a live update sees a route that stores a `!!js` value (the `tokamak` route's `baseURL`) as that route's current value. It used to reject every settings write to the section, which kept the picker on the bundle's model list.
 - Desktop welcome: a **Download a local model** page (`apps/desktop/src/client/WelcomePage.tsx`, `welcome-backend.ts`), and `needsWelcome` counts an installed local model.
 - Desktop Jan Browser: native Session tools for navigation, search, screenshots, and page extraction through the published Chrome extension. See [Jan Browser](plugins/jan-browser/README.md) for setup and capture behavior.
+- Desktop computer use: inspect native windows, verify accessibility state, and approve individual semantic actions or screenshots. See [Desktop computer use](plugins/agent-desktop/README.md) for installation and permissions.
 
 Some repository checks are expected to fail in this fork, because it doesn't follow upstream's release rules:
 - Fork packages are `private`.

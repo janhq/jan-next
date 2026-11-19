@@ -1,0 +1,27 @@
+{
+  "name": "@janhq/jan-agent-desktop",
+  "version": "0.2.2-rc.1",
+  "private": true,
+  "type": "module",
+  "description": "Observe native desktop windows and request approval to act on them.",
+  "license": "MIT",
+  "exports": {
+    ".": "./index.mjs",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": ["index.mjs", "cli.mjs", "tools.mjs", "locale.mjs", "locale/*.json"],
+  "jan": {
+    "manifestVersion": 1
+  },
+  "dependencies": {
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-tools": "workspace:*"
+  },
+  "devDependencies": {
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-attachment": "workspace:*",
+    "@janhq/jan-util-values": "workspace:*"
+  }
+}
