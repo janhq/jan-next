@@ -7,6 +7,10 @@ export interface PresetDefinition {
   readonly name?: string
   readonly description?: string
   readonly order?: number
+  /** Inherited tool names this preset admits. Omit to leave inherited tools unchanged. */
+  readonly toolAllowlist?: readonly string[] | undefined
+  /** Pin delegated execution to the existing OS read-only sandbox. */
+  readonly readOnlyDelegation?: boolean | undefined
   readonly plugins: readonly (Omit<EntryOptions, 'id' | 'disabled'> & { id?: string; disabled?: EntryOptions['disabled'] | JsExpr })[]
 }
 
