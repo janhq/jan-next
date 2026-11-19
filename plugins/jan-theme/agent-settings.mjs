@@ -47,22 +47,24 @@ function server(input) {
   return { name, enabled, transport, url: url.href, headers: input.headers ?? {} }
 }
 
+function importedServer(name, value) {
+  if (!plain(value)) throw new Error(`${name}: expected a server object.`)
+  const allowed = ['command', 'args', 'env', 'cwd', 'url', 'headers', 'type', 'transport', 'disabled', 'enabled']
+  const unsupported = Object.keys(value).filter(key => !allowed.includes(key))
+  if (unsupported.length) throw new Error(`${name}: unsupported fields ${unsupported.join(', ')}. Review them before importing.`)
+  const type = value.transport ?? value.type
+  if (type && !['stdio', 'http', 'streamable-http'].includes(type)) throw new Error(`${name}: transport ${type} is unsupported. Legacy SSE is not Streamable HTTP.`)
+  if (value.url && value.command) throw new Error(`${name}: choose either a URL or an executable.`)
+  return server({ ...value, name, enabled: false, transport: type === 'http' ? 'streamable-http' : type })
+}
+
 function imported(text) {
   let document
   try { document = JSON.parse(text) } catch { throw new Error('Paste valid MCP JSON. Codex TOML and plugin manifests cannot be imported as MCP JSON.') }
   if (!plain(document) || !plain(document.mcpServers)) throw new Error('Expected a JSON object with an mcpServers object, as used by Jan and Claude Desktop.')
   const rows = Object.entries(document.mcpServers)
   if (!rows.length) throw new Error('No MCP servers were found.')
-  return rows.map(([name, value]) => {
-    if (!plain(value)) throw new Error(`${name}: expected a server object.`)
-    const allowed = ['command', 'args', 'env', 'cwd', 'url', 'headers', 'type', 'transport', 'disabled', 'enabled']
-    const unsupported = Object.keys(value).filter(key => !allowed.includes(key))
-    if (unsupported.length) throw new Error(`${name}: unsupported fields ${unsupported.join(', ')}. Review them before importing.`)
-    const type = value.transport ?? value.type
-    if (type && !['stdio', 'http', 'streamable-http'].includes(type)) throw new Error(`${name}: transport ${type} is unsupported. Legacy SSE is not Streamable HTTP.`)
-    if (value.url && value.command) throw new Error(`${name}: choose either a URL or an executable.`)
-    return server({ ...value, name, enabled: false, transport: type === 'http' ? 'streamable-http' : type })
-  })
+  return rows.map(([name, value]) => importedServer(name, value))
 }
 
 export async function mountAgentSettings(ctx, config) {
@@ -151,6 +153,16 @@ export async function mountAgentSettings(ctx, config) {
     }
     return { saved: true }
   }
+  // Other Host plugins can import missing servers without passing credentials through an RPC.
+  ctx.provide('janMcpSettings', {
+    async importMissing(document) {
+      const existing = new Set(servers.map(row => row.name))
+      const entries = Object.entries(document)
+      const rows = entries.filter(([name]) => !existing.has(name)).map(([name, value]) => importedServer(name, value))
+      if (rows.length) await saveRows([...servers, ...rows])
+      return { imported: rows.length, already: entries.length - rows.length, names: entries.map(([name]) => name) }
+    },
+  })
   const skill = async name => {
     const value = await ctx.skills.get(name, { cwd: process.cwd() })
     if (!value?.path) throw new Error('This skill has no editable instruction file.')
