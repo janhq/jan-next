@@ -46,7 +46,7 @@ export type InputBarProps = ComposerBarProps
 export const InputBar = memo(function InputBar({
   useSession, useInput, inputActions, keyboard, addFiles, removeAttachment, resolveDraftAttachments,
   retryFileUpload,
-  toggleCommandMenu, stop, retry, t,
+  toggleCommandMenu, stop, retry, previewContext, t,
   renderSlot, useBusyEnter, useFileUploads, useNotices, useLexicon, useMenuLauncher, useStopShortcut, useContextWindow,
   useAccess,
   useProjection, sessionId, variant, disabled: inert = false, blocked,
@@ -593,7 +593,9 @@ export const InputBar = memo(function InputBar({
         {input !== undefined && sessionId !== undefined
           ? renderSlot('conversation.composer.dock', { locked: modelSeatLocked })
           : null}
-        {activity ? null : <ContextMeter useProjection={useProjection} selectedWindow={selectedWindow} t={t} />}
+        {activity ? null : (
+          <ContextMeter useProjection={useProjection} selectedWindow={selectedWindow} previewContext={previewContext} t={t} />
+        )}
       </div>
     </div>
   )

@@ -46,6 +46,27 @@ describe('ContextMeter', () => {
     expect(render(<ContextMeter useProjection={projections({})} selectedWindow={200_000} t={t} />).container.textContent).toContain('0%')
   })
 
+  it('prices the unsent system prompt, tools and context before the first request', async () => {
+    const previewContext = vi.fn(() => Promise.resolve({ systemTokens: 4_000, toolsTokens: 15_000, messageTokens: 1_000 }))
+    const view = render(<ContextMeter useProjection={projections({})} selectedWindow={200_000} previewContext={previewContext} t={t} />)
+    const trigger = await view.findByRole('button', { name: '上下文已用 10%' })
+    fireEvent.click(trigger)
+    const panel = view.getByRole('dialog')
+    expect(panel.textContent).toContain('~20K / 200K')
+    expect(panel.textContent).toContain('系统提示词~4K')
+    expect(panel.textContent).toContain('工具定义~15K')
+    // Once a request is logged, the provider-reported reading replaces the preview.
+    view.rerender(
+      <ContextMeter
+        useProjection={projections({ contextPressure: { pressureTokens: 32_000, contextWindow: 128_000 }, contextBreakdown: BREAKDOWN })}
+        selectedWindow={200_000}
+        previewContext={previewContext}
+        t={t}
+      />,
+    )
+    expect(view.getByRole('button', { name: '上下文已用 25%' })).toBeDefined()
+  })
+
   it('renders nothing until both pressure and capacity are known', () => {
     expect(meter({}).container.textContent).toBe('')
     expect(meter({ contextPressure: { pressureTokens: 32_000 } }).container.textContent).toBe('')

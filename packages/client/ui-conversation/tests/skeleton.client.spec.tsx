@@ -320,6 +320,7 @@ function mount(
           toggleCommandMenu={vi.fn()}
           useBusyEnter={bindSnapshotSelector(createSnapshotStore<'queue' | 'steer'>('queue'))}
           retry={undefined}
+          previewContext={undefined}
           useStopShortcut={bindSnapshotSelector(createSnapshotStore<readonly string[]>([]))}
           useNotices={bindSnapshotSelector(wiring.notices)}
           useLexicon={bindSnapshotSelector(wiring.lexicon)}

@@ -2,6 +2,7 @@
 import type { ReactNode, RefObject } from 'react'
 import type { FileAttachmentRef, ImageAttachmentRef } from '@janhq/jan-attachment'
 import type { SessionSnapshot } from '@janhq/jan-api-session-controller/client'
+import type { SessionContextPreviewValue } from '@janhq/jan-api-session-controller/types'
 import type { FileUploadReceiptId } from '@janhq/jan-client-file-upload/client'
 import type { ImageLightboxLabels } from '@janhq/jan-client-ui-primitives'
 import type { WorkspaceSnapshot } from '@janhq/jan-api-workspace-controller/client'
@@ -611,6 +612,8 @@ export interface ComposerBarInjected {
    * @param failureSeq - sequence of the displayed failed turn/end.
    */
   retry: ((failureSeq: SessionSeq) => void) | undefined
+  /** Price what this Session's next request would inject before any message; null when unavailable. */
+  previewContext: (() => Promise<SessionContextPreviewValue | null>) | undefined
   hooks: {
     /** Readable sequence while the fixed Stop command is registered. */
     stopShortcut: ObservableSnapshot<readonly string[]>
