@@ -325,6 +325,14 @@ export class SessionInputShell implements SessionInput {
     return this.disposed || frozen(this.core.state.phase)
   }
 
+  appendDraft(text: string, ids: readonly DraftAttachmentId[]): boolean {
+    if (this.draftInitializationBlocked()) return false
+    if (ids.length > 0) this.attachmentIds = [...this.attachmentIds, ...ids]
+    this.draftEditor.appendDraft(text)
+    if (ids.length > 0) this.publish()
+    return true
+  }
+
   /** Append ordered attachment ids unless an admission transaction is locked. */
   addAttachments(ids: readonly DraftAttachmentId[]): boolean {
     if (frozen(this.snapshot.phase)) return false

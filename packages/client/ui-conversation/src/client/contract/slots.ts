@@ -214,10 +214,20 @@ declare module '@janhq/jan-client-ui-slots' {
       props: MessageImagesContentInput
       inject: { readonly fileDrag: import('@janhq/jan-client-ui-primitives').FileDragActions }
       locale: 'conversation'
+      children: { 'conversation.image.preview.actions': { kind: 'list'; scope: 'session-maybe' } }
     }
   }
 
   interface SlotMap {
+    /** Actions beside a loaded image in the reusable conversation gallery. */
+    'conversation.image.preview.actions': {
+      kind: 'list'
+      scope: 'session-maybe'
+      owner: {
+        /** @returns the mounted image element, or null. */
+        readonly getSurface: () => HTMLImageElement | null
+      }
+    }
     /** One business-owned inline renderer for a pure JSON text node. */
     'conversation.user.text.node': {
       kind: 'keyed'

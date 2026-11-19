@@ -1,11 +1,14 @@
 import type { ContextMenuBindings } from '@janhq/jan-client-ui-context-menu/client'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ImageAttachmentRef } from '@janhq/jan-attachment'
 import { IconLoadingOutlineRegular, IconRefreshOutlineRegular, DraggableImage, ImageLightbox, type FileDragActions } from '@janhq/jan-client-ui-primitives'
 import type { MessageImageLabels } from '@janhq/jan-client-ui-conversation/client'
+import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import css from './MessageImage.module.css'
 
 export type { MessageImageLabels } from '@janhq/jan-client-ui-conversation/client'
+
+type PreviewActions = Pick<PropsRenderSlots<'conversation.image.preview.actions'>, 'renderSlot'>
 
 /** Loads a Gateway-authorized durable image URL and may expose a cached URL synchronously. */
 export type ImageLoader = ((attachment: ImageAttachmentRef) => Promise<string>) & {
@@ -68,20 +71,22 @@ function dimensionsOf(image: MessageImageSpec): { readonly width: number; readon
  * @param props.labels - resolved strings (tooltip, loading, retry, lightbox).
  * @returns the bounded thumbnail button, or the retry control on failure.
  */
-export function MessageImage({ image, load, variant, labels, fileDrag, getTriggerProps }: {
+export function MessageImage({ image, load, variant, labels, fileDrag, getTriggerProps, renderSlot }: {
   image: MessageImageSpec
   load: ImageLoader
   variant: 'single' | 'tile' | 'thumbnail'
   fileDrag: FileDragActions
   labels: MessageImageLabels
   getTriggerProps: ContextMenuBindings['getTriggerProps']
-}) {
+} & Partial<PreviewActions>) {
   const preview = 'preview' in image ? image.preview : undefined
   const attachment = 'attachment' in image ? image.attachment : undefined
   const [loaded, setLoaded] = useState<string | null>(() =>
     attachment === undefined ? null : (load.peek?.(attachment) ?? null))
   const [error, setError] = useState(false)
   const [open, setOpen] = useState(false)
+  const frame = useRef<HTMLButtonElement>(null)
+  const getSurface = useCallback(() => frame.current?.querySelector('img') ?? null, [])
   // Retry re-arms the one load effect below, so every attempt — first load or
   // retry — runs under the same liveness guard and the same reset.
   const [attempt, setAttempt] = useState(0)
@@ -133,6 +138,7 @@ export function MessageImage({ image, load, variant, labels, fileDrag, getTrigge
   return (
     <>
       <button
+        ref={frame}
         type="button"
         className={css.frame}
         data-variant={variant}
@@ -152,6 +158,7 @@ export function MessageImage({ image, load, variant, labels, fileDrag, getTrigge
           : <DraggableImage fileDrag={fileDrag} src={src} alt={label} name={preview?.name ?? attachment?.name ?? 'image'}
             style={fit === undefined ? undefined : { objectPosition: fit.objectPosition }} />}
       </button>
+      {src !== null && renderSlot?.('conversation.image.preview.actions', { getSurface })}
       {open && src !== null && <ImageLightbox src={src} alt={label} labels={labels.lightbox} onClose={close}
         contextMenuProps={contextMenuProps} />}
     </>
@@ -160,7 +167,7 @@ export function MessageImage({ image, load, variant, labels, fileDrag, getTrigge
 
 /** Wrapping image group shared by user and assistant history: a lone image
  * renders large unless its owner requests compact tiles or contained list thumbnails. */
-export function ImageGallery({ images, load, align, compact = false, thumbnail = false, labels, fileDrag, getTriggerProps }: {
+export function ImageGallery({ images, load, align, compact = false, thumbnail = false, labels, fileDrag, getTriggerProps, renderSlot }: {
   images: readonly MessageImageSpec[]
   load: ImageLoader
   align: 'start' | 'end'
@@ -169,7 +176,7 @@ export function ImageGallery({ images, load, align, compact = false, thumbnail =
   fileDrag: FileDragActions
   labels: MessageImageLabels
   getTriggerProps: ContextMenuBindings['getTriggerProps']
-}) {
+} & Partial<PreviewActions>) {
   if (images.length === 0) return null
   const variant = thumbnail ? 'thumbnail' : compact || images.length > 1 ? 'tile' : 'single'
   return (
@@ -183,6 +190,7 @@ export function ImageGallery({ images, load, align, compact = false, thumbnail =
           fileDrag={fileDrag}
           labels={labels}
           getTriggerProps={getTriggerProps}
+          {...renderSlot === undefined ? {} : { renderSlot }}
         />
       ))}
     </div>
