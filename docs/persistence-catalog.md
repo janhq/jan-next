@@ -314,6 +314,11 @@ Source: [`packages/core/session/src/types.ts:363`](../packages/core/session/src/
   stream: AssistantStreamRecord[]
   usage?: TokenUsage
   interrupted?: true
+  /**
+   * With `interrupted`: the user steered the running turn, so the step was
+   * cut to take the new input and the turn went on. Absent for a Stop.
+   */
+  steered?: true
 }
 ```
 
