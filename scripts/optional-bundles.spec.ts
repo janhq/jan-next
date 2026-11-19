@@ -1,8 +1,8 @@
 /** The delivered Web composition's Schedule rows, the optional bundles it ships switched off, and their display metadata. */
 
-import { globSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { describe, expect, it, onTestFinished } from 'vitest'
 import type { EntryOptions } from '@janhq/cordis-plugin-loader'
@@ -10,20 +10,14 @@ import { loadOverlayPatches } from '../packages/boot/app-boot/src/index.ts'
 import { readPluginMeta } from '../packages/boot/app-boot/src/package-meta.ts'
 import { bundlePatchPaths, composeEntries, initProfile, readProfileManifest } from '../packages/boot/app-boot/src/profile.ts'
 import { OPTIONAL_BUNDLES, PROFILE_TEMPLATES } from '../packages/util/official-bundles/src/bundles.ts'
-import type { JanBundleManifest } from '../packages/util/package-manifest/src/types.ts'
+import { readWorkspaceManifests } from './check-workspace-constraints.ts'
 import { createPluginProfile } from '../apps/desktop/src/project-manager.ts'
 
 const root = resolve(import.meta.dirname, '..')
 
-interface Manifest {
-  name: string
-  jan?: { bundle?: JanBundleManifest }
-}
-
-const bundles = new Map(globSync(['packages/*/*/package.json', 'plugins/*/package.json'], { cwd: root }).map((path) => {
-  const manifest = JSON.parse(readFileSync(resolve(root, path), 'utf8')) as Manifest
-  return [manifest.name, { dir: dirname(resolve(root, path)), manifest }]
-}))
+const bundles = new Map(readWorkspaceManifests(root).map(({ dir, manifest }) => [
+  manifest.name, { dir: resolve(root, dir), manifest },
+]))
 
 function bundle(name: string): { dir: string; patches: ReturnType<typeof loadOverlayPatches> } {
   const entry = bundles.get(name)

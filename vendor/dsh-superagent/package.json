@@ -12,6 +12,7 @@
     "directory": "vendor/dsh-superagent"
   },
   "description": "A proactive agent for one GitHub repository, as a DSH (DeepSeek Harness) bundle: it listens to GitHub and optionally Feishu, evaluates requests under a Policy, turns authorized ones into Tickets, and executes each in its own DSH Session.",
+  "icon": "./icon.svg",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -31,6 +32,7 @@
     "./locale/*.json": "./locale/*.json"
   },
   "files": [
+    "icon.svg",
     "lib",
     "cordis.patch.yml",
     "locale/*.json",
@@ -38,7 +40,7 @@
     "prompts",
     "skills"
   ],
-  "dsh": {
+  "jan": {
     "bundle": {
       "patch": "./cordis.patch.yml"
     },

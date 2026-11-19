@@ -795,7 +795,7 @@ The complete npm transitive closure, including the Landlock launcher workspace, 
 
 ## Vendored source (\`vendor/\`)
 
-The Cordis framework and its foundation libraries are source-vendored into this repository rather than consumed from npm, and republished under the \`@janhq\` scope. All are MIT-licensed; each directory preserves its upstream \`LICENSE\` file. Exact upstream commits and local modifications are recorded in [\`vendor/README.md\`](vendor/README.md).
+The Cordis framework, its foundation libraries, and the DeepSeek Harness bundles listed below are source-vendored into this repository rather than consumed from npm, and republished under the \`@janhq\` scope. All are MIT-licensed; each directory preserves its upstream \`LICENSE\` file. Exact upstream commits and local modifications are recorded in [\`vendor/README.md\`](vendor/README.md).
 
 | Package | Upstream name | Source | License |
 | --- | --- | --- | --- |
