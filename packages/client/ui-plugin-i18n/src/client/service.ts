@@ -87,7 +87,11 @@ export interface PluginI18nService extends HostObservable<PluginI18nState> {
   /** Runtime string display for tool titles. */
   readonly titles: HostObservable<TitleView>
   readonly suggestions: ObservableSnapshot<readonly PluginTranslationSuggestion[]>
-  /** Hide automated offers for this app start or persist the decision for this package. */
+  /**
+   * Hide automated offers for this app start or persist the decision for this package.
+   * @param pkg - package the offer was for.
+   * @param mode - `later` hides it until restart; `never` stores the refusal.
+   */
   dismiss(pkg: string, mode: 'later' | 'never'): void
   /**
    * Decide whether to offer translating a package into the active locale. Nothing is offered when a translation of
