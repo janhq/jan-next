@@ -252,7 +252,10 @@ declare module './types.ts' {
 
     /**
    * Submit steering for the nearest step. An idle driver starts a turn;
-   * a running driver consumes it at its next step boundary.
+   * a running driver consumes it at its next step boundary, and asks the
+   * step in flight to yield: its model stream ends early (the reply is
+   * logged as interrupted and steered) and its tool calls receive
+   * `yieldSignal`. The turn goes on with the steering as the next step.
    * A rejected step leaves steering parked in the inbox until the next
    * wake; cancellation or disposal may discard pending steering.
    * @param message - identified steering content and the source that supplied it.

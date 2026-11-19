@@ -1068,6 +1068,27 @@ describe('agent loop', () => {
     expect(JSON.stringify(adapter.requests[1]?.messages)).toContain('second idle steer')
   })
 
+  it('a steer cuts a stalled stream short and answers it in the same turn', async () => {
+    const adapter = new MockAdapter(['hang', textResponse('steered answer')])
+    const ctx = await harness(adapter)
+    const agent = await ctx.agentLoop.create(SessionId('steer-yield'), { provider: 'mock', model: 'mock' })
+    const idle = waitForIdle(ctx, agent)
+    send(agent, 'long task')
+    // The first request has streamed its partial text and now stalls.
+    await vi.waitFor(() => { expect(adapter.requests).toHaveLength(1) })
+    await new Promise(resolve => setTimeout(resolve, 20))
+    agent.steer(createUserMessage({ content: [{ type: 'text', text: 'change of plan' }], source: { kind: 'user' } }))
+    await idle
+
+    const events = agent.session.snapshotEvents()
+    const assistants = events.filter(event => event.type === 'assistant/message')
+    expect(assistants.map(event => event.type === 'assistant/message' && event.data.interrupted === true)).toEqual([true, false])
+    expect(assistants[0]?.type === 'assistant/message' && assistants[0].data.steered).toBe(true)
+    expect(JSON.stringify(adapter.requests[1]?.messages)).toContain('change of plan')
+    expect(events.filter(event => event.type === 'turn/start')).toHaveLength(1)
+    expect(events.find(event => event.type === 'turn/end')?.data).toMatchObject({ reason: { kind: 'completed' } })
+  })
+
   it('stops after a throwing pre-step listener and retains later steering until a wakeup', async () => {
     const adapter = new MockAdapter([textResponse('recovered')])
     const ctx = await harness(adapter)
