@@ -267,7 +267,7 @@ Later system messages supplied to the adapter stay out of the initial prompt, pr
 
 #### What the model sees
 
-pi-ai events become harness reasoning, text, tool-call, usage, and finish chunks. The adapter passes parsed tool arguments to the harness as raw JSON strings. If pi-ai reports invalid completed arguments, the attempt fails with `MALFORMED_RESPONSE` before tool dispatch and publishes no successful replay state. The default normal retry policy excludes this code; an explicit retry policy still controls recovery.
+pi-ai events become harness reasoning, text, tool-call, usage, and finish chunks. Usage a provider reports before the terminal event (Anthropic's `message_start` carries exact input and cache counts) is emitted as soon as it changes, so a reply cut by Stop or a steer still records what the provider billed for its prompt. The adapter passes parsed tool arguments to the harness as raw JSON strings. If pi-ai reports invalid completed arguments, the attempt fails with `MALFORMED_RESPONSE` before tool dispatch and publishes no successful replay state. The default normal retry policy excludes this code; an explicit retry policy still controls recovery.
 
 #### Token effect
 

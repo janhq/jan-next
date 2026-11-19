@@ -155,8 +155,20 @@ export async function* toStreamChunks(
   // in stream order), but we track ids per index for tool calls.
   const toolIds = new Map<number, { id: string; name: string }>()
   let argumentsError: string | undefined
+  // Usage reported before the terminal event (Anthropic's message_start
+  // carries exact input and cache counts) is surfaced as soon as it appears,
+  // so a reply cut by Stop or a steer still records what the provider billed.
+  let reported = ''
 
   for await (const event of events) {
+    if (event.type !== 'done' && event.type !== 'error') {
+      const { usage } = event.partial
+      const key = `${usage.input}/${usage.output}/${usage.cacheRead}/${usage.cacheWrite}/${usage.totalTokens}`
+      if (key !== reported && (usage.input > 0 || usage.cacheRead > 0 || usage.cacheWrite > 0)) {
+        reported = key
+        yield { type: 'usage', usage: mapUsage(usage) }
+      }
+    }
     switch (event.type) {
       case 'start':
         break

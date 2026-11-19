@@ -764,6 +764,22 @@ describe('toStreamChunks', () => {
     ])
   })
 
+  it('reports usage known before the terminal event, so a cut stream keeps it', async () => {
+    const early = assistant({ usage: usage(4, 1, 3000) })
+    const seen: unknown[] = []
+    try {
+      for await (const chunk of toStreamChunks(feed(
+        { type: 'start', partial: assistant() },
+        { type: 'text_start', contentIndex: 0, partial: early },
+        { type: 'text_delta', contentIndex: 0, delta: 'h', partial: early },
+        { type: 'text_delta', contentIndex: 0, delta: 'i', partial: early },
+      ))) seen.push(chunk)
+    } catch { /* a cut stream ends without done; only what came before matters */ }
+    expect(seen.filter(chunk => (chunk as { type: string }).type === 'usage')).toEqual([
+      { type: 'usage', usage: { inputTokens: 4, outputTokens: 1, totalTokens: 3005, cacheReadTokens: 3000 } },
+    ])
+  })
+
   it('maps thinking events to reasoning blocks', async () => {
     const chunks = await collect(toStreamChunks(feed(
       { type: 'thinking_start', contentIndex: 0, partial: assistant() },
