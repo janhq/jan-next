@@ -12,6 +12,7 @@ import type { DesktopFileDrag } from '@janhq/jan-util-file-drag'
 export const DESKTOP_IPC = {
   fileSave: 'jan-desktop:file-save',
   clipboardImageRead: 'jan-desktop:clipboard-image-read',
+  captureRegion: 'jan-desktop:capture-region',
   shortcutsInput: 'jan-desktop:shortcuts-input',
   shortcutsCloseWindow: 'jan-desktop:shortcuts-close-window',
   shortcutsGet: 'jan-desktop:shortcuts-get',
@@ -92,6 +93,8 @@ export interface DesktopUpdatePresentation {
 /** Product documents cannot supply update versions, package URLs, or installation authorization. */
 export interface JanDesktopProductApi {
   readonly fileActions: DesktopFileActions
+  /** @param bounds - rectangle in main-renderer CSS pixels. @returns a PNG of visible application content. */
+  captureRegion(bounds: { x: number; y: number; width: number; height: number }): Promise<Uint8Array>
   readonly protocolVersion: 1
   readonly browser: DesktopBrowserBridge
   readonly fileDrag: DesktopFileDrag
