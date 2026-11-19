@@ -1,12 +1,8 @@
 - banner:
   - navigation "Session hierarchy": Use read_image to inspect red.png.
-  - text: Minimal mode
+  - 'button "Switch the agent preset for this task: Minimal mode"': Minimal mode
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
 - text: Use read_image to inspect red.png. Then reply exactly MINIMAL_IMAGE_OK and stop. {{clock}}
 - button "Copy"
 - status: Completed
@@ -19,7 +15,6 @@
 - button "red.png, click to view original":
   - img "red.png"
 - text: {{cwd}}/red.png 1x1px, 69 bytes
-- button "Inspect"
 - paragraph: MINIMAL_IMAGE_OK
 - button "Copy"
 - button "Branch into a new conversation"

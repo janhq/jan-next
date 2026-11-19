@@ -1,12 +1,8 @@
 - banner:
   - navigation "Session hierarchy": Use the bash tool to
-  - text: Minimal mode
+  - 'button "Switch the agent preset for this task: Minimal mode"': Minimal mode
   - button "More actions"
   - button "Open right sidebar"
-  - tablist:
-    - tab "Chat" [selected]
-    - tab "Trajectory"
-  - button "More conversation views"
 - text: "Use the bash tool to run exactly: printf 'MINIMAL_BASH_CARD_OK\\n'. Then reply exactly MINIMAL_PRESET_REQUEST_OK and stop. {{clock}}"
 - button "Copy"
 - status: Completed
@@ -15,7 +11,6 @@
 - button "Context injection runtime-context"
 - button "Bash printf 'MINIMAL_BASH_CARD_OK\\n'" [expanded]
 - text: "IN { \"command\": \"printf 'MINIMAL_BASH_CARD_OK\\\\n'\" } OUT MINIMAL_BASH_CARD_OK [Command finished with exit code 0]"
-- button "Inspect"
 - paragraph: MINIMAL_PRESET_REQUEST_OK
 - button "Copy"
 - button "Branch into a new conversation"
