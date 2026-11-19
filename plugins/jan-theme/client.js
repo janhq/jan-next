@@ -385,6 +385,9 @@ window.__ModuleLoader__.load({
     --jt-sidebar-gap: 12px;
     --jt-sidebar-radius: 14px;
   }
+  /* macOS: an 8px gap puts the card's corner 10pt outside the native traffic
+     lights (desktop main.ts trafficLightPosition 18,18) on both axes. */
+  html[data-jan-theme][data-jan-theme-mac] { --jt-sidebar-gap: 8px; }
   html[data-jan-theme] [data-slot='root'] > [data-sidebar-collapsed], html[data-jan-theme] [data-slot='root'] > :has(> [data-shell-overlay]) {
     background: var(--dsw-alias-bg-base);
   }
@@ -415,14 +418,15 @@ window.__ModuleLoader__.load({
     margin: 0 0 8px;
   }
   html[data-jan-theme] [data-slot='sidebar'] [data-slot='sidebar.brand.mark']:has(.jt-sidebar-mark) { display: none; }
-  /* Clear the native traffic lights (tauri.macos.conf.json trafficLightPosition). */
+  /* Clear the native traffic lights (desktop main.ts trafficLightPosition). */
   html[data-jan-theme][data-jan-theme-mac] [data-slot='sidebar'] > div > :has([data-slot='sidebar.brand.name']) { padding-left: 64px; }
   html[data-jan-theme][data-jan-theme-mac]:has([data-sidebar-collapsed]) [data-slot='sidebar'] [data-sidebar-toggle] { left: 84px; }
   /* Electron on macOS gives the toggle its own strip above the logo row; fold
-     that strip into the logo row so the wordmark shares the traffic-light row. */
+     that strip into the logo row and centre it on the traffic lights and the
+     conversation title row (window y 25). */
   html[data-jan-theme][data-jan-theme-mac] [data-slot='sidebar'] > div:has(> [data-window-drag] > [data-sidebar-toggle]) { position: relative; }
   html[data-jan-theme][data-jan-theme-mac] [data-slot='sidebar'] > div > [data-window-drag]:has(> [data-sidebar-toggle]) {
-    position: absolute; top: 6px; right: 10px; height: 40px; display: flex; align-items: center; z-index: 1;
+    position: absolute; top: 3px; right: 10px; height: 40px; display: flex; align-items: center; z-index: 1;
   }
   html[data-jan-theme] [data-slot='sidebar.brand.name'] .jt-name { font-size: 14px; }
   html[data-jan-theme] [data-slot='sidebar'] [data-sidebar-toggle] {
