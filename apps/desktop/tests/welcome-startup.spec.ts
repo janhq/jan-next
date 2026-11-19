@@ -292,6 +292,8 @@ it.each([false, true])('starts welcome onboarding without carrying update focus 
   expect(await state.operations!.takeNotice()).toBeUndefined()
   state.showWorkspace.mockClear()
   state.focusWorkspace.mockClear()
+  // The workspace already sits inactive behind each welcome; count only the login's own entry.
+  state.showInactiveWorkspace.mockClear()
   vi.stubEnv('JAN_DESKTOP_OPEN_DEVTOOLS', '1')
   state.accountListener!({ ...account, status: 'credential-stored', attempt: { id: attemptId, phase: 'succeeded' } })
   await vi.waitFor(() => { expect(state.showInactiveWorkspace).toHaveBeenCalledOnce() })
