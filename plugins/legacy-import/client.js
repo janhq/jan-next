@@ -4,22 +4,11 @@ window.__ModuleLoader__.load({
     const React = require('react')
     const h = React.createElement
     const { Button, Input, Checkbox, Modal, IconCloseOutlineRegular } = require('@janhq/jan-client-ui-primitives')
-    async function call(feature, method, params = {}) {
-      const response = await fetch(`/jan-api/${feature}`, { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
+    async function api(method, params = {}) {
+      const response = await fetch('/jan-api/legacy-import', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
       const body = await response.json()
       if (!response.ok || body.error) throw new Error(body.error || `HTTP ${response.status}`)
       return body.result
-    }
-    const api = (method, params) => call('legacy-import', method, params)
-    // MCP servers go through the MCP settings import, which stores their
-    // secrets as credentials and adds each one turned off.
-    async function importMcp(folder) {
-      const document = await api('mcpDocument', { folder })
-      const servers = JSON.parse(document.text).mcpServers
-      const existing = new Set((await call('agent-settings', 'list')).servers.map(server => server.name))
-      const fresh = Object.fromEntries(Object.entries(servers).filter(([name]) => !existing.has(name)))
-      if (Object.keys(fresh).length) await call('agent-settings', 'importServers', { text: JSON.stringify({ mcpServers: fresh }), confirmed: true })
-      return { imported: Object.keys(fresh).length, already: Object.keys(servers).length - Object.keys(fresh).length, skipped: document.skipped }
     }
     const RECENT_DAYS = 30
     const SOURCES = [['jan', 'Jan'], ['claude', 'Claude Code'], ['codex', 'Codex'], ['omp', 'OMP']]
@@ -118,14 +107,7 @@ window.__ModuleLoader__.load({
         const chosen = source === 'jan' ? extras : NO_EXTRAS
         setError(''); setResults({}); setSettingsResults(null)
         setJob({ running: true, total: ids.length, done: 0, current: chosen.mcp ? 'MCP servers' : null, results: [] })
-        let mcp
-        if (chosen.mcp) { try { mcp = await importMcp(listedFolder) } catch (error) { mcp = { error: error.message } } }
-        if (!ids.length && !chosen.providers && !chosen.assistants) {
-          setSettingsResults({ mcp }); setExtras(NO_EXTRAS)
-          setJob({ running: false, total: 0, done: 0, current: null, results: [] })
-          return
-        }
-        const request = api('import', { source, folder: listedFolder, ids, providers: chosen.providers, assistants: chosen.assistants })
+        const request = api('import', { source, folder: listedFolder, ids, ...chosen })
         // Start polling only after the Host has the request, so the first read is this run.
         await new Promise(resolve => setTimeout(resolve, 100))
         const [outcome, followed] = await Promise.allSettled([request, follow()])
@@ -140,7 +122,7 @@ window.__ModuleLoader__.load({
         } else {
           showResults(outcome.value.results)
           setJob(previous => ({ ...(previous ?? {}), running: false, results: outcome.value.results }))
-          setSettingsResults({ mcp, ...outcome.value.settings }); setExtras(NO_EXTRAS)
+          setSettingsResults(outcome.value.settings); setExtras(NO_EXTRAS)
           setJanSettings(previous => previous && { ...previous, assistants: previous.assistants.map(item => ({ ...item, alreadyImported: item.alreadyImported || outcome.value.settings.assistants.some(row => row.id === item.id && row.status !== 'failed') })) })
           settle(outcome.value.results)
           if (outcome.value.results.some(result => result.status === 'imported')) await refreshSessions()
