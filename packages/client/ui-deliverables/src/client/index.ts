@@ -41,6 +41,17 @@ export type { PresentedOpenOutcome, PresentedOpenFailure } from './present-open.
 export { ARTIFACTS_PANEL_ID }
 
 declare module '@janhq/jan-client-ui-slots' {
+  interface SlotMap {
+    /** Controls beside a lone delivered file's mounted inline preview. */
+    'deliverables.preview.actions': {
+      kind: 'list'
+      scope: 'session'
+      owner: {
+        /** @returns the current inline image or page frame, or null before mount. */
+        readonly getSurface: () => HTMLImageElement | HTMLIFrameElement | null
+      }
+    }
+  }
   interface LocaleNamespaceMap {
     /** Changed-files card, review tab, delivery card, and file-mention copy. */
     'deliverables': DeliverablesKey
@@ -79,7 +90,10 @@ export function apply(ctx: ClientContext): void {
       name: 'conversation.chat.turnTail',
       id: '@janhq/jan-client-ui-deliverables',
       locale: NS,
-      children: { 'deliverables.file.actions': { kind: 'list', scope: 'session' } },
+      children: {
+        'deliverables.file.actions': { kind: 'list', scope: 'session' },
+        'deliverables.preview.actions': { kind: 'list', scope: 'session' },
+      },
       inject: (): DeliverablesInjected => ({
         hooks: { changesDiff: diffs.state, presentedOpen: opener.state, presentedHost: opener.host, changesSummary: summaries.state,
           showCodeDiff: ctx.configForms.developerTools.enabled },
