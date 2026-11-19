@@ -186,20 +186,20 @@
 /* Published while the shell.leading seat is mounted (same condition as the
    TSX mount: darwin with the sidebar collapsed — the collapse that hides the
    column entirely): the inline band the window chrome occupies, measured from
-   the frame's left edge — traffic lights to x 68, controls at x 88
-   (28 + 8 + 28), then 8px of air. Main panels whose content reaches the
-   top-left corner pad by this. */
+   the frame's left edge — traffic lights to x 77, then the seat at x 88 with
+   up to four controls (sidebar, back, forward, new chat: 4 × 28 + 3 × 8), then
+   8px of air. Main panels whose content reaches the top-left corner pad by this. */
 :global([data-platform='darwin']) .frame[data-sidebar-collapsed] {
-  --jan-frame-leading-clearance: 160px;
+  --jan-frame-leading-clearance: 232px;
 }
 
 /* Fullscreen hides the traffic lights (preload mirrors the window state onto
    html[data-fullscreen]): the seat takes their band and the clearance keeps
-   only the controls (12 + 28 + 8 + 28 + 8). The 12px start matches the
-   expanded sidebar strip's inline padding (ui-sidebar .topStrip), so
-   collapsing never shifts the toggle. */
+   only the controls (12 + 136 + 8). The 12px start matches the expanded
+   sidebar strip's inline padding (ui-sidebar .topStrip), so collapsing never
+   shifts the toggle. */
 :global([data-platform='darwin'][data-fullscreen]) .frame[data-sidebar-collapsed] {
-  --jan-frame-leading-clearance: 84px;
+  --jan-frame-leading-clearance: 156px;
 }
 
 :global([data-platform='darwin'][data-fullscreen]) .leadingSeat {
@@ -287,12 +287,12 @@
 }
 
 .frame[data-sidebar-drawer] {
-  --jan-frame-leading-clearance: 84px;
+  --jan-frame-leading-clearance: 156px;
   overflow: clip;
 }
 
 :global(html:not([data-platform])) .frame[data-sidebar-drawer] {
-  /* 12px seat offset + 28px opener + 8px gap; Desktop keeps room for two controls. */
+  /* 12px seat offset + 28px opener + 8px gap; Desktop keeps room for its four controls. */
   --jan-frame-leading-clearance: 48px;
 }
 
@@ -346,7 +346,7 @@
 }
 
 :global([data-platform='darwin']) .frame[data-sidebar-drawer] {
-  --jan-frame-leading-clearance: 160px;
+  --jan-frame-leading-clearance: 232px;
 }
 
 :global([data-platform='darwin']) .frame[data-sidebar-drawer] .leadingSeat {
@@ -354,7 +354,7 @@
 }
 
 :global([data-platform='darwin'][data-fullscreen]) .frame[data-sidebar-drawer] {
-  --jan-frame-leading-clearance: 84px;
+  --jan-frame-leading-clearance: 156px;
 }
 
 :global([data-platform='darwin'][data-fullscreen]) .frame[data-sidebar-drawer] .leadingSeat {
