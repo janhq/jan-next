@@ -30,6 +30,10 @@ Read the numbered documents in order; each builds only on the ones before it.
 - [007 Architecture](docs/007-architecture.md)
 - [008 Cookbook](docs/008-cookbook.md): adding a Source
 
+### Repository-independent queue
+
+Embeddings that already trust their event sources can import `openQueue` from `@janhq/dsh-superagent/queue` without configuring a GitHub account or starting the ticket router. Each queue opens its own state directory, starts paused, deduplicates stable source IDs, and executes one durable batch at a time. The embedding supplies the worker, outbound channel and clock (`next` and `deliver`); keep the clock updated through `changed`. Pausing aborts an active batch, which keeps its ID and membership on retry. `close()` drains dispatch and releases the state lock. Worker and transport callbacks must tolerate replay after a process crash.
+
 ## Development
 
 `pnpm check` runs the typecheck, the tests and the build.

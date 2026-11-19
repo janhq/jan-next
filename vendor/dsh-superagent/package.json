@@ -23,6 +23,10 @@
     "./client": "./lib/client.js",
     "./github-watch": "./lib/github-watch.js",
     "./feishu-watch": "./lib/feishu-watch.js",
+    "./queue": {
+      "types": "./lib/queue.d.ts",
+      "default": "./lib/queue.js"
+    },
     "./package.json": "./package.json",
     "./locale/*.json": "./locale/*.json"
   },

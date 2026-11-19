@@ -21,6 +21,8 @@ export interface EffectPayloads {
   notice: { value: Record<string, unknown>; summary: string }
   /** Send a message for a Channel through its Source; the key is the message ID, whose receipt the Outbox keeps. */
   reply: Record<string, never>
+  /** Run the pending repository-independent inbox batch. */
+  inbox: Record<string, never>
 }
 export type EffectKind = keyof EffectPayloads
 interface Handler<K extends EffectKind> {
@@ -54,7 +56,8 @@ export class Effects {
   /** Effects run only between `start` and `drain`; rows queued before `start` wait, such as while setup is incomplete. */
   private started = false
   private stopped = false
-  constructor(private readonly store: Store, private readonly board: Pick<HealthBoard, 'claim'>, private readonly now = () => Date.now()) {
+  constructor(private readonly store: Store, private readonly board: Pick<HealthBoard, 'claim'>, private readonly now = () => Date.now(),
+    private readonly settled?: () => void) {
     this.seq = Number(store.db.prepare('SELECT IFNULL(MAX(seq), 0) AS seq FROM effect').get()?.seq ?? 0)
   }
   /** Upserts an effect in the caller's transaction, coalescing with any waiting row of the same kind and key while keeping its queue position. */
@@ -74,6 +77,12 @@ export class Effects {
   }
   pending(kind: EffectKind, key?: string): boolean {
     return key === undefined ? !!this.store.db.prepare('SELECT 1 FROM effect WHERE kind = ? LIMIT 1').get(kind) : !!this.store.db.prepare('SELECT 1 FROM effect WHERE kind = ? AND key = ?').get(kind, key)
+  }
+  /** Earliest retry or initial delivery, excluding a kind whose sole worker is busy. */
+  next(kind: EffectKind): number | undefined {
+    if ([...this.tasks].some(task => task.kind === kind)) return undefined
+    const due = this.store.db.prepare('SELECT MIN(due) AS due FROM effect WHERE kind = ?').get(kind)?.due
+    return typeof due === 'number' ? due : undefined
   }
   /** Drops a queued row by kind and key; if it is already running, that attempt finishes normally. */
   cancel(kind: EffectKind, key: string): void {
@@ -124,7 +133,7 @@ export class Effects {
     const task: Task = { kind, key: row.key, done: Promise.resolve() }
     task.done = this.attempt(kind, handler, row)
       .catch((error: unknown) => { this.failed(kind, error) })
-      .finally(() => { this.tasks.delete(task); this.kick() })
+      .finally(() => { this.tasks.delete(task); this.kick(); this.settled?.() })
     this.tasks.add(task)
   }
   private async attempt(kind: EffectKind, handler: Handler<never>, row: Row): Promise<void> {
