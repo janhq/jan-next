@@ -16,8 +16,9 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, KeyboardEvent, MouseEvent } from 'react'
 import clsx from 'clsx'
+import { UNDO_COMMAND } from 'lexical'
 import {
-  focusWithoutRing, IconPlusOutlineMedium, IconTriangleRightFillRegular, IconWarningOutlineRegular, isMobileDevice, Toast, Tooltip,
+  focusWithoutRing, IconCloseFillRegular, IconPlusOutlineMedium, IconTriangleRightFillRegular, IconWarningOutlineRegular, isMobileDevice, Toast, Tooltip,
 } from '@janhq/jan-client-ui-primitives'
 // Type-only: the `plan` projection key merge (the TodoDock posture — the
 // composer reads a host-computed value; the domain owns the key).
@@ -42,6 +43,18 @@ import { observeControlRow } from './control-row-layout.ts'
 import css from './InputBar.module.css'
 
 export type InputBarProps = ComposerBarProps
+
+/** A paste at least this long (characters or lines) is offered as a file attachment. */
+const LARGE_PASTE_CHARS = 2000
+const LARGE_PASTE_LINES = 30
+
+/** The pending offer to turn the last large paste into a text attachment. */
+interface PasteOffer {
+  text: string
+  lines: number
+  /** The draft right after the paste committed; any later edit withdraws the offer. */
+  draft: string | null
+}
 
 export const InputBar = memo(function InputBar({
   useSession, useInput, inputActions, keyboard, addFiles, removeAttachment, resolveDraftAttachments,
@@ -278,7 +291,32 @@ export const InputBar = memo(function InputBar({
     if (rejected !== null) showToast(rejected)
   }, [uploadDenied, locked, machineBusy, subagent, continuable, addFiles, attachments, imageLimits, showToast, t])
 
+  // A large paste lands as text, as always, and is offered as a file instead.
+  // Attaching undoes exactly that paste (PASTE_TAG makes it its own history
+  // step), so the offer is withdrawn as soon as the draft changes again.
+  const [pasteOffer, setPasteOffer] = useState<PasteOffer | null>(null)
+  const pastedText = useCallback((text: string): void => {
+    const lines = text.split('\n').length
+    if (text.length < LARGE_PASTE_CHARS && lines < LARGE_PASTE_LINES) return
+    setPasteOffer({ text, lines, draft: null })
+  }, [])
+  useEffect(() => {
+    setPasteOffer((offer) => {
+      if (offer === null) return offer
+      if (offer.draft === null) return draft === '' ? offer : { ...offer, draft }
+      return offer.draft === draft ? offer : null
+    })
+  }, [draft])
+  useEffect(() => { setPasteOffer(null) }, [sessionId])
+  const attachPaste = (): void => {
+    if (pasteOffer === null || editor === null) return
+    setPasteOffer(null)
+    editor.dispatchCommand(UNDO_COMMAND, undefined)
+    intakeFiles([new File([pasteOffer.text], 'pasted-text.txt', { type: 'text/plain' })])
+  }
+
   const canAcceptDrop = !uploadDenied && (subagent === null || continuable) && !locked && !machineBusy && addFiles !== undefined
+  const canAttachPaste = canAcceptDrop && subagent === null
 
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const onPickFiles = (e: ChangeEvent<HTMLInputElement>): void => {
@@ -292,11 +330,11 @@ export const InputBar = memo(function InputBar({
   // registration survives re-renders without re-arming per keystroke.
   const gate = useRef({
     locked, machineBusy, canSteerQueue, running, steeringAvailable, busyEnter,
-    intakeFiles, uploadsPending, uploadsHeldText, showToast, canAcceptDrop,
+    intakeFiles, uploadsPending, uploadsHeldText, showToast, canAcceptDrop, pastedText,
   })
   gate.current = {
     locked, machineBusy, canSteerQueue, running, steeringAvailable, busyEnter,
-    intakeFiles, uploadsPending, uploadsHeldText, showToast, canAcceptDrop,
+    intakeFiles, uploadsPending, uploadsHeldText, showToast, canAcceptDrop, pastedText,
   }
 
   useEffect(() => {
@@ -441,6 +479,24 @@ export const InputBar = memo(function InputBar({
       {notice?.level === 'info' && (
         <div className={css.notice} role="status">
           {notice.text}
+        </div>
+      )}
+      {pasteOffer !== null && pasteOffer.draft !== null && canAttachPaste && (
+        <div className={clsx(css.notice, css.pasteOffer)} role="status">
+          <span className={css.pasteOfferText}>{t('paste.large', { count: pasteOffer.lines })}</span>
+          <button type="button" className={css.pasteOfferAction} onMouseDown={keepFocus} onClick={attachPaste}>
+            {t('paste.attach')}
+          </button>
+          <button
+            type="button"
+            className={css.pasteOfferDismiss}
+            aria-label={t('paste.keepText')}
+            title={t('paste.keepText')}
+            onMouseDown={keepFocus}
+            onClick={() => { setPasteOffer(null) }}
+          >
+            <IconCloseFillRegular size={12} />
+          </button>
         </div>
       )}
       {/* Trigger clicks land on the card, not the editor: the toolbar row's
