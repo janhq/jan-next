@@ -90,7 +90,7 @@ export async function repositoryCaches(home: string, owner: RepositoryCacheOwner
     if (bytes === undefined) continue
     result.push({ item: { name: `Plugin repository cache (${dir.name.slice(0, 8)})`, kind: 'cache',
       path: relative(root, file).split(sep).join('/'), bytes, lastUsed: info.mtimeMs },
-    delete: async () => await owner.deleteDownloadCache(dir.name, async () => {
+    delete: () => owner.deleteDownloadCache(dir.name, async () => {
       const current = await owned(file)
       if (!current?.isDirectory() || current.dev !== info.dev || current.ino !== info.ino || await repositoryBytes(file) === undefined) {
         throw new Error('This cache changed on disk. Refresh the list and try again.')

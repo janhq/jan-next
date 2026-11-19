@@ -48,6 +48,16 @@ describe('Jan package license gate', () => {
     })
   })
 
+  it('requires a listed exception to declare exactly its listed license', () => {
+    const root = createWorkspace()
+    writeManifest(root, 'packages/web/ported/package.json', { name: '@janhq/jan-ported', license: 'Apache-2.0' })
+    writeManifest(root, 'packages/web/other/package.json', { name: '@janhq/jan-other', license: 'MIT' })
+    expect(inspectJanPackageLicenses(root, { '@janhq/jan-ported': 'Apache-2.0' }).failures).toEqual([])
+    expect(inspectJanPackageLicenses(root, { '@janhq/jan-ported': 'Apache-2.0', '@janhq/jan-other': 'Apache-2.0' }).failures).toEqual([
+      'packages/web/other/package.json: @janhq/jan-other must declare "license": "Apache-2.0"; found "MIT".',
+    ])
+  })
+
   it('rejects a missing license declaration', () => {
     const root = createWorkspace()
     writeManifest(root, 'packages/core/agent/package.json', { name: '@janhq/jan-agent' })

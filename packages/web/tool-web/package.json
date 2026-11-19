@@ -56,7 +56,7 @@
     "@janhq/jan-tools": "workspace:*",
     "@janhq/jan-web": "workspace:*",
     "@janhq/jan-web-fetch-http": "workspace:*",
-    "@janhq/jan-web-search-exa": "workspace:*",
+    "@janhq/jan-web-search": "workspace:*",
     "@types/turndown": "^5.0.6",
     "@janhq/jan-scope": "workspace:*",
     "@janhq/jan-token-meter": "workspace:*"

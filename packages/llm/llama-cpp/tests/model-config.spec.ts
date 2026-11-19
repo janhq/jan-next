@@ -155,7 +155,7 @@ describe('preset', () => {
   it('writes the configured sizing and runtime options, and omits what llama.cpp decides', () => {
     expect(renderPreset(settings, [model], {})).toBe([
       '[*]', 'fit = on', 'fit-target = 1024', 'ctx-size = 32768', 'flash-attn = on', 'cache-type-k = q8_0', 'cache-type-v = q8_0',
-      'slot-save-path = /data/slots', '', '[local]', 'model = /m/a.gguf', '',
+      'cache-idle-slots = false', 'slot-save-path = /data/slots', '', '[local]', 'model = /m/a.gguf', '',
     ].join('\n'))
   })
 

@@ -14,6 +14,7 @@
 
 import { z } from 'zod'
 import type { DomainFacility } from '@janhq/jan-storage-domain'
+import { disclosedModelFields } from './discovery.ts'
 import type { ListingStore, PersistedListing } from './listing.ts'
 
 /** Domain name; one plugin instance per process opens it. */
@@ -34,10 +35,7 @@ const persistedListingSchema = z.object({
   fetchedAt: record.fetchedAt,
   // Absent optional fields stay absent rather than becoming `undefined`.
   models: record.models.map(model => ({
-    id: model.id,
-    ...model.name === undefined ? {} : { name: model.name },
-    ...model.contextWindow === undefined ? {} : { contextWindow: model.contextWindow },
-    ...model.maxTokens === undefined ? {} : { maxTokens: model.maxTokens },
+    ...disclosedModelFields(model),
     ...model.inputModalities === undefined ? {} : { inputModalities: model.inputModalities },
   })),
 }))

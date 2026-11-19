@@ -111,7 +111,7 @@ export function installWorkspaceShortcuts(
           reportForkFailure(unavailable ? 'unavailable' : 'failed')
           if (!unavailable) console.warn('session fork rejected:', error)
         })
-      }
+      },
     }
   })
   register('session.archive', () => t('menu.archiveSession'), ['archive session'], 'KeyA', ['primary', 'shift'], ['primary', 'alt'], () => {
@@ -120,7 +120,7 @@ export function installWorkspaceShortcuts(
       : {
         status: 'handled', run: () => {
           archiveSession(target.id)
-        }
+        },
       }
   })
 }

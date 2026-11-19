@@ -180,8 +180,8 @@ flowchart LR
   cfg --> plugin_jan_base_web
   plugin_jan_base_web_fetch_http["web-fetch-http<br/>@janhq/jan-web-fetch-http"]
   cfg --> plugin_jan_base_web_fetch_http
-  plugin_jan_base_web_search_exa["web-search-exa<br/>@janhq/jan-web-search-exa"]
-  cfg --> plugin_jan_base_web_search_exa
+  plugin_jan_base_web_search["web-search<br/>@janhq/jan-web-search"]
+  cfg --> plugin_jan_base_web_search
   plugin_jan_base_tool_web["tool-web<br/>@janhq/jan-tool-web"]
   cfg --> plugin_jan_base_tool_web
   plugin_jan_base_mcp_resources["mcp-resources<br/>@janhq/jan-mcp-resources"]
@@ -288,7 +288,7 @@ flowchart LR
 | `repeat-tool-reminder` | `@janhq/jan-repeat-tool-reminder` |
 | `web` | `@janhq/jan-web` |
 | `web-fetch-http` | `@janhq/jan-web-fetch-http` |
-| `web-search-exa` | `@janhq/jan-web-search-exa` |
+| `web-search` | `@janhq/jan-web-search` |
 | `tool-web` | `@janhq/jan-tool-web` |
 | `mcp-resources` | `@janhq/jan-mcp-resources` |
 | `tools` | `@janhq/jan-tools` |

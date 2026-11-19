@@ -24,7 +24,7 @@ const api: WelcomeApi = {
     return () => { ipcRenderer.removeListener(WELCOME_IPC.state, receive) }
   },
   saveApiKey: (value: string) => ipcRenderer.invoke(WELCOME_IPC.saveApiKey, value) as Promise<WelcomeSaveResult>,
-  skip: () => ipcRenderer.invoke(WELCOME_IPC.skip) as Promise<void>,
+  skip: open => ipcRenderer.invoke(WELCOME_IPC.skip, open) as Promise<void>,
   startLocalModel: () => ipcRenderer.invoke(WELCOME_IPC.localStart) as Promise<WelcomeLocalModel>,
   readLocalModel: () => ipcRenderer.invoke(WELCOME_IPC.localState) as Promise<WelcomeLocalModel | undefined>,
   cancelLocalModel: () => ipcRenderer.invoke(WELCOME_IPC.localCancel) as Promise<WelcomeLocalModel | undefined>,

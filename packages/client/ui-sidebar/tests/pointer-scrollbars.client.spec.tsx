@@ -52,7 +52,7 @@ function mountColumn(): { column: HTMLElement; quiet: () => boolean } {
       {...allowAllAccess}
       startSession={vi.fn()} toggleSidebar={vi.fn()} trackEntryClick={vi.fn()} t={t}
       renderFactorySlot={() => null}
-      renderSlot={((key: string, owner: SidebarSectionOwnerProps) => key === 'sidebar.session.new' || key === 'sidebar.workspaces.primary'
+      renderSlot={((key: string, owner: SidebarSectionOwnerProps) => key === 'sidebar.session.new' || key === 'sidebar.workspaces.primary' || key === 'sidebar.toggle.actions'
         ? null
         : <div data-testid="region" data-wide={owner.wide} />) as SidebarRootComponentProps['renderSlot']}
     />,

@@ -1403,10 +1403,10 @@ describe('package manifest refresh', () => {
   it('publishes an unmodified DSH client declaration as a web graph row', () => {
     const name = '@fixture/dsh-client'
     writeBuiltPackage(name, {})
-    const declaration = clientManifest({ external: ['@deepseek-ai/dsh-client-ui-primitives'] })
+    const declaration = clientManifest({ external: ['@deepseek-ai/dsh-client-ui-primitives'], inject: ['@deepseek-ai/dsh-client-ui-settings'] })
     writeManifest(name, { exports: declaration.exports, dsh: declaration.jan })
     expect(construct([name]).graph().entries).toMatchObject([{
-      id: name, external: ['@janhq/jan-client-ui-primitives'],
+      id: name, external: ['@janhq/jan-client-ui-primitives'], inject: ['@janhq/jan-client-ui-settings'],
     }])
   })
 

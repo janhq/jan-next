@@ -60,9 +60,8 @@ describe('headless-agent keyless smoke', () => {
     })
     expect(String(result?.['output'])).toContain('CLI_TOOL_ROUND_TRIP')
     expect(persistedHeader).toMatchObject({ type: 'session' })
-    expect(persistedToolNames).toEqual(expect.arrayContaining(['read', 'write', 'edit', 'web_fetch']))
-    // No keyed search provider is configured in this composition, so the model request does not offer search.
-    expect(persistedToolNames).not.toContain('web_search')
+    // Keyless Exa serves search when no Tokamak sign-in exists, so the model request offers both web tools.
+    expect(persistedToolNames).toEqual(expect.arrayContaining(['read', 'write', 'edit', 'web_fetch', 'web_search']))
     expect(persistedToolNames).not.toContain('str_replace_editor')
   }, PRODUCTION_PROFILE_TEST_TIMEOUT_MS)
 })

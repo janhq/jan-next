@@ -227,9 +227,13 @@ export class ApiSessionAgentController {
    * @throws ApiSessionPresetConflict when no roster is composed and the request names a preset for a reused Session.
    */
   async createSession(request: ApiSessionCreateRequest): Promise<ApiSessionCreated> {
-    const named = request.sessionId
-    if (named === undefined) return this.created(await this.createMinted(request.cwd, await this.composeAgent(request.agentPreset)))
-    return this.inOrder(named, async () => this.created(await this.claim(named, request)))
+    // Without a requested preset, a new Session takes the default for the route its model runs on.
+    const agentPreset = request.agentPreset
+      ?? this.ctx.get('agentPresets')?.defaultFor(this.ctx.agentDefaultModel.currentSelection().provider)
+    const routed = agentPreset === undefined ? request : { ...request, agentPreset }
+    const named = routed.sessionId
+    if (named === undefined) return this.created(await this.createMinted(routed.cwd, await this.composeAgent(routed.agentPreset)))
+    return this.inOrder(named, async () => this.created(await this.claim(named, routed)))
   }
 
   /**
@@ -417,6 +421,27 @@ export class ApiSessionAgentController {
   private isBlank(session: Session): boolean {
     const boundary = this.ctx.agents.turnBoundaryOf(session)
     return boundary.openTurnStartSeq === null && boundary.lastTurn === 0
+  }
+
+  /**
+   * Move a blank Session to the new route's default preset when its model
+   * changes route, as long as it still runs the old route's default; a preset
+   * the user picked stays. A failed switch keeps the current preset.
+   * @param agent - Session whose model selection just changed.
+   * @param from - provider route before the change.
+   * @param to - provider route after the change.
+   */
+  async followRouteDefault(agent: Agent, from: string | undefined, to: string): Promise<void> {
+    const presets = this.ctx.get('agentPresets')
+    if (presets === undefined || from === to || !this.isBlank(agent.session)) return
+    const current = this.presetForSession(agent.session)
+    const target = presets.defaultFor(to)
+    if (current !== presets.defaultFor(from) || current === target) return
+    try {
+      await presets.select(agent, target)
+    } catch (error: unknown) {
+      this.ctx.logger.warn(`session-controller: kept preset "${current}" after the model moved to ${to}: ${String(error)}`)
+    }
   }
 
   /** Without a roster, reuse cannot apply a named preset. */

@@ -272,7 +272,7 @@ it('installs the model, publishes the worker endpoint and key, and serves the ro
   const [start] = await f.events()
   const preset = join(f.home, 'data', 'run', 'preset.ini')
   expect(start).toMatchObject({ type: 'start', hasKey: true, keyInArgv: false })
-  expect(start?.argv?.slice(1)).toEqual(['--preset', preset, '--port', '0', '--models-max', '1', '--slot-cache-mib', '0'])
+  expect(start?.argv?.slice(1)).toEqual(['--preset', preset, '--port', '0', '--models-max', '1', '--slot-cache-mib', '8192'])
   // macOS reports the realpath of a symlinked tmpdir (/var -> /private/var) as the child's cwd.
   expect(start?.cwd).toBe(await realpath(f.bin))
   expect(start?.preset?.shared).toMatchObject({
@@ -297,7 +297,8 @@ it('persists a model context and auto-fit choice, reloads the worker, and restor
   expect(f.llama.getModelContext(id)).toMatchObject({ current: 40960, maximum: 40960, fit: false })
   expect(f.llama.snapshot().models[0]).toMatchObject({ contextSize: 40960, configuredContextSize: 40960, autoFit: false })
   expect((await f.events()).filter(event => event.type === 'reload').at(-1)?.preset?.models[id]).toMatchObject({ 'ctx-size': '40960', fit: 'off' })
-  expect(JSON.parse(await readFile(join(f.home, 'data', 'install.json'), 'utf8')).models[0]).toMatchObject({ ctxSize: 40960, autoFit: false })
+  const install = JSON.parse(await readFile(join(f.home, 'data', 'install.json'), 'utf8')) as { models: object[] }
+  expect(install.models[0]).toMatchObject({ ctxSize: 40960, autoFit: false })
   await f.dispose()
   const restored = await fixture({ home: f.home })
   await restored.until(s => s.phase === 'running')
@@ -913,10 +914,11 @@ it('lists every installed model and the default\'s alias on the local route when
   await f.until(s => s.phase === 'running')
   const jan = { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B (local)', contextWindow: 32768, maxTokens: 8192, input: ['text'] }
   const alias = { ...jan, id: 'local', name: 'Jan v3.5 4B (local default)' }
-  // The first sync also asks the route for prompt-reading progress, once.
+  // The first sync also asks the route for prompt-reading progress and per-Session KV state, once.
   expect(settings.current?.writes).toEqual([{ ns: 'llm-pi-ai', ops: [
     { op: 'set', path: ['providers', 'local', 'models'], value: [alias, jan] },
     { op: 'set', path: ['providers', 'local', 'promptProgress'], value: true },
+    { op: 'set', path: ['providers', 'local', 'threadCache'], value: true },
   ] }])
   const id = await f.llama.downloadHuggingFace('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')
   await f.until(s => s.models.length === 2)

@@ -62,7 +62,7 @@ it('warns with the model name and size, leaves it on cancel, and refreshes after
     fireEvent.click(rowDelete)
     const dialog = within(screen.getByRole('dialog', { name: 'Delete this download?' }))
     expect(dialog.getByText('Delete Example model (2.5 KB) from this computer. You will need to download it again to use it.')).toBeTruthy()
-    expect((dialog.getByRole('button', { name: /^Delete$/ }) as HTMLButtonElement).disabled).toBe(true)
+    expect(dialog.getByRole<HTMLButtonElement>('button', { name: /^Delete$/ }).disabled).toBe(true)
     fireEvent.click(dialog.getByText('Keep download', { selector: 'button' }))
     expect(remote.deleteStoredDownload).not.toHaveBeenCalled()
     fireEvent.click(rowDelete)
@@ -73,6 +73,6 @@ it('warns with the model name and size, leaves it on cancel, and refreshes after
     expect(screen.queryByText('Example model')).toBeNull()
   } finally {
     view.unmount()
-    dispose.reverse().forEach(cleanup => cleanup())
+    dispose.reverse().forEach((cleanup) => { cleanup() })
   }
 })

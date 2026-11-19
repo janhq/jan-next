@@ -93,7 +93,7 @@ describe('ui-settings-general shell', () => {
     const decl = c.ctx.slots.entries('sidebar.settings')[0]!.store!
     const instance = (typeof decl === 'function' ? decl() : decl).create()
     expect(c.ctx.settingsNavigation.availability.getSnapshot()).toBe(true)
-    expect(instance.getSnapshot().open).toBe(false)
+    expect(instance.getSnapshot()).toMatchObject({ open: false })
     expect(c.ctx.settingsNavigation.open('models')).toBe(true)
     expect(instance.getSnapshot()).toMatchObject({ open: true, activeId: 'models' })
   }, COLD_BOOT_TIMEOUT_MS)

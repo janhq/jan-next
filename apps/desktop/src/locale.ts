@@ -23,6 +23,7 @@ const LOCAL_WELCOME_EN = {
   welcomeLocalBackground: 'Continue in background',
   welcomeLocalStart: 'Start chatting',
   welcomeLocalBack: 'Back',
+  welcomeLocalHub: 'Browse more models in the Hub',
 } as const
 
 export const en = {

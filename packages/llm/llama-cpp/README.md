@@ -50,7 +50,7 @@ The desktop app sets `JAN_LLAMA_WORKER` to its bundled worker; `pnpm run dev:web
 | `ctxSize` | `32768` | Requested context; `0` lets `fit` choose, starting from the trained context and never below `fitCtx` (`16384`) |
 | `fit` | on; off on macOS | Let llama.cpp size GPU layers, and the context when `ctxSize` is `0`, to device memory |
 | `mmprojOffload` | `true` | Run vision projectors on the GPU; `false` keeps them in system memory |
-| `slotCacheMiB` | `0` | Disk budget for per-thread KV state under `<dataRoot>/slots`; `0` saves nothing |
+| `slotCacheMiB` | `8192` | Disk budget for per-Session KV state under `<dataRoot>/slots`; `0` saves nothing |
 | `autoStart` | `true` | Start the worker at boot when a model is installed and the user left it running |
 | `provider`, `routeModelId` | `local`, `local` | Route name and the alias model id of the default model |
 | `apiKeyRef`, `baseURLRef` | `LLAMA_CPP_API_KEY`, `LLAMA_CPP_BASE_URL` | Credential references the route reads as `apiKeyEnv` and `baseURLEnv` |
@@ -147,7 +147,7 @@ The service adds no tokens. It sets each route entry's `contextWindow` to the co
 
 #### KV Cache effect
 
-Prefix reuse happens in the worker's llama.cpp prompt cache for the resident model. Unloading, evicting, or reloading the model, stopping the worker, and switching models discard that reuse; retargeting the `local` alias reloads no model. Per-thread KV state on disk (`slotCacheMiB`) is off by default.
+Prefix reuse happens in the worker's llama.cpp prompt cache for the resident model. The service also sets `threadCache` on the `local` route, so each conversation request names its Session as the worker's thread in slot 0. When another Session takes the slot, the worker saves the outgoing Session's KV state under `<dataRoot>/slots` (bounded by `slotCacheMiB`, oldest dropped first), and saves every resident Session when it stops. Returning to a Session, including after a restart, restores that state instead of reading the conversation again. Titles, compaction and other auxiliary requests name no thread. Saved state is kept per model and its launch options; changing a model's options discards that model's saved state.
 
 ## Known Limitations and Deferred Work
 
@@ -160,7 +160,6 @@ The worker serves chat models, with image input through a projector, using share
 - An imported projector is not checked against its model; a mismatched projector can make the model fail to load.
 - A downloaded model that lost its projector stays text-only; removing it and downloading it again restores image input.
 - Launch options apply to every model; there are no per-model settings and no settings UI for them.
-- KV state reuse across restarts is off: `slotCacheMiB` defaults to `0`, and the `llm-pi-ai` route does not send the thread name the worker caches by.
 - Fit thresholds estimate driver and operating system overhead; a `fits` model can still fail to load, and a `too-large` model can load.
 - `fit` defaults off on macOS, where Metal counts the whole memory-mapped file against its working set; the context there follows `ctxSize`.
 

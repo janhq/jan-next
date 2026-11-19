@@ -97,10 +97,15 @@ This section explains the design decisions behind the tool and points at the cod
 | [`src/index.ts`](src/index.ts) | Plugin entry: tool registration, prompt section, arg validation, escalation, request assembly |
 | [`src/background.ts`](src/background.ts) | Own asynchronous shell preparation, map process settlement onto job outcomes, and render a ring read as a process read |
 | [`src/render.ts`](src/render.ts) | Model-facing result text: streams, markers, truncation notices |
+| [`src/read-only-command.ts`](src/read-only-command.ts) | Conservative read-only classifier that decides whether a call may overlap sibling calls |
 
 ### Request resolution
 
 The tool resolves the workdir before `ctx.shell.resolve()` runs: an explicit relative `workdir` is resolved against the Session's current directory, independently of the sandbox permission root. Sandbox policy resolves per call through `ctx.sandboxPolicy`; an escalation request goes through `ctx.approval` before anything executes, and the tool fails at load if the executor confines but no policy service is mounted.
+
+### Parallel scheduling
+
+A foreground call whose command only reads may run beside sibling parallel-safe calls in the same step (`read`, `grep`, `glob`, other read-only `bash`). `src/read-only-command.ts` accepts a command only when every pipeline stage and list member is an allowlisted reader (`ls`, `cat`, `grep`, `rg`, `find` without actions, read-only `git` subcommands, ...) with read-only arguments, and output redirects only to `/dev/null` or a file descriptor. Command or parameter substitution, subshells, braces, here documents, `&`, leading assignments, path-named programs and unterminated quotes all fail closed. Background calls, sandbox escalation and every other command stay exclusive barriers. A false negative only costs overlap, so the allowlist stays small.
 
 ### Rendering story
 

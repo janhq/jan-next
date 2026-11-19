@@ -10,7 +10,6 @@ export function apply(ctx, config) {
   const pending = new Map()
   let disposed = false
   let directResult = false
-  let directStep = false
   let directRequested = false
 
   ctx.effect(() => async () => {
@@ -28,12 +27,15 @@ export function apply(ctx, config) {
     }
     if (config.direct === undefined) return
     if (event.type === 'tool/result' && event.data.message.source.callId === config.direct.callId) directResult = true
-    if (!directResult) return
-    if (event.type === 'step/start') directStep = true
-    if (directStep && event.type === 'request/context') directRequested = true
-    if (directRequested) {
+  })
+  // `request/context` is logged only when the route changes, so the next request is observed through its preparation.
+  ctx.on('agent/request', async ({ agent }, next) => {
+    const proposed = await next()
+    if (!disposed && directResult && agent.session.id === config.parentSessionId) {
+      directRequested = true
       for (const wait of pending.values()) if (wait.direct) wait.resolve()
     }
+    return proposed
   })
   ctx.on('agent/pre-step', async ({ agent, messages, turn, step, signal }, next) => {
     const hasPrompt = prompt => messages.some(message => message.content.some(block => block.type === 'text' && block.text === prompt))

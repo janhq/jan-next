@@ -526,6 +526,8 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   SessionSearchValue: 'session.md',
   SessionSelectModelRequest: 'session.md',
   SessionSelectModelValue: 'session.md',
+  SessionContextPreviewRequest: 'session.md',
+  SessionContextPreviewValue: 'session.md',
   SessionSummary: 'session.md',
   SessionMessageProjection: 'session.md',
   SessionUpdateQueueRequest: 'session.md',

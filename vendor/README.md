@@ -28,9 +28,17 @@ Third-party dependencies of the vendored packages stay on npm: `@standard-schema
 
 Intentionally **not** vendored (verified unused by this set): `reggol`, `@cordisjs/utils`, `@cordisjs/element`, `@cordisjs/unyaml` (dev-time YAML import hook only).
 
+### DeepSeek Harness bundles
+
+These packages come from DeepSeek Harness bundle repositories, not from `cordis-workspace`, and are outside `scripts/rescope-vendor.ts`. Their sources keep `@deepseek-ai/*` specifiers: the manifest aliases each one to its Jan workspace package for builds and tests, and Jan's Host and Client loaders translate them at runtime (`packages/util/package-manifest/src/dsh-compat.ts`). Root `pnpm run typecheck` and `pnpm run test` do not cover them; run `pnpm --filter @janhq/dsh-superagent typecheck` and `pnpm --filter @janhq/dsh-superagent test` after the Host libraries are built.
+
+| Directory | npm name | Upstream name | Version | Upstream repo | Commit |
+|---|---|---|---|---|---|
+| `dsh-superagent/` | `@janhq/dsh-superagent` | `dsh-superagent` (unpublished) | 0.1.0 | https://github.com/deepseek-ai/dsh-superagent-prototype | `8c32a9dc5d72c033816c6a8110b37f40cf94fba4` |
+
 ## Local modifications
 
-Keep this log exhaustive — every divergence from upstream must be listed. Each entry has a stable ID: remove an entry when its divergence no longer exists, and never renumber or reuse IDs. The next new entry is V28.
+Keep this log exhaustive — every divergence from upstream must be listed. Each entry has a stable ID: remove an entry when its divergence no longer exists, and never renumber or reuse IDs. The next new entry is V29.
 - **V1 · `hmr/src/index.ts`**: removed the `./locales/en-US.yml` / `./locales/zh-CN.yml` imports, the `.i18n({...})` call on the `Config` schema, and the `src/locales/` directory. Rationale: those imports require a runtime YAML loader hook (`@cordisjs/unyaml`) that we do not vendor; the i18n texts only localize config descriptions.
 - **V2 · All `package.json` files**: regenerated for Harness releases with scoped names, release versions, publication metadata, precise bundled-runtime and `lib/types/**/*.d.ts` / `.d.ts.map` file entries, source exports where applicable, and declaration metadata pointing at `lib/types`. References within the vendored set use `workspace:~`. HMR declares `esbuild` as a direct dev dependency for its imported `BuildFailure` type, and Loader requires `node-addon-require-builtin@^0.1.4` to match published app runtimes.
 - **V3 · All `tsconfig.json` files**: regenerated to extend the repo-root `tsconfig.base.json`, emit TypeScript intermediates to `lib/types`, and declare project references.
@@ -51,6 +59,16 @@ Keep this log exhaustive — every divergence from upstream must be listed. Each
 - **V25 · Loader lifecycle adaptations**: before a combined context/config update, Loader refreshes dependencies locally, which prevents activation against stale isolation bindings; disabled-entry updates await disposal. Failed fibers require an explicit update after correcting their input or dependencies. Core retains the effect hardening in V6; rc.11 owns dependency teardown ordering and superseded-activation handling.
 - **V26 · `loader/src/config/tree.ts` cross-tree moves**: backports [cordiverse/cordis#271](https://github.com/cordiverse/cordis/pull/271), merged after `v4.0.0-rc.11`. When `EntryTree.update()` moves an entry into a group of another tree, the entry and the same-tree members of its group move their store registrations to the target tree, and the move is rejected before either tree changes when the target tree already holds one of their ids. The source tree receives a removal and the target tree a creation, without `legacy` or `from`. In rc.11 the entry stays registered in the source tree and the target receives an update with `legacy`, so the Include journal writes a partial row and reconciling the target file creates a second Entry. Retire this entry when the vendored Loader includes the upstream fix. Covered by `scripts/cordis-include-journal.spec.ts`.
 - **V27 · `loader/src/config/tree.ts` explicit ids with `:`**: `ensureId()` accepts explicit ids containing `EntryTree.sep`; upstream rejects them. Generated bundles from `@janhq/jan-creation-recommendations` prefix their row ids with `<package name>:`, and installed profiles already contain such rows. `resolve()` still splits ids on `:`, so these entries cannot be addressed by nested path. Covered by `scripts/cordis-entry-commit.spec.ts` and `packages/experimental/creation-recommendations/tests/loader-composition.spec.ts`.
+- **V28 · `dsh-superagent/` on Jan's APIs**: the smallest set of changes that builds, tests and runs the upstream bundle against Jan. Everything else is upstream byte for byte, apart from one trailing space removed from `skills/dsh-superagent-github/SKILL.md` for the repository's whitespace hook.
+  - `package.json`: named `@janhq/dsh-superagent` and published as a release member (no `private`, public `publishConfig`, Jan `repository`). Each `@deepseek-ai/*` dev dependency is a `workspace:` alias of its Jan package, and the shared toolchain (`tsdown`, `typescript`, `vitest`, React and their types) uses the root's ranges so the workspace keeps one copy.
+  - `tsdown.config.ts`: a function config that builds both halves in Jan's Host pass and nothing in the Client pass, since the client bundle needs only React; the client factory registers as `@janhq/dsh-superagent`, the id Jan's module loader keys bundles by.
+  - `cordis.patch.yml`: the three inserted entries name their plugins `@janhq/dsh-superagent`, `.../github-watch` and `.../feishu-watch`, since Jan's Loader imports them by package name; entry ids are unchanged.
+  - `src/infra/paths.ts`: finds the package root by the new name.
+  - `src/app/resources.ts`: reads a worker transcript through `sessionPersistence` (`flush`, `open(id, 'read')`, paged `read`), because Jan's Session controller has no `inspect`.
+  - `src/app/role-models.ts`: seeds a role model by appending only the Session's `model/selection`. Jan routes every step and fills the `{{provider}}`/`{{model}}` prompt variables from that projection, and its agent loop rejects an `agent/request` listener that changes the route after step preparation, so the upstream prompt and request overrides are removed.
+  - `src/client/deployment.tsx`: shows the read-only hint from `writable === false`; Jan's `ConfigFormSnapshot` has no `mode`.
+  - `src/app/http.ts`: `sameOrigin` refuses requests while the web server has no port, which Jan types as optional.
+  - Tests: `role-models.spec.ts` covers the append-only seeding; transcript and controller fixtures drop `inspect` and serve history from the persistence reader; `runtime.spec.ts` brands its Session id; `bundle-patch.spec.ts` resolves `@janhq/cordis-plugin-include`; the panel fixtures drop `mode`.
 
 ### Resolver adaptations
 

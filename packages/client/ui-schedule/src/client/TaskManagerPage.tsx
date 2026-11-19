@@ -445,12 +445,12 @@ export function TaskManagerPage(props: TaskManagerPageProps) {
         onCreated={(task) => {
           setManualOpen(false); setSearch(''); setStatusFilter('all'); setSelectedId(task.id); setTab('rule')
         }} /> : selected !== undefined && <TaskDetail
-          {...detail.props}
-          task={selected}
-          authoritative={catalogRecord !== undefined}
-          onDeleted={closeDetails}
-          onClose={closeDetails}
-        />}
+        {...detail.props}
+        task={selected}
+        authoritative={catalogRecord !== undefined}
+        onDeleted={closeDetails}
+        onClose={closeDetails}
+      />}
       <Modal
         className={css.confirmDialog as string}
         contentClassName={css.confirmContent as string}

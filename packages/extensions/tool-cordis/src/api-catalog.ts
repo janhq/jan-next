@@ -3013,6 +3013,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the normalized selection installed for the Session, without waiting for default persistence.',
       },
       {
+        signature: '@Remote(\'contextPreview\') async contextPreview(request: SessionContextPreviewRequest, signal: AbortSignal): Promise<SessionContextPreviewValue | null>',
+        description: 'Price the system prompt, tool schemas, and runtime context the Session\'s next request would inject.',
+        parameters: [{ name: 'request', description: 'Session identity.' }, { name: 'signal', description: 'cancels tool resolution and prompt assembly.' }],
+        returns: 'heuristic token prices, or null while the Session has no model selection.',
+      },
+      {
         signature: '@Remote(\'modelCatalog\') modelCatalog(): Promise<ModelCatalog>',
         description: 'Describe every currently routable model for Host-generation selectors.',
         parameters: [],
@@ -4671,7 +4677,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
   {
     key: 'web',
     summary: 'The web access service.',
-    description: 'The web access service. Registered as `ctx.web` (one instance per context) and exposed to Clients as the `web` Remote namespace (`listProviders`).\n\nSelection semantics (resolved at execution time, never order-dependent):\n\n- A configured id that is registered and `available()` → that provider.\n- A configured id not registered → `WEB_PROVIDER_CONFIGURED_MISSING`.\n- A configured id registered but unavailable → `WEB_PROVIDER_CONFIGURED_UNAVAILABLE`.\n- No id configured, exactly one registered usable provider → that provider.\n- No id configured, multiple usable providers → `WEB_PROVIDER_AMBIGUOUS`.\n- No id configured, no usable provider → `WEB_PROVIDER_UNAVAILABLE`.',
+    description: 'The web access service. Registered as `ctx.web` (one instance per context) and exposed to Clients as the `web` Remote namespace (`listProviders`).\n\nSelection semantics (resolved at execution time, never registration-order-dependent):\n\n- The first configured id that is registered and `available()` → that provider. Configured ids that are unregistered or unavailable are skipped.\n- No configured id registered → `WEB_PROVIDER_CONFIGURED_MISSING`.\n- Some configured id registered, none available → `WEB_PROVIDER_CONFIGURED_UNAVAILABLE`.\n- No id configured, exactly one registered usable provider → that provider.\n- No id configured, multiple usable providers → `WEB_PROVIDER_AMBIGUOUS`.\n- No id configured, no usable provider → `WEB_PROVIDER_UNAVAILABLE`.',
     methods: [
       {
         signature: 'registerSearchProvider(provider: WebSearchProvider): () => void',
@@ -8830,6 +8836,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'SessionChangeRequestsListener',
     declaration: 'export type SessionChangeRequestsListener = (changeRequests: readonly SessionChangeRequest[]) => void;',
+  },
+  {
+    name: 'SessionContextPreviewRequest',
+    declaration: 'export interface SessionContextPreviewRequest {\n    readonly sessionId: SessionId;\n}',
+  },
+  {
+    name: 'SessionContextPreviewValue',
+    declaration: 'export interface SessionContextPreviewValue {\n    readonly systemTokens: number;\n    readonly toolsTokens: number;\n    readonly messageTokens: number;\n}',
   },
   {
     name: 'SessionControlBaseline',

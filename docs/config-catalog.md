@@ -152,6 +152,8 @@ export type Config = PresetDefinition
 export interface Config {
   /** Deployment default when the caller omits a preset. */
   default: string
+  /** Preset for a new Session by provider route, below a Settings pick. */
+  routeDefaults: Record<string, string>
   /** User-selected default; edited through Settings. */
   selectedDefault: Volatile<string | undefined>
 }
@@ -239,7 +241,7 @@ export interface Config {
 ## `@janhq/jan-api-session-controller`
 
 - `inject`: `agentDefaultModel` · `agents` · `attachments` · `fileUploads` · `fs` · `llm` · `remoteAccess` · `sessions` · `sessionProjections` · `sessionQuery` · `typert` · `typertGateway` · `workspaceRegistry`
-- `source`: [`packages/api/session-controller/src/index.ts:110`](../packages/api/session-controller/src/index.ts)
+- `source`: [`packages/api/session-controller/src/index.ts:113`](../packages/api/session-controller/src/index.ts)
 
 ```ts config-catalog
 /** Session Controller deployment policy. */
@@ -1897,8 +1899,9 @@ export interface Config {
   cacheRamMiB?: number | undefined
   /**
    * Disk budget, in MiB, for per-thread KV state under `<dataRoot>/slots` (`--slot-cache-mib`);
-   * `0` saves nothing. A request is cached only when it names its thread, which the `llm-pi-ai`
-   * route does not send yet.
+   * `0` saves nothing. The `local` route names each conversation request's Session as its thread,
+   * so returning to a Session after another one used the slot, or after a restart, restores its
+   * cache instead of reading the conversation again. 8192, as Jan's conversation cache.
    */
   slotCacheMiB: number
   /** Deadline from spawn until the handshake and the active model's load complete. */
@@ -1967,7 +1970,7 @@ export interface FallbackRoute {
 
 - `inject`: `llm`
 - `refs`: `Api` (`@earendil-works/pi-ai`) · `CacheRetention` (`@earendil-works/pi-ai`) · `Model` (`@earendil-works/pi-ai`) · `ModelThinkingLevel` (`@earendil-works/pi-ai`) · `OpenAICompletionsCompat` (`@earendil-works/pi-ai`) · [`RetryPolicyConfig`](../packages/llm/llm/src/index.ts) · `ThinkingBudgets` (`@earendil-works/pi-ai`) · `Transport` (`@earendil-works/pi-ai`) · `Volatile` (`@janhq/cordis`)
-- `source`: [`packages/llm/llm-pi-ai/src/config.ts:328`](../packages/llm/llm-pi-ai/src/config.ts)
+- `source`: [`packages/llm/llm-pi-ai/src/config.ts:335`](../packages/llm/llm-pi-ai/src/config.ts)
 
 ```ts config-catalog
 /** Plugin configuration: the provider routes this instance owns. */
@@ -2079,6 +2082,13 @@ export interface PiAiProviderProfile {
    * accept the field; other OpenAI-compatible endpoints may reject unknown request fields.
    */
   promptProgress?: boolean
+  /**
+   * Name the Session on each conversation request as llama.cpp's `thread_id`, so a server that keys
+   * saved KV state by thread (Jan's `jan-llama-worker`) restores it instead of reading the whole
+   * conversation again after another Session or a restart used the slot. Auxiliary requests, such
+   * as titles and compaction, send no thread. Only for servers that accept the field.
+   */
+  threadCache?: boolean
   /**
    * Maximum base64-encoded image payload per request. When a request's
    * accumulated images exceed it, the oldest images are replaced by text
@@ -4543,23 +4553,29 @@ export type ApprovalPolicy = 'ask' | 'never'
 ## `@janhq/jan-web`
 
 - `refs`: `Volatile` (`@janhq/cordis`)
-- `source`: [`packages/web/web/src/index.ts:62`](../packages/web/web/src/index.ts)
+- `source`: [`packages/web/web/src/index.ts:56`](../packages/web/web/src/index.ts)
 
 ```ts config-catalog
 /**
- * Config for the web seam. `searchProvider` / `fetchProvider` pin which provider
- * wins for each capability; both are optional (a single registered usable
- * provider auto-selects). Each operation reads the current value, so a settings
- * change applies to the next search or fetch without remounting the service.
+ * Config for the web seam. `searchProvider` / `fetchProvider` select the provider
+ * for each capability; both are optional (a single registered usable provider
+ * auto-selects). Each operation reads the current value, so a settings change
+ * applies to the next search or fetch without remounting the service.
  * Operational overrides such as environment variables must feed these same
  * fields rather than introduce a hidden priority chain.
  */
 export interface WebRuntimeConfig {
-  /** Explicit search provider id. Omitted = auto-select when exactly one usable. */
-  readonly searchProvider: Volatile<string | undefined>
-  /** Explicit fetch provider id. Omitted = auto-select when exactly one usable. */
-  readonly fetchProvider: Volatile<string | undefined>
+  /** Search provider id or preference list. Omitted or empty = auto-select when exactly one usable. */
+  readonly searchProvider: Volatile<WebProviderPreference | undefined>
+  /** Fetch provider id or preference list. Omitted or empty = auto-select when exactly one usable. */
+  readonly fetchProvider: Volatile<WebProviderPreference | undefined>
 }
+
+/**
+ * A configured provider selection: one provider id, or provider ids in preference order. The
+ * first id that is registered and `available()` is selected by `ctx.web`.
+ */
+export type WebProviderPreference = string | readonly string[]
 ```
 
 <a id="janhqjan-web-app"></a>
@@ -4615,24 +4631,85 @@ export interface Config {
 }
 ```
 
-<a id="janhqjan-web-search-exa"></a>
+<a id="janhqjan-web-search"></a>
 
-## `@janhq/jan-web-search-exa`
+## `@janhq/jan-web-search`
 
 - `inject`: `web`
-- `source`: [`packages/web/web-search-exa/src/index.ts:25`](../packages/web/web-search-exa/src/index.ts)
+- `source`: [`packages/web/web-search/src/config.ts:85`](../packages/web/web-search/src/config.ts)
 
 ```ts config-catalog
-/** Plugin config; every field has a default. */
+/** Plugin config; every field except `searxng.url` has a default. */
 export interface Config {
-  /** Exa MCP endpoint. */
-  url?: string
-  /** Results requested when the caller sets no bound, at most {@link EXA_MAX_RESULTS}. */
+  /** Backends to register; `searxng` registers search only, the others search and fetch. */
+  providers?: BackendId[]
+  /** Tokamak settings. */
+  tokamak?: TokamakConfig
+  /** Exa settings. */
+  exa?: ExaConfig
+  /** Tavily settings. */
+  tavily?: TavilyConfig
+  /** SearXNG settings. */
+  searxng?: SearxngConfig
+  /** You.com settings. */
+  you?: YouConfig
+  /** Results requested when the caller sets no bound, at most {@link MAX_RESULTS}. */
   numResults?: number
-  /** Characters of page text one fetch requests. */
+  /** Characters of page text one fetch returns. */
   maxCharacters?: number
   /** Milliseconds one search or fetch may take. */
   timeoutMs?: number
+}
+
+/** One backend id from {@link BACKEND_IDS}. */
+export type BackendId = 'tokamak' | 'exa' | 'tavily' | 'searxng' | 'you'
+
+/** Tokamak endpoint and result cap; requests authenticate with the signed-in Tokamak account. */
+export interface TokamakConfig {
+  /** API base URL on the account's deployment; `/web_search` and `/web_fetch` are appended. */
+  apiUrl?: string
+  /** Largest result count one search asks for, at most {@link MAX_RESULTS}; the deployment rejects counts above its provider's cap. */
+  maxResults?: number
+}
+
+/** Exa endpoints and credential. */
+export interface ExaConfig {
+  /** Hosted MCP endpoint used while no API key resolves. */
+  mcpUrl?: string
+  /** REST API base URL used with an API key; `/search` and `/contents` are appended. */
+  apiUrl?: string
+  /** Credential reference holding the Exa API key. */
+  apiKeyEnv?: string
+  /** Characters of page text each keyed search result carries as its summary. */
+  searchTextCharacters?: number
+}
+
+/** Tavily endpoint and credential; Tavily answers only with an API key. */
+export interface TavilyConfig {
+  /** REST API base URL; `/search` and `/extract` are appended. */
+  apiUrl?: string
+  /** Credential reference holding the Tavily API key. */
+  apiKeyEnv?: string
+}
+
+/** SearXNG instance; required when `providers` lists `searxng`. */
+export interface SearxngConfig {
+  /** Base URL of a SearXNG instance with the JSON format enabled; `/search` is appended. */
+  url?: string
+}
+
+/** You.com endpoints and credential. */
+export interface YouConfig {
+  /** Hosted MCP endpoint used for search while no API key resolves. */
+  mcpUrl?: string
+  /** Keyless page-extraction endpoint used for fetch while no API key resolves. */
+  extractUrl?: string
+  /** REST API base URL used with an API key; `/v1/search` and `/v1/contents` are appended. */
+  apiUrl?: string
+  /** Credential reference holding the You.com API key. */
+  apiKeyEnv?: string
+  /** `User-Agent` header sent on every You.com request. */
+  userAgent?: string
 }
 ```
 

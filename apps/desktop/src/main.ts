@@ -50,7 +50,7 @@ import { pruneCrashReports, RendererConsoleTail, writeCrashReport, type CrashRep
 import { OperationJournal } from './operation-journal.ts'
 import { runOperationReportJob, type OperationReportJobResult } from './operation-report-job.ts'
 import { openWelcomeWindow } from './welcome-window.ts'
-import { WELCOME_IPC, needsWelcome, type WelcomeNotice } from './welcome-api.ts'
+import { WELCOME_IPC, needsWelcome, type WelcomeDestination, type WelcomeNotice } from './welcome-api.ts'
 import { connectDesktopWelcome, type DesktopWelcomeBackend } from './welcome-backend.ts'
 import { DesktopUpdateJournal } from './update-journal.ts'
 import { DesktopUpdatePreparationError } from './update-error.ts'
@@ -292,8 +292,10 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
     // needs a transparent window background to show through the page.
     ...(process.platform === 'darwin' ? {
       titleBarStyle: 'hiddenInset' as const,
-      // Centred on the sidebar's Jan title row.
-      trafficLightPosition: { x: 16, y: 33 },
+      // Jan Desktop v04: the lights sit 19pt inside the sidebar card (11pt
+      // window gap, jan-theme) and centre on the shared chrome row at y 38
+      // (ui-layout --jan-frame-title-inset 23 + half the 30px title row).
+      trafficLightPosition: { x: 30, y: 31 },
       vibrancy: 'sidebar' as const,
       // 'active' keeps the vibrancy material stable when the window blurs;
       // 'followWindow' washes the sidebar out behind an unfocused window.
@@ -1434,7 +1436,9 @@ async function main(): Promise<void> {
     // on macOS, so AppKit draws the workspace traffic lights as inactive.
     window.webContents.openDevTools({ mode: 'detach', activate: process.platform !== 'darwin' })
   }
-  const enterWorkspace = async ({ activate = true }: { activate?: boolean } = {}): Promise<void> => {
+  const enterWorkspace = async (
+    { activate = true, open }: { activate?: boolean; open?: WelcomeDestination } = {},
+  ): Promise<void> => {
     if (quitting) return
     const window = mainWindow ?? createMainWindow()
     await navigateMain(applicationUrl)
@@ -1444,7 +1448,7 @@ async function main(): Promise<void> {
     enteredWorkspace = true
     if (welcomeWindow !== undefined) {
       welcomeWindow.close()
-      window.webContents.send(DESKTOP_IPC.enterWorkspace)
+      window.webContents.send(DESKTOP_IPC.enterWorkspace, open)
     }
     welcomeWindow = undefined
     if (raiseAfterUpdate) {
@@ -1494,7 +1498,7 @@ async function main(): Promise<void> {
           await enterWorkspace()
           return { ok: true }
         },
-        skip: enterWorkspace,
+        skip: open => enterWorkspace(open === undefined ? {} : { open }),
         startLocalModel: async () => {
           if (welcomeBackend === undefined) throw new Error('desktop welcome: backend unavailable')
           await welcomeBackend.localModel.start()
