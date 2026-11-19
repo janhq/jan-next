@@ -1899,8 +1899,9 @@ export interface Config {
   cacheRamMiB?: number | undefined
   /**
    * Disk budget, in MiB, for per-thread KV state under `<dataRoot>/slots` (`--slot-cache-mib`);
-   * `0` saves nothing. A request is cached only when it names its thread, which the `llm-pi-ai`
-   * route does not send yet.
+   * `0` saves nothing. The `local` route names each conversation request's Session as its thread,
+   * so returning to a Session after another one used the slot, or after a restart, restores its
+   * cache instead of reading the conversation again. 8192, as Jan's conversation cache.
    */
   slotCacheMiB: number
   /** Deadline from spawn until the handshake and the active model's load complete. */
