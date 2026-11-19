@@ -192,14 +192,8 @@
       "data": {
         "header": {
           "config": {
-            "provider": "tokamak-official",
-            "model": "smoke-model",
-            "maxTokens": 256000,
-            "reasoningEffort": "high"
-          },
-          "adapterDefaults": {
-            "reasoningEffort": true,
-            "maxTokens": true
+            "provider": "tokamak",
+            "model": "smoke-model"
           },
           "tools": [
             "run_code"
@@ -213,7 +207,7 @@
       "seq": 15,
       "time": 0,
       "data": {
-        "provider": "tokamak-official",
+        "provider": "tokamak",
         "model": "smoke-model",
         "contextWindow": 1000000
       }
@@ -280,14 +274,8 @@
       "data": {
         "header": {
           "config": {
-            "provider": "tokamak-official",
-            "model": "smoke-model",
-            "maxTokens": 256000,
-            "reasoningEffort": "high"
-          },
-          "adapterDefaults": {
-            "reasoningEffort": true,
-            "maxTokens": true
+            "provider": "tokamak",
+            "model": "smoke-model"
           },
           "tools": [
             "run_code"
@@ -297,18 +285,8 @@
       }
     },
     {
-      "type": "session-log-deepseek/delivery-accepted",
-      "seq": 20,
-      "time": 0,
-      "data": {
-        "sessionId": "{{parent}}",
-        "sessionFormatVersion": 4,
-        "throughSeq": 19
-      }
-    },
-    {
       "type": "assistant/message",
-      "seq": 21,
+      "seq": 20,
       "time": 0,
       "data": {
         "turn": 1,
@@ -320,18 +298,22 @@
               "type": "tool-call",
               "id": "advanced-code",
               "name": "run_code",
-              "arguments": "{\"code\": \"return await tools.snapshot_double({ value: 21 })\", \"description\": \"Call the configured Plugin tool\"}"
+              "arguments": "{\"code\":\"return await tools.snapshot_double({ value: 21 })\",\"description\":\"Call the configured Plugin tool\"}"
             }
           ],
           "source": {
             "kind": "model",
-            "provider": "tokamak-official",
+            "provider": "tokamak",
             "model": "smoke-model",
             "replayState": {
               "response": {
-                "kind": "tokamak-messages",
-                "version": 1,
-                "model": "smoke-model"
+                "kind": "pi-ai",
+                "version": 2,
+                "api": "anthropic-messages",
+                "provider": "tokamak",
+                "model": "smoke-model",
+                "responseId": "msg_smoke",
+                "stopReason": "toolUse"
               },
               "blocks": [
                 {
@@ -365,16 +347,6 @@
             "id": "advanced-code",
             "name": "run_code",
             "args": [
-              ""
-            ]
-          },
-          {
-            "type": "tool-call-chunks",
-            "time0": 0,
-            "index": 0,
-            "dt": [],
-            "id": "advanced-code",
-            "args": [
               "{\"code\": \"return await tools.snapshot_double({ value: 21 })\", \"description\": \"Call the configured Plugin tool\"}"
             ]
           },
@@ -388,7 +360,7 @@
                 "type": "tool-call",
                 "id": "advanced-code",
                 "name": "run_code",
-                "arguments": "{\"code\": \"return await tools.snapshot_double({ value: 21 })\", \"description\": \"Call the configured Plugin tool\"}"
+                "arguments": "{\"code\":\"return await tools.snapshot_double({ value: 21 })\",\"description\":\"Call the configured Plugin tool\"}"
               }
             }
           },
@@ -414,9 +386,13 @@
               },
               "replayState": {
                 "response": {
-                  "kind": "tokamak-messages",
-                  "version": 1,
-                  "model": "smoke-model"
+                  "kind": "pi-ai",
+                  "version": 2,
+                  "api": "anthropic-messages",
+                  "provider": "tokamak",
+                  "model": "smoke-model",
+                  "responseId": "msg_smoke",
+                  "stopReason": "toolUse"
                 },
                 "blocks": [
                   {
@@ -432,19 +408,19 @@
     },
     {
       "type": "tool/call",
-      "seq": 22,
+      "seq": 21,
       "time": 0,
       "data": {
         "turn": 1,
         "step": 1,
         "callId": "advanced-code",
         "name": "run_code",
-        "arguments": "{\"code\": \"return await tools.snapshot_double({ value: 21 })\", \"description\": \"Call the configured Plugin tool\"}"
+        "arguments": "{\"code\":\"return await tools.snapshot_double({ value: 21 })\",\"description\":\"Call the configured Plugin tool\"}"
       }
     },
     {
       "type": "tool/ptc-dispatch-start",
-      "seq": 23,
+      "seq": 22,
       "time": 0,
       "data": {
         "rootCallId": "advanced-code",
@@ -458,7 +434,7 @@
     },
     {
       "type": "job/registered",
-      "seq": 24,
+      "seq": 23,
       "time": 0,
       "data": {
         "jobId": "{{id:1}}",
@@ -474,7 +450,7 @@
     },
     {
       "type": "job/settled",
-      "seq": 25,
+      "seq": 24,
       "time": 0,
       "data": {
         "jobId": "{{id:1}}",
@@ -494,7 +470,7 @@
     },
     {
       "type": "tool/ptc-dispatch",
-      "seq": 26,
+      "seq": 25,
       "time": 0,
       "data": {
         "rootCallId": "advanced-code",
@@ -515,7 +491,7 @@
     },
     {
       "type": "tool/result",
-      "seq": 27,
+      "seq": 26,
       "time": 0,
       "data": {
         "turn": 1,
@@ -538,13 +514,13 @@
         }
       },
       "sourceEventSeqs": [
-        22
+        21
       ],
       "surfaceOp": "append"
     },
     {
       "type": "step/end",
-      "seq": 28,
+      "seq": 27,
       "time": 0,
       "data": {
         "turn": 1,
@@ -553,7 +529,7 @@
     },
     {
       "type": "step/start",
-      "seq": 29,
+      "seq": 28,
       "time": 0,
       "data": {
         "turn": 1,
@@ -561,18 +537,8 @@
       }
     },
     {
-      "type": "session-log-deepseek/delivery-accepted",
-      "seq": 30,
-      "time": 0,
-      "data": {
-        "sessionId": "{{parent}}",
-        "sessionFormatVersion": 4,
-        "throughSeq": 29
-      }
-    },
-    {
       "type": "assistant/message",
-      "seq": 31,
+      "seq": 29,
       "time": 0,
       "data": {
         "turn": 1,
@@ -584,18 +550,22 @@
               "type": "tool-call",
               "id": "advanced-denied-ptc",
               "name": "run_code",
-              "arguments": "{\"code\": \"try { await tools.snapshot_double({ value: -1 }) } catch (error) { return error.message }\", \"description\": \"Catch a structured inner tool denial\"}"
+              "arguments": "{\"code\":\"try { await tools.snapshot_double({ value: -1 }) } catch (error) { return error.message }\",\"description\":\"Catch a structured inner tool denial\"}"
             }
           ],
           "source": {
             "kind": "model",
-            "provider": "tokamak-official",
+            "provider": "tokamak",
             "model": "smoke-model",
             "replayState": {
               "response": {
-                "kind": "tokamak-messages",
-                "version": 1,
-                "model": "smoke-model"
+                "kind": "pi-ai",
+                "version": 2,
+                "api": "anthropic-messages",
+                "provider": "tokamak",
+                "model": "smoke-model",
+                "responseId": "msg_smoke",
+                "stopReason": "toolUse"
               },
               "blocks": [
                 {
@@ -629,16 +599,6 @@
             "id": "advanced-denied-ptc",
             "name": "run_code",
             "args": [
-              ""
-            ]
-          },
-          {
-            "type": "tool-call-chunks",
-            "time0": 0,
-            "index": 0,
-            "dt": [],
-            "id": "advanced-denied-ptc",
-            "args": [
               "{\"code\": \"try { await tools.snapshot_double({ value: -1 }) } catch (error) { return error.message }\", \"description\": \"Catch a structured inner tool denial\"}"
             ]
           },
@@ -652,7 +612,7 @@
                 "type": "tool-call",
                 "id": "advanced-denied-ptc",
                 "name": "run_code",
-                "arguments": "{\"code\": \"try { await tools.snapshot_double({ value: -1 }) } catch (error) { return error.message }\", \"description\": \"Catch a structured inner tool denial\"}"
+                "arguments": "{\"code\":\"try { await tools.snapshot_double({ value: -1 }) } catch (error) { return error.message }\",\"description\":\"Catch a structured inner tool denial\"}"
               }
             }
           },
@@ -678,9 +638,13 @@
               },
               "replayState": {
                 "response": {
-                  "kind": "tokamak-messages",
-                  "version": 1,
-                  "model": "smoke-model"
+                  "kind": "pi-ai",
+                  "version": 2,
+                  "api": "anthropic-messages",
+                  "provider": "tokamak",
+                  "model": "smoke-model",
+                  "responseId": "msg_smoke",
+                  "stopReason": "toolUse"
                 },
                 "blocks": [
                   {
@@ -696,19 +660,19 @@
     },
     {
       "type": "tool/call",
-      "seq": 32,
+      "seq": 30,
       "time": 0,
       "data": {
         "turn": 1,
         "step": 2,
         "callId": "advanced-denied-ptc",
         "name": "run_code",
-        "arguments": "{\"code\": \"try { await tools.snapshot_double({ value: -1 }) } catch (error) { return error.message }\", \"description\": \"Catch a structured inner tool denial\"}"
+        "arguments": "{\"code\":\"try { await tools.snapshot_double({ value: -1 }) } catch (error) { return error.message }\",\"description\":\"Catch a structured inner tool denial\"}"
       }
     },
     {
       "type": "tool/ptc-dispatch-start",
-      "seq": 33,
+      "seq": 31,
       "time": 0,
       "data": {
         "rootCallId": "advanced-denied-ptc",
@@ -722,7 +686,7 @@
     },
     {
       "type": "tool/ptc-dispatch",
-      "seq": 34,
+      "seq": 32,
       "time": 0,
       "data": {
         "rootCallId": "advanced-denied-ptc",
@@ -748,7 +712,7 @@
     },
     {
       "type": "tool/result",
-      "seq": 35,
+      "seq": 33,
       "time": 0,
       "data": {
         "turn": 1,
@@ -771,13 +735,13 @@
         }
       },
       "sourceEventSeqs": [
-        32
+        30
       ],
       "surfaceOp": "append"
     },
     {
       "type": "step/end",
-      "seq": 36,
+      "seq": 34,
       "time": 0,
       "data": {
         "turn": 1,
@@ -786,7 +750,7 @@
     },
     {
       "type": "step/start",
-      "seq": 37,
+      "seq": 35,
       "time": 0,
       "data": {
         "turn": 1,
@@ -794,18 +758,8 @@
       }
     },
     {
-      "type": "session-log-deepseek/delivery-accepted",
-      "seq": 38,
-      "time": 0,
-      "data": {
-        "sessionId": "{{parent}}",
-        "sessionFormatVersion": 4,
-        "throughSeq": 37
-      }
-    },
-    {
       "type": "assistant/message",
-      "seq": 39,
+      "seq": 36,
       "time": 0,
       "data": {
         "turn": 1,
@@ -820,13 +774,17 @@
           ],
           "source": {
             "kind": "model",
-            "provider": "tokamak-official",
+            "provider": "tokamak",
             "model": "smoke-model",
             "replayState": {
               "response": {
-                "kind": "tokamak-messages",
-                "version": 1,
-                "model": "smoke-model"
+                "kind": "pi-ai",
+                "version": 2,
+                "api": "anthropic-messages",
+                "provider": "tokamak",
+                "model": "smoke-model",
+                "responseId": "msg_smoke",
+                "stopReason": "stop"
               },
               "blocks": [
                 {
@@ -895,9 +853,13 @@
               },
               "replayState": {
                 "response": {
-                  "kind": "tokamak-messages",
-                  "version": 1,
-                  "model": "smoke-model"
+                  "kind": "pi-ai",
+                  "version": 2,
+                  "api": "anthropic-messages",
+                  "provider": "tokamak",
+                  "model": "smoke-model",
+                  "responseId": "msg_smoke",
+                  "stopReason": "stop"
                 },
                 "blocks": [
                   {
@@ -913,7 +875,7 @@
     },
     {
       "type": "step/end",
-      "seq": 40,
+      "seq": 37,
       "time": 0,
       "data": {
         "turn": 1,
@@ -922,7 +884,7 @@
     },
     {
       "type": "command/run",
-      "seq": 41,
+      "seq": 38,
       "time": 0,
       "data": {
         "commandId": "{{command:1}}",
@@ -934,7 +896,7 @@
     },
     {
       "type": "feedback/record",
-      "seq": 42,
+      "seq": 39,
       "time": 0,
       "data": {
         "text": "The session needs a clearer explanation."
@@ -942,7 +904,7 @@
     },
     {
       "type": "command/done",
-      "seq": 43,
+      "seq": 40,
       "time": 0,
       "data": {
         "commandId": "{{command:1}}",
@@ -952,7 +914,7 @@
     },
     {
       "type": "feedback/record",
-      "seq": 44,
+      "seq": 41,
       "time": 0,
       "data": {
         "category": "other"
@@ -960,7 +922,7 @@
     },
     {
       "type": "feedback/message-put",
-      "seq": 45,
+      "seq": 42,
       "time": 0,
       "data": {
         "sessionId": "{{parent}}",
@@ -977,7 +939,7 @@
     },
     {
       "type": "feedback/message-put",
-      "seq": 46,
+      "seq": 43,
       "time": 0,
       "data": {
         "sessionId": "{{parent}}",
@@ -993,7 +955,7 @@
     },
     {
       "type": "feedback/message-delete",
-      "seq": 47,
+      "seq": 44,
       "time": 0,
       "data": {
         "sessionId": "{{parent}}",
@@ -1002,7 +964,7 @@
     },
     {
       "type": "turn/end",
-      "seq": 48,
+      "seq": 45,
       "time": 0,
       "data": {
         "turn": 1,
@@ -1274,14 +1236,8 @@
           "data": {
             "header": {
               "config": {
-                "provider": "tokamak-official",
-                "model": "smoke-model",
-                "maxTokens": 256000,
-                "reasoningEffort": "high"
-              },
-              "adapterDefaults": {
-                "reasoningEffort": true,
-                "maxTokens": true
+                "provider": "tokamak",
+                "model": "smoke-model"
               },
               "tools": [
                 "run_code"
@@ -1301,7 +1257,7 @@
           "seq": 15,
           "time": 0,
           "data": {
-            "provider": "tokamak-official",
+            "provider": "tokamak",
             "model": "smoke-model",
             "contextWindow": 1000000
           }
@@ -1392,14 +1348,8 @@
           "data": {
             "header": {
               "config": {
-                "provider": "tokamak-official",
-                "model": "smoke-model",
-                "maxTokens": 256000,
-                "reasoningEffort": "high"
-              },
-              "adapterDefaults": {
-                "reasoningEffort": true,
-                "maxTokens": true
+                "provider": "tokamak",
+                "model": "smoke-model"
               },
               "tools": [
                 "run_code"
@@ -1415,24 +1365,8 @@
       "payload": {
         "sessionId": "{{parent}}",
         "event": {
-          "type": "session-log-deepseek/delivery-accepted",
-          "seq": 20,
-          "time": 0,
-          "data": {
-            "sessionId": "{{parent}}",
-            "sessionFormatVersion": 4,
-            "throughSeq": 19
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
           "type": "assistant/message",
-          "seq": 21,
+          "seq": 20,
           "time": 0,
           "data": {
             "turn": 1,
@@ -1444,18 +1378,22 @@
                   "type": "tool-call",
                   "id": "advanced-code",
                   "name": "run_code",
-                  "arguments": "{\"code\": \"return await tools.snapshot_double({ value: 21 })\", \"description\": \"Call the configured Plugin tool\"}"
+                  "arguments": "{\"code\":\"return await tools.snapshot_double({ value: 21 })\",\"description\":\"Call the configured Plugin tool\"}"
                 }
               ],
               "source": {
                 "kind": "model",
-                "provider": "tokamak-official",
+                "provider": "tokamak",
                 "model": "smoke-model",
                 "replayState": {
                   "response": {
-                    "kind": "tokamak-messages",
-                    "version": 1,
-                    "model": "smoke-model"
+                    "kind": "pi-ai",
+                    "version": 2,
+                    "api": "anthropic-messages",
+                    "provider": "tokamak",
+                    "model": "smoke-model",
+                    "responseId": "msg_smoke",
+                    "stopReason": "toolUse"
                   },
                   "blocks": [
                     {
@@ -1489,16 +1427,6 @@
                 "id": "advanced-code",
                 "name": "run_code",
                 "args": [
-                  ""
-                ]
-              },
-              {
-                "type": "tool-call-chunks",
-                "time0": 0,
-                "index": 0,
-                "dt": [],
-                "id": "advanced-code",
-                "args": [
                   "{\"code\": \"return await tools.snapshot_double({ value: 21 })\", \"description\": \"Call the configured Plugin tool\"}"
                 ]
               },
@@ -1512,7 +1440,7 @@
                     "type": "tool-call",
                     "id": "advanced-code",
                     "name": "run_code",
-                    "arguments": "{\"code\": \"return await tools.snapshot_double({ value: 21 })\", \"description\": \"Call the configured Plugin tool\"}"
+                    "arguments": "{\"code\":\"return await tools.snapshot_double({ value: 21 })\",\"description\":\"Call the configured Plugin tool\"}"
                   }
                 }
               },
@@ -1538,9 +1466,13 @@
                   },
                   "replayState": {
                     "response": {
-                      "kind": "tokamak-messages",
-                      "version": 1,
-                      "model": "smoke-model"
+                      "kind": "pi-ai",
+                      "version": 2,
+                      "api": "anthropic-messages",
+                      "provider": "tokamak",
+                      "model": "smoke-model",
+                      "responseId": "msg_smoke",
+                      "stopReason": "toolUse"
                     },
                     "blocks": [
                       {
@@ -1562,14 +1494,14 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "tool/call",
-          "seq": 22,
+          "seq": 21,
           "time": 0,
           "data": {
             "turn": 1,
             "step": 1,
             "callId": "advanced-code",
             "name": "run_code",
-            "arguments": "{\"code\": \"return await tools.snapshot_double({ value: 21 })\", \"description\": \"Call the configured Plugin tool\"}"
+            "arguments": "{\"code\":\"return await tools.snapshot_double({ value: 21 })\",\"description\":\"Call the configured Plugin tool\"}"
           }
         }
       }
@@ -1580,7 +1512,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "tool/ptc-dispatch-start",
-          "seq": 23,
+          "seq": 22,
           "time": 0,
           "data": {
             "rootCallId": "advanced-code",
@@ -1600,7 +1532,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "job/registered",
-          "seq": 24,
+          "seq": 23,
           "time": 0,
           "data": {
             "jobId": "{{id:1}}",
@@ -1622,7 +1554,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "job/settled",
-          "seq": 25,
+          "seq": 24,
           "time": 0,
           "data": {
             "jobId": "{{id:1}}",
@@ -1648,7 +1580,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "tool/ptc-dispatch",
-          "seq": 26,
+          "seq": 25,
           "time": 0,
           "data": {
             "rootCallId": "advanced-code",
@@ -1675,7 +1607,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "tool/result",
-          "seq": 27,
+          "seq": 26,
           "time": 0,
           "data": {
             "turn": 1,
@@ -1698,7 +1630,7 @@
             }
           },
           "sourceEventSeqs": [
-            22
+            21
           ],
           "surfaceOp": "append"
         }
@@ -1710,7 +1642,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "step/end",
-          "seq": 28,
+          "seq": 27,
           "time": 0,
           "data": {
             "turn": 1,
@@ -1725,7 +1657,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "step/start",
-          "seq": 29,
+          "seq": 28,
           "time": 0,
           "data": {
             "turn": 1,
@@ -1739,24 +1671,8 @@
       "payload": {
         "sessionId": "{{parent}}",
         "event": {
-          "type": "session-log-deepseek/delivery-accepted",
-          "seq": 30,
-          "time": 0,
-          "data": {
-            "sessionId": "{{parent}}",
-            "sessionFormatVersion": 4,
-            "throughSeq": 29
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
           "type": "assistant/message",
-          "seq": 31,
+          "seq": 29,
           "time": 0,
           "data": {
             "turn": 1,
@@ -1768,18 +1684,22 @@
                   "type": "tool-call",
                   "id": "advanced-denied-ptc",
                   "name": "run_code",
-                  "arguments": "{\"code\": \"try { await tools.snapshot_double({ value: -1 }) } catch (error) { return error.message }\", \"description\": \"Catch a structured inner tool denial\"}"
+                  "arguments": "{\"code\":\"try { await tools.snapshot_double({ value: -1 }) } catch (error) { return error.message }\",\"description\":\"Catch a structured inner tool denial\"}"
                 }
               ],
               "source": {
                 "kind": "model",
-                "provider": "tokamak-official",
+                "provider": "tokamak",
                 "model": "smoke-model",
                 "replayState": {
                   "response": {
-                    "kind": "tokamak-messages",
-                    "version": 1,
-                    "model": "smoke-model"
+                    "kind": "pi-ai",
+                    "version": 2,
+                    "api": "anthropic-messages",
+                    "provider": "tokamak",
+                    "model": "smoke-model",
+                    "responseId": "msg_smoke",
+                    "stopReason": "toolUse"
                   },
                   "blocks": [
                     {
@@ -1813,16 +1733,6 @@
                 "id": "advanced-denied-ptc",
                 "name": "run_code",
                 "args": [
-                  ""
-                ]
-              },
-              {
-                "type": "tool-call-chunks",
-                "time0": 0,
-                "index": 0,
-                "dt": [],
-                "id": "advanced-denied-ptc",
-                "args": [
                   "{\"code\": \"try { await tools.snapshot_double({ value: -1 }) } catch (error) { return error.message }\", \"description\": \"Catch a structured inner tool denial\"}"
                 ]
               },
@@ -1836,7 +1746,7 @@
                     "type": "tool-call",
                     "id": "advanced-denied-ptc",
                     "name": "run_code",
-                    "arguments": "{\"code\": \"try { await tools.snapshot_double({ value: -1 }) } catch (error) { return error.message }\", \"description\": \"Catch a structured inner tool denial\"}"
+                    "arguments": "{\"code\":\"try { await tools.snapshot_double({ value: -1 }) } catch (error) { return error.message }\",\"description\":\"Catch a structured inner tool denial\"}"
                   }
                 }
               },
@@ -1862,9 +1772,13 @@
                   },
                   "replayState": {
                     "response": {
-                      "kind": "tokamak-messages",
-                      "version": 1,
-                      "model": "smoke-model"
+                      "kind": "pi-ai",
+                      "version": 2,
+                      "api": "anthropic-messages",
+                      "provider": "tokamak",
+                      "model": "smoke-model",
+                      "responseId": "msg_smoke",
+                      "stopReason": "toolUse"
                     },
                     "blocks": [
                       {
@@ -1886,14 +1800,14 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "tool/call",
-          "seq": 32,
+          "seq": 30,
           "time": 0,
           "data": {
             "turn": 1,
             "step": 2,
             "callId": "advanced-denied-ptc",
             "name": "run_code",
-            "arguments": "{\"code\": \"try { await tools.snapshot_double({ value: -1 }) } catch (error) { return error.message }\", \"description\": \"Catch a structured inner tool denial\"}"
+            "arguments": "{\"code\":\"try { await tools.snapshot_double({ value: -1 }) } catch (error) { return error.message }\",\"description\":\"Catch a structured inner tool denial\"}"
           }
         }
       }
@@ -1904,7 +1818,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "tool/ptc-dispatch-start",
-          "seq": 33,
+          "seq": 31,
           "time": 0,
           "data": {
             "rootCallId": "advanced-denied-ptc",
@@ -1924,7 +1838,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "tool/ptc-dispatch",
-          "seq": 34,
+          "seq": 32,
           "time": 0,
           "data": {
             "rootCallId": "advanced-denied-ptc",
@@ -1956,7 +1870,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "tool/result",
-          "seq": 35,
+          "seq": 33,
           "time": 0,
           "data": {
             "turn": 1,
@@ -1979,7 +1893,7 @@
             }
           },
           "sourceEventSeqs": [
-            32
+            30
           ],
           "surfaceOp": "append"
         }
@@ -1991,7 +1905,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "step/end",
-          "seq": 36,
+          "seq": 34,
           "time": 0,
           "data": {
             "turn": 1,
@@ -2006,7 +1920,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "step/start",
-          "seq": 37,
+          "seq": 35,
           "time": 0,
           "data": {
             "turn": 1,
@@ -2020,24 +1934,8 @@
       "payload": {
         "sessionId": "{{parent}}",
         "event": {
-          "type": "session-log-deepseek/delivery-accepted",
-          "seq": 38,
-          "time": 0,
-          "data": {
-            "sessionId": "{{parent}}",
-            "sessionFormatVersion": 4,
-            "throughSeq": 37
-          }
-        }
-      }
-    },
-    {
-      "method": "session.event",
-      "payload": {
-        "sessionId": "{{parent}}",
-        "event": {
           "type": "assistant/message",
-          "seq": 39,
+          "seq": 36,
           "time": 0,
           "data": {
             "turn": 1,
@@ -2052,13 +1950,17 @@
               ],
               "source": {
                 "kind": "model",
-                "provider": "tokamak-official",
+                "provider": "tokamak",
                 "model": "smoke-model",
                 "replayState": {
                   "response": {
-                    "kind": "tokamak-messages",
-                    "version": 1,
-                    "model": "smoke-model"
+                    "kind": "pi-ai",
+                    "version": 2,
+                    "api": "anthropic-messages",
+                    "provider": "tokamak",
+                    "model": "smoke-model",
+                    "responseId": "msg_smoke",
+                    "stopReason": "stop"
                   },
                   "blocks": [
                     {
@@ -2127,9 +2029,13 @@
                   },
                   "replayState": {
                     "response": {
-                      "kind": "tokamak-messages",
-                      "version": 1,
-                      "model": "smoke-model"
+                      "kind": "pi-ai",
+                      "version": 2,
+                      "api": "anthropic-messages",
+                      "provider": "tokamak",
+                      "model": "smoke-model",
+                      "responseId": "msg_smoke",
+                      "stopReason": "stop"
                     },
                     "blocks": [
                       {
@@ -2151,7 +2057,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "step/end",
-          "seq": 40,
+          "seq": 37,
           "time": 0,
           "data": {
             "turn": 1,
@@ -2166,7 +2072,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "command/run",
-          "seq": 41,
+          "seq": 38,
           "time": 0,
           "data": {
             "commandId": "{{command:1}}",
@@ -2184,7 +2090,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "feedback/record",
-          "seq": 42,
+          "seq": 39,
           "time": 0,
           "data": {
             "text": "The session needs a clearer explanation."
@@ -2198,7 +2104,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "command/done",
-          "seq": 43,
+          "seq": 40,
           "time": 0,
           "data": {
             "commandId": "{{command:1}}",
@@ -2214,7 +2120,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "feedback/record",
-          "seq": 44,
+          "seq": 41,
           "time": 0,
           "data": {
             "category": "other"
@@ -2228,7 +2134,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "feedback/message-put",
-          "seq": 45,
+          "seq": 42,
           "time": 0,
           "data": {
             "sessionId": "{{parent}}",
@@ -2251,7 +2157,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "feedback/message-put",
-          "seq": 46,
+          "seq": 43,
           "time": 0,
           "data": {
             "sessionId": "{{parent}}",
@@ -2273,7 +2179,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "feedback/message-delete",
-          "seq": 47,
+          "seq": 44,
           "time": 0,
           "data": {
             "sessionId": "{{parent}}",
@@ -2288,7 +2194,7 @@
         "sessionId": "{{parent}}",
         "event": {
           "type": "turn/end",
-          "seq": 48,
+          "seq": 45,
           "time": 0,
           "data": {
             "turn": 1,

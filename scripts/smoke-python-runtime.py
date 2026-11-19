@@ -113,6 +113,8 @@ SNAPSHOT_PROMPT = "Run the advanced packaged-runtime snapshot scenario."
 SNAPSHOT_SESSION_ID = "advanced-executable"
 SNAPSHOT_DIRECT_CHILD_PROMPT = "Reply with exactly DIRECT_CHILD_OK and nothing else."
 SNAPSHOT_WORKFLOW_CHILD_PROMPT = "Reply with exactly WORKFLOW_CHILD_OK and nothing else."
+# pi-ai joins all-text user content without a separator, so this guidance block follows a direct child's task text.
+CHILD_RESULT_DELIVERY_GUIDANCE = "Your final answer is delivered automatically if your parent is still online."
 SNAPSHOT_FINAL_TEXT = "ADVANCED_EXECUTABLE_OK"
 RESTART_FIRST_PROMPT = "Complete the first isolated Python SDK process turn."
 RESTART_FIRST_TEXT = "PROCESS_ONE_OK"
@@ -408,8 +410,11 @@ def completion_chunks(body: dict[str, object]) -> list[dict[str, object]]:
             raise AssertionError(f"recovered history changed completed or pending outcomes: {results}")
         return text_chunks(RECOVERY_TEXT)
 
+    # A subagent settlement notice arrives as its own user message after the tool results it follows.
     tool_results = [
-        block for block in latest.get("content", [])
+        block for message in messages[last_assistant + 1:] if message.get("role") == "user"
+        and isinstance(message.get("content"), list)
+        for block in message["content"]
         if isinstance(block, dict) and block.get("type") == "tool_result"
     ]
     if tool_results:
@@ -481,7 +486,7 @@ def completion_chunks(body: dict[str, object]) -> list[dict[str, object]]:
         raise AssertionError(f"unexpected tool follow-up: {tool_name}")
 
     user_prompts = [
-        text
+        text.split(CHILD_RESULT_DELIVERY_GUIDANCE, 1)[0]
         for message in reversed(messages)
         if isinstance(message, dict) and message.get("role") == "user"
         for text in message_texts(message.get("content"))
