@@ -131,7 +131,7 @@ TOKAMAK_API_KEY=sk-...
 TOKAMAK_BASE_URL=https://... # optional
 ```
 
-`TOKAMAK_BASE_URL` is optional and defaults to `https://api.tokamak.sh/v1`. Never commit real credentials. The real-API e2e suites self-skip when `TOKAMAK_API_KEY` is not set.
+`TOKAMAK_BASE_URL` is optional and defaults to `https://api.tokamak.sh/v1`; it selects the Tokamak sign-in and web search deployment, while the shipped `tokamak` model route always uses `https://api.tokamak.sh/v1`. Never commit real credentials. The real-API e2e suites self-skip when `TOKAMAK_API_KEY` is not set.
 
 ### Git integrations
 

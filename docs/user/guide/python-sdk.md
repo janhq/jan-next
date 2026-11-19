@@ -52,12 +52,10 @@ Export the credential and, when needed, another Tokamak deployment endpoint:
 
 ```sh [Linux/macOS]
 export TOKAMAK_API_KEY=your-tokamak-key
-# export TOKAMAK_BASE_URL=https://api.tokamak.sh/v1
 ```
 
 ```powershell [Windows PowerShell]
 $env:TOKAMAK_API_KEY = "your-tokamak-key"
-# $env:TOKAMAK_BASE_URL = "https://api.tokamak.sh/v1"
 ```
 
 :::
