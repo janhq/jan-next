@@ -37,6 +37,7 @@ const PRIVATE_RUNTIME_PACKAGES = [
   'packages/api/llama-cpp-controller',
   'packages/client/ui-settings-local-model',
   'packages/web/web-search',
+  'plugins/agent-desktop',
   'plugins/annotate',
   'plugins/desktop-app',
   'plugins/downloads',

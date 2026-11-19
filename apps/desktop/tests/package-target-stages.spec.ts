@@ -229,6 +229,7 @@ it.each(['mac-arm64', 'mac-x64', 'win-x64'] as const)('selects branding from the
     expect(stages.some(stage => stage.startsWith('run release:pack --family jan'))).toBe(!unsigned)
     const preparePackages = stages.indexOf('run prepare:packages')
     for (const directory of [
+      'plugins/agent-desktop',
       'plugins/annotate',
       'plugins/desktop-app', 'plugins/downloads', 'plugins/jan-theme', 'plugins/legacy-import', 'plugins/plugin-api',
       'plugins/jan-browser',

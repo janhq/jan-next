@@ -51,6 +51,10 @@
     - id: jan-browser
       name: '@janhq/jan-browser'
 
+    # Observe native windows and approve semantic actions through Jan.
+    - id: jan-agent-desktop
+      name: '@janhq/jan-agent-desktop'
+
     # Attach element context and marked-up screenshots to the current draft.
     - id: jan-annotate
       name: '@janhq/jan-annotate'

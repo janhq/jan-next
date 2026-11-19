@@ -1,0 +1,10 @@
+{
+  "meta": {
+    "title": "Contrôle du bureau",
+    "description": "Inspectez les fenêtres natives et autorisez les actions et captures."
+  },
+  "approval": {
+    "action": "Autoriser Jan à effectuer cette action sur le bureau une seule fois ?",
+    "screenshot": "Autoriser Jan à capturer cette fenêtre une seule fois ?"
+  }
+}

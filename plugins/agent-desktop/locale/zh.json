@@ -1,0 +1,10 @@
+{
+  "meta": {
+    "title": "桌面操作",
+    "description": "查看原生窗口，批准操作和截图。"
+  },
+  "approval": {
+    "action": "允许 Jan 执行一次此桌面操作吗？",
+    "screenshot": "允许 Jan 截取一次此窗口吗？"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "meta": {
+    "title": "Controle do desktop",
+    "description": "Inspecione janelas nativas e autorize ações e capturas."
+  },
+  "approval": {
+    "action": "Permitir que o Jan execute esta ação no desktop uma vez?",
+    "screenshot": "Permitir que o Jan capture esta janela uma vez?"
+  }
+}
