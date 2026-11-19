@@ -197,7 +197,7 @@ it.each(['session', 'new_once'] as const)('refuses to re-arm an archived %s targ
   const test = await setup()
   const created = await test.service.remoteCreate({ title: 'Before', prompt: 'Prompt', timing: { kind: 'rrule', rrule: daily },
     target: kind === 'session' ? { kind, sessionId: SessionId('existing') } : { kind } })
-  if (created.target.kind === 'new') throw new Error('expected a stable target')
+  if (created.target.kind !== 'session' && created.target.kind !== 'new_once') throw new Error('expected a stable target')
   test.ctx.provide('workspaceRegistry', { archivedSessionIds: [created.target.sessionId] })
   const paused = await test.service.edit({ id: created.id, action: 'update', patch: { active: false, title: 'Paused' } })
   expect(paused).toMatchObject({ title: 'Paused', status: 'paused' })

@@ -1,6 +1,7 @@
 /** Host timer over standalone tasks; target Session activation is a delivery operation. */
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { createUserMessage } from '@janhq/jan-llm'
+import { MessageId } from '@janhq/jan-llm/brand'
 import type { ContextFormed } from '@janhq/jan-llm'
 declare module '@janhq/jan-llm' {
   interface MessageSourceMap {
@@ -63,6 +64,19 @@ function batchSessionOf(task: ScheduleTask): SessionIdType | undefined {
     : undefined
 }
 
+/** One ordinary Scheduled occurrence delivered to a plugin's durable inbox. */
+export interface SchedulePluginDelivery {
+  /** Stable idempotency key for timed delivery, or unique identity for a manual run. */
+  readonly id: string
+  readonly taskId: ScheduleId
+  readonly scheduledAt: string
+  readonly prompt: string
+  readonly payload?: string
+}
+
+/** Resolves after the destination durably accepts the occurrence; reject to leave it eligible for retry. */
+export type SchedulePluginHandler = (delivery: SchedulePluginDelivery) => void | Promise<void>
+
 /** A timer owner that uses the Host clock without creating Sessions. */
 export interface ScheduleWakeSource {
   /** @returns Next pending epoch millisecond, or undefined when idle. */
@@ -100,6 +114,7 @@ export class ScheduleRuntime {
    * @param limits - Resolved retention and new-Session admission limits.
    * @param resolveAgent - Host fallback after embedding activation handlers delegate.
    * @param wakeSources - Current independently owned deadlines that share the timer.
+   * @param pluginHandler - Resolve the currently mounted inbox for a plugin owner.
    */
   constructor(
     private readonly ctx: Context,
@@ -110,6 +125,7 @@ export class ScheduleRuntime {
     private readonly limits: ScheduleRuntimeLimits,
     private readonly resolveAgent: (sessionId: SessionIdType) => Promise<Agent>,
     private readonly wakeSources: () => Iterable<ScheduleWakeSource> = () => [],
+    private readonly pluginHandler: (owner: string) => SchedulePluginHandler | undefined = () => undefined,
   ) {}
 
   /**
@@ -171,6 +187,13 @@ export class ScheduleRuntime {
         || await this.recoverOutstandingExecution(task)) {
         return { task, admitted: false }
       }
+      if (task.target.kind === 'plugin') {
+        signal?.throwIfAborted()
+        const receipt = await this.deliverPlugin(task, task.target.owner, new Date().toISOString(), randomUUID())
+        const delivered = this.delivered(task, receipt)
+        await this.commit(delivered)
+        return { task: delivered, admitted: true }
+      }
       const target = await this.resolveTarget(task)
       if (this.stopping) throw new Error('Schedule runtime is stopping')
       // Sample the occurrence after Session restoration, which can take longer than one recurrence interval.
@@ -210,6 +233,10 @@ export class ScheduleRuntime {
     return end > Date.now() ? end : undefined
   }
 
+  private available(task: ScheduleTask): boolean {
+    return task.target.kind !== 'plugin' || this.pluginHandler(task.target.owner) !== undefined
+  }
+
   private clearTimer(): void {
     if (this.timer !== undefined) clearTimeout(this.timer)
     this.timer = undefined
@@ -221,6 +248,7 @@ export class ScheduleRuntime {
     const handled = new Set<ScheduleId>()
     const scanNow = Date.now()
     const due = this.tasks().filter(task => task.status === 'active'
+      && this.available(task)
       && !this.executing.has(task.record.id)
       && Date.parse(task.record.scheduledAt) <= scanNow)
     for (const task of due) {
@@ -249,6 +277,7 @@ export class ScheduleRuntime {
     }
     if (this.stopping) return
     let next = this.tasks().filter(task => task.status === 'active'
+      && this.available(task)
       && !failed.has(task.record.id)
       && !this.executing.has(task.record.id))
       .reduce<number | undefined>((at, task) => {
@@ -291,6 +320,15 @@ export class ScheduleRuntime {
       admitted = candidates.filter(member => Date.parse(member.record.scheduledAt) <= checkedAt)
       const first = admitted[0]
       if (first === undefined) return []
+      if (first.target.kind === 'plugin') {
+        const occurrence = isRecurringScheduleRecord(first.record)
+          ? resolveRecurringOccurrence(first.record, checkedAt) : { occurrenceAt: first.record.scheduledAt }
+        // Key the retry by the still-unadvanced deadline, even if a later retry catches up farther.
+        const id = createHash('sha256').update(JSON.stringify([first.record.id, first.record.scheduledAt])).digest('hex')
+        const receipt = await this.deliverPlugin(first, first.target.owner, occurrence.occurrenceAt, id)
+        await this.commit(this.advanced(first, occurrence, receipt))
+        return []
+      }
       const target = await this.resolveTarget(first)
       if (this.stopping) return []
       const now = Date.now()
@@ -357,7 +395,7 @@ export class ScheduleRuntime {
     if (this.executing.has(task.record.id)) return true
     const receipt = task.lastDelivery
     // The archived-Session gate blocks the turn that a requeued reminder would wake.
-    if (receipt === undefined || this.archived(receipt.targetSessionId)) return false
+    if (receipt?.targetSessionId === undefined || this.archived(receipt.targetSessionId)) return false
     let agent: Agent
     try {
       agent = await this.activate(receipt.targetSessionId)
@@ -390,6 +428,14 @@ export class ScheduleRuntime {
       for (const id of held) this.executing.delete(id)
       throw error
     }
+  }
+
+  private async deliverPlugin(task: ScheduleTask, owner: string, scheduledAt: string, id: string): Promise<ScheduleDeliveryReceipt> {
+    const handler = this.pluginHandler(owner)
+    if (handler === undefined) throw new RemoteError('schedule/destination-unavailable', `Schedule destination ${owner} is unavailable`, { owner })
+    const payload = task.pluginPayload
+    await handler({ id, taskId: task.record.id, scheduledAt, prompt: task.record.prompt, ...(payload === undefined ? {} : { payload }) })
+    return { scheduledAt, deliveredAt: new Date().toISOString(), messageId: MessageId(id), owner, outcome: 'accepted' }
   }
 
   /**
@@ -435,13 +481,14 @@ export class ScheduleRuntime {
 
   /** Apply one receipt to the target, involved Sessions, and history while keeping the scheduled occurrence. */
   private delivered(task: ScheduleTask, receipt: ScheduleDeliveryReceipt): ScheduleTask {
+    const sessionId = receipt.targetSessionId
     return {
       ...task,
-      target: task.target.kind === 'new_once' ? { kind: 'session', sessionId: receipt.targetSessionId } : task.target,
+      target: task.target.kind === 'new_once' && sessionId !== undefined ? { kind: 'session', sessionId } : task.target,
       // Each delivery of a `new` target creates a Session; recording them all would grow the task without bound.
-      involvedSessionIds: task.target.kind === 'new'
+      involvedSessionIds: task.target.kind === 'new' || sessionId === undefined
         ? task.involvedSessionIds
-        : [...new Set([...task.involvedSessionIds, receipt.targetSessionId])],
+        : [...new Set([...task.involvedSessionIds, sessionId])],
       updatedAt: new Date(Math.max(
         Date.parse(receipt.deliveredAt),
         task.updatedAt === undefined ? Date.parse(receipt.deliveredAt) : Date.parse(task.updatedAt) + 1,
@@ -471,6 +518,7 @@ export class ScheduleRuntime {
    */
   private async resolveTarget(task: ScheduleTask): Promise<DeliveryTarget> {
     const { target } = task
+    if (target.kind === 'plugin') throw new Error('schedule: plugin destination does not resolve a Session')
     const reserved = target.kind === 'new' ? task.pendingDelivery?.targetSessionId : target.sessionId
     // An archived Session cannot run the reminder, including a retry in an already-created reserved Session.
     if (reserved !== undefined && this.archived(reserved)) {

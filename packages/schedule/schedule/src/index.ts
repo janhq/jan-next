@@ -1,5 +1,5 @@
 /** Host-wide durable reminders and shared human/model management. */
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import z from '@janhq/schemastery'
 import { Context, Service } from '@janhq/cordis'
@@ -12,7 +12,7 @@ import { SessionId as toSessionId, type SessionId } from '@janhq/jan-session'
 import type { SessionActivity } from '@janhq/jan-workspace'
 import type {} from '@janhq/jan-api-session-controller'
 import { ScheduleRuntime, type ScheduleRuntimeLimits } from './runtime.ts'
-import type { ScheduleWakeRegistration, ScheduleWakeSource } from './runtime.ts'
+import type { SchedulePluginHandler, ScheduleWakeRegistration, ScheduleWakeSource } from './runtime.ts'
 import { scheduleDomain, scheduleTaskSchema, type ScheduleTask } from './storage.ts'
 import { deliveryHistoryPage } from './delivery-history.ts'
 import { createScheduleRecord, updateScheduleRecord } from './update.ts'
@@ -26,7 +26,7 @@ import type {
   ScheduleTarget, ScheduleTargetRequest, ScheduleViewRequest, ScheduleViewResult,
 } from './types.ts'
 export type * from './client.ts'
-export type { ScheduleWakeRegistration, ScheduleWakeSource } from './runtime.ts'
+export type { SchedulePluginDelivery, SchedulePluginHandler, ScheduleWakeRegistration, ScheduleWakeSource } from './runtime.ts'
 export { scheduleDomain } from './storage.ts'
 export type { ScheduleTask } from './storage.ts'
 export type { RecurringOccurrence } from './domain.ts'
@@ -157,7 +157,8 @@ function throwRemoteScheduleInput(error: unknown): never {
 function activeSessionTasks(domain: Domain<typeof scheduleDomain>, sessionId: SessionId): ScheduleTask[] {
   return [...domain.table('tasks').entries()]
     .map(([, task]) => task)
-    .filter(task => task.status === 'active' && task.target.kind !== 'new' && task.target.sessionId === sessionId)
+    .filter(task => task.status === 'active' && (task.target.kind === 'session' || task.target.kind === 'new_once')
+      && task.target.sessionId === sessionId)
 }
 
 /**
@@ -185,7 +186,7 @@ function createSpec(spec: ScheduleSessionCreateSpec | undefined): ScheduleSessio
 function involved(actorSessionId: SessionId | undefined, target: ScheduleTarget, previous: readonly SessionId[]): SessionId[] {
   const ids = new Set(previous)
   if (actorSessionId !== undefined) ids.add(actorSessionId)
-  if (target.kind !== 'new') ids.add(target.sessionId)
+  if (target.kind === 'session' || target.kind === 'new_once') ids.add(target.sessionId)
   return [...ids]
 }
 
@@ -240,6 +241,7 @@ export class ScheduleService extends TypertRemoteService {
   private notifications: Promise<void> = Promise.resolve()
   private runtime: ScheduleRuntime | undefined
   private readonly wakeSources = new Set<ScheduleWakeSource>()
+  private readonly destinations = new Map<string, SchedulePluginHandler>()
   private resolveWebAgent: ((sessionId: SessionId) => Promise<Agent>) | undefined
   private stopping = false
 
@@ -315,7 +317,7 @@ export class ScheduleService extends TypertRemoteService {
         (sessionId) => {
           if (this.resolveWebAgent === undefined) throw new Error('schedule: no Session activation provider')
           return this.resolveWebAgent(sessionId)
-        }, () => this.wakeSources)
+        }, () => this.wakeSources, owner => this.destinations.get(owner))
       this.runtime.requestDrive()
       return cleanup
     })
@@ -364,6 +366,40 @@ export class ScheduleService extends TypertRemoteService {
     }
   }
 
+  /** Register a durable inbox for a plugin owner; disposing it suspends delivery without changing saved tasks.
+   * @param owner - Stable plugin owner saved as the task destination.
+   * @param receive - Acknowledges an occurrence after durable acceptance; must not call back into Schedule.
+   * @returns The disposer for this exact registration.
+   */
+  registerDestination(owner: string, receive: SchedulePluginHandler): () => void {
+    if (!owner || this.stopping || this.destinations.has(owner)) throw new Error('schedule: cannot register destination')
+    this.destinations.set(owner, receive)
+    this.runtime?.requestDrive()
+    return () => {
+      if (this.destinations.get(owner) === receive) {
+        this.destinations.delete(owner)
+        this.runtime?.requestDrive()
+      }
+    }
+  }
+
+  /** Create a plugin-owned task, reusing its original task identity when the owner retries the same key.
+   * @param request - Task title, prompt and timing, as in ordinary Schedule creation.
+   * @param destination - Registered owner, stable owner-local task key, and optional opaque payload.
+   * @param signal - Cancellation before the durable write.
+   * @returns The stored task without its private payload.
+   */
+  async createPluginTask(request: Omit<ScheduleCreateRequest, 'target'>,
+    destination: { readonly owner: string; readonly key: string; readonly payload?: string },
+    signal?: AbortSignal): Promise<ScheduleCatalogEntry> {
+    const { owner, key, payload } = destination
+    if (!key) throw new ScheduleInputError('invalid_rule', 'A plugin task requires a stable key.')
+    const id = ScheduleId(`schedule-plugin-${createHash('sha256').update(JSON.stringify([owner, key])).digest('hex')}`)
+    const now = Date.now()
+    const record = createScheduleRecord(id, request.title, request.prompt, request.timing, now)
+    return this.createTask(record, { kind: 'plugin', owner }, now, undefined, signal, payload)
+  }
+
   /** Read effective delivery limits without loading or activating a task.
    * @returns The configured minimum spacing between deliveries that each create a Session, in seconds.
    */
@@ -402,22 +438,30 @@ export class ScheduleService extends TypertRemoteService {
     actorSessionId?: SessionId,
     signal?: AbortSignal,
   ): Promise<ScheduleCatalogEntry> {
-    const id = ScheduleId(`schedule-${randomUUID()}`)
     const now = Date.now()
-    const record = createScheduleRecord(id, request.title, request.prompt, request.timing, now)
-    const target = await this.resolveTarget(request.target ?? { kind: 'new_once' }, signal)
+    const record = createScheduleRecord(ScheduleId(`schedule-${randomUUID()}`), request.title, request.prompt, request.timing, now)
+    return this.createTask(record, await this.resolveTarget(request.target ?? { kind: 'new_once' }, signal), now, actorSessionId, signal)
+  }
+
+  private async createTask(record: ScheduleRecord, target: ScheduleTarget, now: number,
+    actorSessionId?: SessionId, signal?: AbortSignal, pluginPayload?: string): Promise<ScheduleCatalogEntry> {
+    const { id } = record
     return this.serialize(async () => {
       const domain = await this.getDomain()
       signal?.throwIfAborted()
+      const tasks = domain.table('tasks')
+      const existing = target.kind === 'plugin' ? tasks.get(id) : undefined
+      if (existing !== undefined) return this.entry(existing)
       await this.validateTarget(target, signal)
       signal?.throwIfAborted()
       const createdAt = new Date(now).toISOString()
       const task = scheduleTaskSchema.parse({
         record, target, involvedSessionIds: involved(actorSessionId, target, []), status: 'active',
         createdAt, updatedAt: createdAt,
+        ...(pluginPayload === undefined ? {} : { pluginPayload }),
         deliveryHistory: { records: [], earlierRecordsUnavailable: false, earlierRecordsPruned: false },
       })
-      await domain.table('tasks').put(id, task)
+      await tasks.put(id, task)
       this.emitChanged()
       this.runtime?.requestDrive()
       this.queueNotification(task, actorSessionId, 'created')
@@ -597,6 +641,9 @@ export class ScheduleService extends TypertRemoteService {
         this.queueNotification(current, actorSessionId, 'deleted')
         return { id: request.id, deleted: true }
       }
+      if (current.target.kind === 'plugin' && target !== undefined) {
+        throw new ScheduleInputError('invalid_rule', 'A plugin-owned task cannot change destination.')
+      }
       const effectiveTarget = target ?? current.target
       if (target !== undefined || request.patch.timing !== undefined || request.patch.active === true) {
         await this.validateTarget(effectiveTarget, signal)
@@ -665,6 +712,10 @@ export class ScheduleService extends TypertRemoteService {
 
   /** Check arming prerequisites without activating a Session; repeated inside the mutation FIFO. */
   private async validateTarget(target: ScheduleTarget, signal?: AbortSignal): Promise<void> {
+    if (target.kind === 'plugin') {
+      if (!this.destinations.has(target.owner)) throw new ScheduleInputError('invalid_rule', 'The plugin task destination is unavailable.')
+      return
+    }
     if (target.kind === 'new') {
       this.requireSessionCreation()
       return

@@ -582,10 +582,10 @@ it('names each per-occurrence Session with its launch minute in the task time zo
   const placed = await placement(test)
   test.runtime.requestDrive()
   await vi.advanceTimersByTimeAsync(1000)
-  expect(placed.title(tasks[0]!.lastDelivery!.targetSessionId)).toBe('Task · 2026-09-16 08:00')
+  expect(placed.title(tasks[0]!.lastDelivery!.targetSessionId!)).toBe('Task · 2026-09-16 08:00')
   vi.setSystemTime('2026-09-16T05:42:10Z')
   expect(await test.runtime.runNow(tasks[0]!.record.id)).toMatchObject({ admitted: true })
-  expect(placed.title(tasks[0]!.lastDelivery!.targetSessionId)).toBe('Task · 2026-09-16 13:42')
+  expect(placed.title(tasks[0]!.lastDelivery!.targetSessionId!)).toBe('Task · 2026-09-16 13:42')
   // A Session without a requested directory uses the Host directory and joins no Workspace.
   expect(placed.resolveByPath).not.toHaveBeenCalled()
 })

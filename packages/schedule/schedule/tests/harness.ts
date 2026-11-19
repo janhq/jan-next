@@ -200,7 +200,7 @@ export function boundTask(sessionId: SessionId, rule: ScheduleRecord, fields: Pa
  */
 export function seededTask(record: ScheduleRecord, target: ScheduleTarget, fields: Partial<ScheduleTask> = {}): ScheduleTask {
   return scheduleTaskSchema.parse({
-    record, target, involvedSessionIds: target.kind === 'new' ? [] : [target.sessionId], status: 'active',
+    record, target, involvedSessionIds: target.kind === 'session' || target.kind === 'new_once' ? [target.sessionId] : [], status: 'active',
     createdAt: SEED_TIME, updatedAt: SEED_TIME,
     deliveryHistory: { records: [], earlierRecordsUnavailable: false, earlierRecordsPruned: false },
     ...fields,

@@ -371,6 +371,12 @@ export type ScheduleTarget =
     /** Values used to create each Session. */
     readonly create: ScheduleSessionCreateSpec
   }
+  | {
+    /** A host plugin's durable inbox receives each occurrence. */
+    readonly kind: 'plugin'
+    /** Registered destination owner. */
+    readonly owner: string
+  }
 
 /** Destination accepted by create and edit; the Host reserves the `new_once` Session id. */
 export type ScheduleTargetRequest =
@@ -393,23 +399,24 @@ export type ScheduleTargetRequest =
     readonly create?: ScheduleSessionCreateSpec
   }
 
-/** Durable Session inbox delivery acknowledgment, not model execution completion. */
-export interface ScheduleDeliveryReceipt {
+/** Common identity and timing of an acknowledged delivery. */
+interface ScheduleReceiptIdentity {
   /** Canonical UTC target of the delivered occurrence. */
   readonly scheduledAt: string
-  /** Canonical UTC time sampled after Session persistence acknowledged delivery. */
+  /** Canonical UTC time sampled after the destination acknowledged delivery. */
   readonly deliveredAt: string
-  /** Identity of the delivered message, shared by tasks in one recurring batch. */
+  /** Delivery identity, shared by tasks in one recurring Session batch. */
   readonly messageId: MessageId
-  /** Session that durably accepted the delivered message. */
-  readonly targetSessionId: SessionId
 }
 
-/** Saved inbox delivery with its immutable sent prompt when recorded by this Host. */
-export interface ScheduleDeliveryRecord extends ScheduleDeliveryReceipt {
-  /** Prompt sent for this occurrence; unavailable for legacy receipts. */
-  readonly prompt?: string
-}
+/** Durable destination acknowledgment, not model execution completion. */
+export type ScheduleDeliveryReceipt = ScheduleReceiptIdentity & (
+  | { readonly targetSessionId: SessionId; readonly owner?: never; readonly outcome?: never }
+  | { readonly owner: string; readonly outcome: 'accepted'; readonly targetSessionId?: never }
+)
+
+/** Saved delivery with its immutable sent prompt when recorded by this Host. */
+export type ScheduleDeliveryRecord = ScheduleDeliveryReceipt & { readonly prompt?: string }
 
 /** Bounded newest-first query over the saved deliveries of one task. */
 export interface ScheduleDeliveryHistoryRequest {
@@ -600,6 +607,7 @@ declare module '@janhq/jan-typert-protocol' {
     'schedule/input-invalid': { readonly code: ScheduleInputErrorCode }
     /** A delivery or run reached a `session` target that the Workspace registry lists as archived. */
     'schedule/target-archived': { readonly sessionId: SessionId }
+    'schedule/destination-unavailable': { readonly owner: string }
   }
 }
 

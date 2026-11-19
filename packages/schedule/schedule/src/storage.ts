@@ -33,6 +33,8 @@ const deliveryReceiptSchema = z.object({
   deliveredAt: instantSchema,
   messageId: messageIdSchema,
   targetSessionId: sessionIdSchema.optional(),
+  owner: z.string().min(1).optional(),
+  outcome: z.literal('accepted').optional(),
 }).strict()
 
 const deliveryHistorySchema = z.object({
@@ -52,6 +54,7 @@ const targetSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('session'), sessionId: sessionIdSchema }).strict(),
   z.object({ kind: z.literal('new_once'), sessionId: sessionIdSchema.optional(), create: createSpecSchema.default({}) }).strict(),
   z.object({ kind: z.literal('new'), create: createSpecSchema.default({}) }).strict(),
+  z.object({ kind: z.literal('plugin'), owner: z.string().min(1) }).strict(),
 ])
 
 /** Stable reservation for a task without a saved destination; reads never allocate or persist a Session. */
@@ -68,6 +71,7 @@ export const scheduleTaskSchema = z.object({
   record: recordSchema,
   sessionId: z.unknown().optional(),
   target: targetSchema.optional(),
+  pluginPayload: z.string().exactOptional(),
   involvedSessionIds: z.array(sessionIdSchema).optional(),
   status: z.enum(['active', 'paused', 'ended', 'inactive']).default('active'),
   createdAt: instantSchema.optional(),
@@ -88,33 +92,45 @@ export const scheduleTaskSchema = z.object({
     : savedTarget.kind === 'new_once'
       ? { ...savedTarget, sessionId: savedTarget.sessionId ?? defaultSessionId(task.record.id) }
       : savedTarget
-  const hasReceiptTarget = savedTarget === undefined
-    ? binding?.success === true
-    : savedTarget.kind !== 'new' && savedTarget.sessionId !== undefined
-  const receipts = [lastDelivery, ...(deliveryHistory?.records ?? [])]
-  if (!hasReceiptTarget && receipts.some(value => value !== undefined && value.targetSessionId === undefined)) {
-    context.addIssue({ code: 'custom', message: 'A saved delivery without an existing destination must name its target Session' })
+  const bindingId = savedTarget === undefined
+    ? binding?.data
+    : savedTarget.kind === 'session' || savedTarget.kind === 'new_once' ? savedTarget.sessionId : undefined
+  const receipt = (value: z.infer<typeof deliveryReceiptSchema> & { prompt?: string } | undefined): ScheduleDeliveryRecord | undefined => {
+    if (value === undefined) return undefined
+    const { targetSessionId, owner, outcome, ...identity } = value
+    if (owner !== undefined || outcome !== undefined) {
+      if (owner !== undefined && outcome !== undefined && targetSessionId === undefined) return { ...identity, owner, outcome }
+    } else {
+      const destination = targetSessionId ?? bindingId
+      if (destination !== undefined) return { ...identity, targetSessionId: destination }
+    }
+    context.addIssue({ code: 'custom', message: 'A saved delivery must name exactly one destination' })
+    return undefined
+  }
+  const last = receipt(lastDelivery)
+  const history = { records: [] as ScheduleDeliveryRecord[],
+    earlierRecordsUnavailable: deliveryHistory?.earlierRecordsUnavailable ?? true,
+    earlierRecordsPruned: deliveryHistory?.earlierRecordsPruned ?? false }
+  if (lastDelivery !== undefined && last === undefined) return z.NEVER
+  if (deliveryHistory === undefined) {
+    if (last !== undefined) history.records.push(last)
+  } else {
+    for (const saved of deliveryHistory.records) {
+      const decoded = receipt(saved)
+      if (decoded === undefined) return z.NEVER
+      history.records.push(decoded)
+    }
+  }
+  if (target.kind === 'plugin' && (task.pendingDelivery !== undefined || history.records.some(value => value.owner !== target.owner))
+    || target.kind !== 'plugin' && (task.pluginPayload !== undefined || history.records.some(value => value.owner !== undefined))) {
+    context.addIssue({ code: 'custom', message: 'Plugin delivery state must belong to its registered owner' })
     return z.NEVER
   }
-  const receipt = <T extends z.infer<typeof deliveryReceiptSchema>>(value: T): T & { targetSessionId: SessionId } => {
-    if (value.targetSessionId !== undefined) return { ...value, targetSessionId: value.targetSessionId }
-    /* v8 ignore next -- the receipt-destination validation above rejects this combination before normalization. */
-    if (target.kind === 'new') throw new Error('A delivery to a fresh Session must name its target Session')
-    return { ...value, targetSessionId: target.sessionId }
-  }
-  const last = lastDelivery === undefined ? undefined : receipt(lastDelivery)
-  const history: {
-    records: ScheduleDeliveryRecord[]
-    earlierRecordsUnavailable: boolean
-    earlierRecordsPruned: boolean
-  } = deliveryHistory === undefined
-    ? { records: last === undefined ? [] : [last], earlierRecordsUnavailable: true, earlierRecordsPruned: false }
-    : { ...deliveryHistory, records: deliveryHistory.records.map(value => receipt(value)) }
   return {
     ...task,
     target,
     status: task.status === 'inactive' ? 'ended' as const : task.status,
-    involvedSessionIds: task.involvedSessionIds ?? (target.kind === 'new' ? [] : [target.sessionId]),
+    involvedSessionIds: task.involvedSessionIds ?? (target.kind === 'session' || target.kind === 'new_once' ? [target.sessionId] : []),
     ...(last === undefined ? {} : { lastDelivery: last }),
     deliveryHistory: history,
   }

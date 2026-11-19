@@ -2904,6 +2904,18 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'Wake and disposal callbacks owned by the source\'s plugin effect.',
       },
       {
+        signature: 'registerDestination(owner: string, receive: SchedulePluginHandler): () => void',
+        description: 'Register a durable inbox for a plugin owner; disposing it suspends delivery without changing saved tasks.',
+        parameters: [{ name: 'owner', description: 'Stable plugin owner saved as the task destination.' }, { name: 'receive', description: 'Acknowledges an occurrence after durable acceptance; must not call back into Schedule.' }],
+        returns: 'The disposer for this exact registration.',
+      },
+      {
+        signature: 'async createPluginTask(request: Omit<ScheduleCreateRequest, \'target\'>, destination: { readonly owner: string; readonly key: string; readonly payload?: string }, signal?: AbortSignal): Promise<ScheduleCatalogEntry>',
+        description: 'Create a plugin-owned task, reusing its original task identity when the owner retries the same key.',
+        parameters: [{ name: 'request', description: 'Task title, prompt and timing, as in ordinary Schedule creation.' }, { name: 'destination', description: 'Registered owner, stable owner-local task key, and optional opaque payload.' }, { name: 'signal', description: 'Cancellation before the durable write.' }],
+        returns: 'The stored task without its private payload.',
+      },
+      {
         signature: '@Remote(\'deliveryLimits\') deliveryLimits(): { readonly newSessionIntervalSeconds: number }',
         description: 'Read effective delivery limits without loading or activating a task.',
         parameters: [],
@@ -8657,11 +8669,11 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ScheduleDeliveryReceipt',
-    declaration: 'export interface ScheduleDeliveryReceipt {\n    readonly scheduledAt: string;\n    readonly deliveredAt: string;\n    readonly messageId: MessageId;\n    readonly targetSessionId: SessionId;\n}',
+    declaration: 'export type ScheduleDeliveryReceipt = ScheduleReceiptIdentity & ({\n    readonly targetSessionId: SessionId;\n    readonly owner?: never;\n    readonly outcome?: never;\n} | {\n    readonly owner: string;\n    readonly outcome: \'accepted\';\n    readonly targetSessionId?: never;\n});',
   },
   {
     name: 'ScheduleDeliveryRecord',
-    declaration: 'export interface ScheduleDeliveryRecord extends ScheduleDeliveryReceipt {\n    readonly prompt?: string;\n}',
+    declaration: 'export type ScheduleDeliveryRecord = ScheduleDeliveryReceipt & {\n    readonly prompt?: string;\n};',
   },
   {
     name: 'ScheduleEditRequest',
@@ -8696,6 +8708,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface SchedulePatch {\n    readonly title?: string;\n    readonly prompt?: string;\n    readonly timing?: ScheduleTiming;\n    readonly target?: ScheduleTargetRequest;\n    readonly active?: boolean;\n}',
   },
   {
+    name: 'SchedulePluginDelivery',
+    declaration: 'export interface SchedulePluginDelivery {\n    readonly id: string;\n    readonly taskId: ScheduleId;\n    readonly scheduledAt: string;\n    readonly prompt: string;\n    readonly payload?: string;\n}',
+  },
+  {
+    name: 'SchedulePluginHandler',
+    declaration: 'export type SchedulePluginHandler = (delivery: SchedulePluginDelivery) => void | Promise<void>;',
+  },
+  {
     name: 'ScheduleRecord',
     declaration: 'export type ScheduleRecord = OneShotScheduleRecord | RecurringScheduleRecord;',
   },
@@ -8713,7 +8733,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ScheduleTarget',
-    declaration: 'export type ScheduleTarget = {\n    readonly kind: \'session\';\n    readonly sessionId: SessionId;\n} | {\n    readonly kind: \'new_once\';\n    readonly sessionId: SessionId;\n    readonly create: ScheduleSessionCreateSpec;\n} | {\n    readonly kind: \'new\';\n    readonly create: ScheduleSessionCreateSpec;\n};',
+    declaration: 'export type ScheduleTarget = {\n    readonly kind: \'session\';\n    readonly sessionId: SessionId;\n} | {\n    readonly kind: \'new_once\';\n    readonly sessionId: SessionId;\n    readonly create: ScheduleSessionCreateSpec;\n} | {\n    readonly kind: \'new\';\n    readonly create: ScheduleSessionCreateSpec;\n} | {\n    readonly kind: \'plugin\';\n    readonly owner: string;\n};',
   },
   {
     name: 'ScheduleTargetRequest',
@@ -8730,6 +8750,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ScheduleViewResult',
     declaration: 'export type ScheduleViewResult = ScheduleCatalogEntry | ScheduleNotFoundResult;',
+  },
+  {
+    name: 'ScheduleWakeRegistration',
+    declaration: 'export interface ScheduleWakeRegistration {\n    wake(): void;\n    dispose(): void;\n}',
+  },
+  {
+    name: 'ScheduleWakeSource',
+    declaration: 'export interface ScheduleWakeSource {\n    next(): number | undefined;\n    deliver(now: number): void | Promise<void>;\n}',
   },
   {
     name: 'Scoped',
