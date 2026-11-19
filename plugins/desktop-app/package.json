@@ -1,6 +1,6 @@
 {
   "name": "@janhq/jan-desktop-app",
-  "description": "The Jan desktop bundle: the Jan theme, the read-only import of chats from the earlier Jan desktop app, the Preset Square catalog and the Downloads page over jan-web-app",
+  "description": "The Jan desktop bundle: the Jan theme, the read-only import of chats from the earlier Jan desktop app, the Preset Square catalog, the Downloads page and the Chat mode preset over jan-web-app",
   "version": "0.2.2-rc.1",
   "private": true,
   "type": "module",
@@ -18,9 +18,18 @@
     }
   },
   "dependencies": {
+    "@janhq/jan-agent-preset": "workspace:*",
     "@janhq/jan-client-ui-jan-theme": "workspace:*",
+    "@janhq/jan-command-compact": "workspace:*",
+    "@janhq/jan-compaction-basic": "workspace:*",
+    "@janhq/jan-compaction-tool-result-pruner": "workspace:*",
     "@janhq/jan-downloads": "workspace:*",
     "@janhq/jan-legacy-import": "workspace:*",
-    "@janhq/jan-preset-square": "workspace:*"
+    "@janhq/jan-persona": "workspace:*",
+    "@janhq/jan-preset-square": "workspace:*",
+    "@janhq/jan-time-context": "workspace:*",
+    "@janhq/jan-tool-fs": "workspace:*",
+    "@janhq/jan-tool-present": "workspace:*",
+    "@janhq/jan-tool-web": "workspace:*"
   }
 }
