@@ -33,6 +33,8 @@
     "prepare:desktop": "pnpm --filter @janhq/jan-desktop run prepare:package",
     "package:desktop": "pnpm --filter @janhq/jan-desktop run package",
     "package:desktop:dir": "pnpm --filter @janhq/jan-desktop run package:dir",
+    "package:desktop:unsigned": "pnpm --filter @janhq/jan-desktop run package:unsigned",
+    "package:desktop:unsigned:dir": "pnpm --filter @janhq/jan-desktop run package:unsigned:dir",
     "package:desktop:mac:arm64": "pnpm --filter @janhq/jan-desktop run package:mac:arm64",
     "package:desktop:mac:arm64:unsigned": "pnpm --filter @janhq/jan-desktop run package:mac:arm64:unsigned",
     "package:desktop:mac:arm64:dir": "pnpm --filter @janhq/jan-desktop run package:mac:arm64:dir",
