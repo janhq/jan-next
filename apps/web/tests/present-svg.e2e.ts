@@ -85,6 +85,8 @@ describe('web e2e: requested SVG is explicitly delivered', () => {
       await writeFile(replayOverride, JSON.stringify(script).replaceAll('{{cwd}}', JSON.stringify(cwdToken).slice(1, -1)))
     }
     scaffold = await launchWebScaffold({
+      // Coding Tools reveal the changed-files card this scenario compares with the delivered card.
+      developerTools: true,
       compareReplaySession: true,
       extraOverlayPath: fileURLToPath(new URL('./present-svg.overlay.yml', import.meta.url)),
       // Replay the large SVG incrementally to avoid a zero-delay traffic burst.
@@ -167,7 +169,7 @@ describe('web e2e: requested SVG is explicitly delivered', () => {
     const card = page.locator('[data-presented-file]').filter({ hasText: FILE })
     await card.waitFor({ state: 'visible' })
     expect(await card.count()).toBe(1)
-    expect(await page.getByText('产物', { exact: true }).count()).toBe(0)
+    expect(await page.locator('[data-chat-flow]').getByText('产物', { exact: true }).count()).toBe(0)
     // The scaffold workspace is not a git repository; the write call supplies its single changed file.
     const changes = page.locator('[data-changed-files]')
     // Changed-file cards wait for a separate summary request after the presentation events arrive.
