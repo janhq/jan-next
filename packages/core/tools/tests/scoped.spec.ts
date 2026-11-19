@@ -161,6 +161,17 @@ describe('restrict()', () => {
     expect(await run(ctx, 'allowed-local', allowed.key)).toBe('ran:allowed-local')
   })
 
+  it('keeps a closed allowlist when approved tools may register later', async () => {
+    const ctx = await mount()
+    const { scope, key } = await mintAgentScope(ctx, 'optional-tools')
+    ctx.tools.register(tool('write'))
+    scope.ctx.tools.restrict({ allow: ['read'] }, { allowUnregistered: true })
+    expect(ctx.tools.schemas(key)).toEqual([])
+    ctx.tools.register(tool('read'))
+    expect(ctx.tools.schemas(key).map(entry => entry.name)).toEqual(['read'])
+    expect(await run(ctx, 'write', key)).toBe('Error: unknown tool "write"')
+  })
+
   it('composes multiple restrictions by intersection and lifts each independently', async () => {
     const ctx = await mount()
     const { scope, key } = await mintAgentScope(ctx, 'a')
