@@ -1436,6 +1436,37 @@ async function main(): Promise<void> {
     // on macOS, so AppKit draws the workspace traffic lights as inactive.
     window.webContents.openDevTools({ mode: 'detach', activate: process.platform !== 'darwin' })
   }
+  // The workspace loads behind the welcome, blurred and inert, so first run shows what the welcome leads to.
+  // Focus that lands on it returns to the welcome; setEnabled(false) would dim the welcome as a macOS sheet.
+  let workspaceCover: { window: BrowserWindow; css: string; refocus: () => void } | undefined
+  const uncoverWorkspace = (window: BrowserWindow): void => {
+    const cover = workspaceCover
+    if (cover?.window !== window) return
+    workspaceCover = undefined
+    if (window.isDestroyed()) return
+    window.off('focus', cover.refocus)
+    void window.webContents.removeInsertedCSS(cover.css).catch(() => undefined)
+  }
+  const coverWorkspace = async (): Promise<void> => {
+    const window = mainWindow
+    if (window === undefined || window.isDestroyed()) return
+    await navigateMain(applicationUrl)
+    if (isQuitting() || recovery.active || enteredWorkspace || window.isDestroyed() || welcomeWindow === undefined) return
+    if (workspaceCover?.window !== window) {
+      const css = await window.webContents.insertCSS('body > * { filter: blur(24px); pointer-events: none; }')
+      const refocus = (): void => { if (welcomeWindow !== undefined && !welcomeWindow.isDestroyed()) welcomeWindow.focus() }
+      window.on('focus', refocus)
+      workspaceCover = { window, css, refocus }
+    }
+    if (enteredWorkspace || window.isDestroyed()) { uncoverWorkspace(window); return }
+    window.showInactive()
+    // Attached after the workspace is on screen, so AppKit stacks the welcome above it and keeps it key.
+    const welcome = welcomeWindow
+    if (welcome === undefined || welcome.isDestroyed()) return
+    welcome.setParentWindow(window)
+    welcome.moveTop()
+    welcome.focus()
+  }
   const enterWorkspace = async (
     { activate = true, open }: { activate?: boolean; open?: WelcomeDestination } = {},
   ): Promise<void> => {
@@ -1443,6 +1474,7 @@ async function main(): Promise<void> {
     const window = mainWindow ?? createMainWindow()
     await navigateMain(applicationUrl)
     if (isQuitting() || recovery.active || window.isDestroyed()) return
+    uncoverWorkspace(window)
     if (activate) window.show()
     else window.showInactive()
     enteredWorkspace = true
@@ -1532,7 +1564,7 @@ async function main(): Promise<void> {
         else app.quit()
       })
       if (isQuitting() || recovery.active || enteredWorkspace) window.close()
-      else mainWindow?.hide()
+      else void coverWorkspace().catch((error: unknown) => { console.error(error) })
     })().finally(() => { openingWelcome = undefined })
     return openingWelcome
   }
