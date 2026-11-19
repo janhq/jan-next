@@ -721,7 +721,7 @@ export function SessionNodeItem({
           and is cleared by opening the session. Archived rows keep the slot
           blank — the grayed row carries the archived look — and their live
           status stays on the hover card only. */}
-      <span className={css.slot}>
+      <span className={css.slot} data-session-leading="">
         {!row.archived && !row.blank && (showStatus
           ? <SessionStatusDots statuses={statuses} />
           : renderSlot('sidebar.session.row.leading', { sessionId: node.id }))}

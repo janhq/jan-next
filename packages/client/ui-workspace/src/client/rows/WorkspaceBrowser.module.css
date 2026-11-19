@@ -399,6 +399,17 @@
   margin-top: 2px;
 }
 
+/* No workspace heading sits above a flat list, so a row with no marker
+   (only empty seat wrappers in its lead) drops the folder-width lead and its
+   title lines up with the section heading. */
+.flatList [data-session-leading]:not(:has(:not([data-slot]))) {
+  display: none;
+}
+
+.flatList [data-session-leading]:not(:has(:not([data-slot]))) + * {
+  margin-inline-start: 0;
+}
+
 .searchStatus {
   padding: 10px 12px;
   font-size: 12px;
