@@ -50,7 +50,6 @@ export function bindSubagentActivation(
     structured: undefined,
     failureAt: undefined,
     poke: Promise.withResolvers(),
-    omitClosingText: false,
     delivery: 'caller',
     result,
     closing: undefined,
