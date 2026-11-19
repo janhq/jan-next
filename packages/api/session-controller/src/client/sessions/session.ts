@@ -15,6 +15,7 @@ import type {
   QueueAction,
   SessionAddress,
   SessionAssistantStreamBaseline,
+  SessionContextPreviewValue,
   SessionProjectionBaseline,
   SessionRequestId,
 } from '../../types.ts'
@@ -388,6 +389,14 @@ export class Session implements SessionFace {
     const seq = SessionSeq(result.value.seq)
     this.projections.apply('title', result.value.title, seq)
     return { ok: true, value: { title: result.value.title, seq } }
+  }
+
+  /**
+   * Price what this Session's next request would inject: contract session.contextPreview 1:1.
+   * @returns heuristic token prices, null while no model is selected, or the business error.
+   */
+  contextPreview(): Promise<RemoteResult<SessionContextPreviewValue | null>> {
+    return this.remote.session.contextPreview({ sessionId: this.sessionId })
   }
 
   /**

@@ -302,6 +302,22 @@ export interface SessionSelectModelValue {
   readonly selected: ModelSelection
 }
 
+/** Context-preview request for a Session's next model request. */
+export interface SessionContextPreviewRequest {
+  readonly sessionId: SessionId
+}
+
+/**
+ * Heuristic token prices of what the next request would inject before any message, priced like the
+ * `contextBreakdown` projection: the rendered system prompt, the tool schemas, and the runtime-context snapshot.
+ */
+export interface SessionContextPreviewValue {
+  readonly systemTokens: number
+  readonly toolsTokens: number
+  /** The runtime-context user message the first step admits. */
+  readonly messageTokens: number
+}
+
 /** Session rename request. */
 export interface SessionRenameRequest {
   readonly sessionId: SessionId

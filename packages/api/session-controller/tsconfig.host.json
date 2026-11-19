@@ -26,9 +26,19 @@
     "src/media-references.ts",
     "src/archived-session-gate.ts",
     "src/skill-catalog.ts",
-    "src/continuation.ts"
+    "src/continuation.ts",
+    "src/context-preview.ts"
   ],
   "references": [
+    {
+      "path": "../../core/system-prompt"
+    },
+    {
+      "path": "../../core/tools"
+    },
+    {
+      "path": "../../llm/token-meter"
+    },
     {
       "path": "../gateway/tsconfig.host.json"
     },

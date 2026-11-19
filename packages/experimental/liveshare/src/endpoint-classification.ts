@@ -97,6 +97,7 @@ export const VIEWER_ENDPOINT_CLASSES = {
   'job/kill': 'owner-only', // owner background jobs
   'job/list': 'owner-only', // owner background jobs'
   'fileReferences/list': 'owner-only', // owner file references'
+  'session/contextPreview': 'owner-only', // owner prices a Session's next request; resolving resumes the Agent
   'session/create': 'owner-only', // owner creates a Session
   'session/openWorkspacePath': 'owner-only', // owner opens a Workspace path
   'session/search': 'owner-only', // owner searches across Sessions
