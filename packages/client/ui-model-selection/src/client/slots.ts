@@ -11,8 +11,8 @@ export interface ModelLabelOwner {
   provider: Pick<ModelProviderGroup, 'id' | 'name'>
   /** The exact provider's model catalog entry. */
   model: ModelCatalogModel
-  /** Trigger caption, root-menu current value, or selectable model row. */
-  placement: 'trigger' | 'menu' | 'option'
+  /** Trigger caption or selectable model row. */
+  placement: 'trigger' | 'option'
   /** Whether this provider/model pair is the current selection. */
   selected: boolean
 }
