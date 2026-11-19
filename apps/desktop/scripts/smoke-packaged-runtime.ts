@@ -14,7 +14,7 @@ function packagedApplication(target: DesktopBuildTarget, artifacts: string): Pac
   switch (target) {
     case 'win-x64': {
       const application = join(artifacts, 'win-unpacked')
-      return { application, resources: join(application, 'resources'), executable: join(application, 'Jan Alpha.exe') }
+      return { application, resources: join(application, 'resources'), executable: join(application, 'Jan Next.exe') }
     }
     case 'linux-x64': {
       const application = join(artifacts, 'linux-unpacked')
@@ -22,8 +22,8 @@ function packagedApplication(target: DesktopBuildTarget, artifacts: string): Pac
     }
     case 'mac-arm64':
     case 'mac-x64': {
-      const application = join(artifacts, target === 'mac-arm64' ? 'mac-arm64' : 'mac', 'Jan Alpha.app', 'Contents')
-      return { application, resources: join(application, 'Resources'), executable: join(application, 'MacOS', 'Jan Alpha') }
+      const application = join(artifacts, target === 'mac-arm64' ? 'mac-arm64' : 'mac', 'Jan Next.app', 'Contents')
+      return { application, resources: join(application, 'Resources'), executable: join(application, 'MacOS', 'Jan Next') }
     }
     default: return assertNever(target)
   }
