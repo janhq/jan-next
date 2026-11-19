@@ -127,7 +127,10 @@ export default class LlamaCppController extends TypertRemoteService {
   @Remote
   async cancelDownload(id: string): Promise<void> { await this.ctx.llamaCpp.cancel(id) }
 
-  /** Jan's on-disk downloads and caches, with paths relative to the Jan data folder. */
+  /**
+   * Jan's on-disk downloads and caches, with paths relative to the Jan data folder.
+   * @returns every listed item, sorted by name and then path.
+   */
   @Remote
   async listStoredDownloads(): Promise<StoredDownload[]> {
     try {
@@ -137,7 +140,11 @@ export default class LlamaCppController extends TypertRemoteService {
     } catch (error) { throw failed(error) }
   }
 
-  /** Remove one currently listed download. @param path - exact Jan-home-relative path from the list. */
+  /**
+   * Remove one currently listed download.
+   * @param path - exact Jan-home-relative path from the list.
+   * @returns after the files are gone.
+   */
   @Remote
   async deleteStoredDownload(path: string): Promise<void> {
     try {
