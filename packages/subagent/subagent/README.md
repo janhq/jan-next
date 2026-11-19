@@ -170,7 +170,7 @@ Read these pages when the package-level contract is not enough. They move from t
 
 #### What the model sees
 
-Parent delivery sends a user-role status notice to the resident direct parent in the same tree, including an idle parent. It does not restore an offline parent. Its opening line names the child by its full name, such as `Background subagent reviewer finished and will do no further work unless you send it more.` The notice contains the child’s nonempty final text blocks. When the child's last action before that text was a message to its parent, with no input claimed and no tool call logged after it, the notice replaces them with `It sent you a message just before finishing, so its closing message is omitted.`; the parent recovers omitted closing text only by messaging the child again. External notices also state that further messages are unsupported. Reasoning and other nontext blocks are excluded. Every parent notice includes available structured output as `Structured result: <JSON>` and the provider’s safe diagnostic as a separate text block. Empty closing text is reported as `It left no closing message.` Caller delivery emits no notice; SDK lifecycle notifications retain complete child output when cleanup succeeds.
+Parent delivery sends a user-role status notice to the resident direct parent in the same tree, including an idle parent. It does not restore an offline parent. Its opening line names the child by its full name, such as `Background subagent reviewer finished and will do no further work unless you send it more.` The notice includes the child’s nonempty final text, even if it already sent an interim message. External notices state that further messages are unsupported. Reasoning and other nontext blocks are excluded. Every parent notice includes available structured output as `Structured result: <JSON>` and the provider’s safe diagnostic as a separate text block. Empty closing text is reported as `It left no closing message.` Caller delivery emits no notice; SDK lifecycle notifications retain complete child output when cleanup succeeds.
 
 #### Token effect
 
@@ -189,7 +189,7 @@ Local children using `delivery: 'parent'` receive the result-delivery guidance b
 ##### Return guidance
 
 ```markdown
-Your final answer is delivered automatically if your parent is still online. Include the result and relevant evidence in that answer; the parent does not receive your full transcript, tool output, or reasoning. If your last action is a message to your parent, the completion notice omits your final answer; include the result and relevant evidence in that message.
+Your final answer is delivered automatically if your parent is still online. Follow the requested format. Otherwise report the outcome, the key evidence or checks you actually ran, and any blocker. Your parent does not receive your transcript. Use messages for interim updates, not as a substitute for your final answer.
 ```
 
 #### Token effect

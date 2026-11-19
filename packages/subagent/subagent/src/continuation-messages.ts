@@ -87,10 +87,10 @@ export function withResultDeliveryGuidance(
     ...prompt,
     {
       type: 'text',
-      text: 'Your final answer is delivered automatically if your '
-        + 'parent is still online. Include the result and relevant evidence in that answer; the parent does not '
-        + 'receive your full transcript, tool output, or reasoning. If your last action is a message to your '
-        + 'parent, the completion notice omits your final answer; include the result and relevant evidence in that message.',
+      text: 'Your final answer is delivered automatically if your parent is still online. '
+        + 'Follow the requested format. Otherwise report the outcome, the key evidence or checks you actually ran, '
+        + 'and any blocker. Your parent does not receive your transcript. Use messages for interim updates, '
+        + 'not as a substitute for your final answer.',
     },
   ]
 }
@@ -134,8 +134,6 @@ function settlementSummary(childName: string, stopReason: SubagentResult['stopRe
  * @param childName - model-facing child name used in the notice text.
  * @param terminal - recorded terminal state for the settled Activation.
  * @param continuable - whether the child can accept another task.
- * @param omitClosingText - replace the closing text when the child's last action
- *   was a message to its direct parent.
  * @returns the durable user-message representation delivered to the parent.
  */
 export function createSettlementMessage(
@@ -143,7 +141,6 @@ export function createSettlementMessage(
   childName: string,
   terminal: SubagentResult,
   continuable = true,
-  omitClosingText = false,
 ): ReturnType<typeof createUserMessage> {
   const summary = settlementSummary(childName, terminal.stopReason, continuable)
   // Parent providers receive this notice as a user message and may reject
@@ -155,11 +152,9 @@ export function createSettlementMessage(
   return createUserMessage({
     content: [
       { type: 'text' as const, text: summary },
-      ...omitClosingText
-        ? [{ type: 'text' as const, text: 'It sent you a message just before finishing, so its closing message is omitted.' }]
-        : closingText.length === 0
-          ? [{ type: 'text' as const, text: 'It left no closing message.' }]
-          : [{ type: 'text' as const, text: 'Its closing message:' }, ...closingText],
+      ...closingText.length === 0
+        ? [{ type: 'text' as const, text: 'It left no closing message.' }]
+        : [{ type: 'text' as const, text: 'Its closing message:' }, ...closingText],
       ...terminal.structured !== undefined
         ? [{ type: 'text' as const, text: `Structured result: ${JSON.stringify(terminal.structured)}` }] : [],
       ...terminal.diagnostic !== undefined
