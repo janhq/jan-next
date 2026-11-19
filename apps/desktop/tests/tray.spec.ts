@@ -44,8 +44,8 @@ it('shows the application icon with its name as the tooltip and an Open / Quit m
   expect(native.createFromPath).toHaveBeenCalledWith('C:/app/resources/tray.ico')
   expect(f.native.image).toMatchObject({ path: 'C:/app/resources/tray.ico' })
   expect(f.native.image).not.toHaveProperty('width')
-  expect(f.native.setToolTip).toHaveBeenCalledWith('Jan Alpha')
-  expect(labels(native.menus[0]!)).toEqual(['Open Jan Alpha', 'separator', 'Quit Jan Alpha'])
+  expect(f.native.setToolTip).toHaveBeenCalledWith('Jan Next')
+  expect(labels(native.menus[0]!)).toEqual(['Open Jan Next', 'separator', 'Quit Jan Next'])
   expect(f.native.setContextMenu).toHaveBeenCalledWith({ template: native.menus[0] })
 })
 
