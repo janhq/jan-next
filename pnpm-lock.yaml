@@ -291,6 +291,9 @@ importers:
       '@janhq/cordis-plugin-timer':
         specifier: workspace:~
         version: link:../../vendor/timer
+      '@janhq/dsh-superagent':
+        specifier: workspace:~
+        version: link:../../vendor/dsh-superagent
       '@janhq/jan-acp-app':
         specifier: workspace:*
         version: link:../../packages/bundle/acp-app
@@ -956,6 +959,9 @@ importers:
       '@janhq/cordis-plugin-group':
         specifier: workspace:~
         version: link:../../vendor/group
+      '@janhq/dsh-superagent':
+        specifier: workspace:~
+        version: link:../../vendor/dsh-superagent
       '@janhq/jan-agent-team':
         specifier: workspace:*
         version: link:../../packages/team/agent-team
