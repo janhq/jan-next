@@ -33,7 +33,8 @@ if TYPE_CHECKING:
 
 EXPECTED_TEXT = "runtime smoke ok"
 # The shipped `tokamak` route lists router models over the OpenAI API, which the Messages mock does not serve.
-SMOKE_MODELS = ("smoke-model", "resumed-smoke-model")
+# `tokamak/auto` is the SDK's default model, which the unmodified examples request.
+SMOKE_MODELS = ("smoke-model", "resumed-smoke-model", "tokamak/auto")
 # A pi-ai catalog model with in-history system-prompt and tool updates.
 UPDATE_PROVIDER = "anthropic"
 UPDATE_MODEL = "claude-opus-4-8"
