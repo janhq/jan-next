@@ -434,6 +434,78 @@
     - id: subagent
       name: '@janhq/jan-subagent'
 
+    # tokamak-harness: first-class fresh delegation roles in every base profile.
+    - id: agent-preset-registry
+      name: '@janhq/jan-agent-preset-registry'
+      config:
+        default: worker
+
+    - id: preset-scout
+      name: '@janhq/jan-agent-preset'
+      config:
+        id: scout
+        description: Read-only repository discovery; fast, inexpensive model.
+        toolAllowlist: [read, read_image, glob, grep, send_message, wait_agent, list_agents]
+        plugins:
+          - id: tool-fs
+            name: '@janhq/jan-tool-fs'
+            config: { write: false, edit: false, applyPatch: false }
+          - id: tool-fs-search
+            name: '@janhq/jan-tool-fs-search'
+            config: { sampleOverCapGlobResults: false }
+          - id: tool-subagent-control
+            name: '@janhq/jan-tool-subagent-control'
+            config: { interrupt: false }
+
+    - id: preset-reviewer
+      name: '@janhq/jan-agent-preset'
+      config:
+        id: reviewer
+        description: Read-only diff review and tests that do not write files.
+        toolAllowlist: [read, read_image, glob, grep, bash, pwsh, job_output, job_kill, send_message, wait_agent, list_agents]
+        readOnlyDelegation: true
+        plugins:
+          - id: tool-fs
+            name: '@janhq/jan-tool-fs'
+            config: { write: false, edit: false, applyPatch: false }
+          - id: tool-fs-search
+            name: '@janhq/jan-tool-fs-search'
+            config: { sampleOverCapGlobResults: false }
+          - id: tool-bash
+            name: '@janhq/jan-tool-bash'
+            disabled: !!js process.platform === 'win32'
+          - id: tool-pwsh
+            name: '@janhq/jan-tool-pwsh'
+            disabled: !!js process.platform !== 'win32'
+          - id: tool-jobs
+            name: '@janhq/jan-tool-jobs'
+          - id: tool-subagent-control
+            name: '@janhq/jan-tool-subagent-control'
+            config: { interrupt: false }
+
+    - id: preset-worker
+      name: '@janhq/jan-agent-preset'
+      config:
+        id: worker
+        description: Implement changes with read, shell, and full file editing tools.
+        plugins:
+          - id: tool-fs
+            name: '@janhq/jan-tool-fs'
+            config: { applyPatch: true }
+          - id: tool-fs-search
+            name: '@janhq/jan-tool-fs-search'
+            config: { sampleOverCapGlobResults: false }
+          - id: tool-bash
+            name: '@janhq/jan-tool-bash'
+            disabled: !!js process.platform === 'win32'
+          - id: tool-pwsh
+            name: '@janhq/jan-tool-pwsh'
+            disabled: !!js process.platform !== 'win32'
+          - id: tool-jobs
+            name: '@janhq/jan-tool-jobs'
+          - id: tool-subagent-control
+            name: '@janhq/jan-tool-subagent-control'
+
     - id: agent-team
       name: '@janhq/jan-agent-team'
       config:
@@ -462,6 +534,9 @@
       config:
         provider: spawn
         toolName: subagent
+        allowedAgentPresets: [scout, reviewer, worker]
+        presetAgentOptions:
+          scout: { provider: tokamak, model: 'anthropic/claude-haiku-5-5[1m]' }
 
     # Fork omits model-selection arguments for KV Cache reuse. Parent and child
     # share the messaging tools; return guidance follows the inherited history.
