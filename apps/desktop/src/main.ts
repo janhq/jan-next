@@ -285,7 +285,7 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
       titleBarStyle: 'hidden' as const,
       titleBarOverlay: {
         height: WINDOWS_TITLEBAR_HEIGHT, color: chromeFallbackFill(),
-        symbolColor: nativeTheme.shouldUseDarkColors ? '#f9fafb' : '#0f1115'
+        symbolColor: nativeTheme.shouldUseDarkColors ? '#f9fafb' : '#0f1115',
       },
     } : {}),
     // hiddenInset places traffic lights inside the sidebar; sidebar vibrancy
@@ -446,7 +446,7 @@ async function main(): Promise<void> {
   let channelState: DesktopChannelState | undefined
   const updatePresentation = (state: DesktopUpdateState) => ({
     ...presentDesktopUpdate(state),
-    ...(channelState?.error === undefined ? {} : { configurationError: channelState.error })
+    ...(channelState?.error === undefined ? {} : { configurationError: channelState.error }),
   })
   const systemLanguages = app.getPreferredSystemLanguages()
   let locale = windowsLanguage === undefined
@@ -489,7 +489,7 @@ async function main(): Promise<void> {
     await ordinaryMessageBox({
       type: 'info', title: locale.messages.aboutMenu, message: locale.messages.aboutProduct,
       detail: formatDesktopMessage(locale.messages.aboutVersion, { version: app.getVersion() }),
-      buttons: [locale.messages.updateAcknowledge], cancelId: 0
+      buttons: [locale.messages.updateAcknowledge], cancelId: 0,
     })
   }
   const commandManager = new DesktopCommandManager({
@@ -639,7 +639,7 @@ async function main(): Promise<void> {
       shown = ordinaryMessageBox({
         type: 'error', title: locale.messages.updateFailedTitle,
         message: desktopUpdateErrorSummary(state, locale.messages),
-        technicalDetails: state.technicalDetails ?? state.message ?? ''
+        technicalDetails: state.technicalDetails ?? state.message ?? '',
       }).then(() => { })
       updateErrors.set(state, shown)
     }
@@ -720,7 +720,7 @@ async function main(): Promise<void> {
   channelState = {
     channel: initialChannel.kind === 'ready' ? initialChannel.channel : null,
     packagedChannel, changing: false,
-    ...(initialChannel.kind === 'error' ? { error: configurationFailure(initialChannel.error) } : {})
+    ...(initialChannel.kind === 'error' ? { error: configurationFailure(initialChannel.error) } : {}),
   }
   const updateChannel = initialChannel.kind === 'ready' ? initialChannel.channel : packagedChannel
   const updates = new DesktopUpdateCoordinator(
@@ -950,7 +950,7 @@ async function main(): Promise<void> {
       console.error('desktop update: channel change failed', error)
       const state = publishChannel({
         ...channelState, changing: --channelRequests > 0,
-        ...(updates.configurationFailure === 'cleanup' ? { error: 'cleanup' as const } : {})
+        ...(updates.configurationFailure === 'cleanup' ? { error: 'cleanup' as const } : {}),
       })
       return { kind: 'failed', state, reason: channelSaveFailure(error) }
     }
@@ -1013,14 +1013,14 @@ async function main(): Promise<void> {
                   console.error('desktop update: settings reload failed', error)
                   publishChannel({
                     ...channelState,
-                    ...(updates.configurationFailure === 'cleanup' ? { error: 'cleanup' as const } : {})
+                    ...(updates.configurationFailure === 'cleanup' ? { error: 'cleanup' as const } : {}),
                   })
                   return false
                 } finally {
                   publishChannel({ ...channelState, changing: --channelRequests > 0 })
                 }
-              }
-            }
+              },
+            },
           },
         }, mandatoryUI?.confirmationWindow ?? currentDialogWindow())
         if (result.response !== 0) return
@@ -1060,7 +1060,7 @@ async function main(): Promise<void> {
           const parent = currentDialogWindow()
           progress = parent === undefined ? Promise.resolve() : updateDialog.show(parent, {
             type: 'info', title: locale.messages.updateCheckTitle,
-            message: locale.messages.updateChecking, buttons: [locale.messages.later], cancelId: 0, signal: controller.signal
+            message: locale.messages.updateChecking, buttons: [locale.messages.later], cancelId: 0, signal: controller.signal,
           })
           if (!joinedPolicyAuthentication) {
             void checkPolicyManually('deferred').catch((error: unknown) => { console.error(error) })
@@ -1074,7 +1074,7 @@ async function main(): Promise<void> {
           await ordinaryMessageBox({
             type: 'info', title: locale.messages.updateCheckTitle,
             message: locale.messages.updateCurrent,
-            detail: formatDesktopMessage(locale.messages.updateCurrentDetail, { version: app.getVersion() })
+            detail: formatDesktopMessage(locale.messages.updateCurrentDetail, { version: app.getVersion() }),
           })
           return
         }
@@ -1091,7 +1091,7 @@ async function main(): Promise<void> {
             title: locale.messages.updateCheckTitle,
             message: formatDesktopMessage(locale.messages.updateAvailable, { version: state.version ?? '' }),
             detail: locale.messages.updateDetail,
-            buttons: [locale.messages.updateDownload], cancelId: 1
+            buttons: [locale.messages.updateDownload], cancelId: 1,
           })
           if (result.response !== 0) return
         }
@@ -1107,7 +1107,7 @@ async function main(): Promise<void> {
       }
     }).catch((error: unknown) => showUpdateFailure({
       phase: 'error', failedOperation,
-      message: desktopErrorState(error).message
+      message: desktopErrorState(error).message,
     }))
       .finally(() => { promptOperation = undefined; flushQueuedPolicyAuthentication() })
     return promptOperation
@@ -1141,7 +1141,7 @@ async function main(): Promise<void> {
     if (parent === undefined) return undefined
     const consent = await updateDialog.show(parent, {
       type: 'info', title: locale.messages.policyLoginTitle,
-      message: locale.messages.policyLoginRequired, buttons: [locale.messages.policyLogin, locale.messages.later], cancelId: 1
+      message: locale.messages.policyLoginRequired, buttons: [locale.messages.policyLogin, locale.messages.later], cancelId: 1,
     })
     if (consent.response !== 0 || isQuitting()) return undefined
     const outcome = await policyAuth.login()
@@ -1149,7 +1149,7 @@ async function main(): Promise<void> {
     if (outcome === 'failed') {
       await updateDialog.show(parent, {
         type: 'error', title: locale.messages.policyLoginTitle,
-        message: locale.messages.policyLoginFailed, buttons: [locale.messages.updateAcknowledge], cancelId: 0
+        message: locale.messages.policyLoginFailed, buttons: [locale.messages.updateAcknowledge], cancelId: 0,
       })
       return undefined
     }
@@ -1213,18 +1213,18 @@ async function main(): Promise<void> {
           { role: 'toggleSmartQuotes' },
           { role: 'toggleSmartDashes' },
           { role: 'toggleTextReplacement' },
-        ]
+        ],
       },
       { label: messages.speechMenu, submenu: [{ role: 'startSpeaking' }, { role: 'stopSpeaking' }] },
-    ]
+    ],
   })
   const platformMenus = (): MenuItemConstructorOptions[] => darwin
     ? [shortcuts.fileMenu(currentDesktopLocale().messages), macEditMenu(currentDesktopLocale().messages), { role: 'windowMenu' }]
     : [{ role: 'editMenu' }]
   const hideCommands: MenuItemConstructorOptions[] = darwin
     ? [{ role: 'hide', label: currentDesktopLocale().messages.hideApplication },
-    { role: 'hideOthers', label: currentDesktopLocale().messages.hideOtherApplications },
-    { role: 'unhide', label: currentDesktopLocale().messages.showAllApplications }, { type: 'separator' }]
+      { role: 'hideOthers', label: currentDesktopLocale().messages.hideOtherApplications },
+      { role: 'unhide', label: currentDesktopLocale().messages.showAllApplications }, { type: 'separator' }]
     : []
   const applicationItems = (): MenuItemConstructorOptions[] => [
     // Windows has no system About panel; Electron's fallback is a plain
@@ -1232,7 +1232,7 @@ async function main(): Promise<void> {
     process.platform === 'win32'
       ? {
         label: currentDesktopLocale().messages.aboutMenu,
-        click: () => { void showAbout().catch((error: unknown) => { console.error(error) }) }
+        click: () => { void showAbout().catch((error: unknown) => { console.error(error) }) },
       }
       : { label: currentDesktopLocale().messages.aboutMenu, role: 'about' },
     { type: 'separator' },
@@ -1247,7 +1247,7 @@ async function main(): Promise<void> {
           if (quitting) return
           app.relaunch()
           quitWithoutConfirmation()
-        }
+        },
       },
     ] : [],
     { role: 'toggleDevTools', label: currentDesktopLocale().messages.toggleDevToolsMenu },
@@ -1255,7 +1255,7 @@ async function main(): Promise<void> {
     ...hideCommands,
     {
       role: 'quit', ...(darwin ? { label: currentDesktopLocale().messages.quitApplication }
-        : process.platform === 'win32' ? { label: currentDesktopLocale().messages.exitApplication } : {})
+        : process.platform === 'win32' ? { label: currentDesktopLocale().messages.exitApplication } : {}),
     },
   ]
   const devToolsF12Shortcut: MenuItemConstructorOptions = { role: 'toggleDevTools', visible: false, accelerator: 'F12' }
@@ -1278,7 +1278,7 @@ async function main(): Promise<void> {
     try {
       tray = new DesktopTray({
         ...process.platform === 'win32' ? { iconPath: trayIconPath } : { iconPath: applicationIconPath(), edge: 32 },
-        locale: currentDesktopLocale, open: () => { focusPrimaryWindow() }, quit: () => { app.quit() }
+        locale: currentDesktopLocale, open: () => { focusPrimaryWindow() }, quit: () => { app.quit() },
       })
     } catch (error) { console.warn('desktop tray: unavailable', error) }
   }
@@ -1294,7 +1294,7 @@ async function main(): Promise<void> {
   const backgroundNotice = process.platform === 'win32' || process.platform === 'linux'
     ? new DesktopBackgroundNotice({
       markerPath: join(app.getPath('userData'), 'background-close-confirmed'),
-      locale: () => locale, show: ordinaryMessageBox, focus: () => { updateDialog.focus() }
+      locale: () => locale, show: ordinaryMessageBox, focus: () => { updateDialog.focus() },
     })
     : undefined
   const quitConfirmation = new DesktopQuitConfirmation({
@@ -1428,6 +1428,12 @@ async function main(): Promise<void> {
     })
     return window
   }
+  const openDevelopmentTools = (window: BrowserWindow): void => {
+    if (!development || process.env.JAN_DESKTOP_OPEN_DEVTOOLS === '0') return
+    // Activating the detached inspector takes key-window status from the workspace
+    // on macOS, so AppKit draws the workspace traffic lights as inactive.
+    window.webContents.openDevTools({ mode: 'detach', activate: process.platform !== 'darwin' })
+  }
   const enterWorkspace = async ({ activate = true }: { activate?: boolean } = {}): Promise<void> => {
     if (quitting) return
     const window = mainWindow ?? createMainWindow()
@@ -1446,9 +1452,7 @@ async function main(): Promise<void> {
       window.moveTop()
       window.focus()
     }
-    if (activate && development && process.env.JAN_DESKTOP_OPEN_DEVTOOLS !== '0') {
-      window.webContents.openDevTools({ mode: 'detach' })
-    }
+    if (activate) openDevelopmentTools(window)
   }
   let openingWelcome: Promise<void> | undefined
   const showWelcome = (): Promise<void> => {
@@ -1587,12 +1591,12 @@ async function main(): Promise<void> {
     updateDialog.dispose()
     mandatoryUI?.dispose()
     void Promise.all([stopOperationReports(), Promise.resolve(mandatoryPolicy?.dispose()).then(() => policyAuth?.dispose()),
-    backend.close().then(async () => { await operationJournal?.drain(500) }, async (error: unknown) => {
-      await operationJournal?.drain(500)
-      throw error
-    }),
-    platformView.dispose(),
-    disposeFileDrag(),
+      backend.close().then(async () => { await operationJournal?.drain(500) }, async (error: unknown) => {
+        await operationJournal?.drain(500)
+        throw error
+      }),
+      platformView.dispose(),
+      disposeFileDrag(),
     ].map(cleanup => cleanup.catch((error: unknown) => { console.error(error) })))
       .then(() => { app.quit() })
   }
@@ -1673,9 +1677,7 @@ async function main(): Promise<void> {
   // Window lifecycle callbacks run while backend startup is pending.
   if (isQuitting()) return
   const window = currentMainWindow()
-  if (window !== undefined && development && process.env.JAN_DESKTOP_OPEN_DEVTOOLS !== '0') {
-    window.webContents.openDevTools({ mode: 'detach' })
-  }
+  if (window !== undefined) openDevelopmentTools(window)
   publishUpdate(updateState)
 }
 

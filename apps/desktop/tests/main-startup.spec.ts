@@ -1558,6 +1558,19 @@ describe('desktop main startup', () => {
     return harness.hosts[0]!
   }
 
+  it('opens automatic macOS DevTools without taking focus from the workspace', async () => {
+    vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin')
+    vi.stubEnv('JAN_DESKTOP_OPEN_DEVTOOLS', '1')
+    harness.app.isPackaged = false
+    await readyForUpdate()
+    const window = harness.windows[0]!
+    await window.shown.promise
+    const openDevTools = window.webContents.openDevTools
+    await vi.waitFor(() => { expect(openDevTools).toHaveBeenCalledTimes(2) })
+    expect(openDevTools).toHaveBeenNthCalledWith(1, { mode: 'detach', activate: false })
+    expect(openDevTools).toHaveBeenNthCalledWith(2, { mode: 'detach', activate: false })
+  })
+
   it.each([
     ['win32', ['--updated'], true],
     ['win32', [], false],
