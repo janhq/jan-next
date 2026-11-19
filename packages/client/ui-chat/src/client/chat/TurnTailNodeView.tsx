@@ -72,7 +72,7 @@ export const TurnTailNodeView = memo(function TurnTailNodeView({
         className={css.actions}
         extraActions={assistantActions}
         usageAction={detailed && data.tokenUsage !== undefined
-          ? <TurnUsagePanel usage={data.tokenUsage} t={t} />
+          ? <TurnUsagePanel usage={data.tokenUsage} timing={data.timing} t={t} />
           : null}
         t={t}
       />

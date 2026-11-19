@@ -17,7 +17,7 @@
 - paragraph: UPLOAD_ROUND_OK
 - button "Copy"
 - button "Branch into a new conversation"
-- button "Usage 17.3K tok"
+- button "Turn usage"
 - text: {{clock}}
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"

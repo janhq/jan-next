@@ -15,7 +15,7 @@
 - paragraph: DONE
 - button "Copy"
 - button "Branch into a new conversation"
-- button "Usage 15.8K tok"
+- button "Turn usage"
 - text: {{clock}}
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"

@@ -110,12 +110,11 @@ describe('chat flow font-size axis', () => {
       'width: calc(15px + var(--jan-content-font-delta, 0px))',
       'height: calc(15px + var(--jan-content-font-delta, 0px))',
     ]))
-    // A narrow column trims the pill label to an ellipsis instead of letting
-    // it overflow or widen the chat column.
+    // A narrow column clips the trailing figures instead of letting the
+    // pill overflow or widen the chat column.
     expect(declarationsFrom(css, '.label')).toEqual(expect.arrayContaining([
       'min-width: 0',
       'overflow: hidden',
-      'text-overflow: ellipsis',
     ]))
   })
 

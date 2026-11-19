@@ -48,7 +48,7 @@
 - button "More ways to open"
 - button "Copy"
 - button "Branch into a new conversation"
-- button "Usage 19K tok"
+- button "Turn usage"
 - text: {{clock}}
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"

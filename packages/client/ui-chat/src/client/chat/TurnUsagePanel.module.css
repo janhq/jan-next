@@ -32,12 +32,32 @@
   cursor: pointer;
 }
 
-/* A narrow column trims the label to an ellipsis instead of overflowing the
-   pill; the data glyph never shrinks. */
+/* The figures sit in one row of glyph-plus-value groups; a narrow column
+   clips the trailing groups instead of overflowing the pill. */
 .label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+}
+
+/* Input and output arrows match the icon glyphs' optical size. */
+.glyph {
+  font-size: calc(var(--jan-content-font-size-secondary, 13px) + 1px);
+  line-height: 1;
+}
+
+/* Only the collapsed narrow pill shows a lone icon. */
+.narrowIcon {
+  display: none;
 }
 
 .trigger svg {
@@ -71,6 +91,10 @@
 
   .trigger .label {
     display: none;
+  }
+
+  .trigger .narrowIcon {
+    display: block;
   }
 
   .root + .root {

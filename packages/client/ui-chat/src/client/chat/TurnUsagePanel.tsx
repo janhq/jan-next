@@ -1,9 +1,14 @@
-/** Completed-Turn token usage action and its accounting details dialog. */
+/** Completed-Turn token usage and speed action, and its accounting details dialog. */
 
 import { createPortal } from 'react-dom'
-import { IconDatabaseOutlineRegular } from '@janhq/jan-client-ui-primitives'
-import type { TurnTokenUsage } from '../contract/chat-nodes.ts'
+import type { ReactNode } from 'react'
+import {
+  IconClockOutlineRegular, IconDatabaseOutlineRegular, IconGaugeOutlineRegular, Tooltip,
+} from '@janhq/jan-client-ui-primitives'
+import type { TurnTiming, TurnTokenUsage } from '../contract/chat-nodes.ts'
 import type { ChatViewSlotProps } from '../contract/slots.ts'
+import { formatTokensPerSecond } from './message-chrome.ts'
+import { formatDuration } from './StatsPills.tsx'
 import { formatCacheHitPercent, formatExactTokens, formatTokens } from './token-format.ts'
 import { useStatDialog } from './stat-dialog.ts'
 import css from './TurnUsagePanel.module.css'
@@ -11,43 +16,87 @@ import dialogCss from './stat-dialog.module.css'
 
 export interface TurnUsagePanelProps {
   usage: TurnTokenUsage
+  /** Latency and output speed; absent fields stay off the pill and the dialog. */
+  timing?: TurnTiming | undefined
   /** The owning view's locale seat, passed down as a plain prop. */
   t: ChatViewSlotProps['t']
-}
-
-function formatCompactCount(value: number, t: ChatViewSlotProps['t']): string {
-  return t('message.turnUsage.count', { count: formatTokens(value, t) })
 }
 
 function formatExactCount(value: number, t: ChatViewSlotProps['t']): string {
   return t('message.turnUsage.count', { count: formatExactTokens(value, t) })
 }
 
+/** One pill figure; hovering it names the figure and its exact value. */
+function Stat({ hint, disabled, children }: { hint: string; disabled: boolean; children: ReactNode }) {
+  return (
+    <Tooltip label={hint} side="bottom" portal disabled={disabled}>
+      <span className={css.stat} data-turn-usage-stat>{children}</span>
+    </Tooltip>
+  )
+}
+
 /**
  * Turn-usage IconActions pill with a click-open Turn-usage details dialog.
- * @param props - Turn usage buckets and locale seat.
+ * The pill spells out input, output, cached input, time to first token and
+ * output speed; hovering a figure names it with its exact value. Assistive
+ * technology reads the same figures from the dialog.
+ * @param props - Turn usage buckets, timing and locale seat.
  * @returns The trigger and, while open, its portaled dialog anchored above the trigger.
  */
-export function TurnUsagePanel({ usage, t }: TurnUsagePanelProps) {
+export function TurnUsagePanel({ usage, timing, t }: TurnUsagePanelProps) {
   const { open, setOpen, rootRef, panelRef, anchorName } = useStatDialog()
 
   const cacheHit = usage.cacheReadTokens === undefined
     ? null
     : formatCacheHitPercent(usage.cacheReadTokens, usage.totalTokens - usage.outputTokens, 1)
-  const total = formatCompactCount(usage.totalTokens, t)
   const routes = usage.routes?.map(route => `${route.provider}/${route.model}`).join(', ') ?? ''
+  const ttft = timing?.ttftMs === undefined ? null : formatDuration(timing.ttftMs, t)
+  const speed = timing?.tokensPerSecond === undefined
+    ? null
+    : t('message.tokensPerSecond', { tps: formatTokensPerSecond(timing.tokensPerSecond) })
+  const hint = (name: string, value: string) => `${name} · ${value}`
 
   return (
     <span ref={rootRef} style={{ anchorName }} className={css.root}>
       <button
         type="button"
         className={css.trigger}
+        aria-label={t('message.turnUsage.title')}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => { setOpen(!open) }}
       >
-        <IconDatabaseOutlineRegular />
-        <span className={css.label}>{t('message.turnUsage.consumed', { total })}</span>
+        <IconDatabaseOutlineRegular className={css.narrowIcon} />
+        {/* The button is named "Turn usage"; the figures are a visual summary
+            whose timing varies run to run, and the dialog reads every one out. */}
+        <span className={css.label} aria-hidden>
+          <Stat hint={hint(t('message.turnUsage.input'), formatExactCount(usage.uncachedInputTokens, t))} disabled={open}>
+            <span className={css.glyph}>↓</span>
+            {formatTokens(usage.uncachedInputTokens, t)}
+          </Stat>
+          <Stat hint={hint(t('message.turnUsage.output'), formatExactCount(usage.outputTokens, t))} disabled={open}>
+            <span className={css.glyph}>↑</span>
+            {formatTokens(usage.outputTokens, t)}
+          </Stat>
+          {usage.cacheReadTokens !== undefined && (
+            <Stat hint={hint(t('message.turnUsage.cacheRead'), formatExactCount(usage.cacheReadTokens, t))} disabled={open}>
+              <IconDatabaseOutlineRegular />
+              {formatTokens(usage.cacheReadTokens, t)}
+            </Stat>
+          )}
+          {ttft !== null && (
+            <Stat hint={hint(t('message.turnUsage.ttft'), ttft)} disabled={open}>
+              <IconClockOutlineRegular />
+              {ttft}
+            </Stat>
+          )}
+          {speed !== null && (
+            <Stat hint={hint(t('message.turnUsage.speed'), speed)} disabled={open}>
+              <IconGaugeOutlineRegular />
+              {speed}
+            </Stat>
+          )}
+        </span>
       </button>
       {open && createPortal(
         <div
@@ -101,6 +150,18 @@ export function TurnUsagePanel({ usage, t }: TurnUsagePanelProps) {
                 </span>
               )}
             </dd>
+            {ttft !== null && (
+              <>
+                <dt>{t('message.turnUsage.ttft')}</dt>
+                <dd>{ttft}</dd>
+              </>
+            )}
+            {speed !== null && (
+              <>
+                <dt>{t('message.turnUsage.speed')}</dt>
+                <dd>{speed}</dd>
+              </>
+            )}
           </dl>
         </div>,
         document.body,
