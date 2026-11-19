@@ -187,7 +187,10 @@ export class TokamakSession {
    */
   constructor(private readonly account: TokamakSignIn, private readonly spec: TokamakSpec) {}
 
-  /** Whether the account last held a key for this deployment; false until the first state arrives. */
+  /**
+   * Whether the account last held a key for this deployment.
+   * @returns the cached answer; false until the first account state arrives.
+   */
   available(): boolean {
     return this.signedIn
   }
