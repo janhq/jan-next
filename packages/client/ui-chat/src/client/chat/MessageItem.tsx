@@ -148,10 +148,7 @@ function ModelRetryItem({ node, active, t }: {
           <span className={css.retryDetailLabel}>{t('message.retry.delay')}</span>
           {t('duration.milliseconds', { milliseconds: Math.round(node.delayMs) })}
         </div>
-        <div>
-          <span className={css.retryDetailLabel}>{t('message.retry.failure')}</span>
-          {failureMessage(node.failure.message, node.failure.code, t)}
-        </div>
+        <FailureDetail failure={failureMessage(node.failure.message, node.failure.code, t)} t={t} />
       </div>
     </details>
   )
@@ -172,12 +169,19 @@ function ModelSwitchItem({ node, t }: {
         </span>
       </summary>
       <div className={css.retryDetails}>
-        <div>
-          <span className={css.retryDetailLabel}>{t('message.retry.failure')}</span>
-          {failureMessage(node.failure.message, node.failure.code, t)}
-        </div>
+        <FailureDetail failure={failureMessage(node.failure.message, node.failure.code, t)} t={t} />
       </div>
     </details>
+  )
+}
+
+/** The labeled failure line inside a retry or model-switch row's details. */
+function FailureDetail({ failure, t }: { failure: string; t: ChatViewSlotProps['t'] }) {
+  return (
+    <div>
+      <span className={css.retryDetailLabel}>{t('message.retry.failure')}</span>
+      {failure}
+    </div>
   )
 }
 
