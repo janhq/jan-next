@@ -91,6 +91,7 @@
     "@janhq/jan-file-reference": "workspace:*",
     "@janhq/jan-fs": "workspace:*",
     "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-mcp-manager": "workspace:*",
     "@janhq/jan-native-command": "workspace:*",
     "@janhq/jan-scope": "workspace:*",
     "@janhq/jan-session": "workspace:*",
@@ -113,6 +114,9 @@
     "@janhq/jan-working-directory": "workspace:*"
   },
   "peerDependenciesMeta": {
+    "@janhq/jan-mcp-manager": {
+      "optional": true
+    },
     "@janhq/jan-session-persistence": {
       "optional": true
     },
@@ -141,6 +145,7 @@
     "@janhq/jan-fs": "workspace:*",
     "@janhq/jan-fs-local": "workspace:*",
     "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-mcp-manager": "workspace:*",
     "@janhq/jan-native-command": "workspace:*",
     "@janhq/jan-permission-presets": "workspace:*",
     "@janhq/jan-remote-mock": "workspace:*",
