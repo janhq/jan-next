@@ -24,7 +24,7 @@ it('boots the built plugin graph and renders a fixture session end to end', asyn
   const tree = await screen.findByRole('tree', { name: 'Sessions' }, { timeout: 10_000 })
   expect(document.querySelector('img[data-brand-mark="jan"]')).not.toBeNull()
   // tokamak-harness: every profile names the product and its stage instead of the build-number label.
-  expect(document.querySelector('[data-brand-name="jan"]')?.textContent).toBe('JanAlpha')
+  expect(document.querySelector('[data-brand-name="jan"]')?.textContent).toBe('JanNext')
   expect(document.querySelector('[data-copy-version]')).toBeNull()
   // The compact layout dropped group session counts; the fixture workspace
   // group row renders immediately with its sessions beneath it.
