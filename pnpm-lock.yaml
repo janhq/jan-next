@@ -18119,6 +18119,12 @@ importers:
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
+  plugins/jan-onboarding:
+    dependencies:
+      '@janhq/schemastery':
+        specifier: link:../../vendor/schemastery
+        version: link:../../vendor/schemastery
+
 
   plugins/jan-theme:
     dependencies:
