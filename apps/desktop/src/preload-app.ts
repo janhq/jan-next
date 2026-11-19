@@ -21,6 +21,7 @@ function createProductApi(): JanDesktopProductApi {
       readClipboardImage: url => ipcRenderer.invoke(DESKTOP_IPC.clipboardImageRead, url) as
         Promise<{ bytes: Uint8Array; mediaType: string }>,
     },
+    captureRegion: bounds => ipcRenderer.invoke(DESKTOP_IPC.captureRegion, bounds) as Promise<Uint8Array>,
     browser: createDesktopBrowserBridge(),
     fileDrag: {
       prepare: (source, requestId) => ipcRenderer.invoke(DESKTOP_IPC.fileDragPrepare, source, requestId) as
