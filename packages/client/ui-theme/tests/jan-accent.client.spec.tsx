@@ -5,10 +5,14 @@ import { runInNewContext } from 'node:vm'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { Context } from '@janhq/cordis'
 import { stubConfigForm } from '@janhq/jan-client-test-runtime'
+import WebServer from '@janhq/jan-host-webserver'
 import * as primitives from '@janhq/jan-client-ui-primitives'
 import * as React from 'react'
-import { expect, it, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vitest'
 import { ThemeRuntime, type ThemeSettings } from '../src/client/index.ts'
+import { applyIndexInjections } from '../../web/src/apply-injections.ts'
+import { liveConfig } from '../../../settings/settings/tests/live-config.ts'
+import * as JanThemeHost from '../../../../plugins/jan-theme/index.mjs'
 
 type Component = React.ComponentType
 
@@ -37,8 +41,8 @@ function mountAppearance(theme: ThemeRuntime) {
       if (stop) dispose.push(stop)
     },
     slots: {
-      inject(name, callback) { if (name === 'settings.section') callback() },
-      register(options, component) { if (options.id === 'jt-appearance') Component = component },
+      inject(name, callback) { if (name === 'settings.general.item') callback() },
+      register(options, component) { if (options.id === 'jt-accent-color') Component = component },
     },
     locale: { bind: () => key => key, register() { } },
     theme,
@@ -46,11 +50,11 @@ function mountAppearance(theme: ThemeRuntime) {
   runInNewContext(client, {
     document,
     fetch: vi.fn((_url: string, init: RequestInit) => Promise.resolve(Response.json({ result: JSON.parse(String(init.body)).params }))),
-    window: { __ModuleLoader__: { load({ factory }: { factory: (load: (id: string) => object) => { apply(scope: ClientScope): void } }) {
+    window: { __JAN_THEME__: Reflect.get(globalThis, '__JAN_THEME__'), __ModuleLoader__: { load({ factory }: { factory: (load: (id: string) => object) => { apply(scope: ClientScope): void } }) {
       factory(id => id === 'react' ? React : id === '@janhq/jan-client-ui-primitives' ? primitives : {}).apply(scope)
     } } },
   })
-  if (!Component) throw new Error('Jan theme did not register Appearance settings')
+  if (!Component) throw new Error('Jan theme did not register the General accent settings')
   const view = render(<Component />)
   return () => {
     view.unmount()
@@ -58,6 +62,27 @@ function mountAppearance(theme: ThemeRuntime) {
     for (const name of ['--jt-sidebar-light', '--jt-sidebar-dark']) document.documentElement.style.removeProperty(name)
   }
 }
+
+it('restores the saved accent on a fresh desktop boot', async () => {
+  const ctx = new Context()
+  onTestFinished(() => ctx.fiber.dispose())
+  const server = new WebServer(ctx, WebServer.Config({ host: '127.0.0.1', port: 0 }))
+  for (const name of ['configEditor', 'connection', 'credentials', 'settings', 'skills', 'tools']) {
+    ctx.provide(name, {})
+  }
+  await liveConfig(ctx, JanThemeHost, { appearance: { accent: 'orange', coloredUserBubble: false } })
+
+  const peer = { principal: { kind: 'owner' } } as Parameters<WebServer['collectIndexInjections']>[0]
+  vi.stubGlobal('__JAN_THEME__', undefined)
+  onTestFinished(() => vi.unstubAllGlobals())
+  await applyIndexInjections(server.collectIndexInjections(peer), async (src) => { throw new Error(`Unexpected boot script: ${src}`) })
+
+  const theme = new ThemeRuntime(new Context(), stubConfigForm<ThemeSettings>().scope)
+  onTestFinished(mountAppearance(theme))
+  expect(theme.getTheme().active.tokens['--dsw-alias-brand-primary']).toBe('#E9A23F')
+  const swatches = within(screen.getByRole('group', { name: 'Accent color' }))
+  expect(swatches.getByRole('button', { name: 'Orange', pressed: true })).toBeTruthy()
+})
 
 it('publishes resting, hover, pressed and checked accent tokens on each Appearance change', async () => {
   const theme = new ThemeRuntime(new Context(), stubConfigForm<ThemeSettings>().scope)

@@ -57,13 +57,10 @@ export async function apply(ctx, config = {}) {
       return operation
     },
   }), 'jan-theme: appearance preferences')
-  ctx.effect(() => ctx.webServer.tapIndex((html) => {
-    // Read live profile values on every navigation, including reload.
-    const json = JSON.stringify({ look: config.look ?? null, appearance: appearance() }).replaceAll('<', '\\u003c')
-    const script = `<script>window.__JAN_THEME__ = ${json}</script>`
-    const head = html.indexOf('<head>')
-    return head === -1 ? script + html : html.slice(0, head + 6) + script + html.slice(head + 6)
-  }), 'jan-theme: config')
+  // Desktop applies the structured boot rows to its local document without rendering Host HTML.
+  ctx.on('webserver/index-inject', (table) => {
+    table.push({ kind: 'global', name: '__JAN_THEME__', value: { look: config.look ?? null, appearance: appearance() } })
+  }, { prepend: true })
 
   ctx.effect(() => ctx.webServer.register({
     kind: 'prefix',
