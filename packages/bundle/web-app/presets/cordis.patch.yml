@@ -97,6 +97,9 @@
                   toolName: subagent
                   modelSelection: true
                   modelDiscovery: true
+                  allowedAgentPresets: [scout, reviewer, worker]
+                  presetAgentOptions:
+                    scout: { provider: tokamak, model: 'anthropic/claude-haiku-5-5[1m]' }
               - id: tool-subagent-fork
                 name: '@janhq/jan-tool-subagent'
                 config:

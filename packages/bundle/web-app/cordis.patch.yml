@@ -652,12 +652,10 @@
 # The preset selection registry. The shipped preset declarations follow as
 # separate patch files under `presets/`, listed after this file in
 # `package.json` `jan.bundle.patch`.
-- insert:
-    - id: agent-preset-registry
-      name: '@janhq/jan-agent-preset-registry'
-      config:
-        default: standard
-        # The managed local model reads the whole prompt on this computer before
-        # its first token, so a new chat on it starts on the light preset.
-        routeDefaults:
-          local: minimal
+- id: agent-preset-registry
+  config:
+    default: standard
+    # The managed local model reads the whole prompt on this computer before
+    # its first token, so a new chat on it starts on the light preset.
+    routeDefaults:
+      local: minimal
