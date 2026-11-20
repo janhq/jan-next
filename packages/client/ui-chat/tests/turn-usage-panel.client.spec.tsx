@@ -67,6 +67,19 @@ describe('TurnUsagePanel', () => {
     expect(details.textContent).not.toContain('Total')
   })
 
+  it('names a route once when its model id already carries the provider', () => {
+    const usage: TurnTokenUsage = {
+      uncachedInputTokens: 10,
+      outputTokens: 5,
+      totalTokens: 15,
+      routes: [{ provider: 'tokamak', model: 'tokamak/auto' }, { provider: 'deepseek', model: 'deepseek-chat' }],
+    }
+    const view = render(<TurnUsagePanel usage={usage} t={t} />)
+    fireEvent.click(view.getByRole('button', { name: 'Turn usage' }))
+    expect(view.getByRole('dialog').querySelector('[data-turn-usage-details]')?.textContent)
+      .toContain('Provider / modeltokamak/auto, deepseek/deepseek-chat')
+  })
+
   it('omits unavailable optional facts instead of inventing values', () => {
     const usage: TurnTokenUsage = {
       uncachedInputTokens: 120,
