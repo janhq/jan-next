@@ -45,6 +45,9 @@ export const DESKTOP_IPC = {
   windowFullscreen: 'jan-desktop:window-fullscreen',
   windowsAppearance: 'jan-desktop:windows-appearance',
   windowsMenu: 'jan-desktop:windows-menu',
+  notificationShow: 'jan-desktop:notification-show',
+  notificationClicked: 'jan-desktop:notification-clicked',
+  notificationWindowActive: 'jan-desktop:notification-window-active',
 } as const
 
 /** Desktop release update state rendered by desktop-owned UI. */
@@ -105,6 +108,20 @@ export interface JanDesktopProductApi {
    * @returns `name=value` fields separated by `; `, with no hostname, user name, or serial number.
    */
   deviceInfo(): Promise<string>
+  readonly notifications: {
+    /**
+     * @param request - `id` is echoed to click listeners; `title` and `body` are display text.
+     * @returns whether the platform accepted the notification.
+     */
+    show(request: { id: string; title: string; body: string }): Promise<boolean>
+    /**
+     * Native window state; the document's own visibility and focus stay true while a Linux window is minimized.
+     * @returns whether the main window is shown, not minimized, and focused.
+     */
+    windowActive(): Promise<boolean>
+    /** @param listener - receives the id of a clicked notification after the window is focused. @returns the unsubscribe function. */
+    subscribe(listener: (id: string) => void): () => void
+  }
   readonly updates: {
     readonly channels: DesktopChannelBridge
     status(): Promise<DesktopUpdatePresentation>
