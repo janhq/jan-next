@@ -532,6 +532,14 @@ async function main(): Promise<void> {
   let returnedAttempt: string | undefined
   let pendingWelcomeNotice: WelcomeNotice | undefined
   let previousAccountStatus: string | undefined
+  let refocusedAttempt: string | undefined
+  /** Approval happens in the browser; bring Jan back in front once, when that sign-in lands. */
+  const comeBackAfterSignIn = (attemptId: string): void => {
+    if (quitting || refocusedAttempt === attemptId) return
+    refocusedAttempt = attemptId
+    if (process.platform === 'darwin') app.focus({ steal: true })
+    focusPrimaryWindow()
+  }
   const assertProductSender = (event: IpcMainInvokeEvent): BrowserWindow => {
     assertDesktopSender(event, ['app'])
     if (mainWindow === undefined || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents
@@ -599,7 +607,9 @@ async function main(): Promise<void> {
             returnedAttempt = attempt.id
             focusPrimaryWindow()
           }
-          if (state.status === 'credential-stored' && attempt?.phase === 'succeeded' && welcomeWindow !== undefined) void enterWorkspace({ activate: false }).catch(() => undefined)
+          if (state.status === 'credential-stored' && attempt?.phase === 'succeeded' && welcomeWindow !== undefined) {
+            void enterWorkspace({ activate: false }).then(() => { comeBackAfterSignIn(attempt.id) }, () => undefined)
+          } else if (attempt?.phase === 'succeeded' && welcomeWindow === undefined) comeBackAfterSignIn(attempt.id)
           if (previousAccountStatus === 'credential-stored' && state.status === 'signed-out') {
             void readWelcomeState().then(async (value) => {
               if (needsWelcome(value) && !quitting) {
