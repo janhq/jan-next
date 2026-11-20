@@ -1,0 +1,30 @@
+{
+  "name": "@janhq/jan-image",
+  "version": "0.2.2-rc.1",
+  "private": true,
+  "type": "module",
+  "description": "Generate and edit images through the Tokamak Images API and save them in the Session's working directory.",
+  "license": "MIT",
+  "exports": {
+    ".": "./index.mjs",
+    "./package.json": "./package.json"
+  },
+  "files": ["index.mjs", "images.mjs"],
+  "jan": {
+    "manifestVersion": 1
+  },
+  "dependencies": {
+    "@janhq/jan-credentials": "workspace:*",
+    "@janhq/jan-launch-environment": "workspace:*",
+    "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-tools": "workspace:*"
+  },
+  "devDependencies": {
+    "@janhq/cordis": "workspace:~",
+    "@janhq/jan-agent": "workspace:*",
+    "@janhq/jan-attachment": "workspace:*",
+    "@janhq/jan-fs": "workspace:*",
+    "@janhq/jan-tokamak-account": "workspace:*",
+    "@janhq/jan-working-directory": "workspace:*"
+  }
+}
