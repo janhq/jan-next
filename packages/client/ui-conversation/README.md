@@ -192,7 +192,7 @@ The selector must be a pure function of the owner currency. Its non-null return 
 
 `InputActions.captureInsertion()` captures the draft selection and revision; `insertText(text, span)` inserts one undoable plain-text edit only while that revision is current and the editor permits editing. Asynchronous consumers retain rejected results for user action.
 
-`ctx.conversation.appendDraft(sessionId, text, files?)` adds context after the existing text and stages browser files in a retained Session's composer without sending it. It refuses an unavailable or blocked composer rather than writing into a different Session.
+`ctx.conversation.appendDraft(sessionId, text, files?)` adds context after the existing text and stages browser files in a retained Session's composer without sending it, then moves the keyboard to that composer when it is on screen, as an inserted quote does, so Enter sends it. It refuses an unavailable or blocked composer rather than writing into a different Session.
 
 `conversation.input.activity` hosts one control between the model selector and Send. Its `onActiveChange` callback expands that control across the toolbar and hides ordinary accessory controls and the context meter while preserving the editor and submit action. Closing the activity restores those controls with context details closed. The empty hero dock remains collapsed when it has no content. The occupant releases expansion on unmount and owns any activity-specific feedback.
 
