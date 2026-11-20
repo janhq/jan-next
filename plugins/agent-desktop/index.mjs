@@ -117,11 +117,24 @@ export function apply(ctx) {
     yield ctx.on('tools/pre-execute', async (exec, next) => {
       const decision = await next()
       if (decision.kind !== 'allow' || (exec.name !== 'desktop_act' && exec.name !== 'desktop_screenshot')) return decision
+      // Full access sets the Session's approval policy to never, which rejects every ask; it already grants this action.
+      if (exec.agent !== undefined && approvalPolicy(ctx, exec.agent.session) === 'never') return decision
       const { approvalReason } = await import('./locale.mjs')
       const displayReason = approvalReason(exec.name === 'desktop_act' ? 'action' : 'screenshot')
       return { kind: 'ask', reason: displayReason.en, displayReason }
     })
   }, 'agent-desktop.tools')
+}
+
+/**
+ * Read the Session's effective approval policy without requiring the approval service.
+ * @param {Context} ctx - plugin context.
+ * @param {Agent['session']} session - Session asking for the action.
+ * @returns {string | undefined} The policy, or undefined when no approval service is mounted.
+ */
+function approvalPolicy(ctx, session) {
+  const approval = ctx.get('approval')
+  return approval === undefined ? undefined : approval.overrideOf(session) ?? approval.config.policy ?? 'ask'
 }
 
 /** @param {import('@janhq/jan-util-values').JsonValue} value @returns {string} Render delivery independently of action success. */
