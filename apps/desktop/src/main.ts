@@ -76,6 +76,7 @@ import { DesktopQuitConfirmation } from './quit-confirmation.ts'
 import { detectStatusNotifierHost, resolveDesktopStatusNotifierConfig } from './status-notifier.ts'
 import { DesktopTray } from './tray.ts'
 import { DesktopBackgroundNotice } from './background-notice.ts'
+import { DesktopNotifications, parseDesktopNotificationRequest } from './desktop-notifications.ts'
 
 let focusPrimaryWindow = (): void => { }
 let stopForRecovery = async (): Promise<void> => { await stopOperationReports() }
@@ -987,6 +988,17 @@ async function main(): Promise<void> {
     assertProductSender(event)
     return readDeviceInfo()
   })
+  const notifications = new DesktopNotifications({
+    focus: () => { focusPrimaryWindow() },
+    clicked: (id) => {
+      const window = mainWindow
+      if (window !== undefined && !window.isDestroyed()) window.webContents.send(DESKTOP_IPC.notificationClicked, id)
+    },
+  })
+  ipcMain.handle(DESKTOP_IPC.notificationShow, (event, request: unknown) => {
+    assertProductSender(event)
+    return notifications.show(parseDesktopNotificationRequest(request))
+  })
   ipcMain.handle(DESKTOP_IPC.captureRegion, (event, request: unknown) =>
     captureWindowRegion(assertProductSender(event), request))
   ipcMain.handle(DESKTOP_IPC.onboardingApiKey, async (event) => {
@@ -1669,6 +1681,7 @@ async function main(): Promise<void> {
     quitConfirmation.dispose()
     backgroundNotice?.dispose()
     tray?.dispose()
+    notifications.dispose()
     stopAccount?.()
     if (welcomeWindow !== undefined && !welcomeWindow.isDestroyed()) welcomeWindow.hide()
     if (mainWindow !== undefined && !mainWindow.isDestroyed()) mainWindow.hide()
@@ -1692,6 +1705,7 @@ async function main(): Promise<void> {
       backgroundNotice?.dispose()
       updateJournal?.action('quit-requested')
       tray?.dispose()
+      notifications.dispose()
       updateDialog.dispose()
       mandatoryUI?.dispose()
       // Installation preparation already awaited Platform storage cleanup.
