@@ -24,6 +24,7 @@ import {
   protocol,
   session,
   shell,
+  webContents,
   type IpcMainInvokeEvent,
   type MenuItemConstructorOptions,
 } from 'electron'
@@ -1243,9 +1244,32 @@ async function main(): Promise<void> {
       { label: messages.speechMenu, submenu: [{ role: 'startSpeaking' }, { role: 'stopSpeaking' }] },
     ],
   })
+  // Zoom every app surface together, so the chat and the side panel views scale as one.
+  let zoomLevel = 0
+  const applyZoom = (level: number): void => {
+    zoomLevel = Math.max(-3, Math.min(5, level))
+    for (const contents of webContents.getAllWebContents()) {
+      if (contents.isDestroyed() || contents.getType() === 'remote' || contents.getURL().startsWith('devtools:')) continue
+      contents.setZoomLevel(zoomLevel)
+    }
+  }
+  app.on('web-contents-created', (_event, contents) => {
+    contents.on('did-finish-load', () => { if (zoomLevel !== 0) contents.setZoomLevel(zoomLevel) })
+  })
+  const viewMenu: MenuItemConstructorOptions = {
+    label: 'View', submenu: [
+      { label: 'Actual Size', accelerator: 'CmdOrCtrl+0', click: () => { applyZoom(0) } },
+      { label: 'Zoom In', accelerator: 'CmdOrCtrl+=', click: () => { applyZoom(zoomLevel + 0.5) } },
+      {
+        label: 'Zoom In', accelerator: 'CmdOrCtrl+Plus', visible: false, acceleratorWorksWhenHidden: true,
+        click: () => { applyZoom(zoomLevel + 0.5) },
+      },
+      { label: 'Zoom Out', accelerator: 'CmdOrCtrl+-', click: () => { applyZoom(zoomLevel - 0.5) } },
+    ],
+  }
   const platformMenus = (): MenuItemConstructorOptions[] => darwin
-    ? [shortcuts.fileMenu(currentDesktopLocale().messages), macEditMenu(currentDesktopLocale().messages), { role: 'windowMenu' }]
-    : [{ role: 'editMenu' }]
+    ? [shortcuts.fileMenu(currentDesktopLocale().messages), macEditMenu(currentDesktopLocale().messages), viewMenu, { role: 'windowMenu' }]
+    : [{ role: 'editMenu' }, viewMenu]
   const hideCommands: MenuItemConstructorOptions[] = darwin
     ? [{ role: 'hide', label: currentDesktopLocale().messages.hideApplication },
       { role: 'hideOthers', label: currentDesktopLocale().messages.hideOtherApplications },
