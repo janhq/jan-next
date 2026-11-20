@@ -6,7 +6,7 @@ window.__ModuleLoader__.load({
     const { createPortal } = require('react-dom')
     const { Button, InlineEditor, Input, Modal, Tooltip, IconCloseOutlineRegular, IconPenOutlineRegular, IconRectangleOutlineRegular,
       IconEllipseOutlineRegular, IconArrowOutlineRegular, IconEraserOutlineRegular, IconTextOutlineRegular, IconCursorOutlineRegular,
-      IconUndoOutlineRegular, IconRedoOutlineRegular, IconLayersOutlineRegular, IconTrashOutlineRegular } = require('@janhq/jan-client-ui-primitives')
+      IconUndoOutlineRegular, IconRedoOutlineRegular, IconTrashOutlineRegular } = require('@janhq/jan-client-ui-primitives')
     const shell = { display: 'grid', gap: '16px', padding: '20px', boxSizing: 'border-box', minHeight: 0, overflow: 'auto' }
     const tools = { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }
     const textStyle = { fontSize: '13px', lineHeight: '18px', letterSpacing: '-0.13px', margin: 0 }
@@ -28,15 +28,8 @@ window.__ModuleLoader__.load({
     // The tools sit in one segment on the input surface, like the composer's controls; the picture sits on the same surface.
     const segment = { display: 'inline-flex', alignItems: 'center', gap: '2px', padding: '2px', borderRadius: 'var(--dsw-radius-md)',
       background: 'var(--dsw-alias-bg-base)', boxShadow: 'inset 0 0 0 var(--jan-hairline-width, 0.5px) var(--dsw-alias-border-l2)' }
-    const surface = { padding: '12px', borderRadius: '12px', background: 'var(--dsw-alias-bg-base)',
+    const stage = { containerType: 'inline-size', padding: '12px', borderRadius: '12px', background: 'var(--dsw-alias-bg-base)',
       boxShadow: 'inset 0 0 0 var(--jan-hairline-width, 0.5px) var(--dsw-alias-border-l2)' }
-    const stage = { ...surface, containerType: 'inline-size' }
-    // Size containment keeps a long layer list from growing the row; the panel takes the stage's height and scrolls.
-    const panel = { ...surface, padding: '4px', contain: 'size', overflow: 'auto', display: 'grid', alignContent: 'start', gap: '2px' }
-    const panelText = { ...muted, fontSize: '12px', lineHeight: '18px', margin: 0, padding: '4px 8px' }
-    const layerButton = { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '8px', height: '28px', padding: '0 8px',
-      border: 0, background: 'transparent', color: 'var(--dsw-alias-label-primary)', font: 'inherit', fontSize: '13px', textAlign: 'left',
-      cursor: 'pointer' }
     const dialogStyle = document.createElement('style')
     dialogStyle.textContent = '.jan-annotation-dialog[role="dialog"]{width:min(520px,100%);max-height:100%;padding:0;border-radius:20px;'
       + 'background:var(--dsw-alias-bg-overlay);box-shadow:' + elevation + '}'
@@ -45,9 +38,6 @@ window.__ModuleLoader__.load({
       + '.jan-annotation-dialog .jan-annotation-note:focus{border-color:var(--dsw-alias-state-business-primary)}'
       + '.jan-annotation-dialog details>summary{cursor:pointer;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:18px}'
       + '.jan-annotation-dialog.jan-annotation-wide[role="dialog"]{width:min(880px,100%)}'
-      + '.jan-annotation-dialog .jan-annotation-layer{display:flex;align-items:center;gap:2px;padding-right:2px;border-radius:var(--dsw-radius-sm)}'
-      + '.jan-annotation-dialog .jan-annotation-layer:hover{background:var(--dsw-alias-interactive-bg-hover)}'
-      + '.jan-annotation-dialog .jan-annotation-layer[data-selected]{background:var(--dsw-alias-bg-selected)}'
     document.head.append(dialogStyle)
 
     /** Fit a bitmap inside its container's width and the frame's height cap, keeping its ratio. */
@@ -434,29 +424,6 @@ window.__ModuleLoader__.load({
       ctx.restore()
     }
 
-    /** The marks top-most first; choosing one selects it to move, resize or turn. */
-    function Layers({ t, marks, selected, choose, remove }) {
-      const counts = new Map()
-      const rows = marks.map((mark) => {
-        const number = (counts.get(mark.tool) ?? 0) + 1
-        counts.set(mark.tool, number)
-        return { mark, name: mark.tool === 'text' ? mark.text : `${t(mark.tool)} ${number}` }
-      }).reverse()
-      return h('section', { 'aria-label': t('layers'), style: panel },
-        h('h3', { style: { ...panelText, fontWeight: 500 } }, t('layers')),
-        rows.length === 0
-          ? h('p', { style: panelText }, t('layersEmpty'))
-          : h('ul', { style: { listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: '2px' } }, rows.map(({ mark, name }) =>
-            h('li', { key: mark.id, className: 'jan-annotation-layer', 'data-selected': mark.id === selected || undefined },
-              h('button', { type: 'button', style: layerButton, 'aria-pressed': mark.id === selected, onClick: () => choose(mark.id) },
-                h(TOOL_ICONS[mark.tool], { size: 16, 'aria-hidden': true }),
-                h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, name)),
-              h(Tooltip, { label: t('removeLayer'), side: 'bottom', delayMs: 300, portal: true },
-                h(Button, { type: 'button', size: 'sm', style: { ...square, width: '24px', height: '24px' },
-                  'aria-label': `${t('removeLayer')}: ${name}`, onClick: () => remove(mark.id) },
-                h(IconTrashOutlineRegular, { size: 14, 'aria-hidden': true })))))))
-    }
-
     function IconButton({ label, icon, keys, ...props }) {
       return h(Tooltip, { label, side: 'bottom', delayMs: 300, portal: true, shortcutKeys: keys },
         h(Button, { type: 'button', size: 'sm', style: square, 'aria-label': label, ...props }, h(icon, { size: 16, 'aria-hidden': true })))
@@ -473,11 +440,10 @@ window.__ModuleLoader__.load({
     function Drawing({ bitmap, t, note, setNote, close, commit, error }) {
       const [tool, setTool] = useState('pen')
       const [text, setText] = useState('')
-      const [layersOpen, setLayersOpen] = useState(true)
+      const [, render] = useReducer(n => n + 1, 0)
       const [cursor, setCursor] = useState('default')
       const [pending, setPending] = useState(false)
       const [encodeError, setEncodeError] = useState(false)
-      const [, render] = useReducer(n => n + 1, 0)
       const base = useRef(null)
       const inkLayer = useRef(null)
       const chrome = useRef(null)
@@ -542,10 +508,6 @@ window.__ModuleLoader__.load({
         doc.current.marks = before.filter(mark => mark.id !== id)
         record(before)
         update({ selected: undefined })
-      }
-      const choose = (id) => {
-        setTool('select')
-        update({ selected: id })
       }
       const pickTool = (name) => {
         setTool(name)
@@ -703,21 +665,19 @@ window.__ModuleLoader__.load({
               disabled: past.length === 0 || pending, onClick: undo }),
             h(IconButton, { label: t('redo'), icon: IconRedoOutlineRegular, keys: mac ? ['⇧', '⌘', 'Z'] : ['Ctrl', 'Y'],
               disabled: future.length === 0 || pending, onClick: redo }),
-            h(IconButton, { label: t('layers'), icon: IconLayersOutlineRegular, variant: layersOpen ? 'toolbar' : 'ghost',
-              'aria-pressed': layersOpen, onClick: () => setLayersOpen(open => !open) }))),
+            h(IconButton, { label: t('deleteMark'), icon: IconTrashOutlineRegular, keys: ['⌫'],
+              disabled: selected === undefined || pending, onClick: () => remove(selected) }))),
         tool === 'text' && h(Input, { placeholder: t('textHint'), 'aria-label': t('textHint'), value: text,
           onChange: event => setText(event.target.value) }),
-        h('div', { style: { display: 'grid', gridTemplateColumns: layersOpen ? 'minmax(0, 1fr) 184px' : 'minmax(0, 1fr)', gap: '12px' } },
-          // Explicit width and height (not aspect-ratio over a percentage) so the grid row holds the whole canvas.
-          h('div', { style: stage },
-            h('div', { style: { ...frameStyle, ...fitted(bitmap) } },
-              h('canvas', { ref: showBase, width: bitmap.width, height: bitmap.height, style: { display: 'block', width: '100%', height: '100%' } }),
-              h('canvas', { ref: inkLayer, width: bitmap.width, height: bitmap.height, 'aria-hidden': true, style: { ...layer, pointerEvents: 'none' } }),
-              h('canvas', { ref: chrome, width: bitmap.width, height: bitmap.height, role: 'img', 'aria-label': t('canvas'),
-                style: { ...layer, touchAction: 'none', cursor: tool === 'select' ? cursor : tool === 'text' ? 'text' : 'crosshair' },
-                onPointerDown: down, onPointerMove: move, onPointerUp: event => end(event, true), onPointerCancel: event => end(event, false),
-                onLostPointerCapture: event => end(event, false) }))),
-          layersOpen && h(Layers, { t, marks, selected, choose, remove })),
+        // Explicit width and height (not aspect-ratio over a percentage) so the grid row holds the whole canvas.
+        h('div', { style: stage },
+          h('div', { style: { ...frameStyle, ...fitted(bitmap) } },
+            h('canvas', { ref: showBase, width: bitmap.width, height: bitmap.height, style: { display: 'block', width: '100%', height: '100%' } }),
+            h('canvas', { ref: inkLayer, width: bitmap.width, height: bitmap.height, 'aria-hidden': true, style: { ...layer, pointerEvents: 'none' } }),
+            h('canvas', { ref: chrome, width: bitmap.width, height: bitmap.height, role: 'img', 'aria-label': t('canvas'),
+              style: { ...layer, touchAction: 'none', cursor: tool === 'select' ? cursor : tool === 'text' ? 'text' : 'crosshair' },
+              onPointerDown: down, onPointerMove: move, onPointerUp: event => end(event, true), onPointerCancel: event => end(event, false),
+              onLostPointerCapture: event => end(event, false) }))),
         h(Notes, { t, value: note, change: setNote, close, submit: save }),
         (error || encodeError) && h(Status, { t, message: error || 'encodeError', error: true }),
         h('div', { style: { ...tools, justifyContent: 'end', gap: '8px' } },
