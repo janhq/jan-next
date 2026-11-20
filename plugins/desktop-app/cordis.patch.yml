@@ -71,6 +71,10 @@
     - id: jan-annotate
       name: '@janhq/jan-annotate'
 
+    # System notifications when a chat, including a scheduled run, finishes, fails or waits for you.
+    - id: jan-notifications
+      name: '@janhq/jan-notifications'
+
     # Personalize first-run settings for every desktop user.
     - id: jan-onboarding
       name: '@janhq/jan-onboarding'
