@@ -59,12 +59,19 @@ window.__ModuleLoader__.load({
               }
               const wanted = preferences()
               if (bridge === undefined || !wanted.enabled || !wanted[kind]) return
-              if (isMain(sessionId) && visible() && document.hasFocus()) return
-              const id = `${kind}:${++serial}`
-              targets.set(id, sessionId)
-              if (targets.size > MAX_TARGETS) targets.delete(targets.keys().next().value)
-              bridge.show({ id, title: t(`${kind}.title`), body: t(`${kind}.body`, { name }) })
-                .catch(error => { logger.warn('could not show a desktop notification', error) })
+              const show = () => {
+                const id = `${kind}:${++serial}`
+                targets.set(id, sessionId)
+                if (targets.size > MAX_TARGETS) targets.delete(targets.keys().next().value)
+                bridge.show({ id, title: t(`${kind}.title`), body: t(`${kind}.body`, { name }) })
+                  .catch(error => { logger.warn('could not show a desktop notification', error) })
+              }
+              if (!isMain(sessionId)) { show(); return }
+              // The open chat notifies only while the native window is hidden, minimized or unfocused.
+              bridge.windowActive().then((active) => { if (!active) show() }, (error) => {
+                logger.warn('could not read the window state', error)
+                show()
+              })
             },
           })
           ctx.effect(() => {

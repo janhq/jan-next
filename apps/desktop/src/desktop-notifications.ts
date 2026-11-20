@@ -1,6 +1,6 @@
 /** Native notifications requested by the product document; a click restores the window and names the notification. */
 
-import { Notification } from 'electron'
+import { Notification, type BrowserWindow } from 'electron'
 
 /** One notification the product document asks the shell to show. */
 export interface DesktopNotificationRequest {
@@ -40,6 +40,16 @@ export function parseDesktopNotificationRequest(request: unknown): DesktopNotifi
     return value
   }
   return { id: text(id, 'id', MAX_ID_LENGTH), title: text(title, 'title', MAX_TITLE_LENGTH), body: text(body, 'body', MAX_BODY_LENGTH) }
+}
+
+/**
+ * Whether the user is looking at the window. Electron's renderer keeps `document.visibilityState` visible and
+ * `document.hasFocus()` true for a minimized Linux window, so only the native state answers this.
+ * @param window - the main window.
+ * @returns whether it is shown, not minimized, and focused.
+ */
+export function isWindowActive(window: Pick<BrowserWindow, 'isVisible' | 'isMinimized' | 'isFocused'>): boolean {
+  return window.isVisible() && !window.isMinimized() && window.isFocused()
 }
 
 /** Owns the shown notifications; a notification with an id already shown replaces the earlier one. */
