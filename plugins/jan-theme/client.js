@@ -1476,6 +1476,9 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           scope.slots.inject('settings.general.item', () => scope.slots.register({ name: 'settings.general.item', id: 'jt-navigation-buttons', order: 11.4, locale: 'jan-theme' }, NavigationButtonsRow))
           scope.slots.inject('settings.section', () => scope.slots.register({ name: 'settings.section', id: 'jt-mcp', order: 30, label: () => t('section.mcp'), locale: 'jan-theme' }, () => h(AgentSettings, { key: 'mcp' })))
           scope.slots.inject('settings.section', () => scope.slots.register({ name: 'settings.section', id: 'jt-skills', order: 31, label: () => t('section.skills'), locale: 'jan-theme' }, () => h(AgentSettings, { skills: true, key: 'skills' })))
+          // Customize groups Plugins, Skills and Connectors as tabs of one page, as Settings keeps them as sections.
+          scope.slots.inject('plugins.tab', () => scope.slots.register({ name: 'plugins.tab', id: 'jt-skills', order: 10, label: () => t('section.skills'), locale: 'jan-theme' }, () => h('div', { className: 'jt-customize-tab' }, h(AgentSettings, { skills: true, key: 'skills' }))))
+          scope.slots.inject('plugins.tab', () => scope.slots.register({ name: 'plugins.tab', id: 'jt-connectors', order: 11, label: () => t('tab.connectors'), locale: 'jan-theme' }, () => h('div', { className: 'jt-customize-tab' }, h(AgentSettings, { key: 'mcp' }))))
         })
         // Distinct nav glyphs: the settings dialog falls back to the gear for ids it does not know.
         for (const [id, Icon] of [['jt-mcp', IconToolOutlineMedium], ['jt-skills', IconSkillOutlineMedium]]) {
@@ -1575,7 +1578,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.chat': '{count} chat', 'projects.chats': '{count} chats',
               'projects.updated': 'updated {ago} ago',
               'projects.addFailed': 'Could not add the project: {reason}',
-              'section.mcp': 'MCP Servers', 'section.skills': 'Skills',
+              'section.mcp': 'MCP Servers', 'section.skills': 'Skills', 'tab.connectors': 'Connectors',
               'palette.title': 'Search', 'palette.placeholder': 'Search chats, artifacts, projects and actions',
               'palette.filter': 'Filter results', 'palette.all': 'All', 'palette.recents': 'Recents', 'palette.actions': 'Actions',
               'palette.goTo': 'Go to {page}', 'palette.nothing': 'Nothing here yet', 'palette.noResults': 'No results for “{query}”',
@@ -1641,7 +1644,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.empty': '还没有项目。从本机的文件夹创建一个。',
               'projects.chat': '{count} 个对话', 'projects.chats': '{count} 个对话',
               'projects.updated': '{ago}前更新',
-              'section.mcp': 'MCP 服务器', 'section.skills': '技能',
+              'section.mcp': 'MCP 服务器', 'section.skills': '技能', 'tab.connectors': '连接器',
               scheduled: '定时任务', 'palette.title': '搜索', 'palette.placeholder': '搜索对话、成果、项目和操作',
               hub: '模型', customize: '自定义',
               editSidebar: '编辑侧边栏…', 'editSidebar.title': '编辑侧边栏', 'editSidebar.done': '完成',
@@ -1710,7 +1713,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.empty': 'プロジェクトはまだありません。このコンピューター上のフォルダーから作成してください。',
               'projects.chat': '{count} 件のチャット', 'projects.chats': '{count} 件のチャット',
               'projects.updated': '{ago}前に更新',
-              'section.mcp': 'MCP サーバー', 'section.skills': 'スキル',
+              'section.mcp': 'MCP サーバー', 'section.skills': 'スキル', 'tab.connectors': 'コネクタ',
               scheduled: 'スケジュール', 'palette.title': '検索', 'palette.placeholder': 'チャット、成果物、プロジェクト、操作を検索',
               hub: 'モデル', customize: 'カスタマイズ',
               editSidebar: 'サイドバーを編集…', 'editSidebar.title': 'サイドバーを編集', 'editSidebar.done': '完了',
@@ -1779,7 +1782,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.empty': 'Aún no hay proyectos. Crea uno a partir de una carpeta de este equipo.',
               'projects.chat': '{count} chat', 'projects.chats': '{count} chats',
               'projects.updated': 'actualizado hace {ago}',
-              'section.mcp': 'Servidores MCP', 'section.skills': 'Habilidades',
+              'section.mcp': 'Servidores MCP', 'section.skills': 'Habilidades', 'tab.connectors': 'Conectores',
               scheduled: 'Programadas', 'palette.title': 'Buscar', 'palette.placeholder': 'Buscar chats, artefactos, proyectos y acciones',
               hub: 'Modelos', customize: 'Personalizar',
               editSidebar: 'Editar barra lateral…', 'editSidebar.title': 'Editar barra lateral', 'editSidebar.done': 'Listo',
@@ -1848,7 +1851,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.empty': 'Aucun projet pour le moment. Créez-en un à partir d’un dossier de cet ordinateur.',
               'projects.chat': '{count} discussion', 'projects.chats': '{count} discussions',
               'projects.updated': 'mis à jour il y a {ago}',
-              'section.mcp': 'Serveurs MCP', 'section.skills': 'Compétences',
+              'section.mcp': 'Serveurs MCP', 'section.skills': 'Compétences', 'tab.connectors': 'Connecteurs',
               scheduled: 'Planifiées', 'palette.title': 'Rechercher', 'palette.placeholder': 'Rechercher des discussions, artefacts, projets et actions',
               hub: 'Modèles', customize: 'Personnaliser',
               editSidebar: 'Modifier la barre latérale…', 'editSidebar.title': 'Modifier la barre latérale', 'editSidebar.done': 'Terminé',
@@ -1917,7 +1920,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.empty': 'Noch keine Projekte. Erstelle eines aus einem Ordner auf diesem Computer.',
               'projects.chat': '{count} Chat', 'projects.chats': '{count} Chats',
               'projects.updated': 'vor {ago} aktualisiert',
-              'section.mcp': 'MCP-Server', 'section.skills': 'Skills',
+              'section.mcp': 'MCP-Server', 'section.skills': 'Skills', 'tab.connectors': 'Konnektoren',
               scheduled: 'Geplant', 'palette.title': 'Suchen', 'palette.placeholder': 'Chats, Artefakte, Projekte und Aktionen suchen',
               hub: 'Modelle', customize: 'Anpassen',
               editSidebar: 'Seitenleiste bearbeiten…', 'editSidebar.title': 'Seitenleiste bearbeiten', 'editSidebar.done': 'Fertig',
@@ -1986,7 +1989,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.empty': 'Проектов пока нет. Создайте проект из папки на этом компьютере.',
               'projects.chat': 'Чатов: {count}', 'projects.chats': 'Чатов: {count}',
               'projects.updated': 'обновлено {ago} назад',
-              'section.mcp': 'MCP-серверы', 'section.skills': 'Навыки',
+              'section.mcp': 'MCP-серверы', 'section.skills': 'Навыки', 'tab.connectors': 'Коннекторы',
               scheduled: 'Запланированные', 'palette.title': 'Поиск', 'palette.placeholder': 'Поиск чатов, артефактов, проектов и действий',
               hub: 'Модели', customize: 'Настроить',
               editSidebar: 'Изменить боковую панель…', 'editSidebar.title': 'Изменить боковую панель', 'editSidebar.done': 'Готово',
@@ -2055,7 +2058,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.empty': 'Nenhum projeto ainda. Crie um a partir de uma pasta deste computador.',
               'projects.chat': '{count} conversa', 'projects.chats': '{count} conversas',
               'projects.updated': 'atualizado há {ago}',
-              'section.mcp': 'Servidores MCP', 'section.skills': 'Habilidades',
+              'section.mcp': 'Servidores MCP', 'section.skills': 'Habilidades', 'tab.connectors': 'Conectores',
               scheduled: 'Agendadas', 'palette.title': 'Pesquisar', 'palette.placeholder': 'Pesquisar conversas, artefatos, projetos e ações',
               hub: 'Modelos', customize: 'Personalizar',
               editSidebar: 'Editar barra lateral…', 'editSidebar.title': 'Editar barra lateral', 'editSidebar.done': 'Concluído',
