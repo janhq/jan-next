@@ -230,6 +230,14 @@ function llamaWorkerEnvironment(): NodeJS.ProcessEnv {
   return worker === undefined ? {} : { JAN_LLAMA_WORKER: worker }
 }
 
+/** @returns the Host's `JAN_AGENT_DESKTOP`: the bundled computer-use CLI; development keeps the caller's value or PATH. */
+function agentDesktopEnvironment(): NodeJS.ProcessEnv {
+  const executable = app.isPackaged
+    ? join(process.resourcesPath, 'runtime', 'agent-desktop', process.platform === 'win32' ? 'agent-desktop.exe' : 'agent-desktop')
+    : process.env.JAN_AGENT_DESKTOP
+  return executable === undefined ? {} : { JAN_AGENT_DESKTOP: executable }
+}
+
 function developmentPrimaryRuntime(): string {
   const directory = process.env.JAN_DESKTOP_PRIMARY_RUNTIME_DIR
   if (directory === undefined || directory === '') {
@@ -554,7 +562,9 @@ async function main(): Promise<void> {
   const backend = new DesktopBackendController((onFailure) => {
     const hostInspectPort = developmentHostInspectPort(development)
     const host = new DesktopHostProcess(resources.node, resources.jan, activeProject,
-      hostInspectPort, { ...hostEnvironment, ...llamaWorkerEnvironment(), JAN_CLIENT_VERSION: desktopClientVersion() }, onFailure,
+      hostInspectPort,
+      { ...hostEnvironment, ...llamaWorkerEnvironment(), ...agentDesktopEnvironment(), JAN_CLIENT_VERSION: desktopClientVersion() },
+      onFailure,
       primaryRuntime,
       resources, (next) => { platformView.setSession(next) }, (record) => {
         operationJournal ??= new OperationJournal(join(app.getPath('userData'), 'plugin-operations'), {

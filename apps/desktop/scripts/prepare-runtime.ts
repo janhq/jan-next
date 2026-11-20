@@ -10,6 +10,7 @@ import extractZip from 'extract-zip'
 import { readPrimaryRuntime } from '../../../packages/skill/tool-workspace-dependencies/src/index.ts'
 import { desktopElectronExecutable, desktopTargetPlatform, resolveDesktopBuildTarget, resolveDesktopTargetBuildPaths, type DesktopBuildPlatform } from './desktop-build-paths.mjs'
 import { packagingStep } from './packaging-step.mjs'
+import { prepareAgentDesktop } from './prepare-agent-desktop.ts'
 import { preparePrimaryRuntime } from './prepare-primary-runtime.ts'
 import { prepareDesktopCli } from './prepare-cli.ts'
 import { prepareCommandLink } from './prepare-command-link.ts'
@@ -67,6 +68,8 @@ async function main(): Promise<void> {
   const { pnpm } = await readPrimaryRuntime(join(RUNTIME_ROOT, 'primary-runtime'))
   if (pnpm === undefined) throw new Error('desktop runtime: primary-runtime manifest has no pnpm version')
   await packagingStep(process.env.JAN_DESKTOP_PACKAGING_RUN_DIR, 'prepare:cli', async () => { prepareCli(target) })
+  await packagingStep(process.env.JAN_DESKTOP_PACKAGING_RUN_DIR, 'prepare:agent-desktop',
+    async () => { prepareAgentDesktop(target, join(RUNTIME_ROOT, 'agent-desktop')) })
   writeFileSync(join(RUNTIME_ROOT, 'versions.json'), `${JSON.stringify({
     schemaVersion: 1,
     node: nodeVersion,

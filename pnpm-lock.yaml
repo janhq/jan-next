@@ -791,6 +791,9 @@ importers:
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
+      agent-desktop:
+        specifier: 1.0.2
+        version: 1.0.2
       app-builder-lib:
         specifier: 26.17.0
         version: 26.17.0(patch_hash=b70dc2a2a78ffabb80a4f14fafc7c103237f2b0a207e1f296fa1c1387ea29348)(dmg-builder@26.17.0)(electron-builder-squirrel-windows@26.17.0)(supports-color@9.4.0)
@@ -18155,12 +18158,12 @@ importers:
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
+
   plugins/jan-onboarding:
     dependencies:
       '@janhq/schemastery':
         specifier: link:../../vendor/schemastery
         version: link:../../vendor/schemastery
-
 
   plugins/jan-theme:
     dependencies:
@@ -22422,6 +22425,13 @@ packages:
   agent-base@9.0.0:
     resolution: {integrity: sha512-TQf59BsZnytt8GdJKLPfUZ54g/iaUL2OWDSFCCvMOhsHduDQxO8xC4PNeyIkVcA5KwL2phPSv0douC0fgWzmnA==}
     engines: {node: '>= 20'}
+
+  agent-desktop@1.0.2:
+    resolution: {integrity: sha512-k2Qi3f0y1U60YaJOw1dob3EO55P/DuH4HK3WKdI9sMZLjVxpGZAzuG50rIWuIqS0JIVy07g+0pp9Of2JDjTX0w==}
+    engines: {node: '>=18'}
+    cpu: [arm64, x64]
+    os: [darwin, win32, linux]
+    hasBin: true
 
   agentkeepalive@4.6.0:
     resolution: {integrity: sha512-kja8j7PjmncONqaTsB8fQ+wE2mSU2DJ9D4XKoJ5PFWIdRMa6SLSN1ff4mOr4jCbfRSsxR4keIiySJU0N9T5hIQ==}
@@ -29898,6 +29908,8 @@ snapshots:
   agent-base@7.1.4: {}
 
   agent-base@9.0.0: {}
+
+  agent-desktop@1.0.2: {}
 
   agentkeepalive@4.6.0:
     dependencies:
