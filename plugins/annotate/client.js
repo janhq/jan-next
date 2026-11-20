@@ -12,12 +12,15 @@ window.__ModuleLoader__.load({
     const SHELL_SLOTS = ['sidebar.right.pane.tab.actions']
     const INLINE_SLOTS = ['conversation.image.preview.actions', 'conversation.chat.image.actions', 'deliverables.preview.actions',
       'deliverables.live.actions']
+    // Pick and grab hand the agent a selector and HTML, which only mean something for a web page or code;
+    // slides, CAD, images and PDFs offer just the whole-surface actions.
     const ACTIONS = [
-      { id: 'pick', icon: IconListPenOutlineRegular, binding: pickBinding },
-      { id: 'grab', icon: IconInspectOutlineRegular, binding: grabBinding },
+      { id: 'pick', icon: IconListPenOutlineRegular, binding: pickBinding, element: true },
+      { id: 'grab', icon: IconInspectOutlineRegular, binding: grabBinding, element: true },
       { id: 'draw', icon: IconEditOutlineRegular },
       { id: 'attach', icon: IconPaperclipOutlineRegular },
     ]
+    const CODE = '[data-code-preview], [data-textpreview-plain]'
     const square = { width: '28px', padding: 0, justifyContent: 'center' }
 
     function visible(element) {
@@ -27,8 +30,30 @@ window.__ModuleLoader__.load({
     }
 
     function targetOf(element) {
-      // A document preview may expose its enclosing scrollport instead of the replaced visual.
-      return element?.querySelector('iframe, webview, img:only-child') ?? element
+      // A tab or viewer exposes its whole body; draw on its framed page or previewed image, never on an icon inside it.
+      return element?.querySelector('iframe, webview, [data-image-preview] img') ?? element
+    }
+
+    function hasElements(element) {
+      const target = targetOf(element)
+      if (!target) return false
+      if (target.localName === 'iframe' || target.localName === 'webview') return true
+      return target.matches(CODE) || target.querySelector(CODE) !== null
+    }
+
+    function useElements(getSurface) {
+      const [elements, setElements] = useState(false)
+      useEffect(() => {
+        const surface = getSurface()
+        if (!surface) return undefined
+        const update = () => { setElements(hasElements(surface)) }
+        update()
+        // A tab mounts its body after the strip renders, and one tab can switch between a page and a file.
+        const observer = new MutationObserver(update)
+        observer.observe(surface, { childList: true, subtree: true })
+        return () => { observer.disconnect() }
+      }, [getSurface])
+      return elements
     }
 
     function directImage(element) {
@@ -56,6 +81,7 @@ window.__ModuleLoader__.load({
       const current = useRef()
       const [view, setView] = useState()
       const [error, setError] = useState(false)
+      const elements = useElements(getSurface)
       const close = () => {
         current.current?.abort()
         current.current = undefined
@@ -95,7 +121,8 @@ window.__ModuleLoader__.load({
       latest.current = start
       useEffect(() => {
         if (sessionId === undefined) return undefined
-        const off = watch({ getSurface: () => targetOf(getSurface()), compact, start: () => latest.current('pick') })
+        const off = watch({ getSurface: () => targetOf(getSurface()), elements: () => hasElements(getSurface()), compact,
+          start: () => latest.current('pick') })
         return () => { off(); current.current?.abort() }
       }, [getSurface, watch, compact, sessionId])
       if (sessionId === undefined) return null
@@ -103,7 +130,8 @@ window.__ModuleLoader__.load({
       // Every action is one visible control: nothing hides behind a menu.
       return h('span', { role: 'group', 'aria-label': t('title'),
         style: { display: 'inline-flex', alignItems: 'center', gap: '2px', alignSelf: 'start' } },
-        ACTIONS.map(action => h(Tooltip, { key: action.id, label: t(action.id), side: 'bottom', delayMs: 300, portal: true,
+        ACTIONS.filter(action => elements || !action.element).map(action => h(Tooltip, {
+          key: action.id, label: t(action.id), side: 'bottom', delayMs: 300, portal: true,
           shortcutKeys: action.binding && getKeys(action.binding) },
         h(Button, { type: 'button', variant: compact ? 'toolbar' : 'ghost', size: 'sm', style: square,
           'aria-label': t(action.id), 'aria-busy': view?.pending === action.id || undefined,
@@ -161,7 +189,7 @@ window.__ModuleLoader__.load({
             let target
             for (const item of surfaces) {
               const element = item.getSurface()
-              if (!visible(element)) continue
+              if (!item.elements() || !visible(element)) continue
               if (element.contains(context.target)) target = item
               if (!item.compact || candidates.length === 0) candidates.push(item)
             }
