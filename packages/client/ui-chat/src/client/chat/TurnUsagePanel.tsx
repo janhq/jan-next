@@ -49,7 +49,10 @@ export function TurnUsagePanel({ usage, timing, t }: TurnUsagePanelProps) {
   const cacheHit = usage.cacheReadTokens === undefined
     ? null
     : formatCacheHitPercent(usage.cacheReadTokens, usage.totalTokens - usage.outputTokens, 1)
-  const routes = usage.routes?.map(route => `${route.provider}/${route.model}`).join(', ') ?? ''
+  // A routed model id can already carry its provider (tokamak + tokamak/auto); name it once.
+  const routes = usage.routes?.map(route => route.model.startsWith(`${route.provider}/`)
+    ? route.model
+    : `${route.provider}/${route.model}`).join(', ') ?? ''
   const ttft = timing?.ttftMs === undefined ? null : formatDuration(timing.ttftMs, t)
   const speed = timing?.tokensPerSecond === undefined
     ? null
