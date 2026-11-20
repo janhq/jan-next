@@ -69,6 +69,8 @@ export function apply(ctx, config) {
     yield ctx.on('tools/pre-execute', async (exec, next) => {
       const decision = await next()
       if (!names.has(exec.name) || decision.kind !== 'allow') return decision
+      // Full access sets the Session's approval policy to never, which rejects every ask; it already grants this call.
+      if (exec.agent !== undefined && approvalPolicy(ctx, exec.agent.session) === 'never') return decision
       return { kind: 'ask', reason: 'Jan Browser wants to read or control your connected Chrome tab.' }
     })
     if (config.proactiveCapture) {
@@ -130,4 +132,15 @@ function isImage(block) {
 /** @param {unknown} block @returns {block is { type: 'text', text: string }} */
 function isText(block) {
   return block !== null && typeof block === 'object' && 'type' in block && block.type === 'text' && 'text' in block && typeof block.text === 'string'
+}
+
+/**
+ * Read the Session's effective approval policy without requiring the approval service.
+ * @param {Context} ctx - plugin context.
+ * @param {Agent['session']} session - Session asking for the call.
+ * @returns {string | undefined} The policy, or undefined when no approval service is mounted.
+ */
+function approvalPolicy(ctx, session) {
+  const approval = ctx.get('approval')
+  return approval === undefined ? undefined : approval.overrideOf(session) ?? approval.config.policy ?? 'ask'
 }
