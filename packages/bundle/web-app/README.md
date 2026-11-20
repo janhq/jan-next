@@ -90,6 +90,8 @@ When you launch `jan --profile web` over SSH, the URL line still prints but the 
 
 Each browser session selects a shipped preset (`standard` by default). The Agent presets settings page changes the default and edits preset child plugins; saves persist in `$JAN_HOME/profiles/web/cordis.patch.yml`. Standard and Creator enable the plugin-management tool only when the Host provides an editable profile.
 
+The `standard`, `ptc`, and `cordis` personas ask the agent to save a visual result (an HTML page, game, chart, diagram, SVG, or image) as one file and `present` only that file, because the chat previews a lone HTML, SVG, or image delivery inline under the reply.
+
 -----
 
 <a id="understand-the-implementation"></a>
@@ -161,6 +163,10 @@ Two managed-environment variable lines; constant per process.
 #### KV Cache effect
 
 None; the plugin contributes no system-prompt text.
+
+### Persona guidance for visual results
+
+The `standard`, `ptc`, and `cordis` persona prefixes add two sentences (about 50 tokens) asking for a lone `present` of visual results. They are constant per preset, so they stay in the cached prefix.
 
 ## Known Limitations and Deferred Work
 
