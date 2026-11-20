@@ -518,6 +518,17 @@ describe('draft documents in the input shell', () => {
     expect(shell.draftSnapshot).toEqual({ text: 'fresh', references: [] })
   })
 
+  it('does not append a prompt the draft already contains', () => {
+    const shell = makeShell()
+    expect(shell.requestDraftInitialization({ prompt: '/create-plugin Build a timer. ', whenDraftExists: 'append' })).toBe('applied')
+    shell.setDraft(documentOf(`${shell.snapshot.draft}\nwith a reset button`))
+    const typed = shell.draftSnapshot
+    expect(shell.requestDraftInitialization({ prompt: '/create-plugin Build a timer. ', whenDraftExists: 'append' })).toBe('applied')
+    expect(shell.draftSnapshot).toEqual(typed)
+    expect(shell.requestDraftInitialization({ prompt: 'Build a clock.', whenDraftExists: 'append' })).toBe('applied')
+    expect(shell.snapshot.draft).toBe(`${typed.text}\nBuild a clock.`)
+  })
+
   it('appends to an attachment-only draft as its whole text', () => {
     const shell = makeShell()
     const attachment = 'draft-image' as DraftAttachmentId

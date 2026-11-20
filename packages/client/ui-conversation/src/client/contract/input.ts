@@ -288,8 +288,9 @@ export interface DraftInitializationOptions {
   /**
    * Handling of a target that already has text or attachments: `replace` swaps the text and
    * inline references for the prompt (or clears them without one), `append` adds the prompt
-   * as new paragraphs after the existing text, and `keep` leaves the draft unchanged. Omitted,
-   * it is `replace` when `clearPreviousDraft` is true and `keep` otherwise.
+   * as new paragraphs after the existing text unless the text already contains it, and `keep`
+   * leaves the draft unchanged. Omitted, it is `replace` when `clearPreviousDraft` is true and
+   * `keep` otherwise.
    */
   readonly whenDraftExists?: 'replace' | 'append' | 'keep'
 }

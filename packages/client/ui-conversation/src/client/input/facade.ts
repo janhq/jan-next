@@ -317,6 +317,9 @@ export class SessionInputShell implements SessionInput {
       return 'applied'
     }
     if (whenDraftExists === 'keep') return 'preserved'
+    // A repeated click on the same entry point must not stack its prompt again.
+    const prompt = options.prompt.trim()
+    if (prompt !== '' && this.snapshot.draft.includes(prompt)) return 'applied'
     this.draftEditor.appendDraft(options.prompt)
     return 'applied'
   }
