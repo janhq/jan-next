@@ -58,7 +58,7 @@ import css from './SidebarRight.module.css'
 type Store = PropsStore<ReturnType<typeof createSidebarRightStore>>
 
 /** The child seats this component renders. */
-type Children = PropsRenderSlots<'sidebar.right.pane.tab' | 'sidebar.right.pane.tab.title'>
+type Children = PropsRenderSlots<'sidebar.right.pane.tab' | 'sidebar.right.pane.tab.title' | 'sidebar.right.pane.tab.actions'>
 
 /** What the panel reports to the frame: drawn or not, and whether it wants a track. */
 export interface SidebarRightPresentation {
@@ -250,6 +250,22 @@ function titlesFor(panel: PanelProps): TabRenderer {
   return tab => <TabSlot key={tab.id} {...panel} tab={tab} seat="sidebar.right.pane.tab.title" fallback={tab.title} />
 }
 
+/**
+ * A pane's controls for the tab it shows; an entry finds what the tab rendered
+ * through `getSurface`, one stable reader per tab so an entry's effects keyed on
+ * it survive re-renders.
+ */
+function tabActionsFor(panel: PanelProps, root: RefObject<HTMLDivElement>, readers: Map<TabId, () => Element | null>): TabRenderer {
+  return (tab) => {
+    let getSurface = readers.get(tab.id)
+    if (getSurface === undefined) {
+      getSurface = () => root.current?.querySelector(`div[data-sidebar-right-tab="${CSS.escape(tab.id)}"]`) ?? null
+      readers.set(tab.id, getSurface)
+    }
+    return panel.renderSlot('sidebar.right.pane.tab.actions', { tab, getSurface })
+  }
+}
+
 /** Expand-to-viewport glyph from the shared product artwork. */
 function FullscreenGlyph(): ReactNode {
   return (
@@ -314,6 +330,7 @@ function SidebarPanel(panel: PanelProps & { width: number; panelRef: RefObject<H
   const { expanded } = surface.layout
   const types = panel.useTabTypes(value => value)
   const flash = panel.useFlash(value => value)
+  const [surfaceReaders] = useState(() => new Map<TabId, () => Element | null>())
   // Each request plays at most once, and only on screen: the request current
   // when the panel mounts, or one arriving while its Session is hidden, is
   // already past. Hiding the Session ends a glow in progress.
@@ -361,6 +378,7 @@ function SidebarPanel(panel: PanelProps & { width: number; panelRef: RefObject<H
           labels={dockLabels(t, panel.shortcuts.find(entry => entry.id === 'pane.split'), panel.shortcuts.find(entry => entry.id === 'page.close'))}
           renderTab={bodiesFor(panel)}
           renderTabTitle={titlesFor(panel)}
+          renderTabActions={tabActionsFor(panel, panelRef, surfaceReaders)}
           active={panel.active}
           keepMounted={tab => types.find(type => type.kind === tab.kind)?.keepMounted === true}
           getTabTriggerProps={panel.getTabTriggerProps} tabMenuOpen={panel.tabMenuOpen}
