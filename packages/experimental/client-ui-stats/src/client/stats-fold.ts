@@ -3,7 +3,7 @@
 import type { SessionEventLike } from '@janhq/jan-api-session-controller/client'
 import type { ImageAttachmentRef } from '@janhq/jan-attachment'
 import type { AssistantMessage, ContentBlock, StreamChunk, UserMessage } from '@janhq/jan-llm'
-import { assistantStreamFirstTokenTime } from '@janhq/jan-llm/assistant-stream'
+import { assistantStreamFirstTokenTime, measuredDecodeMs } from '@janhq/jan-llm/assistant-stream'
 // Type-only: the PTC event members this fold reads.
 import type {} from '@janhq/jan-tool-executor-ptc/types'
 import type {
@@ -646,8 +646,10 @@ export function stepMetrics(state: StatsStepState): StatsStepMetrics {
   const ttft = isNumber(start) && isNumber(first) ? Math.max(0, first - start) : null
   const model = isNumber(start) && isNumber(message) ? Math.max(0, message - start) : null
   const decode = isNumber(first) && isNumber(message) ? Math.max(0, message - first) : null
-  const tps = isNumber(decode) && decode > 0 && isNumber(output) && output > 0
-    ? output / (decode / 1000)
+  // A burst-delivered step (a buffered Tool call) has no decode span to measure speed from.
+  const measured = isNumber(first) && isNumber(message) ? measuredDecodeMs(first, message) : undefined
+  const tps = measured !== undefined && isNumber(output) && output > 0
+    ? output / (measured / 1000)
     : null
   const settled = isNumber(message)
   const calls = callList(state.calls)

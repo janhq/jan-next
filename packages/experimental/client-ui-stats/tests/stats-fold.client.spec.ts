@@ -1198,8 +1198,8 @@ describe('step metric derivation', () => {
     const metrics = stepMetrics(stateOf({
       startTime: 1_000,
       firstTokenTime: 1_100,
-      messageTime: 1_500,
-      endTime: 2_000,
+      messageTime: 2_100,
+      endTime: 2_600,
       usage,
       toolPairs: 1,
       toolMs: 250,
@@ -1214,16 +1214,16 @@ describe('step metric derivation', () => {
       closeKind: 'interrupted',
     }))
     expect(metrics.ttft).toBe(100)
-    expect(metrics.model).toBe(500)
-    expect(metrics.decode).toBe(400)
-    expect(metrics.tps).toBeCloseTo(40 / 0.4)
+    expect(metrics.model).toBe(1_100)
+    expect(metrics.decode).toBe(1_000)
+    expect(metrics.tps).toBeCloseTo(40)
     expect(metrics.context).toBe(600)
     expect(metrics.output).toBe(40)
     expect(metrics.cacheRead).toBe(400)
     expect(metrics.cacheWrite).toBe(100)
     expect(metrics.cacheHit).toBeCloseTo(400 / 600)
     expect(metrics.tool).toBe(250)
-    expect(metrics.wall).toBe(1_000)
+    expect(metrics.wall).toBe(1_600)
     expect(metrics.aborted).toBe(false)
     expect(metrics.running).toBe(false)
     expect(metrics.interrupted).toBe(true)
@@ -1233,6 +1233,12 @@ describe('step metric derivation', () => {
     expect(metrics.images).toHaveLength(3)
     expect(metrics.closed).toBe(true)
     expect(metrics.closeKind).toBe('interrupted')
+  })
+
+  it('reports no throughput for a step whose tokens arrived in one burst', () => {
+    const metrics = stepMetrics(stateOf({ startTime: 1_000, firstTokenTime: 38_800, messageTime: 38_827, usage }))
+    expect(metrics.decode).toBe(27)
+    expect(metrics.tps).toBeNull()
   })
 
   it('reports a prompt marker through the same metric row', () => {
