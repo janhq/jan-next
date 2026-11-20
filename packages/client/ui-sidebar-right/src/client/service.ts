@@ -303,6 +303,12 @@ export interface ISidebarRight {
    */
   inlineViewer(address: string): InlineViewer
   /**
+   * The page a Turn's tool calls are changing, to show in place while they run.
+   * @param tools - the wire names of the Turn's tool calls.
+   * @returns an address `embed` draws, or undefined when no page follows those tools.
+   */
+  inlinePageForTools(tools: readonly string[]): string | undefined
+  /**
    * Draw the type that claims a resource into a container outside the column,
    * with the same body it shows in a pane. Only a Session's highest-ranked
    * embed is drawn; the others leave their containers empty.
@@ -823,6 +829,10 @@ export class SidebarRightController implements ISidebarRight {
 
   inlineViewer(address: string): InlineViewer {
     return this.inline.viewer(address)
+  }
+
+  inlinePageForTools(tools: readonly string[]): string | undefined {
+    return this.inline.pageForTools(tools)
   }
 
   embed(sessionId: SessionId, address: string, container: HTMLElement, rank: number): () => void {
