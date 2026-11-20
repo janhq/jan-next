@@ -35,6 +35,7 @@ These packages come from DeepSeek Harness bundle repositories, not from `cordis-
 | Directory | npm name | Upstream name | Version | Upstream repo | Commit |
 |---|---|---|---|---|---|
 | `dsh-superagent/` | `@janhq/dsh-superagent` | `dsh-superagent` | 0.1.0 | https://github.com/deepseek-ai/dsh-superagent-prototype | `8c32a9dc5d72c033816c6a8110b37f40cf94fba4` |
+| `dsh-generative-ui/` | `@janhq/dsh-generative-ui` | `dsh-generative-ui` | 0.2.0 | https://github.com/MindLab-Research/dsh-generative-ui | `ed2db0a5d1f90038a5b34b1ca99ebc2b15d09c51` |
 
 ## Local modifications
 
@@ -70,6 +71,10 @@ Keep this log exhaustive — every divergence from upstream must be listed. Each
   - `src/app/http.ts`: `sameOrigin` refuses requests while the web server has no port, which Jan types as optional.
   - Tests: `role-models.spec.ts` covers the append-only seeding; transcript and controller fixtures drop `inspect` and serve history from the persistence reader; `runtime.spec.ts` brands its Session id; `bundle-patch.spec.ts` resolves `@janhq/cordis-plugin-include`; the panel fixtures drop `mode`.
 - **V29 · Super Agent repository-independent queue**: `dsh-superagent/src/queue.ts` exposes the vendored SQLite store, passes, effects, idempotent agent delivery and outbox for trusted local event sources without starting GitHub deployment or a router session. The shared outbox uses an injected transport; the existing repository Runtime supplies the same Source Registry checks and delivery as before. `tests/queue.spec.ts` covers dedupe, single-slot batching, pause and restart recovery.
+- **V30 · `dsh-generative-ui/` on Jan's build**: `src/`, `skill/`, `types/`, `LICENSE`, `NOTICE` and `README.md` are upstream byte for byte. Upstream builds and tests with Bun (`bun:test`), so its tests, eval harness, site and Bun build script are not vendored.
+  - `package.json`: named `@janhq/dsh-generative-ui` and published as a release member with Jan's `repository`. It declares `jan.bundle` and `jan.client` (web platform, the injected client services the sources name), drops the `lib/types` export paths tsdown does not emit, aliases each `@deepseek-ai/*` dev dependency to its Jan workspace package, and uses the root's toolchain ranges.
+  - `tsdown.config.ts`: replaces `scripts/build.ts`. Both halves build in Jan's Host pass. The client is one CJS factory registered as `@janhq/dsh-generative-ui`: the shell's platform modules and injected `/client` services stay external, everything else is bundled without code splitting, `react-dom/server` resolves to its browser build, and React is built in production mode, as upstream's build pins.
+  - `cordis.patch.yml`: the inserted entry names its plugin `@janhq/dsh-generative-ui`, since Jan's Loader imports it by package name; the entry id is unchanged.
 
 ### Resolver adaptations
 
