@@ -187,8 +187,11 @@ function renderTab(
     })),
     configForm: <T,>(id: string): ConfigForm<T> => {
       const stub = stubConfigForm<T>()
-      stub.publish(forms[id]!.state as ConfigFormSnapshot<T>)
-      return { ...stub.scope, mutate: forms[id]!.mutate }
+      const form = forms[id]
+      // Like the real registry, an id with no form reads as an empty one.
+      if (form === undefined) return stub.scope
+      stub.publish(form.state as ConfigFormSnapshot<T>)
+      return { ...stub.scope, mutate: form.mutate }
     },
     renderSlot: (name, owner, opts) => {
       const body = bodies[`${name}:${opts?.only ?? opts?.entryKey ?? ''}`]
@@ -374,6 +377,16 @@ describe('PluginManagerPage', () => {
     setTabs([{ id: 'discover', label: 'Discover' }])
     fireEvent.click(screen.getByRole('tab', { name: 'Discover' }))
     expect(screen.getByRole('tabpanel', { name: 'Discover' })).toBeTruthy()
+  })
+
+  it('presents the page as Customize when the Host row asks, with Plugins as the first tab', () => {
+    const customize: ConfigPageForm = {
+      state: { status: 'ready', value: { customize: true }, base: {}, user: {}, revision: 0, writable: true }, mutate: vi.fn(),
+    }
+    renderTab({ packages: [pkg()] }, {}, {}, { 'ui-plugin-manager': customize }, [{ id: 'skills', label: 'Skills' }])
+    expect(screen.getByRole('heading', { level: 1, name: en.customizeTitle })).toBeTruthy()
+    expect(screen.queryByText(en.intro)).toBeNull()
+    expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual([en.pluginsTab, 'Skills'])
   })
 
   it('marks the bundle an install enabled without leaving a contributed tab', () => {
