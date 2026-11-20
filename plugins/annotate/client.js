@@ -2,7 +2,7 @@ window.__ModuleLoader__.load({
   id: '@janhq/jan-annotate',
   factory(require) {
     const React = require('react')
-    const { Button, Tooltip, IconListPenOutlineRegular, IconInspectOutlineRegular, IconEditOutlineRegular,
+    const { Button, Tooltip, IconListPenOutlineRegular, IconInspectOutlineRegular, IconPenOutlineRegular,
       IconPaperclipOutlineRegular } = require('@janhq/jan-client-ui-primitives')
     const { createElement: h, useEffect, useRef, useState } = React
     const id = 'jan-annotate'
@@ -17,7 +17,7 @@ window.__ModuleLoader__.load({
     const ACTIONS = [
       { id: 'pick', icon: IconListPenOutlineRegular, binding: pickBinding, element: true },
       { id: 'grab', icon: IconInspectOutlineRegular, binding: grabBinding, element: true },
-      { id: 'draw', icon: IconEditOutlineRegular },
+      { id: 'draw', icon: IconPenOutlineRegular },
       { id: 'attach', icon: IconPaperclipOutlineRegular },
     ]
     const CODE = '[data-code-preview], [data-textpreview-plain]'
