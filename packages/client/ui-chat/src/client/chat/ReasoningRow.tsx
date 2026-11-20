@@ -14,29 +14,22 @@ function firstLine(text: string): string {
   return newline === -1 ? text : text.slice(0, newline)
 }
 
-function latestCompletedParagraphFirstLine(text: string): string {
-  let summary = ''
-  let paragraphStart = 0
-  const separator = /\r?\n(?:[\t ]*\r?\n)+/g
-  while (true) {
-    const nextParagraph = separator.exec(text)
-    const paragraphEnd = nextParagraph === null ? text.length
-      : nextParagraph.index + nextParagraph[0].indexOf('\n')
-    const newline = text.indexOf('\n', paragraphStart)
-    if (newline !== -1 && newline <= paragraphEnd) {
-      const candidate = text.slice(paragraphStart, newline).trim()
-      if (candidate !== '') summary = candidate
-    }
-    if (nextParagraph === null) return summary
-    paragraphStart = nextParagraph.index + nextParagraph[0].length
+function latestNonBlankLine(text: string): string {
+  let end = text.length
+  while (end > 0) {
+    const newline = text.lastIndexOf('\n', end - 1)
+    const line = text.slice(newline + 1, end).replaceAll('**', '').trim()
+    if (line !== '') return line.replace(/\s+/g, ' ')
+    end = newline
   }
+  return ''
 }
 
 /**
  * Render one assistant reasoning block collapsed until the reader opens it. The
  * collapsed summary omits double-asterisk markers; expanded content renders
- * the complete Markdown with secondary typography. A streaming preview advances
- * when a paragraph's first line completes. Mode changes toggle CSS display without unmounting
+ * the complete Markdown with secondary typography. The streaming preview shows the latest
+ * non-blank line without waiting for a newline. Mode changes toggle CSS display without unmounting
  * collapsed summaries. The Body Slot receives both original and display-ready text.
  * @param props.text - complete or streaming reasoning text.
  * @param props.running - whether this block is the streaming tail.
@@ -61,8 +54,7 @@ export const ReasoningRow = memo(function ReasoningRow({
     const text = reasoningText(rawText)
     return { text, hidden: text !== rawText && text.trim() === '' }
   }, [rawText])
-  const summaryText = running ? latestCompletedParagraphFirstLine(text) : firstLine(text)
-  const summary = useMemo(() => summaryText.replaceAll('**', ''), [summaryText])
+  const summary = useMemo(() => running ? latestNonBlankLine(text) : firstLine(text).replaceAll('**', ''), [running, text])
   const preview = usePresentation(policy => !expanded && summary !== ''
     && (running || policy.settledReasoningPreview))
   const collapsedContent = useMemo(() => (
@@ -70,7 +62,7 @@ export const ReasoningRow = memo(function ReasoningRow({
       <span className={css.separator} data-shimmer-decoration aria-hidden />
       <span className={css.summary} data-streaming={running || undefined}>
         <span className={css.summaryText}>
-          <TextShimmer>{summary}</TextShimmer>
+          <TextShimmer className={running ? css.liveSummaryText : undefined}>{summary}</TextShimmer>
         </span>
       </span>
     </>
