@@ -21,6 +21,7 @@ window.__ModuleLoader__.load({
         download: 'Download', downloading: 'Downloading {percent}', queued: 'Queued', resume: 'Resume',
         use: 'Use', using: 'Starting...', active: 'In use', more: 'Show more',
         failed: 'Could not finish: {error}',
+        startFailed: 'The local model could not start: {error}', settings: 'Open Settings -> Models',
       },
       zh: {
         title: '模型中心',
@@ -32,6 +33,7 @@ window.__ModuleLoader__.load({
         download: '下载', downloading: '下载中 {percent}', queued: '排队中', resume: '继续',
         use: '使用', using: '正在启动...', active: '使用中', more: '显示更多',
         failed: '未能完成：{error}',
+        startFailed: '本地模型无法启动：{error}', settings: '打开设置 -> 模型',
       },
       ja: {
         title: 'ハブ',
@@ -43,6 +45,7 @@ window.__ModuleLoader__.load({
         download: 'ダウンロード', downloading: 'ダウンロード中 {percent}', queued: '待機中', resume: '再開',
         use: '使用', using: '起動しています...', active: '使用中', more: 'さらに表示',
         failed: '完了できませんでした: {error}',
+        startFailed: 'ローカルモデルを起動できませんでした: {error}', settings: '設定 -> モデルを開く',
       },
       es: {
         title: 'Hub',
@@ -54,6 +57,7 @@ window.__ModuleLoader__.load({
         download: 'Descargar', downloading: 'Descargando {percent}', queued: 'En cola', resume: 'Reanudar',
         use: 'Usar', using: 'Iniciando...', active: 'En uso', more: 'Mostrar más',
         failed: 'No se pudo completar: {error}',
+        startFailed: 'No se pudo iniciar el modelo local: {error}', settings: 'Abrir Configuración -> Modelos',
       },
       fr: {
         title: 'Hub',
@@ -65,6 +69,7 @@ window.__ModuleLoader__.load({
         download: 'Télécharger', downloading: 'Téléchargement {percent}', queued: 'En attente', resume: 'Reprendre',
         use: 'Utiliser', using: 'Démarrage...', active: 'En cours d’utilisation', more: 'Afficher plus',
         failed: 'Impossible de terminer : {error}',
+        startFailed: 'Impossible de démarrer le modèle local : {error}', settings: 'Ouvrir Paramètres -> Modèles',
       },
       de: {
         title: 'Hub',
@@ -76,6 +81,7 @@ window.__ModuleLoader__.load({
         download: 'Herunterladen', downloading: 'Wird geladen {percent}', queued: 'Wartet', resume: 'Fortsetzen',
         use: 'Verwenden', using: 'Wird gestartet...', active: 'In Verwendung', more: 'Mehr anzeigen',
         failed: 'Konnte nicht abgeschlossen werden: {error}',
+        startFailed: 'Das lokale Modell konnte nicht starten: {error}', settings: 'Einstellungen -> Modelle öffnen',
       },
       ru: {
         title: 'Хаб',
@@ -87,6 +93,7 @@ window.__ModuleLoader__.load({
         download: 'Загрузить', downloading: 'Загрузка {percent}', queued: 'В очереди', resume: 'Продолжить',
         use: 'Использовать', using: 'Запуск...', active: 'Используется', more: 'Показать ещё',
         failed: 'Не удалось завершить: {error}',
+        startFailed: 'Не удалось запустить локальную модель: {error}', settings: 'Открыть Настройки -> Модели',
       },
       pt: {
         title: 'Hub',
@@ -98,6 +105,7 @@ window.__ModuleLoader__.load({
         download: 'Baixar', downloading: 'Baixando {percent}', queued: 'Na fila', resume: 'Retomar',
         use: 'Usar', using: 'Iniciando...', active: 'Em uso', more: 'Mostrar mais',
         failed: 'Não foi possível concluir: {error}',
+        startFailed: 'Não foi possível iniciar o modelo local: {error}', settings: 'Abrir Configurações -> Modelos',
       },
     }
 
@@ -161,13 +169,16 @@ window.__ModuleLoader__.load({
     function follow(remote) {
       const controller = new AbortController()
       const listeners = new Set()
-      let snapshot = { models: [], downloads: [], catalog: [], provider: 'local' }
+      let snapshot = { models: [], downloads: [], catalog: [], provider: 'local', phase: 'checking', error: undefined }
       let timer
       void (async () => {
         while (!controller.signal.aborted) {
           try {
             for await (const state of remote.follow(controller.signal)) {
-              snapshot = { models: state.models ?? [], downloads: state.downloads ?? [], catalog: state.catalog ?? [], provider: state.provider }
+              snapshot = {
+                models: state.models ?? [], downloads: state.downloads ?? [], catalog: state.catalog ?? [], provider: state.provider,
+                phase: state.phase, error: state.error,
+              }
               for (const listener of listeners) listener()
             }
           } catch {
@@ -183,7 +194,24 @@ window.__ModuleLoader__.load({
       }
     }
 
-    function ModelCard({ item, local, act, busy, failure, t, locale }) {
+    // The followed state once the local server has finished starting or failed; `starting` and
+    // `checking` are transient, and the feed can trail the call that ended them.
+    const SETTLE_MS = 10000
+    function settled(feed) {
+      const done = state => state.phase !== 'starting' && state.phase !== 'checking'
+      if (done(feed.get())) return Promise.resolve(feed.get())
+      return new Promise((resolve) => {
+        const timeout = setTimeout(() => { stop(); resolve(feed.get()) }, SETTLE_MS)
+        const stop = feed.subscribe(() => {
+          if (!done(feed.get())) return
+          clearTimeout(timeout)
+          stop()
+          resolve(feed.get())
+        })
+      })
+    }
+
+    function ModelCard({ item, local, act, busy, failure, t, locale, openSettings }) {
       const [choice, setChoice] = React.useState(item.recommended)
       const quant = item.quants[choice]
       const name = stem(quant.file)
@@ -195,6 +223,7 @@ window.__ModuleLoader__.load({
       const installed = local.models.find(model => model.name === name || model.id === curated?.id)
       const job = local.downloads.find(download => download.name === name)
       const working = busy === name
+      const engineFailed = installed?.active === true && local.phase === 'failed'
       const percent = job?.progress && job.progress.totalBytes > 0
         ? (Math.min(1, job.progress.receivedBytes / job.progress.totalBytes)).toLocaleString(locale, { style: 'percent' })
         : null
@@ -227,10 +256,15 @@ window.__ModuleLoader__.load({
           }, item.quants.map((entry, index) => h('option', { key: entry.file, value: index },
             `${stem(entry.file)}${entry.size ? ` - ${entry.size}` : ''}`))),
           action),
-        failure && h('p', { role: 'alert', className: 'jan-hub-error' }, t('failed', { error: failure })))
+        // The default model is the one the local server loads; its failed start is this card's to show.
+        engineFailed
+          ? h('div', { role: 'alert', className: 'jan-hub-error' },
+            h('p', null, t('startFailed', { error: local.error ?? '' })),
+            openSettings && h(Button, { variant: 'outline', size: 'sm', onClick: openSettings }, t('settings')))
+          : failure && h('p', { role: 'alert', className: 'jan-hub-error' }, t('failed', { error: failure })))
     }
 
-    function HubPanel({ feed, remote, startLocalChat, t }) {
+    function HubPanel({ feed, remote, startLocalChat, openSettings, t }) {
       const locale = document.documentElement.lang || undefined
       const local = React.useSyncExternalStore(feed.subscribe, feed.get)
       const { cards, error, retry } = useCatalog()
@@ -249,7 +283,11 @@ window.__ModuleLoader__.load({
           else if (kind === 'resume') await answer(remote.retryDownload(target.id))
           else {
             if (kind === 'use') await answer(remote.setDefaultModel(target.id))
-            await startLocalChat(feed.get().provider)
+            // setDefaultModel also returns when the worker failed to start; that failure arrives only
+            // through the followed state, and a chat opened on a route with no server has no model.
+            const after = await settled(feed)
+            if (after.phase === 'failed') throw new Error(t('startFailed', { error: after.error ?? '' }))
+            await startLocalChat(after.provider)
           }
         } catch (failed) {
           setFailure({ name, message: message(failed) })
@@ -276,7 +314,7 @@ window.__ModuleLoader__.load({
               ? h('p', { className: 'jan-hub-status' }, t('empty', { query: query.trim() }))
               : h(React.Fragment, null,
                 h('ul', { className: 'jan-hub-list' }, matches.slice(0, shown).map(item => h(ModelCard, {
-                  key: item.key, item, local, busy, t, locale,
+                  key: item.key, item, local, busy, t, locale, openSettings,
                   failure: failure !== null && item.quants.some(quant => stem(quant.file) === failure.name) ? failure.message : '',
                   act: (kind, name, target) => { void act(kind, name, target) },
                 }))),
@@ -301,7 +339,8 @@ window.__ModuleLoader__.load({
       .jan-hub-variant{flex:1;min-width:0;font:inherit;font-size:13px;padding:5px 8px;border-radius:8px;border:1px solid var(--dsw-alias-border-l1);background:transparent;color:inherit}
       .jan-hub-actions button{flex-shrink:0}
       .jan-hub-status{margin-top:24px;font-size:14px;color:var(--dsw-alias-label-secondary);display:flex;flex-direction:column;align-items:flex-start;gap:8px}
-      .jan-hub .jan-hub-error{color:var(--dsw-alias-label-error,var(--dsw-alias-label-primary));overflow-wrap:anywhere;font-size:13px;margin:0}
+      .jan-hub .jan-hub-error{color:var(--dsw-alias-label-danger,var(--dsw-alias-state-error-primary));overflow-wrap:anywhere;font-size:13px;margin:0;display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+      .jan-hub .jan-hub-error p{margin:0}
       .jan-hub-more{display:flex;justify-content:center;margin-top:16px}
       @media(max-width:600px){.jan-hub{padding:20px}}
     `
@@ -339,8 +378,10 @@ window.__ModuleLoader__.load({
             })
             await answer(scope.remote.session.selectModel({ sessionId: blank.id, provider, model: 'local' }))
           }
+          const navigation = () => ctx.get('settingsNavigation')
+          const openSettings = () => { navigation()?.open('models') }
           scope.slots.inject('main', () => scope.slots.register({
-            name: 'main', key: PANEL, locale: PANEL, inject: () => ({ feed, remote, startLocalChat }),
+            name: 'main', key: PANEL, locale: PANEL, inject: () => ({ feed, remote, startLocalChat, openSettings }),
           }, HubPanel))
           scope.slots.inject('sidebar.panellist', () => scope.slots.register({
             name: 'sidebar.panellist', id: PANEL, order: 5, label: () => t('title'),
