@@ -8,6 +8,9 @@ window.__ModuleLoader__.load({
         pick: 'Annotate page element',
         grab: 'Grab page element',
         draw: 'Draw on screenshot',
+        attach: 'Add screenshot to chat',
+        close: 'Close',
+        details: 'Details',
         pickHint: 'Click an element to add a note, or press {keys} to grab it.',
         grabHint: 'Click an element or press {keys} to capture it.',
         opaque: 'This page does not allow element selection. You can draw on a screenshot instead.',
@@ -42,6 +45,9 @@ window.__ModuleLoader__.load({
         pick: '标注页面元素',
         grab: '捕获页面元素',
         draw: '在截图上绘制',
+        attach: '将截图添加到聊天',
+        close: '关闭',
+        details: '详细信息',
         pickHint: '点击元素添加备注，或按 {keys} 捕获元素。',
         grabHint: '点击元素或按 {keys} 进行捕获。',
         opaque: '此页面不允许选择元素，但仍可在截图上绘制。',
@@ -73,6 +79,7 @@ window.__ModuleLoader__.load({
       },
       ja: {
         title: '注釈', pick: 'ページ要素に注釈を付ける', grab: 'ページ要素をキャプチャ', draw: 'スクリーンショットに描画',
+        attach: 'スクリーンショットをチャットに追加', close: '閉じる', details: '詳細',
         pickHint: '要素をクリックしてメモを追加するか、{keys} を押してキャプチャします。',
         grabHint: '要素をクリックするか、{keys} を押してキャプチャします。',
         opaque: 'このページでは要素を選択できません。スクリーンショットに描画できます。',
@@ -89,6 +96,7 @@ window.__ModuleLoader__.load({
       },
       es: {
         title: 'Anotar', pick: 'Anotar un elemento de la página', grab: 'Capturar un elemento de la página', draw: 'Dibujar sobre la captura',
+        attach: 'Añadir captura al chat', close: 'Cerrar', details: 'Detalles',
         pickHint: 'Haz clic en un elemento para añadir una nota o pulsa {keys} para capturarlo.',
         grabHint: 'Haz clic en un elemento o pulsa {keys} para capturarlo.',
         opaque: 'Esta página no permite seleccionar elementos. Puedes dibujar sobre una captura.',
@@ -105,6 +113,7 @@ window.__ModuleLoader__.load({
       },
       fr: {
         title: 'Annoter', pick: 'Annoter un élément de la page', grab: 'Capturer un élément de la page', draw: 'Dessiner sur la capture',
+        attach: 'Ajouter une capture au chat', close: 'Fermer', details: 'Détails',
         pickHint: 'Cliquez sur un élément pour ajouter une note ou appuyez sur {keys} pour le capturer.',
         grabHint: 'Cliquez sur un élément ou appuyez sur {keys} pour le capturer.',
         opaque: 'Cette page ne permet pas de sélectionner ses éléments. Vous pouvez dessiner sur une capture.',
@@ -121,6 +130,7 @@ window.__ModuleLoader__.load({
       },
       de: {
         title: 'Annotieren', pick: 'Seitenelement annotieren', grab: 'Seitenelement erfassen', draw: 'Auf Screenshot zeichnen',
+        attach: 'Screenshot zum Chat hinzufügen', close: 'Schließen', details: 'Details',
         pickHint: 'Klicke auf ein Element, um eine Notiz hinzuzufügen, oder drücke {keys}, um es zu erfassen.',
         grabHint: 'Klicke auf ein Element oder drücke {keys}, um es zu erfassen.',
         opaque: 'Auf dieser Seite können keine Elemente ausgewählt werden. Du kannst stattdessen auf einem Screenshot zeichnen.',
@@ -137,6 +147,7 @@ window.__ModuleLoader__.load({
       },
       ru: {
         title: 'Аннотация', pick: 'Добавить заметку к элементу страницы', grab: 'Захватить элемент страницы', draw: 'Рисовать на снимке экрана',
+        attach: 'Добавить снимок в чат', close: 'Закрыть', details: 'Подробности',
         pickHint: 'Нажмите на элемент, чтобы добавить заметку, или нажмите {keys}, чтобы захватить его.',
         grabHint: 'Нажмите на элемент или нажмите {keys}, чтобы захватить его.',
         opaque: 'На этой странице нельзя выбрать элемент. Вместо этого можно рисовать на снимке экрана.',
@@ -153,6 +164,7 @@ window.__ModuleLoader__.load({
       },
       pt: {
         title: 'Anotar', pick: 'Anotar elemento da página', grab: 'Capturar elemento da página', draw: 'Desenhar na captura de tela',
+        attach: 'Adicionar captura ao chat', close: 'Fechar', details: 'Detalhes',
         pickHint: 'Clique em um elemento para adicionar uma nota ou pressione {keys} para capturá-lo.',
         grabHint: 'Clique em um elemento ou pressione {keys} para capturá-lo.',
         opaque: 'Esta página não permite selecionar elementos. Você pode desenhar em uma captura de tela.',
