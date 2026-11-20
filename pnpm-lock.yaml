@@ -18077,6 +18077,9 @@ importers:
       '@janhq/jan-model-hub':
         specifier: workspace:*
         version: link:../model-hub
+      '@janhq/jan-notifications':
+        specifier: workspace:*
+        version: link:../notifications
       '@janhq/jan-onboarding':
         specifier: workspace:*
         version: link:../jan-onboarding
@@ -18203,6 +18206,12 @@ importers:
         version: link:../../packages/session/session-format-v3-to-v4
 
   plugins/model-hub: {}
+
+  plugins/notifications:
+    dependencies:
+      '@janhq/schemastery':
+        specifier: link:../../vendor/schemastery
+        version: link:../../vendor/schemastery
 
   plugins/office-templates:
     dependencies:
