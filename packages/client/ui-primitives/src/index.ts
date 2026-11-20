@@ -138,6 +138,7 @@ export type { DetailDocumentCopy, DetailDocumentLabels, DetailDocumentRead, Deta
 export { MarkdownText } from './markdown/MarkdownText.tsx'
 export type { MarkdownCodeLabels, MarkdownFileMentions, MarkdownLabels, MarkdownPathImages } from './markdown/MarkdownText.tsx'
 export { extractMarkdownPlainText } from './markdown/plain-text.ts'
+export { parseFileLink } from './markdown/file-link.ts'
 export type { MarkdownPlainTextMode, MarkdownPlainTextOptions } from './markdown/plain-text.ts'
 export * from './icons/index.tsx'
 export {
