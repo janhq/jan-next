@@ -19,7 +19,8 @@ export function syncWindowsAppearance(): void {
     const root = document.documentElement
     const menu = installWindowsMenu()
     const probe = document.createElement('span')
-    probe.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;background-color:var(--dsw-specific-sidebar-fill);color:var(--dsw-alias-label-primary)'
+    // A theme whose caption row is not the sidebar's colour sets `--jan-windows-caption-fill`.
+    probe.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;background-color:var(--jan-windows-caption-fill, var(--dsw-specific-sidebar-fill));color:var(--dsw-alias-label-primary)'
     document.body.append(probe)
     const canvas = document.createElement('canvas')
     canvas.width = canvas.height = 1
@@ -45,7 +46,8 @@ export function syncWindowsAppearance(): void {
       ipcRenderer.send(DESKTOP_IPC.windowsAppearance, ...values)
     }
     const observer = new MutationObserver(send)
-    observer.observe(root, { attributes: true, attributeFilter: ['lang'] })
+    // Theme plugins scope their tokens under a root marker such as `data-jan-theme`.
+    observer.observe(root, { attributes: true })
     observer.observe(document.body, { attributes: true, attributeFilter: ['data-ds-dark-theme', 'style'] })
     observer.observe(document.head, { childList: true, subtree: true, characterData: true })
     document.head.addEventListener('load', send, true)
