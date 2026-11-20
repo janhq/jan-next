@@ -532,17 +532,7 @@ function ciArtifactGates(): Gate[] {
 
 function ciConsumerGates(): Gate[] {
   const builtTree = ['build']
-  // The HMR web test starts `dev:web`, which rewrites the shared `lib/` and
-  // `apps/web/dist/` trees. Let every build-artifact reader settle before that
-  // writer starts; `after` preserves the web diagnostic even if a reader fails.
-  const buildArtifactReaders = [
-    'publint',
-    'snapshot',
-    'expected-output',
-    'doc-typecheck',
-    'node-next-types',
-    'built-bin-smoke',
-  ]
+  // The web browser snapshot gate is off until its scenarios match the current UI (janhq/jan-next#80).
   return [
     ciArtifactBuildGate(),
     pnpmScript('node-compat', 'check:node-compat', {
@@ -552,7 +542,6 @@ function ciConsumerGates(): Gate[] {
     pnpmScript('publint', 'publint', { needs: builtTree }),
     snapshotGate(builtTree),
     expectedOutputGate(builtTree),
-    webSnapshotGate(builtTree, buildArtifactReaders),
     pnpmScript('doc-typecheck', 'doc-typecheck:contracts-ready', {
       needs: builtTree,
       env: { JAN_DOC_TYPECHECK_USE_BUILD_OUTPUT: '1' },

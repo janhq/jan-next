@@ -158,9 +158,12 @@ it.skipIf(MODE === 'record')('persists Bing reasoning translation across reopen 
   resources.scaffold = scaffold
   const browser = await chromium.launch()
   resources.browser = browser
+  // The default `auto` target follows the reader's UI language, so the reasoning page reads zh to translate the
+  // recorded English reasoning; the preferences page stays English.
   const context = await browser.newContext({ viewport: { width: 1680, height: 1000 }, locale: ZH_BROWSER_LOCALE, timezoneId: 'Asia/Shanghai' })
+  const settingsContext = await browser.newContext({ viewport: { width: 1680, height: 1000 }, locale: 'en-US', timezoneId: 'Asia/Shanghai' })
   const page = await context.newPage()
-  const settings = await context.newPage()
+  const settings = await settingsContext.newPage()
   const consoles = [watchConsole(page), watchConsole(settings)]
   onTestFailed(async () => {
     await saveFailureShot(page, 'web-e2e-cot-translation')
@@ -194,9 +197,9 @@ it.skipIf(MODE === 'record')('persists Bing reasoning translation across reopen 
   const recordedModelHistory = session.deriveMessages(), recordedRequestHeader = session.requestHeader()
 
   await settings.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
-  await settings.getByRole('button', { name: '插件', exact: true }).click()
+  await settings.getByRole('button', { name: 'Plugins', exact: true }).click()
   const panel = settings.locator('[data-plugin-panel]')
-  await panel.getByRole('button', { name: '更多', exact: true }).click()
+  await panel.getByRole('button', { name: 'More', exact: true }).click()
   const card = panel.locator(`[data-plugin-package="${BUNDLE_NAME}"]`)
   const toggle = card.getByRole('switch')
   await toggle.waitFor()
@@ -204,16 +207,16 @@ it.skipIf(MODE === 'record')('persists Bing reasoning translation across reopen 
   await toggle.click()
   await expect.poll(() => toggle.getAttribute('aria-checked'), { timeout: PLUGIN_TOGGLE_SETTLE_MS }).toBe('true')
   await card.getByRole('button').first().click()
-  const provider = panel.getByLabel('翻译服务', { exact: true })
-  const target = panel.getByLabel('目标语言', { exact: true })
+  const provider = panel.getByLabel('Translation service', { exact: true })
+  const target = panel.getByLabel('Target language', { exact: true })
   await provider.waitFor()
   expect(await provider.inputValue()).toBe('bing')
   expect(await target.inputValue()).toBe('auto')
-  await panel.getByText('展开的思考内容会发送给所选翻译服务，可能包含私有代码或对话细节。', { exact: true }).waitFor()
+  await panel.getByText('Expanded reasoning is sent to the selected service. It may contain private code or conversation details.', { exact: true }).waitFor()
   await panel.getByText(`v${bundleVersion}`, { exact: true }).waitFor()
   await panel.getByText(bundleVersion, { exact: true }).waitFor()
   // The bundle's detail document is shown between its components and its source.
-  await panel.locator('[data-detail-document]').getByRole('img', { name: '展开的思考行从英文翻译成中文，并显示“查看原文”按钮', exact: true }).waitFor()
+  await panel.locator('[data-detail-document]').getByRole('img', { name: 'An expanded Think row translated from Chinese into English, with a View original button', exact: true }).waitFor()
   await compareOrRefreshGolden(join(EXPECTED, 'preferences.expected.md'),
     await captureStableAria(settings, '[data-plugin-panel]', scaffold.workspaceCwd, {
       replacements: [[BUNDLE, '{{bundle}}'], [bundleVersion, '{{version}}']],
@@ -293,7 +296,7 @@ it.skipIf(MODE === 'record')('persists Bing reasoning translation across reopen 
   await provider.selectOption('google')
   await target.fill('zh')
   expect(calls).toHaveLength(1)
-  const save = panel.getByRole('button', { name: '保存', exact: true })
+  const save = panel.getByRole('button', { name: 'Save', exact: true })
   await save.click()
   await expect.poll(() => save.isDisabled()).toBe(true)
   await body.getByText(GOOGLE_TRANSLATION, { exact: true }).waitFor()
@@ -345,7 +348,7 @@ it.skipIf(MODE === 'record')('persists Bing reasoning translation across reopen 
   await expect.poll(() => body.getAttribute('data-translation-state')).toBe('ready')
   expect(calls).toHaveLength(6)
 
-  await panel.getByRole('button', { name: '返回 实验性插件', exact: true }).click()
+  await panel.getByRole('button', { name: 'Back to Experimental plugins', exact: true }).click()
   await toggle.click()
   await expect.poll(() => toggle.getAttribute('aria-checked'), { timeout: PLUGIN_TOGGLE_SETTLE_MS }).toBe('false')
   await body.waitFor({ state: 'detached' })
