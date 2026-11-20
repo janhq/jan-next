@@ -9,7 +9,7 @@ window.__ModuleLoader__.load({
     const {
       IconPluginPinwheelOutlineRegular, IconCheckOutlineRegular, IconFolderCloseRegular, IconSettingsOutlineMedium, IconSettingsOutlineRegular,
       IconNewChatOutlineMedium, IconNewChatOutlineRegular, IconProjectAddOutlineRegular, IconSearchOutlineRegular,
-      MenuItemButton, Button, Switch, IconLayersOutlineRegular, IconClockOutlineRegular, IconAppsAddOutlineRegular,
+      MenuItemButton, Button, Switch, Checkbox, IconLayersOutlineRegular, IconClockOutlineRegular, IconAppsAddOutlineRegular,
       IconToolOutlineMedium, IconSkillOutlineMedium,
       NavRow, SectionHeading, ColorSwatchGroup, ProjectCard, WindowControls,
       Modal, ShortcutKeys, FileTypeIcon, rankByName, IconSparkleRegular, IconRightUpOutlineRegular,
@@ -640,11 +640,10 @@ window.__ModuleLoader__.load({
 .jt-footer-action:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -2px; }
 .jt-footer-action[data-rail] { justify-content: center; padding-inline: 0; }
 .jt-menu-entry { display: flex; align-items: center; gap: 8px; width: 100%; }
-.jt-sidebar-editor-lede { margin: 0 0 12px; color: var(--dsw-alias-label-secondary); font-size: 14px; line-height: 20px; }
-.jt-sidebar-editor { display: flex; flex-direction: column; gap: 2px; }
-.jt-sidebar-editor-row { display: flex; align-items: center; gap: 11px; min-height: 40px; padding: 0 4px; color: var(--dsw-alias-label-primary); }
-.jt-sidebar-editor-name { flex: 1; font-size: 14px; }
-.jt-sidebar-editor-icon { display: inline-flex; width: 16px; justify-content: center; color: var(--dsw-alias-label-secondary); }
+.jt-sidebar-editor-lede { margin: 0 0 16px; color: var(--dsw-alias-label-secondary); font-size: 14px; line-height: 20px; }
+.jt-sidebar-editor { display: flex; flex-direction: column; gap: 4px; }
+.jt-sidebar-editor .jt-sidebar-editor-row { gap: 12px; min-height: 32px; }
+.jt-sidebar-editor .jt-sidebar-editor-row svg { display: block; }
 .jt-artwork { color: var(--dsw-alias-label-primary); }
 .jt-menu-check { flex: none; margin-left: auto; color: var(--dsw-alias-state-business-primary); }
 /* Native titlebar rules need to outrank the shell's platform rules; they never touch
@@ -713,13 +712,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       useHubAvailable, useOtherPanels, openPanel, addProject, newChat, createPlugin, renderFactorySlot, t,
     }) {
       const active = usePanelInfo((info) => info.activePanelId)
-      const available = {
-        [PROJECTS_PANEL]: true,
-        [HUB_PANEL]: useHubAvailable((value) => value),
-        [ARTIFACTS_PANEL]: useArtifactsAvailable((value) => value),
-        [SCHEDULED_PANEL]: useScheduledAvailable((value) => value),
-        plugins: usePluginsAvailable((value) => value),
-      }
+      const available = useDestinationsAvailable({ useHubAvailable, useArtifactsAvailable, useScheduledAvailable, usePluginsAvailable })
       const others = useOtherPanels((value) => value)
       const pinned = useSidebarPins()
       const editing = useSidebarEditor()
@@ -787,6 +780,15 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
     const setSidebarEditor = (open) => { sidebarEditorOpen = open; notifySidebar() }
     const useSidebarPins = () => React.useSyncExternalStore(subscribeSidebar, () => sidebarPins)
     const useSidebarEditor = () => React.useSyncExternalStore(subscribeSidebar, () => sidebarEditorOpen)
+    // Which of Jan's own pages can open now. The sidebar rows, the More menu and
+    // Edit sidebar read the same answer, so an unpinned page always stays in More.
+    const useDestinationsAvailable = ({ useHubAvailable, useArtifactsAvailable, useScheduledAvailable, usePluginsAvailable }) => ({
+      [PROJECTS_PANEL]: true,
+      [HUB_PANEL]: useHubAvailable((value) => value),
+      [ARTIFACTS_PANEL]: useArtifactsAvailable((value) => value),
+      [SCHEDULED_PANEL]: useScheduledAvailable((value) => value),
+      plugins: usePluginsAvailable((value) => value),
+    })
 
     function SidebarEditor({ available, others, pinned, renderFactorySlot, t }) {
       const rows = [
@@ -794,15 +796,14 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         ...others.map(({ id, label }) => ({ id, icon: renderFactorySlot('sidebar.panel.icon', { id, size: 16, active: false }), label })),
       ]
       return h(Modal, {
-        open: true, title: t('editSidebar.title'), closeLabel: t('editSidebar.done'), onClose: () => setSidebarEditor(false),
-        className: 'jt-appearance', footer: h(Button, { variant: 'primary', onClick: () => setSidebarEditor(false) }, t('editSidebar.done')),
+        open: true, title: t('editSidebar.title'), closeLabel: t('editSidebar.close'), onClose: () => setSidebarEditor(false),
+        className: 'jt-appearance', footer: h(Button, { variant: 'contrast', onClick: () => setSidebarEditor(false) }, t('editSidebar.done')),
       },
       h('p', { className: 'jt-sidebar-editor-lede' }, t('editSidebar.lede')),
-      h('div', { className: 'jt-sidebar-editor' }, rows.map(({ id, icon, label }) =>
-        h('div', { key: id, className: 'jt-sidebar-editor-row' },
-          h('span', { className: 'jt-sidebar-editor-icon', 'aria-hidden': true }, icon),
-          h('span', { className: 'jt-sidebar-editor-name' }, label),
-          h(Switch, { label, checked: pinned.includes(id), onChange: (pin) => { setSidebarPinned(id, pin) } })))))
+      h('div', { className: 'jt-sidebar-editor' }, rows.map(({ id, icon, label }) => h(Checkbox, {
+        key: id, className: 'jt-sidebar-editor-row', icon, label,
+        checked: pinned.includes(id), onChange: (pin) => { setSidebarPinned(id, pin) },
+      }))))
     }
 
     // The search node owns its input and refs, so it stays mounted while wide;
@@ -836,13 +837,16 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
     // other plugins' panels), then Edit sidebar to choose what shows. The stock
     // onOpen only opens sidebar-registered panels, so Jan's own pages (Projects
     // has no sidebar entry) open through the layout directly.
-    function PanelDestinations({ entries, onOpen, onDismiss, usePanelInfo, openPanel, renderFactorySlot, t }) {
+    function PanelDestinations({
+      entries, onOpen, onDismiss, usePanelInfo, openPanel, renderFactorySlot, t,
+      useHubAvailable, useArtifactsAvailable, useScheduledAvailable, usePluginsAvailable,
+    }) {
       const pinned = useSidebarPins()
       const active = usePanelInfo((info) => info.activePanelId)
+      const available = useDestinationsAvailable({ useHubAvailable, useArtifactsAvailable, useScheduledAvailable, usePluginsAvailable })
       const jan = new Set(SIDEBAR_DESTINATIONS.map(({ id }) => id))
-      const registered = new Set(entries.map(entry => entry.id))
       const own = SIDEBAR_DESTINATIONS
-        .filter(({ id }) => !pinned.includes(id) && (id === PROJECTS_PANEL || registered.has(id)))
+        .filter(({ id }) => !pinned.includes(id) && available[id])
         .map(({ id, Icon, label }) => ({ id, label: t(label), icon: h(Icon, { size: 16 }), active: active === id, open: () => openPanel(id) }))
       const others = entries.filter(entry => !jan.has(entry.id) && !pinned.includes(entry.id))
         .map(entry => ({ ...entry, icon: renderFactorySlot('sidebar.panel.icon', { id: entry.id, size: 16, active: entry.active === true }), open: () => onOpen(entry.id) }))
@@ -1524,7 +1528,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               projects: 'Projects', plugins: 'Plugins', settings: 'Settings', artifacts: 'Artifacts', scheduled: 'Scheduled',
               hub: 'Models', customize: 'Customize',
               editSidebar: 'Edit sidebar…', 'editSidebar.title': 'Edit sidebar', 'editSidebar.done': 'Done',
-              'editSidebar.lede': 'Choose which pages show under Search. The rest stay in More.',
+              'editSidebar.lede': 'Choose which items appear in your sidebar.', 'editSidebar.close': 'Close',
               newArtifact: 'New artifact', createPlugin: 'Create plugin',
               'newArtifact.prompt': 'Create a file for me: ',
               'createPlugin.prompt': 'Create a Jan plugin with a left sidebar entry.',
@@ -1648,7 +1652,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               scheduled: '定时任务', 'palette.title': '搜索', 'palette.placeholder': '搜索对话、成果、项目和操作',
               hub: '模型', customize: '自定义',
               editSidebar: '编辑侧边栏…', 'editSidebar.title': '编辑侧边栏', 'editSidebar.done': '完成',
-              'editSidebar.lede': '选择在“搜索”下方显示的页面，其余页面保留在“更多”中。',
+              'editSidebar.lede': '选择要在侧边栏中显示的项目。', 'editSidebar.close': '关闭',
               'palette.filter': '筛选结果', 'palette.all': '全部', 'palette.recents': '最近', 'palette.actions': '操作',
               'palette.goTo': '前往{page}', 'palette.nothing': '暂无内容', 'palette.noResults': '没有与“{query}”匹配的结果',
               'palette.navigate': '选择', 'palette.open': '打开', 'palette.close': '关闭',
@@ -1717,7 +1721,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               scheduled: 'スケジュール', 'palette.title': '検索', 'palette.placeholder': 'チャット、成果物、プロジェクト、操作を検索',
               hub: 'モデル', customize: 'カスタマイズ',
               editSidebar: 'サイドバーを編集…', 'editSidebar.title': 'サイドバーを編集', 'editSidebar.done': '完了',
-              'editSidebar.lede': '「検索」の下に表示するページを選びます。それ以外は「その他」に残ります。',
+              'editSidebar.lede': 'サイドバーに表示する項目を選びます。', 'editSidebar.close': '閉じる',
               'palette.filter': '結果を絞り込む', 'palette.all': 'すべて', 'palette.recents': '最近', 'palette.actions': '操作',
               'palette.goTo': '{page}へ移動', 'palette.nothing': 'まだ何もありません', 'palette.noResults': '「{query}」に一致する結果はありません',
               'palette.navigate': '移動', 'palette.open': '開く', 'palette.close': '閉じる',
@@ -1786,7 +1790,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               scheduled: 'Programadas', 'palette.title': 'Buscar', 'palette.placeholder': 'Buscar chats, artefactos, proyectos y acciones',
               hub: 'Modelos', customize: 'Personalizar',
               editSidebar: 'Editar barra lateral…', 'editSidebar.title': 'Editar barra lateral', 'editSidebar.done': 'Listo',
-              'editSidebar.lede': 'Elige qué páginas aparecen debajo de Buscar. Las demás quedan en Más.',
+              'editSidebar.lede': 'Elige qué elementos aparecen en la barra lateral.', 'editSidebar.close': 'Cerrar',
               'palette.filter': 'Filtrar resultados', 'palette.all': 'Todo', 'palette.recents': 'Recientes', 'palette.actions': 'Acciones',
               'palette.goTo': 'Ir a {page}', 'palette.nothing': 'Todavía no hay nada', 'palette.noResults': 'No hay resultados para “{query}”',
               'palette.navigate': 'Navegar', 'palette.open': 'Abrir', 'palette.close': 'Cerrar',
@@ -1855,7 +1859,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               scheduled: 'Planifiées', 'palette.title': 'Rechercher', 'palette.placeholder': 'Rechercher des discussions, artefacts, projets et actions',
               hub: 'Modèles', customize: 'Personnaliser',
               editSidebar: 'Modifier la barre latérale…', 'editSidebar.title': 'Modifier la barre latérale', 'editSidebar.done': 'Terminé',
-              'editSidebar.lede': 'Choisissez les pages affichées sous Rechercher. Les autres restent dans Plus.',
+              'editSidebar.lede': 'Choisissez les éléments affichés dans la barre latérale.', 'editSidebar.close': 'Fermer',
               'palette.filter': 'Filtrer les résultats', 'palette.all': 'Tout', 'palette.recents': 'Récents', 'palette.actions': 'Actions',
               'palette.goTo': 'Aller à {page}', 'palette.nothing': 'Rien pour le moment', 'palette.noResults': 'Aucun résultat pour « {query} »',
               'palette.navigate': 'Naviguer', 'palette.open': 'Ouvrir', 'palette.close': 'Fermer',
@@ -1924,7 +1928,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               scheduled: 'Geplant', 'palette.title': 'Suchen', 'palette.placeholder': 'Chats, Artefakte, Projekte und Aktionen suchen',
               hub: 'Modelle', customize: 'Anpassen',
               editSidebar: 'Seitenleiste bearbeiten…', 'editSidebar.title': 'Seitenleiste bearbeiten', 'editSidebar.done': 'Fertig',
-              'editSidebar.lede': 'Wähle, welche Seiten unter Suchen erscheinen. Die übrigen bleiben unter Mehr.',
+              'editSidebar.lede': 'Wähle, welche Elemente in der Seitenleiste erscheinen.', 'editSidebar.close': 'Schließen',
               'palette.filter': 'Ergebnisse filtern', 'palette.all': 'Alle', 'palette.recents': 'Zuletzt', 'palette.actions': 'Aktionen',
               'palette.goTo': 'Zu {page}', 'palette.nothing': 'Noch nichts vorhanden', 'palette.noResults': 'Keine Ergebnisse für „{query}“',
               'palette.navigate': 'Auswählen', 'palette.open': 'Öffnen', 'palette.close': 'Schließen',
@@ -1993,7 +1997,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               scheduled: 'Запланированные', 'palette.title': 'Поиск', 'palette.placeholder': 'Поиск чатов, артефактов, проектов и действий',
               hub: 'Модели', customize: 'Настроить',
               editSidebar: 'Изменить боковую панель…', 'editSidebar.title': 'Изменить боковую панель', 'editSidebar.done': 'Готово',
-              'editSidebar.lede': 'Выберите страницы, которые показываются под поиском. Остальные останутся в меню «Ещё».',
+              'editSidebar.lede': 'Выберите, какие пункты показывать на боковой панели.', 'editSidebar.close': 'Закрыть',
               'palette.filter': 'Фильтр результатов', 'palette.all': 'Все', 'palette.recents': 'Недавние', 'palette.actions': 'Действия',
               'palette.goTo': 'Перейти: {page}', 'palette.nothing': 'Здесь пока пусто', 'palette.noResults': 'Нет результатов для «{query}»',
               'palette.navigate': 'Выбор', 'palette.open': 'Открыть', 'palette.close': 'Закрыть',
@@ -2062,7 +2066,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               scheduled: 'Agendadas', 'palette.title': 'Pesquisar', 'palette.placeholder': 'Pesquisar conversas, artefatos, projetos e ações',
               hub: 'Modelos', customize: 'Personalizar',
               editSidebar: 'Editar barra lateral…', 'editSidebar.title': 'Editar barra lateral', 'editSidebar.done': 'Concluído',
-              'editSidebar.lede': 'Escolha quais páginas aparecem abaixo de Pesquisar. As demais ficam em Mais.',
+              'editSidebar.lede': 'Escolha quais itens aparecem na barra lateral.', 'editSidebar.close': 'Fechar',
               'palette.filter': 'Filtrar resultados', 'palette.all': 'Tudo', 'palette.recents': 'Recentes', 'palette.actions': 'Ações',
               'palette.goTo': 'Ir para {page}', 'palette.nothing': 'Nada aqui ainda', 'palette.noResults': 'Nenhum resultado para “{query}”',
               'palette.navigate': 'Navegar', 'palette.open': 'Abrir', 'palette.close': 'Fechar',
@@ -2177,7 +2181,16 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           // reachable menu entry.
           scope.slots.inject('sidebar.panellist.actions', () => scope.slots.register({
             name: 'sidebar.panellist.actions', id: 'jt-panel-destinations', order: -100, locale: 'jan-theme',
-            inject: () => ({ hooks: { panelInfo: scope.layout.panelInfo }, openPanel: (id) => scope.layout.selectPanel(id) }),
+            inject: () => ({
+              hooks: {
+                panelInfo: scope.layout.panelInfo,
+                pluginsAvailable: mainKeyAvailable('plugins'),
+                artifactsAvailable: mainKeyAvailable(ARTIFACTS_PANEL),
+                scheduledAvailable: mainKeyAvailable(SCHEDULED_PANEL),
+                hubAvailable: mainKeyAvailable(HUB_PANEL),
+              },
+              openPanel: (id) => scope.layout.selectPanel(id),
+            }),
           }, PanelDestinations))
           const openProject = (workspaceId) => {
             currentProject.set(workspaceId)
