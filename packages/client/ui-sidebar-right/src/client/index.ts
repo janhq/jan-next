@@ -69,7 +69,7 @@ export type {
 export type {
   SidebarRightTabInfo, SidebarRightTabInjected, UseSidebarRightTabInfo, SidebarRightTabActions,
   SidebarRightTabMenuOwnerProps, SidebarRightTabNavigation, SidebarRightTabPlacement, SidebarRightGuideEntryOwnerProps,
-  SidebarRightGuideActionEntry, SidebarRightGuideActionsOwnerProps,
+  SidebarRightGuideActionEntry, SidebarRightGuideActionsOwnerProps, SidebarRightTabActionsOwnerProps,
 } from './contract/slots.ts'
 export type {
   SidebarRightNavigationParams, SidebarRightResourceParams, SidebarRightResourceParamsMap,
@@ -245,6 +245,7 @@ export function apply(ctx: ClientContext): void {
         children: {
           'sidebar.right.pane.tab': { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: tabInfoFactory } } },
           'sidebar.right.pane.tab.title': { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: tabInfoFactory } } },
+          'sidebar.right.pane.tab.actions': { kind: 'list', scope: 'session' },
         },
         store,
         inject: (sessionId): SidebarRightInjected => ({
