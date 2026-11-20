@@ -72,6 +72,8 @@ export interface RunningDetailOwnerProps {
 /** Owner currency of finalized-assistant actions. */
 export interface AssistantActionOwnerProps {
   messageId: MessageId
+  /** Plain text of the finalized reply, as Copy takes it; empty for a reply with no text. */
+  text: string
 }
 
 /** Stable quota failure codes retained in the Session log; both raise the frame-wide notice. */
