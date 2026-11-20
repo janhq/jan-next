@@ -20,18 +20,21 @@ const STALE = new Set(['STALE_REF', 'SNAPSHOT_NOT_FOUND', 'ELEMENT_NOT_FOUND', '
 
 /**
  * List shell-free executable candidates in search order, excluding relative PATH entries.
+ * Jan Desktop's bundled executable comes first, so every install works without setup.
  * @param {Platform} platform - host platform.
  * @param {string} path - host PATH.
  * @param {string} arch - host architecture for the Windows npm installation.
+ * @param {string} [bundled] - absolute path of the executable shipped with Jan Desktop.
  * @returns {string[]} Absolute executable paths, without duplicates.
  */
-export function binaryCandidates(platform, path, arch) {
+export function binaryCandidates(platform, path, arch, bundled) {
   const windows = platform === 'windows'
   const syntax = windows ? win32 : posix
   const name = windows ? 'agent-desktop.exe' : 'agent-desktop'
   const dirs = path.split(syntax.delimiter)
   if (platform === 'macos') dirs.push('/opt/homebrew/bin')
   const candidates = new Set()
+  if (bundled !== undefined && syntax.isAbsolute(bundled)) candidates.add(bundled)
   for (const dir of dirs) {
     if (!syntax.isAbsolute(dir) || (windows && /^[\\/](?![\\/])/.test(dir))) continue
     candidates.add(syntax.join(dir, name))
@@ -43,9 +46,12 @@ export function binaryCandidates(platform, path, arch) {
   return [...candidates]
 }
 
-/** @param {Platform} platform @param {string} path @returns {Promise<string | undefined>} The first executable, if installed. */
-export async function findBinary(platform, path) {
-  for (const candidate of binaryCandidates(platform, path, process.arch)) {
+/**
+ * @param {Platform} platform @param {string} path @param {string} [bundled]
+ * @returns {Promise<string | undefined>} The first executable, if installed.
+ */
+export async function findBinary(platform, path, bundled) {
+  for (const candidate of binaryCandidates(platform, path, process.arch, bundled)) {
     const info = await stat(candidate).catch(() => undefined)
     if (!info?.isFile()) continue
     try {
@@ -200,7 +206,7 @@ export function formatResult(operation, envelope, platform) {
  * @returns {Promise<Envelope>} Parsed CLI JSON, including structured nonzero exits.
  */
 export async function runDesktop(platform, operation, argv, stateRoot, signal) {
-  const binary = await findBinary(platform, process.env.PATH ?? '')
+  const binary = await findBinary(platform, process.env.PATH ?? '', process.env.JAN_AGENT_DESKTOP)
   signal.throwIfAborted()
   if (!binary) throw new HarnessError(INSTALL, 'DESKTOP_BINARY_MISSING')
   const { AGENT_DESKTOP_SESSION: _session, AGENT_DESKTOP_AGENT_ID: _agent, ...env } = process.env
