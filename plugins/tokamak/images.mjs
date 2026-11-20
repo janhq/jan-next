@@ -1,7 +1,7 @@
 /**
  * Tokamak Images API calls: `POST /images/generations` (JSON) and `POST /images/edits` (multipart), in the
  * OpenAI Images request and reply shape. Tokamak swaps only `model` for the provider's id and relays the reply.
- * @module @janhq/jan-image/images
+ * @module @janhq/jan-tokamak/images
  */
 
 /** Image model used when the plugin config names none. */
@@ -18,9 +18,6 @@ export const BACKGROUNDS = ['auto', 'transparent', 'opaque']
 
 /** Most images one call may produce or read. */
 export const MAX_IMAGES = 4
-
-/** Longest error text quoted from a Tokamak reply. */
-const ERROR_EXCERPT_CHARS = 400
 
 /**
  * @typedef {{ prompt: string, size?: string, quality?: string, background?: string, n?: number }} ImageOptions
@@ -79,23 +76,6 @@ export function editForm(model, options, sources, mask) {
 }
 
 /**
- * The message of a failed reply: `{ error: { message } }`, `{ error: string }`, or the raw text.
- * @param {number} status - HTTP status.
- * @param {string} text - reply body.
- * @returns {string} a one-line reason.
- */
-export function replyError(status, text) {
-  let message = text.trim()
-  try {
-    const body = JSON.parse(text)
-    const error = body?.error
-    message = (typeof error === 'string' ? error : error?.message ?? body?.message ?? message) || message
-  } catch { /* not JSON: keep the text */ }
-  const excerpt = message.length > ERROR_EXCERPT_CHARS ? `${message.slice(0, ERROR_EXCERPT_CHARS)}...` : message
-  return `Tokamak image request failed (HTTP ${status})${excerpt ? `: ${excerpt}` : ''}`
-}
-
-/**
  * Decode a successful reply.
  * @param {unknown} body - parsed JSON reply.
  * @param {string | null} executionId - the `X-Tokamak-Execution-Id` header.
@@ -115,28 +95,4 @@ export function decodeReply(body, executionId) {
     generationIds: items.flatMap(item => typeof item?.generation_id === 'string' ? [item.generation_id] : []),
     ...executionId ? { executionId } : {},
   }
-}
-
-/**
- * Output file names for `count` images: the requested path, then `-2`, `-3`, ... before its extension.
- * @param {string} path - requested path ending in the image's extension.
- * @param {number} count - number of images.
- * @returns {string[]} one path per image.
- */
-export function numberedPaths(path, count) {
-  const dot = path.lastIndexOf('.')
-  const slash = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'))
-  const [stem, extension] = dot > slash ? [path.slice(0, dot), path.slice(dot)] : [path, '']
-  return Array.from({ length: count }, (_, index) => index === 0 ? path : `${stem}-${index + 1}${extension}`)
-}
-
-/**
- * A default relative file name from the prompt, under `images/`.
- * @param {string} prompt - image description.
- * @param {string} extension - `.png`, `.jpeg` or `.webp`.
- * @returns {string} a slash-separated relative path.
- */
-export function defaultPath(prompt, extension) {
-  const slug = prompt.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40).replace(/-+$/, '')
-  return `images/${slug || 'image'}${extension}`
 }
