@@ -209,6 +209,19 @@ describe('sessionStats wall-time fold (controlled timestamps)', () => {
     }))
   })
 
+  it('leaves a step whose tokens arrived in one burst out of decode speed', () => {
+    // A buffered Tool call: 37.8 s of silence, then 7,000 tokens 27 ms apart.
+    expect(fold([
+      at(1_000, 'step/start', { turn: 1, step: 1 }),
+      messageAt(38_827, [{
+        time: 38_800, chunk: { type: 'text-delta', index: 0, text: 'a' },
+      }], { inputTokens: 10, outputTokens: 7_000 }),
+      at(38_900, 'step/end', { turn: 1, step: 1 }),
+    ])).toEqual(totals({
+      turns: 1, steps: 1, llmMs: 37_827, ttftMs: 37_800, ttftSteps: 1,
+    }))
+  })
+
   it('keeps the first attempt token boundary across an in-step retry (window resetForRetry parity)', () => {
     expect(fold([
       at(1_000, 'step/start', { turn: 1, step: 1 }),
