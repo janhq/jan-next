@@ -1357,8 +1357,8 @@ describe('desktop main startup', () => {
       .find(items => items.some(item => item.role === 'editMenu'))
     if (template === undefined) throw new Error('application menu missing')
     expect(template.map(describeItem)).toEqual(platform === 'darwin'
-      ? ['Desktop test', en.fileMenu, 'editMenu', 'windowMenu']
-      : ['Application', 'editMenu'])
+      ? ['Desktop test', en.fileMenu, 'editMenu', 'View', 'windowMenu']
+      : ['Application', 'editMenu', 'View'])
     const describeEdit = (items: MenuItemConstructorOptions[]): unknown[] => items.map(item => Array.isArray(item.submenu)
       ? [describeItem(item), describeEdit(item.submenu)]
       : [describeItem(item), item.accelerator, item.visible, item.acceleratorWorksWhenHidden].filter(value => value !== undefined))
@@ -1370,6 +1370,10 @@ describe('desktop main startup', () => {
         [en.substitutionsMenu, [['showSubstitutions'], ['separator'], ['toggleSmartQuotes'], ['toggleSmartDashes'], ['toggleTextReplacement']]],
         [en.speechMenu, [['startSpeaking'], ['stopSpeaking']]]]
       : undefined)
+    const view = template.find(item => item.label === 'View')!.submenu as MenuItemConstructorOptions[]
+    expect(describeEdit(view)).toEqual([
+      ['Actual Size', 'CmdOrCtrl+0'], ['Zoom In', 'CmdOrCtrl+='], ['Zoom In', 'CmdOrCtrl+Plus', false, true], ['Zoom Out', 'CmdOrCtrl+-'],
+    ])
     const application = template[0]!.submenu as MenuItemConstructorOptions[]
     expect(application.filter(item => item.visible !== false).map(describeItem)).toEqual(platform === 'darwin'
       ? ['about', 'separator', en.checkUpdatesMenu, en.cliCommandMenu, 'separator', 'toggleDevTools', 'separator', 'hide', 'hideOthers', 'unhide', 'separator', 'quit']
