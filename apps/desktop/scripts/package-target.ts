@@ -43,7 +43,6 @@ const PRIVATE_RUNTIME_PACKAGES = [
   'plugins/downloads',
   'plugins/jan-always-on',
   'plugins/jan-browser',
-  'plugins/jan-image',
   'plugins/jan-onboarding',
   'plugins/jan-theme',
   'plugins/legacy-import',
@@ -51,6 +50,7 @@ const PRIVATE_RUNTIME_PACKAGES = [
   'plugins/notifications',
   'plugins/plugin-api',
   'plugins/preset-square',
+  'plugins/tokamak',
 ] as const
 const WINDOWS_SIGNING_ENV_PREFIX = 'JAN_DESKTOP_WINDOWS_'
 const WINDOWS_SIGNING_ENV_NAMES = [

@@ -18071,9 +18071,15 @@ importers:
       '@janhq/jan-downloads':
         specifier: workspace:*
         version: link:../downloads
-      '@janhq/jan-image':
+      '@janhq/jan-experimental-api-speech-to-text':
         specifier: workspace:*
-        version: link:../jan-image
+        version: link:../../packages/experimental/api-speech-to-text
+      '@janhq/jan-experimental-client-ui-voice-input':
+        specifier: workspace:*
+        version: link:../../packages/experimental/client-ui-voice-input
+      '@janhq/jan-experimental-speech-to-text':
+        specifier: workspace:*
+        version: link:../../packages/experimental/speech-to-text
       '@janhq/jan-legacy-import':
         specifier: workspace:*
         version: link:../legacy-import
@@ -18095,6 +18101,9 @@ importers:
       '@janhq/jan-time-context':
         specifier: workspace:*
         version: link:../../packages/context/time-context
+      '@janhq/jan-tokamak':
+        specifier: workspace:*
+        version: link:../tokamak
       '@janhq/jan-tool-fs':
         specifier: workspace:*
         version: link:../../packages/fs/tool-fs
@@ -18164,40 +18173,6 @@ importers:
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
-
-  plugins/jan-image:
-    dependencies:
-      '@janhq/jan-credentials':
-        specifier: workspace:*
-        version: link:../../packages/credentials/credentials
-      '@janhq/jan-launch-environment':
-        specifier: workspace:*
-        version: link:../../packages/util/launch-environment
-      '@janhq/jan-llm':
-        specifier: workspace:*
-        version: link:../../packages/llm/llm
-      '@janhq/jan-tools':
-        specifier: workspace:*
-        version: link:../../packages/core/tools
-    devDependencies:
-      '@janhq/cordis':
-        specifier: workspace:~
-        version: link:../../vendor/cordis
-      '@janhq/jan-agent':
-        specifier: workspace:*
-        version: link:../../packages/core/agent
-      '@janhq/jan-attachment':
-        specifier: workspace:*
-        version: link:../../packages/attachment/attachment
-      '@janhq/jan-fs':
-        specifier: workspace:*
-        version: link:../../packages/fs/fs
-      '@janhq/jan-tokamak-account':
-        specifier: workspace:*
-        version: link:../../packages/credentials/tokamak-account
-      '@janhq/jan-working-directory':
-        specifier: workspace:*
-        version: link:../../packages/session/working-directory
 
   plugins/jan-onboarding:
     dependencies:
@@ -18288,6 +18263,46 @@ importers:
       fflate:
         specifier: ^0.8.3
         version: 0.8.3
+
+  plugins/tokamak:
+    dependencies:
+      '@janhq/jan-credentials':
+        specifier: workspace:*
+        version: link:../../packages/credentials/credentials
+      '@janhq/jan-launch-environment':
+        specifier: workspace:*
+        version: link:../../packages/util/launch-environment
+      '@janhq/jan-llm':
+        specifier: workspace:*
+        version: link:../../packages/llm/llm
+      '@janhq/jan-plugin-api':
+        specifier: workspace:*
+        version: link:../plugin-api
+      '@janhq/jan-tools':
+        specifier: workspace:*
+        version: link:../../packages/core/tools
+    devDependencies:
+      '@janhq/cordis':
+        specifier: workspace:~
+        version: link:../../vendor/cordis
+      '@janhq/jan-agent':
+        specifier: workspace:*
+        version: link:../../packages/core/agent
+      '@janhq/jan-attachment':
+        specifier: workspace:*
+        version: link:../../packages/attachment/attachment
+      '@janhq/jan-experimental-speech-to-text':
+        specifier: workspace:*
+        version: link:../../packages/experimental/speech-to-text
+      '@janhq/jan-fs':
+        specifier: workspace:*
+        version: link:../../packages/fs/fs
+      '@janhq/jan-tokamak-account':
+        specifier: workspace:*
+        version: link:../../packages/credentials/tokamak-account
+      '@janhq/jan-working-directory':
+        specifier: workspace:*
+        version: link:../../packages/session/working-directory
 
   python/sdk-runtime:
     dependencies:
