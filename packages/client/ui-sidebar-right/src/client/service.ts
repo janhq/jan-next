@@ -48,6 +48,7 @@ import { canCloseTab, findHostContentTab, type SidebarRightState, type SurfaceSt
 import type { createSidebarRightStore } from './stores.ts'
 import { TabDomain, type PinResource } from './tab-domain.ts'
 import { SidebarTabInventory } from './tab-inventory.ts'
+import { InlineEmbeds, type InlineViewer } from './inline-embeds.ts'
 
 /** The seat's bound action set. */
 export type SurfaceActions = BoundActions<ReturnType<typeof createSidebarRightStore>>
@@ -295,6 +296,23 @@ export interface ISidebarRight {
    * @param paneId - the floating pane; one that is missing or docked is left alone.
    */
   dock(paneId: PaneId): void
+  /**
+   * Which viewer would draw a resource in place, outside the column.
+   * @param address - a `jan-resource://` address.
+   * @returns `dedicated` for a type made for the content, `fallback` for the generic file preview, or undefined.
+   */
+  inlineViewer(address: string): InlineViewer
+  /**
+   * Draw the type that claims a resource into a container outside the column,
+   * with the same body it shows in a pane. Only a Session's highest-ranked
+   * embed is drawn; the others leave their containers empty.
+   * @param sessionId - the Session the body belongs to.
+   * @param address - a `jan-resource://` address.
+   * @param container - the element to draw into.
+   * @param rank - precedence among that Session's embeds (a turn number, say).
+   * @returns withdraws the embed.
+   */
+  embed(sessionId: SessionId, address: string, container: HTMLElement, rank: number): () => void
 }
 
 /** Cross-plugin right-Sidebar face (ctx.sidebarRight). */
@@ -325,6 +343,8 @@ export class SidebarRightController implements ISidebarRight {
    * store's commits, read by the seat for each body's owner share.
    */
   readonly tabDomain: TabDomain
+  /** Bodies drawn outside the column; the Session's seat portals them. */
+  readonly inline: InlineEmbeds
 
   /**
    * @param tabs - the tab-type registry consulted to claim an address.
@@ -344,6 +364,7 @@ export class SidebarRightController implements ISidebarRight {
     this.openTabs = sessions.openTabs
     this.flashes = sessions.flashes
     this.tabDomain = new TabDomain(this, pin)
+    this.inline = new InlineEmbeds(tabs, this)
   }
 
   /**
@@ -798,6 +819,14 @@ export class SidebarRightController implements ISidebarRight {
     const node = this.mountedSurface()?.layout.nodes[paneId]
     if (node === undefined || node.kind !== 'pane' || node.host !== 'float') return
     actions.unfloatPane(sessionId, paneId)
+  }
+
+  inlineViewer(address: string): InlineViewer {
+    return this.inline.viewer(address)
+  }
+
+  embed(sessionId: SessionId, address: string, container: HTMLElement, rank: number): () => void {
+    return this.inline.add(sessionId, address, container, rank)
   }
 
   /**

@@ -58,6 +58,7 @@ export type { RightbarSeatProps, SidebarRightInjected, SidebarRightPresentation 
 export type { GuideBodyProps, GuideInjected } from './tabs/guide/GuideBody.tsx'
 export type { ExpandButtonProps } from './shell/ExpandButton.tsx'
 export type { SidebarRightState, SurfaceState } from './stores.ts'
+export type { InlineViewer } from './inline-embeds.ts'
 export type {
   ISidebarRight, SidebarRightOpenResourceOptions, SidebarRightOpenTabOptions,
   SidebarRightPlacement, SidebarRightCloseHandler, SurfaceActions,
@@ -252,6 +253,7 @@ export function apply(ctx: ClientContext): void {
           ...injected,
           hooks: {
             contextMenuTarget: ctx.contextMenus.active, shortcuts: ctx.shortcuts.catalog, tabTypes, flash: controller.flashOf(sessionId),
+            inlineEmbeds: controller.inline.source,
           },
           measureRoom: (canSplitPane) => { measure(sessionId, canSplitPane) },
           closeTab: (tabId) => {
