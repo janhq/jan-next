@@ -198,6 +198,9 @@ export function apply(ctx: ClientContext): void {
           const outcome = await seat.select(id)
           // A bound pick counts once the Host applies it; an unbound pick counts when staged for the next Session.
           const accepted = outcome.kind === 'applied' || (outcome.kind === 'staged' && sessionId === undefined)
+          // The last picked mode becomes the default for the next new chat. The section serializes
+          // this write with the Coding Tools reset, so turning tools off still lands on Standard.
+          if (accepted && id !== state.current) void section.makeDefault(id)
           if (accepted && from !== undefined && to !== undefined && to !== 'other' && from !== to && enabled !== undefined) {
             ctx.get('productAnalytics')?.track('agent_preset_switch', {
               switch_from: from, switch_to: to, code_work_view_enabled: enabled,
