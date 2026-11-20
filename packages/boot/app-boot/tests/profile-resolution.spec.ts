@@ -2606,6 +2606,20 @@ describe('runtime resolution', { concurrent: false }, () => {
       .toBe(pathToFileURL(join(linkedRoot, 'index.js')).href)
   })
 
+  it('routes a linked DSH plugin\'s DSH peer to the running installation', async () => {
+    const { f, linkedRoot } = linkedPluginFixture({ '@deepseek-ai/dsh-core': '*' })
+    const registration = installRuntimeInterception(await resolutionOf(f))
+    registrations.push(registration)
+    const require = createRequire(join(linkedRoot, 'entry.cjs'))
+    const parent = pathToFileURL(join(linkedRoot, 'entry.mjs')).href
+    // The plugin was published against DSH, so its peer names the DSH package; Jan supplies it under its own name.
+    for (const request of ['@deepseek-ai/dsh-core', '@janhq/jan-core']) {
+      expect(require.resolve(request), request).toBe(join(f.installed, 'index.cjs'))
+      expect(resolveFrom(request, parent), request).toBe(pathToFileURL(join(f.installed, 'index.js')).href)
+      expect(await importFrom(request, parent), request).toMatchObject({ marker: 1 })
+    }
+  })
+
   it('continues above a linked plugin after a CommonJS subpath miss in an occupied peer', async () => {
     const { f, linkedRoot } = linkedPluginFixture()
     file(join(f.installed, 'package.json'), JSON.stringify({ name: '@janhq/jan-core', version: '1.0.0', main: './index.cjs' }))
