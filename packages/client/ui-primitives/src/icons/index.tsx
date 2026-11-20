@@ -638,3 +638,57 @@ export const IconSaveOutlineRegular = productIcon('save-outline', 'regular')
 
 /** Medium floppy-disk save action. */
 export const IconSaveOutlineMedium = productIcon('save-outline', 'medium')
+
+/** Regular freehand pen drawing tool. */
+export const IconPenOutlineRegular = productIcon('pen-outline', 'regular')
+
+/** Medium freehand pen drawing tool. */
+export const IconPenOutlineMedium = productIcon('pen-outline', 'medium')
+
+/** Regular rectangle shape tool. */
+export const IconRectangleOutlineRegular = productIcon('rectangle-outline', 'regular')
+
+/** Medium rectangle shape tool. */
+export const IconRectangleOutlineMedium = productIcon('rectangle-outline', 'medium')
+
+/** Regular ellipse shape tool. */
+export const IconEllipseOutlineRegular = productIcon('ellipse-outline', 'regular')
+
+/** Medium ellipse shape tool. */
+export const IconEllipseOutlineMedium = productIcon('ellipse-outline', 'medium')
+
+/** Regular arrow shape tool. */
+export const IconArrowOutlineRegular = productIcon('arrow-outline', 'regular')
+
+/** Medium arrow shape tool. */
+export const IconArrowOutlineMedium = productIcon('arrow-outline', 'medium')
+
+/** Regular eraser tool. */
+export const IconEraserOutlineRegular = productIcon('eraser-outline', 'regular')
+
+/** Medium eraser tool. */
+export const IconEraserOutlineMedium = productIcon('eraser-outline', 'medium')
+
+/** Regular text tool. */
+export const IconTextOutlineRegular = productIcon('text-outline', 'regular')
+
+/** Medium text tool. */
+export const IconTextOutlineMedium = productIcon('text-outline', 'medium')
+
+/** Regular undo action. */
+export const IconUndoOutlineRegular = productIcon('undo-outline', 'regular')
+
+/** Medium undo action. */
+export const IconUndoOutlineMedium = productIcon('undo-outline', 'medium')
+
+/** Regular redo action. */
+export const IconRedoOutlineRegular = productIcon('redo-outline', 'regular')
+
+/** Medium redo action. */
+export const IconRedoOutlineMedium = productIcon('redo-outline', 'medium')
+
+/** Regular selection pointer. */
+export const IconCursorOutlineRegular = productIcon('cursor-outline', 'regular')
+
+/** Medium selection pointer. */
+export const IconCursorOutlineMedium = productIcon('cursor-outline', 'medium')
