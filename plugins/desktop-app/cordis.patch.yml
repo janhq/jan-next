@@ -28,6 +28,12 @@
   config:
     disableStockApiKeyShortcut: true
 
+# The sidebar's Customize opens the Plugins page as Customize, with Skills and
+# Connectors (MCP servers) as tabs beside Plugins.
+- id: ui-plugin-manager
+  config:
+    customize: true
+
 - insert:
     # Jan's palette, sidebar, appearance settings and window controls.
     - id: jan-theme
