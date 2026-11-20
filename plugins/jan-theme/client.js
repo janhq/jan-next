@@ -149,7 +149,7 @@ window.__ModuleLoader__.load({
             h('dd', { key: `${arg.name}:d` }, arg.description || '-'),
           ])) : h('small', null, 'Takes no arguments.'))))
     }
-    function AgentSettings({ skills = false }) {
+    function AgentSettings({ skills = false, onCreate }) {
       const { Input, Modal, RiskConfirmation, Tag } = require('@janhq/jan-client-ui-primitives')
       const [data, setData] = React.useState(null)
       const [error, setError] = React.useState('')
@@ -204,7 +204,9 @@ window.__ModuleLoader__.load({
           h('div', null,
             h('h2', null, skills ? 'Skills' : 'MCP Servers'),
             h('p', null, skills ? 'Reusable instructions the agent loads when a task matches. Jan finds SKILL.md folders in .agents/skills and .jan/skills.' : 'Connect the agent to external tools. A local server runs with your account permissions, so enable only servers you trust.')),
-          !skills && actions(button('Import JSON', () => setImportOpen(true)), button('Add server', () => edit(null), { variant: 'primary' }))),
+          skills
+            ? onCreate && actions(button('Create skill', onCreate, { variant: 'primary' }))
+            : actions(onCreate && button('Create connector', onCreate), button('Import JSON', () => setImportOpen(true)), button('Add server', () => edit(null), { variant: 'primary' }))),
         !data && !error && h('p', { role: 'status' }, 'Loading settings…'),
         skills ? h(React.Fragment, null,
           allSkills.length > 0 && h('div', { className: 'jt-agent-toolbar' },
@@ -1480,9 +1482,6 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           scope.slots.inject('settings.general.item', () => scope.slots.register({ name: 'settings.general.item', id: 'jt-navigation-buttons', order: 11.4, locale: 'jan-theme' }, NavigationButtonsRow))
           scope.slots.inject('settings.section', () => scope.slots.register({ name: 'settings.section', id: 'jt-mcp', order: 30, label: () => t('section.mcp'), locale: 'jan-theme' }, () => h(AgentSettings, { key: 'mcp' })))
           scope.slots.inject('settings.section', () => scope.slots.register({ name: 'settings.section', id: 'jt-skills', order: 31, label: () => t('section.skills'), locale: 'jan-theme' }, () => h(AgentSettings, { skills: true, key: 'skills' })))
-          // Customize groups Plugins, Skills and Connectors as tabs of one page, as Settings keeps them as sections.
-          scope.slots.inject('plugins.tab', () => scope.slots.register({ name: 'plugins.tab', id: 'jt-skills', order: 10, label: () => t('section.skills'), locale: 'jan-theme' }, () => h('div', { className: 'jt-customize-tab' }, h(AgentSettings, { skills: true, key: 'skills' }))))
-          scope.slots.inject('plugins.tab', () => scope.slots.register({ name: 'plugins.tab', id: 'jt-connectors', order: 11, label: () => t('tab.connectors'), locale: 'jan-theme' }, () => h('div', { className: 'jt-customize-tab' }, h(AgentSettings, { key: 'mcp' }))))
         })
         // Distinct nav glyphs: the settings dialog falls back to the gear for ids it does not know.
         for (const [id, Icon] of [['jt-mcp', IconToolOutlineMedium], ['jt-skills', IconSkillOutlineMedium]]) {
@@ -1532,6 +1531,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               newArtifact: 'New artifact', createPlugin: 'Create plugin',
               'newArtifact.prompt': 'Create a file for me: ',
               'createPlugin.prompt': 'Create a Jan plugin with a left sidebar entry.',
+              'createSkill.prompt': 'Create a skill that ', 'createConnector.prompt': 'Connect Jan to ',
               'projects.lede': 'Each project is a folder. Chats started in it can read and write its files.',
               'project.back': "Back to projects",
               'project.missing': "This project is no longer in Jan.",
@@ -1599,6 +1599,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               newArtifact: '新建成果', createPlugin: '创建插件',
               'newArtifact.prompt': '帮我创建一个文件：',
               'createPlugin.prompt': '创建一个带左侧栏入口的 Jan 插件。',
+              'createSkill.prompt': '创建一个技能，用于', 'createConnector.prompt': '把 Jan 连接到 ',
               'projects.lede': '每个项目对应一个文件夹，在其中开始的对话可以读写该文件夹的文件。',
               'project.back': "返回项目",
               'project.missing': "该项目已不在 Jan 中。",
@@ -1668,6 +1669,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               newArtifact: '新しい成果物', createPlugin: 'プラグインを作成',
               'newArtifact.prompt': 'ファイルを作成してください: ',
               'createPlugin.prompt': '左サイドバーに項目を持つ Jan プラグインを作成してください。',
+              'createSkill.prompt': '次の作業用のスキルを作成してください: ', 'createConnector.prompt': 'Jan を次のサービスに接続してください: ',
               'projects.lede': '各プロジェクトはフォルダーです。その中で始めたチャットは、そのフォルダーのファイルを読み書きできます。',
               'project.back': "プロジェクトに戻る",
               'project.missing': "このプロジェクトは Jan にありません。",
@@ -1737,6 +1739,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               newArtifact: 'Nuevo artefacto', createPlugin: 'Crear complemento',
               'newArtifact.prompt': 'Crea un archivo para mí: ',
               'createPlugin.prompt': 'Crea un complemento de Jan con una entrada en la barra lateral izquierda.',
+              'createSkill.prompt': 'Crea una habilidad que ', 'createConnector.prompt': 'Conecta Jan a ',
               'projects.lede': 'Cada proyecto es una carpeta. Los chats iniciados en él pueden leer y escribir sus archivos.',
               'project.back': "Volver a proyectos",
               'project.missing': "Este proyecto ya no está en Jan.",
@@ -1806,6 +1809,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               newArtifact: 'Nouvel artefact', createPlugin: 'Créer un plugin',
               'newArtifact.prompt': 'Crée un fichier pour moi : ',
               'createPlugin.prompt': 'Crée un plugin Jan avec une entrée dans la barre latérale gauche.',
+              'createSkill.prompt': 'Crée une compétence qui ', 'createConnector.prompt': 'Connecte Jan à ',
               'projects.lede': 'Chaque projet est un dossier. Les discussions qui y sont lancées peuvent lire et écrire ses fichiers.',
               'project.back': "Retour aux projets",
               'project.missing': "Ce projet n'est plus dans Jan.",
@@ -1875,6 +1879,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               newArtifact: 'Neues Artefakt', createPlugin: 'Plugin erstellen',
               'newArtifact.prompt': 'Erstelle eine Datei für mich: ',
               'createPlugin.prompt': 'Erstelle ein Jan-Plugin mit einem Eintrag in der linken Seitenleiste.',
+              'createSkill.prompt': 'Erstelle einen Skill, der ', 'createConnector.prompt': 'Verbinde Jan mit ',
               'projects.lede': 'Jedes Projekt ist ein Ordner. Darin gestartete Chats können seine Dateien lesen und schreiben.',
               'project.back': "Zurück zu Projekten",
               'project.missing': "Dieses Projekt ist nicht mehr in Jan.",
@@ -1944,6 +1949,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               newArtifact: 'Новый артефакт', createPlugin: 'Создать плагин',
               'newArtifact.prompt': 'Создай для меня файл: ',
               'createPlugin.prompt': 'Создай плагин Jan с пунктом в левой боковой панели.',
+              'createSkill.prompt': 'Создай навык, который ', 'createConnector.prompt': 'Подключи Jan к ',
               'projects.lede': 'Каждый проект - это папка. Чаты, начатые в нем, могут читать и изменять ее файлы.',
               'project.back': "К проектам",
               'project.missing': "Этого проекта больше нет в Jan.",
@@ -2013,6 +2019,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               newArtifact: 'Novo artefato', createPlugin: 'Criar plug-in',
               'newArtifact.prompt': 'Crie um arquivo para mim: ',
               'createPlugin.prompt': 'Crie um plug-in do Jan com uma entrada na barra lateral esquerda.',
+              'createSkill.prompt': 'Crie uma habilidade que ', 'createConnector.prompt': 'Conecte o Jan a ',
               'projects.lede': 'Cada projeto é uma pasta. As conversas iniciadas nele podem ler e gravar seus arquivos.',
               'project.back': "Voltar aos projetos",
               'project.missing': "Este projeto não está mais no Jan.",
@@ -2145,6 +2152,11 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               prompt, whenDraftExists: 'append', ...agentPreset === undefined ? {} : { agentPreset },
             })
           }
+          // Creator mode mounts the create-* skills; the leading `/name` attaches the matching one.
+          const startCreator = (skill, key) => { startDraft(`/${skill} ${t(key)}`, 'cordis') }
+          // Customize groups Plugins, Skills and Connectors as tabs of one page, as Settings keeps them as sections.
+          scope.slots.inject('plugins.tab', () => scope.slots.register({ name: 'plugins.tab', id: 'jt-skills', order: 10, label: () => t('section.skills'), locale: 'jan-theme' }, () => h('div', { className: 'jt-customize-tab' }, h(AgentSettings, { skills: true, key: 'skills', onCreate: () => startCreator('create-skill', 'createSkill.prompt') }))))
+          scope.slots.inject('plugins.tab', () => scope.slots.register({ name: 'plugins.tab', id: 'jt-connectors', order: 11, label: () => t('tab.connectors'), locale: 'jan-theme' }, () => h('div', { className: 'jt-customize-tab' }, h(AgentSettings, { key: 'mcp', onCreate: () => startCreator('create-connector', 'createConnector.prompt') }))))
           const addProject = async () => {
             try {
               const path = await scope.uiWorkspace.pickDirectory()
@@ -2173,7 +2185,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               addProject,
               newChat: () => { startDraft(t('newArtifact.prompt')) },
               // Same draft the stock More menu's "Create your plugin" starts.
-              createPlugin: () => { startDraft(t('createPlugin.prompt'), 'cordis') },
+              createPlugin: () => { startCreator('create-plugin', 'createPlugin.prompt') },
             }),
           }, WorkspaceActions))
           // The More menu's real panel destinations. Registering it also keeps
