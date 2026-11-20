@@ -35,6 +35,14 @@ function createProductApi(): JanDesktopProductApi {
       }) },
     },
     deviceInfo: () => ipcRenderer.invoke(DESKTOP_IPC.deviceInfo) as Promise<string>,
+    notifications: {
+      show: request => ipcRenderer.invoke(DESKTOP_IPC.notificationShow, request) as Promise<boolean>,
+      subscribe(listener) {
+        const handle = (_event: Electron.IpcRendererEvent, id: string): void => { listener(id) }
+        ipcRenderer.on(DESKTOP_IPC.notificationClicked, handle)
+        return () => { ipcRenderer.off(DESKTOP_IPC.notificationClicked, handle) }
+      },
+    },
     keyboard: {
       closeWindow: revision => ipcRenderer.invoke(DESKTOP_IPC.shortcutsCloseWindow, revision) as Promise<void>,
       subscribe: (listener) => {
