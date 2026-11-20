@@ -316,13 +316,18 @@ export class TurnRecorder {
     return this.scratch
   }
 
-  /** The repository enclosing the working directory, located once; null keeps retrying each turn. */
+  /**
+   * The repository enclosing the working directory, located once; null keeps retrying each turn. A repository
+   * rooted at the home directory or above it (a dotfiles repo) is treated as none: snapshotting it means `git add`
+   * over the whole home folder, which stalls every file tool behind the snapshot.
+   */
   private async locate(cwd: string, signal: AbortSignal): Promise<Repository | null> {
     if (this.repository !== null) return this.repository
     const git = await this.env.git
     if (git === null) return null
     const workspace = await locateGitWorkspace(git, cwd, () => this.scratchDir(), signal)
     if (workspace === null) return null
+    if (this.paths !== undefined && isInside(workspace.root, this.paths.home)) return null
     this.repository = { git, workspace }
     return this.repository
   }
