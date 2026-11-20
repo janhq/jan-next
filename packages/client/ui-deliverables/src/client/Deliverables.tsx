@@ -1,5 +1,5 @@
 /** The changed-files card, shown only while the Host serves the turn's summary, and explicitly declared files for a closing turn. */
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { TurnTailOwnerProps } from '@janhq/jan-client-ui-chat/client'
 import { Button, IconChevronDownOutlineRegular, IconChevronUpOutlineRegular } from '@janhq/jan-client-ui-primitives'
 import type { GlobalStandardProps, InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime, SessionStandardProps } from '@janhq/jan-client-ui-slots'
@@ -8,15 +8,25 @@ import type { PresentedOpenController } from './present-open.ts'
 import type { ChangesDiffStore } from './changes-diff.ts'
 import type { ChangesSummaryStore } from './changes-summary.ts'
 import { ChangedFiles } from './ChangedFiles.tsx'
-import { changesForClosing, presentedForClosing, type ChangesTurnData, type PresentedPath } from './turn-deliverables.ts'
+import {
+  changesForClosing, presentedForClosing, selectProducedFiles, type ChangesTurnData, type PresentedPath,
+} from './turn-deliverables.ts'
 import type { NS } from './locales.ts'
 import { changesSummaryUrl, type ChangesReviewCoordinates } from '../changes.ts'
 import { presentedFileUrl } from '../presented.ts'
 import { PresentedFileCard } from './PresentedFileCard.tsx'
-import { PresentedInlinePreview, type ReadPresented } from './PresentedInlinePreview.tsx'
+import { inlinePreviewType, PresentedInlinePreview, type ReadPresented } from './PresentedInlinePreview.tsx'
+import { fileAddressFor } from '@janhq/jan-util-workspace-path'
+import type { InlineViewer } from '@janhq/jan-client-ui-sidebar-right/client'
+import type { SessionId } from '@janhq/jan-session/types'
 import css from './Deliverables.module.css'
 
-interface DeliverablesMatch { changes: ChangesTurnData | null; presented: readonly PresentedPath[] }
+/** `alone` is the turn's one file: its lone delivery, else its lone produced file, else the one local file its reply links. */
+interface DeliverablesMatch {
+  changes: ChangesTurnData | null
+  presented: readonly PresentedPath[]
+  alone?: { readonly path: string; readonly presented: boolean; readonly turn: number } | undefined
+}
 
 const COLLAPSED_PRESENTED_COUNT = 4
 
@@ -38,17 +48,28 @@ export interface DeliverablesInjected {
   openChangesReview: (coordinates: ChangesReviewCoordinates, index: number) => void
   /** Read a lone delivery's bytes for its inline preview. */
   readPresented: ReadPresented
+  /** Which right-Sidebar viewer would draw a resource in place. */
+  inlineViewer: (address: string) => InlineViewer
+  /** Draw a resource's right-Sidebar viewer into a chat container; returns the withdrawal. */
+  embed: (sessionId: SessionId, address: string, container: HTMLElement, rank: number) => () => void
 }
 
 /**
- * Claim turns with a change announcement or declared files.
+ * Claim turns with a change announcement, declared files, or exactly one produced file.
  * @param owner - closing turn.
- * @returns matched announcement and deliveries, or null for a turn with neither.
+ * @returns matched announcement and deliveries, or null for a turn with none.
  */
 export function selectDeliverables(owner: TurnTailOwnerProps): DeliverablesMatch | null {
   const changes = changesForClosing(owner)
   const presented = presentedForClosing(owner)
-  return changes === null && presented.length === 0 ? null : { changes, presented }
+  const produced = presented.length === 0 ? selectProducedFiles(owner) : null
+  const linked = presented.length === 0 && produced === null ? owner.turn.data.get('deliverables')?.linked : undefined
+  const [only] = presented.length === 1 ? presented.map(file => file.path)
+    : produced?.length === 1 ? produced
+      : linked?.length === 1 ? linked : []
+  const lone = only === undefined ? undefined : { path: only, presented: presented.length === 1 }
+  const alone = lone === undefined ? undefined : { ...lone, turn: owner.turn.turn }
+  return changes === null && presented.length === 0 && alone === undefined ? null : { changes, presented, alone }
 }
 
 /**
@@ -71,6 +92,7 @@ export function DeliverablesTail(props: PropsRuntime<'conversation.chat.turnTail
 export function Deliverables({
   matched, openFile, useContextMenu, t, sessionId, useSessions, openPresented, openChangesReview, usePresentedOpen, usePresentedHost,
   useChangesDiff, loadChangesDiff, useChangesSummary, reloadPresentedHost, loadChangesSummary, useShowCodeDiff, readPresented, renderSlot,
+  inlineViewer, embed,
 }: Pick<TurnTailOwnerProps, 'openFile'> & {
   matched: DeliverablesMatch
 } & PropsLocale<typeof NS> & Pick<SessionStandardProps, 'sessionId'> & Pick<GlobalStandardProps, 'useSessions' | 'useContextMenu'> & InjectFace<DeliverablesInjected> & PropsRenderSlots<'deliverables.file.actions' | 'deliverables.preview.actions'>) {
@@ -95,10 +117,16 @@ export function Deliverables({
   useEffect(() => {
     if (host === null) void reloadPresentedHost()
   }, [host, reloadPresentedHost])
+  // Images and pages delivered alone already show in place; any other lone file shows the viewer the Sidebar would open.
+  const alone = matched.alone !== undefined && !(matched.alone.presented && inlinePreviewType(matched.alone.path) !== undefined)
+    ? matched.alone : undefined
+  const viewer = alone === undefined ? null : <InlineViewerHost key={alone.path} sessionId={sessionId} cwd={cwd} file={alone}
+    inlineViewer={inlineViewer} embed={embed} renderSlot={renderSlot} />
   return <>
     {changes !== null && <ChangedFiles changes={changes} cwd={cwd} t={t}
       sessionId={sessionId} useChangesDiff={useChangesDiff} loadChangesDiff={loadChangesDiff}
       openReview={(index) => { openChangesReview({ sessionId, seq: changes.seq, turn: changes.turn }, index) }} />}
+    {matched.presented.length === 0 && viewer}
     {matched.presented.length > 0 && <div
       className={css.root}
       data-after-changes={changes !== null || undefined}
@@ -108,6 +136,7 @@ export function Deliverables({
         <Button size="sm" onClick={() => { void reloadPresentedHost() }}>{t('presented.retry')}</Button>
       </div>}
       {host !== null && host !== 'error' && !host.available && <span className={css.hostStatus}>{t('presented.unavailable')}</span>}
+      {viewer}
       {matched.presented.length === 1 && matched.presented.map(file => <PresentedInlinePreview key={`${file.seq}:${file.index}`}
         file={file} sessionId={sessionId} readPresented={readPresented} onPreview={() => { openFile(file.path) }}
         renderSlot={renderSlot} t={t} />)}
@@ -134,4 +163,31 @@ export function Deliverables({
       </button>}
     </div>}
   </>
+}
+
+/**
+ * Lend a container to the right Sidebar so the viewer it would open draws the
+ * turn's lone file in the chat. A produced file shows only with a viewer made
+ * for its content; a delivered one also with the generic file preview. The
+ * Sidebar draws one such viewer per Session, the latest turn's, so an earlier
+ * turn's container stays empty and collapses with its annotate actions.
+ */
+function InlineViewerHost({ sessionId, cwd, file, inlineViewer, embed, renderSlot }: {
+  readonly sessionId: SessionId
+  readonly cwd: string | undefined
+  readonly file: { readonly path: string; readonly presented: boolean; readonly turn: number }
+} & Pick<DeliverablesInjected, 'inlineViewer' | 'embed'> & Pick<PropsRenderSlots<'deliverables.preview.actions'>, 'renderSlot'>) {
+  const container = useRef<HTMLDivElement>(null)
+  const getSurface = useCallback(() => container.current, [])
+  const address = fileAddressFor(sessionId, cwd, file.path)
+  const kind = inlineViewer(address)
+  const shown = kind === 'dedicated' || (kind === 'fallback' && file.presented)
+  useLayoutEffect(() => shown ? embed(sessionId, address, container.current as HTMLDivElement, file.turn) : undefined,
+    [shown, embed, sessionId, address, file.turn])
+  return shown
+    ? <div className={css.inlineViewerBlock}>
+      <div ref={container} className={css.inlineViewer} data-presented-inline="viewer" />
+      {renderSlot('deliverables.preview.actions', { getSurface })}
+    </div>
+    : null
 }
