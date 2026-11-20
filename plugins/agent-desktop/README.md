@@ -4,9 +4,11 @@ Jan Desktop can inspect and act on native app windows with the [agent-desktop CL
 
 ## Setup and permissions
 
-Install agent-desktop 1.0.2 or later on the machine running Jan. Jan looks on its `PATH` and checks `/opt/homebrew/bin` on macOS. On Windows it runs `agent-desktop.exe` or the native executable from the official global npm installation, without invoking the `.cmd` shim. Jan does not install or download the binary. Restart Jan after changing its environment.
+Jan Desktop ships agent-desktop 1.0.2 in `<resources>/runtime/agent-desktop` and passes its path to the Host as `JAN_AGENT_DESKTOP`, so computer use works without a separate install. That bundled executable is tried first. An unpackaged development build uses `JAN_AGENT_DESKTOP` when set, then looks on its `PATH` and checks `/opt/homebrew/bin` on macOS. On Windows it runs `agent-desktop.exe` or the native executable from the official global npm installation, without invoking the `.cmd` shim. Restart Jan after changing its environment.
 
 On macOS, enable Accessibility for the app that launches the executable. Window screenshots also require Screen Recording. If access is denied, run `agent-desktop permissions --guide` to see the settings and grant access yourself. Jan never requests or changes system permissions. Use an interactive graphical session on Windows and Linux, and consult `agent-desktop skills get platform` for platform requirements.
+
+Each action and screenshot asks for approval. In a chat set to Full access, which never asks, they run without a prompt. Allow all in this chat on the approval card switches the chat to Full access.
 
 ## Tools
 

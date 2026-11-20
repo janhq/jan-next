@@ -68,3 +68,9 @@ it.each([
 ] as const)('searches safe absolute binary locations on %s', (platform, path, expected) => {
   expect(binaryCandidates(platform, path, 'x64')).toEqual(expected)
 })
+
+it('tries the executable bundled with Jan Desktop before PATH, ignoring a relative one', () => {
+  const bundled = '/Applications/Jan.app/Contents/Resources/runtime/agent-desktop/agent-desktop'
+  expect(binaryCandidates('macos', '/usr/bin', 'arm64', bundled)).toEqual([bundled, '/usr/bin/agent-desktop', '/opt/homebrew/bin/agent-desktop'])
+  expect(binaryCandidates('linux', '/usr/bin', 'x64', 'agent-desktop')).toEqual(['/usr/bin/agent-desktop'])
+})
