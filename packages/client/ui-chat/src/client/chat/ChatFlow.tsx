@@ -84,7 +84,7 @@ export const ChatFlow = memo(function ChatFlow({
           {...entry.groupPart === undefined ? {} : { groupPart: entry.groupPart }} />
       case 'group':
         return <ChatGroupSeat {...seatProps} key={chatRenderKey(entry)} groupKey={entry.key}
-          useChatGroup={useChatGroup} useGroupHeaderAction={useGroupHeaderAction} />
+          useChatGroup={useChatGroup} useGroupHeaderAction={useGroupHeaderAction} paused={disconnected} />
       default:
         return assertNever(entry)
     }

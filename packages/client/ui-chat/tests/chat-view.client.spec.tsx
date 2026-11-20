@@ -941,12 +941,15 @@ describe('ChatView', () => {
     const headers = roots.map(root => root.querySelector<HTMLButtonElement>('[data-process-activity]')!)
     const bodies = roots.map(root => root.querySelector<HTMLElement>('[data-step-process-body]')!)
     expect(roots).toHaveLength(3)
-    expect(bodies.map(body => body.hasAttribute('hidden'))).toEqual([true, true, true])
+    // A running group the reader has not opened peeks at its newest rows instead of hiding them.
+    expect(bodies.map(body => body.hasAttribute('hidden'))).toEqual([true, true, false])
+    expect(bodies.map(body => body.hasAttribute('data-process-peek'))).toEqual([false, false, true])
     fireEvent.click(headers[0]!)
 
     for (const mode of ['standard', 'detailed', 'compact', 'detailed'] as const) {
       act(() => { h.setTranscriptView(mode) })
-      expect(bodies.map(body => body.hasAttribute('hidden'))).toEqual([false, true, mode !== 'detailed'])
+      expect(bodies.map(body => body.hasAttribute('hidden'))).toEqual([false, true, false])
+      expect(bodies[2]!.hasAttribute('data-process-peek')).toBe(mode !== 'detailed')
       expect(headers.map(header => header.closest('[hidden]') !== null)).toEqual([false, false, mode === 'detailed'])
       expect([...view.container.querySelectorAll('[data-chat-group-key]')]).toEqual(roots)
     }
@@ -1095,7 +1098,9 @@ describe('ChatView', () => {
       expect(uncapped(body)).toBe(false)
       fireEvent.click(header)
       expect(header.getAttribute('aria-expanded')).toBe('false')
-      expect(body.hasAttribute('hidden')).toBe(true)
+      // Closed while still running, it returns to the short live preview, never to the uncapped body.
+      expect(body.hasAttribute('hidden')).toBe(false)
+      expect(body.hasAttribute('data-process-peek')).toBe(true)
       expect(uncapped(body)).toBe(false)
     },
   )

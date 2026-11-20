@@ -107,11 +107,36 @@
   scrollbar-gutter: stable;
 }
 
+/* A live, unopened group shows only its newest rows (about three), bottom-aligned
+   so new output pushes older rows up under a fade. Rows are a preview: a click
+   anywhere opens the group instead of acting on the row. */
+.peekBody {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  max-height: calc(3 * (24px + var(--jan-content-font-delta, 0px)) + 8px);
+  overflow: hidden;
+  scrollbar-gutter: auto;
+  mask-image: linear-gradient(to bottom, transparent 0, #000 24px, #000 100%);
+  cursor: pointer;
+}
+
+.peekBody > * {
+  pointer-events: none;
+}
+
 .label {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* A live header's Turn clock, as on the running status it replaces. */
+.duration {
+  flex: none;
+  white-space: pre;
+  font-variant-numeric: tabular-nums;
 }
 
 /* A context-only group's estimated total, styled like each injection row's figure. */
