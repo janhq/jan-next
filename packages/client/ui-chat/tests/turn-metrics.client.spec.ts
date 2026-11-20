@@ -49,7 +49,16 @@ describe('assistantStepReading', () => {
     expect(assistantStepReading(assistant({
       seq: 2, turn: 1, step: 1,
       timing: { stepStartTime: 2_000, firstTokenTime: 1_500, completedTime: 1_200 },
-    }))).toEqual({ ttftMs: 0, decodeMs: 0, outputTokens: null })
+    }))).toEqual({ ttftMs: 0, decodeMs: null, outputTokens: null })
+  })
+
+  it('reports no decode span for a step whose tokens arrived in one burst', () => {
+    // A buffered Tool call: 7,000 tokens land 27 ms after the first one.
+    expect(assistantStepReading(assistant({
+      seq: 2, turn: 1, step: 1,
+      timing: { stepStartTime: 1_000, firstTokenTime: 38_800, completedTime: 38_827 },
+      usage: { outputTokens: 7_000 },
+    }))).toEqual({ ttftMs: 37_800, decodeMs: null, outputTokens: 7_000 })
   })
 
   it('rejects non-object, missing, and non-finite usage token counts', () => {

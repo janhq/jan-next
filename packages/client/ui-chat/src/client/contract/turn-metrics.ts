@@ -3,12 +3,13 @@
 import type {
   AssistantMessageNode,
 } from '@janhq/jan-client-ui-conversation/client'
+import { measuredDecodeMs } from '@janhq/jan-llm/assistant-stream'
 
 /** One assistant step's derivable latency facts; null marks an unrecorded part. */
 export interface StepReading {
   /** step/start → first token delta, in ms. */
   ttftMs: number | null
-  /** First token delta → final message, in ms. */
+  /** First token delta → final message, in ms; null when too short to measure speed from. */
   decodeMs: number | null
   /** Provider-reported completion tokens. */
   outputTokens: number | null
@@ -37,7 +38,7 @@ export function assistantStepReading(node: AssistantNode): StepReading {
     ? Math.max(0, timing.firstTokenTime - timing.stepStartTime)
     : null
   const decodeMs = timing !== undefined && timing.firstTokenTime !== null
-    ? Math.max(0, timing.completedTime - timing.firstTokenTime)
+    ? measuredDecodeMs(timing.firstTokenTime, timing.completedTime) ?? null
     : null
   return { ttftMs, decodeMs, outputTokens: usageOutputTokens(node.usage) }
 }
