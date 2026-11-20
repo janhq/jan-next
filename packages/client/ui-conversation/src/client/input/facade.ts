@@ -330,6 +330,8 @@ export class SessionInputShell implements SessionInput {
     if (ids.length > 0) this.attachmentIds = [...this.attachmentIds, ...ids]
     this.draftEditor.appendDraft(text)
     if (ids.length > 0) this.publish()
+    // Like an inserted quote, appended context is something to send next; a composer not on screen ignores focus.
+    this.focus()
     return true
   }
 
