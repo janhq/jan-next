@@ -398,6 +398,8 @@ window.__ModuleLoader__.load({
   html[data-jan-theme] {
     --jt-sidebar-gap: 12px;
   }
+  /* The inset sidebar leaves the caption row on the page background; body holds the palette. */
+  html[data-jan-theme] body { --jan-windows-caption-fill: var(--dsw-alias-bg-base); }
   html[data-jan-theme] [data-slot='root'] > [data-sidebar-collapsed], html[data-jan-theme] [data-slot='root'] > :has(> [data-shell-overlay]) {
     background: var(--dsw-alias-bg-base);
   }
@@ -751,7 +753,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
       strokeWidth: 1.5, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true,
     }, h('path', { d: 'M12 3l8 4.5v9l-8 4.5l-8 -4.5v-9l8 -4.5' }), h('path', { d: 'M12 12l8 -4.5' }),
-    h('path', { d: 'M12 12v9' }), h('path', { d: 'M12 12l-8 -4.5' }))
+      h('path', { d: 'M12 12v9' }), h('path', { d: 'M12 12l-8 -4.5' }))
 
     // Every destination Edit sidebar can pin, in sidebar order.
     const SIDEBAR_DESTINATIONS = [
@@ -801,11 +803,11 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         open: true, title: t('editSidebar.title'), closeLabel: t('editSidebar.close'), onClose: () => setSidebarEditor(false),
         className: 'jt-appearance', footer: h(Button, { variant: 'contrast', onClick: () => setSidebarEditor(false) }, t('editSidebar.done')),
       },
-      h('p', { className: 'jt-sidebar-editor-lede' }, t('editSidebar.lede')),
-      h('div', { className: 'jt-sidebar-editor' }, rows.map(({ id, icon, label }) => h(Checkbox, {
-        key: id, className: 'jt-sidebar-editor-row', icon, label,
-        checked: pinned.includes(id), onChange: (pin) => { setSidebarPinned(id, pin) },
-      }))))
+        h('p', { className: 'jt-sidebar-editor-lede' }, t('editSidebar.lede')),
+        h('div', { className: 'jt-sidebar-editor' }, rows.map(({ id, icon, label }) => h(Checkbox, {
+          key: id, className: 'jt-sidebar-editor-row', icon, label,
+          checked: pinned.includes(id), onChange: (pin) => { setSidebarPinned(id, pin) },
+        }))))
     }
 
     // The search node owns its input and refs, so it stays mounted while wide;
