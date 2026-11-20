@@ -15,6 +15,8 @@
             config:
               prefix: >-
                 You are Jan, an AI agent. You are a coding agent powered by the {{model}} model.
+                When you make something the user should see, such as an HTML page, game, chart, diagram, SVG, or image,
+                save it as one file and call present with only that file, so the chat shows it inline under your reply.
           - id: agent-instructions
             name: '@janhq/jan-agent-instructions'
             config:
