@@ -1,8 +1,8 @@
 /** Running Turn clock isolated from the transcript's render cycle. */
-import { memo, useEffect, useState, type ReactNode } from 'react'
+import { memo, type ReactNode } from 'react'
 import { TextShimmer } from '@janhq/jan-client-ui-primitives'
 import type { ChatViewSlotProps } from '../contract/slots.ts'
-import { formatRunDuration, LIVE_RUN_CLOCK_INTERVAL_MS } from './message-chrome.ts'
+import { useRunDurationLabel } from './run-clock.ts'
 import { RunningWhaleTail } from './RunningWhaleTail.tsx'
 import a11yCss from './accessibility.module.css'
 import css from './ChatView.module.css'
@@ -29,16 +29,7 @@ interface RunningStatusProps {
 export const RunningStatus = memo(function RunningStatus({
   announcement, phaseLabel, startTime, paused, holding = false, t, detail,
 }: RunningStatusProps) {
-  const [now, setNow] = useState(Date.now)
-  useEffect(() => {
-    if (startTime === undefined || paused || holding) return
-    setNow(Date.now())
-    const timer = setInterval(() => { setNow(Date.now()) }, LIVE_RUN_CLOCK_INTERVAL_MS)
-    return () => { clearInterval(timer) }
-  }, [startTime, paused, holding])
-  const duration = startTime === undefined ? null : t('chat.running.duration', {
-    duration: formatRunDuration(Math.max(1000, now - startTime), t).map(part => part.text).join(''),
-  })
+  const duration = useRunDurationLabel(startTime, paused || holding, t)
   return (
     <div className={css.running} data-chat-running data-holding={holding ? '' : undefined} aria-hidden={holding || undefined}>
       {holding ? null : (
