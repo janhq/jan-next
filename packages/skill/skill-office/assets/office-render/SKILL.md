@@ -20,7 +20,7 @@ Keep the saved deliverable in the task workspace. For requested image exports, u
 
 For DOCX, PPTX, or PDF, batch requested pages/slides in one call. In PowerShell, quote comma-separated `--pages` values so they remain one argument. Inspect all pages only for a requested whole-document review. For worksheets, choose the exact affected range, including chart/drawing regions; worksheet numbers are not PDF page numbers. Inspect the final saved file, reuse existing images for an unchanged source, and rerender only after requested source changes or for previously unrendered regions. Change print areas or scaling only when the user requests print layout.
 
-Read the returned JSON manifest for image paths, page counts, fragment rectangles, and missing-font diagnostics. Use the session's image-reading tool to inspect the requested images. Check clipping, alignment, headings, table widths, contrast, chart labels, and number formats as relevant to the task. A successful command or image read alone does not establish a usable preview; guessed text geometry does not establish overflow.
+Read the returned JSON manifest for image paths, page counts, fragment rectangles, and missing-font diagnostics. Image filenames follow render order, not source page numbers: rerendering slides 3 and 4 writes `page-0001.png` and `page-0002.png`. Read each image at the exact path the manifest returns; never construct or guess one. Use the session's image-reading tool to inspect the requested images. Check clipping, alignment, headings, table widths, contrast, chart labels, and number formats as relevant to the task. A successful command or image read alone does not establish a usable preview; guessed text geometry does not establish overflow.
 
 ## Failed or blank previews
 
