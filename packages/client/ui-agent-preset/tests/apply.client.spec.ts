@@ -831,9 +831,14 @@ describe('ui-agent-preset apply', () => {
       await chip.load()
       await chip.select(preset)
       await setDeveloperTools(false)
-      await vi.waitFor(() => { expect(calls.filter(call => call.startsWith('settings:'))).toEqual(['settings:{"selectedDefault":"standard"}']) })
+      // An unbound pick is remembered as the next default; a tools-only default then falls back to Standard.
+      const remembered = source === 'unbound' && preset !== 'minimal' && preset !== 'standard' ? preset : undefined
+      const writes = remembered === undefined ? ['standard'] : remembered === 'ptc' ? ['ptc', 'standard'] : [remembered]
+      await vi.waitFor(() => {
+        expect(calls.filter(call => call.startsWith('settings:'))).toEqual(writes.map(id => `settings:{"selectedDefault":"${id}"}`))
+      })
       await chip.load()
-      expect(chip.hooks.agentPresetSeat.getSnapshot().current).toBe('standard')
+      expect(chip.hooks.agentPresetSeat.getSnapshot().current).toBe(writes.at(-1))
       expect(calls.filter(call => call.startsWith('select:'))).toEqual([])
 
       state.current = 's1'
