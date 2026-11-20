@@ -29,6 +29,7 @@
     "@janhq/jan-compaction-tool-result-pruner": "workspace:*",
     "@janhq/jan-downloads": "workspace:*",
     "@janhq/jan-browser": "workspace:*",
+    "@janhq/jan-image": "workspace:*",
     "@janhq/jan-legacy-import": "workspace:*",
     "@janhq/jan-model-hub": "workspace:*",
     "@janhq/jan-onboarding": "workspace:*",

@@ -43,6 +43,7 @@ const PRIVATE_RUNTIME_PACKAGES = [
   'plugins/downloads',
   'plugins/jan-always-on',
   'plugins/jan-browser',
+  'plugins/jan-image',
   'plugins/jan-onboarding',
   'plugins/jan-theme',
   'plugins/legacy-import',
