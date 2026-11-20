@@ -439,13 +439,14 @@ function packageStatus(pkg: PackageView): 'running' | 'disabled' | 'problem' {
   return pkg.enabled ? 'running' : 'disabled'
 }
 
-/** A saved enablement that is not running remains explicit after its toast disappears. */
+/** A saved enablement that is not running remains explicit after its toast disappears. The toast announces the
+ * failure; the card keeps it as plain text so one failure is not announced twice. */
 function ApplicationStatus({ pkg, t }: { readonly pkg: PackageView; readonly t: Translate }): ReactNode {
   if (pkg.application?.kind === 'restart') {
     return <p className={`${css.reason} ${css.reasonPending}`} role="status">{restartText('restartNotice', pkg.application.reason, t)}</p>
   }
   if (pkg.application?.kind === 'failed') {
-    return <p className={css.reason} role="alert">{t('applicationNotActive', { message: pkg.application.message || t('statusProblem') })}</p>
+    return <p className={css.reason}>{t('applicationNotActive', { message: pkg.application.message || t('statusProblem') })}</p>
   }
   return null
 }
