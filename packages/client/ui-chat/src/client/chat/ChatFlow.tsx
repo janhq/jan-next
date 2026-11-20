@@ -1,8 +1,8 @@
 /** Ordered Chat rows, local echoes, and running status share the flow slot's parent. */
-import { memo, type ReactElement } from 'react'
+import { Fragment, memo, type ReactElement } from 'react'
 import type { PendingSubmission } from '@janhq/jan-api-session-controller/client'
 import { assertNever } from '@janhq/jan-util-values'
-import type { ChatFlowSlotProps, RunningDetailOwnerProps } from '../contract/slots.ts'
+import type { ChatFlowSlotProps, RunningDetailOwnerProps, RunningTailOwnerProps } from '../contract/slots.ts'
 import type { ChatSnapshot } from '../contract/snapshot.ts'
 import { ChatNodeSeat } from './ChatNodeSeat.tsx'
 import { ChatGroupSeat } from './ChatGroupSeat.tsx'
@@ -72,6 +72,10 @@ export const ChatFlow = memo(function ChatFlow({
   const phaseLabel = useChat(snapshot => running ? runningPhaseLabel(snapshot, t, true) : t('chat.running.working'))
   const announcement = useChat(snapshot => running ? runningPhaseLabel(snapshot, t, false) : t('chat.running.working'))
   const holding = !running && latestTurnOpen
+  // Kept through the hold so the live view hands over to the Turn's tail in the same commit.
+  const runningTail = turn !== undefined && latestTurnOpen
+    ? renderSlot('conversation.chat.running-tail', { turn } satisfies RunningTailOwnerProps)
+    : null
   const seatProps = {
     nodeStore, useChatNode, useChatNodeBottom, useChatNodeProcess, usePresentation,
     useStore, actions, renderSlot, t, useGroupAction, deferCollapse,
@@ -125,6 +129,7 @@ export const ChatFlow = memo(function ChatFlow({
       announcement={announcement}
       paused={disconnected} holding={holding} t={t}
       detail={holding ? null : renderSlot('conversation.chat.running-detail', RUNNING_DETAIL_OWNER)} />] : [],
+    ...runningTail === null ? [] : [<Fragment key="running-tail">{runningTail}</Fragment>],
     ...pendingRows,
   ]
 })

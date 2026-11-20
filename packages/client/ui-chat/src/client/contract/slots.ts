@@ -69,6 +69,12 @@ export interface RunningDetailOwnerProps {
   children?: never
 }
 
+/** Owner currency of the running-Turn extension chain. */
+export interface RunningTailOwnerProps {
+  /** The open latest Turn; its data grows as the Turn's events arrive. */
+  turn: TurnLocation
+}
+
 /** Owner currency of finalized-assistant actions. */
 export interface AssistantActionOwnerProps {
   messageId: MessageId
@@ -386,7 +392,7 @@ export interface ChatFlowOwnerProps extends Pick<ChatNodeOwnerProps,
 /** Full props of the Chat-owned flow renderer. */
 export type ChatFlowSlotProps =
   PropsRuntime<'conversation.chat.flow'>
-  & PropsRenderSlots<'conversation.chat.node' | 'conversation.chat.running-detail'>
+  & PropsRenderSlots<'conversation.chat.node' | 'conversation.chat.running-detail' | 'conversation.chat.running-tail'>
   & PropsRenderFactories
   & PropsStore<ChatStore>
   & InjectFace<ChatFlowDataInjected>
@@ -506,6 +512,13 @@ declare module '@janhq/jan-client-ui-slots' {
      * to say; the status renders none while it holds its slot hidden.
      */
     'conversation.chat.running-detail': { kind: 'list'; scope: 'session'; owner: RunningDetailOwnerProps }
+    /**
+     * Ordered feature contributions below the running status of an open Turn,
+     * e.g. a live view of what the Turn is building. Each entry receives the
+     * open Turn and returns null when it has nothing to show; the Turn's
+     * `conversation.chat.turnTail` takes over once it ends.
+     */
+    'conversation.chat.running-tail': { kind: 'list'; scope: 'session'; owner: RunningTailOwnerProps }
     /**
      * Ordered actions for one finalized assistant message. Each entry receives
      * the durable message id; a fresh `id` adds an action and reusing one replaces
