@@ -3,7 +3,7 @@ import { contextMenuHook } from '@janhq/jan-client-test-runtime'
 
 import type { ProcessGroupData } from '../src/client/contract/process-groups.ts'
 import type { InboxState } from '@janhq/jan-agent/types'
-import { MessageId } from '@janhq/jan-llm/brand'
+import { createAssistantMessage, createToolResultMessage, LlmAttemptId, MessageId, ToolCallId, type StreamChunk } from '@janhq/jan-llm'
 import type { GlobalStandardProps, PropsRenderFactories, PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -18,6 +18,7 @@ import type {
   TranscriptViewMode, UserContentInput, UserMessageNode,
 } from '@janhq/jan-client-ui-chat/client'
 import type {
+  SessionEventLikeEntry,
   SessionListState, SessionProjectionMap, SessionSnapshot,
 } from '@janhq/jan-api-session-controller/client'
 import type {
@@ -26,13 +27,13 @@ import type {
   MessageImagesOwnerProps, NodeKey, TurnLocation,
 } from '@janhq/jan-client-ui-conversation/client'
 import type { WorkspaceSnapshot } from '@janhq/jan-api-workspace-controller/client'
-import { SessionSeq, type SessionId } from '@janhq/jan-session/types'
+import { SessionSeq, type SessionEvent, type SessionId } from '@janhq/jan-session/types'
 import type { SessionStatusSnapshot } from '@janhq/jan-client-ui-session/client'
 import type { KeyedSnapshotSelectorHook, SnapshotSelectorHook } from '@janhq/jan-client-ui-slots'
 import { allowAllAccess, bindSnapshotSelector, makeTranslate } from '@janhq/jan-client-test-runtime'
 import { createSnapshotStore, type ObservableSnapshot } from '@janhq/jan-client-store'
 import type { ConnectionState } from '@janhq/jan-client-connection/client'
-import { EMPTY_CONVERSATION_SNAPSHOT } from '@janhq/jan-client-ui-conversation/client'
+import { ConversationNodeAssembler, EMPTY_CONVERSATION_SNAPSHOT } from '@janhq/jan-client-ui-conversation/client'
 import { en as commonEn } from '@janhq/jan-client-locale/src/locales/en.ts'
 import { zh as commonZh } from '@janhq/jan-client-locale/src/locales/zh.ts'
 import { PartialArguments } from '@janhq/jan-util-values'
@@ -52,7 +53,9 @@ import { TurnTailNodeView } from '../src/client/chat/TurnTailNodeView.tsx'
 import { TurnProcessNodeView } from '../src/client/chat/TurnProcessNodeView.tsx'
 import { SystemPromptNodeView } from '../src/client/chat/SystemPromptRow.tsx'
 import { formatRunDuration as durationParts } from '../src/client/chat/message-chrome.ts'
-import { ChatSnapshotBuilder } from '../src/client/conversation-nodes/chat-snapshot-builder.ts'
+import { assistantDefinition } from '../src/client/conversation-nodes/assistant.ts'
+import { ChatSnapshotBuilder, chatViewDefinition } from '../src/client/conversation-nodes/chat-snapshot-builder.ts'
+import { toolDefinition } from '../src/client/conversation-nodes/tool.ts'
 import { ProcessState } from '../src/client/conversation-nodes/process-groups.ts'
 import type { TurnProcessSpec } from '../src/client/contract/turn-process.ts'
 import { chatSnapshotFixture } from './chat-snapshot-fixture.client.ts'
@@ -2028,7 +2031,6 @@ describe('ChatView', () => {
     expect(writeText).toHaveBeenCalledWith('interrupt now')
     expect(within(pendingBubble as HTMLElement).queryByRole('button', { name: '在新对话中分支' })).toBeNull()
     expect(turnProcessControl(view.container)).toBeNull()
-    expect(runningContent(view.container)?.textContent).toMatch(/^深度思考中，用时 \d+秒 ···$/)
     // The status stays on the running Turn's tail; the steering waiting for the next Step follows it.
     expect(view.getByRole('status').compareDocumentPosition(view.getByText('interrupt now'))
       & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
@@ -2982,7 +2984,6 @@ describe('ChatView', () => {
     const view = render(<h.ChatView {...h.props} />)
     expect(renderedFlowKinds(view.container)).toEqual(['user', 'turn-process', 'context'])
     expect(turnProcessControl(view.container)).toBeNull()
-    expect(runningContent(view.container)?.textContent).toMatch(/^深度思考中，用时 \d+秒 ···$/)
     expect(view.container.querySelector('[data-chat-flow-kind="system-prompt"]')).toBeNull()
 
     act(() => {
@@ -3129,7 +3130,7 @@ describe('ChatView', () => {
     })
     const view = render(<h.ChatView {...h.props} />)
     expect(turnProcessControl(view.container)).toBeNull()
-    expect(runningContent(view.container)?.textContent).toMatch(/^深度思考中，用时 \d+秒 ···$/)
+    expect(runningContent(view.container)).not.toBeNull()
     const processRow = view.getByText('inspect').closest('[data-chat-flow-kind="assistant-step"]') as HTMLElement
     expect(processRow.getAttribute('hidden')).toBeNull()
 
@@ -3930,9 +3931,74 @@ describe('ChatView', () => {
     const view = render(<h.ChatView {...h.props} />)
     expect(view.getByTestId('tool-seat-r1')).toBeTruthy()
     expect(h.toolOwners[0]?.block).toMatchObject({ callId: 'r1', argsRaw: '{"command":"cmd-r1"}' })
-    expect(view.getByRole('status').textContent).toBe('深度思考中')
     expect(turnProcessControl(view.container)).toBeNull()
-    expect(runningContent(view.container)?.textContent).toMatch(/^深度思考中，用时 \d+秒 ···$/)
+  }))
+
+  it('switches the running footer phase with each published step update', withClock(5_000, () => {
+    const assembler = new ConversationNodeAssembler(
+      { entries: () => [assistantDefinition, toolDefinition], fallbackEntry: () => undefined },
+      { entries: () => [chatViewDefinition] },
+    )
+    assembler.activateTarget('chat')
+    const h = makeHarness({ chat: assembler.get('chat')! }, { running: true })
+    const view = render(<h.ChatView {...h.props} />)
+    const footer = runningContent(view.container)
+    const status = view.getByRole('status')
+    const publish = (entry: SessionEventLikeEntry) => {
+      act(() => {
+        assembler.append(entry)
+        assembler.flush()
+        h.set({ chat: assembler.get('chat')! })
+      })
+      expect(runningContent(view.container)).toBe(footer)
+      expect(view.getByRole('status')).toBe(status)
+    }
+    const durable = (event: SessionEvent) => publish({ type: 'event', event })
+    const attemptId = LlmAttemptId('running-phase-attempt')
+    const callId = ToolCallId('running-phase-call')
+    const coordinates = { turn: 1, step: 1 }
+    const chunk = (seq: number, value: StreamChunk) => publish({ type: 'transient', event: {
+      type: 'assistant/live-chunk', seq, time: 5_000, data: { ...coordinates, attemptId, chunk: value },
+    } })
+
+    durable({ type: 'turn/start', seq: SessionSeq(1), time: 1_000, data: { turn: 1 } })
+    durable({ type: 'step/start', seq: SessionSeq(2), time: 2_000, data: coordinates })
+    expect(footer?.textContent).toBe('正在等待模型 - 4秒')
+    chunk(2.1, { type: 'block-start', blockType: 'reasoning', index: 0 })
+    expect(footer?.textContent).toBe('正在等待模型 - 4秒')
+    chunk(2.2, { type: 'reasoning-delta', index: 0, text: 'Considering' })
+    expect(footer?.textContent).toBe('正在思考 - 4秒')
+    chunk(2.3, { type: 'text-delta', index: 1, text: 'Checking' })
+    expect(footer?.textContent).toBe('正在撰写 - 4秒')
+    chunk(2.4, { type: 'reasoning-delta', index: 0, text: ' options' })
+    expect(footer?.textContent).toBe('正在思考 - 4秒')
+
+    chunk(2.5, { type: 'tool-call-delta', index: 2, id: callId, name: 'bash', argumentsDelta: '' })
+    expect(footer?.textContent).toBe('正在运行 bash - 4秒')
+    const args = '{"description":"Check project status","command":"git status"}'
+    chunk(2.6, { type: 'tool-call-delta', index: 2, id: callId, argumentsDelta: args })
+    expect(footer?.textContent).toBe('正在运行 Check project status - 4秒')
+    durable({ type: 'assistant/message', seq: SessionSeq(3), time: 5_000, surfaceOp: 'append', data: {
+      ...coordinates, stream: [],
+      message: createAssistantMessage({ source: { provider: 'test', model: 'test' },
+        content: [{ type: 'tool-call', id: callId, name: 'bash', arguments: args }] }),
+    } })
+    durable({ type: 'tool/call', seq: SessionSeq(4), time: 5_000, data: { ...coordinates, callId, name: 'bash', arguments: args } })
+    expect(footer?.textContent).toBe('正在运行 Check project status - 4秒')
+    durable({ type: 'tool/result', seq: SessionSeq(5), time: 5_000, surfaceOp: 'append', data: {
+      ...coordinates, message: createToolResultMessage({ callId, content: [], isError: false }),
+    } })
+    expect(footer?.textContent).toBe('处理中 - 4秒')
+    durable({ type: 'step/end', seq: SessionSeq(6), time: 5_000, data: coordinates })
+    durable({ type: 'step/start', seq: SessionSeq(7), time: 5_000, data: { ...coordinates, step: 2 } })
+    expect(footer?.textContent).toBe('正在等待模型 - 4秒')
+    const observer = new MutationObserver(() => {})
+    observer.observe(status, { childList: true, characterData: true, subtree: true })
+    act(() => { vi.advanceTimersByTime(2_000) })
+    expect(footer?.textContent).toBe('正在等待模型 - 6秒')
+    expect(status.textContent).toBe('正在等待模型')
+    expect(observer.takeRecords()).toEqual([])
+    observer.disconnect()
   }))
 
   it('keeps the Tool renderer mounted when a running call settles into log order', () => {
@@ -3992,9 +4058,9 @@ describe('ChatView', () => {
     const view = render(<h.ChatView {...h.props} />)
     const status = view.getByRole('status')
     const content = runningContent(view.container)!
-    expect(content.textContent).toMatch(/^深度思考中，用时 \d+分\d+秒 ···$/)
+    expect(content.textContent).toMatch(/ - \d+分\d+秒$/)
     expect(turnProcessControl(view.container)).toBeNull()
-    expect(status.textContent).toBe('深度思考中')
+    const announcedPhase = status.textContent
     expect(status.getAttribute('aria-live')).toBe('polite')
     expect(status.getAttribute('aria-atomic')).toBe('true')
     expect(content.closest('[aria-live]')).toBeNull()
@@ -4007,23 +4073,23 @@ describe('ChatView', () => {
         role: 'user', source: { kind: 'user' },
       }] } })
     })
-    expect(content.textContent).toMatch(/^深度思考中，用时 \d+分\d+秒 ···$/)
+    expect(content.textContent).toMatch(/ - \d+分\d+秒$/)
     const beforeTick = content.textContent
     act(() => { vi.advanceTimersByTime(2_000) })
-    expect(content.textContent).toMatch(/^深度思考中，用时 \d+分\d+秒 ···$/)
+    expect(content.textContent).toMatch(/ - \d+分\d+秒$/)
     expect(content.textContent).not.toBe(beforeTick)
     expect(view.getByRole('status')).toBe(status)
-    expect(status.textContent).toBe('深度思考中')
+    expect(status.textContent).toBe(announcedPhase)
     act(() => {
       h.setSession({ testInbox: { 'next-turn': [], 'next-step': [] } })
       h.setChat({ nodes: [trigger, { ...steering(2, 'also', 1), time: 128_000 }] })
     })
     expect(runningContent(view.container)).toBe(content)
-    expect(content.textContent).toMatch(/^深度思考中，用时 \d+分\d+秒 ···$/)
+    expect(content.textContent).toMatch(/ - \d+分\d+秒$/)
     expect(view.getByText('also').closest('[data-pending-steering]')).toBeNull()
     act(() => { vi.advanceTimersByTime(1_000) })
-    expect(content.textContent).toMatch(/^深度思考中，用时 \d+分\d+秒 ···$/)
-    expect(status.textContent).toBe('深度思考中')
+    expect(content.textContent).toMatch(/ - \d+分\d+秒$/)
+    expect(status.textContent).toBe(announcedPhase)
     view.unmount()
     expect(vi.getTimerCount()).toBe(0)
   }))
@@ -4035,15 +4101,15 @@ describe('ChatView', () => {
     )
     const view = render(<h.ChatView {...h.props} />)
     const content = runningContent(view.container)!
-    expect(content.textContent).toBe('深度思考中，用时 9秒 ···')
+    expect(content.textContent).toMatch(/ - 9秒$/)
     act(() => { h.setConnection('connecting') })
     act(() => { vi.advanceTimersByTime(5_000) })
-    expect(content.textContent).toBe('深度思考中，用时 9秒 ···')
+    expect(content.textContent).toMatch(/ - 9秒$/)
     act(() => { h.setConnection('disconnected') })
     act(() => { vi.advanceTimersByTime(5_000) })
-    expect(content.textContent).toBe('深度思考中，用时 9秒 ···')
+    expect(content.textContent).toMatch(/ - 9秒$/)
     act(() => { h.setConnection('connected') })
-    expect(content.textContent).toBe('深度思考中，用时 19秒 ···')
+    expect(content.textContent).toMatch(/ - 19秒$/)
   }))
 
   it('the running clock reads hours once the turn passes an hour', withClock(3_600_000, () => {
@@ -4055,14 +4121,13 @@ describe('ChatView', () => {
     )
     const view = render(<h.ChatView {...h.props} />)
     const content = runningContent(view.container)!
-    expect(content.textContent).toMatch(/^深度思考中，用时 \d+分\d+秒 ···$/)
+    expect(content.textContent).toMatch(/ - \d+分\d+秒$/)
     act(() => { vi.advanceTimersByTime(1_000) })
-    expect(content.textContent).toMatch(/^深度思考中，用时 \d+小时\d+分\d+秒 ···$/)
+    expect(content.textContent).toMatch(/ - \d+小时\d+分\d+秒$/)
     const hourlyText = content.textContent
     act(() => { vi.advanceTimersByTime(303_000) })
-    expect(content.textContent).toMatch(/^深度思考中，用时 \d+小时\d+分\d+秒 ···$/)
+    expect(content.textContent).toMatch(/ - \d+小时\d+分\d+秒$/)
     expect(content.textContent).not.toBe(hourlyText)
-    expect(view.getByRole('status').textContent).toBe('深度思考中')
     view.unmount()
     expect(vi.getTimerCount()).toBe(0)
   }))
@@ -4845,8 +4910,8 @@ describe('ChatView', () => {
     const column = view.container.querySelector('[data-chat-flow]')!
     const status = column.querySelector('[data-chat-running]')
     expect([...column.children].filter(child => !child.hasAttribute('data-text-interaction-surface')).at(-1)).toBe(status)
-    expect(within(status as HTMLElement).getByRole('status').textContent).toBe('深度思考中')
-    expect(status?.lastElementChild?.textContent).toBe('深度思考中')
+    expect(within(status as HTMLElement).getByRole('status').textContent).toBe(status?.lastElementChild?.textContent)
+    expect(status?.lastElementChild?.textContent).toBeTruthy()
     const icon = status?.querySelector('svg')?.parentElement
     expect(icon?.getAttribute('aria-hidden')).toBe('true')
     expect(icon?.firstElementChild?.tagName).toBe('SPAN')

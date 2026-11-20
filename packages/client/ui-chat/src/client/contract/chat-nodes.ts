@@ -40,6 +40,8 @@ export interface AssistantChatData {
   readonly turn: number
   readonly step: number
   readonly blocks: readonly AssistantBlock[]
+  /** Latest kind of live output, in delivery order rather than block index order. */
+  readonly streamingPhase?: 'thinking' | 'writing' | 'working'
   readonly time: number
   readonly usage?: unknown
   readonly finalNode?: AssistantMessageNode

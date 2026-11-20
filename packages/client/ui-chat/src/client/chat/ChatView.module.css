@@ -263,6 +263,7 @@
   display: inline-flex;
   align-items: center;
   min-width: 0;
+  max-width: 100%;
   gap: 6px;
   margin-top: 4px;
   height: calc(28px + var(--jan-content-font-delta, 0px));
@@ -271,6 +272,18 @@
 .runningText {
   min-width: 0;
   font-variant-numeric: tabular-nums;
+}
+
+.runningPhase {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.runningDuration {
+  flex: none;
+  white-space: pre;
 }
 
 .runningIcon {
