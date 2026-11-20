@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { assertNever, type JsonValue } from '@janhq/jan-util-values'
+import { measuredDecodeMs } from '@janhq/jan-llm/assistant-stream'
 import type { WatchToolResult } from './watch-tool-result.ts'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
@@ -372,10 +373,11 @@ function throughput(metrics: AssistantMetricDetail, t: TrajectoryTranslate): str
   if (metrics.outputTokens === null) return t('timing.outputTokensUnavailable')
   if (!metrics.timingRecorded || metrics.firstTokenTime === null) return t('timing.firstTokenUnavailable')
   if (metrics.completedTime === null) return t('status.pending')
-  const generationSeconds = (metrics.completedTime - metrics.firstTokenTime) / 1_000
-  if (generationSeconds <= 0) return t('timing.durationTooShort')
+  // A burst-delivered step (a buffered Tool call) has no decode span to divide by.
+  const generationMs = measuredDecodeMs(metrics.firstTokenTime, metrics.completedTime)
+  if (generationMs === undefined) return t('timing.durationTooShort')
   return t('unit.tokensPerSecond', {
-    value: (metrics.outputTokens / generationSeconds).toFixed(1),
+    value: (metrics.outputTokens / (generationMs / 1_000)).toFixed(1),
   })
 }
 
