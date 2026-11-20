@@ -65,7 +65,9 @@ function openProps(controller = new PresentedOpenController(), summaries = new C
     openChangesReview: vi.fn<DeliverablesInjected['openChangesReview']>(),
     readPresented: vi.fn<DeliverablesInjected['readPresented']>(() => new Promise(() => {})),
     inlineViewer: vi.fn<DeliverablesInjected['inlineViewer']>(() => undefined),
+    inlinePageForTools: vi.fn<DeliverablesInjected['inlinePageForTools']>(() => undefined),
     embed: vi.fn<DeliverablesInjected['embed']>(() => () => {}),
+    rank: 1,
     usePresentedOpen: <T,>(select: (state: ReturnType<typeof controller.state.getSnapshot>) => T): T =>
       select(controller.state.getSnapshot()),
   }
@@ -510,9 +512,7 @@ describe('produced-file Turn data', () => {
     const first = deliverablesOf(value)
     expect(producedForClosing(first)).toEqual(['first.txt'])
 
-    value.append(call(4, 'second', 'edit', {
-      file_path: 'second.txt', old_string: 'before', new_string: 'after',
-    }))
+    value.append(call(4, 'second', 'write', { file_path: 'second.txt', content: 'second' }))
     value.flush()
     expect(deliverablesOf(value)).toBe(first)
 
@@ -549,10 +549,11 @@ describe('announced changes Turn data', () => {
     expect(changesForClosing(tailOwner(undefined, 8))).toBeNull()
   })
 
-  it('preserves Turn data identity across unrelated appends', () => {
-    const value = assembler([at(1, 'turn/start', { turn: 1 }), changesEvent(2)])
+  it('preserves Turn data identity across appends that add nothing new', () => {
+    const value = assembler([at(1, 'turn/start', { turn: 1 }), changesEvent(2), call(3, 'earlier', 'read', { file_path: 'a.ts' })])
     const first = deliverablesOf(value)
-    value.append(call(3, 'later', 'read', { file_path: 'a.ts' }))
+    expect(first?.tools).toEqual(['read'])
+    value.append(call(4, 'later', 'read', { file_path: 'b.ts' }))
     value.flush()
     expect(deliverablesOf(value)).toBe(first)
   })

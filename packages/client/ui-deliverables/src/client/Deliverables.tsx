@@ -1,5 +1,5 @@
 /** The changed-files card, shown only while the Host serves the turn's summary, and explicitly declared files for a closing turn. */
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { TurnTailOwnerProps } from '@janhq/jan-client-ui-chat/client'
 import { Button, IconChevronDownOutlineRegular, IconChevronUpOutlineRegular } from '@janhq/jan-client-ui-primitives'
 import type { GlobalStandardProps, InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime, SessionStandardProps } from '@janhq/jan-client-ui-slots'
@@ -16,9 +16,7 @@ import { changesSummaryUrl, type ChangesReviewCoordinates } from '../changes.ts'
 import { presentedFileUrl } from '../presented.ts'
 import { PresentedFileCard } from './PresentedFileCard.tsx'
 import { inlinePreviewType, PresentedInlinePreview, type ReadPresented } from './PresentedInlinePreview.tsx'
-import { fileAddressFor } from '@janhq/jan-util-workspace-path'
-import type { InlineViewer } from '@janhq/jan-client-ui-sidebar-right/client'
-import type { SessionId } from '@janhq/jan-session/types'
+import { InlineViewerHost, inlineTarget, type InlineViewerInjected } from './InlineViewer.tsx'
 import css from './Deliverables.module.css'
 
 /** `alone` is the turn's one file: its lone delivery, else its lone produced file, else the one local file its reply links. */
@@ -29,9 +27,10 @@ interface DeliverablesMatch {
 }
 
 const COLLAPSED_PRESENTED_COUNT = 4
+const NO_DELIVERABLES: DeliverablesMatch = { changes: null, presented: [] }
 
 /** Summary reads, native-open callbacks, and shared gesture status supplied by the plugin. */
-export interface DeliverablesInjected {
+export interface DeliverablesInjected extends InlineViewerInjected {
   hooks: {
     changesDiff: ObservableSnapshot<ReturnType<ChangesDiffStore['state']['getSnapshot']>>
     showCodeDiff: ObservableSnapshot<boolean>
@@ -48,10 +47,6 @@ export interface DeliverablesInjected {
   openChangesReview: (coordinates: ChangesReviewCoordinates, index: number) => void
   /** Read a lone delivery's bytes for its inline preview. */
   readPresented: ReadPresented
-  /** Which right-Sidebar viewer would draw a resource in place. */
-  inlineViewer: (address: string) => InlineViewer
-  /** Draw a resource's right-Sidebar viewer into a chat container; returns the withdrawal. */
-  embed: (sessionId: SessionId, address: string, container: HTMLElement, rank: number) => () => void
 }
 
 /**
@@ -79,7 +74,10 @@ export function selectDeliverables(owner: TurnTailOwnerProps): DeliverablesMatch
  */
 export function DeliverablesTail(props: PropsRuntime<'conversation.chat.turnTail'> & PropsLocale<typeof NS> & InjectFace<DeliverablesInjected> & PropsRenderSlots<'deliverables.file.actions' | 'deliverables.preview.actions'>) {
   const matched = selectDeliverables(props)
-  return matched === null ? null : <Deliverables {...props} matched={matched} />
+  // A turn that drove a page (CAD tools) keeps showing it, so the live view stays on the latest turn after it ends.
+  const page = props.inlinePageForTools(props.turn.data.get('deliverables')?.tools ?? [])
+  if (matched === null && page === undefined) return null
+  return <Deliverables {...props} matched={matched ?? NO_DELIVERABLES} page={page} rank={props.turn.turn} />
 }
 
 /**
@@ -90,11 +88,15 @@ export function DeliverablesTail(props: PropsRuntime<'conversation.chat.turnTail
  * @returns the closing turn's file rows.
  */
 export function Deliverables({
-  matched, openFile, useContextMenu, t, sessionId, useSessions, openPresented, openChangesReview, usePresentedOpen, usePresentedHost,
-  useChangesDiff, loadChangesDiff, useChangesSummary, reloadPresentedHost, loadChangesSummary, useShowCodeDiff, readPresented, renderSlot,
-  inlineViewer, embed,
+  matched, page, rank, openFile, useContextMenu, t, sessionId, useSessions, openPresented, openChangesReview,
+  usePresentedOpen, usePresentedHost, useChangesDiff, loadChangesDiff, useChangesSummary, reloadPresentedHost,
+  loadChangesSummary, useShowCodeDiff, readPresented, renderSlot, inlineViewer, inlinePageForTools, embed,
 }: Pick<TurnTailOwnerProps, 'openFile'> & {
   matched: DeliverablesMatch
+  /** The page the turn's tool calls changed, shown when no file of its own has a viewer. */
+  page?: string | undefined
+  /** The turn number: the inline viewer's precedence. */
+  rank: number
 } & PropsLocale<typeof NS> & Pick<SessionStandardProps, 'sessionId'> & Pick<GlobalStandardProps, 'useSessions' | 'useContextMenu'> & InjectFace<DeliverablesInjected> & PropsRenderSlots<'deliverables.file.actions' | 'deliverables.preview.actions'>) {
   const { getTriggerProps } = useContextMenu()
   const [expanded, setExpanded] = useState(false)
@@ -120,8 +122,9 @@ export function Deliverables({
   // Images and pages delivered alone already show in place; any other lone file shows the viewer the Sidebar would open.
   const alone = matched.alone !== undefined && !(matched.alone.presented && inlinePreviewType(matched.alone.path) !== undefined)
     ? matched.alone : undefined
-  const viewer = alone === undefined ? null : <InlineViewerHost key={alone.path} sessionId={sessionId} cwd={cwd} file={alone}
-    inlineViewer={inlineViewer} embed={embed} renderSlot={renderSlot} />
+  const address = inlineTarget(sessionId, cwd, alone === undefined ? [] : [alone], [], { inlineViewer, inlinePageForTools }) ?? page
+  const viewer = address === undefined ? null : <InlineViewerHost key={address} sessionId={sessionId} address={address} rank={rank}
+    embed={embed} renderActions={getSurface => renderSlot('deliverables.preview.actions', { getSurface })} />
   return <>
     {changes !== null && <ChangedFiles changes={changes} cwd={cwd} t={t}
       sessionId={sessionId} useChangesDiff={useChangesDiff} loadChangesDiff={loadChangesDiff}
@@ -163,31 +166,4 @@ export function Deliverables({
       </button>}
     </div>}
   </>
-}
-
-/**
- * Lend a container to the right Sidebar so the viewer it would open draws the
- * turn's lone file in the chat. A produced file shows only with a viewer made
- * for its content; a delivered one also with the generic file preview. The
- * Sidebar draws one such viewer per Session, the latest turn's, so an earlier
- * turn's container stays empty and collapses with its annotate actions.
- */
-function InlineViewerHost({ sessionId, cwd, file, inlineViewer, embed, renderSlot }: {
-  readonly sessionId: SessionId
-  readonly cwd: string | undefined
-  readonly file: { readonly path: string; readonly presented: boolean; readonly turn: number }
-} & Pick<DeliverablesInjected, 'inlineViewer' | 'embed'> & Pick<PropsRenderSlots<'deliverables.preview.actions'>, 'renderSlot'>) {
-  const container = useRef<HTMLDivElement>(null)
-  const getSurface = useCallback(() => container.current, [])
-  const address = fileAddressFor(sessionId, cwd, file.path)
-  const kind = inlineViewer(address)
-  const shown = kind === 'dedicated' || (kind === 'fallback' && file.presented)
-  useLayoutEffect(() => shown ? embed(sessionId, address, container.current as HTMLDivElement, file.turn) : undefined,
-    [shown, embed, sessionId, address, file.turn])
-  return shown
-    ? <div className={css.inlineViewerBlock}>
-      <div ref={container} className={css.inlineViewer} data-presented-inline="viewer" />
-      {renderSlot('deliverables.preview.actions', { getSurface })}
-    </div>
-    : null
 }

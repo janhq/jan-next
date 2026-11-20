@@ -37,6 +37,8 @@ export interface DeliverablesTurnData {
   readonly changes?: ChangesTurnData
   /** Local files the turn's latest reply links in Markdown, in first-seen order. */
   readonly linked?: readonly string[]
+  /** Distinct wire names of the tools the turn called, in first-call order. */
+  readonly tools?: readonly string[]
 }
 
 declare module '@janhq/jan-client-ui-conversation/client' {
@@ -229,12 +231,11 @@ export const deliverablesDefinition: ConversationNodeDefinition<DeliverablesStat
       return { ...context.state, presented: [...context.state.presented ?? [], ...presented] }
     }
     if (match.event.type === 'tool/call') {
+      const { name } = match.event.data
       const calls = new Map(context.state.calls)
-      calls.set(
-        String(match.event.data.callId),
-        mutationPath(match.event.data.name, match.event.data.arguments),
-      )
-      return { ...context.state, calls }
+      calls.set(String(match.event.data.callId), mutationPath(name, match.event.data.arguments))
+      const known = context.state.tools?.includes(name) === true
+      return { ...context.state, calls, ...known ? {} : { tools: [...context.state.tools ?? [], name] } }
     }
     if (match.event.type !== 'tool/result') return context.state
     if (match.event.data.message.isError === true) return context.state
@@ -259,7 +260,8 @@ export const deliverablesDefinition: ConversationNodeDefinition<DeliverablesStat
       && previous.value.produced === context.state.produced
       && previous.value.presented === context.state.presented
       && previous.value.changes === context.state.changes
-      && previous.value.linked === context.state.linked) return previous
+      && previous.value.linked === context.state.linked
+      && previous.value.tools === context.state.tools) return previous
     return {
       kind: 'turn',
       turn: context.state.turn,
@@ -269,6 +271,7 @@ export const deliverablesDefinition: ConversationNodeDefinition<DeliverablesStat
         ...context.state.presented === undefined ? {} : { presented: context.state.presented },
         ...context.state.changes === undefined ? {} : { changes: context.state.changes },
         ...context.state.linked === undefined ? {} : { linked: context.state.linked },
+        ...context.state.tools === undefined ? {} : { tools: context.state.tools },
       },
     }
   },

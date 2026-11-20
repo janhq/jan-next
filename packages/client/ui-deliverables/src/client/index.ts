@@ -26,6 +26,7 @@ import { ChangesSummaryStore } from './changes-summary.ts'
 import { PresentedOpenController } from './present-open.ts'
 import { PresentRow } from './PresentRow.tsx'
 import { DeliverablesTail, type DeliverablesInjected } from './Deliverables.tsx'
+import { DeliverablesLive, type InlineViewerInjected } from './InlineViewer.tsx'
 import type { ReadPresented } from './PresentedInlinePreview.tsx'
 import { ReviewTab, type ReviewInjected } from './ReviewTab.tsx'
 import { CHANGES_REVIEW_ID, changesReviewDefinition } from './review-definition.ts'
@@ -48,6 +49,15 @@ declare module '@janhq/jan-client-ui-slots' {
       scope: 'session'
       owner: {
         /** @returns the current inline image, page frame, or viewer container, or null before mount. */
+        readonly getSurface: () => HTMLElement | null
+      }
+    }
+    /** Controls beside the live viewer under a running turn. */
+    'deliverables.live.actions': {
+      kind: 'list'
+      scope: 'session'
+      owner: {
+        /** @returns the live viewer's container, or null before mount. */
         readonly getSurface: () => HTMLElement | null
       }
     }
@@ -85,9 +95,11 @@ export function apply(ctx: ClientContext): void {
     child.effect(() => () => { readBytes = undefined }, 'ui-deliverables: inline preview reader')
   })
   // Stable across renders, so a mounted viewer is not withdrawn and redrawn on every turn-tail render.
-  const inlineViewer = (address: string): ReturnType<typeof ctx.sidebarRight.inlineViewer> => ctx.sidebarRight.inlineViewer(address)
-  const embed: typeof ctx.sidebarRight.embed = (sessionId, address, container, rank) =>
-    ctx.sidebarRight.embed(sessionId, address, container, rank)
+  const viewers: InlineViewerInjected = {
+    inlineViewer: address => ctx.sidebarRight.inlineViewer(address),
+    inlinePageForTools: tools => ctx.sidebarRight.inlinePageForTools(tools),
+    embed: (sessionId, address, container, rank) => ctx.sidebarRight.embed(sessionId, address, container, rank),
+  }
   ctx.slots.inject(
     'conversation.chat.turnTail',
     () => ctx.slots.register({
@@ -114,11 +126,16 @@ export function apply(ctx: ClientContext): void {
           if (readBytes === undefined) throw new Error('ui-deliverables: workspace files unavailable')
           return readBytes(sessionId, path, signal)
         },
-        inlineViewer,
-        embed,
+        ...viewers,
       }),
     }, DeliverablesTail),
   )
+  ctx.slots.inject('conversation.chat.running-tail', () => ctx.slots.register({
+    name: 'conversation.chat.running-tail',
+    id: '@janhq/jan-client-ui-deliverables',
+    children: { 'deliverables.live.actions': { kind: 'list', scope: 'session' } },
+    inject: (): InlineViewerInjected => viewers,
+  }, DeliverablesLive))
   ctx.slots.inject('tool.call.toolview', () => ctx.slots.register(
     { name: 'tool.call.toolview', key: 'present', locale: NS }, PresentRow,
   ))
