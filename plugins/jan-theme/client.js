@@ -640,6 +640,11 @@ window.__ModuleLoader__.load({
 .jt-footer-action:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -2px; }
 .jt-footer-action[data-rail] { justify-content: center; padding-inline: 0; }
 .jt-menu-entry { display: flex; align-items: center; gap: 8px; width: 100%; }
+.jt-sidebar-editor-lede { margin: 0 0 12px; color: var(--dsw-alias-label-secondary); font-size: 14px; line-height: 20px; }
+.jt-sidebar-editor { display: flex; flex-direction: column; gap: 2px; }
+.jt-sidebar-editor-row { display: flex; align-items: center; gap: 11px; min-height: 40px; padding: 0 4px; color: var(--dsw-alias-label-primary); }
+.jt-sidebar-editor-name { flex: 1; font-size: 14px; }
+.jt-sidebar-editor-icon { display: inline-flex; width: 16px; justify-content: center; color: var(--dsw-alias-label-secondary); }
 .jt-artwork { color: var(--dsw-alias-label-primary); }
 .jt-menu-check { flex: none; margin-left: auto; color: var(--dsw-alias-state-business-primary); }
 /* Native titlebar rules need to outrank the shell's platform rules; they never touch
@@ -701,18 +706,29 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       label: t('newChat'), shortcutKeys, shortcutAria, rail: !wide, onClick: onStart, className: 'jt-nav-row',
     })
 
-    // Search, Projects, Artifacts and Plugins follow New chat (Claude's order).
-    // Each destination with something to create carries a hover "+" for it.
+    // New chat and Search always show. The pages below follow them only while
+    // pinned (Edit sidebar...); unpinned ones live in the More menu.
     function WorkspaceActions({
       wide, onSearch, searchShortcut, usePanelInfo, usePluginsAvailable, useArtifactsAvailable, useScheduledAvailable,
-      useHubAvailable, openPanel, addProject, newChat, createPlugin, t,
+      useHubAvailable, useOtherPanels, openPanel, addProject, newChat, createPlugin, renderFactorySlot, t,
     }) {
       const active = usePanelInfo((info) => info.activePanelId)
-      const plugins = usePluginsAvailable((value) => value)
-      const artifacts = useArtifactsAvailable((value) => value)
-      const scheduled = useScheduledAvailable((value) => value)
-      const hub = useHubAvailable((value) => value)
+      const available = {
+        [PROJECTS_PANEL]: true,
+        [HUB_PANEL]: useHubAvailable((value) => value),
+        [ARTIFACTS_PANEL]: useArtifactsAvailable((value) => value),
+        [SCHEDULED_PANEL]: useScheduledAvailable((value) => value),
+        plugins: usePluginsAvailable((value) => value),
+      }
+      const others = useOtherPanels((value) => value)
+      const pinned = useSidebarPins()
+      const editing = useSidebarEditor()
       const size = wide ? 16 : 18
+      const quick = {
+        [PROJECTS_PANEL]: { label: t('newProject'), onClick: () => { void addProject() } },
+        [ARTIFACTS_PANEL]: { label: t('newArtifact'), onClick: newChat },
+        plugins: { label: t('createPlugin'), onClick: createPlugin },
+      }
       // The opening click must not reach the browser's outside-click dismissor.
       const requestSearch = (event) => {
         event.stopPropagation()
@@ -724,29 +740,69 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           label: t('search'), shortcutKeys: searchShortcut?.keys, shortcutAria: searchShortcut?.aria,
           rail: !wide, onClick: requestSearch, className: 'jt-nav-row',
         }),
-        h(NavRow, {
-          icon: h(IconFolderCloseRegular, { size }), label: t('projects'), rail: !wide, className: 'jt-nav-row',
-          current: active === PROJECTS_PANEL, onClick: () => { openPanel(PROJECTS_PANEL) },
-          quick: { label: t('newProject'), onClick: () => { void addProject() } },
-        }),
-        hub && h(NavRow, {
-          icon: h(IconAppsAddOutlineRegular, { size }), label: t('hub'), rail: !wide, className: 'jt-nav-row',
-          current: active === HUB_PANEL, onClick: () => { openPanel(HUB_PANEL) },
-        }),
-        artifacts && h(NavRow, {
-          icon: h(IconLayersOutlineRegular, { size }), label: t('artifacts'), rail: !wide, className: 'jt-nav-row',
-          current: active === ARTIFACTS_PANEL, onClick: () => { openPanel(ARTIFACTS_PANEL) },
-          quick: { label: t('newArtifact'), onClick: newChat },
-        }),
-        scheduled && h(NavRow, {
-          icon: h(IconClockOutlineRegular, { size }), label: t('scheduled'), rail: !wide, className: 'jt-nav-row',
-          current: active === SCHEDULED_PANEL, onClick: () => { openPanel(SCHEDULED_PANEL) },
-        }),
-        plugins && h(NavRow, {
-          icon: h(IconPluginPinwheelOutlineRegular, { size }), label: t('plugins'), rail: !wide, className: 'jt-nav-row',
-          current: active === 'plugins', onClick: () => { openPanel('plugins') },
-          quick: { label: t('createPlugin'), onClick: createPlugin },
-        }))
+        SIDEBAR_DESTINATIONS.filter(({ id }) => available[id] && pinned.includes(id)).map(({ id, Icon, label }) => h(NavRow, {
+          key: id, icon: h(Icon, { size }), label: t(label), rail: !wide, className: 'jt-nav-row',
+          current: active === id, onClick: () => { openPanel(id) }, quick: quick[id],
+        })),
+        others.filter(({ id }) => pinned.includes(id)).map(({ id, label }) => h(NavRow, {
+          key: id, icon: renderFactorySlot('sidebar.panel.icon', { id, size, active: active === id }), label, rail: !wide,
+          className: 'jt-nav-row', current: active === id, onClick: () => { openPanel(id) },
+        })),
+        editing && h(SidebarEditor, { available, others, pinned, renderFactorySlot, t }))
+    }
+
+    // Tabler "box" (MIT): Models must not share More's four-squares glyph.
+    const ModelsGlyph = ({ size }) => h('svg', {
+      width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
+      strokeWidth: 1.5, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true,
+    }, h('path', { d: 'M12 3l8 4.5v9l-8 4.5l-8 -4.5v-9l8 -4.5' }), h('path', { d: 'M12 12l8 -4.5' }),
+    h('path', { d: 'M12 12v9' }), h('path', { d: 'M12 12l-8 -4.5' }))
+
+    // Every destination Edit sidebar can pin, in sidebar order.
+    const SIDEBAR_DESTINATIONS = [
+      { id: 'jan-model-hub', Icon: ModelsGlyph, label: 'hub' },
+      { id: 'plugins', Icon: IconPluginPinwheelOutlineRegular, label: 'customize' },
+      { id: 'jt-projects', Icon: IconFolderCloseRegular, label: 'projects' },
+      { id: 'artifacts', Icon: IconLayersOutlineRegular, label: 'artifacts' },
+      { id: 'schedules', Icon: IconClockOutlineRegular, label: 'scheduled' },
+    ]
+    const PINS_KEY = 'jan-theme.sidebar.pinned'
+    const DEFAULT_PINS = ['jan-model-hub', 'plugins']
+    const readPins = () => {
+      try {
+        const stored = JSON.parse(localStorage.getItem(PINS_KEY) ?? 'null')
+        return Array.isArray(stored) ? stored.filter(id => typeof id === 'string') : DEFAULT_PINS
+      } catch { return DEFAULT_PINS }
+    }
+    let sidebarPins = readPins()
+    let sidebarEditorOpen = false
+    const sidebarListeners = new Set()
+    const notifySidebar = () => { for (const listener of sidebarListeners) listener() }
+    const subscribeSidebar = (listener) => { sidebarListeners.add(listener); return () => { sidebarListeners.delete(listener) } }
+    const setSidebarPinned = (id, pin) => {
+      sidebarPins = pin ? [...sidebarPins.filter(entry => entry !== id), id] : sidebarPins.filter(entry => entry !== id)
+      try { localStorage.setItem(PINS_KEY, JSON.stringify(sidebarPins)) } catch { /* the choice still holds for this window */ }
+      notifySidebar()
+    }
+    const setSidebarEditor = (open) => { sidebarEditorOpen = open; notifySidebar() }
+    const useSidebarPins = () => React.useSyncExternalStore(subscribeSidebar, () => sidebarPins)
+    const useSidebarEditor = () => React.useSyncExternalStore(subscribeSidebar, () => sidebarEditorOpen)
+
+    function SidebarEditor({ available, others, pinned, renderFactorySlot, t }) {
+      const rows = [
+        ...SIDEBAR_DESTINATIONS.filter(({ id }) => available[id]).map(({ id, Icon, label }) => ({ id, icon: h(Icon, { size: 16 }), label: t(label) })),
+        ...others.map(({ id, label }) => ({ id, icon: renderFactorySlot('sidebar.panel.icon', { id, size: 16, active: false }), label })),
+      ]
+      return h(Modal, {
+        open: true, title: t('editSidebar.title'), closeLabel: t('editSidebar.done'), onClose: () => setSidebarEditor(false),
+        className: 'jt-appearance', footer: h(Button, { variant: 'primary', onClick: () => setSidebarEditor(false) }, t('editSidebar.done')),
+      },
+      h('p', { className: 'jt-sidebar-editor-lede' }, t('editSidebar.lede')),
+      h('div', { className: 'jt-sidebar-editor' }, rows.map(({ id, icon, label }) =>
+        h('div', { key: id, className: 'jt-sidebar-editor-row' },
+          h('span', { className: 'jt-sidebar-editor-icon', 'aria-hidden': true }, icon),
+          h('span', { className: 'jt-sidebar-editor-name' }, label),
+          h(Switch, { label, checked: pinned.includes(id), onChange: (pin) => { setSidebarPinned(id, pin) } })))))
     }
 
     // The search node owns its input and refs, so it stays mounted while wide;
@@ -776,18 +832,33 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         tab.title)
     }
 
-    // Jan has no panel launcher rows, so the native More menu becomes the one
-    // list of the remaining management pages (Plugins, Hub, Artifacts and
-    // Scheduled have nav rows).
-    function PanelDestinations({ entries, onOpen, onDismiss }) {
-      const rows = entries.filter(entry => entry.id !== 'plugins' && entry.id !== ARTIFACTS_PANEL && entry.id !== SCHEDULED_PANEL && entry.id !== HUB_PANEL)
-      return h(React.Fragment, null, rows.map(entry => h(MenuItemButton, {
-        key: entry.id, current: entry.active === true,
-        onSelect: () => { onDismiss(); onOpen(entry.id) },
-      }, h('span', { className: 'jt-menu-entry' }, entry.label,
-        entry.active === true && h(IconCheckOutlineRegular, {
-          size: 16, className: 'jt-menu-check', 'aria-hidden': true,
-        })))))
+    // The More menu: every page that is not pinned (Jan's own destinations and
+    // other plugins' panels), then Edit sidebar to choose what shows. The stock
+    // onOpen only opens sidebar-registered panels, so Jan's own pages (Projects
+    // has no sidebar entry) open through the layout directly.
+    function PanelDestinations({ entries, onOpen, onDismiss, usePanelInfo, openPanel, renderFactorySlot, t }) {
+      const pinned = useSidebarPins()
+      const active = usePanelInfo((info) => info.activePanelId)
+      const jan = new Set(SIDEBAR_DESTINATIONS.map(({ id }) => id))
+      const registered = new Set(entries.map(entry => entry.id))
+      const own = SIDEBAR_DESTINATIONS
+        .filter(({ id }) => !pinned.includes(id) && (id === PROJECTS_PANEL || registered.has(id)))
+        .map(({ id, Icon, label }) => ({ id, label: t(label), icon: h(Icon, { size: 16 }), active: active === id, open: () => openPanel(id) }))
+      const others = entries.filter(entry => !jan.has(entry.id) && !pinned.includes(entry.id))
+        .map(entry => ({ ...entry, icon: renderFactorySlot('sidebar.panel.icon', { id: entry.id, size: 16, active: entry.active === true }), open: () => onOpen(entry.id) }))
+      const rows = [...own, ...others]
+      return h(React.Fragment, null,
+        rows.map(entry => h(MenuItemButton, {
+          key: entry.id, current: entry.active === true, icon: entry.icon,
+          onSelect: () => { onDismiss(); entry.open() },
+        }, h('span', { className: 'jt-menu-entry' }, entry.label,
+          entry.active === true && h(IconCheckOutlineRegular, {
+            size: 16, className: 'jt-menu-check', 'aria-hidden': true,
+          })))),
+        h(MenuItemButton, {
+          separatorBefore: rows.length > 0,
+          onSelect: () => { onDismiss(); setSidebarEditor(true) },
+        }, t('editSidebar')))
     }
 
     // Fallback launcher when the account menu is absent.
@@ -1448,7 +1519,9 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               newProject: 'New project',
               search: 'Search',
               projects: 'Projects', plugins: 'Plugins', settings: 'Settings', artifacts: 'Artifacts', scheduled: 'Scheduled',
-              hub: 'Hub',
+              hub: 'Models', customize: 'Customize',
+              editSidebar: 'Edit sidebar…', 'editSidebar.title': 'Edit sidebar', 'editSidebar.done': 'Done',
+              'editSidebar.lede': 'Choose which pages show under Search. The rest stay in More.',
               newArtifact: 'New artifact', createPlugin: 'Create plugin',
               'newArtifact.prompt': 'Create a file for me: ',
               'createPlugin.prompt': 'Create a Jan plugin with a left sidebar entry.',
@@ -1570,7 +1643,9 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.updated': '{ago}前更新',
               'section.mcp': 'MCP 服务器', 'section.skills': '技能',
               scheduled: '定时任务', 'palette.title': '搜索', 'palette.placeholder': '搜索对话、成果、项目和操作',
-              hub: '模型中心',
+              hub: '模型', customize: '自定义',
+              editSidebar: '编辑侧边栏…', 'editSidebar.title': '编辑侧边栏', 'editSidebar.done': '完成',
+              'editSidebar.lede': '选择在“搜索”下方显示的页面，其余页面保留在“更多”中。',
               'palette.filter': '筛选结果', 'palette.all': '全部', 'palette.recents': '最近', 'palette.actions': '操作',
               'palette.goTo': '前往{page}', 'palette.nothing': '暂无内容', 'palette.noResults': '没有与“{query}”匹配的结果',
               'palette.navigate': '选择', 'palette.open': '打开', 'palette.close': '关闭',
@@ -1637,7 +1712,9 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.updated': '{ago}前に更新',
               'section.mcp': 'MCP サーバー', 'section.skills': 'スキル',
               scheduled: 'スケジュール', 'palette.title': '検索', 'palette.placeholder': 'チャット、成果物、プロジェクト、操作を検索',
-              hub: 'ハブ',
+              hub: 'モデル', customize: 'カスタマイズ',
+              editSidebar: 'サイドバーを編集…', 'editSidebar.title': 'サイドバーを編集', 'editSidebar.done': '完了',
+              'editSidebar.lede': '「検索」の下に表示するページを選びます。それ以外は「その他」に残ります。',
               'palette.filter': '結果を絞り込む', 'palette.all': 'すべて', 'palette.recents': '最近', 'palette.actions': '操作',
               'palette.goTo': '{page}へ移動', 'palette.nothing': 'まだ何もありません', 'palette.noResults': '「{query}」に一致する結果はありません',
               'palette.navigate': '移動', 'palette.open': '開く', 'palette.close': '閉じる',
@@ -1704,7 +1781,9 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.updated': 'actualizado hace {ago}',
               'section.mcp': 'Servidores MCP', 'section.skills': 'Habilidades',
               scheduled: 'Programadas', 'palette.title': 'Buscar', 'palette.placeholder': 'Buscar chats, artefactos, proyectos y acciones',
-              hub: 'Hub',
+              hub: 'Modelos', customize: 'Personalizar',
+              editSidebar: 'Editar barra lateral…', 'editSidebar.title': 'Editar barra lateral', 'editSidebar.done': 'Listo',
+              'editSidebar.lede': 'Elige qué páginas aparecen debajo de Buscar. Las demás quedan en Más.',
               'palette.filter': 'Filtrar resultados', 'palette.all': 'Todo', 'palette.recents': 'Recientes', 'palette.actions': 'Acciones',
               'palette.goTo': 'Ir a {page}', 'palette.nothing': 'Todavía no hay nada', 'palette.noResults': 'No hay resultados para “{query}”',
               'palette.navigate': 'Navegar', 'palette.open': 'Abrir', 'palette.close': 'Cerrar',
@@ -1771,7 +1850,9 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.updated': 'mis à jour il y a {ago}',
               'section.mcp': 'Serveurs MCP', 'section.skills': 'Compétences',
               scheduled: 'Planifiées', 'palette.title': 'Rechercher', 'palette.placeholder': 'Rechercher des discussions, artefacts, projets et actions',
-              hub: 'Hub',
+              hub: 'Modèles', customize: 'Personnaliser',
+              editSidebar: 'Modifier la barre latérale…', 'editSidebar.title': 'Modifier la barre latérale', 'editSidebar.done': 'Terminé',
+              'editSidebar.lede': 'Choisissez les pages affichées sous Rechercher. Les autres restent dans Plus.',
               'palette.filter': 'Filtrer les résultats', 'palette.all': 'Tout', 'palette.recents': 'Récents', 'palette.actions': 'Actions',
               'palette.goTo': 'Aller à {page}', 'palette.nothing': 'Rien pour le moment', 'palette.noResults': 'Aucun résultat pour « {query} »',
               'palette.navigate': 'Naviguer', 'palette.open': 'Ouvrir', 'palette.close': 'Fermer',
@@ -1838,7 +1919,9 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.updated': 'vor {ago} aktualisiert',
               'section.mcp': 'MCP-Server', 'section.skills': 'Skills',
               scheduled: 'Geplant', 'palette.title': 'Suchen', 'palette.placeholder': 'Chats, Artefakte, Projekte und Aktionen suchen',
-              hub: 'Hub',
+              hub: 'Modelle', customize: 'Anpassen',
+              editSidebar: 'Seitenleiste bearbeiten…', 'editSidebar.title': 'Seitenleiste bearbeiten', 'editSidebar.done': 'Fertig',
+              'editSidebar.lede': 'Wähle, welche Seiten unter Suchen erscheinen. Die übrigen bleiben unter Mehr.',
               'palette.filter': 'Ergebnisse filtern', 'palette.all': 'Alle', 'palette.recents': 'Zuletzt', 'palette.actions': 'Aktionen',
               'palette.goTo': 'Zu {page}', 'palette.nothing': 'Noch nichts vorhanden', 'palette.noResults': 'Keine Ergebnisse für „{query}“',
               'palette.navigate': 'Auswählen', 'palette.open': 'Öffnen', 'palette.close': 'Schließen',
@@ -1905,7 +1988,9 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.updated': 'обновлено {ago} назад',
               'section.mcp': 'MCP-серверы', 'section.skills': 'Навыки',
               scheduled: 'Запланированные', 'palette.title': 'Поиск', 'palette.placeholder': 'Поиск чатов, артефактов, проектов и действий',
-              hub: 'Хаб',
+              hub: 'Модели', customize: 'Настроить',
+              editSidebar: 'Изменить боковую панель…', 'editSidebar.title': 'Изменить боковую панель', 'editSidebar.done': 'Готово',
+              'editSidebar.lede': 'Выберите страницы, которые показываются под поиском. Остальные останутся в меню «Ещё».',
               'palette.filter': 'Фильтр результатов', 'palette.all': 'Все', 'palette.recents': 'Недавние', 'palette.actions': 'Действия',
               'palette.goTo': 'Перейти: {page}', 'palette.nothing': 'Здесь пока пусто', 'palette.noResults': 'Нет результатов для «{query}»',
               'palette.navigate': 'Выбор', 'palette.open': 'Открыть', 'palette.close': 'Закрыть',
@@ -1972,7 +2057,9 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'projects.updated': 'atualizado há {ago}',
               'section.mcp': 'Servidores MCP', 'section.skills': 'Habilidades',
               scheduled: 'Agendadas', 'palette.title': 'Pesquisar', 'palette.placeholder': 'Pesquisar conversas, artefatos, projetos e ações',
-              hub: 'Hub',
+              hub: 'Modelos', customize: 'Personalizar',
+              editSidebar: 'Editar barra lateral…', 'editSidebar.title': 'Editar barra lateral', 'editSidebar.done': 'Concluído',
+              'editSidebar.lede': 'Escolha quais páginas aparecem abaixo de Pesquisar. As demais ficam em Mais.',
               'palette.filter': 'Filtrar resultados', 'palette.all': 'Tudo', 'palette.recents': 'Recentes', 'palette.actions': 'Ações',
               'palette.goTo': 'Ir para {page}', 'palette.nothing': 'Nada aqui ainda', 'palette.noResults': 'Nenhum resultado para “{query}”',
               'palette.navigate': 'Navegar', 'palette.open': 'Abrir', 'palette.close': 'Fechar',
@@ -1998,12 +2085,6 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         for (const [key, nodes] of Object.entries(JAN_ARTWORK)) {
           ctx.slots.inject('plugins.artwork', () => ctx.slots.register({ name: 'plugins.artwork', key }, ({ size }) => h(JanArtwork, { nodes, size })))
         }
-        // The More menu's real panel destinations. Registering it also keeps
-        // the More trigger present, so no launcher row is hidden without a
-        // reachable menu entry.
-        ctx.slots.inject('sidebar.panellist.actions', () => ctx.slots.register({
-          name: 'sidebar.panellist.actions', id: 'jt-panel-destinations', order: -100,
-        }, PanelDestinations))
         // The stock "Browse other plugins" / "Create your plugin" rows repeat
         // the Plugins row and its "+"; shadow that sidebar entry with nothing.
         ctx.slots.inject('sidebar.panellist.actions', () => ctx.slots.register({
@@ -2031,6 +2112,25 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
             getSnapshot: () => scope.slots.entriesOfSlot('main').some((entry) => entry.options.key === key),
             subscribe: (listener) => scope.slots.subscribe('main', listener),
           })
+          // Other plugins' sidebar pages; Edit sidebar can pin them as rows too.
+          let otherPanels = []
+          const otherPanelsSnapshot = {
+            getSnapshot: () => {
+              const own = new Set(SIDEBAR_DESTINATIONS.map(({ id }) => id))
+              const next = scope.slots.entriesOfSlot('sidebar.panellist')
+                .filter(({ options }) => !own.has(options.id))
+                .sort((a, b) => (a.options.order ?? 0) - (b.options.order ?? 0))
+                .map(({ options }) => ({ id: options.id, label: (typeof options.label === 'function' ? options.label() : options.label) ?? options.id }))
+              const same = next.length === otherPanels.length && next.every((panel, i) => panel.id === otherPanels[i].id && panel.label === otherPanels[i].label)
+              if (!same) otherPanels = next
+              return otherPanels
+            },
+            subscribe: (listener) => {
+              const offSlots = scope.slots.subscribe('sidebar.panellist', listener)
+              const offLocale = scope.locale.subscribe(listener)
+              return () => { offSlots(); offLocale() }
+            },
+          }
           const t = scope.locale.bind('jan-theme')
           const startDraft = (prompt, agentPreset) => {
             scope.layout.selectPanel(null)
@@ -2060,6 +2160,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
                 artifactsAvailable: mainKeyAvailable(ARTIFACTS_PANEL),
                 scheduledAvailable: mainKeyAvailable(SCHEDULED_PANEL),
                 hubAvailable: mainKeyAvailable(HUB_PANEL),
+                otherPanels: otherPanelsSnapshot,
               },
               openPanel: (id) => scope.layout.selectPanel(id),
               addProject,
@@ -2068,6 +2169,13 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               createPlugin: () => { startDraft(t('createPlugin.prompt'), 'cordis') },
             }),
           }, WorkspaceActions))
+          // The More menu's real panel destinations. Registering it also keeps
+          // the More trigger present, so no launcher row is hidden without a
+          // reachable menu entry.
+          scope.slots.inject('sidebar.panellist.actions', () => scope.slots.register({
+            name: 'sidebar.panellist.actions', id: 'jt-panel-destinations', order: -100, locale: 'jan-theme',
+            inject: () => ({ hooks: { panelInfo: scope.layout.panelInfo }, openPanel: (id) => scope.layout.selectPanel(id) }),
+          }, PanelDestinations))
           const openProject = (workspaceId) => {
             currentProject.set(workspaceId)
             scope.layout.selectPanel(PROJECT_PANEL)
