@@ -51,7 +51,7 @@ The generated [configuration catalog](../../../docs/config-catalog.md#janhqjan-s
 
 ### Contribute a prompt section
 
-Sections carry static or context-resolved text with an `order`; they are concatenated in ascending order and equal orders use code-unit name order. Repository-owned contributors resolve centrally allocated positions through `ctx.systemPrompt.getSectionOrder(name)`; runtime-context contributors use `getContextOrder(name)`. External contributions may use any finite order. A `complete: true` section becomes the exact complete prompt after assembly; more than one effective complete section makes assembly fail.
+Sections carry static or context-resolved text with an `order`; they are concatenated in ascending order and equal orders use code-unit name order. Repository-owned contributors resolve centrally allocated positions through `ctx.systemPrompt.getSectionOrder(name)`; runtime-context contributors use `getContextOrder(name)`. External contributions may use any finite order. A `complete: true` section becomes the exact complete prompt after assembly, followed by the registered sections its `keep` list names, in their own order; more than one effective complete section makes assembly fail.
 
 ```text
 ctx.systemPrompt.section({
