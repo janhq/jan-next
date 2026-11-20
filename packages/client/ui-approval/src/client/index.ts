@@ -27,6 +27,25 @@ export type { ApprovalKey } from './locales.ts'
 export const inject = ['sessions', 'remote', 'uiSession', 'slots', 'locale']
 
 const NS = 'approval'
+/** The permission preset that grants every command and action without asking. */
+const FULL_ACCESS_PRESET = 'danger-full-access'
+
+/**
+ * Build the Allow all switch for one Session, when it offers permission presets.
+ * @param ctx - Client root context.
+ * @param sessionId - Session that owns the pending request.
+ * @returns The switch, or undefined when the Session cannot change presets or already has Full access.
+ */
+function fullAccessSwitch(ctx: ClientContext, sessionId: PendingApproval['sessionId']): (() => Promise<void>) | undefined {
+  const session = ctx.sessions.binding(sessionId)?.session
+  const selection = session?.projections.faceOf('permissions').getSnapshot() as { currentValue?: unknown } | undefined
+  if (session === undefined || selection === undefined || selection.currentValue === FULL_ACCESS_PRESET) return undefined
+  return async () => {
+    const result = await session.command(`/permission ${FULL_ACCESS_PRESET}`)
+    if (!result.ok) throw new Error(`permission switch failed: ${result.error.code}: ${result.error.message}`)
+    if (!result.value.matched) throw new Error('the host offers no /permission command')
+  }
+}
 
 type ApprovalListener = TypertClientEventListener<'approval/request'>
 type ClientApprovalRequest = Parameters<ApprovalListener>[0]
@@ -102,6 +121,7 @@ export function apply(ctx: ClientContext): void {
     locale: NS,
     inject: () => ({
       resolveReason: (reason: NonNullable<PendingApproval['displayReason']>) => ctx.locale.resolveText(reason),
+      allowAll: (sessionId: PendingApproval['sessionId']) => fullAccessSwitch(ctx, sessionId),
     }),
   }, ApprovalPanel))
   ctx.remote.$on('approval/request', function (request, next) {
