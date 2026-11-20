@@ -46,8 +46,9 @@ export function apply(ctx: Context): void {
     },
     createPlugin: () => {
       ctx.get('productAnalytics')?.track('more_menu_item_click', { region, action: 'create_plugin' })
+      // The leading `/create-plugin` attaches the Creator's plugin skill to the draft.
       ctx.uiWorkspace.startSession(undefined, {
-        agentPreset: 'cordis', prompt: t(`createPrompt.${region}`), whenDraftExists: 'append',
+        agentPreset: 'cordis', prompt: `/create-plugin ${t(`createPrompt.${region}`)}`, whenDraftExists: 'append',
       })
     },
   })
