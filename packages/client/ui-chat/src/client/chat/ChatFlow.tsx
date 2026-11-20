@@ -3,6 +3,7 @@ import { memo, type ReactElement } from 'react'
 import type { PendingSubmission } from '@janhq/jan-api-session-controller/client'
 import { assertNever } from '@janhq/jan-util-values'
 import type { ChatFlowSlotProps, RunningDetailOwnerProps } from '../contract/slots.ts'
+import type { ChatSnapshot } from '../contract/snapshot.ts'
 import { ChatNodeSeat } from './ChatNodeSeat.tsx'
 import { ChatGroupSeat } from './ChatGroupSeat.tsx'
 import { PendingSteeringBubble, PendingSubmissionBubble } from './MessageItem.tsx'
@@ -10,6 +11,37 @@ import { chatRenderKey } from './render-entry.ts'
 import { RunningStatus } from './RunningStatus.tsx'
 
 const RUNNING_DETAIL_OWNER: RunningDetailOwnerProps = {}
+const TOOL_LABEL_PREFIX_LENGTH = 160
+
+function latestTurn({ timeline }: ChatSnapshot) {
+  const turn = timeline.turnOrder.at(-1)
+  return turn === undefined ? undefined : timeline.turns.get(turn)
+}
+
+function runningPhaseLabel(snapshot: ChatSnapshot, t: ChatFlowSlotProps['t'], detail: boolean): string {
+  const turn = latestTurn(snapshot)
+  const step = turn?.steps.at(-1)
+  if (turn === undefined || turn.status === 'closed' || step === undefined || step.status === 'closed') {
+    return t('chat.running.working')
+  }
+
+  // A step's calls run in order, so the earliest unfinished one is the one executing; later ones are queued.
+  const tool = snapshot.legacy.runningCalls.find(call => call.turn === turn.turn && call.step === step.step)
+  if (tool !== undefined) {
+    if (!detail) return t('chat.running.tool', { tool: tool.name })
+    const title = tool.args.textPrefix('title', TOOL_LABEL_PREFIX_LENGTH)?.trim()
+    const description = title ? undefined : tool.args.textPrefix('description', TOOL_LABEL_PREFIX_LENGTH)?.trim()
+    return t('chat.running.tool', { tool: title || description || tool.name })
+  }
+
+  const assistant = step.data.get('assistant-step')
+  if (assistant?.status === 'running' && assistant.streamingPhase !== undefined) {
+    return t(`chat.running.${assistant.streamingPhase}`)
+  }
+  return step.status === 'open' && (assistant === undefined || assistant.status === 'running')
+    ? t('chat.running.waiting')
+    : t('chat.running.working')
+}
 
 /** A local submission echo, or a Host-pending steering item without a local submission. */
 type PendingInput = ChatFlowSlotProps['pendingInputs'][number]
@@ -34,17 +66,11 @@ export const ChatFlow = memo(function ChatFlow({
   const nodeStore = useChat(snapshot => snapshot.nodes)
   const running = useSession(snapshot => snapshot.running)
   const disconnected = useConnectionState(state => state === 'disconnected' || state === 'connecting')
-  const latestTurnAnchor = useChat(snapshot => snapshot.navigation.items().at(-1)?.anchorKey)
-  const runningStartTime = useChatNode(latestTurnAnchor ?? '', (node) => {
-    const location = node?.location
-    return location?.kind === 'turn' || location?.kind === 'step'
-      ? location.turn.status === 'open' ? location.turn.start?.time : undefined
-      : undefined
-  })
-  const latestTurnOpen = useChatNode(latestTurnAnchor ?? '', (node) => {
-    const location = node?.location
-    return (location?.kind === 'turn' || location?.kind === 'step') && location.turn.status === 'open'
-  })
+  const turn = useChat(latestTurn)
+  const runningStartTime = turn?.status === 'open' ? turn.start?.time : undefined
+  const latestTurnOpen = turn?.status === 'open'
+  const phaseLabel = useChat(snapshot => running ? runningPhaseLabel(snapshot, t, true) : t('chat.running.working'))
+  const announcement = useChat(snapshot => running ? runningPhaseLabel(snapshot, t, false) : t('chat.running.working'))
   const holding = !running && latestTurnOpen
   const seatProps = {
     nodeStore, useChatNode, useChatNodeBottom, useChatNodeProcess, usePresentation,
@@ -95,8 +121,9 @@ export const ChatFlow = memo(function ChatFlow({
   // the status slot (hidden) until its actions row takes the slot in the same commit.
   return [
     ...rows, ...leadingRows, ...openingRows,
-    ...running || holding ? [<RunningStatus key="running" startTime={runningStartTime} paused={disconnected}
-      holding={holding} t={t}
+    ...running || holding ? [<RunningStatus key="running" phaseLabel={phaseLabel} startTime={runningStartTime}
+      announcement={announcement}
+      paused={disconnected} holding={holding} t={t}
       detail={holding ? null : renderSlot('conversation.chat.running-detail', RUNNING_DETAIL_OWNER)} />] : [],
     ...pendingRows,
   ]
