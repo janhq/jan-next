@@ -8,7 +8,7 @@
  * the page declares.
  */
 
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { PluginInstallFailureKind, Registry } from '@janhq/jan-api-remotes/client'
 import {
@@ -1625,6 +1625,9 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
     const form = props.configForm<Record<string, unknown>>(id)
     return { state: form.getSnapshot(), mutate: (ops, revision) => form.mutate(ops, revision) }
   }
+  // Jan's desktop names this page Customize; the Host row's `customize` flag says so.
+  const [pageForm] = useState(() => props.configForm<{ customize?: boolean }>('ui-plugin-manager'))
+  const customize = useSyncExternalStore(listener => pageForm.subscribe(listener), () => pageForm.getSnapshot().value?.customize === true)
   const state = props.usePluginManager(snapshot => snapshot)
   const ledger = props.useConfigLedger(snapshot => snapshot)
   // What is open; a package that leaves the list (uninstalled) drops back to the cards.
@@ -1763,15 +1766,17 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
             >
               <header className={css.pageHead} data-window-drag>
                 <div className={css.pageHeading}>
-                  <h1 className={css.pageTitle} data-plugin-header-part="title">{t('title')}</h1>
-                  <div className={css.pageIntro} data-plugin-header-part="intro">
-                    <span>{t('intro')}</span>
-                    <Tooltip label={t('infoDescription')} side="bottom" delayMs={300} maxWidth={300} portal openOnClick>
-                      <Button variant="ghost" size="sm" className={css.infoButton} aria-label={t('infoLabel')}>
-                        <IconInfoOutlineRegular size={11} aria-hidden="true" />
-                      </Button>
-                    </Tooltip>
-                  </div>
+                  <h1 className={css.pageTitle} data-plugin-header-part="title">{t(customize ? 'customizeTitle' : 'title')}</h1>
+                  {customize ? null : (
+                    <div className={css.pageIntro} data-plugin-header-part="intro">
+                      <span>{t('intro')}</span>
+                      <Tooltip label={t('infoDescription')} side="bottom" delayMs={300} maxWidth={300} portal openOnClick>
+                        <Button variant="ghost" size="sm" className={css.infoButton} aria-label={t('infoLabel')}>
+                          <IconInfoOutlineRegular size={11} aria-hidden="true" />
+                        </Button>
+                      </Tooltip>
+                    </div>
+                  )}
                 </div>
                 <div className={css.toolbar} data-plugin-toolbar data-plugin-header-part="toolbar" hidden={!onInstalled}>
                   {updates === undefined ? null : <span className={css.updatesNote} data-tone={updates.tone}>{updates.text}</span>}
@@ -1805,7 +1810,7 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
                         value={tab}
                         onChange={(next) => { setTab(next) }}
                         items={[
-                          { value: INSTALLED_TAB, label: t('installedTab'), id: `${tabsId}-${INSTALLED_TAB}`, panelId: `${tabsId}-${INSTALLED_TAB}-panel` },
+                          { value: INSTALLED_TAB, label: t(customize ? 'pluginsTab' : 'installedTab'), id: `${tabsId}-${INSTALLED_TAB}`, panelId: `${tabsId}-${INSTALLED_TAB}-panel` },
                           ...tabs.map(item => ({ value: item.id, label: item.label, id: `${tabsId}-${item.id}`, panelId: `${tabsId}-${item.id}-panel` })),
                         ]}
                       />

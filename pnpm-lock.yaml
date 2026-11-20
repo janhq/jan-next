@@ -5388,6 +5388,9 @@ importers:
       '@janhq/jan-plugin-manager':
         specifier: workspace:*
         version: link:../../boot/plugin-manager
+      '@janhq/jan-settings':
+        specifier: workspace:*
+        version: link:../../settings/settings
       '@janhq/jan-util-crypto':
         specifier: workspace:*
         version: link:../../util/crypto

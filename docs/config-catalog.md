@@ -533,7 +533,8 @@ export interface Config {
 
 ## `@janhq/jan-client-ui-plugin-manager`
 
-- `source`: [`packages/client/ui-plugin-manager/src/index.ts:15`](../packages/client/ui-plugin-manager/src/index.ts)
+- `refs`: `Volatile` (`@janhq/cordis`)
+- `source`: [`packages/client/ui-plugin-manager/src/index.ts:16`](../packages/client/ui-plugin-manager/src/index.ts)
 
 ```ts config-catalog
 /** Registry-probe deadline and process-local cache policy. */
@@ -544,6 +545,8 @@ export interface Config {
   registryProbeTimeoutMs: number
   /** Lifetime of a winning registry or unavailable result. */
   registryProbeCacheTtlMs: number
+  /** Present the page as Customize: that heading, no intro, and Plugins as the first tab's name. */
+  customize: Volatile<boolean>
 }
 ```
 
