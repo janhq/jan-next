@@ -63,9 +63,22 @@
     - id: jan-agent-desktop
       name: '@janhq/jan-agent-desktop'
 
-    # Generate and edit images through the Tokamak Images API, saved in the Session's folder.
-    - id: jan-image
-      name: '@janhq/jan-image'
+    # Tokamak's media and voice APIs: image generation and editing, text to
+    # speech, transcription, Read aloud on replies, voice conversations and
+    # System One classification, all on the signed-in account's key.
+    - id: jan-tokamak
+      name: '@janhq/jan-tokamak'
+
+    # The composer microphone, dictating through Tokamak. Local SenseVoice
+    # recognition stays available as the Voice Input bundle on the Plugins page.
+    - id: speech-to-text
+      name: '@janhq/jan-experimental-speech-to-text'
+      config:
+        defaultProvider: tokamak
+    - id: api-speech-to-text
+      name: '@janhq/jan-experimental-api-speech-to-text'
+    - id: ui-voice-input
+      name: '@janhq/jan-experimental-client-ui-voice-input'
 
     # Attach element context and marked-up screenshots to the current draft.
     - id: jan-annotate
