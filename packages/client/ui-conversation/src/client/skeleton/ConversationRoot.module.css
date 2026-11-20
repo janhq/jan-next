@@ -445,9 +445,12 @@
 
 /* Active phase: header is ordinary column chrome above the scrollport (not
    sticky). The scroll body holds the transcript and the sticky composer seat
-   so wheel over the footer moves the flow. */
+   so wheel over the footer moves the flow. `clip`, not `hidden`: in a column
+   narrower than the content width the right width handle sits past the edge,
+   and a scroll container would let focus or scrollIntoView shift the whole
+   column sideways. */
 .root[data-phase='active'] {
-  overflow: hidden;
+  overflow: clip;
 }
 
 .root[data-phase='active'] .header {
