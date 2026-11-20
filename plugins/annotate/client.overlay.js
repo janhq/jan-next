@@ -12,7 +12,9 @@ window.__ModuleLoader__.load({
     const ink = { ...textStyle, color: 'var(--dsw-alias-label-primary)', overflowWrap: 'anywhere' }
     const titleStyle = { fontSize: '16px', lineHeight: '24px', letterSpacing: '-0.32px', fontWeight: 500,
       color: 'var(--dsw-alias-label-primary)', margin: 0 }
-    const frameStyle = { position: 'relative', maxHeight: 'min(53dvh, 620px)', maxWidth: '100%', overflow: 'hidden', margin: 'auto', borderRadius: '12px' }
+    // The Draw dialog's title, tools, note and buttons take about 440px; the picture gets what the viewport leaves.
+    const FRAME_HEIGHT = 'min(53dvh, 620px, calc(100dvh - 440px))'
+    const frameStyle = { position: 'relative', maxHeight: FRAME_HEIGHT, maxWidth: '100%', overflow: 'hidden', margin: 'auto', borderRadius: '12px' }
     const HIGHLIGHT = 'var(--dsw-alias-state-business-primary)'
     const elevation = '0 1px 2px color-mix(in srgb, var(--dsw-alias-bg-mask-3) 8%, transparent), '
       + '0 6px 16px -4px color-mix(in srgb, var(--dsw-alias-bg-mask-3) 12%, transparent)'
@@ -27,6 +29,13 @@ window.__ModuleLoader__.load({
       + '.jan-annotation-dialog details>summary{cursor:pointer;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:18px}'
       + '.jan-annotation-dialog.jan-annotation-wide[role="dialog"]{width:min(880px,100%)}'
     document.head.append(dialogStyle)
+
+    /** Fit a bitmap inside its container's width and the frame's height cap, keeping its ratio. */
+    function fitted(bitmap) {
+      const ratio = bitmap.width / bitmap.height
+      const width = `min(100cqw, ${bitmap.width}px, calc(${FRAME_HEIGHT} * ${ratio}))`
+      return { width, height: `calc(${width} / ${ratio})` }
+    }
 
     function boundsOf(node, x = 0, y = 0) {
       const bounds = node.getBoundingClientRect()
@@ -350,13 +359,14 @@ window.__ModuleLoader__.load({
           h(Button, { type: 'button', size: 'sm', disabled: count === 0 || pending, onClick: undo }, t('undo'))),
         tool === 'text' && h(Input, { placeholder: t('textHint'), 'aria-label': t('textHint'), value: text,
           onChange: event => setText(event.target.value) }),
-        h('div', { style: { ...frameStyle, aspectRatio: `${bitmap.width} / ${bitmap.height}`,
-          width: `min(100%, ${bitmap.width}px, calc(min(53dvh, 620px) * ${bitmap.width / bitmap.height}))` } },
-        h('canvas', { ref: showBase, width: bitmap.width, height: bitmap.height, style: { display: 'block', width: '100%' } }),
-        h('canvas', { ref: inkLayer, width: bitmap.width, height: bitmap.height, role: 'img', 'aria-label': t('canvas'),
-          style: { position: 'absolute', inset: 0, width: '100%', height: '100%', cursor: tool === 'text' ? 'text' : 'crosshair', touchAction: 'none' },
-          onPointerDown: down, onPointerMove: move, onPointerUp: event => end(event, true), onPointerCancel: event => end(event, false),
-          onLostPointerCapture: event => end(event, false) })),
+        // Explicit width and height (not aspect-ratio over a percentage) so the grid row holds the whole canvas.
+        h('div', { style: { containerType: 'inline-size' } },
+          h('div', { style: { ...frameStyle, ...fitted(bitmap) } },
+            h('canvas', { ref: showBase, width: bitmap.width, height: bitmap.height, style: { display: 'block', width: '100%', height: '100%' } }),
+            h('canvas', { ref: inkLayer, width: bitmap.width, height: bitmap.height, role: 'img', 'aria-label': t('canvas'),
+              style: { position: 'absolute', inset: 0, width: '100%', height: '100%', cursor: tool === 'text' ? 'text' : 'crosshair', touchAction: 'none' },
+              onPointerDown: down, onPointerMove: move, onPointerUp: event => end(event, true), onPointerCancel: event => end(event, false),
+              onLostPointerCapture: event => end(event, false) }))),
         h(Notes, { t, value: note, change: setNote, close, submit: save }),
         (error || encodeError) && h(Status, { t, message: error || 'encodeError', error: true }),
         h('div', { style: { ...tools, justifyContent: 'end', gap: '8px' } },
