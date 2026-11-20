@@ -2821,8 +2821,8 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     key: 'deliverables.preview.actions',
     kind: 'list',
     scope: 'session',
-    summary: 'Controls beside a lone delivered file\'s mounted inline preview.',
-    doc: 'Controls beside a lone delivered file\'s mounted inline preview.',
+    summary: 'Controls beside a lone file\'s inline preview or the Sidebar viewer drawn in place.',
+    doc: 'Controls beside a lone file\'s inline preview or the Sidebar viewer drawn in place.',
     registerOptions: [
       {
         name: 'id',

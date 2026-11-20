@@ -42,13 +42,13 @@ export { ARTIFACTS_PANEL_ID }
 
 declare module '@janhq/jan-client-ui-slots' {
   interface SlotMap {
-    /** Controls beside a lone delivered file's mounted inline preview. */
+    /** Controls beside a lone file's inline preview or the Sidebar viewer drawn in place. */
     'deliverables.preview.actions': {
       kind: 'list'
       scope: 'session'
       owner: {
-        /** @returns the current inline image or page frame, or null before mount. */
-        readonly getSurface: () => HTMLImageElement | HTMLIFrameElement | null
+        /** @returns the current inline image, page frame, or viewer container, or null before mount. */
+        readonly getSurface: () => HTMLElement | null
       }
     }
   }
@@ -84,6 +84,10 @@ export function apply(ctx: ClientContext): void {
     readBytes = (sessionId, path, signal) => child.remote.workspaceFiles.readBytes(sessionId, path, {}, signal)
     child.effect(() => () => { readBytes = undefined }, 'ui-deliverables: inline preview reader')
   })
+  // Stable across renders, so a mounted viewer is not withdrawn and redrawn on every turn-tail render.
+  const inlineViewer = (address: string): ReturnType<typeof ctx.sidebarRight.inlineViewer> => ctx.sidebarRight.inlineViewer(address)
+  const embed: typeof ctx.sidebarRight.embed = (sessionId, address, container, rank) =>
+    ctx.sidebarRight.embed(sessionId, address, container, rank)
   ctx.slots.inject(
     'conversation.chat.turnTail',
     () => ctx.slots.register({
@@ -110,6 +114,8 @@ export function apply(ctx: ClientContext): void {
           if (readBytes === undefined) throw new Error('ui-deliverables: workspace files unavailable')
           return readBytes(sessionId, path, signal)
         },
+        inlineViewer,
+        embed,
       }),
     }, DeliverablesTail),
   )
