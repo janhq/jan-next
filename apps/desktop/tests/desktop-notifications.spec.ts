@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { DesktopNotifications, parseDesktopNotificationRequest } from '../src/desktop-notifications.ts'
+import { DesktopNotifications, isWindowActive, parseDesktopNotificationRequest } from '../src/desktop-notifications.ts'
 
 const native = await vi.hoisted(async () => {
   const { EventEmitter } = await import('node:events')
@@ -73,4 +73,13 @@ it('rejects renderer requests that are not bounded non-empty strings', () => {
   expect(() => parseDesktopNotificationRequest({ id: '', title: 'b', body: 'c' })).toThrow(/id/)
   expect(() => parseDesktopNotificationRequest({ id: 'a', title: 1, body: 'c' })).toThrow(/title/)
   expect(() => parseDesktopNotificationRequest({ id: 'a', title: 'b', body: 'x'.repeat(1025) })).toThrow(/body/)
+})
+
+it('treats only a shown, restored and focused window as active', () => {
+  const window = (visible: boolean, minimized: boolean, focused: boolean) =>
+    ({ isVisible: () => visible, isMinimized: () => minimized, isFocused: () => focused })
+  expect(isWindowActive(window(true, false, true))).toBe(true)
+  expect(isWindowActive(window(false, false, true))).toBe(false)
+  expect(isWindowActive(window(true, true, true))).toBe(false)
+  expect(isWindowActive(window(true, false, false))).toBe(false)
 })
