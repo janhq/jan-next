@@ -18038,6 +18038,9 @@ importers:
 
   plugins/desktop-app:
     dependencies:
+      '@janhq/dsh-generative-ui':
+        specifier: workspace:~
+        version: link:../../vendor/dsh-generative-ui
       '@janhq/jan-agent-desktop':
         specifier: workspace:*
         version: link:../agent-desktop
@@ -18110,6 +18113,9 @@ importers:
       '@janhq/jan-tool-present':
         specifier: workspace:*
         version: link:../../packages/deliverables/tool-present
+      '@janhq/jan-tool-skill':
+        specifier: workspace:*
+        version: link:../../packages/skill/tool-skill
       '@janhq/jan-tool-web':
         specifier: workspace:*
         version: link:../../packages/web/tool-web
