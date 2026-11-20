@@ -342,6 +342,7 @@ describe('approval Remote Event consumer', () => {
 function panelProps(
   pending: PendingApproval,
   renderSlot: FactoryComponentPropsOf<'conversation.approval.card'>['renderSlot'] = vi.fn(() => null),
+  allowAll: ApprovalComposerProps['allowAll'] = () => undefined,
 ): ApprovalComposerProps {
   const messages: Record<string, string> = {
     waiting: 'Waiting',
@@ -350,12 +351,15 @@ function panelProps(
     reject: 'Reject',
     allowOnce: 'Allow once',
     allowAlways: 'Always allow',
+    allowAll: 'Allow all in this chat',
+    allowAllHint: 'Switches this chat to Full access',
   }
   return {
     matched: pending,
     renderFactorySlot: (_name: string, input: ApprovalCardInput) => <ApprovalCard {...{ ...input, renderSlot,
       t: (key: string) => messages[key] ?? key } as FactoryComponentPropsOf<'conversation.approval.card'>} />,
     resolveReason: (reason: NonNullable<PendingApproval['displayReason']>) => reason.en,
+    allowAll,
     t: (key: string) => messages[key] ?? key,
   } as ApprovalComposerProps
 }
@@ -397,6 +401,36 @@ describe('ApprovalPanel', () => {
     expect(document.querySelector('[data-approval-key]')?.getAttribute('aria-busy')).toBe('true')
 
     await expect(pending.result).resolves.toBe('allowed-once')
+  })
+
+  it('switches the chat to Full access before granting, and stays answerable when the switch fails', async () => {
+    const pending = new PendingApproval(id('s1'), { toolName: 'desktop_act' })
+    let fail = true
+    const order: string[] = []
+    const switchAll = vi.fn(async () => {
+      order.push(`switch:${String(pending.answerable)}`)
+      if (fail) throw new Error('no preset')
+    })
+    const allowAll = vi.fn(() => switchAll)
+    render(<ApprovalPanel {...panelProps(pending, undefined, allowAll)} />)
+    expect(allowAll).toHaveBeenCalledWith(id('s1'))
+    const button = screen.getByRole<HTMLButtonElement>('button', { name: 'Allow all in this chat' })
+    expect(button.title).toBe('Switches this chat to Full access')
+
+    fireEvent.click(button)
+    await waitFor(() => { expect(button.disabled).toBe(false) })
+    expect(pending.answerable).toBe(true)
+
+    fail = false
+    fireEvent.click(button)
+    await expect(pending.result).resolves.toBe('allowed-once')
+    expect(order).toEqual(['switch:true', 'switch:true'])
+  })
+
+  it('offers no Allow all when the Session cannot switch presets', () => {
+    render(<ApprovalPanel {...panelProps(new PendingApproval(id('s1'), { toolName: 'bash' }))} />)
+    expect(screen.queryByRole('button', { name: 'Allow all in this chat' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Allow once' })).toBeTruthy()
   })
 
   it('keeps the audit reason intact and follows the UI language for presentation copy', () => {

@@ -193,6 +193,12 @@ export interface ApprovalInjected {
    * @returns text for the active UI language.
    */
   resolveReason(reason: NonNullable<ApprovalPresentationRequest['displayReason']>): string
+  /**
+   * Switch one Session to Full access so later calls run without asking.
+   * @param sessionId - Session that owns the pending request.
+   * @returns the switch, or undefined when the Session offers no permission presets.
+   */
+  allowAll(sessionId: SessionId): (() => Promise<void>) | undefined
 }
 
 /** Full props of the approval composer takeover. */
@@ -219,6 +225,10 @@ export interface ApprovalCardInput {
   callId?: ToolCallId
   /** Caller-specific scope label; ordinary approvals use Allow once. */
   allowLabel?: string
+  /** Caller-specific label for the persistent choice; defaults to Always allow. */
+  alwaysLabel?: string
+  /** Consequence of the persistent choice, shown on hover. */
+  alwaysHint?: string
   /** Whether the caller still accepts an answer. */
   canAnswer: () => boolean
   /** Grant this request with the caller's stated scope. */
