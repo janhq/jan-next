@@ -271,6 +271,7 @@ export function TabStrip({ state, pane, callbacks, offsets }: TabStripProps): Re
   useStripScrollFades(stripTabs, pane.tabs)
   useActiveChipInView(stripTabs, chips, pane.tabs, pane.activeTabId, pane.id, offsets)
   const block = callbacks.splitBlock(pane.id)
+  const active = pane.activeTabId === undefined ? undefined : getTab(state, pane.activeTabId)
   const target = callbacks.dropTarget
   const stripIndex = target !== undefined && target.kind === 'strip' && target.paneId === pane.id
     ? target.index
@@ -420,6 +421,12 @@ export function TabStrip({ state, pane, callbacks, offsets }: TabStripProps): Re
         </Tooltip>
       )}
       <div className={css.stripFill} data-dockkit-strip-fill />
+      {active !== undefined && callbacks.renderTabActions !== undefined && (
+        // The tab's own controls report their own intents; the pane's click-to-focus stays out of them.
+        <div className={css.stripChrome} data-dockkit-tab-actions={active.id} onClick={(event) => { event.stopPropagation() }}>
+          {callbacks.renderTabActions(active)}
+        </div>
+      )}
       {!(callbacks.hideSplitWhenBlocked && block !== undefined) && (
         <Tooltip label={block === undefined ? callbacks.labels.splitPane : splitBlockedTitle(callbacks.labels, block)} shortcutKeys={callbacks.labels.splitPaneKeys} side="bottom" delayMs={500} openOnClick={block !== undefined}>
           <span

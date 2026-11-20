@@ -63,6 +63,12 @@ export interface DockSurfaceProps {
    * slot, and nothing outside that embedder is expected to supply it.
    */
   readonly renderTabTitle?: TabRenderer
+  /**
+   * Controls for the tab a pane shows, drawn at the end of that pane's strip
+   * (a floating panel's header for a float). The kit places them; what they do
+   * is the embedder's.
+   */
+  readonly renderTabActions?: TabRenderer
   /** Whether the embedder popup is preparing or visible; suppresses tab tooltips. */
   readonly tabMenuOpen?: boolean | undefined
   /** Override the kit popup; the embedder owns rendering and dismissal. */
@@ -173,7 +179,7 @@ function sameSizes(a: readonly number[], b: readonly number[]): boolean {
 
 /** The split tree and the gestures over it. */
 function Surface({
-  state, canSplit, canAddTab, canCloseTab, intents, labels, renderTab, renderTabTitle, renderTabMenuItems,
+  state, canSplit, canAddTab, canCloseTab, intents, labels, renderTab, renderTabTitle, renderTabActions, renderTabMenuItems,
   getTabTriggerProps, tabMenuOpen, chrome, onRoom,
   draw,
   dropZones = 'edges', minPaneFraction = MIN_PANE_FRACTION, hideSplitWhenBlocked = false,
@@ -295,6 +301,7 @@ function Surface({
     labels,
     renderTab,
     renderTabTitle,
+    renderTabActions,
     renderTabMenuItems,
     getTabTriggerProps, tabMenuOpen,
     chromePaneId: topRightPaneId(state),
