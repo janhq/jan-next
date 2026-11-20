@@ -10,7 +10,8 @@ window.__ModuleLoader__.load({
     const grabBinding = { code: 'KeyC', modifiers: ['primary'] }
     // Every right-Sidebar tab, whatever its kind, carries the controls at its strip's end.
     const SHELL_SLOTS = ['sidebar.right.pane.tab.actions']
-    const INLINE_SLOTS = ['conversation.image.preview.actions', 'conversation.chat.image.actions', 'deliverables.preview.actions']
+    const INLINE_SLOTS = ['conversation.image.preview.actions', 'conversation.chat.image.actions', 'deliverables.preview.actions',
+      'deliverables.live.actions']
     const ACTIONS = [
       { id: 'pick', icon: IconListPenOutlineRegular, binding: pickBinding },
       { id: 'grab', icon: IconInspectOutlineRegular, binding: grabBinding },
