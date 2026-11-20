@@ -2,9 +2,11 @@ window.__ModuleLoader__.load({
   id: '@janhq/jan-annotate',
   chunk: 'client.overlay.js',
   factory(require) {
-    const { createElement: h, useCallback, useEffect, useRef, useState } = require('react')
+    const { createElement: h, useCallback, useEffect, useReducer, useRef, useState } = require('react')
     const { createPortal } = require('react-dom')
-    const { Button, InlineEditor, Input, Modal, IconCloseOutlineRegular } = require('@janhq/jan-client-ui-primitives')
+    const { Button, InlineEditor, Input, Modal, Tooltip, IconCloseOutlineRegular, IconPenOutlineRegular, IconRectangleOutlineRegular,
+      IconEllipseOutlineRegular, IconArrowOutlineRegular, IconEraserOutlineRegular, IconTextOutlineRegular, IconCursorOutlineRegular,
+      IconUndoOutlineRegular, IconRedoOutlineRegular, IconLayersOutlineRegular, IconTrashOutlineRegular } = require('@janhq/jan-client-ui-primitives')
     const shell = { display: 'grid', gap: '16px', padding: '20px', boxSizing: 'border-box', minHeight: 0, overflow: 'auto' }
     const tools = { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }
     const textStyle = { fontSize: '13px', lineHeight: '18px', letterSpacing: '-0.13px', margin: 0 }
@@ -12,14 +14,29 @@ window.__ModuleLoader__.load({
     const ink = { ...textStyle, color: 'var(--dsw-alias-label-primary)', overflowWrap: 'anywhere' }
     const titleStyle = { fontSize: '16px', lineHeight: '24px', letterSpacing: '-0.32px', fontWeight: 500,
       color: 'var(--dsw-alias-label-primary)', margin: 0 }
-    // The Draw dialog's title, tools, note and buttons take about 440px; the picture gets what the viewport leaves.
-    const FRAME_HEIGHT = 'min(53dvh, 620px, calc(100dvh - 440px))'
-    const frameStyle = { position: 'relative', maxHeight: FRAME_HEIGHT, maxWidth: '100%', overflow: 'hidden', margin: 'auto', borderRadius: '12px' }
+    // The Draw dialog's title, tools, stage padding, note and buttons take about 500px; the picture gets what the viewport leaves.
+    const FRAME_HEIGHT = 'min(53dvh, 620px, calc(100dvh - 500px))'
+    const frameStyle = { position: 'relative', maxHeight: FRAME_HEIGHT, maxWidth: '100%', overflow: 'hidden', margin: 'auto', borderRadius: '8px' }
     const HIGHLIGHT = 'var(--dsw-alias-state-business-primary)'
     const elevation = '0 1px 2px color-mix(in srgb, var(--dsw-alias-bg-mask-3) 8%, transparent), '
       + '0 6px 16px -4px color-mix(in srgb, var(--dsw-alias-bg-mask-3) 12%, transparent)'
     const overlayStyle = { position: 'fixed', inset: 0, zIndex: 90 }
-    const toolsWithDrag = ['pen', 'rectangle', 'ellipse', 'arrow', 'eraser']
+    const DRAW_TOOLS = ['select', 'pen', 'rectangle', 'ellipse', 'arrow', 'eraser', 'text']
+    const TOOL_ICONS = { select: IconCursorOutlineRegular, pen: IconPenOutlineRegular, rectangle: IconRectangleOutlineRegular,
+      ellipse: IconEllipseOutlineRegular, arrow: IconArrowOutlineRegular, eraser: IconEraserOutlineRegular, text: IconTextOutlineRegular }
+    const square = { width: '28px', padding: 0, justifyContent: 'center' }
+    // The tools sit in one segment on the input surface, like the composer's controls; the picture sits on the same surface.
+    const segment = { display: 'inline-flex', alignItems: 'center', gap: '2px', padding: '2px', borderRadius: 'var(--dsw-radius-md)',
+      background: 'var(--dsw-alias-bg-base)', boxShadow: 'inset 0 0 0 var(--jan-hairline-width, 0.5px) var(--dsw-alias-border-l2)' }
+    const surface = { padding: '12px', borderRadius: '12px', background: 'var(--dsw-alias-bg-base)',
+      boxShadow: 'inset 0 0 0 var(--jan-hairline-width, 0.5px) var(--dsw-alias-border-l2)' }
+    const stage = { ...surface, containerType: 'inline-size' }
+    // Size containment keeps a long layer list from growing the row; the panel takes the stage's height and scrolls.
+    const panel = { ...surface, padding: '4px', contain: 'size', overflow: 'auto', display: 'grid', alignContent: 'start', gap: '2px' }
+    const panelText = { ...muted, fontSize: '12px', lineHeight: '18px', margin: 0, padding: '4px 8px' }
+    const layerButton = { flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '8px', height: '28px', padding: '0 8px',
+      border: 0, background: 'transparent', color: 'var(--dsw-alias-label-primary)', font: 'inherit', fontSize: '13px', textAlign: 'left',
+      cursor: 'pointer' }
     const dialogStyle = document.createElement('style')
     dialogStyle.textContent = '.jan-annotation-dialog[role="dialog"]{width:min(520px,100%);max-height:100%;padding:0;border-radius:20px;'
       + 'background:var(--dsw-alias-bg-overlay);box-shadow:' + elevation + '}'
@@ -28,6 +45,9 @@ window.__ModuleLoader__.load({
       + '.jan-annotation-dialog .jan-annotation-note:focus{border-color:var(--dsw-alias-state-business-primary)}'
       + '.jan-annotation-dialog details>summary{cursor:pointer;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:18px}'
       + '.jan-annotation-dialog.jan-annotation-wide[role="dialog"]{width:min(880px,100%)}'
+      + '.jan-annotation-dialog .jan-annotation-layer{display:flex;align-items:center;gap:2px;padding-right:2px;border-radius:var(--dsw-radius-sm)}'
+      + '.jan-annotation-dialog .jan-annotation-layer:hover{background:var(--dsw-alias-interactive-bg-hover)}'
+      + '.jan-annotation-dialog .jan-annotation-layer[data-selected]{background:var(--dsw-alias-bg-selected)}'
     document.head.append(dialogStyle)
 
     /** Fit a bitmap inside its container's width and the frame's height cap, keeping its ratio. */
@@ -226,17 +246,138 @@ window.__ModuleLoader__.load({
           fallback && h(Button, { type: 'button', size: 'sm', onClick: fallback }, t('draw'))))
     }
 
-    /** Paint one history operation onto the transparent ink layer, never onto the source image. */
-    function paintMark(ctx, { tool, points, text }, scale, inkColor, fontFamily) {
+    /** Turn a point about a centre by an angle in radians. */
+    function turn(p, c, angle) {
+      if (!angle) return p
+      const cos = Math.cos(angle)
+      const sin = Math.sin(angle)
+      const x = p.x - c.x
+      const y = p.y - c.y
+      return { x: c.x + x * cos - y * sin, y: c.y + x * sin + y * cos }
+    }
+
+    const fontSize = (mark, scale) => mark.size ?? 16 * scale
+    const centerOf = b => ({ x: b.x + b.width / 2, y: b.y + b.height / 2 })
+
+    /** A mark's unrotated box in screenshot pixels; `measure` returns a text mark's width in its font. */
+    function markBounds(mark, measure) {
+      if (mark.tool === 'text') {
+        const { x, y } = mark.points[0]
+        return { x, y, width: measure(mark), height: fontSize(mark, mark.scale) * 1.25 }
+      }
+      let left = Infinity
+      let top = Infinity
+      let right = -Infinity
+      let bottom = -Infinity
+      for (const { x, y } of mark.points) {
+        left = Math.min(left, x)
+        top = Math.min(top, y)
+        right = Math.max(right, x)
+        bottom = Math.max(bottom, y)
+      }
+      return { x: left, y: top, width: right - left, height: bottom - top }
+    }
+
+    function within(b, p, pad) {
+      return p.x >= b.x - pad && p.x <= b.x + b.width + pad && p.y >= b.y - pad && p.y <= b.y + b.height + pad
+    }
+
+    function segmentDistance(p, a, b) {
+      const dx = b.x - a.x
+      const dy = b.y - a.y
+      const length = dx * dx + dy * dy
+      const t = length === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / length))
+      return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy)
+    }
+
+    /** The polyline a mark draws, in its unrotated frame. */
+    function outline(mark, b) {
+      const [first, end = first] = mark.points
+      if (mark.tool === 'rectangle') {
+        const right = b.x + b.width
+        const bottom = b.y + b.height
+        return [{ x: b.x, y: b.y }, { x: right, y: b.y }, { x: right, y: bottom }, { x: b.x, y: bottom }, { x: b.x, y: b.y }]
+      }
+      if (mark.tool === 'ellipse') {
+        const c = centerOf(b)
+        return Array.from({ length: 49 }, (_, i) => ({ x: c.x + b.width / 2 * Math.cos(i * Math.PI / 24),
+          y: c.y + b.height / 2 * Math.sin(i * Math.PI / 24) }))
+      }
+      if (mark.tool === 'arrow') return [first, end]
+      return mark.points
+    }
+
+    /** Whether a point lies on what a mark draws, within reach; a text mark counts its whole box. */
+    function touches(mark, b, p, reach) {
+      const q = turn(p, centerOf(b), -(mark.angle ?? 0))
+      if (mark.tool === 'text') return within(b, q, reach)
+      const line = outline(mark, b)
+      if (line.length === 1) return Math.hypot(q.x - line[0].x, q.y - line[0].y) <= reach
+      for (let i = 1; i < line.length; i++) if (segmentDistance(q, line[i - 1], line[i]) <= reach) return true
+      return false
+    }
+
+    /** Corner handles 0-3 (clockwise from top left) and the rotation handle of a mark; `unit` is one CSS pixel. */
+    function handlesOf(mark, b, unit) {
+      const pad = 6 * unit
+      const c = centerOf(b)
+      const left = b.x - pad
+      const top = b.y - pad
+      const right = b.x + b.width + pad
+      const bottom = b.y + b.height + pad
+      return [{ id: 0, x: left, y: top }, { id: 1, x: right, y: top }, { id: 2, x: right, y: bottom }, { id: 3, x: left, y: bottom },
+        { id: 'rotate', x: c.x, y: top - 22 * unit }].map(handle => ({ ...turn(handle, c, mark.angle ?? 0), id: handle.id }))
+    }
+
+    /**
+     * Scale a mark from the corner opposite `corner` to the pointer. A mark turns about its box centre, which
+     * resizing moves, so the result shifts back until the anchor corner keeps its place on screen.
+     */
+    function resized(mark, b, corner, p, measure) {
+      const angle = mark.angle ?? 0
+      const c0 = centerOf(b)
+      const corners = [{ x: b.x, y: b.y }, { x: b.x + b.width, y: b.y }, { x: b.x + b.width, y: b.y + b.height }, { x: b.x, y: b.y + b.height }]
+      const anchor = corners[(corner + 2) % 4]
+      const dragged = corners[corner]
+      const q = turn(p, c0, -angle)
+      const factor = (to, from, at) => (from === at ? 1 : (to - at) / (from - at))
+      let next
+      if (mark.tool === 'text') {
+        // Text keeps its proportions: the vertical drag sets the font size.
+        const s = Math.max(0.25, Math.abs(factor(q.y, dragged.y, anchor.y)))
+        const width = b.width * s
+        const height = b.height * s
+        next = { ...mark, size: fontSize(mark, mark.scale) * s,
+          points: [{ x: anchor.x === b.x ? anchor.x : anchor.x - width, y: anchor.y === b.y ? anchor.y : anchor.y - height }] }
+      } else {
+        const sx = factor(q.x, dragged.x, anchor.x)
+        const sy = factor(q.y, dragged.y, anchor.y)
+        next = { ...mark, points: mark.points.map(({ x, y }) => ({ x: anchor.x + (x - anchor.x) * sx, y: anchor.y + (y - anchor.y) * sy })) }
+      }
+      const c1 = centerOf(markBounds(next, measure))
+      const moved = { x: c1.x - c0.x, y: c1.y - c0.y }
+      const turned = turn(moved, { x: 0, y: 0 }, angle)
+      const dx = turned.x - moved.x
+      const dy = turned.y - moved.y
+      return dx === 0 && dy === 0 ? next : { ...next, points: next.points.map(({ x, y }) => ({ x: x + dx, y: y + dy })) }
+    }
+
+    /** Paint one mark onto the transparent ink layer, never onto the source image; `center` turns a rotated mark. */
+    function paintMark(ctx, mark, scale, inkColor, fontFamily, center) {
+      const { tool, points, text, angle } = mark
       const first = points[0]
       const end = points.at(-1)
       ctx.save()
-      ctx.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over'
+      if (angle && center) {
+        ctx.translate(center.x, center.y)
+        ctx.rotate(angle)
+        ctx.translate(-center.x, -center.y)
+      }
       ctx.strokeStyle = ctx.fillStyle = inkColor
-      ctx.lineWidth = (tool === 'eraser' ? 18 : 3) * scale
+      ctx.lineWidth = 3 * scale
       ctx.lineCap = ctx.lineJoin = 'round'
       if (tool === 'text') {
-        ctx.font = `500 ${16 * scale}px ${fontFamily}`
+        ctx.font = `500 ${fontSize(mark, scale)}px ${fontFamily}`
         ctx.textBaseline = 'top'
         ctx.fillText(text, first.x, first.y)
       } else if (tool === 'rectangle') {
@@ -249,12 +390,12 @@ window.__ModuleLoader__.load({
         } else {
           ctx.moveTo(first.x, first.y)
           if (tool === 'arrow') {
-            const angle = Math.atan2(end.y - first.y, end.x - first.x)
+            const direction = Math.atan2(end.y - first.y, end.x - first.x)
             const head = Math.min(Math.hypot(end.y - first.y, end.x - first.x), 14 * scale)
             ctx.lineTo(end.x, end.y)
-            ctx.lineTo(end.x - head * Math.cos(angle - Math.PI / 6), end.y - head * Math.sin(angle - Math.PI / 6))
+            ctx.lineTo(end.x - head * Math.cos(direction - Math.PI / 6), end.y - head * Math.sin(direction - Math.PI / 6))
             ctx.moveTo(end.x, end.y)
-            ctx.lineTo(end.x - head * Math.cos(angle + Math.PI / 6), end.y - head * Math.sin(angle + Math.PI / 6))
+            ctx.lineTo(end.x - head * Math.cos(direction + Math.PI / 6), end.y - head * Math.sin(direction + Math.PI / 6))
           } else {
             if (points.length === 1) ctx.lineTo(first.x + .01, first.y)
             for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y)
@@ -265,79 +406,279 @@ window.__ModuleLoader__.load({
       ctx.restore()
     }
 
+    /** The selection box, its stem and handles, on the chrome layer the export leaves out. */
+    function paintSelection(ctx, mark, b, unit, color, fill) {
+      const c = centerOf(b)
+      const pad = 6 * unit
+      ctx.save()
+      ctx.strokeStyle = color
+      ctx.fillStyle = fill
+      ctx.lineWidth = unit
+      ctx.save()
+      ctx.translate(c.x, c.y)
+      ctx.rotate(mark.angle ?? 0)
+      ctx.translate(-c.x, -c.y)
+      ctx.strokeRect(b.x - pad, b.y - pad, b.width + 2 * pad, b.height + 2 * pad)
+      ctx.beginPath()
+      ctx.moveTo(c.x, b.y - pad)
+      ctx.lineTo(c.x, b.y - pad - 17 * unit)
+      ctx.stroke()
+      ctx.restore()
+      for (const handle of handlesOf(mark, b, unit)) {
+        ctx.beginPath()
+        if (handle.id === 'rotate') ctx.arc(handle.x, handle.y, 5 * unit, 0, 2 * Math.PI)
+        else ctx.rect(handle.x - 4 * unit, handle.y - 4 * unit, 8 * unit, 8 * unit)
+        ctx.fill()
+        ctx.stroke()
+      }
+      ctx.restore()
+    }
+
+    /** The marks top-most first; choosing one selects it to move, resize or turn. */
+    function Layers({ t, marks, selected, choose, remove }) {
+      const counts = new Map()
+      const rows = marks.map((mark) => {
+        const number = (counts.get(mark.tool) ?? 0) + 1
+        counts.set(mark.tool, number)
+        return { mark, name: mark.tool === 'text' ? mark.text : `${t(mark.tool)} ${number}` }
+      }).reverse()
+      return h('section', { 'aria-label': t('layers'), style: panel },
+        h('h3', { style: { ...panelText, fontWeight: 500 } }, t('layers')),
+        rows.length === 0
+          ? h('p', { style: panelText }, t('layersEmpty'))
+          : h('ul', { style: { listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: '2px' } }, rows.map(({ mark, name }) =>
+            h('li', { key: mark.id, className: 'jan-annotation-layer', 'data-selected': mark.id === selected || undefined },
+              h('button', { type: 'button', style: layerButton, 'aria-pressed': mark.id === selected, onClick: () => choose(mark.id) },
+                h(TOOL_ICONS[mark.tool], { size: 16, 'aria-hidden': true }),
+                h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, name)),
+              h(Tooltip, { label: t('removeLayer'), side: 'bottom', delayMs: 300, portal: true },
+                h(Button, { type: 'button', size: 'sm', style: { ...square, width: '24px', height: '24px' },
+                  'aria-label': `${t('removeLayer')}: ${name}`, onClick: () => remove(mark.id) },
+                h(IconTrashOutlineRegular, { size: 14, 'aria-hidden': true })))))))
+    }
+
+    function IconButton({ label, icon, keys, ...props }) {
+      return h(Tooltip, { label, side: 'bottom', delayMs: 300, portal: true, shortcutKeys: keys },
+        h(Button, { type: 'button', size: 'sm', style: square, 'aria-label': label, ...props }, h(icon, { size: 16, 'aria-hidden': true })))
+    }
+
+    function editable(target) {
+      return target instanceof Element && target.closest('input, textarea, [contenteditable]:not([contenteditable="false"])') !== null
+    }
+
+    /**
+     * Marks stay separate layers over the untouched screenshot until export: each can be selected, moved,
+     * resized, turned or deleted, and every edit replaces the list whole, so undo and redo restore it exactly.
+     */
     function Drawing({ bitmap, t, note, setNote, close, commit, error }) {
       const [tool, setTool] = useState('pen')
       const [text, setText] = useState('')
-      const [count, setCount] = useState(0)
+      const [layersOpen, setLayersOpen] = useState(true)
+      const [cursor, setCursor] = useState('default')
       const [pending, setPending] = useState(false)
       const [encodeError, setEncodeError] = useState(false)
+      const [, render] = useReducer(n => n + 1, 0)
       const base = useRef(null)
       const inkLayer = useRef(null)
-      const history = useRef([])
-      const stroke = useRef(null)
+      const chrome = useRef(null)
+      const doc = useRef({ marks: [], past: [], future: [], selected: undefined, serial: 0 })
+      const gesture = useRef(null)
       const brush = useRef()
       const showBase = useCallback((canvas) => {
         base.current = canvas
         if (!canvas) return
         const theme = getComputedStyle(canvas)
-        brush.current = { color: theme.getPropertyValue('--dsw-alias-brand-primary').trim(), font: theme.fontFamily }
+        const token = name => theme.getPropertyValue(name).trim()
+        brush.current = { color: token('--dsw-alias-brand-primary'), font: theme.fontFamily,
+          select: token('--dsw-alias-state-business-primary'), fill: token('--dsw-alias-bg-overlay') }
         canvas.getContext('2d').drawImage(bitmap, 0, 0)
       }, [bitmap])
+      const measure = (mark) => {
+        const ctx = inkLayer.current.getContext('2d')
+        ctx.save()
+        ctx.font = `500 ${fontSize(mark, mark.scale)}px ${brush.current.font}`
+        const width = ctx.measureText(mark.text).width
+        ctx.restore()
+        return width
+      }
+      const paint = () => {
+        const { color, font, select, fill } = brush.current
+        const { marks, selected } = doc.current
+        const ink = inkLayer.current.getContext('2d')
+        ink.clearRect(0, 0, bitmap.width, bitmap.height)
+        const live = gesture.current?.kind === 'draw' ? [...marks, gesture.current.mark] : marks
+        for (const mark of live) paintMark(ink, mark, mark.scale, color, font, mark.angle ? centerOf(markBounds(mark, measure)) : undefined)
+        const top = chrome.current.getContext('2d')
+        top.clearRect(0, 0, bitmap.width, bitmap.height)
+        const current = marks.find(mark => mark.id === selected)
+        if (current) {
+          const unit = bitmap.width / chrome.current.getBoundingClientRect().width
+          paintSelection(top, current, markBounds(current, measure), unit, select, fill)
+        }
+      }
+      const update = (changes) => {
+        Object.assign(doc.current, changes)
+        paint()
+        render()
+      }
+      const keep = id => (doc.current.marks.some(mark => mark.id === id) ? id : undefined)
+      /** Keep the list an edit replaced, so undo can return to it; a new edit drops what undo had set aside. */
+      const record = (before) => {
+        if (before === doc.current.marks) return
+        doc.current.past.push(before)
+        doc.current.future = []
+      }
+      /** Step one edit through history: undo moves from `past` to `future`, redo back. */
+      const step = (from, to) => {
+        if (from.length === 0 || gesture.current) return
+        to.push(doc.current.marks)
+        doc.current.marks = from.pop()
+        update({ selected: keep(doc.current.selected) })
+      }
+      const undo = () => { step(doc.current.past, doc.current.future) }
+      const redo = () => { step(doc.current.future, doc.current.past) }
+      const remove = (id) => {
+        const before = doc.current.marks
+        doc.current.marks = before.filter(mark => mark.id !== id)
+        record(before)
+        update({ selected: undefined })
+      }
+      const choose = (id) => {
+        setTool('select')
+        update({ selected: id })
+      }
+      const pickTool = (name) => {
+        setTool(name)
+        if (name !== 'select') update({ selected: undefined })
+      }
       const point = (event) => {
         const canvas = event.currentTarget
         const box = canvas.getBoundingClientRect()
         const scale = canvas.width / box.width
         return { x: (event.clientX - box.left) * scale, y: (event.clientY - box.top) * scale, scale }
       }
-      const paint = (active) => {
-        const canvas = inkLayer.current
-        const ctx = canvas.getContext('2d')
-        ctx.clearRect(0, 0, canvas.width, canvas.height)
-        const { color, font } = brush.current
-        for (const mark of history.current) paintMark(ctx, mark, mark.scale, color, font)
-        if (active) paintMark(ctx, active, active.scale, color, font)
+      const hitMark = p => doc.current.marks.findLast((mark) => {
+        const b = markBounds(mark, measure)
+        return within(b, turn(p, centerOf(b), -(mark.angle ?? 0)), 4 * p.scale)
+      })
+      const handleAt = (p) => {
+        const current = doc.current.marks.find(mark => mark.id === doc.current.selected)
+        return current && handlesOf(current, markBounds(current, measure), p.scale)
+          .find(handle => Math.hypot(handle.x - p.x, handle.y - p.y) <= 8 * p.scale)
       }
-      const retain = (mark) => {
-        history.current.push(mark)
-        setCount(history.current.length)
+      const cursorAt = (p) => {
+        const handle = handleAt(p)
+        if (handle) return handle.id === 'rotate' ? 'grab' : handle.id % 2 === 0 ? 'nwse-resize' : 'nesw-resize'
+        return hitMark(p) ? 'move' : 'default'
+      }
+      const erase = (p) => {
+        const marks = doc.current.marks.filter(mark => !touches(mark, markBounds(mark, measure), p, 8 * p.scale))
+        if (marks.length !== doc.current.marks.length) update({ marks })
       }
       const down = (event) => {
-        if (event.button !== 0 || pending || stroke.current) return
-        const origin = point(event)
+        if (event.button !== 0 || pending || gesture.current) return
+        const p = point(event)
+        const before = doc.current.marks
         if (tool === 'text') {
           if (!text.trim()) return
-          const mark = { tool, text: text.trim(), points: [origin], scale: origin.scale }
-          retain(mark)
+          doc.current.marks = [...before, { id: ++doc.current.serial, tool, text: text.trim(), points: [p], scale: p.scale }]
+          record(before)
+          update({})
+          return
+        }
+        const start = { pointer: event.pointerId, before, origin: p }
+        if (tool === 'select') {
+          const handle = handleAt(p)
+          const current = before.find(mark => mark.id === doc.current.selected)
+          if (handle) {
+            gesture.current = { ...start, kind: handle.id === 'rotate' ? 'rotate' : 'resize', corner: handle.id, mark: current,
+              bounds: markBounds(current, measure) }
+          } else {
+            const hit = hitMark(p)
+            if (hit) gesture.current = { ...start, kind: 'move', mark: hit }
+            update({ selected: hit?.id })
+          }
+        } else if (tool === 'eraser') {
+          gesture.current = { ...start, kind: 'erase' }
+          erase(p)
+        } else {
+          gesture.current = { ...start, kind: 'draw', mark: { id: ++doc.current.serial, tool, points: [p], scale: p.scale } }
+          paint()
+        }
+        if (gesture.current) event.currentTarget.setPointerCapture(event.pointerId)
+      }
+      const apply = (active, p, snap) => {
+        if (active.kind === 'draw') {
+          if (active.mark.tool === 'pen') active.mark.points.push(p)
+          else active.mark.points[1] = p
           paint()
           return
         }
-        event.currentTarget.setPointerCapture(event.pointerId)
-        stroke.current = { tool, points: [origin], scale: origin.scale, pointer: event.pointerId }
-        paint(stroke.current)
+        if (active.kind === 'erase') { erase(p); return }
+        const { mark } = active
+        let next
+        if (active.kind === 'move') {
+          const dx = p.x - active.origin.x
+          const dy = p.y - active.origin.y
+          next = { ...mark, points: mark.points.map(q => ({ x: q.x + dx, y: q.y + dy })) }
+        } else if (active.kind === 'rotate') {
+          const c = centerOf(active.bounds)
+          const angle = Math.atan2(p.y - c.y, p.x - c.x) + Math.PI / 2
+          // Shift turns in 15-degree steps.
+          next = { ...mark, angle: snap ? Math.round(angle / (Math.PI / 12)) * (Math.PI / 12) : angle }
+        } else {
+          next = resized(mark, active.bounds, active.corner, p, measure)
+        }
+        update({ marks: active.before.map(item => (item.id === mark.id ? next : item)) })
       }
       const move = (event) => {
-        const active = stroke.current
-        if (!active || active.pointer !== event.pointerId) return
-        const next = point(event)
-        if (active.tool === 'pen' || active.tool === 'eraser') active.points.push(next)
-        else active.points[1] = next
-        paint(active)
+        const active = gesture.current
+        if (!active) {
+          if (tool === 'select') setCursor(cursorAt(point(event)))
+          return
+        }
+        if (active.pointer === event.pointerId) apply(active, point(event), event.shiftKey)
       }
       const end = (event, keep) => {
-        const active = stroke.current
+        const active = gesture.current
         if (!active || active.pointer !== event.pointerId) return
-        if (keep) {
-          const next = point(event)
-          if (active.tool === 'pen' || active.tool === 'eraser') active.points.push(next)
-          else active.points[1] = next
-          retain(active)
+        if (keep) apply(active, point(event), event.shiftKey)
+        gesture.current = null
+        if (!keep) { update({ marks: active.before }); return }
+        if (active.kind === 'draw') {
+          const { mark } = active
+          const b = markBounds(mark, measure)
+          // A click without a drag leaves no shape; a pen click leaves a dot.
+          if (mark.tool !== 'pen' && Math.hypot(b.width, b.height) < 2 * mark.scale) { paint(); return }
+          doc.current.marks = [...active.before, mark]
         }
-        stroke.current = null
-        paint()
+        record(active.before)
+        update({})
       }
-      const undo = () => { history.current.pop(); setCount(history.current.length); paint() }
+      useEffect(() => {
+        const key = (event) => {
+          if (event.defaultPrevented || editable(event.target)) return
+          const primary = event.metaKey || event.ctrlKey
+          const letter = event.key.toLowerCase()
+          if (primary && letter === 'z') {
+            event.preventDefault()
+            if (event.shiftKey) redo()
+            else undo()
+          } else if (primary && letter === 'y') {
+            event.preventDefault()
+            redo()
+          } else if ((event.key === 'Delete' || event.key === 'Backspace') && doc.current.selected !== undefined) {
+            event.preventDefault()
+            remove(doc.current.selected)
+          }
+        }
+        document.addEventListener('keydown', key)
+        return () => { document.removeEventListener('keydown', key) }
+      })
+      const { marks, past, future, selected } = doc.current
+      const mac = /Mac|iP(?:hone|ad)/u.test(navigator.platform)
       const save = async () => {
-        if (count === 0 || pending) return
+        if (marks.length === 0 || pending) return
         setPending(true)
         setEncodeError(false)
         try {
@@ -351,27 +692,37 @@ window.__ModuleLoader__.load({
           setEncodeError(true)
         } finally { setPending(false) }
       }
+      const layer = { position: 'absolute', inset: 0, width: '100%', height: '100%' }
       return h(ActionDialog, { title: t('draw'), t, close, wide: true },
-        h('div', { role: 'group', 'aria-label': t('tools'), style: tools },
-          [...toolsWithDrag, 'text'].map(name => h(Button, { key: name, type: 'button', size: 'sm',
-            variant: tool === name ? 'outline' : 'ghost', 'aria-pressed': tool === name,
-            onClick: () => setTool(name) }, t(name))),
-          h(Button, { type: 'button', size: 'sm', disabled: count === 0 || pending, onClick: undo }, t('undo'))),
+        h('div', { style: { ...tools, justifyContent: 'space-between' } },
+          h('div', { role: 'group', 'aria-label': t('tools'), style: segment },
+            DRAW_TOOLS.map(name => h(IconButton, { key: name, label: t(name), icon: TOOL_ICONS[name],
+              variant: tool === name ? 'toolbar' : 'ghost', 'aria-pressed': tool === name, onClick: () => pickTool(name) }))),
+          h('div', { style: { display: 'inline-flex', alignItems: 'center', gap: '2px' } },
+            h(IconButton, { label: t('undo'), icon: IconUndoOutlineRegular, keys: mac ? ['⌘', 'Z'] : ['Ctrl', 'Z'],
+              disabled: past.length === 0 || pending, onClick: undo }),
+            h(IconButton, { label: t('redo'), icon: IconRedoOutlineRegular, keys: mac ? ['⇧', '⌘', 'Z'] : ['Ctrl', 'Y'],
+              disabled: future.length === 0 || pending, onClick: redo }),
+            h(IconButton, { label: t('layers'), icon: IconLayersOutlineRegular, variant: layersOpen ? 'toolbar' : 'ghost',
+              'aria-pressed': layersOpen, onClick: () => setLayersOpen(open => !open) }))),
         tool === 'text' && h(Input, { placeholder: t('textHint'), 'aria-label': t('textHint'), value: text,
           onChange: event => setText(event.target.value) }),
-        // Explicit width and height (not aspect-ratio over a percentage) so the grid row holds the whole canvas.
-        h('div', { style: { containerType: 'inline-size' } },
-          h('div', { style: { ...frameStyle, ...fitted(bitmap) } },
-            h('canvas', { ref: showBase, width: bitmap.width, height: bitmap.height, style: { display: 'block', width: '100%', height: '100%' } }),
-            h('canvas', { ref: inkLayer, width: bitmap.width, height: bitmap.height, role: 'img', 'aria-label': t('canvas'),
-              style: { position: 'absolute', inset: 0, width: '100%', height: '100%', cursor: tool === 'text' ? 'text' : 'crosshair', touchAction: 'none' },
-              onPointerDown: down, onPointerMove: move, onPointerUp: event => end(event, true), onPointerCancel: event => end(event, false),
-              onLostPointerCapture: event => end(event, false) }))),
+        h('div', { style: { display: 'grid', gridTemplateColumns: layersOpen ? 'minmax(0, 1fr) 184px' : 'minmax(0, 1fr)', gap: '12px' } },
+          // Explicit width and height (not aspect-ratio over a percentage) so the grid row holds the whole canvas.
+          h('div', { style: stage },
+            h('div', { style: { ...frameStyle, ...fitted(bitmap) } },
+              h('canvas', { ref: showBase, width: bitmap.width, height: bitmap.height, style: { display: 'block', width: '100%', height: '100%' } }),
+              h('canvas', { ref: inkLayer, width: bitmap.width, height: bitmap.height, 'aria-hidden': true, style: { ...layer, pointerEvents: 'none' } }),
+              h('canvas', { ref: chrome, width: bitmap.width, height: bitmap.height, role: 'img', 'aria-label': t('canvas'),
+                style: { ...layer, touchAction: 'none', cursor: tool === 'select' ? cursor : tool === 'text' ? 'text' : 'crosshair' },
+                onPointerDown: down, onPointerMove: move, onPointerUp: event => end(event, true), onPointerCancel: event => end(event, false),
+                onLostPointerCapture: event => end(event, false) }))),
+          layersOpen && h(Layers, { t, marks, selected, choose, remove })),
         h(Notes, { t, value: note, change: setNote, close, submit: save }),
         (error || encodeError) && h(Status, { t, message: error || 'encodeError', error: true }),
         h('div', { style: { ...tools, justifyContent: 'end', gap: '8px' } },
           h(Button, { type: 'button', size: 'sm', onClick: close }, t('cancel')),
-          h(Button, { type: 'button', size: 'sm', variant: 'primary', disabled: count === 0 || pending, onClick: save }, t('add'))))
+          h(Button, { type: 'button', size: 'sm', variant: 'primary', disabled: marks.length === 0 || pending, onClick: save }, t('add'))))
     }
 
     function Overlay({ mode, surface, image, captureRegion, requestDisplay, startDisplayCapture, getSurface, signal, close, t, save, setGrab, grabKeys }) {
@@ -531,6 +882,6 @@ window.__ModuleLoader__.load({
             onClick: commitSelection }, t('add'))))
     }
 
-    return { Overlay, elementDetails, paintMark }
+    return { Overlay, elementDetails, paintMark, resized, markBounds, touches }
   },
 })
