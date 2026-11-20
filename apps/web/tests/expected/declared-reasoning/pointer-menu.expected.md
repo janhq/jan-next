@@ -1,6 +1,8 @@
-- group "模型与推理等级":
-  - searchbox "搜索模型…"
-  - menu "模型":
+- group "Model and reasoning effort":
+  - searchbox "Search models…"
+  - text: Sign in to Tokamak or add an API key to load its models
+  - button "Retry"
+  - menu "Model":
     - group "Tokamak":
       - text: Tokamak
       - menuitemradio "Tokamak 1 Preview"

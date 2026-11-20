@@ -960,7 +960,6 @@ describe('Node 24 lane ownership', () => {
       'publint',
       'snapshot',
       'expected-output',
-      'web-snapshot',
       'doc-typecheck',
       'node-next-types',
       'built-bin-smoke',
@@ -978,7 +977,6 @@ describe('Node 24 lane ownership', () => {
     for (const id of [
       'snapshot',
       'expected-output',
-      'web-snapshot',
       'doc-typecheck',
       'node-next-types',
       'built-bin-smoke',
@@ -1001,18 +999,8 @@ describe('Node 24 lane ownership', () => {
         'packages/team/agent-team/tests/built-lib.e2e.ts',
       ]),
     )
-    expect(subject.find(item => item.id === 'web-snapshot')).toMatchObject({
-      displayCommand: 'JAN_SNAPSHOT=replay pnpm run test:web:built',
-      env: { JAN_SNAPSHOT: 'replay' },
-      after: [
-        'publint',
-        'snapshot',
-        'expected-output',
-        'doc-typecheck',
-        'node-next-types',
-        'built-bin-smoke',
-      ],
-    })
+    // The web browser snapshot gate is off until its scenarios match the current UI (janhq/jan-next#80).
+    expect(subject.map(item => item.id)).not.toContain('web-snapshot')
   })
 })
 
