@@ -1,28 +1,35 @@
 {
-  "name": "@janhq/jan-image",
+  "name": "@janhq/jan-tokamak",
   "version": "0.2.2-rc.1",
   "private": true,
   "type": "module",
-  "description": "Generate and edit images through the Tokamak Images API and save them in the Session's working directory.",
+  "description": "Tokamak's media and voice APIs in Jan: image generation and editing, text to speech, transcription, voice conversations and System One classification.",
   "license": "MIT",
   "exports": {
     ".": "./index.mjs",
+    "./client": "./client.js",
     "./package.json": "./package.json"
   },
-  "files": ["index.mjs", "images.mjs"],
+  "files": ["index.mjs", "api.mjs", "audio.mjs", "images.mjs", "session-files.mjs", "client.js", "client.locale.js"],
   "jan": {
-    "manifestVersion": 1
+    "manifestVersion": 1,
+    "client": {
+      "platform": "web",
+      "inject": ["@janhq/jan-client-ui-primitives"]
+    }
   },
   "dependencies": {
     "@janhq/jan-credentials": "workspace:*",
     "@janhq/jan-launch-environment": "workspace:*",
     "@janhq/jan-llm": "workspace:*",
+    "@janhq/jan-plugin-api": "workspace:*",
     "@janhq/jan-tools": "workspace:*"
   },
   "devDependencies": {
     "@janhq/cordis": "workspace:~",
     "@janhq/jan-agent": "workspace:*",
     "@janhq/jan-attachment": "workspace:*",
+    "@janhq/jan-experimental-speech-to-text": "workspace:*",
     "@janhq/jan-fs": "workspace:*",
     "@janhq/jan-tokamak-account": "workspace:*",
     "@janhq/jan-working-directory": "workspace:*"
