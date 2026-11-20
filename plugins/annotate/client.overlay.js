@@ -411,7 +411,8 @@ window.__ModuleLoader__.load({
       useEffect(() => () => bitmap?.close(), [bitmap])
       useEffect(() => {
         const focus = previousFocus.current
-        return () => { if (focus?.isConnected && !document.activeElement?.closest('[role="dialog"]')) focus.focus({ preventScroll: true }) }
+        // Cancel returns to the opener; a successful add leaves the keyboard in the composer, where the context went.
+        return () => { if (focus?.isConnected && !document.activeElement?.closest('[role="dialog"], [contenteditable="true"]')) focus.focus({ preventScroll: true }) }
       }, [])
       useEffect(() => {
         if (view !== 'pick') return undefined
