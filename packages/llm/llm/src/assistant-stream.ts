@@ -341,6 +341,25 @@ export function assistantStreamFirstTokenTime(stream: readonly AssistantStreamRe
 }
 
 /**
+ * Shortest first-token-to-message span an output speed is read from. A provider that buffers
+ * a step, typically a Tool call whose arguments arrive in one chunk at the end, delivers its
+ * tokens in one burst; dividing thousands of tokens by that burst reads as hundreds of
+ * thousands of tokens per second, which measures the network, not generation.
+ */
+export const MIN_DECODE_SPAN_MS = 1_000
+
+/**
+ * The decode span of one settled step, when it is long enough to measure speed from.
+ * @param firstTokenTime - time of the step's first token.
+ * @param completedTime - time the step's message assembled.
+ * @returns the span in ms, or undefined when it is shorter than {@link MIN_DECODE_SPAN_MS}.
+ */
+export function measuredDecodeMs(firstTokenTime: number, completedTime: number): number | undefined {
+  const span = completedTime - firstTokenTime
+  return span >= MIN_DECODE_SPAN_MS ? span : undefined
+}
+
+/**
  * Whether one compact stream carries any reader-visible content per {@link isVisibleChunk},
  * stopping at the first qualifying member.
  * @param stream - compact records from one durable Assistant settlement.
