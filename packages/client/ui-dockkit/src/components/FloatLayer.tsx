@@ -311,12 +311,13 @@ export function useFloatGestures(state: LayoutState, intents: DockIntents) {
  * @param props - owning pane/tab, localized labels and gesture callbacks.
  * @returns the float header without a content container.
  */
-export function FloatHeader({ paneId, tab, labels, intents, renderTabTitle, canCloseTab, drag }: {
+export function FloatHeader({ paneId, tab, labels, intents, renderTabTitle, renderTabActions, canCloseTab, drag }: {
   readonly paneId: PaneId
   readonly tab: TabRecord
   readonly labels: DockLabels
   readonly intents: DockIntents
   readonly renderTabTitle: TabRenderer | undefined
+  readonly renderTabActions?: TabRenderer | undefined
   readonly canCloseTab: ((id: TabId) => boolean) | undefined
   readonly drag: ReturnType<typeof useFloatGestures>['drag']
 }): ReactNode {
@@ -327,6 +328,11 @@ export function FloatHeader({ paneId, tab, labels, intents, renderTabTitle, canC
         <TabTitle>{renderTabTitle?.(tab) ?? tab.title}</TabTitle>
       </div>
       <div className={css.stripFill} />
+      {renderTabActions !== undefined && (
+        <div className={css.stripChrome} data-dockkit-tab-actions={tab.id} onPointerDown={(event) => { event.stopPropagation() }}>
+          {renderTabActions(tab)}
+        </div>
+      )}
       <Tooltip label={labels.dockFloat} side="bottom" delayMs={500}>
         <button type="button" className={css.iconButton} aria-label={labels.dockFloat}
           data-dockkit-float-dock={paneId} onPointerDown={(event) => { event.stopPropagation() }}

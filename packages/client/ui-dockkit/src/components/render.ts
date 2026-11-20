@@ -39,6 +39,8 @@ export interface PaneCallbacks {
   readonly renderTab: TabRenderer
   /** A chip's or panel header's title content; absent means the record's `title` text. */
   readonly renderTabTitle: TabRenderer | undefined
+  /** Controls for a pane's selected tab at its strip's end (or a floating panel's header); absent means none. */
+  readonly renderTabActions: TabRenderer | undefined
   /** Whether the embedder popup is preparing or visible; suppresses tab tooltips. */
   readonly tabMenuOpen?: boolean | undefined
   /** Override the kit popup; the embedder owns rendering and dismissal. */
