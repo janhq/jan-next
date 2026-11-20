@@ -227,6 +227,7 @@ export function apply(ctx: Context): void {
     children: {
       'conversation.chat.node': { kind: 'keyed', scope: 'session', inject: CHAT_NODE_INJECT },
       'conversation.chat.running-detail': { kind: 'list', scope: 'session' },
+      'conversation.chat.running-tail': { kind: 'list', scope: 'session' },
     },
     inject: (sessionId: SessionId): ChatFlowDataInjected => {
       const binding = ctx.sessions.binding(sessionId)

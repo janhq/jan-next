@@ -479,8 +479,8 @@ function makeHarness(
     if (key === 'conversation.chat.node') {
       return renderNodeSlot(key, owner as RoutedChatNodeOwner, opts as Parameters<NodeRenderer>[2])
     }
-    // No feature fills the running status in this harness: an empty list slot.
-    if (key === 'conversation.chat.running-detail') return null
+    // No feature fills the running status or the running tail in this harness: empty list slots.
+    if (key === 'conversation.chat.running-detail' || key === 'conversation.chat.running-tail') return null
     throw new Error(`Undeclared flow child: ${key}`)
   }
   const renderUserChain: PropsRenderSlots<'conversation.chat.user.before'>['renderSlotChain'] = (key, owner, opts) => {
