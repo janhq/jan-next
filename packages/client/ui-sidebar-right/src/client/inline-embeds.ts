@@ -10,6 +10,9 @@ import type { SessionId } from '@janhq/jan-session/types'
 import type { SidebarRightTabActions, SidebarRightTabNavigation } from './contract/slots.ts'
 import type { SidebarRightOpenResourceOptions, SidebarRightOpenTabOptions } from './service.ts'
 import type { SidebarRightTabDefinition, SidebarRightTabRegistry } from './tab-registry.ts'
+import { pageAddress } from './contract/seed.ts'
+
+const PAGE_PREFIX = pageAddress('')
 
 /** One lent container and the tab drawn into it. */
 export interface InlineEmbed {
@@ -38,12 +41,14 @@ export interface InlineNavigator {
 export type InlineViewer = 'dedicated' | 'fallback' | undefined
 
 /**
- * Page types that draw a file kind without claiming its address. Such a body
- * follows its Session (CAD shows the live model the turn's tools built), so it
- * stands in for a file it made when no dedicated type claims the file itself.
+ * Page types that draw a file kind without claiming its address, and the
+ * tools that change what they show. Such a body follows its Session (CAD
+ * shows the live model the turn's tools build), so it stands in for a file it
+ * made when no dedicated type claims the file itself, and for a Turn that is
+ * calling its tools before any file exists.
  */
-const PAGE_FILES: readonly { readonly kind: string; readonly file: RegExp }[] = [
-  { kind: 'cad', file: /\.(?:step|stp|stl|iges|igs|brep|3mf|obj|glb|gltf)$/i },
+const PAGE_FILES: readonly { readonly kind: string; readonly file: RegExp; readonly tools: RegExp }[] = [
+  { kind: 'cad', file: /\.(?:step|stp|stl|iges|igs|brep|3mf|obj|glb|gltf)$/i, tools: /^cad_/ },
 ]
 
 /** The live embeds of every Session, as one observable list. */
@@ -72,6 +77,18 @@ export class InlineEmbeds {
     const definition = this.drawer(address)
     if (definition === undefined) return undefined
     return definition.priority === 'fallback' ? 'fallback' : 'dedicated'
+  }
+
+  /**
+   * The page a Turn's tool calls are changing, so it can be shown while they run.
+   * @param tools - the wire names of the Turn's tool calls.
+   * @returns the address of a registered page type those tools drive, or undefined.
+   */
+  pageForTools(tools: readonly string[]): string | undefined {
+    for (const { kind, tools: pattern } of PAGE_FILES) {
+      if (tools.some(name => pattern.test(name)) && this.page(kind) !== undefined) return pageAddress(kind)
+    }
+    return undefined
   }
 
   /**
@@ -123,16 +140,23 @@ export class InlineEmbeds {
     return withdraw
   }
 
-  /** A dedicated claimant, else a registered page type that draws the file, else the fallback preview. */
+  /** A page by its address, else a dedicated claimant, else a registered page type that draws the file, else the fallback preview. */
   private drawer(address: string): SidebarRightTabDefinition | undefined {
+    if (address.startsWith(PAGE_PREFIX)) return this.page(address.slice(PAGE_PREFIX.length))
     const [best] = this.tabs.candidates(address)
     if (best !== undefined && best.priority !== 'fallback') return best
     const path = address.replace(/[?#].*$/s, '')
     for (const { kind, file } of PAGE_FILES) {
-      const page = file.test(path) ? this.tabs.get(kind) : undefined
-      if (page !== undefined && (page.patterns ?? []).length === 0) return page
+      const page = file.test(path) ? this.page(kind) : undefined
+      if (page !== undefined) return page
     }
     return best
+  }
+
+  /** A registered type opened by kind alone. */
+  private page(kind: string): SidebarRightTabDefinition | undefined {
+    const definition = this.tabs.get(kind)
+    return definition !== undefined && (definition.patterns ?? []).length === 0 ? definition : undefined
   }
 
   private notify(): void {
