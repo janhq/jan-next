@@ -4,8 +4,8 @@ window.__ModuleLoader__.load({
   factory(require) {
     const { createElement: h, useCallback, useEffect, useRef, useState } = require('react')
     const { createPortal } = require('react-dom')
-    const { Button, InlineEditor, Input, Modal } = require('@janhq/jan-client-ui-primitives')
-    const shell = { display: 'grid', gap: '12px', padding: '16px', boxSizing: 'border-box', minHeight: 0, overflow: 'auto' }
+    const { Button, InlineEditor, Input, Modal, IconCloseOutlineRegular } = require('@janhq/jan-client-ui-primitives')
+    const shell = { display: 'grid', gap: '16px', padding: '20px', boxSizing: 'border-box', minHeight: 0, overflow: 'auto' }
     const tools = { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }
     const textStyle = { fontSize: '13px', lineHeight: '18px', letterSpacing: '-0.13px', margin: 0 }
     const muted = { ...textStyle, color: 'var(--dsw-alias-label-secondary)' }
@@ -19,11 +19,13 @@ window.__ModuleLoader__.load({
     const overlayStyle = { position: 'fixed', inset: 0, zIndex: 90 }
     const toolsWithDrag = ['pen', 'rectangle', 'ellipse', 'arrow', 'eraser']
     const dialogStyle = document.createElement('style')
-    dialogStyle.textContent = '.jan-annotation-dialog[role="dialog"]{width:min(880px,100%);max-height:100%;padding:0;border-radius:24px;'
+    dialogStyle.textContent = '.jan-annotation-dialog[role="dialog"]{width:min(520px,100%);max-height:100%;padding:0;border-radius:20px;'
       + 'background:var(--dsw-alias-bg-overlay);box-shadow:' + elevation + '}'
-      + '.jan-annotation-dialog .jan-annotation-note{min-height:52px;padding:8px;border-radius:12px;border-color:var(--dsw-alias-border-l2);'
+      + '.jan-annotation-dialog .jan-annotation-note{min-height:72px;padding:10px 12px;border-radius:12px;border-color:var(--dsw-alias-border-l2);'
       + 'font:inherit;letter-spacing:inherit;background:var(--dsw-alias-bg-base)}'
       + '.jan-annotation-dialog .jan-annotation-note:focus{border-color:var(--dsw-alias-state-business-primary)}'
+      + '.jan-annotation-dialog details>summary{cursor:pointer;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:18px}'
+      + '.jan-annotation-dialog.jan-annotation-wide[role="dialog"]{width:min(880px,100%)}'
     document.head.append(dialogStyle)
 
     function boundsOf(node, x = 0, y = 0) {
@@ -177,14 +179,34 @@ window.__ModuleLoader__.load({
     }
 
     function Notes({ t, value, change, close, submit }) {
-      return h('label', { style: { ...ink, display: 'grid', gap: '4px' } }, t('note'),
+      return h('label', { style: { ...muted, display: 'grid', gap: '6px' } }, t('note'),
         h(InlineEditor, { className: 'jan-annotation-note', label: t('note'), value, onChange: change, onSave: submit, onCancel: close }))
     }
 
-    function ActionDialog({ t, title, close, children }) {
-      return h(Modal, { open: true, title, onClose: close, headless: true,
-        shortcutModal: 'jan-annotate', backdropBlur: false, className: 'jan-annotation-dialog' },
-      h('div', { style: shell }, children))
+    /** A titled sheet: the title and a close control on one row, then the body. */
+    function ActionDialog({ t, title, close, wide = false, children }) {
+      return h(Modal, { open: true, title, onClose: close, headless: true, shortcutModal: 'jan-annotate', backdropBlur: false,
+        className: wide ? 'jan-annotation-dialog jan-annotation-wide' : 'jan-annotation-dialog' },
+      h('div', { style: shell },
+        h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' } },
+          h('h2', { style: titleStyle }, title),
+          h(Button, { type: 'button', size: 'sm', 'aria-label': t('close'), title: t('close'), onClick: close,
+            style: { width: '28px', padding: 0, justifyContent: 'center' } }, h(IconCloseOutlineRegular, { size: 16, 'aria-hidden': true }))),
+        children))
+    }
+
+    /** The chosen element in one line: its own tag first, its nearest ancestors after, the full path on hover. */
+    function ElementChip({ t, selector }) {
+      const parts = selector.split(' > ')
+      const own = parts.at(-1)
+      const near = parts.slice(-3, -1).join(' > ')
+      return h('div', { title: selector, style: { display: 'flex', alignItems: 'baseline', gap: '8px', minWidth: 0,
+        padding: '8px 12px', borderRadius: '10px', background: 'var(--dsw-alias-bg-base)', border: '1px solid var(--dsw-alias-border-l2)' } },
+      h('span', { style: { ...muted, flex: 'none' } }, t('context')),
+      h('code', { style: { ...ink, fontFamily: 'var(--dsw-font-mono, ui-monospace, monospace)', fontSize: '12px', flex: 'none' } },
+        own.startsWith('#') ? own : `<${own.replace(/:.*/u, '')}>`),
+      near && h('span', { style: { ...muted, fontSize: '12px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        direction: 'rtl', textAlign: 'left' } }, `\u200E${near}`))
     }
 
     function Status({ t, message, error, retry, fallback }) {
@@ -320,9 +342,7 @@ window.__ModuleLoader__.load({
           setEncodeError(true)
         } finally { setPending(false) }
       }
-      return h(ActionDialog, { title: t('draw'), t, close },
-        h('div', { style: { ...tools, justifyContent: 'space-between' } }, h('h2', { style: titleStyle }, t('draw')),
-          h(Button, { type: 'button', size: 'sm', onClick: close }, t('cancel'))),
+      return h(ActionDialog, { title: t('draw'), t, close, wide: true },
         h('div', { role: 'group', 'aria-label': t('tools'), style: tools },
           [...toolsWithDrag, 'text'].map(name => h(Button, { key: name, type: 'button', size: 'sm',
             variant: tool === name ? 'outline' : 'ghost', 'aria-pressed': tool === name,
@@ -339,17 +359,19 @@ window.__ModuleLoader__.load({
           onLostPointerCapture: event => end(event, false) })),
         h(Notes, { t, value: note, change: setNote, close, submit: save }),
         (error || encodeError) && h(Status, { t, message: error || 'encodeError', error: true }),
-        h('div', { style: { ...tools, justifyContent: 'end' } },
+        h('div', { style: { ...tools, justifyContent: 'end', gap: '8px' } },
+          h(Button, { type: 'button', size: 'sm', onClick: close }, t('cancel')),
           h(Button, { type: 'button', size: 'sm', variant: 'primary', disabled: count === 0 || pending, onClick: save }, t('add'))))
     }
 
     function Overlay({ mode, surface, image, captureRegion, requestDisplay, startDisplayCapture, getSurface, signal, close, t, save, setGrab, grabKeys }) {
       const opaque = documentOf(surface) === null
-      const [view, setView] = useState(mode === 'draw' ? 'capture' : opaque ? 'opaque' : 'pick')
+      const [view, setView] = useState(mode === 'draw' || mode === 'attach' ? 'capture' : opaque ? 'opaque' : 'pick')
       const [note, setNote] = useState('')
       const [bitmap, setBitmap] = useState()
       const [error, setError] = useState()
       const [selected, setSelected] = useState()
+      const [preview, setPreview] = useState()
       const selection = useRef()
       const picker = useRef(null)
       const point = useRef()
@@ -359,12 +381,13 @@ window.__ModuleLoader__.load({
       const busy = useRef(false)
       const stillCurrent = () => !signal.aborted && surface.isConnected && getSurface() === surface
       const commit = (text, png, fileName = 'annotated-screenshot.png') => {
-        if (!stillCurrent()) return
+        if (!stillCurrent()) return false
         try {
           const result = save(text, png && new File([png], fileName, { type: 'image/png' }))
-          if (result === 'added') { close(); return }
+          if (result === 'added') { close(); return true }
           setError(result === 'blocked' ? 'composerBlocked' : 'composerUnavailable')
         } catch (_error) { setError('composerError') }
+        return false
       }
       const runCapture = async (kind, request, chosen, text) => {
         if (busy.current) return
@@ -382,6 +405,9 @@ window.__ModuleLoader__.load({
           if (kind === 'grab') {
             setSelected({ text, png })
             setView('grabbed')
+          } else if (kind === 'attach') {
+            // The whole tab goes to the chat as it looks; nothing to choose or mark up first.
+            if (!commit('', png, 'screenshot.png')) setView('attach-error')
           } else {
             const image = await createImageBitmap(png)
             if (!stillCurrent()) { image.close(); return }
@@ -389,12 +415,14 @@ window.__ModuleLoader__.load({
             setView('draw')
           }
         } catch (_error) {
-          if (!signal.aborted) { setError('captureError'); setView(kind === 'grab' ? 'grab-error' : 'draw-error') }
+          if (!signal.aborted) { setError('captureError'); setView(kind === 'draw' ? 'draw-error' : `${kind}-error`) }
         } finally { busy.current = false }
       }
       const draw = (request) => { void runCapture('draw', request) }
       const pickNeedsShare = !captureRegion && !image
       const requestDraw = () => draw(pickNeedsShare ? startDisplayCapture() : undefined)
+      const attach = (request) => { void runCapture('attach', request) }
+      const requestAttach = () => attach(pickNeedsShare ? startDisplayCapture() : undefined)
       const grab = (chosen = selection.current) => {
         if (!chosen || !stillCurrent()) return false
         selection.current = chosen
@@ -406,9 +434,16 @@ window.__ModuleLoader__.load({
       invokeGrab.current = grab
       useEffect(() => {
         if (mode === 'draw') draw(requestDisplay)
+        if (mode === 'attach') attach(requestDisplay)
         // The launcher provides an already user-activated share request for the first capture.
       }, [])
       useEffect(() => () => bitmap?.close(), [bitmap])
+      useEffect(() => {
+        if (view !== 'grabbed' || !selected?.png) return undefined
+        const url = URL.createObjectURL(selected.png)
+        setPreview(url)
+        return () => { URL.revokeObjectURL(url); setPreview(undefined) }
+      }, [view, selected])
       useEffect(() => {
         const focus = previousFocus.current
         // Cancel returns to the opener; a successful add leaves the keyboard in the composer, where the context went.
@@ -456,7 +491,8 @@ window.__ModuleLoader__.load({
         h(Button, { type: 'button', size: 'sm', onClick: close }, t('cancel')))), document.body)
       }
       const title = view === 'note' || (view === 'opaque' && mode === 'pick') ? 'pick'
-        : view === 'grabbed' || view === 'grab-error' || (view === 'opaque' && mode === 'grab') ? 'grab' : 'draw'
+        : view === 'grabbed' || view === 'grab-error' || (view === 'opaque' && mode === 'grab') ? 'grab'
+          : view === 'attach-error' ? 'attach' : 'draw'
       const commitSelection = () => {
         if (view === 'note') {
           if (note.trim()) commit(captureContext(selection.current, note.trim(), t))
@@ -464,21 +500,25 @@ window.__ModuleLoader__.load({
           commit(note.trim() ? `${note.trim()}\n\n${selected.text}` : selected.text, selected.png, 'selected-element.png')
         }
       }
+      const retry = { 'grab-error': () => grab(), 'draw-error': requestDraw, 'attach-error': requestAttach }[view]
       return h(ActionDialog, { title: t(title), t, close },
-        h('div', { style: { ...tools, justifyContent: 'space-between' } }, h('h2', { style: titleStyle }, t(title)),
-          h(Button, { type: 'button', size: 'sm', onClick: close }, t('cancel'))),
         view === 'opaque' && h(Status, { t, message: 'opaque', fallback: requestDraw }),
-        (view === 'grab-error' || view === 'draw-error') && h(Status, { t, message: 'captureError', error: true,
-          retry: view === 'grab-error' ? () => grab() : requestDraw }),
-        (view === 'note' || view === 'grabbed') && h('div', { style: { display: 'grid', gap: '10px' } },
-          h('code', { style: { ...ink, fontFamily: 'inherit', whiteSpace: 'pre-wrap', maxHeight: '28dvh', overflow: 'auto' } },
-            view === 'note' ? selected.selector : selected.text),
-          h(Notes, { t, value: note, change: setNote, close, submit: commitSelection }),
-          error && h(Status, { t, message: error, error: true }),
-          h('div', { style: { ...tools, justifyContent: 'end' } },
-            view === 'note' && h(Button, { type: 'button', size: 'sm', onClick: () => grab() }, t('grab')),
-            h(Button, { type: 'button', size: 'sm', variant: 'primary', disabled: view === 'note' && !note.trim(),
-              onClick: commitSelection }, t('add')))))
+        retry && h(Status, { t, message: error ?? 'captureError', error: true, retry }),
+        view === 'grabbed' && preview && h('img', { src: preview, alt: t('context'), style: { display: 'block', maxWidth: '100%',
+          maxHeight: 'min(32dvh, 280px)', margin: '0 auto', objectFit: 'contain', borderRadius: '12px',
+          border: '1px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-bg-base)' } }),
+        view === 'note' && h(ElementChip, { t, selector: selected.selector }),
+        (view === 'note' || view === 'grabbed') && h(Notes, { t, value: note, change: setNote, close, submit: commitSelection }),
+        view === 'grabbed' && h('details', null, h('summary', null, t('details')),
+          h('pre', { style: { ...muted, fontSize: '12px', fontFamily: 'var(--dsw-font-mono, ui-monospace, monospace)',
+            whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', maxHeight: '160px', overflow: 'auto', marginTop: '6px' } }, selected.text)),
+        (view === 'note' || view === 'grabbed') && error && h(Status, { t, message: error, error: true }),
+        (view === 'note' || view === 'grabbed') && h('div', { style: { ...tools, gap: '8px' } },
+          view === 'note' && h(Button, { type: 'button', size: 'sm', onClick: () => grab() }, t('grab')),
+          h('span', { style: { flex: 1 } }),
+          h(Button, { type: 'button', size: 'sm', onClick: close }, t('cancel')),
+          h(Button, { type: 'button', size: 'sm', variant: 'primary', disabled: view === 'note' && !note.trim(),
+            onClick: commitSelection }, t('add'))))
     }
 
     return { Overlay, elementDetails, paintMark }

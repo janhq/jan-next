@@ -2,13 +2,22 @@ window.__ModuleLoader__.load({
   id: '@janhq/jan-annotate',
   factory(require) {
     const React = require('react')
-    const { Button, Menu, IconEditOutlineRegular, IconChevronDownOutlineRegular } = require('@janhq/jan-client-ui-primitives')
+    const { Button, Tooltip, IconListPenOutlineRegular, IconInspectOutlineRegular, IconEditOutlineRegular,
+      IconPaperclipOutlineRegular } = require('@janhq/jan-client-ui-primitives')
     const { createElement: h, useEffect, useRef, useState } = React
     const id = 'jan-annotate'
     const pickBinding = { code: 'KeyC', modifiers: ['primary', 'shift'] }
     const grabBinding = { code: 'KeyC', modifiers: ['primary'] }
-    const SHELL_SLOTS = ['sidebar.right.tab.browser.actions', 'sidebar.right.tab.document.view-actions']
+    // Every right-Sidebar tab, whatever its kind, carries the controls at its strip's end.
+    const SHELL_SLOTS = ['sidebar.right.pane.tab.actions']
     const INLINE_SLOTS = ['conversation.image.preview.actions', 'conversation.chat.image.actions', 'deliverables.preview.actions']
+    const ACTIONS = [
+      { id: 'pick', icon: IconListPenOutlineRegular, binding: pickBinding },
+      { id: 'grab', icon: IconInspectOutlineRegular, binding: grabBinding },
+      { id: 'draw', icon: IconEditOutlineRegular },
+      { id: 'attach', icon: IconPaperclipOutlineRegular },
+    ]
+    const square = { width: '28px', padding: 0, justifyContent: 'center' }
 
     function visible(element) {
       if (!element?.isConnected || element.closest('[hidden], [inert], [aria-hidden="true"]')) return false
@@ -43,9 +52,7 @@ window.__ModuleLoader__.load({
     }
 
     function Launcher({ sessionId, getSurface, t, watch, activate, setGrab, getKeys, append, compact }) {
-      const anchor = useRef(null)
       const current = useRef()
-      const [open, setOpen] = useState(false)
       const [view, setView] = useState()
       const [error, setError] = useState(false)
       const close = () => {
@@ -54,7 +61,6 @@ window.__ModuleLoader__.load({
         setView(undefined)
       }
       const start = (mode) => {
-        setOpen(false)
         setError(false)
         close()
         const surface = targetOf(getSurface())
@@ -64,13 +70,14 @@ window.__ModuleLoader__.load({
         current.current = controller
         const captureRegion = globalThis.janDesktop?.captureRegion
         const image = directImage(surface)
-        const requestDisplay = mode !== 'draw' || image || captureRegion !== undefined
-          ? undefined : startDisplayCapture()
+        // Only a whole-surface capture needs a share up front; pick and grab ask once an element is chosen.
+        const requestDisplay = (mode === 'draw' || mode === 'attach') && !image && captureRegion === undefined
+          ? startDisplayCapture() : undefined
         // Own a declined or abandoned share before the lazy Cordis chunk is ready.
         requestDisplay?.catch(() => {})
         const release = () => { void requestDisplay?.then(stream => stream.getTracks().forEach(track => track.stop()), () => {}) }
         controller.signal.addEventListener('abort', release, { once: true })
-        setView({ pending: true })
+        setView({ pending: mode })
         // require.async is the source-plugin spelling of package-local import() in Jan's module registry.
         void require.async('./client.overlay.js').then(({ Overlay }) => {
           if (controller.signal.aborted) return
@@ -92,20 +99,18 @@ window.__ModuleLoader__.load({
       }, [getSurface, watch, compact, sessionId])
       if (sessionId === undefined) return null
       const Overlay = view?.Overlay
-      const entries = [
-        { id: 'pick', label: t('pick'), shortcut: { keys: getKeys(pickBinding) } },
-        { id: 'grab', label: t('grab'), shortcut: { keys: getKeys(grabBinding) } },
-        { id: 'draw', label: t('draw') },
-      ]
-      return h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: '4px', alignSelf: 'start' } },
-        h(Menu, { open, anchorRef: anchor, portal: true, dense: true, autoFocus: true, align: 'end',
-          anchor: h(Button, { ref: anchor, type: 'button', variant: 'toolbar', size: 'sm', title: t('title'),
-            'aria-label': t('title'), 'aria-haspopup': 'menu', 'aria-expanded': open,
-            'aria-busy': view?.pending || undefined, onClick: () => setOpen(value => !value) },
-          h(IconEditOutlineRegular, { size: 14, 'aria-hidden': true }), compact ? null : t('title'),
-          h(IconChevronDownOutlineRegular, { size: 12, 'aria-hidden': true })),
-          items: entries, onClose: () => setOpen(false), onSelect: start }),
-        error && h('span', { role: 'alert', style: { color: 'var(--dsw-alias-state-error-primary)' } }, t('openError')),
+      // Every action is one visible control: nothing hides behind a menu.
+      return h('span', { role: 'group', 'aria-label': t('title'),
+        style: { display: 'inline-flex', alignItems: 'center', gap: '2px', alignSelf: 'start' } },
+        ACTIONS.map(action => h(Tooltip, { key: action.id, label: t(action.id), side: 'bottom', delayMs: 300, portal: true,
+          shortcutKeys: action.binding && getKeys(action.binding) },
+        h(Button, { type: 'button', variant: compact ? 'toolbar' : 'ghost', size: 'sm', style: square,
+          'aria-label': t(action.id), 'aria-busy': view?.pending === action.id || undefined,
+          'data-annotate-action': action.id, onClick: () => start(action.id) },
+        h(action.icon, { size: 16, 'aria-hidden': true })))),
+        error && h(Tooltip, { label: t('openError'), side: 'bottom', portal: true },
+          h('span', { role: 'alert', 'aria-label': t('openError'), tabIndex: 0,
+            style: { width: '8px', height: '8px', borderRadius: '50%', background: 'var(--dsw-alias-state-error-primary)' } })),
         Overlay !== undefined && h(Overlay, view.props))
     }
 
