@@ -63,6 +63,10 @@
     - id: jan-agent-desktop
       name: '@janhq/jan-agent-desktop'
 
+    # Generate and edit images through the Tokamak Images API, saved in the Session's folder.
+    - id: jan-image
+      name: '@janhq/jan-image'
+
     # Attach element context and marked-up screenshots to the current draft.
     - id: jan-annotate
       name: '@janhq/jan-annotate'

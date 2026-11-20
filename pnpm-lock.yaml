@@ -18071,6 +18071,9 @@ importers:
       '@janhq/jan-downloads':
         specifier: workspace:*
         version: link:../downloads
+      '@janhq/jan-image':
+        specifier: workspace:*
+        version: link:../jan-image
       '@janhq/jan-legacy-import':
         specifier: workspace:*
         version: link:../legacy-import
@@ -18158,6 +18161,40 @@ importers:
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
+
+  plugins/jan-image:
+    dependencies:
+      '@janhq/jan-credentials':
+        specifier: workspace:*
+        version: link:../../packages/credentials/credentials
+      '@janhq/jan-launch-environment':
+        specifier: workspace:*
+        version: link:../../packages/util/launch-environment
+      '@janhq/jan-llm':
+        specifier: workspace:*
+        version: link:../../packages/llm/llm
+      '@janhq/jan-tools':
+        specifier: workspace:*
+        version: link:../../packages/core/tools
+    devDependencies:
+      '@janhq/cordis':
+        specifier: workspace:~
+        version: link:../../vendor/cordis
+      '@janhq/jan-agent':
+        specifier: workspace:*
+        version: link:../../packages/core/agent
+      '@janhq/jan-attachment':
+        specifier: workspace:*
+        version: link:../../packages/attachment/attachment
+      '@janhq/jan-fs':
+        specifier: workspace:*
+        version: link:../../packages/fs/fs
+      '@janhq/jan-tokamak-account':
+        specifier: workspace:*
+        version: link:../../packages/credentials/tokamak-account
+      '@janhq/jan-working-directory':
+        specifier: workspace:*
+        version: link:../../packages/session/working-directory
 
   plugins/jan-onboarding:
     dependencies:
