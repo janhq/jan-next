@@ -1473,6 +1473,17 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       apply(ctx) {
         applyAppearance(preferences)
         ctx.effect(() => () => { document.documentElement.removeAttribute('data-jt-hide-navigation') }, 'jan-theme: navigation buttons preference')
+        // Follow the saved appearance: a profile edit, another window or Plugin Manager can change it after boot.
+        ctx.inject(['configForms'], (scope) => {
+          const form = scope.configForms.get('jan-theme')
+          const sync = () => {
+            const saved = form.getSnapshot().value?.appearance
+            if (saved === undefined || ['accent', 'coloredUserBubble', 'navigationButtons'].every(key => saved[key] === undefined || saved[key] === preferences[key])) return
+            applyAppearance({ ...preferences, ...saved })
+          }
+          scope.effect(() => form.subscribe(sync), 'jan-theme: saved appearance')
+          sync()
+        })
         ctx.inject(['locale'], (scope) => {
           const t = scope.locale.bind('jan-theme')
           // Directly under General's theme (10) and font size (11) rows, before the conversation rows at 12.
