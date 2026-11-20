@@ -18,6 +18,7 @@
     }
   },
   "dependencies": {
+    "@janhq/dsh-generative-ui": "workspace:~",
     "@janhq/jan-agent-desktop": "workspace:*",
     "@janhq/jan-agent-preset": "workspace:*",
     "@janhq/jan-always-on": "workspace:*",
@@ -42,6 +43,7 @@
     "@janhq/jan-tokamak": "workspace:*",
     "@janhq/jan-tool-fs": "workspace:*",
     "@janhq/jan-tool-present": "workspace:*",
+    "@janhq/jan-tool-skill": "workspace:*",
     "@janhq/jan-tool-web": "workspace:*"
   }
 }

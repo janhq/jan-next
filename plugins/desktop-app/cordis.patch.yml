@@ -92,6 +92,11 @@
     - id: jan-onboarding
       name: '@janhq/jan-onboarding'
 
+    # Generative UI: a reply can answer with a live React card (a ```ui4a/tsx
+    # fence) inline in the chat, or a canvas file that opens beside it.
+    - id: dsh-generative-ui
+      name: '@janhq/dsh-generative-ui'
+
     # Chat mode: conversation, web research and simple visual artifacts. The
     # agent searches and reads the web and can create new files it hands over
     # with present (SVG, HTML, Markdown, CSV); it cannot read or edit your
@@ -117,7 +122,12 @@
 
                 You cannot read or edit the user's files, run commands, or generate photographic images.
               complete: true
+              # Generative UI's fence instructions, while that plugin is on.
+              keep: ['dsh-generative-ui:inline']
               includeRuntimeContext: false
+          # Loads the Generative UI authoring guide before the agent drafts a card.
+          - id: tool-skill
+            name: '@janhq/jan-tool-skill'
           - id: time-context
             name: '@janhq/jan-time-context'
           - id: tool-web
