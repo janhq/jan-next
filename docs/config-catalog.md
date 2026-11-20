@@ -2705,8 +2705,10 @@ export interface Config {
    * text shadows the deployment suffix away; interpolation is strict.
    */
   suffix?: string
-  /** Make the prefix the complete system prompt, suppressing the suffix and every other section. */
+  /** Make the prefix the complete system prompt, suppressing the suffix and every other section except {@link keep}. */
   complete?: boolean
+  /** With `complete`, prompt section names kept after the prefix whenever a mounted plugin registers them. */
+  keep?: string[]
   /** Suppress dynamic runtime-context snapshots for this persona's agent scope. */
   includeRuntimeContext?: boolean
   /**
