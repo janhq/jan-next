@@ -128,6 +128,19 @@ export function PreparationCard({ provider, connected, prepare, cancelPreparatio
   </section>
 }
 
+/**
+ * Localize a recognizer's advertised language in setup and settings.
+ * @param language - Recognition language identifier.
+ * @param t - Active voice translator.
+ * @returns The display name, or the identifier for an unlisted language.
+ */
+export function languageName(language: string, t: PropsLocale<typeof NS>['t']): string {
+  switch (language) {
+    case 'auto': case 'zh': case 'en': case 'yue': case 'ja': case 'es': case 'fr': case 'de': case 'ru': case 'pt': case 'ko': return t(language)
+    default: return language
+  }
+}
+
 /** Recognition preferences and preparation cards shared by plugin details and Settings. */
 export function VoicePreparation({ useSpeechReadiness, ...props }: Pick<InjectFace<VoiceInputInjected>,
   'useSpeechReadiness' | 'configure' | 'prepare' | 'cancelPreparation' | 'createRecording' | 'useMicrophoneDevice' | 'selectMicrophone'> & PropsLocale<typeof NS>) {
@@ -139,9 +152,6 @@ export function VoicePreparation({ useSpeechReadiness, ...props }: Pick<InjectFa
     finally { setSaving(false) }
   }
   const selected = catalog?.providers.find(provider => provider.id === catalog.selection.providerId)
-  const languageNames: Readonly<Record<string, string>> = {
-    auto: props.t('auto'), zh: props.t('zh'), en: props.t('en'), yue: props.t('yue'), ja: props.t('ja'), es: props.t('es'), fr: props.t('fr'), de: props.t('de'), ru: props.t('ru'), pt: props.t('pt'), ko: props.t('ko'),
-  }
   return <div>
     {catalog && <div className={css.preferences}>
       <MicrophonePicker {...props} />
@@ -151,8 +161,9 @@ export function VoicePreparation({ useSpeechReadiness, ...props }: Pick<InjectFa
       </select></label>
       <label>{props.t('language')}<select value={catalog.selection.language} disabled={!readiness.connected || saving}
         onChange={(event) => { void configure({ language: event.target.value }) }}>
-        {selected?.languages.map(language =>
-          <option key={language} value={language}>{languageNames[language] ?? language}</option>)}
+        {selected?.languages.map(language => (
+          <option key={language} value={language}>{languageName(language, props.t)}</option>
+        ))}
       </select></label>
       <p>{props.t(selected?.location === 'cloud' ? 'cloud' : 'local')}</p>
       {error && <p role="alert">{props.t('failed', { message: error })}</p>}
