@@ -6,7 +6,8 @@ import type { SessionId } from '@janhq/jan-session/types'
 import type {
   AskUserQuestionAnswer, AskUserQuestionAnswerItem, AskUserQuestionItem, UserQuestionState,
 } from '@janhq/jan-user-questions/types'
-import type { createQuestionDraftStore } from '../draft-store.ts'
+import { persistedQuestionDraft, questionDraftHold, type createQuestionDraftStore } from '../draft-store.ts'
+import { recommendedOptions } from '../question-answers.ts'
 
 declare module '@janhq/jan-client-ui-session/client' {
   interface SessionPendingInteractionMap {
@@ -127,6 +128,8 @@ function questionError(code: QuestionRejectionCode): Error {
 export interface QuestionWaterfallChannel {
   /** Client-clock deadline in epoch milliseconds; absent for a blocking question. */
   readonly deadline: number | undefined
+  /** Submit a batch when the Client deadline expires, rather than leaving it pending. */
+  readonly autoSubmit?: true
   /** Resolve the Host waterfall with the whole answer batch. */
   resolve(answer: QuestionAnswer): void
   /** Reject the Host waterfall with a wire-preserved code. */
@@ -167,12 +170,14 @@ export interface QuestionWaterfallRequest {
  * @param deadline - Client-clock deadline in epoch milliseconds derived from the business claim's remaining duration.
  * @param signal - Delivery lifetime of the forwarded request.
  * @param onSettle - Called once with the channel when it settles or aborts.
+ * @param autoSubmit - Whether expiry submits an answer batch.
  * @returns The channel to attach and the promise the listener awaits.
  */
 export function createWaterfallRequest(
   deadline: number | undefined,
   signal: AbortSignal | undefined,
   onSettle: (channel: QuestionWaterfallChannel) => void,
+  autoSubmit?: true,
 ): QuestionWaterfallRequest {
   const completion = Promise.withResolvers<QuestionAnswer>()
   const delegated = Symbol('pending question delegated')
@@ -189,6 +194,7 @@ export function createWaterfallRequest(
   }
   const channel: QuestionWaterfallChannel = {
     deadline,
+    ...(autoSubmit === undefined ? {} : { autoSubmit }),
     resolve: (answer) => { finish(() => { completion.resolve(answer) }) },
     reject: (code) => { finish(() => { completion.reject(questionError(code)) }) },
     delegate: () => { finish(() => { completion.reject(delegated) }) },
@@ -389,6 +395,12 @@ export class PendingQuestion {
    */
   attachWaterfall(channel: QuestionWaterfallChannel): void {
     this.#waterfall = channel
+    if (channel.autoSubmit === true) {
+      const progress = persistedQuestionDraft(this.sessionId, this.key, this.questions.length)
+      const hold = questionDraftHold(progress, this.questions)
+      if (hold === 'waiting') this.takeTime()
+      else if (hold === 'editing') this.engage()
+    }
     this.#timedWait = channel.deadline !== undefined
     if (!this.#held && !this.#engaged) {
       this.#deadline = channel.deadline
@@ -496,7 +508,7 @@ export class PendingQuestion {
     this.publish()
   }
 
-  /** Local countdown reached zero: settle the waterfall with `ASK_TIMED_OUT`, keep the card. */
+  /** Settle the foreground waterfall after the local deadline. */
   timeout(): void {
     if (this.#held || this.#engaged || this.#focused) return
     const channel = this.#waterfall
@@ -504,7 +516,25 @@ export class PendingQuestion {
     this.#waterfall = undefined
     this.#timedWait = false
     this.#deadline = undefined
-    channel.reject('ASK_TIMED_OUT')
+    if (channel.autoSubmit === true) {
+      // New edits and explicit skips normally hold the timer. A restored
+      // counting draft can still supply its saved choices on expiry.
+      const drafts = persistedQuestionDraft(this.sessionId, this.key, this.questions.length)?.drafts
+      channel.resolve({
+        autoSubmitted: true,
+        answers: this.questions.map((question, index) => {
+          const draft = drafts?.[index]
+          if (draft?.skipped === true) return { id: question.id, selected: [] }
+          const custom = draft?.custom.trim() ?? ''
+          const selected = draft !== undefined && draft.selected.length > 0 ? draft.selected : recommendedOptions(question)
+          return custom === ''
+            ? { id: question.id, selected }
+            : { id: question.id, selected: question.multiSelect === true ? draft?.selected ?? [] : [], custom }
+        }),
+      })
+    } else {
+      channel.reject('ASK_TIMED_OUT')
+    }
     this.publish()
   }
 

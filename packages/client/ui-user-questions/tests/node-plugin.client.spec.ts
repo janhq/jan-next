@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import ToolRuntime from '@janhq/jan-tools'
 import SystemPrompt from '@janhq/jan-system-prompt'
 import UserQuestionService from '@janhq/jan-user-questions'
-import { apply } from '../src/index.ts'
+import { apply, Config } from '../src/index.ts'
 
 let ctx: Context | undefined
 
@@ -25,5 +25,12 @@ describe('ui-user-questions node plugin', () => {
 
     // Host UI registration must leave each preset's model-facing tool list intact.
     expect(ctx.tools.get('ask_user_question')).toBeUndefined()
+    expect(ctx.get('userQuestionSettings')?.autoAnswerSeconds()).toBe(0)
+  })
+
+  it('publishes the configured countdown for ask-user presets', async () => {
+    ctx = new Context()
+    await ctx.plugin({ apply, Config }, { autoAnswerSeconds: 60 }).await()
+    expect(ctx.get('userQuestionSettings')?.autoAnswerSeconds()).toBe(60)
   })
 })
