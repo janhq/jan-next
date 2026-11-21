@@ -22,23 +22,27 @@ window.__ModuleLoader__.load({
     const CSS = `
 /* No fill, no rule: the bar sits on the window ground. Under the Jan theme it shares the chat column
    with the conversation and its bottom edge lines up with the floating sidebar card's. */
-.jsb-bar { display: flex; align-items: stretch; justify-content: space-between; gap: 8px; height: 24px; padding: 0 var(--jt-sidebar-gap, 6px);
+.jsb-bar { display: flex; align-items: stretch; justify-content: space-between; gap: 8px; height: 20px; padding: 0 var(--jt-sidebar-gap, 6px);
   margin-bottom: var(--jt-sidebar-gap, 0px); box-sizing: border-box; background: transparent;
-  color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 16px; user-select: none; overflow: hidden; }
+  color: var(--dsw-alias-label-tertiary); font-size: 11px; line-height: 14px; user-select: none; overflow: hidden; }
 .jsb-side { display: flex; align-items: stretch; min-width: 0; }
 .jsb-side[data-side='right'] { justify-content: flex-end; }
 .jsb-slot { display: flex; align-items: stretch; min-width: 0; }
 .jsb-slot[data-drop='before'] { box-shadow: inset 2px 0 0 var(--dsw-alias-state-business-primary); }
 .jsb-slot[data-drop='after'] { box-shadow: inset -2px 0 0 var(--dsw-alias-state-business-primary); }
 .jsb-slot[data-dragging] { opacity: 0.4; }
-.jsb-item { display: inline-flex; align-items: center; gap: 5px; height: 100%; padding: 0 7px; border: 0; border-radius: 0; background: transparent;
+.jsb-item { display: inline-flex; align-items: center; gap: 4px; height: 100%; padding: 0 6px; border: 0; border-radius: 6px; background: transparent;
   color: inherit; font: inherit; font-variant-numeric: tabular-nums; white-space: nowrap; cursor: default; }
 button.jsb-item { cursor: pointer; }
 button.jsb-item:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
 button.jsb-item:active { background: var(--dsw-alias-interactive-bg-active); }
 .jsb-item:focus-visible { outline: 2px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); outline-offset: -2px; }
-.jsb-icon { display: inline-flex; flex: none; width: 14px; height: 14px; }
-.jsb-icon svg { width: 14px; height: 14px; }
+.jsb-icon { display: inline-flex; flex: none; width: 12px; height: 12px; }
+.jsb-icon svg { width: 12px; height: 12px; }
+.jsb-icon[data-on] { color: var(--dsw-alias-state-success-primary); }
+.jsb-icon[data-error] { color: var(--dsw-alias-state-error-primary); }
+/* Load readings hold one width as they tick between one and two digits. */
+.jsb-text[data-level] { min-width: 3ch; text-align: right; }
 .jsb-text[data-level='warn'] { color: var(--dsw-alias-state-warn-label, var(--dsw-alias-state-warn-primary)); }
 .jsb-text[data-level='critical'] { color: var(--dsw-alias-state-error-primary); }
 .jsb-meter { position: relative; flex: none; width: 18px; height: 4px; border-radius: 2px; background: var(--dsw-alias-border-l3); overflow: hidden; }
@@ -46,9 +50,6 @@ button.jsb-item:active { background: var(--dsw-alias-interactive-bg-active); }
   transition: width 300ms var(--ds-ease-out, ease-out), background-color 300ms var(--ds-ease-out, ease-out); }
 .jsb-meter[data-level='warn'] > span { background: var(--dsw-alias-state-warn-primary); }
 .jsb-meter[data-level='critical'] > span { background: var(--dsw-alias-state-error-primary); }
-.jsb-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; box-sizing: border-box; border: 1.5px solid currentColor; }
-.jsb-dot[data-on] { border: 0; background: var(--dsw-alias-state-success-primary); }
-.jsb-dot[data-error] { border: 0; background: var(--dsw-alias-state-error-primary); }
 .jsb-choice { display: flex; flex-direction: column; gap: 2px; padding: 2px 0; }
 .jsb-choice-hint { color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 16px; }
 @media (prefers-reduced-motion: reduce) { .jsb-meter > span { transition: none; } }
@@ -117,9 +118,10 @@ button.jsb-item:active { background: var(--dsw-alias-interactive-bg-active); }
      * One status bar item. Pass `onClick` to make it a button; omit it for a plain readout.
      * `percent` draws a small meter coloured by `level`; `level` also colours the text.
      */
-    function StatusItem({ icon, text, tooltip, level, percent, onClick, ariaLabel, compact, children, buttonRef, ...rest }) {
+    function StatusItem({ icon, iconState, text, tooltip, level, percent, onClick, ariaLabel, compact, children, buttonRef, ...rest }) {
       const content = [
-        icon ? h('span', { className: 'jsb-icon', key: 'icon' }, typeof icon === 'string' && GLYPHS[icon] ? glyph(icon) : icon) : null,
+        icon ? h('span', { className: 'jsb-icon', key: 'icon', 'data-on': iconState === 'on' || undefined, 'data-error': iconState === 'error' || undefined },
+          typeof icon === 'string' && GLYPHS[icon] ? glyph(icon) : icon) : null,
         typeof percent === 'number' ? h('span', { className: 'jsb-meter', 'data-level': level, key: 'meter' }, h('span', { style: { width: `${Math.max(4, percent)}%` } })) : null,
         text !== undefined && text !== null && !compact ? h('span', { className: 'jsb-text', 'data-level': level, key: 'text' }, text) : null,
         children ?? null,
@@ -150,7 +152,7 @@ button.jsb-item:active { background: var(--dsw-alias-interactive-bg-active); }
       const load = useSystemLoad(s => s)
       const percent = load.value?.cpu ?? undefined
       const level = useLoadLevel(useStatusBarSettings, layout, percent)
-      return h(Item, { icon: 'cpu', text: percentText(percent), percent, level, compact,
+      return h(Item, { icon: 'cpu', text: percentText(percent), level, compact,
         tooltip: loadTip(t, load, value => t('cpu.tip', { percent: Math.round(value.cpu ?? 0) })) })
     }
 
@@ -159,7 +161,8 @@ button.jsb-item:active { background: var(--dsw-alias-interactive-bg-active); }
       const memory = load.value?.memory
       const percent = memory?.percent
       const level = useLoadLevel(useStatusBarSettings, layout, percent)
-      return h(Item, { icon: 'memory', text: memory ? layout.formatBytes(memory.used) : '-', percent, level, compact,
+      // The percentage keeps the readings one width; used and total GB are in the tooltip.
+      return h(Item, { icon: 'memory', text: percentText(percent), level, compact,
         tooltip: loadTip(t, load, value => value.memory
           ? t('memory.tip', { used: layout.formatBytes(value.memory.used), total: layout.formatBytes(value.memory.total), percent: Math.round(value.memory.percent), app: layout.formatBytes(value.process) })
           : t('load.failed')) })
@@ -170,7 +173,7 @@ button.jsb-item:active { background: var(--dsw-alias-interactive-bg-active); }
       const gpu = load.value?.gpu
       const percent = gpu?.percent
       const level = useLoadLevel(useStatusBarSettings, layout, percent)
-      return h(Item, { icon: 'gpu', text: percentText(percent), percent, level, compact,
+      return h(Item, { icon: 'gpu', text: percentText(percent), level, compact,
         tooltip: loadTip(t, load, value => value.gpu ? t('gpu.tip', { percent: Math.round(value.gpu.percent) }) : t('gpu.none')) })
     }
 
@@ -190,9 +193,10 @@ button.jsb-item:active { background: var(--dsw-alias-interactive-bg-active); }
         items: [{ type: 'label', id: 'header', text: header }, ...['on', 'agent', 'off'].map(id => ({ id, label: choice(id), disabled: !writable }))],
         onSelect: id => { setOpen(false); void setAwake(id) },
         onClose: () => setOpen(false),
-        anchor: h(Item, { buttonRef: anchor, icon: 'coffee', text: t(`awake.${mode}`), compact, tooltip: `${t('awake.title')}: ${state}`,
-          'aria-haspopup': 'menu', 'aria-expanded': open, onClick: () => setOpen(value => !value) },
-        h('span', { className: 'jsb-dot', 'data-on': host.active || undefined, 'data-error': failed || undefined })),
+        // The cup turns green while the blocker holds the machine awake, red if it failed.
+        anchor: h(Item, { buttonRef: anchor, icon: 'coffee', iconState: failed ? 'error' : host.active ? 'on' : undefined,
+          text: t(`awake.${mode}`), compact, tooltip: `${t('awake.title')}: ${state}`,
+          'aria-haspopup': 'menu', 'aria-expanded': open, onClick: () => setOpen(value => !value) }),
       })
     }
 

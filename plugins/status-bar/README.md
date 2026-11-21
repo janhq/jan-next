@@ -1,12 +1,12 @@
 # @janhq/jan-status-bar
 
-A bar along the bottom of the Jan window, like the one in VS Code. Out of the box it shows **Keep awake** on the left and **CPU**, **memory** and **GPU** load on the right. Each meter turns amber, then red, as load rises. Any plugin can add its own items.
+A bar along the bottom of the Jan window, like the one in VS Code. Out of the box it shows **Keep awake**, then **CPU**, **memory** and **GPU** load as percentages. Each reading turns amber, then red, as load rises; hover one for the details (memory shows used and total GB). Any plugin can add its own items.
 
 ## Use it
 
 - **Right-click the bar** to tick items on or off, hide one item, move it to the other side, switch to icons only, or hide the bar.
 - **Drag an item** along the bar to reorder it or move it to the other side.
-- **Keep awake**: click it to choose **On** (always awake), **Agent** (awake only while an agent is working) or **Off**. The dot fills when the blocker is active.
+- **Keep awake**: click it to choose **On** (always awake), **Agent** (awake only while an agent is working) or **Off**. The cup turns green while the blocker is active, and red if it failed.
 - **Customize > Plugins > Status bar** has the same switches plus the reading interval, the amber and red thresholds, the side and order of each item, and **Reset layout**.
 - **Toggle status bar** is a shortcut command with no default key; bind one in Settings > Shortcuts.
 
@@ -38,7 +38,7 @@ Every item receives, from the slot itself:
 
 | Prop | What it is |
 |---|---|
-| `StatusItem` | The bar's item component: `icon`, `text`, `tooltip`, `onClick`, `ariaLabel`, `level` (`'ok'`, `'warn'`, `'critical'`), `percent` (draws a meter), `children` |
+| `StatusItem` | The bar's item component: `icon`, `iconState` (`'on'` colours the icon green, `'error'` red), `text`, `tooltip`, `onClick`, `ariaLabel`, `level` (`'ok'`, `'warn'`, `'critical'`), `percent` (draws a small meter), `children` |
 | `compact` | `true` when the user chose icons only; pass it on to `StatusItem` |
 | `side` | `'left'` or `'right'`, where the item currently sits |
 | `useSystemLoad(selector)` | `{ status: 'waiting' \| 'ready' \| 'failed', value: { cpu, memory: { percent, used, total }, gpu: { percent, source }, process } }`; reading starts while any item subscribes |
