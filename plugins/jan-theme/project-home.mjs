@@ -9,7 +9,7 @@
 import { readFile, readdir, lstat, stat, writeFile, rename, unlink, open, mkdir } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { spawn } from 'node:child_process'
+import { spawn, execFile } from 'node:child_process'
 import { registerApi } from '@janhq/jan-plugin-api'
 
 const FILES = { instructions: 'AGENTS.md', memory: 'AGENTS.local.md' }
@@ -90,15 +90,43 @@ function openWithSystem(path) {
   child.unref()
 }
 
+function git(root, args) {
+  return new Promise((resolve) => {
+    // No Git, not a repository, no remote: each reads as "not detected" rather than an error.
+    execFile('git', ['-C', root, ...args], { timeout: 3000, windowsHide: true }, (error, stdout) => {
+      resolve(error ? undefined : stdout.trim() || undefined)
+    })
+  })
+}
+
+/**
+ * A remote URL as a browsable repository: scp-like `git@host:owner/repo.git`, `ssh://` and `https://`.
+ * @returns {{ host: string, name: string, url: string, github: boolean } | null}
+ */
+export function repositoryOf(remote) {
+  const match = /^(?:[\w+.-]+:\/\/)?(?:[^@/]+@)?([^/:]+)(?::\d+)?[:/](.+?)(?:\.git)?\/?$/.exec(remote)
+  if (match === null) return null
+  const [, host, name] = match
+  if (host === undefined || !/^[\w.-]+$/.test(host) || !/^[\w.-]+(?:\/[\w.-]+)+$/.test(name)) return null
+  return { host, name, url: `https://${host}/${name}`, github: host.toLowerCase() === 'github.com' }
+}
+
+/** The checked-out branch and origin repository, or null outside a Git work tree. */
+async function gitInfo(root) {
+  if (await git(root, ['rev-parse', '--is-inside-work-tree']) !== 'true') return null
+  const [branch, remote] = await Promise.all([git(root, ['branch', '--show-current']), git(root, ['remote', 'get-url', 'origin'])])
+  return { branch: branch ?? null, repository: remote === undefined ? null : repositoryOf(remote) }
+}
+
 /** @param {import('@janhq/cordis').Context} ctx */
 export function mountProjectHome(ctx) {
   ctx.effect(() => registerApi(ctx, 'project-home', {
     async read({ workspaceId }) {
       const root = projectPath(ctx, workspaceId)
-      const [instructions, memory, listing] = await Promise.all([
-        readText(join(root, FILES.instructions)), readText(join(root, FILES.memory)), listFiles(root),
+      const [instructions, memory, listing, gitState] = await Promise.all([
+        readText(join(root, FILES.instructions)), readText(join(root, FILES.memory)), listFiles(root), gitInfo(root),
       ])
-      return { path: root, instructions, memory, ...listing, maxTextBytes: MAX_TEXT_BYTES }
+      return { path: root, instructions, memory, ...listing, git: gitState, maxTextBytes: MAX_TEXT_BYTES }
     },
     /** One instruction file and its modification time, read fresh when the editor opens. */
     async readText({ workspaceId, kind }) {
