@@ -124,9 +124,9 @@ describe('Chat apply wiring', () => {
       expect(notice.getSnapshot()).toBeNull()
       ;(face.dismissNotice as QuotaNoticeInjected['dismissNotice'])()
       expect(notice.getSnapshot()).toBeNull()
-      // The turn-error row carries no transient notice and no chain child, only the failed-turn recovery face.
+      // The turn-error row carries no transient notice, only the failed-turn recovery face and its plugin actions list.
       const row = b.runtime.slots.entries('conversation.chat.node').find(entry => entry.options.key === 'turn-error')!
-      expect(row.children).toBeUndefined()
+      expect(row.children).toEqual({ 'conversation.chat.turn-error-actions': { kind: 'list', scope: 'session' } })
       const rowFace = (row.inject as (sessionId: never) => { hooks: Record<string, unknown>; recovery: Record<string, unknown> })('session-1' as never)
       expect(Object.keys(rowFace.hooks).sort()).toEqual(['continuation', 'settingsAvailability'])
       expect(Object.keys(rowFace.recovery).sort()).toEqual(['compact', 'contextFor', 'increase', 'modelFor', 'retry'])

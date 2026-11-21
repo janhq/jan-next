@@ -71,6 +71,8 @@ Missing-credential turn failures show localized setup guidance instead of provid
 
 On a `CONTEXT_WINDOW_EXCEEDED` turn, Chat follows `conversationContinuation` to offer recovery on the current failure only, even when the composer cannot retry it yet. A local llama.cpp model gets **Increase context size**: the controller grows (8k -> 32k -> x1.5, capped at the GGUF maximum) and reloads the model before the Session checks the new window and admits the empty retry. At the maximum, and on cloud routes whose window cannot grow, **Compact chat and retry** runs `/compact` and retries only when a summary was written. A compaction failure or lack of older history stays on the card without retrying. Both recovery actions leave the draft and attachments untouched.
 
+Plugins add their own actions to a terminal Turn failure through the `conversation.chat.turn-error-actions` list Slot, a child of the `turn-error` row. Each entry receives the failed Turn's `turn/end` seq, the Turn number, the failure code when known, and the sanitized message, and renders after the card's own recovery actions; an entry with nothing to offer returns null. With no entries the card is unchanged.
+
 Chat adapts Markdown targets at `MarkdownDelegateProvider.getTriggerProps`. The assistant-node Slot obtains `useContextMenu` directly and passes a file-path adapter to the optional mention service; intermediate flow and node owners carry no menu callbacks. Paths resolve against the originating Session’s current working directory when the gesture begins. Menus retain that captured path and line even if focus changes. Undeclared plugin links keep native behavior.
 
 -----

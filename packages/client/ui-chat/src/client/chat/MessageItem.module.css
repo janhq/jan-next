@@ -317,6 +317,18 @@
   outline-offset: 2px;
 }
 
+/* Plugin actions on the failure, one row under the card's own actions. */
+.turnErrorActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 4px;
+}
+
+.turnErrorActions:empty {
+  display: none;
+}
+
 .turnErrorCode {
   color: var(--dsw-alias-label-tertiary);
   font: var(--dsw-font-markdown-code-block-small);
