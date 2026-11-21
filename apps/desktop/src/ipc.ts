@@ -8,6 +8,11 @@ import type { IpcMainInvokeEvent } from 'electron'
 import type { DesktopBrowserBridge } from '@janhq/jan-client-ui-sidebar-browser/types'
 import type { DesktopFileDrag } from '@janhq/jan-util-file-drag'
 
+/** Preload argument carrying a secondary conversation window's id. */
+export const CONVERSATION_WINDOW_ARG = '--jan-conversation-window='
+/** Preload argument carrying the Session a new secondary window opens first. */
+export const CONVERSATION_SESSION_ARG = '--jan-conversation-session='
+
 /** IPC channel names kept private to the desktop application bundle. */
 export const DESKTOP_IPC = {
   fileSave: 'jan-desktop:file-save',
@@ -22,6 +27,7 @@ export const DESKTOP_IPC = {
   boot: 'jan-desktop:boot',
   enterWorkspace: 'jan-desktop:enter-workspace',
   onboardingActive: 'jan-desktop:onboarding-active',
+  conversationWindowMove: 'jan-desktop:conversation-window-move',
   onboardingApiKey: 'jan-desktop:onboarding-api-key',
   bootFailed: 'jan-desktop:boot-failed',
   browserAcquire: 'jan-desktop:browser-acquire',
