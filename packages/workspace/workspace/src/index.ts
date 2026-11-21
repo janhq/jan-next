@@ -117,6 +117,14 @@ declare module '@janhq/cordis' {
 
   interface Events {
     /**
+     * Resolve the Host's default project directory without creating it.
+     * @param signal - Caller lifetime.
+     * @param next - Delegate to the next configured directory provider.
+     * @mode waterfall
+     */
+    'workspace/default-directory'(signal: AbortSignal, next: () => Promise<string>): Promise<string>
+
+    /**
      * Ask the composed providers what still runs for a session before it is
      * archived. A listener prepends its own {@link SessionActivity} entries to
      * the result of `next()`; the registry's innermost callback returns an
@@ -255,38 +263,37 @@ export class WorkspaceRegistry extends Service {
   }
 
   /**
-   * Initialize the default Workspace only while both the registry and Session
-   * history are empty. Repeated requests reuse its durable identity; deleting
-   * that registration permanently disables automatic creation.
-   * @param resolveDirectory - resolve the absolute directory; called only for
-   * eligible creation, inside the registry mutation queue. Missing directories
-   * are created recursively before registration, and the initial title is the
-   * requested directory's own final segment — not the canonical one, so a
-   * symlink at that path does not retitle the Workspace after its target.
-   * After resolution, caller cancellation does not roll back creation or registration.
-   * @returns the initialized Workspace, or undefined when automatic creation is ineligible.
+   * Ensure the default Workspace exists, beginning a fresh registration after deletion.
+   * @param resolveDirectory - Resolve the directory inside the mutation queue when no active default exists.
+   * @returns the registered default without changing any existing Session membership.
    */
-  initializeDefault(resolveDirectory: () => Promise<string>): Promise<Workspace | undefined> {
+  initializeDefault(resolveDirectory: () => Promise<string>): Promise<Workspace> {
     return this.enqueueOperation(async () => {
-      const state = this.requireState()
-      if (state.defaultWorkspaceId !== undefined) return this.entities.get(state.defaultWorkspaceId)
-      const sessions = this.ctx.get('sessions')
-      if (sessions === undefined) throw new Error('default Workspace initialization requires the Session store')
-      if (state.workspaceIds.length > 0 || state.archivedSessionIds.length > 0
-        || sessions.list().length > 0 || (await this.listStoredHeaders()).length > 0) return undefined
+      const existing = this.defaultWorkspace
+      if (existing !== undefined) return existing
 
       const path = await resolveDirectory()
       if (!fullyQualifiedWorkspacePath(path)) throw new TypeError(`Workspace path is not fully qualified: '${path}'`)
       await mkdir(path, { recursive: true })
       const canonical = await realpathNormalize(path)
-      // A Session can start outside the registry queue while directory preparation awaits I/O.
-      if ((await this.listStoredHeaders()).length > 0 || sessions.list().length > 0) return undefined
+      if (!(await stat(canonical)).isDirectory()) throw new Error(`default Workspace path '${canonical}' is not a directory`)
       return (await this.createCanonical(canonical, defaultWorkspaceTitle(path), true)).workspace
     })
   }
 
   /**
-   * The registered first-use Workspace, if it still exists.
+   * Ensure the default through the embedding's directory policy.
+   * @param signal - Caller lifetime.
+   * @returns the active or newly registered default Workspace.
+   */
+  ensureDefault(signal: AbortSignal = new AbortController().signal): Promise<Workspace> {
+    return this.initializeDefault(() => this.ctx.waterfall('workspace/default-directory', signal, async () => {
+      throw new Error('default Workspace directory provider is unavailable')
+    }))
+  }
+
+  /**
+   * The active default Workspace, if one has been registered.
    * @returns the active default Workspace or `undefined`.
    */
   get defaultWorkspace(): Workspace | undefined {
@@ -527,9 +534,11 @@ export class WorkspaceRegistry extends Service {
     return undefined
   }
 
-  private async createCanonical(canonical: string, title?: string, firstUse = false): Promise<WorkspaceAdoption> {
+  private async createCanonical(canonical: string, title?: string, makeDefault = false): Promise<WorkspaceAdoption> {
     for (const entity of this.entities.values()) {
-      if (entity.path === canonical) return { workspace: entity, created: false }
+      if (entity.path !== canonical) continue
+      if (makeDefault) await this.setState({ ...this.requireState(), defaultWorkspaceId: entity.id })
+      return { workspace: entity, created: false }
     }
 
     const workspaceName = title ?? defaultWorkspaceTitle(canonical)
@@ -576,7 +585,7 @@ export class WorkspaceRegistry extends Service {
         ...state,
         pendingMutation: undefined,
         initialized: true,
-        ...(firstUse ? { defaultWorkspaceId: id } : {}),
+        ...(makeDefault ? { defaultWorkspaceId: id } : {}),
         workspaceIds: [id, ...state.workspaceIds],
       })
     } catch (error) {
@@ -610,6 +619,7 @@ export class WorkspaceRegistry extends Service {
       ...state,
       pendingMutation: undefined,
       initialized: true,
+      ...(state.defaultWorkspaceId === id ? { defaultWorkspaceId: undefined } : {}),
       workspaceIds: state.workspaceIds.filter(workspaceId => workspaceId !== id),
     }
     await this.setState({

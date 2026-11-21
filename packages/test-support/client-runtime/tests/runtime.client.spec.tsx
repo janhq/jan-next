@@ -560,11 +560,11 @@ describe('workspaces', () => {
     expect(view.container.textContent).toContain('ws:pending')
     await runtime.dispose()
   })
-  it('skips default initialization without a fixture and forwards the caller lifetime', async () => {
+  it('returns a default project and forwards the caller lifetime to a fixture override', async () => {
     const runtime = await SlotTestRuntime.create()
     try {
       const signal = new AbortController().signal
-      await expect(runtime.workspaces.initializeDefault(signal)).resolves.toBeUndefined()
+      await expect(runtime.workspaces.initializeDefault(signal)).resolves.toMatchObject({ isDefault: true })
       const workspace = {
         workspaceId: 'default' as WorkspaceId, title: 'default-workspace', path: '/default', sessionIds: [],
         createdAt: '2026-09-20T00:00:00Z', updatedAt: '2026-09-20T00:00:00Z',

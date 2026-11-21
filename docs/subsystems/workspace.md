@@ -125,7 +125,7 @@ Sessions get their cwd at create time from whoever creates them, not from this r
 
 ## Default Workspace initialization
 
-The controller's `initializeDefault` takes no request: it owns the fixed `default-workspace` directory name, resolves the Documents location, and asks the registry to initialize once. The registry accepts a directory resolver, derives the initial title from the requested directory's final segment rather than the canonical one, and commits the registration with its durable identity. No language reaches the Host — browser consumers label a Workspace still carrying that automatic title through the controller's `workspaceDisplayTitle`, so only the on-screen name follows the reader's language. [First-use behavior and configuration](../../packages/api/workspace-controller/README.md#first-use-workspace) describe reuse and failure handling.
+The Host controller supplies its Documents directory policy to `workspaceRegistry.ensureDefault()`. The registry ensures an active default regardless of other projects and Sessions. When the previous registration was deleted, it prepares a replacement on demand without reassigning existing Sessions. See the [default project policy and configuration](../../packages/api/workspace-controller/README.md#first-use-workspace).
 
 ## Session pinning
 
@@ -319,14 +319,12 @@ Host service backing the generated `ctx.remote.workspace` namespace.
 @Remote('create') create(request: WorkspaceCreateRequest): Promise<WorkspaceCreateValue>
 
 /**
- * Initialize or reuse the default Workspace during first-use startup. The
- * directory name is fixed, so the Host never renames or relocates an
- * existing default; its initial title is that same name, which browser
- * consumers label in the reader's language.
+ * Ensure the default Workspace exists at the Host account's Documents directory.
+ * An existing default is reused, and a deleted registration is recreated on demand.
  * @param signal - caller lifetime; cancels native directory lookup.
- * @returns the durable Workspace, or undefined when first-use initialization is ineligible; creates no Session or message.
+ * @returns the durable default Workspace; creates no Session or message.
  */
-@Remote('initializeDefault') async initializeDefault(signal: AbortSignal): Promise<WorkspaceValue | undefined>
+@Remote('initializeDefault') async initializeDefault(signal: AbortSignal): Promise<WorkspaceValue>
 
 /**
  * Rename one Workspace to a unique non-blank title.
@@ -480,18 +478,18 @@ Durable workspace registry. Startup waits for `sessionPersistence`, builds one c
 async create(path: string, title?: string): Promise<Workspace>
 
 /**
- * Initialize the default Workspace only while both the registry and Session
- * history are empty. Repeated requests reuse its durable identity; deleting
- * that registration permanently disables automatic creation.
- * @param resolveDirectory - resolve the absolute directory; called only for
- * eligible creation, inside the registry mutation queue. Missing directories
- * are created recursively before registration, and the initial title is the
- * requested directory's own final segment — not the canonical one, so a
- * symlink at that path does not retitle the Workspace after its target.
- * After resolution, caller cancellation does not roll back creation or registration.
- * @returns the initialized Workspace, or undefined when automatic creation is ineligible.
+ * Ensure the default Workspace exists, beginning a fresh registration after deletion.
+ * @param resolveDirectory - Resolve the directory inside the mutation queue when no active default exists.
+ * @returns the registered default without changing any existing Session membership.
  */
-initializeDefault(resolveDirectory: () => Promise<string>): Promise<Workspace | undefined>
+initializeDefault(resolveDirectory: () => Promise<string>): Promise<Workspace>
+
+/**
+ * Ensure the default through the embedding's directory policy.
+ * @param signal - Caller lifetime.
+ * @returns the active or newly registered default Workspace.
+ */
+ensureDefault(signal: AbortSignal = new AbortController().signal): Promise<Workspace>
 
 /**
  * Look up a workspace by id.
@@ -594,6 +592,24 @@ Source: [`packages/workspace/workspace/src/index.ts`](../../packages/workspace/w
 <a id="workspace-events"></a>
 
 ### `workspace/*` events
+
+<a id="workspacedefault-directory--waterfall"></a>
+
+#### `workspace/default-directory` — waterfall
+
+Resolve the Host's default project directory without creating it.
+
+```ts cordis-catalog
+/**
+ * Resolve the Host's default project directory without creating it.
+ * @param signal - Caller lifetime.
+ * @param next - Delegate to the next configured directory provider.
+ * @mode waterfall
+ */
+'workspace/default-directory'(signal: AbortSignal, next: () => Promise<string>): Promise<string>
+```
+
+Source: [`packages/workspace/workspace/src/index.ts`](../../packages/workspace/workspace/src/index.ts)
 
 <a id="workspacesession-activity--waterfall"></a>
 

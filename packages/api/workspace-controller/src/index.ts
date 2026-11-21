@@ -33,7 +33,7 @@ import type {
 export type * from './types.ts'
 export { DirectoryPickerController } from './directory-picker.ts'
 
-/** First-use directory policy for the Host account. */
+/** Default project directory policy for the Host account. */
 export interface Config {
   /** Override the system Documents directory with a fully qualified path. */
   documentsDirectory?: string
@@ -66,13 +66,16 @@ export class WorkspaceController extends TypertRemoteService {
 
   /**
    * @param ctx - Host context containing the Workspace registry.
-   * @param config - first-use directory policy.
+   * @param config - default project directory policy.
    */
   constructor(ctx: Context, config: Config = {}) {
     super(ctx, 'workspaceController', { namespace: 'workspace' })
     ctx.typert.resources.register('workspace', { field: 'workspaceId' })
     this.config = WorkspaceController.Config(config)
     if (this.config.documentsDirectory !== undefined) validateDocumentsDirectory(this.config.documentsDirectory)
+    ctx.on('workspace/default-directory', signal => defaultWorkspaceDirectory(
+      this.config.documentsDirectory, AbortSignal.any([signal, AbortSignal.timeout(this.config.documentsLookupTimeoutMs)]),
+    ))
     this.commands = new WorkspaceCommands(ctx)
     this.feed = new WorkspaceFeed(ctx)
     // This package is the Loader entry for both Remote owners it hosts: the
@@ -93,22 +96,15 @@ export class WorkspaceController extends TypertRemoteService {
   }
 
   /**
-   * Initialize or reuse the default Workspace during first-use startup. The
-   * directory name is fixed, so the Host never renames or relocates an
-   * existing default; its initial title is that same name, which browser
-   * consumers label in the reader's language.
+   * Ensure the default Workspace exists at the Host account's Documents directory.
+   * An existing default is reused, and a deleted registration is recreated on demand.
    * @param signal - caller lifetime; cancels native directory lookup.
-   * @returns the durable Workspace, or undefined when first-use initialization is ineligible; creates no Session or message.
+   * @returns the durable default Workspace; creates no Session or message.
    */
   @Remote('initializeDefault')
-  async initializeDefault(signal: AbortSignal): Promise<WorkspaceValue | undefined> {
-    const workspace = await this.ctx.workspaceRegistry.initializeDefault(async () => {
-      const timeout = AbortSignal.timeout(this.config.documentsLookupTimeoutMs)
-      return await defaultWorkspaceDirectory(
-        this.config.documentsDirectory, AbortSignal.any([signal, timeout]),
-      )
-    })
-    return workspace === undefined ? undefined : { workspace: workspaceView(workspace, workspace.id) }
+  async initializeDefault(signal: AbortSignal): Promise<WorkspaceValue> {
+    const workspace = await this.ctx.workspaceRegistry.ensureDefault(signal)
+    return { workspace: workspaceView(workspace, workspace.id) }
   }
 
   /**
