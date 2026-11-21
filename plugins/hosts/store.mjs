@@ -86,16 +86,17 @@ export function parseHostUrl(value) {
  */
 export function parseSshTarget(value) {
   const match = /^(?:([^@\s:]+)@)?([^@\s:]+|\[[0-9a-fA-F:]+\])(?::(\d{1,5}))?$/.exec(String(value ?? '').trim())
-  const port = match?.[3] === undefined ? 22 : Number(match[3])
+  // No port means ssh decides: 22, or the Port an ssh config alias names.
+  const port = match?.[3] === undefined ? undefined : Number(match[3])
   // `-` would let a host name be read by ssh as an option.
-  if (!match || match[2].startsWith('-') || match[1]?.startsWith('-') || port < 1 || port > 65535) {
-    throw new HostsError('ssh', 'Write the SSH host as user@host or user@host:port.')
+  if (!match || match[2].startsWith('-') || match[1]?.startsWith('-') || (port !== undefined && (port < 1 || port > 65535))) {
+    throw new HostsError('ssh', 'Write the SSH host as user@host, user@host:port, or a Host name from your ssh config.')
   }
   return { user: match[1], host: match[2].replace(/^\[|\]$/g, '').toLowerCase(), port }
 }
 
 function sshKey({ user, host, port }) {
-  return `${user ?? ''}@${host}:${port}`
+  return `${user === undefined ? '' : `${user}@`}${host}${port === undefined ? '' : `:${port}`}`
 }
 
 /** Saved Hosts and paired devices under one home. */

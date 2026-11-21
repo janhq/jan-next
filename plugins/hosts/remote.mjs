@@ -122,11 +122,13 @@ export async function openTunnel(entry, log) {
     throw new Error('The Jan command and profile may use only letters, digits and ./~_+-.')
   }
   const [target, port] = entry.ssh.split(/:(?=\d+$)/)
+  // Entries saved before ssh config aliases were supported start with `@` when they have no user.
   const user = target.startsWith('@') ? target.slice(1) : target
   const localPort = await freePort()
   const args = [
     '-tt', '-o', 'BatchMode=yes', '-o', 'ExitOnForwardFailure=yes', '-o', 'StrictHostKeyChecking=accept-new',
-    '-o', 'ServerAliveInterval=15', '-p', port, '-L', `127.0.0.1:${localPort}:127.0.0.1:${entry.remotePort}`,
+    '-o', 'ServerAliveInterval=15', ...(port === undefined ? [] : ['-p', port]),
+    '-L', `127.0.0.1:${localPort}:127.0.0.1:${entry.remotePort}`,
     user, `${command} --profile ${profile} --no-open --port ${entry.remotePort}`,
   ]
   const child = spawn('ssh', args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
