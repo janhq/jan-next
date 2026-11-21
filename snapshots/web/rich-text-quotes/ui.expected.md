@@ -123,7 +123,7 @@
     - button "Remove quote"
     - text: Settled reasoning source
 - button "Add files or run commands"
-- 'button "Access mode, current: Workspace Write"': Workspace Write
+- 'button "Access mode, current: Project Write"': Project Write
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message"
 - button "1 turns 1 steps"
