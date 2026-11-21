@@ -11,7 +11,8 @@ window.__ModuleLoader__.load({
       return body.result
     }
     const RECENT_DAYS = 30
-    const SOURCES = [['jan', 'Jan'], ['claude', 'Claude Code'], ['codex', 'Codex'], ['omp', 'OMP']]
+    const SOURCES = [['jan', 'Jan'], ['orca', 'Orca'], ['claude', 'Claude Code'], ['codex', 'Codex'], ['omp', 'OMP']]
+    const AGENT_NAMES = { claude: 'Claude Code', codex: 'Codex', omp: 'OMP' }
     const sourceName = source => SOURCES.find(([key]) => key === source)[1]
     const sizeOf = bytes => bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)} MB`
     const projectOf = path => String(path ?? '').split(/[\\/]/).filter(Boolean).at(-1) ?? ''
@@ -51,6 +52,8 @@ window.__ModuleLoader__.load({
       // Agent lists start with the last 30 days; listing every session reads every file.
       const [allTime, setAllTime] = React.useState(false)
       const [older, setOlder] = React.useState(0)
+      // How many workspaces Orca reported, shown in place of a folder for the Orca source.
+      const [orcaWorkspaces, setOrcaWorkspaces] = React.useState(undefined)
       // Jan's providers, MCP servers and assistants, which ones to bring, and what the last run did with them.
       const [janSettings, setJanSettings] = React.useState(null)
       const [extras, setExtras] = React.useState(NO_EXTRAS)
@@ -89,7 +92,7 @@ window.__ModuleLoader__.load({
         try {
           const value = await api('list', { source: next, folder: nextFolder, ...(next === 'jan' || everything ? {} : { since: Date.now() - RECENT_DAYS * 86400000 }) })
           if (mine !== latestScan.current || !alive.current) return
-          setFolder(value.folder); setListedFolder(value.folder); setThreads(value.threads); setResults({}); setMissing(value.missing === true); setOlder(value.older ?? 0)
+          setFolder(value.folder); setListedFolder(value.folder); setOrcaWorkspaces(value.workspaces); setThreads(value.threads); setResults({}); setMissing(value.missing === true); setOlder(value.older ?? 0)
           // Moving from Jan means bringing everything. A coding agent keeps months of sessions, so the person picks.
           setSelected(new Set(next === 'jan' ? value.threads.filter(importable).map(thread => thread.id) : []))
           setJanSettings(value.settings ?? null); setSettingsResults(null)
@@ -130,7 +133,7 @@ window.__ModuleLoader__.load({
       }
       const eligible = threads.filter(importable)
       return {
-        source, setSource, setJob, missing, allTime, setAllTime, older, folder, setFolder, listedFolder, threads, selected, setSelected, results, scanning, job, error, importing,
+        source, setSource, setJob, missing, allTime, setAllTime, older, orcaWorkspaces, folder, setFolder, listedFolder, threads, selected, setSelected, results, scanning, job, error, importing,
         janSettings, extras, setExtras, settingsResults, canImport: selected.size > 0 || anyExtra(extras),
         busy: scanning || importing, stale: folder !== listedFolder, eligible, scan, importSelected,
       }
@@ -182,7 +185,9 @@ window.__ModuleLoader__.load({
           h(Checkbox, { label: thread.title, title: thread.title, disabled: busy || !importable(thread) || stale, checked: selected.has(thread.id), onChange: checked => setSelected(previous => { const next = new Set(previous); checked ? next.add(thread.id) : next.delete(thread.id); return next }) }),
           h('span', { className: 'jan-legacy-import-meta' },
             thread.kind === 'cowork' ? h('span', { className: 'jan-legacy-import-tag', title: 'A Cowork session from Jan' }, 'Cowork') : null,
-            thread.project ? h('span', { className: 'jan-legacy-import-tag', title: thread.project }, projectOf(thread.project)) : null,
+            thread.workspace ? h('span', { className: 'jan-legacy-import-tag', title: thread.project }, thread.projectName && thread.projectName !== thread.workspace ? `${thread.projectName} · ${thread.workspace}` : thread.workspace)
+              : thread.project ? h('span', { className: 'jan-legacy-import-tag', title: thread.project }, projectOf(thread.project)) : null,
+            thread.agent ? h('span', { className: 'jan-legacy-import-tag' }, AGENT_NAMES[thread.agent]) : null,
             thread.size !== undefined ? sizeOf(thread.size) : plural(thread.messageCount, 'message', 'messages'),
             thread.updated ? h('time', { dateTime: new Date(thread.updated).toISOString() }, shortDate(thread.updated)) : null),
           status || losses.length ? h('div', { role: 'status', className: 'jan-legacy-import-row-state' },
@@ -246,7 +251,7 @@ window.__ModuleLoader__.load({
     }
     const BRINGS = 'Message text, reasoning, tool calls and their results, token counts and local images. Audio, video, per-chat tool settings and streaming timing stay behind. After the import, each chat lists anything it could not bring.'
     const AGENT_BRINGS = 'Your messages, the assistant’s replies and reasoning, tool calls with their results, and token counts. Images, sub-agent side conversations and encrypted reasoning stay behind. The imported session opens in the folder it ran in, as its own workspace, so you can continue it there; when that folder is gone it opens in the default workspace. After the import, each session lists anything it could not bring.'
-    const emptyMessage = ({ source, missing, listedFolder }) => missing
+    const emptyMessage = ({ source, missing, listedFolder }) => source === 'orca' ? 'No Claude Code, Codex or OMP session ran in an Orca workspace in this range.' : missing
       ? `${sourceName(source)} has no sessions folder at ${listedFolder}. Choose Change if it lives somewhere else.`
       : source === 'jan' ? 'No Jan chats found. Change the folder and scan again.' : `No ${sourceName(source)} sessions in this range.`
     // The source folder as one short line; the path is editable only after Change.
@@ -269,6 +274,9 @@ window.__ModuleLoader__.load({
     function Source({ state }) {
       const { source, folder, setFolder, listedFolder, scanning, busy, scan } = state
       const [editing, setEditing] = React.useState(false)
+      if (source === 'orca') return h('div', { className: 'jan-legacy-import-source' },
+        h('span', { className: 'jan-legacy-import-source-label' }, 'From'),
+        h('span', { className: 'jan-legacy-import-path' }, scanning ? 'Asking Orca for its workspaces…' : state.orcaWorkspaces === undefined ? 'Orca' : `${plural(state.orcaWorkspaces, 'Orca workspace', 'Orca workspaces')} on this computer`))
       return h('div', { className: 'jan-legacy-import-source' },
         h('span', { className: 'jan-legacy-import-source-label' }, 'From'),
         editing
@@ -292,7 +300,9 @@ window.__ModuleLoader__.load({
         h('h2', null, 'Import sessions'),
         h('p', null, state.source === 'jan'
           ? 'Bring your chats and settings from the earlier Jan app. Your Jan folder is only read, never changed, and anything already imported is skipped.'
-          : `Bring sessions from ${sourceName(state.source)} into Jan. The ${sourceName(state.source)} folder is only read, never changed, and anything already imported is skipped.`),
+          : state.source === 'orca'
+            ? 'Bring the Claude Code, Codex and OMP sessions you ran in Orca into Jan. Each opens in a Jan workspace named after its Orca workspace. Nothing in Orca or the agents’ folders is changed, and anything already imported is skipped.'
+            : `Bring sessions from ${sourceName(state.source)} into Jan. The ${sourceName(state.source)} folder is only read, never changed, and anything already imported is skipped.`),
         h(SourcePicker, { state }),
         h(Source, { state }),
         h(Range, { state }),
