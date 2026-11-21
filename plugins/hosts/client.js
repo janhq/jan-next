@@ -40,7 +40,17 @@ window.__ModuleLoader__.load({
         'form.urlHelp': 'Paste the whole jan web: line from that computer, including ?token=. The token signs you in and is stored only on this computer.',
         'form.urlEditHelp': 'Leave the token out to keep the saved sign-in.',
         'form.ssh': 'SSH host',
-        'form.sshHelp': 'user@host or user@host:port. Your own SSH keys and config are used; Jan must be installed there.',
+        'form.sshHelp': 'A Host name from your ssh config, user@host, or user@host:port. Your own SSH keys and config are used; Jan must be installed there.',
+        'import.open': 'Import from SSH config',
+        'import.title': 'Hosts in your SSH config',
+        'import.lede': 'Choose the computers to add. Jan connects by the Host name, so your keys, ports and proxies from the config still apply.',
+        'import.loading': 'Reading your SSH config...',
+        'import.empty': 'Your SSH config has no Host entries to import.',
+        'import.saved': 'Already added',
+        'import.submit': 'Import {count}',
+        'import.none': 'Import',
+        'import.done': 'Added {count}.',
+        'import.failed': '{alias}: {message}',
         'form.remotePort': 'Port on that computer',
         'form.command': 'Jan command',
         'form.profile': 'Profile',
@@ -99,6 +109,10 @@ window.__ModuleLoader__.load({
 .jh-kinds { display: flex; gap: 16px; border: 0; margin: 0; padding: 0; }
 .jh-kinds legend { padding: 0; margin-bottom: 6px; font-size: 13px; }
 .jh-kinds label { flex-direction: row; align-items: center; gap: 6px; }
+.jh-pick { display: flex; flex-direction: column; max-height: 320px; overflow-y: auto; }
+.jh-pick label { flex-direction: row; align-items: center; gap: 10px; padding: 6px 0; }
+.jh-pick label[data-saved] { color: var(--dsw-alias-label-secondary); }
+.jh-pick .jh-detail { margin-inline-start: auto; text-align: end; }
 .jh-pair { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; padding: 16px; border-radius: 12px; background: var(--dsw-alias-settings-card-fill); }
 .jh-qr { flex-shrink: 0; width: 200px; aspect-ratio: 1; padding: 8px; border-radius: 8px; background: #fff; color: #000; }
 .jh-qr svg { display: block; width: 100%; height: 100%; }
@@ -192,6 +206,59 @@ window.__ModuleLoader__.load({
           h(Button, { type: 'button', variant: 'outline', size: 'sm', onClick: onCancel }, t('form.cancel'))))
     }
 
+    function SshImport({ t, onDone, onCancel }) {
+      const [hosts, setHosts] = React.useState(null)
+      const [chosen, setChosen] = React.useState(() => new Set())
+      const [error, setError] = React.useState(null)
+      const [saving, setSaving] = React.useState(false)
+      React.useEffect(() => {
+        let live = true
+        api('sshConfig').then(result => { if (live) setHosts(result.hosts) }, failure => { if (live) setError(failure.message) })
+        return () => { live = false }
+      }, [])
+      const toggle = (alias, on) => setChosen(current => {
+        const next = new Set(current)
+        if (on) next.add(alias)
+        else next.delete(alias)
+        return next
+      })
+      return h('form', {
+        className: 'jh-form', 'aria-label': t('import.title'),
+        async onSubmit(event) {
+          event.preventDefault()
+          setSaving(true)
+          setError(null)
+          try {
+            const result = await api('importSsh', { aliases: [...chosen] })
+            if (result.failed.length > 0) {
+              setError(result.failed.map(item => t('import.failed', item)).join('\n'))
+              setChosen(new Set(result.failed.map(item => item.alias)))
+              setHosts(current => current.map(host => result.imported.some(item => item.ssh === host.alias.toLowerCase()) ? { ...host, saved: true } : host))
+            } else {
+              onDone(t('import.done', { count: result.imported.length }))
+            }
+          } catch (failure) {
+            setError(failure.message)
+          } finally {
+            setSaving(false)
+          }
+        },
+      },
+        h('h3', { style: { margin: 0, fontSize: 14, fontWeight: 500 } }, t('import.title')),
+        h('p', { className: 'jh-lede' }, t('import.lede')),
+        hosts === null && !error && h('p', { className: 'jh-lede', role: 'status' }, t('import.loading')),
+        hosts !== null && hosts.length === 0 && h('p', { className: 'jh-empty' }, t('import.empty')),
+        hosts !== null && hosts.length > 0 && h('div', { className: 'jh-pick' }, hosts.map(host => h('label', { key: host.alias, 'data-saved': host.saved ? '' : undefined },
+          h('input', { type: 'checkbox', checked: host.saved || chosen.has(host.alias), disabled: host.saved || saving, onChange: (event) => toggle(host.alias, event.currentTarget.checked) }),
+          h('span', null, host.alias),
+          h('span', { className: 'jh-detail' }, host.saved ? t('import.saved')
+            : [host.user && `${host.user}@`, host.hostName ?? host.alias, host.port && `:${host.port}`].filter(Boolean).join(''))))),
+        error && h('div', { className: 'jh-note', role: 'alert', 'data-error': '', style: { whiteSpace: 'pre-line' } }, error),
+        h('div', { className: 'jh-actions', style: { justifyContent: 'flex-start' } },
+          h(Button, { type: 'submit', variant: 'primary', size: 'sm', disabled: saving || chosen.size === 0 }, chosen.size === 0 ? t('import.none') : t('import.submit', { count: chosen.size })),
+          h(Button, { type: 'button', variant: 'outline', size: 'sm', onClick: onCancel }, t('form.cancel'))))
+    }
+
     function HostRow({ t, host, busy, note, run, onEdit, onRemove }) {
       const ssh = host.kind === 'ssh'
       const connected = ssh && host.tunnel !== undefined
@@ -244,6 +311,8 @@ window.__ModuleLoader__.load({
       const [pairing, setPairing] = React.useState(null)
       const [pairError, setPairError] = React.useState(null)
       const [switching, setSwitching] = React.useState(false)
+      const [importing, setImporting] = React.useState(false)
+      const [imported, setImported] = React.useState(null)
       const { busy, notes, run } = useRowActions()
       const refresh = React.useCallback(async () => {
         try {
@@ -269,13 +338,19 @@ window.__ModuleLoader__.load({
         h('div', { className: 'jh-group', role: 'group', 'aria-labelledby': 'jh-hosts-title' },
           h('div', { className: 'jh-group-head' },
             h('div', null, h('h3', { id: 'jh-hosts-title' }, t('hosts.title')), h('p', { className: 'jh-lede' }, t('hosts.lede'))),
-            editing === undefined && h(Button, { size: 'sm', variant: 'outline', onClick: () => setEditing(null) }, t('hosts.add'))),
+            editing === undefined && !importing && h('div', { className: 'jh-actions' },
+              h(Button, { size: 'sm', variant: 'outline', onClick: () => { setImported(null); setImporting(true) } }, t('import.open')),
+              h(Button, { size: 'sm', variant: 'outline', onClick: () => { setImported(null); setEditing(null) } }, t('hosts.add')))),
+          importing && h(SshImport, {
+            t, onDone: (message) => { setImporting(false); setImported(message); void refresh() }, onCancel: () => { setImporting(false); void refresh() }
+          }),
+          imported && h('div', { className: 'jh-note', role: 'status' }, imported),
           editing !== undefined && h(HostForm, {
             key: editing?.id ?? 'new', t, initial: editing ?? undefined,
             onSaved: () => { setEditing(undefined); void refresh() }, onCancel: () => setEditing(undefined)
           }),
           h('div', { className: 'jh-list' },
-            state.connections.length === 0 && editing === undefined
+            state.connections.length === 0 && editing === undefined && !importing
               ? h('p', { className: 'jh-empty' }, t('hosts.empty'))
               : state.connections.map(host => h(HostRow, {
                 key: host.id, t, host, busy: busy[host.id], note: notes[host.id], run: act,

@@ -10,6 +10,7 @@ import { registerApi } from '@janhq/jan-plugin-api'
 import { HostsError, HostsStore } from './store.mjs'
 import { openTunnel, testHost } from './remote.mjs'
 import { lanAddresses, startGateway } from './gateway.mjs'
+import { sshConfigHosts } from './ssh-config.mjs'
 
 export const name = 'jan-hosts'
 export const inject = ['janHomePath', 'webServer', 'connection', 'credentials', 'settings']
@@ -150,6 +151,25 @@ export function apply(ctx, config) {
         if (pasted !== undefined) await saveToken(connection.id, pasted)
         return connectionView(connection)
       } catch (error) { throw publicError(error) }
+    },
+    async sshConfig() {
+      const saved = new Set((await store.connections()).filter(item => item.kind === 'ssh').map(item => item.ssh.toLowerCase()))
+      return { hosts: (await sshConfigHosts()).map(host => ({ ...host, saved: saved.has(host.alias.toLowerCase()) })) }
+    },
+    async importSsh({ aliases }) {
+      if (!Array.isArray(aliases) || aliases.length === 0) throw new HostsError('aliases', 'Choose at least one Host to import.')
+      const known = new Map((await sshConfigHosts()).map(host => [host.alias.toLowerCase(), host]))
+      const imported = []
+      const failed = []
+      for (const alias of aliases) {
+        const host = known.get(String(alias).toLowerCase())
+        if (host === undefined) { failed.push({ alias, message: 'It is no longer in your ssh config.' }); continue }
+        try {
+          // The alias, not its HostName, so ssh keeps applying the config's keys, ports and proxies.
+          imported.push(await connectionView((await store.saveConnection({ name: host.alias, kind: 'ssh', ssh: host.alias })).connection))
+        } catch (error) { failed.push({ alias: host.alias, message: publicError(error).message }) }
+      }
+      return { imported, failed }
     },
     async remove({ id }) {
       tunnels.get(id)?.close()

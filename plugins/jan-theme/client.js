@@ -14,6 +14,7 @@ window.__ModuleLoader__.load({
       NavRow, SectionHeading, ColorSwatchGroup, ProjectCard, WindowControls,
       Modal, ShortcutKeys, FileTypeIcon, rankByName, IconSparkleRegular, IconRightUpOutlineRegular,
       IconWarningTriangleOutlineRegular, IconCloseOutlineRegular, IconSendOutlineRegular,
+      IconLinkOutlineRegular, IconUserOutlineMedium,
     } = require('@janhq/jan-client-ui-primitives')
     // Optional: the matching host publishes the dock model seat. An older
     // host leaves the composer's own selector in place instead.
@@ -674,6 +675,10 @@ window.__ModuleLoader__.load({
 .jt-footer-action[data-rail] { justify-content: center; padding-inline: 0; }
 .jt-menu-entry { display: flex; align-items: center; gap: 8px; width: 100%; }
 .jt-sidebar-editor-lede { margin: 0 0 16px; color: var(--dsw-alias-label-secondary); font-size: 14px; line-height: 20px; }
+.jt-sidebar-editor-heading { margin: 20px 0 8px; }
+/* Edit sidebar's footer choices. Settings stays reachable from its shortcut and the Application menu. */
+html[data-sidebar-hide-login] [data-account-login] { display: none; }
+html[data-sidebar-hide-settings] [data-account-launcher] { display: none; }
 .jt-sidebar-editor { display: flex; flex-direction: column; gap: 4px; touch-action: none; }
 .jt-sidebar-editor-item { display: flex; align-items: center; gap: 8px; margin: 0 -8px; padding: 0 8px; border-radius: var(--dsw-radius-md); }
 .jt-sidebar-editor-item[data-dragging] { background: var(--dsw-alias-interactive-bg-hover); }
@@ -748,10 +753,10 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
     // pinned (Edit sidebar...); unpinned ones live in the More menu.
     function WorkspaceActions({
       wide, onSearch, searchShortcut, usePanelInfo, usePluginsAvailable, useArtifactsAvailable, useScheduledAvailable,
-      useHubAvailable, useOtherPanels, openPanel, addProject, newChat, createPlugin, renderFactorySlot, t,
+      useHubAvailable, useHostsAvailable, useOtherPanels, openPanel, addProject, newChat, createPlugin, renderFactorySlot, t,
     }) {
       const active = usePanelInfo((info) => info.activePanelId)
-      const available = useDestinationsAvailable({ useHubAvailable, useArtifactsAvailable, useScheduledAvailable, usePluginsAvailable })
+      const available = useDestinationsAvailable({ useHubAvailable, useArtifactsAvailable, useScheduledAvailable, usePluginsAvailable, useHostsAvailable })
       const others = useOtherPanels((value) => value)
       const pinned = useSidebarPins()
       const order = useSidebarOrder()
@@ -793,8 +798,10 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       width: size, height: size, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor',
       strokeWidth: 1, strokeLinejoin: 'round', 'aria-hidden': true,
     }, h('path', { d: 'M8 1.5L14 4.75V11.25L8 14.5L2 11.25V4.75L8 1.5Z' }), h('path', { d: 'M2 4.75L8 8L14 4.75' }),
-    h('path', { d: 'M8 8V14.5' }))
+      h('path', { d: 'M8 8V14.5' }))
 
+    // The jan-hosts Settings section; its row appears only while that section is registered.
+    const HOSTS_SECTION = 'jan-hosts'
     // Every destination Edit sidebar can pin, in sidebar order.
     const SIDEBAR_DESTINATIONS = [
       { id: 'jan-model-hub', Icon: ModelsGlyph, label: 'hub' },
@@ -802,6 +809,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       { id: 'jt-projects', Icon: IconFolderCloseRegular, label: 'projects' },
       { id: 'artifacts', Icon: IconLayersOutlineRegular, label: 'artifacts' },
       { id: 'schedules', Icon: IconClockOutlineRegular, label: 'scheduled' },
+      // A Settings section, not a page: the row opens Settings at Hosts.
+      { id: HOSTS_SECTION, Icon: IconLinkOutlineRegular, label: 'hosts' },
     ]
     const PINS_KEY = 'jan-theme.sidebar.pinned'
     const DEFAULT_PINS = ['jan-model-hub', 'plugins']
@@ -839,14 +848,41 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
     const sortBySidebarOrder = (rows, order) => rows
       .map((row, index) => ({ row, rank: order.includes(row.id) ? order.indexOf(row.id) : order.length + index }))
       .sort((a, b) => a.rank - b.rank).map(({ row }) => row)
+    // Footer items keep their place under the list; Edit sidebar only shows or
+    // hides them. Hidden ones are published on <html> for the account footer's CSS.
+    const FOOTER_ITEMS = [
+      { id: 'login', label: 'editSidebar.login', Icon: IconUserOutlineMedium },
+      { id: 'settings', label: 'settings', Icon: IconSettingsOutlineMedium },
+    ]
+    const FOOTER_KEY = 'jan-theme.sidebar.footerHidden'
+    const readFooterHidden = () => {
+      try {
+        const stored = JSON.parse(localStorage.getItem(FOOTER_KEY) ?? 'null')
+        return Array.isArray(stored) ? stored.filter(id => FOOTER_ITEMS.some(item => item.id === id)) : []
+      } catch { return [] }
+    }
+    let footerHidden = readFooterHidden()
+    const publishFooter = () => {
+      for (const { id } of FOOTER_ITEMS) {
+        document.documentElement.toggleAttribute(`data-sidebar-hide-${id}`, footerHidden.includes(id))
+      }
+    }
+    const setFooterShown = (id, show) => {
+      footerHidden = show ? footerHidden.filter(entry => entry !== id) : [...footerHidden.filter(entry => entry !== id), id]
+      try { localStorage.setItem(FOOTER_KEY, JSON.stringify(footerHidden)) } catch { /* the choice still holds for this window */ }
+      publishFooter()
+      notifySidebar()
+    }
+    const useFooterHidden = () => React.useSyncExternalStore(subscribeSidebar, () => footerHidden)
     const setSidebarEditor = (open) => { sidebarEditorOpen = open; notifySidebar() }
     const useSidebarPins = () => React.useSyncExternalStore(subscribeSidebar, () => sidebarPins)
     const useSidebarOrder = () => React.useSyncExternalStore(subscribeSidebar, () => sidebarOrder)
     const useSidebarEditor = () => React.useSyncExternalStore(subscribeSidebar, () => sidebarEditorOpen)
     // Which of Jan's own pages can open now. The sidebar rows, the More menu and
     // Edit sidebar read the same answer, so an unpinned page always stays in More.
-    const useDestinationsAvailable = ({ useHubAvailable, useArtifactsAvailable, useScheduledAvailable, usePluginsAvailable }) => ({
+    const useDestinationsAvailable = ({ useHubAvailable, useArtifactsAvailable, useScheduledAvailable, usePluginsAvailable, useHostsAvailable }) => ({
       [PROJECTS_PANEL]: true,
+      [HOSTS_SECTION]: useHostsAvailable((value) => value),
       [HUB_PANEL]: useHubAvailable((value) => value),
       [ARTIFACTS_PANEL]: useArtifactsAvailable((value) => value),
       [SCHEDULED_PANEL]: useScheduledAvailable((value) => value),
@@ -860,6 +896,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
     // press the up and down arrows, to move the page in the sidebar.
     function SidebarEditor({ available, others, pinned, renderFactorySlot, t }) {
       const order = useSidebarOrder()
+      const hidden = useFooterHidden()
       const rows = sortBySidebarOrder([
         ...SIDEBAR_DESTINATIONS.filter(({ id }) => available[id]).map(({ id, Icon, label }) => ({ id, icon: h(Icon, { size: 16 }), label: t(label) })),
         ...others.map(({ id, label }) => ({ id, icon: renderFactorySlot('sidebar.panel.icon', { id, size: 16, active: false }), label })),
@@ -907,20 +944,27 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         open: true, title: t('editSidebar.title'), closeLabel: t('editSidebar.close'), onClose: () => setSidebarEditor(false),
         className: 'jt-appearance', footer: h(Button, { variant: 'contrast', onClick: () => setSidebarEditor(false) }, t('editSidebar.done')),
       },
-      h('p', { className: 'jt-sidebar-editor-lede' }, t('editSidebar.lede')),
-      h('div', { ref: list, className: 'jt-sidebar-editor', onPointerMove: dragOver, onPointerUp: endDrag, onPointerCancel: endDrag },
-        shown.map(({ id, icon, label }) => h('div', { key: id, className: 'jt-sidebar-editor-item', 'data-sidebar-row': id, 'data-dragging': dragging === id || undefined },
-          h(Checkbox, {
-            className: 'jt-sidebar-editor-row', icon, label,
-            checked: pinned.includes(id), onChange: (pin) => { setSidebarPinned(id, pin) },
-          }),
-          h('button', {
-            type: 'button', className: 'jt-sidebar-editor-grip', 'aria-label': t('editSidebar.reorder', { name: label }), title: t('editSidebar.reorderHint'),
-            onPointerDown: (event) => { startDrag(event, id) },
-            onKeyDown: (event) => {
-              if (event.key === 'ArrowUp' || event.key === 'ArrowDown') { event.preventDefault(); move(id, event.key === 'ArrowUp' ? -1 : 1) }
-            },
-          }, h(GripGlyph))))))
+        h('p', { className: 'jt-sidebar-editor-lede' }, t('editSidebar.lede')),
+        h('div', { ref: list, className: 'jt-sidebar-editor', onPointerMove: dragOver, onPointerUp: endDrag, onPointerCancel: endDrag },
+          shown.map(({ id, icon, label }) => h('div', { key: id, className: 'jt-sidebar-editor-item', 'data-sidebar-row': id, 'data-dragging': dragging === id || undefined },
+            h(Checkbox, {
+              className: 'jt-sidebar-editor-row', icon, label,
+              checked: pinned.includes(id), onChange: (pin) => { setSidebarPinned(id, pin) },
+            }),
+            h('button', {
+              type: 'button', className: 'jt-sidebar-editor-grip', 'aria-label': t('editSidebar.reorder', { name: label }), title: t('editSidebar.reorderHint'),
+              onPointerDown: (event) => { startDrag(event, id) },
+              onKeyDown: (event) => {
+                if (event.key === 'ArrowUp' || event.key === 'ArrowDown') { event.preventDefault(); move(id, event.key === 'ArrowUp' ? -1 : 1) }
+              },
+            }, h(GripGlyph))))),
+        h(SectionHeading, { as: 'h3', className: 'jt-sidebar-editor-heading' }, t('editSidebar.footer')),
+        h('div', { className: 'jt-sidebar-editor' },
+          FOOTER_ITEMS.map(({ id, label, Icon }) => h('div', { key: id, className: 'jt-sidebar-editor-item', 'data-sidebar-footer-row': id },
+            h(Checkbox, {
+              className: 'jt-sidebar-editor-row', icon: h(Icon, { size: 16 }), label: t(label),
+              checked: !hidden.includes(id), onChange: (show) => { setFooterShown(id, show) },
+            })))))
     }
 
     // The search node owns its input and refs, so it stays mounted while wide;
@@ -956,11 +1000,11 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
     // has no sidebar entry) open through the layout directly.
     function PanelDestinations({
       entries, onOpen, onDismiss, usePanelInfo, openPanel, renderFactorySlot, t,
-      useHubAvailable, useArtifactsAvailable, useScheduledAvailable, usePluginsAvailable,
+      useHubAvailable, useArtifactsAvailable, useScheduledAvailable, usePluginsAvailable, useHostsAvailable,
     }) {
       const pinned = useSidebarPins()
       const active = usePanelInfo((info) => info.activePanelId)
-      const available = useDestinationsAvailable({ useHubAvailable, useArtifactsAvailable, useScheduledAvailable, usePluginsAvailable })
+      const available = useDestinationsAvailable({ useHubAvailable, useArtifactsAvailable, useScheduledAvailable, usePluginsAvailable, useHostsAvailable })
       const jan = new Set(SIDEBAR_DESTINATIONS.map(({ id }) => id))
       const own = SIDEBAR_DESTINATIONS
         .filter(({ id }) => !pinned.includes(id) && available[id])
@@ -1654,6 +1698,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               hub: 'Models', customize: 'Customize',
               editSidebar: 'Edit sidebar…', 'editSidebar.title': 'Edit sidebar', 'editSidebar.done': 'Done',
               'editSidebar.lede': 'Choose which items appear in your sidebar. Drag to reorder.', 'editSidebar.close': 'Close',
+              'editSidebar.footer': 'Bottom of the sidebar', 'editSidebar.login': 'Log in', hosts: 'Hosts',
               'editSidebar.reorder': 'Move {name}', 'editSidebar.reorderHint': 'Drag, or use the up and down arrow keys',
               newArtifact: 'New artifact', createPlugin: 'Create plugin',
               'newArtifact.prompt': 'Create a file for me: ',
@@ -1781,6 +1826,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               hub: '模型', customize: '自定义',
               editSidebar: '编辑侧边栏…', 'editSidebar.title': '编辑侧边栏', 'editSidebar.done': '完成',
               'editSidebar.lede': '选择要在侧边栏中显示的项目。', 'editSidebar.close': '关闭',
+              'editSidebar.footer': '侧边栏底部', 'editSidebar.login': '登录', hosts: '主机',
               'palette.filter': '筛选结果', 'palette.all': '全部', 'palette.recents': '最近', 'palette.actions': '操作',
               'palette.goTo': '前往{page}', 'palette.nothing': '暂无内容', 'palette.noResults': '没有与“{query}”匹配的结果',
               'palette.navigate': '选择', 'palette.open': '打开', 'palette.close': '关闭',
@@ -1851,6 +1897,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               hub: 'モデル', customize: 'カスタマイズ',
               editSidebar: 'サイドバーを編集…', 'editSidebar.title': 'サイドバーを編集', 'editSidebar.done': '完了',
               'editSidebar.lede': 'サイドバーに表示する項目を選びます。', 'editSidebar.close': '閉じる',
+              'editSidebar.footer': 'サイドバーの下部', 'editSidebar.login': 'ログイン', hosts: 'ホスト',
               'palette.filter': '結果を絞り込む', 'palette.all': 'すべて', 'palette.recents': '最近', 'palette.actions': '操作',
               'palette.goTo': '{page}へ移動', 'palette.nothing': 'まだ何もありません', 'palette.noResults': '「{query}」に一致する結果はありません',
               'palette.navigate': '移動', 'palette.open': '開く', 'palette.close': '閉じる',
@@ -1921,6 +1968,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               hub: 'Modelos', customize: 'Personalizar',
               editSidebar: 'Editar barra lateral…', 'editSidebar.title': 'Editar barra lateral', 'editSidebar.done': 'Listo',
               'editSidebar.lede': 'Elige qué elementos aparecen en la barra lateral.', 'editSidebar.close': 'Cerrar',
+              'editSidebar.footer': 'Parte inferior de la barra lateral', 'editSidebar.login': 'Iniciar sesión', hosts: 'Hosts',
               'palette.filter': 'Filtrar resultados', 'palette.all': 'Todo', 'palette.recents': 'Recientes', 'palette.actions': 'Acciones',
               'palette.goTo': 'Ir a {page}', 'palette.nothing': 'Todavía no hay nada', 'palette.noResults': 'No hay resultados para “{query}”',
               'palette.navigate': 'Navegar', 'palette.open': 'Abrir', 'palette.close': 'Cerrar',
@@ -1991,6 +2039,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               hub: 'Modèles', customize: 'Personnaliser',
               editSidebar: 'Modifier la barre latérale…', 'editSidebar.title': 'Modifier la barre latérale', 'editSidebar.done': 'Terminé',
               'editSidebar.lede': 'Choisissez les éléments affichés dans la barre latérale.', 'editSidebar.close': 'Fermer',
+              'editSidebar.footer': 'Bas de la barre latérale', 'editSidebar.login': 'Se connecter', hosts: 'Hôtes',
               'palette.filter': 'Filtrer les résultats', 'palette.all': 'Tout', 'palette.recents': 'Récents', 'palette.actions': 'Actions',
               'palette.goTo': 'Aller à {page}', 'palette.nothing': 'Rien pour le moment', 'palette.noResults': 'Aucun résultat pour « {query} »',
               'palette.navigate': 'Naviguer', 'palette.open': 'Ouvrir', 'palette.close': 'Fermer',
@@ -2061,6 +2110,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               hub: 'Modelle', customize: 'Anpassen',
               editSidebar: 'Seitenleiste bearbeiten…', 'editSidebar.title': 'Seitenleiste bearbeiten', 'editSidebar.done': 'Fertig',
               'editSidebar.lede': 'Wähle, welche Elemente in der Seitenleiste erscheinen.', 'editSidebar.close': 'Schließen',
+              'editSidebar.footer': 'Unten in der Seitenleiste', 'editSidebar.login': 'Anmelden', hosts: 'Hosts',
               'palette.filter': 'Ergebnisse filtern', 'palette.all': 'Alle', 'palette.recents': 'Zuletzt', 'palette.actions': 'Aktionen',
               'palette.goTo': 'Zu {page}', 'palette.nothing': 'Noch nichts vorhanden', 'palette.noResults': 'Keine Ergebnisse für „{query}“',
               'palette.navigate': 'Auswählen', 'palette.open': 'Öffnen', 'palette.close': 'Schließen',
@@ -2131,6 +2181,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               hub: 'Модели', customize: 'Настроить',
               editSidebar: 'Изменить боковую панель…', 'editSidebar.title': 'Изменить боковую панель', 'editSidebar.done': 'Готово',
               'editSidebar.lede': 'Выберите, какие пункты показывать на боковой панели.', 'editSidebar.close': 'Закрыть',
+              'editSidebar.footer': 'Низ боковой панели', 'editSidebar.login': 'Войти', hosts: 'Хосты',
               'palette.filter': 'Фильтр результатов', 'palette.all': 'Все', 'palette.recents': 'Недавние', 'palette.actions': 'Действия',
               'palette.goTo': 'Перейти: {page}', 'palette.nothing': 'Здесь пока пусто', 'palette.noResults': 'Нет результатов для «{query}»',
               'palette.navigate': 'Выбор', 'palette.open': 'Открыть', 'palette.close': 'Закрыть',
@@ -2201,6 +2252,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               hub: 'Modelos', customize: 'Personalizar',
               editSidebar: 'Editar barra lateral…', 'editSidebar.title': 'Editar barra lateral', 'editSidebar.done': 'Concluído',
               'editSidebar.lede': 'Escolha quais itens aparecem na barra lateral.', 'editSidebar.close': 'Fechar',
+              'editSidebar.footer': 'Parte inferior da barra lateral', 'editSidebar.login': 'Entrar', hosts: 'Hosts',
               'palette.filter': 'Filtrar resultados', 'palette.all': 'Tudo', 'palette.recents': 'Recentes', 'palette.actions': 'Ações',
               'palette.goTo': 'Ir para {page}', 'palette.nothing': 'Nada aqui ainda', 'palette.noResults': 'Nenhum resultado para “{query}”',
               'palette.navigate': 'Navegar', 'palette.open': 'Abrir', 'palette.close': 'Fechar',
@@ -2297,6 +2349,15 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               scope.layout.selectPanel(PROJECTS_PANEL)
             }
           }
+          // Hosts is a Settings section, so its sidebar row opens Settings there instead of a page.
+          const hostsSectionAvailable = {
+            getSnapshot: () => scope.slots.entriesOfSlot('settings.section').some(entry => entry.options.id === HOSTS_SECTION),
+            subscribe: (listener) => scope.slots.subscribe('settings.section', listener),
+          }
+          const openDestination = (id) => {
+            if (id !== HOSTS_SECTION) { scope.layout.selectPanel(id); return }
+            if (settingsNavigation?.open(HOSTS_SECTION) !== true) console.warn('jan-theme: the Hosts settings section is unavailable')
+          }
           scope.slots.inject('sidebar.workspaces.actions', () => scope.slots.register({
             name: 'sidebar.workspaces.actions', priority: -1, locale: 'jan-theme',
             inject: () => ({
@@ -2306,9 +2367,10 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
                 artifactsAvailable: mainKeyAvailable(ARTIFACTS_PANEL),
                 scheduledAvailable: mainKeyAvailable(SCHEDULED_PANEL),
                 hubAvailable: mainKeyAvailable(HUB_PANEL),
+                hostsAvailable: hostsSectionAvailable,
                 otherPanels: otherPanelsSnapshot,
               },
-              openPanel: (id) => scope.layout.selectPanel(id),
+              openPanel: openDestination,
               addProject,
               newChat: () => { startDraft(t('newArtifact.prompt')) },
               // Same draft the stock More menu's "Create your plugin" starts.
@@ -2327,8 +2389,9 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
                 artifactsAvailable: mainKeyAvailable(ARTIFACTS_PANEL),
                 scheduledAvailable: mainKeyAvailable(SCHEDULED_PANEL),
                 hubAvailable: mainKeyAvailable(HUB_PANEL),
+                hostsAvailable: hostsSectionAvailable,
               },
-              openPanel: (id) => scope.layout.selectPanel(id),
+              openPanel: openDestination,
             }),
           }, PanelDestinations))
           const openProject = (workspaceId) => {
@@ -2499,6 +2562,10 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
             }),
           }, SearchPalette))
         })
+        publishFooter()
+        ctx.effect(() => () => {
+          for (const { id } of FOOTER_ITEMS) document.documentElement.removeAttribute(`data-sidebar-hide-${id}`)
+        }, 'jan-theme: sidebar footer choices')
         // The account menu carries Settings plus Sign in with Tokamak; it
         // registers at the default rank, so ours renders only without it.
         ctx.slots.inject('settings.launcher', () => ctx.slots.register({
