@@ -83,11 +83,11 @@ async function applyInstructions(memory, runtime, changes, verdict, signal) {
 /** Install durable bot memory tools and the scoped New command for one canonical Agent. */
 export function bindBotAgent(ctx, agent, runtime, memory, schedule) {
   const state = { run: undefined }
-  const dispose = agent.ctx.effect(function* () {
-    for (const tool of tools(runtime, memory, state, schedule)) yield agent.ctx.tools.register(tool)
-    yield agent.ctx.tools.guard(exec => state.run && !NAMES.includes(exec.name)
+  const fiber = agent.ctx.inject(['tools', 'commands'], scope => {
+    for (const tool of tools(runtime, memory, state, schedule)) scope.tools.register(tool)
+    scope.tools.guard(exec => state.run && !NAMES.includes(exec.name)
       ? 'This tool is unavailable during a background routine.' : undefined)
-    yield agent.ctx.commands.register({ name: 'new', description: 'Compact this bot chat without starting another conversation',
+    scope.commands.register({ name: 'new', description: 'Compact this bot chat without starting another conversation',
       async handler({ signal, rawInput, commandId }) {
         if (rawInput.trim()) return { kind: 'error', text: 'Usage: /new' }
         const engine = agent.ctx.get('compaction') ?? ctx.agentPresets.serviceFor(agent, 'compaction')
@@ -97,8 +97,8 @@ export function bindBotAgent(ctx, agent, runtime, memory, schedule) {
           ...(result ? { sourceEventSeq: result.summarySeq } : {}) }
       },
     })
-  }, 'Bots session tools and command')
-  return { state, dispose }
+  })
+  return { state, ready: fiber, dispose: () => fiber.dispose() }
 }
 
 /** Run one durable batch through the session controller's canonical Agent without creating another conversation. */
@@ -108,7 +108,9 @@ export function runWithJan(ctx, memory, delivery, getRuntime, resolveAgent, bind
     if (runtime.awaiting(job)) return 'deferred'
     signal.throwIfAborted()
     const agent = await resolveAgent(job.sessionId)
-    const { state } = binding(agent)
+    const mounted = binding(agent)
+    await mounted.ready
+    const { state } = mounted
     const run = { job, deferred: false }
     const events = agent.session.snapshotEvents()
     const claimed = events.findLastIndex(event => event.type === 'user/message' && event.data.id.startsWith(`dsh-superagent:${job.runId}`))

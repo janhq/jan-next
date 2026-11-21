@@ -144,7 +144,7 @@ export function apply(ctx, config) {
       })
       runtime.clock = ctx.schedule.registerWakeSource(queue)
       const agent = ctx.agents.get(bot.sessionId)
-      if (agent) attach(agent, runtime)
+      if (agent) await attach(agent, runtime).ready
       if (resume) await queue.setPaused(false)
       return runtime
     } catch (error) {
@@ -195,10 +195,10 @@ export function apply(ctx, config) {
     text: ({ agent }) => agent ? prompts.get(agent.id) ?? '' : '' }), 'Bots persona')
   ctx.effect(() => ctx.systemPrompt.context({ name: 'jan-bot-memory', order: 9000, interpolate: false,
     text: ({ agent }) => agent ? runtimes.get(registry?.forSession(agent.id)?.id)?.memoryText ?? '' : '' }), 'Bots memory context')
-  ctx.on('agent/created', ({ agent }) => {
+  ctx.on('agent/created', async ({ agent }) => {
     const bot = registry?.forSession(agent.id)
     const runtime = bot && runtimes.get(bot.id)
-    if (runtime) attach(agent, runtime)
+    if (runtime) await attach(agent, runtime).ready
   }, { global: true })
   ctx.on('agent/disposed', ({ agent }) => { bindings.delete(agent); presence.delete(agent.id); activityChanged() }, { global: true })
   ctx.on('agent/status', ({ agent, status }) => {
