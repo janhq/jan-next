@@ -49,7 +49,7 @@ Desktop Host Platform API requests and update-policy requests identify the insta
 
 A server-expired account credential returns to Welcome when no official API key is configured; an available API key keeps the workspace open. Explicit sign-out follows the same rule. Both Welcome and the workspace display the localized expiry notice.
 
-Desktop microphone access is restricted to audio requests from the primary `jan-app://app` frame. macOS uses system microphone authorization, a packaged usage description, and `com.apple.security.device.audio-input` in the main application and Helper signatures.
+Desktop camera and microphone access is restricted to single-device requests from the primary `jan-app://app` frame. macOS uses system authorization, packaged usage descriptions, and the audio-input and camera entitlements in the main application and Helper signatures.
 
 Press F12 (Fn+F12 on media-key keyboards), Command+Option+I on macOS, or Ctrl+Shift+I on Windows to toggle DevTools for the focused application page, including in packaged builds. The application menu shows a localized “Developer tools” command in a separate group before Hide and Quit (before Exit on Windows). Windows exposes it in the titlebar application popup; its hidden native application menu registers the shortcuts. macOS and Linux keep a hidden F12 shortcut alias in their application menus. Update overlays and packaged embedded browser guests disable DevTools.
 
