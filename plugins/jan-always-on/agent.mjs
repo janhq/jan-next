@@ -126,7 +126,7 @@ export function runWithJan(ctx, memory, deliver, getRuntime, cwd, schedule) {
       ? await ctx.agents.resume({ resumeSessionId: job.sessionId, setup, agentOptions, signal })
       : await ctx.agents.create({ sessionId: job.sessionId, meta: { cwd }, setup, agentOptions, signal })
     const { agent } = handle
-    const abort = () => agent.cancel({ kind: 'hook', reason: 'Always-on paused or shutting down' })
+    const abort = () => agent.cancel({ kind: 'hook', reason: 'Bots paused or shutting down' })
     signal.addEventListener('abort', abort, { once: true })
     try {
       signal.throwIfAborted()
