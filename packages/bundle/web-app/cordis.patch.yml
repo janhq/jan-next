@@ -549,6 +549,11 @@
     - id: ui-user-questions
       name: '@janhq/jan-client-ui-user-questions'
 
+    - id: media-capture
+      name: '@janhq/jan-tool-capture-media/startup'
+    - id: ui-media-capture
+      name: '@janhq/jan-client-ui-media-capture'
+
     - id: ui-trajectory
       name: '@janhq/jan-client-ui-trajectory'
 
