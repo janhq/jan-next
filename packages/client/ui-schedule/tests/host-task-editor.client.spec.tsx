@@ -1035,6 +1035,24 @@ describe('Host task editor on the existing manager', () => {
 })
 
 describe('Host task actions', () => {
+  it('explains a removed project and leaves the destination editable', async () => {
+    const h = mount([{ ...task, status: 'paused', workspaceId: 'removed-project' as WorkspaceId,
+      target: { kind: 'new', create: { workspaceId: 'removed-project' as WorkspaceId, cwd: '/work/removed' } },
+      deliveryFailure: { code: 'project-removed', failedAt: '2098-12-02T00:00:00.000Z' },
+    }], { useWorkspaces: select => select(registered) })
+    fireEvent.click(screen.getByRole('button', { name: en['status.paused'] }))
+    const detail = openEdit()
+    expect(within(detail).getByText('This task is paused because its project was removed. Pick a project to run it again.')).toBeDefined()
+    expect(within(detail).getByRole('button', { name: en['host.run'] })).toHaveProperty('disabled', true)
+    expect(within(detail).getByRole('button', { name: en['host.resume'] })).toHaveProperty('disabled', true)
+    fireEvent.click(within(detail).getByRole('button', { name: /^Linked project / }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /docs/ }))
+    await save(detail)
+    expect(h.props.hostActions.edit).toHaveBeenCalledWith(expect.objectContaining({
+      patch: { target: { kind: 'new', create: { cwd: '/work/docs' } } },
+    }))
+  })
+
   it.each([
     { status: 'active' as const, label: en['host.pause'], active: false },
     { status: 'paused' as const, label: en['host.resume'], active: true },
