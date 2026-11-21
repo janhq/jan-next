@@ -73,7 +73,7 @@ export interface UiWorkspace {
   readonly navigationHistory: ObservableSnapshot<NavigationAvailability>
   /**
    * Connect a Workspace and open its Session unless a later navigation supersedes it.
-   * @param workspaceId - target Workspace.
+   * @param workspaceId - target Workspace; absent resolves the Host's default project.
    * @param beforeOpen - optional synchronous preparation for the selected Session,
    * skipped after supersession; a throw aborts the open and releases the retained reference.
    * @param options - choices for the Session the connection creates or reuses.
@@ -82,7 +82,7 @@ export interface UiWorkspace {
    * notice unless a later navigation or disposal superseded the request.
    */
   openWorkspace(
-    workspaceId: WorkspaceId,
+    workspaceId: WorkspaceId | undefined,
     beforeOpen?: (sessionId: SessionId) => void,
     options?: Pick<StartSessionOptions, 'agentPreset'>,
   ): Promise<void>
@@ -112,7 +112,7 @@ export interface UiWorkspace {
    * Open the Workspace blank `connectWorkspace` resolves, so New Session returns to that blank's
    * unsent draft. A creation the Host refuses is shown through the Workspace notice and leaves the
    * selection as it was.
-   * @param workspaceId - explicit target; absent uses the open project, current chat's project, or most recent Workspace.
+   * @param workspaceId - explicit target; absent uses the open project or the Host's default project.
    * @param options - initial content, the blank's preset, and `whenDraftExists`, which decides
    * whether existing text or attachments are kept, replaced, or followed by the prompt.
    */
@@ -234,6 +234,8 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   /** Most recent last; each keeps one Session's history open after the main view leaves it. */
   private readonly recentReferences: SessionReference[] = []
   private restorationNavigation: AbortSignal | undefined
+  /** An explicit New Session started before the startup catalogs could choose a Session. */
+  private startRequested = false
   /** Replacement search surfaces in registration order; the last one receives Search. */
   private readonly searchHandlers: { readonly open: () => void }[] = []
   /** Project surfaces in registration order; the last one receives Workspace row clicks. */
@@ -292,6 +294,11 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     if (workspace === undefined) {
       throw new Error(`uiWorkspace.connectWorkspace: unknown workspace ${workspaceId}`)
     }
+    return this.connectToWorkspace(workspace, reuse)
+  }
+
+  private connectToWorkspace(workspace: WorkspaceView, reuse: Pick<StartSessionOptions, 'agentPreset'>): Promise<SessionId> {
+    const { workspaceId } = workspace
     const inflight = this.connecting.get(workspaceId)
     if (inflight !== undefined && inflight.agentPreset === reuse.agentPreset) return inflight.attempt
 
@@ -374,26 +381,26 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     this.step('forward')
   }
 
-  openWorkspace(
-    workspaceId: WorkspaceId,
+  async openWorkspace(
+    workspaceId: WorkspaceId | undefined,
     beforeOpen?: (sessionId: SessionId) => void,
     options: Pick<StartSessionOptions, 'agentPreset'> = {},
   ): Promise<void> {
-    return this.openWorkspaceSession(workspaceId, beforeOpen, options)
-  }
-
-  private async openWorkspaceSession(
-    workspaceId: WorkspaceId,
-    beforeOpen: ((sessionId: SessionId) => void) | undefined,
-    reuse: Pick<StartSessionOptions, 'agentPreset'>,
-  ): Promise<void> {
+    this.startRequested = true
     const navigation = AbortSignal.any([this.ctx.layout.beginNavigation(), this.lifetime.signal])
     let sessionId: SessionId
     try {
-      sessionId = await this.connectBlank(workspaceId, reuse)
+      if (workspaceId === undefined) {
+        const snapshot = this.workspaces.list.getSnapshot()
+        const known = snapshot.phase === 'ready' ? snapshot.items.find(item => item.isDefault === true) : undefined
+        const workspace = known ?? await this.initializeDefaultWorkspace(navigation)
+        if (workspace === undefined || navigation.aborted) return
+        sessionId = await this.connectToWorkspace(workspace, options)
+      } else {
+        sessionId = await this.connectBlank(workspaceId, options)
+      }
     } catch (error: unknown) {
-      // Reported here, not in connectWorkspace: startup restoration calls that
-      // directly and stays console-only.
+      // Startup restoration connects directly and stays console-only on Session creation failure.
       if (!navigation.aborted) this.notify({ kind: 'createFailed', message: creationFailureMessage(error) })
       throw error
     }
@@ -419,29 +426,14 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     const draftOptions = options === undefined ? undefined : draft
     const initializeDraft = draftOptions !== undefined && (draftOptions.prompt !== undefined
       || (draftOptions.whenDraftExists ?? (draftOptions.clearPreviousDraft === true ? 'replace' : 'keep')) === 'replace')
-    const workspace = this.workspaces.list.getSnapshot()
-    const sessions = this.sessions.list.getSnapshot()
-    let target = workspaceId ?? this.activeProject?.workspaceId
-    if (target === undefined) {
-      const current = this.mainReference?.sessionId
-      if (current !== undefined) target = workspace.items.find(item => item.sessionIds.includes(current))?.workspaceId
-      if (target === undefined && workspace.phase === 'ready' && sessions.phase === 'ready') {
-        target = recentWorkspace(workspace.items, sessions.byId)
-      }
-    }
-    if (target === undefined) {
-      if (initializeDraft) {
-        this.notify({ kind: 'createFailed', message: this.ctx.locale.bind('workspace')('draft.workspaceRequired') })
-        return
-      }
-      this.clearMain()
-      return
-    }
-    const opening = this.openWorkspace(target, initializeDraft ? (id) => {
+    const target = workspaceId ?? this.activeProject?.workspaceId
+    const beforeOpen = initializeDraft ? (id: SessionId) => {
       const binding = this.sessions.binding(id)
       if (binding === undefined) this.draftPreparationFailed()
       this.prepareDraft(binding, draftOptions)
-    } : undefined, agentPreset === undefined ? {} : { agentPreset })
+    } : undefined
+    const reuse = agentPreset === undefined ? {} : { agentPreset }
+    const opening = this.openWorkspace(target, beforeOpen, reuse)
     void opening.catch(
       (reason: unknown) => { console.warn('new session failed:', reason) },
     )
@@ -571,7 +563,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
       this.history.prune(this.reachable)
       this.forgetRecent(id => !this.reachable({ sessionId: id, panelId: null }))
       if (this.clearArchivedCurrent()) return
-      if (initial !== 'waiting' || this.restorationNavigation?.aborted === true) return
+      if (initial !== 'waiting' || this.startRequested || this.restorationNavigation?.aborted === true) return
       const workspace = this.workspaces.list.getSnapshot()
       const sessions = this.sessions.list.getSnapshot()
       if (workspace.phase !== 'ready' || sessions.phase !== 'ready') return
@@ -615,29 +607,18 @@ class UiWorkspaceService extends Service implements UiWorkspace {
       return
     }
     const summary = saved.sessionId === undefined ? undefined : sessions.byId[saved.sessionId]
-    const workspace = summary === undefined ? undefined
-      : workspaces.items.find(item => item.sessionIds.includes(summary.id))
-    if (summary !== undefined && (!summary.blank || workspace === undefined)) {
+    if (summary === undefined) return
+    const workspace = workspaces.items.find(item => item.sessionIds.includes(summary.id))
+    if (workspaces.archivedSessionIds.includes(summary.id)) return
+    if (!summary.blank || workspace === undefined) {
       this.replaceMain(summary.id, this.lifetime.signal, 'preserve')
       return
     }
+    if (summary.cwd !== workspace.path) return
     const navigation = AbortSignal.any([this.ctx.layout.beginNavigation(), this.lifetime.signal])
     this.restorationNavigation = navigation
-    let sessionId: SessionId | undefined
-    if (summary !== undefined && workspace !== undefined && summary.cwd === workspace.path
-      && !workspaces.archivedSessionIds.includes(summary.id)) {
-      sessionId = await this.restoreBlank(workspace.workspaceId, summary.id)
-    }
-    let target = workspace?.workspaceId ?? recentWorkspace(workspaces.items, sessions.byId)
-    if (target === undefined && workspaces.items.length === 0 && sessions.ids.length === 0) {
-      const prepared = await this.initializeDefaultWorkspace(navigation)
-      if (navigation.aborted) return
-      target = prepared?.workspaceId
-    }
-    if (sessionId === undefined && target !== undefined) sessionId = await this.connectWorkspace(target)
-    if (sessionId !== undefined && !navigation.aborted) {
-      this.replaceMain(sessionId, navigation, 'preserve')
-    }
+    const sessionId = await this.restoreBlank(workspace.workspaceId, summary.id)
+    if (!navigation.aborted) this.replaceMain(sessionId, navigation, 'preserve')
   }
 
   private async initializeDefaultWorkspace(signal: AbortSignal): Promise<WorkspaceView | undefined> {
@@ -825,28 +806,6 @@ function creationFailureMessage(error: unknown): string {
   const refused = sessionCreateErrorOf(error)
   if (refused !== undefined) return `${refused.rpcError.code}: ${refused.rpcError.message}`
   return error instanceof Error ? error.message : String(error)
-}
-
-/** Stable tie-breaking follows Host Workspace order. */
-function recentWorkspace(
-  workspaces: readonly WorkspaceView[],
-  sessions: SessionListState['byId'],
-): WorkspaceId | undefined {
-  let selected: WorkspaceId | undefined
-  let selectedTime = Number.NEGATIVE_INFINITY
-  for (const workspace of workspaces) {
-    let latest = Number.NEGATIVE_INFINITY
-    for (const sessionId of workspace.sessionIds) {
-      const session = sessions[sessionId]
-      if (session !== undefined) latest = Math.max(latest, session.updatedAt)
-    }
-    if (latest === Number.NEGATIVE_INFINITY) latest = Date.parse(workspace.createdAt)
-    if (selected === undefined || latest > selectedTime) {
-      selected = workspace.workspaceId
-      selectedTime = latest
-    }
-  }
-  return selected
 }
 
 export { UiWorkspaceService }
