@@ -1,6 +1,6 @@
 /** Main-desk controls carried through the existing Conversation slot tree. */
 import { createContext, useContext, useState } from 'react'
-import { Button, IconCloseOutlineRegular, Menu, Tooltip } from '@janhq/jan-client-ui-primitives'
+import { Button, Menu, Tooltip } from '@janhq/jan-client-ui-primitives'
 import type { SessionId } from '@janhq/jan-session/types'
 import type { TranslateNS } from '@janhq/jan-client-ui-slots'
 import css from './ConversationDesk.module.css'
@@ -16,7 +16,8 @@ export interface ConversationDeskSeat {
   readonly leading: boolean
   readonly primary: boolean
   readonly status?: 'running' | 'done' | undefined
-  readonly close?: (() => void) | undefined
+  readonly strip?: boolean
+  readonly stripTarget?: HTMLElement | undefined
   readonly toolbar?: ConversationDeskToolbarProps | undefined
 }
 
@@ -50,13 +51,13 @@ function DeskPicker({ label, choices, select, compact }: {
         select(id as SessionId)
       }}
       anchor={(
-        <Button size="sm" className={css.action} aria-haspopup="menu" aria-expanded={open}
-          onClick={() => { setOpen(value => !value) }}>
+        <Button size="sm" className={css.action} aria-haspopup="menu" aria-expanded={open} aria-label={label}
+          title={label} onClick={() => { setOpen(value => !value) }}>
           {!compact && <svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor">
             <rect x="2.5" y="3" width="11" height="10" rx="1.5" />
             <path d="M8 3v10" />
           </svg>}
-          {label}
+          {compact ? label : <span className={css.splitText}>{label}</span>}
         </Button>
       )}
     />
@@ -64,11 +65,14 @@ function DeskPicker({ label, choices, select, compact }: {
 }
 
 /** In-header desk controls; omitted outside the main multi-Session layout. */
-export function ConversationDeskActions({ t }: { readonly t: TranslateNS<'conversation'> }) {
+export function ConversationDeskActions({ t, toolbar: stripToolbar }: {
+  readonly t: TranslateNS<'conversation'>
+  readonly toolbar?: ConversationDeskToolbarProps
+}) {
   const seat = useContext(ConversationDeskContext)
-  if (seat === undefined) return null
-  const { toolbar, close, status } = seat
-  if (toolbar === undefined && close === undefined && status === undefined) return null
+  const toolbar = stripToolbar ?? seat?.toolbar
+  const status = seat?.status
+  if (toolbar === undefined && status === undefined) return null
   const activeLabel = toolbar?.active === true ? t('desk.restore') : t('desk.active', { n: toolbar?.runningCount ?? 0 })
   const statusLabel = status === undefined ? undefined : t(status === 'running' ? 'desk.running' : 'desk.done')
   return (
@@ -84,24 +88,12 @@ export function ConversationDeskActions({ t }: { readonly t: TranslateNS<'conver
             : toolbar.choices.length > 0 && (
               <DeskPicker key="split" label={t('desk.split')} choices={toolbar.choices} select={toolbar.openBeside} />
             )}
-          {!toolbar.active && toolbar.limitReached && (
-            <Tooltip label={t('desk.limit')} portal>
-              <span className={css.limit} tabIndex={0} aria-label={t('desk.limit')}>{t('desk.split')}</span>
-            </Tooltip>
-          )}
           <Tooltip label={t(toolbar.active ? 'desk.restore' : 'desk.activeHint')} portal>
             <Button size="sm" className={css.action} aria-pressed={toolbar.active} onClick={toolbar.toggleActive}>
               {activeLabel}
             </Button>
           </Tooltip>
         </>
-      )}
-      {close !== undefined && (
-        <Tooltip label={t('desk.close')} portal>
-          <Button size="sm" className={css.close} aria-label={t('desk.close')} onClick={close}>
-            <IconCloseOutlineRegular size={14} />
-          </Button>
-        </Tooltip>
       )}
     </div>
   )
