@@ -424,6 +424,11 @@
     - id: presented-files-projection
       name: '@janhq/jan-tool-present/projection'
 
+    # The shared-links index behind the Artifacts library's Links tab: the web
+    # links each chat's messages mention, read from the Session list.
+    - id: shared-links-projection
+      name: '@janhq/jan-client-ui-deliverables/links'
+
     # Records each top-level turn's changed files from git working-tree
     # snapshots; the changed-files card above renders its events.
     - id: workspace-changes
