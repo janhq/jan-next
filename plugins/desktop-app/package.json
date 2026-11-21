@@ -31,6 +31,7 @@
     "@janhq/jan-compaction-tool-result-pruner": "workspace:*",
     "@janhq/jan-diagnostics": "workspace:*",
     "@janhq/jan-downloads": "workspace:*",
+    "@janhq/jan-hosts": "workspace:*",
     "@janhq/jan-browser": "workspace:*",
     "@janhq/jan-experimental-api-speech-to-text": "workspace:*",
     "@janhq/jan-experimental-client-ui-voice-input": "workspace:*",

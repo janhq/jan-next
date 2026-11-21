@@ -26,7 +26,7 @@ Edit this package when the installation's bundle selection or the plugin manager
 
 ### Profile templates
 
-`PROFILE_TEMPLATES` maps each shipped profile name (`web`, `desktop`, `headless`, `acp`, `sdk`, `sdk-minimal`) to its ordered bundle layer list. App-boot initializes a missing shipped profile from its template, and `jan --profile <name> --from-default-profile <template>` copies one into a custom profile. `DEFAULT_PROFILE_BUNDLES` is the list `jan plugin` uses for a profile name with no template. `INSTALLATION_OWNED_PROFILE_TUPLES` names bundle lists that an earlier release wrote into a shipped profile; app-boot replaces an exact match with the current template. For Desktop, app-boot checks that old Web-only tuple once per profile, so removing `@janhq/jan-desktop-app` later does not restore it on relaunch.
+`PROFILE_TEMPLATES` maps each shipped profile name (`web`, `desktop`, `headless`, `edge`, `acp`, `sdk`, `sdk-minimal`) to its ordered bundle layer list. App-boot initializes a missing shipped profile from its template, and `jan --profile <name> --from-default-profile <template>` copies one into a custom profile. `DEFAULT_PROFILE_BUNDLES` is the list `jan plugin` uses for a profile name with no template. `INSTALLATION_OWNED_PROFILE_TUPLES` names bundle lists that an earlier release wrote into a shipped profile; app-boot replaces an exact match with the current template. For Desktop, app-boot checks that old Web-only tuple once per profile, so removing `@janhq/jan-desktop-app` later does not restore it on relaunch.
 
 ### Optional and retired bundles
 
