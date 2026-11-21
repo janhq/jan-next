@@ -1184,7 +1184,72 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       return h(ProjectDetails, { ...props, key: workspace.workspaceId, workspace, backToProjects, t })
     }
 
-    function ProjectDetails({ workspace, useArchived, useSessions, startSession, openChat, backToProjects, loadSchedules, createSchedule, openScheduled, t }) {
+    const NO_SCHEDULES = { records: [], status: 'unavailable' }
+    const LOADING_SCHEDULES = { records: [], status: 'loading' }
+
+    // Subscribe only while a surface is visible, preferring the task manager's catalog.
+    function createProjectScheduleCatalog() {
+      const listeners = new Set()
+      let shared, fallback, stop, pending
+      let snapshot = NO_SCHEDULES
+      const publish = next => {
+        if (next === snapshot) return
+        snapshot = next
+        for (const listener of listeners) listener()
+      }
+      const refresh = async () => {
+        if (shared !== undefined) return shared.refresh()
+        if (fallback === undefined || listeners.size === 0) return
+        const read = {}
+        pending = read
+        const records = snapshot.records
+        publish({ records, status: 'loading' })
+        try {
+          const result = await fallback.remote.schedule.catalog()
+          if (pending !== read) return
+          publish(result.ok ? { records: result.value, status: 'ready' } : { records, status: 'error' })
+        } catch {
+          if (pending === read) publish({ records, status: 'error' })
+        } finally {
+          if (pending === read) pending = undefined
+        }
+      }
+      const rebind = () => {
+        stop?.()
+        stop = undefined
+        pending = undefined
+        if (shared !== undefined) {
+          const { catalog } = shared
+          publish(catalog.getSnapshot())
+          if (listeners.size > 0) {
+            const sync = () => { publish(catalog.getSnapshot()) }
+            stop = catalog.subscribe(sync)
+            sync()
+          }
+        } else if (fallback !== undefined) {
+          publish(LOADING_SCHEDULES)
+          if (listeners.size > 0) {
+            const offChange = fallback.remote.$on('schedule/changed', refresh)
+            const offReset = fallback.on('connection/reset', refresh)
+            stop = () => { offChange(); offReset() }
+            void refresh()
+          }
+        } else publish(NO_SCHEDULES)
+      }
+      return {
+        getSnapshot: () => snapshot,
+        subscribe(listener) {
+          listeners.add(listener)
+          if (listeners.size === 1) rebind()
+          return () => { listeners.delete(listener); if (listeners.size === 0) rebind() }
+        },
+        setShared(next) { shared = next; rebind() },
+        setFallback(next) { fallback = next; if (shared === undefined) rebind() },
+        refresh,
+      }
+    }
+
+    function ProjectDetails({ workspace, useArchived, useSessions, useScheduleTasks, startSession, openChat, backToProjects, createSchedule, openScheduled, t }) {
       const { workspaceId } = workspace
       const title = workspaceDisplayTitle(workspace, t('workspace.defaultName'))
       const sessions = useSessions(value => value)
@@ -1192,8 +1257,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       const [details, setDetails] = React.useState(null)
       const [error, setError] = React.useState('')
       const [editing, setEditing] = React.useState(null)
-      const [tasks, setTasks] = React.useState([])
-      const [taskError, setTaskError] = React.useState('')
+      const { records: tasks, status: taskStatus } = useScheduleTasks(value => value)
       const [addingTask, setAddingTask] = React.useState(false)
       const [fileError, setFileError] = React.useState('')
       const [draft, setDraft] = React.useState('')
@@ -1208,29 +1272,18 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         )
         return () => { controller.abort() }
       }, [workspaceId, detailsVersion])
-      const reloadTasks = React.useCallback(async () => {
-        const pending = loadSchedules()
-        if (pending === undefined) { setTasks(null); return }
-        try {
-          const result = await pending
-          if (!result.ok) throw new Error(result.error.message)
-          setTasks(result.value)
-          setTaskError('')
-        } catch (failure) { setTaskError(failure.message) }
-      }, [])
-      React.useEffect(() => { void reloadTasks() }, [reloadTasks])
       const archived = new Set(archivedIds)
       const recents = workspace.sessionIds
         .map(id => sessions.byId[id])
         .filter(summary => summary !== undefined && !summary.blank && summary.origin !== 'subagent' && summary.parentId === undefined && !archived.has(summary.id))
         .sort((a, b) => b.updatedAt - a.updatedAt)
       const projectTasks = React.useMemo(() => {
-        if (tasks === null) return null
+        if (taskStatus === 'unavailable') return null
         const sessionIds = new Set(workspace.sessionIds)
         return tasks.filter(task => task.status !== 'ended' && (task.target.kind === 'session'
           ? sessionIds.has(task.target.sessionId)
           : task.target.create?.cwd === workspace.path))
-      }, [tasks, workspace.sessionIds, workspace.path])
+      }, [tasks, taskStatus, workspace.sessionIds, workspace.path])
       const send = () => {
         const text = draft.trim()
         if (text === '') return
@@ -1300,12 +1353,12 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
             h(Button, { size: 'sm', variant: 'outline', onClick: () => { setAddingTask(true) } }, t('project.add')),
             h(React.Fragment, null,
               projectTasks.length === 0
-                ? preview('', 'project.scheduled.empty')
+                ? (taskStatus !== 'error' && preview('', taskStatus === 'loading' ? 'loading' : 'project.scheduled.empty'))
                 : h('ul', { className: 'jt-project-tasks' }, projectTasks.map(task => h('li', { key: task.id, className: 'jt-project-task' },
                   h('div', null, task.title),
                   h('div', { className: 'jt-project-task-meta' }, task.status === 'paused' ? t('project.task.paused') : t('project.task.next', { when: new Date(task.scheduledAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) }))))),
               projectTasks.length > 0 && h(Button, { size: 'sm', variant: 'ghost', className: 'jt-project-link', onClick: openScheduled }, t('project.task.manage')),
-              taskError && h('p', { className: 'jt-project-error', role: 'alert' }, taskError)))),
+              taskStatus === 'error' && h('p', { className: 'jt-project-error', role: 'alert' }, t('load.failed'))))),
         h(ProjectTextEditor, {
           open: editing !== null, t,
           title: editing === 'memory' ? t('project.memory') : t('project.instructions'),
@@ -1318,7 +1371,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         }),
         h(ProjectTaskEditor, {
           open: addingTask, t,
-          onCreate: async (request) => { await createSchedule({ ...request, target: { kind: 'new', create: { cwd: workspace.path } } }); await reloadTasks() },
+          onCreate: async (request) => { await createSchedule({ ...request, target: { kind: 'new', create: { cwd: workspace.path } } }) },
           onClose: () => { setAddingTask(false) },
         }))
     }
@@ -1417,11 +1470,15 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               h(Button, { size: 'sm', onClick: () => { openSettings(item.kind === 'mcp' ? 'jt-mcp' : 'plugins'); dismiss(item) } }, 'Open settings'))),
           h('button', { type: 'button', className: 'jt-startup-close', 'aria-label': `Dismiss ${item.name} notice`, onClick: () => dismiss(item) }, h(IconCloseOutlineRegular, { size: 16 })))))
     }
-    function SearchPalette({
-      usePalette, useSessions, useWorkspaces, useCatalog, useArtifactsAvailable, useScheduledAvailable, usePluginsAvailable, useHubAvailable,
-      useSettingsTargets, closePalette, loadSchedules, openChat, openProject, openArtifact, openPanel, openSettings, runCommand, t,
+    function SearchPalette({ usePalette, ...props }) {
+      const { open, seq, kind } = usePalette(value => value)
+      return open ? h(OpenSearchPalette, { ...props, key: seq, initialKind: kind }) : null
+    }
+
+    function OpenSearchPalette({
+      initialKind, useScheduleTasks, useSessions, useWorkspaces, useCatalog, useArtifactsAvailable, useScheduledAvailable, usePluginsAvailable, useHubAvailable,
+      useSettingsTargets, closePalette, openChat, openProject, openArtifact, openPanel, openSettings, runCommand, t,
     }) {
-      const { open, seq, kind: initialKind } = usePalette(value => value)
       const settingsTargets = useSettingsTargets(value => value)
       const sessions = useSessions(value => value)
       const workspaces = useWorkspaces(value => value)
@@ -1431,31 +1488,17 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       const pluginsAvailable = usePluginsAvailable(value => value)
       const hubAvailable = useHubAvailable(value => value)
       const [query, setQuery] = React.useState('')
-      const [kind, setKind] = React.useState('all')
+      const [kind, setKind] = React.useState(initialKind)
       const [active, setActive] = React.useState(0)
-      const [schedules, setSchedules] = React.useState([])
+      const schedules = useScheduleTasks(value => value.records)
       const list = React.useRef(null)
-      React.useEffect(() => {
-        if (!open) return
-        setQuery('')
-        setKind(initialKind)
-        setActive(0)
-        let live = true
-        const pending = loadSchedules()
-        if (pending !== undefined) {
-          pending.then((result) => { if (live && result.ok) setSchedules(result.value) },
-            (error) => { console.warn('jan-theme: scheduled tasks unavailable to search', error) })
-        }
-        return () => { live = false }
-      }, [open, seq])
       React.useEffect(() => { setActive(0) }, [query, kind])
       React.useEffect(() => {
         list.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' })
-      }, [active, open])
+      }, [active])
 
       const defaultName = t('workspace.defaultName')
       const items = React.useMemo(() => {
-        if (!open) return null
         const archived = new Set(workspaces.archivedSessionIds)
         const workspaceOf = new Map()
         for (const workspace of workspaces.items) {
@@ -1514,9 +1557,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           keywords: [target.sectionTitle, target.id], open: () => { openSettings(target.section) },
         }))
         return { chats, artifacts, projects, scheduled, actions, settings }
-      }, [open, sessions, workspaces, catalog, schedules, settingsTargets, artifactsAvailable, scheduledAvailable, pluginsAvailable, defaultName, t])
+      }, [sessions, workspaces, catalog, schedules, settingsTargets, artifactsAvailable, scheduledAvailable, hubAvailable, pluginsAvailable, defaultName, t])
 
-      if (items === null) return null
       const kindLabel = (group) => group === 'actions' || group === 'settings' || group === 'commands' || group === 'all'
         ? t(`palette.${group}`) : t(group)
       const needle = query.trim()
@@ -1565,7 +1607,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       const tabs = ['all', 'chats', 'artifacts', 'projects', ...(scheduledAvailable || items.scheduled.length > 0 ? ['scheduled'] : []), 'commands']
       let index = -1
       return h(Modal, {
-        open, onClose: closePalette, title: t('palette.title'), headless: true, shortcutModal: 'search', className: 'jt-palette',
+        open: true, onClose: closePalette, title: t('palette.title'), headless: true, shortcutModal: 'search', className: 'jt-palette',
       }, h('div', { className: 'jt-palette-body' },
         h('div', { className: 'jt-palette-field' },
           h(IconSearchOutlineRegular, { size: 16, 'aria-hidden': true }),
@@ -2274,7 +2316,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         ctx.inject(['layout'], (scope) => {
           scope.layout.configureSidebar({ defaultWidth: 240, minWidth: 224, maxWidth: 320 })
         })
-        let scheduleCatalog
+        const scheduleTasks = createProjectScheduleCatalog()
         let scheduleCreate
         ctx.inject(['layout', 'uiWorkspace', 'workspaces', 'locale'], (scope) => {
           const mainKeyAvailable = (key) => ({
@@ -2381,7 +2423,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           scope.slots.inject('main', () => scope.slots.register({
             name: 'main', key: PROJECT_PANEL, locale: 'jan-theme',
             inject: () => ({
-              hooks: { project: currentProject, workspaces: scope.workspaces.list, archived, sessions: scope.sessions.list },
+              hooks: { project: currentProject, workspaces: scope.workspaces.list, archived, sessions: scope.sessions.list, scheduleTasks },
               // The typed text becomes the new Session's draft and is sent from there,
               // so the Session's own composer owns attachments, commands and send checks.
               startSession: (workspaceId, text) => {
@@ -2394,25 +2436,25 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               },
               backToProjects: () => { scope.layout.selectPanel(PROJECTS_PANEL) },
               openScheduled: () => { scope.layout.selectPanel(SCHEDULED_PANEL) },
-              loadSchedules: () => {
-                const read = scheduleCatalog
-                return read === undefined ? undefined : Promise.resolve().then(read)
-              },
               createSchedule: async (request) => {
                 const create = scheduleCreate
                 if (create === undefined) throw new Error('Scheduled tasks are not available.')
                 const result = await create(request)
                 if (!result.ok) throw new Error(result.error.message)
-                return result.value
+                await scheduleTasks.refresh()
               },
             }),
           }, ProjectHome))
         })
         // Scheduled tasks join the palette and project pages only while the schedule namespace exists.
         ctx.inject(['remote', 'remote.schedule'], (scope) => {
-          scheduleCatalog = () => scope.remote.schedule.catalog()
+          scheduleTasks.setFallback(scope)
           scheduleCreate = (request) => scope.remote.schedule.create(request)
-          scope.effect(() => () => { scheduleCatalog = undefined; scheduleCreate = undefined }, 'jan-theme: schedule source')
+          scope.effect(() => () => { scheduleTasks.setFallback(undefined); scheduleCreate = undefined }, 'jan-theme: schedule source')
+        })
+        ctx.inject(['hostTaskCatalog'], (scope) => {
+          scheduleTasks.setShared(scope.hostTaskCatalog)
+          scope.effect(() => () => { scheduleTasks.setShared(undefined) }, 'jan-theme: shared schedule catalog')
         })
         let settingsNavigation
         ctx.inject(['settingsNavigation'], (scope) => {
@@ -2485,6 +2527,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
                 sessions: scope.sessions.list,
                 workspaces: scope.workspaces.list,
                 catalog: scope.shortcuts.catalog,
+                scheduleTasks,
                 artifactsAvailable: mainKeyAvailable(ARTIFACTS_PANEL),
                 scheduledAvailable: mainKeyAvailable(SCHEDULED_PANEL),
                 hubAvailable: mainKeyAvailable(HUB_PANEL),
@@ -2494,11 +2537,6 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               closePalette,
               openSettings: (section) => {
                 if (settingsNavigation?.open(section) !== true) console.warn(`jan-theme: settings section ${section} is unavailable`)
-              },
-              // Read on each open: the catalog is small and changes outside this window.
-              loadSchedules: () => {
-                const read = scheduleCatalog
-                return read === undefined ? undefined : Promise.resolve().then(read)
               },
               openChat: (sessionId) => {
                 scope.layout.selectPanel(null)
