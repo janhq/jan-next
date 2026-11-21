@@ -1,0 +1,6 @@
+{
+  "mcpServers": {
+    "Jan Tool": { "command": "node", "env": { "KEY": "jan-fixture-token" }, "active": true, "description": "Old Jan tool" },
+    "remote": { "type": "streamable-http", "url": "https://example.com/jan", "headers": { "X-Token": "jan-header-token" } }
+  }
+}

@@ -18295,6 +18295,9 @@ importers:
       '@janhq/schemastery':
         specifier: link:../../vendor/schemastery
         version: link:../../vendor/schemastery
+      smol-toml:
+        specifier: ^1.9.0
+        version: 1.9.0
     devDependencies:
       '@janhq/jan-session-format-v3-to-v4':
         specifier: workspace:*
