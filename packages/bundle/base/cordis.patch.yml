@@ -173,6 +173,10 @@
             # images unless named below as text only; an entry that declares
             # `architecture.input_modalities` still answers for itself.
             defaultInput: [text, image]
+            # The listing reports no reasoning metadata. The router takes `reasoning_effort` and
+            # answers with reasoning tokens for the models below (probed 2026-11-21); the others
+            # (jev, gpt-oss, claude-opus-4-8, claude-fable-5-1, gpt-5.6-terra) returned none and
+            # stay without an effort picker. A model the router adds later needs a row here.
             models:
               - id: deepseek-flash
                 input: [text]
@@ -180,6 +184,26 @@
                 input: [text]
               - id: openai/gpt-oss-120b-medium
                 input: [text]
+              - { id: 'anthropic/claude-haiku-5-5[1m]', reasoningEfforts: &tokamak-efforts { low: low, medium: medium, high: high } }
+              - { id: 'anthropic/claude-haiku-4-5-20251001', reasoningEfforts: *tokamak-efforts }
+              - { id: 'anthropic/claude-sonnet-5[1m]', reasoningEfforts: *tokamak-efforts }
+              - { id: 'anthropic/claude-sonnet-5-5[1m]', reasoningEfforts: *tokamak-efforts }
+              - { id: 'anthropic/claude-opus-4-6[1m]', reasoningEfforts: *tokamak-efforts }
+              - { id: 'anthropic/claude-opus-5[1m]', reasoningEfforts: *tokamak-efforts }
+              - { id: 'anthropic/claude-opus-5-5[1m]', reasoningEfforts: *tokamak-efforts }
+              - { id: 'anthropic/claude-fable-5[1m]', reasoningEfforts: *tokamak-efforts }
+              - { id: 'anthropic/claude-fable-5-2[1m]', reasoningEfforts: *tokamak-efforts }
+              - { id: 'google/gemini-4-argon-high', reasoningEfforts: *tokamak-efforts }
+              - { id: 'openai/gpt-5.6-luna', reasoningEfforts: *tokamak-efforts }
+              - { id: 'openai/gpt-5.6-sol', reasoningEfforts: *tokamak-efforts }
+              - { id: 'openai/gpt-6-astra', reasoningEfforts: *tokamak-efforts }
+              - { id: 'openai/gpt-6-luna', reasoningEfforts: *tokamak-efforts }
+              - { id: 'openai/gpt-6-sol', reasoningEfforts: *tokamak-efforts }
+              - { id: 'openai/gpt-6.1-sol', reasoningEfforts: *tokamak-efforts }
+              - { id: 'openai/gpt-6.1-terra', reasoningEfforts: *tokamak-efforts }
+              - { id: 'openai/gpt-6.2-astra', reasoningEfforts: *tokamak-efforts }
+              - { id: 'openai/gpt-6.2-sol', reasoningEfforts: *tokamak-efforts }
+              - { id: 'tokamak/auto', reasoningEfforts: *tokamak-efforts }
           # tokamak-harness: the managed local model (web-app row `llama-cpp`). Its key and
           # endpoint (the worker's OS-assigned port) exist only while that worker runs, so
           # otherwise the route offers no models.
