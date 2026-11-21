@@ -373,6 +373,12 @@ export interface LlmModelInfo {
   /** Accepted request modalities; absent means unknown, while an explicit omission is negative capability. */
   inputModalities?: readonly ModelModality[]
   /**
+   * Whether the model calls the tools a request declares; absent means unknown.
+   * `false` is a declared inability (a local chat template with no tool
+   * support), which selectors surface before the user starts a tool task.
+   */
+  toolUse?: boolean
+  /**
    * Selector label advertised by catalog discovery; exact-route resolution
    * omits it, and no model request or Session event carries it.
    */
