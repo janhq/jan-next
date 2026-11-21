@@ -17,7 +17,7 @@ window.__ModuleLoader__.load({
         ['Developer', 'Student', 'Researcher', 'Writer / content creator', 'Marketing / social media', 'Data / analyst', 'Business / office work', 'Designer'],
         ['Write code', 'Debug and review code', 'Learn and study', 'Research a topic', 'Analyze data', 'Draft and edit content', 'Plan work and projects', 'Create reports', 'Explore design ideas'],
         ['Chat mode', 'Standard mode', 'Change requests & worktrees', 'Session search', 'Conversation-following titles', 'Voice input'],
-        ['Talk through ideas, research the web, and create simple artifacts.', 'Work with code and files using a full set of tools.', 'Review changes and keep each coding task in a separate worktree.', 'Find related work in earlier chats in the same workspace.', 'Keep chat titles useful as your task changes.', 'Speak drafts and ideas instead of typing them.'],
+        ['Talk through ideas, research the web, and create simple artifacts.', 'Work with code and files using a full set of tools.', 'Review changes and keep each coding task in a separate worktree.', 'Find related work in earlier chats in the same folder.', 'Keep chat titles useful as your task changes.', 'Speak drafts and ideas instead of typing them.'],
       ],
       zh: [
         ['关于你', '简单介绍一下自己，Jan 会为你推荐合适的设置。', '你的名字（选填）', '选择 1 至 3 个角色', '你的目标是什么？', '选择你希望获得帮助的事项，也可以不选直接继续。', '适合你角色的目标', '你的设置', '查看推荐内容。以后可以在插件和设置中修改这些选项。', '模式', '插件'],
