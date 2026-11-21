@@ -37,7 +37,8 @@ import clsx from 'clsx'
 import type { ModelReasoningEffort, ModelSelection } from '@janhq/jan-api-remotes/client'
 import {
   IconCheckOutlineRegular, IconChevronDownOutlineRegular, IconChevronRightOutlineRegular, IconCloseFillRegular,
-  IconDataOutlineRegular, IconLayersOutlineRegular, IconSearchOutlineRegular, IconStarFillRegular, IconStarOutlineRegular,
+  IconDataOutlineRegular, IconDatabaseOutlineRegular, IconImageOutlineRegular, IconLayersOutlineRegular,
+  IconSearchOutlineRegular, IconStarFillRegular, IconStarOutlineRegular, IconTextOutlineRegular, IconThinkOutlineRegular,
   IconWarningOutlineRegular, Input, isMobileDevice, StateDot, Tag, Toast,
 } from '@janhq/jan-client-ui-primitives'
 import { createSnapshotStore } from '@janhq/jan-client-store'
@@ -847,10 +848,18 @@ function ModelDetails({
   onPick: (effort: string | undefined) => void
   extra: ReactNode
 }) {
+  // Icon chips, each with its full sentence as tooltip and accessible name: the
+  // row reads at a glance and still says "reads images" to a screen reader.
   const facts = [
-    ...model.contextWindow === undefined ? [] : [t('details.context', { tokens: formatTokens(model.contextWindow) })],
-    ...model.imageInput === undefined ? [] : [t(model.imageInput ? 'details.images' : 'details.textOnly')],
+    { key: 'text', Icon: IconTextOutlineRegular, label: t('details.text'), hint: t('details.text') },
+    ...model.imageInput === true ? [{ key: 'image', Icon: IconImageOutlineRegular, label: t('details.image'), hint: t('details.images') }] : [],
+    ...model.reasoning === undefined ? [] : [{ key: 'reasoning', Icon: IconThinkOutlineRegular, label: t('details.reasoning'), hint: t('details.reasoningHint') }],
+    ...model.contextWindow === undefined ? [] : [{
+      key: 'context', Icon: IconDatabaseOutlineRegular, label: formatTokens(model.contextWindow),
+      hint: t('details.context', { tokens: formatTokens(model.contextWindow) }),
+    }],
   ]
+  const known = model.imageInput !== undefined || model.reasoning !== undefined || model.contextWindow !== undefined
   return (
     <MenuSurface ref={cardRef} id={id} className={css.flyout} style={style} role="group" aria-label={t('details.aria', { model: name })}>
       <div className={css.detailsHead}>
@@ -867,7 +876,16 @@ function ModelDetails({
         {starred ? <IconStarFillRegular size={14} /> : <IconStarOutlineRegular size={14} />}
         {t('details.favorite')}
       </button>
-      {facts.length > 0 && <div className={css.facts}>{facts.join(' · ')}</div>}
+      {known && (
+        <ul className={css.facts} aria-label={t('details.modalities')}>
+          {facts.map(({ key, Icon, label, hint }) => (
+            <li key={key} className={css.fact} title={hint} aria-label={hint}>
+              <Icon size={12} />
+              <span aria-hidden="true">{label}</span>
+            </li>
+          ))}
+        </ul>
+      )}
       {model.description !== undefined && model.description !== '' && <p className={css.detailsDescription}>{model.description}</p>}
       {levels.length > 0 && (
         <div className={css.detailsSection}>
