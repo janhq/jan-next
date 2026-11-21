@@ -1,32 +1,33 @@
 /**
- * Row above the composer while the Session works in a Git checkout: the
- * checked-out branch (or abbreviated commit on a detached HEAD) and, when the
- * `branch` scope changes files, its added and deleted lines, which open the
- * local changes view. Outside a checkout nothing renders; on a blank Session
- * without changes it also stays hidden, since the New Session row already
- * names the branch beside New worktree.
+ * Git readings in the row under the composer, beside the model and context
+ * readings: the checked-out branch (or abbreviated commit on a detached HEAD)
+ * and, when the `branch` scope changes files, its added and deleted lines,
+ * which open the local changes view. Outside a checkout nothing renders. On a
+ * blank Session the New Session options already name the branch beside New
+ * worktree, so only the line counts show, and only when files changed.
  */
 
 import type { ReactNode } from 'react'
 import { IconBranchOutlineRegular } from '@janhq/jan-client-ui-primitives'
 import type { HostObservable, InjectFace, PropsLocale } from '@janhq/jan-client-ui-slots'
-import type { InputZone } from '@janhq/jan-client-ui-conversation/client'
+import type {} from '@janhq/jan-client-ui-conversation/client'
+import type { SessionSnapshot } from '@janhq/jan-api-session-controller/client'
 import type { ForgePanelState } from '../types.ts'
 import { Counts } from './DiffFile.tsx'
 import type { NS } from './locales.ts'
 import type { PanelSnapshot } from './source.ts'
 import css from './GitStrip.module.css'
 
-/** Business face of the row. */
+/** Business face of the readings. */
 export interface GitStripInjected {
-  /** Panel snapshot of the Session; the renderer binds it as `usePanel`. */
-  readonly hooks: { readonly panel: HostObservable<PanelSnapshot> }
+  /** Panel snapshot and Session snapshot; the renderer binds them as `usePanel` and `useSession`. */
+  readonly hooks: { readonly panel: HostObservable<PanelSnapshot>; readonly session: HostObservable<Pick<SessionSnapshot, 'blank'>> }
   /** Open the local changes view. */
   readonly viewChanges: () => void
 }
 
-/** Full props of the row. */
-export type GitStripProps = InjectFace<GitStripInjected> & PropsLocale<typeof NS> & Partial<InputZone>
+/** Full props of the readings. */
+export type GitStripProps = InjectFace<GitStripInjected> & PropsLocale<typeof NS>
 
 interface StripFacts {
   readonly name: string
@@ -59,31 +60,32 @@ const sameFacts = (a: StripFacts | null, b: StripFacts | null): boolean => a ===
   && a.name === b.name && a.detached === b.detached && a.additions === b.additions && a.deletions === b.deletions && a.files === b.files)
 
 /**
- * Render the Git row.
- * @param props - the panel snapshot, the view action, and copy.
- * @returns the row, or null outside a Git checkout.
+ * Render the Git readings.
+ * @param props - the panel and Session snapshots, the view action, and copy.
+ * @returns the readings, or null outside a Git checkout.
  */
-export function GitStrip({ usePanel, viewChanges, t, session }: GitStripProps): ReactNode {
+export function GitStrip({ usePanel, useSession, viewChanges, t }: GitStripProps): ReactNode {
   const facts = usePanel(snapshot => stripFacts(snapshot.state), sameFacts)
-  if (facts === null || (session?.blank === true && facts.files === 0)) return null
+  const blank = useSession(snapshot => snapshot.blank)
+  if (facts === null || (blank && facts.files === 0)) return null
   return (
-    <div className={css.dock}>
-      <div className={css.strip} data-forge-git-strip="">
+    <span className={css.strip} data-forge-git-strip="">
+      {!blank && (
         <span className={css.branch} title={facts.detached ? `${t('checkout.detached')} ${facts.name}` : facts.name}>
           <IconBranchOutlineRegular size={14} className={css.icon} />
           <span className={css.name}>{facts.name}</span>
         </span>
-        {facts.files > 0 && (
-          <button
-            type="button"
-            className={css.changes}
-            aria-label={t('changes.local.viewAria', { count: facts.files, added: facts.additions, deleted: facts.deletions })}
-            onClick={viewChanges}
-          >
-            <Counts file={{ additions: facts.additions, deletions: facts.deletions, binary: false }} t={t} />
-          </button>
-        )}
-      </div>
-    </div>
+      )}
+      {facts.files > 0 && (
+        <button
+          type="button"
+          className={css.changes}
+          aria-label={t('changes.local.viewAria', { count: facts.files, added: facts.additions, deleted: facts.deletions })}
+          onClick={viewChanges}
+        >
+          <Counts file={{ additions: facts.additions, deletions: facts.deletions, binary: false }} t={t} />
+        </button>
+      )}
+    </span>
   )
 }

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/** Git row above the composer: shown only inside a Git checkout, with the branch and the local line counts. */
+/** Git readings under the composer: shown only inside a Git checkout, with the branch and the local line counts. */
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createSnapshotStore } from '@janhq/jan-client-store'
@@ -9,7 +9,6 @@ import { en } from '../src/client/locales.ts'
 import type { PanelSnapshot } from '../src/client/source.ts'
 import type { ForgeChangedFile, ForgePanelState } from '../src/types.ts'
 import { ready } from './client-fixtures.client.ts'
-import type { InputZone } from '@janhq/jan-client-ui-conversation/client'
 
 afterEach(cleanup)
 
@@ -18,8 +17,10 @@ const t = makeTranslate(en)
 function strip(state: ForgePanelState | null, blank = false) {
   const panel = createSnapshotStore<PanelSnapshot>({ state, disconnected: false })
   const viewChanges = vi.fn<() => void>()
-  const session = { blank } as InputZone['session']
-  const view = render(<GitStrip usePanel={bindSnapshotSelector(panel)} viewChanges={viewChanges} t={t} session={session} />)
+  const session = createSnapshotStore({ blank })
+  const view = render(
+    <GitStrip usePanel={bindSnapshotSelector(panel)} useSession={bindSnapshotSelector(session)} viewChanges={viewChanges} t={t} />,
+  )
   const root = (): HTMLElement | null => view.container.querySelector<HTMLElement>('[data-forge-git-strip]')
   const publish = (next: ForgePanelState | null): void => { act(() => { panel.set({ state: next, disconnected: false }) }) }
   return { root, publish, viewChanges }
@@ -65,10 +66,10 @@ describe('GitStrip', () => {
     expect(root()?.textContent).toBe('feature/x')
   })
 
-  it('leaves the branch to the New Session row on a blank Session, but still shows its changes', () => {
+  it('leaves the branch to the New Session options on a blank Session, but still shows its changes', () => {
     expect(strip(ready({}, { branch: 'main' }), true).root()).toBeNull()
     cleanup()
     const { root } = strip(ready({ local: { base: 'origin/main', files: [file('a.ts', 4, 1)] } }, { branch: 'main' }), true)
-    expect(root()?.textContent).toBe('main+4−1')
+    expect(root()?.textContent).toBe('+4−1')
   })
 })
