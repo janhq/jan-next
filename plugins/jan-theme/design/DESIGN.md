@@ -47,17 +47,18 @@ Each role reads one named layer in Figma; `extract-figma.mjs` lists the node ids
 
 ## Accents
 
-The accent swatch sets the brand color, and the sidebar fades from the stop below to the window background.
+The accent swatch sets the brand color, and the sidebar fades from the stop below to the window background. Jan yellow, the logo's color, is the default. Its fills are light enough that text and icons on them are dark (`#222222`) instead of white, and text drawn in the accent uses a deeper shade.
 
 | Accent | Brand | Sidebar light | Sidebar dark |
 |---|---|---|---|
 | Red | `#F0614B` | `#F3CBC4` | `#5E1308` |
 | Orange | `#E9A23F` | `#F3DFC4` | `#5C3A0A` |
+| Yellow (default) | `#FFC928` | `#F3E6C4` | `#5C4A0A` |
 | Green | `#88BA42` | `#DFF3C4` | `#374B1B` |
 | Emerald | `#38AB51` | `#C4F3CE` | `#194D24` |
 | Teal | `#38AB8D` | `#C4F3E6` | `#194D3F` |
 | Cyan | `#45BBDE` | `#C4E8F3` | `#0F4657` |
-| Blue (default) | `#456BDE` | `#C4D0F3` | `#0F2157` |
+| Blue | `#456BDE` | `#C4D0F3` | `#0F2157` |
 | Purple | `#865EEA` | `#D2C4F3` | `#220C5A` |
 | Pink | `#D55EF3` | `#E9C4F3` | `#4D075F` |
 | Rose | `#F655B8` | `#FFDAE9` | `#61053E` |
