@@ -9,6 +9,25 @@ Bots is an opt-in Jan Desktop feature for running background tasks. Open **More*
 
 The durable inbox and outbox live in `$JAN_HOME/always-on/queue.sqlite`. Memory lives beside it in `memory/`; all timers are regular Scheduled tasks. The plugin uses the current default model, workspace-write permissions with approval, and a scoped tool set; shell, web and general file tools are not available to background runs. A remote model receives the selected memory and task context just as it would in an ordinary Jan session. Choose a local model if that data should stay on-device.
 
+## Avatar states
+
+The avatar next to the status line uses Jan's current accent and follows the system's reduced-motion preference. Bot activity takes precedence from the top of this table down.
+
+| Bots activity | Avatar |
+| --- | --- |
+| Off or paused | Idle, dimmed and still |
+| Awaiting **Allow once** or **Reject** | Blocked, neutral |
+| Running a background tool | Working, neutral |
+| Active outside tool calls, including model streaming | Thinking, neutral |
+| Background event queued | Waiting, neutral |
+| Latest run failed | Blocked, neutral until another run supersedes it |
+| Just delivered a notification | Done, happy for four seconds, then idle |
+| No active work, including a completed run without a notification | Idle, neutral |
+
+Tool activity, the last run outcome and the latest delivery time are live values for the current app session. The durable Events and Messages tabs still show stored history after restart.
+
+Browser code in this plugin can `require.async('./client.avatar.js')`. Its `loadAvatarRenderer()` resolves to `mountBotAvatar(element, { definition, color, state, mood, label })`, which returns `{ update(partial), destroy() }` and defaults to system reduced motion. Pass a new pose to `update` and call `destroy` when the host leaves the page. `definition` is the default chat-bubble artwork; `avatarAppearance(snapshot)` returns `{ state, mood, still, labelKey }` from the current background runner's snapshot. Other bot surfaces can supply their own definition and map their own activity without using the Events or Timers page.
+
 ## Model experience
 
 | Tool | Use |
