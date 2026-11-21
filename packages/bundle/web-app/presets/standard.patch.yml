@@ -120,6 +120,8 @@
             name: '@janhq/jan-tool-ask-user'
             config:
               mode: auto
+          - id: tool-capture-media
+            name: '@janhq/jan-tool-capture-media'
           - id: tool-todo
             name: '@janhq/jan-tool-todo'
             config:
