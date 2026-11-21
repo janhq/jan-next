@@ -1815,7 +1815,6 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
       'client-ui-model-selection ImageNotice id \'model-image\'',
       'client-ui-model-selection ToolNotice id \'model-tools\'',
       'client-ui-subagent SubagentCatalogAction id \'subagent-catalog\'',
-      'client-ui-subagent SubagentActivityDock id \'subagent-activity\'',
       'experimental-client-ui-claude-code-mods Band id \'claude-code-mods\'',
       'experimental-client-ui-forge WorktreeProgress id \'forge-panel.worktree\'',
       'experimental-client-ui-forge GitStrip id \'forge-panel.git\'',
