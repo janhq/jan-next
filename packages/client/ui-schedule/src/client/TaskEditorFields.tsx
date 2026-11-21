@@ -58,7 +58,8 @@ export function taskDraft(task: ScheduleCatalogEntry): TaskEditorDraft {
   return {
     ...timingFromRecord(task), title: task.title, prompt: task.prompt,
     target: task.target.kind, sessionId: task.target.kind === 'session' ? task.target.sessionId : '',
-    cwd: task.target.kind === 'new' || task.target.kind === 'new_once' ? task.target.create.cwd ?? '' : '',
+    cwd: task.deliveryFailure?.code !== 'project-removed' && (task.target.kind === 'new' || task.target.kind === 'new_once')
+      ? task.target.create.cwd ?? '' : '',
   }
 }
 
@@ -186,9 +187,11 @@ export function TaskEditorFields({ draft, onChange, projects, disabled, original
           ]}
           onChange={(value) => { change({ target: value as TaskEditorDraft['target'],
             sessionId: value === 'session' ? currentSessionId : draft.sessionId,
-            cwd: value === 'session' ? '' : draft.target === 'session' ? projects.defaultCwd : draft.cwd }) }} />
+            cwd: value === 'session' ? '' : draft.target === 'session' && original?.deliveryFailure?.code !== 'project-removed'
+              ? projects.defaultCwd : draft.cwd }) }} />
         {draft.target !== 'session' && <RuleSelectRow label={t('host.project')} value={draft.cwd} disabled={disabled}
-          current={projects.items.find(choice => choice.value === draft.cwd)?.label ?? (draft.cwd || t('host.ungrouped'))}
+          current={projects.items.find(choice => choice.value === draft.cwd)?.label
+            ?? (draft.cwd || t(original?.deliveryFailure?.code === 'project-removed' ? 'detail.pickProject' : 'host.ungrouped'))}
           listClassName={css.workspaceMenu} items={workspaceItems.length === 0 ? [{ id: '', label: t('host.ungrouped'), disabled: true }]
             : workspaceItems} onChange={(cwd) => { change({ cwd }) }} />}
       </>}

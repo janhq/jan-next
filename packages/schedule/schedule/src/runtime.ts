@@ -22,7 +22,7 @@ import {
 } from './domain.ts'
 import { formatScheduleLocalTime } from './domain.ts'
 import { appendDelivery } from './delivery-history.ts'
-import type { ScheduleTask } from './storage.ts'
+import { targetWorkspaceId, type ScheduleTask } from './storage.ts'
 import type { DeliveryRetentionBounds, ScheduleDeliveryReceipt, ScheduleId, ScheduleSessionCreateSpec } from './types.ts'
 
 /** Largest delay Node timers represent without clamping. */
@@ -173,7 +173,8 @@ export class ScheduleRuntime {
    * Queue one manual execution without consuming or moving its scheduled occurrence.
    * @param id - Canonical task identity resolved again inside the shared transaction.
    * @param signal - Cancellation checked after entering the transaction and before delivery.
-   * @returns Admission and task state after durable Session inbox acknowledgement, or undefined when deleted first.
+   * @returns Admission and task state after durable inbox acknowledgement, or undefined when deleted first.
+   * @throws `schedule/project-removed` after durably pausing a task whose project was removed.
    */
   async runNow(id: ScheduleId, signal?: AbortSignal): Promise<
     { readonly task: ScheduleTask; readonly admitted: boolean } | undefined
@@ -182,6 +183,7 @@ export class ScheduleRuntime {
       signal?.throwIfAborted()
       const task = this.tasks().find(candidate => candidate.record.id === id)
       if (task === undefined) return
+      await this.checkProject(task)
       if (this.executing.has(id)
         || this.nextAdmissionAt(task) > Date.now()
         || await this.recoverOutstandingExecution(task)) {
@@ -194,7 +196,14 @@ export class ScheduleRuntime {
         await this.commit(delivered)
         return { task: delivered, admitted: true }
       }
-      const target = await this.resolveTarget(task)
+      let target: DeliveryTarget
+      try {
+        target = await this.resolveTarget(task)
+      } catch (error) {
+        await this.checkProject(task)
+        throw error
+      }
+      await this.checkProject(task)
       if (this.stopping) throw new Error('Schedule runtime is stopping')
       // Sample the occurrence after Session restoration, which can take longer than one recurrence interval.
       const occurrenceAt = new Date(Date.now()).toISOString()
@@ -234,7 +243,8 @@ export class ScheduleRuntime {
   }
 
   private available(task: ScheduleTask): boolean {
-    return task.target.kind !== 'plugin' || this.pluginHandler(task.target.owner) !== undefined
+    if (task.target.kind === 'plugin') return this.pluginHandler(task.target.owner) !== undefined
+    return targetWorkspaceId(task.target) === undefined || this.ctx.get('workspaceRegistry') !== undefined
   }
 
   private clearTimer(): void {
@@ -312,7 +322,8 @@ export class ScheduleRuntime {
     try {
       const candidates: ScheduleTask[] = []
       for (const member of group) {
-        if (this.nextAdmissionAt(member) > Date.now() || await this.recoverOutstandingExecution(member)) continue
+        if (this.nextAdmissionAt(member) > Date.now()) continue
+        if (await this.pauseIfProjectRemoved(member) || await this.recoverOutstandingExecution(member)) continue
         candidates.push(member)
       }
       // The check precedes target resolution, so a target made future by clock rollback creates no Session.
@@ -329,11 +340,24 @@ export class ScheduleRuntime {
         await this.commit(this.advanced(first, occurrence, receipt))
         return []
       }
-      const target = await this.resolveTarget(first)
+      let target: DeliveryTarget
+      try {
+        target = await this.resolveTarget(first)
+      } catch (error) {
+        if (!batch && await this.pauseIfProjectRemoved(first)) return []
+        throw error
+      }
       if (this.stopping) return []
       const now = Date.now()
       // Session restoration can span a wall-clock rollback; future members keep their timer obligation.
       admitted = admitted.filter(member => Date.parse(member.record.scheduledAt) <= now)
+      const stillAdmitted: ScheduleTask[] = []
+      for (const member of admitted) {
+        if (!this.available(member)) continue
+        if (await this.pauseIfProjectRemoved(member)) committed.add(member.record.id)
+        else stillAdmitted.push(member)
+      }
+      admitted = stillAdmitted
       const deliveries = admitted.map(task => ({
         task, occurrence: isRecurringScheduleRecord(task.record)
           ? resolveRecurringOccurrence(task.record, now) : { occurrenceAt: task.record.scheduledAt },
@@ -367,6 +391,32 @@ export class ScheduleRuntime {
       this.ctx.logger.warn(`schedule: reminders ${JSON.stringify(ids)} were not acknowledged: ${String(error)}`)
       return pending.filter(member => Date.parse(member.record.scheduledAt) <= failedAt).map(member => member.record.id)
     }
+  }
+
+  /** Refuse manual delivery without mistaking a provider that is not mounted for a deleted project. */
+  private async checkProject(task: ScheduleTask): Promise<void> {
+    const workspaceId = targetWorkspaceId(task.target)
+    if (workspaceId === undefined) return
+    if (!this.available(task)) throw new Error('schedule: no project registry')
+    if (await this.pauseIfProjectRemoved(task)) {
+      throw new RemoteError('schedule/project-removed', 'project was removed', { workspaceId })
+    }
+  }
+
+  /** Stop retrying an orphaned binding without advancing its rule or fabricating a delivery receipt. */
+  private async pauseIfProjectRemoved(task: ScheduleTask): Promise<boolean> {
+    const workspaceId = targetWorkspaceId(task.target)
+    const registry = this.ctx.get('workspaceRegistry')
+    if (workspaceId === undefined || registry === undefined || registry.get(workspaceId) !== undefined) return false
+    if (task.status === 'paused' && task.deliveryFailure !== undefined) return true
+    const now = Date.now()
+    await this.commit({
+      ...task,
+      status: 'paused',
+      updatedAt: new Date(Math.max(now, task.updatedAt === undefined ? now : Date.parse(task.updatedAt) + 1)).toISOString(),
+      deliveryFailure: { code: 'project-removed', failedAt: new Date(now).toISOString() },
+    })
+    return true
   }
 
   /** Earliest wall-clock instant at which this task may admit another delivery. */
@@ -484,7 +534,10 @@ export class ScheduleRuntime {
     const sessionId = receipt.targetSessionId
     return {
       ...task,
-      target: task.target.kind === 'new_once' && sessionId !== undefined ? { kind: 'session', sessionId } : task.target,
+      target: task.target.kind === 'new_once' && sessionId !== undefined ? {
+        kind: 'session', sessionId,
+        ...(task.target.create.workspaceId === undefined ? {} : { workspaceId: task.target.create.workspaceId }),
+      } : task.target,
       // Each delivery of a `new` target creates a Session; recording them all would grow the task without bound.
       involvedSessionIds: task.target.kind === 'new' || sessionId === undefined
         ? task.involvedSessionIds
@@ -513,8 +566,8 @@ export class ScheduleRuntime {
    * A `new` target reserves its Session identity in the task before creation, so a failed delivery retries the same
    * Session instead of creating another. A stored reserved identity is resolved first and created only when no Session
    * has it, because the Session controller creates a Session with a different id when the named Session has already
-   * started a turn. A created Session joins the Workspace registered at `create.cwd` and takes the task title; a `new`
-   * target's title adds its launch time in the task's time zone. Neither step blocks delivery.
+   * started a turn. The Session controller places bound sessions by project ID; otherwise they join by stored cwd.
+   * A new Session takes the task title, including the launch time for a `new` target.
    */
   private async resolveTarget(task: ScheduleTask): Promise<DeliveryTarget> {
     const { target } = task
@@ -539,8 +592,13 @@ export class ScheduleRuntime {
       sessionId = task.pendingDelivery.targetSessionId
       agent = await this.reservedAgent(sessionId)
     }
-    agent ??= await this.createAgent(sessionId, target.create)
-    await this.joinWorkspace(sessionId, target.create.cwd)
+    if (agent === undefined) {
+      agent = await this.createAgent(sessionId, target.create)
+    } else if (target.create.workspaceId !== undefined) {
+      // Creation may have succeeded before attachment or the delivery receipt failed.
+      await this.ctx.get('workspaceRegistry')?.get(target.create.workspaceId)?.attachSession(sessionId)
+    }
+    if (target.create.workspaceId === undefined) await this.joinWorkspace(sessionId, target.create.cwd)
     this.nameSession(agent, task)
     return { sessionId, agent }
   }
@@ -567,7 +625,9 @@ export class ScheduleRuntime {
     if (controller === undefined) throw new Error('schedule: no Session creation provider')
     await controller.create({
       sessionId,
-      ...(create.cwd === undefined ? {} : { cwd: create.cwd }),
+      ...(create.workspaceId === undefined
+        ? create.cwd === undefined ? {} : { cwd: create.cwd }
+        : { workspaceId: create.workspaceId }),
       ...(create.agentPreset === undefined ? {} : { agentPreset: create.agentPreset }),
     })
     return this.activate(sessionId)

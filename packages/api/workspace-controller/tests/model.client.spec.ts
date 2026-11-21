@@ -180,10 +180,6 @@ describe('ClientWorkspaceModel', () => {
     expect(remote.initializeDefault).toHaveBeenCalledWith(signal)
     expect(model.getSnapshot().items.map(item => item.workspaceId)).toEqual(['default'])
     const before = model.getSnapshot()
-    remote.initializeDefault.mockResolvedValueOnce(remoteOk(undefined))
-    await expect(model.initializeDefault())
-      .resolves.toEqual({ ok: true, value: undefined })
-    expect(model.getSnapshot()).toBe(before)
     remote.initializeDefault.mockResolvedValueOnce(workspaceError(
       new RemoteError('gateway/bad-request', 'choose a folder', {}),
     ))

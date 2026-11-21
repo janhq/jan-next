@@ -56,9 +56,9 @@ export interface IWorkspaces {
   /**
    * Initialize or reuse the default Workspace.
    * @param signal - caller lifetime.
-   * @returns the prepared Workspace, or undefined when first-use initialization is ineligible; rejects on preparation failure.
+   * @returns the prepared Workspace; rejects on preparation failure.
    */
-  initializeDefault(signal?: AbortSignal): Promise<WorkspaceView | undefined>
+  initializeDefault(signal?: AbortSignal): Promise<WorkspaceView>
   /**
    * Rename a Workspace.
    * @param workspaceId - target Workspace.
@@ -133,10 +133,10 @@ export class WorkspaceController extends Service implements IWorkspaces {
     return result.value.workspace
   }
 
-  async initializeDefault(signal?: AbortSignal): Promise<WorkspaceView | undefined> {
+  async initializeDefault(signal?: AbortSignal): Promise<WorkspaceView> {
     const result = await this.model.initializeDefault(signal)
     if (!result.ok) throw new WorkspaceCreateError(result.error)
-    return result.value?.workspace
+    return result.value.workspace
   }
 
   async rename(workspaceId: WorkspaceId, title: string): Promise<WorkspaceView> {

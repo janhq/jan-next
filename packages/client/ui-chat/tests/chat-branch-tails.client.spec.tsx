@@ -783,16 +783,37 @@ describe('MessageItem arms', () => {
       <MessageItem t={t} node={{
         kind: 'context',
         seq: 3,
-        content: [{ type: 'text', text: 'child report body' }],
+        content: [
+          { type: 'text', text: 'Agent reviewer sent a message: ' },
+          { type: 'text', text: 'Which detail should I emphasize?\nHere is more context.' },
+        ],
         source: { kind: 'agent-message', form: 'relay', senderSessionId: 'child-7' },
         producer: { role: 'inject', label: 'agent-message' },
         form: 'relay',
       } as never}
       />,
     )
-    fireEvent.click(view.getByRole('button', { name: /^上下文注入\s*agent-message$/ }))
+    const relay = view.getByRole('button', { name: /^上下文注入\s*agent-message/ })
+    expect(relay.textContent).toContain('Agent reviewer sent a message: Which detail should I emphasize?')
+    expect(relay.textContent).not.toContain('Here is more context.')
+    fireEvent.click(relay)
     expect(view.container.querySelector('[data-context-relay-sender]')?.textContent).toBe('来自会话 child-7')
-    expect(view.container.querySelector('[data-context-text]')?.textContent).toBe('child report body')
+    expect(view.container.querySelector('[data-context-text]')?.textContent)
+      .toBe('Agent reviewer sent a message: Which detail should I emphasize?\nHere is more context.')
+  })
+
+  it.each([
+    { content: [{ type: 'text', text: 'a'.repeat(200) }], preview: `${'a'.repeat(119)}…` },
+    { content: [{ type: 'text', text: '   \nSecond line' }], preview: null },
+    { content: [{ type: 'foreign' }, { type: 'text', text: 'Not the first block' }], preview: null },
+    { content: [{ type: 'text', text: 'Short question?' }], preview: 'Short question?' },
+  ])('keeps the collapsed relay preview bounded ($preview)', ({ content, preview }) => {
+    const view = render(<MessageItem t={t} node={{
+      kind: 'context', seq: 3, content,
+      source: { kind: 'agent-message', form: 'relay', senderSessionId: 'child-7' },
+      producer: { role: 'inject', label: 'agent-message' }, form: 'relay',
+    } as never} />)
+    expect(view.container.querySelector('[data-context-summary]')?.textContent ?? null).toBe(preview)
   })
 
   it('a recall reports how much of each source session survived the read', () => {

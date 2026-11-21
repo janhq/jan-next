@@ -319,7 +319,7 @@ export interface Config {
 - `source`: [`packages/api/workspace-controller/src/index.ts:37`](../packages/api/workspace-controller/src/index.ts)
 
 ```ts config-catalog
-/** First-use directory policy for the Host account. */
+/** Default project directory policy for the Host account. */
 export interface Config {
   /** Override the system Documents directory with a fully qualified path. */
   documentsDirectory?: string
@@ -3034,7 +3034,7 @@ export interface Config {
 ## `@janhq/jan-schedule`
 
 - `inject`: `agents` · `sessions` · `storageDomain` · `sessionPersistence`
-- `source`: [`packages/schedule/schedule/src/index.ts:83`](../packages/schedule/schedule/src/index.ts)
+- `source`: [`packages/schedule/schedule/src/index.ts:84`](../packages/schedule/schedule/src/index.ts)
 
 ```ts config-catalog
 /** Configuration for the Host Schedule domain. */
