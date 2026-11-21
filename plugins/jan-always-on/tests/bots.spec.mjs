@@ -28,6 +28,18 @@ test('persists identities, project bindings and separate personas; duplicates ge
   assert.equal(await restored.persona(second.id), 'Write concise replies.')
 })
 
+test('adopts a conversation once and duplicates it into a new canonical session', async t => {
+  const home = await setup(t)
+  const registry = await openBots(home)
+  const sourceSessionId = 'existing-chat'
+  const input = { name: 'Dawn', workspaceId: 'project-a', sourceSessionId }
+  const bot = await registry.create(input, candidate => assert.equal(candidate.sessionId, sourceSessionId))
+  await assert.rejects(() => registry.create(input), /bot-session-conflict/u)
+  const restored = await openBots(home)
+  assert.equal(restored.forSession(sourceSessionId).id, bot.id)
+  assert.notEqual((await restored.duplicate(bot.id, 'Dawn copy')).sessionId, sourceSessionId)
+})
+
 test('remembers migration after Jan is deleted and never removes an old queue during adoption', async t => {
   const home = await setup(t)
   const previous = join(home, 'always-on')
