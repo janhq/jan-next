@@ -297,7 +297,7 @@ it.each(['new_once', 'new'] as const)('refuses a queued %s destination when its 
   expect(await test.service.catalog()).toMatchObject([{ target: { kind: 'session' } }])
 })
 
-it('rejects invalid rules, empty creation values, empty updates, and pagination outside the supported range', async () => {
+it('rejects invalid rules, invalid creation values, empty updates, and pagination outside the supported range', async () => {
   const { service } = await setup()
   await expect(service.remoteCreate({
     title: 'Floating', prompt: 'No zone',
@@ -305,8 +305,8 @@ it('rejects invalid rules, empty creation values, empty updates, and pagination 
   })).rejects.toMatchObject({
     code: 'schedule/input-invalid', message: expect.stringContaining('explicit TZID') as string, details: { code: 'invalid_rule' },
   })
-  for (const create of [{ cwd: '' }, { agentPreset: '' }]) {
-    await expect(service.remoteCreate({ title: 'Empty', prompt: 'Empty', timing: { kind: 'rrule', rrule: daily }, target: { kind: 'new_once', create } }))
+  for (const create of [{ cwd: '' }, { cwd: 'relative/project' }, { agentPreset: '' }]) {
+    await expect(service.remoteCreate({ title: 'Invalid', prompt: 'Invalid', timing: { kind: 'rrule', rrule: daily }, target: { kind: 'new_once', create } }))
       .rejects.toMatchObject({ code: 'schedule/input-invalid', details: { code: 'invalid_rule' } })
   }
   const created = await service.remoteCreate({ title: 'Valid', prompt: 'Valid', timing: { kind: 'rrule', rrule: daily }, target: { kind: 'new' } })
