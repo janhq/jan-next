@@ -1,8 +1,9 @@
+import { execFileSync } from 'node:child_process'
 import { mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, it, onTestFinished } from 'vitest'
-import { mountProjectHome } from '../project-home.mjs'
+import { mountProjectHome, repositoryOf } from '../project-home.mjs'
 
 type Reply = { status: number; body: { error?: string; result?: unknown } }
 type Request = AsyncIterable<Buffer> & { method: 'POST'; headers: { 'content-type': string } }
@@ -78,4 +79,23 @@ it.skipIf(process.platform === 'win32')('lists a circular symlink without losing
     instructions: 'project instructions\n',
     files: expect.arrayContaining([expect.objectContaining({ name: 'loop' })]),
   })
+})
+
+it('reads the branch and a browsable origin of a Git project, and nothing outside one', async () => {
+  const { root, call } = await projectHome()
+  expect((await call('read')).body.result).toMatchObject({ git: null })
+  execFileSync('git', ['-C', root, 'init', '-q', '-b', 'feature/x'])
+  execFileSync('git', ['-C', root, 'remote', 'add', 'origin', 'git@github.com:janhq/jan.git'])
+  expect((await call('read')).body.result).toMatchObject({
+    git: { branch: 'feature/x', repository: { host: 'github.com', name: 'janhq/jan', url: 'https://github.com/janhq/jan', github: true } },
+  })
+})
+
+it('turns common remote forms into a web address and rejects the rest', () => {
+  expect(repositoryOf('https://github.com/janhq/jan.git')?.url).toBe('https://github.com/janhq/jan')
+  expect(repositoryOf('ssh://git@gitlab.example.com:2222/team/sub/app.git')).toEqual(
+    { host: 'gitlab.example.com', name: 'team/sub/app', url: 'https://gitlab.example.com/team/sub/app', github: false })
+  expect(repositoryOf('https://user:[PASSWORD_IN_URL]@github.com/janhq/jan')?.url).toBe('https://github.com/janhq/jan')
+  expect(repositoryOf('/srv/git/local.git')).toBeNull()
+  expect(repositoryOf('../sibling')).toBeNull()
 })

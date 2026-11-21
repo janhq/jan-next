@@ -14,7 +14,7 @@ window.__ModuleLoader__.load({
       NavRow, SectionHeading, ColorSwatchGroup, ProjectCard, WindowControls,
       Modal, ShortcutKeys, FileTypeIcon, rankByName, IconSparkleRegular, IconRightUpOutlineRegular,
       IconWarningTriangleOutlineRegular, IconCloseOutlineRegular, IconSendOutlineRegular,
-      IconLinkOutlineRegular, IconUserOutlineMedium, IconCopyOutlineRegular, IconFolderOpenOutlineRegular,
+      IconLinkOutlineRegular, IconUserOutlineMedium, IconCopyOutlineRegular, IconFolderOpenOutlineRegular, IconBranchOutlineRegular,
     } = require('@janhq/jan-client-ui-primitives')
     const { workspaceDisplayTitle } = require('@janhq/jan-api-workspace-controller/client')
     // Optional: the matching host publishes the dock model seat. An older
@@ -569,6 +569,13 @@ window.__ModuleLoader__.load({
   .jt-project-path-action { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: var(--dsw-radius-sm); background: transparent; color: var(--dsw-alias-label-tertiary); cursor: pointer; }
   .jt-project-path-action:hover { background: var(--dsw-specific-selector); color: var(--dsw-alias-label-primary); }
   .jt-project-path-action[data-done] { color: var(--dsw-alias-label-primary); }
+  .jt-project-git { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: -16px 0 24px; }
+  .jt-project-git-chip { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; height: 26px; padding: 0 10px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 999px; background: transparent; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 12px; line-height: 16px; text-decoration: none; }
+  .jt-project-git-chip > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .jt-project-git-chip svg { flex: none; }
+  a.jt-project-git-chip { cursor: pointer; }
+  a.jt-project-git-chip:hover { background: var(--dsw-specific-selector); color: var(--dsw-alias-label-primary); }
+  a.jt-project-git-chip:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }
   .jt-project-composer { display: flex; flex-direction: column; gap: 8px; padding: 12px 12px 10px 16px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 16px; background: var(--dsw-alias-bg-base); box-shadow: 0 1px 2px rgb(0 0 0 / 0.04); }
   .jt-project-composer:focus-within { border-color: var(--dsw-alias-state-business-primary); }
   .jt-project-composer textarea { box-sizing: border-box; width: 100%; min-height: 56px; max-height: 240px; padding: 4px 0; border: 0; outline: 0; resize: none; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 14px; line-height: 20px; field-sizing: content; }
@@ -1322,6 +1329,25 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       }
     }
 
+    // GitHub's mark (Octicons `mark-github`, MIT), drawn in the text color so it follows the theme.
+    const GitHubMark = () => h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', fill: 'currentColor', 'aria-hidden': true },
+      h('path', { d: 'M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z' }))
+
+    /** The project's branch and its origin repository, which opens in the browser. */
+    function GitChips({ git, t }) {
+      const { branch, repository } = git
+      if (branch === null && repository === null) return null
+      return h('div', { className: 'jt-project-git', 'data-project-git': true },
+        repository !== null && h('a', {
+          className: 'jt-project-git-chip', href: repository.url, target: '_blank', rel: 'noreferrer',
+          title: t('project.git.open', { name: repository.name, host: repository.host }),
+          'aria-label': t('project.git.open', { name: repository.name, host: repository.host }),
+        }, repository.github ? h(GitHubMark) : h(IconLinkOutlineRegular, { size: 14, 'aria-hidden': true }),
+        h('span', null, repository.name), h(IconRightUpOutlineRegular, { size: 12, 'aria-hidden': true })),
+        branch !== null && h('span', { className: 'jt-project-git-chip', title: t('project.git.branch') },
+          h(IconBranchOutlineRegular, { size: 14, 'aria-hidden': true }), h('span', null, branch)))
+    }
+
     function ProjectDetails({ workspace, useArchived, useSessions, useScheduleTasks, startSession, openChat, backToProjects, createSchedule, openScheduled, t }) {
       const { workspaceId } = workspace
       const title = workspaceDisplayTitle(workspace, t('workspace.defaultName'))
@@ -1402,6 +1428,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
             h('button', {
               type: 'button', className: 'jt-project-path-action', 'aria-label': t('project.openFolder'), title: t('project.openFolder'), onClick: openFolder,
             }, h(IconFolderOpenOutlineRegular, { size: 14, 'aria-hidden': true }))),
+          details?.git && h(GitChips, { git: details.git, t }),
           h('form', { className: 'jt-project-composer', onSubmit: (event) => { event.preventDefault(); send() } },
             h('textarea', {
               value: draft, rows: 2, 'aria-label': t('project.newSession', { name: title }),
@@ -1846,6 +1873,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.openFolder': "Open folder",
               'project.copyPath': "Copy path",
               'project.pathCopied': "Path copied",
+              'project.git.branch': "Current branch",
+              'project.git.open': "Open {name} on {host}",
               'project.memory': "Memory",
               'project.memory.empty': "Notes the agent keeps about this project.",
               'project.memory.description': "Private notes every new session in this project reads after its instructions.",
@@ -1917,6 +1946,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.openFolder': "打开文件夹",
               'project.copyPath': "复制路径",
               'project.pathCopied': "已复制路径",
+              'project.git.branch': "当前分支",
+              'project.git.open': "在 {host} 上打开 {name}",
               'project.memory': "记忆",
               'project.memory.empty': "智能体为此项目保存的笔记。",
               'project.memory.description': "此项目中的每个新会话在读取说明后都会读取这些私人笔记。",
@@ -1991,6 +2022,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.openFolder': "フォルダーを開く",
               'project.copyPath': "パスをコピー",
               'project.pathCopied': "パスをコピーしました",
+              'project.git.branch': "現在のブランチ",
+              'project.git.open': "{host} で {name} を開く",
               'project.memory': "メモリー",
               'project.memory.empty': "このプロジェクトについてエージェントが残すメモ。",
               'project.memory.description': "このプロジェクトの新しいセッションが指示の後に読む非公開のメモです。",
@@ -2065,6 +2098,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.openFolder': "Abrir carpeta",
               'project.copyPath': "Copiar ruta",
               'project.pathCopied': "Ruta copiada",
+              'project.git.branch': "Rama actual",
+              'project.git.open': "Abrir {name} en {host}",
               'project.memory': "Memoria",
               'project.memory.empty': "Notas que el agente guarda sobre este proyecto.",
               'project.memory.description': "Notas privadas que cada sesión nueva de este proyecto lee después de sus instrucciones.",
@@ -2139,6 +2174,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.openFolder': "Ouvrir le dossier",
               'project.copyPath': "Copier le chemin",
               'project.pathCopied': "Chemin copié",
+              'project.git.branch': "Branche actuelle",
+              'project.git.open': "Ouvrir {name} sur {host}",
               'project.memory': "Mémoire",
               'project.memory.empty': "Notes que l'agent garde sur ce projet.",
               'project.memory.description': "Notes privées que chaque nouvelle séance de ce projet lit après ses instructions.",
@@ -2213,6 +2250,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.openFolder': "Ordner öffnen",
               'project.copyPath': "Pfad kopieren",
               'project.pathCopied': "Pfad kopiert",
+              'project.git.branch': "Aktueller Branch",
+              'project.git.open': "{name} auf {host} öffnen",
               'project.memory': "Gedächtnis",
               'project.memory.empty': "Notizen, die der Agent zu diesem Projekt führt.",
               'project.memory.description': "Private Notizen, die jede neue Sitzung in diesem Projekt nach den Anweisungen liest.",
@@ -2287,6 +2326,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.openFolder': "Открыть папку",
               'project.copyPath': "Копировать путь",
               'project.pathCopied': "Путь скопирован",
+              'project.git.branch': "Текущая ветка",
+              'project.git.open': "Открыть {name} на {host}",
               'project.memory': "Память",
               'project.memory.empty': "Заметки агента об этом проекте.",
               'project.memory.description': "Личные заметки, которые каждая новая сессия в этом проекте читает после инструкций.",
@@ -2361,6 +2402,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.openFolder': "Abrir pasta",
               'project.copyPath': "Copiar caminho",
               'project.pathCopied': "Caminho copiado",
+              'project.git.branch': "Branch atual",
+              'project.git.open': "Abrir {name} em {host}",
               'project.memory': "Memória",
               'project.memory.empty': "Anotações que o agente mantém sobre este projeto.",
               'project.memory.description': "Anotações privadas que cada nova sessão neste projeto lê depois das instruções.",
