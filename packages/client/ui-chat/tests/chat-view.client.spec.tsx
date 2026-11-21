@@ -293,6 +293,9 @@ type ToolOwner = Pick<ChatNodeOwnerProps, 'openFile' | 'inspectCall'> & {
 const renderCommandSlot: React.ComponentProps<typeof CommandNodeView>['renderSlot'] =
   (_key, _owner, opts) => opts?.fallback ?? null
 const renderTurnTailSlot: React.ComponentProps<typeof TurnTailNodeView>['renderSlot'] = () => null
+// A plugin action that answers only one failure code, so other failure rows render as shipped.
+const renderTurnErrorSlot: React.ComponentProps<typeof TurnErrorNodeView>['renderSlot'] = (_key, owner) =>
+  owner.code === 'PLUGIN_HANDLED' ? <button type="button">{`Report turn ${String(owner.turn)} at ${String(owner.seq)}`}</button> : null
 
 function HarnessChatFlow({ standard, owner, hookContext, renderSlot, useConnectionState }: {
   readonly standard: HarnessStandardProps
@@ -358,7 +361,7 @@ function HarnessChatNode({
     case 'turn-error':
       return <TurnErrorNodeView {...nodeProps} node={owner.node} useSettingsAvailability={selector => selector(true)}
         useContinuation={selector => selector(standard.continuation ?? null)}
-        openModelsSettings={standard.openModelsSettings} />
+        openModelsSettings={standard.openModelsSettings} renderSlot={renderTurnErrorSlot} />
     case 'turn-max-tokens':
       return <TurnMaxTokensNodeView {...nodeProps} node={owner.node} />
     case 'turn-process':
@@ -2762,6 +2765,14 @@ describe('ChatView', () => {
     expect(row.textContent).not.toContain('API key is invalid')
     fireEvent.click(view.getByRole('button', { name: zh['message.failure.retry'] }))
     expect(retry).toHaveBeenCalledExactlyOnceWith(2)
+  })
+
+  it('shows plugin actions on the failure they answer, and leaves other failure rows unchanged', () => {
+    const h = makeHarness({ nodes: [user(1, 'ask'), turnError(2, 'PLUGIN_HANDLED'), turnError(3, 'AUTH')] })
+    const view = render(<h.ChatView {...h.props} />)
+    const [handled, other] = view.getAllByRole('status')
+    expect(within(handled as HTMLElement).getByRole('button', { name: 'Report turn 1 at 2' })).toBeTruthy()
+    expect((other as HTMLElement).querySelector('[data-turn-error-actions]')).toBeNull()
   })
 
   it('offers no retry on a transient failure a newer turn has already replaced', () => {

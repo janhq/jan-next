@@ -91,6 +91,7 @@ export function registerChatNodeRenderers(
     { name: 'conversation.chat.node', key: 'model-switch', locale: NS }, ModelSwitchNodeView))
   ctx.slots.inject('conversation.chat.node', () => ctx.slots.register(
     { name: 'conversation.chat.node', key: 'turn-error', locale: NS,
+      children: { 'conversation.chat.turn-error-actions': { kind: 'list', scope: 'session' } },
       inject: (sessionId: SessionId) => {
         const recovery: ContextRecovery = {
           modelFor: () => {

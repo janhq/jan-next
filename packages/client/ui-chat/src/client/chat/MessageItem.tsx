@@ -6,7 +6,8 @@ import type { ObservableSnapshot } from '@janhq/jan-client-store'
 import type { UserTextFacts } from '@janhq/jan-client-ui-conversation/client'
 import { JsonBlock, StateDot, TextShimmer } from '@janhq/jan-client-ui-primitives'
 import type {
-  ChatNodeOwnerProps, ChatNodeViewProps, ChatViewSlotProps, UserContentAttachment, UserContentData, UserContentInput,
+  ChatNodeOwnerProps, ChatNodeViewProps, ChatViewSlotProps, TurnErrorActionOwnerProps, UserContentAttachment, UserContentData,
+  UserContentInput,
 } from '../contract/slots.ts'
 import type { ModelSwitchChatData } from '../contract/chat-nodes.ts'
 import type { ModelRetryNode, TurnErrorNode, UserMessageNode } from '../contract/snapshot.ts'
@@ -186,7 +187,7 @@ function FailureDetail({ failure, t }: { failure: string; t: ChatViewSlotProps['
 }
 
 /** Persistent, turn-positioned feedback for a terminal failure. */
-function TurnErrorItem({ node, t, canOpenModelsSettings, openModelsSettings, recovery, current }: {
+function TurnErrorItem({ node, t, canOpenModelsSettings, openModelsSettings, recovery, current, actions }: {
   node: TurnErrorNode
   t: ChatViewSlotProps['t']
   canOpenModelsSettings: boolean
@@ -194,6 +195,8 @@ function TurnErrorItem({ node, t, canOpenModelsSettings, openModelsSettings, rec
   recovery: ContextRecovery | undefined
   /** True while a retry would answer this very failure. */
   current: boolean
+  /** Plugin actions after the card's own recovery actions. */
+  actions: ReactNode
 }) {
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string>()
@@ -261,6 +264,7 @@ function TurnErrorItem({ node, t, canOpenModelsSettings, openModelsSettings, rec
           </button>)}
         {notice !== undefined && <span className={css.turnErrorNote}>{notice}</span>}
         {error !== undefined && <span className={css.turnErrorNote} role="alert">{error}</span>}
+        {actions !== null && <span className={css.turnErrorActions} data-turn-error-actions="">{actions}</span>}
       </div>
       {node.code !== undefined && node.code !== 'INTERRUPTED' && <code className={css.turnErrorCode}>{node.code}</code>}
     </div>
@@ -514,12 +518,17 @@ export const ModelSwitchNodeView = memo(function ModelSwitchNodeView({ node, t }
 
 /** Terminal turn-error keyed Chat renderer. */
 export const TurnErrorNodeView = memo(function TurnErrorNodeView({
-  node, t, useSettingsAvailability, useContinuation, openModelsSettings, recovery,
-}: ChatNodeViewProps<'turn-error'> & InjectFace<TurnErrorInjected>) {
+  node, t, useSettingsAvailability, useContinuation, openModelsSettings, recovery, renderSlot,
+}: ChatNodeViewProps<'turn-error'> & InjectFace<TurnErrorInjected> & PropsRenderSlots<'conversation.chat.turn-error-actions'>) {
   const canOpenModelsSettings = useSettingsAvailability(available => available)
   const current = useContinuation(ending => (typeof ending === 'number' ? ending : ending?.overflow) === node.data.seq)
-  return <TurnErrorItem node={node.data} t={t} canOpenModelsSettings={canOpenModelsSettings}
-    openModelsSettings={openModelsSettings} recovery={recovery} current={current} />
+  const data = node.data
+  const owner: TurnErrorActionOwnerProps = {
+    seq: data.seq, turn: data.turn, message: data.message, ...(data.code === undefined ? {} : { code: data.code }),
+  }
+  return <TurnErrorItem node={data} t={t} canOpenModelsSettings={canOpenModelsSettings}
+    openModelsSettings={openModelsSettings} recovery={recovery} current={current}
+    actions={renderSlot('conversation.chat.turn-error-actions', owner)} />
 })
 
 /** Max-tokens turn-end notice keyed Chat renderer. */

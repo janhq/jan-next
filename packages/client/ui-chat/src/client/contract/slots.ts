@@ -82,6 +82,17 @@ export interface AssistantActionOwnerProps {
   text: string
 }
 
+/** Owner currency of actions on a terminal turn failure. */
+export interface TurnErrorActionOwnerProps {
+  /** Seq of the failed turn's `turn/end` event. */
+  seq: number
+  turn: number
+  /** Stable failure code, or the Client display code (`ACCOUNT_SIGNED_OUT`, `INTERRUPTED`), when one is known. */
+  code?: string
+  /** Sanitized failure message; empty when a known code owns localized copy. */
+  message: string
+}
+
 /** Stable quota failure codes retained in the Session log; both raise the frame-wide notice. */
 export type QuotaNoticeCode = 'QUOTA' | 'ACCOUNT_QUOTA'
 
@@ -525,6 +536,13 @@ declare module '@janhq/jan-client-ui-slots' {
      * that entry. With no entries, the standard action row remains unchanged.
      */
     'conversation.chat.assistant-actions': { kind: 'list'; scope: 'session'; owner: AssistantActionOwnerProps }
+    /**
+     * Ordered actions on a terminal turn failure, after the card's own recovery
+     * actions. Each entry receives the failed turn and its failure; a fresh `id`
+     * adds an action, and an entry with nothing to offer returns null. With no
+     * entries, the failure card is unchanged.
+     */
+    'conversation.chat.turn-error-actions': { kind: 'list'; scope: 'session'; owner: TurnErrorActionOwnerProps }
     /**
      * Frame-wide quota notice chain. The Chat-owned host in `shell.overlay`
      * offers the one live notice; the first entry whose selector claims its
