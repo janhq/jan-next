@@ -6,7 +6,7 @@
  * Every call names a Workspace id, never a path, so only registered project
  * folders are reachable.
  */
-import { readFile, readdir, lstat, writeFile, rename, unlink, open, mkdir } from 'node:fs/promises'
+import { readFile, readdir, lstat, stat, writeFile, rename, unlink, open, mkdir } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { spawn } from 'node:child_process'
@@ -33,6 +33,20 @@ async function readText(path) {
     if (error?.code === 'ENOENT') return ''
     throw error
   }
+}
+
+/** The file's modification time, or null while it does not exist; the editor's save precondition. */
+async function modifiedAt(path) {
+  try { return (await stat(path)).mtimeMs } catch (error) {
+    if (error?.code === 'ENOENT') return null
+    throw error
+  }
+}
+
+function textFile(ctx, workspaceId, kind) {
+  const file = Object.hasOwn(FILES, kind) ? FILES[kind] : undefined
+  if (file === undefined) throw new Error('Choose instructions or memory.')
+  return join(projectPath(ctx, workspaceId), file)
 }
 
 /** Replace a file through a temporary sibling, so a failed write never leaves half a file. */
@@ -86,12 +100,19 @@ export function mountProjectHome(ctx) {
       ])
       return { path: root, instructions, memory, ...listing, maxTextBytes: MAX_TEXT_BYTES }
     },
-    async save({ workspaceId, kind, text }) {
-      const file = FILES[kind]
-      if (file === undefined || typeof text !== 'string') throw new Error('Choose instructions or memory to save.')
+    /** One instruction file and its modification time, read fresh when the editor opens. */
+    async readText({ workspaceId, kind }) {
+      const target = textFile(ctx, workspaceId, kind)
+      const [text, modified] = await Promise.all([readText(target), modifiedAt(target)])
+      return { text, modified }
+    },
+    /** Save only over the version the editor opened (`modified`, null for a file that did not exist). */
+    async save({ workspaceId, kind, text, modified }) {
+      if (typeof text !== 'string' || (modified !== null && typeof modified !== 'number')) throw new Error('Choose instructions or memory to save.')
+      const target = textFile(ctx, workspaceId, kind)
       const contents = text.endsWith('\n') ? text : `${text}\n`
       if (Buffer.byteLength(contents) > MAX_TEXT_BYTES) throw new Error(`Keep this under ${MAX_TEXT_BYTES / 1024} KB; the agent reads no more than that.`)
-      const target = join(projectPath(ctx, workspaceId), file)
+      if (await modifiedAt(target) !== modified) throw new Error('This file changed elsewhere. Close the editor and open it again before saving.')
       // An emptied file is removed rather than left behind as an empty AGENTS.md.
       if (text.trim() === '') await unlink(target).catch((error) => { if (error?.code !== 'ENOENT') throw error })
       else await writeAtomic(target, contents)
