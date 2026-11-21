@@ -18,7 +18,7 @@ import type { ForgeChangeRequestListState, ForgeChangeRequestStatesFrame, ForgeP
 import { ReviewQueue } from './review-queue.ts'
 import { formatReviewComment, type ReviewSelection } from './review.ts'
 import { ActionToast } from './ActionToast.tsx'
-import { CHANGES_ID, changesDefinition } from './changes-address.ts'
+import { CHANGES_ID, changesAddress, changesDefinition } from './changes-address.ts'
 import { createChangesStore } from './changes-store.ts'
 import { ChangesTab, type ChangesTabInjected } from './ChangesTab.tsx'
 import { ChangesTabTitle } from './ChangesTabTitle.tsx'
@@ -33,6 +33,7 @@ import {
   createNoticeSource, createPanelSource, createStreamSource, createVisibilitySource, foldStates, type PanelSource, type VisibilitySource,
 } from './source.ts'
 import { numberOf } from './status.ts'
+import { GitStrip, type GitStripInjected } from './GitStrip.tsx'
 import { WorktreeProgress, type WorktreeProgressInjected } from './WorktreeProgress.tsx'
 import { WorktreeToggle, type WorktreeToggleInjected } from './WorktreeToggle.tsx'
 
@@ -310,6 +311,14 @@ function registerUi(ctx: Context): void {
   ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
     name: 'conversation.input.dock', id: 'forge-panel.worktree', order: 5, locale: NS, inject: progressFace,
   }, WorktreeProgress))
+  // Branch and local line counts right above the composer, only inside a Git checkout.
+  ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
+    name: 'conversation.input.dock', id: 'forge-panel.git', order: 10, locale: NS,
+    inject: (sessionId: SessionId): GitStripInjected => ({
+      hooks: { panel: storesOf(sessionId).panel.hooks.panel },
+      viewChanges: () => { ctx.sidebarRight.openResourceIn(sessionId, changesAddress({ sessionId, source: { kind: 'local' } })) },
+    }),
+  }, GitStrip))
   ctx.slots.inject('shell.overlay', () => ctx.slots.register({
     name: 'shell.overlay', id: 'forge-panel.toast', locale: NS,
     inject: () => ({ hooks: notices.hooks, dismiss: notices.dismiss }),
