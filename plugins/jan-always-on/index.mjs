@@ -7,7 +7,7 @@ export const name = 'jan-always-on'
 export const inject = ['janHomePath', 'webServer', 'connection', 'schedule', 'agents', 'agentDefaultModel', 'permissionPresets', 'approval',
   'sessions', 'sessionPersistence', 'tools', 'settings']
 export const Config = schema.object({ enabled: schema.boolean().default(false).volatile() })
-const EMPTY = { paused: true, events: [], approvals: [], outbox: [] }
+const EMPTY = { paused: true, activeRun: null, lastRun: null, lastDeliveryAgeMs: null, events: [], approvals: [], outbox: [] }
 const EMPTY_MEMORY = ['index.md', 'instructions.md', 'reported.md']
 
 function text(value, limit) {
@@ -27,9 +27,12 @@ export function apply(ctx, config) {
       else res.write(line)
     }
   }
+  function activityChanged() {
+    if (watchers.size) emit({ kind: 'changed', revision: ++revision })
+  }
   function changed() {
     clock?.wake()
-    if (watchers.size) emit({ kind: 'changed', revision: ++revision })
+    activityChanged()
   }
   function report(error) { ctx.logger.warn('always-on: %s', String(error)) }
   async function activate() {
@@ -42,7 +45,7 @@ export function apply(ctx, config) {
         const directory = join(home, 'always-on')
         const delivery = new AgentDelivery(ctx)
         const run = runWithJan(ctx, localMemory, delivery, () => runtime, directory, schedule)
-        const queue = openBackground({ directory, changed, run, report,
+        const queue = openBackground({ directory, changed, activityChanged, run, report,
           approvalPending: id => { if (watchers.size) emit({ kind: 'approval', id }) },
           async notify(message) {
             if (!watchers.size) return 'waiting'
@@ -73,9 +76,7 @@ export function apply(ctx, config) {
     const timing = repeat ? { kind: 'every', every_seconds: delay } : { kind: 'after', after_seconds: delay }
     return ctx.schedule.createPluginTask({ title, prompt, timing }, { owner: name, key, payload: progressPath }, signal)
   }
-  ctx.effect(() => ctx.on('schedule/changed', () => {
-    if (watchers.size) emit({ kind: 'changed', revision: ++revision })
-  }), 'always-on Scheduled changes')
+  ctx.effect(() => ctx.on('schedule/changed', activityChanged), 'always-on Scheduled changes')
   ctx.effect(() => registerApi(ctx, 'always-on', {
     async state() {
       if (opening) await opening
