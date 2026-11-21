@@ -75,6 +75,8 @@ async function launchElectron(): Promise<void> {
     ELECTRON_ENABLE_LOGGING: process.env.ELECTRON_ENABLE_LOGGING ?? '1',
     JAN_LLAMA_WORKER: process.env.JAN_LLAMA_WORKER
       ?? join(REPOSITORY_ROOT, 'native', 'llama-worker', 'dist', process.platform === 'win32' ? 'jan-llama-worker.exe' : 'jan-llama-worker'),
+    // `scripts/build-host-runtime.ts` writes here; Hosts reports none shipped when it is empty.
+    JAN_HOST_RUNTIME_DIR: process.env.JAN_HOST_RUNTIME_DIR ?? join(REPOSITORY_ROOT, 'dist-host-runtime'),
   }
   console.log(`desktop development: JAN_HOME=${home}`)
   console.log(`desktop development: userData=${userData}`)
