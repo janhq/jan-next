@@ -13,6 +13,8 @@ type Plugin = { apply(ctx: object): void }
 const rows = [
   { workspaceId: 'alpha', title: 'Alpha', path: '/work/Foo', sessionIds: ['linked'], updatedAt: '2026-01-01' },
   { workspaceId: 'beta', title: 'Beta', path: '/work/foo', sessionIds: [], updatedAt: '2026-01-02' },
+  { workspaceId: 'default', title: 'default-workspace', path: '/work/default-workspace', sessionIds: [], updatedAt: '2026-01-03', isDefault: true },
+  { workspaceId: 'manual', title: 'default-workspace', path: '/manual/default-workspace', sessionIds: [], updatedAt: '2026-01-04' },
 ]
 const workspaces = { items: rows, archivedSessionIds: [] }
 const source = <T,>(value: T): Source<T> => ({ getSnapshot: () => value, subscribe: () => () => {} })
@@ -26,6 +28,9 @@ beforeAll(async () => {
       loadPlugin = () => factory((name) => {
         if (name === 'react') return React
         if (name === '@janhq/jan-client-ui-model-selection/client') return {}
+        if (name === '@janhq/jan-api-workspace-controller/client') return {
+          workspaceDisplayTitle: (row: typeof rows[number], defaultName: string) => row.isDefault === true && row.title === 'default-workspace' ? defaultName : row.title,
+        }
         return new Proxy({}, { get: (_, property) => {
           if (property === 'Button') return ({ children, disabled, onClick }: React.ComponentProps<'button'>) =>
             <button type="button" disabled={disabled} onClick={onClick}>{children}</button>
@@ -156,6 +161,18 @@ it('shows only tasks in the selected case-sensitive project or linked to one of 
     await screen.findByText('Alpha task')
     expect(screen.queryByText('Beta task')).toBeNull()
     expect(screen.getByText('Linked chat task')).toBeTruthy()
+  } finally { app.unmount() }
+})
+
+it('labels the automatic default project by its feed identity on the project page', () => {
+  vi.stubGlobal('fetch', vi.fn(async () => reply(text(''))))
+  const app = theme()
+  try {
+    app.openProject('default')
+    app.renderEntry('jt-project')
+    expect(screen.getByRole('heading', { name: 'workspace.defaultName' })).toBeTruthy()
+    act(() => { app.openProject('manual') })
+    expect(screen.getByRole('heading', { name: 'default-workspace' })).toBeTruthy()
   } finally { app.unmount() }
 })
 

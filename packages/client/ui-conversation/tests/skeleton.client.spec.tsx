@@ -913,6 +913,15 @@ describe('ConversationRoot resident composer', () => {
     expect(b.view.getByText('one')).toBeTruthy()
   })
 
+  it.each([
+    { project: { ...workspace('default'), title: 'default-workspace', isDefault: true as const }, label: '默认工作区' },
+    { project: { ...workspace('manual'), title: 'default-workspace' }, label: 'default-workspace' },
+    { project: { ...workspace('renamed'), isDefault: true as const }, label: 'renamed' },
+  ])('shows $label for the selected project', ({ project, label }) => {
+    const b = mount(sessionSnapshotOf({ blank: true }), [{ ...project, sessionIds: [SID] }])
+    expect(b.view.getByRole('button', { name: '选择工作区' }).textContent).toContain(label)
+  })
+
   it('blank session keeps the interactive picker chip (workspace switchable until the first message)', () => {
     const b = mount(sessionSnapshotOf({ blank: true }))
     const chip = b.view.getByRole('button', { name: '选择工作区' })
