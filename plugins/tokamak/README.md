@@ -11,9 +11,9 @@ The desktop bundle mounts it as the `jan-tokamak` row, together with the compose
 | Ask for a picture, or a change to an image in the folder | `generate_image` / `edit_image` save it under `images/` and the agent presents it | `POST /images/generations`, `POST /images/edits` |
 | Ask for a voice-over or an audio version of text | `text_to_speech` saves a WAV under `audio/` | `POST /audio/speech` |
 | Ask for the text of a recording in the folder | `transcribe_audio` returns the transcript | `POST /audio/transcriptions` |
-| Press the microphone in the composer | the recording is transcribed into the draft | `POST /audio/transcriptions` |
+| Choose Tokamak as the recognition service in Voice Input and dictate | the recording is transcribed into the draft | `POST /audio/transcriptions` |
 | Press Read aloud under a reply | the reply is read in parts of up to 3,800 characters, the next part fetched while one plays | `POST /audio/speech` |
-| Press Talk to Jan in the composer | a WebRTC voice conversation; on End, what both sides said is added to the draft | `POST /realtime/client_secrets`, `POST /realtime/calls` |
+| Open Voice options beside the mic and choose Talk to Jan | a WebRTC voice conversation; on End, what both sides said is added to the draft | `POST /realtime/client_secrets`, `POST /realtime/calls` |
 | Ask for triage, routing or a score | `classify` returns calibrated answers | `POST /systemone` |
 
 | Field | Default | Meaning |
