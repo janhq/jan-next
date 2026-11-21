@@ -22,6 +22,10 @@
       "types": "./lib/types/client/index.d.ts",
       "default": "./lib/client.js"
     },
+    "./links": {
+      "types": "./lib/types/links-projection.d.ts",
+      "default": "./lib/types/links-projection.js"
+    },
     "./src/*": "./src/*",
     "./package.json": "./package.json",
     "./locale/*.json": "./locale/*.json"
@@ -72,6 +76,7 @@
     "react": "^18.2.0",
     "@janhq/jan-client-ui-primitives": "workspace:*",
     "@janhq/jan-session": "workspace:*",
+    "@janhq/jan-session-projection": "workspace:*",
     "@janhq/jan-system-prompt": "workspace:*",
     "@janhq/jan-session-query": "workspace:*",
     "@janhq/jan-llm": "workspace:*",
@@ -99,6 +104,7 @@
   ],
   "dependencies": {
     "@janhq/jan-tool-present": "workspace:*",
-    "@janhq/jan-typert-protocol": "workspace:*"
+    "@janhq/jan-typert-protocol": "workspace:*",
+    "zod": "4.6.6"
   }
 }
