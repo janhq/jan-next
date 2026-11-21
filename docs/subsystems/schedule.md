@@ -5,14 +5,14 @@ Schedule stores Host tasks independently of Session activation. One management A
 <a id="durable-tasks"></a>
 ## Durable tasks
 
-The plugin README owns the current [v2 task schema, v1 defaults, and persisted JSON example](../../packages/schedule/schedule/README.md#storage-format). The domain retains its name, routing, and whole-unit layout. All seven timing kinds remain authoritative; normalization preserves committed occurrences and does not convert Cron into RRULE.
+The plugin README owns the [current task schema, historical defaults, and persisted JSON example](../../packages/schedule/schedule/README.md#storage-format). The domain retains its name, routing, and whole-unit layout. All seven timing kinds remain authoritative; normalization preserves committed occurrences and does not convert Cron into RRULE.
 
 Malformed storage, invalid rows, mismatched task keys, and unsupported versions reject before tasks activate. Failed opening leaves the medium unchanged. An absent file starts empty. Missing target Sessions remain visible in management; reading a task never activates its Session.
 
 <a id="storage-versioning"></a>
 ## Storage versioning
 
-The README defines [when tasks upgrade](../../packages/schedule/schedule/README.md#storage-format), SQLite's unchanged physical schema, mutation costs, and a future compatible v3. `compatibleVersions` admits old unit stamps for current decoding; normal edits and delivery persist current rows. Reads leave storage unchanged. The shared [domain version policy](storage.md#domain-versioning) applies to both JSON and SQLite.
+The README defines [when tasks upgrade](../../packages/schedule/schedule/README.md#storage-format), SQLite's unchanged physical schema, and mutation costs. `compatibleVersions` admits old unit stamps for current decoding; normal edits and delivery persist current rows. Reads leave storage unchanged. The shared [domain version policy](storage.md#domain-versioning) applies to both JSON and SQLite.
 
 <a id="recurrence-rules"></a>
 ## Recurrence rules
@@ -79,7 +79,7 @@ Custom RRULE text retains its `DTSTART` zone. The model-facing tools continue to
 | `new_once` | Reserve a Session id before first delivery, create that exact Session when needed, then store `session` and reuse it. Retries and restart keep the reservation. |
 | `new` | Create a Session per delivery. Persist `pendingDelivery.targetSessionId` before creation so a failed attempt retries the same Session. |
 
-An omitted creation target defaults to `new_once`. Adding or replacing a `new` or `new_once` target requires the embedding's Session creation provider. SDK compositions without it reject those requests with `invalid_rule` before saving; existing `session` targets remain available. Creation values `cwd` and `agentPreset` are optional and use Host defaults. A created Session joins the Workspace registered at its directory, if any, and takes the task title while untitled; `new` adds its creation minute in the rule's zone. Join or rename failures are logged without blocking delivery.
+An omitted creation target defaults to `new_once`. Adding or replacing a `new` or `new_once` target requires the embedding's Session creation provider. SDK compositions without it reject those requests with `invalid_rule` before saving; existing `session` targets remain available. An optional preset selects the created Session's agent; without one it uses the Host default. See [project binding](../../packages/schedule/schedule/README.md#configuration-and-management-api) for placement and failure behavior. An untitled Session takes the task title; `new` adds its creation minute in the rule's zone.
 
 <a id="task-management"></a>
 ## Task management
@@ -247,8 +247,8 @@ async history(request: ScheduleDeliveryHistoryRequest): Promise<ScheduleDelivery
  * with `schedule/target-archived`.
  * @param request - Task identity.
  * @param signal - Cancellation checked after entering the delivery transaction and before delivery.
- * @returns Task state after Session persistence acknowledged the delivery, `schedule_execution_pending` while
- * another execution of the task is queued, running, or inside its delivery floor, or a non-mutating miss.
+ * @returns Task state after Session persistence acknowledged the delivery, a non-mutating refusal, or a miss.
+ * @throws `schedule/project-removed` after durably pausing a task whose project was removed.
  */
 @Remote('run') async run(request: ScheduleRunRequest, signal?: AbortSignal): Promise<ScheduleRunResult>
 

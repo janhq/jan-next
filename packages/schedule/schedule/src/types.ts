@@ -7,8 +7,7 @@ import type { SessionId } from '@janhq/jan-session/types'
 import type { MessageId } from '@janhq/jan-llm/brand'
 import type { Branded } from '@janhq/jan-brand'
 import type {} from '@janhq/jan-typert-protocol'
-// Type-only: the Workspace registry's archive-admission family map this plugin merges `schedule` into.
-import type {} from '@janhq/jan-workspace/types'
+import type { WorkspaceId } from '@janhq/jan-workspace/types'
 
 /** Stable globally unique reminder identity. */
 export type ScheduleId = Branded<'ScheduleId'>
@@ -343,7 +342,9 @@ export type ScheduleTiming =
 
 /** Values used when a target creates a Session. */
 export interface ScheduleSessionCreateSpec {
-  /** Project directory of the created Session, which joins the Workspace registered there; omission uses the Host project directory. */
+  /** Registered project that owns this destination. When supplied, the Host resolves its directory instead of `cwd`. */
+  readonly workspaceId?: WorkspaceId
+  /** Absolute Host directory; omission of both placement values uses the Host working directory. */
   readonly cwd?: string
   /** Agent preset of the created Session; omission uses the default preset. */
   readonly agentPreset?: string
@@ -356,6 +357,8 @@ export type ScheduleTarget =
     readonly kind: 'session'
     /** Session that receives each delivery. */
     readonly sessionId: SessionId
+    /** Project binding retained when a `new_once` target becomes a reused Session. */
+    readonly workspaceId?: WorkspaceId
   }
   | {
     /** The first delivery creates one Session; later deliveries go to that Session. */
@@ -418,6 +421,12 @@ export type ScheduleDeliveryReceipt = ScheduleReceiptIdentity & (
 /** Saved delivery with its immutable sent prompt when recorded by this Host. */
 export type ScheduleDeliveryRecord = ScheduleDeliveryReceipt & { readonly prompt?: string }
 
+/** Delivery refused before enqueue because the bound project no longer exists. */
+export interface ScheduleDeliveryFailure {
+  readonly code: 'project-removed'
+  readonly failedAt: string
+}
+
 /** Bounded newest-first query over the saved deliveries of one task. */
 export interface ScheduleDeliveryHistoryRequest {
   /** Task whose saved deliveries are read. */
@@ -459,6 +468,8 @@ export type ScheduleDeliveryHistoryResult = ScheduleDeliveryHistoryPage | Schedu
 export type ScheduleCatalogEntry = ScheduleRecord & {
   /** Destination of the next delivery. */
   readonly target: ScheduleTarget
+  /** Registered project identity saved at arming, including after removal or conversion to a reused Session. */
+  readonly workspaceId?: WorkspaceId
   /**
    * Sessions told about later changes while their Agent is live: the creating and editing Agent Sessions and each
    * existing or reserved target Session. Sessions created by a `new` target are excluded.
@@ -479,6 +490,8 @@ export type ScheduleCatalogEntry = ScheduleRecord & {
   readonly deliveryFloorEndsAt?: string
   /** Most recent durably acknowledged inbox delivery, when available. */
   readonly lastDelivery?: ScheduleDeliveryReceipt
+  /** Most recent refusal that caused the task to pause, cleared when the target is replaced. */
+  readonly deliveryFailure?: ScheduleDeliveryFailure
 }
 
 /** Host task creation request. */
@@ -607,6 +620,8 @@ declare module '@janhq/jan-typert-protocol' {
     'schedule/input-invalid': { readonly code: ScheduleInputErrorCode }
     /** A delivery or run reached a `session` target that the Workspace registry lists as archived. */
     'schedule/target-archived': { readonly sessionId: SessionId }
+    /** The bound project was removed; the task is paused and no reminder was sent. */
+    'schedule/project-removed': { readonly workspaceId: WorkspaceId }
     'schedule/destination-unavailable': { readonly owner: string }
   }
 }

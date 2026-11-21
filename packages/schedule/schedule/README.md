@@ -68,7 +68,9 @@ RRULE timing uses `{ kind: "rrule", rrule: "DTSTART:…\nRRULE:…" }`. The mode
 
 The `session` target reuses an existing, unarchived, non-delegated Session; unloaded targets are validated through the header-only `SessionPersistence.stat()` read without activation or history replay. The default `new_once` reserves one Session id, creates it on first delivery, and reuses it. The `new` target creates a fresh Session per delivery. Arming either creating target requires the Session creation provider. Optional `create` values select the directory and preset; omitted values use Host defaults. See [delivery targets](../../../docs/subsystems/schedule.md#delivery-targets) for creation, naming, reuse, and archive admission.
 
-New tasks and destination edits require `create.cwd`, when present, to be an absolute Host path. Existing task rows keep their saved values so their destination can still be inspected and edited.
+For a target that creates Sessions, pass `create.workspaceId` to bind it to a registered project. The Host resolves the project's canonical directory and saves it with the ID. A standalone `create.cwd` must name an existing absolute Host directory; the Host canonicalizes it and binds the task if a registered project owns that directory. Omit both to use the Host working directory. Catalog rows expose `workspaceId` for bound targets, including after `new_once` becomes a reused Session.
+
+Delivery uses the registered project, not the saved path. If that ID was removed, the Host records `deliveryFailure` and pauses the task without sending a reminder. A manual run rejects with `schedule/project-removed`. Re-registering the same folder does not reconnect the task; change its destination to clear the failure before resuming it. Old unbound tasks keep their saved directory behavior.
 
 `edit({ id, action: "update", patch, expectedUpdatedAt? }, actorSessionId?, signal?)` changes `title`, `prompt`, `timing`, `target`, or `active`; `action: "delete"` removes the task. Revision mismatch returns `schedule_conflict`; `null` compares an absent stored revision. An equivalent edit preserves the committed occurrence and writes the current format. Pause keeps the task; resume computes its next future occurrence.
 
@@ -83,7 +85,7 @@ Host plugins that already own durable deadlines can share the clock with `regist
 <a id="storage-format"></a>
 ### Storage format and upgrades
 
-The `schedule` domain declares `version: 2, compatibleVersions: [1]` and uses the configured backend with a whole-unit layout. JSON uses `<JAN_HOME>/storages/schedule.json`. SQLite stores the complete task below as JSON text in `u_schedule_tasks.value`, with its id in the primary-key column `key`. It keeps physical schema version **1** (`PRAGMA user_version`) and the same tables; only the `schedule` row in `units.version` changes to **2** on the first successful write. No SQL DDL migration is needed.
+The `schedule` domain declares `version: 3, compatibleVersions: [1, 2]` and uses the configured backend with a whole-unit layout. JSON uses `<JAN_HOME>/storages/schedule.json`. SQLite stores the complete task below as JSON text in `u_schedule_tasks.value`, with its id in the primary-key column `key`. It keeps physical schema version **1** (`PRAGMA user_version`) and the same tables; only the `schedule` row in `units.version` changes to **3** on the first successful write. No SQL DDL migration is needed.
 
 Schedule loads and validates all tasks into memory at Host open. Task lookup, filtering by activity, due time, or target, sorting, pagination, and history queries use that memory. SQLite does not query inside the JSON or maintain separate timing, status, or target columns; its task operations are an initial full-table read and key-based writes/deletes. Pagination limits the response, not the stored rows loaded. The task decoder enforces the JSON fields below; SQLite treats `value` as opaque text.
 
@@ -91,7 +93,7 @@ One current JSON task has this envelope; the table key must equal `record.id`:
 
 ```json
 {
-  "unit": { "name": "schedule", "version": 2 },
+  "unit": { "name": "schedule", "version": 3 },
   "global": null,
   "tables": { "tasks": { "deploy-check": {
     "record": {
@@ -113,15 +115,16 @@ One current JSON task has this envelope; the table key must equal `record.id`:
 | Task member | Meaning and read defaults |
 |---|---|
 | `record` | Required common fields and exactly the selected kind's fields, as defined below. All seven kinds remain first-class. |
-| `target` | Existing `session`, reserved-and-reused `new_once`, or per-delivery `new`. Without it, a stored top-level `sessionId` supplies the existing destination; without either, reserve a deterministic `new_once` destination. An explicit target ignores the old binding. |
+| `target` | Existing `session`, reserved-and-reused `new_once`, per-delivery `new`, or `plugin`. Creating targets may bind `create.workspaceId`; `new_once` transfers that ID onto the `session` target after its first delivery. Missing ID means unbound. Without `target`, the old `sessionId` selects an existing Session, or a deterministic `new_once` reservation if absent. |
 | `status` | `active`, `paused`, or `ended`; omission means `active`, and old `inactive` means `ended`. |
 | `involvedSessionIds` | Notification destinations; omission starts with the reusable/reserved target or `[]` for `new`. |
 | `createdAt`, `updatedAt` | Optional known timestamps. Unknown historical values stay absent. |
 | `lastDelivery`, `deliveryHistory` | Optional receipt and history. A missing history exposes the latest receipt and marks earlier records unavailable; no prompt or destination is invented. [Saved deliveries](../../../docs/subsystems/schedule.md#saved-delivery-records) defines receipt fields and retention. |
+| `deliveryFailure` | Optional `{ code: "project-removed", failedAt }` when a removed project prevents delivery. This is not an inbox receipt. |
 | `pendingDelivery` | Optional `{ targetSessionId }` reservation before creating a per-delivery Session. |
 | `pluginPayload` | Optional Host-only string for a registered plugin destination; never projected into the task catalog. |
 
-Current writers store explicit target, status, involvement, and history, omit top-level `sessionId`, and keep timestamps absent when unknown. Both versions decode into one task type using optional fields and defaults, without row-level versions. Existing timing kinds and committed occurrences are preserved. Custom text starting with `DTSTART` selects RRULE; other text selects Cron with the chosen zone, and the Host validates it. Model authoring tools expose RRULE only; user labels say Custom/Customize.
+Current writers store explicit target, status, involvement, and history, omit top-level `sessionId`, and keep timestamps absent when unknown. All three versions decode into one task type using optional fields and defaults, without row-level versions. Existing timing kinds and committed occurrences are preserved. Custom text starting with `DTSTART` selects RRULE; other text selects Cron with the chosen zone, and the Host validates it. Model authoring tools expose RRULE only; user labels say Custom/Customize.
 
 #### Timing record fields
 
@@ -158,12 +161,12 @@ For example, the Cron record in the envelope above can instead be an RRULE recor
 
 #### When stored tasks upgrade
 
-`compatibleVersions: [1]` admits v1 alongside v2, then the current task decoder validates and normalizes each row in memory. No separate migration command is needed. Unknown versions reject before tasks activate; invalid input does not change the saved bytes.
+`compatibleVersions: [1, 2]` admits older unit stamps and normalizes their rows in memory without binding an old directory to a project. See the [v3 change record](../../../docs/persistence-changes/domains/2026-11-21-schedule-project-binding.md). No separate migration command is needed. Unknown versions reject before tasks activate; invalid input does not change the saved bytes.
 
 | Operation | Persistent effect |
 |---|---|
 | Open, catalog, or view | Decode once at Host open; later reads use normalized memory. No file write or Session activation. |
-| Save/edit, including an equivalent Save | Write the edited row in current format and atomically stamp the unit v2. Unchanged rows keep their saved fields. |
+| Save/edit, including an equivalent Save | Write the edited row in current format and atomically stamp the unit v3. Unchanged rows keep their saved fields. |
 | Fire or run now | Normal delivery commits write current task state, including destination reservations and receipts. No additional migration pass. |
 | Delete | Remove the row through the same durable API; a successful write uses the current unit version. |
 
@@ -171,9 +174,9 @@ Normalization walks the task and retained receipts; it neither enumerates missed
 
 #### Future versions
 
-A compatible v3 uses `version: 3, compatibleVersions: [1, 2]`, extends this decoder/defaults, and writes current rows on edits or deliveries. Keep one task type and management API. No startup script or v1→v2→v3 conversion chain is required. A current unit stamp can contain untouched older rows, so retain their decoding until all affected rows are rewritten and validated. If the same saved fields acquire a different meaning, use an explicit discriminator or a recoverable complete upgrade. The storage domain has no incompatible-value migration runner today; Session-log migrations and SQLite physical-layout versions have separate owners. See the shared [domain version policy](../../../docs/subsystems/storage.md#domain-versioning).
+A current unit stamp can contain untouched older rows, so retain their decoding until all affected rows are rewritten and validated. Keep one task type and management API rather than chaining startup conversions. If saved fields acquire a different meaning, use an explicit discriminator or a recoverable complete upgrade. Session-log migrations and SQLite physical-layout versions have separate owners. See the shared [domain version policy](../../../docs/subsystems/storage.md#domain-versioning).
 
-A v1 binary rejects a store after a v2 write. Invalid or ambiguous receipts reject rather than inventing their historical destination.
+Older binaries reject a unit stamped with a later version they do not support. Invalid or ambiguous receipts reject rather than inventing their historical destination.
 
 ### Dispatch and lifecycle
 
