@@ -252,6 +252,26 @@ describe('hand-declared providers', () => {
     expect((await ctx.llm.resolveModelInfo('anthropic', vision.id)).inputModalities).toEqual(vision.input)
   })
 
+  it('carries a written tool-use answer to the seam, and leaves an unanswered model unknown', async () => {
+    // A selector warns only on a declared `false`; a model the settings say
+    // nothing about must stay unknown rather than materialize as either answer.
+    const ctx = await bootWithSettings({})
+    await configurations.get(ctx)!.update({
+      providers: {
+        'local-gateway': {
+          api: 'openai-completions',
+          baseURL: 'https://local.test/v1',
+          models: [{ id: 'plain' }, { id: 'agentic', toolUse: true }, { id: 'chatty', toolUse: false }],
+        },
+      },
+    })
+
+    const listed = Object.fromEntries((await ctx.llm.listModels('local-gateway')).map(model => [model.id, model.toolUse]))
+    expect(listed).toEqual({ plain: undefined, agentic: true, chatty: false })
+    expect((await ctx.llm.resolveModelInfo('local-gateway', 'chatty')).toolUse).toBe(false)
+    expect('toolUse' in await ctx.llm.resolveModelInfo('local-gateway', 'plain')).toBe(false)
+  })
+
   it('reads an entry’s empty modality list as no answer, and the route’s as unserviceable', () => {
     // Absent and empty are the same request on an entry, exactly as they are
     // for the route's `models` list — which matters because the config schema
