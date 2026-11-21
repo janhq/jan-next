@@ -1,0 +1,6 @@
+{
+  "mcpServers": {
+    "Desktop Files": { "command": "node", "args": ["server.js"], "env": { "KEY": "desktop-fixture-token" } },
+    "old-transport": { "type": "sse", "url": "https://example.com/sse" }
+  }
+}

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { janProviders, providerProfile, keyRef, janMcpServers, assistantPresetId, janAssistants, derivePreset } from '../settings.mjs'
+import { janProviders, providerProfile, keyRef, assistantPresetId, janAssistants, derivePreset } from '../settings.mjs'
 
 const providerState = providers => ({ 'model-provider': JSON.stringify({ state: { providers } }) })
 
@@ -61,20 +61,6 @@ test('catalog routes only name the key; custom routes declare endpoint and model
   assert.deepEqual(providerProfile({ id: 'My LM Studio', route: 'my-lm-studio', catalog: false, baseURL: 'http://127.0.0.1:1234/v1', models: [{ id: 'qwen3', name: 'Qwen 3' }] }, undefined), {
     displayName: 'My LM Studio', api: 'openai-completions', baseURL: 'http://127.0.0.1:1234/v1', models: [{ id: 'qwen3', name: 'Qwen 3' }],
   })
-})
-
-test('MCP servers arrive under valid unique names with Jan-only fields dropped', () => {
-  const { servers, skipped } = janMcpServers({ mcpServers: {
-    'Jan Browser MCP': { command: 'npx', args: ['-y', 'x'], env: { TOKEN: 'abc' }, active: true, description: 'Browser' },
-    'figma:figma': { type: 'http', url: 'https://mcp.figma.com/mcp', headers: { Authorization: 'Bearer t' }, active: false },
-    'figma-figma': { command: 'uvx', args: [] },
-    legacy: { type: 'sse', url: 'https://old.example/sse' },
-    templated: { command: 'npx', env: { KEY: '${KEY}' } },
-  } })
-  assert.deepEqual(Object.keys(servers), ['Jan-Browser-MCP', 'figma-figma', 'figma-figma-2'])
-  assert.deepEqual(servers['Jan-Browser-MCP'], { command: 'npx', args: ['-y', 'x'], env: { TOKEN: 'abc' } })
-  assert.deepEqual(servers['figma-figma'], { type: 'http', url: 'https://mcp.figma.com/mcp', headers: { Authorization: 'Bearer t' } })
-  assert.deepEqual(skipped.map(row => row.sourceName), ['legacy', 'templated'])
 })
 
 test('assistants become presets keyed by a stable id', () => {
