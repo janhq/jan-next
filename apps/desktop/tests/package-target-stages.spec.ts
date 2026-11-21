@@ -231,7 +231,7 @@ it.each(['mac-arm64', 'mac-x64', 'win-x64'] as const)('selects branding from the
     for (const directory of [
       'plugins/agent-desktop',
       'plugins/annotate',
-      'plugins/desktop-app', 'plugins/downloads', 'plugins/jan-theme', 'plugins/legacy-import', 'plugins/plugin-api',
+      'plugins/desktop-app', 'plugins/diagnostics', 'plugins/downloads', 'plugins/jan-theme', 'plugins/legacy-import', 'plugins/plugin-api',
       'plugins/jan-always-on',
       'plugins/jan-browser', 'plugins/jan-onboarding', 'plugins/notifications', 'plugins/tokamak',
       'plugins/preset-square', 'packages/credentials/tokamak-account', 'packages/llm/llama-cpp',

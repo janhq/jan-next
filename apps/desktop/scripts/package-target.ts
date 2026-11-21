@@ -40,6 +40,7 @@ const PRIVATE_RUNTIME_PACKAGES = [
   'plugins/agent-desktop',
   'plugins/annotate',
   'plugins/desktop-app',
+  'plugins/diagnostics',
   'plugins/downloads',
   'plugins/jan-always-on',
   'plugins/jan-browser',

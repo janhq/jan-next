@@ -139,6 +139,7 @@ TOKAMAK_BASE_URL=http://127.0.0.1:8787/v1 TOKAMAK_ALLOW_LOOPBACK_HTTP=1 pnpm jan
 - Desktop computer use: inspect native windows, verify accessibility state, and approve individual semantic actions or screenshots. See [Desktop computer use](plugins/agent-desktop/README.md) for installation and permissions.
 - Dependency security updates cover the MCP adapters and SDK, Undici, Zod, the TLS certificate generator, and Web build and test tooling.
 - Desktop onboarding: new installations can answer role and goal questions after welcome, choose a transcript detail level, and apply recommended shipped plugins and a new-chat default mode. Answers stay in the local settings document.
+- Desktop diagnostics: a failed chat offers **Copy details** and **Open logs**, and Settings > About shows the version and log folder with Copy, Open logs and Save report. The report is redacted on the Host and never sent. See [Diagnostics](plugins/diagnostics/README.md).
 
 Some repository checks are expected to fail in this fork, because it doesn't follow upstream's release rules:
 - Fork packages are `private`.
