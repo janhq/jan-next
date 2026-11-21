@@ -296,6 +296,11 @@
   max-width: 100%;
 }
 
+/* The details card lines up with whichever model row is highlighted. */
+.modelOption.optionActive {
+  anchor-name: var(--jan-model-row-anchor);
+}
+
 @media (hover: hover) {
   .option:not(.modelOption):hover:not(:disabled) {
     background: var(--dsw-alias-interactive-bg-hover);
@@ -524,16 +529,17 @@
   color: var(--dsw-alias-menu-icon);
 }
 
-/* The highlighted model's details open beside the menu, bottom-aligned with
-   it, and flip to the other side when the window has no room on the right.
+/* The highlighted model's details open beside the menu, top-aligned with the
+   highlighted row so the card follows the cursor down the list. Near the
+   bottom of the window it bottom-aligns with the row instead, and it flips to
+   the other side when the window has no room on the right.
    A fixed width keeps the card from jumping while the pointer runs down the list. */
 .flyout {
   box-sizing: border-box;
   position: fixed;
-  position-anchor: var(--jan-model-menu-anchor);
-  left: calc(anchor(right) + 8px);
-  bottom: anchor(bottom);
-  position-try-fallbacks: flip-inline;
+  left: calc(anchor(var(--jan-model-menu-anchor) right) + 8px);
+  top: calc(anchor(var(--jan-model-row-anchor) top) - 12px);
+  position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
   margin: 0;
   z-index: 1100;
   display: flex;

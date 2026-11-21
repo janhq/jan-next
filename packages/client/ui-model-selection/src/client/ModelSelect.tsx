@@ -88,6 +88,16 @@ function toggleFavorite(key: string): void {
   favoriteStore.set(keys.includes(key) ? keys.filter(item => item !== key) : [...keys, key])
 }
 
+/** Lowercase, with `-`, `_`, `.`, `/` and whitespace runs folded to one space. */
+function normalizeSearch(text: string): string {
+  return text.toLowerCase().replace(/[\s\-_./]+/g, ' ').trim()
+}
+
+function searchWords(query: string): string[] {
+  const normalized = normalizeSearch(query)
+  return normalized === '' ? [] : normalized.split(' ')
+}
+
 /**
  * Render the composer model seat.
  * @param props - owner share (locked) + injected face (shared directory
@@ -136,11 +146,15 @@ export function ModelSelect(
   const id = useId()
   const anchorId = id.replaceAll(':', '')
   const menuAnchor = `--jan-model-menu-${anchorId}` as const
-  const anchorStyle: CSSProperties & Record<'--jan-model-anchor', string> = {
+  const rowAnchor = `--jan-model-row-${anchorId}` as const
+  const anchorStyle: CSSProperties & Record<'--jan-model-anchor' | '--jan-model-row-anchor', string> = {
     '--jan-model-anchor': `--jan-model-${anchorId}`,
+    '--jan-model-row-anchor': rowAnchor,
   }
-  const flyoutStyle: CSSProperties & Record<'--jan-model-menu-anchor', string> = {
+  // The card sits beside the menu and level with the highlighted row.
+  const flyoutStyle: CSSProperties & Record<'--jan-model-menu-anchor' | '--jan-model-row-anchor', string> = {
     '--jan-model-menu-anchor': menuAnchor,
+    '--jan-model-row-anchor': rowAnchor,
   }
 
   // Router listings arrive in no useful order; rows sort by the name a person reads.
@@ -168,14 +182,18 @@ export function ModelSelect(
     }))), [groups])
   const showSearch = choices.length > 4
   const favorites = useSyncExternalStore(fn => favoriteStore.subscribe(fn), () => favoriteStore.getSnapshot())
-  // A model name matches when it contains the typed text: "lam" finds Llama, not
-  // cLAude-opus[1M]. Scattered-letter matching suits short command names, not model names.
+  // A model name matches when it contains every typed word, each as one run:
+  // "opus 5" finds claude-opus-5, "lam" finds Llama but not cLAude-opus[1M].
+  // Scattered-letter matching suits short command names, not model names.
   // Starred models move out of their provider into Favorites at the top.
   const sections = useMemo(() => {
-    const needle = showSearch ? query.trim().toLowerCase() : ''
+    const words = showSearch ? searchWords(query) : []
     type Group = (typeof groups)[number]
-    const matches = (group: Group, model: ModelCatalogModel): boolean => needle === ''
-      || model.name.toLowerCase().includes(needle) || group.label(model).toLowerCase().includes(needle)
+    const matches = (group: Group, model: ModelCatalogModel): boolean => {
+      if (words.length === 0) return true
+      const haystack = `${normalizeSearch(model.name)} ${normalizeSearch(group.label(model))}`
+      return words.every(word => haystack.includes(word))
+    }
     const starred = new Set(favorites)
     const favoriteRows = favorites.flatMap(key => groups.flatMap(group => group.models
       .filter(model => favoriteKey(group.id, model.id) === key && matches(group, model))
