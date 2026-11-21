@@ -989,6 +989,24 @@ describe('SubagentHeaderLineage', () => {
     expect(input.openChild).toHaveBeenCalledWith({ parentSessionId: PARENT, childSessionId: CHILD, mode: 'unknown' })
   })
 
+  it('shows the last requested model without presenting a pending choice as the model used', () => {
+    const next = { provider: 'test', model: 'pending-model' }
+    const input = props(catalog(), {}, {
+      [CHILD]: {
+        ...summary(CHILD, 1), running: true,
+        projectionValues: { modelSelection: { lastUsed: { provider: 'test', model: 'used-model' }, next } },
+      },
+      ['child-2' as SessionId]: {
+        ...summary('child-2' as SessionId, 1),
+        projectionValues: { modelSelection: { lastUsed: null, next } },
+      },
+    })
+    render(<HeaderCatalog {...input} />)
+    hoverCatalog(screen.getByRole('button', { name: /子智能体/ }))
+    expect(within(screen.getByRole('treeitem', { name: /worker.*used-model/ })).getByText('used-model')).toBeTruthy()
+    expect(screen.queryByText('pending-model')).toBeNull()
+  })
+
   it('shows durable completion and token totals, ticks active duration, and freezes inactive rows', async () => {
     const now = 2_000_000_000_000
     const minute = 60_000

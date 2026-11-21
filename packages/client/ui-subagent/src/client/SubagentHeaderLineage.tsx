@@ -298,6 +298,7 @@ function CatalogRows({
           : completed
             ? t('activity.completed')
             : t('activity.inactive')
+        const model = external ? undefined : summary?.projectionValues?.modelSelection?.lastUsed?.model
         const secondary = [secondaryLabel, requiresOpening ? t('catalog.migrationRequired') : mode, activity]
           .filter(value => value !== undefined)
           .join(' · ')
@@ -357,7 +358,7 @@ function CatalogRows({
               aria-disabled={external || undefined}
               aria-level={level}
               aria-current={isCurrent || undefined}
-              aria-label={[primaryLabel, secondary, metrics].filter(value => value !== '').join(' ')}
+              aria-label={[primaryLabel, secondary, model, metrics].filter(value => value).join(' ')}
               {...canExpand ? { 'aria-expanded': isExpanded } : {}}
               className={css.row}
               onClick={open}
@@ -385,6 +386,7 @@ function CatalogRows({
                   {secondaryLabel !== undefined && (
                     <span className={css.secondaryLabel}>{secondaryLabel}</span>
                   )}
+                  {model !== undefined && <span className={css.summary}>{model}</span>}
                   {requiresOpening && <span className={css.summary}>{t('catalog.migrationRequired')}</span>}
                 </span>
                 {metrics !== '' && (
