@@ -147,7 +147,7 @@ describe('apply', () => {
       { method: 'refreshProjections', args: [sid('parent')] },
     ])
 
-    expect(ctx.slots.entries('conversation.session.header.actions').some(entry => entry.options.id === 'subagent-catalog')).toBe(false)
+    expect(ctx.slots.entries('conversation.session.header.actions').map(entry => entry.options.id)).not.toContain('subagent-catalog')
     const actionEntry = ctx.slots.entries('conversation.input.dock')
       .find(entry => entry.options.id === 'subagent-catalog')!
     const actionProps = (actionEntry.inject as (id: SessionId) => SubagentCatalogActionInjected)(sid('parent'))
