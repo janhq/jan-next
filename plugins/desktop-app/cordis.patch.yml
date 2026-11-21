@@ -106,6 +106,10 @@
     - id: jan-wall-of-quotes
       name: '@janhq/jan-wall-of-quotes'
 
+    # VS Code-style status bar: CPU, memory, GPU, keep awake, and items other plugins add.
+    - id: jan-status-bar
+      name: '@janhq/jan-status-bar'
+
     # Personalize first-run settings for every desktop user.
     - id: jan-onboarding
       name: '@janhq/jan-onboarding'

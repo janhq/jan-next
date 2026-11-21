@@ -1,0 +1,28 @@
+{
+  "name": "@janhq/jan-status-bar",
+  "version": "0.2.2-rc.1",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "A customizable bar along the bottom of the window: CPU, memory and GPU load, keep awake, and items any plugin can add.",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "files": ["index.mjs", "resources.mjs", "awake.mjs", "client.js", "client.layout.js", "client.locale.js", "client.settings.js", "README.md"],
+  "dependencies": {
+    "@janhq/jan-native-command": "workspace:*",
+    "@janhq/jan-plugin-api": "workspace:*",
+    "@janhq/schemastery": "workspace:~"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  },
+  "jan": {
+    "client": {
+      "platform": "web",
+      "inject": ["@janhq/jan-client-ui-primitives"]
+    }
+  }
+}

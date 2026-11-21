@@ -47,6 +47,7 @@
     "@janhq/jan-tool-present": "workspace:*",
     "@janhq/jan-tool-skill": "workspace:*",
     "@janhq/jan-tool-web": "workspace:*",
+    "@janhq/jan-status-bar": "workspace:*",
     "@janhq/jan-wall-of-quotes": "workspace:*"
   }
 }
