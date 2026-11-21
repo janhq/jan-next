@@ -28,6 +28,7 @@ import type {
   WorkspaceUnarchiveSessionRequest,
   WorkspaceUnpinSessionRequest,
   WorkspaceValue,
+  WorkspaceView,
 } from './types.ts'
 
 /** Implements Workspace mutations against the authoritative registry. */
@@ -47,10 +48,10 @@ export class WorkspaceCommands {
       try {
         const existing = await this.ctx.workspaceRegistry.resolveByPath(request.path)
         if (existing !== undefined) {
-          return { workspace: workspaceView(existing), created: false }
+          return { workspace: this.view(existing), created: false }
         }
         const workspace = await this.ctx.workspaceRegistry.create(request.path)
-        return { workspace: workspaceView(workspace), created: true }
+        return { workspace: this.view(workspace), created: true }
       } catch (error) {
         if (remoteErrorOf(error) !== undefined) throw error
         throw new RemoteError(
@@ -86,7 +87,7 @@ export class WorkspaceCommands {
         }
         await workspace.setTitle(title)
       }
-      return { workspace: workspaceView(workspace) }
+      return { workspace: this.view(workspace) }
     })
   }
 
@@ -148,7 +149,7 @@ export class WorkspaceCommands {
         { cause: error },
       )
     }
-    return { workspace: workspaceView(workspace) }
+    return { workspace: this.view(workspace) }
   }
 
   /**
@@ -224,6 +225,10 @@ export class WorkspaceCommands {
   async unpinSession(request: WorkspaceUnpinSessionRequest): Promise<WorkspacePinValue> {
     await this.ctx.workspaceRegistry.unpinSession(request.sessionId)
     return { pinnedSessionIds: [...this.ctx.workspaceRegistry.pinnedSessionIds] }
+  }
+
+  private view(workspace: Workspace): WorkspaceView {
+    return workspaceView(workspace, this.ctx.workspaceRegistry.defaultWorkspace?.id)
   }
 
   private requireWorkspace(workspaceId: WorkspaceId): Workspace {
