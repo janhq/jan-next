@@ -132,6 +132,27 @@ export function apply(ctx, config) {
     }
   }
 
+  /**
+   * Name where each SSH alias points (`user@host:port` from the ssh config), so a row that shows
+   * the alias as its name says something new on its second line. A config that cannot be read
+   * leaves the rows as they are.
+   */
+  async function withSshAddresses(connections) {
+    if (!connections.some(item => item.kind === 'ssh')) return connections
+    let hosts
+    try {
+      hosts = new Map((await sshConfigHosts()).map(host => [host.alias.toLowerCase(), host]))
+    } catch {
+      // An unreadable ssh config only costs the address line; Connect reports its own error.
+      return connections
+    }
+    return connections.map((item) => {
+      const host = item.kind === 'ssh' ? hosts.get(item.ssh.toLowerCase()) : undefined
+      if (host?.hostName === undefined) return item
+      return { ...item, address: `${host.user === undefined ? '' : `${host.user}@`}${host.hostName}${host.port === undefined ? '' : `:${host.port}`}` }
+    })
+  }
+
   // Read per Connect so a misnamed archive fails that Connect with its reason, not the plugin.
   function runtimes() {
     return shippedRuntimes(config.runtimeDirectory || process.env.JAN_HOST_RUNTIME_DIR)
@@ -194,7 +215,7 @@ export function apply(ctx, config) {
     async state() {
       const connections = await Promise.all((await store.connections()).map(connectionView))
       return {
-        connections,
+        connections: await withSshAddresses(connections),
         devices: await store.devices(),
         gateway: gateway === undefined
           ? { running: false, enabled: config.gatewayEnabled.get(), error: gatewayError, addresses: lanAddresses() }

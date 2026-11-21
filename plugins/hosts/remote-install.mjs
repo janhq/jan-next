@@ -195,17 +195,23 @@ export function installScript({ identity, sha256 }) {
 /**
  * The sentence for a failed install, from the remote script's output.
  * @param {{ code: number | null, stdout: string, stderr: string }} result - the install command's outcome.
+ * @param {boolean} [copied] - whether every byte of the archive was read into ssh; false names a cut copy.
  * @returns {string | undefined} undefined when the install completed.
  */
-export function installFailure(result) {
+export function installFailure(result, copied = true) {
   if (result.code === 0 && result.stdout.includes('JAN_HOSTS_INSTALL_OK')) return undefined
+  // The half copy is discarded there, so pressing Connect resends it.
+  const dropped = 'The connection dropped while Jan was being copied. Connect again to resend it.'
+  if (/closed by remote host|Connection reset|Broken pipe|client_loop: send disconnect/.test(result.stderr)) return dropped
   if (result.code === 255) return sshFailure(result.stderr)
   if (/JAN_HOSTS_INSTALL_CORRUPT/.test(result.stderr)) return 'The copy of Jan arrived damaged on that computer. Connect again to resend it.'
   if (/No space left on device|Disk quota exceeded/.test(result.stderr)) {
     return 'That computer ran out of disk space while unpacking Jan. It needs about 600 MB free in your home folder.'
   }
-  const line = lastLine(result.stderr)
-  return `Jan could not be installed there${line === undefined ? '' : `: ${line}`}.`
+  // A remote end killed mid-copy often leaves ssh nothing to print; the short copy is the evidence.
+  if (!copied) return dropped
+  const line = lastLine(result.stderr)?.replace(/[.\s]+$/, '')
+  return `Jan could not be installed there${line === undefined || line === '' ? '' : `: ${line}`}.`
 }
 
 /**
@@ -222,7 +228,7 @@ export async function installRemote({ ssh, runtime, onProgress, signal }) {
   const result = await runRemote({
     ssh, command: installScript({ identity: runtimeIdentity(runtime), sha256: runtime.sha256 }), timeoutMs: INSTALL_MS, signal, input,
   })
-  const failure = installFailure(result)
+  const failure = installFailure(result, sent >= total)
   if (failure !== undefined) throw new Error(failure)
 }
 
@@ -230,6 +236,9 @@ export async function installRemote({ ssh, runtime, onProgress, signal }) {
  * The command that starts the installed Jan with the edge profile. Its Jan home sits beside the
  * build, so a Jan the person installed there by hand keeps its own settings and chats. The proxy
  * variables point at the relay tunnel; loopback stays direct so its own login still works.
+ * A server with no `~/.config/user-dirs.dirs` makes `xdg-user-dir DOCUMENTS` answer `$HOME`,
+ * which Jan refuses as a project home, so the default project goes under `~/Documents` there,
+ * the folder a desktop Linux names, unless the account already set its own.
  * @param {{ port: number, proxy?: string }} options - remote listen port and the relay's proxy URL.
  * @returns {string} the remote command.
  */
@@ -241,6 +250,7 @@ export function startCommand({ port, proxy }) {
   ]
   return [
     `cd "$HOME" &&`, 'exec env', ...variables, `JAN_HOME=${root}/home`,
+    'XDG_DOCUMENTS_DIR="${XDG_DOCUMENTS_DIR:-$HOME/Documents}"',
     `${root}/current/node/bin/node`, `${root}/current/jan/node_modules/@janhq/jan/lib/bin.js`,
     '--profile', 'edge', '--no-open', '--port', String(port),
   ].join(' ')

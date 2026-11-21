@@ -9,13 +9,13 @@ A computer with no screen prints `jan hosts: pair a device at <link>` beside its
 
 ## Connect over SSH
 
-An SSH entry is only its destination: an ssh config alias, `user@host` or `user@host:port`. The SSH key must already work in `BatchMode`, because there is no terminal to type a password into. One Connect press does the whole job and opens the page when it is done:
+An SSH entry is only its destination: an ssh config alias, `user@host` or `user@host:port`. Left unnamed, it is called by that destination; a row for a config alias shows the `User@HostName:Port` the config gives it. The SSH key must already work in `BatchMode`, because there is no terminal to type a password into. One Connect press does the whole job and opens the page when it is done:
 
 | Step | What happens | Shown as |
 | --- | --- | --- |
 | Check | One `sh` command reports `uname -s`/`-m`, the C library, `$HOME`, `tar`/`gzip`/`sha256sum` and the installed build's identity. Only lines between `JAN_HOSTS_PROBE_BEGIN` and `_END` count, so a login banner cannot answer. | Checking that computer... |
-| Copy | Skipped when `~/.jan/hosts-runtime/VERSION` already names this build. Otherwise the archive for that computer streams through ssh's stdin; the remote checks its SHA-256, unpacks it into a staging directory, moves it to `current/` and writes `VERSION` last. A damaged or cut-off copy leaves the previous build in place. | Copying Jan to that computer: N of M MB |
-| Start | `ssh -tt -L` runs the copied Node with the `edge` profile under `~/.jan/hosts-runtime/home`, on a loopback port, and forwards that port here. `-tt` ends the remote Jan when the tunnel closes. | Starting Jan there... |
+| Copy | Skipped when `~/.jan/hosts-runtime/VERSION` already names this build. Otherwise the archive for that computer streams through ssh's stdin; the remote checks its SHA-256, unpacks it into a staging directory, moves it to `current/` and writes `VERSION` last. A damaged or cut-off copy leaves the previous build in place, and a copy that ends before its last byte reads as a dropped connection to resend. | Copying Jan: N of M MB |
+| Start | `ssh -tt -L` runs the copied Node with the `edge` profile under `~/.jan/hosts-runtime/home`, on a loopback port, with `XDG_DOCUMENTS_DIR` defaulting to `~/Documents` so a server with no desktop folders still gets its default project, and forwards that port here. `-tt` ends the remote Jan when the tunnel closes. | Starting Jan there... |
 
 Nothing is downloaded on the other computer, so it needs no internet and no Node. Its model traffic leaves through this computer: a loopback HTTP proxy here (the relay) accepts `CONNECT` tunnels and plain `http://` requests, `ssh -R` forwards a port on the other computer to it, and the remote Jan's `HTTPS_PROXY` points there with a random per-run password, because every local user there can reach that forwarded port. TLS stays end to end between the remote Jan and the provider. Set `relay: false` to let that computer use its own network.
 

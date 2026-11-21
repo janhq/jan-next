@@ -6,13 +6,14 @@ This package lists dependencies only. Its closure is the `edge` profile's: [`jan
 
 ## Archive
 
-`pnpm exec tsx scripts/build-host-runtime.ts --target <target> [--natives <dir>]` writes `dist-host-runtime/jan-host-runtime-<version>-<target>.tar.gz` and a `.sha256` file beside it. It runs on any host, including Windows; only the flock addon must come from a machine of the target. `--natives` names a directory holding that addon at the target's `prebuilds.json` path (default `native/system/packages/<target>`, filled by `pnpm --dir native/system run build:native` on such a machine). The archive holds:
+`pnpm exec tsx scripts/build-host-runtime.ts --target <target> [--natives <dir>]` writes `dist-host-runtime/jan-host-runtime-<version>-<target>.tar.gz` and a `.sha256` file beside it. It runs on any host, including Windows; only the native programs (the flock addon, and on Linux the `landlock-run` sandbox launcher) must come from a machine of the target. `--natives` names a directory holding them at the target's `prebuilds.json` paths (default `native/system/packages/<target>`, filled by `pnpm --dir native/system run build:native` on such a machine). The archive holds:
 
 | Path | Contents |
 | --- | --- |
 | `node/` | `bin/node` and its licence from Node `nodeVersion` in [`scripts/primary-runtime/lock.json`](../../scripts/primary-runtime/lock.json), checked against the lock's SHA-256 |
 | `jan/` | `pnpm deploy --prod` of this package for the target, without type declarations, source maps or other targets' node-pty prebuilds |
 | `jan/node_modules/@janhq/node-addon-system-<target>/bin/…/system.node` | The flock addon |
+| `jan/node_modules/@janhq/node-addon-system-<target>/bin/landlock-run` | Linux only: the launcher the shell sandbox confines commands with; without it the remote Jan refuses every shell command |
 | `executables.txt` | Every native program in the archive; the install restores their executable bit, which an archive built on Windows lacks |
 | `build.json` | `{ format, version, target, node }` |
 
