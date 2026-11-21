@@ -9,6 +9,7 @@ import { convertThread, coworkMessages, threadUpdated } from './convert.mjs'
 import { defaultFolders, listSessionFiles, mapLimit, readSessionFile, sessionHead } from './agents.mjs'
 import { janKeyNames, readJanKey } from './jan-secrets.mjs'
 import { assistantPresetId, derivePreset, keyRef, providerProfile, readJanMcpServers, readJanSettings } from './settings.mjs'
+import { registerMigrateSkill, registerMigrateTools } from './migrate.mjs'
 
 export const Config = z.object({
   // The first-launch offer: `dismissed` once the user answered it.
@@ -378,4 +379,7 @@ export function apply(ctx, config = {}) {
   }
   const progress = async () => job
   ctx.effect(() => registerApi(ctx, 'legacy-import', { list, import: importSelected, progress, offer, dismissOffer }), 'Jan read-only import API')
+  // The /migrate skill runs the same importer from a chat, with an approval per import.
+  ctx.inject(['skills'], scope => { registerMigrateSkill(scope) })
+  ctx.inject(['tools'], scope => { registerMigrateTools(scope, { list, importSelected }) })
 }

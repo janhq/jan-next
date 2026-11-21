@@ -18236,6 +18236,9 @@ importers:
       '@janhq/jan-plugin-api':
         specifier: workspace:*
         version: link:../plugin-api
+      '@janhq/jan-skill':
+        specifier: workspace:*
+        version: link:../../packages/skill/skill
       '@janhq/schemastery':
         specifier: link:../../vendor/schemastery
         version: link:../../vendor/schemastery
