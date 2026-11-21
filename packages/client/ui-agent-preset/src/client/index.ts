@@ -21,6 +21,7 @@
 // Type-only: pulls the Session Controller service merge (ctx.sessions).
 import type { SessionBinding } from '@janhq/jan-api-session-controller/client'
 import type { SessionId } from '@janhq/jan-session/types'
+import { createSnapshotStore } from '@janhq/jan-client-store'
 import { WeakMapWithValues } from '@janhq/jan-util-values'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@janhq/jan-client-locale/client'
@@ -64,6 +65,20 @@ export type { AgentPresetSectionState, PresetView } from './section-store.ts'
 export type { AgentPresetOption, AgentPresetSettingsState } from './settings-store.ts'
 export { AGENT_PRESET_SETTINGS_NS, writeDefaultPreset } from './settings-store.ts'
 
+/** A mode that owns its entry flow instead of composing a capability preset. */
+export interface AgentPresetModeAction {
+  readonly id: string
+  name(): string
+  description(): string
+  run(sessionId: SessionId | undefined): void
+}
+
+declare module '@janhq/cordis' {
+  interface Context {
+    uiAgentPreset: { registerModeAction(action: AgentPresetModeAction): () => void }
+  }
+}
+
 /** Required services (cordis fiber inject). */
 export const inject = [
   'slots', 'sessions', 'locale', 'remote', 'remote.agentPresets', 'remote.settings', 'configForms',
@@ -81,6 +96,15 @@ export function apply(ctx: ClientContext): void {
   const codingToolsDisabled = (): boolean => active && toolsSettings.getSnapshot().value?.enabled === false
   const controller = new AgentPresetSettingsController(ctx)
   const staged: AgentPresetStage = { id: undefined, introduce: false }
+  const modeActions = createSnapshotStore<readonly AgentPresetModeAction[]>([])
+  ctx.provide('uiAgentPreset', {
+    registerModeAction(action) {
+      const current = modeActions.getSnapshot()
+      if (current.some(entry => entry.id === action.id)) throw new Error(`Duplicate agent preset action: ${action.id}`)
+      modeActions.set([...current, action])
+      return () => { modeActions.set(modeActions.getSnapshot().filter(entry => entry !== action)) }
+    },
+  })
   const seats = new WeakMapWithValues<SessionBinding, AgentPresetSeatController>()
   const boundSeatDisposers = new Set<() => Promise<void>>()
   ctx.effect(() => async () => {
@@ -189,7 +213,7 @@ export function apply(ctx: ClientContext): void {
       const binding = sessionId === undefined ? undefined : ctx.sessions.binding(sessionId)
       const seat = binding === undefined ? unboundSeat : seatFor(binding)
       return {
-        hooks: { agentPresetSeat: seat.store, developerTools: ctx.configForms.developerTools.enabled },
+        hooks: { agentPresetSeat: seat.store, developerTools: ctx.configForms.developerTools.enabled, modeActions },
         load: () => seat.load(),
         select: async (id: string) => {
           const state = seat.store.getSnapshot()
@@ -218,6 +242,7 @@ export function apply(ctx: ClientContext): void {
       hooks: {
         agentPresets: controller.store,
         developerTools: ctx.configForms.developerTools.enabled,
+        modeActions,
       },
       load: () => controller.load(),
       select: async (sessionId, id) => {
