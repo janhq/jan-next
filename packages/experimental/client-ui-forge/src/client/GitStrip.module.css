@@ -1,0 +1,59 @@
+/* Git row in the composer context stack: same dock column as the worktree card. */
+.dock {
+  box-sizing: border-box;
+  width: calc(
+    100% -
+    var(--jan-composer-side-clearance) -
+    var(--jan-composer-side-clearance) -
+    var(--jan-composer-dock-inset) -
+    var(--jan-composer-dock-inset) -
+    var(--jan-composer-dock-inset) -
+    var(--jan-composer-dock-inset)
+  );
+  margin: 0 auto;
+}
+
+.strip {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  max-width: calc(var(--jan-composer-card-max-width) - 4 * var(--jan-composer-dock-inset));
+  min-height: 28px;
+  margin: 0 auto;
+  padding: 0 4px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.icon { flex: none; }
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.changes {
+  flex: none;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: var(--dsw-radius-xs);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .changes:hover { background: var(--dsw-alias-bg-layer-2); }
+}
