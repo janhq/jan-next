@@ -14,7 +14,7 @@ window.__ModuleLoader__.load({
       NavRow, SectionHeading, ColorSwatchGroup, ProjectCard, WindowControls,
       Modal, ShortcutKeys, FileTypeIcon, rankByName, IconSparkleRegular, IconRightUpOutlineRegular,
       IconWarningTriangleOutlineRegular, IconCloseOutlineRegular, IconSendOutlineRegular,
-      IconLinkOutlineRegular, IconUserOutlineMedium,
+      IconLinkOutlineRegular, IconUserOutlineMedium, IconCopyOutlineRegular, IconFolderOpenOutlineRegular,
     } = require('@janhq/jan-client-ui-primitives')
     const { workspaceDisplayTitle } = require('@janhq/jan-api-workspace-controller/client')
     // Optional: the matching host publishes the dock model seat. An older
@@ -564,6 +564,11 @@ window.__ModuleLoader__.load({
   @media (hover: hover) { .jt-project-back:hover { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-interactive-bg-hover); } }
   .jt-project-title { margin: 0; font-size: 24px; font-weight: 500; line-height: 32px; overflow-wrap: anywhere; }
   .jt-project-path { margin: 4px 0 24px; color: var(--dsw-alias-label-tertiary); font-size: 13px; line-height: 18px; overflow-wrap: anywhere; }
+  .jt-project-path-row { display: flex; align-items: center; gap: 2px; margin: 4px 0 24px; min-width: 0; }
+  .jt-project-path-row .jt-project-path { margin: 0 6px 0 0; min-width: 0; }
+  .jt-project-path-action { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: var(--dsw-radius-sm); background: transparent; color: var(--dsw-alias-label-tertiary); cursor: pointer; }
+  .jt-project-path-action:hover { background: var(--dsw-specific-selector); color: var(--dsw-alias-label-primary); }
+  .jt-project-path-action[data-done] { color: var(--dsw-alias-label-primary); }
   .jt-project-composer { display: flex; flex-direction: column; gap: 8px; padding: 12px 12px 10px 16px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 16px; background: var(--dsw-alias-bg-base); box-shadow: 0 1px 2px rgb(0 0 0 / 0.04); }
   .jt-project-composer:focus-within { border-color: var(--dsw-alias-state-business-primary); }
   .jt-project-composer textarea { box-sizing: border-box; width: 100%; min-height: 56px; max-height: 240px; padding: 4px 0; border: 0; outline: 0; resize: none; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 14px; line-height: 20px; field-sizing: content; }
@@ -1312,6 +1317,16 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       const { records: tasks, status: taskStatus } = useScheduleTasks(value => value)
       const [addingTask, setAddingTask] = React.useState(false)
       const [fileError, setFileError] = React.useState('')
+      const [pathCopied, setPathCopied] = React.useState(false)
+      React.useEffect(() => {
+        if (!pathCopied) return undefined
+        const timer = setTimeout(() => { setPathCopied(false) }, 1500)
+        return () => { clearTimeout(timer) }
+      }, [pathCopied])
+      const openFolder = () => { void projectApi('openFolder', { workspaceId }).catch(failure => { setFileError(failure.message) }) }
+      const copyPath = () => {
+        navigator.clipboard.writeText(workspace.path).then(() => { setPathCopied(true) }, failure => { setFileError(failure.message) })
+      }
       const [draft, setDraft] = React.useState('')
       const fileInput = React.useRef(null)
       const [detailsVersion, reloadDetails] = React.useReducer(version => version + 1, 0)
@@ -1362,7 +1377,15 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         h('div', null,
           h('button', { type: 'button', className: 'jt-project-back', onClick: backToProjects }, '‹ ', t('projects')),
           h('h1', { className: 'jt-project-title' }, title),
-          h('p', { className: 'jt-project-path' }, workspace.path),
+          h('div', { className: 'jt-project-path-row' },
+            h('p', { className: 'jt-project-path' }, workspace.path),
+            h('button', {
+              type: 'button', className: 'jt-project-path-action', 'data-done': pathCopied || undefined, 'aria-live': 'polite',
+              'aria-label': t(pathCopied ? 'project.pathCopied' : 'project.copyPath'), title: t(pathCopied ? 'project.pathCopied' : 'project.copyPath'), onClick: copyPath,
+            }, h(pathCopied ? IconCheckOutlineRegular : IconCopyOutlineRegular, { size: 14, 'aria-hidden': true })),
+            h('button', {
+              type: 'button', className: 'jt-project-path-action', 'aria-label': t('project.openFolder'), title: t('project.openFolder'), onClick: openFolder,
+            }, h(IconFolderOpenOutlineRegular, { size: 14, 'aria-hidden': true }))),
           h('form', { className: 'jt-project-composer', onSubmit: (event) => { event.preventDefault(); send() } },
             h('textarea', {
               value: draft, rows: 2, 'aria-label': t('project.newSession', { name: title }),
@@ -1400,7 +1423,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
                   h('span', { className: 'jt-project-file-name', title: file.name }, file.name),
                   h('span', { className: 'jt-project-file-size' }, fileSize(file.size))))),
               details?.truncated && h('p', { className: 'jt-project-card-text' }, t('project.context.more')),
-              h(Button, { size: 'sm', variant: 'ghost', className: 'jt-project-link', onClick: () => { void projectApi('openFolder', { workspaceId }).catch(failure => { setFileError(failure.message) }) } }, t('project.openFolder')),
+              h(Button, { size: 'sm', variant: 'ghost', className: 'jt-project-link', onClick: openFolder }, t('project.openFolder')),
               fileError && h('p', { className: 'jt-project-error', role: 'alert' }, fileError))),
           card('project.memory',
             h(Button, { size: 'sm', variant: 'outline', disabled: details === null, onClick: () => { setEditing('memory') } }, t(details?.memory.trim() ? 'project.edit' : 'project.add')),
@@ -1805,6 +1828,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.context.more': "Showing the first 300 items.",
               'project.addFiles': "Add files",
               'project.openFolder': "Open folder",
+              'project.copyPath': "Copy path",
+              'project.pathCopied': "Path copied",
               'project.memory': "Memory",
               'project.memory.empty': "Notes the agent keeps about this project.",
               'project.memory.description': "Private notes every new session in this project reads after its instructions.",
@@ -1874,6 +1899,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.context.more': "仅显示前 300 项。",
               'project.addFiles': "添加文件",
               'project.openFolder': "打开文件夹",
+              'project.copyPath': "复制路径",
+              'project.pathCopied': "已复制路径",
               'project.memory': "记忆",
               'project.memory.empty': "智能体为此项目保存的笔记。",
               'project.memory.description': "此项目中的每个新会话在读取说明后都会读取这些私人笔记。",
@@ -1946,6 +1973,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.context.more': "最初の 300 件を表示しています。",
               'project.addFiles': "ファイルを追加",
               'project.openFolder': "フォルダーを開く",
+              'project.copyPath': "パスをコピー",
+              'project.pathCopied': "パスをコピーしました",
               'project.memory': "メモリー",
               'project.memory.empty': "このプロジェクトについてエージェントが残すメモ。",
               'project.memory.description': "このプロジェクトの新しいセッションが指示の後に読む非公開のメモです。",
@@ -2018,6 +2047,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.context.more': "Se muestran los primeros 300 elementos.",
               'project.addFiles': "Añadir archivos",
               'project.openFolder': "Abrir carpeta",
+              'project.copyPath': "Copiar ruta",
+              'project.pathCopied': "Ruta copiada",
               'project.memory': "Memoria",
               'project.memory.empty': "Notas que el agente guarda sobre este proyecto.",
               'project.memory.description': "Notas privadas que cada sesión nueva de este proyecto lee después de sus instrucciones.",
@@ -2090,6 +2121,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.context.more': "Les 300 premiers éléments sont affichés.",
               'project.addFiles': "Ajouter des fichiers",
               'project.openFolder': "Ouvrir le dossier",
+              'project.copyPath': "Copier le chemin",
+              'project.pathCopied': "Chemin copié",
               'project.memory': "Mémoire",
               'project.memory.empty': "Notes que l'agent garde sur ce projet.",
               'project.memory.description': "Notes privées que chaque nouvelle séance de ce projet lit après ses instructions.",
@@ -2162,6 +2195,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.context.more': "Die ersten 300 Einträge werden angezeigt.",
               'project.addFiles': "Dateien hinzufügen",
               'project.openFolder': "Ordner öffnen",
+              'project.copyPath': "Pfad kopieren",
+              'project.pathCopied': "Pfad kopiert",
               'project.memory': "Gedächtnis",
               'project.memory.empty': "Notizen, die der Agent zu diesem Projekt führt.",
               'project.memory.description': "Private Notizen, die jede neue Sitzung in diesem Projekt nach den Anweisungen liest.",
@@ -2234,6 +2269,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.context.more': "Показаны первые 300 элементов.",
               'project.addFiles': "Добавить файлы",
               'project.openFolder': "Открыть папку",
+              'project.copyPath': "Копировать путь",
+              'project.pathCopied': "Путь скопирован",
               'project.memory': "Память",
               'project.memory.empty': "Заметки агента об этом проекте.",
               'project.memory.description': "Личные заметки, которые каждая новая сессия в этом проекте читает после инструкций.",
@@ -2306,6 +2343,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.context.more': "Mostrando os primeiros 300 itens.",
               'project.addFiles': "Adicionar arquivos",
               'project.openFolder': "Abrir pasta",
+              'project.copyPath': "Copiar caminho",
+              'project.pathCopied': "Caminho copiado",
               'project.memory': "Memória",
               'project.memory.empty': "Anotações que o agente mantém sobre este projeto.",
               'project.memory.description': "Anotações privadas que cada nova sessão neste projeto lê depois das instruções.",
