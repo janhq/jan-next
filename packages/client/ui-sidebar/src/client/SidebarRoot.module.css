@@ -91,9 +91,11 @@
   display: none;
 }
 
-/* Caption menus start after the fixed controls: toggle, Back, Forward (and New Session while collapsed). */
+/* Caption order: toggle (and New Session while collapsed), the Application and Edit menus, then Back and
+   Forward. The Desktop preload publishes --jan-windows-menu-end from the menus' measured width, which
+   changes with the language; 248px covers the English labels until it does. */
 :global(html[data-windows-titlebar]) {
-  --jan-windows-menu-start: 120px;
+  --jan-windows-menu-start: 48px;
 }
 
 :global(html[data-windows-titlebar]:has([data-sidebar-collapsed='true'])) {
@@ -111,7 +113,7 @@
   -webkit-app-region: no-drag;
 }
 
-/* Back and Forward sit in the caption strip after the toggle (left 12px, 28px wide, 8px apart). */
+/* Back and Forward follow the caption menus, 8px after them and 8px apart (28px wide each). */
 :global([data-windows-titlebar]) .navButton {
   position: fixed;
   top: calc((var(--jan-windows-titlebar-height) - 28px) / 2);
@@ -120,11 +122,11 @@
 }
 
 :global([data-windows-titlebar]) .navBack {
-  left: 48px;
+  left: calc(var(--jan-windows-menu-end, 248px) + 8px);
 }
 
 :global([data-windows-titlebar]) .navForward {
-  left: 84px;
+  left: calc(var(--jan-windows-menu-end, 248px) + 44px);
 }
 
 :global([data-windows-titlebar]) .railIn .iconButton,
