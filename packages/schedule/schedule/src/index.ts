@@ -1,5 +1,6 @@
 /** Host-wide durable reminders and shared human/model management. */
 import { createHash, randomUUID } from 'node:crypto'
+import { stat } from 'node:fs/promises'
 import { isAbsolute } from 'node:path'
 import { isDeepStrictEqual } from 'node:util'
 import z from '@janhq/schemastery'
@@ -10,11 +11,11 @@ import { RemoteError, TypertRemoteService, Remote } from '@janhq/jan-typert-prot
 import type { Domain } from '@janhq/jan-storage-domain'
 import { delegationDepthOf } from '@janhq/jan-subagent'
 import { SessionId as toSessionId, type SessionId } from '@janhq/jan-session'
-import type { SessionActivity } from '@janhq/jan-workspace'
+import { realpathNormalize, type SessionActivity } from '@janhq/jan-workspace'
 import type {} from '@janhq/jan-api-session-controller'
 import { ScheduleRuntime, type ScheduleRuntimeLimits } from './runtime.ts'
 import type { SchedulePluginHandler, ScheduleWakeRegistration, ScheduleWakeSource } from './runtime.ts'
-import { scheduleDomain, scheduleTaskSchema, type ScheduleTask } from './storage.ts'
+import { scheduleDomain, scheduleTaskSchema, targetWorkspaceId, type ScheduleTask } from './storage.ts'
 import { deliveryHistoryPage } from './delivery-history.ts'
 import { createScheduleRecord, updateScheduleRecord } from './update.ts'
 import {
@@ -163,24 +164,6 @@ function activeSessionTasks(domain: Domain<typeof scheduleDomain>, sessionId: Se
 }
 
 /**
- * Copy the present creation values of a requested destination.
- * @param spec - Requested creation values; omission uses the Host defaults.
- * @returns Creation values without absent members.
- */
-function createSpec(spec: ScheduleSessionCreateSpec | undefined): ScheduleSessionCreateSpec {
-  if (spec?.cwd !== undefined && (!isAbsolute(spec.cwd) || spec.cwd.includes('\0'))) {
-    throw new ScheduleInputError('invalid_rule', 'target create cwd must be an absolute path without NUL.')
-  }
-  if (spec?.agentPreset === '') {
-    throw new ScheduleInputError('invalid_rule', 'target create agentPreset must be non-empty when present.')
-  }
-  return {
-    ...(spec?.cwd === undefined ? {} : { cwd: spec.cwd }),
-    ...(spec?.agentPreset === undefined ? {} : { agentPreset: spec.agentPreset }),
-  }
-}
-
-/**
  * Add the acting Session and the existing or reserved target Session to the involved Sessions.
  * @param actorSessionId - Session of the acting Agent, or undefined for a human caller.
  * @param target - Destination after the change.
@@ -212,10 +195,11 @@ function revisedTask(
   let status = current.status
   if (patch.active === false) status = 'paused'
   else if (patch.active === true || changedRule && current.status === 'ended') status = 'active'
-  const { pendingDelivery, ...kept } = current
+  const { pendingDelivery, deliveryFailure, ...kept } = current
   return scheduleTaskSchema.parse({
     ...kept, record, target: nextTarget,
     involvedSessionIds: involved(actorSessionId, nextTarget, current.involvedSessionIds), status, updatedAt,
+    ...(deliveryFailure === undefined || retargeted ? {} : { deliveryFailure }),
     ...(pendingDelivery === undefined || changedRule || retargeted ? {} : { pendingDelivery }),
   })
 }
@@ -265,6 +249,12 @@ export class ScheduleService extends TypertRemoteService {
         // Resume overdue tasks when the Web activation provider becomes ready.
         this.runtime?.requestDrive()
         return () => { this.resolveWebAgent = undefined }
+      })
+    })
+    ctx.inject(['workspaceRegistry'], (workspaceCtx) => {
+      workspaceCtx.effect(() => {
+        this.runtime?.requestDrive()
+        return () => { this.runtime?.requestDrive() }
       })
     })
     this.limits = {
@@ -555,8 +545,8 @@ export class ScheduleService extends TypertRemoteService {
    * with `schedule/target-archived`.
    * @param request - Task identity.
    * @param signal - Cancellation checked after entering the delivery transaction and before delivery.
-   * @returns Task state after Session persistence acknowledged the delivery, `schedule_execution_pending` while
-   * another execution of the task is queued, running, or inside its delivery floor, or a non-mutating miss.
+   * @returns Task state after Session persistence acknowledged the delivery, a non-mutating refusal, or a miss.
+   * @throws `schedule/project-removed` after durably pausing a task whose project was removed.
    */
   @Remote('run')
   async run(request: ScheduleRunRequest, signal?: AbortSignal): Promise<ScheduleRunResult> {
@@ -702,10 +692,10 @@ export class ScheduleService extends TypertRemoteService {
       }
       case 'new_once':
         this.requireSessionCreation()
-        return { kind: 'new_once', sessionId: toSessionId(`session-${randomUUID()}`), create: createSpec(request.create) }
+        return { kind: 'new_once', sessionId: toSessionId(`session-${randomUUID()}`), create: await this.createSpec(request.create) }
       case 'new':
         this.requireSessionCreation()
-        return { kind: 'new', create: createSpec(request.create) }
+        return { kind: 'new', create: await this.createSpec(request.create) }
       /* v8 ignore next 4 -- the cases cover every target kind. */
       default: {
         const unreachable: never = request
@@ -714,11 +704,48 @@ export class ScheduleService extends TypertRemoteService {
     }
   }
 
+  /** Resolve a placement once at admission. Only new or replaced targets acquire a project binding. */
+  private async createSpec(spec: ScheduleSessionCreateSpec | undefined): Promise<ScheduleSessionCreateSpec> {
+    const registry = this.ctx.get('workspaceRegistry')
+    const requestedId = spec?.workspaceId
+    const project = requestedId === undefined ? undefined : registry?.get(requestedId)
+    if (requestedId !== undefined && project === undefined) {
+      throw new ScheduleInputError('invalid_rule', `target project "${requestedId}" is not registered.`)
+    }
+    const path = project?.path ?? spec?.cwd
+    if (path !== undefined && (!isAbsolute(path) || path.includes('\0'))) {
+      throw new ScheduleInputError('invalid_rule', 'target create cwd must be an absolute path without NUL.')
+    }
+    const agentPreset = spec?.agentPreset
+    if (agentPreset === '') {
+      throw new ScheduleInputError('invalid_rule', 'target create agentPreset must be non-empty when present.')
+    }
+    let cwd: string | undefined
+    if (path !== undefined) {
+      try {
+        cwd = await realpathNormalize(path)
+        if (!(await stat(cwd)).isDirectory()) throw new Error('not a directory')
+      } catch (error) {
+        throw new ScheduleInputError('invalid_rule', 'target create cwd must name an accessible Host directory.', { cause: error })
+      }
+    }
+    const workspaceId = requestedId ?? (cwd === undefined ? undefined : registry?.list().find(candidate => candidate.path === cwd)?.id)
+    return {
+      ...(cwd === undefined ? {} : { cwd }),
+      ...(workspaceId === undefined ? {} : { workspaceId }),
+      ...(agentPreset === undefined ? {} : { agentPreset }),
+    }
+  }
+
   /** Check arming prerequisites without activating a Session; repeated inside the mutation FIFO. */
   private async validateTarget(target: ScheduleTarget, signal?: AbortSignal): Promise<void> {
     if (target.kind === 'plugin') {
       if (!this.destinations.has(target.owner)) throw new ScheduleInputError('invalid_rule', 'The plugin task destination is unavailable.')
       return
+    }
+    const workspaceId = targetWorkspaceId(target)
+    if (workspaceId !== undefined && this.ctx.get('workspaceRegistry')?.get(workspaceId) === undefined) {
+      throw new ScheduleInputError('invalid_rule', `target project "${workspaceId}" was removed; choose another destination.`)
     }
     if (target.kind === 'new') {
       this.requireSessionCreation()
@@ -760,9 +787,11 @@ export class ScheduleService extends TypertRemoteService {
 
   private entry(task: ScheduleTask): ScheduleCatalogEntry {
     const floorEnd = this.runtime?.deliveryFloorEnd(task)
+    const workspaceId = targetWorkspaceId(task.target)
     return {
       ...task.record,
       target: task.target,
+      ...(workspaceId === undefined ? {} : { workspaceId }),
       involvedSessionIds: [...task.involvedSessionIds],
       status: task.status,
       ...(task.createdAt === undefined ? {} : { createdAt: task.createdAt }),
@@ -770,6 +799,7 @@ export class ScheduleService extends TypertRemoteService {
       ...(this.runtime?.isExecutionActive(task.record.id) === true ? { executionActive: true as const } : {}),
       ...(floorEnd === undefined ? {} : { deliveryFloorEndsAt: new Date(floorEnd).toISOString() }),
       ...(task.lastDelivery === undefined ? {} : { lastDelivery: task.lastDelivery }),
+      ...(task.deliveryFailure === undefined ? {} : { deliveryFailure: task.deliveryFailure }),
     }
   }
 

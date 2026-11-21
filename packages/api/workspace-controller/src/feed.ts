@@ -56,6 +56,7 @@ export class WorkspaceFeed {
   private order: readonly string[]
   private archived: readonly string[]
   private pinned: readonly string[]
+  private defaultId: WorkspaceId | undefined
 
   /** @param ctx - Host context containing the authoritative Workspace registry. */
   constructor(private readonly ctx: Context) {
@@ -64,6 +65,7 @@ export class WorkspaceFeed {
     this.order = baseline.map(workspace => String(workspace.id))
     this.archived = ctx.workspaceRegistry.archivedSessionIds.map(String)
     this.pinned = ctx.workspaceRegistry.pinnedSessionIds.map(String)
+    this.defaultId = ctx.workspaceRegistry.defaultWorkspace?.id
     ctx.on('domain/changed', (change: DomainChanged) => { this.changed(change) })
     ctx.effect(() => () => {
       for (const follower of this.followers) follower.close()
@@ -111,7 +113,7 @@ export class WorkspaceFeed {
       const nextOrder = state.workspaceIds.map(String)
       const orderChanged = !sameStrings(this.order, nextOrder)
       for (const id of state.workspaceIds) {
-        if (this.knownIds.has(id)) continue
+        if (this.knownIds.has(id) && (id === this.defaultId) === (id === state.defaultWorkspaceId)) continue
         const workspace = this.ctx.workspaceRegistry.get(id)
         if (workspace === undefined) {
           throw new Error(`committed Workspace registry references missing Workspace "${id}"`)
@@ -119,6 +121,7 @@ export class WorkspaceFeed {
         this.knownIds.add(id)
         this.publish({ type: 'upsert', workspace: workspaceView(workspace, state.defaultWorkspaceId) })
       }
+      this.defaultId = state.defaultWorkspaceId
       this.order = nextOrder
       if (orderChanged) this.publish({ type: 'order', workspaceIds: [...state.workspaceIds] })
       const nextArchived = state.archivedSessionIds.map(String)

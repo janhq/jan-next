@@ -430,7 +430,12 @@ describe('WorkspaceController follow', () => {
       await controller.delete({ workspaceId })
       await expect(nextFrame(iterator)).resolves.toEqual({ type: 'order', workspaceIds: [other.workspace.workspaceId] })
       await expect(nextFrame(iterator)).resolves.toEqual({ type: 'remove', workspaceId })
-      await expect(controller.initializeDefault(abort.signal)).resolves.toBeUndefined()
+      const recreated = await controller.initializeDefault(abort.signal)
+      expect(recreated.workspace.workspaceId).not.toBe(workspaceId)
+      await expect(nextFrame(iterator)).resolves.toMatchObject({ type: 'upsert', workspace: recreated.workspace })
+      await expect(nextFrame(iterator)).resolves.toMatchObject({
+        type: 'order', workspaceIds: [recreated.workspace.workspaceId, other.workspace.workspaceId],
+      })
     } finally {
       abort.abort()
       await iterator.return?.()
@@ -663,13 +668,25 @@ describe('first-use Remote', () => {
     expect(await controller.initializeDefault(signal)).toEqual(result)
   })
 
-  it('skips ineligible first use and propagates preparation failures', async () => {
-    const { controller, ctx, root } = await harness()
-    await ctx.workspaceRegistry.create(root)
-    await expect(controller.initializeDefault(new AbortController().signal))
-      .resolves.toBeUndefined()
-    vi.spyOn(ctx.workspaceRegistry, 'initializeDefault').mockRejectedValueOnce(new Error('permission denied'))
-    await expect(controller.initializeDefault(new AbortController().signal))
-      .rejects.toThrow('permission denied')
+  it('promotes a previously registered default path and publishes the marker without reordering', async () => {
+    const { controller, root } = await harness()
+    const { workspace } = await controller.create({ path: stageDir(root, `jan/${DEFAULT_WORKSPACE_DIRECTORY}`) })
+    const abort = new AbortController()
+    const iterator = controller.follow(abort.signal)[Symbol.asyncIterator]()
+    try {
+      await expect(nextFrame(iterator)).resolves.toMatchObject({ type: 'baseline', value: { items: [workspace] } })
+      const result = await controller.initializeDefault(abort.signal)
+      expect(result.workspace).toEqual({ ...workspace, isDefault: true })
+      await expect(nextFrame(iterator)).resolves.toEqual({ type: 'upsert', workspace: result.workspace })
+    } finally {
+      abort.abort()
+      await iterator.return?.()
+    }
+  })
+
+  it('propagates a default directory preparation failure', async () => {
+    const { controller, ctx } = await harness()
+    vi.spyOn(ctx.workspaceRegistry, 'ensureDefault').mockRejectedValueOnce(new Error('permission denied'))
+    await expect(controller.initializeDefault(new AbortController().signal)).rejects.toThrow('permission denied')
   })
 })

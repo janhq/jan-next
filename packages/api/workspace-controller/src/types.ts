@@ -17,7 +17,7 @@ export type { DirectoryEntry, DirectoryListing } from '@janhq/jan-host-directory
 /** One durable Workspace projected for browser consumers. */
 export interface WorkspaceView {
   readonly workspaceId: WorkspaceId
-  /** Present only on the registered first-use Workspace. */
+  /** Present only on the registered default Workspace. */
   readonly isDefault?: true
   /** Canonical host directory path. */
   readonly path: string

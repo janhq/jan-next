@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { SessionId } from '@janhq/jan-session'
 import { MessageId } from '@janhq/jan-llm/brand'
 import { defineDomain, domainTable } from '@janhq/jan-storage-domain'
+import { WorkspaceId } from '@janhq/jan-workspace'
 import { decodeScheduleRecord } from './domain.ts'
 import type { ScheduleDeliveryRecord, ScheduleId, ScheduleRecord, ScheduleTarget } from './types.ts'
 
@@ -45,17 +46,26 @@ const deliveryHistorySchema = z.object({
   message: 'Delivery history message identities must be unique within a task',
 })
 
+const workspaceIdSchema = z.string().min(1).transform(WorkspaceId)
+
 const createSpecSchema = z.object({
   cwd: z.string().min(1).exactOptional(),
+  workspaceId: workspaceIdSchema.exactOptional(),
   agentPreset: z.string().min(1).exactOptional(),
 }).strict()
 
 const targetSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('session'), sessionId: sessionIdSchema }).strict(),
+  z.object({ kind: z.literal('session'), sessionId: sessionIdSchema, workspaceId: workspaceIdSchema.exactOptional() }).strict(),
   z.object({ kind: z.literal('new_once'), sessionId: sessionIdSchema.optional(), create: createSpecSchema.default({}) }).strict(),
   z.object({ kind: z.literal('new'), create: createSpecSchema.default({}) }).strict(),
   z.object({ kind: z.literal('plugin'), owner: z.string().min(1) }).strict(),
 ])
+
+/** Stable project binding, including after a create-once target became a reused Session. */
+export function targetWorkspaceId(target: ScheduleTarget): WorkspaceId | undefined {
+  if (target.kind === 'plugin') return undefined
+  return target.kind === 'session' ? target.workspaceId : target.create.workspaceId
+}
 
 /** Stable reservation for a task without a saved destination; reads never allocate or persist a Session. */
 function defaultSessionId(id: ScheduleId): SessionId {
@@ -63,7 +73,7 @@ function defaultSessionId(id: ScheduleId): SessionId {
 }
 
 /**
- * Version-2 task schema accepting version-1 rows. New metadata is optional on disk. An explicit target
+ * Version-3 task schema accepting version-1 and version-2 rows. New metadata is optional on disk. An explicit target
  * ignores the former Session binding; a missing target uses that binding or a stable create-once destination.
  * Normal decoding does not write. The next edit or delivery writes this current shape without `sessionId`.
  */
@@ -77,6 +87,7 @@ export const scheduleTaskSchema = z.object({
   createdAt: instantSchema.optional(),
   updatedAt: instantSchema.optional(),
   lastDelivery: deliveryReceiptSchema.optional(),
+  deliveryFailure: z.object({ code: z.literal('project-removed'), failedAt: instantSchema }).strict().exactOptional(),
   deliveryHistory: deliveryHistorySchema.optional(),
   pendingDelivery: z.object({ targetSessionId: sessionIdSchema }).strict().optional(),
 }).strict().transform(({ sessionId, target: savedTarget, lastDelivery, deliveryHistory, ...task }, context) => {
@@ -146,8 +157,8 @@ export const scheduleTaskSchema = z.object({
 /** Persistent task value; a delivery receipt does not record model execution completion. */
 export type ScheduleTask = z.infer<typeof scheduleTaskSchema>
 
-/** Authoritative Host tasks retain their domain, backend routing, and envelope; v2 also reads v1 without startup writes. */
+/** Authoritative Host tasks retain their domain, backend routing, and envelope; v3 also reads v1 and v2 without startup writes. */
 export const scheduleDomain = defineDomain({
-  name: 'schedule', version: 2, compatibleVersions: [1],
+  name: 'schedule', version: 3, compatibleVersions: [1, 2],
   tables: { tasks: domainTable<ScheduleId, ScheduleTask>(scheduleTaskSchema) },
 })
