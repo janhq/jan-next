@@ -118,6 +118,8 @@
                 name: '@janhq/jan-tool-workflow'
           - id: tool-ask-user
             name: '@janhq/jan-tool-ask-user'
+            config:
+              mode: auto
           - id: tool-todo
             name: '@janhq/jan-tool-todo'
             config:
