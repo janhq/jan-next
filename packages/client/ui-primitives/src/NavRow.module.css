@@ -33,6 +33,12 @@
   }
 }
 
+/* A held press darkens the fill one step, so the row answers before the
+   page it opens has painted. */
+.row:active {
+  background: var(--dsw-alias-interactive-bg-active);
+}
+
 .row:focus-visible {
   outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: -2px;
