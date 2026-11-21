@@ -1280,6 +1280,22 @@ describe('keyboard tabs', () => {
 })
 
 describe('divider drags', () => {
+  it('can omit tab strips while keeping arrow-key divider resizing', () => {
+    const controller = seededController()
+    controller.splitPane()
+    const state = controller.getSnapshot().state
+    const resizeSplit = vi.fn()
+    render(<DockSurface state={state} canSplit={false} tabStrips={false} dividerLabel="Resize panes"
+      labels={TEST_LABELS} renderTab={tab => <p>{tab.contentId}</p>} intents={{ resizeSplit, focusPane: vi.fn() }} />)
+    expect(screen.queryByRole('tablist')).toBeNull()
+    const divider = screen.getByRole('separator', { name: 'Resize panes' })
+    expect(divider.tabIndex).toBe(0)
+    fireEvent.keyDown(divider, { key: 'ArrowDown' })
+    expect(resizeSplit).not.toHaveBeenCalled()
+    fireEvent.keyDown(divider, { key: 'ArrowRight' })
+    expect(resizeSplit).toHaveBeenCalledWith(state.rootId, [0.55, 0.45])
+  })
+
   /** A row split whose second pane is itself split into a column: the column split's id and a spied intent set. */
   function withColumn(columnBox: DOMRect): { intents: ReturnType<typeof spyIntents>; columnId: string } {
     const controller = seededController()

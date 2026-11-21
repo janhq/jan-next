@@ -28,6 +28,10 @@ import css from './dockkit.module.css'
 /** What the docked surface needs: the layout, its limits, and the outward contracts. */
 export interface DockSurfaceProps {
   readonly state: LayoutState
+  /** Render title strips and their tab gestures. Conversation panes supply their own headers. */
+  readonly tabStrips?: boolean
+  /** Accessible label enabling keyboard focus and arrow-key resizing on tree dividers. */
+  readonly dividerLabel?: string
   /**
    * Whether another pane may still be created: the pane budget. Width is the
    * kit's own concern — a pane too narrow for two working halves keeps its
@@ -54,7 +58,7 @@ export interface DockSurfaceProps {
    * width either way. The menu still opens and carries the embedder's items.
    */
   readonly canCloseTab?: (tabId: TabId) => boolean
-  readonly intents: DockIntents
+  readonly intents: Pick<DockIntents, 'resizeSplit' | 'focusPane'> & Partial<DockIntents>
   readonly labels: DockLabels
   readonly renderTab: TabRenderer
   /**
@@ -181,6 +185,7 @@ function sameSizes(a: readonly number[], b: readonly number[]): boolean {
 function Surface({
   state, canSplit, canAddTab, canCloseTab, intents, labels, renderTab, renderTabTitle, renderTabActions, renderTabMenuItems,
   getTabTriggerProps, tabMenuOpen, chrome, onRoom,
+  tabStrips = true, dividerLabel,
   draw,
   dropZones = 'edges', minPaneFraction = MIN_PANE_FRACTION, hideSplitWhenBlocked = false,
 }: DockSurfaceProps & { readonly draw: (callbacks: PaneCallbacks, preview: SizePreview | undefined) => ReactNode }): ReactNode {
@@ -224,11 +229,11 @@ function Surface({
   }
 
   const callbacks: PaneCallbacks = {
-    onFocusTab: intents.focusTab.bind(intents),
+    onFocusTab: (tabId) => { intents.focusTab?.(tabId) },
     onFocusPane: intents.focusPane.bind(intents),
-    onSplitPane: intents.splitPane.bind(intents),
-    onAddTab: intents.addTab.bind(intents),
-    onCloseTab: intents.closeTab.bind(intents),
+    onSplitPane: (paneId) => { intents.splitPane?.(paneId) },
+    onAddTab: (paneId) => { intents.addTab?.(paneId) },
+    onCloseTab: (tabId) => { intents.closeTab?.(tabId) },
     // A press is not yet a drag: the chip lifts, and the drop preview follows,
     // once the pointer has travelled the threshold. A release before that is a
     // click and reports nothing here.
@@ -254,11 +259,11 @@ function Surface({
             const target = hitTest(root, released.clientX, released.clientY, tabId, canSplit, fits, dropZones)
             if (target === undefined) {
               if (containsPoint(root.getBoundingClientRect(), released.clientX, released.clientY)) return
-              intents.floatTab(tabId, floatRectAt(released.clientX, released.clientY, FLOAT_DEFAULT_SIZE))
+              intents.floatTab?.(tabId, floatRectAt(released.clientX, released.clientY, FLOAT_DEFAULT_SIZE))
               return
             }
-            if (target.kind === 'strip') intents.placeTab(tabId, target.paneId, target.index)
-            else intents.dropTab(tabId, target.paneId, target.zone)
+            if (target.kind === 'strip') intents.placeTab?.(tabId, target.paneId, target.index)
+            else intents.dropTab?.(tabId, target.paneId, target.zone)
           },
         })
       })
@@ -291,6 +296,13 @@ function Surface({
         },
       })
     },
+    tabStrips,
+    dividerLabel,
+    onDividerNudge: (splitId, index, delta) => {
+      const split = getSplit(state, splitId)
+      const sizes = clampSizes(dividerSizes(split.sizes, index, delta), minPaneFraction)
+      if (!sameSizes(sizes, split.sizes)) intents.resizeSplit(splitId, sizes)
+    },
     splitBlock,
     hideSplitWhenBlocked,
     canAddTab: canAddTab ?? ALWAYS,
@@ -322,7 +334,7 @@ export function DockSurface(props: DockSurfaceProps): ReactNode {
 }
 
 /** Horizontal Sidebar layout with stable tab containers across docking and floating. */
-export type DockLayoutProps = DockSurfaceProps & TabRetention
+export type DockLayoutProps = DockSurfaceProps & TabRetention & { readonly intents: DockIntents }
 
 /**
  * Render one pane or two horizontal panes, and their floats, in one stable content tree.
