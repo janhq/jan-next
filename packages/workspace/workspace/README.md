@@ -66,7 +66,7 @@ ctx.workspaceRegistry.list() // shows the project, newest first
 
 The resolver runs inside the mutation queue only when there is no active default. The registry creates missing parents, canonicalizes the path, and either designates its existing registration or creates one. A new title uses the requested directory's final segment, so a symlink does not retitle it after its target. A file conflict or directory failure rejects. The [Host controller](../../api/workspace-controller/README.md#first-use-workspace) supplies the Documents path policy.
 
-Repeated calls reuse the active default without resolving the directory again. Rename keeps the same identity. Deleting the registration leaves the folder and Sessions intact; the next call creates a fresh registration unless that directory has since been registered explicitly. Older saved IDs whose rows no longer exist are treated as absent. Failure is retryable; caller cancellation after resolution does not roll back directory creation or registration.
+Repeated calls reuse the active default without resolving Documents again. If its directory was removed, the registry restores the empty directory at the same stored path on demand. Rename keeps the same identity. Deleting the registration leaves the folder and Sessions intact; the next call creates a fresh registration unless that directory has since been registered explicitly. Older saved IDs whose rows no longer exist are treated as absent. Failure is retryable; caller cancellation after resolution does not roll back directory creation or registration.
 
 Read `ctx.workspaceRegistry.defaultWorkspace` to look up the active default without attempting initialization. It is absent when no default was initialized or its registration was deleted.
 

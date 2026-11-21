@@ -31,7 +31,7 @@ The Client entry provides `ClientWorkspaceModel` and `createWorkspaceStateStream
 
 `workspace.initializeDefault()` returns the durable default Workspace; the Client service exposes it as `workspaces.initializeDefault(signal?)`. It takes no request: the Host owns the fixed `default-workspace` directory name, and the registry derives the initial title from that same segment, so one installation keeps one on-disk path and one stored title in every language. The Host places the directory under its account's `<Documents>/jan`, including on remote Web hosts. OS filename restrictions apply. Linux system lookup requires `xdg-user-dir` with an enabled Documents directory; hosts without it must configure `documentsDirectory` or use the folder picker.
 
-The [Workspace registry](../../workspace/workspace/README.md#first-use-workspace) ensures the default regardless of other projects or Sessions. An existing default Workspace is returned without another Documents lookup. Deleting it permits on-demand recreation with a new identity. Directory lookup or creation errors reject; initialization creates no Session and sends no message.
+The [Workspace registry](../../workspace/workspace/README.md#first-use-workspace) ensures the default regardless of other projects or Sessions. An existing default Workspace keeps its identity and stored path; a missing directory is restored there without another Documents lookup. Deleting the registration permits on-demand recreation with a new identity. Directory lookup or creation errors reject; initialization creates no Session and sends no message.
 
 Workspace views in command responses and the follow stream carry `isDefault: true` only for the active registered default. The marker remains after a rename.
 
