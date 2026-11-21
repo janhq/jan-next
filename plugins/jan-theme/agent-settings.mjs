@@ -102,7 +102,11 @@ export async function mountAgentSettings(ctx, config) {
     const state = !row.enabled ? 'disabled' : tools.length ? 'ready' : failed ? 'failed' : 'empty'
     const secret = (await credentials.readRecord(key(row.name)))?.payload
     const secretConfigured = Object.keys(secret?.env ?? {}).length + Object.keys(secret?.headers ?? {}).length > 0
-    return { ...row, secretConfigured, tools, state, status: !row.enabled ? 'Disabled' : tools.length ? `${tools.length} tools available` : status.get(row.name) ?? 'No tools available' }
+    const { name, enabled, transport } = row
+    const endpoint = transport === 'stdio'
+      ? { command: row.command, args: row.args, cwd: row.cwd }
+      : { url: row.url }
+    return { name, enabled, transport, ...endpoint, secretConfigured, tools, state, status: !enabled ? 'Disabled' : tools.length ? `${tools.length} tools available` : status.get(name) ?? 'No tools available' }
   }))
   const persist = change => editor.edit(entry, current => ({ ...current, ...change(current) }))
   // A reload or shutdown cancels starts still in flight; those are not broken servers.
