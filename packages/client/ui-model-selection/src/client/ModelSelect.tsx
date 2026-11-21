@@ -20,7 +20,7 @@
  * submission ride the same per-session ModelDirectory as the /model popup;
  * exact-model reasoning metadata and the selected effort come from the Host
  * rather than a client-owned vocabulary. A rejected selection announces
- * through the shared transient Toast anchored to the composer card; the
+ * through the shared transient Toast in the notification stack; the
  * in-menu strip with Retry remains the catalog-load surface. While the
  * directory's pending selection is unsettled, the trigger shows a spinner in
  * place of its chevron, and each row whose value that selection carries
@@ -106,10 +106,11 @@ function searchWords(query: string): string[] {
  * @returns the trigger and, while open, the model menu and the highlighted model's details card.
  */
 export function ModelSelect(
-  { locked, available, directory, load, settingsAvailability, openModelsSettings, select, resolveText, t, renderLabel, renderOptions, renderDetails, placement = 'composer' }:
+  {
+    locked, available, directory, load, settingsAvailability, openModelsSettings, select, resolveText, t,
+    renderLabel, renderOptions, renderDetails,
+  }:
     ModelSelectInjected & Pick<PropsRuntime<'conversation.input.model'>, 'locked'> & PropsLocale<'model'> & {
-      /** The composer seat toasts over the composer card; the dock seat (the row under the card) over its trigger. */
-      placement?: 'composer' | 'dock'
       renderLabel: (owner: ModelLabelOwner, fallback: ReactNode) => ReactNode
       /** Session options appended to the root menu; absent where the seat has none. */
       renderOptions?: (owner: ModelOptionsOwner) => ReactNode
@@ -814,7 +815,6 @@ export function ModelSelect(
           key={toast.seq}
           text={toast.text}
           icon={<IconWarningOutlineRegular />}
-          anchor={placement === 'composer' ? rootRef.current?.closest<HTMLElement>('[data-composer-card]') ?? null : triggerRef.current}
           onDone={() => { setToast(null) }}
         />
       )}
