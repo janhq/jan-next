@@ -229,6 +229,27 @@ describe('ui-schedule browser half', () => {
     }
   })
 
+  it('publishes the same catalog used by the Tasks page to other browser surfaces', async () => {
+    const list = vi.fn().mockResolvedValue({ ok: true, value: [hostTask] })
+    const ctx = await baseContext({ schedule: { catalog: list }, $on: () => () => {} })
+    try {
+      ctx.slots.register({ name: 'root', children: { main: { kind: 'keyed', scope: 'root' } } } as never, Empty)
+      const plugin = ctx.plugin({ inject: [...inject], apply })
+      await plugin.await()
+      const face = injectedFace(ctx.slots.entries('main')[0]!, undefined as never) as TaskManagerInjected
+      const shared = ctx.get('hostTaskCatalog')
+      expect(shared?.catalog).toBe(face.hooks.catalog)
+      const stopPage = face.hooks.catalog.subscribe(vi.fn())
+      const stopConsumer = shared!.catalog.subscribe(vi.fn())
+      await vi.waitFor(() => { expect(shared!.catalog.getSnapshot().records).toEqual([hostTask]) })
+      expect(list).toHaveBeenCalledOnce()
+      stopConsumer()
+      stopPage()
+      await plugin.dispose()
+      expect(ctx.get('hostTaskCatalog')).toBeUndefined()
+    } finally { await ctx.fiber.dispose() }
+  })
+
   it('waits for the header declaration, orders between static context and Jobs, and tears down', async () => {
     const ctx = await baseContext()
     const fiber = ctx.plugin({ inject: [...inject], apply })
