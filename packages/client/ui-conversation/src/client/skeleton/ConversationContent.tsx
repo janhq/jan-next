@@ -97,16 +97,10 @@ export function ConversationContent(props: ConversationContentProps) {
   //      placeholder, never the deleted folder's name via cwd.
   // A title still automatic reads in the reader's language, matching the
   // sidebar row the same Workspace has there.
-  const storedChipTitle = pendingWorkspace?.title
-    ?? (sessionId === undefined
-      ? undefined
-      : sessionWorkspace?.title
-      ?? (workspaces.phase === 'ready' || cwd === undefined || cwd === ''
-        ? undefined
-        : workspaceLabel(cwd)))
-  const chipTitle = storedChipTitle === undefined
-    ? undefined
-    : workspaceDisplayTitle(storedChipTitle, t('workspace.defaultName'))
+  const chipWorkspace = pendingWorkspace ?? (sessionId === undefined ? undefined : sessionWorkspace)
+  const chipTitle = chipWorkspace === undefined
+    ? sessionId === undefined || workspaces.phase === 'ready' || cwd === undefined || cwd === '' ? undefined : workspaceLabel(cwd)
+    : workspaceDisplayTitle(chipWorkspace, t('workspace.defaultName'))
 
   const heroWorkspaceRow = (
     <div className={css.heroWorkspaceRow}>

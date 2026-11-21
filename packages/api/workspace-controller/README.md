@@ -35,7 +35,7 @@ The [Workspace registry](../../workspace/workspace/README.md#first-use-workspace
 
 Workspace views in command responses and the follow stream carry `isDefault: true` only for the registered first-use Workspace. The marker remains after a rename; a missing marker does not identify a default.
 
-`DEFAULT_WORKSPACE_DIRECTORY` and `workspaceDisplayTitle(title, localizedDefault)` are published from `./default-workspace` for browser consumers: a Workspace still carrying the automatic title reads as the reader's localized default name, and every other title reads verbatim. A Workspace the user renamed to exactly `default-workspace` — or a folder of that name adopted from the picker — is labeled as the default; nothing else depends on the distinction.
+`DEFAULT_WORKSPACE_DIRECTORY` and `workspaceDisplayTitle(workspace, localizedDefault)` are published from `./default-workspace`. The display helper localizes the stock title only on the registered first-use Workspace. A renamed default and an unrelated folder named `default-workspace` both retain their actual titles.
 
 | Configuration | Default | Purpose |
 | --- | --- | --- |

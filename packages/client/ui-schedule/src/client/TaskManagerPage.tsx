@@ -378,8 +378,9 @@ export function TaskManagerPage(props: TaskManagerPageProps) {
                     const target = record.target
                     const cwd = target.kind === 'session' ? sessions[target.sessionId]?.cwd : target.kind === 'plugin' ? undefined : target.create.cwd
                     const project = cwd === undefined ? undefined : projectsByPath.get(cwd)
-                    const workspace = project?.isDefault === true ? workspaceDisplayTitle(project.title, t('host.defaultProject'))
-                      : project?.title ?? (cwd === undefined ? t('host.ungrouped') : cwd.split(/[\\/]/).filter(Boolean).at(-1) ?? cwd)
+                    const workspace = project === undefined
+                      ? (cwd === undefined ? t('host.ungrouped') : cwd.split(/[\\/]/).filter(Boolean).at(-1) ?? cwd)
+                      : workspaceDisplayTitle(project, t('host.defaultProject'))
                     const lastRun = record.lastDelivery
                     const lastSession = lastRun?.targetSessionId === undefined ? undefined : sessions[lastRun.targetSessionId]
                     // A run's Session ends its turn in an error the conversation can continue; that is the failed state shown here.
