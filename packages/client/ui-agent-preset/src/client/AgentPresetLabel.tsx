@@ -164,7 +164,6 @@ export function AgentPresetLabel({
           })}
           icon={<IconWarningOutlineRegular />}
           holdMs={REFUSAL_HOLD_MS}
-          anchor={control.current}
           onDone={() => { setRefusal(null) }}
         />
       )}
