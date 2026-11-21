@@ -224,8 +224,8 @@ export const ChatGroupSeat = memo(function ChatGroupSeat({
       data-chat-flow-key={groupKey} data-chat-anchor-key={`group:${groupKey}`} data-chat-turn={turn}
       data-chat-paging-anchor={grouped && !open || undefined}
       data-step-process data-group-expanded-mode={!grouped || undefined}
-      data-process-live={grouped && closed === false || undefined}>
-      <div ref={headerRef} className={css.header}>
+      data-process-live={closed === false || undefined}>
+      <div ref={headerRef} className={css.header} data-process-header>
         <ProcessGroupHeader groupKey={groupKey} useChatGroup={useChatGroup}
           usePresentation={props.usePresentation} t={props.t} open={open} bodyId={bodyId} toggle={toggle}
           startTime={turnLocation?.status === 'open' ? turnLocation.start?.time : undefined} paused={paused} />
