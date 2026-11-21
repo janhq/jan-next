@@ -273,6 +273,15 @@ export class WorkspaceRegistry extends Service {
   }
 
   /**
+   * The registered first-use Workspace, if it still exists.
+   * @returns the active default Workspace or `undefined`.
+   */
+  get defaultWorkspace(): Workspace | undefined {
+    const id = this.requireState().defaultWorkspaceId
+    return id === undefined ? undefined : this.entities.get(id)
+  }
+
+  /**
    * Look up a workspace by id.
    * @param id - Workspace id.
    * @returns the workspace, or `undefined` when unknown.
