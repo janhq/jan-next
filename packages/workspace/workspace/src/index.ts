@@ -874,13 +874,12 @@ export class WorkspaceRegistry extends Service {
     const cached = this.headers.get(id)
     if (cached !== undefined) return cached
 
-    const headers = await this.listStoredHeaders()
-    await this.indexHeaders(headers)
-    const header = this.headers.get(id)
-    if (header === undefined) {
+    const snapshot = await this.ctx.sessionPersistence.stat(id)
+    if (snapshot === undefined) {
       throw new Error(`cannot validate session '${id}': session persistence holds no such session`)
     }
-    return header
+    this.headers.set(id, snapshot.header)
+    return snapshot.header
   }
 
   private requireTable(): KvTable<WorkspaceId, WorkspaceRecord> {
