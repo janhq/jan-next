@@ -162,7 +162,7 @@ describe('web e2e: sidebar search alignment and row action targets', () => {
       await expect.poll(async () => {
         const reference = await newSession.boundingBox()
         if (reference === null) throw new Error('New session has no layout box')
-        const controls = [searchButton, page.getByRole('button', { name: 'View options', exact: true }), page.getByRole('button', { name: 'Add workspace', exact: true })]
+        const controls = [searchButton, page.getByRole('button', { name: 'View options', exact: true }), page.getByRole('button', { name: 'Add project', exact: true })]
         const boxes = await Promise.all(controls.map(control => control.boundingBox()))
         return boxes.map(box => box === null ? null : box.x + box.width - reference.x - reference.width)
       }).toEqual(Object.values(HEADER_ACTION_RIGHT_OFFSETS))
@@ -181,7 +181,7 @@ describe('web e2e: sidebar search alignment and row action targets', () => {
     expect(tripwire.warnings).toEqual([])
   })
 
-  it.each(['Search sessions', 'View options', 'Add workspace'])('keeps the %s tooltip visible across its full bounds', async (name) => {
+  it.each(['Search sessions', 'View options', 'Add project'])('keeps the %s tooltip visible across its full bounds', async (name) => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-sidebar-toolbar-tooltip'))
     const trigger = page.getByRole('button', { name, exact: true })
     await trigger.hover()
@@ -212,7 +212,7 @@ describe('web e2e: sidebar search alignment and row action targets', () => {
         else element.setAttribute('style', originalStyle)
       }
     })
-    if (name === 'Add workspace') expect(bounds.outsideSidebar).toBe(true)
+    if (name === 'Add project') expect(bounds.outsideSidebar).toBe(true)
     expect(bounds.hits).toEqual([true, true, true, true])
     await page.mouse.move(1000, 400)
     await tooltip.waitFor({ state: 'detached' })
@@ -302,7 +302,7 @@ describe('web e2e: sidebar search alignment and row action targets', () => {
     }
     await page.getByRole('button', { name: 'Collapse sidebar', exact: true }).click()
     await expect.poll(() => page.getByRole('button', { name: 'Account menu', exact: true }).getAttribute('data-collapsed')).toBe('true')
-    const add = page.getByRole('button', { name: 'Add workspace', exact: true })
+    const add = page.getByRole('button', { name: 'Add project', exact: true })
     const samples = await add.evaluate(async (button, entry) => {
       const header = button.closest<HTMLElement>('[class*="sectionHeader"]')
       const root = header?.parentElement
@@ -350,7 +350,7 @@ describe('web e2e: sidebar search alignment and row action targets', () => {
       return {
         first, last: measure(), headerTransitions,
         sameHeader: root.querySelector('[class*="sectionHeader"]') === header,
-        sameAdd: root.querySelector('button[aria-label="Add workspace"]') === button,
+        sameAdd: root.querySelector('button[aria-label="Add project"]') === button,
       }
     }, entry)
     expect(samples.headerTransitions).toEqual([])
@@ -581,7 +581,7 @@ describe('web e2e: sidebar search alignment and row action targets', () => {
     await row.hover()
     const labels = kind === 'session'
       ? [`Session actions for ${sessionTitle}`, 'Archive session', 'Pin session'] as const
-      : [`Workspace actions for ${workspaceTitle}`, `New session in ${workspaceTitle}`] as const
+      : [`Project actions for ${workspaceTitle}`, `New session in ${workspaceTitle}`] as const
     await row.getByRole('button', { name: labels[0], exact: true }).waitFor()
     const metrics = await measureRowActions(row)
     expect(await row.boundingBox()).toEqual(restingBox)
