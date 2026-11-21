@@ -3,7 +3,7 @@ window.__ModuleLoader__.load({
   factory(require) {
     const React = require('react')
     const h = React.createElement
-    const { Button, Input, Checkbox, IconCloseOutlineRegular } = require('@janhq/jan-client-ui-primitives')
+    const { Button, Input, Checkbox, IconCloseOutlineRegular, NotificationPortal } = require('@janhq/jan-client-ui-primitives')
     async function api(method, params = {}) {
       const response = await fetch('/jan-api/legacy-import', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
       const body = await response.json()
@@ -315,8 +315,8 @@ window.__ModuleLoader__.load({
         h(SettingsChoices, { state }),
         h(WhatComesOver, { source: state.source }))
     }
-    // First-launch offer: a card in the shell overlay layer, so it stays under
-    // Desktop onboarding (a fixed surface above this layer) until that closes.
+    // First-launch offer: a card in the shared bottom-right notification stack,
+    // hidden while Desktop onboarding covers the window.
     function ImportOffer({ startMigrate }) {
       const [offer, setOffer] = React.useState(null)
       const [error, setError] = React.useState('')
@@ -346,7 +346,7 @@ window.__ModuleLoader__.load({
       // button (Not now), one short line, and Details, Don't show again / Import.
       // What else was found, the read-only promise and where to import later sit
       // behind Details.
-      return h('section', { className: 'jan-legacy-import-offer', role: 'dialog', 'aria-labelledby': 'jan-legacy-import-offer-title' },
+      return h(NotificationPortal, null, h('section', { className: 'jan-legacy-import-offer', role: 'dialog', 'aria-labelledby': 'jan-legacy-import-offer-title' },
         h('div', { className: 'jan-legacy-import-offer-head' },
           h('h2', { id: 'jan-legacy-import-offer-title' }, 'Import your chats from Jan'),
           h(Button, { size: 'sm', className: 'jan-legacy-import-offer-close', 'aria-label': 'Not now', title: 'Not now', icon: h(IconCloseOutlineRegular), onClick: () => setOffer(null) })),
@@ -357,7 +357,7 @@ window.__ModuleLoader__.load({
           h('div', { className: 'jan-legacy-import-offer-quiet' },
             h(Button, { size: 'sm', 'aria-expanded': details, 'aria-controls': 'jan-legacy-import-offer-details', onClick: () => setDetails(value => !value) }, details ? 'Hide details' : 'Details'),
             h(Button, { size: 'sm', onClick: dismiss }, "Don't show again")),
-          h(Button, { size: 'sm', variant: 'primary', onClick: migrate }, 'Import')))
+          h(Button, { size: 'sm', variant: 'primary', onClick: migrate }, 'Import'))))
     }
     // The Settings page starts the same agent-led import, above the manual picker.
     function MigrateCard({ startMigrate }) {
@@ -424,7 +424,10 @@ window.__ModuleLoader__.load({
 .jan-legacy-import-setting > label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .jan-legacy-import-setting .jan-legacy-import-meta{padding-inline-start:26px;white-space:normal}
 .jan-legacy-import .jan-legacy-import-setting .jan-legacy-import-row-state{padding-inline-start:26px;margin:2px 0 0;list-style:disc;padding-left:40px}
-.jan-legacy-import-offer{position:absolute;top:56px;right:16px;box-sizing:border-box;width:min(300px,calc(100% - 32px));display:flex;flex-direction:column;gap:4px;padding:16px;border-radius:var(--dsw-radius-xl);background:var(--dsw-alias-bg-layer-3);box-shadow:var(--dsw-elevation-prominent);color:var(--dsw-alias-label-primary)}
+.jan-legacy-import-offer{box-sizing:border-box;width:min(300px,calc(100vw - 40px));animation:jan-legacy-import-offer-in 180ms ease-out;display:flex;flex-direction:column;gap:4px;padding:16px;border-radius:var(--dsw-radius-xl);background:var(--dsw-alias-bg-layer-3);box-shadow:var(--dsw-elevation-prominent);color:var(--dsw-alias-label-primary)}
+body:has([data-onboarding-overlay]) .jan-legacy-import-offer{display:none}
+@keyframes jan-legacy-import-offer-in{from{opacity:0;transform:translateX(16px)}}
+@media (prefers-reduced-motion:reduce){.jan-legacy-import-offer{animation:none}}
 .jan-legacy-import-offer-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:-6px}
 .jan-legacy-import-offer h2{margin:0;font-size:14px;line-height:20px;font-weight:500}
 .jan-legacy-import-offer-close{flex:none;width:28px;padding:0;margin-inline-end:-6px}
