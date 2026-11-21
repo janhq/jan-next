@@ -258,6 +258,7 @@ type SessionTreeProps = Pick<
   | 'useRemoteAccess' | 'useSessionAccess' | 'useWorkspaceAccess'
 > & PropsRenderSlots<
   | 'sidebar.workspaces.session.row.action'
+  | 'sidebar.workspaces.group.leading'
   | 'sidebar.session.row.trailing'
   | 'sidebar.session.row.leading'
   | 'sidebar.session.row.hover'
@@ -578,6 +579,8 @@ function SessionTree({
           }}
           drag={workspaceDragProps}
         />
+        {workspaceId !== undefined && group.expanded && rowState.archivedFilter !== 'only'
+          && renderSlot('sidebar.workspaces.group.leading', { workspaceId })}
         {childRows.length > 0 && (
           <div role="group">
             {childRows}
@@ -809,6 +812,7 @@ function SearchResults({
   workspaces,
   archivedSessionIds,
   archivedFilter,
+  hiddenSessionIds,
   query,
   remote,
   resultLimit,
@@ -820,6 +824,7 @@ function SearchResults({
   archivedSessionIds: readonly SessionNode['id'][]
   /** Search matches follow the archived filter selected for the list. */
   archivedFilter: ArchivedFilter
+  hiddenSessionIds: ReadonlySet<SessionId>
   /** Unarchive an archived result row in place. */
   onUnarchive: (id: SessionNode['id']) => void
   query: string
@@ -842,8 +847,9 @@ function SearchResults({
       statuses,
       currentRemote,
       resultLimit,
+      hiddenSessionIds,
     ),
-    [list, workspaces, query, archivedSessionIds, archivedFilter, statuses, currentRemote, resultLimit],
+    [list, workspaces, query, archivedSessionIds, archivedFilter, statuses, currentRemote, resultLimit, hiddenSessionIds],
   )
   const pending = currentRemote.status === 'loading'
   const currentId = panelActive
@@ -935,11 +941,13 @@ export function WorkspaceBrowser({
   setDirectoryBusy,
   openProject,
   useProjectSurface,
+  useHiddenSessions,
   renderSlot, renderFactorySlot, useContextMenuTarget, useContextMenu,
   t,
 }: WorkspaceBrowserProps) {
   const home = useHostInfo(info => info.home)
   const projectSurface = useProjectSurface(present => present)
+  const hiddenSessionIds = useHiddenSessions(ids => ids)
   const shortcuts = useShortcuts(rows => rows)
   const searchShortcut = shortcuts.find(row => row.id === 'session.search')
   const addShortcut = shortcuts.find(row => row.id === 'workspace.add')
@@ -996,8 +1004,8 @@ export function WorkspaceBrowser({
     [archivedSessionIds, pinnedSessionIds],
   )
   const rowState = useMemo<SessionRowState>(
-    () => ({ ...orderState, archivedFilter }),
-    [orderState, archivedFilter],
+    () => ({ ...orderState, archivedFilter, hiddenSessionIds }),
+    [orderState, archivedFilter, hiddenSessionIds],
   )
   const flatMemberIds = useMemo(() => sessionMemberIds(list), [list])
   const orderedWorkspaces = useMemo(() => workspaces.map((workspace) => {
@@ -1393,6 +1401,7 @@ export function WorkspaceBrowser({
               workspaces={workspaces}
               archivedSessionIds={archivedSessionIds}
               archivedFilter={archivedFilter}
+              hiddenSessionIds={hiddenSessionIds}
               query={normalizedQuery}
               remote={remoteSearch}
               resultLimit={searchResultLimit}

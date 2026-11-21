@@ -194,6 +194,12 @@ export interface UiWorkspace {
    * @returns whether a handler took the request.
    */
   openProjectSurface(workspaceId: WorkspaceId): boolean
+  /** Active Sessions whose presentation replaces the ordinary sidebar row. */
+  readonly hiddenSessions: ObservableSnapshot<ReadonlySet<SessionId>>
+  /** Subscribe to a plugin's alternate presentation IDs until the registration is disposed. */
+  registerSessionPresentation(source: ObservableSnapshot<ReadonlySet<SessionId>>): () => void
+  /** Handle plain New Session while a contributed Session is the main conversation. */
+  registerCurrentSessionStartHandler(handler: (sessionId: SessionId) => boolean): () => void
 }
 
 declare module '@janhq/cordis' {
@@ -243,6 +249,9 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   private activeProject: { readonly workspaceId: WorkspaceId; readonly panelId: MainPanelId } | undefined
   /** Whether a project surface is registered, for row components choosing click behavior. */
   readonly projectSurface = createSnapshotStore(false)
+  readonly hiddenSessions = createSnapshotStore<ReadonlySet<SessionId>>(new Set())
+  private readonly sessionPresentations = new Set<ObservableSnapshot<ReadonlySet<SessionId>>>()
+  private readonly sessionStartHandlers = new Set<(sessionId: SessionId) => boolean>()
 
   /**
    * @param ctx - Client root Context.
@@ -319,6 +328,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
       const listed = summary?.projectionValues?.agentPreset
       return summary !== undefined && summary.blank && summary.cwd === workspace.path
         && members.has(id) && !archived.has(id)
+        && !this.hiddenSessions.getSnapshot().has(id)
         && (options.agentPreset === undefined || typeof listed !== 'string' || listed === options.agentPreset)
     })
     return this.createNamed({
@@ -422,6 +432,10 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   }
 
   startSession(workspaceId?: WorkspaceId, options?: StartSessionOptions): void {
+    if (workspaceId === undefined && options === undefined && this.ctx.layout.panelInfo.getSnapshot().activePanelId === null) {
+      const current = this.mainReference?.sessionId
+      if (current !== undefined) for (const handler of this.sessionStartHandlers) if (handler(current)) return
+    }
     const { agentPreset, ...draft } = options ?? {}
     const draftOptions = options === undefined ? undefined : draft
     const initializeDraft = draftOptions !== undefined && (draftOptions.prompt !== undefined
@@ -499,6 +513,28 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     /* v8 ignore next -- this plugin injects remoteAccess, so the service is active while uiWorkspace is reachable. */
     if (access === undefined) throw new Error('ui-workspace: whenAccess requires the remoteAccess service')
     return access.whenResourceAccess('workspace', workspaceId, action, callback)
+  }
+
+  registerSessionPresentation(source: ObservableSnapshot<ReadonlySet<SessionId>>): () => void {
+    if (this.sessionPresentations.has(source)) throw new Error('ui-workspace: Session presentation already registered')
+    const sync = (): void => {
+      const next = new Set<SessionId>()
+      for (const owner of this.sessionPresentations) for (const id of owner.getSnapshot()) next.add(id)
+      const previous = this.hiddenSessions.getSnapshot()
+      if (previous.size !== next.size || [...next].some(id => !previous.has(id))) this.hiddenSessions.set(next)
+    }
+    this.sessionPresentations.add(source)
+    const release = source.subscribe(sync)
+    sync()
+    return () => {
+      release()
+      if (this.sessionPresentations.delete(source)) sync()
+    }
+  }
+
+  registerCurrentSessionStartHandler(handler: (sessionId: SessionId) => boolean): () => void {
+    this.sessionStartHandlers.add(handler)
+    return () => { this.sessionStartHandlers.delete(handler) }
   }
 
   registerSearchHandler(open: () => void): () => void {

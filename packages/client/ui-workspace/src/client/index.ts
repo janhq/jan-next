@@ -328,6 +328,7 @@ export function apply(ctx: Context): void {
     hooks: {
       primaryActions, workspaceActionRequest, contextMenuTarget: ctx.contextMenus.active, directoryFlow: browserFlowSource, hostInfo,
       workspaceShortcuts: shortcutControls.state, shortcuts: ctx.shortcuts.catalog, projectSurface: uiWorkspace.projectSurface,
+      hiddenSessions: uiWorkspace.hiddenSessions,
     },
   })
   const pickerInjected = (): WorkspacePickerInjected => ({
@@ -362,6 +363,7 @@ export function apply(ctx: Context): void {
       children: {
         'sidebar.workspaces.header': { kind: 'single', scope: 'root' },
         'sidebar.workspaces.directoryFlow': { kind: 'single', scope: 'root' },
+        'sidebar.workspaces.group.leading': { kind: 'list', scope: 'root' },
         'sidebar.workspaces.session.row.action': { kind: 'list', scope: 'root' },
         'sidebar.session.row.leading': { kind: 'list', scope: 'root', inline: true },
         'sidebar.session.row.trailing': { kind: 'list', scope: 'root', inline: true },

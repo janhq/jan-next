@@ -682,6 +682,33 @@ describe('UiWorkspaceService', () => {
     ])
   })
 
+  it('skips another presentation’s blank and lets it handle only plain New Session', async () => {
+    const id = sid('contributed')
+    const b = bench({
+      sessions: sessionState([summary('contributed', { blank: true, cwd: '/w/a' })], 'pending'),
+      workspaces: workspaceState([workspace('a', [id])]),
+    })
+    const source = createSnapshotStore<ReadonlySet<SessionId>>(new Set([id]))
+    const stopPresentation = b.uiWorkspace.registerSessionPresentation(source)
+    expect(b.uiWorkspace.hiddenSessions.getSnapshot()).toEqual(new Set([id]))
+    await expect(b.uiWorkspace.connectWorkspace(wid('a'))).resolves.toBe(sid('created-a'))
+
+    const handle = vi.fn(() => true)
+    const stopHandling = b.uiWorkspace.registerCurrentSessionStartHandler(handle)
+    b.uiWorkspace.openSession(id)
+    b.uiWorkspace.startSession()
+    expect(handle).toHaveBeenCalledExactlyOnceWith(id)
+    expect(b.sessions.create).toHaveBeenCalledTimes(1)
+
+    stopHandling()
+    source.set(new Set())
+    expect(b.uiWorkspace.hiddenSessions.getSnapshot().size).toBe(0)
+    source.set(new Set([id]))
+    stopPresentation()
+    expect(b.uiWorkspace.hiddenSessions.getSnapshot().size).toBe(0)
+    await expect(b.uiWorkspace.connectWorkspace(wid('a'))).resolves.toBe(id)
+  })
+
   it('reports a refused explicit Session creation through the Workspace notice', async () => {
     const b = bench({ workspaces: workspaceState([workspace('a')]), sessions: sessionState() })
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
