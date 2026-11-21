@@ -149,6 +149,8 @@ function mount(overrides: Partial<WorkspaceBrowserProps> = {}) {
     useSectionScroller: () => SECTION_SCROLLER,
     notifyArchivedNotOpenable: vi.fn(),
     renameWorkspace: vi.fn(async () => { }),
+    updateWorkspaceIdentity: vi.fn(async () => { }),
+    shortcutPlatform: 'macos',
     deleteWorkspace: vi.fn(async () => { }),
     unarchiveSession: vi.fn(async () => { }),
     insertWorkspaceBefore: vi.fn(async () => { }),
@@ -166,7 +168,7 @@ function mount(overrides: Partial<WorkspaceBrowserProps> = {}) {
   }
   const view = render(<WorkspaceBrowser {...props} />)
   return {
-    view, props, store, controls, openDialog: (workspaceId: WorkspaceId, displayTitle: string, action: 'rename' | 'delete') => {
+    view, props, store, controls, openDialog: (workspaceId: WorkspaceId, displayTitle: string, action: WorkspaceActionRequest['action']) => {
       const storedTitle = props.useWorkspaces(state => state.items.find(row => row.workspaceId === workspaceId)?.title ?? displayTitle)
       act(() => { request.set({ action, workspaceId, displayTitle, storedTitle }) })
     },
@@ -2474,6 +2476,39 @@ describe('WorkspaceBrowser', () => {
     expect(outsideDrop.defaultPrevented).toBe(true)
     fireEvent.dragEnd(one)
     expect(b.store.getSnapshot().sessionOrderByAccount.alpha).toEqual(['two', 'one'])
+  })
+
+  it('edits project identity, validates emoji, previews the choice, and dismisses on Escape', async () => {
+    const updateWorkspaceIdentity = vi.fn(async () => { })
+    const browser = mount({ useWorkspaces: hook(workspaceState([workspace('alpha', [], 'Alpha')])), updateWorkspaceIdentity })
+    browser.openDialog(wid('alpha'), 'Alpha', 'update')
+    const dialog = screen.getByRole('dialog', { name: '编辑项目' })
+    const input = within(dialog).getByRole('textbox', { name: '工作区名称' })
+    expect(document.activeElement).toBe(input)
+    fireEvent.change(input, { target: { value: '  Lab  ' } })
+    fireEvent.click(within(dialog).getByRole('radio', { name: '蓝色' }))
+    fireEvent.click(within(dialog).getByRole('radio', { name: '星形' }))
+    expect(within(dialog).getByRole('radio', { name: '星形' })).toHaveProperty('checked', true)
+    const emoji = within(dialog).getByRole('textbox', { name: '表情符号' })
+    const save = within(dialog).getByRole<HTMLButtonElement>('button', { name: '保存' })
+    fireEvent.change(emoji, { target: { value: '🧪🔭' } })
+    expect(save.disabled).toBe(true)
+    expect(within(dialog).getByRole('alert').textContent).toBe('请输入一个表情符号')
+    fireEvent.change(emoji, { target: { value: '🧪' } })
+    expect(within(dialog).getByText('🧪')).toBeTruthy()
+    fireEvent.click(save)
+    expect(updateWorkspaceIdentity).toHaveBeenCalledWith({ workspaceId: wid('alpha'), title: 'Lab', color: 'blue', avatar: { kind: 'emoji', value: '🧪' } })
+    await waitFor(() => { expect(screen.queryByRole('dialog')).toBeNull() })
+
+    browser.openDialog(wid('alpha'), 'Alpha', 'update')
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(updateWorkspaceIdentity).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the persisted emoji beside its project title', () => {
+    mount({ useWorkspaces: hook(workspaceState([{ ...workspace('alpha', [], 'Alpha'), color: 'purple', avatar: { kind: 'emoji', value: '🔭' } }])) })
+    expect(within(screen.getByRole('treeitem', { name: /Alpha/ })).getByText('🔭')).toBeTruthy()
   })
 
   it('labels an unrenamed default Workspace in the reader’s language and every other title verbatim', () => {

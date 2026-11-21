@@ -41,6 +41,7 @@ import { ProjectRowItem, SearchResultItem, SessionNodeItem } from './Rows.tsx'
 import { FLAT_SESSION_ORDER_KEY, type SessionGroupBy } from '../stores.ts'
 import { WorkspacePickFlow } from '../WorkspacePicker.tsx'
 import { FolderDrop } from './FolderDrop.tsx'
+import { ProjectIdentityDialog } from './ProjectIdentityDialog.tsx'
 import css from './WorkspaceBrowser.module.css'
 
 /**
@@ -924,6 +925,7 @@ export function WorkspaceBrowser({
   requestSessionRename,
   notifyArchivedNotOpenable,
   renameWorkspace, useWorkspaceActionRequest, settleWorkspaceAction,
+  updateWorkspaceIdentity, shortcutPlatform,
   deleteWorkspace,
   insertWorkspaceBefore,
   unarchiveSession,
@@ -1470,9 +1472,24 @@ export function WorkspaceBrowser({
             ))}
       </div>
 
-      {workspaceActionRequest !== null && <WorkspaceDialogs key={`${workspaceActionRequest.action}/${workspaceActionRequest.workspaceId}`}
-        request={workspaceActionRequest} workspaces={workspaces} renameWorkspace={renameWorkspace} deleteWorkspace={deleteWorkspace}
-        settleWorkspaceAction={settleWorkspaceAction} t={t} />}
+      {workspaceActionRequest?.action === 'update' ? (
+        <ProjectIdentityEditor
+          key={workspaceActionRequest.workspaceId}
+          request={workspaceActionRequest} workspaces={storedWorkspaces}
+          updateWorkspaceIdentity={updateWorkspaceIdentity} shortcutPlatform={shortcutPlatform}
+          settleWorkspaceAction={settleWorkspaceAction} t={t}
+        />
+      ) : workspaceActionRequest !== null && (
+        <WorkspaceDialogs key={`${workspaceActionRequest.action}/${workspaceActionRequest.workspaceId}`}
+          request={workspaceActionRequest} workspaces={workspaces} renameWorkspace={renameWorkspace} deleteWorkspace={deleteWorkspace}
+          settleWorkspaceAction={settleWorkspaceAction} t={t} />
+      )}
     </div>
   )
+}
+
+function ProjectIdentityEditor(props: Omit<Parameters<typeof ProjectIdentityDialog>[0], 'workspace'>) {
+  const workspace = props.workspaces.find(row => row.workspaceId === props.request.workspaceId)
+  if (workspace === undefined) return null
+  return <ProjectIdentityDialog {...props} workspace={workspace} />
 }

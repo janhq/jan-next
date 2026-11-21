@@ -11,7 +11,7 @@
 import type { ReactNode, RefObject } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Button, IconFolderCloseRegular, IconPlusOutlineRegular, Menu, Modal, type MenuEntry,
+  Button, IconPlusOutlineRegular, Menu, Modal, type MenuEntry,
 } from '@janhq/jan-client-ui-primitives'
 import type {
   WorkspaceId, WorkspaceSnapshot, WorkspaceView,
@@ -20,6 +20,7 @@ import { workspaceDisplayTitle } from '@janhq/jan-api-workspace-controller/defau
 import type { SnapshotSelectorHook } from '@janhq/jan-client-ui-slots'
 import type { DirectoryFlowOwnerProps, WorkspacePickerProps } from './contract/slots.ts'
 import { distinguishingPathSuffixes } from './path-suffix.ts'
+import { ProjectAvatar } from './ProjectAvatar.tsx'
 import css from './WorkspacePicker.module.css'
 
 const ADD_WORKSPACE = '::add-workspace'
@@ -117,12 +118,14 @@ export function WorkspacePickFlow({
       id: workspace.workspaceId,
       title: workspaceDisplayTitle(workspace, defaultWorkspaceName),
       path: workspace.path,
+      avatar: workspace.avatar,
+      color: workspace.color,
     }))
     const suffixes = distinguishingPathSuffixes(rows)
     return rows.map(row => ({ ...row, suffix: suffixes.get(row.id) }))
   }, [pinAdd, workspaces, defaultWorkspaceName])
   const items: MenuEntry[] = pinAdd
-    ? listed.map(({ id, title, path, suffix }) => ({
+    ? listed.map(({ id, title, path, suffix, avatar, color }) => ({
       id,
       // The title gives way first, so the suffix that tells the rows apart
       // stays visible; the native tooltip carries the full path.
@@ -135,7 +138,7 @@ export function WorkspacePickFlow({
             <span className={css.pathSuffix}>{suffix}</span>
           </span>
         ),
-      icon: <IconFolderCloseRegular size={16} />,
+      icon: <ProjectAvatar avatar={avatar} color={color} />,
       disabled: flowBusy,
     }))
     : addEntries
