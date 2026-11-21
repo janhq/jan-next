@@ -72,6 +72,35 @@ describe('conversation layout', () => {
     expect(Object.keys(restored.getSnapshot().dock.tabs)).toHaveLength(1)
   })
 
+  it('keeps a tab whose chat changed while its window move was pending', () => {
+    const layout = new ConversationLayout(undefined, () => {})
+    layout.sync(a, new Set([a, b]), [])
+    const { dock } = layout.getSnapshot()
+    const tabId = getPane(dock, dock.activePaneId).activeTabId!
+    // Sidebar navigation reuses the selected tab while the move of `a` is in flight.
+    layout.sync(b, new Set([a, b]), [])
+    layout.closeTab(tabId, a)
+    expect(chats(layout)).toEqual([b])
+    layout.closeTab(tabId, b)
+    expect(chats(layout)).toEqual([''])
+  })
+
+  it.each([
+    ['unparsable JSON', '{'],
+    ['the earlier one-chat-per-pane shape', JSON.stringify({ sessions: [b], sizes: [1] })],
+    ['an out-of-range active tab', JSON.stringify({ root: { tabs: [b], active: 1 }, active: 0 })],
+    ['sizes that do not sum to one', JSON.stringify({
+      root: { axis: 'row', sizes: [0.5, 0.2], children: [{ tabs: [a], active: 0 }, { tabs: [b], active: 0 }] }, active: 0,
+    })],
+    ['one chat in two panes', JSON.stringify({
+      root: { axis: 'row', sizes: [0.5, 0.5], children: [{ tabs: [b], active: 0 }, { tabs: [b], active: 0 }] }, active: 0,
+    })],
+  ])('starts from one tab on the selected chat when the saved layout holds %s', (_, raw) => {
+    const layout = new ConversationLayout(raw, () => {})
+    layout.sync(a, new Set([a, b]), [])
+    expect(chats(layout)).toEqual([a])
+  })
+
   it('tiles live chats, keeps completed chats, lists overflow, and restores the exact manual layout', () => {
     const layout = new ConversationLayout(undefined, () => {})
     const known = new Set([a, b, c, d, e, f])

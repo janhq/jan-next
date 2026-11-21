@@ -10,7 +10,7 @@ import type { SessionId } from '@janhq/jan-session/types'
 import { z } from 'zod'
 
 /** The versioned manual arrangement; the old single-tab-per-pane layout is not read. */
-export const MULTITASK_LAYOUT_KEY = ['jan', 'conversation', 'multitask', 'v2'].join('.')
+export const MULTITASK_LAYOUT_KEY = 'jan.conversation.multitask.v2'
 
 const CHAT = 'chat'
 const NO_SESSIONS: readonly SessionId[] = []
