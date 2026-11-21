@@ -60,13 +60,13 @@ ctx.workspaceRegistry.list() // shows the project, newest first
 ```
 
 <a id="first-use-workspace"></a>
-### First-use Workspace
+### Default project
 
-`initializeDefault(resolveDirectory)` initializes the default Workspace without creating a Session. Initial creation requires an empty Workspace registry and no live, persisted, or archived Session, including Sessions without a working directory. The registry checks persistent history directly; an empty visible sidebar is insufficient.
+`ensureDefault(signal?)` ensures a registered default project through the embedding's directory policy. It works even with other projects, live or archived Sessions, and existing history. It neither creates nor moves a Session.
 
-The directory resolver runs inside the mutation queue only when creation is eligible. It returns an absolute path; the registry creates missing parent directories, canonicalizes the path, rechecks Session history, and commits the Workspace with its initialization marker, titled after the requested directory's final segment rather than the canonical one, so a symlink at that path does not retitle the Workspace after its target. An existing directory is reused; a file conflict or directory failure rejects initialization. The [Host controller](../../api/workspace-controller/README.md#first-use-workspace) supplies the Documents path policy.
+The resolver runs inside the mutation queue only when there is no active default. The registry creates missing parents, canonicalizes the path, and either designates its existing registration or creates one. A new title uses the requested directory's final segment, so a symlink does not retitle it after its target. A file conflict or directory failure rejects. The [Host controller](../../api/workspace-controller/README.md#first-use-workspace) supplies the Documents path policy.
 
-The first successful registration records its identity durably. Repeated calls return it without resolving a directory again; renaming keeps that identity, and deleting its registration does not permit another automatic creation. Directory or registration failure leaves initialization unset for retry. Directories created before a later failure remain on disk. Once directory resolution succeeds, caller cancellation does not roll back directory creation or registration.
+Repeated calls reuse the active default without resolving the directory again. Rename keeps the same identity. Deleting the registration leaves the folder and Sessions intact; the next call creates a fresh registration unless that directory has since been registered explicitly. Older saved IDs whose rows no longer exist are treated as absent. Failure is retryable; caller cancellation after resolution does not roll back directory creation or registration.
 
 Read `ctx.workspaceRegistry.defaultWorkspace` to look up the active default without attempting initialization. It is absent when no default was initialized or its registration was deleted.
 
@@ -116,7 +116,7 @@ Archive admission is a capability seam over two Host events this package declare
 
 ### Durable shape
 
-The registry opens the `workspace` domain (version 2): a `workspaces` table keyed by `WorkspaceId` plus one global state holding `workspaceIds` (the authoritative display order), `archivedSessionIds`, `pinnedSessionIds`, the optional `defaultWorkspaceId` first-use identity, and the optional `pendingMutation` marker. Archive and pin sets contain Session id strings, default to empty, and carry no per-entry objects or timestamps; the pin array keeps the most recently pinned id first. Archiving clears the pin in the same global-state write without changing Workspace membership. Unarchive runs no session-existence probe, because dropping an id from the set cannot introduce an unknown one, while archive verifies the session before adding it.
+The registry opens the `workspace` domain (version 2): a `workspaces` table keyed by `WorkspaceId` plus one global state holding `workspaceIds` (the authoritative display order), `archivedSessionIds`, `pinnedSessionIds`, the optional active `defaultWorkspaceId`, and the optional `pendingMutation` marker. Archive and pin sets contain Session id strings, default to empty, and carry no per-entry objects or timestamps; the pin array keeps the most recently pinned id first. Archiving clears the pin in the same global-state write without changing Workspace membership. Unarchive runs no session-existence probe, because dropping an id from the set cannot introduce an unknown one, while archive verifies the session before adding it.
 
 ### Lifecycle
 

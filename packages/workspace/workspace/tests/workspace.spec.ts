@@ -1450,37 +1450,40 @@ describe('first-use Workspace preparation', () => {
     expect(storedState(h.pool).defaultWorkspaceId).toBeUndefined()
   })
 
-  it('keeps the initialization marker across deletion and restart', async () => {
+  it('recreates a deleted default with a fresh identity after restart, including an old opt-out marker', async () => {
     const h = await firstUse()
     const workspace = (await h.registry.initializeDefault(h.resolveDirectory))!
     await workspace.setTitle('Renamed')
     expect((await h.registry.initializeDefault(h.resolveDirectory))?.title).toBe('Renamed')
     await h.registry.delete(workspace.id)
     await h.ctx.fiber.dispose()
+    h.pool.media.get('workspace')!.global = { ...storedState(h.pool), defaultWorkspaceId: workspace.id }
     const restarted = await firstUse({ pool: h.pool })
-    await expect(restarted.registry.initializeDefault(restarted.resolveDirectory)).resolves.toBeUndefined()
-    expect(storedState(h.pool).defaultWorkspaceId).toBe(workspace.id)
-    expect(restarted.registry.list()).toEqual([])
-    expect(restarted.resolveDirectory).not.toHaveBeenCalled()
+    const recreated = await restarted.registry.initializeDefault(restarted.resolveDirectory)
+    expect(recreated?.id).not.toBe(workspace.id)
+    expect(storedState(h.pool).defaultWorkspaceId).toBe(recreated?.id)
+    expect(restarted.registry.list()).toEqual([recreated])
   })
 
-  it.each(['persisted', 'live', 'archived'] as const)('refuses automatic creation for a %s cwd-less Session', async (kind) => {
+  it.each(['persisted', 'live', 'archived'] as const)('creates a default without reassigning a %s cwd-less Session', async (kind) => {
     const history = header('old')
     const h = await firstUse(kind === 'persisted' ? { sessions: [history] } : { liveSessions: [history] })
     if (kind === 'archived') await h.registry.archiveSession(history.id)
-    await expect(h.registry.initializeDefault(h.resolveDirectory)).resolves.toBeUndefined()
-    expect(h.registry.list()).toEqual([])
-    expect(storedState(h.pool).defaultWorkspaceId).toBeUndefined()
-    expect(h.resolveDirectory).not.toHaveBeenCalled()
+    const project = await h.registry.initializeDefault(h.resolveDirectory)
+    expect(project?.sessionIds).toEqual([])
+    expect(storedState(h.pool).defaultWorkspaceId).toBe(project?.id)
   })
 
-  it('refuses a non-empty Workspace list and newly persisted history', async () => {
+  it('designates the existing registration when its path already owns the default directory', async () => {
     const h = await firstUse()
-    const explicit = await h.registry.create(h.directoryRoot)
-    await expect(h.registry.initializeDefault(h.resolveDirectory)).resolves.toBeUndefined()
-    await h.registry.delete(explicit.id)
-    h.setSessions([header('arrived')])
-    await expect(h.registry.initializeDefault(h.resolveDirectory)).resolves.toBeUndefined()
+    const path = await h.resolveDirectory()
+    await mkdir(path, { recursive: true })
+    const existing = await h.registry.create(path, 'Keep this title')
+    const project = await h.registry.initializeDefault(h.resolveDirectory)
+    expect(project).toBe(existing)
+    expect(project?.title).toBe('Keep this title')
+    expect(storedState(h.pool).defaultWorkspaceId).toBe(existing.id)
+    expect(h.registry.list()).toEqual([existing])
   })
 
   it('fails on a same-path file and remains eligible after it is removed', async () => {
@@ -1507,30 +1510,6 @@ describe('first-use Workspace preparation', () => {
     // Not 'elsewhere': the title names the directory the caller asked for, so
     // the caller can still recognize a Workspace it has not renamed.
     expect(workspace?.title).toBe('Workspace')
-  })
-
-  it.each(['persisted', 'live'] as const)('refuses registration when a %s Session appears during directory preparation', async (kind) => {
-    const h = await firstUse()
-    const arrived = header('arrived-during-preparation')
-    if (kind === 'persisted') {
-      h.list.mockResolvedValueOnce([]).mockResolvedValueOnce([
-        { header: arrived, revision: SessionPersistenceRevision('arrived-revision') },
-      ])
-    } else {
-      vi.spyOn(h.ctx.sessions, 'list').mockReturnValueOnce([]).mockReturnValueOnce([{ header: arrived }] as never)
-    }
-    await expect(h.registry.initializeDefault(h.resolveDirectory)).resolves.toBeUndefined()
-    expect(h.registry.list()).toEqual([])
-    expect(storedState(h.pool).defaultWorkspaceId).toBeUndefined()
-  })
-
-  it('does not infer an empty live Session store when the peer is unavailable', async () => {
-    const h = await harness()
-    contexts.push(h.ctx)
-    const resolveDirectory = vi.fn(async () => { throw new Error('unexpected directory lookup') })
-    await expect(h.registry.initializeDefault(resolveDirectory)).rejects.toThrow('Session store')
-    expect(resolveDirectory).not.toHaveBeenCalled()
-    expect(storedState(h.pool).defaultWorkspaceId).toBeUndefined()
   })
 
   it('rolls back a failed final marker write and allows a retry', async () => {

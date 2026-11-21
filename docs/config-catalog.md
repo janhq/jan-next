@@ -319,7 +319,7 @@ export interface Config {
 - `source`: [`packages/api/workspace-controller/src/index.ts:37`](../packages/api/workspace-controller/src/index.ts)
 
 ```ts config-catalog
-/** First-use directory policy for the Host account. */
+/** Default project directory policy for the Host account. */
 export interface Config {
   /** Override the system Documents directory with a fully qualified path. */
   documentsDirectory?: string

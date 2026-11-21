@@ -106,9 +106,9 @@ export class ClientWorkspaceModel implements WorkspaceFollowSink {
    * @param signal - caller lifetime.
    * @returns generated Remote result.
    */
-  async initializeDefault(signal?: AbortSignal): Promise<RemoteResult<WorkspaceValue | undefined>> {
+  async initializeDefault(signal?: AbortSignal): Promise<RemoteResult<WorkspaceValue>> {
     const result = await this.remote.initializeDefault(signal)
-    if (result.ok && result.value !== undefined) this.upsert(result.value.workspace)
+    if (result.ok) this.upsert(result.value.workspace)
     return result
   }
 

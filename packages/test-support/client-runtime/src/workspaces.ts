@@ -5,7 +5,7 @@ import type {
 } from '@janhq/jan-api-workspace-controller/client'
 import type { SessionId } from '@janhq/jan-session/types'
 import type { SnapshotStore } from '@janhq/jan-client-store'
-import { workspaceSnapshot } from './fixtures.ts'
+import { defaultWorkspaceFixture, workspaceSnapshot } from './fixtures.ts'
 import type { FixtureSnapshot, Stabilizer } from './fixtures.ts'
 
 /** Writable test representation of the immutable Workspace Controller snapshot. */
@@ -81,14 +81,15 @@ export class TestWorkspaces implements IWorkspaces {
   }
 
   /**
-   * Initialize the default Workspace through a test stub; defaults to an ineligible first use.
+   * Record a request for the default project, returning the existing row or the fixture default.
    * @param signal - caller lifetime.
-   * @returns the stubbed Workspace, or undefined when initialization is ineligible.
+   * @returns the prepared Workspace view.
    */
-  async initializeDefault(signal?: AbortSignal): Promise<WorkspaceView | undefined> {
+  async initializeDefault(signal?: AbortSignal): Promise<WorkspaceView> {
     this.calls.push({ method: 'initializeDefault', args: [signal] })
     const stub = this.stubs.get('initializeDefault')
-    return await (stub?.(signal) as Promise<WorkspaceView | undefined> | undefined)
+    if (stub !== undefined) return await (stub(signal) as Promise<WorkspaceView>)
+    return this.list.getSnapshot().items.find(workspace => workspace.isDefault) ?? defaultWorkspaceFixture
   }
 
   /**
