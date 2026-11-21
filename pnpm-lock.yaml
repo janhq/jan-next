@@ -7236,6 +7236,10 @@ importers:
         version: 18.3.1(react@18.3.1)
 
   packages/client/ui-user-questions:
+    dependencies:
+      '@janhq/schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
     devDependencies:
       '@janhq/cordis':
         specifier: workspace:~
@@ -7273,6 +7277,9 @@ importers:
       '@janhq/jan-client-ui-renderer':
         specifier: workspace:*
         version: link:../ui-renderer
+      '@janhq/jan-client-ui-settings':
+        specifier: workspace:*
+        version: link:../ui-settings
       '@janhq/jan-client-ui-session':
         specifier: workspace:*
         version: link:../ui-session
@@ -7288,6 +7295,9 @@ importers:
       '@janhq/jan-session':
         specifier: workspace:*
         version: link:../../core/session
+      '@janhq/jan-settings':
+        specifier: workspace:*
+        version: link:../../settings/settings
       '@janhq/jan-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
