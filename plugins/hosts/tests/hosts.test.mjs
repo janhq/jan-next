@@ -1,9 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import WebSocket, { WebSocketServer } from 'ws'
 import { HostsStore, deviceFor, parseHostUrl, parseSshTarget } from '../store.mjs'
 import { startGateway } from '../gateway.mjs'
@@ -38,10 +38,23 @@ test('SSH targets that ssh would read as an option are refused', () => {
   assert.throws(() => parseHostUrl('file:///etc/passwd'), { code: 'url' })
 })
 
-test('the SSH command and profile cannot carry shell syntax', async (t) => {
+test('an SSH Host is its destination alone, saved once however it is written', async (t) => {
   const store = await home(t)
-  await assert.rejects(store.saveConnection({ name: 'Pi', kind: 'ssh', ssh: 'pi@pi.local', command: 'jan;rm -rf ~' }), { code: 'command' })
-  await assert.rejects(store.saveConnection({ name: 'Pi', kind: 'ssh', ssh: 'pi@pi.local', profile: 'edge $(id)' }), { code: 'command' })
+  const { connection } = await store.saveConnection({ name: 'Pi', kind: 'ssh', ssh: 'pi@Pi.local:2222', command: 'jan;rm -rf ~', profile: 'edge $(id)' })
+  assert.deepEqual(Object.keys(connection).sort(), ['addedAt', 'id', 'kind', 'name', 'ssh'])
+  assert.equal(connection.ssh, 'pi@pi.local:2222')
+  await assert.rejects(store.saveConnection({ name: 'Pi again', kind: 'ssh', ssh: 'pi@PI.LOCAL:2222' }), { code: 'duplicate' })
+})
+
+test('editing an SSH Host saved by an older Jan drops its command, profile and port', async (t) => {
+  const store = await home(t)
+  await mkdir(dirname(store.connectionsFile), { recursive: true })
+  await writeFile(store.connectionsFile, JSON.stringify({
+    version: 1,
+    connections: [{ id: 'a', name: 'Old', kind: 'ssh', ssh: 'pi@pi.local', remotePort: 3080, command: 'jan', profile: 'web', addedAt: 1 }],
+  }))
+  const { connection } = await store.saveConnection({ id: 'a', name: 'Old', kind: 'ssh', ssh: 'pi@pi.local' })
+  assert.deepEqual(connection, { id: 'a', name: 'Old', kind: 'ssh', ssh: 'pi@pi.local', addedAt: 1 })
 })
 
 test('the devices file holds no usable token', async (t) => {
@@ -157,7 +170,8 @@ test('a remote Jan that stops early reports its own reason, not the Node footer'
     '',
     'Node.js v20.19.4',
   ].join('\n')
-  assert.match(startFailure(crash), /no "edge" profile.*older release/)
-  assert.match(startFailure('zsh:1: command not found: jan'), /not installed there/)
+  assert.equal(startFailure(crash), `Error: dsh: profile "edge" does not exist; create it with 'dsh plugin --profile edge add <package>'`)
+  assert.match(startFailure('node: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.28\' not found (required by node)'), /glibc 2\.28 or newer/)
+  assert.match(startFailure('sh: 1: /home/pi/.jan/hosts-runtime/current/node/bin/node: No such file or directory'), /incomplete.*Connect again/)
   assert.equal(startFailure('Error: EADDRINUSE: address already in use 127.0.0.1:3080\nNode.js v24'), 'Error: EADDRINUSE: address already in use 127.0.0.1:3080')
 })

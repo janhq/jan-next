@@ -25,7 +25,11 @@ window.__ModuleLoader__.load({
         testing: 'Testing...',
         open: 'Open',
         connect: 'Connect',
-        connecting: 'Starting Jan over SSH...',
+        connecting: 'Connecting...',
+        'progress.checking': 'Checking that computer...',
+        'progress.copying': 'Copying Jan to that computer...',
+        'progress.copyingBytes': 'Copying Jan to that computer: {sent} of {total} MB',
+        'progress.starting': 'Starting Jan there...',
         disconnect: 'Disconnect',
         'kind.url': 'Address',
         'kind.ssh': 'SSH',
@@ -33,6 +37,7 @@ window.__ModuleLoader__.load({
         'state.signIn': 'Needs its link',
         'state.connected': 'Connected',
         'state.idle': 'Not connected',
+        'state.connecting': 'Connecting',
         'form.name': 'Name',
         'form.namePlaceholder': 'Office desktop',
         'form.kind': 'How to reach it',
@@ -40,7 +45,7 @@ window.__ModuleLoader__.load({
         'form.urlHelp': 'Paste the whole jan web: line from that computer, including ?token=. The token signs you in and is stored only on this computer.',
         'form.urlEditHelp': 'Leave the token out to keep the saved sign-in.',
         'form.ssh': 'SSH host',
-        'form.sshHelp': 'A Host name from your ssh config, user@host, or user@host:port. Your own SSH keys and config are used; Jan must be installed there.',
+        'form.sshHelp': 'A Host name from your ssh config, user@host, or user@host:port. Your own SSH keys and config are used. Connect copies Jan there if it is missing; that computer needs no internet.',
         'import.open': 'Import from SSH config',
         'import.title': 'Hosts in your SSH config',
         'import.lede': 'Choose the computers to add. Jan connects by the Host name, so your keys, ports and proxies from the config still apply.',
@@ -51,10 +56,6 @@ window.__ModuleLoader__.load({
         'import.none': 'Import',
         'import.done': 'Added {count}.',
         'import.failed': '{alias}: {message}',
-        'form.remotePort': 'Port on that computer',
-        'form.command': 'Jan command',
-        'form.profile': 'Profile',
-        'form.profileHelp': 'Use edge on a Raspberry Pi or another small board. An older Jan without edge needs web.',
         'form.save': 'Save',
         'form.cancel': 'Cancel',
         'devices.title': 'Devices that reach this Jan',
@@ -194,11 +195,6 @@ window.__ModuleLoader__.load({
             h('label', { key: 'ssh' }, t('form.ssh'),
               h(Input, { name: 'ssh', required: true, defaultValue: initial?.ssh, placeholder: 'pi@raspberrypi.local', autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false }),
               h('span', { className: 'jh-help' }, t('form.sshHelp'))),
-            h('div', { key: 'more', className: 'jh-inline' },
-              h('label', null, t('form.remotePort'), h(Input, { name: 'remotePort', type: 'number', inputMode: 'numeric', min: 1, max: 65535, defaultValue: initial?.remotePort ?? 3080 })),
-              h('label', null, t('form.command'), h(Input, { name: 'command', defaultValue: initial?.command ?? 'jan', autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false })),
-              h('label', null, t('form.profile'), h(Input, { name: 'profile', defaultValue: initial?.profile ?? 'web', autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false }))),
-            h('span', { key: 'help', className: 'jh-help' }, t('form.profileHelp')),
           ],
         error && h('div', { className: 'jh-note', role: 'alert', 'data-error': '' }, error),
         h('div', { className: 'jh-actions', style: { justifyContent: 'flex-start' } },
@@ -259,24 +255,39 @@ window.__ModuleLoader__.load({
           h(Button, { type: 'button', variant: 'outline', size: 'sm', onClick: onCancel }, t('form.cancel'))))
     }
 
+    async function openInWindow(id) {
+      const { url } = await api('open', { id })
+      // The desktop opens http(s) links outside the app window; a browser opens a tab.
+      window.open(url, '_blank', 'noopener')
+    }
+
+    /** What a running Connect is doing, from the Host's last published step. */
+    function progressText(t, progress) {
+      if (progress?.step === 'copying' && progress.total > 0) {
+        const mb = value => (value / 1e6).toFixed(0)
+        return t('progress.copyingBytes', { sent: mb(progress.sent), total: mb(progress.total) })
+      }
+      return progress?.step === undefined ? t('connecting') : t(`progress.${progress.step}`)
+    }
+
     function HostRow({ t, host, busy, note, run, onEdit, onRemove }) {
       const ssh = host.kind === 'ssh'
       const connected = ssh && host.tunnel !== undefined
       const ready = ssh ? connected : host.signedIn
-      const openHost = () => run(host.id, 'open', async () => {
-        const { url } = await api('open', { id: host.id })
-        // The desktop opens http(s) links outside the app window; a browser opens a tab.
-        window.open(url, '_blank', 'noopener')
-      })
+      const connecting = !connected && (busy === 'connect' || host.progress !== undefined)
+      const sshState = connected ? 'state.connected' : connecting ? 'state.connecting' : 'state.idle'
+      const openHost = () => run(host.id, 'open', () => openInWindow(host.id))
+      // One press does the whole job: copy Jan there when needed, start it, open its page.
+      const connect = () => run(host.id, 'connect', async () => { await api('connect', { id: host.id }); await openInWindow(host.id) })
       return h('div', { className: 'jh-row', 'data-host': host.id },
         h('div', { className: 'jh-info' },
           h('div', { className: 'jh-name' }, h('span', null, host.name), h(Tag, { tone: 'neutral' }, t(`kind.${host.kind}`)),
-            h(Tag, { tone: ready ? 'success' : 'outline' }, t(ssh ? (connected ? 'state.connected' : 'state.idle') : (host.signedIn ? 'state.signedIn' : 'state.signIn')))),
-          h('div', { className: 'jh-detail' }, ssh ? `${host.ssh} · ${host.command} --profile ${host.profile} · port ${host.remotePort}` : host.url),
-          busy === 'connect' && h('div', { className: 'jh-note', role: 'status' }, t('connecting')),
+            h(Tag, { tone: ready ? 'success' : 'outline' }, t(ssh ? sshState : (host.signedIn ? 'state.signedIn' : 'state.signIn')))),
+          h('div', { className: 'jh-detail' }, ssh ? host.ssh : host.url),
+          connecting && h('div', { className: 'jh-note', role: 'status' }, progressText(t, host.progress)),
           note && h('div', { className: 'jh-note', role: note.error ? 'alert' : 'status', 'data-error': note.error || undefined }, note.text)),
         h('div', { className: 'jh-actions' },
-          ssh && !connected && h(Button, { size: 'sm', variant: 'outline', disabled: busy !== undefined, onClick: () => run(host.id, 'connect', async () => { await api('connect', { id: host.id }) }) }, t('connect')),
+          ssh && !connected && h(Button, { size: 'sm', variant: 'outline', disabled: busy !== undefined, onClick: connect }, t('connect')),
           ssh && connected && h(Button, { size: 'sm', variant: 'outline', disabled: busy !== undefined, onClick: () => run(host.id, 'disconnect', async () => { await api('disconnect', { id: host.id }) }) }, t('disconnect')),
           h(Button, {
             size: 'sm', variant: 'outline', disabled: busy !== undefined || (ssh && !connected), onClick: () => run(host.id, 'test', async () => {
@@ -323,6 +334,13 @@ window.__ModuleLoader__.load({
         }
       }, [])
       React.useEffect(() => { void refresh() }, [refresh])
+      // A Connect can copy for a minute; its steps arrive by asking again while one runs.
+      const connectingNow = Object.values(busy).includes('connect') || state?.connections.some(host => host.progress !== undefined)
+      React.useEffect(() => {
+        if (!connectingNow) return undefined
+        const timer = setInterval(() => { void refresh() }, 1000)
+        return () => clearInterval(timer)
+      }, [connectingNow, refresh])
       const act = (id, key, task) => run(id, key, async () => { const note = await task(); await refresh(); return note })
 
       if (state === null) {

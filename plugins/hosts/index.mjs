@@ -9,6 +9,8 @@ import { renderSVG } from 'uqr'
 import { registerApi } from '@janhq/jan-plugin-api'
 import { HostsError, HostsStore } from './store.mjs'
 import { openTunnel, testHost } from './remote.mjs'
+import { installRemote, probeRemote, runtimeIdentity, shippedRuntimes, sshArgs, startCommand } from './remote-install.mjs'
+import { startRelay } from './relay.mjs'
 import { lanAddresses, startGateway } from './gateway.mjs'
 import { sshConfigHosts } from './ssh-config.mjs'
 
@@ -21,6 +23,12 @@ export const Config = schema.object({
     .description('Let paired phones and other devices reach this Jan over the local network.'),
   gatewayHost: schema.string().default('').description('Address the device gateway listens on. Empty picks the first private network address.'),
   gatewayPort: schema.natural().max(65535).default(0).description('Port the device gateway listens on. 0 picks a free port.'),
+  // Empty reads JAN_HOST_RUNTIME_DIR at Connect, so a profile patch that rewrites this row's
+  // config (the device-access switch does) still finds the archives the launcher staged.
+  runtimeDirectory: schema.string().default('')
+    .description('Directory holding the jan-host-runtime archives Connect copies to other computers. Empty uses JAN_HOST_RUNTIME_DIR; neither means this Jan ships none.'),
+  relay: schema.boolean().default(true)
+    .description('Let a Jan started over SSH reach its model providers through this computer, so the other computer needs no internet.'),
 })
 
 const TOKEN_SCOPE = 'jan-hosts'
@@ -46,6 +54,9 @@ async function ownerCookieFor(ctx) {
 export function apply(ctx, config) {
   const store = new HostsStore(join(ctx.janHomePath(), 'hosts'))
   const tunnels = new Map()
+  // What a running Connect is doing, per Host id; cleared when it ends either way.
+  const progress = new Map()
+  const connecting = new Map()
   let gateway
   let gatewayError
   let hashes = new Map()
@@ -101,6 +112,9 @@ export function apply(ctx, config) {
       await gatewayStart
       await gateway?.close()
       for (const tunnel of tunnels.values()) tunnel.close()
+      const running = relay
+      relay = undefined
+      await (await running?.catch(() => undefined))?.close()
     }
   }, 'jan-hosts: device gateway and tunnels')
 
@@ -113,8 +127,50 @@ export function apply(ctx, config) {
     const tunnel = tunnels.get(entry.id)
     return {
       ...entry, signedIn: entry.kind === 'url' ? (await token(entry.id)) !== undefined : tunnel !== undefined,
-      tunnel: tunnel === undefined ? undefined : { root: tunnel.root, log: tunnel.log }
+      tunnel: tunnel === undefined ? undefined : { root: tunnel.root, log: tunnel.log },
+      progress: progress.get(entry.id),
     }
+  }
+
+  // Read per Connect so a misnamed archive fails that Connect with its reason, not the plugin.
+  function runtimes() {
+    return shippedRuntimes(config.runtimeDirectory || process.env.JAN_HOST_RUNTIME_DIR)
+  }
+
+  // One relay serves every SSH Host; started on the first Connect that needs it.
+  let relay
+  async function startedRelay() {
+    if (!config.relay) return undefined
+    relay ??= startRelay()
+    try {
+      return await relay
+    } catch (error) {
+      relay = undefined
+      throw new Error(`The model connection for that computer could not start here: ${error.message}`)
+    }
+  }
+
+  /**
+   * Probe, install when that computer lacks this build, then start it and forward its page here.
+   * Each step is published in `progress` so the page can say what is happening during a long copy.
+   */
+  async function connectSsh(entry, log) {
+    const step = (value) => { progress.set(entry.id, value) }
+    const ssh = sshArgs(entry.ssh)
+    step({ step: 'checking' })
+    const shipped = runtimes()
+    const { target, installed } = await probeRemote(ssh, [...shipped.keys()])
+    const runtime = shipped.get(target)
+    if (installed !== runtimeIdentity(runtime)) {
+      step({ step: 'copying', sent: 0, total: 0 })
+      await installRemote({ ssh, runtime, onProgress: (sent, total) => step({ step: 'copying', sent, total }) })
+    }
+    step({ step: 'starting' })
+    const proxy = await startedRelay()
+    return openTunnel({
+      ssh, relayPort: proxy?.port, log,
+      command: ports => startCommand({ port: ports.web, proxy: proxy?.proxyUrl(ports.relay) }),
+    })
   }
 
   /** The URL that opens the Host, with its login token so the window signs in on its own. */
@@ -191,12 +247,17 @@ export function apply(ctx, config) {
       const entry = await find(id)
       if (entry.kind !== 'ssh') throw new HostsError('kind', 'Only SSH Hosts connect; Address Hosts open directly.')
       if (tunnels.has(id)) return connectionView(entry)
-      const log = []
+      // A second press, or a second window, joins the Connect already running.
+      if (!connecting.has(id)) {
+        const log = []
+        connecting.set(id, connectSsh(entry, line => { log.push(line); if (log.length > 20) log.shift() }).then((tunnel) => {
+          const record = { ...tunnel, log }
+          tunnels.set(id, record)
+          void tunnel.exited.then(() => { if (tunnels.get(id) === record) tunnels.delete(id) })
+        }).finally(() => { connecting.delete(id); progress.delete(id) }))
+      }
       try {
-        const tunnel = await openTunnel(entry, line => { log.push(line); if (log.length > 20) log.shift() })
-        const record = { ...tunnel, log }
-        tunnels.set(id, record)
-        void tunnel.exited.then(() => { if (tunnels.get(id) === record) tunnels.delete(id) })
+        await connecting.get(id)
         return connectionView(entry)
       } catch (error) {
         throw new HostsError('ssh', error.message)

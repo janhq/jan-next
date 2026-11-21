@@ -115,7 +115,7 @@ export class HostsStore {
   /**
    * Add or edit a connection. Names are unique ignoring case, and two entries never point at
    * the same address, because the person could not tell them apart in the list.
-   * @param {object} input - `{ id?, name, kind: 'url' | 'ssh', url?, ssh?, remotePort? }`.
+   * @param {object} input - `{ id?, name, kind: 'url' | 'ssh', url?, ssh? }`.
    * @returns {Promise<{ connection: object, token: string | undefined }>} the saved entry and any pasted token.
    */
   saveConnection(input) {
@@ -128,18 +128,8 @@ export class HostsStore {
         entry.url = parsed.url
         token = parsed.token
       } else if (input.kind === 'ssh') {
-        const target = parseSshTarget(input.ssh)
-        const remotePort = Number(input.remotePort ?? 3080)
-        if (!Number.isInteger(remotePort) || remotePort < 1 || remotePort > 65535) {
-          throw new HostsError('remotePort', 'Use the port `jan web` listens on over there, a number from 1 to 65535.')
-        }
-        const command = String(input.command ?? '').trim() || 'jan'
-        const profile = String(input.profile ?? '').trim() || 'web'
-        // Both reach the remote shell as words of one command line.
-        if (!/^[A-Za-z0-9_./~+-]+$/.test(command) || !/^[A-Za-z0-9_-]+$/.test(profile)) {
-          throw new HostsError('command', 'The Jan command and profile may use only letters, digits and ./~_+-.')
-        }
-        Object.assign(entry, { ssh: sshKey(target), remotePort, command, profile })
+        // Hosts installs and starts its own Jan there, so the SSH destination is the whole entry.
+        entry.ssh = sshKey(parseSshTarget(input.ssh))
       } else {
         throw new HostsError('kind', 'Choose Address or SSH.')
       }
@@ -148,11 +138,12 @@ export class HostsStore {
       if (others.some(item => item.name.toLowerCase() === entry.name.toLowerCase())) {
         throw new HostsError('name-taken', `Another Host is already called ${entry.name}.`)
       }
-      const where = item => item.kind === 'url' ? item.url : `${item.ssh}/${item.remotePort}`
+      const where = item => item.kind === 'url' ? item.url : item.ssh.toLowerCase()
       if (others.some(item => where(item) === where(entry))) throw new HostsError('duplicate', 'This address is already saved.')
       const index = list.findIndex(item => item.id === entry.id)
       if (index === -1) list.push({ ...entry, addedAt: Date.now() })
-      else list[index] = { ...list[index], ...entry }
+      // Fields of the other kind, and the command, profile and port SSH entries once carried, are dropped.
+      else list[index] = { ...entry, addedAt: list[index].addedAt }
       await writeList(this.connectionsFile, 'connections', list)
       return { connection: list[index === -1 ? list.length - 1 : index], token }
     })
