@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 import { runInNewContext } from 'node:vm'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import * as React from 'react'
-import { afterEach, beforeAll, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, expect, it, vi } from 'vitest'
 
 type Source<T> = { getSnapshot(): T; subscribe(listener: () => void): () => void }
 type Registration = { key?: string; id?: string; inject?: () => Record<string, unknown> }
@@ -21,8 +21,10 @@ const source = <T,>(value: T): Source<T> => ({ getSnapshot: () => value, subscri
 const text = (instructions: string) => ({ instructions, memory: '', files: [], truncated: false })
 const reply = (result: unknown) => Response.json({ result })
 let loadPlugin: () => Plugin
+const scroll = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollIntoView')
 
 beforeAll(async () => {
+  Object.defineProperty(Element.prototype, 'scrollIntoView', { value: () => {}, configurable: true })
   const loader = {
     load({ factory }: { factory: (require: (name: string) => unknown) => Plugin }) {
       loadPlugin = () => factory((name) => {
@@ -51,13 +53,19 @@ beforeAll(async () => {
   runInNewContext(await readFile(file, 'utf8'), { window: browser, document, localStorage, get fetch() { return globalThis.fetch }, URLSearchParams, AbortController, console }, { filename: file })
 })
 
+afterAll(() => {
+  if (scroll === undefined) Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+  else Object.defineProperty(Element.prototype, 'scrollIntoView', scroll)
+})
+
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
-function theme(tasks: readonly unknown[] = []) {
+function theme(tasks: readonly unknown[] = [], shared?: { catalog: Source<{ records: readonly unknown[]; status: string }> }) {
   const registrations = new Map<string, Entry>()
   const disposers: (() => void)[] = []
   const selectPanel = vi.fn()
   const startSession = vi.fn()
+  const catalog = vi.fn(async () => ({ ok: true, value: tasks }))
   let openProject: ((id: string) => void) | undefined
   let openSearch: (() => void) | undefined
   const services = {
@@ -80,7 +88,9 @@ function theme(tasks: readonly unknown[] = []) {
     sessions: { list: source({ ids: [], byId: {} }) },
     shortcuts: { catalog: source([]), register: () => () => {} },
     locale: { bind: () => (key: string) => key, register: () => () => {}, subscribe: () => () => {} },
-    remote: { schedule: { catalog: async () => ({ ok: true, value: tasks }) } },
+    remote: { schedule: { catalog }, $on: () => () => {} },
+    on: () => () => {},
+    ...(shared === undefined ? {} : { hostTaskCatalog: shared }),
     effect: (register: () => (() => void) | undefined) => {
       const dispose = register()
       if (dispose !== undefined) disposers.push(dispose)
@@ -101,7 +111,7 @@ function theme(tasks: readonly unknown[] = []) {
     return render(<entry.Component {...actions} {...boundHooks} t={(key: string) => key} />)
   }
   return {
-    renderEntry, selectPanel, startSession,
+    renderEntry, selectPanel, startSession, catalog,
     openProject: (id: string) => services.uiWorkspace.openProjectSurface(id),
     openSearch: () => { openSearch?.() },
     unmount: () => { for (const dispose of disposers.reverse()) dispose() },
@@ -178,8 +188,6 @@ it('labels the automatic default project by its feed identity on the project pag
 
 it('opens the project page, not a new chat, from a search result', async () => {
   const app = theme()
-  const scroll = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollIntoView')
-  Object.defineProperty(Element.prototype, 'scrollIntoView', { value: () => {}, configurable: true })
   try {
     app.openSearch()
     app.renderEntry('jt-search-palette')
@@ -187,9 +195,22 @@ it('opens the project page, not a new chat, from a search result', async () => {
     fireEvent.click(screen.getByRole('option', { name: /Alpha/ }))
     await vi.waitFor(() => { expect(app.selectPanel).toHaveBeenCalledWith('jt-project') })
     expect(app.startSession).not.toHaveBeenCalled()
-  } finally {
-    if (scroll === undefined) Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
-    else Object.defineProperty(Element.prototype, 'scrollIntoView', scroll)
-    app.unmount()
-  }
+  } finally { app.unmount() }
+})
+
+it.each([false, true])('shares one task catalog between Project Home and open search (manager available: %s)', async (hasManager) => {
+  vi.stubGlobal('fetch', vi.fn(async () => reply(text(''))))
+  const tasks = [{ id: 'task', title: 'Shared task', status: 'paused', target: { kind: 'new', create: { cwd: '/work/Foo' } } }]
+  const app = theme(tasks, hasManager ? { catalog: source({ records: tasks, status: 'ready' }) } : undefined)
+  try {
+    app.openProject('alpha')
+    const home = app.renderEntry('jt-project')
+    app.renderEntry('jt-search-palette')
+    await within(home.container).findByText('Shared task')
+    expect(app.catalog).toHaveBeenCalledTimes(hasManager ? 0 : 1)
+    act(() => { app.openSearch() })
+    fireEvent.click(screen.getByRole('tab', { name: 'scheduled' }))
+    expect(await screen.findByRole('option', { name: /Shared task/ })).toBeTruthy()
+    expect(app.catalog).toHaveBeenCalledTimes(hasManager ? 0 : 1)
+  } finally { app.unmount() }
 })
