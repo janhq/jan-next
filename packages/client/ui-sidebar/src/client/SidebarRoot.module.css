@@ -778,6 +778,10 @@
   background-color: var(--dsw-alias-interactive-bg-hover);
 }
 
+.panelRow:active {
+  background-color: var(--dsw-alias-interactive-bg-active);
+}
+
 .moreMenu {
   width: 288px;
   max-width: calc(100vw - 24px);
