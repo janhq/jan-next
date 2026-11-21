@@ -912,7 +912,7 @@ it('lists every installed model and the default\'s alias on the local route when
   } })
   f.llama.install()
   await f.until(s => s.phase === 'running')
-  const jan = { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B (local)', contextWindow: 32768, maxTokens: 8192, input: ['text'] }
+  const jan = { id: 'jan-v3.5-4b', name: 'Jan v3.5 4B (local)', contextWindow: 32768, maxTokens: 8192, input: ['text'], toolUse: true }
   const alias = { ...jan, id: 'local', name: 'Jan v3.5 4B (local default)' }
   // The first sync also asks the route for prompt-reading progress and per-Session KV state, once.
   expect(settings.current?.writes).toEqual([{ ns: 'llm-pi-ai', ops: [
@@ -923,7 +923,7 @@ it('lists every installed model and the default\'s alias on the local route when
   const id = await f.llama.downloadHuggingFace('acme/tiny-GGUF', 'tiny-Q4_K_M.gguf')
   await f.until(s => s.models.length === 2)
   // The new model is listed with its planned context, capped at its trained 8192.
-  const tiny = { id, name: 'tiny-Q4_K_M (local)', contextWindow: 8192, maxTokens: 8192, input: ['text'] }
+  const tiny = { id, name: 'tiny-Q4_K_M (local)', contextWindow: 8192, maxTokens: 8192, input: ['text'], toolUse: true }
   expect(settings.current?.value.providers.local?.models).toEqual([alias, jan, tiny])
   await f.llama.setDefault(id)
   expect(settings.current?.value.providers.local?.models).toEqual([{ ...tiny, id: 'local', name: 'tiny-Q4_K_M (local default)' }, jan, tiny])
@@ -1280,4 +1280,25 @@ it('keeps a model whose projector is missing or changed on disk, without the pro
   expect(record.models).toHaveLength(1)
   expect(record.models[0]).not.toHaveProperty('mmproj')
   await expect(stat(changed)).rejects.toThrow()
+}, 20_000)
+
+it('reads tool support again for a model recorded before it was known, and writes it back', async () => {
+  // Installs from earlier builds have header facts without `toolCalls`; without a second read the
+  // route would leave every such model's tool use unknown and the composer could never warn.
+  const home = await temp('llama-tool-facts-')
+  const file = join('models', 'jan-v3.5-4b', `${sha(MODEL).slice(0, 16)}.gguf`)
+  await mkdir(join(home, 'data', 'models', 'jan-v3.5-4b'), { recursive: true })
+  await writeFile(join(home, 'data', file), MODEL)
+  const { toolCalls: _unknown, ...earlierFacts } = modelFacts(chatModel(40960))
+  await writeFile(join(home, 'data', 'install.json'), JSON.stringify({
+    version: 3, active: 'jan-v3.5-4b',
+    models: [{
+      id: 'jan-v3.5-4b', name: 'Jan v3.5 4B', file, bytes: MODEL.length, sha256: sha(MODEL), source: 'catalog', repo: 'janhq/Jan-v3.5-4B-gguf',
+      facts: earlierFacts,
+    }],
+  }))
+  const f = await fixture({ home })
+  await f.until(s => s.phase === 'running' || s.phase === 'failed')
+  const record = JSON.parse(await readFile(join(home, 'data', 'install.json'), 'utf8')) as { models: Array<{ facts: object }> }
+  expect(record.models[0]?.facts).toMatchObject({ toolCalls: true })
 }, 20_000)
