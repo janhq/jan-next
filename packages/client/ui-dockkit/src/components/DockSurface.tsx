@@ -58,6 +58,12 @@ export interface DockSurfaceProps {
    * width either way. The menu still opens and carries the embedder's items.
    */
   readonly canCloseTab?: (tabId: TabId) => boolean
+  /** Handle a dragged tab released outside the document viewport instead of floating it. */
+  readonly onTabReleasedOutsideViewport?: (tabId: TabId) => void
+  /** Suppress the built-in split button without disabling edge drops. */
+  readonly showSplitControl?: boolean
+  /** Localized accessible name for each pane's tab list. */
+  readonly tabListLabel?: string
   readonly intents: Pick<DockIntents, 'resizeSplit' | 'focusPane'> & Partial<DockIntents>
   readonly labels: DockLabels
   readonly renderTab: TabRenderer
@@ -184,7 +190,7 @@ function sameSizes(a: readonly number[], b: readonly number[]): boolean {
 /** The split tree and the gestures over it. */
 function Surface({
   state, canSplit, canAddTab, canCloseTab, intents, labels, renderTab, renderTabTitle, renderTabActions, renderTabMenuItems,
-  getTabTriggerProps, tabMenuOpen, chrome, onRoom,
+  getTabTriggerProps, tabMenuOpen, chrome, onRoom, onTabReleasedOutsideViewport, showSplitControl = true, tabListLabel,
   tabStrips = true, dividerLabel,
   draw,
   dropZones = 'edges', minPaneFraction = MIN_PANE_FRACTION, hideSplitWhenBlocked = false,
@@ -259,6 +265,12 @@ function Surface({
             const target = hitTest(root, released.clientX, released.clientY, tabId, canSplit, fits, dropZones)
             if (target === undefined) {
               if (containsPoint(root.getBoundingClientRect(), released.clientX, released.clientY)) return
+              if (onTabReleasedOutsideViewport !== undefined
+                && (released.clientX < 0 || released.clientY < 0
+                  || released.clientX >= window.innerWidth || released.clientY >= window.innerHeight)) {
+                onTabReleasedOutsideViewport(tabId)
+                return
+              }
               intents.floatTab?.(tabId, floatRectAt(released.clientX, released.clientY, FLOAT_DEFAULT_SIZE))
               return
             }
@@ -305,6 +317,8 @@ function Surface({
     },
     splitBlock,
     hideSplitWhenBlocked,
+    showSplitControl,
+    tabListLabel,
     canAddTab: canAddTab ?? ALWAYS,
     canCloseTab: canCloseTab ?? ALWAYS,
     dropTarget: preview.dropTarget,

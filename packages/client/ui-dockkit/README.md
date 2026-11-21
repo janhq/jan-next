@@ -60,6 +60,8 @@ Everything host-specific arrives through props:
 
 The split control wrapper exposes `data-dockkit-split-control` for embedder styling, independently of its element tag.
 
+`showSplitControl={false}` hides that button without disabling edge drops. `tabListLabel` names a pane's tab list. `onTabReleasedOutsideViewport` handles a drag released outside the browser viewport instead of the floating intent; releases over adjacent in-window UI retain the existing floating policy.
+
 A tab's `kind` is an opaque string. Seeded tabs are factories (`DockControllerOptions`), so what a fresh pane contains is the embedder's decision, not this package's. Content identity is the pair (`kind`, `contentId`): `findContentTab(state, contentId, kind?)` finds the tab showing it anywhere and `findPaneContentTab(state, paneId, contentId, kind?)` within one pane, and `planOpenContent` focuses that tab instead of opening another unless told `revealIfOpened: false`; an explicit `index` seats a new tab at a strip slot rather than at the end.
 
 `DockLayout`, used by the Sidebar, keeps each tab in a stable DOM cell across selection, pane moves and floating. It accepts one docked pane or two horizontal panes; CSS Grid resolves their widths. `keepMounted(tab)` retains visited bodies and `active` controls Session visibility without reparenting content.

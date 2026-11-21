@@ -28,6 +28,10 @@ export interface PaneCallbacks {
   readonly splitBlock: (paneId: PaneId) => SplitBlock | undefined
   /** Hide blocked split controls instead of rendering them disabled. */
   readonly hideSplitWhenBlocked?: boolean
+  /** Draw the kit's own split button independently of the drop policy. */
+  readonly showSplitControl?: boolean
+  /** Accessible name of the strip's tab list. */
+  readonly tabListLabel?: string | undefined
   /** Whether a pane's strip draws the add control. */
   readonly canAddTab: (paneId: PaneId) => boolean
   /** Whether a tab may close via its close control, menu item, or middle click. */
