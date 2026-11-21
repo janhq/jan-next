@@ -143,7 +143,7 @@ The browser plugin registers the `plugins` sidebar entry and its `main` panel th
 
 The add control reuses `Button`, `Menu`, and `MenuItemButton`. Both installation actions call the same `openInstall` callback and use `InstallDialog` and `PluginManagerController`. The root-scoped list slot `plugins.add.actions` accepts contributed `MenuItemButton` rows after the install action; each contribution receives an `onDismiss()` callback to close the menu before starting its action.
 
-While the Plugins page has access, other Client plugins can read `pluginNavigation` and call `openList()` to select the Plugins main list, including when a detail page is already open. This browsing action preserves the current Session and opens no installation dialog. Installation remains an explicit action on the Plugins page.
+While the Plugins page has access, other Client plugins can read `pluginNavigation` and call `openList()` to select the Plugins main list, including when a detail page is already open, `openBundle(packageName)` to open a bundle's details, or `openItem(id)` to open the page a plugin registered into `plugins.item`. These browsing actions preserve the current Session and open no installation dialog. Installation remains an explicit action on the Plugins page.
 
 ### The store
 

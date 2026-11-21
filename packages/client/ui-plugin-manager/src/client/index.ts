@@ -58,6 +58,11 @@ declare module '@janhq/cordis' {
       openBundle(packageName: string): void
       /** Open the Plugins main list without opening a dialog or changing the current Session. */
       openList(): void
+      /**
+       * Open the page a plugin registered into `plugins.item`, without changing the current Session.
+       * @param id - the `plugins.item` entry id.
+       */
+      openItem(id: string): void
     }
   }
 }
@@ -187,6 +192,11 @@ export function apply(ctx: ClientContext): void {
           ctx.layout.selectPanel(PANEL_ID)
           instance.actions.setTab('installed')
           instance.actions.setView({ kind: 'package', name: packageName })
+        },
+        openItem: (id: string) => {
+          ctx.layout.selectPanel(PANEL_ID)
+          instance.actions.setTab('installed')
+          instance.actions.setView({ kind: 'item', id })
         },
       })
       yield () => { void disposeNavigation() }
