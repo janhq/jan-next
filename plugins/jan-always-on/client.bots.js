@@ -80,7 +80,7 @@ window.__ModuleLoader__.load({
         h(ButtonAction, { onClick: openDetail }, t('details')),
         h(ButtonAction, { title: t('edit'), 'aria-label': t('edit'), onClick: () => dialog({ mode: 'edit', bot }) }, h(IconSettingsOutlineRegular, { size: 16 })))
     }
-    function EditForm({ t, avatar, mode, bot, existing, useWorkspaces, request, change, close, open, dialog }) {
+    function EditForm({ t, avatar, mode, bot, existing, sourceSessionId, useWorkspaces, request, change, close, open, dialog }) {
       const projects = useWorkspaces(state => state.items)
       const [name, setName] = useState(existing?.name ?? '')
       const [custom, setCustom] = useState(existing?.avatar ?? null)
@@ -101,7 +101,7 @@ window.__ModuleLoader__.load({
             agentPreset: data.get('preset') || null, model: data.get('model') ? JSON.parse(data.get('model')) : null,
             persona: data.get('persona') }
           const result = mode === 'edit' ? await change('edit', { id: bot.id, patch: input })
-            : await change('create', { ...input, workspaceId: data.get('project') || undefined })
+            : await change('create', { ...input, sourceSessionId, workspaceId: data.get('project') || undefined })
           close(); if (mode === 'create') open(result)
         } catch (reason) { setError(callError(reason)) }
         finally { setBusy(false) }
@@ -127,7 +127,8 @@ window.__ModuleLoader__.load({
         mode !== 'duplicate' && h('div', { className: 'jao-form' },
           h('label', null, t('role'), h(Input, { name: 'role', defaultValue: existing?.role, maxLength: 100, placeholder: t('roleHint') })),
           h('label', null, t('description'), h('textarea', { name: 'description', rows: 2, defaultValue: existing?.description, maxLength: 500 })),
-          mode === 'create' && h('label', null, t('project'), h('select', { name: 'project' }, h('option', { value: '' }, t('defaultProject')),
+          mode === 'create' && sourceSessionId && h('p', null, t('keepChat')),
+          mode === 'create' && !sourceSessionId && h('label', null, t('project'), h('select', { name: 'project' }, h('option', { value: '' }, t('defaultProject')),
             projects.filter(project => !project.isDefault).map(project => h('option', { key: project.workspaceId, value: project.workspaceId }, project.title)))),
           h('details', { className: 'jao-advanced', onToggle: event => { if (event.currentTarget.open) setAdvanced(true) } },
             h('summary', null, t('advanced')), h('div', { className: 'jao-form' },
@@ -179,7 +180,7 @@ window.__ModuleLoader__.load({
       const { useDialogs, useNotices, useRoster, t, dismissNotice, open, dialog } = props
       const edit = useDialogs(value => value), notice = useNotices(value => value)
       const bot = useRoster(state => state.rows?.find(value => value.id === notice?.botId))
-      return h('div', { className: 'jao-overlays' }, edit && h(EditDialog, { ...props, ...edit, key: `${edit.mode}:${edit.bot?.id ?? ''}`, close: () => dialog(null) }),
+      return h('div', { className: 'jao-overlays' }, edit && h(EditDialog, { ...props, ...edit, key: `${edit.mode}:${edit.sourceSessionId ?? edit.bot?.id ?? ''}`, close: () => dialog(null) }),
         notice && h(Toast, { key: notice.id, text: notice.copy ? t(notice.copy) : notice.kind === 'approval' ? t('review') : notice.text ?? t('error'),
           holdMs: 7000, actions: bot ? [{ label: t('openChat'), onClick: () => { open(bot); dismissNotice() } }] : [], onDone: dismissNotice }))
     }
