@@ -804,6 +804,35 @@ describe('UiWorkspaceService', () => {
     })
   })
 
+  it('starts a global New Session in the open project instead of the retained chat project', async () => {
+    const current = summary('current', { cwd: '/w/chat-project' })
+    persistSelection({ sessionId: current.id })
+    const b = bench({
+      sessions: sessionState([current]),
+      workspaces: workspaceState([workspace('chat-project', [current.id]), workspace('open-project')]),
+    })
+    const panel = 'project' as MainPanelId
+    b.uiWorkspace.registerProjectHandler(() => { b.layout.selectPanel(panel) }, panel)
+    b.uiWorkspace.openProjectSurface(wid('open-project'))
+
+    b.uiWorkspace.startSession()
+
+    await vi.waitFor(() => {
+      expect(b.sessions.create).toHaveBeenLastCalledWith({ workspaceId: wid('open-project') })
+    })
+  })
+
+  it('sends the registered default project ID when New Session uses that project', async () => {
+    const defaultProject = { ...workspace('registered-default'), isDefault: true as const }
+    const b = bench({ workspaces: workspaceState([defaultProject]), sessions: sessionState() })
+
+    b.uiWorkspace.startSession()
+
+    await vi.waitFor(() => {
+      expect(b.sessions.create).toHaveBeenLastCalledWith({ workspaceId: defaultProject.workspaceId })
+    })
+  })
+
   it('opens nothing when a New Session request has no Workspace to open', () => {
     const b = bench()
 
