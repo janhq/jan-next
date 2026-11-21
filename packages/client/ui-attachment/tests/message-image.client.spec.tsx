@@ -47,6 +47,35 @@ describe('MessageImage', () => {
     expect(load).toHaveBeenCalledWith(attachment)
   })
 
+  it('reads a trace thumbnail only as it approaches the viewport and releases it on unmount', async () => {
+    let notify: ((isIntersecting: boolean) => void) | undefined
+    class Observer {
+      constructor(callback: (entries: { isIntersecting: boolean }[]) => void) {
+        notify = (isIntersecting) => { callback([{ isIntersecting }]) }
+      }
+
+      observe(): void {}
+      disconnect(): void {}
+    }
+    vi.stubGlobal('IntersectionObserver', Observer)
+    onTestFinished(() => { vi.unstubAllGlobals() })
+    const release = vi.fn()
+    const load = Object.assign(vi.fn(), {
+      acquire: vi.fn(() => ({ url: Promise.resolve('blob:trace'), release })),
+    })
+    const view = render(<MessageImage getTriggerProps={contextMenuHook()().getTriggerProps}
+      fileDrag={fileDrag} image={{ attachment }} load={load} variant="thumbnail" lazy labels={labels} />)
+    act(() => { notify?.(false) })
+    expect(load.acquire).not.toHaveBeenCalled()
+    act(() => { notify?.(true) })
+    const image = await view.findByAltText(attachment.name)
+    expect(image.getAttribute('loading')).toBe('lazy')
+    fireEvent.click(view.getByRole('button', { name: labels.openNamed(attachment.name) }))
+    expect(view.getByRole('dialog', { name: labels.lightbox.dialog })).toBeTruthy()
+    view.unmount()
+    expect(release).toHaveBeenCalledTimes(1)
+  })
+
   it('loads a Gateway-authorized URL, bounds the thumbnail, and clicks into the original', async () => {
     const load = vi.fn().mockResolvedValue('blob:history')
     const view = render(<MessageImage

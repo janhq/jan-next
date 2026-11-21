@@ -2,18 +2,13 @@ import type { ContextMenuBindings } from '@janhq/jan-client-ui-context-menu/clie
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ImageAttachmentRef } from '@janhq/jan-attachment'
 import { IconLoadingOutlineRegular, IconRefreshOutlineRegular, DraggableImage, ImageLightbox, type FileDragActions } from '@janhq/jan-client-ui-primitives'
-import type { MessageImageLabels } from '@janhq/jan-client-ui-conversation/client'
+import type { MessageImageLabels, MessageImageLoader } from '@janhq/jan-client-ui-conversation/client'
 import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import css from './MessageImage.module.css'
 
 export type { MessageImageLabels } from '@janhq/jan-client-ui-conversation/client'
 
 type PreviewActions = Pick<PropsRenderSlots<'conversation.image.preview.actions'>, 'renderSlot'>
-
-/** Loads a Gateway-authorized durable image URL and may expose a cached URL synchronously. */
-export type ImageLoader = ((attachment: ImageAttachmentRef) => Promise<string>) & {
-  peek?: (attachment: ImageAttachmentRef) => string | undefined
-}
 
 /** One gallery entry: a durable admitted reference, or a submission echo's local preview. */
 export type MessageImageSpec =
@@ -68,13 +63,15 @@ function dimensionsOf(image: MessageImageSpec): { readonly width: number; readon
  * @param props.image - the durable reference to load, or the local preview to display.
  * @param props.load - Gateway-authorized URL loader for the durable arm.
  * @param props.variant - lone image, cropped gallery tile, or uncropped list thumbnail.
+ * @param props.lazy - defer requesting image bytes until this thumbnail nears the viewport.
  * @param props.labels - resolved strings (tooltip, loading, retry, lightbox).
  * @returns the bounded thumbnail button, or the retry control on failure.
  */
-export function MessageImage({ image, load, variant, labels, fileDrag, getTriggerProps, renderSlot }: {
+export function MessageImage({ image, load, variant, lazy = false, labels, fileDrag, getTriggerProps, renderSlot }: {
   image: MessageImageSpec
-  load: ImageLoader
+  load: MessageImageLoader
   variant: 'single' | 'tile' | 'thumbnail'
+  lazy?: boolean
   fileDrag: FileDragActions
   labels: MessageImageLabels
   getTriggerProps: ContextMenuBindings['getTriggerProps']
@@ -82,7 +79,7 @@ export function MessageImage({ image, load, variant, labels, fileDrag, getTrigge
   const preview = 'preview' in image ? image.preview : undefined
   const attachment = 'attachment' in image ? image.attachment : undefined
   const [loaded, setLoaded] = useState<string | null>(() =>
-    attachment === undefined ? null : (load.peek?.(attachment) ?? null))
+    attachment === undefined || lazy ? null : (load.peek?.(attachment) ?? null))
   const [error, setError] = useState(false)
   const [open, setOpen] = useState(false)
   const frame = useRef<HTMLButtonElement>(null)
@@ -105,14 +102,31 @@ export function MessageImage({ image, load, variant, labels, fileDrag, getTrigge
     [dimensions, variant],
   )
 
+  const [requested, setRequested] = useState(!lazy)
   useEffect(() => {
-    if (attachment === undefined) return
+    if (requested || attachment === undefined || frame.current === null) return
+    if (typeof IntersectionObserver === 'undefined') {
+      setRequested(true)
+      return
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some(entry => entry.isIntersecting)) return
+      observer.disconnect()
+      setRequested(true)
+    }, { rootMargin: '96px' })
+    observer.observe(frame.current)
+    return () => { observer.disconnect() }
+  }, [attachment, requested])
+
+  useEffect(() => {
+    if (!requested || attachment === undefined) return
     let live = true
     setError(false)
     setLoaded(load.peek?.(attachment) ?? null)
-    void load(attachment).then((url) => { if (live) setLoaded(url) }).catch(() => { if (live) setError(true) })
-    return () => { live = false }
-  }, [attachment, load, attempt])
+    const lease = lazy ? load.acquire?.(attachment) : undefined
+    void (lease?.url ?? load(attachment)).then((url) => { if (live) setLoaded(url) }).catch(() => { if (live) setError(true) })
+    return () => { live = false; lease?.release() }
+  }, [attachment, load, attempt, lazy, requested])
 
   const src = preview?.url ?? loaded
   const label = ('attachment' in image ? image.label : undefined)
@@ -156,6 +170,7 @@ export function MessageImage({ image, load, variant, labels, fileDrag, getTrigge
             </span>
           )
           : <DraggableImage fileDrag={fileDrag} src={src} alt={label} name={preview?.name ?? attachment?.name ?? 'image'}
+            loading={lazy ? 'lazy' : undefined} decoding={lazy ? 'async' : undefined}
             style={fit === undefined ? undefined : { objectPosition: fit.objectPosition }} />}
       </button>
       {src !== null && renderSlot?.('conversation.image.preview.actions', { getSurface })}
@@ -167,12 +182,15 @@ export function MessageImage({ image, load, variant, labels, fileDrag, getTrigge
 
 /** Wrapping image group shared by user and assistant history: a lone image
  * renders large unless its owner requests compact tiles or contained list thumbnails. */
-export function ImageGallery({ images, load, align, compact = false, thumbnail = false, labels, fileDrag, getTriggerProps, renderSlot }: {
+export function ImageGallery({
+  images, load, align, compact = false, thumbnail = false, lazy = false, labels, fileDrag, getTriggerProps, renderSlot,
+}: {
   images: readonly MessageImageSpec[]
-  load: ImageLoader
+  load: MessageImageLoader
   align: 'start' | 'end'
   compact?: boolean
   thumbnail?: boolean
+  lazy?: boolean
   fileDrag: FileDragActions
   labels: MessageImageLabels
   getTriggerProps: ContextMenuBindings['getTriggerProps']
@@ -187,6 +205,7 @@ export function ImageGallery({ images, load, align, compact = false, thumbnail =
           image={image}
           load={load}
           variant={variant}
+          lazy={lazy}
           fileDrag={fileDrag}
           labels={labels}
           getTriggerProps={getTriggerProps}
