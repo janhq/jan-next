@@ -164,7 +164,7 @@ export async function mountAgentSettings(ctx, config) {
     },
   })
   const skill = async name => {
-    const value = await ctx.skills.get(name, { cwd: process.cwd() })
+    const value = await ctx.skills.get(name)
     if (!value?.path) throw new Error('This skill has no editable instruction file.')
     const path = await realpath(value.path)
     const info = await stat(path)
@@ -172,7 +172,7 @@ export async function mountAgentSettings(ctx, config) {
     return { path, info }
   }
   ctx.effect(() => registerApi(ctx, 'agent-settings', {
-    list: async () => ({ servers: await publicRows(), directories: config.skillDirectories ?? [], canPickDirectory: ctx.get('directoryPicker')?.capability().kind === 'native', skills: await ctx.skills.snapshot({ cwd: process.cwd() }) }),
+    list: async () => ({ servers: await publicRows(), directories: config.skillDirectories ?? [], canPickDirectory: ctx.get('directoryPicker')?.capability().kind === 'native', skills: await ctx.skills.snapshot() }),
     async pickDirectory() {
       const capability = ctx.get('directoryPicker')?.capability()
       if (capability?.kind !== 'native') throw new Error('The native folder picker is unavailable. Enter an absolute path instead.')
