@@ -375,6 +375,50 @@ describe('WorkspaceController follow', () => {
     }
   })
 
+  it('follows the default identity through creation, rename, reconnect, and removal', async () => {
+    const { controller, root } = await harness()
+    const abort = new AbortController()
+    const iterator = controller.follow(abort.signal)[Symbol.asyncIterator]()
+    try {
+      await nextFrame(iterator)
+      const initialized = await controller.initializeDefault(abort.signal)
+      expect(initialized?.workspace.isDefault).toBe(true)
+      const workspaceId = initialized!.workspace.workspaceId
+      await expect(nextFrame(iterator)).resolves.toMatchObject({
+        type: 'upsert', workspace: { workspaceId, isDefault: true },
+      })
+      await expect(nextFrame(iterator)).resolves.toEqual({ type: 'order', workspaceIds: [workspaceId] })
+
+      await expect(controller.rename({ workspaceId, title: 'renamed' })).resolves.toMatchObject({
+        workspace: { workspaceId, isDefault: true, title: 'renamed' },
+      })
+      await expect(nextFrame(iterator)).resolves.toMatchObject({
+        type: 'upsert', workspace: { workspaceId, isDefault: true, title: 'renamed' },
+      })
+      const other = await controller.create({ path: stageDir(root, DEFAULT_WORKSPACE_DIRECTORY) })
+      expect(other.workspace.isDefault).toBeUndefined()
+      await expect(nextFrame(iterator)).resolves.toMatchObject({ type: 'upsert', workspace: other.workspace })
+      await nextFrame(iterator)
+
+      const reconnect = controller.follow(abort.signal)[Symbol.asyncIterator]()
+      try {
+        await expect(nextFrame(reconnect)).resolves.toMatchObject({
+          type: 'baseline', value: { items: [other.workspace, { workspaceId, isDefault: true }] },
+        })
+      } finally {
+        await reconnect.return?.()
+      }
+
+      await controller.delete({ workspaceId })
+      await expect(nextFrame(iterator)).resolves.toEqual({ type: 'order', workspaceIds: [other.workspace.workspaceId] })
+      await expect(nextFrame(iterator)).resolves.toEqual({ type: 'remove', workspaceId })
+      await expect(controller.initializeDefault(abort.signal)).resolves.toBeUndefined()
+    } finally {
+      abort.abort()
+      await iterator.return?.()
+    }
+  })
+
   it('starts with a complete baseline and emits committed increments in domain order', async () => {
     const { controller, ctx, root } = await harness()
     const abort = new AbortController()
