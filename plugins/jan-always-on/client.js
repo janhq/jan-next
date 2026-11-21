@@ -137,7 +137,7 @@ window.__ModuleLoader__.load({
       ctx.effect(() => ctx.sidebarRightTabs.register({ id: PANEL, kind: TAB, priority: 'builtin', title: () => t('details') }))
       ctx.inject(['uiAgentPreset'], scope => {
         scope.effect(() => scope.uiAgentPreset.registerModeAction({
-          id: 'bots', name: () => tNavigation('modeName'), description: () => tNavigation('modeDescription'),
+          id: 'bots', icon: 'users-outline', name: () => tNavigation('modeName'), description: () => tNavigation('modeDescription'),
           run(sourceSessionId) {
             if (getBot(sourceSessionId)) { openDetail(); return }
             void requireUi().then(() => {
