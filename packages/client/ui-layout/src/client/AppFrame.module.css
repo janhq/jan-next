@@ -14,7 +14,8 @@
    an eased track chases the live window edge and the centre column visibly
    rubber-bands while the user resizes the window. */
 .frame[data-animating] {
-  transition: grid-template-columns var(--ds-transition-duration-slow) var(--ds-ease-in-out);
+  /* 200 ms with ease-out: the tracks reflow the chat every frame, so the tween stays short and front-loaded. */
+  transition: grid-template-columns var(--ds-transition-duration) var(--ds-ease-out);
 }
 
 /* Dragging writes widths at pointer cadence; easing them would detach the
