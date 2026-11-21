@@ -332,6 +332,8 @@ declare module '@janhq/jan-client-ui-slots' {
     'conversation.hero.brand.mark': { kind: 'single'; scope: 'root'; owner: HeroBrandMarkOwnerProps }
     /** Agent-preset control staged for a New Session. */
     'conversation.hero.agentPreset': { kind: 'single'; scope: 'session-maybe'; owner: HeroAgentPresetOwnerProps }
+    /** Agent-preset control under a started Session's composer, beside the workspace chip. */
+    'conversation.composer.agentPreset': { kind: 'single'; scope: 'session'; owner: ComposerAgentPresetOwnerProps }
     /** Compact options right-aligned in the New Session row after the workspace and preset controls; rendered only with a Session. */
     'conversation.hero.options': { kind: 'list'; scope: 'session' }
     /**
@@ -414,6 +416,7 @@ declare module '@janhq/jan-client-ui-slots' {
         'conversation.hero.brand.mark': { kind: 'single'; scope: 'root' }
         'conversation.hero.workspace': { kind: 'single'; scope: 'root' }
         'conversation.hero.agentPreset': { kind: 'single'; scope: 'session-maybe' }
+        'conversation.composer.agentPreset': { kind: 'single'; scope: 'session' }
         'conversation.hero.options': { kind: 'list'; scope: 'session' }
       }
       inject: ConversationInjected
@@ -452,6 +455,12 @@ declare module '@janhq/jan-client-ui-slots' {
 /** Owner share of the Hero agent-preset control. */
 export interface HeroAgentPresetOwnerProps {
   /** Marker field: the occupant owns its roster and staged selection. */
+  children?: never
+}
+
+/** Owner share of the started Session's agent-preset control. */
+export interface ComposerAgentPresetOwnerProps {
+  /** Marker field: the occupant derives its state from standard Session props. */
   children?: never
 }
 
