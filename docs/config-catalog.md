@@ -2152,6 +2152,14 @@ export interface PiAiModelProfile {
    */
   input?: PiAiModality[]
   /**
+   * Whether this model calls the tools a request declares. Absent states no
+   * answer; `false` is what a managed local route writes for a model whose
+   * chat template has no tool support, so selectors can warn before a tool
+   * task. It is a claim about the model, not a request switch: tools are
+   * still declared to it.
+   */
+  toolUse?: boolean
+  /**
    * Selectable reasoning efforts. Absent inherits the installed catalog
    * entry's capability (a hand-declared model has none and does not reason);
    * `false` declares a non-reasoning model, which is how a profile strips
