@@ -2333,6 +2333,19 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'mediaCapture',
+    summary: 'Interactive Host rendezvous used by a per-Agent tool registration.',
+    description: 'Interactive Host rendezvous used by a per-Agent tool registration.',
+    methods: [
+      {
+        signature: 'request(request: CaptureRequest, signal: AbortSignal): Promise<CaptureResult>',
+        description: 'Wait for a browser to share or decline one capture.',
+        parameters: [{ name: 'request', description: 'Request owner, call identity, mode, and displayed reason.' }, { name: 'signal', description: 'Tool execution cancellation.' }],
+        returns: 'The result to persist through the ordinary tool lifecycle.',
+      },
+    ],
+  },
+  {
     key: 'messageFeedback',
     summary: 'Session-log service; cold operations never construct a Session or Agent.',
     description: 'Session-log service; cold operations never construct a Session or Agent.',
@@ -2934,6 +2947,23 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'The disposer for this exact registration.',
       },
       {
+        signature: 'registerSessionDestination(sessionId: SessionId, owner: string, receive: SchedulePluginHandler): () => void',
+        description: 'Bind an existing Session\'s reminders to a mounted, durable inbox instead of waking the Agent directly.',
+        parameters: [{ name: 'sessionId', description: 'Session whose reminders the inbox receives.' }, { name: 'owner', description: 'Stable plugin owner recorded as the delivering inbox.' }, { name: 'receive', description: 'Acknowledges an occurrence after durable acceptance; must not call back into Schedule.' }],
+        returns: 'The disposer for this exact registration.',
+      },
+      {
+        signature: 'async retargetPluginTasks(owner: string, sessionId: SessionId, workspaceId?: WorkspaceId): Promise<void>',
+        description: 'Change a legacy inbox\'s visible target while retaining deadlines, receipts and its private payload.',
+        parameters: [{ name: 'owner', description: 'Plugin owner whose saved tasks move.' }, { name: 'sessionId', description: 'Session the tasks now target.' }, { name: 'workspaceId', description: 'Project of that Session, when it has one.' }],
+      },
+      {
+        signature: 'async createSessionTask(request: Omit<ScheduleCreateRequest, \'target\'>, destination: { readonly sessionId: SessionId; readonly key: string; readonly payload?: string }, signal?: AbortSignal): Promise<ScheduleCatalogEntry>',
+        description: 'Create an idempotently named task with a checkpoint for a mounted Session inbox.',
+        parameters: [{ name: 'request', description: 'Task title, prompt and timing, as in ordinary Schedule creation.' }, { name: 'destination', description: 'Session with a registered inbox, stable task key, and optional opaque payload.' }, { name: 'signal', description: 'Cancellation before the durable write.' }],
+        returns: 'The stored task without its private payload.',
+      },
+      {
         signature: 'async createPluginTask(request: Omit<ScheduleCreateRequest, \'target\'>, destination: { readonly owner: string; readonly key: string; readonly payload?: string }, signal?: AbortSignal): Promise<ScheduleCatalogEntry>',
         description: 'Create a plugin-owned task, reusing its original task identity when the owner retries the same key.',
         parameters: [{ name: 'request', description: 'Task title, prompt and timing, as in ordinary Schedule creation.' }, { name: 'destination', description: 'Registered owner, stable owner-local task key, and optional opaque payload.' }, { name: 'signal', description: 'Cancellation before the durable write.' }],
@@ -2997,7 +3027,8 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         signature: '@Remote(\'run\') async run(request: ScheduleRunRequest, signal?: AbortSignal): Promise<ScheduleRunResult>',
         description: 'Deliver one task now without consuming or moving its scheduled occurrence; an archived destination Session rejects with `schedule/target-archived`.',
         parameters: [{ name: 'request', description: 'Task identity.' }, { name: 'signal', description: 'Cancellation checked after entering the delivery transaction and before delivery.' }],
-        returns: 'Task state after Session persistence acknowledged the delivery, `schedule_execution_pending` while another execution of the task is queued, running, or inside its delivery floor, or a non-mutating miss.',
+        returns: 'Task state after Session persistence acknowledged the delivery, a non-mutating refusal, or a miss.',
+        throws: ['`schedule/project-removed` after durably pausing a task whose project was removed.'],
       },
       {
         signature: '@Remote(\'deleteInactive\') async deleteInactive(): Promise<ScheduleDeleteInactiveResult>',
@@ -4187,7 +4218,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'async assemble(context: AssembleContext = {}): Promise<PromptAssembly>',
-        description: 'Assemble global and scoped providers, detach tool parameters, apply canonical ordering, then run the presentation waterfall. Scoped sections and variables shadow globals. The waterfall\'s text is authoritative except that an effective complete section is restored afterwards as the sole prompt section; tool declarations stay provider-owned.',
+        description: 'Assemble global and scoped providers, detach tool parameters, apply canonical ordering, then run the presentation waterfall. Scoped sections and variables shadow globals. The waterfall\'s text is authoritative except that an effective complete section is restored afterwards as the sole prompt section, plus the registered sections it keeps; tool declarations stay provider-owned.',
         parameters: [{ name: 'context', description: 'the optional scope, step tool set, and plugin-defined assembly fields.' }],
         returns: 'the post-waterfall assembly with ordered tool declarations and any complete prompt enforced.',
       },
@@ -4701,9 +4732,9 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'One Host-computed remaining duration, or no frames once the wait ended.',
       },
       {
-        signature: 'async askTimed( request: AskUserQuestionRequest & { agent: Agent }, callId: ToolCallId, timeoutMs: number, ): Promise<TimedUserQuestionResult>',
+        signature: 'async askTimed( request: AskUserQuestionRequest & { agent: Agent }, callId: ToolCallId, timeoutMs: number, autoSubmit?: true, ): Promise<TimedUserQuestionResult>',
         description: 'Foreground wait whose first settlement the Client decides: the Client rejects with `ASK_TIMED_OUT` when its countdown ends, and this method maps that code to the pending result.',
-        parameters: [{ name: 'request', description: 'Questions, live owner agent, and abort signal.' }, { name: 'callId', description: 'Tool call identity the Client card is keyed by.' }, { name: 'timeoutMs', description: 'Positive foreground wait in milliseconds.' }],
+        parameters: [{ name: 'request', description: 'Questions, live owner agent, and abort signal.' }, { name: 'callId', description: 'Tool call identity the Client card is keyed by.' }, { name: 'timeoutMs', description: 'Positive foreground wait in milliseconds.' }, { name: 'autoSubmit', description: 'Whether the Client should submit its draft at expiry instead of returning pending.' }],
         returns: 'The answer when it arrives inside the window, otherwise a pending result, also when no connected Client claimed the request by the deadline.',
         throws: ['{UserQuestionError} `BAD_TIMEOUT` for a non-integer, non-positive, or oversized wait.'],
       },
@@ -4713,6 +4744,19 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [{ name: 'request', description: 'Questions, owner agent, and abort signal.' }],
         returns: 'The answer chosen or typed by the human.',
         throws: ['{UserQuestionError} code `ASK_ABORTED` when the supplied signal is already or becomes aborted, `CALLER_NOT_LIVE` when a supplied agent is not the registry\'s exact live instance, or `DELEGATED_CALLER` when that live agent has subagent origin.'],
+      },
+    ],
+  },
+  {
+    key: 'userQuestionSettings',
+    summary: 'Live Host preference exposed to presets that opt into automatic answering.',
+    description: 'Live Host preference exposed to presets that opt into automatic answering.',
+    methods: [
+      {
+        signature: 'autoAnswerSeconds(): number',
+        description: 'Read the current automatic-answer wait for new calls.',
+        parameters: [],
+        returns: 'The wait in seconds, or zero to wait indefinitely.',
       },
     ],
   },
@@ -4936,15 +4980,21 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the Workspace and whether this call created it.',
       },
       {
-        signature: '@Remote(\'initializeDefault\') async initializeDefault(signal: AbortSignal): Promise<WorkspaceValue | undefined>',
-        description: 'Initialize or reuse the default Workspace during first-use startup. The directory name is fixed, so the Host never renames or relocates an existing default; its initial title is that same name, which browser consumers label in the reader\'s language.',
+        signature: '@Remote(\'initializeDefault\') async initializeDefault(signal: AbortSignal): Promise<WorkspaceValue>',
+        description: 'Ensure the default Workspace exists at the Host account\'s Documents directory. An existing default is reused, and a deleted registration is recreated on demand.',
         parameters: [{ name: 'signal', description: 'caller lifetime; cancels native directory lookup.' }],
-        returns: 'the durable Workspace, or undefined when first-use initialization is ineligible; creates no Session or message.',
+        returns: 'the durable default Workspace; creates no Session or message.',
       },
       {
         signature: '@Remote(\'rename\') rename(request: WorkspaceRenameRequest): Promise<WorkspaceValue>',
         description: 'Rename one Workspace to a unique non-blank title.',
         parameters: [{ name: 'request', description: 'Workspace identity and proposed title.' }],
+        returns: 'the updated Workspace projection.',
+      },
+      {
+        signature: '@Remote(\'update\') update(request: WorkspaceUpdateRequest): Promise<WorkspaceValue>',
+        description: 'Change the Workspace title and appearance in one durable update.',
+        parameters: [{ name: 'request', description: 'Workspace id and changed identity fields; null clears appearance.' }],
         returns: 'the updated Workspace projection.',
       },
       {
@@ -5047,16 +5097,34 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the existing or newly durable workspace.',
       },
       {
-        signature: 'initializeDefault(resolveDirectory: () => Promise<string>): Promise<Workspace | undefined>',
-        description: 'Initialize the default Workspace only while both the registry and Session history are empty. Repeated requests reuse its durable identity; deleting that registration permanently disables automatic creation.',
-        parameters: [{ name: 'resolveDirectory', description: 'resolve the absolute directory; called only for eligible creation, inside the registry mutation queue. Missing directories are created recursively before registration, and the initial title is the requested directory\'s own final segment — not the canonical one, so a symlink at that path does not retitle the Workspace after its target. After resolution, caller cancellation does not roll back creation or registration.' }],
-        returns: 'the initialized Workspace, or undefined when automatic creation is ineligible.',
+        signature: 'async adopt(path: string, title?: string): Promise<WorkspaceAdoption>',
+        description: 'Adopt an existing directory and report whether this call registered it.',
+        parameters: [{ name: 'path', description: 'Fully qualified directory path.' }, { name: 'title', description: 'Display title used only for a new registration.' }],
+        returns: 'the Workspace and whether its registration was created by this call.',
+      },
+      {
+        signature: 'initializeDefault(resolveDirectory: () => Promise<string>): Promise<Workspace>',
+        description: 'Ensure the default Workspace exists, beginning a fresh registration after deletion.',
+        parameters: [{ name: 'resolveDirectory', description: 'Resolve the directory inside the mutation queue when no active default exists.' }],
+        returns: 'the registered default without changing any existing Session membership.',
+      },
+      {
+        signature: 'ensureDefault(signal: AbortSignal = new AbortController().signal): Promise<Workspace>',
+        description: 'Ensure the default through the embedding\'s directory policy.',
+        parameters: [{ name: 'signal', description: 'Caller lifetime.' }],
+        returns: 'the active or newly registered default Workspace.',
       },
       {
         signature: 'get(id: WorkspaceId): Workspace | undefined',
         description: 'Look up a workspace by id.',
         parameters: [{ name: 'id', description: 'Workspace id.' }],
         returns: 'the workspace, or `undefined` when unknown.',
+      },
+      {
+        signature: 'updateIdentity(id: WorkspaceId, patch: WorkspaceIdentityPatch): Promise<Workspace | undefined>',
+        description: 'Apply one durable project identity edit without changing its path or ID.',
+        parameters: [{ name: 'id', description: 'Target Workspace id.' }, { name: 'patch', description: 'Already validated title and appearance changes.' }],
+        returns: 'the changed Workspace, or `undefined` when it no longer exists.',
       },
       {
         signature: 'list(): Workspace[]',
@@ -5844,6 +5912,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [{ name: 'info', description: 'the run\'s identity snapshot (id + meta).' }],
   },
   {
+    name: 'workspace/default-directory',
+    mode: 'waterfall',
+    signature: '\'workspace/default-directory\'(signal: AbortSignal, next: () => Promise<string>): Promise<string>',
+    summary: 'Resolve the Host\'s default project directory without creating it.',
+    description: 'Resolve the Host\'s default project directory without creating it.',
+    parameters: [{ name: 'signal', description: 'Caller lifetime.' }, { name: 'next', description: 'Delegate to the next configured directory provider.' }],
+  },
+  {
     name: 'workspace/session-activity',
     mode: 'waterfall',
     signature: '\'workspace/session-activity\'( request: SessionActivityRequest, next: () => Promise<readonly SessionActivity[]>, ): Promise<readonly SessionActivity[]>',
@@ -5989,7 +6065,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'AgentPresetRow',
-    declaration: 'export interface AgentPresetRow {\n    readonly id: string;\n    readonly isDefault: boolean;\n    readonly name?: string;\n    readonly description?: string;\n    readonly broken?: string;\n}',
+    declaration: 'export interface AgentPresetRow {\n    readonly id: string;\n    readonly isDefault: boolean;\n    readonly name?: string;\n    readonly description?: string;\n    readonly icon?: string;\n    readonly broken?: string;\n}',
   },
   {
     name: 'AgentResolver',
@@ -6053,7 +6129,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'AskUserQuestionAnswer',
-    declaration: 'export interface AskUserQuestionAnswer {\n    answers: AskUserQuestionAnswerItem[];\n}',
+    declaration: 'export interface AskUserQuestionAnswer {\n    answers: AskUserQuestionAnswerItem[];\n    autoSubmitted?: true;\n}',
   },
   {
     name: 'AskUserQuestionAnswerItem',
@@ -6077,7 +6153,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'AskUserQuestionRequestEvent',
-    declaration: 'export interface AskUserQuestionRequestEvent {\n    questions: AskUserQuestionItem[];\n    agent?: Agent;\n    signal?: AbortSignal;\n    wait?: {\n        callId: ToolCallId;\n        timed?: boolean;\n    };\n}',
+    declaration: 'export interface AskUserQuestionRequestEvent {\n    questions: AskUserQuestionItem[];\n    agent?: Agent;\n    signal?: AbortSignal;\n    wait?: {\n        callId: ToolCallId;\n        timed?: boolean;\n        autoSubmit?: true;\n    };\n}',
   },
   {
     name: 'AssembleContext',
@@ -6230,6 +6306,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ButtonProps',
     declaration: 'export interface ButtonProps {\n    readonly label: string;\n    readonly hotkey?: string | undefined;\n    readonly disabled?: boolean | undefined;\n    readonly onPress?: (() => unknown) | undefined;\n}',
+  },
+  {
+    name: 'CaptureMode',
+    declaration: 'export type CaptureMode = \'photo\' | \'video\' | \'audio\';',
+  },
+  {
+    name: 'CaptureRequest',
+    declaration: 'export interface CaptureRequest {\n    readonly agent: Agent;\n    readonly callId: ToolCallId;\n    readonly mode: CaptureMode;\n    readonly reason: string;\n}',
+  },
+  {
+    name: 'CaptureResult',
+    declaration: 'export type CaptureResult = {\n    status: \'declined\';\n} | {\n    status: \'captured\';\n    mode: \'photo\';\n    image: ReferenceValue<ImageAttachmentRef>;\n} | {\n    status: \'captured\';\n    mode: \'video\' | \'audio\';\n    file: ReferenceValue<FileAttachmentRef>;\n    path: string;\n    note: string;\n};',
   },
   {
     name: 'CatalogModelInfo',
@@ -7465,7 +7553,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'LlmModelInfo',
-    declaration: 'export interface LlmModelInfo {\n    provider: string;\n    id: string;\n    name: string;\n    description?: string;\n    inputModalities?: readonly ModelModality[];\n    badge?: LlmModelBadge;\n}',
+    declaration: 'export interface LlmModelInfo {\n    provider: string;\n    id: string;\n    name: string;\n    description?: string;\n    inputModalities?: readonly ModelModality[];\n    toolUse?: boolean;\n    badge?: LlmModelBadge;\n}',
   },
   {
     name: 'LlmModelReasoningInfo',
@@ -7817,7 +7905,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ModelCatalogModel',
-    declaration: 'export interface ModelCatalogModel {\n    readonly id: string;\n    readonly name: string;\n    readonly description?: string;\n    readonly reasoning?: ModelReasoning;\n    readonly badge?: LlmModelBadge;\n    readonly contextWindow?: number;\n    readonly imageInput?: boolean;\n}',
+    declaration: 'export interface ModelCatalogModel {\n    readonly id: string;\n    readonly name: string;\n    readonly description?: string;\n    readonly reasoning?: ModelReasoning;\n    readonly badge?: LlmModelBadge;\n    readonly contextWindow?: number;\n    readonly imageInput?: boolean;\n    readonly toolUse?: boolean;\n}',
   },
   {
     name: 'ModelFit',
@@ -8205,7 +8293,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'PresetDefinition',
-    declaration: 'export interface PresetDefinition {\n    readonly id: string;\n    readonly name?: string;\n    readonly description?: string;\n    readonly order?: number;\n    readonly toolAllowlist?: readonly string[] | undefined;\n    readonly readOnlyDelegation?: boolean | undefined;\n    readonly plugins: readonly (Omit<EntryOptions, \'id\' | \'disabled\'> & {\n        id?: string;\n        disabled?: EntryOptions[\'disabled\'] | JsExpr;\n    })[];\n}',
+    declaration: 'export interface PresetDefinition {\n    readonly id: string;\n    readonly name?: string;\n    readonly description?: string;\n    readonly icon?: string;\n    readonly order?: number;\n    readonly toolAllowlist?: readonly string[] | undefined;\n    readonly readOnlyDelegation?: boolean | undefined;\n    readonly plugins: readonly (Omit<EntryOptions, \'id\' | \'disabled\'> & {\n        id?: string;\n        disabled?: EntryOptions[\'disabled\'] | JsExpr;\n    })[];\n}',
   },
   {
     name: 'PresetOption',
@@ -8309,7 +8397,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'PromptSection',
-    declaration: 'export interface PromptSection {\n    readonly name: string;\n    readonly order: number;\n    readonly text: string | ((context: AssembleContext) => string);\n    readonly interpolate?: boolean;\n    readonly complete?: boolean;\n}',
+    declaration: 'export interface PromptSection {\n    readonly name: string;\n    readonly order: number;\n    readonly text: string | ((context: AssembleContext) => string);\n    readonly interpolate?: boolean;\n    readonly complete?: boolean;\n    readonly keep?: readonly string[];\n}',
   },
   {
     name: 'PromptSectionOrderName',
@@ -8657,7 +8745,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ScheduleCatalogEntry',
-    declaration: 'export type ScheduleCatalogEntry = ScheduleRecord & {\n    readonly target: ScheduleTarget;\n    readonly involvedSessionIds: SessionId[];\n    readonly status: \'active\' | \'paused\' | \'ended\';\n    readonly createdAt?: string;\n    readonly updatedAt?: string;\n    readonly executionActive?: true;\n    readonly deliveryFloorEndsAt?: string;\n    readonly lastDelivery?: ScheduleDeliveryReceipt;\n};',
+    declaration: 'export type ScheduleCatalogEntry = ScheduleRecord & {\n    readonly target: ScheduleTarget;\n    readonly workspaceId?: WorkspaceId;\n    readonly involvedSessionIds: SessionId[];\n    readonly status: \'active\' | \'paused\' | \'ended\';\n    readonly createdAt?: string;\n    readonly updatedAt?: string;\n    readonly executionActive?: true;\n    readonly deliveryFloorEndsAt?: string;\n    readonly lastDelivery?: ScheduleDeliveryReceipt;\n    readonly deliveryFailure?: ScheduleDeliveryFailure;\n};',
   },
   {
     name: 'ScheduleConflictResult',
@@ -8674,6 +8762,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ScheduleDeleteResult',
     declaration: 'export type ScheduleDeleteResult = {\n    readonly id: ScheduleId;\n    readonly deleted: true;\n} | {\n    readonly id: ScheduleId;\n    readonly deleted: false;\n    readonly code: \'schedule_not_found\';\n};',
+  },
+  {
+    name: 'ScheduleDeliveryFailure',
+    declaration: 'export interface ScheduleDeliveryFailure {\n    readonly code: \'project-removed\';\n    readonly failedAt: string;\n}',
   },
   {
     name: 'ScheduleDeliveryHistoryMiss',
@@ -8753,11 +8845,11 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ScheduleSessionCreateSpec',
-    declaration: 'export interface ScheduleSessionCreateSpec {\n    readonly cwd?: string;\n    readonly agentPreset?: string;\n}',
+    declaration: 'export interface ScheduleSessionCreateSpec {\n    readonly workspaceId?: WorkspaceId;\n    readonly cwd?: string;\n    readonly agentPreset?: string;\n}',
   },
   {
     name: 'ScheduleTarget',
-    declaration: 'export type ScheduleTarget = {\n    readonly kind: \'session\';\n    readonly sessionId: SessionId;\n} | {\n    readonly kind: \'new_once\';\n    readonly sessionId: SessionId;\n    readonly create: ScheduleSessionCreateSpec;\n} | {\n    readonly kind: \'new\';\n    readonly create: ScheduleSessionCreateSpec;\n} | {\n    readonly kind: \'plugin\';\n    readonly owner: string;\n};',
+    declaration: 'export type ScheduleTarget = {\n    readonly kind: \'session\';\n    readonly sessionId: SessionId;\n    readonly workspaceId?: WorkspaceId;\n} | {\n    readonly kind: \'new_once\';\n    readonly sessionId: SessionId;\n    readonly create: ScheduleSessionCreateSpec;\n} | {\n    readonly kind: \'new\';\n    readonly create: ScheduleSessionCreateSpec;\n} | {\n    readonly kind: \'plugin\';\n    readonly owner: string;\n};',
   },
   {
     name: 'ScheduleTargetRequest',
@@ -10741,7 +10833,11 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'Workspace',
-    declaration: 'export interface Workspace {\n    readonly id: WorkspaceId;\n    readonly path: string;\n    readonly title: string;\n    readonly createdAt: string;\n    readonly updatedAt: string;\n    readonly sessionIds: readonly SessionId[];\n    setTitle(title: string): Promise<void>;\n    attachSession(sessionId: SessionId): Promise<void>;\n    insertSessionBefore(sessionId: SessionId, beforeSessionId?: SessionId): Promise<void>;\n    detachSession(sessionId: SessionId): Promise<void>;\n    status(): Promise<\'ok\' | \'missing-dir\'>;\n}',
+    declaration: 'export interface Workspace {\n    readonly id: WorkspaceId;\n    readonly path: string;\n    readonly title: string;\n    readonly color?: WorkspaceColor | undefined;\n    readonly avatar?: WorkspaceAvatar | undefined;\n    readonly createdAt: string;\n    readonly updatedAt: string;\n    readonly sessionIds: readonly SessionId[];\n    setTitle(title: string): Promise<void>;\n    attachSession(sessionId: SessionId): Promise<void>;\n    insertSessionBefore(sessionId: SessionId, beforeSessionId?: SessionId): Promise<void>;\n    detachSession(sessionId: SessionId): Promise<void>;\n    status(): Promise<\'ok\' | \'missing-dir\'>;\n}',
+  },
+  {
+    name: 'WorkspaceAdoption',
+    declaration: 'export interface WorkspaceAdoption {\n    readonly workspace: Workspace;\n    readonly created: boolean;\n}',
   },
   {
     name: 'WorkspaceArchiveSessionRequest',
@@ -10750,6 +10846,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'WorkspaceArchiveValue',
     declaration: 'export interface WorkspaceArchiveValue {\n    readonly archivedSessionIds: readonly SessionId[];\n}',
+  },
+  {
+    name: 'WorkspaceAvatar',
+    declaration: 'export type WorkspaceAvatar = {\n    readonly kind: \'icon\';\n    readonly name: WorkspaceIcon;\n} | {\n    readonly kind: \'emoji\';\n    readonly value: string;\n};',
   },
   {
     name: 'WorkspaceBaseline',
@@ -10770,6 +10870,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'WorkspaceChangesSummary',
     declaration: 'export interface WorkspaceChangesSummary {\n    turn: number;\n    cwd: string;\n    files: WorkspaceChangedFile[];\n    total: number;\n    added: number;\n    deleted: number;\n    snapshot?: {\n        before: string;\n        after: string;\n    };\n}',
+  },
+  {
+    name: 'WorkspaceColor',
+    declaration: 'export type WorkspaceColor = (typeof WORKSPACE_COLORS)[number];',
   },
   {
     name: 'WorkspaceCreateRequest',
@@ -10840,6 +10944,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type WorkspaceFollowIncrement = {\n    readonly type: \'replace\';\n    readonly value: WorkspaceBaseline;\n} | {\n    readonly type: \'upsert\';\n    readonly workspace: WorkspaceView;\n} | {\n    readonly type: \'remove\';\n    readonly workspaceId: WorkspaceId;\n} | {\n    readonly type: \'order\';\n    readonly workspaceIds: readonly WorkspaceId[];\n} | {\n    readonly type: \'archived\';\n    readonly archivedSessionIds: readonly SessionId[];\n} | {\n    readonly type: \'pinned\';\n    readonly pinnedSessionIds: readonly SessionId[];\n};',
   },
   {
+    name: 'WorkspaceIcon',
+    declaration: 'export type WorkspaceIcon = (typeof WORKSPACE_ICONS)[number];',
+  },
+  {
+    name: 'WorkspaceIdentityPatch',
+    declaration: 'export interface WorkspaceIdentityPatch {\n    readonly title?: string;\n    readonly color?: WorkspaceColor | null;\n    readonly avatar?: WorkspaceAvatar | null;\n}',
+  },
+  {
     name: 'WorkspaceInsertBeforeRequest',
     declaration: 'export interface WorkspaceInsertBeforeRequest {\n    readonly workspaceId: WorkspaceId;\n    readonly beforeWorkspaceId?: WorkspaceId;\n}',
   },
@@ -10872,12 +10984,16 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface WorkspaceUnpinSessionRequest {\n    readonly sessionId: SessionId;\n}',
   },
   {
+    name: 'WorkspaceUpdateRequest',
+    declaration: 'export interface WorkspaceUpdateRequest extends WorkspaceIdentityPatch {\n    readonly workspaceId: WorkspaceId;\n}',
+  },
+  {
     name: 'WorkspaceValue',
     declaration: 'export interface WorkspaceValue {\n    readonly workspace: WorkspaceView;\n}',
   },
   {
     name: 'WorkspaceView',
-    declaration: 'export interface WorkspaceView {\n    readonly workspaceId: WorkspaceId;\n    readonly path: string;\n    readonly title: string;\n    readonly sessionIds: readonly SessionId[];\n    readonly createdAt: string;\n    readonly updatedAt: string;\n}',
+    declaration: 'export interface WorkspaceView {\n    readonly workspaceId: WorkspaceId;\n    readonly isDefault?: true;\n    readonly path: string;\n    readonly title: string;\n    readonly color?: WorkspaceColor;\n    readonly avatar?: WorkspaceAvatar;\n    readonly sessionIds: readonly SessionId[];\n    readonly createdAt: string;\n    readonly updatedAt: string;\n}',
   },
 ]
 

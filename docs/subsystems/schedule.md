@@ -167,6 +167,29 @@ registerWakeSource(source: ScheduleWakeSource): ScheduleWakeRegistration
  */
 registerDestination(owner: string, receive: SchedulePluginHandler): () => void
 
+/** Bind an existing Session's reminders to a mounted, durable inbox instead of waking the Agent directly.
+ * @param sessionId - Session whose reminders the inbox receives.
+ * @param owner - Stable plugin owner recorded as the delivering inbox.
+ * @param receive - Acknowledges an occurrence after durable acceptance; must not call back into Schedule.
+ * @returns The disposer for this exact registration.
+ */
+registerSessionDestination(sessionId: SessionId, owner: string, receive: SchedulePluginHandler): () => void
+
+/** Change a legacy inbox's visible target while retaining deadlines, receipts and its private payload.
+ * @param owner - Plugin owner whose saved tasks move.
+ * @param sessionId - Session the tasks now target.
+ * @param workspaceId - Project of that Session, when it has one.
+ */
+async retargetPluginTasks(owner: string, sessionId: SessionId, workspaceId?: WorkspaceId): Promise<void>
+
+/** Create an idempotently named task with a checkpoint for a mounted Session inbox.
+ * @param request - Task title, prompt and timing, as in ordinary Schedule creation.
+ * @param destination - Session with a registered inbox, stable task key, and optional opaque payload.
+ * @param signal - Cancellation before the durable write.
+ * @returns The stored task without its private payload.
+ */
+async createSessionTask(request: Omit<ScheduleCreateRequest, 'target'>, destination: { readonly sessionId: SessionId; readonly key: string; readonly payload?: string }, signal?: AbortSignal): Promise<ScheduleCatalogEntry>
+
 /** Create a plugin-owned task, reusing its original task identity when the owner retries the same key.
  * @param request - Task title, prompt and timing, as in ordinary Schedule creation.
  * @param destination - Registered owner, stable owner-local task key, and optional opaque payload.
@@ -290,7 +313,7 @@ async history(request: ScheduleDeliveryHistoryRequest): Promise<ScheduleDelivery
 async edit( request: ScheduleEditRequest, actorSessionId?: SessionId, signal?: AbortSignal, ): Promise<ScheduleEditResult>
 ```
 
-Types: [SessionId](core.md)
+Types: [SessionId](core.md) · [WorkspaceId](workspace.md)
 
 Source: [`packages/schedule/schedule/src/index.ts`](../../packages/schedule/schedule/src/index.ts)
 
