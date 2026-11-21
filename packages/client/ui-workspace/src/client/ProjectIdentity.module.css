@@ -132,6 +132,7 @@
   height: 14px;
   border: 1px solid var(--project-ink, var(--dsw-alias-label-tertiary));
   border-radius: 50%;
+  corner-shape: round;
   background: var(--project-ink, transparent);
 }
 
