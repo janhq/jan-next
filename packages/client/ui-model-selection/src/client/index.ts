@@ -40,7 +40,7 @@ import type { ContextPressureProjection } from '@janhq/jan-token-meter/client'
 export { ModelDirectory } from './directory.ts'
 export type { ModelDirectoryState } from './directory.ts'
 export { ModelDirectoryResolver } from './service.ts'
-export type { ModelLabelOwner, ModelOptionsOwner, ModelSelectInjected } from './slots.ts'
+export type { ModelDetailsOwner, ModelLabelOwner, ModelOptionsOwner, ModelSelectInjected } from './slots.ts'
 export type { ModelKey } from './locales.ts'
 
 declare module '@janhq/jan-client-ui-slots' {
@@ -78,13 +78,15 @@ export const DockModelSelection = {
       children: {
         'conversation.input.model.label': { kind: 'single', scope: 'session', inline: true },
         'conversation.input.model.options': { kind: 'list', scope: 'session' },
+        'conversation.input.model.details': { kind: 'list', scope: 'session' },
       },
       inject: modelInjection(ctx, settingsUnavailable),
     }, ({ renderSlot, ...props }: ModelSelectInjected & PropsRuntime<'conversation.composer.dock'> & PropsLocale<'model'>
-      & PropsRenderSlots<'conversation.input.model.label' | 'conversation.input.model.options'>) => createElement(ModelSelect, {
+      & PropsRenderSlots<'conversation.input.model.label' | 'conversation.input.model.options' | 'conversation.input.model.details'>) => createElement(ModelSelect, {
       ...props, placement: 'dock',
       renderLabel: (owner, fallback) => renderSlot('conversation.input.model.label', owner, { fallback }),
       renderOptions: owner => renderSlot('conversation.input.model.options', owner),
+      renderDetails: owner => renderSlot('conversation.input.model.details', owner),
     })))
   },
 }
@@ -302,13 +304,15 @@ export function apply(ctx: ClientContext): void {
         children: {
           'conversation.input.model.label': { kind: 'single', scope: 'session', inline: true },
           'conversation.input.model.options': { kind: 'list', scope: 'session' },
+          'conversation.input.model.details': { kind: 'list', scope: 'session' },
         },
         inject: modelInjection(scope, settingsUnavailable),
       }, ({ renderSlot, ...props }: ModelSelectInjected & PropsRuntime<'conversation.input.model'> & PropsLocale<'model'>
-        & PropsRenderSlots<'conversation.input.model.label' | 'conversation.input.model.options'>) => createElement(ModelSelect, {
+        & PropsRenderSlots<'conversation.input.model.label' | 'conversation.input.model.options' | 'conversation.input.model.details'>) => createElement(ModelSelect, {
         ...props, placement: 'composer',
         renderLabel: (owner, fallback) => renderSlot('conversation.input.model.label', owner, { fallback }),
         renderOptions: owner => renderSlot('conversation.input.model.options', owner),
+        renderDetails: owner => renderSlot('conversation.input.model.details', owner),
       })))
     }
     scope.effect(() => {

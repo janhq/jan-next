@@ -264,6 +264,11 @@
   overflow-y: auto;
 }
 
+/* One provider needs no heading: it only repeats what every row already is. */
+.groups > [data-menu-group]:only-child > [data-menu-group-heading] {
+  display: none;
+}
+
 .option {
   box-sizing: border-box;
   display: flex;
@@ -301,6 +306,11 @@
  * primitive's selected treatment. */
 .selected {
   background: transparent;
+}
+
+/* The model in use reads at a glance, not only through the trailing check. */
+.selected .modelName {
+  font-weight: 600;
 }
 
 .option:disabled {
@@ -354,6 +364,85 @@
 .check svg {
   width: 14px;
   height: 14px;
+}
+
+/* The star shows on starred rows, and on any row under the pointer or highlight. */
+.star {
+  display: grid;
+  place-items: center;
+  flex: 0 0 16px;
+  height: 16px;
+  border-radius: var(--dsw-alias-radius-sm, 4px);
+  color: var(--dsw-alias-label-tertiary);
+  opacity: 0;
+  cursor: pointer;
+}
+
+.option:hover .star,
+.optionActive .star,
+.starOn {
+  opacity: 1;
+}
+
+.star:hover {
+  color: var(--dsw-alias-label-primary);
+}
+
+.starOn,
+.starOn:hover {
+  color: var(--dsw-alias-state-warn-label, #d99a00);
+}
+
+/* The current model repeats its effort so the row reads like the trigger. */
+.rowEffort {
+  flex: 0 0 auto;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+}
+
+/* Signals that the highlighted row has a details card beside the menu. */
+.rowChevron {
+  flex: 0 0 12px;
+  width: 12px;
+  height: 12px;
+  color: var(--dsw-alias-label-tertiary);
+  opacity: 0;
+}
+
+.optionActive .rowChevron {
+  opacity: 1;
+}
+
+.favorite {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border: 0.5px solid var(--dsw-alias-border-l1);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+}
+
+.favorite.starOn svg {
+  color: var(--dsw-alias-state-warn-label, #d99a00);
+}
+
+.favorite:focus-visible {
+  outline: 2px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 1px;
+}
+
+@media (hover: hover) {
+  .favorite:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
 }
 
 /* Two-level root cells use the same compact rhythm as the model rows. */
@@ -424,11 +513,6 @@
   display: none;
 }
 
-/* The Effort row stays lit while its flyout is open. */
-.cellOpen {
-  background: var(--dsw-alias-interactive-bg-hover);
-}
-
 .manage {
   gap: 8px;
 }
@@ -440,8 +524,9 @@
   color: var(--dsw-alias-menu-icon);
 }
 
-/* Effort levels open beside the menu, bottom-aligned with it, and flip to
-   the other side when the window has no room on the right. */
+/* The highlighted model's details open beside the menu, bottom-aligned with
+   it, and flip to the other side when the window has no room on the right.
+   A fixed width keeps the card from jumping while the pointer runs down the list. */
 .flyout {
   box-sizing: border-box;
   position: fixed;
@@ -453,16 +538,98 @@
   z-index: 1100;
   display: flex;
   flex-direction: column;
-  width: fit-content;
-  min-width: 180px;
-  max-width: min(280px, calc(100vw - 24px));
-  max-height: min(360px, calc(100dvh - 96px));
+  gap: 10px;
+  width: min(260px, calc(100vw - 24px));
+  max-height: min(480px, calc(100dvh - 96px));
   overflow-y: auto;
-  padding: 4px;
+  padding: 12px;
   border: 0;
   --dsw-elevation-stroke-color: var(--dsw-alias-border-l1);
   box-shadow: var(--dsw-elevation-prominent);
   color: var(--dsw-alias-label-primary);
   --jan-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
   --jan-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+}
+
+.detailsHead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.detailsName {
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detailsProvider,
+.facts,
+.detailsLabel {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.detailsDescription {
+  margin: 0;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.detailsSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 0.5px solid var(--dsw-alias-border-l1);
+}
+
+.levels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.level {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px;
+  border: 0.5px solid var(--dsw-alias-border-l1);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+}
+
+.level:focus-visible {
+  outline: 2px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 1px;
+}
+
+@media (hover: hover) {
+  .level:hover:not(:disabled) {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
+}
+
+.level.levelChecked,
+.level.levelChecked:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--dsw-alias-label-primary);
+  color: var(--dsw-alias-bg-module-platform, #fff);
+}
+
+.level:disabled {
+  color: var(--dsw-alias-label-dimmed);
+  cursor: default;
 }

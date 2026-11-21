@@ -1,50 +1,55 @@
 /**
  * ModelSelect: the composer's named model seat (`conversation.input.model`).
  * The trigger shows the model name with its reasoning effort in the caption
- * tone. Opening it shows the provider-grouped model list straight away, with
- * search above catalogs of more than four models; below the list sit the
- * Effort row (label and current value), the session options and Manage
- * models. The Effort row opens its levels in a flyout card beside the menu
- * on click, hover, Enter or Right; Left, Escape and Shift+Tab return to the
- * row. Search retains focus while Up/Down cycle the highlighted result; Enter
- * and Tab accept it, and Down past the last result enters the rows below the
- * list. Smaller catalogs move focus between rows. Escape and Shift+Tab
- * otherwise close back to the trigger. Opening focuses search, or the checked
- * row when the catalog has no search; mobile devices keep focus on the
- * trigger until explicit input. Provider headings paint their background only
- * while pinned by scrolling. Model names match the typed text as one
- * case-insensitive run. Selecting restores trigger focus without a ring until
- * the trigger loses focus or the menu reopens. Data and submission ride the
- * same per-session ModelDirectory as the /model popup; exact-model reasoning
- * metadata and the selected effort come from the Host rather than a
- * client-owned vocabulary. A rejected selection announces through the shared
- * transient Toast anchored to the composer card; the in-menu strip with Retry
- * remains the catalog-load surface. While the directory's pending selection
- * is unsettled, the trigger shows a spinner in place of its chevron, and each
- * row whose value that selection carries shows one in place of its check mark.
+ * tone. Opening it shows the provider-grouped model list straight away, in
+ * name order, with search above catalogs of more than four models; a lone
+ * provider heading is hidden. Below the list sit the session options and
+ * Manage models. Beside the menu a details card follows the highlighted
+ * model (hover, arrows, or the search highlight): its catalog facts, its own
+ * reasoning levels, and `conversation.input.model.details` contributions.
+ * Picking a level selects that model at that level. Right enters the card
+ * from a model row (or from search with the caret at the end); Left, Escape
+ * and Shift+Tab return. Search retains focus while Up/Down cycle the
+ * highlighted result; Enter and Tab accept it, and Down past the last result
+ * enters the rows below the list. Smaller catalogs move focus between rows.
+ * Escape and Shift+Tab otherwise close back to the trigger. Opening focuses
+ * search, or the checked row when the catalog has no search; mobile devices
+ * keep focus on the trigger until explicit input. Model names match the typed
+ * text as one case-insensitive run. Selecting restores trigger focus without
+ * a ring until the trigger loses focus or the menu reopens. Data and
+ * submission ride the same per-session ModelDirectory as the /model popup;
+ * exact-model reasoning metadata and the selected effort come from the Host
+ * rather than a client-owned vocabulary. A rejected selection announces
+ * through the shared transient Toast anchored to the composer card; the
+ * in-menu strip with Retry remains the catalog-load surface. While the
+ * directory's pending selection is unsettled, the trigger shows a spinner in
+ * place of its chevron, and each row whose value that selection carries
+ * shows one in place of its check mark.
  */
 import { MenuGroup, MenuSurface, observeStickyMenuGroups } from '@janhq/jan-client-ui-primitives'
 import {
   useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore,
-  type CSSProperties, type KeyboardEvent, type FocusEvent, type ReactNode,
+  type CSSProperties, type KeyboardEvent, type FocusEvent, type ReactNode, type Ref,
 } from 'react'
 import { createPortal } from 'react-dom'
+import type { ModelCatalogModel } from '@janhq/jan-api-session-controller/types'
 import clsx from 'clsx'
 import type { ModelReasoningEffort, ModelSelection } from '@janhq/jan-api-remotes/client'
 import {
   IconCheckOutlineRegular, IconChevronDownOutlineRegular, IconChevronRightOutlineRegular, IconCloseFillRegular,
-  IconDataOutlineRegular, IconLayersOutlineRegular, IconSearchOutlineRegular, IconWarningOutlineRegular,
-  Input, isMobileDevice, StateDot, Tag, Toast,
+  IconDataOutlineRegular, IconLayersOutlineRegular, IconSearchOutlineRegular, IconStarFillRegular, IconStarOutlineRegular,
+  IconWarningOutlineRegular, Input, isMobileDevice, StateDot, Tag, Toast,
 } from '@janhq/jan-client-ui-primitives'
+import { createSnapshotStore } from '@janhq/jan-client-store'
 import type { PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
-import type { ModelLabelOwner, ModelOptionsOwner, ModelSelectInjected } from './slots.ts'
+import type { ModelDetailsOwner, ModelLabelOwner, ModelOptionsOwner, ModelSelectInjected } from './slots.ts'
 import css from './ModelSelect.module.css'
 
-/** Where focus lands after the menu or its effort flyout changes. */
-type FocusIntent = 'list' | 'effort' | 'effortRow'
+/** Where focus lands after the menu opens. */
+type FocusIntent = 'list'
 
-/** Focusable rows inside the menu card or the effort flyout. */
-const ROW_SELECTOR = 'button[role="menuitem"]:not([disabled]), button[role="menuitemradio"]:not([disabled]), button[role="switch"]:not([disabled])'
+/** Focusable rows inside the menu card or the details card. */
+const ROW_SELECTOR = 'button[role="menuitem"]:not([disabled]), button[role="menuitemradio"]:not([disabled]), button[role="radio"]:not([disabled]), button[role="switch"]:not([disabled])'
 
 /** One dynamic effort row; undefined means preserve the provider default. */
 interface EffortChoice {
@@ -53,20 +58,52 @@ interface EffortChoice {
   label: string
 }
 
+/** Short token count for the details card: 32768 -> 33K, 1048576 -> 1M. */
+function formatTokens(tokens: number): string {
+  return tokens >= 1_000_000 ? `${Number((tokens / 1_000_000).toFixed(1))}M` : `${Math.round(tokens / 1000)}K`
+}
+
+/**
+ * Display names for one provider's models: a router name such as
+ * `anthropic/claude-opus-5-5` drops its vendor prefix unless that would make
+ * two rows read the same.
+ */
+function displayNames(models: readonly ModelCatalogModel[]): Map<string, string> {
+  const short = (name: string): string => name.slice(name.lastIndexOf('/') + 1) || name
+  const counts = new Map<string, number>()
+  for (const model of models) counts.set(short(model.name), (counts.get(short(model.name)) ?? 0) + 1)
+  return new Map(models.map(model => [model.id, counts.get(short(model.name)) === 1 ? short(model.name) : model.name]))
+}
+
+/**
+ * Starred models, as `provider/model` keys in the order they were starred. Shared
+ * by every seat and kept across restarts; a starred model that leaves the
+ * catalog stays starred and returns to Favorites when it comes back.
+ */
+const favoriteStore = createSnapshotStore<readonly string[]>([], { persist: { name: 'jan.models.favorites' } })
+const favoriteKey = (provider: string, model: string): string => `${provider}/${model}`
+
+function toggleFavorite(key: string): void {
+  const keys = favoriteStore.getSnapshot()
+  favoriteStore.set(keys.includes(key) ? keys.filter(item => item !== key) : [...keys, key])
+}
+
 /**
  * Render the composer model seat.
  * @param props - owner share (locked) + injected face (shared directory
  * store/verbs) + the standard locale seat.
- * @returns the trigger and, while open, the model menu and its effort flyout.
+ * @returns the trigger and, while open, the model menu and the highlighted model's details card.
  */
 export function ModelSelect(
-  { locked, available, directory, load, settingsAvailability, openModelsSettings, select, resolveText, t, renderLabel, renderOptions, placement = 'composer' }:
+  { locked, available, directory, load, settingsAvailability, openModelsSettings, select, resolveText, t, renderLabel, renderOptions, renderDetails, placement = 'composer' }:
     ModelSelectInjected & Pick<PropsRuntime<'conversation.input.model'>, 'locked'> & PropsLocale<'model'> & {
       /** The composer seat toasts over the composer card; the dock seat (the row under the card) over its trigger. */
       placement?: 'composer' | 'dock'
       renderLabel: (owner: ModelLabelOwner, fallback: ReactNode) => ReactNode
       /** Session options appended to the root menu; absent where the seat has none. */
       renderOptions?: (owner: ModelOptionsOwner) => ReactNode
+      /** Provider-owned controls appended to the details card; absent where the seat has none. */
+      renderDetails?: (owner: ModelDetailsOwner) => ReactNode
     },
 ) {
   const state = useSyncExternalStore(
@@ -78,7 +115,6 @@ export function ModelSelect(
     () => settingsAvailability.getSnapshot(),
   )
   const [open, setOpen] = useState(false)
-  const [effortOpen, setEffortOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null)
   const [selectionFocus, setSelectionFocus] = useState(false)
@@ -95,7 +131,6 @@ export function ModelSelect(
   const menuRef = useRef<HTMLDivElement | null>(null)
   const flyoutRef = useRef<HTMLDivElement | null>(null)
   const footerRef = useRef<HTMLDivElement | null>(null)
-  const effortRowRef = useRef<HTMLButtonElement | null>(null)
   const groupsRef = useRef<HTMLDivElement | null>(null)
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([])
   const id = useId()
@@ -108,10 +143,17 @@ export function ModelSelect(
     '--jan-model-menu-anchor': menuAnchor,
   }
 
-  const groups = useMemo(() => state.groups.map(group => ({
-    ...group,
-    provider: { id: group.id, name: group.name },
-  })), [state.groups])
+  // Router listings arrive in no useful order; rows sort by the name a person reads.
+  const groups = useMemo(() => state.groups.map((group) => {
+    const names = displayNames(group.models)
+    const label = (model: ModelCatalogModel): string => names.get(model.id) ?? model.name
+    return {
+      ...group,
+      provider: { id: group.id, name: group.name },
+      label,
+      models: [...group.models].sort((a, b) => label(a).localeCompare(label(b), undefined, { numeric: true, sensitivity: 'base' })),
+    }
+  }), [state.groups])
   const choices = useMemo(() => groups.flatMap(group =>
     group.models.map(model => ({
       group,
@@ -125,17 +167,33 @@ export function ModelSelect(
       } satisfies ModelSelection,
     }))), [groups])
   const showSearch = choices.length > 4
+  const favorites = useSyncExternalStore(fn => favoriteStore.subscribe(fn), () => favoriteStore.getSnapshot())
   // A model name matches when it contains the typed text: "lam" finds Llama, not
   // cLAude-opus[1M]. Scattered-letter matching suits short command names, not model names.
-  const filteredGroups = useMemo(() => {
+  // Starred models move out of their provider into Favorites at the top.
+  const sections = useMemo(() => {
     const needle = showSearch ? query.trim().toLowerCase() : ''
-    return groups.map(group => ({
-      ...group, models: needle === '' ? group.models : group.models.filter(model => model.name.toLowerCase().includes(needle)),
-    })).filter(group => group.models.length > 0)
-  }, [groups, query, showSearch])
-  const visibleModels = useMemo(() => filteredGroups.flatMap(group => group.models.map(model => ({
+    type Group = (typeof groups)[number]
+    const matches = (group: Group, model: ModelCatalogModel): boolean => needle === ''
+      || model.name.toLowerCase().includes(needle) || group.label(model).toLowerCase().includes(needle)
+    const starred = new Set(favorites)
+    const favoriteRows = favorites.flatMap(key => groups.flatMap(group => group.models
+      .filter(model => favoriteKey(group.id, model.id) === key && matches(group, model))
+      .map(model => ({ group, model }))))
+    return [
+      ...favoriteRows.length === 0 ? [] : [{ key: '\u0000favorites', name: t('menu.favorites'), rows: favoriteRows }],
+      ...groups.map(group => ({
+        key: group.id,
+        name: group.name,
+        rows: group.models.filter(model => !starred.has(favoriteKey(group.id, model.id)) && matches(group, model))
+          .map(model => ({ group, model })),
+      })).filter(section => section.rows.length > 0),
+    ]
+  }, [groups, query, showSearch, favorites, t])
+  const visibleChoices = useMemo(() => sections.flatMap(section => section.rows), [sections])
+  const visibleModels = useMemo(() => visibleChoices.map(({ group, model }) => ({
     provider: group.id, model: model.id,
-  }))), [filteredGroups])
+  })), [visibleChoices])
   const currentVisibleIndex = visibleModels.findIndex(model =>
     model.provider === state.current?.provider && model.model === state.current.model)
   const activeModelIndex = Math.min(highlightedIndex ?? Math.max(0, currentVisibleIndex), visibleModels.length - 1)
@@ -152,20 +210,34 @@ export function ModelSelect(
       : effectiveEffort === undefined
         ? t('effort.providerDefault')
         : reasoning.efforts.find(level => level.id === effectiveEffort)?.name ?? effectiveEffort
-  const effortChoices = useMemo<readonly EffortChoice[]>(() => reasoning === undefined
+  const effortChoicesFor = (levels: ModelCatalogModel['reasoning']): readonly EffortChoice[] => levels === undefined
     ? []
     : [
-      ...reasoning.defaultEffort === undefined
+      ...levels.defaultEffort === undefined
         ? [{ key: 'provider-default', effort: undefined, label: t('effort.providerDefault') }]
         : [],
-      ...reasoning.efforts.map((effort: ModelReasoningEffort) => ({
+      ...levels.efforts.map((effort: ModelReasoningEffort) => ({
         key: `effort:${effort.id}`,
         effort: effort.id,
         label: effort.name,
       })),
-    ], [reasoning, t])
+    ]
   const { pending } = state
   const busy = pending !== null
+
+  // Starring moves a row between sections; the highlight follows the model, not its old index.
+  const followRef = useRef<string | null>(null)
+  const star = (provider: string, model: string): void => {
+    followRef.current = favoriteKey(provider, model)
+    toggleFavorite(followRef.current)
+  }
+  useLayoutEffect(() => {
+    const key = followRef.current
+    if (key === null) return
+    followRef.current = null
+    const index = visibleModels.findIndex(choice => favoriteKey(choice.provider, choice.model) === key)
+    if (index >= 0) setHighlightedIndex(index)
+  }, [visibleModels])
 
   const reload = (): void => {
     lastActionRef.current = 'load'
@@ -180,7 +252,6 @@ export function ModelSelect(
       if (menuRef.current?.contains(event.target as Node) === true) return
       if (flyoutRef.current?.contains(event.target as Node) === true) return
       setOpen(false)
-      setEffortOpen(false)
     }
     document.addEventListener('mousedown', closeOutside)
     return () => { document.removeEventListener('mousedown', closeOutside) }
@@ -193,39 +264,33 @@ export function ModelSelect(
     }
   }, [showSearch])
 
-  // Opening the menu or the flyout, and closing the flyout, move focus to
-  // the row the keyboard continues from.
+  // Opening the menu moves focus to the row the keyboard continues from.
   const focusIntent = useRef<FocusIntent | null>(null)
   const previousShowSearch = useRef(showSearch)
   useEffect(() => {
     const changedSearchMode = previousShowSearch.current !== showSearch
     previousShowSearch.current = showSearch
-    const intent = focusIntent.current ?? (changedSearchMode && !effortOpen ? 'list' : null)
+    const intent = focusIntent.current ?? (changedSearchMode ? 'list' : null)
     focusIntent.current = null
     if (!open || intent === null) return
-    if (intent === 'effortRow') {
-      const row = effortRowRef.current
-      ;(row !== null && !row.disabled ? row : triggerRef.current)?.focus()
-      return
-    }
-    if (intent === 'list' && showSearch) {
+    if (showSearch) {
       if (!isMobileDevice()) searchRef.current?.focus()
       return
     }
     // The checked row is the value in use; a list without one opens on its
     // first row. Rows a selection in flight disabled cannot take the
     // keyboard; the trigger does, so the card's keys still reach the menu.
-    const scope = intent === 'effort' ? flyoutRef.current : groupsRef.current
+    const scope = groupsRef.current
     const checked = scope?.querySelector<HTMLElement>('[role="menuitemradio"][aria-checked="true"]:not([disabled])')
     const target = checked ?? scope?.querySelector<HTMLElement>(ROW_SELECTOR)
     ;(target ?? triggerRef.current)?.focus()
-  }, [open, effortOpen, showSearch])
+  }, [open, showSearch])
 
   useEffect(() => {
     const viewport = groupsRef.current
     if (viewport === null) return
     return observeStickyMenuGroups(viewport)
-  }, [available, open, filteredGroups])
+  }, [available, open, sections])
 
   useLayoutEffect(() => {
     if (open && activeModelIndex >= 0) {
@@ -240,7 +305,6 @@ export function ModelSelect(
     triggerRef.current?.focus()
     setQuery('')
     setHighlightedIndex(null)
-    setEffortOpen(false)
     focusIntent.current = 'list'
     setOpen(true)
     reload()
@@ -253,7 +317,6 @@ export function ModelSelect(
 
   const close = (restoreFocus = false): void => {
     setOpen(false)
-    setEffortOpen(false)
     if (restoreFocus) queueMicrotask(() => { triggerRef.current?.focus() })
   }
 
@@ -262,15 +325,20 @@ export function ModelSelect(
     close(true)
   }
 
-  const openEffort = (focus: boolean): void => {
-    if (focus) focusIntent.current = 'effort'
-    setEffortOpen(true)
+  /** Move the keyboard into the details card, onto its checked level. */
+  const openDetails = (): boolean => {
+    const card = flyoutRef.current
+    const target = card?.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]:not([disabled])')
+      ?? rowsIn(card)[0]
+    if (target === undefined) return false
+    target.focus()
+    return true
   }
 
-  /** Close the flyout, handing the keyboard back to the Effort row. */
-  const closeEffort = (): void => {
-    focusIntent.current = 'effortRow'
-    setEffortOpen(false)
+  /** Hand the keyboard back from the details card to the list it describes. */
+  const closeDetails = (): void => {
+    if (showSearch) searchRef.current?.focus()
+    else itemRefs.current[activeModelIndex]?.focus()
   }
 
   const rowsIn = (scope: HTMLElement | null): HTMLButtonElement[] =>
@@ -293,7 +361,7 @@ export function ModelSelect(
     if (event.nativeEvent.isComposing) return
     const inFlyout = event.target instanceof Node && flyoutRef.current?.contains(event.target) === true
     const leave = (): void => {
-      if (effortOpen) closeEffort()
+      if (inFlyout) closeDetails()
       else close(true)
     }
     if (event.key === 'Escape' && open) {
@@ -304,12 +372,14 @@ export function ModelSelect(
     if (!open) return
     if (event.key === 'ArrowLeft' && inFlyout) {
       event.preventDefault()
-      closeEffort()
+      closeDetails()
       return
     }
-    if (event.key === 'ArrowRight' && event.target === effortRowRef.current) {
-      event.preventDefault()
-      openEffort(true)
+    if (event.key === 'ArrowRight' && !inFlyout) {
+      const onRow = event.target instanceof HTMLElement && groupsRef.current?.contains(event.target) === true
+      const search = searchRef.current
+      const atEnd = event.target === search && search !== null && search.selectionStart === search.value.length
+      if ((onRow || atEnd) && openDetails()) event.preventDefault()
       return
     }
     const onSearch = event.target === searchRef.current || event.target === triggerRef.current
@@ -435,24 +505,24 @@ export function ModelSelect(
     submit(selection)
   }
 
-  const chooseEffort = (effort: string | undefined): void => {
-    if (state.current === null) return
-    if (effectiveEffort === effort) {
+  const chooseEffort = (
+    choice: { group: { id: string }; model: ModelCatalogModel }, selected: boolean, effort: string | undefined,
+  ): void => {
+    if (selected && effectiveEffort === effort) {
       closeAfterSelection()
       return
     }
-    const selection: ModelSelection = {
-      provider: state.current.provider,
-      model: state.current.model,
+    submit({
+      provider: choice.group.id,
+      model: choice.model.id,
       ...effort === undefined ? {} : { reasoningEffort: effort },
-    }
-    submit(selection)
+    })
   }
 
   const waiting = currentChoice === undefined && state.status === 'loading'
   const modelLabel = waiting
     ? t('trigger.loading')
-    : currentChoice?.model.name
+    : (currentChoice === undefined ? undefined : currentChoice.group.label(currentChoice.model))
       ?? t('trigger.fallback')
   const triggerLabel = effortLabel === undefined ? modelLabel : `${modelLabel} · ${effortLabel}`
   const triggerAria = waiting
@@ -463,22 +533,23 @@ export function ModelSelect(
         ? t('trigger.aria', { model: modelLabel })
         : t('trigger.ariaEffort', { model: modelLabel, effort: effortLabel })
   const renderModelLabel = (
-    provider: ModelLabelOwner['provider'], model: ModelLabelOwner['model'],
+    provider: ModelLabelOwner['provider'], model: ModelLabelOwner['model'], name: string,
     placement: ModelLabelOwner['placement'], selected: boolean,
   ) => (
     <span data-provider-id={provider.id} data-model-id={model.id}>
       {renderLabel({
         provider, model, placement, selected,
-      }, model.badge === undefined ? model.name : (
+      }, model.badge === undefined ? name : (
         <span className={css.badgedName}>
           {placement === 'trigger' ? <><Tag className={css.badge} tone={model.badge.tone}>{resolveText(model.badge.text)}</Tag>{' '}</> : null}
-          <span className={css.badgedNameText}>{model.name}</span>
+          <span className={css.badgedNameText}>{name}</span>
           {placement === 'trigger' ? null : <>{' '}<Tag className={css.badge} tone={model.badge.tone}>{resolveText(model.badge.text)}</Tag></>}
         </span>
       ))}
     </span>
   )
   let modelIndex = 0
+  const activeChoice = open ? visibleChoices[activeModelIndex] : undefined
 
   return (
     <div
@@ -515,7 +586,7 @@ export function ModelSelect(
       >
         <IconDataOutlineRegular className={css.triggerIcon} size={16} />
         <span className={css.triggerLabel}>
-          {currentChoice === undefined ? modelLabel : renderModelLabel(currentChoice.group.provider, currentChoice.model, 'trigger', true)}
+          {currentChoice === undefined ? modelLabel : renderModelLabel(currentChoice.group.provider, currentChoice.model, modelLabel, 'trigger', true)}
         </span>
         {effortLabel !== undefined && <span className={css.triggerEffort}>{effortLabel}</span>}
         {busy
@@ -536,10 +607,6 @@ export function ModelSelect(
           role="group"
           aria-label={t('menu.aria')}
           aria-busy={state.status === 'loading' || busy}
-          onMouseOver={(event) => {
-            // Moving from the Effort row to another menu row folds the flyout away.
-            if (effortOpen && event.target instanceof Element && event.target.closest('[data-effort-row]') === null) setEffortOpen(false)
-          }}
         >
           {showSearch && <div className={css.searchRow}>
             <Input
@@ -596,14 +663,15 @@ export function ModelSelect(
             className={clsx(css.groups, 'scrollable')}
             role="menu"
             aria-label={t('menu.model')}
-            hidden={filteredGroups.length === 0}
+            hidden={sections.length === 0}
           >
-            {filteredGroups.map((group) => {
+            {sections.map((section) => {
               return (
-                <MenuGroup key={group.id} label={group.provider.name}>
-                  {group.models.map((model) => {
+                <MenuGroup key={section.key} label={section.name}>
+                  {section.rows.map(({ group, model }) => {
                     const index = modelIndex++
                     const selected = state.current?.provider === group.id && state.current.model === model.id
+                    const starred = favorites.includes(favoriteKey(group.id, model.id))
                     return (
                       <button
                         ref={(node) => { itemRefs.current[index] = node }}
@@ -621,20 +689,34 @@ export function ModelSelect(
                           if (showSearch) setHighlightedIndex(index)
                           else itemRefs.current[index]?.focus()
                         }}
-                        key={model.id}
-                        title={model.name}
+                        key={`${group.id}/${model.id}`}
+                        title={group.label(model)}
                         disabled={busy}
                         onClick={() => { choose({ provider: group.id, model: model.id }) }}
                       >
-                        <span className={css.optionCopy}>
-                          <span className={css.modelName}>{renderModelLabel(group.provider, model, 'option', selected)}</span>
+                        {/* Pointer shortcut for the details card's Add to favorites; the keyboard uses the card. */}
+                        <span
+                          aria-hidden="true"
+                          className={clsx(css.star, starred && css.starOn)}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            star(group.id, model.id)
+                          }}
+                        >
+                          {starred ? <IconStarFillRegular size={14} /> : <IconStarOutlineRegular size={14} />}
                         </span>
+                        <span className={css.optionCopy}>
+                          <span className={css.modelName}>{renderModelLabel(group.provider, model, group.label(model), 'option', selected)}</span>
+                        </span>
+                        {/* Visual echo only: the trigger and the card's Effort group announce it. */}
+                        {selected && effortLabel !== undefined && <span aria-hidden="true" className={css.rowEffort}>{effortLabel}</span>}
                         <span className={css.check}>
                           {/* An effort change keeps the model: only its effort row spins. */}
                           {!selected && pending?.provider === group.id && pending.model === model.id
                             ? <StateDot state="ongoing" />
                             : selected ? <IconCheckOutlineRegular /> : null}
                         </span>
+                        <IconChevronRightOutlineRegular className={css.rowChevron} />
                       </button>
                     )
                   })}
@@ -642,7 +724,7 @@ export function ModelSelect(
               )
             })}
           </div>
-          {state.status === 'ready' && filteredGroups.length === 0 && (choices.length === 0
+          {state.status === 'ready' && sections.length === 0 && (choices.length === 0
             ? <div className={css.empty}>
               <span role="status">{t('empty.models')}</span>
               {canOpenModelsSettings && <button type="button" className={css.emptyAction} onClick={() => { close(); openModelsSettings() }}>
@@ -652,24 +734,7 @@ export function ModelSelect(
             : <div className={css.empty} role="status">{t('search.empty')}</div>
           )}
           <div ref={footerRef} className={css.footer} role="menu" aria-label={t('menu.options')}>
-            {reasoning !== undefined && (
-              <button
-                ref={effortRowRef}
-                type="button"
-                role="menuitem"
-                aria-haspopup="menu"
-                aria-expanded={effortOpen}
-                aria-controls={effortOpen ? `${id}-effort` : undefined}
-                data-effort-row=""
-                className={clsx(css.cell, effortOpen && css.cellOpen)}
-                onMouseEnter={() => { if (!busy) openEffort(false) }}
-                onClick={() => { if (effortOpen) closeEffort(); else openEffort(true) }}
-              >
-                <span className={css.cellLabel}>{t('menu.effort')}</span>
-                <span className={css.cellValue}>{effortLabel}</span>
-                <IconChevronRightOutlineRegular className={css.cellChevron} />
-              </button>
-            )}
+            {/* Reasoning levels live on each model's details card beside the menu. */}
             {renderOptions?.({
               locked: locked || busy,
               dismiss: () => {
@@ -693,50 +758,36 @@ export function ModelSelect(
         </MenuSurface>,
         document.body,
       )}
-      {open && effortOpen && reasoning !== undefined && createPortal(
-        <MenuSurface
-          ref={flyoutRef}
-          id={`${id}-effort`}
-          className={css.flyout}
+      {activeChoice !== undefined && createPortal(
+        <ModelDetails
+          cardRef={flyoutRef}
+          id={`${id}-details`}
           style={flyoutStyle}
-          role="menu"
-          aria-label={t('menu.effort')}
-          aria-busy={busy}
-          onMouseLeave={(event) => {
-            if (event.relatedTarget instanceof Node && menuRef.current?.contains(event.relatedTarget) === true
-              && effortRowRef.current?.contains(event.relatedTarget) !== true) setEffortOpen(false)
+          name={activeChoice.group.label(activeChoice.model)}
+          providerName={activeChoice.group.name}
+          model={activeChoice.model}
+          levels={effortChoicesFor(activeChoice.model.reasoning)}
+          checkedEffort={state.current?.provider === activeChoice.group.id && state.current.model === activeChoice.model.id
+            ? effectiveEffort
+            : activeChoice.model.reasoning?.defaultEffort}
+          pendingEffort={pending !== null && pending.provider === activeChoice.group.id && pending.model === activeChoice.model.id
+            ? { effort: pending.reasoningEffort }
+            : undefined}
+          busy={busy}
+          starred={favorites.includes(favoriteKey(activeChoice.group.id, activeChoice.model.id))}
+          onToggleStar={() => { star(activeChoice.group.id, activeChoice.model.id) }}
+          t={t}
+          onPick={(effort) => {
+            const selected = state.current?.provider === activeChoice.group.id && state.current.model === activeChoice.model.id
+            chooseEffort(activeChoice, selected, effort)
           }}
-        >
-          {state.error !== null && lastActionRef.current === 'load' && (
-            <div className={css.error}>
-              <span>{t('error.action', { message: state.error })}</span>
-              <button type="button" className={css.retry} onClick={reload}>{t('action.reload')}</button>
-            </div>
-          )}
-          {effortChoices.length === 0
-            ? <div className={css.empty}>{t('empty.efforts')}</div>
-            : effortChoices.map(level => (
-              <button
-                type="button"
-                role="menuitemradio"
-                aria-checked={effectiveEffort === level.effort}
-                className={clsx(css.option, effectiveEffort === level.effort && css.selected)}
-                key={level.key}
-                disabled={busy}
-                onClick={() => { chooseEffort(level.effort) }}
-              >
-                <span className={css.optionCopy}>
-                  <span className={css.modelName}>{level.label}</span>
-                </span>
-                <span className={css.check}>
-                  {pending !== null && pending.provider === state.current?.provider
-                    && pending.model === state.current.model && pending.reasoningEffort === level.effort
-                    ? <StateDot state="ongoing" />
-                    : effectiveEffort === level.effort ? <IconCheckOutlineRegular /> : null}
-                </span>
-              </button>
-            ))}
-        </MenuSurface>,
+          extra={renderDetails?.({
+            provider: activeChoice.group.provider,
+            model: activeChoice.model,
+            selected: state.current?.provider === activeChoice.group.id && state.current.model === activeChoice.model.id,
+            locked: locked || busy,
+          })}
+        />,
         document.body,
       )}
       {toast !== null && (
@@ -749,5 +800,79 @@ export function ModelSelect(
         />
       )}
     </div>
+  )
+}
+
+/**
+ * The highlighted model's card: catalog facts, its own reasoning levels, and
+ * provider-owned controls. Every line comes from the model's catalog entry or a
+ * contribution, so a model without a fact simply shows less.
+ */
+function ModelDetails({
+  cardRef, id, style, name, providerName, model, levels, checkedEffort, pendingEffort, busy, starred, onToggleStar, t, onPick, extra,
+}: {
+  /** React 18 drops `ref` from function-component props, so the card ref travels by name. */
+  cardRef: Ref<HTMLDivElement>
+  id: string
+  style: CSSProperties
+  name: string
+  providerName: string
+  model: ModelCatalogModel
+  levels: readonly EffortChoice[]
+  checkedEffort: string | undefined
+  /** The level a selection in flight carries for this model. */
+  pendingEffort: { effort: string | undefined } | undefined
+  busy: boolean
+  starred: boolean
+  onToggleStar: () => void
+  t: PropsLocale<'model'>['t']
+  onPick: (effort: string | undefined) => void
+  extra: ReactNode
+}) {
+  const facts = [
+    ...model.contextWindow === undefined ? [] : [t('details.context', { tokens: formatTokens(model.contextWindow) })],
+    ...model.imageInput === undefined ? [] : [t(model.imageInput ? 'details.images' : 'details.textOnly')],
+  ]
+  return (
+    <MenuSurface ref={cardRef} id={id} className={css.flyout} style={style} role="group" aria-label={t('details.aria', { model: name })}>
+      <div className={css.detailsHead}>
+        <span className={css.detailsName}>{name}</span>
+        <span className={css.detailsProvider}>{providerName}</span>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={starred}
+        className={clsx(css.favorite, starred && css.starOn)}
+        onClick={onToggleStar}
+      >
+        {starred ? <IconStarFillRegular size={14} /> : <IconStarOutlineRegular size={14} />}
+        {t('details.favorite')}
+      </button>
+      {facts.length > 0 && <div className={css.facts}>{facts.join(' · ')}</div>}
+      {model.description !== undefined && model.description !== '' && <p className={css.detailsDescription}>{model.description}</p>}
+      {levels.length > 0 && (
+        <div className={css.detailsSection}>
+          <div className={css.detailsLabel}>{t('menu.effort')}</div>
+          <div className={css.levels} role="radiogroup" aria-label={t('menu.effort')}>
+            {levels.map(level => (
+              <button
+                type="button"
+                role="radio"
+                aria-checked={checkedEffort === level.effort}
+                className={clsx(css.level, checkedEffort === level.effort && css.levelChecked)}
+                key={level.key}
+                disabled={busy}
+                onClick={() => { onPick(level.effort) }}
+              >
+                {pendingEffort !== undefined && pendingEffort.effort === level.effort ? <StateDot state="ongoing" /> : null}
+                {level.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {extra}
+    </MenuSurface>
   )
 }
