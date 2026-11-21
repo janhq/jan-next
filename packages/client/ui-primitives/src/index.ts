@@ -151,5 +151,7 @@ export type { ImageLightboxLabels } from './ImageLightbox.tsx'
 export { QuotePreview } from './QuotePreview.tsx'
 export type { QuotePreviewProps, QuotePreviewRemoval } from './QuotePreview.tsx'
 export { formatQuoteText } from './markdown/quote-text.ts'
+export { ELEMENT_PROBE_ATTRIBUTE, describeElement, probeFrameElement, withElementProbe } from './element-probe.ts'
+export type { ElementDescription, ProbedElement } from './element-probe.ts'
 
 export type { MarkdownMenuTarget } from './markdown/MarkdownDelegate.tsx'
