@@ -205,7 +205,7 @@ describe('ui-permission browser plugin', () => {
     expect(again.find(option => option.id === 'auto')?.detail)
       .toBe('Run without a sandbox after an experimental same-model review of every native tool call and PTC inner call.')
     // English built-ins use product labels; other kebab-case names title-case.
-    expect(again.map(option => option.label)).toEqual(['Read Only', 'Workspace Write', 'Full access', 'Auto review'])
+    expect(again.map(option => option.label)).toEqual(['Read Only', 'Folder Write', 'Full access', 'Auto review'])
     expect(again.find(option => option.id === 'danger-full-access')?.confirmation).toEqual({
       title: 'Enable Full access?',
       description: accessEn['confirm.description'],
