@@ -508,7 +508,9 @@ export type ConvViewProps = PropsRuntime<'conversation.view'>
 export interface ConversationInjected {
   pickSuggestion: (text: string) => void
   /** Connect and open a blank Session in the selected Workspace. */
-  selectWorkspace: (workspaceId: WorkspaceId) => Promise<void>
+  selectWorkspace: (workspaceId: WorkspaceId, readText?: () => string) => Promise<void>
+  /** Open the default project draft, taking text from the resident editor before it binds. */
+  openDefaultDraft?: (readText: () => string) => Promise<void>
   /** Session-addressed composer block source, or the stable absent source. */
   hooks: {
     composerBlock: ObservableSnapshot<ComposerBlock | undefined>
@@ -601,6 +603,8 @@ export interface ComposerBarOwnerProps {
   blocked?: { readonly reason: string }
   /** Lock all message actions while preserving the resident composer surface. */
   disabled?: boolean
+  /** Materialize the sessionless composer on interaction, preserving browser-entered text. */
+  onActivateDraft?: (readText: () => string) => Promise<void>
   /** Whether the shared Workspace picker is expanded. */
   workspacePickerOpen?: boolean
   /** Open the Workspace picker from the inert composer surface. */

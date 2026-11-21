@@ -64,7 +64,7 @@ export const InputBar = memo(function InputBar({
   renderSlot, useBusyEnter, useFileUploads, useNotices, useLexicon, useMenuLauncher, useStopShortcut, useContextWindow,
   useAccess,
   useProjection, sessionId, variant, disabled: inert = false, blocked,
-  workspacePickerOpen = false, onRequestWorkspace,
+  workspacePickerOpen = false, onRequestWorkspace, onActivateDraft,
   placeholder, accessory, dockStart,
 }: InputBarProps) {
   const input = useInput(s => s)
@@ -168,6 +168,20 @@ export const InputBar = memo(function InputBar({
   }, [])
   const cardRef = useRef<HTMLDivElement | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const draftOpening = useRef<Promise<void> | undefined>(undefined)
+  const [hasBootstrapText, setHasBootstrapText] = useState(false)
+  const activateDraft = (element?: HTMLDivElement): void => {
+    if (onActivateDraft === undefined) return
+    const readText = (): string => {
+      const input = element ?? cardRef.current?.querySelector<HTMLDivElement>('[data-composer-input]')
+      return input?.innerText ?? input?.textContent ?? ''
+    }
+    setHasBootstrapText(readText() !== '')
+    if (draftOpening.current !== undefined) return
+    const opening = onActivateDraft(readText).catch(() => { /* Navigation reports the failure and leaves the draft intact. */ })
+    draftOpening.current = opening
+    void opening.finally(() => { draftOpening.current = undefined })
+  }
 
   const continuable = subagent?.address.mode === 'continuable'
   const disabled = removed || inert || !live || blocked !== undefined
@@ -185,8 +199,8 @@ export const InputBar = memo(function InputBar({
   // exists; the trigger itself is read-only rather than disabled so pointer
   // and keyboard users can reach the recovery action.
   const workspaceTrigger = inert && !removed && onRequestWorkspace !== undefined
-  const editorDisabled = removed || (locked && !workspaceTrigger)
-  const editable = live && !locked && !machineBusy
+  const editorDisabled = removed || (locked && !workspaceTrigger && onActivateDraft === undefined)
+  const editable = onActivateDraft !== undefined || (live && !locked && !machineBusy)
   const steeringAvailable = subagent === null || subagent.address.mode === 'continuable'
   const canSteerQueue = !locked && !machineBusy && !commandMenuOpen && empty && running && steeringAvailable
     && input.queue.length > 0
@@ -556,8 +570,9 @@ export const InputBar = memo(function InputBar({
           workspaceTrigger={workspaceTrigger}
           workspacePickerOpen={workspacePickerOpen}
           onWorkspaceKeyDown={onWorkspaceKeyDown}
+          onDraftInteraction={onActivateDraft === undefined ? undefined : activateDraft}
           hint={hint}
-          showPlaceholder={draft === '' && attachments.length === 0 && !claimActive}
+          showPlaceholder={!(onActivateDraft !== undefined && hasBootstrapText) && draft === '' && attachments.length === 0 && !claimActive}
         />
         <div ref={rowRef} className={css.row}>
           <div className={css.tools} hidden={activity}>
@@ -570,9 +585,9 @@ export const InputBar = memo(function InputBar({
                     aria-label={t('input.commands')}
                     aria-haspopup="menu"
                     aria-expanded={addMenuOpen || commandMenuOpen}
-                    disabled={locked}
+                    disabled={locked && onActivateDraft === undefined}
                     onMouseDown={keepFocus}
-                    onClick={() => { setAddMenuOpen(open => !open) }}
+                    onClick={() => { if (!addMenuOpen) activateDraft(); setAddMenuOpen(open => !open) }}
                   >
                     <IconPlusOutlineMedium size={14} />
                   </button>

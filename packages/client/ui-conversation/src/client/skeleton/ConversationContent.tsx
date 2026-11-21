@@ -23,7 +23,7 @@ export function ConversationContent(props: ConversationContentProps) {
   const {
     sessionId, phase, hero, useSession, useSessions, useSessionStatus,
     useWorkspaces, useInput, useAccess, useComposerBlock, renderSlot, renderSlotChain,
-    selectWorkspace, pickSuggestion, t, useFactorySlot, useHeroPlaceholder,
+    selectWorkspace, openDefaultDraft, pickSuggestion, t, useFactorySlot, useHeroPlaceholder,
   } = props
   const session = useSession(snapshot => snapshot)
   const Views = useFactorySlot('views', ConversationSessionView)
@@ -42,6 +42,7 @@ export function ConversationContent(props: ConversationContentProps) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pendingWorkspaceId, setPendingWorkspaceId] = useState<WorkspaceId | undefined>()
   const pickerAnchor = useRef<HTMLButtonElement>(null)
+  const composerStack = useRef<HTMLDivElement>(null)
 
   // Publishes the two live measurements floating View chrome reads off the
   // scroll body: the seat's height as --jan-composer-height, so controls clear
@@ -118,7 +119,11 @@ export function ConversationContent(props: ConversationContentProps) {
         onPick: (workspaceId) => {
           setPickerOpen(false)
           setPendingWorkspaceId(workspaceId)
-          void selectWorkspace(workspaceId).catch(() => {
+          const readText = sessionId === undefined ? () => {
+            const input = composerStack.current?.querySelector<HTMLDivElement>('[data-composer-input]')
+            return input?.innerText ?? input?.textContent ?? ''
+          } : undefined
+          void (readText === undefined ? selectWorkspace(workspaceId) : selectWorkspace(workspaceId, readText)).catch(() => {
             setPendingWorkspaceId(current => current === workspaceId ? undefined : current)
           })
         },
@@ -129,11 +134,8 @@ export function ConversationContent(props: ConversationContentProps) {
     </div>
   )
 
-  // The placeholder chip ("Choose workspace") and the Workspace-trigger input travel
-  // together: no workspace picked yet (cold start, no session at all), or a
-  // blank session whose workspace vanished (deleted from the sidebar). The
-  // bar is ONE session-maybe slot rendered unconditionally — inert is a prop,
-  // not a different tree, so the textarea DOM survives the transition.
+  // A sessionless home opens the default draft on interaction, never on render.
+  const activateDraft = sessionId === undefined && hero && props.variant !== 'embedded' ? openDefaultDraft : undefined
   const inert = sessionId === undefined || (hero && chipTitle === undefined)
   // A raised block is the same inert posture with the blocker's own reason:
   // one disabled textarea, never a second tree. The no-workspace state wins
@@ -146,23 +148,25 @@ export function ConversationContent(props: ConversationContentProps) {
   const inputBar = renderSlot('conversation.composer.bar', {
     variant: hero ? 'hero' : 'composer',
     ...(hero ? { dockStart: heroWorkspaceRow } : {}),
-    ...(inert
-      ? {
-        disabled: true,
-        placeholder: t('placeholder.workspace'),
-        workspacePickerOpen: pickerOpen,
-        onRequestWorkspace: () => { setPickerOpen(true) },
-      }
-      : blocked
+    ...(activateDraft !== undefined
+      ? { onActivateDraft: activateDraft, placeholder: heroPlaceholder ?? t('placeholder.hero') }
+      : inert
+        ? {
+          disabled: true,
+          placeholder: t('placeholder.workspace'),
+          workspacePickerOpen: pickerOpen,
+          onRequestWorkspace: () => { setPickerOpen(true) },
+        }
+        : blocked
         // `blocked`, not `disabled`: the bar refuses input either way, but a
         // block keeps the model seat live because choosing a model is how the
         // user clears it.
-        ? { blocked: composerBlock, placeholder: composerBlock.reason }
-        : hero ? { placeholder: heroPlaceholder ?? t('placeholder.hero') } : {}),
+          ? { blocked: composerBlock, placeholder: composerBlock.reason }
+          : hero ? { placeholder: heroPlaceholder ?? t('placeholder.hero') } : {}),
   })
 
   const composerBar = (
-    <div className={clsx(css.composerStack, hero && css.composerHero)}>
+    <div ref={composerStack} className={clsx(css.composerStack, hero && css.composerHero)}>
       {hero && <HeroShell t={t} renderSlot={renderSlot} />}
       {zone !== undefined && renderSlot('conversation.input.dock', zone)}
       {inputBar}

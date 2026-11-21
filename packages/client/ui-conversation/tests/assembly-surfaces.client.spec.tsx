@@ -54,21 +54,23 @@ const LAYOUT_CHILDREN = {
   'main': { kind: 'keyed', scope: 'root' },
 } as const
 
-function provideWorkspaceNavigation(runtime: SlotTestRuntime): (id: SessionId) => void {
+function provideWorkspaceNavigation(runtime: SlotTestRuntime, waitForOpen = Promise.resolve()) {
   let mainReference: ReturnType<typeof runtime.sessions.retain> | undefined
   const openSession = (id: SessionId): void => {
     const next = runtime.sessions.retain(id, { source: 'mainView' })
     mainReference?.release()
     mainReference = next
   }
+  const openWorkspace = vi.fn(async (_workspaceId: WorkspaceId | undefined, beforeOpen: (id: SessionId) => void) => {
+    await waitForOpen
+    openSession(SID)
+    beforeOpen(SID)
+  })
   runtime.ctx.provide('uiWorkspace', {
-    openWorkspace: vi.fn(async (_workspaceId: WorkspaceId, beforeOpen: (id: SessionId) => void) => {
-      beforeOpen(SID)
-      openSession(SID)
-    }),
+    openWorkspace,
     openSession,
   } as never)
-  return openSession
+  return { openSession, openWorkspace }
 }
 
 function WorkspaceProbe({ open }: EmptyWorkspaceOwnerProps) {
@@ -82,7 +84,7 @@ function WorkspaceProbe({ open }: EmptyWorkspaceOwnerProps) {
 
 async function bench(opts?: { blank?: boolean }) {
   const runtime = await SlotTestRuntime.create()
-  const openSession = provideWorkspaceNavigation(runtime)
+  const { openSession } = provideWorkspaceNavigation(runtime)
   runtime.ctx.provide('configForms', { developerTools: { enabled: createSnapshotStore(true) }, get: () => stubConfigForm().scope } as never)
   const locale = new LocaleRuntime(runtime.ctx)
   runtime.ctx.provide('locale', locale)
@@ -105,9 +107,14 @@ async function bench(opts?: { blank?: boolean }) {
 }
 
 describe('resident composer', () => {
-  it('renders the locked view state while no session exists at all', async () => {
+  it('materializes the default chat on first focus and preserves text typed while it opens', async () => {
     const runtime = await SlotTestRuntime.create()
-    provideWorkspaceNavigation(runtime)
+    const pending = Promise.withResolvers<undefined>()
+    const { openWorkspace } = provideWorkspaceNavigation(runtime, pending.promise)
+    await runtime.workspaces.update((draft) => {
+      draft.items = [{ workspaceId: 'w1', title: 'Proj', path: '/proj', sessionIds: [SID] }] as never
+    })
+    await runtime.sessions.add({ id: SID, summary: { cwd: '/proj', blank: true }, snapshot: { blank: true } })
     runtime.ctx.provide('configForms', { developerTools: { enabled: createSnapshotStore(true) }, get: () => stubConfigForm().scope } as never)
     const locale = new LocaleRuntime(runtime.ctx)
     runtime.ctx.provide('locale', locale)
@@ -121,22 +128,21 @@ describe('resident composer', () => {
     const textarea = view.container.querySelector<HTMLDivElement>('[data-composer-input]')
     expect(textarea).not.toBeNull()
     expect(textarea!.getAttribute('aria-disabled')).not.toBe('true')
-    expect(textarea!.getAttribute('contenteditable')).not.toBe('true')
-    expect(textarea!.getAttribute('aria-haspopup')).toBe('menu')
-    expect(view.getByTestId('workspace-probe').textContent).toBe('false:0')
-    fireEvent.click(textarea!)
-    expect(view.getByTestId('workspace-probe').textContent).toBe('true:0')
-    expect(textarea!.getAttribute('aria-expanded')).toBe('true')
-    fireEvent.click(view.getByRole('button', { name: '选择工作区' }))
-    fireEvent.keyDown(textarea!, { key: 'Enter' })
-    expect(view.getByTestId('workspace-probe').textContent).toBe('true:0')
-    expect(view.getByRole('button', { name: '选择工作区' })).toBeTruthy()
+    expect(textarea!.getAttribute('contenteditable')).toBe('plaintext-only')
+    expect(openWorkspace).not.toHaveBeenCalled()
+    fireEvent.focus(textarea!)
+    textarea!.textContent = 'hi'
+    fireEvent.input(textarea!)
+    expect(openWorkspace).toHaveBeenCalledExactlyOnceWith(undefined, expect.any(Function))
+    await act(async () => { pending.resolve(undefined); await runtime.flush() })
+    await waitFor(() => { expect(textarea!.getAttribute('contenteditable')).toBe('true') })
+    expect(textarea!.textContent).toBe('hi')
     await runtime.dispose()
   })
 
   it('keeps the complete Hero tree mounted when the first Workspace session appears', async () => {
     const runtime = await SlotTestRuntime.create()
-    const openSession = provideWorkspaceNavigation(runtime)
+    const { openSession } = provideWorkspaceNavigation(runtime)
     runtime.ctx.provide('configForms', { developerTools: { enabled: createSnapshotStore(true) }, get: () => stubConfigForm().scope } as never)
     const locale = new LocaleRuntime(runtime.ctx)
     runtime.ctx.provide('locale', locale)
@@ -158,7 +164,7 @@ describe('resident composer', () => {
     const workspaceChip = view.getByRole('button', { name: '选择工作区' })
     const workspaceProbe = view.getByTestId('workspace-probe')
     expect(textarea.getAttribute('aria-disabled')).not.toBe('true')
-    expect(textarea.getAttribute('contenteditable')).not.toBe('true')
+    expect(textarea.getAttribute('contenteditable')).toBe('plaintext-only')
 
     fireEvent.click(workspaceChip)
     fireEvent.click(workspaceProbe)
@@ -205,7 +211,7 @@ describe('resident composer', () => {
 describe('prompt rejection through the assembled composer', () => {
   it('renders the promptError alert strip and keeps the draft in the machine', async () => {
     const runtime = await SlotTestRuntime.create()
-    const openSession = provideWorkspaceNavigation(runtime)
+    const { openSession } = provideWorkspaceNavigation(runtime)
     runtime.ctx.provide('configForms', { developerTools: { enabled: createSnapshotStore(true) }, get: () => stubConfigForm().scope } as never)
     const locale = new LocaleRuntime(runtime.ctx)
     runtime.ctx.provide('locale', locale)
