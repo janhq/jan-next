@@ -18,7 +18,18 @@ window.__ModuleLoader__.load({
     }
     const manage = { en: 'Manage in Scheduled', zh: '在定时任务中管理', ja: '予約タスクで管理', es: 'Gestionar en Programadas',
       fr: 'Gérer dans les tâches planifiées', de: 'In geplanten Aufgaben verwalten', ru: 'Управлять в расписании', pt: 'Gerenciar em Agendadas' }
+    const avatar = {
+      en: ['Idle', 'Thinking', 'Working'],
+      zh: ['空闲', '思考中', '工作中'],
+      ja: ['待機中', '思考中', '作業中'],
+      es: ['En reposo', 'Pensando', 'Trabajando'],
+      fr: ['Au repos', 'Réflexion en cours', 'Travail en cours'],
+      de: ['Leerlauf', 'Denkt nach', 'Arbeitet'],
+      ru: ['В покое', 'Думает', 'Работает'],
+      pt: ['Em repouso', 'Pensando', 'Trabalhando'],
+    }
     return Object.fromEntries(Object.entries(rows).map(([locale, values]) => [locale,
-      { ...Object.fromEntries(keys.map((key, index) => [key, values[index]])), manageTimers: manage[locale] }]))
+      { ...Object.fromEntries(keys.map((key, index) => [key, values[index]])), manageTimers: manage[locale],
+        avatarIdle: avatar[locale][0], avatarThinking: avatar[locale][1], avatarWorking: avatar[locale][2] }]))
   },
 })
