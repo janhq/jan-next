@@ -220,6 +220,17 @@ describe('DetailsRow', () => {
     expect(header.textContent).toBe('Waiting for messages…')
   })
 
+  it.each([
+    [true, 'Waiting for job'],
+    [false, 'Read job output'],
+    [undefined, 'Read job output'],
+  ] as const)('distinguishes a running job-output wait (%s) from a read', (wait, title) => {
+    const argsRaw = JSON.stringify({ job_id: 'bash-build', wait })
+    const block = { phase: 'start' as const, args: PartialArguments.fromText(argsRaw), callId: 'job', name: 'job_output', argsRaw, turn: 1, step: 1, time: 1000, subCalls: [] }
+    render(<DetailsRow {...{ useDisclosure, toolName: 'job_output', block, t } as Parameters<typeof DetailsRow>[0]} />)
+    expect(screen.getByRole('button').textContent).toBe(`${title}bash-build`)
+  })
+
   it('registers the supported tool names through the scoped keyed slot', () => {
     const register = vi.fn((_spec: unknown, _component: unknown) => () => undefined)
     const inject = vi.fn((_name: string, callback: () => Iterable<() => void>) => {
