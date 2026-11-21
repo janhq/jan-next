@@ -83,7 +83,7 @@ export const DockModelSelection = {
       inject: modelInjection(ctx, settingsUnavailable),
     }, ({ renderSlot, ...props }: ModelSelectInjected & PropsRuntime<'conversation.composer.dock'> & PropsLocale<'model'>
       & PropsRenderSlots<'conversation.input.model.label' | 'conversation.input.model.options' | 'conversation.input.model.details'>) => createElement(ModelSelect, {
-      ...props, placement: 'dock',
+      ...props,
       renderLabel: (owner, fallback) => renderSlot('conversation.input.model.label', owner, { fallback }),
       renderOptions: owner => renderSlot('conversation.input.model.options', owner),
       renderDetails: owner => renderSlot('conversation.input.model.details', owner),
@@ -309,7 +309,7 @@ export function apply(ctx: ClientContext): void {
         inject: modelInjection(scope, settingsUnavailable),
       }, ({ renderSlot, ...props }: ModelSelectInjected & PropsRuntime<'conversation.input.model'> & PropsLocale<'model'>
         & PropsRenderSlots<'conversation.input.model.label' | 'conversation.input.model.options' | 'conversation.input.model.details'>) => createElement(ModelSelect, {
-        ...props, placement: 'composer',
+        ...props,
         renderLabel: (owner, fallback) => renderSlot('conversation.input.model.label', owner, { fallback }),
         renderOptions: owner => renderSlot('conversation.input.model.options', owner),
         renderDetails: owner => renderSlot('conversation.input.model.details', owner),
