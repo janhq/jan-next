@@ -9,6 +9,7 @@ type OverlayMath = {
   markBounds(mark: Mark, measure: (mark: Mark) => number): Bounds
   resized(mark: Mark, bounds: Bounds, corner: number, pointer: Point, measure: (mark: Mark) => number): Mark
   touches(mark: Mark, bounds: Bounds, pointer: Point, reach: number): boolean
+  toolForKey(event: { key: string; metaKey?: boolean; ctrlKey?: boolean; altKey?: boolean }): string | undefined
 }
 let capture: OverlayMath
 beforeAll(async () => {
@@ -59,4 +60,15 @@ it('renders drawing text in the current interface font and accent', () => {
   capture.paintMark(ctx, { tool: 'text', points: [{ x: 10, y: 20 }], text: 'Review' }, 2, 'purple', 'Inter, sans-serif')
   expect(ctx).toMatchObject({ font: '500 32px Inter, sans-serif', fillStyle: 'purple' })
   expect(ctx.fillText).toHaveBeenCalledWith('Review', 10, 20)
+})
+
+it('picks drawing tools with Excalidraw keys, but leaves modified presses to their own shortcuts', () => {
+  expect(['v', 'P', 'r', 'o', 'a', 'e', 't'].map(key => capture.toolForKey({ key })))
+    .toEqual(['select', 'pen', 'rectangle', 'ellipse', 'arrow', 'eraser', 'text'])
+  expect(['1', '7', '2', '4', '5', '0', '8'].map(key => capture.toolForKey({ key })))
+    .toEqual(['select', 'pen', 'rectangle', 'ellipse', 'arrow', 'eraser', 'text'])
+  expect(capture.toolForKey({ key: 'a', metaKey: true })).toBeUndefined()
+  expect(capture.toolForKey({ key: 'r', ctrlKey: true })).toBeUndefined()
+  expect(capture.toolForKey({ key: 't', altKey: true })).toBeUndefined()
+  expect(capture.toolForKey({ key: 'x' })).toBeUndefined()
 })
