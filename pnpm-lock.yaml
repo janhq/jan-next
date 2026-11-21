@@ -18118,6 +18118,9 @@ importers:
       '@janhq/jan-preset-square':
         specifier: workspace:*
         version: link:../preset-square
+      '@janhq/jan-status-bar':
+        specifier: workspace:*
+        version: link:../status-bar
       '@janhq/jan-time-context':
         specifier: workspace:*
         version: link:../../packages/context/time-context
@@ -18301,6 +18304,18 @@ importers:
       fflate:
         specifier: ^0.8.3
         version: 0.8.3
+
+  plugins/status-bar:
+    dependencies:
+      '@janhq/jan-native-command':
+        specifier: workspace:*
+        version: link:../../packages/util/native-command
+      '@janhq/jan-plugin-api':
+        specifier: workspace:*
+        version: link:../plugin-api
+      '@janhq/schemastery':
+        specifier: link:../../vendor/schemastery
+        version: link:../../vendor/schemastery
 
   plugins/tokamak:
     dependencies:

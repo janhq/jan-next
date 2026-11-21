@@ -52,6 +52,7 @@ const PRIVATE_RUNTIME_PACKAGES = [
   'plugins/notifications',
   'plugins/plugin-api',
   'plugins/preset-square',
+  'plugins/status-bar',
   'plugins/tokamak',
   'plugins/wall-of-quotes',
 ] as const
