@@ -69,6 +69,8 @@ Breadcrumb addresses derive from the Provider-bound Session address, loaded pare
 
 ### Duration, completion, and tokens
 
+Each local row also shows the model identifier from the most recent recorded request when available. An unconsumed model selection does not replace that identifier, and no model is inferred for a session without a recorded request.
+
 Each visible catalog level advances its own clock while it contains a running child; collapsing the level or closing the menu releases that clock. Token totals sum the four disjoint `tokenUsage` buckets. The `subagentTiming` projection sums completed-turn duration and supplies `latestTurnCompleted` for both the success dot and completed count; opening another turn clears that completion until its own `turn/end`. Duration advances once per second only for an open turn on a running child and freezes after the child becomes inactive; an interrupted open turn is bounded by its same-cut `active.through`, never by newer session metadata.
 
 ### Composer election
