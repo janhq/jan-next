@@ -24,8 +24,8 @@ function cookieOf(header, name) {
   return undefined
 }
 
-// A phone on home Wi-Fi reaches 192.168/16 or 10/8; 100.64/10 is a VPN or tailnet (NordLynx,
-// Tailscale) that the phone joins only on purpose; public addresses must never be the default.
+// A phone on home Wi-Fi reaches 192.168/16 or 10/8; 100.64/10 is a VPN or tailnet
+// (for example Tailscale) that the phone joins only on purpose; public addresses must never be the default.
 function rank(address, name) {
   const [a, b] = address.split('.').map(Number)
   const virtual = /vEthernet|WSL|Hyper-V|docker|br-|veth|VirtualBox|VMware|Radmin|ZeroTier/i.test(name)

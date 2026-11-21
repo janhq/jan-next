@@ -10,13 +10,13 @@ test('Orca workspaces carry their project name and leave out archived and remote
     : reply({
       worktrees: [
         { repoId: 'r1', path: '/code/jan-next', displayName: 'main', hostId: 'local' },
-        { repoId: 'r1', path: '/code/jan-next-ui', displayName: 'thinhlpg/ui' },
+        { repoId: 'r1', path: '/code/jan-next-ui', displayName: 'feature/ui' },
         { repoId: 'r1', path: '/code/old', displayName: 'old', isArchived: true },
-        { repoId: 'r1', path: '/home/me/x', displayName: 'linux box', hostId: 'homelab' },
+        { repoId: 'r1', path: '/srv/x', displayName: 'remote box', hostId: 'remote-1' },
       ]
     })
   const found = await orcaWorkspaces(exec, 'orca')
-  assert.deepEqual(found.map(({ name, project }) => [name, project]), [['main', 'jan-next'], ['thinhlpg/ui', 'jan-next']])
+  assert.deepEqual(found.map(({ name, project }) => [name, project]), [['main', 'jan-next'], ['feature/ui', 'jan-next']])
 })
 
 test('a missing Orca CLI says how to get one', async () => {
