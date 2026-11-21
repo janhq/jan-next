@@ -20,10 +20,10 @@ window.__ModuleLoader__.load({
     const EMPTY = {}
 
     const CSS = `
-/* The bar sits on the window ground, not on a strip of its own: no fill, no rule. Under the Jan theme its
-   sides line up with the floating sidebar card, so the gap under the card and the bar read as one margin. */
-.jsb-bar { display: flex; align-items: stretch; justify-content: space-between; gap: 8px; height: 24px; padding: 0 var(--jt-sidebar-gap, 6px); box-sizing: border-box;
-  background: transparent;
+/* No fill, no rule: the bar sits on the window ground. Under the Jan theme it shares the chat column
+   with the conversation and its bottom edge lines up with the floating sidebar card's. */
+.jsb-bar { display: flex; align-items: stretch; justify-content: space-between; gap: 8px; height: 24px; padding: 0 var(--jt-sidebar-gap, 6px);
+  margin-bottom: var(--jt-sidebar-gap, 0px); box-sizing: border-box; background: transparent;
   color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 16px; user-select: none; overflow: hidden; }
 .jsb-side { display: flex; align-items: stretch; min-width: 0; }
 .jsb-side[data-side='right'] { justify-content: flex-end; }
@@ -424,14 +424,15 @@ button.jsb-item:active { background: var(--dsw-alias-interactive-bg-active); }
           }, StatusBar))
 
           const builtIns = [
-            ['left', 'jan.awake', 10, 'item.awake', AwakeItem, { setAwake }],
-            ['left', 'jan.activity', 20, 'item.activity', ActivityItem, { layout, openSession: id => ctx.get('uiWorkspace')?.openSession(id) }],
-            ['left', 'jan.connection', 30, 'item.connection', ConnectionItem,
+            // Everything starts on the right, next to the conversation; the left side holds only what the user moves there.
+            ['right', 'jan.activity', 10, 'item.activity', ActivityItem, { layout, openSession: id => ctx.get('uiWorkspace')?.openSession(id) }],
+            ['right', 'jan.connection', 20, 'item.connection', ConnectionItem,
               { hooks: { connectionState: connection?.state ?? { getSnapshot: () => 'connected', subscribe: () => () => {} } }, reconnect: () => connection?.reconnect() }],
-            ['right', 'jan.cpu', 10, 'item.cpu', CpuItem, { layout }],
-            ['right', 'jan.memory', 20, 'item.memory', MemoryItem, { layout }],
-            ['right', 'jan.gpu', 30, 'item.gpu', GpuItem, { layout }],
-            ['right', 'jan.clock', 40, 'item.clock', ClockItem, {}],
+            ['right', 'jan.awake', 30, 'item.awake', AwakeItem, { setAwake }],
+            ['right', 'jan.cpu', 40, 'item.cpu', CpuItem, { layout }],
+            ['right', 'jan.memory', 50, 'item.memory', MemoryItem, { layout }],
+            ['right', 'jan.gpu', 60, 'item.gpu', GpuItem, { layout }],
+            ['right', 'jan.clock', 70, 'item.clock', ClockItem, {}],
           ]
           for (const [side, id, order, label, Component, injected] of builtIns) {
             ctx.slots.inject(SLOTS[side], () => ctx.slots.register({
