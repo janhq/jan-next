@@ -41,6 +41,7 @@ Define an Agent’s child plugins in ordinary Cordis YAML. Declare several prese
 | `plugins` | required | Child plugin entry list |
 | `name` | unset | Display name |
 | `description` | unset | Display description |
+| `icon` | unset | Menu icon: a product glyph name such as `code-outline` or `layers-outline`, or one emoji; unset shows the generic preset glyph |
 | `order` | unset | Roster order |
 | `toolAllowlist` | unset | Restrict model-facing tools to these names, including inherited tools |
 | `readOnlyDelegation` | `false` | Pin new local delegated sessions using this preset to a read-only sandbox with no approval escalation |
