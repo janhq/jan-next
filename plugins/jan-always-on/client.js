@@ -7,6 +7,23 @@ window.__ModuleLoader__.load({
     const PATH = '/jan-api/always-on'
     const title = { en: 'Bots', zh: '机器人', ja: 'ボット', es: 'Bots', fr: 'Bots', de: 'Bots', ru: 'Боты', pt: 'Bots' }
     const tabs = ['events', 'timers', 'memory', 'messages']
+    let avatarModule
+    function loadAvatar() {
+      avatarModule ??= Promise.all([require.async('./client.avatar.js'), require.async('./client.open-bot-avatar.js')])
+        .then(([{ Avatar }, { mountAvatar }]) => ({ Avatar, mountAvatar }))
+        .catch(error => { avatarModule = undefined; throw error })
+      return avatarModule
+    }
+    function AvatarSeat({ state, t }) {
+      const [avatar, setAvatar] = useState(null)
+      useEffect(() => {
+        let disposed = false
+        void loadAvatar().then(value => { if (!disposed) setAvatar(value) }, error => console.warn('[always-on] avatar', error))
+        return () => { disposed = true }
+      }, [])
+      return avatar ? h(avatar.Avatar, { snapshot: state, t, mountAvatar: avatar.mountAvatar })
+        : h('span', { className: 'jao-avatar', 'aria-hidden': true })
+    }
 
     async function call(method, params, signal) {
       const response = await fetch(PATH, { method: 'POST', headers: { 'content-type': 'application/json' },
@@ -105,8 +122,9 @@ window.__ModuleLoader__.load({
       return h('main', { className: 'jao-page' }, h('div', { className: 'jao-content' },
         h('header', { className: 'jao-header' }, h('div', null, h('h1', null, t('title')), h('p', null, t('intro'))),
           state && h('div', { className: 'jao-actions' },
-            h('span', { className: 'jao-status', role: 'status' }, h(StateDot, { state: state.enabled && !state.paused ? 'ongoing' : 'idle' }),
-              t(!state.enabled ? 'off' : state.paused ? 'paused' : 'active')),
+            h('div', { className: 'jao-presence' }, h(AvatarSeat, { state, t }),
+              h('span', { className: 'jao-status', role: 'status' }, h(StateDot, { state: state.enabled && !state.paused ? 'ongoing' : 'idle' }),
+                t(!state.enabled ? 'off' : state.paused ? 'paused' : 'active'))),
             h(Button, { variant: state.paused ? 'primary' : 'outline', disabled: busy,
               onClick: () => { void command('setPaused', { paused: !state.paused }) } }, t(!state.enabled ? 'enable' : state.paused ? 'resume' : 'pause')))),
         (failure || loadingFailed) && h('p', { className: 'jao-error', role: 'alert' }, t('error'), ' ',
@@ -156,6 +174,9 @@ window.__ModuleLoader__.load({
       .jao-header p,.jao-page small,.jao-status,.jao-row span{color:var(--dsw-alias-label-secondary)}
       .jao-page .jao-error{color:var(--dsw-alias-label-error,var(--dsw-alias-label-primary))}
       .jao-status,.jao-check{display:inline-flex;align-items:center;gap:6px}
+      .jao-presence{display:inline-flex;align-items:center;gap:6px}
+      .jao-avatar{display:block;position:relative;inline-size:48px;block-size:48px;flex:none}
+      .jao-avatar[data-still]{opacity:.45}
       .jao-nav{display:flex;flex-wrap:wrap;gap:6px;margin:20px 0 12px}
       .jao-list,.jao-form{display:grid;gap:10px;min-width:0}
       .jao-card{border:0.5px solid var(--dsw-alias-settings-card-stroke);background:var(--dsw-alias-settings-card-fill);border-radius:var(--dsw-radius-xl);padding:16px;min-width:0}
