@@ -19,7 +19,7 @@ import type {
   IWorkspaces, WorkspaceId, WorkspaceSnapshot, WorkspaceView,
 } from '@janhq/jan-api-workspace-controller/client'
 import type { SessionId } from '@janhq/jan-session/types'
-import type { } from '@janhq/jan-client-ui-layout/client'
+import type { MainPanelId } from '@janhq/jan-client-ui-layout/client'
 import type { DraftInitializationOptions } from '@janhq/jan-client-ui-conversation/client'
 import type { RowToast } from './contract/slots.ts'
 import { NavigationHistory, sameSession } from './history.ts'
@@ -30,6 +30,11 @@ import type { SessionGroupBy, WorkspaceViewStoreActions } from './stores.ts'
 interface MainSelection {
   readonly sessionId?: SessionId
   readonly subagentAddress?: SubagentAddress
+}
+
+interface ProjectHandler {
+  readonly open: (workspaceId: WorkspaceId) => void
+  readonly panelId: MainPanelId | undefined
 }
 
 /** Chats the user just left that stay open, so switching back paints the transcript at once. */
@@ -179,9 +184,16 @@ export interface UiWorkspace {
    * Without a handler the row click expands or collapses the Workspace's Sessions; with one, the row
    * click opens the surface and its chevron keeps expanding and collapsing. The latest registration wins.
    * @param open - opens the surface for the clicked Workspace.
+   * @param panelId - the main panel the handler selects synchronously, if it supports Back and Forward.
    * @returns idempotent disposer; removing the latest handler restores the previous one.
    */
-  registerProjectHandler(open: (workspaceId: WorkspaceId) => void): () => void
+  registerProjectHandler(open: (workspaceId: WorkspaceId) => void, panelId?: MainPanelId): () => void
+  /**
+   * Open the latest registered project surface for one Workspace.
+   * @param workspaceId - project to open.
+   * @returns whether a handler took the request.
+   */
+  openProjectSurface(workspaceId: WorkspaceId): boolean
 }
 
 declare module '@janhq/cordis' {
@@ -225,7 +237,8 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   /** Replacement search surfaces in registration order; the last one receives Search. */
   private readonly searchHandlers: { readonly open: () => void }[] = []
   /** Project surfaces in registration order; the last one receives Workspace row clicks. */
-  private readonly projectHandlers: { readonly open: (workspaceId: WorkspaceId) => void }[] = []
+  private readonly projectHandlers: ProjectHandler[] = []
+  private activeProject: { readonly workspaceId: WorkspaceId; readonly panelId: MainPanelId } | undefined
   /** Whether a project surface is registered, for row components choosing click behavior. */
   readonly projectSurface = createSnapshotStore(false)
 
@@ -505,8 +518,8 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     }
   }
 
-  registerProjectHandler(open: (workspaceId: WorkspaceId) => void): () => void {
-    const entry = { open }
+  registerProjectHandler(open: ProjectHandler['open'], panelId?: MainPanelId): () => void {
+    const entry = { open, panelId }
     this.projectHandlers.push(entry)
     this.projectSurface.set(true)
     return () => {
@@ -516,16 +529,27 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     }
   }
 
-  /**
-   * Open the latest registered project surface for one Workspace.
-   * @param workspaceId - the clicked Workspace.
-   * @returns whether a handler took the request; false leaves the row to expand or collapse.
-   */
   openProjectSurface(workspaceId: WorkspaceId): boolean {
     const handler = this.projectHandlers.at(-1)
     if (handler === undefined) return false
-    handler.open(workspaceId)
+    this.showProject(handler, workspaceId)
     return true
+  }
+
+  /** Settle the selected project and panel together, including switches within one panel. */
+  private showProject(handler: ProjectHandler, workspaceId: WorkspaceId): void {
+    if (handler.panelId === undefined) {
+      handler.open(workspaceId)
+      return
+    }
+    this.batching = true
+    try {
+      handler.open(workspaceId)
+      this.activeProject = { workspaceId, panelId: handler.panelId }
+    } finally {
+      this.batching = false
+    }
+    this.settle('push')
   }
 
   /**
@@ -569,6 +593,9 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     const disposeSessions = this.sessions.list.subscribe(reconcile)
     // Global panels are opened by their own owners through ctx.layout; the panel is part of the location.
     const disposePanels = this.ctx.layout.panelInfo.subscribe(() => {
+      if (this.activeProject !== undefined && this.activeProject.panelId !== this.ctx.layout.panelInfo.getSnapshot().activePanelId) {
+        this.activeProject = undefined
+      }
       if (!this.batching) this.settle('push')
     })
     reconcile()
@@ -710,10 +737,13 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   /** The main view as it is now: selected Session and global panel. */
   private location(): NavigationLocation {
     const { sessionId, subagentAddress } = this.selection.getSnapshot()
+    const panelId = this.ctx.layout.panelInfo.getSnapshot().activePanelId
+    const project = this.activeProject
     return {
       ...(sessionId === undefined ? {} : { sessionId }),
       ...(subagentAddress === undefined ? {} : { subagentAddress }),
-      panelId: this.ctx.layout.panelInfo.getSnapshot().activePanelId,
+      panelId,
+      ...(project !== undefined && project.panelId === panelId ? { workspaceId: project.workspaceId } : {}),
     }
   }
 
@@ -724,11 +754,13 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     else this.history.seed(this.location())
   }
 
-  /** Whether the Session (or the subagent's parent) is still listed and not archived; unknown while the catalogs load. */
+  /** Whether the project and Session (or its subagent's parent) still exist; unknown while catalogs load. */
   private readonly reachable = (location: NavigationLocation): boolean => {
+    const workspaces = this.workspaces.list.getSnapshot()
+    if (location.workspaceId !== undefined && workspaces.phase === 'ready'
+      && !workspaces.items.some(item => item.workspaceId === location.workspaceId)) return false
     const id = location.subagentAddress?.parentSessionId ?? location.sessionId
     if (id === undefined) return true
-    const workspaces = this.workspaces.list.getSnapshot()
     const sessions = this.sessions.list.getSnapshot()
     if (workspaces.phase !== 'ready' || sessions.phase !== 'ready') return true
     return sessions.byId[id] !== undefined && !workspaces.archivedSessionIds.includes(id)
@@ -760,12 +792,17 @@ class UiWorkspaceService extends Service implements UiWorkspace {
 
   /** Show `location`. A global panel that is no longer registered makes `selectPanel` throw. */
   private apply(location: NavigationLocation): void {
+    const projectHandler = location.workspaceId === undefined
+      ? undefined
+      : this.projectHandlers.findLast(handler => handler.panelId === location.panelId)
+    if (location.workspaceId !== undefined && projectHandler === undefined) throw new Error('project surface is no longer registered')
     const target = location.subagentAddress ?? location.sessionId
     if (this.mainReference === undefined || !sameSession(this.selection.getSnapshot(), location)) {
       if (target === undefined) this.clearMain()
       else this.replaceMain(target, this.lifetime.signal, 'preserve')
     }
-    this.ctx.layout.selectPanel(location.panelId)
+    if (projectHandler !== undefined && location.workspaceId !== undefined) this.showProject(projectHandler, location.workspaceId)
+    else this.ctx.layout.selectPanel(location.panelId)
   }
 
 }
