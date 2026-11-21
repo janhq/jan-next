@@ -9,6 +9,18 @@ const PLAN_NEXT_ACTION_EN = 'describe your task to generate plan'
 
 /** Simplified Chinese dictionary (the key-set source of truth). */
 export const zh = {
+  'desk.split': '分屏',
+  'desk.openBeside': '在旁边打开',
+  'desk.active': '运行中 ({n})',
+  'desk.activeHint': '显示所有正在运行的对话',
+  'desk.restore': '返回原布局',
+  'desk.overflow': '另有 {n} 个',
+  'desk.limit': '最多可打开四个对话窗格',
+  'desk.close': '关闭对话窗格',
+  'desk.resize': '调整对话窗格大小',
+  'desk.running': '运行中',
+  'desk.done': '已完成',
+  'desk.empty': '没有正在运行的对话',
   'quote.remove': '移除引用',
   'context.remove': '移除上下文',
   'shortcut.newline': '换行',
@@ -422,6 +434,18 @@ export type ConversationKey = keyof typeof zh
 
 /** English dictionary, checked complete against the zh key set. */
 export const en = {
+  'desk.split': 'Split chat',
+  'desk.openBeside': 'Open beside',
+  'desk.active': 'Active ({n})',
+  'desk.activeHint': 'Show all running chats',
+  'desk.restore': 'Restore layout',
+  'desk.overflow': '{n} more',
+  'desk.limit': 'Up to four chat panes can be open',
+  'desk.close': 'Close chat pane',
+  'desk.resize': 'Resize chat panes',
+  'desk.running': 'Running',
+  'desk.done': 'Done',
+  'desk.empty': 'No chats are running',
   'quote.remove': 'Remove quote',
   'context.remove': 'Remove context',
   'shortcut.newline': 'New line',
@@ -834,6 +858,18 @@ export const en = {
 
 /** Japanese copy, checked against the English keys. */
 export const ja = {
+  'desk.split': 'チャットを分割',
+  'desk.openBeside': '隣に開く',
+  'desk.active': '実行中 ({n})',
+  'desk.activeHint': '実行中のチャットをすべて表示',
+  'desk.restore': 'レイアウトを戻す',
+  'desk.overflow': 'ほか {n} 件',
+  'desk.limit': 'チャットペインは最大4つまで開けます',
+  'desk.close': 'チャットペインを閉じる',
+  'desk.resize': 'チャットペインのサイズを変更',
+  'desk.running': '実行中',
+  'desk.done': '完了',
+  'desk.empty': '実行中のチャットはありません',
   'quote.remove': '引用を削除',
   'context.remove': 'コンテキストを削除',
   'shortcut.newline': '改行',
@@ -1244,6 +1280,18 @@ export const ja = {
 
 /** Spanish dictionary, checked against the English keys. */
 export const es = {
+  'desk.split': 'Dividir chat',
+  'desk.openBeside': 'Abrir al lado',
+  'desk.active': 'Activos ({n})',
+  'desk.activeHint': 'Mostrar todos los chats en curso',
+  'desk.restore': 'Restaurar diseño',
+  'desk.overflow': '{n} más',
+  'desk.limit': 'Se pueden abrir hasta cuatro paneles de chat',
+  'desk.close': 'Cerrar panel de chat',
+  'desk.resize': 'Cambiar el tamaño de los paneles de chat',
+  'desk.running': 'En curso',
+  'desk.done': 'Terminado',
+  'desk.empty': 'No hay chats en curso',
   'quote.remove': 'Eliminar cotización',
   'context.remove': 'Quitar contexto',
   'shortcut.newline': 'Nueva linea',
@@ -1656,6 +1704,18 @@ export const es = {
 
 /** French dictionary, checked against the English keys. */
 export const fr = {
+  'desk.split': 'Scinder le chat',
+  'desk.openBeside': 'Ouvrir à côté',
+  'desk.active': 'Actifs ({n})',
+  'desk.activeHint': 'Afficher tous les chats en cours',
+  'desk.restore': 'Rétablir la disposition',
+  'desk.overflow': '{n} de plus',
+  'desk.limit': 'Vous pouvez ouvrir jusqu’à quatre volets de chat',
+  'desk.close': 'Fermer le volet de chat',
+  'desk.resize': 'Redimensionner les volets de chat',
+  'desk.running': 'En cours',
+  'desk.done': 'Terminé',
+  'desk.empty': 'Aucun chat en cours',
   'quote.remove': 'Supprimer le devis',
   'context.remove': 'Retirer le contexte',
   'shortcut.newline': 'Nouvelle ligne',
@@ -2068,6 +2128,18 @@ export const fr = {
 
 /** German dictionary, checked against the English keys. */
 export const de = {
+  'desk.split': 'Chat teilen',
+  'desk.openBeside': 'Daneben öffnen',
+  'desk.active': 'Aktiv ({n})',
+  'desk.activeHint': 'Alle laufenden Chats anzeigen',
+  'desk.restore': 'Layout wiederherstellen',
+  'desk.overflow': '{n} weitere',
+  'desk.limit': 'Bis zu vier Chatbereiche können geöffnet sein',
+  'desk.close': 'Chatbereich schließen',
+  'desk.resize': 'Größe der Chatbereiche ändern',
+  'desk.running': 'Läuft',
+  'desk.done': 'Fertig',
+  'desk.empty': 'Keine laufenden Chats',
   'quote.remove': 'Zitat entfernen',
   'context.remove': 'Kontext entfernen',
   'shortcut.newline': 'Neue Zeile',
@@ -2480,6 +2552,18 @@ export const de = {
 
 /** Russian dictionary, checked against the English keys. */
 export const ru = {
+  'desk.split': 'Разделить чат',
+  'desk.openBeside': 'Открыть рядом',
+  'desk.active': 'Активные ({n})',
+  'desk.activeHint': 'Показать все выполняющиеся чаты',
+  'desk.restore': 'Вернуть раскладку',
+  'desk.overflow': 'Ещё {n}',
+  'desk.limit': 'Можно открыть до четырёх панелей чата',
+  'desk.close': 'Закрыть панель чата',
+  'desk.resize': 'Изменить размер панелей чата',
+  'desk.running': 'Выполняется',
+  'desk.done': 'Готово',
+  'desk.empty': 'Нет выполняющихся чатов',
   'quote.remove': 'Удалить цитату',
   'context.remove': 'Удалить контекст',
   'shortcut.newline': 'Новая линия',
@@ -2892,6 +2976,18 @@ export const ru = {
 
 /** Portuguese dictionary, checked against the English keys. */
 export const pt = {
+  'desk.split': 'Dividir chat',
+  'desk.openBeside': 'Abrir ao lado',
+  'desk.active': 'Ativos ({n})',
+  'desk.activeHint': 'Mostrar todos os chats em execução',
+  'desk.restore': 'Restaurar layout',
+  'desk.overflow': 'Mais {n}',
+  'desk.limit': 'É possível abrir até quatro painéis de chat',
+  'desk.close': 'Fechar painel de chat',
+  'desk.resize': 'Redimensionar painéis de chat',
+  'desk.running': 'Em execução',
+  'desk.done': 'Concluído',
+  'desk.empty': 'Não há chats em execução',
   'quote.remove': 'Remover cotação',
   'context.remove': 'Remover contexto',
   'shortcut.newline': 'Nova linha',

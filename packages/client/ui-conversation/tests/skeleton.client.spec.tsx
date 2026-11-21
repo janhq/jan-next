@@ -226,7 +226,7 @@ function mount(
       return opts?.fallback ?? null
     }
     if (key === 'conversation.header') {
-      return <ConversationHeader {...runtimeProps} renderSlot={renderSlot as never} />
+      return <ConversationHeader {...runtimeProps} renderSlot={renderSlot as never} t={t} />
     }
     if (key === 'conversation.session.header') {
       return (

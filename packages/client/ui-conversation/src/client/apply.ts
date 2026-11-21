@@ -40,7 +40,8 @@ import { EnterBehaviorRow } from './settings/EnterBehaviorRow.tsx'
 import type { EnterBehaviorRowInjected } from './settings/EnterBehaviorRow.tsx'
 import { ConversationRoot } from './skeleton/ConversationRoot.tsx'
 import { ConversationContent } from './skeleton/ConversationContent.tsx'
-import { ConversationPanel } from './skeleton/ConversationPanel.tsx'
+import { ConversationPanel, paneRetainer } from './skeleton/ConversationPanel.tsx'
+import { ConversationLayout, MULTITASK_LAYOUT_KEY } from './skeleton/multitask-layout.ts'
 import { ConversationHeader } from './skeleton/ConversationHeader.tsx'
 import { ConversationSession, ConversationSessionHeader } from './skeleton/ConversationSession.tsx'
 import { InputBar } from './skeleton/InputBar.tsx'
@@ -60,7 +61,7 @@ declare module '@janhq/jan-client-ui-slots' {
 
 /** Services required by the Conversation plugin. */
 export const inject = [
-  'slots', 'sessions', 'fileUpload', 'uiSession', 'uiWorkspace', 'locale', 'configForms',
+  'slots', 'sessions', 'fileUpload', 'uiSession', 'uiWorkspace', 'workspaces', 'locale', 'configForms',
 ]
 
 /** Conversation runtime configuration. */
@@ -193,6 +194,40 @@ export function apply(ctx: Context, config: Config = Config({})): void {
 
   ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-conversation: dictionaries')
   const t = ctx.locale.bind(NS)
+  const layout = new ConversationLayout(globalThis.localStorage?.getItem(MULTITASK_LAYOUT_KEY) ?? undefined,
+    (value) => { globalThis.localStorage?.setItem(MULTITASK_LAYOUT_KEY, value) })
+  const retainPane = paneRetainer(sessions)
+  const mainBinding = ctx.uiSession.adapter.current
+  const status = ctx.uiSession.sessionStatus
+  const workspaces = ctx.workspaces.list
+  ctx.effect(() => {
+    const syncLayout = (): void => {
+      const list = sessions.list.getSnapshot()
+      const archived = new Set(workspaces.getSnapshot().archivedSessionIds)
+      const running = status.getSnapshot()
+      const eligible = list.ids.filter(id => list.byId[id]?.origin !== 'subagent' && !archived.has(id))
+      layout.sync(mainBinding.getSnapshot().key as SessionId | undefined,
+        list.phase === 'ready' ? eligible : undefined, eligible.filter(id => running.get(id)?.running === true))
+    }
+    syncLayout()
+    const unsubscribers = [sessions.list, mainBinding, status, workspaces].map(source => source.subscribe(syncLayout))
+    return () => { for (const unsubscribe of unsubscribers) unsubscribe() }
+  }, 'ui-conversation: synchronize multitask layout')
+  ctx.inject(['contextMenus', 'layout'], (scope) => {
+    scope.effect(() => scope.contextMenus.register({
+      id: 'session.openBeside', target: 'session', order: 350,
+      observe: () => [layout, sessions.list, workspaces, ctx.locale],
+      resolve: ({ sessionId }) => {
+        const row = sessions.list.getSnapshot().byId[sessionId]
+        if (row === undefined || row.blank || row.origin === 'subagent' || !layout.canOpenBeside(sessionId)
+          || workspaces.getSnapshot().archivedSessionIds.includes(sessionId)) return []
+        return [{ id: 'split', label: t('desk.openBeside'), run: () => {
+          scope.layout.selectPanel(null)
+          layout.openBeside(sessionId)
+        } }]
+      },
+    }), 'ui-conversation: split session menu')
+  })
   const conversationStore = createConversationStore()
   const conversationForm = ctx.configForms.get<ConversationSettings & { heroPlaceholder?: string }>(CONVERSATION_SETTINGS_NAMESPACE)
   const submissionPolicy = new ComposerSubmissionPolicy(conversationForm)
@@ -475,6 +510,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
 
   const registerHeader = () => slots.register({
     name: 'conversation.header',
+    locale: NS,
     children: {
       'conversation.header.leading': { kind: 'single', scope: 'root' },
       'conversation.session.header': { kind: 'single', scope: 'session' },
@@ -634,6 +670,8 @@ export function apply(ctx: Context, config: Config = Config({})): void {
     yield slots.register({
       name: 'main',
       key: 'conversation',
+      locale: NS,
+      inject: () => ({ layout, retainPane }),
       children: { 'main.conversation': { kind: 'single', scope: 'session-maybe' } },
     }, ConversationPanel)
     yield registerConversationRoot()
@@ -641,13 +679,15 @@ export function apply(ctx: Context, config: Config = Config({})): void {
     yield registerConversationSession()
     yield registerHeader()
     yield registerSessionHeader()
-    yield registerComposerBar()
   })
 
   ctx.plugin(ConversationController, {
     input: inputHub,
     blocks: composerBlocks,
     maxConcurrentFileUploads,
+  })
+  ctx.inject(['conversation'], (scope) => {
+    scope.slots.inject('conversation.composer.bar', registerComposerBar)
   })
   ctx.plugin(todoDockEntry)
   ctx.plugin(queueDockEntry)

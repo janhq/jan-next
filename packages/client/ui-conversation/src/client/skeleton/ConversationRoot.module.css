@@ -83,6 +83,8 @@
   padding-inline-start: max(0px, calc(var(--jan-frame-leading-clearance, 0px) - 20px));
 }
 
+.titleRowEmpty { justify-content: flex-end; }
+
 /* Header actions do not shrink, so on a narrow row they overflow the cluster.
    The cluster clips them, hit testing included, so the next control keeps
    every click. The trailing padding spans the gap before that control and

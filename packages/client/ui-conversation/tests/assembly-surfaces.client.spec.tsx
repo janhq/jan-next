@@ -13,6 +13,7 @@ import {
   RemoteError, SlotTestRuntime, usePinnedBrowserLanguages, stubConfigForm,
 } from '@janhq/jan-client-test-runtime'
 import { InputHub } from '../src/client/input/hub.ts'
+import { MULTITASK_LAYOUT_KEY } from '../src/client/skeleton/multitask-layout.ts'
 import { apply, inject, type EmptyWorkspaceOwnerProps } from '@janhq/jan-client-ui-conversation/client'
 import type { SessionId } from '@janhq/jan-session/types'
 import type { WorkspaceId } from '@janhq/jan-workspace/types'
@@ -82,7 +83,7 @@ function WorkspaceProbe({ open }: EmptyWorkspaceOwnerProps) {
   )
 }
 
-async function bench(opts?: { blank?: boolean }) {
+async function bench(opts?: { blank?: boolean; listPending?: boolean }) {
   const runtime = await SlotTestRuntime.create()
   const { openSession } = provideWorkspaceNavigation(runtime)
   runtime.ctx.provide('configForms', { developerTools: { enabled: createSnapshotStore(true) }, get: () => stubConfigForm().scope } as never)
@@ -101,6 +102,7 @@ async function bench(opts?: { blank?: boolean }) {
     },
   })
   openSession(SID)
+  if (opts?.listPending) runtime.sessions.list.update((draft) => { draft.phase = 'pending' })
   await runtime.root.declare(LAYOUT_CHILDREN, AppRoot)
   await runtime.mount({ inject: [...inject], apply })
   return runtime
@@ -214,6 +216,42 @@ describe('resident composer', () => {
       draft.blank = false
     })
     expect(view.container.querySelector<HTMLDivElement>('[data-composer-input]')).toBe(hero)
+    await runtime.dispose()
+  })
+})
+
+describe('multitask conversation', () => {
+  it('retains an independent split composer and restores it after Active ends', async () => {
+    const runtime = await bench()
+    const second = await runtime.sessions.add({ id: 'second', summary: { displayTitle: 'Second chat', running: true } })
+    const view = runtime.renderRoot()
+    fireEvent.click(view.getByRole('button', { name: '分屏' }))
+    fireEvent.click(await view.findByRole('menuitem', { name: 'Second chat' }))
+    const panes = () => [...view.container.querySelectorAll('[data-conversation-session]')]
+    expect(panes().map(pane => pane.getAttribute('data-conversation-session'))).toEqual([SID, second])
+    expect(view.container.querySelectorAll('[data-composer-input]')).toHaveLength(2)
+    fireEvent.click(view.getByRole('button', { name: '运行中 (1)' }))
+    expect(panes().map(pane => pane.getAttribute('data-conversation-session'))).toEqual([second])
+    await runtime.sessions.updateSummary(second, { running: false })
+    expect(view.getByText('已完成')).toBeTruthy()
+    fireEvent.click(view.getByRole('button', { name: '返回原布局' }))
+    expect(panes().map(pane => pane.getAttribute('data-conversation-session'))).toEqual([SID, second])
+    fireEvent.click(view.getByRole('button', { name: '关闭对话窗格' }))
+    expect(panes().map(pane => pane.getAttribute('data-conversation-session'))).toEqual([SID])
+    expect(runtime.sessions.retainInfo(second).getSnapshot().referenceCount).toBe(0)
+    await runtime.dispose()
+  })
+
+  it('waits for the catalog before acquiring a restored pane', async () => {
+    localStorage.setItem(MULTITASK_LAYOUT_KEY, JSON.stringify({ sessions: ['restored'], sizes: [0.6, 0.4] }))
+    const runtime = await bench({ listPending: true })
+    const view = runtime.renderRoot()
+    expect(view.container.querySelector('[data-slot-error="main"]')).toBeNull()
+    expect(view.container.querySelectorAll('[data-composer-input]')).toHaveLength(1)
+    const second = await runtime.sessions.add({ id: 'restored' })
+    act(() => { runtime.sessions.list.update((draft) => { draft.phase = 'ready' }) })
+    expect(view.container.querySelectorAll('[data-composer-input]')).toHaveLength(2)
+    expect(runtime.sessions.retainInfo(second).getSnapshot().referenceCount).toBe(1)
     await runtime.dispose()
   })
 })

@@ -773,6 +773,7 @@ export type ConversationSessionSlotProps =
 export type ConversationHeaderProps =
   PropsRuntime<'conversation.header'>
   & PropsRenderSlots<'conversation.header.leading' | 'conversation.session.header'>
+  & PropsLocale<'conversation'>
 
 /** Full props of the strict Session header. */
 export type ConversationSessionHeaderSlotProps =
