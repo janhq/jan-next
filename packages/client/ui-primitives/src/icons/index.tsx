@@ -36,6 +36,12 @@ export const IconNewChatOutlineRegular = productIcon('new-chat-outline', 'regula
 /** Medium IconNewChatOutline artwork with a 1.3px stroke. */
 export const IconNewChatOutlineMedium = productIcon('new-chat-outline', 'medium')
 
+/** Regular one-pixel IconChatOutline artwork. */
+export const IconChatOutlineRegular = productIcon('chat-outline', 'regular')
+
+/** Medium IconChatOutline artwork with a 1.3px stroke. */
+export const IconChatOutlineMedium = productIcon('chat-outline', 'medium')
+
 /** Regular one-pixel IconSearchOutline artwork. */
 export const IconSearchOutlineRegular = productIcon('search-outline', 'regular')
 
@@ -573,8 +579,14 @@ export const IconPinFillMedium = productIcon('pin-fill', 'medium')
 /** Regular one-pixel IconStarOutline artwork. */
 export const IconStarOutlineRegular = productIcon('star-outline', 'regular')
 
+/** Medium IconStarOutline artwork with a 1.3px stroke. */
+export const IconStarOutlineMedium = productIcon('star-outline', 'medium')
+
 /** Regular one-pixel IconStarFill artwork. */
 export const IconStarFillRegular = productIcon('star-fill', 'regular')
+
+/** Medium IconStarFill artwork with a 1.3px stroke. */
+export const IconStarFillMedium = productIcon('star-fill', 'medium')
 
 /** Regular one-pixel IconFlatListOutline artwork. */
 export const IconFlatListOutlineRegular = productIcon('flat-list-outline', 'regular')
