@@ -36,6 +36,7 @@
     "@janhq/jan-experimental-api-speech-to-text": "workspace:*",
     "@janhq/jan-experimental-client-ui-voice-input": "workspace:*",
     "@janhq/jan-experimental-speech-to-text": "workspace:*",
+    "@janhq/jan-experimental-speech-to-text-sensevoice": "workspace:*",
     "@janhq/jan-legacy-import": "workspace:*",
     "@janhq/jan-model-hub": "workspace:*",
     "@janhq/jan-notifications": "workspace:*",

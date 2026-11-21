@@ -18109,6 +18109,9 @@ importers:
       '@janhq/jan-experimental-speech-to-text':
         specifier: workspace:*
         version: link:../../packages/experimental/speech-to-text
+      '@janhq/jan-experimental-speech-to-text-sensevoice':
+        specifier: workspace:*
+        version: link:../../packages/experimental/speech-to-text-sensevoice
       '@janhq/jan-hosts':
         specifier: workspace:*
         version: link:../hosts
