@@ -34,7 +34,7 @@ function fixture(recording?: Recording, navigable = true) {
   const bundle = createSnapshotStore<'enabled'>('enabled')
   const props: VoiceInputProps = { sessionId: 'one' as SessionId, inputActions, transcribe, locked: false, onActiveChange: vi.fn(),
     openSettings: vi.fn(), prepare: vi.fn(async () => {}), cancelPreparation: vi.fn(async () => {}), configure: vi.fn(async () => {}),
-    enableVoice: vi.fn(async () => {}), refreshVoiceBundle: vi.fn(async () => {}),
+    enableVoice: vi.fn(async () => {}), refreshVoiceBundle: vi.fn(async () => {}), connectReadiness: vi.fn(),
     useVoiceBundle: bindSnapshotSelector(bundle), renderSlot: () => null,
     selectMicrophone: vi.fn(), useMicrophoneDevice: bindSnapshotSelector(createSnapshotStore({ id: '', label: '' })),
     useSpeechReadiness: bindSnapshotSelector(readiness), createRecording: () => recording ?? capture,

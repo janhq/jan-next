@@ -24,6 +24,8 @@ export interface VoiceInputActions {
   enableVoice: () => Promise<void>
   /** Re-read the bundle selection after a connection error. */
   refreshVoiceBundle: () => Promise<void>
+  /** Connect to speech readiness when setup opens or dictation is enabled. */
+  connectReadiness: () => void
   /** @returns one microphone operation owned by the plugin lifecycle. */
   createRecording: () => Recording
   /** Remember the browser microphone used by previews and subsequent recordings. */
@@ -94,6 +96,8 @@ export function VoiceInput(props: VoiceInputProps) {
   const usable = speechReady && (bundle === 'enabled' || bundle === 'unmanaged')
   const [phase, setPhase] = useState<Phase>('idle'), [message, setMessage] = useState(''), [pending, setPending] = useState('')
   const [setupOpen, setSetupOpen] = useState(false)
+  useEffect(() => { if (setupOpen || bundle === 'enabled') props.connectReadiness() },
+    [setupOpen, bundle, props.connectReadiness])
   const [alternateActive, setAlternateActive] = useState(false)
   const current = useRef<ActiveRecording>(), generation = useRef(0)
   const bootstrap = useRef<SpeechSelection>()

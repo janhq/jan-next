@@ -142,9 +142,11 @@ export function languageName(language: string, t: PropsLocale<typeof NS>['t']): 
 }
 
 /** Recognition preferences and preparation cards shared by plugin details and Settings. */
-export function VoicePreparation({ useSpeechReadiness, ...props }: Pick<InjectFace<VoiceInputInjected>,
-  'useSpeechReadiness' | 'configure' | 'prepare' | 'cancelPreparation' | 'createRecording' | 'useMicrophoneDevice' | 'selectMicrophone'> & PropsLocale<typeof NS>) {
+export function VoicePreparation({ useSpeechReadiness, connectReadiness, ...props }: Pick<InjectFace<VoiceInputInjected>,
+  'useSpeechReadiness' | 'connectReadiness' | 'configure' | 'prepare' | 'cancelPreparation'
+  | 'createRecording' | 'useMicrophoneDevice' | 'selectMicrophone'> & PropsLocale<typeof NS>) {
   const readiness = useSpeechReadiness(value => value), catalog = readiness.catalog
+  useEffect(connectReadiness, [connectReadiness])
   const [saving, setSaving] = useState(false), [error, setError] = useState('')
   const configure = async (patch: SpeechSelectionPatch): Promise<void> => {
     setSaving(true); setError('')

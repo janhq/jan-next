@@ -1,6 +1,7 @@
 .trigger { width: 28px; padding: 0; flex: none; }
 .triggerAnchor { display: inline-flex; flex: none; }
 .voiceControl { display: inline-flex; align-items: center; }
+.setupDialog { max-height: calc(100dvh - 32px); overflow-y: auto; }
 .setupStatus { font-size: 13px; color: var(--dsw-alias-label-secondary); }
 .captureRow { display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; min-height: 34px; }
 .roundButton { width: 32px; height: 32px; padding: 0; border-radius: 50%; corner-shape: round; flex: none; background: var(--dsw-specific-selector); }

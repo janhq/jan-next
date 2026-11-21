@@ -85,7 +85,7 @@ export function ComposerVoiceSetup({
 
   const blocked = bundle === 'checking' || bundle === 'error' || bundle === 'restart'
   const ready = readiness.connected && canRecord(provider?.preparation.phase)
-  return <Modal open title={t('setupPrompt.title')} closeLabel={t('cancel')}
+  return <Modal open title={t('setupPrompt.title')} closeLabel={t('cancel')} className={css.setupDialog ?? ''}
     onClose={() => { void dismiss() }} footer={<>
       <Button variant="ghost" disabled={busy !== undefined} onClick={() => { void dismiss() }}>{t('cancel')}</Button>
       {bundle === 'error' && <Button variant="outline" onClick={() => { void refreshVoiceBundle() }}>{t('setup.retry')}</Button>}

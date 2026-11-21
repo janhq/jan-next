@@ -117,7 +117,7 @@ it('persists settings and reports disconnection in the detail card', async () =>
       { id: 'cloud' as SpeechProviderId, name: 'Cloud', location: 'cloud', languages: ['auto', 'en', 'zh', 'ja', 'fr', 'it'], preparation: { phase: 'ready' } }],
   } })
   const configure = vi.fn<VoiceInputProps['configure']>(async () => {})
-  const props = { useSpeechReadiness: bindSnapshotSelector(store), configure, t,
+  const props = { useSpeechReadiness: bindSnapshotSelector(store), connectReadiness: vi.fn(), configure, t,
     useMicrophoneDevice: bindSnapshotSelector(createSnapshotStore({ id: '', label: '' })),
     selectMicrophone: vi.fn(), createRecording: () => new Recording(() => {}),
     prepare: vi.fn(async () => {}), cancelPreparation: vi.fn(async () => {}) }
