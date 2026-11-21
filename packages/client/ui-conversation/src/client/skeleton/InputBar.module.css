@@ -19,6 +19,15 @@
   padding-top: 4px;
 }
 
+/* Owner content at the row start (the hero's Workspace and preset pickers); it takes the
+   free space so the readings stay at the end, wherever the dock justifies them. */
+.dockStart {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  margin-inline-end: auto;
+}
+
 /* The docked composer reserves one statistics row before its readings
    arrive, so the projections landing never change the composer height. The
    row height matches the readings: a 20px secondary line plus 1px block

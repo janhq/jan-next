@@ -151,6 +151,7 @@ export function ConversationContent(props: ConversationContentProps) {
     || (inputState.phase !== 'plain' && inputState.phase !== 'claimed')
   const inputBar = renderSlot('conversation.composer.bar', {
     variant: hero ? 'hero' : 'composer',
+    ...(hero ? { dockStart: heroWorkspaceRow } : {}),
     ...(inert
       ? {
         disabled: true,
@@ -169,7 +170,6 @@ export function ConversationContent(props: ConversationContentProps) {
   const composerBar = (
     <div className={clsx(css.composerStack, hero && css.composerHero)}>
       {hero && <HeroShell t={t} renderSlot={renderSlot} />}
-      {hero && heroWorkspaceRow}
       {zone !== undefined && renderSlot('conversation.input.dock', zone)}
       {inputBar}
       {hero && renderSlot('conversation.hero.suggestions', {
