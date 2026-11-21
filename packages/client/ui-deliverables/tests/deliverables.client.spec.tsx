@@ -1040,7 +1040,7 @@ describe('presented files', () => {
     expect(view.queryByRole('link')).toBeNull()
     fireEvent.click(view.getByRole('button', { name: 'Preview report-0.docx in sidebar' }))
     expect(preview).toHaveBeenCalledTimes(1)
-    expect(preview).toHaveBeenLastCalledWith('report-0.docx')
+    expect(preview).toHaveBeenLastCalledWith('report-0.docx', { toggle: true })
     fireEvent.click(view.getAllByRole('button', { name: 'Native file action' })[0]!)
     expect(props.openPresented).toHaveBeenCalledWith('child-session', 2, 0, 'open', undefined)
     fireEvent.click(view.getByRole('button', { name: 'Collapse delivered files' }))

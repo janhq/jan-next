@@ -141,13 +141,13 @@ export function Deliverables({
       {host !== null && host !== 'error' && !host.available && <span className={css.hostStatus}>{t('presented.unavailable')}</span>}
       {viewer}
       {matched.presented.length === 1 && matched.presented.map(file => <PresentedInlinePreview key={`${file.seq}:${file.index}`}
-        file={file} sessionId={sessionId} readPresented={readPresented} onPreview={() => { openFile(file.path) }}
+        file={file} sessionId={sessionId} readPresented={readPresented} onPreview={() => { openFile(file.path, { toggle: true }) }}
         renderSlot={renderSlot} t={t} />)}
       <div className={css.presented} data-presented-files-row data-single={matched.presented.length === 1 ? true : undefined}>
         {presented.map(file => <PresentedFileCard key={`${file.seq}:${file.index}`} file={file} cwd={cwd}
           phase={states[presentedFileUrl(sessionId, file.seq, file.index)]}
           host={host === 'error' ? null : host} t={t}
-          onPreview={() => { openFile(file.path) }}
+          onPreview={() => { openFile(file.path, { toggle: true }) }}
           contextMenuProps={getTriggerProps({ kind: 'file', value: { sessionId, path: file.path } })}
           actions={renderSlot('deliverables.file.actions', {
             actionUrl: presentedFileUrl(sessionId, file.seq, file.index),
