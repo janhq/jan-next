@@ -15,6 +15,7 @@ import {
   type SubagentCatalogActionProps, type SubagentHeaderLineageProps,
 } from '../src/client/SubagentHeaderLineage.tsx'
 import { SubagentReadOnlyComposer } from '../src/client/SubagentReadOnlyComposer.tsx'
+import { SubagentActivityDock } from '../src/client/SubagentActivityDock.tsx'
 import { en, zh } from '../src/client/locales.ts'
 
 afterEach(() => {
@@ -159,6 +160,71 @@ function summary(id: SessionId, updatedAt: number): SessionSummary {
     updatedAt,
   }
 }
+
+describe('composer subagent activity dock', () => {
+  it('shows running children, expands their recent activity, and opens the existing sidebar', () => {
+    const now = Date.now()
+    const waiting = { kind: 'waiting-inbox', at: now, seq: 3 } as const
+    const second = 'child-2' as SessionId
+    const fixture = props(catalog({ entries: [
+      { id: CHILD, mode: 'continuable', name: 'reader', label: 'private assignment', activity: 'running' },
+      { id: second, mode: 'one-shot', activity: 'running' },
+    ] }), {}, {
+      [CHILD]: {
+        ...summary(CHILD, now), running: true,
+        projectionValues: {
+          subagentActivity: { current: waiting, recent: [
+            { kind: 'calling-tool', tool: 'read', at: now - 500, seq: 2 }, waiting,
+          ] },
+          modelSelection: { lastUsed: { provider: 'test', model: 'claude-haiku' }, next: { provider: 'test', model: 'unrequested' } },
+          subagentTiming: { settledMs: 0, active: { since: now - 20_000, through: now } },
+          tokenUsage: { uncachedInputTokens: 1_000, outputTokens: 30, cacheReadTokens: 100, cacheWriteTokens: 70 },
+        },
+      },
+      [second]: { ...summary(second, now), running: true },
+    })
+    render(<SubagentActivityDock {...fixture} session={sessionSnapshot(PARENT)}
+      input={{ draft: '', draftRev: 0, phase: 'plain', attachmentIds: [], occurrences: [], queue: [] }} t={makeTranslate(en)} />)
+    expect(screen.getByText('2 running')).toBeTruthy()
+    expect(screen.getByText('claude-haiku')).toBeTruthy()
+    expect(screen.queryByText('unrequested')).toBeNull()
+    expect(screen.getByText('Waiting for inbox input')).toBeTruthy()
+    expect(screen.getByText('20s')).toBeTruthy()
+    expect(screen.getByText('1.2K tok')).toBeTruthy()
+    expect(screen.queryByText('private assignment')).toBeNull()
+    expect(screen.queryByText('Calling read')).toBeNull()
+    const toggle = screen.getByRole('button', { name: /reader.*claude-haiku/i })
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByText('Calling read')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Open reader in sidebar' }))
+    expect(fixture.openChildAside).toHaveBeenCalledWith({ parentSessionId: PARENT, childSessionId: CHILD, mode: 'continuable' })
+    fireEvent.click(toggle)
+    expect(screen.queryByText('Calling read')).toBeNull()
+  })
+
+  it('hides empty docks and expires recent settlements without another server update', () => {
+    vi.useFakeTimers()
+    const now = Date.now()
+    const stopped = { kind: 'stopped', at: now, seq: 1 } as const
+    const recent = props(catalog({ entries: [{ id: CHILD, mode: 'one-shot', activity: 'inactive' }] }), {}, {
+      [CHILD]: { ...summary(CHILD, now), projectionValues: { subagentActivity: { current: stopped, recent: [stopped] } } },
+    })
+    const input = { draft: '', draftRev: 0, phase: 'plain', attachmentIds: [], occurrences: [], queue: [] } as const
+    const snapshot = sessionSnapshot(PARENT)
+    const { rerender } = render(<SubagentActivityDock {...props(catalog({ entries: [] }))}
+      session={snapshot} input={input} t={makeTranslate(en)} />)
+    expect(screen.queryByRole('region', { name: 'Subagents' })).toBeNull()
+    rerender(<SubagentActivityDock {...recent} session={snapshot} input={input} t={makeTranslate(en)} />)
+    const recentToggle = screen.getByText('Recently settled')
+    expect(recentToggle.closest('details')?.open).toBe(false)
+    fireEvent.click(recentToggle)
+    expect(recentToggle.closest('details')?.open).toBe(true)
+    expect(screen.getByText('Stopped')).toBeTruthy()
+    act(() => { vi.advanceTimersByTime(31_000) })
+    expect(screen.queryByRole('region', { name: 'Subagents' })).toBeNull()
+  })
+})
 
 function hoverCatalog(trigger: HTMLElement): void {
   vi.useFakeTimers()
