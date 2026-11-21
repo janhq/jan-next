@@ -15,7 +15,7 @@ function fixture() {
   const state = createSnapshotStore<SpeechReadiness>({ catalog: null, connected: false, error: null })
   const onDismiss = vi.fn(), onOpenDetails = vi.fn(), providerId = 'local' as SpeechProviderId
   const props = { packageName: 'voice-bundle', t: makeTranslate(zh), onDismiss, onOpenDetails,
-    useSpeechReadiness: bindSnapshotSelector(state) } as VoiceSetupPromptProps
+    useSpeechReadiness: bindSnapshotSelector(state), connectReadiness: vi.fn() } as VoiceSetupPromptProps
   render(<VoiceSetupPrompt {...props} />)
   return { onDismiss, onOpenDetails, publish(preparation: SpeechPreparationState, location: 'host-local' | 'cloud' = 'host-local') {
     act(() => { state.set({ connected: true, error: null, catalog: {

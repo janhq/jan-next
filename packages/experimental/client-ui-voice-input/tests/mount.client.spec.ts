@@ -19,7 +19,7 @@ const REMOTE: TypertRemoteContribution = {
 }
 
 vi.mock('../src/client/readiness.ts', () => ({ observeReadiness: () => ({
-  state: createSnapshotStore({ catalog: null, connected: true, error: null }), dispose: async () => {},
+  state: createSnapshotStore({ catalog: null, connected: true, error: null }), start: () => {}, dispose: async () => {},
 }) }))
 
 /** Narrow the erased registry payload before exercising its registered actions. */

@@ -23,28 +23,33 @@ export function canRecord(phase: SpeechPreparationState['phase'] | undefined): b
 }
 
 /**
- * Subscribe once per Client plugin, independent of rendered pages and Sessions.
+ * Mirror host readiness once a voice surface requests it.
  * @param ctx - mounted speech Remote owner.
  * @returns shared readiness snapshot and joined observation cleanup.
  */
-export function observeReadiness(ctx: Context): { state: SnapshotStore<SpeechReadiness>; dispose: () => Promise<void> } {
+export function observeReadiness(ctx: Context): { state: SnapshotStore<SpeechReadiness>; start: () => void; dispose: () => Promise<void> } {
   const state = createSnapshotStore<SpeechReadiness>({ catalog: null, connected: false, error: null })
   let disposed = false
   const isDisposed = (): boolean => disposed
   const fail = (error: unknown): void => {
     state.set({ ...state.getSnapshot(), connected: false, error: error instanceof Error ? error.message : String(error) })
   }
-  const stream = ctx.remote.$stream<SpeechCatalog>({
-    name: 'Speech readiness', open: signal => ctx.remote.speech.follow(signal),
-    ended: () => new RemoteStreamCarrierError('Speech readiness stream ended'), carrierFailed: fail,
-  })
-  const observing = (async () => {
-    try {
-      for await (const item of stream) {
-        state.set({ catalog: item.value, connected: true, error: null })
-        item.accept()
-      }
-    } catch (error) { if (!isDisposed()) fail(error) }
-  })()
-  return { state, dispose: async () => { disposed = true; await stream.dispose(); await observing } }
+  let stop: (() => Promise<void>) | undefined
+  const start = (): void => {
+    if (disposed || stop) return
+    const stream = ctx.remote.$stream<SpeechCatalog>({
+      name: 'Speech readiness', open: signal => ctx.remote.speech.follow(signal),
+      ended: () => new RemoteStreamCarrierError('Speech readiness stream ended'), carrierFailed: fail,
+    })
+    const observing = (async () => {
+      try {
+        for await (const item of stream) {
+          state.set({ catalog: item.value, connected: true, error: null })
+          item.accept()
+        }
+      } catch (error) { if (!isDisposed()) fail(error) }
+    })()
+    stop = async () => { await stream.dispose(); await observing }
+  }
+  return { state, start, dispose: async () => { disposed = true; await stop?.() } }
 }

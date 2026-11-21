@@ -39,6 +39,7 @@ function registerUi(ctx: Context): void {
     openSettings: () => { ctx.get('pluginNavigation')?.openBundle(VOICE_BUNDLE) },
     enableVoice: bundle.enable,
     refreshVoiceBundle: bundle.refresh,
+    connectReadiness: readiness.start,
     hooks: { speechReadiness: readiness.state, microphoneDevice: microphone, pluginNavigation, voiceBundle: bundle.state },
     selectMicrophone: (device) => { microphone.set(device) },
     createRecording: () => {
