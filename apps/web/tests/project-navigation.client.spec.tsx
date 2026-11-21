@@ -66,6 +66,7 @@ function theme(tasks: readonly unknown[] = [], shared?: { catalog: Source<{ reco
   const selectPanel = vi.fn()
   const startSession = vi.fn()
   const catalog = vi.fn(async () => ({ ok: true, value: tasks }))
+  const createSchedule = vi.fn(async () => ({ ok: true }))
   let openProject: ((id: string) => void) | undefined
   let openSearch: (() => void) | undefined
   const services = {
@@ -88,7 +89,7 @@ function theme(tasks: readonly unknown[] = [], shared?: { catalog: Source<{ reco
     sessions: { list: source({ ids: [], byId: {} }) },
     shortcuts: { catalog: source([]), register: () => () => {} },
     locale: { bind: () => (key: string) => key, register: () => () => {}, subscribe: () => () => {} },
-    remote: { schedule: { catalog }, $on: () => () => {} },
+    remote: { schedule: { catalog, create: createSchedule }, $on: () => () => {} },
     on: () => () => {},
     ...(shared === undefined ? {} : { hostTaskCatalog: shared }),
     effect: (register: () => (() => void) | undefined) => {
@@ -111,7 +112,7 @@ function theme(tasks: readonly unknown[] = [], shared?: { catalog: Source<{ reco
     return render(<entry.Component {...actions} {...boundHooks} t={(key: string) => key} />)
   }
   return {
-    renderEntry, selectPanel, startSession, catalog,
+    renderEntry, selectPanel, startSession, catalog, createSchedule,
     openProject: (id: string) => services.uiWorkspace.openProjectSurface(id),
     openSearch: () => { openSearch?.() },
     unmount: () => { for (const dispose of disposers.reverse()) dispose() },
@@ -164,6 +165,8 @@ it('shows only tasks in the selected case-sensitive project or linked to one of 
     { id: 'alpha', title: 'Alpha task', status: 'paused', target: { kind: 'new', create: { cwd: '/work/Foo' } } },
     { id: 'beta', title: 'Beta task', status: 'paused', target: { kind: 'new_once', create: { cwd: '/work/foo' } } },
     { id: 'link', title: 'Linked chat task', status: 'paused', target: { kind: 'session', sessionId: 'linked' } },
+    { id: 'bound-alpha', title: 'Bound to Alpha', status: 'paused', workspaceId: 'alpha', target: { kind: 'new', create: { cwd: '/stale' } } },
+    { id: 'bound-beta', title: 'Bound to Beta', status: 'paused', workspaceId: 'beta', target: { kind: 'session', sessionId: 'linked' } },
   ])
   try {
     app.openProject('alpha')
@@ -171,6 +174,26 @@ it('shows only tasks in the selected case-sensitive project or linked to one of 
     await screen.findByText('Alpha task')
     expect(screen.queryByText('Beta task')).toBeNull()
     expect(screen.getByText('Linked chat task')).toBeTruthy()
+    expect(screen.getByText('Bound to Alpha')).toBeTruthy()
+    expect(screen.queryByText('Bound to Beta')).toBeNull()
+  } finally { app.unmount() }
+})
+
+it('creates a scheduled task by the open project ID, not its path', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => reply(text(''))))
+  const app = theme()
+  try {
+    app.openProject('alpha')
+    app.renderEntry('jt-project')
+    const tasks = await screen.findByRole('region', { name: 'project.scheduled' })
+    fireEvent.click(within(tasks).getByRole('button', { name: 'project.add' }))
+    const editor = screen.getByRole('dialog', { name: 'project.task.title' })
+    fireEvent.change(within(editor).getByRole('textbox', { name: 'project.task.name' }), { target: { value: 'Summarize project' } })
+    fireEvent.change(within(editor).getByRole('textbox', { name: 'project.task.prompt' }), { target: { value: 'Summarize this project.' } })
+    fireEvent.click(within(editor).getByRole('button', { name: 'project.task.create' }))
+    await vi.waitFor(() => {
+      expect(app.createSchedule).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ target: { kind: 'new', create: { workspaceId: 'alpha' } } }))
+    })
   } finally { app.unmount() }
 })
 

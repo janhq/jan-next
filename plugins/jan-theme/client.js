@@ -1324,10 +1324,14 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       const projectTasks = React.useMemo(() => {
         if (taskStatus === 'unavailable') return null
         const sessionIds = new Set(workspace.sessionIds)
-        return tasks.filter(task => task.status !== 'ended' && (task.target.kind === 'session'
-          ? sessionIds.has(task.target.sessionId)
-          : task.target.create?.cwd === workspace.path))
-      }, [tasks, taskStatus, workspace.sessionIds, workspace.path])
+        return tasks.filter(task => {
+          if (task.status === 'ended') return false
+          if (task.workspaceId !== undefined) return task.workspaceId === workspaceId
+          return task.target.kind === 'session'
+            ? sessionIds.has(task.target.sessionId)
+            : task.target.create?.cwd === workspace.path
+        })
+      }, [tasks, taskStatus, workspaceId, workspace.sessionIds, workspace.path])
       const send = () => {
         const text = draft.trim()
         if (text === '') return
@@ -1415,7 +1419,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         }),
         h(ProjectTaskEditor, {
           open: addingTask, t,
-          onCreate: async (request) => { await createSchedule({ ...request, target: { kind: 'new', create: { cwd: workspace.path } } }) },
+          onCreate: request => createSchedule({ ...request, target: { kind: 'new', create: { workspaceId } } }),
           onClose: () => { setAddingTask(false) },
         }))
     }
