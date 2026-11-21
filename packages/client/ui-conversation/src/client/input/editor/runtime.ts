@@ -1,8 +1,8 @@
 /** The Composer model's private Lexical editor, projections, and node operations. */
 import type { ObservableSnapshot } from '@janhq/jan-client-store'
-import type { LexicalEditor, NodeKey } from 'lexical'
+import type { LexicalEditor, LexicalNode, NodeKey } from 'lexical'
 import {
-  $addUpdateTag, $createParagraphNode, $createTextNode, $getAdjacentNode, $isTextNode,
+  $addUpdateTag, $createParagraphNode, $createTextNode, $getAdjacentNode, $isElementNode, $isTextNode,
   $getRoot, $getSelection, $getNodeByKey, $isRangeSelection,
   BLUR_COMMAND, CLEAR_HISTORY_COMMAND, COMMAND_PRIORITY_BEFORE_CRITICAL, COMMAND_PRIORITY_CRITICAL, createEditor,
   HISTORY_MERGE_TAG, PASTE_TAG,
@@ -11,8 +11,10 @@ import {
 import { registerPlainText } from '@lexical/plain-text'
 import { createEmptyHistoryState, registerHistory } from '@lexical/history'
 import { mergeRegister } from '@lexical/utils'
-import type { DraftQuote, DraftReference, ReferenceInsert } from '../../contract/draft-editor.ts'
+import type { DraftContext, DraftContextInsert, DraftQuote, DraftReference, ReferenceInsert } from '../../contract/draft-editor.ts'
 import type { CommandClaim } from '../../contract/input.ts'
+import { ContextNode, $createContextNode, $isContextNode, REMOVE_CONTEXT_COMMAND } from './ContextNode.tsx'
+import type { ContextNodeLabels } from './ContextNode.tsx'
 import { QuoteNode, $createQuoteNode, $isQuoteNode, REMOVE_QUOTE_COMMAND } from './QuoteNode.tsx'
 import type { QuoteNodeLabels } from './QuoteNode.tsx'
 import { registerReferenceActivation } from './reference-activation.ts'
@@ -31,6 +33,7 @@ type Lexicon = ReadonlyMap<'/' | '@', readonly string[]>
 interface DraftEditorRuntimeDeps {
   readonly onUpdate: () => void
   readonly quoteLabels: () => QuoteNodeLabels
+  readonly contextLabels: () => ContextNodeLabels
   readonly openReference: (source: string | undefined, reference: Pick<ReferenceInsert, 'ref' | 'appearance'>) => boolean
   readonly lexicon: () => Lexicon
   readonly resolveLexicon: () => ObservableSnapshot<Lexicon> | undefined
@@ -70,7 +73,7 @@ export class DraftEditorRuntime {
   /** The editor bound by the Composer's contenteditable host. */
   readonly editor: LexicalEditor
   private projected: EditorProjection = {
-    detectText: '', clipboardText: '', occurrences: [], quotes: [], selection: null, caret: null, command: undefined,
+    detectText: '', clipboardText: '', occurrences: [], quotes: [], contexts: [], selection: null, caret: null, command: undefined,
   }
   /** Stable occurrence ids per chip NodeKey (undo restores keys, so ids survive it too). */
   private readonly occurrenceIds = new Map<NodeKey, number>()
@@ -83,7 +86,7 @@ export class DraftEditorRuntime {
   constructor(private readonly deps: DraftEditorRuntimeDeps) {
     this.editor = createEditor({
       namespace: 'jan-composer',
-      nodes: [ReferenceChipNode, CommandChipNode, TextRefNode, QuoteNode],
+      nodes: [ReferenceChipNode, CommandChipNode, TextRefNode, QuoteNode, ContextNode],
       onError: (error) => { throw error },
     })
   }
@@ -104,9 +107,11 @@ export class DraftEditorRuntime {
     const unregister = mergeRegister(
       registerPlainText(this.editor),
       this.editor.registerNodeTransform(QuoteNode, (node) => { node.setLabels(this.deps.quoteLabels()) }),
-      this.editor.registerCommand(REMOVE_QUOTE_COMMAND, key => this.removeQuote(key), COMMAND_PRIORITY_CRITICAL),
-      this.editor.registerCommand(KEY_BACKSPACE_COMMAND, event => this.deleteAdjacentQuote(event, true), COMMAND_PRIORITY_BEFORE_CRITICAL),
-      this.editor.registerCommand(KEY_DELETE_COMMAND, event => this.deleteAdjacentQuote(event, false), COMMAND_PRIORITY_BEFORE_CRITICAL),
+      this.editor.registerNodeTransform(ContextNode, (node) => { node.setLabels(this.deps.contextLabels()) }),
+      this.editor.registerCommand(REMOVE_QUOTE_COMMAND, key => this.removeAtomic(key), COMMAND_PRIORITY_CRITICAL),
+      this.editor.registerCommand(REMOVE_CONTEXT_COMMAND, key => this.removeAtomic(key), COMMAND_PRIORITY_CRITICAL),
+      this.editor.registerCommand(KEY_BACKSPACE_COMMAND, event => this.deleteAdjacentAtomic(event, true), COMMAND_PRIORITY_BEFORE_CRITICAL),
+      this.editor.registerCommand(KEY_DELETE_COMMAND, event => this.deleteAdjacentAtomic(event, false), COMMAND_PRIORITY_BEFORE_CRITICAL),
       this.editor.registerCommand(BLUR_COMMAND, () => {
         // Finish this batch before an explicit focus can restore its updated selection.
         this.editor.update(preserveExternalSelection, { discrete: true })
@@ -198,7 +203,8 @@ export class DraftEditorRuntime {
    */
   setDraft(text: string): void {
     const clean = text.replace(REFERENCE_PLACEHOLDER_RE, '')
-    if (clean === this.projection.clipboardText && this.projection.occurrences.length === 0 && this.projection.quotes.length === 0) return
+    if (clean === this.projection.clipboardText && this.projection.occurrences.length === 0
+      && this.projection.quotes.length === 0 && this.projection.contexts.length === 0) return
     this.editor.update(() => {
       $getRoot().clear()
       $appendParagraphs(clean)
@@ -206,20 +212,31 @@ export class DraftEditorRuntime {
   }
 
   /**
-   * Add plain text after the current draft as new paragraphs, keeping its text
-   * and references; an empty draft takes the text as its whole content.
+   * Add plain text after the current draft as new paragraphs, then each
+   * context as an atomic chip on its own paragraph, keeping existing text and
+   * references; an empty draft takes the addition as its whole content.
    * Placeholder-sanitized; the caret lands at the end; merged into history
    * like {@link setDraft}.
    * @param text - plain text to add.
+   * @param contexts - atomic contexts added after the text.
    */
-  appendDraft(text: string): void {
+  appendDraft(text: string, contexts: readonly DraftContextInsert[] = []): void {
     const clean = text.replace(REFERENCE_PLACEHOLDER_RE, '')
-    if (clean === '') return
-    if (this.projection.clipboardText === '' && this.projection.occurrences.length === 0) {
+    if (clean === '' && contexts.length === 0) return
+    const empty = this.projection.clipboardText === '' && this.projection.occurrences.length === 0
+    if (empty && contexts.length === 0) {
       this.setDraft(clean)
       return
     }
-    this.editor.update(() => { $appendParagraphs(clean) }, { discrete: true, tag: HISTORY_MERGE_TAG })
+    this.editor.update(() => {
+      const root = $getRoot()
+      if (empty) root.clear()
+      if (clean !== '') $appendParagraphs(clean)
+      for (const context of contexts) {
+        root.append($createParagraphNode().append($createContextNode(context.text, context.label, this.deps.contextLabels())))
+      }
+      root.selectEnd()
+    }, { discrete: true, tag: HISTORY_MERGE_TAG })
   }
 
   /**
@@ -360,10 +377,10 @@ export class DraftEditorRuntime {
     return applied
   }
 
-  /** Remove one quote node and leave the editor caret at its former position. */
-  private removeQuote(key: NodeKey): boolean {
+  /** Remove one quote or context node and leave the editor caret at its former position. */
+  private removeAtomic(key: NodeKey): boolean {
     const node = $getNodeByKey(key)
-    if (!$isQuoteNode(node)) return false
+    if (!$isQuoteNode(node) && !$isContextNode(node)) return false
     const parent = node.getParent()
     const offset = node.getIndexWithinParent()
     const separator = node.getNextSibling()
@@ -374,18 +391,26 @@ export class DraftEditorRuntime {
       else separator.setTextContent(remaining)
     }
     node.remove()
-    const caret = Math.min(offset, parent?.getChildrenSize() ?? 0)
-    parent?.select(caret, caret)
+    // A context owns its paragraph; leaving the line empty would add a stray newline to the draft.
+    const previous = parent?.getPreviousSibling()
+    if ($isContextNode(node) && parent !== null && parent.getChildrenSize() === 0 && $isElementNode(previous)) {
+      parent.remove()
+      previous.selectEnd()
+    } else {
+      const caret = Math.min(offset, parent?.getChildrenSize() ?? 0)
+      parent?.select(caret, caret)
+    }
     queueMicrotask(() => { this.editor.getRootElement()?.focus({ preventScroll: true }) })
     return true
   }
 
-  /** Delete the QuoteNode immediately beside one collapsed caret. */
-  private deleteAdjacentQuote(event: KeyboardEvent, backward: boolean): boolean {
+  /** Delete the QuoteNode or ContextNode immediately beside one collapsed caret. */
+  private deleteAdjacentAtomic(event: KeyboardEvent, backward: boolean): boolean {
     const selection = $getSelection()
     if (!$isRangeSelection(selection) || !selection.isCollapsed()) return false
+    const atomic = (node: LexicalNode | null) => $isQuoteNode(node) || $isContextNode(node)
     let adjacent = $getAdjacentNode(selection.anchor, backward)
-    if (!$isQuoteNode(adjacent) && backward && selection.anchor.type === 'text') {
+    if (!atomic(adjacent) && backward && selection.anchor.type === 'text') {
       const anchor = selection.anchor.getNode()
       if ($isTextNode(anchor)
         && selection.anchor.offset === 1
@@ -393,9 +418,9 @@ export class DraftEditorRuntime {
         adjacent = anchor.getPreviousSibling()
       }
     }
-    if (!$isQuoteNode(adjacent)) return false
+    if (adjacent === null || !atomic(adjacent)) return false
     event.preventDefault()
-    return this.removeQuote(adjacent.getKey())
+    return this.removeAtomic(adjacent.getKey())
   }
 
   /**
@@ -424,8 +449,12 @@ export class DraftEditorRuntime {
    * @param occurrences - reference occurrences in clipboard order.
    * @param quotes - atomic quotes in clipboard order.
    * @param labels - localized quote controls.
+   * @param contexts - atomic plugin contexts in clipboard order.
    */
-  restoreDraft(draft: string, occurrences: readonly DraftReference[], quotes: readonly DraftQuote[] = [], labels: QuoteNodeLabels = { remove: '' }): void {
+  restoreDraft(
+    draft: string, occurrences: readonly DraftReference[], quotes: readonly DraftQuote[] = [],
+    labels: QuoteNodeLabels = { remove: '' }, contexts: readonly DraftContext[] = [],
+  ): void {
     this.editor.update(() => {
       const root = $getRoot()
       root.clear()
@@ -446,12 +475,18 @@ export class DraftEditorRuntime {
       const spans = [
         ...occurrences.map(reference => ({ kind: 'reference' as const, value: reference })),
         ...quotes.map(quote => ({ kind: 'quote' as const, value: quote })),
+        ...contexts.map(context => ({ kind: 'context' as const, value: context })),
       ].sort((a, b) => a.value.offset - b.value.offset)
       for (const span of spans) {
         const occurrence = span.value
         appendText(draft.slice(cursor, occurrence.offset))
         if (span.kind === 'quote') {
           paragraph.append($createQuoteNode(span.value.text, labels))
+          cursor = occurrence.offset + occurrence.length
+          continue
+        }
+        if (span.kind === 'context') {
+          paragraph.append($createContextNode(span.value.text, span.value.label, this.deps.contextLabels()))
           cursor = occurrence.offset + occurrence.length
           continue
         }

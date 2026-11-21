@@ -20,7 +20,7 @@ import type {
   SessionInput, SubmitAttempt, SubmitAttachment, SubmitOutcome,
 } from '../contract/input.ts'
 import type {
-  ArbitrateKey, ArbitrateOutcome, ComposerKeyboard, DraftInput, DraftSnapshot, ReferenceInsert, TokenSpan,
+  ArbitrateKey, ArbitrateOutcome, ComposerKeyboard, DraftContextInsert, DraftInput, DraftSnapshot, ReferenceInsert, TokenSpan,
 } from '../contract/draft-editor.ts'
 import type { InputSubmitMode, MessageSubmission, MessageSubmissionState } from '../contract/composer-submission.ts'
 import { serializeDraftPrompt } from './prompt.ts'
@@ -76,6 +76,8 @@ export interface SessionInputDeps {
   quoteInsertionAllowed?: () => boolean
   /** Current localized quote removal copy. */
   quoteRemoveLabel?: () => string
+  /** Current localized context chip removal copy. */
+  contextRemoveLabel?: () => string
   /** Command-plane attachment plumbing (the hub owns the conversation face and the copy). */
   commandAttachments: {
     /** Resolve ordered draft ids to wire payloads without sending them; rejects when an id no longer resolves. */
@@ -108,6 +110,10 @@ function projectionContentChanged(prev: EditorProjection, next: EditorProjection
   if (prev.quotes.length !== next.quotes.length || prev.quotes.some((quote, i) => {
     const old = next.quotes[i]
     return old?.text !== quote.text || old.offset !== quote.offset
+  })) return true
+  if (prev.contexts.length !== next.contexts.length || prev.contexts.some((context, i) => {
+    const old = next.contexts[i]
+    return old?.text !== context.text || old.label !== context.label || old.offset !== context.offset
   })) return true
   if (prev.occurrences.length !== next.occurrences.length) return true
   return next.occurrences.some((occ, i) => {
@@ -185,6 +191,7 @@ export class SessionInputShell implements SessionInput {
     this.draftEditor = new DraftEditorRuntime({
       onUpdate: () => { this.onEditorUpdate() },
       quoteLabels: () => ({ remove: this.deps.quoteRemoveLabel?.() ?? '' }),
+      contextLabels: () => ({ remove: this.deps.contextRemoveLabel?.() ?? '' }),
       openReference: (source, reference) =>
         this.deps.inputTriggers?.()?.openReference(source, reference) ?? false,
       lexicon: () => this.lexicon.getSnapshot(),
@@ -227,8 +234,11 @@ export class SessionInputShell implements SessionInput {
   setDraft(text: DraftInput): void {
     const draft = resolveDraftInput(text)
     this.cancelCommandRestore()
-    if (draft.references.length === 0 && (draft.quotes?.length ?? 0) === 0) this.draftEditor.setDraft(draft.text)
-    else this.draftEditor.restoreDraft(draft.text, draft.references, draft.quotes, { remove: this.deps.quoteRemoveLabel?.() ?? '' })
+    if (draft.references.length === 0 && (draft.quotes?.length ?? 0) === 0 && (draft.contexts?.length ?? 0) === 0) {
+      this.draftEditor.setDraft(draft.text)
+    } else {
+      this.draftEditor.restoreDraft(draft.text, draft.references, draft.quotes, { remove: this.deps.quoteRemoveLabel?.() ?? '' }, draft.contexts)
+    }
     if (draft.command === undefined) return
     this.pendingCommand = { token: draft.command.token, rev: this.rev }
     this.restoreCommand()
@@ -287,7 +297,8 @@ export class SessionInputShell implements SessionInput {
   get draftSnapshot(): DraftSnapshot {
     if (this.draftSnapshotCache?.revision === this.rev) return this.draftSnapshotCache.value
     const value = snapshotDraft(
-      this.projection.clipboardText, this.projection.occurrences, this.projection.command?.token, this.projection.quotes,
+      this.projection.clipboardText, this.projection.occurrences, this.projection.command?.token,
+      this.projection.quotes, this.projection.contexts,
     )
     this.draftSnapshotCache = { revision: this.rev, value }
     return value
@@ -328,10 +339,10 @@ export class SessionInputShell implements SessionInput {
     return this.disposed || frozen(this.core.state.phase)
   }
 
-  appendDraft(text: string, ids: readonly DraftAttachmentId[]): boolean {
+  appendDraft(text: string, ids: readonly DraftAttachmentId[], contexts: readonly DraftContextInsert[] = []): boolean {
     if (this.draftInitializationBlocked()) return false
     if (ids.length > 0) this.attachmentIds = [...this.attachmentIds, ...ids]
-    this.draftEditor.appendDraft(text)
+    this.draftEditor.appendDraft(text, contexts)
     if (ids.length > 0) this.publish()
     // Like an inserted quote, appended context is something to send next; a composer not on screen ignores focus.
     this.focus()

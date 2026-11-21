@@ -30,6 +30,20 @@ export interface DraftQuote {
   readonly text: string
 }
 
+/** Atomic context added by a plugin: the model reads `text` verbatim, the composer shows `label`. */
+export interface DraftContextInsert {
+  /** Exact model-visible text. */
+  readonly text: string
+  /** Nonblank chip label. */
+  readonly label: string
+}
+
+/** One atomic context in clipboard-text coordinates; `text` sits verbatim at `offset`. */
+export interface DraftContext extends DraftContextInsert {
+  readonly offset: number
+  readonly length: number
+}
+
 /**
  * Persisted command chip opening a draft. The claim itself (its submit
  * closure) is not persisted; the input rebuilds it from the token through the
@@ -50,6 +64,7 @@ export interface DraftSnapshot {
   readonly references: readonly DraftReference[]
   readonly command?: DraftCommand
   readonly quotes?: readonly DraftQuote[]
+  readonly contexts?: readonly DraftContext[]
 }
 
 /** Plain initial text or an existing document with explicit reference identities. */
