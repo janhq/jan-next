@@ -1,17 +1,24 @@
 # Bots
 
-Bots is an opt-in Jan Desktop feature for running background tasks. Open **More**, choose **Bots**, select **Enable**, and use **Timers** to tell Jan what to do and when. Jan must be open for a run to start. Pause stops new runs and interrupts the active run; resume lets queued work continue. A recurring timer catches up with its most recent missed occurrence, not every missed occurrence.
+Open **Bots** in the sidebar to create a persistent assistant or return to its chat. A bot belongs to one project, and sits above that project's ordinary chats. If you don't pick a project, Jan uses the default project and creates it on demand. A bot keeps the same chat for direct messages, routine work and replies to proactive updates. **New chat** while that bot is your active conversation, or `/new` in its chat, compacts older context instead of creating another chat.
 
-- **Events** shows the durable inbox and any proposed change to background instructions. Allow once applies only the exact text shown. Reject does not apply it. Jan continues the saved session after either answer.
-- **Timers** lists tasks created in Bots from Jan's existing Scheduled store. Open **Manage in Scheduled** to edit, pause, resume, delete, or view delivery records. Follow-ups start a new transcript and read the checkpoint named by the prior run.
-- **Memory** reads local Markdown files. `instructions.md`, `index.md` and `reported.md` each contribute at most 4 KiB to a run. Read `notes/` and `progress/` on demand. Use pointers and short checkpoints rather than copying source material.
-- **Messages** shows the durable outbox. Significant messages appear as Jan notifications, at most one per minute. Replying to a delivered message continues its original session.
+Set a bot's name, role and description when you create it. Advanced settings contain its appearance, instructions, agent preset and model. Jan derives a default avatar from the name; customize, randomize or lock it without changing the bot's identity. Duplicate copies the profile and persona into a new bot in the same project, not its conversation, memory, routines or inbox. Delete removes the profile, persona, memory, inbox, outbox and scheduled routines; the previous conversation is kept in Archived chats, where it no longer operates as a bot.
 
-The durable inbox and outbox live in `$JAN_HOME/always-on/queue.sqlite`. Memory lives beside it in `memory/`; all timers are regular Scheduled tasks. The plugin uses the current default model, workspace-write permissions with approval, and a scoped tool set; shell, web and general file tools are not available to background runs. A remote model receives the selected memory and task context just as it would in an ordinary Jan session. Choose a local model if that data should stay on-device.
+- **Routines** are ordinary Scheduled tasks targeting the bot's canonical chat. Use **Manage in Scheduled** to edit timing, pause, resume, delete or view delivery history. Recurrences catch up with their most recent missed occurrence. A follow-up is delivered to the same conversation, with the checkpoint named by the original run.
+- **Memory** shows the bot's local Markdown files. `instructions.md`, `index.md` and `reported.md` each contribute at most 4 KiB to its context. `notes/` and `progress/` are read on demand. Use pointers and short checkpoints rather than copies of source material.
+- **Activity** shows stored queue and outbox history. Instruction changes require the exact text to be reviewed inline in the bot chat. **Allow once** applies only that text; **Reject** leaves the instructions unchanged. Proactive messages appear in the bot chat and Jan notifies at most once per minute per bot.
+
+Background work runs only while Jan is open. Pause stops new background runs and interrupts the active background run without deleting the queue or pausing direct conversations. Resume lets queued work continue. The bot's preset chooses foreground capabilities, while routine runs use only the scoped memory, follow-up and notification tools. The bot's selected model receives the chosen instructions, memory and routine context just as it receives other chat context; select a local model if that data should stay on-device.
+
+## Local data and migration
+
+`$JAN_HOME/bots/registry.json` stores stable bot IDs, project and canonical Session IDs, profile settings, newest-message previews and unread state. New bots keep `queue.sqlite`, `memory/`, and a digest-addressed `persona-*.md` in `$JAN_HOME/bots/<id>/`; transcripts live in normal Session storage. Routines remain in Scheduled's Host store.
+
+If an earlier installation had Always-on enabled or already has `$JAN_HOME/always-on`, Jan adopts it as a bot named **Jan** in the default project. Its queue and memory stay at their original paths, including paused state and in-flight approvals. Saved Scheduled rows keep timing and history while their destination changes to the canonical bot chat. Already-saved historical transcripts remain at their original Session locations; newly delivered work and decisions continue in the bot chat. A fresh profile does not create a bot until you ask.
 
 ## Avatar states
 
-The avatar next to the status line uses Jan's current accent and follows the system's reduced-motion preference. Bot activity takes precedence from the top of this table down.
+Avatars use the bot's color and shape and follow the system's reduced-motion preference. Activity takes precedence from the top of this table down.
 
 | Bots activity | Avatar |
 | --- | --- |
@@ -24,9 +31,9 @@ The avatar next to the status line uses Jan's current accent and follows the sys
 | Just delivered a notification | Done, happy for four seconds, then idle |
 | No active work, including a completed run without a notification | Idle, neutral |
 
-Tool activity, the last run outcome and the latest delivery time are live values for the current app session. The durable Events and Messages tabs still show stored history after restart.
+Tool activity, the last run outcome and the latest delivery time are live values for the current app session. The Activity panel still shows stored history after restart.
 
-Browser code in this plugin can `require.async('./client.avatar.js')`. Its `loadAvatarRenderer()` resolves to `mountBotAvatar(element, { definition, color, state, mood, label })`, which returns `{ update(partial), destroy() }` and defaults to system reduced motion. Pass a new pose to `update` and call `destroy` when the host leaves the page. `definition` is the default chat-bubble artwork; `avatarAppearance(snapshot)` returns `{ state, mood, still, labelKey }` from the current background runner's snapshot. Other bot surfaces can supply their own definition and map their own activity without using the Events or Timers page.
+Browser code in this plugin can `require.async('./client.avatar.js')`. `loadAvatarRenderer()` resolves to `mountBotAvatar(element, options)`, which returns `{ update(partial), destroy() }` and follows system reduced motion. `avatarAppearance(snapshot)` maps a bot's live state to an avatar pose and localized status.
 
 ## Model experience
 
@@ -37,7 +44,7 @@ Browser code in this plugin can `require.async('./client.avatar.js')`. Its `load
 | `set_follow_up` | Schedule one later run and name the saved `progress/` checkpoint it must read. |
 | `send` | Queue a meaningful update by a stable key. Use normal model output for anything that should not notify the user. |
 
-The opt-in profile setting only opens the persistent state after the user enables it. Event intake, single-slot work, idempotent session delivery, and notification receipts use `@janhq/dsh-superagent/queue` without running the GitHub router. External webhook ingress, messaging channels and automatic memory curation are not part of Bots.
+Event intake, background execution and notification receipts use `@janhq/dsh-superagent/queue` without mounting its GitHub router. Bot-to-bot messaging, group chats, messaging channels, remote-host bots and per-bot voice are not part of this release.
 
 ## Updating the avatar renderer
 
