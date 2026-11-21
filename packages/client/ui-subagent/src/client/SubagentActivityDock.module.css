@@ -4,7 +4,7 @@
   flex: none;
   width: calc(100% - 2 * (var(--jan-composer-side-clearance) + var(--jan-composer-dock-inset)));
   max-width: calc(var(--jan-composer-card-max-width) - 2 * var(--jan-composer-dock-inset));
-  border: 1px solid var(--dsw-alias-border-l1);
+  border: 0.5px solid var(--dsw-alias-border-l1);
   border-radius: var(--dsw-radius-lg);
   background: var(--dsw-specific-menu);
   backdrop-filter: var(--dsw-menu-backdrop-filter);
@@ -77,6 +77,8 @@ button.rowLabel,
   overflow-y: auto;
   scrollbar-gutter: stable;
   padding: 0 3px 3px;
+  --jan-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --jan-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
 .rows,
@@ -89,7 +91,7 @@ button.rowLabel,
 .rowMain {
   display: flex;
   align-items: stretch;
-  border-top: 1px solid var(--dsw-alias-border-l1);
+  border-top: 0.5px solid var(--dsw-alias-border-l1);
 }
 
 .rowLabel {
@@ -174,7 +176,7 @@ button.rowLabel,
 .settled > summary {
   min-height: 28px;
   padding: 4px 8px;
-  border-top: 1px solid var(--dsw-alias-border-l1);
+  border-top: 0.5px solid var(--dsw-alias-border-l1);
 }
 
 @container (max-width: 400px) {
