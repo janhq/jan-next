@@ -1,0 +1,23 @@
+{
+  "name": "@janhq/jan-wall-of-quotes",
+  "version": "0.2.2-rc.1",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Show a random quote on the new-chat page instead of a fixed greeting, from built-in and your own quote lists.",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "files": ["index.mjs", "client.js", "client.quotes.js", "README.md"],
+  "dependencies": {
+    "@janhq/schemastery": "workspace:~"
+  },
+  "jan": {
+    "client": {
+      "platform": "web",
+      "inject": ["@janhq/jan-client-ui-primitives"]
+    }
+  }
+}
