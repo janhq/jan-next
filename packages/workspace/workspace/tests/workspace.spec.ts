@@ -404,11 +404,12 @@ describe('WorkspaceRegistry create and lookup', () => {
     const dir = await makeDir('concurrent')
     const { registry, pool } = await harness()
     const [left, right] = await Promise.all([
-      registry.create(dir, 'Winner'),
-      registry.create(dir, 'Loser'),
+      registry.adopt(dir, 'Winner'),
+      registry.adopt(dir, 'Loser'),
     ])
-    expect(left).toBe(right)
-    expect(registry.list()).toEqual([left])
+    expect(left.workspace).toBe(right.workspace)
+    expect(Number(left.created) + Number(right.created)).toBe(1)
+    expect(registry.list()).toEqual([left.workspace])
     expect(pool.media.get('workspace')!.tables.get('workspaces')!.size).toBe(1)
   })
 

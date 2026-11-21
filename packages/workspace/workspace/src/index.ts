@@ -160,6 +160,12 @@ const sameIds = (left: readonly WorkspaceId[], right: readonly WorkspaceId[]): b
 const compareHeaders = (left: SessionHeader, right: SessionHeader): number =>
   right.createdAt - left.createdAt || String(left.id).localeCompare(String(right.id))
 
+/** Result from the registry's serialized directory adoption. */
+export interface WorkspaceAdoption {
+  readonly workspace: Workspace
+  readonly created: boolean
+}
+
 /**
  * Durable workspace registry. Startup waits for `sessionPersistence`, builds
  * one canonical-cwd header index, and completes the one-time history
@@ -230,10 +236,17 @@ export class WorkspaceRegistry extends Service {
    * @param title - Display title used only when a new record is created.
    * @returns the existing or newly durable workspace.
    */
-  // TODO: `title` lost its last production caller when the gateway's
-  // create-by-name branch was deleted; drop the parameter with its @param
-  // clause and the `create(path, title?)` lines in this package's README pair.
   async create(path: string, title?: string): Promise<Workspace> {
+    return (await this.adopt(path, title)).workspace
+  }
+
+  /**
+   * Adopt an existing directory and report whether this call registered it.
+   * @param path - Fully qualified directory path.
+   * @param title - Display title used only for a new registration.
+   * @returns the Workspace and whether its registration was created by this call.
+   */
+  async adopt(path: string, title?: string): Promise<WorkspaceAdoption> {
     const canonical = await realpathNormalize(path)
     if (!(await stat(canonical)).isDirectory()) {
       throw new Error(`cannot create a workspace at '${canonical}': path is not a directory`)
@@ -268,7 +281,7 @@ export class WorkspaceRegistry extends Service {
       const canonical = await realpathNormalize(path)
       // A Session can start outside the registry queue while directory preparation awaits I/O.
       if ((await this.listStoredHeaders()).length > 0 || sessions.list().length > 0) return undefined
-      return this.createCanonical(canonical, defaultWorkspaceTitle(path), true)
+      return (await this.createCanonical(canonical, defaultWorkspaceTitle(path), true)).workspace
     })
   }
 
@@ -514,9 +527,9 @@ export class WorkspaceRegistry extends Service {
     return undefined
   }
 
-  private async createCanonical(canonical: string, title?: string, firstUse = false): Promise<WorkspaceEntity> {
+  private async createCanonical(canonical: string, title?: string, firstUse = false): Promise<WorkspaceAdoption> {
     for (const entity of this.entities.values()) {
-      if (entity.path === canonical) return entity
+      if (entity.path === canonical) return { workspace: entity, created: false }
     }
 
     const workspaceName = title ?? defaultWorkspaceTitle(canonical)
@@ -586,7 +599,7 @@ export class WorkspaceRegistry extends Service {
       }
       throw error
     }
-    return entity
+    return { workspace: entity, created: true }
   }
 
   private async deleteKnown(id: WorkspaceId): Promise<boolean> {
