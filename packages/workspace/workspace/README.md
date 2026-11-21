@@ -66,6 +66,8 @@ The directory resolver runs inside the mutation queue only when creation is elig
 
 The first successful registration records its identity durably. Repeated calls return it without resolving a directory again; renaming keeps that identity, and deleting its registration does not permit another automatic creation. Directory or registration failure leaves initialization unset for retry. Directories created before a later failure remain on disk. Once directory resolution succeeds, caller cancellation does not roll back directory creation or registration.
 
+Read `ctx.workspaceRegistry.defaultWorkspace` to look up the active default without attempting initialization. It is absent when no default was initialized or its registration was deleted.
+
 ### Grouping sessions under a project
 
 A session joins the project of the directory it runs in: create a session in a project's directory and it appears under that project, newest first. A session can only belong to one project. A new session must have a recorded directory that resolves to the project's directory. Already-accounted sessions keep their project and order when their fully qualified recorded path is missing, including a dangling symlink; renaming or reordering the project does not remove that ownership. Missing headers, invalid recorded paths, existing mismatched directories, and filesystem failures other than ENOENT remain excluded. Keeping ownership does not recreate the directory or relax new-session attachment, so a fork can still fail to attach while the directory is missing.
