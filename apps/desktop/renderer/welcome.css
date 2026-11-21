@@ -14,11 +14,13 @@
   src: url('../lib/welcome/StudioFeixenSans-Medium.otf') format('opentype');
 }
 
-/* Jan theme values (plugins/jan-theme/design/DESIGN.md) with the default Blue accent,
+/* Jan theme values (plugins/jan-theme/design/DESIGN.md) with the default Jan yellow accent,
  * so the welcome reads like the workspace behind it. Native material supplies the blur. */
 body {
   color-scheme: light dark;
-  --jan-accent: #456BDE;
+  --jan-accent: #FFC928;
+  /* Yellow is too light for white text; labels on the accent stay dark in both themes. */
+  --jan-on-accent: #222222;
   --dsw-alias-label-primary: #3D3D3D;
   --dsw-alias-label-secondary: #808080;
   --dsw-alias-label-tertiary: #999999;
@@ -233,7 +235,7 @@ body {
   background-color: var(--dsw-alias-button-primary-fill);
   background-image: linear-gradient(to bottom, var(--welcome-sheen), transparent 70%);
   box-shadow: inset 0 1px 0 var(--welcome-sheen), 0 8px 24px -12px var(--welcome-primary-glow);
-  color: var(--dsw-alias-label-primary-inverted);
+  color: var(--jan-on-accent);
 }
 
 .primary:hover:not(:disabled) {
