@@ -192,6 +192,7 @@ export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
   uiSession: 'client-side Session source adapter — packages/client/ui-session/README.md owns the API',
   uiConversation: 'client-side Conversation registries and assembler — packages/client/ui-conversation/README.md owns the API',
   uiWorkspace: 'client-side Workspace navigation adapter — packages/client/ui-workspace/README.md owns the API',
+  hostTaskCatalog: 'client-side shared task catalog - packages/client/ui-schedule/README.md owns the API',
   settingsSchema: 'client-side schema introspection service — packages/client/ui-settings/README.md owns the API',
   configForms: 'client-side shared entry forms — packages/client/ui-settings/README.md owns the API',
   settingsNavigation: 'client-side Settings section navigation — packages/client/ui-settings-general/README.md owns the API',
