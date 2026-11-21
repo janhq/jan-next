@@ -25,6 +25,13 @@ window.__ModuleLoader__.load({
     const DRAW_TOOLS = ['select', 'pen', 'rectangle', 'ellipse', 'arrow', 'eraser', 'text']
     const TOOL_ICONS = { select: IconCursorOutlineRegular, pen: IconPenOutlineRegular, rectangle: IconRectangleOutlineRegular,
       ellipse: IconEllipseOutlineRegular, arrow: IconArrowOutlineRegular, eraser: IconEraserOutlineRegular, text: IconTextOutlineRegular }
+    // Excalidraw's tool keys: a letter and its toolbar number, without modifiers.
+    const TOOL_KEYS = { select: ['v', '1'], pen: ['p', '7'], rectangle: ['r', '2'], ellipse: ['o', '4'], arrow: ['a', '5'], eraser: ['e', '0'], text: ['t', '8'] }
+    /** @returns the drawing tool a bare key press picks, or undefined for any other key or one held with a modifier. */
+    function toolForKey({ key, metaKey, ctrlKey, altKey }) {
+      if (metaKey || ctrlKey || altKey) return undefined
+      return DRAW_TOOLS.find(name => TOOL_KEYS[name].includes(key.toLowerCase()))
+    }
     const square = { width: '28px', padding: 0, justifyContent: 'center' }
     // The tools sit in one segment on the input surface, like the composer's controls; the picture sits on the same surface.
     const segment = { display: 'inline-flex', alignItems: 'center', gap: '2px', padding: '2px', borderRadius: 'var(--dsw-radius-md)',
@@ -636,6 +643,11 @@ window.__ModuleLoader__.load({
           } else if ((event.key === 'Delete' || event.key === 'Backspace') && doc.current.selected !== undefined) {
             event.preventDefault()
             remove(doc.current.selected)
+          } else {
+            const name = toolForKey(event)
+            if (name === undefined) return
+            event.preventDefault()
+            pickTool(name)
           }
         }
         document.addEventListener('keydown', key)
@@ -662,8 +674,9 @@ window.__ModuleLoader__.load({
       return h(ActionDialog, { title: t('draw'), t, close, wide: true },
         h('div', { style: { ...tools, justifyContent: 'space-between' } },
           h('div', { role: 'group', 'aria-label': t('tools'), style: segment },
-            DRAW_TOOLS.map(name => h(IconButton, { key: name, label: t(name), icon: TOOL_ICONS[name],
-              variant: tool === name ? 'toolbar' : 'ghost', 'aria-pressed': tool === name, onClick: () => pickTool(name) }))),
+            DRAW_TOOLS.map(name => h(IconButton, { key: name, label: t(name), icon: TOOL_ICONS[name], keys: [TOOL_KEYS[name][0].toUpperCase()],
+              variant: tool === name ? 'toolbar' : 'ghost', 'aria-pressed': tool === name, 'aria-keyshortcuts': TOOL_KEYS[name].join(' '),
+              onClick: () => pickTool(name) }))),
           h('div', { style: { display: 'inline-flex', alignItems: 'center', gap: '2px' } },
             h(IconButton, { label: t('undo'), icon: IconUndoOutlineRegular, keys: mac ? ['⌘', 'Z'] : ['Ctrl', 'Z'],
               disabled: past.length === 0 || pending, onClick: undo }),
@@ -671,7 +684,8 @@ window.__ModuleLoader__.load({
               disabled: future.length === 0 || pending, onClick: redo }),
             h(IconButton, { label: t('deleteMark'), icon: IconTrashOutlineRegular, keys: ['⌫'],
               disabled: selected === undefined || pending, onClick: () => remove(selected) }))),
-        tool === 'text' && h(Input, { placeholder: t('textHint'), 'aria-label': t('textHint'), value: text,
+        // Picking Text puts the caret in its field, so the words can be typed right away.
+        tool === 'text' && h(Input, { placeholder: t('textHint'), 'aria-label': t('textHint'), value: text, autoFocus: true,
           onChange: event => setText(event.target.value) }),
         // Explicit width and height (not aspect-ratio over a percentage) so the grid row holds the whole canvas.
         h('div', { style: stage },
@@ -864,6 +878,6 @@ window.__ModuleLoader__.load({
             onClick: commitSelection }, t('add'))))
     }
 
-    return { Overlay, captureContext, paintMark, resized, markBounds, touches }
+    return { Overlay, captureContext, paintMark, resized, markBounds, touches, toolForKey }
   },
 })
