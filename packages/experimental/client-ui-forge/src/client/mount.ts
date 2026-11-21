@@ -311,10 +311,10 @@ function registerUi(ctx: Context): void {
   ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
     name: 'conversation.input.dock', id: 'forge-panel.worktree', order: 5, locale: NS, inject: progressFace,
   }, WorktreeProgress))
-  // Branch and local line counts at the right of the row under the composer, before the
-  // model (order 2) and the context meter, only inside a Git checkout.
-  ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register({
-    name: 'conversation.composer.dock', id: 'forge-panel.git', order: 1.5, locale: NS,
+  // Branch and local line counts at the top right of the composer, right above its card,
+  // only inside a Git checkout.
+  ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
+    name: 'conversation.input.dock', id: 'forge-panel.git', order: 10, locale: NS,
     inject: (sessionId: SessionId): GitStripInjected => {
       const binding = ctx.sessions.binding(sessionId)
       if (binding === undefined) throw new Error(`forge-panel: Session ${sessionId} resolved no binding`)

@@ -1,6 +1,6 @@
 /**
- * Git readings in the row under the composer, beside the model and context
- * readings: the checked-out branch (or abbreviated commit on a detached HEAD)
+ * Git readings at the top right of the composer, right above its card: the
+ * checked-out branch (or abbreviated commit on a detached HEAD)
  * and, when the `branch` scope changes files, its added and deleted lines,
  * which open the local changes view. Outside a checkout nothing renders. On a
  * blank Session the New Session options already name the branch beside New
