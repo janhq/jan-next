@@ -15,7 +15,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ObservableSnapshot, SnapshotStore } from '@janhq/jan-client-store'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import {
-  IconAgentPresetOutlineRegular, IconChevronDownOutlineRegular, IconWarningOutlineRegular, Menu, Toast,
+  IconChevronDownOutlineRegular, IconWarningOutlineRegular, Menu, Toast,
 } from '@janhq/jan-client-ui-primitives'
 // Type-only: pulls the ui-conversation SlotMap merge (the hero seat).
 import type { } from '@janhq/jan-client-ui-conversation/client'
@@ -25,6 +25,7 @@ import { requiresCodingTools } from './settings-store.ts'
 import css from './AgentPresetSeat.module.css'
 import { modeActionItems, runModeAction } from './mode-actions.tsx'
 import type { AgentPresetModeAction } from './index.ts'
+import { PresetIcon } from './PresetIcon.tsx'
 
 /** Registration-side business face for the hero chip. */
 export interface AgentPresetSeatInjected {
@@ -173,6 +174,7 @@ export function AgentPresetSeat({
           const text = presetDisplayText(option, t)
           return {
             id: option.id,
+            icon: <PresetIcon icon={option.icon} size={14} />,
             // Name and description together: the id alone never says what a
             // preset does, which is why the roster carries display copy.
             label: (
@@ -201,7 +203,7 @@ export function AgentPresetSeat({
             disabled={state.busy || !hasItems}
             onClick={() => { setOpen(value => !value) }}
           >
-            <IconAgentPresetOutlineRegular className={introducing ? `${css.seatIcon} ${css.introIcon}` : css.seatIcon} />
+            <PresetIcon icon={chosen?.icon} className={introducing ? `${css.seatIcon} ${css.introIcon}` : css.seatIcon} />
             <span className={css.seatLabel}>{shownLabel}</span>
             <IconChevronDownOutlineRegular className={css.chevron} />
           </button>
