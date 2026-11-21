@@ -3,9 +3,11 @@ window.__ModuleLoader__.load({
   factory(require) {
     const { createElement: h, useEffect } = require('react')
     const { createSnapshotStore } = require('@janhq/jan-client-store')
+    // The sidebar draws panel glyphs at 16px on labelled rows and 18px on the rail;
+    // labelled rows take the Medium (1.3px) line like Jan's other row icons.
     const BotGlyph = ({ size }) => h('svg', { viewBox: '0 0 16 16', width: size, height: size, 'aria-hidden': true },
       h('path', { d: 'M6 2.5h4M8 2.5V5M3 6.5A1.5 1.5 0 014.5 5h7A1.5 1.5 0 0113 6.5v5a1.5 1.5 0 01-1.5 1.5h-7A1.5 1.5 0 013 11.5zM5.5 9h1m3 0h1',
-        fill: 'none', stroke: 'currentColor', strokeLinecap: 'round', strokeLinejoin: 'round' }))
+        fill: 'none', stroke: 'currentColor', strokeWidth: size < 18 ? 1.3 : 1, strokeLinecap: 'round', strokeLinejoin: 'round' }))
     const PANEL = 'jan-always-on', PATH = '/jan-api/always-on', TAB = 'botDetails'
     const title = { en: 'Bots', zh: '机器人', ja: 'ボット', es: 'Bots', fr: 'Bots', de: 'Bots', ru: 'Боты', pt: 'Bots' }
     const modes = {
