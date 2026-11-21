@@ -477,6 +477,11 @@ window.__ModuleLoader__.load({
   /* The More launcher matches these rows (see the panelRow rule below). */
   html[data-jan-theme] [data-slot='sidebar'] nav { gap: 2px; }
   html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='session:'] { height: 38px; padding-inline-start: calc(7px + var(--jan-workspace-indent, 0px)); }
+  /* Grouped lists: a folder's chats start under its name, not under its icon, so the grouping
+     reads at a glance. Only a section headed by a folder row gets it; the flat list stays flush. */
+  html[data-jan-theme] [data-slot='sidebar'] :has(> * > [data-row-key^='workspace:']) > * > [data-row-key^='session:'] {
+    padding-inline-start: calc(7px + 16px + var(--jan-sidebar-label-gap, 6px) + var(--jan-workspace-indent, 0px));
+  }
   html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='session:'] > span:first-child:has(> [data-slot='sidebar.session.row.leading']:only-child:empty) { display: none; }
   html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='session:'] > span:first-child:has(> [data-slot='sidebar.session.row.leading']:only-child:empty) + span { margin-inline-start: 0; }
   html[data-jan-theme] [data-slot='sidebar.brand.name'] .jt-name { font-size: 14px; }
