@@ -94,6 +94,10 @@
     - id: jan-notifications
       name: '@janhq/jan-notifications'
 
+    # Copy or save a redacted report and open the logs, from a failed chat and Settings > About.
+    - id: jan-diagnostics
+      name: '@janhq/jan-diagnostics'
+
     # Personalize first-run settings for every desktop user.
     - id: jan-onboarding
       name: '@janhq/jan-onboarding'

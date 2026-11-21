@@ -28,6 +28,7 @@
     "@janhq/jan-command-compact": "workspace:*",
     "@janhq/jan-compaction-basic": "workspace:*",
     "@janhq/jan-compaction-tool-result-pruner": "workspace:*",
+    "@janhq/jan-diagnostics": "workspace:*",
     "@janhq/jan-downloads": "workspace:*",
     "@janhq/jan-browser": "workspace:*",
     "@janhq/jan-experimental-api-speech-to-text": "workspace:*",
