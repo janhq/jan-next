@@ -1,0 +1,23 @@
+{
+  "name": "@janhq/jan-edge-app",
+  "version": "0.2.2-rc.1",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "A small Jan Host for a Raspberry Pi, Radxa or another board: the web UI and remote models, without local models or developer tools.",
+  "exports": {
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "cordis.patch.yml"
+  ],
+  "dependencies": {
+    "@janhq/jan-hosts": "workspace:*"
+  },
+  "jan": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

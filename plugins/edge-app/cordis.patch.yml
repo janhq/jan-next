@@ -1,0 +1,46 @@
+# The Jan edge bundle patch, layered over jan-base and jan-web-app by the `edge`
+# profile template. It keeps the chat Host, its web UI and remote model
+# providers, and turns off what a Raspberry Pi or Radxa board pays for without
+# using: the local model worker, the dynamic Cordis runner, the developer
+# reload chain and office conversion. Every row stays in the composition, so a
+# person can switch one back on from the profile patch. A board serves its own
+# web UI to phones and other computers through the Hosts plugin below.
+
+# Local models: the llama worker and its first-run download want a GPU or
+# several GB of RAM. An edge Host uses remote providers instead. The Settings
+# card and the Hub read this Remote with ctx.get, so they stay mounted and
+# simply show no local model.
+- id: llama-cpp
+  disabled: true
+- id: llama-cpp-controller
+  disabled: true
+- id: ui-settings-local-model
+  disabled: true
+
+# The dynamic Cordis runner lets an agent load plugins while Jan runs. Its
+# Client half and the Cordis tool views depend on it, so all three go together.
+- id: cordis-host-runner
+  disabled: true
+- id: cordis-client-runner
+  disabled: true
+- id: ui-cordis
+  disabled: true
+
+# Developer reload chains: idle in production but each keeps a file watcher.
+- id: client-hmr
+  disabled: true
+- id: harness-dev-context
+  disabled: true
+
+# Office documents convert to PDF through LibreOffice, which a board rarely has;
+# the document preview tab reads its output.
+- id: office-to-pdf
+  disabled: true
+- id: ui-sidebar-documentpreview
+  disabled: true
+
+- insert:
+    # Other Jan Hosts by address or SSH, and paired phones over the network.
+    # Device access starts switched off; Settings > Hosts turns it on.
+    - id: jan-hosts
+      name: '@janhq/jan-hosts'

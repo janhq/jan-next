@@ -21,6 +21,10 @@ export const PROFILE_TEMPLATES: Record<string, ProfileTemplate> = {
   headless: {
     bundles: ['@janhq/jan-base', '@janhq/jan-headless'],
   },
+  // The Web surface for a Raspberry Pi or another small board: no local models or developer tools, plus Hosts.
+  edge: {
+    bundles: ['@janhq/jan-base', '@janhq/jan-web-app', '@janhq/jan-edge-app'],
+  },
   sdk: {
     bundles: ['@janhq/jan-base', '@janhq/jan-sdk-app'],
   },

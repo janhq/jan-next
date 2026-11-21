@@ -59,6 +59,11 @@
     - id: jan-always-on
       name: '@janhq/jan-always-on'
 
+    # Settings > Hosts: Jan on other computers by address or SSH, and phones
+    # paired by QR code. Device access starts switched off.
+    - id: jan-hosts
+      name: '@janhq/jan-hosts'
+
     # Let Sessions use the published Chrome extension without an MCP subprocess.
     - id: browser-use
       name: '@janhq/jan-browser-use'
