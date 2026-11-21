@@ -31,9 +31,11 @@ test('maps background activity and prioritizes paused, approval and active state
     [{ enabled: false, activeRun: 'working' }, 'idle', 'neutral', true, 'off'],
     [{ paused: true, approvals: [{}] }, 'idle', 'neutral', true, 'paused'],
     [{ approvals: [{}], activeRun: 'working' }, 'blocked', 'neutral', false, 'deferred'],
+    [{ blocked: true, activeRun: 'working' }, 'blocked', 'neutral', false, 'deferred'],
     [{ activeRun: 'working', lastRun: 'failed' }, 'working', 'neutral', false, 'avatarWorking'],
     [{ activeRun: 'thinking', events: [{ status: 'pending' }] }, 'thinking', 'neutral', false, 'avatarThinking'],
     [{ events: [{ status: 'pending' }], lastRun: 'failed' }, 'waiting', 'neutral', false, 'pending'],
+    [{ pending: true }, 'waiting', 'neutral', false, 'pending'],
     [{ lastRun: 'failed', lastDeliveryAgeMs: 20 }, 'blocked', 'neutral', false, 'failed'],
     [{ lastRun: 'done', lastDeliveryAgeMs: 20 }, 'done', 'happy', false, 'sent'],
     [{ lastRun: 'done', lastDeliveryAgeMs: 4000 }, 'idle', 'neutral', false, 'avatarIdle'],
@@ -98,6 +100,12 @@ test('mounts the real renderer, updates its colors and expires a delivery, then 
   await Promise.resolve()
   tick()
   assert.ok(host.querySelector('svg > g[fill="#456bde"]'))
+
+  React.act(() => root.render(React.createElement(Avatar, { snapshot: { ...snapshot, paused: true },
+    t: key => key === 'paused' ? 'Paused' : tMessage(key), mountBotAvatar, name: 'Dawn', appearance: { shape: 1, color: '#8c553d' } })))
+  tick()
+  assert.equal(host.getAttribute('aria-label'), 'Dawn: Paused')
+  assert.ok(host.querySelector('svg > g[fill="#8c553d"]'))
 
   render({ ...snapshot, lastDeliveryAgeMs: 3990 })
   assert.equal(host.getAttribute('aria-label'), 'Bots: Sent')

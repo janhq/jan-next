@@ -3,13 +3,13 @@
   "version": "0.2.2-rc.1",
   "private": true,
   "type": "module",
-  "description": "Run opted-in background tasks, review approvals and see their messages in Jan.",
+  "description": "Chat with persistent project bots and run their routines while Jan is open.",
   "exports": {
     ".": "./index.mjs",
     "./client": "./client.js",
     "./package.json": "./package.json"
   },
-  "files": ["*.mjs", "client.js", "client.copy.js", "client.avatar.js", "client.open-bot-avatar.js", "LICENSE.open-bot-avatar", "README.md"],
+  "files": ["*.mjs", "client.js", "client.bots.js", "client.copy.js", "client.avatar.js", "client.open-bot-avatar.js", "LICENSE.open-bot-avatar", "README.md"],
   "dependencies": {
     "@janhq/dsh-superagent": "workspace:~",
     "@janhq/jan-atomic-write": "workspace:*",
