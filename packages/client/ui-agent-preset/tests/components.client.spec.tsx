@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 /**
  * The two conversation-adjacent surfaces: the new-session chip naming the
- * next session's preset, and the session header's read-only label. The split
- * is the host's rule — a session's history is produced under its preset's
- * tools, so the choice is only ever offered before one starts.
+ * next session's preset, and the composer chip of a started session. The
+ * host's rule splits them: a started session switches only at a turn
+ * boundary, from its next turn on.
  */
 
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -385,7 +385,7 @@ describe('the chip introduce cue', () => {
   })
 })
 
-describe('the session-header label', () => {
+describe('the composer preset chip of a started session', () => {
   it('names the preset the session runs and switches its next turn from the menu', async () => {
     const { load, select } = renderLabel({
       blank: false,

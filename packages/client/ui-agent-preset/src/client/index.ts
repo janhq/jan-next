@@ -1,16 +1,17 @@
 /**
  * Agent-preset surface plugin, browser half — three surfaces over one roster:
- * a chip on the new-session screen for the session about to start, a
- * read-only label in the session header, and a settings section that lists
+ * a chip on the new-session screen for the session about to start, the same
+ * chip under a started session's composer, and a settings section that lists
  * the roster (selection, the new-task default, a read-only view of each
  * declared composition, and the way into Creator mode).
  *
- * A running session keeps the composition it began with (the host switches a
- * session's preset only before its first turn). That is what splits
- * the choice from the display: the hero chip is before-the-fact, while the
- * header only reports what a session already runs. The default preset is
- * edited where the roster is visible — the settings section's "make default"
- * — so General settings carries no duplicate control for the same field.
+ * A started session keeps every message it already has; a switch there
+ * applies from its next turn, and the Host accepts it only at a turn boundary.
+ * That is what splits the two chips: the hero chip stages a choice before the
+ * session exists, while the composer chip commits one for a session that
+ * already runs. The default preset is edited where the roster is visible —
+ * the settings section's "make default" — so General settings carries no
+ * duplicate control for the same field.
  *
  * Coding Tools (General settings) hide PTC and Minimal from the hero menu
  * and Settings roster when off. Hidden saved defaults fall back to Standard;
@@ -69,7 +70,7 @@ export const inject = [
 ]
 
 /**
- * Mount the roster surfaces: hero chip, session-header label, settings section.
+ * Mount the roster surfaces: hero chip, composer chip, settings section.
  * @param ctx - the browser plugin context.
  */
 export function apply(ctx: ClientContext): void {
@@ -250,10 +251,7 @@ export function apply(ctx: ClientContext): void {
         inject: seatInjected,
       }, AgentPresetSeat)
       const label = scope.slots.register({
-        name: 'conversation.session.header.actions',
-        id: 'agent-preset',
-        // Static session context occupies the header's leading negative-order band.
-        order: -10,
+        name: 'conversation.composer.agentPreset',
         locale: 'settings.agentPreset',
         inject: labelInjected,
       }, AgentPresetLabel)
@@ -262,7 +260,7 @@ export function apply(ctx: ClientContext): void {
         chip()
         label()
       }
-    }, 'ui-agent-preset: new-session chip and header label')
+    }, 'ui-agent-preset: new-session and composer chips')
 
     scope.slots.inject('plugins.add.actions', () => scope.slots.register({
       name: 'plugins.add.actions',
