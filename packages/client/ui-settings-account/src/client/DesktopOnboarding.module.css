@@ -238,11 +238,11 @@
 .inlineProcess .copy h1 { font: 500 24px/32px var(--dsw-font-family-brand); letter-spacing: -0.72px; }
 .inlineProcess .subtitle { margin-top: 8px; font: 400 14px/20px var(--dsw-font-family); letter-spacing: -0.28px; color: var(--dsw-alias-label-secondary); }
 .inlineProcess .processCards { gap: 8px; min-height: 0; padding-block: 0; }
-.inlineProcess .card { min-height: 0; padding: 12px; gap: 4px; border-radius: 12px; background: var(--dsw-alias-bg-layer-1); box-shadow: none; backdrop-filter: none; }
+.inlineProcess .card { min-height: 0; padding: 12px; gap: 4px; border-radius: var(--dsw-radius-md); background: var(--dsw-alias-bg-layer-1); box-shadow: none; backdrop-filter: none; }
 .inlineProcess .card::before, .inlineProcess .card::after { display: none; }
 .inlineProcess .selected { box-shadow: inset 0 0 0 1px var(--dsw-alias-state-business-primary); }
 @media (hover: hover) {
-  .inlineProcess .card:not(.selected):hover { background: var(--dsw-alias-bg-layer-2); }
+  .inlineProcess .card:not(.selected):hover { background: linear-gradient(var(--dsw-alias-interactive-bg-hover), var(--dsw-alias-interactive-bg-hover)), var(--dsw-alias-bg-layer-1); }
 }
 .inlineProcess .processGlyph { width: 20px; height: 20px; margin-bottom: 4px; background: var(--dsw-alias-label-secondary); mask: no-repeat center / contain; }
 .inlineProcess .selected .processGlyph { background: var(--dsw-alias-state-business-primary); }
