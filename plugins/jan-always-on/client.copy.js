@@ -7,7 +7,7 @@ window.__ModuleLoader__.load({
       empty emptyDetail noMessages search noMatches unread details openChat copySuffix deleteDetail newChat compacted noCompact compactFailed
       routines memory activity pause resume active paused off pending running done deferred failed ended cancelled sent dropped avatarIdle avatarThinking avatarWorking
       task follow-up approval reply notice review approveTitle approveDetail addRoutine manageRoutines manageRoutine noRoutines taskPrompt delay repeat
-      memoryFile refresh emptyFile truncated noActivity`.trim().split(/\s+/)
+      memoryFile refresh emptyFile truncated noActivity keepChat`.trim().split(/\s+/)
     const rows = {
       en: [
         'Bots', 'Persistent teammates for your projects. Each bot keeps one ongoing chat.', 'Create bot', 'Edit bot', 'Duplicate', 'Delete bot', 'Save', 'Saving…', 'Close', 'Cancel', 'Try again', 'Loading…', 'Bots could not complete this action.', 'Project unavailable', 'Default project',
@@ -16,6 +16,7 @@ window.__ModuleLoader__.load({
         'Routines', 'Memory', 'Activity', 'Pause', 'Resume', 'Active', 'Paused', 'Off', 'Waiting', 'Running', 'Done', 'Waiting for approval', 'Failed', 'Ended', 'Cancelled', 'Sent', 'Dropped', 'Idle', 'Thinking', 'Working',
         'Scheduled task', 'Follow-up', 'Approval answer', 'Reply', 'Bot message', 'Your bot needs approval', 'Allow this bot to change its memory instructions?', 'Only the exact text shown will guide future runs.', 'Add routine', 'Manage in Scheduled', 'Manage routine', 'No routines yet.', 'What should the bot do?', 'Delay in seconds', 'Repeat at this interval',
         'Memory file', 'Refresh', 'This file is empty.', 'Only the beginning of this file is shown.', 'No activity yet.',
+        'This bot will keep this chat and its project.',
       ],
       zh: [
         '机器人', '项目中的长期伙伴。每个机器人都有一个持续的聊天。', '创建机器人', '编辑机器人', '复制', '删除机器人', '保存', '正在保存…', '关闭', '取消', '重试', '正在加载…', '机器人未能完成此操作。', '项目不可用', '默认项目',
@@ -24,6 +25,7 @@ window.__ModuleLoader__.load({
         '例行任务', '记忆', '活动', '暂停', '继续', '启用', '已暂停', '关闭', '等待中', '运行中', '已完成', '等待批准', '失败', '已结束', '已取消', '已发送', '已丢弃', '空闲', '思考中', '工作中',
         '定时任务', '后续任务', '审批答复', '回复', '机器人消息', '机器人需要你的批准', '允许此机器人更改记忆指令吗？', '未来的运行将仅以此处显示的确切文本为指导。', '添加例行任务', '在定时任务中管理', '管理例行任务', '暂无例行任务。', '要机器人做什么？', '延迟秒数', '按此间隔重复',
         '记忆文件', '刷新', '此文件为空。', '仅显示此文件的开头。', '暂无活动。',
+        '此机器人将保留当前聊天及其所属项目。',
       ],
       ja: [
         'ボット', 'プロジェクトの頼れる仲間。ボットごとに一つのチャットが続きます。', 'ボットを作成', 'ボットを編集', '複製', 'ボットを削除', '保存', '保存中…', '閉じる', 'キャンセル', '再試行', '読み込み中…', '操作を完了できませんでした。', 'プロジェクトを利用できません', '既定のプロジェクト',
@@ -32,6 +34,7 @@ window.__ModuleLoader__.load({
         'ルーチン', '記憶', 'アクティビティ', '一時停止', '再開', '有効', '一時停止中', '無効', '待機中', '実行中', '完了', '承認待ち', '失敗', '終了', '取り消し済み', '送信済み', '破棄済み', '待機中', '思考中', '作業中',
         '予約タスク', 'フォローアップ', '承認への回答', '返信', 'ボットからのメッセージ', 'ボットが承認を求めています', 'このボットが記憶の指示を変更することを許可しますか？', '今後の実行には表示されたテキストだけが使われます。', 'ルーチンを追加', '予約タスクで管理', 'ルーチンを管理', 'ルーチンはまだありません。', 'ボットに何をさせますか？', '遅延（秒）', 'この間隔で繰り返す',
         '記憶ファイル', '更新', 'このファイルは空です。', 'ファイルの先頭のみを表示しています。', 'アクティビティはまだありません。',
+        'このボットは、このチャットとそのプロジェクトをそのまま使います。',
       ],
       es: [
         'Bots', 'Colaboradores permanentes para tus proyectos. Cada bot mantiene un solo chat.', 'Crear bot', 'Editar bot', 'Duplicar', 'Eliminar bot', 'Guardar', 'Guardando…', 'Cerrar', 'Cancelar', 'Reintentar', 'Cargando…', 'No se pudo completar esta acción.', 'Proyecto no disponible', 'Proyecto predeterminado',
@@ -40,6 +43,7 @@ window.__ModuleLoader__.load({
         'Rutinas', 'Memoria', 'Actividad', 'Pausar', 'Reanudar', 'Activo', 'En pausa', 'Desactivado', 'En espera', 'En curso', 'Completado', 'Pendiente de aprobación', 'Fallido', 'Finalizado', 'Cancelado', 'Enviado', 'Descartado', 'Inactivo', 'Pensando', 'Trabajando',
         'Tarea programada', 'Seguimiento', 'Respuesta de aprobación', 'Respuesta', 'Mensaje del bot', 'Tu bot necesita aprobación', '¿Permitir que el bot cambie las instrucciones de su memoria?', 'Solo el texto exacto que se muestra guiará ejecuciones futuras.', 'Añadir rutina', 'Gestionar en Programadas', 'Gestionar rutina', 'Aún no hay rutinas.', '¿Qué debe hacer el bot?', 'Retraso en segundos', 'Repetir a este intervalo',
         'Archivo de memoria', 'Actualizar', 'Este archivo está vacío.', 'Solo se muestra el inicio del archivo.', 'Aún no hay actividad.',
+        'Este bot conservará este chat y su proyecto.',
       ],
       fr: [
         'Bots', 'Des partenaires durables pour vos projets. Chaque bot a une conversation continue.', 'Créer un bot', 'Modifier le bot', 'Dupliquer', 'Supprimer le bot', 'Enregistrer', 'Enregistrement…', 'Fermer', 'Annuler', 'Réessayer', 'Chargement…', 'Impossible de terminer cette action.', 'Projet indisponible', 'Projet par défaut',
@@ -48,6 +52,7 @@ window.__ModuleLoader__.load({
         'Routines', 'Mémoire', 'Activité', 'Mettre en pause', 'Reprendre', 'Actif', 'En pause', 'Désactivé', 'En attente', 'En cours', 'Terminé', 'En attente d’approbation', 'Échec', 'Clôturé', 'Annulé', 'Envoyé', 'Abandonné', 'Au repos', 'En réflexion', 'En train de travailler',
         'Tâche planifiée', 'Suivi', 'Réponse à l’approbation', 'Réponse', 'Message du bot', 'Votre bot demande votre accord', 'Autoriser ce bot à modifier les instructions de sa mémoire ?', 'Seul le texte affiché guidera les prochaines exécutions.', 'Ajouter une routine', 'Gérer dans les tâches planifiées', 'Gérer la routine', 'Aucune routine pour le moment.', 'Que doit faire le bot ?', 'Délai en secondes', 'Répéter à cet intervalle',
         'Fichier de mémoire', 'Actualiser', 'Ce fichier est vide.', 'Seul le début du fichier est affiché.', 'Aucune activité pour le moment.',
+        'Ce bot conservera cette conversation et son projet.',
       ],
       de: [
         'Bots', 'Dauerhafte Teammitglieder für deine Projekte. Jeder Bot hat einen fortlaufenden Chat.', 'Bot erstellen', 'Bot bearbeiten', 'Duplizieren', 'Bot löschen', 'Speichern', 'Wird gespeichert…', 'Schließen', 'Abbrechen', 'Erneut versuchen', 'Wird geladen…', 'Diese Aktion konnte nicht abgeschlossen werden.', 'Projekt nicht verfügbar', 'Standardprojekt',
@@ -56,6 +61,7 @@ window.__ModuleLoader__.load({
         'Routinen', 'Speicher', 'Aktivität', 'Pausieren', 'Fortsetzen', 'Aktiv', 'Pausiert', 'Aus', 'Wartend', 'Läuft', 'Erledigt', 'Wartet auf Genehmigung', 'Fehlgeschlagen', 'Beendet', 'Abgebrochen', 'Gesendet', 'Verworfen', 'Im Leerlauf', 'Denkt nach', 'Arbeitet',
         'Geplante Aufgabe', 'Folgeaufgabe', 'Antwort zur Genehmigung', 'Antwort', 'Bot-Nachricht', 'Dein Bot braucht eine Genehmigung', 'Darf dieser Bot seine Speicheranweisungen ändern?', 'Nur dieser genaue Text gilt für zukünftige Läufe.', 'Routine hinzufügen', 'In Geplante Aufgaben verwalten', 'Routine verwalten', 'Noch keine Routinen.', 'Was soll der Bot tun?', 'Verzögerung in Sekunden', 'In diesem Intervall wiederholen',
         'Speicherdatei', 'Aktualisieren', 'Diese Datei ist leer.', 'Nur der Anfang dieser Datei wird angezeigt.', 'Noch keine Aktivität.',
+        'Dieser Bot behält diesen Chat und das zugehörige Projekt.',
       ],
       ru: [
         'Боты', 'Постоянные помощники в проектах. У каждого бота один непрерывный чат.', 'Создать бота', 'Изменить бота', 'Дублировать', 'Удалить бота', 'Сохранить', 'Сохранение…', 'Закрыть', 'Отмена', 'Повторить', 'Загрузка…', 'Не удалось выполнить действие.', 'Проект недоступен', 'Проект по умолчанию',
@@ -64,6 +70,7 @@ window.__ModuleLoader__.load({
         'Задачи', 'Память', 'Активность', 'Приостановить', 'Возобновить', 'Активно', 'На паузе', 'Выключено', 'В ожидании', 'Выполняется', 'Готово', 'Ожидает одобрения', 'Ошибка', 'Завершено', 'Отменено', 'Отправлено', 'Отброшено', 'В покое', 'Думает', 'Работает',
         'Запланированная задача', 'Продолжение', 'Ответ на запрос одобрения', 'Ответ', 'Сообщение бота', 'Боту нужно ваше одобрение', 'Разрешить боту изменить инструкции в памяти?', 'При следующих запусках будет применяться только показанный текст.', 'Добавить задачу', 'Управлять в расписании', 'Управлять задачей', 'Задач пока нет.', 'Что должен сделать бот?', 'Задержка в секундах', 'Повторять с этим интервалом',
         'Файл памяти', 'Обновить', 'Этот файл пуст.', 'Показано только начало файла.', 'Активности пока нет.',
+        'Этот бот сохранит текущий чат и его проект.',
       ],
       pt: [
         'Bots', 'Parceiros permanentes nos seus projetos. Cada bot mantém uma conversa contínua.', 'Criar bot', 'Editar bot', 'Duplicar', 'Excluir bot', 'Salvar', 'Salvando…', 'Fechar', 'Cancelar', 'Tentar de novo', 'Carregando…', 'Não foi possível concluir esta ação.', 'Projeto indisponível', 'Projeto padrão',
@@ -72,6 +79,7 @@ window.__ModuleLoader__.load({
         'Rotinas', 'Memória', 'Atividade', 'Pausar', 'Retomar', 'Ativo', 'Pausado', 'Desativado', 'Aguardando', 'Em andamento', 'Concluído', 'Aguardando aprovação', 'Falhou', 'Encerrado', 'Cancelado', 'Enviado', 'Descartado', 'Em repouso', 'Pensando', 'Trabalhando',
         'Tarefa agendada', 'Acompanhamento', 'Resposta à aprovação', 'Resposta', 'Mensagem do bot', 'Seu bot precisa de aprovação', 'Permitir que o bot altere as instruções de memória?', 'Somente o texto exibido orientará as próximas execuções.', 'Adicionar rotina', 'Gerenciar em Agendadas', 'Gerenciar rotina', 'Ainda não há rotinas.', 'O que o bot deve fazer?', 'Atraso em segundos', 'Repetir neste intervalo',
         'Arquivo de memória', 'Atualizar', 'Este arquivo está vazio.', 'Apenas o início deste arquivo está visível.', 'Ainda não há atividade.',
+        'Este bot manterá esta conversa e seu projeto.',
       ],
     }
     return Object.fromEntries(Object.entries(rows).map(([locale, values]) => [locale,

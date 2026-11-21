@@ -8,6 +8,12 @@ window.__ModuleLoader__.load({
         fill: 'none', stroke: 'currentColor', strokeLinecap: 'round', strokeLinejoin: 'round' }))
     const PANEL = 'jan-always-on', PATH = '/jan-api/always-on', TAB = 'botDetails'
     const title = { en: 'Bots', zh: '机器人', ja: 'ボット', es: 'Bots', fr: 'Bots', de: 'Bots', ru: 'Боты', pt: 'Bots' }
+    const modes = {
+      en: ['Bots mode', 'Create a bot with one ongoing chat.'], zh: ['机器人模式', '创建一个拥有持续聊天的机器人。'],
+      ja: ['ボットモード', '一つのチャットを続けるボットを作成します。'], es: ['Modo Bots', 'Crea un bot con un chat permanente.'],
+      fr: ['Mode Bots', 'Créez un bot avec une conversation continue.'], de: ['Bot-Modus', 'Erstelle einen Bot mit einem fortlaufenden Chat.'],
+      ru: ['Режим ботов', 'Создайте бота с постоянным чатом.'], pt: ['Modo Bots', 'Crie um bot com uma conversa contínua.'],
+    }
     let chunks
     function load() {
       chunks ??= Promise.all([require.async('./client.bots.js'), require.async('./client.avatar.js'), require.async('./client.copy.js')])
@@ -56,8 +62,9 @@ window.__ModuleLoader__.load({
       const hidden = createSnapshotStore(new Set())
       const dialogs = createSnapshotStore(null)
       const t = ctx.locale.bind(PANEL)
-      ctx.effect(() => ctx.locale.register(`${PANEL}.title`, Object.fromEntries(Object.entries(title).map(([key, value]) => [key, { title: value }]))))
-      const tTitle = ctx.locale.bind(`${PANEL}.title`)
+      ctx.effect(() => ctx.locale.register(`${PANEL}.navigation`, Object.fromEntries(Object.entries(title).map(([key, value]) => [key,
+        { title: value, modeName: modes[key][0], modeDescription: modes[key][1] }]))))
+      const tNavigation = ctx.locale.bind(`${PANEL}.navigation`)
       const hooks = { roster, notices, selected, ui, dialogs, workspaces: ctx.workspaces.list, language: {
         getSnapshot: () => ctx.locale.getSnapshot().active, subscribe: listener => ctx.locale.subscribe(listener),
       } }
@@ -128,6 +135,17 @@ window.__ModuleLoader__.load({
       })
       ctx.effect(() => ctx.uiWorkspace.registerSessionPresentation(hidden))
       ctx.effect(() => ctx.sidebarRightTabs.register({ id: PANEL, kind: TAB, priority: 'builtin', title: () => t('details') }))
+      ctx.inject(['uiAgentPreset'], scope => {
+        scope.effect(() => scope.uiAgentPreset.registerModeAction({
+          id: 'bots', name: () => tNavigation('modeName'), description: () => tNavigation('modeDescription'),
+          run(sourceSessionId) {
+            if (getBot(sourceSessionId)) { openDetail(); return }
+            void requireUi().then(() => {
+              if (!signal.aborted && ui.getSnapshot()) dialogs.set({ mode: 'create', sourceSessionId })
+            })
+          },
+        }))
+      })
       function compact(bot) {
         void change('compact', { id: bot.id }).then(result => notices.set({ id: ++uniqueNotice, copy: result ? 'compacted' : 'noCompact' }),
           () => notices.set({ id: ++uniqueNotice, copy: 'compactFailed', error: true }))
@@ -149,10 +167,10 @@ window.__ModuleLoader__.load({
         const loaded = props.useUi(value => value), failed = props.useRoster(value => value.failed)
         useEffect(() => { void requireUi() }, [])
         return loaded ? h(loaded.Roster, { ...props, t, avatar: loaded })
-          : h('main', { 'aria-busy': !failed }, h('h1', null, tTitle('title')))
+          : h('main', { 'aria-busy': !failed }, h('h1', null, tNavigation('title')))
       }))
       ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({ name: 'sidebar.panellist', id: PANEL, order: 16,
-        label: () => tTitle('title') }, BotGlyph))
+        label: () => tNavigation('title') }, BotGlyph))
       entry('sidebar.workspaces.group.leading', { component: 'ProjectRows' })
       entry('conversation.session.header.identity', { component: 'HeaderAvatar' })
       entry('conversation.session.header.utilities', { component: 'HeaderTools', order: -8 })

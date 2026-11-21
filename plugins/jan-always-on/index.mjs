@@ -21,6 +21,14 @@ async function exists(path) {
   catch (error) { if (error.code !== 'ENOENT') throw error; return false }
 }
 
+function messagePreview(event) {
+  const message = event.type === 'assistant/message' ? event.data.message
+    : event.type === 'user/message' && event.data.source.kind === 'user' ? event.data : null
+  if (!message) return null
+  const preview = message.content.filter(part => part.type === 'text').map(part => part.text).join(' ').trim().slice(0, 240)
+  return preview ? { id: message.id, text: preview, at: event.time } : null
+}
+
 /** Mount bot management, canonical session contributions and durable routine delivery. */
 export function apply(ctx, config) {
   const watchers = new Set(), runtimes = new Map(), bindings = new Map(), prompts = new Map(), presence = new Map()
@@ -81,17 +89,32 @@ export function apply(ctx, config) {
       agent.model.select(selection)
     }
   }
-  async function prepareSession(bot) {
+  async function prepareSession(bot, source) {
     const previous = await ctx.sessionPersistence.stat(bot.sessionId)
-    if (!previous) {
+    if (source && !previous && !ctx.agents.get(bot.sessionId)) throw new Error('bot-session-unavailable')
+    if (!source && !previous) {
       const created = await ctx.sessionController.create({ workspaceId: bot.workspaceId, sessionId: bot.sessionId,
         ...(bot.agentPreset ? { agentPreset: bot.agentPreset } : {}) })
       if (created.sessionId !== bot.sessionId) throw new Error('bot-session-conflict')
     }
     const agent = await resolveAgent(bot.sessionId)
-    await selectProfile(agent, bot)
+    if (source) {
+      if (agent.session.header.origin === 'subagent' || ctx.workspaceRegistry.archivedSessionIds.includes(bot.sessionId)) {
+        throw new Error('bot-session-unavailable')
+      }
+      if (ctx.agents.turnBoundaryOf(agent.session).openTurnStartSeq !== null) throw new Error('bot-session-busy')
+    }
+    // An adopted chat keeps its previous preset and model unless the form requests a change.
+    await selectProfile(agent, bot, source && { agentPreset: null, model: null })
     if (ctx.get('sessionTitle')) await ctx.sessionController.rename({ sessionId: bot.sessionId, title: bot.name })
     if (!await ctx.sessions.flush(agent.session)) throw new Error('bot-session-unsaved')
+    if (source) {
+      const events = agent.session.snapshotEvents()
+      for (let index = events.length - 1; index >= 0; index--) {
+        const preview = messagePreview(events[index])
+        if (preview) return preview
+      }
+    }
   }
   function attach(agent, runtime) {
     let binding = bindings.get(agent)
@@ -218,11 +241,8 @@ export function apply(ctx, config) {
     if (event.type === 'tool/call' && current) current.phase = 'working'
     else if (event.type === 'tool/result' && current) current.phase = 'thinking'
     else if (event.type === 'turn/end' && current) current.lastRun = event.data.reason.kind === 'completed' ? 'done' : 'failed'
-    const message = event.type === 'assistant/message' ? event.data.message : event.type === 'user/message' && event.data.source.kind === 'user' ? event.data : null
-    if (message) {
-      const preview = message.content.filter(part => part.type === 'text').map(part => part.text).join(' ').trim().slice(0, 240)
-      if (preview) void registry.message(bot.id, { id: message.id, text: preview, at: event.time }, bindings.get(ctx.agents.get(session.id))?.state.run !== undefined).catch(report)
-    }
+    const preview = messagePreview(event)
+    if (preview) void registry.message(bot.id, preview, bindings.get(ctx.agents.get(session.id))?.state.run !== undefined).catch(report)
     if (current) activityChanged()
   }, { global: true })
   ctx.on('schedule/changed', activityChanged)
@@ -236,7 +256,11 @@ export function apply(ctx, config) {
     async detail({ id }) { return detail(await botFor(id)) },
     async create(input) {
       const local = await load()
-      const bot = await local.create({ ...input, workspaceId: await projectId(input.workspaceId) }, prepareSession)
+      const source = input.sourceSessionId === undefined ? undefined : text(input.sourceSessionId, 240)
+      const workspaceId = source === undefined ? await projectId(input.workspaceId)
+        : ctx.workspaceRegistry.list().find(project => project.sessionIds.includes(source))?.id
+      if (!workspaceId) throw new Error('bot-session-project-required')
+      const bot = await local.create({ ...input, workspaceId }, candidate => prepareSession(candidate, source))
       await startBot(bot, true)
       return roster(bot)
     },

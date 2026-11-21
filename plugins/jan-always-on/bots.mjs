@@ -35,8 +35,9 @@ export async function openBots(home, { changed = () => {} } = {}) {
   try { state = JSON.parse(await readFile(file, 'utf8')) }
   catch (error) { if (error.code !== 'ENOENT') throw error; state = EMPTY }
   if (state.version !== 1 || typeof state.migrated !== 'boolean' || !Array.isArray(state.bots)
-    || !state.bots.every(bot => typeof bot.id === 'string' && ID.test(bot.id) && bot.sessionId === `session-bot-${bot.id}`
-      && typeof bot.workspaceId === 'string' && /^[a-f0-9]{64}$/u.test(bot.personaDigest))) throw new Error('invalid-bot-registry')
+    || !state.bots.every(bot => typeof bot.id === 'string' && ID.test(bot.id) && typeof bot.sessionId === 'string' && bot.sessionId.length > 0
+      && typeof bot.workspaceId === 'string' && /^[a-f0-9]{64}$/u.test(bot.personaDigest))
+    || new Set(state.bots.map(bot => bot.sessionId)).size !== state.bots.length) throw new Error('invalid-bot-registry')
   let tail = Promise.resolve()
   function serialize(operation) {
     const run = tail.then(operation)
@@ -68,10 +69,12 @@ export async function openBots(home, { changed = () => {} } = {}) {
     return publicBot(next)
   }
   async function create(input, prepare, id = randomUUID()) {
-    const bot = { ...profile(input), id, sessionId: `session-bot-${id}`, workspaceId: text(input.workspaceId, 240, true),
+    const sessionId = input.sourceSessionId === undefined ? `session-bot-${id}` : text(input.sourceSessionId, 240, true)
+    if (state.bots.some(bot => bot.sessionId === sessionId)) throw new Error('bot-session-conflict')
+    const bot = { ...profile(input), id, sessionId, workspaceId: text(input.workspaceId, 240, true),
       createdAt: Date.now(), latest: null, unread: false }
     bot.personaDigest = await writePersona(bot, input.persona)
-    await prepare?.(publicBot(bot))
+    bot.latest = (await prepare?.(publicBot(bot))) ?? null
     await save({ ...state, migrated: state.migrated || id === 'jan', bots: [...state.bots, bot] })
     return publicBot(bot)
   }

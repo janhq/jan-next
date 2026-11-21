@@ -25,7 +25,7 @@
   "jan": {
     "client": {
       "platform": "web",
-      "inject": ["@janhq/jan-client-ui-approval"]
+      "inject": ["@janhq/jan-client-ui-agent-preset", "@janhq/jan-client-ui-approval"]
     }
   }
 }

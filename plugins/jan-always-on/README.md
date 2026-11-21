@@ -2,6 +2,8 @@
 
 Open **Bots** in the sidebar to create a persistent assistant or return to its chat. A bot belongs to one project, and sits above that project's ordinary chats. If you don't pick a project, Jan uses the default project and creates it on demand. A bot keeps the same chat for direct messages, routine work and replies to proactive updates. **New chat** while that bot is your active conversation, or `/new` in its chat, compacts older context instead of creating another chat.
 
+You can also choose **Bots mode** from the agent-preset picker. From an existing project chat, this turns that chat into the new bot's canonical conversation without discarding its history or changing projects. From a new chat that has not yet opened a project session, choose the project in the bot form. This choice does not change the default mode for other chats.
+
 Set a bot's name, role and description when you create it. Advanced settings contain its appearance, instructions, agent preset and model. Jan derives a default avatar from the name; customize, randomize or lock it without changing the bot's identity. Duplicate copies the profile and persona into a new bot in the same project, not its conversation, memory, routines or inbox. Delete removes the profile, persona, memory, inbox, outbox and scheduled routines; the previous conversation is kept in Archived chats, where it no longer operates as a bot.
 
 - **Routines** are ordinary Scheduled tasks targeting the bot's canonical chat. Use **Manage in Scheduled** to edit timing, pause, resume, delete or view delivery history. Recurrences catch up with their most recent missed occurrence. A follow-up is delivered to the same conversation, with the checkpoint named by the original run.
