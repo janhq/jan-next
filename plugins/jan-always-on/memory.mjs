@@ -21,9 +21,8 @@ async function safeDirectory(path) {
   if (!(await lstat(path)).isDirectory()) throw new Error('memory-path')
 }
 
-/** @returns A memory file interface confined to the feature directory. */
-export function memoryAt(home) {
-  const directory = join(home, 'always-on')
+/** @returns A memory interface confined to one bot directory; the default is the legacy Jan directory. */
+export function memoryAt(home, directory = join(home, 'always-on')) {
   const root = join(directory, 'memory')
 
   async function prepare() {

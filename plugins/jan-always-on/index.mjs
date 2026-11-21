@@ -1,13 +1,14 @@
 import { randomUUID } from 'node:crypto'
+import { lstat } from 'node:fs/promises'
 import { join } from 'node:path'
 import schema from '@janhq/schemastery'
 import { registerApi } from '@janhq/jan-plugin-api'
 
 export const name = 'jan-always-on'
-export const inject = ['janHomePath', 'webServer', 'connection', 'schedule', 'agents', 'agentDefaultModel', 'permissionPresets', 'approval',
-  'sessions', 'sessionPersistence', 'tools', 'settings']
+export const inject = ['janHomePath', 'webServer', 'connection', 'schedule', 'agents', 'agentDefaultModel', 'agentPresets',
+  'sessionController', 'workspaceController', 'workspaceRegistry', 'sessionPersistence', 'sessions', 'systemPrompt', 'commands', 'llm']
+// Keep the existing preference readable until the previous opt-in has been migrated.
 export const Config = schema.object({ enabled: schema.boolean().default(false).volatile() })
-const EMPTY = { paused: true, activeRun: null, lastRun: null, lastDeliveryAgeMs: null, events: [], approvals: [], outbox: [] }
 const EMPTY_MEMORY = ['index.md', 'instructions.md', 'reported.md']
 
 function text(value, limit) {
@@ -15,12 +16,18 @@ function text(value, limit) {
   return value.trim()
 }
 
-/** Mount only registration on a fresh profile; opening the queue is an explicit opt-in. */
+async function exists(path) {
+  try { await lstat(path); return true }
+  catch (error) { if (error.code !== 'ENOENT') throw error; return false }
+}
+
+/** Mount bot management, canonical session contributions and durable routine delivery. */
 export function apply(ctx, config) {
-  let opening, runtime, memory, clock, unregisterDestination, storeError, stopped = false
-  let revision = 0
-  const watchers = new Set()
-  const emit = event => {
+  const watchers = new Set(), runtimes = new Map(), bindings = new Map(), prompts = new Map(), presence = new Map()
+  const lifetime = new AbortController()
+  const home = ctx.janHomePath()
+  let opening, registry, legacyDestination, runtimeModules, changedQueued = false
+  function emit(event) {
     const line = `${JSON.stringify(event)}\n`
     for (const res of watchers) {
       if (res.writableNeedDrain) res.destroy()
@@ -28,90 +35,266 @@ export function apply(ctx, config) {
     }
   }
   function activityChanged() {
-    if (watchers.size) emit({ kind: 'changed', revision: ++revision })
+    if (changedQueued) return
+    changedQueued = true
+    queueMicrotask(() => { changedQueued = false; emit({ kind: 'changed' }) })
   }
-  function changed() {
-    clock?.wake()
-    activityChanged()
+  function report(error) { ctx.logger.warn('Bots: %s', String(error)) }
+  function modules() {
+    runtimeModules ??= Promise.all([import('./background.mjs'), import('./memory.mjs'), import('./agent.mjs'), import('@janhq/dsh-superagent/queue')])
+      .then(([background, memory, agent, queue]) => ({ ...background, ...memory, ...agent, delivery: new queue.AgentDelivery(ctx) }))
+    return runtimeModules
   }
-  function report(error) { ctx.logger.warn('always-on: %s', String(error)) }
-  async function activate() {
-    if (opening) return opening
-    opening = Promise.all([import('./background.mjs'), import('./memory.mjs'), import('./agent.mjs'), import('@janhq/dsh-superagent/queue')])
-      .then(([{ openBackground }, { memoryAt }, { runWithJan }, { AgentDelivery }]) => {
-        if (stopped) return
-        const home = ctx.janHomePath()
-        const localMemory = memoryAt(home)
-        const directory = join(home, 'always-on')
-        const delivery = new AgentDelivery(ctx)
-        const run = runWithJan(ctx, localMemory, delivery, () => runtime, directory, schedule)
-        const queue = openBackground({ directory, changed, activityChanged, run, report,
-          approvalPending: id => { if (watchers.size) emit({ kind: 'approval', id }) },
-          async notify(message) {
-            if (!watchers.size) return 'waiting'
-            emit({ kind: 'notification', id: message.id, text: message.text })
-            return 'sent'
-          },
-        })
-        runtime = queue
-        memory = localMemory
-        clock = ctx.schedule.registerWakeSource(queue)
-        unregisterDestination = ctx.schedule.registerDestination(name, ({ id, prompt, payload }) => {
-          active().enqueue({ id: `timer:${id}`, kind: payload === undefined ? 'task' : 'follow-up',
-            text: prompt, ...(payload === undefined ? {} : { progressPath: payload }) })
-        })
-        storeError = undefined
-        changed()
-      }).catch(error => { storeError = error; opening = undefined; changed(); throw error })
+  function load() {
+    opening ??= (async () => {
+      const { openBots } = await import('./bots.mjs')
+      const local = registry ??= await openBots(home, { changed: activityChanged })
+      if (!local.migrated && (config.enabled.get() || await exists(join(home, 'always-on')))) {
+        const project = await projectId()
+        await local.adopt(project, prepareSession)
+      }
+      for (const bot of local.list()) await startBot(bot)
+      const jan = local.get('jan')
+      if (jan) await ctx.schedule.retargetPluginTasks(name, jan.sessionId, jan.workspaceId)
+      return local
+    })().catch(error => { opening = undefined; throw error })
     return opening
   }
-
-  function active() {
-    if (storeError) throw storeError
-    if (!runtime) throw new Error('not-enabled')
-    return runtime
+  async function projectId(requested) {
+    if (requested == null || requested === '') return (await ctx.workspaceController.initializeDefault(lifetime.signal)).workspace.workspaceId
+    if (!ctx.workspaceRegistry.get(text(requested, 240))) throw new Error('project-not-found')
+    return requested
   }
-
-  function schedule({ key = randomUUID(), title, prompt, delay, repeat = false, progressPath }, signal) {
+  async function resolveAgent(sessionId) {
+    const value = await ctx.sessionController.resolveAgent(sessionId)
+    if ('error' in value) throw value.error
+    return value.agent
+  }
+  async function selectProfile(agent, bot, previous) {
+    if (!previous || bot.agentPreset !== previous.agentPreset) {
+      const preset = bot.agentPreset ?? ctx.agentPresets.defaultFor(bot.model?.provider ?? ctx.agentDefaultModel.currentSelection().provider)
+      if (preset) await ctx.agentPresets.select(agent, preset)
+    }
+    if (bot.model || previous?.model) {
+      const selection = bot.model ?? ctx.agentDefaultModel.currentSelection()
+      await ctx.llm.resolveCallConfig(selection)
+      agent.model.select(selection)
+    }
+  }
+  async function prepareSession(bot) {
+    const previous = await ctx.sessionPersistence.stat(bot.sessionId)
+    if (!previous) {
+      const created = await ctx.sessionController.create({ workspaceId: bot.workspaceId, sessionId: bot.sessionId,
+        ...(bot.agentPreset ? { agentPreset: bot.agentPreset } : {}) })
+      if (created.sessionId !== bot.sessionId) throw new Error('bot-session-conflict')
+    }
+    const agent = await resolveAgent(bot.sessionId)
+    await selectProfile(agent, bot)
+    if (ctx.get('sessionTitle')) await ctx.sessionController.rename({ sessionId: bot.sessionId, title: bot.name })
+    if (!await ctx.sessions.flush(agent.session)) throw new Error('bot-session-unsaved')
+  }
+  function attach(agent, runtime) {
+    let binding = bindings.get(agent)
+    if (binding) return binding
+    binding = runtime.bind(agent)
+    bindings.set(agent, binding)
+    return binding
+  }
+  async function startBot(bot, resume = false) {
+    if (runtimes.has(bot.id)) return runtimes.get(bot.id)
+    lifetime.signal.throwIfAborted()
+    const { openBackground, memoryAt, bindBotAgent, runWithJan, appendBotNotice, botPrompt, delivery } = await modules()
+    if (runtimes.has(bot.id)) return runtimes.get(bot.id)
+    const directory = registry.directory(bot)
+    const memory = memoryAt(home, directory)
+    const initialMemory = JSON.stringify(await memory.context())
+    const persona = await registry.persona(bot.id)
+    if (runtimes.has(bot.id)) return runtimes.get(bot.id)
+    lifetime.signal.throwIfAborted()
+    const runtime = {
+      memory,
+      memoryText: initialMemory,
+      bind: agent => bindBotAgent(ctx, agent, queue, memory, (input, signal) => schedule(bot, input, signal)),
+    }
+    const run = runWithJan(ctx, memory, delivery, () => queue, async sessionId => {
+      if (!ctx.workspaceRegistry.get(bot.workspaceId)) throw new Error('project-not-found')
+      return resolveAgent(sessionId)
+    }, agent => attach(agent, runtime))
+    const queue = openBackground({ directory, sessionId: bot.sessionId, run, activityChanged, report,
+      changed() { runtime.clock?.wake(); activityChanged() },
+      async memoryChanged() { runtime.memoryText = JSON.stringify(await memory.context()); activityChanged() },
+      approvalPending(id) { emit({ kind: 'approval', botId: bot.id, id }); activityChanged() },
+      async notify(message) {
+        const agent = await resolveAgent(bot.sessionId)
+        await appendBotNotice(ctx, agent, message)
+        const at = Number(message.channel.address.createdAt) || Date.now()
+        await registry.message(bot.id, { id: `jan-bot-notice:${message.id}`, text: message.text, at }, true)
+        if (!watchers.size) return 'waiting'
+        emit({ kind: 'notification', botId: bot.id, id: message.id, text: message.text })
+        return 'sent'
+      },
+    })
+    runtime.queue = queue
+    runtimes.set(bot.id, runtime)
+    prompts.set(bot.sessionId, botPrompt(bot, persona))
+    try {
+      runtime.destination = ctx.schedule.registerSessionDestination(bot.sessionId, name, ({ id, prompt, payload }) => {
+        queue.enqueue({ id: `timer:${id}`, kind: payload === undefined ? 'task' : 'follow-up', text: prompt,
+          ...(payload === undefined ? {} : { progressPath: payload }) })
+      })
+      runtime.clock = ctx.schedule.registerWakeSource(queue)
+      const agent = ctx.agents.get(bot.sessionId)
+      if (agent) attach(agent, runtime)
+      if (resume) await queue.setPaused(false)
+      return runtime
+    } catch (error) {
+      await stopBot(bot, runtime)
+      throw error
+    }
+  }
+  async function stopBot(bot, runtime) {
+    runtime.destination?.()
+    runtime.clock?.dispose()
+    await runtime.queue.close()
+    const agent = ctx.agents.get(bot.sessionId)
+    const binding = agent && bindings.get(agent)
+    if (binding) { bindings.delete(agent); await binding.dispose() }
+    prompts.delete(bot.sessionId)
+    presence.delete(bot.sessionId)
+    runtimes.delete(bot.id)
+  }
+  function schedule(bot, { key, title, prompt, delay, repeat = false, progressPath }, signal) {
+    if (!Number.isSafeInteger(delay) || delay < 1 || delay > 31_536_000 || typeof repeat !== 'boolean') throw new Error('invalid-input')
     const timing = repeat ? { kind: 'every', every_seconds: delay } : { kind: 'after', after_seconds: delay }
-    return ctx.schedule.createPluginTask({ title, prompt, timing }, { owner: name, key, payload: progressPath }, signal)
+    const request = { title: text(title, 120), prompt: text(prompt, 4000), timing }
+    return key ? ctx.schedule.createSessionTask(request, { sessionId: bot.sessionId, key, payload: progressPath }, signal)
+      : ctx.schedule.create({ ...request, target: { kind: 'session', sessionId: bot.sessionId } }, undefined, signal)
   }
-  ctx.effect(() => ctx.on('schedule/changed', activityChanged), 'always-on Scheduled changes')
+  const ownsTask = (task, bot) => task.target.kind === 'session' && task.target.sessionId === bot.sessionId
+    || bot.id === 'jan' && task.target.kind === 'plugin' && task.target.owner === name
+  function roster(bot) {
+    const activity = runtimes.get(bot.id)?.queue.activity()
+    const current = presence.get(bot.sessionId)
+    const project = ctx.workspaceRegistry.get(bot.workspaceId)
+    return { ...bot, project: project?.title, projectMissing: !project, paused: activity?.paused ?? true,
+      activeRun: current?.phase ?? activity?.activeRun ?? null, lastRun: activity?.lastRun ?? current?.lastRun ?? null,
+      lastDeliveryAgeMs: activity?.lastDeliveryAgeMs ?? null, pending: activity?.pending ?? false, blocked: activity?.blocked ?? false }
+  }
+  async function botFor(id) {
+    const bot = (await load()).get(text(id, 80))
+    if (!bot) throw new Error('bot-not-found')
+    return bot
+  }
+  async function detail(bot) {
+    const { memory, queue } = runtimes.get(bot.id)
+    const [tasks, files, persona] = await Promise.all([ctx.schedule.catalog(), memory.index(), registry.persona(bot.id)])
+    return { ...roster(bot), ...queue.snapshot(), files, persona, routines: tasks.filter(task => ownsTask(task, bot)) }
+  }
+
+  ctx.effect(() => ctx.systemPrompt.section({ name: 'jan-bot-persona', order: 10210, interpolate: false,
+    text: ({ agent }) => agent ? prompts.get(agent.id) ?? '' : '' }), 'Bots persona')
+  ctx.effect(() => ctx.systemPrompt.context({ name: 'jan-bot-memory', order: 9000, interpolate: false,
+    text: ({ agent }) => agent ? runtimes.get(registry?.forSession(agent.id)?.id)?.memoryText ?? '' : '' }), 'Bots memory context')
+  ctx.on('agent/created', ({ agent }) => {
+    const bot = registry?.forSession(agent.id)
+    const runtime = bot && runtimes.get(bot.id)
+    if (runtime) attach(agent, runtime)
+  }, { global: true })
+  ctx.on('agent/disposed', ({ agent }) => { bindings.delete(agent); presence.delete(agent.id); activityChanged() }, { global: true })
+  ctx.on('agent/status', ({ agent, status }) => {
+    const bot = registry?.forSession(agent.id)
+    if (!bot) return
+    if (status === 'running') presence.set(agent.id, { phase: 'thinking', lastRun: null })
+    else {
+      const previous = presence.get(agent.id)
+      if (previous) previous.phase = null
+    }
+    activityChanged()
+  }, { global: true })
+  ctx.on('session/event', (session, event) => {
+    const bot = registry?.forSession(session.id)
+    if (!bot) return
+    const current = presence.get(session.id)
+    if (event.type === 'tool/call' && current) current.phase = 'working'
+    else if (event.type === 'tool/result' && current) current.phase = 'thinking'
+    else if (event.type === 'turn/end' && current) current.lastRun = event.data.reason.kind === 'completed' ? 'done' : 'failed'
+    const message = event.type === 'assistant/message' ? event.data.message : event.type === 'user/message' && event.data.source.kind === 'user' ? event.data : null
+    if (message) {
+      const preview = message.content.filter(part => part.type === 'text').map(part => part.text).join(' ').trim().slice(0, 240)
+      if (preview) void registry.message(bot.id, { id: message.id, text: preview, at: event.time }, bindings.get(ctx.agents.get(session.id))?.state.run !== undefined).catch(report)
+    }
+    if (current) activityChanged()
+  }, { global: true })
+  ctx.on('schedule/changed', activityChanged)
   ctx.effect(() => registerApi(ctx, 'always-on', {
-    async state() {
-      if (opening) await opening
-      if (storeError) throw storeError
-      const enabled = config.enabled.get()
-      const timers = enabled ? (await ctx.schedule.catalog()).filter(task => task.target.kind === 'plugin' && task.target.owner === name) : []
-      return { ...(runtime?.snapshot() ?? EMPTY), enabled, timers, files: memory ? await memory.index() : EMPTY_MEMORY }
+    async list() { return (await load()).list().map(roster) },
+    async options() {
+      const [models, presets] = await Promise.all([ctx.sessionController.modelCatalog(), ctx.agentPresets.list()])
+      return { models: models.groups.map(({ id, name, models: rows }) => ({ id, name, models: rows.map(model => ({ id: model.id, name: model.name })) })),
+        presets: presets.filter(item => !item.broken).map(({ id, name }) => ({ id, name })) }
     },
-    async setPaused({ paused }) {
+    async detail({ id }) { return detail(await botFor(id)) },
+    async create(input) {
+      const local = await load()
+      const bot = await local.create({ ...input, workspaceId: await projectId(input.workspaceId) }, prepareSession)
+      await startBot(bot, true)
+      return roster(bot)
+    },
+    async duplicate({ id, name: duplicateName }) {
+      await botFor(id)
+      const copy = await registry.duplicate(id, duplicateName, prepareSession)
+      await startBot(copy, true)
+      return roster(copy)
+    },
+    async edit({ id, patch }) {
+      await botFor(id)
+      const bot = await registry.edit(id, patch, async (next, previous) => {
+        const agent = await resolveAgent(next.sessionId)
+        await selectProfile(agent, next, previous)
+        if (next.name !== previous.name && ctx.get('sessionTitle')) await ctx.sessionController.rename({ sessionId: next.sessionId, title: next.name })
+        if (!await ctx.sessions.flush(agent.session)) throw new Error('bot-session-unsaved')
+      })
+      prompts.set(bot.sessionId, (await modules()).botPrompt(bot, await registry.persona(id)))
+      return roster(bot)
+    },
+    async delete({ id }) {
+      await botFor(id)
+      await registry.remove(id, async bot => {
+        const runtime = runtimes.get(bot.id)
+        await runtime.queue.setPaused(true)
+        const tasks = await ctx.schedule.catalog()
+        for (const task of tasks) if (ownsTask(task, bot)) await ctx.schedule.edit({ id: task.id, action: 'delete' })
+        await ctx.workspaceController.archiveSession({ sessionId: bot.sessionId, stopActivity: true })
+        await stopBot(bot, runtime)
+      })
+      return true
+    },
+    async setPaused({ id, paused }) {
+      const bot = await botFor(id)
       if (typeof paused !== 'boolean') throw new Error('invalid-input')
-      if (!paused && !config.enabled.get()) await ctx.settings.update(ctx.fiber.entry.options.id, { enabled: true })
-      if (config.enabled.get() || !paused) await activate()
-      if (runtime) await runtime.setPaused(paused)
+      if (!paused && !ctx.workspaceRegistry.get(bot.workspaceId)) throw new Error('project-not-found')
+      await runtimes.get(bot.id).queue.setPaused(paused)
+      return true
     },
-    schedule({ title, prompt, delay, repeat }) {
-      if (delay > 31_536_000) throw new Error('invalid-input')
-      if (!Number.isSafeInteger(delay) || delay < 1 || typeof repeat !== 'boolean') throw new Error('invalid-input')
-      active()
-      return schedule({ title: text(title, 120), prompt: text(prompt, 4000), delay, repeat })
+    async markRead({ id }) { await botFor(id); await registry.read(id) },
+    async compact({ id }) {
+      const bot = await botFor(id)
+      const agent = await resolveAgent(bot.sessionId)
+      const engine = agent.ctx.get('compaction') ?? ctx.agentPresets.serviceFor(agent, 'compaction')
+      if (!engine) throw new Error('bot-compaction-unavailable')
+      return Boolean(await engine.compactNow(agent, lifetime.signal))
     },
-    async cancel({ id }) {
-      active()
-      const task = await ctx.schedule.view({ id: text(id, 120) })
-      if ('code' in task || task.target.kind !== 'plugin' || task.target.owner !== name) return false
-      const result = await ctx.schedule.edit({ id: task.id, action: 'delete' })
-      return 'deleted' in result && result.deleted === true
+    async schedule({ id, ...input }) { return schedule(await botFor(id), input, lifetime.signal) },
+    async read({ id, path }) {
+      const bot = await botFor(id)
+      if (!path) return { text: '', truncated: false, files: EMPTY_MEMORY }
+      return runtimes.get(bot.id).memory.read(path)
     },
-    read({ path }) {
-      if (!memory && EMPTY_MEMORY.includes(path)) return { text: '', truncated: false }
-      active()
-      return memory.read(path)
+    async answer({ id, approvalId, decision }) {
+      const bot = await botFor(id)
+      return runtimes.get(bot.id).queue.answer(text(approvalId, 120), decision)
     },
-    answer({ id, decision }) { return active().answer(text(id, 120), decision) },
-    reply({ id, prompt, sourceId }) { return active().reply(text(id, 120), text(prompt, 4000), text(sourceId, 120)) },
-  }), 'always-on management')
+  }), 'Bots management')
 
   ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: '/jan-api/always-on/feed', handler(req, res) {
     const rejection = ctx.connection.requestRejection(req)
@@ -120,19 +303,27 @@ export function apply(ctx, config) {
     res.writeHead(200, { 'content-type': 'application/x-ndjson', 'cache-control': 'no-store' })
     res.once('close', () => watchers.delete(res))
     watchers.add(res)
-    clock?.wake()
-    res.write(`${JSON.stringify({ kind: 'changed', revision })}\n`)
-  } }), 'always-on notifications')
-
-  // Restore only an opted-in queue. A fresh profile never opens SQLite or the memory directory.
-  if (config.enabled.get()) void activate().catch(report)
-  ctx.effect(() => async () => {
-    stopped = true
-    for (const res of watchers) res.end()
-    watchers.clear()
-    await opening?.catch(report)
-    unregisterDestination?.()
-    clock?.dispose()
-    await runtime?.close()
-  }, 'always-on shutdown')
+    for (const runtime of runtimes.values()) runtime.clock?.wake()
+    res.write('{"kind":"changed"}\n')
+  } }), 'Bots notifications')
+  ctx.effect(() => {
+    legacyDestination = ctx.schedule.registerDestination(name, async ({ id, prompt, payload }) => {
+      const bot = registry?.get('jan')
+      if (!bot || !runtimes.has(bot.id)) throw new Error('legacy-bot-not-ready')
+      runtimes.get(bot.id).queue.enqueue({ id: `timer:${id}`, text: prompt, kind: payload === undefined ? 'task' : 'follow-up',
+        ...(payload === undefined ? {} : { progressPath: payload }) })
+    })
+    void load().catch(report)
+    return async () => {
+      lifetime.abort()
+      legacyDestination()
+      for (const res of watchers) res.end()
+      watchers.clear()
+      await opening?.catch(report)
+      await Promise.all(registry?.list().map(bot => {
+        const runtime = runtimes.get(bot.id)
+        return runtime && stopBot(bot, runtime)
+      }) ?? [])
+    }
+  }, 'Bots lifecycle')
 }
