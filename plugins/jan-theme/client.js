@@ -323,6 +323,12 @@ window.__ModuleLoader__.load({
       '--dsw-alias-bg-layer-1': { light: '#FFFFFF', dark: '#1B1B1B' },
       '--dsw-alias-bg-layer-2': { light: '#F7F7F7', dark: '#151515' },
       '--dsw-alias-bg-overlay': { light: '#FFFFFF', dark: '#1B1B1B' },
+      // Toasts sit on the same raised surface as Jan's menus and cards (overlay fill,
+      // hairline border, primary label), following the theme instead of a fixed grey slab.
+      '--dsw-alias-toast-bg': { light: '#FFFFFF', dark: '#1B1B1B' },
+      '--dsw-alias-toast-border': { light: 'rgb(34 34 34 / 10%)', dark: 'oklch(1 0 0 / 15%)' },
+      '--dsw-alias-toast-label': { light: '#3D3D3D', dark: 'rgb(255 255 255 / 80%)' },
+      '--dsw-alias-toast-action': both('var(--dsw-alias-state-business-primary)'),
       '--dsw-alias-border-l1': { light: 'rgb(34 34 34 / 5%)', dark: 'rgb(255 255 255 / 8%)' },
       '--dsw-alias-border-l2': { light: 'rgb(34 34 34 / 10%)', dark: 'oklch(1 0 0 / 15%)' },
       '--dsw-alias-label-primary': { light: '#3D3D3D', dark: 'rgb(255 255 255 / 80%)' },
