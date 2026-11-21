@@ -145,6 +145,7 @@ export function ConversationSessionHeader({
   return (
     <>
       <div className={css.titleRow}>
+        {renderSlot('conversation.session.header.identity', { blank: hideChrome })}
         {!hideChrome && (
           <>
             <div className={css.titleCluster}>

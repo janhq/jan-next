@@ -107,6 +107,16 @@ async function bench(opts?: { blank?: boolean }) {
 }
 
 describe('resident composer', () => {
+  it('renders a persistent Session identity before its first turn', async () => {
+    const runtime = await bench({ blank: true })
+    runtime.slots.register({ name: 'conversation.session.header.identity', id: 'example' }, ({ blank }) => (
+      <span>{blank ? 'Blank identity' : 'Active identity'}</span>
+    ))
+    const view = runtime.renderRoot()
+    expect(await view.findByText('Blank identity')).toBeTruthy()
+    await runtime.dispose()
+  })
+
   it('materializes the default chat on first focus and preserves text typed while it opens', async () => {
     const runtime = await SlotTestRuntime.create()
     const pending = Promise.withResolvers<undefined>()
