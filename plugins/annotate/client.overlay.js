@@ -721,18 +721,21 @@ window.__ModuleLoader__.load({
         if (busy.current) return
         busy.current = true
         setError(undefined)
-        setView(kind === 'grab' ? 'grabbing' : 'capture')
+        setView(kind === 'grab' || kind === 'pick' ? 'grabbing' : 'capture')
         if (picker.current) picker.current.style.visibility = 'hidden'
         try {
           // No interaction chrome may appear in the pixels being copied.
           await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
           if (!stillCurrent() || (chosen && !chosen.live())) return
           const png = await capture({ surface, bounds: chosen?.crop ?? visibleBounds(surface), captureRegion, request, signal,
-            forceCrop: !image || (kind === 'grab' && !chosen.whole) })
+            forceCrop: !image || ((kind === 'grab' || kind === 'pick') && !chosen.whole) })
           if (!stillCurrent()) return
           if (kind === 'grab') {
             setSelected({ context, png })
             setView('grabbed')
+          } else if (kind === 'pick') {
+            setSelected({ ...chosen.describe(), png })
+            setView('note')
           } else if (kind === 'attach') {
             // The whole tab goes to the chat as it looks; nothing to choose or mark up first.
             if (!commit('', png, 'screenshot.png')) setView('attach-error')
@@ -743,7 +746,10 @@ window.__ModuleLoader__.load({
             setView('draw')
           }
         } catch (_error) {
-          if (!signal.aborted) { setError('captureError'); setView(kind === 'draw' ? 'draw-error' : `${kind}-error`) }
+          if (signal.aborted) return
+          // A pick still works without its picture: the note and element go to the chat on their own.
+          if (kind === 'pick') { setSelected(chosen.describe()); setView('note'); return }
+          setError('captureError'); setView(kind === 'draw' ? 'draw-error' : `${kind}-error`)
         } finally { busy.current = false }
       }
       const draw = (request) => { void runCapture('draw', request) }
@@ -767,7 +773,7 @@ window.__ModuleLoader__.load({
       }, [])
       useEffect(() => () => bitmap?.close(), [bitmap])
       useEffect(() => {
-        if (view !== 'grabbed' || !selected?.png) return undefined
+        if ((view !== 'grabbed' && view !== 'note') || !selected?.png) return undefined
         const url = URL.createObjectURL(selected.png)
         setPreview(url)
         return () => { URL.revokeObjectURL(url); setPreview(undefined) }
@@ -810,7 +816,9 @@ window.__ModuleLoader__.load({
               if (!chosen || currentView.current !== 'pick' || !stillCurrent()) return
               selection.current = chosen
               if (mode === 'grab') grab(chosen)
-              else { setSelected(chosen.describe()); setView('note') }
+              else if (pickNeedsShare) { setSelected(chosen.describe()); setView('note') }
+              // Picture the element too, so the agent sees what the note is about; no share prompt is raised for it.
+              else void runCapture('pick', undefined, chosen)
             })
           } },
         border && h('div', { 'aria-hidden': true, style: { position: 'fixed', pointerEvents: 'none', outline: `2px solid ${HIGHLIGHT}`,
@@ -830,7 +838,7 @@ window.__ModuleLoader__.load({
         if (view === 'note') {
           if (!trimmedNote) return
           const { note: text, context } = captureContext(selection.current, trimmedNote, elementName)
-          commit(text, undefined, undefined, [context])
+          commit(text, selected.png, 'selected-element.png', [context])
         } else {
           commit(trimmedNote, selected.png, 'selected-element.png', [selected.context])
         }
@@ -839,7 +847,7 @@ window.__ModuleLoader__.load({
       return h(ActionDialog, { title: t(title), t, close },
         view === 'opaque' && h(Status, { t, message: 'opaque', fallback: requestDraw }),
         retry && h(Status, { t, message: error ?? 'captureError', error: true, retry }),
-        view === 'grabbed' && preview && h('img', { src: preview, alt: t('context'), style: { display: 'block', maxWidth: '100%',
+        (view === 'grabbed' || view === 'note') && preview && h('img', { src: preview, alt: t('context'), style: { display: 'block', maxWidth: '100%',
           maxHeight: 'min(32dvh, 280px)', margin: '0 auto', objectFit: 'contain', borderRadius: '12px',
           border: '1px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-bg-base)' } }),
         view === 'note' && h(ElementChip, { t, selector: selected.selector }),
