@@ -93,6 +93,15 @@ const SITE_HOSTS: Readonly<Record<string, SimpleIcon>> = {
   'quora.com': siQuora,
   'v2ex.com': siV2ex,
   'apple.com': siApple,
+  'discord.com': siDiscord,
+  'discord.gg': siDiscord,
+  'linear.app': siLinear,
+  'notion.so': siNotion,
+  'notion.site': siNotion,
+  'figma.com': siFigma,
+  'atlassian.net': siJira,
+  'huggingface.co': siHuggingface,
+  'hf.co': siHuggingface,
 }
 
 /**
