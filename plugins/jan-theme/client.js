@@ -1065,8 +1065,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         set(next) { workspaceId = next; for (const listener of listeners) listener() },
       }
     })()
-    async function projectApi(method, params = {}) {
-      const response = await fetch('/jan-api/project-home', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
+    async function projectApi(method, params = {}, signal) {
+      const response = await fetch('/jan-api/project-home', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }), signal })
       // A settings save reloads the Host plugin; its route is briefly absent and answers without JSON.
       if (!response.headers.get('content-type')?.startsWith('application/json')) throw new Error('Jan is reloading. Try again in a moment.')
       const body = await response.json()
@@ -1166,9 +1166,19 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         error && h('p', { className: 'jt-project-error', role: 'alert' }, error)))
     }
 
-    function ProjectHome({ useProject, useWorkspaces, useArchived, useSessions, startSession, openChat, backToProjects, loadSchedules, createSchedule, openScheduled, t }) {
+    function ProjectHome({ useProject, useWorkspaces, backToProjects, t, ...props }) {
       const workspaceId = useProject(value => value)
       const workspace = useWorkspaces(snapshot => snapshot.items.find(item => item.workspaceId === workspaceId))
+      if (workspace === undefined) {
+        return h('section', { className: 'jt-projects' },
+          h('p', { className: 'jt-projects-empty' }, t('project.missing')),
+          h(Button, { variant: 'outline', onClick: backToProjects }, t('project.back')))
+      }
+      return h(ProjectDetails, { ...props, key: workspace.workspaceId, workspace, backToProjects, t })
+    }
+
+    function ProjectDetails({ workspace, useArchived, useSessions, startSession, openChat, backToProjects, loadSchedules, createSchedule, openScheduled, t }) {
+      const { workspaceId } = workspace
       const sessions = useSessions(value => value)
       const archivedIds = useArchived(value => value)
       const [details, setDetails] = React.useState(null)
@@ -1180,10 +1190,16 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       const [fileError, setFileError] = React.useState('')
       const [draft, setDraft] = React.useState('')
       const fileInput = React.useRef(null)
-      const reload = React.useCallback(async () => {
-        if (workspaceId === null) return
-        try { setDetails(await projectApi('read', { workspaceId })); setError('') } catch (failure) { setError(failure.message) }
-      }, [workspaceId])
+      const [detailsVersion, reloadDetails] = React.useReducer(version => version + 1, 0)
+      React.useEffect(() => {
+        const controller = new AbortController()
+        const { signal } = controller
+        void projectApi('read', { workspaceId }, signal).then(
+          (next) => { if (!signal.aborted) { setDetails(next); setError('') } },
+          (failure) => { if (!signal.aborted) setError(failure.message) },
+        )
+        return () => { controller.abort() }
+      }, [workspaceId, detailsVersion])
       const reloadTasks = React.useCallback(async () => {
         const pending = loadSchedules()
         if (pending === undefined) { setTasks(null); return }
@@ -1194,12 +1210,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           setTaskError('')
         } catch (failure) { setTaskError(failure.message) }
       }, [])
-      React.useEffect(() => { setDetails(null); setDraft(''); void reload(); void reloadTasks() }, [workspaceId])
-      if (workspaceId === null || workspace === undefined) {
-        return h('section', { className: 'jt-projects' },
-          h('p', { className: 'jt-projects-empty' }, t('project.missing')),
-          h(Button, { variant: 'outline', onClick: backToProjects }, t('project.back')))
-      }
+      React.useEffect(() => { void reloadTasks() }, [reloadTasks])
       const archived = new Set(archivedIds)
       const recents = workspace.sessionIds
         .map(id => sessions.byId[id])
@@ -1218,7 +1229,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         for (const file of files) {
           try { await projectApi('addFile', { workspaceId, name: file.name, data: await readBase64(file) }) } catch (failure) { setFileError(failure.message) }
         }
-        await reload()
+        reloadDetails()
       }
       const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
       const card = (titleKey, action, body) => h('section', { className: 'jt-project-card', 'aria-label': t(titleKey) },
@@ -1289,7 +1300,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           note: editing === 'memory' ? t('project.memory.note') : t('project.instructions.note'),
           initial: editing === 'memory' ? details?.memory ?? '' : details?.instructions ?? '',
           draftKey: `${workspaceId}:${editing}`,
-          onSave: async (text) => { await projectApi('save', { workspaceId, kind: editing, text }); await reload() },
+          onSave: async (text) => { await projectApi('save', { workspaceId, kind: editing, text }); reloadDetails() },
           onClose: () => { setEditing(null) },
         }),
         h(ProjectTaskEditor, {
