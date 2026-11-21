@@ -135,6 +135,7 @@
         id: chat
         name: Chat mode
         description: Talk, research the web, and create simple artifacts like diagrams, charts, SVG images and HTML pages. No terminal and no access to read your files.
+        icon: chat-outline
         order: 0
         plugins:
           - id: persona
