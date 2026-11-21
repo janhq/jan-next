@@ -13,6 +13,7 @@ import { mountProjectHome } from './project-home.mjs'
 export const Config = z.object({
   look: z.any().default(null),
   appearance: z.dict(z.any()).default({}).volatile(),
+  // Rows are validated independently by mountAgentSettings so an invalid saved row cannot block the theme.
   mcpServers: z.array(z.any()).default([]),
   skillDirectories: z.array(z.string()).default([]),
 })

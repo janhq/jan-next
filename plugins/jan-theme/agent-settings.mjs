@@ -73,7 +73,18 @@ export async function mountAgentSettings(ctx, config) {
   const credentials = ctx.get('credentials')
   if (!editor || !entry || !credentials) throw new Error('Agent settings require the profile editor and credential store.')
   const key = name => credentialKey('jan-theme', mcpSecretId(name))
-  const servers = config.mcpServers ?? []
+  const configuredServers = config.mcpServers ?? []
+  const servers = []
+  const skippedServers = []
+  for (const [index, row] of configuredServers.entries()) {
+    try {
+      const parsed = server(row)
+      servers.push({ ...row, enabled: parsed.enabled, transport: parsed.transport })
+    } catch (error) {
+      skippedServers.push(row)
+      ctx.logger.warn(`Skipping invalid MCP server configuration at row ${index + 1}: ${error.message}`)
+    }
+  }
   const status = new Map()
   const mcp = await import('@janhq/jan-mcp-client')
   // Servers start in the background: a slow or broken one must not hold up
@@ -121,7 +132,7 @@ export async function mountAgentSettings(ctx, config) {
     const names = new Set(failed.map(item => item.name))
     try {
       // Saving reloads this plugin; the recorded failures outlive the reload.
-      await persist(current => ({ mcpServers: (current.mcpServers ?? []).map(row => names.has(row.name) ? { ...row, enabled: false } : row) }))
+      await persist(current => ({ mcpServers: (current.mcpServers ?? []).map(row => names.has(row?.name) ? { ...row, enabled: false } : row) }))
     } catch (error) {
       for (const item of failed) recordFailure({ kind: 'mcp', id: item.name, name: item.name, message: `Turning it off failed: ${String(error)}`, disabled: false })
     }
@@ -145,8 +156,8 @@ export async function mountAgentSettings(ctx, config) {
         sanitized.push(publicRow)
       }
       await persist(current => {
-        if (JSON.stringify(current.mcpServers ?? []) !== JSON.stringify(servers)) throw new Error('MCP settings changed in another window. Reopen this section before saving.')
-        return { mcpServers: sanitized }
+        if (JSON.stringify(current.mcpServers ?? []) !== JSON.stringify(configuredServers)) throw new Error('MCP settings changed in another window. Reopen this section before saving.')
+        return { mcpServers: [...sanitized, ...skippedServers] }
       })
     } catch (failure) {
       for (const [name, old] of previous) {

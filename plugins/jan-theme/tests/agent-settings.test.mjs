@@ -39,7 +39,8 @@ test('the Host imports missing MCP servers disabled and keeps their credentials 
   assert.deepEqual(records.get('jan-theme/mcp-remote')?.payload, { env: {}, headers: { Authorization: 'Bearer legacy-header-token' } })
 })
 
-test('list only returns public connector fields even when profile rows contain secrets', async () => {
+test('list skips invalid profile rows and returns public fields without secrets', async () => {
+  const warnings = []
   const services = {
     configEditor: {},
     credentials: { readRecord: async () => undefined },
@@ -54,8 +55,11 @@ test('list only returns public connector fields even when profile rows contain s
     provide: () => {},
     effect: effect => effect(),
     connection: { requestRejection: () => undefined },
+    logger: { warn: message => warnings.push(message) },
     webServer: { register: route => { handler = route.handler; return () => {} } },
   }, { mcpServers: [
+    null,
+    { name: 'invalid', enabled: true, transport: 'stdio', command: 1, env: { TOKEN: 'bad-secret' } },
     { name: 'local', enabled: false, transport: 'stdio', command: 'node', args: [], env: { TOKEN: 'config-secret' } },
     { name: 'remote', enabled: false, transport: 'streamable-http', url: 'https://example.com/mcp', headers: { Authorization: 'config-secret' } },
   ] })
@@ -68,4 +72,8 @@ test('list only returns public connector fields even when profile rows contain s
     { name: 'local', secretConfigured: false }, { name: 'remote', secretConfigured: false },
   ])
   assert.equal(JSON.stringify(response).includes('config-secret'), false)
+  assert.equal(warnings.length, 2)
+  assert.match(warnings[0], /MCP.*1/)
+  assert.match(warnings[1], /MCP.*2/)
+  assert.equal(warnings.join(' ').includes('bad-secret'), false)
 })
