@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useLayoutEffect, useRef } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
-import { IconCheckCircleOutlineRegular } from './icons/index.tsx'
+import { IconCheckCircleOutlineRegular, IconCloseOutlineRegular } from './icons/index.tsx'
 import { NotificationPortal } from './NotificationLayer.tsx'
 import css from './Toast.module.css'
 
@@ -8,6 +8,17 @@ import css from './Toast.module.css'
 const HOLD_MS = 3000
 /** Fade duration. Must agree with the stylesheet's toast-fade duration. */
 const FADE_MS = 1000
+
+/** Close-button names for the app's locales, read from `<html lang>`, which
+ * the locale runtime keeps current; owners may pass their own `closeLabel`. */
+const CLOSE_LABELS: Record<string, string> = {
+  en: 'Dismiss', zh: '关闭', ja: '閉じる', es: 'Cerrar', fr: 'Fermer', de: 'Schließen', ru: 'Закрыть', pt: 'Fechar',
+}
+
+function documentCloseLabel(): string {
+  const language = document.documentElement.lang.toLowerCase().split('-')[0] ?? ''
+  return CLOSE_LABELS[language] ?? 'Dismiss'
+}
 
 /**
  * Transient notice in the shared bottom-right notification stack: slides in,
@@ -36,23 +47,34 @@ const FADE_MS = 1000
  * change, then unmount the toast). The banner surface stays click-through —
  * only the action text takes the pointer.
  * @param props.holdMs - full-opacity hold before the fade; defaults to 3000.
- * @param props.onDone - called once the fade completes; unmount the toast here.
+ * @param props.closeLabel - accessible name of the close button; defaults to
+ * the document language's word for Dismiss.
+ * @param props.onDone - called once the fade completes, or at once when the
+ * user presses the close button; unmount the toast here.
  * @returns the floating banner.
  */
-export function Toast({ text, icon, tone, holdMs = HOLD_MS, actions, onDone }: {
+export function Toast({ text, icon, tone, holdMs = HOLD_MS, actions, closeLabel, onDone }: {
   text: string
   icon?: ReactNode
   tone?: 'success'
   holdMs?: number
   actions?: readonly { label: string; prefix?: string; onClick: () => void }[]
+  closeLabel?: string
   onDone: () => void
 }) {
   const latestOnDone = useRef(onDone)
   useLayoutEffect(() => { latestOnDone.current = onDone }, [onDone])
+  // Closing early and the timed fade both end the notice; only the first reports done.
+  const finished = useRef(false)
+  const finish = useRef(() => {
+    if (finished.current) return
+    finished.current = true
+    latestOnDone.current()
+  }).current
   useEffect(() => {
-    const timer = setTimeout(() => { latestOnDone.current() }, holdMs + FADE_MS)
+    const timer = setTimeout(finish, holdMs + FADE_MS)
     return () => { clearTimeout(timer) }
-  }, [holdMs])
+  }, [holdMs, finish])
   return (
     <NotificationPortal>
       <div
@@ -74,6 +96,10 @@ export function Toast({ text, icon, tone, holdMs = HOLD_MS, actions, onDone }: {
             </Fragment>
           ))}
         </span>
+        <button type="button" className={css.close} aria-label={closeLabel ?? documentCloseLabel()}
+          onClick={finish}>
+          <IconCloseOutlineRegular size={14} />
+        </button>
       </div>
     </NotificationPortal>
   )
