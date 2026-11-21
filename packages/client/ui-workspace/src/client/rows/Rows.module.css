@@ -352,6 +352,13 @@
   }
 }
 
+/* A held press darkens the fill one step: the row answers on mousedown.
+   After the hover rules so the press wins over hover. */
+.projectRow:active,
+.sessionRow:active {
+  background-color: var(--dsw-alias-interactive-bg-active);
+}
+
 @media (hover: none) {
   .projectRow .rowActions,
   .searchResultRow .rowActions,
