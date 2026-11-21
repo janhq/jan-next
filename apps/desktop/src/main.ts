@@ -10,6 +10,7 @@ import { WINDOWS_TITLEBAR_HEIGHT } from './windows-layout.ts'
 import { applicationIconPath } from './application-icon.ts'
 import { access, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import {
   app,
@@ -22,6 +23,7 @@ import {
   nativeImage,
   nativeTheme,
   protocol,
+  screen,
   session,
   shell,
   webContents,
@@ -37,8 +39,9 @@ import { DesktopPlatformView, PLATFORM_IPC, platformBounds } from './platform-vi
 import { installDesktopFileDrag } from './file-drag.ts'
 import { installDesktopDirectoryPicker } from './directory-picker.ts'
 import { installMediaPermissions } from './media-permissions.ts'
+import { conversationWindowMoveHandler, conversationWindowStore, readConversationWindowIds } from './conversation-windows.ts'
 import { DesktopBackendController } from './backend-controller.ts'
-import { DESKTOP_IPC, SCHEME, assertDesktopSender, type DesktopUpdateState } from './ipc.ts'
+import { CONVERSATION_SESSION_ARG, CONVERSATION_WINDOW_ARG, DESKTOP_IPC, SCHEME, assertDesktopSender, type DesktopUpdateState } from './ipc.ts'
 import { readDeviceInfo } from './device-info.ts'
 import { captureWindowRegion } from './window-capture.ts'
 import { desktopUpdateReadyConfirmation, formatDesktopMessage, resolveDesktopLocale, resolveDesktopStartupLocale } from './locale.ts'
@@ -286,7 +289,7 @@ function platformLoginUrl(authorizeUrl: string): string {
   return url.href
 }
 
-function createWindow(preload: string, show = false, primary = false): BrowserWindow {
+function createWindow(preload: string, show = false, primary = false, args: readonly string[] = []): BrowserWindow {
   const window = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -324,6 +327,7 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
       webSecurity: true,
       webviewTag: primary,
       devTools: true,
+      additionalArguments: [...args],
     },
   })
   window.webContents.setWindowOpenHandler(({ url }) => {
@@ -432,6 +436,12 @@ async function main(): Promise<void> {
   let workspaceRecovery: Promise<void> | undefined
   let mainWindow: BrowserWindow | undefined
   let welcomeWindow: BrowserWindow | undefined
+  /** Secondary conversation windows by desktop-owned id; each runs the app page with its own tabs. */
+  const conversationWindows = new Map<string, BrowserWindow>()
+  const productWindows = (): BrowserWindow[] => [mainWindow, ...conversationWindows.values()]
+    .filter((window): window is BrowserWindow => window !== undefined && !window.isDestroyed())
+  const ownedProductWindow = (event: Pick<IpcMainInvokeEvent, 'sender' | 'senderFrame'>): BrowserWindow | undefined =>
+    productWindows().find(window => event.sender === window.webContents && event.senderFrame === window.webContents.mainFrame)
   const installFileDrag = (): (() => Promise<void>) => installDesktopFileDrag(
     event => assertProductSender(event),
     (address, signal) => {
@@ -547,11 +557,9 @@ async function main(): Promise<void> {
   }
   const assertProductSender = (event: IpcMainInvokeEvent): BrowserWindow => {
     assertDesktopSender(event, ['app'])
-    if (mainWindow === undefined || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents
-      || event.senderFrame === null || event.senderFrame !== mainWindow.webContents.mainFrame) {
-      throw new Error('jan desktop: rejected IPC from an unowned renderer')
-    }
-    return mainWindow
+    const window = ownedProductWindow(event)
+    if (window === undefined) throw new Error('jan desktop: rejected IPC from an unowned renderer')
+    return window
   }
   let navigation: { window: BrowserWindow; url: string; promise: Promise<void> } | undefined
   const navigateMain = (url: string): Promise<void> => {
@@ -862,9 +870,10 @@ async function main(): Promise<void> {
   })
 
   installDesktopDirectoryPicker(() => mainWindow)
-  installMediaPermissions(session.defaultSession, () => mainWindow?.webContents)
+  installMediaPermissions(session.defaultSession, contents => productWindows().some(window => window.webContents === contents))
   const shortcuts = installDesktopShortcuts(() => mainWindow, app.getPath('userData'),
-    process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'windows' : 'linux', () => { refreshApplicationMenu() }, window => updateOverlays.input(window))
+    process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'windows' : 'linux', () => { refreshApplicationMenu() },
+    window => updateOverlays.input(window), productWindows)
   app.on('will-quit', () => { shortcuts.dispose() })
 
   ipcMain.handle(DESKTOP_IPC.boot, async (event) => {
@@ -876,7 +885,7 @@ async function main(): Promise<void> {
 
   ipcMain.handle(DESKTOP_IPC.bootFailed, (event, message: unknown) => {
     assertDesktopSender(event, ['app'])
-    if (event.sender !== mainWindow?.webContents || event.senderFrame !== event.sender.mainFrame) {
+    if (ownedProductWindow(event) === undefined) {
       throw new Error('jan desktop: rejected startup failure from a non-primary frame')
     }
     if (typeof message !== 'string') throw new Error('jan desktop: startup failure must be text')
@@ -893,7 +902,8 @@ async function main(): Promise<void> {
   })
 
   session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ['ws://127.0.0.1/*', 'wss://127.0.0.1/*'] }, (details, callback) => {
-    if (hostUrl === undefined || hostCookie === undefined || details.webContentsId !== mainWindow?.webContents.id) {
+    if (hostUrl === undefined || hostCookie === undefined
+      || !productWindows().some(window => window.webContents.id === details.webContentsId)) {
       callback({})
       return
     }
@@ -906,9 +916,8 @@ async function main(): Promise<void> {
   })
 
   const assertMainApplication = (event: IpcMainInvokeEvent): BrowserWindow => {
-    const owner = mainWindow
-    if (owner === undefined || event.sender !== owner.webContents || event.senderFrame !== owner.webContents.mainFrame
-      || !event.senderFrame.url.startsWith('jan-app://app/')) throw new Error('Rejected Platform command')
+    const owner = ownedProductWindow(event)
+    if (owner === undefined || !event.senderFrame?.url.startsWith('jan-app://app/')) throw new Error('Rejected Platform command')
     return owner
   }
   installFileActions(assertMainApplication, () => hostUrl)
@@ -1399,12 +1408,11 @@ async function main(): Promise<void> {
   if (process.platform === 'win32') {
     ipcMain.handle(DESKTOP_IPC.windowsMenu, (event, name: unknown, x: unknown, y: unknown) => {
       assertDesktopSender(event, ['app'])
-      if (mainWindow === undefined || event.sender !== mainWindow.webContents
-        || event.senderFrame !== mainWindow.webContents.mainFrame) throw new Error('desktop menu: rejected sender')
+      const window = ownedProductWindow(event)
+      if (window === undefined) throw new Error('desktop menu: rejected sender')
       if ((name !== 'application' && name !== 'edit')
         || typeof x !== 'number' || typeof y !== 'number' || !Number.isFinite(x) || !Number.isFinite(y)
         || x < 0 || y < 0 || x > 100_000 || y > 100_000) throw new Error('desktop menu: invalid popup request')
-      const window = mainWindow
       // Editor-owned history listens to key events rather than Chromium's native undo stack.
       const editItem = (label: string, keyCode: string, modifiers: Array<'control'>, accelerator?: string): MenuItemConstructorOptions => ({
         label,
@@ -1424,20 +1432,19 @@ async function main(): Promise<void> {
         { type: 'separator' },
         editItem(currentDesktopLocale().messages.selectAll, 'A', ['control'], 'Ctrl+A'),
       ]
-      const zoom = mainWindow.webContents.getZoomFactor()
+      const zoom = window.webContents.getZoomFactor()
       return new Promise<void>((resolve) => {
         Menu.buildFromTemplate(items).popup({ window, x: Math.round(x * zoom), y: Math.round(y * zoom), callback: resolve })
       })
     })
     ipcMain.on(DESKTOP_IPC.windowsAppearance, (event, _language: unknown, color: unknown, symbolColor: unknown) => {
-      if (mainWindow === undefined || event.sender !== mainWindow.webContents
-        || event.senderFrame !== mainWindow.webContents.mainFrame) return
-      if (!event.senderFrame.url.startsWith(`${SCHEME}://app/`)) return
+      const window = ownedProductWindow(event)
+      if (window === undefined || !event.senderFrame?.url.startsWith(`${SCHEME}://app/`)) return
       // Document lang starts as English before Host locale bootstrap; only localeChanged owns shell language.
       // Empty colors precede client stylesheet installation; only CSS color values cross IPC.
       const validColor = (value: unknown): value is string => typeof value === 'string'
         && /^(?:#[\da-f]{3,8}|rgba?\([\d.,%\s]+\))$/iu.test(value)
-      if (validColor(color) && validColor(symbolColor)) mainWindow.setTitleBarOverlay({ color, symbolColor })
+      if (validColor(color) && validColor(symbolColor)) window.setTitleBarOverlay({ color, symbolColor })
     })
   }
 
@@ -1514,6 +1521,49 @@ async function main(): Promise<void> {
     })
     return window
   }
+  const saveConversationWindows = conversationWindowStore(app.getPath('userData'))
+  /**
+   * Open a secondary conversation window running the app page under its own id.
+   * @param id - desktop-owned window id that scopes the window's tab layout and selection.
+   * @param sessionId - chat a newly moved window opens first; a restored window reopens its own tabs.
+   */
+  const openConversationWindow = async (id: string, sessionId?: string): Promise<void> => {
+    if (quitting) return
+    const window = createWindow(appPreload, false, true,
+      [`${CONVERSATION_WINDOW_ARG}${id}`, ...sessionId === undefined ? [] : [`${CONVERSATION_SESSION_ARG}${sessionId}`]])
+    conversationWindows.set(id, window)
+    void saveConversationWindows([...conversationWindows.keys()])
+    browserGuests.bind(window, (guest, name) => shortcuts.attachGuest(window, guest, name))
+    shortcuts.attach(window)
+    window.on('closed', () => {
+      if (conversationWindows.get(id) !== window) return
+      conversationWindows.delete(id)
+      // Windows open when Jan quits come back on the next launch; one the user closes does not.
+      if (quitting || shuttingDown || shellInstallerOwnsQuit || sessionEnding) return
+      void saveConversationWindows([...conversationWindows.keys()])
+    })
+    window.webContents.on('render-process-gone', (_event, details) => {
+      if (details.reason !== 'clean-exit') console.error(`desktop windows: conversation window renderer exited: ${details.reason}`)
+    })
+    // A dragged-out tab lands under the pointer, where the user let it go.
+    if (sessionId !== undefined) {
+      const point = screen.getCursorScreenPoint()
+      window.setPosition(Math.max(0, point.x - 160), Math.max(0, point.y - 24))
+    }
+    await window.loadURL(applicationUrl)
+    if (!quitting && !window.isDestroyed()) window.show()
+  }
+  ipcMain.handle(DESKTOP_IPC.conversationWindowMove, conversationWindowMoveHandler(
+    id => productWindows().some(window => window.webContents.id === id),
+    sessionId => openConversationWindow(randomUUID(), sessionId)))
+  let conversationWindowsRestored = false
+  const restoreConversationWindows = (): void => {
+    if (conversationWindowsRestored) return
+    conversationWindowsRestored = true
+    for (const id of readConversationWindowIds(app.getPath('userData'))) {
+      void openConversationWindow(id).catch((error: unknown) => { console.error('desktop windows: could not reopen a window', error) })
+    }
+  }
   const openDevelopmentTools = (window: BrowserWindow): void => {
     if (!development || process.env.JAN_DESKTOP_OPEN_DEVTOOLS === '0') return
     // Activating the detached inspector takes key-window status from the workspace
@@ -1564,6 +1614,7 @@ async function main(): Promise<void> {
     if (activate) window.show()
     else window.showInactive()
     enteredWorkspace = true
+    restoreConversationWindows()
     if (welcomeWindow !== undefined) {
       welcomeWindow.close()
       // Only a chosen destination travels with the message; a plain entry keeps the bare event.
@@ -1711,7 +1762,7 @@ async function main(): Promise<void> {
     notifications.dispose()
     stopAccount?.()
     if (welcomeWindow !== undefined && !welcomeWindow.isDestroyed()) welcomeWindow.hide()
-    if (mainWindow !== undefined && !mainWindow.isDestroyed()) mainWindow.hide()
+    for (const window of productWindows()) window.hide()
     updateSchedule.dispose()
     updateDialog.dispose()
     mandatoryUI?.dispose()

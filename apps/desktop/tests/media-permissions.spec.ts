@@ -11,10 +11,10 @@ function fixture(platform: NodeJS.Platform = 'darwin') {
   const setPermissionCheckHandler = vi.fn<Session['setPermissionCheckHandler']>()
   const setPermissionRequestHandler = vi.fn<Session['setPermissionRequestHandler']>()
   const primary = {} as WebContents
-  installMediaPermissions({ setPermissionCheckHandler, setPermissionRequestHandler }, () => primary)
+  installMediaPermissions({ setPermissionCheckHandler, setPermissionRequestHandler }, contents => contents === primary)
   return { primary, check: setPermissionCheckHandler.mock.calls[0]![0]!, request: setPermissionRequestHandler.mock.calls[0]![0]! }
 }
-it('allows microphone and camera checks only from the owned primary application frame', () => {
+it('allows microphone and camera checks only from an owned application frame', () => {
   const f = fixture(), details = { isMainFrame: true, mediaType: 'audio' as const }
   expect(f.check(f.primary, 'media', 'jan-app://app', details)).toBe(true)
   expect(f.check(null, 'media', 'jan-app://app', details)).toBe(false)
