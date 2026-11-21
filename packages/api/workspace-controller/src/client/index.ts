@@ -20,7 +20,7 @@ export type { IWorkspaces, WorkspaceSource } from './service.ts'
 export { workspaceDisplayTitle } from '../default-workspace.ts'
 export type {
   SessionActivity, SessionActivityItem, SessionActivityKind, SessionActivityKindMap, WorkspaceId,
-  WorkspaceView,
+  WorkspaceAvatar, WorkspaceColor, WorkspaceIcon, WorkspaceIdentityPatch, WorkspaceUpdateRequest, WorkspaceView,
 } from '../types.ts'
 
 type WorkspaceBaselineFrame = Extract<WorkspaceFollowFrame, { type: 'baseline' }>

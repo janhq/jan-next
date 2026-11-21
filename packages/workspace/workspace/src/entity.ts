@@ -12,7 +12,7 @@ import { stat } from 'node:fs/promises'
 import type { SessionHeader, SessionId } from '@janhq/jan-session'
 import type { KvTable } from '@janhq/jan-storage-domain'
 import type { WorkspaceRecord } from './spec.ts'
-import type { Workspace, WorkspaceId } from './types.ts'
+import type { Workspace, WorkspaceAvatar, WorkspaceColor, WorkspaceId, WorkspaceIdentityPatch } from './types.ts'
 import { realpathNormalize } from './paths.ts'
 
 /** An insertSessionBefore request named a session or anchor not on the account (storage failures stay plain errors). */
@@ -91,6 +91,14 @@ export class WorkspaceEntity implements Workspace {
     return this.record.title
   }
 
+  get color(): WorkspaceColor | undefined {
+    return this.record.color
+  }
+
+  get avatar(): WorkspaceAvatar | undefined {
+    return this.record.avatar
+  }
+
   get createdAt(): string {
     return this.record.createdAt
   }
@@ -105,6 +113,18 @@ export class WorkspaceEntity implements Workspace {
 
   async setTitle(title: string): Promise<void> {
     await this.mutate(record => ({ ...record, title }))
+  }
+
+  /** @param patch - title and optional appearance changes, applied in one write. */
+  async updateIdentity(patch: WorkspaceIdentityPatch): Promise<void> {
+    await this.mutate((record) => {
+      const title = patch.title ?? record.title
+      const color = patch.color === undefined ? record.color : patch.color ?? undefined
+      const avatar = patch.avatar === undefined ? record.avatar : patch.avatar ?? undefined
+      return title === record.title && color === record.color && sameAvatar(avatar, record.avatar)
+        ? record
+        : { ...record, title, color, avatar }
+    })
   }
 
   async attachSession(sessionId: SessionId): Promise<void> {
@@ -219,4 +239,10 @@ export class WorkspaceEntity implements Workspace {
     }
     this.record = next
   }
+}
+
+function sameAvatar(left: WorkspaceAvatar | undefined, right: WorkspaceAvatar | undefined): boolean {
+  if (left === right) return true
+  return left?.kind === 'icon' ? right?.kind === 'icon' && left.name === right.name
+    : left?.kind === 'emoji' && right?.kind === 'emoji' && left.value === right.value
 }

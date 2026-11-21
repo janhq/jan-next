@@ -18,7 +18,7 @@ export { WorkspaceMoveInvalidError } from './entity.ts'
 import { defaultWorkspaceTitle, fullyQualifiedWorkspacePath, realpathNormalize } from './paths.ts'
 import { workspaceDomainSpec } from './spec.ts'
 import type { WorkspaceDomainState, WorkspaceRecord } from './spec.ts'
-import type { SessionActivity, Workspace, WorkspaceId as WorkspaceIdBrand } from './types.ts'
+import type { SessionActivity, Workspace, WorkspaceId as WorkspaceIdBrand, WorkspaceIdentityPatch } from './types.ts'
 
 export type {
   SessionActivity, SessionActivityItem, SessionActivityKind, SessionActivityKindMap, Workspace,
@@ -321,6 +321,20 @@ export class WorkspaceRegistry extends Service {
    */
   get(id: WorkspaceId): Workspace | undefined {
     return this.entities.get(id)
+  }
+
+  /**
+   * Apply one durable project identity edit without changing its path or ID.
+   * @param id - Target Workspace id.
+   * @param patch - Already validated title and appearance changes.
+   * @returns the changed Workspace, or `undefined` when it no longer exists.
+   */
+  updateIdentity(id: WorkspaceId, patch: WorkspaceIdentityPatch): Promise<Workspace | undefined> {
+    return this.enqueueOperation(async () => {
+      const entity = this.entities.get(id)
+      if (entity !== undefined) await entity.updateIdentity(patch)
+      return entity
+    })
   }
 
   /**
