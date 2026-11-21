@@ -61,6 +61,13 @@ test('install failures from the remote script are read back as sentences', () =>
   assert.match(installFailure({ code: 3, stdout: '', stderr: 'JAN_HOSTS_INSTALL_CORRUPT 00ff' }), /arrived damaged/)
   assert.match(installFailure({ code: 2, stdout: '', stderr: 'tar: jan/x: Cannot write: No space left on device' }), /out of disk space/)
   assert.match(installFailure({ code: 255, stdout: '', stderr: 'Permission denied (publickey).' }), /refused the SSH login/)
+  // A link cut mid-copy names the fix, not ssh's wording.
+  assert.equal(installFailure({ code: 255, stdout: '', stderr: 'Connection to 127.0.0.1 closed by remote host.' }),
+    'The connection dropped while Jan was being copied. Connect again to resend it.')
+  assert.equal(installFailure({ code: 1, stdout: '', stderr: 'mv: cannot move x.' }), 'Jan could not be installed there: mv: cannot move x.')
+  // A remote end killed mid-copy can leave ssh silent; the short copy still names the fix.
+  assert.match(installFailure({ code: 143, stdout: '', stderr: '' }, false), /connection dropped/)
+  assert.match(installFailure({ code: 2, stdout: '', stderr: 'tar: Cannot write: No space left on device' }, false), /out of disk space/)
   // A zero exit without the marker is a shell that ran something else.
   assert.match(installFailure({ code: 0, stdout: '', stderr: '' }), /could not be installed there\./)
 })

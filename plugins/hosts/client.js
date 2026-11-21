@@ -6,6 +6,8 @@ window.__ModuleLoader__.load({
     const h = React.createElement
     const { Button, Input, Switch, Tag, StateDot, RiskConfirmation, IconLinkOutlineRegular } = require('@janhq/jan-client-ui-primitives')
     const NS = 'jan-hosts'
+    // Below this many config Hosts the whole list fits the picker, so a filter box is noise.
+    const FILTER_FROM = 8
 
     const COPY = {
       en: {
@@ -28,7 +30,7 @@ window.__ModuleLoader__.load({
         connecting: 'Connecting...',
         'progress.checking': 'Checking that computer...',
         'progress.copying': 'Copying Jan to that computer...',
-        'progress.copyingBytes': 'Copying Jan to that computer: {sent} of {total} MB',
+        'progress.copyingBytes': 'Copying Jan: {sent} of {total} MB',
         'progress.starting': 'Starting Jan there...',
         disconnect: 'Disconnect',
         'kind.url': 'Address',
@@ -40,6 +42,7 @@ window.__ModuleLoader__.load({
         'state.connecting': 'Connecting',
         'form.name': 'Name',
         'form.namePlaceholder': 'Office desktop',
+        'form.namePlaceholderSsh': 'Optional: the host name is used',
         'form.kind': 'How to reach it',
         'form.url': 'Jan link',
         'form.urlHelp': 'Paste the whole jan web: line from that computer, including ?token=. The token signs you in and is stored only on this computer.',
@@ -51,6 +54,9 @@ window.__ModuleLoader__.load({
         'import.lede': 'Choose the computers to add. Jan connects by the Host name, so your keys, ports and proxies from the config still apply.',
         'import.loading': 'Reading your SSH config...',
         'import.empty': 'Your SSH config has no Host entries to import.',
+        'import.filter': 'Filter {count} hosts',
+        'import.filterLabel': 'Filter hosts',
+        'import.noMatch': 'No host matches.',
         'import.saved': 'Already added',
         'import.submit': 'Import {count}',
         'import.none': 'Import',
@@ -101,6 +107,8 @@ window.__ModuleLoader__.load({
 .jh-name > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jh-detail { color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; user-select: text; font-variant-numeric: tabular-nums; }
 .jh-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; flex-shrink: 0; }
+/* Connect and Disconnect share one slot; a fixed width keeps every row's buttons in one column. */
+.jh-primary { min-width: 88px; justify-content: center; }
 .jh-note { font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-secondary); overflow-wrap: anywhere; }
 .jh-note[data-error] { color: var(--dsw-alias-state-error-primary); }
 .jh-empty { margin: 0; padding: 14px 0; color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 20px; }
@@ -110,10 +118,11 @@ window.__ModuleLoader__.load({
 .jh-kinds { display: flex; gap: 16px; border: 0; margin: 0; padding: 0; }
 .jh-kinds legend { padding: 0; margin-bottom: 6px; font-size: 13px; }
 .jh-kinds label { flex-direction: row; align-items: center; gap: 6px; }
-.jh-pick { display: flex; flex-direction: column; max-height: 320px; overflow-y: auto; }
-.jh-pick label { flex-direction: row; align-items: center; gap: 10px; padding: 6px 0; }
+/* The border marks the box's edge, so rows cut at its bottom read as more below, not as the end. */
+.jh-pick { display: flex; flex-direction: column; max-height: 320px; overflow-y: auto; border: 0.5px solid var(--dsw-alias-border-l2); border-radius: 8px; padding: 2px 10px; }
+.jh-pick label { flex-direction: row; align-items: center; gap: 10px; padding: 6px 0; min-width: 0; }
 .jh-pick label[data-saved] { color: var(--dsw-alias-label-secondary); }
-.jh-pick .jh-detail { margin-inline-start: auto; text-align: end; }
+.jh-pick .jh-detail { margin-inline-start: auto; text-align: end; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
 .jh-pair { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; padding: 16px; border-radius: 12px; background: var(--dsw-alias-settings-card-fill); }
 .jh-qr { flex-shrink: 0; width: 200px; aspect-ratio: 1; padding: 8px; border-radius: 8px; background: #fff; color: #000; }
 .jh-qr svg { display: block; width: 100%; height: 100%; }
@@ -183,7 +192,8 @@ window.__ModuleLoader__.load({
           }
         },
       },
-        h('label', null, t('form.name'), h(Input, { name: 'name', required: true, maxLength: 64, defaultValue: initial?.name, placeholder: t('form.namePlaceholder'), autoComplete: 'off' })),
+        // An SSH Host left unnamed takes its host name; an Address has nothing readable to fall back on.
+        h('label', null, t('form.name'), h(Input, { name: 'name', required: kind !== 'ssh', maxLength: 64, defaultValue: initial?.name, placeholder: kind === 'ssh' ? t('form.namePlaceholderSsh') : t('form.namePlaceholder'), autoComplete: 'off' })),
         h('fieldset', { className: 'jh-kinds' }, h('legend', null, t('form.kind')),
           ['url', 'ssh'].map(value => h('label', { key: value },
             h('input', { type: 'radio', name: 'kindChoice', value, checked: kind === value, onChange: () => setKind(value) }), t(`kind.${value}`)))),
@@ -204,7 +214,11 @@ window.__ModuleLoader__.load({
 
     function SshImport({ t, onDone, onCancel }) {
       const [hosts, setHosts] = React.useState(null)
+      const [filter, setFilter] = React.useState('')
       const [chosen, setChosen] = React.useState(() => new Set())
+      const address = host => [host.user && `${host.user}@`, host.hostName ?? host.alias, host.port && `:${host.port}`].filter(Boolean).join('')
+      const needle = filter.trim().toLowerCase()
+      const shown = hosts === null || needle === '' ? (hosts ?? []) : hosts.filter(host => `${host.alias} ${address(host)}`.toLowerCase().includes(needle))
       const [error, setError] = React.useState(null)
       const [saving, setSaving] = React.useState(false)
       React.useEffect(() => {
@@ -244,11 +258,14 @@ window.__ModuleLoader__.load({
         h('p', { className: 'jh-lede' }, t('import.lede')),
         hosts === null && !error && h('p', { className: 'jh-lede', role: 'status' }, t('import.loading')),
         hosts !== null && hosts.length === 0 && h('p', { className: 'jh-empty' }, t('import.empty')),
-        hosts !== null && hosts.length > 0 && h('div', { className: 'jh-pick' }, hosts.map(host => h('label', { key: host.alias, 'data-saved': host.saved ? '' : undefined },
+        hosts !== null && hosts.length > FILTER_FROM && h(Input, {
+          type: 'search', value: filter, onChange: event => setFilter(event.currentTarget.value), placeholder: t('import.filter', { count: hosts.length }),
+          'aria-label': t('import.filterLabel'), autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false,
+        }),
+        hosts !== null && hosts.length > 0 && h('div', { className: 'jh-pick' }, shown.length === 0 && h('p', { className: 'jh-empty' }, t('import.noMatch')), shown.map(host => h('label', { key: host.alias, 'data-saved': host.saved ? '' : undefined },
           h('input', { type: 'checkbox', checked: host.saved || chosen.has(host.alias), disabled: host.saved || saving, onChange: (event) => toggle(host.alias, event.currentTarget.checked) }),
           h('span', null, host.alias),
-          h('span', { className: 'jh-detail' }, host.saved ? t('import.saved')
-            : [host.user && `${host.user}@`, host.hostName ?? host.alias, host.port && `:${host.port}`].filter(Boolean).join(''))))),
+          h('span', { className: 'jh-detail', title: address(host) }, host.saved ? t('import.saved') : address(host))))),
         error && h('div', { className: 'jh-note', role: 'alert', 'data-error': '', style: { whiteSpace: 'pre-line' } }, error),
         h('div', { className: 'jh-actions', style: { justifyContent: 'flex-start' } },
           h(Button, { type: 'submit', variant: 'primary', size: 'sm', disabled: saving || chosen.size === 0 }, chosen.size === 0 ? t('import.none') : t('import.submit', { count: chosen.size })),
@@ -283,12 +300,13 @@ window.__ModuleLoader__.load({
         h('div', { className: 'jh-info' },
           h('div', { className: 'jh-name' }, h('span', null, host.name), h(Tag, { tone: 'neutral' }, t(`kind.${host.kind}`)),
             h(Tag, { tone: ready ? 'success' : 'outline' }, t(ssh ? sshState : (host.signedIn ? 'state.signedIn' : 'state.signIn')))),
-          h('div', { className: 'jh-detail' }, ssh ? host.ssh : host.url),
+          h('div', { className: 'jh-detail' }, ssh ? (host.address ?? host.ssh) : host.url),
           connecting && h('div', { className: 'jh-note', role: 'status' }, progressText(t, host.progress)),
           note && h('div', { className: 'jh-note', role: note.error ? 'alert' : 'status', 'data-error': note.error || undefined }, note.text)),
         h('div', { className: 'jh-actions' },
-          ssh && !connected && h(Button, { size: 'sm', variant: 'outline', disabled: busy !== undefined, onClick: connect }, t('connect')),
-          ssh && connected && h(Button, { size: 'sm', variant: 'outline', disabled: busy !== undefined, onClick: () => run(host.id, 'disconnect', async () => { await api('disconnect', { id: host.id }) }) }, t('disconnect')),
+          // A Connect started before a reload still runs on the Host; its progress keeps the row busy.
+          ssh && !connected && h(Button, { size: 'sm', variant: 'outline', className: 'jh-primary', disabled: busy !== undefined || connecting, onClick: connect }, t('connect')),
+          ssh && connected && h(Button, { size: 'sm', variant: 'outline', className: 'jh-primary', disabled: busy !== undefined, onClick: () => run(host.id, 'disconnect', async () => { await api('disconnect', { id: host.id }) }) }, t('disconnect')),
           h(Button, {
             size: 'sm', variant: 'outline', disabled: busy !== undefined || (ssh && !connected), onClick: () => run(host.id, 'test', async () => {
               const result = await api('test', { id: host.id })
@@ -341,7 +359,8 @@ window.__ModuleLoader__.load({
         const timer = setInterval(() => { void refresh() }, 1000)
         return () => clearInterval(timer)
       }, [connectingNow, refresh])
-      const act = (id, key, task) => run(id, key, async () => { const note = await task(); await refresh(); return note })
+      // The import note answers the import; the next row action moves on from it.
+      const act = (id, key, task) => { setImported(null); return run(id, key, async () => { const note = await task(); await refresh(); return note }) }
 
       if (state === null) {
         return h('section', { className: 'jh' }, loadError

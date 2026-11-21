@@ -46,6 +46,13 @@ test('an SSH Host is its destination alone, saved once however it is written', a
   await assert.rejects(store.saveConnection({ name: 'Pi again', kind: 'ssh', ssh: 'pi@PI.LOCAL:2222' }), { code: 'duplicate' })
 })
 
+test('an SSH Host saved without a name is called by its destination; an address still needs one', async (t) => {
+  const store = await home(t)
+  const { connection } = await store.saveConnection({ name: '  ', kind: 'ssh', ssh: 'pi@Pi.local' })
+  assert.equal(connection.name, 'pi@pi.local')
+  await assert.rejects(store.saveConnection({ name: '', kind: 'url', url: 'http://10.0.0.2:3080' }), { code: 'name' })
+})
+
 test('editing an SSH Host saved by an older Jan drops its command, profile and port', async (t) => {
   const store = await home(t)
   await mkdir(dirname(store.connectionsFile), { recursive: true })

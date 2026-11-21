@@ -121,7 +121,9 @@ export class HostsStore {
   saveConnection(input) {
     return withFileLock(this.connectionsFile, async () => {
       const list = await this.connections()
-      const entry = { id: input.id ?? randomUUID(), name: name(input.name), kind: input.kind }
+      // An SSH entry left unnamed is called by its destination, the way the ssh config names it.
+      const unnamedSsh = input.kind === 'ssh' && (typeof input.name !== 'string' || !input.name.trim())
+      const entry = { id: input.id ?? randomUUID(), name: unnamedSsh ? '' : name(input.name), kind: input.kind }
       let token
       if (input.kind === 'url') {
         const parsed = parseHostUrl(input.url)
@@ -130,6 +132,7 @@ export class HostsStore {
       } else if (input.kind === 'ssh') {
         // Hosts installs and starts its own Jan there, so the SSH destination is the whole entry.
         entry.ssh = sshKey(parseSshTarget(input.ssh))
+        if (unnamedSsh) entry.name = name(entry.ssh)
       } else {
         throw new HostsError('kind', 'Choose Address or SSH.')
       }

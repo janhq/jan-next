@@ -47,6 +47,7 @@
     "@janhq/jan-cordis-host-runner": "workspace:*",
     "@janhq/jan-credentials": "workspace:*",
     "@janhq/jan-edge-app": "workspace:*",
+    "@janhq/jan-experimental-speech-to-text": "workspace:*",
     "@janhq/jan-file-reference": "workspace:*",
     "@janhq/jan-fs": "workspace:*",
     "@janhq/jan-fs-local": "workspace:*",

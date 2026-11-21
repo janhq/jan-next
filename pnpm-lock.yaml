@@ -1062,6 +1062,9 @@ importers:
       '@janhq/jan-edge-app':
         specifier: workspace:*
         version: link:../../plugins/edge-app
+      '@janhq/jan-experimental-speech-to-text':
+        specifier: workspace:*
+        version: link:../../packages/experimental/speech-to-text
       '@janhq/jan-file-reference':
         specifier: workspace:*
         version: link:../../packages/context/file-reference

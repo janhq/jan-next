@@ -1,6 +1,7 @@
 /**
  * Build the archive Settings → Hosts copies to another computer over SSH: the pinned Node, the
- * `@janhq/jan-host-runtime` closure deployed for one Linux target, and that target's flock addon.
+ * `@janhq/jan-host-runtime` closure deployed for one target, and that target's native programs
+ * (flock addon; on Linux also the `landlock-run` sandbox launcher).
  * The other computer needs nothing installed and no internet; see apps/jan-host-runtime/README.md.
  */
 import { spawn } from 'node:child_process'
@@ -22,12 +23,23 @@ const closureName = '@janhq/jan-host-runtime'
 export const HOST_RUNTIME_TARGETS = ['linux-x64', 'linux-arm64', 'darwin-arm64', 'darwin-x64'] as const
 export type HostRuntimeTarget = typeof HOST_RUNTIME_TARGETS[number]
 
-/** Per target: the primary-runtime lock entry with its pinned Node, and pnpm's os/cpu/libc filters. */
-const TARGETS: Record<HostRuntimeTarget, { lock: keyof typeof lock.targets; os: string; cpu: string; libc?: string; addon: string }> = {
-  'linux-x64': { lock: 'linux-x64', os: 'linux', cpu: 'x64', libc: 'glibc', addon: 'bin/glibc/system.node' },
-  'linux-arm64': { lock: 'linux-arm64', os: 'linux', cpu: 'arm64', libc: 'glibc', addon: 'bin/glibc/system.node' },
-  'darwin-arm64': { lock: 'mac-arm64', os: 'darwin', cpu: 'arm64', addon: 'bin/system.node' },
-  'darwin-x64': { lock: 'mac-x64', os: 'darwin', cpu: 'x64', addon: 'bin/system.node' },
+/**
+ * Per target: the primary-runtime lock entry with its pinned Node, pnpm's os/cpu/libc filters, the
+ * flock addon, and the native launchers the sandbox needs (macOS confines with its own Seatbelt).
+ */
+interface TargetBuild {
+  lock: keyof typeof lock.targets
+  os: string
+  cpu: string
+  libc?: string
+  addon: string
+  launchers: readonly string[]
+}
+const TARGETS: Record<HostRuntimeTarget, TargetBuild> = {
+  'linux-x64': { lock: 'linux-x64', os: 'linux', cpu: 'x64', libc: 'glibc', addon: 'bin/glibc/system.node', launchers: ['bin/landlock-run'] },
+  'linux-arm64': { lock: 'linux-arm64', os: 'linux', cpu: 'arm64', libc: 'glibc', addon: 'bin/glibc/system.node', launchers: ['bin/landlock-run'] },
+  'darwin-arm64': { lock: 'mac-arm64', os: 'darwin', cpu: 'arm64', addon: 'bin/system.node', launchers: [] },
+  'darwin-x64': { lock: 'mac-x64', os: 'darwin', cpu: 'x64', addon: 'bin/system.node', launchers: [] },
 }
 /** Archive layout version Hosts reads from `build.json`. */
 export const HOST_RUNTIME_FORMAT = 1
@@ -73,21 +85,25 @@ export function archiveName(version: string, target: HostRuntimeTarget): string 
 }
 
 /**
- * Copy the target's flock addon into the deployed closure. pnpm installs the platform package's
- * manifest but not its `bin/`, which `native/system` builds on a machine of that target.
+ * Copy the target's native programs into the deployed closure: the flock addon, and on Linux the
+ * `landlock-run` launcher, without which the remote Jan refuses every shell command for want of a
+ * sandbox. pnpm installs the platform package's manifest but not its `bin/`, which `native/system`
+ * builds on a machine of that target.
  * @param staging - deployed `jan/` directory.
  * @param target - build target.
  * @param source - the target's `native/system/packages/<target>` directory, or a copy of it.
  */
-async function stageFlock(staging: string, target: HostRuntimeTarget, source: string): Promise<void> {
-  const relative = TARGETS[target].addon
-  const addon = join(source, relative)
-  if (!existsSync(addon)) {
-    throw new Error(`host-runtime build: ${addon} is missing; run \`pnpm --dir native/system run build:native\` on a ${target} machine, or pass --natives`)
+async function stageNatives(staging: string, target: HostRuntimeTarget, source: string): Promise<void> {
+  const { addon, launchers } = TARGETS[target]
+  for (const relative of [addon, ...launchers]) {
+    const file = join(source, relative)
+    if (!existsSync(file)) {
+      throw new Error(`host-runtime build: ${file} is missing; run \`pnpm --dir native/system run build:native\` on a ${target} machine, or pass --natives`)
+    }
+    const destination = join(staging, 'node_modules', '@janhq', `node-addon-system-${target}`, relative)
+    await mkdir(dirname(destination), { recursive: true })
+    await cp(file, destination)
   }
-  const destination = join(staging, 'node_modules', '@janhq', `node-addon-system-${target}`, relative)
-  await mkdir(dirname(destination), { recursive: true })
-  await cp(addon, destination)
 }
 
 /** Drop every node-pty prebuild except the target's; the closure deploys all six. */
@@ -168,7 +184,7 @@ async function main(): Promise<void> {
       '--config.hoist-workspace-packages=false', `--config.pnpmfile=${join(root, 'scripts', 'python-runtime-deploy.pnpmfile.mjs')}`, staging)
     for (const path of globSync(PRUNED, { cwd: staging })) await rm(join(staging, path), { force: true })
     await pruneNodePty(staging, target)
-    await stageFlock(staging, target, natives)
+    await stageNatives(staging, target, natives)
     await stageNode(product, target, cache)
     const executables = await programFiles(product)
     if (!executables.includes('node/bin/node')) throw new Error('host-runtime build: node/bin/node is not a native program')
