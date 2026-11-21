@@ -18129,6 +18129,15 @@ importers:
         specifier: workspace:*
         version: link:../../packages/web/tool-web
 
+  plugins/diagnostics:
+    dependencies:
+      '@janhq/jan-native-command':
+        specifier: workspace:*
+        version: link:../../packages/util/native-command
+      '@janhq/jan-plugin-api':
+        specifier: workspace:*
+        version: link:../plugin-api
+
   plugins/downloads: {}
 
   plugins/jan-always-on:
