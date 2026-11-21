@@ -36,7 +36,7 @@ export const en = {
   'subtitle.collapse': 'Collapse description for {name}',
   'back': 'Back',
   'brand.localBuild': 'Jan',
-  'workspace.defaultName': 'Default folder',
+  'workspace.defaultName': 'Default project',
   'unknown': 'Unknown',
   'none': 'None',
   'truncated': 'Truncated',
