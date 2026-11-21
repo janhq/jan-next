@@ -61,6 +61,8 @@ Edits to typed calendar timing use the shared recurrence evaluator to find the f
 
 The manager, task tabs, row marks, and conversation-header projections share one observable `schedule.catalog` source. Header and row views filter active records by involvement and delivery target. Mutations use task-id-based `schedule.create`, `schedule.edit`, and `schedule.run`; history uses task identity and cursor without a Session ownership parameter. A mutation acknowledgment triggers a fresh authoritative read; a failed read remains a catalog error rather than changing the acknowledged write into a failure.
 
+Other browser surfaces can subscribe to the same source through `ctx.hostTaskCatalog` while catalog access is allowed.
+
 Sidebar layout records omit opener parameters. `TaskTabBindings` therefore persists task identity by Session and tab id in localStorage, without storing task content. Closed tab bindings are pruned. Observable catalog requests subscribe only while read, invalidate on Schedule changes and connection reset, and retire outstanding reads after the final subscriber leaves.
 
 </details>
