@@ -458,6 +458,20 @@ function relaySender(source: unknown): string | null {
   return typeof sender === 'string' && sender !== '' ? sender : null
 }
 
+/** Preview the first line exactly as the model receives its adjacent text blocks. */
+function relayPreview(content: ContextMessageNode['content']): string | null {
+  const limit = 120
+  let text = ''
+  for (const block of content) {
+    if (block.type !== 'text') break
+    text += block.text.slice(0, limit + 1 - text.length)
+    const lineEnd = text.search(/[\r\n]/u)
+    if (lineEnd !== -1) return text.slice(0, lineEnd).trim() || null
+    if (text.length > limit) return `${text.slice(0, limit - 1).trimEnd()}…`
+  }
+  return text.trim() || null
+}
+
 /** One recalled session, as the durable source records it. */
 interface RecalledSession {
   label: string
@@ -542,8 +556,7 @@ function noticeSummary(source: unknown): string | null {
  * Returns the form the body actually rendered as, which is not always the
  * declared one: a declared form whose fields are unreadable falls back to
  * opaque, and the caller labels the row with what it really shows.
- * `summary` is the collapsed row's one-line account, which only a `notice`
- * records: its whole point is being readable without expanding.
+ * `summary` is the collapsed row's recorded notice or first line of a relay.
  * @param form - the producer-declared form projected onto the node.
  * @param props - durable content, its source, and the locale seat.
  * @returns the rendered form (null for opaque), its collapsed summary, and its body.
@@ -575,7 +588,7 @@ export function contextBody(
     case 'relay':
       return relaySender(props.source) === null
         ? opaque
-        : { rendered: 'relay', summary: null, body: <RelayBody {...props} /> }
+        : { rendered: 'relay', summary: relayPreview(props.content), body: <RelayBody {...props} /> }
     case 'recall':
       return recalledSessions(props.source) === null
         ? opaque
