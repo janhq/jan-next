@@ -10,11 +10,16 @@
   padding: 0 var(--jan-composer-side-clearance) 4px;
 }
 
+/* A size container, so the row's extras can drop out before they collide when
+   the pane is narrow (ConversationRoot `.heroOptions`). Full width, because an
+   inline-size container cannot size to its content; the items stay centered. */
 .dock {
+  container: composer-dock / inline-size;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
+  width: 100%;
   max-width: 100%;
   padding-top: 4px;
 }
