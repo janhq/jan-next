@@ -14,7 +14,7 @@ import type {
   ChatNode, ChatNodeHookContext, ChatNodeOwnerProps, ChatSnapshot, UserBeforeOwnerProps,
   ChatViewSlotProps, CommandNode, CompactionSummaryNode, ContextMessageNode, ConversationNode,
   LegacyConversationSlice, ModelRetryNode, StartedToolCall, SteeringMessageNode,
-  ToolCallBlock, ToolResultNode, TurnErrorNode, TurnMaxTokensNode,
+  ToolCallBlock, ToolResultNode, TurnErrorActionOwnerProps, TurnErrorNode, TurnMaxTokensNode,
   TranscriptViewMode, UserContentInput, UserMessageNode,
 } from '@janhq/jan-client-ui-chat/client'
 import type {
@@ -294,8 +294,10 @@ const renderCommandSlot: React.ComponentProps<typeof CommandNodeView>['renderSlo
   (_key, _owner, opts) => opts?.fallback ?? null
 const renderTurnTailSlot: React.ComponentProps<typeof TurnTailNodeView>['renderSlot'] = () => null
 // A plugin action that answers only one failure code, so other failure rows render as shipped.
-const renderTurnErrorSlot: React.ComponentProps<typeof TurnErrorNodeView>['renderSlot'] = (_key, owner) =>
-  owner.code === 'PLUGIN_HANDLED' ? <button type="button">{`Report turn ${String(owner.turn)} at ${String(owner.seq)}`}</button> : null
+const renderTurnErrorSlot: React.ComponentProps<typeof TurnErrorNodeView>['renderSlot'] = (_key, owner) => {
+  const failure = owner as TurnErrorActionOwnerProps
+  return failure.code === 'PLUGIN_HANDLED' ? <button type="button">{`Report turn ${String(failure.turn)} at ${String(failure.seq)}`}</button> : null
+}
 
 function HarnessChatFlow({ standard, owner, hookContext, renderSlot, useConnectionState }: {
   readonly standard: HarnessStandardProps
