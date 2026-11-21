@@ -41,6 +41,7 @@ async function withImporter(callback) {
   const ctx = {
     fiber: {},
     effect: callback => callback(),
+    inject: () => {},
     webServer: api,
     connection: { requestRejection: () => undefined },
     sessions: { get: () => undefined, prepare: (id, { meta }) => ({ header: { id, ...meta }, inheritedEventCount: 0 }) },
