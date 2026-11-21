@@ -334,6 +334,13 @@ Host service backing the generated `ctx.remote.workspace` namespace.
 @Remote('rename') rename(request: WorkspaceRenameRequest): Promise<WorkspaceValue>
 
 /**
+ * Change the Workspace title and appearance in one durable update.
+ * @param request - Workspace id and changed identity fields; null clears appearance.
+ * @returns the updated Workspace projection.
+ */
+@Remote('update') update(request: WorkspaceUpdateRequest): Promise<WorkspaceValue>
+
+/**
  * Remove one Workspace registration while retaining files and Sessions.
  * @param request - Workspace identity to remove.
  * @returns deletion confirmation.
@@ -478,6 +485,14 @@ Durable workspace registry. Startup waits for `sessionPersistence`, builds one c
 async create(path: string, title?: string): Promise<Workspace>
 
 /**
+ * Adopt an existing directory and report whether this call registered it.
+ * @param path - Fully qualified directory path.
+ * @param title - Display title used only for a new registration.
+ * @returns the Workspace and whether its registration was created by this call.
+ */
+async adopt(path: string, title?: string): Promise<WorkspaceAdoption>
+
+/**
  * Ensure the default Workspace exists, beginning a fresh registration after deletion.
  * @param resolveDirectory - Resolve the directory inside the mutation queue when no active default exists.
  * @returns the registered default without changing any existing Session membership.
@@ -497,6 +512,14 @@ ensureDefault(signal: AbortSignal = new AbortController().signal): Promise<Works
  * @returns the workspace, or `undefined` when unknown.
  */
 get(id: WorkspaceId): Workspace | undefined
+
+/**
+ * Apply one durable project identity edit without changing its path or ID.
+ * @param id - Target Workspace id.
+ * @param patch - Already validated title and appearance changes.
+ * @returns the changed Workspace, or `undefined` when it no longer exists.
+ */
+updateIdentity(id: WorkspaceId, patch: WorkspaceIdentityPatch): Promise<Workspace | undefined>
 
 /**
  * Synchronous workspace projection in durable registry order. Every
