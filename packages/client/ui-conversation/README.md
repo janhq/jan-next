@@ -66,7 +66,9 @@ The existing semantic `DraftSnapshot` retains quote text and clipboard-coordinat
 <a id="shell-and-standard-props"></a>
 ## Shell and standard props
 
-Use **Split chat** in the header or **Open beside** in a sidebar chat menu to open up to four chats. Each pane uses its own Session binding and composer. Drag a divider, or focus it and use the arrow keys, to resize. Closing an added pane leaves its chat and draft intact. The manual arrangement and divider sizes are restored from this profile on reload.
+Chats open as tabs in the header row. The selected tab follows Workspace navigation: picking a chat in the sidebar shows it in that tab, or reveals the tab that already holds it. **New chat tab** adds a blank tab, and **Open in new tab** in a sidebar chat menu adds a tab for that chat. Drag a tab within or between strips to reorder it, or onto a pane body to split, up to four panes; **Open beside** does the same from the sidebar menu. Each pane uses its own Session binding and composer. Drag a divider, or focus it and use the arrow keys, to resize. Closing a tab leaves its chat and draft intact. Tabs, panes and divider sizes are restored from this profile on reload; layouts saved by the earlier one-chat-per-pane desk are not read.
+
+On desktop, **Move to new window** in a tab's menu, or releasing a dragged tab outside the window, moves that chat into a new native window. Each window keeps its own tabs and selection, and windows open at quit come back on the next launch. Subagent chats cannot be moved to another window.
 
 **Active** shows the running chats, with up to four tiles and a menu for the remaining chats. A completed chat stays in the view marked **Done**; newly running chats join live. **Restore layout** returns to the manual arrangement without saving changes made in Active.
 
