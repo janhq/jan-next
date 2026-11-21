@@ -128,9 +128,10 @@ window.__ModuleLoader__.load({
       }, [getSurface, watch, compact, sessionId])
       if (sessionId === undefined) return null
       const Overlay = view?.Overlay
-      // Every action is one visible control: nothing hides behind a menu.
+      // Every action is one visible control: nothing hides behind a menu. 8px between them, as between
+      // the turn's own actions and the strip's split and panel controls.
       return h('span', { role: 'group', 'aria-label': t('title'),
-        style: { display: 'inline-flex', alignItems: 'center', gap: '2px', alignSelf: 'start' } },
+        style: { display: 'inline-flex', alignItems: 'center', gap: '8px', alignSelf: 'start' } },
         ACTIONS.filter(action => elements || !action.element).map(action => h(Tooltip, {
           key: action.id, label: t(action.id), side: 'bottom', delayMs: 300, portal: true,
           shortcutKeys: action.binding && getKeys(action.binding) },
@@ -173,10 +174,14 @@ window.__ModuleLoader__.load({
         const append = (sessionId, text, image, contexts) => ctx.conversation.appendDraft(sessionId, text, image ? [image] : [], contexts ?? [])
         let live = true
         ctx.effect(() => () => { live = false; closeActive?.() })
-        // Inline strips match the turn's icon actions (ui-chat MessageIconActions): tertiary ink, secondary on hover, 15px glyph.
+        // Every strip matches its neighbours' icon actions with a 15px glyph: inline, the turn's actions
+        // (ui-chat MessageIconActions: tertiary ink, secondary on hover); in a tab strip, the kit's split
+        // and the panel chrome (secondary ink, hover only fills the background).
         ctx.effect(() => {
           const style = document.createElement('style')
-          style.textContent = 'button[data-annotate-inline][data-annotate-action]{color:var(--dsw-alias-label-tertiary);'
+          style.textContent = 'button[data-annotate-action]{color:var(--dsw-alias-label-secondary)}'
+            + 'button[data-annotate-action] svg{width:15px;height:15px}'
+            + 'button[data-annotate-inline][data-annotate-action]{color:var(--dsw-alias-label-tertiary);'
             + 'width:calc(28px + var(--jan-content-font-delta, 0px));height:calc(28px + var(--jan-content-font-delta, 0px))}'
             + 'button[data-annotate-inline][data-annotate-action] svg{width:calc(15px + var(--jan-content-font-delta, 0px));'
             + 'height:calc(15px + var(--jan-content-font-delta, 0px))}'
