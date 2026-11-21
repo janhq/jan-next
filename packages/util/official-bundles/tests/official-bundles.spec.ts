@@ -26,6 +26,7 @@ describe('Shipped profile templates', () => {
       web: { bundles: ['@janhq/jan-base', '@janhq/jan-web-app'] },
       desktop: { bundles: ['@janhq/jan-base', '@janhq/jan-web-app', '@janhq/jan-desktop-app'] },
       headless: { bundles: ['@janhq/jan-base', '@janhq/jan-headless'] },
+      edge: { bundles: ['@janhq/jan-base', '@janhq/jan-web-app', '@janhq/jan-edge-app'] },
       sdk: { bundles: ['@janhq/jan-base', '@janhq/jan-sdk-app'] },
       'sdk-minimal': { bundles: ['@janhq/jan-sdk-minimal'] },
     })
