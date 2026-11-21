@@ -6,9 +6,8 @@ import {
   diffTotals,
 } from '@janhq/jan-client-ui-primitives'
 import type { ContextMenuTriggerProps } from '@janhq/jan-client-ui-context-menu/client'
-import type { PropsRenderSlots, TranslateNS } from '@janhq/jan-client-ui-slots'
+import type { TranslateNS } from '@janhq/jan-client-ui-slots'
 import type { OpenFileOptions, UseDisclosure } from '@janhq/jan-client-ui-chat/client'
-import type { MessageImageLoader } from '@janhq/jan-client-ui-conversation/client'
 import { CHAT_DIFF_MAX_LINES, type DiffCardModel } from '../models/diff-card-model.ts'
 import { CHAT_READ_MAX_LINES, type ReadCardModel } from '../models/read-card-model.ts'
 import type { ImageCardModel } from '../models/image-card-model.ts'
@@ -63,21 +62,8 @@ export interface ToolRowProps {
   /** Diff card with inline totals colored on header hover and while expanded. */
   diff?: DiffCardModel | null | undefined
   read?: ReadCardModel | null | undefined
-  /**
-   * Image-card material for a call whose result is an image (derived by
-   * `imageCardModel`). Rendered through the `tool.call.images` slot, so the
-   * tool layer never imports an attachment implementation nor handles URL
-   * authorization.
-   */
+  /** File path and size metadata for an image read; the call tree renders the thumbnails. */
   image?: ImageCardModel | null | undefined
-  /**
-   * Dispatch the image gallery through the tool-owned `tool.call.images`
-   * slot, supplied by the toolview that owns this row together with the
-   * Gateway-authorized loader.
-   */
-  renderSlot?: PropsRenderSlots<'tool.call.images'>['renderSlot'] | undefined
-  /** Gateway-authorized image URL loader for the gallery slot. */
-  loadImage?: MessageImageLoader | undefined
   search?: SearchCardModel | null | undefined
   web?: WebCardModelProps | null | undefined
   /** Read-only fields/list card derived from a successful recorded result. */
@@ -182,8 +168,6 @@ export const ToolRow = memo(function ToolRow({
   diff,
   read,
   image,
-  renderSlot,
-  loadImage,
   search,
   web,
   details,
@@ -208,9 +192,7 @@ export const ToolRow = memo(function ToolRow({
     : localizeTerminalCardModel(terminal, t), [terminal, t])
   const diffBody = diff ?? null
   const readBody = read ?? null
-  const imageBody = image !== undefined && image !== null && renderSlot !== undefined && loadImage !== undefined
-    ? image
-    : null
+  const imageBody = image ?? null
   const searchBody = search ?? null
   const webBody = web ?? null
   const askQuestionBody = askQuestion ?? null
@@ -364,16 +346,7 @@ export const ToolRow = memo(function ToolRow({
               ? <ReadBlock {...readBody} labels={readLabels} maxLines={CHAT_READ_MAX_LINES} className={css.readBody} />
               : imageBody !== null
                 ? (
-                  /* Gallery, then the full path and each attached image's size.
-                     These come from the image card model, never from the row's
-                     flattened output, which JSON.stringifies the image block. They
-                     stay visible when the attachment slot renders nothing. */
                   <div className={css.imageBody}>
-                    {renderSlot !== undefined && loadImage !== undefined && renderSlot('tool.call.images', {
-                      images: imageBody.images,
-                      loadImage,
-                      align: 'start',
-                    })}
                     <div className={css.imageMeta}>
                       <div>{imageBody.path}</div>
                       {imageBody.images.map(({ attachment }, index) => (
@@ -457,7 +430,7 @@ export const ToolRow = memo(function ToolRow({
     </div>
   ) : undefined, [
     open, detailsBody, askQuestionBody, terminalBody, terminalLabels, diffBody, diffLabels, readBody, readLabels,
-    imageBody, renderSlot, loadImage, searchBody, searchLabels, webBody, webLabels, inspect, t, onOpenFile,
+    imageBody, searchBody, searchLabels, webBody, webLabels, inspect, t, onOpenFile,
     variant, bodyText, cardBody, outputText, state, titles,
   ])
   return (

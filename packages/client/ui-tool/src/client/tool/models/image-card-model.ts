@@ -1,5 +1,5 @@
 /** Pure image-card derivation from raw result content and metadata. @module */
-import type { AttachmentId, ImageAttachmentRef, ImageMediaType } from '@janhq/jan-attachment'
+import type { ImageAttachmentRef, ImageMediaType } from '@janhq/jan-attachment'
 import type { ToolCallBlock } from './tool-call-model.ts'
 import { parsedToolCall } from './raw-tool-call.ts'
 
@@ -14,7 +14,7 @@ import { parsedToolCall } from './raw-tool-call.ts'
 export interface ImageCardModel {
   /** The resolved path as recorded, unshortened; the row summary already shows the short form. */
   path: string
-  /** The durable images this result returned, in result order. */
+  /** Durable image sizes reported beside the recorded path. */
   images: readonly { readonly attachment: ImageAttachmentRef }[]
   /**
    * Text blocks other than the model-facing envelope (for example, text a
@@ -23,6 +23,15 @@ export interface ImageCardModel {
    * `path` and `images`.
    */
   extraText: string | null
+}
+
+/**
+ * Check whether a result attachment is independently displayable in the trace.
+ * @param attachment - Raw image block attachment from a tool result.
+ * @returns Whether the reference is valid.
+ */
+export function isToolImageReference(attachment: unknown): boolean {
+  return imageReference(attachment) !== null
 }
 
 /**
@@ -91,59 +100,43 @@ function imageMeta(meta: unknown): ImageMeta | null {
   return { path }
 }
 
-/**
- * Narrow every attachment reference carried by the result's image blocks, in
- * order.
- *
- * The content is the single source of truth for the references: it is what the
- * tool actually returned and what a post-execute hook would replace together
- * with the rest of the content. Every field arrives unvalidated over the wire,
- * so any malformed image block declines to the generic card rather than
- * rendering a partial gallery.
- *
- * The attachment id is checked for existence only — it is opaque and
- * provider-owned, so pattern-matching the local content-address form would reject
- * a legitimate id minted by an alternative store.
- * @param content - the settled result's content blocks.
- * @returns the narrowed references, or null when no valid image block is present.
- */
-function imageReferences(content: readonly unknown[]): ImageAttachmentRef[] | null {
-  const refs: ImageAttachmentRef[] = []
+/** Parse attached images in result order; strict file-read cards reject malformed image parts. */
+function imageReferences(content: readonly unknown[], strict: boolean): { attachment: ImageAttachmentRef }[] | null {
+  let images: { attachment: ImageAttachmentRef }[] | null = null
   for (const part of content) {
     if (typeof part !== 'object' || part === null) continue
     const { type, attachment } = part as { type?: unknown; attachment?: unknown }
     if (type !== 'image') continue
-    if (typeof attachment !== 'object' || attachment === null || Array.isArray(attachment)) return null
-    const {
-      attachmentId, mediaType, bytes, width, height, name, originalDimensions,
-    } = attachment as Record<string, unknown>
-    if (typeof attachmentId !== 'string' || attachmentId === '') return null
-    if (typeof mediaType !== 'string' || !isImageMediaType(mediaType)) return null
-    // Narrowed one at a time: a loop over the three does validate them, but the
-    // control-flow analysis does not carry that back to the object below.
-    if (!positiveInteger(bytes) || !positiveInteger(width) || !positiveInteger(height)) return null
-    if (name !== undefined && typeof name !== 'string') return null
-    // The store records input dimensions when normalization downsampled the
-    // image; rebuild the pair so a renderer that needs the original size gets
-    // it, and decline on a malformed pair like any other field.
-    let inputDimensions: ImageAttachmentRef['originalDimensions'] | undefined
-    if (originalDimensions !== undefined) {
-      if (typeof originalDimensions !== 'object' || originalDimensions === null || Array.isArray(originalDimensions)) return null
-      const { width: inputWidth, height: inputHeight } = originalDimensions as Record<string, unknown>
-      if (!positiveInteger(inputWidth) || !positiveInteger(inputHeight)) return null
-      inputDimensions = { width: inputWidth, height: inputHeight }
-    }
-    refs.push({
-      attachmentId: attachmentId as AttachmentId,
-      mediaType,
-      bytes,
-      width,
-      height,
-      ...name === undefined ? {} : { name },
-      ...inputDimensions === undefined ? {} : { originalDimensions: inputDimensions },
-    })
+    const ref = imageReference(attachment)
+    if (ref === null) {
+      if (strict) return null
+    } else (images ??= []).push({ attachment: ref })
   }
-  return refs.length > 0 ? refs : null
+  return images
+}
+
+function imageReference(attachment: unknown): ImageAttachmentRef | null {
+  if (typeof attachment !== 'object' || attachment === null || Array.isArray(attachment)) return null
+  const { attachmentId, mediaType, bytes, width, height, name, originalDimensions } = attachment as Record<string, unknown>
+  if (typeof attachmentId !== 'string' || attachmentId === '') return null
+  if (typeof mediaType !== 'string' || !isImageMediaType(mediaType)) return null
+  if (!positiveInteger(bytes) || !positiveInteger(width) || !positiveInteger(height)) return null
+  if (name !== undefined && typeof name !== 'string') return null
+  if (originalDimensions !== undefined) {
+    if (typeof originalDimensions !== 'object' || originalDimensions === null || Array.isArray(originalDimensions)) return null
+    const { width: inputWidth, height: inputHeight } = originalDimensions as Record<string, unknown>
+    if (!positiveInteger(inputWidth) || !positiveInteger(inputHeight)) return null
+  }
+  return attachment as ImageAttachmentRef
+}
+
+/**
+ * Extract valid attachment parts from any tool output, including partial failures.
+ * @param content - Result content, without interpreting text as image references.
+ * @returns Image sources in result order, or null if none can be displayed.
+ */
+export function toolResultImages(content: readonly unknown[]): readonly { attachment: ImageAttachmentRef }[] | null {
+  return imageReferences(content, false)
 }
 
 /**
@@ -211,13 +204,13 @@ export function imageCardModel(block: ToolCallBlock): ImageCardModel | null {
   if (!fullyRendered(block.content)) return null
   // The references come from the result's own image blocks, the single source of
   // truth; `meta` contributes only the path, which the content does not carry.
-  const refs = imageReferences(block.content)
-  if (refs === null) return null
+  const images = imageReferences(block.content, true)
+  if (images === null) return null
   // A result without the envelope is not a well-formed image read.
   if (!block.content.some(part => part.type === 'text' && typeof part.text === 'string' && IMAGE_ENVELOPE.test(part.text))) return null
   return {
     path,
-    images: refs.map(ref => ({ attachment: ref })),
+    images,
     extraText: extraTexts(block.content),
   }
 }

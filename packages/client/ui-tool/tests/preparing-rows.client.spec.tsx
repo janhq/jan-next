@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render } from '@testing-library/react'
+import type { SessionListState, SessionProjectionMap } from '@janhq/jan-api-session-controller/client'
+import { createSnapshotStore } from '@janhq/jan-client-store'
+import type { SessionId } from '@janhq/jan-session/types'
 import { useDisclosure } from '@janhq/jan-client-ui-chat/src/client/chat/use-disclosure.ts'
 import type { StartedToolCall, ToolResultNode } from '@janhq/jan-client-ui-chat/client'
-import { contextMenuHook, makeTranslate } from '@janhq/jan-client-test-runtime'
+import { allowAllAccess, bindSnapshotSelector, contextMenuHook, makeTranslate, sessionSnapshot } from '@janhq/jan-client-test-runtime'
 import { en } from '@janhq/jan-client-ui-conversation/src/client/locales.ts'
 import { en as common } from '@janhq/jan-client-locale/src/locales/en.ts'
 import { PartialArguments } from '@janhq/jan-util-values'
@@ -25,16 +28,43 @@ afterEach(cleanup)
 type Props = Parameters<typeof GenericToolCard>[0] & Parameters<typeof TodoRow>[0]
   & Parameters<typeof ReadImageRow>[0] & Parameters<typeof AskQuestionRow>[0]
 
+const sessionId = 's1' as SessionId
+const useSession = bindSnapshotSelector(createSnapshotStore(sessionSnapshot(sessionId)))
+const useSessions = bindSnapshotSelector(createSnapshotStore<SessionListState>({
+  ids: [], byId: {}, phase: 'ready', projectionsBySession: {},
+}))
+
+function useProjection<K extends Extract<keyof SessionProjectionMap, string>>(key: K): SessionProjectionMap[K] | undefined
+function useProjection<K extends Extract<keyof SessionProjectionMap, string>, Selected>(
+  key: K, select: (value: SessionProjectionMap[K] | undefined) => Selected,
+): Selected
+function useProjection<Selected>(_key: string, select?: (value: undefined) => Selected): Selected | undefined {
+  return select?.(undefined)
+}
+
+function unexpectedStandardProp(): never {
+  throw new Error('Tool row unexpectedly accessed an unconfigured standard prop')
+}
+
 function preparation(name: string, args = new PartialArguments()): Extract<Props, { phase: 'preparing' }> {
   return {
     getFileTriggerProps: () => ({}),
     useContextMenu: contextMenuHook(), resolveFilePath: path => path,
     phase: 'preparing', callId: 'call', toolName: name,
     block: { phase: 'preparing', args, callId: 'call', name, turn: 1, step: 1, time: 1, subCalls: [] },
-    cwd: '/workspace', t: makeTranslate(en, common), useDisclosure, openFile: vi.fn(), loadImage: vi.fn(),
-    useTodoHistory: vi.fn(), useSession: vi.fn(() => false), renderSlot: vi.fn(() => null),
-    useProjection: vi.fn(() => undefined), revealPanel: vi.fn(() => false), reviewPanel: vi.fn(() => false),
-  } as Extract<Props, { phase: 'preparing' }>
+    cwd: '/workspace', t: makeTranslate(en, common), useDisclosure, openFile: vi.fn(), loadImage: unexpectedStandardProp,
+    useTodoHistory: bindSnapshotSelector(createSnapshotStore(undefined)),
+    revealPanel: vi.fn(() => false), reviewPanel: vi.fn(() => false),
+    sessionId, useSession, useSessions, useProjection, ...allowAllAccess,
+    useChat: unexpectedStandardProp, useConversation: unexpectedStandardProp, useInput: unexpectedStandardProp,
+    useTrajectory: unexpectedStandardProp, usePanelInfo: unexpectedStandardProp, useWorkspaces: unexpectedStandardProp,
+    useResource: unexpectedStandardProp, useSessionRetainInfo: unexpectedStandardProp, useSessionStatus: unexpectedStandardProp,
+    inputActions: {
+      insertQuote: unexpectedStandardProp, captureInsertion: unexpectedStandardProp, insertText: unexpectedStandardProp,
+      setDraft: unexpectedStandardProp, persistDraft: unexpectedStandardProp, addAttachments: unexpectedStandardProp,
+      removeAttachment: unexpectedStandardProp, pruneAttachments: unexpectedStandardProp, submit: unexpectedStandardProp,
+    },
+  }
 }
 
 describe('tool preparation', () => {
@@ -236,7 +266,7 @@ describe('tool preparation', () => {
   it('shows a streamed Bash description without enabling expansion', () => {
     const args = new PartialArguments()
     args.append('{"description":"List files')
-    const view = render(<BashRow {...preparation('bash', args)} useSessions={vi.fn()} />)
+    const view = render(<BashRow {...preparation('bash', args)} />)
     expect(view.container.querySelector('[data-state="preparing"]')).not.toBeNull()
     expect(view.getByText('List files')).toBeTruthy()
     expect(view.queryByRole('button')).toBeNull()
