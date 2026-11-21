@@ -693,6 +693,12 @@ export const IconTextOutlineRegular = productIcon('text-outline', 'regular')
 /** Medium text tool. */
 export const IconTextOutlineMedium = productIcon('text-outline', 'medium')
 
+/** Regular one-pixel IconImageOutline artwork. */
+export const IconImageOutlineRegular = productIcon('image-outline', 'regular')
+
+/** Medium IconImageOutline artwork with a 1.3px stroke. */
+export const IconImageOutlineMedium = productIcon('image-outline', 'medium')
+
 /** Regular undo action. */
 export const IconUndoOutlineRegular = productIcon('undo-outline', 'regular')
 
