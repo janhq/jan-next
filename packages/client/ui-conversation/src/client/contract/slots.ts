@@ -608,6 +608,8 @@ export interface ComposerBarOwnerProps {
   placeholder?: string
   /** Optional content rendered above the composer surface. */
   accessory?: ReactNode
+  /** Optional content at the start of the row under the card, beside the model and context readings. */
+  dockStart?: ReactNode
 }
 
 /** Package-private operations injected into the resident composer bar. */

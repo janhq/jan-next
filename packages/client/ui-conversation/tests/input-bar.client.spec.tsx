@@ -2125,16 +2125,17 @@ describe('command launcher chrome and control seats', () => {
     expect(view.queryByLabelText('Model')).toBeNull()
   })
 
-  it('passes the textarea selection to the command menu launcher and reflects its expanded state', () => {
+  it('opens a short add menu whose Browse commands row passes the textarea selection to the command launcher', () => {
     const toggleCommandMenu = vi.fn()
-    const { view, shell, menuLauncher } = bench({ draft: 'draft text', toggleCommandMenu })
+    const { view, shell } = bench({ draft: 'draft text', toggleCommandMenu })
     act(() => { shell.editor.update(() => { $selectDetectSpan({ start: 2, end: 7 }) }, { discrete: true }) })
     const launcher = view.getByLabelText('添加文件或调用指令')
     expect(launcher.getAttribute('aria-expanded')).toBe('false')
     fireEvent.click(launcher)
-    expect(toggleCommandMenu).toHaveBeenCalledExactlyOnceWith({ start: 2, end: 7 })
-    act(() => { menuLauncher.set('command') })
     expect(launcher.getAttribute('aria-expanded')).toBe('true')
+    expect(view.getByText('添加文件或照片')).toBeTruthy()
+    fireEvent.click(view.getByText('浏览指令'))
+    expect(toggleCommandMenu).toHaveBeenCalledExactlyOnceWith({ start: 2, end: 7 })
   })
 
   it('follows the access answers over a running Session, and restores the actions when they return', () => {
@@ -2152,14 +2153,14 @@ describe('command launcher chrome and control seats', () => {
     expect(view.getByLabelText('停止生成')).toBeTruthy()
   })
 
-  it('opening the command menu from the button puts the keyboard in the editor first', () => {
+  it('browsing commands from the add menu puts the keyboard in the editor first', () => {
     const toggleCommandMenu = vi.fn()
     const { view, textarea } = bench({ toggleCommandMenu })
-    // Tab to the button and activate it: the keyboard is on the button, and the
-    // menu is a combobox whose arrows live on the editor.
+    // The menu row takes the keyboard; the command menu is a combobox whose
+    // arrows live on the editor.
     textarea.blur()
-    expect(document.activeElement).not.toBe(textarea)
     fireEvent.click(view.getByLabelText('添加文件或调用指令'))
+    fireEvent.click(view.getByText('浏览指令'))
     expect(document.activeElement).toBe(textarea)
     expect(toggleCommandMenu).toHaveBeenCalledTimes(1)
   })

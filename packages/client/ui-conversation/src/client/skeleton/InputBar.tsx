@@ -18,7 +18,8 @@ import type { ChangeEvent, KeyboardEvent, MouseEvent } from 'react'
 import clsx from 'clsx'
 import { UNDO_COMMAND } from 'lexical'
 import {
-  focusWithoutRing, IconCloseFillRegular, IconPlusOutlineMedium, IconTriangleRightFillRegular, IconWarningOutlineRegular, isMobileDevice, Toast, Tooltip,
+  focusWithoutRing, IconCloseFillRegular, IconCodeOutlineRegular, IconPaperclipOutlineRegular, IconPlusOutlineMedium,
+  IconTriangleRightFillRegular, IconWarningOutlineRegular, isMobileDevice, Menu, MenuItemButton, Toast, Tooltip,
 } from '@janhq/jan-client-ui-primitives'
 // Type-only: the `plan` projection key merge (the TodoDock posture — the
 // composer reads a host-computed value; the domain owns the key).
@@ -64,7 +65,7 @@ export const InputBar = memo(function InputBar({
   useAccess,
   useProjection, sessionId, variant, disabled: inert = false, blocked,
   workspacePickerOpen = false, onRequestWorkspace,
-  placeholder, accessory,
+  placeholder, accessory, dockStart,
 }: InputBarProps) {
   const input = useInput(s => s)
   const notice = useNotices(s => s)
@@ -384,6 +385,11 @@ export const InputBar = memo(function InputBar({
     toggleCommandMenu?.(keyboard.caretSpan())
   }
 
+  // The plus button keeps to the two things people reach for: attach files, or browse the
+  // `/` commands. The full command list lives behind `/`, not in this menu.
+  const [addMenuOpen, setAddMenuOpen] = useState(false)
+  const closeAddMenu = (): void => { setAddMenuOpen(false) }
+
   // The no-session Workspace trigger: the resident editable div acts as the
   // picker trigger for keyboard users (no editor is bound in this state).
   const onWorkspaceKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
@@ -555,20 +561,33 @@ export const InputBar = memo(function InputBar({
         />
         <div ref={rowRef} className={css.row}>
           <div className={css.tools} hidden={activity}>
-            <Tooltip label={t('input.commands')} side="top" delayMs={500} portal>
-              <button
-                type="button"
-                className={css.add}
-                aria-label={t('input.commands')}
-                aria-haspopup="listbox"
-                aria-expanded={commandMenuOpen}
-                disabled={locked || toggleCommandMenu === undefined}
-                onMouseDown={keepFocus}
-                onClick={onToggleCommandMenu}
-              >
-                <IconPlusOutlineMedium size={14} />
-              </button>
-            </Tooltip>
+            <Menu open={addMenuOpen} onClose={closeAddMenu} side="top" portal autoFocus
+              anchor={(
+                <Tooltip label={t('input.commands')} side="top" delayMs={500} portal disabled={addMenuOpen}>
+                  <button
+                    type="button"
+                    className={css.add}
+                    aria-label={t('input.commands')}
+                    aria-haspopup="menu"
+                    aria-expanded={addMenuOpen || commandMenuOpen}
+                    disabled={locked}
+                    onMouseDown={keepFocus}
+                    onClick={() => { setAddMenuOpen(open => !open) }}
+                  >
+                    <IconPlusOutlineMedium size={14} />
+                  </button>
+                </Tooltip>
+              )}>
+              <MenuItemButton icon={<IconPaperclipOutlineRegular size={14} />} disabled={!canAcceptDrop || subagent !== null}
+                onSelect={() => { closeAddMenu(); fileInputRef.current?.click() }}>
+                {t('input.addFiles')}
+              </MenuItemButton>
+              {toggleCommandMenu === undefined ? null : (
+                <MenuItemButton icon={<IconCodeOutlineRegular size={14} />} onSelect={() => { closeAddMenu(); onToggleCommandMenu() }}>
+                  {t('input.browseCommands')}
+                </MenuItemButton>
+              )}
+            </Menu>
             <input
               ref={fileInputRef}
               type="file"
@@ -646,6 +665,7 @@ export const InputBar = memo(function InputBar({
         </div>
       </div>
       <div className={css.dock} data-composer-dock>
+        {dockStart === undefined ? null : <div className={css.dockStart}>{dockStart}</div>}
         {input !== undefined && sessionId !== undefined
           ? renderSlot('conversation.composer.dock', { locked: modelSeatLocked })
           : null}
