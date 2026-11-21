@@ -6,8 +6,6 @@ export const NS = 'subagent'
 /** Simplified Chinese dictionary (the key-set source of truth). */
 export const zh = {
   'section.title': '子智能体',
-  'dock.running-count': '{count} 个运行中',
-  'dock.recently-settled': '最近结束',
   'dock.stage.unavailable': '尚无活动详情',
   'dock.stage.preparing': '正在准备',
   'dock.stage.requesting-model': '正在请求模型',
@@ -61,6 +59,7 @@ export const zh = {
   'open.sidebar': '在侧边栏打开',
   'open.floatWindow': '在浮窗中打开',
   'open.sidebar.aria': '在侧边栏打开 {label}',
+  'open.chat': '打开聊天',
   'sidebar.chat': '聊天',
   'readonly.oneShot.title': '一次性子智能体记录',
   'readonly.title': '此子智能体暂时只读',
@@ -70,8 +69,6 @@ export const zh = {
 /** English dictionary, key-identical to the Chinese source of truth. */
 export const en: Record<SubagentKey, string> = {
   'section.title': 'Subagents',
-  'dock.running-count': '{count} running',
-  'dock.recently-settled': 'Recently settled',
   'dock.stage.unavailable': 'No activity details yet',
   'dock.stage.preparing': 'Preparing',
   'dock.stage.requesting-model': 'Requesting model',
@@ -125,6 +122,7 @@ export const en: Record<SubagentKey, string> = {
   'open.sidebar': 'Open in sidebar',
   'open.floatWindow': 'Open in floating panel',
   'open.sidebar.aria': 'Open {label} in sidebar',
+  'open.chat': 'Open chat',
   'sidebar.chat': 'Chat',
   'readonly.oneShot.title': 'One-shot subagent record',
   'readonly.title': 'This subagent is read-only for now',
@@ -137,8 +135,6 @@ export type SubagentKey = keyof typeof zh
 /** Japanese copy, checked against the English keys. */
 export const ja = {
   'section.title': 'サブエージェント',
-  'dock.running-count': '{count} 件が実行中',
-  'dock.recently-settled': '最近終了',
   'dock.stage.unavailable': 'アクティビティの詳細はまだありません',
   'dock.stage.preparing': '準備中',
   'dock.stage.requesting-model': 'モデルにリクエスト中',
@@ -192,6 +188,7 @@ export const ja = {
   'open.sidebar': 'サイドバーで開く',
   'open.floatWindow': 'フローティングパネルで開く',
   'open.sidebar.aria': '{label}をサイドバーで開く',
+  'open.chat': 'チャットを開く',
   'sidebar.chat': 'チャット',
   'readonly.oneShot.title': '単発サブエージェントの記録',
   'readonly.title': 'このサブエージェントは現在読み取り専用です',
@@ -201,8 +198,6 @@ export const ja = {
 /** Spanish dictionary, checked against the English keys. */
 export const es = {
   'section.title': 'Subagentes',
-  'dock.running-count': '{count} en ejecución',
-  'dock.recently-settled': 'Finalizados recientemente',
   'dock.stage.unavailable': 'Aún no hay detalles de actividad',
   'dock.stage.preparing': 'Preparando',
   'dock.stage.requesting-model': 'Consultando al modelo',
@@ -256,6 +251,7 @@ export const es = {
   'open.sidebar': 'Abrir en la barra lateral',
   'open.floatWindow': 'Abrir en un panel flotante',
   'open.sidebar.aria': 'Abra {label} en la barra lateral',
+  'open.chat': 'Abrir chat',
   'sidebar.chat': 'Chat',
   'readonly.oneShot.title': 'Registro de subagente de una sola vez',
   'readonly.title': 'Este subagente es de solo lectura por ahora',
@@ -265,8 +261,6 @@ export const es = {
 /** French dictionary, checked against the English keys. */
 export const fr = {
   'section.title': 'Sous-agents',
-  'dock.running-count': '{count} en cours',
-  'dock.recently-settled': 'Terminés récemment',
   'dock.stage.unavailable': 'Aucun détail d’activité pour le moment',
   'dock.stage.preparing': 'Préparation',
   'dock.stage.requesting-model': 'Interrogation du modèle',
@@ -320,6 +314,7 @@ export const fr = {
   'open.sidebar': 'Ouvrir dans la barre latérale',
   'open.floatWindow': 'Ouvrir dans un panneau flottant',
   'open.sidebar.aria': 'Ouvrir {label} dans la barre latérale',
+  'open.chat': 'Ouvrir la discussion',
   'sidebar.chat': 'Discussion',
   'readonly.oneShot.title': 'Enregistrement de sous-agent unique',
   'readonly.title': 'Ce sous-agent est actuellement en lecture seule',
@@ -329,8 +324,6 @@ export const fr = {
 /** German dictionary, checked against the English keys. */
 export const de = {
   'section.title': 'Subagenten',
-  'dock.running-count': '{count} aktiv',
-  'dock.recently-settled': 'Kürzlich beendet',
   'dock.stage.unavailable': 'Noch keine Aktivitätsdetails',
   'dock.stage.preparing': 'In Vorbereitung',
   'dock.stage.requesting-model': 'Modell wird angefragt',
@@ -384,6 +377,7 @@ export const de = {
   'open.sidebar': 'In der Seitenleiste öffnen',
   'open.floatWindow': 'In schwebendem Panel öffnen',
   'open.sidebar.aria': 'Öffnen Sie {label} in der Seitenleiste',
+  'open.chat': 'Chat öffnen',
   'sidebar.chat': 'Chat',
   'readonly.oneShot.title': 'Einmaliger Subagentendatensatz',
   'readonly.title': 'Dieser Subagent ist derzeit schreibgeschützt',
@@ -393,8 +387,6 @@ export const de = {
 /** Russian dictionary, checked against the English keys. */
 export const ru = {
   'section.title': 'Субагенты',
-  'dock.running-count': '{count} в работе',
-  'dock.recently-settled': 'Недавно завершились',
   'dock.stage.unavailable': 'Сведений об активности пока нет',
   'dock.stage.preparing': 'Подготовка',
   'dock.stage.requesting-model': 'Запрос к модели',
@@ -448,6 +440,7 @@ export const ru = {
   'open.sidebar': 'Открыть в боковой панели',
   'open.floatWindow': 'Открыть на плавающей панели',
   'open.sidebar.aria': 'Откройте {label} на боковой панели.',
+  'open.chat': 'Открыть чат',
   'sidebar.chat': 'Чат',
   'readonly.oneShot.title': 'Разовая запись субагента',
   'readonly.title': 'Этот субагент пока доступен только для чтения.',
@@ -457,8 +450,6 @@ export const ru = {
 /** Portuguese dictionary, checked against the English keys. */
 export const pt = {
   'section.title': 'Subagentes',
-  'dock.running-count': '{count} em execução',
-  'dock.recently-settled': 'Encerrados recentemente',
   'dock.stage.unavailable': 'Ainda não há detalhes de atividade',
   'dock.stage.preparing': 'Preparando',
   'dock.stage.requesting-model': 'Consultando o modelo',
@@ -512,6 +503,7 @@ export const pt = {
   'open.sidebar': 'Abrir na barra lateral',
   'open.floatWindow': 'Abrir em painel flutuante',
   'open.sidebar.aria': 'Abra {label} na barra lateral',
+  'open.chat': 'Abrir conversa',
   'sidebar.chat': 'Chat',
   'readonly.oneShot.title': 'Registro de subagente único',
   'readonly.title': 'Este subagente é somente leitura por enquanto',

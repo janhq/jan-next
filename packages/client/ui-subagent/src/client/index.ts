@@ -4,7 +4,6 @@ import type { SubagentAddress } from '@janhq/jan-subagent/client'
 import type { SessionId } from '@janhq/jan-session/types'
 import type { ComposerChainProps } from '@janhq/jan-client-ui-conversation/client'
 import { SubagentCatalogAction, SubagentHeaderLineage, type SubagentCatalogInjected, type SubagentCatalogActionInjected } from './SubagentHeaderLineage.tsx'
-import { SubagentActivityDock, type SubagentActivityDockInjected } from './SubagentActivityDock.tsx'
 import {
   SubagentReadOnlyComposer, type SubagentReadOnlyMatch,
 } from './SubagentReadOnlyComposer.tsx'
@@ -53,7 +52,7 @@ export function apply(ctx: ClientContext): void {
   ctx.inject(['resources', 'sidebarRightTabs'], (scope) => {
     registerSidebarChat(scope, ctx.locale.bind(NS))
   })
-  const openChildAside: SubagentActivityDockInjected['openChildAside'] = (address) => {
+  const openChildAside = (address: SubagentAddress): void => {
     ctx.sidebarRight.openResource(subagentChatAddress(address), { kind: 'subagentchat', preferNewPane: true })
   }
   const catalogActions = (_parentSessionId: SessionId): SubagentCatalogInjected => ({
@@ -90,13 +89,6 @@ export function apply(ctx: ClientContext): void {
       children: { 'conversation.session.header.actions.subagent.footer': { kind: 'list', scope: 'session' } },
     }, SubagentCatalogAction),
   )
-  ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
-    name: 'conversation.input.dock',
-    id: 'subagent-activity',
-    order: 5,
-    locale: NS,
-    inject: (): SubagentActivityDockInjected => ({ openChildAside }),
-  }, SubagentActivityDock))
   ctx.slots.inject(
     'conversation.composer',
     () => ctx.slots.register({
