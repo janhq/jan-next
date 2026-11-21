@@ -142,7 +142,7 @@ const ProcessGroupHeader = memo(function ProcessGroupHeader({
           <span className={css.duration} aria-hidden><TextShimmer>{duration}</TextShimmer></span>
         )}
       </TextShimmer>
-      {data.closed && data.summary.contextTokens !== undefined && (
+      {data.summary.contextTokens !== undefined && (
         // Supplementary and approximate, like each row's figure: kept out of the button's name.
         <span className={css.tokens} aria-hidden data-context-tokens-total
           title={t('message.contextTokensTitle', { count: formatExactTokens(data.summary.contextTokens, t) })}>

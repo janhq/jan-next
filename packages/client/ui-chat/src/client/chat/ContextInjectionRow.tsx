@@ -51,6 +51,9 @@ export function ContextInjectionRow({ content, source, producer, form, t }: Cont
         ? t('message.toolsAddedCount', { count: added.length })
         : t('message.toolsRemovedCount', { count: removed.length })
 
+  // Inside the "Injected context" group the role is already said once, so an
+  // injection that names its producer is titled by that name alone.
+  const named = toolBlocks === undefined && producer.role !== 'recall' && producer.label !== null
   return (
     <DisclosureRow
       className={css.root}
@@ -58,7 +61,9 @@ export function ContextInjectionRow({ content, source, producer, form, t }: Cont
         ? <span data-context-recall-icon><ReferenceIconRegular kind="session" /></span>
         : <IconContextInjectionOutlineRegular size={14} />}
       chevronClassName={css.chevron}
-      title={single !== undefined ? t(single.type === 'tool-addition' ? 'message.toolAdded' : 'message.toolRemoved', { name: single.toolName }) : t(toolBlocks !== undefined ? 'message.toolsUpdated' : producer.role === 'recall' ? 'message.contextRecall' : 'message.contextInjection')}
+      title={single !== undefined ? t(single.type === 'tool-addition' ? 'message.toolAdded' : 'message.toolRemoved', { name: single.toolName })
+        : named ? producer.label ?? ''
+          : t(toolBlocks !== undefined ? 'message.toolsUpdated' : producer.role === 'recall' ? 'message.contextRecall' : 'message.contextInjection')}
       collapsedContent={toolSummary !== null ? (
         <>
           <span className={css.sep} aria-hidden />
@@ -66,11 +71,15 @@ export function ContextInjectionRow({ content, source, producer, form, t }: Cont
         </>
       ) : toolBlocks !== undefined || producer.label === null ? undefined : (
         /* ToolRow's separator shape: an aria-hidden dot, so the accessible name
-           stays the two readable parts and the two disclosure rows expose one
-           name shape. A source that names no producer drops the dot with it. */
+           stays the readable parts. A named injection already carries its
+           producer in the title. */
         <>
-          <span className={css.sep} aria-hidden />
-          <span className={css.source} data-context-source>{producer.label}</span>
+          {!named && (
+            <>
+              <span className={css.sep} aria-hidden />
+              <span className={css.source} data-context-source>{producer.label}</span>
+            </>
+          )}
           {summary !== null && (
             <>
               <span className={css.sep} aria-hidden />
