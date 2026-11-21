@@ -5,6 +5,7 @@ import { continuationProjectionDefinition, type ContinuationState } from './cont
 
 import { modelAvailable } from './catalog.ts'
 import { randomUUID } from 'node:crypto'
+import { isAbsolute } from 'node:path'
 import type { Context } from '@janhq/cordis'
 import { brandString } from '@janhq/jan-brand'
 import type { Agent, ModelSelection as AgentModelSelection } from '@janhq/jan-agent'
@@ -120,6 +121,9 @@ export class SessionCommandController {
   async create(request: SessionCreateRequest): Promise<SessionCreateValue> {
     if (request.workspaceId !== undefined && request.cwd !== undefined) {
       throw new RemoteError('gateway/bad-request', 'session.create accepts workspaceId or cwd, not both', {})
+    }
+    if (request.cwd !== undefined && (!isAbsolute(request.cwd) || request.cwd.includes('\0'))) {
+      throw new RemoteError('gateway/bad-request', 'session.create cwd must be an absolute path without NUL', {})
     }
     let workspace: Workspace | undefined
     if (request.workspaceId !== undefined) {
