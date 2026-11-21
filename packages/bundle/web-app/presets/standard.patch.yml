@@ -6,6 +6,7 @@
       name: '@janhq/jan-agent-preset'
       config:
         id: standard
+        icon: code-outline
         order: 1
         plugins:
           - id: persona
