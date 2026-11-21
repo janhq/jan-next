@@ -181,7 +181,7 @@ export class ScheduleRuntime {
   > {
     return this.ctx.agents.withoutInitiator(() => this.transact(async () => {
       signal?.throwIfAborted()
-      const task = this.tasks().find(candidate => candidate.record.id === id)
+      let task = this.tasks().find(candidate => candidate.record.id === id)
       if (task === undefined) return
       await this.checkProject(task)
       if (this.executing.has(id)
@@ -198,7 +198,7 @@ export class ScheduleRuntime {
       }
       let target: DeliveryTarget
       try {
-        target = await this.resolveTarget(task)
+        target = await this.resolveTarget(task, (bound) => { task = bound }, signal)
       } catch (error) {
         await this.checkProject(task)
         throw error
@@ -329,7 +329,7 @@ export class ScheduleRuntime {
       // The check precedes target resolution, so a target made future by clock rollback creates no Session.
       const checkedAt = Date.now()
       admitted = candidates.filter(member => Date.parse(member.record.scheduledAt) <= checkedAt)
-      const first = admitted[0]
+      let first = admitted[0]
       if (first === undefined) return []
       if (first.target.kind === 'plugin') {
         const occurrence = isRecurringScheduleRecord(first.record)
@@ -342,7 +342,10 @@ export class ScheduleRuntime {
       }
       let target: DeliveryTarget
       try {
-        target = await this.resolveTarget(first)
+        target = await this.resolveTarget(first, (bound) => {
+          first = bound
+          admitted = [bound]
+        })
       } catch (error) {
         if (!batch && await this.pauseIfProjectRemoved(first)) return []
         throw error
@@ -391,6 +394,15 @@ export class ScheduleRuntime {
       this.ctx.logger.warn(`schedule: reminders ${JSON.stringify(ids)} were not acknowledged: ${String(error)}`)
       return pending.filter(member => Date.parse(member.record.scheduledAt) <= failedAt).map(member => member.record.id)
     }
+  }
+
+  /** Resolve an implicit default without remapping a saved placement. */
+  private async bindDefaultProject(create: ScheduleSessionCreateSpec, signal?: AbortSignal): Promise<ScheduleSessionCreateSpec> {
+    if (create.workspaceId !== undefined || create.cwd !== undefined) return create
+    const registry = this.ctx.get('workspaceRegistry')
+    if (registry === undefined) return create
+    const project = await registry.ensureDefault(signal)
+    return { ...create, workspaceId: project.id, cwd: project.path }
   }
 
   /** Refuse manual delivery without mistaking a provider that is not mounted for a deleted project. */
@@ -569,7 +581,11 @@ export class ScheduleRuntime {
    * started a turn. The Session controller places bound sessions by project ID; otherwise they join by stored cwd.
    * A new Session takes the task title, including the launch time for a `new` target.
    */
-  private async resolveTarget(task: ScheduleTask): Promise<DeliveryTarget> {
+  private async resolveTarget(
+    task: ScheduleTask,
+    onBound: (task: ScheduleTask) => void,
+    signal?: AbortSignal,
+  ): Promise<DeliveryTarget> {
     const { target } = task
     if (target.kind === 'plugin') throw new Error('schedule: plugin destination does not resolve a Session')
     const reserved = target.kind === 'new' ? task.pendingDelivery?.targetSessionId : target.sessionId
@@ -580,25 +596,22 @@ export class ScheduleRuntime {
     if (target.kind === 'session') {
       return { sessionId: target.sessionId, agent: await this.activate(target.sessionId) }
     }
-    let sessionId: SessionIdType
-    let agent: Agent | undefined
-    if (target.kind === 'new_once') {
-      sessionId = target.sessionId
-      agent = await this.reservedAgent(sessionId)
-    } else if (task.pendingDelivery === undefined) {
-      sessionId = SessionId(`session-${randomUUID()}`)
-      await this.commit({ ...task, pendingDelivery: { targetSessionId: sessionId } })
-    } else {
-      sessionId = task.pendingDelivery.targetSessionId
-      agent = await this.reservedAgent(sessionId)
-    }
+    const sessionId = reserved ?? SessionId(`session-${randomUUID()}`)
+    let agent = reserved === undefined ? undefined : await this.reservedAgent(reserved)
     if (agent === undefined) {
-      agent = await this.createAgent(sessionId, target.create)
+      const create = await this.bindDefaultProject(target.create, signal)
+      const bound = create === target.create ? task : { ...task, target: { ...target, create } }
+      const pending = reserved === undefined ? { ...bound, pendingDelivery: { targetSessionId: sessionId } } : bound
+      if (pending !== task) await this.commit(pending)
+      if (bound !== task) onBound(bound)
+      agent = await this.createAgent(sessionId, create)
+      if (create.workspaceId === undefined) await this.joinWorkspace(sessionId, create.cwd)
     } else if (target.create.workspaceId !== undefined) {
       // Creation may have succeeded before attachment or the delivery receipt failed.
       await this.ctx.get('workspaceRegistry')?.get(target.create.workspaceId)?.attachSession(sessionId)
+    } else {
+      await this.joinWorkspace(sessionId, target.create.cwd)
     }
-    if (target.create.workspaceId === undefined) await this.joinWorkspace(sessionId, target.create.cwd)
     this.nameSession(agent, task)
     return { sessionId, agent }
   }

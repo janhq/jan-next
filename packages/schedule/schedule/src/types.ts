@@ -344,7 +344,7 @@ export type ScheduleTiming =
 export interface ScheduleSessionCreateSpec {
   /** Registered project that owns this destination. When supplied, the Host resolves its directory instead of `cwd`. */
   readonly workspaceId?: WorkspaceId
-  /** Absolute Host directory; omission of both placement values uses the Host working directory. */
+  /** Absolute Host directory; omitting both placement values binds to the default project on first delivery. */
   readonly cwd?: string
   /** Agent preset of the created Session; omission uses the default preset. */
   readonly agentPreset?: string

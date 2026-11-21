@@ -68,7 +68,7 @@ RRULE timing uses `{ kind: "rrule", rrule: "DTSTART:…\nRRULE:…" }`. The mode
 
 The `session` target reuses an existing, unarchived, non-delegated Session; unloaded targets are validated through the header-only `SessionPersistence.stat()` read without activation or history replay. The default `new_once` reserves one Session id, creates it on first delivery, and reuses it. The `new` target creates a fresh Session per delivery. Arming either creating target requires the Session creation provider. Optional `create` values select the directory and preset; omitted values use Host defaults. See [delivery targets](../../../docs/subsystems/schedule.md#delivery-targets) for creation, naming, reuse, and archive admission.
 
-For a target that creates Sessions, pass `create.workspaceId` to bind it to a registered project. The Host resolves the project's canonical directory and saves it with the ID. A standalone `create.cwd` must name an existing absolute Host directory; the Host canonicalizes it and binds the task if a registered project owns that directory. Omit both to use the Host working directory. Catalog rows expose `workspaceId` for bound targets, including after `new_once` becomes a reused Session.
+For a target that creates Sessions, pass `create.workspaceId` to bind it to a registered project. The Host resolves the project's canonical directory and saves it with the ID. A standalone `create.cwd` must name an existing absolute Host directory; the Host canonicalizes it and binds the task if a registered project owns that directory. Omit both to resolve and save the active default project when the task first delivers. Catalog rows expose `workspaceId` for bound targets, including after `new_once` becomes a reused Session.
 
 Delivery uses the registered project, not the saved path. If that ID was removed, the Host records `deliveryFailure` and pauses the task without sending a reminder. A manual run rejects with `schedule/project-removed`. Re-registering the same folder does not reconnect the task; change its destination to clear the failure before resuming it. Old unbound tasks keep their saved directory behavior.
 
@@ -161,7 +161,7 @@ For example, the Cron record in the envelope above can instead be an RRULE recor
 
 #### When stored tasks upgrade
 
-`compatibleVersions: [1, 2]` admits older unit stamps and normalizes their rows in memory without binding an old directory to a project. See the [v3 change record](../../../docs/persistence-changes/domains/2026-11-21-schedule-project-binding.md). No separate migration command is needed. Unknown versions reject before tasks activate; invalid input does not change the saved bytes.
+`compatibleVersions: [1, 2]` admits older unit stamps and normalizes their rows in memory without writing on open. Old tasks with a saved cwd keep it; tasks with neither a project nor a cwd bind to the default on their next delivery. See the [v3 change record](../../../docs/persistence-changes/domains/2026-11-21-schedule-project-binding.md). No separate migration command is needed. Unknown versions reject before tasks activate; invalid input does not change the saved bytes.
 
 | Operation | Persistent effect |
 |---|---|
