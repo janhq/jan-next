@@ -1082,8 +1082,6 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       reader.readAsDataURL(file)
     })
     const scheduleZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
-    const sameFolder = (a, b) => a !== undefined && b !== undefined
-      && a.replace(/[\\/]+$/, '').toLowerCase() === b.replace(/[\\/]+$/, '').toLowerCase()
 
     // Edits one instruction file; the draft survives closing the dialog until it is saved.
     const projectDrafts = new Map()
@@ -1216,8 +1214,13 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         .map(id => sessions.byId[id])
         .filter(summary => summary !== undefined && !summary.blank && summary.origin !== 'subagent' && summary.parentId === undefined && !archived.has(summary.id))
         .sort((a, b) => b.updatedAt - a.updatedAt)
-      const projectTasks = tasks === null ? null : tasks.filter(task => task.status !== 'ended'
-        && (task.target.kind === 'session' ? workspace.sessionIds.includes(task.target.sessionId) : sameFolder(task.target.create?.cwd, workspace.path)))
+      const projectTasks = React.useMemo(() => {
+        if (tasks === null) return null
+        const sessionIds = new Set(workspace.sessionIds)
+        return tasks.filter(task => task.status !== 'ended' && (task.target.kind === 'session'
+          ? sessionIds.has(task.target.sessionId)
+          : task.target.create?.cwd === workspace.path))
+      }, [tasks, workspace.sessionIds, workspace.path])
       const send = () => {
         const text = draft.trim()
         if (text === '') return

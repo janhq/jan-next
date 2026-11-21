@@ -142,3 +142,19 @@ it('closes the previous project editor instead of letting its draft save to anot
     expect(within(screen.getByRole('dialog', { name: 'project.instructions' })).getByRole<HTMLTextAreaElement>('textbox').value).toBe('Unsaved Alpha draft')
   } finally { app.unmount() }
 })
+
+it('shows only tasks in the selected case-sensitive project or linked to one of its chats', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => reply(text(''))))
+  const app = theme([
+    { id: 'alpha', title: 'Alpha task', status: 'paused', target: { kind: 'new', create: { cwd: '/work/Foo' } } },
+    { id: 'beta', title: 'Beta task', status: 'paused', target: { kind: 'new_once', create: { cwd: '/work/foo' } } },
+    { id: 'link', title: 'Linked chat task', status: 'paused', target: { kind: 'session', sessionId: 'linked' } },
+  ])
+  try {
+    app.openProject('alpha')
+    app.renderEntry('jt-project')
+    await screen.findByText('Alpha task')
+    expect(screen.queryByText('Beta task')).toBeNull()
+    expect(screen.getByText('Linked chat task')).toBeTruthy()
+  } finally { app.unmount() }
+})
