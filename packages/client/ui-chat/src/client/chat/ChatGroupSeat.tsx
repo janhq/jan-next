@@ -5,6 +5,7 @@ import {
   IconChevronUpOutlineRegular, IconCodeOutlineRegular, IconContextInjectionOutlineRegular, IconEditOutlineRegular,
   IconGlobeOutlineRegular, IconPlanOutlineRegular, IconQuestionOutlineRegular, IconSearchOutlineRegular, IconSparkleRegular,
   IconThinkOutlineRegular, TextShimmer,
+  Button,
 } from '@janhq/jan-client-ui-primitives'
 import type { GroupKey, NodeReference } from '@janhq/jan-client-ui-conversation/client'
 import type { ProcessActivity, RunningProcessActivity } from '../contract/process-groups.ts'
@@ -161,6 +162,8 @@ export const ChatGroupSeat = memo(function ChatGroupSeat({
   const closed = useChatGroup(groupKey, group => group?.data.closed)
   const foldCompleted = props.usePresentation(policy => policy.foldCompletedTurns)
   const { expanded: open, setExpanded: setOpen } = useDisclosure()
+  const [fullTrace, setFullTrace] = useState(false)
+  const cappedPosition = useRef<'bottom' | number>(0)
   const firstKey = members?.[0]?.key ?? ''
   const bottom = props.useChatNodeBottom(firstKey)
   const deferCollapse = bottom === true && props.deferCollapse
@@ -193,26 +196,27 @@ export const ChatGroupSeat = memo(function ChatGroupSeat({
   useEffect(() => {
     if (outerHidden && rootRef.current !== null && hiddenOrCollapsing(rootRef.current)) setOpen(false)
   }, [outerHidden, rootRef, setOpen])
-  const reveal = useCallback(() => { setOpen(true) }, [setOpen])
+  const reveal = useCallback(() => { setFullTrace(false); setOpen(true) }, [setOpen])
   // A live group the reader has not opened peeks at its latest rows, so the current tool call and its
   // output stream under the header; opening it shows the whole capped body.
   const peeking = grouped && !open && closed === false
   const bodyRef = props.useGroupAction(grouped && !open && !peeking, reveal)
   const contentRef = useRef<HTMLDivElement>(null)
   const bodyId = useId()
-  const { edges, events, initialize } = useProcessScroll(bodyRef, contentRef, open, grouped)
+  const { edges, events, initialize } = useProcessScroll(bodyRef, contentRef, open, grouped && !fullTrace && !outerHidden, fullTrace)
   const toggle = useCallback(() => {
     if (!open) initialize(closed === false ? 'bottom' : 'top')
+    if (!open) setFullTrace(false)
     setOpen(!open)
   }, [closed, initialize, open, setOpen])
   // With next-input timing the height cap applies only to a group the reader opened. A closing body keeps
   // the cap it was last shown with, so the transition starts from what is on screen: a reader-opened group
   // closes from its cap, and a flat latest Turn becoming historical closes from its flat height.
-  const shownCap = !grouped ? false : open ? true : undefined
+  const shownCap = !grouped ? false : open ? !fullTrace : undefined
   const [closingCap, setClosingCap] = useState(shownCap ?? true)
   if (shownCap !== undefined && shownCap !== closingCap) setClosingCap(shownCap)
   if (members === undefined) return null
-  const capped = grouped && (!deferCompletedTurns || (shownCap ?? closingCap))
+  const capped = grouped && (shownCap ?? (!deferCompletedTurns || closingCap))
   const classes = peeking ? [css.body, css.peekBody] : [css.body, !capped ? css.expandedBody : '',
     capped && edges.canScrollUp ? css.fadeTop : '', capped && edges.canScrollDown ? css.fadeBottom : '']
   return (
@@ -221,18 +225,29 @@ export const ChatGroupSeat = memo(function ChatGroupSeat({
       data-chat-paging-anchor={grouped && !open || undefined}
       data-step-process data-group-expanded-mode={!grouped || undefined}
       data-process-live={grouped && closed === false || undefined}>
-      <div ref={headerRef}>
+      <div ref={headerRef} className={css.header}>
         <ProcessGroupHeader groupKey={groupKey} useChatGroup={useChatGroup}
           usePresentation={props.usePresentation} t={props.t} open={open} bodyId={bodyId} toggle={toggle}
           startTime={turnLocation?.status === 'open' ? turnLocation.start?.time : undefined} paused={paused} />
+        {grouped && open && !outerHidden && (fullTrace || edges.canScrollUp || edges.canScrollDown) && (
+          <Button variant="ghost" size="sm" className={css.heightToggle} aria-controls={bodyId}
+            onClick={() => {
+              if (fullTrace) initialize(cappedPosition.current)
+              else cappedPosition.current = closed === false && !edges.canScrollDown ? 'bottom' : bodyRef.current?.scrollTop ?? 0
+              setFullTrace(!fullTrace)
+            }}>
+            {props.t(fullTrace ? 'message.stepProcess.limitHeight' : 'message.stepProcess.showFull')}
+          </Button>
+        )}
       </div>
       <div ref={bodyRef} id={bodyId} className={classes.join(' ')} data-step-process-body
+        tabIndex={grouped && open && capped && (edges.canScrollUp || edges.canScrollDown) ? 0 : undefined}
         data-scroll-up={edges.canScrollUp || undefined} data-scroll-down={edges.canScrollDown || undefined}
         {...events} onClick={peeking ? toggle : undefined} data-process-peek={peeking || undefined}
         // The preview is visual only: assistive technology and focus treat the group as closed until opened.
         aria-hidden={peeking || undefined} {...peeking ? { inert: '' } : {}}>
         <div ref={contentRef} className={css.content} data-step-process-content data-chat-flow="">
-          <GroupMembers {...props} members={members} />
+          <GroupMembers {...props} traceDetailsVisible={!outerHidden && (!grouped || open)} members={members} />
         </div>
       </div>
     </div>
