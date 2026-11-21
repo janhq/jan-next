@@ -1450,6 +1450,17 @@ describe('first-use Workspace preparation', () => {
     expect(storedState(h.pool).defaultWorkspaceId).toBeUndefined()
   })
 
+  it('restores a missing default directory without changing its registered identity', async () => {
+    const h = await firstUse()
+    const workspace = await h.registry.initializeDefault(h.resolveDirectory)
+    await rm(workspace.path, { recursive: true })
+    expect(h.registry.defaultWorkspace).toBe(workspace)
+    await expect(realpath(workspace.path)).rejects.toMatchObject({ code: 'ENOENT' })
+    expect(await h.registry.initializeDefault(h.resolveDirectory)).toBe(workspace)
+    expect(await realpath(workspace.path)).toBe(workspace.path)
+    expect(h.resolveDirectory).toHaveBeenCalledOnce()
+  })
+
   it('recreates a deleted default with a fresh identity after restart, including an old opt-out marker', async () => {
     const h = await firstUse()
     const workspace = (await h.registry.initializeDefault(h.resolveDirectory))!

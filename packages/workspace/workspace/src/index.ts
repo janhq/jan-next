@@ -270,7 +270,20 @@ export class WorkspaceRegistry extends Service {
   initializeDefault(resolveDirectory: () => Promise<string>): Promise<Workspace> {
     return this.enqueueOperation(async () => {
       const existing = this.defaultWorkspace
-      if (existing !== undefined) return existing
+      if (existing !== undefined) {
+        let canonical: string
+        try {
+          canonical = await realpathNormalize(existing.path)
+        } catch (error: unknown) {
+          if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT') throw error
+          await mkdir(existing.path, { recursive: true })
+          canonical = await realpathNormalize(existing.path)
+        }
+        if (canonical !== existing.path || !(await stat(canonical)).isDirectory()) {
+          throw new Error(`default Workspace directory '${existing.path}' is unavailable at its registered path`)
+        }
+        return existing
+      }
 
       const path = await resolveDirectory()
       if (!fullyQualifiedWorkspacePath(path)) throw new TypeError(`Workspace path is not fully qualified: '${path}'`)
