@@ -1,39 +1,21 @@
-/* Git row in the composer context stack: same dock column as the worktree card. */
-.dock {
-  box-sizing: border-box;
-  width: calc(
-    100% -
-    var(--jan-composer-side-clearance) -
-    var(--jan-composer-side-clearance) -
-    var(--jan-composer-dock-inset) -
-    var(--jan-composer-dock-inset) -
-    var(--jan-composer-dock-inset) -
-    var(--jan-composer-dock-inset)
-  );
-  margin: 0 auto;
-}
-
+/* Git readings in the composer's lower row, sized like the model and context readings beside them. */
 .strip {
-  box-sizing: border-box;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
-  max-width: calc(var(--jan-composer-card-max-width) - 4 * var(--jan-composer-dock-inset));
-  min-height: 28px;
-  margin: 0 auto;
-  padding: 0 4px;
+  gap: 8px;
+  flex: none;
   color: var(--dsw-alias-label-tertiary);
   font-size: 12px;
-  line-height: 16px;
+  line-height: 20px;
 }
 
 .branch {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
+  /* A short branch name stays whole; a long one stops at the cap with an ellipsis. */
+  max-width: 160px;
 }
 
 .icon { flex: none; }
@@ -46,7 +28,7 @@
 
 .changes {
   flex: none;
-  padding: 2px 6px;
+  padding: 0 4px;
   border: 0;
   border-radius: var(--dsw-radius-xs);
   background: transparent;
