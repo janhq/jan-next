@@ -98,6 +98,14 @@
     - id: jan-diagnostics
       name: '@janhq/jan-diagnostics'
 
+    # Read public settings and change them, saved or for this chat only, after one approval.
+    - id: jan-agent-settings
+      name: '@janhq/jan-agent-settings'
+
+    # A random quote on the new-chat page instead of the fixed greeting; lists and switch in Plugins.
+    - id: jan-wall-of-quotes
+      name: '@janhq/jan-wall-of-quotes'
+
     # Personalize first-run settings for every desktop user.
     - id: jan-onboarding
       name: '@janhq/jan-onboarding'
