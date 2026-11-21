@@ -1,6 +1,7 @@
 import type { SessionId } from '@janhq/jan-session/types'
 import type { AgentPresetModeAction } from './index.ts'
 import css from './AgentPresetSeat.module.css'
+import { PresetIcon } from './PresetIcon.tsx'
 
 const actionId = (id: string): string => `action:${id}`
 
@@ -8,6 +9,7 @@ const actionId = (id: string): string => `action:${id}`
 export function modeActionItems(actions: readonly AgentPresetModeAction[]) {
   return actions.map(action => ({
     id: actionId(action.id),
+    icon: <PresetIcon icon={action.icon} size={14} />,
     label: (
       <span className={css.item}>
         <span className={css.itemName}>{action.name()}</span>

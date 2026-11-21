@@ -12,7 +12,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ObservableSnapshot, SnapshotStore } from '@janhq/jan-client-store'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import {
-  IconAgentPresetOutlineRegular, IconChevronDownOutlineRegular, IconWarningOutlineRegular, Menu, Toast,
+  IconChevronDownOutlineRegular, IconWarningOutlineRegular, Menu, Toast,
 } from '@janhq/jan-client-ui-primitives'
 import type { SessionId } from '@janhq/jan-session/types'
 // Type-only: pulls the ui-conversation SlotMap merge (the composer preset seat).
@@ -24,6 +24,7 @@ import { requiresCodingTools } from './settings-store.ts'
 import css from './AgentPresetSeat.module.css'
 import { modeActionItems, runModeAction } from './mode-actions.tsx'
 import type { AgentPresetModeAction } from './index.ts'
+import { PresetIcon } from './PresetIcon.tsx'
 
 /** Registration-side business face for the composer chip. */
 export interface AgentPresetLabelInjected {
@@ -110,6 +111,7 @@ export function AgentPresetLabel({
           const display = presetDisplayText(entry, t)
           return {
             id: entry.id,
+            icon: <PresetIcon icon={entry.icon} size={14} />,
             label: (
               <span className={css.item}>
                 <span className={css.itemName}>{display.name}</span>
@@ -147,7 +149,7 @@ export function AgentPresetLabel({
             disabled={busy || running || (choices.length === 0 && modeActions.length === 0)}
             onClick={() => { setOpen(value => !value) }}
           >
-            <IconAgentPresetOutlineRegular className={css.seatIcon} />
+            <PresetIcon icon={option?.icon} className={css.seatIcon} />
             <span className={css.seatLabel}>{name}</span>
             <IconChevronDownOutlineRegular className={css.chevron} />
           </button>

@@ -68,6 +68,8 @@ export { AGENT_PRESET_SETTINGS_NS, writeDefaultPreset } from './settings-store.t
 /** A mode that owns its entry flow instead of composing a capability preset. */
 export interface AgentPresetModeAction {
   readonly id: string
+  /** Menu icon: a product glyph name such as `users-outline`, or one emoji. */
+  readonly icon?: string
   name(): string
   description(): string
   run(sessionId: SessionId | undefined): void

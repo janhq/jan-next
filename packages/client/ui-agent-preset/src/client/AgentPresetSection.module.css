@@ -221,6 +221,11 @@
   gap: 6px;
 }
 
+.cardIcon {
+  flex: none;
+  color: var(--dsw-alias-label-secondary);
+}
+
 .cardName {
   min-width: 0;
   font-size: 15px;
