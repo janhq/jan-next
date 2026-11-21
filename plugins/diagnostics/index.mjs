@@ -32,7 +32,7 @@ function failureOf(reason) {
 function failedPlugins(ctx) {
   const loader = ctx.get('loader')
   if (loader === undefined) return []
-  return loader.entries().filter(entry => !entry.disabled && entry.fiber?.state === FAILED).map(entry => String(entry.options.name))
+  return [...loader.entries()].filter(entry => !entry.disabled && entry.fiber?.state === FAILED).map(entry => String(entry.options.name))
 }
 
 /** Timestamp safe in a file name on every system. */
@@ -51,7 +51,8 @@ export function apply(ctx) {
   const janHome = resolveHome?.()
   const logDirectory = resolveHome?.('logs')
   const places = { home: homedir(), janHome }
-  const shown = path => redact(path, places)
+  // Shown only in this person's own window: a real path, with just the home folder shortened.
+  const shown = path => redact(path, { home: places.home })
 
   ctx.effect(() => ctx.on('session/event', (session, event) => {
     if (event.type !== 'turn/end') return

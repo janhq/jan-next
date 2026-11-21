@@ -21,6 +21,7 @@ window.__ModuleLoader__.load({
 .jd-facts dt { color: var(--dsw-alias-label-secondary); }
 .jd-facts dd { margin: 0; overflow-wrap: anywhere; user-select: text; }
 .jd-row { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 16px 0; border-bottom: 0.5px solid var(--dsw-alias-border-l2); }
+.jd-row > button { flex-shrink: 0; white-space: nowrap; }
 .jd-title { font-size: 14px; line-height: 20px; }
 .jd-description { margin-top: 4px; color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 18px; }
 .jd-status { padding-top: 12px; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-secondary); overflow-wrap: anywhere; }
