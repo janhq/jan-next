@@ -89,7 +89,9 @@ export interface AskUserQuestionAnswer {
 
 /** Live Host preference exposed to presets that opt into automatic answering. */
 export interface UserQuestionSettings {
-  /** The wait in seconds for new calls, or zero to wait indefinitely. */
+  /** Read the current automatic-answer wait for new calls.
+   * @returns The wait in seconds, or zero to wait indefinitely.
+   */
   autoAnswerSeconds(): number
 }
 
