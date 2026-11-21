@@ -294,8 +294,9 @@ const renderCommandSlot: React.ComponentProps<typeof CommandNodeView>['renderSlo
   (_key, _owner, opts) => opts?.fallback ?? null
 const renderTurnTailSlot: React.ComponentProps<typeof TurnTailNodeView>['renderSlot'] = () => null
 // A plugin action that answers only one failure code, so other failure rows render as shipped.
+// The slot renderer is generic over every Turn error key, so its owner widens to the union.
 const renderTurnErrorSlot: React.ComponentProps<typeof TurnErrorNodeView>['renderSlot'] = (_key, owner) => {
-  const failure = owner as TurnErrorActionOwnerProps
+  const failure = owner as unknown as TurnErrorActionOwnerProps
   return failure.code === 'PLUGIN_HANDLED' ? <button type="button">{`Report turn ${String(failure.turn)} at ${String(failure.seq)}`}</button> : null
 }
 
