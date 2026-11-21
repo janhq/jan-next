@@ -29,7 +29,7 @@ export const zh = {
 export const en = {
   'shortcut.noSession': 'Select a session first',
   recoveryFailed: 'Terminal recovery failed: {message}', retryRecovery: 'Retry terminal recovery',
-  shell: 'Choose shell', shellLoading: 'Loading shells…', shellEmpty: 'No shells available', description: 'Run commands in the Session workspace',
+  shell: 'Choose shell', shellLoading: 'Loading shells…', shellEmpty: 'No shells available', description: 'Run commands in the Session folder',
   title: 'Terminal', new: 'New terminal', loading: 'Reading terminal environment…', creating: 'Starting…',
   connecting: 'Connecting…', disconnected: 'Disconnected.', reconnect: 'Reconnect',
   readonly: 'This view is read-only.', control: 'Take control',
