@@ -1,7 +1,7 @@
 /** Agent activation, composition, and initial model route owned by API Session. */
 
 import { randomUUID } from 'node:crypto'
-import { mkdir } from 'node:fs/promises'
+import { mkdir, stat } from 'node:fs/promises'
 import type { Context } from '@janhq/cordis'
 import type { Agent, AgentOptions, AgentSetup } from '@janhq/jan-agent'
 import type {} from '@janhq/jan-agent-default-model'
@@ -12,6 +12,7 @@ import type { Session, SessionId } from '@janhq/jan-session'
 import { SessionQueryError, type SessionObservation } from '@janhq/jan-session-query'
 import { RemoteError, remoteErrorOf } from '@janhq/jan-typert-protocol'
 import type {} from '@janhq/jan-typert-registry'
+import { realpathNormalize, type WorkspaceId } from '@janhq/jan-workspace'
 
 /** Cold Session identity absent from persistence. */
 export class ApiSessionNotFound extends Error {}
@@ -58,6 +59,8 @@ export interface ApiSessionCreateRequest {
   readonly sessionId?: SessionId
   /** Directory the Session owns. */
   readonly cwd: string
+  /** Registered project target, when the caller does not own directory creation. */
+  readonly workspaceId?: WorkspaceId
   /** Preset the Session runs; the configured default when omitted. */
   readonly agentPreset?: string
   /**
@@ -230,7 +233,7 @@ export class ApiSessionAgentController {
       ?? this.ctx.get('agentPresets')?.defaultFor(this.ctx.agentDefaultModel.currentSelection().provider)
     const routed = agentPreset === undefined ? request : { ...request, agentPreset }
     const named = routed.sessionId
-    if (named === undefined) return this.created(await this.createMinted(routed.cwd, await this.composeAgent(routed.agentPreset)))
+    if (named === undefined) return this.created(await this.createMinted(routed, await this.composeAgent(routed.agentPreset)))
     return this.created(await this.claim(named, routed))
   }
 
@@ -331,14 +334,14 @@ export class ApiSessionAgentController {
         throw new ApiSessionCwdConflict(live.id, request.cwd, live.session.header.cwd)
       }
       const composition = await this.composeAgent(request.agentPreset)
-      return await this.reuseLive(live, request, composition) ?? this.createMinted(request.cwd, composition)
+      return await this.reuseLive(live, request, composition) ?? this.createMinted(request, composition)
     }
     let observation: SessionObservation
     try {
       observation = await this.ctx.sessionQuery.observeSession(sessionId)
     } catch (error: unknown) {
       if (!(error instanceof SessionQueryError) || error.code !== 'SESSION_QUERY_SESSION_NOT_FOUND') throw error
-      return this.createAgent(sessionId, request.cwd, await this.composeAgent(request.agentPreset))
+      return this.createAgent(sessionId, request, await this.composeAgent(request.agentPreset))
     }
     let reusable: boolean
     {
@@ -352,7 +355,7 @@ export class ApiSessionAgentController {
       reusable = request.reusable(sessionId) && !observed.events.some(event => event.type === 'turn/start')
     }
     const composition = await this.composeAgent(request.agentPreset)
-    if (!reusable) return this.createMinted(request.cwd, composition)
+    if (!reusable) return this.createMinted(request, composition)
     this.assertPresetApplicable(sessionId, request.agentPreset)
     try {
       return (await this.ctx.agents.resume({
@@ -361,11 +364,11 @@ export class ApiSessionAgentController {
         setup: this.reuseSetup(composition),
       })).agent
     } catch (error: unknown) {
-      if (error instanceof ApiSessionStartedSinceObserved) return this.createMinted(request.cwd, composition)
+      if (error instanceof ApiSessionStartedSinceObserved) return this.createMinted(request, composition)
       if (!(error instanceof Error) || error.name !== 'SessionAlreadyOwnedError') throw error
       // Another resume in this process may hold the writer for the Agent it published.
       return this.ctx.agents.get(sessionId) === undefined
-        ? this.createMinted(request.cwd, composition)
+        ? this.createMinted(request, composition)
         : this.claim(sessionId, request)
     }
   }
@@ -441,15 +444,29 @@ export class ApiSessionAgentController {
     return { agent, agentPreset: this.presetForSession(agent.session) }
   }
 
-  private createMinted(cwd: string, composition: ApiSessionComposition): Promise<Agent> {
-    return this.createAgent(brandString<SessionId>(`session-${randomUUID()}`), cwd, composition)
+  private createMinted(request: ApiSessionCreateRequest, composition: ApiSessionComposition): Promise<Agent> {
+    return this.createAgent(brandString<SessionId>(`session-${randomUUID()}`), request, composition)
   }
 
-  private async createAgent(sessionId: SessionId, cwd: string, composition: ApiSessionComposition): Promise<Agent> {
-    try {
-      await mkdir(cwd, { recursive: true })
-    } catch (error: unknown) {
-      throw new Error(`failed to ensure project directory "${cwd}": ${String(error)}`, { cause: error })
+  private async createAgent(sessionId: SessionId, request: ApiSessionCreateRequest, composition: ApiSessionComposition): Promise<Agent> {
+    const { cwd, workspaceId } = request
+    if (workspaceId === undefined) {
+      try {
+        await mkdir(cwd, { recursive: true })
+      } catch (error: unknown) {
+        throw new Error(`failed to ensure project directory "${cwd}": ${String(error)}`, { cause: error })
+      }
+    } else {
+      try {
+        if (await realpathNormalize(cwd) !== cwd || !(await stat(cwd)).isDirectory()) {
+          throw new RemoteError('workspace/project-folder-missing', 'The registered project folder is unavailable.', { workspaceId })
+        }
+      } catch (error: unknown) {
+        if (error instanceof Error && 'code' in error && (error.code === 'ENOENT' || error.code === 'ENOTDIR')) {
+          throw new RemoteError('workspace/project-folder-missing', 'The registered project folder is unavailable.', { workspaceId })
+        }
+        throw error
+      }
     }
     return (await this.ctx.agents.create({
       sessionId,

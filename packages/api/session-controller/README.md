@@ -49,6 +49,8 @@ Client list rows and resident Sessions use the current `sessionListMetadata` pro
 
 Omit both `workspaceId` and `cwd` to create a Session in the default project. The Host prepares that project on demand and attaches the new Session to it. `workspaceId` and `cwd` are mutually exclusive; callers that mean a specific directory, such as the headless runner, supply its cwd explicitly.
 
+Session creation never recreates a registered user project's folder. A missing or replaced project directory rejects with `workspace/project-folder-missing`. Only the Jan-managed default is restored at its registered path on demand.
+
 Client list refreshes retain unchanged row objects and reuse the items array when order and values match. Each row's `retainedBy` contains positive local reference-source counts; Host metadata refreshes cannot overwrite them. Cache membership checks use a per-refresh ID set, so reconciliation grows linearly with the current list and retained cache sizes. Host summary updates replace running and Agent availability; local create/fork responses only fill missing metadata on existing rows. Removed ordinary Sessions retain projection stores only when their catalogs contain children.
 
 Background-job rows and observation streams belong to [`jan-api-job-controller`](../job-controller/README.md); the control stream carries projections only.

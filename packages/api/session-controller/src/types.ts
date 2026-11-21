@@ -205,6 +205,8 @@ declare module '@janhq/jan-typert-protocol' {
     'session/agent-busy': { readonly reason: string }
     'session/invalid-time-zone': { readonly value: string }
     'session/workspace-attach-failed': { readonly sessionId: SessionId; readonly workspaceId: string }
+    /** The registered project path no longer resolves to its original directory. */
+    'workspace/project-folder-missing': { readonly workspaceId: WorkspaceId }
     'agent-preset/conflict': {
       readonly sessionId: SessionId
       readonly requestedPreset: string

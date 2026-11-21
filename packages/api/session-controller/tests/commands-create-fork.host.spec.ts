@@ -75,7 +75,7 @@ describe('Session creation failures', () => {
     expect(createSession).toHaveBeenCalledOnce()
     const request = createSession.mock.calls[0]?.[0]
     expect(request?.cwd).toBe('/default-workspace')
-    expect(Object.keys(request ?? {}).sort()).toEqual(['cwd', 'reusable'])
+    expect(request?.workspaceId).toBe('default-project')
     await ctx.fiber.dispose()
   })
 
