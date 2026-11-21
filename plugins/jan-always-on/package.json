@@ -9,7 +9,7 @@
     "./client": "./client.js",
     "./package.json": "./package.json"
   },
-  "files": ["*.mjs", "client.js", "client.copy.js", "README.md"],
+  "files": ["*.mjs", "client.js", "client.copy.js", "client.avatar.js", "client.open-bot-avatar.js", "LICENSE.open-bot-avatar", "README.md"],
   "dependencies": {
     "@janhq/dsh-superagent": "workspace:~",
     "@janhq/jan-atomic-write": "workspace:*",

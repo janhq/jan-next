@@ -19,3 +19,26 @@ The durable inbox and outbox live in `$JAN_HOME/always-on/queue.sqlite`. Memory 
 | `send` | Queue a meaningful update by a stable key. Use normal model output for anything that should not notify the user. |
 
 The opt-in profile setting only opens the persistent state after the user enables it. Event intake, single-slot work, idempotent session delivery, and notification receipts use `@janhq/dsh-superagent/queue` without running the GitHub router. External webhook ingress, messaging channels and automatic memory curation are not part of Bots.
+
+## Updating the avatar renderer
+
+The desktop browser loader can load package-local factory chunks but cannot resolve bare npm ESM imports. This source-shipped plugin vendors the zero-dependency [open-bot-avatar 0.3.0](https://github.com/DominikScholz/open-bot-avatar) renderer as `client.open-bot-avatar.js` with its [MIT notice](LICENSE.open-bot-avatar). No CDN or package install is needed at runtime.
+
+To regenerate from the repository root, use the published tarball and the workspace's esbuild (0.28.2 for this revision):
+
+```sh
+avatar=$(mktemp -d)
+curl -fsSL https://registry.npmjs.org/open-bot-avatar/-/open-bot-avatar-0.3.0.tgz -o "$avatar/avatar.tgz"
+test "$(openssl dgst -sha512 -binary "$avatar/avatar.tgz" | openssl base64 -A)" = \
+  '3P0o8eiClHHiLr7lIFZE/WxUtqHLjVb0xQ0PqYzA48XG/oQlWyeIdcY0egK6H8AgFuoY1aKVhc8QKSaj4z5ZOw==' && \
+  tar -xf "$avatar/avatar.tgz" -C "$avatar"
+cmp "$avatar/package/LICENSE" plugins/jan-always-on/LICENSE.open-bot-avatar
+printf '%s\n' "export { mountAvatar } from '$avatar/package/dist/dom/index.js'" \
+  "export { renderAvatarSvg, validateAvatar } from '$avatar/package/dist/index.js'" | \
+  ./node_modules/.bin/esbuild --bundle --minify --format=iife --global-name=avatarRuntime \
+  --banner:js='/* Generated from open-bot-avatar 0.3.0 (MIT). See LICENSE.open-bot-avatar. */
+window.__ModuleLoader__.load({ id: "@janhq/jan-always-on", chunk: "client.open-bot-avatar.js", factory() {' \
+  --footer:js='return avatarRuntime;
+} });' --outfile=plugins/jan-always-on/client.open-bot-avatar.js
+rm -rf "$avatar"
+```
