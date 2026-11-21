@@ -570,6 +570,12 @@ export const IconPinFillRegular = productIcon('pin-fill', 'regular')
 /** Medium IconPinFill artwork with a 1.3px stroke. */
 export const IconPinFillMedium = productIcon('pin-fill', 'medium')
 
+/** Regular one-pixel IconStarOutline artwork. */
+export const IconStarOutlineRegular = productIcon('star-outline', 'regular')
+
+/** Regular one-pixel IconStarFill artwork. */
+export const IconStarFillRegular = productIcon('star-fill', 'regular')
+
 /** Regular one-pixel IconFlatListOutline artwork. */
 export const IconFlatListOutlineRegular = productIcon('flat-list-outline', 'regular')
 
