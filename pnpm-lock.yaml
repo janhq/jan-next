@@ -3093,6 +3093,9 @@ importers:
       '@janhq/jan-client-ui-layout':
         specifier: workspace:*
         version: link:../../client/ui-layout
+      '@janhq/jan-client-ui-media-capture':
+        specifier: workspace:*
+        version: link:../../client/ui-media-capture
       '@janhq/jan-client-ui-message-feedback':
         specifier: workspace:*
         version: link:../../client/ui-message-feedback
@@ -3351,6 +3354,9 @@ importers:
       '@janhq/jan-tool-bash-persistent':
         specifier: workspace:*
         version: link:../../shell/tool-bash-persistent
+      '@janhq/jan-tool-capture-media':
+        specifier: workspace:*
+        version: link:../../interaction/tool-capture-media
       '@janhq/jan-tool-cordis':
         specifier: workspace:*
         version: link:../../extensions/tool-cordis
@@ -4931,6 +4937,45 @@ importers:
       '@janhq/jan-client-ui-theme':
         specifier: workspace:*
         version: link:../ui-theme
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+
+  packages/client/ui-media-capture:
+    devDependencies:
+      '@janhq/cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@janhq/jan-client-locale':
+        specifier: workspace:*
+        version: link:../locale
+      '@janhq/jan-client-ui-chat':
+        specifier: workspace:*
+        version: link:../ui-chat
+      '@janhq/jan-client-ui-conversation':
+        specifier: workspace:*
+        version: link:../ui-conversation
+      '@janhq/jan-client-ui-primitives':
+        specifier: workspace:*
+        version: link:../ui-primitives
+      '@janhq/jan-client-ui-renderer':
+        specifier: workspace:*
+        version: link:../ui-renderer
+      '@janhq/jan-client-ui-slots':
+        specifier: workspace:*
+        version: link:../ui-slots
+      '@janhq/jan-session':
+        specifier: workspace:*
+        version: link:../../core/session
+      '@janhq/jan-tool-capture-media':
+        specifier: workspace:*
+        version: link:../../interaction/tool-capture-media
+      '@janhq/jan-tool-executor-ptc':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-ptc
+      '@testing-library/react':
+        specifier: ^16.3.3
+        version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react:
         specifier: ^18.2.0
         version: 18.3.1
@@ -7277,12 +7322,12 @@ importers:
       '@janhq/jan-client-ui-renderer':
         specifier: workspace:*
         version: link:../ui-renderer
-      '@janhq/jan-client-ui-settings':
-        specifier: workspace:*
-        version: link:../ui-settings
       '@janhq/jan-client-ui-session':
         specifier: workspace:*
         version: link:../ui-session
+      '@janhq/jan-client-ui-settings':
+        specifier: workspace:*
+        version: link:../ui-settings
       '@janhq/jan-client-ui-slots':
         specifier: workspace:*
         version: link:../ui-slots
@@ -13049,6 +13094,42 @@ importers:
       '@janhq/jan-user-questions':
         specifier: workspace:*
         version: link:../user-questions
+
+  packages/interaction/tool-capture-media:
+    devDependencies:
+      '@janhq/cordis':
+        specifier: workspace:~
+        version: link:../../../vendor/cordis
+      '@janhq/jan-agent':
+        specifier: workspace:*
+        version: link:../../core/agent
+      '@janhq/jan-agent-loop-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/agent-loop-testkit
+      '@janhq/jan-attachment':
+        specifier: workspace:*
+        version: link:../../attachment/attachment
+      '@janhq/jan-client-connection':
+        specifier: workspace:*
+        version: link:../../client/connection
+      '@janhq/jan-fs':
+        specifier: workspace:*
+        version: link:../../fs/fs
+      '@janhq/jan-llm':
+        specifier: workspace:*
+        version: link:../../llm/llm
+      '@janhq/jan-session':
+        specifier: workspace:*
+        version: link:../../core/session
+      '@janhq/jan-system-prompt':
+        specifier: workspace:*
+        version: link:../../core/system-prompt
+      '@janhq/jan-tool-testkit':
+        specifier: workspace:*
+        version: link:../../test-support/tool-testkit
+      '@janhq/jan-tools':
+        specifier: workspace:*
+        version: link:../../core/tools
 
   packages/interaction/user-approval:
     dependencies:

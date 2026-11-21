@@ -1,0 +1,44 @@
+.card {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-md);
+  color: var(--dsw-alias-label-primary);
+}
+
+.reason, .error { margin: 0; overflow-wrap: anywhere; }
+.reason { color: var(--dsw-alias-label-secondary); }
+.error { color: var(--dsw-alias-label-primary); }
+.controls { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.field { display: grid; gap: 4px; min-width: 0; }
+.color { display: flex; align-items: center; gap: 4px; }
+.field :is(select, textarea, input) {
+  min-width: 0;
+  padding: 4px 8px;
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-sm);
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: inherit;
+  font: inherit;
+}
+.field textarea { resize: vertical; }
+.field meter { width: 100%; }
+.media {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  max-height: 360px;
+  border-radius: var(--dsw-radius-sm);
+  object-fit: contain;
+}
+.canvas {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: var(--dsw-radius-sm);
+}
+.canvas canvas { display: block; max-width: 100%; max-height: 60vh; object-fit: contain; }
+.canvas canvas:last-child { position: absolute; inset: 0; cursor: crosshair; touch-action: none; }
