@@ -128,7 +128,7 @@ describe.skipIf(mode === 'record')('web e2e: workspace shortcuts', () => {
     expect(scaffold.ctx.workspaceRegistry.archivedSessionIds).not.toContain(sourceId)
     expect((await readPersistedEvents(scaffold, sourceId)).length).toBeGreaterThan(0)
 
-    await bind('Add workspace')
+    await bind('Add project')
     await page.keyboard.press('Meta+Shift+Comma')
     const picker = page.getByRole('dialog', { name: 'Select Workspace Directory', exact: true })
     await picker.waitFor()

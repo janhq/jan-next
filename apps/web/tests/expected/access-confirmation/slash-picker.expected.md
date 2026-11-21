@@ -2,7 +2,7 @@
   - /placeholder: Search…
 - listbox "/permission matches":
   - option "Read Only"
-  - option "Workspace Write" [selected]
+  - option "Project Write" [selected]
   - option "Full access"
   - option "Auto review EXP":
     - text: Auto review

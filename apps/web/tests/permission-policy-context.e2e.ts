@@ -31,7 +31,7 @@ const PROMPTS = [
   'Create the relative path policy-neutral.txt in the current workspace containing exactly POLICY_NEUTRAL_OK, verify its contents, then report completion.',
 ] as const
 
-const PRESET_LABELS = ['Read Only', 'Full access', 'Workspace Write'] as const
+const PRESET_LABELS = ['Read Only', 'Full access', 'Project Write'] as const
 
 function systemPrompts(events: readonly SessionEvent[]): string[] {
   return events.flatMap((event) => {

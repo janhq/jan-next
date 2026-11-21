@@ -267,7 +267,7 @@ export async function revealNavigationDrawer(page: Page, locale: 'en' | 'zh' | '
 export async function connectFreshWorkspace(page: Page, root: string, name = 'workspace'): Promise<void> {
   mkdirSync(join(root, name), { recursive: true })
   await revealNavigationDrawer(page, 'en')
-  await page.getByRole('button', { name: 'Add workspace', exact: true }).click()
+  await page.getByRole('button', { name: 'Add project', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'Select Workspace Directory' })
   await dialog.waitFor({ timeout: 10_000 })
   await dialog.getByRole('button', { name: 'Edit path' }).click()

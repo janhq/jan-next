@@ -55,13 +55,13 @@ describe('web e2e: experimental Auto and Full access confirmation', () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-auto-review-entry'))
     const access = page.locator('button[aria-label^="Access mode"]').first()
     await access.waitFor({ timeout: 10_000 })
-    expect(await access.getAttribute('aria-label')).toBe('Access mode, current: Workspace Write')
+    expect(await access.getAttribute('aria-label')).toBe('Access mode, current: Project Write')
 
     await access.click()
     const currentMenu = page.getByRole('menu')
     await currentMenu.waitFor({ timeout: 10_000 })
     expect(await currentMenu.getByRole('menuitem').allTextContents())
-      .toEqual(['Read Only', 'Workspace Write', 'Full access', 'Auto reviewEXP'])
+      .toEqual(['Read Only', 'Project Write', 'Full access', 'Auto reviewEXP'])
     await captureAutoReviewState(page, 'experimental-current-session-picker')
     const currentSnapshot = await captureStableAria(page, '[role="menu"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(CURRENT_SESSION_PICKER_EXPECTED, currentSnapshot, MODE)
@@ -89,7 +89,7 @@ describe('web e2e: experimental Auto and Full access confirmation', () => {
     await compareOrRefreshGolden(AUTO_CONFIRMATION_EXPECTED, confirmationSnapshot, MODE)
     await autoDialog.getByRole('button', { name: 'Cancel' }).click()
     await expect.poll(() => autoDialog.count()).toBe(0)
-    expect(await access.getAttribute('aria-label')).toBe('Access mode, current: Workspace Write')
+    expect(await access.getAttribute('aria-label')).toBe('Access mode, current: Project Write')
 
     const input = page.locator('[data-composer-input]').first()
     await writeComposerDraft(page, input, '/permission')
@@ -136,7 +136,7 @@ describe('web e2e: experimental Auto and Full access confirmation', () => {
     await writeComposerDraft(page, input, '/permission workspace-write')
     await input.press('Enter')
     await expect.poll(() => access.getAttribute('aria-label'), { timeout: 10_000 })
-      .toBe('Access mode, current: Workspace Write')
+      .toBe('Access mode, current: Project Write')
     expect(await page.getByRole('dialog').count()).toBe(0)
     expect(tripwire.pageErrors).toEqual([])
   }, 60_000)
@@ -146,7 +146,7 @@ describe('web e2e: experimental Auto and Full access confirmation', () => {
     const access = page.locator('button[aria-label^="Access mode"]').first()
     await access.waitFor({ timeout: 10_000 })
 
-    expect(await access.getAttribute('aria-label')).toBe('Access mode, current: Workspace Write')
+    expect(await access.getAttribute('aria-label')).toBe('Access mode, current: Project Write')
 
     await access.click()
     await page.getByRole('menuitem', { name: 'Full access' }).click()
@@ -198,7 +198,7 @@ describe('web e2e: experimental Auto and Full access confirmation', () => {
     expect(menuBox.width).toBeLessThanOrEqual(360)
     expect(menuBox.x).toBeGreaterThanOrEqual(0)
     expect(menuBox.x + menuBox.width).toBeLessThanOrEqual(420)
-    for (const name of ['Read Only', 'Workspace Write', 'Full access', 'Auto review']) {
+    for (const name of ['Read Only', 'Project Write', 'Full access', 'Auto review']) {
       expect(await menu.getByText(name, { exact: true }).evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true)
     }
     await page.keyboard.press('Escape')
@@ -222,7 +222,7 @@ describe('web e2e: experimental Auto and Full access confirmation', () => {
     expect(slashBox.x + slashBox.width).toBeLessThanOrEqual(420)
     expect(await slash.evaluate(node => getComputedStyle(node).minWidth)).toBe('min(220px, 100%)')
     expect(await slash.evaluate(node => getComputedStyle(node).maxWidth)).toBe('100%')
-    for (const name of ['Read Only', 'Workspace Write', 'Full access', 'Auto review']) {
+    for (const name of ['Read Only', 'Project Write', 'Full access', 'Auto review']) {
       expect(await slash.getByText(name, { exact: true }).evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true)
     }
     await page.keyboard.press('Escape')
@@ -260,14 +260,14 @@ describe('web e2e: experimental Auto and Full access confirmation', () => {
     await page.keyboard.press('Escape')
     await access.click()
     await expect.poll(() => page.getByRole('menuitem').allTextContents())
-      .toEqual(['Read Only', 'Workspace Write', 'Full access'])
+      .toEqual(['Read Only', 'Project Write', 'Full access'])
     await captureAutoReviewState(page, 'uninstalled-current-session-picker')
     await page.keyboard.press('Escape')
     await entry.update({ disabled: false })
     await scaffold.ctx.loader.await()
     await access.click()
     await expect.poll(() => page.getByRole('menuitem').allTextContents())
-      .toEqual(['Read Only', 'Workspace Write', 'Full access', 'Auto reviewEXP'])
+      .toEqual(['Read Only', 'Project Write', 'Full access', 'Auto reviewEXP'])
     expect(await access.getAttribute('aria-label')).toBe('Access mode, current: Full access')
     await captureAutoReviewState(page, 'reinstalled-current-session-picker')
     await page.keyboard.press('Escape')
@@ -311,7 +311,7 @@ describe('web e2e: default permission choices', () => {
     const access = page.locator('button[aria-label^="Access mode"]').first()
     await access.click()
     await expect.poll(() => page.getByRole('menuitem').allTextContents())
-      .toEqual(['Read Only', 'Workspace Write', 'Full access'])
+      .toEqual(['Read Only', 'Project Write', 'Full access'])
     await captureAutoReviewState(page, 'default-current-session-picker')
     await page.keyboard.press('Escape')
     const input = page.locator('[data-composer-input]').first()

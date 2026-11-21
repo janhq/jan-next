@@ -23,7 +23,7 @@
 - text: {{clock}}
 - textbox "Message or run a task, / commands, @ files or sessions"
 - button "Add files or run commands"
-- 'button "Access mode, current: Workspace Write"': Workspace Write
+- 'button "Access mode, current: Project Write"': Project Write
 - button "Select model, current Tokamak 1 Preview": Tokamak 1 Preview
 - button "Send message" [disabled]
 - button "1 turns 1 steps · {{throughput}} tok/s": 1 turns 1 steps{{throughput}} tok/s

@@ -19,8 +19,8 @@
         - button "Edit shortcut for Search sessions"
         - text: Search sessions ⌥ ⌘ K
       - listitem:
-        - button "Edit shortcut for Add workspace"
-        - text: Add workspace ⌥ ⌘ O
+        - button "Edit shortcut for Add project"
+        - text: Add project ⌥ ⌘ O
       - listitem:
         - button "Edit shortcut for Rename session"
         - text: Rename session ⌥ ⌘ G
@@ -37,8 +37,8 @@
         - button "Edit shortcut for Toggle right sidebar"
         - text: Toggle right sidebar ⇧ ⌘ B
       - listitem:
-        - button "Edit shortcut for Workspace files"
-        - text: Workspace files ⌥ ⌘ P
+        - button "Edit shortcut for Project files"
+        - text: Project files ⌥ ⌘ P
       - listitem:
         - button "Edit shortcut for New terminal"
         - text: "New terminal ⌃ `"
