@@ -1,8 +1,9 @@
 /**
- * Artifacts library model: every file any chat presented, derived from the
- * Session list's `presentedFiles` projection values, so no history is opened to
- * list them. Pure derivation plus the small controller that reads what the list
- * does not yet carry (legacy Sessions) and whether each file still exists.
+ * Artifacts library model: every file any chat presented and every web link any
+ * chat mentioned, derived from the Session list's `presentedFiles` and
+ * `sharedLinks` projection values, so no history is opened to list them. Pure
+ * derivation plus the small controller that reads what the list does not yet
+ * carry (legacy Sessions) and whether each file still exists.
  */
 import { classifyFileType } from '@janhq/jan-client-ui-primitives'
 import { createSnapshotStore } from '@janhq/jan-client-store'
@@ -10,6 +11,7 @@ import type { SessionListState } from '@janhq/jan-api-session-controller/client'
 import type { SessionId } from '@janhq/jan-session/types'
 import type { PresentedFileEntry } from '@janhq/jan-tool-present/types'
 import type { RemoteResult } from '@janhq/jan-typert-protocol'
+import type { SharedLinkEntry } from '../links.ts'
 import { basename } from '../presented.ts'
 
 /** Kinds the library groups by, in display order. */
@@ -72,6 +74,11 @@ function presentedOf(list: SessionListState, id: SessionId): readonly PresentedF
   return list.projectionsBySession[id]?.values.presentedFiles ?? list.byId[id]?.projectionValues?.presentedFiles
 }
 
+/** The shared links a list holds for one Session, or undefined while it holds none. */
+function linksOf(list: SessionListState, id: SessionId): readonly SharedLinkEntry[] | undefined {
+  return list.projectionsBySession[id]?.values.sharedLinks ?? list.byId[id]?.projectionValues?.sharedLinks
+}
+
 /**
  * Every presented file of every listed chat, newest first.
  * @param list - the Session list snapshot.
@@ -93,16 +100,67 @@ export function artifactRows(list: SessionListState): ArtifactRow[] {
   return rows.sort((a, b) => b.time - a.time || b.seq - a.seq)
 }
 
+/** One web link with the chat that mentioned it. */
+export interface LinkRow {
+  /** Stable across list refreshes: the chat and the URL. */
+  readonly key: string
+  readonly sessionId: SessionId
+  readonly chatTitle: string
+  readonly url: string
+  /** Link text from the chat, or the host name when it gave none. */
+  readonly title: string
+  /** Host name without a leading `www.`. */
+  readonly site: string
+  readonly from: SharedLinkEntry['from']
+  /** Unix epoch milliseconds of the latest mention. */
+  readonly time: number
+}
+
 /**
- * Chats whose Session list row carries no presented-files value yet: Sessions
- * checkpointed before the index existed. Reading their projections once fills it.
+ * Every shared link of every listed chat, newest mention first.
+ * @param list - the Session list snapshot.
+ * @returns one row per distinct link per chat.
+ */
+export function linkRows(list: SessionListState): LinkRow[] {
+  const rows: LinkRow[] = []
+  for (const id of list.ids) {
+    const summary = list.byId[id]
+    if (!isListedChat(summary)) continue
+    for (const entry of linksOf(list, id) ?? []) {
+      const site = new URL(entry.url).hostname.replace(/^www\./, '')
+      rows.push({
+        key: `${id}\n${entry.url}`, sessionId: id, chatTitle: summary.displayTitle, url: entry.url,
+        title: entry.title ?? site, site, from: entry.from, time: entry.time,
+      })
+    }
+  }
+  return rows.sort((a, b) => b.time - a.time)
+}
+
+/**
+ * Keep the links matching a search.
+ * @param rows - rows in display order.
+ * @param query - free text matched against the URL, link text, and chat title.
+ * @returns the matching rows in the same order.
+ */
+export function filterLinks(rows: readonly LinkRow[], query: string): LinkRow[] {
+  const needle = query.trim().toLowerCase()
+  if (needle === '') return [...rows]
+  return rows.filter(row => row.url.toLowerCase().includes(needle) || row.title.toLowerCase().includes(needle)
+    || row.chatTitle.toLowerCase().includes(needle))
+}
+
+/**
+ * Chats whose Session list row carries no presented-files or shared-links value
+ * yet: Sessions checkpointed before an index existed. Reading their projections
+ * once fills both.
  * @param list - the Session list snapshot.
  * @returns ids not yet read, newest chat first.
  */
 export function unindexedChats(list: SessionListState): SessionId[] {
   return list.ids.filter((id) => {
     const summary = list.byId[id]
-    return isListedChat(summary) && !summary.blank && presentedOf(list, id) === undefined
+    return isListedChat(summary) && !summary.blank && (presentedOf(list, id) === undefined || linksOf(list, id) === undefined)
       && (list.projectionsBySession[id]?.state ?? 'idle') === 'idle'
   })
 }
