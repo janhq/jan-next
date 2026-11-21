@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { apply } from '../index.mjs'
 import { mountAgentSettings } from '../../jan-theme/agent-settings.mjs'
 
-async function withImporter(callback) {
+async function withImporter(callback, { hasDefault = true } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'jan-import-'))
   const source = join(root, 'jan-data')
   const outside = join(root, 'outside.png')
@@ -35,7 +35,10 @@ async function withImporter(callback) {
     create: async header => { sessions.set(header.id, { header, events: [] }); return handleFor(header.id) },
     open: async id => handleFor(id),
   }
-  const workspace = { path: source, attachSession: async () => {} }
+  const defaultPath = join(root, 'Documents', 'jan', 'default-workspace')
+  const placement = { initialized: 0, attached: [] }
+  const workspace = { path: defaultPath, attachSession: async id => { placement.attached.push(id) } }
+  let defaultWorkspace
   const api = { register: ({ handler }) => { api.handler = handler; return () => {} } }
   const services = Object.create(null)
   const ctx = {
@@ -46,7 +49,16 @@ async function withImporter(callback) {
     connection: { requestRejection: () => undefined },
     sessions: { get: () => undefined, prepare: (id, { meta }) => ({ header: { id, ...meta }, inheritedEventCount: 0 }) },
     sessionPersistence: persistence,
-    workspaceRegistry: { initializeDefault: async () => workspace },
+    workspaceRegistry: {
+      get defaultWorkspace() { return defaultWorkspace },
+      resolveByPath: async path => path === defaultWorkspace?.path ? defaultWorkspace : undefined,
+    },
+    workspaceController: {
+      initializeDefault: async () => {
+        placement.initialized++
+        if (hasDefault) defaultWorkspace = workspace
+      },
+    },
     attachments: { saveImage: async image => { saved.push(image); return { id: `image-${saved.length}` } } },
     get: name => services[name],
   }
@@ -61,7 +73,7 @@ async function withImporter(callback) {
     await writeFile(join(source, 'threads', threadId, 'messages.jsonl'), messages.map(message => JSON.stringify(message)).join('\n'))
     return rpc('import', { folder: source, ids: [threadId] })
   }
-  try { await callback({ source, outside, saved, sessions, failures, importImages, rpc, services }) }
+  try { await callback({ source, outside, defaultPath, placement, saved, sessions, failures, importImages, rpc, services }) }
   finally { await rm(root, { recursive: true, force: true }) }
 }
 
@@ -87,6 +99,22 @@ test('a chat whose events failed to save is finished on the next import, not rep
   const third = await importImages([image])
   assert.equal(third.body.result.results[0].status, 'already imported')
 }))
+
+test('Jan chats use the default directory supplied by the workspace controller', async () => withImporter(async ({ defaultPath, placement, sessions, importImages }) => {
+  const { body } = await importImages(['https://example.com/image.png'])
+  assert.equal(body.result.results[0].status, 'imported')
+  assert.equal(sessions.get('jan-sample').header.cwd, defaultPath)
+  assert.deepEqual(placement, { initialized: 1, attached: ['jan-sample'] })
+}))
+
+test('Jan chats import without project membership when no default is eligible', async () => withImporter(async ({ placement, sessions, importImages }) => {
+  const first = await importImages(['https://example.com/image.png'])
+  assert.equal(first.body.result.results[0].status, 'imported')
+  assert.equal(Object.hasOwn(sessions.get('jan-sample').header, 'cwd'), false)
+  const second = await importImages(['https://example.com/image.png'])
+  assert.equal(second.body.result.results[0].status, 'already imported')
+  assert.deepEqual(placement, { initialized: 1, attached: [] })
+}, { hasDefault: false }))
 
 test('legacy MCP import keeps env and header values off the wire and stores them on the Host', async () => withImporter(async ({ source, rpc, services }) => {
   const envToken = 'legacy-env-token'

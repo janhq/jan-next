@@ -17,7 +17,7 @@ export const Config = z.object({
   // Jan assistants brought over, by preset id; each is registered as a preset at startup.
   assistants: z.dict(z.any()).default({}).volatile(),
 })
-export const inject = ['webServer', 'connection', 'settings', 'sessions', 'sessionPersistence', 'workspaceRegistry', 'attachments']
+export const inject = ['webServer', 'connection', 'settings', 'sessions', 'sessionPersistence', 'workspaceRegistry', 'workspaceController', 'attachments']
 // The preset an imported assistant is built on: its tools and guidance, with
 // the assistant's instructions as the persona.
 const BASE_PRESET = 'standard'
@@ -311,13 +311,18 @@ export function apply(ctx, config = {}) {
         run.done++
       }
       if (!unique.length) return { results: run.results, settings: run.settings }
-      // A coding-agent session opens in the folder it ran in, so it can be continued there;
-      // a Jan chat, or a session whose folder is gone, opens in the default workspace.
-      let fallback
+      // Initialize only for a new import that has no usable source directory.
+      let defaultInitialization
       const defaultWorkspace = async () => {
-        fallback ??= await ctx.workspaceRegistry.initializeDefault(async () => process.cwd())
-        if (!fallback) throw new Error('The default workspace is unavailable. Restore it before importing.')
-        return fallback
+        if (ctx.workspaceRegistry.defaultWorkspace === undefined) {
+          defaultInitialization ??= ctx.workspaceController.initializeDefault(new AbortController().signal)
+          await defaultInitialization
+        }
+        return ctx.workspaceRegistry.defaultWorkspace
+      }
+      const storedWorkspace = async cwd => {
+        if (cwd === undefined) return undefined
+        try { return await ctx.workspaceRegistry.resolveByPath(cwd) } catch (error) { if (!missing(error)) throw error }
       }
       const workspaceFor = async cwd => {
         if (typeof cwd !== 'string' || !isAbsolute(cwd)) return defaultWorkspace()
@@ -335,13 +340,14 @@ export function apply(ctx, config = {}) {
           const partial = await exists(sessionId) && await partialImport(sessionId, thread, messages)
           if (!partial && (await exists(sessionId) || (typeof linkedId === 'string' && await exists(linkedId)))) {
             // Retry workspace membership when a prior import persisted successfully but attachment failed.
-            if (await exists(sessionId)) await (await workspaceFor(origin === 'jan' ? undefined : (await ctx.sessionPersistence.stat(sessionId))?.header.cwd)).attachSession(sessionId)
-            run.results.push({ id, status: 'already imported', sessionId: await exists(sessionId) ? sessionId : linkedId })
+            const stored = ctx.sessions.get(sessionId)?.header ?? (await ctx.sessionPersistence.stat(sessionId))?.header
+            await (await storedWorkspace(stored?.cwd))?.attachSession(sessionId)
+            run.results.push({ id, status: 'already imported', sessionId: stored ? sessionId : linkedId })
           } else if (!messages.length) {
             run.results.push({ id, status: 'skipped', reason: 'empty chat' })
           } else {
             const converted = convertThread(thread, messages, await saveImages(source, messages))
-            const workspace = await workspaceFor(origin === 'jan' ? undefined : thread.cwd)
+            let workspace
             let header, inheritedEventCount, handle
             if (partial) {
               // Finish a log an earlier run created but did not fill; its stored prefix stays as written.
@@ -349,7 +355,8 @@ export function apply(ctx, config = {}) {
               header = handle.header
               inheritedEventCount = handle.inheritedEventCount
             } else {
-              const prepared = ctx.sessions.prepare(sessionId, { seed: converted.events, meta: { createdAt: converted.createdAt, cwd: workspace.path, isSeeded: false } })
+              workspace = await workspaceFor(origin === 'jan' ? undefined : thread.cwd)
+              const prepared = ctx.sessions.prepare(sessionId, { seed: converted.events, meta: { createdAt: converted.createdAt, ...(workspace ? { cwd: workspace.path } : {}), isSeeded: false } })
               // A chat with an imported assistant keeps running as that assistant.
               const preset = typeof thread.assistants?.[0]?.id === 'string' ? assistantPresetId(thread.assistants[0].id) : undefined
               header = preset && mountedPresets.has(preset) ? { ...prepared.header, agentPreset: preset } : prepared.header
@@ -365,7 +372,7 @@ export function apply(ctx, config = {}) {
             // live sessions write; fold the imported log once so the row is titled.
             ctx.get('sessionProjectionCache')?.coldSnapshot(header, inheritedEventCount, converted.events)
             // A resumed partial log keeps the folder its header was written with.
-            await (partial && origin !== 'jan' ? await workspaceFor(header.cwd) : workspace).attachSession(sessionId)
+            await (partial ? await storedWorkspace(header.cwd) : workspace)?.attachSession(sessionId)
             run.results.push({ id, status: 'imported', sessionId, losses: [...losses, ...converted.losses] })
           }
         } catch (error) { run.results.push({ id, status: 'failed', reason: errorText(error) }) }
