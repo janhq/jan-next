@@ -977,7 +977,7 @@ describe('UiWorkspaceService', () => {
 
       b.uiWorkspace.startSession(undefined, { prompt: 'unsent' })
 
-      expect(b.notify).toHaveBeenCalledExactlyOnceWith({ kind: 'createFailed', message: 'Choose a workspace first.' })
+      expect(b.notify).toHaveBeenCalledExactlyOnceWith({ kind: 'createFailed', message: 'Choose a folder first.' })
       expect(b.sessions.create).not.toHaveBeenCalled()
       expect(b.requestDraftInitialization).not.toHaveBeenCalled()
       expect(b.sessions.retained[0]!.release).not.toHaveBeenCalled()
