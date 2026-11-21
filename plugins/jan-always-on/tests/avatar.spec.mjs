@@ -12,7 +12,9 @@ const { createRoot } = reactRequire('react-dom/client')
 
 function loadChunks(context) {
   const modules = new Map([['react', React]])
-  context.window.__ModuleLoader__ = { load({ chunk, factory }) { modules.set(chunk, factory(name => modules.get(name))) } }
+  const load = name => modules.get(name)
+  load.async = async name => modules.get(name.slice(2))
+  context.window.__ModuleLoader__ = { load({ chunk, factory }) { modules.set(chunk, factory(load)) } }
   for (const entry of ['client.open-bot-avatar.js', 'client.avatar.js']) {
     runInNewContext(readFileSync(new URL(`../${entry}`, import.meta.url), 'utf8'), context, { filename: entry })
   }
@@ -63,15 +65,27 @@ test('mounts the real renderer, updates its colors and expires a delivery, then 
   frame = performance.now()
   window.matchMedia = () => ({ matches: true })
   t.mock.timers.enable({ apis: ['setTimeout'] })
-  const { Avatar, mountAvatar } = loadChunks({ window, document, performance, setTimeout, clearTimeout,
+  const { Avatar, definition, loadAvatarRenderer } = loadChunks({ window, document, performance, setTimeout, clearTimeout,
     requestAnimationFrame: cb => { frames.set(++nextFrame, cb); return nextFrame },
     cancelAnimationFrame: id => frames.delete(id),
     getComputedStyle: window.getComputedStyle.bind(window), MutationObserver: window.MutationObserver })
+  const mountBotAvatar = await loadAvatarRenderer()
+  const directHost = document.createElement('div')
+  const direct = mountBotAvatar(directHost, { definition, color: '#123456', state: 'idle', mood: 'neutral', still: true, label: 'Test bot' })
+  tick()
+  assert.equal(directHost.getAttribute('aria-label'), 'Test bot')
+  assert.ok(directHost.querySelector('svg > g[fill="#123456"]'))
+  direct.update({ color: '#654321', label: 'Updated bot' })
+  tick()
+  assert.equal(directHost.getAttribute('aria-label'), 'Updated bot')
+  assert.ok(directHost.querySelector('svg > g[fill="#654321"]'))
+  direct.destroy()
+  assert.equal(directHost.childElementCount, 0)
   const root = createRoot(rootNode)
   let unmounted = false
   t.after(() => { if (!unmounted) React.act(() => root.unmount()) })
   const tMessage = key => ({ title: 'Bots', off: 'Off', sent: 'Sent', avatarIdle: 'Idle' })[key]
-  const render = state => React.act(() => root.render(React.createElement(Avatar, { snapshot: state, t: tMessage, mountAvatar })))
+  const render = state => React.act(() => root.render(React.createElement(Avatar, { snapshot: state, t: tMessage, mountBotAvatar })))
   document.body.style.setProperty('--dsw-alias-brand-primary', '#ffc928')
   document.body.style.setProperty('--dsw-alias-label-primary-foreground', 'rgb(34, 34, 34)')
   render({ ...snapshot, enabled: false })
