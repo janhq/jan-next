@@ -43,6 +43,7 @@ import { CloseLabel, HeaderContent, TriggerContent } from './chrome.tsx'
 import { GeneralSection } from './GeneralSection.tsx'
 import { CurrentVersionRow } from './CurrentVersionRow.tsx'
 import { DeveloperToolsRow, type DeveloperToolsRowInjected } from './DeveloperToolsRow.tsx'
+import { FactoryResetRow, type FactoryResetRowInjected } from './FactoryResetRow.tsx'
 import { SettingsDocumentAction } from './SettingsDocumentAction.tsx'
 import type { SettingsDocumentActionInjected } from './SettingsDocumentAction.tsx'
 import { SettingsDocumentStore } from './settings-document-store.ts'
@@ -130,7 +131,16 @@ export function apply(ctx: ClientContext): void {
   }, CurrentVersionRow))
   ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-settings-general: dictionaries')
   const connection = ctx.get('connection') as ConnectionHandle
-  const carrier = (globalThis as typeof globalThis & { janDesktop?: { protocolVersion: number; updates?: DesktopUpdateBridge } }).janDesktop
+  type DesktopCarrier = { protocolVersion: number; updates?: DesktopUpdateBridge; factoryReset?: FactoryResetRowInjected['reset'] }
+  const carrier = (globalThis as typeof globalThis & { janDesktop?: DesktopCarrier }).janDesktop
+  const factoryReset = carrier?.protocolVersion === 1 ? carrier.factoryReset : undefined
+  // Desktop owns the data and the relaunch, so the row exists only there; it closes the General list.
+  if (factoryReset !== undefined) {
+    ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+      name: 'settings.general.item', id: 'factory-reset', order: 110, locale: NS,
+      inject: (): FactoryResetRowInjected => ({ reset: categories => factoryReset(categories) }),
+    }, FactoryResetRow))
+  }
   const desktopUpdate = new DesktopUpdateSource(carrier?.protocolVersion === 1 ? carrier.updates : undefined)
   ctx.effect(() => () => { desktopUpdate.dispose() }, 'ui-settings-general: desktop update carrier')
   const channelBridge = carrier?.protocolVersion === 1 ? carrier.updates?.channels : undefined
