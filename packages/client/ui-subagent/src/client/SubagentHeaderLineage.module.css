@@ -1,17 +1,3 @@
-/* The composer dock seat spans the input card's box, so the count chip's
-   glyph (12px seat pad + the trigger's 2px) lands on the card's text edge. */
-.dockSeat {
-  box-sizing: border-box;
-  align-self: center;
-  width: calc(100% - 2 * var(--jan-composer-side-clearance));
-  max-width: var(--jan-composer-card-max-width);
-  padding-inline: 12px;
-}
-
-.dockSeat:empty {
-  display: none;
-}
-
 .root {
   position: relative;
   display: inline-flex;
@@ -205,49 +191,6 @@
   .menuBody {
     margin-right: calc(-1 * var(--jan-scrollbar-width));
   }
-}
-
-.sectionHeader {
-  display: flex;
-  align-items: flex-start;
-  gap: 7px;
-  padding: 4px 7px 8px;
-}
-
-.sectionIcon {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 14px;
-  height: 24px;
-  color: var(--dsw-alias-label-tertiary);
-}
-
-.sectionTitle {
-  flex: none;
-  margin: 0;
-  color: var(--dsw-alias-label-primary);
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 24px;
-}
-
-.sectionProgress {
-  margin-inline-start: 4px;
-  flex: 1 1 auto;
-  min-width: 0;
-  padding-top: 2px;
-  color: var(--dsw-alias-label-tertiary);
-  font-size: 13px;
-  line-height: 20px;
-  overflow-wrap: anywhere;
-}
-
-.sectionEmpty {
-  margin: 0;
-  padding: 0 7px 8px 28px;
-  color: var(--dsw-alias-label-tertiary);
-  font-size: 12px;
 }
 
 .node {
