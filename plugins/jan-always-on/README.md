@@ -26,6 +26,8 @@ The avatar next to the status line uses Jan's current accent and follows the sys
 
 Tool activity, the last run outcome and the latest delivery time are live values for the current app session. The durable Events and Messages tabs still show stored history after restart.
 
+Browser code in this plugin can `require.async('./client.avatar.js')`. Its `loadAvatarRenderer()` resolves to `mountBotAvatar(element, { definition, color, state, mood, label })`, which returns `{ update(partial), destroy() }` and defaults to system reduced motion. Pass a new pose to `update` and call `destroy` when the host leaves the page. `definition` is the default chat-bubble artwork; `avatarAppearance(snapshot)` returns `{ state, mood, still, labelKey }` from the current background runner's snapshot. Other bot surfaces can supply their own definition and map their own activity without using the Events or Timers page.
+
 ## Model experience
 
 | Tool | Use |

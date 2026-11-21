@@ -9,8 +9,8 @@ window.__ModuleLoader__.load({
     const tabs = ['events', 'timers', 'memory', 'messages']
     let avatarModule
     function loadAvatar() {
-      avatarModule ??= Promise.all([require.async('./client.avatar.js'), require.async('./client.open-bot-avatar.js')])
-        .then(([{ Avatar }, { mountAvatar }]) => ({ Avatar, mountAvatar }))
+      avatarModule ??= require.async('./client.avatar.js')
+        .then(async ({ Avatar, loadAvatarRenderer }) => ({ Avatar, mountBotAvatar: await loadAvatarRenderer() }))
         .catch(error => { avatarModule = undefined; throw error })
       return avatarModule
     }
@@ -21,7 +21,7 @@ window.__ModuleLoader__.load({
         void loadAvatar().then(value => { if (!disposed) setAvatar(value) }, error => console.warn('[always-on] avatar', error))
         return () => { disposed = true }
       }, [])
-      return avatar ? h(avatar.Avatar, { snapshot: state, t, mountAvatar: avatar.mountAvatar })
+      return avatar ? h(avatar.Avatar, { snapshot: state, t, mountBotAvatar: avatar.mountBotAvatar })
         : h('span', { className: 'jao-avatar', 'aria-hidden': true })
     }
 
