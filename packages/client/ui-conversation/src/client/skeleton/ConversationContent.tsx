@@ -103,7 +103,9 @@ export function ConversationContent(props: ConversationContentProps) {
     ? sessionId === undefined || workspaces.phase === 'ready' || cwd === undefined || cwd === '' ? undefined : workspaceLabel(cwd)
     : workspaceDisplayTitle(chipWorkspace, t('workspace.defaultName'))
 
-  const heroWorkspaceRow = (
+  // The project and preset row: the Hero's New Session pickers, and under a
+  // started Session's composer the same project chip beside its preset control.
+  const workspaceRow = (
     <div className={css.heroWorkspaceRow}>
       <WorkspaceChip
         buttonRef={pickerAnchor}
@@ -129,8 +131,10 @@ export function ConversationContent(props: ConversationContentProps) {
         },
         onClose: () => { setPickerOpen(false) },
       })}
-      {renderSlot('conversation.hero.agentPreset', {})}
-      {sessionId === undefined ? null : <div className={css.heroOptions}>{renderSlot('conversation.hero.options', {})}</div>}
+      {hero
+        ? renderSlot('conversation.hero.agentPreset', {})
+        : sessionId === undefined ? null : renderSlot('conversation.composer.agentPreset', {})}
+      {hero && sessionId !== undefined ? <div className={css.heroOptions}>{renderSlot('conversation.hero.options', {})}</div> : null}
     </div>
   )
 
@@ -147,7 +151,10 @@ export function ConversationContent(props: ConversationContentProps) {
     || (inputState.phase !== 'plain' && inputState.phase !== 'claimed')
   const inputBar = renderSlot('conversation.composer.bar', {
     variant: hero ? 'hero' : 'composer',
-    ...(hero ? { dockStart: heroWorkspaceRow } : {}),
+    // Embedded panes and subagent transcripts have no project or preset of their own to change.
+    ...(hero || (sessionId !== undefined && props.variant !== 'embedded' && (session === undefined || session.subagent === null))
+      ? { dockStart: workspaceRow }
+      : {}),
     ...(activateDraft !== undefined
       ? { onActivateDraft: activateDraft, placeholder: heroPlaceholder ?? t('placeholder.hero') }
       : inert
