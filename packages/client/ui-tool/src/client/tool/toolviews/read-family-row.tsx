@@ -10,7 +10,6 @@ import type { ReactNode } from 'react'
 import { IconBrowseOutlineRegular } from '@janhq/jan-client-ui-primitives'
 import type { ContextMenuBindings } from '@janhq/jan-client-ui-context-menu/client'
 import type { ToolFileInjected } from '../file-menu.ts'
-import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import type { ToolCallViewProps } from '../../contract/slots.ts'
 import { toolRowModel } from '../models/tool-call-model.ts'
 import { ToolRow, type ToolRowProps } from '../components/ToolRow.tsx'
@@ -18,16 +17,12 @@ import { ToolRow, type ToolRowProps } from '../components/ToolRow.tsx'
 /** Full row props of a read-family toolview: the runtime share plus its locale seat. */
 export type ReadFamilyRowProps = ToolCallViewProps & ToolFileInjected & { t: ToolRowProps['t'] }
 
-/** read_image row props: the runtime share, the declared image child slot, and the locale seat. */
-export type ReadImageRowProps = ReadFamilyRowProps & PropsRenderSlots<'tool.call.images'>
-
 /**
  * The card material one read-family row contributes: exactly the ToolRow card
- * props that row owns. `read` supplies `read` and the line its call named;
- * `read_image` supplies `image` together with the slot dispatcher and loader
- * that draw it.
+ * props that row owns. Read rows supply the requested line and read card; image
+ * reads supply their file metadata.
  */
-export type ReadFamilyCard = Pick<ToolRowProps, 'read' | 'image' | 'renderSlot' | 'loadImage' | 'filePathLine'>
+export type ReadFamilyCard = Pick<ToolRowProps, 'read' | 'image' | 'filePathLine'>
 
 /**
  * Compose a read-family row: the shared chrome and model-derived fields, plus the

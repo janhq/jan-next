@@ -1,34 +1,22 @@
 // @vitest-environment jsdom
-// The image render intent on the web side: the pure imageCardModel derivation over
-// a settled call's persisted metadata and raw envelope, and the chat tool row that
-// consumes it — the keyed ReadImageRow composing ToolRow with the image card as its
-// collapsed-by-default expanded body. Also pins the keyed 'read_image' toolview
-// registration (including its `tool.call.images` child-slot declaration) and the
-// text that stays readable when the attachment slot renders nothing.
-//
-// The image card differs from every other card in one load-bearing way: its bytes
-// are a Gateway-authorized attachment, so the row cannot draw them itself. It
-// renders through the tool-owned `tool.call.images` slot, and an empty slot must
-// still leave the path and image size visible.
+/** Tool-result thumbnail extraction and the expandable read_image metadata card. */
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useDisclosure } from '@janhq/jan-client-ui-chat/src/client/chat/use-disclosure.ts'
 import { cleanup, fireEvent, render } from '@testing-library/react'
-import { Context } from '@janhq/cordis'
 import { contextMenuHook, bindSnapshotSelector, makeTranslate } from '@janhq/jan-client-test-runtime'
 import { createSnapshotStore } from '@janhq/jan-client-store'
 import { zh as commonZh } from '@janhq/jan-client-locale/src/locales/zh.ts'
 import type { StartedToolCall, ToolResultNode } from '@janhq/jan-client-ui-chat/client'
 import type { SessionListState } from '@janhq/jan-api-session-controller/client'
 import type { SessionId } from '@janhq/jan-session/types'
-import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import type { MessageImageLoader } from '@janhq/jan-client-ui-conversation/client'
 import { zh } from '@janhq/jan-client-ui-conversation/src/client/locales.ts'
 import { PartialArguments } from '@janhq/jan-util-values'
 import { AttachmentId, type ImageAttachmentRef } from '@janhq/jan-attachment'
-import type { ToolImagesOwnerProps, ToolTreeProps } from '../src/client/contract/slots.ts'
-import { imageCardModel } from '../src/client/tool/models/image-card-model.ts'
-import { ReadImageRow, readImageToolview } from '../src/client/tool/toolviews/read-image-row.tsx'
+import type { ToolTreeProps } from '../src/client/contract/slots.ts'
+import { imageCardModel, toolResultImages } from '../src/client/tool/models/image-card-model.ts'
+import { ReadImageRow } from '../src/client/tool/toolviews/read-image-row.tsx'
 
 afterEach(cleanup)
 
@@ -87,27 +75,6 @@ const settled = (over?: Partial<ToolResultNode>): ToolResultNode => {
   }
 }
 
-/**
- * A renderSlot stub standing in for the attachment presentation plugin's
- * `tool.call.images` gallery. The owner is the real `ToolImagesOwnerProps` —
- * `MessageImageSource` is a union of a durable attachment arm and a
- * submission-echo preview arm, so the stub renders both.
- */
-const stubRenderSlot = (): PropsRenderSlots<'tool.call.images'>['renderSlot'] => (
-  vi.fn((_key: 'tool.call.images', owner: ToolImagesOwnerProps) => (
-    <div data-images>
-      {owner.images.map((image, index) => (
-        'attachment' in image ? (
-          <span key={image.attachment.attachmentId} data-image-id={image.attachment.attachmentId} />
-        ) : (
-          <span key={index} data-preview-url={image.preview.url} />
-        )
-      ))}
-    </div>
-  )) as unknown as PropsRenderSlots<'tool.call.images'>['renderSlot']
-)
-
-/** Authenticated loader stand-in; the stub gallery never resolves it. */
 const loadImage: MessageImageLoader = vi.fn(() => Promise.reject(new Error('not used')))
 
 describe('imageCardModel', () => {
@@ -264,6 +231,25 @@ describe('imageCardModel', () => {
   })
 })
 
+describe('toolResultImages', () => {
+  it('keeps valid screenshots in output order without requiring a read_image envelope', () => {
+    const second = { ...sampleImage, attachmentId: AttachmentId('screenshot-2') }
+    const result = settled({
+      call: { name: 'capture_screenshot', argsRaw: '{}' },
+      content: [
+        { type: 'text', text: 'Capture complete' },
+        { type: 'image', attachment: sampleImage },
+        { type: 'image', attachment: { ...sampleImage, width: 0 } },
+        { type: 'image', attachment: second },
+      ],
+      isError: true,
+      meta: undefined,
+    })
+    expect(toolResultImages(result.content)).toEqual([{ attachment: sampleImage }, { attachment: second }])
+    expect(toolResultImages([{ type: 'text', text: 'No attachment' }])).toBeNull()
+  })
+})
+
 describe('ReadImageRow keyed toolview', () => {
   const list = () => createSnapshotStore<SessionListState>({
     ids: [SID],
@@ -274,12 +260,9 @@ describe('ReadImageRow keyed toolview', () => {
     currentAddress: undefined,
   } as unknown as SessionListState)
 
-  const rowProps = (
-    block: StartedToolCall | ToolResultNode,
-    renderSlot?: PropsRenderSlots<'tool.call.images'>['renderSlot'],
-    loader: MessageImageLoader = loadImage,
-  ): Parameters<typeof ReadImageRow>[0] => ({
-    useDisclosure, callId: 'c1', toolName: 'read_image', ...('kind' in block ? { phase: 'result' as const, block: block } : { phase: block.phase, block: block }), openFile: vi.fn(), renderSlot, loadImage: loader,
+  const rowProps = (block: StartedToolCall | ToolResultNode): Parameters<typeof ReadImageRow>[0] => ({
+    useDisclosure, callId: 'c1', toolName: 'read_image', ...('kind' in block ? { phase: 'result' as const, block } : { phase: block.phase, block }),
+    openFile: vi.fn(), loadImage,
     useContextMenu: contextMenuHook(), resolveFilePath: path => path,
     sessionId: SID, useSessions: bindSnapshotSelector(list()),
     t,
@@ -294,7 +277,7 @@ describe('ReadImageRow keyed toolview', () => {
     // (FILE_PATH_VARIANTS covers only read/write/edit), so the openable path the
     // row advertises would never be openable.
     const openFile = vi.fn()
-    const view = render(<ReadImageRow {...rowProps(settled(), stubRenderSlot())} openFile={openFile} />)
+    const view = render(<ReadImageRow {...rowProps(settled())} openFile={openFile} />)
     expect(view.container.querySelector('[data-variant]')?.getAttribute('data-variant')).toBe('read')
     const link = view.container.querySelector('button[class*="fileLink"]')
     expect(link).not.toBeNull()
@@ -302,24 +285,8 @@ describe('ReadImageRow keyed toolview', () => {
     expect(openFile).toHaveBeenCalledWith('shots/card.png')
   })
 
-  it('expands to the image, dispatched through the tool-owned image slot', () => {
-    const renderSlot = stubRenderSlot()
-    const view = render(<ReadImageRow {...rowProps(settled(), renderSlot)} />)
-    expect(view.container.querySelector('[data-images]')).toBeNull()
-    toggleRow(view)
-    expect(view.container.querySelector('[data-images]')).not.toBeNull()
-    expect(renderSlot).toHaveBeenLastCalledWith('tool.call.images', {
-      images: [{ attachment: sampleImage }],
-      loadImage,
-      align: 'start',
-    })
-    expect(view.container.querySelector(`[data-image-id="${sampleImage.attachmentId}"]`)).not.toBeNull()
-  })
-
   it('never prints the raw attachment object under the picture', () => {
-    // The row's flattened output JSON.stringifies the image block the real content
-    // carries, so the card takes its text from the derived envelope instead.
-    const view = render(<ReadImageRow {...rowProps(settled(), stubRenderSlot())} />)
+    const view = render(<ReadImageRow {...rowProps(settled())} />)
     toggleRow(view)
     const text = view.container.textContent ?? ''
     expect(text).not.toContain('"attachmentId"')
@@ -329,7 +296,7 @@ describe('ReadImageRow keyed toolview', () => {
   })
 
   it('shows the full path once, then the image size, under the picture', () => {
-    const view = render(<ReadImageRow {...rowProps(settled({ meta: imageMeta({ path: '/w/app/shots/card.png' }) }), stubRenderSlot())} />)
+    const view = render(<ReadImageRow {...rowProps(settled({ meta: imageMeta({ path: '/w/app/shots/card.png' }) }))} />)
     toggleRow(view)
     const lines = [...view.container.querySelectorAll('[class*="imageMeta"] > div')].map(line => line.textContent)
     expect(lines).toEqual(['/w/app/shots/card.png', '1496x260px，24588 字节'])
@@ -337,7 +304,7 @@ describe('ReadImageRow keyed toolview', () => {
 
   it('names the original size of a downscaled image', () => {
     const downscaled = { ...sampleImage, originalDimensions: { width: 2992, height: 520 } }
-    const view = render(<ReadImageRow {...rowProps(settled({ content: withImage(downscaled) } as never), stubRenderSlot())} />)
+    const view = render(<ReadImageRow {...rowProps(settled({ content: withImage(downscaled) } as never))} />)
     toggleRow(view)
     expect(view.container.textContent).toContain('1496x260px（由 2992x520px 缩小），24588 字节')
   })
@@ -345,65 +312,31 @@ describe('ReadImageRow keyed toolview', () => {
   it('keeps appended non-envelope text under the picture', () => {
     const view = render(<ReadImageRow {...rowProps(settled({
       content: [...settled().content, { type: 'text', text: 'analysis: empty card' }],
-    } as never), stubRenderSlot())} />)
+    } as never))} />)
     toggleRow(view)
     expect(view.container.textContent).toContain('analysis: empty card')
   })
 
-  it('keeps the result text readable when the attachment slot renders nothing', () => {
-    // The attachment slot renders nothing in a deployment without the attachment
-    // presentation plugin. That must not leave a blank card.
-    const emptySlot = vi.fn(() => null)
-    const view = render(<ReadImageRow {...rowProps(settled(), emptySlot as never)} />)
+  it('expands to readable metadata independently of the optional thumbnail gallery', () => {
+    const view = render(<ReadImageRow {...rowProps(settled())} />)
+    expect(view.queryByText('1496x260px，24588 字节')).toBeNull()
     toggleRow(view)
-    expect(emptySlot).toHaveBeenCalled()
-    expect(view.container.querySelector('[data-images]')).toBeNull()
-    expect(view.container.textContent).toContain('1496x260px，24588 字节')
-  })
-
-  it('degrades to the text body when neither the slot nor the loader is supplied', () => {
-    const view = render(<ReadImageRow {...rowProps(settled(), undefined)} />)
-    toggleRow(view)
-    expect(view.container.querySelector('[data-images]')).toBeNull()
+    expect(view.getByText('1496x260px，24588 字节')).toBeTruthy()
   })
 
   it('a running call renders the summary row alone', () => {
-    const renderSlot = stubRenderSlot()
-    const view = render(<ReadImageRow {...rowProps(running(), renderSlot)} />)
-    expect(view.container.querySelector('[data-images]')).toBeNull()
-    expect(renderSlot).not.toHaveBeenCalled()
+    const view = render(<ReadImageRow {...rowProps(running())} />)
+    expect(view.container.querySelector('[data-expandable]')).toBeNull()
   })
 
   it('a refusal renders its error without an image card', () => {
     // read_image refuses a text-only route, a missing attachment service, and an
     // unreadable file. Claiming the key means this row owns those shapes too.
-    const renderSlot = stubRenderSlot()
     const view = render(<ReadImageRow {...rowProps(settled({
       isError: true,
       meta: undefined,
       content: [{ type: 'text', text: 'Error: model "x" does not declare image input' }],
-    } as never), renderSlot)} />)
-    expect(view.container.querySelector('[data-images]')).toBeNull()
-    expect(renderSlot).not.toHaveBeenCalled()
+    } as never))} />)
     expect(view.container.textContent).toContain('does not declare image input')
-  })
-
-  it('registers under the read_image key of the keyed toolview slot, declaring the image slot', () => {
-    const registered: { name: unknown; key?: unknown; children?: unknown }[] = []
-    const ctx = { slots: {
-      inject: (_name: string, callback: () => () => void) => callback(),
-      register: (options: { name: unknown; key?: unknown; children?: unknown }) => {
-        registered.push(options)
-        return () => undefined
-      },
-    } } as unknown as Context
-    readImageToolview.apply(ctx)
-    expect(registered).toMatchObject([{
-      name: 'tool.call.toolview',
-      key: 'read_image',
-      locale: 'conversation',
-      children: { 'tool.call.images': { kind: 'single', scope: 'session' } },
-    }])
-    expect(readImageToolview.inject).toEqual(['slots', 'sessions'])
   })
 })
