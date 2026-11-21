@@ -68,6 +68,8 @@ RRULE timing uses `{ kind: "rrule", rrule: "DTSTART:…\nRRULE:…" }`. The mode
 
 The `session` target reuses an existing, unarchived, non-delegated Session; unloaded targets are validated through the header-only `SessionPersistence.stat()` read without activation or history replay. The default `new_once` reserves one Session id, creates it on first delivery, and reuses it. The `new` target creates a fresh Session per delivery. Arming either creating target requires the Session creation provider. Optional `create` values select the directory and preset; omitted values use Host defaults. See [delivery targets](../../../docs/subsystems/schedule.md#delivery-targets) for creation, naming, reuse, and archive admission.
 
+New tasks and destination edits require `create.cwd`, when present, to be an absolute Host path. Existing task rows keep their saved values so their destination can still be inspected and edited.
+
 `edit({ id, action: "update", patch, expectedUpdatedAt? }, actorSessionId?, signal?)` changes `title`, `prompt`, `timing`, `target`, or `active`; `action: "delete"` removes the task. Revision mismatch returns `schedule_conflict`; `null` compares an absent stored revision. An equivalent edit preserves the committed occurrence and writes the current format. Pause keeps the task; resume computes its next future occurrence.
 
 `list({ active?, limit?, offset? })`, `catalog()`, `view({ id })`, `history({ id, limit, before? })`, and `run({ id })` serve every Host task. Remote `create` and `edit` delegate to the same native methods. The package root and `/client` expose the same unprefixed types. Remote input failures use `schedule/input-invalid` with `details.code`.
