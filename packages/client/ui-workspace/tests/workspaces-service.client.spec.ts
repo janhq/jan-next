@@ -1697,6 +1697,31 @@ describe('UiWorkspaceService navigation history', () => {
     expect(panel()).toBeNull()
   })
 
+  it('replays distinct projects in the same panel and skips a deleted project', () => {
+    const alpha = workspace('alpha', [sid('a')])
+    const beta = workspace('beta')
+    persistSelection({ sessionId: sid('a') })
+    const b = bench({ workspaces: workspaceState([alpha, beta]), sessions: sessionState([summary('a')]) })
+    const panel = 'project' as MainPanelId
+    let shown: WorkspaceId | undefined
+    const showProject = (id: WorkspaceId) => { shown = id; b.layout.selectPanel(panel) }
+    b.uiWorkspace.registerProjectHandler(showProject, panel)
+    b.uiWorkspace.openProjectSurface(alpha.workspaceId)
+    b.uiWorkspace.openProjectSurface(beta.workspaceId)
+    expect(shown).toBe(beta.workspaceId)
+    b.uiWorkspace.goBack()
+    expect(b.layout.panelInfo.getSnapshot().activePanelId).toBe(panel)
+    expect(shown).toBe(alpha.workspaceId)
+    b.uiWorkspace.goForward()
+    expect(shown).toBe(beta.workspaceId)
+    b.workspaces.list.set(workspaceState([beta]))
+    b.uiWorkspace.goBack()
+    expect(b.layout.panelInfo.getSnapshot().activePanelId).toBeNull()
+    b.uiWorkspace.goForward()
+    expect(b.layout.panelInfo.getSnapshot().activePanelId).toBe(panel)
+    expect(shown).toBe(beta.workspaceId)
+  })
+
   it('records a Session opened over a panel as one entry and returns to both', () => {
     const { b, shown } = fixture()
     const panel = () => b.layout.panelInfo.getSnapshot().activePanelId

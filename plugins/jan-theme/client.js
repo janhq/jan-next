@@ -2350,13 +2350,13 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
             name: 'main', key: PROJECTS_PANEL, locale: 'jan-theme',
             inject: () => ({
               hooks: { workspaces: scope.workspaces.list },
-              openProject,
+              openProject: (workspaceId) => { if (scope.uiWorkspace.openProjectSurface?.(workspaceId) !== true) openProject(workspaceId) },
               addProject,
             }),
           }, ProjectsPanel))
           // An older ui-workspace keeps the row click as expand and collapse.
           if (typeof scope.uiWorkspace.registerProjectHandler === 'function') {
-            scope.effect(() => scope.uiWorkspace.registerProjectHandler(openProject), 'jan-theme: project home')
+            scope.effect(() => scope.uiWorkspace.registerProjectHandler(openProject, PROJECT_PANEL), 'jan-theme: project home')
           }
         })
         ctx.inject(['layout', 'uiWorkspace', 'workspaces', 'sessions', 'locale'], (scope) => {
