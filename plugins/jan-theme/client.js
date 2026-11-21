@@ -1150,20 +1150,36 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
     const scheduleZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
 
     // Edits one instruction file; the draft survives closing the dialog until it is saved.
+    // Unsaved editor text per project file, with the file version it was typed over.
     const projectDrafts = new Map()
-    function ProjectTextEditor({ open, title, description, note, initial, draftKey, onSave, onClose, t }) {
-      const [text, setText] = React.useState(initial)
+    function ProjectTextEditor({ open, title, description, note, load, draftKey, onSave, onClose, t }) {
+      const [text, setText] = React.useState('')
+      const [base, setBase] = React.useState(undefined)
       const [busy, setBusy] = React.useState(false)
       const [error, setError] = React.useState('')
       React.useEffect(() => {
-        if (open) { setText(projectDrafts.get(draftKey) ?? initial); setError('') }
-      }, [open, draftKey, initial])
-      const change = (value) => { projectDrafts.set(draftKey, value); setText(value) }
+        if (!open) return undefined
+        let current = true
+        setBase(undefined)
+        setError('')
+        // Read the file fresh on every open: the page's copy may predate an edit made elsewhere.
+        load().then((file) => {
+          if (!current) return
+          const draft = projectDrafts.get(draftKey)
+          // A draft typed over an older version is dropped; saving it would overwrite the newer file.
+          if (draft !== undefined && draft.modified !== file.modified) projectDrafts.delete(draftKey)
+          setText(draft !== undefined && draft.modified === file.modified ? draft.text : file.text)
+          setBase(file.modified)
+        }, (failure) => { if (current) setError(failure instanceof Error ? failure.message : String(failure)) })
+        return () => { current = false }
+      }, [open, draftKey])
+      const change = (value) => { projectDrafts.set(draftKey, { text: value, modified: base }); setText(value) }
       const save = async () => {
+        if (base === undefined) return
         setBusy(true)
         setError('')
         try {
-          await onSave(text)
+          await onSave(text, base)
           projectDrafts.delete(draftKey)
           onClose()
         } catch (failure) { setError(failure instanceof Error ? failure.message : String(failure)) } finally { setBusy(false) }
@@ -1172,10 +1188,10 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         open, onClose, title, description,
         footer: h('div', { className: 'jt-project-editor-actions' },
           h(Button, { variant: 'outline', onClick: onClose }, t('project.cancel')),
-          h(Button, { variant: 'primary', disabled: busy, onClick: () => { void save() } }, busy ? t('project.saving') : t('project.save'))),
+          h(Button, { variant: 'primary', disabled: busy || base === undefined, onClick: () => { void save() } }, busy ? t('project.saving') : t('project.save'))),
       }, h('div', { className: 'jt-project-editor' },
         h('textarea', {
-          'data-modal-autofocus': '', value: text, 'aria-label': title, spellCheck: true,
+          'data-modal-autofocus': '', value: text, 'aria-label': title, spellCheck: true, readOnly: base === undefined,
           onChange: (event) => { change(event.target.value) },
           onKeyDown: (event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) { event.preventDefault(); void save() } },
         }),
@@ -1443,9 +1459,9 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           title: editing === 'memory' ? t('project.memory') : t('project.instructions'),
           description: editing === 'memory' ? t('project.memory.description') : t('project.instructions.description'),
           note: editing === 'memory' ? t('project.memory.note') : t('project.instructions.note'),
-          initial: editing === 'memory' ? details?.memory ?? '' : details?.instructions ?? '',
+          load: () => projectApi('readText', { workspaceId, kind: editing }),
           draftKey: `${workspaceId}:${editing}`,
-          onSave: async (text) => { await projectApi('save', { workspaceId, kind: editing, text }); reloadDetails() },
+          onSave: async (text, modified) => { await projectApi('save', { workspaceId, kind: editing, text, modified }); reloadDetails() },
           onClose: () => { setEditing(null) },
         }),
         h(ProjectTaskEditor, {

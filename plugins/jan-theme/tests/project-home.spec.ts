@@ -48,9 +48,24 @@ it('enforces the instruction byte limit on the text that will actually be saved'
   const { root, call } = await projectHome()
   const file = join(root, 'AGENTS.md')
   await writeFile(file, 'previous instructions\n')
-  const result = await call('save', { kind: 'instructions', text: 'a'.repeat(65_536) })
+  const opened = (await call('readText', { kind: 'instructions' })).body.result as { modified: number }
+  const result = await call('save', { kind: 'instructions', text: 'a'.repeat(65_536), modified: opened.modified })
   expect(result.status).toBe(400)
+  expect(result.body.error).toMatch(/KB/)
   expect(await readFile(file, 'utf8')).toBe('previous instructions\n')
+})
+
+it('refuses to save over instructions changed after the editor opened them', async () => {
+  const { root, call } = await projectHome()
+  const file = join(root, 'AGENTS.md')
+  await writeFile(file, 'first\n', { flush: true })
+  const opened = (await call('readText', { kind: 'instructions' })).body.result as { text: string; modified: number }
+  expect(opened.text).toBe('first\n')
+  await new Promise(resolve => setTimeout(resolve, 20))
+  await writeFile(file, 'edited elsewhere\n')
+  const result = await call('save', { kind: 'instructions', text: 'stale draft', modified: opened.modified })
+  expect(result.status).toBe(400)
+  expect(await readFile(file, 'utf8')).toBe('edited elsewhere\n')
 })
 
 it.skipIf(process.platform === 'win32')('lists a circular symlink without losing project instructions and memory', async () => {
