@@ -22,6 +22,8 @@ import type { AgentPresetSettingsState } from './settings-store.ts'
 import { presetDisplayText } from './locales.ts'
 import { requiresCodingTools } from './settings-store.ts'
 import css from './AgentPresetSeat.module.css'
+import { modeActionItems, runModeAction } from './mode-actions.tsx'
+import type { AgentPresetModeAction } from './index.ts'
 
 /** Registration-side business face for the composer chip. */
 export interface AgentPresetLabelInjected {
@@ -30,6 +32,8 @@ export interface AgentPresetLabelInjected {
     agentPresets: SnapshotStore<AgentPresetSettingsState>
     /** Shared Developer tools preference; off hides the PTC and Minimal choices. */
     developerTools: ObservableSnapshot<boolean>
+    /** Additional mode entries with their own start flow. */
+    modeActions: ObservableSnapshot<readonly AgentPresetModeAction[]>
   }
   /** Read the roster, so the control can show a name rather than an id. */
   load: () => Promise<void>
@@ -57,7 +61,7 @@ const REFUSAL_HOLD_MS = 8000
  * @returns the control, or null when the session records no preset.
  */
 export function AgentPresetLabel({
-  sessionId, useSessions, useAgentPresets, useDeveloperTools, load, select, t,
+  sessionId, useSessions, useAgentPresets, useDeveloperTools, useModeActions, load, select, t,
 }: AgentPresetLabelProps) {
   const preset = useSessions((state) => {
     const value = state.byId[sessionId]?.projectionValues?.agentPreset
@@ -65,6 +69,7 @@ export function AgentPresetLabel({
   })
   const running = useSessions(state => state.byId[sessionId]?.running === true)
   const options = useAgentPresets(state => state.options)
+  const modeActions = useModeActions(value => value)
   const developerTools = useDeveloperTools(value => value)
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -87,7 +92,7 @@ export function AgentPresetLabel({
   // hidden default or a session that starts running leaves nothing to pick.
   useEffect(() => {
     setOpen(false)
-  }, [developerTools, choices.length, running])
+  }, [developerTools, choices.length, modeActions.length, running])
 
   if (preset === undefined) return null
 
@@ -101,7 +106,7 @@ export function AgentPresetLabel({
       <Menu
         open={open && !running}
         onClose={() => { setOpen(false) }}
-        items={choices.map((entry) => {
+        items={[...choices.map((entry) => {
           const display = presetDisplayText(entry, t)
           return {
             id: entry.id,
@@ -112,11 +117,11 @@ export function AgentPresetLabel({
               </span>
             ),
           }
-        })}
+        }), ...modeActionItems(modeActions)]}
         selectedId={preset}
         onSelect={(id) => {
           setOpen(false)
-          if (id === preset) return
+          if (id === preset || runModeAction(modeActions, id, sessionId)) return
           setBusy(true)
           void select(sessionId, id).then((reason) => {
             if (reason === undefined) return
@@ -139,7 +144,7 @@ export function AgentPresetLabel({
             aria-expanded={open && !running}
             aria-label={`${hint}: ${name}`}
             title={hint}
-            disabled={busy || running || choices.length === 0}
+            disabled={busy || running || (choices.length === 0 && modeActions.length === 0)}
             onClick={() => { setOpen(value => !value) }}
           >
             <IconAgentPresetOutlineRegular className={css.seatIcon} />

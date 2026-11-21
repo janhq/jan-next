@@ -23,6 +23,8 @@ import type { AgentPresetSeatState } from './seat-store.ts'
 import { presetDisplayText } from './locales.ts'
 import { requiresCodingTools } from './settings-store.ts'
 import css from './AgentPresetSeat.module.css'
+import { modeActionItems, runModeAction } from './mode-actions.tsx'
+import type { AgentPresetModeAction } from './index.ts'
 
 /** Registration-side business face for the hero chip. */
 export interface AgentPresetSeatInjected {
@@ -31,6 +33,8 @@ export interface AgentPresetSeatInjected {
     developerTools: ObservableSnapshot<boolean>
     /** Seat snapshot bound by the renderer as useAgentPresetSeat. */
     agentPresetSeat: SnapshotStore<AgentPresetSeatState>
+    /** Additional mode entries with their own start flow. */
+    modeActions: ObservableSnapshot<readonly AgentPresetModeAction[]>
   }
   /** Read the roster when the chip first renders. */
   load: () => Promise<void>
@@ -78,10 +82,11 @@ export type AgentPresetSeatProps =
  * @returns The chip and any pending selection refusal, or null outside the main view.
  */
 export function AgentPresetSeat({
-  sessionId, useSessionRetainInfo, load, select, dismissRefusal, introduced, useAgentPresetSeat, useDeveloperTools, t,
+  sessionId, useSessionRetainInfo, load, select, dismissRefusal, introduced, useAgentPresetSeat, useDeveloperTools, useModeActions, t,
 }: AgentPresetSeatProps) {
   const developerTools = useDeveloperTools(value => value)
   const state = useAgentPresetSeat(snapshot => snapshot)
+  const modeActions = useModeActions(value => value)
   const main = useSessionRetainInfo(info => sessionId === undefined
     || (info?.retainedBy.mainView ?? 0) > 0)
   const [open, setOpen] = useState(false)
@@ -105,10 +110,11 @@ export function AgentPresetSeat({
     () => state.options.filter(option => developerTools || !requiresCodingTools(option)),
     [state.options, developerTools],
   )
+  const hasItems = options.length > 0 || modeActions.length > 0
 
   useEffect(() => {
     setOpen(false)
-  }, [developerTools, options.length])
+  }, [developerTools, options.length, modeActions.length])
 
   const chosen = state.options.find(option => option.id === state.current)
   const chosenText = chosen === undefined ? undefined : presetDisplayText(chosen, t)
@@ -161,9 +167,9 @@ export function AgentPresetSeat({
   return (
     <>
       {ready && <Menu
-        open={open && options.length > 0}
+        open={open && hasItems}
         onClose={() => { setOpen(false) }}
-        items={options.map((option) => {
+        items={[...options.map((option) => {
           const text = presetDisplayText(option, t)
           return {
             id: option.id,
@@ -176,11 +182,11 @@ export function AgentPresetSeat({
               </span>
             ),
           }
-        })}
+        }), ...modeActionItems(modeActions)]}
         selectedId={state.current}
         onSelect={(id) => {
           setOpen(false)
-          void select(id)
+          if (!runModeAction(modeActions, id, sessionId)) void select(id)
         }}
         align="start"
         portal
@@ -190,9 +196,9 @@ export function AgentPresetSeat({
             type="button"
             className={css.seat}
             aria-haspopup="menu"
-            aria-expanded={open && options.length > 0}
+            aria-expanded={open && hasItems}
             title={(typeof state.error === 'object' ? state.error?.reason : state.error) ?? t('seatHint')}
-            disabled={state.busy || options.length === 0}
+            disabled={state.busy || !hasItems}
             onClick={() => { setOpen(value => !value) }}
           >
             <IconAgentPresetOutlineRegular className={introducing ? `${css.seatIcon} ${css.introIcon}` : css.seatIcon} />
