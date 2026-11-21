@@ -1,6 +1,6 @@
 # Bots
 
-Open **Bots** in the sidebar to create a persistent assistant or return to its chat. A bot belongs to one project, and sits above that project's ordinary chats. If you don't pick a project, Jan uses the default project and creates it on demand. A bot keeps the same chat for direct messages, routine work and replies to proactive updates. **New chat** while that bot is your active conversation, or `/new` in its chat, compacts older context instead of creating another chat.
+Open **Bots** in the sidebar to create a persistent assistant or return to its chat. A bot belongs to one project, and sits above that project's ordinary chats. If you don't pick a project, Jan uses the default project and creates it on demand. A bot keeps the same chat for direct messages, routine work and replies to proactive updates. **New chat** in the sidebar always opens an ordinary chat, even while a bot is your active conversation. To compact a bot's older context instead, use `/new` in its chat or **New chat** in its details.
 
 You can also choose **Bots mode** from the agent-preset picker. From an existing project chat, this turns that chat into the new bot's canonical conversation without discarding its history or changing projects. From a new chat that has not yet opened a project session, choose the project in the bot form. This choice does not change the default mode for other chats.
 
