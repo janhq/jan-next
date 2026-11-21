@@ -21,6 +21,9 @@ export interface PaneCallbacks {
   readonly onTabPressed: (tabId: TabId, event: ReactPointerEvent<HTMLElement>) => void
   /** Begin dragging a divider inside `splitId`, at the boundary after `index`. */
   readonly onDividerPressed: (splitId: SplitId, index: number, event: ReactPointerEvent<HTMLElement>) => void
+  readonly tabStrips?: boolean
+  readonly dividerLabel?: string | undefined
+  readonly onDividerNudge?: (splitId: SplitId, index: number, delta: number) => void
   /** Why a pane cannot split right now, or `undefined` while it can. */
   readonly splitBlock: (paneId: PaneId) => SplitBlock | undefined
   /** Hide blocked split controls instead of rendering them disabled. */

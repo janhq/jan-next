@@ -499,7 +499,7 @@ export function TabPanel({ state, pane, callbacks }: TabPanelProps): ReactNode {
         if (state.activePaneId !== pane.id) callbacks.onFocusPane(pane.id)
       }}
     >
-      <TabStrip state={state} pane={pane} callbacks={callbacks} />
+      {callbacks.tabStrips !== false && <TabStrip state={state} pane={pane} callbacks={callbacks} />}
       <div className={css.paneBody}>
         {active === undefined
           ? <p className={css.empty}>{callbacks.labels.emptyPane}</p>
