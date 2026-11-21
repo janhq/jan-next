@@ -67,6 +67,7 @@
   margin-top: 4px;
   overflow: hidden;
   border-radius: 999px;
+  corner-shape: round;
   background: var(--dsw-alias-border-l2, var(--jan-boot-border));
 }
 
