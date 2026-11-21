@@ -451,6 +451,17 @@ describe('session.create reuse of a live blank Session', () => {
     expect(selections).toEqual([{ sessionId, agentPreset: 'standard' }])
   })
 
+  it('refuses to recreate an unavailable registered project folder', async () => {
+    const { ctx, cwd, remote } = await harness()
+    rmSync(cwd, { recursive: true })
+
+    expect(await remote.create({ workspaceId: WORKSPACE })).toMatchObject({
+      ok: false, error: { code: 'workspace/project-folder-missing', details: { workspaceId: WORKSPACE } },
+    })
+    expect(ctx.sessions.list()).toEqual([])
+    expect(() => realpathSync(cwd)).toThrow(/ENOENT/)
+  })
+
   it('refuses a Session in another directory', async () => {
     const { ctx, remote } = await harness({ presets: ['standard'] })
     const elsewhere = realpathSync(mkdtempSync(join(tmpdir(), 'jan-session-preset-elsewhere-')))

@@ -144,6 +144,7 @@ export class SessionCommandController {
       created = await this.agents.createSession({
         ...(request.sessionId === undefined ? {} : { sessionId: request.sessionId }),
         cwd,
+        ...(workspace === undefined ? {} : { workspaceId: workspace.id }),
         ...(request.agentPreset === undefined ? {} : { agentPreset: request.agentPreset }),
         reusable: sessionId => !this.ctx.workspaceRegistry.archivedSessionIds.includes(sessionId)
           && (workspace === undefined || workspace.sessionIds.includes(sessionId)),
@@ -577,6 +578,7 @@ export class SessionCommandController {
   private async resolveCreateWorkspace(workspaceId: WorkspaceId | undefined): Promise<Workspace> {
     const registry = this.ctx.workspaceRegistry
     if (workspaceId === undefined) return registry.ensureDefault()
+    if (registry.defaultWorkspace?.id === workspaceId) return registry.ensureDefault()
     const workspace = registry.get(workspaceId)
     if (workspace !== undefined) return workspace
     throw new RemoteError('workspace/not-found', `workspace "${workspaceId}" not found`, { workspaceId })
