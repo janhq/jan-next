@@ -9,9 +9,13 @@
     "src/client",
     "src/changes.ts",
     "src/presented.ts",
+    "src/links.ts",
     "src/css-modules.d.ts"
   ],
   "references": [
+    {
+      "path": "../../session/session-projection"
+    },
     {
       "path": "../ui-settings/tsconfig.client.json"
     },
