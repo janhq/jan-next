@@ -10,6 +10,7 @@ import { SessionId } from '@janhq/jan-session'
 import { SessionAlreadyOwnedError, SessionPersistenceNotFoundError } from '@janhq/jan-session-persistence'
 import SessionTitleService from '@janhq/jan-session-title'
 import { RemoteError } from '@janhq/jan-typert-protocol'
+import { WorkspaceId } from '@janhq/jan-workspace'
 import { ScheduleId } from '../src/domain.ts'
 import { createRRuleScheduleRecord } from '../src/domain.ts'
 import { ScheduleRuntime, type ScheduleRuntimeLimits } from '../src/runtime.ts'
@@ -128,6 +129,42 @@ it.each(['Web', 'persistence'] as const)('creates a new-once Session when %s rep
   await vi.advanceTimersByTimeAsync(1000)
   expect(test.createSession).toHaveBeenCalledWith({ sessionId: reserved, cwd: '/work' })
   expect(tasks[0]).toMatchObject({ target: { kind: 'session', sessionId: reserved }, involvedSessionIds: [reserved] })
+})
+
+it('delivers a bound new-once task to the registered project and keeps its identity when it reuses the Session', async () => {
+  const workspaceId = WorkspaceId('project')
+  const sessionId = SessionId('reserved')
+  const tasks = [task({ kind: 'new_once', sessionId, create: { workspaceId, cwd: '/previous' } })]
+  const test = await setup(tasks)
+  const get = vi.fn(() => ({ id: workspaceId, path: '/current' }))
+  test.ctx.provide('workspaceRegistry', { archivedSessionIds: [], get })
+  test.runtime.requestDrive()
+  await vi.advanceTimersByTimeAsync(1000)
+  expect(get).toHaveBeenCalledWith(workspaceId)
+  // The Session controller resolves the project by ID and owns directory selection and attachment.
+  expect(test.createSession).toHaveBeenCalledExactlyOnceWith({ sessionId, workspaceId })
+  expect(tasks[0]).toMatchObject({ status: 'ended', target: { kind: 'session', sessionId, workspaceId } })
+})
+
+it.each(['timer', 'manual'] as const)('pauses after %s delivery fails because its project was removed', async (trigger) => {
+  const workspaceId = WorkspaceId('removed')
+  const tasks = [task({ kind: 'new', create: { workspaceId, cwd: '/work' } })]
+  const test = await setup(tasks)
+  const resolveByPath = vi.fn(() => ({ id: WorkspaceId('replacement'), path: '/work' }))
+  test.ctx.provide('workspaceRegistry', { archivedSessionIds: [], get: () => undefined, resolveByPath })
+  if (trigger === 'timer') {
+    test.runtime.requestDrive()
+    await vi.advanceTimersByTimeAsync(1000)
+  } else {
+    await expect(test.runtime.runNow(tasks[0]!.record.id)).rejects.toMatchObject({
+      code: 'schedule/project-removed', message: 'project was removed', details: { workspaceId },
+    })
+  }
+  expect(tasks[0]).toMatchObject({ status: 'paused', deliveryFailure: { code: 'project-removed' } })
+  expect(tasks[0]?.pendingDelivery).toBeUndefined()
+  expect(tasks[0]?.lastDelivery).toBeUndefined()
+  expect(test.createSession).not.toHaveBeenCalled()
+  expect(resolveByPath).not.toHaveBeenCalled()
 })
 
 it.each(['new_once', 'new'] as const)('keeps a stored %s task and reports failure when its Host cannot create Sessions', async (kind) => {
