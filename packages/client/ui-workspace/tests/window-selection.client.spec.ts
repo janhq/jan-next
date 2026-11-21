@@ -16,6 +16,8 @@ it('restores navigation independently in each desktop window, with the launch ch
   })
   const secondary = { id: 'second', sessionId: b }
   expect(createMainSelection().getSnapshot()).toEqual({ sessionId: a })
+  // The main window's bridge has no id and keeps the unscoped selection.
+  expect(createMainSelection({}).getSnapshot()).toEqual({ sessionId: a })
   const opened = createMainSelection(secondary)
   expect(opened.getSnapshot()).toEqual({ sessionId: b })
   opened.set({ sessionId: c })
