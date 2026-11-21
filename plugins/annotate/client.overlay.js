@@ -6,7 +6,8 @@ window.__ModuleLoader__.load({
     const { createPortal } = require('react-dom')
     const { Button, InlineEditor, Input, Modal, Tooltip, IconCloseOutlineRegular, IconPenOutlineRegular, IconRectangleOutlineRegular,
       IconEllipseOutlineRegular, IconArrowOutlineRegular, IconEraserOutlineRegular, IconTextOutlineRegular, IconCursorOutlineRegular,
-      IconUndoOutlineRegular, IconRedoOutlineRegular, IconTrashOutlineRegular } = require('@janhq/jan-client-ui-primitives')
+      IconUndoOutlineRegular, IconRedoOutlineRegular, IconTrashOutlineRegular, ELEMENT_PROBE_ATTRIBUTE, describeElement,
+      probeFrameElement } = require('@janhq/jan-client-ui-primitives')
     const shell = { display: 'grid', gap: '16px', padding: '20px', boxSizing: 'border-box', minHeight: 0, overflow: 'auto' }
     const tools = { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }
     const textStyle = { fontSize: '13px', lineHeight: '18px', letterSpacing: '-0.13px', margin: 0 }
@@ -76,62 +77,65 @@ window.__ModuleLoader__.load({
       return bounds
     }
 
-    /** Describe only the chosen element and keep the composer excerpt bounded. */
-    function elementDetails(element, bounds) {
-      const document = element.ownerDocument
-      const parts = []
-      for (let node = element; node; node = node.parentElement) {
-        const id = node.id
-        const escaped = globalThis.CSS?.escape ? globalThis.CSS.escape(id) : /^[\w-]+$/u.test(id) ? id : ''
-        if (escaped && document.querySelectorAll(`#${escaped}`).length === 1) {
-          parts.unshift(`#${escaped}`)
-          break
-        }
-        const name = node.localName
-        const siblings = node.parentElement?.children
-        if (!siblings) { parts.unshift(name); break }
-        let index = 0
-        let count = 0
-        for (const sibling of siblings) {
-          if (sibling.localName !== name) continue
-          count++
-          if (sibling === node) index = count
-        }
-        parts.unshift(count > 1 ? `${name}:nth-of-type(${index})` : name)
-      }
-      const html = element.outerHTML
-      return { selector: parts.join(' > '), html: html.length <= 2400 ? html : `${html.slice(0, 2400)}…`, bounds }
-    }
-
     function documentOf(surface) {
       return surface.localName === 'webview' ? null
         : surface.localName === 'iframe' ? surface.contentDocument : surface.ownerDocument
     }
 
-    function hitAt(surface, x, y, layer) {
+    /** An opaque preview page that answers point queries itself (ui-primitives element probe). */
+    function probed(surface) {
+      return surface.localName === 'iframe' && surface.contentDocument === null && surface.hasAttribute(ELEMENT_PROBE_ATTRIBUTE)
+    }
+
+    /**
+     * The element under a point. `bounds` are in the element's own viewport, `crop` is the visible part on
+     * screen; `describe` reads its selector and HTML only once it is chosen.
+     */
+    async function hitAt(surface, x, y, layer) {
+      const parent = boundsOf(surface)
+      const offsetX = parent.x + surface.clientLeft
+      const offsetY = parent.y + surface.clientTop
+      const surfaceBounds = visibleBounds(surface)
+      if (probed(surface)) {
+        const found = await probeFrameElement(surface, x - offsetX, y - offsetY)
+        if (!found || !surface.isConnected) return null
+        const shifted = { ...found.bounds, x: found.bounds.x + offsetX, y: found.bounds.y + offsetY }
+        const crop = surfaceBounds && intersection(shifted, surfaceBounds)
+        const detail = { selector: found.selector, html: found.html }
+        return crop && { crop, bounds: found.bounds, page: '', describe: () => detail, live: () => surface.isConnected, whole: false }
+      }
       const source = documentOf(surface)
       if (source === null) return null
       const framed = source !== document
-      const parent = boundsOf(surface)
-      const offsetX = framed ? parent.x + surface.clientLeft : 0
-      const offsetY = framed ? parent.y + surface.clientTop : 0
       layer.style.pointerEvents = 'none'
-      const hit = source.elementFromPoint(x - offsetX, y - offsetY)
+      const hit = source.elementFromPoint(framed ? x - offsetX : x, framed ? y - offsetY : y)
       layer.style.removeProperty('pointer-events')
       if (!hit || (!framed && !surface.contains(hit))) return null
-      const surfaceBounds = visibleBounds(surface)
-      const crop = surfaceBounds && intersection(boundsOf(hit, offsetX, offsetY), surfaceBounds)
-      return crop && { hit, crop, bounds: boundsOf(hit), source }
-    }
-
-    function captureContext(selection, note, t) {
-      const { hit, bounds, source } = selection
-      const detail = elementDetails(hit, bounds)
-      const number = value => Math.round(value * 10) / 10
+      const crop = surfaceBounds && intersection(framed ? boundsOf(hit, offsetX, offsetY) : boundsOf(hit), surfaceBounds)
       const sourceUrl = new URL(source.URL)
       sourceUrl.username = sourceUrl.password = sourceUrl.search = sourceUrl.hash = ''
-      const page = source !== document && /^(https?):$/u.test(sourceUrl.protocol) ? `${t('page')}: ${sourceUrl.href}\n` : ''
-      return `${note ? `${note}\n\n` : ''}${t('context')}\n${page}${t('selector')}: ${detail.selector}\n${t('bounds')}: ${JSON.stringify(Object.fromEntries(Object.entries(bounds).map(([key, value]) => [key, number(value)])))}\n${t('html')}:\n${detail.html}`
+      const page = framed && /^(https?):$/u.test(sourceUrl.protocol) ? sourceUrl.href : ''
+      return crop && { crop, bounds: boundsOf(hit), page, describe: () => describeElement(hit), live: () => hit.isConnected,
+        whole: hit === surface }
+    }
+
+    /** Quote an attribute value for the context tag; the renderer reverses exactly these escapes. */
+    function attribute(value) {
+      return String(value).replace(/&/gu, '&amp;').replace(/"/gu, '&quot;').replace(/</gu, '&lt;').replace(/>/gu, '&gt;').replace(/\n/gu, '&#10;')
+    }
+
+    /** Split the editable note from the page-element block and its draft chip label. */
+    function captureContext(selection, note, elementName) {
+      const { bounds, page } = selection
+      const { selector, html } = selection.describe()
+      const { tag, label } = elementName(html)
+      const name = label || selector
+      const number = value => Math.round(value * 10) / 10
+      const attrs = [['selector', selector], ['x', number(bounds.x)], ['y', number(bounds.y)],
+        ['width', number(bounds.width)], ['height', number(bounds.height)], ...(page ? [['page', page]] : [])]
+      const excerpt = html.replace(/<\/page-element>/giu, '<\\/page-element>')
+      const text = `<page-element ${attrs.map(([key, value]) => `${key}="${attribute(value)}"`).join(' ')}>\n${excerpt}\n</page-element>`
+      return { note, context: { text, label: name ? `${name} <${tag}>` : `<${tag}>` } }
     }
 
     function toBlob(canvas) {
@@ -685,8 +689,9 @@ window.__ModuleLoader__.load({
           h(Button, { type: 'button', size: 'sm', variant: 'primary', disabled: marks.length === 0 || pending, onClick: save }, t('add'))))
     }
 
-    function Overlay({ mode, surface, image, captureRegion, requestDisplay, startDisplayCapture, getSurface, signal, close, t, save, setGrab, grabKeys }) {
-      const opaque = documentOf(surface) === null
+    function Overlay({ mode, surface, image, captureRegion, requestDisplay, startDisplayCapture, getSurface, signal, close, t, save,
+      elementName, setGrab, grabKeys }) {
+      const opaque = documentOf(surface) === null && !probed(surface)
       const [view, setView] = useState(mode === 'draw' || mode === 'attach' ? 'capture' : opaque ? 'opaque' : 'pick')
       const [note, setNote] = useState('')
       const [bitmap, setBitmap] = useState()
@@ -696,21 +701,23 @@ window.__ModuleLoader__.load({
       const selection = useRef()
       const picker = useRef(null)
       const point = useRef()
+      // A probed page answers asynchronously; only the latest hover may paint.
+      const hover = useRef(0)
       const currentView = useRef(view)
       currentView.current = view
       const previousFocus = useRef(document.activeElement)
       const busy = useRef(false)
       const stillCurrent = () => !signal.aborted && surface.isConnected && getSurface() === surface
-      const commit = (text, png, fileName = 'annotated-screenshot.png') => {
+      const commit = (text, png, fileName = 'annotated-screenshot.png', contexts) => {
         if (!stillCurrent()) return false
         try {
-          const result = save(text, png && new File([png], fileName, { type: 'image/png' }))
+          const result = save(text, png && new File([png], fileName, { type: 'image/png' }), contexts)
           if (result === 'added') { close(); return true }
           setError(result === 'blocked' ? 'composerBlocked' : 'composerUnavailable')
         } catch (_error) { setError('composerError') }
         return false
       }
-      const runCapture = async (kind, request, chosen, text) => {
+      const runCapture = async (kind, request, chosen, context) => {
         if (busy.current) return
         busy.current = true
         setError(undefined)
@@ -719,12 +726,12 @@ window.__ModuleLoader__.load({
         try {
           // No interaction chrome may appear in the pixels being copied.
           await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
-          if (!stillCurrent() || (chosen && !chosen.hit.isConnected)) return
+          if (!stillCurrent() || (chosen && !chosen.live())) return
           const png = await capture({ surface, bounds: chosen?.crop ?? visibleBounds(surface), captureRegion, request, signal,
-            forceCrop: !image || (kind === 'grab' && chosen.hit !== surface) })
+            forceCrop: !image || (kind === 'grab' && !chosen.whole) })
           if (!stillCurrent()) return
           if (kind === 'grab') {
-            setSelected({ text, png })
+            setSelected({ context, png })
             setView('grabbed')
           } else if (kind === 'attach') {
             // The whole tab goes to the chat as it looks; nothing to choose or mark up first.
@@ -747,8 +754,8 @@ window.__ModuleLoader__.load({
       const grab = (chosen = selection.current) => {
         if (!chosen || !stillCurrent()) return false
         selection.current = chosen
-        const text = captureContext(chosen, '', t)
-        void runCapture('grab', pickNeedsShare ? startDisplayCapture() : undefined, chosen, text)
+        const { context } = captureContext(chosen, '', elementName)
+        void runCapture('grab', pickNeedsShare ? startDisplayCapture() : undefined, chosen, context)
         return true
       }
       const invokeGrab = useRef(grab)
@@ -790,17 +797,21 @@ window.__ModuleLoader__.load({
           style: { ...overlayStyle, cursor: 'crosshair', outline: 'none' },
           onKeyDown: (event) => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close() } },
           onPointerMove: (event) => {
-            const hovered = hitAt(surface, event.clientX, event.clientY, picker.current)
-            point.current = hovered
-            selection.current = hovered
-            setSelected(hovered)
+            const ticket = ++hover.current
+            void hitAt(surface, event.clientX, event.clientY, picker.current).then((hovered) => {
+              if (ticket !== hover.current || currentView.current !== 'pick') return
+              point.current = hovered
+              selection.current = hovered
+              setSelected(hovered)
+            })
           },
           onClick: (event) => {
-            const chosen = hitAt(surface, event.clientX, event.clientY, picker.current)
-            if (!chosen) return
-            selection.current = chosen
-            if (mode === 'grab') grab(chosen)
-            else { setSelected(elementDetails(chosen.hit, chosen.bounds)); setView('note') }
+            void hitAt(surface, event.clientX, event.clientY, picker.current).then((chosen) => {
+              if (!chosen || currentView.current !== 'pick' || !stillCurrent()) return
+              selection.current = chosen
+              if (mode === 'grab') grab(chosen)
+              else { setSelected(chosen.describe()); setView('note') }
+            })
           } },
         border && h('div', { 'aria-hidden': true, style: { position: 'fixed', pointerEvents: 'none', outline: `2px solid ${HIGHLIGHT}`,
           background: `color-mix(in srgb, ${HIGHLIGHT} 13%, transparent)`, left: border.x, top: border.y, width: border.width, height: border.height } }),
@@ -815,10 +826,13 @@ window.__ModuleLoader__.load({
         : view === 'grabbed' || view === 'grab-error' || (view === 'opaque' && mode === 'grab') ? 'grab'
           : view === 'attach-error' ? 'attach' : 'draw'
       const commitSelection = () => {
+        const trimmedNote = note.trim()
         if (view === 'note') {
-          if (note.trim()) commit(captureContext(selection.current, note.trim(), t))
+          if (!trimmedNote) return
+          const { note: text, context } = captureContext(selection.current, trimmedNote, elementName)
+          commit(text, undefined, undefined, [context])
         } else {
-          commit(note.trim() ? `${note.trim()}\n\n${selected.text}` : selected.text, selected.png, 'selected-element.png')
+          commit(trimmedNote, selected.png, 'selected-element.png', [selected.context])
         }
       }
       const retry = { 'grab-error': () => grab(), 'draw-error': requestDraw, 'attach-error': requestAttach }[view]
@@ -832,7 +846,7 @@ window.__ModuleLoader__.load({
         (view === 'note' || view === 'grabbed') && h(Notes, { t, value: note, change: setNote, close, submit: commitSelection }),
         view === 'grabbed' && h('details', null, h('summary', null, t('details')),
           h('pre', { style: { ...muted, fontSize: '12px', fontFamily: 'var(--dsw-font-mono, ui-monospace, monospace)',
-            whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', maxHeight: '160px', overflow: 'auto', marginTop: '6px' } }, selected.text)),
+            whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', maxHeight: '160px', overflow: 'auto', marginTop: '6px' } }, selected.context.text)),
         (view === 'note' || view === 'grabbed') && error && h(Status, { t, message: error, error: true }),
         (view === 'note' || view === 'grabbed') && h('div', { style: { ...tools, gap: '8px' } },
           view === 'note' && h(Button, { type: 'button', size: 'sm', onClick: () => grab() }, t('grab')),
@@ -842,6 +856,6 @@ window.__ModuleLoader__.load({
             onClick: commitSelection }, t('add'))))
     }
 
-    return { Overlay, elementDetails, paintMark, resized, markBounds, touches }
+    return { Overlay, captureContext, paintMark, resized, markBounds, touches }
   },
 })

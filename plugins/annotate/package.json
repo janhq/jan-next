@@ -12,11 +12,11 @@
     "./package.json": "./package.json",
     "./icon": "./icon.svg"
   },
-  "files": ["index.mjs", "client.js", "client.locale.js", "client.overlay.js", "icon.svg"],
+  "files": ["index.mjs", "client.js", "client.locale.js", "client.overlay.js", "client.element.js", "icon.svg"],
   "jan": {
     "client": {
       "platform": "web",
-      "inject": ["@janhq/jan-client-ui-primitives"]
+      "inject": ["@janhq/jan-client-ui-primitives", "@janhq/jan-client-ui-conversation"]
     }
   }
 }
