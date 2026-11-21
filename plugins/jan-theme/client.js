@@ -464,6 +464,11 @@ window.__ModuleLoader__.load({
      icon column; a running Session's status dots still take their slot. */
   html[data-jan-theme][data-jan-theme-mac] { --jt-sidebar-gap: 11px; }
   html[data-jan-theme][data-jan-theme-mac] [data-slot='sidebar'] > div > :has([data-slot='sidebar.brand.name']) { margin-bottom: 18px; }
+  /* Fullscreen hides the traffic lights, so the logo row neither clears them nor keeps the
+     57px rhythm under them: the toggle strip rides that row (the strip's -6px margin cancels
+     the card's 6px top padding), and the first row follows at the stock 8px. */
+  html[data-jan-theme][data-jan-theme-mac][data-fullscreen] [data-slot='sidebar'] > div > :has([data-slot='sidebar.brand.name']) { padding-left: 4px; margin-bottom: 8px; }
+  html[data-jan-theme][data-jan-theme-mac][data-fullscreen] [data-slot='sidebar'] > div > [data-window-drag]:has(> [data-sidebar-toggle]) { top: 6px; }
   html[data-jan-theme] .jt-nav-row:not([class*='rail']) { height: 38px; padding: 0 10px; gap: 11px; }
   /* The More launcher matches these rows (see the panelRow rule below). */
   html[data-jan-theme] [data-slot='sidebar'] nav { gap: 2px; }
