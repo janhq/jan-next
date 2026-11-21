@@ -5,8 +5,12 @@ const BATCH_MS = 250
 const SEND_MS = 60_000
 
 /** Bind Jan's session metadata to the durable Super Agent queue. */
-export function openBackground({ directory, now = Date.now, changed, activityChanged, run, notify, approvalPending, report }) {
+export function openBackground({ directory, sessionId, now = Date.now, changed, activityChanged, memoryChanged = changed, run, notify, approvalPending, report }) {
   let current, lastRun = null, lastDelivery
+  let pending = false
+  const activity = () => ({ paused: queue.paused, activeRun: current?.phase ?? null, lastRun,
+    lastDeliveryAgeMs: lastDelivery === undefined ? null : Math.max(0, now() - lastDelivery),
+    pending, blocked: Object.values(queue.get(APPROVALS) ?? {}).some(item => item.decision === undefined) })
   const queue = openQueue({ directory, now, changed, report, sendIntervalMs: SEND_MS,
     async send(message) {
       const result = await notify(message)
@@ -16,9 +20,10 @@ export function openBackground({ directory, now = Date.now, changed, activityCha
     async run(batch, signal) {
       const events = batch.events.map(event => ({ id: event.id, ...event.value }))
       const first = events[0]
-      const job = { runId: batch.id, sessionId: first.sessionId ?? `session-always-on-${batch.id}`, events,
+      const job = { runId: batch.id, sessionId: sessionId ?? first.sessionId ?? `session-always-on-${batch.id}`, events,
         approval: first.approvalId === undefined ? undefined : (queue.get(APPROVALS) ?? {})[first.approvalId] }
       current = { job, signal, phase: 'thinking' }
+      pending = queue.events().some(item => item.status === 'pending')
       try {
         const outcome = await run(job, signal, phase => {
           if (current?.job !== job || signal.aborted || current.phase === phase) return
@@ -33,8 +38,11 @@ export function openBackground({ directory, now = Date.now, changed, activityCha
       } finally { current = undefined }
     },
   })
+  pending = queue.events().some(item => item.status === 'pending')
   function enqueue({ id, ...value }, stamp = now()) {
-    return queue.enqueue({ id, value, readyAt: stamp + BATCH_MS, group: value.approvalId ?? value.sessionId })
+    const added = queue.enqueue({ id, value, readyAt: stamp + BATCH_MS, group: value.approvalId ?? sessionId ?? value.sessionId })
+    if (added) pending = true
+    return added
   }
   function assertActive(job, signal) {
     signal?.throwIfAborted()
@@ -48,21 +56,21 @@ export function openBackground({ directory, now = Date.now, changed, activityCha
     enqueue,
     isActive(job) { return current?.job === job && !current.signal.aborted },
     awaiting(job) { return Object.hasOwn(queue.get(APPROVALS) ?? {}, job.runId) },
-    memoryChanged: changed,
+    memoryChanged,
+    activity,
     snapshot() {
-      return { paused: queue.paused,
-        activeRun: current?.phase ?? null, lastRun,
-        lastDeliveryAgeMs: lastDelivery === undefined ? null : Math.max(0, now() - lastDelivery),
+      return { ...activity(),
         events: queue.events().map(({ id, status, batchId, readyAt, value }) => ({ id, status, runId: batchId, createdAt: readyAt - BATCH_MS, ...value })),
         approvals: Object.values(queue.get(APPROVALS) ?? {}).filter(item => item.decision === undefined),
         outbox: queue.messages().map(({ id, text, status, channel }) => ({ id, text, status, ...channel.address })),
       }
     },
     defer(job, id, changes, signal) {
-      assertActive(job, signal)
+      if (job) assertActive(job, signal)
+      else signal?.throwIfAborted()
       const records = queue.get(APPROVALS) ?? {}
       if (Object.hasOwn(records, id)) return
-      queue.set(APPROVALS, { ...records, [id]: { id, sessionId: job.sessionId, changes, createdAt: now() } })
+      queue.set(APPROVALS, { ...records, [id]: { id, sessionId: sessionId ?? job.sessionId, changes, createdAt: now() } })
       approvalPending?.(id)
     },
     answer(id, decision) {
@@ -76,10 +84,11 @@ export function openBackground({ directory, now = Date.now, changed, activityCha
       })
     },
     send(job, key, text, signal) {
-      assertActive(job, signal)
+      if (job) assertActive(job, signal)
+      else signal?.throwIfAborted()
       const id = createHash('sha256').update(key).digest('hex')
       return queue.send({ id, text, kind: 'notice', channel: { source: 'desktop', thread: 'always-on',
-        address: { sessionId: job.sessionId, createdAt: String(now()) } } })
+        address: { sessionId: sessionId ?? job.sessionId, createdAt: String(now()) } } })
     },
     reply(id, text, sourceId) {
       const message = queue.message(id)

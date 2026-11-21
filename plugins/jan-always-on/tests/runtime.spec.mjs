@@ -8,13 +8,13 @@ import { openBackground } from '../background.mjs'
 const START = 1_800_000_000_000
 const event = id => ({ id, kind: 'task', text: id })
 
-async function harness(t) {
+async function harness(t, sessionId) {
   const directory = mkdtempSync(join(tmpdir(), 'jan-alwayson-test-'))
   let current = START, runtime
   const runs = [], sent = [], phases = []
   async function reopen() {
     await runtime?.close()
-    runtime = openBackground({ directory, now: () => current, changed() {},
+    runtime = openBackground({ directory, sessionId, now: () => current, changed() {},
       activityChanged: () => { phases.push(runtime.snapshot().activeRun) },
       notify: async message => { sent.push(message.text); return 'sent' },
       run: async (job, signal, setPhase) => {
@@ -160,4 +160,21 @@ test('paces outbox deliveries, suppresses duplicate notifications and resumes on
   await h.advance()
   await runtime.idle()
   assert.deepEqual(sent, ['First message', 'Second message'])
+})
+
+test('new work, migrated replies and migrated approvals run in the same canonical chat', async t => {
+  const h = await harness(t, 'session-bot-jan')
+  h.runtime.enqueue({ ...event('legacy'), sessionId: 'session-always-on-old' })
+  await h.advance()
+  const first = h.runs[0]
+  assert.equal(first.job.sessionId, 'session-bot-jan')
+  assert.equal(first.job.events[0].sessionId, 'session-always-on-old')
+  h.runtime.defer(first.job, first.job.runId, { path: 'instructions.md', text: 'review' })
+  first.finish('deferred')
+  await h.runtime.idle()
+  assert.equal(h.runtime.answer(first.job.runId, 'allowed-once'), true)
+  await h.advance()
+  assert.equal(h.runs[1].job.sessionId, first.job.sessionId)
+  h.runs[1].finish('done')
+  await h.runtime.idle()
 })
