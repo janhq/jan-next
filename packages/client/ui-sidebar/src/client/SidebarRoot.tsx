@@ -202,9 +202,9 @@ export function SidebarRoot({
     trackEntryClick({ menu_name: 'new_session', position: windowsTitlebar && collapsed ? 'titlebar' : 'sidebar' })
     startSession()
   }
-  // The Windows caption menus occupy the strip to the right of these controls
-  // (that is what --jan-windows-menu-start reserves), so a right-side bubble
-  // lands under their text. Below the caption is the only clear side.
+  // The Windows caption strip packs these controls and the caption menus side
+  // by side (--jan-windows-menu-start and --jan-windows-menu-end), so a
+  // right-side bubble lands under a neighbour. Below the caption is the only clear side.
   const captionTooltipSide = windowsTitlebar ? 'bottom' : 'right'
   // Freeze the content at its expanded width while it fades out (collapsed
   // && wide): the sliding column then clips it instead of reflowing it. The

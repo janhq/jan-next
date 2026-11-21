@@ -73,12 +73,12 @@ export function AccountMenu({
       notices={account.notices}
       anchor={anchor} title={t('bonusNoticeTitle')} closeLabel={t('close')}
       onShown={bonusNoticeShown} onDismiss={bonusNoticeDismissed} />}
-    {loginRow && <button type="button" className={css.login} onClick={beginSignIn}>
+    {loginRow && <button type="button" className={css.login} data-account-login onClick={beginSignIn}>
       <IconUserOutlineMedium size={16} />
       <span className={css.label}>{t('logIn')}</span>
     </button>}
     <Menu open={open} side="top" portal autoFocus className={loginRow ? css.gearAnchor : css.anchor} listClassName={signedIn ? undefined : css.signedOutMenu}
-      anchor={<button ref={trigger} type="button" className={css.trigger} data-collapsed={!wide || loginRow} data-signed-out={!signedIn} aria-label={t('menu')}
+      anchor={<button ref={trigger} type="button" className={css.trigger} data-account-launcher data-collapsed={!wide || loginRow} data-signed-out={!signedIn} aria-label={t('menu')}
         title={loginRow ? t('settings') : undefined}
         aria-haspopup="menu" aria-expanded={open} onClick={() => { setOpen(value => !value) }}>
         {signedIn

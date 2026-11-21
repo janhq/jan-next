@@ -7,6 +7,7 @@ import { credentialRef } from '@janhq/jan-credentials'
 import { registerApi } from '@janhq/jan-plugin-api'
 import { convertThread, coworkMessages, threadUpdated } from './convert.mjs'
 import { defaultFolders, listSessionFiles, mapLimit, readSessionFile, sessionHead } from './agents.mjs'
+import { orcaWorkspaces, workspaceOf } from './orca.mjs'
 import { janKeyNames, readJanKey } from './jan-secrets.mjs'
 import { assistantPresetId, derivePreset, keyRef, providerProfile, readJanMcpServers, readJanSettings } from './settings.mjs'
 import { registerMigrateSkill, registerMigrateTools } from './migrate.mjs'
@@ -98,6 +99,41 @@ export function apply(ctx, config = {}) {
   }
   const agentId = (source, id) => `${source}-${id}`
   const agentFolder = async (source, folder) => realpath(folder ? resolve(folder) : defaultFolders()[source])
+  // Orca runs these agents in its workspaces; their transcripts stay in each agent's own folder.
+  // Row and session ids carry the agent prefix, so a session imported here and from its agent's
+  // own source is the same Jan session.
+  const orcaFiles = async () => (await Promise.all(AGENTS.map(async agent => {
+    try { return (await listSessionFiles(agent, await agentFolder(agent))).map(file => ({ ...file, agent, key: agentId(agent, file.id) })) } catch (error) {
+      if (missing(error)) return []
+      throw error
+    }
+  }))).flat().sort((a, b) => b.updated - a.updated)
+  const listOrca = async ({ since }) => {
+    const [workspaces, all] = await Promise.all([orcaWorkspaces(), orcaFiles()])
+    const files = typeof since === 'number' ? all.filter(file => file.updated >= since) : all
+    const rows = await mapLimit(files, async file => {
+      try {
+        const head = await sessionHead(file.path)
+        const workspace = workspaceOf(workspaces, head.cwd)
+        if (!workspace) return undefined
+        return {
+          id: file.key, title: head.title || file.id, agent: file.agent, project: workspace.path, workspace: workspace.name, projectName: workspace.project,
+          size: file.size, updated: file.updated, alreadyImported: await exists(file.key),
+        }
+      } catch { return undefined }
+    })
+    // `folder` is the page's marker that this list is current; Orca has no folder of its own.
+    return { source: 'orca', folder: 'orca', threads: rows.filter(Boolean), workspaces: workspaces.length, older: all.length - files.length }
+  }
+  // An Orca session opens in a Jan workspace over its Orca workspace's folder, titled as Orca shows it.
+  const orcaWorkspaceFor = async (workspaces, cwd) => {
+    const found = workspaceOf(workspaces, cwd)
+    if (!found) return undefined
+    try { return await ctx.workspaceRegistry.create(found.path, found.project && found.project !== found.name ? `${found.project} · ${found.name}` : found.name) } catch (error) {
+      if (missing(error)) return undefined
+      throw error
+    }
+  }
   // `since` (epoch ms) keeps the list to recent sessions; a coding agent can hold thousands, and
   // each listed one costs a file read and a store lookup.
   const listAgent = async ({ source, folder, since }) => {
@@ -117,6 +153,7 @@ export function apply(ctx, config = {}) {
     return { source, folder: root, threads, older: all.length - files.length }
   }
   const list = async ({ source = 'jan', folder, since }) => {
+    if (source === 'orca') return listOrca({ since })
     if (source !== 'jan') return listAgent({ source: agentSource(source), folder, since })
     const janFolder = await realpath(folderOf(folder))
     const entries = await readdir(join(janFolder, 'threads'), { withFileTypes: true })
@@ -281,7 +318,8 @@ export function apply(ctx, config = {}) {
   }
   const importSelected = async ({ source: origin = 'jan', folder, ids, providers = false, assistants = false, mcp = false }) => {
     if (job?.running) throw new Error('An import is already running.')
-    if (origin !== 'jan') agentSource(origin)
+    const orca = origin === 'orca'
+    if (origin !== 'jan' && !orca) agentSource(origin)
     if (!Array.isArray(ids) || ids.some(id => !validId(id))) throw new Error('Select valid session IDs.')
     if (origin !== 'jan' && (providers || assistants || mcp)) throw new Error('Settings come only from Jan.')
     if (!ids.length && !providers && !assistants && !mcp) throw new Error('Choose chats or settings to import.')
@@ -289,8 +327,11 @@ export function apply(ctx, config = {}) {
     job = { running: true, total: unique.length, done: 0, current: null, results: [], settings: { providers: [], assistants: [] } }
     const run = job
     try {
-      const source = origin === 'jan' ? await realpath(folderOf(folder)) : await agentFolder(origin, folder)
-      const agentFiles = origin === 'jan' ? undefined : new Map((await listSessionFiles(origin, source)).map(file => [file.id, file]))
+      const source = origin === 'jan' ? await realpath(folderOf(folder)) : orca ? undefined : await agentFolder(origin, folder)
+      const agentFiles = origin === 'jan' ? undefined
+        : orca ? new Map((await orcaFiles()).map(file => [file.key, file]))
+          : new Map((await listSessionFiles(origin, source)).map(file => [file.id, { ...file, agent: origin, key: agentId(origin, file.id) }]))
+      const workspaces = orca ? await orcaWorkspaces() : undefined
       const janSettings = providers || assistants ? await readJanSettings(source, providers ? await janKeyNames(source) : []) : undefined
       if (providers) run.total += janSettings.providers.length
       if (assistants) run.total++
@@ -329,19 +370,23 @@ export function apply(ctx, config = {}) {
         try { if ((await stat(cwd)).isDirectory()) return await ctx.workspaceRegistry.create(cwd) } catch (error) { if (!missing(error)) throw error }
         return defaultWorkspace()
       }
+      // An Orca session's folder is its Orca workspace, titled as Orca names it.
+      const orcaWorkspace = async cwd => orca ? await orcaWorkspaceFor(workspaces, cwd) : undefined
+      const sessionWorkspace = async cwd => await orcaWorkspace(cwd) ?? workspaceFor(cwd)
+      const storedSessionWorkspace = async cwd => await orcaWorkspace(cwd) ?? storedWorkspace(cwd)
       for (const id of unique) {
-        const sessionId = origin === 'jan' ? `jan-${id}` : agentId(origin, id)
+        const file = agentFiles?.get(id)
+        const sessionId = origin === 'jan' ? `jan-${id}` : file?.key ?? agentId(origin, id)
         try {
-          const file = agentFiles?.get(id)
           if (agentFiles && !file) throw new Error('This session file is no longer in the folder.')
-          const { thread, messages, losses } = file ? await readSessionFile(origin, file) : await readThread(source, id)
+          const { thread, messages, losses } = file ? await readSessionFile(file.agent, file) : await readThread(source, id)
           run.current = titleOf(thread)
           const linkedId = thread.metadata?.dshSession?.id
           const partial = await exists(sessionId) && await partialImport(sessionId, thread, messages)
           if (!partial && (await exists(sessionId) || (typeof linkedId === 'string' && await exists(linkedId)))) {
             // Retry workspace membership when a prior import persisted successfully but attachment failed.
             const stored = ctx.sessions.get(sessionId)?.header ?? (await ctx.sessionPersistence.stat(sessionId))?.header
-            await (await storedWorkspace(stored?.cwd))?.attachSession(sessionId)
+            await (await storedSessionWorkspace(stored?.cwd))?.attachSession(sessionId)
             run.results.push({ id, status: 'already imported', sessionId: stored ? sessionId : linkedId })
           } else if (!messages.length) {
             run.results.push({ id, status: 'skipped', reason: 'empty chat' })
@@ -355,7 +400,7 @@ export function apply(ctx, config = {}) {
               header = handle.header
               inheritedEventCount = handle.inheritedEventCount
             } else {
-              workspace = await workspaceFor(origin === 'jan' ? undefined : thread.cwd)
+              workspace = await sessionWorkspace(origin === 'jan' ? undefined : thread.cwd)
               const prepared = ctx.sessions.prepare(sessionId, { seed: converted.events, meta: { createdAt: converted.createdAt, ...(workspace ? { cwd: workspace.path } : {}), isSeeded: false } })
               // A chat with an imported assistant keeps running as that assistant.
               const preset = typeof thread.assistants?.[0]?.id === 'string' ? assistantPresetId(thread.assistants[0].id) : undefined
@@ -372,7 +417,7 @@ export function apply(ctx, config = {}) {
             // live sessions write; fold the imported log once so the row is titled.
             ctx.get('sessionProjectionCache')?.coldSnapshot(header, inheritedEventCount, converted.events)
             // A resumed partial log keeps the folder its header was written with.
-            await (partial ? await storedWorkspace(header.cwd) : workspace)?.attachSession(sessionId)
+            await (partial ? await storedSessionWorkspace(header.cwd) : workspace)?.attachSession(sessionId)
             run.results.push({ id, status: 'imported', sessionId, losses: [...losses, ...converted.losses] })
           }
         } catch (error) { run.results.push({ id, status: 'failed', reason: errorText(error) }) }
