@@ -18043,6 +18043,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/util/values
 
+  plugins/agent-settings: {}
+
   plugins/annotate: {}
 
   plugins/desktop-app:
@@ -18056,6 +18058,9 @@ importers:
       '@janhq/jan-agent-preset':
         specifier: workspace:*
         version: link:../../packages/preset/agent-preset
+      '@janhq/jan-agent-settings':
+        specifier: workspace:*
+        version: link:../agent-settings
       '@janhq/jan-always-on':
         specifier: workspace:*
         version: link:../jan-always-on
@@ -18131,6 +18136,9 @@ importers:
       '@janhq/jan-tool-web':
         specifier: workspace:*
         version: link:../../packages/web/tool-web
+      '@janhq/jan-wall-of-quotes':
+        specifier: workspace:*
+        version: link:../wall-of-quotes
 
   plugins/diagnostics:
     dependencies:
@@ -18333,6 +18341,12 @@ importers:
       '@janhq/jan-working-directory':
         specifier: workspace:*
         version: link:../../packages/session/working-directory
+
+  plugins/wall-of-quotes:
+    dependencies:
+      '@janhq/schemastery':
+        specifier: link:../../vendor/schemastery
+        version: link:../../vendor/schemastery
 
   python/sdk-runtime:
     dependencies:

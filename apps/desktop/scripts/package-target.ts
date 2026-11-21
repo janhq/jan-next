@@ -38,6 +38,7 @@ const PRIVATE_RUNTIME_PACKAGES = [
   'packages/client/ui-settings-local-model',
   'packages/web/web-search',
   'plugins/agent-desktop',
+  'plugins/agent-settings',
   'plugins/annotate',
   'plugins/desktop-app',
   'plugins/diagnostics',
@@ -52,6 +53,7 @@ const PRIVATE_RUNTIME_PACKAGES = [
   'plugins/plugin-api',
   'plugins/preset-square',
   'plugins/tokamak',
+  'plugins/wall-of-quotes',
 ] as const
 const WINDOWS_SIGNING_ENV_PREFIX = 'JAN_DESKTOP_WINDOWS_'
 const WINDOWS_SIGNING_ENV_NAMES = [
