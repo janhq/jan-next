@@ -774,7 +774,7 @@ describe('ModelSelect catalog size', () => {
     if (count <= 4) expect(screen.queryByRole('searchbox')).toBeNull()
   })
 
-  it('matches the typed text as one run of a model name, not scattered letters', () => {
+  it('matches each typed word as one run of a model name, across separators, not scattered letters', () => {
     const group = state().groups[0]!
     const models = ['Jan v3.5 4B', 'claude-opus-5-5[1M]', 'Llama 3.2 3B', 'gemma-3', 'TinyLlama'].map(name => ({ id: name, name }))
     render(<ModelSelect renderLabel={renderLabel} locked={false} available
@@ -783,6 +783,16 @@ describe('ModelSelect catalog size', () => {
     fireEvent.click(screen.getByRole('button', { name: '请选择模型' }))
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'LAM' } })
     expect(screen.getAllByRole('menuitemradio').map(row => row.textContent)).toEqual(['Llama 3.2 3B', 'TinyLlama'])
+    const names = () => screen.getAllByRole('menuitemradio').map(row => row.textContent)
+    // Words match in any order, and a space stands for a dash, dot or underscore.
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'opus 5' } })
+    expect(names()).toEqual(['claude-opus-5-5[1M]'])
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '3b llama' } })
+    expect(names()).toEqual(['Llama 3.2 3B'])
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'gemma 3' } })
+    expect(names()).toEqual(['gemma-3'])
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'v3 5' } })
+    expect(names()).toEqual(['Jan v3.5 4B'])
   })
 
   it.each([true, false])('clears search and restores focus across 5 → 4 → 5 models (checked: %s)', (checked) => {
