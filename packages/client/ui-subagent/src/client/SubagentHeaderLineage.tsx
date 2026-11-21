@@ -732,20 +732,22 @@ function RootCatalogAction({
   const hasTaskFailure = useProjection('agentTeam', team => team?.enabled === true && team.failure !== undefined)
   const footerAvailable = useFooterAvailable(value => value)
   return (
-    <CatalogDropdown
-      key={sessionId}
-      rootSessionId={sessionId}
-      variant="count"
-      hasSharedTasks={footerAvailable && hasSharedTasks}
-      hasBoardContent={footerAvailable && (hasSharedTasks || hasTaskFailure)}
-      renderFooter={() => renderSlot('conversation.session.header.actions.subagent.footer', {})}
-      useSessions={useSessions}
-      useSessionStatus={useSessionStatus}
-      openChild={openChild}
-      openChildAside={openChildAside}
-      refreshProjection={refreshProjection}
-      t={t}
-    />
+    <div className={css.dockSeat}>
+      <CatalogDropdown
+        key={sessionId}
+        rootSessionId={sessionId}
+        variant="count"
+        hasSharedTasks={footerAvailable && hasSharedTasks}
+        hasBoardContent={footerAvailable && (hasSharedTasks || hasTaskFailure)}
+        renderFooter={() => renderSlot('conversation.session.header.actions.subagent.footer', {})}
+        useSessions={useSessions}
+        useSessionStatus={useSessionStatus}
+        openChild={openChild}
+        openChildAside={openChildAside}
+        refreshProjection={refreshProjection}
+        t={t}
+      />
+    </div>
   )
 }
 

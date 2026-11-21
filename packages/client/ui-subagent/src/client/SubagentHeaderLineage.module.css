@@ -1,3 +1,17 @@
+/* The composer dock seat spans the input card's box, so the count chip's
+   glyph (12px seat pad + the trigger's 2px) lands on the card's text edge. */
+.dockSeat {
+  box-sizing: border-box;
+  align-self: center;
+  width: calc(100% - 2 * var(--jan-composer-side-clearance));
+  max-width: var(--jan-composer-card-max-width);
+  padding-inline: 12px;
+}
+
+.dockSeat:empty {
+  display: none;
+}
+
 .root {
   position: relative;
   display: inline-flex;
