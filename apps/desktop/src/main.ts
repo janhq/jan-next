@@ -67,6 +67,7 @@ import { MANDATORY_IPC } from './mandatory-update-ipc.ts'
 import { DesktopPolicyTestAuth } from './policy-test-auth.ts'
 import { readDesktopSettings } from './settings.ts'
 import { readDesktopLocaleCache, writeDesktopLocaleCache } from './locale-cache.ts'
+import { clampZoomLevel, readDesktopZoomLevel, writeDesktopZoomLevel } from './zoom-level.ts'
 import { DesktopUpdateDialog, type UpdateDialogOptions } from './update-dialog.ts'
 import { readDesktopRuntime } from './runtime-tree.ts'
 import { DesktopBrowserGuests } from './browser-guests.ts'
@@ -1257,10 +1258,13 @@ async function main(): Promise<void> {
       { label: messages.speechMenu, submenu: [{ role: 'startSpeaking' }, { role: 'stopSpeaking' }] },
     ],
   })
-  // Zoom every app surface together, so the chat and the side panel views scale as one.
-  let zoomLevel = 0
+  // Zoom every app surface together, so the chat and the side panel views scale as one,
+  // and open at the level chosen last time. The renderer leaves these keys to this menu.
+  let zoomLevel = readDesktopZoomLevel(app.getPath('userData'))
   const applyZoom = (level: number): void => {
-    zoomLevel = Math.max(-3, Math.min(5, level))
+    const next = clampZoomLevel(level)
+    if (next !== zoomLevel) writeDesktopZoomLevel(app.getPath('userData'), next)
+    zoomLevel = next
     for (const contents of webContents.getAllWebContents()) {
       if (contents.isDestroyed() || contents.getType() === 'remote' || contents.getURL().startsWith('devtools:')) continue
       contents.setZoomLevel(zoomLevel)
@@ -1518,10 +1522,12 @@ async function main(): Promise<void> {
       window.on('focus', refocus)
       workspaceCover = { window, css, refocus }
     }
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- The workspace can be entered while the CSS is inserted.
     if (enteredWorkspace || window.isDestroyed()) { uncoverWorkspace(window); return }
     window.showInactive()
     // Attached after the workspace is on screen, so AppKit stacks the welcome above it and keeps it key.
     const welcome = welcomeWindow
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- The welcome window can close while the CSS is inserted.
     if (welcome === undefined || welcome.isDestroyed()) return
     welcome.setParentWindow(window)
     welcome.moveTop()
