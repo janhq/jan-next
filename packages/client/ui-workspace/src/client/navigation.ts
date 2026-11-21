@@ -199,8 +199,6 @@ export interface UiWorkspace {
   readonly hiddenSessions: ObservableSnapshot<ReadonlySet<SessionId>>
   /** Subscribe to a plugin's alternate presentation IDs until the registration is disposed. */
   registerSessionPresentation(source: ObservableSnapshot<ReadonlySet<SessionId>>): () => void
-  /** Handle plain New Session while a contributed Session is the main conversation. */
-  registerCurrentSessionStartHandler(handler: (sessionId: SessionId) => boolean): () => void
 }
 
 declare module '@janhq/cordis' {
@@ -252,7 +250,6 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   readonly projectSurface = createSnapshotStore(false)
   readonly hiddenSessions = createSnapshotStore<ReadonlySet<SessionId>>(new Set())
   private readonly sessionPresentations = new Set<ObservableSnapshot<ReadonlySet<SessionId>>>()
-  private readonly sessionStartHandlers = new Set<(sessionId: SessionId) => boolean>()
 
   /**
    * @param ctx - Client root Context.
@@ -433,10 +430,6 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   }
 
   startSession(workspaceId?: WorkspaceId, options?: StartSessionOptions): void {
-    if (workspaceId === undefined && options === undefined && this.ctx.layout.panelInfo.getSnapshot().activePanelId === null) {
-      const current = this.mainReference?.sessionId
-      if (current !== undefined) for (const handler of this.sessionStartHandlers) if (handler(current)) return
-    }
     const { agentPreset, ...draft } = options ?? {}
     const draftOptions = options === undefined ? undefined : draft
     const initializeDraft = draftOptions !== undefined && (draftOptions.prompt !== undefined
@@ -531,11 +524,6 @@ class UiWorkspaceService extends Service implements UiWorkspace {
       release()
       if (this.sessionPresentations.delete(source)) sync()
     }
-  }
-
-  registerCurrentSessionStartHandler(handler: (sessionId: SessionId) => boolean): () => void {
-    this.sessionStartHandlers.add(handler)
-    return () => { this.sessionStartHandlers.delete(handler) }
   }
 
   registerSearchHandler(open: () => void): () => void {
