@@ -383,7 +383,7 @@
   }
 }
 
-/* Attach circle (figma + control): 28px, selector fill, primary glyph. */
+/* Attach control: 28px ghost circle, primary glyph; the fill appears only on hover or while its menu is open. */
 .add {
   display: grid;
   place-items: center;
@@ -393,9 +393,13 @@
   border: none;
   border-radius: 999px;
   corner-shape: round;
-  background: var(--dsw-specific-selector);
+  background: transparent;
   color: var(--dsw-alias-label-primary);
   cursor: pointer;
+}
+
+.add[aria-expanded='true'] {
+  background: var(--dsw-specific-selector);
 }
 
 @media (hover: hover) {
