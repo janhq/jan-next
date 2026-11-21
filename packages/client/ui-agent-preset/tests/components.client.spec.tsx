@@ -16,6 +16,7 @@ import { AgentPresetLabel } from '../src/client/AgentPresetLabel.tsx'
 import type { AgentPresetLabelProps } from '../src/client/AgentPresetLabel.tsx'
 import { AgentPresetSeat } from '../src/client/AgentPresetSeat.tsx'
 import type { AgentPresetSeatProps } from '../src/client/AgentPresetSeat.tsx'
+import type { AgentPresetModeAction } from '../src/client/index.ts'
 import type { AgentPresetSettingsState } from '../src/client/settings-store.ts'
 import type { AgentPresetSeatState } from '../src/client/seat-store.ts'
 import { en } from '../src/client/locales.ts'
@@ -54,6 +55,7 @@ function renderSeat(
   select: () => Promise<string | undefined> = () => Promise.resolve(undefined),
   session?: { id: string; retainInfo: SessionRetainInfo | undefined },
   enabled = true,
+  modeActions = createSnapshotStore([] as readonly AgentPresetModeAction[]),
 ) {
   const store = createSnapshotStore<AgentPresetSeatState>({ ...SEAT_READY, ...state })
   const developerTools = createSnapshotStore(enabled)
@@ -68,6 +70,7 @@ function renderSeat(
   const props = {
     ...actions,
     sessionId: session === undefined ? undefined : SessionId(session.id),
+    useModeActions: bindSnapshotSelector(modeActions),
     useDeveloperTools: bindSnapshotSelector(developerTools),
     useAgentPresetSeat: bindSnapshotSelector(store),
     useSessionRetainInfo: session === undefined
@@ -82,6 +85,7 @@ function renderSeat(
 function renderLabel(
   summary: { blank: boolean; running?: boolean; projectionValues?: { agentPreset?: string | null } } | undefined,
   roster: Partial<AgentPresetSettingsState> = {},
+  modeActions = createSnapshotStore([] as readonly AgentPresetModeAction[]),
 ) {
   // The chip and the label read the same roster, metadata included.
   const store = createSnapshotStore<AgentPresetSettingsState>({
@@ -94,6 +98,7 @@ function renderLabel(
     load,
     select,
     sessionId: 's1',
+    useModeActions: bindSnapshotSelector(modeActions),
     useSessions: bindSnapshotSelector(sessions),
     useAgentPresets: bindSnapshotSelector(store),
     useDeveloperTools: bindSnapshotSelector(createSnapshotStore(true)),
@@ -102,6 +107,25 @@ function renderLabel(
   const view = render(<AgentPresetLabel {...props} />)
   return { load, select, view }
 }
+
+it('opens a contributed mode from both preset menus without selecting a capability preset', () => {
+  const run = vi.fn()
+  const modeActions = createSnapshotStore<readonly AgentPresetModeAction[]>([{
+    id: 'persistent', name: () => 'Persistent mode', description: () => 'Continue in one chat', run,
+  }])
+  const seat = renderSeat({}, undefined, undefined, false, modeActions)
+  fireEvent.click(screen.getByRole('button'))
+  fireEvent.click(screen.getByRole('menuitem', { name: /^Persistent mode/ }))
+  expect(run).toHaveBeenLastCalledWith(undefined)
+  expect(seat.select).not.toHaveBeenCalled()
+  cleanup()
+
+  const { select } = renderLabel({ blank: false, projectionValues: { agentPreset: 'standard' } }, {}, modeActions)
+  fireEvent.click(screen.getByRole('button'))
+  fireEvent.click(screen.getByRole('menuitem', { name: /^Persistent mode/ }))
+  expect(run).toHaveBeenLastCalledWith('s1')
+  expect(select).not.toHaveBeenCalled()
+})
 
 describe('the new-session chip', () => {
   it.each([false, true])('offers Standard, Creator and custom presets with Developer tools %s', (enabled) => {
