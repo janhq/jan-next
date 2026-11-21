@@ -137,6 +137,25 @@ describe('WorkspaceController commands', () => {
     })
   })
 
+  it('reports reuse when the registry adopts the same path during a Remote call', async () => {
+    const { controller, ctx, root } = await harness()
+    const path = stageDir(root, 'concurrently-adopted')
+    const entered = deferred<undefined>()
+    const gate = deferred<undefined>()
+    const adopt = ctx.workspaceRegistry.adopt.bind(ctx.workspaceRegistry)
+    vi.spyOn(ctx.workspaceRegistry, 'adopt').mockImplementationOnce(async (path) => {
+      entered.resolve(undefined)
+      await gate.promise
+      return adopt(path)
+    })
+    const pending = controller.create({ path })
+    await entered.promise
+    const workspace = await ctx.workspaceRegistry.create(path)
+    gate.resolve(undefined)
+    const reply = await pending
+    expect(reply).toMatchObject({ created: false, workspace: { workspaceId: workspace.id } })
+  })
+
   it('maps invalid paths, blank names, conflicts, and unknown ids to stable failures', async () => {
     const { controller, root } = await harness()
     const first = await controller.create({ path: stageDir(root, 'first') })
@@ -159,7 +178,7 @@ describe('WorkspaceController commands', () => {
   it('preserves Remote failures and propagates unexpected registry failures', async () => {
     const { controller, ctx, root } = await harness()
     const remoteFailure = new RemoteError('fixture/failure', 'already mapped', {})
-    const resolveByPath = vi.spyOn(ctx.workspaceRegistry, 'resolveByPath')
+    const adopt = vi.spyOn(ctx.workspaceRegistry, 'adopt')
       .mockRejectedValueOnce(remoteFailure)
       .mockRejectedValueOnce('plain failure')
     await expect(controller.create({ path: stageDir(root, 'remote-failure') }))
@@ -167,7 +186,7 @@ describe('WorkspaceController commands', () => {
     const plainFailure = controller.create({ path: stageDir(root, 'plain-failure') })
     await expect(plainFailure).rejects.toMatchObject({ code: 'workspace/invalid-path' })
     await expect(plainFailure).rejects.toThrow('plain failure')
-    resolveByPath.mockRestore()
+    adopt.mockRestore()
 
     const created = await controller.create({ path: stageDir(root, 'created') })
     const workspace = ctx.workspaceRegistry.get(created.workspace.workspaceId)
@@ -211,11 +230,10 @@ describe('WorkspaceController commands', () => {
     const target = await controller.create({ path: stageDir(root, 'target') })
     const blockerPath = stageDir(root, 'blocker')
     const gate = deferred<undefined>()
-    const originalResolveByPath = ctx.workspaceRegistry.resolveByPath.bind(ctx.workspaceRegistry)
-    const resolveByPath = vi.spyOn(ctx.workspaceRegistry, 'resolveByPath')
-    resolveByPath.mockImplementationOnce(async (path) => {
+    const adopt = ctx.workspaceRegistry.adopt.bind(ctx.workspaceRegistry)
+    vi.spyOn(ctx.workspaceRegistry, 'adopt').mockImplementationOnce(async (path) => {
       await gate.promise
-      return originalResolveByPath(path)
+      return adopt(path)
     })
 
     const blocker = controller.create({ path: blockerPath })
