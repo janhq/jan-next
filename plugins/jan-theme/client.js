@@ -426,6 +426,10 @@ window.__ModuleLoader__.load({
     background: var(--dsw-alias-bg-base);
     overflow: hidden;
   }
+  /* The floating card runs the full window height; the shell's bottom row (status bars and
+     the like) lives in the chat column only, beside the card instead of under it. */
+  html[data-jan-theme] [data-slot='root'] > :has(> [data-shell-overlay]):not([data-sidebar-drawer]) > :has(> [data-slot='sidebar']) { grid-row: 1 / -1; }
+  html[data-jan-theme] [data-slot='root'] > :has(> [data-shell-overlay]):not([data-sidebar-drawer]) > [data-shell-bottom] { grid-column: 2 / -1; }
   html[data-jan-theme] [data-slot='sidebar'] > div:has(> [data-window-drag]) {
     width: 100% !important; /* The shell passes the outer column width, before the inset. */
     background: linear-gradient(to bottom, var(--dsw-specific-sidebar-fill), var(--dsw-alias-bg-base));
