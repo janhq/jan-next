@@ -94,6 +94,8 @@ declare module '@janhq/jan-client-ui-slots' {
      * and `viewOptions` nodes, and whether search is expanded; render both nodes so their state survives.
      */
     'sidebar.workspaces.header': { kind: 'single'; scope: 'root'; owner: WorkspaceHeaderOwnerProps }
+    /** First rows beneath each expanded, registered Workspace, before ordinary Sessions. */
+    'sidebar.workspaces.group.leading': { kind: 'list'; scope: 'root'; owner: { readonly workspaceId: WorkspaceId } }
   }
 }
 
@@ -305,6 +307,8 @@ export type WorkspaceBrowserInjected = {
     shortcuts: HostObservable<readonly ShortcutCatalogEntry[]>
     /** Whether a project surface takes Workspace row clicks; the chevron then owns expand and collapse. */
     projectSurface: HostObservable<boolean>
+    /** Active Sessions whose sidebar presentation is supplied by a plugin. */
+    hiddenSessions: HostObservable<ReadonlySet<SessionId>>
   }
   /**
    * Open the registered project surface for a Workspace row.
@@ -564,6 +568,7 @@ export type WorkspaceBrowserProps =
   & PropsRenderSlots<
     | 'sidebar.workspaces.header'
     | 'sidebar.workspaces.directoryFlow'
+    | 'sidebar.workspaces.group.leading'
     | 'sidebar.workspaces.session.row.action'
     | 'sidebar.session.row.trailing'
     | 'sidebar.session.row.leading'

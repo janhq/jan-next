@@ -154,6 +154,7 @@ function mount(overrides: Partial<WorkspaceBrowserProps> = {}) {
     insertWorkspaceBefore: vi.fn(async () => { }),
     openProject: vi.fn(),
     useProjectSurface: selector => selector(false),
+    useHiddenSessions: selector => selector(new Set()),
     createWorkspace: vi.fn(async () => workspace('created', [])),
     notifyFolderDrop: vi.fn(),
     useDirectoryFlow: bindSnapshotSelector({ getSnapshot: () => true, subscribe: () => () => { } }),

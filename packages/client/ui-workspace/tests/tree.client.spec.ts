@@ -471,6 +471,15 @@ describe('deriveGroups', () => {
     expect(groups[0]!.sessions.map(node => node.id)).toEqual([sid('present')])
   })
 
+  it('suppresses sessions with another sidebar presentation but keeps their archived chats discoverable', () => {
+    const bot = summary('bot-session', 2)
+    const all = list(summary('ordinary', 1), bot)
+    const project = workspace('first', ['ordinary', 'bot-session'])
+    const hidden = new Set([bot.id])
+    expect(deriveGroups(all, [project], { ...noRows, hiddenSessionIds: hidden }, noAttention, view(['first']))[0]!.sessions.map(row => row.id)).toEqual([sid('ordinary')])
+    expect(deriveFlat(all, project.sessionIds, { ...rowState({ archived: ['bot-session'], archivedFilter: 'only' }), hiddenSessionIds: hidden }, noAttention).map(row => row.id)).toEqual([bot.id])
+  })
+
   it('hides archived sessions from workspace groups and Ungrouped', () => {
     const kept = summary('kept', 1, '/projects/first')
     const gone = summary('gone', 2, '/projects/first')
