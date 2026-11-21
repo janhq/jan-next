@@ -39,10 +39,10 @@ const renderLabel: ComponentProps<typeof ModelSelect>['renderLabel'] = (_owner, 
 
 const resolveText: ComponentProps<typeof ModelSelect>['resolveText'] = text => typeof text === 'string' ? text : text.en
 
-/** The open card's model list, its Effort row, and the Effort flyout's levels. */
+/** The open menu's model list, the details card beside it, and the card's Effort levels. */
 const modelRows = () => within(screen.getByRole('menu', { name: zh['menu.model'] })).getAllByRole('menuitemradio')
-const effortRow = () => screen.getByRole('menuitem', { name: /^推理等级/ })
-const effortRows = () => within(screen.getByRole('menu', { name: zh['menu.effort'] })).getAllByRole('menuitemradio')
+const detailsCard = () => screen.getByRole('group', { name: /详情$/ })
+const effortRows = () => within(screen.getByRole('radiogroup', { name: zh['menu.effort'] })).getAllByRole('radio')
 
 const reasoning = {
   efforts: [
@@ -81,7 +81,8 @@ function modelGroups(count: number): ModelDirectoryState['groups'] {
     ...group, models: [
       ...group.models,
       ...Array.from({ length: Math.max(0, count - 1) }, (_, index) => ({
-        id: `model-${index + 2}`, name: `Model ${index + 2}`,
+        // Names sort after 'Tokamak 1 Preview', so the list keeps this order.
+        id: `model-${index + 2}`, name: `Variant ${index + 2}`,
       })),
     ].slice(0, count),
   }]
@@ -196,7 +197,7 @@ describe('ModelSelect catalog badges', () => {
     expect(trigger.textContent).toBe('新 Tokamak 1.1 Preview')
     expect(screen.getByText('新').getAttribute('data-tone')).toBe('info')
     fireEvent.click(trigger)
-    expect(modelRows().map(row => row.textContent)).toEqual(['Tokamak 1.1 Preview 新', 'Tokamak 1 Pro'])
+    expect(modelRows().map(row => row.textContent)).toEqual(['Tokamak 1 Pro', 'Tokamak 1.1 Preview 新'])
   })
 
   it('hands the badge to a label contribution, which replaces the default rendering', async () => {
@@ -243,12 +244,11 @@ describe('ModelSelect reasoning effort', () => {
       name: '选择模型，当前 Tokamak 1 Preview，推理等级 High',
     })
     fireEvent.click(trigger)
-    fireEvent.click(effortRow())
     expect(effortRows().map(item => item.textContent))
       .toEqual(['Off', 'High', 'Max'])
     expect(screen.queryByText('Largest budget')).toBeNull()
 
-    fireEvent.click(screen.getByRole('menuitemradio', { name: /Max/ }))
+    fireEvent.click(screen.getByRole('radio', { name: /Max/ }))
     await waitFor(() => {
       expect(select).toHaveBeenCalledWith({
         provider: 'example',
@@ -285,7 +285,6 @@ describe('ModelSelect reasoning effort', () => {
     fireEvent.click(screen.getByRole('button', {
       name: '选择模型，当前 Model，推理等级 Default',
     }))
-    fireEvent.click(effortRow())
     expect(effortRows().map(item => item.textContent))
       .toEqual(['Default', 'Standard'])
   })
@@ -307,10 +306,8 @@ describe('ModelSelect reasoning effort', () => {
     const trigger = screen.getByRole('button', { name: '请选择模型' })
     expect(trigger.textContent).toBe('请选择模型')
     fireEvent.click(trigger)
-    expect(screen.queryByRole('menuitem', { name: /^推理等级/ })).toBeNull()
     expect(screen.queryByRole('menuitemradio', { name: 'removed-model' })).toBeNull()
     expect(screen.getByRole('menuitemradio', { name: 'Tokamak 1 Preview' })).toBeTruthy()
-    expect(screen.queryByText('Fast catalog description')).toBeNull()
     expect(select).not.toHaveBeenCalled()
     expect(directory.getSnapshot().current).toEqual({ provider: 'example', model: 'removed-model' })
     fireEvent.keyDown(screen.getByRole('menuitemradio', { name: 'Tokamak 1 Preview' }), { key: 'Escape' })
@@ -457,9 +454,8 @@ describe('ModelSelect reasoning effort', () => {
       resolveText={resolveText} select={select} t={t} />)
 
     fireEvent.click(screen.getByRole('button', { name: /选择模型|当前/ }))
-    fireEvent.click(effortRow())
-    fireEvent.click(screen.getByRole('menuitemradio', { name: /Max/ }))
-    expect(screen.getAllByRole('menuitemradio')
+    fireEvent.click(screen.getByRole('radio', { name: /Max/ }))
+    expect(screen.getAllByRole('radio')
       .filter(row => row.querySelector('[data-state="ongoing"]') !== null)
       .map(row => row.textContent)).toEqual(['Max'])
   })
@@ -562,12 +558,10 @@ describe('ModelSelect keyboard walk', () => {
       } else {
         expect(screen.queryByRole('searchbox')).toBeNull()
         expect(document.activeElement).toBe(model)
-        fireEvent.keyDown(model, { key: 'ArrowDown' })
-        expect(document.activeElement).toBe(effortRow())
-        fireEvent.keyDown(effortRow(), { key: 'ArrowRight' })
-        expect(document.activeElement).toBe(screen.getByRole('menuitemradio', { name: 'High' }))
+        fireEvent.keyDown(model, { key: 'ArrowRight' })
+        expect(document.activeElement).toBe(screen.getByRole('radio', { name: 'High' }))
         fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
-        expect(document.activeElement).toBe(effortRow())
+        expect(document.activeElement).toBe(model)
       }
       fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
       expect(screen.queryByRole('group', { name: zh['menu.aria'] })).toBeNull()
@@ -576,48 +570,41 @@ describe('ModelSelect keyboard walk', () => {
     },
   )
 
-  it('prevents button mousedown defaults on model and effort rows without selecting them', () => {
+  it('prevents button mousedown defaults on model rows and card controls without selecting them', () => {
     const select = mountOpen()
     expect(fireEvent.mouseDown(modelRows()[0]!.firstElementChild!)).toBe(false)
-    expect(fireEvent.mouseDown(effortRow().firstElementChild!)).toBe(false)
-    fireEvent.click(effortRow())
-    expect(fireEvent.mouseDown(effortRows()[0]!.firstElementChild!)).toBe(false)
-    fireEvent.mouseUp(screen.getByRole('menu', { name: zh['menu.effort'] }))
+    expect(fireEvent.mouseDown(effortRows()[0]!)).toBe(false)
+    expect(fireEvent.mouseDown(within(detailsCard()).getByRole('switch'))).toBe(false)
+    fireEvent.mouseUp(detailsCard())
     expect(select).not.toHaveBeenCalled()
   })
 
-  it('↑↓ walk the card and the Effort flyout, wrapping, and stay open', () => {
+  it('Right enters the details card on its checked level and ↑↓ walk the card, wrapping, and stay open', () => {
     mountOpen()
-    // Opening lands on the checked model; the walk continues into the Effort row.
+    // Opening lands on the checked model; its details card is already beside the menu.
     const [model] = modelRows()
     expect(document.activeElement).toBe(model)
-    expect(fireEvent.keyDown(model!, { key: 'ArrowDown' })).toBe(false)
-    expect(document.activeElement).toBe(effortRow())
-    fireEvent.keyDown(effortRow(), { key: 'ArrowDown' }) // wraps to the top
-    expect(document.activeElement).toBe(model)
-    fireEvent.keyDown(model!, { key: 'ArrowUp' }) // wraps to the bottom
-    expect(document.activeElement).toBe(effortRow())
-
-    fireEvent.click(effortRow())
     const rows = effortRows()
     expect(rows.map(row => row.textContent)).toEqual(['Off', 'High', 'Max'])
-    // The flyout opens on its checked level, the model's default High.
+    expect(fireEvent.keyDown(model!, { key: 'ArrowRight' })).toBe(false)
+    // The card opens on its checked level, the model's default High.
     expect(rows[1]!.getAttribute('aria-checked')).toBe('true')
     expect(document.activeElement).toBe(rows[1])
     fireEvent.keyDown(rows[1]!, { key: 'ArrowDown' })
     expect(document.activeElement).toBe(rows[2])
-    fireEvent.keyDown(rows[2]!, { key: 'ArrowDown' })
-    expect(document.activeElement).toBe(rows[0])
-    fireEvent.keyDown(rows[0]!, { key: 'ArrowUp' })
+    const favorite = within(detailsCard()).getByRole('switch')
+    fireEvent.keyDown(rows[2]!, { key: 'ArrowDown' }) // wraps to the card's first control
+    expect(document.activeElement).toBe(favorite)
+    fireEvent.keyDown(favorite, { key: 'ArrowUp' })
     expect(document.activeElement).toBe(rows[2])
     expect(screen.getByRole('group', { name: zh['menu.aria'] })).toBeTruthy()
   })
 
   it('Tab settles the focused row like Enter and closes the menu', async () => {
     const select = mountOpen()
-    fireEvent.click(effortRow())
+    fireEvent.keyDown(modelRows()[0]!, { key: 'ArrowRight' })
     const rows = effortRows()
-    fireEvent.keyDown(rows[1]!, { key: 'ArrowDown' }) // High → Max
+    fireEvent.keyDown(rows[1]!, { key: 'ArrowDown' }) // High -> Max
     expect(fireEvent.keyDown(rows[2]!, { key: 'Tab' })).toBe(false)
     expect(select).toHaveBeenCalledWith({
       provider: 'example', model: 'tokamak-1-preview', reasoningEffort: 'max',
@@ -629,14 +616,13 @@ describe('ModelSelect keyboard walk', () => {
     { key: 'Escape', shiftKey: false },
     { key: 'Tab', shiftKey: true },
     { key: 'ArrowLeft', shiftKey: false },
-  ])('$key folds the Effort flyout back to its row', ({ key, shiftKey }) => {
+  ])('$key hands the keyboard from the details card back to its row', ({ key, shiftKey }) => {
     mountOpen()
-    fireEvent.keyDown(modelRows()[0]!, { key: 'ArrowDown' })
-    fireEvent.click(effortRow())
-    expect(effortRow().getAttribute('aria-expanded')).toBe('true')
+    const [model] = modelRows()
+    fireEvent.keyDown(model!, { key: 'ArrowRight' })
     expect(fireEvent.keyDown(effortRows()[0]!, { key, shiftKey })).toBe(false)
-    expect(screen.queryByRole('menu', { name: zh['menu.effort'] })).toBeNull()
-    expect(document.activeElement).toBe(effortRow())
+    expect(document.activeElement).toBe(model)
+    expect(detailsCard()).toBeTruthy()
     expect(screen.getByRole('group', { name: zh['menu.aria'] })).toBeTruthy()
   })
 
@@ -665,7 +651,7 @@ describe('ModelSelect keyboard walk', () => {
     const trigger = screen.getByRole('button', { name: /选择模型/ })
     trigger.focus()
     expect(fireEvent.keyDown(trigger, { key: 'ArrowUp' })).toBe(false)
-    expect(document.activeElement).toBe(effortRow())
+    expect(document.activeElement).toBe(modelRows().at(-1))
     fireEvent.keyDown(trigger, { key: 'Escape' })
     expect(screen.queryByRole('group', { name: zh['menu.aria'] })).toBeNull()
     expect(fireEvent.keyDown(trigger, { key: 'Tab' })).toBe(true)
@@ -806,7 +792,7 @@ describe('ModelSelect catalog size', () => {
       resolveText={resolveText} select={vi.fn()} t={t} />)
     fireEvent.click(screen.getByRole('button', { name: /选择模型/ }))
     const search = screen.getByRole('searchbox')
-    fireEvent.change(search, { target: { value: 'Model 5' } })
+    fireEvent.change(search, { target: { value: 'Variant 5' } })
     expect(screen.getAllByRole('menuitemradio')).toHaveLength(1)
     expect(screen.getByRole('searchbox')).toBe(search)
     expect(document.activeElement).toBe(search)
@@ -864,7 +850,7 @@ describe('ModelSelect catalog size', () => {
       directory={createSnapshotStore(state({ groups: modelGroups(4) }))}
       load={vi.fn()} resolveText={resolveText} select={select} t={t} />)
     fireEvent.click(screen.getByRole('button', { name: /选择模型/ }))
-    const row = screen.getByRole('menuitemradio', { name: 'Model 3' })
+    const row = screen.getByRole('menuitemradio', { name: 'Variant 3' })
     fireEvent.mouseMove(row)
     expect(document.activeElement).toBe(row)
     expect(row.hasAttribute('data-highlighted')).toBe(true)
@@ -993,7 +979,11 @@ describe('ModelSelect search', () => {
     expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
     expect(scrollIntoView.mock.instances.at(-1)).toBe(gamma)
     expect(fireEvent.keyDown(search, { key: 'ArrowLeft' })).toBe(true)
-    expect(fireEvent.keyDown(search, { key: 'ArrowRight' })).toBe(true)
+    // Right with the caret at the end enters the highlighted model's card; Escape hands back.
+    expect(fireEvent.keyDown(search, { key: 'ArrowRight' })).toBe(false)
+    expect(detailsCard().contains(document.activeElement)).toBe(true)
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+    expect(document.activeElement).toBe(search)
     fireEvent.keyDown(search, { key: 'ArrowDown', isComposing: true })
     expect(search.getAttribute('aria-activedescendant')).toBe(gamma!.id)
     fireEvent.change(search, { target: { value: 'alp' } })
@@ -1045,9 +1035,9 @@ describe('ModelSelect search', () => {
     expect(status.textContent).toBe('没有匹配的模型。')
     expect(status.closest('[role="menu"]')).toBeNull()
     expect(screen.queryByRole('menu', { name: zh['menu.model'] })).toBeNull()
-    // With no result to highlight, Down continues into the rows below the list.
+    // With no result and no rows below the list, the keyboard stays on search.
     expect(fireEvent.keyDown(search, { key: 'ArrowDown' })).toBe(false)
-    expect(document.activeElement).toBe(effortRow())
+    expect(document.activeElement).toBe(search)
     fireEvent.click(screen.getByRole('button', { name: '清除搜索' }))
     expect(search.getAttribute('value')).toBe('')
     expect(document.activeElement).toBe(search)
@@ -1102,6 +1092,46 @@ it('lists providers in catalog order', async () => {
   await expect(`${names.join('\n')}\n`).toMatchFileSnapshot('./expected/catalog-order.txt')
 })
 
+it('moves a starred model into Favorites above its provider, across seats and while searching', () => {
+  const groups = [
+    { id: 'example', name: 'Tokamak', models: [{ id: 'alpha', name: 'Alpha' }, { id: 'beta', name: 'Beta' }] },
+    { id: 'other', name: 'Other', models: [{ id: 'gamma', name: 'Gamma' }, { id: 'delta', name: 'Delta' }, { id: 'eps', name: 'Epsilon' }] },
+  ]
+  const props = {
+    renderLabel, locked: false, available: true, load: vi.fn(), resolveText, select: vi.fn(), t,
+    directory: createSnapshotStore(state({ current: { provider: 'example', model: 'alpha' }, groups })),
+  }
+  const { unmount } = render(<ModelSelect {...props} />)
+  const trigger = screen.getByRole('button', { name: /选择模型/ })
+  fireEvent.click(trigger)
+  const search = screen.getByRole('searchbox')
+  fireEvent.mouseMove(screen.getByRole('menuitemradio', { name: 'Gamma' }))
+  const favorite = within(detailsCard()).getByRole('switch')
+  expect(favorite.getAttribute('aria-checked')).toBe('false')
+  fireEvent.click(favorite)
+  onTestFinished(() => { localStorage.removeItem('jan.models.favorites') })
+  expect(screen.getByRole('group', { name: zh['menu.favorites'] })).toBeTruthy()
+  expect(modelRows().map(row => row.textContent)).toEqual(['Gamma', 'Alpha', 'Beta', 'Delta', 'Epsilon'])
+  // The row moved up a section; the card keeps describing the model just starred.
+  expect(detailsCard().getAttribute('aria-label')).toBe('Gamma 详情')
+  expect(within(detailsCard()).getByRole('switch').getAttribute('aria-checked')).toBe('true')
+  expect(within(screen.getByRole('group', { name: 'Other' })).queryByRole('menuitemradio', { name: 'Gamma' })).toBeNull()
+  // A search that misses the favorite drops the Favorites section instead of showing it empty.
+  fireEvent.change(search, { target: { value: 'eps' } })
+  expect(screen.queryByRole('group', { name: zh['menu.favorites'] })).toBeNull()
+  unmount()
+
+  // Another seat reads the same favorites; unstarring returns the model to its provider.
+  render(<ModelSelect {...props} />)
+  fireEvent.click(screen.getByRole('button', { name: /选择模型/ }))
+  const starred = screen.getByRole('menuitemradio', { name: 'Gamma' })
+  expect(screen.getByRole('group', { name: zh['menu.favorites'] }).contains(starred)).toBe(true)
+  fireEvent.mouseMove(starred)
+  fireEvent.click(within(detailsCard()).getByRole('switch', { checked: true }))
+  expect(screen.queryByRole('group', { name: zh['menu.favorites'] })).toBeNull()
+  expect(modelRows().map(row => row.textContent)).toEqual(['Alpha', 'Beta', 'Delta', 'Epsilon', 'Gamma'])
+})
+
 it('restores the account model name after login without changing the saved route', () => {
   const groups = [{ id: 'account', name: 'Account', models: [
     { id: 'tokamak-flash', name: 'Tokamak Flash', reasoning },
@@ -1128,7 +1158,7 @@ it('dismisses contributed options with focus on the trigger before opening anoth
   const options = renderOptions.mock.calls[0]?.[0]
   if (options === undefined) throw new Error('Missing model options')
   act(() => {
-    screen.getAllByRole('menuitem')[0]!.focus()
+    modelRows()[0]!.focus()
     options.dismiss()
     expect(document.activeElement).toBe(trigger)
   })
