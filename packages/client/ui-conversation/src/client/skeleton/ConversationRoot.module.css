@@ -632,6 +632,14 @@
   display: none;
 }
 
+/* A narrow pane has no room for the plugin options beside the project, preset,
+   model and context readings; they overlapped them, so they step aside. */
+@container composer-dock (max-width: 600px) {
+  .heroOptions {
+    display: none;
+  }
+}
+
 /* Hero: the composer sits inside the session scroll body; center there so
    the tree seat matches active (sticky footer) without a Root remount. */
 .root[data-phase='hero'] .scrollBody,
