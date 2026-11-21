@@ -711,12 +711,9 @@ export type SubagentCatalogActionProps =
   & Omit<PropsRenderSlots<'conversation.session.header.actions.subagent.footer'>, 'SessionProvider'>
 
 /**
- * Session-header catalog action for root sessions: the descendant count and
- * its dropdown after the preset label in the header actions band. Child sessions render nothing
- * here — their breadcrumb switcher in the lineage slot owns the same
- * navigation.
+ * Composer catalog action for root Sessions, including the shared task board.
  * @param props - Session standard props plus the catalog actions and translator.
- * @returns The count dropdown, or null on a child session.
+ * @returns The direct catalog and optional shared tasks, or null on a child Session.
  */
 export function SubagentCatalogAction(props: SubagentCatalogActionProps) {
   const addressedChild = props.useSession(snapshot => snapshot.subagent !== null)
@@ -771,8 +768,7 @@ export function SubagentHeaderLineage({
     return summary?.origin === 'subagent' ? summary.parentId : undefined
   })
   const shared = { useSessions, useSessionStatus, openChild, openChildAside, refreshProjection, t }
-  // Root sessions carry no breadcrumb; their descendant count lives in the
-  // header actions band (SubagentCatalogAction).
+  // Root Sessions have their own catalog above the composer.
   if (parentId === undefined) return null
   return (
     <>
