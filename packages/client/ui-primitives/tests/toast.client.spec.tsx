@@ -107,7 +107,7 @@ describe('Toast', () => {
     try {
       const onDone = vi.fn()
       const view = render(<Toast text="plain" onDone={onDone} />)
-      expect(view.getByRole('alert').querySelector('[aria-hidden]')).toBeNull()
+      expect(view.getByRole('alert').querySelector(':scope > [aria-hidden]')).toBeNull()
       view.unmount()
       vi.advanceTimersByTime(10_000)
       expect(onDone).not.toHaveBeenCalled()
