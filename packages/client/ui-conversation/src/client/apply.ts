@@ -121,7 +121,7 @@ function hostPathBridge(): HostPathBridge | undefined {
 interface WorkspaceNavigation {
   openSession(sessionId: SessionId): void
   openWorkspace(
-    workspaceId: Parameters<ConversationInjected['selectWorkspace']>[0],
+    workspaceId: Parameters<ConversationInjected['selectWorkspace']>[0] | undefined,
     beforeOpen: (sessionId: SessionId) => void,
   ): Promise<void>
 }
@@ -398,8 +398,15 @@ export function apply(ctx: Context, config: Config = Config({})): void {
         composerBlock: sessionId === undefined ? ABSENT_BLOCK : composerBlocks.storeFor(sessionId),
         heroPlaceholder,
       },
-      selectWorkspace: workspaceId => workspaceNavigation.openWorkspace(workspaceId, (nextId) => {
-        if (sessionId !== undefined && nextId !== sessionId) {
+      openDefaultDraft: readText => workspaceNavigation.openWorkspace(undefined, (nextId) => {
+        const text = readText()
+        if (text !== '') inputHub.shell(nextId).appendDraft(text, [])
+      }),
+      selectWorkspace: (workspaceId, readText) => workspaceNavigation.openWorkspace(workspaceId, (nextId) => {
+        if (sessionId === undefined) {
+          const text = readText?.() ?? ''
+          if (text !== '') inputHub.shell(nextId).appendDraft(text, [])
+        } else if (nextId !== sessionId) {
           const from = inputHub.shell(sessionId)
           // A draft with a submission in flight stays with the Session that is admitting it.
           if (from.snapshot.phase !== 'plain' && from.snapshot.phase !== 'claimed') return
