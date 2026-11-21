@@ -383,19 +383,23 @@
   cursor: pointer;
 }
 
-.option:hover .star,
 .optionActive .star,
 .starOn {
   opacity: 1;
 }
 
-.star:hover {
-  color: var(--dsw-alias-label-primary);
+.starOn {
+  color: var(--dsw-alias-state-warn-label, #d99a00);
 }
 
-.starOn,
-.starOn:hover {
-  color: var(--dsw-alias-state-warn-label, #d99a00);
+@media (hover: hover) {
+  .option:hover .star {
+    opacity: 1;
+  }
+
+  .star:not(.starOn):hover {
+    color: var(--dsw-alias-label-primary);
+  }
 }
 
 /* The current model repeats its effort so the row reads like the trigger. */
@@ -427,6 +431,7 @@
   padding: 0 10px;
   border: 0.5px solid var(--dsw-alias-border-l1);
   border-radius: 999px;
+  corner-shape: round;
   background: transparent;
   color: var(--dsw-alias-label-secondary);
   font: inherit;
@@ -632,6 +637,7 @@
   padding: 0 10px;
   border: 0.5px solid var(--dsw-alias-border-l1);
   border-radius: 999px;
+  corner-shape: round;
   background: transparent;
   color: var(--dsw-alias-label-primary);
   font-size: 12px;
@@ -645,13 +651,12 @@
 }
 
 @media (hover: hover) {
-  .level:hover:not(:disabled) {
+  .level:hover:not(:disabled):not(.levelChecked) {
     background: var(--dsw-alias-interactive-bg-hover);
   }
 }
 
-.level.levelChecked,
-.level.levelChecked:hover:not(:disabled) {
+.level.levelChecked {
   border-color: transparent;
   background: var(--dsw-alias-label-primary);
   color: var(--dsw-alias-bg-module-platform, #fff);

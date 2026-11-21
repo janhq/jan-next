@@ -58,6 +58,7 @@
   flex: none;
   max-width: 45%;
   border-radius: 999px;
+  corner-shape: round;
 }
 
 .close {
