@@ -681,7 +681,8 @@ window.__ModuleLoader__.load({
   .jt-list-add:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }
   /* Jan's row under the composer: model and context reading at the right,
      text-only model trigger. The composer card keeps no second selector. */
-  html[data-jan-theme] [data-composer-dock] { box-sizing: border-box; width: 100%; max-width: var(--jan-composer-card-max-width); padding-inline: 12px; justify-content: flex-end; }
+  /* 6px pads plus each ghost trigger's 8px put the row's first label on the composer text edge (card + 14). */
+  html[data-jan-theme] [data-composer-dock] { box-sizing: border-box; width: 100%; max-width: var(--jan-composer-card-max-width); padding-inline: 6px; justify-content: flex-end; }
   html[data-jan-theme] [data-composer-dock] button[aria-haspopup='menu'] > svg:first-child { display: none; }
   /* The dock seat has no composer measurement: let its trigger shrink with
      the seat so a long model name ellipsizes instead of running under the ring. */
