@@ -122,7 +122,8 @@ One current JSON task has this envelope; the table key must equal `record.id`:
 | `lastDelivery`, `deliveryHistory` | Optional receipt and history. A missing history exposes the latest receipt and marks earlier records unavailable; no prompt or destination is invented. [Saved deliveries](../../../docs/subsystems/schedule.md#saved-delivery-records) defines receipt fields and retention. |
 | `deliveryFailure` | Optional `{ code: "project-removed", failedAt }` when a removed project prevents delivery. This is not an inbox receipt. |
 | `pendingDelivery` | Optional `{ targetSessionId }` reservation before creating a per-delivery Session. |
-| `pluginPayload` | Optional Host-only string for a registered plugin destination; never projected into the task catalog. |
+| `pluginPayload` | Optional Host-only checkpoint string for a plugin or Session inbox; never projected into the task catalog. |
+| `sessionDestinationOwner` | Optional Host-only owner of a Session's durable inbox. A tagged task waits for that owner to mount and never falls back to directly waking the Session. |
 
 Current writers store explicit target, status, involvement, and history, omit top-level `sessionId`, and keep timestamps absent when unknown. All three versions decode into one task type using optional fields and defaults, without row-level versions. Existing timing kinds and committed occurrences are preserved. Custom text starting with `DTSTART` selects RRULE; other text selects Cron with the chosen zone, and the Host validates it. Model authoring tools expose RRULE only; user labels say Custom/Customize.
 

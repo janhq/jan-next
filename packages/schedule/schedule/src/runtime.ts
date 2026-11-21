@@ -126,6 +126,7 @@ export class ScheduleRuntime {
     private readonly resolveAgent: (sessionId: SessionIdType) => Promise<Agent>,
     private readonly wakeSources: () => Iterable<ScheduleWakeSource> = () => [],
     private readonly pluginHandler: (owner: string) => SchedulePluginHandler | undefined = () => undefined,
+    private readonly sessionHandler: (sessionId: SessionIdType, owner?: string) => SchedulePluginHandler | undefined = () => undefined,
   ) {}
 
   /**
@@ -189,9 +190,10 @@ export class ScheduleRuntime {
         || await this.recoverOutstandingExecution(task)) {
         return { task, admitted: false }
       }
-      if (task.target.kind === 'plugin') {
+      const receive = this.inbox(task)
+      if (receive !== undefined || task.sessionDestinationOwner !== undefined || task.target.kind === 'plugin') {
         signal?.throwIfAborted()
-        const receipt = await this.deliverPlugin(task, task.target.owner, new Date().toISOString(), randomUUID())
+        const receipt = await this.deliverInbox(task, new Date().toISOString(), randomUUID(), receive)
         const delivered = this.delivered(task, receipt)
         await this.commit(delivered)
         return { task: delivered, admitted: true }
@@ -244,7 +246,13 @@ export class ScheduleRuntime {
 
   private available(task: ScheduleTask): boolean {
     if (task.target.kind === 'plugin') return this.pluginHandler(task.target.owner) !== undefined
+    if (task.sessionDestinationOwner !== undefined && this.inbox(task) === undefined) return false
     return targetWorkspaceId(task.target) === undefined || this.ctx.get('workspaceRegistry') !== undefined
+  }
+
+  private inbox(task: ScheduleTask): SchedulePluginHandler | undefined {
+    if (task.target.kind === 'plugin') return this.pluginHandler(task.target.owner)
+    if (task.target.kind === 'session') return this.sessionHandler(task.target.sessionId, task.sessionDestinationOwner)
   }
 
   private clearTimer(): void {
@@ -264,7 +272,7 @@ export class ScheduleRuntime {
     for (const task of due) {
       if (this.stopping) return
       if (handled.has(task.record.id)) continue
-      const session = batchSessionOf(task)
+      const session = this.inbox(task) === undefined ? batchSessionOf(task) : undefined
       const group = session === undefined ? [task] : due.filter(candidate => batchSessionOf(candidate) === session)
       for (const member of group) handled.add(member.record.id)
       for (const id of await this.deliverDue(group, session !== undefined)) failed.add(id)
@@ -331,12 +339,13 @@ export class ScheduleRuntime {
       admitted = candidates.filter(member => Date.parse(member.record.scheduledAt) <= checkedAt)
       let first = admitted[0]
       if (first === undefined) return []
-      if (first.target.kind === 'plugin') {
+      const receive = this.inbox(first)
+      if (receive !== undefined || first.sessionDestinationOwner !== undefined || first.target.kind === 'plugin') {
         const occurrence = isRecurringScheduleRecord(first.record)
           ? resolveRecurringOccurrence(first.record, checkedAt) : { occurrenceAt: first.record.scheduledAt }
         // Key the retry by the still-unadvanced deadline, even if a later retry catches up farther.
         const id = createHash('sha256').update(JSON.stringify([first.record.id, first.record.scheduledAt])).digest('hex')
-        const receipt = await this.deliverPlugin(first, first.target.owner, occurrence.occurrenceAt, id)
+        const receipt = await this.deliverInbox(first, occurrence.occurrenceAt, id, receive)
         await this.commit(this.advanced(first, occurrence, receipt))
         return []
       }
@@ -456,8 +465,8 @@ export class ScheduleRuntime {
   private async recoverOutstandingExecution(task: ScheduleTask): Promise<boolean> {
     if (this.executing.has(task.record.id)) return true
     const receipt = task.lastDelivery
-    // The archived-Session gate blocks the turn that a requeued reminder would wake.
-    if (receipt?.targetSessionId === undefined || this.archived(receipt.targetSessionId)) return false
+    if (task.sessionDestinationOwner !== undefined || this.inbox(task) !== undefined || task.target.kind === 'plugin'
+      || receipt?.targetSessionId === undefined || this.archived(receipt.targetSessionId)) return false
     let agent: Agent
     try {
       agent = await this.activate(receipt.targetSessionId)
@@ -492,12 +501,22 @@ export class ScheduleRuntime {
     }
   }
 
-  private async deliverPlugin(task: ScheduleTask, owner: string, scheduledAt: string, id: string): Promise<ScheduleDeliveryReceipt> {
-    const handler = this.pluginHandler(owner)
-    if (handler === undefined) throw new RemoteError('schedule/destination-unavailable', `Schedule destination ${owner} is unavailable`, { owner })
-    const payload = task.pluginPayload
-    await handler({ id, taskId: task.record.id, scheduledAt, prompt: task.record.prompt, ...(payload === undefined ? {} : { payload }) })
-    return { scheduledAt, deliveredAt: new Date().toISOString(), messageId: MessageId(id), owner, outcome: 'accepted' }
+  private async deliverInbox(
+    task: ScheduleTask, scheduledAt: string, id: string, receive?: SchedulePluginHandler,
+  ): Promise<ScheduleDeliveryReceipt> {
+    const { target, pluginPayload: payload } = task
+    const owner = target.kind === 'plugin' ? target.owner : task.sessionDestinationOwner
+    if (receive === undefined) {
+      throw new RemoteError('schedule/destination-unavailable', `Schedule destination ${owner ?? ''} is unavailable`, { owner: owner ?? '' })
+    }
+    if (target.kind === 'session' && this.archived(target.sessionId)) {
+      throw new RemoteError('schedule/target-archived', `Session ${target.sessionId} is archived`, { sessionId: target.sessionId })
+    }
+    await receive({ id, taskId: task.record.id, scheduledAt, prompt: task.record.prompt, ...(payload === undefined ? {} : { payload }) })
+    const receipt = { scheduledAt, deliveredAt: new Date().toISOString(), messageId: MessageId(id) }
+    if (target.kind === 'session') return { ...receipt, targetSessionId: target.sessionId }
+    if (target.kind === 'plugin') return { ...receipt, owner: target.owner, outcome: 'accepted' }
+    throw new Error('schedule: invalid inbox destination')
   }
 
   /**
