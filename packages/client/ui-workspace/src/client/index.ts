@@ -165,8 +165,11 @@ export function apply(ctx: Context): void {
     subscribe: listener => ctx.on('connection/reset', listener),
   }
   const pickerFlowSource = flowSource('conversation.hero.workspace.directoryFlow')
-  const openSession: WorkspaceBrowserInjected['open'] = (sessionId) => {
-    uiWorkspace.openSession(sessionId)
+  const openSession: WorkspaceBrowserInjected['open'] = (sessionId, modifiers) => {
+    const newTab = modifiers !== undefined
+      && (ctx.shortcuts.platform === 'macos' ? modifiers.meta : modifiers.control)
+    if (newTab) uiWorkspace.openSessionInNewTab(sessionId)
+    else uiWorkspace.openSession(sessionId)
   }
   // Registry-global sets as Sets, rebuilt only when the Workspace snapshot changes.
   const pinnedSet = derive(workspaces.list, snapshot => new Set<SessionId>(snapshot.pinnedSessionIds))

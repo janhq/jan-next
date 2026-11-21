@@ -981,12 +981,13 @@ export function WorkspaceBrowser({
   const sessionOrderByAccount = useStore(s => s.sessionOrderByAccount)
   // Archived sessions are not openable: the row stays visible under the
   // filter but a click explains instead of navigating.
-  const guardedOpen = (sessionId: SessionId): void => {
+  const guardedOpen: WorkspaceBrowserProps['open'] = (sessionId, modifiers) => {
     if (archivedSessionIds.includes(sessionId)) {
       notifyArchivedNotOpenable()
       return
     }
-    open(sessionId)
+    if (modifiers === undefined) open(sessionId)
+    else open(sessionId, modifiers)
   }
   const leaveArchivedOnly = (): void => { actions.setArchivedFilter('default') }
   const workspaceReady = workspacePhase === 'ready' && workspaceStreamState !== 'loading'
@@ -1137,7 +1138,7 @@ export function WorkspaceBrowser({
   const primaryActions = usePrimaryActions(value => value)
   const workspaceActionRequest = useWorkspaceActionRequest(value => value)
 
-  const openSearchResult = (sessionId: SessionId): void => {
+  const openSearchResult: WorkspaceBrowserProps['open'] = (sessionId, modifiers) => {
     if (archivedSessionIds.includes(sessionId)) {
       notifyArchivedNotOpenable()
       return
@@ -1145,7 +1146,8 @@ export function WorkspaceBrowser({
     setRevealSessionId(sessionId)
     setQuery('')
     changeSearchExpanded(false)
-    open(sessionId)
+    if (modifiers === undefined) open(sessionId)
+    else open(sessionId, modifiers)
   }
   const acknowledgeSessionReveal = (sessionId: SessionId): void => {
     setRevealSessionId(current => current === sessionId ? undefined : current)
