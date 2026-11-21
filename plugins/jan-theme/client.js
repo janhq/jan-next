@@ -657,6 +657,9 @@ window.__ModuleLoader__.load({
   .jt-list-actions { display: flex; align-items: center; }
   .jt-list-header[data-search-expanded] .jt-list-heading, .jt-list-header[data-search-expanded] .jt-list-actions { display: none; }
   .jt-list-header[data-search-expanded] .jt-list-tools { flex: 1; }
+  .jt-list-add { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: var(--dsw-radius-sm); background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; }
+  .jt-list-add:hover { background: var(--dsw-specific-selector); color: var(--dsw-alias-label-primary); }
+  .jt-list-add:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }
   /* Jan's row under the composer: model and context reading at the right,
      text-only model trigger. The composer card keeps no second selector. */
   html[data-jan-theme] [data-composer-dock] { box-sizing: border-box; width: 100%; max-width: var(--jan-composer-card-max-width); padding-inline: 12px; justify-content: flex-end; }
@@ -970,10 +973,16 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
 
     // The search node owns its input and refs, so it stays mounted while wide;
     // the view-options node keeps its menu state the same way.
-    const WorkspaceHeader = ({ wide, searchExpanded, search, viewOptions, t }) => wide
+    // The add button keeps the owner's ref and handler so the folder picker
+    // anchors to it.
+    const WorkspaceHeader = ({ wide, searchExpanded, search, viewOptions, canAddWorkspace, onAddWorkspace, addWorkspaceButtonRef, t }) => wide
       ? h('div', { className: 'jt-list-header', 'data-search-expanded': searchExpanded || undefined },
         h(SectionHeading, { as: 'span', className: 'jt-list-heading' }, t('chats')),
-        h('div', { className: 'jt-list-tools' }, search, h('div', { className: 'jt-list-actions' }, viewOptions)))
+        h('div', { className: 'jt-list-tools' }, search, h('div', { className: 'jt-list-actions' }, viewOptions,
+          canAddWorkspace && h('button', {
+            ref: addWorkspaceButtonRef, type: 'button', className: 'jt-list-add',
+            'aria-label': t('addProject'), title: t('addProject'), onClick: onAddWorkspace,
+          }, h(IconProjectAddOutlineRegular, { size: 16, 'aria-hidden': true })))))
       : null
 
     const HeroHeadline = ({ t }) => h('h1', { className: 'jt-hero-title' }, t('hero.headline'))
@@ -1767,6 +1776,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               chats: 'Chats',
               newChat: 'New Chat',
               newProject: 'New project',
+              addProject: 'Add project',
               search: 'Search',
               projects: 'Projects', plugins: 'Plugins', settings: 'Settings', artifacts: 'Artifacts', scheduled: 'Scheduled',
               hub: 'Models', customize: 'Customize',
@@ -1840,6 +1850,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               chats: '聊天',
               newChat: '新对话',
               newProject: '新建项目',
+              addProject: '添加项目',
               search: '搜索',
               projects: '项目', plugins: '插件', settings: '设置', artifacts: '成果',
               newArtifact: '新建成果', createPlugin: '创建插件',
@@ -1911,6 +1922,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               chats: 'チャット',
               newChat: '新しいチャット',
               newProject: '新しいプロジェクト',
+              addProject: 'プロジェクトを追加',
               search: '検索',
               projects: 'プロジェクト', plugins: 'プラグイン', settings: '設定', artifacts: '成果物',
               newArtifact: '新しい成果物', createPlugin: 'プラグインを作成',
@@ -1982,6 +1994,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               chats: 'Chats',
               newChat: 'Nuevo chat',
               newProject: 'Nuevo proyecto',
+              addProject: 'Añadir proyecto',
               search: 'Buscar',
               projects: 'Proyectos', plugins: 'Complementos', settings: 'Configuración', artifacts: 'Artefactos',
               newArtifact: 'Nuevo artefacto', createPlugin: 'Crear complemento',
@@ -2053,6 +2066,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               chats: 'Discussions',
               newChat: 'Nouvelle discussion',
               newProject: 'Nouveau projet',
+              addProject: 'Ajouter un projet',
               search: 'Rechercher',
               projects: 'Projets', plugins: 'Plugins', settings: 'Paramètres', artifacts: 'Artefacts',
               newArtifact: 'Nouvel artefact', createPlugin: 'Créer un plugin',
@@ -2124,6 +2138,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               chats: 'Chats',
               newChat: 'Neuer Chat',
               newProject: 'Neues Projekt',
+              addProject: 'Projekt hinzufügen',
               search: 'Suchen',
               projects: 'Projekte', plugins: 'Plugins', settings: 'Einstellungen', artifacts: 'Artefakte',
               newArtifact: 'Neues Artefakt', createPlugin: 'Plugin erstellen',
@@ -2195,6 +2210,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               chats: 'Чаты',
               newChat: 'Новый чат',
               newProject: 'Новый проект',
+              addProject: 'Добавить проект',
               search: 'Поиск',
               projects: 'Проекты', plugins: 'Плагины', settings: 'Настройки', artifacts: 'Артефакты',
               newArtifact: 'Новый артефакт', createPlugin: 'Создать плагин',
@@ -2266,6 +2282,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               chats: 'Conversas',
               newChat: 'Nova conversa',
               newProject: 'Novo projeto',
+              addProject: 'Adicionar projeto',
               search: 'Pesquisar',
               projects: 'Projetos', plugins: 'Plug-ins', settings: 'Configurações', artifacts: 'Artefatos',
               newArtifact: 'Novo artefato', createPlugin: 'Criar plug-in',
