@@ -133,6 +133,7 @@ export const VIEWER_ENDPOINT_CLASSES = {
   'workspace/rename': 'owner-only', // owner renames a Workspace
   'workspace/unarchiveSession': 'owner-only', // owner unarchives a Session
   'workspace/unpinSession': 'owner-only', // owner unpins a Session
+  'workspace/update': 'owner-only', // owner edits project identity
   'workspaceFiles/changes': 'owner-only', // owner Workspace file access
   'workspaceFiles/list': 'owner-only', // owner Workspace file access'
   'workspaceFiles/read': 'owner-only', // absolute paths reach files outside the Workspace, so no share offers it

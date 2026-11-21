@@ -6,9 +6,9 @@
  */
 
 import type { SessionId } from '@janhq/jan-session/types'
-import type { SessionActivity, WorkspaceId } from '@janhq/jan-workspace/types'
+import type { SessionActivity, WorkspaceAvatar, WorkspaceColor, WorkspaceId, WorkspaceIdentityPatch } from '@janhq/jan-workspace/types'
 
-export type { WorkspaceId } from '@janhq/jan-workspace/types'
+export type { WorkspaceAvatar, WorkspaceColor, WorkspaceIcon, WorkspaceId, WorkspaceIdentityPatch } from '@janhq/jan-workspace/types'
 export type {
   SessionActivity, SessionActivityItem, SessionActivityKind, SessionActivityKindMap,
 } from '@janhq/jan-workspace/types'
@@ -23,6 +23,10 @@ export interface WorkspaceView {
   readonly path: string
   /** User-visible title. */
   readonly title: string
+  /** Saved accent; absent for the stock appearance. */
+  readonly color?: WorkspaceColor
+  /** Saved avatar; absent for the default folder. */
+  readonly avatar?: WorkspaceAvatar
   /** Sessions accounted to this Workspace in manual order. */
   readonly sessionIds: readonly SessionId[]
   /** ISO-8601 creation instant. */
@@ -78,6 +82,11 @@ export interface WorkspaceCreateValue {
 export interface WorkspaceRenameRequest {
   readonly workspaceId: WorkspaceId
   readonly title: string
+}
+
+/** Partial project identity edit, applied atomically. */
+export interface WorkspaceUpdateRequest extends WorkspaceIdentityPatch {
+  readonly workspaceId: WorkspaceId
 }
 
 /** Workspace mutation returning the complete changed row. */
