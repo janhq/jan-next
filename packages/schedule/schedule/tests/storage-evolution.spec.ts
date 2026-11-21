@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import type { Context } from '@janhq/cordis'
 import { RemoteError } from '@janhq/jan-typert-protocol'
 import { JsonStorageBackend } from '@janhq/jan-storage-json'
+import { WorkspaceId } from '@janhq/jan-workspace'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import {
   ScheduleId, createAfterScheduleRecord, createAtScheduleRecord, createEveryScheduleRecord,
@@ -80,23 +81,35 @@ it('ignores a former Session binding when an explicit target exists', async () =
 
 it('reserves one stable default destination across reads, restart, creation, and reuse', async () => {
   const saved = await store({ record: cron })
+  const workspaceId = WorkspaceId('default-project')
+  const project = { id: workspaceId, path: '/default-project' }
+  const registry = {
+    archivedSessionIds: [],
+    get: (id: WorkspaceId) => id === workspaceId ? project : undefined,
+    ensureDefault: vi.fn(async () => project),
+  }
   const first = await saved.open()
+  first.ctx.provide('workspaceRegistry', registry)
   const before = await first.service.view({ id })
   if ('code' in before || before.target.kind !== 'new_once') throw new Error('expected a create-once target')
   const reserved = before.target.sessionId
   expect((await first.service.view({ id }))).toEqual(before)
   await first.ctx.fiber.dispose()
   const second = await saved.open()
+  second.ctx.provide('workspaceRegistry', registry)
   expect(await second.service.view({ id })).toEqual(before)
   expect(await readFile(saved.file, 'utf8')).toBe(saved.bytes)
+  expect(registry.ensureDefault).not.toHaveBeenCalled()
   const agent = agentFor(second.ctx, reserved)
   second.resolve.mockResolvedValueOnce({ error: new RemoteError('session/not-found', 'missing Session', { sessionId: reserved }) }).mockResolvedValue({ agent })
-  expect(await second.service.run({ id })).toMatchObject({ target: { kind: 'session', sessionId: reserved } })
-  expect(second.createSession).toHaveBeenCalledTimes(1)
-  expect(second.createSession.mock.calls[0]?.[0]).toMatchObject({ sessionId: reserved })
+  expect(await second.service.run({ id })).toMatchObject({ workspaceId, target: { kind: 'session', sessionId: reserved, workspaceId } })
+  expect(registry.ensureDefault).toHaveBeenCalledOnce()
+  expect(second.createSession).toHaveBeenCalledExactlyOnceWith({ sessionId: reserved, workspaceId })
+  expect(storedUnit(await readFile(saved.file, 'utf8')).tables.tasks[id]?.target).toEqual({ kind: 'session', sessionId: reserved, workspaceId })
   await vi.advanceTimersByTimeAsync(60_000)
   await second.service.run({ id })
   expect(second.createSession).toHaveBeenCalledTimes(1)
+  expect(registry.ensureDefault).toHaveBeenCalledOnce()
   expect(agent.followup).toHaveBeenCalledTimes(2)
 })
 

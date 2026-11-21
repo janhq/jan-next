@@ -83,7 +83,11 @@ async function placement(test: Awaited<ReturnType<typeof setup>>) {
  */
 function archive(test: Awaited<ReturnType<typeof setup>>, ...sessionIds: SessionId[]): SessionId[] {
   const archived = [...sessionIds]
-  test.ctx.provide('workspaceRegistry', { archivedSessionIds: archived })
+  test.ctx.provide('workspaceRegistry', {
+    archivedSessionIds: archived,
+    resolveByPath: () => Promise.resolve(undefined),
+    ensureDefault: async () => { throw new Error('must not remap an existing Session') },
+  })
   return archived
 }
 
@@ -144,6 +148,28 @@ it('delivers a bound new-once task to the registered project and keeps its ident
   // The Session controller resolves the project by ID and owns directory selection and attachment.
   expect(test.createSession).toHaveBeenCalledExactlyOnceWith({ sessionId, workspaceId })
   expect(tasks[0]).toMatchObject({ status: 'ended', target: { kind: 'session', sessionId, workspaceId } })
+})
+
+it('binds an untargeted task at delivery before creating its Session', async () => {
+  const tasks = [task({ kind: 'new', create: {} })]
+  const test = await setup(tasks)
+  const workspaceId = WorkspaceId('default-project')
+  const project = { id: workspaceId, path: '/default-project' }
+  const get = vi.fn(() => project)
+  const ensureDefault = vi.fn(async () => project)
+  test.ctx.provide('workspaceRegistry', { archivedSessionIds: [], get, ensureDefault })
+  test.runtime.requestDrive()
+  await vi.advanceTimersByTimeAsync(0)
+  expect(ensureDefault).not.toHaveBeenCalled()
+
+  await vi.advanceTimersByTimeAsync(1000)
+
+  expect(ensureDefault).toHaveBeenCalledOnce()
+  const target = { kind: 'new', create: { workspaceId, cwd: project.path } }
+  const reserved = test.commit.mock.calls.find(([next]) => next.pendingDelivery !== undefined)?.[0]
+  expect(reserved).toMatchObject({ target })
+  expect(test.createSession).toHaveBeenCalledExactlyOnceWith({ workspaceId, sessionId: reserved?.pendingDelivery?.targetSessionId })
+  expect(tasks[0]).toMatchObject({ status: 'ended', target, lastDelivery: { targetSessionId: reserved?.pendingDelivery?.targetSessionId } })
 })
 
 it.each(['timer', 'manual'] as const)('pauses after %s delivery fails because its project was removed', async (trigger) => {
@@ -452,7 +478,7 @@ it('runs a per-occurrence task in a fresh Session while its earlier reminder wai
     scheduledAt: '2026-09-15T22:00:00.000Z', deliveredAt: '2026-09-15T22:00:00.000Z',
     messageId: earlier.id, targetSessionId: previous,
   }
-  const tasks = [task({ kind: 'new', create: {} }, 'DTSTART:20260916T010000Z\nRRULE:FREQ=DAILY', {
+  const tasks = [task({ kind: 'new', create: { cwd: '/work' } }, 'DTSTART:20260916T010000Z\nRRULE:FREQ=DAILY', {
     lastDelivery: receipt,
     deliveryHistory: { records: [{ ...receipt, prompt: 'Do work' }], earlierRecordsUnavailable: false, earlierRecordsPruned: false },
   })]
@@ -614,7 +640,7 @@ it('joins a created Session to the Workspace at its directory and names it after
 })
 
 it('names each per-occurrence Session with its launch minute in the task time zone', async () => {
-  const tasks = [task({ kind: 'new', create: {} }, 'DTSTART;TZID=Asia/Shanghai:20260916T080001\nRRULE:FREQ=DAILY')]
+  const tasks = [task({ kind: 'new', create: { cwd: '/work' } }, 'DTSTART;TZID=Asia/Shanghai:20260916T080001\nRRULE:FREQ=DAILY')]
   const test = await setup(tasks)
   const placed = await placement(test)
   test.runtime.requestDrive()
@@ -623,8 +649,8 @@ it('names each per-occurrence Session with its launch minute in the task time zo
   vi.setSystemTime('2026-09-16T05:42:10Z')
   expect(await test.runtime.runNow(tasks[0]!.record.id)).toMatchObject({ admitted: true })
   expect(placed.title(tasks[0]!.lastDelivery!.targetSessionId!)).toBe('Task · 2026-09-16 13:42')
-  // A Session without a requested directory uses the Host directory and joins no Workspace.
-  expect(placed.resolveByPath).not.toHaveBeenCalled()
+  expect(placed.resolveByPath).toHaveBeenNthCalledWith(1, '/work')
+  expect(placed.resolveByPath).toHaveBeenNthCalledWith(2, '/work')
 })
 
 it('delivers to the Session that an earlier delivery attempt created and keeps its title', async () => {

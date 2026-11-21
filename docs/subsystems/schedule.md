@@ -79,7 +79,7 @@ Custom RRULE text retains its `DTSTART` zone. The model-facing tools continue to
 | `new_once` | Reserve a Session id before first delivery, create that exact Session when needed, then store `session` and reuse it. Retries and restart keep the reservation. |
 | `new` | Create a Session per delivery. Persist `pendingDelivery.targetSessionId` before creation so a failed attempt retries the same Session. |
 
-An omitted creation target defaults to `new_once`. Adding or replacing a `new` or `new_once` target requires the embedding's Session creation provider. SDK compositions without it reject those requests with `invalid_rule` before saving; existing `session` targets remain available. An optional preset selects the created Session's agent; without one it uses the Host default. See [project binding](../../packages/schedule/schedule/README.md#configuration-and-management-api) for placement and failure behavior. An untitled Session takes the task title; `new` adds its creation minute in the rule's zone.
+An omitted creation target defaults to `new_once`. Adding or replacing a `new` or `new_once` target requires the embedding's Session creation provider. SDK compositions without it reject those requests with `invalid_rule` before saving; existing `session` targets remain available. A target with neither a project nor a cwd binds to the active default project when it first creates a Session. An optional preset selects the created Session's agent; without one it uses the Host default. See [project binding](../../packages/schedule/schedule/README.md#configuration-and-management-api) for placement and failure behavior. An untitled Session takes the task title; `new` adds its creation minute in the rule's zone.
 
 <a id="task-management"></a>
 ## Task management
