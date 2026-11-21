@@ -280,6 +280,8 @@ declare module '@janhq/jan-client-ui-slots' {
         hideChrome: boolean
       }
     }
+    /** Persistent Session identity before or after its first turn. */
+    'conversation.session.header.identity': { kind: 'list'; scope: 'session'; owner: { blank: boolean } }
     /** Optional replacement for one Session breadcrumb title; overlays must portal because the title area clips overflow. */
     'conversation.session.header.lineage': {
       kind: 'single'
@@ -771,6 +773,7 @@ export type ConversationSessionHeaderSlotProps =
     'conversation.session.header.lineage'
     | 'conversation.session.header.actions'
     | 'conversation.session.header.utilities'
+    | 'conversation.session.header.identity'
     | 'conversation.session.header.corner'
     | 'conversation.session.header.views.actions'
   >
