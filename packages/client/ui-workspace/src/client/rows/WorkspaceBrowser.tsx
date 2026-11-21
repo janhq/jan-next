@@ -953,7 +953,7 @@ export function WorkspaceBrowser({
   const workspaces = useMemo(
     () => storedWorkspaces.map(workspace => ({
       ...workspace,
-      title: workspaceDisplayTitle(workspace.title, defaultWorkspaceName),
+      title: workspaceDisplayTitle(workspace, defaultWorkspaceName),
     })),
     [storedWorkspaces, defaultWorkspaceName],
   )

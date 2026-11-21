@@ -42,7 +42,7 @@ export function projectChoices(workspaces: WorkspaceSnapshot['items'], defaultNa
   return {
     items: workspaces.map(workspace => ({
       value: workspace.path,
-      label: workspace.isDefault === true ? workspaceDisplayTitle(workspace.title, defaultName) : workspace.title,
+      label: workspaceDisplayTitle(workspace, defaultName),
     })),
     defaultCwd: (workspaces.find(workspace => workspace.isDefault === true) ?? workspaces[0])?.path ?? '',
   }

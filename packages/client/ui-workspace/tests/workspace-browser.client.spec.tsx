@@ -2479,13 +2479,15 @@ describe('WorkspaceBrowser', () => {
     const renameWorkspace = vi.fn(async () => { })
     const browser = mount({
       useWorkspaces: hook(workspaceState([
-        workspace('alpha', [], 'default-workspace'),
+        { ...workspace('alpha', [], 'default-workspace'), isDefault: true },
         workspace('beta', [], 'default-workspace backup'),
+        workspace('gamma', [], 'default-workspace'),
       ])),
       renameWorkspace,
     })
     expect(screen.getByRole('button', { name: '工作区“默认工作区”的操作' })).toBeTruthy()
     expect(screen.getByRole('button', { name: '工作区“default-workspace backup”的操作' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '工作区“default-workspace”的操作' })).toBeTruthy()
     // The dialog edits the text on screen, and the stored title — not that
     // text — decides whether confirming saves. So confirming the untouched
     // prefill pins the localized name and the row stops following the language.
