@@ -80,6 +80,7 @@
     "@janhq/jan-typert-protocol": "workspace:*",
     "@janhq/jan-util-values": "workspace:*",
     "@janhq/jan-util-workspace-path": "workspace:*",
+    "@janhq/jan-workspace": "workspace:*",
     "clsx": "^2.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

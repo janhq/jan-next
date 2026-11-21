@@ -7505,6 +7505,9 @@ importers:
       '@janhq/jan-util-workspace-path':
         specifier: workspace:*
         version: link:../../util/workspace-path
+      '@janhq/jan-workspace':
+        specifier: workspace:*
+        version: link:../../workspace/workspace
       clsx:
         specifier: ^2.0.0
         version: 2.1.1

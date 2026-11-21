@@ -15,7 +15,6 @@ import clsx from 'clsx'
 import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import {
   HoverCard, IconArchiveOutlineRegular,
-  IconFolderCloseRegular, IconFolderOpenRegular,
   IconNewChatOutlineRegular, IconPinFillRegular,
   IconTriangleRightFillRegular, IconUnarchiveOutlineRegular, relativeTime, StateDot, Tooltip, useRowDragPreview,
 } from '@janhq/jan-client-ui-primitives'
@@ -24,6 +23,7 @@ import type { StateDotState } from '@janhq/jan-client-ui-primitives'
 import { abbreviateHomePath } from '@janhq/jan-util-workspace-path'
 import type { WorkspaceId } from '@janhq/jan-api-workspace-controller/client'
 import type { WorkspaceBrowserProps } from '../contract/slots.ts'
+import { ProjectAvatar } from '../ProjectAvatar.tsx'
 import type { GroupNode, SearchResultNode, SessionNode } from '../tree.ts'
 import css from './Rows.module.css'
 
@@ -312,7 +312,7 @@ function ProjectRow({
       onDragEnd={() => { if (dragPreview.clear()) drag?.end() }}
     >
       <span className={clsx(css.slot, css.folder, active && css.folderActive)}>
-        {row.expanded ? <IconFolderOpenRegular /> : <IconFolderCloseRegular />}
+        <ProjectAvatar avatar={row.avatar} color={row.color} expanded={row.expanded} />
       </span>
       {onOpenProject === undefined
         ? (

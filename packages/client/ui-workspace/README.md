@@ -47,6 +47,8 @@ Hierarchy uses registered canonical paths only. It does not scan for projects or
 
 On devices without hover, expanded Workspace rows keep their menu and New Session controls visible, and archived search results keep the Unarchive control visible.
 
+Open **Project actions** on a project row and choose **Edit project...** to change its name, accent color, or avatar. Pick a built-in icon or enter one emoji, then check the preview and choose **Save**. Escape or **Cancel** discards the draft. The sidebar and the Workspace picker use the saved appearance; a project with no custom avatar keeps the folder glyph. The editor is available only to callers with `workspace/update` access.
+
 ### Search
 
 The search shortcut expands a closed sidebar, including a drawer that retains its wide content, before focusing the search field.
