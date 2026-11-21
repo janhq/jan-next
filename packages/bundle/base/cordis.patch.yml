@@ -468,6 +468,7 @@
       config:
         id: scout
         description: Read-only repository discovery; fast, inexpensive model.
+        icon: search-outline
         toolAllowlist: [read, read_image, glob, grep, send_message, wait_agent, list_agents]
         plugins:
           - id: tool-fs
@@ -485,6 +486,7 @@
       config:
         id: reviewer
         description: Read-only diff review and tests that do not write files.
+        icon: inspect-outline
         toolAllowlist: [read, read_image, glob, grep, bash, pwsh, job_output, job_kill, send_message, wait_agent, list_agents]
         readOnlyDelegation: true
         plugins:
@@ -511,6 +513,7 @@
       config:
         id: worker
         description: Implement changes with read, shell, and full file editing tools.
+        icon: tool-outline
         plugins:
           - id: tool-fs
             name: '@janhq/jan-tool-fs'

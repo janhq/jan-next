@@ -6,6 +6,7 @@
       name: '@janhq/jan-agent-preset'
       config:
         id: cordis
+        icon: plugin-pinwheel-outline
         order: 4
         plugins:
           # Same persona as `standard`: tool descriptions and the skill catalog carry
