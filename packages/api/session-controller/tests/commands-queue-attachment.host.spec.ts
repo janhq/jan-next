@@ -114,7 +114,7 @@ async function commandHarness(
   vi.spyOn(agents, 'composeAgent').mockResolvedValue({ setup: () => {} })
   return {
     ctx,
-    controller: new SessionCommandController(ctx, agents, '/workspace'),
+    controller: new SessionCommandController(ctx, agents),
     agent,
     inbox,
     steer,
@@ -149,7 +149,7 @@ describe('Session queue commands', () => {
     const error = new RemoteError('session/agent-busy', 'owned by a child', { reason: 'subagent-owned' })
     const controller = new SessionCommandController(ctx, {
       resolveAgent: () => Promise.resolve({ error }),
-    } as unknown as ApiSessionAgentController, '/workspace')
+    } as unknown as ApiSessionAgentController)
     try {
       await expect(controller.updateQueue({
         sessionId: SessionId('cold-child'), itemId: MessageId('pending'), action: { kind: 'remove' },
@@ -362,7 +362,7 @@ describe('Session attachment reads', () => {
     const ctx = new Context()
     const readImage = vi.fn(() => Promise.reject(new AttachmentError('Stored image is unavailable.', reason)))
     ctx.provide('attachments', { readImage } as never)
-    const controller = new SessionCommandController(ctx, new ApiSessionAgentController(ctx), '/workspace')
+    const controller = new SessionCommandController(ctx, new ApiSessionAgentController(ctx))
     try {
       await expect(controller.attachment({
         sessionId: SessionId('unopened'),
@@ -377,7 +377,7 @@ describe('Session attachment reads', () => {
   it('contains unexpected backend failures without exposing internal details', async () => {
     const ctx = new Context()
     ctx.provide('attachments', { readImage: () => Promise.reject(new Error('/private/storage failed')) } as never)
-    const controller = new SessionCommandController(ctx, new ApiSessionAgentController(ctx), '/workspace')
+    const controller = new SessionCommandController(ctx, new ApiSessionAgentController(ctx))
     try {
       await expect(controller.attachment({
         sessionId: SessionId('unopened'),
