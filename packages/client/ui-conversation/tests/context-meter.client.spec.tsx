@@ -92,7 +92,7 @@ describe('ContextMeter', () => {
     expect(counts).toEqual(['Plugins1', 'Skills1', 'Tools3'])
     // Every skill and tool reads its source first; MCP tools sit in Tools under their server.
     const items = [...section.querySelectorAll('li')].map(item => item.textContent)
-    expect(items).toEqual(['@janhq/jan-tool-bash', 'foldertdd', 'Janbash', 'Janread', 'githubMCP github · search'])
+    expect(items).toEqual(['@janhq/jan-tool-bash', 'projecttdd', 'Janbash', 'Janread', 'githubMCP github · search'])
     // The logged reading still rules the header.
     expect(view.getByRole('dialog').textContent).toContain('~32K / 128K')
   })

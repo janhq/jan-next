@@ -46,7 +46,7 @@ export const en = {
   'section.subagents': 'Subagents',
   'section.sessions': 'Sessions',
   'candidate.noCwd': '(no cwd)',
-  'crumb.root': 'Folder',
+  'crumb.root': 'Project',
   'fileOpen.title': 'Couldn’t open file',
   'fileOpen.failed': 'Couldn’t open “{path}”. Try again or close this message.',
   'fileOpen.close': 'Close',

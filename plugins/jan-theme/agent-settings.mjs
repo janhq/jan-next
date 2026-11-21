@@ -102,7 +102,11 @@ export async function mountAgentSettings(ctx, config) {
     const state = !row.enabled ? 'disabled' : tools.length ? 'ready' : failed ? 'failed' : 'empty'
     const secret = (await credentials.readRecord(key(row.name)))?.payload
     const secretConfigured = Object.keys(secret?.env ?? {}).length + Object.keys(secret?.headers ?? {}).length > 0
-    return { ...row, secretConfigured, tools, state, status: !row.enabled ? 'Disabled' : tools.length ? `${tools.length} tools available` : status.get(row.name) ?? 'No tools available' }
+    const { name, enabled, transport } = row
+    const endpoint = transport === 'stdio'
+      ? { command: row.command, args: row.args, cwd: row.cwd }
+      : { url: row.url }
+    return { name, enabled, transport, ...endpoint, secretConfigured, tools, state, status: !enabled ? 'Disabled' : tools.length ? `${tools.length} tools available` : status.get(name) ?? 'No tools available' }
   }))
   const persist = change => editor.edit(entry, current => ({ ...current, ...change(current) }))
   // A reload or shutdown cancels starts still in flight; those are not broken servers.
@@ -164,7 +168,7 @@ export async function mountAgentSettings(ctx, config) {
     },
   })
   const skill = async name => {
-    const value = await ctx.skills.get(name, { cwd: process.cwd() })
+    const value = await ctx.skills.get(name)
     if (!value?.path) throw new Error('This skill has no editable instruction file.')
     const path = await realpath(value.path)
     const info = await stat(path)
@@ -172,7 +176,7 @@ export async function mountAgentSettings(ctx, config) {
     return { path, info }
   }
   ctx.effect(() => registerApi(ctx, 'agent-settings', {
-    list: async () => ({ servers: await publicRows(), directories: config.skillDirectories ?? [], canPickDirectory: ctx.get('directoryPicker')?.capability().kind === 'native', skills: await ctx.skills.snapshot({ cwd: process.cwd() }) }),
+    list: async () => ({ servers: await publicRows(), directories: config.skillDirectories ?? [], canPickDirectory: ctx.get('directoryPicker')?.capability().kind === 'native', skills: await ctx.skills.snapshot() }),
     async pickDirectory() {
       const capability = ctx.get('directoryPicker')?.capability()
       if (capability?.kind !== 'native') throw new Error('The native folder picker is unavailable. Enter an absolute path instead.')

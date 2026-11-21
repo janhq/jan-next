@@ -4,6 +4,8 @@
  * `{ result }` or `{ error }` out, behind the connection's own request check.
  */
 
+const MIB = 1024 * 1024
+
 function send(res, status, body) {
   res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' })
   res.end(JSON.stringify(body))
@@ -14,9 +16,10 @@ function send(res, status, body) {
  * @param {import('@janhq/cordis').Context} ctx - a context with `webServer` and `connection`.
  * @param {string} feature - the route's last segment.
  * @param {Record<string, (params: object) => unknown>} methods - the operations by name.
+ * @param {{ maxBodyBytes?: number }} [options] - request body limit; defaults to 1 MiB.
  * @returns {() => void} the route's disposer.
  */
-export function registerApi(ctx, feature, methods) {
+export function registerApi(ctx, feature, methods, { maxBodyBytes = MIB } = {}) {
   return ctx.webServer.register({
     kind: 'exact', path: `/jan-api/${feature}`,
     async handler(req, res) {
@@ -29,7 +32,7 @@ export function registerApi(ctx, feature, methods) {
         let size = 0
         for await (const chunk of req) {
           size += chunk.length
-          if (size > 1024 * 1024) { send(res, 413, { error: 'Request exceeds 1 MiB.' }); return }
+          if (size > maxBodyBytes) { send(res, 413, { error: `Request exceeds ${maxBodyBytes / MIB} MiB.` }); return }
           chunks.push(chunk)
         }
         const { method, params = {} } = JSON.parse(Buffer.concat(chunks).toString('utf8'))

@@ -276,7 +276,7 @@ export interface SessionSearchValue {
 export interface SessionCreateRequest {
   /** Workspace the Session joins; exclusive with `cwd`. */
   readonly workspaceId?: WorkspaceId
-  /** Directory the Session owns when no Workspace is named. */
+  /** Absolute Host directory the Session owns when no Workspace is named. */
   readonly cwd?: string
   /** Blank Session to reuse while it is reusable, or the identity of a new Session when none is stored under it. */
   readonly sessionId?: SessionId

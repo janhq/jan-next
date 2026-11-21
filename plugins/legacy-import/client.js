@@ -249,8 +249,8 @@ window.__ModuleLoader__.load({
           }),
           mcp.skipped.length ? h('p', { className: 'jan-legacy-import-meta' }, `Left behind: ${mcp.skipped.map(row => `${row.sourceName} (${row.reason})`).join('; ')}`) : null))
     }
-    const BRINGS = 'Message text, reasoning, tool calls and their results, token counts and local images. Audio, video, per-chat tool settings and streaming timing stay behind. After the import, each chat lists anything it could not bring.'
-    const AGENT_BRINGS = 'Your messages, the assistant’s replies and reasoning, tool calls with their results, and token counts. Images, sub-agent side conversations and encrypted reasoning stay behind. The imported session opens in the folder it ran in, as its own workspace, so you can continue it there; when that folder is gone it opens in the default workspace. After the import, each session lists anything it could not bring.'
+    const BRINGS = 'Message text, reasoning, tool calls and their results, token counts and local images. Audio, video, per-chat tool settings and streaming timing stay behind. Chats are imported into the default project when available, or without a project. After the import, each chat lists anything it could not bring.'
+    const AGENT_BRINGS = 'Your messages, the assistant’s replies and reasoning, tool calls with their results, and token counts. Images, sub-agent side conversations and encrypted reasoning stay behind. If the original folder still exists, Jan registers it as a project for the imported chat. Otherwise, the chat uses the default project when available, or is imported without a project. After the import, each chat lists anything it could not bring.'
     const emptyMessage = ({ source, missing, listedFolder }) => source === 'orca' ? 'No Claude Code, Codex or OMP session ran in an Orca workspace in this range.' : missing
       ? `${sourceName(source)} has no sessions folder at ${listedFolder}. Choose Change if it lives somewhere else.`
       : source === 'jan' ? 'No Jan chats found. Change the folder and scan again.' : `No ${sourceName(source)} sessions in this range.`

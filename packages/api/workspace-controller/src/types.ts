@@ -17,6 +17,8 @@ export type { DirectoryEntry, DirectoryListing } from '@janhq/jan-host-directory
 /** One durable Workspace projected for browser consumers. */
 export interface WorkspaceView {
   readonly workspaceId: WorkspaceId
+  /** Present only on the registered first-use Workspace. */
+  readonly isDefault?: true
   /** Canonical host directory path. */
   readonly path: string
   /** User-visible title. */
@@ -117,9 +119,8 @@ export interface WorkspaceArchiveSessionRequest {
   /**
    * Stop the Session's running work — its turn, subagent descendants, owned
    * background jobs, and active schedules — instead of refusing the archive
-   * as `workspace/session-active`. The stops are requested before the
-   * archive write and are not awaited; the response arrives once the archive
-   * set is durable.
+   * as `workspace/session-active`. The archive set is durable when the stops
+   * are requested; the response does not wait for running work to settle.
    */
   readonly stopActivity?: boolean
 }

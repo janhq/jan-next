@@ -146,6 +146,16 @@ describe('Session creation failures', () => {
     await ctx.fiber.dispose()
   })
 
+  it('rejects an invalid explicit cwd before creating a Session', async () => {
+    const ctx = await baseContext()
+    const createSession = vi.fn(publishedSession(ctx, SessionId('invalid-cwd')))
+    const controller = new SessionCommandController(ctx, controllerAgents(ctx, { createSession }), '/default')
+
+    await expectFailure(controller.create({ cwd: 'relative/project' }), 'gateway/bad-request')
+    expect(createSession).not.toHaveBeenCalled()
+    await ctx.fiber.dispose()
+  })
+
   it('rejects contradictory create targets', async () => {
     const ctx = await baseContext()
     const controller = new SessionCommandController(ctx, controllerAgents(ctx), '/default')

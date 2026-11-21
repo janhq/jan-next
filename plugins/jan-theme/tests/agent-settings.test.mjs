@@ -38,3 +38,34 @@ test('the Host imports missing MCP servers disabled and keeps their credentials 
   assert.deepEqual(records.get('jan-theme/mcp-local')?.payload, { env: { TOKEN: 'legacy-env-token' }, headers: {} })
   assert.deepEqual(records.get('jan-theme/mcp-remote')?.payload, { env: {}, headers: { Authorization: 'Bearer legacy-header-token' } })
 })
+
+test('list only returns public connector fields even when profile rows contain secrets', async () => {
+  const services = {
+    configEditor: {},
+    credentials: { readRecord: async () => undefined },
+    tools: { definitions: () => [] },
+    skills: { snapshot: async () => [] },
+  }
+  let handler
+  await mountAgentSettings({
+    fiber: { entry: {} },
+    ...services,
+    get: name => services[name],
+    provide: () => {},
+    effect: effect => effect(),
+    connection: { requestRejection: () => undefined },
+    webServer: { register: route => { handler = route.handler; return () => {} } },
+  }, { mcpServers: [
+    { name: 'local', enabled: false, transport: 'stdio', command: 'node', args: [], env: { TOKEN: 'config-secret' } },
+    { name: 'remote', enabled: false, transport: 'streamable-http', url: 'https://example.com/mcp', headers: { Authorization: 'config-secret' } },
+  ] })
+  const response = await new Promise((resolve, reject) => {
+    const req = { method: 'POST', headers: { 'content-type': 'application/json' }, async *[Symbol.asyncIterator]() { yield Buffer.from('{"method":"list","params":{}}') } }
+    const res = { writeHead() {}, end: body => resolve(JSON.parse(body)) }
+    handler(req, res).catch(reject)
+  })
+  assert.deepEqual(response.result.servers.map(({ name, secretConfigured }) => ({ name, secretConfigured })), [
+    { name: 'local', secretConfigured: false }, { name: 'remote', secretConfigured: false },
+  ])
+  assert.equal(JSON.stringify(response).includes('config-secret'), false)
+})

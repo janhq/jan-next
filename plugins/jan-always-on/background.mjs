@@ -5,17 +5,32 @@ const BATCH_MS = 250
 const SEND_MS = 60_000
 
 /** Bind Jan's session metadata to the durable Super Agent queue. */
-export function openBackground({ directory, now = Date.now, changed, run, notify, approvalPending, report }) {
-  let current
-  const queue = openQueue({ directory, now, changed, report, sendIntervalMs: SEND_MS, send: notify,
+export function openBackground({ directory, now = Date.now, changed, activityChanged, run, notify, approvalPending, report }) {
+  let current, lastRun = null, lastDelivery
+  const queue = openQueue({ directory, now, changed, report, sendIntervalMs: SEND_MS,
+    async send(message) {
+      const result = await notify(message)
+      if (result === 'sent') lastDelivery = now()
+      return result
+    },
     async run(batch, signal) {
       const events = batch.events.map(event => ({ id: event.id, ...event.value }))
       const first = events[0]
       const job = { runId: batch.id, sessionId: first.sessionId ?? `session-always-on-${batch.id}`, events,
         approval: first.approvalId === undefined ? undefined : (queue.get(APPROVALS) ?? {})[first.approvalId] }
-      current = { job, signal }
-      try { return await run(job, signal) }
-      finally { current = undefined }
+      current = { job, signal, phase: 'thinking' }
+      try {
+        const outcome = await run(job, signal, phase => {
+          if (current?.job !== job || signal.aborted || current.phase === phase) return
+          current.phase = phase
+          activityChanged()
+        })
+        if (!signal.aborted) lastRun = outcome
+        return outcome
+      } catch (error) {
+        if (!signal.aborted) lastRun = 'failed'
+        throw error
+      } finally { current = undefined }
     },
   })
   function enqueue({ id, ...value }, stamp = now()) {
@@ -36,6 +51,8 @@ export function openBackground({ directory, now = Date.now, changed, run, notify
     memoryChanged: changed,
     snapshot() {
       return { paused: queue.paused,
+        activeRun: current?.phase ?? null, lastRun,
+        lastDeliveryAgeMs: lastDelivery === undefined ? null : Math.max(0, now() - lastDelivery),
         events: queue.events().map(({ id, status, batchId, readyAt, value }) => ({ id, status, runId: batchId, createdAt: readyAt - BATCH_MS, ...value })),
         approvals: Object.values(queue.get(APPROVALS) ?? {}).filter(item => item.decision === undefined),
         outbox: queue.messages().map(({ id, text, status, channel }) => ({ id, text, status, ...channel.address })),

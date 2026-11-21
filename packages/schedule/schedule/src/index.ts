@@ -1,5 +1,6 @@
 /** Host-wide durable reminders and shared human/model management. */
 import { createHash, randomUUID } from 'node:crypto'
+import { isAbsolute } from 'node:path'
 import { isDeepStrictEqual } from 'node:util'
 import z from '@janhq/schemastery'
 import { Context, Service } from '@janhq/cordis'
@@ -167,8 +168,11 @@ function activeSessionTasks(domain: Domain<typeof scheduleDomain>, sessionId: Se
  * @returns Creation values without absent members.
  */
 function createSpec(spec: ScheduleSessionCreateSpec | undefined): ScheduleSessionCreateSpec {
-  if (spec?.cwd === '' || spec?.agentPreset === '') {
-    throw new ScheduleInputError('invalid_rule', 'target create cwd and agentPreset must be non-empty when present.')
+  if (spec?.cwd !== undefined && (!isAbsolute(spec.cwd) || spec.cwd.includes('\0'))) {
+    throw new ScheduleInputError('invalid_rule', 'target create cwd must be an absolute path without NUL.')
+  }
+  if (spec?.agentPreset === '') {
+    throw new ScheduleInputError('invalid_rule', 'target create agentPreset must be non-empty when present.')
   }
   return {
     ...(spec?.cwd === undefined ? {} : { cwd: spec.cwd }),

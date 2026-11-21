@@ -70,7 +70,7 @@ function scopedTools(runtime, memory, job, state, schedule) {
 function digest(text) { return createHash('sha256').update(text).digest('hex') }
 /** @returns The normal Jan session runner with only locally scoped Always-on tools. */
 export function runWithJan(ctx, memory, deliver, getRuntime, cwd, schedule) {
-  return async (job, signal) => ctx.agents.withoutInitiator(async () => {
+  return async (job, signal, setPhase) => ctx.agents.withoutInitiator(async () => {
     const runtime = getRuntime()
     if (runtime.awaiting(job)) return 'deferred'
     signal.throwIfAborted()
@@ -132,8 +132,17 @@ export function runWithJan(ctx, memory, deliver, getRuntime, cwd, schedule) {
       signal.throwIfAborted()
       ctx.permissionPresets.set(agent.session, 'workspace-write')
       let outcome = 'failed'
+      const runningTools = new Set()
       const off = agent.ctx.on('session/event', (session, event) => {
-        if (session === agent.session && event.type === 'turn/end') outcome = event.data.reason.kind === 'completed' ? 'done' : 'failed'
+        if (session !== agent.session) return
+        if (event.type === 'tool/call') {
+          runningTools.add(event.data.callId)
+          setPhase('working')
+        } else if (event.type === 'tool/result' && runningTools.delete(event.data.message.source.callId) && !runningTools.size) {
+          setPhase('thinking')
+        } else if (event.type === 'turn/end') {
+          outcome = event.data.reason.kind === 'completed' ? 'done' : 'failed'
+        }
       })
       try {
         const text = `${INSTRUCTIONS}\n\nUser instructions, index and sent-message memory:\n${JSON.stringify(smallMemory)}\n\nEvents to handle together:\n${JSON.stringify(job.events.map(({ kind, text, progressPath }) => ({ kind, text, progressPath })))}${job.approval ? '\nThis run resumes a saved approval decision. The Host supplies the outcome separately.' : ''}`

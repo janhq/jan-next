@@ -8,7 +8,7 @@ export const en = {
   sessionExpired: 'You have signed out of your account, please log in again.',
   ...onboardingEn,
   close: 'Close', addApiKey: 'Add API Key', retry: 'Sign in again',
-  loginTitle: 'Get started', loginDescription: 'Sign in to your Tokamak account or add an API Key to get started. Your folders and files are stored locally.',
+  loginTitle: 'Get started', loginDescription: 'Sign in to your Tokamak account or add an API Key to get started. Your projects and files are stored locally.',
   browserTitle: 'Waiting for sign in', browserPrompt: 'Page did not open automatically? ', copyLink: 'Copy sign-in link', copiedLink: 'Link copied', copyFailed: 'Copy failed',
   browserDescription: ', then open it in your browser to finish signing in.',
   timeoutTitle: 'Sign in timed out', timeoutDescription: 'Sign in again to continue.',

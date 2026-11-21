@@ -7,7 +7,7 @@ import type { SessionId } from '@janhq/jan-session/types'
 import type { ScheduleCatalogEntry, SchedulePatch, ScheduleTargetRequest } from '@janhq/jan-schedule/client'
 import { Cron, RRule } from '@janhq/jan-util-time'
 import clsx from 'clsx'
-import { DEFAULT_WORKSPACE_DIRECTORY, workspaceDisplayTitle } from '@janhq/jan-api-workspace-controller/default-workspace'
+import { workspaceDisplayTitle } from '@janhq/jan-api-workspace-controller/default-workspace'
 import { IconClockOutlineRegular, Input, PathLabel } from '@janhq/jan-client-ui-primitives'
 import { ClockPicker } from './ClockPicker.tsx'
 import { DatePicker } from './DatePicker.tsx'
@@ -40,8 +40,11 @@ interface ProjectChoices {
 /** Label Workspaces as the Workspace list does and select the directory a new destination starts with. */
 export function projectChoices(workspaces: WorkspaceSnapshot['items'], defaultName: string): ProjectChoices {
   return {
-    items: workspaces.map(workspace => ({ value: workspace.path, label: workspaceDisplayTitle(workspace.title, defaultName) })),
-    defaultCwd: (workspaces.find(workspace => workspace.title === DEFAULT_WORKSPACE_DIRECTORY) ?? workspaces[0])?.path ?? '',
+    items: workspaces.map(workspace => ({
+      value: workspace.path,
+      label: workspace.isDefault === true ? workspaceDisplayTitle(workspace.title, defaultName) : workspace.title,
+    })),
+    defaultCwd: (workspaces.find(workspace => workspace.isDefault === true) ?? workspaces[0])?.path ?? '',
   }
 }
 
@@ -153,7 +156,7 @@ export function TaskEditorFields({ draft, onChange, projects, disabled, original
     { id: 'once', label: t('rule.once') }, { id: 'advanced', label: t('host.frequency.advanced') },
   ]
   const frequencyValue = weekdays ? 'weekdays' : draft.frequency
-  // The directory line tells which folder a Workspace title such as Default workspace stands for.
+  // Show the literal folder path alongside the project name.
   const workspaceItems = projects.items.map(choice => ({
     id: choice.value, label: <span className={css.workspaceMenuItem}><span>{choice.label}</span>
       <PathLabel path={choice.value} className={css.workspaceMenuPath} /></span>,
