@@ -59,9 +59,14 @@ The closing prose links paths the turn produced or delivered, including those re
 <a id="artifacts-library"></a>
 ### The Artifacts library
 
-The `artifacts` main panel lists every file the assistant presented in any chat, newest first, with a search box (file name, path, description, chat title) and kind filters: documents, spreadsheets, presentations, images, code, and other, by extension. Each row shows the file name, its chat title, and a relative time, and offers Open, Show in folder, and Go to chat. Open and Show in folder use the same authenticated native-open routes as delivery cards and need a Host desktop; a file that no longer exists on disk stays listed as unavailable, with only Go to chat enabled. The sidebar entry shares the panel id `artifacts`; the panel renders 24 rows at a time.
+The `artifacts` main panel has two tabs. **Files** lists every file the assistant presented in any chat, newest first, with a search box (file name, path, description, chat title) and kind filters: documents, spreadsheets, presentations, images, code, and other, by extension. Each row shows the file name, its chat title, and a relative time, and offers Open, Show in folder, and Go to chat. Open and Show in folder use the same authenticated native-open routes as delivery cards and need a Host desktop; a file that no longer exists on disk stays listed as unavailable, with only Go to chat enabled. **Links** lists every web link a chat mentioned, newest mention first, with a search box (URL, link text, chat title). Each row shows the link text (or the site name), the site, who shared it, its chat title, and a relative time; the title opens the page in the browser, and the row offers Copy link and Go to chat. The sidebar entry shares the panel id `artifacts`; each tab renders 24 rows at a time.
 
-The panel reads no chat history. It reads the `presentedFiles` Session projection that the Host-mounted [`jan-tool-present/projection`](../../deliverables/tool-present/README.md) entry registers, a summary key, so the Session list carries each chat's distinct presented files, cold chats from the persisted projection cache. Chats checkpointed before the projection existed carry no value; while the panel is open it reads each such chat's projections once, two at a time, newest first. Subagent chats are not listed, and a fork lists only its own deliveries.
+The panel reads no chat history. It reads two summary-key Session projections, so the Session list carries them, cold chats from the persisted projection cache:
+
+- `presentedFiles`, which the Host-mounted [`jan-tool-present/projection`](../../deliverables/tool-present/README.md) entry registers: each chat's distinct presented files.
+- `sharedLinks`, which this package's Host-mounted `@janhq/jan-client-ui-deliverables/links` entry registers: each chat's distinct absolute `http`/`https` links from the person's own messages and the assistant's replies, as Markdown links (with their text) or bare URLs. Images, code spans and fenced code, and context the app injects are skipped, and a chat keeps its newest 100 links.
+
+Chats checkpointed before a projection existed carry no value; while the panel is open it reads each such chat's projections once, two at a time, newest first. Subagent chats are not listed, and a fork lists only its own deliveries and links.
 
 -----
 

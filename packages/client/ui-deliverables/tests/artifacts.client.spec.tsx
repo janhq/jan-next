@@ -2,8 +2,8 @@
 /**
  * Artifacts library: the model derived from Session-list projection values, the
  * controller that fills legacy rows and checks files on disk, the page's
- * grouping, search, unavailable files, and chat navigation, and the panel and
- * sidebar registrations.
+ * grouping, search, unavailable files, the Links tab, and chat navigation, and
+ * the panel and sidebar registrations.
  */
 import { cleanup, fireEvent, render, within } from '@testing-library/react'
 import { Context } from '@janhq/cordis'
@@ -17,8 +17,10 @@ import { bindSnapshotSelector, makeTranslate, usePinnedBrowserLanguages } from '
 import type { SessionId } from '@janhq/jan-session/types'
 import type { PresentedFileEntry } from '@janhq/jan-tool-present/types'
 import {
-  ArtifactsController, artifactGroup, artifactRows, filterArtifacts, unindexedChats, type ArtifactAvailabilityMap,
+  ArtifactsController, artifactGroup, artifactRows, filterArtifacts, filterLinks, linkRows, unindexedChats,
+  type ArtifactAvailabilityMap,
 } from '../src/client/artifacts.ts'
+import type { SharedLinkEntry } from '../src/links.ts'
 import { ArtifactsPage, type ArtifactsInjected } from '../src/client/ArtifactsPage.tsx'
 import { ARTIFACTS_PANEL_ID, registerArtifacts } from '../src/client/artifacts-plugin.ts'
 import { PresentedOpenController } from '../src/client/present-open.ts'
@@ -31,10 +33,17 @@ const sid = (value: string): SessionId => value as SessionId
 const file = (path: string, seq: number, time: number, description?: string): PresentedFileEntry => ({
   path, turn: 1, seq, index: 0, time, ...description === undefined ? {} : { description },
 })
+const link = (url: string, time: number, title?: string, from: SharedLinkEntry['from'] = 'assistant'): SharedLinkEntry => ({
+  url, from, seq: time / 1_000, time, ...title === undefined ? {} : { title },
+})
 
 interface Chat {
   readonly title: string
   readonly files?: readonly PresentedFileEntry[]
+  /** Shared links; a chat with files and no links listed has an empty links index. */
+  readonly links?: readonly SharedLinkEntry[]
+  /** A row checkpointed before the links index existed. */
+  readonly noLinksIndex?: boolean
   readonly blank?: boolean
   readonly parentId?: string
   readonly state?: 'idle' | 'loading' | 'ready'
@@ -46,7 +55,11 @@ function listOf(chats: Readonly<Record<string, Chat>>): SessionListState {
   const byId: Record<string, unknown> = {}
   const projectionsBySession: Record<string, unknown> = {}
   for (const [id, chat] of Object.entries(chats)) {
-    const values = chat.files === undefined ? {} : { presentedFiles: chat.files }
+    const links = chat.links ?? (chat.files === undefined || chat.noLinksIndex === true ? undefined : [])
+    const values = {
+      ...chat.files === undefined ? {} : { presentedFiles: chat.files },
+      ...links === undefined ? {} : { sharedLinks: links },
+    }
     byId[id] = {
       id, displayTitle: chat.title, running: false, retainedBy: [], blank: chat.blank ?? false, updatedAt: 0,
       ...chat.summaryOnly === true ? { projectionValues: values } : {},
@@ -58,10 +71,13 @@ function listOf(chats: Readonly<Record<string, Chat>>): SessionListState {
 }
 
 const LIBRARY = listOf({
-  alpha: { title: 'Quarterly review', files: [file('/w/report.docx', 4, 5_000), file('/w/figures.xlsx', 6, 9_000, 'Revenue by region')] },
+  alpha: {
+    title: 'Quarterly review', files: [file('/w/report.docx', 4, 5_000), file('/w/figures.xlsx', 6, 9_000, 'Revenue by region')],
+    links: [link('https://www.example.com/q3', 3_000, 'Q3 filing', 'user'), link('https://jan.ai/docs', 8_000)],
+  },
   beta: { title: 'Launch deck', files: [file('/w/deck.pptx', 3, 7_000), file('/w/hero.png', 5, 2_000)] },
-  gamma: { title: 'Prototype', summaryOnly: true, files: [file('/w/app.ts', 8, 12_000)] },
-  child: { title: 'Helper', files: [file('/w/hidden.md', 2, 99_000)], parentId: 'alpha' },
+  gamma: { title: 'Prototype', summaryOnly: true, files: [file('/w/app.ts', 8, 12_000)], links: [link('https://github.com/janhq/jan', 11_000, 'Jan repo')] },
+  child: { title: 'Helper', files: [file('/w/hidden.md', 2, 99_000)], links: [link('https://hidden.example/', 99_000)], parentId: 'alpha' },
 })
 
 describe('artifact model', () => {
@@ -87,16 +103,31 @@ describe('artifact model', () => {
     expect(rows[1]).toMatchObject({ sessionId: 'alpha', seq: 6, index: 0, description: 'Revenue by region', key: 'alpha:6:0' })
   })
 
-  it('names the chats whose list row holds no presented-files value yet', () => {
+  it('names the chats whose list row holds no presented-files or shared-links value yet', () => {
     const list = listOf({
       legacy: { title: 'Old' },
+      linkless: { title: 'Files only', files: [], noLinksIndex: true },
       empty: { title: 'Indexed', files: [] },
       fresh: { title: 'Blank', blank: true },
       loading: { title: 'Loading', state: 'loading' },
       read: { title: 'Read', state: 'ready' },
       sub: { title: 'Sub', parentId: 'legacy' },
     })
-    expect(unindexedChats(list)).toEqual(['legacy'])
+    expect(unindexedChats(list)).toEqual(['legacy', 'linkless'])
+  })
+
+  it('lists every chat\'s links newest first with a title or the site name, without subagent chats', () => {
+    const rows = linkRows(LIBRARY)
+    expect(rows.map(row => [row.title, row.site, row.chatTitle, row.from])).toEqual([
+      ['Jan repo', 'github.com', 'Prototype', 'assistant'],
+      ['jan.ai', 'jan.ai', 'Quarterly review', 'assistant'],
+      ['Q3 filing', 'example.com', 'Quarterly review', 'user'],
+    ])
+    const titles = (query: string) => filterLinks(rows, query).map(row => row.title)
+    expect(titles(' QUARTERLY ')).toEqual(['jan.ai', 'Q3 filing'])
+    expect(titles('janhq')).toEqual(['Jan repo'])
+    expect(titles('filing')).toEqual(['Q3 filing'])
+    expect(titles('nothing')).toEqual([])
   })
 
   it('filters by search text across name, path, description, and chat title, and by kind', () => {
@@ -307,6 +338,41 @@ describe('ArtifactsPage', () => {
     expect(hydrate).toHaveBeenCalledWith(['legacy'])
     fireEvent.click(view.getByRole('button', { name: 'Show 6 more' }))
     expect(names(view)).toHaveLength(30)
+  })
+
+  it('switches to the Links tab, which opens links in the browser, copies them, and returns to their chat', async () => {
+    const writeText = vi.fn(() => Promise.resolve())
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+    const { view, openChat, checkAvailability } = setup(LIBRARY)
+    checkAvailability.mockClear()
+    fireEvent.click(view.getByRole('tab', { name: 'Links' }))
+    expect(view.getByRole('tabpanel').id).toBe('artifacts-panel-links')
+    expect(view.container.querySelector('[data-artifacts-count]')?.textContent).toBe('Total: 3')
+    expect(view.queryByRole('button', { name: 'All' })).toBeNull()
+    expect(checkAvailability).not.toHaveBeenCalled()
+    const rows = [...view.container.querySelectorAll<HTMLElement>('[data-link-row]')]
+    expect(rows.map(row => row.getAttribute('data-link-row'))).toEqual(['https://github.com/janhq/jan', 'https://jan.ai/docs', 'https://www.example.com/q3'])
+
+    const anchor = within(rows[2] as HTMLElement).getByRole('link', { name: 'Open Q3 filing in your browser' })
+    expect([anchor.getAttribute('href'), anchor.getAttribute('target'), anchor.getAttribute('rel')])
+      .toEqual(['https://www.example.com/q3', '_blank', 'noopener noreferrer'])
+    expect(within(rows[2] as HTMLElement).getByText('You shared')).toBeTruthy()
+
+    fireEvent.click(within(rows[0] as HTMLElement).getByRole('button', { name: 'Copy link Jan repo' }))
+    await vi.waitFor(() => { expect(within(rows[0] as HTMLElement).getByText('Copied')).toBeTruthy() })
+    expect(writeText).toHaveBeenCalledWith('https://github.com/janhq/jan')
+    fireEvent.click(within(rows[0] as HTMLElement).getByRole('button', { name: 'Go to chat Prototype' }))
+    expect(openChat).toHaveBeenCalledWith('gamma')
+
+    fireEvent.change(view.getByRole('searchbox', { name: 'Search links and chats' }), { target: { value: 'zzz' } })
+    expect(view.getByText('No links match your search.')).toBeTruthy()
+  })
+
+  it('explains an empty Links tab', () => {
+    const { view } = setup(listOf({ one: { title: 'Chat', files: [file('/w/a.md', 2, 1_000)] } }))
+    fireEvent.click(view.getByRole('tab', { name: 'Links' }))
+    expect(view.getByText('No links yet. Web links you or the assistant share in a chat will appear here.')).toBeTruthy()
+    expect(view.queryByRole('button', { name: 'Clear filters' })).toBeNull()
   })
 })
 
