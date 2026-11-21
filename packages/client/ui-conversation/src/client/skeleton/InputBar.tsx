@@ -497,7 +497,6 @@ export const InputBar = memo(function InputBar({
           key={toast.seq}
           text={toast.text}
           icon={<IconWarningOutlineRegular />}
-          anchor={cardRef.current}
           onDone={dismissToast}
         />
       )}
