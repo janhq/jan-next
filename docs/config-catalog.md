@@ -145,7 +145,7 @@ export type Config = PresetDefinition
 
 - `inject`: `loader` · `sessionProjections` · `agents`
 - `refs`: `Volatile` (`@janhq/cordis`)
-- `source`: [`packages/preset/agent-preset-registry/src/preset.ts:13`](../packages/preset/agent-preset-registry/src/preset.ts)
+- `source`: [`packages/preset/agent-preset-registry/src/preset.ts:15`](../packages/preset/agent-preset-registry/src/preset.ts)
 
 ```ts config-catalog
 /** Registry selection policy. */
@@ -316,7 +316,7 @@ export interface Config {
 ## `@janhq/jan-api-workspace-controller`
 
 - `inject`: `remoteAccess` · `typert` · `workspaceRegistry`
-- `source`: [`packages/api/workspace-controller/src/index.ts:37`](../packages/api/workspace-controller/src/index.ts)
+- `source`: [`packages/api/workspace-controller/src/index.ts:38`](../packages/api/workspace-controller/src/index.ts)
 
 ```ts config-catalog
 /** Default project directory policy for the Host account. */
@@ -701,6 +701,24 @@ export interface Config {
   /** Maximum retained results per Session, including values awaiting a result event. */
   maxResultsPerSession: number
 }
+```
+
+<a id="janhqjan-client-ui-user-questions"></a>
+
+## `@janhq/jan-client-ui-user-questions`
+
+- `refs`: `Volatile` (`@janhq/cordis`)
+- `source`: [`packages/client/ui-user-questions/src/index.ts:16`](../packages/client/ui-user-questions/src/index.ts)
+
+```ts config-catalog
+/** Runtime configuration kept live by the Host settings service. */
+export interface Config {
+  /** Seconds before an unanswered question batch is automatically submitted. */
+  autoAnswerSeconds: Volatile<AutoAnswerSeconds>
+}
+
+/** Supported value of the automatic answer preference. */
+export type AutoAnswerSeconds = typeof AUTO_ANSWER_SECONDS[number]
 ```
 
 <a id="janhqjan-compaction-basic"></a>
@@ -1975,7 +1993,7 @@ export interface FallbackRoute {
 
 - `inject`: `llm`
 - `refs`: `Api` (`@earendil-works/pi-ai`) · `CacheRetention` (`@earendil-works/pi-ai`) · `Model` (`@earendil-works/pi-ai`) · `ModelThinkingLevel` (`@earendil-works/pi-ai`) · `OpenAICompletionsCompat` (`@earendil-works/pi-ai`) · [`RetryPolicyConfig`](../packages/llm/llm/src/index.ts) · `ThinkingBudgets` (`@earendil-works/pi-ai`) · `Transport` (`@earendil-works/pi-ai`) · `Volatile` (`@janhq/cordis`)
-- `source`: [`packages/llm/llm-pi-ai/src/config.ts:335`](../packages/llm/llm-pi-ai/src/config.ts)
+- `source`: [`packages/llm/llm-pi-ai/src/config.ts:337`](../packages/llm/llm-pi-ai/src/config.ts)
 
 ```ts config-catalog
 /** Plugin configuration: the provider routes this instance owns. */
@@ -3601,7 +3619,7 @@ export type JournalMode = 'wal' | 'delete' | 'truncate' | 'persist'
 
 - `inject`: `workingDirectory` · `sessionProjections`
 - `refs`: `Volatile` (`@janhq/cordis`)
-- `source`: [`packages/subagent/subagent/src/index.ts:186`](../packages/subagent/subagent/src/index.ts)
+- `source`: [`packages/subagent/subagent/src/index.ts:189`](../packages/subagent/subagent/src/index.ts)
 
 ```ts config-catalog
 /** Host configuration for continuable subagent capacity. */
@@ -3985,7 +4003,7 @@ export type Config = Record<never, never>
 /** Cordis row selecting the tool schema and its default foreground wait. */
 export interface Config {
   /** Tool definition selected by this Cordis row. Defaults to the blocking legacy tool. */
-  mode?: 'legacy' | 'timed'
+  mode?: 'legacy' | 'timed' | 'auto'
   /** Foreground wait before automatic continuation. Defaults to 120 seconds. */
   timeout?: number
 }
@@ -4861,6 +4879,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | `@janhq/jan-client-ui-input-trigger` | — | [`packages/client/ui-input-trigger/src/index.ts`](../packages/client/ui-input-trigger/src/index.ts) |
 | `@janhq/jan-client-ui-jobs` | — | [`packages/client/ui-jobs/src/index.ts`](../packages/client/ui-jobs/src/index.ts) |
 | `@janhq/jan-client-ui-layout` | — | [`packages/client/ui-layout/src/index.ts`](../packages/client/ui-layout/src/index.ts) |
+| `@janhq/jan-client-ui-media-capture` | — | [`packages/client/ui-media-capture/src/index.ts`](../packages/client/ui-media-capture/src/index.ts) |
 | `@janhq/jan-client-ui-message-feedback` | — | [`packages/client/ui-message-feedback/src/index.ts`](../packages/client/ui-message-feedback/src/index.ts) |
 | `@janhq/jan-client-ui-model-selection` | — | [`packages/client/ui-model-selection/src/index.ts`](../packages/client/ui-model-selection/src/index.ts) |
 | `@janhq/jan-client-ui-open-in-app` | — | [`packages/client/ui-open-in-app/src/index.ts`](../packages/client/ui-open-in-app/src/index.ts) |
@@ -4893,7 +4912,6 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | `@janhq/jan-client-ui-skill` | — | [`packages/client/ui-skill/src/index.ts`](../packages/client/ui-skill/src/index.ts) |
 | `@janhq/jan-client-ui-subagent` | — | [`packages/client/ui-subagent/src/index.ts`](../packages/client/ui-subagent/src/index.ts) |
 | `@janhq/jan-client-ui-tool` | — | [`packages/client/ui-tool/src/index.ts`](../packages/client/ui-tool/src/index.ts) |
-| `@janhq/jan-client-ui-user-questions` | — | [`packages/client/ui-user-questions/src/index.ts`](../packages/client/ui-user-questions/src/index.ts) |
 | `@janhq/jan-client-ui-workflow-run` | — | [`packages/client/ui-workflow-run/src/index.ts`](../packages/client/ui-workflow-run/src/index.ts) |
 | `@janhq/jan-client-ui-workspace` | — | [`packages/client/ui-workspace/src/index.ts`](../packages/client/ui-workspace/src/index.ts) |
 | `@janhq/jan-command-compact` | `commands` · `compaction` | [`packages/compaction/command-compact/src/index.ts`](../packages/compaction/command-compact/src/index.ts) |
@@ -4940,6 +4958,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | `@janhq/jan-subprocess-ssh` | `ssh` | [`packages/ssh/subprocess-ssh/src/index.ts`](../packages/ssh/subprocess-ssh/src/index.ts) |
 | `@janhq/jan-terminal` | — | [`packages/terminal/terminal/src/index.ts`](../packages/terminal/terminal/src/index.ts) |
 | `@janhq/jan-tool-call-timeout-policy` | `tools` | [`packages/guard/timeout-policy/src/index.ts`](../packages/guard/timeout-policy/src/index.ts) |
+| `@janhq/jan-tool-capture-media` | `tools` · `mediaCapture` | [`packages/interaction/tool-capture-media/src/index.ts`](../packages/interaction/tool-capture-media/src/index.ts) |
 | `@janhq/jan-tool-cordis` | `tools` · `cordisInspect` | [`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts) |
 | `@janhq/jan-tool-executor-native` | `tools` | [`packages/core/tool-executor-native/src/index.ts`](../packages/core/tool-executor-native/src/index.ts) |
 | `@janhq/jan-tool-schedule` | `tools` · `systemPrompt` | [`packages/schedule/tool-schedule/src/index.ts`](../packages/schedule/tool-schedule/src/index.ts) |
