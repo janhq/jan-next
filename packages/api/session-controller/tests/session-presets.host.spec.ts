@@ -122,10 +122,20 @@ async function harness(options: HarnessOptions = {}) {
     },
   }) as never)
   const { members, archived } = options.workspace ?? { members: [], archived: [] }
-  const workspace = { id: WORKSPACE, path: cwd, sessionIds: members, attachSession: () => Promise.resolve() }
+  const sessionIds = [...members]
+  const workspace = {
+    id: WORKSPACE,
+    path: cwd,
+    sessionIds,
+    attachSession: (sessionId: SessionId) => {
+      if (!sessionIds.includes(sessionId)) sessionIds.push(sessionId)
+      return Promise.resolve()
+    },
+  }
   ctx.provide('workspaceRegistry', {
     get: (id: WorkspaceId) => id === WORKSPACE ? workspace : undefined,
     list: () => [workspace],
+    ensureDefault: () => Promise.resolve(workspace),
     archivedSessionIds: archived,
   } as never)
 
@@ -416,6 +426,31 @@ describe('session.create reuse of a live blank Session', () => {
     expect(ctx.agents.list().map(agent => agent.id)).toEqual(['fresh'])
   })
 
+  it('keeps request arrival order while the first project is prepared', async () => {
+    const { ctx, remote, selections } = await harness({ presets: ['standard', 'minimal'] })
+    const sessionId = SessionId('fresh')
+    const registry = ctx.workspaceRegistry
+    const project = await registry.ensureDefault()
+    const pending = Promise.withResolvers<typeof project>()
+    const entered = Promise.withResolvers<undefined>()
+    vi.spyOn(registry, 'ensureDefault').mockImplementationOnce(() => {
+      entered.resolve(undefined)
+      return pending.promise
+    })
+
+    const first = remote.create({ sessionId, agentPreset: 'minimal' })
+    await entered.promise
+    const second = remote.create({ sessionId, workspaceId: WORKSPACE })
+    const turn = Promise.withResolvers<undefined>()
+    setTimeout(turn.resolve, 0, undefined)
+    await turn.promise
+    pending.resolve(project)
+
+    expect(await first).toMatchObject({ ok: true, value: { sessionId, agentPreset: 'minimal' } })
+    expect(await second).toMatchObject({ ok: true, value: { sessionId, agentPreset: 'standard' } })
+    expect(selections).toEqual([{ sessionId, agentPreset: 'standard' }])
+  })
+
   it('refuses a Session in another directory', async () => {
     const { ctx, remote } = await harness({ presets: ['standard'] })
     const elsewhere = realpathSync(mkdtempSync(join(tmpdir(), 'jan-session-preset-elsewhere-')))
@@ -689,8 +724,8 @@ describe('session.create reuse of a stored blank Session', () => {
 describe('session.create Workspace placement', () => {
   it('reuses a blank member of the requested Workspace', async () => {
     const draft = SessionId('member-draft')
-    const { remote } = await harness({ presets: ['standard'], workspace: { members: [draft], archived: [] } })
-    await remote.create({ sessionId: draft })
+    const { remote, cwd } = await harness({ presets: ['standard'], workspace: { members: [draft], archived: [] } })
+    expect((await remote.create({ sessionId: draft, cwd })).ok).toBe(true)
 
     const reused = await remote.create({ sessionId: draft, workspaceId: WORKSPACE })
 
@@ -702,8 +737,8 @@ describe('session.create Workspace placement', () => {
     { name: 'archived', members: [SessionId('placed-draft')], archived: [SessionId('placed-draft')] },
   ])('creates a new Session instead of reusing a blank Session $name', async ({ members, archived }) => {
     const draft = SessionId('placed-draft')
-    const { remote, selections, presetOf } = await harness({ presets: ['standard', 'minimal'], workspace: { members, archived } })
-    await remote.create({ sessionId: draft, agentPreset: 'minimal' })
+    const { remote, cwd, selections, presetOf } = await harness({ presets: ['standard', 'minimal'], workspace: { members, archived } })
+    expect((await remote.create({ sessionId: draft, agentPreset: 'minimal', cwd })).ok).toBe(true)
 
     const created = await remote.create({ sessionId: draft, workspaceId: WORKSPACE })
 

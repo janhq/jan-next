@@ -115,7 +115,6 @@ export function apiSessionSubagentOwnershipError(sessionId: SessionId): ApiSessi
 /** Owns every operation that may create, resume, or configure a Web Agent. */
 export class ApiSessionAgentController {
   private readonly resumes = new Map<SessionId, Promise<Agent>>()
-  private readonly claims = new Map<SessionId, Promise<void>>()
   private readonly imageAdmissionChains = new WeakMap<Agent, Promise<void>>()
 
   /** @param ctx - Host context carrying Agent, model, persistence, and Typert services. */
@@ -216,9 +215,8 @@ export class ApiSessionAgentController {
    * is not resolved, and a change is logged as `agent-preset/selected` before
    * the Agent is published. A named Session that has started a turn, fails the
    * caller's placement rule, or is written by another owner stays unchanged,
-   * and a new Session is created instead. Requests naming one identity run in
-   * arrival order, including their preset resolution, and check the named
-   * Session's directory and ownership before resolving the preset.
+   * and a new Session is created instead. The named Session's directory and
+   * ownership are checked before resolving the preset.
    * @param request - optional Session to reuse, directory, preset, and placement rule.
    * @returns the reused or created Session and the preset it ran when this request finished.
    * @throws ApiSessionCwdConflict when the named Session belongs to another directory.
@@ -233,7 +231,7 @@ export class ApiSessionAgentController {
     const routed = agentPreset === undefined ? request : { ...request, agentPreset }
     const named = routed.sessionId
     if (named === undefined) return this.created(await this.createMinted(routed.cwd, await this.composeAgent(routed.agentPreset)))
-    return this.inOrder(named, async () => this.created(await this.claim(named, routed)))
+    return this.created(await this.claim(named, routed))
   }
 
   /**
@@ -319,17 +317,6 @@ export class ApiSessionAgentController {
       agentOptions: this.agentOptions(),
       setup: composition.setup,
     })).agent
-  }
-
-  private async inOrder<Value>(sessionId: SessionId, operation: () => Promise<Value>): Promise<Value> {
-    const result = (this.claims.get(sessionId) ?? Promise.resolve()).then(operation)
-    const settled = result.then(() => undefined, () => undefined)
-    this.claims.set(sessionId, settled)
-    try {
-      return await result
-    } finally {
-      if (this.claims.get(sessionId) === settled) this.claims.delete(sessionId)
-    }
   }
 
   /** @returns the reused Session, a new Session under `sessionId` when none is stored, or a new Session under a minted identity. */

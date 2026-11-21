@@ -274,7 +274,7 @@ export interface SessionSearchValue {
 
 /** Request for a Session for a new conversation. */
 export interface SessionCreateRequest {
-  /** Workspace the Session joins; exclusive with `cwd`. */
+  /** Workspace the Session joins; exclusive with `cwd`. Omit both to join the default project. */
   readonly workspaceId?: WorkspaceId
   /** Absolute Host directory the Session owns when no Workspace is named. */
   readonly cwd?: string
