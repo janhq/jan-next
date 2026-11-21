@@ -633,8 +633,9 @@
 }
 
 /* A narrow pane has no room for the plugin options beside the project, preset,
-   model and context readings; they overlapped them, so they step aside. */
-@container composer-dock (max-width: 600px) {
+   model and context readings; they overlapped them, so they step aside. The
+   query resolves against the nearest container, the composer dock (InputBar). */
+@container (max-width: 600px) {
   .heroOptions {
     display: none;
   }
