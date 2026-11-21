@@ -581,6 +581,28 @@
   line-height: 16px;
 }
 
+/* Modality chips: icon plus a short word, like a model catalog's filter tabs. */
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--dsw-radius-xs);
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-secondary);
+  white-space: nowrap;
+}
+
 .detailsDescription {
   margin: 0;
   color: var(--dsw-alias-label-secondary);

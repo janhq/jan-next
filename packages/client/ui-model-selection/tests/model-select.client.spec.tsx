@@ -600,6 +600,39 @@ describe('ModelSelect keyboard walk', () => {
     expect(screen.getByRole('group', { name: zh['menu.aria'] })).toBeTruthy()
   })
 
+  it('shows only the modalities the route declares, each named by its full sentence', () => {
+    const base = state()
+    const model = { ...base.groups[0]!.models[0]!, imageInput: true, contextWindow: 1_000_000 }
+    render(<ModelSelect renderLabel={renderLabel}
+      locked={false}
+      available
+      directory={createSnapshotStore(state({ groups: [{ ...base.groups[0]!, models: [model] }] }))}
+      load={vi.fn()} resolveText={resolveText}
+      select={vi.fn()}
+      t={t}
+    />)
+    fireEvent.click(screen.getByRole('button', { name: /选择模型/ }))
+    const chips = within(within(detailsCard()).getByRole('list', { name: zh['details.modalities'] })).getAllByRole('listitem')
+    expect(chips.map(chip => chip.getAttribute('aria-label'))).toEqual([
+      zh['details.text'], zh['details.images'], zh['details.reasoningHint'], '1M 上下文',
+    ])
+  })
+
+  it('drops the modality row when the route declares nothing about it', () => {
+    const base = state()
+    const model = { id: 'bare', name: 'Bare' }
+    render(<ModelSelect renderLabel={renderLabel}
+      locked={false}
+      available
+      directory={createSnapshotStore(state({ current: { provider: 'example', model: 'bare' }, groups: [{ ...base.groups[0]!, models: [model] }] }))}
+      load={vi.fn()} resolveText={resolveText}
+      select={vi.fn()}
+      t={t}
+    />)
+    fireEvent.click(screen.getByRole('button', { name: /选择模型/ }))
+    expect(within(detailsCard()).queryByRole('list', { name: zh['details.modalities'] })).toBeNull()
+  })
+
   it('Tab settles the focused row like Enter and closes the menu', async () => {
     const select = mountOpen()
     fireEvent.keyDown(modelRows()[0]!, { key: 'ArrowRight' })
