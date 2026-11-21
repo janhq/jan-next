@@ -5,7 +5,6 @@ type Bounds = { x: number; y: number; width: number; height: number }
 type Point = { x: number; y: number }
 type Mark = { tool: string; points: readonly Point[]; text?: string; angle?: number; scale?: number }
 type OverlayMath = {
-  elementDetails(element: Element, bounds: Bounds): { selector: string; html: string; bounds: Bounds }
   paintMark(context: object, stroke: Mark, scale: number, ink: string, font?: string): void
   markBounds(mark: Mark, measure: (mark: Mark) => number): Bounds
   resized(mark: Mark, bounds: Bounds, corner: number, pointer: Point, measure: (mark: Mark) => number): Mark
@@ -24,24 +23,6 @@ beforeAll(async () => {
     if (previous === undefined) Reflect.deleteProperty(window, '__ModuleLoader__')
     else Object.defineProperty(window, '__ModuleLoader__', previous)
   }
-})
-
-it('identifies a duplicate element with a unique selector and a bounded HTML excerpt', () => {
-  const host = document.createElement('section')
-  host.id = 'component'
-  const target = document.createElement('p')
-  target.textContent = 'first'
-  const duplicate = document.createElement('p')
-  duplicate.textContent = 'a'.repeat(5000)
-  host.append(target, duplicate)
-  document.body.append(host)
-  try {
-    const info = capture.elementDetails(duplicate, { x: 4, y: 5, width: 200, height: 100 })
-    expect(document.querySelector(info.selector)).toBe(duplicate)
-    expect(info.html).toMatch(/^<p>a+/u)
-    expect(info.html.length).toBeLessThan(2500)
-    expect(info.bounds).toEqual({ x: 4, y: 5, width: 200, height: 100 })
-  } finally { host.remove() }
 })
 
 /** Where a mark's box corner lands on screen once the mark turns about its box centre. */

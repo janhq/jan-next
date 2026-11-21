@@ -22,6 +22,8 @@ window.__ModuleLoader__.load({
     ]
     const CODE = '[data-code-preview], [data-textpreview-plain]'
     const square = { width: '28px', padding: 0, justifyContent: 'center' }
+    // Inline size comes from the stylesheet so it follows the conversation text size like the turn's actions.
+    const inlineSquare = { padding: 0, justifyContent: 'center' }
 
     function visible(element) {
       if (!element?.isConnected || element.closest('[hidden], [inert], [aria-hidden="true"]')) return false
@@ -77,7 +79,7 @@ window.__ModuleLoader__.load({
       }).finally(() => { media.setCaptureHandleConfig({ handle: '', permittedOrigins: [] }) })
     }
 
-    function Launcher({ sessionId, getSurface, t, watch, activate, setGrab, getKeys, append, compact }) {
+    function Launcher({ sessionId, getSurface, t, watch, activate, setGrab, getKeys, append, compact, loadOverlay }) {
       const current = useRef()
       const [view, setView] = useState()
       const [error, setError] = useState(false)
@@ -105,12 +107,11 @@ window.__ModuleLoader__.load({
         const release = () => { void requestDisplay?.then(stream => stream.getTracks().forEach(track => track.stop()), () => {}) }
         controller.signal.addEventListener('abort', release, { once: true })
         setView({ pending: mode })
-        // require.async is the source-plugin spelling of package-local import() in Jan's module registry.
-        void require.async('./client.overlay.js').then(({ Overlay }) => {
+        void loadOverlay().then(([{ Overlay }, { elementName }]) => {
           if (controller.signal.aborted) return
           setView({ Overlay, props: { mode, surface, image, captureRegion, requestDisplay, startDisplayCapture,
             getSurface: () => targetOf(getSurface()), signal: controller.signal, close, t,
-            save: (text, file) => append(sessionId, text, file), setGrab, grabKeys: getKeys(grabBinding) } })
+            save: (text, file, contexts) => append(sessionId, text, file, contexts), elementName, setGrab, grabKeys: getKeys(grabBinding) } })
         }, () => {
           if (controller.signal.aborted) return
           close()
@@ -133,9 +134,10 @@ window.__ModuleLoader__.load({
         ACTIONS.filter(action => elements || !action.element).map(action => h(Tooltip, {
           key: action.id, label: t(action.id), side: 'bottom', delayMs: 300, portal: true,
           shortcutKeys: action.binding && getKeys(action.binding) },
-        h(Button, { type: 'button', variant: compact ? 'toolbar' : 'ghost', size: 'sm', style: square,
+        // Ghost everywhere: inline, the strip sits beside the turn's own ghost actions (copy, replay, share) and must read as one row.
+        h(Button, { type: 'button', variant: 'ghost', size: 'sm', style: compact ? inlineSquare : square,
           'aria-label': t(action.id), 'aria-busy': view?.pending === action.id || undefined,
-          'data-annotate-action': action.id, onClick: () => start(action.id) },
+          'data-annotate-action': action.id, 'data-annotate-inline': compact || undefined, onClick: () => start(action.id) },
         h(action.icon, { size: 16, 'aria-hidden': true })))),
         error && h(Tooltip, { label: t('openError'), side: 'bottom', portal: true },
           h('span', { role: 'alert', 'aria-label': t('openError'), tabIndex: 0,
@@ -145,9 +147,11 @@ window.__ModuleLoader__.load({
 
     return {
       name: id,
-      inject: ['slots', 'locale', 'conversation', 'shortcuts'],
+      inject: ['slots', 'locale', 'conversation', 'shortcuts', 'uiConversation'],
       apply(ctx) {
         const copy = require.async('./client.locale.js')
+        const element = require.async('./client.element.js')
+        const loadOverlay = () => Promise.all([require.async('./client.overlay.js'), element])
         const surfaces = new Set()
         let closeActive
         const shortcuts = ctx.shortcuts
@@ -166,9 +170,20 @@ window.__ModuleLoader__.load({
           surfaces.add(surface)
           return () => { surfaces.delete(surface) }
         }
-        const append = (sessionId, text, image) => ctx.conversation.appendDraft(sessionId, text, image ? [image] : [])
+        const append = (sessionId, text, image, contexts) => ctx.conversation.appendDraft(sessionId, text, image ? [image] : [], contexts ?? [])
         let live = true
         ctx.effect(() => () => { live = false; closeActive?.() })
+        // Inline strips match the turn's icon actions (ui-chat MessageIconActions): tertiary ink, secondary on hover, 15px glyph.
+        ctx.effect(() => {
+          const style = document.createElement('style')
+          style.textContent = 'button[data-annotate-inline][data-annotate-action]{color:var(--dsw-alias-label-tertiary);'
+            + 'width:calc(28px + var(--jan-content-font-delta, 0px));height:calc(28px + var(--jan-content-font-delta, 0px))}'
+            + 'button[data-annotate-inline][data-annotate-action] svg{width:calc(15px + var(--jan-content-font-delta, 0px));'
+            + 'height:calc(15px + var(--jan-content-font-delta, 0px))}'
+            + '@media (hover:hover){button[data-annotate-inline][data-annotate-action]:hover:not(:disabled){color:var(--dsw-alias-label-secondary)}}'
+          document.head.append(style)
+          return () => { style.remove() }
+        })
         void copy.then(({ dictionaries }) => {
           if (!live) return
           ctx.effect(() => ctx.locale.register(id, dictionaries))
@@ -199,9 +214,17 @@ window.__ModuleLoader__.load({
           for (const [names, compact] of [[SHELL_SLOTS, false], [INLINE_SLOTS, true]]) for (const name of names) {
             ctx.slots.inject(name, () => ctx.slots.register({
               name, id, locale: id,
-              inject: () => ({ watch, activate, setGrab, getKeys, append, compact }),
+              inject: () => ({ watch, activate, setGrab, getKeys, append, compact, loadOverlay }),
             }, Launcher))
           }
+          // A sent grab shows as one chip; its selector and HTML open on click.
+          void element.then(({ pageElementRule, PageElement }) => {
+            if (!live) return
+            ctx.uiConversation.userText.register(pageElementRule)
+            ctx.slots.inject('conversation.user.text.node', () => ctx.slots.register({
+              name: 'conversation.user.text.node', key: 'page-element', priority: 100, locale: id,
+            }, PageElement))
+          })
         }).catch(error => { if (live) ctx.logger('jan-annotate').error(error) })
       },
     }
