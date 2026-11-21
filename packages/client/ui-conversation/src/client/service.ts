@@ -27,6 +27,7 @@ import type {
 import type { QueueAction } from '@janhq/jan-api-session-controller/types'
 import type { MessageId } from '@janhq/jan-llm/brand'
 import type { ComposerBlocks } from './contract/composer-blocks.ts'
+import type { DraftContextInsert } from './contract/draft-editor.ts'
 import type {
   DraftAttachmentId, DraftAttachmentSerializationResult, SessionInputResolver, SubmitAttachment, SubmitOutcome,
 } from './contract/input.ts'
@@ -56,9 +57,12 @@ export interface IConversation {
    * @param sessionId - target Session, independent of the focused panel.
    * @param text - plain text appended after existing paragraphs.
    * @param files - ordered browser files to attach.
+   * @param contexts - atomic contexts shown as chips; the model reads each text verbatim.
    * @returns whether the draft accepted the context, is blocked, or no longer exists.
    */
-  appendDraft(sessionId: SessionId, text: string, files?: readonly File[]): 'added' | 'blocked' | 'unavailable'
+  appendDraft(
+    sessionId: SessionId, text: string, files?: readonly File[], contexts?: readonly DraftContextInsert[],
+  ): 'added' | 'blocked' | 'unavailable'
   /**
    * Send a prompt into the caller scope's session (queued turn).
    * @param text - prompt text, sent verbatim as one text block.
@@ -328,7 +332,9 @@ export class ConversationController extends Service implements IConversation {
     return { kind: 'success' }
   }
 
-  appendDraft(sessionId: SessionId, text: string, files: readonly File[] = []): 'added' | 'blocked' | 'unavailable' {
+  appendDraft(
+    sessionId: SessionId, text: string, files: readonly File[] = [], contexts: readonly DraftContextInsert[] = [],
+  ): 'added' | 'blocked' | 'unavailable' {
     const binding = this.requireSessions().binding(sessionId)
     const state = binding?.session.getSnapshot()
     if (binding === undefined || state === undefined || state.removed) return 'unavailable'
@@ -339,7 +345,7 @@ export class ConversationController extends Service implements IConversation {
     const { phase } = input.state.getSnapshot()
     if (phase === 'adjudicating' || phase === 'submitting' || phase === 'sending') return 'blocked'
     const drafts = this.createDrafts(sessionId, files, subagent === null)
-    if (input.appendDraft(text, drafts.map(draft => draft.id))) return 'added'
+    if (input.appendDraft(text, drafts.map(draft => draft.id), contexts)) return 'added'
     this.releaseDraftAttachments(drafts)
     return 'blocked'
   }
