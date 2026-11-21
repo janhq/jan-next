@@ -18,8 +18,9 @@ function div(className: string | undefined, text?: string): HTMLDivElement {
 export class BootPage {
   private readonly root: HTMLDivElement
   private readonly card: HTMLDivElement
+  private readonly mark: HTMLDivElement
   private readonly wordmark: HTMLDivElement
-  private readonly spinner: HTMLDivElement
+  private readonly progress: HTMLDivElement
   private readonly hint: HTMLDivElement
   private readonly states = new Map<string, LoaderEntryState>()
   private readonly active = new Set<string>()
@@ -34,18 +35,22 @@ export class BootPage {
     this.root = div(css.boot)
     this.root.dataset.janBoot = ''
     this.card = div(css.card)
-    this.wordmark = div(css.wordmark, 'HARNESS')
-    this.spinner = div(css.spinner)
-    this.spinner.dataset.janBootSpinner = ''
+    this.mark = div(css.mark, '\u{1F44B}')
+    this.mark.setAttribute('aria-hidden', 'true')
+    this.wordmark = div(css.wordmark, 'Jan')
+    this.progress = div(css.progress)
+    this.progress.dataset.janBootProgress = ''
+    this.progress.setAttribute('role', 'progressbar')
+    this.progress.setAttribute('aria-label', 'Loading plugins')
     this.hint = div(css.hint, 'Loading plugins…')
-    this.card.append(this.wordmark, this.spinner, this.hint)
+    this.card.append(this.mark, this.wordmark, this.progress, this.hint)
     this.root.append(this.card)
     container.append(this.root)
     this.updateProgress()
   }
 
   /**
-   * Set the number of loader entries represented by the progress arc.
+   * Set the number of loader entries represented by the progress bar.
    * @param total - Complete boot roster size.
    */
   setTotal(total: number): void {
@@ -83,8 +88,8 @@ export class BootPage {
   private render(): void {
     const failed = [...this.states].filter(([, state]) => state === 'failed').map(([id]) => id)
     if (this.failure === undefined && failed.length === 0) {
-      if (this.spinner.parentElement !== this.card) {
-        this.card.replaceChildren(this.wordmark, this.spinner, this.hint)
+      if (this.progress.parentElement !== this.card) {
+        this.card.replaceChildren(this.mark, this.wordmark, this.progress, this.hint)
       }
       return
     }
@@ -92,12 +97,12 @@ export class BootPage {
     report.append(div(css.failedTitle, 'Failed to load plugins'))
     for (const id of failed) report.append(div(css.failedItem, id))
     if (this.failure !== undefined) report.append(div(css.failedItem, this.failure))
-    this.card.replaceChildren(this.wordmark, report)
+    this.card.replaceChildren(this.mark, this.wordmark, report)
   }
 
-  /** Grow the rotating arc monotonically as loader entries activate. */
+  /** Grow the progress bar monotonically as loader entries activate; it starts a fifth full so it reads as alive. */
   private updateProgress(): void {
     const ratio = this.total === 0 ? 0 : Math.min(this.active.size / this.total, 1)
-    this.spinner.style.setProperty('--jan-boot-arc', `${String(Math.round(72 + ratio * 216))}deg`)
+    this.progress.style.setProperty('--jan-boot-progress', `${String(Math.round(20 + ratio * 80))}%`)
   }
 }

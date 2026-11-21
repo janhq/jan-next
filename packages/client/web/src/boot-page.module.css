@@ -25,14 +25,33 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+}
+
+/* Jan's hand, waving from the wrist: two quick swings, then a rest, like a hello. */
+.mark {
+  font-size: 40px;
+  line-height: 48px;
+  transform-origin: 70% 80%;
+  animation: wave 1.8s ease-in-out infinite;
+}
+
+@keyframes wave {
+  0%, 60%, 100% { transform: rotate(0deg); }
+  10%, 30% { transform: rotate(14deg); }
+  20% { transform: rotate(-8deg); }
+  40% { transform: rotate(-4deg); }
+  50% { transform: rotate(10deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mark { animation: none; }
 }
 
 .wordmark {
-  font-size: 16px;
+  font-size: 18px;
   line-height: 24px;
   font-weight: 600;
-  letter-spacing: 0.08em;
   color: var(--dsw-alias-label-primary, var(--jan-boot-label-primary));
 }
 
@@ -42,31 +61,23 @@
   color: var(--dsw-alias-label-tertiary, var(--jan-boot-label-tertiary));
 }
 
-.spinner {
-  position: relative;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  corner-shape: round;
-  border: 2px solid var(--dsw-alias-border-l2, var(--jan-boot-border));
-  animation: spin 0.8s linear infinite;
+.progress {
+  width: 96px;
+  height: 3px;
+  margin-top: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--dsw-alias-border-l2, var(--jan-boot-border));
 }
 
-.spinner::after {
+.progress::after {
   content: '';
-  position: absolute;
-  inset: -2px;
+  display: block;
+  width: var(--jan-boot-progress, 20%);
+  height: 100%;
   border-radius: inherit;
-  background: conic-gradient(
-    var(--dsw-alias-brand-primary, var(--jan-boot-brand)) var(--jan-boot-arc, 72deg),
-    transparent 0
-  );
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 0);
-  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 0);
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
+  background: var(--dsw-alias-brand-primary, var(--jan-boot-brand));
+  transition: width 240ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 .failed {
