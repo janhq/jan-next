@@ -5,6 +5,8 @@ export interface AgentPreset {
   readonly id: string
   readonly name?: string
   readonly description?: string
+  /** Menu icon: a product glyph name or one emoji. */
+  readonly icon?: string
   readonly order?: number
   readonly broken?: string
 }

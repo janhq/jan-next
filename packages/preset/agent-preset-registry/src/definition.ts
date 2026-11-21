@@ -6,6 +6,8 @@ export interface PresetDefinition {
   readonly id: string
   readonly name?: string
   readonly description?: string
+  /** Menu icon: a product glyph name such as `code-outline`, or one emoji. */
+  readonly icon?: string
   readonly order?: number
   /** Inherited tool names this preset admits. Omit to leave inherited tools unchanged. */
   readonly toolAllowlist?: readonly string[] | undefined

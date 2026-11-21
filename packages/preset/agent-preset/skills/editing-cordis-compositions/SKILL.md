@@ -39,6 +39,7 @@ Write a bundle directory in the workspace with exactly two files, then install i
         id: review
         name: Review
         description: Reviews changes with the shell only.
+        icon: 🔍
         order: 10
         plugins:
           - id: persona
@@ -48,6 +49,8 @@ Write a bundle directory in the workspace with exactly two files, then install i
           - id: tool-bash
             name: '@janhq/jan-tool-bash'
 ```
+
+`icon` is optional: one emoji the user picked, or a Jan glyph name (`chat-outline`, `code-outline`, `api-outline`, `layers-outline`, `plugin-pinwheel-outline`, `inspect-outline`, `skill-outline`, `goal-outline`). Ask the user which they want when they care; otherwise pick one that fits the preset's job.
 
 Install with `plugin_manager`, `action: install_bundle`, `target` set to the absolute bundle directory. It runs package installation and bundle selection itself; do not reproduce those steps with shell commands.
 
