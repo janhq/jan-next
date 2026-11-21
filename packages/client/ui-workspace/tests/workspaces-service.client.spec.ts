@@ -770,7 +770,7 @@ describe('UiWorkspaceService', () => {
     b.uiWorkspace.openSession(current.id)
     b.uiWorkspace.startSession()
     await vi.waitFor(() => {
-      expect(b.sessions.retain).toHaveBeenLastCalledWith(sid('created-current-home'), { source: 'mainView' })
+      expect(b.sessions.retain).toHaveBeenCalledWith(sid('created-current-home'), { source: 'mainView' })
     })
     const recentOnly = bench({
       sessions: sessionState([current, recent]),
@@ -1619,11 +1619,24 @@ describe('UiWorkspaceService navigation history', () => {
     const { b } = fixture()
     b.uiWorkspace.openSession(sid('b'))
     b.uiWorkspace.goBack()
-    expect(b.sessions.retain.mock.calls.map(args => args[0])).toEqual([sid('a'), sid('b'), sid('a')])
-    const [first, second, third] = b.sessions.retained
+    // Recent-view retains keep left chats warm; this checks only the main view's own references.
+    const main = b.sessions.retained.filter((_, index) => b.sessions.retain.mock.calls[index]![1]?.source === 'mainView')
+    expect(main.map(item => item.reference.sessionId)).toEqual([sid('a'), sid('b'), sid('a')])
+    const [first, second, third] = main
     expect(first!.release).toHaveBeenCalledOnce()
     expect(second!.release).toHaveBeenCalledOnce()
     expect(third!.release).not.toHaveBeenCalled()
+  })
+
+  it('keeps the last three chats it left open and releases older ones', () => {
+    const { b } = fixture(['d', 'e'])
+    for (const id of ['b', 'c', 'd', 'e']) b.uiWorkspace.openSession(sid(id))
+    const recent = b.sessions.retained.filter((_, index) => b.sessions.retain.mock.calls[index]![1]?.source === 'recentView')
+    expect(recent.map(item => item.reference.sessionId)).toEqual([sid('a'), sid('b'), sid('c'), sid('d')])
+    expect(recent.map(item => item.release.mock.calls.length)).toEqual([1, 0, 0, 0])
+    // Returning to a kept chat hands it back to the main view.
+    b.uiWorkspace.openSession(sid('c'))
+    expect(recent[2]!.release).toHaveBeenCalledOnce()
   })
 
   it('does not record the replay as a navigation', () => {
@@ -1786,7 +1799,7 @@ describe('UiWorkspaceService navigation history', () => {
     b.uiWorkspace.startSession(wid('w'))
     await vi.waitFor(() => { expect(b.uiWorkspace.navigationHistory.getSnapshot().canGoBack).toBe(true) })
     b.uiWorkspace.goBack()
-    expect(b.sessions.retain.mock.calls.at(-1)![0]).toBe(sid('a'))
+    expect(b.sessions.retain.mock.calls.findLast(args => args[1]?.source === 'mainView')![0]).toBe(sid('a'))
   })
 
   it('caps the stack at 50 entries, dropping the oldest', () => {

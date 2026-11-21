@@ -32,6 +32,9 @@ interface MainSelection {
   readonly subagentAddress?: SubagentAddress
 }
 
+/** Chats the user just left that stay open, so switching back paints the transcript at once. */
+const RECENT_VIEW_LIMIT = 3
+
 /** Content preparation and Agent preset for the Session a Workspace flow opens. */
 export interface StartSessionOptions extends DraftInitializationOptions {
   /** Agent preset the Session runs; the Host default when omitted. */
@@ -216,6 +219,8 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     {}, { persist: { name: 'jan.sessions.current' } },
   )
   private mainReference: SessionReference | undefined
+  /** Most recent last; each keeps one Session's history open after the main view leaves it. */
+  private readonly recentReferences: SessionReference[] = []
   private restorationNavigation: AbortSignal | undefined
   /** Replacement search surfaces in registration order; the last one receives Search. */
   private readonly searchHandlers: { readonly open: () => void }[] = []
@@ -249,6 +254,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
         const reference = this.mainReference
         this.mainReference = undefined
         reference?.release()
+        for (const recent of this.recentReferences.splice(0)) recent.release()
       }
     }, 'ui-workspace: Workspace navigation policy')
   }
@@ -442,6 +448,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   async archiveSession(sessionId: SessionId, options: { readonly stopActivity?: boolean } = {}): Promise<void> {
     await this.workspaces.archiveSession(sessionId, options)
     if (this.mainReference?.sessionId === sessionId) this.clearMain('replace')
+    this.forgetRecent(id => id === sessionId)
   }
 
   async unarchiveSession(sessionId: SessionId): Promise<void> {
@@ -537,6 +544,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     const reconcile = (): void => {
       if (this.lifetime.signal.aborted) return
       this.history.prune(this.reachable)
+      this.forgetRecent(id => !this.reachable({ sessionId: id, panelId: null }))
       if (this.clearArchivedCurrent()) return
       if (initial !== 'waiting' || this.restorationNavigation?.aborted === true) return
       const workspace = this.workspaces.list.getSnapshot()
@@ -663,10 +671,30 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     }
     const previous = this.mainReference
     this.mainReference = reference
+    if (previous !== undefined && previous.sessionId !== reference.sessionId) this.keepRecent(previous.sessionId)
+    this.forgetRecent(id => id === reference.sessionId)
     previous?.release()
     if (panel === 'reveal') this.showConversation()
     // Only a user opening a Session is a navigation; restoration and replays keep the history as it is.
     this.settle(panel === 'reveal' ? 'push' : 'replace')
+  }
+
+  /** Keep a Session the main view is leaving open, dropping the oldest beyond the limit. */
+  private keepRecent(sessionId: SessionId): void {
+    this.forgetRecent(id => id === sessionId)
+    try {
+      this.recentReferences.push(this.sessions.retain(sessionId, { source: 'recentView' }))
+    } catch {
+      // A Session that can no longer be addressed is simply not kept warm.
+    }
+    while (this.recentReferences.length > RECENT_VIEW_LIMIT) this.recentReferences.shift()?.release()
+  }
+
+  private forgetRecent(match: (sessionId: SessionId) => boolean): void {
+    const dropped = this.recentReferences.filter(reference => match(reference.sessionId))
+    if (dropped.length === 0) return
+    this.recentReferences.splice(0, Infinity, ...this.recentReferences.filter(reference => !dropped.includes(reference)))
+    for (const reference of dropped) reference.release()
   }
 
   /** Select the Conversation panel without letting the panel observer record the half-written location. */
