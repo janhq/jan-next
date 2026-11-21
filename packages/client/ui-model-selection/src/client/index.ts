@@ -33,6 +33,7 @@ import { ModelDirectoryResolver } from './service.ts'
 import type { ModelSelectInjected } from './slots.ts'
 import { ModelSelect } from './ModelSelect.tsx'
 import { ImageNotice, type ImageNoticeInjected } from './ImageNotice.tsx'
+import { ToolNotice, type ToolNoticeInjected } from './ToolNotice.tsx'
 import { en, ja, es, fr, de, ru, pt, zh, type ModelKey } from './locales.ts'
 import { overflowOf } from './send-check.ts'
 import type { ContextPressureProjection } from '@janhq/jan-token-meter/client'
@@ -245,6 +246,24 @@ export function apply(ctx: ClientContext): void {
         }
       },
     }, ImageNotice))
+  })
+
+  // Say as soon as a model that cannot use tools is selected; dismissed per chat and model.
+  ctx.inject(['slots', 'modelDirectories'], (scope: ClientContext) => {
+    const dismissed = new Set<string>()
+    scope.slots.inject('conversation.input.dock', () => scope.slots.register({
+      name: 'conversation.input.dock', id: 'model-tools', order: 31, locale: NS,
+      inject: (sessionId: SessionId): ToolNoticeInjected => {
+        const directory = scope.modelDirectories.directoryFor(sessionId)
+        const key = (model: string): string => `${String(sessionId)}\n${model}`
+        return {
+          directory: directory.store,
+          select: async selection => (await directory.select(selection)).ok,
+          dismissed: model => dismissed.has(key(model)),
+          dismiss: (model) => { dismissed.add(key(model)) },
+        }
+      },
+    }, ToolNotice))
   })
 
   // Entry 1: the /model popupSelect over the shared directory.

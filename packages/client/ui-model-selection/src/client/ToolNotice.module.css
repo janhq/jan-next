@@ -1,0 +1,85 @@
+/* The input dock is not a size container, so the notice brings its own:
+   an anonymous full-width container (CSS modules hash container names)
+   that the narrow rule below queries. */
+.frame {
+  container-type: inline-size;
+  width: 100%;
+}
+
+/* A quiet card above the composer, on the composer's own surface and
+   hairline, aligned with its card: the dock has no side clearance of its
+   own, so subtract the composer's. Informational, not an error: the send
+   still works, the model just cannot call tools. */
+.notice {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: calc(100% - var(--jan-composer-side-clearance) - var(--jan-composer-side-clearance));
+  max-width: var(--jan-composer-card-max-width);
+  margin: 0 auto;
+  padding: 10px 10px 10px 14px;
+  --dsw-elevation-stroke-color: var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-panel);
+  background: var(--dsw-specific-input-major);
+  box-shadow: var(--dsw-elevation-soft);
+  color: var(--dsw-alias-label-primary);
+}
+
+.icon {
+  flex: none;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.title,
+.hint {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.title {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.hint {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.action {
+  flex: none;
+  max-width: 45%;
+  border-radius: 999px;
+}
+
+.close {
+  flex: none;
+  width: 28px;
+  padding: 0;
+  color: var(--dsw-alias-label-secondary);
+}
+
+/* A narrow composer stacks the switch under the text, so neither is cut. */
+@container (max-width: 480px) {
+  .notice {
+    flex-wrap: wrap;
+  }
+
+  .text {
+    flex-basis: calc(100% - 72px);
+  }
+
+  .action {
+    order: 3;
+    max-width: none;
+    margin-left: 28px;
+  }
+}
