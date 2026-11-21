@@ -1,5 +1,5 @@
 /**
- * The session header's agent-preset control.
+ * The started session's agent-preset chip, under its composer.
  *
  * A started session keeps every message it already has; what a switch changes
  * is the composition its NEXT turn runs under. The Host accepts the selection
@@ -15,15 +15,15 @@ import {
   IconAgentPresetOutlineRegular, IconChevronDownOutlineRegular, IconWarningOutlineRegular, Menu, Toast,
 } from '@janhq/jan-client-ui-primitives'
 import type { SessionId } from '@janhq/jan-session/types'
-// Type-only: pulls the ui-conversation SlotMap merge (the header actions).
+// Type-only: pulls the ui-conversation SlotMap merge (the composer preset seat).
 import type { } from '@janhq/jan-client-ui-conversation/client'
 import type { } from '@janhq/jan-agent-preset-registry/types'
 import type { AgentPresetSettingsState } from './settings-store.ts'
 import { presetDisplayText } from './locales.ts'
 import { requiresCodingTools } from './settings-store.ts'
-import css from './AgentPresetLabel.module.css'
+import css from './AgentPresetSeat.module.css'
 
-/** Registration-side business face for the header control. */
+/** Registration-side business face for the composer chip. */
 export interface AgentPresetLabelInjected {
   hooks: {
     /** Roster snapshot bound by the renderer as useAgentPresets. */
@@ -44,7 +44,7 @@ export interface AgentPresetLabelInjected {
 
 /** Full component props. */
 export type AgentPresetLabelProps =
-  PropsRuntime<'conversation.session.header.actions'>
+  PropsRuntime<'conversation.composer.agentPreset'>
   & PropsLocale<'settings.agentPreset'>
   & InjectFace<AgentPresetLabelInjected>
 
@@ -127,14 +127,14 @@ export function AgentPresetLabel({
             setRefusal({ seq: refusalSeq.current, id, reason: error instanceof Error ? error.message : String(error) })
           }).finally(() => { setBusy(false) })
         }}
-        align="end"
+        align="start"
         portal
         className={css.menuAnchor}
         anchor={(
           <button
             type="button"
             ref={control}
-            className={css.label}
+            className={css.seat}
             aria-haspopup="menu"
             aria-expanded={open && !running}
             aria-label={`${hint}: ${name}`}
@@ -142,9 +142,9 @@ export function AgentPresetLabel({
             disabled={busy || running || choices.length === 0}
             onClick={() => { setOpen(value => !value) }}
           >
-            <IconAgentPresetOutlineRegular size={14} className={css.icon} />
-            <span className={css.name}>{name}</span>
-            <IconChevronDownOutlineRegular size={12} className={css.chevron} />
+            <IconAgentPresetOutlineRegular className={css.seatIcon} />
+            <span className={css.seatLabel}>{name}</span>
+            <IconChevronDownOutlineRegular className={css.chevron} />
           </button>
         )}
       />
