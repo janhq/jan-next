@@ -59,7 +59,7 @@ export function coworkMessages(thread, cowork) {
   if (Array.isArray(cowork.subagents) && cowork.subagents.length) {
     losses.push(`${cowork.subagents.length} Cowork subagent runs are kept only as their tool results, not as separate transcripts.`)
   }
-  if (typeof thread.metadata?.folder === 'string') losses.push(`This Cowork chat worked in ${thread.metadata.folder}; it is imported into the default workspace.`)
+  if (typeof thread.metadata?.folder === 'string') losses.push(`This Cowork chat's original folder (${thread.metadata.folder}) is not linked to the imported chat.`)
   return { messages, losses }
 }
 
