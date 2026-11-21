@@ -528,7 +528,7 @@ export function SearchResultItem({
 }: {
   result: SearchResultNode
   currentId: string | undefined
-  onOpen: (id: SearchResultNode['id']) => void
+  onOpen: WorkspaceBrowserProps['open']
   onUnarchive: (id: SearchResultNode['id']) => void
   t: RowTranslate
 } & Pick<WorkspaceBrowserProps, 'useSessionAccess'>) {
@@ -542,7 +542,10 @@ export function SearchResultItem({
       role="treeitem"
       aria-selected={selected}
       aria-description={result.archived ? t('toast.archivedNotOpenable') : undefined}
-      onClick={() => { onOpen(result.id) }}
+      onClick={(event) => {
+        if (event.metaKey || event.ctrlKey) onOpen(result.id, { meta: event.metaKey, control: event.ctrlKey })
+        else onOpen(result.id)
+      }}
     >
       <span className={css.searchResultHeading}>
         {/* Like session rows, the leading slot owns every row marker; on
@@ -616,7 +619,7 @@ export function SessionNodeItem({
   node: SessionNode
   currentId: string | undefined
   now: number
-  onOpen: (id: SessionNode['id']) => void
+  onOpen: WorkspaceBrowserProps['open']
   /** Open the rename dialog from a title double-click (id + current title); see the function JSDoc for the press precondition. */
   onRenameRequest: (id: SessionNode['id'], currentTitle: string) => void
   /** Scroll this row into view after search navigation, then acknowledge it. */
@@ -679,7 +682,10 @@ export function SessionNodeItem({
       aria-description={row.archived ? t('toast.archivedNotOpenable') : undefined}
       tabIndex={0}
 
-      onClick={() => { onOpen(node.id) }}
+      onClick={(event) => {
+        if (!row.blank && (event.metaKey || event.ctrlKey)) onOpen(node.id, { meta: event.metaKey, control: event.ctrlKey })
+        else onOpen(node.id)
+      }}
       {...getTriggerProps(row.blank ? undefined : { kind: 'session', value: { sessionId: node.id, displayTitle: row.title } }, {
         onKeyDown: (event) => {
           if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) return

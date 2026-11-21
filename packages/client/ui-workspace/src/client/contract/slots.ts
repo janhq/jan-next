@@ -329,8 +329,8 @@ export type WorkspaceBrowserInjected = {
    * Workspace, or most recent Workspace, or clear into the New Session view.
    */
   startSession: (workspaceId?: WorkspaceId, options?: StartSessionOptions) => void
-  /** Open a real Session. */
-  open: (sessionId: SessionId) => void
+  /** Open a real Session. Pointer modifiers apply the platform's new-tab gesture. */
+  open: (sessionId: SessionId, modifiers?: { readonly meta: boolean; readonly control: boolean }) => void
   /**
    * Search current visible conversation messages. The Host fixes the result
    * bound; `hasMore` means the query needs narrowing.
