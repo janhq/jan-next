@@ -21,9 +21,10 @@ window.__ModuleLoader__.load({
 
     const CSS = `
 /* No fill, no rule: the bar sits on the window ground. Under the Jan theme it shares the chat column
-   with the conversation and its bottom edge lines up with the floating sidebar card's. */
+   with the conversation, set half the sidebar gap above the window edge so its readings sit low,
+   level with the floating sidebar card's bottom rather than floating above it. */
 .jsb-bar { display: flex; align-items: stretch; justify-content: space-between; gap: 8px; height: 20px; padding: 0 var(--jt-sidebar-gap, 6px);
-  margin-bottom: var(--jt-sidebar-gap, 0px); box-sizing: border-box; background: transparent;
+  margin-bottom: calc(var(--jt-sidebar-gap, 0px) / 2); box-sizing: border-box; background: transparent;
   color: var(--dsw-alias-label-tertiary); font-size: 11px; line-height: 14px; user-select: none; overflow: hidden; }
 .jsb-side { display: flex; align-items: stretch; min-width: 0; }
 .jsb-side[data-side='right'] { justify-content: flex-end; }
