@@ -78,12 +78,11 @@ export function apply(ctx: ClientContext): void {
     }, SubagentHeaderLineage),
   )
   ctx.slots.inject(
-    'conversation.session.header.actions',
+    'conversation.input.dock',
     () => ctx.slots.register({
-      name: 'conversation.session.header.actions',
+      name: 'conversation.input.dock',
       id: 'subagent-catalog',
-      // Between the preset label (-10) and background tasks (20).
-      order: 10,
+      order: 6,
       locale: NS,
       inject: (sessionId): SubagentCatalogActionInjected => ({
         ...catalogActions(sessionId), hooks: { footerAvailable },

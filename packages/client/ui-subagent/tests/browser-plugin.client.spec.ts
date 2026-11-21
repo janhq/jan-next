@@ -65,6 +65,7 @@ async function provideSlotFaces(ctx: Context): Promise<void> {
     children: {
       'conversation.session.header.lineage': { kind: 'single', scope: 'session' },
       'conversation.session.header.actions': { kind: 'list', scope: 'session' },
+      'conversation.input.dock': { kind: 'list', scope: 'session' },
       'conversation.composer': { kind: 'chain', scope: 'session' },
     },
   } as never, () => null)
@@ -146,12 +147,9 @@ describe('apply', () => {
       { method: 'refreshProjections', args: [sid('parent')] },
     ])
 
-    // The root-session catalog seat registers in the actions band with the
-    // same business face, between the preset label (-10) and background
-    // tasks (20).
-    const actionEntry = ctx.slots.entries('conversation.session.header.actions')
+    expect(ctx.slots.entries('conversation.session.header.actions').some(entry => entry.options.id === 'subagent-catalog')).toBe(false)
+    const actionEntry = ctx.slots.entries('conversation.input.dock')
       .find(entry => entry.options.id === 'subagent-catalog')!
-    expect(actionEntry.options.order).toBe(10)
     const actionProps = (actionEntry.inject as (id: SessionId) => SubagentCatalogActionInjected)(sid('parent'))
     const source = actionProps.hooks.footerAvailable
     const changed = vi.fn()
