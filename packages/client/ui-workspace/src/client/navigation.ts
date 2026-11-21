@@ -291,13 +291,14 @@ class UiWorkspaceService extends Service implements UiWorkspace {
 
   /** Name the first reusable member blank; a requested preset also skips blanks listing another preset. */
   private createInWorkspace(workspace: WorkspaceView, options: Pick<StartSessionOptions, 'agentPreset'>): Promise<SessionId> {
-    const archived = this.workspaces.list.getSnapshot().archivedSessionIds
+    const archived = new Set(this.workspaces.list.getSnapshot().archivedSessionIds)
+    const members = new Set(workspace.sessionIds)
     const sessions = this.sessions.list.getSnapshot()
     const blank = sessions.ids.find((id) => {
       const summary = sessions.byId[id]
       const listed = summary?.projectionValues?.agentPreset
       return summary !== undefined && summary.blank && summary.cwd === workspace.path
-        && workspace.sessionIds.includes(id) && !archived.includes(id)
+        && members.has(id) && !archived.has(id)
         && (options.agentPreset === undefined || typeof listed !== 'string' || listed === options.agentPreset)
     })
     return this.createNamed({
@@ -411,10 +412,9 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     const currentWorkspaceId = current === undefined
       ? undefined
       : workspace.items.find(item => item.sessionIds.includes(current))?.workspaceId
-    const recent = workspace.phase === 'ready' && sessions.phase === 'ready'
+    const target = workspaceId ?? currentWorkspaceId ?? (workspace.phase === 'ready' && sessions.phase === 'ready'
       ? recentWorkspace(workspace.items, sessions.byId)
-      : undefined
-    const target = workspaceId ?? currentWorkspaceId ?? recent
+      : undefined)
     if (target === undefined) {
       if (initializeDraft) {
         this.notify({ kind: 'createFailed', message: this.ctx.locale.bind('workspace')('draft.workspaceRequired') })
