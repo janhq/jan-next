@@ -84,7 +84,9 @@ export const InputBar = memo(function InputBar({
   const stopAction = cancelDenied ? undefined : stop
   void useLexicon // hook seat stays bound by the inject compartment; text-ref decoration rides the shell's editor transforms
   const commandMenuOpen = useMenuLauncher(source => source === 'command')
-  const [activity, setActivity] = useState(false)
+  const [sessionActivity, setActivity] = useState(false)
+  const [draftActivity, setDraftActivity] = useState(false)
+  const activity = sessionActivity || draftActivity
   useEffect(() => { setActivity(false) }, [sessionId])
   const promptError = useSession(s => s.promptError) ?? null
   const running = useSession(s => s.running) ?? false
@@ -170,17 +172,20 @@ export const InputBar = memo(function InputBar({
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const draftOpening = useRef<Promise<void> | undefined>(undefined)
   const [hasBootstrapText, setHasBootstrapText] = useState(false)
-  const activateDraft = (element?: HTMLDivElement): void => {
-    if (onActivateDraft === undefined) return
+  const openDraft = (element?: HTMLDivElement): Promise<void> => {
+    if (onActivateDraft === undefined) return Promise.resolve()
     const readText = (): string => {
       const input = element ?? cardRef.current?.querySelector<HTMLDivElement>('[data-composer-input]')
       return input?.innerText ?? input?.textContent ?? ''
     }
     setHasBootstrapText(readText() !== '')
-    if (draftOpening.current !== undefined) return
-    const opening = onActivateDraft(readText).catch(() => { /* Navigation reports the failure and leaves the draft intact. */ })
+    if (draftOpening.current !== undefined) return draftOpening.current
+    const opening = onActivateDraft(readText).finally(() => { draftOpening.current = undefined })
     draftOpening.current = opening
-    void opening.finally(() => { draftOpening.current = undefined })
+    return opening
+  }
+  const activateDraft = (element?: HTMLDivElement): void => {
+    void openDraft(element).catch(() => { /* Navigation reports the failure and leaves the draft intact. */ })
   }
 
   const continuable = subagent?.address.mode === 'continuable'
@@ -626,9 +631,20 @@ export const InputBar = memo(function InputBar({
                 : renderSlot('conversation.input.right', {})}
               {sessionId === undefined ? null : renderSlot('conversation.input.model', { locked: modelSeatLocked })}
             </div>
-            {input === undefined || sessionId === undefined ? null : <div className={activity ? css.activityExpanded : css.activity}>
-              {renderSlot('conversation.input.activity', { locked, onActiveChange: setActivity })}
-            </div>}
+            {input !== undefined && sessionId !== undefined && !draftActivity && (
+              <div className={sessionActivity ? css.activityExpanded : css.activity}>
+                {renderSlot('conversation.input.activity', { locked, onActiveChange: setActivity })}
+              </div>
+            )}
+            {!sessionActivity && (sessionId !== undefined || onActivateDraft !== undefined) && (
+              <div className={draftActivity ? css.activityExpanded : css.activity}>
+                {renderSlot('conversation.input.draftActivity', {
+                  locked: sessionId !== undefined ? locked : promptDenied,
+                  onActiveChange: setDraftActivity,
+                  ...(sessionId === undefined && onActivateDraft !== undefined ? { openDraft } : {}),
+                })}
+              </div>
+            )}
             {interruptible && !cancelDenied && (
               <Tooltip label={t('input.stop')} shortcutKeys={stopKeys} side="top" delayMs={500} disabled={stopAction === undefined} portal>
                 <button
