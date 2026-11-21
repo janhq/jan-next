@@ -224,10 +224,22 @@
 /* Selection still sets data-selected for details linkage; no outline —
    tool rows match Think chrome (no selected ring). */
 
+/* A history open usually lands within a few frames; showing the hint at once
+   flashes text on every chat switch. It appears only for a load the user
+   would actually wait on. */
 .hint {
   color: var(--dsw-alias-label-tertiary);
   font-size: var(--jan-content-font-size-secondary, 13px);
   line-height: calc(18px + var(--jan-content-font-delta-secondary, 0px));
+  animation: hint-in 150ms var(--ds-ease-out) 400ms backwards;
+}
+
+@keyframes hint-in {
+  from { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hint { animation-duration: 1ms; }
 }
 
 .running {
