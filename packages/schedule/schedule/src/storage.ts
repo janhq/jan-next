@@ -81,6 +81,8 @@ export const scheduleTaskSchema = z.object({
   record: recordSchema,
   sessionId: z.unknown().optional(),
   target: targetSchema.optional(),
+  /** A Session inbox that must be mounted before this task may deliver. */
+  sessionDestinationOwner: z.string().min(1).exactOptional(),
   pluginPayload: z.string().exactOptional(),
   involvedSessionIds: z.array(sessionIdSchema).optional(),
   status: z.enum(['active', 'paused', 'ended', 'inactive']).default('active'),
@@ -132,8 +134,10 @@ export const scheduleTaskSchema = z.object({
       history.records.push(decoded)
     }
   }
-  if (target.kind === 'plugin' && (task.pendingDelivery !== undefined || history.records.some(value => value.owner !== target.owner))
-    || target.kind !== 'plugin' && (task.pluginPayload !== undefined || history.records.some(value => value.owner !== undefined))) {
+  if (target.kind === 'plugin' && (task.sessionDestinationOwner !== undefined || task.pendingDelivery !== undefined
+      || history.records.some(value => value.owner !== target.owner))
+    || task.sessionDestinationOwner !== undefined && (target.kind !== 'session' || task.pendingDelivery !== undefined)
+    || task.pluginPayload !== undefined && target.kind !== 'plugin' && task.sessionDestinationOwner === undefined) {
     context.addIssue({ code: 'custom', message: 'Plugin delivery state must belong to its registered owner' })
     return z.NEVER
   }
