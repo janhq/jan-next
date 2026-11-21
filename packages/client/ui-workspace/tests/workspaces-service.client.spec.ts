@@ -739,6 +739,19 @@ describe('UiWorkspaceService', () => {
     expect(b.notify).toHaveBeenCalledTimes(3)
   })
 
+  it.each([
+    ['a', "This project's folder is missing. It may have been moved or deleted. (a)"],
+    ['unknown', "This project's folder is missing. It may have been moved or deleted."],
+  ])('explains a missing project folder for reported project %s', async (id, message) => {
+    const b = bench({ workspaces: workspaceState([workspace('a')]), sessions: sessionState() })
+    const refused = new SessionCreateError(new RemoteError(
+      'workspace/project-folder-missing', 'The registered project folder is unavailable.', { workspaceId: wid(id) },
+    ), undefined)
+    b.sessions.create.mockRejectedValueOnce(refused)
+    await expect(b.uiWorkspace.openWorkspace(wid('a'))).rejects.toBe(refused)
+    expect(b.notify).toHaveBeenCalledExactlyOnceWith({ kind: 'createFailed', message })
+  })
+
   it('ignores the retained chat and recent projects when starting a global New Session', async () => {
     const current = summary('current', { cwd: '/w/current-home', updatedAt: 1 })
     const recent = summary('recent', { cwd: '/w/recent-home', updatedAt: 2 })

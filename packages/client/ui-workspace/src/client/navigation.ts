@@ -18,6 +18,7 @@ import type { SubagentAddress } from '@janhq/jan-subagent/client'
 import type {
   IWorkspaces, WorkspaceId, WorkspaceSnapshot, WorkspaceView,
 } from '@janhq/jan-api-workspace-controller/client'
+import { workspaceDisplayTitle } from '@janhq/jan-api-workspace-controller/default-workspace'
 import type { SessionId } from '@janhq/jan-session/types'
 import type { MainPanelId } from '@janhq/jan-client-ui-layout/client'
 import type { DraftInitializationOptions } from '@janhq/jan-client-ui-conversation/client'
@@ -411,7 +412,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
       }
     } catch (error: unknown) {
       // Startup restoration connects directly and stays console-only on Session creation failure.
-      if (!navigation.aborted) this.notify({ kind: 'createFailed', message: creationFailureMessage(error) })
+      if (!navigation.aborted) this.notify({ kind: 'createFailed', message: this.creationFailureMessage(error) })
       throw error
     }
     if (navigation.aborted) return
@@ -823,6 +824,17 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     else this.ctx.layout.selectPanel(location.panelId)
   }
 
+  private creationFailureMessage(error: unknown): string {
+    const failure = sessionCreateErrorOf(error)?.rpcError
+    if (failure === undefined) return error instanceof Error ? error.message : String(error)
+    if (failure.code !== 'workspace/project-folder-missing') return `${failure.code}: ${failure.message}`
+
+    const snapshot = this.workspaces.list.getSnapshot()
+    const project = snapshot.items.find(item => item.workspaceId === failure.details.workspaceId)
+    const t = this.ctx.locale.bind('workspace')
+    const message = t('toast.projectFolderMissing')
+    return project === undefined ? message : `${message} (${workspaceDisplayTitle(project, t('workspace.defaultName'))})`
+  }
 }
 
 /**
@@ -834,14 +846,5 @@ function sessionCreateErrorOf(error: unknown): SessionCreateError | undefined {
   return error instanceof Error && error.name === 'SessionCreateError' ? error as SessionCreateError : undefined
 }
 
-/**
- * The words a failed Session creation is reported in: a Host refusal keeps its
- * stable code and message; any other failure keeps its own message.
- */
-function creationFailureMessage(error: unknown): string {
-  const refused = sessionCreateErrorOf(error)
-  if (refused !== undefined) return `${refused.rpcError.code}: ${refused.rpcError.message}`
-  return error instanceof Error ? error.message : String(error)
-}
 
 export { UiWorkspaceService }
