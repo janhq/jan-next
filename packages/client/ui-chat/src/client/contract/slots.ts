@@ -269,6 +269,8 @@ export interface ChatNodeOwnerProps {
   forkAt: (seq: number) => void
   /** Session-authorized image loader supplied by the Chat view. */
   loadImage: MessageImageLoader
+  /** False in a closed process group or its live text-only peek. */
+  traceDetailsVisible?: boolean | undefined
   /** Turn-process state when this Node belongs to a projected Turn. */
   turnProcess?: TurnProcessOwnerProps | undefined
 }

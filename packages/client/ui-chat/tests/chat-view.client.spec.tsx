@@ -1263,6 +1263,15 @@ describe('ChatView', () => {
     act(() => { historical.callback([], historical) })
     expect(top).toBe(0)
 
+    const groupRoot = header.parentElement!.parentElement!
+    fireEvent.click(within(groupRoot).getByRole('button', { name: '显示完整过程' }))
+    expect(uncapped(body)).toBe(true)
+    expect(observers.has(historical)).toBe(false)
+    fireEvent.click(within(groupRoot).getByRole('button', { name: '限制过程高度' }))
+    expect(uncapped(body)).toBe(false)
+    const limited = [...observers].find(observer => observer.targets.has(body))!
+    act(() => { limited.callback([], limited) })
+
     top = 300
     fireEvent.scroll(body)
     fireEvent.click(header)
@@ -3972,13 +3981,15 @@ describe('ChatView', () => {
       expect(runningContent(view.container)).toBe(footer)
       expect(view.getByRole('status')).toBe(status)
     }
-    const durable = (event: SessionEvent) => publish({ type: 'event', event })
+    const durable = (event: SessionEvent) => { publish({ type: 'event', event }) }
     const attemptId = LlmAttemptId('running-phase-attempt')
     const callId = ToolCallId('running-phase-call')
     const coordinates = { turn: 1, step: 1 }
-    const chunk = (seq: number, value: StreamChunk) => publish({ type: 'transient', event: {
-      type: 'assistant/live-chunk', seq, time: 5_000, data: { ...coordinates, attemptId, chunk: value },
-    } })
+    const chunk = (seq: number, value: StreamChunk) => {
+      publish({ type: 'transient', event: {
+        type: 'assistant/live-chunk', seq, time: 5_000, data: { ...coordinates, attemptId, chunk: value },
+      } })
+    }
 
     durable({ type: 'turn/start', seq: SessionSeq(1), time: 1_000, data: { turn: 1 } })
     durable({ type: 'step/start', seq: SessionSeq(2), time: 2_000, data: coordinates })

@@ -293,7 +293,10 @@ export function apply(ctx: Context): void {
           loadThrough: seq => session.loadThrough(seq),
           loadImage: Object.assign(
             (attachment: ImageAttachmentRef) => ctx.uiConversation.imageUrl(sessionId, attachment),
-            { peek: (attachment: ImageAttachmentRef) => ctx.uiConversation.peekImageUrl(sessionId, attachment) },
+            {
+              peek: (attachment: ImageAttachmentRef) => ctx.uiConversation.peekImageUrl(sessionId, attachment),
+              acquire: (attachment: ImageAttachmentRef) => ctx.uiConversation.acquireImageUrl(sessionId, attachment),
+            },
           ),
           chatScroll: {
             save: (position) => {
