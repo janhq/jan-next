@@ -55,6 +55,8 @@ vi.mock('electron', () => ({
     name: 'Harness',
     requestSingleInstanceLock: () => true,
     setAsDefaultProtocolClient: vi.fn(),
+    // macOS raises Jan once a browser sign-in lands.
+    focus: vi.fn(),
     whenReady: () => Promise.resolve(),
     getLocale: () => 'en',
     getVersion: () => '1.0.0',
