@@ -821,7 +821,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       { id: HOSTS_SECTION, Icon: IconLinkOutlineRegular, label: 'hosts' },
     ]
     const PINS_KEY = 'jan-theme.sidebar.pinned'
-    const DEFAULT_PINS = ['jan-model-hub', 'plugins']
+    const DEFAULT_PINS = ['jan-model-hub', 'plugins', 'jan-always-on']
     const readPins = () => {
       try {
         const stored = JSON.parse(localStorage.getItem(PINS_KEY) ?? 'null')
