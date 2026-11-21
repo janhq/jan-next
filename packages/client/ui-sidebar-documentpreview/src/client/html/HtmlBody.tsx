@@ -1,6 +1,7 @@
 /** Static or interactive HTML in an opaque iframe, without parent application access. */
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
+import { withElementProbe } from '@janhq/jan-client-ui-primitives'
 import type { InjectFace, PropsLocale } from '@janhq/jan-client-ui-slots'
 import type { ObservableSnapshot } from '@janhq/jan-client-store'
 import type { DocumentPreviewProps } from '../document/contract.ts'
@@ -46,7 +47,8 @@ function HtmlFrame({ data, resourceAddress, readRelated, addResource, setResourc
       try {
         const bundle = await packHtml(data, readRelative, controller.signal)
         controller.signal.throwIfAborted()
-        const html = createHtmlDocument(bundle)
+        // The probe lets pick and grab name an element without opening the sandbox.
+        const html = createHtmlDocument({ ...bundle, data: withElementProbe(bundle.data) })
         url = URL.createObjectURL(new Blob([html], { type: 'text/html' }))
         setFrame({ data, readRelated, url })
       } catch {
@@ -65,7 +67,7 @@ function HtmlFrame({ data, resourceAddress, readRelated, addResource, setResourc
     return <LoadingIndicator label={t('loading')} />
   }
   if (frame.url === undefined) return <p className={css.status} role="alert">{t('failed')}</p>
-  return <iframe key={frame.url} name={frameName} className={css.frame} src={frame.url} sandbox="allow-scripts" title={t('frame')} data-html-preview />
+  return <iframe key={frame.url} name={frameName} className={css.frame} src={frame.url} sandbox="allow-scripts" title={t('frame')} data-html-preview data-element-probe="" />
 }
 
 /**
