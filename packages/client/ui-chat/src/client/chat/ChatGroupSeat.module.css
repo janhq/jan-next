@@ -41,6 +41,19 @@
   }
 }
 
+/* A live header carries the running status's colour and shimmer, since it is the
+   Turn's running indicator while it shows. */
+.root[data-process-live] .title {
+  --dsw-alias-label-shimmer: var(--dsw-alias-label-deep-diving-shimmer);
+  color: var(--dsw-alias-label-deep-diving);
+}
+
+/* Rows sit one step in under the header, on the title's text column, so the group
+   reads as a parent and its children. */
+.content {
+  padding-inline-start: calc(22px + var(--jan-content-font-delta, 0px));
+}
+
 /* The leading box and its glyph ride the body font-size delta so the icon
    keeps its optical share of the row at every Settings size. */
 .leading {

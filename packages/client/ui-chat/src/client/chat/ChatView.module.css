@@ -162,9 +162,9 @@
 }
 
 /* A live process header above is the Turn's one running indicator: it shows the
-   phase, the hand mark and the clock. The status keeps its announcement and any
-   feature detail (the running-detail slot's wrapper is always present, so detail
-   means a non-empty wrapper); without detail it leaves the layout. */
+   phase, the hand mark and the clock, in the status's colour. The status keeps its
+   announcement and any feature detail (the running-detail slot's wrapper is always
+   present, so detail means a non-empty wrapper); without detail it leaves the layout. */
 [data-process-live] + .running :is(.runningDivider, .runningIcon, .runningText) {
   display: none;
 }
