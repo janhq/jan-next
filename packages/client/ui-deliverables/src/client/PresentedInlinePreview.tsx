@@ -1,7 +1,7 @@
 /** A lone delivered image or HTML page, shown in the chat above its card. */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RemoteResult } from '@janhq/jan-api-remotes/client'
-import { fileExtension } from '@janhq/jan-client-ui-primitives'
+import { fileExtension, withElementProbe } from '@janhq/jan-client-ui-primitives'
 import type { PropsLocale, PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import type { SessionId } from '@janhq/jan-session/types'
 import { basename, type PresentedPath } from './turn-deliverables.ts'
@@ -30,7 +30,8 @@ export function inlinePreviewType(path: string): string | undefined {
 /**
  * Render a lone delivery's content in place. An image opens the sidebar preview
  * on click; a page runs in an opaque, script-only sandbox with no access to the
- * app, as the sidebar HTML preview does. Nothing shows until the bytes arrive,
+ * app, as the sidebar HTML preview does, carrying the element probe so pick and
+ * grab can still name an element in it. Nothing shows until the bytes arrive,
  * and a failed read leaves only the card.
  * @param props - the delivered file, its Session, the byte reader, the sidebar opener, and copy.
  * @returns the preview, or null while loading, on failure, and for other types.
@@ -52,7 +53,8 @@ export function PresentedInlinePreview({ file, sessionId, readPresented, onPrevi
     let created: string | undefined
     void readPresented(sessionId, file.path, controller.signal).then((result) => {
       if (controller.signal.aborted || !result.ok) return
-      created = URL.createObjectURL(new Blob([result.value.data as Uint8Array<ArrayBuffer>], { type }))
+      const data = result.value.data
+      created = URL.createObjectURL(new Blob([type === 'text/html' ? withElementProbe(data) : data as Uint8Array<ArrayBuffer>], { type }))
       setUrl(created)
     }, () => undefined)
     return () => {
@@ -70,7 +72,7 @@ export function PresentedInlinePreview({ file, sessionId, readPresented, onPrevi
         <img ref={image} className={css.inlineImage} src={url} alt={t('presented.inline', { name })} />
       </button>
       : <iframe ref={frame} className={`${css.inlinePreview} ${css.inlineFrame}`} data-presented-inline="html"
-        src={url} sandbox="allow-scripts" title={t('presented.inline', { name })} />}
+        data-element-probe="" src={url} sandbox="allow-scripts" title={t('presented.inline', { name })} />}
     {renderSlot('deliverables.preview.actions', { getSurface })}
   </>
 }
