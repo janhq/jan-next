@@ -49,12 +49,18 @@ export function OnboardingProcessStep({ t, heading, busy, process, onSelect, onC
         className={`${css.card} ${process === option.value ? css.selected : ''}`}
         aria-disabled={busy} onClick={() => { if (!busy) onSelect(option.value) }}
         onKeyDown={(event) => { onKeyDown(event, option.value) }}>
-        <span className={css.processIcon}><img src={option.icon} width={option.size} height={option.size} alt="" /></span>
+        {inline
+          ? <span className={css.processGlyph} style={{ maskImage: `url("${option.icon}")` }} aria-hidden="true" />
+          : <span className={css.processIcon}><img src={option.icon} width={option.size} height={option.size} alt="" /></span>}
         <span className={css.cardTitle}>{t(option.titleKey)}</span>
         <span className={css.cardDescription}>{t(option.descriptionKey)}</span>
       </button>)}
     </div>
-    <div className={css.primaryAction} data-onboarding-entrance={inline ? 'action' : undefined}>{process !== null && <Button className={css.action} variant="primary" aria-disabled={busy} onClick={() => { if (!busy) onComplete() }}>{continueLabel ?? t('onboardingEnter')}</Button>}</div>
+    <div className={css.primaryAction} data-onboarding-entrance={inline ? 'action' : undefined}>
+      {inline
+        ? <Button variant="primary" disabled={busy || process === null} onClick={onComplete}>{continueLabel}</Button>
+        : process !== null && <Button className={css.action} variant="primary" aria-disabled={busy} onClick={() => { if (!busy) onComplete() }}>{t('onboardingEnter')}</Button>}
+    </div>
   </div>
 }
 
