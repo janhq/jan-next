@@ -44,7 +44,7 @@ export async function apply(ctx, config = {}) {
   ctx.effect(() => registerApi(ctx, 'appearance', {
     get: () => appearance(),
     save: ({ accent, coloredUserBubble, navigationButtons = false }) => {
-      const colors = ['gray', 'red', 'orange', 'green', 'emerald', 'teal', 'cyan', 'blue', 'purple', 'pink', 'rose']
+      const colors = ['gray', 'red', 'orange', 'yellow', 'green', 'emerald', 'teal', 'cyan', 'blue', 'purple', 'pink', 'rose']
       if (!colors.includes(accent) || typeof coloredUserBubble !== 'boolean' || typeof navigationButtons !== 'boolean') throw new Error('Choose a valid accent color, message bubble and Back and Forward preference.')
       const operation = writes.then(async () => {
         const settings = ctx.get('settings')

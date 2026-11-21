@@ -35,12 +35,13 @@ window.__ModuleLoader__.load({
       ? /Mac/.test(navigator.platform || navigator.userAgent)
       : document.documentElement.dataset.platform === 'darwin'
 
-    // Jan's blue accent, the app's default when the settings carry none.
-    const look = shell.look ?? { primary: '#456BDE', sidebar: { light: '#C4D0F3', dark: '#0F2157' } }
+    // Jan yellow, the logo's color and the app's default when the settings carry none.
+    const look = shell.look ?? { primary: '#FFC928', sidebar: { light: '#F3E6C4', dark: '#5C4A0A' } }
     const PALETTES = [
       ['gray', 'Gray', '#757575', '#f1f1f1', '#171717'],
       ['red', 'Red', '#F0614B', '#F3CBC4', '#5E1308'],
       ['orange', 'Orange', '#E9A23F', '#F3DFC4', '#5C3A0A'],
+      ['yellow', 'Yellow', '#FFC928', '#F3E6C4', '#5C4A0A'],
       ['green', 'Green', '#88BA42', '#DFF3C4', '#374B1B'],
       ['emerald', 'Emerald', '#38AB51', '#C4F3CE', '#194D24'],
       ['teal', 'Teal', '#38AB8D', '#C4F3E6', '#194D3F'],
@@ -50,13 +51,14 @@ window.__ModuleLoader__.load({
       ['pink', 'Pink', '#D55EF3', '#E9C4F3', '#4D075F'],
       ['rose', 'Rose', '#F655B8', '#FFDAE9', '#61053E'],
     ]
-    const DEFAULT_ACCENT = PALETTES.find(p => p[2].toLowerCase() === look.primary.toLowerCase())?.[0] || 'blue'
+    const DEFAULT_ACCENT = PALETTES.find(p => p[2].toLowerCase() === look.primary.toLowerCase())?.[0] || 'yellow'
+    const paletteOf = accent => PALETTES.find(p => p[0] === accent) || PALETTES.find(p => p[0] === DEFAULT_ACCENT)
     let preferences = { accent: DEFAULT_ACCENT, coloredUserBubble: false, navigationButtons: false, ...shell.appearance }
     const appearanceListeners = new Set()
     let retheme = null
     const applyAppearance = (value) => {
       preferences = value
-      const palette = PALETTES.find(p => p[0] === value.accent) || PALETTES[7]
+      const palette = paletteOf(value.accent)
       const root = document.documentElement
       // Back and Forward stay hidden until General turns them on; the shortcuts keep working.
       root.toggleAttribute('data-jt-hide-navigation', value.navigationButtons !== true)
@@ -269,8 +271,17 @@ window.__ModuleLoader__.load({
     // Jan's palette (web-app/src/index.css) mapped onto the app's alias tokens.
     // Publish concrete accent values on body. WebKit can retain a transitioning
     // background when only an indirect root custom property changes.
+    // WCAG relative luminance of a #RRGGBB color.
+    const luminance = (hex) => {
+      const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255)
+        .map(c => c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
     const tokensFor = (value) => {
-      const accent = (PALETTES.find(p => p[0] === value.accent) || PALETTES[7])[2]
+      const accent = paletteOf(value.accent)[2]
+      // White text fails contrast on a light accent such as Jan yellow; such accents carry dark text
+      // on their fills and a deeper shade where the accent colors text on white.
+      const light = luminance(accent) > 0.5
       const shade = (weight) => ({
         light: `color-mix(in oklch, ${accent} ${weight}%, black)`,
         dark: `color-mix(in oklch, ${accent} ${weight}%, white)`,
@@ -289,9 +300,10 @@ window.__ModuleLoader__.load({
         '--dsw-alias-button-info-active': active,
         '--dsw-alias-state-business-primary': both(accent),
         '--dsw-alias-label-deep-diving': {
-          light: `color-mix(in oklch, ${accent} 85%, black)`,
+          light: `color-mix(in oklch, ${accent} ${light ? 50 : 85}%, black)`,
           dark: `color-mix(in oklch, ${accent} 80%, white)`,
         },
+        ...light ? { '--dsw-alias-label-primary-foreground': both('#222222') } : {},
         // Set where the overrides land (body), so the neutral grey resolves
         // against the layer-2 token defined there; from :root it would not.
         '--dsw-specific-bubble': value.coloredUserBubble
