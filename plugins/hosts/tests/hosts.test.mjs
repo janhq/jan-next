@@ -18,16 +18,16 @@ async function home(t) {
 
 test('a pasted Jan link keeps its token out of the saved address', async (t) => {
   const store = await home(t)
-  const { connection, token } = await store.saveConnection({ name: 'Homelab', kind: 'url', url: 'http://192.168.5.125:3080/?token=abc' })
-  assert.equal(connection.url, 'http://192.168.5.125:3080/')
+  const { connection, token } = await store.saveConnection({ name: 'Office', kind: 'url', url: 'http://192.168.1.20:3080/?token=abc' })
+  assert.equal(connection.url, 'http://192.168.1.20:3080/')
   assert.equal(token, 'abc')
   assert.doesNotMatch(await readFile(store.connectionsFile, 'utf8'), /abc/)
 })
 
 test('names are unique ignoring case and one address is saved once', async (t) => {
   const store = await home(t)
-  await store.saveConnection({ name: 'Homelab', kind: 'url', url: 'http://10.0.0.2:3080' })
-  await assert.rejects(store.saveConnection({ name: 'homelab', kind: 'url', url: 'http://10.0.0.3:3080' }), { code: 'name-taken' })
+  await store.saveConnection({ name: 'Office', kind: 'url', url: 'http://10.0.0.2:3080' })
+  await assert.rejects(store.saveConnection({ name: 'office', kind: 'url', url: 'http://10.0.0.3:3080' }), { code: 'name-taken' })
   await assert.rejects(store.saveConnection({ name: 'Box', kind: 'url', url: 'http://10.0.0.2:3080/' }), { code: 'duplicate' })
 })
 

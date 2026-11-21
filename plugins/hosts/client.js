@@ -34,7 +34,7 @@ window.__ModuleLoader__.load({
         'state.connected': 'Connected',
         'state.idle': 'Not connected',
         'form.name': 'Name',
-        'form.namePlaceholder': 'Homelab',
+        'form.namePlaceholder': 'Office desktop',
         'form.kind': 'How to reach it',
         'form.url': 'Jan link',
         'form.urlHelp': 'Paste the whole jan web: line from that computer, including ?token=. The token signs you in and is stored only on this computer.',
