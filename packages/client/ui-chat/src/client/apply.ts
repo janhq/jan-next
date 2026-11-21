@@ -277,8 +277,12 @@ export function apply(ctx: Context): void {
             const cwd = ctx.sessions.list.getSnapshot().byId[sessionId]?.cwd
             const current = session.projections.faceOf('workingDirectory').getSnapshot() as string | null | undefined
             const url = fileAddressFor(sessionId, cwd, resolveWorkspacePath(current ?? undefined, path))
-            if (options?.line === undefined) ctx.sidebarRight.openResource(url)
-            else ctx.sidebarRight.openResource(url, { params: { line: options.line } })
+            const sidebar = ctx.sidebarRight
+            // A card that toggles its preview hides the column when that file is already in front.
+            const active = options?.toggle === true && sidebar.isExpanded() ? sidebar.active() : undefined
+            if (active?.contentId === url) { sidebar.hide(active.id); return }
+            if (options?.line === undefined) sidebar.openResource(url)
+            else sidebar.openResource(url, { params: { line: options.line } })
             await Promise.resolve()
           },
           resolveFilePath: sessionFilePath(ctx, sessionId),

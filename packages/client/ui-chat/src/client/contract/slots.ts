@@ -54,13 +54,15 @@ export type UsePresentation = SnapshotSelectorHook<ChatPresentationPolicy>
 export interface OpenFileOptions {
   /** 1-based line to reveal; absent = the file's beginning. */
   readonly line?: number
+  /** Hide the column instead when this file is already the visible tab, so a second click closes the preview. */
+  readonly toggle?: boolean
 }
 
 /** Owner currency of the completed-Turn extension chain. */
 export interface TurnTailOwnerProps {
   turn: TurnLocation
   seq: number
-  openFile: (path: string) => void
+  openFile: (path: string, options?: OpenFileOptions) => void
 }
 
 /** Owner share of running-status details: entries read their state from the Session. */
