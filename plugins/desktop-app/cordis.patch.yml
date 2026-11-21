@@ -80,12 +80,16 @@
     - id: jan-tokamak
       name: '@janhq/jan-tokamak'
 
-    # The composer microphone, dictating through Tokamak. Local SenseVoice
-    # recognition stays available as the Voice Input bundle on the Plugins page.
+    # Keep composer voice setup available while the optional Voice Input bundle is off.
+    # SenseVoice only inspects its cache at boot; the user starts the download.
     - id: speech-to-text
       name: '@janhq/jan-experimental-speech-to-text'
       config:
-        defaultProvider: tokamak
+        defaultProvider: sensevoice-local
+    - id: speech-to-text-sensevoice
+      name: '@janhq/jan-experimental-speech-to-text-sensevoice'
+      config:
+        dataRoot: !!js janHomePath('speech-to-text', 'sensevoice')
     - id: api-speech-to-text
       name: '@janhq/jan-experimental-api-speech-to-text'
     - id: ui-voice-input
