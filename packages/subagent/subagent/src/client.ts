@@ -5,4 +5,6 @@
  */
 
 export type * from './control-types.ts'
-export type { SubagentCatalogEntry, SubagentIdentityProjection, SubagentTimingProjection } from './projection-types.ts'
+export type {
+  SubagentActivityEntry, SubagentActivityProjection, SubagentCatalogEntry, SubagentIdentityProjection, SubagentTimingProjection,
+} from './projection-types.ts'

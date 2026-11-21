@@ -16278,6 +16278,9 @@ importers:
       '@janhq/jan-system-prompt':
         specifier: workspace:*
         version: link:../../core/system-prompt
+      '@janhq/jan-tool-executor-ptc':
+        specifier: workspace:*
+        version: link:../../core/tool-executor-ptc
       '@janhq/jan-tool-fs':
         specifier: workspace:*
         version: link:../../fs/tool-fs

@@ -115,6 +115,7 @@
     "@janhq/jan-session-projection": "workspace:*",
     "@janhq/jan-session-query": "workspace:*",
     "@janhq/jan-system-prompt": "workspace:*",
+    "@janhq/jan-tool-executor-ptc": "workspace:*",
     "@janhq/jan-tool-testkit": "workspace:*",
     "@janhq/jan-tools": "workspace:*",
     "@janhq/jan-typert-protocol": "workspace:*",
