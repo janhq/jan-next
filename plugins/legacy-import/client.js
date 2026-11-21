@@ -352,23 +352,28 @@ window.__ModuleLoader__.load({
         ask(1)
         return () => { cancelled = true }
       }, [])
+      // Don't show again (and a finished import) is remembered; Not now hides
+      // the card only until the next launch.
       const dismiss = async () => {
         try { await api('dismissOffer'); setOffer(null); setOpen(false) } catch (error) { setError(error.message) }
       }
       if (!offer?.show) return null
       if (open) return h(ImportDialog, { refreshSessions, onClose: () => setOpen(false), onDone: dismiss })
       // Compact by design, in the shared Coachmark shape: a title with a close
-      // button (Not now), one short line, and Details / Import. What else was
-      // found, the read-only promise and where to import later sit behind Details.
+      // button (Not now), one short line, and Details, Don't show again / Import.
+      // What else was found, the read-only promise and where to import later sit
+      // behind Details.
       return h('section', { className: 'jan-legacy-import-offer', role: 'dialog', 'aria-labelledby': 'jan-legacy-import-offer-title' },
         h('div', { className: 'jan-legacy-import-offer-head' },
           h('h2', { id: 'jan-legacy-import-offer-title' }, 'Import your chats from Jan'),
-          h(Button, { size: 'sm', className: 'jan-legacy-import-offer-close', 'aria-label': 'Not now', title: 'Not now', icon: h(IconCloseOutlineRegular), onClick: dismiss })),
+          h(Button, { size: 'sm', className: 'jan-legacy-import-offer-close', 'aria-label': 'Not now', title: 'Not now', icon: h(IconCloseOutlineRegular), onClick: () => setOffer(null) })),
         h('p', null, `${plural(offer.count, 'chat', 'chats')}${offer.extras?.length ? ' and settings' : ''} found.`),
         details ? h('p', { id: 'jan-legacy-import-offer-details' }, `${offer.extras?.length ? `Settings means your ${listOf(offer.extras)}. ` : ''}Your Jan folder stays unchanged. You can import later from Settings -> Built-in plugins -> Import from Jan.`) : null,
         error ? h('p', { role: 'alert' }, error) : null,
         h('div', { className: 'jan-legacy-import-offer-foot' },
-          h(Button, { size: 'sm', 'aria-expanded': details, 'aria-controls': 'jan-legacy-import-offer-details', onClick: () => setDetails(value => !value) }, details ? 'Hide details' : 'Details'),
+          h('div', { className: 'jan-legacy-import-offer-quiet' },
+            h(Button, { size: 'sm', 'aria-expanded': details, 'aria-controls': 'jan-legacy-import-offer-details', onClick: () => setDetails(value => !value) }, details ? 'Hide details' : 'Details'),
+            h(Button, { size: 'sm', onClick: dismiss }, "Don't show again")),
           h(Button, { size: 'sm', variant: 'primary', onClick: () => setOpen(true) }, 'Import')))
     }
     return {
@@ -441,7 +446,8 @@ window.__ModuleLoader__.load({
 .jan-legacy-import-offer-close{flex:none;width:28px;padding:0;margin-inline-end:-4px}
 .jan-legacy-import-offer p{margin:0;font-size:13px;line-height:18px;text-wrap:pretty;color:var(--dsw-alias-label-secondary)}
 .jan-legacy-import-offer-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
-.jan-legacy-import-offer-foot > :first-child{margin-inline-start:-8px;color:var(--dsw-alias-label-secondary)}
+.jan-legacy-import-offer-quiet{display:flex;align-items:center;gap:0;margin-inline-start:-8px}
+.jan-legacy-import-offer-quiet > *{color:var(--dsw-alias-label-secondary)}
 @media (max-width:560px){.jan-legacy-import-row{grid-template-columns:minmax(0,1fr)}.jan-legacy-import-meta{padding-inline-start:26px}}
 `
           document.head.appendChild(style)
