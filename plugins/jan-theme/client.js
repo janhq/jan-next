@@ -522,7 +522,12 @@ window.__ModuleLoader__.load({
   }
   /* The stock More launcher keeps its own 32px / 12px-radius pill; Jan draws
      it as one more nav row so the column has a single row rhythm. */
-  html[data-jan-theme] button[aria-label][aria-haspopup='menu'][class*='panelRow'] { height: 38px; padding: 0 10px; border-width: 0; border-radius: 12px; gap: 11px; }
+  html[data-jan-theme] button[aria-label][aria-haspopup='menu'][class*='panelRow'] { height: 38px; padding: 0 10px; border-width: 0; border-radius: 12px; gap: 11px; line-height: 20px; }
+  /* More is the next row of the nav, on the same 40px pitch and with the same
+     secondary icon ink, not a separate group 12px further down. */
+  html[data-jan-theme] [data-slot='sidebar'] [class*='scrollRegion'] { margin-top: 0; }
+  html[data-jan-theme] [data-slot='sidebar'] [class*='scrollArea'] { grid-template-rows: 0 max-content 2px max-content; }
+  html[data-jan-theme] button[aria-haspopup='menu'][class*='panelRow'] [class*='panelGlyph'] { color: var(--dsw-alias-label-secondary); }
   /* Projects page. */
   .jt-projects { box-sizing: border-box; width: 100%; max-width: 880px; margin: 0 auto; padding: 48px 32px; color: var(--dsw-alias-label-primary); }
   .jt-projects-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
@@ -655,9 +660,15 @@ window.__ModuleLoader__.load({
 .jt-footer-action[data-rail] { justify-content: center; padding-inline: 0; }
 .jt-menu-entry { display: flex; align-items: center; gap: 8px; width: 100%; }
 .jt-sidebar-editor-lede { margin: 0 0 16px; color: var(--dsw-alias-label-secondary); font-size: 14px; line-height: 20px; }
-.jt-sidebar-editor { display: flex; flex-direction: column; gap: 4px; }
-.jt-sidebar-editor .jt-sidebar-editor-row { gap: 12px; min-height: 32px; }
+.jt-sidebar-editor { display: flex; flex-direction: column; gap: 4px; touch-action: none; }
+.jt-sidebar-editor-item { display: flex; align-items: center; gap: 8px; margin: 0 -8px; padding: 0 8px; border-radius: var(--dsw-radius-md); }
+.jt-sidebar-editor-item[data-dragging] { background: var(--dsw-alias-interactive-bg-hover); }
+.jt-sidebar-editor .jt-sidebar-editor-row { flex: 1; min-width: 0; gap: 12px; min-height: 32px; }
 .jt-sidebar-editor .jt-sidebar-editor-row svg { display: block; }
+.jt-sidebar-editor-grip { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; margin-inline-end: -9px; padding: 0; border: 0; border-radius: var(--dsw-radius-sm); background: transparent; color: var(--dsw-alias-label-tertiary); cursor: grab; }
+.jt-sidebar-editor-grip:hover { color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-interactive-bg-hover); }
+.jt-sidebar-editor-grip:focus-visible { outline: 2px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); outline-offset: -2px; }
+.jt-sidebar-editor-item[data-dragging] .jt-sidebar-editor-grip { cursor: grabbing; color: var(--dsw-alias-label-secondary); }
 .jt-artwork { color: var(--dsw-alias-label-primary); }
 .jt-menu-check { flex: none; margin-left: auto; color: var(--dsw-alias-state-business-primary); }
 /* Native titlebar rules need to outrank the shell's platform rules; they never touch
@@ -729,6 +740,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       const available = useDestinationsAvailable({ useHubAvailable, useArtifactsAvailable, useScheduledAvailable, usePluginsAvailable })
       const others = useOtherPanels((value) => value)
       const pinned = useSidebarPins()
+      const order = useSidebarOrder()
       const editing = useSidebarEditor()
       const size = wide ? 16 : 18
       const quick = {
@@ -747,23 +759,27 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           label: t('search'), shortcutKeys: searchShortcut?.keys, shortcutAria: searchShortcut?.aria,
           rail: !wide, onClick: requestSearch, className: 'jt-nav-row',
         }),
-        SIDEBAR_DESTINATIONS.filter(({ id }) => available[id] && pinned.includes(id)).map(({ id, Icon, label }) => h(NavRow, {
-          key: id, icon: h(Icon, { size }), label: t(label), rail: !wide, className: 'jt-nav-row',
-          current: active === id, onClick: () => { openPanel(id) }, quick: quick[id],
-        })),
-        others.filter(({ id }) => pinned.includes(id)).map(({ id, label }) => h(NavRow, {
-          key: id, icon: renderFactorySlot('sidebar.panel.icon', { id, size, active: active === id }), label, rail: !wide,
-          className: 'jt-nav-row', current: active === id, onClick: () => { openPanel(id) },
+        sortBySidebarOrder([
+          ...SIDEBAR_DESTINATIONS.filter(({ id }) => available[id] && pinned.includes(id)).map(({ id, Icon, label }) => ({
+            id, icon: h(Icon, { size }), label: t(label), quick: quick[id],
+          })),
+          ...others.filter(({ id }) => pinned.includes(id)).map(({ id, label }) => ({
+            id, icon: renderFactorySlot('sidebar.panel.icon', { id, size, active: active === id }), label,
+          })),
+        ], order).map(({ id, icon, label, quick: action }) => h(NavRow, {
+          key: id, icon, label, rail: !wide, className: 'jt-nav-row',
+          current: active === id, onClick: () => { openPanel(id) }, quick: action,
         })),
         editing && h(SidebarEditor, { available, others, pinned, renderFactorySlot, t }))
     }
 
-    // Tabler "box" (MIT): Models must not share More's four-squares glyph.
+    // A cube on Jan's 16px icon grid with its 1px stroke, so Models carries the
+    // same size and ink as the sidebar's other line icons (More must not share it).
     const ModelsGlyph = ({ size }) => h('svg', {
-      width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
-      strokeWidth: 1.5, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true,
-    }, h('path', { d: 'M12 3l8 4.5v9l-8 4.5l-8 -4.5v-9l8 -4.5' }), h('path', { d: 'M12 12l8 -4.5' }),
-    h('path', { d: 'M12 12v9' }), h('path', { d: 'M12 12l-8 -4.5' }))
+      width: size, height: size, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor',
+      strokeWidth: 1, strokeLinejoin: 'round', 'aria-hidden': true,
+    }, h('path', { d: 'M8 1.5L14 4.75V11.25L8 14.5L2 11.25V4.75L8 1.5Z' }), h('path', { d: 'M2 4.75L8 8L14 4.75' }),
+    h('path', { d: 'M8 8V14.5' }))
 
     // Every destination Edit sidebar can pin, in sidebar order.
     const SIDEBAR_DESTINATIONS = [
@@ -791,8 +807,27 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       try { localStorage.setItem(PINS_KEY, JSON.stringify(sidebarPins)) } catch { /* the choice still holds for this window */ }
       notifySidebar()
     }
+    // Sidebar order: every page Edit sidebar lists, by id; ids it has never seen
+    // keep their built-in order after the stored ones.
+    const ORDER_KEY = 'jan-theme.sidebar.order'
+    const readOrder = () => {
+      try {
+        const stored = JSON.parse(localStorage.getItem(ORDER_KEY) ?? 'null')
+        return Array.isArray(stored) ? stored.filter(id => typeof id === 'string') : []
+      } catch { return [] }
+    }
+    let sidebarOrder = readOrder()
+    const setSidebarOrder = (ids) => {
+      sidebarOrder = ids
+      try { localStorage.setItem(ORDER_KEY, JSON.stringify(ids)) } catch { /* the order still holds for this window */ }
+      notifySidebar()
+    }
+    const sortBySidebarOrder = (rows, order) => rows
+      .map((row, index) => ({ row, rank: order.includes(row.id) ? order.indexOf(row.id) : order.length + index }))
+      .sort((a, b) => a.rank - b.rank).map(({ row }) => row)
     const setSidebarEditor = (open) => { sidebarEditorOpen = open; notifySidebar() }
     const useSidebarPins = () => React.useSyncExternalStore(subscribeSidebar, () => sidebarPins)
+    const useSidebarOrder = () => React.useSyncExternalStore(subscribeSidebar, () => sidebarOrder)
     const useSidebarEditor = () => React.useSyncExternalStore(subscribeSidebar, () => sidebarEditorOpen)
     // Which of Jan's own pages can open now. The sidebar rows, the More menu and
     // Edit sidebar read the same answer, so an unpinned page always stays in More.
@@ -804,20 +839,74 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       plugins: usePluginsAvailable((value) => value),
     })
 
+    const GripGlyph = () => h('svg', { width: 16, height: 16, viewBox: '0 0 16 16', fill: 'currentColor', 'aria-hidden': true },
+      [[6, 4], [10, 4], [6, 8], [10, 8], [6, 12], [10, 12]].map(([cx, cy]) => h('circle', { key: `${cx}-${cy}`, cx, cy, r: 1 })))
+
+    // Each row keeps its checkbox and gains a grip: drag it, or focus it and
+    // press the up and down arrows, to move the page in the sidebar.
     function SidebarEditor({ available, others, pinned, renderFactorySlot, t }) {
-      const rows = [
+      const order = useSidebarOrder()
+      const rows = sortBySidebarOrder([
         ...SIDEBAR_DESTINATIONS.filter(({ id }) => available[id]).map(({ id, Icon, label }) => ({ id, icon: h(Icon, { size: 16 }), label: t(label) })),
         ...others.map(({ id, label }) => ({ id, icon: renderFactorySlot('sidebar.panel.icon', { id, size: 16, active: false }), label })),
-      ]
+      ], order)
+      const [draft, setDraft] = React.useState(null)
+      const [dragging, setDragging] = React.useState(null)
+      const list = React.useRef(null)
+      const ids = draft ?? rows.map(({ id }) => id)
+      const shown = ids.map(id => rows.find(row => row.id === id)).filter(Boolean)
+      // Keep the ids this window does not list, so another page's place survives.
+      const commit = (next) => { setSidebarOrder([...next, ...order.filter(id => !next.includes(id))]) }
+      const move = (id, delta) => {
+        const from = ids.indexOf(id)
+        const to = Math.max(0, Math.min(ids.length - 1, from + delta))
+        if (from === to) return
+        const next = [...ids]
+        next.splice(to, 0, ...next.splice(from, 1))
+        commit(next)
+      }
+      const startDrag = (event, id) => {
+        if (event.button !== 0) return
+        event.preventDefault()
+        event.currentTarget.setPointerCapture(event.pointerId)
+        setDragging(id)
+        setDraft(ids)
+      }
+      // Insert the dragged page before the first other row whose middle sits below the pointer.
+      const dragOver = (event) => {
+        if (dragging === null || !list.current) return
+        const current = draft ?? ids
+        const before = [...list.current.querySelectorAll('[data-sidebar-row]')]
+          .filter(item => item.dataset.sidebarRow !== dragging)
+          .find(item => { const box = item.getBoundingClientRect(); return event.clientY < box.top + box.height / 2 })
+        const next = current.filter(id => id !== dragging)
+        next.splice(before ? next.indexOf(before.dataset.sidebarRow) : next.length, 0, dragging)
+        if (next.some((id, i) => id !== current[i])) setDraft(next)
+      }
+      const endDrag = () => {
+        if (dragging === null) return
+        if (draft) commit(draft)
+        setDragging(null)
+        setDraft(null)
+      }
       return h(Modal, {
         open: true, title: t('editSidebar.title'), closeLabel: t('editSidebar.close'), onClose: () => setSidebarEditor(false),
         className: 'jt-appearance', footer: h(Button, { variant: 'contrast', onClick: () => setSidebarEditor(false) }, t('editSidebar.done')),
       },
       h('p', { className: 'jt-sidebar-editor-lede' }, t('editSidebar.lede')),
-      h('div', { className: 'jt-sidebar-editor' }, rows.map(({ id, icon, label }) => h(Checkbox, {
-        key: id, className: 'jt-sidebar-editor-row', icon, label,
-        checked: pinned.includes(id), onChange: (pin) => { setSidebarPinned(id, pin) },
-      }))))
+      h('div', { ref: list, className: 'jt-sidebar-editor', onPointerMove: dragOver, onPointerUp: endDrag, onPointerCancel: endDrag },
+        shown.map(({ id, icon, label }) => h('div', { key: id, className: 'jt-sidebar-editor-item', 'data-sidebar-row': id, 'data-dragging': dragging === id || undefined },
+          h(Checkbox, {
+            className: 'jt-sidebar-editor-row', icon, label,
+            checked: pinned.includes(id), onChange: (pin) => { setSidebarPinned(id, pin) },
+          }),
+          h('button', {
+            type: 'button', className: 'jt-sidebar-editor-grip', 'aria-label': t('editSidebar.reorder', { name: label }), title: t('editSidebar.reorderHint'),
+            onPointerDown: (event) => { startDrag(event, id) },
+            onKeyDown: (event) => {
+              if (event.key === 'ArrowUp' || event.key === 'ArrowDown') { event.preventDefault(); move(id, event.key === 'ArrowUp' ? -1 : 1) }
+            },
+          }, h(GripGlyph))))))
     }
 
     // The search node owns its input and refs, so it stays mounted while wide;
@@ -1550,7 +1639,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               projects: 'Projects', plugins: 'Plugins', settings: 'Settings', artifacts: 'Artifacts', scheduled: 'Scheduled',
               hub: 'Models', customize: 'Customize',
               editSidebar: 'Edit sidebar…', 'editSidebar.title': 'Edit sidebar', 'editSidebar.done': 'Done',
-              'editSidebar.lede': 'Choose which items appear in your sidebar.', 'editSidebar.close': 'Close',
+              'editSidebar.lede': 'Choose which items appear in your sidebar. Drag to reorder.', 'editSidebar.close': 'Close',
+              'editSidebar.reorder': 'Move {name}', 'editSidebar.reorderHint': 'Drag, or use the up and down arrow keys',
               newArtifact: 'New artifact', createPlugin: 'Create plugin',
               'newArtifact.prompt': 'Create a file for me: ',
               'createPlugin.prompt': 'Create a Jan plugin with a left sidebar entry.',
