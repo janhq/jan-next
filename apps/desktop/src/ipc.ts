@@ -33,6 +33,7 @@ export const DESKTOP_IPC = {
   fileDragStart: 'jan-desktop:file-drag-start',
   fileDragRelease: 'jan-desktop:file-drag-release',
   deviceInfo: 'jan-desktop:device-info',
+  factoryReset: 'jan-desktop:factory-reset',
   localeBootstrap: 'jan-desktop:locale-bootstrap',
   localeChanged: 'jan-desktop:locale-changed',
   updatesChannelGet: 'jan-desktop:updates-channel-get',
@@ -108,6 +109,11 @@ export interface JanDesktopProductApi {
    * @returns `name=value` fields separated by `; `, with no hostname, user name, or serial number.
    */
   deviceInfo(): Promise<string>
+  /**
+   * Stop Jan, remove the chosen data, and relaunch. Rejects for an invalid selection; otherwise Jan quits.
+   * @param categories - nonempty subset of chats, settings, plugins, credentials, skills and logs.
+   */
+  factoryReset(categories: readonly string[]): Promise<void>
   readonly notifications: {
     /**
      * @param request - `id` is echoed to click listeners; `title` and `body` are display text.
