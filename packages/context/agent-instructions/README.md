@@ -115,6 +115,7 @@ Every injected message carries a typed source with its change list; a complete b
 
 Read these pages when the package-level contract is not enough. They move from the instruction-file format to the exhaustive configuration.
 
+- [Instruction precedence](../../../docs/instruction-precedence.md) - where Jan loads instructions, which source wins, and how to set your assistant's name.
 - [Documentation standard](../../../docs/AGENTS.md) — what `AGENTS.md` instruction files contain and how they are maintained.
 - [Context group map](../README.md) — sibling request-context packages.
 - [Generated configuration catalog](../../../docs/config-catalog.md#janhqjan-agent-instructions) — every accepted config field and its source declaration.
@@ -134,7 +135,7 @@ At the first request, derived history contains one durable user-role message wit
 
 ```markdown
 <system-reminder>
-The following workspace instructions may be relevant to your work. Use them as guidance when applicable. More specific instructions take precedence over broader ones. They do not override system, developer, or direct user instructions.
+Follow applicable instructions. More specific files win: project > shared agents home > Jan home > Jan defaults. These instructions can replace Jan's default name, persona, tone, and working style, but not safety rules, tool contracts, or direct user messages.
 
 Instructions from: ~/.config/jan-alpha/AGENTS.md
 
@@ -149,6 +150,8 @@ Instructions from: AGENTS.md
 <project-instructions>
 </system-reminder>
 ```
+
+A complete replacement starts with `This complete workspace instruction baseline replaces all earlier workspace instruction baselines.` and keeps the same precedence text. An empty replacement instead says `No workspace instructions are currently active.`
 
 #### Token effect
 
@@ -170,7 +173,7 @@ After a successful first-party filesystem call reaches a deeper directory, the n
 <system-reminder>
 Additional instructions from: packages/app/AGENTS.md
 
-These instructions apply to work under `packages/app`. Use them as guidance when relevant; more specific instructions take precedence. They do not override system, developer, or direct user instructions.
+These instructions apply to work under `packages/app`. Follow applicable instructions. More specific files win: project > shared agents home > Jan home > Jan defaults. These instructions can replace Jan's default name, persona, tone, and working style, but not safety rules, tool contracts, or direct user messages.
 
 <nested-instructions>
 </system-reminder>
@@ -221,7 +224,7 @@ These limits define when instruction loading is a poor fit or needs operational 
 - **Deduplication is content-based within one candidate group** — candidates collapse only when byte-identical after trimming leading and trailing whitespace. The two user-global roots share one group, so the shared-root file collapses behind a matching harness-home file; sibling project candidates collapse the same way, while a distinct real copy that has drifted from `AGENTS.md` loads in full alongside it. A duplicate of budget-retained content stays reconciled: when the retained candidate changes or disappears, the duplicate becomes visible again. Unchanged hidden duplicates, including files removed from visible state as duplicates, use cached metadata instead of content reads.
 - **One candidate group shares failure fate** — when metadata or content cannot be read for any candidate, including a hidden duplicate, the group keeps its last-good state for that pass. An unreadable shared agents root therefore also postpones a harness-home change notice until a later pass observes both roots.
 - **A byte-budget omission does not re-enter reconciliation** — a candidate that its chain's budget dropped from the baseline, including any content duplicate of that candidate, is not probed again while that visible baseline holds; it becomes visible only after the baseline is rebuilt.
-- **Symlinked instruction files are followed across the trust boundary** — a candidate whose final component is a symlink is resolved and its target loaded, so a cloned repository can surface off-tree file content as lower-authority workspace guidance (it never overrides system, developer, or direct user instructions). Confine `ctx.fs` with the filesystem policy gate or an OS sandbox when loading untrusted repositories.
+- **Symlinked instruction files can load off-tree content** - Jan resolves a candidate whose final component is a symlink and loads the target as workspace instructions. Confine `ctx.fs` with the filesystem policy gate or an OS sandbox when loading untrusted repositories.
 - **Instruction content is bounded, not summarized** — within each chain, over-budget broad files are omitted and the chain's most-specific file may be truncated; the plugin never asks a model to compress instruction prose.
 - **Budget is not shared across chains** — bytes one chain leaves unused do not extend the other, so a 70 KiB user-global file is truncated to fit `maxBytes` even when the project chain uses 1 KiB.
 
