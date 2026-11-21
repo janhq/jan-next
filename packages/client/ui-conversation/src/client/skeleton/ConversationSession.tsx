@@ -1,6 +1,6 @@
 /** Strict per-session header/body content inserted into the resident conversation layout. */
 
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useContext, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { Button, IconEllipsisOutlineRegular, Menu, Tooltip } from '@janhq/jan-client-ui-primitives'
 import type { SessionListState, SessionSummary } from '@janhq/jan-api-session-controller/client'
@@ -10,6 +10,7 @@ import type {
 } from '../contract/slots.ts'
 import { resolveActiveView } from '../view-selection.ts'
 import { FIXED_VIEW_ID } from '../view-pins.ts'
+import { ConversationDeskActions, ConversationDeskContext } from './ConversationDesk.tsx'
 import { DefaultConversationViews } from './DefaultConversationViews.tsx'
 import css from './ConversationRoot.module.css'
 
@@ -109,6 +110,7 @@ export function ConversationSessionHeader({
   sessionId, hideChrome, useSessions, useConversationViews, useStore,
   renderSlot, renderFactorySlot, open, useContextMenu, selectView, setPinned, t, useEntryPins, useEntryActions,
 }: ConversationSessionHeaderProps) {
+  const desk = useContext(ConversationDeskContext)
   const { getTriggerProps } = useContextMenu()
   const tabs = useConversationViews(value => value)
   const selectedId = useStore(s => s.view)
@@ -217,7 +219,8 @@ export function ConversationSessionHeader({
           </>
         )}
         <div className={css.headerCorner} data-conversation-header-corner="">
-          {renderSlot('conversation.session.header.corner', {})}
+          <ConversationDeskActions t={t} />
+          {desk?.primary !== false && renderSlot('conversation.session.header.corner', {})}
         </div>
       </div>
       {showTabs && (
