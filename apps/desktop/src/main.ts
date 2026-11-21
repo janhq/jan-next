@@ -29,6 +29,8 @@ import {
   type MenuItemConstructorOptions,
 } from 'electron'
 import { resolveDesktopPaths } from './paths.ts'
+import { resolveJanHome } from '@janhq/jan-home-paths'
+import { parseFactoryResetRequest, performFactoryReset } from './factory-reset.ts'
 import { DesktopProjectManager } from './project-manager.ts'
 import { DesktopHostFatalError, DesktopHostProcess, DesktopHostUncleanExitError } from './host-process.ts'
 import { DesktopPlatformView, PLATFORM_IPC, platformBounds } from './platform-view.ts'
@@ -988,6 +990,24 @@ async function main(): Promise<void> {
   ipcMain.handle(DESKTOP_IPC.deviceInfo, (event) => {
     assertProductSender(event)
     return readDeviceInfo()
+  })
+  ipcMain.handle(DESKTOP_IPC.factoryReset, async (event, value: unknown) => {
+    assertProductSender(event)
+    const categories = parseFactoryResetRequest(value)
+    shuttingDown = true
+    try {
+      // Nothing may hold the files open while they are removed.
+      await stopForRecovery()
+      if (categories.includes('settings')) await session.defaultSession.clearStorageData()
+      await performFactoryReset(categories, { janHome: resolveJanHome(), profile: paths.profile, userData: app.getPath('userData') })
+      console.info('desktop factory reset: removed', categories)
+    } catch (error) {
+      console.error('desktop factory reset: incomplete', error)
+    } finally {
+      // The Host is already down, so Jan relaunches even after a partial reset; it reopens on what remains.
+      app.relaunch()
+      quitWithoutConfirmation()
+    }
   })
   const notifications = new DesktopNotifications({
     focus: () => { focusPrimaryWindow() },
