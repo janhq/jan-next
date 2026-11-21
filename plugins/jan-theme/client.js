@@ -8,7 +8,8 @@ window.__ModuleLoader__.load({
     const h = React.createElement
     const {
       IconPluginPinwheelOutlineRegular, IconCheckOutlineRegular, IconFolderCloseRegular, IconSettingsOutlineMedium, IconSettingsOutlineRegular,
-      IconNewChatOutlineMedium, IconNewChatOutlineRegular, IconProjectAddOutlineRegular, IconSearchOutlineRegular,
+      IconNewChatOutlineMedium, IconNewChatOutlineRegular, IconProjectAddOutlineRegular, IconSearchOutlineRegular, IconSearchOutlineMedium,
+      IconPluginPinwheelOutlineMedium, IconFolderCloseMedium, IconLayersOutlineMedium, IconClockOutlineMedium, IconLinkOutlineMedium,
       MenuItemButton, Button, Switch, Checkbox, IconLayersOutlineRegular, IconClockOutlineRegular, IconAppsAddOutlineRegular,
       IconToolOutlineMedium, IconSkillOutlineMedium,
       NavRow, SectionHeading, ColorSwatchGroup, ProjectCard, WindowControls,
@@ -789,13 +790,13 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       }
       return h(React.Fragment, null,
         h(NavRow, {
-          icon: h(IconSearchOutlineRegular, { size }),
+          icon: h(wide ? IconSearchOutlineMedium : IconSearchOutlineRegular, { size }),
           label: t('search'), shortcutKeys: searchShortcut?.keys, shortcutAria: searchShortcut?.aria,
           rail: !wide, onClick: requestSearch, className: 'jt-nav-row',
         }),
         sortBySidebarOrder([
-          ...SIDEBAR_DESTINATIONS.filter(({ id }) => available[id] && pinned.includes(id)).map(({ id, Icon, label }) => ({
-            id, icon: h(Icon, { size }), label: t(label), quick: quick[id],
+          ...SIDEBAR_DESTINATIONS.filter(({ id }) => available[id] && pinned.includes(id)).map(({ id, Icon, WideIcon, label }) => ({
+            id, icon: h(wide ? WideIcon : Icon, { size }), label: t(label), quick: quick[id],
           })),
           ...others.filter(({ id }) => pinned.includes(id)).map(({ id, label }) => ({
             id, icon: renderFactorySlot('sidebar.panel.icon', { id, size, active: active === id }), label,
@@ -807,25 +808,29 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         editing && h(SidebarEditor, { available, others, pinned, renderFactorySlot, t }))
     }
 
-    // A cube on Jan's 16px icon grid with its 1px stroke, so Models carries the
-    // same size and ink as the sidebar's other line icons (More must not share it).
-    const ModelsGlyph = ({ size }) => h('svg', {
+    // A cube on Jan's 16px icon grid, in the Regular (1px) and Medium (1.3px)
+    // weights the product icons use, so Models carries the same size and ink as
+    // the sidebar's other line icons (More must not share it).
+    const cube = strokeWidth => ({ size }) => h('svg', {
       width: size, height: size, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor',
-      strokeWidth: 1, strokeLinejoin: 'round', 'aria-hidden': true,
+      strokeWidth, strokeLinejoin: 'round', 'aria-hidden': true, 'data-icon': 'jt-models',
     }, h('path', { d: 'M8 1.5L14 4.75V11.25L8 14.5L2 11.25V4.75L8 1.5Z' }), h('path', { d: 'M2 4.75L8 8L14 4.75' }),
       h('path', { d: 'M8 8V14.5' }))
+    const ModelsGlyph = cube(1)
+    const ModelsGlyphMedium = cube(1.3)
 
     // The jan-hosts Settings section; its row appears only while that section is registered.
     const HOSTS_SECTION = 'jan-hosts'
     // Every destination Edit sidebar can pin, in sidebar order.
     const SIDEBAR_DESTINATIONS = [
-      { id: 'jan-model-hub', Icon: ModelsGlyph, label: 'hub' },
-      { id: 'plugins', Icon: IconPluginPinwheelOutlineRegular, label: 'customize' },
-      { id: 'jt-projects', Icon: IconFolderCloseRegular, label: 'projects' },
-      { id: 'artifacts', Icon: IconLayersOutlineRegular, label: 'artifacts' },
-      { id: 'schedules', Icon: IconClockOutlineRegular, label: 'scheduled' },
+      // Icon draws the rail; WideIcon, the Medium weight, draws the labelled rows.
+      { id: 'jan-model-hub', Icon: ModelsGlyph, WideIcon: ModelsGlyphMedium, label: 'hub' },
+      { id: 'plugins', Icon: IconPluginPinwheelOutlineRegular, WideIcon: IconPluginPinwheelOutlineMedium, label: 'customize' },
+      { id: 'jt-projects', Icon: IconFolderCloseRegular, WideIcon: IconFolderCloseMedium, label: 'projects' },
+      { id: 'artifacts', Icon: IconLayersOutlineRegular, WideIcon: IconLayersOutlineMedium, label: 'artifacts' },
+      { id: 'schedules', Icon: IconClockOutlineRegular, WideIcon: IconClockOutlineMedium, label: 'scheduled' },
       // A Settings section, not a page: the row opens Settings at Hosts.
-      { id: HOSTS_SECTION, Icon: IconLinkOutlineRegular, label: 'hosts' },
+      { id: HOSTS_SECTION, Icon: IconLinkOutlineRegular, WideIcon: IconLinkOutlineMedium, label: 'hosts' },
     ]
     const PINS_KEY = 'jan-theme.sidebar.pinned'
     const DEFAULT_PINS = ['jan-model-hub', 'plugins', 'jan-always-on']
