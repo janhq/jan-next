@@ -177,12 +177,6 @@ window.__ModuleLoader__.load({
       entry('conversation.input.dock', { component: 'Approvals', order: -20 })
       entry('sidebar.right.pane.tab', { key: PANEL, component: 'Details' })
       entry('shell.overlay', { component: 'Overlays' })
-      ctx.effect(() => ctx.uiWorkspace.registerCurrentSessionStartHandler(sessionId => {
-        const bot = getBot(sessionId)
-        if (!bot) return false
-        compact(bot)
-        return true
-      }))
     } }
   },
 })
