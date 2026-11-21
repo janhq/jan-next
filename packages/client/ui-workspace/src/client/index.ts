@@ -90,6 +90,8 @@ declare module '@janhq/jan-client-ui-slots' {
 declare module '@janhq/jan-api-session-controller/client' {
   interface SessionReferenceSourceMap {
     workspaceOperation: unknown
+    /** A chat the main view just left, kept open for an instant switch back. */
+    recentView: unknown
   }
 }
 
