@@ -16,6 +16,7 @@ window.__ModuleLoader__.load({
       IconWarningTriangleOutlineRegular, IconCloseOutlineRegular, IconSendOutlineRegular,
       IconLinkOutlineRegular, IconUserOutlineMedium,
     } = require('@janhq/jan-client-ui-primitives')
+    const { workspaceDisplayTitle } = require('@janhq/jan-api-workspace-controller/client')
     // Optional: the matching host publishes the dock model seat. An older
     // host leaves the composer's own selector in place instead.
     let DockModelSelection
@@ -1062,15 +1063,16 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
     }
 
     // Projects page: every project folder Jan knows, newest first. A card
-    // starts a chat inside that project; New project picks a folder.
+    // opens its project page; New project picks a folder.
     function ProjectsPanel({ useWorkspaces, openProject, addProject, t }) {
       const items = useWorkspaces((snapshot) => snapshot.items)
       const [query, setQuery] = React.useState('')
       const [busy, setBusy] = React.useState(false)
       const needle = query.trim().toLowerCase()
-      const rows = [...items]
-        .filter(row => needle === '' || row.title.toLowerCase().includes(needle) || row.path.toLowerCase().includes(needle))
-        .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+      const defaultName = t('workspace.defaultName')
+      const rows = items.map(row => ({ row, title: workspaceDisplayTitle(row, defaultName) }))
+        .filter(({ row, title }) => needle === '' || title.toLowerCase().includes(needle) || row.path.toLowerCase().includes(needle))
+        .sort((a, b) => Date.parse(b.row.updatedAt) - Date.parse(a.row.updatedAt))
       const error = useProjectError()
       const add = async () => {
         setBusy(true)
@@ -1090,9 +1092,9 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           ? h('div', { className: 'jt-projects-empty' },
             h(IconFolderCloseRegular, { size: 32, 'aria-hidden': true }),
             h('p', null, t('projects.empty')))
-          : h('ul', { className: 'jt-projects-grid' }, rows.map(row => h('li', { key: row.workspaceId },
+          : h('ul', { className: 'jt-projects-grid' }, rows.map(({ row, title }) => h('li', { key: row.workspaceId },
             h(ProjectCard, {
-              title: row.title, path: row.path, onClick: () => { openProject(row.workspaceId) },
+              title, path: row.path, onClick: () => { openProject(row.workspaceId) },
               meta: [t(row.sessionIds.length === 1 ? 'projects.chat' : 'projects.chats', { count: row.sessionIds.length }), ' · ', t('projects.updated', { ago: relative(row.updatedAt) })].join(''),
             })))))
     }
@@ -1228,6 +1230,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
 
     function ProjectDetails({ workspace, useArchived, useSessions, startSession, openChat, backToProjects, loadSchedules, createSchedule, openScheduled, t }) {
       const { workspaceId } = workspace
+      const title = workspaceDisplayTitle(workspace, t('workspace.defaultName'))
       const sessions = useSessions(value => value)
       const archivedIds = useArchived(value => value)
       const [details, setDetails] = React.useState(null)
@@ -1293,12 +1296,12 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       return h('div', { className: 'jt-project' },
         h('div', null,
           h('button', { type: 'button', className: 'jt-project-back', onClick: backToProjects }, '‹ ', t('projects')),
-          h('h1', { className: 'jt-project-title' }, workspace.title),
+          h('h1', { className: 'jt-project-title' }, title),
           h('p', { className: 'jt-project-path' }, workspace.path),
           h('form', { className: 'jt-project-composer', onSubmit: (event) => { event.preventDefault(); send() } },
             h('textarea', {
-              value: draft, rows: 2, 'aria-label': t('project.newSession', { name: workspace.title }),
-              placeholder: t('project.newSession', { name: workspace.title }),
+              value: draft, rows: 2, 'aria-label': t('project.newSession', { name: title }),
+              placeholder: t('project.newSession', { name: title }),
               onChange: (event) => { setDraft(event.target.value) },
               onKeyDown: (event) => {
                 if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); send() }
@@ -1494,11 +1497,15 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         list.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' })
       }, [active, open])
 
+      const defaultName = t('workspace.defaultName')
       const items = React.useMemo(() => {
         if (!open) return null
         const archived = new Set(workspaces.archivedSessionIds)
         const workspaceOf = new Map()
-        for (const workspace of workspaces.items) for (const id of workspace.sessionIds) workspaceOf.set(id, workspace.title)
+        for (const workspace of workspaces.items) {
+          const title = workspaceDisplayTitle(workspace, defaultName)
+          for (const id of workspace.sessionIds) workspaceOf.set(id, title)
+        }
         const chats = []
         const artifacts = []
         for (const id of sessions.ids) {
@@ -1521,7 +1528,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           }
         }
         const projects = workspaces.items.map(workspace => ({
-          kind: 'projects', key: `project:${workspace.workspaceId}`, title: workspace.title, detail: workspace.path,
+          kind: 'projects', key: `project:${workspace.workspaceId}`, title: workspaceDisplayTitle(workspace, defaultName), detail: workspace.path,
           keywords: [workspace.path], time: Date.parse(workspace.updatedAt), open: () => { openProject(workspace.workspaceId) },
         }))
         const scheduled = schedules.map(task => ({
@@ -1551,7 +1558,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           keywords: [target.sectionTitle, target.id], open: () => { openSettings(target.section) },
         }))
         return { chats, artifacts, projects, scheduled, actions, settings }
-      }, [open, sessions, workspaces, catalog, schedules, settingsTargets, artifactsAvailable, scheduledAvailable, pluginsAvailable, t])
+      }, [open, sessions, workspaces, catalog, schedules, settingsTargets, artifactsAvailable, scheduledAvailable, pluginsAvailable, defaultName, t])
 
       if (items === null) return null
       const kindLabel = (group) => group === 'actions' || group === 'settings' || group === 'commands' || group === 'all'

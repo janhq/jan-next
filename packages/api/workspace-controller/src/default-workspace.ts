@@ -16,15 +16,12 @@
 export const DEFAULT_WORKSPACE_DIRECTORY = 'default-workspace'
 
 /**
- * The text one Workspace is labeled with. A Workspace still carrying the
- * automatic first-use title reads as the caller's localized default name; every
- * other title reads verbatim in every language. A title the user typed as
- * exactly {@link DEFAULT_WORKSPACE_DIRECTORY} is labeled as the default too;
- * nothing else depends on the distinction.
- * @param title - stored Workspace title.
+ * Localize the registered first-use Workspace while it still has its stock
+ * title. Every custom title and every other Workspace reads verbatim.
+ * @param workspace - stored title and registered first-use marker.
  * @param localizedDefault - the default Workspace name in the active language.
  * @returns the title to display.
  */
-export function workspaceDisplayTitle(title: string, localizedDefault: string): string {
-  return title === DEFAULT_WORKSPACE_DIRECTORY ? localizedDefault : title
+export function workspaceDisplayTitle(workspace: { readonly title: string; readonly isDefault?: true }, localizedDefault: string): string {
+  return workspace.isDefault === true && workspace.title === DEFAULT_WORKSPACE_DIRECTORY ? localizedDefault : workspace.title
 }

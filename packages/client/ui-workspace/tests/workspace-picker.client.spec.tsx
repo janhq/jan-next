@@ -141,6 +141,15 @@ describe('WorkspacePicker', () => {
     expect(b.onPick).toHaveBeenCalledWith(wid('beta'))
   })
 
+  it('localizes only the registered default with its automatic title', () => {
+    mount([
+      { ...workspace('default', 'default-workspace'), isDefault: true },
+      workspace('manual', 'default-workspace'),
+    ])
+    expect(screen.getByRole('menuitem', { name: '默认工作区' })).toBeTruthy()
+    expect(screen.getByRole('menuitem', { name: 'default-workspace' })).toBeTruthy()
+  })
+
   it('opens the composed directory flow, adopts its picked path, and selects the returned Workspace', async () => {
     const created = { ...workspace('adopted'), path: '/tmp/project', title: 'project' }
     const createWorkspace = vi.fn(async () => created)

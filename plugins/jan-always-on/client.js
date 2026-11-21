@@ -5,8 +5,7 @@ window.__ModuleLoader__.load({
     const { Button, IconAlarmClockOutlineRegular, Input, StateDot, Toast } = require('@janhq/jan-client-ui-primitives')
     const PANEL = 'jan-always-on'
     const PATH = '/jan-api/always-on'
-    const title = { en: 'Always-on', zh: '常驻助手', ja: '常駐アシスタント', es: 'Asistente permanente', fr: 'Assistant permanent',
-      de: 'Hintergrundassistent', ru: 'Фоновый помощник', pt: 'Assistente permanente' }
+    const title = { en: 'Bots', zh: '机器人', ja: 'ボット', es: 'Bots', fr: 'Bots', de: 'Bots', ru: 'Боты', pt: 'Bots' }
     const tabs = ['events', 'timers', 'memory', 'messages']
 
     async function call(method, params, signal) {

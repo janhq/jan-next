@@ -115,7 +115,7 @@ export function WorkspacePickFlow({
     if (!pinAdd) return []
     const rows = workspaces.map(workspace => ({
       id: workspace.workspaceId,
-      title: workspaceDisplayTitle(workspace.title, defaultWorkspaceName),
+      title: workspaceDisplayTitle(workspace, defaultWorkspaceName),
       path: workspace.path,
     }))
     const suffixes = distinguishingPathSuffixes(rows)
