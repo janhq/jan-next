@@ -125,9 +125,17 @@ export type MessageImageSource =
     }
   }
 
+/** One mounted consumer's claim on a durable browser URL. */
+export interface MessageImageLease {
+  readonly url: Promise<string>
+  readonly release: () => void
+}
+
 /** Durable image loader with an optional synchronous cache read. */
 export type MessageImageLoader = ((attachment: ImageAttachmentRef) => Promise<string>) & {
   peek?: (attachment: ImageAttachmentRef) => string | undefined
+  /** Retain a URL only while a mounted consumer needs it. */
+  acquire?: (attachment: ImageAttachmentRef) => MessageImageLease
 }
 
 /** Message image group handed to the optional attachment presentation plugin. */
@@ -142,6 +150,8 @@ export interface MessageImagesOwnerProps {
   compact?: boolean
   /** Fixed, uncropped thumbnail for an attachment list row. */
   thumbnail?: boolean
+  /** Defer reading image bytes until the thumbnail nears the viewport. */
+  lazy?: boolean
 }
 
 /** Message-image strings the owner resolves from its own locale namespace. */

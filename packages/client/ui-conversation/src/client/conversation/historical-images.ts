@@ -5,9 +5,12 @@ import type { ISessions, SessionBinding } from '@janhq/jan-api-session-controlle
 import type { SessionId } from '@janhq/jan-session/types'
 import { bytesToBase64 } from '@janhq/jan-util-crypto'
 import { WeakMapWithValues } from '@janhq/jan-util-values'
+import type { MessageImageLease } from '../contract/slots.ts'
 
 interface ImageUrlEntry {
   readonly binding: SessionBinding
+  pinned: boolean
+  consumers: number
   current?: string
   pending: Promise<string>
 }
@@ -34,22 +37,59 @@ export class HistoricalImageCache {
    * @returns browser URL valid until the Session binding is released.
    */
   resolve(sessionId: SessionId, attachment: ImageAttachmentRef): Promise<string> {
-    if (this.disposed) return Promise.reject(new Error('ui-conversation image cache is disposed'))
-    const binding = this.sessions.binding(sessionId)
-    if (binding === undefined) {
-      return Promise.reject(new Error(`ui-conversation: unknown session "${sessionId}"`))
+    const entry = this.entryFor(sessionId, attachment)
+    if (entry === undefined) return Promise.reject(this.unavailable(sessionId))
+    entry.pinned = true
+    return entry.pending
+  }
+
+  /**
+   * Share a durable read until the last short-lived consumer releases it.
+   * @param sessionId - Session binding that authorizes the attachment read.
+   * @param attachment - Durable image reference from a Session event.
+   * @returns A URL promise and an idempotent release callback.
+   */
+  acquire(sessionId: SessionId, attachment: ImageAttachmentRef): MessageImageLease {
+    const entry = this.entryFor(sessionId, attachment)
+    if (entry === undefined) return { url: Promise.reject(this.unavailable(sessionId)), release: () => {} }
+    entry.consumers++
+    let released = false
+    return {
+      url: entry.pending,
+      release: () => {
+        if (released) return
+        released = true
+        if (--entry.consumers > 0 || entry.pinned) return
+        const entries = this.entries.get(entry.binding)
+        if (entries?.get(attachment.attachmentId) !== entry) return
+        entries.delete(attachment.attachmentId)
+        if (entry.current !== undefined) this.releaseUrl(entry.current)
+      },
     }
+  }
+
+  private unavailable(sessionId: SessionId): Error {
+    return this.disposed ? new Error('ui-conversation image cache is disposed')
+      : new Error(`ui-conversation: unknown session "${sessionId}"`)
+  }
+
+  private entryFor(sessionId: SessionId, attachment: ImageAttachmentRef): ImageUrlEntry | undefined {
+    if (this.disposed) return undefined
+    const binding = this.sessions.binding(sessionId)
+    if (binding === undefined) return undefined
     const entries = this.bindScope(binding)
     const key = attachment.attachmentId
     const cached = entries.get(key)
-    if (cached !== undefined) return cached.pending
+    if (cached !== undefined) return cached
     const entry: ImageUrlEntry = {
       binding,
+      pinned: false,
+      consumers: 0,
       pending: Promise.resolve(''),
     }
     entries.set(key, entry)
     entry.pending = this.loadCanonical(key, entry, attachment)
-    return entry.pending
+    return entry
   }
 
   /**
@@ -81,6 +121,8 @@ export class HistoricalImageCache {
     if (entries.has(key)) return false
     const entry: ImageUrlEntry = {
       binding,
+      pinned: true,
+      consumers: 0,
       current: url,
       pending: Promise.resolve(url),
     }
