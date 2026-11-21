@@ -4,12 +4,22 @@ import { RemoteStreamCarrierError } from '@janhq/jan-api-gateway/client'
 import { createSnapshotStore, type SnapshotStore } from '@janhq/jan-client-store'
 import type { SpeechCatalog } from '@janhq/jan-experimental-api-speech-to-text/types'
 import type {} from '@janhq/jan-experimental-api-speech-to-text/remote'
+import type { SpeechPreparationState } from '@janhq/jan-experimental-speech-to-text/types'
 
 /** Complete provider state, with a separate transport failure that never rewrites Host readiness. */
 export interface SpeechReadiness {
   readonly catalog: SpeechCatalog | null
   readonly connected: boolean
   readonly error: string | null
+}
+
+/**
+ * Determine whether a provider can accept audio now or wake when it receives audio.
+ * @param phase - The provider's current preparation phase.
+ * @returns Whether capture may begin.
+ */
+export function canRecord(phase: SpeechPreparationState['phase'] | undefined): boolean {
+  return phase === 'ready' || phase === 'standby' || phase === 'waking'
 }
 
 /**

@@ -22,7 +22,9 @@ The Host provider owns one preparation task across page and Session changes. The
 
 Failed preparation can include `SpeechDownloadFailure` with the asset, source origin, classified reason and optional diagnostic code or HTTP status. The Client localizes recovery advice; raw download causes remain on the Host.
 
-The microphone occupies `conversation.input.activity`, between the model selector and Send. Clicking starts capture and expands the toolbar; Stop transcribes and inserts into the draft. The activity preserves the editor and submit action, owns local feedback, and releases expansion on unmount. Cancel, Escape or hiding the page discards capture. Waveform history displays measured microphone amplitude. Bundle details contain recognition preferences, preparation state and progress. Explicit enablement uses `plugins.bundle.activation` to guide users with missing models to setup; the list shows only the bundle description and switch.
+On Jan Desktop the microphone occupies `conversation.input.draftActivity`, between the model selector and Send, even before the first Session or Voice Input enablement. The first click opens a setup dialog with language selection and local preparation progress. After preparation, the dialog saves preferences, enables the existing Voice Input bundle through Plugins, and begins capture. Closing the dialog discards pending preferences and cancels only the preparation it started; verified artifacts may be reused. The optional `voice-input.options` slot keeps alternate modes such as Talk to Jan beside the microphone in an open draft.
+
+Once set up, the microphone starts capture and expands the toolbar. Stop transcribes and inserts into the draft. The activity preserves editing and submission, owns local feedback, and releases expansion on unmount. Cancel, Escape or hiding the page discards capture. Waveform history displays measured microphone amplitude only during dictation. Bundle details still contain device and recognizer preferences, preparation state and progress.
 
 ## Design rationale
 

@@ -15,11 +15,13 @@ import type {} from '@janhq/jan-client-ui-plugin-manager/client'
 import { observeReadiness } from './readiness.ts'
 import { VoicePreparation } from './PreparationCard.tsx'
 import { VoiceSetupPrompt } from './VoiceSetupPrompt.tsx'
+import { observeVoiceBundle, VOICE_BUNDLE } from './voice-bundle.ts'
 
 export const inject = ['remote', 'slots', 'locale']
 
 function registerUi(ctx: Context): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }))
+  const bundle = observeVoiceBundle(ctx)
   const recordings = new Set<Recording>()
   const microphone = createMicrophoneDeviceStore()
   const readiness = observeReadiness(ctx)
@@ -34,8 +36,10 @@ function registerUi(ctx: Context): void {
     }, 'voice-input: plugin navigation presence')
   })
   const actions: VoiceInputInjected = {
-    openSettings: () => { ctx.get('pluginNavigation')?.openBundle('@janhq/jan-experimental-voice-input-bundle') },
-    hooks: { speechReadiness: readiness.state, microphoneDevice: microphone, pluginNavigation },
+    openSettings: () => { ctx.get('pluginNavigation')?.openBundle(VOICE_BUNDLE) },
+    enableVoice: bundle.enable,
+    refreshVoiceBundle: bundle.refresh,
+    hooks: { speechReadiness: readiness.state, microphoneDevice: microphone, pluginNavigation, voiceBundle: bundle.state },
     selectMicrophone: (device) => { microphone.set(device) },
     createRecording: () => {
       const recording = new Recording(() => { recordings.delete(recording) }, microphone.getSnapshot().id)
@@ -51,14 +55,15 @@ function registerUi(ctx: Context): void {
       const result = await ctx.remote.speech.cancelPreparation(providerId); if (!result.ok) throw result.error
     },
   }
-  ctx.slots.inject('conversation.input.activity', () => ctx.slots.register({
-    name: 'conversation.input.activity', locale: NS, inject: () => actions,
+  ctx.slots.inject('conversation.input.draftActivity', () => ctx.slots.register({
+    name: 'conversation.input.draftActivity', locale: NS, inject: () => actions,
+    children: { 'voice-input.options': { kind: 'single', scope: 'session' } },
   }, VoiceInput))
   ctx.slots.inject('plugins.bundle.config', () => ctx.slots.register({ name: 'plugins.bundle.config',
-    key: '@janhq/jan-experimental-voice-input-bundle', locale: NS, inject: () => actions,
+    key: VOICE_BUNDLE, locale: NS, inject: () => actions,
   }, VoicePreparation))
   ctx.slots.inject('plugins.bundle.activation', () => ctx.slots.register({ name: 'plugins.bundle.activation',
-    key: '@janhq/jan-experimental-voice-input-bundle', locale: NS, inject: () => actions,
+    key: VOICE_BUNDLE, locale: NS, inject: () => actions,
   }, VoiceSetupPrompt))
 
 }
