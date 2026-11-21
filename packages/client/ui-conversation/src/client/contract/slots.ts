@@ -369,6 +369,8 @@ declare module '@janhq/jan-client-ui-slots' {
      * docked composer contains them.
      */
     'conversation.input.activity': { kind: 'single'; scope: 'session'; owner: InputActivityOwnerProps }
+    /** Activity that can start in an empty composer and adopt its first Session. */
+    'conversation.input.draftActivity': { kind: 'single'; scope: 'session-maybe'; owner: DraftActivityOwnerProps }
     /**
      * Resident composer body, including the no-Session inert state; fixed overlays must portal to
      * the document body because the docked composer contains them.
@@ -681,6 +683,12 @@ export interface InputActivityOwnerProps extends InputControlOwnerProps {
   onActiveChange: (active: boolean) => void
 }
 
+/** A toolbar activity that can request a draft before it needs Session actions. */
+export interface DraftActivityOwnerProps extends InputActivityOwnerProps {
+  /** Open the default draft, preserving any composer text; absent once the Session is ready. */
+  openDraft?: () => Promise<void>
+}
+
 /** Full props of the resident composer bar. */
 export type ComposerBarProps =
   PropsRuntime<'conversation.composer.bar'>
@@ -690,6 +698,7 @@ export type ComposerBarProps =
     | 'conversation.input.left' | 'conversation.input.plan'
     | 'conversation.input.placeholder'
     | 'conversation.input.right' | 'conversation.input.model' | 'conversation.input.activity'
+    | 'conversation.input.draftActivity'
     | 'conversation.composer.dock'
   >
   & InjectFace<ComposerBarInjected>

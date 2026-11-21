@@ -31,7 +31,7 @@ import type { SubmitOutcome } from '../src/client/contract/input.ts'
 import { SessionInputShell } from '../src/client/input/facade.ts'
 import { $replaceDetectSpanWithText, $selectDetectSpan } from '../src/client/input/editor/span-map.ts'
 import type {
-  ComposerAttachment, ComposerAttachmentsOwnerProps, DraftFileUploads, InputActivityOwnerProps,
+  ComposerAttachment, ComposerAttachmentsOwnerProps, DraftActivityOwnerProps, DraftFileUploads, InputActivityOwnerProps,
 } from '../src/client/contract/slots.ts'
 import type { DraftAttachmentId } from '../src/client/contract/input.ts'
 import { InputBar } from '../src/client/skeleton/InputBar.tsx'
@@ -102,6 +102,7 @@ interface BenchOptions {
   leftItems?: React.ReactNode
   rightItems?: React.ReactNode
   activityEntry?: (owner: InputActivityOwnerProps) => React.ReactNode
+  draftActivityEntry?: (owner: DraftActivityOwnerProps) => React.ReactNode
   contextPressure?: ContextPressureProjection
   footer?: React.ReactNode
   attachments?: readonly ComposerAttachment[]
@@ -180,6 +181,7 @@ function bench(over?: BenchOptions) {
     if (key === 'conversation.input.permission') return over?.permissionEntry ?? null
     if (key === 'conversation.input.model') return over?.modelEntry ?? null
     if (key === 'conversation.input.activity') return over?.activityEntry?.(owner as InputActivityOwnerProps) ?? null
+    if (key === 'conversation.input.draftActivity') return over?.draftActivityEntry?.(owner as DraftActivityOwnerProps) ?? null
     return null
   }) as never
   const props: InputBarProps = {
@@ -2119,10 +2121,31 @@ describe('command launcher chrome and control seats', () => {
       'conversation.input.overlay', 'conversation.input.attachments', 'conversation.input.placeholder',
       'conversation.input.permission', 'conversation.input.plan', 'conversation.input.left',
       'conversation.input.right', 'conversation.input.model', 'conversation.input.activity',
+      'conversation.input.draftActivity',
       'conversation.composer.dock',
     ])
     expect(view.queryByLabelText('Plan mode')).toBeNull()
     expect(view.queryByLabelText('Model')).toBeNull()
+  })
+
+  it('offers a draft activity before a session and adopts the session without duplicating the control', async () => {
+    const open = vi.fn(async (readDraft: () => string) => { expect(readDraft()).toBe('') })
+    const { props, view } = bench({ variant: 'hero', draftActivityEntry: ({ locked, openDraft }) => (
+      <button type="button" disabled={locked} onClick={() => { void openDraft?.() }}>
+        {openDraft === undefined ? 'Session microphone' : 'Open microphone'}
+      </button>
+    ) })
+    const useAbsentSnapshot = bindSnapshotSelector(createSnapshotStore<undefined>(undefined))
+    const useAbsentInput: InputBarProps['useInput'] = () => useAbsentSnapshot(() => undefined)
+    view.rerender(<InputBar {...props} sessionId={undefined} useInput={useAbsentInput}
+      inputActions={undefined} keyboard={undefined} onActivateDraft={open} />)
+    const mic = view.getByRole('button', { name: 'Open microphone' })
+    fireEvent.click(mic)
+    await act(async () => {})
+    expect(open).toHaveBeenCalledOnce()
+    view.rerender(<InputBar {...props} />)
+    expect(view.getByRole('button', { name: 'Session microphone' })).toBe(mic)
+    expect(view.queryByRole('button', { name: 'Open microphone' })).toBeNull()
   })
 
   it('opens a short add menu whose Browse commands row passes the textarea selection to the command launcher', () => {
