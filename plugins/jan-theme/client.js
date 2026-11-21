@@ -1109,8 +1109,15 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         set(next) { workspaceId = next; for (const listener of listeners) listener() },
       }
     })()
-    async function projectApi(method, params = {}) {
-      const response = await fetch('/jan-api/project-home', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
+    const showProject = (layout, workspaceId) => {
+      layout.selectPanel(PROJECT_PANEL)
+      currentProject.set(workspaceId)
+    }
+    const openProject = (scope, workspaceId) => {
+      if (scope.uiWorkspace.openProjectSurface?.(workspaceId) !== true) showProject(scope.layout, workspaceId)
+    }
+    async function projectApi(method, params = {}, signal) {
+      const response = await fetch('/jan-api/project-home', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }), signal })
       // A settings save reloads the Host plugin; its route is briefly absent and answers without JSON.
       if (!response.headers.get('content-type')?.startsWith('application/json')) throw new Error('Jan is reloading. Try again in a moment.')
       const body = await response.json()
@@ -1126,8 +1133,6 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       reader.readAsDataURL(file)
     })
     const scheduleZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
-    const sameFolder = (a, b) => a !== undefined && b !== undefined
-      && a.replace(/[\\/]+$/, '').toLowerCase() === b.replace(/[\\/]+$/, '').toLowerCase()
 
     // Edits one instruction file; the draft survives closing the dialog until it is saved.
     const projectDrafts = new Map()
@@ -1210,9 +1215,19 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         error && h('p', { className: 'jt-project-error', role: 'alert' }, error)))
     }
 
-    function ProjectHome({ useProject, useWorkspaces, useArchived, useSessions, startSession, openChat, backToProjects, loadSchedules, createSchedule, openScheduled, t }) {
+    function ProjectHome({ useProject, useWorkspaces, backToProjects, t, ...props }) {
       const workspaceId = useProject(value => value)
       const workspace = useWorkspaces(snapshot => snapshot.items.find(item => item.workspaceId === workspaceId))
+      if (workspace === undefined) {
+        return h('section', { className: 'jt-projects' },
+          h('p', { className: 'jt-projects-empty' }, t('project.missing')),
+          h(Button, { variant: 'outline', onClick: backToProjects }, t('project.back')))
+      }
+      return h(ProjectDetails, { ...props, key: workspace.workspaceId, workspace, backToProjects, t })
+    }
+
+    function ProjectDetails({ workspace, useArchived, useSessions, startSession, openChat, backToProjects, loadSchedules, createSchedule, openScheduled, t }) {
+      const { workspaceId } = workspace
       const sessions = useSessions(value => value)
       const archivedIds = useArchived(value => value)
       const [details, setDetails] = React.useState(null)
@@ -1224,10 +1239,16 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       const [fileError, setFileError] = React.useState('')
       const [draft, setDraft] = React.useState('')
       const fileInput = React.useRef(null)
-      const reload = React.useCallback(async () => {
-        if (workspaceId === null) return
-        try { setDetails(await projectApi('read', { workspaceId })); setError('') } catch (failure) { setError(failure.message) }
-      }, [workspaceId])
+      const [detailsVersion, reloadDetails] = React.useReducer(version => version + 1, 0)
+      React.useEffect(() => {
+        const controller = new AbortController()
+        const { signal } = controller
+        void projectApi('read', { workspaceId }, signal).then(
+          (next) => { if (!signal.aborted) { setDetails(next); setError('') } },
+          (failure) => { if (!signal.aborted) setError(failure.message) },
+        )
+        return () => { controller.abort() }
+      }, [workspaceId, detailsVersion])
       const reloadTasks = React.useCallback(async () => {
         const pending = loadSchedules()
         if (pending === undefined) { setTasks(null); return }
@@ -1238,19 +1259,19 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           setTaskError('')
         } catch (failure) { setTaskError(failure.message) }
       }, [])
-      React.useEffect(() => { setDetails(null); setDraft(''); void reload(); void reloadTasks() }, [workspaceId])
-      if (workspaceId === null || workspace === undefined) {
-        return h('section', { className: 'jt-projects' },
-          h('p', { className: 'jt-projects-empty' }, t('project.missing')),
-          h(Button, { variant: 'outline', onClick: backToProjects }, t('project.back')))
-      }
+      React.useEffect(() => { void reloadTasks() }, [reloadTasks])
       const archived = new Set(archivedIds)
       const recents = workspace.sessionIds
         .map(id => sessions.byId[id])
         .filter(summary => summary !== undefined && !summary.blank && summary.origin !== 'subagent' && summary.parentId === undefined && !archived.has(summary.id))
         .sort((a, b) => b.updatedAt - a.updatedAt)
-      const projectTasks = tasks === null ? null : tasks.filter(task => task.status !== 'ended'
-        && (task.target.kind === 'session' ? workspace.sessionIds.includes(task.target.sessionId) : sameFolder(task.target.create?.cwd, workspace.path)))
+      const projectTasks = React.useMemo(() => {
+        if (tasks === null) return null
+        const sessionIds = new Set(workspace.sessionIds)
+        return tasks.filter(task => task.status !== 'ended' && (task.target.kind === 'session'
+          ? sessionIds.has(task.target.sessionId)
+          : task.target.create?.cwd === workspace.path))
+      }, [tasks, workspace.sessionIds, workspace.path])
       const send = () => {
         const text = draft.trim()
         if (text === '') return
@@ -1262,7 +1283,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         for (const file of files) {
           try { await projectApi('addFile', { workspaceId, name: file.name, data: await readBase64(file) }) } catch (failure) { setFileError(failure.message) }
         }
-        await reload()
+        reloadDetails()
       }
       const dateFormat = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
       const card = (titleKey, action, body) => h('section', { className: 'jt-project-card', 'aria-label': t(titleKey) },
@@ -1333,7 +1354,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           note: editing === 'memory' ? t('project.memory.note') : t('project.instructions.note'),
           initial: editing === 'memory' ? details?.memory ?? '' : details?.instructions ?? '',
           draftKey: `${workspaceId}:${editing}`,
-          onSave: async (text) => { await projectApi('save', { workspaceId, kind: editing, text }); await reload() },
+          onSave: async (text) => { await projectApi('save', { workspaceId, kind: editing, text }); reloadDetails() },
           onClose: () => { setEditing(null) },
         }),
         h(ProjectTaskEditor, {
@@ -1692,9 +1713,9 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'hero.headline': 'How can I help you today?',
               chats: 'Chats',
               newChat: 'New Chat',
-              newProject: 'New folder',
+              newProject: 'New project',
               search: 'Search',
-              projects: 'Folders', plugins: 'Plugins', settings: 'Settings', artifacts: 'Artifacts', scheduled: 'Scheduled',
+              projects: 'Projects', plugins: 'Plugins', settings: 'Settings', artifacts: 'Artifacts', scheduled: 'Scheduled',
               hub: 'Models', customize: 'Customize',
               editSidebar: 'Edit sidebar…', 'editSidebar.title': 'Edit sidebar', 'editSidebar.done': 'Done',
               'editSidebar.lede': 'Choose which items appear in your sidebar. Drag to reorder.', 'editSidebar.close': 'Close',
@@ -1704,37 +1725,37 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'newArtifact.prompt': 'Create a file for me: ',
               'createPlugin.prompt': 'Create a Jan plugin with a left sidebar entry.',
               'createSkill.prompt': 'Create a skill that ', 'createConnector.prompt': 'Connect Jan to ',
-              'projects.lede': 'Chats started in a folder can read and write its files.',
-              'project.back': "Back to folders",
-              'project.missing': "This folder is no longer in Jan.",
+              'projects.lede': 'Each project is a folder. Chats started in it can read and write its files.',
+              'project.back': "Back to projects",
+              'project.missing': "This project is no longer in Jan.",
               'project.newSession': "New session in {name}",
-              'project.composerHint': "Enter starts a session in this folder. Shift+Enter adds a line.",
+              'project.composerHint': "Enter starts a session in this project. Shift+Enter adds a line.",
               'project.start': "Start session",
               'project.recents': "Recents",
-              'project.noSessions': "No sessions in this folder yet.",
-              'project.details': "Folder details",
+              'project.noSessions': "No sessions in this project yet.",
+              'project.details': "Project details",
               'project.instructions': "Instructions",
-              'project.instructions.empty': "Tell the agent how to work in this folder.",
-              'project.instructions.description': "Every new session in this folder reads these instructions first.",
-              'project.instructions.note': "Saved as AGENTS.md in the folder, where other agents can read it too.",
+              'project.instructions.empty': "Tell the agent how to work in this project.",
+              'project.instructions.description': "Every new session in this project reads these instructions first.",
+              'project.instructions.note': "Saved as AGENTS.md in the project folder, where other agents can read it too.",
               'project.context': "Context",
               'project.context.empty': "No files in this folder yet.",
               'project.context.more': "Showing the first 300 items.",
               'project.addFiles': "Add files",
               'project.openFolder': "Open folder",
               'project.memory': "Memory",
-              'project.memory.empty': "Notes the agent keeps about this folder.",
-              'project.memory.description': "Private notes every new session in this folder reads after its instructions.",
-              'project.memory.note': "Saved as AGENTS.local.md in the folder. Keep it out of version control.",
+              'project.memory.empty': "Notes the agent keeps about this project.",
+              'project.memory.description': "Private notes every new session in this project reads after its instructions.",
+              'project.memory.note': "Saved as AGENTS.local.md in the project folder. Keep it out of version control.",
               'project.scheduled': "Scheduled",
-              'project.scheduled.empty': "No scheduled tasks run in this folder.",
+              'project.scheduled.empty': "No scheduled tasks run in this project.",
               'project.add': "Add",
               'project.edit': "Edit",
               'project.save': "Save",
               'project.saving': "Saving…",
               'project.cancel': "Cancel",
               'project.task.title': "New scheduled task",
-              'project.task.description': "Each run starts a new session in this folder.",
+              'project.task.description': "Each run starts a new session in this project.",
               'project.task.name': "Name",
               'project.task.prompt': "Instructions",
               'project.task.repeat': "Repeat",
@@ -1749,13 +1770,13 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.task.next': "Next {when}",
               'project.task.paused': "Paused",
               'project.task.manage': "Manage scheduled tasks",
-              'projects.search': 'Search folders',
-              'projects.empty': 'No folders yet. Add one from this computer.',
+              'projects.search': 'Search projects',
+              'projects.empty': 'No projects yet. Create one from a folder on this computer.',
               'projects.chat': '{count} chat', 'projects.chats': '{count} chats',
               'projects.updated': 'updated {ago} ago',
-              'projects.addFailed': 'Could not add the folder: {reason}',
+              'projects.addFailed': 'Could not add the project: {reason}',
               'section.mcp': 'MCP Servers', 'section.skills': 'Skills', 'tab.connectors': 'Connectors',
-              'palette.title': 'Search', 'palette.placeholder': 'Search chats, artifacts, folders and actions',
+              'palette.title': 'Search', 'palette.placeholder': 'Search chats, artifacts, projects and actions',
               'palette.filter': 'Filter results', 'palette.all': 'All', 'palette.recents': 'Recents', 'palette.actions': 'Actions',
               'palette.goTo': 'Go to {page}', 'palette.nothing': 'Nothing here yet', 'palette.noResults': 'No results for “{query}”',
               'palette.navigate': 'Navigate', 'palette.open': 'Open', 'palette.close': 'Close',
@@ -2394,21 +2415,18 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               openPanel: openDestination,
             }),
           }, PanelDestinations))
-          const openProject = (workspaceId) => {
-            currentProject.set(workspaceId)
-            scope.layout.selectPanel(PROJECT_PANEL)
-          }
+          const show = (workspaceId) => { showProject(scope.layout, workspaceId) }
           scope.slots.inject('main', () => scope.slots.register({
             name: 'main', key: PROJECTS_PANEL, locale: 'jan-theme',
             inject: () => ({
               hooks: { workspaces: scope.workspaces.list },
-              openProject,
+              openProject: (workspaceId) => { openProject(scope, workspaceId) },
               addProject,
             }),
           }, ProjectsPanel))
           // An older ui-workspace keeps the row click as expand and collapse.
           if (typeof scope.uiWorkspace.registerProjectHandler === 'function') {
-            scope.effect(() => scope.uiWorkspace.registerProjectHandler(openProject), 'jan-theme: project home')
+            scope.effect(() => scope.uiWorkspace.registerProjectHandler(show, PROJECT_PANEL), 'jan-theme: project home')
           }
         })
         ctx.inject(['layout', 'uiWorkspace', 'workspaces', 'sessions', 'locale'], (scope) => {
@@ -2542,10 +2560,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
                 scope.layout.selectPanel(null)
                 scope.uiWorkspace.openSession(sessionId)
               },
-              openProject: (workspaceId) => {
-                scope.layout.selectPanel(null)
-                scope.uiWorkspace.startSession(workspaceId)
-              },
+              openProject: (workspaceId) => { openProject(scope, workspaceId) },
               openArtifact: (sessionId, seq, index) => {
                 const query = new URLSearchParams({ sessionId, seq: String(seq), index: String(index) })
                 fetch(`api/present.open?${query}`, { method: 'POST' }).then((response) => {

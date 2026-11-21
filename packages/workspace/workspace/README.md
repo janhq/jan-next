@@ -50,6 +50,8 @@ With these rows mounted, creating a project shows up in the list immediately and
 
 Create a project from any fully qualified directory that exists: filesystem roots such as `C:\` and ordinary directories are valid. Relative paths, Windows drive-relative paths such as `C:work`, missing paths, and files are rejected without creating a project; creating a project for a directory that already has one returns the existing project unchanged. Rename a project at any time, and move it to any position in the list:
 
+Use `workspaceRegistry.adopt(path, title?)` when the caller needs to know whether it created the registration or reused an existing one. The registry determines both the returned workspace and the `created` receipt in the same serialized operation.
+
 ```text
 // Host consumer code, after the composition above is loaded:
 const project = await ctx.workspaceRegistry.create('/path/to/dir', 'My Project')
@@ -65,6 +67,8 @@ ctx.workspaceRegistry.list() // shows the project, newest first
 The directory resolver runs inside the mutation queue only when creation is eligible. It returns an absolute path; the registry creates missing parent directories, canonicalizes the path, rechecks Session history, and commits the Workspace with its initialization marker, titled after the requested directory's final segment rather than the canonical one, so a symlink at that path does not retitle the Workspace after its target. An existing directory is reused; a file conflict or directory failure rejects initialization. The [Host controller](../../api/workspace-controller/README.md#first-use-workspace) supplies the Documents path policy.
 
 The first successful registration records its identity durably. Repeated calls return it without resolving a directory again; renaming keeps that identity, and deleting its registration does not permit another automatic creation. Directory or registration failure leaves initialization unset for retry. Directories created before a later failure remain on disk. Once directory resolution succeeds, caller cancellation does not roll back directory creation or registration.
+
+Read `ctx.workspaceRegistry.defaultWorkspace` to look up the active default without attempting initialization. It is absent when no default was initialized or its registration was deleted.
 
 ### Grouping sessions under a project
 
@@ -90,7 +94,7 @@ This section explains the design decisions behind the feature and points at the 
 
 - **One record per canonical path.** `fs.realpath` is the single uniqueness canon: paths are stored canonicalized, so a symlink to an owned directory collides, and uniqueness is string equality of canonical paths.
 - **Membership starts from the recorded account.** The header index validates ordered `sessionIds`; missing-directory candidates retain their account, while other invalid candidates are filtered on read and pruned by the next mutation. The strict canonical-path index used for history bootstrap includes existing directories only.
-- **Header-only reads.** Bootstrap and attach validation read `SessionHeader` fields only; event bodies are never loaded.
+- **Header-only reads.** Bootstrap lists Session headers once. Attaching a Session whose header is neither live nor cached reads only that Session's metadata, not the event body or the complete listing.
 - **Two-write mutations with an explicit marker.** Create and delete persist a `pendingMutation` marker before the record/order pair can diverge, so startup completes exactly the interrupted operation and unmarked divergence fails loud as corruption.
 - **Serialized writes.** Registry operations run on one operation chain; entity mutations go through `table.update` on the domain write chain, stamping `updatedAt` and deciding membership at their chain slot.
 

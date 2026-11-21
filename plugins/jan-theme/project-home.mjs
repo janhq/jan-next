@@ -6,7 +6,7 @@
  * Every call names a Workspace id, never a path, so only registered project
  * folders are reachable.
  */
-import { readFile, readdir, stat, writeFile, rename, unlink, open, mkdir } from 'node:fs/promises'
+import { readFile, readdir, lstat, writeFile, rename, unlink, open, mkdir } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { spawn } from 'node:child_process'
@@ -16,6 +16,8 @@ const FILES = { instructions: 'AGENTS.md', memory: 'AGENTS.local.md' }
 // The instruction loader's own default budget; a larger file would be truncated for the agent.
 const MAX_TEXT_BYTES = 65_536
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024
+// Base64 expands uploads by a third; leave room for the JSON envelope and file name.
+const MAX_REQUEST_BYTES = 34 * 1024 * 1024
 const MAX_LISTED = 300
 
 /** @param {import('@janhq/cordis').Context} ctx @param {unknown} id */
@@ -53,7 +55,7 @@ async function listFiles(root) {
     let size
     let modified
     try {
-      const info = await stat(join(root, entry.name))
+      const info = await lstat(join(root, entry.name))
       size = directory ? undefined : info.size
       modified = info.mtimeMs
     } catch (error) {
@@ -87,11 +89,12 @@ export function mountProjectHome(ctx) {
     async save({ workspaceId, kind, text }) {
       const file = FILES[kind]
       if (file === undefined || typeof text !== 'string') throw new Error('Choose instructions or memory to save.')
-      if (Buffer.byteLength(text) > MAX_TEXT_BYTES) throw new Error(`Keep this under ${MAX_TEXT_BYTES / 1024} KB; the agent reads no more than that.`)
+      const contents = text.endsWith('\n') ? text : `${text}\n`
+      if (Buffer.byteLength(contents) > MAX_TEXT_BYTES) throw new Error(`Keep this under ${MAX_TEXT_BYTES / 1024} KB; the agent reads no more than that.`)
       const target = join(projectPath(ctx, workspaceId), file)
       // An emptied file is removed rather than left behind as an empty AGENTS.md.
       if (text.trim() === '') await unlink(target).catch((error) => { if (error?.code !== 'ENOENT') throw error })
-      else await writeAtomic(target, text.endsWith('\n') ? text : `${text}\n`)
+      else await writeAtomic(target, contents)
       return { saved: true }
     },
     async addFile({ workspaceId, name, data }) {
@@ -115,5 +118,5 @@ export function mountProjectHome(ctx) {
       openWithSystem(projectPath(ctx, workspaceId))
       return { opened: true }
     },
-  }), 'jan-theme: project home')
+  }, { maxBodyBytes: MAX_REQUEST_BYTES }), 'jan-theme: project home')
 }

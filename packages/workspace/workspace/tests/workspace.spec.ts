@@ -55,7 +55,10 @@ async function harness(options: HarnessOptions = {}) {
   const list = vi.fn(async (): Promise<SessionPersistenceSnapshot[]> =>
     listed.map(header => ({ header, revision: SessionPersistenceRevision(`rev-${header.id}`) })))
   const open = vi.fn(() => { throw new Error('event bodies must not be opened') })
-  const stat = vi.fn(() => { throw new Error('per-session stat must not be needed') })
+  const stat = vi.fn(async (id: SessionId): Promise<SessionPersistenceSnapshot | undefined> => {
+    const header = listed.find(header => header.id === id)
+    return header === undefined ? undefined : { header, revision: SessionPersistenceRevision(`rev-${id}`) }
+  })
   ctx.provide('sessionPersistence', { list, open, stat } as never)
 
   if (options.sessionStore === true) {
@@ -401,11 +404,12 @@ describe('WorkspaceRegistry create and lookup', () => {
     const dir = await makeDir('concurrent')
     const { registry, pool } = await harness()
     const [left, right] = await Promise.all([
-      registry.create(dir, 'Winner'),
-      registry.create(dir, 'Loser'),
+      registry.adopt(dir, 'Winner'),
+      registry.adopt(dir, 'Loser'),
     ])
-    expect(left).toBe(right)
-    expect(registry.list()).toEqual([left])
+    expect(left.workspace).toBe(right.workspace)
+    expect(Number(left.created) + Number(right.created)).toBe(1)
+    expect(registry.list()).toEqual([left.workspace])
     expect(pool.media.get('workspace')!.tables.get('workspaces')!.size).toBe(1)
   })
 
@@ -665,6 +669,8 @@ describe('Workspace session ordering', () => {
     await workspace.attachSession(SessionId('s1'))
     await workspace.attachSession(SessionId('s2'))
     expect(workspace.sessionIds).toEqual(['s2', 's1'])
+    expect(result.list).toHaveBeenCalledTimes(1)
+    expect(result.stat.mock.calls).toEqual([[SessionId('s1')], [SessionId('s2')]])
     await workspace.attachSession(SessionId('s1'))
     expect(workspace.sessionIds).toEqual(['s2', 's1'])
     expect(storedRecord(result.pool, workspace.id).sessionIds).toEqual(['s2', 's1'])
