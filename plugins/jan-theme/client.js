@@ -1065,6 +1065,13 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         set(next) { workspaceId = next; for (const listener of listeners) listener() },
       }
     })()
+    const showProject = (layout, workspaceId) => {
+      layout.selectPanel(PROJECT_PANEL)
+      currentProject.set(workspaceId)
+    }
+    const openProject = (scope, workspaceId) => {
+      if (scope.uiWorkspace.openProjectSurface?.(workspaceId) !== true) showProject(scope.layout, workspaceId)
+    }
     async function projectApi(method, params = {}, signal) {
       const response = await fetch('/jan-api/project-home', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }), signal })
       // A settings save reloads the Host plugin; its route is briefly absent and answers without JSON.
@@ -2345,21 +2352,18 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               openPanel: (id) => scope.layout.selectPanel(id),
             }),
           }, PanelDestinations))
-          const openProject = (workspaceId) => {
-            currentProject.set(workspaceId)
-            scope.layout.selectPanel(PROJECT_PANEL)
-          }
+          const show = (workspaceId) => { showProject(scope.layout, workspaceId) }
           scope.slots.inject('main', () => scope.slots.register({
             name: 'main', key: PROJECTS_PANEL, locale: 'jan-theme',
             inject: () => ({
               hooks: { workspaces: scope.workspaces.list },
-              openProject: (workspaceId) => { if (scope.uiWorkspace.openProjectSurface?.(workspaceId) !== true) openProject(workspaceId) },
+              openProject: (workspaceId) => { openProject(scope, workspaceId) },
               addProject,
             }),
           }, ProjectsPanel))
           // An older ui-workspace keeps the row click as expand and collapse.
           if (typeof scope.uiWorkspace.registerProjectHandler === 'function') {
-            scope.effect(() => scope.uiWorkspace.registerProjectHandler(openProject, PROJECT_PANEL), 'jan-theme: project home')
+            scope.effect(() => scope.uiWorkspace.registerProjectHandler(show, PROJECT_PANEL), 'jan-theme: project home')
           }
         })
         ctx.inject(['layout', 'uiWorkspace', 'workspaces', 'sessions', 'locale'], (scope) => {
@@ -2493,10 +2497,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
                 scope.layout.selectPanel(null)
                 scope.uiWorkspace.openSession(sessionId)
               },
-              openProject: (workspaceId) => {
-                scope.layout.selectPanel(null)
-                scope.uiWorkspace.startSession(workspaceId)
-              },
+              openProject: (workspaceId) => { openProject(scope, workspaceId) },
               openArtifact: (sessionId, seq, index) => {
                 const query = new URLSearchParams({ sessionId, seq: String(seq), index: String(index) })
                 fetch(`api/present.open?${query}`, { method: 'POST' }).then((response) => {

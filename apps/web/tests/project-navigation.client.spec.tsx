@@ -42,7 +42,7 @@ beforeAll(async () => {
   }
   // This hand-written asset registers through Jan's runtime loader instead of exporting ESM.
   const file = resolve(import.meta.dirname, '../../../plugins/jan-theme/client.js')
-  const browser = { __ModuleLoader__: loader }
+  const browser = { __ModuleLoader__: loader, setTimeout: window.setTimeout.bind(window) }
   runInNewContext(await readFile(file, 'utf8'), { window: browser, document, localStorage, get fetch() { return globalThis.fetch }, URLSearchParams, AbortController, console }, { filename: file })
 })
 
@@ -157,4 +157,22 @@ it('shows only tasks in the selected case-sensitive project or linked to one of 
     expect(screen.queryByText('Beta task')).toBeNull()
     expect(screen.getByText('Linked chat task')).toBeTruthy()
   } finally { app.unmount() }
+})
+
+it('opens the project page, not a new chat, from a search result', async () => {
+  const app = theme()
+  const scroll = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollIntoView')
+  Object.defineProperty(Element.prototype, 'scrollIntoView', { value: () => {}, configurable: true })
+  try {
+    app.openSearch()
+    app.renderEntry('jt-search-palette')
+    fireEvent.click(screen.getByRole('tab', { name: 'projects' }))
+    fireEvent.click(screen.getByRole('option', { name: /Alpha/ }))
+    await vi.waitFor(() => { expect(app.selectPanel).toHaveBeenCalledWith('jt-project') })
+    expect(app.startSession).not.toHaveBeenCalled()
+  } finally {
+    if (scroll === undefined) Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+    else Object.defineProperty(Element.prototype, 'scrollIntoView', scroll)
+    app.unmount()
+  }
 })
