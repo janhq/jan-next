@@ -1,12 +1,12 @@
 # Spill Storage
 
-The spill storage [capability seam](../../.agents/notes/implemented/architecture/2026-07-08-tool-output-spill-files.md) persists caller-provided text and returns a model-facing locator with retrieval guidance. Its Service Definition is [jan-spill](../../packages/spill/spill) (`ctx.spillStore`), and its local Service Provider is [jan-spill-local](../../packages/spill/spill-local). Consumers include the [tool-result policy](../../packages/spill/spill-policy) and [session references](../../packages/context/session-reference/README.md). Spill is optional, not part of the [agent-loop spine](core.md); consumers own preview and spill decisions, while storage saves the supplied text verbatim.
+The spill storage [capability seam](../../.agents/notes/implemented/architecture/2026-07-08-tool-output-spill-files.md) persists caller-provided text and returns a model-facing locator with retrieval guidance. Its Service Definition is [jan-spill](../../packages/spill/spill) (`ctx.spillStore`), and its local Service Provider is [jan-spill-local](../../packages/spill/spill-local). Its consumer is the [tool-result policy](../../packages/spill/spill-policy). Spill is optional, not part of the [agent-loop spine](core.md); consumers own preview and spill decisions, while storage saves the supplied text verbatim.
 
 Source: [`packages/spill/spill/src/types.ts`](../../packages/spill/spill/src/types.ts)
 
 ## The save request
 
-`saveText` is the sole service operation: persist `content` verbatim, return an opaque locator, a backend-supplied retrieval hint, and the exact byte count. The request carries the save-time storage namespace (`owner`), descriptive producer details (`source`, never access control), and a `suggestedName` the backend may use as a naming hint, not a path. A tool source identifies the actual tool call; a session-reference source identifies the captured source session, while its owner is the target session receiving the context.
+`saveText` is the sole service operation: persist `content` verbatim, return an opaque locator, a backend-supplied retrieval hint, and the exact byte count. The request carries the save-time storage namespace (`owner`), descriptive producer details (`source`, never access control), and a `suggestedName` the backend may use as a naming hint, not a path. The source identifies the tool call whose result was spilled.
 
 ```ts type-equiv
 /** One request to persist text to a spill artifact. */
@@ -40,23 +40,16 @@ A retention-period cleanup may expire old locators with other old session artifa
 
 ```ts type-equiv
 /**
- * Producer of a spilled artifact. Tool results carry their model-issued call id;
- * session references identify the captured source session instead. Descriptive
- * source description only, never access control.
+ * Producer of a spilled artifact: the tool call whose result was spilled.
+ * Descriptive source description only, never access control.
  */
-type SpillSource = {
+interface SpillSource {
   kind: 'tool'
   /** The tool whose result was spilled (e.g. `web_fetch`). */
   toolName: string
   /** The model-issued call id the result belongs to. */
   callId: ToolCallId
   /** A short human label for the artifact (e.g. `result`). */
-  label: string
-} | {
-  kind: 'session-reference'
-  /** Session whose projected conversation was captured. */
-  sessionId: SessionId
-  /** Host-provided label for the referenced session. */
   label: string
 }
 ```
