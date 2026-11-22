@@ -708,7 +708,8 @@ window.__ModuleLoader__.load({
   .jt-project-title { margin: 0; min-width: 0; font-size: 24px; font-weight: 500; line-height: 32px; overflow-wrap: anywhere; }
   .jt-project-path { margin: 4px 0 24px; color: var(--dsw-alias-label-tertiary); font-size: 13px; line-height: 18px; overflow-wrap: anywhere; }
   .jt-project-path-row { display: flex; align-items: center; gap: 2px; margin: 4px 0 24px; min-width: 0; }
-  .jt-project-path-row .jt-project-path { margin: 0 6px 0 0; min-width: 0; }
+  /* One line that keeps the end of the path: the folder names the project, so a long parent path gives way at its start. */
+  .jt-project-path-row .jt-project-path { margin: 0 6px 0 0; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; direction: rtl; text-align: left; }
   .jt-project-path-action { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: var(--dsw-radius-sm); background: transparent; color: var(--dsw-alias-label-tertiary); cursor: pointer; }
   .jt-project-path-action:hover { background: var(--dsw-specific-selector); color: var(--dsw-alias-label-primary); }
   .jt-project-path-action[data-done] { color: var(--dsw-alias-label-primary); }
@@ -731,13 +732,15 @@ window.__ModuleLoader__.load({
   .jt-project-recents { margin-top: 32px; }
   .jt-project-heading { margin: 0 0 8px; color: var(--dsw-alias-label-secondary); font-size: 13px; font-weight: 500; line-height: 20px; }
   .jt-project-sessions { margin: 0; padding: 0; list-style: none; border-top: 0.5px solid var(--dsw-alias-border-l2); }
-  .jt-project-session { display: flex; align-items: baseline; gap: 12px; width: 100%; padding: 12px 4px; border: 0; border-bottom: 0.5px solid var(--dsw-alias-border-l2); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  .jt-project-sessions > li { border-bottom: 0.5px solid var(--dsw-alias-border-l2); }
+  /* Text sits on the column's lines; the hover fill reaches 8px past them on each side. */
+  .jt-project-session { display: flex; align-items: baseline; gap: 12px; box-sizing: content-box; width: 100%; margin: 0 -8px; padding: 12px 8px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
   .jt-project-session:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -2px; border-radius: 12px; }
   @media (hover: hover) { .jt-project-session:hover { background: var(--dsw-alias-interactive-bg-hover); } }
   .jt-project-session-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; line-height: 20px; }
   .jt-project-session-date { flex: none; color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 16px; font-variant-numeric: tabular-nums; }
   .jt-project-session-status { display: inline-flex; flex: none; align-items: center; gap: 6px; align-self: center; color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 16px; }
-  .jt-project-empty { margin: 0; padding: 20px 4px; color: var(--dsw-alias-label-secondary); font-size: 14px; line-height: 20px; }
+  .jt-project-empty { margin: 0; padding: 20px 0; color: var(--dsw-alias-label-secondary); font-size: 14px; line-height: 20px; }
   .jt-project-rail { display: flex; flex-direction: column; gap: 12px; align-self: start; position: sticky; top: 24px; }
   .jt-project-card { padding: 14px 16px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 12px; }
   .jt-project-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -1616,7 +1619,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               onClick: () => { editProject(workspaceId) },
             }, h(IconEditOutlineRegular, { size: 14, 'aria-hidden': true }))),
           h('div', { className: 'jt-project-path-row' },
-            h('p', { className: 'jt-project-path' }, workspace.path),
+            // The bidi isolate keeps the path's own left-to-right order inside the right-to-left truncating box.
+            h('p', { className: 'jt-project-path', title: workspace.path }, h('bdi', { dir: 'ltr' }, workspace.path)),
             h('button', {
               type: 'button', className: 'jt-project-path-action', 'data-done': pathCopied || undefined, 'aria-live': 'polite',
               'aria-label': t(pathCopied ? 'project.pathCopied' : 'project.copyPath'), title: t(pathCopied ? 'project.pathCopied' : 'project.copyPath'), onClick: copyPath,
