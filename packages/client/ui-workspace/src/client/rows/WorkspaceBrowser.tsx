@@ -1149,8 +1149,11 @@ export function WorkspaceBrowser({
     searchInput.current?.focus({ preventScroll: true })
   }, [])
   // Section-header ＋ opens the picker menu (same popover in wide and rail
-  // states; the menu anchors on this button).
+  // states; the menu anchors on this button). A surface outside the sidebar,
+  // such as a Projects page, may open the same menu from its own control.
   const wsPickerOpen = shortcutState.addRequested
+  const requestAnchor = shortcutState.addAnchor
+  const requestAnchorRef = useMemo(() => requestAnchor === null ? null : { current: requestAnchor }, [requestAnchor])
   const wsPlusRef = addWorkspaceButtonRef
   const primaryActions = usePrimaryActions(value => value)
   const workspaceActionRequest = useWorkspaceActionRequest(value => value)
@@ -1372,7 +1375,7 @@ export function WorkspaceBrowser({
       <WorkspacePickFlow
         t={t}
         open={wsPickerOpen}
-        anchorRef={wsPlusRef}
+        anchorRef={requestAnchorRef ?? wsPlusRef}
         useWorkspaces={useWorkspaces}
         createWorkspace={createWorkspace}
         createDirectory={createDirectory}
@@ -1381,7 +1384,7 @@ export function WorkspaceBrowser({
         useRemoteMachines={useRemoteMachines}
         renderDirectoryFlow={owner => renderSlot('sidebar.workspaces.directoryFlow', owner)}
         onBusyChange={setDirectoryBusy}
-        side="right"
+        side={requestAnchorRef === null ? 'right' : 'bottom'}
         onPick={(workspaceId) => {
           closeAddWorkspace()
           startSession(workspaceId, { clearPreviousDraft: false })

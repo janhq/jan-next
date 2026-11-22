@@ -144,8 +144,15 @@ export function apply(ctx: Context): void {
     return workspace !== undefined && requestWorkspaceAction(
       workspaceId, workspaceDisplayTitle(workspace, ctx.locale.bind(NS)('workspace.defaultName')), 'update')
   }
+  const shortcutControls = createWorkspaceShortcutControls(() => uiWorkspace.openSearchSurface())
+  const requestAdd = (anchor?: HTMLElement): boolean => {
+    if (ctx.slots.entries('sidebar.workspaces.directoryFlow').length === 0) return false
+    if (shortcutControls.state.getSnapshot().directoryBusy) return false
+    shortcutControls.add(anchor)
+    return true
+  }
   const uiWorkspace = new UiWorkspaceService(
-    ctx, ctx.remote.directoryPicker, workspaces, sessions, viewInstance.actions, notify, editProject,
+    ctx, ctx.remote.directoryPicker, workspaces, sessions, viewInstance.actions, notify, editProject, requestAdd,
   )
   ctx.slots.provideRoot({
     hooks: { workspaces: workspaces.list },
@@ -156,7 +163,6 @@ export function apply(ctx: Context): void {
     },
   })
   ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-workspace: dictionaries')
-  const shortcutControls = createWorkspaceShortcutControls(() => uiWorkspace.openSearchSurface())
 
   const searchSessions: WorkspaceBrowserInjected['searchSessions'] = async (query, signal) => {
     const result = await sessions.search(query, signal)
@@ -342,7 +348,7 @@ export function apply(ctx: Context): void {
     notifyFolderDrop: notify,
     addWorkspaceButtonRef,
     requestSearch: shortcutControls.search,
-    requestAddWorkspace: shortcutControls.add,
+    requestAddWorkspace: () => { shortcutControls.add() },
     closeAddWorkspace: shortcutControls.closeAdd,
     setDirectoryBusy: shortcutControls.directoryBusy,
     openProject: (workspaceId) => { uiWorkspace.openProjectSurface(workspaceId) },
@@ -364,7 +370,7 @@ export function apply(ctx: Context): void {
     name: 'sidebar.workspaces.primary', locale: NS,
     children: { 'sidebar.workspaces.actions': { kind: 'single', scope: 'root' } },
     inject: () => ({
-      onSearch: shortcutControls.search, onAddWorkspace: shortcutControls.add, addWorkspaceButtonRef,
+      onSearch: shortcutControls.search, onAddWorkspace: () => { shortcutControls.add() }, addWorkspaceButtonRef,
       hooks: { directoryFlow: browserFlowSource, shortcuts: ctx.shortcuts.catalog },
     }),
   }, ({ wide, onSearch, onAddWorkspace, addWorkspaceButtonRef, useDirectoryFlow, useShortcuts, renderSlot, t }:
