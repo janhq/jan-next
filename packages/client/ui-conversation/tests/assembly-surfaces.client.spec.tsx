@@ -221,21 +221,18 @@ describe('resident composer', () => {
 })
 
 describe('multitask conversation', () => {
-  it('retains an independent split composer and restores it after Active ends', async () => {
-    const runtime = await bench()
-    const second = await runtime.sessions.add({ id: 'second', summary: { displayTitle: 'Second chat', running: true } })
+  it('gives a split pane its own composer and releases its Session when its tab closes', async () => {
+    localStorage.setItem(MULTITASK_LAYOUT_KEY, JSON.stringify({
+      root: { axis: 'row', sizes: [0.5, 0.5], children: [{ tabs: [SID], active: 0 }, { tabs: ['second'], active: 0 }] },
+      active: 0,
+    }))
+    const runtime = await bench({ listPending: true })
     const view = runtime.renderRoot()
-    fireEvent.click(view.getByRole('button', { name: '分屏' }))
-    fireEvent.click(await view.findByRole('menuitem', { name: 'Second chat' }))
+    const second = await runtime.sessions.add({ id: 'second', summary: { displayTitle: 'Second chat' } })
+    act(() => { runtime.sessions.list.update((draft) => { draft.phase = 'ready' }) })
     const panes = () => [...view.container.querySelectorAll('[data-conversation-session]')]
     expect(panes().map(pane => pane.getAttribute('data-conversation-session'))).toEqual([SID, second])
     expect(view.container.querySelectorAll('[data-composer-input]')).toHaveLength(2)
-    fireEvent.click(view.getByRole('button', { name: '运行中 (1)' }))
-    expect(panes().map(pane => pane.getAttribute('data-conversation-session'))).toEqual([second])
-    await runtime.sessions.updateSummary(second, { running: false })
-    expect(view.getByText('已完成')).toBeTruthy()
-    fireEvent.click(view.getByRole('button', { name: '返回原布局' }))
-    expect(panes().map(pane => pane.getAttribute('data-conversation-session'))).toEqual([SID, second])
     const strips = view.getAllByRole('tablist', { name: '对话标签页' })
     fireEvent.click(within(strips[1]!).getByRole('button', { name: '关闭对话标签页' }))
     expect(panes().map(pane => pane.getAttribute('data-conversation-session'))).toEqual([SID])

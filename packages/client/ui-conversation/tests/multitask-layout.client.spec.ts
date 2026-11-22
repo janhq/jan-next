@@ -1,4 +1,4 @@
-/** Behavior of the manual conversation layout and its temporary Active view. */
+/** Behavior of the manual conversation layout. */
 import { describe, expect, it } from 'vitest'
 import type { SessionId } from '@janhq/jan-session/types'
 import { dockPaneIds, getPane } from '@janhq/jan-client-ui-dockkit'
@@ -9,8 +9,6 @@ const a = 'amber' as SessionId
 const b = 'blue' as SessionId
 const c = 'copper' as SessionId
 const d = 'denim' as SessionId
-const e = 'emerald' as SessionId
-const f = 'fuchsia' as SessionId
 
 function chats(layout: ConversationLayout) {
   const { dock } = layout.getSnapshot()
@@ -24,13 +22,13 @@ describe('conversation layout', () => {
   it('keeps side-by-side chats and their divider after reopening, then closes the added pane', () => {
     let saved: string | undefined
     const layout = new ConversationLayout(undefined, (value) => { saved = value })
-    layout.sync(a, new Set([a, b]), [])
+    layout.sync(a, new Set([a, b]))
     layout.openBeside(b)
     expect(chats(layout)).toEqual([a, b])
     const initial = layout.getSnapshot().dock
     layout.resizeSplit(initial.rootId as SplitId, [0.65, 0.35])
     const reopened = new ConversationLayout(saved, () => {})
-    reopened.sync(a, new Set([a, b]), [])
+    reopened.sync(a, new Set([a, b]))
     expect(chats(reopened)).toEqual([a, b])
     const dock = reopened.getSnapshot().dock
     expect(dock.nodes[dock.rootId]).toMatchObject({ sizes: [0.65, 0.35] })
@@ -40,18 +38,18 @@ describe('conversation layout', () => {
 
   it('reuses the focused tab for a new sidebar chat and reveals an already open tab in place', () => {
     const layout = new ConversationLayout(undefined, () => {})
-    layout.sync(a, new Set([a, b, c]), [])
+    layout.sync(a, new Set([a, b, c]))
     layout.openBeside(b)
-    layout.sync(b, new Set([a, b, c]), [])
+    layout.sync(b, new Set([a, b, c]))
     expect(chats(layout)).toEqual([a, b])
-    layout.sync(c, new Set([a, b, c]), [])
+    layout.sync(c, new Set([a, b, c]))
     expect(chats(layout)).toEqual([a, c])
   })
 
   it('keeps reordered tabs and split geometry, and drops invalid chats on restoration', () => {
     let saved: string | undefined
     const layout = new ConversationLayout(undefined, (value) => { saved = value })
-    layout.sync(a, new Set([a, b, c, d]), [])
+    layout.sync(a, new Set([a, b, c, d]))
     layout.openInNewTab(b)
     layout.openInNewTab(c)
     const paneId = layout.getSnapshot().dock.activePaneId
@@ -62,7 +60,7 @@ describe('conversation layout', () => {
     const dock = layout.getSnapshot().dock
     layout.resizeSplit(dock.rootId as SplitId, [0.55, 0.45])
     const restored = new ConversationLayout(saved, () => {})
-    restored.sync(undefined, new Set([a, b]), [])
+    restored.sync(undefined, new Set([a, b]))
     const snapshot = restored.getSnapshot().dock
     expect(snapshot.nodes[snapshot.rootId]).toMatchObject({ axis: 'column', sizes: [0.55, 0.45] })
     expect(dockPaneIds(snapshot).map(id => getPane(snapshot, id).tabs.map(tab => snapshot.tabs[tab]?.contentId)))
@@ -74,11 +72,11 @@ describe('conversation layout', () => {
 
   it('keeps a tab whose chat changed while its window move was pending', () => {
     const layout = new ConversationLayout(undefined, () => {})
-    layout.sync(a, new Set([a, b]), [])
+    layout.sync(a, new Set([a, b]))
     const { dock } = layout.getSnapshot()
     const tabId = getPane(dock, dock.activePaneId).activeTabId!
     // Sidebar navigation reuses the selected tab while the move of `a` is in flight.
-    layout.sync(b, new Set([a, b]), [])
+    layout.sync(b, new Set([a, b]))
     layout.closeTab(tabId, a)
     expect(chats(layout)).toEqual([b])
     layout.closeTab(tabId, b)
@@ -97,27 +95,7 @@ describe('conversation layout', () => {
     })],
   ])('starts from one tab on the selected chat when the saved layout holds %s', (_, raw) => {
     const layout = new ConversationLayout(raw, () => {})
-    layout.sync(a, new Set([a, b]), [])
+    layout.sync(a, new Set([a, b]))
     expect(chats(layout)).toEqual([a])
-  })
-
-  it('tiles live chats, keeps completed chats, lists overflow, and restores the exact manual layout', () => {
-    const layout = new ConversationLayout(undefined, () => {})
-    const known = new Set([a, b, c, d, e, f])
-    layout.sync(a, known, [b, c])
-    layout.openBeside(d)
-    const manual = layout.getSnapshot().dock
-    layout.toggleActive()
-    expect(chats(layout)).toEqual([b, c])
-    layout.sync(a, known, [c, a, d, e, f])
-    expect(chats(layout)).toEqual([b, a, c, d])
-    expect(layout.getSnapshot().overflow).toEqual([e, f])
-    expect(layout.getSnapshot().running).toEqual([c, a, d, e, f])
-    layout.focusActive(f)
-    expect(chats(layout)).toContain(f)
-    expect(layout.getSnapshot().overflow).toContain(d)
-    layout.toggleActive()
-    expect(layout.getSnapshot().dock).toBe(manual)
-    expect(chats(layout)).toEqual([a, d])
   })
 })

@@ -8,8 +8,8 @@ import type { SessionId } from '@janhq/jan-session/types'
 import type { PropsLocale, PropsRenderSlots, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import { IconChatOutlineRegular, MenuItemButton } from '@janhq/jan-client-ui-primitives'
 import type {} from '../contract/slots.ts'
-import { ConversationDeskActions, ConversationDeskContext } from './ConversationDesk.tsx'
-import type { ConversationDeskSeat, ConversationDeskToolbarProps, DeskChoice } from './ConversationDesk.tsx'
+import { ConversationDeskContext } from './ConversationDesk.tsx'
+import type { ConversationDeskSeat } from './ConversationDesk.tsx'
 import { tabSessionId, type ConversationLayout } from './multitask-layout.ts'
 import css from './ConversationDesk.module.css'
 
@@ -64,42 +64,20 @@ function StripTarget({ id, setTargets }: {
   return <div className={css.stripTarget} ref={ref} />
 }
 
-/** @param props - main slot and retained-pane services. @returns the manual or Active view. */
-export function ConversationPanel({ renderSlot, SessionProvider, layout, retainPane, desktop, useSessions, useWorkspaces, t }: Props) {
+/** @param props - main slot and retained-pane services. @returns the tabbed desk. */
+export function ConversationPanel({ renderSlot, SessionProvider, layout, retainPane, desktop, useSessions, t }: Props) {
   const view = useSyncExternalStore(layout.subscribe, layout.getSnapshot, layout.getSnapshot)
   const [targets, setTargets] = useState<StripTargets>({})
   const moving = useRef(new Set<TabId>())
-  const { dock, active } = view
+  const { dock } = view
   const panes = dockPaneIds(dock)
   const leadingTab = getPane(dock, panes[0] ?? dock.activePaneId).activeTabId
   const selected = getPane(dock, dock.activePaneId).activeTabId
   const list = useSessions(value => value)
-  const archived = useWorkspaces(value => value.archivedSessionIds)
-  const limitReached = panes.length >= MAX_DOCK_PANES
-  const choices: DeskChoice[] = []
-  if (!active && !limitReached) {
-    const archivedIds = new Set(archived)
-    const selectedContent = selected === undefined ? undefined : dock.tabs[selected]?.contentId
-    for (const id of list.ids) {
-      const row = list.byId[id]
-      if (row !== undefined && !row.blank && row.origin !== 'subagent' && id !== selectedContent && !archivedIds.has(id)) {
-        choices.push({ id, label: row.displayTitle })
-      }
-    }
-  }
-  const toolbar: ConversationDeskToolbarProps = {
-    active, runningCount: view.running.length, choices, limitReached,
-    overflow: view.overflow.map(id => ({ id, label: list.byId[id]?.displayTitle ?? id })),
-    openBeside: layout.openBeside, toggleActive: layout.toggleActive, focusActive: layout.focusActive,
-  }
   const renderTab = (tab: TabRecord): ReactNode => {
     const leading = tab.id === leadingTab
     const id = tabSessionId(tab)
-    const seat: ConversationDeskSeat = {
-      leading, primary: !active && tab.id === selected, strip: !active, stripTarget: targets[tab.id],
-      toolbar: active && leading ? toolbar : undefined,
-      status: active && id !== undefined ? view.running.includes(id) ? 'running' : 'done' : undefined,
-    }
+    const seat: ConversationDeskSeat = { leading, primary: tab.id === selected, stripTarget: targets[tab.id] }
     const content = renderSlot('main.conversation', {})
     // The selected tab is the Workspace selection: it inherits the window's
     // Session binding, so the Hero tree survives its first Session. Any other
@@ -128,11 +106,10 @@ export function ConversationPanel({ renderSlot, SessionProvider, layout, retainP
       console.error('Could not move chat to a new window:', error)
     }).finally(() => { moving.current.delete(tabId) })
   }
-  const empty = t('desk.empty')
   const split = t('desk.split')
   const close = t('desk.closeTab')
   const labels: DockLabels = {
-    emptyPane: empty, splitPane: split, splitPaneDisabled: t('desk.limit'), splitPaneNarrow: split,
+    emptyPane: t('desk.empty'), splitPane: split, splitPaneDisabled: t('desk.limit'), splitPaneNarrow: split,
     closeTab: close, addTab: t('desk.addTab'), dockFloat: split, closeFloat: close,
     dropZone: { top: split, bottom: split, left: split, right: split, center: split },
   }
@@ -149,40 +126,29 @@ export function ConversationPanel({ renderSlot, SessionProvider, layout, retainP
       </>
     )
   }
+  // `data-chat-tabs` scopes the desk's strip overrides above ui-dockkit's own tab rules.
   return (
-    <div className={css.desk} data-chat-tabs={!active || undefined}>
-      {view.activeEmpty ? (
-        <ConversationDeskContext.Provider value={{ primary: false, leading: true, toolbar }}>
-          <div className={css.emptyToolbar} data-window-drag><ConversationDeskActions t={t} /></div>
-          <p className={css.empty}>{empty}</p>
-        </ConversationDeskContext.Provider>
-      ) : (
-        <DockSurface state={dock} intents={layout} labels={labels} canSplit={!active && !limitReached} tabStrips={!active}
-          showSplitControl={false} tabListLabel={t('desk.chatTabs')} dividerLabel={t('desk.resize')} renderTab={renderTab}
-          renderAddTabMenu={renderAddTabMenu}
-          renderTabTitle={(tab) => {
+    <div className={css.desk} data-chat-tabs="">
+      <DockSurface state={dock} intents={layout} labels={labels} canSplit={panes.length < MAX_DOCK_PANES}
+        showSplitControl={false} tabListLabel={t('desk.chatTabs')} dividerLabel={t('desk.resize')} renderTab={renderTab}
+        renderAddTabMenu={renderAddTabMenu}
+        renderTabTitle={(tab) => {
+          const id = tabSessionId(tab)
+          const row = id === undefined ? undefined : list.byId[id]
+          // An untitled chat reads "New chat", not its project folder's name; a subagent keeps its label.
+          const label = (row?.title ?? (row?.origin === 'subagent' ? row.displayTitle : undefined)) || t('desk.newChat')
+          return <span className={css.chatTitle} title={label}>{label}</span>
+        }}
+        renderTabActions={tab => <StripTarget id={tab.id} setTargets={setTargets} />}
+        {...desktop === undefined ? {} : {
+          onTabReleasedOutsideViewport: moveToWindow,
+          renderTabMenuItems: (tab, dismiss) => {
             const id = tabSessionId(tab)
-            const row = id === undefined ? undefined : list.byId[id]
-            // An untitled chat reads "New chat", not its project folder's name; a subagent keeps its label.
-            const label = (row?.title ?? (row?.origin === 'subagent' ? row.displayTitle : undefined)) || t('desk.newChat')
-            return <span className={css.chatTitle} title={label}>{label}</span>
-          }}
-          renderTabActions={tab => (
-            <>
-              <StripTarget id={tab.id} setTargets={setTargets} />
-              {tab.id === leadingTab && <ConversationDeskActions t={t} toolbar={toolbar} />}
-            </>
-          )}
-          {...desktop === undefined || active ? {} : {
-            onTabReleasedOutsideViewport: moveToWindow,
-            renderTabMenuItems: (tab, dismiss) => {
-              const id = tabSessionId(tab)
-              return id === undefined || list.byId[id]?.origin === 'subagent' ? null : (
-                <MenuItemButton onSelect={() => { dismiss(); moveToWindow(tab.id) }}>{t('desk.moveToNewWindow')}</MenuItemButton>
-              )
-            },
-          }} />
-      )}
+            return id === undefined || list.byId[id]?.origin === 'subagent' ? null : (
+              <MenuItemButton onSelect={() => { dismiss(); moveToWindow(tab.id) }}>{t('desk.moveToNewWindow')}</MenuItemButton>
+            )
+          },
+        }} />
     </div>
   )
 }
