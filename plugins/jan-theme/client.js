@@ -345,6 +345,35 @@ window.__ModuleLoader__.load({
         h('p', { className: 'jt-registry-note' }, 'Servers are added off. Turn each on when you trust it; secrets are stored as credentials and never shown again.'),
         error && h('p', { role: 'alert' }, error))
     }
+    // An access token instead of a sign-in page. For a hosted server Jan cannot sign in to, the token
+    // goes to that service's local server; otherwise it is sent as a bearer token.
+    function TokenForm({ row, busy, open }) {
+      const { Input } = require('@janhq/jan-client-ui-primitives')
+      const [shown, setShown] = React.useState(open)
+      const [token, setToken] = React.useState('')
+      const [checking, setChecking] = React.useState(false)
+      const [problem, setProblem] = React.useState('')
+      const route = row.tokenRoute
+      if (!shown) return h('p', { className: 'jt-agent-row-status' }, h('button', { type: 'button', className: 'jt-link-button', onClick: () => setShown(true) }, 'Use an access token instead'))
+      const label = route ? `${route.title} personal access token` : 'Access token'
+      // A rejected token is reported beside the field it came from, not at the foot of the page.
+      async function submit(event) {
+        event.preventDefault()
+        if (!token.trim() || checking) return
+        setChecking(true); setProblem('')
+        try { await agentApi('useToken', { name: row.name, token }); await agentList.refresh() }
+        catch (failure) { setProblem(failure.message) }
+        finally { setChecking(false) }
+      }
+      return h('form', { className: 'jt-token-form', onSubmit: submit },
+        h('label', { className: 'jt-agent-field' }, label,
+          h(Input, { type: 'password', value: token, disabled: busy || checking, autoComplete: 'off', spellCheck: false, placeholder: route ? 'figd_…' : 'Paste the token', 'aria-invalid': problem ? true : undefined, onChange: event => { setToken(event.target.value); setProblem('') } })),
+        problem && h('p', { role: 'alert', className: 'jt-agent-row-status', 'data-state': 'failed' }, problem),
+        h('p', { className: 'jt-agent-card-meta' }, route ? route.help : 'Sent to the server as a bearer token and stored as a credential. It is never shown again.', ' ',
+          route?.helpUrl && h('a', { href: route.helpUrl, target: '_blank', rel: 'noopener noreferrer' }, 'How to create one')),
+        h('div', { className: 'jt-agent-actions' }, h(Button, { type: 'submit', variant: 'primary', size: 'sm', disabled: busy || checking || !token.trim() },
+          checking && h(StateDot, { state: 'ongoing', size: 12 }), checking ? (route ? `Checking with ${route.title}…` : 'Connecting…') : 'Connect')))
+    }
     function AgentSettings({ skills = false, onCreate }) {
       const { Input, Modal, RiskConfirmation, SelectMenu, Tag } = require('@janhq/jan-client-ui-primitives')
       const { data, error: loadError } = React.useSyncExternalStore(agentList.subscribe, agentList.getSnapshot)
@@ -409,7 +438,17 @@ window.__ModuleLoader__.load({
       const message = h(React.Fragment, null, error && h('p', { role: 'alert' }, error), h('p', { role: 'status' }, busy ? 'Applying settings…' : notice))
       const empty = (Icon, text, ...buttons) => h('div', { className: 'jt-agent-empty' }, h(Icon, { size: 20 }), h('p', null, text), buttons.length > 0 && actions(...buttons))
       const card = (key, head, ...body) => h('article', { className: 'jt-agent-card', key }, h('div', { className: 'jt-agent-card-head' }, ...head), ...body)
-      const SERVER_STATE = { ready: ['success', 'Connected'], failed: ['danger', 'Needs attention'], empty: ['warning', 'No tools'], disabled: ['neutral', 'Off'] }
+      const SERVER_STATE = {
+        ready: ['success', 'Connected'], failed: ['danger', 'Needs attention'], empty: ['warning', 'No tools'], disabled: ['neutral', 'Off'],
+        connecting: ['neutral', 'Connecting'], 'needs-auth': ['warning', 'Sign in required'], 'signing-in': ['warning', 'Waiting for sign-in'],
+      }
+      // Rows that are connecting or waiting for the browser follow the Host until they settle.
+      const following = data?.servers.some(row => row.state === 'connecting' || row.state === 'signing-in')
+      React.useEffect(() => {
+        if (!following) return
+        const timer = setInterval(() => { refresh().catch(() => {}) }, 1000)
+        return () => clearInterval(timer)
+      }, [following])
       const allSkills = data?.skills.skills ?? []
       const groups = [['all', 'All', allSkills.length], ...[...SKILL_GROUPS, ['other', 'Other']]
         .map(([id, label]) => [id, label, allSkills.filter(row => skillGroup(row)[0] === id).length]).filter(([, , count]) => count > 0)]
@@ -458,17 +497,32 @@ window.__ModuleLoader__.load({
           data && data.servers.length === 0 && empty(IconToolOutlineMedium, 'No MCP servers yet. Paste the MCP setup you use in Cursor, VS Code, Claude Desktop or Zed, or a single command or URL.'),
           data?.servers.length > 0 && h('div', { className: 'jt-agent-list' }, ...data.servers.map(row => {
             const [tone, label] = SERVER_STATE[row.state] ?? SERVER_STATE.empty
+            const waiting = row.state === 'connecting' || row.state === 'signing-in'
+            const retryable = row.state === 'failed' || row.state === 'empty'
+            const signIn = () => run(async () => {
+              const result = await agentApi('signIn', { name: row.name })
+              // The desktop window hands http(s) pages to the default browser.
+              if (result?.url) window.open(result.url, '_blank', 'noopener,noreferrer')
+            }, '')
+            const toolCount = count => count === 1 ? '1 tool' : `${count} tools`
             return card(row.name,
-              [h('div', { className: 'jt-agent-card-title' }, h('h3', null, row.name), h(Tag, { tone }, row.state === 'ready' ? `${label} · ${row.tools.length} tools` : label), row.secretConfigured && h(Tag, { tone: 'quiet' }, 'Credentials saved')),
+              [h('div', { className: 'jt-agent-card-title', 'aria-live': 'polite' }, h('h3', null, row.name),
+                h(Tag, { tone }, waiting && h(StateDot, { state: 'ongoing', size: 12 }), row.state === 'ready' ? `${label} · ${toolCount(row.tools.length)}` : label),
+                row.signedIn && row.state === 'ready' && h(Tag, { tone: 'quiet' }, 'Signed in'),
+                row.secretConfigured && h(Tag, { tone: 'quiet' }, 'Credentials saved')),
               h(Switch, { label: `Enable ${row.name}`, checked: row.enabled, disabled: busy, onChange: enabled => enabled ? ask('Enable MCP server?', 'The server can run commands or access external services. Enable it only if you trust its source.', () => run(() => agentApi('toggle', { name: row.name, enabled }), 'Server enabled.')) : run(() => agentApi('toggle', { name: row.name, enabled }), 'Server disabled.') })],
               h('code', { className: 'jt-agent-card-meta' }, row.transport === 'stdio' ? [row.command, ...(row.args ?? [])].join(' ') : row.url),
-              (row.state === 'failed' || row.state === 'empty') && h('p', null, row.status),
+              row.enabled && row.state !== 'ready' && h('p', { className: 'jt-agent-row-status', 'data-state': row.state }, row.status),
+              row.state === 'signing-in' && h('p', { className: 'jt-agent-row-status' }, 'Browser did not open? ', h('a', { href: row.signInUrl, target: '_blank', rel: 'noopener noreferrer' }, 'Open the sign-in page')),
+              row.enabled && (row.state === 'needs-auth' || row.signInRefused) && h(TokenForm, { key: `${row.name}-token`, row, busy, open: row.signInRefused || !!row.tokenRoute }),
               h('div', { className: 'jt-agent-card-foot' },
-                row.tools?.length > 0 ? h('details', { className: 'jt-mcp-tools' }, h('summary', null, `Show ${row.tools.length} tools`), h('ul', null, row.tools.map(tool => h(McpTool, { key: tool.name, tool, server: row.name })))) : h('span'),
+                row.tools?.length > 0 ? h('details', { className: 'jt-mcp-tools' }, h('summary', null, `Show ${toolCount(row.tools.length)}`), h('ul', null, row.tools.map(tool => h(McpTool, { key: tool.name, tool, server: row.name })))) : h('span'),
                 h('div', { className: 'jt-agent-actions' },
-                  row.enabled && h(Button, { variant: (row.state === 'failed' || row.state === 'empty') ? 'outline' : 'ghost', size: 'sm', disabled: busy, 'aria-label': `${row.state === 'failed' || row.state === 'empty' ? 'Try again' : 'Reconnect'} ${row.name}`, onClick: () => run(() => agentApi('toggle', { name: row.name, enabled: true }), 'Connection refreshed.') }, row.state === 'failed' || row.state === 'empty' ? 'Try again' : 'Reconnect'),
+                  row.enabled && row.state === 'needs-auth' && !row.signInRefused && h(Button, { variant: 'primary', size: 'sm', disabled: busy, 'aria-label': `Sign in to ${row.name}`, onClick: signIn }, 'Sign in'),
+                  row.state === 'signing-in' && h(Button, { variant: 'outline', size: 'sm', disabled: busy, 'aria-label': `Cancel sign-in to ${row.name}`, onClick: () => run(() => agentApi('cancelSignIn', { name: row.name }), 'Sign-in cancelled.') }, 'Cancel'),
+                  row.enabled && !waiting && row.state !== 'needs-auth' && h(Button, { variant: retryable ? 'outline' : 'ghost', size: 'sm', disabled: busy, 'aria-label': `${retryable ? 'Try again' : 'Reconnect'} ${row.name}`, onClick: () => run(() => agentApi('reconnect', { name: row.name }), '') }, retryable ? 'Try again' : 'Reconnect'),
                   h(Button, { variant: 'ghost', size: 'sm', disabled: busy, 'aria-label': `Edit ${row.name}`, onClick: () => edit(row) }, 'Edit'),
-                  h(Button, { variant: 'ghost', size: 'sm', disabled: busy, 'aria-label': `Remove ${row.name}`, onClick: () => ask('Remove MCP server?', 'This removes the connection and its saved credentials. It does not uninstall the server software.', () => run(() => agentApi('remove', { name: row.name, confirmed: true }), 'Server removed.')) }, 'Remove'))))
+                  h(Button, { variant: 'ghost', size: 'sm', disabled: busy, 'aria-label': `Remove ${row.name}`, onClick: () => ask('Remove MCP server?', 'This removes the connection, its saved credentials and its sign-in. It does not uninstall the server software.', () => run(() => agentApi('remove', { name: row.name, confirmed: true }), 'Server removed.')) }, 'Remove'))))
           }), h('button', { type: 'button', className: 'jt-agent-add', disabled: busy, onClick: () => setImportOpen(true) },
             h(IconToolOutlineMedium, { size: 20, 'aria-hidden': true }), h('span', null, 'Add servers'),
             h('small', null, 'Paste a setup from Cursor, VS Code or Claude, a command, or a URL'))),
@@ -634,6 +688,15 @@ window.__ModuleLoader__.load({
 .jt-agent-card-title h3 { font-size: 14px; overflow-wrap: anywhere; }
 .jt-agent-settings .jt-agent-card p { margin: 0; font-size: 13px; }
 .jt-agent-card-meta { display: block; font-size: 12px; color: var(--dsw-alias-label-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jt-agent-card-title [data-slot="tag"], .jt-agent-card-title > span { gap: 6px; }
+.jt-agent-row-status { font-size: 13px; line-height: 20px; color: var(--dsw-alias-label-secondary); }
+.jt-agent-row-status[data-state="failed"] { color: var(--dsw-alias-state-error-primary); }
+.jt-agent-row-status a, .jt-token-form a, .jt-link-button { color: var(--dsw-alias-label-accent, inherit); text-decoration: underline; text-underline-offset: 2px; }
+.jt-link-button { border: 0; padding: 0; background: none; font: inherit; cursor: pointer; }
+.jt-token-form { display: grid; gap: 8px; max-width: 520px; }
+.jt-token-form .jt-agent-field { margin-block: 4px 0; font-size: 13px; font-weight: 500; }
+.jt-token-form .jt-agent-card-meta { white-space: normal; }
+.jt-token-form .jt-agent-actions { justify-content: flex-start; }
 .jt-agent-search input::placeholder { color: var(--dsw-alias-label-tertiary); }
 .jt-agent-grid { grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 12px; }
 .jt-agent-tile { align-content: start; gap: 8px; padding: 14px; transition: transform .18s cubic-bezier(.2, .8, .2, 1), border-color .18s, box-shadow .18s; }
