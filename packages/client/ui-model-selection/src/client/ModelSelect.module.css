@@ -523,14 +523,16 @@
   display: none;
 }
 
+/* Manage models shares the menu row grammar (14px icon, 6px gap), so contributed
+   option rows built from MenuItemButton line up with it. */
 .manage {
-  gap: 8px;
+  gap: 6px;
 }
 
 .manageIcon {
   flex: 0 0 auto;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   color: var(--dsw-alias-menu-icon);
 }
 
