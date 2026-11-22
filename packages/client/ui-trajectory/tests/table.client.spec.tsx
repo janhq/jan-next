@@ -132,6 +132,7 @@ const TURNS: readonly TrajectoryTurnModel[] = [{
           completedTime: 2_500,
           usageProvided: true,
           outputTokens: 20,
+          streamedChars: 80,
         },
       },
       {

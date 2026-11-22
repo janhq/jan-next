@@ -374,7 +374,10 @@ function throughput(metrics: AssistantMetricDetail, t: TrajectoryTranslate): str
   if (!metrics.timingRecorded || metrics.firstTokenTime === null) return t('timing.firstTokenUnavailable')
   if (metrics.completedTime === null) return t('status.pending')
   // A burst-delivered step (a buffered Tool call) has no decode span to divide by.
-  const generationMs = measuredDecodeMs(metrics.firstTokenTime, metrics.completedTime)
+  const generationMs = measuredDecodeMs({
+    stepStartTime: metrics.stepStartTime, firstTokenTime: metrics.firstTokenTime, completedTime: metrics.completedTime,
+    outputTokens: metrics.outputTokens, streamedChars: metrics.streamedChars,
+  })
   if (generationMs === undefined) return t('timing.durationTooShort')
   return t('unit.tokensPerSecond', {
     value: (metrics.outputTokens / (generationMs / 1_000)).toFixed(1),
