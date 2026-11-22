@@ -46,7 +46,7 @@ export type PluginManagerPageProps =
   & PropsLocale<'pluginManager'>
   & PropsRenderSlots<
     | 'plugins.item' | 'plugins.bundle.config' | 'plugins.row.config' | 'plugins.bundle.activation'
-    | 'plugins.add.actions' | 'plugins.tab' | 'plugins.artwork'
+    | 'plugins.add.actions' | 'plugins.tab' | 'plugins.tab.count' | 'plugins.artwork'
     | 'plugins.detail.actions' | 'plugins.detail.badge' | 'plugins.detail.section'
   >
   & InjectFace<PluginManagerFace & PluginHeaderLayoutFace & PluginTranslationFace>
@@ -1811,8 +1811,16 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
                         value={tab}
                         onChange={(next) => { setTab(next) }}
                         items={[
-                          { value: INSTALLED_TAB, label: t(customize ? 'pluginsTab' : 'installedTab'), id: `${tabsId}-${INSTALLED_TAB}`, panelId: `${tabsId}-${INSTALLED_TAB}-panel` },
-                          ...tabs.map(item => ({ value: item.id, label: item.label, id: `${tabsId}-${item.id}`, panelId: `${tabsId}-${item.id}-panel` })),
+                          {
+                            value: INSTALLED_TAB, id: `${tabsId}-${INSTALLED_TAB}`, panelId: `${tabsId}-${INSTALLED_TAB}-panel`,
+                            label: customize
+                              ? <>{t('pluginsTab')}{loaded ? <span className={css.tabCount}>{basicCards.length + official.length + mine.length}</span> : null}</>
+                              : t('installedTab'),
+                          },
+                          ...tabs.map(item => ({
+                            value: item.id, id: `${tabsId}-${item.id}`, panelId: `${tabsId}-${item.id}-panel`,
+                            label: <>{item.label}<span className={css.tabCount}>{renderSlot('plugins.tab.count', { tab: item.id }, { entryKey: item.id })}</span></>,
+                          })),
                         ]}
                       />
                     </div>

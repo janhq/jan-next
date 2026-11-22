@@ -94,7 +94,7 @@ const READY: PluginManagerState = {
  * (a list slot's cell is empty), the view asked for — `detail` for a detail
  * contribution — and the owner props.
  */
-type SlotBodies = Record<string, (view: 'summary' | 'page' | 'activation' | 'detail' | 'add' | 'tab', owner: unknown, form?: ConfigPageForm) => ReactNode>
+type SlotBodies = Record<string, (view: 'summary' | 'page' | 'activation' | 'detail' | 'add' | 'tab' | 'count', owner: unknown, form?: ConfigPageForm) => ReactNode>
 
 /** The subject a detail contribution was rendered with. */
 function subjectOf(owner: unknown): PluginsSubject | undefined {
@@ -199,6 +199,7 @@ function renderTab(
       if (name === 'plugins.bundle.activation') return body('activation', owner)
       if (name === 'plugins.add.actions') return body('add', owner)
       if (name === 'plugins.tab') return body('tab', owner)
+      if (name === 'plugins.tab.count') return body('count', owner)
       if (name.startsWith('plugins.detail.')) return body('detail', owner)
       if (!('view' in owner) || (owner.view !== 'summary' && owner.view !== 'page')) {
         throw new Error('Plugin configuration fixture requires a summary or page view')
@@ -379,14 +380,16 @@ describe('PluginManagerPage', () => {
     expect(screen.getByRole('tabpanel', { name: 'Discover' })).toBeTruthy()
   })
 
-  it('presents the page as Customize when the Host row asks, with Plugins as the first tab', () => {
+  it('presents the page as Customize when the Host row asks, with Plugins as the first tab and live counts', () => {
     const customize: ConfigPageForm = {
       state: { status: 'ready', value: { customize: true }, base: {}, user: {}, revision: 0, writable: true }, mutate: vi.fn(),
     }
-    renderTab({ packages: [pkg()] }, {}, {}, { 'ui-plugin-manager': customize }, [{ id: 'skills', label: 'Skills' }])
+    renderTab({ packages: [pkg()] }, {}, { 'plugins.tab.count:skills': () => '12' }, { 'ui-plugin-manager': customize },
+      [{ id: 'skills', label: 'Skills' }, { id: 'connectors', label: 'Connectors' }])
     expect(screen.getByRole('heading', { level: 1, name: en.customizeTitle })).toBeTruthy()
     expect(screen.queryByText(en.intro)).toBeNull()
-    expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual([en.pluginsTab, 'Skills'])
+    // A tab with no count entry shows its label alone.
+    expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual([`${en.pluginsTab}1`, 'Skills12', 'Connectors'])
   })
 
   it('marks the bundle an install enabled without leaving a contributed tab', () => {
