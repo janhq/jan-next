@@ -49,6 +49,8 @@ The seat reports presentation through `ctx.layout.openRightbar(track, fullscreen
 
 The panel has no header row. Its two controls — the presentation switch and the collapse button — ride the kit's chrome seat at the far end of the top-right pane's tab strip, so the strip is the panel's whole top edge. Each strip reads, left to right: the tab capsules with close controls where allowed, the add control (drawn only while that pane holds no guide tab; it opens the guide there through `ctx.sidebarRight.openTab`), the pane's split control, and in the top-right pane the two panel controls. Only the chips give way in a narrow pane; the controls after them never shrink or clip.
 
+The chat tab strip's `+` menu lists every guide entry (Project files, New terminal, Canvases, Browser, and any registered type) with its open shortcut. A pick opens that type in the pane's chat sidebar: in place when that chat is on screen, otherwise through `openTabIn` for that Session. While the pane shows a blank new chat the rows stay disabled with a reason, since there is no chat to attach them to.
+
 <a id="the-expand-button"></a>
 ## The expand button
 
