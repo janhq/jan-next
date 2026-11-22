@@ -13,13 +13,16 @@ const PAGE_SIZE = 30
 const TIMEOUT_MS = 15_000
 const CACHE_MS = 10 * 60_000
 
-// Well-known publishers shown before the user types, by exact registry name.
+// Well-known publishers shown before the user types: a registry name, or the id
+// of an official server the publisher runs but has not published to the registry.
 export const FEATURED_MCP_SERVERS = [
   'io.github.github/github-mcp-server',
   'com.notion/mcp',
+  'com.slack/mcp',
   'app.linear/linear',
   'com.atlassian/atlassian-mcp-server',
   'com.figma.mcp/mcp',
+  'ai.higgsfield/mcp',
   'io.github.microsoft/playwright-mcp',
   'io.github.ChromeDevTools/chrome-devtools-mcp',
   'io.github.upstash/context7',
@@ -30,6 +33,25 @@ export const FEATURED_MCP_SERVERS = [
   'com.zapier/mcp',
   'io.github.brave/brave-search-mcp-server',
 ]
+
+// Official servers missing from the registry, in its v0 shape and named under
+// the publisher's own domain. Endpoints are from the publishers' docs:
+// docs.slack.dev/ai/slack-mcp-server and higgsfield.ai/mcp.
+export const PUBLISHER_LISTED_SERVERS = [
+  {
+    name: 'com.slack/mcp', title: 'Slack',
+    description: 'Search channels and messages, read threads, and send messages in your Slack workspace.',
+    websiteUrl: 'https://slack.com',
+    remotes: [{ type: 'streamable-http', url: 'https://mcp.slack.com/mcp' }],
+  },
+  {
+    name: 'ai.higgsfield/mcp', title: 'Higgsfield',
+    description: 'Generate images and videos with 30+ Higgsfield models from your agent. Generations use your Higgsfield credits.',
+    websiteUrl: 'https://higgsfield.ai',
+    remotes: [{ type: 'streamable-http', url: 'https://mcp.higgsfield.ai/mcp' }],
+  },
+].map(server => ({ server, _meta: { 'io.modelcontextprotocol.registry/official': { status: 'active' } } }))
+const publisherListed = new Map(PUBLISHER_LISTED_SERVERS.map(raw => [raw.server.name, raw]))
 
 const text = value => typeof value === 'string' ? value.trim() : ''
 const list = value => Array.isArray(value) ? value : []
@@ -195,17 +217,21 @@ export function createMcpRegistry({ fetch: request = globalThis.fetch, now = Dat
       const words = text(query)
       try {
         if (!words && !cursor) {
-          const found = await Promise.all(FEATURED_MCP_SERVERS.map(name =>
-            get(`/v0/servers/${encodeURIComponent(name)}/versions/latest`).catch(() => undefined)))
+          const found = await Promise.all(FEATURED_MCP_SERVERS.map(name => publisherListed.get(name)
+            ?? get(`/v0/servers/${encodeURIComponent(name)}/versions/latest`).catch(() => undefined)))
           return { featured: true, entries: entries(found), nextCursor: undefined }
         }
         const params = new URLSearchParams({ limit: String(PAGE_SIZE), version: 'latest' })
         if (words) params.set('search', words)
         if (cursor) params.set('cursor', cursor)
         const page = await get(`/v0/servers?${params}`)
+        // The registry cannot find servers it does not hold, so the first page leads with matching ones Jan lists.
+        const needle = words.toLowerCase()
+        const listed = cursor || !needle ? [] : PUBLISHER_LISTED_SERVERS.filter(({ server }) =>
+          [server.name, server.title, server.description].some(value => value.toLowerCase().includes(needle)))
         return {
           featured: false,
-          entries: entries(list(page?.servers)),
+          entries: entries([...listed, ...list(page?.servers)]),
           nextCursor: text(page?.metadata?.nextCursor) || undefined,
         }
       } catch (error) {

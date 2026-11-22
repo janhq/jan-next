@@ -73,6 +73,20 @@ describe('MCP Registry search', () => {
     const result = await createMcpRegistry({ fetch: fetch as never }).search({})
     expect(result.featured).toBe(true)
     expect(result.entries.map((entry: { id: string }) => entry.id)).toEqual(FEATURED_MCP_SERVERS.filter((_, index) => index !== 1))
+    // Slack and Higgsfield come from Jan's own list, without asking the registry for them.
+    expect(fetch.mock.calls.map(([url]) => url).filter(url => /slack|higgsfield/.test(url))).toEqual([])
+    expect(result.entries.find((entry: { id: string }) => entry.id === 'com.slack/mcp')).toMatchObject({
+      title: 'Slack', publisher: 'slack.com', slug: 'slack', options: [{ kind: 'remote', url: 'https://mcp.slack.com/mcp' }],
+    })
+  })
+
+  it('leads a first search page with matching servers the registry does not hold', async () => {
+    const fetch = vi.fn(async () => ok(page(['com.a/higgs-tools'], 'next')))
+    const registry = createMcpRegistry({ fetch: fetch as never })
+    const first = await registry.search({ query: 'Higgsfield' })
+    expect(first.entries.map((entry: { id: string }) => entry.id)).toEqual(['ai.higgsfield/mcp', 'com.a/higgs-tools'])
+    const next = await registry.search({ query: 'Higgsfield', cursor: 'next' })
+    expect(next.entries.map((entry: { id: string }) => entry.id)).toEqual(['com.a/higgs-tools'])
   })
 
   it('reports an unreachable registry in words a person can act on', async () => {
