@@ -536,6 +536,35 @@ window.__ModuleLoader__.load({
         ctx.slots.inject('settings.section.icon', () => ctx.slots.register({
           name: 'settings.section.icon', id: NS,
         }, ({ size }) => h(IconLinkOutlineRegular, { size, 'aria-hidden': true })))
+        // Saved Hosts appear under Remote in the new-project menu. Picking one
+        // does what the row's Connect/Open buttons do: connect an SSH Host
+        // that is not up yet, then open its own Jan page.
+        ctx.inject(['uiWorkspace'], scope => {
+          scope.effect(() => scope.uiWorkspace.registerRemoteMachines({
+            async list() {
+              const { connections } = await api('state')
+              return connections.map((host) => {
+                const ssh = host.kind === 'ssh'
+                const ready = ssh ? host.tunnel !== undefined : host.signedIn
+                return {
+                  id: host.id,
+                  name: host.name,
+                  detail: ssh ? (host.address ?? host.ssh) : host.url,
+                  state: ready ? 'ready' : host.progress !== undefined ? 'connecting' : 'idle',
+                }
+              })
+            },
+            async open(id) {
+              const { connections } = await api('state')
+              const host = connections.find(entry => entry.id === id)
+              if (host?.kind === 'ssh' && host.tunnel === undefined) await api('connect', { id })
+              await openInWindow(id)
+            },
+            manage() {
+              if (ctx.get('settingsNavigation')?.open(NS) !== true) console.warn('jan-hosts: the Hosts settings section is unavailable')
+            },
+          }), 'jan-hosts: remote computers')
+        })
       },
     }
   },
