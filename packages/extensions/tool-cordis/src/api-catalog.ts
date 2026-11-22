@@ -9854,7 +9854,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SpillSource',
-    declaration: 'export type SpillSource = {\n    kind: \'tool\';\n    toolName: string;\n    callId: ToolCallId;\n    label: string;\n} | {\n    kind: \'session-reference\';\n    sessionId: SessionId;\n    label: string;\n};',
+    declaration: 'export interface SpillSource {\n    kind: \'tool\';\n    toolName: string;\n    callId: ToolCallId;\n    label: string;\n}',
   },
   {
     name: 'SshStreamEndpoint',

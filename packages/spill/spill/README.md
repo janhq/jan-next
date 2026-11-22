@@ -1,5 +1,5 @@
 ---
-description: "The spill storage service: save oversized tool text or captured session references and return a retrievable locator."
+description: "The spill storage service: save oversized tool text and return a retrievable locator."
 kind: "package-reference"
 ---
 
@@ -23,11 +23,11 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## Use this package
 
-A composition that saves spill artifacts mounts one backend — this package alone stores nothing. `jan-spill-policy` decides when tool results spill; `jan-session-reference` directly saves truncated reference transcripts without requiring that policy. Callers use `ctx.spillStore.saveText()` with an explicit owner; optional consumers discover the backend with `ctx.get("spillStore")`.
+A composition that saves spill artifacts mounts one backend — this package alone stores nothing. `jan-spill-policy` decides when tool results spill. Callers use `ctx.spillStore.saveText()` with an explicit owner; optional consumers discover the backend with `ctx.get("spillStore")`.
 
 ### When to choose it
 
-Choose spill storage when a deployment needs to keep full text retrievable after the model sees a bounded preview, such as a fetched page body or a captured session-reference transcript. A backend whose locator and retrieval hint are usable in the deployment is a prerequisite; local filesystem access is not a service requirement.
+Choose spill storage when a deployment needs to keep full text retrievable after the model sees a bounded preview, such as a fetched page body. A backend whose locator and retrieval hint are usable in the deployment is a prerequisite; local filesystem access is not a service requirement.
 
 ### Smallest working composition
 
@@ -57,7 +57,7 @@ The returned `SpillRef` carries three fields: `locator`, an opaque model-facing 
 
 ### Ownership and boundaries
 
-Storage is grouped by the owning session: forked sessions inherit existing locators from the seeded log without copying or re-owning them, and new spills after a fork use the child session id. A session-reference artifact belongs to the target session receiving the context, not the referenced source session. `suggestedName` is only a hint — backends sanitize it to one safe segment and never trust it as a path. Consumers own preview and spill decisions; the backend owns storage and artifact expiry.
+Storage is grouped by the owning session: forked sessions inherit existing locators from the seeded log without copying or re-owning them, and new spills after a fork use the child session id. `suggestedName` is only a hint — backends sanitize it to one safe segment and never trust it as a path. Consumers own preview and spill decisions; the backend owns storage and artifact expiry.
 
 ### Failures and recovery
 
@@ -90,7 +90,7 @@ The package is built on one separation and a deliberate minimum:
 
 ### Data model
 
-`SaveTextSpill` separates storage ownership from its source description. `SpillSource` accepts either the tool source `{ kind: "tool", toolName, callId, label }` or `{ kind: "session-reference", sessionId, label }`, whose id names the captured source session. Session references never fabricate tool call ids. Neither the source descriptor nor the owner namespace grants read access. Consumers treat the returned locator as opaque and present it with its retrieval hint.
+`SaveTextSpill` separates storage ownership from its source description. `SpillSource` is the tool source `{ kind: "tool", toolName, callId, label }`. Neither the source descriptor nor the owner namespace grants read access. Consumers treat the returned locator as opaque and present it with its retrieval hint.
 
 ### Lifecycle
 
