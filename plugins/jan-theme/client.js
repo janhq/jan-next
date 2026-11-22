@@ -134,7 +134,7 @@ window.__ModuleLoader__.load({
     // A saved MCP or skill change reloads this plugin, and its route is absent until the reload ends.
     // Reads retry through that gap; a write is sent once, because the Host may already have applied it.
     async function agentApi(method, params = {}) {
-      const read = method === 'list' || method === 'readSkill' || method === 'previewImport'
+      const read = method === 'list' || method === 'readSkill' || method === 'previewImport' || method === 'searchRegistry'
       for (let attempt = 0; ; attempt++) {
         const response = await fetch('/jan-api/agent-settings', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ method, params }) })
         const body = response.headers.get('content-type')?.startsWith('application/json') ? await response.json() : undefined
@@ -198,6 +198,63 @@ window.__ModuleLoader__.load({
             h('dd', { key: `${arg.name}:d` }, arg.description || '-'),
           ])) : h('small', null, 'Takes no arguments.'))))
     }
+    // Recommended connectors and the official MCP Registry. A registry server opens the
+    // server editor prefilled and saves disabled; a recommended one runs its own setup.
+    function RegistryBrowser({ busy, recommended, onAdd, onInstall }) {
+      const { Input, Tag } = require('@janhq/jan-client-ui-primitives')
+      const [query, setQuery] = useAgentDraft('registryQuery', '')
+      const [result, setResult] = React.useState({ loading: true, error: '', featured: true, entries: [], nextCursor: undefined })
+      const [choices, setChoices] = React.useState({})
+      const latest = React.useRef(0)
+      async function load(cursor) {
+        const request = ++latest.current
+        setResult(current => ({ ...current, loading: true, error: '' }))
+        try {
+          const page = await agentApi('searchRegistry', { query: query.trim(), cursor })
+          if (request !== latest.current) return
+          setResult(current => ({ loading: false, error: '', featured: page.featured, nextCursor: page.nextCursor, entries: cursor ? [...current.entries, ...page.entries] : page.entries }))
+        } catch (failure) {
+          if (request === latest.current) setResult(current => ({ ...current, loading: false, error: failure.message }))
+        }
+      }
+      React.useEffect(() => {
+        const timer = setTimeout(() => { load() }, query.trim() ? 350 : 0)
+        return () => clearTimeout(timer)
+      }, [query.trim()])
+      const tile = (key, title, head, ...body) => h('article', { className: 'jt-agent-card jt-agent-tile', key, style: { '--jt-hue': nameHue(title) } },
+        h('div', { className: 'jt-agent-card-head' }, h('span', { className: 'jt-agent-art', 'aria-hidden': true }, title.charAt(0).toUpperCase()), head),
+        h('h3', null, title), ...body)
+      return h('div', { className: 'jt-registry' },
+        recommended?.length > 0 && h('section', { 'aria-label': 'Recommended connectors' },
+          h('h3', { className: 'jt-registry-heading' }, 'Recommended'),
+          h('div', { className: 'jt-agent-list jt-agent-grid' }, ...recommended.map(item => tile(item.id, item.title,
+            item.installed ? h(Tag, { tone: 'success' }, 'Added') : h(Button, { variant: 'outline', size: 'sm', disabled: busy, 'aria-label': `Install ${item.title}`, onClick: () => onInstall(item) }, 'Install'),
+            h('p', { className: 'jt-agent-clamp' }, item.description),
+            h('div', { className: 'jt-agent-card-title' }, h(Tag, { tone: 'neutral' }, item.license), h('span', { className: 'jt-agent-card-meta' }, item.publisher)))))),
+        h('section', { 'aria-label': 'MCP Registry' },
+          h('h3', { className: 'jt-registry-heading' }, 'MCP Registry'),
+          h('p', { className: 'jt-registry-note' }, 'Servers published to the official MCP Registry. Namespaces are verified against their GitHub account or domain; the code itself is not reviewed. Added servers stay off until you enable them.'),
+          h('div', { className: 'jt-agent-toolbar' },
+            h(Input, { type: 'search', className: 'jt-agent-search', icon: h(IconSearchOutlineRegular, { size: 16, 'aria-hidden': true }), placeholder: 'Search the MCP Registry', 'aria-label': 'Search the MCP Registry', value: query, onChange: event => setQuery(event.target.value) }),
+            h('span', null, result.loading ? 'Searching…' : result.featured ? 'Popular' : `${result.entries.length}${result.nextCursor ? '+' : ''} found`)),
+          result.error && h('p', { role: 'alert' }, result.error, ' ', h(Button, { variant: 'ghost', size: 'sm', onClick: () => load() }, 'Try again')),
+          !result.loading && !result.error && result.entries.length === 0 && h('p', { className: 'jt-registry-note' }, 'No servers Jan can start match this search.'),
+          result.entries.length > 0 && h('div', { className: 'jt-agent-list jt-agent-grid', 'aria-busy': result.loading }, ...result.entries.map(entry => {
+            const option = entry.options.find(item => item.id === choices[entry.id]) ?? entry.options[0]
+            return tile(entry.id, entry.title,
+              h(Button, { variant: 'outline', size: 'sm', disabled: busy, 'aria-label': `Add ${entry.title}`, onClick: () => onAdd(entry, option) }, 'Add'),
+              entry.description && h('p', { className: 'jt-agent-clamp' }, entry.description),
+              h('div', { className: 'jt-agent-card-title' },
+                entry.options.length > 1
+                  ? h('select', { className: 'jt-registry-option', 'aria-label': `How to run ${entry.title}`, value: option.id, onChange: event => setChoices({ ...choices, [entry.id]: event.target.value }) },
+                    entry.options.map(item => h('option', { key: item.id, value: item.id, title: item.url ?? [item.command, ...item.args].join(' ') },
+                      entry.options.filter(other => other.label === item.label).length > 1 && item.url ? `${item.label} ${new URL(item.url).pathname}` : item.label)))
+                  : h(Tag, { tone: 'neutral' }, option.label),
+                entry.deprecated && h(Tag, { tone: 'warning' }, 'Deprecated'),
+                h('span', { className: 'jt-agent-card-meta', title: entry.id }, entry.publisher)))
+          })),
+          result.nextCursor && !result.loading && h('div', { className: 'jt-agent-actions' }, h(Button, { variant: 'outline', onClick: () => load(result.nextCursor) }, 'Show more'))))
+    }
     function AgentSettings({ skills = false, onCreate }) {
       const { Input, Modal, RiskConfirmation, Tag } = require('@janhq/jan-client-ui-primitives')
       const { data, error: loadError } = React.useSyncExternalStore(agentList.subscribe, agentList.getSnapshot)
@@ -238,6 +295,23 @@ window.__ModuleLoader__.load({
       function edit(row) {
         setOriginal(row?.name || ''); setReplaceSecrets(!row)
         setDraft(row ? { ...row, args: (row.args ?? []).join('\n'), env: '{}', headers: '{}' } : { name: '', transport: 'stdio', command: '', args: '', env: '{}', headers: '{}', url: '', cwd: '', enabled: false })
+      }
+      // A registry server becomes an unsaved, disabled draft; its credential fields start with their defaults.
+      function addFromRegistry(entry, option) {
+        const taken = new Set(data.servers.map(row => row.name))
+        let name = entry.slug
+        for (let index = 2; taken.has(name); index++) name = `${entry.slug.slice(0, 29)}-${index}`
+        const credentials = JSON.stringify(Object.fromEntries(option.fields.map(item => [item.name, item.value])), null, 2)
+        setOriginal(''); setReplaceSecrets(true)
+        setDraft({
+          name, transport: option.transport, command: option.command ?? '', args: (option.args ?? []).join('\n'), url: option.url ?? '', cwd: '', enabled: false,
+          env: option.transport === 'stdio' ? credentials : '{}', headers: option.transport === 'stdio' ? '{}' : credentials,
+          fields: option.fields, source: entry.title,
+        })
+      }
+      function installConnector(item) {
+        ask(`Install ${item.title}?`, `Jan runs ${item.publisher}'s setup (${item.package}@${item.version}) with npx, then adds ${item.title} enabled together with its skills. It needs ${item.requirement} and runs with your account permissions.`,
+          () => run(() => agentApi('installRecommended', { id: item.id, confirmed: true }), `${item.title} installed.`))
       }
       const field = (label, key, multiline = false, props = {}) => h('label', { className: 'jt-agent-field' }, label, h(multiline ? 'textarea' : Input, { value: draft[key] ?? '', disabled: busy, onChange: event => setDraft({ ...draft, [key]: event.target.value }), ...props }))
       const actions = (...children) => h('div', { className: 'jt-agent-actions' }, ...children)
@@ -309,17 +383,22 @@ window.__ModuleLoader__.load({
           }), h('button', { type: 'button', className: 'jt-agent-add', disabled: busy, onClick: () => edit(null) },
             h(IconToolOutlineMedium, { size: 20, 'aria-hidden': true }), h('span', null, 'Add your own server'),
             h('small', null, 'A local command or a remote endpoint'))),
+          data && h(RegistryBrowser, { busy, recommended: data.recommended, onAdd: addFromRegistry, onInstall: installConnector }),
           h('details', { className: 'jt-agent-note' }, h('summary', null, 'MCP servers, skills, plugins and agent presets'), h('p', null, 'MCP servers provide tools. Skills provide reusable instructions. Plugins add app features through Plugin manager. Agent presets hold saved instructions and working modes.')),
           draft && h(Modal, {
             open: true, title: original ? `Edit ${original}` : 'Add MCP server', closeLabel: 'Close editor', onClose: () => setDraft(null), className: 'jt-appearance jt-agent-settings jt-agent-modal', contentClassName: 'jt-agent-modal-content', footer: actions(button('Save server', () => run(async () => {
-              const value = { ...draft, args: draft.args === '' ? [] : draft.args.split('\n'), env: JSON.parse(draft.env), headers: JSON.parse(draft.headers) }
+              const { fields, source, ...rest } = draft
+              const value = { ...rest, args: draft.args === '' ? [] : draft.args.split('\n'), env: JSON.parse(draft.env), headers: JSON.parse(draft.headers) }
               await agentApi('saveServer', { value, originalName: original || undefined, replaceSecrets }); setDraft(null)
             }, 'MCP server saved.'), { variant: 'primary' }), button('Cancel', () => setDraft(null)))
           },
             field('Server name', 'name', false, { disabled: busy || !!original }),
             h('label', { className: 'jt-agent-field' }, 'Transport', h('select', { value: draft.transport, disabled: busy, onChange: event => setDraft({ ...draft, transport: event.target.value }) }, h('option', { value: 'stdio' }, 'Local command (stdio)'), h('option', { value: 'streamable-http' }, 'Remote endpoint (Streamable HTTP)'))),
             draft.transport === 'stdio' ? h(React.Fragment, null, field('Command', 'command'), field('Arguments (one per line)', 'args', true, { rows: 2 })) : field('MCP endpoint URL', 'url'),
-            h('details', null, h('summary', null, 'Advanced: working directory and credentials'),
+            draft.fields?.length > 0 && h('div', { className: 'jt-registry-fields' },
+              h('p', null, `${draft.source} asks for these ${draft.transport === 'stdio' ? 'environment variables' : 'headers'}. Fill them in below; they are stored as credentials.`),
+              h('ul', null, draft.fields.map(item => h('li', { key: item.name }, h('code', null, item.name), item.required && h('em', null, ' required'), item.description && ` - ${item.description}`)))),
+            h('details', { open: draft.fields?.length > 0 }, h('summary', null, 'Advanced: working directory and credentials'),
               draft.transport === 'stdio' && field('Working directory (optional absolute path)', 'cwd'),
               original && h('label', null, h('input', { type: 'checkbox', checked: replaceSecrets, onChange: event => setReplaceSecrets(event.target.checked) }), ' Replace saved environment / headers'),
               replaceSecrets && (draft.transport === 'stdio' ? field('Environment (JSON object, stored as credentials)', 'env', true, { autoComplete: 'off', spellCheck: false }) : field('Headers (JSON object, stored as credentials)', 'headers', true, { autoComplete: 'off', spellCheck: false }))),
@@ -421,6 +500,15 @@ window.__ModuleLoader__.load({
 .jt-agent-field textarea, .jt-agent-field select { width: 100%; box-sizing: border-box; padding: 8px 12px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); font: inherit; }
 .jt-agent-field textarea { min-height: 80px; resize: vertical; }
 .jt-agent-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.jt-registry { display: grid; gap: 24px; margin-top: 24px; }
+.jt-registry-heading { margin: 0 0 4px; font-size: 15px; font-weight: 600; color: var(--dsw-alias-label-primary); }
+.jt-registry-note { margin: 0 0 12px; font-size: 13px; color: var(--dsw-alias-label-secondary); }
+.jt-registry [aria-busy="true"] { opacity: .6; transition: opacity .15s; }
+.jt-registry-option { max-width: 160px; padding: 2px 6px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 6px; background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); font: inherit; font-size: 12px; }
+.jt-registry-fields { margin-block: 12px; padding: 12px; border-radius: 8px; background: var(--dsw-alias-bg-layer-2); font-size: 13px; }
+.jt-registry-fields p { margin: 0 0 6px; }
+.jt-registry-fields ul { margin: 0; padding-left: 18px; }
+.jt-registry-fields em { color: var(--dsw-alias-label-secondary); }
 .jt-agent-editor { margin-block: 16px; padding: 16px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 12px; }
 .jt-agent-settings small, .jt-agent-settings p { overflow-wrap: anywhere; }
 .jt-agent-settings small { display: block; color: var(--dsw-alias-label-secondary); margin-block: 4px; }
