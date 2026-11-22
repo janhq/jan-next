@@ -53,24 +53,92 @@ function server(input) {
   return { name, enabled, transport, url: url.href, headers: input.headers ?? {} }
 }
 
+// Fields other apps write that carry no meaning for Jan: Cursor's `autoApprove`/`alwaysAllow`,
+// Claude Code's `timeout`, Zed's `source`/`settings`, VS Code's `dev`/`gallery`/`version`, a free-form description.
+const IGNORED = ['autoApprove', 'alwaysAllow', 'timeout', 'description', 'dev', 'source', 'settings', 'gallery', 'version']
+
 function importedServer(name, value) {
   if (!plain(value)) throw new Error(`${name}: expected a server object.`)
-  const allowed = ['command', 'args', 'env', 'cwd', 'url', 'headers', 'type', 'transport', 'disabled', 'enabled']
+  // Zed nests the launch under `command: { path, args, env }`.
+  if (plain(value.command)) value = { ...value, command: value.command.path, args: value.command.args ?? value.args, env: value.command.env ?? value.env }
+  // Some apps say `serverUrl` (Windsurf) or `httpUrl` (Gemini CLI) for a remote endpoint.
+  if (!value.url && (value.serverUrl || value.httpUrl)) value = { ...value, url: value.serverUrl ?? value.httpUrl }
+  const allowed = ['command', 'args', 'env', 'cwd', 'url', 'headers', 'type', 'transport', 'disabled', 'enabled', 'serverUrl', 'httpUrl', ...IGNORED]
   const unsupported = Object.keys(value).filter(key => !allowed.includes(key))
   if (unsupported.length) throw new Error(`${name}: unsupported fields ${unsupported.join(', ')}. Review them before importing.`)
   const type = value.transport ?? value.type
-  if (type && !['stdio', 'http', 'streamable-http'].includes(type)) throw new Error(`${name}: transport ${type} is unsupported. Legacy SSE is not Streamable HTTP.`)
+  if (type && !['stdio', 'http', 'streamable-http', 'streamableHttp'].includes(type)) throw new Error(`${name}: transport ${type} is unsupported. Legacy SSE is not Streamable HTTP.`)
   if (value.url && value.command) throw new Error(`${name}: choose either a URL or an executable.`)
-  return server({ ...value, name, enabled: false, transport: type === 'http' ? 'streamable-http' : type })
+  const { command, args, env, cwd, url, headers } = value
+  return server({
+    name: safeName(name), enabled: false, transport: type === 'http' || type === 'streamableHttp' ? 'streamable-http' : type,
+    ...(command === undefined ? {} : { command }), ...(args === undefined ? {} : { args }), ...(env === undefined ? {} : { env }),
+    ...(cwd === undefined ? {} : { cwd }), ...(url === undefined ? {} : { url }), ...(headers === undefined ? {} : { headers }),
+  })
 }
 
-function imported(text) {
-  let document
-  try { document = JSON.parse(text) } catch { throw new Error('Paste valid MCP JSON. Codex TOML and plugin manifests cannot be imported as MCP JSON.') }
-  if (!plain(document) || !plain(document.mcpServers)) throw new Error('Expected a JSON object with an mcpServers object, as used by Jan and Claude Desktop.')
-  const rows = Object.entries(document.mcpServers)
+// Server names from other apps may hold dots, spaces or `@`; Jan keeps 32 letters, digits, `_` and `-`.
+const safeName = name => name.replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 32) || 'server'
+
+// The server map inside whatever a person pastes: Claude Desktop and Cursor (`mcpServers`), VS Code
+// (`servers`, also nested under `mcp`), Zed (`context_servers`), the bare map, or one server on its own.
+function serverMap(document) {
+  for (const value of [document.mcpServers, document.servers, document.mcp?.servers, document.context_servers]) if (plain(value)) return value
+  if (typeof document.command === 'string' || plain(document.command) || typeof document.url === 'string') {
+    const named = typeof document.name === 'string' ? document.name : undefined
+    const { name: _name, ...rest } = document
+    return { [named ?? guessName(document)]: rest }
+  }
+  if (Object.values(document).length > 0 && Object.values(document).every(value => plain(value) && (value.command !== undefined || value.url !== undefined || value.serverUrl !== undefined || value.httpUrl !== undefined))) return document
+  return undefined
+}
+
+// A name for a pasted lone server: its npm package or its endpoint's host.
+function guessName(value) {
+  const pkg = (value.args ?? []).find(arg => typeof arg === 'string' && !arg.startsWith('-'))
+  if (pkg) {
+    // `@playwright/mcp` names the scope; `@modelcontextprotocol/server-github` names the package.
+    const [scope, base = scope] = pkg.replace(/(.)@[^@/]*$/, '$1').replace(/^@/, '').split('/')
+    const name = base.replace(/^(mcp-server-|server-|mcp-)|(-mcp-server|-mcp)$/g, '')
+    return ['mcp', 'server', ''].includes(name) ? scope : name
+  }
+  try { return new URL(value.url).hostname.split('.').slice(-2, -1)[0] ?? 'server' } catch { return 'server' }
+}
+
+// JSON with comments and trailing commas, as VS Code and Zed settings files allow.
+function parseLoose(text) {
+  try { return JSON.parse(text) } catch { /* try the relaxed form */ }
+  const stripped = text.replace(/("(?:\\.|[^"\\])*")|\/\/[^\n]*|\/\*[\s\S]*?\*\//g, (match, string) => string ?? '').replace(/,(\s*[}\]])/g, '$1').trim()
+  try { return JSON.parse(stripped) } catch { /* a fragment such as `"name": { ... }` copied out of a larger file */ }
+  return JSON.parse(`{${stripped.replace(/^,|,$/g, '')}}`)
+}
+
+// A single line that is not JSON: an endpoint URL, or a command such as `npx -y @scope/server`.
+function lineServer(text) {
+  const line = text.trim()
+  if (!line || line.includes('\n') || /^[[{"]/.test(line)) return undefined
+  if (/^https?:\/\//i.test(line)) return { url: line }
+  const words = line.match(/"[^"]*"|'[^']*'|\S+/g)?.map(word => word.replace(/^(["'])(.*)\1$/, '$2')) ?? []
+  return words.length ? { command: words[0], args: words.slice(1) } : undefined
+}
+
+/** The servers in a paste, disabled and with Jan-safe names; throws a sentence saying what is wrong. */
+export function imported(text) {
+  let document = lineServer(text)
+  if (!document) {
+    try { document = parseLoose(text) } catch { throw new Error('Paste MCP JSON from Jan, Claude Desktop, Cursor, VS Code, Windsurf or Zed, a command, or an endpoint URL. Codex TOML and plugin manifests are not MCP JSON.') }
+  }
+  const map = plain(document) ? serverMap(document) : undefined
+  if (!map) throw new Error('No MCP servers were found. Paste an object with mcpServers, servers or context_servers, or a single server with a command or url.')
+  const rows = Object.entries(map)
   if (!rows.length) throw new Error('No MCP servers were found.')
-  return rows.map(([name, value]) => importedServer(name, value))
+  const parsed = rows.map(([name, value]) => importedServer(name, value))
+  const seen = new Set()
+  for (const row of parsed) {
+    if (seen.has(row.name)) throw new Error(`Two servers become ${row.name}. Rename one before importing.`)
+    seen.add(row.name)
+  }
+  return parsed
 }
 
 export async function mountAgentSettings(ctx, config) {
@@ -252,12 +320,16 @@ export async function mountAgentSettings(ctx, config) {
       clearFailure(`mcp:${name}`)
       return { saved: true }
     },
-    previewImport: ({ text }) => imported(text).map(({ env, headers, ...row }) => ({ ...row, environmentKeys: Object.keys(env ?? {}), headerKeys: Object.keys(headers ?? {}) })),
+    // A pasted setup often repeats servers Jan already has; those are listed and left untouched.
+    previewImport: ({ text }) => imported(text).map(({ env, headers, ...row }) => ({
+      ...row, environmentKeys: Object.keys(env ?? {}), headerKeys: Object.keys(headers ?? {}), exists: servers.some(existing => existing.name === row.name),
+    })),
     async importServers({ text, confirmed }) {
       if (confirmed !== true) throw new Error('Review and confirm the MCP import first.')
-      const rows = imported(text)
-      for (const row of rows) if (servers.some(existing => existing.name === row.name)) throw new Error(`Server ${row.name} already exists. No servers were imported.`)
-      return saveRows([...servers, ...rows])
+      const rows = imported(text).filter(row => !servers.some(existing => existing.name === row.name))
+      if (!rows.length) throw new Error('Every server in this paste is already in Jan.')
+      await saveRows([...servers, ...rows])
+      return { saved: true, added: rows.map(row => row.name) }
     },
     async saveDirectories({ directories }) {
       if (!Array.isArray(directories) || !directories.every(path => typeof path === 'string' && isAbsolute(path))) throw new Error('Enter one absolute skill-folder path per line.')
