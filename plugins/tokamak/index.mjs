@@ -209,10 +209,10 @@ export function apply(ctx, config = {}) {
     yield ctx.tools.register(/** @type {ToolDefinition} */({
       name: 'generate_image',
       description: `Create a new image from a text description with ${imageModel} and save it as a file. ${AFTER_SAVE}`,
-      parameters: {
+      parameters: parameterSchema({
         prompt: { type: 'string', required: true, description: 'What the image shows: subject, style, composition, text to render, colors.' },
         ...IMAGE_PARAMETERS,
-      },
+      }),
       output: imageOutput,
       execute: (args, exec) => runImage(exec, /** @type {Record<string, unknown>} */(args), async (_at, options) => ({
         reply: await imageRequest('generations', generationBody(imageModel, options), exec.signal),
@@ -223,7 +223,7 @@ export function apply(ctx, config = {}) {
     yield ctx.tools.register(/** @type {ToolDefinition} */({
       name: 'edit_image',
       description: `Change existing image files with ${imageModel}: restyle, add or remove things, combine several images into one, or edit only the transparent area of a mask. Saves the result as a new file and leaves the sources unchanged unless path names one. ${AFTER_SAVE}`,
-      parameters: {
+      parameters: parameterSchema({
         prompt: { type: 'string', required: true, description: 'The change to make, or how to combine the images.' },
         images: {
           type: 'array', required: true, minItems: 1, maxItems: MAX_IMAGES,
@@ -232,7 +232,7 @@ export function apply(ctx, config = {}) {
         },
         mask: { type: 'string', description: 'Optional PNG the same size as the first image; its transparent pixels mark the area to change.' },
         ...IMAGE_PARAMETERS,
-      },
+      }),
       output: imageOutput,
       execute: (args, exec) => runImage(exec, /** @type {Record<string, unknown>} */(args), async (at, options) => {
         const input = /** @type {Record<string, unknown>} */ (args)
@@ -252,13 +252,13 @@ export function apply(ctx, config = {}) {
       description: 'Read text aloud with a natural voice and save it as a WAV file, for a voice-over, a spoken summary or an audio version of a document. '
         + `Up to ${MAX_SPEECH_CHARS} characters per call; split longer text into several files. It is read word for word, never answered or rewritten. `
         + 'Call present with the file so the user can play it.',
-      parameters: {
+      parameters: parameterSchema({
         text: { type: 'string', required: true, description: 'The exact words to read.' },
         path: { type: 'string', description: 'Where to save it, relative to the working directory, ending in .wav. Defaults to audio/<first words>.wav.' },
         voice: { type: 'string', enum: VOICES, description: 'Voice. Default marin.' },
         instructions: { type: 'string', description: 'Tone and pace only, such as "warm and slow". Never changes the words.' },
         speed: { type: 'number', minimum: 0.25, maximum: 1.5, description: 'Speaking speed, 0.25 to 1.5. Default 1.' },
-      },
+      }),
       execute: async (args, exec) => {
         const input = /** @type {Record<string, unknown>} */ (args)
         const at = await sessionWorkspace(ctx, exec)
@@ -277,10 +277,10 @@ export function apply(ctx, config = {}) {
       output: textOutput,
       description: `Turn speech in an audio or video file of the working directory into text with ${transcriptionModel}: meetings, voice notes, interviews. `
         + `WAV, MP3, M4A, MP4, FLAC, Ogg or WebM up to 25 MB. Billed per second of audio.`,
-      parameters: {
+      parameters: parameterSchema({
         path: { type: 'string', required: true, description: 'The recording, relative to the working directory.' },
         language: { type: 'string', description: 'ISO-639-1 code of the spoken language, such as en or vi. Omit to detect it.' },
-      },
+      }),
       execute: async (args, exec) => {
         const input = /** @type {Record<string, unknown>} */ (args)
         const path = typeof input.path === 'string' ? input.path.trim() : ''
@@ -298,7 +298,7 @@ export function apply(ctx, config = {}) {
       output: textOutput,
       description: 'Get calibrated answers about a piece of text from a classifier (TypeSafe Jev): yes/no probabilities, which of several options, or where on a scale. '
         + 'Use it for triage, routing, scoring and checks where a number is better than an opinion; it answers every question in one fast, cheap call and writes no prose.',
-      parameters: {
+      parameters: parameterSchema({
         state: { oneOf: [{ type: 'string' }, { type: 'object' }], description: 'The text to evaluate, or a JSON object of text values.', required: true },
         questions: {
           type: 'object', required: true,
@@ -306,7 +306,7 @@ export function apply(ctx, config = {}) {
             + '{ type: "choice", instructions, criteria: { option: description } } for one of several options; '
             + 'or { type: "score", instructions, criteria: ["lowest level", ..., "highest level"] } with 2 to 10 levels.',
         },
-      },
+      }),
       execute: async (args, exec) => {
         let body
         try { body = systemOneBody(jevModel, /** @type {Record<string, unknown>} */(args)) } catch (error) { throw new HarnessError(/** @type {Error} */(error).message, 'TOKAMAK_INVALID_ARGS') }
