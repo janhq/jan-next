@@ -358,7 +358,7 @@ describe('ModelsSection', () => {
         t={t}
         renderSlot={() => null}
       />)
-      expect(screen.getByRole('heading', { name: en.title })).toBeTruthy()
+      expect(screen.getByText(en.intro)).toBeTruthy()
       expect(screen.queryByRole('button', { name: tokamakCopy(en.editProvider) })).toBeNull()
       expect(screen.queryByRole('button', { name: en.add })).toBeNull()
     } finally {
@@ -399,7 +399,7 @@ describe('ModelsSection', () => {
       expect(load).toHaveBeenCalledOnce()
       expect(controller.store.getSnapshot()).toMatchObject({ status: 'loading' })
       expect(controller.store.getSnapshot().namespaces.get('llm-pi-ai')?.revision).toBe(0)
-      expect(screen.getByRole('heading', { name: en.title })).toBeTruthy()
+      expect(screen.getByText(en.intro)).toBeTruthy()
       expect(screen.queryByLabelText(en.keyInput)).toBeNull()
     } finally {
       await act(async () => { read.resolve(remoteOk({})); await load.mock.results[0]?.value })
