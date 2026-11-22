@@ -162,7 +162,9 @@ export function ConversationPanel({ renderSlot, SessionProvider, layout, retainP
           renderAddTabMenu={renderAddTabMenu}
           renderTabTitle={(tab) => {
             const id = tabSessionId(tab)
-            const label = id === undefined ? t('desk.newChat') : list.byId[id]?.displayTitle || t('desk.newChat')
+            const row = id === undefined ? undefined : list.byId[id]
+            // An untitled chat reads "New chat", not its project folder's name; a subagent keeps its label.
+            const label = (row?.title ?? (row?.origin === 'subagent' ? row.displayTitle : undefined)) || t('desk.newChat')
             return <span className={css.chatTitle} title={label}>{label}</span>
           }}
           renderTabActions={tab => (
