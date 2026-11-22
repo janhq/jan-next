@@ -12,6 +12,7 @@ import { stat } from 'node:fs/promises'
 import type { SessionHeader, SessionId } from '@janhq/jan-session'
 import type { KvTable } from '@janhq/jan-storage-domain'
 import type { WorkspaceRecord } from './spec.ts'
+import { sameWorkspaceAvatar } from './types.ts'
 import type { Workspace, WorkspaceAvatar, WorkspaceColor, WorkspaceId, WorkspaceIdentityPatch } from './types.ts'
 import { realpathNormalize } from './paths.ts'
 
@@ -121,7 +122,7 @@ export class WorkspaceEntity implements Workspace {
       const title = patch.title ?? record.title
       const color = patch.color === undefined ? record.color : patch.color ?? undefined
       const avatar = patch.avatar === undefined ? record.avatar : patch.avatar ?? undefined
-      return title === record.title && color === record.color && sameAvatar(avatar, record.avatar)
+      return title === record.title && color === record.color && sameWorkspaceAvatar(avatar, record.avatar)
         ? record
         : { ...record, title, color, avatar }
     })
@@ -239,10 +240,4 @@ export class WorkspaceEntity implements Workspace {
     }
     this.record = next
   }
-}
-
-function sameAvatar(left: WorkspaceAvatar | undefined, right: WorkspaceAvatar | undefined): boolean {
-  if (left === right) return true
-  return left?.kind === 'icon' ? right?.kind === 'icon' && left.name === right.name
-    : left?.kind === 'emoji' && right?.kind === 'emoji' && left.value === right.value
 }
