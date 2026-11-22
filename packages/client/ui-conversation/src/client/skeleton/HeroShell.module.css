@@ -179,10 +179,16 @@
   }
 }
 
-/* Locked form (bound guidance state): a static echo — no hover feedback, no
-   pointer affordance; label keeps full contrast. */
+/* Locked once the chat has started: the chip still names the project in the
+   composer placeholder's caption grey, with no hover or pointer. */
 .workspace:disabled {
+  color: var(--dsw-alias-label-caption);
   cursor: default;
+}
+
+.workspace:disabled .folder,
+.workspace:disabled .chevron {
+  color: inherit;
 }
 
 .folder {

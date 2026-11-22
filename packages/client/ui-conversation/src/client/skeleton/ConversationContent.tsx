@@ -105,17 +105,21 @@ export function ConversationContent(props: ConversationContentProps) {
 
   // The project and preset row: the Hero's New Session pickers, and under a
   // started Session's composer the same project chip beside its preset control.
+  // Once the chat leaves the Hero (its first turn has begun) it belongs to its
+  // project, so the chip stays as a dimmed label instead of a picker that would navigate away.
+  const workspaceLocked = phase === 'active'
   const workspaceRow = (
     <div className={css.heroWorkspaceRow}>
       <WorkspaceChip
         buttonRef={pickerAnchor}
         label={chipTitle}
-        menuOpen={pickerOpen}
+        menuOpen={pickerOpen && !workspaceLocked}
+        locked={workspaceLocked}
         onClick={() => { setPickerOpen(open => !open) }}
         t={t}
       />
       {renderSlot('conversation.hero.workspace', {
-        open: pickerOpen,
+        open: pickerOpen && !workspaceLocked,
         anchorRef: pickerAnchor,
         selectedId: pendingWorkspaceId ?? sessionWorkspace?.workspaceId,
         onPick: (workspaceId) => {
