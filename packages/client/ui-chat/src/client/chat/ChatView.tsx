@@ -123,6 +123,19 @@ export function ChatView({
     const timer = setTimeout(() => { setMotionTail(false) }, MOTION_TAIL_MS)
     return () => { clearTimeout(timer) }
   }, [running, deferCompletedTurns])
+  // A reader opening or closing a settled Turn's work also animates: the press opens the motion scope
+  // before the click commits the toggle, and the scope closes once the fold has finished.
+  const [readerMotion, setReaderMotion] = useState(0)
+  useEffect(() => {
+    if (readerMotion === 0) return
+    const timer = setTimeout(() => { setReaderMotion(0) }, MOTION_TAIL_MS)
+    return () => { clearTimeout(timer) }
+  }, [readerMotion])
+  const pressDisclosure = useCallback((event: { target: EventTarget }) => {
+    if (event.target instanceof Element && event.target.closest('button[data-turn-process]') !== null) {
+      setReaderMotion(Date.now())
+    }
+  }, [])
   const openState = useSession(s => s.openState)
   const openError = useSession(s => s.openError)
   const hasMore = useSession(s => s.hasMore)
@@ -230,8 +243,11 @@ export function ChatView({
       <div className={css.root} data-chat-following-tail={scroll.followingTail ? '' : undefined}>
         <div ref={scroll.listRef} className={css.scroll}>
           <div ref={scroll.columnRef} className={css.column} data-chat-flow=""
-            data-chat-motion={deferCompletedTurns && scroll.initialized
-              && (running || motionTail || pendingInputs.length > 0) ? '' : undefined}>
+            onPointerDownCapture={pressDisclosure}
+            onKeyDownCapture={(event) => { if (event.key === 'Enter' || event.key === ' ') pressDisclosure(event) }}
+            data-chat-motion={!scroll.initialized ? undefined
+              : deferCompletedTurns && (running || motionTail || pendingInputs.length > 0) ? ''
+                : readerMotion !== 0 ? 'reader' : undefined}>
             {openState === 'loading' && <div className={css.hint}>{t('chat.loadingHistory')}</div>}
             {openState === 'error' && openError !== null && (
               <div className={css.openError}>
