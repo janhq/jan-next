@@ -216,7 +216,8 @@ Host service backing the generated `ctx.remote.directoryPicker` namespace. The s
 @Remote('list') async list(path: string | undefined, signal: AbortSignal): Promise<DirectoryListing>
 
 /**
- * Create one child directory for a Remote caller's in-app browser.
+ * Create one child directory for a Remote caller (the in-app browser or the
+ * new-project menu's New folder); every backend that can create folders serves it.
  * @param path - absolute existing parent directory.
  * @param name - single non-blank path segment.
  * @returns the created directory's absolute path.
