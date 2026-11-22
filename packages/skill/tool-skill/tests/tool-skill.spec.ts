@@ -20,6 +20,7 @@ import AgentRegistry, { agentEvents, type Agent, type PreStepDecision } from '@j
 import SkillRegistry from '@janhq/jan-skill'
 import * as SkillFileSystem from '@janhq/jan-skill-filesystem'
 import * as toolSkill from '@janhq/jan-tool-skill'
+import CommandRuntime from '@janhq/jan-commands'
 
 declare module '@janhq/jan-llm' {
   interface MessageSourceMap {
@@ -82,11 +83,11 @@ function agentForCwd(cwd: string): Agent {
     model: unsupportedModel(),
     inbox: unsupportedInbox(),
     status: 'idle',
-    send: () => {},
-    followup: () => {},
-    steer: () => {},
+    send: () => { },
+    followup: () => { },
+    steer: () => { },
     inject: () => { throw new Error('step-boundary catalog must not use agent.inject()') },
-    cancel() {},
+    cancel() { },
     runMaintenance: task => task(new AbortController().signal),
     whenIdle: () => Promise.resolve(),
   }
@@ -101,11 +102,11 @@ function sessionAgent(session: Session, id = 'tool-skill-agent'): Agent {
     inbox: unsupportedInbox(),
     status: 'running',
     ctx: new Context(),
-    send: () => {},
-    followup: () => {},
-    steer: () => {},
+    send: () => { },
+    followup: () => { },
+    steer: () => { },
     inject: () => { throw new Error('step-boundary catalog must not use agent.inject()') },
-    cancel() {},
+    cancel() { },
     runMaintenance: task => task(new AbortController().signal),
     whenIdle: () => Promise.resolve(),
   }
@@ -373,7 +374,7 @@ describe('jan-tool-skill', () => {
         return undefined
       },
     }
-    let invalidate = (): void => {}
+    let invalidate = (): void => { }
     ctx.skills.registerProvider((control) => {
       invalidate = control.invalidate
       return provider
@@ -1002,6 +1003,31 @@ describe('jan-tool-skill', () => {
     const block = result.content[0]
     if (block?.type !== 'text') throw new Error('expected text tool result')
     expect(block.text).toContain('value.resourceBase')
+  })
+
+  it('/reload picks up a skill added outside Jan as an appended replacement catalog', async () => {
+    const home = await tempDir('tool-reload')
+    await writeSkill(join(home, '.jan/skills'), 'first-skill', 'First skill', 'First.')
+    const ctx = await setup(home)
+    await ctx.plugin(CommandRuntime)
+    const agent = sessionAgent(Session.create(SessionId('tool-reload'), [], {
+      version: SESSION_FORMAT_VERSION, id: SessionId('tool-reload'), createdAt: 0, cwd: home, isSeeded: false,
+    }))
+    await fireStep(ctx, agent, 1, 1)
+    const sent = structuredClone(agent.session.deriveMessages())
+    // Discovery is cached and the watcher is off, so without /reload the new skill stays unseen.
+    await writeSkill(join(home, '.jan/skills'), 'second-skill', 'Second skill', 'Second.')
+
+    const result = (await ctx.commands.execute(agent, '/reload', [], testToolSignal))?.result
+    await fireStep(ctx, agent, 2, 1)
+
+    expect(result).toEqual({ kind: 'success', text: 'Skills: 2 found. Changes reach the model with your next message; earlier messages are not resent.' })
+    const messages = agent.session.deriveMessages()
+    expect(messages.slice(0, sent.length)).toEqual(sent)
+    const update = messages.at(-1)
+    expect(update?.role === 'user' ? update.source : undefined).toMatchObject({
+      kind: 'skill-catalog', update: true, entries: [{ name: 'first-skill' }, { name: 'second-skill' }],
+    })
   })
 
   it('returns isError for unknown, invalid, and model-disabled skills', async () => {

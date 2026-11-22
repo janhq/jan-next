@@ -14,7 +14,7 @@ import type { AgentCancelCause, Session, SessionSeq, UserMessage } from '@janhq/
 export type { AgentCancelCause } from '@janhq/jan-session'
 import type { Agent, InboxTarget, ModelSelection } from './types.ts'
 export type { Agent } from './types.ts'
-import type {} from '@janhq/jan-system-prompt'
+import type { } from '@janhq/jan-system-prompt'
 declare module '@janhq/jan-system-prompt' {
   interface AssembleContext {
     /** Agent for this assembly; absent on diagnostics. When present, `scope` must identify the same agent. */
@@ -179,12 +179,12 @@ export type AssistantStreamFrame =
     readonly index: number
     /** Durable settlement committed before this notification, or live abandonment without one. */
     readonly outcome:
-      | {
-        readonly kind: 'committed'
-        readonly eventType: 'assistant/message' | 'assistant/attempt'
-        readonly seq: SessionSeq
-      }
-      | { readonly kind: 'abandoned' }
+    | {
+      readonly kind: 'committed'
+      readonly eventType: 'assistant/message' | 'assistant/attempt'
+      readonly seq: SessionSeq
+    }
+    | { readonly kind: 'abandoned' }
   }
 
 declare module './types.ts' {
@@ -337,6 +337,19 @@ declare module '@janhq/cordis' {
      * @mode emit
      */
     'agent/inbox/discarded'(this: Scoped<Agent>, payload: { agent: Agent; message: UserMessage }): void
+    /**
+     * The user asked to re-read context that lives outside the Session, such as
+     * instruction files and skill folders, after editing it outside Jan. A
+     * listener re-reads its source, queues any change as a message appended
+     * after the conversation (never an edit to sent messages), and returns
+     * `[...await next(), ...its report lines]`.
+     * @param payload.agent - the agent whose context is re-read.
+     * @param payload.signal - the dispatching command's cancellation signal.
+     * @returns one human-readable report line per listener that re-read something.
+     * Scope-filtered dispatch (`@janhq/jan-scope`): agent-scoped listeners receive only that agent.
+     * @mode waterfall
+     */
+    'agent/reload'(this: Scoped<Agent>, payload: { agent: Agent; signal: AbortSignal }, next: () => Promise<string[]>): Promise<string[]>
     // ---- the machine's extension points ----
     /**
      * Reject a proposed step or replace the messages that enter it. Calling

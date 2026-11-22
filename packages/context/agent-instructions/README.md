@@ -25,7 +25,7 @@ kind: "package-reference"
 
 Changing the Session's working directory reloads the applicable project instruction chain before the next request.
 
-Type `/reload` to re-read the instruction files and skill folders now, after editing them outside Jan. When a commands registry is composed, the plugin registers `/reload`, which also drops the skill registry's cached catalogs. Changed instructions and a changed skill catalog reach the model as messages appended to the conversation; the system prompt and earlier messages are not rewritten, so a provider's prompt cache for them stays valid. The reply names each changed file and the skill count.
+`/reload` (registered by `@janhq/jan-tool-skill`) also re-reads the instruction chain now, through the `agent/reload` hook: a changed file is queued as a message appended after the conversation, so the system prompt and earlier messages are not rewritten and a provider's prompt cache for them stays valid. The reply names each changed file.
 
 Mount this plugin when agents should work from the workspace's own instruction files. `jan-base` already includes it with a 65,536-byte budget for each instruction chain, so base-backed profiles only need to replace the row when they want another `maxBytes`; providerless trees load nothing until a filesystem provider is present.
 
