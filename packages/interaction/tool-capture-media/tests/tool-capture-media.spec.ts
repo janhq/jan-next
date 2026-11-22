@@ -8,12 +8,13 @@ import ToolRuntime from '@janhq/jan-tools'
 import { executeToolFixture } from '@janhq/jan-tool-testkit'
 import { expect, it, vi } from 'vitest'
 import { apply } from '../src/index.ts'
+import type { CaptureRequester } from '../src/types.ts'
 
 async function fixture(name: 'capture_camera' | 'capture_audio', args: object) {
   const ctx = new Context()
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
-  const request = vi.fn<Context['mediaCapture']['request']>()
+  const request = vi.fn<CaptureRequester['request']>()
   ctx.provide('mediaCapture', { request })
   apply(ctx)
   const id = SessionId('first')
