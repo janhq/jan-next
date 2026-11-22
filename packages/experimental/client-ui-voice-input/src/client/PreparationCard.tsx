@@ -63,6 +63,9 @@ export function PreparationCard({ provider, connected, prepare, cancelPreparatio
     try { await action() } catch (failure) { setError(failure instanceof Error ? failure.message : String(failure)) }
     finally { setSubmitting(false) }
   }
+  // Beside the setup estimate the idle summary repeats it, and its lone hollow dot reads as an unlabeled radio.
+  const quiet = state.phase === 'unprepared' && provider.location === 'host-local' && provider.setupEstimate !== undefined
+    && current === undefined
   const metric = state.phase === 'downloading' ? byteText(state, t)
     : preparing && startedAt !== undefined ? t('elapsed', { seconds: String(Math.max(0, Math.floor((now - startedAt) / 1000))) }) : ''
   const summary = !connected ? t('reconnecting') : preparing && current ? t(`step.${current.kind}`, { name: provider.name })
@@ -87,7 +90,7 @@ export function PreparationCard({ provider, connected, prepare, cancelPreparatio
       </dl>
       <small>{t('setup.estimateNote')}</small>
     </div>}
-    <DisclosureRow icon={<StateDot state={preparationTone(state)} size={16} appearance="step" />}
+    {!quiet && <DisclosureRow icon={<StateDot state={preparationTone(state)} size={16} appearance="step" />}
       title={expanded ? t('preparationSteps') : summary} open={expanded} expandable={(state.steps?.length ?? 0) > 0} expandOnRowClick previewChevron={false}
       onToggle={() => { setExpanded(value => !value) }} rowClassName={css.summaryRow} titleClassName={css.summaryTitle}
       collapsedContent={<><span className={css.metric} role="status">{metric}</span>{state.steps && <IconChevronDownOutlineRegular />}</>}>
@@ -104,7 +107,7 @@ export function PreparationCard({ provider, connected, prepare, cancelPreparatio
           </div>
         </li>)}
       </ol>
-    </DisclosureRow>
+    </DisclosureRow>}
     {!expanded && <DownloadProgress state={state} t={t} />}
     {state.phase === 'failed' && <PreparationFailure state={state} t={t} />}
     {canPrepare && sources.length > 0 && <div className={css.sourceChoice}>
@@ -119,7 +122,7 @@ export function PreparationCard({ provider, connected, prepare, cancelPreparatio
       <small className={css.metric}>{t(selectedSource === '' ? 'sourceAutoHelp' : 'sourceManualHelp')}</small>
     </div>}
     <div className={css.preparationActions}>
-      {canPrepare && <Button variant="outline" size="sm" disabled={!connected || submitting}
+      {canPrepare && <Button variant={state.phase === 'unprepared' ? 'primary' : 'outline'} size="sm" disabled={!connected || submitting}
         onClick={() => { void run(() => selectedSource === '' ? prepare(provider.id) : prepare(provider.id, { downloadSource: selectedSource })) }}>{t(state.phase === 'unprepared' ? 'prepare' : 'retryPrepare')}</Button>}
       {preparing && state.phase !== 'waking' && <Button variant="ghost" size="sm" disabled={!connected || submitting || state.phase === 'cancelling'}
         onClick={() => { void run(() => cancelPreparation(provider.id)) }}>{t('cancelPrepare')}</Button>}

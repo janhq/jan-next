@@ -1,7 +1,13 @@
 .trigger { width: 28px; padding: 0; flex: none; }
 .triggerAnchor { display: inline-flex; flex: none; }
 .voiceControl { display: inline-flex; align-items: center; }
-.setupDialog { max-height: calc(100dvh - 32px); overflow-y: auto; --jan-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2); --jan-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2); }
+/* The card caps at the modal's titlebar-aware padding box; only the body scrolls, so the header close and the footer stay visible. */
+.setupDialog { width: min(440px, 100%); max-height: 100%; }
+.setupContent { flex: 1; min-height: 0; }
+/* The modal body already spaces the header; the fields and card need no extra outer margin here. */
+.setupContent .preferences { margin-top: 0; }
+.setupContent .preparation { margin-bottom: 0; }
+.setupContent > :last-child { flex: 1; min-height: 0; overflow-y: auto; --jan-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2); --jan-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2); }
 .setupStatus { font-size: 13px; color: var(--dsw-alias-label-secondary); }
 .captureRow { display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; min-height: 34px; }
 .roundButton { width: 32px; height: 32px; padding: 0; border-radius: 50%; corner-shape: round; flex: none; background: var(--dsw-specific-selector); }
@@ -14,7 +20,7 @@
 
 .preparation { display: flex; flex-direction: column; gap: 10px; padding: 14px; margin: 12px 0; border: 0.5px solid var(--dsw-alias-border-l1); border-radius: 10px; font-size: 13px; }
 .preparation p { margin: 0; }
-.preparationActions { display: flex; gap: 8px; }
+.preparationActions { display: flex; justify-content: flex-end; gap: 8px; }
 .preparationActions:empty { display: none; }
 .preparationError { color: var(--dsw-alias-state-error-primary); overflow-wrap: anywhere; font-size: 12px; }
 .downloadFailure { display: grid; gap: 6px; overflow-wrap: anywhere; }
@@ -30,13 +36,15 @@
 .stepProgress { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
 .stepProgress small { font-size: 11px; color: var(--dsw-alias-label-tertiary); overflow-wrap: anywhere; }
 .preferences { display: grid; gap: 12px; font-size: 13px; margin: 18px 0; }
-.deviceRow, .preferences label, .sourceChoice label { display: grid; grid-template-columns: 100px minmax(120px, 280px); align-items: center; gap: 12px; }
-.preferences select, .sourceChoice select { border: 0.5px solid var(--dsw-alias-border-l1); border-radius: 6px; padding: 6px 10px; background: transparent; color: inherit; font: inherit; }
+/* Stacked fields: the label sits above a full-width control, as in the Models settings form. */
+.deviceRow, .preferences label, .sourceChoice label { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+.preferences label, .sourceChoice label { font-size: 12px; line-height: 18px; font-weight: 500; color: var(--dsw-alias-label-secondary); }
+.preferences select, .sourceChoice select { width: 100%; min-width: 0; border: 0.5px solid var(--dsw-alias-border-l1); border-radius: 6px; padding: 6px 10px; background: transparent; color: var(--dsw-alias-label-primary); font: inherit; font-size: 13px; font-weight: 400; }
 .sourceChoice { display: grid; gap: 6px; }
 .preferences p { margin: 0; }
 .settingsCard { list-style: none; padding: 16px; border: 0.5px solid var(--dsw-alias-border-l1); border-radius: 10px; }
 .settingsCard > p { font-size: 13px; color: var(--dsw-alias-label-secondary); margin: 8px 0 0; }
-.setupEstimate { display: grid; gap: 10px; padding: 12px; border-radius: 8px; background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-secondary); line-height: 1.6; }
+.setupEstimate { display: grid; gap: 8px; padding: 12px; border-radius: 8px; background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-secondary); line-height: 1.45; }
 .setupEstimate dl { display: grid; gap: 6px; margin: 0; }
 .setupEstimate dl > div { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 10px; }
 .setupEstimate dt { color: var(--dsw-alias-label-tertiary); }
@@ -47,14 +55,9 @@
 .deviceField select { width: 100%; }
 .deviceField select.deviceSelectMeter { padding-right: 72px; }
 .deviceMeter { position: absolute; top: 50%; right: 24px; display: inline-flex; transform: translateY(-50%); pointer-events: none; }
-.deviceConsent { grid-column: 2; display: grid; justify-items: start; gap: 8px; font-size: 12px; line-height: 1.5; color: var(--dsw-alias-label-secondary); }
+.deviceConsent { grid-column: 1; display: grid; justify-items: start; gap: 8px; font-size: 12px; line-height: 1.5; color: var(--dsw-alias-label-secondary); }
 .deviceConsent p { margin: 0; text-wrap: pretty; }
-.deviceError { grid-column: 2; min-width: 0; color: var(--dsw-alias-state-error-primary); overflow-wrap: anywhere; font-size: 12px; }
+.deviceError { grid-column: 1; min-width: 0; color: var(--dsw-alias-state-error-primary); overflow-wrap: anywhere; font-size: 12px; }
 .inputLevel { display: inline-flex; align-items: center; gap: 3px; flex: none; }
 .inputLevel > span { width: 3px; height: 12px; border-radius: 1px; background: var(--dsw-alias-border-l1); }
 .inputLevel > span[data-active='true'] { background: var(--dsw-alias-state-success-primary); }
-@media (max-width: 480px) {
-  .deviceRow, .preferences label, .sourceChoice label { grid-template-columns: minmax(0, 1fr); gap: 6px; }
-
-  .deviceError, .deviceConsent { grid-column: 1; }
-}

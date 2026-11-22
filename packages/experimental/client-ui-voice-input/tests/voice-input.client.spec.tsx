@@ -319,6 +319,16 @@ it('offers language and model preparation on click without starting automaticall
   expect(b.props.configure).not.toHaveBeenCalled()
 })
 
+it('states the local download once when the setup estimate explains it', () => {
+  const b = fixture(), state = b.readiness.getSnapshot()
+  act(() => { b.readiness.set({ ...state, catalog: { ...state.catalog!, providers: [{ ...state.catalog!.providers[0]!, location: 'host-local',
+    setupEstimate: { recommendedDiskBytes: 1_000_000_000, expectedMemoryBytes: 1_000_000_000, minimumMinutes: 1, maximumMinutes: 5 },
+    preparation: { phase: 'unprepared', steps: [{ kind: 'check', status: 'complete' }, { kind: 'model', status: 'pending' }] } }] } }) })
+  fireEvent.click(screen.getByRole('button', { name: zh['setupPrompt.trigger'] }))
+  expect(within(screen.getByRole('dialog')).getAllByText(zh['setup.local'])).toHaveLength(1)
+  expect(screen.queryByText(zh['preparation.unprepared'])).toBeNull()
+})
+
 it.each<SpeechPreparationState>([
   { phase: 'checking', step: 'check', startedAt: 0 },
   { phase: 'downloading', resource: 'model', completedBytes: 0 },
