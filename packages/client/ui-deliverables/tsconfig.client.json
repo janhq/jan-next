@@ -53,6 +53,9 @@
       "path": "../ui-sidebar-right"
     },
     {
+      "path": "../ui-sidebar-browser/tsconfig.client.json"
+    },
+    {
       "path": "../ui-slots"
     },
     {

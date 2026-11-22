@@ -71,6 +71,7 @@
     "@janhq/jan-client-ui-dockkit": "workspace:*",
     "@janhq/jan-client-ui-renderer": "workspace:*",
     "@janhq/jan-client-ui-sidebar-right": "workspace:*",
+    "@janhq/jan-client-ui-sidebar-browser": "workspace:*",
     "@janhq/jan-client-ui-slots": "workspace:*",
     "@janhq/cordis": "workspace:~",
     "react": "^18.2.0",

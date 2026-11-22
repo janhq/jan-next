@@ -1,9 +1,11 @@
 /**
  * Artifacts library: every file the assistant presented in any chat and every
  * web link any chat mentioned, newest first, under Files and Links tabs with
- * search. A file row opens the file, reveals it in the file manager, or returns
- * to its chat; a file deleted on disk stays listed as unavailable. A link row
- * opens in the browser, copies, or returns to its chat.
+ * search. A row opens beside its chat in the app: a file in the chat's preview
+ * tab, a link in its built-in browser tab. A file row also opens in the file's
+ * application, reveals it in the file manager, or returns to its chat; a file
+ * deleted on disk stays listed as unavailable. A link row also opens in the
+ * user's own browser, copies, or returns to its chat.
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
@@ -44,6 +46,12 @@ export interface ArtifactsInjected {
   hydrate: ArtifactsController['hydrate']
   /** Show a chat in the main area. */
   openChat: (sessionId: SessionId) => void
+  /** Show a link's chat with the link in that chat's built-in browser tab. */
+  openLink: (sessionId: SessionId, url: string) => void
+  /** Open a link in the user's own browser. */
+  openInBrowser: (url: string) => void
+  /** Show a file's chat with the file in that chat's preview tab. */
+  previewFile: (sessionId: SessionId, path: string) => void
 }
 
 /** Full props of the library page. */
@@ -61,11 +69,13 @@ function timeLabel(at: number, now: number, t: ArtifactsPageProps['t']): string 
  * @param props - visible rows, the chat callback, and localized copy.
  * @returns the link list.
  */
-function LinkList({ rows, now, t, openChat }: {
+function LinkList({ rows, now, t, openChat, openLink, openInBrowser }: {
   rows: readonly LinkRow[]
   now: number
   t: ArtifactsPageProps['t']
   openChat: ArtifactsInjected['openChat']
+  openLink: ArtifactsInjected['openLink']
+  openInBrowser: ArtifactsInjected['openInBrowser']
 }): ReactNode {
   const [copied, setCopied] = useState<string | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -85,7 +95,13 @@ function LinkList({ rows, now, t, openChat }: {
       <span className={css.icon}><IconGlobeOutlineRegular size={22} /></span>
       <div className={css.main}>
         <a className={css.link} href={row.url} target="_blank" rel="noopener noreferrer" title={row.url}
-          aria-label={t('artifacts.linkOpenAria', { title: row.title })}>
+          aria-label={t('artifacts.linkBesideAria', { title: row.title })}
+          onClick={(event) => {
+            // A modified click keeps the browser's own meaning (new window, background tab).
+            if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+            event.preventDefault()
+            openLink(row.sessionId, row.url)
+          }}>
           {row.title}
         </a>
         <span className={css.meta}>
@@ -96,6 +112,10 @@ function LinkList({ rows, now, t, openChat }: {
         </span>
       </div>
       <div className={css.actions}>
+        <Button size="sm" variant="outline" icon={<IconRightUpOutlineRegular size={14} />}
+          aria-label={t('artifacts.linkOpenAria', { title: row.title })} onClick={() => { openInBrowser(row.url) }}>
+          <span className={css.label}>{t('artifacts.openInBrowser')}</span>
+        </Button>
         <Button size="sm" variant="outline" icon={<IconCopyOutlineRegular size={14} />}
           aria-label={t('artifacts.copyLinkAria', { title: row.title })} onClick={() => { void copy(row) }}>
           <span className={css.label} role={copied === row.key ? 'status' : undefined}>
@@ -118,7 +138,7 @@ function LinkList({ rows, now, t, openChat }: {
  */
 export function ArtifactsPage({
   t, useSessions, usePresentedOpen, usePresentedHost, useAvailability, useScanning, useResetGeneration,
-  reloadPresentedHost, openPresented, checkAvailability, hydrate, openChat,
+  reloadPresentedHost, openPresented, checkAvailability, hydrate, openChat, openLink, openInBrowser, previewFile,
 }: ArtifactsPageProps): ReactNode {
   const list = useSessions(state => state)
   const opens = usePresentedOpen(value => value)
@@ -193,7 +213,8 @@ export function ArtifactsPage({
                 {t('artifacts.reset')}
               </Button>}
             </div>
-            : !files ? <LinkList rows={shownLinks.slice(0, limit)} now={now} t={t} openChat={openChat} />
+            : !files ? <LinkList rows={shownLinks.slice(0, limit)} now={now} t={t} openChat={openChat}
+              openLink={openLink} openInBrowser={openInBrowser} />
               : <ul className={css.rows}>
                 {visible.map((row) => {
                   const missing = availability[row.key] === 'missing'
@@ -204,7 +225,10 @@ export function ArtifactsPage({
                   return <li key={row.key} className={css.row} data-artifact-row={row.key} data-missing={missing || undefined}>
                     <span className={css.icon}><FileTypeIcon path={row.path} size={28} /></span>
                     <div className={css.main}>
-                      <span className={css.name} title={row.path}>{row.name}</span>
+                      {missing ? <span className={css.name} title={row.path}>{row.name}</span>
+                        : <button type="button" className={css.nameButton} title={row.path}
+                          aria-label={t('artifacts.previewAria', { name: row.name })}
+                          onClick={() => { previewFile(row.sessionId, row.path) }}>{row.name}</button>}
                       <span className={css.meta}>
                         <span className={css.chat} title={row.chatTitle}>{row.chatTitle}</span>
                         <span className={css.time}>{timeLabel(row.time, now, t)}</span>

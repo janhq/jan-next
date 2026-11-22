@@ -235,6 +235,9 @@ describe('ArtifactsPage', () => {
     const open = new PresentedOpenController()
     open.host.set({ name: 'desktop', available: true, fileManager: 'finder' })
     const openChat = vi.fn<ArtifactsInjected['openChat']>()
+    const openLink = vi.fn<ArtifactsInjected['openLink']>()
+    const openInBrowser = vi.fn<ArtifactsInjected['openInBrowser']>()
+    const previewFile = vi.fn<ArtifactsInjected['previewFile']>()
     const openPresented = vi.fn<ArtifactsInjected['openPresented']>(() => Promise.resolve({ kind: 'opened' }))
     const checkAvailability = vi.fn<ArtifactsInjected['checkAvailability']>(() => Promise.resolve())
     const hydrate = vi.fn<ArtifactsInjected['hydrate']>()
@@ -250,13 +253,17 @@ describe('ArtifactsPage', () => {
       useScanning: <T,>(select: (state: number) => T): T => select(scanning.getSnapshot()),
       useResetGeneration: bindSnapshotSelector(resetGeneration),
       reloadPresentedHost: vi.fn(() => open.loadHost()), openPresented, checkAvailability, hydrate, openChat,
+      openLink, openInBrowser, previewFile,
     } as never
     const view = render(<ArtifactsPage {...props} />)
-    return { view, props, openChat, openPresented, checkAvailability, hydrate, availabilityStore, resetGeneration }
+    return {
+      view, props, openChat, openLink, openInBrowser, previewFile, openPresented, checkAvailability, hydrate, availabilityStore,
+      resetGeneration,
+    }
   }
 
   const names = (view: ReturnType<typeof render>) =>
-    [...view.container.querySelectorAll('[data-artifact-row]')].map(row => row.querySelector('span[title]')?.textContent)
+    [...view.container.querySelectorAll('[data-artifact-row]')].map(row => row.querySelector('[title]')?.textContent)
 
   it('lists files newest first with kind filters and a total', () => {
     const { view, checkAvailability, hydrate } = setup(LIBRARY)
@@ -304,6 +311,8 @@ describe('ArtifactsPage', () => {
     const { view, openChat, openPresented } = setup(LIBRARY, { 'alpha:4:0': 'missing' })
     const row = view.container.querySelector('[data-artifact-row="alpha:4:0"]') as HTMLElement
     expect(row.getAttribute('data-missing')).toBe('true')
+    // A file that is gone has nothing to preview, so its name is plain text.
+    expect(within(row).queryByRole('button', { name: 'Preview report.docx beside its chat' })).toBeNull()
     expect(within(row).getByText('File not found on disk')).toBeTruthy()
     const open = within(row).getByRole('button', { name: 'Open report.docx' }) as HTMLButtonElement
     const reveal = within(row).getByRole('button', { name: 'Show report.docx in folder' }) as HTMLButtonElement
@@ -315,9 +324,11 @@ describe('ArtifactsPage', () => {
     expect(openChat).toHaveBeenCalledWith('alpha')
   })
 
-  it('opens, reveals, and returns to the chat of the row it was clicked on', () => {
-    const { view, openChat, openPresented } = setup(LIBRARY)
+  it('previews, opens, reveals, and returns to the chat of the row it was clicked on', () => {
+    const { view, openChat, openPresented, previewFile } = setup(LIBRARY)
     const row = view.container.querySelector('[data-artifact-row="alpha:6:0"]') as HTMLElement
+    fireEvent.click(within(row).getByRole('button', { name: 'Preview figures.xlsx beside its chat' }))
+    expect(previewFile).toHaveBeenCalledWith('alpha', expect.stringMatching(/figures\.xlsx$/))
     fireEvent.click(within(row).getByRole('button', { name: 'Open figures.xlsx' }))
     fireEvent.click(within(row).getByRole('button', { name: 'Show figures.xlsx in folder' }))
     expect(openPresented.mock.calls).toEqual([['alpha', 6, 0, 'open'], ['alpha', 6, 0, 'reveal']])
@@ -340,10 +351,10 @@ describe('ArtifactsPage', () => {
     expect(names(view)).toHaveLength(30)
   })
 
-  it('switches to the Links tab, which opens links in the browser, copies them, and returns to their chat', async () => {
+  it('switches to the Links tab, which opens links beside their chat or in the browser, copies them, and returns to their chat', async () => {
     const writeText = vi.fn(() => Promise.resolve())
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
-    const { view, openChat, checkAvailability } = setup(LIBRARY)
+    const { view, openChat, openLink, openInBrowser, checkAvailability } = setup(LIBRARY)
     checkAvailability.mockClear()
     fireEvent.click(view.getByRole('tab', { name: 'Links' }))
     expect(view.getByRole('tabpanel').id).toBe('artifacts-panel-links')
@@ -353,9 +364,16 @@ describe('ArtifactsPage', () => {
     const rows = [...view.container.querySelectorAll<HTMLElement>('[data-link-row]')]
     expect(rows.map(row => row.getAttribute('data-link-row'))).toEqual(['https://github.com/janhq/jan', 'https://jan.ai/docs', 'https://www.example.com/q3'])
 
-    const anchor = within(rows[2] as HTMLElement).getByRole('link', { name: 'Open Q3 filing in your browser' })
+    const anchor = within(rows[2] as HTMLElement).getByRole('link', { name: 'Open Q3 filing beside its chat' })
+    // The address stays on the anchor, so a modified click or the context menu still reaches the browser.
     expect([anchor.getAttribute('href'), anchor.getAttribute('target'), anchor.getAttribute('rel')])
       .toEqual(['https://www.example.com/q3', '_blank', 'noopener noreferrer'])
+    fireEvent.click(within(rows[0] as HTMLElement).getByRole('link', { name: 'Open Jan repo beside its chat' }))
+    expect(openLink).toHaveBeenCalledWith('gamma', 'https://github.com/janhq/jan')
+    fireEvent.click(within(rows[0] as HTMLElement).getByRole('link', { name: 'Open Jan repo beside its chat' }), { metaKey: true })
+    expect(openLink).toHaveBeenCalledTimes(1)
+    fireEvent.click(within(rows[0] as HTMLElement).getByRole('button', { name: 'Open Jan repo in your browser' }))
+    expect(openInBrowser).toHaveBeenCalledWith('https://github.com/janhq/jan')
     expect(within(rows[2] as HTMLElement).getByText('You shared')).toBeTruthy()
 
     fireEvent.click(within(rows[0] as HTMLElement).getByRole('button', { name: 'Copy link Jan repo' }))
