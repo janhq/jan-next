@@ -69,6 +69,17 @@ export type TabRenderer = (tab: TabRecord) => ReactNode
 export type TabMenuExtras = (tab: TabRecord, dismiss: () => void) => ReactNode
 
 /**
+ * Renders the menu a strip's add control opens. With it, the `+` focuses its
+ * pane and opens this menu instead of reporting `addTab`; the embedder decides
+ * which items add what. Items follow the {@link TabMenuExtras} rules: each
+ * acting item calls `dismiss` and carries a menu-item role.
+ * @param paneId - the pane whose `+` was pressed.
+ * @param dismiss - close the menu.
+ * @returns menu items.
+ */
+export type AddTabMenu = (paneId: PaneId, dismiss: () => void) => ReactNode
+
+/**
  * Net gesture results the kit reports. Each call is one settled intent — never a
  * drag frame — so an embedder recording them produces one operation per gesture.
  *

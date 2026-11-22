@@ -10,7 +10,7 @@
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode, HTMLAttributes } from 'react'
-import type { DockIntents, DockLabels, TabMenuExtras, TabRenderer } from '../contract/adapter.ts'
+import type { AddTabMenu, DockIntents, DockLabels, TabMenuExtras, TabRenderer } from '../contract/adapter.ts'
 import type { LayoutState, PaneId, SplitId, TabId, TabRecord } from '../contract/types.ts'
 import { clampSizes, FLOAT_DEFAULT_SIZE, MIN_PANE_FRACTION } from '../engine/constraints.ts'
 import { getSplit, topRightPaneId } from '../engine/tree.ts'
@@ -85,6 +85,8 @@ export interface DockSurfaceProps {
   readonly getTabTriggerProps?: ((tab: TabRecord, paneId: PaneId, handlers?: Pick<HTMLAttributes<HTMLElement>, 'onContextMenu' | 'onKeyDown' | 'tabIndex'>) => Pick<HTMLAttributes<HTMLElement>, 'onContextMenu' | 'onKeyDown' | 'tabIndex'>) | undefined
   /** Extra rows for the kit popup; ignored when getTabTriggerProps is supplied. */
   readonly renderTabMenuItems?: TabMenuExtras
+  /** Menu for a strip's `+`; absent, the `+` reports `addTab` directly. */
+  readonly renderAddTabMenu?: AddTabMenu
   /**
    * Surface-wide controls, drawn at the far end of the top-right pane's tab
    * strip so the surface needs no header of its own. The kit places them; what
@@ -190,7 +192,7 @@ function sameSizes(a: readonly number[], b: readonly number[]): boolean {
 /** The split tree and the gestures over it. */
 function Surface({
   state, canSplit, canAddTab, canCloseTab, intents, labels, renderTab, renderTabTitle, renderTabActions, renderTabMenuItems,
-  getTabTriggerProps, tabMenuOpen, chrome, onRoom, onTabReleasedOutsideViewport, showSplitControl = true, tabListLabel,
+  renderAddTabMenu, getTabTriggerProps, tabMenuOpen, chrome, onRoom, onTabReleasedOutsideViewport, showSplitControl = true, tabListLabel,
   tabStrips = true, dividerLabel,
   draw,
   dropZones = 'edges', minPaneFraction = MIN_PANE_FRACTION, hideSplitWhenBlocked = false,
@@ -329,6 +331,7 @@ function Surface({
     renderTabTitle,
     renderTabActions,
     renderTabMenuItems,
+    renderAddTabMenu,
     getTabTriggerProps, tabMenuOpen,
     chromePaneId: topRightPaneId(state),
     chrome,

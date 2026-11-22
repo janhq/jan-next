@@ -630,6 +630,41 @@ describe('DockSurface', () => {
     expect(intents.focusPane).not.toHaveBeenCalled()
   })
 
+  it('opens the embedder\'s add menu from the `+` instead of adding, and the same `+` closes it again', () => {
+    const controller = seededController()
+    const snapshot = controller.getSnapshot()
+    const intents = spyIntents()
+    const picked = vi.fn()
+    render(
+      <DockSurface
+        state={snapshot.state}
+        canSplit
+        intents={intents}
+        labels={TEST_LABELS}
+        renderTab={tab => <p>{tab.contentId}</p>}
+        renderAddTabMenu={(paneId, dismiss) => (
+          <button type="button" role="menuitem" onClick={() => { picked(paneId); dismiss() }}>Terminal</button>
+        )}
+      />,
+    )
+    const add = screen.getByRole('button', { name: TEST_LABELS.addTab })
+    expect(add.getAttribute('aria-haspopup')).toBe('menu')
+    // A real press dispatches pointerdown before click; the menu must not treat it as an outside press.
+    fireEvent.pointerDown(add)
+    fireEvent.click(add)
+    expect(intents.addTab).not.toHaveBeenCalled()
+    expect(intents.focusPane).toHaveBeenCalledWith(snapshot.state.rootId)
+    expect(add.getAttribute('aria-expanded')).toBe('true')
+    fireEvent.pointerDown(add)
+    fireEvent.click(add)
+    expect(screen.queryByRole('menuitem', { name: 'Terminal' })).toBeNull()
+    fireEvent.pointerDown(add)
+    fireEvent.click(add)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Terminal' }))
+    expect(picked).toHaveBeenCalledWith(snapshot.state.rootId)
+    expect(screen.queryByRole('menuitem', { name: 'Terminal' })).toBeNull()
+  })
+
   it('draws the add control only where the embedder\'s canAddTab allows, pane by pane', () => {
     const controller = seededController()
     controller.setExpanded(true)
