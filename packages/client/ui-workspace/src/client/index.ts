@@ -27,6 +27,7 @@ import type {
   IWorkspaces, SessionActivity, WorkspaceArchiveError, WorkspaceId, WorkspaceSnapshot,
 } from '@janhq/jan-api-workspace-controller/client'
 import type { RemoteEndpoint } from '@janhq/jan-api-remote-access/client'
+import { workspaceDisplayTitle } from '@janhq/jan-api-workspace-controller/default-workspace'
 import { createSnapshotStore } from '@janhq/jan-client-store'
 import { writeClipboard } from '@janhq/jan-client-ui-primitives'
 import type { HostObservable, SnapshotSelectorHook } from '@janhq/jan-client-ui-slots'
@@ -128,8 +129,20 @@ export function apply(ctx: Context): void {
   const rowToast = createSnapshotStore<RowToastState | null>(null)
   let toastSeq = 0
   const notify = (toast: RowToast): void => { rowToast.set({ ...toast, seq: ++toastSeq }) }
+  const workspaceActionRequest = createSnapshotStore<WorkspaceActionRequest | null>(null)
+  const requestWorkspaceAction = (workspaceId: WorkspaceId, displayTitle: string, action: WorkspaceActionRequest['action']): boolean => {
+    const workspace = workspaces.list.getSnapshot().items.find(row => row.workspaceId === workspaceId)
+    if (workspace === undefined || !ctx.remoteAccess.source('workspace', workspaceId, `workspace/${action}`).getSnapshot()) return false
+    workspaceActionRequest.set({ action, workspaceId, displayTitle, storedTitle: workspace.title })
+    return true
+  }
+  const editProject = (workspaceId: WorkspaceId): boolean => {
+    const workspace = workspaces.list.getSnapshot().items.find(row => row.workspaceId === workspaceId)
+    return workspace !== undefined && requestWorkspaceAction(
+      workspaceId, workspaceDisplayTitle(workspace, ctx.locale.bind(NS)('workspace.defaultName')), 'update')
+  }
   const uiWorkspace = new UiWorkspaceService(
-    ctx, ctx.remote.directoryPicker, workspaces, sessions, viewInstance.actions, notify,
+    ctx, ctx.remote.directoryPicker, workspaces, sessions, viewInstance.actions, notify, editProject,
   )
   ctx.slots.provideRoot({
     hooks: { workspaces: workspaces.list },
@@ -277,12 +290,6 @@ export function apply(ctx: Context): void {
     hooks: { toast: rowToast },
     dismissToast: () => { rowToast.set(null) },
   })
-  const workspaceActionRequest = createSnapshotStore<WorkspaceActionRequest | null>(null)
-  const requestWorkspaceAction = (workspaceId: WorkspaceId, displayTitle: string, action: WorkspaceActionRequest['action']): void => {
-    const workspace = workspaces.list.getSnapshot().items.find(row => row.workspaceId === workspaceId)
-    if (workspace === undefined || !ctx.remoteAccess.source('workspace', workspaceId, `workspace/${action}`).getSnapshot()) return
-    workspaceActionRequest.set({ action, workspaceId, displayTitle, storedTitle: workspace.title })
-  }
   ctx.slots.inject('contextMenu.icon', function*() {
     for (const [key, Icon] of Object.entries({
       'workspace.rename': IconEditOutlineRegular, 'workspace.delete': IconTrashOutlineRegular,
