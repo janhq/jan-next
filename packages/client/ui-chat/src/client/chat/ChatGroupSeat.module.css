@@ -161,6 +161,31 @@
   white-space: nowrap;
 }
 
+/* The live label's one-line window (OpenUI's behind-the-scenes ticker): a
+   new label rises in from below and the window clips it until it lands. */
+.ticker {
+  display: flex;
+  min-width: 0;
+  overflow: clip;
+}
+
+.tickerLine {
+  display: flex;
+  min-width: 0;
+}
+
+.tickerIn {
+  animation: process-ticker-in 320ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes process-ticker-in {
+  from { transform: translateY(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tickerIn { animation: none; }
+}
+
 /* A live header's Turn clock, as on the running status it replaces. */
 .duration {
   flex: none;

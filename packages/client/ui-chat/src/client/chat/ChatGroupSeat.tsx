@@ -64,6 +64,26 @@ function sameLiveProcessTitle(left: LiveProcessTitle, right: LiveProcessTitle): 
   return left.activity === right.activity && left.detail === right.detail && left.preparing === right.preparing
 }
 
+/**
+ * A live header's label rolls like a ticker: each new text rises into a
+ * one-line window from below. Settled headers render the label as is. The
+ * label stays a plain string for TextShimmer, which copies non-string
+ * children into its highlight layer.
+ * @param props.text - the current label.
+ * @param props.live - whether the group is still running.
+ * @returns the label shimmer, in a one-line clipped box while live.
+ */
+function ProcessTicker({ text, live }: { readonly text: string; readonly live: boolean }) {
+  const first = useRef(text)
+  const label = <TextShimmer className={css.label}>{text}</TextShimmer>
+  if (!live) return label
+  return (
+    <span className={css.ticker}>
+      <span key={text} className={text === first.current ? css.tickerLine : `${css.tickerLine} ${css.tickerIn}`}>{label}</span>
+    </span>
+  )
+}
+
 function useStableLiveProcessTitle(desired: LiveProcessTitle, active: boolean): LiveProcessTitle {
   const [displayed, setDisplayed] = useState(desired)
   const displayedRef = useRef(displayed)
@@ -137,7 +157,7 @@ const ProcessGroupHeader = memo(function ProcessGroupHeader({
         </span>
       </span>
       <TextShimmer active={!data.closed}>
-        <TextShimmer className={css.label}>{title}</TextShimmer>
+        <ProcessTicker text={title} live={!data.closed} />
         {!data.closed && duration !== null && (
           // The clock ticks every second; kept out of the button's name like the running status's.
           <span className={css.duration} aria-hidden><TextShimmer>{duration}</TextShimmer></span>
