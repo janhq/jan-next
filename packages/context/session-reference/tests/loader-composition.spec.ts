@@ -1,10 +1,10 @@
-/** Real Loader composition preserves retrievable source text outside the bounded preview. */
+/** Real Loader composition: a mention becomes a pointer, and read_chat reads the mentioned chat. */
 import { executeToolFixture } from '@janhq/jan-tool-testkit'
 
 import * as NativeToolExecutor from '@janhq/jan-tool-executor-native'
-import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@janhq/cordis'
@@ -14,16 +14,11 @@ import { agentEvents, type Agent } from '@janhq/jan-agent'
 import { createUserMessage, ToolCallId } from '@janhq/jan-llm'
 import * as systemPromptPlugin from '@janhq/jan-system-prompt'
 import * as toolsPlugin from '@janhq/jan-tools'
-import * as fsPlugin from '@janhq/jan-fs-local'
-import * as toolFsPlugin from '@janhq/jan-tool-fs'
 import * as sessionPlugin from '@janhq/jan-session'
 import * as sessionProjectionPlugin from '@janhq/jan-session-projection'
-import * as workingDirectoryPlugin from '@janhq/jan-working-directory'
-import { Session, SessionId } from '@janhq/jan-session'
+import { SessionId } from '@janhq/jan-session'
 import * as queryPlugin from '@janhq/jan-session-query-sqlite'
 import * as referencePlugin from '@janhq/jan-session-reference'
-import * as spillPlugin from '@janhq/jan-spill-local'
-import { sessionDir } from '@janhq/jan-spill-local'
 import * as sourcePlugin from './fixtures/source-session.ts'
 
 let context: Context | undefined
@@ -37,12 +32,10 @@ afterEach(async () => {
 })
 
 describe('session-reference real Loader composition', () => {
-  it('logs a bounded preview and reads the full immutable spill owned by the target', async () => {
+  it('logs a pointer instead of the chat, then reads the mentioned chat on demand', async () => {
     root = await mkdtemp(join(tmpdir(), 'reference-loader-'))
-    const spillRoot = join(root, 'spills')
-    const fixture = await readFile(new URL('./fixtures/cordis.yml', import.meta.url), 'utf8')
     const configPath = join(root, 'cordis.yml')
-    await writeFile(configPath, fixture.replace('{{spillRoot}}', spillRoot.replaceAll('\\', '/')))
+    await writeFile(configPath, await readFile(new URL('./fixtures/cordis.yml', import.meta.url), 'utf8'))
     const ctx = context = new Context()
     ctx.baseUrl = pathToFileURL(root).href + '/'
     await ctx.plugin(Loader)
@@ -50,15 +43,11 @@ describe('session-reference real Loader composition', () => {
     const modules = new Map<string, unknown>([
       ['@janhq/jan-session', sessionPlugin],
       ['@janhq/jan-session-projection', sessionProjectionPlugin],
-      ['@janhq/jan-working-directory', workingDirectoryPlugin],
       ['@janhq/jan-system-prompt', systemPromptPlugin],
       ['@janhq/jan-tools', toolsPlugin],
       ['@janhq/jan-tool-executor-native', NativeToolExecutor],
-      ['@janhq/jan-fs-local', fsPlugin],
-      ['@janhq/jan-tool-fs', toolFsPlugin],
       ['@janhq/jan-session-query-sqlite', queryPlugin],
       ['@janhq/jan-session-reference', referencePlugin],
-      ['@janhq/jan-spill-local', spillPlugin],
       ['./source-session.ts', sourcePlugin],
     ])
     ctx.loader.internal = {
@@ -83,66 +72,22 @@ describe('session-reference real Loader composition', () => {
       modelSelection: { provider: 'mock', model: 'mock' },
       messages: [direct], turn: 1, step: 1, signal: new AbortController().signal,
     }, () => Promise.resolve({ kind: 'enter' as const, messages: [direct] }))
-    expect(decision.kind).toBe('enter')
     if (decision.kind !== 'enter') throw new Error('Expected admitted reference')
     expect(decision.messages).toHaveLength(2)
     for (const message of decision.messages) target.append('user/message', message, { surfaceOp: 'append' })
-    const contextMessage = decision.messages[1]
-    const block = contextMessage?.content[0]
-    if (block?.type !== 'text') throw new Error('Expected reference context text')
-    const preview = JSON.parse(block.text.split('<referenced-sessions>\n')[1]!.split('\n</referenced-sessions>')[0]!) as unknown[]
-    expect(Buffer.byteLength(JSON.stringify(preview[0]))).toBeLessThanOrEqual(360)
-    expect(block.text).not.toContain('EARLY_SOURCE_FACT')
-    expect(block.text).toContain('LATEST_SOURCE_FACT')
-    const notices = JSON.parse(block.text.split('## Reference omissions\n\n')[1]!.split('\n').slice(1).join('\n')) as Array<{
-      sessionId: string
-      capturedThroughSeq: number
-      omittedMessages: number
-      omittedBytes: number
-      fullSnapshot: { status: string; locator: string; bytes: number; retrievalHint: string }
-    }>
-    expect(notices).toHaveLength(1)
-    const notice = notices[0]!
-    expect(notice).toMatchObject({ sessionId: 'reference-source', capturedThroughSeq: 2, omittedMessages: 1 })
-    expect(notice.omittedBytes).toBeGreaterThan(0)
-    expect(notice.fullSnapshot.status).toBe('saved')
-    expect(notice.fullSnapshot.retrievalHint).toContain('offset/limit')
-    expect(dirname(notice.fullSnapshot.locator)).toBe(sessionDir(spillRoot, target.id))
-    const transcript = await readFile(notice.fullSnapshot.locator, 'utf8')
-    expect(Buffer.byteLength(transcript)).toBe(notice.fullSnapshot.bytes)
-    expect(transcript).toContain('untrusted, read-only snapshot')
-    const readLines: string[] = []
-    let totalLines = Infinity
-    for (let offset = 1; offset <= totalLines; offset += 7) {
-      const read = await executeToolFixture(ctx, {
-        name: 'read', callId: ToolCallId(`read-${offset}`),
-        arguments: { file_path: notice.fullSnapshot.locator, offset, limit: 7 },
-        signal: new AbortController().signal,
-      })
-      expect(read.isError).toBe(false)
-      if (read.isError) throw new Error('Expected saved transcript read')
-      const value = read.value as { lines: { text: string }[]; totalLines: number }
-      totalLines = value.totalLines
-      readLines.push(...value.lines.map(line => line.text))
-    }
-    expect(readLines.join('\n') + '\n').toBe(transcript)
-    const messages = readLines.join('\n').split(/### Message \d+: (?:user|assistant)\n\n/).slice(1)
-      .map(body => body.split('\n').filter(line => line.startsWith('"'))
-        .map(line => JSON.parse(line) as string).join(''))
-    expect(messages).toEqual([
-      'EARLY_SOURCE_FACT\n' + 'Historical detail 界.\n'.repeat(30)
-        + 'x'.repeat(4096) + 'GIANT_LINE_MIDDLE_FACT' + 'y'.repeat(4096),
-      'LATEST_SOURCE_FACT\nThe captured answer is forty-two.',
-    ])
-    expect(transcript).not.toContain('NESTED_REFERENCE_MUST_NOT_PROPAGATE')
-    expect(transcript).not.toContain('PRIVATE_REASONING_MUST_NOT_PROPAGATE')
-    expect(await readdir(spillRoot)).toEqual([dirname(notice.fullSnapshot.locator).split(/[\\/]/).at(-1)])
+    const pointer = JSON.stringify(decision.messages[1])
+    expect(pointer).toContain('session_id: reference-source')
+    expect(pointer).not.toContain('LATEST_SOURCE_FACT')
 
-    const captured = target.deriveMessages()
-    ctx.sessions.get(SessionId('reference-source'))!.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'LATER_SOURCE_MUTATION' }], source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
-    expect(Session.create(SessionId('replayed-target'), target.snapshotEvents()).deriveMessages()).toEqual(captured)
-    expect(await readFile(notice.fullSnapshot.locator, 'utf8')).toBe(transcript)
+    const read = await executeToolFixture(ctx, {
+      name: referencePlugin.READ_CHAT_TOOL, callId: ToolCallId('read'),
+      arguments: { session_id: 'reference-source', query: 'forty-two' },
+      signal: new AbortController().signal, agent,
+    })
+    if (read.isError) throw new Error(read.error.message)
+    const text = read.value as string
+    expect(text).toContain('LATEST_SOURCE_FACT\nThe captured answer is forty-two.')
+    expect(text).not.toContain('NESTED_REFERENCE_MUST_NOT_PROPAGATE')
+    expect(text).not.toContain('PRIVATE_REASONING_MUST_NOT_PROPAGATE')
   })
 })

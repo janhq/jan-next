@@ -8415,15 +8415,9 @@ importers:
       '@janhq/jan-compaction':
         specifier: workspace:*
         version: link:../../compaction/compaction
-      '@janhq/jan-fs-local':
-        specifier: workspace:*
-        version: link:../../fs/fs-local
       '@janhq/jan-llm':
         specifier: workspace:*
         version: link:../../llm/llm
-      '@janhq/jan-output-retention':
-        specifier: workspace:*
-        version: link:../../util/output-retention
       '@janhq/jan-session':
         specifier: workspace:*
         version: link:../../core/session
@@ -8442,12 +8436,6 @@ importers:
       '@janhq/jan-session-title':
         specifier: workspace:*
         version: link:../../session/session-title
-      '@janhq/jan-spill':
-        specifier: workspace:*
-        version: link:../../spill/spill
-      '@janhq/jan-spill-local':
-        specifier: workspace:*
-        version: link:../../spill/spill-local
       '@janhq/jan-subagent':
         specifier: workspace:*
         version: link:../../subagent/subagent
@@ -8457,9 +8445,6 @@ importers:
       '@janhq/jan-tool-executor-native':
         specifier: workspace:*
         version: link:../../core/tool-executor-native
-      '@janhq/jan-tool-fs':
-        specifier: workspace:*
-        version: link:../../fs/tool-fs
       '@janhq/jan-tool-testkit':
         specifier: workspace:*
         version: link:../../test-support/tool-testkit
@@ -8469,9 +8454,6 @@ importers:
       '@janhq/jan-typert-protocol':
         specifier: workspace:*
         version: link:../../typert/protocol
-      '@janhq/jan-working-directory':
-        specifier: workspace:*
-        version: link:../../session/working-directory
 
   packages/context/time-context:
     dependencies:

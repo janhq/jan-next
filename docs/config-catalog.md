@@ -1613,7 +1613,7 @@ export interface Config {
 
 ## `@janhq/jan-host-directory-picker-browse`
 
-- `source`: [`packages/host/directory-picker-browse/src/index.ts:181`](../packages/host/directory-picker-browse/src/index.ts)
+- `source`: [`packages/host/directory-picker-browse/src/index.ts:165`](../packages/host/directory-picker-browse/src/index.ts)
 
 ```ts config-catalog
 /** Validated plugin configuration. */
@@ -3243,7 +3243,7 @@ export type JournalMode = 'wal' | 'delete' | 'truncate' | 'persist'
 ## `@janhq/jan-session-reference`
 
 - `inject`: `sessionQuery`
-- `source`: [`packages/context/session-reference/src/config.ts:11`](../packages/context/session-reference/src/config.ts)
+- `source`: [`packages/context/session-reference/src/config.ts:9`](../packages/context/session-reference/src/config.ts)
 
 ```ts config-catalog
 /** Session-reference service configuration. */
@@ -3252,10 +3252,6 @@ export interface Config {
   maxReferences?: number
   /** Default host candidate-list limit. */
   candidateLimit?: number
-  /** Explicit maximum rendered UTF-8 bytes per source; absent uses the model-relative budget with a 64 KiB floor. */
-  maxReferenceBytes?: number
-  /** Fraction of the model context window per source, estimated at four bytes per token; between zero and one. */
-  referenceContextFraction?: number
 }
 ```
 
@@ -4323,7 +4319,7 @@ export interface Config {
 ## `@janhq/jan-tool-skill`
 
 - `inject`: `agents` · `tools` · `skills` · `workingDirectory`
-- `source`: [`packages/skill/tool-skill/src/index.ts:64`](../packages/skill/tool-skill/src/index.ts)
+- `source`: [`packages/skill/tool-skill/src/index.ts:66`](../packages/skill/tool-skill/src/index.ts)
 
 ```ts config-catalog
 /** Model-facing skill catalog configuration. */

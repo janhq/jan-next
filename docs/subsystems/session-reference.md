@@ -1,6 +1,6 @@
 # Session References
 
-Host-backed file discovery plus structured cross-session reference requests and prepared message contexts. The [file-reference contract](../../packages/context/file-reference) owns path-only completion records and grammar; the [session-reference contract](../../packages/context/session-reference) defines canonical URIs, current-surface projection, tag-safe JSON and byte retention, stable errors, and the untrusted model prompt. Host adapters use these types instead of passing their UI mention syntax into the agent core.
+Host-backed file discovery plus structured cross-session mention requests and their pointer contexts. The [file-reference contract](../../packages/context/file-reference) owns path-only completion records and grammar; the [session-reference contract](../../packages/context/session-reference) defines canonical URIs, the pointer a mention leaves in the conversation, the `read_chat` tool that reads a mentioned chat on demand, and stable errors. Host adapters use these types instead of passing their UI mention syntax into the agent core.
 
 Sources: [`packages/context/file-reference/src/types.ts`](../../packages/context/file-reference/src/types.ts) · [`packages/context/session-reference/src/types.ts`](../../packages/context/session-reference/src/types.ts)
 
@@ -20,7 +20,7 @@ interface FileReferenceCandidate {
 
 ## Inputs and candidates
 
-`SessionReferenceInput` is the host-independent selection. The id is authoritative; the label is display metadata carried into the snapshot.
+`SessionReferenceInput` is the host-independent selection. The id is authoritative; the label is display metadata carried into the pointer.
 
 ```ts type-equiv
 /** One source session selected by a host. */
@@ -66,13 +66,39 @@ interface SessionReferenceMentionCandidate extends SessionReferenceCandidate {
 }
 ```
 
-## Prepared messages
+## Pointers
 
-Preparation preserves readable current-message content and returns at most one aggregated context. Its durable source records keep `capturedThroughSeq` as a coordinate in the referenced Session's original generation; they never reinterpret it as a seq in the containing Session. `capturedFormatVersion` records that generation, with absence meaning released format v0.
+Preparation preserves readable current-message content and returns at most one pointer context. The pointer names each mentioned chat's label, session id, and project folder and loads none of its messages; the model calls `read_chat` with a session id when that chat's content matters. `read_chat` reads only chats that a recorded `session-reference` message of the caller names, a page of visible user and assistant text at a time.
 
 ```ts type-equiv
-/** Durable source session, cited event seqs, and snapshot facts for prepared cross-session context. */
-interface SessionReferenceSource {
+/**
+ * The chats one direct message pointed at. Their content is not loaded: the
+ * model reads a mentioned chat on demand with `read_chat`.
+ */
+interface SessionReferencePointerSource {
+  kind: 'session-reference'
+  /** Material about another session's log (`recall` context form). */
+  form: 'recall'
+  version: 2
+  references: {
+    sessionId: string
+    label: string
+    /** The mentioned chat's project folder; null when it has none or no longer exists. */
+    cwd: string | null
+    inputIndex: number
+  }[]
+}
+```
+
+Logs written by earlier Hosts carry version 1 sources, which recorded a bounded preview of each chat. They stay readable; no Host writes them any more. Their `capturedThroughSeq` is a coordinate in the referenced Session's original generation, and `capturedFormatVersion` records that generation, with absence meaning released format v0.
+
+```ts type-equiv
+/**
+ * Durable source session, cited event seqs, and snapshot facts recorded by
+ * Hosts that loaded a bounded preview of each mentioned chat. No longer
+ * written; logs that hold it stay readable.
+ */
+interface SessionReferenceSnapshotSource {
   kind: 'session-reference'
   /** Material lifted out of another session's log (`recall` context form). */
   form: 'recall'
@@ -99,24 +125,24 @@ interface SessionReferenceSource {
 interface PreparedReferencedMessage {
   /** Readable message content after host mention tokens are removed. */
   content: ContentBlock[]
-  /** Aggregated untrusted snapshot, absent when the message has no references. */
+  /** The pointer naming each mentioned chat, absent when the message has no references. */
   additionalContext?: UserMessage
 }
 ```
 
 ## Errors
 
-`SessionReferenceError.code` separates invalid configuration or input, self-reference, count limits, source-read failure, budget failure, and cancellation. Host protocols map these codes to their own error envelopes without inspecting prompt bytes.
+`SessionReferenceError.code` separates invalid configuration or input, self-reference, count limits, and cancellation. `read_chat` fails with `SESSION_REFERENCE_NOT_MENTIONED` for a chat the user did not mention and `SESSION_REFERENCE_READ_FAILED` when a mentioned chat cannot be read. Host protocols map these codes to their own error envelopes without inspecting prompt bytes.
 
 ```ts type-equiv
-/** Stable failure codes exposed to host adapters. */
+/** Stable failure codes exposed to host adapters and `read_chat` callers. */
 type SessionReferenceErrorCode =
   | 'SESSION_REFERENCE_INVALID_CONFIG'
   | 'SESSION_REFERENCE_INVALID_REFERENCE'
   | 'SESSION_REFERENCE_SELF_REFERENCE'
   | 'SESSION_REFERENCE_TOO_MANY'
+  | 'SESSION_REFERENCE_NOT_MENTIONED'
   | 'SESSION_REFERENCE_READ_FAILED'
-  | 'SESSION_REFERENCE_BUDGET_EXCEEDED'
   | 'SESSION_REFERENCE_CANCELLED'
 ```
 
@@ -174,7 +200,7 @@ Source: [`packages/api/session-controller/src/file-references.ts`](../../package
 
 ### `ctx.sessionReferenceResolver` — `SessionReferenceResolver`
 
-Exact-read consumer that prepares immutable cross-session message context.
+Mention discovery, mention pointers, and on-demand reads of mentioned chats.
 
 ```ts cordis-catalog
 /**
@@ -202,22 +228,19 @@ async listCandidates( agent: Agent, query: string = '', limit: number = this.con
 @Remote('candidates') async remoteExportCandidates( agent: Agent, query: string, signal: AbortSignal, ): Promise<SessionReferenceMentionCandidate[]>
 
 /**
- * Snapshot all references for one accepted direct message and return one aggregated durable context.
- * Automatic budgets use the context capacity of `route`.
- * Missing model capacity or adapter uses 64 KiB; other metadata lookup failures and cancellation reject preparation.
- * Truncated previews include omission facts and a full-snapshot spill locator, or an explicit unavailable notice.
- * Cancellation prevents context publication, including when storage completes after cancellation.
+ * Point at every referenced chat without reading it. The pointer names each
+ * chat's label, session id, and project folder, and tells the model to read
+ * one with `read_chat` only when its content matters.
  * @param agent - target agent; references to it are rejected.
  * @param content - already host-normalized readable message content.
  * @param references - structured source sessions in mention order.
- * @param route - provider and model whose context capacity sizes the previews.
  * @param signal - optional cancellation boundary for the active turn.
- * @returns detached content and optional referenced-session context.
+ * @returns detached content and the pointer context, absent without references.
  */
-async prepare( agent: Agent, content: ContentBlock[], references: SessionReferenceInput[], route: Readonly<Pick<LlmCallConfig, 'provider' | 'model'>>, signal?: AbortSignal, ): Promise<PreparedReferencedMessage>
+async prepare( agent: Agent, content: ContentBlock[], references: SessionReferenceInput[], signal?: AbortSignal, ): Promise<PreparedReferencedMessage>
 ```
 
-Types: [Agent](core.md) · [ContentBlock](llm-streaming.md) · [LlmCallConfig](llm-streaming.md)
+Types: [Agent](core.md) · [ContentBlock](llm-streaming.md)
 
 Source: [`packages/context/session-reference/src/index.ts`](../../packages/context/session-reference/src/index.ts)
 <!-- END GENERATED cordis-surface -->
