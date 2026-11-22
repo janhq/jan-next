@@ -12,6 +12,8 @@ const FADE_OUT_MS = 70
 const CLOSE_DELAY_MS = 50
 const CLOSE_MS = 110
 const SETTLE_SLACK_MS = 80
+/** A reader-opened Turn's rows grow over this long. */
+const READER_REVEAL_MS = 220
 const MOTION_SCOPE = '[data-chat-motion]'
 const EASING = 'cubic-bezier(0.4, 0, 0.2, 1)'
 
@@ -452,12 +454,14 @@ export function createFlowMotion(
     let timer: ReturnType<typeof setTimeout> | undefined
     const startTransition = (): void => {
       void element.offsetHeight
-      style.transition = `height ${CLOSE_MS}ms ${EASING} ${CLOSE_DELAY_MS}ms, margin-top ${CLOSE_MS}ms ${EASING} ${CLOSE_DELAY_MS}ms, `
-        + `opacity ${CLOSE_MS}ms ${EASING} ${CLOSE_DELAY_MS}ms`
+      // Opening reads slower than closing: the eye follows content arriving, not content leaving.
+      const ms = element.closest('[data-chat-motion="reader"]') === null ? CLOSE_MS : READER_REVEAL_MS
+      style.transition = `height ${ms}ms ${EASING} ${CLOSE_DELAY_MS}ms, margin-top ${ms}ms ${EASING} ${CLOSE_DELAY_MS}ms, `
+        + `opacity ${ms}ms ${EASING} ${CLOSE_DELAY_MS}ms`
       style.height = `${height}px`
       style.marginTop = `${marginTop}px`
       style.opacity = '1'
-      timer = setTimeout(finish, CLOSE_DELAY_MS + CLOSE_MS + SETTLE_SLACK_MS)
+      timer = setTimeout(finish, CLOSE_DELAY_MS + ms + SETTLE_SLACK_MS)
       element.addEventListener('transitionend', onEnd)
     }
     // A running batch owns the scrollport; a row revealed now waits at zero size until the next flush.
@@ -518,7 +522,8 @@ function useFlowTransition(motion: FlowMotionRows | undefined, grow: boolean): H
     motion?.cancelMotion(element)
     const wasHidden = element.hasAttribute('hidden')
     commit()
-    if (wasHidden && animate && grow) motion?.reveal(element)
+    // A reader's own toggle grows the rows it opens; rows appearing on their own, as a live Turn adds them, do not.
+    if (wasHidden && animate && (grow || element.closest('[data-chat-motion="reader"]') !== null)) motion?.reveal(element)
   }, [motion, grow])
   return motion === undefined ? undefined : transition
 }
