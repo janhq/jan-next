@@ -10849,7 +10849,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'WorkspaceAvatar',
-    declaration: 'export type WorkspaceAvatar = {\n    readonly kind: \'icon\';\n    readonly name: WorkspaceIcon;\n} | {\n    readonly kind: \'emoji\';\n    readonly value: string;\n};',
+    declaration: 'export type WorkspaceAvatar = {\n    readonly kind: \'icon\';\n    readonly name: WorkspaceIcon;\n} | {\n    readonly kind: \'emoji\';\n    readonly value: string;\n} | {\n    readonly kind: \'image\';\n    readonly url: string;\n} | {\n    readonly kind: \'favicon\';\n    readonly domain: string;\n};',
   },
   {
     name: 'WorkspaceBaseline',
@@ -10993,7 +10993,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'WorkspaceView',
-    declaration: 'export interface WorkspaceView {\n    readonly workspaceId: WorkspaceId;\n    readonly isDefault?: true;\n    readonly path: string;\n    readonly title: string;\n    readonly color?: WorkspaceColor;\n    readonly avatar?: WorkspaceAvatar;\n    readonly sessionIds: readonly SessionId[];\n    readonly createdAt: string;\n    readonly updatedAt: string;\n}',
+    declaration: 'export interface WorkspaceView {\n    readonly workspaceId: WorkspaceId;\n    readonly isDefault?: true;\n    readonly path: string;\n    readonly title: string;\n    readonly color?: WorkspaceColor;\n    readonly avatar?: WorkspaceAvatar;\n    readonly githubOwner?: string;\n    readonly sessionIds: readonly SessionId[];\n    readonly createdAt: string;\n    readonly updatedAt: string;\n}',
   },
 ]
 
