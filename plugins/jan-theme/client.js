@@ -1201,7 +1201,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
             size: 16, className: 'jt-menu-check', 'aria-hidden': true,
           })))),
         h(MenuItemButton, {
-          separatorBefore: rows.length > 0,
+          separatorBefore: rows.length > 0, icon: h(IconEditOutlineRegular, { size: 16 }),
           onSelect: () => { onDismiss(); setSidebarEditor(true) },
         }, t('editSidebar')))
     }
