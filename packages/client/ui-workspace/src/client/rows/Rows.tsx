@@ -326,24 +326,24 @@ function ProjectRow({
           </span>
         )}
       </span>
-      {/* The disclosure trails the title, beside the row's other actions. */}
-      {onOpenProject === undefined
-        ? (
-          <span className={clsx(css.slot, css.chevron)}>
-            <IconChevronRightOutlineRegular className={clsx(css.arrow, row.expanded && css.arrowOpen)} />
-          </span>
-        )
-        : (
-          <button
-            type="button"
-            className={clsx(css.slot, css.chevron, css.chevronButton)}
-            aria-label={t(row.expanded ? 'actions.collapse.aria' : 'actions.expand.aria', { name: label })}
-            onClick={(e) => { e.stopPropagation(); onToggle() }}
-          >
-            <IconChevronRightOutlineRegular className={clsx(css.arrow, row.expanded && css.arrowOpen)} />
-          </button>
-        )}
       <span className={css.rowActions}>
+        {/* The disclosure leads the trailing actions, on their pitch and with their visibility. */}
+        {onOpenProject === undefined
+          ? (
+            <span className={clsx(css.slot, css.chevron)}>
+              <IconChevronRightOutlineRegular className={clsx(css.arrow, row.expanded && css.arrowOpen)} />
+            </span>
+          )
+          : (
+            <button
+              type="button"
+              className={clsx(css.iconButton, css.chevron)}
+              aria-label={t(row.expanded ? 'actions.collapse.aria' : 'actions.expand.aria', { name: label })}
+              onClick={(e) => { e.stopPropagation(); onToggle() }}
+            >
+              <IconChevronRightOutlineRegular className={clsx(css.arrow, row.expanded && css.arrowOpen)} />
+            </button>
+          )}
         {workspaceMenuTarget !== undefined && (
           renderFactorySlot('contextMenu.button', {
             target: { kind: 'workspace', value: { ...workspaceMenuTarget, displayTitle: label } },
