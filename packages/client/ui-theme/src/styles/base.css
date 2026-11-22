@@ -14,6 +14,8 @@
   --ds-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
   /* Entrances and exits: starts fast so the response reads immediately. */
   --ds-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  /* Content arriving in place (welcome, inserted rows, inspector): a long, soft settle. */
+  --ds-ease-emphasized: cubic-bezier(0.22, 1, 0.36, 1);
   --ds-transition-duration: 0.2s;
   --ds-transition-duration-fast: 0.1s;
   --ds-transition-duration-slow: 0.3s;
