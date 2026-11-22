@@ -238,6 +238,15 @@ declare module '@janhq/jan-client-ui-slots' {
         readonly getSurface: () => HTMLImageElement | null
       }
     }
+    /** Actions on one draft image thumbnail in the composer, at its top-left corner. */
+    'conversation.input.attachment.actions': {
+      kind: 'list'
+      scope: 'session-maybe'
+      owner: {
+        /** @returns the thumbnail's image element, or null. */
+        readonly getSurface: () => HTMLImageElement | null
+      }
+    }
     /** One business-owned inline renderer for a pure JSON text node. */
     'conversation.user.text.node': {
       kind: 'keyed'
