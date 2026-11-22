@@ -16,14 +16,15 @@ const t: AssistantMarkdownProps['t'] = makeTranslate(zh, commonZh)
 afterEach(cleanup)
 
 describe('tails', () => {
-  it('enables quoting on the existing Markdown root without replacing streamed content', () => {
+  it('enables quoting on the existing Markdown root without replacing streamed content', async () => {
     const body = (textInteractionSource: boolean, streaming: boolean) => (
       <AssistantMarkdown renderSlot={() => null} useDisclosure={useDisclosure} useGroupAction={useSearchableHidden}
         usePresentation={useDetailedPresentation} t={t} loadImage={unusedImageLoader}
         blocks={[{ kind: 'text', text: 'source words' }]} textInteractionSource={textInteractionSource} streaming={streaming} />
     )
     const view = render(body(false, true))
-    const paragraph = view.getByText('source words')
+    // A live reply types out over a few frames.
+    const paragraph = await view.findByText('source words')
     const markdown = paragraph.parentElement
     expect(view.container.querySelector('[data-text-interaction-source]')).toBeNull()
 
