@@ -41,7 +41,8 @@ export function registerArtifacts(ctx: ClientContext, opener: PresentedOpenContr
     const t = child.locale.bind(NS)
     const controller = new ArtifactsController({
       stat: (sessionId, path, signal) => child.remote.workspaceFiles.stat(sessionId, path, signal),
-      refreshProjections: sessionId => child.sessions.refreshProjections(sessionId),
+      // The scan reads every older chat; the sidebar hears of them in batches, not once per chat.
+      refreshProjections: sessionId => child.sessions.refreshProjections(sessionId, { background: true }),
     })
     child.effect(() => () => { controller.dispose() }, 'ui-deliverables: artifacts controller')
     const waits = new Set<() => void>()
