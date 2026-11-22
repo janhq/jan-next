@@ -3,7 +3,7 @@ window.__ModuleLoader__.load({
   factory(require) {
     const React = require('react')
     const h = React.createElement
-    const { Button, Input, Menu, RiskConfirmation, IconSearchOutlineRegular, IconAppsAddOutlineRegular, IconChevronDownOutlineRegular } = require('@janhq/jan-client-ui-primitives')
+    const { Button, Input, Menu, MenuItemButton, RiskConfirmation, IconSearchOutlineRegular, IconAppsAddOutlineRegular, IconChevronDownOutlineRegular } = require('@janhq/jan-client-ui-primitives')
 
     const PANEL = 'jan-model-hub'
     // The catalog the earlier Jan app's Hub reads: GGUF repositories with their quantized files.
@@ -13,6 +13,7 @@ window.__ModuleLoader__.load({
     const COPY = {
       en: {
         title: 'Hub',
+        getLocal: 'Get local models',
         lede: 'Models that run on this computer with llama.cpp. A downloaded model works offline.',
         search: 'Search models', loading: 'Loading the model catalog...',
         error: 'Could not load the model catalog: {error}', retry: 'Try again',
@@ -32,6 +33,7 @@ window.__ModuleLoader__.load({
       },
       zh: {
         title: '模型中心',
+        getLocal: '获取本地模型',
         lede: '在这台电脑上通过 llama.cpp 运行的模型。下载后的模型可离线使用。',
         search: '搜索模型', loading: '正在加载模型目录...',
         error: '无法加载模型目录：{error}', retry: '重试',
@@ -51,6 +53,7 @@ window.__ModuleLoader__.load({
       },
       ja: {
         title: 'ハブ',
+        getLocal: 'ローカルモデルを入手',
         lede: 'このコンピューターで llama.cpp により動作するモデルです。ダウンロードしたモデルはオフラインで使えます。',
         search: 'モデルを検索', loading: 'モデルカタログを読み込んでいます...',
         error: 'モデルカタログを読み込めませんでした: {error}', retry: '再試行',
@@ -70,6 +73,7 @@ window.__ModuleLoader__.load({
       },
       es: {
         title: 'Hub',
+        getLocal: 'Obtener modelos locales',
         lede: 'Modelos que se ejecutan en este equipo con llama.cpp. Un modelo descargado funciona sin conexión.',
         search: 'Buscar modelos', loading: 'Cargando el catálogo de modelos...',
         error: 'No se pudo cargar el catálogo de modelos: {error}', retry: 'Reintentar',
@@ -89,6 +93,7 @@ window.__ModuleLoader__.load({
       },
       fr: {
         title: 'Hub',
+        getLocal: 'Obtenir des modèles locaux',
         lede: 'Des modèles qui tournent sur cet ordinateur avec llama.cpp. Un modèle téléchargé fonctionne hors ligne.',
         search: 'Rechercher des modèles', loading: 'Chargement du catalogue de modèles...',
         error: 'Impossible de charger le catalogue de modèles : {error}', retry: 'Réessayer',
@@ -108,6 +113,7 @@ window.__ModuleLoader__.load({
       },
       de: {
         title: 'Hub',
+        getLocal: 'Lokale Modelle holen',
         lede: 'Modelle, die mit llama.cpp auf diesem Computer laufen. Ein heruntergeladenes Modell funktioniert offline.',
         search: 'Modelle suchen', loading: 'Modellkatalog wird geladen...',
         error: 'Der Modellkatalog konnte nicht geladen werden: {error}', retry: 'Erneut versuchen',
@@ -127,6 +133,7 @@ window.__ModuleLoader__.load({
       },
       ru: {
         title: 'Хаб',
+        getLocal: 'Получить локальные модели',
         lede: 'Модели, которые работают на этом компьютере через llama.cpp. Загруженная модель работает без сети.',
         search: 'Поиск моделей', loading: 'Загрузка каталога моделей...',
         error: 'Не удалось загрузить каталог моделей: {error}', retry: 'Повторить',
@@ -146,6 +153,7 @@ window.__ModuleLoader__.load({
       },
       pt: {
         title: 'Hub',
+        getLocal: 'Obter modelos locais',
         lede: 'Modelos que rodam neste computador com llama.cpp. Um modelo baixado funciona offline.',
         search: 'Buscar modelos', loading: 'Carregando o catálogo de modelos...',
         error: 'Não foi possível carregar o catálogo de modelos: {error}', retry: 'Tentar novamente',
@@ -596,6 +604,13 @@ window.__ModuleLoader__.load({
           scope.slots.inject('sidebar.panellist', () => scope.slots.register({
             name: 'sidebar.panellist', id: PANEL, order: 5, label: () => t('title'),
           }, ({ size }) => h(IconAppsAddOutlineRegular, { size, 'aria-hidden': true })))
+          // The composer's model menu offers the Hub beside Manage models.
+          scope.slots.inject('conversation.input.model.options', () => scope.slots.register({
+            name: 'conversation.input.model.options', id: PANEL, order: 10, locale: PANEL,
+          }, ({ dismiss, t: copy }) => h(MenuItemButton, {
+            icon: h(IconAppsAddOutlineRegular, { size: 16 }),
+            onSelect: () => { dismiss(); scope.layout.selectPanel(PANEL) },
+          }, copy('getLocal'))))
           // A one-shot request from the desktop welcome flow to open the Hub.
           const requested = () => {
             if (sessionStorage.getItem('jan:open-panel') !== PANEL) return
