@@ -3,7 +3,8 @@
 import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 import {
-  IconClockOutlineRegular, IconDatabaseOutlineRegular, IconGaugeOutlineRegular, Tooltip,
+  IconArrowDownOutlineRegular, IconArrowUpOutlineRegular, IconClockOutlineRegular, IconDatabaseOutlineRegular,
+  IconGaugeOutlineRegular, Tooltip,
 } from '@janhq/jan-client-ui-primitives'
 import type { TurnTiming, TurnTokenUsage } from '../contract/chat-nodes.ts'
 import type { ChatViewSlotProps } from '../contract/slots.ts'
@@ -77,11 +78,11 @@ export function TurnUsagePanel({ usage, timing, t }: TurnUsagePanelProps) {
             whose timing varies run to run, and the dialog reads every one out. */}
         <span className={css.label} aria-hidden>
           <Stat hint={hint(t('message.turnUsage.input'), formatExactCount(usage.uncachedInputTokens, t))} disabled={open}>
-            <span className={css.glyph}>↓</span>
+            <IconArrowDownOutlineRegular />
             {formatTokens(usage.uncachedInputTokens, t)}
           </Stat>
           <Stat hint={hint(t('message.turnUsage.output'), output)} disabled={open}>
-            <span className={css.glyph}>↑</span>
+            <IconArrowUpOutlineRegular />
             {usage.outputEstimated === true && '~'}
             {formatTokens(usage.outputTokens, t)}
           </Stat>
