@@ -81,6 +81,20 @@
   to { transform: translateX(220%); }
 }
 
+/* Plugin actions (such as Draw) at the top-left corner, opposite the remove control and always shown. */
+.imageActions {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 1;
+  display: flex;
+  gap: 4px;
+}
+
+.imageActions:empty {
+  display: none;
+}
+
 .remove {
   position: absolute;
   top: 4px;
