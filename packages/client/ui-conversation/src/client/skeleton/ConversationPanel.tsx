@@ -1,12 +1,12 @@
 /** Main Conversation desk; each added pane leases its own Session binding. */
-import { useCallback, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { Dispatch, ReactNode, SetStateAction } from 'react'
 import { DockSurface, dockPaneIds, getPane, MAX_DOCK_PANES } from '@janhq/jan-client-ui-dockkit'
 import type { DockLabels, PaneId, TabId, TabRecord } from '@janhq/jan-client-ui-dockkit'
 import type { ISessions, SessionReference } from '@janhq/jan-api-session-controller/client'
 import type { SessionId } from '@janhq/jan-session/types'
 import type { PropsLocale, PropsRenderSlots, PropsRuntime } from '@janhq/jan-client-ui-slots'
-import { IconChatOutlineRegular, MenuItemButton } from '@janhq/jan-client-ui-primitives'
+import { IconChatOutlineRegular, MenuItemButton, useTitleMarquee } from '@janhq/jan-client-ui-primitives'
 import type {} from '../contract/slots.ts'
 import { ConversationDeskContext } from './ConversationDesk.tsx'
 import type { ConversationDeskSeat } from './ConversationDesk.tsx'
@@ -33,6 +33,28 @@ export interface ConversationPanelInjected {
 
 type Props = PropsRuntime<'main'> & PropsRenderSlots<'main.conversation' | 'conversation.desk.new-tab.item'>
   & PropsLocale<'conversation'> & ConversationPanelInjected
+
+/**
+ * Chat tab label. Clipped, it ends in an ellipsis; while the pointer rests on
+ * its chip it crawls to its last character and returns on leave, like a sidebar
+ * chat row (the stylesheet drops the ellipsis and fades the cut edges).
+ */
+function ChatTabTitle({ label }: { readonly label: string }) {
+  const titleRef = useRef<HTMLSpanElement>(null)
+  const marquee = useTitleMarquee(titleRef)
+  useEffect(() => {
+    const chip = titleRef.current?.closest<HTMLElement>('[data-dockkit-tab]')
+    /* v8 ignore next -- defensive: dockkit always renders the title inside its chip. */
+    if (chip == null) return
+    chip.addEventListener('pointerenter', marquee.enter)
+    chip.addEventListener('pointerleave', marquee.leave)
+    return () => {
+      chip.removeEventListener('pointerenter', marquee.enter)
+      chip.removeEventListener('pointerleave', marquee.leave)
+    }
+  }, [marquee])
+  return <span ref={titleRef} className={css.chatTitle} title={label}>{label}</span>
+}
 
 function LeasedConversation({ id, retainPane, SessionProvider, children }: {
   readonly id: SessionId
@@ -137,7 +159,7 @@ export function ConversationPanel({ renderSlot, SessionProvider, layout, retainP
           const row = id === undefined ? undefined : list.byId[id]
           // An untitled chat reads "New chat", not its project folder's name; a subagent keeps its label.
           const label = (row?.title ?? (row?.origin === 'subagent' ? row.displayTitle : undefined)) || t('desk.newChat')
-          return <span className={css.chatTitle} title={label}>{label}</span>
+          return <ChatTabTitle label={label} />
         }}
         renderTabActions={tab => <StripTarget id={tab.id} setTargets={setTargets} />}
         {...desktop === undefined ? {} : {
