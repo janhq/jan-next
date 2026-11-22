@@ -4,6 +4,9 @@
 // Host asks it and turns each server into install options Customize can save
 // through `saveServer` unchanged: a Streamable HTTP endpoint, or an npm, PyPI or
 // OCI package started over stdio with npx, uvx or docker.
+// Tile logos come from registry-icons.mjs, keyed by the registry names a search returned.
+
+import { createIconFetcher, iconSources } from './registry-icons.mjs'
 
 export const MCP_REGISTRY_ORIGIN = 'https://registry.modelcontextprotocol.io'
 const PAGE_SIZE = 30
@@ -167,6 +170,16 @@ export function registryEntry(raw) {
  */
 export function createMcpRegistry({ fetch: request = globalThis.fetch, now = Date.now } = {}) {
   const cache = new Map()
+  const logos = createIconFetcher({ fetch: request, now })
+  // Logo sources of every server a search returned; the client asks for logos by name only.
+  const sources = new Map()
+  function entries(servers) {
+    return servers.map(raw => {
+      const entry = registryEntry(raw)
+      if (entry?.options.length) sources.set(entry.id, iconSources(raw.server))
+      return entry
+    }).filter(entry => entry?.options.length)
+  }
   async function get(path) {
     const hit = cache.get(path)
     if (hit && now() - hit.at < CACHE_MS) return hit.value
@@ -184,7 +197,7 @@ export function createMcpRegistry({ fetch: request = globalThis.fetch, now = Dat
         if (!words && !cursor) {
           const found = await Promise.all(FEATURED_MCP_SERVERS.map(name =>
             get(`/v0/servers/${encodeURIComponent(name)}/versions/latest`).catch(() => undefined)))
-          return { featured: true, entries: found.map(registryEntry).filter(entry => entry?.options.length), nextCursor: undefined }
+          return { featured: true, entries: entries(found), nextCursor: undefined }
         }
         const params = new URLSearchParams({ limit: String(PAGE_SIZE), version: 'latest' })
         if (words) params.set('search', words)
@@ -192,13 +205,23 @@ export function createMcpRegistry({ fetch: request = globalThis.fetch, now = Dat
         const page = await get(`/v0/servers?${params}`)
         return {
           featured: false,
-          entries: list(page?.servers).map(registryEntry).filter(entry => entry?.options.length),
+          entries: entries(list(page?.servers)),
           nextCursor: text(page?.metadata?.nextCursor) || undefined,
         }
       } catch (error) {
         if (error?.name === 'TimeoutError' || error?.name === 'TypeError') throw new Error('The MCP Registry could not be reached. Check your connection and try again.')
         throw error
       }
+    },
+    /**
+     * The logo of a server an earlier search returned, as a data: URL, or
+     * undefined when it has none. `fallback` gives sources for a name no search returned.
+     * @param {string} id
+     * @param {{ icons: string[], sites: string[] }} [fallback]
+     */
+    async icon(id, fallback) {
+      const found = sources.get(id) ?? fallback
+      return found ? logos.icon(id, found) : undefined
     },
   }
 }
