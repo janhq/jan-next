@@ -229,7 +229,7 @@ window.__ModuleLoader__.load({
       if (days < 365) return format.format(-Math.floor(days / 30), 'month')
       return format.format(-Math.floor(days / 365), 'year')
     }
-    const REGISTRY_SORTS = { registry: 'Registry order', downloads: 'Most downloaded', updated: 'Recently updated' }
+    const REGISTRY_SORTS = { registry: 'Default order', downloads: 'Most downloaded', updated: 'Recently updated' }
     // Recommended connectors and the official MCP Registry. A registry server opens the
     // server editor prefilled and saves disabled; a recommended one runs its own setup.
     function RegistryBrowser({ busy, recommended, onAdd, onInstall }) {
@@ -277,7 +277,7 @@ window.__ModuleLoader__.load({
           h('p', { className: 'jt-registry-note' }, 'Servers published to the official MCP Registry. Namespaces are verified against their GitHub account or domain; the code itself is not reviewed. Added servers stay off until you enable them.'),
           h('div', { className: 'jt-agent-toolbar' },
             h(Input, { type: 'search', className: 'jt-agent-search', icon: h(IconSearchOutlineRegular, { size: 16, 'aria-hidden': true }), placeholder: 'Search the MCP Registry', 'aria-label': 'Search the MCP Registry', value: query, onChange: event => setQuery(event.target.value) }),
-            h('span', null, result.loading ? 'Searching…' : result.featured ? 'Popular' : `${result.entries.length}${result.nextCursor ? '+' : ''} found`)),
+            h('span', null, result.loading ? 'Searching…' : `${result.entries.length}${result.nextCursor ? '+' : ''} ${result.featured ? 'servers' : 'found'}`)),
           h('div', { className: 'jt-registry-filters' },
             h('div', { className: 'jt-chips', role: 'group', 'aria-label': 'Updated' }, [['', query.trim() ? 'Any time' : 'Popular'], ['week', 'Updated this week'], ['month', 'Updated this month']].map(([id, label]) =>
               h('button', { key: id, type: 'button', className: 'jt-chip', 'aria-pressed': since === id, onClick: () => setSince(id) }, label))),
@@ -648,7 +648,8 @@ window.__ModuleLoader__.load({
 .jt-agent-settings .jt-agent-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--dsw-alias-label-secondary); }
 .jt-agent-skeleton { height: 132px; border-radius: 12px; background: linear-gradient(90deg, var(--dsw-alias-bg-layer-1) 0%, var(--dsw-alias-border-l1) 50%, var(--dsw-alias-bg-layer-1) 100%); background-size: 200% 100%; animation: jt-skeleton 1.4s ease-in-out infinite; }
 @keyframes jt-skeleton { from { background-position: 100% 0 } to { background-position: -100% 0 } }
-.jt-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+/* The pill boxes nest past the text line by their own padding, so the first chip's label starts on the heading's line. */
+.jt-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px -12px; }
 .jt-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 12px; border: 0; border-radius: 999px; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; font: inherit; font-size: 13px; line-height: 22px; }
 .jt-chip[aria-pressed='true'] { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); font-weight: 500; }
 .jt-chip:focus-visible, .jt-agent-add:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); }
