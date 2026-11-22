@@ -939,11 +939,13 @@ export function WorkspaceBrowser({
   insertWorkspaceBefore,
   unarchiveSession,
   createWorkspace,
+  createDirectory,
   notifyFolderDrop,
   searchSessions,
   searchResultLimit,
   useDirectoryFlow,
   useHostInfo,
+  useRemoteMachines,
   useShortcuts,
   useWorkspaceShortcuts,
   requestSearch,
@@ -1366,16 +1368,18 @@ export function WorkspaceBrowser({
           </div>
         ),
       })}
-      {/* Add flow + its error dialog (same package — direct composition). */}
+      {/* The new-project menu and its dialogs (same package — direct composition). */}
       <WorkspacePickFlow
         t={t}
         open={wsPickerOpen}
         anchorRef={wsPlusRef}
         useWorkspaces={useWorkspaces}
         createWorkspace={createWorkspace}
+        createDirectory={createDirectory}
         useDirectoryFlow={useDirectoryFlow}
+        useHostInfo={useHostInfo}
+        useRemoteMachines={useRemoteMachines}
         renderDirectoryFlow={owner => renderSlot('sidebar.workspaces.directoryFlow', owner)}
-        addOnly
         onBusyChange={setDirectoryBusy}
         side="right"
         onPick={(workspaceId) => {
