@@ -312,7 +312,7 @@ function ProjectRow({
       onDragEnd={() => { if (dragPreview.clear()) drag?.end() }}
     >
       <span className={clsx(css.slot, css.folder, active && css.folderActive)}>
-        <ProjectAvatar avatar={row.avatar} color={row.color} expanded={row.expanded} />
+        <ProjectAvatar avatar={row.avatar} githubOwner={row.githubOwner} color={row.color} expanded={row.expanded} />
       </span>
       {onOpenProject === undefined
         ? (

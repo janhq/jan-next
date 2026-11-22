@@ -31,6 +31,14 @@
   font-size: 16px;
 }
 
+/* A picture fills the seat with the same small rounding as an emoji tile. */
+.avatar[data-image] img {
+  inline-size: 100%;
+  block-size: 100%;
+  border-radius: var(--dsw-radius-xs);
+  object-fit: cover;
+}
+
 .dialog {
   width: min(392px, 100%);
 }
@@ -54,9 +62,34 @@
 }
 
 .previewTitle {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.avatarPanel {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* Filled (contrast) while the automatic GitHub avatar is the draft choice, outlined otherwise. */
+.githubButton {
+  justify-content: center;
+  width: 100%;
+}
+
+.faviconRow {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.faviconRow > input {
+  flex: 1;
+  min-width: 0;
 }
 
 .field {

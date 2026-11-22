@@ -119,13 +119,14 @@ export function WorkspacePickFlow({
       title: workspaceDisplayTitle(workspace, defaultWorkspaceName),
       path: workspace.path,
       avatar: workspace.avatar,
+      githubOwner: workspace.githubOwner,
       color: workspace.color,
     }))
     const suffixes = distinguishingPathSuffixes(rows)
     return rows.map(row => ({ ...row, suffix: suffixes.get(row.id) }))
   }, [pinAdd, workspaces, defaultWorkspaceName])
   const items: MenuEntry[] = pinAdd
-    ? listed.map(({ id, title, path, suffix, avatar, color }) => ({
+    ? listed.map(({ id, title, path, suffix, avatar, githubOwner, color }) => ({
       id,
       // The title gives way first, so the suffix that tells the rows apart
       // stays visible; the native tooltip carries the full path.
@@ -138,7 +139,7 @@ export function WorkspacePickFlow({
             <span className={css.pathSuffix}>{suffix}</span>
           </span>
         ),
-      icon: <ProjectAvatar avatar={avatar} color={color} />,
+      icon: <ProjectAvatar avatar={avatar} githubOwner={githubOwner} color={color} />,
       disabled: flowBusy,
     }))
     : addEntries
