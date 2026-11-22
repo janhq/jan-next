@@ -2,11 +2,11 @@
 import { useCallback, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { Dispatch, ReactNode, SetStateAction } from 'react'
 import { DockSurface, dockPaneIds, getPane, MAX_DOCK_PANES } from '@janhq/jan-client-ui-dockkit'
-import type { DockLabels, TabId, TabRecord } from '@janhq/jan-client-ui-dockkit'
+import type { DockLabels, PaneId, TabId, TabRecord } from '@janhq/jan-client-ui-dockkit'
 import type { ISessions, SessionReference } from '@janhq/jan-api-session-controller/client'
 import type { SessionId } from '@janhq/jan-session/types'
 import type { PropsLocale, PropsRenderSlots, PropsRuntime } from '@janhq/jan-client-ui-slots'
-import { MenuItemButton } from '@janhq/jan-client-ui-primitives'
+import { IconChatOutlineRegular, MenuItemButton } from '@janhq/jan-client-ui-primitives'
 import type {} from '../contract/slots.ts'
 import { ConversationDeskActions, ConversationDeskContext } from './ConversationDesk.tsx'
 import type { ConversationDeskSeat, ConversationDeskToolbarProps, DeskChoice } from './ConversationDesk.tsx'
@@ -31,7 +31,8 @@ export interface ConversationPanelInjected {
   } | undefined
 }
 
-type Props = PropsRuntime<'main'> & PropsRenderSlots<'main.conversation'> & PropsLocale<'conversation'> & ConversationPanelInjected
+type Props = PropsRuntime<'main'> & PropsRenderSlots<'main.conversation' | 'conversation.desk.new-tab.item'>
+  & PropsLocale<'conversation'> & ConversationPanelInjected
 
 function LeasedConversation({ id, retainPane, SessionProvider, children }: {
   readonly id: SessionId
@@ -132,8 +133,21 @@ export function ConversationPanel({ renderSlot, SessionProvider, layout, retainP
   const close = t('desk.closeTab')
   const labels: DockLabels = {
     emptyPane: empty, splitPane: split, splitPaneDisabled: t('desk.limit'), splitPaneNarrow: split,
-    closeTab: close, addTab: t('desk.newTab'), dockFloat: split, closeFloat: close,
+    closeTab: close, addTab: t('desk.addTab'), dockFloat: split, closeFloat: close,
     dropZone: { top: split, bottom: split, left: split, right: split, center: split },
+  }
+  // The `+` opens a menu: a blank chat first, then whatever plugins open for the pane's chat.
+  const renderAddTabMenu = (paneId: PaneId, dismiss: () => void): ReactNode => {
+    const tabId = getPane(dock, paneId).activeTabId
+    const tab = tabId === undefined ? undefined : dock.tabs[tabId]
+    return (
+      <>
+        <MenuItemButton icon={<IconChatOutlineRegular size={16} />} onSelect={() => { dismiss(); layout.addTab(paneId) }}>
+          {t('desk.newChat')}
+        </MenuItemButton>
+        {renderSlot('conversation.desk.new-tab.item', { sessionId: tab === undefined ? undefined : tabSessionId(tab), dismiss })}
+      </>
+    )
   }
   return (
     <div className={css.desk} data-chat-tabs={!active || undefined}>
@@ -145,6 +159,7 @@ export function ConversationPanel({ renderSlot, SessionProvider, layout, retainP
       ) : (
         <DockSurface state={dock} intents={layout} labels={labels} canSplit={!active && !limitReached} tabStrips={!active}
           showSplitControl={false} tabListLabel={t('desk.chatTabs')} dividerLabel={t('desk.resize')} renderTab={renderTab}
+          renderAddTabMenu={renderAddTabMenu}
           renderTabTitle={(tab) => {
             const id = tabSessionId(tab)
             const label = id === undefined ? t('desk.newChat') : list.byId[id]?.displayTitle || t('desk.newChat')
