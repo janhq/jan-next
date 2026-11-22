@@ -184,6 +184,11 @@
   line-height: 20px;
 }
 
+/* Project names head their chats: Mimi's medium weight (m/medium), chats stay regular. */
+.projectText > .title {
+  font-weight: 500;
+}
+
 .renameInput {
   min-width: 0;
   font-size: 14px;
