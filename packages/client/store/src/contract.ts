@@ -81,6 +81,12 @@ export interface StoreInstance<T, A extends ActionsDecl<T>> {
    * Runtime scope teardown does not call this operation.
    */
   clearPersisted(): void
+  /**
+   * Optional hook the runtime calls once when it drops this instance because
+   * its Session Context generation ended. Owners that keep their own
+   * reference to the instance release it here; persisted values stay.
+   */
+  dispose?(): void
 }
 
 /**
