@@ -2487,8 +2487,10 @@ describe('WorkspaceBrowser', () => {
     expect(document.activeElement).toBe(input)
     fireEvent.change(input, { target: { value: '  Lab  ' } })
     fireEvent.click(within(dialog).getByRole('radio', { name: '蓝色' }))
+    fireEvent.click(within(dialog).getByRole('tab', { name: '图标' }))
     fireEvent.click(within(dialog).getByRole('radio', { name: '星形' }))
     expect(within(dialog).getByRole('radio', { name: '星形' })).toHaveProperty('checked', true)
+    fireEvent.click(within(dialog).getByRole('tab', { name: '表情符号' }))
     const emoji = within(dialog).getByRole('textbox', { name: '表情符号' })
     const save = within(dialog).getByRole<HTMLButtonElement>('button', { name: '保存' })
     fireEvent.change(emoji, { target: { value: '🧪🔭' } })
@@ -2504,6 +2506,33 @@ describe('WorkspaceBrowser', () => {
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(updateWorkspaceIdentity).toHaveBeenCalledTimes(1)
+  })
+
+  it('defaults a GitHub checkout to its owner picture, and saves a favicon or a return to that default', async () => {
+    const updateWorkspaceIdentity = vi.fn(async () => { })
+    const alpha = { ...workspace('alpha', [], 'Alpha'), githubOwner: 'janhq', avatar: { kind: 'emoji', value: '🔭' } } as const
+    const browser = mount({ useWorkspaces: hook(workspaceState([alpha, { ...workspace('beta', [], 'Beta'), githubOwner: 'janhq' }])), updateWorkspaceIdentity })
+    const betaRow = screen.getByRole('treeitem', { name: /Beta/ })
+    expect(betaRow.querySelector('img')?.getAttribute('src')).toBe('https://github.com/janhq.png?size=64')
+
+    browser.openDialog(wid('alpha'), 'Alpha', 'update')
+    let dialog = screen.getByRole('dialog', { name: '编辑项目' })
+    fireEvent.click(within(dialog).getByRole('tab', { name: '头像' }))
+    fireEvent.change(within(dialog).getByRole('textbox', { name: '网站' }), { target: { value: 'https://Jan.ai/docs' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '网站图标' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '保存' }))
+    expect(updateWorkspaceIdentity).toHaveBeenLastCalledWith({ workspaceId: wid('alpha'), avatar: { kind: 'favicon', domain: 'jan.ai' } })
+    await waitFor(() => { expect(screen.queryByRole('dialog')).toBeNull() })
+
+    browser.openDialog(wid('alpha'), 'Alpha', 'update')
+    dialog = screen.getByRole('dialog', { name: '编辑项目' })
+    fireEvent.click(within(dialog).getByRole('tab', { name: '头像' }))
+    fireEvent.change(within(dialog).getByRole('textbox', { name: '网站' }), { target: { value: 'not a site' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: '网站图标' }))
+    expect(within(dialog).getByRole('alert').textContent).toBe('请输入网站地址，例如 example.com。')
+    fireEvent.click(within(dialog).getByRole('button', { name: '使用 GitHub 头像' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: '保存' }))
+    expect(updateWorkspaceIdentity).toHaveBeenLastCalledWith({ workspaceId: wid('alpha'), avatar: null })
   })
 
   it('shows the persisted emoji beside its project title', () => {

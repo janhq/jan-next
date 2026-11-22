@@ -47,7 +47,13 @@ Hierarchy uses registered canonical paths only. It does not scan for projects or
 
 On devices without hover, expanded Workspace rows keep their menu and New Session controls visible, and archived search results keep the Unarchive control visible.
 
-Open **Project actions** on a project row and choose **Edit project...** to change its name, accent color, or avatar. Pick a built-in icon or enter one emoji, then check the preview and choose **Save**. Escape or **Cancel** discards the draft. The sidebar and the Workspace picker use the saved appearance; a project with no custom avatar keeps the folder glyph. The editor is available only to callers with `workspace/update` access.
+Open **Project actions** on a project row and choose **Edit project...** to change its name, accent color, or avatar, then check the preview and choose **Save**. Escape or **Cancel** discards the draft; **Reset** returns the draft to the default color and the automatic avatar. The avatar has three tabs:
+
+- **Avatar**: **Use GitHub avatar** picks the automatic avatar, the GitHub picture of the owner of the folder's `origin` remote. GitHub serves one for every account, so it appears even without a custom image. **Upload image** center-crops a PNG, JPEG, WebP or GIF to a 64px PNG. A website such as `example.com` plus **Favicon** loads that site's icon through DuckDuckGo's icon service; a pasted address is reduced to its host.
+- **Icon**: one of the built-in glyphs; the folder glyph opens with the project.
+- **Emoji**: one emoji.
+
+The sidebar and the Workspace picker use the saved appearance. A project with no saved avatar shows its GitHub owner's picture, or the folder glyph outside a GitHub checkout. A picture that fails to load, for example offline, falls back to the folder glyph, or a globe for a favicon. The editor is available only to callers with `workspace/update` access.
 
 ### Search
 
