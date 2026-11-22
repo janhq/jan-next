@@ -153,13 +153,13 @@
   overflow-y: auto;
 }
 
-/* Pinned content above the scroll region (a search field); the hairline
- * mirrors the footer's. */
+/* Pinned content above the scroll region (a search field) spans the rows'
+ * hover fill; the hairline mirrors the footer's. */
 .header {
   flex: none;
   display: flex;
   flex-direction: column;
-  padding: 4px 4px 7px;
+  padding-bottom: 4px;
   margin-bottom: 3px;
   border-bottom: 0.5px solid var(--dsw-alias-border-l2);
 }
