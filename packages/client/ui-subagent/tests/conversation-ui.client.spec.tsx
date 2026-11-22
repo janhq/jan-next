@@ -16,6 +16,8 @@ import {
 } from '../src/client/SubagentHeaderLineage.tsx'
 import { SubagentReadOnlyComposer } from '../src/client/SubagentReadOnlyComposer.tsx'
 import { SubagentRoster } from '../src/client/SubagentRoster.tsx'
+import { TurnSubagents, type TurnSubagentsProps } from '../src/client/TurnSubagents.tsx'
+import type { TurnLocation } from '@janhq/jan-client-ui-conversation/client'
 import { en, zh } from '../src/client/locales.ts'
 
 afterEach(() => {
@@ -34,7 +36,7 @@ type HeaderCatalogProps = SubagentHeaderLineageProps
   & Pick<SubagentCatalogActionProps, 'useFooterAvailable' | 'renderSlot'>
 
 type CatalogFixtureEntry<Entry = SubagentCatalogEntry> = Entry extends SubagentCatalogEntry
-  ? Omit<Entry, 'createdAt'> & { activity: 'running' | 'inactive' }
+  ? Omit<Entry, 'createdAt'> & { activity: 'running' | 'inactive'; createdAt?: number }
   : never
 
 type CatalogFixture = {
@@ -97,7 +99,7 @@ function props(
       state: catalog.state, error: catalog.error,
       values: {
         ...catalog.team === undefined ? {} : { agentTeam: catalog.team },
-        subagentCatalog: catalog.entries.map(({ activity: _activity, ...entry }) => ({ ...entry, createdAt: 1 })),
+        subagentCatalog: catalog.entries.map(({ activity: _activity, createdAt = 1, ...entry }) => ({ ...entry, createdAt })),
       },
     }])) ,
   } satisfies SessionListState
@@ -256,11 +258,24 @@ describe('composer subagent roster', () => {
     view.rerender(<SubagentRoster {...rosterProps(empty, { hasBoardContent: true, renderFooter: () => <div role="alert">Invalid</div> })} />)
     expect(screen.queryByText('No subagents')).toBeNull()
     expect(screen.getByRole('alert')).toBeTruthy()
-    const failed = props(catalog({ entries: [], state: 'error', error: new RemoteError('internal', 'catalog failed') }))
+    const failed = props(catalog({ entries: [], state: 'error', error: new RemoteError('gateway/internal', 'catalog failed', {}) }))
     view.rerender(<SubagentRoster {...rosterProps(failed)} />)
     expect(screen.getByText('catalog failed')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
     expect(failed.refreshProjection).toHaveBeenCalledWith(PARENT)
+  })
+
+  it('steps aside once nothing runs, so finished subagents live on their turn header', () => {
+    const idle = props(catalog({ entries: [{ id: CHILD, mode: 'continuable', label: 'worker', activity: 'inactive' }] }))
+    const view = render(<SubagentRoster {...rosterProps(idle)} />)
+    expect(screen.queryByRole('button')).toBeNull()
+    const rootRunning: SessionStatusSnapshot = new Map([
+      [PARENT, { running: true, completionUnread: false, pendingInteraction: undefined }],
+    ])
+    view.rerender(<SubagentRoster {...rosterProps(idle, {
+      useSessionStatus: <T,>(select: (snapshot: SessionStatusSnapshot) => T): T => select(rootRunning),
+    })} />)
+    expect(screen.getByRole('button', { name: /^1 subagent/ })).toBeTruthy()
   })
 
   it('renders for root Sessions only and binds the task board there', () => {
@@ -274,6 +289,37 @@ describe('composer subagent roster', () => {
     expect(renderSlot).toHaveBeenCalledWith('conversation.session.header.actions.subagent.footer', {})
     view.rerender(<SubagentCatalogAction {...props(catalog(), {}, undefined, { parentSessionId: PARENT, childSessionId: CHILD, mode: 'continuable' })}
       useProjection={useProjection} renderSlot={renderSlot} />)
+    expect(screen.queryByRole('button')).toBeNull()
+  })
+})
+
+describe('turn header subagents', () => {
+  const turn = (status: TurnLocation['status']) => ({ status, start: { time: 10 }, end: { time: 20 } }) as unknown as TurnLocation
+  const turnProps = (input: ReturnType<typeof props>, location: TurnLocation) => ({
+    ...input, turn: location, t: makeTranslate(en),
+  }) as unknown as TurnSubagentsProps
+  const spawned = props(catalog({ entries: [
+    { id: 'before' as SessionId, mode: 'continuable', label: 'Earlier turn', activity: 'inactive', createdAt: 5 },
+    { id: CHILD, mode: 'continuable', label: 'This turn', activity: 'inactive', createdAt: 15 },
+    { id: 'after' as SessionId, mode: 'continuable', label: 'Later turn', activity: 'inactive', createdAt: 25 },
+  ] }))
+
+  it('lists only the children created inside a closed turn, opening their rows below the line', () => {
+    render(<TurnSubagents {...turnProps(spawned, turn('closed'))} />)
+    const chip = screen.getByRole('button', { name: /^1 subagent/ })
+    expect(screen.queryByText('This turn')).toBeNull()
+    fireEvent.click(chip)
+    expect(chip.getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByText('This turn')).toBeTruthy()
+    expect(screen.queryByText('Earlier turn')).toBeNull()
+    expect(screen.queryByText('Later turn')).toBeNull()
+  })
+
+  it('shows nothing on an open turn or a turn that spawned none', () => {
+    const view = render(<TurnSubagents {...turnProps(spawned, turn('open'))} />)
+    expect(screen.queryByRole('button')).toBeNull()
+    const none = props(catalog({ entries: [{ id: CHILD, mode: 'continuable', label: 'worker', activity: 'inactive', createdAt: 30 }] }))
+    view.rerender(<TurnSubagents {...turnProps(none, turn('closed'))} />)
     expect(screen.queryByRole('button')).toBeNull()
   })
 })
