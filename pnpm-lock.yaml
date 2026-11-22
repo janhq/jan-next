@@ -18851,6 +18851,9 @@ importers:
       '@janhq/schemastery':
         specifier: link:../../vendor/schemastery
         version: link:../../vendor/schemastery
+      '@modelcontextprotocol/client':
+        specifier: 2.2.0
+        version: 2.2.0
       js-yaml:
         specifier: ^4.3.2
         version: 4.3.2

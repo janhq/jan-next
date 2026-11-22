@@ -97,3 +97,48 @@ test('list skips invalid profile rows and returns public fields without secrets'
   assert.match(warnings[1], /MCP.*2/)
   assert.equal(warnings.join(' ').includes('bad-secret'), false)
 })
+
+// One mounted settings plugin with in-memory credentials and profile, answering API calls like the client does.
+async function mountWith(mcpServers, { fetch: fetchStub } = {}) {
+  const records = new Map()
+  let config = { mcpServers }
+  const services = {
+    configEditor: { edit: async (_entry, update) => { config = update(config) } },
+    credentials: {
+      readRecord: async key => records.get(key),
+      modifyRecord: async (key, update) => records.set(key, update(records.get(key))),
+      deleteRecord: async key => records.delete(key),
+    },
+  }
+  let handler
+  await mountAgentSettings({
+    fiber: { entry: {} }, tools: { definitions: () => [] }, skills: { snapshot: async () => [] },
+    get: name => services[name], provide: () => {}, effect: effect => effect(), plugin: () => { throw new Error('not started in tests') },
+    connection: { requestRejection: () => undefined }, logger: { warn: () => {} },
+    webServer: { register: route => { handler = route.handler; return () => {} } },
+  }, config)
+  const call = (method, params = {}) => new Promise((resolve, reject) => {
+    const req = { method: 'POST', headers: { 'content-type': 'application/json' }, async *[Symbol.asyncIterator]() { yield Buffer.from(JSON.stringify({ method, params })) } }
+    const res = { writeHead() {}, end: body => resolve(JSON.parse(body)) }
+    const original = globalThis.fetch
+    if (fetchStub) globalThis.fetch = fetchStub
+    handler(req, res).catch(reject).finally(() => { globalThis.fetch = original })
+  })
+  return { call, records, config: () => config }
+}
+
+test('a Figma token Figma rejects is refused before anything is saved, and a good one runs the local Figma server', async () => {
+  const figma = { name: 'figma', enabled: true, transport: 'streamable-http', url: 'https://mcp.figma.com/mcp' }
+  const rejecting = await mountWith([figma], { fetch: async () => new Response('{"status":401}', { status: 401 }) })
+  const refused = await rejecting.call('useToken', { name: 'figma', token: 'figd_wrong' })
+  assert.match(refused.error, /Figma did not accept this token/)
+  assert.deepEqual(rejecting.config().mcpServers, [figma])
+  assert.equal(rejecting.records.size, 0)
+
+  const accepting = await mountWith([figma], { fetch: async () => Response.json({ email: 'me@example.com' }) })
+  const saved = await accepting.call('useToken', { name: 'figma', token: ' figd_good ' })
+  assert.equal(saved.error, undefined)
+  assert.deepEqual(accepting.config().mcpServers, [{ name: 'figma', enabled: true, transport: 'stdio', command: 'npx', args: ['-y', 'figma-developer-mcp@0.13.2', '--stdio', '--no-telemetry'] }])
+  assert.deepEqual(accepting.records.get('jan-theme/mcp-figma')?.payload, { env: { FIGMA_API_KEY: 'figd_good' }, headers: {} })
+  assert.equal(JSON.stringify(accepting.config()).includes('figd_good'), false)
+})
