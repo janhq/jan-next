@@ -392,6 +392,29 @@ describe('PluginManagerPage', () => {
     expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual([`${en.pluginsTab}1`, 'Skills12', 'Connectors'])
   })
 
+  it('explores Customize plugins: a spotlight opens an optional plugin, and search with filters narrows every card', () => {
+    const inspector = '@janhq/jan-experimental-inspector-profile'
+    const customize: ConfigPageForm = {
+      state: { status: 'ready', value: { customize: true }, base: {}, user: {}, revision: 0, writable: true }, mutate: vi.fn(),
+    }
+    const optional = pkg({ name: inspector, official: true, optional: true, installed: false, enabled: false })
+    const { navigation } = renderTab({ packages: [pkg(), optional] },
+      {}, {}, { 'ui-plugin-manager': customize }, [{ id: 'skills', label: 'Skills' }])
+    const spotlight = screen.getByRole('region', { name: en.spotlightLabel })
+    fireEvent.click(within(spotlight).getByRole('button', { name: en.spotlightOpen }))
+    expect(navigation.getSnapshot().view).toEqual({ kind: 'package', name: inspector, from: 'more' })
+    act(() => { navigation.actions.setView({ kind: 'list' }) })
+    // Off includes the optional plugin the More list holds, so one filter reaches every plugin.
+    fireEvent.click(screen.getByRole('button', { name: en.filterOff }))
+    expect(document.querySelector(`[data-plugin-group="matches"] [data-plugin-package="${inspector}"]`)).not.toBeNull()
+    expect(document.querySelector('[data-plugin-group="matches"] [data-plugin-package="jan-better-sidebar"]')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: en.filterAll }))
+    fireEvent.change(screen.getByRole('searchbox', { name: en.exploreSearch }), { target: { value: 'zzzz' } })
+    expect(screen.getByRole('status').textContent).toBe(en.exploreCount.replace('{count}', '0'))
+    fireEvent.click(screen.getByRole('button', { name: en.exploreClear }))
+    expect(document.querySelector('[data-plugin-group="matches"]')).toBeNull()
+  })
+
   it('marks the bundle an install enabled without leaving a contributed tab', () => {
     const { navigation, set } = renderTab({ packages: [pkg()] }, {}, {}, {}, [{ id: 'discover', label: 'Discover' }])
     fireEvent.click(screen.getByRole('tab', { name: 'Discover' }))
