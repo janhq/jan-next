@@ -24,10 +24,10 @@ export interface RemoteMachineSource {
    */
   list(signal: AbortSignal): Promise<readonly RemoteMachine[]>
   /**
-   * Connect if needed and open the computer's own Jan page.
+   * Connect the computer if it is not connected yet; opens no page or window.
    * @param id - a listed computer.
    */
-  open(id: string): Promise<void>
+  connect(id: string): Promise<void>
   /** Show the place where computers are added and managed. */
   manage(): void
 }

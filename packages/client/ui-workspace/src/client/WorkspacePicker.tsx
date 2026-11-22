@@ -351,7 +351,7 @@ export function WorkspacePickFlow({
   const openRemote = (id: string): void => {
     onClose()
     if (remoteSource === undefined) return
-    remoteSource.open(id).catch((error: unknown) => {
+    remoteSource.connect(id).catch((error: unknown) => {
       setFailure({ kind: 'remote', message: reason(error) })
     })
   }
