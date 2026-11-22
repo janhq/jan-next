@@ -1,5 +1,4 @@
 /** Tool-category and live-detail interpretation owned by Chat grouping. */
-import { estimateContent } from '@janhq/jan-token-meter/client'
 import { reasoningText } from '../reasoning-text.ts'
 import type { ToolArgs } from '@janhq/jan-client-ui-conversation/client'
 import type { ProcessActivity, ProcessActivitySummary, RunningProcessActivity } from '../contract/process-groups.ts'
@@ -141,7 +140,6 @@ export function processActivity(nodes: readonly ChatNode[]): ProcessActivitySumm
   let runningDetail = ''
   let runningTime = -Infinity
   let preparing: boolean | undefined
-  let contextTokens: number | undefined
   const visit = (tool: ToolCallBlock): void => {
     if (seen.has(tool.callId)) return
     seen.add(tool.callId)
@@ -162,19 +160,11 @@ export function processActivity(nodes: readonly ChatNode[]): ProcessActivitySumm
     if (node.kind === 'tool-call') visit(node.data.root)
   }
   if (running === undefined) runningDetail = liveReasoningDetail(nodes)
-  if (nodes.length > 0 && nodes.every(node => node.kind === 'context')) {
-    counts.set('context', nodes.length)
-    // The sum of the figures the rows show: tool-list changes and unattributed context show none.
-    // `every` above narrows `nodes` to context nodes.
-    const priced = nodes.filter(node => node.data.producer.label !== null
-      && !(node.data.content.length > 0 && node.data.content.every(block => block.type === 'tool-addition' || block.type === 'tool-removal')))
-    if (priced.length > 0) contextTokens = priced.reduce((total, node) => total + estimateContent(node.data.content), 0)
-  }
+  if (nodes.length > 0 && nodes.every(node => node.kind === 'context')) counts.set('context', nodes.length)
   return {
     counts: [...counts].map(([kind, count]) => ({ kind, count })).sort((a, b) => b.count - a.count),
     running,
     runningDetail,
     ...preparing ? { preparing: true } : {},
-    ...contextTokens === undefined ? {} : { contextTokens },
   }
 }

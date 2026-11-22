@@ -14,9 +14,9 @@
 - status: Completed
 - button "Completed in {{duration}}" [expanded]
 - button "Injected context" [expanded]
-- button "Context injection runtime-context"
-- button "Context injection user-invoke-demo"
-- button "Context injection time-context"
+- button "Inject context runtime-context"
+- button "Inject context user-invoke-demo"
+- button "Inject context time-context"
 - paragraph: USER_INVOKE_REPLY acknowledged; following the injected skill.
 - button "Copy"
 - button "Branch into a new conversation"

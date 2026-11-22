@@ -425,7 +425,7 @@ describe('web e2e: seeded history renders through cold resume', () => {
     await waitForContextInClient(page, injected.seq)
     const contextRows = page.locator('[data-chat-flow-kind="context"]')
     await expect.poll(() => contextRows.count()).toBe(1)
-    expect(await contextRows.getByRole('button', { name: /^Context injection/ }).getAttribute('aria-expanded')).toBe('false')
+    expect(await contextRows.getByRole('button', { name: /^Inject context/ }).getAttribute('aria-expanded')).toBe('false')
     expect(await contextRows.locator('[data-context-injection-body]').count()).toBe(0)
   }, 60_000)
 
@@ -492,7 +492,7 @@ describe('web e2e: seeded history renders through cold resume', () => {
     expect(JSON.stringify(instructions[0]?.data)).toContain('Instruction 24: preserve the logged context contract.')
     const row = page.locator('[data-chat-flow-kind="context"]')
     expect(await row.count()).toBe(1)
-    const disclosure = row.getByRole('button', { name: /^Context injection/ })
+    const disclosure = row.getByRole('button', { name: /^Inject context/ })
     expect(await disclosure.getAttribute('aria-expanded')).toBe('false')
     await disclosure.click()
     try {
@@ -826,7 +826,7 @@ describe('web e2e: seeded history renders through cold resume', () => {
     await waitForContextInClient(page, injected.seq)
     await expect.poll(() => contextRows.count()).toBe(before + 1)
     const row = contextRows.last()
-    const disclosure = row.getByRole('button', { name: /^Context injection/ })
+    const disclosure = row.getByRole('button', { name: /^Inject context/ })
     expect(await disclosure.getAttribute('aria-expanded')).toBe('false')
     await disclosure.click()
     try {

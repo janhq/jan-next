@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
 import { estimateContent } from '@janhq/jan-token-meter/client'
 import type { ChatViewSlotProps } from '../contract/slots.ts'
-import { DisclosureRow, IconBrowseOutlineRegular, IconContextInjectionOutlineRegular, ReferenceIconRegular } from '@janhq/jan-client-ui-primitives'
+import {
+  DisclosureRow, IconBrowseOutlineRegular, IconChevronRightOutlineRegular, IconContextInjectionOutlineRegular, ReferenceIconRegular,
+} from '@janhq/jan-client-ui-primitives'
 import type { ContextMessageNode } from '../contract/snapshot.ts'
 import { contextBody } from './ContextBody.tsx'
 import { formatExactTokens, formatTokens } from './token-format.ts'
@@ -51,9 +53,12 @@ export function ContextInjectionRow({ content, source, producer, form, t }: Cont
         ? t('message.toolsAddedCount', { count: added.length })
         : t('message.toolsRemovedCount', { count: removed.length })
 
-  // Inside the "Injected context" group the role is already said once, so an
-  // injection that names its producer is titled by that name alone.
-  const named = toolBlocks === undefined && producer.role !== 'recall' && producer.label !== null
+  // A trailing chevron marks every expandable row and turns down while it is open.
+  const chevron = single === undefined && (
+    <span className={css.trailingChevron} aria-hidden data-open={open || undefined}>
+      <IconChevronRightOutlineRegular size={14} />
+    </span>
+  )
   return (
     <DisclosureRow
       className={css.root}
@@ -62,24 +67,19 @@ export function ContextInjectionRow({ content, source, producer, form, t }: Cont
         : <IconContextInjectionOutlineRegular size={14} />}
       chevronClassName={css.chevron}
       title={single !== undefined ? t(single.type === 'tool-addition' ? 'message.toolAdded' : 'message.toolRemoved', { name: single.toolName })
-        : named ? producer.label ?? ''
-          : t(toolBlocks !== undefined ? 'message.toolsUpdated' : producer.role === 'recall' ? 'message.contextRecall' : 'message.contextInjection')}
+        : t(toolBlocks !== undefined ? 'message.toolsUpdated' : producer.role === 'recall' ? 'message.contextRecall' : 'message.contextInjection')}
       collapsedContent={toolSummary !== null ? (
         <>
           <span className={css.sep} aria-hidden />
           <span className={css.summary}>{toolSummary}</span>
+          {chevron}
         </>
-      ) : toolBlocks !== undefined || producer.label === null ? undefined : (
+      ) : toolBlocks !== undefined || producer.label === null ? chevron || undefined : (
         /* ToolRow's separator shape: an aria-hidden dot, so the accessible name
-           stays the readable parts. A named injection already carries its
-           producer in the title. */
+           stays the readable parts. */
         <>
-          {!named && (
-            <>
-              <span className={css.sep} aria-hidden />
-              <span className={css.source} data-context-source>{producer.label}</span>
-            </>
-          )}
+          <span className={css.sep} aria-hidden />
+          <span className={css.source} data-context-source>{producer.label}</span>
           {summary !== null && (
             <>
               <span className={css.sep} aria-hidden />
@@ -96,8 +96,10 @@ export function ContextInjectionRow({ content, source, producer, form, t }: Cont
           >
             {t('message.contextTokens', { count: formatTokens(tokens, t) })}
           </span>
+          {chevron}
         </>
       )}
+      previewChevron={false}
       keepContentWhenOpen
       open={open && single === undefined}
       expandable={single === undefined}

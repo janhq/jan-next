@@ -102,20 +102,6 @@ describe('Definition-owned Chat process groups', () => {
     expect(processActivity([context, assistant('thinking')]).counts).toEqual([])
   })
 
-  it('totals the token figures its Context rows show, leaving unattributed rows out', () => {
-    const row = (key: string, text: string, label: string | null): ChatNode<'context'> => ({
-      key, id: key, kind: 'context', target: 'chat', anchorSeq: 1,
-      location: { kind: 'turn', turn }, visibility: 'visible',
-      data: {
-        kind: 'context', seq: 1, time: 1, content: [{ type: 'text', text }], source: null,
-        producer: { role: 'inject', label }, form: null,
-      },
-    })
-    // 400 and 40 characters price at 100 + 4 and 10 + 4 tokens.
-    expect(processActivity([row('a', 'x'.repeat(400), 'skill-catalog'), row('b', 'y'.repeat(40), 'time-context')]).contextTokens).toBe(118)
-    expect(processActivity([row('a', 'x'.repeat(400), null)]).contextTokens).toBeUndefined()
-  })
-
   it('keeps 160 graphemes when the bounded prefix splits a surrogate pair', () => {
     const command = '👩‍💻'.repeat(87) + '☀️' + 'a'.repeat(71) + '👩‍💻'
     expect(command).toHaveLength(513)
