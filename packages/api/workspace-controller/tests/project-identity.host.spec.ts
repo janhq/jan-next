@@ -81,6 +81,12 @@ it('rejects invalid appearance and conflicting titles without partially writing'
     { avatar: { kind: 'emoji', value: '🧪🧪' } },
     { avatar: { kind: 'emoji', value: '🏻' } },
     { avatar: { kind: 'emoji', value: '' } },
+    { avatar: { kind: 'image', url: 'https://example.com/a.png' } },
+    { avatar: { kind: 'image', url: 'data:image/svg+xml;base64,PHN2Zz4=' } },
+    { avatar: { kind: 'image', url: `data:image/png;base64,${'A'.repeat(70_000)}` } },
+    { avatar: { kind: 'favicon', domain: 'https://example.com' } },
+    { avatar: { kind: 'favicon', domain: 'localhost' } },
+    { avatar: { kind: 'favicon', domain: 'example.com/path' } },
     { title: ' ' },
   ]
   for (const patch of invalid) {
@@ -91,4 +97,15 @@ it('rejects invalid appearance and conflicting titles without partially writing'
   const error = await commands.update({ workspaceId, title: 'taken', color: 'blue' }).catch((reason: unknown) => reason)
   expect(remoteErrorOf(error)).toMatchObject({ code: 'workspace/name-conflict' })
   await expect(commands.create({ path: original.path })).resolves.toMatchObject({ workspace: original })
+})
+
+it('stores an uploaded picture and a favicon host as the avatar', async () => {
+  const { commands } = await openRegistry(new MemoryMediaPool())
+  const { workspace } = await commands.create({ path: directories()('pictured') })
+  const image = { kind: 'image', url: 'data:image/png;base64,iVBORw0KGgo=' } as const
+  await expect(commands.update({ workspaceId: workspace.workspaceId, avatar: image }))
+    .resolves.toMatchObject({ workspace: { avatar: image } })
+  const favicon = { kind: 'favicon', domain: 'jan.ai' } as const
+  await expect(commands.update({ workspaceId: workspace.workspaceId, avatar: favicon }))
+    .resolves.toMatchObject({ workspace: { avatar: favicon } })
 })

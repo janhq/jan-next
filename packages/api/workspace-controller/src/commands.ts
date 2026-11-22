@@ -87,7 +87,7 @@ export class WorkspaceCommands {
     }
     const avatar = request.avatar == null ? request.avatar : workspaceRecord.shape.avatar.safeParse(request.avatar)
     if (avatar != null && !avatar.success) {
-      throw new RemoteError('gateway/bad-request', 'Workspace avatar must be a supported icon or one emoji', {})
+      throw new RemoteError('gateway/bad-request', 'Workspace avatar must be a supported icon, one emoji, a small PNG, or a website host', {})
     }
     const parsedColor = color === null ? null : color?.data
     const parsedAvatar = avatar === null ? null : avatar?.data
