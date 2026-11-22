@@ -65,7 +65,7 @@
   display: inline-flex;
   margin-left: 6px;
   color: var(--dsw-alias-label-caption);
-  transition: transform 120ms ease;
+  transition: transform var(--ds-transition-duration-fast) var(--ds-ease-in-out);
 }
 
 .trailingChevron[data-open] {
