@@ -4,6 +4,9 @@ import css from './AnimatedRows.module.css'
 
 const ROW_FADE_MS = 100
 const ROW_GLIDE_MS = 200
+/** Inserted rows rise 2px into place on the emphasized curve (base.css `--ds-ease-emphasized`). */
+const ROW_ENTER_MS = 180
+const EASE_EMPHASIZED = 'cubic-bezier(0.22, 1, 0.36, 1)'
 
 /** Keyed row content, list semantics, and animation readiness. */
 export interface AnimatedRowsProps {
@@ -105,7 +108,10 @@ export class AnimatedRows extends Component<AnimatedRowsProps> {
       if (!intersects(row.rect, viewport)
         && (previousRow === undefined || !intersects(previousRow.rect, snapshot.viewport))) continue
       if (previousRow === undefined) {
-        this.move(row.element, [{ opacity: 0 }, { opacity: 1 }], ROW_FADE_MS)
+        this.move(row.element, [
+          { opacity: 0, transform: 'translateY(2px)' },
+          { opacity: 1, transform: 'none' },
+        ], ROW_ENTER_MS, EASE_EMPHASIZED)
         continue
       }
       const dx = previousRow.rect.left - row.rect.left
@@ -149,8 +155,8 @@ export class AnimatedRows extends Component<AnimatedRowsProps> {
     }]))
   }
 
-  private move(element: HTMLElement, keyframes: Keyframe[], duration: number): void {
-    const animation = element.animate(keyframes, { duration, easing: 'ease-out' })
+  private move(element: HTMLElement, keyframes: Keyframe[], duration: number, easing = 'ease-out'): void {
+    const animation = element.animate(keyframes, { duration, easing })
     this.movements.set(element, animation)
     animation.onfinish = () => { this.movements.delete(element); animation.cancel() }
   }
