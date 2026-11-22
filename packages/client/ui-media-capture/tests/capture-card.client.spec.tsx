@@ -3,9 +3,11 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { CaptureCard } from '../src/client/CaptureCard.tsx'
 import en from '../locale/en.json'
+import type { CaptureCardProps } from '../src/client/contract.ts'
 import type { CaptureKey } from '../src/client/locales.ts'
 
-const t = (key: CaptureKey) => en[key]
+// The framework's `t` also accepts the shared common keys; this card's own copy covers every key it renders.
+const t: CaptureCardProps['t'] = key => en[key as CaptureKey]
 const getUserMedia = vi.fn<MediaDevices['getUserMedia']>()
 const enumerateDevices = vi.fn<MediaDevices['enumerateDevices']>()
 
