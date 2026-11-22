@@ -38,11 +38,13 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
+/* Chip boxes nest past the text line by their padding, so the first label starts on the search field's line. */
 .categories {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
+  margin-inline-start: -12px;
 }
 
 /* The filter chips the Plugins tab and the Artifacts page use. */
