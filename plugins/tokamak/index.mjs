@@ -40,6 +40,21 @@ const SPEECH_LANGUAGES = ['auto', 'en', 'zh', 'ja', 'es', 'fr', 'de', 'ru', 'pt'
 /** What a spoken conversation is told when the client sends no instructions. */
 const VOICE_INSTRUCTIONS = 'You are Jan, a helpful assistant, talking with the user by voice. Answer briefly and naturally, in the language the user speaks.'
 
+/**
+ * The JSON Schema object a model provider accepts for one tool's parameters. `ctx.tools.register`
+ * sends `parameters` as written, and Anthropic refuses a schema without `type: 'object'`.
+ * @param {Record<string, Record<string, unknown> & { required?: boolean }>} properties - each parameter, `required: true` when the model must send it.
+ * @returns {{ type: 'object', properties: Record<string, Record<string, unknown>>, required: string[] }} the schema.
+ */
+function parameterSchema(properties) {
+  const required = Object.keys(properties).filter(name => properties[name]?.required === true)
+  return {
+    type: 'object',
+    properties: Object.fromEntries(Object.entries(properties).map(([name, { required: _required, ...schema }]) => [name, schema])),
+    required,
+  }
+}
+
 const IMAGE_PARAMETERS = {
   path: {
     type: 'string',
@@ -94,7 +109,7 @@ export function apply(ctx, config = {}) {
    */
   async function speak(args, signal) {
     let body
-    try { body = speechBody(args) } catch (error) { throw new HarnessError(/** @type {Error} */ (error).message, 'TOKAMAK_INVALID_ARGS') }
+    try { body = speechBody(args) } catch (error) { throw new HarnessError(/** @type {Error} */(error).message, 'TOKAMAK_INVALID_ARGS') }
     const reply = await api.request('/audio/speech', 'speech', { json: body, signal, timeoutMs: 120_000 })
     return new Uint8Array(await reply.arrayBuffer())
   }
@@ -108,7 +123,7 @@ export function apply(ctx, config = {}) {
    */
   async function transcribe(audio, fileName, language, signal) {
     let form
-    try { form = transcriptionForm(transcriptionModel, audio, fileName, language) } catch (error) { throw new HarnessError(/** @type {Error} */ (error).message, 'TOKAMAK_INVALID_ARGS') }
+    try { form = transcriptionForm(transcriptionModel, audio, fileName, language) } catch (error) { throw new HarnessError(/** @type {Error} */(error).message, 'TOKAMAK_INVALID_ARGS') }
     const reply = await api.request('/audio/transcriptions', 'transcription', { body: form, signal, timeoutMs: 120_000 })
     return decodeTranscription(await reply.json())
   }
@@ -141,7 +156,7 @@ export function apply(ctx, config = {}) {
    */
   async function runImage(exec, args, call) {
     let options
-    try { options = imageOptions(args) } catch (error) { throw new HarnessError(/** @type {Error} */ (error).message, 'TOKAMAK_INVALID_ARGS') }
+    try { options = imageOptions(args) } catch (error) { throw new HarnessError(/** @type {Error} */(error).message, 'TOKAMAK_INVALID_ARGS') }
     const at = await sessionWorkspace(ctx, exec)
     const started = Date.now()
     const { reply, fallback } = await call(at, options)
@@ -149,7 +164,7 @@ export function apply(ctx, config = {}) {
     const extension = `.${reply.images[0]?.mediaType.slice('image/'.length) ?? 'png'}`
     const paths = await outputPaths(ctx, at, typeof args.path === 'string' ? args.path : undefined, fallback, extension, reply.images.length, exec.signal)
     const files = []
-    for (const [index, path] of paths.entries()) files.push(await writeInside(ctx, at, path, /** @type {ImageReply['images'][number]} */ (reply.images[index]).data, exec.signal))
+    for (const [index, path] of paths.entries()) files.push(await writeInside(ctx, at, path, /** @type {ImageReply['images'][number]} */(reply.images[index]).data, exec.signal))
     const images = await attachmentsFor(at, reply, exec.signal)
     return {
       files,
@@ -190,8 +205,8 @@ export function apply(ctx, config = {}) {
     return { data, mediaType, name: path.split(/[\\/]/).pop() ?? 'image' }
   }
 
-  ctx.effect(function* () {
-    yield ctx.tools.register(/** @type {ToolDefinition} */ ({
+  ctx.effect(function*() {
+    yield ctx.tools.register(/** @type {ToolDefinition} */({
       name: 'generate_image',
       description: `Create a new image from a text description with ${imageModel} and save it as a file. ${AFTER_SAVE}`,
       parameters: {
@@ -199,13 +214,13 @@ export function apply(ctx, config = {}) {
         ...IMAGE_PARAMETERS,
       },
       output: imageOutput,
-      execute: (args, exec) => runImage(exec, /** @type {Record<string, unknown>} */ (args), async (_at, options) => ({
+      execute: (args, exec) => runImage(exec, /** @type {Record<string, unknown>} */(args), async (_at, options) => ({
         reply: await imageRequest('generations', generationBody(imageModel, options), exec.signal),
         fallback: defaultPath('images', options.prompt, '.png'),
       })),
     }))
 
-    yield ctx.tools.register(/** @type {ToolDefinition} */ ({
+    yield ctx.tools.register(/** @type {ToolDefinition} */({
       name: 'edit_image',
       description: `Change existing image files with ${imageModel}: restyle, add or remove things, combine several images into one, or edit only the transparent area of a mask. Saves the result as a new file and leaves the sources unchanged unless path names one. ${AFTER_SAVE}`,
       parameters: {
@@ -219,7 +234,7 @@ export function apply(ctx, config = {}) {
         ...IMAGE_PARAMETERS,
       },
       output: imageOutput,
-      execute: (args, exec) => runImage(exec, /** @type {Record<string, unknown>} */ (args), async (at, options) => {
+      execute: (args, exec) => runImage(exec, /** @type {Record<string, unknown>} */(args), async (at, options) => {
         const input = /** @type {Record<string, unknown>} */ (args)
         const paths = Array.isArray(input.images) ? input.images.filter(/** @param {unknown} path */ path => typeof path === 'string' && path.trim().length > 0) : []
         if (paths.length === 0 || paths.length > MAX_IMAGES) throw new HarnessError(`images needs 1 to ${MAX_IMAGES} file paths.`, 'TOKAMAK_INVALID_ARGS')
@@ -231,7 +246,7 @@ export function apply(ctx, config = {}) {
       }),
     }))
 
-    yield ctx.tools.register(/** @type {ToolDefinition} */ ({
+    yield ctx.tools.register(/** @type {ToolDefinition} */({
       name: 'text_to_speech',
       output: textOutput,
       description: 'Read text aloud with a natural voice and save it as a WAV file, for a voice-over, a spoken summary or an audio version of a document. '
@@ -251,13 +266,13 @@ export function apply(ctx, config = {}) {
         const audio = await speak(input, exec.signal)
         const [path] = await outputPaths(ctx, at, typeof input.path === 'string' ? input.path : undefined,
           defaultPath('audio', String(input.text), '.wav'), '.wav', 1, exec.signal)
-        const file = await writeInside(ctx, at, /** @type {string} */ (path), audio, exec.signal)
+        const file = await writeInside(ctx, at, /** @type {string} */(path), audio, exec.signal)
         const seconds = wavSeconds(audio)
         return `Saved ${seconds === undefined ? 'audio' : `${seconds.toFixed(1)} s of audio`} in ${((Date.now() - started) / 1000).toFixed(1)} s:\n${file}\nCall present with the file so the user can play it.`
       },
     }))
 
-    yield ctx.tools.register(/** @type {ToolDefinition} */ ({
+    yield ctx.tools.register(/** @type {ToolDefinition} */({
       name: 'transcribe_audio',
       output: textOutput,
       description: `Turn speech in an audio or video file of the working directory into text with ${transcriptionModel}: meetings, voice notes, interviews. `
@@ -278,13 +293,13 @@ export function apply(ctx, config = {}) {
       },
     }))
 
-    yield ctx.tools.register(/** @type {ToolDefinition} */ ({
+    yield ctx.tools.register(/** @type {ToolDefinition} */({
       name: 'classify',
       output: textOutput,
       description: 'Get calibrated answers about a piece of text from a classifier (TypeSafe Jev): yes/no probabilities, which of several options, or where on a scale. '
         + 'Use it for triage, routing, scoring and checks where a number is better than an opinion; it answers every question in one fast, cheap call and writes no prose.',
       parameters: {
-        state: { description: 'The text to evaluate, or a JSON object of text values.', required: true },
+        state: { oneOf: [{ type: 'string' }, { type: 'object' }], description: 'The text to evaluate, or a JSON object of text values.', required: true },
         questions: {
           type: 'object', required: true,
           description: 'Map of an id you choose to a question. Each is { type: "noul", instructions } for yes/no; '
@@ -294,7 +309,7 @@ export function apply(ctx, config = {}) {
       },
       execute: async (args, exec) => {
         let body
-        try { body = systemOneBody(jevModel, /** @type {Record<string, unknown>} */ (args)) } catch (error) { throw new HarnessError(/** @type {Error} */ (error).message, 'TOKAMAK_INVALID_ARGS') }
+        try { body = systemOneBody(jevModel, /** @type {Record<string, unknown>} */(args)) } catch (error) { throw new HarnessError(/** @type {Error} */(error).message, 'TOKAMAK_INVALID_ARGS') }
         const reply = await api.request('/systemone', 'classification', { json: body, signal: exec.signal })
         const result = /** @type {{ answers?: unknown }} */ (await reply.json())
         return JSON.stringify(result.answers ?? result, null, 2)
