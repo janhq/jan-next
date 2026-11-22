@@ -237,6 +237,16 @@
   margin-top: 8px;
 }
 
+.emptySuggested {
+  width: min(520px, 100%);
+  margin-top: 8px;
+  text-align: start;
+}
+
+.emptySuggested:empty {
+  display: none;
+}
+
 .detail {
   display: flex;
   flex-direction: column;
