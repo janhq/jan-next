@@ -37,7 +37,7 @@ import clsx from 'clsx'
 import type { ModelReasoningEffort, ModelSelection } from '@janhq/jan-api-remotes/client'
 import {
   IconCheckOutlineRegular, IconChevronDownOutlineRegular, IconChevronRightOutlineRegular, IconCloseFillRegular,
-  IconDataOutlineRegular, IconDatabaseOutlineRegular, IconImageOutlineRegular, IconLayersOutlineRegular,
+  IconDataOutlineRegular, IconDatabaseOutlineRegular, IconImageOutlineRegular,
   IconSearchOutlineRegular, IconStarFillRegular, IconStarOutlineRegular, IconTextOutlineRegular, IconThinkOutlineRegular,
   IconWarningOutlineRegular, Input, isMobileDevice, StateDot, Tag, Toast,
 } from '@janhq/jan-client-ui-primitives'
@@ -772,7 +772,8 @@ export function ModelSelect(
                 className={clsx(css.cell, css.manage)}
                 onClick={() => { close(); openModelsSettings() }}
               >
-                <IconLayersOutlineRegular className={css.manageIcon} />
+                {/* Settings draws its Models section with this glyph; layers belongs to Artifacts. */}
+                <IconDataOutlineRegular className={css.manageIcon} />
                 <span className={css.cellLabel}>{t('menu.manage')}</span>
               </button>
             )}
