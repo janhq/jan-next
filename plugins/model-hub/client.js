@@ -30,6 +30,7 @@ window.__ModuleLoader__.load({
         discardAcknowledge: 'Discard the partial model file.', keepDownload: 'Keep download', discard: 'Discard file',
         use: 'Use', using: 'Starting...', more: 'Show more',
         failed: 'Could not finish: {error}',
+        startFailed: 'The local model could not start: {error}', settings: 'Open Settings -> Models',
       },
       zh: {
         title: '模型中心',
@@ -50,6 +51,7 @@ window.__ModuleLoader__.load({
         discardAcknowledge: '丢弃已下载的部分模型文件', keepDownload: '保留下载', discard: '丢弃文件',
         use: '使用', using: '正在启动...', more: '显示更多',
         failed: '未能完成：{error}',
+        startFailed: '本地模型无法启动：{error}', settings: '打开设置 -> 模型',
       },
       ja: {
         title: 'ハブ',
@@ -70,6 +72,7 @@ window.__ModuleLoader__.load({
         discardAcknowledge: '途中までダウンロードしたモデルファイルを破棄します。', keepDownload: 'ダウンロードを保持', discard: 'ファイルを破棄',
         use: '使用', using: '起動しています...', more: 'さらに表示',
         failed: '完了できませんでした: {error}',
+        startFailed: 'ローカルモデルを起動できませんでした: {error}', settings: '設定 -> モデルを開く',
       },
       es: {
         title: 'Hub',
@@ -90,6 +93,7 @@ window.__ModuleLoader__.load({
         discardAcknowledge: 'Descartar el archivo parcial del modelo.', keepDownload: 'Conservar descarga', discard: 'Descartar archivo',
         use: 'Usar', using: 'Iniciando...', more: 'Mostrar más',
         failed: 'No se pudo completar: {error}',
+        startFailed: 'No se pudo iniciar el modelo local: {error}', settings: 'Abrir Configuración -> Modelos',
       },
       fr: {
         title: 'Hub',
@@ -110,6 +114,7 @@ window.__ModuleLoader__.load({
         discardAcknowledge: 'Supprimer le fichier partiel du modèle.', keepDownload: 'Conserver le téléchargement', discard: 'Supprimer le fichier',
         use: 'Utiliser', using: 'Démarrage...', more: 'Afficher plus',
         failed: 'Impossible de terminer : {error}',
+        startFailed: 'Impossible de démarrer le modèle local : {error}', settings: 'Ouvrir Paramètres -> Modèles',
       },
       de: {
         title: 'Hub',
@@ -130,6 +135,7 @@ window.__ModuleLoader__.load({
         discardAcknowledge: 'Die unvollständige Modelldatei löschen.', keepDownload: 'Download behalten', discard: 'Datei löschen',
         use: 'Verwenden', using: 'Wird gestartet...', more: 'Mehr anzeigen',
         failed: 'Konnte nicht abgeschlossen werden: {error}',
+        startFailed: 'Das lokale Modell konnte nicht starten: {error}', settings: 'Einstellungen -> Modelle öffnen',
       },
       ru: {
         title: 'Хаб',
@@ -150,6 +156,7 @@ window.__ModuleLoader__.load({
         discardAcknowledge: 'Удалить частично загруженный файл модели.', keepDownload: 'Сохранить загрузку', discard: 'Удалить файл',
         use: 'Использовать', using: 'Запуск...', more: 'Показать ещё',
         failed: 'Не удалось завершить: {error}',
+        startFailed: 'Не удалось запустить локальную модель: {error}', settings: 'Открыть Настройки -> Модели',
       },
       pt: {
         title: 'Hub',
@@ -170,6 +177,7 @@ window.__ModuleLoader__.load({
         discardAcknowledge: 'Descartar o arquivo parcial do modelo.', keepDownload: 'Manter download', discard: 'Descartar arquivo',
         use: 'Usar', using: 'Iniciando...', more: 'Mostrar mais',
         failed: 'Não foi possível concluir: {error}',
+        startFailed: 'Não foi possível iniciar o modelo local: {error}', settings: 'Abrir Configurações -> Modelos',
       },
     }
 
@@ -297,7 +305,7 @@ window.__ModuleLoader__.load({
     function follow(remote) {
       const controller = new AbortController()
       const listeners = new Set()
-      let snapshot = { models: [], downloads: [], catalog: [], provider: 'local', hardware: undefined }
+      let snapshot = { models: [], downloads: [], catalog: [], provider: 'local', hardware: undefined, phase: 'checking', error: undefined }
       let timer
       void (async () => {
         while (!controller.signal.aborted) {
@@ -319,6 +327,23 @@ window.__ModuleLoader__.load({
         subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener) },
         dispose: () => { controller.abort(); clearTimeout(timer) },
       }
+    }
+
+    // The followed state once the local server has finished starting or failed; `starting` and
+    // `checking` are transient, and the feed can trail the call that ended them.
+    const SETTLE_MS = 10000
+    function settled(feed) {
+      const done = state => state.phase !== 'starting' && state.phase !== 'checking'
+      if (done(feed.getSnapshot())) return Promise.resolve(feed.getSnapshot())
+      return new Promise((resolve) => {
+        const timeout = setTimeout(() => { stop(); resolve(feed.getSnapshot()) }, SETTLE_MS)
+        const stop = feed.subscribe(() => {
+          if (!done(feed.getSnapshot())) return
+          clearTimeout(timeout)
+          stop()
+          resolve(feed.getSnapshot())
+        })
+      })
     }
 
     const FILTERS = ['tools', 'vision', 'fits', 'installed']
@@ -386,7 +411,7 @@ window.__ModuleLoader__.load({
         ?? (index === item.recommended ? installed.curated.get(quant.repo.toLowerCase()) : undefined)
     }
 
-    function ModelCard({ item, jobs, inventory, act, cancel, busy, failure, fits, installedOnly, smallestFirst, t, locale }) {
+    function ModelCard({ item, jobs, inventory, act, cancel, busy, failure, engineError, openSettings, fits, installedOnly, smallestFirst, t, locale }) {
       const [requested, setChoice] = React.useState(null)
       const variants = item.quants.map((quant, index) => ({
         quant, index, job: jobs.get(quant.name), installed: installedVariant(item, quant, index, inventory),
@@ -399,6 +424,8 @@ window.__ModuleLoader__.load({
       if (!selected) return null
       const { quant, index, installed, job } = selected
       const working = busy?.key === item.key
+      // The default model is the one the local server loads; its failed start is this card's to show.
+      const engineFailed = installed?.active === true && engineError !== undefined
       const run = (kind, target) => act(kind, item.key, target)
       const size = Number.isFinite(quant.bytes) ? formatBytes(quant.bytes, locale) : quant.size
       return h('li', { className: 'jan-hub-card', 'aria-busy': working },
@@ -425,10 +452,14 @@ window.__ModuleLoader__.load({
               variant: installed ? 'primary' : 'outline', size: 'sm', disabled: busy !== null,
               onClick: () => run(installed ? installed.active && installed.status === 'loaded' ? 'chat' : 'use' : 'download', installed ?? quant),
             }, installed ? working ? t('using') : t('use') : working ? t('preparing') : t('download')))),
-        failure && h('p', { role: 'alert', className: 'jan-hub-error' }, t('failed', { error: failure })))
+        engineFailed
+          ? h('div', { role: 'alert', className: 'jan-hub-error' },
+            h('p', null, t('startFailed', { error: engineError })),
+            openSettings && h(Button, { variant: 'outline', size: 'sm', onClick: openSettings }, t('settings')))
+          : failure && h('p', { role: 'alert', className: 'jan-hub-error' }, t('failed', { error: failure })))
     }
 
-    function HubPanel({ useLocal, runAction, t }) {
+    function HubPanel({ useLocal, runAction, openSettings, t }) {
       const locale = document.documentElement.lang || undefined
       const local = useLocal(value => value)
       const { cards, error, retry } = useCatalog()
@@ -497,7 +528,8 @@ window.__ModuleLoader__.load({
                 h(Button, { variant: 'outline', size: 'sm', onClick: clear }, t('clear')))
               : h(React.Fragment, null,
                 h('ul', { className: 'jan-hub-list' }, matches.slice(0, shown).map(item => h(ModelCard, {
-                  key: item.key, item, jobs, inventory, busy, t, locale, fits, installedOnly, smallestFirst: sort === 'size',
+                  key: item.key, item, jobs, inventory, busy, t, locale, fits, installedOnly, smallestFirst: sort === 'size', openSettings,
+                  engineError: local.phase === 'failed' ? local.error ?? '' : undefined,
                   failure: failure?.key === item.key ? failure.message : '',
                   act: (kind, key, target) => { void act(kind, key, target) },
                   cancel: target => { setAcknowledged(false); setConfirm(target) },
@@ -550,7 +582,8 @@ window.__ModuleLoader__.load({
       .jan-hub-empty{box-sizing:border-box;margin-top:12px;padding:44px 12px;text-align:center;display:grid;justify-items:center;gap:8px;border:1px dashed var(--dsw-alias-border-l2);border-radius:12px;color:var(--dsw-alias-label-secondary)}
       .jan-hub-empty h2{color:var(--dsw-alias-label-primary)}
       .jan-hub-empty p{font-size:13px;margin:0 0 4px}
-      .jan-hub .jan-hub-error{color:var(--dsw-alias-label-error,var(--dsw-alias-label-primary));overflow-wrap:anywhere;font-size:13px;margin:0}
+      .jan-hub .jan-hub-error{color:var(--dsw-alias-label-danger,var(--dsw-alias-state-error-primary));overflow-wrap:anywhere;font-size:13px;margin:0;display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+      .jan-hub .jan-hub-error p{margin:0}
       .jan-hub-more{display:flex;justify-content:center;margin-top:16px}
       @media(max-width:600px){.jan-hub{padding:20px}}
     `
@@ -595,11 +628,16 @@ window.__ModuleLoader__.load({
             else if (kind === 'cancel') await answer(remote.cancelDownload(target.id))
             else {
               if (kind === 'use') await answer(remote.setDefaultModel(target.id))
-              await startLocalChat(feed.getSnapshot().provider)
+              // setDefaultModel also returns when the worker failed to start; that failure arrives only
+              // through the followed state, and a chat opened on a route with no server has no model.
+              const after = await settled(feed)
+              if (after.phase === 'failed') throw new Error(t('startFailed', { error: after.error ?? '' }))
+              await startLocalChat(after.provider)
             }
           }
+          const openSettings = () => { ctx.get('settingsNavigation')?.open('models') }
           scope.slots.inject('main', () => scope.slots.register({
-            name: 'main', key: PANEL, locale: PANEL, inject: () => ({ hooks: { local: feed }, runAction }),
+            name: 'main', key: PANEL, locale: PANEL, inject: () => ({ hooks: { local: feed }, runAction, openSettings }),
           }, HubPanel))
           scope.slots.inject('sidebar.panellist', () => scope.slots.register({
             name: 'sidebar.panellist', id: PANEL, order: 5, label: () => t('title'),
