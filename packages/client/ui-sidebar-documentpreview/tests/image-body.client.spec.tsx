@@ -130,7 +130,8 @@ describe('ImageBody', () => {
   it('matches media types case-insensitively on decoded path suffixes', () => {
     expect(imageMediaType('folder/PHOTO.JPEG')).toBe('image/jpeg')
     expect(imageMediaType('folder/no-extension')).toBeUndefined()
-    expect(imageMediaType('folder/photo.avif')).toBeUndefined()
+    expect(imageMediaType('folder/photo.avif')).toBe('image/avif')
+    expect(imageMediaType('folder/photo.heic')).toBeUndefined()
   })
 
   it('retains image zoom without recreating the image or Blob URL', async () => {

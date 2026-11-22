@@ -27,6 +27,12 @@ import { HtmlBody } from '../src/client/html/HtmlBody.tsx'
 import { HTML_BODY_ID } from '../src/client/html/index.ts'
 import { ImageBody } from '../src/client/image/ImageBody.tsx'
 import { IMAGE_BODY_ID } from '../src/client/image/index.ts'
+import { MediaBody } from '../src/client/media/MediaBody.tsx'
+import { MEDIA_AUDIO_ID, MEDIA_VIDEO_ID } from '../src/client/media/index.ts'
+import { FontBody } from '../src/client/font/FontBody.tsx'
+import { FONT_BODY_ID } from '../src/client/font/index.ts'
+import { ArchiveBody } from '../src/client/archive/ArchiveBody.tsx'
+import { ARCHIVE_BODY_ID } from '../src/client/archive/index.ts'
 import { LazyPdfBody } from '../src/client/pdf/LazyPdfBody.tsx'
 import { LazyExcelBody } from '../src/client/excel/LazyExcelBody.tsx'
 import { PDF_BODY_ID } from '../src/client/pdf/index.ts'
@@ -98,6 +104,10 @@ describe('ui-sidebar-documentpreview apply', () => {
       ['sidebar.right.tab.document', MARKDOWN_BODY_ID, 'documentMarkdown', MarkdownBody],
       ['sidebar.right.tab.document', HTML_BODY_ID, 'documentHtml', HtmlBody],
       ['sidebar.right.tab.document', IMAGE_BODY_ID, 'sidebarImage', ImageBody],
+      ['sidebar.right.tab.document', MEDIA_VIDEO_ID, 'sidebarMedia', MediaBody],
+      ['sidebar.right.tab.document', MEDIA_AUDIO_ID, 'sidebarMedia', MediaBody],
+      ['sidebar.right.tab.document', FONT_BODY_ID, 'sidebarFont', FontBody],
+      ['sidebar.right.tab.document', ARCHIVE_BODY_ID, 'sidebarArchive', ArchiveBody],
       ['sidebar.right.tab.document', PDF_BODY_ID, 'sidebarPdf', LazyPdfBody],
       ['sidebar.right.tab.document.action', '@janhq/jan-client-ui-sidebar-documentpreview/office', 'sidebarOffice', OfficeFontAction],
       ['sidebar.right.tab.document', '@janhq/jan-client-ui-sidebar-documentpreview/office', 'sidebarOffice', OfficeBody],
