@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { IconPlusOutlineRegular, IconTrashOutlineRegular, Switch, Tooltip } from '@janhq/jan-client-ui-primitives'
+import { IconPlusOutlineRegular, IconTrashOutlineRegular, SelectMenu, Switch, Tooltip } from '@janhq/jan-client-ui-primitives'
 import type { ModelDraft } from './model-drafts.ts'
 import { modelDrafts } from './model-drafts.ts'
 import type { ModelsKey } from './locales.ts'
@@ -193,17 +193,15 @@ export function ModelReasoningEfforts({ model, levels, position, disabled, t, on
               // so the position is the row's identity. Keying by level would remount
               // the select on every change and drop keyboard focus.
               <div key={index} className={styles['modelReasoningRow']}>
-                <select
-                  className={`${styles['input']} ${styles['selectInput']}`}
+                <SelectMenu
+                  className={styles['selectMenu']}
+                  align="start"
                   value={level}
-                  aria-label={`${t('modelReasoningLevel')} ${String(index + 1)}`}
+                  label={`${t('modelReasoningLevel')} ${String(index + 1)}`}
                   disabled={disabled}
-                  onChange={(event) => { changeLevel(entries, index, level, wire, event.target.value) }}
-                >
-                  {choicesFor(level).map(choice => (
-                    <option key={choice} value={choice}>{choice}</option>
-                  ))}
-                </select>
+                  options={choicesFor(level).map(choice => ({ id: choice, label: choice }))}
+                  onChange={(id) => { changeLevel(entries, index, level, wire, id) }}
+                />
                 <input
                   className={`${styles['input']} ${styles['modelReasoningValueInput']}`}
                   type="text"

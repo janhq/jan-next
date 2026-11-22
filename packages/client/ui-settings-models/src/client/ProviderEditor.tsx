@@ -24,7 +24,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { CredentialInfo, LlmNativeAuth, SettingsNamespaceView, SettingsPathOpView } from '@janhq/jan-api-remotes/client'
 import type { JsonValue } from '@janhq/jan-util-values'
-import { Tooltip } from '@janhq/jan-client-ui-primitives'
+import { SelectMenu, Tooltip } from '@janhq/jan-client-ui-primitives'
 import { modelDrafts, validateModelDrafts } from './model-drafts.ts'
 import type { ModelsValidationFailure } from './model-drafts.ts'
 import { apiKeyFailure } from './apiKey.ts'
@@ -462,22 +462,20 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
               ? (
                 <div className={styles['field']}>
                   <span className={styles['fieldLabel']}>{t('customApi')}</span>
-                  <select
-                    className={`${styles['input']} ${styles['selectInput']}`}
-                    value={probeApi ?? ''}
-                    aria-label={t('customApi')}
+                  {/* A profile naming no protocol (hand-written into
+                      cordis.patch.yml with no model to need one) shows the
+                      unset label rather than reading as if it had picked the
+                      first choice. */}
+                  <SelectMenu
+                    className={styles['selectMenu']}
+                    align="start"
+                    value={probeApi}
+                    label={t('customApi')}
+                    placeholder={t('customApiUnset')}
                     disabled={disabled}
-                    onChange={(event) => { setField('api', event.target.value) }}
-                  >
-                    {/* A profile naming no protocol — hand-written into
-                        cordis.patch.yml with no model to need one — selects
-                        nothing rather than reading as if it had picked the
-                        first choice. The option is named because a screen
-                        reader announces it either way, and an empty one is
-                        announced as a choice with no identity. */}
-                    {probeApi === undefined ? <option value="">{t('customApiUnset')}</option> : null}
-                    {protocols.map(choice => <option key={choice} value={choice}>{protocolLabel(t, choice)}</option>)}
-                  </select>
+                    options={protocols.map(choice => ({ id: choice, label: protocolLabel(t, choice) }))}
+                    onChange={(id) => { setField('api', id) }}
+                  />
                 </div>
               )
               : null}
