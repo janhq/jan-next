@@ -11,7 +11,7 @@ window.__ModuleLoader__.load({
       IconNewChatOutlineMedium, IconNewChatOutlineRegular, IconProjectAddOutlineRegular, IconSearchOutlineRegular, IconSearchOutlineMedium,
       IconPluginPinwheelOutlineMedium, IconFolderCloseMedium, IconLayersOutlineMedium, IconClockOutlineMedium, IconLinkOutlineMedium,
       MenuItemButton, Button, Switch, Checkbox, IconLayersOutlineRegular, IconClockOutlineRegular, IconAppsAddOutlineRegular,
-      IconToolOutlineMedium, IconSkillOutlineMedium,
+      IconToolOutlineMedium, IconSkillOutlineMedium, IconDownloadOutlineRegular,
       NavRow, SectionHeading, ColorSwatchGroup, WindowControls,
       Modal, ShortcutKeys, FileTypeIcon, rankByName, IconSparkleRegular, IconRightUpOutlineRegular,
       IconWarningTriangleOutlineRegular, IconCloseOutlineRegular, IconSendOutlineRegular,
@@ -218,11 +218,25 @@ window.__ModuleLoader__.load({
           h('img', { src: logo, alt: '', draggable: false, onError: () => { registryLogos.set(id, null); setLogo(null) } }))
         : h('span', { className: 'jt-agent-art', 'aria-hidden': true }, title.charAt(0).toUpperCase())
     }
+    // Popularity facts the registries publish, never estimates: last week's npm or PyPI
+    // downloads of a server's package, and when the MCP Registry last changed it.
+    const compactCount = count => new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(count)
+    function updatedAgo(iso) {
+      const days = Math.floor((Date.now() - Date.parse(iso)) / 86_400_000)
+      if (!Number.isFinite(days)) return ''
+      const format = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
+      if (days < 30) return format.format(-Math.max(days, 0), 'day')
+      if (days < 365) return format.format(-Math.floor(days / 30), 'month')
+      return format.format(-Math.floor(days / 365), 'year')
+    }
+    const REGISTRY_SORTS = { registry: 'Registry order', downloads: 'Most downloaded', updated: 'Recently updated' }
     // Recommended connectors and the official MCP Registry. A registry server opens the
     // server editor prefilled and saves disabled; a recommended one runs its own setup.
     function RegistryBrowser({ busy, recommended, onAdd, onInstall }) {
       const { Input, SelectMenu, Tag } = require('@janhq/jan-client-ui-primitives')
       const [query, setQuery] = useAgentDraft('registryQuery', '')
+      const [since, setSince] = useAgentDraft('registrySince', '')
+      const [sort, setSort] = useAgentDraft('registrySort', 'registry')
       const [result, setResult] = React.useState({ loading: true, error: '', featured: true, entries: [], nextCursor: undefined })
       const [choices, setChoices] = React.useState({})
       const latest = React.useRef(0)
@@ -230,7 +244,7 @@ window.__ModuleLoader__.load({
         const request = ++latest.current
         setResult(current => ({ ...current, loading: true, error: '' }))
         try {
-          const page = await agentApi('searchRegistry', { query: query.trim(), cursor })
+          const page = await agentApi('searchRegistry', { query: query.trim(), since: since || undefined, cursor })
           if (request !== latest.current) return
           setResult(current => ({ loading: false, error: '', featured: page.featured, nextCursor: page.nextCursor, entries: cursor ? [...current.entries, ...page.entries] : page.entries }))
         } catch (failure) {
@@ -240,7 +254,14 @@ window.__ModuleLoader__.load({
       React.useEffect(() => {
         const timer = setTimeout(() => { load() }, query.trim() ? 350 : 0)
         return () => clearTimeout(timer)
-      }, [query.trim()])
+      }, [query.trim(), since])
+      // Sorting reorders what has loaded; servers without the fact sort last, in registry order.
+      const shown = React.useMemo(() => {
+        const key = { downloads: entry => entry.downloads?.count, updated: entry => Date.parse(entry.updated) || undefined }[sort]
+        if (!key) return result.entries
+        return result.entries.map((entry, index) => ({ entry, index, value: key(entry) }))
+          .sort((a, b) => (b.value ?? -1) - (a.value ?? -1) || a.index - b.index).map(row => row.entry)
+      }, [result.entries, sort])
       const tile = (key, title, head, ...body) => h('article', { className: 'jt-agent-card jt-agent-tile', key, style: { '--jt-hue': nameHue(title) } },
         h('div', { className: 'jt-agent-card-head' }, h(RegistryArt, { id: key, title }), head),
         h('h3', null, title), ...body)
@@ -257,13 +278,20 @@ window.__ModuleLoader__.load({
           h('div', { className: 'jt-agent-toolbar' },
             h(Input, { type: 'search', className: 'jt-agent-search', icon: h(IconSearchOutlineRegular, { size: 16, 'aria-hidden': true }), placeholder: 'Search the MCP Registry', 'aria-label': 'Search the MCP Registry', value: query, onChange: event => setQuery(event.target.value) }),
             h('span', null, result.loading ? 'Searching…' : result.featured ? 'Popular' : `${result.entries.length}${result.nextCursor ? '+' : ''} found`)),
+          h('div', { className: 'jt-registry-filters' },
+            h('div', { className: 'jt-chips', role: 'group', 'aria-label': 'Updated' }, [['', query.trim() ? 'Any time' : 'Popular'], ['week', 'Updated this week'], ['month', 'Updated this month']].map(([id, label]) =>
+              h('button', { key: id, type: 'button', className: 'jt-chip', 'aria-pressed': since === id, onClick: () => setSince(id) }, label))),
+            h(SelectMenu, { className: 'jt-registry-sort', align: 'end', label: 'Sort servers', value: sort, options: Object.entries(REGISTRY_SORTS).map(([id, label]) => ({ id, label })), onChange: setSort })),
           result.error && h('p', { role: 'alert' }, result.error, ' ', h(Button, { variant: 'ghost', size: 'sm', onClick: () => load() }, 'Try again')),
-          !result.loading && !result.error && result.entries.length === 0 && h('p', { className: 'jt-registry-note' }, 'No servers Jan can start match this search.'),
-          result.entries.length > 0 && h('div', { className: 'jt-agent-list jt-agent-grid', 'aria-busy': result.loading }, ...result.entries.map(entry => {
+          !result.loading && !result.error && result.entries.length === 0 && h('p', { className: 'jt-registry-note' }, since ? 'No servers Jan can start were updated in this time.' : 'No servers Jan can start match this search.'),
+          result.entries.length > 0 && h('div', { className: 'jt-agent-list jt-agent-grid', 'aria-busy': result.loading }, ...shown.map(entry => {
             const option = entry.options.find(item => item.id === choices[entry.id]) ?? entry.options[0]
             return tile(entry.id, entry.title,
               h(Button, { variant: 'outline', size: 'sm', disabled: busy, 'aria-label': `Add ${entry.title}`, onClick: () => onAdd(entry, option) }, 'Add'),
               entry.description && h('p', { className: 'jt-agent-clamp' }, entry.description),
+              (entry.downloads || entry.updated) && h('p', { className: 'jt-registry-stats' },
+                entry.downloads && h('span', { title: `${entry.downloads.count.toLocaleString()} downloads of its ${entry.downloads.source} package in the last 7 days` }, h(IconDownloadOutlineRegular, { size: 12, 'aria-hidden': true }), `${compactCount(entry.downloads.count)}/week`),
+                entry.updated && h('span', { title: new Date(entry.updated).toLocaleString() }, `Updated ${updatedAgo(entry.updated)}`)),
               h('div', { className: 'jt-agent-card-title' },
                 entry.options.length > 1
                   ? h(SelectMenu, {
@@ -577,6 +605,11 @@ window.__ModuleLoader__.load({
 .jt-registry-note { margin: 0 0 12px; font-size: 13px; color: var(--dsw-alias-label-secondary); }
 .jt-registry [aria-busy="true"] { opacity: .6; transition: opacity .15s; }
 .jt-registry-option { height: 24px; max-width: 180px; padding: 0 8px; gap: 6px; font-size: 12px; line-height: 18px; }
+.jt-registry-filters { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.jt-registry-filters .jt-chips { flex: 1; min-width: 0; }
+.jt-registry-sort { flex: none; height: 28px; font-size: 13px; }
+.jt-agent-settings .jt-registry-stats { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-secondary); font-variant-numeric: tabular-nums; }
+.jt-registry-stats > span { display: inline-flex; align-items: center; gap: 4px; }
 .jt-registry-fields { margin-block: 12px; padding: 12px; border-radius: 8px; background: var(--dsw-alias-bg-layer-2); font-size: 13px; }
 .jt-registry-fields p { margin: 0 0 6px; }
 .jt-registry-fields ul { margin: 0; padding-left: 18px; }
