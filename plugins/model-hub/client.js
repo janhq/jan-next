@@ -689,7 +689,7 @@ window.__ModuleLoader__.load({
         h('button', { type: 'button', className: 'jan-hub-tile-button', style: art(item, useTint(item.owner)), onClick: () => open(item.key) },
           h(Art, { item, className: 'jan-hub-art' }),
           h('span', { className: 'jan-hub-tile-name' }, item.name),
-          h('span', { className: 'jan-hub-tile-meta' }, [item.developer, size].filter(Boolean).join(' - ')),
+          h('span', { className: 'jan-hub-tile-meta' }, [item.developer, size, item.downloads > 0 && t('downloads', { count: new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 }).format(item.downloads) })].filter(Boolean).join(' - ')),
           h(Chips, { item, installed: owns(item, inventory), t }),
           job && h('progress', { className: 'jan-hub-tile-progress', max: 100, value: percent, 'aria-label': t('progressLabel', { name: job.name }) })))
     }
