@@ -19,7 +19,7 @@ import clsx from 'clsx'
 import { WorkspaceDialogs } from './WorkspaceDialogs.tsx'
 import {
   AnimatedRows, HoverCardGroup, IconArchiveCheckOutlineRegular, IconArchiveOffOutlineRegular, IconArchiveOutlineRegular,
-  IconChevronsUpDownOutlineRegular, IconClockOutlineRegular, IconCloseFillRegular,
+  IconChevronDownOutlineRegular, IconChevronsUpDownOutlineRegular, IconChevronUpOutlineRegular, IconClockOutlineRegular, IconCloseFillRegular,
   IconFlatListOutlineRegular, IconFolderCloseRegular, IconProjectAddOutlineRegular,
   IconQueueOutlineRegular, IconSearchOutlineRegular, IconSlidersTwoOutlineRegular,
   IconWorkspaceTreeOutlineRegular, Menu, Tooltip,
@@ -657,9 +657,14 @@ function SessionTree({
               setWatermarkMotionKey(key => key + 1)
             }}
           >
-            {sessionsExpanded
-              ? t('sessions.collapse')
-              : t('sessions.expand', { n: visible.hiddenCount })}
+            <span className={css.sessionOverflowSlot} aria-hidden>
+              {sessionsExpanded ? <IconChevronUpOutlineRegular size={12} /> : <IconChevronDownOutlineRegular size={12} />}
+            </span>
+            <span className={css.sessionOverflowLabel}>
+              {sessionsExpanded
+                ? t('sessions.collapse')
+                : t('sessions.expand', { n: visible.hiddenCount })}
+            </span>
           </button>
         )}
       </div>
