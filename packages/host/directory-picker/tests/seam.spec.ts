@@ -7,7 +7,9 @@ import type { DirectoryPickerCapability } from '../src/index.ts'
 
 /** Minimal concrete backend: all a subclass owes the abstract class is capability(). */
 class StubPicker extends DirectoryPicker {
-  private readonly stub: DirectoryPickerCapability = { kind: 'native', pick: async () => null }
+  private readonly stub: DirectoryPickerCapability = {
+    kind: 'native', pick: async () => null, createDirectory: async (path, name) => `${path}/${name}`,
+  }
   capability(): DirectoryPickerCapability {
     return this.stub
   }
