@@ -1,6 +1,25 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { mountAgentSettings } from '../agent-settings.mjs'
+import { imported, mountAgentSettings } from '../agent-settings.mjs'
+
+test('a paste from any MCP client becomes disabled Jan servers', () => {
+  const stdio = (name, args, extra = {}) => ({ name, enabled: false, transport: 'stdio', command: 'npx', args, env: {}, ...extra })
+  // Claude Desktop / Cursor, with Cursor-only fields.
+  assert.deepEqual(imported('{"mcpServers":{"github":{"command":"npx","args":["-y","@modelcontextprotocol/server-github"],"env":{"GITHUB_TOKEN":"t"},"autoApprove":[]}}}'),
+    [stdio('github', ['-y', '@modelcontextprotocol/server-github'], { env: { GITHUB_TOKEN: 't' } })])
+  // VS Code mcp.json with a comment and a trailing comma, plus a remote server.
+  assert.deepEqual(imported('{ // mine\n "servers": { "my.docs": { "type": "http", "url": "https://docs.example.com/mcp", }, }, }'),
+    [{ name: 'my-docs', enabled: false, transport: 'streamable-http', url: 'https://docs.example.com/mcp', headers: {} }])
+  // Zed context_servers with the nested command.
+  assert.deepEqual(imported('{"context_servers":{"fs":{"source":"custom","command":{"path":"npx","args":["-y","fs"]}}}}'), [stdio('fs', ['-y', 'fs'])])
+  // A fragment copied out of a larger file, a lone server, a command line, a URL.
+  assert.deepEqual(imported('"time": { "command": "npx", "args": ["t"] },'), [stdio('time', ['t'])])
+  assert.deepEqual(imported('{"command":"npx","args":["-y","@modelcontextprotocol/server-everything"]}'), [stdio('everything', ['-y', '@modelcontextprotocol/server-everything'])])
+  assert.deepEqual(imported('npx -y "@playwright/mcp@latest"'), [stdio('playwright', ['-y', '@playwright/mcp@latest'])])
+  assert.equal(imported('https://mcp.linear.app/mcp')[0].name, 'linear')
+  assert.throws(() => imported('{"mcpServers":{"old":{"type":"sse","url":"https://x.example/sse"}}}'), /SSE/)
+  assert.throws(() => imported('{"theme":"dark"}'), /No MCP servers/)
+})
 
 test('the Host imports missing MCP servers disabled and keeps their credentials separate', async () => {
   const existing = { name: 'existing', enabled: false, transport: 'stdio', command: 'original', args: [] }
