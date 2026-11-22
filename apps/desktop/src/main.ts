@@ -6,7 +6,7 @@ import type { DesktopChannelState, DesktopChannelChangeResult } from '@janhq/jan
 import { DesktopUpdateSettings } from './update-settings.ts'
 import { isDesktopUpdateChannel } from './settings-file.ts'
 import type { ProductEventMap, ProductEvent } from '@janhq/jan-client-product-analytics/types'
-import { WINDOWS_TITLEBAR_HEIGHT } from './windows-layout.ts'
+import { WINDOWS_TITLEBAR_HEIGHT, windowsCaptionHeight } from './windows-layout.ts'
 import { applicationIconPath } from './application-icon.ts'
 import { access, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -29,6 +29,7 @@ import {
   webContents,
   type IpcMainInvokeEvent,
   type MenuItemConstructorOptions,
+  type WebContents,
 } from 'electron'
 import { resolveDesktopPaths } from './paths.ts'
 import { resolveJanHome } from '@janhq/jan-home-paths'
@@ -1289,6 +1290,12 @@ async function main(): Promise<void> {
   // Zoom every app surface together, so the chat and the side panel views scale as one,
   // and open at the level chosen last time. The renderer leaves these keys to this menu.
   let zoomLevel = readDesktopZoomLevel(app.getPath('userData'))
+  // The native caption buttons are sized in DIP and ignore page zoom; resize them with the zoomed title row.
+  const fitCaption = (contents: WebContents): void => {
+    if (process.platform !== 'win32') return
+    const window = productWindows().find(candidate => candidate.webContents === contents)
+    window?.setTitleBarOverlay({ height: windowsCaptionHeight(contents.getZoomFactor()) })
+  }
   const applyZoom = (level: number): void => {
     const next = clampZoomLevel(level)
     if (next !== zoomLevel) writeDesktopZoomLevel(app.getPath('userData'), next)
@@ -1296,10 +1303,14 @@ async function main(): Promise<void> {
     for (const contents of webContents.getAllWebContents()) {
       if (contents.isDestroyed() || contents.getType() === 'remote' || contents.getURL().startsWith('devtools:')) continue
       contents.setZoomLevel(zoomLevel)
+      fitCaption(contents)
     }
   }
   app.on('web-contents-created', (_event, contents) => {
-    contents.on('did-finish-load', () => { if (zoomLevel !== 0) contents.setZoomLevel(zoomLevel) })
+    contents.on('did-finish-load', () => {
+      if (zoomLevel !== 0) contents.setZoomLevel(zoomLevel)
+      fitCaption(contents)
+    })
     // Electron reports Ctrl+wheel and trackpad pinch here but applies no zoom itself.
     contents.on('zoom-changed', (_zoomEvent, direction) => {
       if (contents.getURL().startsWith('devtools:')) return

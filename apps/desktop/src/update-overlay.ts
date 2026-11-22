@@ -18,7 +18,7 @@ export interface DesktopUpdateOverlay {
 
 type UpdateOwner = Pick<BrowserWindow, 'getContentBounds' | 'isDestroyed' | 'isFocused'>
   & Pick<EventEmitter, 'on' | 'once' | 'off'> & {
-    readonly webContents: Pick<EventEmitter, 'prependListener' | 'off'> & Pick<WebContents, 'focus'>
+    readonly webContents: Pick<EventEmitter, 'prependListener' | 'off'> & Pick<WebContents, 'focus' | 'getZoomFactor'>
     readonly contentView: Pick<View, 'addChildView' | 'removeChildView'>
   }
 
@@ -48,7 +48,8 @@ export class DesktopUpdateOverlays {
     input.active++; input.revision++
     const resize = (): void => {
       const { width, height } = parent.getContentBounds()
-      const top = process.platform === 'win32' ? WINDOWS_TITLEBAR_HEIGHT : 0
+      // The title row is CSS px, so in DIP it grows with the owner page's zoom.
+      const top = process.platform === 'win32' ? Math.round(WINDOWS_TITLEBAR_HEIGHT * ownerContents.getZoomFactor()) : 0
       view.setBounds({ x: 0, y: top, width, height: Math.max(0, height - top) })
     }
     const focus = (): void => {
