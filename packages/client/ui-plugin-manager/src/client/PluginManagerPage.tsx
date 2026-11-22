@@ -15,7 +15,7 @@ import {
   Button, IconCheckCircleFillRegular, IconChevronDownOutlineRegular, IconChevronLeftOutlineMedium,
   IconChevronRightOutlineRegular, IconCloseOutlineMedium,
   IconDownloadOutlineRegular, IconGlobeOutlineRegular, IconInfoOutlineRegular, IconPlusOutlineRegular, IconRefreshOutlineRegular,
-  IconTrashOutlineRegular,
+  IconSparkleRegular, IconTrashOutlineRegular,
   IconSearchOutlineRegular, IconWarningOutlineRegular, Input, Menu, MenuItemButton, Modal, pointerModality,
   PluginArtworkDefault, PluginArtworkLoop, PluginArtworkSearch, PluginArtworkSubagent, PluginArtworkTerminal,
   SegmentedTabs, StateDot, Switch, Tag, TerminalBlock, Toast, Tooltip, useDismissOnOutsidePointer,
@@ -633,12 +633,12 @@ function PluginSpotlight({ packages, t, resolveText, renderSlot, onOpen }: {
     <section className={css.spotlight} aria-roledescription="carousel" aria-label={t('spotlightLabel')}
       style={{ '--plugin-hue': nameHue(pkg.name) } as CSSProperties} data-plugin-spotlight={pkg.name}>
       <div key={pkg.name} className={css.spotlightBody}>
-        <p className={css.spotlightEyebrow}>{t('spotlightEyebrow')}</p>
+        <p className={css.spotlightEyebrow}><IconSparkleRegular size={14} aria-hidden="true" />{t('spotlightEyebrow')}</p>
         <h2 className={css.spotlightTitle}>{title}</h2>
         {description === undefined ? null : <p className={css.spotlightDescription}>{description}</p>}
         <Button variant="primary" size="sm" onClick={() => { onOpen(pkg) }}>{t('spotlightOpen')}</Button>
       </div>
-      <span className={css.spotlightArt} aria-hidden="true">{packageArtwork(pkg.name, pkg.meta?.icon, renderSlot, false, 64)}</span>
+      <span className={css.spotlightArt} aria-hidden="true">{packageArtwork(pkg.name, pkg.meta?.icon, renderSlot, false, 72)}</span>
       {packages.length > 1
         ? (
           <div className={css.spotlightNav}>
@@ -1804,6 +1804,7 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
   const featured = ordered.filter(pkg => MORE_BUNDLES.includes(pkg.name) && !pkg.enabled).slice(0, 5)
   const exploreBar = (
     <div className={css.exploreBar}>
+      <p className={css.customizeIntro}>{t('customizeIntro')}</p>
       <Input type="search" className={css.exploreSearch as string} icon={<IconSearchOutlineRegular size={16} />}
         placeholder={t('exploreSearch')} aria-label={t('exploreSearch')} value={exploreQuery}
         onChange={(event) => { setExploreQuery(event.target.value) }} />
@@ -1833,7 +1834,7 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
   }
 
   return (
-    <section className={css.page} data-plugin-panel aria-busy={state.status === 'loading' || refreshing}>
+    <section className={css.page} data-plugin-panel {...customize ? { 'data-plugin-customize': '' } : {}} aria-busy={state.status === 'loading' || refreshing}>
       {showsMoreList ? (
         <header className={css.moreHead} data-window-drag>
           <Button size="sm" className={css.moreBack} aria-label={t('backToList')} onClick={() => { setView({ kind: 'list' }) }}>
