@@ -7,7 +7,7 @@ kind: "package-bundle"
 
 ## Summary
 
-This optional bundle mounts custom plugin indexes: the Host [`pluginMarket`](../../boot/plugin-market/README.md) service, which reads the plugin indexes the user adds, and the Web [Discover tab](../../client/ui-plugin-market/README.md) of the Plugins page. Shipped profiles leave it disabled.
+This optional bundle mounts custom plugin indexes: the Host [`pluginMarket`](../../boot/plugin-market/README.md) service, which reads the plugin indexes the user adds, and the Web [Discover tab](../../client/ui-plugin-market/README.md) of the Plugins page. The shipped Desktop template turns it on for new profiles; other shipped profiles leave it disabled, and the Plugins page switches it either way.
 
 ## Table of Contents
 
