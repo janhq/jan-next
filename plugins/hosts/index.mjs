@@ -13,6 +13,7 @@ import { installRemote, probeRemote, runtimeIdentity, shippedRuntimes, sshArgs, 
 import { startRelay } from './relay.mjs'
 import { lanAddresses, startGateway } from './gateway.mjs'
 import { sshConfigHosts } from './ssh-config.mjs'
+import { callRemote, copyable, receiveSetup, setupPayload, setupState } from './setup-copy.mjs'
 
 export const name = 'jan-hosts'
 export const inject = ['janHomePath', 'webServer', 'connection', 'credentials', 'settings']
@@ -291,6 +292,33 @@ export function apply(ctx, config) {
     },
     async open({ id }) {
       return { url: await openUrl(await find(id)) }
+    },
+    // Answered on the other computer, for the Jan that started it over SSH.
+    async setupState() {
+      return setupState(ctx)
+    },
+    async receiveSetup(params) {
+      return receiveSetup(ctx, params)
+    },
+    // Asked here: what a connected SSH Host could take from this computer's model setup.
+    async setupOffer({ id }) {
+      const tunnel = tunnels.get(id)
+      if (tunnel === undefined) return { offer: false, items: [] }
+      const remote = await callRemote(tunnel, 'setupState')
+      // Only a Jan nobody set up there gets the offer, so a copy never fights choices made on it.
+      if (!remote.untouched) return { offer: false, items: [] }
+      const items = await copyable(ctx, remote)
+      return { offer: items.length > 0, items }
+    },
+    async copySetup({ id, routes }) {
+      const tunnel = tunnels.get(id)
+      if (tunnel === undefined) throw new HostsError('not-connected', 'Connect first.')
+      if (!Array.isArray(routes) || routes.length === 0) throw new HostsError('routes', 'Choose at least one provider to copy.')
+      const remote = await callRemote(tunnel, 'setupState')
+      const chosen = new Set(routes)
+      const items = (await copyable(ctx, remote)).filter(item => chosen.has(item.route))
+      if (items.length === 0) throw new HostsError('routes', 'That computer already has these providers.')
+      return callRemote(tunnel, 'receiveSetup', await setupPayload(ctx, items))
     },
     async enableGateway({ enabled }) {
       if (typeof enabled !== 'boolean') throw new HostsError('enabled', 'Choose on or off.')

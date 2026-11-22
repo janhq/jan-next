@@ -23,6 +23,17 @@ The archives come from [`scripts/build-host-runtime.ts`](../../scripts/build-hos
 
 A Jan someone installed on that computer by hand is never used or changed: Hosts keeps its own copy and home under `~/.jan/hosts-runtime/`. Remove that directory there to take it away.
 
+## Copy model providers to the other computer
+
+Once an SSH Host is connected, its row asks the Jan there whether anybody set it up. A Jan with no provider added and no default model picked gets an offer under the row: each provider route this computer can give, ticked, and Copy. Copy sends the chosen routes, their keys and this computer's default model (when its route is among them) to that Jan's own `/jan-api/hosts` through the SSH tunnel, signed in with the tunnel's token, so keys never leave the encrypted session.
+
+| Offered | Left out |
+| --- | --- |
+| A route the other Jan lacks, with its key when this computer has one | A route whose endpoint comes from a variable (`baseURLEnv`), such as the local llama.cpp worker: that address belongs to this computer |
+| A key only (shown as "key only"), for a route both Jans have whose key is missing there | A route that needs a key this computer does not have |
+
+The receiving Jan adds only what it lacks: a route with the same name, a key that already resolves there (stored or from its environment) and a default model someone picked all stay as they are, and the answer names what it kept. A route is sent as it was saved here; one with a `!!js` field goes as this computer evaluated it, because the expression would read the other computer's environment. Not now hides the offer until the next Connect.
+
 ## Versions on the two sides
 
 Each Jan serves its own page, so Open always runs the Client that matches the Host on the other computer. Hosts depends only on what the two sides exchange before that:
