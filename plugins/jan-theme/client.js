@@ -146,6 +146,40 @@ window.__ModuleLoader__.load({
         await new Promise(resolve => setTimeout(resolve, 500))
       }
     }
+    // One followed copy of the Host's MCP and skill list, shared by both Customize tabs and their counts.
+    const agentList = (() => {
+      let snapshot = { data: null, error: '' }
+      let loading = false
+      const listeners = new Set()
+      const publish = (next) => { snapshot = next; for (const listener of listeners) listener() }
+      async function refresh() {
+        loading = true
+        try { publish({ data: await agentApi('list'), error: '' }) }
+        catch (failure) { publish({ ...snapshot, error: failure.message }); throw failure }
+        finally { loading = false }
+      }
+      return {
+        getSnapshot: () => snapshot,
+        subscribe: (listener) => {
+          listeners.add(listener)
+          if (snapshot.data === null && !snapshot.error && !loading) refresh().catch(() => {})
+          return () => { listeners.delete(listener) }
+        },
+        refresh,
+      }
+    })()
+    function AgentCount({ pick }) {
+      const { data } = React.useSyncExternalStore(agentList.subscribe, agentList.getSnapshot)
+      return data ? String(pick(data)) : null
+    }
+    // Skill sources grouped the way a person thinks of them; anything new falls under Other.
+    const SKILL_GROUPS = [
+      ['builtin', 'Built in', ['bundled', 'runtime']],
+      ['project', 'This project', ['project-jan', 'project-agents']],
+      ['yours', 'Yours', ['user-jan', 'user-agents', 'custom']],
+    ]
+    const skillGroup = row => SKILL_GROUPS.find(([, , sources]) => sources.includes(row.source)) ?? ['other', 'Other']
+    const nameHue = text => [...text].reduce((sum, char) => (sum * 31 + char.codePointAt(0)) % 360, 7)
     const agentDrafts = new Map()
     function useAgentDraft(key, initial) {
       const [value, update] = React.useState(() => agentDrafts.has(key) ? agentDrafts.get(key) : initial)
@@ -166,8 +200,9 @@ window.__ModuleLoader__.load({
     }
     function AgentSettings({ skills = false, onCreate }) {
       const { Input, Modal, RiskConfirmation, Tag } = require('@janhq/jan-client-ui-primitives')
-      const [data, setData] = React.useState(null)
-      const [error, setError] = React.useState('')
+      const { data, error: loadError } = React.useSyncExternalStore(agentList.subscribe, agentList.getSnapshot)
+      const [failure, setError] = React.useState('')
+      const error = failure || loadError
       const [notice, setNotice] = React.useState('')
       const [busy, setBusy] = React.useState(false)
       const [draft, setDraft] = useAgentDraft('server', null)
@@ -177,6 +212,7 @@ window.__ModuleLoader__.load({
       const [preview, setPreview] = React.useState(null)
       const [importOpen, setImportOpen] = React.useState(false)
       const [skillQuery, setSkillQuery] = useAgentDraft('skillQuery', '')
+      const [skillFilter, setSkillFilter] = useAgentDraft('skillFilter', 'all')
       const [directories, setDirectories] = useAgentDraft('directories', null)
       const [instruction, setInstruction] = useAgentDraft('instruction', null)
       const [confirmation, setConfirmation] = React.useState(null)
@@ -188,11 +224,10 @@ window.__ModuleLoader__.load({
         window.addEventListener('beforeunload', warn)
         return () => window.removeEventListener('beforeunload', warn)
       }, [hasDraft])
-      async function refresh() {
-        const next = await agentApi('list')
-        setData(next); if (directories === null) setDirectories(next.directories.join('\n'))
-      }
-      React.useEffect(() => { let live = true; agentApi('list').then(next => { if (live) { setData(next); if (directories === null) setDirectories(next.directories.join('\n')) } }).catch(failure => { if (live) setError(failure.message) }); return () => { live = false } }, [])
+      const refresh = agentList.refresh
+      React.useEffect(() => { if (data && directories === null) setDirectories(data.directories.join('\n')) }, [data])
+      // Opening a tab rereads the list; the shared copy shows meanwhile.
+      React.useEffect(() => { refresh().catch(() => {}) }, [])
       async function run(action, message) {
         setBusy(true); setError(''); setNotice('')
         try { await action(); await refresh(); setNotice(message) }
@@ -210,9 +245,15 @@ window.__ModuleLoader__.load({
       const message = h(React.Fragment, null, error && h('p', { role: 'alert' }, error), h('p', { role: 'status' }, busy ? 'Applying settings…' : notice))
       const empty = (Icon, text, ...buttons) => h('div', { className: 'jt-agent-empty' }, h(Icon, { size: 20 }), h('p', null, text), buttons.length > 0 && actions(...buttons))
       const card = (key, head, ...body) => h('article', { className: 'jt-agent-card', key }, h('div', { className: 'jt-agent-card-head' }, ...head), ...body)
-      const SERVER_STATE = { ready: ['success', 'Connected'], failed: ['danger', 'Connection failed'], empty: ['warning', 'No tools'], disabled: ['neutral', 'Off'] }
+      const SERVER_STATE = { ready: ['success', 'Connected'], failed: ['danger', 'Needs attention'], empty: ['warning', 'No tools'], disabled: ['neutral', 'Off'] }
       const allSkills = data?.skills.skills ?? []
-      const shownSkills = allSkills.filter(row => `${row.name} ${row.description}`.toLowerCase().includes(skillQuery.toLowerCase()))
+      const groups = [['all', 'All', allSkills.length], ...[...SKILL_GROUPS, ['other', 'Other']]
+        .map(([id, label]) => [id, label, allSkills.filter(row => skillGroup(row)[0] === id).length]).filter(([, , count]) => count > 0)]
+      const filter = groups.some(([id]) => id === skillFilter) ? skillFilter : 'all'
+      const shownSkills = allSkills.filter(row => (filter === 'all' || skillGroup(row)[0] === filter)
+        && `${row.name} ${row.description}`.toLowerCase().includes(skillQuery.toLowerCase()))
+      const skeleton = h('div', { className: 'jt-agent-list jt-agent-grid', role: 'status', 'aria-label': 'Loading settings…' },
+        ...Array.from({ length: 6 }, (_, index) => h('div', { key: index, className: 'jt-agent-skeleton' })))
       const savedFolders = data?.directories?.length ?? 0
       return h('section', { className: 'jt-appearance jt-agent-settings', 'aria-busy': busy },
         h('header', { className: 'jt-agent-head' },
@@ -222,18 +263,27 @@ window.__ModuleLoader__.load({
           skills
             ? onCreate && actions(button('Create skill', onCreate, { variant: 'primary' }))
             : actions(onCreate && button('Create connector', onCreate), button('Import JSON', () => setImportOpen(true)), button('Add server', () => edit(null), { variant: 'primary' }))),
-        !data && !error && h('p', { role: 'status' }, 'Loading settings…'),
+        !data && !error && skeleton,
         skills ? h(React.Fragment, null,
           allSkills.length > 0 && h('div', { className: 'jt-agent-toolbar' },
-            h(Input, { type: 'search', placeholder: 'Search skills', 'aria-label': 'Search skills', value: skillQuery, onChange: event => setSkillQuery(event.target.value) }),
-            h('span', null, skillQuery ? `${shownSkills.length} of ${allSkills.length}` : `${allSkills.length} skills`)),
+            h(Input, { type: 'search', className: 'jt-agent-search', icon: h(IconSearchOutlineRegular, { size: 16, 'aria-hidden': true }), placeholder: 'Search skills', 'aria-label': 'Search skills', value: skillQuery, onChange: event => setSkillQuery(event.target.value) }),
+            h('span', null, skillQuery || filter !== 'all' ? `${shownSkills.length} of ${allSkills.length}` : `${allSkills.length} skills`)),
+          groups.length > 2 && h('div', { className: 'jt-chips', role: 'group', 'aria-label': 'Skill sources' }, groups.map(([id, label, count]) =>
+            h('button', { key: id, type: 'button', className: 'jt-chip', 'aria-pressed': filter === id, onClick: () => setSkillFilter(id) },
+              label, h('span', { className: 'jt-chip-count' }, count)))),
           data?.skills.complete === false && h('p', { role: 'alert' }, 'Skill discovery is incomplete. Some sources could not be read.'),
-          data && shownSkills.length === 0 && empty(IconSkillOutlineMedium, skillQuery ? 'No skills match your search.' : 'No skills found yet. Add a folder that contains SKILL.md files below.'),
-          shownSkills.length > 0 && h('div', { className: 'jt-agent-list' }, ...shownSkills.map(row => card(row.name,
-            [h('div', { className: 'jt-agent-card-title' }, h('h3', null, row.name), (row.source || row.provider) && h(Tag, { tone: 'neutral' }, row.source || row.provider)),
-            row.path && h(Button, { variant: 'ghost', size: 'sm', disabled: busy, 'aria-label': `Edit ${row.name}`, onClick: () => run(async () => setInstruction({ name: row.name, ...await agentApi('readSkill', { name: row.name }) }), 'Skill opened.') }, 'Edit')],
-            row.description && h('p', null, row.description),
-            row.path && h('code', { className: 'jt-agent-card-meta' }, row.path)))),
+          data && shownSkills.length === 0 && empty(IconSkillOutlineMedium, skillQuery || filter !== 'all' ? 'No skills match your search.' : 'No skills found yet. Add a folder that contains SKILL.md files below.'),
+          shownSkills.length > 0 && h('div', { className: 'jt-agent-list jt-agent-grid' }, ...shownSkills.map(row => h('article', {
+            className: 'jt-agent-card jt-agent-tile', key: row.name, style: { '--jt-hue': nameHue(row.name) },
+          },
+            h('div', { className: 'jt-agent-card-head' },
+              h('span', { className: 'jt-agent-art', 'aria-hidden': true }, row.name.charAt(0).toUpperCase()),
+              row.path && h(Button, { variant: 'ghost', size: 'sm', disabled: busy, 'aria-label': `Edit ${row.name}`, onClick: () => run(async () => setInstruction({ name: row.name, ...await agentApi('readSkill', { name: row.name }) }), 'Skill opened.') }, 'Edit')),
+            h('h3', null, row.name),
+            row.description && h('p', { className: 'jt-agent-clamp' }, row.description),
+            h('div', { className: 'jt-agent-card-title' },
+              h(Tag, { tone: 'neutral' }, skillGroup(row)[1]),
+              h('span', { className: 'jt-agent-card-meta' }, row.invocation?.userInvocable === false ? 'Used automatically' : `/${row.name}`))))),
           h('details', { className: 'jt-agent-folders' },
             h('summary', null, savedFolders ? `Skill folders (${savedFolders})` : 'Add skill folders'),
             h('p', null, 'Reuse an existing skill library without copying it. Removing a folder here leaves its files untouched.'),
@@ -246,17 +296,19 @@ window.__ModuleLoader__.load({
           data?.servers.length > 0 && h('div', { className: 'jt-agent-list' }, ...data.servers.map(row => {
             const [tone, label] = SERVER_STATE[row.state] ?? SERVER_STATE.empty
             return card(row.name,
-              [h('div', { className: 'jt-agent-card-title' }, h('h3', null, row.name), h(Tag, { tone }, row.state === 'ready' ? `${row.tools.length} tools` : label), row.secretConfigured && h(Tag, { tone: 'quiet' }, 'Credentials saved')),
+              [h('div', { className: 'jt-agent-card-title' }, h('h3', null, row.name), h(Tag, { tone }, row.state === 'ready' ? `${label} · ${row.tools.length} tools` : label), row.secretConfigured && h(Tag, { tone: 'quiet' }, 'Credentials saved')),
               h(Switch, { label: `Enable ${row.name}`, checked: row.enabled, disabled: busy, onChange: enabled => enabled ? ask('Enable MCP server?', 'The server can run commands or access external services. Enable it only if you trust its source.', () => run(() => agentApi('toggle', { name: row.name, enabled }), 'Server enabled.')) : run(() => agentApi('toggle', { name: row.name, enabled }), 'Server disabled.') })],
               h('code', { className: 'jt-agent-card-meta' }, row.transport === 'stdio' ? [row.command, ...(row.args ?? [])].join(' ') : row.url),
               (row.state === 'failed' || row.state === 'empty') && h('p', null, row.status),
               h('div', { className: 'jt-agent-card-foot' },
                 row.tools?.length > 0 ? h('details', { className: 'jt-mcp-tools' }, h('summary', null, `Show ${row.tools.length} tools`), h('ul', null, row.tools.map(tool => h(McpTool, { key: tool.name, tool, server: row.name })))) : h('span'),
                 h('div', { className: 'jt-agent-actions' },
-                  row.enabled && h(Button, { variant: 'ghost', size: 'sm', disabled: busy, 'aria-label': `Reconnect ${row.name}`, onClick: () => run(() => agentApi('toggle', { name: row.name, enabled: true }), 'Connection refreshed.') }, 'Reconnect'),
+                  row.enabled && h(Button, { variant: (row.state === 'failed' || row.state === 'empty') ? 'outline' : 'ghost', size: 'sm', disabled: busy, 'aria-label': `${row.state === 'failed' || row.state === 'empty' ? 'Try again' : 'Reconnect'} ${row.name}`, onClick: () => run(() => agentApi('toggle', { name: row.name, enabled: true }), 'Connection refreshed.') }, row.state === 'failed' || row.state === 'empty' ? 'Try again' : 'Reconnect'),
                   h(Button, { variant: 'ghost', size: 'sm', disabled: busy, 'aria-label': `Edit ${row.name}`, onClick: () => edit(row) }, 'Edit'),
                   h(Button, { variant: 'ghost', size: 'sm', disabled: busy, 'aria-label': `Remove ${row.name}`, onClick: () => ask('Remove MCP server?', 'This removes the connection and its saved credentials. It does not uninstall the server software.', () => run(() => agentApi('remove', { name: row.name, confirmed: true }), 'Server removed.')) }, 'Remove'))))
-          })),
+          }), h('button', { type: 'button', className: 'jt-agent-add', disabled: busy, onClick: () => edit(null) },
+            h(IconToolOutlineMedium, { size: 20, 'aria-hidden': true }), h('span', null, 'Add your own server'),
+            h('small', null, 'A local command or a remote endpoint'))),
           h('details', { className: 'jt-agent-note' }, h('summary', null, 'MCP servers, skills, plugins and agent presets'), h('p', null, 'MCP servers provide tools. Skills provide reusable instructions. Plugins add app features through Plugin manager. Agent presets hold saved instructions and working modes.')),
           draft && h(Modal, {
             open: true, title: original ? `Edit ${original}` : 'Add MCP server', closeLabel: 'Close editor', onClose: () => setDraft(null), className: 'jt-appearance jt-agent-settings jt-agent-modal', contentClassName: 'jt-agent-modal-content', footer: actions(button('Save server', () => run(async () => {
@@ -385,6 +437,26 @@ window.__ModuleLoader__.load({
 .jt-agent-card-title h3 { font-size: 14px; overflow-wrap: anywhere; }
 .jt-agent-settings .jt-agent-card p { margin: 0; font-size: 13px; }
 .jt-agent-card-meta { display: block; font-size: 12px; color: var(--dsw-alias-label-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jt-agent-search input::placeholder { color: var(--dsw-alias-label-tertiary); }
+.jt-agent-grid { grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 12px; }
+.jt-agent-tile { align-content: start; gap: 8px; padding: 14px; transition: transform .18s cubic-bezier(.2, .8, .2, 1), border-color .18s, box-shadow .18s; }
+.jt-agent-tile:hover { transform: translateY(-2px); border-color: var(--dsw-alias-border-l4); box-shadow: 0 8px 20px color-mix(in oklab, hsl(var(--jt-hue) 60% 45%) 18%, transparent); }
+.jt-agent-tile h3 { margin: 0; }
+.jt-agent-tile .jt-agent-card-meta { display: inline; }
+.jt-agent-art { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; font-size: 15px; font-weight: 600; color: #fff; background: linear-gradient(135deg, hsl(var(--jt-hue) 70% 55%), hsl(calc(var(--jt-hue) + 60) 70% 42%)); }
+.jt-agent-settings .jt-agent-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--dsw-alias-label-secondary); }
+.jt-agent-skeleton { height: 132px; border-radius: 12px; background: linear-gradient(90deg, var(--dsw-alias-bg-layer-1) 0%, var(--dsw-alias-border-l1) 50%, var(--dsw-alias-bg-layer-1) 100%); background-size: 200% 100%; animation: jt-skeleton 1.4s ease-in-out infinite; }
+@keyframes jt-skeleton { from { background-position: 100% 0 } to { background-position: -100% 0 } }
+.jt-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.jt-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 12px; border: 0; border-radius: 999px; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; font: inherit; font-size: 13px; line-height: 22px; }
+.jt-chip[aria-pressed='true'] { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); font-weight: 500; }
+.jt-chip:focus-visible, .jt-agent-add:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); }
+@media (hover: hover) { .jt-chip:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); } }
+.jt-chip-count { font-size: 11px; color: var(--dsw-alias-label-tertiary); font-variant-numeric: tabular-nums; }
+.jt-agent-add { display: grid; justify-items: center; gap: 4px; padding: 20px; border: 1px dashed var(--dsw-alias-border-l2); border-radius: 12px; background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; font: inherit; font-size: 13px; transition: border-color .18s, color .18s; }
+.jt-agent-add span { color: var(--dsw-alias-label-primary); font-weight: 500; }
+.jt-agent-add:hover:not(:disabled) { border-color: var(--dsw-alias-border-l4); }
+@media (prefers-reduced-motion: reduce) { .jt-agent-tile { transition: none; } .jt-agent-tile:hover { transform: none; } .jt-agent-skeleton { animation: none; } }
 .jt-agent-card-foot { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .jt-agent-card-foot > :first-child { flex: 1 1 240px; min-width: 0; }
 .jt-agent-card-foot > .jt-agent-actions { margin-inline-start: auto; }
@@ -2733,6 +2805,9 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           // Customize groups Plugins, Skills and Connectors as tabs of one page, as Settings keeps them as sections.
           scope.slots.inject('plugins.tab', () => scope.slots.register({ name: 'plugins.tab', id: 'jt-skills', order: 10, label: () => t('section.skills'), locale: 'jan-theme' }, () => h('div', { className: 'jt-customize-tab' }, h(AgentSettings, { skills: true, key: 'skills', onCreate: () => startCreator('create-skill', 'createSkill.prompt') }))))
           scope.slots.inject('plugins.tab', () => scope.slots.register({ name: 'plugins.tab', id: 'jt-connectors', order: 11, label: () => t('tab.connectors'), locale: 'jan-theme' }, () => h('div', { className: 'jt-customize-tab' }, h(AgentSettings, { key: 'mcp', onCreate: () => startCreator('create-connector', 'createConnector.prompt') }))))
+          // Each tab shows how many it holds, read from the list both tabs share.
+          scope.slots.inject('plugins.tab.count', () => scope.slots.register({ name: 'plugins.tab.count', key: 'jt-skills' }, () => h(AgentCount, { pick: data => data.skills.skills.length })))
+          scope.slots.inject('plugins.tab.count', () => scope.slots.register({ name: 'plugins.tab.count', key: 'jt-connectors' }, () => h(AgentCount, { pick: data => data.servers.length })))
           const addProject = async () => {
             try {
               const path = await scope.uiWorkspace.pickDirectory()
