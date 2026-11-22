@@ -195,7 +195,7 @@ window.__ModuleLoader__.load({
           h('p', null, description || 'The server gave no description for this tool.'),
           args.length ? h('dl', null, args.flatMap(arg => [
             h('dt', { key: `${arg.name}:t` }, h('code', null, arg.name), h('em', null, [arg.type, arg.required ? 'required' : 'optional'].filter(Boolean).join(', '))),
-            h('dd', { key: `${arg.name}:d` }, arg.description || '-'),
+            h('dd', { key: `${arg.name}:d` }, arg.description),
           ])) : h('small', null, 'Takes no arguments.'))))
     }
     // Logos the Host resolved this session, by tile id. Misses are not kept here:
@@ -594,7 +594,8 @@ window.__ModuleLoader__.load({
 .jt-agent-toolbar > :first-child { flex: 1; min-width: 0; }
 .jt-agent-toolbar > span { flex: none; font-size: 13px; color: var(--dsw-alias-label-secondary); font-variant-numeric: tabular-nums; }
 .jt-agent-list { display: grid; gap: 8px; }
-.jt-agent-card { display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 12px; background: var(--dsw-alias-bg-layer-1); min-width: 0; }
+/* One shrinkable column: an implicit auto track would grow to a nowrap tool description's full width. */
+.jt-agent-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 12px 14px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 12px; background: var(--dsw-alias-bg-layer-1); min-width: 0; }
 .jt-agent-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
 .jt-agent-card-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
 .jt-agent-card-title h3 { font-size: 14px; overflow-wrap: anywhere; }
