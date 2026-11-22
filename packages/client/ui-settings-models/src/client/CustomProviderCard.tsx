@@ -33,6 +33,7 @@ import { ApiKeyInput } from './ApiKeyInput.tsx'
 import { EditorFooter } from './EditorFooter.tsx'
 import { validateModelDrafts, type ModelDraft } from './model-drafts.ts'
 import { ModelListEditor } from './ModelListEditor.tsx'
+import { SelectMenu } from '@janhq/jan-client-ui-primitives'
 import { validateReasoningEfforts } from './ModelReasoningEfforts.tsx'
 import { deriveKeyRef } from './store.ts'
 import { protocolLabel } from './protocol-label.ts'
@@ -261,15 +262,15 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
       {baseUrlInvalid ? <p className={styles['error']}>{t('customBaseUrlInvalid')}</p> : null}
       <div className={styles['field']}>
         <span className={styles['fieldLabel']}>{t('customApi')}</span>
-        <select
-          className={`${styles['input']} ${styles['selectInput']}`}
+        <SelectMenu
+          className={styles['selectMenu']}
+          align="start"
           value={protocol}
-          aria-label={t('customApi')}
+          label={t('customApi')}
           disabled={profileDisabled}
-          onChange={(event) => { setProtocol(event.target.value) }}
-        >
-          {protocols.map(choice => <option key={choice} value={choice}>{protocolLabel(t, choice)}</option>)}
-        </select>
+          options={protocols.map(choice => ({ id: choice, label: protocolLabel(t, choice) }))}
+          onChange={(id) => { setProtocol(id) }}
+        />
       </div>
       <div className={styles['field']}>
         <span className={styles['fieldLabel']}>{t('keyInput')}</span>

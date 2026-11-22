@@ -20,7 +20,7 @@
 
 import { useId, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Button, IconPlusOutlineRegular, Modal, SegmentedControl } from '@janhq/jan-client-ui-primitives'
+import { Button, IconPlusOutlineRegular, Modal, SegmentedControl, SelectMenu } from '@janhq/jan-client-ui-primitives'
 import type { InjectFace, PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import type { LlmNativeAuth, SettingsNamespaceView } from '@janhq/jan-api-remotes/client'
 // Type-only: pulls this package's SlotMap merge (the two Models child slots).
@@ -544,22 +544,20 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
                   >
                     <div className={styles['field']}>
                       <span className={styles['fieldLabel']}>{t('provider')}</span>
-                      <select
-                        className={`${styles['input']} ${styles['selectInput']}`}
+                      <SelectMenu
+                        className={styles['selectMenu']}
+                        align="start"
                         value={draft.target.provider}
-                        aria-label={t('provider')}
+                        label={t('provider')}
                         disabled={catalogBusy}
-                        onChange={(event) => {
-                          const picked = addable.find(candidate => candidate.row.entry.provider === event.target.value)
-                          /* v8 ignore next -- the select only lists addable rows */
+                        options={addable.map(({ row }) => ({ id: row.entry.provider, label: row.entry.displayName }))}
+                        onChange={(id) => {
+                          const picked = addable.find(candidate => candidate.row.entry.provider === id)
+                          /* v8 ignore next -- the menu only lists addable rows */
                           if (picked === undefined) return
                           setEditing(targetOf(picked.row))
                         }}
-                      >
-                        {addable.map(({ row }) => (
-                          <option key={row.entry.provider} value={row.entry.provider}>{row.entry.displayName}</option>
-                        ))}
-                      </select>
+                      />
                     </div>
                     <ProviderEditor
                       key={draft.target.provider}
