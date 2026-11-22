@@ -1,0 +1,8 @@
+# Test-only composition: mount the Jan theme and the model Hub over the shipped
+# Web surface, the way the desktop bundle patch inserts them, so the sidebar,
+# the project page, the model menu rows and the hover motion run in a real browser.
+- insert:
+    - id: jan-theme
+      name: '@janhq/jan-client-ui-jan-theme'
+    - id: jan-model-hub
+      name: '@janhq/jan-model-hub'
