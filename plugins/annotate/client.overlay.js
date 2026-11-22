@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
   factory(require) {
     const { createElement: h, useCallback, useEffect, useReducer, useRef, useState } = require('react')
     const { createPortal } = require('react-dom')
-    const { Button, InlineEditor, Input, Modal, Tooltip, IconCloseOutlineRegular, IconPenOutlineRegular, IconRectangleOutlineRegular,
+    const { Button, InlineEditor, Modal, Tooltip, IconCloseOutlineRegular, IconPenOutlineRegular, IconRectangleOutlineRegular,
       IconEllipseOutlineRegular, IconArrowOutlineRegular, IconEraserOutlineRegular, IconTextOutlineRegular, IconCursorOutlineRegular,
       IconUndoOutlineRegular, IconRedoOutlineRegular, IconTrashOutlineRegular, ELEMENT_PROBE_ATTRIBUTE, describeElement,
       probeFrameElement } = require('@janhq/jan-client-ui-primitives')
@@ -450,7 +450,10 @@ window.__ModuleLoader__.load({
      */
     function Drawing({ bitmap, t, note, setNote, close, commit, error }) {
       const [tool, setTool] = useState('pen')
-      const [text, setText] = useState('')
+      // The text being typed in place: where it sits in screenshot pixels and, when it edits a mark, that mark's id.
+      const [editing, setEditing] = useState()
+      const editingRef = useRef()
+      editingRef.current = editing
       const [, render] = useReducer(n => n + 1, 0)
       const [cursor, setCursor] = useState('default')
       const [pending, setPending] = useState(false)
@@ -484,7 +487,11 @@ window.__ModuleLoader__.load({
         const ink = inkLayer.current.getContext('2d')
         ink.clearRect(0, 0, bitmap.width, bitmap.height)
         const live = gesture.current?.kind === 'draw' ? [...marks, gesture.current.mark] : marks
-        for (const mark of live) paintMark(ink, mark, mark.scale, color, font, mark.angle ? centerOf(markBounds(mark, measure)) : undefined)
+        // The mark being retyped shows only in its field, never twice.
+        const hidden = editingRef.current?.id
+        for (const mark of live) {
+          if (mark.id !== hidden) paintMark(ink, mark, mark.scale, color, font, mark.angle ? centerOf(markBounds(mark, measure)) : undefined)
+        }
         const top = chrome.current.getContext('2d')
         top.clearRect(0, 0, bitmap.width, bitmap.height)
         const current = marks.find(mark => mark.id === selected)
@@ -553,10 +560,17 @@ window.__ModuleLoader__.load({
         const p = point(event)
         const before = doc.current.marks
         if (tool === 'text') {
-          if (!text.trim()) return
-          doc.current.marks = [...before, { id: ++doc.current.serial, tool, text: text.trim(), points: [p], scale: p.scale }]
-          record(before)
-          update({})
+          // A click while a field is open places that text; the next click starts another.
+          if (editingRef.current) { finishText(true); return }
+          const hit = hitMark(p)
+          const mark = hit?.tool === 'text' ? hit : undefined
+          const next = mark
+            ? { x: mark.points[0].x, y: mark.points[0].y, scale: mark.scale, size: fontSize(mark, mark.scale), value: mark.text, id: mark.id }
+            : { x: p.x, y: p.y, scale: p.scale, size: 16 * p.scale, value: '' }
+          editingRef.current = next
+          setEditing(next)
+          update({ selected: undefined })
+          event.preventDefault()
           return
         }
         const start = { pointer: event.pointerId, before, origin: p }
@@ -628,6 +642,25 @@ window.__ModuleLoader__.load({
         record(active.before)
         update({})
       }
+      /** Close the in-place field: keep places or rewrites its text (empty text removes an edited mark), otherwise it is dropped. */
+      const finishText = (keep) => {
+        const current = editingRef.current
+        if (!current) return
+        editingRef.current = undefined
+        setEditing(undefined)
+        const value = current.value.trim()
+        const before = doc.current.marks
+        if (keep && current.id !== undefined) {
+          doc.current.marks = value
+            ? before.map(mark => (mark.id === current.id ? { ...mark, text: value } : mark))
+            : before.filter(mark => mark.id !== current.id)
+        } else if (keep && value) {
+          doc.current.marks = [...before, { id: ++doc.current.serial, tool: 'text', text: value,
+            points: [{ x: current.x, y: current.y }], scale: current.scale }]
+        }
+        record(before)
+        update({})
+      }
       useEffect(() => {
         const key = (event) => {
           if (event.defaultPrevented || editable(event.target)) return
@@ -684,9 +717,6 @@ window.__ModuleLoader__.load({
               disabled: future.length === 0 || pending, onClick: redo }),
             h(IconButton, { label: t('deleteMark'), icon: IconTrashOutlineRegular, keys: ['⌫'],
               disabled: selected === undefined || pending, onClick: () => remove(selected) }))),
-        // Picking Text puts the caret in its field, so the words can be typed right away.
-        tool === 'text' && h(Input, { placeholder: t('textHint'), 'aria-label': t('textHint'), value: text, autoFocus: true,
-          onChange: event => setText(event.target.value) }),
         // Explicit width and height (not aspect-ratio over a percentage) so the grid row holds the whole canvas.
         h('div', { style: stage },
           h('div', { style: { ...frameStyle, ...fitted(bitmap) } },
@@ -695,7 +725,25 @@ window.__ModuleLoader__.load({
             h('canvas', { ref: chrome, width: bitmap.width, height: bitmap.height, role: 'img', 'aria-label': t('canvas'),
               style: { ...layer, touchAction: 'none', cursor: tool === 'select' ? cursor : tool === 'text' ? 'text' : 'crosshair' },
               onPointerDown: down, onPointerMove: move, onPointerUp: event => end(event, true), onPointerCancel: event => end(event, false),
-              onLostPointerCapture: event => end(event, false) }))),
+              // The click that opens a text field must not move focus off it again.
+              onMouseDown: (event) => { if (tool === 'text') event.preventDefault() },
+              onLostPointerCapture: event => end(event, false) }),
+            // Text is typed where it lands, in the ink's own font and size, so the field is the mark until it is placed.
+            editing && h('input', { key: `${editing.id ?? 'new'}:${editing.x}:${editing.y}`, autoFocus: true, value: editing.value,
+              'aria-label': t('text'), placeholder: t('textHint'), spellCheck: false,
+              onChange: (event) => { const value = event.target.value; setEditing(current => current && { ...current, value }) },
+              onBlur: () => { finishText(true) },
+              onKeyDown: (event) => {
+                if (event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); finishText(true) }
+                else if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); finishText(false) }
+              },
+              style: { position: 'absolute', left: `${editing.x / editing.scale}px`, top: `${editing.y / editing.scale}px`,
+                // Empty, the field fits its hint; typed, it fits the words.
+                width: `${(editing.value === '' ? t('textHint').length : editing.value.length) + 1}ch`, maxWidth: `calc(100% - ${editing.x / editing.scale}px)`,
+                boxSizing: 'content-box', margin: 0, padding: 0, border: 0, outline: `1px dashed ${brush.current?.select ?? HIGHLIGHT}`,
+                outlineOffset: '2px', background: 'transparent', color: brush.current?.color, fontFamily: brush.current?.font,
+                // Line height 1 puts the em box's top where the canvas paints with a top baseline, so placing does not jump.
+                fontWeight: 500, fontSize: `${editing.size / editing.scale}px`, lineHeight: 1 } }))),
         h(Notes, { t, value: note, change: setNote, close, submit: save }),
         (error || encodeError) && h(Status, { t, message: error || 'encodeError', error: true }),
         h('div', { style: { ...tools, justifyContent: 'end', gap: '8px' } },
