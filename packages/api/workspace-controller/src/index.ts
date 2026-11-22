@@ -27,6 +27,7 @@ import type {
   WorkspaceRenameRequest,
   WorkspaceUnarchiveSessionRequest,
   WorkspaceUnpinSessionRequest,
+  WorkspaceUpdateRequest,
   WorkspaceValue,
 } from './types.ts'
 
@@ -115,6 +116,16 @@ export class WorkspaceController extends TypertRemoteService {
   @Remote('rename')
   rename(request: WorkspaceRenameRequest): Promise<WorkspaceValue> {
     return this.commands.rename(request)
+  }
+
+  /**
+   * Change the Workspace title and appearance in one durable update.
+   * @param request - Workspace id and changed identity fields; null clears appearance.
+   * @returns the updated Workspace projection.
+   */
+  @Remote('update')
+  update(request: WorkspaceUpdateRequest): Promise<WorkspaceValue> {
+    return this.commands.update(request)
   }
 
   /**

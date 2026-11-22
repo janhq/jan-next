@@ -46,9 +46,9 @@ import type { } from '@janhq/jan-client-ui-conversation/client'
 import type { } from '@janhq/jan-client-ui-layout/client'
 import type { SessionSearchResultItem } from '@janhq/jan-api-session-controller/client'
 import type { RemoteHostFacts } from '@janhq/jan-api-remotes/client'
-import type { SessionActivity, WorkspaceId, WorkspaceView } from '@janhq/jan-api-workspace-controller/client'
+import type { SessionActivity, WorkspaceId, WorkspaceUpdateRequest, WorkspaceView } from '@janhq/jan-api-workspace-controller/client'
 import type { SessionId } from '@janhq/jan-session/types'
-import type { ShortcutCatalogEntry } from '@janhq/jan-client-shortcuts/client'
+import type { ShortcutCatalogEntry, ShortcutPlatform } from '@janhq/jan-client-shortcuts/client'
 import type { WorkspaceShortcutState } from '../shortcuts.ts'
 import type { StartSessionOptions } from '../navigation.ts'
 import type { } from './toast.ts'
@@ -106,9 +106,9 @@ declare module '@janhq/jan-client-ui-context-menu/client' {
   }
 }
 
-/** One request for the existing Workspace rename or delete dialog. */
+/** One captured request for a Workspace management dialog. */
 export type WorkspaceActionRequest = {
-  readonly action: 'rename' | 'delete'
+  readonly action: 'rename' | 'update' | 'delete'
   readonly workspaceId: WorkspaceId
   readonly displayTitle: string
   readonly storedTitle: string
@@ -329,8 +329,8 @@ export type WorkspaceBrowserInjected = {
    * Workspace, or most recent Workspace, or clear into the New Session view.
    */
   startSession: (workspaceId?: WorkspaceId, options?: StartSessionOptions) => void
-  /** Open a real Session. */
-  open: (sessionId: SessionId) => void
+  /** Open a real Session. Pointer modifiers apply the platform's new-tab gesture. */
+  open: (sessionId: SessionId, modifiers?: { readonly meta: boolean; readonly control: boolean }) => void
   /**
    * Search current visible conversation messages. The Host fixes the result
    * bound; `hasMore` means the query needs narrowing.
@@ -347,6 +347,10 @@ export type WorkspaceBrowserInjected = {
   notifyArchivedNotOpenable: () => void
   /** Rename a Host Workspace (rejects on name conflict; resolves on durability). */
   renameWorkspace: (workspaceId: WorkspaceId, title: string) => Promise<void>
+  /** Save only the changed project identity fields. */
+  updateWorkspaceIdentity: (request: WorkspaceUpdateRequest) => Promise<void>
+  /** Window platform for the system emoji-picker hint. */
+  shortcutPlatform: ShortcutPlatform
   /** Delete only a Host Workspace registration; directory and Session logs remain. */
   deleteWorkspace: (workspaceId: WorkspaceId) => Promise<void>
   /**

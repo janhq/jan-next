@@ -40,7 +40,7 @@ const queuedInbox = (callId: ToolCallId): InboxWireState => ({
 type QuestionRequest = {
   questions: PendingQuestion['questions']
   signal?: AbortSignal
-  wait?: { callId: ToolCallId; timed?: boolean }
+  wait?: { callId: ToolCallId; timed?: boolean; autoSubmit?: boolean }
 }
 type QuestionAnswer = typeof ANSWER
 type QuestionNext = () => Promise<QuestionAnswer>
@@ -476,6 +476,42 @@ describe('apply', () => {
       channel: 'none', closed: false,
     })
     await expect(pending.answer(ANSWER)).rejects.toThrow(/no channel/)
+  })
+
+  it('submits marked choices and skips unanswered questions at the deadline even without a mounted card', async () => {
+    vi.useFakeTimers()
+    const b = await bench(true, [], 30_000)
+    const lifetime = new AbortController()
+    try {
+      const result = b.invoke(b.agent, {
+        questions: [
+          { id: 'style', question: 'Choose a style', options: [{ label: 'Concise (Recommended)' }, { label: 'Detailed' }] },
+          { id: 'scope', question: 'Choose a scope', options: [{ label: 'Default' }] },
+          { id: 'notes', question: 'Anything else?' },
+        ],
+        wait: { callId: CALL, timed: true, autoSubmit: true },
+        signal: lifetime.signal,
+      }, async () => ANSWER)
+      void result.catch(() => {})
+      await vi.advanceTimersByTimeAsync(0)
+      const [pending] = b.pending.getSnapshot()
+      expect(pending?.snapshot().countdown).toEqual({ remainingMs: 30_000, running: true })
+      await pending?.dismiss()
+      expect(b.pending.getSnapshot()).toEqual([])
+      await vi.advanceTimersByTimeAsync(30_000)
+      await expect(result).resolves.toEqual({
+        autoSubmitted: true,
+        answers: [
+          { id: 'style', selected: ['Concise (Recommended)'] },
+          { id: 'scope', selected: [] },
+          { id: 'notes', selected: [] },
+        ],
+      })
+    } finally {
+      lifetime.abort()
+      await b.ctx.fiber.dispose()
+      vi.useRealTimers()
+    }
   })
 
   it('anchors a Host-measured remaining wait to the Client clock', async () => {

@@ -14,7 +14,6 @@ import type {
 // Type-only: pulls the `agentPreset` Session projection value into this program.
 import type { } from '@janhq/jan-agent-preset-registry/types'
 import { createSnapshotStore, type ObservableSnapshot } from '@janhq/jan-client-store'
-import type { SubagentAddress } from '@janhq/jan-subagent/client'
 import type {
   IWorkspaces, WorkspaceId, WorkspaceSnapshot, WorkspaceView,
 } from '@janhq/jan-api-workspace-controller/client'
@@ -27,11 +26,7 @@ import { NavigationHistory, sameSession } from './history.ts'
 import type { NavigationAvailability, NavigationDirection, NavigationLocation } from './history.ts'
 import { pinOrderAccounts, pinOrderSource } from './pin-order.ts'
 import type { SessionGroupBy, WorkspaceViewStoreActions } from './stores.ts'
-
-interface MainSelection {
-  readonly sessionId?: SessionId
-  readonly subagentAddress?: SubagentAddress
-}
+import { createMainSelection } from './window-selection.ts'
 
 interface ProjectHandler {
   readonly open: (workspaceId: WorkspaceId) => void
@@ -47,6 +42,11 @@ export interface StartSessionOptions extends DraftInitializationOptions {
   readonly agentPreset?: string
 }
 
+type WorkspaceConnectionOptions = Pick<StartSessionOptions, 'agentPreset'> & {
+  /** Disable Workspace blank reuse for an independent new tab. */
+  readonly reuseBlank?: boolean
+}
+
 /** Workspace archive and directory operations consumed by Client UI domains. */
 export interface UiWorkspace {
   /**
@@ -59,6 +59,12 @@ export interface UiWorkspace {
    * @param target - known Session identity or durable direct-parent subagent address to display.
    */
   openSession(target: SessionTarget): void
+  /** Open the sessionless Conversation as a user navigation. */
+  showEmptyConversation?(): void
+  /** @param sessionId - Session to open in a separate tab, or normally without a tab owner. */
+  openSessionInNewTab?(sessionId: SessionId): void
+  /** @param open - window-local tab opener. @returns its disposer. */
+  registerSessionTabOpener?(open: (sessionId: SessionId) => void): () => void
   /**
    * Return to the previous main-view location: the Session and global panel the user
    * left last. Entries whose Session was archived or deleted are skipped; does nothing
@@ -85,7 +91,7 @@ export interface UiWorkspace {
   openWorkspace(
     workspaceId: WorkspaceId | undefined,
     beforeOpen?: (sessionId: SessionId) => void,
-    options?: Pick<StartSessionOptions, 'agentPreset'>,
+    options?: WorkspaceConnectionOptions,
   ): Promise<void>
   /**
    * Fork a Session without changing the current selection.
@@ -195,6 +201,12 @@ export interface UiWorkspace {
    * @returns whether a handler took the request.
    */
   openProjectSurface(workspaceId: WorkspaceId): boolean
+  /**
+   * Open the Edit project dialog (name, color, icon) for one Workspace, as its sidebar menu does.
+   * @param workspaceId - project to edit.
+   * @returns false when the Workspace is unknown or the Peer may not update it.
+   */
+  editProject(workspaceId: WorkspaceId): boolean
   /** Active Sessions whose presentation replaces the ordinary sidebar row. */
   readonly hiddenSessions: ObservableSnapshot<ReadonlySet<SessionId>>
   /** Subscribe to a plugin's alternate presentation IDs until the registration is disposed. */
@@ -232,9 +244,8 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   private replaying = false
   /** True while a navigation writes the Session and the panel as one location. */
   private batching = false
-  private readonly selection = createSnapshotStore<MainSelection>(
-    {}, { persist: { name: 'jan.sessions.current' } },
-  )
+  private readonly selection = createMainSelection()
+  private tabOpener: ((sessionId: SessionId) => void) | undefined
   private mainReference: SessionReference | undefined
   /** Most recent last; each keeps one Session's history open after the main view leaves it. */
   private readonly recentReferences: SessionReference[] = []
@@ -258,6 +269,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
    * @param sessions - pure Session Controller.
    * @param view - the browser's viewing-store write set (one instance shared with its registration).
    * @param notify - show one notice through the Workspace notice channel.
+   * @param requestEdit - open the Edit project dialog; false when the Workspace cannot be edited.
    */
   constructor(
     ctx: Context,
@@ -266,6 +278,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     private readonly sessions: ISessions,
     private readonly view: Pick<WorkspaceViewStoreActions, 'pinSessionOrder' | 'setGroupBy'>,
     private readonly notify: (toast: RowToast) => void,
+    private readonly requestEdit: (workspaceId: WorkspaceId) => boolean,
   ) {
     super(ctx, 'uiWorkspace')
     ctx.effect(() => {
@@ -294,7 +307,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
    */
   private async connectBlank(
     workspaceId: WorkspaceId,
-    reuse: Pick<StartSessionOptions, 'agentPreset'>,
+    reuse: WorkspaceConnectionOptions,
   ): Promise<SessionId> {
     const workspace = this.workspaces.list.getSnapshot().items
       .find(item => item.workspaceId === workspaceId)
@@ -304,7 +317,11 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     return this.connectToWorkspace(workspace, reuse)
   }
 
-  private connectToWorkspace(workspace: WorkspaceView, reuse: Pick<StartSessionOptions, 'agentPreset'>): Promise<SessionId> {
+  private connectToWorkspace(workspace: WorkspaceView, reuse: WorkspaceConnectionOptions): Promise<SessionId> {
+    if (reuse.reuseBlank === false) return this.createNamed({
+      workspaceId: workspace.workspaceId,
+      ...(reuse.agentPreset === undefined ? {} : { agentPreset: reuse.agentPreset }),
+    })
     const { workspaceId } = workspace
     const inflight = this.connecting.get(workspaceId)
     if (inflight !== undefined && inflight.agentPreset === reuse.agentPreset) return inflight.attempt
@@ -378,7 +395,24 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   }
 
   openSession(target: SessionTarget): void {
+    this.startRequested = true
     this.replaceMain(target, this.lifetime.signal, 'reveal')
+  }
+
+  showEmptyConversation(): void {
+    this.startRequested = true
+    this.clearMain()
+  }
+
+  openSessionInNewTab(sessionId: SessionId): void {
+    if (this.tabOpener === undefined) this.openSession(sessionId)
+    else this.tabOpener(sessionId)
+  }
+
+  registerSessionTabOpener(open: (sessionId: SessionId) => void): () => void {
+    if (this.tabOpener !== undefined) throw new Error('ui-workspace: Session tab opener already registered')
+    this.tabOpener = open
+    return () => { this.tabOpener = undefined }
   }
 
   goBack(): void {
@@ -392,7 +426,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
   async openWorkspace(
     workspaceId: WorkspaceId | undefined,
     beforeOpen?: (sessionId: SessionId) => void,
-    options: Pick<StartSessionOptions, 'agentPreset'> = {},
+    options: WorkspaceConnectionOptions = {},
   ): Promise<void> {
     this.startRequested = true
     const navigation = AbortSignal.any([this.ctx.layout.beginNavigation(), this.lifetime.signal])
@@ -552,6 +586,10 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     if (handler === undefined) return false
     this.showProject(handler, workspaceId)
     return true
+  }
+
+  editProject(workspaceId: WorkspaceId): boolean {
+    return this.requestEdit(workspaceId)
   }
 
   /** Settle the selected project and panel together, including switches within one panel. */

@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "OMP:tool": { "command": "npx", "env": { "TOKEN": "${OMP_TOKEN}" } },
+    "oauth-server": {
+      "type": "http",
+      "url": "https://example.com/omp",
+      "auth": { "type": "oauth", "credentialId": "private-account", "clientSecret": "omp-oauth-not-portable" }
+    },
+    "helper": { "command": "tool", "env": { "TOKEN": "!do-not-run-this-command" } }
+  },
+  "disabledServers": ["OMP:tool"]
+}

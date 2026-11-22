@@ -168,10 +168,10 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* A context-only group's estimated total, styled like each injection row's figure. */
-.tokens {
+/* A closed step's duration or context cost: a trailing caption, styled like each context row's figure. */
+.meta {
   flex: none;
-  padding-left: 6px;
+  padding-left: 8px;
   color: var(--dsw-alias-label-caption);
   font-size: var(--jan-content-font-size-secondary, 13px);
   font-variant-numeric: tabular-nums;

@@ -81,8 +81,9 @@ function modelGroups(count: number): ModelDirectoryState['groups'] {
     ...group, models: [
       ...group.models,
       ...Array.from({ length: Math.max(0, count - 1) }, (_, index) => ({
-        // Names sort after 'Tokamak 1 Preview', so the list keeps this order.
-        id: `model-${index + 2}`, name: `Variant ${index + 2}`,
+        // Distinct families after 'Tokamak 1 Preview' in reading order, so the
+        // menu keeps this order.
+        id: `model-${index + 2}`, name: `Variant ${String.fromCharCode(66 + index)}`,
       })),
     ].slice(0, count),
   }]
@@ -197,7 +198,7 @@ describe('ModelSelect catalog badges', () => {
     expect(trigger.textContent).toBe('新 Tokamak 1.1 Preview')
     expect(screen.getByText('新').getAttribute('data-tone')).toBe('info')
     fireEvent.click(trigger)
-    expect(modelRows().map(row => row.textContent)).toEqual(['Tokamak 1 Pro', 'Tokamak 1.1 Preview 新'])
+    expect(modelRows().map(row => row.textContent)).toEqual(['Tokamak 1.1 Preview 新', 'Tokamak 1 Pro'])
   })
 
   it('hands the badge to a label contribution, which replaces the default rendering', async () => {
@@ -835,7 +836,7 @@ describe('ModelSelect catalog size', () => {
       resolveText={resolveText} select={vi.fn()} t={t} />)
     fireEvent.click(screen.getByRole('button', { name: /选择模型/ }))
     const search = screen.getByRole('searchbox')
-    fireEvent.change(search, { target: { value: 'Variant 5' } })
+    fireEvent.change(search, { target: { value: 'Variant E' } })
     expect(screen.getAllByRole('menuitemradio')).toHaveLength(1)
     expect(screen.getByRole('searchbox')).toBe(search)
     expect(document.activeElement).toBe(search)
@@ -893,7 +894,7 @@ describe('ModelSelect catalog size', () => {
       directory={createSnapshotStore(state({ groups: modelGroups(4) }))}
       load={vi.fn()} resolveText={resolveText} select={select} t={t} />)
     fireEvent.click(screen.getByRole('button', { name: /选择模型/ }))
-    const row = screen.getByRole('menuitemradio', { name: 'Variant 3' })
+    const row = screen.getByRole('menuitemradio', { name: 'Variant C' })
     fireEvent.mouseMove(row)
     expect(document.activeElement).toBe(row)
     expect(row.hasAttribute('data-highlighted')).toBe(true)

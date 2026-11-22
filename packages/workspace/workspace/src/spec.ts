@@ -9,6 +9,7 @@ import { z } from 'zod'
 import { brandString } from '@janhq/jan-brand'
 import type { SessionId } from '@janhq/jan-session'
 import { defineDomain, domainTable } from '@janhq/jan-storage-domain'
+import { isWorkspaceDomain, isWorkspaceEmoji, isWorkspaceImage, WORKSPACE_COLORS, WORKSPACE_ICONS } from './types.ts'
 import type { WorkspaceId } from './types.ts'
 
 /** Workspace id schema at the durable boundary; branding has no runtime representation. */
@@ -24,6 +25,13 @@ const sessionId = z.string().transform(value => brandString<SessionId>(value))
 export const workspaceRecord = z.object({
   path: z.string(),
   title: z.string(),
+  color: z.enum(WORKSPACE_COLORS).optional(),
+  avatar: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('icon'), name: z.enum(WORKSPACE_ICONS) }),
+    z.object({ kind: z.literal('emoji'), value: z.string().refine(isWorkspaceEmoji) }),
+    z.object({ kind: z.literal('image'), url: z.string().refine(isWorkspaceImage) }),
+    z.object({ kind: z.literal('favicon'), domain: z.string().refine(isWorkspaceDomain) }),
+  ]).optional(),
   sessionIds: z.array(sessionId),
   createdAt: z.string(),
   updatedAt: z.string(),

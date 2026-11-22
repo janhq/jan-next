@@ -628,6 +628,14 @@ export interface PiAiModelProfile {
    */
   input?: PiAiModality[]
   /**
+   * Whether this model calls the tools a request declares. Absent states no
+   * answer; `false` is what a managed local route writes for a model whose
+   * chat template has no tool support, so selectors can warn before a tool
+   * task. It is a claim about the model, not a request switch: tools are
+   * still declared to it.
+   */
+  toolUse?: boolean
+  /**
    * Selectable reasoning efforts. Absent inherits the installed catalog
    * entry's capability (a hand-declared model has none and does not reason);
    * `false` declares a non-reasoning model, which is how a profile strips
@@ -844,6 +852,8 @@ export interface RouteCatalog {
    * picked, so only an explicit configuration lands here.
    */
   configuredMaxTokens: ReadonlyMap<string, number>
+  /** Tool-use answers the profile declared, by model id; a model without one is unknown. */
+  declaredToolUse: ReadonlyMap<string, boolean>
 }
 
 /**
@@ -909,6 +919,7 @@ export function resolveRouteModels(
   assertOfferedCompatFields(provider, 'route', request.compat)
   const seen = new Set<string>()
   const configuredMaxTokens = new Map<string, number>()
+  const declaredToolUse = new Map<string, boolean>()
   const resolveEntry = (entry: PiAiModelProfile): Model<Api> => {
     assertOfferedCompatFields(provider, `model "${entry.id}"`, entry.compat)
     if (entry.id.length === 0) invalid(provider, 'has a model with an empty id')
@@ -939,6 +950,7 @@ export function resolveRouteModels(
     // Only a value the profile named is a deployment choice; the catalog's is
     // the model's capability and stays out of request defaults.
     if (entry.maxTokens !== undefined) configuredMaxTokens.set(entry.id, entry.maxTokens)
+    if (typeof entry.toolUse === 'boolean') declaredToolUse.set(entry.id, entry.toolUse)
     return {
       // The installed entry lays the floor, and the fields below override it.
       // Enumerating instead would silently drop every `Model` field this
@@ -983,5 +995,5 @@ export function resolveRouteModels(
     invalid(provider, `sets compat "${field}", but no model on the route speaks a protocol that takes it;`
       + ` it exists on ${takers.join(', ')}`)
   }
-  return { models: serviceableModels, configuredMaxTokens, modelErrors }
+  return { models: serviceableModels, configuredMaxTokens, declaredToolUse, modelErrors }
 }

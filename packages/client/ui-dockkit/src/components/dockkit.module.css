@@ -307,6 +307,12 @@
   margin-left: 4px;
 }
 
+/* The tab's own controls sit before the split control; the same 4px margin
+   keeps 8px between them too. */
+.stripChrome + [data-dockkit-split-control] {
+  margin-left: 4px;
+}
+
 /* macOS desktop: an embedder may pin this surface at the window's top edge (the
    right sidebar does, in both presentations). The strip row is marked
    `data-window-drag` in markup (TabPanel), so ui-web base.css's single darwin

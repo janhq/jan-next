@@ -17,6 +17,7 @@ import type { SessionId } from '@janhq/jan-session/types'
 import type {} from '@janhq/jan-client-ui-chat/client'
 import type { ComposerChainProps } from '@janhq/jan-client-ui-conversation/client'
 import type {} from '@janhq/jan-client-ui-renderer/client'
+import type {} from '@janhq/jan-client-ui-settings/client'
 import type { PendingInteractionPublisher } from '@janhq/jan-client-ui-session/client'
 import type { TypertClientEventListener } from '@janhq/jan-typert-protocol'
 import type { AskUserQuestionItem, PendingUserQuestion, UserQuestionProjectionView } from '@janhq/jan-user-questions/types'
@@ -31,6 +32,8 @@ import { QuestionComposer } from './QuestionComposer.tsx'
 import { answeredQuestionDefinition, questionReplyDefinition } from './question-reply.ts'
 import { QuestionReplyView } from './QuestionReplyView.tsx'
 import { en, ja, es, fr, de, ru, pt, zh, type QuestionKey } from './locales.ts'
+import { AUTO_ANSWER_SECONDS_FIELD, QUESTION_SETTINGS_NAMESPACE, type QuestionSettings } from '../question-settings.ts'
+import { AutoAnswerRow, type AutoAnswerRowInjected } from './settings/AutoAnswerRow.tsx'
 
 export type {
   PendingQuestion, PlanReview, QuestionAnswer, QuestionComposerProps, QuestionWait,
@@ -54,6 +57,22 @@ type ClientQuestionAnswer = Awaited<ReturnType<QuestionListener>>
 
 /** Required services: Agent scopes, Remote Events, Session UI, Slot registry, conversation nodes, and copy. */
 export const inject = ['sessions', 'remote', 'remote.userQuestions', 'uiSession', 'slots', 'locale', 'uiConversation']
+
+function registerAutoAnswerSettings(ctx: ClientContext): void {
+  ctx.inject(['configForms'], (child) => {
+    const form = child.configForms.get<QuestionSettings>(QUESTION_SETTINGS_NAMESPACE)
+    child.slots.inject('settings.agentLoop.item', () => child.slots.register({
+      name: 'settings.agentLoop.item',
+      id: 'auto-answer-questions',
+      order: 30,
+      locale: NS,
+      inject: (): AutoAnswerRowInjected => ({
+        hooks: { questionSettings: form },
+        setAutoAnswerSeconds: seconds => form.set(AUTO_ANSWER_SECONDS_FIELD, seconds),
+      }),
+    }, AutoAnswerRow))
+  })
+}
 
 /** One card and the composer seat it moves in and out of. */
 interface QuestionCard {
@@ -243,6 +262,7 @@ async function answerQuestion(
       opening === undefined ? undefined : Date.now() + opening.value.remainingMs,
       claimSignal,
       (channel) => { card.pending.detachWaterfall(channel) },
+      request.wait?.autoSubmit,
     )
     // Cancellation may win between the first claim frame and this continuation.
     // The request has already settled, so its channel must never reach the card.
@@ -367,6 +387,7 @@ function publishContinuedQuestions(ctx: ClientContext, cards: QuestionCards): ()
  */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }), 'ui-user-questions: dictionaries')
+  registerAutoAnswerSettings(ctx)
   const questionDraftStore = createQuestionDraftStore()
   const registerPendingInteraction = ctx.uiSession.registerPendingInteraction<PendingQuestion>(
     pending => pending.kind === 'plan-review' ? 2 : 1,

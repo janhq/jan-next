@@ -178,6 +178,7 @@ export function createElectronBuilderConfig(
       // macOS matches the application locale against this bundle, not Electron Framework resources.
       extendInfo: {
         CFBundleLocalizations: ['en', 'zh_CN', 'ja', 'es', 'fr', 'de', 'ru', 'pt'],
+        NSCameraUsageDescription: 'Jan Next uses your camera when you choose to capture a photo or video in a chat.',
         NSMicrophoneUsageDescription: 'Jan Next uses your microphone to transcribe speech into message drafts.',
       },
       // Ad-hoc signing keeps the modified Electron executable runnable without a Developer ID.

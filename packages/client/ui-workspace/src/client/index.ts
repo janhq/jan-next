@@ -27,6 +27,7 @@ import type {
   IWorkspaces, SessionActivity, WorkspaceArchiveError, WorkspaceId, WorkspaceSnapshot,
 } from '@janhq/jan-api-workspace-controller/client'
 import type { RemoteEndpoint } from '@janhq/jan-api-remote-access/client'
+import { workspaceDisplayTitle } from '@janhq/jan-api-workspace-controller/default-workspace'
 import { createSnapshotStore } from '@janhq/jan-client-store'
 import { writeClipboard } from '@janhq/jan-client-ui-primitives'
 import type { HostObservable, SnapshotSelectorHook } from '@janhq/jan-client-ui-slots'
@@ -72,6 +73,8 @@ export type {
   WorkspacePickerInjected, WorkspacePickerProps,
 } from './contract/slots.ts'
 export type { WorkspaceKey } from './locales.ts'
+/** The shared project avatar, for surfaces outside this package that show a project (e.g. a project page title). */
+export { ProjectAvatar } from './ProjectAvatar.tsx'
 
 declare module '@janhq/jan-client-ui-slots' {
   interface GlobalStandardProps {
@@ -128,8 +131,20 @@ export function apply(ctx: Context): void {
   const rowToast = createSnapshotStore<RowToastState | null>(null)
   let toastSeq = 0
   const notify = (toast: RowToast): void => { rowToast.set({ ...toast, seq: ++toastSeq }) }
+  const workspaceActionRequest = createSnapshotStore<WorkspaceActionRequest | null>(null)
+  const requestWorkspaceAction = (workspaceId: WorkspaceId, displayTitle: string, action: WorkspaceActionRequest['action']): boolean => {
+    const workspace = workspaces.list.getSnapshot().items.find(row => row.workspaceId === workspaceId)
+    if (workspace === undefined || !ctx.remoteAccess.source('workspace', workspaceId, `workspace/${action}`).getSnapshot()) return false
+    workspaceActionRequest.set({ action, workspaceId, displayTitle, storedTitle: workspace.title })
+    return true
+  }
+  const editProject = (workspaceId: WorkspaceId): boolean => {
+    const workspace = workspaces.list.getSnapshot().items.find(row => row.workspaceId === workspaceId)
+    return workspace !== undefined && requestWorkspaceAction(
+      workspaceId, workspaceDisplayTitle(workspace, ctx.locale.bind(NS)('workspace.defaultName')), 'update')
+  }
   const uiWorkspace = new UiWorkspaceService(
-    ctx, ctx.remote.directoryPicker, workspaces, sessions, viewInstance.actions, notify,
+    ctx, ctx.remote.directoryPicker, workspaces, sessions, viewInstance.actions, notify, editProject,
   )
   ctx.slots.provideRoot({
     hooks: { workspaces: workspaces.list },
@@ -165,8 +180,11 @@ export function apply(ctx: Context): void {
     subscribe: listener => ctx.on('connection/reset', listener),
   }
   const pickerFlowSource = flowSource('conversation.hero.workspace.directoryFlow')
-  const openSession: WorkspaceBrowserInjected['open'] = (sessionId) => {
-    uiWorkspace.openSession(sessionId)
+  const openSession: WorkspaceBrowserInjected['open'] = (sessionId, modifiers) => {
+    const newTab = modifiers !== undefined
+      && (ctx.shortcuts.platform === 'macos' ? modifiers.meta : modifiers.control)
+    if (newTab) uiWorkspace.openSessionInNewTab(sessionId)
+    else uiWorkspace.openSession(sessionId)
   }
   // Registry-global sets as Sets, rebuilt only when the Workspace snapshot changes.
   const pinnedSet = derive(workspaces.list, snapshot => new Set<SessionId>(snapshot.pinnedSessionIds))
@@ -274,12 +292,6 @@ export function apply(ctx: Context): void {
     hooks: { toast: rowToast },
     dismissToast: () => { rowToast.set(null) },
   })
-  const workspaceActionRequest = createSnapshotStore<WorkspaceActionRequest | null>(null)
-  const requestWorkspaceAction = (workspaceId: WorkspaceId, displayTitle: string, action: 'rename' | 'delete'): void => {
-    const workspace = workspaces.list.getSnapshot().items.find(row => row.workspaceId === workspaceId)
-    if (workspace === undefined || !ctx.remoteAccess.source('workspace', workspaceId, `workspace/${action}`).getSnapshot()) return
-    workspaceActionRequest.set({ action, workspaceId, displayTitle, storedTitle: workspace.title })
-  }
   ctx.slots.inject('contextMenu.icon', function*() {
     for (const [key, Icon] of Object.entries({
       'workspace.rename': IconEditOutlineRegular, 'workspace.delete': IconTrashOutlineRegular,
@@ -293,6 +305,11 @@ export function apply(ctx: Context): void {
     resolve: ({ workspaceId, displayTitle }) => ctx.remoteAccess.source('workspace', workspaceId, 'workspace/rename').getSnapshot()
       ? [{ id: 'rename', label: ctx.locale.bind(NS)('rename'), icon: { key: 'workspace.rename' }, run: () => { requestWorkspaceAction(workspaceId, displayTitle, 'rename') } }] : [],
   }), 'workspace: rename menu action')
+  ctx.effect(() => ctx.contextMenus.register({
+    id: 'workspace.edit', target: 'workspace', order: 50,
+    resolve: ({ workspaceId, displayTitle }) => ctx.remoteAccess.source('workspace', workspaceId, 'workspace/update').getSnapshot()
+      ? [{ id: 'edit', label: ctx.locale.bind(NS)('identity.edit'), icon: { key: 'workspace.rename' }, run: () => { requestWorkspaceAction(workspaceId, displayTitle, 'update') } }] : [],
+  }), 'workspace: edit project menu action')
   ctx.effect(() => ctx.contextMenus.register({
     id: 'workspace.delete', target: 'workspace', order: 300,
     resolve: ({ workspaceId, displayTitle }) => ctx.remoteAccess.source('workspace', workspaceId, 'workspace/delete').getSnapshot()
@@ -312,6 +329,8 @@ export function apply(ctx: Context): void {
     requestSessionRename,
     notifyArchivedNotOpenable: () => { notify({ kind: 'archivedNotOpenable' }) },
     renameWorkspace: async (workspaceId, title) => { await workspaces.rename(workspaceId, title) },
+    updateWorkspaceIdentity: async (request) => { await workspaces.updateIdentity(request) },
+    shortcutPlatform: ctx.shortcuts.platform,
     deleteWorkspace: async (workspaceId) => { await workspaces.delete(workspaceId) },
     insertWorkspaceBefore: async (workspaceId, beforeWorkspaceId) => {
       await workspaces.insertBefore(workspaceId, beforeWorkspaceId)

@@ -8,13 +8,15 @@ window.__ModuleLoader__.load({
     const h = React.createElement
     const {
       IconPluginPinwheelOutlineRegular, IconCheckOutlineRegular, IconFolderCloseRegular, IconSettingsOutlineMedium, IconSettingsOutlineRegular,
-      IconNewChatOutlineMedium, IconNewChatOutlineRegular, IconProjectAddOutlineRegular, IconSearchOutlineRegular,
+      IconNewChatOutlineMedium, IconNewChatOutlineRegular, IconProjectAddOutlineRegular, IconSearchOutlineRegular, IconSearchOutlineMedium,
+      IconPluginPinwheelOutlineMedium, IconFolderCloseMedium, IconLayersOutlineMedium, IconClockOutlineMedium, IconLinkOutlineMedium,
       MenuItemButton, Button, Switch, Checkbox, IconLayersOutlineRegular, IconClockOutlineRegular, IconAppsAddOutlineRegular,
       IconToolOutlineMedium, IconSkillOutlineMedium,
       NavRow, SectionHeading, ColorSwatchGroup, ProjectCard, WindowControls,
       Modal, ShortcutKeys, FileTypeIcon, rankByName, IconSparkleRegular, IconRightUpOutlineRegular,
       IconWarningTriangleOutlineRegular, IconCloseOutlineRegular, IconSendOutlineRegular,
-      IconLinkOutlineRegular, IconUserOutlineMedium, IconCopyOutlineRegular, IconFolderOpenOutlineRegular, IconBranchOutlineRegular,
+      IconLinkOutlineRegular, IconUserOutlineMedium, IconCopyOutlineRegular, IconFolderOpenOutlineRegular, IconBranchOutlineRegular, StateDot,
+      IconEditOutlineRegular,
     } = require('@janhq/jan-client-ui-primitives')
     const { workspaceDisplayTitle } = require('@janhq/jan-api-workspace-controller/client')
     // Optional: the matching host publishes the dock model seat. An older
@@ -25,6 +27,15 @@ window.__ModuleLoader__.load({
     } catch (error) {
       console.warn('jan-theme: dock model selection unavailable', error)
       DockModelSelection = undefined
+    }
+    // Optional: a ui-workspace that exports its project avatar draws it beside the
+    // project page title; an older one leaves the title alone.
+    let ProjectAvatar
+    try {
+      ProjectAvatar = require('@janhq/jan-client-ui-workspace/client').ProjectAvatar
+    } catch (error) {
+      console.warn('jan-theme: project avatar unavailable', error)
+      ProjectAvatar = undefined
     }
     const shell = window.__JAN_THEME__ ?? { look: null }
     // Tauri: the shell draws the title row itself. Electron owns its window
@@ -322,6 +333,12 @@ window.__ModuleLoader__.load({
       '--dsw-alias-bg-layer-1': { light: '#FFFFFF', dark: '#1B1B1B' },
       '--dsw-alias-bg-layer-2': { light: '#F7F7F7', dark: '#151515' },
       '--dsw-alias-bg-overlay': { light: '#FFFFFF', dark: '#1B1B1B' },
+      // Toasts sit on the same raised surface as Jan's menus and cards (overlay fill,
+      // hairline border, primary label), following the theme instead of a fixed grey slab.
+      '--dsw-alias-toast-bg': { light: '#FFFFFF', dark: '#1B1B1B' },
+      '--dsw-alias-toast-border': { light: 'rgb(34 34 34 / 10%)', dark: 'oklch(1 0 0 / 15%)' },
+      '--dsw-alias-toast-label': { light: '#3D3D3D', dark: 'rgb(255 255 255 / 80%)' },
+      '--dsw-alias-toast-action': both('var(--dsw-alias-state-business-primary)'),
       '--dsw-alias-border-l1': { light: 'rgb(34 34 34 / 5%)', dark: 'rgb(255 255 255 / 8%)' },
       '--dsw-alias-border-l2': { light: 'rgb(34 34 34 / 10%)', dark: 'oklch(1 0 0 / 15%)' },
       '--dsw-alias-label-primary': { light: '#3D3D3D', dark: 'rgb(255 255 255 / 80%)' },
@@ -475,15 +492,55 @@ window.__ModuleLoader__.load({
      the card's 6px top padding), and the first row follows at the stock 8px. */
   html[data-jan-theme][data-jan-theme-mac][data-fullscreen] [data-slot='sidebar'] > div > :has([data-slot='sidebar.brand.name']) { padding-left: 4px; margin-bottom: 8px; }
   html[data-jan-theme][data-jan-theme-mac][data-fullscreen] [data-slot='sidebar'] > div > [data-window-drag]:has(> [data-sidebar-toggle]) { top: 6px; }
-  html[data-jan-theme] .jt-nav-row:not([class*='rail']) { height: 38px; padding: 0 10px; gap: 11px; }
+  /* Jan's SidebarMenu rhythm: 32px rows 4px apart. The rows sit in the sidebar's flex column, not a nav, so the margin carries the gap. */
+  html[data-jan-theme] .jt-nav-row:not([class*='rail']) { height: 32px; padding: 0 8px; gap: 8px; margin: 0 0 4px; }
   /* The More launcher matches these rows (see the panelRow rule below). */
-  html[data-jan-theme] [data-slot='sidebar'] nav { gap: 2px; }
-  html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='session:'] { height: 38px; padding-inline-start: calc(7px + var(--jan-workspace-indent, 0px)); }
+  html[data-jan-theme] [data-slot='sidebar'] nav { gap: 4px; }
+  html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='session:'] { height: 32px; padding-inline-start: calc(7px + var(--jan-workspace-indent, 0px)); }
+  /* Jan's sidebar ink: labels in --sidebar-foreground, icons and the group label at 70%
+     of it, shortcut hints in --muted-foreground. */
+  html[data-jan-theme] [data-slot='sidebar'] { --jt-side-label: oklch(0.145 0 0); --jt-side-icon: oklch(0.145 0 0 / 70%); --jt-side-muted: oklch(0.556 0 0); }
+  html[data-jan-theme] body[data-ds-dark-theme] [data-slot='sidebar'] { --jt-side-label: oklch(0.985 0 0); --jt-side-icon: oklch(0.985 0 0 / 70%); --jt-side-muted: oklch(0.708 0 0); }
+  html[data-jan-theme] [data-slot='sidebar'] .jt-nav-row,
+  html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='session:'],
+  html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='workspace:'],
+  html[data-jan-theme] [data-slot='sidebar'] button[aria-haspopup='menu'][class*='panelRow'],
+  html[data-jan-theme] [data-slot='sidebar'] .jt-footer-action { color: var(--jt-side-label); }
+  html[data-jan-theme] [data-slot='sidebar'] .jt-nav-row > svg,
+  html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='workspace:'] svg,
+  html[data-jan-theme] [data-slot='sidebar'] .jt-footer-action > svg { color: var(--jt-side-icon); }
+  html[data-jan-theme] [data-slot='sidebar'] .jt-list-heading { font-size: 12px; font-weight: 500; color: var(--jt-side-icon); }
+  html[data-jan-theme] [data-slot='sidebar'] .jt-nav-row [class*='shortcut'] { font-size: 11px; color: var(--jt-side-muted); }
+  /* Hover motions copied from Jan's animated icons: each plays once per hover entry and ends at rest. */
+  html[data-jan-theme] .jt-nav-icon { display: inline-flex; flex: none; color: var(--jt-side-icon); transform-origin: center; transition: scale 150ms ease; }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='chat'] { animation: jt-anim-chat 0.5s ease-in-out; scale: 1.05; }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='search'] { animation: jt-anim-search 1s ease; }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='box'],
+  html[data-jan-theme] [data-slot='sidebar'] button[aria-haspopup='menu'][class*='panelRow']:hover [class*='panelGlyph'] { animation: jt-anim-box 0.45s ease-in-out; }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='folder'] { animation: jt-anim-folder 0.6s ease-in-out; }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='home'] { animation: jt-anim-home 0.45s ease-in-out; }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='shake'] { animation: jt-anim-shake 0.5s ease-in-out; }
+  html[data-jan-theme] .jt-nav-icon[data-jt-anim='spin'] { transition: rotate 600ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+  html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='spin'] { rotate: 180deg; }
+  @keyframes jt-anim-chat { 0%, 100% { transform: rotate(0); } 33% { transform: rotate(-7deg); } 66% { transform: rotate(7deg); } }
+  @keyframes jt-anim-search { 0%, 100% { transform: translate(0, 0); } 33% { transform: translate(0, -4px); } 66% { transform: translate(-3px, 0); } }
+  @keyframes jt-anim-box { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-7deg); } }
+  @keyframes jt-anim-folder { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-8deg); } 50% { transform: rotate(6deg); } 75% { transform: rotate(-4deg); } }
+  @keyframes jt-anim-home { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-1px) rotate(-5deg); } }
+  @keyframes jt-anim-shake { 0%, 100% { transform: rotate(0); } 33% { transform: rotate(-5deg); } 66% { transform: rotate(5deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    html[data-jan-theme] .jt-nav-icon, html[data-jan-theme] [data-slot='sidebar'] [class*='panelGlyph'] { animation: none !important; transition: none !important; }
+  }
   /* Grouped lists: a folder's chats start under its name, not under its icon, so the grouping
      reads at a glance. Only a section headed by a folder row gets it; the flat list stays flush. */
   html[data-jan-theme] [data-slot='sidebar'] :has(> * > [data-row-key^='workspace:']) > * > [data-row-key^='session:'] {
     padding-inline-start: calc(7px + 16px + var(--jan-sidebar-label-gap, 6px) + var(--jan-workspace-indent, 0px));
   }
+  /* "Show N more": its chevron under the folder icon, its label on the chats' title column. */
+  html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='overflow:'] {
+    padding-inline-start: calc(7px + var(--jan-workspace-indent, 0px)); color: var(--jt-side-muted);
+  }
+  @media (hover: hover) { html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='overflow:']:hover { color: var(--jt-side-label); } }
   html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='session:'] > span:first-child:has(> [data-slot='sidebar.session.row.leading']:only-child:empty) { display: none; }
   html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='session:'] > span:first-child:has(> [data-slot='sidebar.session.row.leading']:only-child:empty) + span { margin-inline-start: 0; }
   html[data-jan-theme] [data-slot='sidebar.brand.name'] .jt-name { font-size: 14px; }
@@ -511,14 +568,14 @@ window.__ModuleLoader__.load({
   html[data-jan-theme] [data-slot='sidebar'] > div > button > span:first-child > span { width: auto; justify-content: flex-start; gap: 8px; }
   html[data-jan-theme] [data-slot='sidebar'] > div > button > span:last-child:not(:first-child) { opacity: 1; color: var(--dsw-alias-label-secondary); font-size: 10px; font-weight: 500; }
   html[data-jan-theme] [data-slot='sidebar'] nav { margin: 0 0 12px; }
-  html[data-jan-theme] [data-slot='sidebar'] nav > button, html[data-jan-theme] [data-slot='sidebar'] nav > div > button { min-height: 36px; border-radius: 12px; }
+  html[data-jan-theme] [data-slot='sidebar'] nav > button, html[data-jan-theme] [data-slot='sidebar'] nav > div > button { min-height: 32px; border-radius: 12px; }
   /* Jan has no panel launchers above the chat list. Plugins and Model Hub move
      to the footer; every remaining management page stays reachable through the
      native More menu, whose trigger keeps aria-haspopup. Without that trigger
      the rows stay so no page loses its only destination. */
   html[data-jan-theme] [data-slot='sidebar'] nav[aria-label]:has(button[aria-haspopup]) > button[aria-label]:not([aria-haspopup]),
   html[data-jan-theme] [data-slot='sidebar'] nav[aria-label]:has(button[aria-haspopup]) > div:has(> button[aria-label]):not(:has(button[aria-haspopup])) { display: none; }
-  html[data-jan-theme] [data-row-key^='session:'] { min-height: 36px; }
+  html[data-jan-theme] [data-row-key^='session:'] { min-height: 32px; }
   /* Jan lists a chat once it has a message; New Chat already reaches the blank
      session, so its "New Session" row reads as a duplicate. */
   html[data-jan-theme] [data-row-key^='session:'][data-blank] { display: none; }
@@ -538,12 +595,12 @@ window.__ModuleLoader__.load({
   }
   /* The stock More launcher keeps its own 32px / 12px-radius pill; Jan draws
      it as one more nav row so the column has a single row rhythm. */
-  html[data-jan-theme] button[aria-label][aria-haspopup='menu'][class*='panelRow'] { height: 38px; padding: 0 10px; border-width: 0; border-radius: 12px; gap: 11px; line-height: 20px; }
+  html[data-jan-theme] button[aria-label][aria-haspopup='menu'][class*='panelRow'] { height: 32px; padding: 0 8px; border-width: 0; border-radius: 12px; gap: 8px; line-height: 20px; }
   /* More is the next row of the nav, on the same 40px pitch and with the same
      secondary icon ink, not a separate group 12px further down. */
   html[data-jan-theme] [data-slot='sidebar'] [class*='scrollRegion'] { margin-top: 0; }
   html[data-jan-theme] [data-slot='sidebar'] [class*='scrollArea'] { grid-template-rows: 0 max-content 2px max-content; }
-  html[data-jan-theme] button[aria-haspopup='menu'][class*='panelRow'] [class*='panelGlyph'] { color: var(--dsw-alias-label-secondary); }
+  html[data-jan-theme] button[aria-haspopup='menu'][class*='panelRow'] [class*='panelGlyph'] { color: var(--jt-side-icon); }
   /* Projects page. */
   .jt-projects { box-sizing: border-box; width: 100%; max-width: 880px; margin: 0 auto; padding: 48px 32px; color: var(--dsw-alias-label-primary); }
   .jt-projects-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
@@ -562,7 +619,11 @@ window.__ModuleLoader__.load({
   .jt-project-back { display: inline-flex; align-items: center; gap: 4px; margin: 0 0 12px -6px; padding: 2px 6px; border: 0; border-radius: 8px; background: transparent; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 13px; line-height: 20px; cursor: pointer; }
   .jt-project-back:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }
   @media (hover: hover) { .jt-project-back:hover { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-interactive-bg-hover); } }
-  .jt-project-title { margin: 0; font-size: 24px; font-weight: 500; line-height: 32px; overflow-wrap: anywhere; }
+  .jt-project-title-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .jt-project-avatar { flex: none; display: inline-grid; place-items: center; margin-right: 4px; padding: 0; border: 0; border-radius: var(--dsw-radius-sm); background: transparent; cursor: pointer; }
+  .jt-project-avatar:hover { box-shadow: 0 0 0 3px var(--dsw-specific-selector); background: var(--dsw-specific-selector); }
+  .jt-project-avatar:focus-visible { outline: 2px solid var(--dsw-alias-focus-ring, currentColor); outline-offset: 2px; }
+  .jt-project-title { margin: 0; min-width: 0; font-size: 24px; font-weight: 500; line-height: 32px; overflow-wrap: anywhere; }
   .jt-project-path { margin: 4px 0 24px; color: var(--dsw-alias-label-tertiary); font-size: 13px; line-height: 18px; overflow-wrap: anywhere; }
   .jt-project-path-row { display: flex; align-items: center; gap: 2px; margin: 4px 0 24px; min-width: 0; }
   .jt-project-path-row .jt-project-path { margin: 0 6px 0 0; min-width: 0; }
@@ -593,6 +654,7 @@ window.__ModuleLoader__.load({
   @media (hover: hover) { .jt-project-session:hover { background: var(--dsw-alias-interactive-bg-hover); } }
   .jt-project-session-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; line-height: 20px; }
   .jt-project-session-date { flex: none; color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 16px; font-variant-numeric: tabular-nums; }
+  .jt-project-session-status { display: inline-flex; flex: none; align-items: center; gap: 6px; align-self: center; color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 16px; }
   .jt-project-empty { margin: 0; padding: 20px 4px; color: var(--dsw-alias-label-secondary); font-size: 14px; line-height: 20px; }
   .jt-project-rail { display: flex; flex-direction: column; gap: 12px; align-self: start; position: sticky; top: 24px; }
   .jt-project-card { padding: 14px 16px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 12px; }
@@ -674,7 +736,8 @@ window.__ModuleLoader__.load({
   .jt-list-add:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }
   /* Jan's row under the composer: model and context reading at the right,
      text-only model trigger. The composer card keeps no second selector. */
-  html[data-jan-theme] [data-composer-dock] { box-sizing: border-box; width: 100%; max-width: var(--jan-composer-card-max-width); padding-inline: 12px; justify-content: flex-end; }
+  /* 6px pads plus each ghost trigger's 8px put the row's first label on the composer text edge (card + 14). */
+  html[data-jan-theme] [data-composer-dock] { box-sizing: border-box; width: 100%; max-width: var(--jan-composer-card-max-width); padding-inline: 6px; justify-content: flex-end; }
   html[data-jan-theme] [data-composer-dock] button[aria-haspopup='menu'] > svg:first-child { display: none; }
   /* The dock seat has no composer measurement: let its trigger shrink with
      the seat so a long model name ellipsizes instead of running under the ring. */
@@ -759,8 +822,12 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
 
     const SidebarMark = () => h('span', { className: 'jt-sidebar-mark', 'aria-hidden': true })
 
+    // Jan's hover motion per destination (see the jt-anim-* keyframes); other pages shake.
+    const NAV_ANIMATIONS = { newChat: 'chat', search: 'search', 'jan-model-hub': 'box', plugins: 'spin', 'jt-projects': 'folder', artifacts: 'home' }
+    const navIcon = (id, icon) => h('span', { className: 'jt-nav-icon', 'data-jt-anim': NAV_ANIMATIONS[id] ?? 'shake', 'aria-hidden': true }, icon)
+
     const NewSession = ({ wide, onStart, shortcutKeys, shortcutAria, t }) => h(NavRow, {
-      icon: h(wide ? IconNewChatOutlineMedium : IconNewChatOutlineRegular, { size: wide ? 16 : 18 }),
+      icon: navIcon('newChat', h(wide ? IconNewChatOutlineMedium : IconNewChatOutlineRegular, { size: wide ? 16 : 18 })),
       label: t('newChat'), shortcutKeys, shortcutAria, rail: !wide, onClick: onStart, className: 'jt-nav-row',
     })
 
@@ -789,43 +856,47 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       }
       return h(React.Fragment, null,
         h(NavRow, {
-          icon: h(IconSearchOutlineRegular, { size }),
+          icon: navIcon('search', h(wide ? IconSearchOutlineMedium : IconSearchOutlineRegular, { size })),
           label: t('search'), shortcutKeys: searchShortcut?.keys, shortcutAria: searchShortcut?.aria,
           rail: !wide, onClick: requestSearch, className: 'jt-nav-row',
         }),
         sortBySidebarOrder([
-          ...SIDEBAR_DESTINATIONS.filter(({ id }) => available[id] && pinned.includes(id)).map(({ id, Icon, label }) => ({
-            id, icon: h(Icon, { size }), label: t(label), quick: quick[id],
+          ...SIDEBAR_DESTINATIONS.filter(({ id }) => available[id] && pinned.includes(id)).map(({ id, Icon, WideIcon, label }) => ({
+            id, icon: h(wide ? WideIcon : Icon, { size }), label: t(label), quick: quick[id],
           })),
           ...others.filter(({ id }) => pinned.includes(id)).map(({ id, label }) => ({
             id, icon: renderFactorySlot('sidebar.panel.icon', { id, size, active: active === id }), label,
           })),
         ], order).map(({ id, icon, label, quick: action }) => h(NavRow, {
-          key: id, icon, label, rail: !wide, className: 'jt-nav-row',
+          key: id, icon: navIcon(id, icon), label, rail: !wide, className: 'jt-nav-row',
           current: active === id, onClick: () => { openPanel(id) }, quick: action,
         })),
         editing && h(SidebarEditor, { available, others, pinned, renderFactorySlot, t }))
     }
 
-    // A cube on Jan's 16px icon grid with its 1px stroke, so Models carries the
-    // same size and ink as the sidebar's other line icons (More must not share it).
-    const ModelsGlyph = ({ size }) => h('svg', {
+    // A cube on Jan's 16px icon grid, in the Regular (1px) and Medium (1.3px)
+    // weights the product icons use, so Models carries the same size and ink as
+    // the sidebar's other line icons (More must not share it).
+    const cube = strokeWidth => ({ size }) => h('svg', {
       width: size, height: size, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor',
-      strokeWidth: 1, strokeLinejoin: 'round', 'aria-hidden': true,
+      strokeWidth, strokeLinejoin: 'round', 'aria-hidden': true, 'data-icon': 'jt-models',
     }, h('path', { d: 'M8 1.5L14 4.75V11.25L8 14.5L2 11.25V4.75L8 1.5Z' }), h('path', { d: 'M2 4.75L8 8L14 4.75' }),
       h('path', { d: 'M8 8V14.5' }))
+    const ModelsGlyph = cube(1)
+    const ModelsGlyphMedium = cube(1.3)
 
     // The jan-hosts Settings section; its row appears only while that section is registered.
     const HOSTS_SECTION = 'jan-hosts'
     // Every destination Edit sidebar can pin, in sidebar order.
     const SIDEBAR_DESTINATIONS = [
-      { id: 'jan-model-hub', Icon: ModelsGlyph, label: 'hub' },
-      { id: 'plugins', Icon: IconPluginPinwheelOutlineRegular, label: 'customize' },
-      { id: 'jt-projects', Icon: IconFolderCloseRegular, label: 'projects' },
-      { id: 'artifacts', Icon: IconLayersOutlineRegular, label: 'artifacts' },
-      { id: 'schedules', Icon: IconClockOutlineRegular, label: 'scheduled' },
+      // Icon draws the rail; WideIcon, the Medium weight, draws the labelled rows.
+      { id: 'jan-model-hub', Icon: ModelsGlyph, WideIcon: ModelsGlyphMedium, label: 'hub' },
+      { id: 'plugins', Icon: IconPluginPinwheelOutlineRegular, WideIcon: IconPluginPinwheelOutlineMedium, label: 'customize' },
+      { id: 'jt-projects', Icon: IconFolderCloseRegular, WideIcon: IconFolderCloseMedium, label: 'projects' },
+      { id: 'artifacts', Icon: IconLayersOutlineRegular, WideIcon: IconLayersOutlineMedium, label: 'artifacts' },
+      { id: 'schedules', Icon: IconClockOutlineRegular, WideIcon: IconClockOutlineMedium, label: 'scheduled' },
       // A Settings section, not a page: the row opens Settings at Hosts.
-      { id: HOSTS_SECTION, Icon: IconLinkOutlineRegular, label: 'hosts' },
+      { id: HOSTS_SECTION, Icon: IconLinkOutlineRegular, WideIcon: IconLinkOutlineMedium, label: 'hosts' },
     ]
     const PINS_KEY = 'jan-theme.sidebar.pinned'
     const DEFAULT_PINS = ['jan-model-hub', 'plugins', 'jan-always-on']
@@ -1348,7 +1419,26 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
           h(IconBranchOutlineRegular, { size: 14, 'aria-hidden': true }), h('span', null, branch)))
     }
 
-    function ProjectDetails({ workspace, useArchived, useSessions, useScheduleTasks, startSession, openChat, backToProjects, createSchedule, openScheduled, t }) {
+    /**
+     * A recent chat's live state, ranked like its sidebar row: a pending question
+     * outranks the chat's own run, which outranks its running subagents. Idle and
+     * finished chats return null and keep their date.
+     */
+    function liveChatStatus(summary, sessions, statuses, t) {
+      const status = statuses.get(summary.id)
+      switch (status?.pendingInteraction?.kind) {
+        case 'approval': return { state: 'warning', label: t('project.status.approval') }
+        case 'question': return { state: 'warning', label: t('project.status.question') }
+        case 'plan-review': return { state: 'warning', label: t('project.status.planReview') }
+      }
+      if (status?.running ?? summary.running) return { state: 'ongoing', label: t('project.status.running') }
+      const children = sessions.projectionsBySession[summary.id]?.values.subagentCatalog ?? []
+      const running = children.filter(child => (statuses.get(child.id)?.running ?? sessions.byId[child.id]?.running) === true).length
+      if (running === 0) return null
+      return { state: 'ongoing', label: t(running === 1 ? 'project.status.subagents.one' : 'project.status.subagents.other', { n: running }) }
+    }
+
+    function ProjectDetails({ workspace, useArchived, useSessions, useSessionStatus, useScheduleTasks, startSession, openChat, editProject, backToProjects, createSchedule, openScheduled, t }) {
       const { workspaceId } = workspace
       const title = workspaceDisplayTitle(workspace, t('workspace.defaultName'))
       const sessions = useSessions(value => value)
@@ -1382,6 +1472,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         return () => { controller.abort() }
       }, [workspaceId, detailsVersion])
       const archived = new Set(archivedIds)
+      const statuses = useSessionStatus(value => value)
       const recents = workspace.sessionIds
         .map(id => sessions.byId[id])
         .filter(summary => summary !== undefined && !summary.blank && summary.origin !== 'subagent' && summary.parentId === undefined && !archived.has(summary.id))
@@ -1418,7 +1509,21 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
       return h('div', { className: 'jt-project' },
         h('div', null,
           h('button', { type: 'button', className: 'jt-project-back', onClick: backToProjects }, '‹ ', t('projects')),
-          h('h1', { className: 'jt-project-title' }, title),
+          h('div', { className: 'jt-project-title-row' },
+            // The avatar opens the same editor as the pencil, so icon, emoji, picture
+            // and color are one click from the face they change.
+            ProjectAvatar !== undefined && (editProject === undefined
+              ? h(ProjectAvatar, { avatar: workspace.avatar, githubOwner: workspace.githubOwner, color: workspace.color, size: 32 })
+              : h('button', {
+                type: 'button', className: 'jt-project-avatar', 'aria-label': t('project.edit.identity'), title: t('project.edit.identity'),
+                onClick: () => { editProject(workspaceId) },
+              }, h(ProjectAvatar, { avatar: workspace.avatar, githubOwner: workspace.githubOwner, color: workspace.color, size: 32 }))),
+            h('h1', { className: 'jt-project-title' }, title),
+            // An older ui-workspace has no project editor; the sidebar menu stays the only way in.
+            editProject !== undefined && h('button', {
+              type: 'button', className: 'jt-project-path-action', 'aria-label': t('project.edit.identity'), title: t('project.edit.identity'),
+              onClick: () => { editProject(workspaceId) },
+            }, h(IconEditOutlineRegular, { size: 14, 'aria-hidden': true }))),
           h('div', { className: 'jt-project-path-row' },
             h('p', { className: 'jt-project-path' }, workspace.path),
             h('button', {
@@ -1446,10 +1551,15 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
             h('h2', { className: 'jt-project-heading', id: 'jt-project-recents' }, t('project.recents')),
             recents.length === 0
               ? h('p', { className: 'jt-project-empty' }, t('project.noSessions'))
-              : h('ul', { className: 'jt-project-sessions' }, recents.map(summary => h('li', { key: summary.id },
-                h('button', { type: 'button', className: 'jt-project-session', onClick: () => { openChat(summary.id) } },
-                  h('span', { className: 'jt-project-session-title' }, summary.displayTitle),
-                  h('span', { className: 'jt-project-session-date' }, dateFormat.format(new Date(summary.updatedAt))))))))),
+              : h('ul', { className: 'jt-project-sessions' }, recents.map((summary) => {
+                const status = liveChatStatus(summary, sessions, statuses, t)
+                return h('li', { key: summary.id },
+                  h('button', { type: 'button', className: 'jt-project-session', onClick: () => { openChat(summary.id) } },
+                    h('span', { className: 'jt-project-session-title' }, summary.displayTitle),
+                    status === null
+                      ? h('span', { className: 'jt-project-session-date' }, dateFormat.format(new Date(summary.updatedAt)))
+                      : h('span', { className: 'jt-project-session-status', 'data-state': status.state }, h(StateDot, { state: status.state }), status.label)))
+              })))),
         h('aside', { className: 'jt-project-rail', 'aria-label': t('project.details') },
           error && h('p', { className: 'jt-project-error', role: 'alert' }, error),
           card('project.instructions',
@@ -1861,6 +1971,12 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.start': "Start chat",
               'project.recents': "Recent chats",
               'project.noSessions': "No chats in this project yet.",
+              'project.status.running': "Running",
+              'project.status.approval': "Waiting for approval",
+              'project.status.question': "Waiting for your answer",
+              'project.status.planReview': "Plan waiting for review",
+              'project.status.subagents.one': "{n} subagent running",
+              'project.status.subagents.other': "{n} subagents running",
               'project.details': "Project details",
               'project.instructions': "Instructions",
               'project.instructions.empty': "Tell the agent how to work in this project.",
@@ -1872,6 +1988,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.addFiles': "Add files",
               'project.openFolder': "Open folder",
               'project.copyPath': "Copy path",
+              'project.edit.identity': "Edit project",
               'project.pathCopied': "Path copied",
               'project.git.branch': "Current branch",
               'project.git.open': "Open {name} on {host}",
@@ -1934,6 +2051,12 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.start': "开始对话",
               'project.recents': "最近的对话",
               'project.noSessions': "此项目还没有对话。",
+              'project.status.running': "运行中",
+              'project.status.approval': "等待审批",
+              'project.status.question': "等待你的回答",
+              'project.status.planReview': "计划等待审阅",
+              'project.status.subagents.one': "{n} 个子智能体运行中",
+              'project.status.subagents.other': "{n} 个子智能体运行中",
               'project.details': "项目详情",
               'project.instructions': "说明",
               'project.instructions.empty': "告诉智能体在此项目中如何工作。",
@@ -1945,6 +2068,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.addFiles': "添加文件",
               'project.openFolder': "打开文件夹",
               'project.copyPath': "复制路径",
+              'project.edit.identity': "编辑项目",
               'project.pathCopied': "已复制路径",
               'project.git.branch': "当前分支",
               'project.git.open': "在 {host} 上打开 {name}",
@@ -2010,6 +2134,12 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.start': "チャットを開始",
               'project.recents': "最近のチャット",
               'project.noSessions': "このプロジェクトにはまだチャットがありません。",
+              'project.status.running': "実行中",
+              'project.status.approval': "承認待ち",
+              'project.status.question': "回答待ち",
+              'project.status.planReview': "計画のレビュー待ち",
+              'project.status.subagents.one': "サブエージェント {n} 件が実行中",
+              'project.status.subagents.other': "サブエージェント {n} 件が実行中",
               'project.details': "プロジェクトの詳細",
               'project.instructions': "指示",
               'project.instructions.empty': "このプロジェクトでの作業方法をエージェントに伝えます。",
@@ -2021,6 +2151,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.addFiles': "ファイルを追加",
               'project.openFolder': "フォルダーを開く",
               'project.copyPath': "パスをコピー",
+              'project.edit.identity': "プロジェクトを編集",
               'project.pathCopied': "パスをコピーしました",
               'project.git.branch': "現在のブランチ",
               'project.git.open': "{host} で {name} を開く",
@@ -2086,6 +2217,12 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.start': "Iniciar chat",
               'project.recents': "Chats recientes",
               'project.noSessions': "Este proyecto todavía no tiene chats.",
+              'project.status.running': "En curso",
+              'project.status.approval': "Esperando aprobación",
+              'project.status.question': "Esperando tu respuesta",
+              'project.status.planReview': "Plan pendiente de revisión",
+              'project.status.subagents.one': "{n} subagente en curso",
+              'project.status.subagents.other': "{n} subagentes en curso",
               'project.details': "Detalles del proyecto",
               'project.instructions': "Instrucciones",
               'project.instructions.empty': "Indica al agente cómo trabajar en este proyecto.",
@@ -2097,6 +2234,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.addFiles': "Añadir archivos",
               'project.openFolder': "Abrir carpeta",
               'project.copyPath': "Copiar ruta",
+              'project.edit.identity': "Editar proyecto",
               'project.pathCopied': "Ruta copiada",
               'project.git.branch': "Rama actual",
               'project.git.open': "Abrir {name} en {host}",
@@ -2162,6 +2300,12 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.start': "Lancer la discussion",
               'project.recents': "Discussions récentes",
               'project.noSessions': "Ce projet n'a pas encore de discussion.",
+              'project.status.running': "En cours",
+              'project.status.approval': "En attente d'approbation",
+              'project.status.question': "En attente de votre réponse",
+              'project.status.planReview': "Plan en attente de relecture",
+              'project.status.subagents.one': "{n} sous-agent en cours",
+              'project.status.subagents.other': "{n} sous-agents en cours",
               'project.details': "Détails du projet",
               'project.instructions': "Instructions",
               'project.instructions.empty': "Expliquez à l'agent comment travailler dans ce projet.",
@@ -2173,6 +2317,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.addFiles': "Ajouter des fichiers",
               'project.openFolder': "Ouvrir le dossier",
               'project.copyPath': "Copier le chemin",
+              'project.edit.identity': "Modifier le projet",
               'project.pathCopied': "Chemin copié",
               'project.git.branch': "Branche actuelle",
               'project.git.open': "Ouvrir {name} sur {host}",
@@ -2238,6 +2383,12 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.start': "Chat starten",
               'project.recents': "Letzte Chats",
               'project.noSessions': "Dieses Projekt hat noch keine Chats.",
+              'project.status.running': "Läuft",
+              'project.status.approval': "Wartet auf Freigabe",
+              'project.status.question': "Wartet auf deine Antwort",
+              'project.status.planReview': "Plan wartet auf Prüfung",
+              'project.status.subagents.one': "{n} Subagent läuft",
+              'project.status.subagents.other': "{n} Subagenten laufen",
               'project.details': "Projektdetails",
               'project.instructions': "Anweisungen",
               'project.instructions.empty': "Sag dem Agenten, wie er in diesem Projekt arbeiten soll.",
@@ -2249,6 +2400,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.addFiles': "Dateien hinzufügen",
               'project.openFolder': "Ordner öffnen",
               'project.copyPath': "Pfad kopieren",
+              'project.edit.identity': "Projekt bearbeiten",
               'project.pathCopied': "Pfad kopiert",
               'project.git.branch': "Aktueller Branch",
               'project.git.open': "{name} auf {host} öffnen",
@@ -2314,6 +2466,12 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.start': "Начать чат",
               'project.recents': "Недавние чаты",
               'project.noSessions': "В этом проекте пока нет чатов.",
+              'project.status.running': "Выполняется",
+              'project.status.approval': "Ожидает одобрения",
+              'project.status.question': "Ожидает вашего ответа",
+              'project.status.planReview': "План ожидает проверки",
+              'project.status.subagents.one': "Субагентов в работе: {n}",
+              'project.status.subagents.other': "Субагентов в работе: {n}",
               'project.details': "Сведения о проекте",
               'project.instructions': "Инструкции",
               'project.instructions.empty': "Объясните агенту, как работать в этом проекте.",
@@ -2325,6 +2483,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.addFiles': "Добавить файлы",
               'project.openFolder': "Открыть папку",
               'project.copyPath': "Копировать путь",
+              'project.edit.identity': "Изменить проект",
               'project.pathCopied': "Путь скопирован",
               'project.git.branch': "Текущая ветка",
               'project.git.open': "Открыть {name} на {host}",
@@ -2390,6 +2549,12 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.start': "Iniciar conversa",
               'project.recents': "Conversas recentes",
               'project.noSessions': "Este projeto ainda não tem conversas.",
+              'project.status.running': "Em execução",
+              'project.status.approval': "Aguardando aprovação",
+              'project.status.question': "Aguardando sua resposta",
+              'project.status.planReview': "Plano aguardando revisão",
+              'project.status.subagents.one': "{n} subagente em execução",
+              'project.status.subagents.other': "{n} subagentes em execução",
               'project.details': "Detalhes do projeto",
               'project.instructions': "Instruções",
               'project.instructions.empty': "Diga ao agente como trabalhar neste projeto.",
@@ -2401,6 +2566,7 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
               'project.addFiles': "Adicionar arquivos",
               'project.openFolder': "Abrir pasta",
               'project.copyPath': "Copiar caminho",
+              'project.edit.identity': "Editar projeto",
               'project.pathCopied': "Caminho copiado",
               'project.git.branch': "Branch atual",
               'project.git.open': "Abrir {name} em {host}",
@@ -2615,6 +2781,8 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
                 scope.layout.selectPanel(null)
                 scope.uiWorkspace.openSession(sessionId)
               },
+              ...(typeof scope.uiWorkspace.editProject === 'function'
+                ? { editProject: (workspaceId) => { scope.uiWorkspace.editProject(workspaceId) } } : {}),
               backToProjects: () => { scope.layout.selectPanel(PROJECTS_PANEL) },
               openScheduled: () => { scope.layout.selectPanel(SCHEDULED_PANEL) },
               createSchedule: async (request) => {

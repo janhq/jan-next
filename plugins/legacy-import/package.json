@@ -2,7 +2,7 @@
   "name": "@janhq/jan-legacy-import",
   "version": "0.2.2-rc.1",
   "private": true,
-  "description": "Read-only import of chats from the earlier Jan desktop app, and of Claude Code, Codex and OMP sessions, into Jan sessions, from Settings or a /migrate chat.",
+  "description": "Import chats, MCP servers with credentials, and supported settings into Jan without changing source files.",
   "type": "module",
   "exports": {
     ".": "./index.mjs",
@@ -13,7 +13,8 @@
     "@janhq/jan-credentials": "workspace:*",
     "@janhq/jan-plugin-api": "workspace:*",
     "@janhq/jan-skill": "workspace:*",
-    "@janhq/schemastery": "workspace:~"
+    "@janhq/schemastery": "workspace:~",
+    "smol-toml": "^1.9.0"
   },
   "devDependencies": {
     "@janhq/jan-session-format-v3-to-v4": "workspace:*"

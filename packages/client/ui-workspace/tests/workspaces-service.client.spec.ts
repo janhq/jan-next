@@ -196,6 +196,7 @@ class FakeWorkspaces implements IWorkspaces {
 
   declare readonly create: IWorkspaces['create']
   declare readonly rename: IWorkspaces['rename']
+  declare readonly updateIdentity: IWorkspaces['updateIdentity']
   declare readonly delete: IWorkspaces['delete']
   declare readonly insertBefore: IWorkspaces['insertBefore']
   declare readonly insertSessionBefore: IWorkspaces['insertSessionBefore']
@@ -312,6 +313,7 @@ function bench(options: BenchOptions = {}) {
     sessions,
     view.actions,
     notify,
+    () => false,
   )
   return {
     ctx, directoryPicker, sessions, uiWorkspace, workspaces, layout, selectPanel, view, notify, requestDraftInitialization,

@@ -24,6 +24,16 @@ Jan's theme plugin ([`client.js`](../client.js)) owns the values. It overrides t
 
    The token needs file read access only. Never commit it. On the free Figma plan the API rate-limits after a few calls; wait a minute and run it again.
 5. Compare the result against Mimi's frame on screen, light and dark, and attach both screenshots to the PR.
+6. Before handing the UI over, check it against the list below. Each item is a correction that came back more than once.
+
+### Before you hand it over
+
+- **Alignment:** text starts and icon boxes line up with the row above and below, and with Mimi's frame. Compare a screenshot of yours beside the frame instead of judging the CSS.
+- **Spacing:** every gap, padding and height is a step from [Shape and space](#shape-and-space). A value between steps is a bug, not a tweak.
+- **Color:** `--dsw-alias-*` tokens only, checked in light and dark and with the default yellow accent, where text on accent fills is dark.
+- **Icons:** reuse the shared icon set (`IconXxxRegular` / `Medium` from `@janhq/jan-client-ui-primitives`), same weight as the neighbors; draw a new glyph in that set rather than importing another style. Icon-only buttons get a tooltip ([icons](../../../.agents/skills/jan-client-ui-ux/references/icons.md)).
+- **Motion:** every control that reacts to hover or press, and every surface that appears, animates with the [Motion](#motion) tokens, and stops under reduced motion.
+- **Visible actions:** an action the user needs is shown, not revealed only on hover, unless the row has no room for it.
 
 ## Color roles
 
@@ -82,7 +92,7 @@ Inter, with tight tracking. Studio Feixen Sans is for the welcome title only.
 
 | | Values |
 |---|---|
-| Radii | 4 (small details), 8 (compact controls), 10 (menu items), 12 (rows, inputs), 16 (cards), 20 (sidebar card, bubbles), 24 (composer, panels), full round for icon buttons |
+| Radii | 4, 8, 10, 12, 16, 20, 24 and full round. Mimi names four of them: sidebar row 12, sidebar card 20, user bubble 20, composer 24. [Radius roles](../../../docs/ui-radius.md#radius-scale) maps every other component onto this scale through the `--dsw-radius-*` tokens. |
 | Spacing steps | 2, 4, 6, 8, 10, 12, 14, 16, 20, 24, 36 |
 | Sidebar rows | 38 high on a 40 pitch; icons at x 19 and labels at x 46 inside the card |
 
@@ -100,8 +110,26 @@ The theme publishes `--jt-sidebar-radius` (20) and `--dsw-radius-panel` (24).
 
 The shell's elevation tokens (`--dsw-elevation-*`) are not mapped to these yet.
 
+## Motion
+
+Mimi's file has no motion; Jan uses the shell's motion tokens from `ui-theme`. Feature CSS writes these tokens, never a literal duration or curve.
+
+| Token | Value | Use for |
+|---|---|---|
+| `--ds-transition-duration-fast` | 100 ms | Hover, press and focus changes of color, opacity or a small icon |
+| `--ds-transition-duration` | 200 ms | Menus, popovers and tooltips opening; expand and collapse; tabs and panes moving |
+| `--ds-transition-duration-slow` | 300 ms | A whole surface entering: dialogs, onboarding steps, side panels |
+| `--ds-ease-out` | `cubic-bezier(0.23, 1, 0.32, 1)` | Anything that enters or answers the pointer, so the response reads at once |
+| `--ds-ease-in-out` | `cubic-bezier(0.4, 0, 0.2, 1)` | Something moving between two resting places on screen |
+
+- Animate `transform` and `opacity`; a change of width, height or position that the layout has to follow uses the 200 ms token at most.
+- Every animation has a `@media (prefers-reduced-motion: reduce)` rule that removes the movement and keeps the end state.
+- Loops of half a second or longer (spinners, shimmer, pulses) are drawings and keep their own timing.
+
+[`style-literals.client.spec.ts`](../../../packages/client/ui-theme/tests/style-literals.client.spec.ts) fails when a feature stylesheet adds a literal duration, curve or color. The literals already in the tree are listed in its `expected/style-literals.expected.json` and are left until their owners touch them; regenerate that file with `vitest -u` only for a deliberate exception, and say why in the commit.
+
 ## Known gaps
 
 - Figma variable names are not available. The Variables API needs an Enterprise plan, so the snapshot keeps each value's variable id instead.
-- Shadows, spacing and line heights are recorded but not enforced.
+- Shadows, spacing and line heights are recorded but not enforced. Motion and color literals are enforced for feature stylesheets under `packages/`, not for `client.js` or other plugin CSS written in JavaScript.
 - Mimi has not drawn dark mode for dividers or the selected sidebar row.

@@ -180,6 +180,8 @@ interface RouteModel {
   maxTokens: number
   /** `image` only for a model whose projector encodes images. */
   input: Array<'text' | 'image'>
+  /** Whether the model's chat template renders tools; selectors warn before a tool task on `false`. */
+  toolUse?: boolean
 }
 
 /** Worker-side fields of the state; the model list, downloads and catalog are derived on publish. */
@@ -639,7 +641,8 @@ export class LlamaCpp extends Service {
   /**
    * Load the record, keeping only models whose files are still present at their recorded size; a
    * model whose projector is missing or changed stays without it. Records of earlier builds gain the
-   * header facts of each file. A changed record is written back once.
+   * header facts of each file, and facts read before tool support was recorded are read again. A
+   * changed record is written back once.
    */
   private async readInstall(): Promise<void> {
     // Earlier builds downloaded a llama-server engine here; the bundled worker replaces it.
@@ -651,6 +654,7 @@ export class LlamaCpp extends Service {
       : raw.version === 1 ? this.fromV1(raw)
         : Array.isArray(raw.models) ? raw : { version: 3, models: [] }
     const models: ModelRecord[] = []
+    let factsRead = false
     let projectorDropped = false
     for (const model of record.models) {
       const size = await stat(this.storedPath(model)).then(info => info.size, () => undefined)
@@ -659,13 +663,18 @@ export class LlamaCpp extends Service {
         continue
       }
       let kept: ModelRecord
-      if ('facts' in model) kept = model
+      if ('facts' in model && model.facts.toolCalls !== undefined) kept = model
       else {
         try { kept = { ...model, facts: await readModelFacts(this.storedPath(model)) } }
         catch (error) {
-          this.ctx.logger.warn(`llama-cpp: ${model.name} cannot be served (${messageOf(error)}); it is no longer listed`)
-          continue
+          // Facts already recorded keep the model served; only the tool answer stays unknown.
+          if ('facts' in model) kept = model
+          else {
+            this.ctx.logger.warn(`llama-cpp: ${model.name} cannot be served (${messageOf(error)}); it is no longer listed`)
+            continue
+          }
         }
+        if (kept !== model) factsRead = true
       }
       if (kept.mmproj !== undefined) {
         const projector = this.storedPath(kept.mmproj)
@@ -692,7 +701,7 @@ export class LlamaCpp extends Service {
     }
     if (!models.some(model => model.id === active)) active = models[0]?.id
     this.record = { version: 3, models, ...active === undefined ? {} : { active } }
-    if (record.version !== 3 || clash !== undefined || projectorDropped) await this.writeRecord()
+    if (record.version !== 3 || clash !== undefined || projectorDropped || factsRead) await this.writeRecord()
   }
 
   /** Convert the one-model record of earlier builds; its model file stays where it is. */
@@ -1348,6 +1357,7 @@ export class LlamaCpp extends Service {
     const entry = (id: string, name: string, model: ModelRecord): RouteModel => ({
       id, name, contextWindow: this.routeContext(model), maxTokens: this.config.routeMaxTokens,
       input: model.mmproj?.vision === true ? ['text', 'image'] : ['text'],
+      ...model.facts.toolCalls === undefined ? {} : { toolUse: model.facts.toolCalls },
     })
     const models = [
       entry(this.config.routeModelId, `${active.name} (local default)`, active),

@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "linear": { "type": "http", "url": "https://example.com/linear", "headers": { "Authorization": "Bearer ${LINEAR_TOKEN}" } },
+    "same-name": { "command": "global" }
+  },
+  "projects": {
+    "/project": {
+      "mcpServers": {
+        "local": { "type": "stdio", "command": "node", "args": ["server.js"], "env": { "TOKEN": "claude-fixture-token" } },
+        "same-name": { "command": "project" }
+      }
+    }
+  }
+}

@@ -23,12 +23,13 @@ test('the Host imports missing MCP servers disabled and keeps their credentials 
   }, config)
 
   assert.ok(services.janMcpSettings, 'agent settings must provide a Host-only MCP import service')
+  assert.deepEqual(services.janMcpSettings.configuredNames(), ['existing'])
   const summary = await services.janMcpSettings.importMissing({
     existing: { command: 'replacement', env: { TOKEN: 'replacement-token' } },
     local: { command: 'node', env: { TOKEN: 'legacy-env-token' } },
     remote: { type: 'http', url: 'https://example.com/mcp', headers: { Authorization: 'Bearer legacy-header-token' } },
   })
-  assert.deepEqual(summary, { imported: 2, already: 1, names: ['existing', 'local', 'remote'] })
+  assert.deepEqual(summary, { imported: 2, already: 1, names: ['existing', 'local', 'remote'], added: ['local', 'remote'] })
   assert.deepEqual(config.mcpServers, [
     existing,
     { name: 'local', enabled: false, transport: 'stdio', command: 'node', args: [] },

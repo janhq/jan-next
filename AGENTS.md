@@ -6,8 +6,6 @@ Jan is an all-plugin Cordis agent harness. Read [docs/architecture.md](docs/arch
 
 Public APIs are pre-stable; update every consumer. Follow [version/status](docs/session-format-status.md) and [type acknowledgements](docs/cookbook/reviewing-persistence-type-changes.md). [Adjacent migration](.agents/notes/implemented/architecture/2026-08-31-released-session-format-migrations.md) may add a version-named successor but never move, overwrite, or delete committed generations; predecessors imply neither fallback nor downgrade support. SQLite uses monotonic `SCHEMA_VERSION`.
 
-Acknowledge [declared persistence-type changes](docs/cookbook/reviewing-persistence-type-changes.md).
-
 Record each externally perceptible breaking change immediately in an [upgrade guide](.agents/skills/jan-create-upgrade-guide/SKILL.md).
 
 **Application launch.** Only `jan` profiles launch supported Node apps; package bins, demos, and public SDK argv escapes are forbidden ([rule](docs/architecture.md#application-launch)).
@@ -28,6 +26,7 @@ packages/    @janhq/jan-<pkg> workspaces at packages/<group>/<pkg>/
   ptc-runtime/          PTC execution
   sandbox/              process confinement
   deliverables/         turn deliverables
+  document/             Office-to-PDF conversion
   fs/                   filesystem access
   lsp/                  language servers
   skill/                skill loading
@@ -56,6 +55,7 @@ packages/    @janhq/jan-<pkg> workspaces at packages/<group>/<pkg>/
   workspace/            workspace entities
   feedback/             human feedback
   identity/             anonymous identity
+  telemetry/            Cordis OTel reporting
   settings/             user settings
   credentials/          credentials/authorization
   acp/                  automation-only ACP
@@ -68,10 +68,12 @@ packages/    @janhq/jan-<pkg> workspaces at packages/<group>/<pkg>/
   experimental/         evaluated capabilities without a product-support commitment
   test-support/         test infrastructure
   util/                 zero-dependency utilities
+apps/        cli, desktop, desktop-host, web, plugin-market-generator
 plugins/     Jan plugins; every one stays in this monorepo (plugins/AGENTS.md)
 python/      Python SDK/runtime (python/README.md)
 native/      @janhq/node-addon-system source (native/README.md)
 benchmarks/  performance gates
+snapshots/   recorded-session replay corpus (snapshots/AGENTS.md)
 .agents/     Agent workflows/notes
 docs/        Documentation (docs/AGENTS.md)
 scripts/     gates and generators
@@ -87,10 +89,11 @@ pnpm install            # pnpm workspaces, node >=24.9
 pnpm run clean           # remove build outputs and safe residue from deleted packages
 pnpm run test           # unit tests
 pnpm run test:coverage  # CI coverage gate: per-file 100% on packages/*/*/src
-pnpm run test:e2e       # real-API tests; self-skip without TOKAMAK_API_KEY
+pnpm run test:e2e       # non-browser e2e; live-provider suites self-skip without their keys
 pnpm run test:expected  # owner-local process expectations
 pnpm run test:snapshot  # keyless recorded-session replay through shipped profiles; filter: -t <name>
 pnpm run test:snapshot:record  # re-record expected outputs (needs key)
+pnpm run test:web       # build, then browser e2e (apps/web/tests); test:web:built skips the build; JAN_SNAPSHOT=replay|record|refresh
 pnpm run typecheck
 pnpm run lint
 pnpm run duplication    # cross-file TypeScript clone detection
@@ -184,7 +187,7 @@ Docs accompany every code change: update affected README and JSDoc contracts tog
 
 ## Editing these instructions
 
-`CLAUDE.md` symlinks `AGENTS.md` at root, `packages/` and `plugins/`; edit the real file. Keep each rule self-contained while linking high-level docs. Condense when clarity survives; raise a `verify-doc-budgets` ceiling when the required content genuinely needs more space.
+Where `CLAUDE.md` symlinks `AGENTS.md`, edit the real file. Keep each rule self-contained while linking high-level docs. Condense when clarity survives; raise a `verify-doc-budgets` ceiling when the required content genuinely needs more space.
 
 ## Vendoring policy
 

@@ -154,7 +154,12 @@ test('legacy MCP import keeps env and header values off the wire and stores them
   assert.equal(result.status, 200)
   assert.deepEqual(result.body.result.settings.mcp, {
     imported: 2, already: 0, names: ['local-tool', 'remote'],
+    rows: [
+      { name: 'local-tool', sourceName: 'local tool', credentials: 1, omitted: [], status: 'imported' },
+      { name: 'remote', sourceName: 'remote', credentials: 1, omitted: [], status: 'imported' },
+    ],
     skipped: [{ sourceName: 'old', reason: 'unsupported transport' }],
+    issues: [],
   })
   assert.deepEqual(progress.body.result.settings.mcp, result.body.result.settings.mcp)
   assert.deepEqual(config.mcpServers, [
@@ -174,7 +179,8 @@ test('MCP file parse failures do not disclose file contents in legacy import res
   const result = await rpc('import', { folder: source, ids: [], mcp: true })
   const progress = await rpc('progress')
   for (const response of [scan, result, progress]) assert.equal(JSON.stringify(response.body).includes(secret), false)
-  assert.equal(scan.body.result.settings.error, 'Could not read Jan’s MCP configuration. Check mcp_config.json and try again.')
-  assert.equal(result.body.result.settings.mcp.error, scan.body.result.settings.error)
-  assert.equal(progress.body.result.settings.mcp.error, scan.body.result.settings.error)
+  const issues = scan.body.result.settings.mcp.issues
+  assert.deepEqual(issues, [{ file: 'mcp_config.json', reason: 'Could not read MCP configuration from mcp_config.json. Check the file and try again.' }])
+  assert.deepEqual(result.body.result.settings.mcp.issues, issues)
+  assert.deepEqual(progress.body.result.settings.mcp.issues, issues)
 }))

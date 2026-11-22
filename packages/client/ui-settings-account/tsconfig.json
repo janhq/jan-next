@@ -60,6 +60,9 @@
       "path": "../ui-layout"
     },
     {
+      "path": "../ui-model-selection"
+    },
+    {
       "path": "../../settings/settings"
     },
     {

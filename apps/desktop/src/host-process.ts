@@ -10,7 +10,6 @@ import { parsePluginOperationRecord, type PluginOperationRecord, type PluginOper
 interface ReadyEvent {
   readonly type: 'ready'
   readonly url: string
-  readonly injections?: readonly unknown[] | undefined
 }
 
 interface FatalEvent {
@@ -43,6 +42,11 @@ type DesktopHostEvent = ReadyEvent | FatalEvent | PlatformSessionEvent | {
   readonly requestId: number
   readonly activeTasks: boolean
   readonly scheduledTasks: boolean
+  readonly error?: string
+} | {
+  readonly type: 'index-injections'
+  readonly requestId: number
+  readonly injections: readonly unknown[]
   readonly error?: string
 }
 
@@ -105,6 +109,9 @@ function isDesktopHostEvent(message: unknown): message is DesktopHostEvent {
     case 'quit-inspection':
       return Number.isSafeInteger(candidate.requestId) && typeof candidate.activeTasks === 'boolean'
         && typeof candidate.scheduledTasks === 'boolean' && (candidate.error === undefined || typeof candidate.error === 'string')
+    case 'index-injections':
+      return Number.isSafeInteger(candidate.requestId) && Array.isArray(candidate.injections)
+        && (candidate.error === undefined || typeof candidate.error === 'string')
     default:
       return false
   }
@@ -126,7 +133,6 @@ async function exitsWithin(exit: Promise<void>, milliseconds: number): Promise<b
 /** Browser authentication URL reported by the running Web application. */
 export interface DesktopHostReady {
   readonly url: string
-  readonly injections?: readonly unknown[] | undefined
 }
 
 /** The child has exited, but task teardown did not finish successfully. */
@@ -244,7 +250,7 @@ export class DesktopHostProcess {
         return
       }
       if (message.type === 'starting') this.runId = message.runId
-      else if (message.type === 'ready') this.readyResolve({ url: message.url, injections: message.injections })
+      else if (message.type === 'ready') this.readyResolve({ url: message.url })
       else if (message.type === 'platform-session') this.onPlatformSession?.(message.session)
       else if (message.type === 'shutdown-complete') {
         if (this.stopping) this.shutdownCompleted = true
@@ -293,6 +299,16 @@ export class DesktopHostProcess {
   }
 
   /**
+   * Read the boot injections for one page load from the running Host.
+   * @returns Current rows; a live plugin rebuild changes their bundle URLs, so callers never cache them.
+   */
+  async indexInjections(): Promise<readonly unknown[]> {
+    const response = await this.control({ type: 'index-injections' }, 10_000, 'desktop boot: injection read timed out', 'desktop boot')
+    if (response.type !== 'index-injections') throw new Error('desktop boot: Host answered with a different control response')
+    return response.injections
+  }
+
+  /**
    * @param address - Session-scoped file reference.
    * @param signal - preparation cancellation.
    * @returns privately authorized local resource, or null when nonlocal.
@@ -307,6 +323,7 @@ export class DesktopHostProcess {
 
   private async control(
     request: { readonly type: 'update-tasks'; readonly action: 'inspect' | 'lock' | 'unlock' } | { readonly type: 'quit-inspection' }
+      | { readonly type: 'index-injections' }
       | { readonly type: 'file-drag-resource'; readonly address: string },
     deadlineMs: number, deadlineMessage: string, operation: string, signal?: AbortSignal,
   ): Promise<DesktopHostControlResponse> {

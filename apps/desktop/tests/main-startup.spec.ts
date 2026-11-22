@@ -160,12 +160,13 @@ const harness = await vi.hoisted(async () => {
   class FakeHost {
     readonly updateTasks = vi.fn(async (_action: 'inspect' | 'lock' | 'unlock') => false)
     readonly inspectQuit = vi.fn(async () => ({ activeTasks: false, scheduledTasks: false }))
+    readonly indexInjections = vi.fn(async (): Promise<readonly unknown[]> => [])
     url = 'http://127.0.0.1:3080/?token=test'
     fetch = vi.fn(async () => Response.json({ hasApiKey: true, writable: true, localePreference: null }))
     readonly ready = deferred()
     readonly exited = deferred()
     readonly stopping = deferred()
-    readonly start = vi.fn(() => { hostStarted.resolve(); return this.ready.promise.then(() => ({ url: this.url, injections: [] })) })
+    readonly start = vi.fn(() => { hostStarted.resolve(); return this.ready.promise.then(() => ({ url: this.url })) })
     readonly stop = vi.fn(() => {
       this.stopping.resolve()
       this.ready.reject(new Error('child stopped'))
@@ -1504,6 +1505,21 @@ describe('desktop main startup', () => {
     harness.hosts[0]!.ready.resolve()
     await expect(boot).resolves.toEqual({ injections: [], streamBaseUrl: 'http://127.0.0.1:3080' })
     expect(harness.windows[0]!.urls).toEqual(['jan-app://app/'])
+  })
+
+  it('reads boot injections from the Host on every page load, so a reload after a live rebuild names current bundles', async () => {
+    await import('../src/main.ts')
+    await harness.preparing.promise
+    harness.prepared.resolve()
+    await harness.hostStarted.promise
+    const host = harness.hosts[0]!
+    host.ready.resolve()
+    const handler = harness.handlers.get(DESKTOP_IPC.boot)!
+    const frame = { senderFrame: { url: 'jan-app://app/' } }
+    host.indexInjections.mockResolvedValueOnce([{ src: 'plugins/??a/client.js&rev=1' }])
+    await expect(Promise.resolve(handler(frame))).resolves.toMatchObject({ injections: [{ src: 'plugins/??a/client.js&rev=1' }] })
+    host.indexInjections.mockResolvedValueOnce([{ src: 'plugins/??a/client.js&rev=2' }])
+    await expect(Promise.resolve(handler(frame))).resolves.toMatchObject({ injections: [{ src: 'plugins/??a/client.js&rev=2' }] })
   })
 
   it('retains macOS native editing actions on right-click and only copy for selected read-only text', async () => {

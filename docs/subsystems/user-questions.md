@@ -265,12 +265,13 @@ Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnp
  * @param request - Questions, live owner agent, and abort signal.
  * @param callId - Tool call identity the Client card is keyed by.
  * @param timeoutMs - Positive foreground wait in milliseconds.
+ * @param autoSubmit - Whether the Client should submit its draft at expiry instead of returning pending.
  * @returns The answer when it arrives inside the window, otherwise a pending
  *   result, also when no connected Client claimed the request by the deadline.
  * @throws {UserQuestionError} `BAD_TIMEOUT` for a non-integer, non-positive,
  *   or oversized wait.
  */
-async askTimed( request: AskUserQuestionRequest & { agent: Agent }, callId: ToolCallId, timeoutMs: number, ): Promise<TimedUserQuestionResult>
+async askTimed( request: AskUserQuestionRequest & { agent: Agent }, callId: ToolCallId, timeoutMs: number, autoSubmit?: true, ): Promise<TimedUserQuestionResult>
 
 /**
  * Ask the scoped answerer waterfall and wait for the user's answer.
@@ -293,6 +294,21 @@ async ask(request: AskUserQuestionRequest): Promise<AskUserQuestionAnswer>
 Types: [Agent](core.md) · [ToolCallId](core.md)
 
 Source: [`packages/interaction/user-questions/src/index.ts`](../../packages/interaction/user-questions/src/index.ts)
+
+<a id="ctxuserquestionsettings--userquestionsettings"></a>
+
+### `ctx.userQuestionSettings` — `UserQuestionSettings`
+
+Live Host preference exposed to presets that opt into automatic answering.
+
+```ts cordis-catalog
+/** Read the current automatic-answer wait for new calls.
+ * @returns The wait in seconds, or zero to wait indefinitely.
+ */
+autoAnswerSeconds(): number
+```
+
+Source: [`packages/interaction/user-questions/src/types.ts`](../../packages/interaction/user-questions/src/types.ts)
 
 <a id="user-questions-events"></a>
 

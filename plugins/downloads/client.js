@@ -9,6 +9,7 @@ window.__ModuleLoader__.load({
     const COPY = {
       en: {
         title: 'Downloads',
+        activeProgress: 'Downloads: {percent} downloaded', activeTransfer: 'Downloads: Download in progress',
         lede: 'Local model downloads on this computer. Pause keeps the partial file so you can resume.',
         stale: '{error} The list may be out of date.',
         loading: 'Loading downloads...',
@@ -41,6 +42,7 @@ window.__ModuleLoader__.load({
       },
       zh: {
         title: '下载',
+        activeProgress: '下载：已完成 {percent}', activeTransfer: '下载：正在下载',
         lede: '此电脑上的本地模型下载。暂停会保留已下载的部分，以便稍后继续。',
         stale: '{error} 列表可能不是最新的。',
         loading: '正在加载下载列表...',
@@ -60,6 +62,7 @@ window.__ModuleLoader__.load({
       },
       ja: {
         title: 'ダウンロード',
+        activeProgress: 'ダウンロード: {percent} 完了', activeTransfer: 'ダウンロード: 進行中',
         lede: 'このコンピューターでのローカルモデルのダウンロードです。一時停止すると途中までのファイルが残り、後で再開できます。',
         stale: '{error} 一覧が最新でない可能性があります。',
         loading: 'ダウンロード一覧を読み込み中...',
@@ -79,6 +82,7 @@ window.__ModuleLoader__.load({
       },
       es: {
         title: 'Descargas',
+        activeProgress: 'Descargas: {percent} completado', activeTransfer: 'Descargas: Descarga en curso',
         lede: 'Descargas de modelos locales en este equipo. Al pausar una descarga, se conserva el archivo parcial para que puedas reanudarla.',
         stale: '{error} Es posible que la lista no esté actualizada.',
         loading: 'Cargando descargas...',
@@ -98,6 +102,7 @@ window.__ModuleLoader__.load({
       },
       fr: {
         title: 'Téléchargements',
+        activeProgress: 'Téléchargements : {percent} terminé', activeTransfer: 'Téléchargements : Téléchargement en cours',
         lede: 'Téléchargements de modèles locaux sur cet ordinateur. La mise en pause conserve le fichier partiel pour permettre la reprise.',
         stale: '{error} La liste n’est peut-être pas à jour.',
         loading: 'Chargement des téléchargements...',
@@ -117,6 +122,7 @@ window.__ModuleLoader__.load({
       },
       de: {
         title: 'Downloads',
+        activeProgress: 'Downloads: {percent} heruntergeladen', activeTransfer: 'Downloads: Download läuft',
         lede: 'Downloads lokaler Modelle auf diesem Computer. Beim Pausieren bleibt die unvollständige Datei erhalten, damit du den Download fortsetzen kannst.',
         stale: '{error} Die Liste ist möglicherweise nicht aktuell.',
         loading: 'Downloads werden geladen...',
@@ -136,6 +142,7 @@ window.__ModuleLoader__.load({
       },
       ru: {
         title: 'Загрузки',
+        activeProgress: 'Загрузки: загружено {percent}', activeTransfer: 'Загрузки: идёт загрузка',
         lede: 'Загрузки локальных моделей на этом компьютере. При паузе частично загруженный файл сохраняется, чтобы можно было продолжить загрузку.',
         stale: '{error} Возможно, список устарел.',
         loading: 'Загрузка списка...',
@@ -155,6 +162,7 @@ window.__ModuleLoader__.load({
       },
       pt: {
         title: 'Downloads',
+        activeProgress: 'Downloads: {percent} concluído', activeTransfer: 'Downloads: Download em andamento',
         lede: 'Downloads de modelos locais neste computador. Ao pausar, o arquivo parcial é mantido para que você possa retomar o download.',
         stale: '{error} A lista pode estar desatualizada.',
         loading: 'Carregando downloads...',
@@ -188,12 +196,16 @@ window.__ModuleLoader__.load({
       return result.value
     }
     const statusOf = item => item.error !== undefined ? 'failed' : item.paused ? 'paused' : item.progress === undefined ? 'queued' : 'downloading'
+    const percentOf = progress => progress?.totalBytes > 0 ? Math.min(100, Math.floor(progress.receivedBytes / progress.totalBytes * 100)) : null
+    const formatPercent = (percent, locale) => (percent / 100).toLocaleString(locale, { style: 'percent' })
 
     // One reconnecting follower of the Host's local model state; a dropped
     // stream keeps the last list on screen and says it may be stale.
     function follow(remote) {
       const controller = new AbortController()
       const listeners = new Set()
+      const activityListeners = new Set()
+      let activity = null
       let snapshot = { downloads: null, models: null, error: '', storageRevision: 0 }
       let timer
       const set = next => { snapshot = { ...snapshot, ...next }; for (const listener of listeners) listener() }
@@ -207,18 +219,30 @@ window.__ModuleLoader__.load({
               const models = state.models ?? []
               const modelsChanged = snapshot.models === null || models.length !== snapshot.models.length || models.some((model, index) =>
                 model.id !== snapshot.models[index].id || model.status !== snapshot.models[index].status)
+              const running = state.downloads.find(item => statusOf(item) === 'downloading')
+              const next = running ? percentOf(running.progress) ?? 'indeterminate' : null
+              if (activity !== next) {
+                activity = next
+                for (const listener of activityListeners) listener()
+              }
               set({ downloads: state.downloads, models, error: '', storageRevision: snapshot.storageRevision + Number(changed || modelsChanged) })
             }
           } catch (error) {
             if (controller.signal.aborted) return
             set({ error: message(error) })
           }
-          await new Promise(resolve => { timer = setTimeout(resolve, 1000) })
+          const { promise, resolve } = Promise.withResolvers()
+          timer = setTimeout(resolve, 1000)
+          await promise
         }
       })()
       return {
         get: () => snapshot,
         subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener) },
+        activity: {
+          getSnapshot: () => activity,
+          subscribe: listener => { activityListeners.add(listener); return () => activityListeners.delete(listener) },
+        },
         dispose: () => { controller.abort(); clearTimeout(timer) },
       }
     }
@@ -317,7 +341,7 @@ window.__ModuleLoader__.load({
           : h('ul', { className: 'jan-downloads-list' }, downloads.map(item => {
             const status = statusOf(item)
             const progress = item.progress
-            const percent = progress && progress.totalBytes > 0 ? Math.min(100, Math.floor(progress.receivedBytes / progress.totalBytes * 100)) : null
+            const percent = percentOf(progress)
             const failure = actionError?.id === item.id ? actionError.message : item.error
             return h('li', { key: item.id, className: 'jan-downloads-task', 'data-status': status, 'aria-busy': action?.id === item.id },
               h('div', { className: 'jan-downloads-task-head' },
@@ -332,7 +356,7 @@ window.__ModuleLoader__.load({
                 : [
                   t('progress', {
                     received: bytes(progress.receivedBytes, locale), total: bytes(progress.totalBytes, locale),
-                    percent: ((percent ?? 0) / 100).toLocaleString(locale, { style: 'percent' }),
+                    percent: formatPercent(percent ?? 0, locale),
                   }),
                   ...(status === 'downloading' && progress.bytesPerSecond > 0 ? [t('speed', { size: bytes(progress.bytesPerSecond, locale) })] : []),
                 ].join(' - ')),
@@ -356,6 +380,19 @@ window.__ModuleLoader__.load({
           onCancel: () => setConfirm(null),
           onConfirm: () => { if (confirm) void run(confirm, 'cancelDownload') },
         }))
+    }
+
+    function DownloadsButton({ className, iconSize, tooltipSide, portal, activePanelId, openPanel, useActivity, t }) {
+      const activity = useActivity(value => value)
+      const determinate = typeof activity === 'number'
+      const label = determinate ? t('activeProgress', { percent: formatPercent(activity, document.documentElement.lang || undefined) })
+        : t(activity === 'indeterminate' ? 'activeTransfer' : 'title')
+      return h(Tooltip, { label, delayMs: 500, side: tooltipSide, portal }, h('button', {
+        type: 'button', className: [className, 'jan-downloads-trigger'].filter(Boolean).join(' '), 'aria-label': label,
+        'aria-current': activePanelId === PANEL ? 'page' : undefined, onClick: () => openPanel(PANEL),
+      }, h('span', { className: 'jan-downloads-trigger-icon', 'aria-hidden': true },
+        h(IconDownloadOutlineRegular, { size: iconSize }),
+        activity !== null && h('span', { className: 'jan-downloads-badge', style: determinate ? { '--jan-download-percent': `${activity}%` } : undefined }))))
     }
 
     const CSS = `
@@ -382,6 +419,9 @@ window.__ModuleLoader__.load({
       .jan-downloads-stored-info h3{margin:0;font-size:14px;font-weight:600}
       .jan-downloads-stored-info p{margin:4px 0 0;font-size:13px}
       .jan-downloads-stored-row button{flex-shrink:0}
+      .jan-downloads-trigger:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}
+      .jan-downloads-trigger-icon{position:relative;display:flex}
+      .jan-downloads-badge{position:absolute;inset-block-start:-4px;inset-inline-end:-6px;width:9px;height:9px;border-radius:50%;pointer-events:none;box-shadow:0 0 0 1px var(--dsw-alias-bg-layer-1);background:conic-gradient(var(--dsw-alias-brand-primary) var(--jan-download-percent,100%),var(--dsw-alias-border-l4) 0) var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-brand-primary)}
       @media(max-width:600px){.jan-downloads{padding:20px}}
     `
     return {
@@ -409,12 +449,8 @@ window.__ModuleLoader__.load({
           }, ({ size }) => h(IconDownloadOutlineRegular, { size, 'aria-hidden': true })))
           // Jan Desktop v04 keeps Downloads one click away, beside the sidebar toggle.
           scope.slots.inject('sidebar.toggle.actions', () => scope.slots.register({
-            name: 'sidebar.toggle.actions', id: PANEL, locale: PANEL,
-          }, ({ className, iconSize, tooltipSide, portal, activePanelId, openPanel }) => h(Tooltip, { label: t('title'), delayMs: 500, side: tooltipSide, portal },
-            h('button', {
-              type: 'button', className, 'aria-label': t('title'), 'aria-current': activePanelId === PANEL ? 'page' : undefined,
-              onClick: () => { openPanel(PANEL) },
-            }, h(IconDownloadOutlineRegular, { size: iconSize, 'aria-hidden': true })))))
+            name: 'sidebar.toggle.actions', id: PANEL, locale: PANEL, inject: () => ({ hooks: { activity: feed.activity } }),
+          }, DownloadsButton))
         })
       },
     }

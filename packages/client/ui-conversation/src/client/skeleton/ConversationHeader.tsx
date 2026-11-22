@@ -1,5 +1,6 @@
 /** Resident conversation navigation and Session-specific header content. */
 import { useContext } from 'react'
+import { createPortal } from 'react-dom'
 import clsx from 'clsx'
 import type { ConversationHeaderProps } from '../contract/slots.ts'
 import { conversationPhase } from '../contract/snapshot.ts'
@@ -17,6 +18,17 @@ export function ConversationHeader({ sessionId, useSession, useConversation, ren
   const conversation = useConversation(s => s)
   const blank = session === undefined || conversation === undefined
     || (session.blank && conversationPhase(session, conversation) === 'blank')
+  if (desk?.strip === true) {
+    return (
+      <>
+        {desk.leading && desk.stripTarget !== undefined && createPortal(
+          <div className={css.headerLeading} data-conversation-header-leading="">{renderSlot('conversation.header.leading', {})}</div>,
+          desk.stripTarget,
+        )}
+        {sessionId !== undefined && renderSlot('conversation.session.header', { hideChrome: blank })}
+      </>
+    )
+  }
   return (
     <header className={clsx(css.header, blank && css.headerBlank)} data-window-drag>
       <div className={css.headerLeading} data-conversation-header-leading="">

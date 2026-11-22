@@ -5,6 +5,7 @@ import type { Workspace } from '@janhq/jan-workspace'
 import {
   WorkspaceActiveSessionError,
   WorkspaceArchivedSessionPinError,
+  workspaceRecord,
   WorkspaceId,
   WorkspaceMoveInvalidError,
   WorkspaceOrderInvalidError,
@@ -27,6 +28,7 @@ import type {
   WorkspaceRenameRequest,
   WorkspaceUnarchiveSessionRequest,
   WorkspaceUnpinSessionRequest,
+  WorkspaceUpdateRequest,
   WorkspaceValue,
   WorkspaceView,
 } from './types.ts'
@@ -66,13 +68,32 @@ export class WorkspaceCommands {
    * @returns the updated Workspace projection.
    */
   rename(request: WorkspaceRenameRequest): Promise<WorkspaceValue> {
-    const title = request.title.trim()
+    return this.update(request)
+  }
+
+  /**
+   * Validate and apply a partial project identity edit as one write.
+   * @param request - Workspace identity and fields to change.
+   * @returns the updated Workspace projection.
+   */
+  async update(request: WorkspaceUpdateRequest): Promise<WorkspaceValue> {
+    const title = request.title?.trim()
     if (title === '') {
-      return Promise.reject(new RemoteError('gateway/bad-request', 'Workspace rename requires a non-blank title', {}))
+      throw new RemoteError('gateway/bad-request', 'Workspace name must not be blank', {})
     }
+    const color = request.color == null ? request.color : workspaceRecord.shape.color.safeParse(request.color)
+    if (color != null && !color.success) {
+      throw new RemoteError('gateway/bad-request', 'Unknown Workspace color', {})
+    }
+    const avatar = request.avatar == null ? request.avatar : workspaceRecord.shape.avatar.safeParse(request.avatar)
+    if (avatar != null && !avatar.success) {
+      throw new RemoteError('gateway/bad-request', 'Workspace avatar must be a supported icon, one emoji, a small PNG, or a website host', {})
+    }
+    const parsedColor = color === null ? null : color?.data
+    const parsedAvatar = avatar === null ? null : avatar?.data
     return this.enqueue(async () => {
       const workspace = this.requireWorkspace(request.workspaceId)
-      if (title !== workspace.title) {
+      if (title !== undefined && title !== workspace.title) {
         if (this.ctx.workspaceRegistry.list().some(candidate =>
           candidate.id !== workspace.id && candidate.title === title)) {
           throw new RemoteError(
@@ -81,9 +102,14 @@ export class WorkspaceCommands {
             { name: title },
           )
         }
-        await workspace.setTitle(title)
       }
-      return { workspace: this.view(workspace) }
+      const updated = await this.ctx.workspaceRegistry.updateIdentity(workspace.id, {
+        ...(title === undefined ? {} : { title }),
+        ...(parsedColor === undefined ? {} : { color: parsedColor }),
+        ...(parsedAvatar === undefined ? {} : { avatar: parsedAvatar }),
+      })
+      if (updated === undefined) throw workspaceNotFound(workspace.id)
+      return { workspace: this.view(updated) }
     })
   }
 

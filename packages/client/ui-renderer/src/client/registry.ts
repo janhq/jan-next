@@ -713,14 +713,19 @@ export class SlotRegistry extends Service {
     }
   }
 
-  /** Drop every materialized non-root Store instance for one ended Context generation. */
+  /** Drop every materialized non-root Store instance for one ended Context generation, telling each instance it was dropped. */
   private releaseStoreScope(key: string): void {
+    const drop = (instances: Map<string, EngineStoreInstance>): void => {
+      const instance = instances.get(key)
+      if (instance === undefined) return
+      instances.delete(key)
+      instance.dispose?.()
+    }
     for (const record of this._stores.values()) {
-      if (record.scope === 'root') continue
-      record.instances.delete(key)
+      if (record.scope !== 'root') drop(record.instances)
     }
     for (const axis of this._factoryStores.values()) {
-      for (const record of axis.mounted.values()) record.instances.delete(key)
+      for (const record of axis.mounted.values()) drop(record.instances)
     }
   }
 

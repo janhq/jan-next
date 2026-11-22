@@ -384,7 +384,12 @@ export class ScheduleService extends TypertRemoteService {
     }
   }
 
-  /** Bind an existing Session's reminders to a mounted, durable inbox instead of waking the Agent directly. */
+  /** Bind an existing Session's reminders to a mounted, durable inbox instead of waking the Agent directly.
+   * @param sessionId - Session whose reminders the inbox receives.
+   * @param owner - Stable plugin owner recorded as the delivering inbox.
+   * @param receive - Acknowledges an occurrence after durable acceptance; must not call back into Schedule.
+   * @returns The disposer for this exact registration.
+   */
   registerSessionDestination(sessionId: SessionId, owner: string, receive: SchedulePluginHandler): () => void {
     if (!owner || this.stopping || this.sessionDestinations.has(sessionId)) throw new Error('schedule: cannot register Session destination')
     const destination = { owner, receive }
@@ -397,7 +402,11 @@ export class ScheduleService extends TypertRemoteService {
     }
   }
 
-  /** Change a legacy inbox's visible target while retaining deadlines, receipts and its private payload. */
+  /** Change a legacy inbox's visible target while retaining deadlines, receipts and its private payload.
+   * @param owner - Plugin owner whose saved tasks move.
+   * @param sessionId - Session the tasks now target.
+   * @param workspaceId - Project of that Session, when it has one.
+   */
   async retargetPluginTasks(owner: string, sessionId: SessionId, workspaceId?: WorkspaceId): Promise<void> {
     await this.serialize(async () => {
       const tasks = (await this.getDomain()).table('tasks')
@@ -414,7 +423,12 @@ export class ScheduleService extends TypertRemoteService {
     })
   }
 
-  /** Create an idempotently named task with a checkpoint for a mounted Session inbox. */
+  /** Create an idempotently named task with a checkpoint for a mounted Session inbox.
+   * @param request - Task title, prompt and timing, as in ordinary Schedule creation.
+   * @param destination - Session with a registered inbox, stable task key, and optional opaque payload.
+   * @param signal - Cancellation before the durable write.
+   * @returns The stored task without its private payload.
+   */
   async createSessionTask(request: Omit<ScheduleCreateRequest, 'target'>,
     destination: { readonly sessionId: SessionId; readonly key: string; readonly payload?: string },
     signal?: AbortSignal): Promise<ScheduleCatalogEntry> {

@@ -21,7 +21,7 @@ describe('conversation header geometry', () => {
   })
 
   it('clips overflowing title actions and fades them inside the gap before the next control', () => {
-    const cluster = css.match(/\.titleCluster\s*\{([^}]*)\}/)?.[1]
+    const cluster = css.match(/^\.titleCluster\s*\{([^}]*)\}/m)?.[1]
     expect(cluster).toContain('overflow: clip')
     expect(cluster).toContain('--title-cluster-fade: 20px')
     expect(cluster).toContain('margin: -4px calc(-1 * var(--title-cluster-fade)) -4px -4px')

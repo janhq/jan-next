@@ -7,6 +7,23 @@ import { Toast } from '../src/Toast.tsx'
 afterEach(cleanup)
 
 describe('Toast', () => {
+  it('closes at once from its button, named in the document language, and reports done only once', () => {
+    vi.useFakeTimers()
+    const language = document.documentElement.lang
+    try {
+      document.documentElement.lang = 'de-DE'
+      const onDone = vi.fn()
+      const view = render(<Toast text="Neue Sitzung fehlgeschlagen" onDone={onDone} />)
+      fireEvent.click(view.getByRole('button', { name: 'Schließen' }))
+      expect(onDone).toHaveBeenCalledTimes(1)
+      vi.advanceTimersByTime(10_000)
+      expect(onDone).toHaveBeenCalledTimes(1)
+    } finally {
+      document.documentElement.lang = language
+      vi.useRealTimers()
+    }
+  })
+
   it('announces its text and reports done after the hold-and-fade lifetime', () => {
     vi.useFakeTimers()
     try {
@@ -107,7 +124,7 @@ describe('Toast', () => {
     try {
       const onDone = vi.fn()
       const view = render(<Toast text="plain" onDone={onDone} />)
-      expect(view.getByRole('alert').querySelector('[aria-hidden]')).toBeNull()
+      expect(view.getByRole('alert').querySelector(':scope > [aria-hidden]')).toBeNull()
       view.unmount()
       vi.advanceTimersByTime(10_000)
       expect(onDone).not.toHaveBeenCalled()

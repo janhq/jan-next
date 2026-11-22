@@ -67,7 +67,7 @@ export interface SessionNode {
 export type SessionOrderBy = 'manual' | 'updated'
 
 /** One workspace group section: header row facts + visible top-level session rows. */
-export interface GroupNode {
+export interface GroupNode extends Pick<WorkspaceView, 'avatar' | 'color' | 'githubOwner'> {
   /** Group key: the workspace id or {@link UNGROUPED_KEY}. */
   key: string
   /** Backing Workspace id; absent only for the ungrouped bucket. */
@@ -115,7 +115,7 @@ export interface TreeView {
   ungroupedOrder?: readonly string[]
 }
 
-interface Group {
+interface Group extends Pick<WorkspaceView, 'avatar' | 'color' | 'githubOwner'> {
   key: string
   workspaceId: WorkspaceId | undefined
   cwd: string | undefined
@@ -349,10 +349,14 @@ function groupByWorkspace(
     // The archived-only view lists archives, not the Workspace inventory, so
     // a Workspace without archived Sessions contributes no group.
     if (archivedFilter === 'only' && members.length === 0) continue
-    groups.push(buildGroup(
-      workspace.workspaceId, workspace.workspaceId, workspace.path,
-      Date.parse(workspace.createdAt), workspace.title, members,
-    ))
+    groups.push({
+      ...buildGroup(
+        workspace.workspaceId, workspace.workspaceId, workspace.path, Date.parse(workspace.createdAt), workspace.title, members,
+      ),
+      ...(workspace.color === undefined ? {} : { color: workspace.color }),
+      ...(workspace.avatar === undefined ? {} : { avatar: workspace.avatar }),
+      ...(workspace.githubOwner === undefined ? {} : { githubOwner: workspace.githubOwner }),
+    })
   }
   const stray = list.ids
     .map(id => list.byId[id])
@@ -453,6 +457,9 @@ export function deriveGroups(
       cwd: g.cwd,
       createdAt: g.createdAt,
       label: g.label,
+      ...(g.color === undefined ? {} : { color: g.color }),
+      ...(g.avatar === undefined ? {} : { avatar: g.avatar }),
+      ...(g.githubOwner === undefined ? {} : { githubOwner: g.githubOwner }),
       sessionCount: g.sessions.length,
       expanded,
       containsCurrent: g.key === currentGroup,

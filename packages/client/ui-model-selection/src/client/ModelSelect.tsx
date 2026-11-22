@@ -44,6 +44,7 @@ import {
 import { createSnapshotStore } from '@janhq/jan-client-store'
 import type { PropsLocale, PropsRuntime } from '@janhq/jan-client-ui-slots'
 import type { ModelDetailsOwner, ModelLabelOwner, ModelOptionsOwner, ModelSelectInjected } from './slots.ts'
+import { compareModelNames } from './model-order.ts'
 import css from './ModelSelect.module.css'
 
 /** Where focus lands after the menu opens. */
@@ -159,7 +160,8 @@ export function ModelSelect(
     '--jan-model-row-anchor': rowAnchor,
   }
 
-  // Router listings arrive in no useful order; rows sort by the name a person reads.
+  // Router listings arrive in no useful order; rows group by the name a person
+  // reads, newest version of each family first.
   const groups = useMemo(() => state.groups.map((group) => {
     const names = displayNames(group.models)
     const label = (model: ModelCatalogModel): string => names.get(model.id) ?? model.name
@@ -167,7 +169,7 @@ export function ModelSelect(
       ...group,
       provider: { id: group.id, name: group.name },
       label,
-      models: [...group.models].sort((a, b) => label(a).localeCompare(label(b), undefined, { numeric: true, sensitivity: 'base' })),
+      models: [...group.models].sort((a, b) => compareModelNames(label(a), label(b))),
     }
   }), [state.groups])
   const choices = useMemo(() => groups.flatMap(group =>
