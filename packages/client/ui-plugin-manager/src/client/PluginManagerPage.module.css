@@ -1871,10 +1871,12 @@ label.registryOption {
   color: var(--dsw-alias-label-tertiary);
 }
 
+/* Chip boxes nest past the text line by their padding, so the first label starts on the search field's line. */
 .exploreChips {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  margin-inline-start: -12px;
 }
 
 .exploreChip {
