@@ -470,12 +470,13 @@ export function Menu({ open, anchor, items = [], children, submenuBackLabel, sel
 
   const itemColumns = menuIconColumns(items, contextual)
   const footerColumns = menuIconColumns(footer ?? [], contextual)
+  const isSelected = (id: string): boolean => id === selectedId || selectedIds?.includes(id) === true
   const renderEntry = (entry: MenuEntry, columns: ReadonlySet<MenuEntry>) => {
     if ('type' in entry) return renderMenuDecoration(entry)
     const hasSub = entry.submenu !== undefined && entry.submenu.length > 0
     return <MenuRow key={entry.id} icon={entry.icon} reserveIcon={columns.has(entry)}
       disabled={entry.disabled} danger={entry.danger} shortcut={entry.shortcut}
-      selected={entry.id === selectedId || selectedIds?.includes(entry.id) === true} selection={selection}
+      selected={isSelected(entry.id)} selection={selection}
       aria-haspopup={hasSub ? 'menu' : undefined}
       aria-expanded={hasSub ? submenu.entry?.id === entry.id && !submenu.hidden : undefined}
       wrapperProps={hasSub ? {
@@ -557,7 +558,8 @@ export function Menu({ open, anchor, items = [], children, submenuBackLabel, sel
       {portal ? (list !== false && createPortal(list, document.body)) : list}
       {open && exiting === undefined && submenu.entry !== undefined && <SubmenuPanel key={submenu.entry.id}
         entry={submenu.entry} submenu={submenu} compact={compact} dense={dense} contextual={contextual}
-        backLabel={submenuBackLabel ?? submenu.entry.label} onSelect={onSelect} onClose={onClose} afterSelection={refocusAfterSelection} />}
+        backLabel={submenuBackLabel ?? submenu.entry.label} selected={isSelected} onSelect={onSelect} onClose={onClose}
+        afterSelection={refocusAfterSelection} />}
     </span>
   )
 }
