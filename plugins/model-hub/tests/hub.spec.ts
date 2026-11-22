@@ -21,7 +21,7 @@ const catalog = [
   row('Llama-GGUF', 'Meta', 30, 'llama-Q4_K_M', '900 MB', { createdAt: '2024-07-23', num_mmproj: 1 }),
 ]
 
-function mount(local = {}, remote = {}) {
+function mount(local = {}, remote = {}, fetch: (url: string) => Promise<unknown> = async () => ({ ok: true, json: async () => catalog })) {
   type Source = { subscribe: (listener: () => void) => () => void; getSnapshot: () => unknown }
   type PanelProps = { t: typeof t; useLocal: () => unknown; runAction: (kind: string, target: object) => Promise<void> }
   let panel!: ReactAPI.ComponentType<PanelProps>
@@ -55,7 +55,7 @@ function mount(local = {}, remote = {}) {
       } },
     },
     setTimeout: () => 0, document, sessionStorage, AbortController,
-    fetch: async () => ({ ok: true, json: async () => catalog }),
+    fetch,
   })
   const localSource = props.hooks.local
   render(React.createElement(panel, { t, runAction: props.runAction, useLocal: () => React.useSyncExternalStore(localSource.subscribe, localSource.getSnapshot) }))
@@ -69,6 +69,29 @@ const allModels = () => { fireEvent.click(screen.getByRole('tab', { name: 'All m
 afterEach(() => {
   cleanup()
   document.querySelector('style[data-plugin="@janhq/jan-model-hub"]')?.remove()
+})
+
+it('draws each publisher’s Hugging Face picture once per account and keeps the monogram otherwise', async () => {
+  const avatar = (owner: string) => `https://cdn-avatars.huggingface.co/v1/production/uploads/${owner}.png`
+  const reply = (status: number, body: unknown = {}) => ({ ok: status < 400, status, json: async () => body })
+  const fetch = vi.fn(async (url: string) => {
+    if (url.includes('model_catalog')) return reply(200, catalog)
+    if (url.endsWith('/organizations/Google/avatar')) return reply(200, { avatarUrl: avatar('google') })
+    if (url.endsWith('/users/Alibaba/avatar')) return reply(200, { avatarUrl: avatar('alibaba') })
+    // A default picture reads worse than the monogram.
+    if (url.endsWith('/users/Meta/avatar')) return reply(200, { avatarUrl: 'https://huggingface.co/avatars/0f40.svg' })
+    return reply(404)
+  })
+  mount({}, {}, fetch)
+  await waitFor(() => expect(document.querySelectorAll(`img[src="${avatar('alibaba')}"]`).length).toBeGreaterThan(0))
+  expect(document.querySelectorAll(`img[src="${avatar('google')}"]`).length).toBeGreaterThan(1)
+  const lookups = fetch.mock.calls.map(([url]) => url).filter(url => url.includes('/avatar'))
+  expect(lookups.sort()).toEqual([
+    'https://huggingface.co/api/organizations/Alibaba/avatar', 'https://huggingface.co/api/organizations/Google/avatar',
+    'https://huggingface.co/api/organizations/Meta/avatar', 'https://huggingface.co/api/users/Alibaba/avatar',
+    'https://huggingface.co/api/users/Meta/avatar',
+  ])
+  expect([...document.querySelectorAll('img')].some(image => image.getAttribute('src')?.includes('/avatars/'))).toBe(false)
 })
 
 it('ranks partial and mistyped names and finds developers and quant files', async () => {
@@ -148,6 +171,18 @@ it('opens on Explore: features fitting models and leads each shelf into the filt
   expect(screen.getByRole('tab', { name: 'All models' }).getAttribute('aria-selected')).toBe('true')
   expect(screen.getByRole('button', { name: 'Tools' }).getAttribute('aria-pressed')).toBe('true')
   expect(names()).toEqual(['Gemma', 'Qwen3-Coder'])
+})
+
+it('features Jan\'s own models first, even when others are more popular', async () => {
+  const withJan = [...catalog, row('Jan-v3-GGUF', 'Menlo', 1, 'jan-v3-Q4_K_M', '2 GB'), row('Jan-nano-GGUF', 'janhq', 2, 'jan-nano-Q4_K_M', '20 GB')]
+  mount({ hardware: { memoryBytes: 3e9, backend: 'cpu', devices: [] } }, {}, async () => ({ ok: true, json: async () => withJan }))
+  const featured = await screen.findByRole('region', { name: 'Featured' })
+  const titles = []
+  for (let i = 0; i < 4; i++) {
+    titles.push(within(featured).getByRole('heading', { level: 2 }).textContent)
+    fireEvent.click(within(featured).getByRole('button', { name: 'Next' }))
+  }
+  expect(titles).toEqual(['Jan-nano', 'Jan-v3', 'Qwen3-Coder', 'Llama'])
 })
 
 it('downloads from a tile\'s details and searches from Explore into the full list', async () => {
