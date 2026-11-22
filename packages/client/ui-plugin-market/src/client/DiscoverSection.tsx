@@ -27,6 +27,37 @@ const TEXT_DELAY_MS = 250
 /** Artwork size inside the 48px icon frame, as on the Installed tab. */
 const ICON = 36
 
+/** Public indexes offered for one-click adding; nothing is requested until the person adds one. */
+const SUGGESTED_INDEXES = [
+  { url: 'https://dsh.works/awesome-dsh-plugins/market/index.json', title: 'awesome-dsh-plugins', description: 'suggestedDsh' },
+] as const
+
+function SuggestedIndexes({ state, t, face }: {
+  readonly state: DiscoverState
+  readonly t: Translate
+  readonly face: DiscoverActions
+}): ReactNode {
+  const open = SUGGESTED_INDEXES.filter(item => !state.indexes.some(index => index.url === item.url))
+  if (open.length === 0) return null
+  return (
+    <ul className={css.sourceList} aria-label={t('suggestedLabel')}>
+      {open.map(item => (
+        <li key={item.url} className={css.sourceRow}>
+          <div className={css.main}>
+            <span className={css.strong}>{item.title}</span>
+            <span className={css.meta}>{t(item.description)}</span>
+            <span className={css.meta}>{item.url}</span>
+          </div>
+          <Button variant="outline" size="sm" icon={<IconPlusOutlineRegular size={13} />} disabled={state.saving}
+            aria-label={t('addSuggested', { title: item.title })} onClick={() => { face.addSuggested(item.url) }}>
+            {t('addSource')}
+          </Button>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 const FAILURE_KEYS = {
   fetch: 'readFailed',
   invalid: 'readInvalid',
@@ -306,6 +337,7 @@ function SourcesDialog({ state, t, face }: {
             ))}
           </ul>
         )}
+        <SuggestedIndexes state={state} t={t} face={face} />
         <form className={css.sourceForm} onSubmit={(event) => { event.preventDefault(); face.addSource() }}>
           <Input className={css.grow as string} value={state.draft} placeholder={t('sourcePlaceholder')} aria-label={t('sourceUrl')}
             aria-invalid={state.sourceFailure !== null} data-modal-autofocus onChange={(event) => { face.editDraft(event.target.value) }} />
@@ -582,7 +614,8 @@ export function DiscoverSection(props: DiscoverSectionProps): ReactNode {
         <IconPluginIndexOutlineRegular size={48} className={css.emptyGlyph} />
         <p className={css.emptyTitle}>{t('emptyTitle')}</p>
         <p className={css.muted}>{t('emptyDescription')}</p>
-        <Button variant="primary" size="sm" icon={<IconPlusOutlineRegular size={13} />} onClick={props.toggleSources}>
+        <div className={css.emptySuggested}><SuggestedIndexes state={state} t={t} face={face} /></div>
+        <Button variant="outline" size="sm" icon={<IconPlusOutlineRegular size={13} />} onClick={props.toggleSources}>
           {t('addFirstSource')}
         </Button>
       </div>
