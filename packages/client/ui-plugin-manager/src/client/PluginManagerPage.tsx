@@ -8,7 +8,7 @@
  * the page declares.
  */
 
-import { useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { PluginInstallFailureKind, Registry } from '@janhq/jan-api-remotes/client'
 import {
@@ -16,7 +16,7 @@ import {
   IconChevronRightOutlineRegular, IconCloseOutlineMedium,
   IconDownloadOutlineRegular, IconGlobeOutlineRegular, IconInfoOutlineRegular, IconPlusOutlineRegular, IconRefreshOutlineRegular,
   IconTrashOutlineRegular,
-  IconWarningOutlineRegular, Input, Menu, MenuItemButton, Modal, pointerModality,
+  IconSearchOutlineRegular, IconWarningOutlineRegular, Input, Menu, MenuItemButton, Modal, pointerModality,
   PluginArtworkDefault, PluginArtworkLoop, PluginArtworkSearch, PluginArtworkSubagent, PluginArtworkTerminal,
   SegmentedTabs, StateDot, Switch, Tag, TerminalBlock, Toast, Tooltip, useDismissOnOutsidePointer,
   type IconProps, type StateDotState, type TerminalBlockLabels,
@@ -607,6 +607,52 @@ function PackageCard({ pkg, t, resolveText, busy, highlighted, newer, translatio
     </li>
   )
 }
+
+/** A package's tint: one stable hue per name, shared by its spotlight banner. */
+function nameHue(name: string): number {
+  let hash = 7
+  for (const char of name) hash = (hash * 31 + (char.codePointAt(0) ?? 0)) % 360
+  return hash
+}
+
+/** Optional plugins the person has not turned on, one at a time with a way into each one's page. */
+function PluginSpotlight({ packages, t, resolveText, renderSlot, onOpen }: {
+  readonly packages: readonly PackageView[]
+  readonly t: Translate
+  readonly resolveText: ResolveText
+  readonly renderSlot: RenderConfig
+  readonly onOpen: (pkg: PackageView) => void
+}): ReactNode {
+  const [at, setAt] = useState(0)
+  const index = packages.length === 0 ? 0 : at % packages.length
+  const pkg = packages[index]
+  if (pkg === undefined) return null
+  const { title, description } = packageText(pkg, resolveText)
+  const step = (delta: number): void => { setAt((index + delta + packages.length) % packages.length) }
+  return (
+    <section className={css.spotlight} aria-roledescription="carousel" aria-label={t('spotlightLabel')}
+      style={{ '--plugin-hue': nameHue(pkg.name) } as CSSProperties} data-plugin-spotlight={pkg.name}>
+      <div key={pkg.name} className={css.spotlightBody}>
+        <p className={css.spotlightEyebrow}>{t('spotlightEyebrow')}</p>
+        <h2 className={css.spotlightTitle}>{title}</h2>
+        {description === undefined ? null : <p className={css.spotlightDescription}>{description}</p>}
+        <Button variant="primary" size="sm" onClick={() => { onOpen(pkg) }}>{t('spotlightOpen')}</Button>
+      </div>
+      <span className={css.spotlightArt} aria-hidden="true">{packageArtwork(pkg.name, pkg.meta?.icon, renderSlot, false, 64)}</span>
+      {packages.length > 1
+        ? (
+          <div className={css.spotlightNav}>
+            <Button size="sm" aria-label={t('spotlightPrevious')} icon={<IconChevronLeftOutlineMedium size={16} />} onClick={() => { step(-1) }} />
+            <span>{t('spotlightPosition', { index: String(index + 1), total: String(packages.length) })}</span>
+            <Button size="sm" aria-label={t('spotlightNext')} icon={<IconChevronRightOutlineRegular size={16} />} onClick={() => { step(1) }} />
+          </div>
+        )
+        : null}
+    </section>
+  )
+}
+
+type ExploreFilter = 'all' | 'on' | 'off' | 'updates' | 'yours'
 
 /**
  * One official plugin as a card that opens its page: its icon, its title from
@@ -1646,6 +1692,9 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
   useEffect(() => { if (tab !== selectedTab) setTab(tab) }, [tab, selectedTab, setTab])
   const tabsId = useId()
   const [activation, setActivation] = useState<string | null>(null)
+  // Customize narrows every plugin, held or optional, by a search and one filter at a time.
+  const [exploreQuery, setExploreQuery] = useState('')
+  const [exploreFilter, setExploreFilter] = useState<ExploreFilter>('all')
   const [headerRef] = useState(props.createHeaderRef)
   useEffect(() => { ensure() }, [ensure])
   // Installation highlights visible cards without changing the user's current page.
@@ -1729,6 +1778,42 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
   const basicCards = ledger.items.map(item => (
     <ItemCard key={`item:${item.id}`} item={item} t={t} renderSlot={renderSlot} onOpen={() => { setView({ kind: 'item', id: item.id }) }} />
   ))
+  const updateCount = listed.filter(pkg => versionUpdate(state.versions[pkg.name]) !== undefined).length
+  const exploreFilters: readonly (readonly [ExploreFilter, string])[] = [
+    ['all', t('filterAll')], ['on', t('filterOn')], ['off', t('filterOff')],
+    ...updateCount > 0 ? [['updates', `${t('filterUpdates')} · ${updateCount}`] as const] : [],
+    ...mine.length > 0 ? [['yours', t('filterYours')] as const] : [],
+  ]
+  const filterNow = exploreFilters.some(([id]) => id === exploreFilter) ? exploreFilter : 'all'
+  const needle = exploreQuery.trim().toLowerCase()
+  const exploring = customize && (needle !== '' || filterNow !== 'all')
+  const keeps = (pkg: PackageView): boolean => {
+    if (filterNow === 'on' && !pkg.enabled) return false
+    if (filterNow === 'off' && pkg.enabled) return false
+    if (filterNow === 'updates' && versionUpdate(state.versions[pkg.name]) === undefined) return false
+    if (filterNow === 'yours' && pkg.official) return false
+    const { title, description } = packageText(pkg, resolveText)
+    return needle === '' || [title, description, pkg.name].some(text => text?.toLowerCase().includes(needle))
+  }
+  const matches = exploring
+    ? [
+      ...filterNow === 'all' ? basicCards.filter((_, index) => ledger.items[index]?.label.toLowerCase().includes(needle)) : [],
+      ...[...ordered, ...mine].filter(keeps).map(packageCard),
+    ]
+    : []
+  const featured = ordered.filter(pkg => MORE_BUNDLES.includes(pkg.name) && !pkg.enabled).slice(0, 5)
+  const exploreBar = (
+    <div className={css.exploreBar}>
+      <Input type="search" className={css.exploreSearch as string} icon={<IconSearchOutlineRegular size={16} />}
+        placeholder={t('exploreSearch')} aria-label={t('exploreSearch')} value={exploreQuery}
+        onChange={(event) => { setExploreQuery(event.target.value) }} />
+      <div className={css.exploreChips} role="group" aria-label={t('exploreFilters')}>
+        {exploreFilters.map(([id, label]) => (
+          <button key={id} type="button" className={css.exploreChip} aria-pressed={filterNow === id} onClick={() => { setExploreFilter(id) }}>{label}</button>
+        ))}
+      </div>
+    </div>
+  )
   const renderGroup = (id: 'basic' | 'extensions' | 'bundles', heading: string, cards: readonly ReactNode[]): ReactNode => {
     const offersMore = id === 'extensions' && more.length > 0
     if (cards.length === 0 && !offersMore) return null
@@ -1932,9 +2017,32 @@ export function PluginManagerPage(props: PluginManagerPageProps): ReactNode {
                   </section>
                 ) : (
                   <>
-                    {renderGroup('basic', t('basicTitle'), basicCards)}
-                    {renderGroup('extensions', t('extensionsTitle'), extensions.map(packageCard))}
-                    {renderGroup('bundles', t('bundlesTitle'), mine.map(packageCard))}
+                    {customize ? exploreBar : null}
+                    {exploring
+                      ? (
+                        <section className={css.group} data-plugin-scope="global" data-plugin-group="matches">
+                          <p className={css.exploreCount} role="status">{t('exploreCount', { count: String(matches.length) })}</p>
+                          {matches.length > 0
+                            ? <ul className={css.cards}>{matches}</ul>
+                            : (
+                              <div className={css.exploreEmpty}>
+                                <span>{t('exploreEmpty')}</span>
+                                <Button size="sm" variant="outline" onClick={() => { setExploreQuery(''); setExploreFilter('all') }}>{t('exploreClear')}</Button>
+                              </div>
+                            )}
+                        </section>
+                      )
+                      : (
+                        <>
+                          {customize
+                            ? <PluginSpotlight packages={featured} t={t} resolveText={resolveText} renderSlot={renderSlot}
+                              onOpen={(pkg) => { setActivation(null); setView({ kind: 'package', name: pkg.name, from: 'more' }) }} />
+                            : null}
+                          {renderGroup('basic', t('basicTitle'), basicCards)}
+                          {renderGroup('extensions', t('extensionsTitle'), extensions.map(packageCard))}
+                          {renderGroup('bundles', t('bundlesTitle'), mine.map(packageCard))}
+                        </>
+                      )}
                   </>
                 )}
                 {/* A failed package read trails the groups it left incomplete: right under the groups on a
