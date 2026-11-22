@@ -1078,6 +1078,32 @@ Types: [Scoped](scope.md) · [UserMessage](session.md)
 
 Source: [`packages/core/agent/src/runtime-types.ts`](../../packages/core/agent/src/runtime-types.ts)
 
+<a id="agentreload--waterfall"></a>
+
+#### `agent/reload` — waterfall
+
+The user asked to re-read context that lives outside the Session, such as instruction files and skill folders, after editing it outside Jan. A listener re-reads its source, queues any change as a message appended after the conversation (never an edit to sent messages), and returns `[...await next(), ...its report lines]`.
+
+```ts cordis-catalog
+/**
+ * The user asked to re-read context that lives outside the Session, such as
+ * instruction files and skill folders, after editing it outside Jan. A
+ * listener re-reads its source, queues any change as a message appended
+ * after the conversation (never an edit to sent messages), and returns
+ * `[...await next(), ...its report lines]`.
+ * @param payload.agent - the agent whose context is re-read.
+ * @param payload.signal - the dispatching command's cancellation signal.
+ * @returns one human-readable report line per listener that re-read something.
+ * Scope-filtered dispatch (`@janhq/jan-scope`): agent-scoped listeners receive only that agent.
+ * @mode waterfall
+ */
+'agent/reload'(this: Scoped<Agent>, payload: { agent: Agent; signal: AbortSignal }, next: () => Promise<string[]>): Promise<string[]>
+```
+
+Types: [Scoped](scope.md)
+
+Source: [`packages/core/agent/src/runtime-types.ts`](../../packages/core/agent/src/runtime-types.ts)
+
 <a id="agentrequest-error--waterfall"></a>
 
 #### `agent/request-error` — waterfall
