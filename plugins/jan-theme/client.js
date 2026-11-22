@@ -495,7 +495,12 @@ window.__ModuleLoader__.load({
   html[data-jan-theme][data-jan-theme-mac][data-fullscreen] [data-slot='sidebar'] > div > :has([data-slot='sidebar.brand.name']) { padding-left: 4px; margin-bottom: 8px; }
   html[data-jan-theme][data-jan-theme-mac][data-fullscreen] [data-slot='sidebar'] > div > [data-window-drag]:has(> [data-sidebar-toggle]) { top: 6px; }
   /* Jan's SidebarMenu rhythm: 32px rows 4px apart. The rows sit in the sidebar's flex column, not a nav, so the margin carries the gap. */
-  html[data-jan-theme] .jt-nav-row:not([class*='rail']) { height: 32px; padding: 0 8px; gap: 8px; margin: 0 0 4px; }
+  /* Sidebar columns, shared by every row: icons on 28-44 (centre 36), labels at 52, trailing ink
+     ending on the chat times' line (row edge - 10px). The shortcut keys end there too. "Chats"
+     starts on the icon column's edge. */
+  html[data-jan-theme] .jt-nav-row:not([class*='rail']) { height: 32px; padding: 0 10px 0 8px; gap: 8px; margin: 0 0 4px; }
+  html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='workspace:'] { padding-inline-start: calc(8px - var(--jan-sidebar-paint-inset)); gap: 8px; }
+  html[data-jan-theme] [data-slot='sidebar'] button[class*='_login'] { padding-inline-start: calc(8px - var(--jan-sidebar-paint-inset)); }
   /* The More launcher matches these rows (see the panelRow rule below). */
   html[data-jan-theme] [data-slot='sidebar'] nav { gap: 4px; }
   html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='session:'] { height: 32px; padding-inline-start: calc(7px + var(--jan-workspace-indent, 0px)); }
@@ -540,9 +545,9 @@ window.__ModuleLoader__.load({
   html[data-jan-theme] [data-slot='sidebar'] :has(> * > [data-row-key^='workspace:']) > * > [data-row-key^='session:'] {
     padding-inline-start: calc(7px + 16px + var(--jan-sidebar-label-gap, 6px) + var(--jan-workspace-indent, 0px));
   }
-  /* "Show N more": its chevron under the folder icon, its label on the chats' title column. */
+  /* "Show N more": its chevron centred on the icon column, its label on the chats' title column. */
   html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='overflow:'] {
-    padding-inline-start: calc(7px + var(--jan-workspace-indent, 0px)); color: var(--jt-side-muted);
+    padding-inline-start: calc(5px + var(--jan-workspace-indent, 0px)); gap: 2px; color: var(--jt-side-muted);
   }
   @media (hover: hover) { html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='overflow:']:hover { color: var(--jt-side-label); } }
   html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='session:'] > span:first-child:has(> [data-slot='sidebar.session.row.leading']:only-child:empty) { display: none; }
@@ -730,9 +735,11 @@ window.__ModuleLoader__.load({
      mounted inside it; only their presentation folds while search is open. */
   /* Jan Desktop v04: the heading sits 56px (centre to centre) under the last
      nav row and 35px over the first chat. */
-  .jt-list-header { flex: none; display: flex; align-items: center; gap: 4px; height: 36px; margin: 5px -4px -2px 0; padding-left: 10px; color: var(--dsw-alias-label-tertiary); }
-  .jt-list-tools { display: flex; align-items: center; gap: 4px; min-width: 0; margin-left: auto; }
-  .jt-list-actions { display: flex; align-items: center; }
+  /* The header shares the project rows' columns: "Chats" starts on the icon column, and its 28px
+     buttons sit on the rows' 29px action pitch, centred over the chevron, more and new-chat icons. */
+  .jt-list-header { flex: none; display: flex; align-items: center; gap: 4px; height: 36px; margin: 5px 5px -2px 0; padding-left: 8px; color: var(--dsw-alias-label-tertiary); }
+  .jt-list-tools { display: flex; align-items: center; gap: 1px; min-width: 0; margin-left: auto; }
+  .jt-list-actions { display: flex; align-items: center; gap: 1px; }
   .jt-list-header[data-search-expanded] .jt-list-heading, .jt-list-header[data-search-expanded] .jt-list-actions { display: none; }
   .jt-list-header[data-search-expanded] .jt-list-tools { flex: 1; }
   .jt-list-add { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: var(--dsw-radius-sm); background: transparent; color: var(--dsw-alias-label-secondary); cursor: pointer; }
