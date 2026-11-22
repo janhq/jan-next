@@ -7,7 +7,7 @@ window.__ModuleLoader__.load({
     const { Button, InlineEditor, Modal, Tooltip, IconCloseOutlineRegular, IconPenOutlineRegular, IconRectangleOutlineRegular,
       IconEllipseOutlineRegular, IconArrowOutlineRegular, IconEraserOutlineRegular, IconTextOutlineRegular, IconCursorOutlineRegular,
       IconUndoOutlineRegular, IconRedoOutlineRegular, IconTrashOutlineRegular, ELEMENT_PROBE_ATTRIBUTE, describeElement,
-      probeFrameElement } = require('@janhq/jan-client-ui-primitives')
+      probeFrameElement, probeFrameGuides, measureGuides } = require('@janhq/jan-client-ui-primitives')
     const shell = { display: 'grid', gap: '16px', padding: '20px', boxSizing: 'border-box', minHeight: 0, overflow: 'auto' }
     const tools = { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }
     const textStyle = { fontSize: '13px', lineHeight: '18px', letterSpacing: '-0.13px', margin: 0 }
@@ -926,6 +926,131 @@ window.__ModuleLoader__.load({
             onClick: commitSelection }, t('add'))))
     }
 
-    return { Overlay, captureContext, paintMark, resized, markBounds, touches, toolForKey }
+    // The gridlines colours: red for the leading lines (solid lead and label, fainter box and icon column), blue for
+    // the trailing line, amber for the trailing column's centre, violet for a centred row's axis.
+    const GUIDE_STYLES = {
+      lead: 'rgba(255,90,90,0.95)', label: 'rgba(255,90,90,0.95)', box: 'rgba(255,90,90,0.5)', iconCentre: 'rgba(255,90,90,0.35)',
+      trailing: 'rgba(90,200,255,0.95)', trailCentre: 'rgba(255,190,60,0.7)', centre: 'rgba(170,120,255,0.85)',
+    }
+    const RULER = 16
+
+    /** Measure a surface's guides in this window's coordinates; null when its page cannot be read. */
+    async function guidesOf(surface) {
+      if (surface.localName === 'iframe') {
+        const box = surface.getBoundingClientRect()
+        const dx = box.left + surface.clientLeft
+        const dy = box.top + surface.clientTop
+        const page = surface.contentDocument
+        const found = page !== null ? measureGuides(page.documentElement)
+          : surface.hasAttribute(ELEMENT_PROBE_ATTRIBUTE) ? await probeFrameGuides(surface) : null
+        return found && { containers: found, dx, dy, origin: { x: dx, y: dy } }
+      }
+      if (surface.localName === 'webview') return null
+      const box = surface.getBoundingClientRect()
+      return { containers: measureGuides(surface), dx: 0, dy: 0, origin: { x: box.left, y: box.top } }
+    }
+
+    /**
+     * Layout guides over a live surface: rulers along its top and left edges, each container's dominant lines, and a
+     * box around every item that misses its line by 2px or more. They follow the page as it scrolls, resizes or
+     * changes, and stay until the guides control, Escape or the close button takes them down.
+     */
+    function Guides({ getSurface, close, t }) {
+      const [state, setState] = useState()
+      useEffect(() => {
+        let live = true
+        let frame = 0
+        let running = false
+        const measure = async () => {
+          if (running) return
+          const surface = getSurface()
+          if (!surface?.isConnected) { close(); return }
+          running = true
+          try {
+            const found = await guidesOf(surface)
+            if (live) setState({ found, clip: visibleBounds(surface) })
+          } finally { running = false }
+        }
+        const schedule = () => {
+          if (frame !== 0) return
+          frame = requestAnimationFrame(() => { frame = 0; void measure() })
+        }
+        void measure()
+        // A page can change without telling the app (an opaque frame, a canvas animating), so it is re-read each second too.
+        const timer = setInterval(schedule, 1000)
+        addEventListener('resize', schedule)
+        addEventListener('scroll', schedule, true)
+        const key = (event) => { if (event.key === 'Escape' && !event.defaultPrevented) { event.preventDefault(); close() } }
+        document.addEventListener('keydown', key)
+        return () => {
+          live = false
+          cancelAnimationFrame(frame)
+          clearInterval(timer)
+          removeEventListener('resize', schedule)
+          removeEventListener('scroll', schedule, true)
+          document.removeEventListener('keydown', key)
+        }
+      }, [getSurface, close])
+      if (state === undefined || state.clip === null) return null
+      const { found, clip } = state
+      const misses = found === null ? 0 : found.containers.reduce((sum, item) => sum + item.misses.length, 0)
+      const summary = found === null ? t('guidesUnavailable') : misses === 0 ? t('guidesAligned') : t('guidesMisses', { n: misses })
+      const marks = []
+      if (found !== null) {
+        const { containers, dx, dy, origin } = found
+        const x = value => value + dx - clip.x
+        const y = value => value + dy - clip.y
+        // Rulers count from the surface's own top-left corner, the origin its CSS uses.
+        const ox = origin.x - clip.x
+        const oy = origin.y - clip.y
+        marks.push(h('rect', { key: 'rt', x: 0, y: 0, width: clip.width, height: RULER, fill: 'var(--dsw-alias-bg-overlay)', opacity: 0.92 }),
+          h('rect', { key: 'rl', x: 0, y: 0, width: RULER, height: clip.height, fill: 'var(--dsw-alias-bg-overlay)', opacity: 0.92 }))
+        for (let step = Math.ceil(-ox / 10) * 10; ox + step <= clip.width; step += 10) {
+          const at = ox + step
+          const size = step % 100 === 0 ? RULER : step % 50 === 0 ? 8 : 4
+          marks.push(h('line', { key: `tx${step}`, x1: at, x2: at, y1: RULER - size, y2: RULER, stroke: 'currentColor', strokeWidth: 1 }))
+          if (step % 100 === 0 && step > 0) marks.push(h('text', { key: `lx${step}`, x: at + 2, y: 9, fontSize: 9, fill: 'currentColor' }, step))
+        }
+        for (let step = Math.ceil(-oy / 10) * 10; oy + step <= clip.height; step += 10) {
+          const at = oy + step
+          const size = step % 100 === 0 ? RULER : step % 50 === 0 ? 8 : 4
+          marks.push(h('line', { key: `ty${step}`, y1: at, y2: at, x1: RULER - size, x2: RULER, stroke: 'currentColor', strokeWidth: 1 }))
+          if (step % 100 === 0 && step > 0) marks.push(h('text', { key: `ly${step}`, x: 2, y: at - 2, fontSize: 9, fill: 'currentColor' }, step))
+        }
+        containers.forEach((container, index) => {
+          const top = y(container.rect.y)
+          const bottom = top + container.rect.height
+          const drawn = new Set()
+          for (const [name, colour] of Object.entries(GUIDE_STYLES)) {
+            const line = container.lines[name]
+            if (line === undefined || drawn.has(line)) continue
+            drawn.add(line)
+            marks.push(h('line', { key: `${index}${name}`, x1: x(line) + 0.5, x2: x(line) + 0.5, y1: top, y2: bottom,
+              stroke: colour, strokeWidth: 1, strokeDasharray: '4 3' }))
+          }
+          container.misses.forEach((miss, n) => {
+            const left = x(miss.rect.x)
+            const at = y(miss.rect.y)
+            const label = miss.edge === 'vertical-centre' ? `↕${miss.offset}px` : `${miss.offset > 0 ? '+' : ''}${miss.offset}px`
+            marks.push(h('rect', { key: `${index}m${n}`, x: left - 1, y: at - 1, width: miss.rect.width + 2, height: miss.rect.height + 2,
+              fill: 'rgba(255,60,60,0.08)', stroke: 'rgba(255,60,60,0.95)', strokeWidth: 1.5, rx: 2 }),
+            h('text', { key: `${index}t${n}`, x: left, y: Math.max(RULER + 10, at - 4), fontSize: 10, fontWeight: 600, fill: 'rgba(230,40,40,1)' }, label))
+          })
+        })
+      }
+      return createPortal(h('div', { 'data-annotate-guides': '', style: { position: 'fixed', left: `${clip.x}px`, top: `${clip.y}px`,
+        width: `${clip.width}px`, height: `${clip.height}px`, overflow: 'hidden', pointerEvents: 'none', zIndex: 89,
+        color: 'var(--dsw-alias-label-tertiary)' } },
+      h('svg', { width: clip.width, height: clip.height, style: { position: 'absolute', inset: 0,
+        font: '9px/1 var(--dsw-font-mono, ui-monospace, monospace)' }, 'aria-hidden': true }, marks),
+      h('div', { role: 'status', style: { position: 'absolute', top: `${RULER + 6}px`, right: '6px', display: 'flex', alignItems: 'center', gap: '4px',
+        padding: '2px 2px 2px 10px', borderRadius: '999px', pointerEvents: 'auto', background: 'var(--dsw-alias-bg-overlay)', boxShadow: elevation,
+        ...textStyle, fontSize: '12px', color: misses > 0 ? 'var(--dsw-alias-state-error-primary)' : 'var(--dsw-alias-label-secondary)' } },
+      summary,
+      h(Button, { type: 'button', variant: 'ghost', size: 'sm', style: { ...square, width: '24px', height: '24px', minHeight: 0 },
+        'aria-label': t('close'), onClick: close }, h(IconCloseOutlineRegular, { size: 14, 'aria-hidden': true })))), document.body)
+    }
+
+    return { Overlay, Guides, captureContext, paintMark, resized, markBounds, touches, toolForKey }
   },
 })
