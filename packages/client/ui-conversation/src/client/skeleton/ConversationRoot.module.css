@@ -642,6 +642,37 @@
   z-index: 1;
 }
 
+/* The welcome rises in once the phase lands on the hero (settling keeps the
+   seat hidden, so nothing plays unseen): the heading first, the composer
+   120ms later, the suggestions 240ms later; 10px on the emphasized curve.
+   Slot seats are `display: contents`, so their rendered children move. */
+:is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > :first-child,
+:is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > [data-slot] > * {
+  animation: conversation-welcome-in 350ms var(--ds-ease-emphasized) 120ms backwards;
+}
+
+:is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > :first-child {
+  animation-delay: 0ms;
+}
+
+:is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > [data-slot='conversation.hero.suggestions'] > * {
+  animation-delay: 240ms;
+}
+
+@keyframes conversation-welcome-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > :first-child,
+  :is(.root[data-phase='hero'], .embeddedBody[data-content-phase='hero']) .composerHero > [data-slot] > * {
+    animation: none;
+  }
+}
+
 /* Under the hero card, at the start of the model and context row. */
 .heroWorkspaceRow {
   display: flex;
