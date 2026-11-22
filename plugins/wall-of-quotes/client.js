@@ -85,9 +85,11 @@ window.__ModuleLoader__.load({
 .woq-author { display: block; font-size: 14px; font-weight: 400; line-height: 20px; color: var(--dsw-alias-label-secondary); }
 .woq-headline { width: 100%; margin: 0 0 16px; }
 .woq-headline > .woq-title { margin: 0; }
-/* The quote's controls sit on the author line and appear while the pointer is over the quote or a control has focus. */
-.woq-byline { display: flex; align-items: center; justify-content: center; gap: 2px; min-height: 28px; }
-.woq-actions { display: inline-flex; gap: 2px; opacity: 0; transition: opacity 120ms ease; }
+/* The quote's controls sit on the author line and appear while the pointer is over the quote or a control has focus.
+   Equal outer tracks keep the author centred under the quote; the controls hang in the right track. */
+.woq-byline { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 2px; min-height: 28px; }
+.woq-byline::before { content: ''; }
+.woq-actions { display: inline-flex; justify-self: start; gap: 2px; opacity: 0; transition: opacity 120ms ease; }
 .woq-headline:hover .woq-actions, .woq-actions:focus-within { opacity: 1; }
 @media (hover: none) { .woq-actions { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .woq-actions { transition: none; } }
