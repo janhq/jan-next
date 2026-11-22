@@ -26,16 +26,34 @@ function mount(local = {}, remote = {}, fetch: (url: string) => Promise<unknown>
   type PanelProps = { t: typeof t; useLocal: () => unknown; runAction: (kind: string, target: object) => Promise<void> }
   let panel!: ReactAPI.ComponentType<PanelProps>
   let props!: { hooks: { local: Source }; runAction: PanelProps['runAction'] }
-  let optionRow!: ReactAPI.ComponentType<{ dismiss: () => void; t: typeof t }>
-  const selectPanel = vi.fn()
+  let optionRow!: ReactAPI.ComponentType<{ dismiss: () => void; sessionId?: string; t: typeof t }>
+  let panelInfo = { activePanelId: null as string | null }
+  const panelListeners = new Set<() => void>()
+  const selectPanel = vi.fn((id: string | null) => {
+    panelInfo = { activePanelId: id }
+    for (const listener of panelListeners) listener()
+  })
+  const openSession = vi.fn(), startSession = vi.fn()
+  const selectModel = vi.fn(async () => ({ ok: true }))
+  const updates: Array<(next: object) => void> = []
   let copy: Record<string, string>
   const t = (key: string, values: Record<string, unknown> = {}) => (copy[key] ?? key).replace(/\{(\w+)\}/g, (_, name) => String(values[name]))
   const state = { models: [], downloads: [], catalog: [], provider: 'local', ...local }
   const scope = {
-    layout: { selectPanel },
+    layout: {
+      selectPanel,
+      panelInfo: { getSnapshot: () => panelInfo, subscribe: (listener: () => void) => { panelListeners.add(listener); return () => panelListeners.delete(listener) } },
+    },
+    sessions: { list: { getSnapshot: () => ({ byId: { s1: { id: 's1' } } }), subscribe: () => () => {} } },
+    uiWorkspace: { openSession, startSession },
+    'remote.session': { selectModel },
     locale: { register: (_: string, translations: { en: Record<string, string> }) => { copy = translations.en }, bind: () => t },
     effect: (run: () => void) => run(),
-    remote: { llamaCpp: { async *follow() { yield state }, ...remote } },
+    remote: { session: { selectModel }, llamaCpp: { async *follow() {
+      yield state
+      // Later feed states come from the test through `update`.
+      while (true) yield await new Promise<object>((resolve) => { updates.push(resolve) })
+    }, ...remote } },
     slots: {
       inject: (_: string, run: () => void) => run(),
       register: (options: { name: string; inject?: () => typeof props }, component: typeof panel) => {
@@ -59,7 +77,8 @@ function mount(local = {}, remote = {}, fetch: (url: string) => Promise<unknown>
   })
   const localSource = props.hooks.local
   render(React.createElement(panel, { t, runAction: props.runAction, useLocal: () => React.useSyncExternalStore(localSource.subscribe, localSource.getSnapshot) }))
-  return { optionRow, selectPanel, t }
+  const update = async (next: object) => { await act(async () => { updates.shift()?.({ ...state, ...next }) }) }
+  return { optionRow, selectPanel, openSession, startSession, selectModel, update, runAction: props.runAction, t }
 }
 
 const names = () => screen.getAllByRole('heading', { level: 2 }).map(element => element.textContent)
@@ -207,4 +226,54 @@ it('closes the model menu and opens the Hub from Get local models', async () => 
   fireEvent.click(screen.getByRole('menuitem', { name: 'Get local models' }))
   expect(dismiss).toHaveBeenCalledOnce()
   expect(selectPanel).toHaveBeenCalledWith('jan-model-hub')
+})
+
+// Opens the Hub from the model menu of chat s1, as a user does from that chat's composer.
+function openFromChat(optionRow: ReturnType<typeof mount>['optionRow'], t: ReturnType<typeof mount>['t']) {
+  render(React.createElement(optionRow, { dismiss: () => {}, sessionId: 's1', t }))
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Get local models' }))
+}
+
+it('returns to the chat that opened the Hub when a model is used', async () => {
+  const setDefaultModel = vi.fn(async () => ({ ok: true }))
+  const b = mount({}, { setDefaultModel })
+  openFromChat(b.optionRow, b.t)
+  await act(async () => { await b.runAction('use', { id: 'gemma' }) })
+  expect(setDefaultModel).toHaveBeenCalledWith('gemma')
+  expect(b.openSession).toHaveBeenCalledWith('s1')
+  expect(b.selectModel).toHaveBeenCalledWith({ sessionId: 's1', provider: 'local', model: 'local' })
+  expect(b.startSession).not.toHaveBeenCalled()
+})
+
+it('opens a new chat on Use when the Hub was opened from the sidebar', async () => {
+  const b = mount({}, { setDefaultModel: vi.fn(async () => ({ ok: true })) })
+  act(() => { b.selectPanel('jan-model-hub') })
+  await act(async () => { void b.runAction('use', { id: 'gemma' }) })
+  expect(b.startSession).toHaveBeenCalledOnce()
+  expect(b.openSession).not.toHaveBeenCalled()
+})
+
+it('switches the asking chat to a downloaded model once it is installed', async () => {
+  const setDefaultModel = vi.fn(async () => ({ ok: true }))
+  const downloadRepoFile = vi.fn(async () => ({ ok: true, value: 'llama' }))
+  const b = mount({}, { setDefaultModel, downloadRepoFile })
+  openFromChat(b.optionRow, b.t)
+  await act(async () => { await b.runAction('download', { repo: 'Meta/Llama-GGUF', file: 'llama-Q4_K_M.gguf', name: 'llama-Q4_K_M' }) })
+  expect(b.openSession).toHaveBeenCalledWith('s1')
+  expect(b.selectPanel).toHaveBeenLastCalledWith(null)
+  await b.update({ downloads: [{ id: 'llama', name: 'llama-Q4_K_M', progress: { receivedBytes: 1, totalBytes: 2 } }] })
+  expect(setDefaultModel).not.toHaveBeenCalled()
+  await b.update({ downloads: [], models: [{ id: 'llama', name: 'llama-Q4_K_M' }] })
+  await waitFor(() => expect(b.selectModel).toHaveBeenCalledWith({ sessionId: 's1', provider: 'local', model: 'local' }))
+  expect(setDefaultModel).toHaveBeenCalledWith('llama')
+})
+
+it('switches the asking chat when the download finishes before the feed reports it', async () => {
+  const setDefaultModel = vi.fn(async () => ({ ok: true }))
+  const downloadRepoFile = vi.fn(async () => ({ ok: true, value: 'llama' }))
+  const b = mount({}, { setDefaultModel, downloadRepoFile })
+  openFromChat(b.optionRow, b.t)
+  await act(async () => { await b.runAction('download', { repo: 'Meta/Llama-GGUF', file: 'llama-Q4_K_M.gguf', name: 'llama-Q4_K_M' }) })
+  await b.update({ downloads: [], models: [{ id: 'llama', name: 'llama-Q4_K_M' }] })
+  await waitFor(() => expect(b.selectModel).toHaveBeenCalledWith({ sessionId: 's1', provider: 'local', model: 'local' }))
 })
