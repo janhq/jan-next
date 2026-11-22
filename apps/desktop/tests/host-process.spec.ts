@@ -52,6 +52,11 @@ process.on('message', message => {
     process.send({ type: 'update-tasks', requestId: message.requestId, active: message.action === 'lock' })
     return
   }
+  if (message.type === 'index-injections') {
+    // Each read names the bundle revision current at that moment, as a live rebuild changes it.
+    process.send({ type: 'index-injections', requestId: message.requestId, injections: [{ src: 'plugins/??a/client.js&rev=' + message.requestId }] })
+    return
+  }
   if (message.type === 'quit-inspection') {
     // Ids divisible by three never answer; the others report scheduled work for odd ids.
     if (message.requestId % 3 === 0) return
@@ -204,6 +209,15 @@ ${HTTP_HOST}`)
       .toEqual([false, true, false])
     await host.stop(true)
     await expect(host.updateTasks('inspect')).rejects.toThrow('Host is unavailable')
+  })
+
+  it('reads current boot injections from the running Host on each request', async () => {
+    const host = hostProcess(projectWithHost())
+    await expect(host.indexInjections()).rejects.toThrow('desktop boot: Host is unavailable')
+    await host.start()
+    expect(await host.indexInjections()).toEqual([{ src: 'plugins/??a/client.js&rev=1' }])
+    expect(await host.indexInjections()).toEqual([{ src: 'plugins/??a/client.js&rev=2' }])
+    await host.stop()
   })
 
   it('correlates quit inspections with task requests and fails an unanswered one at its own deadline', async () => {
