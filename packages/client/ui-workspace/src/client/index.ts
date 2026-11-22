@@ -73,6 +73,8 @@ export type {
   WorkspacePickerInjected, WorkspacePickerProps,
 } from './contract/slots.ts'
 export type { WorkspaceKey } from './locales.ts'
+/** The shared project avatar, for surfaces outside this package that show a project (e.g. a project page title). */
+export { ProjectAvatar } from './ProjectAvatar.tsx'
 
 declare module '@janhq/jan-client-ui-slots' {
   interface GlobalStandardProps {
