@@ -4,12 +4,19 @@ window.__ModuleLoader__.load({
     const React = require('react')
     const h = React.createElement
     const {
-      Button, Input, Menu, MenuItemButton, Modal, RiskConfirmation, SegmentedTabs, Tag, IconSearchOutlineRegular, IconAppsAddOutlineRegular,
+      Button, Input, Menu, MenuItemButton, Modal, RiskConfirmation, SegmentedTabs, Tag, IconSearchOutlineRegular,
       IconChevronDownOutlineRegular, IconChevronLeftOutlineRegular, IconChevronRightOutlineRegular, IconSparkleRegular,
       IconToolOutlineRegular, IconImageOutlineRegular, IconCheckCircleFillRegular,
     } = require('@janhq/jan-client-ui-primitives')
 
     const PANEL = 'jan-model-hub'
+    // The Models cube jan-theme draws for this page's sidebar row, so the composer's Get local models
+    // entry names the same place (the apps glyph belongs to the sidebar's More).
+    const ModelsGlyph = ({ size }) => h('svg', {
+      width: size, height: size, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor',
+      strokeWidth: 1, strokeLinejoin: 'round', 'aria-hidden': true,
+    }, h('path', { d: 'M8 1.5L14 4.75V11.25L8 14.5L2 11.25V4.75L8 1.5Z' }), h('path', { d: 'M2 4.75L8 8L14 4.75' }),
+      h('path', { d: 'M8 8V14.5' }))
     // The catalog the earlier Jan app's Hub reads: GGUF repositories with their quantized files.
     const CATALOG = 'https://raw.githubusercontent.com/janhq/model-catalog/main/model_catalog_v2.json'
     const FILE = /^https:\/\/huggingface\.co\/([^/]+\/[^/]+)\/resolve\/[^/]+\/([^/?#]+\.gguf)$/i
@@ -859,12 +866,12 @@ window.__ModuleLoader__.load({
           }, HubPanel))
           scope.slots.inject('sidebar.panellist', () => scope.slots.register({
             name: 'sidebar.panellist', id: PANEL, order: 5, label: () => t('title'),
-          }, ({ size }) => h(IconAppsAddOutlineRegular, { size, 'aria-hidden': true })))
+          }, ModelsGlyph))
           // The composer's model menu offers the Hub beside Manage models.
           scope.slots.inject('conversation.input.model.options', () => scope.slots.register({
             name: 'conversation.input.model.options', id: PANEL, order: 10, locale: PANEL,
           }, ({ dismiss, t: copy }) => h(MenuItemButton, {
-            icon: h(IconAppsAddOutlineRegular, { size: 16 }),
+            icon: h(ModelsGlyph, { size: 16 }),
             onSelect: () => { dismiss(); scope.layout.selectPanel(PANEL) },
           }, copy('getLocal'))))
           // A one-shot request from the desktop welcome flow to open the Hub.
