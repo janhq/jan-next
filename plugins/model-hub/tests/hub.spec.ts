@@ -26,17 +26,21 @@ function mount(local = {}, remote = {}) {
   type PanelProps = { t: typeof t; useLocal: () => unknown; runAction: (kind: string, target: object) => Promise<void> }
   let panel!: ReactAPI.ComponentType<PanelProps>
   let props!: { hooks: { local: Source }; runAction: PanelProps['runAction'] }
+  let optionRow!: ReactAPI.ComponentType<{ dismiss: () => void; t: typeof t }>
+  const selectPanel = vi.fn()
   let copy: Record<string, string>
   const t = (key: string, values: Record<string, unknown> = {}) => (copy[key] ?? key).replace(/\{(\w+)\}/g, (_, name) => String(values[name]))
   const state = { models: [], downloads: [], catalog: [], provider: 'local', ...local }
   const scope = {
+    layout: { selectPanel },
     locale: { register: (_: string, translations: { en: Record<string, string> }) => { copy = translations.en }, bind: () => t },
     effect: (run: () => void) => run(),
     remote: { llamaCpp: { async *follow() { yield state }, ...remote } },
     slots: {
       inject: (_: string, run: () => void) => run(),
-      register: (options: { name: string; inject: () => typeof props }, component: typeof panel) => {
-        if (options.name !== 'main') return
+      register: (options: { name: string; inject?: () => typeof props }, component: typeof panel) => {
+        if (options.name === 'conversation.input.model.options') optionRow = component as unknown as typeof optionRow
+        if (options.name !== 'main' || options.inject === undefined) return
         panel = component
         props = options.inject()
       },
@@ -55,6 +59,7 @@ function mount(local = {}, remote = {}) {
   })
   const localSource = props.hooks.local
   render(React.createElement(panel, { t, runAction: props.runAction, useLocal: () => React.useSyncExternalStore(localSource.subscribe, localSource.getSnapshot) }))
+  return { optionRow, selectPanel, t }
 }
 
 const names = () => screen.getAllByRole('heading', { level: 2 }).map(element => element.textContent)
@@ -124,4 +129,15 @@ it('shows progress and pauses or cancels a transfer from its card', async () => 
   fireEvent.click(within(dialog).getByRole('checkbox'))
   fireEvent.click(within(dialog).getByRole('button', { name: 'Discard file' }))
   await waitFor(() => expect(cancelDownload).toHaveBeenCalledWith('qwen'))
+})
+
+it('closes the model menu and opens the Hub from Get local models', async () => {
+  const { optionRow, selectPanel, t } = mount()
+  await screen.findByRole('heading', { name: 'Gemma' })
+  cleanup()
+  const dismiss = vi.fn()
+  render(React.createElement(optionRow, { dismiss, t }))
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Get local models' }))
+  expect(dismiss).toHaveBeenCalledOnce()
+  expect(selectPanel).toHaveBeenCalledWith('jan-model-hub')
 })
