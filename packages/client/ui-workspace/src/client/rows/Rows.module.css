@@ -287,6 +287,13 @@
   line-height: 16px;
 }
 
+/* Another computer's name is what tells its project from a local one, so it keeps up to
+   about half the row and the project name ellipsizes instead. */
+.machineTag[data-remote] {
+  flex: 0 0 auto;
+  max-width: 50%;
+}
+
 /* A project on a computer whose link dropped keeps its place, dimmed, until it reconnects. */
 .offline .projectText {
   opacity: 0.6;

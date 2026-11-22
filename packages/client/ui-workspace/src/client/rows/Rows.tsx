@@ -15,7 +15,7 @@ import type { PropsRenderSlots } from '@janhq/jan-client-ui-slots'
 import {
   HoverCard, IconArchiveOutlineRegular,
   IconNewChatOutlineRegular, IconPinFillRegular,
-  IconChevronRightOutlineRegular, IconFollowsystemOutlineRegular, IconUnarchiveOutlineRegular,
+  IconChevronRightOutlineRegular, IconFollowsystemOutlineRegular, IconLinkOutlineRegular, IconUnarchiveOutlineRegular,
   relativeTime, StateDot, Tooltip, useRowDragPreview, useTitleMarquee,
 } from '@janhq/jan-client-ui-primitives'
 import type { ShortcutCatalogEntry } from '@janhq/jan-client-shortcuts/client'
@@ -229,8 +229,11 @@ function ProjectRow({
       <span className={css.projectText}>
         <span className={css.title}>{label}</span>
         {rowMachine !== undefined && row.workspaceId !== undefined && (
-          <span className={css.machineTag} data-machine-tag="" title={t('workspace.machine', { name: rowMachine })}>
-            <IconFollowsystemOutlineRegular size={14} />
+          <span
+            className={css.machineTag} data-machine-tag="" data-remote={row.hostName === undefined ? undefined : ''}
+            title={t('workspace.machine', { name: rowMachine })}
+          >
+            {row.hostName === undefined ? <IconFollowsystemOutlineRegular size={14} /> : <IconLinkOutlineRegular size={14} />}
             <span className={css.machineName}>{offline ? t('workspace.machine.offline', { name: rowMachine }) : rowMachine}</span>
           </span>
         )}
