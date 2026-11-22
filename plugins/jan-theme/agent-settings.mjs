@@ -1,10 +1,15 @@
 import { credentialKey } from '@janhq/jan-credentials'
 import { readFile, stat, realpath, writeFile, rename, unlink } from 'node:fs/promises'
-import { isAbsolute } from 'node:path'
+import { isAbsolute, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { registerApi } from '@janhq/jan-plugin-api'
 import yaml from 'js-yaml'
 import { clearFailure, recordFailure, takeLaunchAudit, trackStart } from './startup-health.mjs'
+import { createMcpRegistry } from './mcp-registry.mjs'
+import { RECOMMENDED_CONNECTORS, installRecommended } from './recommended-connectors.mjs'
+
+// One registry client per Host process, so its short cache survives settings reloads.
+const mcpRegistry = createMcpRegistry()
 
 const plain = value => value && typeof value === 'object' && !Array.isArray(value)
 const strings = value => plain(value) && Object.values(value).every(item => typeof item === 'string')
@@ -189,7 +194,31 @@ export async function mountAgentSettings(ctx, config) {
     return { path, info }
   }
   ctx.effect(() => registerApi(ctx, 'agent-settings', {
-    list: async () => ({ servers: await publicRows(), directories: config.skillDirectories ?? [], canPickDirectory: ctx.get('directoryPicker')?.capability().kind === 'native', skills: await ctx.skills.snapshot() }),
+    list: async () => ({
+      servers: await publicRows(),
+      directories: config.skillDirectories ?? [],
+      canPickDirectory: ctx.get('directoryPicker')?.capability().kind === 'native',
+      skills: await ctx.skills.snapshot(),
+      recommended: RECOMMENDED_CONNECTORS.map(item => ({ ...item, installed: servers.some(row => row.name === item.serverName) })),
+    }),
+    searchRegistry: ({ query, cursor } = {}) => mcpRegistry.search({ query: typeof query === 'string' ? query.slice(0, 200) : '', cursor: typeof cursor === 'string' ? cursor : undefined }),
+    async installRecommended({ id, confirmed }) {
+      if (confirmed !== true) throw new Error('Review and confirm the installation first.')
+      const item = RECOMMENDED_CONNECTORS.find(row => row.id === id)
+      if (!item) throw new Error('Choose a recommended connector.')
+      if (servers.some(row => row.name === item.serverName)) throw new Error(`${item.title} is already added. Remove it first to install it again.`)
+      const profile = ctx.get('profileContext')
+      if (!profile?.dir) throw new Error('Recommended connectors need a Jan profile.')
+      const installed = await installRecommended(id, { baseDir: join(profile.dir, 'connectors') })
+      const row = server(installed.server)
+      const skills = await realpath(installed.skillsDirectory)
+      await persist(current => {
+        if (JSON.stringify(current.mcpServers ?? []) !== JSON.stringify(configuredServers)) throw new Error('MCP settings changed in another window. Reopen this section before installing.')
+        const directories = current.skillDirectories ?? []
+        return { mcpServers: [...(current.mcpServers ?? []), row], skillDirectories: directories.includes(skills) ? directories : [...directories, skills] }
+      })
+      return { saved: true }
+    },
     async pickDirectory() {
       const capability = ctx.get('directoryPicker')?.capability()
       if (capability?.kind !== 'native') throw new Error('The native folder picker is unavailable. Enter an absolute path instead.')
