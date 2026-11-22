@@ -72,14 +72,15 @@
   border-left: 0;
 }
 
-/* Covered content stays laid out but cannot receive keyboard focus. */
-:has(> .navigator.fill) > :not(.navigator) {
+/* Covered content stays laid out but cannot receive keyboard focus. The subject is the host's marked
+   row: a bare `:has()` subject made every element insertion in the window restyle the whole document. */
+[data-files-navigator-row]:has(> .navigator.fill) > :not(.navigator) {
   visibility: hidden;
 }
 
 /* navigator-layout `FULLSCREEN_QUERY`: every layout fills the row. */
 @media (width < 768px) {
-  :has(> .navigator:not(.wholePage)) > :not(.navigator) {
+  [data-files-navigator-row]:has(> .navigator:not(.wholePage)) > :not(.navigator) {
     visibility: hidden;
   }
 
