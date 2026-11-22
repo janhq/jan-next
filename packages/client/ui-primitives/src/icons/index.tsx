@@ -693,6 +693,12 @@ export const IconTextOutlineRegular = productIcon('text-outline', 'regular')
 /** Medium text tool. */
 export const IconTextOutlineMedium = productIcon('text-outline', 'medium')
 
+/** Regular layout guides: rulers with a dashed guide line. */
+export const IconGuidesOutlineRegular = productIcon('guides-outline', 'regular')
+
+/** Medium layout guides. */
+export const IconGuidesOutlineMedium = productIcon('guides-outline', 'medium')
+
 /** Regular one-pixel IconImageOutline artwork. */
 export const IconImageOutlineRegular = productIcon('image-outline', 'regular')
 
