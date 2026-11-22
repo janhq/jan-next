@@ -49,9 +49,8 @@
   flex: none;
 }
 
-/* Input and output arrows match the icon glyphs' optical size. */
+/* The arrows are part of their figure ("↓4"), so they are typeset at its size and weight. */
 .glyph {
-  font-size: calc(var(--jan-content-font-size-secondary, 13px) + 1px);
   line-height: 1;
 }
 
@@ -60,9 +59,17 @@
   display: none;
 }
 
-.trigger svg {
-  width: calc(15px + var(--jan-content-font-delta, 0px));
-  height: calc(15px + var(--jan-content-font-delta, 0px));
+/* A pictorial stat icon beside 12px figures is 14px, the inline-meta pairing used across the
+   app; the lone narrow icon stands in for an action, so it takes the action icons' 16px. */
+.label svg {
+  width: calc(14px + var(--jan-content-font-delta, 0px));
+  height: calc(14px + var(--jan-content-font-delta, 0px));
+  flex: none;
+}
+
+.narrowIcon {
+  width: calc(16px + var(--jan-content-font-delta, 0px));
+  height: calc(16px + var(--jan-content-font-delta, 0px));
   flex: none;
 }
 
