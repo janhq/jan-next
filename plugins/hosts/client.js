@@ -558,6 +558,10 @@ window.__ModuleLoader__.load({
               const host = connections.find(entry => entry.id === id)
               if (host?.kind === 'ssh' && host.tunnel === undefined) await api('connect', { id })
             },
+            listDirectory: (id, path) => api('browse', path === undefined ? { id } : { id, path }),
+            async createDirectory(id, path, name) {
+              return (await api('makeFolder', { id, path, name })).path
+            },
             manage() {
               if (ctx.get('settingsNavigation')?.open(NS) !== true) console.warn('jan-hosts: the Hosts settings section is unavailable')
             },

@@ -9,7 +9,7 @@ import type { DirectoryListing } from '@janhq/jan-api-remotes/client'
 import type { Translate } from '@janhq/jan-client-locale/client'
 // Type-only: the owner contract of the directory-flow holes.
 import type { DirectoryFlowOwnerProps } from '@janhq/jan-client-ui-workspace/client'
-import { DirectoryBrowser } from './DirectoryBrowser.tsx'
+import { DirectoryBrowser } from '@janhq/jan-client-ui-workspace/client'
 
 /** Injected face: the browse wire calls and copy the dialog drives (bound in apply's closure). */
 export interface BrowseFlowInjected {

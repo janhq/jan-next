@@ -138,7 +138,7 @@ type ProjectRowItemProps = {
   drag?: WorkspaceRowDragProps | undefined
   /** Host account home; POSIX home-rooted hover paths display as `~`. */
   home?: string | undefined
-  /** Computer a remote window's projects live on; omitted in a local window. */
+  /** Computer this window's own projects live on; a project from another connected computer names its own. */
   machine?: string | undefined
   t: RowTranslate
 } & Pick<WorkspaceBrowserProps, 'useRemoteAccess' | 'useWorkspaceAccess' | 'renderFactorySlot' | 'useContextMenuTarget' | 'useContextMenu'>
@@ -202,9 +202,11 @@ function ProjectRow({
   const dragPreview = useRowDragPreview(css.dragPreview as string, DRAG_PREVIEW_PROPERTIES)
   const workspaceMenuTarget = row.workspaceId !== undefined && row.cwd !== undefined
     ? { workspaceId: row.workspaceId, path: row.cwd } : undefined
+  const rowMachine = row.hostName ?? machine
+  const offline = row.hostState === 'lost'
   const ownRow = (
     <div
-      className={clsx(css.projectRow, menuOpen && css.menuOpen)}
+      className={clsx(css.projectRow, menuOpen && css.menuOpen, offline && css.offline)}
       data-row-key={`workspace:${group.key}`}
       role="treeitem"
       aria-expanded={row.expanded}
@@ -226,10 +228,10 @@ function ProjectRow({
       </span>
       <span className={css.projectText}>
         <span className={css.title}>{label}</span>
-        {machine !== undefined && row.workspaceId !== undefined && (
-          <span className={css.machineTag} data-machine-tag="" title={t('workspace.machine', { name: machine })}>
+        {rowMachine !== undefined && row.workspaceId !== undefined && (
+          <span className={css.machineTag} data-machine-tag="" title={t('workspace.machine', { name: rowMachine })}>
             <IconFollowsystemOutlineRegular size={14} />
-            <span className={css.machineName}>{machine}</span>
+            <span className={css.machineName}>{offline ? t('workspace.machine.offline', { name: rowMachine }) : rowMachine}</span>
           </span>
         )}
       </span>

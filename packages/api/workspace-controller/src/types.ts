@@ -35,6 +35,12 @@ export interface WorkspaceView {
   readonly createdAt: string
   /** ISO-8601 last-mutation instant. */
   readonly updatedAt: string
+  /** Set when the Workspace lives on a connected remote Host; absent for this computer. */
+  readonly hostId?: string
+  /** That remote Host's display name, shown as the row's computer tag. */
+  readonly hostName?: string
+  /** `lost` while the link to that remote Host is down; its last known rows stay listed. */
+  readonly hostState?: 'live' | 'lost'
 }
 
 declare module '@janhq/jan-typert-protocol' {
@@ -72,6 +78,11 @@ declare module '@janhq/jan-typert-protocol' {
 /** Existing directory requested for Workspace adoption. */
 export interface WorkspaceCreateRequest {
   readonly path: string
+  /**
+   * Connected remote Host that owns `path`; absent creates on this Host. A
+   * Host without federation refuses a request that names one.
+   */
+  readonly hostId?: string
 }
 
 /** Created or previously registered Workspace. */

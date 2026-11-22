@@ -41,8 +41,16 @@ import {
   IconPlusOutlineRegular, Modal,
 } from '@janhq/jan-client-ui-primitives'
 import type { DirectoryEntry, DirectoryListing } from '@janhq/jan-api-remotes/client'
-import type { Translate } from '@janhq/jan-client-locale/client'
 import css from './DirectoryBrowser.module.css'
+
+/** The dialog's copy keys. */
+export type BrowserKey =
+  | 'browser.title' | 'browser.home' | 'browser.newFolder' | 'browser.folderName' | 'browser.createIn'
+  | 'browser.untitledFolder' | 'browser.create' | 'browser.cancel' | 'browser.open' | 'browser.editPath'
+  | 'browser.loading' | 'browser.truncated' | 'browser.showHidden'
+
+/** A translator that knows at least the dialog's keys (a namespace-bound or a generic one). */
+export type BrowserTranslate = (key: BrowserKey, params?: Record<string, string | number>) => string
 
 /** Owner-supplied browser props: browse calls, pick semantics, and copy. */
 export interface DirectoryBrowserProps {
@@ -67,8 +75,10 @@ export interface DirectoryBrowserProps {
   onClose: () => void
   /** The owner's confirm is in flight: Open disables, the view freezes. */
   busy: boolean
-  /** Localized copy. */
-  t: Translate
+  /** Localized copy for the dialog's `browser.*` keys. */
+  t: BrowserTranslate
+  /** Dialog title; absent uses the copy's `browser.title`. */
+  title?: string | undefined
 }
 
 /** Failure text from the injected directory operation. */
@@ -270,7 +280,7 @@ function LevelColumn({ entries, selectedPath, busy, onPick, showHidden, filterPr
  * @param props - owner-controlled browser props.
  * @returns the dialog element (null while closed, via Modal).
  */
-export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen, onClose, busy, t }: DirectoryBrowserProps) {
+export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen, onClose, busy, t, title }: DirectoryBrowserProps) {
   // Miller state: the listed level, the selected row in it, and the selected
   // folder's own listing (the right column; null while nothing is selected).
   const [parent, setParent] = useState<DirectoryListing | null>(null)
@@ -768,7 +778,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
       // adoption pins the flow — dismissing it would leave the owner's
       // createWorkspace to land after an apparent cancel.
       onClose={() => { if (folderDraft === null && !busy) onClose() }}
-      title={t('browser.title')}
+      title={title ?? t('browser.title')}
       className={clsx(css.dialog)}
       headless
     >
@@ -816,7 +826,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
         }}
       >
         <div className={css.header}>
-          <h2 className={css.title}>{t('browser.title')}</h2>
+          <h2 className={css.title}>{title ?? t('browser.title')}</h2>
           <div className={css.crumbBar}>
             {pathDraft === null
               ? (

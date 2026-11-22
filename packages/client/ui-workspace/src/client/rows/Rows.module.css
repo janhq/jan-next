@@ -287,6 +287,11 @@
   line-height: 16px;
 }
 
+/* A project on a computer whose link dropped keeps its place, dimmed, until it reconnects. */
+.offline .projectText {
+  opacity: 0.6;
+}
+
 .machineTag svg {
   flex: none;
 }

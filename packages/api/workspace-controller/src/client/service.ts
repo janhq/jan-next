@@ -4,7 +4,7 @@ import { Service, type Context } from '@janhq/cordis'
 import type { SessionId } from '@janhq/jan-session/types'
 import type { RemoteFailure } from '@janhq/jan-typert-protocol'
 import type { WorkspaceId } from '@janhq/jan-workspace/types'
-import type { WorkspaceUpdateRequest, WorkspaceView } from '../types.ts'
+import type { WorkspaceCreateRequest, WorkspaceUpdateRequest, WorkspaceView } from '../types.ts'
 import type { ClientWorkspaceModel, WorkspaceSnapshot } from './model.ts'
 
 /** Structured create failure for callers that distinguish Host business errors. */
@@ -52,7 +52,7 @@ export interface IWorkspaces {
    * @param input - Host create payload.
    * @returns the created or idempotently resolved Workspace.
    */
-  create(input: { path: string }): Promise<WorkspaceView>
+  create(input: WorkspaceCreateRequest): Promise<WorkspaceView>
   /**
    * Initialize or reuse the default Workspace.
    * @param signal - caller lifetime.
@@ -133,7 +133,7 @@ export class WorkspaceController extends Service implements IWorkspaces {
     this.list = model
   }
 
-  async create(input: { path: string }): Promise<WorkspaceView> {
+  async create(input: WorkspaceCreateRequest): Promise<WorkspaceView> {
     const result = await this.model.create(input)
     if (!result.ok) throw new WorkspaceCreateError(result.error)
     return result.value.workspace
