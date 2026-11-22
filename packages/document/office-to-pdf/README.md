@@ -7,7 +7,7 @@ kind: "package-reference"
 
 ## Summary
 
-Convert Office documents to PDFs on the Host computer. Targets with a declared native LibreOffice engine use it; other targets use Node WASM. The provider accepts DOC, DOCX, XLS, XLSX, PPT, and PPTX. OOXML conversion returns missing-font names; binary Office conversion returns an empty list.
+Convert Office documents to PDFs on the Host computer. Targets with a declared native LibreOffice engine use it; other targets use Node WASM. The provider accepts DOC, DOCX, ODT, XLS, XLSX, ODS, PPT, PPTX, and ODP. OOXML conversion returns missing-font names; binary Office conversion returns an empty list.
 
 ## Table of Contents
 
