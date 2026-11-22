@@ -33,6 +33,14 @@ window.__ModuleLoader__.load({
         'progress.copyingBytes': 'Copying Jan: {sent} of {total} MB',
         'progress.starting': 'Starting Jan there...',
         disconnect: 'Disconnect',
+        'setup.title': 'Use your model providers on {name}?',
+        'setup.lede': 'Jan on {name} has no model provider set up yet. Copy the ones you choose, with their keys and your default model. Keys travel only through your SSH connection. Nothing that computer already has is replaced.',
+        'setup.keyOnly': 'key only',
+        'setup.submit': 'Copy {count}',
+        'setup.none': 'Copy',
+        'setup.skip': 'Not now',
+        'setup.done': 'Copied to {name}: {routes}. Reload its window to see them.',
+        'setup.doneKept': '{routes} were already there and stay as they are.',
         'kind.url': 'Address',
         'kind.ssh': 'SSH',
         'state.signedIn': 'Signed in',
@@ -156,6 +164,7 @@ window.__ModuleLoader__.load({
     function useRowActions() {
       const [busy, setBusy] = React.useState({})
       const [notes, setNotes] = React.useState({})
+      const note = (id, value) => setNotes(current => ({ ...current, [id]: value }))
       const run = async (id, key, task) => {
         setBusy(current => ({ ...current, [id]: key }))
         setNotes(current => ({ ...current, [id]: undefined }))
@@ -168,7 +177,7 @@ window.__ModuleLoader__.load({
           setBusy(current => ({ ...current, [id]: undefined }))
         }
       }
-      return { busy, notes, run }
+      return { busy, notes, run, note }
     }
 
     function HostForm({ t, initial, onSaved, onCancel }) {
@@ -318,6 +327,65 @@ window.__ModuleLoader__.load({
           h(Button, { size: 'sm', variant: 'ghost', disabled: busy !== undefined, onClick: onRemove }, t('hosts.remove'))))
     }
 
+    /**
+     * The copy offer for a connected SSH Host whose Jan has no provider yet. It asks once per
+     * connection; Not now hides it until the next Connect.
+     */
+    function SetupOffer({ t, host, onNote }) {
+      const [offer, setOffer] = React.useState(null)
+      const [chosen, setChosen] = React.useState(() => new Set())
+      const [error, setError] = React.useState(null)
+      const [saving, setSaving] = React.useState(false)
+      const root = host.tunnel?.root
+      React.useEffect(() => {
+        if (root === undefined) { setOffer(null); return undefined }
+        let live = true
+        api('setupOffer', { id: host.id }).then((result) => {
+          if (!live) return
+          setOffer(result.offer ? result : null)
+          setChosen(new Set(result.items.map(item => item.route)))
+        }, () => { /* The offer is optional; a failed ask leaves the row as it is. */ })
+        return () => { live = false }
+      }, [host.id, root])
+      if (offer === null) return null
+      const toggle = (route, on) => setChosen((current) => {
+        const next = new Set(current)
+        if (on) next.add(route)
+        else next.delete(route)
+        return next
+      })
+      return h('form', {
+        className: 'jh-form', 'aria-label': t('setup.title', { name: host.name }),
+        async onSubmit(event) {
+          event.preventDefault()
+          setSaving(true)
+          setError(null)
+          try {
+            const result = await api('copySetup', { id: host.id, routes: [...chosen] })
+            const names = routes => routes.map(route => offer.items.find(item => item.route === route)?.name ?? route).join(', ')
+            const kept = new Set(result.kept)
+            const copied = [...chosen].filter(route => !kept.has(route))
+            onNote({ text: [copied.length > 0 && t('setup.done', { name: host.name, routes: names(copied) }), kept.size > 0 && t('setup.doneKept', { routes: names(result.kept) })].filter(Boolean).join(' ') })
+            setOffer(null)
+          } catch (failure) {
+            setError(failure.message)
+          } finally {
+            setSaving(false)
+          }
+        },
+      },
+        h('h3', { style: { margin: 0, fontSize: 14, fontWeight: 500 } }, t('setup.title', { name: host.name })),
+        h('p', { className: 'jh-lede' }, t('setup.lede', { name: host.name })),
+        h('div', { className: 'jh-pick' }, offer.items.map(item => h('label', { key: item.route },
+          h('input', { type: 'checkbox', checked: chosen.has(item.route), disabled: saving, onChange: event => toggle(item.route, event.currentTarget.checked) }),
+          h('span', null, item.name),
+          !item.profile && h('span', { className: 'jh-detail' }, t('setup.keyOnly'))))),
+        error && h('div', { className: 'jh-note', role: 'alert', 'data-error': '' }, error),
+        h('div', { className: 'jh-actions', style: { justifyContent: 'flex-start' } },
+          h(Button, { type: 'submit', variant: 'primary', size: 'sm', disabled: saving || chosen.size === 0 }, chosen.size === 0 ? t('setup.none') : t('setup.submit', { count: chosen.size })),
+          h(Button, { type: 'button', variant: 'outline', size: 'sm', disabled: saving, onClick: () => setOffer(null) }, t('setup.skip'))))
+    }
+
     function PairPanel({ t, pairing, onDone }) {
       const [copied, setCopied] = React.useState(false)
       return h('div', { className: 'jh-pair', role: 'region', 'aria-label': t('devices.pair') },
@@ -342,7 +410,7 @@ window.__ModuleLoader__.load({
       const [switching, setSwitching] = React.useState(false)
       const [importing, setImporting] = React.useState(false)
       const [imported, setImported] = React.useState(null)
-      const { busy, notes, run } = useRowActions()
+      const { busy, notes, run, note } = useRowActions()
       const refresh = React.useCallback(async () => {
         try {
           setState(await api('state'))
@@ -389,10 +457,12 @@ window.__ModuleLoader__.load({
           h('div', { className: 'jh-list' },
             state.connections.length === 0 && editing === undefined && !importing
               ? h('p', { className: 'jh-empty' }, t('hosts.empty'))
-              : state.connections.map(host => h(HostRow, {
-                key: host.id, t, host, busy: busy[host.id], note: notes[host.id], run: act,
-                onEdit: () => setEditing(host), onRemove: () => { setAcknowledged(false); setRemoving(host) }
-              })))),
+              : state.connections.map(host => h(React.Fragment, { key: host.id },
+                h(HostRow, {
+                  t, host, busy: busy[host.id], note: notes[host.id], run: act,
+                  onEdit: () => setEditing(host), onRemove: () => { setAcknowledged(false); setRemoving(host) }
+                }),
+                host.kind === 'ssh' && h(SetupOffer, { t, host, onNote: value => note(host.id, value) }))))),
 
         h('div', { className: 'jh-group', role: 'group', 'aria-labelledby': 'jh-devices-title' },
           h('div', { className: 'jh-group-head' },
