@@ -201,7 +201,7 @@ window.__ModuleLoader__.load({
     // Recommended connectors and the official MCP Registry. A registry server opens the
     // server editor prefilled and saves disabled; a recommended one runs its own setup.
     function RegistryBrowser({ busy, recommended, onAdd, onInstall }) {
-      const { Input, Tag } = require('@janhq/jan-client-ui-primitives')
+      const { Input, SelectMenu, Tag } = require('@janhq/jan-client-ui-primitives')
       const [query, setQuery] = useAgentDraft('registryQuery', '')
       const [result, setResult] = React.useState({ loading: true, error: '', featured: true, entries: [], nextCursor: undefined })
       const [choices, setChoices] = React.useState({})
@@ -246,9 +246,11 @@ window.__ModuleLoader__.load({
               entry.description && h('p', { className: 'jt-agent-clamp' }, entry.description),
               h('div', { className: 'jt-agent-card-title' },
                 entry.options.length > 1
-                  ? h('select', { className: 'jt-registry-option', 'aria-label': `How to run ${entry.title}`, value: option.id, onChange: event => setChoices({ ...choices, [entry.id]: event.target.value }) },
-                    entry.options.map(item => h('option', { key: item.id, value: item.id, title: item.url ?? [item.command, ...item.args].join(' ') },
-                      entry.options.filter(other => other.label === item.label).length > 1 && item.url ? `${item.label} ${new URL(item.url).pathname}` : item.label)))
+                  ? h(SelectMenu, {
+                    className: 'jt-registry-option', align: 'start', label: `How to run ${entry.title}`, value: option.id,
+                    options: entry.options.map(item => ({ id: item.id, label: entry.options.filter(other => other.label === item.label).length > 1 && item.url ? `${item.label} ${new URL(item.url).pathname}` : item.label })),
+                    onChange: id => setChoices({ ...choices, [entry.id]: id }),
+                  })
                   : h(Tag, { tone: 'neutral' }, option.label),
                 entry.deprecated && h(Tag, { tone: 'warning' }, 'Deprecated'),
                 h('span', { className: 'jt-agent-card-meta', title: entry.id }, entry.publisher)))
@@ -256,7 +258,7 @@ window.__ModuleLoader__.load({
           result.nextCursor && !result.loading && h('div', { className: 'jt-agent-actions' }, h(Button, { variant: 'outline', onClick: () => load(result.nextCursor) }, 'Show more'))))
     }
     function AgentSettings({ skills = false, onCreate }) {
-      const { Input, Modal, RiskConfirmation, Tag } = require('@janhq/jan-client-ui-primitives')
+      const { Input, Modal, RiskConfirmation, SelectMenu, Tag } = require('@janhq/jan-client-ui-primitives')
       const { data, error: loadError } = React.useSyncExternalStore(agentList.subscribe, agentList.getSnapshot)
       const [failure, setError] = React.useState('')
       const error = failure || loadError
@@ -332,7 +334,6 @@ window.__ModuleLoader__.load({
       return h('section', { className: 'jt-appearance jt-agent-settings', 'aria-busy': busy },
         h('header', { className: 'jt-agent-head' },
           h('div', null,
-            h('h2', null, skills ? 'Skills' : 'MCP Servers'),
             h('p', null, skills ? 'Reusable instructions the agent loads when a task matches. Jan finds SKILL.md folders in .agents/skills and .jan/skills.' : 'Connect the agent to external tools. A local server runs with your account permissions, so enable only servers you trust.')),
           skills
             ? onCreate && actions(button('Create skill', onCreate, { variant: 'primary' }))
@@ -393,7 +394,11 @@ window.__ModuleLoader__.load({
             }, 'MCP server saved.'), { variant: 'primary' }), button('Cancel', () => setDraft(null)))
           },
             field('Server name', 'name', false, { disabled: busy || !!original }),
-            h('label', { className: 'jt-agent-field' }, 'Transport', h('select', { value: draft.transport, disabled: busy, onChange: event => setDraft({ ...draft, transport: event.target.value }) }, h('option', { value: 'stdio' }, 'Local command (stdio)'), h('option', { value: 'streamable-http' }, 'Remote endpoint (Streamable HTTP)'))),
+            h('div', { className: 'jt-agent-field' }, h('span', null, 'Transport'), h(SelectMenu, {
+              className: 'jt-agent-select', align: 'start', label: 'Transport', value: draft.transport, disabled: busy,
+              options: [{ id: 'stdio', label: 'Local command (stdio)' }, { id: 'streamable-http', label: 'Remote endpoint (Streamable HTTP)' }],
+              onChange: id => setDraft({ ...draft, transport: id }),
+            })),
             draft.transport === 'stdio' ? h(React.Fragment, null, field('Command', 'command'), field('Arguments (one per line)', 'args', true, { rows: 2 })) : field('MCP endpoint URL', 'url'),
             draft.fields?.length > 0 && h('div', { className: 'jt-registry-fields' },
               h('p', null, `${draft.source} asks for these ${draft.transport === 'stdio' ? 'environment variables' : 'headers'}. Fill them in below; they are stored as credentials.`),
@@ -497,14 +502,15 @@ window.__ModuleLoader__.load({
 .jt-agent-modal { display: flex; flex-direction: column; width: min(620px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); }
 .jt-agent-modal-content { min-height: 0; overflow-y: auto; }
 .jt-agent-field { display: grid; gap: 6px; margin-block: 12px; }
-.jt-agent-field textarea, .jt-agent-field select { width: 100%; box-sizing: border-box; padding: 8px 12px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); font: inherit; }
+.jt-agent-field textarea { width: 100%; box-sizing: border-box; padding: 8px 12px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); font: inherit; }
+.jt-agent-select { width: 100%; max-width: none; justify-content: space-between; }
 .jt-agent-field textarea { min-height: 80px; resize: vertical; }
 .jt-agent-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .jt-registry { display: grid; gap: 24px; margin-top: 24px; }
 .jt-registry-heading { margin: 0 0 4px; font-size: 15px; font-weight: 600; color: var(--dsw-alias-label-primary); }
 .jt-registry-note { margin: 0 0 12px; font-size: 13px; color: var(--dsw-alias-label-secondary); }
 .jt-registry [aria-busy="true"] { opacity: .6; transition: opacity .15s; }
-.jt-registry-option { max-width: 160px; padding: 2px 6px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 6px; background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); font: inherit; font-size: 12px; }
+.jt-registry-option { height: 24px; max-width: 180px; padding: 0 8px; gap: 6px; font-size: 12px; line-height: 18px; }
 .jt-registry-fields { margin-block: 12px; padding: 12px; border-radius: 8px; background: var(--dsw-alias-bg-layer-2); font-size: 13px; }
 .jt-registry-fields p { margin: 0 0 6px; }
 .jt-registry-fields ul { margin: 0; padding-left: 18px; }
@@ -514,6 +520,9 @@ window.__ModuleLoader__.load({
 .jt-agent-settings small { display: block; color: var(--dsw-alias-label-secondary); margin-block: 4px; }
 .jt-agent-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
 .jt-agent-head > div:first-child { flex: 1 1 auto; min-width: 0; }
+/* With no in-content title, the intro reads as the section description beside its actions. */
+.jt-agent-head > div:first-child > p { margin: 0; font-size: 13px; line-height: 20px; }
+.jt-agent-head { align-items: center; }
 .jt-agent-head > .jt-agent-actions { flex: none; }
 .jt-agent-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
 .jt-agent-toolbar > :first-child { flex: 1; min-width: 0; }
