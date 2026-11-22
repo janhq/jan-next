@@ -201,6 +201,12 @@ export interface UiWorkspace {
    * @returns whether a handler took the request.
    */
   openProjectSurface(workspaceId: WorkspaceId): boolean
+  /**
+   * Open the Edit project dialog (name, color, icon) for one Workspace, as its sidebar menu does.
+   * @param workspaceId - project to edit.
+   * @returns false when the Workspace is unknown or the Peer may not update it.
+   */
+  editProject(workspaceId: WorkspaceId): boolean
   /** Active Sessions whose presentation replaces the ordinary sidebar row. */
   readonly hiddenSessions: ObservableSnapshot<ReadonlySet<SessionId>>
   /** Subscribe to a plugin's alternate presentation IDs until the registration is disposed. */
@@ -263,6 +269,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
    * @param sessions - pure Session Controller.
    * @param view - the browser's viewing-store write set (one instance shared with its registration).
    * @param notify - show one notice through the Workspace notice channel.
+   * @param requestEdit - open the Edit project dialog; false when the Workspace cannot be edited.
    */
   constructor(
     ctx: Context,
@@ -271,6 +278,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     private readonly sessions: ISessions,
     private readonly view: Pick<WorkspaceViewStoreActions, 'pinSessionOrder' | 'setGroupBy'>,
     private readonly notify: (toast: RowToast) => void,
+    private readonly requestEdit: (workspaceId: WorkspaceId) => boolean,
   ) {
     super(ctx, 'uiWorkspace')
     ctx.effect(() => {
@@ -578,6 +586,10 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     if (handler === undefined) return false
     this.showProject(handler, workspaceId)
     return true
+  }
+
+  editProject(workspaceId: WorkspaceId): boolean {
+    return this.requestEdit(workspaceId)
   }
 
   /** Settle the selected project and panel together, including switches within one panel. */
