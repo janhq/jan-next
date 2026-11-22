@@ -71,7 +71,7 @@ async function bench() {
   const remote = new TestRemote(ctx, { settings: mock.remote.settings, permissionPresets })
   ctx.provide('connection', {
     generation: {
-      getSnapshot: () => ({ id: 1, host: { home: '/host', isLoopback: true } }),
+      getSnapshot: () => ({ id: 1, host: { home: '/host', name: 'fixture-host', remote: false, isLoopback: true } }),
       subscribe: () => () => {},
     },
   } as never)

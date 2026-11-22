@@ -9,8 +9,11 @@ import { renderSVG } from 'uqr'
 import { registerApi } from '@janhq/jan-plugin-api'
 import { HostsError, HostsStore } from './store.mjs'
 import { openTunnel, testHost } from './remote.mjs'
+import { installRemote, probeRemote, runtimeIdentity, shippedRuntimes, sshArgs, startCommand } from './remote-install.mjs'
+import { startRelay } from './relay.mjs'
 import { lanAddresses, startGateway } from './gateway.mjs'
 import { sshConfigHosts } from './ssh-config.mjs'
+import { callRemote, copyable, receiveSetup, setupPayload, setupState } from './setup-copy.mjs'
 
 export const name = 'jan-hosts'
 export const inject = ['janHomePath', 'webServer', 'connection', 'credentials', 'settings']
@@ -21,6 +24,12 @@ export const Config = schema.object({
     .description('Let paired phones and other devices reach this Jan over the local network.'),
   gatewayHost: schema.string().default('').description('Address the device gateway listens on. Empty picks the first private network address.'),
   gatewayPort: schema.natural().max(65535).default(0).description('Port the device gateway listens on. 0 picks a free port.'),
+  // Empty reads JAN_HOST_RUNTIME_DIR at Connect, so a profile patch that rewrites this row's
+  // config (the device-access switch does) still finds the archives the launcher staged.
+  runtimeDirectory: schema.string().default('')
+    .description('Directory holding the jan-host-runtime archives Connect copies to other computers. Empty uses JAN_HOST_RUNTIME_DIR; neither means this Jan ships none.'),
+  relay: schema.boolean().default(true)
+    .description('Let a Jan started over SSH reach its model providers through this computer, so the other computer needs no internet.'),
 })
 
 const TOKEN_SCOPE = 'jan-hosts'
@@ -46,6 +55,9 @@ async function ownerCookieFor(ctx) {
 export function apply(ctx, config) {
   const store = new HostsStore(join(ctx.janHomePath(), 'hosts'))
   const tunnels = new Map()
+  // What a running Connect is doing, per Host id; cleared when it ends either way.
+  const progress = new Map()
+  const connecting = new Map()
   let gateway
   let gatewayError
   let hashes = new Map()
@@ -101,6 +113,9 @@ export function apply(ctx, config) {
       await gatewayStart
       await gateway?.close()
       for (const tunnel of tunnels.values()) tunnel.close()
+      const running = relay
+      relay = undefined
+      await (await running?.catch(() => undefined))?.close()
     }
   }, 'jan-hosts: device gateway and tunnels')
 
@@ -113,8 +128,71 @@ export function apply(ctx, config) {
     const tunnel = tunnels.get(entry.id)
     return {
       ...entry, signedIn: entry.kind === 'url' ? (await token(entry.id)) !== undefined : tunnel !== undefined,
-      tunnel: tunnel === undefined ? undefined : { root: tunnel.root, log: tunnel.log }
+      tunnel: tunnel === undefined ? undefined : { root: tunnel.root, log: tunnel.log },
+      progress: progress.get(entry.id),
     }
+  }
+
+  /**
+   * Name where each SSH alias points (`user@host:port` from the ssh config), so a row that shows
+   * the alias as its name says something new on its second line. A config that cannot be read
+   * leaves the rows as they are.
+   */
+  async function withSshAddresses(connections) {
+    if (!connections.some(item => item.kind === 'ssh')) return connections
+    let hosts
+    try {
+      hosts = new Map((await sshConfigHosts()).map(host => [host.alias.toLowerCase(), host]))
+    } catch {
+      // An unreadable ssh config only costs the address line; Connect reports its own error.
+      return connections
+    }
+    return connections.map((item) => {
+      const host = item.kind === 'ssh' ? hosts.get(item.ssh.toLowerCase()) : undefined
+      if (host?.hostName === undefined) return item
+      return { ...item, address: `${host.user === undefined ? '' : `${host.user}@`}${host.hostName}${host.port === undefined ? '' : `:${host.port}`}` }
+    })
+  }
+
+  // Read per Connect so a misnamed archive fails that Connect with its reason, not the plugin.
+  function runtimes() {
+    return shippedRuntimes(config.runtimeDirectory || process.env.JAN_HOST_RUNTIME_DIR)
+  }
+
+  // One relay serves every SSH Host; started on the first Connect that needs it.
+  let relay
+  async function startedRelay() {
+    if (!config.relay) return undefined
+    relay ??= startRelay()
+    try {
+      return await relay
+    } catch (error) {
+      relay = undefined
+      throw new Error(`The model connection for that computer could not start here: ${error.message}`)
+    }
+  }
+
+  /**
+   * Probe, install when that computer lacks this build, then start it and forward its page here.
+   * Each step is published in `progress` so the page can say what is happening during a long copy.
+   */
+  async function connectSsh(entry, log) {
+    const step = (value) => { progress.set(entry.id, value) }
+    const ssh = sshArgs(entry.ssh)
+    step({ step: 'checking' })
+    const shipped = runtimes()
+    const { target, installed } = await probeRemote(ssh, [...shipped.keys()])
+    const runtime = shipped.get(target)
+    if (installed !== runtimeIdentity(runtime)) {
+      step({ step: 'copying', sent: 0, total: 0 })
+      await installRemote({ ssh, runtime, onProgress: (sent, total) => step({ step: 'copying', sent, total }) })
+    }
+    step({ step: 'starting' })
+    const proxy = await startedRelay()
+    return openTunnel({
+      ssh, relayPort: proxy?.port, log,
+      command: ports => startCommand({ port: ports.web, proxy: proxy?.proxyUrl(ports.relay), name: entry.name }),
+    })
   }
 
   /** The URL that opens the Host, with its login token so the window signs in on its own. */
@@ -138,7 +216,7 @@ export function apply(ctx, config) {
     async state() {
       const connections = await Promise.all((await store.connections()).map(connectionView))
       return {
-        connections,
+        connections: await withSshAddresses(connections),
         devices: await store.devices(),
         gateway: gateway === undefined
           ? { running: false, enabled: config.gatewayEnabled.get(), error: gatewayError, addresses: lanAddresses() }
@@ -191,12 +269,17 @@ export function apply(ctx, config) {
       const entry = await find(id)
       if (entry.kind !== 'ssh') throw new HostsError('kind', 'Only SSH Hosts connect; Address Hosts open directly.')
       if (tunnels.has(id)) return connectionView(entry)
-      const log = []
+      // A second press, or a second window, joins the Connect already running.
+      if (!connecting.has(id)) {
+        const log = []
+        connecting.set(id, connectSsh(entry, line => { log.push(line); if (log.length > 20) log.shift() }).then((tunnel) => {
+          const record = { ...tunnel, log }
+          tunnels.set(id, record)
+          void tunnel.exited.then(() => { if (tunnels.get(id) === record) tunnels.delete(id) })
+        }).finally(() => { connecting.delete(id); progress.delete(id) }))
+      }
       try {
-        const tunnel = await openTunnel(entry, line => { log.push(line); if (log.length > 20) log.shift() })
-        const record = { ...tunnel, log }
-        tunnels.set(id, record)
-        void tunnel.exited.then(() => { if (tunnels.get(id) === record) tunnels.delete(id) })
+        await connecting.get(id)
         return connectionView(entry)
       } catch (error) {
         throw new HostsError('ssh', error.message)
@@ -209,6 +292,33 @@ export function apply(ctx, config) {
     },
     async open({ id }) {
       return { url: await openUrl(await find(id)) }
+    },
+    // Answered on the other computer, for the Jan that started it over SSH.
+    async setupState() {
+      return setupState(ctx)
+    },
+    async receiveSetup(params) {
+      return receiveSetup(ctx, params)
+    },
+    // Asked here: what a connected SSH Host could take from this computer's model setup.
+    async setupOffer({ id }) {
+      const tunnel = tunnels.get(id)
+      if (tunnel === undefined) return { offer: false, items: [] }
+      const remote = await callRemote(tunnel, 'setupState')
+      // Only a Jan nobody set up there gets the offer, so a copy never fights choices made on it.
+      if (!remote.untouched) return { offer: false, items: [] }
+      const items = await copyable(ctx, remote)
+      return { offer: items.length > 0, items }
+    },
+    async copySetup({ id, routes }) {
+      const tunnel = tunnels.get(id)
+      if (tunnel === undefined) throw new HostsError('not-connected', 'Connect first.')
+      if (!Array.isArray(routes) || routes.length === 0) throw new HostsError('routes', 'Choose at least one provider to copy.')
+      const remote = await callRemote(tunnel, 'setupState')
+      const chosen = new Set(routes)
+      const items = (await copyable(ctx, remote)).filter(item => chosen.has(item.route))
+      if (items.length === 0) throw new HostsError('routes', 'That computer already has these providers.')
+      return callRemote(tunnel, 'receiveSetup', await setupPayload(ctx, items))
     },
     async enableGateway({ enabled }) {
       if (typeof enabled !== 'boolean') throw new HostsError('enabled', 'Choose on or off.')

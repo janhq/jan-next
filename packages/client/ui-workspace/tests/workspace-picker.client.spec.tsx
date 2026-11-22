@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { contextMenuHook } from '@janhq/jan-client-test-runtime'
 import type { GlobalStandardProps } from '@janhq/jan-client-ui-slots'
+import type { RemoteHostFacts } from '@janhq/jan-api-remotes/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { SessionListState } from '@janhq/jan-api-session-controller/client'
@@ -85,10 +86,16 @@ function occupancySource(initial = true) {
   }
 }
 
+/** Host facts before (no name) or after the ready frame named the computer. */
+function hostFacts(name?: string): RemoteHostFacts {
+  return { home: name === undefined ? undefined : '/home/fixture', name, remote: false, isLoopback: true }
+}
+
 function mount(
   items: readonly WorkspaceView[] = [workspace('alpha', 'Alpha')],
   createWorkspace = vi.fn(),
   occupancy = occupancySource(),
+  machineName?: string,
 ) {
   const onPick = vi.fn()
   const onClose = vi.fn()
@@ -108,6 +115,7 @@ function mount(
       onClose={onClose}
       createWorkspace={createWorkspace}
       useDirectoryFlow={occupancy.useDirectoryFlow}
+      useHostInfo={hook(hostFacts(machineName))}
       renderSlot={renderSlot}
       t={t}
     />
@@ -234,6 +242,14 @@ describe('WorkspacePicker', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
+  it('names the computer the listed projects live on once the Host reports it', () => {
+    mount([workspace('alpha', 'Alpha')], vi.fn(), occupancySource(), 'homelab')
+    const menu = screen.getByRole('menu')
+    expect(menu.textContent?.startsWith('在 homelab 上')).toBe(true)
+    // The heading is not a choice.
+    expect(screen.queryByRole('menuitem', { name: '在 homelab 上' })).toBeNull()
+  })
+
   it('waits to show its menu until an optional anchor is available', () => {
     const { renderSlot } = flowProbe()
     render(
@@ -244,7 +260,7 @@ describe('WorkspacePicker', () => {
         usePanelInfo={usePanelInfo} useContextMenu={contextMenuHook()} useResource={useResource}
         {...allowAllAccess}
         onPick={vi.fn()} onClose={vi.fn()} createWorkspace={vi.fn()}
-        useDirectoryFlow={occupancySource().useDirectoryFlow} renderSlot={renderSlot} t={t}
+        useDirectoryFlow={occupancySource().useDirectoryFlow} useHostInfo={hook(hostFacts())} renderSlot={renderSlot} t={t}
       />,
     )
     expect(screen.queryByRole('menu')).toBeNull()
@@ -263,7 +279,7 @@ describe('WorkspacePicker', () => {
         usePanelInfo={usePanelInfo} useContextMenu={contextMenuHook()} useResource={useResource}
         {...allowAllAccess}
         onPick={vi.fn()} onClose={vi.fn()} createWorkspace={vi.fn()}
-        useDirectoryFlow={occupancySource().useDirectoryFlow} renderSlot={renderSlot} t={t}
+        useDirectoryFlow={occupancySource().useDirectoryFlow} useHostInfo={hook(hostFacts())} renderSlot={renderSlot} t={t}
       />,
     )
     // An empty list is not final yet: jumping into the directory flow here

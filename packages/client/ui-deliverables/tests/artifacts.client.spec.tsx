@@ -393,7 +393,7 @@ describe('artifacts registration', () => {
     const workspaceFiles = { stat }
     ctx.provide('sessions', { refreshProjections } as never)
     ctx.provide('uiWorkspace', { openSession } as never)
-    ctx.provide('remote', { $on: () => () => {}, $host: { home: undefined, isLoopback: false }, workspaceFiles } as never)
+    ctx.provide('remote', { $on: () => () => {}, $host: { home: undefined, name: undefined, remote: false, isLoopback: false }, workspaceFiles } as never)
     ctx.provide('remote.workspaceFiles', workspaceFiles as never)
     const opener = new PresentedOpenController()
     await ctx.plugin({ inject: ['slots', 'locale'], apply: (inner: Context) => { registerArtifacts(inner, opener) } }).await()

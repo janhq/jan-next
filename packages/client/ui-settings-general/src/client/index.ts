@@ -35,6 +35,7 @@ import type { ShortcutCommandId } from '@janhq/jan-client-shortcuts/client'
 import { createSettingsShellStore } from './shell-store.ts'
 import { SettingsRoot } from './SettingsRoot.tsx'
 import { DesktopUpdateBadge } from './DesktopUpdateIndicator.tsx'
+import { HostStatusChip, type HostStatusChipInjected } from './HostStatusChip.tsx'
 import type { DesktopUpdateBridge } from '../types.ts'
 import { DesktopChannelSource } from './desktop-channel-source.ts'
 import { DesktopChannelRow, DesktopChannelToast } from './DesktopChannelRow.tsx'
@@ -153,10 +154,24 @@ export function apply(ctx: ClientContext): void {
     }, DesktopChannelRow))
     ctx.slots.inject('shell.overlay', () => ctx.slots.register({
       name: 'shell.overlay', id: 'desktop-channel-toast', locale: NS,
-      inject: () => ({ hooks: { channel: channel.store },
-        dismiss: (sequence: number) => { channel.dismissNotice(sequence) }, openConfiguration: () => { desktopUpdate.open() } }),
+      inject: () => ({
+        hooks: { channel: channel.store },
+        dismiss: (sequence: number) => { channel.dismissNotice(sequence) }, openConfiguration: () => { desktopUpdate.open() },
+      }),
     }, DesktopChannelToast))
   }
+
+  // A window on another computer names it beside the sidebar toggle, with the link state.
+  ctx.slots.inject('sidebar.toggle.actions', () => ctx.slots.register({
+    name: 'sidebar.toggle.actions', id: 'host-status', locale: NS,
+    inject: (): HostStatusChipInjected => ({
+      reconnect: () => { connection.reconnect() },
+      hooks: {
+        hostInfo: { getSnapshot: () => ctx.remote.$host, subscribe: listener => ctx.on('connection/reset', listener) },
+        connectionState: connection.state,
+      },
+    }),
+  }, HostStatusChip))
 
   ctx.slots.inject('sidebar.toggle.badge', () => ctx.slots.register({
     name: 'sidebar.toggle.badge', locale: NS,
@@ -259,10 +274,12 @@ export function apply(ctx: ClientContext): void {
         regions: ['page', 'editable', 'terminal'], modals: ['settings'],
         resolve: ({ modal }) => {
           if (modal !== null && modal !== 'settings') return { status: 'blocked', reason: 'modal' }
-          return { status: 'handled', run: () => {
-            if (modal === 'settings') closeTopModal(document)
-            else shellInstance.actions.open()
-          } }
+          return {
+            status: 'handled', run: () => {
+              if (modal === 'settings') closeTopModal(document)
+              else shellInstance.actions.open()
+            },
+          }
         },
       })
 

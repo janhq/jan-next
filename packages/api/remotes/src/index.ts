@@ -1,7 +1,8 @@
 /** Host BFF entry and Loader shell for the Remote contribution assembly. */
 
-import { homedir } from 'node:os'
+import { homedir, hostname } from 'node:os'
 import type { Context } from '@janhq/cordis'
+import { launchedThroughSsh, launchEnvironmentOf } from '@janhq/jan-launch-environment'
 import type { Agent } from '@janhq/jan-agent'
 import type {
   TypertRemoteEventDispatch,
@@ -40,9 +41,23 @@ export const inject = ['typertGateway']
 /** Host plugin body registering this application's selected Cordis event source. */
 export function apply(ctx: Context): void {
   ctx.effect(
-    () => ctx.typertGateway.registerRemoteEvents(remoteEventSource(ctx), { home: homedir() }),
+    () => ctx.typertGateway.registerRemoteEvents(remoteEventSource(ctx), {
+      home: homedir(), name: hostDisplayName(ctx), remote: launchedThroughSsh(launchEnvironmentOf(ctx)),
+    }),
     'api-remotes: forwarded Cordis event source',
   )
+}
+
+/**
+ * The computer name a window shows for this Host. A launcher that knows the person's own name
+ * for the machine (Hosts names a Jan it starts over SSH after the saved entry) sets
+ * `JAN_HOST_NAME`; otherwise the OS host name.
+ * @param ctx - Host context carrying the launch environment.
+ * @returns a non-empty display name.
+ */
+function hostDisplayName(ctx: Context): string {
+  const named = launchEnvironmentOf(ctx).getFrom('JAN_HOST_NAME', ['process'])?.value.trim()
+  return named === undefined || named === '' ? hostname() : named
 }
 
 /** Create the sole queue and listener set consumed by the registered Gateway. */
