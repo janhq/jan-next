@@ -20,7 +20,7 @@ function mounted(controller = seededController(), options: Partial<ComponentProp
     splitBlock: () => undefined, canAddTab: () => true, canCloseTab: () => true,
     dropTarget: undefined, draggingTabId: undefined, labels: TEST_LABELS,
     renderTab: tab => <input data-body={tab.id} defaultValue={tab.title} />,
-    renderTabTitle: undefined, renderTabActions: undefined, renderTabMenuItems: undefined,
+    renderTabTitle: undefined, renderTabActions: undefined, renderTabMenuItems: undefined, renderAddTabMenu: undefined,
     chromePaneId: getPane(controller.getSnapshot().state, controller.getSnapshot().state.rootId).id,
     chrome: undefined,
   }
