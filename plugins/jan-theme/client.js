@@ -513,6 +513,8 @@ window.__ModuleLoader__.load({
   html[data-jan-theme] [data-slot='sidebar'] .jt-footer-action > svg { color: var(--jt-side-icon); }
   html[data-jan-theme] [data-slot='sidebar'] .jt-list-heading { font-size: 12px; font-weight: 500; color: var(--jt-side-icon); }
   html[data-jan-theme] [data-slot='sidebar'] .jt-nav-row [class*='shortcut'] { font-size: 11px; color: var(--jt-side-muted); }
+  html[data-jan-theme] [data-slot='sidebar'] [data-machine-tag],
+  html[data-jan-theme] [data-slot='sidebar'] [data-machine-tag] svg { color: var(--jt-side-muted); }
   /* Hover motions copied from Jan's animated icons: each plays once per hover entry and ends at rest. */
   html[data-jan-theme] .jt-nav-icon { display: inline-flex; flex: none; color: var(--jt-side-icon); transform-origin: center; transition: scale 150ms ease; }
   html[data-jan-theme] .jt-nav-row:hover .jt-nav-icon[data-jt-anim='chat'] { animation: jt-anim-chat 0.5s ease-in-out; scale: 1.05; }
