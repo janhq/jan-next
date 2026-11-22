@@ -527,6 +527,11 @@ window.__ModuleLoader__.load({
   html[data-jan-theme] [data-slot='sidebar'] :has(> * > [data-row-key^='workspace:']) > * > [data-row-key^='session:'] {
     padding-inline-start: calc(7px + 16px + var(--jan-sidebar-label-gap, 6px) + var(--jan-workspace-indent, 0px));
   }
+  /* "Show N more": its chevron under the folder icon, its label on the chats' title column. */
+  html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='overflow:'] {
+    padding-inline-start: calc(7px + var(--jan-workspace-indent, 0px)); color: var(--jt-side-muted);
+  }
+  @media (hover: hover) { html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='overflow:']:hover { color: var(--jt-side-label); } }
   html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='session:'] > span:first-child:has(> [data-slot='sidebar.session.row.leading']:only-child:empty) { display: none; }
   html[data-jan-theme] [data-slot='sidebar'] [data-row-key^='session:'] > span:first-child:has(> [data-slot='sidebar.session.row.leading']:only-child:empty) + span { margin-inline-start: 0; }
   html[data-jan-theme] [data-slot='sidebar.brand.name'] .jt-name { font-size: 14px; }
