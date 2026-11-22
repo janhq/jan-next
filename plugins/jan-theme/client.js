@@ -28,6 +28,15 @@ window.__ModuleLoader__.load({
       console.warn('jan-theme: dock model selection unavailable', error)
       DockModelSelection = undefined
     }
+    // Optional: a ui-workspace that exports its project avatar draws it beside the
+    // project page title; an older one leaves the title alone.
+    let ProjectAvatar
+    try {
+      ProjectAvatar = require('@janhq/jan-client-ui-workspace/client').ProjectAvatar
+    } catch (error) {
+      console.warn('jan-theme: project avatar unavailable', error)
+      ProjectAvatar = undefined
+    }
     const shell = window.__JAN_THEME__ ?? { look: null }
     // Tauri: the shell draws the title row itself. Electron owns its window
     // chrome and marks the document with `data-platform`.
@@ -611,6 +620,9 @@ window.__ModuleLoader__.load({
   .jt-project-back:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }
   @media (hover: hover) { .jt-project-back:hover { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-interactive-bg-hover); } }
   .jt-project-title-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .jt-project-avatar { flex: none; display: inline-grid; place-items: center; margin-right: 4px; padding: 0; border: 0; border-radius: var(--dsw-radius-sm); background: transparent; cursor: pointer; }
+  .jt-project-avatar:hover { box-shadow: 0 0 0 3px var(--dsw-specific-selector); background: var(--dsw-specific-selector); }
+  .jt-project-avatar:focus-visible { outline: 2px solid var(--dsw-alias-focus-ring, currentColor); outline-offset: 2px; }
   .jt-project-title { margin: 0; min-width: 0; font-size: 24px; font-weight: 500; line-height: 32px; overflow-wrap: anywhere; }
   .jt-project-path { margin: 4px 0 24px; color: var(--dsw-alias-label-tertiary); font-size: 13px; line-height: 18px; overflow-wrap: anywhere; }
   .jt-project-path-row { display: flex; align-items: center; gap: 2px; margin: 4px 0 24px; min-width: 0; }
@@ -1498,6 +1510,14 @@ html[data-jan-theme][data-windows-titlebar] [data-sidebar-right-panel] { top: va
         h('div', null,
           h('button', { type: 'button', className: 'jt-project-back', onClick: backToProjects }, '‹ ', t('projects')),
           h('div', { className: 'jt-project-title-row' },
+            // The avatar opens the same editor as the pencil, so icon, emoji, picture
+            // and color are one click from the face they change.
+            ProjectAvatar !== undefined && (editProject === undefined
+              ? h(ProjectAvatar, { avatar: workspace.avatar, githubOwner: workspace.githubOwner, color: workspace.color, size: 32 })
+              : h('button', {
+                type: 'button', className: 'jt-project-avatar', 'aria-label': t('project.edit.identity'), title: t('project.edit.identity'),
+                onClick: () => { editProject(workspaceId) },
+              }, h(ProjectAvatar, { avatar: workspace.avatar, githubOwner: workspace.githubOwner, color: workspace.color, size: 32 }))),
             h('h1', { className: 'jt-project-title' }, title),
             // An older ui-workspace has no project editor; the sidebar menu stays the only way in.
             editProject !== undefined && h('button', {
