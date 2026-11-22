@@ -9,25 +9,24 @@ import WebSocket from 'ws'
 
 const TEST_MS = 8000
 const START_MS = 90_000
-const COMMAND_PATTERN = /^[A-Za-z0-9_./~+-]+$/
 // Releases before the 2026-11-16 rename print `dsh web` and answer "dsh web authentication
 // required" over the same /connect and api/remote.mux wire; both names are one product.
 const UNAUTHORIZED_PATTERN = /^(jan|dsh) web authentication required/
 const START_LINE_PATTERN = /(?:jan|dsh) web: (https?:\/\/\S+)/
 
 /**
- * The reason a remote `jan` stopped before printing its start line. Node ends a crash with its
+ * The reason the remote Jan stopped before printing its start line. Node ends a crash with its
  * stack and version, so the last lines are noise; the `Error:` line is what the user can act on.
  * @param {string} output - the remote's combined output.
  * @returns {string} one sentence for the Hosts page.
  */
 export function startFailure(output) {
-  if (/command not found|not found|No such file/.test(output) && !/Error:/.test(output)) {
-    return 'Jan is not installed there, or set the Jan command to its full path.'
+  // The loader prints "version `GLIBC_2.28' not found".
+  if (/GLIBC_\d[\d.]*'? not found/.test(output)) {
+    return 'That computer\'s Linux is too old for Jan. It needs glibc 2.28 or newer (Debian 10, Ubuntu 20.04, RHEL 8 or later).'
   }
-  const profile = /profile "([^"]+)" does not exist/.exec(output)
-  if (profile) {
-    return `The Jan there has no "${profile[1]}" profile. It may be an older release: update it, or set the profile to web.`
+  if (/No such file or directory/.test(output) && !/Error:/.test(output)) {
+    return 'Jan\'s copy on that computer is incomplete. Connect again to reinstall it.'
   }
   const error = output.split(/\r?\n/).map(line => line.trim()).filter(line => /^(\w+)?Error\b|^error:/i.test(line)).at(-1)
   return error ?? output.split(/\r?\n/).filter(Boolean).slice(-2).join(' ')
@@ -94,64 +93,92 @@ export async function testHost(root, token) {
     }
 }
 
-function freePort() {
-  return new Promise((resolve, reject) => {
-    const server = createServer()
-    server.once('error', reject)
-    server.listen(0, '127.0.0.1', () => {
-      const { port } = server.address()
-      server.close(() => resolve(port))
-    })
-  })
+async function freePort() {
+  const server = createServer()
+  const { promise, resolve, reject } = Promise.withResolvers()
+  server.once('error', reject)
+  server.listen(0, '127.0.0.1', resolve)
+  await promise
+  const { port } = server.address()
+  const closed = Promise.withResolvers()
+  server.close(closed.resolve)
+  await closed.promise
+  return port
 }
 
 /**
- * Start Jan on the other machine over SSH and forward its loopback port here. The remote Host
- * listens on its own loopback only, so nothing new is exposed on that machine's network; the
- * tunnel is the only way in. `-tt` gives the remote command a terminal so it ends when the
- * tunnel closes instead of staying behind.
- * @param {{ ssh: string, remotePort: number, command?: string, profile?: string }} entry - saved SSH connection.
- * @param {(line: string) => void} log - receives the remote output, for the page's status line.
+ * A port to use on the other computer. ssh cannot report a port it picked for `-R` to the
+ * remote command, so both remote ports are chosen here and a taken one is retried.
+ * @returns {number} a port from 20000 to 59999.
+ */
+export function remotePort() {
+  return 20_000 + Math.floor(Math.random() * 40_000)
+}
+
+/** Whether the remote side refused a port, so another pair is worth trying. */
+export function portTaken(output) {
+  return /remote port forwarding failed|EADDRINUSE|address already in use/i.test(output)
+}
+
+/**
+ * Start Jan on the other computer over SSH and forward its loopback port here. The remote Jan
+ * listens on its own loopback only, so nothing new is exposed on that computer's network; the
+ * tunnel is the only way in. `-R` forwards a port there back to the relay on this computer, the
+ * remote Jan's way to its model providers. `-tt` gives the remote command a terminal so it ends
+ * when the tunnel closes instead of staying behind.
+ * @param {{ ssh: string[], command: (ports: { web: number, relay: number }) => string, relayPort?: number, log: (line: string) => void }} request -
+ * ssh arguments ending in the destination, the remote start command for the chosen ports, the relay to forward, and the status line sink.
  * @returns {Promise<{ root: string, token: string, close: () => void, exited: Promise<string> }>} the forwarded Host.
  */
-export async function openTunnel(entry, log) {
-  const command = entry.command ?? 'jan'
-  const profile = entry.profile ?? 'web'
-  // The store already checked these; checked again because this is where they reach a shell.
-  if (!COMMAND_PATTERN.test(command) || !COMMAND_PATTERN.test(profile)) {
-    throw new Error('The Jan command and profile may use only letters, digits and ./~_+-.')
+export async function openTunnel({ ssh, command, relayPort, log }) {
+  let failure
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const ports = { web: remotePort(), relay: remotePort() }
+    try {
+      return await startOnce({ ssh, command: command(ports), ports, relayPort, log })
+    } catch (error) {
+      failure = error
+      if (!error.portTaken) throw error
+    }
   }
-  const [target, port] = entry.ssh.split(/:(?=\d+$)/)
-  // Entries saved before ssh config aliases were supported start with `@` when they have no user.
-  const user = target.startsWith('@') ? target.slice(1) : target
+  throw failure
+}
+
+async function startOnce({ ssh, command, ports, relayPort, log }) {
+  const destination = ssh.at(-1)
   const localPort = await freePort()
   const args = [
-    '-tt', '-o', 'BatchMode=yes', '-o', 'ExitOnForwardFailure=yes', '-o', 'StrictHostKeyChecking=accept-new',
-    '-o', 'ServerAliveInterval=15', ...(port === undefined ? [] : ['-p', port]),
-    '-L', `127.0.0.1:${localPort}:127.0.0.1:${entry.remotePort}`,
-    user, `${command} --profile ${profile} --no-open --port ${entry.remotePort}`,
+    '-tt', '-o', 'ExitOnForwardFailure=yes', ...ssh.slice(0, -1),
+    '-L', `127.0.0.1:${localPort}:127.0.0.1:${ports.web}`,
+    ...(relayPort === undefined ? [] : ['-R', `127.0.0.1:${ports.relay}:127.0.0.1:${relayPort}`]),
+    destination, command,
   ]
   const child = spawn('ssh', args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
   let output = ''
   const exited = new Promise(resolve => child.once('exit', code => resolve(`ssh exited with code ${code}`)))
-  const token = await new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`Jan did not start on ${user} within ${START_MS / 1000} s.`)), START_MS)
-    const read = (chunk) => {
-      output = `${output}${chunk}`.slice(-8000)
-      for (const line of String(chunk).split(/\r?\n/)) if (line.trim()) log(line.trim())
-      const match = START_LINE_PATTERN.exec(output)
-      if (match) {
-        clearTimeout(timer)
-        resolve(new URL(match[1]).searchParams.get('token'))
-      }
-    }
-    child.stdout.on('data', read)
-    child.stderr.on('data', read)
-    child.once('error', (error) => { clearTimeout(timer); reject(error) })
-    void exited.then((reason) => {
+  const { promise, resolve, reject } = Promise.withResolvers()
+  const timer = setTimeout(() => reject(new Error(`Jan did not start on ${destination} within ${START_MS / 1000} s.`)), START_MS)
+  const read = (chunk) => {
+    output = `${output}${chunk}`.slice(-8000)
+    for (const line of String(chunk).split(/\r?\n/)) if (line.trim()) log(line.trim())
+    const match = START_LINE_PATTERN.exec(output)
+    if (match) {
       clearTimeout(timer)
-      reject(new Error(`${reason}. ${startFailure(output)}`.trim()))
-    })
-  }).catch((error) => { child.kill(); throw error })
-  return { root: `http://127.0.0.1:${localPort}/`, token, close: () => { child.kill() }, exited }
+      resolve(new URL(match[1]).searchParams.get('token'))
+    }
+  }
+  child.stdout.on('data', read)
+  child.stderr.on('data', read)
+  child.once('error', (error) => { clearTimeout(timer); reject(error) })
+  void exited.then((reason) => {
+    clearTimeout(timer)
+    reject(Object.assign(new Error(`${reason}. ${startFailure(output)}`.trim()), { portTaken: portTaken(output) }))
+  })
+  try {
+    const token = await promise
+    return { root: `http://127.0.0.1:${localPort}/`, token, close: () => { child.kill() }, exited }
+  } catch (error) {
+    child.kill()
+    throw error
+  }
 }

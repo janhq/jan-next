@@ -284,6 +284,32 @@
   flex: none;
 }
 
+/* A remote window's project rows name the computer they live on. The tag yields to the
+   row's actions on hover, so it never pushes them out of the row. */
+.machineTag {
+  flex: none;
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 6px;
+  border-radius: var(--dsw-radius-xs);
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 18px;
+}
+
+@media (hover: hover) {
+  .projectRow:hover .machineTag {
+    display: none;
+  }
+}
+
+.projectRow.menuOpen .machineTag {
+  display: none;
+}
+
 /* The trailing strip keeps a shared gap between its fixed-size control boxes. */
 .rowActions {
   flex: none;

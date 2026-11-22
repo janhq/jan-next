@@ -6,6 +6,8 @@ window.__ModuleLoader__.load({
     const h = React.createElement
     const { Button, Input, Switch, Tag, StateDot, RiskConfirmation, IconLinkOutlineRegular } = require('@janhq/jan-client-ui-primitives')
     const NS = 'jan-hosts'
+    // Below this many config Hosts the whole list fits the picker, so a filter box is noise.
+    const FILTER_FROM = 8
 
     const COPY = {
       en: {
@@ -25,36 +27,49 @@ window.__ModuleLoader__.load({
         testing: 'Testing...',
         open: 'Open',
         connect: 'Connect',
-        connecting: 'Starting Jan over SSH...',
+        connecting: 'Connecting...',
+        'progress.checking': 'Checking that computer...',
+        'progress.copying': 'Copying Jan to that computer...',
+        'progress.copyingBytes': 'Copying Jan: {sent} of {total} MB',
+        'progress.starting': 'Starting Jan there...',
         disconnect: 'Disconnect',
+        'setup.title': 'Use your model providers on {name}?',
+        'setup.lede': 'Jan on {name} has no model provider set up yet. Copy the ones you choose, with their keys and your default model. Keys travel only through your SSH connection. Nothing that computer already has is replaced.',
+        'setup.keyOnly': 'key only',
+        'setup.submit': 'Copy {count}',
+        'setup.none': 'Copy',
+        'setup.skip': 'Not now',
+        'setup.done': 'Copied to {name}: {routes}. Reload its window to see them.',
+        'setup.doneKept': '{routes} were already there and stay as they are.',
         'kind.url': 'Address',
         'kind.ssh': 'SSH',
         'state.signedIn': 'Signed in',
         'state.signIn': 'Needs its link',
         'state.connected': 'Connected',
         'state.idle': 'Not connected',
+        'state.connecting': 'Connecting',
         'form.name': 'Name',
         'form.namePlaceholder': 'Office desktop',
+        'form.namePlaceholderSsh': 'Optional: the host name is used',
         'form.kind': 'How to reach it',
         'form.url': 'Jan link',
         'form.urlHelp': 'Paste the whole jan web: line from that computer, including ?token=. The token signs you in and is stored only on this computer.',
         'form.urlEditHelp': 'Leave the token out to keep the saved sign-in.',
         'form.ssh': 'SSH host',
-        'form.sshHelp': 'A Host name from your ssh config, user@host, or user@host:port. Your own SSH keys and config are used; Jan must be installed there.',
+        'form.sshHelp': 'A Host name from your ssh config, user@host, or user@host:port. Your own SSH keys and config are used. Connect copies Jan there if it is missing; that computer needs no internet.',
         'import.open': 'Import from SSH config',
         'import.title': 'Hosts in your SSH config',
         'import.lede': 'Choose the computers to add. Jan connects by the Host name, so your keys, ports and proxies from the config still apply.',
         'import.loading': 'Reading your SSH config...',
         'import.empty': 'Your SSH config has no Host entries to import.',
+        'import.filter': 'Filter {count} hosts',
+        'import.filterLabel': 'Filter hosts',
+        'import.noMatch': 'No host matches.',
         'import.saved': 'Already added',
         'import.submit': 'Import {count}',
         'import.none': 'Import',
         'import.done': 'Added {count}.',
         'import.failed': '{alias}: {message}',
-        'form.remotePort': 'Port on that computer',
-        'form.command': 'Jan command',
-        'form.profile': 'Profile',
-        'form.profileHelp': 'Use edge on a Raspberry Pi or another small board. An older Jan without edge needs web.',
         'form.save': 'Save',
         'form.cancel': 'Cancel',
         'devices.title': 'Devices that reach this Jan',
@@ -100,6 +115,8 @@ window.__ModuleLoader__.load({
 .jh-name > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jh-detail { color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; user-select: text; font-variant-numeric: tabular-nums; }
 .jh-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; flex-shrink: 0; }
+/* Connect and Disconnect share one slot; a fixed width keeps every row's buttons in one column. */
+.jh-primary { min-width: 88px; justify-content: center; }
 .jh-note { font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-secondary); overflow-wrap: anywhere; }
 .jh-note[data-error] { color: var(--dsw-alias-state-error-primary); }
 .jh-empty { margin: 0; padding: 14px 0; color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 20px; }
@@ -109,10 +126,11 @@ window.__ModuleLoader__.load({
 .jh-kinds { display: flex; gap: 16px; border: 0; margin: 0; padding: 0; }
 .jh-kinds legend { padding: 0; margin-bottom: 6px; font-size: 13px; }
 .jh-kinds label { flex-direction: row; align-items: center; gap: 6px; }
-.jh-pick { display: flex; flex-direction: column; max-height: 320px; overflow-y: auto; }
-.jh-pick label { flex-direction: row; align-items: center; gap: 10px; padding: 6px 0; }
+/* The border marks the box's edge, so rows cut at its bottom read as more below, not as the end. */
+.jh-pick { display: flex; flex-direction: column; max-height: 320px; overflow-y: auto; border: 0.5px solid var(--dsw-alias-border-l2); border-radius: 8px; padding: 2px 10px; }
+.jh-pick label { flex-direction: row; align-items: center; gap: 10px; padding: 6px 0; min-width: 0; }
 .jh-pick label[data-saved] { color: var(--dsw-alias-label-secondary); }
-.jh-pick .jh-detail { margin-inline-start: auto; text-align: end; }
+.jh-pick .jh-detail { margin-inline-start: auto; text-align: end; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
 .jh-pair { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; padding: 16px; border-radius: 12px; background: var(--dsw-alias-settings-card-fill); }
 .jh-qr { flex-shrink: 0; width: 200px; aspect-ratio: 1; padding: 8px; border-radius: 8px; background: #fff; color: #000; }
 .jh-qr svg { display: block; width: 100%; height: 100%; }
@@ -146,6 +164,7 @@ window.__ModuleLoader__.load({
     function useRowActions() {
       const [busy, setBusy] = React.useState({})
       const [notes, setNotes] = React.useState({})
+      const note = (id, value) => setNotes(current => ({ ...current, [id]: value }))
       const run = async (id, key, task) => {
         setBusy(current => ({ ...current, [id]: key }))
         setNotes(current => ({ ...current, [id]: undefined }))
@@ -158,7 +177,7 @@ window.__ModuleLoader__.load({
           setBusy(current => ({ ...current, [id]: undefined }))
         }
       }
-      return { busy, notes, run }
+      return { busy, notes, run, note }
     }
 
     function HostForm({ t, initial, onSaved, onCancel }) {
@@ -182,7 +201,8 @@ window.__ModuleLoader__.load({
           }
         },
       },
-        h('label', null, t('form.name'), h(Input, { name: 'name', required: true, maxLength: 64, defaultValue: initial?.name, placeholder: t('form.namePlaceholder'), autoComplete: 'off' })),
+        // An SSH Host left unnamed takes its host name; an Address has nothing readable to fall back on.
+        h('label', null, t('form.name'), h(Input, { name: 'name', required: kind !== 'ssh', maxLength: 64, defaultValue: initial?.name, placeholder: kind === 'ssh' ? t('form.namePlaceholderSsh') : t('form.namePlaceholder'), autoComplete: 'off' })),
         h('fieldset', { className: 'jh-kinds' }, h('legend', null, t('form.kind')),
           ['url', 'ssh'].map(value => h('label', { key: value },
             h('input', { type: 'radio', name: 'kindChoice', value, checked: kind === value, onChange: () => setKind(value) }), t(`kind.${value}`)))),
@@ -194,11 +214,6 @@ window.__ModuleLoader__.load({
             h('label', { key: 'ssh' }, t('form.ssh'),
               h(Input, { name: 'ssh', required: true, defaultValue: initial?.ssh, placeholder: 'pi@raspberrypi.local', autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false }),
               h('span', { className: 'jh-help' }, t('form.sshHelp'))),
-            h('div', { key: 'more', className: 'jh-inline' },
-              h('label', null, t('form.remotePort'), h(Input, { name: 'remotePort', type: 'number', inputMode: 'numeric', min: 1, max: 65535, defaultValue: initial?.remotePort ?? 3080 })),
-              h('label', null, t('form.command'), h(Input, { name: 'command', defaultValue: initial?.command ?? 'jan', autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false })),
-              h('label', null, t('form.profile'), h(Input, { name: 'profile', defaultValue: initial?.profile ?? 'web', autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false }))),
-            h('span', { key: 'help', className: 'jh-help' }, t('form.profileHelp')),
           ],
         error && h('div', { className: 'jh-note', role: 'alert', 'data-error': '' }, error),
         h('div', { className: 'jh-actions', style: { justifyContent: 'flex-start' } },
@@ -208,7 +223,11 @@ window.__ModuleLoader__.load({
 
     function SshImport({ t, onDone, onCancel }) {
       const [hosts, setHosts] = React.useState(null)
+      const [filter, setFilter] = React.useState('')
       const [chosen, setChosen] = React.useState(() => new Set())
+      const address = host => [host.user && `${host.user}@`, host.hostName ?? host.alias, host.port && `:${host.port}`].filter(Boolean).join('')
+      const needle = filter.trim().toLowerCase()
+      const shown = hosts === null || needle === '' ? (hosts ?? []) : hosts.filter(host => `${host.alias} ${address(host)}`.toLowerCase().includes(needle))
       const [error, setError] = React.useState(null)
       const [saving, setSaving] = React.useState(false)
       React.useEffect(() => {
@@ -248,36 +267,55 @@ window.__ModuleLoader__.load({
         h('p', { className: 'jh-lede' }, t('import.lede')),
         hosts === null && !error && h('p', { className: 'jh-lede', role: 'status' }, t('import.loading')),
         hosts !== null && hosts.length === 0 && h('p', { className: 'jh-empty' }, t('import.empty')),
-        hosts !== null && hosts.length > 0 && h('div', { className: 'jh-pick' }, hosts.map(host => h('label', { key: host.alias, 'data-saved': host.saved ? '' : undefined },
+        hosts !== null && hosts.length > FILTER_FROM && h(Input, {
+          type: 'search', value: filter, onChange: event => setFilter(event.currentTarget.value), placeholder: t('import.filter', { count: hosts.length }),
+          'aria-label': t('import.filterLabel'), autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false,
+        }),
+        hosts !== null && hosts.length > 0 && h('div', { className: 'jh-pick' }, shown.length === 0 && h('p', { className: 'jh-empty' }, t('import.noMatch')), shown.map(host => h('label', { key: host.alias, 'data-saved': host.saved ? '' : undefined },
           h('input', { type: 'checkbox', checked: host.saved || chosen.has(host.alias), disabled: host.saved || saving, onChange: (event) => toggle(host.alias, event.currentTarget.checked) }),
           h('span', null, host.alias),
-          h('span', { className: 'jh-detail' }, host.saved ? t('import.saved')
-            : [host.user && `${host.user}@`, host.hostName ?? host.alias, host.port && `:${host.port}`].filter(Boolean).join(''))))),
+          h('span', { className: 'jh-detail', title: address(host) }, host.saved ? t('import.saved') : address(host))))),
         error && h('div', { className: 'jh-note', role: 'alert', 'data-error': '', style: { whiteSpace: 'pre-line' } }, error),
         h('div', { className: 'jh-actions', style: { justifyContent: 'flex-start' } },
           h(Button, { type: 'submit', variant: 'primary', size: 'sm', disabled: saving || chosen.size === 0 }, chosen.size === 0 ? t('import.none') : t('import.submit', { count: chosen.size })),
           h(Button, { type: 'button', variant: 'outline', size: 'sm', onClick: onCancel }, t('form.cancel'))))
     }
 
+    async function openInWindow(id) {
+      const { url } = await api('open', { id })
+      // The desktop opens http(s) links outside the app window; a browser opens a tab.
+      window.open(url, '_blank', 'noopener')
+    }
+
+    /** What a running Connect is doing, from the Host's last published step. */
+    function progressText(t, progress) {
+      if (progress?.step === 'copying' && progress.total > 0) {
+        const mb = value => (value / 1e6).toFixed(0)
+        return t('progress.copyingBytes', { sent: mb(progress.sent), total: mb(progress.total) })
+      }
+      return progress?.step === undefined ? t('connecting') : t(`progress.${progress.step}`)
+    }
+
     function HostRow({ t, host, busy, note, run, onEdit, onRemove }) {
       const ssh = host.kind === 'ssh'
       const connected = ssh && host.tunnel !== undefined
       const ready = ssh ? connected : host.signedIn
-      const openHost = () => run(host.id, 'open', async () => {
-        const { url } = await api('open', { id: host.id })
-        // The desktop opens http(s) links outside the app window; a browser opens a tab.
-        window.open(url, '_blank', 'noopener')
-      })
+      const connecting = !connected && (busy === 'connect' || host.progress !== undefined)
+      const sshState = connected ? 'state.connected' : connecting ? 'state.connecting' : 'state.idle'
+      const openHost = () => run(host.id, 'open', () => openInWindow(host.id))
+      // One press does the whole job: copy Jan there when needed, start it, open its page.
+      const connect = () => run(host.id, 'connect', async () => { await api('connect', { id: host.id }); await openInWindow(host.id) })
       return h('div', { className: 'jh-row', 'data-host': host.id },
         h('div', { className: 'jh-info' },
           h('div', { className: 'jh-name' }, h('span', null, host.name), h(Tag, { tone: 'neutral' }, t(`kind.${host.kind}`)),
-            h(Tag, { tone: ready ? 'success' : 'outline' }, t(ssh ? (connected ? 'state.connected' : 'state.idle') : (host.signedIn ? 'state.signedIn' : 'state.signIn')))),
-          h('div', { className: 'jh-detail' }, ssh ? `${host.ssh} · ${host.command} --profile ${host.profile} · port ${host.remotePort}` : host.url),
-          busy === 'connect' && h('div', { className: 'jh-note', role: 'status' }, t('connecting')),
+            h(Tag, { tone: ready ? 'success' : 'outline' }, t(ssh ? sshState : (host.signedIn ? 'state.signedIn' : 'state.signIn')))),
+          h('div', { className: 'jh-detail' }, ssh ? (host.address ?? host.ssh) : host.url),
+          connecting && h('div', { className: 'jh-note', role: 'status' }, progressText(t, host.progress)),
           note && h('div', { className: 'jh-note', role: note.error ? 'alert' : 'status', 'data-error': note.error || undefined }, note.text)),
         h('div', { className: 'jh-actions' },
-          ssh && !connected && h(Button, { size: 'sm', variant: 'outline', disabled: busy !== undefined, onClick: () => run(host.id, 'connect', async () => { await api('connect', { id: host.id }) }) }, t('connect')),
-          ssh && connected && h(Button, { size: 'sm', variant: 'outline', disabled: busy !== undefined, onClick: () => run(host.id, 'disconnect', async () => { await api('disconnect', { id: host.id }) }) }, t('disconnect')),
+          // A Connect started before a reload still runs on the Host; its progress keeps the row busy.
+          ssh && !connected && h(Button, { size: 'sm', variant: 'outline', className: 'jh-primary', disabled: busy !== undefined || connecting, onClick: connect }, t('connect')),
+          ssh && connected && h(Button, { size: 'sm', variant: 'outline', className: 'jh-primary', disabled: busy !== undefined, onClick: () => run(host.id, 'disconnect', async () => { await api('disconnect', { id: host.id }) }) }, t('disconnect')),
           h(Button, {
             size: 'sm', variant: 'outline', disabled: busy !== undefined || (ssh && !connected), onClick: () => run(host.id, 'test', async () => {
               const result = await api('test', { id: host.id })
@@ -287,6 +325,65 @@ window.__ModuleLoader__.load({
           h(Button, { size: 'sm', variant: 'outline', disabled: busy !== undefined || (ssh && !connected), onClick: openHost }, t('open')),
           h(Button, { size: 'sm', variant: 'ghost', disabled: busy !== undefined, onClick: onEdit }, t('hosts.edit')),
           h(Button, { size: 'sm', variant: 'ghost', disabled: busy !== undefined, onClick: onRemove }, t('hosts.remove'))))
+    }
+
+    /**
+     * The copy offer for a connected SSH Host whose Jan has no provider yet. It asks once per
+     * connection; Not now hides it until the next Connect.
+     */
+    function SetupOffer({ t, host, onNote }) {
+      const [offer, setOffer] = React.useState(null)
+      const [chosen, setChosen] = React.useState(() => new Set())
+      const [error, setError] = React.useState(null)
+      const [saving, setSaving] = React.useState(false)
+      const root = host.tunnel?.root
+      React.useEffect(() => {
+        if (root === undefined) { setOffer(null); return undefined }
+        let live = true
+        api('setupOffer', { id: host.id }).then((result) => {
+          if (!live) return
+          setOffer(result.offer ? result : null)
+          setChosen(new Set(result.items.map(item => item.route)))
+        }, () => { /* The offer is optional; a failed ask leaves the row as it is. */ })
+        return () => { live = false }
+      }, [host.id, root])
+      if (offer === null) return null
+      const toggle = (route, on) => setChosen((current) => {
+        const next = new Set(current)
+        if (on) next.add(route)
+        else next.delete(route)
+        return next
+      })
+      return h('form', {
+        className: 'jh-form', 'aria-label': t('setup.title', { name: host.name }),
+        async onSubmit(event) {
+          event.preventDefault()
+          setSaving(true)
+          setError(null)
+          try {
+            const result = await api('copySetup', { id: host.id, routes: [...chosen] })
+            const names = routes => routes.map(route => offer.items.find(item => item.route === route)?.name ?? route).join(', ')
+            const kept = new Set(result.kept)
+            const copied = [...chosen].filter(route => !kept.has(route))
+            onNote({ text: [copied.length > 0 && t('setup.done', { name: host.name, routes: names(copied) }), kept.size > 0 && t('setup.doneKept', { routes: names(result.kept) })].filter(Boolean).join(' ') })
+            setOffer(null)
+          } catch (failure) {
+            setError(failure.message)
+          } finally {
+            setSaving(false)
+          }
+        },
+      },
+        h('h3', { style: { margin: 0, fontSize: 14, fontWeight: 500 } }, t('setup.title', { name: host.name })),
+        h('p', { className: 'jh-lede' }, t('setup.lede', { name: host.name })),
+        h('div', { className: 'jh-pick' }, offer.items.map(item => h('label', { key: item.route },
+          h('input', { type: 'checkbox', checked: chosen.has(item.route), disabled: saving, onChange: event => toggle(item.route, event.currentTarget.checked) }),
+          h('span', null, item.name),
+          !item.profile && h('span', { className: 'jh-detail' }, t('setup.keyOnly'))))),
+        error && h('div', { className: 'jh-note', role: 'alert', 'data-error': '' }, error),
+        h('div', { className: 'jh-actions', style: { justifyContent: 'flex-start' } },
+          h(Button, { type: 'submit', variant: 'primary', size: 'sm', disabled: saving || chosen.size === 0 }, chosen.size === 0 ? t('setup.none') : t('setup.submit', { count: chosen.size })),
+          h(Button, { type: 'button', variant: 'outline', size: 'sm', disabled: saving, onClick: () => setOffer(null) }, t('setup.skip'))))
     }
 
     function PairPanel({ t, pairing, onDone }) {
@@ -313,7 +410,7 @@ window.__ModuleLoader__.load({
       const [switching, setSwitching] = React.useState(false)
       const [importing, setImporting] = React.useState(false)
       const [imported, setImported] = React.useState(null)
-      const { busy, notes, run } = useRowActions()
+      const { busy, notes, run, note } = useRowActions()
       const refresh = React.useCallback(async () => {
         try {
           setState(await api('state'))
@@ -323,7 +420,15 @@ window.__ModuleLoader__.load({
         }
       }, [])
       React.useEffect(() => { void refresh() }, [refresh])
-      const act = (id, key, task) => run(id, key, async () => { const note = await task(); await refresh(); return note })
+      // A Connect can copy for a minute; its steps arrive by asking again while one runs.
+      const connectingNow = Object.values(busy).includes('connect') || state?.connections.some(host => host.progress !== undefined)
+      React.useEffect(() => {
+        if (!connectingNow) return undefined
+        const timer = setInterval(() => { void refresh() }, 1000)
+        return () => clearInterval(timer)
+      }, [connectingNow, refresh])
+      // The import note answers the import; the next row action moves on from it.
+      const act = (id, key, task) => { setImported(null); return run(id, key, async () => { const note = await task(); await refresh(); return note }) }
 
       if (state === null) {
         return h('section', { className: 'jh' }, loadError
@@ -352,10 +457,12 @@ window.__ModuleLoader__.load({
           h('div', { className: 'jh-list' },
             state.connections.length === 0 && editing === undefined && !importing
               ? h('p', { className: 'jh-empty' }, t('hosts.empty'))
-              : state.connections.map(host => h(HostRow, {
-                key: host.id, t, host, busy: busy[host.id], note: notes[host.id], run: act,
-                onEdit: () => setEditing(host), onRemove: () => { setAcknowledged(false); setRemoving(host) }
-              })))),
+              : state.connections.map(host => h(React.Fragment, { key: host.id },
+                h(HostRow, {
+                  t, host, busy: busy[host.id], note: notes[host.id], run: act,
+                  onEdit: () => setEditing(host), onRemove: () => { setAcknowledged(false); setRemoving(host) }
+                }),
+                host.kind === 'ssh' && h(SetupOffer, { t, host, onNote: value => note(host.id, value) }))))),
 
         h('div', { className: 'jh-group', role: 'group', 'aria-labelledby': 'jh-devices-title' },
           h('div', { className: 'jh-group-head' },

@@ -934,6 +934,489 @@ importers:
         specifier: workspace:*
         version: link:../../packages/util/workspace-path
 
+  apps/jan-host-runtime:
+    dependencies:
+      '@janhq/cordis':
+        specifier: workspace:~
+        version: link:../../vendor/cordis
+      '@janhq/cordis-plugin-group':
+        specifier: workspace:~
+        version: link:../../vendor/group
+      '@janhq/cordis-plugin-include':
+        specifier: workspace:~
+        version: link:../../vendor/include
+      '@janhq/cordis-plugin-loader':
+        specifier: workspace:~
+        version: link:../../vendor/loader
+      '@janhq/cordis-plugin-timer':
+        specifier: workspace:~
+        version: link:../../vendor/timer
+      '@janhq/cosmokit':
+        specifier: link:../../vendor/cosmokit
+        version: link:../../vendor/cosmokit
+      '@janhq/jan':
+        specifier: workspace:*
+        version: link:../cli
+      '@janhq/jan-acp':
+        specifier: workspace:*
+        version: link:../../packages/acp/acp
+      '@janhq/jan-agent':
+        specifier: workspace:*
+        version: link:../../packages/core/agent
+      '@janhq/jan-agent-default-model':
+        specifier: workspace:*
+        version: link:../../packages/core/agent-default-model
+      '@janhq/jan-agent-instructions':
+        specifier: workspace:*
+        version: link:../../packages/context/agent-instructions
+      '@janhq/jan-agent-loop':
+        specifier: workspace:*
+        version: link:../../packages/core/agent-loop
+      '@janhq/jan-agent-preset-registry':
+        specifier: workspace:*
+        version: link:../../packages/preset/agent-preset-registry
+      '@janhq/jan-agent-team':
+        specifier: workspace:*
+        version: link:../../packages/team/agent-team
+      '@janhq/jan-agent-tool-presentation':
+        specifier: workspace:*
+        version: link:../../packages/core/agent-tool-presentation
+      '@janhq/jan-anonymous-user-id':
+        specifier: workspace:*
+        version: link:../../packages/identity/anonymous-user-id
+      '@janhq/jan-api-gateway':
+        specifier: workspace:*
+        version: link:../../packages/api/gateway
+      '@janhq/jan-api-session-controller':
+        specifier: workspace:*
+        version: link:../../packages/api/session-controller
+      '@janhq/jan-app-boot':
+        specifier: workspace:*
+        version: link:../../packages/boot/app-boot
+      '@janhq/jan-atomic-write':
+        specifier: workspace:*
+        version: link:../../packages/util/atomic-write
+      '@janhq/jan-attachment':
+        specifier: workspace:*
+        version: link:../../packages/attachment/attachment
+      '@janhq/jan-authorization':
+        specifier: workspace:*
+        version: link:../../packages/credentials/authorization
+      '@janhq/jan-base':
+        specifier: workspace:*
+        version: link:../../packages/bundle/base
+      '@janhq/jan-bash-local':
+        specifier: workspace:*
+        version: link:../../packages/shell/bash-local
+      '@janhq/jan-brand':
+        specifier: workspace:*
+        version: link:../../packages/util/brand
+      '@janhq/jan-client-connection':
+        specifier: workspace:*
+        version: link:../../packages/client/connection
+      '@janhq/jan-client-file-upload':
+        specifier: workspace:*
+        version: link:../../packages/client/file-upload
+      '@janhq/jan-client-ui-directory-picker-browse':
+        specifier: workspace:*
+        version: link:../../packages/client/ui-directory-picker-browse
+      '@janhq/jan-client-ui-directory-picker-native':
+        specifier: workspace:*
+        version: link:../../packages/client/ui-directory-picker-native
+      '@janhq/jan-cmdline':
+        specifier: workspace:*
+        version: link:../../packages/boot/cmdline
+      '@janhq/jan-command-compact':
+        specifier: workspace:*
+        version: link:../../packages/compaction/command-compact
+      '@janhq/jan-command-feedback':
+        specifier: workspace:*
+        version: link:../../packages/feedback/command-feedback
+      '@janhq/jan-command-goal':
+        specifier: workspace:*
+        version: link:../../packages/goal/command-goal
+      '@janhq/jan-commands':
+        specifier: workspace:*
+        version: link:../../packages/interaction/commands
+      '@janhq/jan-compaction':
+        specifier: workspace:*
+        version: link:../../packages/compaction/compaction
+      '@janhq/jan-compaction-basic':
+        specifier: workspace:*
+        version: link:../../packages/compaction/compaction-basic
+      '@janhq/jan-compaction-image-offload':
+        specifier: workspace:*
+        version: link:../../packages/compaction/compaction-image-offload
+      '@janhq/jan-compaction-tool-result-pruner':
+        specifier: workspace:*
+        version: link:../../packages/compaction/compaction-tool-result-pruner
+      '@janhq/jan-config-editor':
+        specifier: workspace:*
+        version: link:../../packages/boot/config-editor
+      '@janhq/jan-cordis-host-runner':
+        specifier: workspace:*
+        version: link:../../packages/extensions/cordis-host-runner
+      '@janhq/jan-credentials':
+        specifier: workspace:*
+        version: link:../../packages/credentials/credentials
+      '@janhq/jan-edge-app':
+        specifier: workspace:*
+        version: link:../../plugins/edge-app
+      '@janhq/jan-experimental-speech-to-text':
+        specifier: workspace:*
+        version: link:../../packages/experimental/speech-to-text
+      '@janhq/jan-file-reference':
+        specifier: workspace:*
+        version: link:../../packages/context/file-reference
+      '@janhq/jan-fs':
+        specifier: workspace:*
+        version: link:../../packages/fs/fs
+      '@janhq/jan-fs-local':
+        specifier: workspace:*
+        version: link:../../packages/fs/fs-local
+      '@janhq/jan-fs-observation-policy':
+        specifier: workspace:*
+        version: link:../../packages/fs/fs-observation-policy
+      '@janhq/jan-fs-sandbox':
+        specifier: workspace:*
+        version: link:../../packages/fs/fs-sandbox
+      '@janhq/jan-goal':
+        specifier: workspace:*
+        version: link:../../packages/goal/goal
+      '@janhq/jan-goal-round-driver':
+        specifier: workspace:*
+        version: link:../../packages/goal/goal-round-driver
+      '@janhq/jan-home-paths':
+        specifier: workspace:*
+        version: link:../../packages/util/home-paths
+      '@janhq/jan-host-directory-picker':
+        specifier: workspace:*
+        version: link:../../packages/host/directory-picker
+      '@janhq/jan-host-directory-picker-browse':
+        specifier: workspace:*
+        version: link:../../packages/host/directory-picker-browse
+      '@janhq/jan-host-directory-picker-native':
+        specifier: workspace:*
+        version: link:../../packages/host/directory-picker-native
+      '@janhq/jan-host-plugin-i18n':
+        specifier: workspace:*
+        version: link:../../packages/host/plugin-i18n
+      '@janhq/jan-host-plugin-inventory':
+        specifier: workspace:*
+        version: link:../../packages/host/plugin-inventory
+      '@janhq/jan-host-webserver':
+        specifier: workspace:*
+        version: link:../../packages/host/webserver
+      '@janhq/jan-hosts':
+        specifier: workspace:*
+        version: link:../../plugins/hosts
+      '@janhq/jan-http-proxy':
+        specifier: workspace:*
+        version: link:../../packages/util/http-proxy
+      '@janhq/jan-jobs':
+        specifier: workspace:*
+        version: link:../../packages/jobs/jobs
+      '@janhq/jan-jobs-local':
+        specifier: workspace:*
+        version: link:../../packages/jobs/jobs-local
+      '@janhq/jan-launch-environment':
+        specifier: workspace:*
+        version: link:../../packages/util/launch-environment
+      '@janhq/jan-llama-cpp':
+        specifier: workspace:*
+        version: link:../../packages/llm/llama-cpp
+      '@janhq/jan-llm':
+        specifier: workspace:*
+        version: link:../../packages/llm/llm
+      '@janhq/jan-llm-pi-ai':
+        specifier: workspace:*
+        version: link:../../packages/llm/llm-pi-ai
+      '@janhq/jan-llm-retry':
+        specifier: workspace:*
+        version: link:../../packages/llm/llm-retry
+      '@janhq/jan-mcp-client':
+        specifier: workspace:*
+        version: link:../../packages/mcp/mcp-client
+      '@janhq/jan-message-feedback':
+        specifier: workspace:*
+        version: link:../../packages/feedback/message-feedback
+      '@janhq/jan-native-command':
+        specifier: workspace:*
+        version: link:../../packages/util/native-command
+      '@janhq/jan-otel':
+        specifier: workspace:*
+        version: link:../../packages/telemetry/otel
+      '@janhq/jan-output-retention':
+        specifier: workspace:*
+        version: link:../../packages/util/output-retention
+      '@janhq/jan-permission-presets':
+        specifier: workspace:*
+        version: link:../../packages/interaction/permission-presets
+      '@janhq/jan-persona':
+        specifier: workspace:*
+        version: link:../../packages/preset/persona
+      '@janhq/jan-plan-mode':
+        specifier: workspace:*
+        version: link:../../packages/plan/plan-mode
+      '@janhq/jan-plugin-manager':
+        specifier: workspace:*
+        version: link:../../packages/boot/plugin-manager
+      '@janhq/jan-plugin-market':
+        specifier: workspace:*
+        version: link:../../packages/boot/plugin-market
+      '@janhq/jan-ptc-runtime':
+        specifier: workspace:*
+        version: link:../../packages/ptc-runtime/ptc-runtime
+      '@janhq/jan-ptc-runtime-node':
+        specifier: workspace:*
+        version: link:../../packages/ptc-runtime/ptc-runtime-node
+      '@janhq/jan-pwsh-local':
+        specifier: workspace:*
+        version: link:../../packages/shell/pwsh-local
+      '@janhq/jan-repeat-tool-reminder':
+        specifier: workspace:*
+        version: link:../../packages/guard/repeat-tool-reminder
+      '@janhq/jan-sandbox':
+        specifier: workspace:*
+        version: link:../../packages/sandbox/sandbox
+      '@janhq/jan-sandbox-local':
+        specifier: workspace:*
+        version: link:../../packages/sandbox/sandbox-local
+      '@janhq/jan-sandbox-policy':
+        specifier: workspace:*
+        version: link:../../packages/sandbox/sandbox-policy
+      '@janhq/jan-schedule':
+        specifier: workspace:*
+        version: link:../../packages/schedule/schedule
+      '@janhq/jan-scope':
+        specifier: workspace:*
+        version: link:../../packages/core/scope
+      '@janhq/jan-sdk-jsonrpc-server':
+        specifier: workspace:*
+        version: link:../../packages/sdk/server
+      '@janhq/jan-sdk-protocol':
+        specifier: workspace:*
+        version: link:../../packages/sdk/protocol
+      '@janhq/jan-session':
+        specifier: workspace:*
+        version: link:../../packages/core/session
+      '@janhq/jan-session-checkpoint-policy':
+        specifier: workspace:*
+        version: link:../../packages/session/session-checkpoint-policy
+      '@janhq/jan-session-persistence':
+        specifier: workspace:*
+        version: link:../../packages/session/session-persistence
+      '@janhq/jan-session-persistence-jsonl':
+        specifier: workspace:*
+        version: link:../../packages/session/session-persistence-jsonl
+      '@janhq/jan-session-projection':
+        specifier: workspace:*
+        version: link:../../packages/session/session-projection
+      '@janhq/jan-session-query':
+        specifier: workspace:*
+        version: link:../../packages/session-query/session-query
+      '@janhq/jan-session-query-sqlite':
+        specifier: workspace:*
+        version: link:../../packages/session-query/session-query-sqlite
+      '@janhq/jan-session-reference':
+        specifier: workspace:*
+        version: link:../../packages/context/session-reference
+      '@janhq/jan-session-telemetry':
+        specifier: workspace:*
+        version: link:../../packages/session/session-telemetry
+      '@janhq/jan-session-title':
+        specifier: workspace:*
+        version: link:../../packages/session/session-title
+      '@janhq/jan-session-title-llm':
+        specifier: workspace:*
+        version: link:../../packages/session/session-title-llm
+      '@janhq/jan-settings':
+        specifier: workspace:*
+        version: link:../../packages/settings/settings
+      '@janhq/jan-shell':
+        specifier: workspace:*
+        version: link:../../packages/shell/shell
+      '@janhq/jan-shell-env':
+        specifier: workspace:*
+        version: link:../../packages/shell/shell-env
+      '@janhq/jan-skill':
+        specifier: workspace:*
+        version: link:../../packages/skill/skill
+      '@janhq/jan-skill-filesystem':
+        specifier: workspace:*
+        version: link:../../packages/skill/skill-filesystem
+      '@janhq/jan-skill-office':
+        specifier: workspace:*
+        version: link:../../packages/skill/skill-office
+      '@janhq/jan-spill':
+        specifier: workspace:*
+        version: link:../../packages/spill/spill
+      '@janhq/jan-storage':
+        specifier: workspace:*
+        version: link:../../packages/storage/storage
+      '@janhq/jan-storage-domain':
+        specifier: workspace:*
+        version: link:../../packages/storage/storage-domain
+      '@janhq/jan-subagent':
+        specifier: workspace:*
+        version: link:../../packages/subagent/subagent
+      '@janhq/jan-subagent-acp':
+        specifier: workspace:*
+        version: link:../../packages/subagent/subagent-acp
+      '@janhq/jan-subagent-fork-in-process':
+        specifier: workspace:*
+        version: link:../../packages/subagent/subagent-fork-in-process
+      '@janhq/jan-subagent-spawn-in-process':
+        specifier: workspace:*
+        version: link:../../packages/subagent/subagent-spawn-in-process
+      '@janhq/jan-subprocess':
+        specifier: workspace:*
+        version: link:../../packages/subprocess/subprocess
+      '@janhq/jan-subprocess-local':
+        specifier: workspace:*
+        version: link:../../packages/subprocess/subprocess-local
+      '@janhq/jan-system-prompt':
+        specifier: workspace:*
+        version: link:../../packages/core/system-prompt
+      '@janhq/jan-terminal':
+        specifier: workspace:*
+        version: link:../../packages/terminal/terminal
+      '@janhq/jan-terminal-bash':
+        specifier: workspace:*
+        version: link:../../packages/terminal/terminal-bash
+      '@janhq/jan-time-context':
+        specifier: workspace:*
+        version: link:../../packages/context/time-context
+      '@janhq/jan-timeout':
+        specifier: workspace:*
+        version: link:../../packages/util/timeout
+      '@janhq/jan-tokamak-account':
+        specifier: workspace:*
+        version: link:../../packages/credentials/tokamak-account
+      '@janhq/jan-token-meter':
+        specifier: workspace:*
+        version: link:../../packages/llm/token-meter
+      '@janhq/jan-tool-agent-team':
+        specifier: workspace:*
+        version: link:../../packages/team/tool-agent-team
+      '@janhq/jan-tool-ask-user':
+        specifier: workspace:*
+        version: link:../../packages/interaction/tool-ask-user
+      '@janhq/jan-tool-bash':
+        specifier: workspace:*
+        version: link:../../packages/shell/tool-bash
+      '@janhq/jan-tool-bash-persistent':
+        specifier: workspace:*
+        version: link:../../packages/shell/tool-bash-persistent
+      '@janhq/jan-tool-call-timeout-policy':
+        specifier: workspace:*
+        version: link:../../packages/guard/timeout-policy
+      '@janhq/jan-tool-cordis':
+        specifier: workspace:*
+        version: link:../../packages/extensions/tool-cordis
+      '@janhq/jan-tool-executor-ptc':
+        specifier: workspace:*
+        version: link:../../packages/core/tool-executor-ptc
+      '@janhq/jan-tool-fs':
+        specifier: workspace:*
+        version: link:../../packages/fs/tool-fs
+      '@janhq/jan-tool-fs-search':
+        specifier: workspace:*
+        version: link:../../packages/fs/tool-fs-search
+      '@janhq/jan-tool-goal':
+        specifier: workspace:*
+        version: link:../../packages/goal/tool-goal
+      '@janhq/jan-tool-jobs':
+        specifier: workspace:*
+        version: link:../../packages/jobs/tool-jobs
+      '@janhq/jan-tool-present':
+        specifier: workspace:*
+        version: link:../../packages/deliverables/tool-present
+      '@janhq/jan-tool-pwsh':
+        specifier: workspace:*
+        version: link:../../packages/shell/tool-pwsh
+      '@janhq/jan-tool-pwsh-persistent':
+        specifier: workspace:*
+        version: link:../../packages/shell/tool-pwsh-persistent
+      '@janhq/jan-tool-schedule':
+        specifier: workspace:*
+        version: link:../../packages/schedule/tool-schedule
+      '@janhq/jan-tool-skill':
+        specifier: workspace:*
+        version: link:../../packages/skill/tool-skill
+      '@janhq/jan-tool-str-replace-editor':
+        specifier: workspace:*
+        version: link:../../packages/fs/tool-str-replace-editor
+      '@janhq/jan-tool-subagent':
+        specifier: workspace:*
+        version: link:../../packages/subagent/tool-subagent
+      '@janhq/jan-tool-subagent-control':
+        specifier: workspace:*
+        version: link:../../packages/subagent/tool-subagent-control
+      '@janhq/jan-tool-todo':
+        specifier: workspace:*
+        version: link:../../packages/todo/tool-todo
+      '@janhq/jan-tool-web':
+        specifier: workspace:*
+        version: link:../../packages/web/tool-web
+      '@janhq/jan-tool-workflow':
+        specifier: workspace:*
+        version: link:../../packages/workflow/tool-workflow
+      '@janhq/jan-tool-working-directory':
+        specifier: workspace:*
+        version: link:../../packages/session/tool-working-directory
+      '@janhq/jan-tool-workspace-dependencies':
+        specifier: workspace:*
+        version: link:../../packages/skill/tool-workspace-dependencies
+      '@janhq/jan-tools':
+        specifier: workspace:*
+        version: link:../../packages/core/tools
+      '@janhq/jan-typert-protocol':
+        specifier: workspace:*
+        version: link:../../packages/typert/protocol
+      '@janhq/jan-typert-registry':
+        specifier: workspace:*
+        version: link:../../packages/typert/registry
+      '@janhq/jan-user-approval':
+        specifier: workspace:*
+        version: link:../../packages/interaction/user-approval
+      '@janhq/jan-user-questions':
+        specifier: workspace:*
+        version: link:../../packages/interaction/user-questions
+      '@janhq/jan-util-time':
+        specifier: workspace:*
+        version: link:../../packages/util/time
+      '@janhq/jan-util-values':
+        specifier: workspace:*
+        version: link:../../packages/util/values
+      '@janhq/jan-util-workspace-path':
+        specifier: workspace:*
+        version: link:../../packages/util/workspace-path
+      '@janhq/jan-web':
+        specifier: workspace:*
+        version: link:../../packages/web/web
+      '@janhq/jan-web-app':
+        specifier: workspace:*
+        version: link:../../packages/bundle/web-app
+      '@janhq/jan-web-fetch-http':
+        specifier: workspace:*
+        version: link:../../packages/web/web-fetch-http
+      '@janhq/jan-workflow':
+        specifier: workspace:*
+        version: link:../../packages/workflow/workflow
+      '@janhq/jan-workflow-ptc':
+        specifier: workspace:*
+        version: link:../../packages/workflow/workflow-ptc
+      '@janhq/jan-working-directory':
+        specifier: workspace:*
+        version: link:../../packages/session/working-directory
+      '@janhq/jan-workspace':
+        specifier: workspace:*
+        version: link:../../packages/workspace/workspace
+      '@janhq/schemastery':
+        specifier: link:../../vendor/schemastery
+        version: link:../../vendor/schemastery
+
   apps/plugin-market-generator:
     dependencies:
       '@janhq/jan-plugin-market-index':
@@ -1504,6 +1987,9 @@ importers:
       '@janhq/jan-deque':
         specifier: workspace:*
         version: link:../../util/deque
+      '@janhq/jan-launch-environment':
+        specifier: workspace:*
+        version: link:../../util/launch-environment
       '@janhq/jan-util-values':
         specifier: workspace:*
         version: link:../../util/values

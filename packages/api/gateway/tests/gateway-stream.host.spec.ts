@@ -50,7 +50,7 @@ vi.mock('node:crypto', async (importOriginal) => {
 })
 
 const randomUuid = vi.mocked(randomUUID)
-const REMOTE_HOST = { home: '/home/fixture' } as const
+const REMOTE_HOST = { home: '/home/fixture', name: 'fixture-host', remote: false } as const
 type AgentWireId = TypertContextWire<TypertContextMap['agent']>
 const agentId = (value: string): AgentWireId => value as AgentWireId
 
