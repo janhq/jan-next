@@ -216,6 +216,13 @@ export interface UiWorkspace {
    * @returns false when the Workspace is unknown or the Peer may not update it.
    */
   editProject(workspaceId: WorkspaceId): boolean
+  /**
+   * Open the new-project menu (this computer, a remote computer, a new folder), as the sidebar's add
+   * button does. The choice opens a new Session in the picked project.
+   * @param anchor - the control the menu opens under; omitted anchors it to the sidebar's add button.
+   * @returns false when no folder picker is composed or a pick is already in progress.
+   */
+  addProject(anchor?: HTMLElement): boolean
   /** Active Sessions whose presentation replaces the ordinary sidebar row. */
   readonly hiddenSessions: ObservableSnapshot<ReadonlySet<SessionId>>
   /** Subscribe to a plugin's alternate presentation IDs until the registration is disposed. */
@@ -282,6 +289,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
    * @param view - the browser's viewing-store write set (one instance shared with its registration).
    * @param notify - show one notice through the Workspace notice channel.
    * @param requestEdit - open the Edit project dialog; false when the Workspace cannot be edited.
+   * @param requestAdd - open the new-project menu under an anchor; false when no picker can take it.
    */
   constructor(
     ctx: Context,
@@ -291,6 +299,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     private readonly view: Pick<WorkspaceViewStoreActions, 'pinSessionOrder' | 'setGroupBy'>,
     private readonly notify: (toast: RowToast) => void,
     private readonly requestEdit: (workspaceId: WorkspaceId) => boolean,
+    private readonly requestAdd: (anchor?: HTMLElement) => boolean = () => false,
   ) {
     super(ctx, 'uiWorkspace')
     ctx.effect(() => {
@@ -615,6 +624,10 @@ class UiWorkspaceService extends Service implements UiWorkspace {
 
   editProject(workspaceId: WorkspaceId): boolean {
     return this.requestEdit(workspaceId)
+  }
+
+  addProject(anchor?: HTMLElement): boolean {
+    return this.requestAdd(anchor)
   }
 
   /** Settle the selected project and panel together, including switches within one panel. */

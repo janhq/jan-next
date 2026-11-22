@@ -11,6 +11,8 @@ import type { UiWorkspace } from './navigation.ts'
 export interface WorkspaceShortcutState {
   readonly searchRequest: number
   readonly addRequested: boolean
+  /** The control a surface outside the sidebar opened the new-project menu from; null anchors it to the sidebar's add button. */
+  readonly addAnchor: HTMLElement | null
   readonly directoryBusy: boolean
   readonly renameTarget: { readonly sessionId: SessionId; readonly currentTitle: string } | null
 }
@@ -18,7 +20,7 @@ export interface WorkspaceShortcutState {
 interface WorkspaceShortcutControls {
   state: SnapshotStore<WorkspaceShortcutState>
   search: () => void
-  add: () => void
+  add: (anchor?: HTMLElement) => void
   closeAdd: () => void
   directoryBusy: (busy: boolean) => void
   rename: (sessionId: SessionId, currentTitle: string) => void
@@ -32,7 +34,7 @@ interface WorkspaceShortcutControls {
  */
 export function createWorkspaceShortcutControls(openSearchSurface: () => boolean = () => false): WorkspaceShortcutControls {
   const state = createSnapshotStore<WorkspaceShortcutState>({
-    searchRequest: 0, addRequested: false, directoryBusy: false, renameTarget: null,
+    searchRequest: 0, addRequested: false, addAnchor: null, directoryBusy: false, renameTarget: null,
   })
   return {
     state,
@@ -40,8 +42,11 @@ export function createWorkspaceShortcutControls(openSearchSurface: () => boolean
       if (openSearchSurface()) return
       state.set({ ...state.getSnapshot(), searchRequest: state.getSnapshot().searchRequest + 1 })
     },
-    add: () => { state.set(state.getSnapshot().directoryBusy ? state.getSnapshot() : { ...state.getSnapshot(), addRequested: true }) },
-    closeAdd: () => { state.set({ ...state.getSnapshot(), addRequested: false }) },
+    add: (anchor?: HTMLElement) => {
+      if (state.getSnapshot().directoryBusy) return
+      state.set({ ...state.getSnapshot(), addRequested: true, addAnchor: anchor ?? null })
+    },
+    closeAdd: () => { state.set({ ...state.getSnapshot(), addRequested: false, addAnchor: null }) },
     directoryBusy: (busy: boolean) => { state.set({ ...state.getSnapshot(), directoryBusy: busy }) },
     rename: (sessionId: SessionId, currentTitle: string) => {
       state.set({ ...state.getSnapshot(), renameTarget: { sessionId, currentTitle } })
@@ -89,7 +94,7 @@ export function installWorkspaceShortcuts(
   register('workspace.add', () => t('workspace.add'), ['add workspace', 'open folder'], 'KeyO', ['primary'], ['primary', 'alt'],
     () => {
       const reason = addReason()
-      return reason === null ? { status: 'handled', run: controls.add } : { status: 'blocked', reason }
+      return reason === null ? { status: 'handled', run: () => { controls.add() } } : { status: 'blocked', reason }
     })
   register('session.rename', () => t('rename.session.title'), ['rename session'], 'KeyG', ['primary', 'alt'], ['primary', 'alt'], (context) => {
     const target = current()
