@@ -127,7 +127,7 @@ export function apply(ctx: ClientContext): void {
   // The automatic fullscreen rule as the seats last rendered it: the frame
   // hands them its width as owner props, and every seat reports the same rule.
   let autoFullscreen = false
-  const { controller, adopt, forget, show, measure } = createSidebarRightController(
+  const { controller, adopt, releaseIdle, forget, show, measure } = createSidebarRightController(
     tabs,
     (address, signal) => { ctx.resources.pin(address, signal) },
     {
@@ -201,21 +201,28 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => {
     const handle = createSidebarRightStore(() => defaultSeed(tabs))
     // Each Session Context generation owns one Store. Background tab actions
-    // use the latest adoption for that Session.
+    // use the latest adoption for that Session; when the runtime drops a store
+    // with no tabs, its adoption goes too, so memory follows the open Sessions.
     const adoptions = new Map<SessionId, () => void>()
     const store: typeof handle = {
       ...handle,
       create: (scopeKey) => {
         const instance = handle.create(scopeKey)
-        if (scopeKey !== undefined) {
-          const sessionId = scopeKey as SessionId
-          adoptions.get(sessionId)?.()
-          adoptions.set(sessionId, adopt(sessionId, instance))
+        if (scopeKey === undefined) return instance
+        const sessionId = scopeKey as SessionId
+        adoptions.get(sessionId)?.()
+        const release = adopt(sessionId, instance)
+        adoptions.set(sessionId, release)
+        return {
+          ...instance,
+          clearPersisted() {
+            instance.clearPersisted()
+            forget(sessionId)
+          },
+          dispose() {
+            if (adoptions.get(sessionId) === release && releaseIdle(sessionId, instance)) adoptions.delete(sessionId)
+          },
         }
-        return { ...instance, clearPersisted() {
-          instance.clearPersisted()
-          if (scopeKey !== undefined) forget(scopeKey as SessionId)
-        } }
       },
     }
     const injected: Omit<SidebarRightInjected, 'keyedHooks' | 'occurrence' | 'closeTab' | 'measureRoom' | 'hooks'> = {
